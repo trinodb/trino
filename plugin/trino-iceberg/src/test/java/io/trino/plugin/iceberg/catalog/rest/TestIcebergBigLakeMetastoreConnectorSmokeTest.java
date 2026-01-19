@@ -255,7 +255,7 @@ final class TestIcebergBigLakeMetastoreConnectorSmokeTest
 
         assertThat(query(format("CREATE TABLE %s WITH (location = '%s') AS SELECT 1 AS a, 'INDIA' AS b, true AS c", tableName, tableLocationWithTrailingSpace))).failure()
                 .hasMessage("Failed to create transaction")
-                .hasStackTraceContaining("Malformed request: The table `location` property can only point to the default location");
+                .hasStackTraceContaining("Malformed request: The table `location` property must point to a location in the catalog.");
     }
 
     @Test
