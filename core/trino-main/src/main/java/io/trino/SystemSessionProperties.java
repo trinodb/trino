@@ -1121,7 +1121,7 @@ public final class SystemSessionProperties
                         SPOOLING_ENABLED,
                         "Enable client spooling protocol",
                         true,
-                        true),
+                        false),
                 booleanProperty(
                         DEBUG_ADAPTIVE_PLANNER,
                         "Enable debug information for the adaptive planner",
