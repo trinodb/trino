@@ -251,13 +251,18 @@ public final class DeltaLakeParquetStatisticsUtils
 
     private static Map<String, Object> jsonEncode(Map<String, Optional<Statistics<?>>> stats, Map<String, Type> typeForColumn, BiFunction<Type, Statistics<?>, Optional<Object>> accessor)
     {
-        Map<String, Optional<Object>> allStats = stats.entrySet().stream()
-                .filter(entry -> entry.getValue() != null && entry.getValue().isPresent() && !entry.getValue().get().isEmpty() && typeForColumn.containsKey(entry.getKey()))
-                .collect(toImmutableMap(Map.Entry::getKey, entry -> accessor.apply(typeForColumn.get(entry.getKey()), entry.getValue().get())));
-
-        return allStats.entrySet().stream()
-                .filter(entry -> entry.getValue() != null && entry.getValue().isPresent())
-                .collect(toImmutableMap(Map.Entry::getKey, entry -> entry.getValue().get()));
+        return typeForColumn.entrySet().stream()
+                .filter(entry -> stats.containsKey(entry.getKey()) && stats.get(entry.getKey()).isPresent() && !stats.get(entry.getKey()).get().isEmpty())
+                .map(entry -> {
+                    String column = entry.getKey();
+                    Type type = entry.getValue();
+                    Statistics<?> statistics = stats.get(column).get();
+                    Optional<Object> value = accessor.apply(type, statistics);
+                    return value.map(v -> Map.entry(column, v));
+                })
+                .filter(Optional::isPresent)
+                .map(Optional::get)
+                .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
     }
 
     public static Map<String, Object> toNullCounts(Map<String, Type> columnTypeMapping, Map<String, Object> values)
