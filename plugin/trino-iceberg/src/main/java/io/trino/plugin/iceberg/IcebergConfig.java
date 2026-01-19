@@ -73,6 +73,7 @@ public class IcebergConfig
     private boolean collectExtendedStatisticsOnWrite = true;
     private boolean projectionPushdownEnabled = true;
     private boolean registerTableProcedureEnabled;
+    private boolean registerViewProcedureEnabled;
     private boolean addFilesProcedureEnabled;
     private Optional<String> hiveCatalogName = Optional.empty();
     private int formatVersion = 2;
@@ -293,6 +294,19 @@ public class IcebergConfig
     public IcebergConfig setRegisterTableProcedureEnabled(boolean registerTableProcedureEnabled)
     {
         this.registerTableProcedureEnabled = registerTableProcedureEnabled;
+        return this;
+    }
+
+    public boolean isRegisterViewProcedureEnabled()
+    {
+        return registerViewProcedureEnabled;
+    }
+
+    @Config("iceberg.register-view-procedure.enabled")
+    @ConfigDescription("Allow users to call the register_view procedure")
+    public IcebergConfig setRegisterViewProcedureEnabled(boolean registerViewProcedureEnabled)
+    {
+        this.registerViewProcedureEnabled = registerViewProcedureEnabled;
         return this;
     }
 

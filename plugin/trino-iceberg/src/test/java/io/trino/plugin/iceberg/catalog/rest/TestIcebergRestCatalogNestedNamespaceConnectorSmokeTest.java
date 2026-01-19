@@ -288,6 +288,12 @@ final class TestIcebergRestCatalogNestedNamespaceConnectorSmokeTest
     }
 
     @Override
+    protected String getViewMetadataLocation(String viewName)
+    {
+        return backend.loadView(toIdentifier(viewName)).location();
+    }
+
+    @Override
     protected String schemaPath()
     {
         return format("%s/%s", warehouseLocation, getSession().getSchema());

@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.iceberg.catalog.rest;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.base.Splitter;
 import com.google.common.cache.Cache;
@@ -72,6 +73,7 @@ import org.apache.iceberg.view.SQLViewRepresentation;
 import org.apache.iceberg.view.UpdateViewProperties;
 import org.apache.iceberg.view.View;
 import org.apache.iceberg.view.ViewBuilder;
+import org.apache.iceberg.view.ViewMetadata;
 import org.apache.iceberg.view.ViewRepresentation;
 import org.apache.iceberg.view.ViewVersion;
 
@@ -700,6 +702,18 @@ public class TrinoRestCatalog
     }
 
     @Override
+    public void registerView(ConnectorSession session, SchemaTableName viewName, ViewMetadata viewMetadata)
+    {
+        TableIdentifier viewIdentifier = TableIdentifier.of(toRemoteNamespace(session, toNamespace(viewName.getSchemaName())), viewName.getTableName());
+        try {
+            restSessionCatalog.registerView(convert(session), viewIdentifier, viewMetadata.metadataFileLocation());
+        }
+        catch (RESTException e) {
+            throw new TrinoException(ICEBERG_CATALOG_ERROR, "Failed to register view '%s'".formatted(viewName.getTableName()), e);
+        }
+    }
+
+    @Override
     public void dropView(ConnectorSession session, SchemaTableName schemaViewName)
     {
         try {
@@ -765,7 +779,8 @@ public class TrinoRestCatalog
         });
     }
 
-    private Optional<View> getIcebergView(ConnectorSession session, SchemaTableName viewName, boolean getCached)
+    @VisibleForTesting
+    Optional<View> getIcebergView(ConnectorSession session, SchemaTableName viewName, boolean getCached)
     {
         if (!viewEndpointsEnabled) {
             return Optional.empty();

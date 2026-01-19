@@ -184,6 +184,24 @@ public class TestIcebergVendingRestCatalogConnectorSmokeTest
     }
 
     @Override
+    protected String getViewMetadataLocation(String viewName)
+    {
+        try (RESTSessionCatalog catalog = new RESTSessionCatalog()) {
+            catalog.initialize("rest-catalog", ImmutableMap.of(CatalogProperties.URI, "http://" + restCatalogBackendContainer.getRestCatalogEndpoint()));
+            SessionCatalog.SessionContext context = new SessionCatalog.SessionContext(
+                    "user-default",
+                    "user",
+                    ImmutableMap.of(),
+                    ImmutableMap.of(),
+                    SESSION.getIdentity());
+            return catalog.loadView(context, toIdentifier(viewName)).location();
+        }
+        catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    @Override
     protected String schemaPath()
     {
         return format("%s%s", warehouseLocation, getSession().getSchema().orElseThrow());

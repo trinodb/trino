@@ -24,6 +24,7 @@ import io.trino.spi.connector.SchemaTableName;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
 import org.apache.iceberg.BaseTable;
+import org.apache.iceberg.view.View;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
@@ -106,6 +107,15 @@ final class TestIcebergPolarisCatalogConnectorSmokeTest
         TrinoCatalog trinoCatalog = catalogFactory.create(getSession().getIdentity().toConnectorIdentity());
         BaseTable table = trinoCatalog.loadTable(getSession().toConnectorSession(), new SchemaTableName(getSession().getSchema().orElseThrow(), tableName));
         return table.operations().current().metadataFileLocation();
+    }
+
+    @Override
+    protected String getViewMetadataLocation(String viewName)
+    {
+        TrinoCatalogFactory catalogFactory = ((IcebergConnector) getQueryRunner().getCoordinator().getConnector("iceberg")).getInjector().getInstance(TrinoCatalogFactory.class);
+        TrinoRestCatalog trinoCatalog = (TrinoRestCatalog) catalogFactory.create(getSession().getIdentity().toConnectorIdentity());
+        View view = trinoCatalog.getIcebergView(getSession().toConnectorSession(), new SchemaTableName(getSession().getSchema().orElseThrow(), viewName), false).orElseThrow();
+        return view.location();
     }
 
     @Override

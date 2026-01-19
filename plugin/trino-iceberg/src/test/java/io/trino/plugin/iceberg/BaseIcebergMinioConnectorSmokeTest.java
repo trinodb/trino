@@ -351,6 +351,12 @@ public abstract class BaseIcebergMinioConnectorSmokeTest
     }
 
     @Override
+    protected String getViewMetadataLocation(String viewName)
+    {
+        throw new UnsupportedOperationException("getViewMetadataLocation is not supported for Hive catalog");
+    }
+
+    @Override
     protected String schemaPath()
     {
         return format("s3://%s/%s", bucketName, schemaName);

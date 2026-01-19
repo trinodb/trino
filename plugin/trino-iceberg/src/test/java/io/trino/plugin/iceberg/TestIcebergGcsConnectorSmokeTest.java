@@ -192,6 +192,12 @@ public class TestIcebergGcsConnectorSmokeTest
     }
 
     @Override
+    protected String getViewMetadataLocation(String viewName)
+    {
+        throw new UnsupportedOperationException("getViewMetadataLocation is not supported for Hive catalog");
+    }
+
+    @Override
     protected void deleteDirectory(String location)
     {
         try {
