@@ -648,7 +648,8 @@ public class TestIcebergFileOperations
     @Test
     public void testShowStatsForTable()
     {
-        assertUpdate("CREATE TABLE test_show_stats AS SELECT 2 AS age", 1);
+        assertUpdate("CREATE TABLE test_show_stats (age INTEGER)");
+        assertUpdate("INSERT INTO test_show_stats VALUES 10, 20", 2);
 
         assertFileSystemAccesses("SHOW STATS FOR test_show_stats",
                 ImmutableMultiset.<FileOperation>builder()
@@ -656,6 +657,15 @@ public class TestIcebergFileOperations
                         .add(new FileOperation(SNAPSHOT, "InputFile.length"))
                         .add(new FileOperation(SNAPSHOT, "InputFile.newStream"))
                         .add(new FileOperation(MANIFEST, "InputFile.newStream"))
+                        .build());
+
+        assertUpdate("DELETE FROM test_show_stats WHERE age = 10", 1);
+        assertFileSystemAccesses("SHOW STATS FOR test_show_stats",
+                ImmutableMultiset.<FileOperation>builder()
+                        .add(new FileOperation(METADATA_JSON, "InputFile.newStream"))
+                        .add(new FileOperation(SNAPSHOT, "InputFile.length"))
+                        .add(new FileOperation(SNAPSHOT, "InputFile.newStream"))
+                        .addCopies(new FileOperation(MANIFEST, "InputFile.newStream"), 2)
                         .build());
     }
 
