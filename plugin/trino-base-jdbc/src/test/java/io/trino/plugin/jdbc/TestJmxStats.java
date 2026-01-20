@@ -47,12 +47,12 @@ public class TestJmxStats
                         "bootstrap.quiet", "true"),
                 new TestingConnectorContext());
         MBeanServer mbeanServer = getPlatformMBeanServer();
-        Set<ObjectName> objectNames = mbeanServer.queryNames(new ObjectName("io.trino.plugin.jdbc:*"), null);
+        Set<ObjectName> objectNames = mbeanServer.queryNames(new ObjectName("trino.plugin.jdbc:*"), null);
 
         assertThat(objectNames.containsAll(
                 ImmutableSet.of(
-                        new ObjectName("io.trino.plugin.jdbc:type=ConnectionFactory,name=test"),
-                        new ObjectName("io.trino.plugin.jdbc:type=JdbcClient,name=test")))).isTrue();
+                        new ObjectName("trino.plugin.jdbc:catalog=test,type=ConnectionFactory,name=test"),
+                        new ObjectName("trino.plugin.jdbc:catalog=test,type=JdbcClient,name=test")))).isTrue();
 
         for (ObjectName objectName : objectNames) {
             MBeanInfo mbeanInfo = mbeanServer.getMBeanInfo(objectName);

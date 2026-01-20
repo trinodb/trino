@@ -22,7 +22,6 @@ import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.airlift.json.JsonModule;
 import io.trino.filesystem.manager.FileSystemModule;
 import io.trino.plugin.base.ConnectorContextModule;
-import io.trino.plugin.base.jmx.ConnectorObjectNameGeneratorModule;
 import io.trino.plugin.base.jmx.MBeanServerModule;
 import io.trino.plugin.hive.HiveConfig;
 import io.trino.plugin.iceberg.catalog.IcebergCatalogModule;
@@ -68,7 +67,6 @@ public class IcebergConnectorFactory
             Bootstrap app = new Bootstrap(
                     "io.trino.bootstrap.catalog." + catalogName,
                     new MBeanModule(),
-                    new ConnectorObjectNameGeneratorModule("io.trino.plugin.iceberg", "trino.plugin.iceberg"),
                     new JsonModule(),
                     new IcebergModule(),
                     new IcebergSecurityModule(),

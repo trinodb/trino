@@ -18,7 +18,6 @@ import com.google.inject.Module;
 import io.airlift.bootstrap.Bootstrap;
 import io.airlift.drift.transport.netty.client.DriftNettyClientModule;
 import io.trino.plugin.base.ConnectorContextModule;
-import io.trino.plugin.base.jmx.ConnectorObjectNameGeneratorModule;
 import io.trino.plugin.base.jmx.MBeanServerModule;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorContext;
@@ -58,7 +57,6 @@ public class ThriftConnectorFactory
                 "io.trino.bootstrap.catalog." + catalogName,
                 new MBeanModule(),
                 new MBeanServerModule(),
-                new ConnectorObjectNameGeneratorModule("io.trino.plugin.thrift", "trino.plugin.thrift"),
                 new DriftNettyClientModule(),
                 new ConnectorContextModule(catalogName, context),
                 locationModule.get(),
