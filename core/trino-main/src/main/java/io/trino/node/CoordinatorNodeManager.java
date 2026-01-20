@@ -291,7 +291,7 @@ public final class CoordinatorNodeManager
     }
 
     @Managed
-    public long getActiveWorkerCount()
+    public int getActiveWorkerCount()
     {
         AllNodes allNodes = getAllNodes();
         return allNodes.activeNodes().size() - allNodes.activeCoordinators().size();
