@@ -3440,7 +3440,7 @@ public abstract class BaseConnectorTest
                 if (setup.unsupportedType) {
                     assertThatThrownBy(setColumnType::run)
                             .satisfies(this::verifySetColumnTypeFailurePermissible);
-                    return;
+                    continue;
                 }
                 setColumnType.run();
 
@@ -3496,15 +3496,15 @@ public abstract class BaseConnectorTest
                 .add(new SetColumnTypeSetup("char(20)", "'char-to-varchar'", "varchar"))
                 .add(new SetColumnTypeSetup("varchar", "'varchar-to-char'", "char(20)"))
                 .add(new SetColumnTypeSetup("array(integer)", "array[1]", "array(bigint)"))
-                .add(new SetColumnTypeSetup("row(x integer)", "row(1)", "row(x bigint)"))
-                .add(new SetColumnTypeSetup("row(x integer)", "row(1)", "row(y integer)", "cast(row(NULL) as row(x integer))")) // rename a field
-                .add(new SetColumnTypeSetup("row(x integer, y integer)", "row(1, 2)", "row(x integer, z integer)", "cast(row(1, NULL) as row(x integer, z integer))")) // rename a field, but not all fields
-                .add(new SetColumnTypeSetup("row(x integer)", "row(1)", "row(x integer, y integer)", "cast(row(1, NULL) as row(x integer, y integer))")) // add a new field
-                .add(new SetColumnTypeSetup("row(x integer, y integer)", "row(1, 2)", "row(x integer)", "cast(row(1) as row(x integer))")) // remove an existing field
-                .add(new SetColumnTypeSetup("row(x integer, y integer)", "row(1, 2)", "row(y integer, x integer)", "cast(row(2, 1) as row(y integer, x integer))")) // reorder fields
-                .add(new SetColumnTypeSetup("row(x integer, y integer)", "row(1, 2)", "row(z integer, y integer, x integer)", "cast(row(null, 2, 1) as row(z integer, y integer, x integer))")) // reorder fields with a new field
-                .add(new SetColumnTypeSetup("row(x row(nested integer))", "row(row(1))", "row(x row(nested bigint))", "cast(row(row(1)) as row(x row(nested bigint)))")) // update a nested field
-                .add(new SetColumnTypeSetup("row(x row(a integer, b integer))", "row(row(1, 2))", "row(x row(b integer, a integer))", "cast(row(row(2, 1)) as row(x row(b integer, a integer)))")) // reorder a nested field
+                .add(new SetColumnTypeSetup("row(x integer)", "row(1)", "row(\"x\" bigint)"))
+                .add(new SetColumnTypeSetup("row(x integer)", "row(1)", "row(\"y\" integer)", "cast(row(NULL) as row(x integer))")) // rename a field
+                .add(new SetColumnTypeSetup("row(x integer, y integer)", "row(1, 2)", "row(\"x\" integer, \"z\" integer)", "cast(row(1, NULL) as row(x integer, z integer))")) // rename a field, but not all fields
+                .add(new SetColumnTypeSetup("row(x integer)", "row(1)", "row(\"x\" integer, \"y\" integer)", "cast(row(1, NULL) as row(x integer, y integer))")) // add a new field
+                .add(new SetColumnTypeSetup("row(x integer, y integer)", "row(1, 2)", "row(\"x\" integer)", "cast(row(1) as row(x integer))")) // remove an existing field
+                .add(new SetColumnTypeSetup("row(x integer, y integer)", "row(1, 2)", "row(\"y\" integer, \"x\" integer)", "cast(row(2, 1) as row(y integer, x integer))")) // reorder fields
+                .add(new SetColumnTypeSetup("row(x integer, y integer)", "row(1, 2)", "row(\"z\" integer, \"y\" integer, \"x\" integer)", "cast(row(null, 2, 1) as row(z integer, y integer, x integer))")) // reorder fields with a new field
+                .add(new SetColumnTypeSetup("row(x row(nested integer))", "row(row(1))", "row(\"x\" row(\"nested\" bigint))", "cast(row(row(1)) as row(x row(nested bigint)))")) // update a nested field
+                .add(new SetColumnTypeSetup("row(x row(a integer, b integer))", "row(row(1, 2))", "row(\"x\" row(\"b\" integer, \"a\" integer))", "cast(row(row(2, 1)) as row(x row(b integer, a integer)))")) // reorder a nested field
                 .build();
     }
 
@@ -3659,11 +3659,11 @@ public abstract class BaseConnectorTest
                 if (setup.unsupportedType) {
                     assertThatThrownBy(setFieldType::run)
                             .satisfies(this::verifySetFieldTypeFailurePermissible);
-                    return;
+                    continue;
                 }
                 setFieldType.run();
 
-                assertThat(getColumnType(table.getName(), "col")).isEqualTo("row(field " + setup.newColumnType + ")");
+                assertThat(getColumnType(table.getName(), "col")).isEqualTo("row(\"field\" " + setup.newColumnType + ")");
                 assertThat(query("SELECT * FROM " + table.getName()))
                         .skippingTypesCheck()
                         .matches("SELECT row(" + setup.newValueLiteral + ")");

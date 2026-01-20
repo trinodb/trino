@@ -205,7 +205,7 @@ public class TestLakehouseConnectorTest
     {
         assertThat(e).hasMessageMatching(".*(Failed to set column type: Cannot change (column type:|type from .* to )" +
                 "|Time(stamp)? precision \\(3\\) not supported for Iceberg. Use \"time(stamp)?\\(6\\)\" instead" +
-                "|Type not supported for Iceberg: smallint|char\\(20\\)).*");
+                "|Type not supported for Iceberg: tinyint|smallint|char\\(20\\)).*");
     }
 
     @Override
@@ -213,7 +213,7 @@ public class TestLakehouseConnectorTest
     {
         assertThat(e).hasMessageMatching(".*(Failed to set field type: Cannot change (column type:|type from .* to )" +
                 "|Time(stamp)? precision \\(3\\) not supported for Iceberg. Use \"time(stamp)?\\(6\\)\" instead" +
-                "|Type not supported for Iceberg: smallint|char\\(20\\)" +
+                "|Type not supported for Iceberg: tinyint|smallint|char\\(20\\)" +
                 "|Iceberg doesn't support changing field type (from|to) non-primitive types).*");
     }
 
@@ -245,11 +245,14 @@ public class TestLakehouseConnectorTest
             return Optional.of(setup.withNewValueLiteral("TIMESTAMP '2020-02-12 14:03:00.123000 +00:00'"));
         }
         switch ("%s -> %s".formatted(setup.sourceColumnType(), setup.newColumnType())) {
-            case "row(x integer) -> row(y integer)":
+            case "row(x integer) -> row(\"y\" integer)":
                 return Optional.of(setup.withNewValueLiteral("NULL"));
             case "tinyint -> smallint":
             case "bigint -> integer":
+            case "bigint -> smallint":
+            case "bigint -> tinyint":
             case "decimal(5,3) -> decimal(5,2)":
+            case "char(25) -> char(20)":
             case "varchar -> char(20)":
             case "time(6) -> time(3)":
             case "timestamp(6) -> timestamp(3)":
@@ -264,23 +267,30 @@ public class TestLakehouseConnectorTest
     @Override
     protected Optional<SetColumnTypeSetup> filterSetFieldTypesDataProvider(SetColumnTypeSetup setup)
     {
+        if (setup.sourceColumnType().equals("timestamp(3) with time zone")) {
+            // The connector returns UTC instead of the given time zone
+            return Optional.of(setup.withNewValueLiteral("TIMESTAMP '2020-02-12 14:03:00.123000 +00:00'"));
+        }
         switch ("%s -> %s".formatted(setup.sourceColumnType(), setup.newColumnType())) {
             case "tinyint -> smallint":
             case "bigint -> integer":
+            case "bigint -> smallint":
+            case "bigint -> tinyint":
             case "decimal(5,3) -> decimal(5,2)":
+            case "char(25) -> char(20)":
             case "varchar -> char(20)":
             case "time(6) -> time(3)":
             case "timestamp(6) -> timestamp(3)":
             case "array(integer) -> array(bigint)":
-            case "row(x integer) -> row(x bigint)":
-            case "row(x integer) -> row(y integer)":
-            case "row(x integer, y integer) -> row(x integer, z integer)":
-            case "row(x integer) -> row(x integer, y integer)":
-            case "row(x integer, y integer) -> row(x integer)":
-            case "row(x integer, y integer) -> row(y integer, x integer)":
-            case "row(x integer, y integer) -> row(z integer, y integer, x integer)":
-            case "row(x row(nested integer)) -> row(x row(nested bigint))":
-            case "row(x row(a integer, b integer)) -> row(x row(b integer, a integer))":
+            case "row(x integer) -> row(\"x\" bigint)":
+            case "row(x integer) -> row(\"y\" integer)":
+            case "row(x integer, y integer) -> row(\"x\" integer, \"z\" integer)":
+            case "row(x integer) -> row(\"x\" integer, \"y\" integer)":
+            case "row(x integer, y integer) -> row(\"x\" integer)":
+            case "row(x integer, y integer) -> row(\"y\" integer, \"x\" integer)":
+            case "row(x integer, y integer) -> row(\"z\" integer, \"y\" integer, \"x\" integer)":
+            case "row(x row(nested integer)) -> row(\"x\" row(\"nested\" bigint))":
+            case "row(x row(a integer, b integer)) -> row(\"x\" row(\"b\" integer, \"a\" integer))":
                 return Optional.of(setup.asUnsupported());
             case "varchar(100) -> varchar(50)":
                 return Optional.empty();
