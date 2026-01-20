@@ -1,4 +1,4 @@
-# Release 480 (updated to 15/01/2026)
+# Release 480 (updated to 19/01/2026)
 
 ## General
 
@@ -40,6 +40,8 @@
 * Improve effectiveness of bloom filters for high cardinality columns written in Parquet files. ({issue}`27656`)
 * Do not require `PutObjectTagging` AWS S3 permission when writing to Delta Lake tables 
   on S3. ({issue}`27701`)
+* Fix potential table corruption when executing `CREATE OR REPLACE` with table definition
+  changes. ({issue}`27805`)
 
 ## DuckDB connector
 
@@ -78,6 +80,10 @@
 * Add `delete_after_commit_enabled` and `max_previous_versions` table properties. ({issue}`14128`)
 * Allow creating Iceberg format version 3 tables, upgrading v2 tables to v3, and inserting 
   into v3 tables. Unsupported v3 features are explicitly rejected. ({issue}`27786`)
+* Add support for column default values in Iceberg v3 tables via `CREATE TABLE`, 
+  `ADD COLUMN` and `ALTER COLUMN SET/DROP DEFAULT`. ({issue}`27837`)
+* Add support for Iceberg format v3 deletion vectors to enable `DELETE`, `UPDATE` 
+  and `MERGE` on v3 tables. ({issue}`27788`)
 * {{breaking}} Remove the `hive.write-validation-threads` configuration property. ({issue}`27729`)
 * {{breaking}} Remove the `parquet.optimized-writer.validation-percentage` configuration
   property, use `parquet.writer.validation-percentage`, instead. ({issue}`27729`)
