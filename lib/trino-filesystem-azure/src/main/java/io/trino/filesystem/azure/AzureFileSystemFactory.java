@@ -31,6 +31,7 @@ import io.trino.spi.security.ConnectorIdentity;
 import jakarta.annotation.PreDestroy;
 import reactor.netty.resources.ConnectionProvider;
 
+import java.time.Duration;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 
@@ -135,13 +136,14 @@ public class AzureFileSystemFactory
 
     public static HttpClient createAzureHttpClient(ConnectionProvider connectionProvider, EventLoopGroup eventLoopGroup, HttpClientOptions clientOptions)
     {
+        Duration timeout = Duration.ofSeconds(10L);
         return new NettyAsyncHttpClientBuilder()
                 .proxy(clientOptions.getProxyOptions())
                 .configuration(clientOptions.getConfiguration())
-                .connectTimeout(clientOptions.getConnectTimeout())
-                .writeTimeout(clientOptions.getWriteTimeout())
-                .readTimeout(clientOptions.getReadTimeout())
-                .responseTimeout(clientOptions.getResponseTimeout())
+                .connectTimeout(timeout)
+                .writeTimeout(timeout)
+                .readTimeout(timeout)
+                .responseTimeout(timeout)
                 .connectionProvider(connectionProvider)
                 .eventLoopGroup(eventLoopGroup)
                 .build();
