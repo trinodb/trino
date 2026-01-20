@@ -25,6 +25,7 @@ import io.airlift.units.Duration;
 import io.trino.Session;
 import io.trino.connector.MockConnectorFactory;
 import io.trino.connector.MockConnectorPlugin;
+import io.trino.execution.QueryStats;
 import io.trino.execution.StageId;
 import io.trino.execution.StageInfo;
 import io.trino.execution.StagesInfo;
@@ -36,6 +37,7 @@ import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.TableHandle;
 import io.trino.operator.OperatorStats;
+import io.trino.operator.TableFinishInfo;
 import io.trino.plugin.hive.HiveCompressionCodec;
 import io.trino.server.DynamicFilterService;
 import io.trino.spi.QueryId;
@@ -9251,6 +9253,55 @@ public abstract class BaseIcebergConnectorTest
         assertExplainAnalyze(
                 "EXPLAIN ANALYZE VERBOSE SELECT * FROM nation a",
                 "splits generation metrics");
+    }
+
+    @Test
+    void testCommitMetrics()
+    {
+        try (TestTable table = newTrinoTable(
+                "test_commit_metrics",
+                "AS SELECT * FROM nation WITH NO DATA")) {
+            assertQueryStats(
+                    getSession(),
+                    "INSERT INTO " + table.getName() + " SELECT * FROM nation",
+                    queryStats -> {
+                        TableFinishInfo info = getTableFinishInfo(queryStats);
+                        assertThat(info.getConnectorOutputMetadata()).contains("\"added-records\" : \"25\"");
+                    },
+                    _ -> {});
+        }
+
+        String tableName = "test_commit_metrics_ctas_" + randomNameSuffix();
+        assertQueryStats(
+                getSession(),
+                "CREATE TABLE " + tableName + " AS SELECT * FROM nation",
+                queryStats -> {
+                    TableFinishInfo info = getTableFinishInfo(queryStats);
+                    assertThat(info.getConnectorOutputMetadata()).contains("\"added-records\" : \"25\"");
+                },
+                _ -> {});
+        assertUpdate("DROP TABLE " + tableName);
+
+        String materializedViewName = "test_commit_metrics_mv_" + randomNameSuffix();
+        assertUpdate("CREATE MATERIALIZED VIEW " + materializedViewName + " AS SELECT * FROM nation");
+        assertQueryStats(
+                getSession(),
+                "REFRESH MATERIALIZED VIEW " + materializedViewName,
+                queryStats -> {
+                    TableFinishInfo info = getTableFinishInfo(queryStats);
+                    assertThat(info.getConnectorOutputMetadata()).contains("\"added-records\" : \"25\"");
+                },
+                _ -> {});
+        assertUpdate("DROP MATERIALIZED VIEW " + materializedViewName);
+    }
+
+    private static TableFinishInfo getTableFinishInfo(QueryStats queryStats)
+    {
+        OperatorStats finishOperatorStats = queryStats.getOperatorSummaries()
+                .stream()
+                .filter(summary -> summary.getOperatorType().startsWith("TableFinish"))
+                .collect(onlyElement());
+        return (TableFinishInfo) finishOperatorStats.getInfo();
     }
 
     // regression test for https://github.com/trinodb/trino/issues/22922

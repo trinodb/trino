@@ -46,7 +46,6 @@ import io.trino.plugin.base.projection.ApplyProjectionUtil;
 import io.trino.plugin.base.projection.ApplyProjectionUtil.ProjectedColumnRepresentation;
 import io.trino.plugin.hive.HiveCompressionCodec;
 import io.trino.plugin.hive.HiveStorageFormat;
-import io.trino.plugin.hive.HiveWrittenPartitions;
 import io.trino.plugin.iceberg.aggregation.DataSketchStateSerializer;
 import io.trino.plugin.iceberg.aggregation.IcebergThetaSketchForStats;
 import io.trino.plugin.iceberg.catalog.TrinoCatalog;
@@ -1612,9 +1611,11 @@ public class IcebergMetadata
         commitTransaction(transaction, "insert");
         transaction = null;
 
-        return Optional.of(new HiveWrittenPartitions(commitTasks.stream()
-                .map(CommitTaskData::path)
-                .collect(toImmutableList())));
+        Map<String, String> summary = icebergTable.currentSnapshot().summary();
+        if (summary == null) {
+            return Optional.empty();
+        }
+        return Optional.of(new IcebergCommitMetadata(summary));
     }
 
     @Override
@@ -3992,9 +3993,11 @@ public class IcebergMetadata
         commitUpdateAndTransaction(appendFiles, session, transaction, "refresh materialized view");
         transaction = null;
         fromSnapshotForRefresh = Optional.empty();
-        return Optional.of(new HiveWrittenPartitions(commitTasks.stream()
-                .map(CommitTaskData::path)
-                .collect(toImmutableList())));
+        Map<String, String> summary = icebergTable.currentSnapshot().summary();
+        if (summary == null) {
+            return Optional.empty();
+        }
+        return Optional.of(new IcebergCommitMetadata(summary));
     }
 
     @Override
