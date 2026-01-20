@@ -21,7 +21,6 @@ import io.trino.plugin.deltalake.metastore.VendedCredentialsHandle;
 import io.trino.spi.connector.ConnectorSession;
 
 import java.io.IOException;
-import java.io.OutputStream;
 import java.io.UncheckedIOException;
 import java.nio.file.FileAlreadyExistsException;
 
@@ -42,8 +41,8 @@ public class LocalTransactionLogSynchronizer
     public void write(ConnectorSession session, VendedCredentialsHandle credentialsHandle, String clusterId, Location newLogEntryPath, byte[] entryContents)
     {
         TrinoFileSystem fileSystem = fileSystemFactory.create(session, credentialsHandle);
-        try (OutputStream outputStream = fileSystem.newOutputFile(newLogEntryPath).create()) {
-            outputStream.write(entryContents);
+        try {
+            fileSystem.newOutputFile(newLogEntryPath).createExclusive(entryContents);
         }
         catch (FileAlreadyExistsException e) {
             throw new TransactionConflictException("Conflict detected while writing Transaction Log entry " + newLogEntryPath, e);

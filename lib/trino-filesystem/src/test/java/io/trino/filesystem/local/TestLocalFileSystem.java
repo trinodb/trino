@@ -47,12 +47,6 @@ public class TestLocalFileSystem
         fileSystem = new LocalFileSystem(tempDirectory);
     }
 
-    @Override
-    protected boolean supportsCreateExclusive()
-    {
-        return false;
-    }
-
     @AfterEach
     void afterEach()
             throws IOException
