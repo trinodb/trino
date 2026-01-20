@@ -24,12 +24,12 @@ remote exchange (GATHER, SINGLE, [])
                                 remote exchange (GATHER, SINGLE, [])
                                     partial aggregation over ()
                                         join (INNER, REPLICATED):
-                                            dynamic filter (suppkey_12::EQUAL)
+                                            dynamic filter (suppkey_16::EQUAL)
                                                 scan partsupp
                                             local exchange (GATHER, SINGLE, [])
                                                 remote exchange (REPLICATE, BROADCAST, [])
                                                     join (INNER, REPLICATED):
-                                                        dynamic filter (nationkey_22::EQUAL)
+                                                        dynamic filter (nationkey_28::EQUAL)
                                                             scan supplier
                                                         local exchange (GATHER, SINGLE, [])
                                                             remote exchange (REPLICATE, BROADCAST, [])
