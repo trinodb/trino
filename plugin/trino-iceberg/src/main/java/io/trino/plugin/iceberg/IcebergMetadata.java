@@ -3680,7 +3680,7 @@ public class IcebergMetadata
         }
     }
 
-    private static List<ManifestFile> loadAllManifestsFromSnapshot(Table icebergTable, Snapshot snapshot)
+    private static List<ManifestFile> loadAllManifestsFromSnapshot(Table icebergTable, @Nullable Snapshot snapshot)
     {
         if (snapshot == null) {
             return ImmutableList.of();
