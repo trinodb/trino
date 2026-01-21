@@ -65,6 +65,7 @@ public class ManifestsTable
         tableMetadata = new ConnectorTableMetadata(
                 tableName,
                 ImmutableList.<ColumnMetadata>builder()
+                        .add(new ColumnMetadata("content", INTEGER))
                         .add(new ColumnMetadata("path", VARCHAR))
                         .add(new ColumnMetadata("length", BIGINT))
                         .add(new ColumnMetadata("partition_spec_id", INTEGER))
@@ -118,6 +119,7 @@ public class ManifestsTable
 
         snapshot.allManifests(icebergTable.io()).forEach(file -> {
             pagesBuilder.beginRow();
+            pagesBuilder.appendInteger(file.content().id());
             pagesBuilder.appendVarchar(file.path());
             pagesBuilder.appendBigint(file.length());
             pagesBuilder.appendInteger(file.partitionSpecId());
