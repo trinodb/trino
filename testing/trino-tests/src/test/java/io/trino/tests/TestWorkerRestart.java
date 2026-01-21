@@ -102,7 +102,8 @@ public class TestWorkerRestart
                                                         "|Expected response from \\S+ is empty" +
                                                         "|Error fetching \\S+: Expected response code to be 200, but was 5\\d\\d" +
                                                         "|Could not communicate with the remote task. The node may have crashed or be under too much load" +
-                                                        "|Error fetching \\S+: Content-Type header is not set");
+                                                        "|Error fetching \\S+: Content-Type header is not set" +
+                                                        "|Unexpected response from \\S+");
 
                 // Ensure that the restarted worker is able to serve queries.
                 assertThat((long) queryRunner.execute("SELECT count(*) FROM tpch.tiny.lineitem").getOnlyValue())
