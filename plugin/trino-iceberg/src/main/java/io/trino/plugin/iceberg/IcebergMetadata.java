@@ -660,11 +660,6 @@ public class IcebergMetadata
             return;
         }
 
-        Schema schema = metadata.schemasById().get(snapshot.schemaId());
-        if (schema == null) {
-            schema = metadata.schema();
-        }
-
         // Reject Iceberg table encryption
         if (!metadata.encryptionKeys().isEmpty() || snapshot.keyId() != null || metadata.properties().containsKey("encryption.key-id")) {
             throw new TrinoException(NOT_SUPPORTED, "Iceberg table encryption is not supported");
