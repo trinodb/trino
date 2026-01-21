@@ -14,9 +14,6 @@
 package io.trino.sql.planner.assertions;
 
 import com.google.common.base.MoreObjects.ToStringHelper;
-import io.trino.Session;
-import io.trino.cost.StatsProvider;
-import io.trino.metadata.Metadata;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.PartitioningHandle;
 import io.trino.sql.planner.Symbol;
@@ -78,17 +75,17 @@ final class ExchangeMatcher
     }
 
     @Override
-    public MatchResult detailMatches(PlanNode node, StatsProvider stats, Session session, Metadata metadata, SymbolAliases symbolAliases)
+    public MatchResult detailMatches(PlanNode node, MatchContext context)
     {
         checkState(shapeMatches(node), "Plan testing framework error: shapeMatches returned false in detailMatches in %s", this.getClass().getName());
         ExchangeNode exchangeNode = (ExchangeNode) node;
-        SymbolAliases outputSymbolAliases = symbolAliases;
+        SymbolAliases outputSymbolAliases = context.symbolAliases();
 
         // Update symbol aliases if the exchange has multiple sources
         if (exchangeNode.getSources().size() > 1 && exchangeNode.getInputs().size() > 1) {
             SymbolAliases.Builder builder = SymbolAliases.builder();
             for (int i = 0; i < exchangeNode.getOutputSymbols().size(); i++) {
-                Optional<Reference> reference = symbolAliases.getOptional(exchangeNode.getInputs().getFirst().get(i).name());
+                Optional<Reference> reference = context.symbolAliases().getOptional(exchangeNode.getInputs().getFirst().get(i).name());
                 Symbol outputSymbol = exchangeNode.getOutputSymbols().get(i);
                 // Add the reference for output symbol if it does not match with the input symbol which
                 // happens when there are multiple sources.
@@ -96,7 +93,7 @@ final class ExchangeMatcher
                     builder.put(outputSymbol.name(), outputSymbol.toSymbolReference());
                 }
             }
-            outputSymbolAliases = symbolAliases.withNewAliases(builder.build());
+            outputSymbolAliases = context.symbolAliases().withNewAliases(builder.build());
         }
 
         if (!orderBy.isEmpty()) {
@@ -104,7 +101,7 @@ final class ExchangeMatcher
                 return NO_MATCH;
             }
 
-            if (!orderingSchemeMatches(orderBy, exchangeNode.getOrderingScheme().get(), symbolAliases)) {
+            if (!orderingSchemeMatches(orderBy, exchangeNode.getOrderingScheme().get(), context.symbolAliases())) {
                 return NO_MATCH;
             }
         }

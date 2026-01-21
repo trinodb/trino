@@ -14,9 +14,6 @@
 package io.trino.sql.planner.assertions;
 
 import com.google.common.collect.ImmutableList;
-import io.trino.Session;
-import io.trino.cost.StatsProvider;
-import io.trino.metadata.Metadata;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.plan.PlanNode;
@@ -45,11 +42,11 @@ public class OutputMatcher
     }
 
     @Override
-    public MatchResult detailMatches(PlanNode node, StatsProvider stats, Session session, Metadata metadata, SymbolAliases symbolAliases)
+    public MatchResult detailMatches(PlanNode node, MatchContext context)
     {
         int i = 0;
         for (String alias : aliases) {
-            Expression expression = symbolAliases.get(alias);
+            Expression expression = context.symbolAliases().get(alias);
             boolean found = false;
             while (i < node.getOutputSymbols().size()) {
                 Symbol outputSymbol = node.getOutputSymbols().get(i++);
