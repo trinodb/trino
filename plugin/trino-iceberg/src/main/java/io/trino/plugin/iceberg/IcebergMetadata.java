@@ -3571,12 +3571,7 @@ public class IcebergMetadata
         else {
             Table icebergTable = catalog.loadTable(session, table.getSchemaTableName());
 
-            Set<Integer> partitionSpecIds = table.getSnapshotId().map(
-                            snapshot -> loadAllManifestsFromSnapshot(icebergTable, icebergTable.snapshot(snapshot)).stream()
-                                    .map(ManifestFile::partitionSpecId)
-                                    .collect(toImmutableSet()))
-                    // No snapshot, so no data. This case doesn't matter.
-                    .orElseGet(() -> ImmutableSet.copyOf(icebergTable.specs().keySet()));
+            Set<Integer> partitionSpecIds = getPartitionSpecIdsFromSnapshot(icebergTable, table.getSnapshotId());
 
             Map<IcebergColumnHandle, Domain> unsupported = new LinkedHashMap<>();
             Map<IcebergColumnHandle, Domain> newEnforced = new LinkedHashMap<>();
@@ -3643,6 +3638,25 @@ public class IcebergMetadata
                 remainingConstraint.transformKeys(ColumnHandle.class::cast),
                 extractionResult.remainingExpression(),
                 false));
+    }
+
+    private static Set<Integer> getPartitionSpecIdsFromSnapshot(Table icebergTable, Optional<Long> snapshotId)
+    {
+        Map<Integer, PartitionSpec> specs = icebergTable.specs();
+        // If there aren't multiple partition specs,
+        // then we don't need to read manifest list to find the specs that belong to given snapshot
+        if (specs.size() <= 1) {
+            return specs.keySet();
+        }
+        if (snapshotId.isEmpty()) {
+            // No snapshot, so no data. This case doesn't matter.
+            return specs.keySet();
+        }
+
+        Snapshot snapshot = icebergTable.snapshot(snapshotId.get());
+        return loadAllManifestsFromSnapshot(icebergTable, snapshot).stream()
+                .map(ManifestFile::partitionSpecId)
+                .collect(toImmutableSet());
     }
 
     private static List<ManifestFile> loadAllManifestsFromSnapshot(Table icebergTable, Snapshot snapshot)
