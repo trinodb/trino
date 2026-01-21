@@ -51,34 +51,34 @@ public class TestAllColumnSearchFunction
     }
 
     @Test
-    public void testCaseInsensitiveSearch()
+    public void testCaseSensitiveSearch()
     {
-        // Search should be case-insensitive
+        // Search should be case-sensitive - uppercase search matches uppercase data
+        assertThat(query(
+                """
+                SELECT name
+                FROM TABLE(allcolumnsearch(
+                    input => TABLE(tpch.tiny.nation),
+                    search_term => 'UNITED'))
+                ORDER BY name
+                """))
+                .matches("SELECT name FROM tpch.tiny.nation WHERE name LIKE '%UNITED%' OR comment LIKE '%UNITED%' ORDER BY name");
+
+        // Lowercase search should NOT match uppercase data
         assertThat(query(
                 """
                 SELECT name
                 FROM TABLE(allcolumnsearch(
                     input => TABLE(tpch.tiny.nation),
                     search_term => 'united'))
-                ORDER BY name
                 """))
-                .matches("SELECT name FROM tpch.tiny.nation WHERE name LIKE '%UNITED%' OR comment LIKE '%UNITED%' ORDER BY name");
-
-        assertThat(query(
-                """
-                SELECT name
-                FROM TABLE(allcolumnsearch(
-                    input => TABLE(tpch.tiny.nation),
-                    search_term => 'UnItEd'))
-                ORDER BY name
-                """))
-                .matches("SELECT name FROM tpch.tiny.nation WHERE name LIKE '%UNITED%' OR comment LIKE '%UNITED%' ORDER BY name");
+                .returnsEmptyResult();
     }
 
     @Test
     public void testRegexPattern()
     {
-        // Test regex pattern matching
+        // Test regex pattern matching (case-sensitive)
         assertThat(query(
                 """
                 SELECT name
@@ -87,9 +87,9 @@ public class TestAllColumnSearchFunction
                     search_term => '^UNITED.*'))
                 ORDER BY name
                 """))
-                .matches("SELECT name FROM tpch.tiny.nation WHERE REGEXP_LIKE(name, '^UNITED.*', 'i') OR REGEXP_LIKE(comment, '^UNITED.*', 'i') ORDER BY name");
+                .matches("SELECT name FROM tpch.tiny.nation WHERE REGEXP_LIKE(name, '^UNITED.*') OR REGEXP_LIKE(comment, '^UNITED.*') ORDER BY name");
 
-        // Pattern matching any name containing 'IA'
+        // Pattern matching any name ending with 'IA'
         assertThat(query(
                 """
                 SELECT name
@@ -98,7 +98,7 @@ public class TestAllColumnSearchFunction
                     search_term => '.*IA$'))
                 ORDER BY name
                 """))
-                .matches("SELECT name FROM tpch.tiny.nation WHERE REGEXP_LIKE(name, '.*IA$', 'i') OR REGEXP_LIKE(comment, '.*IA$', 'i') ORDER BY name");
+                .matches("SELECT name FROM tpch.tiny.nation WHERE REGEXP_LIKE(name, '.*IA$') OR REGEXP_LIKE(comment, '.*IA$') ORDER BY name");
     }
 
     @Test
@@ -299,7 +299,7 @@ public class TestAllColumnSearchFunction
                     input => TABLE(SELECT 'test.value' AS col),
                     search_term => '\\.'))
                 """))
-                .matches("SELECT * FROM (SELECT 'test.value' AS col) WHERE REGEXP_LIKE(col, '\\.', 'i')");
+                .matches("SELECT * FROM (SELECT 'test.value' AS col) WHERE REGEXP_LIKE(col, '\\.')");
     }
 
     @Test

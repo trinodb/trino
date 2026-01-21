@@ -97,7 +97,7 @@ public class AllColumnSearchFunction
 
         // Validate regex pattern
         try {
-            Pattern.compile(searchTerm, Pattern.CASE_INSENSITIVE);
+            Pattern.compile(searchTerm);
         }
         catch (PatternSyntaxException e) {
             throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Invalid regex pattern: " + e.getMessage());
@@ -152,7 +152,7 @@ public class AllColumnSearchFunction
                 List<Integer> searchableColumns = functionHandle.searchableColumnIndices();
 
                 // Compile regex pattern once for reuse
-                Pattern searchPattern = Pattern.compile(searchTerm, Pattern.CASE_INSENSITIVE);
+                Pattern searchPattern = Pattern.compile(searchTerm);
 
                 return input -> {
                     if (input == null) {
