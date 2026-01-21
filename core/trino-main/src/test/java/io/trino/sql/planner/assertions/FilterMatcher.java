@@ -13,9 +13,6 @@
  */
 package io.trino.sql.planner.assertions;
 
-import io.trino.Session;
-import io.trino.cost.StatsProvider;
-import io.trino.metadata.Metadata;
 import io.trino.sql.DynamicFilters;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.planner.plan.FilterNode;
@@ -48,13 +45,13 @@ final class FilterMatcher
     }
 
     @Override
-    public MatchResult detailMatches(PlanNode node, StatsProvider stats, Session session, Metadata metadata, SymbolAliases symbolAliases)
+    public MatchResult detailMatches(PlanNode node, MatchContext context)
     {
         checkState(shapeMatches(node), "Plan testing framework error: shapeMatches returned false in detailMatches in %s", this.getClass().getName());
 
         FilterNode filterNode = (FilterNode) node;
         Expression filterPredicate = filterNode.getPredicate();
-        ExpressionVerifier verifier = new ExpressionVerifier(symbolAliases);
+        ExpressionVerifier verifier = new ExpressionVerifier(context.symbolAliases());
 
         if (dynamicFilter.isPresent()) {
             return new MatchResult(verifier.process(filterPredicate, combineConjuncts(predicate, dynamicFilter.get())));

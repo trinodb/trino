@@ -13,9 +13,6 @@
  */
 package io.trino.sql.planner.assertions;
 
-import io.trino.Session;
-import io.trino.cost.StatsProvider;
-import io.trino.metadata.Metadata;
 import io.trino.sql.DynamicFilters;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.plan.DynamicFilterId;
@@ -67,13 +64,13 @@ final class SemiJoinMatcher
     }
 
     @Override
-    public MatchResult detailMatches(PlanNode node, StatsProvider stats, Session session, Metadata metadata, SymbolAliases symbolAliases)
+    public MatchResult detailMatches(PlanNode node, MatchContext context)
     {
         checkState(shapeMatches(node), "Plan testing framework error: shapeMatches returned false in detailMatches in %s", this.getClass().getName());
 
         SemiJoinNode semiJoinNode = (SemiJoinNode) node;
-        if (!(symbolAliases.get(sourceSymbolAlias).equals(semiJoinNode.getSourceJoinSymbol().toSymbolReference()) &&
-                symbolAliases.get(filteringSymbolAlias).equals(semiJoinNode.getFilteringSourceJoinSymbol().toSymbolReference()))) {
+        if (!(context.symbolAliases().get(sourceSymbolAlias).equals(semiJoinNode.getSourceJoinSymbol().toSymbolReference()) &&
+                context.symbolAliases().get(filteringSymbolAlias).equals(semiJoinNode.getFilteringSourceJoinSymbol().toSymbolReference()))) {
             return NO_MATCH;
         }
 
@@ -98,7 +95,7 @@ final class SemiJoinMatcher
                         .collect(toImmutableList());
                 boolean sourceSymbolsMatch = matchingDescriptors.stream()
                         .map(descriptor -> Symbol.from(descriptor.getInput()))
-                        .allMatch(sourceSymbol -> symbolAliases.get(sourceSymbolAlias).equals(sourceSymbol.toSymbolReference()));
+                        .allMatch(sourceSymbol -> context.symbolAliases().get(sourceSymbolAlias).equals(sourceSymbol.toSymbolReference()));
                 if (!matchingDescriptors.isEmpty() && sourceSymbolsMatch) {
                     return match(outputAlias, semiJoinNode.getSemiJoinOutput().toSymbolReference());
                 }
