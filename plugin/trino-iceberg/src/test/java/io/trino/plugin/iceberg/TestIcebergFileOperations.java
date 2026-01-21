@@ -662,8 +662,6 @@ public class TestIcebergFileOperations
         assertFileSystemAccesses(withoutStatistics, "EXPLAIN SELECT * FROM test_explain WHERE age = 2",
                 ImmutableMultiset.<FileOperation>builder()
                         .add(new FileOperation(METADATA_JSON, "InputFile.newStream"))
-                        .add(new FileOperation(SNAPSHOT, "InputFile.length"))
-                        .add(new FileOperation(SNAPSHOT, "InputFile.newStream"))
                         .build());
     }
 
