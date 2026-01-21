@@ -16,9 +16,6 @@ package io.trino.sql.planner.assertions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
-import io.trino.Session;
-import io.trino.cost.StatsProvider;
-import io.trino.metadata.Metadata;
 import io.trino.spi.type.Type;
 import io.trino.sql.DynamicFilters;
 import io.trino.sql.ir.Comparison;
@@ -101,7 +98,7 @@ public final class JoinMatcher
     }
 
     @Override
-    public MatchResult detailMatches(PlanNode node, StatsProvider stats, Session session, Metadata metadata, SymbolAliases symbolAliases)
+    public MatchResult detailMatches(PlanNode node, MatchContext context)
     {
         checkState(shapeMatches(node), "Plan testing framework error: shapeMatches returned false in detailMatches in %s", this.getClass().getName());
 
@@ -115,7 +112,7 @@ public final class JoinMatcher
             if (joinNode.getFilter().isEmpty()) {
                 return NO_MATCH;
             }
-            if (!new ExpressionVerifier(symbolAliases).process(joinNode.getFilter().get(), filter.get())) {
+            if (!new ExpressionVerifier(context.symbolAliases()).process(joinNode.getFilter().get(), filter.get())) {
                 return NO_MATCH;
             }
         }
@@ -145,7 +142,7 @@ public final class JoinMatcher
             Set<JoinNode.EquiJoinClause> actual = ImmutableSet.copyOf(joinNode.getCriteria());
             Set<JoinNode.EquiJoinClause> expected =
                     equiCriteria.stream()
-                            .map(maker -> maker.getExpectedValue(symbolAliases))
+                            .map(maker -> maker.getExpectedValue(context.symbolAliases()))
                             .collect(toImmutableSet());
 
             if (!expected.equals(actual)) {
@@ -153,7 +150,7 @@ public final class JoinMatcher
             }
         }
 
-        return new MatchResult(matchDynamicFilters(joinNode, symbolAliases));
+        return new MatchResult(matchDynamicFilters(joinNode, context.symbolAliases()));
     }
 
     private boolean matchDynamicFilters(JoinNode joinNode, SymbolAliases symbolAliases)

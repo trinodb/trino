@@ -13,9 +13,6 @@
  */
 package io.trino.sql.planner.assertions;
 
-import io.trino.Session;
-import io.trino.cost.StatsProvider;
-import io.trino.metadata.Metadata;
 import io.trino.sql.planner.plan.PlanNode;
 
 public class StatsOutputRowCountMatcher
@@ -35,9 +32,9 @@ public class StatsOutputRowCountMatcher
     }
 
     @Override
-    public MatchResult detailMatches(PlanNode node, StatsProvider stats, Session session, Metadata metadata, SymbolAliases symbolAliases)
+    public MatchResult detailMatches(PlanNode node, MatchContext context)
     {
-        return new MatchResult(Double.compare(stats.getStats(node).getOutputRowCount(), expectedOutputRowCount) == 0);
+        return new MatchResult(Double.compare(context.stats().getStats(node).getOutputRowCount(), expectedOutputRowCount) == 0);
     }
 
     @Override

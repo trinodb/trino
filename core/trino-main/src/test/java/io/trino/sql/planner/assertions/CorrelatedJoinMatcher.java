@@ -13,9 +13,6 @@
  */
 package io.trino.sql.planner.assertions;
 
-import io.trino.Session;
-import io.trino.cost.StatsProvider;
-import io.trino.metadata.Metadata;
 import io.trino.sql.DynamicFilters;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.planner.plan.CorrelatedJoinNode;
@@ -44,13 +41,13 @@ final class CorrelatedJoinMatcher
     }
 
     @Override
-    public MatchResult detailMatches(PlanNode node, StatsProvider stats, Session session, Metadata metadata, SymbolAliases symbolAliases)
+    public MatchResult detailMatches(PlanNode node, MatchContext context)
     {
         if (!(node instanceof CorrelatedJoinNode correlatedJoinNode)) {
             throw new IllegalStateException("This is a detailed matcher for CorrelatedJoinNode, got: " + node);
         }
         Expression filter = correlatedJoinNode.getFilter();
-        ExpressionVerifier verifier = new ExpressionVerifier(symbolAliases);
+        ExpressionVerifier verifier = new ExpressionVerifier(context.symbolAliases());
         DynamicFilters.ExtractResult extractResult = extractDynamicFilters(filter);
         return new MatchResult(verifier.process(combineConjuncts(extractResult.getStaticConjuncts()), filter));
     }

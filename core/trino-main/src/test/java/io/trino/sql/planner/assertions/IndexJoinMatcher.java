@@ -14,9 +14,6 @@
 package io.trino.sql.planner.assertions;
 
 import com.google.common.collect.ImmutableSet;
-import io.trino.Session;
-import io.trino.cost.StatsProvider;
-import io.trino.metadata.Metadata;
 import io.trino.sql.planner.plan.IndexJoinNode;
 import io.trino.sql.planner.plan.PlanNode;
 
@@ -54,7 +51,7 @@ final class IndexJoinMatcher
     }
 
     @Override
-    public MatchResult detailMatches(PlanNode node, StatsProvider stats, Session session, Metadata metadata, SymbolAliases symbolAliases)
+    public MatchResult detailMatches(PlanNode node, MatchContext context)
     {
         checkState(shapeMatches(node), "Plan testing framework error: shapeMatches returned false in detailMatches in %s", this.getClass().getName());
         IndexJoinNode indexJoinNode = (IndexJoinNode) node;
@@ -64,7 +61,7 @@ final class IndexJoinMatcher
         }
         Set<IndexJoinNode.EquiJoinClause> actualCriteria = ImmutableSet.copyOf(indexJoinNode.getCriteria());
         Set<IndexJoinNode.EquiJoinClause> expectedCriteria = criteria.stream()
-                .map(equiClause -> equiClause.getExpectedValue(symbolAliases))
+                .map(equiClause -> equiClause.getExpectedValue(context.symbolAliases()))
                 .collect(toImmutableSet());
         if (!expectedCriteria.equals(actualCriteria)) {
             return NO_MATCH;

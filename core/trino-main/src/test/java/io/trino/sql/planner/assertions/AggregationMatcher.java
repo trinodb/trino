@@ -13,9 +13,6 @@
  */
 package io.trino.sql.planner.assertions;
 
-import io.trino.Session;
-import io.trino.cost.StatsProvider;
-import io.trino.metadata.Metadata;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.plan.AggregationNode;
@@ -59,7 +56,7 @@ public class AggregationMatcher
     }
 
     @Override
-    public MatchResult detailMatches(PlanNode node, StatsProvider stats, Session session, Metadata metadata, SymbolAliases symbolAliases)
+    public MatchResult detailMatches(PlanNode node, MatchContext context)
     {
         checkState(shapeMatches(node), "Plan testing framework error: shapeMatches returned false in detailMatches in %s", this.getClass().getName());
         AggregationNode aggregationNode = (AggregationNode) node;
@@ -68,7 +65,7 @@ public class AggregationMatcher
             return NO_MATCH;
         }
 
-        if (!matches(groupingSets.getGroupingKeys(), aggregationNode.getGroupingKeys(), symbolAliases)) {
+        if (!matches(groupingSets.getGroupingKeys(), aggregationNode.getGroupingKeys(), context.symbolAliases())) {
             return NO_MATCH;
         }
 
@@ -87,7 +84,7 @@ public class AggregationMatcher
 
         Set<Symbol> expectedMasks = masks.stream()
                 .map(name -> {
-                    Reference reference = symbolAliases.get(name);
+                    Reference reference = context.symbolAliases().get(name);
                     return new Symbol(reference.type(), reference.name());
                 })
                 .collect(toImmutableSet());
@@ -100,7 +97,7 @@ public class AggregationMatcher
             return NO_MATCH;
         }
 
-        if (!matches(preGroupedSymbols, aggregationNode.getPreGroupedSymbols(), symbolAliases)) {
+        if (!matches(preGroupedSymbols, aggregationNode.getPreGroupedSymbols(), context.symbolAliases())) {
             return NO_MATCH;
         }
 

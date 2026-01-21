@@ -13,9 +13,6 @@
  */
 package io.trino.sql.planner.assertions;
 
-import io.trino.Session;
-import io.trino.cost.StatsProvider;
-import io.trino.metadata.Metadata;
 import io.trino.sql.planner.plan.PlanNode;
 
 public interface Matcher
@@ -45,7 +42,7 @@ public interface Matcher
      * detailMatches must ONLY collect SymbolAliases that are new to the node it is
      * being applied to.  Specifically, the MatchResult returned by
      * detailMatches MUST NOT contain any of the aliases contained in the
-     * SymbolAliases that was passed in to detailMatches().
+     * SymbolAliases available via the MatchContext.
      * <p>
      * This is because the caller of detailMatches is responsible for calling
      * detailMatches for all of the source nodes/patterns, and then returning the
@@ -63,11 +60,8 @@ public interface Matcher
      * node if shapeMatches didn't return true for the same node.
      *
      * @param node The node to apply the matching tests to
-     * @param stats Provider of stats for
-     * @param session The session information for the query
-     * @param metadata The metadata for the query
-     * @param symbolAliases The SymbolAliases containing aliases from the nodes sources
+     * @param context The matching context, including symbol aliases from source nodes
      * @return a MatchResult with information about the success of the match
      */
-    MatchResult detailMatches(PlanNode node, StatsProvider stats, Session session, Metadata metadata, SymbolAliases symbolAliases);
+    MatchResult detailMatches(PlanNode node, MatchContext context);
 }

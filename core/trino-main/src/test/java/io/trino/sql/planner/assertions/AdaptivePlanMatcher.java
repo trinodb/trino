@@ -13,9 +13,6 @@
  */
 package io.trino.sql.planner.assertions;
 
-import io.trino.Session;
-import io.trino.cost.StatsProvider;
-import io.trino.metadata.Metadata;
 import io.trino.sql.planner.plan.AdaptivePlanNode;
 import io.trino.sql.planner.plan.PlanNode;
 
@@ -40,11 +37,11 @@ public class AdaptivePlanMatcher
     }
 
     @Override
-    public MatchResult detailMatches(PlanNode node, StatsProvider statsProvider, Session session, Metadata metadata, SymbolAliases symbolAliases)
+    public MatchResult detailMatches(PlanNode node, MatchContext context)
     {
         checkState(shapeMatches(node), "Plan testing framework error: shapeMatches returned false in detailMatches in %s", this.getClass().getName());
         AdaptivePlanNode adaptivePlanNode = (AdaptivePlanNode) node;
-        return adaptivePlanNode.getInitialPlan().accept(new PlanMatchingVisitor(session, metadata, statsProvider, noLookup()), initialPlan);
+        return adaptivePlanNode.getInitialPlan().accept(new PlanMatchingVisitor(context.session(), context.metadata(), context.stats(), noLookup()), initialPlan);
     }
 
     @Override

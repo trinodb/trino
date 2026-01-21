@@ -17,8 +17,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.trino.Session;
-import io.trino.cost.StatsProvider;
-import io.trino.metadata.Metadata;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.operator.RetryPolicy;
@@ -33,9 +31,9 @@ import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.OptimizerConfig.JoinDistributionType;
 import io.trino.sql.planner.OptimizerConfig.JoinReorderingStrategy;
 import io.trino.sql.planner.assertions.BasePlanTest;
+import io.trino.sql.planner.assertions.MatchContext;
 import io.trino.sql.planner.assertions.MatchResult;
 import io.trino.sql.planner.assertions.Matcher;
-import io.trino.sql.planner.assertions.SymbolAliases;
 import io.trino.sql.planner.plan.DynamicFilterSourceNode;
 import io.trino.sql.planner.plan.FilterNode;
 import io.trino.sql.planner.plan.PlanNode;
@@ -310,7 +308,7 @@ public class TestAddDynamicFilterSource
             }
 
             @Override
-            public MatchResult detailMatches(PlanNode node, StatsProvider stats, Session session, Metadata metadata, SymbolAliases symbolAliases)
+            public MatchResult detailMatches(PlanNode node, MatchContext context)
             {
                 FilterNode filterNode = (FilterNode) node;
                 return new MatchResult(DynamicFilters.extractDynamicFilters(filterNode.getPredicate()).getDynamicConjuncts().size() == numberOfDynamicFilters);

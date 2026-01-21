@@ -13,9 +13,6 @@
  */
 package io.trino.sql.planner.assertions;
 
-import io.trino.Session;
-import io.trino.cost.StatsProvider;
-import io.trino.metadata.Metadata;
 import io.trino.spi.connector.SortOrder;
 import io.trino.sql.planner.plan.DataOrganizationSpecification;
 import io.trino.sql.planner.plan.PlanNode;
@@ -62,7 +59,7 @@ public final class WindowMatcher
     }
 
     @Override
-    public MatchResult detailMatches(PlanNode node, StatsProvider stats, Session session, Metadata metadata, SymbolAliases symbolAliases)
+    public MatchResult detailMatches(PlanNode node, MatchContext context)
     {
         checkState(shapeMatches(node), "Plan testing framework error: shapeMatches returned false in detailMatches in %s", this.getClass().getName());
 
@@ -70,7 +67,7 @@ public final class WindowMatcher
 
         if (!prePartitionedInputs
                 .map(expectedInputs -> expectedInputs.stream()
-                        .map(alias -> alias.toSymbol(symbolAliases))
+                        .map(alias -> alias.toSymbol(context.symbolAliases()))
                         .collect(toImmutableSet())
                         .equals(windowNode.getPrePartitionedInputs()))
                 .orElse(true)) {
@@ -79,7 +76,7 @@ public final class WindowMatcher
 
         if (!specification
                 .map(expectedSpecification ->
-                        expectedSpecification.getExpectedValue(symbolAliases)
+                        expectedSpecification.getExpectedValue(context.symbolAliases())
                                 .equals(windowNode.getSpecification()))
                 .orElse(true)) {
             return NO_MATCH;

@@ -923,7 +923,7 @@ public final class PlanMatchPattern
         SymbolAliases.Builder newAliases = SymbolAliases.builder();
 
         for (Matcher matcher : matchers) {
-            MatchResult matchResult = matcher.detailMatches(node, stats, session, metadata, symbolAliases);
+            MatchResult matchResult = matcher.detailMatches(node, new MatchContext(stats, session, metadata, symbolAliases));
             if (!matchResult.isMatch()) {
                 return NO_MATCH;
             }
@@ -944,7 +944,7 @@ public final class PlanMatchPattern
             }
 
             @Override
-            public MatchResult detailMatches(PlanNode node, StatsProvider stats, Session session, Metadata metadata, SymbolAliases symbolAliases)
+            public MatchResult detailMatches(PlanNode node, MatchContext context)
             {
                 if (predicate.test(clazz.cast(node))) {
                     return match();

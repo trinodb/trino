@@ -15,9 +15,6 @@ package io.trino.sql.planner.assertions;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import io.trino.Session;
-import io.trino.cost.StatsProvider;
-import io.trino.metadata.Metadata;
 import io.trino.sql.planner.OrderingScheme;
 import io.trino.sql.planner.assertions.PlanMatchPattern.Ordering;
 import io.trino.sql.planner.plan.LimitNode;
@@ -63,7 +60,7 @@ public class LimitMatcher
     }
 
     @Override
-    public MatchResult detailMatches(PlanNode node, StatsProvider stats, Session session, Metadata metadata, SymbolAliases symbolAliases)
+    public MatchResult detailMatches(PlanNode node, MatchContext context)
     {
         checkState(shapeMatches(node));
         LimitNode limitNode = (LimitNode) node;
@@ -72,7 +69,7 @@ public class LimitMatcher
             return match();
         }
         OrderingScheme tiesResolvingScheme = limitNode.getTiesResolvingScheme().get();
-        if (orderingSchemeMatches(tiesResolvers, tiesResolvingScheme, symbolAliases)) {
+        if (orderingSchemeMatches(tiesResolvers, tiesResolvingScheme, context.symbolAliases())) {
             return match();
         }
 
@@ -80,7 +77,7 @@ public class LimitMatcher
             return match();
         }
         if (preSortedInputs.stream()
-                .map(alias -> alias.toSymbol(symbolAliases))
+                .map(alias -> alias.toSymbol(context.symbolAliases()))
                 .collect(toImmutableSet())
                 .equals(ImmutableSet.copyOf(limitNode.getPreSortedInputs()))) {
             return match();

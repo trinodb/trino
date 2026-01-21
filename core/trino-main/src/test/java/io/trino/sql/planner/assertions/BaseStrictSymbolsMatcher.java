@@ -14,7 +14,6 @@
 package io.trino.sql.planner.assertions;
 
 import io.trino.Session;
-import io.trino.cost.StatsProvider;
 import io.trino.metadata.Metadata;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.plan.PlanNode;
@@ -48,10 +47,10 @@ public abstract class BaseStrictSymbolsMatcher
     }
 
     @Override
-    public MatchResult detailMatches(PlanNode node, StatsProvider stats, Session session, Metadata metadata, SymbolAliases symbolAliases)
+    public MatchResult detailMatches(PlanNode node, MatchContext context)
     {
         checkState(shapeMatches(node), "Plan testing framework error: shapeMatches returned false in detailMatches in %s", this.getClass().getName());
-        return new MatchResult(getActual.apply(node).equals(getExpectedSymbols(node, session, metadata, symbolAliases)));
+        return new MatchResult(getActual.apply(node).equals(getExpectedSymbols(node, context.session(), context.metadata(), context.symbolAliases())));
     }
 
     protected abstract Set<Symbol> getExpectedSymbols(PlanNode node, Session session, Metadata metadata, SymbolAliases symbolAliases);
