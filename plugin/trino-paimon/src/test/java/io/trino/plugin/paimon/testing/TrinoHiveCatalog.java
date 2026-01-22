@@ -198,7 +198,6 @@ public class TrinoHiveCatalog
 
     @Override
     public PagedList<Table> listTableDetailsPaged(String s, @Nullable Integer integer, @Nullable String s1, @Nullable String s2, @Nullable String s3)
-            throws DatabaseNotExistException
     {
         throw new UnsupportedOperationException("Alter table is not supported yet");
     }
@@ -256,7 +255,6 @@ public class TrinoHiveCatalog
 
     @Override
     public void markDonePartitions(Identifier identifier, List<Map<String, String>> list)
-            throws TableNotExistException
     {
         throw new UnsupportedOperationException();
     }
@@ -270,7 +268,6 @@ public class TrinoHiveCatalog
 
     @Override
     public PagedList<Partition> listPartitionsPaged(Identifier identifier, @Nullable Integer integer, @Nullable String s, @Nullable String s1)
-            throws TableNotExistException
     {
         throw new UnsupportedOperationException();
     }
@@ -289,126 +286,108 @@ public class TrinoHiveCatalog
 
     @Override
     public boolean commitSnapshot(Identifier identifier, @Nullable String s, Snapshot snapshot, List<PartitionStatistics> list)
-            throws TableNotExistException
     {
         throw new UnsupportedOperationException();
     }
 
     @Override
     public Optional<TableSnapshot> loadSnapshot(Identifier identifier)
-            throws TableNotExistException
     {
         throw new UnsupportedOperationException();
     }
 
     @Override
     public Optional<Snapshot> loadSnapshot(Identifier identifier, String s)
-            throws TableNotExistException
     {
         throw new UnsupportedOperationException();
     }
 
     @Override
     public PagedList<Snapshot> listSnapshotsPaged(Identifier identifier, @Nullable Integer integer, @Nullable String s)
-            throws TableNotExistException
     {
         throw new UnsupportedOperationException();
     }
 
     @Override
     public void rollbackTo(Identifier identifier, Instant instant)
-            throws TableNotExistException
     {
         throw new UnsupportedOperationException();
     }
 
     @Override
     public void createBranch(Identifier identifier, String s, @Nullable String s1)
-            throws TableNotExistException, BranchAlreadyExistException, TagNotExistException
     {
         throw new UnsupportedOperationException();
     }
 
     @Override
     public void dropBranch(Identifier identifier, String s)
-            throws BranchNotExistException
     {
         throw new UnsupportedOperationException();
     }
 
     @Override
     public void fastForward(Identifier identifier, String s)
-            throws BranchNotExistException
     {
         throw new UnsupportedOperationException();
     }
 
     @Override
     public List<String> listBranches(Identifier identifier)
-            throws TableNotExistException
     {
         throw new UnsupportedOperationException();
     }
 
     @Override
     public void createPartitions(Identifier identifier, List<Map<String, String>> list)
-            throws TableNotExistException
     {
         throw new UnsupportedOperationException();
     }
 
     @Override
     public void dropPartitions(Identifier identifier, List<Map<String, String>> list)
-            throws TableNotExistException
     {
         throw new UnsupportedOperationException();
     }
 
     @Override
     public void alterPartitions(Identifier identifier, List<PartitionStatistics> list)
-            throws TableNotExistException
     {
         throw new UnsupportedOperationException();
     }
 
     @Override
     public List<String> listFunctions(String s)
-            throws DatabaseNotExistException
     {
         throw new UnsupportedOperationException();
     }
 
     @Override
     public Function getFunction(Identifier identifier)
-            throws FunctionNotExistException
     {
         throw new UnsupportedOperationException();
     }
 
     @Override
     public void createFunction(Identifier identifier, Function function, boolean b)
-            throws FunctionAlreadyExistException, DatabaseNotExistException
     {
         throw new UnsupportedOperationException();
     }
 
     @Override
     public void dropFunction(Identifier identifier, boolean b)
-            throws FunctionNotExistException
     {
         throw new UnsupportedOperationException();
     }
 
     @Override
     public void alterFunction(Identifier identifier, List<FunctionChange> list, boolean b)
-            throws FunctionNotExistException, DefinitionAlreadyExistException, DefinitionNotExistException
     {
         throw new UnsupportedOperationException();
     }
 
     @Override
     public List<String> authTableQuery(Identifier identifier, @Nullable List<String> list)
-            throws TableNotExistException
     {
         throw new UnsupportedOperationException();
     }
