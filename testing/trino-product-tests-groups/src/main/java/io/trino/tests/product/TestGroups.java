@@ -97,7 +97,6 @@ public final class TestGroups
     public static final String DELTA_LAKE_GCS = "delta-lake-gcs";
     // DELTA_LAKE_DATABRICKS runs tests against oldest and newest Databricks runtimes
     public static final String DELTA_LAKE_DATABRICKS = "delta-lake-databricks";
-    public static final String DELTA_LAKE_DATABRICKS_133 = "delta-lake-databricks-133";
     public static final String DELTA_LAKE_DATABRICKS_143 = "delta-lake-databricks-143";
     public static final String DELTA_LAKE_DATABRICKS_154 = "delta-lake-databricks-154";
     public static final String DELTA_LAKE_DATABRICKS_164 = "delta-lake-databricks-164";
