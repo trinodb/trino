@@ -135,7 +135,6 @@ public class DeleteManager
     {
         DeletionVector read(DeleteFile deleteFile);
     }
-    }
 
     private List<EqualityDeleteFilter> createEqualityDeleteFilter(List<DeleteFile> equalityDeleteFiles, Schema schema, DeletePageSourceProvider deletePageSourceProvider)
     {
