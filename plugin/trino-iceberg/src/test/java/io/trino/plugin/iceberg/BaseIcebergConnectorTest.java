@@ -6299,6 +6299,28 @@ public abstract class BaseIcebergConnectorTest
     }
 
     @Test
+    public void testDynamicFilteringWithPathColumn()
+    {
+        try (TestTable dataTable = newTrinoTable("test_df_path_data_", "(id int, value varchar)");
+                TestTable filterTable = newTrinoTable("test_df_path_filter_", "(filter_id int, file_path varchar)")) {
+            assertUpdate("INSERT INTO " + dataTable.getName() + " VALUES (1, 'a'), (2, 'b')", 2);
+            assertUpdate("INSERT INTO " + dataTable.getName() + " VALUES (3, 'c'), (4, 'd')", 2);
+            assertUpdate("INSERT INTO " + dataTable.getName() + " VALUES (5, 'e'), (6, 'f')", 2);
+
+            String firstPath = (String) computeScalar("SELECT \"$path\" FROM " + dataTable.getName() + " WHERE id = 1");
+            String secondPath = (String) computeScalar("SELECT \"$path\" FROM " + dataTable.getName() + " WHERE id = 3");
+            assertUpdate("INSERT INTO " + filterTable.getName() + " VALUES (1, '%s'), (2, '%s')".formatted(firstPath, secondPath), 2);
+
+            String selectQuery = "SELECT d.id, d.value FROM %s d JOIN %s f ON d.\"$path\" = f.file_path ORDER BY d.id"
+                    .formatted(dataTable.getName(), filterTable.getName());
+            Session session = Session.builder(getSession())
+                    .setCatalogSessionProperty("iceberg", DYNAMIC_FILTERING_WAIT_TIMEOUT, "1s")
+                    .build();
+            assertQuery(session, selectQuery, "VALUES (1, 'a'), (2, 'b'), (3, 'c'), (4, 'd')");
+        }
+    }
+
+    @Test
     public void testFileModifiedTimeHiddenColumn()
             throws Exception
     {

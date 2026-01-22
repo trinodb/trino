@@ -271,7 +271,7 @@ public class IcebergSplitSource
         if (fileScanIterable == null) {
             this.pushedDownDynamicFilterPredicate = dynamicFilter.getCurrentPredicate()
                     .transformKeys(IcebergColumnHandle.class::cast)
-                    .filter((columnHandle, domain) -> isConvertibleToIcebergExpression(domain));
+                    .filter((columnHandle, domain) -> isConvertibleToIcebergExpression(domain) && !isMetadataColumnId(columnHandle.getId()));
 
             TupleDomain<IcebergColumnHandle> effectivePredicate = TupleDomain.intersect(
                     ImmutableList.of(dataColumnPredicate, tableHandle.getUnenforcedPredicate(), pushedDownDynamicFilterPredicate));
@@ -431,12 +431,14 @@ public class IcebergSplitSource
                 return true;
             }
         }
-        if (!pathDomain.isAll() && !pathDomain.includesNullableValue(utf8Slice(fileScanTask.file().location()))) {
+        Domain fullPathDomain = pathDomain.intersect(getPathDomain(dynamicFilterPredicate));
+        if (!fullPathDomain.isAll() && !fullPathDomain.includesNullableValue(utf8Slice(fileScanTask.file().location()))) {
             return true;
         }
-        if (!fileModifiedTimeDomain.isAll()) {
+        Domain fullFileModifiedTimeDomain = fileModifiedTimeDomain.intersect(getFileModifiedTimeDomain(dynamicFilterPredicate));
+        if (!fullFileModifiedTimeDomain.isAll()) {
             long fileModifiedTime = getModificationTime(fileScanTask.file().location(), fileSystemFactory.create(session.getIdentity(), fileIoProperties));
-            if (!fileModifiedTimeDomain.includesNullableValue(packDateTimeWithZone(fileModifiedTime, UTC_KEY))) {
+            if (!fullFileModifiedTimeDomain.includesNullableValue(packDateTimeWithZone(fileModifiedTime, UTC_KEY))) {
                 return true;
             }
         }
