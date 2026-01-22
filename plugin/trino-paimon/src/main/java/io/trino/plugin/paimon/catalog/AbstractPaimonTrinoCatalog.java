@@ -17,16 +17,14 @@ import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.plugin.paimon.PaimonConfig;
 import io.trino.plugin.paimon.fileio.PaimonFileIO;
 import io.trino.spi.connector.ConnectorSession;
-import io.trino.spi.connector.SchemaTableName;
-import io.trino.spi.connector.TableNotFoundException;
+import org.apache.paimon.CoreOptions;
 import org.apache.paimon.catalog.Identifier;
 import org.apache.paimon.fs.FileIO;
 import org.apache.paimon.fs.FileStatus;
 import org.apache.paimon.fs.Path;
+import org.apache.paimon.options.Options;
 import org.apache.paimon.schema.SchemaManager;
 import org.apache.paimon.schema.TableSchema;
-import org.apache.paimon.table.FileStoreTableFactory;
-import org.apache.paimon.table.Table;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -35,6 +33,7 @@ import java.util.concurrent.Callable;
 
 import static java.util.Objects.requireNonNull;
 import static org.apache.paimon.CoreOptions.PATH;
+import static org.apache.paimon.catalog.Identifier.DEFAULT_MAIN_BRANCH;
 
 public abstract class AbstractPaimonTrinoCatalog
         implements TrinoCatalog
@@ -119,28 +118,19 @@ public abstract class AbstractPaimonTrinoCatalog
         }
     }
 
-    @Override
-    public Table loadTable(ConnectorSession session, SchemaTableName schemaTableName)
+    protected Optional<TableSchema> tableSchemaInFileSystem(FileIO fileIO, Path tablePath, String branchName)
     {
-        Identifier identifier = Identifier.create(schemaTableName.getSchemaName(), schemaTableName.getTableName());
-        Path tablePath = new Path(newDatabasePath(identifier.getDatabaseName()), identifier.getTableName());
-        PaimonFileIO fileIO = new PaimonFileIO(fileSystemFactory.create(session), tablePath);
-        TableSchema schema = loadTableSchema(fileIO, identifier).orElseThrow(() -> new TableNotFoundException(schemaTableName));
-        Path path = new Path(schema.options().get(PATH.key()));
-
-        return FileStoreTableFactory.create(fileIO, path, schema);
-    }
-
-    @Override
-    public PaimonConfig config()
-    {
-        return config;
-    }
-
-    public Optional<TableSchema> loadTableSchema(FileIO fileIO, Identifier identifier)
-    {
-        Path tablePath = new Path(newDatabasePath(identifier.getDatabaseName()), identifier.getObjectName());
-        Optional<TableSchema> schema = new SchemaManager(fileIO, tablePath).latest();
+        Optional<TableSchema> schema =
+                new SchemaManager(fileIO, tablePath, branchName).latest();
+        if (!DEFAULT_MAIN_BRANCH.equals(branchName)) {
+            schema =
+                    schema.map(
+                            s -> {
+                                Options branchOptions = new Options(s.options());
+                                branchOptions.set(CoreOptions.BRANCH, branchName);
+                                return s.copy(branchOptions.toMap());
+                            });
+        }
         schema.ifPresent(s -> s.options().put(PATH.key(), tablePath.toString()));
         return schema;
     }
@@ -153,5 +143,16 @@ public abstract class AbstractPaimonTrinoCatalog
     protected Path newDatabasePath(String warehouse, String database)
     {
         return new Path(warehouse, database + DB_SUFFIX);
+    }
+
+    protected Path getTableLocation(Identifier identifier)
+    {
+        return new Path(newDatabasePath(identifier.getDatabaseName()), identifier.getTableName());
+    }
+
+    @Override
+    public PaimonConfig config()
+    {
+        return config;
     }
 }

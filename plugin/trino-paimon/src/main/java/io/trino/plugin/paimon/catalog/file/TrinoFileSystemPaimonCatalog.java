@@ -17,11 +17,22 @@ package io.trino.plugin.paimon.catalog.file;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.plugin.paimon.PaimonConfig;
 import io.trino.plugin.paimon.catalog.AbstractPaimonTrinoCatalog;
+import io.trino.plugin.paimon.fileio.PaimonFileIO;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.connector.TableNotFoundException;
+import org.apache.paimon.catalog.Identifier;
 import org.apache.paimon.fs.FileIO;
+import org.apache.paimon.fs.Path;
+import org.apache.paimon.schema.SchemaManager;
+import org.apache.paimon.schema.TableSchema;
+import org.apache.paimon.table.FileStoreTableFactory;
+import org.apache.paimon.table.Table;
 
 import java.util.List;
 import java.util.Optional;
+
+import static org.apache.paimon.CoreOptions.PATH;
 
 public class TrinoFileSystemPaimonCatalog
         extends AbstractPaimonTrinoCatalog
@@ -57,5 +68,25 @@ public class TrinoFileSystemPaimonCatalog
                     .flatMap(db -> listTablesInFileSystem(session, newDatabasePath(db)).stream())
                     .toList();
         }
+    }
+
+    @Override
+    public Table loadTable(ConnectorSession session, SchemaTableName schemaTableName)
+    {
+        Identifier identifier = Identifier.create(schemaTableName.getSchemaName(), schemaTableName.getTableName());
+        Path tablePath = new Path(newDatabasePath(identifier.getDatabaseName()), identifier.getTableName());
+        PaimonFileIO fileIO = new PaimonFileIO(fileSystemFactory.create(session), tablePath);
+        TableSchema schema = loadTableSchema(fileIO, identifier).orElseThrow(() -> new TableNotFoundException(schemaTableName));
+        Path path = new Path(schema.options().get(PATH.key()));
+
+        return FileStoreTableFactory.create(fileIO, path, schema);
+    }
+
+    public Optional<TableSchema> loadTableSchema(FileIO fileIO, Identifier identifier)
+    {
+        Path tablePath = new Path(newDatabasePath(identifier.getDatabaseName()), identifier.getObjectName());
+        Optional<TableSchema> schema = new SchemaManager(fileIO, tablePath).latest();
+        schema.ifPresent(s -> s.options().put(PATH.key(), tablePath.toString()));
+        return schema;
     }
 }
