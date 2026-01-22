@@ -161,6 +161,6 @@ public class TrinoHivePaimonCatalog
         String tableName = identifier.getTableName();
         Database database = metastore.getDatabase(databaseName).orElseThrow(() -> new SchemaNotFoundException("Database does not exist: " + databaseName));
         Optional<Path> tableLocationByDatabase = database.getLocation().map(databaseLocation -> new Path(databaseLocation, tableName));
-        return tableLocationByDatabase.orElse(super.getTableLocation(identifier));
+        return tableLocationByDatabase.orElse(super.getTableLocationInFileSystem(identifier));
     }
 }

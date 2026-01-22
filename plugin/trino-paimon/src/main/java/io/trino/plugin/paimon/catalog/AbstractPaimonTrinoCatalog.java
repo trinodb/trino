@@ -135,19 +135,19 @@ public abstract class AbstractPaimonTrinoCatalog
         return schema;
     }
 
-    protected Path newDatabasePath(String database)
+    protected Path newDatabasePathInFileSystem(String database)
     {
-        return newDatabasePath(warehouse(), database);
+        return newDatabasePathInFileSystem(warehouse(), database);
     }
 
-    protected Path newDatabasePath(String warehouse, String database)
+    protected Path newDatabasePathInFileSystem(String warehouse, String database)
     {
         return new Path(warehouse, database + DB_SUFFIX);
     }
 
-    protected Path getTableLocation(Identifier identifier)
+    protected Path getTableLocationInFileSystem(Identifier identifier)
     {
-        return new Path(newDatabasePath(identifier.getDatabaseName()), identifier.getTableName());
+        return new Path(newDatabasePathInFileSystem(identifier.getDatabaseName()), identifier.getTableName());
     }
 
     @Override

@@ -48,7 +48,7 @@ public class TrinoFileSystemPaimonCatalog
     public boolean databaseExists(ConnectorSession session, String database)
     {
         FileIO fileIO = getFileIO(session);
-        return uncheck(() -> fileIO.exists(newDatabasePath(database)));
+        return uncheck(() -> fileIO.exists(newDatabasePathInFileSystem(database)));
     }
 
     @Override
@@ -61,11 +61,11 @@ public class TrinoFileSystemPaimonCatalog
     public List<String> listTables(ConnectorSession session, Optional<String> namespace)
     {
         if (namespace.isPresent()) {
-            return listTablesInFileSystem(session, newDatabasePath(namespace.get()));
+            return listTablesInFileSystem(session, newDatabasePathInFileSystem(namespace.get()));
         }
         else {
             return listDatabases(session).stream()
-                    .flatMap(db -> listTablesInFileSystem(session, newDatabasePath(db)).stream())
+                    .flatMap(db -> listTablesInFileSystem(session, newDatabasePathInFileSystem(db)).stream())
                     .toList();
         }
     }
@@ -74,7 +74,7 @@ public class TrinoFileSystemPaimonCatalog
     public Table loadTable(ConnectorSession session, SchemaTableName schemaTableName)
     {
         Identifier identifier = Identifier.create(schemaTableName.getSchemaName(), schemaTableName.getTableName());
-        Path tablePath = new Path(newDatabasePath(identifier.getDatabaseName()), identifier.getTableName());
+        Path tablePath = new Path(newDatabasePathInFileSystem(identifier.getDatabaseName()), identifier.getTableName());
         PaimonFileIO fileIO = new PaimonFileIO(fileSystemFactory.create(session), tablePath);
         TableSchema schema = loadTableSchema(fileIO, identifier).orElseThrow(() -> new TableNotFoundException(schemaTableName));
         Path path = new Path(schema.options().get(PATH.key()));
@@ -84,7 +84,7 @@ public class TrinoFileSystemPaimonCatalog
 
     public Optional<TableSchema> loadTableSchema(FileIO fileIO, Identifier identifier)
     {
-        Path tablePath = new Path(newDatabasePath(identifier.getDatabaseName()), identifier.getObjectName());
+        Path tablePath = new Path(newDatabasePathInFileSystem(identifier.getDatabaseName()), identifier.getObjectName());
         Optional<TableSchema> schema = new SchemaManager(fileIO, tablePath).latest();
         schema.ifPresent(s -> s.options().put(PATH.key(), tablePath.toString()));
         return schema;
