@@ -157,7 +157,6 @@ public class QueryResults
         return updateType;
     }
 
-    @Nullable
     @JsonProperty
     @Override
     public OptionalLong getUpdateCount()
