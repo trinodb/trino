@@ -474,6 +474,15 @@ jobs:
                 - lib/trino-hive-formats
             - { modules: core/trino-main }
             - { modules: lib/trino-filesystem-azure, profile: cloud-tests }
+            - { modules: lib/trino-filesystem-azure, profile: cloud-tests }
+            - { modules: lib/trino-filesystem-azure, profile: cloud-tests }
+            - { modules: lib/trino-filesystem-azure, profile: cloud-tests }
+            - { modules: lib/trino-filesystem-azure, profile: cloud-tests }
+            - { modules: lib/trino-filesystem-azure, profile: cloud-tests }
+            - { modules: lib/trino-filesystem-azure, profile: cloud-tests }
+            - { modules: lib/trino-filesystem-azure, profile: cloud-tests }
+            - { modules: lib/trino-filesystem-azure, profile: cloud-tests }
+            - { modules: lib/trino-filesystem-azure, profile: cloud-tests }
             - { modules: lib/trino-filesystem-gcs, profile: cloud-tests }
             - { modules: lib/trino-filesystem-s3, profile: cloud-tests }
             - { modules: lib/trino-hdfs, profile: cloud-tests }
