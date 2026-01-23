@@ -284,6 +284,19 @@ public final class CoordinatorNodeManager
         return getAllNodes().shuttingDownNodes().size();
     }
 
+    @Managed
+    public int getActiveCoordinatorCount()
+    {
+        return getAllNodes().activeCoordinators().size();
+    }
+
+    @Managed
+    public int getActiveWorkerCount()
+    {
+        AllNodes allNodes = getAllNodes();
+        return allNodes.activeNodes().size() - allNodes.activeCoordinators().size();
+    }
+
     @VisibleForTesting
     synchronized Set<InternalNode> getInvalidNodes()
     {
