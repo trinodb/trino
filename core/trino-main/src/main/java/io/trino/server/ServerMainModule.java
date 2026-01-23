@@ -317,7 +317,7 @@ public class ServerMainModule
         binder.bind(NullSafeHashCompiler.class).in(Scopes.SINGLETON);
         binder.bind(PagesIndex.Factory.class).to(PagesIndex.DefaultFactory.class);
         binder.bind(PagesInputStreamFactory.class);
-        jaxrsBinder(binder).bind(IoExceptionSuppressingWriterInterceptor.class);
+        jaxrsBinder(binder).bind(EofExceptionSuppressingWriterInterceptor.class);
 
         // exchange client
         binder.bind(DirectExchangeClientSupplier.class).to(DirectExchangeClientFactory.class).in(Scopes.SINGLETON);
