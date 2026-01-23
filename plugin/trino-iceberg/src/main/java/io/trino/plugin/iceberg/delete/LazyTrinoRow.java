@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.iceberg.delete;
 
+import io.trino.spi.block.Block;
 import io.trino.spi.connector.SourcePage;
 import io.trino.spi.type.Type;
 import org.apache.iceberg.StructLike;
@@ -20,6 +21,7 @@ import org.apache.iceberg.StructLike;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkElementIndex;
 import static io.trino.plugin.iceberg.IcebergPageSink.getIcebergValue;
+import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -68,8 +70,20 @@ final class LazyTrinoRow
             return value;
         }
 
-        value = getIcebergValue(page.getBlock(i), position, types[i]);
+        value = getValue(page.getBlock(i), position, types[i]);
         values[i] = value;
         return value;
+    }
+
+    private static Object getValue(Block block, int position, Type type)
+    {
+        if (block.isNull(position)) {
+            return null;
+        }
+        if (type.equals(TIMESTAMP_TZ_MILLIS)) {
+            // $file_modified_time has the type TIMESTAMP_TZ_MILLIS in Trino, while Iceberg works with TIMESTAMP_TZ_MICROS
+            return TIMESTAMP_TZ_MILLIS.getLong(block, position);
+        }
+        return getIcebergValue(block, position, type);
     }
 }

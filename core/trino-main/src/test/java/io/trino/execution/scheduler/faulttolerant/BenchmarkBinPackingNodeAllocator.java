@@ -190,8 +190,7 @@ public class BenchmarkBinPackingNodeAllocator
                             taskMemoryUsage.entrySet().stream()
                                     .collect(toImmutableMap(
                                             entry -> entry.getKey().toString(),
-                                            entry -> entry.getValue().toBytes())),
-                            ImmutableMap.of()));
+                                            entry -> entry.getValue().toBytes()))));
         }
 
         private void assertAcquired(NodeAllocator.NodeLease lease)

@@ -84,7 +84,7 @@ public class TestIcebergParquetConnectorTest
     protected Optional<SetColumnTypeSetup> filterSetColumnTypesDataProvider(SetColumnTypeSetup setup)
     {
         switch ("%s -> %s".formatted(setup.sourceColumnType(), setup.newColumnType())) {
-            case "row(x integer) -> row(y integer)":
+            case "row(x integer) -> row(\"y\" integer)":
                 // TODO https://github.com/trinodb/trino/issues/15822 The connector returns incorrect NULL when a field in row type doesn't exist in Parquet files
                 return Optional.of(setup.withNewValueLiteral("NULL"));
         }

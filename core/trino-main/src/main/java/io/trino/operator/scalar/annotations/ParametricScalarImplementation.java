@@ -154,7 +154,7 @@ public class ParametricScalarImplementation
     {
         List<ScalarImplementationChoice> implementationChoices = new ArrayList<>();
         for (Map.Entry<String, Class<?>> entry : specializedTypeParameters.entrySet()) {
-            if (!entry.getValue().isAssignableFrom(functionBinding.getTypeVariable(entry.getKey()).getJavaType())) {
+            if (!entry.getValue().isAssignableFrom(functionBinding.variables().getTypeVariable(entry.getKey()).getJavaType())) {
                 return Optional.empty();
             }
         }
@@ -403,16 +403,6 @@ public class ParametricScalarImplementation
         public List<Class<?>> getLambdaInterfaces()
         {
             return lambdaInterfaces;
-        }
-
-        public boolean checkDependencies()
-        {
-            for (int i = 1; i < getDependencies().size(); i++) {
-                if (!getDependencies().get(i).equals(getDependencies().get(0))) {
-                    return false;
-                }
-            }
-            return true;
         }
 
         @VisibleForTesting

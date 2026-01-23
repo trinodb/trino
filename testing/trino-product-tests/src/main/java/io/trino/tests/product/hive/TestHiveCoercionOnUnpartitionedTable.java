@@ -162,7 +162,7 @@ public class TestHiveCoercionOnUnpartitionedTable
                             binary_to_string                   BINARY,
                             binary_to_smaller_varchar          BINARY,
                             id                                 BIGINT)
-                        STORED AS\s\
+                        STORED AS \
                         """ + fileFormat);
     }
 
@@ -180,7 +180,7 @@ public class TestHiveCoercionOnUnpartitionedTable
                             string_to_timestamp        STRING,
                             timestamp_to_date          TIMESTAMP,
                             id                         BIGINT)
-                        STORED AS\s\
+                        STORED AS \
                         """ + fileFormat);
     }
 

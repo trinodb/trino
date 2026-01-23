@@ -47,7 +47,6 @@ import java.util.Properties;
 import static com.google.inject.Scopes.SINGLETON;
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
-import static io.airlift.configuration.ConditionalModule.conditionalModule;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.trino.plugin.jdbc.JdbcModule.bindSessionPropertiesProvider;
 
@@ -67,21 +66,20 @@ public class RedshiftClientModule
         install(new DecimalModule());
         install(new JdbcJoinPushdownSupportModule());
 
-        install(conditionalModule(
-                RedshiftConfig.class,
-                config -> config.getUnloadLocation().isPresent(),
-                unloadBinder -> {
-                    install(new S3FileSystemModule());
-                    unloadBinder.bind(JdbcSplitManager.class).in(Scopes.SINGLETON);
-                    unloadBinder.bind(Connector.class).to(RedshiftUnloadConnector.class).in(Scopes.SINGLETON);
-                    unloadBinder.bind(FileFormatDataSourceStats.class).in(Scopes.SINGLETON);
+        if (buildConfigObject(RedshiftConfig.class).getUnloadLocation().isPresent()) {
+            install(new S3FileSystemModule());
+            binder.bind(JdbcSplitManager.class).in(Scopes.SINGLETON);
+            binder.bind(Connector.class).to(RedshiftUnloadConnector.class).in(Scopes.SINGLETON);
+            binder.bind(FileFormatDataSourceStats.class).in(Scopes.SINGLETON);
 
-                    newSetBinder(unloadBinder, JdbcQueryEventListener.class).addBinding().to(RedshiftUnloadJdbcQueryEventListener.class).in(Scopes.SINGLETON);
+            newSetBinder(binder, JdbcQueryEventListener.class).addBinding().to(RedshiftUnloadJdbcQueryEventListener.class).in(Scopes.SINGLETON);
 
-                    newOptionalBinder(unloadBinder, Key.get(ConnectorSplitManager.class, ForJdbcDynamicFiltering.class))
-                            .setBinding().to(RedshiftSplitManager.class).in(SINGLETON);
-                },
-                jdbcBinder -> jdbcBinder.bind(Connector.class).to(JdbcConnector.class).in(Scopes.SINGLETON)));
+            newOptionalBinder(binder, Key.get(ConnectorSplitManager.class, ForJdbcDynamicFiltering.class))
+                    .setBinding().to(RedshiftSplitManager.class).in(SINGLETON);
+        }
+        else {
+            binder.bind(Connector.class).to(JdbcConnector.class).in(SINGLETON);
+        }
     }
 
     @Singleton

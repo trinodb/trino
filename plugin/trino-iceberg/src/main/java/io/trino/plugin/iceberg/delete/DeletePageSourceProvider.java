@@ -11,15 +11,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.sql.analyzer;
+package io.trino.plugin.iceberg.delete;
 
-import io.trino.Session;
+import io.trino.plugin.iceberg.IcebergColumnHandle;
+import io.trino.spi.connector.ConnectorPageSource;
+import io.trino.spi.predicate.TupleDomain;
 
-import java.time.Instant;
+import java.util.List;
 
-public interface SessionTimeProvider
+public interface DeletePageSourceProvider
 {
-    SessionTimeProvider DEFAULT = Session::getStart;
-
-    Instant getStart(Session session);
+    ConnectorPageSource openDeletes(DeleteFile delete, List<IcebergColumnHandle> deleteColumns, TupleDomain<IcebergColumnHandle> tupleDomain);
 }

@@ -43,6 +43,7 @@ public class AllManifestsTable
     {
         super(requireNonNull(icebergTable, "icebergTable is null"),
                 new ConnectorTableMetadata(requireNonNull(tableName, "tableName is null"), ImmutableList.<ColumnMetadata>builder()
+                        .add(new ColumnMetadata("content", INTEGER))
                         .add(new ColumnMetadata("path", VARCHAR))
                         .add(new ColumnMetadata("length", BIGINT))
                         .add(new ColumnMetadata("partition_spec_id", INTEGER))
@@ -68,6 +69,7 @@ public class AllManifestsTable
     protected void addRow(PageListBuilder pagesBuilder, Row row, TimeZoneKey timeZoneKey)
     {
         pagesBuilder.beginRow();
+        pagesBuilder.appendInteger(row.get("content", Integer.class));
         pagesBuilder.appendVarchar(row.get("path", String.class));
         pagesBuilder.appendBigint(row.get("length", Long.class));
         pagesBuilder.appendInteger(row.get("partition_spec_id", Integer.class));

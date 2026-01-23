@@ -25,6 +25,7 @@ import io.airlift.units.Duration;
 import io.trino.Session;
 import io.trino.connector.MockConnectorFactory;
 import io.trino.connector.MockConnectorPlugin;
+import io.trino.execution.QueryStats;
 import io.trino.execution.StageId;
 import io.trino.execution.StageInfo;
 import io.trino.execution.StagesInfo;
@@ -36,6 +37,7 @@ import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.TableHandle;
 import io.trino.operator.OperatorStats;
+import io.trino.operator.TableFinishInfo;
 import io.trino.plugin.hive.HiveCompressionCodec;
 import io.trino.server.DynamicFilterService;
 import io.trino.spi.QueryId;
@@ -136,7 +138,6 @@ import static io.trino.plugin.iceberg.IcebergQueryRunner.ICEBERG_CATALOG;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.BUCKET_EXECUTION_ENABLED;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.COLLECT_EXTENDED_STATISTICS_ON_WRITE;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.DYNAMIC_FILTERING_WAIT_TIMEOUT;
-import static io.trino.plugin.iceberg.IcebergSessionProperties.EXTENDED_STATISTICS_ENABLED;
 import static io.trino.plugin.iceberg.IcebergSplitManager.ICEBERG_DOMAIN_COMPACTION_THRESHOLD;
 import static io.trino.plugin.iceberg.IcebergTableProperties.isCompressionCodecSupportedForFormat;
 import static io.trino.plugin.iceberg.IcebergTestUtils.FILE_IO_FACTORY;
@@ -280,10 +281,18 @@ public abstract class BaseIcebergConnectorTest
                  SUPPORTS_LIMIT_PUSHDOWN,
                  SUPPORTS_REFRESH_VIEW,
                  SUPPORTS_RENAME_MATERIALIZED_VIEW_ACROSS_SCHEMAS,
-                 SUPPORTS_CREATE_MATERIALIZED_VIEW_WHEN_STALE,
                  SUPPORTS_TOPN_PUSHDOWN -> false;
             default -> super.hasBehavior(connectorBehavior);
         };
+    }
+
+    @Override
+    @Test
+    public void testCreateTableWithDefaultColumn()
+    {
+        String tableName = "test_default_value_" + randomNameSuffix();
+        assertThatThrownBy(() -> assertUpdate("CREATE TABLE " + tableName + " (x int DEFAULT 1)"))
+                .hasMessageContaining("Default column values are not supported for Iceberg table format version < 3");
     }
 
     @Test
@@ -1909,7 +1918,7 @@ public abstract class BaseIcebergConnectorTest
                             "  ('col0', NULL, 4e0, 2e-1, NULL, '1', '10')," +
                             "  ('col1', NULL, 4e0, 2e-1, NULL, '2', '11'), " +
                             "  ('col2', NULL, 4e0, 2e-1, NULL, '3', '12'), " +
-                            "  ('col3', NULL, NULL, NULL, NULL, NULL, NULL), " +
+                            "  ('col3', NULL, NULL, 0, NULL, NULL, NULL), " +
                             "  (NULL, NULL, NULL, NULL, 5e0, NULL, NULL)");
         }
         else {
@@ -3869,26 +3878,9 @@ public abstract class BaseIcebergConnectorTest
     @Test
     public void testBasicAnalyze()
     {
-        Session defaultSession = getSession();
-        String catalog = defaultSession.getCatalog().orElseThrow();
-        Session extendedStatisticsDisabled = Session.builder(defaultSession)
-                .setCatalogSessionProperty(catalog, EXTENDED_STATISTICS_ENABLED, "false")
-                .build();
         String tableName = "test_basic_analyze";
 
-        assertUpdate(defaultSession, "CREATE TABLE " + tableName + " AS SELECT * FROM tpch.tiny.region", 5);
-
-        String statsWithoutNdv = format == AVRO
-                ? ("VALUES " +
-                "  ('regionkey', NULL, NULL, NULL, NULL, NULL, NULL), " +
-                "  ('name', NULL, NULL, NULL, NULL, NULL, NULL), " +
-                "  ('comment', NULL, NULL, NULL, NULL, NULL, NULL), " +
-                "  (NULL, NULL, NULL, NULL, 5e0, NULL, NULL)")
-                : ("VALUES " +
-                "  ('regionkey', NULL, NULL, 0e0, NULL, '0', '4'), " +
-                "  ('name', " + (format == PARQUET ? "224e0" : "NULL") + ", NULL, 0e0, NULL, NULL, NULL), " +
-                "  ('comment', " + (format == PARQUET ? "626e0" : "NULL") + ", NULL, 0e0, NULL, NULL, NULL), " +
-                "  (NULL, NULL, NULL, NULL, 5e0, NULL, NULL)");
+        assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM tpch.tiny.region", 5);
 
         String statsWithNdv = format == AVRO
                 ? ("VALUES " +
@@ -3902,25 +3894,14 @@ public abstract class BaseIcebergConnectorTest
                 "  ('comment', " + (format == PARQUET ? "626e0" : "NULL") + ", 5e0, 0e0, NULL, NULL, NULL), " +
                 "  (NULL, NULL, NULL, NULL, 5e0, NULL, NULL)");
 
-        assertThat(query(defaultSession, "SHOW STATS FOR " + tableName)).skippingTypesCheck().matches(statsWithNdv);
-        assertThat(query(extendedStatisticsDisabled, "SHOW STATS FOR " + tableName)).skippingTypesCheck().matches(statsWithoutNdv);
-
-        // ANALYZE can be disabled.
-        assertQueryFails(
-                extendedStatisticsDisabled,
-                "ANALYZE " + tableName,
-                "\\QAnalyze is not enabled. You can enable analyze using iceberg.extended-statistics.enabled config or extended_statistics_enabled catalog session property");
+        assertThat(query("SHOW STATS FOR " + tableName)).skippingTypesCheck().matches(statsWithNdv);
 
         // ANALYZE the table
-        assertUpdate(defaultSession, "ANALYZE " + tableName);
+        assertUpdate("ANALYZE " + tableName);
         // After ANALYZE, NDV information present
-        assertThat(query(defaultSession, "SHOW STATS FOR " + tableName))
+        assertThat(query("SHOW STATS FOR " + tableName))
                 .skippingTypesCheck()
                 .matches(statsWithNdv);
-        // NDV information is not present in a session with extended statistics disabled
-        assertThat(query(extendedStatisticsDisabled, "SHOW STATS FOR " + tableName))
-                .skippingTypesCheck()
-                .matches(statsWithoutNdv);
 
         assertUpdate("DROP TABLE " + tableName);
     }
@@ -4832,14 +4813,9 @@ public abstract class BaseIcebergConnectorTest
         }
 
         // ANALYZE
-        Session defaultSession = getSession();
-        String catalog = defaultSession.getCatalog().orElseThrow();
-        Session extendedStatisticsEnabled = Session.builder(defaultSession)
-                .setCatalogSessionProperty(catalog, EXTENDED_STATISTICS_ENABLED, "true")
-                .build();
-        assertUpdate(extendedStatisticsEnabled, "ANALYZE test_all_types");
+        assertUpdate("ANALYZE test_all_types");
         if (format != AVRO) {
-            assertThat(query(extendedStatisticsEnabled, "SHOW STATS FOR test_all_types"))
+            assertThat(query("SHOW STATS FOR test_all_types"))
                     .skippingTypesCheck()
                     .matches("VALUES " +
                             "  ('a_boolean', NULL, 1e0, 0.5e0, NULL, 'true', 'true'), " +
@@ -4862,7 +4838,7 @@ public abstract class BaseIcebergConnectorTest
                             "  (NULL, NULL, NULL, NULL, 2e0, NULL, NULL)");
         }
         else {
-            assertThat(query(extendedStatisticsEnabled, "SHOW STATS FOR test_all_types"))
+            assertThat(query("SHOW STATS FOR test_all_types"))
                     .skippingTypesCheck()
                     .matches("VALUES " +
                             "  ('a_boolean', NULL, 1e0, 0.1e0, NULL, NULL, NULL), " +
@@ -5612,57 +5588,40 @@ public abstract class BaseIcebergConnectorTest
             throws IOException
     {
         String tableName = "test_optimize_" + randomNameSuffix();
-        Session sessionWithShortRetentionUnlocked = prepareCleanUpSession();
         assertUpdate("CREATE TABLE " + tableName + " WITH (partitioning = ARRAY['regionkey']) AS SELECT * FROM nation", 25);
 
-        List<String> allDataFilesInitially = getAllDataFilesFromTableDirectory(tableName);
-        assertThat(allDataFilesInitially).hasSize(5);
+        // There are 5 distinct region keys, so we expect 5 data files. A 'content' value of 0 corresponds to a data file, and a value of 1
+        // corresponds to a delete file
+        assertQuery(
+                "SELECT content, count(*) FROM \"" + tableName + "$files\" GROUP BY content",
+                "VALUES (0, 5)");
 
+        // Test that OPTIMIZE filtered on the partition column rewrites the corresponding data file and removes the delete file
         assertUpdate("DELETE FROM " + tableName + " WHERE nationkey = 7", 1);
+        assertQuery(
+                "SELECT content, count(*) FROM \"" + tableName + "$files\" GROUP BY content",
+                "VALUES (0, 5), (1, 1)");
+
+        Session session = withSingleWriterPerTask(getSession());
+        computeActual(session, "ALTER TABLE " + tableName + " EXECUTE OPTIMIZE WHERE regionkey = 3");
+        assertQuery(
+                "SELECT content, count(*) FROM \"" + tableName + "$files\" GROUP BY content",
+                "VALUES (0, 5)");
+
+        // Test that OPTIMIZE using the $partition column rewrites the corresponding data file and removes the delete file
+        assertUpdate("DELETE FROM " + tableName + " WHERE nationkey = 8", 1);
+        assertQuery(
+                "SELECT content, count(*) FROM \"" + tableName + "$files\" GROUP BY content",
+                "VALUES (0, 5), (1, 1)");
+
+        computeActual(session, "ALTER TABLE " + tableName + " EXECUTE OPTIMIZE WHERE \"$partition\" = 'regionkey=2'");
+        assertQuery(
+                "SELECT content, count(*) FROM \"" + tableName + "$files\" GROUP BY content",
+                "VALUES (0, 5)");
 
         assertQuery(
-                "SELECT summary['total-delete-files'] FROM \"" + tableName + "$snapshots\" WHERE snapshot_id = " + getCurrentSnapshotId(tableName),
-                "VALUES '1'");
-
-        List<String> allDataFilesAfterDelete = getAllDataFilesFromTableDirectory(tableName);
-        assertThat(allDataFilesAfterDelete).hasSize(6);
-
-        // For optimize we need to set task_min_writer_count to 1, otherwise it will create more than one file.
-        computeActual(withSingleWriterPerTask(getSession()), "ALTER TABLE " + tableName + " EXECUTE OPTIMIZE WHERE regionkey = 3");
-        computeActual(sessionWithShortRetentionUnlocked, "ALTER TABLE " + tableName + " EXECUTE EXPIRE_SNAPSHOTS (retention_threshold => '0s')");
-        computeActual(sessionWithShortRetentionUnlocked, "ALTER TABLE " + tableName + " EXECUTE REMOVE_ORPHAN_FILES (retention_threshold => '0s')");
-
-        assertQuery(
-                "SELECT summary['total-delete-files'] FROM \"" + tableName + "$snapshots\" WHERE snapshot_id = " + getCurrentSnapshotId(tableName),
-                "VALUES '0'");
-        List<String> allDataFilesAfterOptimizeWithWhere = getAllDataFilesFromTableDirectory(tableName);
-        assertThat(allDataFilesAfterOptimizeWithWhere)
-                .hasSize(5)
-                .doesNotContain(allDataFilesInitially.stream().filter(file -> file.contains("regionkey=3"))
-                        .toArray(String[]::new))
-                .contains(allDataFilesInitially.stream().filter(file -> !file.contains("regionkey=3"))
-                        .toArray(String[]::new));
-
-        assertThat(query("SELECT * FROM " + tableName))
-                .matches("SELECT * FROM nation WHERE nationkey != 7");
-
-        // For optimize we need to set task_min_writer_count to 1, otherwise it will create more than one file.
-        computeActual(withSingleWriterPerTask(getSession()), "ALTER TABLE " + tableName + " EXECUTE OPTIMIZE");
-        computeActual(sessionWithShortRetentionUnlocked, "ALTER TABLE " + tableName + " EXECUTE EXPIRE_SNAPSHOTS (retention_threshold => '0s')");
-        computeActual(sessionWithShortRetentionUnlocked, "ALTER TABLE " + tableName + " EXECUTE REMOVE_ORPHAN_FILES (retention_threshold => '0s')");
-
-        assertQuery(
-                "SELECT summary['total-delete-files'] FROM \"" + tableName + "$snapshots\" WHERE snapshot_id = " + getCurrentSnapshotId(tableName),
-                "VALUES '0'");
-        List<String> allDataFilesAfterFullOptimize = getAllDataFilesFromTableDirectory(tableName);
-        assertThat(allDataFilesAfterFullOptimize)
-                .hasSize(5)
-                // All files skipped from OPTIMIZE as they have no deletes and there's only one file per partition
-                .contains(allDataFilesAfterOptimizeWithWhere.toArray(new String[0]));
-
-        assertThat(query("SELECT * FROM " + tableName))
-                .matches("SELECT * FROM nation WHERE nationkey != 7");
-
+                "SELECT * FROM " + tableName,
+                "SELECT * FROM nation WHERE nationkey NOT IN (7, 8)");
         assertUpdate("DROP TABLE " + tableName);
     }
 
@@ -6321,109 +6280,6 @@ public abstract class BaseIcebergConnectorTest
                             .build();
         }
         assertThat(fourthPathStatistics).containsExactlyElementsOf(expectedFourthPathStatistics);
-
-        assertUpdate("DROP TABLE " + tableName);
-    }
-
-    @Test
-    public void testCollectingStatisticsWithFileModifiedTimeColumnPredicate()
-            throws InterruptedException
-    {
-        assertQuerySucceeds("EXPLAIN SELECT * FROM region WHERE \"$file_modified_time\" = TIMESTAMP '2001-08-22 03:04:05.321 UTC'");
-
-        Session collectingStatisticsSession = Session.builder(getSession())
-                .setSystemProperty("collect_plan_statistics_for_all_queries", "true")
-                .build();
-        String tableName = "test_collect_statistics_with_file_modified_time_" + randomNameSuffix();
-        assertUpdate("CREATE TABLE " + tableName + "(id integer, value integer)");
-
-        assertUpdate("INSERT INTO " + tableName + " VALUES (1, 1)", 1);
-        storageTimePrecision.sleep(1);
-        assertUpdate("INSERT INTO " + tableName + " VALUES (2, 2)", 1);
-        storageTimePrecision.sleep(1);
-        assertUpdate("INSERT INTO " + tableName + " VALUES (3, null)", 1);
-        storageTimePrecision.sleep(1);
-        assertUpdate("INSERT INTO " + tableName + " VALUES (4, 4)", 1);
-
-        // Make sure the whole table has stats
-        MaterializedResult tableStatistics = computeActual(collectingStatisticsSession, "SHOW STATS FOR (SELECT * FROM %s WHERE \"$file_modified_time\" IS NOT NULL)".formatted(tableName));
-        MaterializedResult expectedTableStatistics =
-                resultBuilder(collectingStatisticsSession, VARCHAR, DOUBLE, DOUBLE, DOUBLE, DOUBLE, VARCHAR, VARCHAR)
-                        .row("id", null, 4.0, 0.0, null, "1", "4")
-                        .row("value", null, 3.0, 0.25, null, "1", "4")
-                        .row(null, null, null, null, 4.0, null, null)
-                        .build();
-        if (format == AVRO) {
-            expectedTableStatistics =
-                    resultBuilder(collectingStatisticsSession, VARCHAR, DOUBLE, DOUBLE, DOUBLE, DOUBLE, VARCHAR, VARCHAR)
-                            .row("id", null, 4.0, 0.0, null, null, null)
-                            .row("value", null, 3.0, 0.1, null, null, null)
-                            .row(null, null, null, null, 4.0, null, null)
-                            .build();
-        }
-        assertThat(tableStatistics).containsExactlyElementsOf(expectedTableStatistics);
-
-        ZonedDateTime firstFileModifiedTime = (ZonedDateTime) computeScalar(collectingStatisticsSession, "SELECT \"$file_modified_time\" FROM " + tableName + " WHERE id = 1");
-        ZonedDateTime secondFileModifiedTime = (ZonedDateTime) computeScalar(collectingStatisticsSession, "SELECT \"$file_modified_time\" FROM " + tableName + " WHERE id = 2");
-        ZonedDateTime thirdFileModifiedTime = (ZonedDateTime) computeScalar(collectingStatisticsSession, "SELECT \"$file_modified_time\" FROM " + tableName + " WHERE id = 3");
-        ZonedDateTime fourthFileModifiedTime = (ZonedDateTime) computeScalar(collectingStatisticsSession, "SELECT \"$file_modified_time\" FROM " + tableName + " WHERE id = 4");
-
-        String fileModifiedTimePredicateSql = "SELECT * FROM " + tableName + " WHERE \"$file_modified_time\" = from_iso8601_timestamp('%s')";
-        // Check the predicate with fileModifiedTime
-        assertQuery(collectingStatisticsSession, fileModifiedTimePredicateSql.formatted(firstFileModifiedTime.format(ISO_OFFSET_DATE_TIME)), "SELECT 1, 1");
-        assertQuery(collectingStatisticsSession, fileModifiedTimePredicateSql.formatted(secondFileModifiedTime.format(ISO_OFFSET_DATE_TIME)), "SELECT 2, 2");
-        assertQuery(collectingStatisticsSession, "SELECT COUNT(*) FROM %s WHERE \"$file_modified_time\" = from_iso8601_timestamp('%s') OR \"$file_modified_time\" = from_iso8601_timestamp('%s')".formatted(tableName, thirdFileModifiedTime.format(ISO_OFFSET_DATE_TIME), fourthFileModifiedTime.format(ISO_OFFSET_DATE_TIME)), "VALUES 2");
-
-        MaterializedResult firstFileModifiedTimeStatistics = computeActual(collectingStatisticsSession, "SHOW STATS FOR (" + fileModifiedTimePredicateSql.formatted(firstFileModifiedTime.format(ISO_OFFSET_DATE_TIME)) + ")");
-        MaterializedResult expectedFirstFileModifiedTimeStatistics =
-                resultBuilder(collectingStatisticsSession, VARCHAR, DOUBLE, DOUBLE, DOUBLE, DOUBLE, VARCHAR, VARCHAR)
-                        .row("id", null, 1.0, 0.0, null, "1", "1")
-                        .row("value", null, 1.0, 0.0, null, "1", "1")
-                        .row(null, null, null, null, 1.0, null, null)
-                        .build();
-        if (format == AVRO) {
-            expectedFirstFileModifiedTimeStatistics =
-                    resultBuilder(collectingStatisticsSession, VARCHAR, DOUBLE, DOUBLE, DOUBLE, DOUBLE, VARCHAR, VARCHAR)
-                            .row("id", null, 1.0, 0.0, null, null, null)
-                            .row("value", null, 1.0, 0.0, null, null, null)
-                            .row(null, null, null, null, 1.0, null, null)
-                            .build();
-        }
-        assertThat(firstFileModifiedTimeStatistics).containsExactlyElementsOf(expectedFirstFileModifiedTimeStatistics);
-
-        MaterializedResult secondThirdFileModifiedTimeStatistics = computeActual(collectingStatisticsSession, "SHOW STATS FOR (SELECT * FROM %s WHERE \"$file_modified_time\" IN (from_iso8601_timestamp('%s'), from_iso8601_timestamp('%s')))".formatted(tableName, secondFileModifiedTime.format(ISO_OFFSET_DATE_TIME), thirdFileModifiedTime.format(ISO_OFFSET_DATE_TIME)));
-        MaterializedResult expectedSecondThirdFileModifiedTimetatistics =
-                resultBuilder(collectingStatisticsSession, VARCHAR, DOUBLE, DOUBLE, DOUBLE, DOUBLE, VARCHAR, VARCHAR)
-                        .row("id", null, 2.0, 0.0, null, "2", "3")
-                        .row("value", null, 1.0, 0.5, null, "2", "2")
-                        .row(null, null, null, null, 2.0, null, null)
-                        .build();
-        if (format == AVRO) {
-            expectedSecondThirdFileModifiedTimetatistics =
-                    resultBuilder(collectingStatisticsSession, VARCHAR, DOUBLE, DOUBLE, DOUBLE, DOUBLE, VARCHAR, VARCHAR)
-                            .row("id", null, 2.0, 0.0, null, null, null)
-                            .row("value", null, 2.0, 0.0, null, null, null)
-                            .row(null, null, null, null, 2.0, null, null)
-                            .build();
-        }
-        assertThat(secondThirdFileModifiedTimeStatistics).containsExactlyElementsOf(expectedSecondThirdFileModifiedTimetatistics);
-
-        MaterializedResult fourthFileModifiedTimeStatistics = computeActual(collectingStatisticsSession, "SHOW STATS FOR (" + fileModifiedTimePredicateSql.formatted(fourthFileModifiedTime.format(ISO_OFFSET_DATE_TIME)) + ")");
-        MaterializedResult expectedFourthFileModifiedTimeStatistics =
-                resultBuilder(collectingStatisticsSession, VARCHAR, DOUBLE, DOUBLE, DOUBLE, DOUBLE, VARCHAR, VARCHAR)
-                        .row("id", null, 1.0, 0.0, null, "4", "4")
-                        .row("value", null, 1.0, 0.0, null, "4", "4")
-                        .row(null, null, null, null, 1.0, null, null)
-                        .build();
-        if (format == AVRO) {
-            expectedFourthFileModifiedTimeStatistics =
-                    resultBuilder(collectingStatisticsSession, VARCHAR, DOUBLE, DOUBLE, DOUBLE, DOUBLE, VARCHAR, VARCHAR)
-                            .row("id", null, 1.0, 0.0, null, null, null)
-                            .row("value", null, 1.0, 0.0, null, null, null)
-                            .row(null, null, null, null, 1.0, null, null)
-                            .build();
-        }
-        assertThat(fourthFileModifiedTimeStatistics).containsExactlyElementsOf(expectedFourthFileModifiedTimeStatistics);
 
         assertUpdate("DROP TABLE " + tableName);
     }
@@ -9296,6 +9152,55 @@ public abstract class BaseIcebergConnectorTest
                 "splits generation metrics");
     }
 
+    @Test
+    void testCommitMetrics()
+    {
+        try (TestTable table = newTrinoTable(
+                "test_commit_metrics",
+                "AS SELECT * FROM nation WITH NO DATA")) {
+            assertQueryStats(
+                    getSession(),
+                    "INSERT INTO " + table.getName() + " SELECT * FROM nation",
+                    queryStats -> {
+                        TableFinishInfo info = getTableFinishInfo(queryStats);
+                        assertThat(info.getConnectorOutputMetadata()).contains("\"added-records\" : \"25\"");
+                    },
+                    _ -> {});
+        }
+
+        String tableName = "test_commit_metrics_ctas_" + randomNameSuffix();
+        assertQueryStats(
+                getSession(),
+                "CREATE TABLE " + tableName + " AS SELECT * FROM nation",
+                queryStats -> {
+                    TableFinishInfo info = getTableFinishInfo(queryStats);
+                    assertThat(info.getConnectorOutputMetadata()).contains("\"added-records\" : \"25\"");
+                },
+                _ -> {});
+        assertUpdate("DROP TABLE " + tableName);
+
+        String materializedViewName = "test_commit_metrics_mv_" + randomNameSuffix();
+        assertUpdate("CREATE MATERIALIZED VIEW " + materializedViewName + " AS SELECT * FROM nation");
+        assertQueryStats(
+                getSession(),
+                "REFRESH MATERIALIZED VIEW " + materializedViewName,
+                queryStats -> {
+                    TableFinishInfo info = getTableFinishInfo(queryStats);
+                    assertThat(info.getConnectorOutputMetadata()).contains("\"added-records\" : \"25\"");
+                },
+                _ -> {});
+        assertUpdate("DROP MATERIALIZED VIEW " + materializedViewName);
+    }
+
+    private static TableFinishInfo getTableFinishInfo(QueryStats queryStats)
+    {
+        OperatorStats finishOperatorStats = queryStats.getOperatorSummaries()
+                .stream()
+                .filter(summary -> summary.getOperatorType().startsWith("TableFinish"))
+                .collect(onlyElement());
+        return (TableFinishInfo) finishOperatorStats.getInfo();
+    }
+
     // regression test for https://github.com/trinodb/trino/issues/22922
     @Test
     void testArrayElementChange()
@@ -9422,7 +9327,10 @@ public abstract class BaseIcebergConnectorTest
         switch ("%s -> %s".formatted(setup.sourceColumnType(), setup.newColumnType())) {
             case "tinyint -> smallint":
             case "bigint -> integer":
+            case "bigint -> smallint":
+            case "bigint -> tinyint":
             case "decimal(5,3) -> decimal(5,2)":
+            case "char(25) -> char(20)":
             case "varchar -> char(20)":
             case "time(6) -> time(3)":
             case "timestamp(6) -> timestamp(3)":
@@ -9446,29 +9354,36 @@ public abstract class BaseIcebergConnectorTest
     {
         assertThat(e).hasMessageMatching(".*(Failed to set column type: Cannot change (column type:|type from .* to )" +
                 "|Time(stamp)? precision \\(3\\) not supported for Iceberg. Use \"time(stamp)?\\(6\\)\" instead" +
-                "|Type not supported for Iceberg: smallint|char\\(20\\)).*");
+                "|Type not supported for Iceberg: tinyint|smallint|char\\(20\\)).*");
     }
 
     @Override
     protected Optional<SetColumnTypeSetup> filterSetFieldTypesDataProvider(SetColumnTypeSetup setup)
     {
+        if (setup.sourceColumnType().equals("timestamp(3) with time zone")) {
+            // The connector returns UTC instead of the given time zone
+            return Optional.of(setup.withNewValueLiteral("TIMESTAMP '2020-02-12 14:03:00.123000 +00:00'"));
+        }
         switch ("%s -> %s".formatted(setup.sourceColumnType(), setup.newColumnType())) {
             case "tinyint -> smallint":
             case "bigint -> integer":
+            case "bigint -> smallint":
+            case "bigint -> tinyint":
             case "decimal(5,3) -> decimal(5,2)":
+            case "char(25) -> char(20)":
             case "varchar -> char(20)":
             case "time(6) -> time(3)":
             case "timestamp(6) -> timestamp(3)":
             case "array(integer) -> array(bigint)":
-            case "row(x integer) -> row(x bigint)":
-            case "row(x integer) -> row(y integer)":
-            case "row(x integer, y integer) -> row(x integer, z integer)":
-            case "row(x integer) -> row(x integer, y integer)":
-            case "row(x integer, y integer) -> row(x integer)":
-            case "row(x integer, y integer) -> row(y integer, x integer)":
-            case "row(x integer, y integer) -> row(z integer, y integer, x integer)":
-            case "row(x row(nested integer)) -> row(x row(nested bigint))":
-            case "row(x row(a integer, b integer)) -> row(x row(b integer, a integer))":
+            case "row(x integer) -> row(\"x\" bigint)":
+            case "row(x integer) -> row(\"y\" integer)":
+            case "row(x integer, y integer) -> row(\"x\" integer, \"z\" integer)":
+            case "row(x integer) -> row(\"x\" integer, \"y\" integer)":
+            case "row(x integer, y integer) -> row(\"x\" integer)":
+            case "row(x integer, y integer) -> row(\"y\" integer, \"x\" integer)":
+            case "row(x integer, y integer) -> row(\"z\" integer, \"y\" integer, \"x\" integer)":
+            case "row(x row(nested integer)) -> row(\"x\" row(\"nested\" bigint))":
+            case "row(x row(a integer, b integer)) -> row(\"x\" row(\"b\" integer, \"a\" integer))":
                 // Iceberg allows updating column types if the update is safe. Safe updates are:
                 // - int to bigint
                 // - float to double
@@ -9488,7 +9403,7 @@ public abstract class BaseIcebergConnectorTest
     {
         assertThat(e).hasMessageMatching(".*(Failed to set field type: Cannot change (column type:|type from .* to )" +
                 "|Time(stamp)? precision \\(3\\) not supported for Iceberg. Use \"time(stamp)?\\(6\\)\" instead" +
-                "|Type not supported for Iceberg: smallint|char\\(20\\)" +
+                "|Type not supported for Iceberg: tinyint|smallint|char\\(20\\)" +
                 "|Iceberg doesn't support changing field type (from|to) non-primitive types).*");
     }
 

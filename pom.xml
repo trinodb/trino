@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.airlift</groupId>
         <artifactId>airbase</artifactId>
-        <version>334</version>
+        <version>342</version>
     </parent>
 
     <groupId>io.trino</groupId>
@@ -178,31 +178,32 @@
             -XX:+EnableDynamicAgentLoading
             ${extraJavaVectorArgs}
             --sun-misc-unsafe-memory-access=allow
+            <!-- # Disable superfluous bootstrap logging in tests -->
+            -Dairlift.quiet=true
         </air.test.jvm.additional-arguments.default>
         <air.test.jvm.additional-arguments>${air.test.jvm.additional-arguments.default}</air.test.jvm.additional-arguments>
 
         <!-- keep dependency properties sorted -->
-        <dep.airlift.version>386</dep.airlift.version>
+        <dep.airlift.version>394</dep.airlift.version>
         <dep.alluxio.version>2.9.6</dep.alluxio.version>
         <dep.antlr.version>4.13.2</dep.antlr.version>
         <dep.avro.version>1.12.1</dep.avro.version>
-        <dep.aws-sdk.version>1.12.796</dep.aws-sdk.version>
+        <dep.aws-sdk.version>1.12.797</dep.aws-sdk.version>
         <dep.cassandra.version>4.17.0</dep.cassandra.version>
         <dep.confluent.version>7.8.0</dep.confluent.version>
-        <dep.docker.images.version>119</dep.docker.images.version>
+        <dep.docker.images.version>123</dep.docker.images.version>
         <dep.drift.version>1.24</dep.drift.version>
-        <dep.flyway.version>11.19.0</dep.flyway.version>
-        <dep.frontend-maven-plugin.version>1.15.4</dep.frontend-maven-plugin.version>
-        <dep.frontend-node.version>v22.14.0</dep.frontend-node.version>
-        <dep.frontend-npm.version>11.2.0</dep.frontend-npm.version>
-        <dep.httpcore5.version>5.3.6</dep.httpcore5.version>
+        <dep.frontend-maven-plugin.version>2.0.0</dep.frontend-maven-plugin.version>
+        <dep.frontend-node.version>v24.12.0</dep.frontend-node.version>
+        <dep.frontend-npm.version>11.7.0</dep.frontend-npm.version>
+        <dep.httpcore5.version>5.4</dep.httpcore5.version>
         <dep.iceberg.version>1.10.1</dep.iceberg.version>
         <dep.jna.version>5.18.1</dep.jna.version>
         <dep.jsonwebtoken.version>0.13.0</dep.jsonwebtoken.version>
         <dep.jts.version>1.20.0</dep.jts.version>
         <dep.okhttp.version>5.3.2</dep.okhttp.version>
         <dep.okio.version>3.16.4</dep.okio.version>
-        <dep.parquet.version>1.16.0</dep.parquet.version>
+        <dep.parquet.version>1.17.0</dep.parquet.version>
         <dep.protobuf.version>3.25.8</dep.protobuf.version>
         <dep.swagger.version>2.2.41</dep.swagger.version>
         <dep.takari.version>2.3.2</dep.takari.version>
@@ -232,7 +233,7 @@
             <dependency>
                 <groupId>com.google.cloud</groupId>
                 <artifactId>libraries-bom</artifactId>
-                <version>26.72.0</version>
+                <version>26.73.0</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -264,7 +265,7 @@
             <dependency>
                 <groupId>io.netty</groupId>
                 <artifactId>netty-bom</artifactId>
-                <version>4.2.7.Final</version>
+                <version>4.2.9.Final</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -296,7 +297,7 @@
             <dependency>
                 <groupId>software.amazon.awssdk</groupId>
                 <artifactId>bom</artifactId>
-                <version>2.39.6</version>
+                <version>2.41.9</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -358,7 +359,7 @@
             <dependency>
                 <groupId>com.azure</groupId>
                 <artifactId>azure-core-tracing-opentelemetry</artifactId>
-                <version>1.0.0-beta.61</version>
+                <version>1.0.0-beta.62</version>
                 <exclusions>
                     <exclusion>
                         <groupId>com.azure</groupId>
@@ -395,7 +396,7 @@
             <dependency>
                 <groupId>com.exasol</groupId>
                 <artifactId>exasol-jdbc</artifactId>
-                <version>25.2.5</version>
+                <version>25.2.6</version>
             </dependency>
 
             <dependency>
@@ -431,7 +432,7 @@
             <dependency>
                 <groupId>com.github.oshi</groupId>
                 <artifactId>oshi-core</artifactId>
-                <version>6.9.1</version>
+                <version>6.9.2</version>
             </dependency>
 
             <dependency>
@@ -443,7 +444,7 @@
             <dependency>
                 <groupId>com.google.cloud.bigdataoss</groupId>
                 <artifactId>gcs-connector</artifactId>
-                <version>3.1.11</version>
+                <version>4.0.0</version>
                 <classifier>shaded</classifier>
                 <exclusions>
                     <exclusion>
@@ -517,13 +518,13 @@
             <dependency>
                 <groupId>com.nimbusds</groupId>
                 <artifactId>nimbus-jose-jwt</artifactId>
-                <version>10.6</version>
+                <version>10.7</version>
             </dependency>
 
             <dependency>
                 <groupId>com.nimbusds</groupId>
                 <artifactId>oauth2-oidc-sdk</artifactId>
-                <version>11.30.1</version>
+                <version>11.31.1</version>
             </dependency>
 
             <dependency>
@@ -909,13 +910,13 @@
             <dependency>
                 <groupId>io.projectreactor</groupId>
                 <artifactId>reactor-core</artifactId>
-                <version>3.8.1</version>
+                <version>3.8.2</version>
             </dependency>
 
             <dependency>
                 <groupId>io.projectreactor.netty</groupId>
                 <artifactId>reactor-netty-core</artifactId>
-                <version>1.3.1</version>
+                <version>1.3.2</version>
             </dependency>
 
             <!-- io.confluent:kafka-avro-serializer uses multiple versions of this transitive dependency -->
@@ -1655,7 +1656,7 @@
             <dependency>
                 <groupId>net.snowflake</groupId>
                 <artifactId>snowflake-jdbc</artifactId>
-                <version>3.27.1</version>
+                <version>3.28.0</version>
             </dependency>
 
             <dependency>
@@ -1891,7 +1892,7 @@
             <dependency>
                 <groupId>org.apache.httpcomponents.client5</groupId>
                 <artifactId>httpclient5</artifactId>
-                <version>5.5.2</version>
+                <version>5.6</version>
             </dependency>
 
             <dependency>
@@ -2006,13 +2007,13 @@
             <dependency>
                 <groupId>org.apache.logging.log4j</groupId>
                 <artifactId>log4j-api</artifactId>
-                <version>2.25.2</version>
+                <version>2.25.3</version>
             </dependency>
 
             <dependency>
                 <groupId>org.apache.maven</groupId>
                 <artifactId>maven-model</artifactId>
-                <version>3.9.11</version>
+                <version>3.9.12</version>
             </dependency>
 
             <dependency>
@@ -2179,7 +2180,7 @@
             <dependency>
                 <groupId>org.checkerframework</groupId>
                 <artifactId>checker-qual</artifactId>
-                <version>3.52.1</version>
+                <version>3.53.0</version>
             </dependency>
 
             <dependency>
@@ -2192,30 +2193,6 @@
                 <groupId>org.codehaus.plexus</groupId>
                 <artifactId>plexus-xml</artifactId>
                 <version>4.1.0</version>
-            </dependency>
-
-            <dependency>
-                <groupId>org.flywaydb</groupId>
-                <artifactId>flyway-core</artifactId>
-                <version>${dep.flyway.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>org.flywaydb</groupId>
-                <artifactId>flyway-database-oracle</artifactId>
-                <version>${dep.flyway.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>org.flywaydb</groupId>
-                <artifactId>flyway-database-postgresql</artifactId>
-                <version>${dep.flyway.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>org.flywaydb</groupId>
-                <artifactId>flyway-mysql</artifactId>
-                <version>${dep.flyway.version}</version>
             </dependency>
 
             <dependency>
@@ -2284,7 +2261,7 @@
             <dependency>
                 <groupId>org.postgresql</groupId>
                 <artifactId>postgresql</artifactId>
-                <version>42.7.8</version>
+                <version>42.7.9</version>
             </dependency>
 
             <dependency>
@@ -2437,7 +2414,7 @@
                 <plugin>
                     <groupId>org.codehaus.mojo</groupId>
                     <artifactId>exec-maven-plugin</artifactId>
-                    <version>3.6.2</version>
+                    <version>3.6.3</version>
                 </plugin>
 
                 <plugin>
@@ -2672,21 +2649,6 @@
                                 </conflictingDependencies>
                                 <resources>
                                     <resource>git.properties</resource>
-                                </resources>
-                            </exception>
-                            <exception>
-                                <conflictingDependencies>
-                                    <dependency>
-                                        <groupId>org.flywaydb</groupId>
-                                        <artifactId>flyway-database-oracle</artifactId>
-                                    </dependency>
-                                    <dependency>
-                                        <groupId>org.flywaydb</groupId>
-                                        <artifactId>flyway-mysql</artifactId>
-                                    </dependency>
-                                </conflictingDependencies>
-                                <resources>
-                                    <resource>org/flywaydb/database/version.txt</resource>
                                 </resources>
                             </exception>
                             <exception>
@@ -2927,6 +2889,7 @@
                                     -Xep:DepAnn:ERROR \
                                     -Xep:DeprecatedVariable:ERROR \
                                     -Xep:DistinctVarargsChecker:ERROR \
+                                    <!-- flags throwing exception factory methods and doesn't seem that useful -->
                                     -Xep:DoNotCallSuggester:OFF \
                                     -Xep:DoubleCheckedLocking:ERROR \
                                     -Xep:EmptyBlockTag:ERROR \
@@ -2949,6 +2912,9 @@
                                     <!-- TODO enable globally -->
                                     -Xep:GuardedBy:${trino.error-prone.guarded-by} \
                                     -Xep:HidingField:ERROR \
+                                    <!-- These methods are used in tests and other places where we want the
+                                         default time zone, and changing them simply to fix this warning would
+                                         make the code worse. -->
                                     -Xep:JavaTimeDefaultTimeZone:OFF \
                                     <!-- covered by Modernizer -->
                                     -Xep:JdkObsolete:OFF \
@@ -2962,7 +2928,6 @@
                                     -Xep:InconsistentHashCode:ERROR \
                                     -Xep:InjectOnConstructorOfAbstractClass:ERROR \
                                     -Xep:InvalidInlineTag:ERROR \
-                                    -Xep:MisleadingEscapedSpace:OFF \
                                     -Xep:MissingCasesInEnumSwitch:ERROR \
                                     -Xep:MissingOverride:ERROR \
                                     <!-- Sometimes our javadoc contains just a @see directive -->
@@ -2985,6 +2950,7 @@
                                     -Xep:PreferredInterfaceType:OFF \
                                     -Xep:PrimitiveArrayPassedToVarargsMethod:ERROR \
                                     -Xep:RedundantNullCheck:ERROR \
+                                    <!-- disabled likely because we disagree with the suggested fix -->
                                     -Xep:RethrowReflectiveOperationExceptionAsLinkageError:OFF \
                                     -Xep:StaticAssignmentOfThrowable:ERROR \
                                     -Xep:StaticGuardedByInstance:ERROR \
@@ -3002,6 +2968,8 @@
                                     <!-- false positive from io.airlift.configuration.Config annotation -->
                                     -Xep:UnnecessaryQualifier:OFF \
                                     -Xep:UnnecessaryStringBuilder:ERROR \
+                                    <!-- this check does not understand static reflection. Enabling this
+                                         check will require many unnecessary suppressions -->
                                     -Xep:UnusedMethod:OFF \
                                     -Xep:UnusedVariable:ERROR \
                                     -Xep:UseEnumSwitch:ERROR \

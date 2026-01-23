@@ -43,6 +43,7 @@ import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 
 import java.lang.invoke.MethodHandle;
+import java.time.temporal.ChronoField;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -535,7 +536,12 @@ class TestSqlFunctions
     @Test
     void testSession()
     {
-        testSingleExpression(UNKNOWN, null, DOUBLE, floor(SESSION.getStart().toEpochMilli() / 1000.0), "floor(to_unixtime(localtimestamp))");
+        // `localtimestamp` returns session start (local) time rounded to milliseconds while Instant.toEpochMilli truncates.
+        var sessionStartRoundedToMillis = SESSION.getStart().toEpochMilli();
+        if (SESSION.getStart().getLong(ChronoField.MICRO_OF_SECOND) % 1000 >= 500) {
+            sessionStartRoundedToMillis++;
+        }
+        testSingleExpression(UNKNOWN, null, DOUBLE, floor(sessionStartRoundedToMillis / 1000.0), "floor(to_unixtime(localtimestamp))");
         testSingleExpression(UNKNOWN, null, VARCHAR, SESSION.getUser(), "current_user");
     }
 

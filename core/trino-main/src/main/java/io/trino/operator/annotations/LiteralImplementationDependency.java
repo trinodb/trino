@@ -35,6 +35,6 @@ public final class LiteralImplementationDependency
     @Override
     public Object resolve(FunctionBinding functionBinding, FunctionDependencies functionDependencies)
     {
-        return functionBinding.getLongVariable(literalName);
+        return functionBinding.variables().getLongVariable(literalName);
     }
 }

@@ -54,6 +54,11 @@ public final class QueryAssertions
 
     private QueryAssertions() {}
 
+    public static void assertUpdate(QueryRunner queryRunner, Session session, @Language("SQL") String sql, OptionalLong count)
+    {
+        assertUpdate(queryRunner, session, sql, count, Optional.empty());
+    }
+
     public static void assertUpdate(QueryRunner queryRunner, Session session, @Language("SQL") String sql, OptionalLong count, Optional<Consumer<Plan>> planAssertion)
     {
         if (queryRunner instanceof DistributedQueryRunner distributedQueryRunner) {

@@ -301,7 +301,7 @@ public class TestingMetadata
     }
 
     @Override
-    public MaterializedViewFreshness getMaterializedViewFreshness(ConnectorSession session, SchemaTableName name)
+    public MaterializedViewFreshness getMaterializedViewFreshness(ConnectorSession session, SchemaTableName name, boolean considerGracePeriod)
     {
         boolean fresh = freshMaterializedViews.contains(name);
         return new MaterializedViewFreshness(

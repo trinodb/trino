@@ -59,7 +59,7 @@ public final class FunctionImplementationDependency
     @Override
     protected ScalarFunctionImplementation getImplementation(FunctionBinding functionBinding, FunctionDependencies functionDependencies, InvocationConvention invocationConvention)
     {
-        List<TypeSignature> types = applyBoundVariables(argumentTypes, functionBinding);
+        List<TypeSignature> types = applyBoundVariables(argumentTypes, functionBinding.variables());
         return functionDependencies.getScalarFunctionImplementationSignature(name, types, invocationConvention);
     }
 

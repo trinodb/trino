@@ -93,7 +93,7 @@ import static io.airlift.concurrent.MoreFutures.tryGetFutureValue;
 import static io.airlift.units.Duration.nanosSince;
 import static io.trino.SystemSessionProperties.IGNORE_STATS_CALCULATOR_FAILURES;
 import static io.trino.connector.informationschema.InformationSchemaTable.INFORMATION_SCHEMA;
-import static io.trino.server.testing.TestingSystemSessionProperties.TESTING_SESSION_TIME;
+import static io.trino.server.testing.TestingTrinoServer.SESSION_START_TIME_PROPERTY;
 import static io.trino.spi.StandardErrorCode.FUNCTION_NOT_FOUND;
 import static io.trino.spi.connector.ConnectorMetadata.MODIFYING_ROWS_MESSAGE;
 import static io.trino.spi.connector.MaterializedViewFreshness.Freshness.FRESH;
@@ -1518,7 +1518,7 @@ public abstract class BaseConnectorTest
             Session defaultSession = getSession();
             Session futureSession = Session.builder(defaultSession)
                     // This gets ignored: .setStart(...)
-                    .setSystemProperty(TESTING_SESSION_TIME, Instant.now().plus(1, ChronoUnit.DAYS).toString())
+                    .setSystemProperty(SESSION_START_TIME_PROPERTY, Instant.now().plus(1, ChronoUnit.DAYS).toString())
                     .build();
 
             PlanMatchPattern readFromBaseTables = anyTree(
@@ -1601,21 +1601,205 @@ public abstract class BaseConnectorTest
     }
 
     @Test
-    public void testMaterializedViewWhenStale()
+    public void testMaterializedViewWhenStaleInline()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_CREATE_MATERIALIZED_VIEW));
+
+        if (!hasBehavior(SUPPORTS_CREATE_MATERIALIZED_VIEW_WHEN_STALE)) {
+            String catalog = getSession().getCatalog().orElseThrow();
+            String viewName = "test_mv_when_stale_" + randomNameSuffix();
+            assertQueryFails(
+                    "CREATE MATERIALIZED VIEW " + viewName + " WHEN STALE INLINE AS SELECT * FROM nation",
+                    "line 1:1: Catalog '%s' does not support WHEN STALE".formatted(catalog));
+            return;
+        }
+
+        testMaterializedViewWhenStaleInline(false);
+        testMaterializedViewWhenStaleInline(true);
+    }
+
+    private void testMaterializedViewWhenStaleInline(boolean includeWhenStaleInlineClause)
     {
         skipTestUnless(hasBehavior(SUPPORTS_CREATE_MATERIALIZED_VIEW));
 
         String catalog = getSession().getCatalog().orElseThrow();
-        String viewName = "test_mv_when_stale_" + randomNameSuffix();
+        String schema = getSession().getSchema().orElseThrow();
+
+        try (TestTable table = newTrinoTable("test_base_table", "AS TABLE region")) {
+            QualifiedObjectName baseTable = new QualifiedObjectName(catalog, schema, table.getName());
+
+            Session defaultSession = getSession();
+            Session futureSession = Session.builder(defaultSession)
+                    .setSystemProperty(SESSION_START_TIME_PROPERTY, Instant.now().plus(1, ChronoUnit.DAYS).toString())
+                    .build();
+
+            PlanMatchPattern readFromBaseTables = anyTree(
+                    node(AggregationNode.class, // final
+                            anyTree( // exchanges
+                                    node(AggregationNode.class, // partial
+                                            node(ProjectNode.class, // format()
+                                                    tableScan(baseTable.objectName()))))));
+            PlanMatchPattern readFromStorageTable = node(OutputNode.class, node(TableScanNode.class));
+
+            QualifiedObjectName viewName = new QualifiedObjectName(catalog, schema, "mv_when_stale_" + randomNameSuffix());
+
+            if (includeWhenStaleInlineClause) {
+                assertUpdate(
+                        """
+                        CREATE MATERIALIZED VIEW %s
+                        GRACE PERIOD INTERVAL '1' HOUR
+                        WHEN STALE INLINE
+                        AS SELECT DISTINCT regionkey, format('%%s', name) name FROM %s
+                        """.formatted(viewName, baseTable));
+            }
+            else {
+                assertUpdate(
+                        """
+                        CREATE MATERIALIZED VIEW %s
+                        GRACE PERIOD INTERVAL '1' HOUR
+                        AS SELECT DISTINCT regionkey, format('%%s', name) name FROM %s
+                        """.formatted(viewName, baseTable));
+            }
+            assertThat(((String) computeScalar("SHOW CREATE MATERIALIZED VIEW " + viewName.objectName())))
+                    .contains("WHEN STALE INLINE");
+
+            String initialResults = "SELECT DISTINCT regionkey, CAST(name AS varchar) FROM region";
+
+            // The MV is initially not fresh
+            assertThat(query(defaultSession, "TABLE " + viewName))
+                    .hasPlan(readFromBaseTables)
+                    .matches(initialResults);
+            assertThat(query(futureSession, "TABLE " + viewName))
+                    .hasPlan(readFromBaseTables)
+                    .matches(initialResults);
+
+            assertUpdate("REFRESH MATERIALIZED VIEW " + viewName, 5);
+
+            // Right after the REFRESH, the view is FRESH (note: it could also be UNKNOWN)
+            boolean supportsFresh = hasBehavior(SUPPORTS_MATERIALIZED_VIEW_FRESHNESS_FROM_BASE_TABLES);
+            assertThat(query(defaultSession, "TABLE " + viewName))
+                    .hasPlan(readFromStorageTable)
+                    .matches(initialResults);
+            assertThat(query(futureSession, "TABLE " + viewName))
+                    .hasPlan(supportsFresh ? readFromStorageTable : readFromBaseTables)
+                    .matches(initialResults);
+
+            // Change underlying state
+            assertUpdate("INSERT INTO " + baseTable + " (regionkey, name) VALUES (42, 'foo new region')", 1);
+            String updatedResults = initialResults + " UNION ALL VALUES (42, 'foo new region')";
+
+            // The materialization is stale now
+            assertThat(query(defaultSession, "TABLE " + viewName))
+                    .hasPlan(readFromStorageTable)
+                    .matches(initialResults);
+            assertThat(query(futureSession, "TABLE " + viewName))
+                    .hasPlan(readFromBaseTables)
+                    .matches(updatedResults);
+
+            assertUpdate("REFRESH MATERIALIZED VIEW " + viewName, 6);
+
+            assertThat(query(defaultSession, "TABLE " + viewName))
+                    .hasPlan(readFromStorageTable)
+                    .matches(updatedResults);
+            assertThat(query(futureSession, "TABLE " + viewName))
+                    .hasPlan(supportsFresh ? readFromStorageTable : readFromBaseTables)
+                    .matches(updatedResults);
+
+            assertUpdate("DROP MATERIALIZED VIEW " + viewName);
+        }
+    }
+
+    @Test
+    public void testMaterializedViewWhenStaleFail()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_CREATE_MATERIALIZED_VIEW));
+
+        String catalog = getSession().getCatalog().orElseThrow();
+        String schema = getSession().getSchema().orElseThrow();
 
         if (!hasBehavior(SUPPORTS_CREATE_MATERIALIZED_VIEW_WHEN_STALE)) {
+            String viewName = "test_mv_when_stale_" + randomNameSuffix();
             assertQueryFails(
                     "CREATE MATERIALIZED VIEW " + viewName + " WHEN STALE FAIL AS SELECT * FROM nation",
                     "line 1:1: Catalog '%s' does not support WHEN STALE".formatted(catalog));
             return;
         }
 
-        throw new UnsupportedOperationException("Not implemented");
+        try (TestTable table = newTrinoTable("test_base_table", "AS TABLE region")) {
+            QualifiedObjectName baseTable = new QualifiedObjectName(catalog, schema, table.getName());
+
+            Session defaultSession = getSession();
+            Session futureSession = Session.builder(defaultSession)
+                    .setSystemProperty(SESSION_START_TIME_PROPERTY, Instant.now().plus(1, ChronoUnit.DAYS).toString())
+                    .build();
+
+            PlanMatchPattern readFromStorageTable = node(OutputNode.class, node(TableScanNode.class));
+
+            QualifiedObjectName viewName = new QualifiedObjectName(catalog, schema, "mv_when_stale_fail_" + randomNameSuffix());
+
+            assertUpdate(
+                    """
+                    CREATE MATERIALIZED VIEW %s
+                    GRACE PERIOD INTERVAL '1' HOUR
+                    WHEN STALE FAIL
+                    AS SELECT DISTINCT regionkey, format('%%s', name) name FROM %s
+                    """.formatted(viewName, baseTable));
+            assertThat(((String) computeScalar("SHOW CREATE MATERIALIZED VIEW " + viewName.objectName())))
+                    .contains("WHEN STALE FAIL");
+
+            String initialResults = "SELECT DISTINCT regionkey, CAST(name AS varchar) FROM region";
+
+            // The MV is initially not fresh
+            assertQueryFails(defaultSession, "TABLE " + viewName,
+                    "line 1:1: Materialized view '%s' is stale".formatted(viewName));
+            assertQueryFails(futureSession, "TABLE " + viewName,
+                    "line 1:1: Materialized view '%s' is stale".formatted(viewName));
+
+            assertUpdate("REFRESH MATERIALIZED VIEW " + viewName, 5);
+
+            // Right after the REFRESH, the view is FRESH (note: it could also be UNKNOWN)
+            boolean supportsFresh = hasBehavior(SUPPORTS_MATERIALIZED_VIEW_FRESHNESS_FROM_BASE_TABLES);
+            assertThat(query(defaultSession, "TABLE " + viewName))
+                    .hasPlan(readFromStorageTable)
+                    .matches(initialResults);
+            if (supportsFresh) {
+                assertThat(query(futureSession, "TABLE " + viewName))
+                        .hasPlan(readFromStorageTable)
+                        .matches(initialResults);
+            }
+            else {
+                assertQueryFails(futureSession, "TABLE " + viewName,
+                        "line 1:1: Materialized view '%s' is stale".formatted(viewName));
+            }
+
+            // Change underlying state
+            assertUpdate("INSERT INTO " + baseTable + " (regionkey, name) VALUES (42, 'foo new region')", 1);
+            String updatedResults = initialResults + " UNION ALL VALUES (42, 'foo new region')";
+
+            // The materialization is stale now
+            assertThat(query(defaultSession, "TABLE " + viewName))
+                    .hasPlan(readFromStorageTable)
+                    .matches(initialResults);
+            assertQueryFails(futureSession, "TABLE " + viewName,
+                    "line 1:1: Materialized view '%s' is stale".formatted(viewName));
+
+            assertUpdate("REFRESH MATERIALIZED VIEW " + viewName, 6);
+
+            assertThat(query(defaultSession, "TABLE " + viewName))
+                    .hasPlan(readFromStorageTable)
+                    .matches(updatedResults);
+            if (supportsFresh) {
+                assertThat(query(futureSession, "TABLE " + viewName))
+                        .hasPlan(readFromStorageTable)
+                        .matches(updatedResults);
+            }
+            else {
+                assertQueryFails(futureSession, "TABLE " + viewName,
+                        "line 1:1: Materialized view '%s' is stale".formatted(viewName));
+            }
+
+            assertUpdate("DROP MATERIALIZED VIEW " + viewName);
+        }
     }
 
     @Test
@@ -1638,7 +1822,7 @@ public abstract class BaseConnectorTest
         Session defaultSession = getSession();
         Session futureSession = Session.builder(defaultSession)
                 // This gets ignored: .setStart(...)
-                .setSystemProperty(TESTING_SESSION_TIME, Instant.now().plus(1, ChronoUnit.DAYS).toString())
+                .setSystemProperty(SESSION_START_TIME_PROPERTY, Instant.now().plus(1, ChronoUnit.DAYS).toString())
                 .build();
 
         PlanMatchPattern readFromBaseTables = anyTree(
@@ -1716,7 +1900,7 @@ public abstract class BaseConnectorTest
         Session defaultSession = getSession();
         Session futureSession = Session.builder(defaultSession)
                 // This gets ignored: .setStart(...)
-                .setSystemProperty(TESTING_SESSION_TIME, Instant.now().plus(1, ChronoUnit.DAYS).toString())
+                .setSystemProperty(SESSION_START_TIME_PROPERTY, Instant.now().plus(1, ChronoUnit.DAYS).toString())
                 .build();
 
         PlanMatchPattern readFromBaseTables = anyTree(
@@ -3256,7 +3440,7 @@ public abstract class BaseConnectorTest
                 if (setup.unsupportedType) {
                     assertThatThrownBy(setColumnType::run)
                             .satisfies(this::verifySetColumnTypeFailurePermissible);
-                    return;
+                    continue;
                 }
                 setColumnType.run();
 
@@ -3312,15 +3496,15 @@ public abstract class BaseConnectorTest
                 .add(new SetColumnTypeSetup("char(20)", "'char-to-varchar'", "varchar"))
                 .add(new SetColumnTypeSetup("varchar", "'varchar-to-char'", "char(20)"))
                 .add(new SetColumnTypeSetup("array(integer)", "array[1]", "array(bigint)"))
-                .add(new SetColumnTypeSetup("row(x integer)", "row(1)", "row(x bigint)"))
-                .add(new SetColumnTypeSetup("row(x integer)", "row(1)", "row(y integer)", "cast(row(NULL) as row(x integer))")) // rename a field
-                .add(new SetColumnTypeSetup("row(x integer, y integer)", "row(1, 2)", "row(x integer, z integer)", "cast(row(1, NULL) as row(x integer, z integer))")) // rename a field, but not all fields
-                .add(new SetColumnTypeSetup("row(x integer)", "row(1)", "row(x integer, y integer)", "cast(row(1, NULL) as row(x integer, y integer))")) // add a new field
-                .add(new SetColumnTypeSetup("row(x integer, y integer)", "row(1, 2)", "row(x integer)", "cast(row(1) as row(x integer))")) // remove an existing field
-                .add(new SetColumnTypeSetup("row(x integer, y integer)", "row(1, 2)", "row(y integer, x integer)", "cast(row(2, 1) as row(y integer, x integer))")) // reorder fields
-                .add(new SetColumnTypeSetup("row(x integer, y integer)", "row(1, 2)", "row(z integer, y integer, x integer)", "cast(row(null, 2, 1) as row(z integer, y integer, x integer))")) // reorder fields with a new field
-                .add(new SetColumnTypeSetup("row(x row(nested integer))", "row(row(1))", "row(x row(nested bigint))", "cast(row(row(1)) as row(x row(nested bigint)))")) // update a nested field
-                .add(new SetColumnTypeSetup("row(x row(a integer, b integer))", "row(row(1, 2))", "row(x row(b integer, a integer))", "cast(row(row(2, 1)) as row(x row(b integer, a integer)))")) // reorder a nested field
+                .add(new SetColumnTypeSetup("row(x integer)", "row(1)", "row(\"x\" bigint)"))
+                .add(new SetColumnTypeSetup("row(x integer)", "row(1)", "row(\"y\" integer)", "cast(row(NULL) as row(x integer))")) // rename a field
+                .add(new SetColumnTypeSetup("row(x integer, y integer)", "row(1, 2)", "row(\"x\" integer, \"z\" integer)", "cast(row(1, NULL) as row(x integer, z integer))")) // rename a field, but not all fields
+                .add(new SetColumnTypeSetup("row(x integer)", "row(1)", "row(\"x\" integer, \"y\" integer)", "cast(row(1, NULL) as row(x integer, y integer))")) // add a new field
+                .add(new SetColumnTypeSetup("row(x integer, y integer)", "row(1, 2)", "row(\"x\" integer)", "cast(row(1) as row(x integer))")) // remove an existing field
+                .add(new SetColumnTypeSetup("row(x integer, y integer)", "row(1, 2)", "row(\"y\" integer, \"x\" integer)", "cast(row(2, 1) as row(y integer, x integer))")) // reorder fields
+                .add(new SetColumnTypeSetup("row(x integer, y integer)", "row(1, 2)", "row(\"z\" integer, \"y\" integer, \"x\" integer)", "cast(row(null, 2, 1) as row(z integer, y integer, x integer))")) // reorder fields with a new field
+                .add(new SetColumnTypeSetup("row(x row(nested integer))", "row(row(1))", "row(\"x\" row(\"nested\" bigint))", "cast(row(row(1)) as row(x row(nested bigint)))")) // update a nested field
+                .add(new SetColumnTypeSetup("row(x row(a integer, b integer))", "row(row(1, 2))", "row(\"x\" row(\"b\" integer, \"a\" integer))", "cast(row(row(2, 1)) as row(x row(b integer, a integer)))")) // reorder a nested field
                 .build();
     }
 
@@ -3475,11 +3659,11 @@ public abstract class BaseConnectorTest
                 if (setup.unsupportedType) {
                     assertThatThrownBy(setFieldType::run)
                             .satisfies(this::verifySetFieldTypeFailurePermissible);
-                    return;
+                    continue;
                 }
                 setFieldType.run();
 
-                assertThat(getColumnType(table.getName(), "col")).isEqualTo("row(field " + setup.newColumnType + ")");
+                assertThat(getColumnType(table.getName(), "col")).isEqualTo("row(\"field\" " + setup.newColumnType + ")");
                 assertThat(query("SELECT * FROM " + table.getName()))
                         .skippingTypesCheck()
                         .matches("SELECT row(" + setup.newValueLiteral + ")");
@@ -4166,8 +4350,8 @@ public abstract class BaseConnectorTest
         }
 
         assertUpdate("CREATE TABLE " + tableName + " AS SELECT 123 x", 1);
-        String invalidTargetTableName = validTargetColumnName + "z";
-        assertThatThrownBy(() -> assertUpdate("ALTER TABLE " + tableName + " RENAME COLUMN x TO " + invalidTargetTableName))
+        String invalidTargetColumnName = validTargetColumnName + "z";
+        assertThatThrownBy(() -> assertUpdate("ALTER TABLE " + tableName + " RENAME COLUMN x TO " + invalidTargetColumnName))
                 .satisfies(this::verifyColumnNameLengthFailurePermissible);
         assertQuery("SELECT x FROM " + tableName, "VALUES 123");
 

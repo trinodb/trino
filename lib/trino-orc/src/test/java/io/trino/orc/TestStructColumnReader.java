@@ -277,20 +277,20 @@ public class TestStructColumnReader
 
     private Type getType(List<String> fieldNames)
     {
-        ImmutableList.Builder<TypeParameter> typeSignatureParameters = ImmutableList.builder();
+        ImmutableList.Builder<TypeParameter> typeParameters = ImmutableList.builder();
         for (String fieldName : fieldNames) {
-            typeSignatureParameters.add(TypeParameter.typeParameter(Optional.of(fieldName), VARCHAR.getTypeSignature()));
+            typeParameters.add(TypeParameter.typeParameter(Optional.of(fieldName), VARCHAR.getTypeSignature()));
         }
-        return TESTING_TYPE_MANAGER.getParameterizedType(StandardTypes.ROW, typeSignatureParameters.build());
+        return TESTING_TYPE_MANAGER.getParameterizedType(StandardTypes.ROW, typeParameters.build());
     }
 
     private Type getTypeNullName(int numFields)
     {
-        ImmutableList.Builder<TypeParameter> typeSignatureParameters = ImmutableList.builder();
+        ImmutableList.Builder<TypeParameter> typeParameters = ImmutableList.builder();
 
         for (int i = 0; i < numFields; i++) {
-            typeSignatureParameters.add(TypeParameter.typeParameter(Optional.empty(), VARCHAR.getTypeSignature()));
+            typeParameters.add(TypeParameter.typeParameter(Optional.empty(), VARCHAR.getTypeSignature()));
         }
-        return TESTING_TYPE_MANAGER.getParameterizedType(StandardTypes.ROW, typeSignatureParameters.build());
+        return TESTING_TYPE_MANAGER.getParameterizedType(StandardTypes.ROW, typeParameters.build());
     }
 }

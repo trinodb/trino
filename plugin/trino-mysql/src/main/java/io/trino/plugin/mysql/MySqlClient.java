@@ -1076,7 +1076,7 @@ public class MySqlClient
             ConnectorSession session,
             JdbcTableHandle handle,
             Map<Integer, Collection<ColumnHandle>> updateColumnHandles,
-            Consumer<Runnable> rollbackActionConsumer,
+            Consumer<Runnable> rollbackActionCollector,
             RetryMode retryMode)
     {
         if (retryMode != NO_RETRIES) {
@@ -1087,7 +1087,7 @@ public class MySqlClient
             throw new TrinoException(NOT_SUPPORTED, "This connector does not support MERGE with transactional execution");
         }
 
-        return super.beginMerge(session, handle, updateColumnHandles, rollbackActionConsumer, retryMode);
+        return super.beginMerge(session, handle, updateColumnHandles, rollbackActionCollector, retryMode);
     }
 
     @Override

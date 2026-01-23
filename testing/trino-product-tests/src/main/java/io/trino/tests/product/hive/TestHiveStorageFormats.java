@@ -447,7 +447,7 @@ public class TestHiveStorageFormats
                 nullFormat));
 
         // \N is the default null format
-        String[] values = new String[] {nullFormat, null, "non-null", "", "\\N"};
+        String[] values = {nullFormat, null, "non-null", "", "\\N"};
         Row[] storedValues = Arrays.stream(values).map(Row::row).toArray(Row[]::new);
         storedValues[0] = row((Object) null); // if you put in the null format, it saves as null
 

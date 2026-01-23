@@ -275,6 +275,7 @@ final class S3FileSystemLoader
         return sts.build();
     }
 
+    @SuppressWarnings("deprecation")
     private static ClientOverrideConfiguration createOverrideConfiguration(OpenTelemetry openTelemetry, S3FileSystemConfig config, MetricPublisher metricPublisher)
     {
         ClientOverrideConfiguration.Builder builder = ClientOverrideConfiguration.builder()

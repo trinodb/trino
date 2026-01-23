@@ -18,7 +18,6 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListenableFutureTask;
 import com.google.errorprone.annotations.ThreadSafe;
 import io.trino.plugin.iceberg.IcebergColumnHandle;
-import io.trino.plugin.iceberg.delete.DeleteManager.DeletePageSourceProvider;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.SourcePage;
@@ -36,7 +35,9 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 import static com.google.common.base.Verify.verify;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_CANNOT_OPEN_SPLIT;
+import static io.trino.plugin.iceberg.IcebergMetadataColumn.isMetadataColumnId;
 import static io.trino.plugin.iceberg.IcebergUtil.structTypeFromHandles;
 import static java.util.Objects.requireNonNull;
 
@@ -55,7 +56,9 @@ public final class EqualityDeleteFilter
     @Override
     public RowPredicate createPredicate(List<IcebergColumnHandle> columns, long splitDataSequenceNumber)
     {
-        StructType fileStructType = structTypeFromHandles(columns);
+        StructType fileStructType = structTypeFromHandles(columns.stream()
+                .filter(column -> !isMetadataColumnId(column.getId())) // equality deletes don't apply to metadata columns
+                .collect(toImmutableList()));
         StructType deleteStructType = deleteSchema.asStruct();
         if (deleteSchema.columns().stream().anyMatch(column -> fileStructType.field(column.fieldId()) == null)) {
             throw new TrinoException(ICEBERG_CANNOT_OPEN_SPLIT, "columns list doesn't contain all equality delete columns");

@@ -24,6 +24,7 @@ import io.trino.tests.product.launcher.suite.Suite;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
+import java.util.regex.Pattern;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -31,6 +32,9 @@ import static java.lang.reflect.Modifier.isAbstract;
 
 public final class Configurations
 {
+    private static final Pattern ENV_PREFIX_PATTERN = Pattern.compile("^Env");
+    private static final Pattern SUITE_PREFIX_PATTERN = Pattern.compile("^Suite");
+
     private Configurations() {}
 
     public static List<Class<? extends EnvironmentProvider>> findEnvironmentsByBasePackage(String packageName)
@@ -118,7 +122,7 @@ public final class Configurations
         String className = clazz.getSimpleName();
         checkArgument(className.matches("^Suite[A-Z0-9].*"), "Name of %s should start with 'Suite'", clazz);
         // For a suite "Suite1", the UPPER_CAMEL to LOWER_HYPHEN conversion won't insert a hyphen after "Suite"
-        return "suite-" + CaseFormat.UPPER_CAMEL.to(CaseFormat.LOWER_HYPHEN, className.replaceFirst("^Suite", ""));
+        return "suite-" + CaseFormat.UPPER_CAMEL.to(CaseFormat.LOWER_HYPHEN, SUITE_PREFIX_PATTERN.matcher(className).replaceFirst(""));
     }
 
     public static String nameForJdkProviderName(Class<? extends JdkProvider> clazz)
@@ -129,7 +133,7 @@ public final class Configurations
     public static String canonicalEnvironmentName(String name)
     {
         if (name.matches("^Env[A-Z].*")) {
-            name = name.replaceFirst("^Env", "");
+            name = ENV_PREFIX_PATTERN.matcher(name).replaceFirst("");
         }
         return canonicalName(name);
     }

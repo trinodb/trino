@@ -201,6 +201,7 @@ public final class IcebergQueryRunner
 
             Catalog backend = backendCatalog(warehouseLocation);
 
+            @SuppressWarnings("resource")
             DelegatingRestSessionCatalog delegatingCatalog = DelegatingRestSessionCatalog.builder()
                     .delegate(backend)
                     .build();
@@ -227,7 +228,7 @@ public final class IcebergQueryRunner
     {
         private IcebergBigLakeMetastoreQueryRunnerMain() {}
 
-        public static void main(String[] args)
+        static void main()
                 throws Exception
         {
             byte[] jsonKeyBytes = Base64.getDecoder().decode(requireEnv("GCP_CREDENTIALS_KEY"));
@@ -236,6 +237,7 @@ public final class IcebergQueryRunner
             Files.write(gcpCredentialsFile, jsonKeyBytes);
             String projectId = new ObjectMapperProvider().get().readTree(jsonKeyBytes).get("project_id").asText();
 
+            @SuppressWarnings("resource")
             DistributedQueryRunner queryRunner = IcebergQueryRunner.builder()
                     .addCoordinatorProperty("http-server.http.port", "8080")
                     .addIcebergProperty("iceberg.register-table-procedure.enabled", "true")
@@ -478,6 +480,7 @@ public final class IcebergQueryRunner
             Path warehouseLocation = Files.createTempDirectory(null);
             warehouseLocation.toFile().deleteOnExit();
 
+            @SuppressWarnings("resource")
             TestingIcebergJdbcServer server = new TestingIcebergJdbcServer();
 
             @SuppressWarnings("resource")
@@ -540,6 +543,7 @@ public final class IcebergQueryRunner
         static void main()
                 throws Exception
         {
+            @SuppressWarnings("resource")
             NessieContainer nessieContainer = NessieContainer.builder().build();
             nessieContainer.start();
 

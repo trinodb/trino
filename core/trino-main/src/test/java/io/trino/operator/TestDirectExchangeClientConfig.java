@@ -36,7 +36,7 @@ public class TestDirectExchangeClientConfig
                 .setMaxBufferSize(DataSize.of(32, Unit.MEGABYTE))
                 .setConcurrentRequestMultiplier(3)
                 .setMaxErrorDuration(new Duration(1, TimeUnit.MINUTES))
-                .setMaxResponseSize(new HttpClientConfig().getMaxContentLength())
+                .setMaxResponseSize(new HttpClientConfig().getMaxResponseContentLength())
                 .setPageBufferClientMaxCallbackThreads("25")
                 .setClientThreads("25")
                 .setAcknowledgePages(true)

@@ -39,7 +39,6 @@ import java.util.concurrent.ExecutorService;
 
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.airlift.concurrent.Threads.threadsNamed;
-import static io.airlift.configuration.ConditionalModule.conditionalModule;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.airlift.http.client.HttpClientBinder.httpClientBinder;
 import static io.airlift.json.JsonBinder.jsonBinder;
@@ -80,7 +79,7 @@ public class PinotModule
                     cfg.setConnectTimeout(new Duration(300, SECONDS));
                     cfg.setRequestTimeout(new Duration(300, SECONDS));
                     cfg.setMaxConnectionsPerServer(250);
-                    cfg.setMaxContentLength(DataSize.of(32, MEGABYTE));
+                    cfg.setMaxResponseContentLength(DataSize.of(32, MEGABYTE));
                     cfg.setSelectorCount(10);
                     cfg.setTimeoutThreads(8);
                     cfg.setTimeoutConcurrency(4);
@@ -139,14 +138,14 @@ public class PinotModule
         {
             configBinder(binder).bindConfig(PinotGrpcServerQueryClientConfig.class);
             binder.bind(PinotDataFetcher.Factory.class).to(PinotGrpcDataFetcher.Factory.class).in(Scopes.SINGLETON);
-            install(conditionalModule(
-                    PinotGrpcServerQueryClientConfig.class,
-                    PinotGrpcServerQueryClientConfig::isUsePlainText,
-                    plainTextBinder -> plainTextBinder.bind(PinotGrpcDataFetcher.GrpcQueryClientFactory.class).to(PinotGrpcDataFetcher.PlainTextGrpcQueryClientFactory.class).in(Scopes.SINGLETON),
-                    tlsBinder -> {
-                        configBinder(tlsBinder).bindConfig(PinotGrpcServerQueryClientTlsConfig.class);
-                        tlsBinder.bind(PinotGrpcDataFetcher.GrpcQueryClientFactory.class).to(PinotGrpcDataFetcher.TlsGrpcQueryClientFactory.class).in(Scopes.SINGLETON);
-                    }));
+
+            if (buildConfigObject(PinotGrpcServerQueryClientConfig.class).isUsePlainText()) {
+                binder.bind(PinotGrpcDataFetcher.GrpcQueryClientFactory.class).to(PinotGrpcDataFetcher.PlainTextGrpcQueryClientFactory.class).in(Scopes.SINGLETON);
+            }
+            else {
+                configBinder(binder).bindConfig(PinotGrpcServerQueryClientTlsConfig.class);
+                binder.bind(PinotGrpcDataFetcher.GrpcQueryClientFactory.class).to(PinotGrpcDataFetcher.TlsGrpcQueryClientFactory.class).in(Scopes.SINGLETON);
+            }
         }
     }
 }

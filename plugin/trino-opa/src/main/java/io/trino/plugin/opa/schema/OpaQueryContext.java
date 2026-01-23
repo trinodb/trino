@@ -13,18 +13,21 @@
  */
 package io.trino.plugin.opa.schema;
 
+import com.google.common.collect.ImmutableMap;
 import io.trino.spi.QueryId;
 
+import java.util.Map;
 import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
-public record OpaQueryContext(TrinoIdentity identity, OpaPluginContext softwareStack, Optional<QueryId> queryId)
+public record OpaQueryContext(TrinoIdentity identity, OpaPluginContext softwareStack, Map<String, String> properties, Optional<QueryId> queryId)
 {
     public OpaQueryContext
     {
         requireNonNull(identity, "identity is null");
         requireNonNull(softwareStack, "softwareStack is null");
+        properties = ImmutableMap.copyOf(properties);
         requireNonNull(queryId, "queryId is null");
     }
 }

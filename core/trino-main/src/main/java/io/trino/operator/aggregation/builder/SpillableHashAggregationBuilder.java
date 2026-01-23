@@ -183,9 +183,8 @@ public class SpillableHashAggregationBuilder
             }
 
             if (localRevocableMemoryContext.getBytes() > 0) {
-                // No spill happened, try to build result from memory
-                if (spiller.isEmpty()) {
-                    // No spill happened, try to build result from memory. Revocable memory needs to be converted to user memory as producing output stage is no longer revocable.
+                if (spiller.isEmpty() || shouldMergeWithMemory(getSizeInMemoryWhenUnspilling())) {
+                    // Revocable memory needs to be converted to user memory as producing output stage is no longer revocable.
                     long currentRevocableBytes = localRevocableMemoryContext.getBytes();
                     localRevocableMemoryContext.setBytes(0);
                     if (!localUserMemoryContext.trySetBytes(localUserMemoryContext.getBytes() + currentRevocableBytes)) {
@@ -196,7 +195,8 @@ public class SpillableHashAggregationBuilder
                         return blocked(spillToDisk());
                     }
                 }
-                else if (!shouldMergeWithMemory(getSizeInMemoryWhenUnspilling())) {
+                else {
+                    // Spill happened and memory is too large to merge with memory - spill current in-memory data
                     return blocked(spillToDisk());
                 }
             }

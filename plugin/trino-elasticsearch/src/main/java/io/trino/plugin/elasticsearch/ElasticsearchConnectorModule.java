@@ -22,11 +22,7 @@ import io.trino.spi.function.table.ConnectorTableFunction;
 
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
-import static io.airlift.configuration.ConditionalModule.conditionalModule;
 import static io.airlift.configuration.ConfigBinder.configBinder;
-import static io.trino.plugin.elasticsearch.ElasticsearchConfig.Security.AWS;
-import static io.trino.plugin.elasticsearch.ElasticsearchConfig.Security.PASSWORD;
-import static java.util.function.Predicate.isEqual;
 import static org.weakref.jmx.guice.ExportBinder.newExporter;
 
 public class ElasticsearchConnectorModule
@@ -51,18 +47,13 @@ public class ElasticsearchConnectorModule
 
         newSetBinder(binder, ConnectorTableFunction.class).addBinding().toProvider(RawQuery.class).in(Scopes.SINGLETON);
 
-        install(conditionalModule(
-                ElasticsearchConfig.class,
-                config -> config.getSecurity()
-                        .filter(isEqual(AWS))
-                        .isPresent(),
-                conditionalBinder -> configBinder(conditionalBinder).bindConfig(AwsSecurityConfig.class)));
+        ElasticsearchConfig config = buildConfigObject(ElasticsearchConfig.class);
 
-        install(conditionalModule(
-                ElasticsearchConfig.class,
-                config -> config.getSecurity()
-                        .filter(isEqual(PASSWORD))
-                        .isPresent(),
-                conditionalBinder -> configBinder(conditionalBinder).bindConfig(PasswordConfig.class)));
+        if (config.getSecurity().isPresent()) {
+            switch (config.getSecurity().orElseThrow()) {
+                case AWS -> configBinder(binder).bindConfig(AwsSecurityConfig.class);
+                case PASSWORD -> configBinder(binder).bindConfig(PasswordConfig.class);
+            }
+        }
     }
 }

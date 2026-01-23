@@ -90,14 +90,14 @@ public final class DateTimeFunctions
     private static final int MILLISECONDS_IN_DAY = 24 * MILLISECONDS_IN_HOUR;
     private static final int PIVOT_YEAR = 2020; // yy = 70 will correspond to 1970 but 69 to 2069
     private static final Slice ISO_8601_DATE_FORMAT = utf8Slice("%Y-%m-%d");
-    private static final DateTimeFieldProvider[] DATE_FIELDS = new DateTimeFieldProvider[] {
+    private static final DateTimeFieldProvider[] DATE_FIELDS = {
             new DateTimeFieldProvider("day", ISOChronology::dayOfMonth),
             new DateTimeFieldProvider("week", ISOChronology::weekOfWeekyear),
             new DateTimeFieldProvider("month", ISOChronology::monthOfYear),
             new DateTimeFieldProvider("quarter", QUARTER_OF_YEAR::getField),
             new DateTimeFieldProvider("year", ISOChronology::year)
     };
-    private static final DateTimeFieldProvider[] TIMESTAMP_FIELDS = new DateTimeFieldProvider[] {
+    private static final DateTimeFieldProvider[] TIMESTAMP_FIELDS = {
             new DateTimeFieldProvider("millisecond", ISOChronology::millisOfSecond),
             new DateTimeFieldProvider("second", ISOChronology::secondOfMinute),
             new DateTimeFieldProvider("minute", ISOChronology::minuteOfHour),

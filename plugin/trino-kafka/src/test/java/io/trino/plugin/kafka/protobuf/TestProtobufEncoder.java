@@ -58,7 +58,6 @@ import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.TimestampType.createTimestampType;
 import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_SECOND;
 import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_MICROSECOND;
-import static io.trino.spi.type.TypeSignature.mapType;
 import static io.trino.spi.type.TypeUtils.writeNativeValue;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -232,7 +231,7 @@ public class TestProtobufEncoder
 
         List<EncoderColumnHandle> columnHandles = ImmutableList.of(
                 createEncoderColumnHandle("list", new ArrayType(createVarcharType(30000)), "list"),
-                createEncoderColumnHandle("map", TESTING_TYPE_MANAGER.getType(mapType(VARCHAR.getTypeSignature(), VARCHAR.getTypeSignature())), "map"),
+                createEncoderColumnHandle("map", new MapType(VARCHAR, VARCHAR, TESTING_TYPE_MANAGER.getTypeOperators()), "map"),
                 createEncoderColumnHandle(
                         "row",
                         RowType.from(ImmutableList.<RowType.Field>builder()
@@ -371,7 +370,7 @@ public class TestProtobufEncoder
                         "row",
                         RowType.from(ImmutableList.of(
                                 RowType.field("nested_list", new ArrayType(rowType)),
-                                RowType.field("nested_map", TESTING_TYPE_MANAGER.getType(mapType(VARCHAR.getTypeSignature(), rowType.getTypeSignature()))),
+                                RowType.field("nested_map", new MapType(VARCHAR, rowType, TESTING_TYPE_MANAGER.getTypeOperators())),
                                 RowType.field("row", rowType))),
                         "nested_row"));
 

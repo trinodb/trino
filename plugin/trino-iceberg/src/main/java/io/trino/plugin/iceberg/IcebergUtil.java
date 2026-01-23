@@ -122,6 +122,8 @@ import static io.trino.plugin.iceberg.IcebergColumnHandle.partitionColumnHandle;
 import static io.trino.plugin.iceberg.IcebergColumnHandle.partitionColumnMetadata;
 import static io.trino.plugin.iceberg.IcebergColumnHandle.pathColumnHandle;
 import static io.trino.plugin.iceberg.IcebergColumnHandle.pathColumnMetadata;
+import static io.trino.plugin.iceberg.IcebergDefaultValues.formatIcebergDefaultAsSql;
+import static io.trino.plugin.iceberg.IcebergDefaultValues.parseDefaultValue;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_FILESYSTEM_ERROR;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_INVALID_METADATA;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_INVALID_PARTITION_VALUE;
@@ -439,6 +441,7 @@ public final class IcebergUtil
                                 .setType(toTrinoType(column.type(), typeManager))
                                 .setNullable(column.isOptional())
                                 .setComment(Optional.ofNullable(column.doc()))
+                                .setDefaultValue(formatIcebergDefaultAsSql(column.writeDefault(), column.type()))
                                 .build())
                 .forEach(columns::add);
         columns.add(partitionColumnMetadata());
@@ -489,7 +492,6 @@ public final class IcebergUtil
 
     public static Map<PartitionField, Integer> getIdentityPartitions(PartitionSpec partitionSpec)
     {
-        // TODO: expose transform information in Iceberg library
         ImmutableMap.Builder<PartitionField, Integer> columns = ImmutableMap.builder();
         for (int i = 0; i < partitionSpec.fields().size(); i++) {
             PartitionField field = partitionSpec.fields().get(i);
@@ -783,10 +785,12 @@ public final class IcebergUtil
 
     public static Map<Integer, Optional<String>> getPartitionKeys(StructLike partition, PartitionSpec spec)
     {
-        Map<PartitionField, Integer> fieldToIndex = getIdentityPartitions(spec);
         ImmutableMap.Builder<Integer, Optional<String>> partitionKeys = ImmutableMap.builder();
-
-        fieldToIndex.forEach((field, index) -> {
+        for (int index = 0; index < spec.fields().size(); index++) {
+            PartitionField field = spec.fields().get(index);
+            if (!field.transform().isIdentity()) {
+                continue;
+            }
             int id = field.sourceId();
             org.apache.iceberg.types.Type type = spec.schema().findType(id);
             Class<?> javaClass = type.typeId().javaClass();
@@ -806,7 +810,7 @@ public final class IcebergUtil
                 }
                 partitionKeys.put(id, Optional.of(partitionValue));
             }
-        });
+        }
 
         return partitionKeys.buildOrThrow();
     }
@@ -850,14 +854,24 @@ public final class IcebergUtil
             if (!column.isHidden()) {
                 int index = icebergColumns.size() + 1;
                 org.apache.iceberg.types.Type type = toIcebergTypeForNewColumn(column.getType(), nextFieldId);
-                NestedField field = NestedField.builder()
+                NestedField.Builder fieldBuilder = NestedField.builder()
                         .withId(index)
                         .isOptional(column.isNullable())
                         .withName(column.getName())
                         .ofType(type)
-                        .withDoc(column.getComment())
-                        .build();
-                icebergColumns.add(field);
+                        .withDoc(column.getComment());
+
+                // Set initial-default and write-default if present
+                // Note: DEFAULT NULL results in icebergDefault=null, which we skip since null is already the implicit default
+                column.getDefaultValue().ifPresent(defaultValue -> {
+                    Object icebergDefault = parseDefaultValue(defaultValue, column.getType(), type);
+                    if (icebergDefault != null) {
+                        fieldBuilder.withInitialDefault(icebergDefault);
+                        fieldBuilder.withWriteDefault(icebergDefault);
+                    }
+                });
+
+                icebergColumns.add(fieldBuilder.build());
             }
         }
         org.apache.iceberg.types.Type icebergSchema = StructType.of(icebergColumns);

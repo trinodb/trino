@@ -23,7 +23,6 @@ import io.trino.metadata.FunctionManager;
 import io.trino.metadata.InternalFunctionDependencies;
 import io.trino.metadata.MetadataManager;
 import io.trino.metadata.ResolvedFunction;
-import io.trino.metadata.SignatureBinder;
 import io.trino.metadata.SqlAggregationFunction;
 import io.trino.operator.aggregation.ParametricAggregation;
 import io.trino.operator.aggregation.ParametricAggregationImplementation;
@@ -80,6 +79,7 @@ import static io.trino.metadata.FunctionManager.createTestingFunctionManager;
 import static io.trino.metadata.GlobalFunctionCatalog.BUILTIN_SCHEMA;
 import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
 import static io.trino.metadata.OperatorNameUtil.mangleOperatorName;
+import static io.trino.metadata.SignatureBinder.applyBoundVariables;
 import static io.trino.operator.AnnotationEngineAssertions.assertDependencyCount;
 import static io.trino.operator.AnnotationEngineAssertions.assertImplementationCount;
 import static io.trino.operator.aggregation.AggregationFromAnnotationsParser.parseFunctionDefinitions;
@@ -1157,7 +1157,7 @@ public class TestAnnotationEngineForAggregates
 
         ImmutableMap.Builder<TypeSignature, Type> typeDependencies = ImmutableMap.builder();
         for (TypeSignature typeSignature : dependencyDeclaration.getTypeDependencies()) {
-            typeSignature = SignatureBinder.applyBoundVariables(typeSignature, functionBinding);
+            typeSignature = applyBoundVariables(typeSignature, functionBinding.variables());
             typeDependencies.put(typeSignature, PLANNER_CONTEXT.getTypeManager().getType(typeSignature));
         }
 

@@ -623,6 +623,147 @@
                                     <new>method java.lang.String io.trino.spi.type.Type::getDisplayName() @ io.trino.spi.type.AbstractType</new>
                                     <justification>Don't rely on TypeSignature for deriving the display name</justification>
                                 </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.removed</code>
+                                    <old>method java.util.List&lt;io.trino.spi.type.TypeSignature&gt; io.trino.spi.type.TypeSignature::getTypeParametersAsTypeSignatures()</old>
+                                    <justification>Not needed. Use getParameters() instead.</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.removed</code>
+                                    <old>method io.trino.spi.type.TypeSignature io.trino.spi.type.TypeSignature::rowType(io.trino.spi.type.TypeSignatureParameter[])</old>
+                                    <justification>Method unused</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.removed</code>
+                                    <old>method io.trino.spi.function.Signature.Builder io.trino.spi.function.Signature.Builder::variadicTypeParameter(java.lang.String, java.lang.String)</old>
+                                    <justification>Remove support for arbitrary variadic bounds</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.removed</code>
+                                    <old>method io.trino.spi.function.TypeVariableConstraint.TypeVariableConstraintBuilder io.trino.spi.function.TypeVariableConstraint.TypeVariableConstraintBuilder::variadicBound(java.lang.String)</old>
+                                    <justification>Remove support for arbitrary variadic bounds</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.parameterTypeChanged</code>
+                                    <old>parameter io.trino.spi.function.TypeVariableConstraint io.trino.spi.function.TypeVariableConstraint::fromJson(java.lang.String, boolean, boolean, ===java.util.Optional&lt;java.lang.String&gt;===, java.util.Set&lt;io.trino.spi.type.TypeSignature&gt;, java.util.Set&lt;io.trino.spi.type.TypeSignature&gt;)</old>
+                                    <new>parameter io.trino.spi.function.TypeVariableConstraint io.trino.spi.function.TypeVariableConstraint::fromJson(java.lang.String, boolean, boolean, ===boolean===, java.util.Set&lt;io.trino.spi.type.TypeSignature&gt;, java.util.Set&lt;io.trino.spi.type.TypeSignature&gt;)</new>
+                                    <parameterIndex>3</parameterIndex>
+                                    <justification>Remove support for arbitrary variadic bounds</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.removed</code>
+                                    <old>method java.util.Optional&lt;java.lang.String&gt; io.trino.spi.function.TypeVariableConstraint::getVariadicBound()</old>
+                                    <justification>Remove support for arbitrary variadic bounds</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.annotation.attributeValueChanged</code>
+                                    <old>parameter io.trino.spi.function.TypeVariableConstraint io.trino.spi.function.TypeVariableConstraint::fromJson(java.lang.String, boolean, boolean, ===java.util.Optional&lt;java.lang.String&gt;===, java.util.Set&lt;io.trino.spi.type.TypeSignature&gt;, java.util.Set&lt;io.trino.spi.type.TypeSignature&gt;)</old>
+                                    <new>parameter io.trino.spi.function.TypeVariableConstraint io.trino.spi.function.TypeVariableConstraint::fromJson(java.lang.String, boolean, boolean, ===boolean===, java.util.Set&lt;io.trino.spi.type.TypeSignature&gt;, java.util.Set&lt;io.trino.spi.type.TypeSignature&gt;)</new>
+                                    <annotationType>com.fasterxml.jackson.annotation.JsonProperty</annotationType>
+                                    <attribute>value</attribute>
+                                    <oldValue>"variadicBound"</oldValue>
+                                    <newValue>"rowType"</newValue>
+                                    <justification>Remove support for arbitrary variadic bounds</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.parameterTypeChanged</code>
+                                    <old>parameter void io.trino.spi.type.TypeNotFoundException::&lt;init&gt;(===io.trino.spi.type.TypeSignature===)</old>
+                                    <new>parameter void io.trino.spi.type.TypeNotFoundException::&lt;init&gt;(===java.lang.String===)</new>
+                                    <parameterIndex>0</parameterIndex>
+                                    <justification>Remove TypeSignature dependency from</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.removed</code>
+                                    <old>method void io.trino.spi.type.TypeNotFoundException::&lt;init&gt;(io.trino.spi.type.TypeSignature, java.lang.Throwable)</old>
+                                    <justification>Remove TypeSignature dependency from</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.annotation.attributeValueChanged</code>
+                                    <old>parameter void io.trino.spi.memory.MemoryPoolInfo::&lt;init&gt;(long, long, long, java.util.Map&lt;io.trino.spi.QueryId, java.lang.Long&gt;, java.util.Map&lt;io.trino.spi.QueryId, java.util.List&lt;io.trino.spi.memory.MemoryAllocation&gt;&gt;, ===java.util.Map&lt;io.trino.spi.QueryId, java.lang.Long&gt;===, java.util.Map&lt;java.lang.String, java.lang.Long&gt;, java.util.Map&lt;java.lang.String, java.lang.Long&gt;)</old>
+                                    <new>parameter void io.trino.spi.memory.MemoryPoolInfo::&lt;init&gt;(long, long, long, java.util.Map&lt;io.trino.spi.QueryId, java.lang.Long&gt;, java.util.Map&lt;io.trino.spi.QueryId, java.util.List&lt;io.trino.spi.memory.MemoryAllocation&gt;&gt;, ===java.util.Map&lt;java.lang.String, java.lang.Long&gt;===, java.util.Map&lt;java.lang.String, java.lang.Long&gt;)</new>
+                                    <annotationType>com.fasterxml.jackson.annotation.JsonProperty</annotationType>
+                                    <attribute>value</attribute>
+                                    <oldValue>"queryMemoryRevocableReservations"</oldValue>
+                                    <newValue>"taskMemoryReservations"</newValue>
+                                    <justification>Removal of unused field</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.annotation.attributeValueChanged</code>
+                                    <old>parameter void io.trino.spi.memory.MemoryPoolInfo::&lt;init&gt;(long, long, long, java.util.Map&lt;io.trino.spi.QueryId, java.lang.Long&gt;, java.util.Map&lt;io.trino.spi.QueryId, java.util.List&lt;io.trino.spi.memory.MemoryAllocation&gt;&gt;, java.util.Map&lt;io.trino.spi.QueryId, java.lang.Long&gt;, ===java.util.Map&lt;java.lang.String, java.lang.Long&gt;===, java.util.Map&lt;java.lang.String, java.lang.Long&gt;)</old>
+                                    <new>parameter void io.trino.spi.memory.MemoryPoolInfo::&lt;init&gt;(long, long, long, java.util.Map&lt;io.trino.spi.QueryId, java.lang.Long&gt;, java.util.Map&lt;io.trino.spi.QueryId, java.util.List&lt;io.trino.spi.memory.MemoryAllocation&gt;&gt;, java.util.Map&lt;java.lang.String, java.lang.Long&gt;, ===java.util.Map&lt;java.lang.String, java.lang.Long&gt;===)</new>
+                                    <annotationType>com.fasterxml.jackson.annotation.JsonProperty</annotationType>
+                                    <attribute>value</attribute>
+                                    <oldValue>"taskMemoryReservations"</oldValue>
+                                    <newValue>"taskMemoryRevocableReservations"</newValue>
+                                    <justification>Removal of unused field</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.numberOfParametersChanged</code>
+                                    <old>method void io.trino.spi.memory.MemoryPoolInfo::&lt;init&gt;(long, long, long, java.util.Map&lt;io.trino.spi.QueryId, java.lang.Long&gt;, java.util.Map&lt;io.trino.spi.QueryId, java.util.List&lt;io.trino.spi.memory.MemoryAllocation&gt;&gt;, java.util.Map&lt;io.trino.spi.QueryId, java.lang.Long&gt;, java.util.Map&lt;java.lang.String, java.lang.Long&gt;, java.util.Map&lt;java.lang.String, java.lang.Long&gt;)</old>
+                                    <new>method void io.trino.spi.memory.MemoryPoolInfo::&lt;init&gt;(long, long, long, java.util.Map&lt;io.trino.spi.QueryId, java.lang.Long&gt;, java.util.Map&lt;io.trino.spi.QueryId, java.util.List&lt;io.trino.spi.memory.MemoryAllocation&gt;&gt;, java.util.Map&lt;java.lang.String, java.lang.Long&gt;, java.util.Map&lt;java.lang.String, java.lang.Long&gt;)</new>
+                                    <justification>Removal of unused field</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.removed</code>
+                                    <old>method java.util.Map&lt;io.trino.spi.QueryId, java.lang.Long&gt; io.trino.spi.memory.MemoryPoolInfo::getQueryMemoryRevocableReservations()</old>
+                                    <justification>Removal of unused field</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.annotation.removed</code>
+                                    <old>parameter void io.trino.spi.memory.MemoryAllocation::&lt;init&gt;(===java.lang.String===, long)</old>
+                                    <new>parameter void io.trino.spi.memory.MemoryAllocation::&lt;init&gt;(===java.lang.String===, long)</new>
+                                    <annotation>@com.fasterxml.jackson.annotation.JsonProperty("tag")</annotation>
+                                    <justification>Class converted to a record</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.annotation.removed</code>
+                                    <old>parameter void io.trino.spi.memory.MemoryAllocation::&lt;init&gt;(java.lang.String, ===long===)</old>
+                                    <new>parameter void io.trino.spi.memory.MemoryAllocation::&lt;init&gt;(java.lang.String, ===long===)</new>
+                                    <annotation>@com.fasterxml.jackson.annotation.JsonProperty("allocation")</annotation>
+                                    <justification>Class converted to a record</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.annotation.removed</code>
+                                    <old>method void io.trino.spi.memory.MemoryAllocation::&lt;init&gt;(java.lang.String, long)</old>
+                                    <new>method void io.trino.spi.memory.MemoryAllocation::&lt;init&gt;(java.lang.String, long)</new>
+                                    <annotation>@com.fasterxml.jackson.annotation.JsonCreator</annotation>
+                                    <justification>Class converted to a record</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.removed</code>
+                                    <old>method long io.trino.spi.memory.MemoryAllocation::getAllocation()</old>
+                                    <justification>Class converted to a record</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.removed</code>
+                                    <old>method java.lang.String io.trino.spi.memory.MemoryAllocation::getTag()</old>
+                                    <justification>Class converted to a record</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.class.kindChanged</code>
+                                    <old>class io.trino.spi.memory.MemoryAllocation</old>
+                                    <new>class io.trino.spi.memory.MemoryAllocation</new>
+                                    <justification>Class converted to a record</justification>
+                                </item>
                             </differences>
                         </revapi.differences>
                     </analysisConfiguration>

@@ -21,6 +21,7 @@ import io.trino.connector.MockConnectorFactory;
 import io.trino.connector.MockConnectorPlugin;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
+import io.trino.operator.OperatorStats;
 import io.trino.spi.Page;
 import io.trino.spi.QueryId;
 import io.trino.spi.SplitWeight;
@@ -60,9 +61,11 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static io.airlift.slice.SizeOf.instanceSize;
 import static io.trino.plugin.iceberg.IcebergTestUtils.FILE_IO_FACTORY;
 import static io.trino.plugin.iceberg.IcebergTestUtils.getFileSystemFactory;
+import static io.trino.plugin.iceberg.IcebergTestUtils.withSmallRowGroups;
 import static io.trino.spi.function.table.ReturnTypeSpecification.GenericTable.GENERIC_TABLE;
 import static io.trino.spi.function.table.TableFunctionProcessorState.Finished.FINISHED;
 import static io.trino.spi.function.table.TableFunctionProcessorState.Processed.produced;
@@ -211,6 +214,7 @@ public abstract class BaseIcebergMaterializedViewTest
         assertThat((String) computeScalar("SHOW CREATE MATERIALIZED VIEW test_mv_show_create"))
                 .matches(
                         "\\QCREATE MATERIALIZED VIEW iceberg." + schema + ".test_mv_show_create\n" +
+                                "WHEN STALE INLINE\n" +
                                 "WITH (\n" +
                                 "   format = 'ORC',\n" +
                                 "   format_version = 2,\n" +
@@ -527,6 +531,7 @@ public abstract class BaseIcebergMaterializedViewTest
 
         assertThat((String) computeScalar("SHOW CREATE MATERIALIZED VIEW materialized_view_window"))
                 .matches("\\QCREATE MATERIALIZED VIEW " + qualifiedMaterializedViewName + "\n" +
+                        "WHEN STALE INLINE\n" +
                         "WITH (\n" +
                         "   format = 'PARQUET',\n" +
                         "   format_version = 2,\n" +
@@ -1104,6 +1109,26 @@ public abstract class BaseIcebergMaterializedViewTest
         // cleanup
         assertUpdate("DROP MATERIALIZED VIEW %s".formatted(materializedViewName));
         assertUpdate("DROP TABLE %s".formatted(sourceTableName));
+    }
+
+    @Test
+    public void testSplitOffsetsOnStorageTable()
+    {
+        String materializedViewName = "test_split_offsets_" + randomNameSuffix();
+        computeActual(format("CREATE MATERIALIZED VIEW %s AS SELECT * FROM tpch.tiny.nation", materializedViewName));
+        assertUpdate(withSmallRowGroups(getSession()), "REFRESH MATERIALIZED VIEW " + materializedViewName, 25);
+
+        assertQueryStats(
+                getSession(),
+                "SELECT * FROM " + materializedViewName,
+                stats -> {
+                    OperatorStats scanStats = stats.getOperatorSummaries()
+                            .stream()
+                            .filter(summary -> summary.getOperatorType().startsWith("ScanFilter"))
+                            .collect(onlyElement());
+                    assertThat(scanStats.getTotalDrivers()).isGreaterThan(1);
+                },
+                result -> assertThat(result.getRowCount()).isEqualTo(25));
     }
 
     protected String getColumnComment(String tableName, String columnName)

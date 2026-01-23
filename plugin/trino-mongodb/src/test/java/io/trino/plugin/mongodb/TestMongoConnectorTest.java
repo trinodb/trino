@@ -1920,6 +1920,8 @@ public class TestMongoConnectorTest
     {
         switch ("%s -> %s".formatted(setup.sourceColumnType(), setup.newColumnType())) {
             case "bigint -> integer":
+            case "bigint -> smallint":
+            case "bigint -> tinyint":
             case "decimal(5,3) -> decimal(5,2)":
             case "time(3) -> time(6)":
             case "time(6) -> time(3)":

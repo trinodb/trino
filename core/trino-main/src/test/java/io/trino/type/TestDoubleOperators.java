@@ -833,7 +833,7 @@ public class TestDoubleOperators
     public void testNanHash()
             throws Throwable
     {
-        long[] nanRepresentations = new long[] {doubleToLongBits(Double.NaN), 0xfff8000000000000L, 0x7ff8123412341234L, 0xfff8123412341234L};
+        long[] nanRepresentations = {doubleToLongBits(Double.NaN), 0xfff8000000000000L, 0x7ff8123412341234L, 0xfff8123412341234L};
         for (long nanRepresentation : nanRepresentations) {
             assertThat(isNaN(longBitsToDouble(nanRepresentation))).isTrue();
             // longBitsToDouble() keeps the bitwise difference in NaN

@@ -29,6 +29,7 @@ import io.trino.tracing.TracingConnectorMetadata;
 
 import java.util.Optional;
 import java.util.Set;
+import java.util.regex.Pattern;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
@@ -43,6 +44,7 @@ import static java.util.stream.Collectors.joining;
 public class CountingMockConnector
         implements AutoCloseable
 {
+    private static final Pattern TRINO_PREFIX = Pattern.compile("^trino\\.");
     private final Object lock = new Object();
 
     private final Set<String> tablesTestSchema1 = IntStream.range(0, 1000)
@@ -110,7 +112,7 @@ public class CountingMockConnector
                         String attributes = span.getAttributes().asMap().entrySet().stream()
                                 .map(entry -> entry(entry.getKey().getKey(), entry.getValue()))
                                 .filter(entry -> !entry.getKey().equals("trino.catalog"))
-                                .map(entry -> "%s=%s".formatted(entry.getKey().replaceFirst("^trino\\.", ""), entry.getValue()))
+                                .map(entry -> "%s=%s".formatted(TRINO_PREFIX.matcher(entry.getKey()).replaceFirst(""), entry.getValue()))
                                 .sorted()
                                 .collect(joining(", "));
                         if (attributes.isEmpty()) {

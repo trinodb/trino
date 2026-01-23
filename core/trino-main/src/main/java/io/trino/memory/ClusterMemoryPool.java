@@ -57,9 +57,6 @@ public class ClusterMemoryPool
     @GuardedBy("this")
     private final Map<QueryId, List<MemoryAllocation>> queryMemoryAllocations = new HashMap<>();
 
-    @GuardedBy("this")
-    private final Map<QueryId, Long> queryMemoryRevocableReservations = new HashMap<>();
-
     public synchronized MemoryPoolInfo getInfo()
     {
         return new MemoryPoolInfo(
@@ -68,7 +65,6 @@ public class ClusterMemoryPool
                 reservedRevocableDistributedBytes,
                 ImmutableMap.copyOf(queryMemoryReservations),
                 ImmutableMap.copyOf(queryMemoryAllocations),
-                ImmutableMap.copyOf(queryMemoryRevocableReservations),
                 // not providing per-task memory info for cluster-wide pool
                 ImmutableMap.of(),
                 ImmutableMap.of());
@@ -121,11 +117,6 @@ public class ClusterMemoryPool
         return ImmutableMap.copyOf(queryMemoryReservations);
     }
 
-    public synchronized Map<QueryId, Long> getQueryMemoryRevocableReservations()
-    {
-        return ImmutableMap.copyOf(queryMemoryRevocableReservations);
-    }
-
     public synchronized void update(List<MemoryInfo> memoryInfos, int assignedQueries)
     {
         nodes = 0;
@@ -136,7 +127,6 @@ public class ClusterMemoryPool
         this.assignedQueries = assignedQueries;
         this.queryMemoryReservations.clear();
         this.queryMemoryAllocations.clear();
-        this.queryMemoryRevocableReservations.clear();
 
         for (MemoryInfo info : memoryInfos) {
             MemoryPoolInfo poolInfo = info.getPool();
@@ -153,9 +143,6 @@ public class ClusterMemoryPool
             for (Map.Entry<QueryId, List<MemoryAllocation>> entry : poolInfo.getQueryMemoryAllocations().entrySet()) {
                 queryMemoryAllocations.merge(entry.getKey(), entry.getValue(), this::mergeQueryAllocations);
             }
-            for (Map.Entry<QueryId, Long> entry : poolInfo.getQueryMemoryRevocableReservations().entrySet()) {
-                queryMemoryRevocableReservations.merge(entry.getKey(), entry.getValue(), Long::sum);
-            }
         }
     }
 
@@ -167,14 +154,14 @@ public class ClusterMemoryPool
         Map<String, MemoryAllocation> mergedAllocations = new HashMap<>();
 
         for (MemoryAllocation allocation : left) {
-            mergedAllocations.put(allocation.getTag(), allocation);
+            mergedAllocations.put(allocation.tag(), allocation);
         }
 
         for (MemoryAllocation allocation : right) {
             mergedAllocations.merge(
-                    allocation.getTag(),
+                    allocation.tag(),
                     allocation,
-                    (a, b) -> new MemoryAllocation(a.getTag(), a.getAllocation() + b.getAllocation()));
+                    (a, b) -> new MemoryAllocation(a.tag(), a.allocation() + b.allocation()));
         }
 
         return new ArrayList<>(mergedAllocations.values());
@@ -193,7 +180,6 @@ public class ClusterMemoryPool
                 .add("assignedQueries", assignedQueries)
                 .add("queryMemoryReservations", queryMemoryReservations)
                 .add("queryMemoryAllocations", queryMemoryAllocations)
-                .add("queryMemoryRevocableReservations", queryMemoryRevocableReservations)
                 .toString();
     }
 }

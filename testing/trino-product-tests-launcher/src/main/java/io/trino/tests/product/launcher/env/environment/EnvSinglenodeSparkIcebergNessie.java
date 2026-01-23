@@ -43,7 +43,7 @@ public class EnvSinglenodeSparkIcebergNessie
 
     private static final int SPARK_THRIFT_PORT = 10213;
     private static final int NESSIE_PORT = 19120;
-    private static final String NESSIE_VERSION = "0.106.0";
+    private static final String NESSIE_VERSION = "0.106.1";
     private static final String SPARK = "spark";
 
     private final DockerFiles dockerFiles;
@@ -75,7 +75,7 @@ public class EnvSinglenodeSparkIcebergNessie
     @SuppressWarnings("resource")
     private DockerContainer createSparkContainer()
     {
-        DockerContainer container = new DockerContainer("ghcr.io/trinodb/testing/spark3-iceberg:" + hadoopImagesVersion, SPARK)
+        DockerContainer container = new DockerContainer("ghcr.io/trinodb/testing/spark4-iceberg:" + hadoopImagesVersion, SPARK)
                 .withEnv("HADOOP_USER_NAME", "hive")
                 .withCopyFileToContainer(
                         forHostPath(dockerFiles.getDockerFilesHostPath("conf/environment/singlenode-spark-iceberg-nessie/spark-defaults.conf")),

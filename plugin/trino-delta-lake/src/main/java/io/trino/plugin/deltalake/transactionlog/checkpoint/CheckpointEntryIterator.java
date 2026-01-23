@@ -55,7 +55,6 @@ import io.trino.spi.type.RowType;
 import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
-import io.trino.spi.type.TypeSignature;
 import jakarta.annotation.Nullable;
 import org.joda.time.DateTimeZone;
 
@@ -177,8 +176,8 @@ public class CheckpointEntryIterator
     {
         this.checkpointPath = checkpoint.location().toString();
         this.session = requireNonNull(session, "session is null");
-        this.stringList = (ArrayType) typeManager.getType(TypeSignature.arrayType(VARCHAR.getTypeSignature()));
-        this.stringMap = (MapType) typeManager.getType(TypeSignature.mapType(VARCHAR.getTypeSignature(), VARCHAR.getTypeSignature()));
+        this.stringList = new ArrayType(VARCHAR);
+        this.stringMap = new MapType(VARCHAR, VARCHAR, typeManager.getTypeOperators());
         this.checkpointRowStatisticsWritingEnabled = checkpointRowStatisticsWritingEnabled;
         this.partitionConstraint = requireNonNull(partitionConstraint, "partitionConstraint is null");
         requireNonNull(addStatsMinMaxColumnFilter, "addStatsMinMaxColumnFilter is null");

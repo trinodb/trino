@@ -540,7 +540,15 @@ public class BigQueryClient
             jobConfiguration = bigQuery.create(jobInfo).getConfiguration();
         }
         catch (BigQueryException e) {
-            throw new TrinoException(BIGQUERY_INVALID_STATEMENT, "Failed to get destination table for query. " + firstNonNull(e.getMessage(), e), e);
+            throw new TrinoException(
+                    BIGQUERY_INVALID_STATEMENT,
+                    "Failed to get destination table for query. code: %s, reason: %s, retryable: %s, debug: %s, message: %s".formatted(
+                            e.getCode(),
+                            e.getReason(),
+                            e.isRetryable(),
+                            e.getDebugInfo(),
+                            firstNonNull(e.getMessage(), e)),
+                    e);
         }
 
         return requireNonNull(((QueryJobConfiguration) jobConfiguration).getDestinationTable(), "Cannot determine destination table for query");

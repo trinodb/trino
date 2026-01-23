@@ -111,7 +111,7 @@ public final class AggregationFromAnnotationsParser
                         stateDetails,
                         inputFunction,
                         outputFunction,
-                        combineFunction.filter(function -> header.decomposable()),
+                        combineFunction.filter(_ -> header.decomposable()),
                         header.windowAccumulator());
                 if (isGenericOrCalculated(implementation.getSignature())) {
                     exactImplementations.add(implementation);
@@ -161,7 +161,7 @@ public final class AggregationFromAnnotationsParser
 
     private static boolean isGenericOrCalculated(Signature signature)
     {
-        return signature.getTypeVariableConstraints().isEmpty()
+        return !signature.isGeneric()
                 && signature.getArgumentTypes().stream().noneMatch(TypeSignature::isCalculated)
                 && !signature.getReturnType().isCalculated();
     }
@@ -406,7 +406,7 @@ public final class AggregationFromAnnotationsParser
             allDependencies.addAll(dependencies);
         }
         else {
-            serializerGenerator = (functionBinding, functionDependencies) -> generateStateSerializer(stateClass);
+            serializerGenerator = (_, _) -> generateStateSerializer(stateClass);
         }
 
         TypeSignature serializedType;
@@ -420,7 +420,7 @@ public final class AggregationFromAnnotationsParser
             AccumulatorStateSerializer<T> serializer = serializerGenerator.apply(null, null);
             serializedType = serializer.getSerializedType().getTypeSignature();
             // since there are no dependencies, the same serializer can be used for all
-            serializerGenerator = (functionBinding, functionDependencies) -> serializer;
+            serializerGenerator = (_, _) -> serializer;
         }
 
         BiFunction<FunctionBinding, FunctionDependencies, AccumulatorStateFactory<T>> factoryGenerator;
@@ -431,7 +431,7 @@ public final class AggregationFromAnnotationsParser
             allDependencies.addAll(dependencies);
         }
         else {
-            factoryGenerator = (functionBinding, functionDependencies) -> generateStateFactory(stateClass);
+            factoryGenerator = (_, _) -> generateStateFactory(stateClass);
         }
 
         return new AccumulatorStateDetails<>(
@@ -457,9 +457,9 @@ public final class AggregationFromAnnotationsParser
                 InOut.class,
                 ImmutableList.of(typeVariable),
                 serializedType,
-                (functionBinding, functionDependencies) -> new InOutStateSerializer(functionBinding.getTypeVariable(typeVariable)),
-                (functionBinding, functionDependencies) -> generateInOutStateFactory(functionBinding.getTypeVariable(typeVariable)),
-                ImmutableList.of(new TypeImplementationDependency(parseTypeSignature(typeVariable, ImmutableSet.of()))));
+                (functionBinding, _) -> new InOutStateSerializer(functionBinding.variables().getTypeVariable(typeVariable)),
+                (functionBinding, _) -> generateInOutStateFactory(functionBinding.variables().getTypeVariable(typeVariable)),
+                        ImmutableList.of(new TypeImplementationDependency(parseTypeSignature(typeVariable, ImmutableSet.of()))));
     }
 
     private static TypeSignatureMapping getTypeParameterMapping(Class<?> stateClass, List<String> declaredTypeParameters, StateMetadata metadata)

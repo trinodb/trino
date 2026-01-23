@@ -110,6 +110,12 @@ public class FileSystemTransactionLogWriter
 
         String transactionLogLocation = getTransactionLogDir(tableLocation);
         CommitInfoEntry commitInfo = requireNonNull(commitInfoEntry.get().getCommitInfo(), "commitInfoEntry.get().getCommitInfo() is null");
+        // This is necessary to ensure separate queries don't have the same commit info.
+        // This way we guarantee that transaction log contents are unique per writing query.
+        // This information may be used by a TransactionLogSynchronizer.
+        checkState(
+                commitInfo.operationParameters() != null && commitInfo.operationParameters().containsKey("queryId"),
+                "commitInfo lacks writing query identity");
         Location logEntry = getTransactionLogJsonEntryPath(transactionLogLocation, commitInfo.version());
         writeLog(logEntry);
     }

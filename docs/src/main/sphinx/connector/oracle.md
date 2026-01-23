@@ -66,6 +66,7 @@ them, change the properties in the catalog configuration file:
 oracle.connection-pool.max-size=30
 oracle.connection-pool.min-size=1
 oracle.connection-pool.inactive-timeout=20m
+oracle.connection-pool.wait-duration=3s
 ```
 
 To disable connection pooling, update properties to include the following:
@@ -175,7 +176,9 @@ Trino data type mapping:
   - See [](oracle-number-mapping)
 * - `FLOAT[(p)]`
   - `DOUBLE`
-  -
+  - When `p` exceeds 53, numeric values may be subject to precision loss. 
+    The default precision of the [FLOAT data type](https://docs.oracle.com/javadb/10.6.2.1/ref/rrefsqlj27281.html) 
+    in Oracle is 53.
 * - `BINARY_FLOAT`
   - `REAL`
   -

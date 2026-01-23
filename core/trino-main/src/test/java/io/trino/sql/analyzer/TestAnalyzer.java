@@ -73,6 +73,7 @@ import io.trino.server.protocol.spooling.SpoolingEnabledConfig;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.Connector;
+import io.trino.spi.connector.ConnectorMaterializedViewDefinition.WhenStaleBehavior;
 import io.trino.spi.connector.ConnectorMetadata;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableMetadata;
@@ -112,6 +113,7 @@ import org.junit.jupiter.api.parallel.Execution;
 
 import java.time.Duration;
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
 import java.util.function.Consumer;
 
@@ -190,6 +192,7 @@ import static io.trino.spi.StandardErrorCode.TOO_MANY_GROUPING_SETS;
 import static io.trino.spi.StandardErrorCode.TYPE_MISMATCH;
 import static io.trino.spi.StandardErrorCode.VIEW_IS_RECURSIVE;
 import static io.trino.spi.StandardErrorCode.VIEW_IS_STALE;
+import static io.trino.spi.connector.ConnectorMaterializedViewDefinition.WhenStaleBehavior.INLINE;
 import static io.trino.spi.connector.SaveMode.FAIL;
 import static io.trino.spi.session.PropertyMetadata.integerProperty;
 import static io.trino.spi.session.PropertyMetadata.stringProperty;
@@ -5797,9 +5800,17 @@ public class TestAnalyzer
     @Test
     public void testAnalyzeFreshMaterializedView()
     {
-        analyze("SELECT * FROM fresh_materialized_view");
-        analyze("SELECT * FROM fresh_materialized_view_non_existent_table");
-        assertFails("REFRESH MATERIALIZED VIEW fresh_materialized_view_non_existent_table")
+        testAnalyzeFreshMaterializedView(INLINE);
+        testAnalyzeFreshMaterializedView(WhenStaleBehavior.FAIL);
+    }
+
+    private void testAnalyzeFreshMaterializedView(WhenStaleBehavior whenStaleBehavior)
+    {
+        String suffix = resolveMaterializedViewNameSuffix(whenStaleBehavior);
+
+        analyze("SELECT * FROM fresh_materialized_view" + suffix);
+        analyze("SELECT * FROM fresh_materialized_view_non_existent_table" + suffix);
+        assertFails("REFRESH MATERIALIZED VIEW fresh_materialized_view_non_existent_table" + suffix)
                 .hasErrorCode(TABLE_NOT_FOUND)
                 .hasMessage("line 1:18: Table 'tpch.s1.non_existent_table' does not exist");
     }
@@ -5807,11 +5818,28 @@ public class TestAnalyzer
     @Test
     public void testAnalyzeStaleMaterializedView()
     {
-        analyze("SELECT * FROM stale_materialized_view");
-        assertFails("SELECT * FROM stale_materialized_view_non_existent_table")
+        testAnalyzeStaleMaterializedViewWithWhenStaleInline(INLINE);
+
+        assertFails("SELECT * FROM stale_materialized_view_when_stale_fail")
+                .hasErrorCode(VIEW_IS_STALE)
+                .hasMessage("line 1:15: Materialized view 'tpch.s1.stale_materialized_view_when_stale_fail' is stale");
+        assertFails("SELECT * FROM stale_materialized_view_non_existent_table_when_stale_fail")
+                .hasErrorCode(VIEW_IS_STALE)
+                .hasMessage("line 1:15: Materialized view 'tpch.s1.stale_materialized_view_non_existent_table_when_stale_fail' is stale");
+        assertFails("REFRESH MATERIALIZED VIEW stale_materialized_view_non_existent_table_when_stale_fail")
+                .hasErrorCode(TABLE_NOT_FOUND)
+                .hasMessage("line 1:18: Table 'tpch.s1.non_existent_table' does not exist");
+    }
+
+    public void testAnalyzeStaleMaterializedViewWithWhenStaleInline(WhenStaleBehavior whenStaleBehavior)
+    {
+        String suffix = resolveMaterializedViewNameSuffix(whenStaleBehavior);
+
+        analyze("SELECT * FROM stale_materialized_view" + suffix);
+        assertFails("SELECT * FROM stale_materialized_view_non_existent_table" + suffix)
                 .hasErrorCode(INVALID_VIEW)
-                .hasMessage("line 1:15: Failed analyzing stored view 'tpch.s1.stale_materialized_view_non_existent_table': line 1:18: Table 'tpch.s1.non_existent_table' does not exist");
-        assertFails("REFRESH MATERIALIZED VIEW stale_materialized_view_non_existent_table")
+                .hasMessage("line 1:15: Failed analyzing stored view 'tpch.s1.stale_materialized_view_non_existent_table" + suffix + "': line 1:18: Table 'tpch.s1.non_existent_table' does not exist");
+        assertFails("REFRESH MATERIALIZED VIEW stale_materialized_view_non_existent_table" + suffix)
                 .hasErrorCode(TABLE_NOT_FOUND)
                 .hasMessage("line 1:18: Table 'tpch.s1.non_existent_table' does not exist");
     }
@@ -5819,13 +5847,21 @@ public class TestAnalyzer
     @Test
     public void testAnalyzeInvalidFreshMaterializedView()
     {
-        assertFails("SELECT * FROM fresh_materialized_view_mismatched_column_count")
+        testAnalyzeInvalidFreshMaterializedView(INLINE);
+        testAnalyzeInvalidFreshMaterializedView(WhenStaleBehavior.FAIL);
+    }
+
+    private void testAnalyzeInvalidFreshMaterializedView(WhenStaleBehavior whenStaleBehavior)
+    {
+        String suffix = resolveMaterializedViewNameSuffix(whenStaleBehavior);
+
+        assertFails("SELECT * FROM fresh_materialized_view_mismatched_column_count" + suffix)
                 .hasErrorCode(INVALID_VIEW)
                 .hasMessage("line 1:15: storage table column count (2) does not match column count derived from the materialized view query analysis (1)");
-        assertFails("SELECT * FROM fresh_materialized_view_mismatched_column_name")
+        assertFails("SELECT * FROM fresh_materialized_view_mismatched_column_name" + suffix)
                 .hasErrorCode(INVALID_VIEW)
                 .hasMessage("line 1:15: column [b] of type bigint projected from storage table at position 1 has a different name from column [c] of type bigint stored in materialized view definition");
-        assertFails("SELECT * FROM fresh_materialized_view_mismatched_column_type")
+        assertFails("SELECT * FROM fresh_materialized_view_mismatched_column_type" + suffix)
                 .hasErrorCode(INVALID_VIEW)
                 .hasMessage("line 1:15: cannot cast column [b] of type bigint projected from storage table at position 1 into column [b] of type row(tinyint) stored in view definition");
     }
@@ -5833,37 +5869,53 @@ public class TestAnalyzer
     @Test
     public void testAnalyzeMaterializedViewWithAccessControl()
     {
+        testAnalyzeMaterializedViewWithAccessControl(INLINE);
+        testAnalyzeMaterializedViewWithAccessControl(WhenStaleBehavior.FAIL);
+    }
+
+    private void testAnalyzeMaterializedViewWithAccessControl(WhenStaleBehavior whenStaleBehavior)
+    {
+        String suffix = resolveMaterializedViewNameSuffix(whenStaleBehavior);
+
         TestingAccessControlManager accessControlManager = new TestingAccessControlManager(transactionManager, emptyEventListenerManager(), new SecretsResolver(ImmutableMap.of()));
         accessControlManager.setSystemAccessControls(List.of(AllowAllSystemAccessControl.INSTANCE));
 
-        analyze(CLIENT_SESSION, "SELECT * FROM fresh_materialized_view", accessControlManager);
+        analyze(CLIENT_SESSION, "SELECT * FROM fresh_materialized_view" + suffix, accessControlManager);
 
         // materialized view analysis should succeed even if access to storage table is denied when querying the table directly
         accessControlManager.deny(privilege("t2.a", SELECT_COLUMN));
-        analyze(CLIENT_SESSION, "SELECT * FROM fresh_materialized_view", accessControlManager);
+        analyze(CLIENT_SESSION, "SELECT * FROM fresh_materialized_view" + suffix, accessControlManager);
 
-        accessControlManager.deny(privilege("fresh_materialized_view.a", SELECT_COLUMN));
+        accessControlManager.deny(privilege("fresh_materialized_view" + suffix + ".a", SELECT_COLUMN));
         assertFails(
                 CLIENT_SESSION,
-                "SELECT * FROM fresh_materialized_view",
+                "SELECT * FROM fresh_materialized_view" + suffix,
                 accessControlManager)
                 .hasErrorCode(PERMISSION_DENIED)
-                .hasMessage("Access Denied: Cannot select from columns [a, b] in table or view tpch.s1.fresh_materialized_view");
+                .hasMessage("Access Denied: Cannot select from columns [a, b] in table or view tpch.s1.fresh_materialized_view" + suffix);
         accessControlManager.reset();
 
         // Deny access to the table referenced by the underlying query
         accessControlManager.denyIdentityTable((_, table) -> !"t1".equals(table));
         // When an MV is fresh or within the grace period, analysis of the underlying query is not performed,
         // so access control checks on the tables referenced by the query are not executed.
-        analyze(CLIENT_SESSION, "SELECT * FROM fresh_materialized_view", accessControlManager);
-        assertFails(CLIENT_SESSION, "REFRESH MATERIALIZED VIEW fresh_materialized_view", accessControlManager)
+        analyze(CLIENT_SESSION, "SELECT * FROM fresh_materialized_view" + suffix, accessControlManager);
+        assertFails(CLIENT_SESSION, "REFRESH MATERIALIZED VIEW fresh_materialized_view" + suffix, accessControlManager)
                 .hasErrorCode(PERMISSION_DENIED)
                 .hasMessage("Access Denied: Cannot select from columns [a, b] in table or view tpch.s1.t1");
-        // Now we check that when the MV is stale, access to the underlying tables is checked.
-        assertFails(CLIENT_SESSION, "SELECT * FROM stale_materialized_view", accessControlManager)
-                .hasErrorCode(PERMISSION_DENIED)
-                .hasMessage("Access Denied: View owner does not have sufficient privileges: View owner 'some user' cannot create view that selects from tpch.s1.t1");
-        assertFails(CLIENT_SESSION, "REFRESH MATERIALIZED VIEW stale_materialized_view", accessControlManager)
+        if (whenStaleBehavior == INLINE) {
+            // Now we check that when the MV is stale, access to the underlying tables is checked.
+            assertFails(CLIENT_SESSION, "SELECT * FROM stale_materialized_view" + suffix, accessControlManager)
+                    .hasErrorCode(PERMISSION_DENIED)
+                    .hasMessage("Access Denied: View owner does not have sufficient privileges: View owner 'some user' cannot create view that selects from tpch.s1.t1");
+        }
+        else {
+            assertFails(CLIENT_SESSION, "SELECT * FROM stale_materialized_view" + suffix, accessControlManager)
+                    .hasErrorCode(VIEW_IS_STALE)
+                    .hasMessage("line 1:15: Materialized view 'tpch.s1.stale_materialized_view_when_stale_fail' is stale");
+        }
+
+        assertFails(CLIENT_SESSION, "REFRESH MATERIALIZED VIEW stale_materialized_view" + suffix, accessControlManager)
                 .hasErrorCode(PERMISSION_DENIED)
                 .hasMessage("Access Denied: Cannot select from columns [a, b] in table or view tpch.s1.t1");
     }
@@ -7933,7 +7985,7 @@ public class TestAnalyzer
                 Optional.of("s1"),
                 ImmutableList.of(new ViewColumn("a", BIGINT.getTypeId(), Optional.empty())),
                 Optional.of(Duration.ZERO),
-                Optional.empty(),
+                INLINE,
                 Optional.of("comment"),
                 Identity.ofUser("user"),
                 ImmutableList.of(),
@@ -8063,7 +8115,7 @@ public class TestAnalyzer
                         Optional.of("s1"),
                         ImmutableList.of(new ViewColumn("a", BIGINT.getTypeId(), Optional.empty())),
                         Optional.of(Duration.ZERO),
-                        Optional.empty(),
+                        INLINE,
                         Optional.empty(),
                         Identity.ofUser("some user"),
                         ImmutableList.of(),
@@ -8108,20 +8160,28 @@ public class TestAnalyzer
                         ImmutableList.of(new ColumnMetadata("a", BIGINT))),
                 FAIL));
 
+        createMaterializedViews(metadata, testingConnectorMetadata, INLINE);
+        createMaterializedViews(metadata, testingConnectorMetadata, WhenStaleBehavior.FAIL);
+    }
+
+    private void createMaterializedViews(Metadata metadata, TestingMetadata testingConnectorMetadata, WhenStaleBehavior whenStaleBehavior)
+    {
+        String suffix = resolveMaterializedViewNameSuffix(whenStaleBehavior);
+
         MaterializedViewDefinition materializedView = new MaterializedViewDefinition(
                 "SELECT a, b FROM t1",
                 Optional.of(TPCH_CATALOG),
                 Optional.of("s1"),
                 ImmutableList.of(new ViewColumn("a", BIGINT.getTypeId(), Optional.empty()), new ViewColumn("b", BIGINT.getTypeId(), Optional.empty())),
                 Optional.of(STALE_MV_STALENESS.minusHours(1)), // Minus 1 hour to make MVs not marked as fresh become stale immediately. This doesn’t affect those marked as fresh.
-                Optional.empty(),
+                whenStaleBehavior,
                 Optional.empty(),
                 Identity.ofUser("some user"),
                 ImmutableList.of(),
                 // t3 has a, b column and hidden column x
                 Optional.of(new CatalogSchemaTableName(TPCH_CATALOG, "s1", "t3")));
 
-        QualifiedObjectName freshMaterializedView = new QualifiedObjectName(TPCH_CATALOG, "s1", "fresh_materialized_view");
+        QualifiedObjectName freshMaterializedView = new QualifiedObjectName(TPCH_CATALOG, "s1", "fresh_materialized_view" + suffix);
         inSetupTransaction(session -> metadata.createMaterializedView(
                 session,
                 freshMaterializedView,
@@ -8131,7 +8191,7 @@ public class TestAnalyzer
                 false));
         testingConnectorMetadata.markMaterializedViewIsFresh(freshMaterializedView.asSchemaTableName());
 
-        QualifiedObjectName staleMaterializedView = new QualifiedObjectName(TPCH_CATALOG, "s1", "stale_materialized_view");
+        QualifiedObjectName staleMaterializedView = new QualifiedObjectName(TPCH_CATALOG, "s1", "stale_materialized_view" + suffix);
         inSetupTransaction(session -> metadata.createMaterializedView(
                 session,
                 staleMaterializedView,
@@ -8146,14 +8206,14 @@ public class TestAnalyzer
                 Optional.of("s1"),
                 ImmutableList.of(new ViewColumn("a", BIGINT.getTypeId(), Optional.empty()), new ViewColumn("b", BIGINT.getTypeId(), Optional.empty())),
                 Optional.of(STALE_MV_STALENESS.minusHours(1)), // Minus 1 hour to make MVs not marked as fresh become stale immediately. This doesn’t affect those marked as fresh.
-                Optional.empty(),
+                whenStaleBehavior,
                 Optional.empty(),
                 Identity.ofUser("some user"),
                 ImmutableList.of(),
                 // t3 has a, b column and hidden column x
                 Optional.of(new CatalogSchemaTableName(TPCH_CATALOG, "s1", "t3")));
 
-        QualifiedObjectName freshMaterializedViewNonExistentTable = new QualifiedObjectName(TPCH_CATALOG, "s1", "fresh_materialized_view_non_existent_table");
+        QualifiedObjectName freshMaterializedViewNonExistentTable = new QualifiedObjectName(TPCH_CATALOG, "s1", "fresh_materialized_view_non_existent_table" + suffix);
         inSetupTransaction(session -> metadata.createMaterializedView(
                 session,
                 freshMaterializedViewNonExistentTable,
@@ -8163,7 +8223,7 @@ public class TestAnalyzer
                 false));
         testingConnectorMetadata.markMaterializedViewIsFresh(freshMaterializedViewNonExistentTable.asSchemaTableName());
 
-        QualifiedObjectName staleMaterializedViewNonExistentTable = new QualifiedObjectName(TPCH_CATALOG, "s1", "stale_materialized_view_non_existent_table");
+        QualifiedObjectName staleMaterializedViewNonExistentTable = new QualifiedObjectName(TPCH_CATALOG, "s1", "stale_materialized_view_non_existent_table" + suffix);
         inSetupTransaction(session -> metadata.createMaterializedView(
                 session,
                 staleMaterializedViewNonExistentTable,
@@ -8172,7 +8232,7 @@ public class TestAnalyzer
                 false,
                 false));
 
-        QualifiedObjectName freshMaterializedViewMismatchedColumnCount = new QualifiedObjectName(TPCH_CATALOG, "s1", "fresh_materialized_view_mismatched_column_count");
+        QualifiedObjectName freshMaterializedViewMismatchedColumnCount = new QualifiedObjectName(TPCH_CATALOG, "s1", "fresh_materialized_view_mismatched_column_count" + suffix);
         inSetupTransaction(session -> metadata.createMaterializedView(
                 session,
                 freshMaterializedViewMismatchedColumnCount,
@@ -8182,7 +8242,7 @@ public class TestAnalyzer
                         Optional.of("s1"),
                         ImmutableList.of(new ViewColumn("a", BIGINT.getTypeId(), Optional.empty())),
                         Optional.empty(),
-                        Optional.empty(),
+                        whenStaleBehavior,
                         Optional.empty(),
                         Identity.ofUser("some user"),
                         ImmutableList.of(),
@@ -8192,7 +8252,7 @@ public class TestAnalyzer
                 false));
         testingConnectorMetadata.markMaterializedViewIsFresh(freshMaterializedViewMismatchedColumnCount.asSchemaTableName());
 
-        QualifiedObjectName freshMaterializedMismatchedColumnName = new QualifiedObjectName(TPCH_CATALOG, "s1", "fresh_materialized_view_mismatched_column_name");
+        QualifiedObjectName freshMaterializedMismatchedColumnName = new QualifiedObjectName(TPCH_CATALOG, "s1", "fresh_materialized_view_mismatched_column_name" + suffix);
         inSetupTransaction(session -> metadata.createMaterializedView(
                 session,
                 freshMaterializedMismatchedColumnName,
@@ -8202,7 +8262,7 @@ public class TestAnalyzer
                         Optional.of("s1"),
                         ImmutableList.of(new ViewColumn("a", BIGINT.getTypeId(), Optional.empty()), new ViewColumn("c", BIGINT.getTypeId(), Optional.empty())),
                         Optional.empty(),
-                        Optional.empty(),
+                        whenStaleBehavior,
                         Optional.empty(),
                         Identity.ofUser("some user"),
                         ImmutableList.of(),
@@ -8212,7 +8272,7 @@ public class TestAnalyzer
                 false));
         testingConnectorMetadata.markMaterializedViewIsFresh(freshMaterializedMismatchedColumnName.asSchemaTableName());
 
-        QualifiedObjectName freshMaterializedMismatchedColumnType = new QualifiedObjectName(TPCH_CATALOG, "s1", "fresh_materialized_view_mismatched_column_type");
+        QualifiedObjectName freshMaterializedMismatchedColumnType = new QualifiedObjectName(TPCH_CATALOG, "s1", "fresh_materialized_view_mismatched_column_type" + suffix);
         inSetupTransaction(session -> metadata.createMaterializedView(
                 session,
                 freshMaterializedMismatchedColumnType,
@@ -8222,7 +8282,7 @@ public class TestAnalyzer
                         Optional.of("s1"),
                         ImmutableList.of(new ViewColumn("a", BIGINT.getTypeId(), Optional.empty()), new ViewColumn("b", RowType.anonymousRow(TINYINT).getTypeId(), Optional.empty())),
                         Optional.empty(),
-                        Optional.empty(),
+                        whenStaleBehavior,
                         Optional.empty(),
                         Identity.ofUser("some user"),
                         ImmutableList.of(),
@@ -8231,6 +8291,11 @@ public class TestAnalyzer
                 false,
                 false));
         testingConnectorMetadata.markMaterializedViewIsFresh(freshMaterializedMismatchedColumnType.asSchemaTableName());
+    }
+
+    private static String resolveMaterializedViewNameSuffix(WhenStaleBehavior whenStaleBehavior)
+    {
+        return "_when_stale_" + whenStaleBehavior.name().toLowerCase(Locale.ENGLISH);
     }
 
     @Test
@@ -8286,7 +8351,6 @@ public class TestAnalyzer
         StatementAnalyzerFactory statementAnalyzerFactory = new StatementAnalyzerFactory(
                 plannerContext,
                 new SqlParser(),
-                SessionTimeProvider.DEFAULT,
                 accessControl,
                 new NoOpTransactionManager()
                 {

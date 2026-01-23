@@ -240,6 +240,14 @@ public class TestIcebergFileOperations
                         .add(new FileOperation(SNAPSHOT, "InputFile.newStream"))
                         .add(new FileOperation(MANIFEST, "InputFile.newStream"))
                         .build());
+
+        assertFileSystemAccesses("SELECT * FROM test_select WHERE col_name = 1",
+                ImmutableMultiset.<FileOperation>builder()
+                        .add(new FileOperation(METADATA_JSON, "InputFile.newStream"))
+                        .add(new FileOperation(SNAPSHOT, "InputFile.length"))
+                        .add(new FileOperation(SNAPSHOT, "InputFile.newStream"))
+                        .add(new FileOperation(MANIFEST, "InputFile.newStream"))
+                        .build());
     }
 
     @ParameterizedTest
@@ -643,13 +651,35 @@ public class TestIcebergFileOperations
                         .add(new FileOperation(SNAPSHOT, "InputFile.newStream"))
                         .add(new FileOperation(MANIFEST, "InputFile.newStream"))
                         .build());
+
+        Session withoutStatistics = Session.builder(getSession())
+                .setCatalogSessionProperty(getSession().getCatalog().orElseThrow(), "statistics_enabled", "false")
+                .build();
+        assertFileSystemAccesses(withoutStatistics, "EXPLAIN SELECT * FROM test_explain",
+                ImmutableMultiset.<FileOperation>builder()
+                        .add(new FileOperation(METADATA_JSON, "InputFile.newStream"))
+                        .build());
+        assertFileSystemAccesses(withoutStatistics, "EXPLAIN SELECT * FROM test_explain WHERE age = 2",
+                ImmutableMultiset.<FileOperation>builder()
+                        .add(new FileOperation(METADATA_JSON, "InputFile.newStream"))
+                        .build());
     }
 
     @Test
     public void testShowStatsForTable()
     {
-        assertUpdate("CREATE TABLE test_show_stats AS SELECT 2 AS age", 1);
+        assertUpdate("CREATE TABLE test_show_stats (age INTEGER)");
+        assertUpdate("INSERT INTO test_show_stats VALUES 10, 20", 2);
 
+        assertFileSystemAccesses("SHOW STATS FOR test_show_stats",
+                ImmutableMultiset.<FileOperation>builder()
+                        .add(new FileOperation(METADATA_JSON, "InputFile.newStream"))
+                        .add(new FileOperation(SNAPSHOT, "InputFile.length"))
+                        .add(new FileOperation(SNAPSHOT, "InputFile.newStream"))
+                        .add(new FileOperation(MANIFEST, "InputFile.newStream"))
+                        .build());
+
+        assertUpdate("DELETE FROM test_show_stats WHERE age = 10", 1);
         assertFileSystemAccesses("SHOW STATS FOR test_show_stats",
                 ImmutableMultiset.<FileOperation>builder()
                         .add(new FileOperation(METADATA_JSON, "InputFile.newStream"))

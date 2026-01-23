@@ -285,6 +285,62 @@ public class TestDeltaLakeConnectorTest
     }
 
     @Test
+    void testCreateReplaceReadingCheckpointWithDifferentSchema()
+    {
+        try (TestTable table = newTrinoTable("test_create_replace_reading_checkpoint_", "(x int, y varchar) with (checkpoint_interval = 2)")) {
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (1, 'aa')", 1);
+            // generate a checkpoint
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (2, 'bb')", 1);
+
+            assertUpdate("CREATE OR REPLACE TABLE " + table.getName() + " (x int, y int)");
+            assertQueryReturnsEmptyResult("TABLE " + table.getName());
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (3, 3)", 1);
+            assertThat(query("TABLE " + table.getName()))
+                    .matches("VALUES (3, 3)");
+
+            assertUpdate("CREATE OR REPLACE TABLE " + table.getName() + " (y int, x int)");
+            assertQueryReturnsEmptyResult("TABLE " + table.getName());
+
+            assertUpdate("CREATE OR REPLACE TABLE " + table.getName() + " (z varchar)");
+            assertQueryReturnsEmptyResult("TABLE " + table.getName());
+        }
+    }
+
+    @Test
+    void testCreateReplaceReadingCheckpointWithDifferentSchemaCTAS()
+    {
+        try (TestTable table = newTrinoTable("test_create_replace_reading_checkpoint_", "(x int, y varchar) with (checkpoint_interval = 2)")) {
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (1, 'aa')", 1);
+            // generate a checkpoint
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (2, 'bb')", 1);
+
+            assertUpdate("CREATE OR REPLACE TABLE " + table.getName() + " AS SELECT 3 AS x, 3 AS y", 1);
+            assertThat(query("TABLE " + table.getName()))
+                    .matches("VALUES (3, 3)");
+
+            assertUpdate("CREATE OR REPLACE TABLE " + table.getName() + " AS SELECT 'test' AS z", 1);
+            assertThat(query("TABLE " + table.getName()))
+                    .matches("VALUES VARCHAR 'test'");
+        }
+    }
+
+    @Test
+    void testReadingCreateOrReplaceOnPartitionChanged()
+    {
+        try (TestTable table = newTrinoTable("test_reading_create_or_replace_part_changed_", "(x int, part1 int, part2 int) WITH (checkpoint_interval = 2, partitioned_by = ARRAY['part1', 'part2'])")) {
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (1, 10, 100)", 1);
+            // generate checkpoint at version 2
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (2, 20, 200)", 1);
+
+            assertThat(query("TABLE " + table.getName()))
+                    .matches("VALUES (1, 10, 100), (2, 20, 200)");
+
+            assertUpdate("CREATE OR REPLACE TABLE " + table.getName() + " (x int, part1 int, part2 int) WITH (checkpoint_interval = 2, partitioned_by = ARRAY['part1'])");
+            assertQueryReturnsEmptyResult("TABLE " + table.getName());
+        }
+    }
+
+    @Test
     @Override
     public void testShowCreateTable()
     {

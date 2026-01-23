@@ -248,6 +248,10 @@ with the listed coordinates.
   - [](/admin/event-listeners-kafka)
   - [io.trino:trino-kafka-event-listener](https://central.sonatype.com/search?q=io.trino%3Atrino-kafka-event-listener)
   - {download_gh}`kafka-event-listener`
+* - lakehouse
+  - [](/connector/lakehouse)
+  -
+  - {download_gh}`lakehouse`
 * - loki
   - [](/connector/loki)
   - [io.trino:trino-loki](https://central.sonatype.com/search?q=io.trino%3Atrino-loki)
