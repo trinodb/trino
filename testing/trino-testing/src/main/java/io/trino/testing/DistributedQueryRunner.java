@@ -253,11 +253,9 @@ public final class DistributedQueryRunner
             List<EventListener> eventListeners)
     {
         if (!extraProperties.containsKey("discovery.uri") && this.coordinator != null) {
-            String discoveryUri = this.coordinator.getCurrentNode().getInternalUri() +
-                    backupCoordinator.map(backup -> "," + backup.getCurrentNode().getInternalUri()).orElse("");
             extraProperties = ImmutableMap.<String, String>builder()
                     .putAll(extraProperties)
-                    .put("discovery.uri", discoveryUri)
+                    .put("discovery.uri", this.coordinator.getCurrentNode().getInternalUri().toString())
                     .buildOrThrow();
         }
 
