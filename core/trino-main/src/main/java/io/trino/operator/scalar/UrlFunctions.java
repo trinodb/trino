@@ -28,7 +28,6 @@ import io.trino.spi.function.SqlType;
 import io.trino.spi.type.StandardTypes;
 import jakarta.annotation.Nullable;
 
-import java.io.UnsupportedEncodingException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URLDecoder;
@@ -168,10 +167,7 @@ public final class UrlFunctions
     private static Slice decodeUrl(String value)
     {
         try {
-            return slice(URLDecoder.decode(value, UTF_8.name()));
-        }
-        catch (UnsupportedEncodingException e) {
-            throw new AssertionError(e);
+            return slice(URLDecoder.decode(value, UTF_8));
         }
         catch (IllegalArgumentException e) {
             throw new TrinoException(INVALID_FUNCTION_ARGUMENT, e);
