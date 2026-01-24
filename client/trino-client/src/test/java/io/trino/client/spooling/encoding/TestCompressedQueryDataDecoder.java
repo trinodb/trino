@@ -14,7 +14,6 @@
 package io.trino.client.spooling.encoding;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.io.ByteStreams;
 import io.trino.client.CloseableIterator;
 import io.trino.client.QueryDataDecoder;
 import io.trino.client.spooling.DataAttributes;
@@ -57,7 +56,7 @@ class TestCompressedQueryDataDecoder
             public CloseableIterator<List<Object>> decode(InputStream input, DataAttributes segmentAttributes)
                     throws IOException
             {
-                assertThat(new String(ByteStreams.toByteArray(input), UTF_8))
+                assertThat(new String(input.readAllBytes(), UTF_8))
                         .isEqualTo("decompressed");
                 return closeable(SAMPLE_VALUES.iterator());
             }
@@ -100,7 +99,7 @@ class TestCompressedQueryDataDecoder
             public CloseableIterator<List<Object>> decode(InputStream input, DataAttributes segmentAttributes)
                     throws IOException
             {
-                assertThat(new String(ByteStreams.toByteArray(input), UTF_8))
+                assertThat(new String(input.readAllBytes(), UTF_8))
                         .isEqualTo("not compressed");
                 input.close(); // Closes input stream according to the contract
                 return closeable(SAMPLE_VALUES.iterator());
