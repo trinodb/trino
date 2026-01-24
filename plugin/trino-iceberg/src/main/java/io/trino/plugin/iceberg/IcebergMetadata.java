@@ -2919,18 +2919,19 @@ public class IcebergMetadata
         }
         if (sourceType instanceof StructType sourceRowType && newType instanceof StructType newRowType) {
             // Add, update or delete fields
-            List<NestedField> fields = Streams.concat(sourceRowType.fields().stream(), newRowType.fields().stream())
+            List<String> fieldNames = Streams.concat(sourceRowType.fields().stream(), newRowType.fields().stream())
+                    .map(NestedField::name)
                     .distinct()
                     .collect(toImmutableList());
-            for (NestedField field : fields) {
-                if (fieldExists(sourceRowType, field.name()) && fieldExists(newRowType, field.name())) {
-                    buildUpdateSchema(name + "." + field.name(), sourceRowType.fieldType(field.name()), newRowType.fieldType(field.name()), schemaUpdate);
+            for (String fieldName : fieldNames) {
+                if (fieldExists(sourceRowType, fieldName) && fieldExists(newRowType, fieldName)) {
+                    buildUpdateSchema(name + "." + fieldName, sourceRowType.fieldType(fieldName), newRowType.fieldType(fieldName), schemaUpdate);
                 }
-                else if (fieldExists(newRowType, field.name())) {
-                    schemaUpdate.addColumn(name, field.name(), field.type());
+                else if (fieldExists(newRowType, fieldName)) {
+                    schemaUpdate.addColumn(name, fieldName, newRowType.fieldType(fieldName));
                 }
                 else {
-                    schemaUpdate.deleteColumn(name + "." + field.name());
+                    schemaUpdate.deleteColumn(name + "." + fieldName);
                 }
             }
 
