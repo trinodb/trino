@@ -159,7 +159,7 @@
         <air.check.skip-jacoco>true</air.check.skip-jacoco>
         <air.java.version>25.0.1</air.java.version>
         <air.javadoc.lint>syntax,reference,html,-missing</air.javadoc.lint>
-        <air.modernizer.java-version>8</air.modernizer.java-version>
+        <air.modernizer.java-version>11</air.modernizer.java-version>
         <air.release.preparation-goals>clean verify -DskipTests</air.release.preparation-goals>
         <!--
           America/Bahia_Banderas has:
@@ -2458,6 +2458,9 @@
                             <exclusion>java/io/FileOutputStream."&lt;init&gt;":(Ljava/lang/String;)V</exclusion>
                             <exclusion>java/io/File."&lt;init&gt;":(Ljava/net/URI;)V</exclusion>
                             <exclusion>java/io/File."&lt;init&gt;":(Ljava/io/File;Ljava/lang/String;)V</exclusion>
+
+                            <!-- Modernizer emits false-positive warnings even when presence is guaranteed -->
+                            <exclusion>java/util/Optional.get:()Ljava/lang/Object;</exclusion>
                         </exclusions>
                     </configuration>
                 </plugin>
