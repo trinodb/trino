@@ -36,7 +36,6 @@ import java.util.Optional;
 import java.util.ResourceBundle;
 import java.util.stream.Stream;
 
-import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.StandardSystemProperty.USER_HOME;
 import static com.google.common.base.Strings.emptyToNull;
 import static com.google.common.base.Throwables.getStackTraceAsString;
@@ -45,6 +44,7 @@ import static io.trino.client.spooling.encoding.QueryDataDecoders.getPreferredEn
 import static io.trino.client.spooling.encoding.QueryDataDecoders.getSupportedEncodings;
 import static java.lang.System.getenv;
 import static java.util.Collections.enumeration;
+import static java.util.Objects.requireNonNullElse;
 import static java.util.regex.Pattern.quote;
 
 public final class Trino
@@ -128,7 +128,7 @@ public final class Trino
         public String[] getVersion()
         {
             String version = getClass().getPackage().getImplementationVersion();
-            return new String[] {"Trino CLI " + firstNonNull(version, "(version unknown)")};
+            return new String[] {"Trino CLI " + requireNonNullElse(version, "(version unknown)")};
         }
     }
 

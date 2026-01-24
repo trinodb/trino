@@ -52,7 +52,6 @@ import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Set;
 
-import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Strings.emptyToNull;
 import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -65,6 +64,7 @@ import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
+import static java.util.Objects.requireNonNullElse;
 
 public class HttpRequestSessionContextFactory
 {
@@ -292,7 +292,7 @@ public class HttpRequestSessionContextFactory
 
     private static List<String> splitHttpHeader(MultivaluedMap<String, String> headers, String name)
     {
-        List<String> values = firstNonNull(headers.get(name), ImmutableList.of());
+        List<String> values = requireNonNullElse(headers.get(name), ImmutableList.of());
         Splitter splitter = Splitter.on(',').trimResults().omitEmptyStrings();
         return values.stream()
                 .map(splitter::splitToList)

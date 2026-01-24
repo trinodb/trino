@@ -25,10 +25,10 @@ import java.net.URI;
 import java.util.List;
 import java.util.OptionalLong;
 
-import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
+import static java.util.Objects.requireNonNullElse;
 
 @Immutable
 public class QueryResults
@@ -69,7 +69,7 @@ public class QueryResults
         checkArgument(!hasData(data) || columns != null, "data present without columns");
         this.stats = requireNonNull(stats, "stats is null");
         this.error = error;
-        this.warnings = ImmutableList.copyOf(firstNonNull(warnings, ImmutableList.of()));
+        this.warnings = ImmutableList.copyOf(requireNonNullElse(warnings, ImmutableList.of()));
         this.updateType = updateType;
         this.updateCount = requireNonNull(updateCount, "updateCount is null");
     }

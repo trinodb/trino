@@ -23,8 +23,8 @@ import jakarta.ws.rs.core.UriInfo;
 import java.net.URI;
 import java.net.URISyntaxException;
 
-import static com.google.common.base.MoreObjects.firstNonNull;
 import static java.util.Objects.requireNonNull;
+import static java.util.Objects.requireNonNullElse;
 
 /**
  * Provides external URI information for the current request. The external URI may have a path prefix when behind a reverse proxy.
@@ -45,7 +45,7 @@ public class ExternalUriInfo
     ExternalUriInfo(UriInfo uriInfo, String forwardedPrefix)
     {
         this.uriInfo = requireNonNull(uriInfo, "uriInfo is null");
-        this.forwardedPrefix = firstNonNull(forwardedPrefix, "");
+        this.forwardedPrefix = requireNonNullElse(forwardedPrefix, "");
     }
 
     public static ExternalUriInfo from(ContainerRequestContext requestContext)

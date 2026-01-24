@@ -69,7 +69,6 @@ import static com.google.cloud.bigquery.TableDefinition.Type.MATERIALIZED_VIEW;
 import static com.google.cloud.bigquery.TableDefinition.Type.SNAPSHOT;
 import static com.google.cloud.bigquery.TableDefinition.Type.TABLE;
 import static com.google.cloud.bigquery.TableDefinition.Type.VIEW;
-import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
@@ -87,6 +86,7 @@ import static io.trino.plugin.bigquery.BigQueryUtil.quote;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
+import static java.util.Objects.requireNonNullElse;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.stream.Collectors.joining;
 
@@ -487,7 +487,7 @@ public class BigQueryClient
             return bigQuery.query(jobWithQueryLabel);
         }
         catch (BigQueryException | JobException e) {
-            throw new TrinoException(BIGQUERY_FAILED_TO_EXECUTE_QUERY, "Failed to run the query: " + firstNonNull(e.getMessage(), e), e);
+            throw new TrinoException(BIGQUERY_FAILED_TO_EXECUTE_QUERY, "Failed to run the query: " + requireNonNullElse(e.getMessage(), e), e);
         }
         catch (InterruptedException e) {
             Thread.currentThread().interrupt();
@@ -547,7 +547,7 @@ public class BigQueryClient
                             e.getReason(),
                             e.isRetryable(),
                             e.getDebugInfo(),
-                            firstNonNull(e.getMessage(), e)),
+                            requireNonNullElse(e.getMessage(), e)),
                     e);
         }
 

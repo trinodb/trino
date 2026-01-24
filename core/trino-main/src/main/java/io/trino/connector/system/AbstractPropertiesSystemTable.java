@@ -34,13 +34,13 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.function.Function;
 
-import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.metadata.MetadataListing.listCatalogs;
 import static io.trino.metadata.MetadataUtil.TableMetadataBuilder.tableMetadataBuilder;
 import static io.trino.spi.connector.SystemTable.Distribution.SINGLE_COORDINATOR;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static java.util.Objects.requireNonNull;
+import static java.util.Objects.requireNonNullElse;
 
 abstract class AbstractPropertiesSystemTable
         implements SystemTable
@@ -93,7 +93,7 @@ abstract class AbstractPropertiesSystemTable
                             table.addRow(
                                     catalogInfo.catalogName(),
                                     propertyMetadata.getName(),
-                                    firstNonNull(propertyMetadata.getDefaultValue(), "").toString(),
+                                    requireNonNullElse(propertyMetadata.getDefaultValue(), "").toString(),
                                     propertyMetadata.getSqlType().toString(),
                                     propertyMetadata.getDescription()));
         }

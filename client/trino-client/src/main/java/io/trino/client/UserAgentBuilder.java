@@ -22,7 +22,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.regex.Pattern;
 
-import static com.google.common.base.MoreObjects.firstNonNull;
+import static java.util.Objects.requireNonNullElse;
 
 public class UserAgentBuilder
 {
@@ -77,6 +77,6 @@ public class UserAgentBuilder
     private static String getProductVersion()
     {
         String version = UserAgentBuilder.class.getPackage().getImplementationVersion();
-        return firstNonNull(version, "unknown");
+        return requireNonNullElse(version, "unknown");
     }
 }

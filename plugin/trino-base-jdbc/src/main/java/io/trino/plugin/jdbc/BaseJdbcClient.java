@@ -78,7 +78,6 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.stream.Stream;
 
-import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.emptyToNull;
@@ -112,6 +111,7 @@ import static java.sql.DatabaseMetaData.columnNoNulls;
 import static java.util.Collections.emptyIterator;
 import static java.util.Collections.emptyMap;
 import static java.util.Objects.requireNonNull;
+import static java.util.Objects.requireNonNullElse;
 import static java.util.stream.Collectors.joining;
 
 public abstract class BaseJdbcClient
@@ -278,7 +278,7 @@ public abstract class BaseJdbcClient
                     ImmutableList.of());
         }
         catch (SQLException e) {
-            throw new TrinoException(JDBC_ERROR, "Failed to get table handle for prepared query. " + firstNonNull(e.getMessage(), e), e);
+            throw new TrinoException(JDBC_ERROR, "Failed to get table handle for prepared query. " + requireNonNullElse(e.getMessage(), e), e);
         }
     }
 
@@ -484,7 +484,7 @@ public abstract class BaseJdbcClient
                     }
                     catch (RuntimeException | SQLException e) {
                         throwIfInstanceOf(e, TrinoException.class);
-                        throw new RuntimeException("Failure when processing column information for table %s: %s".formatted(currentTable, firstNonNull(e.getMessage(), e)), e);
+                        throw new RuntimeException("Failure when processing column information for table %s: %s".formatted(currentTable, requireNonNullElse(e.getMessage(), e)), e);
                     }
                 }
                 if (computedNext == null) {

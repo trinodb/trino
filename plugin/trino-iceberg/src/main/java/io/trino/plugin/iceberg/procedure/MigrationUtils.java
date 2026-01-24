@@ -66,7 +66,6 @@ import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.stream.Stream;
 
-import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.plugin.base.util.Procedures.checkProcedureArgument;
@@ -77,6 +76,7 @@ import static io.trino.spi.StandardErrorCode.ALREADY_EXISTS;
 import static io.trino.spi.StandardErrorCode.CONSTRAINT_VIOLATION;
 import static io.trino.spi.StandardErrorCode.NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
+import static java.util.Objects.requireNonNullElse;
 import static org.apache.iceberg.TableProperties.DEFAULT_NAME_MAPPING;
 import static org.apache.iceberg.mapping.NameMappingParser.toJson;
 
@@ -182,7 +182,7 @@ public final class MigrationUtils
             addFiles(session, table, dataFiles, icebergScanExecutor);
         }
         catch (Exception e) {
-            throw new TrinoException(ICEBERG_COMMIT_ERROR, "Failed to add files: " + firstNonNull(e.getMessage(), e), e);
+            throw new TrinoException(ICEBERG_COMMIT_ERROR, "Failed to add files: " + requireNonNullElse(e.getMessage(), e), e);
         }
     }
 
@@ -257,7 +257,7 @@ public final class MigrationUtils
             addFiles(session, targetTable, dataFilesBuilder.build(), icebergScanExecutor);
         }
         catch (Exception e) {
-            throw new TrinoException(ICEBERG_COMMIT_ERROR, "Failed to add files: " + firstNonNull(e.getMessage(), e), e);
+            throw new TrinoException(ICEBERG_COMMIT_ERROR, "Failed to add files: " + requireNonNullElse(e.getMessage(), e), e);
         }
     }
 
@@ -294,7 +294,7 @@ public final class MigrationUtils
 
         if (!requiredFields.isEmpty()) {
             for (DataFile dataFile : dataFiles) {
-                Map<Integer, Long> nullValueCounts = firstNonNull(dataFile.nullValueCounts(), Map.of());
+                Map<Integer, Long> nullValueCounts = requireNonNullElse(dataFile.nullValueCounts(), Map.of());
                 for (Integer field : requiredFields) {
                     Long nullCount = nullValueCounts.get(field);
                     if (nullCount == null || nullCount > 0) {
@@ -327,7 +327,7 @@ public final class MigrationUtils
             log.debug("Successfully added files to %s table", table.name());
         }
         catch (Exception e) {
-            throw new TrinoException(ICEBERG_COMMIT_ERROR, "Failed to add files: " + firstNonNull(e.getMessage(), e), e);
+            throw new TrinoException(ICEBERG_COMMIT_ERROR, "Failed to add files: " + requireNonNullElse(e.getMessage(), e), e);
         }
     }
 }

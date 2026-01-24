@@ -91,7 +91,6 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorCompletionService;
 import java.util.concurrent.ExecutorService;
 
-import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -100,6 +99,7 @@ import static io.trino.verifier.QueryType.MODIFY;
 import static io.trino.verifier.QueryType.READ;
 import static io.trino.verifier.VerifyCommand.VersionProvider;
 import static java.util.Objects.requireNonNull;
+import static java.util.Objects.requireNonNullElse;
 import static java.util.concurrent.Executors.newFixedThreadPool;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static picocli.CommandLine.IVersionProvider;
@@ -504,7 +504,7 @@ public class VerifyCommand
         public String[] getVersion()
         {
             String version = getClass().getPackage().getImplementationVersion();
-            return new String[] {spec.name() + " " + firstNonNull(version, "(version unknown)")};
+            return new String[] {spec.name() + " " + requireNonNullElse(version, "(version unknown)")};
         }
     }
 

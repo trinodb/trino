@@ -38,7 +38,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-import static com.google.common.base.MoreObjects.firstNonNull;
 import static io.trino.server.ServletSecurityUtils.sendErrorMessage;
 import static io.trino.server.ServletSecurityUtils.sendWwwAuthenticate;
 import static io.trino.server.ServletSecurityUtils.setAuthenticatedIdentity;
@@ -47,6 +46,7 @@ import static io.trino.server.ui.FormWebUiAuthenticationFilter.DISABLED_LOCATION
 import static io.trino.server.ui.FormWebUiAuthenticationFilter.TRINO_FORM_LOGIN;
 import static jakarta.ws.rs.core.Response.Status.UNAUTHORIZED;
 import static java.util.Objects.requireNonNull;
+import static java.util.Objects.requireNonNullElse;
 
 public class OAuth2WebUiAuthenticationFilter
         implements WebUiAuthenticationFilter
@@ -116,7 +116,7 @@ public class OAuth2WebUiAuthenticationFilter
             setAuthenticatedIdentity(request, builder.build());
         }
         catch (UserMappingException e) {
-            sendErrorMessage(request, UNAUTHORIZED, firstNonNull(e.getMessage(), "Unauthorized"));
+            sendErrorMessage(request, UNAUTHORIZED, requireNonNullElse(e.getMessage(), "Unauthorized"));
         }
     }
 

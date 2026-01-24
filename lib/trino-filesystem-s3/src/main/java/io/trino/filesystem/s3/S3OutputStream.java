@@ -46,7 +46,6 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Future;
 
-import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Verify.verify;
 import static io.trino.filesystem.s3.S3FileSystemConfig.ObjectCannedAcl.getCannedAcl;
 import static io.trino.filesystem.s3.S3FileSystemConfig.S3SseType.NONE;
@@ -61,6 +60,7 @@ import static java.lang.System.arraycopy;
 import static java.net.HttpURLConnection.HTTP_PRECON_FAILED;
 import static java.util.Objects.checkFromIndexSize;
 import static java.util.Objects.requireNonNull;
+import static java.util.Objects.requireNonNullElse;
 import static java.util.concurrent.CompletableFuture.supplyAsync;
 
 final class S3OutputStream
@@ -429,7 +429,7 @@ final class S3OutputStream
             boolean objectAlreadyExists = putObjectException instanceof S3Exception s3Exception &&
                     s3Exception.statusCode() == HTTP_PRECON_FAILED;
             if (objectAlreadyExists) {
-                if (exclusiveCreate && firstNonNull(putObjectException.numAttempts(), 0) > 1) {
+                if (exclusiveCreate && requireNonNullElse(putObjectException.numAttempts(), 0) > 1) {
                     // The object might have been created by a previous attempt of AWS SDK's implicit retries
                     // Signal the uncertainty to the caller.
                     throw new FileMayHaveAlreadyExistedException("Put failed for bucket [%s] key [%s] but provenance could not be verified".formatted(location.bucket(), location.key()), putObjectException);

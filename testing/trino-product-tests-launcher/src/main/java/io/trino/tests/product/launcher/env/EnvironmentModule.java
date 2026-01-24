@@ -44,7 +44,6 @@ import io.trino.tests.product.launcher.testcontainers.PortBinder;
 import java.io.File;
 import java.util.Map;
 
-import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.inject.Scopes.SINGLETON;
 import static com.google.inject.multibindings.MapBinder.newMapBinder;
 import static io.trino.tests.product.launcher.Configurations.canonicalJdkProviderName;
@@ -125,7 +124,7 @@ public final class EnvironmentModule
     @Singleton
     public JdkProvider provideJdk(Map<String, JdkProvider> jdkProviders, EnvironmentOptions options)
     {
-        String version = firstNonNull(options.trinoJdkRelease, "").trim().toLowerCase(ENGLISH);
+        String version = requireNonNullElse(options.trinoJdkRelease, "").trim().toLowerCase(ENGLISH);
         if (version.isBlank()) {
             throw new IllegalArgumentException("Expected non-empty --trino-jdk-release");
         }

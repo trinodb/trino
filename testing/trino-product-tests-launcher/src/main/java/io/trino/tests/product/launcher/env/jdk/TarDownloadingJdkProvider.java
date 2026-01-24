@@ -36,7 +36,6 @@ import java.util.Arrays;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 
-import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.base.Verify.verify;
 import static io.trino.testing.containers.TestContainers.getDockerArchitectureInfo;
@@ -47,6 +46,7 @@ import static java.nio.file.Files.isDirectory;
 import static java.nio.file.Files.newInputStream;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
+import static java.util.Objects.requireNonNullElse;
 
 public abstract class TarDownloadingJdkProvider
         implements JdkProvider
@@ -57,7 +57,7 @@ public abstract class TarDownloadingJdkProvider
     public TarDownloadingJdkProvider(Path jdkDownloadPath)
     {
         try {
-            this.downloadPath = firstNonNull(jdkDownloadPath, Files.createTempDirectory("ptl-temp-path"));
+            this.downloadPath = requireNonNullElse(jdkDownloadPath, Files.createTempDirectory("ptl-temp-path"));
         }
         catch (IOException e) {
             throw new UncheckedIOException(e);
