@@ -15,6 +15,7 @@
 
     <properties>
         <air.compiler.fail-warnings>true</air.compiler.fail-warnings>
+        <dep.wire.version>5.2.1</dep.wire.version>
     </properties>
 
     <dependencies>
@@ -65,11 +66,13 @@
         <dependency>
             <groupId>com.squareup.wire</groupId>
             <artifactId>wire-runtime-jvm</artifactId>
+            <version>${dep.wire.version}</version>
         </dependency>
 
         <dependency>
             <groupId>com.squareup.wire</groupId>
             <artifactId>wire-schema-jvm</artifactId>
+            <version>${dep.wire.version}</version>
         </dependency>
 
         <dependency>
