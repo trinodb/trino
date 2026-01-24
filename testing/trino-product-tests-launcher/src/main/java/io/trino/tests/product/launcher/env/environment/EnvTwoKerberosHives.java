@@ -32,7 +32,6 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
@@ -116,7 +115,7 @@ public final class EnvTwoKerberosHives
     {
         try {
             // Cannot use Files.createTempDirectory() because on Mac by default it uses /var/folders/ which is not visible to Docker for Mac
-            Path temporaryDirectory = Files.createDirectory(Paths.get("/tmp/keytabs-" + randomUUID().toString()));
+            Path temporaryDirectory = Files.createDirectory(Path.of("/tmp/keytabs-" + randomUUID().toString()));
             closer.register(() -> deleteRecursively(temporaryDirectory, ALLOW_INSECURE));
             return temporaryDirectory;
         }

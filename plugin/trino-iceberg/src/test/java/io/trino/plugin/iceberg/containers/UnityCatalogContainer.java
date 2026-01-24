@@ -35,7 +35,6 @@ import java.io.IOException;
 import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
@@ -175,7 +174,7 @@ public class UnityCatalogContainer
                 "SET uniform_iceberg_metadata_location = '" + metadataFilePath + "'" +
                 "WHERE name = '" + tableName + "'");
 
-        Path absoluteMetadataFilePath = Paths.get(URI.create(metadataFilePath));
+        Path absoluteMetadataFilePath = Path.of(URI.create(metadataFilePath));
         Path metadataDirectory = absoluteMetadataFilePath.getParent();
         verify(metadataDirectory.endsWith("metadata"));
         File tableDirectory = metadataDirectory.getParent().toFile();

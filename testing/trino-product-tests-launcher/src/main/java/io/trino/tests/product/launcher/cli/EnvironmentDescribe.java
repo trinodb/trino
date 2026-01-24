@@ -41,7 +41,6 @@ import java.io.OutputStream;
 import java.io.PrintStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -165,7 +164,7 @@ public class EnvironmentDescribe
             for (DockerContainer container : containers) {
                 for (Map.Entry<MountableFile, String> file : container.getCopyToFileContainerPathMap().entrySet()) {
                     MountableFile mountableFile = file.getKey();
-                    Path mountedFilePath = Paths.get(mountableFile.getFilesystemPath());
+                    Path mountedFilePath = Path.of(mountableFile.getFilesystemPath());
                     boolean isDirectory = Files.isDirectory(mountedFilePath);
 
                     mountsTable.addRow(
@@ -178,7 +177,7 @@ public class EnvironmentDescribe
                 }
 
                 for (Bind bind : container.getBinds()) {
-                    Path path = Paths.get(bind.getPath());
+                    Path path = Path.of(bind.getPath());
                     boolean isDirectory = Files.isDirectory(path);
                     mountsTable.addRow(
                             container.getLogicalName(),

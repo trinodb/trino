@@ -17,7 +17,7 @@ import com.google.common.collect.ImmutableMap;
 import org.junit.jupiter.api.Test;
 
 import java.net.URI;
-import java.nio.file.Paths;
+import java.nio.file.Path;
 import java.util.Map;
 
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
@@ -65,7 +65,7 @@ final class TestOpaConfig
                 .setLogRequests(true)
                 .setLogResponses(true)
                 .setAllowPermissionManagementOperations(true)
-                .setAdditionalContextFile(Paths.get("src/test/resources/additional-context.properties"));
+                .setAdditionalContextFile(Path.of("src/test/resources/additional-context.properties"));
 
         assertFullMapping(properties, expected);
     }

@@ -24,7 +24,6 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.net.InetAddress;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.Map;
 import java.util.Optional;
 import java.util.regex.Matcher;
@@ -144,7 +143,7 @@ public record KerberosConfiguration(KerberosPrincipal kerberosPrincipal, Map<Str
 
         private static void verifyFile(String fileLocation)
         {
-            Path filePath = Paths.get(fileLocation);
+            Path filePath = Path.of(fileLocation);
             checkArgument(exists(filePath), "File does not exist: %s", fileLocation);
             checkArgument(isReadable(filePath), "File is not readable: %s", fileLocation);
         }

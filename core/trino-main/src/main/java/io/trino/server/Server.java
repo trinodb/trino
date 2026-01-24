@@ -63,7 +63,6 @@ import org.weakref.jmx.guice.MBeanModule;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
@@ -128,8 +127,8 @@ public class Server
             log.info("Lz4 native compression: %s", formatEnabled(Lz4NativeCompressor.isEnabled()));
             log.info("Snappy native compression: %s", formatEnabled(SnappyNativeCompressor.isEnabled()));
 
-            logLocation(log, "Working directory", Paths.get("."));
-            logLocation(log, "Etc directory", Paths.get("etc"));
+            logLocation(log, "Working directory", Path.of("."));
+            logLocation(log, "Etc directory", Path.of("etc"));
 
             injector.getInstance(PluginInstaller.class).loadPlugins();
 

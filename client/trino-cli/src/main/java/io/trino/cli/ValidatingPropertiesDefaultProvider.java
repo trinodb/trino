@@ -23,7 +23,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.UncheckedIOException;
 import java.nio.file.Files;
-import java.nio.file.Paths;
+import java.nio.file.Path;
 import java.util.Properties;
 import java.util.Set;
 import java.util.stream.Stream;
@@ -48,7 +48,7 @@ public class ValidatingPropertiesDefaultProvider
     {
         CharMatcher isDash = CharMatcher.is('-');
 
-        try (InputStream inputStream = Files.newInputStream(Paths.get(path))) {
+        try (InputStream inputStream = Files.newInputStream(Path.of(path))) {
             Properties properties = new Properties();
             properties.load(inputStream);
             Set<String> definedOptions = properties.stringPropertyNames();

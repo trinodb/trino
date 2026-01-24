@@ -25,7 +25,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.net.URL;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.Optional;
 
 import static io.trino.plugin.base.util.JsonUtils.parseJson;
@@ -44,7 +43,7 @@ public class TableStatisticsDataRepository
     {
         schemaName = normalizeSchemaName(schemaName);
         String filename = table.getName();
-        Path path = Paths.get("trino-tpcds", "src", "main", "resources", "tpcds", "statistics", schemaName, filename + ".json");
+        Path path = Path.of("trino-tpcds", "src", "main", "resources", "tpcds", "statistics", schemaName, filename + ".json");
         writeStatistics(path, statisticsData);
     }
 

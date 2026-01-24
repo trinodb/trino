@@ -20,7 +20,6 @@ import org.yaml.snakeyaml.Yaml;
 import java.io.StringReader;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -168,7 +167,7 @@ public class TestWorkflows
 
     private static Path findRepositoryRoot()
     {
-        Path workingDirectory = Paths.get("").toAbsolutePath();
+        Path workingDirectory = Path.of("").toAbsolutePath();
         log.info("Current working directory: %s", workingDirectory);
         for (Path path = workingDirectory; path != null; path = path.getParent()) {
             if (Files.isDirectory(path.resolve(".git"))) {

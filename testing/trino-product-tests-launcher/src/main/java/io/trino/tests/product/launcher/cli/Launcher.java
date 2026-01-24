@@ -29,7 +29,6 @@ import java.io.OutputStream;
 import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.ListResourceBundle;
 import java.util.ResourceBundle;
 
@@ -75,7 +74,7 @@ public class Launcher
         return new CommandLine(launcher, factory)
                 .setCaseInsensitiveEnumValuesAllowed(true)
                 .registerConverter(Duration.class, Duration::valueOf)
-                .registerConverter(Path.class, Paths::get)
+                .registerConverter(Path.class, Path::of)
                 .setResourceBundle(bundle)
                 .execute(args);
     }
@@ -190,7 +189,7 @@ public class Launcher
         protected Path findJdkDistribution()
         {
             String searchFor = "core/.temurin-release";
-            Path currentWorkingDirectory = Paths.get("").toAbsolutePath();
+            Path currentWorkingDirectory = Path.of("").toAbsolutePath();
             Path current = currentWorkingDirectory; // current working directory
 
             while (current != null) {

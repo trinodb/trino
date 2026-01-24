@@ -30,7 +30,6 @@ import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
 
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.List;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -269,7 +268,7 @@ public class FeaturesConfig
     public FeaturesConfig setSpillerSpillPaths(List<String> spillPaths)
     {
         this.spillerSpillPaths = spillPaths.stream()
-                .map(Paths::get)
+                .map(Path::of)
                 .collect(toImmutableList());
         return this;
     }

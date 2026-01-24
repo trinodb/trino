@@ -42,7 +42,6 @@ import java.io.IOException;
 import java.io.PrintStream;
 import java.lang.reflect.Field;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.AbstractMap;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -457,6 +456,6 @@ public class Console
         if (isNullOrEmpty(path)) {
             return Optional.empty();
         }
-        return Optional.of(Paths.get(path));
+        return Optional.of(Path.of(path));
     }
 }

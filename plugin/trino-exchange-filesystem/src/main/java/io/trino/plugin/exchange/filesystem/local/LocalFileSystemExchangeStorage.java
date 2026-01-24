@@ -38,7 +38,6 @@ import java.io.UncheckedIOException;
 import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.ArrayDeque;
 import java.util.List;
 import java.util.Queue;
@@ -66,7 +65,7 @@ public class LocalFileSystemExchangeStorage
     public void createDirectories(URI dir)
             throws IOException
     {
-        Files.createDirectories(Paths.get(dir.getPath()));
+        Files.createDirectories(Path.of(dir.getPath()));
     }
 
     @Override
@@ -85,7 +84,7 @@ public class LocalFileSystemExchangeStorage
     public ListenableFuture<Void> createEmptyFile(URI file)
     {
         try {
-            createFile(Paths.get(file.getPath()));
+            createFile(Path.of(file.getPath()));
         }
         catch (IOException | RuntimeException e) {
             return immediateFailedFuture(e);
@@ -98,7 +97,7 @@ public class LocalFileSystemExchangeStorage
     {
         for (URI dir : directories) {
             try {
-                MoreFiles.deleteRecursively(Paths.get(dir.getPath()), ALLOW_INSECURE);
+                MoreFiles.deleteRecursively(Path.of(dir.getPath()), ALLOW_INSECURE);
             }
             catch (IOException | RuntimeException e) {
                 return immediateFailedFuture(e);
@@ -112,7 +111,7 @@ public class LocalFileSystemExchangeStorage
     {
         ImmutableList.Builder<FileStatus> builder = ImmutableList.builder();
         try {
-            try (Stream<Path> paths = Files.walk(Paths.get(dir.getPath()))) {
+            try (Stream<Path> paths = Files.walk(Path.of(dir.getPath()))) {
                 for (Path file : paths.filter(Files::isRegularFile).collect(toImmutableList())) {
                     builder.add(new FileStatus(file.toUri().toString(), Files.size(file)));
                 }
@@ -217,7 +216,7 @@ public class LocalFileSystemExchangeStorage
         private InputStreamSliceInput getSliceInput(ExchangeSourceFile sourceFile)
                 throws IOException
         {
-            return new InputStreamSliceInput(newInputStream(Paths.get(sourceFile.getFileUri())), BUFFER_SIZE_IN_BYTES);
+            return new InputStreamSliceInput(newInputStream(Path.of(sourceFile.getFileUri())), BUFFER_SIZE_IN_BYTES);
         }
     }
 
@@ -232,7 +231,7 @@ public class LocalFileSystemExchangeStorage
         public LocalExchangeStorageWriter(URI file)
         {
             try {
-                this.outputStream = new FileOutputStream(Paths.get(file.getPath()).toFile());
+                this.outputStream = new FileOutputStream(Path.of(file.getPath()).toFile());
             }
             catch (FileNotFoundException e) {
                 throw new UncheckedIOException(e);

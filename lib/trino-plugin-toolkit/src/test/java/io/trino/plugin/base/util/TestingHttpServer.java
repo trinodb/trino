@@ -29,7 +29,7 @@ import java.io.Closeable;
 import java.io.IOException;
 import java.net.URI;
 import java.nio.file.Files;
-import java.nio.file.Paths;
+import java.nio.file.Path;
 
 import static java.util.Objects.requireNonNull;
 
@@ -79,7 +79,7 @@ public class TestingHttpServer
         protected void doGet(HttpServletRequest request, HttpServletResponse response)
                 throws IOException
         {
-            byte[] responseAsBytes = Files.readAllBytes(Paths.get(request.getPathInfo()));
+            byte[] responseAsBytes = Files.readAllBytes(Path.of(request.getPathInfo()));
             ByteSource.wrap(responseAsBytes).copyTo(response.getOutputStream());
         }
     }

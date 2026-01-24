@@ -20,7 +20,7 @@ import org.testng.annotations.Test;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.nio.file.Paths;
+import java.nio.file.Path;
 
 import static com.google.common.io.Resources.getResource;
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
@@ -126,7 +126,7 @@ public class TestTextfileSymlinkInputFormat
             throws IOException
     {
         hdfsClient.delete(location);
-        try (InputStream inputStream = getResource(Paths.get("io/trino/tests/product/hive/data/single_int_column/", resource).toString()).openStream()) {
+        try (InputStream inputStream = getResource(Path.of("io/trino/tests/product/hive/data/single_int_column/", resource).toString()).openStream()) {
             hdfsClient.saveFile(location, inputStream);
         }
     }
