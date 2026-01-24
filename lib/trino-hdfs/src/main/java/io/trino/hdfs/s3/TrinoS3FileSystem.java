@@ -153,7 +153,6 @@ import static com.amazonaws.services.s3.Headers.UNENCRYPTED_CONTENT_LENGTH;
 import static com.amazonaws.services.s3.model.StorageClass.DeepArchive;
 import static com.amazonaws.services.s3.model.StorageClass.Glacier;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkPositionIndexes;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.base.Strings.nullToEmpty;
@@ -178,6 +177,7 @@ import static java.net.HttpURLConnection.HTTP_FORBIDDEN;
 import static java.net.HttpURLConnection.HTTP_NOT_FOUND;
 import static java.nio.file.Files.createDirectories;
 import static java.nio.file.Files.createTempFile;
+import static java.util.Objects.checkFromToIndex;
 import static java.util.Objects.nonNull;
 import static java.util.Objects.requireNonNull;
 import static java.util.Objects.requireNonNullElse;
@@ -1380,7 +1380,7 @@ public class TrinoS3FileSystem
             if (position < 0) {
                 throw new EOFException(NEGATIVE_SEEK);
             }
-            checkPositionIndexes(offset, offset + length, buffer.length);
+            checkFromToIndex(offset, offset + length, buffer.length);
             if (length == 0) {
                 return 0;
             }
