@@ -93,7 +93,6 @@ import java.util.Optional;
 import java.util.function.BiFunction;
 import java.util.stream.Stream;
 
-import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.emptyToNull;
@@ -157,6 +156,7 @@ import static java.lang.String.format;
 import static java.lang.String.join;
 import static java.util.Map.entry;
 import static java.util.Objects.requireNonNull;
+import static java.util.Objects.requireNonNullElse;
 import static java.util.stream.Collectors.joining;
 
 public class MariaDbClient
@@ -775,7 +775,7 @@ public class MariaDbClient
                 // Table not found, or is a view, or has no usable statistics
                 return TableStatistics.empty();
             }
-            rowCount = max(firstNonNull(rowCount, 0L), firstNonNull(indexMaxCardinality, 0L));
+            rowCount = max(requireNonNullElse(rowCount, 0L), requireNonNullElse(indexMaxCardinality, 0L));
 
             TableStatistics.Builder tableStatistics = TableStatistics.builder();
             tableStatistics.setRowCount(Estimate.of(rowCount));

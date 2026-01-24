@@ -58,7 +58,6 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 
 import static com.google.cloud.bigquery.Field.Mode.REPEATED;
-import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static io.trino.plugin.bigquery.BigQueryMetadata.DEFAULT_NUMERIC_TYPE_PRECISION;
@@ -83,6 +82,7 @@ import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.time.ZoneOffset.UTC;
 import static java.util.Objects.requireNonNull;
+import static java.util.Objects.requireNonNullElse;
 import static java.util.stream.Collectors.toList;
 
 public final class BigQueryTypeManager
@@ -429,6 +429,6 @@ public final class BigQueryTypeManager
 
     private static Field.Mode getMode(Field field)
     {
-        return firstNonNull(field.getMode(), Field.Mode.NULLABLE);
+        return requireNonNullElse(field.getMode(), Field.Mode.NULLABLE);
     }
 }

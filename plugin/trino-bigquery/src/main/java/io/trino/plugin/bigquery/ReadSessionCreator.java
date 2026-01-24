@@ -40,12 +40,12 @@ import static com.google.cloud.bigquery.TableDefinition.Type.SNAPSHOT;
 import static com.google.cloud.bigquery.TableDefinition.Type.TABLE;
 import static com.google.cloud.bigquery.TableDefinition.Type.VIEW;
 import static com.google.cloud.bigquery.storage.v1.ArrowSerializationOptions.CompressionCodec.ZSTD;
-import static com.google.common.base.MoreObjects.firstNonNull;
 import static io.trino.plugin.bigquery.BigQueryErrorCode.BIGQUERY_CREATE_READ_SESSION_ERROR;
 import static io.trino.plugin.bigquery.BigQuerySessionProperties.isViewMaterializationWithFilter;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.lang.String.format;
 import static java.time.temporal.ChronoUnit.MILLIS;
+import static java.util.Objects.requireNonNullElse;
 import static java.util.stream.Collectors.toList;
 
 // A helper class, also handles view materialization
@@ -130,7 +130,7 @@ public class ReadSessionCreator
                             return bigQueryReadClient.createReadSession(requestBuilder.build());
                         }
                         catch (ApiException e) {
-                            throw new TrinoException(BIGQUERY_CREATE_READ_SESSION_ERROR, "Cannot create read session" + firstNonNull(e.getMessage(), e), e);
+                            throw new TrinoException(BIGQUERY_CREATE_READ_SESSION_ERROR, "Cannot create read session" + requireNonNullElse(e.getMessage(), e), e);
                         }
                     });
         }

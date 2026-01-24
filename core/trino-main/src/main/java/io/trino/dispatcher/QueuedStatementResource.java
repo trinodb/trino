@@ -78,7 +78,6 @@ import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
-import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.util.concurrent.Futures.nonCancellationPropagating;
@@ -102,6 +101,7 @@ import static io.trino.server.security.ResourceSecurity.AccessType.PUBLIC;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static jakarta.ws.rs.core.MediaType.APPLICATION_JSON;
 import static java.util.Objects.requireNonNull;
+import static java.util.Objects.requireNonNullElse;
 import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
@@ -476,7 +476,7 @@ public class QueuedStatementResource
             }
 
             return new QueryError(
-                    firstNonNull(executionFailureInfo.getMessage(), "Internal error"),
+                    requireNonNullElse(executionFailureInfo.getMessage(), "Internal error"),
                     null,
                     errorCode.getCode(),
                     errorCode.getName(),

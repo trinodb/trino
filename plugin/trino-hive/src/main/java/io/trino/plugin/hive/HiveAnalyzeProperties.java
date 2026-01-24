@@ -25,13 +25,13 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
-import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.metastore.Partitions.HIVE_DEFAULT_DYNAMIC_PARTITION;
 import static io.trino.spi.StandardErrorCode.INVALID_ANALYZE_PROPERTY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.String.format;
+import static java.util.Objects.requireNonNullElse;
 
 public class HiveAnalyzeProperties
 {
@@ -86,7 +86,7 @@ public class HiveAnalyzeProperties
         return ((Collection<?>) object).stream()
                 .peek(partition -> throwIfNull(partition, "partitions"))
                 .map(partition -> ((Collection<?>) partition).stream()
-                        .map(name -> firstNonNull((String) name, HIVE_DEFAULT_DYNAMIC_PARTITION))
+                        .map(name -> requireNonNullElse((String) name, HIVE_DEFAULT_DYNAMIC_PARTITION))
                         .collect(toImmutableList()))
                 .distinct()
                 .collect(toImmutableList());

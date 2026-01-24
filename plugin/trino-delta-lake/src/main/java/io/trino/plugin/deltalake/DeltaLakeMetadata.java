@@ -194,7 +194,6 @@ import java.util.function.UnaryOperator;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Predicates.alwaysFalse;
@@ -367,6 +366,7 @@ import static java.util.Collections.unmodifiableMap;
 import static java.util.Comparator.naturalOrder;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
+import static java.util.Objects.requireNonNullElse;
 import static java.util.UUID.randomUUID;
 import static java.util.function.Function.identity;
 import static java.util.function.Predicate.not;
@@ -1997,7 +1997,7 @@ public class DeltaLakeMetadata
                     Optional.ofNullable(handle.getMetadataEntry().getDescription()));
         }
         catch (Exception e) {
-            throw new TrinoException(DELTA_LAKE_BAD_WRITE, format("Unable to add '%s' column for: %s.%s %s", newColumnMetadata.getName(), handle.getSchemaName(), handle.getTableName(), firstNonNull(e.getMessage(), e)), e);
+            throw new TrinoException(DELTA_LAKE_BAD_WRITE, format("Unable to add '%s' column for: %s.%s %s", newColumnMetadata.getName(), handle.getSchemaName(), handle.getTableName(), requireNonNullElse(e.getMessage(), e)), e);
         }
     }
 

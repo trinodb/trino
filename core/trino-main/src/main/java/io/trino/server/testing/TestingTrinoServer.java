@@ -135,7 +135,6 @@ import java.util.Optional;
 import java.util.concurrent.CountDownLatch;
 import java.util.function.Consumer;
 
-import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.io.MoreFiles.deleteRecursively;
@@ -149,6 +148,7 @@ import static java.lang.Integer.parseInt;
 import static java.nio.file.Files.createTempDirectory;
 import static java.nio.file.Files.isDirectory;
 import static java.util.Objects.requireNonNull;
+import static java.util.Objects.requireNonNullElse;
 import static java.util.UUID.randomUUID;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
@@ -265,7 +265,7 @@ public class TestingTrinoServer
         this.preserveData = baseDataDir.isPresent();
 
         properties = new HashMap<>(properties);
-        int httpPort = parseInt(firstNonNull(properties.remove("http-server.http.port"), "0"));
+        int httpPort = parseInt(requireNonNullElse(properties.remove("http-server.http.port"), "0"));
 
         ImmutableMap.Builder<String, String> serverProperties = ImmutableMap.<String, String>builder()
                 .putAll(properties)

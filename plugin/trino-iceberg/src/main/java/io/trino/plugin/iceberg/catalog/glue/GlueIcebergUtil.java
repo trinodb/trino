@@ -32,7 +32,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
-import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.collect.ImmutableList.builderWithExpectedSize;
 import static io.trino.metastore.Table.TABLE_COMMENT;
 import static io.trino.metastore.TableInfo.ICEBERG_MATERIALIZED_VIEW_COMMENT;
@@ -45,6 +44,7 @@ import static io.trino.plugin.iceberg.IcebergUtil.TRINO_TABLE_COMMENT_CACHE_PREV
 import static io.trino.plugin.iceberg.IcebergUtil.TRINO_TABLE_METADATA_INFO_VALID_FOR;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
+import static java.util.Objects.requireNonNullElse;
 import static org.apache.iceberg.BaseMetastoreTableOperations.ICEBERG_TABLE_TYPE_VALUE;
 import static org.apache.iceberg.BaseMetastoreTableOperations.METADATA_LOCATION_PROP;
 import static org.apache.iceberg.BaseMetastoreTableOperations.TABLE_TYPE_PROP;
@@ -128,7 +128,7 @@ public final class GlueIcebergUtil
         for (Types.NestedField icebergColumn : icebergColumns) {
             String glueTypeString = toGlueTypeStringLossy(icebergColumn.type());
             if (icebergColumn.name().length() > GLUE_COLUMN_NAME_LENGTH_LIMIT ||
-                    firstNonNull(icebergColumn.doc(), "").length() > GLUE_COLUMN_COMMENT_LENGTH_LIMIT ||
+                    requireNonNullElse(icebergColumn.doc(), "").length() > GLUE_COLUMN_COMMENT_LENGTH_LIMIT ||
                     glueTypeString.length() > GLUE_COLUMN_TYPE_LENGTH_LIMIT) {
                 return Optional.empty();
             }

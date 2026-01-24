@@ -28,7 +28,7 @@ import org.antlr.v4.runtime.misc.ParseCancellationException;
 
 import java.util.function.Function;
 
-import static com.google.common.base.MoreObjects.firstNonNull;
+import static java.util.Objects.requireNonNullElse;
 
 public final class SparkExpressionParser
 {
@@ -56,7 +56,7 @@ public final class SparkExpressionParser
             return (SparkExpression) invokeParser(expression, SparkExpressionBaseParser::standaloneExpression);
         }
         catch (Exception e) {
-            throw new ParsingException("Cannot parse Spark expression [%s]: %s".formatted(expression, firstNonNull(e.getMessage(), e)), e);
+            throw new ParsingException("Cannot parse Spark expression [%s]: %s".formatted(expression, requireNonNullElse(e.getMessage(), e)), e);
         }
     }
 

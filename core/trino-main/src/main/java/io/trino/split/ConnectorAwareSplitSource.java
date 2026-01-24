@@ -28,11 +28,11 @@ import jakarta.annotation.Nullable;
 import java.util.List;
 import java.util.Optional;
 
-import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.toListenableFuture;
 import static java.util.Objects.requireNonNull;
+import static java.util.Objects.requireNonNullElse;
 
 /**
  * Adapts {@link ConnectorSplitSource} to {@link SplitSource} interface.
@@ -140,6 +140,6 @@ public class ConnectorAwareSplitSource
     @Override
     public String toString()
     {
-        return catalogHandle + ":" + firstNonNull(source, sourceToString);
+        return catalogHandle + ":" + requireNonNullElse(source, sourceToString);
     }
 }

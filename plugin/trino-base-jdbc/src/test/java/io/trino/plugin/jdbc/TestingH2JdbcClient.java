@@ -46,7 +46,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-import static com.google.common.base.MoreObjects.firstNonNull;
 import static io.trino.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
 import static io.trino.plugin.jdbc.StandardColumnMappings.bigintColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.bigintWriteFunction;
@@ -83,6 +82,7 @@ import static io.trino.spi.type.TimeType.TIME_MILLIS;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
+import static java.util.Objects.requireNonNullElse;
 
 class TestingH2JdbcClient
         extends BaseJdbcClient
@@ -275,7 +275,7 @@ class TestingH2JdbcClient
             return procedureHandle;
         }
         catch (SQLException e) {
-            throw new TrinoException(JDBC_ERROR, "Failed to get table handle for procedure query. " + firstNonNull(e.getMessage(), e), e);
+            throw new TrinoException(JDBC_ERROR, "Failed to get table handle for procedure query. " + requireNonNullElse(e.getMessage(), e), e);
         }
     }
 }

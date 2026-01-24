@@ -75,7 +75,6 @@ import java.util.OptionalDouble;
 import java.util.OptionalLong;
 import java.util.concurrent.TimeUnit;
 
-import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Strings.emptyToNull;
 import static com.google.common.base.Strings.lenientFormat;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -101,6 +100,7 @@ import static io.trino.plugin.hive.util.HiveUtil.isDeltaLakeTable;
 import static io.trino.plugin.hive.util.HiveUtil.isIcebergTable;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
+import static java.util.Objects.requireNonNullElse;
 
 public final class GlueConverter
 {
@@ -124,7 +124,7 @@ public final class GlueConverter
     public static String getTableType(software.amazon.awssdk.services.glue.model.Table glueTable)
     {
         // Athena treats a missing table type as EXTERNAL_TABLE.
-        return firstNonNull(getTableTypeNullable(glueTable), EXTERNAL_TABLE.name());
+        return requireNonNullElse(getTableTypeNullable(glueTable), EXTERNAL_TABLE.name());
     }
 
     @Nullable

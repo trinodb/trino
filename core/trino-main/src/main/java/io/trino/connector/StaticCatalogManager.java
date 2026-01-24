@@ -46,7 +46,6 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicReference;
 
-import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -56,6 +55,7 @@ import static io.trino.spi.StandardErrorCode.CATALOG_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.util.Executors.executeUntilFailure;
 import static java.util.Objects.requireNonNull;
+import static java.util.Objects.requireNonNullElse;
 
 @ThreadSafe
 public class StaticCatalogManager
@@ -77,7 +77,7 @@ public class StaticCatalogManager
     public StaticCatalogManager(CatalogFactory catalogFactory, StaticCatalogManagerConfig config, @ForStartup Executor executor)
     {
         this.catalogFactory = requireNonNull(catalogFactory, "catalogFactory is null");
-        List<String> disabledCatalogs = firstNonNull(config.getDisabledCatalogs(), ImmutableList.of());
+        List<String> disabledCatalogs = requireNonNullElse(config.getDisabledCatalogs(), ImmutableList.of());
 
         ImmutableList.Builder<CatalogProperties> catalogProperties = ImmutableList.builder();
         for (File file : listCatalogFiles(config.getCatalogConfigurationDir())) {

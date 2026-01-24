@@ -50,7 +50,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.collect.Maps.filterKeys;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
@@ -70,6 +69,7 @@ import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
+import static java.util.Objects.requireNonNullElse;
 import static java.util.stream.Collectors.toCollection;
 
 // single-threaded as DistributedQueryRunner.spans is shared mutable state
@@ -1419,7 +1419,7 @@ public class TestDeltaLakeFileOperations
             if (!path.contains("_delta_log")) {
                 Matcher matcher = dataFilePattern.matcher(path);
                 if (matcher.matches()) {
-                    return new FileOperation(DATA, firstNonNull(matcher.group("partition"), "no partition"), operationType);
+                    return new FileOperation(DATA, requireNonNullElse(matcher.group("partition"), "no partition"), operationType);
                 }
             }
             throw new IllegalArgumentException("File not recognized: " + path);

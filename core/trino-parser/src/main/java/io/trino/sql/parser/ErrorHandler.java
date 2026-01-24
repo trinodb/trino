@@ -44,7 +44,7 @@ import java.util.Set;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
 
-import static com.google.common.base.MoreObjects.firstNonNull;
+import static java.util.Objects.requireNonNullElse;
 import static java.util.logging.Level.SEVERE;
 import static org.antlr.v4.runtime.atn.ATNState.RULE_START;
 
@@ -148,7 +148,7 @@ class ErrorHandler
         {
             Token token = parser.getTokenStream().get(tokenIndex);
 
-            String text = firstNonNull(token.getText(), "?");
+            String text = requireNonNullElse(token.getText(), "?");
             if (text != null) {
                 text = text.replace("\\", "\\\\");
                 text = text.replace("\n", "\\n");

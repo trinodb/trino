@@ -56,7 +56,6 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.execution.QueryState.FAILED;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
@@ -67,6 +66,7 @@ import static io.trino.spi.type.StandardTypes.TIMESTAMP_WITH_TIME_ZONE;
 import static io.trino.spi.type.StandardTypes.TIME_WITH_TIME_ZONE;
 import static io.trino.util.Failures.toFailure;
 import static java.lang.String.format;
+import static java.util.Objects.requireNonNullElse;
 
 public final class ProtocolUtil
 {
@@ -293,7 +293,7 @@ public final class ProtocolUtil
             log.warn("Failed query %s has no error code", queryInfo.queryId());
         }
         return new QueryError(
-                firstNonNull(failure.getMessage(), "Internal error"),
+                requireNonNullElse(failure.getMessage(), "Internal error"),
                 null,
                 errorCode.getCode(),
                 errorCode.getName(),

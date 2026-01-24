@@ -28,11 +28,11 @@ import java.sql.Connection;
 import java.sql.SQLException;
 import java.sql.Statement;
 
-import static com.google.common.base.MoreObjects.firstNonNull;
 import static io.trino.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.invoke.MethodHandles.lookup;
 import static java.util.Objects.requireNonNull;
+import static java.util.Objects.requireNonNullElse;
 
 public final class ExecuteProcedure
         implements Provider<Procedure>
@@ -83,7 +83,7 @@ public final class ExecuteProcedure
             }
         }
         catch (SQLException e) {
-            throw new TrinoException(JDBC_ERROR, "Failed to execute query. " + firstNonNull(e.getMessage(), e), e);
+            throw new TrinoException(JDBC_ERROR, "Failed to execute query. " + requireNonNullElse(e.getMessage(), e), e);
         }
     }
 }

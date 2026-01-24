@@ -77,7 +77,6 @@ import java.util.Set;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
 
-import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Throwables.getCausalChain;
 import static com.google.common.base.Verify.verify;
@@ -101,6 +100,7 @@ import static io.trino.spi.StandardErrorCode.SERIALIZATION_ERROR;
 import static io.trino.util.Failures.toFailure;
 import static io.trino.util.MoreLists.mappedCopy;
 import static java.util.Objects.requireNonNull;
+import static java.util.Objects.requireNonNullElse;
 
 @ThreadSafe
 class Query
@@ -769,7 +769,7 @@ class Query
             ErrorCode errorCode = SERIALIZATION_ERROR.toErrorCode();
             FailureInfo failure = toFailure(exception.get()).toFailureInfo();
             return new QueryError(
-                    firstNonNull(failure.getMessage(), "Internal error"),
+                    requireNonNullElse(failure.getMessage(), "Internal error"),
                     null,
                     errorCode.getCode(),
                     errorCode.getName(),

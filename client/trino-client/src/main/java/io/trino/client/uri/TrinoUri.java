@@ -39,7 +39,6 @@ import java.util.Properties;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 
-import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static io.trino.client.spooling.encoding.QueryDataDecoders.getPreferredEncodings;
 import static io.trino.client.uri.ConnectionProperties.ACCESS_TOKEN;
@@ -105,6 +104,7 @@ import static io.trino.client.uri.LoggingLevel.NONE;
 import static java.lang.String.CASE_INSENSITIVE_ORDER;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
+import static java.util.Objects.requireNonNullElse;
 import static java.util.stream.Collectors.joining;
 
 /**
@@ -148,12 +148,12 @@ public class TrinoUri
 
     public static TrinoUri create(String url, Properties properties)
     {
-        return new TrinoUri(url, firstNonNull(properties, new Properties()));
+        return new TrinoUri(url, requireNonNullElse(properties, new Properties()));
     }
 
     public static TrinoUri create(URI uri, Properties properties)
     {
-        return new TrinoUri(uri, firstNonNull(properties, new Properties()));
+        return new TrinoUri(uri, requireNonNullElse(properties, new Properties()));
     }
 
     public URI getUri()

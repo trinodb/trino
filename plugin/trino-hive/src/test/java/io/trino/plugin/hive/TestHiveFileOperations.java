@@ -32,13 +32,13 @@ import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.trino.filesystem.tracing.FileSystemAttributes.FILE_LOCATION;
 import static io.trino.plugin.hive.HiveQueryRunner.HIVE_CATALOG;
 import static io.trino.testing.MultisetAssertions.assertMultisetsEqual;
 import static java.util.Objects.requireNonNull;
+import static java.util.Objects.requireNonNullElse;
 import static java.util.stream.Collectors.toCollection;
 
 @Execution(ExecutionMode.SAME_THREAD)
@@ -207,7 +207,7 @@ public class TestHiveFileOperations
             if (!path.contains("/.trino")) {
                 Matcher matcher = DATA_FILE_PATTERN.matcher(path);
                 if (matcher.matches()) {
-                    return new FileOperation(operationName, firstNonNull(matcher.group("partition"), "no partition"));
+                    return new FileOperation(operationName, requireNonNullElse(matcher.group("partition"), "no partition"));
                 }
             }
             return new FileOperation(operationName, fileName);
