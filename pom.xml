@@ -209,7 +209,6 @@
         <dep.takari.version>2.3.2</dep.takari.version>
         <dep.tcnative.version>2.0.74.Final</dep.tcnative.version>
         <dep.tempto.version>202</dep.tempto.version>
-        <dep.wire.version>5.2.1</dep.wire.version>
         <dep.zookeeper.version>3.9.4</dep.zookeeper.version>
         <extraJavaVectorArgs>--add-modules=jdk.incubator.vector</extraJavaVectorArgs>
         <!--
@@ -549,18 +548,6 @@
                 <groupId>com.squareup.okio</groupId>
                 <artifactId>okio-jvm</artifactId>
                 <version>${dep.okio.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>com.squareup.wire</groupId>
-                <artifactId>wire-runtime-jvm</artifactId>
-                <version>${dep.wire.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>com.squareup.wire</groupId>
-                <artifactId>wire-schema-jvm</artifactId>
-                <version>${dep.wire.version}</version>
             </dependency>
 
             <dependency>
