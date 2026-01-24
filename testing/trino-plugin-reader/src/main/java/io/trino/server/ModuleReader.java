@@ -20,8 +20,8 @@ import org.codehaus.plexus.util.xml.pull.XmlPullParserException;
 
 import java.io.BufferedInputStream;
 import java.io.File;
-import java.io.FileReader;
 import java.io.IOException;
+import java.io.Reader;
 import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -53,7 +53,7 @@ public class ModuleReader
 
     private static List<String> readTrinoPlugins(File rootPom)
     {
-        try (FileReader fileReader = new FileReader(rootPom, UTF_8)) {
+        try (Reader fileReader = Files.newBufferedReader(rootPom.toPath(), UTF_8)) {
             MavenXpp3Reader reader = new MavenXpp3Reader();
             Model model = reader.read(fileReader);
             return model.getModules().stream()
@@ -71,7 +71,7 @@ public class ModuleReader
     private static boolean isTrinoPlugin(String module)
     {
         String modulePom = module + "/pom.xml";
-        try (FileReader fileReader = new FileReader(modulePom, UTF_8)) {
+        try (Reader fileReader = Files.newBufferedReader(Path.of(modulePom), UTF_8)) {
             MavenXpp3Reader reader = new MavenXpp3Reader();
             Model model = reader.read(fileReader);
             return model.getPackaging().equals("trino-plugin");
