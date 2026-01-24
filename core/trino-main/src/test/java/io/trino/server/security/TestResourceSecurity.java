@@ -72,7 +72,6 @@ import java.net.HttpCookie;
 import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.security.Principal;
 import java.security.PrivateKey;
 import java.security.PublicKey;
@@ -488,7 +487,7 @@ public class TestResourceSecurity
 
             assertAuthenticationDisabled(httpServerInfo.getHttpUri());
 
-            SecretKey hmac = hmacShaKeyFor(Base64.getDecoder().decode(Files.readString(Paths.get(HMAC_KEY)).trim()));
+            SecretKey hmac = hmacShaKeyFor(Base64.getDecoder().decode(Files.readString(Path.of(HMAC_KEY)).trim()));
             JwtBuilder tokenBuilder = newJwtBuilder()
                     .signWith(hmac)
                     .expiration(Date.from(ZonedDateTime.now().plusMinutes(5).toInstant()));
@@ -568,7 +567,7 @@ public class TestResourceSecurity
                 .build()) {
             HttpServerInfo httpServerInfo = server.getInstance(Key.get(HttpServerInfo.class));
 
-            SecretKey hmac = hmacShaKeyFor(Base64.getDecoder().decode(Files.readString(Paths.get(HMAC_KEY)).trim()));
+            SecretKey hmac = hmacShaKeyFor(Base64.getDecoder().decode(Files.readString(Path.of(HMAC_KEY)).trim()));
             JwtBuilder tokenBuilder = newJwtBuilder()
                     .signWith(hmac)
                     .expiration(Date.from(ZonedDateTime.now().plusMinutes(5).toInstant()))
@@ -604,7 +603,7 @@ public class TestResourceSecurity
 
             assertAuthenticationDisabled(httpServerInfo.getHttpUri());
 
-            SecretKey hmac = hmacShaKeyFor(Base64.getDecoder().decode(Files.readString(Paths.get(HMAC_KEY)).trim()));
+            SecretKey hmac = hmacShaKeyFor(Base64.getDecoder().decode(Files.readString(Path.of(HMAC_KEY)).trim()));
             JwtBuilder tokenBuilder = newJwtBuilder()
                     .signWith(hmac)
                     .expiration(Date.from(ZonedDateTime.now().plusMinutes(5).toInstant()))

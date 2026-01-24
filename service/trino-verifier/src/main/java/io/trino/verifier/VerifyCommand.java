@@ -77,7 +77,7 @@ import java.io.UncheckedIOException;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLClassLoader;
-import java.nio.file.Paths;
+import java.nio.file.Path;
 import java.sql.Driver;
 import java.sql.DriverManager;
 import java.sql.SQLException;
@@ -218,7 +218,7 @@ public class VerifyCommand
         ImmutableList.Builder<URL> urlList = ImmutableList.builder();
         File driverPath = new File(path);
         if (!driverPath.isDirectory()) {
-            urlList.add(Paths.get(path).toUri().toURL());
+            urlList.add(Path.of(path).toUri().toURL());
             return urlList.build();
         }
         File[] files = driverPath.listFiles((dir, name) -> {
@@ -232,7 +232,7 @@ public class VerifyCommand
             if (file.isDirectory()) {
                 continue;
             }
-            urlList.add(Paths.get(file.getAbsolutePath()).toUri().toURL());
+            urlList.add(Path.of(file.getAbsolutePath()).toUri().toURL());
         }
         return urlList.build();
     }

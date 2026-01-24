@@ -74,7 +74,6 @@ import java.net.HttpCookie;
 import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.security.Principal;
 import java.security.PrivateKey;
 import java.security.SecureRandom;
@@ -601,7 +600,7 @@ public class TestWebUi
 
             testNeverAuthorized(httpServerInfo.getHttpsUri(), client);
 
-            SecretKey hmac = hmacShaKeyFor(Base64.getDecoder().decode(Files.readString(Paths.get(HMAC_KEY)).trim()));
+            SecretKey hmac = hmacShaKeyFor(Base64.getDecoder().decode(Files.readString(Path.of(HMAC_KEY)).trim()));
             String token = newJwtBuilder()
                     .signWith(hmac)
                     .subject("test-user")

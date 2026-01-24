@@ -38,7 +38,6 @@ import org.openjdk.jmh.annotations.TearDown;
 import org.openjdk.jmh.annotations.Warmup;
 
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
@@ -60,7 +59,7 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 public class BenchmarkBinaryFileSpiller
 {
     private static final List<Type> TYPES = ImmutableList.of(BIGINT, BIGINT, DOUBLE, createUnboundedVarcharType(), DOUBLE);
-    private static final Path SPILL_PATH = Paths.get(System.getProperty("java.io.tmpdir"), "spills");
+    private static final Path SPILL_PATH = Path.of(System.getProperty("java.io.tmpdir"), "spills");
 
     @Benchmark
     public void write(BenchmarkData data)

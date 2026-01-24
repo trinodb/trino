@@ -416,7 +416,7 @@ public class TestTransactionLogAccess
         File transactionLogDir = new File(tableDir, TRANSACTION_LOG_DIRECTORY);
         transactionLogDir.mkdirs();
 
-        java.nio.file.Path resourceDir = java.nio.file.Paths.get(getClass().getClassLoader().getResource("databricks73/person/_delta_log").toURI());
+        java.nio.file.Path resourceDir = java.nio.file.Path.of(getClass().getClassLoader().getResource("databricks73/person/_delta_log").toURI());
         for (int i = 0; i < 12; i++) {
             String extension = i == 10 ? ".checkpoint.parquet" : ".json";
             String fileName = format("%020d%s", i, extension);

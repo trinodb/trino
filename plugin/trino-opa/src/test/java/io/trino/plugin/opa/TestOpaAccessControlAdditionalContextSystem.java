@@ -20,7 +20,6 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -33,7 +32,7 @@ final class TestOpaAccessControlAdditionalContextSystem
 {
     private static final String OPA_ALLOW_POLICY_NAME = "allow";
     private static final String OPA_BATCH_ALLOW_POLICY_NAME = "batchAllow";
-    private static final Path OPA_ADDITIONAL_CONTEXT_FILE = Paths.get("src/test/resources/additional-context.properties");
+    private static final Path OPA_ADDITIONAL_CONTEXT_FILE = Path.of("src/test/resources/additional-context.properties");
     @Container
     private static final OpaContainer OPA_CONTAINER = new OpaContainer();
 

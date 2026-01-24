@@ -21,7 +21,6 @@ import org.yaml.snakeyaml.Yaml;
 import java.io.StringReader;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -43,7 +42,7 @@ public class TestCiWorkflow
 {
     private static final Logger log = Logger.get(TestCiWorkflow.class);
 
-    private static final Path CI_YML_REPO_PATH = Paths.get(".github/workflows/ci.yml");
+    private static final Path CI_YML_REPO_PATH = Path.of(".github/workflows/ci.yml");
     private static final String BUILD_SUCCESS = "build-success";
 
     @Test
@@ -152,7 +151,7 @@ public class TestCiWorkflow
 
     private static Path findRepositoryRoot()
     {
-        Path workingDirectory = Paths.get("").toAbsolutePath();
+        Path workingDirectory = Path.of("").toAbsolutePath();
         log.info("Current working directory: %s", workingDirectory);
         for (Path path = workingDirectory; path != null; path = path.getParent()) {
             if (Files.isDirectory(path.resolve(".git"))) {

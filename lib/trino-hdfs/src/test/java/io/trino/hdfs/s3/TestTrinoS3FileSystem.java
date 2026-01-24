@@ -66,7 +66,6 @@ import java.lang.reflect.Field;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.file.Files;
-import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Date;
@@ -415,7 +414,7 @@ public class TestTrinoS3FileSystem
             throws Exception
     {
         java.nio.file.Path stagingParent = createTempDirectory("test");
-        java.nio.file.Path staging = Paths.get(stagingParent.toString(), "staging");
+        java.nio.file.Path staging = java.nio.file.Path.of(stagingParent.toString(), "staging");
         // stagingParent = /tmp/testXXX
         // staging = /tmp/testXXX/staging
 
@@ -463,7 +462,7 @@ public class TestTrinoS3FileSystem
             throws Exception
     {
         java.nio.file.Path staging = createTempDirectory("staging");
-        java.nio.file.Path link = Paths.get(staging + ".symlink");
+        java.nio.file.Path link = java.nio.file.Path.of(staging + ".symlink");
         // staging = /tmp/stagingXXX
         // link = /tmp/stagingXXX.symlink -> /tmp/stagingXXX
 

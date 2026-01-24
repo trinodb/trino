@@ -29,7 +29,6 @@ import picocli.CommandLine.IVersionProvider;
 import java.io.File;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.Enumeration;
 import java.util.Map;
 import java.util.Optional;
@@ -99,7 +98,7 @@ public final class Trino
         return getConfigSearchPaths()
                 .filter(Optional::isPresent)
                 .map(Optional::get)
-                .map(Paths::get)
+                .map(Path::of)
                 .filter(Files::exists)
                 .findFirst()
                 .map(Path::toFile);
@@ -116,7 +115,7 @@ public final class Trino
     private static Optional<String> resolveConfigPath(String root, String file)
     {
         return Optional.ofNullable(emptyToNull(root))
-                .map(Paths::get)
+                .map(Path::of)
                 .filter(Files::exists)
                 .map(path -> path.resolve(file).toString());
     }

@@ -38,7 +38,6 @@ import org.intellij.lang.annotations.Language;
 import org.joda.time.DateTimeZone;
 
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -399,7 +398,7 @@ public final class HiveQueryRunner
                     System.exit(1);
                 }
 
-                Path path = Paths.get(args[0]);
+                Path path = Path.of(args[0]);
                 createDirectories(path);
                 baseDataDir = Optional.of(path);
             }

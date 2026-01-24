@@ -24,7 +24,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.net.URL;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -50,7 +49,7 @@ public class TableStatisticsDataRepository
             TableStatisticsData statisticsData)
     {
         String filename = tableStatisticsDataFilename(table, partitionColumn, partitionValue);
-        Path path = Paths.get("trino-tpch", "src", "main", "resources", "tpch", "statistics", schemaName, filename + ".json");
+        Path path = Path.of("trino-tpch", "src", "main", "resources", "tpch", "statistics", schemaName, filename + ".json");
         writeStatistics(path, statisticsData);
     }
 

@@ -42,7 +42,6 @@ import java.io.UncheckedIOException;
 import java.net.URISyntaxException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.time.Instant;
 import java.util.Map;
 import java.util.Optional;
@@ -154,7 +153,7 @@ public class TestFileBasedSystemAccessControl
                 DefaultSystemAccessControl.NAME);
         accessControlManager.loadSystemAccessControl(
                 FileBasedSystemAccessControl.NAME,
-                ImmutableMap.of("security.config-file", Paths.get("../../docs/src/main/sphinx/security/user-impersonation.json").toAbsolutePath().toString()));
+                ImmutableMap.of("security.config-file", Path.of("../../docs/src/main/sphinx/security/user-impersonation.json").toAbsolutePath().toString()));
 
         accessControlManager.checkCanImpersonateUser(admin, "charlie");
         assertThatThrownBy(() -> accessControlManager.checkCanImpersonateUser(admin, "bob"))
@@ -901,7 +900,7 @@ public class TestFileBasedSystemAccessControl
     private Path getResourcePath(String resourceName)
             throws URISyntaxException
     {
-        return Paths.get(getResource(resourceName).toURI());
+        return Path.of(getResource(resourceName).toURI());
     }
 
     @Test

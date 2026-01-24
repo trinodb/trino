@@ -21,7 +21,7 @@ import io.trino.testing.AbstractTestQueries;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
 
-import java.nio.file.Paths;
+import java.nio.file.Path;
 import java.util.Map;
 
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
@@ -50,7 +50,7 @@ public class TestDistributedSpilledQueries
                 .build();
 
         Map<String, String> extraProperties = ImmutableMap.<String, String>builder()
-                .put("spiller-spill-path", Paths.get(System.getProperty("java.io.tmpdir"), "trino", "spills", randomUUID().toString()).toString())
+                .put("spiller-spill-path", Path.of(System.getProperty("java.io.tmpdir"), "trino", "spills", randomUUID().toString()).toString())
                 .put("spiller-max-used-space-threshold", "1.0")
                 .put("memory-revoking-threshold", "0.0") // revoke always
                 .put("memory-revoking-target", "0.0")

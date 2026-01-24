@@ -37,7 +37,6 @@ import org.junit.jupiter.api.io.TempDir;
 import java.net.URISyntaxException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -876,7 +875,7 @@ public abstract class BaseFileBasedConnectorAccessControlTest
     private Path getResourcePath(String resourceName)
             throws URISyntaxException
     {
-        return Paths.get(requireNonNull(this.getClass().getClassLoader().getResource(resourceName), "Resource does not exist: " + resourceName).toURI());
+        return Path.of(requireNonNull(this.getClass().getClassLoader().getResource(resourceName), "Resource does not exist: " + resourceName).toURI());
     }
 
     private static ConnectorSecurityContext user(String user, String group)

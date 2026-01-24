@@ -42,7 +42,6 @@ import java.io.File;
 import java.io.OutputStream;
 import java.io.PrintStream;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
@@ -316,7 +315,7 @@ public class SuiteRun
             testRunOptions.cliJar = suiteRunOptions.cliJar;
             testRunOptions.impactedFeatures = suiteRunOptions.impactedFeatures;
             String suiteRunId = suiteRunId(runId, suiteName, suiteTestRun, environmentConfig);
-            testRunOptions.reportsDir = Paths.get("testing/trino-product-tests/target/reports/" + suiteRunId);
+            testRunOptions.reportsDir = Path.of("testing/trino-product-tests/target/reports/" + suiteRunId);
             testRunOptions.logsDirBase = logsDirBase.map(dir -> dir.resolve(suiteRunId));
             // Calculate remaining time
             testRunOptions.timeout = remainingTimeout();
