@@ -9361,10 +9361,6 @@ public abstract class BaseIcebergConnectorTest
             case "varchar -> char(20)":
             case "time(6) -> time(3)":
             case "timestamp(6) -> timestamp(3)":
-            case "array(integer) -> array(bigint)":
-            case "array(array(integer)) -> array(array(bigint))":
-            case "map(varchar, integer) -> map(varchar, bigint)":
-            case "map(integer, row(x integer)) -> map(integer, row(\"x\" bigint))":
             // Iceberg cannot update map keys
             case "map(integer, varchar) -> map(bigint, varchar)":
                 return Optional.of(setup.asUnsupported());
