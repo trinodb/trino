@@ -66,6 +66,8 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.output;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.semiJoin;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.tableScan;
+import static io.trino.sql.planner.assertions.SemiJoinDynamicFilterProducer.dynamicFilter;
+import static io.trino.sql.planner.assertions.SemiJoinDynamicFilterProducer.noDynamicFilter;
 import static io.trino.sql.planner.plan.JoinType.FULL;
 import static io.trino.sql.planner.plan.JoinType.INNER;
 import static io.trino.sql.planner.plan.JoinType.LEFT;
@@ -726,8 +728,10 @@ public class TestDynamicFilter
                 anyTree(
                         filter(
                                 new Reference(BOOLEAN, "S"),
-                                semiJoin("X", "Y", "S", true,
-                                        anyTree(
+                                semiJoin("X", "Y", "S", dynamicFilter("DF"),
+                                        filter(
+                                                TRUE,
+                                                dynamicFilters -> dynamicFilters.addConsumer(consumer -> consumer.alias("DF").expression(BIGINT, "X")),
                                                 tableScan("orders", ImmutableMap.of("X", "orderkey"))),
                                         anyTree(
                                                 tableScan("lineitem", ImmutableMap.of("Y", "orderkey")))))));
@@ -742,7 +746,7 @@ public class TestDynamicFilter
                 anyTree(
                         filter(
                                 not(getPlanTester().getPlannerContext().getMetadata(), new Reference(BOOLEAN, "S")),
-                                semiJoin("X", "Y", "S", false,
+                                semiJoin("X", "Y", "S", noDynamicFilter(),
                                         tableScan("orders", ImmutableMap.of("X", "orderkey")),
                                         anyTree(
                                                 tableScan("lineitem", ImmutableMap.of("Y", "orderkey")))))));
@@ -750,7 +754,7 @@ public class TestDynamicFilter
         assertPlan(
                 "SELECT orderkey IN (SELECT orderkey FROM lineitem WHERE linenumber < 0) FROM orders",
                 anyTree(
-                        semiJoin("X", "Y", "S", false,
+                        semiJoin("X", "Y", "S", noDynamicFilter(),
                                 tableScan("orders", ImmutableMap.of("X", "orderkey")),
                                 anyTree(
                                         tableScan("lineitem", ImmutableMap.of("Y", "orderkey"))))));
@@ -765,9 +769,10 @@ public class TestDynamicFilter
                 anyTree(
                         filter(
                                 new Reference(BOOLEAN, "S"),
-                                semiJoin("X", "Y", "S", true,
+                                semiJoin("X", "Y", "S", dynamicFilter("DF"),
                                         filter(
                                                 new Comparison(GREATER_THAN, new Reference(BIGINT, "X"), new Constant(BIGINT, 0L)),
+                                                dynamicFilters -> dynamicFilters.addConsumer(consumer -> consumer.alias("DF").expression(BIGINT, "X")),
                                                 tableScan("orders", ImmutableMap.of("X", "orderkey"))),
                                         anyTree(
                                                 tableScan("lineitem", ImmutableMap.of("Y", "orderkey")))))));
@@ -783,15 +788,21 @@ public class TestDynamicFilter
                 anyTree(
                         filter(
                                 new Reference(BOOLEAN, "S0"),
-                                semiJoin("PART_PK", "LINEITEM_PK", "S0", true,
-                                        anyTree(
+                                semiJoin("PART_PK", "LINEITEM_PK", "S0", dynamicFilter("DF_OUTER"),
+                                        filter(
+                                                TRUE,
+                                                dynamicFilters -> dynamicFilters
+                                                        .addConsumer(consumer -> consumer.alias("DF_OUTER").expression(BIGINT, "PART_PK")),
                                                 tableScan("part", ImmutableMap.of("PART_PK", "partkey"))),
                                         anyTree(
                                                 filter(
                                                         new Reference(BOOLEAN, "S1"),
                                                         project(
-                                                                semiJoin("LINEITEM_OK", "ORDERS_OK", "S1", true,
-                                                                        anyTree(
+                                                                semiJoin("LINEITEM_OK", "ORDERS_OK", "S1", dynamicFilter("DF_INNER"),
+                                                                        filter(
+                                                                                TRUE,
+                                                                                dynamicFilters -> dynamicFilters
+                                                                                        .addConsumer(consumer -> consumer.alias("DF_INNER").expression(BIGINT, "LINEITEM_OK")),
                                                                                 tableScan("lineitem", ImmutableMap.of("LINEITEM_PK", "partkey", "LINEITEM_OK", "orderkey"))),
                                                                         anyTree(
                                                                                 tableScan("orders", ImmutableMap.of("ORDERS_OK", "orderkey")))))))))));
@@ -808,7 +819,7 @@ public class TestDynamicFilter
                 anyTree(
                         filter(
                                 new Reference(BOOLEAN, "S0"),
-                                semiJoin("LINEITEM_PK_PLUS_1000", "PART_PK", "S0", false,
+                                semiJoin("LINEITEM_PK_PLUS_1000", "PART_PK", "S0", noDynamicFilter(),
                                         project(ImmutableMap.of("LINEITEM_PK_PLUS_1000", expression(new Call(ADD_BIGINT, ImmutableList.of(new Reference(BIGINT, "LINEITEM_PK"), new Constant(BIGINT, 1000L))))),
                                                 tableScan("lineitem", ImmutableMap.of("LINEITEM_PK", "partkey"))),
                                         anyTree(
