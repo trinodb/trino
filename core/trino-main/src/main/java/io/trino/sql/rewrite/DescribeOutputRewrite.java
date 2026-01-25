@@ -29,7 +29,10 @@ import io.trino.sql.tree.AstVisitor;
 import io.trino.sql.tree.BooleanLiteral;
 import io.trino.sql.tree.Cast;
 import io.trino.sql.tree.DescribeOutput;
+import io.trino.sql.tree.DescribeOutput.Target.InlineQuery;
+import io.trino.sql.tree.DescribeOutput.Target.PreparedStatement;
 import io.trino.sql.tree.Expression;
+import io.trino.sql.tree.Identifier;
 import io.trino.sql.tree.Limit;
 import io.trino.sql.tree.LongLiteral;
 import io.trino.sql.tree.Node;
@@ -125,8 +128,7 @@ public final class DescribeOutputRewrite
         @Override
         protected Node visitDescribeOutput(DescribeOutput node, Void context)
         {
-            String sqlString = session.getPreparedStatement(node.getName().getValue());
-            Statement statement = parser.createStatement(sqlString);
+            Statement statement = getStatement(node);
 
             Analyzer analyzer = analyzerFactory.createAnalyzer(session, parameters, parameterLookup, warningCollector, planOptimizersStatsCollector);
             Analysis analysis = analyzer.analyze(statement, DESCRIBE);
@@ -137,6 +139,14 @@ public final class DescribeOutputRewrite
                 return EMPTY_OUTPUT;
             }
             return createDescribeOutputQuery(rows, limit);
+        }
+
+        private Statement getStatement(DescribeOutput node)
+        {
+            return switch (node.getTarget()) {
+                case PreparedStatement(Identifier name) -> parser.createStatement(session.getPreparedStatement(name.getValue()));
+                case InlineQuery(Query query) -> query;
+            };
         }
 
         private static Query createDescribeOutputQuery(Row[] rows, Optional<Node> limit)

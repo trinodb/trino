@@ -71,7 +71,20 @@ DESCRIBE OUTPUT my_create;
  rows        |         |        |       | bigint |         8 | false
 (1 row)
 ```
-
+You can also describe a query directly:
+```sql
+DESCRIBE OUTPUT (SELECT *, n_name AS "name" FROM nation);
+```
+```text
+ Column Name | Catalog | Schema | Table  |     Type     | Type Size | Aliased
+-------------+---------+--------+--------+--------------+-----------+---------
+ n_nationkey | tpch    | sf1    | nation | bigint       |         8 | false
+ n_name      | tpch    | sf1    | nation | varchar(25)  |         0 | false
+ n_regionkey | tpch    | sf1    | nation | bigint       |         8 | false
+ n_comment   | tpch    | sf1    | nation | varchar(152) |         0 | false
+ name        | tpch    | sf1    | nation | varchar(25)  |         0 | true
+(5 rows)
+```
 ## See also
 
 {doc}`prepare`

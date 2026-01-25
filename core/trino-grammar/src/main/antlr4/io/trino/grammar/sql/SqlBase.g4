@@ -204,6 +204,7 @@ statement
     | EXECUTE IMMEDIATE string (USING expression (',' expression)*)?   #executeImmediate
     | DESCRIBE INPUT identifier                                        #describeInput
     | DESCRIBE OUTPUT identifier                                       #describeOutput
+    | DESCRIBE OUTPUT '(' rootQuery ')'                                #describeQueryOutput
     | SET PATH pathSpecification                                       #setPath
     | SET TIME ZONE (LOCAL | expression)                               #setTimeZone
     | UPDATE qualifiedName ('@' branch=identifier)?

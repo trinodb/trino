@@ -5467,6 +5467,18 @@ public class TestSqlParser
     }
 
     @Test
+    public void testDescribeOutputWithQuery()
+    {
+        assertThat(statement("DESCRIBE OUTPUT (select * from foo)"))
+                .ignoringLocation()
+                .isEqualTo(new DescribeOutput(location(1, 1),
+                        simpleQuery(
+                                new Select(false, ImmutableList.of(
+                                        new AllColumns(Optional.empty(), Optional.empty(), ImmutableList.of()))),
+                                table(QualifiedName.of("foo")))));
+    }
+
+    @Test
     public void testDescribeInput()
     {
         assertThat(statement("DESCRIBE INPUT myquery"))
