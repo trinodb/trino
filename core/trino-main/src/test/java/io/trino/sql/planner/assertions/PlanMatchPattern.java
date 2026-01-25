@@ -478,17 +478,36 @@ public final class PlanMatchPattern
         return semiJoin(sourceSymbolAlias, filteringSymbolAlias, outputAlias, Optional.empty(), Optional.empty(), source, filtering);
     }
 
-    public static PlanMatchPattern semiJoin(String sourceSymbolAlias, String filteringSymbolAlias, String outputAlias, Optional<SemiJoinNode.DistributionType> distributionType, PlanMatchPattern source, PlanMatchPattern filtering)
+    public static PlanMatchPattern semiJoin(
+            String sourceSymbolAlias,
+            String filteringSymbolAlias,
+            String outputAlias,
+            Optional<SemiJoinNode.DistributionType> distributionType,
+            PlanMatchPattern source,
+            PlanMatchPattern filtering)
     {
         return semiJoin(sourceSymbolAlias, filteringSymbolAlias, outputAlias, distributionType, Optional.empty(), source, filtering);
     }
 
-    public static PlanMatchPattern semiJoin(String sourceSymbolAlias, String filteringSymbolAlias, String outputAlias, boolean hasDynamicFilter, PlanMatchPattern source, PlanMatchPattern filtering)
+    public static PlanMatchPattern semiJoin(
+            String sourceSymbolAlias,
+            String filteringSymbolAlias,
+            String outputAlias,
+            boolean hasDynamicFilter,
+            PlanMatchPattern source,
+            PlanMatchPattern filtering)
     {
         return semiJoin(sourceSymbolAlias, filteringSymbolAlias, outputAlias, Optional.empty(), Optional.of(hasDynamicFilter), source, filtering);
     }
 
-    public static PlanMatchPattern semiJoin(String sourceSymbolAlias, String filteringSymbolAlias, String outputAlias, Optional<SemiJoinNode.DistributionType> distributionType, Optional<Boolean> hasDynamicFilter, PlanMatchPattern source, PlanMatchPattern filtering)
+    public static PlanMatchPattern semiJoin(
+            String sourceSymbolAlias,
+            String filteringSymbolAlias,
+            String outputAlias,
+            Optional<SemiJoinNode.DistributionType> distributionType,
+            Optional<Boolean> hasDynamicFilter,
+            PlanMatchPattern source,
+            PlanMatchPattern filtering)
     {
         return node(SemiJoinNode.class, source, filtering).with(new SemiJoinMatcher(sourceSymbolAlias, filteringSymbolAlias, outputAlias, distributionType, hasDynamicFilter));
     }
