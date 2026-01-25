@@ -14,22 +14,17 @@
 package io.trino.sql.planner.assertions;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
-import io.trino.spi.type.Type;
-import io.trino.sql.DynamicFilters;
-import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Expression;
-import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.plan.DynamicFilterId;
-import io.trino.sql.planner.plan.FilterNode;
 import io.trino.sql.planner.plan.JoinNode;
 import io.trino.sql.planner.plan.JoinNode.DistributionType;
 import io.trino.sql.planner.plan.JoinType;
 import io.trino.sql.planner.plan.PlanNode;
 
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -37,18 +32,12 @@ import java.util.Set;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.operator.join.JoinUtils.getJoinDynamicFilters;
-import static io.trino.sql.DynamicFilters.extractDynamicFilters;
-import static io.trino.sql.ir.Comparison.Operator.EQUAL;
-import static io.trino.sql.ir.Comparison.Operator.IDENTICAL;
-import static io.trino.sql.planner.ExpressionExtractor.extractExpressions;
 import static io.trino.sql.planner.assertions.MatchResult.NO_MATCH;
-import static io.trino.sql.planner.assertions.PlanMatchPattern.DynamicFilterPattern;
+import static io.trino.sql.planner.assertions.MatchResult.match;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.equiJoinClause;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.node;
-import static io.trino.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
 import static java.util.Objects.requireNonNull;
 
 public final class JoinMatcher
@@ -61,8 +50,7 @@ public final class JoinMatcher
     private final Optional<DistributionType> distributionType;
     private final Optional<Boolean> spillable;
     private final Optional<Boolean> maySkipOutputDuplicates;
-    // LEFT_SYMBOL -> RIGHT_SYMBOL
-    private final Optional<List<DynamicFilterPattern>> expectedDynamicFilter;
+    private final Map<DynamicFilterAlias, SymbolAlias> expectedDynamicFilters;
 
     JoinMatcher(
             JoinType joinType,
@@ -72,7 +60,7 @@ public final class JoinMatcher
             Optional<DistributionType> distributionType,
             Optional<Boolean> spillable,
             Optional<Boolean> maySkipOutputDuplicates,
-            Optional<List<DynamicFilterPattern>> expectedDynamicFilter)
+            Map<DynamicFilterAlias, SymbolAlias> expectedDynamicFilters)
     {
         this.joinType = requireNonNull(joinType, "joinType is null");
         this.equiCriteria = requireNonNull(equiCriteria, "equiCriteria is null");
@@ -84,7 +72,7 @@ public final class JoinMatcher
         this.distributionType = requireNonNull(distributionType, "distributionType is null");
         this.spillable = requireNonNull(spillable, "spillable is null");
         this.maySkipOutputDuplicates = requireNonNull(maySkipOutputDuplicates, "MaySkipOutputDuplicates is null");
-        this.expectedDynamicFilter = requireNonNull(expectedDynamicFilter, "expectedDynamicFilter is null");
+        this.expectedDynamicFilters = requireNonNull(expectedDynamicFilters, "expectedDynamicFilters is null");
     }
 
     @Override
@@ -150,48 +138,60 @@ public final class JoinMatcher
             }
         }
 
-        return new MatchResult(matchDynamicFilters(joinNode, context.symbolAliases()));
+        return matchDynamicFilters(joinNode, context);
     }
 
-    private boolean matchDynamicFilters(JoinNode joinNode, SymbolAliases symbolAliases)
+    /**
+     * Resolves dynamic filter candidates to exactly one {@link DynamicFilterId} per alias.
+     * Candidates are collected from source subtrees by {@link DynamicFilterConsumerMatcher} -
+     * multiple candidates exist when several DFs have identical consumer properties.
+     * This method narrows them by verifying the build symbol matches.
+     */
+    private MatchResult matchDynamicFilters(JoinNode joinNode, MatchContext context)
     {
-        if (expectedDynamicFilter.isEmpty()) {
-            return true;
+        if (expectedDynamicFilters.isEmpty()) {
+            return match();
         }
 
-        Map<DynamicFilterId, Symbol> idToBuildSymbolMap = getJoinDynamicFilters(joinNode);
-        Set<DynamicFilterId> dynamicFilterIds = idToBuildSymbolMap.keySet();
-        List<DynamicFilters.Descriptor> descriptors = searchFrom(joinNode.getLeft())
-                .where(FilterNode.class::isInstance)
-                .findAll()
-                .stream()
-                .flatMap(filterNode -> extractExpressions(filterNode).stream())
-                .flatMap(expression -> extractDynamicFilters(expression).getDynamicConjuncts().stream())
-                .filter(descriptor -> dynamicFilterIds.contains(descriptor.getId()))
-                .collect(toImmutableList());
+        Map<DynamicFilterId, Symbol> joinProducedFilters = getJoinDynamicFilters(joinNode);
 
-        Set<Expression> actual = new HashSet<>();
-        for (DynamicFilters.Descriptor descriptor : descriptors) {
-            Expression probe = descriptor.getInput();
-            Symbol build = idToBuildSymbolMap.get(descriptor.getId());
-            if (build == null) {
-                return false;
-            }
-            Expression expression;
-            if (descriptor.isNullAllowed()) {
-                expression = new Comparison(IDENTICAL, probe, build.toSymbolReference());
-            }
-            else {
-                expression = new Comparison(descriptor.getOperator(), probe, build.toSymbolReference());
-            }
-            actual.add(expression);
+        if (expectedDynamicFilters.size() != joinProducedFilters.size()) {
+            return NO_MATCH;
         }
 
-        Set<Expression> expected = expectedDynamicFilter.get().stream()
-                .map(pattern -> pattern.getExpression(symbolAliases))
+        MatchingDynamicFilters.Builder matchingBuilder = MatchingDynamicFilters.builder();
+
+        for (Map.Entry<DynamicFilterAlias, SymbolAlias> expectedProducer : expectedDynamicFilters.entrySet()) {
+            DynamicFilterAlias alias = expectedProducer.getKey();
+            Symbol expectedBuildSymbol = expectedProducer.getValue().toSymbol(context.symbolAliases());
+
+            Optional<Set<DynamicFilterId>> candidates = context.dynamicFilters().getCandidates(alias);
+            if (candidates.isEmpty()) {
+                return NO_MATCH;
+            }
+
+            Set<DynamicFilterId> matching = findMatching(candidates.get(), joinProducedFilters, expectedBuildSymbol);
+            if (matching.size() != 1) {
+                return NO_MATCH;
+            }
+
+            matchingBuilder.add(alias, matching);
+        }
+
+        return match(matchingBuilder.build());
+    }
+
+    private static Set<DynamicFilterId> findMatching(
+            Set<DynamicFilterId> candidates,
+            Map<DynamicFilterId, Symbol> joinProducedFilters,
+            Symbol expectedBuildSymbol)
+    {
+        return candidates.stream()
+                .filter(candidate -> {
+                    Symbol actualBuildSymbol = joinProducedFilters.get(candidate);
+                    return expectedBuildSymbol.equals(actualBuildSymbol);
+                })
                 .collect(toImmutableSet());
-
-        return expected.equals(actual);
     }
 
     @Override
@@ -203,7 +203,7 @@ public final class JoinMatcher
                 .add("equiCriteria", equiCriteria)
                 .add("filter", filter.orElse(null))
                 .add("distributionType", distributionType)
-                .add("dynamicFilter", expectedDynamicFilter)
+                .add("expectedDynamicFilters", expectedDynamicFilters)
                 .toString();
     }
 
@@ -211,7 +211,7 @@ public final class JoinMatcher
     {
         private final JoinType joinType;
         private Optional<List<ExpectedValueProvider<JoinNode.EquiJoinClause>>> equiCriteria = Optional.empty();
-        private Optional<List<PlanMatchPattern.DynamicFilterPattern>> dynamicFilter = Optional.empty();
+        private ImmutableMap.Builder<DynamicFilterAlias, SymbolAlias> dynamicFilters = ImmutableMap.builder();
         private Optional<DistributionType> distributionType = Optional.empty();
         private Optional<Boolean> expectedSpillable = Optional.empty();
         private Optional<Boolean> expectedMaySkipOutputDuplicates = Optional.empty();
@@ -250,27 +250,9 @@ public final class JoinMatcher
         }
 
         @CanIgnoreReturnValue
-        public Builder dynamicFilter(Map<Expression, String> expectedDynamicFilter)
+        public Builder addDynamicFilter(String alias, String buildAlias)
         {
-            this.dynamicFilter = Optional.of(expectedDynamicFilter.entrySet().stream()
-                    .map(entry -> new PlanMatchPattern.DynamicFilterPattern(entry.getKey(), EQUAL, entry.getValue()))
-                    .collect(toImmutableList()));
-
-            return this;
-        }
-
-        @CanIgnoreReturnValue
-        public Builder dynamicFilter(Type type, String key, String value)
-        {
-            this.dynamicFilter = Optional.of(ImmutableList.of(new PlanMatchPattern.DynamicFilterPattern(new Reference(type, key), EQUAL, value)));
-
-            return this;
-        }
-
-        @CanIgnoreReturnValue
-        public Builder dynamicFilter(List<PlanMatchPattern.DynamicFilterPattern> expectedDynamicFilter)
-        {
-            this.dynamicFilter = Optional.of(expectedDynamicFilter);
+            dynamicFilters.put(new DynamicFilterAlias(alias), new SymbolAlias(buildAlias));
 
             return this;
         }
@@ -333,7 +315,7 @@ public final class JoinMatcher
                                     distributionType,
                                     expectedSpillable,
                                     expectedMaySkipOutputDuplicates,
-                                    dynamicFilter));
+                                    dynamicFilters.buildOrThrow()));
         }
     }
 }

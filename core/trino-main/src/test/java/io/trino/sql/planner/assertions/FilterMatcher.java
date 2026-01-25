@@ -18,8 +18,6 @@ import io.trino.sql.ir.Expression;
 import io.trino.sql.planner.plan.FilterNode;
 import io.trino.sql.planner.plan.PlanNode;
 
-import java.util.Optional;
-
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkState;
 import static io.trino.sql.DynamicFilters.extractDynamicFilters;
@@ -30,12 +28,10 @@ final class FilterMatcher
         implements Matcher
 {
     private final Expression predicate;
-    private final Optional<Expression> dynamicFilter;
 
-    FilterMatcher(Expression predicate, Optional<Expression> dynamicFilter)
+    FilterMatcher(Expression predicate)
     {
         this.predicate = requireNonNull(predicate, "predicate is null");
-        this.dynamicFilter = requireNonNull(dynamicFilter, "dynamicFilter is null");
     }
 
     @Override
@@ -52,10 +48,6 @@ final class FilterMatcher
         FilterNode filterNode = (FilterNode) node;
         Expression filterPredicate = filterNode.getPredicate();
         ExpressionVerifier verifier = new ExpressionVerifier(context.symbolAliases());
-
-        if (dynamicFilter.isPresent()) {
-            return new MatchResult(verifier.process(filterPredicate, combineConjuncts(predicate, dynamicFilter.get())));
-        }
 
         DynamicFilters.ExtractResult extractResult = extractDynamicFilters(filterPredicate);
         return new MatchResult(verifier.process(combineConjuncts(extractResult.getStaticConjuncts()), predicate));
