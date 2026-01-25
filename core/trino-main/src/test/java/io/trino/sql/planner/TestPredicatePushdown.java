@@ -74,11 +74,12 @@ public class TestPredicatePushdown
                 anyTree(
                         join(INNER, builder -> builder
                                 .equiCriteria("t_k", "u_k")
-                                .dynamicFilter(BIGINT, "t_k", "u_k")
+                                .addDynamicFilter("DF", "u_k")
                                 .left(
                                         project(
                                                 filter(
                                                         new Comparison(EQUAL, new Constant(createVarcharType(4), Slices.utf8Slice("x")), new Cast(new Reference(createVarcharType(4), "t_v"), createVarcharType(4))),
+                                                        dynamicFilters -> dynamicFilters.addConsumer(consumer -> consumer.alias("DF").expression(BIGINT, "t_k")),
                                                         tableScan("nation", ImmutableMap.of("t_k", "nationkey", "t_v", "name")))))
                                 .right(
                                         anyTree(
@@ -98,11 +99,12 @@ public class TestPredicatePushdown
                 anyTree(
                         join(INNER, builder -> builder
                                 .equiCriteria("t_k", "u_k")
-                                .dynamicFilter(BIGINT, "t_k", "u_k")
+                                .addDynamicFilter("DF", "u_k")
                                 .left(
                                         project(
                                                 filter(
                                                         new Comparison(EQUAL, new Constant(createVarcharType(4), Slices.utf8Slice("x")), new Cast(new Reference(createVarcharType(4), "t_v"), createVarcharType(4))),
+                                                        dynamicFilters -> dynamicFilters.addConsumer(consumer -> consumer.alias("DF").expression(BIGINT, "t_k")),
                                                         tableScan("nation", ImmutableMap.of("t_k", "nationkey", "t_v", "name")))))
                                 .right(
                                         anyTree(

@@ -13,25 +13,18 @@
  */
 package io.trino.sql.planner.assertions;
 
-import io.trino.Session;
-import io.trino.cost.StatsProvider;
-import io.trino.metadata.Metadata;
-
 import static java.util.Objects.requireNonNull;
 
-public record MatchContext(
-        StatsProvider stats,
-        Session session,
-        Metadata metadata,
-        SymbolAliases symbolAliases,
-        MatchingDynamicFilters dynamicFilters)
+public record DynamicFilterAlias(String alias)
 {
-    public MatchContext
+    public DynamicFilterAlias
     {
-        requireNonNull(stats, "stats is null");
-        requireNonNull(session, "session is null");
-        requireNonNull(metadata, "metadata is null");
-        requireNonNull(symbolAliases, "symbolAliases is null");
-        requireNonNull(dynamicFilters, "dynamicFilters is null");
+        requireNonNull(alias, "alias is null");
+    }
+
+    @Override
+    public String toString()
+    {
+        return alias;
     }
 }
