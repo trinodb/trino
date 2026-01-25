@@ -75,6 +75,7 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.semiJoin;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.spatialJoin;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.tableScan;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
+import static io.trino.sql.planner.assertions.SemiJoinDynamicFilterProducer.noDynamicFilter;
 import static io.trino.sql.planner.plan.JoinType.INNER;
 import static io.trino.type.UnknownType.UNKNOWN;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
@@ -379,7 +380,7 @@ public class TestRemoveUnsupportedDynamicFilters
                 Optional.of(new DynamicFilterId("DF")));
         assertPlan(
                 removeUnsupportedDynamicFilters(root),
-                semiJoin("ORDERS_OK", "LINEITEM_OK", "SEMIJOIN_OUTPUT", false,
+                semiJoin("ORDERS_OK", "LINEITEM_OK", "SEMIJOIN_OUTPUT", noDynamicFilter(),
                         filter(
                                 new Comparison(GREATER_THAN, new Reference(INTEGER, "ORDERS_OK"), new Constant(INTEGER, 0L)),
                                 tableScan("orders", ImmutableMap.of("ORDERS_OK", "orderkey"))),
@@ -403,7 +404,7 @@ public class TestRemoveUnsupportedDynamicFilters
                 Optional.of(new DynamicFilterId("DF")));
         assertPlan(
                 removeUnsupportedDynamicFilters(root),
-                semiJoin("ORDERS_OK", "LINEITEM_OK", "SEMIJOIN_OUTPUT", false,
+                semiJoin("ORDERS_OK", "LINEITEM_OK", "SEMIJOIN_OUTPUT", noDynamicFilter(),
                         tableScan("orders", ImmutableMap.of("ORDERS_OK", "orderkey")),
                         filter(
                                 new Comparison(GREATER_THAN, new Reference(INTEGER, "LINEITEM_OK"), new Constant(INTEGER, 0L)),
@@ -427,7 +428,7 @@ public class TestRemoveUnsupportedDynamicFilters
                 Optional.empty());
         assertPlan(
                 removeUnsupportedDynamicFilters(root),
-                semiJoin("ORDERS_OK", "LINEITEM_OK", "SEMIJOIN_OUTPUT", false,
+                semiJoin("ORDERS_OK", "LINEITEM_OK", "SEMIJOIN_OUTPUT", noDynamicFilter(),
                         filter(
                                 new Comparison(GREATER_THAN, new Reference(INTEGER, "ORDERS_OK"), new Constant(INTEGER, 0L)),
                                 tableScan("orders", ImmutableMap.of("ORDERS_OK", "orderkey"))),
@@ -452,7 +453,7 @@ public class TestRemoveUnsupportedDynamicFilters
 
         assertPlan(
                 removeUnsupportedDynamicFilters(root),
-                semiJoin("ORDERS_OK", "LINEITEM_OK", "SEMIJOIN_OUTPUT", false,
+                semiJoin("ORDERS_OK", "LINEITEM_OK", "SEMIJOIN_OUTPUT", noDynamicFilter(),
                         filter(
                                 new Comparison(GREATER_THAN, new Reference(INTEGER, "ORDERS_OK"), new Constant(INTEGER, 0L)),
                                 values("ORDERS_OK")),
