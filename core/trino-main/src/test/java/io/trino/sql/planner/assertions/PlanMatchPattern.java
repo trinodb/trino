@@ -27,13 +27,11 @@ import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.SortOrder;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
-import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.Row;
 import io.trino.sql.planner.PartitioningHandle;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.GroupReference;
-import io.trino.sql.planner.optimizations.SymbolMapper;
 import io.trino.sql.planner.plan.AdaptivePlanNode;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.AggregationNode.Step;
@@ -93,7 +91,6 @@ import static io.trino.spi.connector.SortOrder.ASC_NULLS_FIRST;
 import static io.trino.spi.connector.SortOrder.ASC_NULLS_LAST;
 import static io.trino.spi.connector.SortOrder.DESC_NULLS_FIRST;
 import static io.trino.spi.connector.SortOrder.DESC_NULLS_LAST;
-import static io.trino.sql.ir.Comparison.Operator.IDENTICAL;
 import static io.trino.sql.planner.assertions.MatchResult.NO_MATCH;
 import static io.trino.sql.planner.assertions.MatchResult.match;
 import static io.trino.sql.planner.assertions.StrictAssignedSymbolsMatcher.actualAssignments;
@@ -698,12 +695,14 @@ public final class PlanMatchPattern
 
     public static PlanMatchPattern filter(Expression expectedPredicate, PlanMatchPattern source)
     {
-        return node(FilterNode.class, source).with(new FilterMatcher(expectedPredicate, Optional.empty()));
+        return node(FilterNode.class, source).with(new FilterMatcher(expectedPredicate));
     }
 
-    public static PlanMatchPattern filter(Expression expectedPredicate, Expression dynamicFilter, PlanMatchPattern source)
+    public static PlanMatchPattern filter(Expression expectedPredicate, Consumer<DynamicFilterConsumerMatcher.Builder> handler, PlanMatchPattern source)
     {
-        return node(FilterNode.class, source).with(new FilterMatcher(expectedPredicate, Optional.of(dynamicFilter)));
+        DynamicFilterConsumerMatcher.Builder builder = new DynamicFilterConsumerMatcher.Builder(source);
+        handler.accept(builder);
+        return builder.build().with(new FilterMatcher(expectedPredicate));
     }
 
     public static PlanMatchPattern apply(List<String> correlationSymbolAliases, Map<String, SetExpressionMatcher> subqueryAssignments, PlanMatchPattern inputPattern, PlanMatchPattern subqueryPattern)
@@ -918,19 +917,21 @@ public final class PlanMatchPattern
         return matchers.stream().allMatch(it -> it.shapeMatches(node));
     }
 
-    MatchResult detailMatches(PlanNode node, StatsProvider stats, Session session, Metadata metadata, SymbolAliases symbolAliases)
+    MatchResult detailMatches(PlanNode node, StatsProvider stats, Session session, Metadata metadata, SymbolAliases symbolAliases, MatchingDynamicFilters matchedDynamicFilters)
     {
         SymbolAliases.Builder newAliases = SymbolAliases.builder();
+        MatchingDynamicFilters.Builder allSourceDynamicFilters = MatchingDynamicFilters.builder();
 
         for (Matcher matcher : matchers) {
-            MatchResult matchResult = matcher.detailMatches(node, new MatchContext(stats, session, metadata, symbolAliases));
+            MatchResult matchResult = matcher.detailMatches(node, new MatchContext(stats, session, metadata, symbolAliases, matchedDynamicFilters));
             if (!matchResult.isMatch()) {
                 return NO_MATCH;
             }
             newAliases.putAll(matchResult.getAliases());
+            allSourceDynamicFilters.addAll(matchResult.getDynamicFilters());
         }
 
-        return match(newAliases.build());
+        return match(newAliases.build(), allSourceDynamicFilters.build());
     }
 
     public <T extends PlanNode> PlanMatchPattern with(Class<T> clazz, Predicate<T> predicate)
@@ -1216,57 +1217,6 @@ public final class PlanMatchPattern
         }
 
         return new GroupingSetDescriptor(groupingKeys, 1, globalGroupingSets);
-    }
-
-    public static class DynamicFilterPattern
-    {
-        private final Expression probe;
-        private final Comparison.Operator operator;
-        private final SymbolAlias build;
-        private final boolean nullAllowed;
-
-        public DynamicFilterPattern(Expression probe, Comparison.Operator operator, String buildAlias, boolean nullAllowed)
-        {
-            this.probe = requireNonNull(probe, "probe is null");
-            this.operator = requireNonNull(operator, "operator is null");
-            this.build = new SymbolAlias(requireNonNull(buildAlias, "buildAlias is null"));
-            this.nullAllowed = nullAllowed;
-        }
-
-        public DynamicFilterPattern(Expression probe, Comparison.Operator operator, String buildAlias)
-        {
-            this(probe, operator, buildAlias, false);
-        }
-
-        Expression getExpression(SymbolAliases aliases)
-        {
-            Expression probeMapped = symbolMapper(aliases).map(probe);
-            if (nullAllowed) {
-                return new Comparison(
-                        IDENTICAL,
-                        probeMapped,
-                        build.toSymbol(aliases).toSymbolReference());
-            }
-            return new Comparison(
-                    operator,
-                    probeMapped,
-                    build.toSymbol(aliases).toSymbolReference());
-        }
-
-        private static SymbolMapper symbolMapper(SymbolAliases symbolAliases)
-        {
-            return new SymbolMapper(symbol -> Symbol.from(symbolAliases.get(symbol.name())));
-        }
-
-        @Override
-        public String toString()
-        {
-            return toStringHelper(this)
-                    .add("probe", probe)
-                    .add("operator", operator)
-                    .add("build", build)
-                    .toString();
-        }
     }
 
     public static class GroupingSetDescriptor

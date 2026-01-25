@@ -68,6 +68,11 @@ public final class PlanAssert
                     formattedPlan,
                     resolvedFormattedPlan));
         }
+
+        MatchingDynamicFilters matchingDynamicFilters = matches.getDynamicFilters();
+        if (matchingDynamicFilters.containsUnresolvedAliases()) {
+            throw new AssertionError(format("Some dynamic filter aliases are not resolved to a single ID. \nMatched dynamic filters: %s", matchingDynamicFilters));
+        }
     }
 
     private static boolean containsGroupReferences(PlanNode node)
