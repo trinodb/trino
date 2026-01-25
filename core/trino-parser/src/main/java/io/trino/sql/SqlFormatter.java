@@ -47,6 +47,7 @@ import io.trino.sql.tree.Delete;
 import io.trino.sql.tree.Deny;
 import io.trino.sql.tree.DescribeInput;
 import io.trino.sql.tree.DescribeOutput;
+import io.trino.sql.tree.DescribeOutputWithQuery;
 import io.trino.sql.tree.DeterministicCharacteristic;
 import io.trino.sql.tree.DropBranch;
 import io.trino.sql.tree.DropCatalog;
@@ -636,6 +637,15 @@ public final class SqlFormatter
         {
             append(indent, "DESCRIBE OUTPUT ");
             builder.append(formatName(node.getName()));
+            return null;
+        }
+
+        @Override
+        protected Void visitDescribeOutputWithQuery(DescribeOutputWithQuery node, Integer indent)
+        {
+            append(indent, "DESCRIBE OUTPUT (");
+            builder.append(formatSql(node.getQuery()));
+            builder.append(")");
             return null;
         }
 

@@ -128,6 +128,7 @@ import io.trino.sql.planner.RuleStatsRecorder;
 import io.trino.sql.planner.SplitSourceFactory;
 import io.trino.sql.rewrite.DescribeInputRewrite;
 import io.trino.sql.rewrite.DescribeOutputRewrite;
+import io.trino.sql.rewrite.DescribeOutputWithQueryRewrite;
 import io.trino.sql.rewrite.ExplainRewrite;
 import io.trino.sql.rewrite.ShowQueriesRewrite;
 import io.trino.sql.rewrite.ShowStatsRewrite;
@@ -341,6 +342,7 @@ public class CoordinatorModule
         Multibinder<Rewrite> rewriteBinder = newSetBinder(binder, Rewrite.class);
         rewriteBinder.addBinding().to(DescribeInputRewrite.class).in(Scopes.SINGLETON);
         rewriteBinder.addBinding().to(DescribeOutputRewrite.class).in(Scopes.SINGLETON);
+        rewriteBinder.addBinding().to(DescribeOutputWithQueryRewrite.class).in(Scopes.SINGLETON);
         rewriteBinder.addBinding().to(ShowQueriesRewrite.class).in(Scopes.SINGLETON);
         rewriteBinder.addBinding().to(ShowStatsRewrite.class).in(Scopes.SINGLETON);
         rewriteBinder.addBinding().to(ExplainRewrite.class).in(Scopes.SINGLETON);
