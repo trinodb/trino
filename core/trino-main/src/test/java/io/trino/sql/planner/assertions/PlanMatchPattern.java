@@ -93,6 +93,7 @@ import static io.trino.spi.connector.SortOrder.DESC_NULLS_FIRST;
 import static io.trino.spi.connector.SortOrder.DESC_NULLS_LAST;
 import static io.trino.sql.planner.assertions.MatchResult.NO_MATCH;
 import static io.trino.sql.planner.assertions.MatchResult.match;
+import static io.trino.sql.planner.assertions.SemiJoinDynamicFilterProducer.ignoreDynamicFilter;
 import static io.trino.sql.planner.assertions.StrictAssignedSymbolsMatcher.actualAssignments;
 import static io.trino.sql.planner.assertions.StrictSymbolsMatcher.actualOutputs;
 import static io.trino.sql.planner.plan.JoinType.INNER;
@@ -475,7 +476,7 @@ public final class PlanMatchPattern
 
     public static PlanMatchPattern semiJoin(String sourceSymbolAlias, String filteringSymbolAlias, String outputAlias, PlanMatchPattern source, PlanMatchPattern filtering)
     {
-        return semiJoin(sourceSymbolAlias, filteringSymbolAlias, outputAlias, Optional.empty(), Optional.empty(), source, filtering);
+        return semiJoin(sourceSymbolAlias, filteringSymbolAlias, outputAlias, ignoreDynamicFilter(), Optional.empty(), source, filtering);
     }
 
     public static PlanMatchPattern semiJoin(
@@ -486,30 +487,30 @@ public final class PlanMatchPattern
             PlanMatchPattern source,
             PlanMatchPattern filtering)
     {
-        return semiJoin(sourceSymbolAlias, filteringSymbolAlias, outputAlias, distributionType, Optional.empty(), source, filtering);
+        return semiJoin(sourceSymbolAlias, filteringSymbolAlias, outputAlias, ignoreDynamicFilter(), distributionType, source, filtering);
     }
 
     public static PlanMatchPattern semiJoin(
             String sourceSymbolAlias,
             String filteringSymbolAlias,
             String outputAlias,
-            boolean hasDynamicFilter,
+            SemiJoinDynamicFilterProducer dynamicFilter,
             PlanMatchPattern source,
             PlanMatchPattern filtering)
     {
-        return semiJoin(sourceSymbolAlias, filteringSymbolAlias, outputAlias, Optional.empty(), Optional.of(hasDynamicFilter), source, filtering);
+        return semiJoin(sourceSymbolAlias, filteringSymbolAlias, outputAlias, dynamicFilter, Optional.empty(), source, filtering);
     }
 
     public static PlanMatchPattern semiJoin(
             String sourceSymbolAlias,
             String filteringSymbolAlias,
             String outputAlias,
+            SemiJoinDynamicFilterProducer dynamicFilter,
             Optional<SemiJoinNode.DistributionType> distributionType,
-            Optional<Boolean> hasDynamicFilter,
             PlanMatchPattern source,
             PlanMatchPattern filtering)
     {
-        return node(SemiJoinNode.class, source, filtering).with(new SemiJoinMatcher(sourceSymbolAlias, filteringSymbolAlias, outputAlias, distributionType, hasDynamicFilter));
+        return node(SemiJoinNode.class, source, filtering).with(new SemiJoinMatcher(sourceSymbolAlias, filteringSymbolAlias, outputAlias, distributionType, dynamicFilter));
     }
 
     public static PlanMatchPattern spatialJoin(Expression expectedFilter, PlanMatchPattern left, PlanMatchPattern right)

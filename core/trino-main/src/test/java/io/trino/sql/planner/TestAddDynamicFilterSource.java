@@ -21,7 +21,6 @@ import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.operator.RetryPolicy;
 import io.trino.spi.function.OperatorType;
-import io.trino.sql.DynamicFilters;
 import io.trino.sql.ir.Between;
 import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Comparison;
@@ -31,12 +30,7 @@ import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.OptimizerConfig.JoinDistributionType;
 import io.trino.sql.planner.OptimizerConfig.JoinReorderingStrategy;
 import io.trino.sql.planner.assertions.BasePlanTest;
-import io.trino.sql.planner.assertions.MatchContext;
-import io.trino.sql.planner.assertions.MatchResult;
-import io.trino.sql.planner.assertions.Matcher;
 import io.trino.sql.planner.plan.DynamicFilterSourceNode;
-import io.trino.sql.planner.plan.FilterNode;
-import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.SemiJoinNode;
 import org.junit.jupiter.api.Test;
 
@@ -67,6 +61,7 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.node;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.semiJoin;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.tableScan;
+import static io.trino.sql.planner.assertions.SemiJoinDynamicFilterProducer.dynamicFilter;
 import static io.trino.sql.planner.plan.ExchangeNode.Scope.LOCAL;
 import static io.trino.sql.planner.plan.ExchangeNode.Scope.REMOTE;
 import static io.trino.sql.planner.plan.ExchangeNode.Type.REPARTITION;
@@ -156,11 +151,11 @@ public class TestAddDynamicFilterSource
                     anyTree(
                             filter(
                                     new Reference(BOOLEAN, "S"),
-                                    semiJoin("X", "Y", "S", Optional.of(semiJoinDistributionType), Optional.of(true),
-                                            node(
-                                                    FilterNode.class,
-                                                    tableScan("orders", ImmutableMap.of("X", "orderkey")))
-                                                    .with(numberOfDynamicFilters(1)),
+                                    semiJoin("X", "Y", "S", dynamicFilter("DF"), Optional.of(semiJoinDistributionType),
+                                            filter(
+                                                    TRUE,
+                                                    dynamicFilters -> dynamicFilters.addConsumer(consumer -> consumer.alias("DF").expression(BIGINT, "X")),
+                                                    tableScan("orders", ImmutableMap.of("X", "orderkey"))),
                                             exchange(
                                                     LOCAL,
                                                     exchange(
@@ -297,25 +292,6 @@ public class TestAddDynamicFilterSource
                                 .right(
                                         anyTree(
                                                 tableScan("supplier", ImmutableMap.of("SUPPLIER_SK", "suppkey")))))));
-    }
-
-    private Matcher numberOfDynamicFilters(int numberOfDynamicFilters)
-    {
-        return new Matcher()
-        {
-            @Override
-            public boolean shapeMatches(PlanNode node)
-            {
-                return node instanceof FilterNode;
-            }
-
-            @Override
-            public MatchResult detailMatches(PlanNode node, MatchContext context)
-            {
-                FilterNode filterNode = (FilterNode) node;
-                return new MatchResult(DynamicFilters.extractDynamicFilters(filterNode.getPredicate()).getDynamicConjuncts().size() == numberOfDynamicFilters);
-            }
-        };
     }
 
     private Session noSemiJoinRewrite(JoinDistributionType distributionType)
