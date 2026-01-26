@@ -375,7 +375,8 @@ public class DefaultPageJoiner
                     probeTypes,
                     partitionGenerator.get(),
                     spillContext.newLocalSpillContext(),
-                    memoryTrackingContext.newAggregateUserMemoryContext()));
+                    memoryTrackingContext.newAggregateUserMemoryContext(),
+                    "LookupJoinOperator"));
         }
 
         PartitioningSpiller.PartitioningSpillResult result = spiller.get().partitionAndSpill(page, spillInfoSnapshot.getSpillMask());
