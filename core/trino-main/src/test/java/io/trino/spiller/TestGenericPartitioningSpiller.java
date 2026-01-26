@@ -110,7 +110,8 @@ public class TestGenericPartitioningSpiller
                 TYPES,
                 new FourFixedPartitionsPartitionFunction(0),
                 mockSpillContext(),
-                mockMemoryContext(scheduledExecutor))) {
+                mockMemoryContext(scheduledExecutor),
+                "testOperator")) {
             RowPagesBuilder builder = RowPagesBuilder.rowPagesBuilder(TYPES);
             builder.addSequencePage(10, SECOND_PARTITION_START, 5, 10, 15);
             builder.addSequencePage(10, FIRST_PARTITION_START, -5, 0, 5);
@@ -166,7 +167,8 @@ public class TestGenericPartitioningSpiller
                 TYPES,
                 new ModuloPartitionFunction(0, 4),
                 mockSpillContext(),
-                mockMemoryContext(scheduledExecutor))) {
+                mockMemoryContext(scheduledExecutor),
+                "testOperator")) {
             Page page = SequencePageBuilder.createSequencePage(TYPES, 10, FIRST_PARTITION_START, 5, 10, 15);
             PartitioningSpillResult spillResult = spiller.partitionAndSpill(page, partition -> true);
             assertThat(spillResult.getRetained().getPositionCount()).isEqualTo(0);
@@ -193,7 +195,8 @@ public class TestGenericPartitioningSpiller
                 types,
                 new ModuloPartitionFunction(0, partitionCount),
                 mockSpillContext(),
-                memoryContext)) {
+                memoryContext,
+                "testOperator")) {
             for (int i = 0; i < 50_000; i++) {
                 Page page = SequencePageBuilder.createSequencePage(types, partitionCount, 0);
                 PartitioningSpillResult spillResult = spiller.partitionAndSpill(page, partition -> true);

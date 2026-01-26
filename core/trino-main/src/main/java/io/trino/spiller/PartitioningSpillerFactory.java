@@ -26,11 +26,12 @@ public interface PartitioningSpillerFactory
             List<Type> types,
             PartitionFunction partitionFunction,
             SpillContext spillContext,
-            AggregatedMemoryContext memoryContext);
+            AggregatedMemoryContext memoryContext,
+            String operatorName);
 
     static PartitioningSpillerFactory unsupportedPartitioningSpillerFactory()
     {
-        return (types, partitionFunction, spillContext, memoryContext) -> {
+        return (types, partitionFunction, spillContext, memoryContext, operatorName) -> {
             throw new UnsupportedOperationException();
         };
     }

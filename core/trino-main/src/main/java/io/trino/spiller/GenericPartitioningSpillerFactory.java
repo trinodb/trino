@@ -39,8 +39,9 @@ public class GenericPartitioningSpillerFactory
             List<Type> types,
             PartitionFunction partitionFunction,
             SpillContext spillContext,
-            AggregatedMemoryContext memoryContext)
+            AggregatedMemoryContext memoryContext,
+            String operatorName)
     {
-        return new GenericPartitioningSpiller(types, partitionFunction, spillContext, memoryContext, singleStreamSpillerFactory);
+        return new GenericPartitioningSpiller(types, partitionFunction, spillContext, memoryContext, singleStreamSpillerFactory, operatorName);
     }
 }
