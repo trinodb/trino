@@ -31,6 +31,7 @@ import static java.util.Objects.requireNonNull;
 /**
  * Manages connections to the Redis nodes
  */
+@SuppressWarnings("deprecation") // TODO https://github.com/trinodb/trino/issues/27784 Update deprecated Jedis usage
 public class RedisJedisManager
 {
     private static final Logger log = Logger.get(RedisJedisManager.class);
