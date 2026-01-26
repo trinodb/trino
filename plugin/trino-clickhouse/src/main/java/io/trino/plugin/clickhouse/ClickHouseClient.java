@@ -361,7 +361,7 @@ public class ClickHouseClient
             while (resultSet.next()) {
                 String schemaName = resultSet.getString("TABLE_CAT");
                 // skip internal schemas
-                if (filterSchema(schemaName)) {
+                if (filterRemoteSchema(schemaName)) {
                     schemaNames.add(schemaName);
                 }
             }

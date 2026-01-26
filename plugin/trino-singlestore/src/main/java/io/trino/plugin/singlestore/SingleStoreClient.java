@@ -225,7 +225,7 @@ public class SingleStoreClient
             while (resultSet.next()) {
                 String schemaName = resultSet.getString("SCHEMA_NAME");
                 // skip internal schemas
-                if (filterSchema(schemaName)) {
+                if (filterRemoteSchema(schemaName)) {
                     schemaNames.add(schemaName);
                 }
             }
@@ -237,12 +237,12 @@ public class SingleStoreClient
     }
 
     @Override
-    protected boolean filterSchema(String schemaName)
+    protected boolean filterRemoteSchema(String schemaName)
     {
         if (schemaName.equalsIgnoreCase("memsql")) {
             return false;
         }
-        return super.filterSchema(schemaName);
+        return super.filterRemoteSchema(schemaName);
     }
 
     @Override

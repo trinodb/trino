@@ -176,7 +176,7 @@ public abstract class BaseJdbcClient
             while (resultSet.next()) {
                 String schemaName = resultSet.getString("TABLE_SCHEM");
                 // skip internal schemas
-                if (filterSchema(schemaName)) {
+                if (filterRemoteSchema(schemaName)) {
                     schemaNames.add(schemaName);
                 }
             }
@@ -187,7 +187,7 @@ public abstract class BaseJdbcClient
         }
     }
 
-    protected boolean filterSchema(String schemaName)
+    protected boolean filterRemoteSchema(String schemaName)
     {
         return !schemaName.equalsIgnoreCase("information_schema");
     }
@@ -206,7 +206,7 @@ public abstract class BaseJdbcClient
         try (Connection connection = connectionFactory.openConnection(session)) {
             ConnectorIdentity identity = session.getIdentity();
             Optional<String> remoteSchema = schema.map(schemaName -> identifierMapping.toRemoteSchemaName(getRemoteIdentifiers(connection), identity, schemaName));
-            if (remoteSchema.isPresent() && !filterSchema(remoteSchema.get())) {
+            if (remoteSchema.isPresent() && !filterRemoteSchema(remoteSchema.get())) {
                 return ImmutableList.of();
             }
 
@@ -216,7 +216,7 @@ public abstract class BaseJdbcClient
                     String remoteSchemaFromResultSet = getTableSchemaName(resultSet);
                     String tableSchema = identifierMapping.fromRemoteSchemaName(remoteSchemaFromResultSet);
                     String tableName = identifierMapping.fromRemoteTableName(remoteSchemaFromResultSet, resultSet.getString("TABLE_NAME"));
-                    if (filterSchema(tableSchema)) {
+                    if (filterRemoteSchema(tableSchema)) {
                         list.add(RelationCommentMetadata.forRelation(new SchemaTableName(tableSchema, tableName), getTableComment(resultSet)));
                     }
                 }
@@ -379,7 +379,7 @@ public abstract class BaseJdbcClient
                 RemoteIdentifiers remoteIdentifiers = getRemoteIdentifiers(connectionFinal);
                 return identifierMapping.toRemoteSchemaName(remoteIdentifiers, session.getIdentity(), name);
             });
-            if (remoteSchema.isPresent() && !filterSchema(remoteSchema.get())) {
+            if (remoteSchema.isPresent() && !filterRemoteSchema(remoteSchema.get())) {
                 return emptyIterator();
             }
 
@@ -387,7 +387,7 @@ public abstract class BaseJdbcClient
             ImmutableSet.Builder<RemoteTableName> visibleTables = ImmutableSet.builder();
             try (ResultSet tablesResultSet = getTables(connection, remoteSchema, Optional.empty())) {
                 while (tablesResultSet.next()) {
-                    if (filterSchema(getTableSchemaName(tablesResultSet))) {
+                    if (filterRemoteSchema(getTableSchemaName(tablesResultSet))) {
                         visibleTables.add(getRemoteTable(tablesResultSet));
                     }
                 }
