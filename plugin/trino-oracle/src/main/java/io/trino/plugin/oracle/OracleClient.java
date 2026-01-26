@@ -296,12 +296,12 @@ public class OracleClient
     }
 
     @Override
-    protected boolean filterSchema(String schemaName)
+    protected boolean filterRemoteSchema(String schemaName)
     {
         if (INTERNAL_SCHEMAS.contains(schemaName.toLowerCase(ENGLISH))) {
             return false;
         }
-        return super.filterSchema(schemaName);
+        return super.filterRemoteSchema(schemaName);
     }
 
     @Override

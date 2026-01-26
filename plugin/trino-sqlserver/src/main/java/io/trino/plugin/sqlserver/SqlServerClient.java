@@ -391,7 +391,7 @@ public class SqlServerClient
             while (resultSet.next()) {
                 String schemaName = resultSet.getString("SCHEMA_NAME");
                 // skip internal schemas
-                if (filterSchema(schemaName)) {
+                if (filterRemoteSchema(schemaName)) {
                     schemaNames.add(schemaName);
                 }
             }
