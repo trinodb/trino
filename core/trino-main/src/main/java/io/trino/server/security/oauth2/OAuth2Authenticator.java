@@ -74,7 +74,7 @@ public class OAuth2Authenticator
         if (tokenPair.expiration().before(Date.from(Instant.now()))) {
             return Optional.empty();
         }
-        Optional<Map<String, Object>> claims = client.getClaims(tokenPair.accessToken());
+        Optional<Map<String, Object>> claims = client.getAccessTokenClaims(tokenPair.accessToken());
         if (claims.isEmpty()) {
             return Optional.empty();
         }

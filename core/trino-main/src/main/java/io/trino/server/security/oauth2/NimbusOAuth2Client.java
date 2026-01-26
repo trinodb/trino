@@ -178,7 +178,7 @@ public class NimbusOAuth2Client
     }
 
     @Override
-    public Optional<Map<String, Object>> getClaims(String accessToken)
+    public Optional<Map<String, Object>> getAccessTokenClaims(String accessToken)
     {
         checkState(loaded, "OAuth2 client not initialized");
         return getJWTClaimsSet(accessToken).map(JWTClaimsSet::getClaims);

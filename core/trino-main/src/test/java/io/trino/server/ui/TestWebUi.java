@@ -1325,7 +1325,7 @@ public class TestWebUi
         }
 
         @Override
-        public Optional<Map<String, Object>> getClaims(String accessToken)
+        public Optional<Map<String, Object>> getAccessTokenClaims(String accessToken)
         {
             return Optional.of(claims);
         }

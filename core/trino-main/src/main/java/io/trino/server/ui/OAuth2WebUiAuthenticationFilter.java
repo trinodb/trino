@@ -139,7 +139,7 @@ public class OAuth2WebUiAuthenticationFilter
 
     private Optional<Map<String, Object>> getAccessTokenClaims(TokenPair tokenPair)
     {
-        return client.getClaims(tokenPair.accessToken());
+        return client.getAccessTokenClaims(tokenPair.accessToken());
     }
 
     private void needAuthentication(ContainerRequestContext request, Optional<TokenPair> tokenPair)
