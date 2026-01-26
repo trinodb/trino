@@ -36,7 +36,6 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.block.RunLengthEncodedBlock;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
@@ -77,7 +76,6 @@ import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
 @TestInstance(PER_CLASS)
 @Execution(CONCURRENT)
-@Disabled
 public class TestHttpPageBufferClient
 {
     private ScheduledExecutorService scheduler;
@@ -132,7 +130,7 @@ public class TestHttpPageBufferClient
                 scheduler,
                 pageBufferClientCallbackExecutor);
 
-        assertStatus(client, location, "queued", 0, 0, 0, 0, "not scheduled");
+        assertStatus(client, location, "queued", 0, 0, 0, 0);
 
         // fetch a page and verify
         processor.addPage(location, expectedPage);
@@ -144,7 +142,7 @@ public class TestHttpPageBufferClient
         assertPageEquals(expectedPage, callback.getPages().get(0));
         assertThat(callback.getCompletedRequests()).isEqualTo(1);
         assertThat(callback.getFinishedBuffers()).isEqualTo(0);
-        assertStatus(client, location, "queued", 1, 1, 1, 0, "not scheduled");
+        assertStatus(client, location, "queued", 1, 1, 1, 0);
 
         // fetch no data and verify
         callback.resetStats();
@@ -154,7 +152,7 @@ public class TestHttpPageBufferClient
         assertThat(callback.getPages()).isEmpty();
         assertThat(callback.getCompletedRequests()).isEqualTo(1);
         assertThat(callback.getFinishedBuffers()).isEqualTo(0);
-        assertStatus(client, location, "queued", 1, 2, 2, 0, "not scheduled");
+        assertStatus(client, location, "queued", 1, 2, 2, 0);
 
         // fetch two more pages and verify
         processor.addPage(location, expectedPage);
@@ -170,7 +168,7 @@ public class TestHttpPageBufferClient
         assertThat(callback.getFinishedBuffers()).isEqualTo(0);
         assertThat(callback.getFailedBuffers()).isEqualTo(0);
         callback.resetStats();
-        assertStatus(client, location, "queued", 3, 3, 3, 0, "not scheduled");
+        assertStatus(client, location, "queued", 3, 3, 3, 0);
 
         // finish and verify
         callback.resetStats();
@@ -192,7 +190,7 @@ public class TestHttpPageBufferClient
         assertThat(callback.getCompletedRequests()).isEqualTo(0);
         assertThat(callback.getFailedBuffers()).isEqualTo(0);
 
-        assertStatus(client, location, "closed", 3, 5, 5, 0, "not scheduled");
+        assertStatus(client, location, "closed", 3, 5, 5, 0);
     }
 
     @Test
@@ -221,23 +219,23 @@ public class TestHttpPageBufferClient
                 scheduler,
                 pageBufferClientCallbackExecutor);
 
-        assertStatus(client, location, "queued", 0, 0, 0, 0, "not scheduled");
+        assertStatus(client, location, "queued", 0, 0, 0, 0);
 
         client.scheduleRequest();
         beforeRequest.await(10, TimeUnit.SECONDS);
-        assertStatus(client, location, "running", 0, 1, 0, 0, "PROCESSING_REQUEST");
+        assertStatus(client, location, "running", 0, 1, 0, 0);
         assertThat(client.isRunning()).isEqualTo(true);
         afterRequest.await(10, TimeUnit.SECONDS);
 
         requestComplete.await(10, TimeUnit.SECONDS);
-        assertStatus(client, location, "queued", 0, 1, 1, 1, "not scheduled");
+        assertStatus(client, location, "queued", 0, 1, 1, 1);
 
         client.close();
         beforeRequest.await(10, TimeUnit.SECONDS);
-        assertStatus(client, location, "closed", 0, 1, 1, 1, "PROCESSING_REQUEST");
+        assertStatus(client, location, "closed", 0, 1, 1, 1);
         afterRequest.await(10, TimeUnit.SECONDS);
         requestComplete.await(10, TimeUnit.SECONDS);
-        assertStatus(client, location, "closed", 0, 1, 2, 1, "not scheduled");
+        assertStatus(client, location, "closed", 0, 1, 2, 1);
     }
 
     @Test
@@ -265,7 +263,7 @@ public class TestHttpPageBufferClient
                 scheduler,
                 pageBufferClientCallbackExecutor);
 
-        assertStatus(client, location, "queued", 0, 0, 0, 0, "not scheduled");
+        assertStatus(client, location, "queued", 0, 0, 0, 0);
 
         // send not found response and verify response was ignored
         processor.setResponse(new TestingResponse(HttpStatus.NOT_FOUND, ImmutableListMultimap.of(CONTENT_TYPE, TRINO_PAGES), new byte[0]));
@@ -277,7 +275,7 @@ public class TestHttpPageBufferClient
         assertThat(callback.getFailedBuffers()).isEqualTo(1);
         assertThat(callback.getFailure()).isInstanceOf(PageTransportErrorException.class);
         assertThat(callback.getFailure()).hasMessageContaining("Expected response code to be 200, but was 404");
-        assertStatus(client, location, "queued", 0, 1, 1, 1, "not scheduled");
+        assertStatus(client, location, "queued", 0, 1, 1, 1);
 
         // send invalid content type response and verify response was ignored
         callback.resetStats();
@@ -290,7 +288,7 @@ public class TestHttpPageBufferClient
         assertThat(callback.getFailedBuffers()).isEqualTo(1);
         assertThat(callback.getFailure()).isInstanceOf(PageTransportErrorException.class);
         assertThat(callback.getFailure()).hasMessageContaining("Expected application/x-trino-pages response from server but got INVALID_TYPE");
-        assertStatus(client, location, "queued", 0, 2, 2, 2, "not scheduled");
+        assertStatus(client, location, "queued", 0, 2, 2, 2);
 
         // send unexpected content type response and verify response was ignored
         callback.resetStats();
@@ -303,13 +301,13 @@ public class TestHttpPageBufferClient
         assertThat(callback.getFailedBuffers()).isEqualTo(1);
         assertThat(callback.getFailure()).isInstanceOf(PageTransportErrorException.class);
         assertThat(callback.getFailure()).hasMessageContaining("Expected application/x-trino-pages response from server but got text/plain");
-        assertStatus(client, location, "queued", 0, 3, 3, 3, "not scheduled");
+        assertStatus(client, location, "queued", 0, 3, 3, 3);
 
         // close client and verify
         processor.setResponse(new TestingResponse(HttpStatus.NO_CONTENT, ImmutableListMultimap.of(), new byte[0]));
         client.close();
         requestComplete.await(10, TimeUnit.SECONDS);
-        assertStatus(client, location, "closed", 0, 3, 4, 3, "not scheduled");
+        assertStatus(client, location, "closed", 0, 3, 4, 3);
     }
 
     @Test
@@ -338,12 +336,12 @@ public class TestHttpPageBufferClient
                 scheduler,
                 pageBufferClientCallbackExecutor);
 
-        assertStatus(client, location, "queued", 0, 0, 0, 0, "not scheduled");
+        assertStatus(client, location, "queued", 0, 0, 0, 0);
 
         // send request
         client.scheduleRequest();
         beforeRequest.await(10, TimeUnit.SECONDS);
-        assertStatus(client, location, "running", 0, 1, 0, 0, "PROCESSING_REQUEST");
+        assertStatus(client, location, "running", 0, 1, 0, 0);
         assertThat(client.isRunning()).isEqualTo(true);
         // request is pending, now close it
         client.close();
@@ -363,7 +361,7 @@ public class TestHttpPageBufferClient
         beforeRequest.await(10, TimeUnit.SECONDS);
         afterRequest.await(10, TimeUnit.SECONDS);
         requestComplete.await(10, TimeUnit.SECONDS);
-        assertStatus(client, location, "closed", 0, 1, 2, 1, "not scheduled");
+        assertStatus(client, location, "closed", 0, 1, 2, 1);
     }
 
     @Test
@@ -397,7 +395,7 @@ public class TestHttpPageBufferClient
                 ticker,
                 pageBufferClientCallbackExecutor);
 
-        assertStatus(client, location, "queued", 0, 0, 0, 0, "not scheduled");
+        assertStatus(client, location, "queued", 0, 0, 0, 0);
 
         // request processor will throw exception, verify the request is marked a completed
         // this starts the error stopwatch
@@ -407,7 +405,7 @@ public class TestHttpPageBufferClient
         assertThat(callback.getCompletedRequests()).isEqualTo(1);
         assertThat(callback.getFinishedBuffers()).isEqualTo(0);
         assertThat(callback.getFailedBuffers()).isEqualTo(0);
-        assertStatus(client, location, "queued", 0, 1, 1, 1, "not scheduled");
+        assertStatus(client, location, "queued", 0, 1, 1, 1);
 
         // advance time forward, but not enough to fail the client
         tickerIncrement.set(new Duration(30, TimeUnit.SECONDS));
@@ -419,7 +417,7 @@ public class TestHttpPageBufferClient
         assertThat(callback.getCompletedRequests()).isEqualTo(2);
         assertThat(callback.getFinishedBuffers()).isEqualTo(0);
         assertThat(callback.getFailedBuffers()).isEqualTo(0);
-        assertStatus(client, location, "queued", 0, 2, 2, 2, "not scheduled");
+        assertStatus(client, location, "queued", 0, 2, 2, 2);
 
         // advance time forward beyond the minimum error duration
         tickerIncrement.set(new Duration(31, TimeUnit.SECONDS));
@@ -433,7 +431,7 @@ public class TestHttpPageBufferClient
         assertThat(callback.getFailedBuffers()).isEqualTo(1);
         assertThat(callback.getFailure()).isInstanceOf(PageTransportTimeoutException.class);
         assertThat(callback.getFailure()).hasMessageContaining(WORKER_NODE_ERROR + " (http://localhost:8080/0 - 3 failures, failure duration 31.00s, total failed request time 31.00s)");
-        assertStatus(client, location, "queued", 0, 3, 3, 3, "not scheduled");
+        assertStatus(client, location, "queued", 0, 3, 3, 3);
     }
 
     @Test
@@ -528,8 +526,7 @@ public class TestHttpPageBufferClient
             int pagesReceived,
             int requestsScheduled,
             int requestsCompleted,
-            int requestsFailed,
-            String httpRequestState)
+            int requestsFailed)
     {
         PageBufferClientStatus actualStatus = client.getStatus();
         assertThat(actualStatus.getUri()).isEqualTo(location);
@@ -548,9 +545,6 @@ public class TestHttpPageBufferClient
         assertThat(actualStatus.getRequestsFailed())
                 .describedAs("requestsFailed")
                 .isEqualTo(requestsFailed);
-        assertThat(actualStatus.getHttpRequestState())
-                .describedAs("httpRequestState")
-                .isEqualTo(httpRequestState);
     }
 
     private static void assertPageEquals(Page expectedPage, Page actualPage)
