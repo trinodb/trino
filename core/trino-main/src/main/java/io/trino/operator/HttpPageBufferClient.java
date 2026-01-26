@@ -50,7 +50,6 @@ import java.io.InputStreamReader;
 import java.net.URI;
 import java.time.Instant;
 import java.util.List;
-import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.OptionalLong;
 import java.util.concurrent.Executor;
@@ -230,12 +229,25 @@ public final class HttpPageBufferClient
 
     public synchronized PageBufferClientStatus getStatus()
     {
+        String state;
+        if (closed) {
+            state = "closed";
+        }
+        else if (future != null) {
+            state = "running";
+        }
+        else if (scheduled) {
+            state = "scheduled";
+        }
+        else if (completed) {
+            state = "completed";
+        }
+        else {
+            state = "queued";
+        }
         long rejectedRows = rowsRejected.get();
         int rejectedPages = pagesRejected.get();
-        String state = Optional.ofNullable(future)
-                .map(Future::state)
-                .map(Future.State::toString)
-                .orElse("n/a");
+
         return new PageBufferClientStatus(
                 location,
                 state,
@@ -247,8 +259,7 @@ public final class HttpPageBufferClient
                 requestsScheduled.get(),
                 requestsCompleted.get(),
                 requestsFailed.get(),
-                requestsSucceeded.get(),
-                state);
+                requestsSucceeded.get());
     }
 
     public TaskId getRemoteTaskId()

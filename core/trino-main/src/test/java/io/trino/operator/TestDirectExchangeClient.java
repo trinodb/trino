@@ -48,7 +48,6 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.TrinoTransportException;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.Timeout;
@@ -96,8 +95,6 @@ import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
 @TestInstance(PER_CLASS)
 @Execution(CONCURRENT)
-// TODO: reenable once https://github.com/airlift/airlift/pull/1646 lands
-@Disabled
 public class TestDirectExchangeClient
 {
     private ScheduledExecutorService scheduler;
@@ -181,14 +178,14 @@ public class TestDirectExchangeClient
         assertThat(status.getBufferedPages()).isEqualTo(0);
 
         // client should have sent only 3 requests: one to get all pages, one to acknowledge and one to get the done signal
-        assertStatus(status.getPageBufferClientStatuses().get(0), location, "closed", 3, 3, 3, "not scheduled");
+        assertStatus(status.getPageBufferClientStatuses().get(0), location, "closed", 3, 3, 3);
         assertThat(status.getRequestDuration().getDigest().getCount()).isEqualTo(2.0);
 
         exchangeClient.close();
 
-        assertEventually(() -> assertThat(exchangeClient.getStatus().getPageBufferClientStatuses().get(0).getHttpRequestState())
-                .describedAs("httpRequestState")
-                .isEqualTo("not scheduled"));
+        assertEventually(() -> assertThat(exchangeClient.getStatus().getPageBufferClientStatuses().get(0).getState())
+                .describedAs("state")
+                .isEqualTo("closed"));
 
         assertThat(buffer.getFinishedTasks()).containsExactly(taskId);
         assertThat(buffer.getFailedTasks().asMap()).isEmpty();
@@ -238,7 +235,7 @@ public class TestDirectExchangeClient
         assertThat(status.getBufferedPages()).isEqualTo(0);
 
         // client should have sent only 3 requests: one to get all pages, one to acknowledge and one to get the done signal
-        assertStatus(status.getPageBufferClientStatuses().get(0), location, "closed", 3, 3, 3, "not scheduled");
+        assertStatus(status.getPageBufferClientStatuses().get(0), location, "closed", 3, 3, 3);
 
         exchangeClient.close();
     }
@@ -317,15 +314,15 @@ public class TestDirectExchangeClient
         assertThat(buffer.getFinishedTasks()).containsExactlyInAnyOrder(task1, task2, task3);
         assertThat(buffer.getFailedTasks().asMap()).isEmpty();
 
-        assertEventually(() -> assertThat(exchangeClient.getStatus().getPageBufferClientStatuses().get(0).getHttpRequestState())
-                .describedAs("httpRequestState")
-                .isEqualTo("not scheduled"));
-        assertEventually(() -> assertThat(exchangeClient.getStatus().getPageBufferClientStatuses().get(1).getHttpRequestState())
-                .describedAs("httpRequestState")
-                .isEqualTo("not scheduled"));
-        assertEventually(() -> assertThat(exchangeClient.getStatus().getPageBufferClientStatuses().get(2).getHttpRequestState())
-                .describedAs("httpRequestState")
-                .isEqualTo("not scheduled"));
+        assertEventually(() -> assertThat(exchangeClient.getStatus().getPageBufferClientStatuses().get(0).getState())
+                .describedAs("state")
+                .isEqualTo("closed"));
+        assertEventually(() -> assertThat(exchangeClient.getStatus().getPageBufferClientStatuses().get(1).getState())
+                .describedAs("state")
+                .isEqualTo("closed"));
+        assertEventually(() -> assertThat(exchangeClient.getStatus().getPageBufferClientStatuses().get(2).getState())
+                .describedAs("state")
+                .isEqualTo("closed"));
 
         assertThat(exchangeClient.isFinished()).isTrue();
     }
@@ -422,8 +419,8 @@ public class TestDirectExchangeClient
         exchangeClient.close();
 
         Map<URI, PageBufferClientStatus> statuses = uniqueIndex(exchangeClient.getStatus().getPageBufferClientStatuses(), PageBufferClientStatus::getUri);
-        assertStatus(statuses.get(location1), location1, "closed", 3, 3, 3, "not scheduled");
-        assertStatus(statuses.get(location2), location2, "closed", 3, 3, 3, "not scheduled");
+        assertStatus(statuses.get(location1), location1, "closed", 3, 3, 3);
+        assertStatus(statuses.get(location2), location2, "closed", 3, 3, 3);
     }
 
     @Test
@@ -605,15 +602,15 @@ public class TestDirectExchangeClient
         assertEventually(() -> assertThat(exchangeClient.isFinished()).isTrue());
 
         assertEventually(() -> {
-            assertThat(exchangeClient.getStatus().getPageBufferClientStatuses().get(0).getHttpRequestState())
-                    .describedAs("httpRequestState")
-                    .isEqualTo("not scheduled");
-            assertThat(exchangeClient.getStatus().getPageBufferClientStatuses().get(1).getHttpRequestState())
-                    .describedAs("httpRequestState")
-                    .isEqualTo("not scheduled");
-            assertThat(exchangeClient.getStatus().getPageBufferClientStatuses().get(2).getHttpRequestState())
-                    .describedAs("httpRequestState")
-                    .isEqualTo("not scheduled");
+            assertThat(exchangeClient.getStatus().getPageBufferClientStatuses().get(0).getState())
+                    .describedAs("state")
+                    .isEqualTo("closed");
+            assertThat(exchangeClient.getStatus().getPageBufferClientStatuses().get(1).getState())
+                    .describedAs("state")
+                    .isEqualTo("closed");
+            assertThat(exchangeClient.getStatus().getPageBufferClientStatuses().get(2).getState())
+                    .describedAs("state")
+                    .isEqualTo("closed");
         });
 
         exchangeClient.close();
@@ -722,18 +719,18 @@ public class TestDirectExchangeClient
 
         exchangeClient.close();
 
-        assertEventually(() -> assertThat(exchangeClient.getStatus().getPageBufferClientStatuses().get(0).getHttpRequestState())
-                .describedAs("httpRequestState")
-                .isEqualTo("not scheduled"));
-        assertEventually(() -> assertThat(exchangeClient.getStatus().getPageBufferClientStatuses().get(1).getHttpRequestState())
-                .describedAs("httpRequestState")
-                .isEqualTo("not scheduled"));
-        assertEventually(() -> assertThat(exchangeClient.getStatus().getPageBufferClientStatuses().get(2).getHttpRequestState())
-                .describedAs("httpRequestState")
-                .isEqualTo("not scheduled"));
-        assertEventually(() -> assertThat(exchangeClient.getStatus().getPageBufferClientStatuses().get(3).getHttpRequestState())
-                .describedAs("httpRequestState")
-                .isEqualTo("not scheduled"));
+        assertEventually(() -> assertThat(exchangeClient.getStatus().getPageBufferClientStatuses().get(0).getState())
+                .describedAs("state")
+                .isEqualTo("closed"));
+        assertEventually(() -> assertThat(exchangeClient.getStatus().getPageBufferClientStatuses().get(1).getState())
+                .describedAs("state")
+                .isEqualTo("closed"));
+        assertEventually(() -> assertThat(exchangeClient.getStatus().getPageBufferClientStatuses().get(2).getState())
+                .describedAs("state")
+                .isEqualTo("closed"));
+        assertEventually(() -> assertThat(exchangeClient.getStatus().getPageBufferClientStatuses().get(3).getState())
+                .describedAs("state")
+                .isEqualTo("closed"));
 
         assertThat(buffer.getFinishedTasks()).containsExactlyInAnyOrder(task1, task4);
         assertThat(buffer.getFailedTasks().keySet()).containsExactlyInAnyOrder(task2, task3);
@@ -797,7 +794,7 @@ public class TestDirectExchangeClient
         // client should have sent a single request for a single page
         assertThat(exchangeClient.getStatus().getBufferedPages()).isEqualTo(1);
         assertThat(exchangeClient.getStatus().getBufferedBytes() > 0).isTrue();
-        assertStatus(exchangeClient.getStatus().getPageBufferClientStatuses().get(0), location, "queued", 1, 1, 1, "not scheduled");
+        assertStatus(exchangeClient.getStatus().getPageBufferClientStatuses().get(0), location, "queued", 1, 1, 1);
 
         // remove the page and wait for the client to fetch another page
         assertPageEquals(exchangeClient.pollPage(), createPage(1));
@@ -808,7 +805,7 @@ public class TestDirectExchangeClient
         while (exchangeClient.getStatus().getBufferedPages() == 0);
 
         // client should have sent a single request for a single page
-        assertStatus(exchangeClient.getStatus().getPageBufferClientStatuses().get(0), location, "queued", 2, 2, 2, "not scheduled");
+        assertStatus(exchangeClient.getStatus().getPageBufferClientStatuses().get(0), location, "queued", 2, 2, 2);
         assertThat(exchangeClient.getStatus().getBufferedPages()).isEqualTo(1);
         assertThat(exchangeClient.getStatus().getBufferedBytes() > 0).isTrue();
 
@@ -821,7 +818,7 @@ public class TestDirectExchangeClient
         while (exchangeClient.getStatus().getBufferedPages() == 0);
 
         // client should have sent a single request for a single page
-        assertStatus(exchangeClient.getStatus().getPageBufferClientStatuses().get(0), location, "queued", 3, 3, 3, "not scheduled");
+        assertStatus(exchangeClient.getStatus().getPageBufferClientStatuses().get(0), location, "queued", 3, 3, 3);
         assertThat(exchangeClient.getStatus().getBufferedPages()).isEqualTo(1);
         assertThat(exchangeClient.getStatus().getBufferedBytes() > 0).isTrue();
 
@@ -833,7 +830,7 @@ public class TestDirectExchangeClient
         assertThat(exchangeClient.getStatus().getBufferedPages()).isEqualTo(0);
         assertThat(exchangeClient.isFinished()).isTrue();
         exchangeClient.close();
-        assertStatus(exchangeClient.getStatus().getPageBufferClientStatuses().get(0), location, "closed", 3, 5, 5, "not scheduled");
+        assertStatus(exchangeClient.getStatus().getPageBufferClientStatuses().get(0), location, "closed", 3, 5, 5);
     }
 
     @Test
@@ -867,7 +864,7 @@ public class TestDirectExchangeClient
         assertThat(status.getBufferedPages()).isEqualTo(0);
         assertThat(status.getBufferedBytes()).isEqualTo(0);
 
-        assertStatus(status.getPageBufferClientStatuses().get(0), location, "closed", 2, 4, 4, "not scheduled");
+        assertStatus(status.getPageBufferClientStatuses().get(0), location, "closed", 2, 4, 4);
     }
 
     private DirectExchangeClient setUpDataCorruption(DataIntegrityVerification dataIntegrityVerification, URI location)
@@ -981,11 +978,8 @@ public class TestDirectExchangeClient
         PageBufferClientStatus clientStatus = exchangeClient.getStatus().getPageBufferClientStatuses().get(0);
         assertThat(clientStatus.getUri()).isEqualTo(location);
         assertThat(clientStatus.getState())
-                .describedAs("status")
+                .describedAs("state")
                 .isEqualTo("closed");
-        assertThat(clientStatus.getHttpRequestState())
-                .describedAs("httpRequestState")
-                .isEqualTo("not scheduled");
     }
 
     @Test
@@ -1140,16 +1134,15 @@ public class TestDirectExchangeClient
     private static void assertStatus(
             PageBufferClientStatus clientStatus,
             URI location,
-            String status,
+            String state,
             int pagesReceived,
             int requestsScheduled,
-            int requestsCompleted,
-            String httpRequestState)
+            int requestsCompleted)
     {
         assertThat(clientStatus.getUri()).isEqualTo(location);
         assertThat(clientStatus.getState())
-                .describedAs("status")
-                .isEqualTo(status);
+                .describedAs("state")
+                .isEqualTo(state);
         assertThat(clientStatus.getPagesReceived())
                 .describedAs("pagesReceived")
                 .isEqualTo(pagesReceived);
@@ -1159,9 +1152,6 @@ public class TestDirectExchangeClient
         assertThat(clientStatus.getRequestsCompleted())
                 .describedAs("requestsCompleted")
                 .isEqualTo(requestsCompleted);
-        assertThat(clientStatus.getHttpRequestState())
-                .describedAs("httpRequestState")
-                .isEqualTo(httpRequestState);
     }
 
     private static class MockClientCallback
