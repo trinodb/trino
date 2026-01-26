@@ -13,7 +13,6 @@
  */
 package io.trino.server.protocol;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.google.common.collect.ImmutableList;
 import io.airlift.json.JsonCodec;
 import io.airlift.json.JsonCodecFactory;
@@ -29,7 +28,6 @@ import io.trino.client.TypedQueryData;
 import io.trino.server.protocol.spooling.ServerQueryDataJacksonModule;
 import org.junit.jupiter.api.Test;
 
-import java.io.UncheckedIOException;
 import java.net.URI;
 import java.util.List;
 import java.util.OptionalDouble;
@@ -120,7 +118,6 @@ public class TestQueryResultsSerialization
     }
 
     private void testRoundTrip(QueryData results, String expectedDataRepresentation)
-            throws Exception
     {
         assertThat(serialize(results))
                 .isEqualToIgnoringWhitespace(queryResultsJson(expectedDataRepresentation));
@@ -130,8 +127,8 @@ public class TestQueryResultsSerialization
             assertThat(decoder.toRows(COLUMNS, CLIENT_CODEC.fromJson(serialized).getData()))
                     .containsAll(decoder.toRows(COLUMNS, results));
         }
-        catch (JsonProcessingException e) {
-            throw new UncheckedIOException(e);
+        catch (Exception e) {
+            throw new RuntimeException(e);
         }
     }
 

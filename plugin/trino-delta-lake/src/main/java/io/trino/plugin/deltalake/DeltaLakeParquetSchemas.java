@@ -13,9 +13,6 @@
  */
 package io.trino.plugin.deltalake;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.json.ObjectMapperProvider;
@@ -33,6 +30,9 @@ import org.apache.parquet.schema.GroupType;
 import org.apache.parquet.schema.LogicalTypeAnnotation;
 import org.apache.parquet.schema.PrimitiveType;
 import org.apache.parquet.schema.Types;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
 
 import java.util.List;
 import java.util.Optional;
@@ -125,12 +125,12 @@ public final class DeltaLakeParquetSchemas
         Types.MessageTypeBuilder builder = Types.buildMessage();
         ImmutableMap.Builder<List<String>, Type> primitiveTypesBuilder = ImmutableMap.builder();
         try {
-            stream(OBJECT_MAPPER.readTree(jsonSchema).get("fields").elements())
+            stream(OBJECT_MAPPER.readTree(jsonSchema).get("fields").iterator())
                     .filter(fieldNode -> !partitionColumnNames.contains(fieldNode.get("name").asText()))
                     .map(fieldNode -> buildType(fieldNode, typeManager, columnMappingMode, ImmutableList.of(), primitiveTypesBuilder))
                     .forEach(builder::addField);
         }
-        catch (JsonProcessingException e) {
+        catch (JacksonException e) {
             throw new TrinoException(DELTA_LAKE_INVALID_SCHEMA, getLocation(e), "Failed to parse serialized schema: " + jsonSchema, e);
         }
         if (addChangeDataFeedFields) {
@@ -184,7 +184,7 @@ public final class DeltaLakeParquetSchemas
             List<String> parent,
             ImmutableMap.Builder<List<String>, Type> primitiveTypesBuilder)
     {
-        if (typeNode.isContainerNode()) {
+        if (typeNode.isContainer()) {
             return buildContainerType(typeNode, typeManager, repetition, name, id, columnMappingMode, parent, primitiveTypesBuilder);
         }
 
@@ -322,7 +322,7 @@ public final class DeltaLakeParquetSchemas
         JsonNode elementTypeNode = typeNode.get("elementType");
         org.apache.parquet.schema.Type elementType;
 
-        if (elementTypeNode.isContainerNode()) {
+        if (elementTypeNode.isContainer()) {
             elementType = buildContainerType(elementTypeNode, typeManager, OPTIONAL, "element", OptionalInt.empty(), columnMappingMode, parent, primitiveTypesBuilder);
         }
         else {
@@ -357,7 +357,7 @@ public final class DeltaLakeParquetSchemas
 
         JsonNode keyTypeNode = typeNode.get("keyType");
         org.apache.parquet.schema.Type keyType;
-        if (keyTypeNode.isContainerNode()) {
+        if (keyTypeNode.isContainer()) {
             keyType = buildContainerType(keyTypeNode, typeManager, REQUIRED, "key", OptionalInt.empty(), columnMappingMode, parent, primitiveTypesBuilder);
         }
         else {
@@ -365,7 +365,7 @@ public final class DeltaLakeParquetSchemas
         }
         JsonNode valueTypeNode = typeNode.get("valueType");
         org.apache.parquet.schema.Type valueType;
-        if (valueTypeNode.isContainerNode()) {
+        if (valueTypeNode.isContainer()) {
             valueType = buildContainerType(valueTypeNode, typeManager, OPTIONAL, "value", OptionalInt.empty(), columnMappingMode, parent, primitiveTypesBuilder);
         }
         else {
@@ -393,13 +393,13 @@ public final class DeltaLakeParquetSchemas
             builder.id(id.getAsInt());
         }
         List<String> currentParent = ImmutableList.<String>builder().addAll(parent).add(name).build();
-        stream(typeNode.get("fields").elements())
+        stream(typeNode.get("fields").iterator())
                 .map(node -> buildType(node, typeManager, columnMappingMode, currentParent, primitiveTypesBuilder))
                 .forEach(builder::addField);
         return builder.named(name);
     }
 
-    private static Optional<Location> getLocation(JsonProcessingException e)
+    private static Optional<Location> getLocation(JacksonException e)
     {
         return Optional.ofNullable(e.getLocation()).map(location -> new Location(location.getLineNr(), location.getColumnNr()));
     }

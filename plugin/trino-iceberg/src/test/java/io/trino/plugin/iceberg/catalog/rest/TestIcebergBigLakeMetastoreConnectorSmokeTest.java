@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.iceberg.catalog.rest;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.json.ObjectMapperProvider;
@@ -32,6 +31,7 @@ import io.trino.testing.TestingConnectorBehavior;
 import org.apache.iceberg.BaseTable;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
+import tools.jackson.databind.ObjectMapper;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;

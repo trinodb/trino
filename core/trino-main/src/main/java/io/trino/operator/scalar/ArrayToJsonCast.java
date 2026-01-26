@@ -13,8 +13,6 @@
  */
 package io.trino.operator.scalar;
 
-import com.fasterxml.jackson.core.JsonFactory;
-import com.fasterxml.jackson.core.JsonGenerator;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
@@ -27,8 +25,9 @@ import io.trino.spi.function.Signature;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.TypeSignature;
 import io.trino.util.JsonUtil.JsonGeneratorWriter;
+import tools.jackson.core.JsonGenerator;
+import tools.jackson.core.json.JsonFactory;
 
-import java.io.IOException;
 import java.lang.invoke.MethodHandle;
 
 import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
@@ -80,19 +79,14 @@ public class ArrayToJsonCast
 
     public static Slice toJson(JsonGeneratorWriter writer, Block block)
     {
-        try {
-            SliceOutput output = new DynamicSliceOutput(40);
-            try (JsonGenerator jsonGenerator = createJsonGenerator(JSON_FACTORY, output)) {
-                jsonGenerator.writeStartArray();
-                for (int i = 0; i < block.getPositionCount(); i++) {
-                    writer.writeJsonValue(jsonGenerator, block, i);
-                }
-                jsonGenerator.writeEndArray();
+        SliceOutput output = new DynamicSliceOutput(40);
+        try (JsonGenerator jsonGenerator = createJsonGenerator(JSON_FACTORY, output)) {
+            jsonGenerator.writeStartArray();
+            for (int i = 0; i < block.getPositionCount(); i++) {
+                writer.writeJsonValue(jsonGenerator, block, i);
             }
-            return output.slice();
+            jsonGenerator.writeEndArray();
         }
-        catch (IOException e) {
-            throw new RuntimeException(e);
-        }
+        return output.slice();
     }
 }

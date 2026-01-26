@@ -13,7 +13,6 @@
  */
 package io.trino.decoder.json;
 
-import com.fasterxml.jackson.databind.JsonNode;
 import com.google.common.collect.ImmutableSet;
 import io.trino.decoder.DecoderColumnHandle;
 import io.trino.decoder.FieldValueProvider;
@@ -23,6 +22,7 @@ import io.trino.spi.type.Type;
 import org.joda.time.chrono.ISOChronology;
 import org.joda.time.format.DateTimeFormat;
 import org.joda.time.format.DateTimeFormatter;
+import tools.jackson.databind.JsonNode;
 
 import java.util.Locale;
 import java.util.Set;
@@ -102,12 +102,12 @@ public class CustomDateTimeJsonFieldDecoder
                         format("could not parse non-value node as '%s' for column '%s'", columnHandle.getType(), columnHandle.getName()));
             }
             try {
-                return formatter.parseMillis(value.asText());
+                return formatter.parseMillis(value.asString());
             }
             catch (IllegalArgumentException e) {
                 throw new TrinoException(
                         DECODER_CONVERSION_NOT_SUPPORTED,
-                        format("could not parse value '%s' as '%s' for column '%s'", value.asText(), columnHandle.getType(), columnHandle.getName()));
+                        format("could not parse value '%s' as '%s' for column '%s'", value.asString(), columnHandle.getType(), columnHandle.getName()));
             }
         }
 
@@ -116,12 +116,12 @@ public class CustomDateTimeJsonFieldDecoder
         {
             if (value.isValueNode()) {
                 try {
-                    return getTimeZoneKey(formatter.parseDateTime(value.asText()).getZone().getID());
+                    return getTimeZoneKey(formatter.parseDateTime(value.asString()).getZone().getID());
                 }
                 catch (IllegalArgumentException e) {
                     throw new TrinoException(
                             DECODER_CONVERSION_NOT_SUPPORTED,
-                            format("could not parse value '%s' as '%s' for column '%s'", value.asText(), columnHandle.getType(), columnHandle.getName()));
+                            format("could not parse value '%s' as '%s' for column '%s'", value.asString(), columnHandle.getType(), columnHandle.getName()));
                 }
             }
             throw new TrinoException(

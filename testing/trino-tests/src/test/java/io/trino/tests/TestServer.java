@@ -29,7 +29,6 @@ import io.airlift.json.JsonCodecFactory;
 import io.airlift.json.ObjectMapperProvider;
 import io.airlift.units.Duration;
 import io.trino.client.ClientSession;
-import io.trino.client.QueryDataJacksonModule;
 import io.trino.client.QueryError;
 import io.trino.client.QueryResults;
 import io.trino.client.ResultRowsDecoder;
@@ -39,6 +38,7 @@ import io.trino.client.uri.TrinoUri;
 import io.trino.plugin.memory.MemoryPlugin;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.server.BasicQueryInfo;
+import io.trino.server.protocol.spooling.ServerQueryDataJacksonModule;
 import io.trino.server.testing.TestingTrinoServer;
 import io.trino.spi.QueryId;
 import io.trino.spi.type.TimeZoneNotSupportedException;
@@ -105,8 +105,9 @@ import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 @Execution(CONCURRENT)
 public class TestServer
 {
+    // TODO: fix me
     private static final JsonCodec<QueryResults> QUERY_RESULTS_CODEC = new JsonCodecFactory(new ObjectMapperProvider()
-            .withModules(Set.of(new QueryDataJacksonModule())))
+            .withModules(Set.of(new ServerQueryDataJacksonModule())))
             .jsonCodec(QueryResults.class);
 
     private TestingTrinoServer server;

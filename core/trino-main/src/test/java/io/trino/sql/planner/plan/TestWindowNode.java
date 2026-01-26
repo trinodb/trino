@@ -13,7 +13,6 @@
  */
 package io.trino.sql.planner.plan;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -30,6 +29,7 @@ import io.trino.sql.planner.SymbolKeyDeserializer;
 import io.trino.type.TypeDeserializer;
 import io.trino.type.TypeSignatureKeyDeserializer;
 import org.junit.jupiter.api.Test;
+import tools.jackson.databind.ObjectMapper;
 
 import java.util.Map;
 import java.util.Optional;
@@ -67,7 +67,6 @@ public class TestWindowNode
 
     @Test
     public void testSerializationRoundtrip()
-            throws Exception
     {
         SymbolAllocator symbolAllocator = new SymbolAllocator();
         Symbol columnA = symbolAllocator.newSymbol("a", BIGINT);

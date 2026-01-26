@@ -13,18 +13,20 @@
  */
 package io.trino.server.protocol.spooling;
 
-import com.fasterxml.jackson.core.JsonGenerator;
-import com.fasterxml.jackson.core.Version;
-import com.fasterxml.jackson.databind.SerializerProvider;
-import com.fasterxml.jackson.databind.module.SimpleModule;
 import io.trino.client.QueryData;
-import io.trino.client.QueryDataJacksonModule;
-import io.trino.client.QueryDataJacksonModule.Deserializer;
-import io.trino.client.QueryDataJacksonModule.SegmentSerializer;
+import io.trino.client.TypedQueryData;
+import io.trino.client.spooling.EncodedQueryData;
 import io.trino.client.spooling.Segment;
 import io.trino.server.protocol.JsonBytesQueryData;
-
-import java.io.IOException;
+import tools.jackson.core.JacksonException;
+import tools.jackson.core.JsonGenerator;
+import tools.jackson.core.Version;
+import tools.jackson.databind.JavaType;
+import tools.jackson.databind.SerializationContext;
+import tools.jackson.databind.ValueSerializer;
+import tools.jackson.databind.jsontype.TypeSerializer;
+import tools.jackson.databind.module.SimpleModule;
+import tools.jackson.databind.ser.BeanSerializerFactory;
 
 /**
  * Encodes/decodes the QueryData for existing raw and encoded protocols.
@@ -40,24 +42,63 @@ public class ServerQueryDataJacksonModule
     public ServerQueryDataJacksonModule()
     {
         super(ServerQueryDataJacksonModule.class.getSimpleName(), Version.unknownVersion());
-        addDeserializer(QueryData.class, new Deserializer());
         addSerializer(QueryData.class, new ServerQueryDataSerializer());
         addSerializer(Segment.class, new SegmentSerializer());
     }
 
     public static class ServerQueryDataSerializer
-            extends QueryDataJacksonModule.QueryDataSerializer
+            extends ValueSerializer<QueryData>
     {
         @Override
-        public void serialize(QueryData value, JsonGenerator generator, SerializerProvider provider)
-                throws IOException
+        public void serialize(QueryData value, JsonGenerator generator, SerializationContext context)
         {
-            if (value instanceof JsonBytesQueryData jsonBytesQueryData) {
-                jsonBytesQueryData.writeTo(generator);
-            }
-            else {
-                super.serialize(value, generator, provider);
+            switch (value) {
+                case null -> context.defaultSerializeNullValue(generator);
+                case JsonBytesQueryData jsonBytesQueryData -> jsonBytesQueryData.writeTo(generator);
+                case TypedQueryData typedQueryData -> generator.writePOJO(typedQueryData.getIterable());
+                case EncodedQueryData encodedQueryData -> createSerializer(context, context.constructType(EncodedQueryData.class))
+                        .serialize(encodedQueryData, generator, context);
+                default -> throw new IllegalArgumentException("Unsupported QueryData implementation: " + value.getClass().getSimpleName());
             }
         }
+
+        @Override
+        public boolean isEmpty(SerializationContext ctxt, QueryData value)
+        {
+            return value == null || value.isNull();
+        }
+    }
+
+    public static class SegmentSerializer
+            extends ValueSerializer<Segment>
+    {
+        @Override
+        public void serialize(Segment value, JsonGenerator gen, SerializationContext context)
+        {
+            serializeWithType(value, gen, context, segmentSerializer(context));
+        }
+
+        @Override
+        public void serializeWithType(Segment value, JsonGenerator gen, SerializationContext context, TypeSerializer typeSerializer)
+        {
+            createSerializer(context, context.constructSpecializedType(context.constructType(Segment.class), value.getClass()))
+                    .serializeWithType(value, gen, context, typeSerializer);
+        }
+
+        private static TypeSerializer segmentSerializer(SerializationContext context)
+        {
+            try {
+                return context.findTypeSerializer(context.constructType(Segment.class));
+            }
+            catch (JacksonException e) {
+                throw new RuntimeException(e);
+            }
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private static <T> ValueSerializer<T> createSerializer(SerializationContext context, JavaType javaType)
+    {
+        return (ValueSerializer<T>) BeanSerializerFactory.instance.createSerializer(context, javaType);
     }
 }

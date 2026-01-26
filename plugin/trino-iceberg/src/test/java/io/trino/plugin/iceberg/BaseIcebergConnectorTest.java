@@ -13,13 +13,10 @@
  */
 package io.trino.plugin.iceberg;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ArrayNode;
-import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import io.airlift.json.ObjectMapperProvider;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.Session;
@@ -76,11 +73,13 @@ import org.apache.avro.generic.GenericDatumWriter;
 import org.apache.iceberg.TableMetadata;
 import org.apache.iceberg.TableMetadataParser;
 import org.apache.iceberg.io.FileIO;
-import org.apache.iceberg.util.JsonUtil;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.node.ArrayNode;
 
 import java.io.ByteArrayOutputStream;
 import java.io.File;
@@ -8337,10 +8336,10 @@ public abstract class BaseIcebergConnectorTest
         String tableLocation = getTableLocation(tableName);
         String metadataFileLocation = getLatestMetadataLocation(fileSystem, tableLocation);
 
-        ObjectMapper mapper = JsonUtil.mapper();
+        ObjectMapper mapper = new ObjectMapperProvider().get();
         JsonNode jsonNode = mapper.readValue(fileSystem.newInputFile(Location.of(metadataFileLocation)).newStream(), JsonNode.class);
         ArrayNode fieldsNode = (ArrayNode) jsonNode.get("schemas").get(0).get("fields");
-        ObjectNode newFieldNode = fieldsNode.get(0).deepCopy();
+        JsonNode newFieldNode = fieldsNode.get(0).deepCopy();
         // Add duplicate field to produce validation error while reading the metadata file
         fieldsNode.add(newFieldNode);
 

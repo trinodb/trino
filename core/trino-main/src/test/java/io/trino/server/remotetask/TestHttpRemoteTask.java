@@ -25,7 +25,6 @@ import com.google.inject.Module;
 import com.google.inject.Provides;
 import io.airlift.bootstrap.Bootstrap;
 import io.airlift.http.client.testing.TestingHttpClient;
-import io.airlift.jaxrs.JsonMapper;
 import io.airlift.jaxrs.testing.JaxrsTestingHttpProcessor;
 import io.airlift.json.JsonCodec;
 import io.airlift.json.JsonModule;
@@ -101,6 +100,7 @@ import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.UriInfo;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
+import tools.jackson.databind.ObjectMapper;
 
 import java.net.URI;
 import java.util.ArrayList;
@@ -663,7 +663,6 @@ public class TestHttpRemoteTask
                     @Override
                     public void configure(Binder binder)
                     {
-                        binder.bind(JsonMapper.class).in(SINGLETON);
                         binder.bind(Metadata.class).toInstance(createTestMetadataManager());
                         jsonBinder(binder).addDeserializerBinding(Type.class).to(TypeDeserializer.class);
                         jsonBinder(binder).addDeserializerBinding(TypeSignature.class).to(TypeSignatureDeserializer.class);
@@ -689,14 +688,14 @@ public class TestHttpRemoteTask
 
                     @Provides
                     private HttpRemoteTaskFactory createHttpRemoteTaskFactory(
-                            JsonMapper jsonMapper,
+                            ObjectMapper objectMapper,
                             JsonCodec<TaskStatus> taskStatusCodec,
                             JsonCodec<VersionedDynamicFilterDomains> dynamicFilterDomainsCodec,
                             JsonCodec<TaskInfo> taskInfoCodec,
                             JsonCodec<TaskUpdateRequest> taskUpdateRequestCodec,
                             JsonCodec<FailTaskRequest> failTaskRequestCodec)
                     {
-                        JaxrsTestingHttpProcessor jaxrsTestingHttpProcessor = new JaxrsTestingHttpProcessor(URI.create("http://fake.invalid/"), testingTaskResource, jsonMapper);
+                        JaxrsTestingHttpProcessor jaxrsTestingHttpProcessor = new JaxrsTestingHttpProcessor(URI.create("http://fake.invalid/"), testingTaskResource, objectMapper);
                         TestingHttpClient testingHttpClient = new TestingHttpClient(jaxrsTestingHttpProcessor.setTrace(TRACE_HTTP));
                         testingTaskResource.setHttpClient(testingHttpClient);
                         return new HttpRemoteTaskFactory(

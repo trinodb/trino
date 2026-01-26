@@ -13,8 +13,6 @@
  */
 package io.trino.operator.scalar.timestamp;
 
-import com.fasterxml.jackson.core.JsonFactory;
-import com.fasterxml.jackson.core.JsonGenerator;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
@@ -25,8 +23,10 @@ import io.trino.spi.function.LiteralParameters;
 import io.trino.spi.function.ScalarOperator;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.type.LongTimestamp;
+import tools.jackson.core.JsonGenerator;
+import tools.jackson.core.json.JsonFactory;
 
-import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.time.format.DateTimeFormatter;
 
 import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
@@ -69,7 +69,7 @@ public final class TimestampToJsonCast
             }
             return output.slice();
         }
-        catch (IOException e) {
+        catch (UncheckedIOException e) {
             throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to %s", formatted, JSON));
         }
     }

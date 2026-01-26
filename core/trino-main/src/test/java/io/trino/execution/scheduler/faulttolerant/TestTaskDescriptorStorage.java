@@ -21,7 +21,6 @@ import com.google.inject.Key;
 import com.google.inject.Singleton;
 import com.google.inject.TypeLiteral;
 import io.airlift.bootstrap.Bootstrap;
-import io.airlift.jaxrs.JsonMapper;
 import io.airlift.json.JsonCodec;
 import io.airlift.json.JsonModule;
 import io.airlift.units.DataSize;
@@ -38,6 +37,7 @@ import io.trino.split.RemoteSplit;
 import io.trino.sql.planner.plan.PlanNodeId;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
+import tools.jackson.databind.json.JsonMapper;
 
 import java.util.Optional;
 

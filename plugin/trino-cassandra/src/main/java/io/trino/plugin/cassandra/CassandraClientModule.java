@@ -19,8 +19,6 @@ import com.datastax.oss.driver.api.core.config.DefaultDriverOption;
 import com.datastax.oss.driver.api.core.config.DriverConfigLoader;
 import com.datastax.oss.driver.api.core.config.ProgrammaticDriverConfigLoaderBuilder;
 import com.datastax.oss.driver.internal.core.loadbalancing.DefaultLoadBalancingPolicy;
-import com.fasterxml.jackson.databind.DeserializationContext;
-import com.fasterxml.jackson.databind.deser.std.FromStringDeserializer;
 import com.google.inject.Binder;
 import com.google.inject.Inject;
 import com.google.inject.Module;
@@ -39,6 +37,10 @@ import io.trino.spi.procedure.Procedure;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeId;
 import io.trino.spi.type.TypeManager;
+import tools.jackson.core.JacksonException;
+import tools.jackson.core.JsonParser;
+import tools.jackson.databind.DeserializationContext;
+import tools.jackson.databind.ValueDeserializer;
 
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
@@ -96,21 +98,21 @@ public class CassandraClientModule
     }
 
     public static final class TypeDeserializer
-            extends FromStringDeserializer<Type>
+            extends ValueDeserializer<Type>
     {
         private final TypeManager typeManager;
 
         @Inject
         public TypeDeserializer(TypeManager typeManager)
         {
-            super(Type.class);
             this.typeManager = requireNonNull(typeManager, "typeManager is null");
         }
 
         @Override
-        protected Type _deserialize(String value, DeserializationContext context)
+        public Type deserialize(JsonParser parser, DeserializationContext ctxt)
+                throws JacksonException
         {
-            return typeManager.getType(TypeId.of(value));
+            return typeManager.getType(TypeId.of(parser.getString()));
         }
     }
 

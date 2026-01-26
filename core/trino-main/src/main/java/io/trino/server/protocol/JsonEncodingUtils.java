@@ -13,7 +13,6 @@
  */
 package io.trino.server.protocol;
 
-import com.fasterxml.jackson.core.JsonGenerator;
 import io.airlift.slice.Slice;
 import io.trino.Session;
 import io.trino.client.ClientCapabilities;
@@ -45,6 +44,7 @@ import io.trino.spi.type.VarbinaryType;
 import io.trino.spi.type.VarcharType;
 import io.trino.type.SqlIntervalDayTime;
 import io.trino.type.SqlIntervalYearMonth;
+import tools.jackson.core.JsonGenerator;
 
 import java.io.IOException;
 import java.math.BigDecimal;
@@ -373,7 +373,7 @@ public final class JsonEncodingUtils
                 // Map keys are always serialized as strings for backward compatibility with existing clients.
                 // Map values are always properly encoded using their types.
                 // TODO: improve in v2 JSON format
-                generator.writeFieldName(mapType.getKeyType().getObjectValue(keyBlock, offset + i).toString());
+                generator.writeName(mapType.getKeyType().getObjectValue(keyBlock, offset + i).toString());
                 valueEncoder.encode(generator, valueBlock, offset + i);
             }
             generator.writeEndObject();

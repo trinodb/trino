@@ -13,10 +13,6 @@
  */
 package io.trino.proxy;
 
-import com.fasterxml.jackson.core.JsonFactory;
-import com.fasterxml.jackson.core.JsonGenerator;
-import com.fasterxml.jackson.core.JsonParser;
-import com.fasterxml.jackson.core.JsonToken;
 import com.google.common.hash.HashCode;
 import com.google.common.hash.HashFunction;
 import com.google.common.util.concurrent.FluentFuture;
@@ -50,6 +46,13 @@ import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.RequestBody;
 import okhttp3.ResponseBody;
+import tools.jackson.core.JsonEncoding;
+import tools.jackson.core.JsonGenerator;
+import tools.jackson.core.JsonParser;
+import tools.jackson.core.JsonToken;
+import tools.jackson.core.ObjectReadContext;
+import tools.jackson.core.ObjectWriteContext;
+import tools.jackson.core.json.JsonFactory;
 
 import java.io.ByteArrayOutputStream;
 import java.io.File;
@@ -60,11 +63,6 @@ import java.util.Base64;
 import java.util.concurrent.ExecutorService;
 import java.util.function.Function;
 
-import static com.fasterxml.jackson.core.JsonFactory.Feature.CANONICALIZE_FIELD_NAMES;
-import static com.fasterxml.jackson.core.JsonToken.END_OBJECT;
-import static com.fasterxml.jackson.core.JsonToken.FIELD_NAME;
-import static com.fasterxml.jackson.core.JsonToken.START_OBJECT;
-import static com.fasterxml.jackson.core.JsonToken.VALUE_STRING;
 import static com.google.common.hash.Hashing.hmacSha256;
 import static com.google.common.net.HttpHeaders.AUTHORIZATION;
 import static com.google.common.net.HttpHeaders.CONTENT_TYPE;
@@ -90,6 +88,11 @@ import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.TimeUnit.MINUTES;
+import static tools.jackson.core.JsonToken.END_OBJECT;
+import static tools.jackson.core.JsonToken.PROPERTY_NAME;
+import static tools.jackson.core.JsonToken.START_OBJECT;
+import static tools.jackson.core.JsonToken.VALUE_STRING;
+import static tools.jackson.core.TokenStreamFactory.Feature.CANONICALIZE_PROPERTY_NAMES;
 
 @Path("/")
 public class ProxyResource
@@ -98,7 +101,7 @@ public class ProxyResource
 
     private static final String X509_ATTRIBUTE = "jakarta.servlet.request.X509Certificate";
     private static final Duration ASYNC_TIMEOUT = new Duration(2, MINUTES);
-    private static final JsonFactory JSON_FACTORY = jsonFactoryBuilder().disable(CANONICALIZE_FIELD_NAMES).build();
+    private static final JsonFactory JSON_FACTORY = jsonFactoryBuilder().disable(CANONICALIZE_PROPERTY_NAMES).build();
 
     private final ExecutorService executor = newCachedThreadPool(daemonThreadsNamed("proxy-%s"));
     private final OkHttpClient httpClient;
@@ -351,9 +354,9 @@ public class ProxyResource
     private static byte[] rewriteResponse(byte[] input, Function<String, String> uriRewriter)
     {
         try {
-            JsonParser parser = JSON_FACTORY.createParser(input);
+            JsonParser parser = JSON_FACTORY.createParser(ObjectReadContext.empty(), input);
             ByteArrayOutputStream out = new ByteArrayOutputStream(input.length * 2);
-            JsonGenerator generator = JSON_FACTORY.createGenerator(out);
+            JsonGenerator generator = JSON_FACTORY.createGenerator(ObjectWriteContext.empty(), out, JsonEncoding.UTF8);
 
             JsonToken token = parser.nextToken();
             if (token != START_OBJECT) {
@@ -372,7 +375,7 @@ public class ProxyResource
                     break;
                 }
 
-                if (token == FIELD_NAME) {
+                if (token == PROPERTY_NAME) {
                     String name = parser.getValueAsString();
                     if (!"nextUri".equals(name) && !"partialCancelUri".equals(name)) {
                         generator.copyCurrentStructure(parser);
@@ -386,7 +389,7 @@ public class ProxyResource
                     String value = parser.getValueAsString();
 
                     value = uriRewriter.apply(value);
-                    generator.writeStringField(name, value);
+                    generator.writeStringProperty(name, value);
                     continue;
                 }
 

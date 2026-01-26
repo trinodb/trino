@@ -17,6 +17,7 @@ import com.esri.core.geometry.Geometry;
 import com.esri.core.geometry.GeometryEngine;
 import com.esri.core.geometry.Point;
 import com.fasterxml.jackson.core.JsonFactory;
+import com.fasterxml.jackson.core.JsonFactoryBuilder;
 import com.fasterxml.jackson.core.JsonParseException;
 import com.fasterxml.jackson.core.JsonParser;
 import com.google.common.collect.ImmutableList;
@@ -26,13 +27,13 @@ import io.trino.spi.PageBuilder;
 import io.trino.spi.block.Block;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.DecimalType;
+import org.gaul.modernizer_maven_annotations.SuppressModernizer;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.util.List;
 
 import static com.fasterxml.jackson.core.JsonToken.START_OBJECT;
-import static io.trino.plugin.base.util.JsonUtils.jsonFactory;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DateType.DATE;
@@ -48,9 +49,12 @@ import static java.lang.Float.floatToRawIntBits;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+@SuppressModernizer
 public class TestEsriDeserializer
 {
-    private static final JsonFactory JSON_FACTORY = jsonFactory();
+    private static final JsonFactory JSON_FACTORY = new JsonFactoryBuilder()
+            .build();
+
     private static final List<Column> COLUMNS = ImmutableList.of(
             new Column("id", BIGINT, 0),
             new Column("name", VARCHAR, 1),

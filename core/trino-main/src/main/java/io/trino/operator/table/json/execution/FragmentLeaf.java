@@ -13,7 +13,6 @@
  */
 package io.trino.operator.table.json.execution;
 
-import com.fasterxml.jackson.databind.JsonNode;
 import com.google.common.collect.ImmutableList;
 import io.trino.json.JsonPathEvaluator;
 import io.trino.json.ir.IrJsonPath;
@@ -22,6 +21,7 @@ import io.trino.metadata.Metadata;
 import io.trino.spi.Page;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.type.TypeManager;
+import tools.jackson.databind.JsonNode;
 
 import java.util.List;
 
