@@ -326,7 +326,7 @@ public class MariaDbClient
     }
 
     @Override
-    protected String getTableSchemaName(ResultSet resultSet)
+    protected String getTableRemoteSchemaName(ResultSet resultSet)
             throws SQLException
     {
         // MariaDB uses catalogs instead of schemas
