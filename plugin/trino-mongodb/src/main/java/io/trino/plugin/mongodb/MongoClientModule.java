@@ -82,7 +82,7 @@ public class MongoClientModule
         Supplier<MongoClient> client = Suppliers.memoize(() -> {
             MongoClientSettings.Builder options = MongoClientSettings.builder();
             configurators.forEach(configurator -> configurator.configure(options));
-            options.addCommandListener(MongoTelemetry.builder(openTelemetry).build().newCommandListener());
+            options.addCommandListener(MongoTelemetry.builder(openTelemetry).build().createCommandListener());
             return MongoClients.create(options.build());
         });
 
