@@ -213,7 +213,7 @@ public abstract class BaseJdbcClient
             try (ResultSet resultSet = getTables(connection, remoteSchema, Optional.empty())) {
                 ImmutableList.Builder<RelationCommentMetadata> list = ImmutableList.builder();
                 while (resultSet.next()) {
-                    String remoteSchemaFromResultSet = getTableSchemaName(resultSet);
+                    String remoteSchemaFromResultSet = getTableRemoteSchemaName(resultSet);
                     String tableSchema = identifierMapping.fromRemoteSchemaName(remoteSchemaFromResultSet);
                     String tableName = identifierMapping.fromRemoteTableName(remoteSchemaFromResultSet, resultSet.getString("TABLE_NAME"));
                     if (filterRemoteSchema(remoteSchemaFromResultSet)) {
@@ -387,7 +387,7 @@ public abstract class BaseJdbcClient
             ImmutableSet.Builder<RemoteTableName> visibleTables = ImmutableSet.builder();
             try (ResultSet tablesResultSet = getTables(connection, remoteSchema, Optional.empty())) {
                 while (tablesResultSet.next()) {
-                    if (filterRemoteSchema(getTableSchemaName(tablesResultSet))) {
+                    if (filterRemoteSchema(getTableRemoteSchemaName(tablesResultSet))) {
                         visibleTables.add(getRemoteTable(tablesResultSet));
                     }
                 }
@@ -448,7 +448,7 @@ public abstract class BaseJdbcClient
                     try {
                         if (currentTable == null) {
                             currentTable = nextTable;
-                            String remoteSchemaFromResultSet = getTableSchemaName(resultSet);
+                            String remoteSchemaFromResultSet = getTableRemoteSchemaName(resultSet);
                             currentTableVisible = visibleTables.contains(nextTable);
                             if (currentTableVisible) {
                                 currentTableName = new SchemaTableName(
@@ -1535,7 +1535,7 @@ public abstract class BaseJdbcClient
         return Optional.of(ImmutableList.of("TABLE", "VIEW"));
     }
 
-    protected String getTableSchemaName(ResultSet resultSet)
+    protected String getTableRemoteSchemaName(ResultSet resultSet)
             throws SQLException
     {
         return resultSet.getString("TABLE_SCHEM");
