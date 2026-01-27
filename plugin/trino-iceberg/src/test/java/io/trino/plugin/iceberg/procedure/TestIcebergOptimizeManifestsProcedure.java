@@ -31,9 +31,11 @@ import org.apache.iceberg.types.Types;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.plugin.iceberg.IcebergTestUtils.SESSION;
 import static io.trino.plugin.iceberg.IcebergTestUtils.getFileSystemFactory;
@@ -161,6 +163,76 @@ final class TestIcebergOptimizeManifestsProcedure
     }
 
     @Test
+    void testWithBucketTransform()
+    {
+        // Bucket a string column so that source type is different from the partition type (integer)
+        try (TestTable table = newTrinoTable(
+                "test_bucket_transform",
+                "(id int, category varchar) WITH (partitioning = ARRAY['bucket(category, 4)'])")) {
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (1, 'alpha'), (2, 'delta')", 2);
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (3, 'beta'), (4, 'gamma')", 2);
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (5, 'zeta'), (6, 'theta')", 2);
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (7, 'beta'), (8, 'omega')", 2);
+
+            Set<String> manifestFiles = manifestFiles(table.getName());
+            assertThat(manifestFiles).hasSize(4);
+
+            // Set small target size to allow multiple manifest files
+            setManifestTargetSizeBytes(table.getName(), 16000);
+            assertUpdate("ALTER TABLE " + table.getName() + " EXECUTE optimize_manifests");
+            assertThat(manifestFiles(table.getName()))
+                    .hasSize(2)
+                    .doesNotContainAnyElementsOf(manifestFiles);
+
+            // Verify clustering by bucket numbers
+            List<PartitionSummary> summaries = partitionSummaries(table.getName());
+            assertThat(summaries).hasSize(2);
+            assertThat(summaries.get(0).lowerBound()).isEqualTo(0);
+            assertThat(summaries.get(0).upperBound()).isEqualTo(1);
+            assertThat(summaries.get(1).lowerBound()).isEqualTo(2);
+            assertThat(summaries.get(1).upperBound()).isEqualTo(3);
+
+            assertThat(query("SELECT * FROM " + table.getName()))
+                    .skippingTypesCheck()
+                    .matches("VALUES (1, 'alpha'), (2, 'delta'), (3, 'beta'), (4, 'gamma'), (5, 'zeta'), (6, 'theta'), (7, 'beta'), (8, 'omega')");
+        }
+    }
+
+    @Test
+    void testPartitionEvolutionIdentityToBucket()
+    {
+        try (TestTable table = newTrinoTable("test_partition_evolution", "(id int, category varchar)")) {
+            // Insert data with identity partitioning on string column
+            assertUpdate("ALTER TABLE " + table.getName() + " SET PROPERTIES partitioning = ARRAY['category']");
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (1, 'abc')", 1);
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (2, 'def')", 1);
+
+            // Change partitioning from identity to bucket transform on the same column
+            assertUpdate("ALTER TABLE " + table.getName() + " SET PROPERTIES partitioning = ARRAY['bucket(category, 5)']");
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (3, 'ijk')", 1);
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (4, 'lmn')", 1);
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (5, 'opqr')", 1);
+
+            Set<String> manifestFiles = manifestFiles(table.getName());
+            assertThat(manifestFiles).hasSize(4);
+
+            // Set small target size to allow clustering of manifest files
+            setManifestTargetSizeBytes(table.getName(), 16000);
+            // Optimize manifests should work across different partition transforms
+            assertUpdate("ALTER TABLE " + table.getName() + " EXECUTE optimize_manifests");
+            assertThat(manifestFiles(table.getName()))
+                    .hasSize(3)
+                    .doesNotContainAnyElementsOf(manifestFiles);
+
+            // Verify all data is preserved
+            assertThat(query("SELECT * FROM " + table.getName()))
+                    .skippingTypesCheck()
+                    .matches("VALUES " +
+                            "(1, 'abc'), (2, 'def'), (3, 'ijk'), (4, 'lmn'), (5, 'opqr')");
+        }
+    }
+
+    @Test
     void testMultiplePartitioningColumns()
     {
         try (TestTable table = newTrinoTable("test_partition", "(id int, part int, nested int) WITH (partitioning = ARRAY['part', 'nested'])")) {
@@ -192,6 +264,40 @@ final class TestIcebergOptimizeManifestsProcedure
 
             assertThat(query("SELECT COUNT(*) FROM " + table.getName()))
                     .matches("VALUES BIGINT '30'");
+        }
+    }
+
+    @Test
+    void testClusterByFirstPartitionField()
+    {
+        try (TestTable table = newTrinoTable("test_partition", "(id int, part int, nested int) WITH (partitioning = ARRAY['part', 'nested'])")) {
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (0, 5, 100)", 1);
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (1, 10, 100)", 1);
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (2, 10, 200)", 1);
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (3, 20, 300)", 1);
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (4, 20, 400)", 1);
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (5, 25, 400)", 1);
+
+            Set<String> manifestFiles = manifestFiles(table.getName());
+            assertThat(manifestFiles).hasSize(6);
+
+            // Set small target size to allow multiple manifest files
+            setManifestTargetSizeBytes(table.getName(), 24000);
+            assertUpdate("ALTER TABLE " + table.getName() + " EXECUTE optimize_manifests");
+            assertThat(manifestFiles(table.getName()))
+                    .hasSize(2)
+                    .doesNotContainAnyElementsOf(manifestFiles);
+
+            assertThat(query("SELECT * FROM " + table.getName()))
+                    .matches("VALUES (0, 5, 100), (1, 10, 100), (2, 10, 200), (3, 20, 300), (4, 20, 400), (5, 25, 400)");
+
+            // Verify clustering by first partition field
+            List<PartitionSummary> summaries = partitionSummaries(table.getName());
+            assertThat(summaries).hasSize(2);
+            assertThat(summaries.get(0).lowerBound()).isEqualTo(5);
+            assertThat(summaries.get(0).upperBound()).isEqualTo(10);
+            assertThat(summaries.get(1).lowerBound()).isEqualTo(20);
+            assertThat(summaries.get(1).upperBound()).isEqualTo(25);
         }
     }
 
@@ -262,6 +368,16 @@ final class TestIcebergOptimizeManifestsProcedure
                 .map(path -> (String) path)
                 .collect(toImmutableSet());
     }
+
+    private List<PartitionSummary> partitionSummaries(String tableName)
+    {
+        return computeActual("SELECT CAST(partition_summaries[1].lower_bound AS INT), CAST(partition_summaries[1].upper_bound AS INT) FROM \"" + tableName + "$manifests\" ORDER BY 1")
+                .getMaterializedRows().stream()
+                .map(row -> new PartitionSummary((int) row.getField(0), (int) row.getField(1)))
+                .collect(toImmutableList());
+    }
+
+    private record PartitionSummary(int lowerBound, int upperBound) {}
 
     private BaseTable loadTable(String tableName)
     {
