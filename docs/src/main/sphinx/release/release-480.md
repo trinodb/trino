@@ -2,6 +2,7 @@
 
 ## General
 
+* Added coordinator and worker counts to the metrics endpoint. ({issue}`27992`)
 * {{breaking}} Remove `enable-large-dynamic-filters` configuration property and the 
   corresponding system session property `enable_large_dynamic_filters`. ({issue}`27637`)
 * {{breaking}} Remove the `dynamic-filtering.small*` and `dynamic-filtering.large-broadcast*` 
@@ -84,6 +85,7 @@
   `ADD COLUMN` and `ALTER COLUMN SET/DROP DEFAULT`. ({issue}`27837`)
 * Add support for Iceberg format v3 deletion vectors to enable `DELETE`, `UPDATE` 
   and `MERGE` on v3 tables. ({issue}`27788`)
+* Add `content` column to `$manifests` and `$all_manifests` metadata tables. ({issue}`27975`)
 * {{breaking}} Remove the `hive.write-validation-threads` configuration property. ({issue}`27729`)
 * {{breaking}} Remove the `parquet.optimized-writer.validation-percentage` configuration
   property, use `parquet.writer.validation-percentage`, instead. ({issue}`27729`)
@@ -96,11 +98,14 @@
   corresponding catalog session property `extended_statistics_enabled` are now defunct. ({issue}`27914`)
 * Improve effectiveness of bloom filters for high cardinality columns written in Parquet files. ({issue}`27656`)
 * Optimize Iceberg materialized view freshness checks based on grace period. ({issue}`27608`)
+* Reduce planning time of queries with scans on tables with delete files. ({issue}`27955`)
+* Reduce planning time for simple queries with a scan and filter. ({issue}`27973`)
 * Fix failure when reading `$files` metadata table with partition evolution using 
   `truncate` or `bucket` on the same column. ({issue}`26109`)
 * Fix failure when reading `$file_modified_time` metadata column on tables with equality
   deletes. ({issue}`27850`)
 * Avoid Parquet footer explosion when binary columns contain certain pathological values. ({issue}`27903`)
+* Fix query failure caused by dynamic filters contain metadata columns. ({issue}`27984`)
 
 ## Ignite connector
 
@@ -127,6 +132,7 @@
   catalog property. ({issue}`27744`)
 * Fix failure when creating table caused by incorrect cleanup of the tables after a failed
   `CREATE TABLE ... AS SELECT` operation. ({issue}`27702`)
+* Fix failure when reading `float` type in `query` table function. ({issue}`27880`)
 
 ## PostgreSQL connector
 
