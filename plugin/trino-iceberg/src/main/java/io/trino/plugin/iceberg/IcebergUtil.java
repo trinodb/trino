@@ -915,10 +915,10 @@ public final class IcebergUtil
             transaction = catalog.newCreateTableTransaction(session, schemaTableName, schema, partitionSpec, sortOrder, Optional.ofNullable(tableLocation), createTableProperties(tableMetadata, allowedExtraProperties));
         }
 
-        // If user doesn't set compression-codec for parquet, we need to remove write.parquet.compression-codec property,
+        // If user doesn't use parquet as the file format, we need to remove write.parquet.compression-codec property,
         // Otherwise Iceberg will set write.parquet.compression-codec to zstd by default.
-        String parquetCompressionValue = transaction.table().properties().get(PARQUET_COMPRESSION);
-        if (parquetCompressionValue != null && parquetCompressionValue.isEmpty()) {
+        IcebergFileFormat fileFormat = getFileFormat(transaction.table());
+        if (fileFormat.toIceberg() != FileFormat.PARQUET) {
             transaction.updateProperties()
                     .remove(PARQUET_COMPRESSION)
                     .commit();
@@ -947,12 +947,6 @@ public final class IcebergUtil
         Map<String, String> tableCompressionProperties = calculateTableCompressionProperties(fileFormat, fileFormat, ImmutableMap.of(), tableMetadata.getProperties());
 
         tableCompressionProperties.forEach(propertiesBuilder::put);
-
-        // Iceberg will set write.parquet.compression-codec to zstd by default if this property is not set: https://github.com/trinodb/trino/issues/20401,
-        // but we don't want to set this property if this is not explicitly set by customer via set table properties.
-        if (!(fileFormat == PARQUET && compressionCodec.isPresent())) {
-            propertiesBuilder.put(PARQUET_COMPRESSION, "");
-        }
 
         boolean objectStoreLayoutEnabled = IcebergTableProperties.getObjectStoreLayoutEnabled(tableMetadata.getProperties());
         if (objectStoreLayoutEnabled) {
