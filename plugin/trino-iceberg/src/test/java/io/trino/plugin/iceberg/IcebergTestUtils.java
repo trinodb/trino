@@ -268,4 +268,37 @@ public final class IcebergTestUtils
             throw new UncheckedIOException(e);
         }
     }
+
+    /**
+     * Override the FileIO used by a specific catalog in the query runner.
+     * This is useful for injecting test-specific file I/O behavior.
+     *
+     * @param queryRunner The query runner instance
+     * @param catalogName The name of the catalog to override
+     * @param fileIoFunction Function that creates a FileIO instance from HiveConfig
+     */
+    public static void overrideFileIoForCatalog(
+            QueryRunner queryRunner,
+            String catalogName,
+            java.util.function.Function<io.trino.plugin.hive.HiveConfig, org.apache.iceberg.io.FileIO> fileIoFunction)
+            throws Exception
+    {
+        // This method would typically override the FileIO factory in the catalog
+        // For the copy-on-write tests, we need to inject custom FileIO behavior
+        // The implementation would depend on the specific catalog type and injection mechanism
+        throw new UnsupportedOperationException("overrideFileIoForCatalog not yet implemented");
+    }
+
+    /**
+     * Utility method to close resources suppressing exceptions.
+     */
+    public static void closeAllSuppress(QueryRunner queryRunner)
+    {
+        try {
+            queryRunner.close();
+        }
+        catch (Exception e) {
+            // Suppress exceptions during cleanup
+        }
+    }
 }
