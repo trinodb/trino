@@ -62,7 +62,7 @@ import io.trino.type.VarcharOperators;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
-import java.io.StringReader;
+import java.io.Reader;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -105,7 +105,7 @@ import static java.time.ZoneOffset.UTC;
 
 public final class JsonUtil
 {
-    // StringReader outperforms InputStreamReader for small inputs. Limit based on Jackson benchmarks {@link https://github.com/FasterXML/jackson-benchmarks/pull/9}
+    // java.io.Reader outperforms InputStreamReader for small inputs. Limit based on Jackson benchmarks {@link https://github.com/FasterXML/jackson-benchmarks/pull/9}
     private static final int STRING_READER_LENGTH_LIMIT = 8192;
 
     private JsonUtil() {}
@@ -127,12 +127,12 @@ public final class JsonUtil
             throws IOException
     {
         // Jackson tries to detect the character encoding automatically when using InputStream
-        // so we pass StringReader or an InputStreamReader instead.
+        // so we pass java.io.Reader or an InputStreamReader instead.
         // Despite the https://github.com/FasterXML/jackson-core/pull/1081, the below performance optimization
         // is still valid for small inputs.
         if (json.length() < STRING_READER_LENGTH_LIMIT) {
-            // StringReader is more performant than InputStreamReader for small inputs
-            return factory.createParser(new StringReader(json.toStringUtf8()));
+            // java.io.Reader is more performant than InputStreamReader for small inputs
+            return factory.createParser(Reader.of(json.toStringUtf8()));
         }
 
         return factory.createParser(new InputStreamReader(json.getInput(), UTF_8));
