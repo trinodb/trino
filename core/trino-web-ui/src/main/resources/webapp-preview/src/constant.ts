@@ -58,7 +58,7 @@ export const Texts = {
         Drawer: {
             Dashboard: 'Dashboard',
             Workers: 'Workers',
-            QueryHistory: 'Query history',
+            QueryEditor: 'Query editor',
             DemoComponents: 'Demo components',
         },
     },
