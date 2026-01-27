@@ -14,7 +14,6 @@
 package io.trino.server.protocol;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Sets;
 import io.airlift.log.Logger;
 import io.trino.client.ClientTypeSignature;
 import io.trino.client.ClientTypeSignatureParameter;
@@ -252,7 +251,7 @@ public final class ProtocolUtil
     private static int countStageAndAddGlobalUniqueNodes(BasicStageInfo stageInfo, Set<String> globalUniqueNodes)
     {
         List<TaskInfo> tasks = stageInfo.getTasks();
-        Set<String> stageUniqueNodes = Sets.newHashSetWithExpectedSize(tasks.size());
+        Set<String> stageUniqueNodes = HashSet.newHashSet(tasks.size());
         for (TaskInfo task : tasks) {
             String nodeId = task.taskStatus().getNodeId();
             stageUniqueNodes.add(nodeId);
