@@ -430,6 +430,12 @@ public abstract class ForwardingJdbcClient
     }
 
     @Override
+    public void setNotNullConstraint(ConnectorSession session, JdbcTableHandle handle, JdbcColumnHandle column)
+    {
+        delegate().setNotNullConstraint(session, handle, column);
+    }
+
+    @Override
     public void dropNotNullConstraint(ConnectorSession session, JdbcTableHandle handle, JdbcColumnHandle column)
     {
         delegate().dropNotNullConstraint(session, handle, column);
