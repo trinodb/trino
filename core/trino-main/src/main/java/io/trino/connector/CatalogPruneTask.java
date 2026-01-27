@@ -134,21 +134,21 @@ public class CatalogPruneTask
                 .collect(toImmutableSet());
 
         // send message to workers to trigger prune
-        List<CatalogHandle> activeCatalogs = getActiveCatalogs();
+        Set<CatalogHandle> activeCatalogs = getActiveCatalogs();
         pruneWorkerCatalogs(online, activeCatalogs);
 
         // prune inactive catalogs locally
-        connectorServicesProvider.pruneCatalogs(ImmutableSet.copyOf(activeCatalogs));
+        connectorServicesProvider.pruneCatalogs(activeCatalogs);
     }
 
-    void pruneWorkerCatalogs(Set<URI> online, List<CatalogHandle> activeCatalogs)
+    void pruneWorkerCatalogs(Set<URI> online, Set<CatalogHandle> activeCatalogs)
     {
         for (URI uri : online) {
             uri = uriBuilderFrom(uri).appendPath("/v1/task/pruneCatalogs").build();
             Request request = preparePost()
                     .setUri(uri)
                     .addHeader(CONTENT_TYPE, JSON_UTF_8.toString())
-                    .setBodyGenerator(jsonBodyGenerator(CATALOG_HANDLES_CODEC, activeCatalogs))
+                    .setBodyGenerator(jsonBodyGenerator(CATALOG_HANDLES_CODEC, ImmutableList.copyOf(activeCatalogs)))
                     .build();
             httpClient.executeAsync(request, new ResponseHandler<>()
             {
@@ -169,13 +169,13 @@ public class CatalogPruneTask
         }
     }
 
-    private List<CatalogHandle> getActiveCatalogs()
+    private Set<CatalogHandle> getActiveCatalogs()
     {
         ImmutableSet.Builder<CatalogHandle> activeCatalogs = ImmutableSet.builder();
         // all catalogs in an active transaction
         transactionManager.getAllTransactionInfos().forEach(info -> activeCatalogs.addAll(info.getActiveCatalogs()));
         // all catalogs currently associated with a name
         activeCatalogs.addAll(catalogManager.getActiveCatalogs());
-        return ImmutableList.copyOf(activeCatalogs.build());
+        return activeCatalogs.build();
     }
 }
