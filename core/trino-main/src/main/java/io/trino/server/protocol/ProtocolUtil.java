@@ -14,7 +14,6 @@
 package io.trino.server.protocol;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Sets;
 import io.airlift.log.Logger;
 import io.trino.client.ClientTypeSignature;
 import io.trino.client.ClientTypeSignatureParameter;
@@ -66,6 +65,7 @@ import static io.trino.spi.type.StandardTypes.TIMESTAMP_WITH_TIME_ZONE;
 import static io.trino.spi.type.StandardTypes.TIME_WITH_TIME_ZONE;
 import static io.trino.util.Failures.toFailure;
 import static java.lang.String.format;
+import static java.util.HashSet.newHashSet;
 import static java.util.Objects.requireNonNullElse;
 
 public final class ProtocolUtil
@@ -252,7 +252,7 @@ public final class ProtocolUtil
     private static int countStageAndAddGlobalUniqueNodes(BasicStageInfo stageInfo, Set<String> globalUniqueNodes)
     {
         List<TaskInfo> tasks = stageInfo.getTasks();
-        Set<String> stageUniqueNodes = Sets.newHashSetWithExpectedSize(tasks.size());
+        Set<String> stageUniqueNodes = newHashSet(tasks.size());
         for (TaskInfo task : tasks) {
             String nodeId = task.taskStatus().getNodeId();
             stageUniqueNodes.add(nodeId);
