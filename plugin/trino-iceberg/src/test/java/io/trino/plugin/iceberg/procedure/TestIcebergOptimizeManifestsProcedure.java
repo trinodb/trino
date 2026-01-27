@@ -31,9 +31,11 @@ import org.apache.iceberg.types.Types;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.plugin.iceberg.IcebergTestUtils.SESSION;
 import static io.trino.plugin.iceberg.IcebergTestUtils.getFileSystemFactory;
@@ -202,6 +204,42 @@ final class TestIcebergOptimizeManifestsProcedure
     }
 
     @Test
+    void testClusterByFirstPartitionField()
+    {
+        try (TestTable table = newTrinoTable("test_partition", "(id int, part int, nested int) WITH (partitioning = ARRAY['part', 'nested'])")) {
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (0, 5, 100)", 1);
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (1, 10, 100)", 1);
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (2, 10, 200)", 1);
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (3, 20, 300)", 1);
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (4, 20, 400)", 1);
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (5, 25, 400)", 1);
+
+            Set<String> manifestFiles = manifestFiles(table.getName());
+            assertThat(manifestFiles).hasSize(6);
+
+            // Set small target size to allow multiple manifest files
+            BaseTable icebergTable = loadTable(table.getName());
+            icebergTable.updateProperties()
+                    .set("commit.manifest.target-size-bytes", "24000")
+                    .commit();
+            assertUpdate("ALTER TABLE " + table.getName() + " EXECUTE optimize_manifests");
+            assertThat(manifestFiles(table.getName()))
+                    .hasSize(2)
+                    .doesNotContainAnyElementsOf(manifestFiles);
+
+            assertThat(query("SELECT * FROM " + table.getName()))
+                    .matches("VALUES (0, 5, 100), (1, 10, 100), (2, 10, 200), (3, 20, 300), (4, 20, 400), (5, 25, 400)");
+
+            List<PartitionSummary> summaries = partitionSummaries(table.getName());
+            assertThat(summaries).hasSize(2);
+            assertThat(summaries.get(0).lowerBound()).isEqualTo(5);
+            assertThat(summaries.get(0).upperBound()).isEqualTo(10);
+            assertThat(summaries.get(1).lowerBound()).isEqualTo(20);
+            assertThat(summaries.get(1).upperBound()).isEqualTo(25);
+        }
+    }
+
+    @Test
     void testEmptyManifest()
     {
         try (TestTable table = newTrinoTable("test_no_rewrite", "(x int)")) {
@@ -268,6 +306,16 @@ final class TestIcebergOptimizeManifestsProcedure
                 .map(path -> (String) path)
                 .collect(toImmutableSet());
     }
+
+    private List<PartitionSummary> partitionSummaries(String tableName)
+    {
+        return computeActual("SELECT CAST(partition_summaries[1].lower_bound AS INT), CAST(partition_summaries[1].upper_bound AS INT) FROM \"" + tableName + "$manifests\" ORDER BY 1")
+                .getMaterializedRows().stream()
+                .map(row -> new PartitionSummary((int) row.getField(0), (int) row.getField(1)))
+                .collect(toImmutableList());
+    }
+
+    private record PartitionSummary(int lowerBound, int upperBound) {}
 
     private BaseTable loadTable(String tableName)
     {
