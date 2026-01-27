@@ -220,6 +220,7 @@ public class IgniteMetadata
         if (saveMode == REPLACE) {
             throw new TrinoException(NOT_SUPPORTED, "This connector does not support replacing tables");
         }
+        // No rollback action is needed because the creation of the table is atomic in Ignite
         igniteClient.beginCreateTable(session, tableMetadata, _ -> {});
     }
 

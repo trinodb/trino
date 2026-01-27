@@ -424,7 +424,7 @@ public class IgniteClient
                     columnTypes.build(),
                     Optional.empty(),
                     primaryKeys.isEmpty() ? Optional.of(IGNITE_DUMMY_ID) : Optional.empty());
-            rollbackActionCollector.accept(() -> rollbackCreateDestinationTable(session, destinationTableHandle.getRemoteTableName()));
+            rollbackActionCollector.accept(() -> rollbackDestinationTableCreation(session, destinationTableHandle.getRemoteTableName()));
             return destinationTableHandle;
         }
         catch (SQLException e) {
