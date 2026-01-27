@@ -13,17 +13,21 @@
  */
 package io.trino.plugin.geospatial.aggregation;
 
-import com.esri.core.geometry.ogc.OGCGeometry;
 import io.trino.array.ObjectBigArray;
 import io.trino.spi.function.AccumulatorStateFactory;
 import io.trino.spi.function.GroupedAccumulatorState;
+import org.locationtech.jts.geom.Geometry;
 
+import static io.airlift.slice.SizeOf.SIZE_OF_DOUBLE;
 import static io.airlift.slice.SizeOf.instanceSize;
 
 public class GeometryStateFactory
         implements AccumulatorStateFactory<GeometryState>
 {
-    private static final long OGC_GEOMETRY_BASE_INSTANCE_SIZE = instanceSize(OGCGeometry.class);
+    // Base overhead for a JTS Geometry object (approximate)
+    private static final long GEOMETRY_BASE_INSTANCE_SIZE = instanceSize(Geometry.class);
+    // Size of each coordinate (x, y = 2 doubles)
+    private static final long COORDINATE_SIZE = 2 * SIZE_OF_DOUBLE;
 
     @Override
     public GeometryState createSingleState()
@@ -40,21 +44,21 @@ public class GeometryStateFactory
     public static class GroupedGeometryState
             implements GeometryState, GroupedAccumulatorState
     {
-        private final ObjectBigArray<OGCGeometry> geometries = new ObjectBigArray<>();
+        private final ObjectBigArray<Geometry> geometries = new ObjectBigArray<>();
 
         private int groupId;
         private long size;
 
         @Override
-        public OGCGeometry getGeometry()
+        public Geometry getGeometry()
         {
             return geometries.get(groupId);
         }
 
         @Override
-        public void setGeometry(OGCGeometry geometry)
+        public void setGeometry(Geometry geometry)
         {
-            OGCGeometry previousValue = this.geometries.getAndSet(groupId, geometry);
+            Geometry previousValue = this.geometries.getAndSet(groupId, geometry);
             size -= getGeometryMemorySize(previousValue);
             size += getGeometryMemorySize(geometry);
         }
@@ -79,34 +83,31 @@ public class GeometryStateFactory
     }
 
     // Do a best-effort attempt to estimate the memory size
-    private static long getGeometryMemorySize(OGCGeometry geometry)
+    private static long getGeometryMemorySize(Geometry geometry)
     {
         if (geometry == null) {
             return 0;
         }
-        // Due to the following issue:
-        // https://github.com/Esri/geometry-api-java/issues/192
-        // We must check if the geometry is empty before calculating its size.  Once the issue is resolved
-        // and we bring the fix into our codebase, we can remove this check.
         if (geometry.isEmpty()) {
-            return OGC_GEOMETRY_BASE_INSTANCE_SIZE;
+            return GEOMETRY_BASE_INSTANCE_SIZE;
         }
-        return geometry.estimateMemorySize();
+        // Estimate: base size + size per coordinate
+        return GEOMETRY_BASE_INSTANCE_SIZE + (long) geometry.getNumPoints() * COORDINATE_SIZE;
     }
 
     public static class SingleGeometryState
             implements GeometryState
     {
-        private OGCGeometry geometry;
+        private Geometry geometry;
 
         @Override
-        public OGCGeometry getGeometry()
+        public Geometry getGeometry()
         {
             return geometry;
         }
 
         @Override
-        public void setGeometry(OGCGeometry geometry)
+        public void setGeometry(Geometry geometry)
         {
             this.geometry = geometry;
         }

@@ -15,6 +15,7 @@ package io.trino.plugin.geospatial;
 
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
+import org.locationtech.jts.geom.Geometry;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
@@ -29,6 +30,7 @@ import org.openjdk.jmh.runner.RunnerException;
 
 import java.io.IOException;
 
+import static io.trino.geospatial.serde.JtsGeometrySerde.serialize;
 import static io.trino.jmh.Benchmarks.benchmark;
 import static io.trino.plugin.geospatial.GeometryBenchmarkUtils.loadPolygon;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -45,27 +47,27 @@ public class BenchmarkSTEnvelope
     @Benchmark
     public Slice simpleGeometry(BenchmarkData data)
     {
-        return GeoFunctions.stEnvelope(data.simpleGeometry);
+        return serialize(GeoFunctions.stEnvelope(data.simpleGeometry));
     }
 
     @Benchmark
     public Slice complexGeometry(BenchmarkData data)
     {
-        return GeoFunctions.stEnvelope(data.complexGeometry);
+        return serialize(GeoFunctions.stEnvelope(data.complexGeometry));
     }
 
     @State(Scope.Thread)
     public static class BenchmarkData
     {
-        private Slice complexGeometry;
-        private Slice simpleGeometry;
+        private Geometry complexGeometry;
+        private Geometry simpleGeometry;
 
         @Setup
         public void setup()
                 throws IOException
         {
             complexGeometry = GeoFunctions.stGeometryFromText(Slices.utf8Slice(loadPolygon("large_polygon.txt")));
-            simpleGeometry = GeoFunctions.stGeometryFromText(Slices.utf8Slice("POLYGON ((1 1, 4 1, 1 4))"));
+            simpleGeometry = GeoFunctions.stGeometryFromText(Slices.utf8Slice("POLYGON ((1 1, 4 1, 1 4, 1 1))"));
         }
     }
 
