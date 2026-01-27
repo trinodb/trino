@@ -11,7 +11,7 @@
   4 CPUs. ({issue}`27586`)
 * Improve performance of queries with data exchanges or aggregations. ({issue}`27657`)
 * Reduce out-of-memory errors in window queries when spilling is enabled. ({issue}`27873`)
-* Fix incorrect result in {func}`localtimestamp` for sub-micro precision values. ({issue}`27806`)
+* Fix incorrect results when using {func}`localtimestamp(3)`. ({issue}`27806`)
 * Fix {func}`localtimestamp` failure for precisions 7 and 8. ({issue}`27807`)
 
 ## Web UI
@@ -52,7 +52,7 @@
 ## Hive connector
 
 * Add support for reading Parquet files with timestamps stored in nanosecond units as a 
-  `timestamp(9) with time zone` column. ({issue}`27861`)
+  `timestamp(p) with time zone` column. ({issue}`27861`)
 * {{breaking}} Remove the `hive.write-validation-threads` configuration property. ({issue}`27729`)
 * {{breaking}} Remove the `parquet.optimized-writer.validation-percentage` configuration
   property, use the `parquet.writer.validation-percentage`, instead. ({issue}`27729`)
@@ -97,7 +97,7 @@
 * {{breaking}} The catalog configuration property `iceberg.extended-statistics.enabled` and the
   corresponding catalog session property `extended_statistics_enabled` are now defunct. ({issue}`27914`)
 * Improve effectiveness of bloom filters for high cardinality columns written in Parquet files. ({issue}`27656`)
-* Optimize Iceberg materialized view freshness checks based on grace period. ({issue}`27608`)
+* Improve query performance when querying fresh Iceberg materialized view. ({issue}`27608`)
 * Reduce planning time of queries with scans on tables with delete files. ({issue}`27955`)
 * Reduce planning time for simple queries with a scan and filter. ({issue}`27973`)
 * Fix failure when reading `$files` metadata table with partition evolution using 
