@@ -299,10 +299,10 @@ public class SqlTask
         return Optional.ofNullable(catalogs.get());
     }
 
-    public boolean setCatalogs(Set<CatalogHandle> catalogs)
+    public void setCatalogs(Set<CatalogHandle> catalogs)
     {
         requireNonNull(catalogs, "catalogs is null");
-        return this.catalogs.compareAndSet(null, requireNonNull(catalogs, "catalogs is null"));
+        this.catalogs.compareAndSet(null, requireNonNull(catalogs, "catalogs is null"));
     }
 
     public boolean catalogsLoaded()
@@ -310,9 +310,9 @@ public class SqlTask
         return catalogsLoaded.get();
     }
 
-    public boolean setCatalogsLoaded()
+    public void setCatalogsLoaded()
     {
-        return catalogsLoaded.compareAndSet(false, true);
+        catalogsLoaded.set(true);
     }
 
     public VersionedDynamicFilterDomains acknowledgeAndGetNewDynamicFilterDomains(long callersDynamicFiltersVersion)
