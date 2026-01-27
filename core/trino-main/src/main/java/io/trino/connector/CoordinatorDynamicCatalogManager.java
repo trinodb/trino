@@ -42,8 +42,6 @@ import java.util.concurrent.Callable;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.Executor;
-import java.util.concurrent.locks.Lock;
-import java.util.concurrent.locks.ReentrantLock;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -74,7 +72,7 @@ public class CoordinatorDynamicCatalogManager
     private final CatalogFactory catalogFactory;
     private final Executor executor;
 
-    private final Lock catalogsUpdateLock = new ReentrantLock();
+    private final Object catalogsUpdateLock = new Object();
 
     /**
      * Active catalogs that have been created and not dropped.
@@ -102,8 +100,7 @@ public class CoordinatorDynamicCatalogManager
     {
         List<CatalogConnector> catalogs;
 
-        catalogsUpdateLock.lock();
-        try {
+        synchronized (catalogsUpdateLock) {
             if (state == State.STOPPED) {
                 return;
             }
@@ -112,9 +109,6 @@ public class CoordinatorDynamicCatalogManager
             catalogs = ImmutableList.copyOf(allCatalogs.values());
             allCatalogs.clear();
             activeCatalogs.clear();
-        }
-        finally {
-            catalogsUpdateLock.unlock();
         }
 
         for (CatalogConnector connector : catalogs) {
@@ -125,8 +119,7 @@ public class CoordinatorDynamicCatalogManager
     @Override
     public void loadInitialCatalogs()
     {
-        catalogsUpdateLock.lock();
-        try {
+        synchronized (catalogsUpdateLock) {
             if (state == State.INITIALIZED) {
                 return;
             }
@@ -155,9 +148,6 @@ public class CoordinatorDynamicCatalogManager
                                 return null;
                             })
                             .collect(toImmutableList()));
-        }
-        finally {
-            catalogsUpdateLock.unlock();
         }
     }
 
@@ -197,8 +187,7 @@ public class CoordinatorDynamicCatalogManager
     public void pruneCatalogs(Set<CatalogHandle> catalogsInUse)
     {
         List<CatalogConnector> removedCatalogs = new ArrayList<>();
-        catalogsUpdateLock.lock();
-        try {
+        synchronized (catalogsUpdateLock) {
             if (state == State.STOPPED) {
                 return;
             }
@@ -217,9 +206,6 @@ public class CoordinatorDynamicCatalogManager
                     removedCatalogs.add(entry.getValue());
                 }
             }
-        }
-        finally {
-            catalogsUpdateLock.unlock();
         }
 
         // todo do this in a background thread
@@ -260,8 +246,7 @@ public class CoordinatorDynamicCatalogManager
         requireNonNull(connectorName, "connectorName is null");
         requireNonNull(properties, "properties is null");
 
-        catalogsUpdateLock.lock();
-        try {
+        synchronized (catalogsUpdateLock) {
             checkState(state != State.STOPPED, "ConnectorManager is stopped");
 
             if (activeCatalogs.containsKey(catalogName)) {
@@ -282,17 +267,13 @@ public class CoordinatorDynamicCatalogManager
 
             log.debug("Added catalog: %s", catalog.getCatalogHandle());
         }
-        finally {
-            catalogsUpdateLock.unlock();
-        }
     }
 
     public void registerGlobalSystemConnector(GlobalSystemConnector connector)
     {
         requireNonNull(connector, "connector is null");
 
-        catalogsUpdateLock.lock();
-        try {
+        synchronized (catalogsUpdateLock) {
             if (state == State.STOPPED) {
                 return;
             }
@@ -303,9 +284,6 @@ public class CoordinatorDynamicCatalogManager
             }
             allCatalogs.put(GlobalSystemConnector.CATALOG_HANDLE, catalog);
         }
-        finally {
-            catalogsUpdateLock.unlock();
-        }
     }
 
     @Override
@@ -314,15 +292,11 @@ public class CoordinatorDynamicCatalogManager
         requireNonNull(catalogName, "catalogName is null");
 
         boolean removed;
-        catalogsUpdateLock.lock();
-        try {
+        synchronized (catalogsUpdateLock) {
             checkState(state != State.STOPPED, "ConnectorManager is stopped");
 
             catalogStore.removeCatalog(catalogName);
             removed = activeCatalogs.remove(catalogName) != null;
-        }
-        finally {
-            catalogsUpdateLock.unlock();
         }
 
         if (!removed && !exists) {
