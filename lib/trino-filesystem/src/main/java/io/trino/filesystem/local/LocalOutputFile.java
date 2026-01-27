@@ -13,6 +13,7 @@
  */
 package io.trino.filesystem.local;
 
+import com.google.common.io.Closer;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoOutputFile;
 import io.trino.memory.context.AggregatedMemoryContext;
@@ -75,35 +76,30 @@ public class LocalOutputFile
             throw new FileAlreadyExistsException(location.toString());
         }
 
-        boolean lockCreated = false;
+        Closer closer = Closer.create();
         Path lockPath = path.resolveSibling(path.getFileName() + ".lock");
-        try (FileChannel channel = FileChannel.open(lockPath, CREATE_NEW, WRITE);
-                FileLock lock = channel.lock()) {
-            lockCreated = true;
+        FileChannel channel = FileChannel.open(lockPath, CREATE_NEW, WRITE);
+        closer.register(channel);
+        closer.register(() -> Files.deleteIfExists(lockPath));
+        try (FileLock lock = channel.lock()) {
             if (Files.exists(path)) {
                 throw new FileAlreadyExistsException(location.toString());
             }
 
             Path tmpFilePath = path.resolveSibling(path.getFileName() + "." + randomUUID() + ".tmp");
             try (OutputStream out = Files.newOutputStream(tmpFilePath, CREATE_NEW, WRITE)) {
+                closer.register(() -> Files.deleteIfExists(tmpFilePath));
                 out.write(data);
             }
 
-            // Use atomic move to ensure that the file is only visible when fully written
+            // Ensure that the file is only visible when fully written
             Files.move(tmpFilePath, path, ATOMIC_MOVE);
         }
         catch (IOException e) {
             throw handleException(location, e);
         }
         finally {
-            if (lockCreated) {
-                try {
-                    Files.deleteIfExists(lockPath);
-                }
-                catch (IOException lockDeleteException) {
-                    throw handleException(location, lockDeleteException);
-                }
-            }
+            closer.close();
         }
     }
 
