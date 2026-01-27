@@ -55,6 +55,8 @@ import io.trino.plugin.iceberg.catalog.TrinoCatalog;
 import io.trino.plugin.iceberg.delete.DeletionVectorWriter;
 import io.trino.plugin.iceberg.delete.DeletionVectorWriter.DeletionVectorInfo;
 import io.trino.plugin.iceberg.functions.IcebergFunctionProvider;
+import io.trino.plugin.iceberg.UpdateKind;
+import io.trino.plugin.iceberg.UpdateMode;
 import io.trino.plugin.iceberg.functions.tablechanges.TableChangesFunctionHandle;
 import io.trino.plugin.iceberg.procedure.IcebergAddFilesFromTableHandle;
 import io.trino.plugin.iceberg.procedure.IcebergAddFilesHandle;
@@ -449,7 +451,9 @@ import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.Objects.requireNonNullElse;
 import static java.util.UUID.randomUUID;
+import static java.util.UUID.randomUUID;
 import static java.util.function.Function.identity;
+import static io.airlift.slice.Slices.utf8Slice;
 import static java.util.stream.Collectors.joining;
 import static org.apache.iceberg.IcebergManifestUtils.liveEntries;
 import static org.apache.iceberg.MetadataTableType.ALL_ENTRIES;
@@ -543,6 +547,9 @@ public class IcebergMetadata
     private final Map<IcebergTableHandle, AtomicReference<TableStatistics>> tableStatisticsCache = new ConcurrentHashMap<>();
     private final NonEvictableCache<SchemaTableName, IcebergTableCredentials> tableCredentialsCache;
     private final DeletionVectorWriter deletionVectorWriter;
+    private final IcebergPageSourceProvider pageSourceProvider;
+    private final IcebergFileWriterFactory fileWriterFactory;
+    private static final Logger log = Logger.get(IcebergMetadata.class);
 
     private Transaction transaction;
     private OptionalLong fromSnapshotForRefresh = OptionalLong.empty();
@@ -563,7 +570,9 @@ public class IcebergMetadata
             ExecutorService icebergPlanningExecutor,
             ExecutorService icebergFileDeleteExecutor,
             int materializedViewRefreshMaxSnapshotsToExpire,
-            Duration materializedViewRefreshSnapshotRetentionPeriod)
+            Duration materializedViewRefreshSnapshotRetentionPeriod,
+            IcebergPageSourceProvider pageSourceProvider,
+            IcebergFileWriterFactory fileWriterFactory)
     {
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.commitTaskCodec = requireNonNull(commitTaskCodec, "commitTaskCodec is null");
@@ -582,6 +591,8 @@ public class IcebergMetadata
         this.materializedViewRefreshMaxSnapshotsToExpire = materializedViewRefreshMaxSnapshotsToExpire;
         this.materializedViewRefreshSnapshotRetentionPeriod = materializedViewRefreshSnapshotRetentionPeriod;
         this.tableCredentialsCache = buildNonEvictableCache(CacheBuilder.newBuilder());
+        this.pageSourceProvider = requireNonNull(pageSourceProvider, "pageSourceProvider is null");
+        this.fileWriterFactory = requireNonNull(fileWriterFactory, "fileWriterFactory is null");
     }
 
     @Override
