@@ -17,7 +17,7 @@ import io.trino.Session;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.filesystem.TrinoInputFile;
-import io.trino.plugin.hudi.testing.ResourceHudiTablesInitializer;
+import io.trino.plugin.hudi.testing.DynamicHudiTablesInitializer;
 import io.trino.spi.security.ConnectorIdentity;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
@@ -26,21 +26,22 @@ import org.junit.jupiter.api.Test;
 
 import java.time.ZonedDateTime;
 
-import static io.trino.plugin.hudi.testing.ResourceHudiTablesInitializer.TestingTable.HUDI_COW_PT_TBL;
-import static io.trino.plugin.hudi.testing.ResourceHudiTablesInitializer.TestingTable.HUDI_NON_PART_COW;
-import static io.trino.plugin.hudi.testing.ResourceHudiTablesInitializer.TestingTable.STOCK_TICKS_COW;
-import static io.trino.plugin.hudi.testing.ResourceHudiTablesInitializer.TestingTable.STOCK_TICKS_MOR;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestHudiSmokeTest
         extends AbstractTestQueryFramework
 {
+    private static final String HUDI_NON_PART_COW = "hudi_non_part_cow";
+    private static final String HUDI_COW_PT_TBL = "hudi_cow_pt_tbl";
+    private static final String STOCK_TICKS_COW = "stock_ticks_cow";
+    private static final String STOCK_TICKS_MOR = "stock_ticks_mor";
+
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
         return HudiQueryRunner.builder()
-                .setDataLoader(new ResourceHudiTablesInitializer())
+                .setDataLoader(new DynamicHudiTablesInitializer())
                 .build();
     }
 
@@ -125,13 +126,21 @@ public class TestHudiSmokeTest
     @Test
     public void testMetaColumns()
     {
-        assertQuery("SELECT _hoodie_commit_time FROM hudi_cow_pt_tbl", "VALUES ('20220906063435640'), ('20220906063456550')");
-        assertQuery("SELECT _hoodie_commit_seqno FROM hudi_cow_pt_tbl", "VALUES ('20220906063435640_0_0'), ('20220906063456550_0_0')");
-        assertQuery("SELECT _hoodie_record_key FROM hudi_cow_pt_tbl", "VALUES ('id:1'), ('id:2')");
-        assertQuery("SELECT _hoodie_partition_path FROM hudi_cow_pt_tbl", "VALUES ('dt=2021-12-09/hh=10'), ('dt=2021-12-09/hh=11')");
-        assertQuery(
-                "SELECT _hoodie_file_name FROM hudi_cow_pt_tbl",
-                "VALUES ('719c3273-2805-4124-b1ac-e980dada85bf-0_0-27-1215_20220906063435640.parquet'), ('4a3fcb9b-65eb-4f6e-acf9-7b0764bb4dd1-0_0-70-2444_20220906063456550.parquet')");
+        // Verify commit times exist and there are 2 records
+        assertQuery("SELECT count(*) FROM hudi_cow_pt_tbl WHERE _hoodie_commit_time IS NOT NULL", "VALUES 2");
+
+        // Verify commit sequences exist
+        assertQuery("SELECT count(*) FROM hudi_cow_pt_tbl WHERE _hoodie_commit_seqno IS NOT NULL", "VALUES 2");
+
+        // Verify record keys are correct
+        assertQuery("SELECT _hoodie_record_key FROM hudi_cow_pt_tbl ORDER BY _hoodie_record_key", "VALUES ('id:1'), ('id:2')");
+
+        // Verify partition paths are correct
+        assertQuery("SELECT _hoodie_partition_path FROM hudi_cow_pt_tbl ORDER BY _hoodie_partition_path",
+                "VALUES ('dt=2021-12-09/hh=10'), ('dt=2021-12-09/hh=11')");
+
+        // Verify file names exist and contain .parquet extension
+        assertQuery("SELECT count(*) FROM hudi_cow_pt_tbl WHERE _hoodie_file_name LIKE '%.parquet'", "VALUES 2");
     }
 
     @Test
@@ -178,7 +187,7 @@ public class TestHudiSmokeTest
         assertQueryFails(
                 session,
                 "SELECT * FROM " + HUDI_COW_PT_TBL,
-                "Filter required on tests." + HUDI_COW_PT_TBL.getTableName() + " for at least one of the partition columns: dt, hh");
+                "Filter required on tests." + HUDI_COW_PT_TBL + " for at least one of the partition columns: dt, hh");
     }
 
     @Test
@@ -189,7 +198,7 @@ public class TestHudiSmokeTest
         assertQueryFails(
                 session,
                 "SELECT * FROM " + HUDI_COW_PT_TBL + " WHERE id = 1",
-                "Filter required on tests." + HUDI_COW_PT_TBL.getTableName() + " for at least one of the partition columns: dt, hh");
+                "Filter required on tests." + HUDI_COW_PT_TBL + " for at least one of the partition columns: dt, hh");
     }
 
     @Test
@@ -224,14 +233,14 @@ public class TestHudiSmokeTest
         assertQueryFails(
                 session,
                 "SELECT id FROM " + HUDI_COW_PT_TBL + " WHERE dt IS NOT null OR true",
-                "Filter required on tests." + HUDI_COW_PT_TBL.getTableName() + " for at least one of the partition columns: dt, hh");
+                "Filter required on tests." + HUDI_COW_PT_TBL + " for at least one of the partition columns: dt, hh");
     }
 
     @Test
     public void testPartitionFilterRequiredOnJoin()
     {
         Session session = withPartitionFilterRequired(getSession());
-        @Language("RegExp") String errorMessage = "Filter required on tests." + HUDI_COW_PT_TBL.getTableName() + " for at least one of the partition columns: dt, hh";
+        @Language("RegExp") String errorMessage = "Filter required on tests." + HUDI_COW_PT_TBL + " for at least one of the partition columns: dt, hh";
 
         // ON with partition column
         assertQueryFails(
@@ -290,7 +299,7 @@ public class TestHudiSmokeTest
         assertQueryFails(
                 session,
                 "SELECT t1.name, t2.name FROM " + HUDI_COW_PT_TBL + " t1 JOIN " + HUDI_COW_PT_TBL + " t2 ON (t1.dt = t2.dt)",
-                "Filter required on tests." + HUDI_COW_PT_TBL.getTableName() + " for at least one of the partition columns: dt, hh");
+                "Filter required on tests." + HUDI_COW_PT_TBL + " for at least one of the partition columns: dt, hh");
         // ON with partition column and WHERE with same left table's partition column
         assertQuery(
                 session,
@@ -302,7 +311,7 @@ public class TestHudiSmokeTest
                 "SELECT t1.name, t2.name FROM " + HUDI_COW_PT_TBL + " t1 JOIN " + HUDI_COW_PT_TBL + " t2 ON (t1.dt = t2.dt) WHERE t2.dt = '2021-12-09'",
                 "VALUES ('a1', 'a1'), ('a2', 'a2'), ('a1', 'a2'), ('a2', 'a1')");
 
-        @Language("RegExp") String errorMessage = "Filter required on tests." + HUDI_COW_PT_TBL.getTableName() + " for at least one of the partition columns: dt, hh";
+        @Language("RegExp") String errorMessage = "Filter required on tests." + HUDI_COW_PT_TBL + " for at least one of the partition columns: dt, hh";
         // ON with partition column and WHERE with different left table's partition column
         assertQueryFails(session, "SELECT t1.name, t2.name FROM " + HUDI_COW_PT_TBL + " t1 JOIN " + HUDI_COW_PT_TBL + " t2 ON (t1.dt = t2.dt) WHERE t1.hh = '10'", errorMessage);
         // ON with partition column and WHERE with different right table's partition column
@@ -325,7 +334,7 @@ public class TestHudiSmokeTest
         assertQueryFails(
                 session,
                 "SELECT name FROM " + HUDI_COW_PT_TBL + " WHERE name LIKE '%1'",
-                "Filter required on tests." + HUDI_COW_PT_TBL.getTableName() + " for at least one of the partition columns: dt, hh");
+                "Filter required on tests." + HUDI_COW_PT_TBL + " for at least one of the partition columns: dt, hh");
     }
 
     @Test
@@ -346,7 +355,7 @@ public class TestHudiSmokeTest
         assertQuery(session, "SELECT count(*) FROM " + HUDI_COW_PT_TBL + " WHERE hh = '12' AND dt = '2021-12-19'", "VALUES 0");
 
         // Predicate which could not be translated into tuple domain
-        @Language("RegExp") String errorMessage = "Filter required on tests." + HUDI_COW_PT_TBL.getTableName() + " for at least one of the partition columns: dt, hh";
+        @Language("RegExp") String errorMessage = "Filter required on tests." + HUDI_COW_PT_TBL + " for at least one of the partition columns: dt, hh";
         assertQueryFails(session, "SELECT count(*) FROM " + HUDI_COW_PT_TBL + " WHERE CAST(hh AS INTEGER) % 2 = 0", errorMessage);
         assertQueryFails(session, "SELECT count(*) FROM " + HUDI_COW_PT_TBL + " WHERE CAST(hh AS INTEGER) - 11 = 0", errorMessage);
         assertQueryFails(session, "SELECT count(*) FROM " + HUDI_COW_PT_TBL + " WHERE CAST(hh AS INTEGER) * 2 = 20", errorMessage);
