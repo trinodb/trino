@@ -13,10 +13,13 @@
  */
 package io.trino.connector;
 
+import com.google.common.collect.ImmutableSet;
 import io.trino.spi.catalog.CatalogProperties;
 
 import java.util.List;
 import java.util.Set;
+
+import static java.util.Objects.requireNonNull;
 
 public interface ConnectorServicesProvider
 {
@@ -24,7 +27,27 @@ public interface ConnectorServicesProvider
 
     void ensureCatalogsLoaded(List<CatalogProperties> catalogs);
 
-    void pruneCatalogs(Set<CatalogHandle> catalogsInUse);
+    /**
+     * Returns prunable state to be passed to {@link #pruneCatalogs}.
+     */
+    PrunableState getPrunableState();
+
+    /**
+     * Prune catalogs that are no longer in use.
+     *
+     * @param prunableState obtained from {@link #getPrunableState}
+     * @param catalogsInUse catalogs in use observed between obtaining the prunable state and calling this method
+     */
+    void pruneCatalogs(PrunableState prunableState, Set<CatalogHandle> catalogsInUse);
 
     ConnectorServices getConnectorServices(CatalogHandle catalogHandle);
+
+    // Note: this could be an interface to allow implementation-specific payload, however, it's concrete class for simplicity.
+    record PrunableState(Set<CatalogHandle> prunableCatalogs)
+    {
+        public PrunableState
+        {
+            prunableCatalogs = ImmutableSet.copyOf(requireNonNull(prunableCatalogs, "prunableCatalogs is null"));
+        }
+    }
 }

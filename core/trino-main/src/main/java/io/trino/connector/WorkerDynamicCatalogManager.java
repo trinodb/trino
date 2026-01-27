@@ -13,6 +13,7 @@
  */
 package io.trino.connector;
 
+import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.errorprone.annotations.ThreadSafe;
@@ -165,7 +166,13 @@ public class WorkerDynamicCatalogManager
     }
 
     @Override
-    public void pruneCatalogs(Set<CatalogHandle> catalogsInUse)
+    public PrunableState getPrunableState()
+    {
+        return new PrunableState(ImmutableSet.copyOf(catalogs.keySet()));
+    }
+
+    @Override
+    public void pruneCatalogs(PrunableState prunableState, Set<CatalogHandle> catalogsInUse)
     {
         List<CatalogConnector> removedCatalogs = new ArrayList<>();
         catalogRemovingLock.lock();
@@ -176,7 +183,8 @@ public class WorkerDynamicCatalogManager
             Iterator<Entry<CatalogHandle, CatalogConnector>> iterator = catalogs.entrySet().iterator();
             while (iterator.hasNext()) {
                 Entry<CatalogHandle, CatalogConnector> entry = iterator.next();
-                if (!catalogsInUse.contains(entry.getKey())) {
+                CatalogHandle catalogHandle = entry.getKey();
+                if (prunableState.prunableCatalogs().contains(catalogHandle) && !catalogsInUse.contains(catalogHandle)) {
                     iterator.remove();
                     removedCatalogs.add(entry.getValue());
                 }
@@ -256,7 +264,7 @@ public class WorkerDynamicCatalogManager
         }
 
         @Override
-        public Set<CatalogHandle> getActiveCatalogs()
+        public Set<CatalogHandle> getReachableDynamicCatalogs()
         {
             return Set.of();
         }
