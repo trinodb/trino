@@ -38,7 +38,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
-import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.Executor;
@@ -50,7 +49,6 @@ import java.util.function.Supplier;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.util.concurrent.Futures.immediateFailedFuture;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
@@ -160,15 +158,6 @@ public class InMemoryTransactionManager
         return transactions.values().stream()
                 .map(TransactionMetadata::getTransactionInfo)
                 .collect(toImmutableList());
-    }
-
-    @Override
-    public Set<TransactionId> getTransactionsUsingCatalog(CatalogHandle catalogHandle)
-    {
-        return transactions.values().stream()
-                .filter(transactionMetadata -> transactionMetadata.isUsingCatalog(catalogHandle))
-                .map(TransactionMetadata::getTransactionId)
-                .collect(toImmutableSet());
     }
 
     @Override
@@ -316,12 +305,6 @@ public class InMemoryTransactionManager
     }
 
     @Override
-    public void blockCommit(TransactionId transactionId, String reason)
-    {
-        getTransactionMetadata(transactionId).blockCommit(reason);
-    }
-
-    @Override
     public void fail(TransactionId transactionId)
     {
         // Mark the transaction as failed, but don't remove it.
@@ -371,11 +354,6 @@ public class InMemoryTransactionManager
             this.finishingExecutor = requireNonNull(finishingExecutor, "finishingExecutor is null");
         }
 
-        public TransactionId getTransactionId()
-        {
-            return transactionId;
-        }
-
         public void setActive()
         {
             idleStartTime.set(null);
@@ -392,11 +370,6 @@ public class InMemoryTransactionManager
             return idleStartTime != null && Duration.nanosSince(idleStartTime).compareTo(idleTimeout) > 0;
         }
 
-        public void blockCommit(String reason)
-        {
-            commitBlocked.set(requireNonNull(reason, "reason is null"));
-        }
-
         public void checkOpenTransaction()
         {
             Boolean completedStatus = this.completedSuccessfully.get();
@@ -407,14 +380,6 @@ public class InMemoryTransactionManager
                 }
                 throw new TrinoException(TRANSACTION_ALREADY_ABORTED, "Current transaction is aborted, commands ignored until end of transaction block");
             }
-        }
-
-        public synchronized boolean isUsingCatalog(CatalogHandle catalogHandle)
-        {
-            return registeredCatalogs.values().stream()
-                    .flatMap(Optional::stream)
-                    .map(Catalog::getCatalogHandle)
-                    .anyMatch(catalogHandle::equals);
         }
 
         private synchronized List<CatalogInfo> getActiveCatalogs()

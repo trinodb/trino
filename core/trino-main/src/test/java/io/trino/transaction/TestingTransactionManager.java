@@ -28,7 +28,6 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -78,12 +77,6 @@ public class TestingTransactionManager
         return transactions.keySet().stream()
                 .map(this::getTransactionInfo)
                 .collect(toImmutableList());
-    }
-
-    @Override
-    public Set<TransactionId> getTransactionsUsingCatalog(CatalogHandle catalogHandle)
-    {
-        throw new UnsupportedOperationException();
     }
 
     @Override
@@ -184,12 +177,6 @@ public class TestingTransactionManager
     {
         checkState(transactions.remove(transactionId) != null, "Transaction is already finished");
         return immediateVoidFuture();
-    }
-
-    @Override
-    public void blockCommit(TransactionId transactionId, String reason)
-    {
-        throw new UnsupportedOperationException();
     }
 
     @Override
