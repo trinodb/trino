@@ -157,8 +157,12 @@ public class TestingTrinoServer
 {
     static {
         Logging logging = Logging.initialize();
+        logging.setLevel("io.trino.connector.CatalogStoreManager", Level.ERROR);
+        logging.setLevel("io.trino.server.PluginManager", Level.ERROR);
+        logging.setLevel("io.trino.memory.RemoteNodeMemory", Level.ERROR);
         logging.setLevel("io.trino.event.QueryMonitor", Level.ERROR);
         logging.setLevel("org.eclipse.jetty", Level.ERROR);
+        logging.setLevel("io.airlift.http.server", Level.ERROR);
         logging.setLevel("io.airlift.concurrent.BoundedExecutor", Level.OFF);
 
         // Trino server behavior does not depend on locale settings.
