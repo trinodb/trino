@@ -79,7 +79,7 @@ public class NimbusAirliftHttpClient
                 .setMethod(method.name())
                 .setFollowRedirects(httpRequest.getFollowRedirects());
 
-        UriBuilder url = UriBuilder.fromUri(httpRequest.getURI());
+        UriBuilder url = UriBuilder.fromUri(httpRequest.getURI()).replaceQuery(null);
         if (method.equals(GET) || method.equals(DELETE)) {
             httpRequest.getQueryStringParameters().forEach((key, value) -> url.queryParam(key, value.toArray()));
         }
