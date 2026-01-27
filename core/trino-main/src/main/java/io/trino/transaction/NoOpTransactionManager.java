@@ -22,7 +22,6 @@ import io.trino.spi.transaction.IsolationLevel;
 
 import java.util.List;
 import java.util.Optional;
-import java.util.Set;
 
 /**
  * Used on workers.
@@ -50,12 +49,6 @@ public class NoOpTransactionManager
 
     @Override
     public List<TransactionInfo> getAllTransactionInfos()
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public Set<TransactionId> getTransactionsUsingCatalog(CatalogHandle catalogHandle)
     {
         throw new UnsupportedOperationException();
     }
@@ -152,12 +145,6 @@ public class NoOpTransactionManager
 
     @Override
     public ListenableFuture<Void> asyncAbort(TransactionId transactionId)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public void blockCommit(TransactionId transactionId, String reason)
     {
         throw new UnsupportedOperationException();
     }
