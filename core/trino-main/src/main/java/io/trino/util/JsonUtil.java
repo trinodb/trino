@@ -62,7 +62,7 @@ import io.trino.type.VarcharOperators;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
-import java.io.StringReader;
+import java.io.Reader;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -132,7 +132,7 @@ public final class JsonUtil
         // is still valid for small inputs.
         if (json.length() < STRING_READER_LENGTH_LIMIT) {
             // StringReader is more performant than InputStreamReader for small inputs
-            return factory.createParser(new StringReader(json.toStringUtf8()));
+            return factory.createParser(Reader.of(json.toStringUtf8()));
         }
 
         return factory.createParser(new InputStreamReader(json.getInput(), UTF_8));
