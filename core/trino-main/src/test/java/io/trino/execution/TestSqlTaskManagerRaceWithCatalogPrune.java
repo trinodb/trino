@@ -231,7 +231,7 @@ public class TestSqlTaskManagerRaceWithCatalogPrune
         Future<Void> pruneCatalogsFuture = Futures.submit(() ->
         {
             for (int i = 0; i < NUM_TASKS; i++) {
-                catalogPruneTask.pruneWorkerCatalogs();
+                catalogPruneTask.pruneCatalogs();
                 try {
                     Thread.sleep(0, ThreadLocalRandom.current().nextInt(25, 75));
                 }
