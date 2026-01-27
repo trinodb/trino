@@ -75,7 +75,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.Predicate;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -88,6 +87,7 @@ import static io.trino.SystemSessionProperties.getRetryPolicy;
 import static io.trino.SystemSessionProperties.resourceOvercommit;
 import static io.trino.cache.SafeCaches.buildNonEvictableCache;
 import static io.trino.connector.CatalogHandle.createRootCatalogHandle;
+import static io.trino.connector.ConnectorServicesProvider.PrunableState;
 import static io.trino.execution.SqlTask.createSqlTask;
 import static io.trino.execution.executor.timesharing.PrioritizedSplitRunner.SPLIT_RUN_QUANTA;
 import static io.trino.operator.RetryPolicy.TASK;
@@ -463,25 +463,17 @@ public class SqlTaskManager
         return sqlTask.acknowledgeAndGetNewDynamicFilterDomains(currentDynamicFiltersVersion);
     }
 
-    private final ReentrantReadWriteLock catalogsLock = new ReentrantReadWriteLock();
-
     public void pruneCatalogs(Set<CatalogHandle> activeCatalogs)
     {
         Set<CatalogHandle> catalogsInUse = new HashSet<>(activeCatalogs);
-        ReentrantReadWriteLock.WriteLock pruneLock = catalogsLock.writeLock();
-        pruneLock.lock();
-        try {
-            for (SqlTask task : tasks.asMap().values()) {
-                // add all catalogs being used by a non-done task
-                if (!task.getTaskState().isDone()) {
-                    catalogsInUse.addAll(task.getCatalogs().orElse(ImmutableSet.of()));
-                }
+        PrunableState prunableState = connectorServicesProvider.getPrunableState();
+        for (SqlTask task : tasks.asMap().values()) {
+            // add all catalogs being used by a non-done task
+            if (!task.getTaskState().isDone()) {
+                catalogsInUse.addAll(task.getCatalogs().orElse(ImmutableSet.of()));
             }
-            connectorServicesProvider.pruneCatalogs(catalogsInUse);
         }
-        finally {
-            pruneLock.unlock();
-        }
+        connectorServicesProvider.pruneCatalogs(prunableState, catalogsInUse);
     }
 
     /**
@@ -551,15 +543,8 @@ public class SqlTaskManager
                             .collect(toImmutableSet());
                     sqlTask.setCatalogs(catalogHandles);
                     if (!sqlTask.catalogsLoaded()) {
-                        ReentrantReadWriteLock.ReadLock catalogInitLock = catalogsLock.readLock();
-                        catalogInitLock.lock();
-                        try {
-                            connectorServicesProvider.ensureCatalogsLoaded(activeCatalogs);
-                            sqlTask.setCatalogsLoaded();
-                        }
-                        finally {
-                            catalogInitLock.unlock();
-                        }
+                        connectorServicesProvider.ensureCatalogsLoaded(activeCatalogs);
+                        sqlTask.setCatalogsLoaded();
                     }
                 });
 

@@ -25,6 +25,7 @@ import io.airlift.http.client.ResponseHandler;
 import io.airlift.json.JsonCodec;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
+import io.trino.connector.ConnectorServicesProvider.PrunableState;
 import io.trino.metadata.CatalogManager;
 import io.trino.node.AllNodes;
 import io.trino.node.InternalNode;
@@ -133,12 +134,14 @@ public class CatalogPruneTask
                 .filter(uri -> !uri.equals(currentNode.getInternalUri()))
                 .collect(toImmutableSet());
 
+        PrunableState prunableState = connectorServicesProvider.getPrunableState();
+
         // send message to workers to trigger prune
         Set<CatalogHandle> activeCatalogs = getActiveCatalogs();
         pruneWorkerCatalogs(online, activeCatalogs);
 
         // prune inactive catalogs locally
-        connectorServicesProvider.pruneCatalogs(activeCatalogs);
+        connectorServicesProvider.pruneCatalogs(prunableState, activeCatalogs);
     }
 
     void pruneWorkerCatalogs(Set<URI> online, Set<CatalogHandle> activeCatalogs)
@@ -172,10 +175,10 @@ public class CatalogPruneTask
     private Set<CatalogHandle> getActiveCatalogs()
     {
         ImmutableSet.Builder<CatalogHandle> activeCatalogs = ImmutableSet.builder();
-        // all catalogs in an active transaction
-        transactionManager.getAllTransactionInfos().forEach(info -> activeCatalogs.addAll(info.getActiveCatalogs()));
         // all catalogs currently associated with a name
-        activeCatalogs.addAll(catalogManager.getActiveCatalogs());
+        activeCatalogs.addAll(catalogManager.getReachableDynamicCatalogs());
+        // all catalogs that still may be used by ongoing transactions
+        transactionManager.getAllTransactionInfos().forEach(info -> activeCatalogs.addAll(info.getRegisteredCatalogs()));
         return activeCatalogs.build();
     }
 }
