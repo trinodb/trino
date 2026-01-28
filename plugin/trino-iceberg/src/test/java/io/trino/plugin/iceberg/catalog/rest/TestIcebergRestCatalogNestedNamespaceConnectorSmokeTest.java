@@ -195,7 +195,12 @@ final class TestIcebergRestCatalogNestedNamespaceConnectorSmokeTest
         assertThat((String) computeScalar("SHOW CREATE VIEW " + viewName))
                 .isEqualTo(
                         """
-                        CREATE VIEW iceberg."level_1.level_2".%s SECURITY DEFINER AS
+                        CREATE VIEW iceberg."level_1.level_2".%s (
+                           nationkey,
+                           name,
+                           regionkey,
+                           comment
+                        ) SECURITY DEFINER AS
                         SELECT *
                         FROM
                           nation""".formatted(viewName));
