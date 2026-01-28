@@ -186,4 +186,11 @@ public class EncryptionEnforcingFileSystem
     {
         return delegate;
     }
+
+    @Override
+    public void close()
+            throws IOException
+    {
+        delegate.close();
+    }
 }
