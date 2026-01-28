@@ -544,7 +544,7 @@ public final class TestHiveFileFormats
 
     @ParameterizedTest
     @MethodSource("rowCount")
-    public static void testAvroFileInSymlinkTable(int rowCount)
+    void testAvroFileInSymlinkTable(int rowCount)
             throws Exception
     {
         TrinoFileSystemFactory fileSystemFactory = new MemoryFileSystemFactory();
