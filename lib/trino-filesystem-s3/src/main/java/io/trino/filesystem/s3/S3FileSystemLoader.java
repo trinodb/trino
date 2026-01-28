@@ -19,6 +19,7 @@ import io.opentelemetry.instrumentation.awssdk.v2_2.AwsSdkTelemetry;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.filesystem.s3.S3Context.S3SseContext;
+import io.trino.spi.security.ConnectorIdentity;
 import jakarta.annotation.PreDestroy;
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
@@ -51,6 +52,9 @@ import java.util.function.Function;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.trino.filesystem.s3.S3FileSystemConfig.RetryMode.getRetryStrategy;
+import static io.trino.filesystem.s3.S3FileSystemConstants.EXTRA_CREDENTIALS_CROSS_REGION_ACCESS_ENABLED_PROPERTY;
+import static io.trino.filesystem.s3.S3FileSystemConstants.EXTRA_CREDENTIALS_ENDPOINT_PROPERTY;
+import static io.trino.filesystem.s3.S3FileSystemConstants.EXTRA_CREDENTIALS_REGION_PROPERTY;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
@@ -60,7 +64,7 @@ import static software.amazon.awssdk.core.client.config.SdkAdvancedClientOption.
 final class S3FileSystemLoader
         implements Function<Location, TrinoFileSystemFactory>
 {
-    private final Optional<S3SecurityMappingProvider> mappingProvider;
+    private final Optional<S3CredentialsMapper> mappingProvider;
     private final SdkHttpClient httpClient;
     private final S3ClientFactory clientFactory;
     private final S3Presigner preSigner;
@@ -69,17 +73,7 @@ final class S3FileSystemLoader
     private final Map<Optional<S3SecurityMappingResult>, S3Client> clients = new ConcurrentHashMap<>();
 
     @Inject
-    public S3FileSystemLoader(S3SecurityMappingProvider mappingProvider, OpenTelemetry openTelemetry, S3FileSystemConfig config, S3FileSystemStats stats)
-    {
-        this(Optional.of(mappingProvider), openTelemetry, config, stats);
-    }
-
-    S3FileSystemLoader(OpenTelemetry openTelemetry, S3FileSystemConfig config, S3FileSystemStats stats)
-    {
-        this(Optional.empty(), openTelemetry, config, stats);
-    }
-
-    private S3FileSystemLoader(Optional<S3SecurityMappingProvider> mappingProvider, OpenTelemetry openTelemetry, S3FileSystemConfig config, S3FileSystemStats stats)
+    public S3FileSystemLoader(Optional<S3CredentialsMapper> mappingProvider, OpenTelemetry openTelemetry, S3FileSystemConfig config, S3FileSystemStats stats)
     {
         this.mappingProvider = requireNonNull(mappingProvider, "mappingProvider is null");
         this.httpClient = createHttpClient(config);
@@ -101,6 +95,11 @@ final class S3FileSystemLoader
                 Optional.empty(),
                 config.getStorageClass(),
                 config.getCannedAcl());
+    }
+
+    S3FileSystemLoader(OpenTelemetry openTelemetry, S3FileSystemConfig config, S3FileSystemStats stats)
+    {
+        this(Optional.empty(), openTelemetry, config, stats);
     }
 
     @Override
@@ -128,6 +127,12 @@ final class S3FileSystemLoader
     @PreDestroy
     public void destroy()
     {
+        for (S3Client client : clients.values()) {
+            try (var _ = client) {
+                // Resource automatically closed
+            }
+        }
+        clients.clear();
         try (httpClient) {
             uploadExecutor.shutdownNow();
         }
@@ -151,6 +156,37 @@ final class S3FileSystemLoader
     Executor uploadExecutor()
     {
         return uploadExecutor;
+    }
+
+    public static Optional<String> extractRegionFromIdentity(ConnectorIdentity identity)
+    {
+        return Optional.ofNullable(identity.getExtraCredentials().get(EXTRA_CREDENTIALS_REGION_PROPERTY));
+    }
+
+    public static Optional<String> extractEndpointFromIdentity(ConnectorIdentity identity)
+    {
+        return Optional.ofNullable(identity.getExtraCredentials().get(EXTRA_CREDENTIALS_ENDPOINT_PROPERTY));
+    }
+
+    public static Optional<Boolean> extractCrossRegionAccessEnabledFromIdentity(ConnectorIdentity identity)
+    {
+        String value = identity.getExtraCredentials().get(EXTRA_CREDENTIALS_CROSS_REGION_ACCESS_ENABLED_PROPERTY);
+        return value != null ? Optional.of(Boolean.parseBoolean(value)) : Optional.empty();
+    }
+
+    S3Client createClientWithOverrides(String region, String endpoint, Boolean crossRegionAccessEnabled)
+    {
+        S3SecurityMappingResult customMapping = new S3SecurityMappingResult(
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.ofNullable(endpoint),
+                Optional.ofNullable(region),
+                Optional.ofNullable(crossRegionAccessEnabled));
+
+        return clientFactory.create(Optional.of(customMapping));
     }
 
     private static S3ClientFactory s3ClientFactory(SdkHttpClient httpClient, OpenTelemetry openTelemetry, S3FileSystemConfig config, MetricPublisher metricPublisher)
@@ -177,9 +213,13 @@ final class S3FileSystemLoader
             Optional<String> iamRole = mapping.flatMap(S3SecurityMappingResult::iamRole).or(() -> staticIamRole);
             String roleSessionName = mapping.flatMap(S3SecurityMappingResult::roleSessionName).orElse(staticRoleSessionName);
 
+            boolean crossRegionAccessEnabled = mapping
+                    .flatMap(S3SecurityMappingResult::crossRegionAccessEnabled)
+                    .orElse(config.isCrossRegionAccessEnabled());
+
             S3ClientBuilder s3 = S3Client.builder();
             s3.overrideConfiguration(overrideConfiguration);
-            s3.crossRegionAccessEnabled(config.isCrossRegionAccessEnabled());
+            s3.crossRegionAccessEnabled(crossRegionAccessEnabled);
             s3.httpClient(httpClient);
             s3.responseChecksumValidation(WHEN_REQUIRED);
             s3.requestChecksumCalculation(RequestChecksumCalculation.WHEN_REQUIRED);
