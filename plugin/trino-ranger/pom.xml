@@ -15,7 +15,7 @@
     <description>Trino - Apache Ranger access control</description>
 
     <properties>
-        <dep.graalvm.version>25.0.1</dep.graalvm.version>
+        <dep.graalvm.version>25.0.2</dep.graalvm.version>
         <!-- TODO: remove once Ranger upgrades to Jetty 12 -->
         <dep.jetty11.version>11.0.26</dep.jetty11.version>
         <dep.ranger.version>2.7.0</dep.ranger.version>
