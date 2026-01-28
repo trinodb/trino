@@ -26,6 +26,7 @@ import org.gaul.modernizer_maven_annotations.SuppressModernizer;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.time.Duration;
+import java.util.Properties;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.cache.RemovalCause.EXPLICIT;
@@ -85,19 +86,26 @@ public final class ReusableConnectionFactory
     public Connection openConnection(ConnectorSession session)
             throws SQLException
     {
+        return openConnection(session, new Properties());
+    }
+
+    @Override
+    public Connection openConnection(ConnectorSession session, Properties properties)
+            throws SQLException
+    {
         String queryId = session.getQueryId();
-        Connection connection = getConnection(session, queryId);
+        Connection connection = getConnection(session, properties, queryId);
         return new CachedConnection(queryId, connection);
     }
 
-    private Connection getConnection(ConnectorSession session, String queryId)
+    private Connection getConnection(ConnectorSession session, Properties properties, String queryId)
             throws SQLException
     {
         Connection connection = connections.asMap().remove(queryId);
         if (connection != null) {
             return connection;
         }
-        return delegate.openConnection(session);
+        return delegate.openConnection(session, properties);
     }
 
     @Override
