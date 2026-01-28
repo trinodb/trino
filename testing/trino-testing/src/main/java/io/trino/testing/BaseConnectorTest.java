@@ -3505,6 +3505,10 @@ public abstract class BaseConnectorTest
                 .add(new SetColumnTypeSetup("row(x integer, y integer)", "row(1, 2)", "row(\"z\" integer, \"y\" integer, \"x\" integer)", "cast(row(null, 2, 1) as row(z integer, y integer, x integer))")) // reorder fields with a new field
                 .add(new SetColumnTypeSetup("row(x row(nested integer))", "row(row(1))", "row(\"x\" row(\"nested\" bigint))", "cast(row(row(1)) as row(x row(nested bigint)))")) // update a nested field
                 .add(new SetColumnTypeSetup("row(x row(a integer, b integer))", "row(row(1, 2))", "row(\"x\" row(\"b\" integer, \"a\" integer))", "cast(row(row(2, 1)) as row(x row(b integer, a integer)))")) // reorder a nested field
+                .add(new SetColumnTypeSetup("array(array(integer))", "array[array[1, 2]]", "array(array(bigint))")) // update a nested array
+                .add(new SetColumnTypeSetup("map(integer, varchar)", "map(array[1], array['a'])", "map(bigint, varchar)")) // update a map key
+                .add(new SetColumnTypeSetup("map(varchar, integer)", "map(array['a'], array[1])", "map(varchar, bigint)")) // update a map value
+                .add(new SetColumnTypeSetup("map(integer, row(x integer))", "map(array[1], array[row(2)])", "map(integer, row(\"x\" bigint))")) // update a nested map value
                 .build();
     }
 
