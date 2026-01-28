@@ -494,7 +494,7 @@ public final class SystemFunctionBundle
                 .functions(IDENTITY_CAST, CAST_FROM_UNKNOWN)
                 .scalar(ArrayRemoveFunction.class)
                 .scalar(ArrayElementAtFunction.class)
-                .scalar(ArrayFirstFunction.class)
+                .scalars(ArrayFirstFunction.class)
                 .scalar(ArrayLastFunction.class)
                 .scalar(ArraySortFunction.class)
                 .scalar(ArraySortComparatorFunction.class)
