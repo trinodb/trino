@@ -797,6 +797,18 @@ public class Analysis
         return columns.get(field);
     }
 
+    public List<Field> getColumnFields(List<String> columnNames)
+    {
+        Collection<Field> fields = getOutputDescriptor().getVisibleFields();
+        checkArgument(columnNames.size() == fields.size(), "Column names and fields size mismatch");
+
+        ImmutableList.Builder<Field> columnFields = ImmutableList.builder();
+        for (Field field : fields) {
+            columnFields.add(field);
+        }
+        return columnFields.build();
+    }
+
     public CorrespondingAnalysis getCorrespondingAnalysis(Node node)
     {
         return correspondingAnalysis.get(NodeRef.of(node));

@@ -32,7 +32,9 @@ public class ColumnMetadata
     private final String name;
     private final Type type;
     private final Optional<String> defaultValue;
+    private final boolean autoIncrement;
     private final boolean nullable;
+    private final boolean readOnly;
     private final String comment;
     private final String extraInfo;
     private final boolean hidden;
@@ -40,7 +42,7 @@ public class ColumnMetadata
 
     public ColumnMetadata(String name, Type type)
     {
-        this(name, type, Optional.empty(), true, null, null, false, emptyMap());
+        this(name, type, Optional.empty(), false, true, false, null, null, false, emptyMap());
     }
 
     // VisibleForTesting
@@ -48,7 +50,9 @@ public class ColumnMetadata
             String name,
             Type type,
             Optional<String> defaultValue,
+            boolean autoIncrement,
             boolean nullable,
+            boolean readOnly,
             String comment,
             String extraInfo,
             boolean hidden,
@@ -66,7 +70,9 @@ public class ColumnMetadata
         this.extraInfo = extraInfo;
         this.hidden = hidden;
         this.properties = properties.isEmpty() ? emptyMap() : unmodifiableMap(new LinkedHashMap<>(properties));
+        this.autoIncrement = autoIncrement;
         this.nullable = nullable;
+        this.readOnly = readOnly;
     }
 
     public String getName()
@@ -84,9 +90,19 @@ public class ColumnMetadata
         return defaultValue;
     }
 
+    public boolean isAutoIncrement()
+    {
+        return autoIncrement;
+    }
+
     public boolean isNullable()
     {
         return nullable;
+    }
+
+    public boolean isReadOnly()
+    {
+        return readOnly;
     }
 
     @Nullable // TODO make it Optional
@@ -143,7 +159,7 @@ public class ColumnMetadata
     @Override
     public int hashCode()
     {
-        return Objects.hash(name, type, nullable, comment, extraInfo, hidden);
+        return Objects.hash(name, type, autoIncrement, nullable, readOnly, comment, extraInfo, hidden);
     }
 
     @Override
@@ -158,7 +174,9 @@ public class ColumnMetadata
         ColumnMetadata other = (ColumnMetadata) obj;
         return Objects.equals(this.name, other.name) &&
                 Objects.equals(this.type, other.type) &&
+                this.autoIncrement == other.autoIncrement &&
                 this.nullable == other.nullable &&
+                this.readOnly == other.readOnly &&
                 Objects.equals(this.comment, other.comment) &&
                 Objects.equals(this.extraInfo, other.extraInfo) &&
                 this.hidden == other.hidden;
@@ -179,7 +197,9 @@ public class ColumnMetadata
         private String name;
         private Type type;
         private Optional<String> defaultValue = Optional.empty();
+        private boolean autoIncrement;
         private boolean nullable = true;
+        private boolean readOnly;
         private Optional<String> comment = Optional.empty();
         private Optional<String> extraInfo = Optional.empty();
         private boolean hidden;
@@ -192,7 +212,9 @@ public class ColumnMetadata
             this.name = columnMetadata.getName();
             this.type = columnMetadata.getType();
             this.defaultValue = columnMetadata.getDefaultValue();
+            this.autoIncrement = columnMetadata.isAutoIncrement();
             this.nullable = columnMetadata.isNullable();
+            this.readOnly = columnMetadata.isReadOnly();
             this.comment = Optional.ofNullable(columnMetadata.getComment());
             this.extraInfo = Optional.ofNullable(columnMetadata.getExtraInfo());
             this.hidden = columnMetadata.isHidden();
@@ -217,9 +239,21 @@ public class ColumnMetadata
             return this;
         }
 
+        public Builder setAutoIncrement(boolean autoIncrement)
+        {
+            this.autoIncrement = autoIncrement;
+            return this;
+        }
+
         public Builder setNullable(boolean nullable)
         {
             this.nullable = nullable;
+            return this;
+        }
+
+        public Builder setReadOnly(boolean readOnly)
+        {
+            this.readOnly = readOnly;
             return this;
         }
 
@@ -253,7 +287,9 @@ public class ColumnMetadata
                     name,
                     type,
                     defaultValue,
+                    autoIncrement,
                     nullable,
+                    readOnly,
                     comment.orElse(null),
                     extraInfo.orElse(null),
                     hidden,

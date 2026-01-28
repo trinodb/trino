@@ -39,6 +39,9 @@ import io.trino.execution.querystats.PlanOptimizersStatsCollector;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.CatalogInfo;
 import io.trino.metadata.Metadata;
+import io.trino.metadata.QualifiedObjectName;
+import io.trino.metadata.TableHandle;
+import io.trino.metadata.TableMetadata;
 import io.trino.operator.BlockedReason;
 import io.trino.operator.OperatorStats;
 import io.trino.security.AccessControl;
@@ -49,6 +52,7 @@ import io.trino.spi.ErrorCode;
 import io.trino.spi.QueryId;
 import io.trino.spi.TrinoException;
 import io.trino.spi.TrinoWarning;
+import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.eventlistener.ColumnLineageInfo;
 import io.trino.spi.eventlistener.RoutineInfo;
 import io.trino.spi.eventlistener.StageGcStatistics;
@@ -59,6 +63,7 @@ import io.trino.spi.resourcegroups.ResourceGroupId;
 import io.trino.spi.security.SelectedRole;
 import io.trino.spi.type.Type;
 import io.trino.sql.SessionPropertyResolver.SessionPropertiesApplier;
+import io.trino.sql.analyzer.Field;
 import io.trino.sql.analyzer.Output;
 import io.trino.sql.planner.PlanFragment;
 import io.trino.sql.planner.plan.PlanNodeId;
@@ -88,6 +93,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -1014,9 +1020,61 @@ public class QueryStateMachine
         outputManager.outputTaskFailed(taskId, failure);
     }
 
-    public void setColumns(List<String> columnNames, List<Type> columnTypes)
+    public void setColumns(List<String> columnNames, List<Type> columnTypes, List<Field> columnFields, boolean withMetadata)
     {
-        outputManager.setColumns(columnNames, columnTypes);
+        Map<QualifiedObjectName, Map<String, ColumnMetadata>> tables = withMetadata ? getTables(columnFields) : null;
+
+        ImmutableList.Builder<ColumnInfo> columnInfos = ImmutableList.builder();
+        for (int i = 0; i < columnNames.size(); i++) {
+            String columnName = columnNames.get(i);
+            Field columnField = columnFields.get(i);
+            Optional<QualifiedObjectName> tableName = columnField.getOriginTable();
+            ColumnInfo.Builder columnInfo = ColumnInfo.builder()
+                    .setSchemaTable(tableName)
+                    .setName(columnName)
+                    .setLabel(columnField.getOriginColumnName());
+
+            if (withMetadata && tableName.isPresent() && tables.containsKey(tableName.get()) && tables.get(tableName.get()).containsKey(columnName)) {
+                columnInfo.setMetadata(tables.get(tableName.get()).get(columnName));
+            }
+
+            columnInfos.add(columnInfo.build());
+        }
+        setColumns(columnInfos.build(), columnTypes);
+    }
+
+    private Map<QualifiedObjectName, Map<String, ColumnMetadata>> getTables(List<Field> columnFields)
+    {
+        Map<QualifiedObjectName, Map<String, ColumnMetadata>> tables = new HashMap<>();
+        for (Field field : columnFields) {
+            if (field.getOriginTable().isPresent() && !tables.containsKey(field.getOriginTable().get())) {
+                setTables(tables, field.getOriginTable().get());
+            }
+        }
+        return tables;
+    }
+
+    private void setTables(Map<QualifiedObjectName, Map<String, ColumnMetadata>> tables, QualifiedObjectName tableName)
+    {
+        try {
+            Optional<TableHandle> tableHandle = metadata.getTableHandle(session, tableName);
+            if (tableHandle.isPresent()) {
+                TableMetadata tableMetadata = metadata.getTableMetadata(session, tableHandle.get());
+                tables.put(tableName, tableMetadata.columns().stream().collect(Collectors.toMap(ColumnMetadata::getName, e -> e)));
+            }
+            else {
+                tables.put(tableName, new HashMap<>());
+            }
+        }
+        catch (Throwable e) {
+            QUERY_STATE_LOG.error(e, "QueryStateMachine was unable to retrieve the metadata for table : " + tableName.toString());
+            throw e;
+        }
+    }
+
+    public void setColumns(List<ColumnInfo> columnInfos, List<Type> columnTypes)
+    {
+        outputManager.setColumns(columnInfos, columnTypes);
     }
 
     public void updateInputsForQueryResults(List<ExchangeInput> inputs, boolean noMoreInputs)
@@ -1641,7 +1699,7 @@ public class QueryStateMachine
         private Optional<Consumer<QueryOutputInfo>> listener = Optional.empty();
 
         @GuardedBy("this")
-        private List<String> columnNames;
+        private List<ColumnInfo> columnInfos;
         @GuardedBy("this")
         private List<Type> columnTypes;
         @GuardedBy("this")
@@ -1674,17 +1732,17 @@ public class QueryStateMachine
             fireStateChangedIfReady(queryOutputInfo, Optional.of(listener));
         }
 
-        public void setColumns(List<String> columnNames, List<Type> columnTypes)
+        public void setColumns(List<ColumnInfo> columnInfos, List<Type> columnTypes)
         {
-            requireNonNull(columnNames, "columnNames is null");
+            requireNonNull(columnInfos, "columnInfos is null");
             requireNonNull(columnTypes, "columnTypes is null");
-            checkArgument(columnNames.size() == columnTypes.size(), "columnNames and columnTypes must be the same size");
+            checkArgument(columnInfos.size() == columnTypes.size(), "columnInfos and columnTypes must be the same size");
 
             Optional<QueryOutputInfo> queryOutputInfo;
             Optional<Consumer<QueryOutputInfo>> listener;
             synchronized (this) {
-                checkState(this.columnNames == null && this.columnTypes == null, "output fields already set");
-                this.columnNames = ImmutableList.copyOf(columnNames);
+                checkState(this.columnInfos == null && this.columnTypes == null, "output fields already set");
+                this.columnInfos = ImmutableList.copyOf(columnInfos);
                 this.columnTypes = ImmutableList.copyOf(columnTypes);
 
                 queryOutputInfo = getQueryOutputInfo();
@@ -1759,10 +1817,10 @@ public class QueryStateMachine
 
         private synchronized Optional<QueryOutputInfo> getQueryOutputInfo()
         {
-            if (columnNames == null || columnTypes == null) {
+            if (columnInfos == null || columnTypes == null) {
                 return Optional.empty();
             }
-            return Optional.of(new QueryOutputInfo(columnNames, columnTypes, inputsQueue, noMoreInputs));
+            return Optional.of(new QueryOutputInfo(columnInfos, columnTypes, inputsQueue, noMoreInputs));
         }
 
         private void fireStateChangedIfReady(Optional<QueryOutputInfo> info, Optional<Consumer<QueryOutputInfo>> listener)

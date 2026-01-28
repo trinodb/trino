@@ -580,28 +580,28 @@ public class TestHiveAndDeltaLakeRedirect
             assertThat(onTrino().executeQuery(
                     format("SELECT * FROM hive.information_schema.columns WHERE table_schema = '%s' AND table_name = '%s'", schemaName, tableName)))
                     .containsOnly(
-                            row("hive", schemaName, tableName, "nationkey", 1, null, "YES", "bigint"),
-                            row("hive", schemaName, tableName, "name", 2, null, "YES", "varchar"),
-                            row("hive", schemaName, tableName, "regionkey", 3, null, "YES", "bigint"),
-                            row("hive", schemaName, tableName, "comment", 4, null, "YES", "varchar"));
+                            row("hive", schemaName, tableName, "nationkey", 1, null, "NO", "YES", "NO", "bigint"),
+                            row("hive", schemaName, tableName, "name", 2, null, "NO", "YES", "NO", "varchar"),
+                            row("hive", schemaName, tableName, "regionkey", 3, null, "NO", "YES", "NO", "bigint"),
+                            row("hive", schemaName, tableName, "comment", 4, null, "NO", "YES", "NO", "varchar"));
 
             // test via redirection with just schema filter
             assertThat(onTrino().executeQuery(
                     format("SELECT * FROM hive.information_schema.columns WHERE table_schema = '%s'", schemaName)))
                     .containsOnly(
-                            row("hive", schemaName, tableName, "nationkey", 1, null, "YES", "bigint"),
-                            row("hive", schemaName, tableName, "name", 2, null, "YES", "varchar"),
-                            row("hive", schemaName, tableName, "regionkey", 3, null, "YES", "bigint"),
-                            row("hive", schemaName, tableName, "comment", 4, null, "YES", "varchar"));
+                            row("hive", schemaName, tableName, "nationkey", 1, null, "NO", "YES", "NO", "bigint"),
+                            row("hive", schemaName, tableName, "name", 2, null, "NO", "YES", "NO", "varchar"),
+                            row("hive", schemaName, tableName, "regionkey", 3, null, "NO", "YES", "NO", "bigint"),
+                            row("hive", schemaName, tableName, "comment", 4, null, "NO", "YES", "NO", "varchar"));
 
             // sanity check that getting columns info without redirection produces matching result
             assertThat(onTrino().executeQuery(
                     format("SELECT * FROM delta.information_schema.columns WHERE table_schema = '%s' AND table_name = '%s'", schemaName, tableName)))
                     .containsOnly(
-                            row("delta", schemaName, tableName, "nationkey", 1, null, "YES", "bigint"),
-                            row("delta", schemaName, tableName, "name", 2, null, "YES", "varchar"),
-                            row("delta", schemaName, tableName, "regionkey", 3, null, "YES", "bigint"),
-                            row("delta", schemaName, tableName, "comment", 4, null, "YES", "varchar"));
+                            row("delta", schemaName, tableName, "nationkey", 1, null, "NO", "YES", "NO", "bigint"),
+                            row("delta", schemaName, tableName, "name", 2, null, "NO", "YES", "NO", "varchar"),
+                            row("delta", schemaName, tableName, "regionkey", 3, null, "NO", "YES", "NO", "bigint"),
+                            row("delta", schemaName, tableName, "comment", 4, null, "NO", "YES", "NO", "varchar"));
         }
         finally {
             dropDeltaTableWithRetry(format("%s.%s", schemaName, tableName));
@@ -625,25 +625,25 @@ public class TestHiveAndDeltaLakeRedirect
             assertThat(onTrino().executeQuery(
                     format("SELECT * FROM delta.information_schema.columns WHERE table_schema = '%s' AND table_name='%s'", schemaName, tableName)))
                     .containsOnly(
-                            row("delta", schemaName, tableName, "id", 1, null, "YES", "integer"),
-                            row("delta", schemaName, tableName, "flag", 2, null, "YES", "boolean"),
-                            row("delta", schemaName, tableName, "rate", 3, null, "YES", "tinyint"));
+                            row("delta", schemaName, tableName, "id", 1, null, "NO", "YES", "NO", "integer"),
+                            row("delta", schemaName, tableName, "flag", 2, null, "NO", "YES", "NO", "boolean"),
+                            row("delta", schemaName, tableName, "rate", 3, null, "NO", "YES", "NO", "tinyint"));
 
             // test via redirection with just schema filter
             assertThat(onTrino().executeQuery(
                     format("SELECT * FROM delta.information_schema.columns WHERE table_schema = '%s'", schemaName)))
                     .containsOnly(
-                            row("delta", schemaName, tableName, "id", 1, null, "YES", "integer"),
-                            row("delta", schemaName, tableName, "flag", 2, null, "YES", "boolean"),
-                            row("delta", schemaName, tableName, "rate", 3, null, "YES", "tinyint"));
+                            row("delta", schemaName, tableName, "id", 1, null, "NO", "YES", "NO", "integer"),
+                            row("delta", schemaName, tableName, "flag", 2, null, "NO", "YES", "NO", "boolean"),
+                            row("delta", schemaName, tableName, "rate", 3, null, "NO", "YES", "NO", "tinyint"));
 
             // sanity check that getting columns info without redirection produces matching result
             assertThat(onTrino().executeQuery(
                     format("SELECT * FROM hive.information_schema.columns WHERE table_schema = '%s' AND table_name='%s'", schemaName, tableName)))
                     .containsOnly(
-                            row("hive", schemaName, tableName, "id", 1, null, "YES", "integer"),
-                            row("hive", schemaName, tableName, "flag", 2, null, "YES", "boolean"),
-                            row("hive", schemaName, tableName, "rate", 3, null, "YES", "tinyint"));
+                            row("hive", schemaName, tableName, "id", 1, null, "NO", "YES", "NO", "integer"),
+                            row("hive", schemaName, tableName, "flag", 2, null, "NO", "YES", "NO", "boolean"),
+                            row("hive", schemaName, tableName, "rate", 3, null, "NO", "YES", "NO", "tinyint"));
         }
         finally {
             onTrino().executeQuery(format("DROP TABLE IF EXISTS hive.%s.%s", schemaName, tableName));
@@ -814,7 +814,7 @@ public class TestHiveAndDeltaLakeRedirect
 
             // Hive views are currently not supported in Delta Lake connector
             assertQueryFailure(() -> onTrino().executeQuery("SELECT * FROM delta.default." + viewName))
-                    .hasMessageMatching("\\QQuery failed (\\E#\\S+\\Q): default." + viewName + " is not a Delta Lake table");
+                    .hasMessageMatching("\\QQuery failed (\\E#\\S+\\Q): line 1:15: Table 'delta.default." + viewName + "' does not exist");
         }
         finally {
             onDelta().executeQuery("DROP VIEW IF EXISTS " + viewName);
