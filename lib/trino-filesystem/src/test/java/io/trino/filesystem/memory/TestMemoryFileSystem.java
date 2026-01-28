@@ -16,7 +16,6 @@ package io.trino.filesystem.memory;
 import io.trino.filesystem.AbstractTestTrinoFileSystem;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
-import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -30,12 +29,6 @@ public class TestMemoryFileSystem
     void setUp()
     {
         fileSystem = new MemoryFileSystem();
-    }
-
-    @AfterAll
-    void tearDown()
-    {
-        fileSystem = null;
     }
 
     @Override

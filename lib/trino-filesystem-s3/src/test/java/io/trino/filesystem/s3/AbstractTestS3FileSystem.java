@@ -68,7 +68,6 @@ public abstract class AbstractTestS3FileSystem
     @AfterAll
     final void cleanup()
     {
-        fileSystem = null;
         fileSystemFactory.destroy();
         fileSystemFactory = null;
     }
