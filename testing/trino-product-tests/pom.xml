@@ -265,6 +265,13 @@
         </dependency>
 
         <dependency>
+            <groupId>com.teradata.jdbc</groupId>
+            <artifactId>terajdbc</artifactId>
+            <version>20.00.00.51</version>
+            <scope>runtime</scope>
+        </dependency>
+
+        <dependency>
             <groupId>io.confluent</groupId>
             <artifactId>kafka-protobuf-types</artifactId>
             <!-- This is under Confluent Community License and we use it under runtime scope only for tests -->
