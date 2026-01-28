@@ -16,6 +16,7 @@ package io.trino.plugin.exasol;
 import com.google.common.collect.ImmutableSet;
 import com.google.inject.Inject;
 import io.airlift.slice.Slices;
+import io.trino.plugin.base.expression.ConnectorExpressionRewriter;
 import io.trino.plugin.base.mapping.IdentifierMapping;
 import io.trino.plugin.jdbc.BaseJdbcClient;
 import io.trino.plugin.jdbc.BaseJdbcConfig;
@@ -35,6 +36,9 @@ import io.trino.plugin.jdbc.SliceReadFunction;
 import io.trino.plugin.jdbc.SliceWriteFunction;
 import io.trino.plugin.jdbc.WriteFunction;
 import io.trino.plugin.jdbc.WriteMapping;
+import io.trino.plugin.jdbc.expression.JdbcConnectorExpressionRewriterBuilder;
+import io.trino.plugin.jdbc.expression.ParameterizedExpression;
+import io.trino.plugin.jdbc.expression.RewriteIn;
 import io.trino.plugin.jdbc.logging.RemoteQueryModifier;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.AggregateFunction;
@@ -43,6 +47,8 @@ import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ColumnPosition;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableMetadata;
+import io.trino.spi.expression.ConnectorExpression;
+import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Type;
 
 import java.sql.Connection;
@@ -65,6 +71,8 @@ import static io.trino.plugin.jdbc.StandardColumnMappings.defaultCharColumnMappi
 import static io.trino.plugin.jdbc.StandardColumnMappings.defaultVarcharColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.doubleColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.integerColumnMapping;
+import static io.trino.plugin.jdbc.StandardColumnMappings.longDecimalWriteFunction;
+import static io.trino.plugin.jdbc.StandardColumnMappings.shortDecimalWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.smallintColumnMapping;
 import static io.trino.plugin.jdbc.TypeHandlingJdbcSessionProperties.getUnsupportedTypeHandling;
 import static io.trino.plugin.jdbc.UnsupportedTypeHandling.CONVERT_TO_VARCHAR;
@@ -84,6 +92,7 @@ public class ExasolClient
             .add("EXA_STATISTICS")
             .add("SYS")
             .build();
+    private final ConnectorExpressionRewriter<ParameterizedExpression> connectorExpressionRewriter;
 
     @Inject
     public ExasolClient(
@@ -94,6 +103,25 @@ public class ExasolClient
             RemoteQueryModifier queryModifier)
     {
         super("\"", connectionFactory, queryBuilder, config.getJdbcTypesMappedToVarchar(), identifierMapping, queryModifier, false);
+        // Basic implementation required to enable JOIN pushdown support
+        // It is covered by "testJoinpushdown" integration tests.
+        // More detailed test case scenarios are covered by Unit tests in "TestExasolClient"
+        this.connectorExpressionRewriter = JdbcConnectorExpressionRewriterBuilder.newBuilder()
+                .addStandardRules(this::quoted)
+                .add(new RewriteIn())
+                .map("$equal(left, right)").to("left = right")
+                .map("$not_equal(left, right)").to("left <> right")
+                // Exasol doesn't support "IS NOT DISTINCT FROM" expression,
+                // so "$identical(left, right)" is rewritten with equivalent "(left = right OR (left IS NULL AND right IS NULL))" expression
+                .map("$identical(left, right)").to("(left = right OR (left IS NULL AND right IS NULL))")
+                .map("$less_than(left, right)").to("left < right")
+                .map("$less_than_or_equal(left, right)").to("left <= right")
+                .map("$greater_than(left, right)").to("left > right")
+                .map("$greater_than_or_equal(left, right)").to("left >= right")
+                .map("$not($is_null(value))").to("value IS NOT NULL")
+                .map("$not(value: boolean)").to("NOT value")
+                .map("$is_null(value)").to("value IS NULL")
+                .build();
     }
 
     @Override
@@ -196,10 +224,15 @@ public class ExasolClient
     }
 
     @Override
+    public Optional<ParameterizedExpression> convertPredicate(ConnectorSession session, ConnectorExpression expression, Map<String, ColumnHandle> assignments)
+    {
+        return connectorExpressionRewriter.rewrite(session, expression, assignments);
+    }
+
+    @Override
     protected boolean isSupportedJoinCondition(ConnectorSession session, JdbcJoinCondition joinCondition)
     {
-        // Deactivated because test 'testJoinPushdown()' requires write access which is not implemented for Exasol
-        return false;
+        return true;
     }
 
     @Override
@@ -311,7 +344,15 @@ public class ExasolClient
     @Override
     public WriteMapping toWriteMapping(ConnectorSession session, Type type)
     {
-        throw new TrinoException(NOT_SUPPORTED, "This connector does not support writing");
+        if (type instanceof DecimalType decimalType) {
+            String dataType = "decimal(%s, %s)".formatted(decimalType.getPrecision(), decimalType.getScale());
+            if (decimalType.isShort()) {
+                return WriteMapping.longMapping(dataType, shortDecimalWriteFunction(decimalType));
+            }
+            return WriteMapping.objectMapping(dataType, longDecimalWriteFunction(decimalType));
+        }
+
+        throw new TrinoException(NOT_SUPPORTED, "Unsupported column type: " + type.getDisplayName());
     }
 
     @Override
