@@ -567,6 +567,14 @@ public abstract class BaseOracleConnectorTest
         }
     }
 
+    @Test
+    @Override
+    public void testDropTableIfExistsConcurrently()
+    {
+        assertThatThrownBy(super::testDropTableIfExistsConcurrently)
+                .hasMessageContaining("ORA-00054: Failed to acquire a lock");
+    }
+
     protected String getUser()
     {
         return TEST_USER;

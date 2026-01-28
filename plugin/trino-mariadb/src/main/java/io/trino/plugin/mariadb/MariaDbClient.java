@@ -752,6 +752,15 @@ public class MariaDbClient
         }
     }
 
+    @Override
+    protected boolean isTableNotFoundException(TrinoException exception)
+    {
+        if (exception.getCause() instanceof SQLException sqlException) {
+            return "42S02".equals(sqlException.getSQLState());
+        }
+        return false;
+    }
+
     private TableStatistics readTableStatistics(ConnectorSession session, JdbcTableHandle table)
             throws SQLException
     {
