@@ -203,6 +203,9 @@ import org.apache.iceberg.expressions.Expressions;
 import org.apache.iceberg.expressions.Literal;
 import org.apache.iceberg.expressions.Term;
 import org.apache.iceberg.io.CloseableIterable;
+import org.apache.iceberg.metrics.CommitMetricsResult;
+import org.apache.iceberg.metrics.CommitReport;
+import org.apache.iceberg.metrics.MetricsReporters;
 import org.apache.iceberg.types.Comparators;
 import org.apache.iceberg.types.JavaHash;
 import org.apache.iceberg.types.Type;
@@ -2075,8 +2078,7 @@ public class IcebergMetadata
         IcebergTableExecuteHandle executeHandle = (IcebergTableExecuteHandle) tableExecuteHandle;
         switch (executeHandle.procedureId()) {
             case OPTIMIZE_MANIFESTS:
-                executeOptimizeManifests(session, executeHandle);
-                return ImmutableMap.of();
+                return executeOptimizeManifests(session, executeHandle);
             case DROP_EXTENDED_STATS:
                 executeDropExtendedStats(session, executeHandle);
                 return ImmutableMap.of();
@@ -2106,7 +2108,7 @@ public class IcebergMetadata
         }
     }
 
-    private void executeOptimizeManifests(ConnectorSession session, IcebergTableExecuteHandle executeHandle)
+    private Map<String, Long> executeOptimizeManifests(ConnectorSession session, IcebergTableExecuteHandle executeHandle)
     {
         checkArgument(executeHandle.procedureHandle() instanceof IcebergOptimizeManifestsHandle, "Unexpected procedure handle %s", executeHandle.procedureHandle());
 
@@ -2114,11 +2116,11 @@ public class IcebergMetadata
         // org.apache.iceberg.BaseRewriteManifests currently rewrites only data manifests
         List<ManifestFile> manifests = loadDataManifestsFromSnapshot(icebergTable, icebergTable.currentSnapshot());
         if (manifests.isEmpty()) {
-            return;
+            return ImmutableMap.of();
         }
         long manifestTargetSizeBytes = icebergTable.operations().current().propertyAsLong(MANIFEST_TARGET_SIZE_BYTES, MANIFEST_TARGET_SIZE_BYTES_DEFAULT);
         if (manifests.size() == 1 && manifests.getFirst().length() < manifestTargetSizeBytes) {
-            return;
+            return ImmutableMap.of();
         }
         long totalManifestsSize = manifests.stream().mapToLong(ManifestFile::length).sum();
         // Having too many open manifest writers can potentially cause OOM on the coordinator
@@ -2133,6 +2135,8 @@ public class IcebergMetadata
             clusteredPartitionValues = ImmutableMap.of();
         }
 
+        CommitMetricsReporter reporter = new CommitMetricsReporter();
+        icebergTable = new BaseTable(icebergTable.operations(), icebergTable.name(), MetricsReporters.combine(icebergTable.reporter(), reporter));
         RewriteManifests rewriteManifests = icebergTable.rewriteManifests();
         // commit.manifest.target-size-bytes is enforced by RewriteManifests,
         // so we don't have to worry about any manifest file getting too big
@@ -2151,6 +2155,22 @@ public class IcebergMetadata
                 })
                 .scanManifestsWith(icebergScanExecutor)
                 .commit();
+
+        CommitReport report = reporter.commitReport();
+        if (report == null) {
+            return ImmutableMap.of();
+        }
+        log.info("optimize_manifests on table %s, commit report %s", icebergTable.name(), report);
+
+        CommitMetricsResult metrics = report.commitMetrics();
+        if (metrics == null) {
+            return ImmutableMap.of();
+        }
+        return ImmutableMap.of(
+                "rewritten_manifests_count", metrics.manifestsReplaced().value(),
+                "added_manifests_count", metrics.manifestsCreated().value(),
+                "kept_manifests_count", metrics.manifestsKept().value(),
+                "processed_manifest_entries_count", metrics.manifestEntriesProcessed().value());
     }
 
     private Map<Object, Integer> getClusteredPartitionValues(
