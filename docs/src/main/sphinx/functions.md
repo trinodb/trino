@@ -40,6 +40,7 @@ Color               <functions/color>
 Comparison          <functions/comparison>
 Conditional         <functions/conditional>
 Conversion          <functions/conversion>
+DataSketches        <functions/datasketches>
 Date and time       <functions/datetime>
 Decimal             <functions/decimal>
 Geospatial          <functions/geospatial>
