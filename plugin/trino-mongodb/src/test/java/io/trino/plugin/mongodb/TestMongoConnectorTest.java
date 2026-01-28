@@ -112,7 +112,6 @@ public class TestMongoConnectorTest
                  SUPPORTS_RENAME_FIELD,
                  SUPPORTS_RENAME_SCHEMA,
                  SUPPORTS_SET_FIELD_TYPE,
-                 SUPPORTS_TOPN_PUSHDOWN,
                  SUPPORTS_TRUNCATE,
                  SUPPORTS_UPDATE -> false;
             default -> super.hasBehavior(connectorBehavior);
