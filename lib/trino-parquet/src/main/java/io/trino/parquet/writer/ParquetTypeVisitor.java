@@ -14,6 +14,7 @@
 package io.trino.parquet.writer;
 
 import com.google.common.collect.Lists;
+import io.trino.spi.variant.Header;
 import org.apache.parquet.schema.GroupType;
 import org.apache.parquet.schema.LogicalTypeAnnotation;
 import org.apache.parquet.schema.MessageType;
@@ -104,6 +105,12 @@ public class ParquetTypeVisitor<T>
                 visitor.fieldNames.pop();
             }
         }
+        if (LogicalTypeAnnotation.variantType(Header.VERSION).equals(annotation)) {
+            // todo is there validation here
+            // todo should I extract the metadata and values fields here
+            checkArgument(group.getFieldCount() == 2, "Invalid variant: expected 2 fields (metadata, value): %s", group);
+            return visitor.variant(group);
+        }
         return visitor.struct(group, visitFields(group, visitor));
     }
 
@@ -144,6 +151,11 @@ public class ParquetTypeVisitor<T>
     }
 
     public T map(GroupType map, T key, T value)
+    {
+        return null;
+    }
+
+    public T variant(GroupType variant)
     {
         return null;
     }

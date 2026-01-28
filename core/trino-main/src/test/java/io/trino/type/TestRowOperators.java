@@ -553,6 +553,10 @@ public class TestRowOperators
     @Test
     public void testRowCast()
     {
+        assertThat(assertions.expression("cast(a AS row(aa bigint, bb double))[2]")
+                .binding("a", "row(2, CAST(null as double))"))
+                .isNull(DOUBLE);
+
         assertThat(assertions.expression("cast(a AS row(aa bigint, bb bigint))[1]")
                 .binding("a", "row(2, 3)"))
                 .isEqualTo(2L);

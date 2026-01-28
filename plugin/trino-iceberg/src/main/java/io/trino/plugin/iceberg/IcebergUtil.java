@@ -552,6 +552,10 @@ public final class IcebergUtil
             return primitiveFieldTypes(fieldType.asNestedType().fields());
         }
 
+        if (fieldType.isVariantType()) {
+            return Stream.empty();
+        }
+
         throw new IllegalStateException("Unsupported field type: " + nestedField);
     }
 
