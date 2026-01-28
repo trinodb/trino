@@ -22,7 +22,6 @@ import java.io.File;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.channels.FileChannel;
-import java.nio.channels.FileLock;
 import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -76,27 +75,27 @@ public class LocalOutputFile
             throw new FileAlreadyExistsException(location.toString());
         }
 
-        Closer closer = Closer.create();
         Path lockPath = path.resolveSibling(path.getFileName() + ".lock");
-        FileChannel channel = FileChannel.open(lockPath, CREATE_NEW, WRITE);
-        closer.register(channel);
-        closer.register(() -> Files.deleteIfExists(lockPath));
-        try (FileLock lock = channel.lock()) {
-            if (Files.exists(path)) {
-                throw new FileAlreadyExistsException(location.toString());
-            }
+        Closer closer = Closer.create();
+        try {
+            try (FileChannel _ = FileChannel.open(lockPath, CREATE_NEW, WRITE)) {
+                closer.register(() -> Files.deleteIfExists(lockPath));
+                if (Files.exists(path)) {
+                    throw new FileAlreadyExistsException(location.toString());
+                }
 
-            Path tmpFilePath = path.resolveSibling(path.getFileName() + "." + randomUUID() + ".tmp");
-            try (OutputStream out = Files.newOutputStream(tmpFilePath, CREATE_NEW, WRITE)) {
-                closer.register(() -> Files.deleteIfExists(tmpFilePath));
-                out.write(data);
-            }
+                Path tmpFilePath = path.resolveSibling(path.getFileName() + "." + randomUUID() + ".tmp");
+                try (OutputStream out = Files.newOutputStream(tmpFilePath, CREATE_NEW, WRITE)) {
+                    closer.register(() -> Files.deleteIfExists(tmpFilePath));
+                    out.write(data);
+                }
 
-            // Ensure that the file is only visible when fully written
-            Files.move(tmpFilePath, path, ATOMIC_MOVE);
+                // Ensure that the file is only visible when fully written
+                Files.move(tmpFilePath, path, ATOMIC_MOVE);
+            }
         }
         catch (IOException e) {
-            throw handleException(location, e);
+            throw closer.rethrow(handleException(location, e));
         }
         finally {
             closer.close();
