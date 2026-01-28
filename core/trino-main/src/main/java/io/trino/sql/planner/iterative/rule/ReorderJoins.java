@@ -430,7 +430,8 @@ public class ReorderJoins
                 return createJoinEnumerationResult(joinNode.withDistributionType(REPLICATED));
             }
             if (isAtMostScalar(joinNode.getLeft(), lookup)) {
-                return createJoinEnumerationResult(joinNode.flipChildren().withDistributionType(REPLICATED));
+                // joinNode can be flipped because it is an inner join
+                return createJoinEnumerationResult(joinNode.flipChildren().orElseThrow().withDistributionType(REPLICATED));
             }
             List<JoinEnumerationResult> possibleJoinNodes = getPossibleJoinNodes(joinNode, getJoinDistributionType(session));
             verify(!possibleJoinNodes.isEmpty(), "possibleJoinNodes is empty");
@@ -465,10 +466,10 @@ public class ReorderJoins
 
         private List<JoinEnumerationResult> getPossibleJoinNodes(JoinNode joinNode, DistributionType distributionType, Predicate<JoinNode> isAllowed)
         {
-            List<JoinNode> nodes = ImmutableList.of(
-                    joinNode.withDistributionType(distributionType),
-                    joinNode.flipChildren().withDistributionType(distributionType));
-            return nodes.stream().filter(isAllowed).map(this::createJoinEnumerationResult).collect(toImmutableList());
+            ImmutableList.Builder<JoinNode> nodes = ImmutableList.builder();
+            nodes.add(joinNode.withDistributionType(distributionType));
+            joinNode.flipChildren().ifPresent(flipped -> nodes.add(flipped.withDistributionType(distributionType)));
+            return nodes.build().stream().filter(isAllowed).map(this::createJoinEnumerationResult).collect(toImmutableList());
         }
 
         private JoinEnumerationResult createJoinEnumerationResult(JoinNode joinNode)

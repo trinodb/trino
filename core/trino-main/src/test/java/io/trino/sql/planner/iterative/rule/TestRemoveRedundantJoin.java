@@ -17,6 +17,8 @@ import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import org.junit.jupiter.api.Test;
 
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
+import static io.trino.sql.planner.plan.JoinType.ASOF;
+import static io.trino.sql.planner.plan.JoinType.ASOF_LEFT;
 import static io.trino.sql.planner.plan.JoinType.FULL;
 import static io.trino.sql.planner.plan.JoinType.INNER;
 import static io.trino.sql.planner.plan.JoinType.LEFT;
@@ -98,6 +100,41 @@ public class TestRemoveRedundantJoin
                                 FULL,
                                 p.values(0, p.symbol("a")),
                                 p.values(0, p.symbol("b"))))
+                .matches(values("a", "b"));
+    }
+
+    @Test
+    public void testAsofJoinRemoval()
+    {
+        // Right empty
+        tester().assertThat(new RemoveRedundantJoin())
+                .on(p ->
+                        p.join(
+                                ASOF,
+                                p.values(10, p.symbol("a")),
+                                p.values(0)))
+                .matches(values("a"));
+
+        // Left empty
+        tester().assertThat(new RemoveRedundantJoin())
+                .on(p ->
+                        p.join(
+                                ASOF,
+                                p.values(0),
+                                p.values(10, p.symbol("b"))))
+                .matches(values("b"));
+    }
+
+    @Test
+    public void testAsofLeftJoinRemoval()
+    {
+        // Left empty
+        tester().assertThat(new RemoveRedundantJoin())
+                .on(p ->
+                        p.join(
+                                ASOF_LEFT,
+                                p.values(0, p.symbol("a")),
+                                p.values(10, p.symbol("b"))))
                 .matches(values("a", "b"));
     }
 }

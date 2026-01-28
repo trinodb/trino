@@ -27,9 +27,11 @@ import java.util.Optional;
 
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN;
+import static io.trino.sql.ir.Comparison.Operator.LESS_THAN_OR_EQUAL;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.filter;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
+import static io.trino.sql.planner.plan.JoinType.ASOF;
 import static io.trino.sql.planner.plan.JoinType.FULL;
 import static io.trino.sql.planner.plan.JoinType.INNER;
 import static io.trino.sql.planner.plan.JoinType.LEFT;
@@ -266,6 +268,37 @@ public class TestReplaceRedundantJoinWithSource
                                         new Comparison(GREATER_THAN, new Reference(BIGINT, "a"), new Constant(BIGINT, 5L)),
                                         p.values(10, p.symbol("a", BIGINT)))))
                 .doesNotFire();
+    }
+
+    @Test
+    public void testDoesNotReplaceAsofJoinWithLeftScalarNoOutputs()
+    {
+        // ASOF join with left scalar (no outputs) should not be replaced
+        tester().assertThat(new ReplaceRedundantJoinWithSource())
+                .on(p ->
+                        p.join(
+                                ASOF,
+                                p.values(1),
+                                p.values(10, p.symbol("b", BIGINT)),
+                                new Comparison(LESS_THAN_OR_EQUAL, new Reference(BIGINT, "b"), new Constant(BIGINT, 0L))))
+                .doesNotFire();
+    }
+
+    @Test
+    public void testReplaceAsofJoinWithRightScalarNoOutputs()
+    {
+        // ASOF join with right scalar (no outputs) should be replaced with left source and preserve filter
+        tester().assertThat(new ReplaceRedundantJoinWithSource())
+                .on(p ->
+                        p.join(
+                                ASOF,
+                                p.values(10, p.symbol("a", BIGINT)),
+                                p.values(1),
+                                new Comparison(LESS_THAN_OR_EQUAL, new Reference(BIGINT, "a"), new Constant(BIGINT, 0L))))
+                .matches(
+                        filter(
+                                new Comparison(LESS_THAN_OR_EQUAL, new Reference(BIGINT, "a"), new Constant(BIGINT, 0L)),
+                                values(ImmutableList.of("a"), nCopies(10, ImmutableList.of(new Constant(BIGINT, null))))));
     }
 
     @Test

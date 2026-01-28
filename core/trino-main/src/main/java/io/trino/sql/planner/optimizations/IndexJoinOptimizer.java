@@ -177,6 +177,11 @@ public class IndexJoinOptimizer
                     case FULL:
                         break;
 
+                    case ASOF:
+                    case ASOF_LEFT:
+                        // Do not attempt index join for ASOF joins
+                        break;
+
                     default:
                         throw new IllegalArgumentException("Unknown type: " + node.getType());
                 }

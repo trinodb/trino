@@ -286,7 +286,8 @@ public class TestPositionLinks
         SortedPositionLinks.FactoryBuilder builder = SortedPositionLinks.builder(
                 1000,
                 pagesHashStrategy(),
-                addresses());
+                addresses(),
+                false);
 
         /*
          * Built sorted positions links

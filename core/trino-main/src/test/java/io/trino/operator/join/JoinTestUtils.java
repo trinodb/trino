@@ -188,6 +188,7 @@ public final class JoinTestUtils
                 hashChannels,
                 filterFunctionFactory,
                 Optional.empty(),
+                false,
                 ImmutableList.of(),
                 100,
                 new PagesIndex.TestingFactory(false),
