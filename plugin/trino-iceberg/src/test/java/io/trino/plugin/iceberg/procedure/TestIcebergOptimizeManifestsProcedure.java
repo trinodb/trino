@@ -14,6 +14,7 @@
 package io.trino.plugin.iceberg.procedure;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Sets;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.metastore.HiveMetastore;
 import io.trino.plugin.iceberg.IcebergQueryRunner;
@@ -105,17 +106,25 @@ final class TestIcebergOptimizeManifestsProcedure
         try (TestTable table = newTrinoTable("test_optimize_manifests", "(x int)")) {
             assertUpdate("INSERT INTO " + table.getName() + " VALUES 1", 1);
             assertUpdate("INSERT INTO " + table.getName() + " VALUES 2", 1);
+            assertUpdate("DELETE FROM " + table.getName() + " WHERE x = 1", 1);
 
             Set<String> manifestFiles = manifestFiles(table.getName());
-            assertThat(manifestFiles).hasSize(2);
+            assertThat(manifestFiles).hasSize(3);
 
-            assertUpdate("ALTER TABLE " + table.getName() + " EXECUTE optimize_manifests");
-            assertThat(manifestFiles(table.getName()))
-                    .hasSize(1)
-                    .doesNotContainAnyElementsOf(manifestFiles);
+            // Delete manifest is left as-is, while the data manifests are combined
+            assertUpdate(
+                    "ALTER TABLE " + table.getName() + " EXECUTE optimize_manifests",
+                    "VALUES " +
+                            "('rewritten_manifests_count', 2), " +
+                            "('added_manifests_count', 1), " +
+                            "('kept_manifests_count', 1), " +
+                            "('processed_manifest_entries_count', 2)");
+            Set<String> optimizedManifestFiles = manifestFiles(table.getName());
+            assertThat(optimizedManifestFiles).hasSize(2);
+            assertThat(Sets.intersection(optimizedManifestFiles, manifestFiles)).hasSize(1);
 
             assertThat(query("SELECT * FROM " + table.getName()))
-                    .matches("VALUES 1, 2");
+                    .matches("VALUES 2");
         }
     }
 
@@ -133,7 +142,13 @@ final class TestIcebergOptimizeManifestsProcedure
 
             // Set small target size to force split
             setManifestTargetSizeBytes(table.getName(), 1);
-            assertUpdate("ALTER TABLE " + table.getName() + " EXECUTE optimize_manifests");
+            assertUpdate(
+                    "ALTER TABLE " + table.getName() + " EXECUTE optimize_manifests",
+                    "VALUES " +
+                            "('rewritten_manifests_count', 1), " +
+                            "('added_manifests_count', 3), " +
+                            "('kept_manifests_count', 0), " +
+                            "('processed_manifest_entries_count', 3)");
 
             assertThat(manifestFiles(table.getName()))
                     .hasSize(3);
@@ -152,7 +167,13 @@ final class TestIcebergOptimizeManifestsProcedure
             Set<String> manifestFiles = manifestFiles(table.getName());
             assertThat(manifestFiles).hasSize(4);
 
-            assertUpdate("ALTER TABLE " + table.getName() + " EXECUTE optimize_manifests");
+            assertUpdate(
+                    "ALTER TABLE " + table.getName() + " EXECUTE optimize_manifests",
+                    "VALUES " +
+                            "('rewritten_manifests_count', 4), " +
+                            "('added_manifests_count', 1), " +
+                            "('kept_manifests_count', 0), " +
+                            "('processed_manifest_entries_count', 4)");
             assertThat(manifestFiles(table.getName()))
                     .hasSize(1)
                     .doesNotContainAnyElementsOf(manifestFiles);

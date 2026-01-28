@@ -894,6 +894,15 @@ the maximum size of manifest files produced by this procedure.
 ALTER TABLE test_table EXECUTE optimize_manifests;
 ```
 
+```text
+metric_name                      | metric_value
+---------------------------------+--------------
+rewritten_manifests_count        |            2
+added_manifests_count            |            1
+kept_manifests_count             |            1
+processed_manifest_entries_count |            2
+```
+
 (iceberg-expire-snapshots)=
 ##### expire_snapshots
 
