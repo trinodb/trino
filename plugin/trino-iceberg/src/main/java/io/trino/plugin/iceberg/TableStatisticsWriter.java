@@ -18,12 +18,10 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.graph.Traverser;
 import com.google.inject.Inject;
-import io.trino.plugin.base.io.ByteBuffers;
 import io.trino.spi.NodeVersion;
 import io.trino.spi.connector.ConnectorSession;
-import org.apache.datasketches.memory.Memory;
-import org.apache.datasketches.theta.CompactSketch;
-import org.apache.datasketches.theta.SetOperation;
+import org.apache.datasketches.theta.CompactThetaSketch;
+import org.apache.datasketches.theta.ThetaSetOperation;
 import org.apache.iceberg.GenericBlobMetadata;
 import org.apache.iceberg.GenericStatisticsFile;
 import org.apache.iceberg.HasTableOperations;
@@ -48,6 +46,7 @@ import org.apache.iceberg.util.Pair;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.lang.foreign.MemorySegment;
 import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.Map;
@@ -106,7 +105,7 @@ public class TableStatisticsWriter
                 fileIO,
                 updateMode,
                 collectedStatistics);
-        Map<Integer, CompactSketch> ndvSketches = collectedStatistics.ndvSketches();
+        Map<Integer, CompactThetaSketch> ndvSketches = collectedStatistics.ndvSketches();
 
         return writeStatisticsFile(session, table, fileIO, snapshotId, ndvSketches);
     }
@@ -119,7 +118,7 @@ public class TableStatisticsWriter
         return writeStatisticsFile(session, table, fileIO, snapshotId, Map.of());
     }
 
-    private GenericStatisticsFile writeStatisticsFile(ConnectorSession session, Table table, FileIO fileIO, long snapshotId, Map<Integer, CompactSketch> ndvSketches)
+    private GenericStatisticsFile writeStatisticsFile(ConnectorSession session, Table table, FileIO fileIO, long snapshotId, Map<Integer, CompactThetaSketch> ndvSketches)
     {
         Snapshot snapshot = table.snapshot(snapshotId);
         long snapshotSequenceNumber = snapshot.sequenceNumber();
@@ -153,7 +152,7 @@ public class TableStatisticsWriter
                         .sorted(comparingByKey())
                         .forEachOrdered(entry -> {
                             Integer fieldId = entry.getKey();
-                            CompactSketch sketch = entry.getValue();
+                            CompactThetaSketch sketch = entry.getValue();
                             @SuppressWarnings("NumericCastThatLosesPrecision")
                             long ndvEstimate = (long) sketch.getEstimate();
                             writer.add(new Blob(
@@ -206,9 +205,9 @@ public class TableStatisticsWriter
             case REPLACE -> collectedStatistics;
             case INCREMENTAL_UPDATE -> {
                 Optional<StatisticsFile> latestStatisticsFile = getLatestStatisticsFile(table, snapshotId);
-                ImmutableMap.Builder<Integer, CompactSketch> ndvSketches = ImmutableMap.builder();
+                ImmutableMap.Builder<Integer, CompactThetaSketch> ndvSketches = ImmutableMap.builder();
                 if (latestStatisticsFile.isPresent()) {
-                    Map<Integer, CompactSketch> collectedNdvSketches = collectedStatistics.ndvSketches();
+                    Map<Integer, CompactThetaSketch> collectedNdvSketches = collectedStatistics.ndvSketches();
                     Set<Integer> columnsWithRecentlyComputedStats = collectedNdvSketches.keySet();
                     StatisticsFile statisticsFile = latestStatisticsFile.get();
                     boolean hasUsefulData = statisticsFile.blobMetadata().stream()
@@ -228,10 +227,9 @@ public class TableStatisticsWriter
                                     .collect(toImmutableList());
                             for (Pair<BlobMetadata, ByteBuffer> read : reader.readAll(toRead)) {
                                 Integer fieldId = getOnlyElement(read.first().inputFields());
-                                Memory memory = Memory.wrap(ByteBuffers.getBytes(read.second())); // Memory.wrap(ByteBuffer) results in a different deserialized state
-                                CompactSketch previousSketch = CompactSketch.wrap(memory);
-                                CompactSketch newSketch = requireNonNull(collectedNdvSketches.get(fieldId), "ndvSketches.get(fieldId) is null");
-                                ndvSketches.put(fieldId, SetOperation.builder().buildUnion().union(previousSketch, newSketch));
+                                CompactThetaSketch previousSketch = CompactThetaSketch.wrap(MemorySegment.ofBuffer(read.second()));
+                                CompactThetaSketch newSketch = requireNonNull(collectedNdvSketches.get(fieldId), "ndvSketches.get(fieldId) is null");
+                                ndvSketches.put(fieldId, ThetaSetOperation.builder().buildUnion().union(previousSketch, newSketch));
                             }
                         }
                         catch (IOException exception) {
