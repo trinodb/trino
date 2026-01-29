@@ -58,6 +58,7 @@ import io.trino.sql.tree.Deny;
 import io.trino.sql.tree.DereferenceExpression;
 import io.trino.sql.tree.DescribeInput;
 import io.trino.sql.tree.DescribeOutput;
+import io.trino.sql.tree.DescribeOutputWithQuery;
 import io.trino.sql.tree.Descriptor;
 import io.trino.sql.tree.DescriptorField;
 import io.trino.sql.tree.DoubleLiteral;
@@ -5464,6 +5465,18 @@ public class TestSqlParser
     {
         assertThat(statement("DESCRIBE OUTPUT myquery"))
                 .isEqualTo(new DescribeOutput(location(1, 1), new Identifier(location(1, 17), "myquery", false)));
+    }
+
+    @Test
+    public void testDescribeOutputWithQuery()
+    {
+        assertThat(statement("DESCRIBE OUTPUT (select * from foo)"))
+                .ignoringLocation()
+                .isEqualTo(new DescribeOutputWithQuery(location(1, 1),
+                        simpleQuery(
+                                new Select(false, ImmutableList.of(
+                                        new AllColumns(Optional.empty(), Optional.empty(), ImmutableList.of()))),
+                                table(QualifiedName.of("foo")))));
     }
 
     @Test

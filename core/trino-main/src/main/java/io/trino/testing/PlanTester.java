@@ -196,6 +196,7 @@ import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.sql.planner.sanity.PlanSanityChecker;
 import io.trino.sql.rewrite.DescribeInputRewrite;
 import io.trino.sql.rewrite.DescribeOutputRewrite;
+import io.trino.sql.rewrite.DescribeOutputWithQueryRewrite;
 import io.trino.sql.rewrite.ExplainRewrite;
 import io.trino.sql.rewrite.ShowQueriesRewrite;
 import io.trino.sql.rewrite.ShowStatsRewrite;
@@ -988,6 +989,7 @@ public class PlanTester
                 new StatementRewrite(ImmutableSet.of(
                         new DescribeInputRewrite(sqlParser),
                         new DescribeOutputRewrite(sqlParser),
+                        new DescribeOutputWithQueryRewrite(),
                         new ShowQueriesRewrite(
                                 new SqlEnvironmentConfig(),
                                 plannerContext.getMetadata(),

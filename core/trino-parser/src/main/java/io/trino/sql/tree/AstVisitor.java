@@ -132,6 +132,11 @@ public abstract class AstVisitor<R, C>
         return visitStatement(node, context);
     }
 
+    protected R visitDescribeOutputWithQuery(DescribeOutputWithQuery node, C context)
+    {
+        return visitStatement(node, context);
+    }
+
     protected R visitDescribeInput(DescribeInput node, C context)
     {
         return visitStatement(node, context);

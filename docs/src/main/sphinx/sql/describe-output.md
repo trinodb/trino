@@ -71,7 +71,19 @@ DESCRIBE OUTPUT my_create;
  rows        |         |        |       | bigint |         8 | false
 (1 row)
 ```
-
+We also support describe a query whose output columns are expressions:
+```sql
+DESCRIBE OUTPUT (SELECT * FROM nation);
+```
+```text
+ Column Name | Catalog | Schema | Table  |     Type     | Type Size | Aliased
+-------------+---------+--------+--------+--------------+-----------+---------
+ n_nationkey | tpch    | sf1    | nation | bigint       |         8 | false
+ n_name      | tpch    | sf1    | nation | varchar(25)  |         0 | false
+ n_regionkey | tpch    | sf1    | nation | bigint       |         8 | false
+ n_comment   | tpch    | sf1    | nation | varchar(152) |         0 | false
+(4 rows)
+```
 ## See also
 
 {doc}`prepare`

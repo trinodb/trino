@@ -88,6 +88,7 @@ import io.trino.sql.tree.Delete;
 import io.trino.sql.tree.Deny;
 import io.trino.sql.tree.DescribeInput;
 import io.trino.sql.tree.DescribeOutput;
+import io.trino.sql.tree.DescribeOutputWithQuery;
 import io.trino.sql.tree.DropBranch;
 import io.trino.sql.tree.DropCatalog;
 import io.trino.sql.tree.DropColumn;
@@ -184,6 +185,7 @@ public final class StatementUtils
             // DESCRIBE
             .add(basicStatement(DescribeInput.class, DESCRIBE))
             .add(basicStatement(DescribeOutput.class, DESCRIBE))
+            .add(basicStatement(DescribeOutputWithQuery.class, DESCRIBE))
             .add(basicStatement(ShowCatalogs.class, DESCRIBE))
             .add(basicStatement(ShowColumns.class, DESCRIBE))
             .add(basicStatement(ShowCreate.class, DESCRIBE))
