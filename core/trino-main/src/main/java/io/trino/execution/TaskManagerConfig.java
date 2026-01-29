@@ -22,6 +22,7 @@ import io.airlift.units.DataSize.Unit;
 import io.airlift.units.Duration;
 import io.airlift.units.MaxDuration;
 import io.airlift.units.MinDuration;
+import io.trino.plugin.base.configuration.ThreadCountParser;
 import io.trino.util.PowerOfTwo;
 import jakarta.validation.constraints.DecimalMax;
 import jakarta.validation.constraints.DecimalMin;

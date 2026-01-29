@@ -23,6 +23,7 @@ import io.airlift.units.Duration;
 import io.airlift.units.MinDataSize;
 import io.airlift.units.MinDuration;
 import io.trino.operator.RetryPolicy;
+import io.trino.plugin.base.configuration.ThreadCountParser;
 import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Max;

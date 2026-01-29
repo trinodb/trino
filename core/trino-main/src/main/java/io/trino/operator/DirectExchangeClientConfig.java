@@ -21,7 +21,7 @@ import io.airlift.units.DataSize.Unit;
 import io.airlift.units.Duration;
 import io.airlift.units.MinDataSize;
 import io.airlift.units.MinDuration;
-import io.trino.execution.ThreadCountParser;
+import io.trino.plugin.base.configuration.ThreadCountParser;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
 
