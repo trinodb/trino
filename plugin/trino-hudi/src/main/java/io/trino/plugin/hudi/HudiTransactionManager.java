@@ -67,7 +67,7 @@ public class HudiTransactionManager
         @GuardedBy("this")
         private HudiMetadata metadata;
 
-        public synchronized HudiMetadata get(ConnectorIdentity identity)
+        private synchronized HudiMetadata get(ConnectorIdentity identity)
         {
             if (metadata == null) {
                 try (ThreadContextClassLoader _ = new ThreadContextClassLoader(getClass().getClassLoader())) {
