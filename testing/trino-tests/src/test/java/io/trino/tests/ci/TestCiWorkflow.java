@@ -18,7 +18,7 @@ import io.airlift.log.Logger;
 import org.junit.jupiter.api.Test;
 import org.yaml.snakeyaml.Yaml;
 
-import java.io.StringReader;
+import java.io.Reader;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
@@ -55,7 +55,7 @@ public class TestCiWorkflow
                 "Maven Install");
 
         Yaml yaml = new Yaml();
-        Map<?, ?> workflow = yaml.load(new StringReader(Files.readString(findRepositoryRoot().resolve(CI_YML_REPO_PATH))));
+        Map<?, ?> workflow = yaml.load(Reader.of(Files.readString(findRepositoryRoot().resolve(CI_YML_REPO_PATH))));
         Map<String, ?> jobs = getMap(workflow, "jobs");
         Map<String, ?> test = getMap(jobs, "test");
         List<?> steps = getList(test, "steps");
@@ -103,7 +103,7 @@ public class TestCiWorkflow
             throws Exception
     {
         Yaml yaml = new Yaml();
-        Map<?, ?> workflow = yaml.load(new StringReader(Files.readString(findRepositoryRoot().resolve(CI_YML_REPO_PATH))));
+        Map<?, ?> workflow = yaml.load(Reader.of(Files.readString(findRepositoryRoot().resolve(CI_YML_REPO_PATH))));
         Map<String, ?> jobs = getMap(workflow, "jobs");
 
         Set<String> allJobNames = jobs.keySet();
@@ -141,7 +141,7 @@ public class TestCiWorkflow
             throws Exception
     {
         Yaml yaml = new Yaml();
-        Map<?, ?> workflow = yaml.load(new StringReader(Files.readString(findRepositoryRoot().resolve(CI_YML_REPO_PATH))));
+        Map<?, ?> workflow = yaml.load(Reader.of(Files.readString(findRepositoryRoot().resolve(CI_YML_REPO_PATH))));
         Map<String, ?> jobs = getMap(workflow, "jobs");
         // This assumes the `jobs` map preserves source order
         assertThat(getLast(jobs.keySet()))

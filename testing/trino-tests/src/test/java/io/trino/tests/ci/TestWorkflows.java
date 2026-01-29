@@ -17,7 +17,7 @@ import io.airlift.log.Logger;
 import org.junit.jupiter.api.Test;
 import org.yaml.snakeyaml.Yaml;
 
-import java.io.StringReader;
+import java.io.Reader;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -66,7 +66,7 @@ public class TestWorkflows
         List<String> errors = new ArrayList<>();
         try {
             Yaml yaml = new Yaml();
-            Map<?, ?> workflow = yaml.load(new StringReader(Files.readString(path)));
+            Map<?, ?> workflow = yaml.load(Reader.of(Files.readString(path)));
             Map<String, ?> jobs = getMap(workflow, "jobs");
             jobs.forEach((jobName, jobDefinition) -> {
                 Map<?, ?> job = (Map<?, ?>) jobDefinition;
@@ -121,7 +121,7 @@ public class TestWorkflows
         List<String> errors = new ArrayList<>();
         try {
             Yaml yaml = new Yaml();
-            Map<?, ?> workflow = yaml.load(new StringReader(Files.readString(path)));
+            Map<?, ?> workflow = yaml.load(Reader.of(Files.readString(path)));
             Map<String, ?> runs = getMap(workflow, "runs");
             assertThat(getString(runs, "using")).isEqualTo("composite"); // test only supports composite actions
             List<?> steps = getList(runs, "steps");

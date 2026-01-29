@@ -38,7 +38,7 @@ import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
 
 import java.io.IOException;
-import java.io.StringReader;
+import java.io.Reader;
 import java.net.URI;
 import java.security.Principal;
 import java.util.Locale;
@@ -146,7 +146,7 @@ public class SalesforceBasicAuthenticator
         try {
             DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
             DocumentBuilder builder = factory.newDocumentBuilder();
-            xmlResponse = builder.parse(new InputSource(new StringReader(
+            xmlResponse = builder.parse(new InputSource(Reader.of(
                     response.getBody())));
         }
         catch (ParserConfigurationException | SAXException | IOException e) {

@@ -29,9 +29,9 @@ import io.trino.spi.type.Timestamps;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarbinaryType;
 import io.trino.spi.type.VarcharType;
-import org.apache.commons.codec.binary.Hex;
 
 import java.util.ArrayList;
+import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -185,7 +185,7 @@ public final class PinotQueryBuilder
             return ((Slice) value).toStringUtf8();
         }
         if (type instanceof VarbinaryType) {
-            return Hex.encodeHexString(((Slice) value).getBytes());
+            return HexFormat.of().formatHex(((Slice) value).getBytes());
         }
         if (type instanceof TimestampType) {
             return toMillis((Long) value);
