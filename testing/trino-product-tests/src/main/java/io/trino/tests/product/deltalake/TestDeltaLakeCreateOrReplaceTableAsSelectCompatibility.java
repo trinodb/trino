@@ -140,6 +140,24 @@ public class TestDeltaLakeCreateOrReplaceTableAsSelectCompatibility
         }
     }
 
+    @Test(groups = {DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS})
+    public void testCreateOrReplaceTableWithOnlyFeaturesChangedOnTrino()
+    {
+        String tableName = "test_create_or_replace_table_discard_features_" + randomNameSuffix();
+
+        onTrino().executeQuery("CREATE TABLE delta.default." + tableName + " (x INT) " +
+                "WITH (location = 's3://" + bucketName + "/databricks-compatibility-test-" + tableName + "', deletion_vectors_enabled = true)");
+        try {
+            onTrino().executeQuery("INSERT INTO delta.default." + tableName + " VALUES 1, 2, 3");
+
+            onTrino().executeQuery("CREATE OR REPLACE TABLE delta.default." + tableName + " (x INT)");
+            assertThat(onDelta().executeQuery("SELECT * FROM " + tableName)).hasNoRows();
+        }
+        finally {
+            onTrino().executeQuery("DROP TABLE delta.default." + tableName);
+        }
+    }
+
     private static List<Row> performInsert(QueryExecutor queryExecutor, String tableName, int numberOfRows)
     {
         ImmutableList.Builder<Row> expectedRowBuilder = ImmutableList.builder();
