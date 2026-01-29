@@ -13,7 +13,6 @@
  */
 package io.trino.server;
 
-import io.airlift.log.Logger;
 import jakarta.annotation.Priority;
 import jakarta.ws.rs.WebApplicationException;
 import jakarta.ws.rs.ext.Provider;
@@ -24,11 +23,9 @@ import java.io.IOException;
 
 @Provider
 @Priority(11)
-public class IoExceptionSuppressingWriterInterceptor
+public class EofExceptionSuppressingWriterInterceptor
         implements WriterInterceptor
 {
-    private static final Logger log = Logger.get(IoExceptionSuppressingWriterInterceptor.class);
-
     @Override
     public void aroundWriteTo(WriterInterceptorContext context)
             throws WebApplicationException
@@ -42,7 +39,7 @@ public class IoExceptionSuppressingWriterInterceptor
                 // This is not an error, so we suppress it.
                 return;
             }
-            log.warn("Could not write to output: %s(%s)", e.getClass().getSimpleName(), e.getMessage());
+            throw new WebApplicationException(e);
         }
     }
 }
