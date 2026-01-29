@@ -19,8 +19,8 @@ import io.airlift.slice.Slices;
 import io.trino.Session;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.ResolvedFunction;
-import io.trino.metadata.TestMetadataManager;
 import io.trino.metadata.TestingFunctionResolution;
+import io.trino.metadata.TestingMetadataManager;
 import io.trino.operator.scalar.JsonPath;
 import io.trino.security.AllowAllAccessControl;
 import io.trino.spi.expression.ConnectorExpression;
@@ -343,7 +343,7 @@ public class TestConnectorExpressionTranslator
     public void testTranslateLike()
     {
         TransactionManager transactionManager = new TestingTransactionManager();
-        Metadata metadata = TestMetadataManager.builder().withTransactionManager(transactionManager).build();
+        Metadata metadata = TestingMetadataManager.builder().withTransactionManager(transactionManager).build();
         transaction(transactionManager, metadata, new AllowAllAccessControl())
                 .readOnly()
                 .execute(TEST_SESSION, transactionSession -> {
@@ -422,7 +422,7 @@ public class TestConnectorExpressionTranslator
     public void testTranslateTryCast()
     {
         TransactionManager transactionManager = new TestingTransactionManager();
-        Metadata metadata = TestMetadataManager.builder().withTransactionManager(transactionManager).build();
+        Metadata metadata = TestingMetadataManager.builder().withTransactionManager(transactionManager).build();
         transaction(transactionManager, metadata, new AllowAllAccessControl())
                 .readOnly()
                 .execute(TEST_SESSION, transactionSession -> {
@@ -442,7 +442,7 @@ public class TestConnectorExpressionTranslator
     public void testTranslateResolvedFunction()
     {
         TransactionManager transactionManager = new TestingTransactionManager();
-        Metadata metadata = TestMetadataManager.builder().withTransactionManager(transactionManager).build();
+        Metadata metadata = TestingMetadataManager.builder().withTransactionManager(transactionManager).build();
         transaction(transactionManager, metadata, new AllowAllAccessControl())
                 .readOnly()
                 .execute(TEST_SESSION, transactionSession -> {
@@ -464,7 +464,7 @@ public class TestConnectorExpressionTranslator
         // and are not exposed to connectors within ConnectorExpression. Instead, they are replaced with a varchar pattern.
 
         TransactionManager transactionManager = new TestingTransactionManager();
-        Metadata metadata = TestMetadataManager.builder().withTransactionManager(transactionManager).build();
+        Metadata metadata = TestingMetadataManager.builder().withTransactionManager(transactionManager).build();
         transaction(transactionManager, metadata, new AllowAllAccessControl())
                 .readOnly()
                 .execute(TEST_SESSION, transactionSession -> {
@@ -540,7 +540,7 @@ public class TestConnectorExpressionTranslator
     public void testTranslateCastPlusJsonParse()
     {
         TransactionManager transactionManager = new TestingTransactionManager();
-        Metadata metadata = TestMetadataManager.builder().withTransactionManager(transactionManager).build();
+        Metadata metadata = TestingMetadataManager.builder().withTransactionManager(transactionManager).build();
         transaction(transactionManager, metadata, new AllowAllAccessControl())
                 .readOnly()
                 .execute(TEST_SESSION, transactionSession -> {

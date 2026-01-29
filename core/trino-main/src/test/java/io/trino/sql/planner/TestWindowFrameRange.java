@@ -35,7 +35,7 @@ import org.junit.jupiter.api.Test;
 import java.math.BigDecimal;
 import java.util.Optional;
 
-import static io.trino.metadata.TestMetadataManager.createTestMetadataManager;
+import static io.trino.metadata.TestingMetadataManager.createTestingMetadataManager;
 import static io.trino.spi.StandardErrorCode.INVALID_WINDOW_FRAME;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DecimalType.createDecimalType;
@@ -66,10 +66,10 @@ public class TestWindowFrameRange
 {
     private static final TestingFunctionResolution FUNCTIONS = new TestingFunctionResolution();
     private static final ResolvedFunction FAIL = FUNCTIONS.resolveFunction("fail", fromTypes(INTEGER, VARCHAR));
-    private static final ResolvedFunction ADD_DECIMAL_10_0 = createTestMetadataManager().resolveOperator(OperatorType.ADD, ImmutableList.of(createDecimalType(10, 0), createDecimalType(10, 0)));
-    private static final ResolvedFunction SUBTRACT_DECIMAL_10_0 = createTestMetadataManager().resolveOperator(OperatorType.SUBTRACT, ImmutableList.of(createDecimalType(10, 0), createDecimalType(10, 0)));
-    private static final ResolvedFunction ADD_INTEGER = createTestMetadataManager().resolveOperator(OperatorType.ADD, ImmutableList.of(INTEGER, INTEGER));
-    private static final ResolvedFunction SUBTRACT_INTEGER = createTestMetadataManager().resolveOperator(OperatorType.SUBTRACT, ImmutableList.of(INTEGER, INTEGER));
+    private static final ResolvedFunction ADD_DECIMAL_10_0 = createTestingMetadataManager().resolveOperator(OperatorType.ADD, ImmutableList.of(createDecimalType(10, 0), createDecimalType(10, 0)));
+    private static final ResolvedFunction SUBTRACT_DECIMAL_10_0 = createTestingMetadataManager().resolveOperator(OperatorType.SUBTRACT, ImmutableList.of(createDecimalType(10, 0), createDecimalType(10, 0)));
+    private static final ResolvedFunction ADD_INTEGER = createTestingMetadataManager().resolveOperator(OperatorType.ADD, ImmutableList.of(INTEGER, INTEGER));
+    private static final ResolvedFunction SUBTRACT_INTEGER = createTestingMetadataManager().resolveOperator(OperatorType.SUBTRACT, ImmutableList.of(INTEGER, INTEGER));
 
     @Test
     public void testFramePrecedingWithSortKeyCoercions()

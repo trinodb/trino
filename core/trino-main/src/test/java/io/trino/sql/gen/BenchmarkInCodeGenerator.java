@@ -54,7 +54,7 @@ import java.util.concurrent.TimeUnit;
 
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.metadata.FunctionManager.createTestingFunctionManager;
-import static io.trino.metadata.TestMetadataManager.createTestMetadataManager;
+import static io.trino.metadata.TestingMetadataManager.createTestingMetadataManager;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DoubleType.DOUBLE;
@@ -178,7 +178,7 @@ public class BenchmarkInCodeGenerator
             }
             inputPage = pageBuilder.build();
 
-            Metadata metadata = createTestMetadataManager();
+            Metadata metadata = createTestingMetadataManager();
 
             List<ResolvedFunction> functionalDependencies = ImmutableList.of(
                     metadata.resolveOperator(OperatorType.EQUAL, ImmutableList.of(trinoType, trinoType)),

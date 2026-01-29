@@ -36,7 +36,7 @@ import static io.trino.SystemSessionProperties.MAX_HASH_PARTITION_COUNT;
 import static io.trino.SystemSessionProperties.QUERY_MAX_MEMORY;
 import static io.trino.client.ProtocolHeaders.TRINO_HEADERS;
 import static io.trino.client.ProtocolHeaders.createProtocolHeaders;
-import static io.trino.metadata.TestMetadataManager.createTestMetadataManager;
+import static io.trino.metadata.TestingMetadataManager.createTestingMetadataManager;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -201,7 +201,7 @@ public class TestHttpRequestSessionContextFactory
     {
         return new HttpRequestSessionContextFactory(
                 new PreparedStatementEncoder(new ProtocolConfig()),
-                createTestMetadataManager(),
+                createTestingMetadataManager(),
                 ImmutableSet::of,
                 new AllowAllAccessControl(),
                 new ProtocolConfig()

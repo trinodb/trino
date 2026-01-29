@@ -86,7 +86,7 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.MoreCollectors.onlyElement;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.trino.execution.querystats.PlanOptimizersStatsCollector.createPlanOptimizersStatsCollector;
-import static io.trino.metadata.TestMetadataManager.createTestMetadataManager;
+import static io.trino.metadata.TestingMetadataManager.createTestingMetadataManager;
 import static io.trino.spi.StandardErrorCode.ALREADY_EXISTS;
 import static io.trino.spi.StandardErrorCode.BRANCH_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.DIVISION_BY_ZERO;
@@ -148,7 +148,7 @@ public abstract class BaseDataDefinitionTaskTest
                 MATERIALIZED_VIEW_PROPERTY_1_NAME, longProperty(MATERIALIZED_VIEW_PROPERTY_1_NAME, "property 1", MATERIALIZED_VIEW_PROPERTY_1_DEFAULT_VALUE, false),
                 MATERIALIZED_VIEW_PROPERTY_2_NAME, stringProperty(MATERIALIZED_VIEW_PROPERTY_2_NAME, "property 2", MATERIALIZED_VIEW_PROPERTY_2_DEFAULT_VALUE, false));
         materializedViewPropertyManager = new MaterializedViewPropertyManager(CatalogServiceProvider.singleton(TEST_CATALOG_HANDLE, properties));
-        queryStateMachine = stateMachine(transactionManager, createTestMetadataManager(), new AllowAllAccessControl(), testSession);
+        queryStateMachine = stateMachine(transactionManager, createTestingMetadataManager(), new AllowAllAccessControl(), testSession);
         metadata.createSchema(testSession, new CatalogSchemaName(TEST_CATALOG_NAME, SCHEMA), ImmutableMap.of(), new TrinoPrincipal(ROLE, "role"));
     }
 
@@ -270,7 +270,7 @@ public abstract class BaseDataDefinitionTaskTest
 
         public MockMetadata(String catalogName)
         {
-            delegate = createTestMetadataManager();
+            delegate = createTestingMetadataManager();
             this.catalogName = requireNonNull(catalogName, "catalogName is null");
         }
 

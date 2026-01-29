@@ -30,7 +30,7 @@ import io.trino.execution.warnings.DefaultWarningCollector;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.execution.warnings.WarningCollectorConfig;
 import io.trino.metadata.Metadata;
-import io.trino.metadata.TestMetadataManager;
+import io.trino.metadata.TestingMetadataManager;
 import io.trino.plugin.base.security.AllowAllSystemAccessControl;
 import io.trino.plugin.base.security.DefaultSystemAccessControl;
 import io.trino.security.AccessControlConfig;
@@ -828,7 +828,7 @@ public class TestQueryStateMachine
         public QueryStateMachine build()
         {
             TransactionManager transactionManager = createTestTransactionManager();
-            Metadata metadata = TestMetadataManager.builder()
+            Metadata metadata = TestingMetadataManager.builder()
                     .withTransactionManager(transactionManager)
                     .build();
             if (beforeQueryCleanup.isPresent()) {

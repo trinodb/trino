@@ -37,7 +37,7 @@ import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 
-import static io.trino.metadata.TestMetadataManager.createTestMetadataManager;
+import static io.trino.metadata.TestingMetadataManager.createTestingMetadataManager;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
@@ -56,8 +56,8 @@ public class TestPushDownProjectionsFromPatternRecognition
     private static final ResolvedFunction MULTIPLY_BIGINT = FUNCTIONS.resolveOperator(OperatorType.MULTIPLY, ImmutableList.of(BIGINT, BIGINT));
 
     private static final ResolvedFunction CONCAT = FUNCTIONS.resolveFunction("concat", fromTypes(VARCHAR, VARCHAR));
-    private static final ResolvedFunction MAX_BY = createTestMetadataManager().resolveBuiltinFunction("max_by", fromTypes(BIGINT, BIGINT));
-    private static final ResolvedFunction MAX_BY_BIGINT_VARCHAR = createTestMetadataManager().resolveBuiltinFunction("max_by", fromTypes(BIGINT, VARCHAR));
+    private static final ResolvedFunction MAX_BY = createTestingMetadataManager().resolveBuiltinFunction("max_by", fromTypes(BIGINT, BIGINT));
+    private static final ResolvedFunction MAX_BY_BIGINT_VARCHAR = createTestingMetadataManager().resolveBuiltinFunction("max_by", fromTypes(BIGINT, VARCHAR));
 
     @Test
     public void testNoAggregations()

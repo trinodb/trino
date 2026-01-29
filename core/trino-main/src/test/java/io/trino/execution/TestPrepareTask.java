@@ -48,7 +48,7 @@ import java.util.concurrent.ExecutorService;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.execution.querystats.PlanOptimizersStatsCollector.createPlanOptimizersStatsCollector;
-import static io.trino.metadata.TestMetadataManager.createTestMetadataManager;
+import static io.trino.metadata.TestingMetadataManager.createTestingMetadataManager;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.sql.QueryUtil.identifier;
 import static io.trino.sql.QueryUtil.selectList;
@@ -69,7 +69,7 @@ import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 @Execution(CONCURRENT)
 public class TestPrepareTask
 {
-    private final Metadata metadata = createTestMetadataManager();
+    private final Metadata metadata = createTestingMetadataManager();
     private ExecutorService executor = newCachedThreadPool(daemonThreadsNamed(getClass().getSimpleName() + "-%s"));
 
     @AfterAll
