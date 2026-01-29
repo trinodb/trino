@@ -130,10 +130,7 @@ final class TestIcebergOptimizeManifestsProcedure
                     .hasSize(1);
 
             // Set small target size to force split
-            BaseTable icebergTable = loadTable(table.getName());
-            icebergTable.updateProperties()
-                    .set("commit.manifest.target-size-bytes", "1")
-                    .commit();
+            setManifestTargetSizeBytes(table.getName(), 1);
             assertUpdate("ALTER TABLE " + table.getName() + " EXECUTE optimize_manifests");
 
             assertThat(manifestFiles(table.getName()))
@@ -184,10 +181,7 @@ final class TestIcebergOptimizeManifestsProcedure
                     .matches("VALUES BIGINT '30'");
 
             // Set small target size to force split
-            BaseTable icebergTable = loadTable(table.getName());
-            icebergTable.updateProperties()
-                    .set("commit.manifest.target-size-bytes", "8000")
-                    .commit();
+            setManifestTargetSizeBytes(table.getName(), 8000);
             manifestFiles = currentManifestFiles;
             assertUpdate("ALTER TABLE " + table.getName() + " EXECUTE optimize_manifests");
 
@@ -272,5 +266,13 @@ final class TestIcebergOptimizeManifestsProcedure
     private BaseTable loadTable(String tableName)
     {
         return IcebergTestUtils.loadTable(tableName, metastore, fileSystemFactory, "hive", "tpch");
+    }
+
+    private void setManifestTargetSizeBytes(String tableName, long targetSizeBytes)
+    {
+        BaseTable icebergTable = loadTable(tableName);
+        icebergTable.updateProperties()
+                .set("commit.manifest.target-size-bytes", String.valueOf(targetSizeBytes))
+                .commit();
     }
 }
