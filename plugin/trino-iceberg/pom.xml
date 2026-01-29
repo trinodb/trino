@@ -223,6 +223,13 @@
         <dependency>
             <groupId>org.apache.iceberg</groupId>
             <artifactId>iceberg-core</artifactId>
+            <exclusions>
+                <exclusion>
+                    <!-- TODO https://github.com/trinodb/trino/issues/27991 Bump RoaringBitmap to the latest version -->
+                    <groupId>com.github.RoaringBitmap.RoaringBitmap</groupId>
+                    <artifactId>roaringbitmap</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
         <dependency>
@@ -615,6 +622,13 @@
             <artifactId>iceberg-core</artifactId>
             <classifier>tests</classifier>
             <scope>test</scope>
+            <exclusions>
+                <exclusion>
+                    <!-- TODO https://github.com/trinodb/trino/issues/27991 Bump RoaringBitmap to the latest version -->
+                    <groupId>com.github.RoaringBitmap.RoaringBitmap</groupId>
+                    <artifactId>roaringbitmap</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
         <dependency>

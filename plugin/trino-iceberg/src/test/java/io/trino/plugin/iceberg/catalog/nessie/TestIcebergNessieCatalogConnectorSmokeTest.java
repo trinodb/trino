@@ -159,6 +159,12 @@ public class TestIcebergNessieCatalogConnectorSmokeTest
         return table.operations().current().metadataFileLocation();
     }
 
+    @Override
+    protected String getViewMetadataLocation(String viewName)
+    {
+        throw new UnsupportedOperationException("getViewMetadataLocation is not supported for Nessie catalog");
+    }
+
     @Test
     @Override
     public void testRegisterTableWithTableLocation()

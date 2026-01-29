@@ -114,6 +114,12 @@ public class TestIcebergMotoConnectorSmokeTest
     }
 
     @Override
+    protected String getViewMetadataLocation(String viewName)
+    {
+        throw new UnsupportedOperationException("getViewMetadataLocation is not supported for Glue catalog");
+    }
+
+    @Override
     protected String schemaPath()
     {
         return "s3://%s/%s".formatted(bucketName, schemaName);

@@ -101,6 +101,7 @@ public class TestIcebergTrinoRestCatalogConnectorSmokeTest
                                 .put("iceberg.catalog.type", "rest")
                                 .put("iceberg.rest-catalog.uri", testServer.getBaseUrl().toString())
                                 .put("iceberg.register-table-procedure.enabled", "true")
+                                .put("iceberg.register-view-procedure.enabled", "true")
                                 .put("iceberg.writer-sort-buffer-size", "1MB")
                                 .buildOrThrow())
                 .setInitialTables(REQUIRED_TPCH_TABLES)
@@ -204,6 +205,12 @@ public class TestIcebergTrinoRestCatalogConnectorSmokeTest
     }
 
     @Override
+    protected String getViewMetadataLocation(String viewName)
+    {
+        return backend.loadView(toIdentifier(viewName)).location();
+    }
+
+    @Override
     protected String schemaPath()
     {
         return format("%s/%s", warehouseLocation, getSession().getSchema());
@@ -230,7 +237,7 @@ public class TestIcebergTrinoRestCatalogConnectorSmokeTest
         assertThatThrownBy(super::testDropTableWithMissingSnapshotFile)
                 .isInstanceOf(QueryFailedException.class)
                 .cause()
-                .hasMessageContaining("Failed to drop table")
+                .hasMessageMatching("Failed to open input stream for file: .*avro")
                 .hasNoCause();
     }
 

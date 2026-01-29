@@ -428,6 +428,14 @@ public class TestIcebergSnowflakeCatalogConnectorSmokeTest
 
     @Test
     @Override
+    public void testRegisterView()
+    {
+        assertThatThrownBy(super::testRegisterView)
+                .hasMessageMatching("Snowflake managed Iceberg tables do not support modifications");
+    }
+
+    @Test
+    @Override
     public void testCreateTableWithNonExistingSchemaVerifyLocation()
     {
         assertThatThrownBy(super::testCreateTableWithNonExistingSchemaVerifyLocation)
@@ -756,6 +764,13 @@ public class TestIcebergSnowflakeCatalogConnectorSmokeTest
     {
         // used for register table, which is not supported for Iceberg Snowflake catalogs
         throw new UnsupportedOperationException("getMetadataLocation is not supported for Iceberg snowflake catalog");
+    }
+
+    @Override
+    protected String getViewMetadataLocation(String viewName)
+    {
+        // used for register view, which is not supported for Iceberg Snowflake catalogs
+        throw new UnsupportedOperationException("getViewMetadataLocation is not supported for Iceberg snowflake catalog");
     }
 
     @Override

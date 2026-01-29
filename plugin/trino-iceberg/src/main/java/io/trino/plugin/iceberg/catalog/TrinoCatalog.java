@@ -16,6 +16,7 @@ package io.trino.plugin.iceberg.catalog;
 import io.trino.metastore.TableInfo;
 import io.trino.plugin.iceberg.ColumnIdentity;
 import io.trino.plugin.iceberg.UnknownTableTypeException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorMaterializedViewDefinition;
@@ -34,6 +35,7 @@ import org.apache.iceberg.SortOrder;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.TableMetadata;
 import org.apache.iceberg.Transaction;
+import org.apache.iceberg.view.ViewMetadata;
 
 import java.util.Iterator;
 import java.util.List;
@@ -44,6 +46,7 @@ import java.util.function.Predicate;
 import java.util.function.UnaryOperator;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 
 /**
  * An interface to allow different Iceberg catalog implementations in IcebergMetadata.
@@ -171,6 +174,11 @@ public interface TrinoCatalog
     void renameView(ConnectorSession session, SchemaTableName source, SchemaTableName target);
 
     void setViewPrincipal(ConnectorSession session, SchemaTableName schemaViewName, TrinoPrincipal principal);
+
+    default void registerView(ConnectorSession session, SchemaTableName viewName, ViewMetadata viewMetadata)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "The catalog does not support registering views");
+    }
 
     void dropView(ConnectorSession session, SchemaTableName schemaViewName);
 

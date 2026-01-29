@@ -23,6 +23,7 @@ import io.trino.filesystem.TrinoFileSystem;
 import io.trino.testing.BaseConnectorSmokeTest;
 import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.TestTable;
+import io.trino.testing.sql.TestView;
 import org.apache.iceberg.FileFormat;
 import org.apache.iceberg.TableMetadata;
 import org.apache.iceberg.TableMetadataParser;
@@ -522,6 +523,29 @@ public abstract class BaseIcebergConnectorSmokeTest
     }
 
     @Test
+    public void testRegisterView()
+    {
+        String registerViewName = "test_register_view" + randomNameSuffix();
+
+        try (TestView view = new TestView(getQueryRunner()::execute, "test_register_view", "SELECT * FROM region")) {
+            String metadataLocation = getViewMetadataLocation(view.getName());
+
+            assertUpdate("CALL system.register_view(CURRENT_SCHEMA, '" + registerViewName + "', '" + metadataLocation + "')");
+
+            assertThat(query("SELECT * FROM " + registerViewName))
+                    .matches("SELECT * FROM region");
+        }
+        finally {
+            try {
+                assertUpdate("DROP VIEW IF EXISTS " + registerViewName);
+            }
+            catch (Throwable ignored) {
+                // no-op
+            }
+        }
+    }
+
+    @Test
     public void testCreateTableWithNonExistingSchemaVerifyLocation()
     {
         String schemaName = "non_existing_schema_" + randomNameSuffix();
@@ -990,6 +1014,8 @@ public abstract class BaseIcebergConnectorSmokeTest
     protected abstract void dropTableFromCatalog(String tableName);
 
     protected abstract String getMetadataLocation(String tableName);
+
+    protected abstract String getViewMetadataLocation(String viewName);
 
     protected abstract String schemaPath();
 
