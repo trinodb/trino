@@ -343,8 +343,9 @@ public class TestDeltaLakeDatabricksCreateTableCompatibility
     private static String getDatabricksDefaultTableProperties()
     {
         return "TBLPROPERTIES (\n" +
+                "  'delta.columnMapping.mode' = 'name',\n" +
                 "  'delta.enableDeletionVectors' = 'false',\n" +
-                "  'delta.minReaderVersion' = '1',\n" +
-                "  'delta.minWriterVersion' = '2')\n";
+                "  'delta.minReaderVersion' = '2',\n" +
+                "  'delta.minWriterVersion' = '5')\n";
     }
 }
