@@ -147,6 +147,10 @@ import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.VarcharType;
+import it.unimi.dsi.fastutil.Hash;
+import it.unimi.dsi.fastutil.objects.Object2IntOpenCustomHashMap;
+import it.unimi.dsi.fastutil.objects.ObjectArrays;
+import it.unimi.dsi.fastutil.objects.ObjectOpenCustomHashSet;
 import jakarta.annotation.Nullable;
 import org.apache.datasketches.theta.CompactSketch;
 import org.apache.iceberg.AppendFiles;
@@ -162,6 +166,7 @@ import org.apache.iceberg.FileScanTask;
 import org.apache.iceberg.IcebergManifestUtils;
 import org.apache.iceberg.IsolationLevel;
 import org.apache.iceberg.ManifestFile;
+import org.apache.iceberg.ManifestFiles;
 import org.apache.iceberg.ManifestReader;
 import org.apache.iceberg.MetadataColumns;
 import org.apache.iceberg.PartitionField;
@@ -179,6 +184,7 @@ import org.apache.iceberg.SnapshotUpdate;
 import org.apache.iceberg.SortField;
 import org.apache.iceberg.SortOrder;
 import org.apache.iceberg.StatisticsFile;
+import org.apache.iceberg.StructLike;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.TableMetadata;
 import org.apache.iceberg.TableProperties;
@@ -197,6 +203,11 @@ import org.apache.iceberg.expressions.Expressions;
 import org.apache.iceberg.expressions.Literal;
 import org.apache.iceberg.expressions.Term;
 import org.apache.iceberg.io.CloseableIterable;
+import org.apache.iceberg.metrics.CommitMetricsResult;
+import org.apache.iceberg.metrics.CommitReport;
+import org.apache.iceberg.metrics.MetricsReporters;
+import org.apache.iceberg.types.Comparators;
+import org.apache.iceberg.types.JavaHash;
 import org.apache.iceberg.types.Type;
 import org.apache.iceberg.types.TypeUtil;
 import org.apache.iceberg.types.Types;
@@ -204,7 +215,7 @@ import org.apache.iceberg.types.Types.IntegerType;
 import org.apache.iceberg.types.Types.NestedField;
 import org.apache.iceberg.types.Types.StringType;
 import org.apache.iceberg.types.Types.StructType;
-import org.apache.iceberg.util.StructLikeWrapper;
+import org.apache.iceberg.util.ParallelIterable;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -222,7 +233,6 @@ import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Set;
@@ -409,12 +419,14 @@ import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.Boolean.parseBoolean;
 import static java.lang.Math.floorDiv;
 import static java.lang.Math.max;
+import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.Objects.requireNonNullElse;
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.joining;
+import static org.apache.iceberg.IcebergManifestUtils.liveEntries;
 import static org.apache.iceberg.MetadataTableType.ALL_ENTRIES;
 import static org.apache.iceberg.MetadataTableType.ENTRIES;
 import static org.apache.iceberg.ReachableFileUtil.metadataFileLocations;
@@ -2066,8 +2078,7 @@ public class IcebergMetadata
         IcebergTableExecuteHandle executeHandle = (IcebergTableExecuteHandle) tableExecuteHandle;
         switch (executeHandle.procedureId()) {
             case OPTIMIZE_MANIFESTS:
-                executeOptimizeManifests(session, executeHandle);
-                return ImmutableMap.of();
+                return executeOptimizeManifests(session, executeHandle);
             case DROP_EXTENDED_STATS:
                 executeDropExtendedStats(session, executeHandle);
                 return ImmutableMap.of();
@@ -2097,37 +2108,160 @@ public class IcebergMetadata
         }
     }
 
-    private void executeOptimizeManifests(ConnectorSession session, IcebergTableExecuteHandle executeHandle)
+    private Map<String, Long> executeOptimizeManifests(ConnectorSession session, IcebergTableExecuteHandle executeHandle)
     {
         checkArgument(executeHandle.procedureHandle() instanceof IcebergOptimizeManifestsHandle, "Unexpected procedure handle %s", executeHandle.procedureHandle());
 
         BaseTable icebergTable = catalog.loadTable(session, executeHandle.schemaTableName());
-        List<ManifestFile> manifests = loadAllManifestsFromSnapshot(icebergTable, icebergTable.currentSnapshot());
+        // org.apache.iceberg.BaseRewriteManifests currently rewrites only data manifests
+        List<ManifestFile> manifests = loadDataManifestsFromSnapshot(icebergTable, icebergTable.currentSnapshot());
         if (manifests.isEmpty()) {
-            return;
+            return ImmutableMap.of();
         }
         long manifestTargetSizeBytes = icebergTable.operations().current().propertyAsLong(MANIFEST_TARGET_SIZE_BYTES, MANIFEST_TARGET_SIZE_BYTES_DEFAULT);
         if (manifests.size() == 1 && manifests.getFirst().length() < manifestTargetSizeBytes) {
-            return;
+            return ImmutableMap.of();
         }
         long totalManifestsSize = manifests.stream().mapToLong(ManifestFile::length).sum();
         // Having too many open manifest writers can potentially cause OOM on the coordinator
-        long targetManifestClusters = Math.min(((totalManifestsSize + manifestTargetSizeBytes - 1) / manifestTargetSizeBytes), 100);
+        int targetManifestClusters = toIntExact(Math.min(((totalManifestsSize + manifestTargetSizeBytes - 1) / manifestTargetSizeBytes), 100));
 
-        beginTransaction(icebergTable);
-        RewriteManifests rewriteManifests = transaction.rewriteManifests();
-        Types.StructType structType = icebergTable.spec().partitionType();
+        // Cluster manifests by partitioning fields for better manifest pruning when reading data files with filters
+        Map<Object, Integer> clusteredPartitionValues;
+        if (icebergTable.spec().isPartitioned() && targetManifestClusters > 1) {
+            clusteredPartitionValues = getClusteredPartitionValues(icebergTable, manifests, targetManifestClusters);
+        }
+        else {
+            clusteredPartitionValues = ImmutableMap.of();
+        }
+
+        CommitMetricsReporter reporter = new CommitMetricsReporter();
+        icebergTable = new BaseTable(icebergTable.operations(), icebergTable.name(), MetricsReporters.combine(icebergTable.reporter(), reporter));
+        RewriteManifests rewriteManifests = icebergTable.rewriteManifests();
+        // commit.manifest.target-size-bytes is enforced by RewriteManifests,
+        // so we don't have to worry about any manifest file getting too big
+        // because of the clustering logic
         rewriteManifests
-                .clusterBy(file -> {
-                    // Cluster by partitions for better locality when reading data files
-                    StructLikeWrapper partitionWrapper = StructLikeWrapper.forType(structType).set(file.partition());
-                    // Limit the number of clustering buckets to avoid creating too many small manifest files
-                    return Objects.hash(partitionWrapper) % targetManifestClusters;
+                .clusterBy(dataFile -> {
+                    StructLike partition = dataFile.partition();
+                    if (partition == null || clusteredPartitionValues.isEmpty()) {
+                        return 0;
+                    }
+                    Object value = partition.get(0, Object.class);
+                    if (value == null) {
+                        return 0;
+                    }
+                    return clusteredPartitionValues.get(value);
                 })
                 .scanManifestsWith(icebergScanExecutor)
                 .commit();
-        commitTransaction(transaction, "optimize manifests");
-        transaction = null;
+
+        CommitReport report = reporter.commitReport();
+        if (report == null) {
+            return ImmutableMap.of();
+        }
+        log.info("optimize_manifests on table %s, commit report %s", icebergTable.name(), report);
+
+        CommitMetricsResult metrics = report.commitMetrics();
+        if (metrics == null) {
+            return ImmutableMap.of();
+        }
+        return ImmutableMap.of(
+                "rewritten_manifests_count", metrics.manifestsReplaced().value(),
+                "added_manifests_count", metrics.manifestsCreated().value(),
+                "kept_manifests_count", metrics.manifestsKept().value(),
+                "processed_manifest_entries_count", metrics.manifestEntriesProcessed().value());
+    }
+
+    private Map<Object, Integer> getClusteredPartitionValues(
+            BaseTable icebergTable,
+            List<ManifestFile> dataManifests,
+            int targetClusters)
+    {
+        checkArgument(icebergTable.spec().isPartitioned(), "Table %s must be partitioned", icebergTable);
+
+        // Clustering is limited to the top-level partitioning column as that is likely
+        // to be the most effective for filters during reads
+        PartitionField partitionField = icebergTable.spec().fields().getFirst();
+        Type.PrimitiveType partitionType = icebergTable.spec().schema()
+                .findType(partitionField.sourceId())
+                .asPrimitiveType();
+        Hash.Strategy<Object> icebergHashStrategy = new IcebergHashStrategy(partitionType);
+
+        Iterable<CloseableIterable<ContentFile<DataFile>>> dataFileIterables = Iterables.transform(
+                dataManifests,
+                manifestFile ->
+                        CloseableIterable.transform(
+                                liveEntries(
+                                        ManifestFiles.read(manifestFile, icebergTable.io()).select(ImmutableList.of("partition"))),
+                                dataFile -> dataFile.copyWithoutStats()));
+        // Collect unique values of top-level partitioning column
+        Set<Object> uniqueValues = new ObjectOpenCustomHashSet<>(icebergHashStrategy);
+        try (CloseableIterable<ContentFile<DataFile>> dataFiles = new ParallelIterable<>(dataFileIterables, icebergScanExecutor)) {
+            dataFiles.forEach(dataFile -> {
+                StructLike partition = dataFile.partition();
+                if (partition != null) {
+                    Object value = partition.get(0, Object.class);
+                    if (value != null) {
+                        uniqueValues.add(value);
+                    }
+                }
+            });
+        }
+        catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+
+        if (uniqueValues.isEmpty()) {
+            return ImmutableMap.of();
+        }
+        // Sort unique values to cluster nearby partitions together
+        Object[] sortedValues = uniqueValues.toArray();
+        ObjectArrays.quickSort(sortedValues, Comparators.forType(partitionType));
+
+        // Assign a bucket in range [0, targetClusters) to the partition values, while also grouping
+        // adjacent values into same bucket
+        Map<Object, Integer> valueToBucket = new Object2IntOpenCustomHashMap<>(icebergHashStrategy);
+        for (int i = 0; i < sortedValues.length; i++) {
+            int bucket = (i * targetClusters / sortedValues.length);
+            valueToBucket.put(sortedValues[i], bucket);
+        }
+
+        return valueToBucket;
+    }
+
+    /**
+     * Bridges Iceberg's JavaHash and Comparator into FastUtil's Hash.Strategy.
+     */
+    private static class IcebergHashStrategy
+            implements Hash.Strategy<Object>
+    {
+        private final JavaHash<Object> hasher;
+        private final Comparator<Object> comparator;
+
+        IcebergHashStrategy(Type.PrimitiveType type)
+        {
+            this.hasher = JavaHash.forType(type);
+            this.comparator = Comparators.forType(type);
+        }
+
+        @Override
+        public int hashCode(Object o)
+        {
+            return o == null ? 0 : hasher.hash(o);
+        }
+
+        @Override
+        public boolean equals(Object a, Object b)
+        {
+            if (a == b) {
+                return true;
+            }
+            if (a == null || b == null) {
+                return false;
+            }
+            return comparator.compare(a, b) == 0;
+        }
     }
 
     private void executeDropExtendedStats(ConnectorSession session, IcebergTableExecuteHandle executeHandle)
