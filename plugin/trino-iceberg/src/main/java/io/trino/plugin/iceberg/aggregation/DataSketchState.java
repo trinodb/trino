@@ -15,18 +15,18 @@ package io.trino.plugin.iceberg.aggregation;
 
 import io.trino.spi.function.AccumulatorState;
 import io.trino.spi.function.AccumulatorStateMetadata;
-import org.apache.datasketches.theta.CompactSketch;
-import org.apache.datasketches.theta.UpdateSketch;
+import org.apache.datasketches.theta.CompactThetaSketch;
+import org.apache.datasketches.theta.UpdatableThetaSketch;
 
 @AccumulatorStateMetadata(stateSerializerClass = DataSketchStateSerializer.class)
 public interface DataSketchState
         extends AccumulatorState
 {
-    UpdateSketch getUpdateSketch();
+    UpdatableThetaSketch getUpdateSketch();
 
-    void setUpdateSketch(UpdateSketch value);
+    void setUpdateSketch(UpdatableThetaSketch value);
 
-    CompactSketch getCompactSketch();
+    CompactThetaSketch getCompactSketch();
 
-    void setCompactSketch(CompactSketch value);
+    void setCompactSketch(CompactThetaSketch value);
 }

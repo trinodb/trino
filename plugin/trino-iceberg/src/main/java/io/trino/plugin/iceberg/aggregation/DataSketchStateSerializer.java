@@ -19,9 +19,9 @@ import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.function.AccumulatorStateSerializer;
 import io.trino.spi.type.Type;
-import org.apache.datasketches.memory.WritableMemory;
-import org.apache.datasketches.theta.CompactSketch;
+import org.apache.datasketches.theta.CompactThetaSketch;
 
+import java.lang.foreign.MemorySegment;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -49,7 +49,7 @@ public class DataSketchStateSerializer
         }
         else {
             checkArgument(state.getUpdateSketch() == null || state.getCompactSketch() == null, "A state must not have both transient accumulator and combined form set");
-            CompactSketch compactSketch = Optional.ofNullable(state.getCompactSketch())
+            CompactThetaSketch compactSketch = Optional.ofNullable(state.getCompactSketch())
                     .orElseGet(() -> state.getUpdateSketch().compact());
             Slice slice = Slices.wrappedBuffer(compactSketch.toByteArray());
             VARBINARY.writeSlice(out, slice);
@@ -64,10 +64,10 @@ public class DataSketchStateSerializer
         }
     }
 
-    public static CompactSketch deserialize(Block block, int index)
+    public static CompactThetaSketch deserialize(Block block, int index)
     {
         checkArgument(!block.isNull(index), "Value is null");
         Slice slice = VARBINARY.getSlice(block, index);
-        return CompactSketch.heapify(WritableMemory.writableWrap(slice.getBytes()));
+        return CompactThetaSketch.heapify(MemorySegment.ofArray(slice.getBytes()));
     }
 }

@@ -28,10 +28,10 @@ import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.Type;
 import jakarta.annotation.Nullable;
 import org.apache.datasketches.common.Family;
-import org.apache.datasketches.theta.SetOperation;
-import org.apache.datasketches.theta.Sketch;
-import org.apache.datasketches.theta.Union;
-import org.apache.datasketches.theta.UpdateSketch;
+import org.apache.datasketches.theta.ThetaSetOperation;
+import org.apache.datasketches.theta.ThetaSketch;
+import org.apache.datasketches.theta.ThetaUnion;
+import org.apache.datasketches.theta.UpdatableThetaSketch;
 import org.apache.iceberg.types.Conversions;
 
 import java.nio.ByteBuffer;
@@ -69,7 +69,7 @@ public final class IcebergThetaSketchForStats
     @CombineFunction
     public static void combine(@AggregationState DataSketchState state, @AggregationState DataSketchState otherState)
     {
-        Union union = SetOperation.builder().buildUnion();
+        ThetaUnion union = ThetaSetOperation.builder().buildUnion();
         addIfPresent(union, state.getUpdateSketch());
         addIfPresent(union, state.getCompactSketch());
         addIfPresent(union, otherState.getUpdateSketch());
@@ -88,13 +88,13 @@ public final class IcebergThetaSketchForStats
         DataSketchStateSerializer.serializeToVarbinary(state, out);
     }
 
-    private static UpdateSketch getOrCreateUpdateSketch(@AggregationState DataSketchState state)
+    private static UpdatableThetaSketch getOrCreateUpdateSketch(@AggregationState DataSketchState state)
     {
-        UpdateSketch sketch = state.getUpdateSketch();
+        UpdatableThetaSketch sketch = state.getUpdateSketch();
         if (sketch == null) {
             // Must match Iceberg table statistics specification
             // https://iceberg.apache.org/puffin-spec/#apache-datasketches-theta-v1-blob-type
-            sketch = UpdateSketch.builder()
+            sketch = UpdatableThetaSketch.builder()
                     .setFamily(Family.ALPHA)
                     .build();
             state.setUpdateSketch(sketch);
@@ -102,7 +102,7 @@ public final class IcebergThetaSketchForStats
         return sketch;
     }
 
-    private static void addIfPresent(Union union, @Nullable Sketch input)
+    private static void addIfPresent(ThetaUnion union, @Nullable ThetaSketch input)
     {
         if (input != null) {
             union.union(input);
