@@ -177,6 +177,14 @@ public interface Connector
     }
 
     /**
+     * @return the branch properties for this connector
+     */
+    default List<PropertyMetadata<?>> getBranchProperties()
+    {
+        return emptyList();
+    }
+
+    /**
      * @return the table properties for this connector
      */
     default List<PropertyMetadata<?>> getTableProperties()
