@@ -19,6 +19,8 @@ import io.trino.metastore.HiveMetastore;
 import io.trino.metastore.Table;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
+import io.trino.testing.sql.TestTable;
+import org.apache.iceberg.BaseTable;
 import org.junit.jupiter.api.Test;
 
 import static io.trino.plugin.hive.TableType.EXTERNAL_TABLE;
@@ -62,11 +64,33 @@ final class TestIcebergTableWithObjectStoreLayout
         String filePath = (String) computeScalar("SELECT file_path FROM \"test_create_table_with_different_location$files\"");
         Location dataFileLocation = Location.of(filePath);
         assertThat(fileSystem.newInputFile(dataFileLocation).exists()).isTrue();
-        assertThat(filePath).matches("local:///table-location/abc/.{6}/tpch/test_create_table_with_different_location-.*/.*\\.parquet");
+        assertThat(filePath).matches("local:///table-location/abc/[01]{4}/[01]{4}/[01]{4}/[01]{8}/tpch/test_create_table_with_different_location-.*/.*\\.parquet");
 
         assertQuerySucceeds("DROP TABLE test_create_table_with_different_location");
         assertThat(metastore.getTable("tpch", "test_create_table_with_different_location")).isEmpty();
         assertThat(fileSystem.newInputFile(dataFileLocation).exists()).isFalse();
         assertThat(fileSystem.newInputFile(tableLocation).exists()).isFalse();
+    }
+
+    @Test
+    void testPartitionedPathsDisabled()
+    {
+        try (TestTable table = newTrinoTable("test_partitioned_paths_disabled", "(id INT, part INT) WITH (partitioning = ARRAY['part'])")) {
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (1, 10)", 1);
+            assertThat((String) computeScalar("SELECT \"$path\" FROM " + table.getName() + " WHERE id = 1"))
+                    .contains("part=10");
+
+            loadTable(table.getName()).updateProperties()
+                    .set("write.object-storage.partitioned-paths", "false")
+                    .commit();
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (2, 20)", 1);
+            assertThat((String) computeScalar("SELECT \"$path\" FROM " + table.getName() + " WHERE id = 2"))
+                    .doesNotContain("part=20");
+        }
+    }
+
+    private BaseTable loadTable(String tableName)
+    {
+        return IcebergTestUtils.loadTable(tableName, metastore, getFileSystemFactory(getQueryRunner()), "iceberg", "tpch");
     }
 }
