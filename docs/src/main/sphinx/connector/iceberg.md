@@ -2245,7 +2245,7 @@ Additionally, you can use the following catalog configuration properties:
 * - `fs.memory-cache.max-size`
   - The maximum total [data size](prop-type-data-size) of the cache. When
     raising this value, keep in mind that the coordinator memory is used.
-    Defaults to `200MB`.
+    Defaults to 2% of maximum heap size on the node.
 * - `fs.memory-cache.max-content-length`
   - The maximum file size that can be cached. Defaults to `15MB`.
  :::
