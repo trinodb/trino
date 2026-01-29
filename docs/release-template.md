@@ -84,4 +84,6 @@
 
 ## Vertica connector
 
+## Weaviate connector
+
 ## SPI

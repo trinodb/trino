@@ -6,7 +6,7 @@ on:
       - master
   pull_request:
   repository_dispatch:
-    types: [test-with-secrets-command]
+    types: [ test-with-secrets-command ]
 
 defaults:
   run:
@@ -402,6 +402,7 @@ jobs:
             !:trino-tests,
             !:trino-thrift,
             !:trino-vertica,
+            !:trino-weaviate,
             !:trino-web-ui'
       - name: Upload test results
         uses: ./.github/actions/process-test-results
@@ -518,6 +519,7 @@ jobs:
             - { modules: plugin/trino-snowflake, profile: cloud-tests }
             - { modules: plugin/trino-sqlserver }
             - { modules: plugin/trino-vertica }
+            - { modules: plugin/trino-weaviate }
             - { modules: testing/trino-faulttolerant-tests, profile: default }
             - { modules: testing/trino-faulttolerant-tests, profile: test-fault-tolerant-delta }
             - { modules: testing/trino-faulttolerant-tests, profile: test-fault-tolerant-hive }
@@ -637,7 +639,7 @@ jobs:
           $MAVEN test ${MAVEN_TEST} -pl ${{ matrix.modules }} ${{ format('-P {0}', matrix.profile) }}
       - name: Cloud Delta Lake Tests
         id: tests-delta
-      # Cloud tests are separate because they are time intensive, requiring cross-cloud network communication
+        # Cloud tests are separate because they are time intensive, requiring cross-cloud network communication
         env:
           ABFS_CONTAINER: ${{ vars.AZURE_ABFS_HIERARCHICAL_CONTAINER }}
           ABFS_ACCOUNT: ${{ vars.AZURE_ABFS_HIERARCHICAL_ACCOUNT }}

@@ -1,148 +1,152 @@
 # Pull Request Labeler Github Action Configuration: https://github.com/marketplace/actions/labeler
 jdbc:
   - changed-files:
-    - any-glob-to-any-file: 'client/trino-jdbc/**'
+      - any-glob-to-any-file: 'client/trino-jdbc/**'
 
 bigquery:
   - changed-files:
-    - any-glob-to-any-file: 'plugin/trino-bigquery/**'
+      - any-glob-to-any-file: 'plugin/trino-bigquery/**'
 
 blackhole:
   - changed-files:
-    - any-glob-to-any-file: 'plugin/trino-blackhole/**'
+      - any-glob-to-any-file: 'plugin/trino-blackhole/**'
 
 cassandra:
   - changed-files:
-    - any-glob-to-any-file: 'plugin/trino-cassandra/**'
+      - any-glob-to-any-file: 'plugin/trino-cassandra/**'
 
 clickhouse:
   - changed-files:
-    - any-glob-to-any-file: 'plugin/trino-clickhouse/**'
+      - any-glob-to-any-file: 'plugin/trino-clickhouse/**'
 
 delta-lake:
   - changed-files:
-    - any-glob-to-any-file: 'plugin/trino-delta-lake/**'
+      - any-glob-to-any-file: 'plugin/trino-delta-lake/**'
 
 druid:
   - changed-files:
-    - any-glob-to-any-file: 'plugin/trino-druid/**'
+      - any-glob-to-any-file: 'plugin/trino-druid/**'
 
 duckdb:
   - changed-files:
-    - any-glob-to-any-file: 'plugin/trino-duckdb/**'
+      - any-glob-to-any-file: 'plugin/trino-duckdb/**'
 
 elasticsearch:
   - changed-files:
-    - any-glob-to-any-file: 'plugin/trino-elasticsearch/**'
+      - any-glob-to-any-file: 'plugin/trino-elasticsearch/**'
 
 exasol:
   - changed-files:
-    - any-glob-to-any-file: 'plugin/trino-exasol/**'
+      - any-glob-to-any-file: 'plugin/trino-exasol/**'
 
 faker:
   - changed-files:
-    - any-glob-to-any-file: 'plugin/trino-faker/**'
+      - any-glob-to-any-file: 'plugin/trino-faker/**'
 
 google-sheets:
   - changed-files:
-    - any-glob-to-any-file: 'plugin/trino-google-sheets/**'
+      - any-glob-to-any-file: 'plugin/trino-google-sheets/**'
 
 hive:
   - changed-files:
-    - any-glob-to-any-file: 'plugin/trino-hive/**'
+      - any-glob-to-any-file: 'plugin/trino-hive/**'
 
 hudi:
   - changed-files:
-    - any-glob-to-any-file: 'plugin/trino-hudi/**'
+      - any-glob-to-any-file: 'plugin/trino-hudi/**'
 
 iceberg:
   - changed-files:
-    - any-glob-to-any-file: 'plugin/trino-iceberg/**'
+      - any-glob-to-any-file: 'plugin/trino-iceberg/**'
 
 ignite:
   - changed-files:
-    - any-glob-to-any-file: 'plugin/trino-ignite/**'
+      - any-glob-to-any-file: 'plugin/trino-ignite/**'
 
 kafka:
   - changed-files:
-    - any-glob-to-any-file: 'plugin/trino-kafka/**'
+      - any-glob-to-any-file: 'plugin/trino-kafka/**'
 
 lakehouse:
   - changed-files:
-    - any-glob-to-any-file: 'plugin/trino-lakehouse/**'
+      - any-glob-to-any-file: 'plugin/trino-lakehouse/**'
 
 loki:
   - changed-files:
-    - any-glob-to-any-file: 'plugin/trino-loki/**'
+      - any-glob-to-any-file: 'plugin/trino-loki/**'
 
 mariadb:
   - changed-files:
-    - any-glob-to-any-file: 'plugin/trino-mariadb/**'
+      - any-glob-to-any-file: 'plugin/trino-mariadb/**'
 
 memory:
   - changed-files:
-    - any-glob-to-any-file: 'plugin/trino-memory/**'
+      - any-glob-to-any-file: 'plugin/trino-memory/**'
 
 mongodb:
   - changed-files:
-    - any-glob-to-any-file: 'plugin/trino-mongodb/**'
+      - any-glob-to-any-file: 'plugin/trino-mongodb/**'
 
 mysql:
   - changed-files:
-    - any-glob-to-any-file: 'plugin/trino-mysql/**'
+      - any-glob-to-any-file: 'plugin/trino-mysql/**'
 
 opensearch:
   - changed-files:
-    - any-glob-to-any-file: 'plugin/trino-opensearch/**'
+      - any-glob-to-any-file: 'plugin/trino-opensearch/**'
 
 oracle:
   - changed-files:
-    - any-glob-to-any-file: 'plugin/trino-oracle/**'
+      - any-glob-to-any-file: 'plugin/trino-oracle/**'
 
 pinot:
   - changed-files:
-    - any-glob-to-any-file: 'plugin/trino-pinot/**'
+      - any-glob-to-any-file: 'plugin/trino-pinot/**'
 
 postgresql:
   - changed-files:
-    - any-glob-to-any-file: 'plugin/trino-postgresql/**'
+      - any-glob-to-any-file: 'plugin/trino-postgresql/**'
 
 prometheus:
   - changed-files:
-    - any-glob-to-any-file: 'plugin/trino-prometheus/**'
+      - any-glob-to-any-file: 'plugin/trino-prometheus/**'
 
 redis:
   - changed-files:
-    - any-glob-to-any-file: 'plugin/trino-redis/**'
+      - any-glob-to-any-file: 'plugin/trino-redis/**'
 
 redshift:
   - changed-files:
-    - any-glob-to-any-file: 'plugin/trino-redshift/**'
+      - any-glob-to-any-file: 'plugin/trino-redshift/**'
 
 singlestore:
   - changed-files:
-    - any-glob-to-any-file: 'plugin/trino-singlestore/**'
+      - any-glob-to-any-file: 'plugin/trino-singlestore/**'
 
 snowflake:
   - changed-files:
-    - any-glob-to-any-file: 'plugin/trino-snowflake/**'
+      - any-glob-to-any-file: 'plugin/trino-snowflake/**'
 
 sqlserver:
   - changed-files:
-    - any-glob-to-any-file: 'plugin/trino-sqlserver/**'
+      - any-glob-to-any-file: 'plugin/trino-sqlserver/**'
 
 vertica:
   - changed-files:
-    - any-glob-to-any-file: 'plugin/trino-vertica/**'
+      - any-glob-to-any-file: 'plugin/trino-vertica/**'
+
+weaviate:
+  - changed-files:
+      - any-glob-to-any-file: 'plugin/trino-weaviate/**'
 
 docs:
   - changed-files:
-    - any-glob-to-any-file: 'docs/**'
+      - any-glob-to-any-file: 'docs/**'
 
 release-notes:
   - changed-files:
-    - any-glob-to-any-file: ['docs/src/main/sphinx/release/**', 'docs/src/main/sphinx/release.rst']
+      - any-glob-to-any-file: [ 'docs/src/main/sphinx/release/**', 'docs/src/main/sphinx/release.rst' ]
 
 ui:
   - changed-files:
-    - any-glob-to-any-file: 'core/trino-web-ui/**'
+      - any-glob-to-any-file: 'core/trino-web-ui/**'
