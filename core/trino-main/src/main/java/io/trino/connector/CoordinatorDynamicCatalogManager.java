@@ -164,7 +164,7 @@ public class CoordinatorDynamicCatalogManager
     }
 
     @Override
-    public Set<CatalogHandle> getActiveCatalogs()
+    public Set<CatalogHandle> getReachableDynamicCatalogs()
     {
         return activeCatalogs.values().stream()
                 .map(Catalog::getCatalogHandle)
@@ -184,7 +184,13 @@ public class CoordinatorDynamicCatalogManager
     }
 
     @Override
-    public void pruneCatalogs(Set<CatalogHandle> catalogsInUse)
+    public PrunableState getPrunableState()
+    {
+        return new PrunableState(ImmutableSet.copyOf(allCatalogs.keySet()));
+    }
+
+    @Override
+    public void pruneCatalogs(PrunableState prunableState, Set<CatalogHandle> catalogsInUse)
     {
         List<CatalogConnector> removedCatalogs = new ArrayList<>();
         synchronized (catalogsUpdateLock) {
@@ -194,14 +200,15 @@ public class CoordinatorDynamicCatalogManager
             Iterator<Entry<CatalogHandle, CatalogConnector>> iterator = allCatalogs.entrySet().iterator();
             while (iterator.hasNext()) {
                 Entry<CatalogHandle, CatalogConnector> entry = iterator.next();
+                CatalogHandle catalogHandle = entry.getKey();
 
-                Catalog activeCatalog = activeCatalogs.get(entry.getKey().getCatalogName());
-                if (activeCatalog != null && activeCatalog.getCatalogHandle().equals(entry.getKey())) {
+                Catalog activeCatalog = activeCatalogs.get(catalogHandle.getCatalogName());
+                if (activeCatalog != null && activeCatalog.getCatalogHandle().equals(catalogHandle)) {
                     // catalog is registered with a name, and therefor is available for new queries, and should not be removed
                     continue;
                 }
 
-                if (!catalogsInUse.contains(entry.getKey())) {
+                if (prunableState.prunableCatalogs().contains(catalogHandle) && !catalogsInUse.contains(catalogHandle)) {
                     iterator.remove();
                     removedCatalogs.add(entry.getValue());
                 }

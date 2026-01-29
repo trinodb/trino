@@ -432,7 +432,13 @@ public abstract class BaseTestSqlTaskManager
         public void ensureCatalogsLoaded(List<CatalogProperties> catalogs) {}
 
         @Override
-        public void pruneCatalogs(Set<CatalogHandle> catalogsInUse)
+        public PrunableState getPrunableState()
+        {
+            return new PrunableState(Set.of());
+        }
+
+        @Override
+        public void pruneCatalogs(PrunableState prunableState, Set<CatalogHandle> catalogsInUse)
         {
             throw new UnsupportedOperationException();
         }
