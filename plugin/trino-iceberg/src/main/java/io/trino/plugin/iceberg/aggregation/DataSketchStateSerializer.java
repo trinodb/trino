@@ -51,7 +51,7 @@ public class DataSketchStateSerializer
             checkArgument(state.getUpdateSketch() == null || state.getCompactSketch() == null, "A state must not have both transient accumulator and combined form set");
             CompactThetaSketch compactSketch = Optional.ofNullable(state.getCompactSketch())
                     .orElseGet(() -> state.getUpdateSketch().compact());
-            Slice slice = Slices.wrappedBuffer(compactSketch.toByteArray());
+            Slice slice = Slices.wrappedBuffer(compactSketch.toByteArrayCompressed());
             VARBINARY.writeSlice(out, slice);
         }
     }
