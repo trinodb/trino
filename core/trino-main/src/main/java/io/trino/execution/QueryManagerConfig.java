@@ -79,26 +79,26 @@ public class QueryManagerConfig
     private int minHashPartitionCount = 4;
     private int minHashPartitionCountForWrite = 50;
     private int maxWriterTaskCount = 100;
-    private Duration minQueryExpireAge = new Duration(15, TimeUnit.MINUTES);
+    private Duration minQueryExpireAge = new Duration(15, MINUTES);
     private int maxQueryHistory = 100;
     private int maxQueryLength = 1_000_000;
     private int maxStageCount = 150;
     private int stageCountWarningThreshold = 50;
 
-    private Duration clientTimeout = new Duration(5, TimeUnit.MINUTES);
+    private Duration clientTimeout = new Duration(5, MINUTES);
 
     private int queryManagerExecutorPoolSize = 5;
     private int queryExecutorPoolSize = 1000;
     private int maxStateMachineCallbackThreads = 5;
     private int maxSplitManagerCallbackThreads = 100;
 
-    private Duration remoteTaskMaxErrorDuration = new Duration(1, TimeUnit.MINUTES);
+    private Duration remoteTaskMaxErrorDuration = new Duration(1, MINUTES);
     private int remoteTaskMaxCallbackThreads = 1000;
 
     private String queryExecutionPolicy = "phased";
     private Duration queryMaxRunTime = new Duration(100, TimeUnit.DAYS);
     private Duration queryMaxExecutionTime = new Duration(100, TimeUnit.DAYS);
-    private Duration queryMaxPlanningTime = new Duration(10, TimeUnit.MINUTES);
+    private Duration queryMaxPlanningTime = new Duration(10, MINUTES);
     private Duration queryMaxCpuTime = new Duration(1_000_000_000, TimeUnit.DAYS);
     private Optional<DataSize> queryMaxScanPhysicalBytes = Optional.empty();
     private Optional<DataSize> queryMaxWritePhysicalSize = Optional.empty();
@@ -106,7 +106,7 @@ public class QueryManagerConfig
     private int dispatcherQueryPoolSize = DISPATCHER_THREADPOOL_MAX_SIZE;
 
     private int requiredWorkers = 1;
-    private Duration requiredWorkersMaxWait = new Duration(5, TimeUnit.MINUTES);
+    private Duration requiredWorkersMaxWait = new Duration(5, MINUTES);
 
     private RetryPolicy retryPolicy = RetryPolicy.NONE;
     private Set<RetryPolicy> allowedRetryPolicies = EnumSet.allOf(RetryPolicy.class);
