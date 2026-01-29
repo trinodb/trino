@@ -849,6 +849,12 @@ public abstract class BaseIcebergSystemTables
         try (TestTable table = newTrinoTable("test_properties", "(x BIGINT,y DOUBLE) WITH (sorted_by = ARRAY['y'])")) {
             Table icebergTable = loadTable(table.getName());
             Map<String, String> actualProperties = getTableProperties(table.getName());
+            if (format == PARQUET) {
+                assertThat(actualProperties).hasSize(8);
+                assertThat(actualProperties).contains(entry("write.parquet.compression-codec", "zstd"));
+            } else {
+                assertThat(actualProperties).hasSize(7);
+            }
             assertThat(actualProperties).contains(
                     entry("format", "iceberg/" + format.name()),
                     entry("provider", "iceberg"),
