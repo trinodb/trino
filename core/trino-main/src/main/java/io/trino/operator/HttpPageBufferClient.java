@@ -64,7 +64,7 @@ import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.net.HttpHeaders.CONTENT_TYPE;
 import static com.google.common.util.concurrent.MoreExecutors.listeningDecorator;
-import static io.airlift.concurrent.Threads.virtualThreadsNamed;
+import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.http.client.HttpStatus.NO_CONTENT;
 import static io.airlift.http.client.HttpStatus.familyForStatusCode;
 import static io.airlift.http.client.Request.Builder.prepareDelete;
@@ -95,7 +95,7 @@ import static io.trino.util.Failures.WORKER_NODE_ERROR;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
-import static java.util.concurrent.Executors.newThreadPerTaskExecutor;
+import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
@@ -103,7 +103,11 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 public final class HttpPageBufferClient
         implements Closeable
 {
-    private static final ListeningExecutorService EXECUTOR = listeningDecorator(newThreadPerTaskExecutor(virtualThreadsNamed("http-page-buffer-client#v")));
+    //private static final ListeningExecutorService EXECUTOR = listeningDecorator(newThreadPerTaskExecutor(virtualThreadsNamed("http-page-buffer-client#v")));
+    // TODO this executor obviously requires proper Guice-level management and shutdown
+    private static final ListeningExecutorService EXECUTOR = listeningDecorator(newCachedThreadPool(daemonThreadsNamed("HttpPageBufferClient-%d"
+    // intentional checkstyle error, so that the TODO doesn't go unnoticed ;)
+    )));
 
     private static final Logger log = Logger.get(HttpPageBufferClient.class);
 
