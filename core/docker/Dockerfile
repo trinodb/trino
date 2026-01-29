@@ -44,7 +44,8 @@ RUN \
       curl-minimal grep `# required by health-check` \
       zlib `#required by java` \
       shadow-utils `# required by useradd` \
-      tar `# required to support kubectl cp` && \
+      tar `# required to support kubectl cp` \
+      udev `# required by oshi` && \
       rm -rf /tmp/overlay/var/cache/*
 
 # Use ubi10 micro as it's more secure
