@@ -34,16 +34,16 @@ import static io.trino.transaction.InMemoryTransactionManager.createTestTransact
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static java.util.Objects.requireNonNull;
 
-public final class TestMetadataManager
+public final class TestingMetadataManager
 {
-    private TestMetadataManager() {}
+    private TestingMetadataManager() {}
 
-    public static MetadataManager createTestMetadataManager()
+    public static MetadataManager createTestingMetadataManager()
     {
         return builder().build();
     }
 
-    public static TestMetadataManager.Builder builder()
+    public static TestingMetadataManager.Builder builder()
     {
         return new Builder();
     }

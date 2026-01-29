@@ -26,7 +26,7 @@ import io.trino.metadata.LanguageFunctionManager;
 import io.trino.metadata.LanguageFunctionProvider;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.SystemFunctionBundle;
-import io.trino.metadata.TestMetadataManager;
+import io.trino.metadata.TestingMetadataManager;
 import io.trino.metadata.TypeRegistry;
 import io.trino.operator.scalar.json.JsonExistsFunction;
 import io.trino.operator.scalar.json.JsonQueryFunction;
@@ -136,7 +136,7 @@ public final class TestingPlannerContext
 
             Metadata metadata = this.metadata;
             if (metadata == null) {
-                TestMetadataManager.Builder builder = TestMetadataManager.builder()
+                TestingMetadataManager.Builder builder = TestingMetadataManager.builder()
                         .withTypeManager(typeManager)
                         .withLanguageFunctionManager(languageFunctionManager)
                         .withGlobalFunctionCatalog(globalFunctionCatalog);

@@ -34,7 +34,7 @@ import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 
-import static io.trino.metadata.TestMetadataManager.createTestMetadataManager;
+import static io.trino.metadata.TestingMetadataManager.createTestingMetadataManager;
 import static io.trino.spi.connector.SortOrder.ASC_NULLS_LAST;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
@@ -65,7 +65,7 @@ public class TestPrunePattenRecognitionColumns
     @Test
     public void testRemovePatternRecognitionNode()
     {
-        ResolvedFunction rank = createTestMetadataManager().resolveBuiltinFunction("rank", ImmutableList.of());
+        ResolvedFunction rank = createTestingMetadataManager().resolveBuiltinFunction("rank", ImmutableList.of());
 
         // MATCH_RECOGNIZE with options: AFTER MATCH SKIP PAST LAST ROW, ALL ROWS WITH UNMATCHED ROW
         tester().assertThat(new PrunePattenRecognitionColumns())
@@ -125,7 +125,7 @@ public class TestPrunePattenRecognitionColumns
     @Test
     public void testPruneUnreferencedWindowFunctionAndSources()
     {
-        ResolvedFunction lag = createTestMetadataManager().resolveBuiltinFunction("lag", fromTypes(BIGINT));
+        ResolvedFunction lag = createTestingMetadataManager().resolveBuiltinFunction("lag", fromTypes(BIGINT));
 
         // remove window function "lag" and input symbol "b" used only by that function
         tester().assertThat(new PrunePattenRecognitionColumns())
@@ -176,7 +176,7 @@ public class TestPrunePattenRecognitionColumns
     @Test
     public void testPruneUnreferencedMeasureAndSources()
     {
-        ResolvedFunction lag = createTestMetadataManager().resolveBuiltinFunction("lag", fromTypes(BIGINT));
+        ResolvedFunction lag = createTestingMetadataManager().resolveBuiltinFunction("lag", fromTypes(BIGINT));
         WindowNode.Frame frame = new WindowNode.Frame(
                 ROWS,
                 CURRENT_ROW,
