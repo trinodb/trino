@@ -474,6 +474,15 @@ jobs:
                 - lib/trino-hive-formats
             - { modules: core/trino-main }
             - { modules: lib/trino-filesystem-azure, profile: cloud-tests }
+            - { modules: lib/trino-filesystem-azure, profile: cloud-tests }
+            - { modules: lib/trino-filesystem-azure, profile: cloud-tests }
+            - { modules: lib/trino-filesystem-azure, profile: cloud-tests }
+            - { modules: lib/trino-filesystem-azure, profile: cloud-tests }
+            - { modules: lib/trino-filesystem-azure, profile: cloud-tests }
+            - { modules: lib/trino-filesystem-azure, profile: cloud-tests }
+            - { modules: lib/trino-filesystem-azure, profile: cloud-tests }
+            - { modules: lib/trino-filesystem-azure, profile: cloud-tests }
+            - { modules: lib/trino-filesystem-azure, profile: cloud-tests }
             - { modules: lib/trino-filesystem-gcs, profile: cloud-tests }
             - { modules: lib/trino-filesystem-s3, profile: cloud-tests }
             - { modules: lib/trino-hdfs, profile: cloud-tests }
@@ -803,7 +812,7 @@ jobs:
           echo "ARTIFACT_NAME=${name:0:100}" >> $GITHUB_ENV
       - name: Upload test results
         uses: ./.github/actions/process-test-results
-        if: always()
+        if: false
         with:
           artifact-name: ${{ env.ARTIFACT_NAME }}
           has-failed-tests: >-
