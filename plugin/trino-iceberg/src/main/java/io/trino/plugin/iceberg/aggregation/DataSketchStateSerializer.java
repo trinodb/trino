@@ -68,6 +68,7 @@ public class DataSketchStateSerializer
     {
         checkArgument(!block.isNull(index), "Value is null");
         Slice slice = VARBINARY.getSlice(block, index);
-        return CompactThetaSketch.heapify(MemorySegment.ofArray(slice.getBytes()));
+        return CompactThetaSketch.heapify(MemorySegment.ofArray(slice.byteArray())
+                .asSlice(slice.byteArrayOffset(), slice.length()));
     }
 }
