@@ -21,6 +21,7 @@ import com.google.errorprone.annotations.ThreadSafe;
 import com.google.inject.Inject;
 import com.google.inject.Provider;
 import io.trino.connector.system.GlobalSystemConnector;
+import io.trino.operator.table.AllColumnSearchFunction.AllColumnSearchFunctionHandle;
 import io.trino.operator.table.ExcludeColumnsFunction.ExcludeColumnsFunctionHandle;
 import io.trino.operator.table.SequenceFunction.SequenceFunctionHandle;
 import io.trino.operator.table.json.JsonTable.JsonTableFunctionHandle;
@@ -55,6 +56,7 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.metadata.OperatorNameUtil.isOperatorName;
 import static io.trino.metadata.OperatorNameUtil.mangleOperatorName;
 import static io.trino.metadata.OperatorNameUtil.unmangleOperator;
+import static io.trino.operator.table.AllColumnSearchFunction.getAllColumnSearchFunctionProcessorProvider;
 import static io.trino.operator.table.ExcludeColumnsFunction.getExcludeColumnsFunctionProcessorProvider;
 import static io.trino.operator.table.SequenceFunction.getSequenceFunctionProcessorProvider;
 import static io.trino.operator.table.json.JsonTable.getJsonTableFunctionProcessorProvider;
@@ -199,6 +201,9 @@ public class GlobalFunctionCatalog
     @Override
     public TableFunctionProcessorProvider getTableFunctionProcessorProvider(ConnectorTableFunctionHandle functionHandle)
     {
+        if (functionHandle instanceof AllColumnSearchFunctionHandle) {
+            return getAllColumnSearchFunctionProcessorProvider();
+        }
         if (functionHandle instanceof ExcludeColumnsFunctionHandle) {
             return getExcludeColumnsFunctionProcessorProvider();
         }
