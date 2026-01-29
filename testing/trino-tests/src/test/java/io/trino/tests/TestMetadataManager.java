@@ -143,11 +143,11 @@ public class TestMetadataManager
         DispatchManager dispatchManager = queryRunner.getCoordinator().getDispatchManager();
         QueryId queryId = dispatchManager.createQueryId();
         dispatchManager.createQuery(
-                queryId,
-                Span.getInvalid(),
-                Slug.createNew(),
-                SessionContext.fromSession(TEST_SESSION),
-                "SELECT * FROM lineitem")
+                        queryId,
+                        Span.getInvalid(),
+                        Slug.createNew(),
+                        SessionContext.fromSession(TEST_SESSION),
+                        "SELECT * FROM lineitem")
                 .get();
 
         // wait until query starts running
