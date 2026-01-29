@@ -23,14 +23,17 @@ import io.trino.metastore.Table;
 import io.trino.metastore.TableInfo;
 import io.trino.plugin.base.classloader.ClassLoaderSafeSystemTable;
 import io.trino.plugin.hive.HiveColumnHandle;
+import io.trino.plugin.hive.TrinoViewHiveMetastore;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
+import io.trino.spi.connector.ConnectorMaterializedViewDefinition;
 import io.trino.spi.connector.ConnectorMetadata;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.ConnectorTableVersion;
+import io.trino.spi.connector.ConnectorViewDefinition;
 import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.ConstraintApplicationResult;
 import io.trino.spi.connector.RelationColumnsMetadata;
@@ -52,6 +55,7 @@ import java.util.function.Function;
 import java.util.function.UnaryOperator;
 import java.util.stream.Stream;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
@@ -77,18 +81,21 @@ import static java.lang.String.format;
 import static java.util.Collections.singletonList;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
+import static java.util.stream.Collectors.toMap;
 import static org.apache.hudi.common.model.HoodieTableType.COPY_ON_WRITE;
 
 public class HudiMetadata
         implements ConnectorMetadata
 {
     private final HiveMetastore metastore;
+    private final TrinoViewHiveMetastore trinoViewHiveMetastore;
     private final TrinoFileSystemFactory fileSystemFactory;
     private final TypeManager typeManager;
 
-    public HudiMetadata(HiveMetastore metastore, TrinoFileSystemFactory fileSystemFactory, TypeManager typeManager)
+    public HudiMetadata(HiveMetastore metastore, TrinoViewHiveMetastore trinoViewHiveMetastore, TrinoFileSystemFactory fileSystemFactory, TypeManager typeManager)
     {
         this.metastore = requireNonNull(metastore, "metastore is null");
+        this.trinoViewHiveMetastore = requireNonNull(trinoViewHiveMetastore, "trinoViewHiveMetastore is null");
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
     }
@@ -263,7 +270,16 @@ public class HudiMetadata
         Map<SchemaTableName, RelationColumnsMetadata> relationColumns = tables.stream()
                 .map(table -> getTableColumnMetadata(session, table))
                 .flatMap(Optional::stream)
-                .collect(toImmutableMap(RelationColumnsMetadata::name, Function.identity()));
+                .collect(toMap(RelationColumnsMetadata::name, Function.identity()));
+
+        for (Map.Entry<SchemaTableName, ConnectorViewDefinition> entry : getViews(session, schemaName).entrySet()) {
+            relationColumns.put(entry.getKey(), RelationColumnsMetadata.forView(entry.getKey(), entry.getValue().getColumns()));
+        }
+
+        for (Map.Entry<SchemaTableName, ConnectorMaterializedViewDefinition> entry : getMaterializedViews(session, schemaName).entrySet()) {
+            relationColumns.put(entry.getKey(), RelationColumnsMetadata.forMaterializedView(entry.getKey(), entry.getValue().getColumns()));
+        }
+
         return relationFilter.apply(relationColumns.keySet()).stream()
                 .map(relationColumns::get)
                 .iterator();
@@ -348,5 +364,48 @@ public class HudiMetadata
                 .filter(name -> !isHiveSystemSchema(name))
                 .map(Collections::singletonList)
                 .orElseGet(() -> listSchemaNames(session));
+    }
+
+    @Override
+    public void createView(ConnectorSession session, SchemaTableName viewName, ConnectorViewDefinition definition, Map<String, Object> viewProperties, boolean replace)
+    {
+        checkArgument(viewProperties.isEmpty(), "This connector does not support creating views with properties");
+        trinoViewHiveMetastore.createView(session, viewName, definition, replace);
+    }
+
+    @Override
+    public void dropView(ConnectorSession session, SchemaTableName viewName)
+    {
+        trinoViewHiveMetastore.dropView(viewName);
+    }
+
+    @Override
+    public List<SchemaTableName> listViews(ConnectorSession session, Optional<String> schemaName)
+    {
+        return trinoViewHiveMetastore.listViews(schemaName);
+    }
+
+    @Override
+    public Map<SchemaTableName, ConnectorViewDefinition> getViews(ConnectorSession session, Optional<String> schemaName)
+    {
+        return trinoViewHiveMetastore.getViews(schemaName);
+    }
+
+    @Override
+    public Optional<ConnectorViewDefinition> getView(ConnectorSession session, SchemaTableName viewName)
+    {
+        return trinoViewHiveMetastore.getView(viewName);
+    }
+
+    @Override
+    public void setViewComment(ConnectorSession session, SchemaTableName viewName, Optional<String> comment)
+    {
+        trinoViewHiveMetastore.updateViewComment(session, viewName, comment);
+    }
+
+    @Override
+    public void setViewColumnComment(ConnectorSession session, SchemaTableName viewName, String columnName, Optional<String> comment)
+    {
+        trinoViewHiveMetastore.updateViewColumnComment(session, viewName, columnName, comment);
     }
 }
