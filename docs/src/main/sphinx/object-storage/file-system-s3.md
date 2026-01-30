@@ -142,6 +142,11 @@ and secret keys, STS, or an IAM role:
     `trino-filesystem`.
 * - `s3.external-id`
   - External ID for the IAM role trust policy when connecting to S3.
+* - `s3.anonymous-access`
+  - Use anonymous credentials for accessing public S3 buckets without
+    authentication. When set to `true`, no credentials are sent with S3 requests.
+    This takes priority over other authentication methods when enabled.
+    Defaults to `false`.
 :::
 
 ## Security mapping
