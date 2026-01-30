@@ -1474,22 +1474,16 @@ public class TestPostgreSqlConnectorTest
     @Override
     protected Optional<SetColumnTypeSetup> filterSetColumnTypesDataProvider(SetColumnTypeSetup setup)
     {
-        if (setup.sourceColumnType().equals("bigint") && setup.newColumnType().equals("tinyint")) {
+        return switch ("%s -> %s".formatted(setup.sourceColumnType(), setup.newColumnType())) {
             // PostgreSQL has no type corresponding to tinyint
-            return Optional.of(setup.withNewColumnType("smallint"));
-        }
-
-        if (setup.sourceColumnType().equals("timestamp(3) with time zone")) {
+            case "bigint -> tinyint" -> Optional.of(setup.withNewColumnType("smallint"));
             // The connector returns UTC instead of the given time zone
-            return Optional.of(setup.withNewValueLiteral("TIMESTAMP '2020-02-12 14:03:00.123000 +00:00'"));
-        }
-
-        if (setup.sourceColumnType().equals("char(20)") && setup.newColumnType().equals("varchar")) {
+            case String typeConversion when typeConversion.matches("timestamp\\(3\\) with time zone -> .*") ->
+                    Optional.of(setup.withNewValueLiteral("TIMESTAMP '2020-02-12 14:03:00.123000 +00:00'"));
             // PostgreSQL trims trailing spaces when converting
-            return Optional.of(setup.withNewValueLiteral("rtrim(%s)".formatted(setup.newValueLiteral())));
-        }
-
-        return Optional.of(setup);
+            case "char(20) -> varchar" -> Optional.of(setup.withNewValueLiteral("rtrim(%s)".formatted(setup.newValueLiteral())));
+            default -> Optional.of(setup);
+        };
     }
 
     @Override

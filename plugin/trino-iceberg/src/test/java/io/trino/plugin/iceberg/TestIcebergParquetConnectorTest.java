@@ -83,24 +83,22 @@ public class TestIcebergParquetConnectorTest
     @Override
     protected Optional<SetColumnTypeSetup> filterSetColumnTypesDataProvider(SetColumnTypeSetup setup)
     {
-        switch ("%s -> %s".formatted(setup.sourceColumnType(), setup.newColumnType())) {
-            case "row(x integer) -> row(\"y\" integer)":
-                // TODO https://github.com/trinodb/trino/issues/15822 The connector returns incorrect NULL when a field in row type doesn't exist in Parquet files
-                return Optional.of(setup.withNewValueLiteral("NULL"));
-        }
-        return super.filterSetColumnTypesDataProvider(setup);
+        return switch ("%s -> %s".formatted(setup.sourceColumnType(), setup.newColumnType())) {
+            // TODO https://github.com/trinodb/trino/issues/15822 The connector returns incorrect NULL when a field in row type doesn't exist in Parquet files
+            case "row(x integer) -> row(\"y\" integer)" -> Optional.of(setup.withNewValueLiteral("NULL"));
+            default -> super.filterSetColumnTypesDataProvider(setup);
+        };
     }
 
     @Override
     protected Optional<SetColumnTypeSetup> filterSetFieldTypesDataProvider(SetColumnTypeSetup setup)
     {
-        switch ("%s -> %s".formatted(setup.sourceColumnType(), setup.newColumnType())) {
-            case "row(x integer) -> row(\"y\" integer)":
-                // TODO https://github.com/trinodb/trino/issues/15822 The connector returns incorrect NULL when a field in row type doesn't exist in Parquet files
-                // Skip this test entirely, as the newValueLiteral is always wrapped in a row
-                return Optional.empty();
-        }
-        return super.filterSetColumnTypesDataProvider(setup);
+        return switch ("%s -> %s".formatted(setup.sourceColumnType(), setup.newColumnType())) {
+            // TODO https://github.com/trinodb/trino/issues/15822 The connector returns incorrect NULL when a field in row type doesn't exist in Parquet files
+            // Skip this test entirely, as the newValueLiteral is always wrapped in a row
+            case "row(x integer) -> row(\"y\" integer)" -> Optional.empty();
+            default -> super.filterSetColumnTypesDataProvider(setup);
+        };
     }
 
     @Test
