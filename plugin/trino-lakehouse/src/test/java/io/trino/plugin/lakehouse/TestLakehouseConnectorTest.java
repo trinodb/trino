@@ -258,6 +258,12 @@ public class TestLakehouseConnectorTest
                  "timestamp(6) -> timestamp(3)",
                  // Iceberg cannot update map keys
                  "map(integer, varchar) -> map(bigint, varchar)" -> Optional.of(setup.asUnsupported());
+            case "map(integer, row(x integer)) -> map(integer, row(\"y\" integer))" ->
+                    Optional.of(setup.withNewValueLiteral("cast(map(array[1], array[null]) as map(integer, row(y integer)))"));
+            case "map(integer, array(row(x integer))) -> map(integer, array(row(\"y\" integer)))" ->
+                    Optional.of(setup.withNewValueLiteral("cast(map(array[1], array[null]) as map(integer, array(row(y integer))))"));
+            case "array(row(x integer)) -> array(row(\"y\" integer))" ->
+                    Optional.of(setup.withNewValueLiteral("cast(null as array(row(y integer)))"));
             case "varchar(100) -> varchar(50)" -> Optional.empty();
             default -> Optional.of(setup);
         };
@@ -282,7 +288,10 @@ public class TestLakehouseConnectorTest
                  "timestamp(6) -> timestamp(3)",
                  "map(integer, varchar) -> map(bigint, varchar)" -> Optional.of(setup.asUnsupported());
             case "varchar(100) -> varchar(50)",
-                 "row(x integer) -> row(\"y\" integer)" -> Optional.empty();
+                 "row(x integer) -> row(\"y\" integer)",
+                 "map(integer, row(x integer)) -> map(integer, row(\"y\" integer))",
+                 "map(integer, array(row(x integer))) -> map(integer, array(row(\"y\" integer)))",
+                 "array(row(x integer)) -> array(row(\"y\" integer))" -> Optional.empty();
             default -> Optional.of(setup);
         };
     }

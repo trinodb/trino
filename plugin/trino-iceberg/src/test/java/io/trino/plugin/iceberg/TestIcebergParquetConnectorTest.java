@@ -85,7 +85,14 @@ public class TestIcebergParquetConnectorTest
     {
         return switch ("%s -> %s".formatted(setup.sourceColumnType(), setup.newColumnType())) {
             // TODO https://github.com/trinodb/trino/issues/15822 The connector returns incorrect NULL when a field in row type doesn't exist in Parquet files
-            case "row(x integer) -> row(\"y\" integer)" -> Optional.of(setup.withNewValueLiteral("NULL"));
+            case "row(x integer) -> row(\"y\" integer)",
+                 "array(row(x integer)) -> cast(array[row(null)] as array(row(y integer)))" -> Optional.of(setup.withNewValueLiteral("NULL"));
+            case "map(integer, row(x integer)) -> map(integer, row(\"y\" integer))" ->
+                    Optional.of(setup.withNewValueLiteral("cast(map(array[1], array[null]) as map(integer, row(y integer)))"));
+            case "map(integer, array(row(x integer))) -> map(integer, array(row(\"y\" integer)))" ->
+                    Optional.of(setup.withNewValueLiteral("cast(map(array[1], array[null]) as map(integer, array(row(y integer))))"));
+            case "array(row(x integer)) -> array(row(\"y\" integer))" ->
+                    Optional.of(setup.withNewValueLiteral("cast(null as array(row(y integer)))"));
             default -> super.filterSetColumnTypesDataProvider(setup);
         };
     }
@@ -96,7 +103,11 @@ public class TestIcebergParquetConnectorTest
         return switch ("%s -> %s".formatted(setup.sourceColumnType(), setup.newColumnType())) {
             // TODO https://github.com/trinodb/trino/issues/15822 The connector returns incorrect NULL when a field in row type doesn't exist in Parquet files
             // Skip this test entirely, as the newValueLiteral is always wrapped in a row
-            case "row(x integer) -> row(\"y\" integer)" -> Optional.empty();
+            case "row(x integer) -> row(\"y\" integer)",
+                 "map(integer, row(x integer)) -> map(integer, row(\"y\" integer))",
+                 "array(row(x integer)) -> cast(array[row(null)] as array(row(y integer)))",
+                 "map(integer, array(row(x integer))) -> map(integer, array(row(\"y\" integer)))",
+                 "array(row(x integer)) -> array(row(\"y\" integer))" -> Optional.empty();
             default -> super.filterSetColumnTypesDataProvider(setup);
         };
     }

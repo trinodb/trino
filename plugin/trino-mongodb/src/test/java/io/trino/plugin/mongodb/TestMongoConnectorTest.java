@@ -1931,7 +1931,9 @@ public class TestMongoConnectorTest
                  "timestamp(6) with time zone -> timestamp(3) with time zone",
                  "map(integer, varchar) -> map(bigint, varchar)",
                  "map(varchar, integer) -> map(varchar, bigint)",
-                 "map(integer, row(x integer)) -> map(integer, row(\"x\" bigint))" -> Optional.of(setup.asUnsupported());
+                 "map(integer, row(x integer)) -> map(integer, row(\"x\" bigint))",
+                 "map(integer, row(x integer)) -> map(integer, row(\"y\" integer))",
+                 "map(integer, array(row(x integer))) -> map(integer, array(row(\"y\" integer)))" -> Optional.of(setup.asUnsupported());
             default -> Optional.of(setup);
         };
     }
