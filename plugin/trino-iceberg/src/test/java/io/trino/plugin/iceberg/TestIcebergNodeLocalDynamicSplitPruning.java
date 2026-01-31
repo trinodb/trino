@@ -572,8 +572,7 @@ public class TestIcebergNodeLocalDynamicSplitPruning
             DynamicFilter dynamicFilter)
     {
         FileFormatDataSourceStats stats = new FileFormatDataSourceStats();
-        // Create a TableCachingPredicate that caches all tables (empty list means cache all)
-        TableCachingPredicate tableCachingPredicate = new TableCachingPredicate(ImmutableList.of());
+        TableCachingPredicate tableCachingPredicate = new TableCachingPredicate(ImmutableList.of("*"));
         IcebergPageSourceProviderFactory factory = new IcebergPageSourceProviderFactory(
                 new DefaultIcebergFileSystemFactory(new HdfsFileSystemFactory(HDFS_ENVIRONMENT, HDFS_FILE_SYSTEM_STATS)),
                 FILE_IO_FACTORY,
