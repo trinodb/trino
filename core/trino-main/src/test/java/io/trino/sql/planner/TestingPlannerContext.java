@@ -49,7 +49,7 @@ import java.util.List;
 
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.tracing.Tracing.noopTracer;
-import static io.trino.client.NodeVersion.UNKNOWN;
+import static io.trino.spi.NodeVersion.UNKNOWN;
 import static io.trino.testing.PlanTester.TESTING_BLOCK_ENCODING_MANAGER;
 import static java.util.Objects.requireNonNull;
 

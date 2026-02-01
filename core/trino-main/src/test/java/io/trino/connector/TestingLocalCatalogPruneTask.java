@@ -15,11 +15,11 @@ package io.trino.connector;
 
 import io.airlift.http.client.testing.TestingHttpClient;
 import io.airlift.node.NodeInfo;
-import io.trino.client.NodeVersion;
 import io.trino.execution.SqlTaskManager;
 import io.trino.metadata.CatalogManager;
 import io.trino.node.InternalNode;
 import io.trino.node.TestingInternalNodeManager;
+import io.trino.spi.NodeVersion;
 import io.trino.transaction.TransactionManager;
 
 import java.net.URI;

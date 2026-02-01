@@ -13,12 +13,12 @@
  */
 package io.trino.execution;
 
-import io.trino.client.NodeVersion;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.TestingMetadataManager;
 import io.trino.security.AccessControl;
 import io.trino.security.AllowAllAccessControl;
+import io.trino.spi.NodeVersion;
 import io.trino.spi.TrinoException;
 import io.trino.spi.resourcegroups.ResourceGroupId;
 import io.trino.sql.parser.SqlParser;

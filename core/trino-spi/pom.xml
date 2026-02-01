@@ -764,6 +764,13 @@
                                     <new>class io.trino.spi.memory.MemoryAllocation</new>
                                     <justification>Class converted to a record</justification>
                                 </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.class.kindChanged</code>
+                                    <old>class io.trino.spi.NodeVersion</old>
+                                    <new>class io.trino.spi.NodeVersion</new>
+                                    <justification>Class converted to Record</justification>
+                                </item>
                             </differences>
                         </revapi.differences>
                     </analysisConfiguration>

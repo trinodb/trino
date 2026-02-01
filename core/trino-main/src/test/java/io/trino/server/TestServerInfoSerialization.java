@@ -32,7 +32,7 @@ public class TestServerInfoSerialization
     @Test
     void testServerInfoSerialization()
     {
-        io.trino.server.ServerInfo serverServerInfo = new io.trino.server.ServerInfo("some-node-id", NodeState.ACTIVE, new NodeVersion("some-version"), "some-env", true, Optional.of("some-coordinator-id"), true, Duration.valueOf("1h"));
+        io.trino.server.ServerInfo serverServerInfo = new io.trino.server.ServerInfo("some-node-id", NodeState.ACTIVE, new io.trino.spi.NodeVersion("some-version"), "some-env", true, Optional.of("some-coordinator-id"), true, Duration.valueOf("1h"));
         io.trino.client.ServerInfo clientServerInfo = new io.trino.client.ServerInfo(new NodeVersion("some-version"), "some-env", true, true, Optional.of(Duration.valueOf("1h")), Optional.of("some-coordinator-id"), Optional.of("some-node-id"));
         assertThat(CLIENT_SERVER_INFO_CODEC.fromJson(SERVER_SERVER_INFO_CODEC.toJson(serverServerInfo))).isEqualTo(clientServerInfo);
     }

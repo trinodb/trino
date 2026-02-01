@@ -52,10 +52,10 @@ import java.util.stream.StreamSupport;
 
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.airlift.testing.Closeables.closeAllRuntimeException;
-import static io.trino.client.NodeVersion.UNKNOWN;
 import static io.trino.execution.querystats.PlanOptimizersStatsCollector.createPlanOptimizersStatsCollector;
 import static io.trino.execution.scheduler.faulttolerant.OutputStatsEstimator.OutputStatsEstimateResult;
 import static io.trino.execution.warnings.WarningCollector.NOOP;
+import static io.trino.spi.NodeVersion.UNKNOWN;
 import static io.trino.sql.planner.LogicalPlanner.Stage.OPTIMIZED;
 import static io.trino.sql.planner.LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED;
 import static io.trino.sql.planner.PlanOptimizers.columnPruningRules;

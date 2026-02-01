@@ -14,12 +14,12 @@
 package io.trino.sql.analyzer;
 
 import io.trino.Session;
-import io.trino.client.NodeVersion;
 import io.trino.cost.CachingTableStatsProvider;
 import io.trino.cost.CostCalculator;
 import io.trino.cost.StatsCalculator;
 import io.trino.execution.querystats.PlanOptimizersStatsCollector;
 import io.trino.execution.warnings.WarningCollector;
+import io.trino.spi.NodeVersion;
 import io.trino.spi.TrinoException;
 import io.trino.spi.TrinoWarning;
 import io.trino.sql.PlannerContext;

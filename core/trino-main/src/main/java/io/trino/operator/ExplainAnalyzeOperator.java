@@ -13,13 +13,13 @@
  */
 package io.trino.operator;
 
-import io.trino.client.NodeVersion;
 import io.trino.execution.QueryInfo;
 import io.trino.execution.QueryPerformanceFetcher;
 import io.trino.execution.StageInfo;
 import io.trino.execution.StagesInfo;
 import io.trino.metadata.FunctionManager;
 import io.trino.metadata.Metadata;
+import io.trino.spi.NodeVersion;
 import io.trino.spi.Page;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.sql.planner.plan.PlanNodeId;
