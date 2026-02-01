@@ -14,7 +14,6 @@
 package io.trino.metadata;
 
 import io.trino.FeaturesConfig;
-import io.trino.client.NodeVersion;
 import io.trino.metadata.InternalFunctionBundle.InternalFunctionBundleBuilder;
 import io.trino.operator.aggregation.ApproximateCountDistinctAggregation;
 import io.trino.operator.aggregation.ApproximateDoublePercentileAggregations;
@@ -251,6 +250,7 @@ import io.trino.operator.window.NthValueFunction;
 import io.trino.operator.window.PercentRankFunction;
 import io.trino.operator.window.RankFunction;
 import io.trino.operator.window.RowNumberFunction;
+import io.trino.spi.NodeVersion;
 import io.trino.spi.type.TypeOperators;
 import io.trino.sql.DynamicFilters;
 import io.trino.type.BigintOperators;
@@ -595,7 +595,7 @@ public final class SystemFunctionBundle
                 .function(new GenericComparisonUnorderedFirstOperator(typeOperators))
                 .function(new GenericLessThanOperator(typeOperators))
                 .function(new GenericLessThanOrEqualOperator(typeOperators))
-                .function(new VersionFunction(nodeVersion.getVersion()))
+                .function(new VersionFunction(nodeVersion.version()))
                 .aggregates(MergeSetDigestAggregation.class)
                 .aggregates(BuildSetDigestAggregation.class)
                 .scalars(SetDigestFunctions.class)

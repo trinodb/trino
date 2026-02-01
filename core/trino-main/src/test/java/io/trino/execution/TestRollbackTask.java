@@ -15,10 +15,10 @@ package io.trino.execution;
 
 import io.trino.Session;
 import io.trino.Session.SessionBuilder;
-import io.trino.client.NodeVersion;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.Metadata;
 import io.trino.security.AllowAllAccessControl;
+import io.trino.spi.NodeVersion;
 import io.trino.spi.resourcegroups.ResourceGroupId;
 import io.trino.sql.tree.NodeLocation;
 import io.trino.sql.tree.Rollback;

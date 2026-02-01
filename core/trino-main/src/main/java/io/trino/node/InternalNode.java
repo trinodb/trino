@@ -14,9 +14,9 @@
 package io.trino.node;
 
 import io.airlift.slice.XxHash64;
-import io.trino.client.NodeVersion;
 import io.trino.spi.HostAddress;
 import io.trino.spi.Node;
+import io.trino.spi.NodeVersion;
 
 import java.net.InetAddress;
 import java.net.URI;
@@ -53,7 +53,7 @@ public class InternalNode
         this.longHashCode = new XxHash64(coordinator ? 1 : 0)
                 .update(nodeIdentifier.getBytes(UTF_8))
                 .update(internalUri.toString().getBytes(UTF_8))
-                .update(nodeVersion.getVersion().getBytes(UTF_8))
+                .update(nodeVersion.version().getBytes(UTF_8))
                 .hash();
     }
 
@@ -93,7 +93,7 @@ public class InternalNode
     @Override
     public String getVersion()
     {
-        return nodeVersion.getVersion();
+        return nodeVersion.version();
     }
 
     @Override

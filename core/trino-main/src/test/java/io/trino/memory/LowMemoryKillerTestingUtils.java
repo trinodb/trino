@@ -17,12 +17,12 @@ package io.trino.memory;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import io.trino.client.NodeVersion;
 import io.trino.execution.StageId;
 import io.trino.execution.TaskId;
 import io.trino.execution.TaskInfo;
 import io.trino.node.InternalNode;
 import io.trino.operator.RetryPolicy;
+import io.trino.spi.NodeVersion;
 import io.trino.spi.QueryId;
 import io.trino.spi.memory.MemoryPoolInfo;
 

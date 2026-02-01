@@ -35,7 +35,6 @@ import io.airlift.node.NodeModule;
 import io.airlift.openmetrics.JmxOpenMetricsModule;
 import io.airlift.tracing.TracingModule;
 import io.airlift.units.Duration;
-import io.trino.client.NodeVersion;
 import io.trino.connector.CatalogManagerModule;
 import io.trino.connector.CatalogStoreManager;
 import io.trino.connector.ConnectorServicesProvider;
@@ -56,6 +55,7 @@ import io.trino.server.security.HeaderAuthenticatorManager;
 import io.trino.server.security.PasswordAuthenticatorManager;
 import io.trino.server.security.ServerSecurityModule;
 import io.trino.server.security.oauth2.OAuth2Client;
+import io.trino.spi.NodeVersion;
 import io.trino.transaction.TransactionManagerModule;
 import io.trino.util.EmbedVersion;
 import org.weakref.jmx.guice.MBeanModule;
@@ -122,7 +122,7 @@ public class Server
         try {
             Injector injector = app.initialize();
 
-            log.info("Trino version: %s", injector.getInstance(NodeVersion.class).getVersion());
+            log.info("Trino version: %s", injector.getInstance(NodeVersion.class).version());
             log.info("Zstandard native compression: %s", formatEnabled(ZstdNativeCompressor.isEnabled()));
             log.info("Lz4 native compression: %s", formatEnabled(Lz4NativeCompressor.isEnabled()));
             log.info("Snappy native compression: %s", formatEnabled(SnappyNativeCompressor.isEnabled()));

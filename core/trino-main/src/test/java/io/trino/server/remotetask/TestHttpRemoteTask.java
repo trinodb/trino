@@ -34,7 +34,6 @@ import io.opentelemetry.api.OpenTelemetry;
 import io.opentelemetry.api.trace.Span;
 import io.trino.Session;
 import io.trino.block.BlockJsonSerde;
-import io.trino.client.NodeVersion;
 import io.trino.connector.TestingColumnHandle;
 import io.trino.execution.BaseTestSqlTaskManager;
 import io.trino.execution.DynamicFilterConfig;
@@ -64,6 +63,7 @@ import io.trino.server.HttpRemoteTaskFactory;
 import io.trino.server.TaskUpdateRequest;
 import io.trino.simd.BlockEncodingSimdSupport;
 import io.trino.spi.ErrorCode;
+import io.trino.spi.NodeVersion;
 import io.trino.spi.QueryId;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockEncodingSerde;
@@ -628,7 +628,7 @@ public class TestHttpRemoteTask
                 session,
                 Span.getInvalid(),
                 new TaskId(new StageId("test", 1), 2, 0),
-                new InternalNode("node-id", URI.create("http://fake.invalid/"), new NodeVersion("version"), false),
+                new InternalNode("node-id", URI.create("http://fake.invalid/"), NodeVersion.UNKNOWN, false),
                 false,
                 TaskTestUtils.PLAN_FRAGMENT,
                 ImmutableMultimap.of(),
