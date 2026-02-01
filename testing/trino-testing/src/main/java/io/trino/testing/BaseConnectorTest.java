@@ -2581,7 +2581,11 @@ public abstract class BaseConnectorTest
                 }))
                 .isInstanceOf(RollbackException.class);
 
-        assertQuery(format("SELECT count(*) FROM %s", table), "SELECT 0");
+        // retry due to async rollback cleanup which may outrun the next verification query on remote file systems,
+        // leading to FileNotFoundException on splits
+        assertEventually(
+                new Duration(1, SECONDS),
+                () -> assertQuery(format("SELECT count(*) FROM %s", table), "SELECT 0"));
     }
 
     private static class RollbackException
@@ -5244,9 +5248,14 @@ public abstract class BaseConnectorTest
                 commit = false;
             }
             // SELECT again after transaction completes
-            assertQuery(
-                    "TABLE " + tableName,
-                    "SELECT nationkey, name, regionkey FROM nation WHERE nationkey IN " + (commit ? "(1, 2)" : "(1)"));
+            boolean isCommit = commit;
+            // retry due to async rollback cleanup which may outrun the next verification query on remote file systems,
+            // leading to FileNotFoundException on splits
+            assertEventually(
+                    new Duration(1, SECONDS),
+                    () -> assertQuery(
+                            "TABLE " + tableName,
+                    "SELECT nationkey, name, regionkey FROM nation WHERE nationkey IN " + (isCommit ? "(1, 2)" : "(1)")));
         }
     }
 
