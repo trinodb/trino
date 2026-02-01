@@ -642,6 +642,7 @@ public class KingbaseMySqlClient
             case "uint8":
                 return Optional.of(decimalColumnMapping(createDecimalType(20)));
             case "json":
+            case "jsonb":
                 return Optional.of(jsonColumnMapping());
             case "enum":
                 return Optional.of(defaultVarcharColumnMapping(typeHandle.requiredColumnSize(), false));
@@ -1000,8 +1001,13 @@ public class KingbaseMySqlClient
             public boolean isNull(ResultSet resultSet, int columnIndex)
                     throws SQLException
             {
-                // super calls ResultSet#getObject(), which for TIME type returns java.sql.Time, for which the conversion can fail if the value isn't a valid instant in server's time zone.
-                resultSet.getObject(columnIndex, String.class);
+                /*
+                 * 原实现调用 ResultSet#getObject(columnIndex, String.class)，
+                 * 但 Kingbase JDBC 驱动不支持将 TIME 转为 String，会抛出
+                 * "conversion to class java.lang.String from time not supported"。
+                 * 这里只需要触发一次读取以便后续调用 wasNull() 判空
+                 */
+                resultSet.getTime(columnIndex);
                 return resultSet.wasNull();
             }
 
@@ -1489,44 +1495,6 @@ public class KingbaseMySqlClient
         }
     }
 
-//    @Override
-//    public List<JdbcColumnHandle> getPrimaryKeys(ConnectorSession session, RemoteTableName remoteTableName)
-//    {
-//        SchemaTableName tableName = new SchemaTableName(remoteTableName.getCatalogName().orElse(null), remoteTableName.getTableName());
-//        Map<String, JdbcColumnHandle> columns = getColumns(session, tableName, remoteTableName).stream()
-//                .collect(toImmutableMap(JdbcColumnHandle::getColumnName, identity()));
-//        try (Connection connection = connectionFactory.openConnection(session)) {
-//            DatabaseMetaData metaData = connection.getMetaData();
-//
-//            ResultSet primaryKeysResult = metaData.getPrimaryKeys(remoteTableName.getCatalogName().orElse(null), remoteTableName.getSchemaName().orElse(null), remoteTableName.getTableName());
-//
-//            Map<Short, String> primaryKeys = new TreeMap<>();
-//            while (primaryKeysResult.next()) {
-//                primaryKeys.put(primaryKeysResult.getShort("KEY_SEQ"), primaryKeysResult.getString("COLUMN_NAME"));
-//            }
-//            if (primaryKeys.isEmpty()) {
-//                return ImmutableList.of();
-//            }
-//
-//            ImmutableList.Builder<JdbcColumnHandle> primaryKeysBuilder = ImmutableList.builder();
-//            for (String name : primaryKeys.values()) {
-//                JdbcColumnHandle columnHandle = columns.get(name);
-//                if (columnHandle == null) {
-//                    continue;
-//                }
-//                JdbcTypeHandle handle = columnHandle.getJdbcTypeHandle();
-//                primaryKeysBuilder.add(new JdbcColumnHandle(
-//                        name,
-//                        // make sure the primary keys that are varchar/char relate types can be pushdown
-//                        new JdbcTypeHandle(handle.jdbcType(), handle.jdbcTypeName(), handle.columnSize(), handle.decimalDigits(), handle.arrayDimensions(), Optional.of(CASE_SENSITIVE)),
-//                        columnHandle.getColumnType()));
-//            }
-//            return primaryKeysBuilder.build();
-//        }
-//        catch (SQLException e) {
-//            throw new TrinoException(JDBC_ERROR, e);
-//        }
-//    }
     @Override
     public List<JdbcColumnHandle> getPrimaryKeys(ConnectorSession session, RemoteTableName remoteTableName)
     {

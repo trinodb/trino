@@ -16,45 +16,16 @@ package io.trino.plugin.kingbasemysql;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import io.airlift.units.Duration;
-import jakarta.validation.constraints.Min;
 
 import java.util.concurrent.TimeUnit;
 
+/**
+ * 连接 KingbaseES（MySQL 兼容模式）时的连接相关配置。
+ */
 public class KingbaseMySqlConfig
 {
-    private boolean autoReconnect = true;
-    private int maxReconnects = 3;
+    /** 连接超时，对应 KES JDBC connectTimeout，单位秒。 */
     private Duration connectionTimeout = new Duration(10, TimeUnit.SECONDS);
-
-    // Using `useInformationSchema=true` prevents race condition inside MySQL driver's java.sql.DatabaseMetaData.getColumns
-    // implementation, which throw SQL exception when a table disappears during listing.
-    // Using `useInformationSchema=false` may provide more diagnostic information (see https://github.com/trinodb/trino/issues/1597)
-    private boolean driverUseInformationSchema = true;
-
-    public boolean isAutoReconnect()
-    {
-        return autoReconnect;
-    }
-
-    @Config("mysql.auto-reconnect")
-    public KingbaseMySqlConfig setAutoReconnect(boolean autoReconnect)
-    {
-        this.autoReconnect = autoReconnect;
-        return this;
-    }
-
-    @Min(1)
-    public int getMaxReconnects()
-    {
-        return maxReconnects;
-    }
-
-    @Config("mysql.max-reconnects")
-    public KingbaseMySqlConfig setMaxReconnects(int maxReconnects)
-    {
-        this.maxReconnects = maxReconnects;
-        return this;
-    }
 
     public Duration getConnectionTimeout()
     {
@@ -62,22 +33,10 @@ public class KingbaseMySqlConfig
     }
 
     @Config("mysql.connection-timeout")
+    @ConfigDescription("Connection timeout. Maps to KES JDBC connectTimeout (seconds)")
     public KingbaseMySqlConfig setConnectionTimeout(Duration connectionTimeout)
     {
         this.connectionTimeout = connectionTimeout;
-        return this;
-    }
-
-    public boolean isDriverUseInformationSchema()
-    {
-        return driverUseInformationSchema;
-    }
-
-    @Config("mysql.jdbc.use-information-schema")
-    @ConfigDescription("Value of useInformationSchema MySQL JDBC driver connection property")
-    public KingbaseMySqlConfig setDriverUseInformationSchema(boolean driverUseInformationSchema)
-    {
-        this.driverUseInformationSchema = driverUseInformationSchema;
         return this;
     }
 }

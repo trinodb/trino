@@ -25,6 +25,7 @@ import java.math.RoundingMode;
 import java.util.Optional;
 
 import static java.util.concurrent.TimeUnit.MINUTES;
+import static java.util.concurrent.TimeUnit.SECONDS;
 
 @DefunctConfig("oracle.disable-automatic-fetch-size")
 public class KingbaseOracleConfig
@@ -38,6 +39,10 @@ public class KingbaseOracleConfig
     private int connectionPoolMaxSize = 30;
     private Duration inactiveConnectionTimeout = new Duration(20, MINUTES);
     private Integer fetchSize;
+    /** 登录超时，对应 KES JDBC loginTimeout，单位秒。 */
+    private Duration loginTimeout = new Duration(30, SECONDS);
+    /** Socket 读取超时，对应 KES JDBC socketTimeout，单位秒。超过后查询会报读超时。设为 0 表示不限制（允许长查询）。 */
+    private Duration socketTimeout = new Duration(300, SECONDS);
 
     public boolean isSynonymsEnabled()
     {
@@ -89,58 +94,6 @@ public class KingbaseOracleConfig
         return this;
     }
 
-//    public boolean isConnectionPoolEnabled()
-//    {
-//        return connectionPoolEnabled;
-//    }
-
-//    @Config("oracle.connection-pool.enabled")
-//    public KingbaseOracleConfig setConnectionPoolEnabled(boolean connectionPoolEnabled)
-//    {
-//        this.connectionPoolEnabled = connectionPoolEnabled;
-//        return this;
-//    }
-
-//    @Min(0)
-//    public int getConnectionPoolMinSize()
-//    {
-//        return connectionPoolMinSize;
-//    }
-
-//    @Config("oracle.connection-pool.min-size")
-//    public KingbaseOracleConfig setConnectionPoolMinSize(int connectionPoolMinSize)
-//    {
-//        this.connectionPoolMinSize = connectionPoolMinSize;
-//        return this;
-//    }
-//
-//    @Min(1)
-//    public int getConnectionPoolMaxSize()
-//    {
-//        return connectionPoolMaxSize;
-//    }
-//
-//    @Config("oracle.connection-pool.max-size")
-//    public KingbaseOracleConfig setConnectionPoolMaxSize(int connectionPoolMaxSize)
-//    {
-//        this.connectionPoolMaxSize = connectionPoolMaxSize;
-//        return this;
-//    }
-
-//    @NotNull
-//    public Duration getInactiveConnectionTimeout()
-//    {
-//        return inactiveConnectionTimeout;
-//    }
-//
-//    @Config("oracle.connection-pool.inactive-timeout")
-//    @ConfigDescription("How long a connection in the pool can remain idle before it is closed")
-//    public KingbaseOracleConfig setInactiveConnectionTimeout(Duration inactiveConnectionTimeout)
-//    {
-//        this.inactiveConnectionTimeout = inactiveConnectionTimeout;
-//        return this;
-//    }
-
     public Optional<@Min(0) Integer> getFetchSize()
     {
         return Optional.ofNullable(fetchSize);
@@ -151,6 +104,34 @@ public class KingbaseOracleConfig
     public KingbaseOracleConfig setFetchSize(Integer fetchSize)
     {
         this.fetchSize = fetchSize;
+        return this;
+    }
+
+    @NotNull
+    public Duration getLoginTimeout()
+    {
+        return loginTimeout;
+    }
+
+    @Config("oracle.login-timeout")
+    @ConfigDescription("Login timeout. Maps to KES JDBC loginTimeout (seconds)")
+    public KingbaseOracleConfig setLoginTimeout(Duration loginTimeout)
+    {
+        this.loginTimeout = loginTimeout;
+        return this;
+    }
+
+    @NotNull
+    public Duration getSocketTimeout()
+    {
+        return socketTimeout;
+    }
+
+    @Config("oracle.socket-timeout")
+    @ConfigDescription("Socket read timeout (seconds). Queries longer than this may fail. Set to 0 for no limit. Maps to KES JDBC socketTimeout")
+    public KingbaseOracleConfig setSocketTimeout(Duration socketTimeout)
+    {
+        this.socketTimeout = socketTimeout;
         return this;
     }
 

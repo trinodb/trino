@@ -25,7 +25,6 @@ import io.trino.plugin.base.projection.ProjectFunctionRewriter;
 import io.trino.plugin.base.projection.ProjectFunctionRule;
 import io.trino.plugin.jdbc.BaseJdbcClient;
 import io.trino.plugin.jdbc.BaseJdbcConfig;
-import io.trino.plugin.jdbc.BooleanWriteFunction;
 import io.trino.plugin.jdbc.ColumnMapping;
 import io.trino.plugin.jdbc.ConnectionFactory;
 import io.trino.plugin.jdbc.DoubleWriteFunction;
@@ -114,11 +113,16 @@ import static io.trino.plugin.jdbc.PredicatePushdownController.DISABLE_PUSHDOWN;
 import static io.trino.plugin.jdbc.PredicatePushdownController.FULL_PUSHDOWN;
 import static io.trino.plugin.jdbc.StandardColumnMappings.bigintColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.bigintWriteFunction;
+import static io.trino.plugin.jdbc.StandardColumnMappings.booleanColumnMapping;
+import static io.trino.plugin.jdbc.StandardColumnMappings.booleanWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.charReadFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.charWriteFunction;
+import static io.trino.plugin.jdbc.StandardColumnMappings.dateColumnMappingUsingLocalDate;
+import static io.trino.plugin.jdbc.StandardColumnMappings.dateWriteFunctionUsingLocalDate;
 import static io.trino.plugin.jdbc.StandardColumnMappings.doubleColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.fromLongTrinoTimestamp;
 import static io.trino.plugin.jdbc.StandardColumnMappings.fromTrinoTimestamp;
+import static io.trino.plugin.jdbc.StandardColumnMappings.integerColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.integerWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.longDecimalReadFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.longDecimalWriteFunction;
@@ -127,6 +131,8 @@ import static io.trino.plugin.jdbc.StandardColumnMappings.shortDecimalReadFuncti
 import static io.trino.plugin.jdbc.StandardColumnMappings.shortDecimalWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.smallintColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.smallintWriteFunction;
+import static io.trino.plugin.jdbc.StandardColumnMappings.timeColumnMapping;
+import static io.trino.plugin.jdbc.StandardColumnMappings.timeWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.timestampColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.tinyintWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.toLongTrinoTimestamp;
@@ -151,6 +157,7 @@ import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
+import static io.trino.spi.type.TimeType.createTimeType;
 import static io.trino.spi.type.TimestampType.MAX_SHORT_PRECISION;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_SECONDS;
 import static io.trino.spi.type.TimestampType.createTimestampType;
@@ -172,7 +179,8 @@ import static java.util.Locale.ENGLISH;
 public class KingbaseOracleClient
         extends BaseJdbcClient
 {
-    public static final int ORACLE_MAX_LIST_EXPRESSIONS = 1000;
+    /** 单条语句最大绑定参数个数上限，用于限制 domain_compaction_threshold 会话属性。Oracle 为 1000，KES 为 32767，此处按 KES 限制设置。 */
+    public static final int ORACLE_MAX_LIST_EXPRESSIONS = 32767;
 
     private static final int MAX_ORACLE_TIMESTAMP_PRECISION = 9;
     private static final int MAX_BYTES_PER_CHAR = 4;
@@ -209,21 +217,20 @@ public class KingbaseOracleClient
             .build();
 
     /**
-     * Note the type mappings from trino -> oracle types can cause surprises since they are not invertible
-     * For example, creating an oracle table in trino with a bigint column will generate an oracle table with a number column
-     * Then querying the oracle table with the number column will return a decimal (not a bigint)
+     * KES Oracle 兼容模式类型映射：按 KES-Oracle 手册类型映射表建表，与 Oracle 原生 number/binary_* 等不一致。
+     * 对应关系：bool, int2, int4, int8, float4, float8, bytea, date, timestamptz 等（见手册数据类型映射表）。
      */
     private static final Map<Type, WriteMapping> WRITE_MAPPINGS = ImmutableMap.<Type, WriteMapping>builder()
-            .put(BOOLEAN, oracleBooleanWriteMapping())
-            .put(BIGINT, WriteMapping.longMapping("number(19)", bigintWriteFunction()))
-            .put(INTEGER, WriteMapping.longMapping("number(10)", integerWriteFunction()))
-            .put(SMALLINT, WriteMapping.longMapping("number(5)", smallintWriteFunction()))
-            .put(TINYINT, WriteMapping.longMapping("number(3)", tinyintWriteFunction()))
-            .put(DOUBLE, WriteMapping.doubleMapping("binary_double", oracleDoubleWriteFunction()))
-            .put(REAL, WriteMapping.longMapping("binary_float", oracleRealWriteFunction()))
-            .put(VARBINARY, WriteMapping.sliceMapping("blob", varbinaryWriteFunction()))
-            .put(DATE, WriteMapping.longMapping("date", trinoDateToOracleDateWriteFunction()))
-            .put(TIMESTAMP_TZ_MILLIS, WriteMapping.longMapping("timestamp(3) with time zone", oracleTimestampWithTimeZoneWriteFunction()))
+            .put(BOOLEAN, WriteMapping.booleanMapping("bool", booleanWriteFunction()))
+            .put(BIGINT, WriteMapping.longMapping("int8", bigintWriteFunction()))
+            .put(INTEGER, WriteMapping.longMapping("int4", integerWriteFunction()))
+            .put(SMALLINT, WriteMapping.longMapping("int2", smallintWriteFunction()))
+            .put(TINYINT, WriteMapping.longMapping("int2", tinyintWriteFunction()))  // KES 无 tinyint，用 int2
+            .put(DOUBLE, WriteMapping.doubleMapping("float8", oracleDoubleWriteFunction()))
+            .put(REAL, WriteMapping.longMapping("float4", oracleRealWriteFunction()))
+            .put(VARBINARY, WriteMapping.sliceMapping("bytea", varbinaryWriteFunction()))
+            .put(DATE, WriteMapping.longMapping("date", dateWriteFunctionUsingLocalDate()))
+            .put(TIMESTAMP_TZ_MILLIS, WriteMapping.longMapping("timestamptz", oracleTimestampWithTimeZoneWriteFunction()))
             .buildOrThrow();
 
     private final boolean synonymsEnabled;
@@ -263,7 +270,7 @@ public class KingbaseOracleClient
                         .add(new RewriteCast((session, type) -> toWriteMapping(session, type).getDataType()))
                         .build());
 
-        JdbcTypeHandle bigintTypeHandle = new JdbcTypeHandle(TRINO_BIGINT_TYPE, Optional.of("NUMBER"), Optional.of(0), Optional.of(0), Optional.empty(), Optional.empty());
+        JdbcTypeHandle bigintTypeHandle = new JdbcTypeHandle(TRINO_BIGINT_TYPE, Optional.of("bigint"), Optional.of(0), Optional.of(0), Optional.empty(), Optional.empty());
         this.aggregateFunctionRewriter = new AggregateFunctionRewriter<>(
                 connectorExpressionRewriter,
                 ImmutableSet.<AggregateFunctionRule<JdbcExpression, ParameterizedExpression>>builder()
@@ -455,133 +462,6 @@ public class KingbaseOracleClient
                 varcharLiteral(comment.orElse("")));
     }
 
-//    @Override
-//    public Optional<ColumnMapping> toColumnMapping(ConnectorSession session, Connection connection, JdbcTypeHandle typeHandle)
-//    {
-//        if (typeHandle.jdbcType() == TRINO_BIGINT_TYPE) {
-//            // Synthetic column
-//            return Optional.of(bigintColumnMapping());
-//        }
-//
-//        String jdbcTypeName = typeHandle.jdbcTypeName()
-//                .orElseThrow(() -> new TrinoException(JDBC_ERROR, "Type name is missing: " + typeHandle));
-//
-//        Optional<ColumnMapping> mappingToVarchar = getForcedMappingToVarchar(typeHandle);
-//        if (mappingToVarchar.isPresent()) {
-//            return mappingToVarchar;
-//        }
-//
-//        if (jdbcTypeName.equalsIgnoreCase("date")) {
-//            return Optional.of(ColumnMapping.longMapping(
-//                    TIMESTAMP_SECONDS,
-//                    oracleTimestampReadFunction(TIMESTAMP_SECONDS),
-//                    trinoTimestampToOracleDateWriteFunction(),
-//                    FULL_PUSHDOWN));
-//        }
-//
-//        switch (typeHandle.jdbcType()) {
-//            case Types.SMALLINT:
-//                return Optional.of(ColumnMapping.longMapping(
-//                        SMALLINT,
-//                        ResultSet::getShort,
-//                        smallintWriteFunction(),
-//                        FULL_PUSHDOWN));
-//            case OracleTypes.BINARY_FLOAT:
-//                return Optional.of(ColumnMapping.longMapping(
-//                        REAL,
-//                        (resultSet, columnIndex) -> floatToRawIntBits(resultSet.getFloat(columnIndex)),
-//                        oracleRealWriteFunction(),
-//                        FULL_PUSHDOWN));
-//
-//            case OracleTypes.BINARY_DOUBLE:
-//            case OracleTypes.FLOAT:
-//                return Optional.of(ColumnMapping.doubleMapping(
-//                        DOUBLE,
-//                        ResultSet::getDouble,
-//                        oracleDoubleWriteFunction(),
-//                        FULL_PUSHDOWN));
-//            case OracleTypes.NUMBER:
-//                int actualPrecision = typeHandle.requiredColumnSize();
-//                int decimalDigits = typeHandle.requiredDecimalDigits();
-//                // Map negative scale to decimal(p+s, 0).
-//                int precision = actualPrecision + max(-decimalDigits, 0);
-//                int scale = max(decimalDigits, 0);
-//                Optional<Integer> numberDefaultScale = getNumberDefaultScale(session);
-//                RoundingMode roundingMode = getNumberRoundingMode(session);
-//                if (precision < scale) {
-//                    if (roundingMode == RoundingMode.UNNECESSARY) {
-//                        break;
-//                    }
-//                    scale = min(Decimals.MAX_PRECISION, scale);
-//                    precision = scale;
-//                }
-//                else if (numberDefaultScale.isPresent() && precision == PRECISION_OF_UNSPECIFIED_NUMBER) {
-//                    precision = Decimals.MAX_PRECISION;
-//                    scale = numberDefaultScale.get();
-//                }
-//                else if (precision > Decimals.MAX_PRECISION || actualPrecision <= 0) {
-//                    break;
-//                }
-//                DecimalType decimalType = createDecimalType(precision, scale);
-//                // JDBC driver can return BigDecimal with lower scale than column's scale when there are trailing zeroes
-//                if (decimalType.isShort()) {
-//                    return Optional.of(ColumnMapping.longMapping(
-//                            decimalType,
-//                            shortDecimalReadFunction(decimalType, roundingMode),
-//                            shortDecimalWriteFunction(decimalType),
-//                            FULL_PUSHDOWN));
-//                }
-//                return Optional.of(ColumnMapping.objectMapping(
-//                        decimalType,
-//                        longDecimalReadFunction(decimalType, roundingMode),
-//                        longDecimalWriteFunction(decimalType),
-//                        FULL_PUSHDOWN));
-//
-//            case OracleTypes.CHAR:
-//            case OracleTypes.NCHAR:
-//                CharType charType = createCharType(typeHandle.requiredColumnSize());
-//                return Optional.of(ColumnMapping.sliceMapping(
-//                        charType,
-//                        charReadFunction(charType),
-//                        oracleCharWriteFunction(),
-//                        FULL_PUSHDOWN));
-//
-//            case OracleTypes.VARCHAR:
-//            case OracleTypes.NVARCHAR:
-//                return Optional.of(ColumnMapping.sliceMapping(
-//                        createVarcharType(typeHandle.requiredColumnSize()),
-//                        (varcharResultSet, varcharColumnIndex) -> utf8Slice(varcharResultSet.getString(varcharColumnIndex)),
-//                        varcharWriteFunction(),
-//                        FULL_PUSHDOWN));
-//
-//            case OracleTypes.CLOB:
-//            case OracleTypes.NCLOB:
-//                return Optional.of(ColumnMapping.sliceMapping(
-//                        createUnboundedVarcharType(),
-//                        (resultSet, columnIndex) -> utf8Slice(resultSet.getString(columnIndex)),
-//                        varcharWriteFunction(),
-//                        DISABLE_PUSHDOWN));
-//
-//            case OracleTypes.VARBINARY: // Oracle's RAW(n)
-//            case OracleTypes.BLOB:
-//                return Optional.of(ColumnMapping.sliceMapping(
-//                        VARBINARY,
-//                        (resultSet, columnIndex) -> wrappedBuffer(resultSet.getBytes(columnIndex)),
-//                        varbinaryWriteFunction(),
-//                        DISABLE_PUSHDOWN));
-//
-//            case OracleTypes.TIMESTAMP:
-//                int timestampPrecision = typeHandle.requiredDecimalDigits();
-//                return Optional.of(oracleTimestampColumnMapping(createTimestampType(timestampPrecision)));
-//            case OracleTypes.TIMESTAMPTZ:
-//                return Optional.of(oracleTimestampWithTimeZoneColumnMapping());
-//        }
-//        if (getUnsupportedTypeHandling(session) == CONVERT_TO_VARCHAR) {
-//            return mapToUnboundedVarchar(typeHandle);
-//        }
-//        return Optional.empty();
-//    }
-
     @Override
     public Optional<ColumnMapping> toColumnMapping(
             ConnectorSession session,
@@ -600,13 +480,9 @@ public class KingbaseOracleClient
             return mappingToVarchar;
         }
 
-        // Oracle DATE 语义（含时间）
+        // KES date 为仅日期类型（Types.DATE），映射为 Trino DATE
         if (jdbcTypeName.equalsIgnoreCase("date")) {
-            return Optional.of(ColumnMapping.longMapping(
-                    TIMESTAMP_SECONDS,
-                    oracleDateReadFunction(),
-                    trinoTimestampToOracleDateWriteFunction(),
-                    FULL_PUSHDOWN));
+            return Optional.of(dateColumnMappingUsingLocalDate());
         }
 
         switch (jdbcTypeName.toLowerCase(ENGLISH)) {
@@ -616,6 +492,15 @@ public class KingbaseOracleClient
         }
 
         switch (typeHandle.jdbcType()) {
+            case Types.BIT:
+                return Optional.of(booleanColumnMapping());
+
+            case Types.BIGINT:
+                return Optional.of(bigintColumnMapping());
+
+            case Types.INTEGER:
+                return Optional.of(integerColumnMapping());
+
             case Types.SMALLINT:
                 return Optional.of(smallintColumnMapping());
 
@@ -677,8 +562,12 @@ public class KingbaseOracleClient
 
             case Types.VARCHAR:
             case Types.NVARCHAR:
+                int varcharLength = typeHandle.requiredColumnSize();
+                Type varcharType = (varcharLength <= 0 || varcharLength > VarcharType.MAX_LENGTH)
+                        ? createUnboundedVarcharType()
+                        : createVarcharType(varcharLength);
                 return Optional.of(ColumnMapping.sliceMapping(
-                        createVarcharType(typeHandle.requiredColumnSize()),
+                        varcharType,
                         (varcharResultSet, varcharColumnIndex) -> utf8Slice(varcharResultSet.getString(varcharColumnIndex)),
                         varcharWriteFunction(),
                         FULL_PUSHDOWN));
@@ -691,9 +580,16 @@ public class KingbaseOracleClient
                         varcharWriteFunction(),
                         DISABLE_PUSHDOWN));
 
+            case Types.BINARY:
             case Types.VARBINARY:
             case Types.BLOB:
                 return Optional.of(varbinaryColumnMapping());
+
+            case Types.TIME:
+                int timePrecision = typeHandle.requiredDecimalDigits() >= 0
+                        ? min(typeHandle.requiredDecimalDigits(), 9)
+                        : 3;
+                return Optional.of(timeColumnMapping(createTimeType(timePrecision)));
 
             case Types.TIMESTAMP:
                 return Optional.of(timestampColumnMapping(createTimestampType(typeHandle.requiredDecimalDigits())));
@@ -741,11 +637,6 @@ public class KingbaseOracleClient
     {
         return projectFunctionRewriter.rewrite(session, handle, expression, assignments);
     }
-
-//    private static Optional<JdbcTypeHandle> toTypeHandle(DecimalType decimalType)
-//    {
-//        return Optional.of(new JdbcTypeHandle(OracleTypes.NUMBER, Optional.of("NUMBER"), Optional.of(decimalType.getPrecision()), Optional.of(decimalType.getScale()), Optional.empty(), Optional.empty()));
-//    }
 
     private static Optional<JdbcTypeHandle> toTypeHandle(DecimalType decimalType)
     {
@@ -807,12 +698,10 @@ public class KingbaseOracleClient
     private static LongReadFunction oracleDateReadFunction()
     {
         return (resultSet, columnIndex) -> {
-            // KingbaseES JDBC driver may not correctly convert DATE to LocalDateTime
             // Try multiple methods to read the date
             LocalDateTime localDateTime = null;
             SQLException lastException = null;
 
-            // Method 1: Try getString() and parse manually - most reliable
             try {
                 String dateStr = resultSet.getString(columnIndex);
                 if (dateStr != null) {
@@ -835,8 +724,6 @@ public class KingbaseOracleClient
             catch (SQLException e) {
                 lastException = e;
             }
-
-            // Method 2: Try getDate() if string parsing failed
             if (localDateTime == null) {
                 try {
                     java.sql.Date date = resultSet.getDate(columnIndex);
@@ -963,16 +850,17 @@ public class KingbaseOracleClient
         };
     }
 
+    /** KES 使用 YYYY（无符号年），Oracle 使用 SYYYY（符号年）。 */
     private static String getOracleBindExpression(int precision)
     {
         if (precision == 0) {
-            return "TO_TIMESTAMP(?, 'SYYYY-MM-DD HH24:MI:SS')";
+            return "TO_TIMESTAMP(?, 'YYYY-MM-DD HH24:MI:SS')";
         }
         if (precision <= 2) {
-            return "TO_TIMESTAMP(?, 'SYYYY-MM-DD HH24:MI:SS.FF')";
+            return "TO_TIMESTAMP(?, 'YYYY-MM-DD HH24:MI:SS.FF')";
         }
 
-        return format("TO_TIMESTAMP(?, 'SYYYY-MM-DD HH24:MI:SS.FF%d')", precision);
+        return format("TO_TIMESTAMP(?, 'YYYY-MM-DD HH24:MI:SS.FF%d')", precision);
     }
 
     private static LongReadFunction oracleTimestampReadFunction(TimestampType timestampType)
@@ -1008,20 +896,6 @@ public class KingbaseOracleClient
         checkArgument(precision > MAX_SHORT_PRECISION && precision <= MAX_ORACLE_TIMESTAMP_PRECISION,
                 "Precision is out of range: %s", precision);
     }
-
-//    public static ColumnMapping oracleTimestampWithTimeZoneColumnMapping()
-//    {
-//        return ColumnMapping.longMapping(
-//                TIMESTAMP_TZ_MILLIS,
-//                (resultSet, columnIndex) -> {
-//                    ZonedDateTime timestamp = resultSet.getObject(columnIndex, ZonedDateTime.class);
-//                    return packDateTimeWithZone(
-//                            timestamp.toInstant().toEpochMilli(),
-//                            timestamp.getZone().getId());
-//                },
-//                oracleTimestampWithTimeZoneWriteFunction(),
-//                FULL_PUSHDOWN);
-//    }
 
     public static ColumnMapping oracleTimestampWithTimeZoneColumnMapping()
     {
@@ -1066,15 +940,6 @@ public class KingbaseOracleClient
                 FULL_PUSHDOWN);
     }
 
-//    public static LongWriteFunction oracleTimestampWithTimeZoneWriteFunction()
-//    {
-//        return LongWriteFunction.of(OracleTypes.TIMESTAMPTZ, (statement, index, encodedTimeWithZone) -> {
-//            Instant time = Instant.ofEpochMilli(unpackMillisUtc(encodedTimeWithZone));
-//            ZoneId zone = unpackZoneKey(encodedTimeWithZone).getZoneId();
-//            statement.setObject(index, time.atZone(zone));
-//        });
-//    }
-
     public static LongWriteFunction oracleTimestampWithTimeZoneWriteFunction()
     {
         return new LongWriteFunction()
@@ -1116,44 +981,17 @@ public class KingbaseOracleClient
         };
     }
 
-    private static WriteMapping oracleBooleanWriteMapping()
-    {
-        return WriteMapping.booleanMapping("number(1)", oracleBooleanWriteFunction());
-    }
-
-    private static BooleanWriteFunction oracleBooleanWriteFunction()
-    {
-        return BooleanWriteFunction.of(Types.TINYINT, (statement, index, value) -> statement.setInt(index, value ? 1 : 0));
-    }
-
-//    public static LongWriteFunction oracleRealWriteFunction()
-//    {
-//        return LongWriteFunction.of(Types.REAL, (statement, index, value) ->
-//                statement.unwrap(OraclePreparedStatement.class).setBinaryFloat(index, intBitsToFloat(toIntExact(value))));
-//    }
-
     public static LongWriteFunction oracleRealWriteFunction()
     {
         return LongWriteFunction.of(Types.REAL, (statement, index, value) ->
                 statement.setObject(index, Float.intBitsToFloat((int) value), Types.REAL));
     }
 
-//    public static DoubleWriteFunction oracleDoubleWriteFunction()
-//    {
-//        return DoubleWriteFunction.of(Types.DOUBLE, (statement, index, value) ->
-//                statement.unwrap(OraclePreparedStatement.class).setBinaryDouble(index, value));
-//    }
-
     public static DoubleWriteFunction oracleDoubleWriteFunction()
     {
         return DoubleWriteFunction.of(Types.DOUBLE, (statement, index, value) ->
                 statement.setObject(index, value, Types.DOUBLE));
     }
-
-//    private SliceWriteFunction oracleCharWriteFunction()
-//    {
-//        return SliceWriteFunction.of(Types.NCHAR, (statement, index, value) -> statement.unwrap(OraclePreparedStatement.class).setFixedCHAR(index, value.toStringUtf8()));
-//    }
 
     private SliceWriteFunction oracleCharWriteFunction()
     {
@@ -1167,35 +1005,38 @@ public class KingbaseOracleClient
         if (type instanceof VarcharType varcharType) {
             String dataType;
             if (varcharType.isUnbounded() || varcharType.getBoundedLength() > ORACLE_VARCHAR2_MAX_CHARS) {
-                dataType = "nclob";
+                dataType = "text";
             }
             else {
-                dataType = "varchar2(" + varcharType.getBoundedLength() + " CHAR)";
+                dataType = "varchar(" + varcharType.getBoundedLength() + ")";
             }
             return WriteMapping.sliceMapping(dataType, varcharWriteFunction());
         }
         if (type instanceof CharType charType) {
             String dataType;
             if (charType.getLength() > ORACLE_CHAR_MAX_CHARS) {
-                dataType = "nclob";
+                dataType = "text";
             }
             else {
-                dataType = "char(" + charType.getLength() + " CHAR)";
+                dataType = "char(" + charType.getLength() + ")";
             }
             return WriteMapping.sliceMapping(dataType, oracleCharWriteFunction());
         }
         if (type instanceof DecimalType decimalType) {
-            String dataType = format("number(%s, %s)", decimalType.getPrecision(), decimalType.getScale());
+            String dataType = format("numeric(%s, %s)", decimalType.getPrecision(), decimalType.getScale());
             if (decimalType.isShort()) {
                 return WriteMapping.longMapping(dataType, shortDecimalWriteFunction(decimalType));
             }
             return WriteMapping.objectMapping(dataType, longDecimalWriteFunction(decimalType));
         }
+        if (type instanceof io.trino.spi.type.TimeType timeType) {
+            int precision = min(timeType.getPrecision(), 9);
+            String dataType = precision == 0 ? "time" : format("time(%d)", precision);
+            return WriteMapping.longMapping(dataType, timeWriteFunction(precision));
+        }
         if (type instanceof TimestampType timestampType) {
             if (type.equals(TIMESTAMP_SECONDS)) {
-                // Specify 'date' instead of 'timestamp(0)' to propagate the type in case of CTAS from date columns
-                // Oracle date stores year, month, day, hour, minute, seconds, but not second fraction
-                return WriteMapping.longMapping("date", trinoTimestampToOracleDateWriteFunction());
+                return WriteMapping.longMapping("timestamp(0)", oracleTimestampWriteFunction(timestampType));
             }
             int precision = min(timestampType.getPrecision(), MAX_ORACLE_TIMESTAMP_PRECISION);
             String dataType = format("timestamp(%d)", precision);

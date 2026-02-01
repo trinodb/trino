@@ -47,6 +47,7 @@ import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.trino.plugin.jdbc.JdbcModule.bindSessionPropertiesProvider;
 import static io.trino.plugin.kingbaseoracle.KingbaseOracleClient.ORACLE_MAX_LIST_EXPRESSIONS;
+import static java.util.concurrent.TimeUnit.SECONDS;
 
 public class KingbaseOracleClientModule
         implements Module
@@ -76,8 +77,10 @@ public class KingbaseOracleClientModule
         Properties connectionProperties = new Properties();
 //        connectionProperties.setProperty(OracleConnection.CONNECTION_PROPERTY_INCLUDE_SYNONYMS, String.valueOf(kingbaseoracleConfig.isSynonymsEnabled()));
 //        connectionProperties.setProperty(OracleConnection.CONNECTION_PROPERTY_REPORT_REMARKS, String.valueOf(kingbaseoracleConfig.isRemarksReportingEnabled()));
-        connectionProperties.setProperty("loginTimeout", "30");
-        connectionProperties.setProperty("socketTimeout", "300");
+        // KES JDBC: loginTimeout、socketTimeout 单位均为秒。socketTimeout=0 表示不限制读超时（允许长查询）
+        connectionProperties.setProperty("loginTimeout", String.valueOf(kingbaseoracleConfig.getLoginTimeout().roundTo(SECONDS)));
+        long socketSeconds = kingbaseoracleConfig.getSocketTimeout().roundTo(SECONDS);
+        connectionProperties.setProperty("socketTimeout", String.valueOf(socketSeconds));
         connectionProperties.setProperty("defaultRowFetchSize", "1000");
 
         return DriverConnectionFactory.builder(new Driver(), config.getConnectionUrl(), credentialProvider)

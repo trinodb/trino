@@ -54,10 +54,6 @@ public class RewriteCast
         if (!pushdownSupported(sourceType, targetType)) {
             return Optional.empty();
         }
-
-//        if (targetType instanceof CharType charType) {
-//            return Optional.of(new JdbcTypeHandle(OracleTypes.CHAR, Optional.of(charType.getBaseName()), Optional.of(charType.getLength()), Optional.empty(), Optional.empty(), Optional.empty()));
-//        }
         if (targetType instanceof CharType charType) {
             return Optional.of(new JdbcTypeHandle(
                     Types.CHAR,
@@ -67,9 +63,6 @@ public class RewriteCast
                     Optional.empty(),
                     Optional.empty()));
         }
-//        if (targetType instanceof VarcharType varcharType) {
-//            return Optional.of(new JdbcTypeHandle(OracleTypes.VARCHAR, Optional.of(varcharType.getBaseName()), varcharType.getLength(), Optional.empty(), Optional.empty(), Optional.empty()));
-//        }
         if (targetType instanceof VarcharType varcharType) {
             int jdbcType = Types.VARCHAR;
             return Optional.of(new JdbcTypeHandle(
@@ -101,15 +94,6 @@ public class RewriteCast
 
     private static boolean supportedSourceTypeToCastToChar(JdbcTypeHandle sourceType)
     {
-//        return switch (sourceType.jdbcType()) {
-//            case OracleTypes.CHAR,
-//                 OracleTypes.VARCHAR,
-//                 OracleTypes.NCHAR,
-//                 OracleTypes.NVARCHAR,
-//                 OracleTypes.CLOB,
-//                 OracleTypes.NCLOB -> true;
-//            default -> false;
-//        };
         return switch (sourceType.jdbcType()) {
             case Types.CHAR,
                  Types.VARCHAR,
@@ -123,14 +107,6 @@ public class RewriteCast
 
     private static boolean supportedSourceTypeToCastToVarchar(JdbcTypeHandle sourceType)
     {
-//        return switch (sourceType.jdbcType()) {
-//            case OracleTypes.NUMBER,
-//                    OracleTypes.VARCHAR,
-//                    OracleTypes.NVARCHAR,
-//                    OracleTypes.CLOB,
-//                    OracleTypes.NCLOB -> true;
-//            default -> false;
-//        };
         return switch (sourceType.jdbcType()) {
             case Types.NUMERIC,
                  Types.DECIMAL,

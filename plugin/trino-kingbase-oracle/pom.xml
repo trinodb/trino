@@ -15,6 +15,12 @@
 
     <dependencies>
         <dependency>
+            <groupId>cn.com.kingbase</groupId>
+            <artifactId>kingbase8</artifactId>
+            <version>9.0.1</version>
+        </dependency>
+
+        <dependency>
             <groupId>com.google.guava</groupId>
             <artifactId>guava</artifactId>
         </dependency>
@@ -23,16 +29,6 @@
             <groupId>com.google.inject</groupId>
             <artifactId>guice</artifactId>
         </dependency>
-
-        <!--        <dependency>-->
-        <!--            <groupId>com.oracle.database.jdbc</groupId>-->
-        <!--            <artifactId>ojdbc11</artifactId>-->
-        <!--        </dependency>-->
-
-        <!--        <dependency>-->
-        <!--            <groupId>com.oracle.database.jdbc</groupId>-->
-        <!--            <artifactId>ucp</artifactId>-->
-        <!--        </dependency>-->
 
         <dependency>
             <groupId>io.airlift</groupId>
@@ -112,24 +108,10 @@
         </dependency>
 
         <dependency>
-            <groupId>com.kingbase</groupId>
-            <artifactId>kingbase8</artifactId>
-            <version>9.0.0</version>
-            <scope>system</scope>
-            <systemPath>${project.basedir}/lib/kingbase8-9.0.0.jar</systemPath>
-        </dependency>
-
-        <dependency>
             <groupId>com.google.errorprone</groupId>
             <artifactId>error_prone_annotations</artifactId>
             <scope>runtime</scope>
         </dependency>
-
-        <!--        <dependency>-->
-        <!--            <groupId>com.oracle.database.nls</groupId>-->
-        <!--            <artifactId>orai18n</artifactId>-->
-        <!--            <scope>runtime</scope>-->
-        <!--        </dependency>-->
 
         <dependency>
             <groupId>dev.failsafe</groupId>

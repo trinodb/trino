@@ -52,34 +52,8 @@ public class KingbaseSqlServerConnectionFactory
             throws SQLException
     {
         Connection connection = delegate.openConnection(session);
-//        try {
-//            prepare(connection);
-//        }
-//        catch (SQLException e) {
-//            try (Connection ignored = connection) {
-//                throw e;
-//            }
-//        }
         return connection;
     }
-
-//    private void prepare(Connection connection)
-//            throws SQLException
-//    {
-//        if (snapshotIsolationDisabled) {
-//            return;
-//        }
-//        try {
-//            if (hasSnapshotIsolationEnabled(connection)) {
-//                // SQL Server's READ COMMITTED + SNAPSHOT ISOLATION is equivalent to ordinary READ COMMITTED in e.g. Oracle, PostgreSQL.
-//                connection.setTransactionIsolation(TRANSACTION_SNAPSHOT);
-//            }
-//        }
-//        catch (SQLException e) {
-//            connection.close();
-//            throw e;
-//        }
-//    }
 
     private boolean hasSnapshotIsolationEnabled(Connection connection)
             throws SQLException

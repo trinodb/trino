@@ -524,16 +524,6 @@ public class KingbaseSqlServerClient
             }
             return columns.buildOrThrow();
         }
-//        catch (SQLException e) {
-//            if (e instanceof SQLServerException sqlServerException && sqlServerException.getSQLServerError().getErrorNumber() == 208) {
-//                // The 208 indicates that the object doesn't exist or lack of permission.
-//                // Throw TableNotFoundException because users shouldn't see such tables if they don't have the permission.
-//                // TableNotFoundException will be suppressed when listing information_schema.
-//                // https://learn.microsoft.com/sql/relational-databases/errors-events/mssqlserver-208-database-engine-error
-//                throw new TableNotFoundException(schemaTableName);
-//            }
-//            throw new TrinoException(JDBC_ERROR, "Failed to get case sensitivity for columns. " + firstNonNull(e.getMessage(), e), e);
-//        }
         catch (SQLException e) {
             String message = e.getMessage();
             if (message != null && (
@@ -1018,23 +1008,6 @@ public class KingbaseSqlServerClient
                 SQLSERVER_DATE_TIME_PUSHDOWN);
     }
 
-//    private static LongReadFunction shortTimestampWithTimeZoneReadFunction()
-//    {
-//        return (resultSet, columnIndex) -> {
-//            ZonedDateTime zonedDateTime;
-//            DateTimeOffset dateTimeOffset = resultSet.getObject(columnIndex, DateTimeOffset.class);
-//            if (dateTimeOffset.compareTo(GREGORIAN_SWITCH_DATETIMEOFFSET) < 0) {
-//                String stringValue = resultSet.getString(columnIndex);
-//                zonedDateTime = ZonedDateTime.from(DATE_TIME_OFFSET_FORMATTER.parse(stringValue));
-//            }
-//            else {
-//                zonedDateTime = dateTimeOffset.getOffsetDateTime().toZonedDateTime();
-//            }
-//
-//            return packDateTimeWithZone(zonedDateTime.toInstant().toEpochMilli(), zonedDateTime.getZone().getId());
-//        };
-//    }
-
     private static LongReadFunction shortTimestampWithTimeZoneReadFunction()
     {
         return (resultSet, columnIndex) -> {
@@ -1055,28 +1028,6 @@ public class KingbaseSqlServerClient
             statement.setObject(index, OffsetDateTime.ofInstant(Instant.ofEpochMilli(millisUtc), timeZoneKey.getZoneId()));
         };
     }
-
-//    private static ObjectReadFunction longTimestampWithTimeZoneReadFunction()
-//    {
-//        return ObjectReadFunction.of(
-//                LongTimestampWithTimeZone.class,
-//                (resultSet, columnIndex) -> {
-//                    OffsetDateTime offsetDateTime;
-//                    DateTimeOffset dateTimeOffset = resultSet.getObject(columnIndex, DateTimeOffset.class);
-//                    if (dateTimeOffset.compareTo(GREGORIAN_SWITCH_DATETIMEOFFSET) < 0) {
-//                        String stringValue = resultSet.getString(columnIndex);
-//                        offsetDateTime = ZonedDateTime.from(DATE_TIME_OFFSET_FORMATTER.parse(stringValue)).toOffsetDateTime();
-//                    }
-//                    else {
-//                        offsetDateTime = dateTimeOffset.getOffsetDateTime();
-//                    }
-//
-//                    return LongTimestampWithTimeZone.fromEpochSecondsAndFraction(
-//                            offsetDateTime.toEpochSecond(),
-//                            (long) offsetDateTime.getNano() * PICOSECONDS_PER_NANOSECOND,
-//                            TimeZoneKey.getTimeZoneKey(offsetDateTime.toZonedDateTime().getZone().getId()));
-//                });
-//    }
 
     private static ObjectReadFunction longTimestampWithTimeZoneReadFunction()
     {
@@ -1226,23 +1177,6 @@ public class KingbaseSqlServerClient
         return tableName + (isTableLockNeeded(session) ? " WITH (TABLOCK)" : "");
     }
 
-//    @Override
-//    public Map<String, Object> getTableProperties(ConnectorSession session, JdbcTableHandle tableHandle)
-//    {
-//        if (!tableHandle.isNamedRelation()) {
-//            return ImmutableMap.of();
-//        }
-//        try (Connection connection = connectionFactory.openConnection(session);
-//                Handle handle = Jdbi.open(connection)) {
-//            return getTableDataCompressionWithRetries(handle, tableHandle)
-//                    .map(dataCompression -> ImmutableMap.<String, Object>of(DATA_COMPRESSION, dataCompression))
-//                    .orElseGet(ImmutableMap::of);
-//        }
-//        catch (SQLException exception) {
-//            throw new TrinoException(JDBC_ERROR, exception);
-//        }
-//    }
-
     @Override
     public Map<String, Object> getTableProperties(ConnectorSession session, JdbcTableHandle tableHandle)
     {
@@ -1266,22 +1200,6 @@ public class KingbaseSqlServerClient
             connection.abort(directExecutor());
         }
     }
-
-//    @Override
-//    public Connection getConnection(ConnectorSession session, JdbcOutputTableHandle handle)
-//            throws SQLException
-//    {
-//        Connection connection = super.getConnection(session, handle);
-//        try {
-//            connection.unwrap(SQLServerConnection.class)
-//                    .setUseBulkCopyForBatchInsert(isBulkCopyForWrite(session));
-//        }
-//        catch (SQLException e) {
-//            connection.close();
-//            throw e;
-//        }
-//        return connection;
-//    }
 
     @Override
     public Connection getConnection(ConnectorSession session, JdbcOutputTableHandle handle)
@@ -1381,26 +1299,6 @@ public class KingbaseSqlServerClient
     {
         return retryOnDeadlock(() -> getTableDataCompression(handle, table), "error when getting table compression info for '%s'".formatted(table));
     }
-
-//    public static <T> T retryOnDeadlock(CheckedSupplier<T> supplier, String attemptLogMessage)
-//    {
-//        // DDL operations can take out locks against system tables causing queries against them to deadlock
-//        int maxAttemptCount = 3;
-//        RetryPolicy<T> retryPolicy = RetryPolicy.<T>builder()
-//                .withMaxAttempts(maxAttemptCount)
-//                .handleIf(throwable ->
-//                {
-//                    Throwable rootCause = Throwables.getRootCause(throwable);
-//                    return rootCause instanceof SQLServerException sqlServerException &&
-//                            sqlServerException.getSQLServerError().getErrorNumber() == SQL_SERVER_DEADLOCK_ERROR_CODE;
-//                })
-//                .onFailedAttempt(event -> log.warn(event.getLastException(), "Attempt %d of %d: %s", event.getAttemptCount(), maxAttemptCount, attemptLogMessage))
-//                .build();
-//
-//        return Failsafe
-//                .with(retryPolicy)
-//                .get(supplier);
-//    }
 
     public static <T> T retryOnDeadlock(CheckedSupplier<T> supplier, String attemptLogMessage)
     {

@@ -20,6 +20,7 @@
             <artifactId>kingbase8</artifactId>
             <version>9.0.1</version>
         </dependency>
+
         <dependency>
             <groupId>com.google.guava</groupId>
             <artifactId>guava</artifactId>

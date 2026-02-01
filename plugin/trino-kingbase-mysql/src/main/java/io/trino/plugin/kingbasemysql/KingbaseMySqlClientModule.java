@@ -72,28 +72,34 @@ public class KingbaseMySqlClientModule
                 .build();
     }
 
+    /**
+     * 设置 KingbaseES JDBC 连接属性。仅使用 KES 驱动支持的参数，原 MySQL 专用参数已替换或移除。
+     * 参数依据 KingbaseES V9 JDBC 文档：3.1.2 JDBC连接属性（协议/预编译缓存/会话属性/性能扩展/网络控制等表）。
+     * 文档地址：https://help.kingbase.com.cn/v9/development/client-interfaces/jdbc/jdbc-2.html
+     *
+     * 以下 MySQL 参数 KES 无直接对应
+     * - useInformationSchema（元数据获取方式）
+     * - useUnicode / characterEncoding（已用 clientEncoding 替代）
+     * - tinyInt1isBit（MySQL TINYINT(1) 语义）
+     * - connectionTimeZone / forceConnectionTimeZoneToSession（会话时区）
+     * - autoReconnect / maxReconnects（连接断开自动重连）
+     */
     public static Properties getConnectionProperties(KingbaseMySqlConfig mySqlConfig)
     {
         Properties connectionProperties = new Properties();
-        connectionProperties.setProperty("useInformationSchema", Boolean.toString(mySqlConfig.isDriverUseInformationSchema()));
-        connectionProperties.setProperty("useUnicode", "true");
-        connectionProperties.setProperty("characterEncoding", "utf8");
-        connectionProperties.setProperty("tinyInt1isBit", "false");
-        connectionProperties.setProperty("rewriteBatchedStatements", "true");
 
-        // connectionTimeZone = LOCAL means the JDBC driver uses the JVM zone as the session zone
-        // forceConnectionTimeZoneToSession = true means that the server side connection zone is changed to match local JVM zone
-        // https://dev.mysql.com/doc/connector-j/en/connector-j-time-instants.html (Solution 2b)
-        connectionProperties.setProperty("connectionTimeZone", "LOCAL");
-        connectionProperties.setProperty("forceConnectionTimeZoneToSession", "true");
+        // 会话属性：客户端编码（对应 MySQL 的 useUnicode+characterEncoding）
+        connectionProperties.setProperty("clientEncoding", "UTF8");
 
-        if (mySqlConfig.isAutoReconnect()) {
-            connectionProperties.setProperty("autoReconnect", String.valueOf(mySqlConfig.isAutoReconnect()));
-            connectionProperties.setProperty("maxReconnects", String.valueOf(mySqlConfig.getMaxReconnects()));
-        }
+        // 性能扩展：批量 INSERT 重写优化（对应 MySQL 的 rewriteBatchedStatements）
+        connectionProperties.setProperty("reWriteBatchedInserts", "true");
+
         if (mySqlConfig.getConnectionTimeout() != null) {
-            connectionProperties.setProperty("connectTimeout", String.valueOf(mySqlConfig.getConnectionTimeout().toMillis()));
+            // 网络控制：连接超时，单位秒（KES 为秒，MySQL 驱动为毫秒）
+            long timeoutSeconds = mySqlConfig.getConnectionTimeout().toMillis() / 1000;
+            connectionProperties.setProperty("connectTimeout", String.valueOf(timeoutSeconds <= 0 ? 10 : timeoutSeconds));
         }
+
         return connectionProperties;
     }
 }
