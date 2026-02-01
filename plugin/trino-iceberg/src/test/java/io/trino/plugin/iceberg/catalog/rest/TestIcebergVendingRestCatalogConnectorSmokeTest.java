@@ -53,9 +53,9 @@ import static io.trino.plugin.iceberg.IcebergTestUtils.checkOrcFileSorting;
 import static io.trino.plugin.iceberg.IcebergTestUtils.checkParquetFileSorting;
 import static io.trino.testing.TestingConnectorSession.SESSION;
 import static io.trino.testing.TestingNames.randomNameSuffix;
-import static io.trino.testing.containers.Minio.MINIO_ACCESS_KEY;
 import static io.trino.testing.containers.Minio.MINIO_REGION;
-import static io.trino.testing.containers.Minio.MINIO_SECRET_KEY;
+import static io.trino.testing.containers.Minio.MINIO_ROOT_PASSWORD;
+import static io.trino.testing.containers.Minio.MINIO_ROOT_USER;
 import static java.lang.String.format;
 import static org.apache.iceberg.FileFormat.PARQUET;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -97,7 +97,7 @@ public class TestIcebergVendingRestCatalogConnectorSmokeTest
 
         this.warehouseLocation = "s3://%s/default/".formatted(bucketName);
 
-        AwsCredentials credentials = AwsBasicCredentials.create(MINIO_ACCESS_KEY, MINIO_SECRET_KEY);
+        AwsCredentials credentials = AwsBasicCredentials.create(MINIO_ROOT_USER, MINIO_ROOT_PASSWORD);
         StsClient stsClient = StsClient.builder()
                 .endpointOverride(URI.create(minio.getMinioAddress()))
                 .credentialsProvider(StaticCredentialsProvider.create(credentials))
@@ -138,8 +138,8 @@ public class TestIcebergVendingRestCatalogConnectorSmokeTest
                 .setRegion(MINIO_REGION)
                 .setEndpoint(minio.getMinioAddress())
                 .setPathStyleAccess(true)
-                .setAwsAccessKey(MINIO_ACCESS_KEY)
-                .setAwsSecretKey(MINIO_SECRET_KEY), new S3FileSystemStats()
+                .setAwsAccessKey(MINIO_ROOT_USER)
+                .setAwsSecretKey(MINIO_ROOT_PASSWORD), new S3FileSystemStats()
         ).create(SESSION);
     }
 

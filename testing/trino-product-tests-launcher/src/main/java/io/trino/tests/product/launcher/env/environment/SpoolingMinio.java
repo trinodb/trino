@@ -46,8 +46,8 @@ public class SpoolingMinio
 {
     private static final String MINIO_SPOOLING_BUCKET = "spooling";
     private static final String MINIO_SPOOLING_CONTAINER_NAME = "spooling-minio";
-    private static final String MINIO_ACCESS_KEY = "minio-access-key";
-    private static final String MINIO_SECRET_KEY = "minio-secret-key";
+    private static final String MINIO_ROOT_USER = "minio-access-key";
+    private static final String MINIO_ROOT_PASSWORD = "minio-secret-key";
     private static final String MINIO_RELEASE = DockerImageName.parse("cgr.dev/chainguard/minio@sha256:66bd82c8fe5e75868ae7d0b2e102d9a0dcf971b270a41bd060a9e6a643476ff8")
             .asCanonicalNameString();
 
@@ -99,8 +99,8 @@ public class SpoolingMinio
 
         DockerContainer container = new DockerContainer(MINIO_RELEASE, MINIO_SPOOLING_CONTAINER_NAME)
                 .withEnv(ImmutableMap.<String, String>builder()
-                        .put("MINIO_ACCESS_KEY", MINIO_ACCESS_KEY)
-                        .put("MINIO_SECRET_KEY", MINIO_SECRET_KEY)
+                        .put("MINIO_ROOT_USER", MINIO_ROOT_USER)
+                        .put("MINIO_ROOT_PASSWORD", MINIO_ROOT_PASSWORD)
                         .buildOrThrow())
                 .withCopyFileToContainer(forHostPath(minioBucketDirectory), "/data/" + MINIO_SPOOLING_BUCKET)
                 .withCommand("server", "--address", format("0.0.0.0:%d", MINIO_PORT), "--console-address", format("0.0.0.0:%d", MINIO_CONSOLE_PORT), "/data")

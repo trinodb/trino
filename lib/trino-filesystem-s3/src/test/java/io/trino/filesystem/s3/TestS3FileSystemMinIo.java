@@ -71,7 +71,7 @@ public class TestS3FileSystemMinIo
                 .region(Region.of(Minio.MINIO_REGION))
                 .forcePathStyle(true)
                 .credentialsProvider(StaticCredentialsProvider.create(
-                        AwsBasicCredentials.create(Minio.MINIO_ACCESS_KEY, Minio.MINIO_SECRET_KEY)))
+                        AwsBasicCredentials.create(Minio.MINIO_ROOT_USER, Minio.MINIO_ROOT_PASSWORD)))
                 .build();
     }
 
@@ -87,8 +87,8 @@ public class TestS3FileSystemMinIo
                         .setEndpoint(minio.getMinioAddress())
                         .setRegion(Minio.MINIO_REGION)
                         .setPathStyleAccess(true)
-                        .setAwsAccessKey(Minio.MINIO_ACCESS_KEY)
-                        .setAwsSecretKey(Minio.MINIO_SECRET_KEY)
+                        .setAwsAccessKey(Minio.MINIO_ROOT_USER)
+                        .setAwsSecretKey(Minio.MINIO_ROOT_PASSWORD)
                         .setStreamingPartSize(streamingPartSize),
                 new S3FileSystemStats());
     }

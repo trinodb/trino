@@ -100,7 +100,7 @@ public class TestS3Retries
                 .region(Region.of(Minio.MINIO_REGION))
                 .forcePathStyle(true)
                 .credentialsProvider(StaticCredentialsProvider.create(
-                        AwsBasicCredentials.create(Minio.MINIO_ACCESS_KEY, Minio.MINIO_SECRET_KEY)))
+                        AwsBasicCredentials.create(Minio.MINIO_ROOT_USER, Minio.MINIO_ROOT_PASSWORD)))
                 .httpClient(ApacheHttpClient.builder()
                         // react to timeouts faster so that the test completes faster
                         .socketTimeout(Duration.ofSeconds(1))

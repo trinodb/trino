@@ -93,9 +93,9 @@ import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_SCHEMA;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.testing.assertions.Assert.assertEventually;
-import static io.trino.testing.containers.Minio.MINIO_ACCESS_KEY;
 import static io.trino.testing.containers.Minio.MINIO_REGION;
-import static io.trino.testing.containers.Minio.MINIO_SECRET_KEY;
+import static io.trino.testing.containers.Minio.MINIO_ROOT_PASSWORD;
+import static io.trino.testing.containers.Minio.MINIO_ROOT_USER;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -142,8 +142,8 @@ public class TestDeltaLakeConnectorTest
                     // required by the file metastore
                     .put("fs.hadoop.enabled", "true")
                     .put("fs.native-s3.enabled", "true")
-                    .put("s3.aws-access-key", MINIO_ACCESS_KEY)
-                    .put("s3.aws-secret-key", MINIO_SECRET_KEY)
+                    .put("s3.aws-access-key", MINIO_ROOT_USER)
+                    .put("s3.aws-secret-key", MINIO_ROOT_PASSWORD)
                     .put("s3.region", MINIO_REGION)
                     .put("s3.endpoint", minio.getMinioAddress())
                     .put("s3.path-style-access", "true")

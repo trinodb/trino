@@ -42,9 +42,9 @@ import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.QueryAssertions.copyTpchTables;
 import static io.trino.testing.TestingNames.randomNameSuffix;
-import static io.trino.testing.containers.Minio.MINIO_ACCESS_KEY;
 import static io.trino.testing.containers.Minio.MINIO_REGION;
-import static io.trino.testing.containers.Minio.MINIO_SECRET_KEY;
+import static io.trino.testing.containers.Minio.MINIO_ROOT_PASSWORD;
+import static io.trino.testing.containers.Minio.MINIO_ROOT_USER;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -72,8 +72,8 @@ public class TestLakehouseConnectorTest
                 .addLakehouseProperty("hive.metastore.uri", hiveMinio.getHiveMetastoreEndpoint().toString())
                 .addLakehouseProperty("fs.hadoop.enabled", "true")
                 .addLakehouseProperty("fs.native-s3.enabled", "true")
-                .addLakehouseProperty("s3.aws-access-key", MINIO_ACCESS_KEY)
-                .addLakehouseProperty("s3.aws-secret-key", MINIO_SECRET_KEY)
+                .addLakehouseProperty("s3.aws-access-key", MINIO_ROOT_USER)
+                .addLakehouseProperty("s3.aws-secret-key", MINIO_ROOT_PASSWORD)
                 .addLakehouseProperty("s3.region", MINIO_REGION)
                 .addLakehouseProperty("s3.endpoint", hiveMinio.getMinio().getMinioAddress())
                 .addLakehouseProperty("s3.path-style-access", "true")

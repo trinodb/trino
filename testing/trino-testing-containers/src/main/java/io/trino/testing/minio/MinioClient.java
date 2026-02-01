@@ -65,8 +65,8 @@ public class MinioClient
     private final Logger logger = Logger.get(MinioClient.class);
 
     public static final String DEFAULT_MINIO_ENDPOINT = "http://minio:9080";
-    public static final String DEFAULT_MINIO_ACCESS_KEY = "minio-access-key";
-    public static final String DEFAULT_MINIO_SECRET_KEY = "minio-secret-key";
+    public static final String DEFAULT_MINIO_ROOT_USER = "minio-access-key";
+    public static final String DEFAULT_MINIO_ROOT_PASSWORD = "minio-secret-key";
 
     private static final Set<String> createdBuckets = Sets.newConcurrentHashSet();
 
@@ -82,7 +82,7 @@ public class MinioClient
 
     public MinioClient()
     {
-        this(DEFAULT_MINIO_ENDPOINT, DEFAULT_MINIO_ACCESS_KEY, DEFAULT_MINIO_SECRET_KEY);
+        this(DEFAULT_MINIO_ENDPOINT, DEFAULT_MINIO_ROOT_USER, DEFAULT_MINIO_ROOT_PASSWORD);
     }
 
     public MinioClient(String endpoint, String accessKey, String secretKey)

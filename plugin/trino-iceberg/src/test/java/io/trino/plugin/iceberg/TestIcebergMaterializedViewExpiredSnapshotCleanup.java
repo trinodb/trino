@@ -57,9 +57,9 @@ import static io.trino.plugin.iceberg.IcebergTestUtils.getHiveMetastore;
 import static io.trino.plugin.iceberg.IcebergTestUtils.getTrinoCatalog;
 import static io.trino.plugin.iceberg.catalog.AbstractTrinoCatalog.TRINO_CREATED_BY_VALUE;
 import static io.trino.spi.StandardErrorCode.TABLE_NOT_FOUND;
-import static io.trino.testing.containers.Minio.MINIO_ACCESS_KEY;
 import static io.trino.testing.containers.Minio.MINIO_REGION;
-import static io.trino.testing.containers.Minio.MINIO_SECRET_KEY;
+import static io.trino.testing.containers.Minio.MINIO_ROOT_PASSWORD;
+import static io.trino.testing.containers.Minio.MINIO_ROOT_USER;
 import static java.lang.String.format;
 import static org.apache.iceberg.BaseMetastoreTableOperations.METADATA_LOCATION_PROP;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -88,8 +88,8 @@ public class TestIcebergMaterializedViewExpiredSnapshotCleanup
                 .setIcebergProperties(ImmutableMap.of(
                         "iceberg.materialized-views.refresh-max-snapshots-to-expire", "5",
                         "fs.native-s3.enabled", "true",
-                        "s3.aws-access-key", MINIO_ACCESS_KEY,
-                        "s3.aws-secret-key", MINIO_SECRET_KEY,
+                        "s3.aws-access-key", MINIO_ROOT_USER,
+                        "s3.aws-secret-key", MINIO_ROOT_PASSWORD,
                         "s3.region", MINIO_REGION,
                         "s3.endpoint", minio.getMinioAddress(),
                         "iceberg.register-table-procedure.enabled", "true",

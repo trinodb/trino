@@ -35,9 +35,9 @@ import java.util.Map;
 import java.util.Optional;
 
 import static io.trino.testing.TestingSession.testSessionBuilder;
-import static io.trino.testing.containers.Minio.MINIO_ACCESS_KEY;
 import static io.trino.testing.containers.Minio.MINIO_REGION;
-import static io.trino.testing.containers.Minio.MINIO_SECRET_KEY;
+import static io.trino.testing.containers.Minio.MINIO_ROOT_PASSWORD;
+import static io.trino.testing.containers.Minio.MINIO_ROOT_USER;
 import static java.util.Objects.requireNonNull;
 
 public final class HudiQueryRunner
@@ -60,8 +60,8 @@ public final class HudiQueryRunner
     {
         return new Builder("s3://" + hiveMinioDataLake.getBucketName() + "/")
                 .addConnectorProperty("fs.native-s3.enabled", "true")
-                .addConnectorProperty("s3.aws-access-key", MINIO_ACCESS_KEY)
-                .addConnectorProperty("s3.aws-secret-key", MINIO_SECRET_KEY)
+                .addConnectorProperty("s3.aws-access-key", MINIO_ROOT_USER)
+                .addConnectorProperty("s3.aws-secret-key", MINIO_ROOT_PASSWORD)
                 .addConnectorProperty("s3.region", MINIO_REGION)
                 .addConnectorProperty("s3.endpoint", hiveMinioDataLake.getMinio().getMinioAddress())
                 .addConnectorProperty("s3.path-style-access", "true");
