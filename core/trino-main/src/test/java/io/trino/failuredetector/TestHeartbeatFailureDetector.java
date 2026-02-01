@@ -32,6 +32,7 @@ import io.trino.failuredetector.HeartbeatFailureDetector.Stats;
 import io.trino.server.InternalCommunicationConfig;
 import io.trino.server.StartupStatus;
 import io.trino.server.security.SecurityConfig;
+import io.trino.spi.NodeVersion;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.Path;
 import org.junit.jupiter.api.Test;
@@ -59,6 +60,7 @@ public class TestHeartbeatFailureDetector
                 new JaxrsModule(),
                 new FailureDetectorModule(),
                 binder -> {
+                    binder.bind(NodeVersion.class).toInstance(NodeVersion.UNKNOWN);
                     configBinder(binder).bindConfig(SecurityConfig.class);
                     configBinder(binder).bindConfig(InternalCommunicationConfig.class);
                     configBinder(binder).bindConfig(QueryManagerConfig.class);
