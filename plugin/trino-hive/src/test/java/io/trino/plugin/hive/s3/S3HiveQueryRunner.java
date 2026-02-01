@@ -35,9 +35,9 @@ import java.util.Map;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.plugin.hive.TestingThriftHiveMetastoreBuilder.testingThriftHiveMetastoreBuilder;
-import static io.trino.testing.containers.Minio.MINIO_ACCESS_KEY;
 import static io.trino.testing.containers.Minio.MINIO_REGION;
-import static io.trino.testing.containers.Minio.MINIO_SECRET_KEY;
+import static io.trino.testing.containers.Minio.MINIO_ROOT_PASSWORD;
+import static io.trino.testing.containers.Minio.MINIO_ROOT_USER;
 import static java.util.Objects.requireNonNull;
 
 public final class S3HiveQueryRunner
@@ -64,8 +64,8 @@ public final class S3HiveQueryRunner
                 .setHiveMetastoreEndpoint(hiveMinioDataLake.getHiveMetastoreEndpoint())
                 .setS3Endpoint("http://" + hiveMinioDataLake.getMinio().getMinioApiEndpoint())
                 .setS3Region(MINIO_REGION)
-                .setS3AccessKey(MINIO_ACCESS_KEY)
-                .setS3SecretKey(MINIO_SECRET_KEY)
+                .setS3AccessKey(MINIO_ROOT_USER)
+                .setS3SecretKey(MINIO_ROOT_PASSWORD)
                 .setBucketName(hiveMinioDataLake.getBucketName());
     }
 
