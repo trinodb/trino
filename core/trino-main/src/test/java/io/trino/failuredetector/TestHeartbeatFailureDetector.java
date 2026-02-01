@@ -33,8 +33,6 @@ import io.trino.server.InternalCommunicationConfig;
 import io.trino.server.StartupStatus;
 import io.trino.server.security.SecurityConfig;
 import io.trino.spi.NodeVersion;
-import jakarta.ws.rs.GET;
-import jakarta.ws.rs.Path;
 import org.junit.jupiter.api.Test;
 
 import java.net.SocketTimeoutException;
@@ -43,7 +41,6 @@ import java.net.URI;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.airlift.discovery.client.DiscoveryBinder.discoveryBinder;
 import static io.airlift.discovery.client.ServiceTypes.serviceType;
-import static io.airlift.jaxrs.JaxrsBinder.jaxrsBinder;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestHeartbeatFailureDetector
@@ -66,10 +63,6 @@ public class TestHeartbeatFailureDetector
                     configBinder(binder).bindConfig(QueryManagerConfig.class);
                     discoveryBinder(binder).bindSelector("trino");
                     discoveryBinder(binder).bindHttpAnnouncement("trino");
-
-                    // Jersey with jetty 9 requires at least one resource
-                    // todo add a dummy resource to airlift jaxrs in this case
-                    jaxrsBinder(binder).bind(FooResource.class);
                     binder.bind(StartupStatus.class).in(Scopes.SINGLETON);
                 });
 
@@ -108,15 +101,5 @@ public class TestHeartbeatFailureDetector
         deserialized = objectMapper.readTree(serialized);
         assertThat(deserialized.get("lastFailureInfo").isNull()).isFalse();
         assertThat(deserialized.get("lastFailureInfo").get("type").asText()).isEqualTo(SocketTimeoutException.class.getName());
-    }
-
-    @Path("/foo")
-    public static final class FooResource
-    {
-        @GET
-        public static String hello()
-        {
-            return "hello";
-        }
     }
 }
