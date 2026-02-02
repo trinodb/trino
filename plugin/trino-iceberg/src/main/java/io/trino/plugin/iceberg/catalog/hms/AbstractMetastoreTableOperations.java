@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.iceberg.catalog.hms;
 
+import com.google.common.collect.ImmutableList;
 import io.trino.annotation.NotThreadSafe;
 import io.trino.metastore.PrincipalPrivileges;
 import io.trino.metastore.Table;
@@ -39,6 +40,7 @@ import static io.trino.plugin.hive.util.HiveUtil.isIcebergTable;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_INVALID_METADATA;
 import static io.trino.plugin.iceberg.IcebergTableName.isMaterializedViewStorage;
 import static io.trino.plugin.iceberg.IcebergTableName.tableNameFrom;
+import static io.trino.plugin.iceberg.catalog.hms.TrinoHiveCatalog.DUMMY_COLUMN;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
@@ -136,7 +138,7 @@ public abstract class AbstractMetastoreTableOperations
     protected Table.Builder updateMetastoreTable(Table.Builder builder, TableMetadata metadata, String metadataLocation, Optional<String> previousMetadataLocation)
     {
         builder
-                .setDataColumns(toHiveColumns(metadata.schema().columns()))
+                .setDataColumns(ImmutableList.of(DUMMY_COLUMN))
                 .withStorage(storage -> storage.setLocation(metadata.location()))
                 .setParameter(METADATA_LOCATION_PROP, metadataLocation)
                 .setParameter(PREVIOUS_METADATA_LOCATION_PROP, previousMetadataLocation)

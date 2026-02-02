@@ -18,11 +18,8 @@ import dev.failsafe.RetryPolicy;
 import io.trino.annotation.NotThreadSafe;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
-import io.trino.metastore.Column;
-import io.trino.metastore.HiveType;
 import io.trino.metastore.StorageFormat;
 import io.trino.plugin.iceberg.IcebergExceptions;
-import io.trino.plugin.iceberg.util.HiveSchemaUtil;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SchemaTableName;
@@ -33,19 +30,15 @@ import org.apache.iceberg.exceptions.CommitFailedException;
 import org.apache.iceberg.io.FileIO;
 import org.apache.iceberg.io.LocationProvider;
 import org.apache.iceberg.io.OutputFile;
-import org.apache.iceberg.types.Types.NestedField;
 
 import java.io.UncheckedIOException;
 import java.time.Duration;
-import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.hive.formats.HiveClassNames.FILE_INPUT_FORMAT_CLASS;
 import static io.trino.hive.formats.HiveClassNames.FILE_OUTPUT_FORMAT_CLASS;
 import static io.trino.hive.formats.HiveClassNames.LAZY_SIMPLE_SERDE_CLASS;
@@ -299,16 +292,5 @@ public abstract class AbstractIcebergTableOperations
             return format("%s/%s", stripTrailingSlash(location), filename);
         }
         return format("%s/%s/%s", stripTrailingSlash(metadata.location()), METADATA_FOLDER_NAME, filename);
-    }
-
-    public static List<Column> toHiveColumns(List<NestedField> columns)
-    {
-        return columns.stream()
-                .map(column -> new Column(
-                        column.name(),
-                        HiveType.fromTypeInfo(HiveSchemaUtil.convert(column.type())),
-                        Optional.empty(),
-                        Map.of()))
-                .collect(toImmutableList());
     }
 }

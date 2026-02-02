@@ -44,6 +44,7 @@ import static io.trino.plugin.hive.TableType.EXTERNAL_TABLE;
 import static io.trino.plugin.hive.TestingThriftHiveMetastoreBuilder.testingThriftHiveMetastoreBuilder;
 import static io.trino.plugin.iceberg.IcebergTestUtils.getHiveMetastore;
 import static io.trino.plugin.iceberg.catalog.AbstractIcebergTableOperations.ICEBERG_METASTORE_STORAGE_FORMAT;
+import static io.trino.plugin.iceberg.catalog.hms.TrinoHiveCatalog.DUMMY_COLUMN;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.containers.Minio.MINIO_REGION;
 import static io.trino.testing.containers.Minio.MINIO_ROOT_PASSWORD;
@@ -286,6 +287,25 @@ public abstract class BaseIcebergMinioConnectorSmokeTest
         assertUpdate("INSERT INTO " + tableName + " VALUES " + values, 12);
         assertQuery("SELECT * FROM " + tableName, "VALUES " + values);
         assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testDummyColumnInMetastore()
+    {
+        try (TestTable table = newTrinoTable("test_dummy_column_in_metastore", "(x int COMMENT 'test comment', y int)")) {
+            HiveMetastore metastore = getHiveMetastore(getQueryRunner());
+            Table metastoreTable = metastore.getTable(schemaName, table.getName()).orElseThrow();
+            assertThat(metastoreTable.getDataColumns())
+                    .containsExactly(DUMMY_COLUMN);
+
+            // A new table by register_table procedure should also have only the dummy column in metastore
+            String registerTableName = "test_register_table_" + randomNameSuffix();
+            assertUpdate("CALL system.register_table(CURRENT_SCHEMA, '" + registerTableName + "', '" + metastoreTable.getStorage().getLocation() + "')");
+
+            Table registeredMetastoreTable = metastore.getTable(schemaName, registerTableName).orElseThrow();
+            assertThat(registeredMetastoreTable.getDataColumns())
+                    .containsExactly(DUMMY_COLUMN);
+        }
     }
 
     @Override

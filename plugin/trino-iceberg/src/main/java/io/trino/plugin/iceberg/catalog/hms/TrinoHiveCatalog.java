@@ -113,7 +113,6 @@ import static io.trino.plugin.iceberg.IcebergUtil.quotedTableName;
 import static io.trino.plugin.iceberg.TableType.MATERIALIZED_VIEW_STORAGE;
 import static io.trino.plugin.iceberg.TrinoMetricsReporter.TRINO_METRICS_REPORTER;
 import static io.trino.plugin.iceberg.catalog.AbstractIcebergTableOperations.ICEBERG_METASTORE_STORAGE_FORMAT;
-import static io.trino.plugin.iceberg.catalog.AbstractIcebergTableOperations.toHiveColumns;
 import static io.trino.spi.StandardErrorCode.ALREADY_EXISTS;
 import static io.trino.spi.StandardErrorCode.INVALID_SCHEMA_PROPERTY;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -133,7 +132,7 @@ public class TrinoHiveCatalog
 {
     private static final Logger log = Logger.get(TrinoHiveCatalog.class);
     private static final int PER_QUERY_CACHE_SIZE = 1000;
-    private static final Column DUMMY_COLUMN = new Column("dummy", HIVE_STRING, Optional.empty(), ImmutableMap.of());
+    public static final Column DUMMY_COLUMN = new Column("dummy", HIVE_STRING, Optional.empty(), ImmutableMap.of());
 
     private final CachingHiveMetastore metastore;
     private final TrinoViewHiveMetastore trinoViewHiveMetastore;
@@ -335,7 +334,7 @@ public class TrinoHiveCatalog
                 .setDatabaseName(schemaTableName.getSchemaName())
                 .setTableName(schemaTableName.getTableName())
                 .setOwner(owner)
-                .setDataColumns(toHiveColumns(tableMetadata.schema().columns()))
+                .setDataColumns(ImmutableList.of(DUMMY_COLUMN))
                 // Table needs to be EXTERNAL, otherwise table rename in HMS would rename table directory and break table contents.
                 .setTableType(EXTERNAL_TABLE.name())
                 .withStorage(storage -> storage.setLocation(tableMetadata.location()))
