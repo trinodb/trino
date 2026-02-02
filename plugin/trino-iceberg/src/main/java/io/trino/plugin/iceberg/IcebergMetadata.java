@@ -2985,38 +2985,14 @@ public class IcebergMetadata
     public void setFieldType(ConnectorSession session, ConnectorTableHandle tableHandle, List<String> fieldPath, io.trino.spi.type.Type type)
     {
         Table icebergTable = catalog.loadTable(session, ((IcebergTableHandle) tableHandle).getSchemaTableName());
-        String parentPath = String.join(".", fieldPath.subList(0, fieldPath.size() - 1));
-        NestedField parent = icebergTable.schema().caseInsensitiveFindField(parentPath);
+        NestedField field = icebergTable.schema().caseInsensitiveFindField(String.join(".", fieldPath));
+        String caseSensitiveFieldName = icebergTable.schema().findColumnName(field.fieldId());
 
-        String caseSensitiveParentName = icebergTable.schema().findColumnName(parent.fieldId());
-
-        Types.StructType structType;
-        if (parent.type().isListType()) {
-            // list(struct...)
-            structType = parent.type().asListType().elementType().asStructType();
-            caseSensitiveParentName += ".element";
-        }
-        else {
-            // just struct
-            structType = parent.type().asStructType();
-        }
-        NestedField field = structType.caseInsensitiveField(getLast(fieldPath));
-
-        // TODO: Add support for changing non-primitive field type
-        if (!field.type().isPrimitiveType()) {
-            throw new TrinoException(NOT_SUPPORTED, "Iceberg doesn't support changing field type from non-primitive types");
-        }
-
-        String name = caseSensitiveParentName + "." + field.name();
-        // Pass dummy AtomicInteger. The field id will be discarded because the subsequent logic disallows non-primitive types.
         Type icebergType = toIcebergTypeForNewColumn(type, new AtomicInteger());
-        if (!icebergType.isPrimitiveType()) {
-            throw new TrinoException(NOT_SUPPORTED, "Iceberg doesn't support changing field type to non-primitive types");
-        }
+        UpdateSchema schemaUpdate = icebergTable.updateSchema();
         try {
-            icebergTable.updateSchema()
-                    .updateColumn(name, icebergType.asPrimitiveType())
-                    .commit();
+            buildUpdateSchema(caseSensitiveFieldName, field.type(), icebergType, schemaUpdate);
+            schemaUpdate.commit();
         }
         catch (RuntimeException e) {
             throw new TrinoException(ICEBERG_COMMIT_ERROR, "Failed to set field type: " + requireNonNullElse(e.getMessage(), e), e);
