@@ -86,6 +86,7 @@ public class QueryStatistics
     private final Supplier<List<String>> operatorSummariesProvider;
     private final List<QueryPlanOptimizerStatistics> optimizerRulesSummaries;
     private final Map<String, Metrics> catalogMetadataMetrics;
+    private final Map<String, Metrics> exchangeMetrics;
     /**
      * Plan node stats and costs serialized to JSON. Serialization format and structure
      * can change without preserving backward compatibility.
@@ -140,6 +141,7 @@ public class QueryStatistics
             List<String> operatorSummaries,
             List<QueryPlanOptimizerStatistics> optimizerRulesSummaries,
             Map<String, Metrics> catalogMetadataMetrics,
+            Map<String, Metrics> exchangeMetrics,
             Optional<String> planNodeStatsAndCosts)
     {
         this(
@@ -188,6 +190,7 @@ public class QueryStatistics
                 () -> operatorSummaries,
                 optimizerRulesSummaries,
                 catalogMetadataMetrics,
+                exchangeMetrics,
                 planNodeStatsAndCosts);
     }
 
@@ -237,6 +240,7 @@ public class QueryStatistics
             Supplier<List<String>> operatorSummariesProvider,
             List<QueryPlanOptimizerStatistics> optimizerRulesSummaries,
             Map<String, Metrics> catalogMetadataMetrics,
+            Map<String, Metrics> exchangeMetrics,
             Optional<String> planNodeStatsAndCosts)
     {
         this.cpuTime = requireNonNull(cpuTime, "cpuTime is null");
@@ -284,6 +288,7 @@ public class QueryStatistics
         this.operatorSummariesProvider = requireNonNull(operatorSummariesProvider, "operatorSummariesProvider is null");
         this.optimizerRulesSummaries = requireNonNull(optimizerRulesSummaries, "optimizerRulesSummaries is null");
         this.catalogMetadataMetrics = requireNonNull(catalogMetadataMetrics, "catalogMetadataMetrics is null");
+        this.exchangeMetrics = requireNonNull(exchangeMetrics, "exchangeMetrics is null");
         this.planNodeStatsAndCosts = requireNonNull(planNodeStatsAndCosts, "planNodeStatsAndCosts is null");
     }
 
@@ -555,6 +560,12 @@ public class QueryStatistics
     public Map<String, Metrics> getCatalogMetadataMetrics()
     {
         return catalogMetadataMetrics;
+    }
+
+    @JsonProperty
+    public Map<String, Metrics> getExchangeMetrics()
+    {
+        return exchangeMetrics;
     }
 
     @JsonProperty

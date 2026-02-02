@@ -45,6 +45,7 @@ import io.trino.Session;
 import io.trino.cost.RuntimeInfoProvider;
 import io.trino.cost.StaticRuntimeInfoProvider;
 import io.trino.exchange.ExchangeContextInstance;
+import io.trino.exchange.ExchangeMetricsCollector;
 import io.trino.exchange.SpoolingExchangeInput;
 import io.trino.execution.BasicStageStats;
 import io.trino.execution.BasicStagesInfo;
@@ -86,6 +87,7 @@ import io.trino.node.InternalNodeManager;
 import io.trino.operator.RetryPolicy;
 import io.trino.server.DynamicFilterService;
 import io.trino.spi.ErrorCode;
+import io.trino.spi.QueryId;
 import io.trino.spi.TrinoException;
 import io.trino.spi.exchange.Exchange;
 import io.trino.spi.exchange.ExchangeContext;
@@ -226,6 +228,7 @@ public class EventDrivenFaultTolerantQueryScheduler
     private final OutputStatsEstimatorFactory outputStatsEstimatorFactory;
     private final NodePartitioningManager nodePartitioningManager;
     private final ExchangeManager exchangeManager;
+    private final ExchangeMetricsCollector exchangeMetricsCollector;
     private final NodeAllocatorService nodeAllocatorService;
     private final InternalNodeManager nodeManager;
     private final DynamicFilterService dynamicFilterService;
@@ -258,6 +261,7 @@ public class EventDrivenFaultTolerantQueryScheduler
             OutputStatsEstimatorFactory outputStatsEstimatorFactory,
             NodePartitioningManager nodePartitioningManager,
             ExchangeManager exchangeManager,
+            ExchangeMetricsCollector exchangeMetricsCollector,
             NodeAllocatorService nodeAllocatorService,
             InternalNodeManager nodeManager,
             DynamicFilterService dynamicFilterService,
@@ -283,6 +287,7 @@ public class EventDrivenFaultTolerantQueryScheduler
         this.outputStatsEstimatorFactory = requireNonNull(outputStatsEstimatorFactory, "outputStatsEstimatorFactory is null");
         this.nodePartitioningManager = requireNonNull(nodePartitioningManager, "partitioningSchemeFactory is null");
         this.exchangeManager = requireNonNull(exchangeManager, "exchangeManager is null");
+        this.exchangeMetricsCollector = requireNonNull(exchangeMetricsCollector, "exchangeMetricsCollector is null");
         this.nodeAllocatorService = requireNonNull(nodeAllocatorService, "nodeAllocatorService is null");
         this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
         this.dynamicFilterService = requireNonNull(dynamicFilterService, "dynamicFilterService is null");
@@ -356,6 +361,7 @@ public class EventDrivenFaultTolerantQueryScheduler
                     outputStatsEstimatorFactory.create(session),
                     partitioningSchemeFactory,
                     exchangeManager,
+                    exchangeMetricsCollector,
                     getTaskRetryAttemptsPerTask(session) + 1,
                     getMaxTasksWaitingForNodePerQuery(session),
                     getMaxTasksWaitingForExecutionPerQuery(session),
@@ -741,6 +747,7 @@ public class EventDrivenFaultTolerantQueryScheduler
         private final OutputStatsEstimator outputStatsEstimator;
         private final FaultTolerantPartitioningSchemeFactory partitioningSchemeFactory;
         private final ExchangeManager exchangeManager;
+        private final ExchangeMetricsCollector exchangeMetricsCollector;
         private final LocalExchangeBucketCountProvider bucketCountProvider;
         private final int maxTaskExecutionAttempts;
         private final int maxTasksWaitingForNode;
@@ -797,6 +804,7 @@ public class EventDrivenFaultTolerantQueryScheduler
                 OutputStatsEstimator outputStatsEstimator,
                 FaultTolerantPartitioningSchemeFactory partitioningSchemeFactory,
                 ExchangeManager exchangeManager,
+                ExchangeMetricsCollector exchangeMetricsCollector,
                 int maxTaskExecutionAttempts,
                 int maxTasksWaitingForNode,
                 int maxTasksWaitingForExecution,
@@ -828,6 +836,7 @@ public class EventDrivenFaultTolerantQueryScheduler
             this.outputStatsEstimator = requireNonNull(outputStatsEstimator, "outputStatsEstimator is null");
             this.partitioningSchemeFactory = requireNonNull(partitioningSchemeFactory, "partitioningSchemeFactory is null");
             this.exchangeManager = requireNonNull(exchangeManager, "exchangeManager is null");
+            this.exchangeMetricsCollector = requireNonNull(exchangeMetricsCollector, "exchangeMetricsCollector is null");
             checkArgument(maxTaskExecutionAttempts > 0, "maxTaskExecutionAttempts must be greater than zero: %s", maxTaskExecutionAttempts);
             this.maxTaskExecutionAttempts = maxTaskExecutionAttempts;
             this.maxTasksWaitingForNode = maxTasksWaitingForNode;
@@ -1492,8 +1501,9 @@ public class EventDrivenFaultTolerantQueryScheduler
                 FaultTolerantPartitioningScheme sinkPartitioningScheme = partitioningSchemeFactory.get(
                         fragment.getOutputPartitioningScheme().getPartitioning().getHandle(),
                         fragment.getOutputPartitioningScheme().getPartitionCount());
+                QueryId queryId = queryStateMachine.getQueryId();
                 ExchangeContext exchangeContext = new ExchangeContextInstance(
-                        queryStateMachine.getQueryId(),
+                        queryId,
                         new ExchangeId("external-exchange-" + stage.getStageId().id()),
                         schedulerSpan);
 
@@ -1502,6 +1512,7 @@ public class EventDrivenFaultTolerantQueryScheduler
                         exchangeContext,
                         sinkPartitioningScheme.getPartitionCount(),
                         preserveOrderWithinPartition));
+                exchangeMetricsCollector.register(queryId, exchange);
 
                 if (eager) {
                     sourceExchanges.values().forEach(sourceExchange -> sourceExchange.setSourceHandlesDeliveryMode(EAGER));

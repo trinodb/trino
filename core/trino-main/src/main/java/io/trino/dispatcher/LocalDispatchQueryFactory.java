@@ -21,6 +21,7 @@ import io.airlift.log.Logger;
 import io.trino.FeaturesConfig;
 import io.trino.Session;
 import io.trino.event.QueryMonitor;
+import io.trino.exchange.ExchangeMetricsCollector;
 import io.trino.execution.ClusterSizeMonitor;
 import io.trino.execution.LocationFactory;
 import io.trino.execution.QueryExecution;
@@ -68,6 +69,7 @@ public class LocalDispatchQueryFactory
 
     private final Map<Class<? extends Statement>, QueryExecutionFactory<?>> executionFactories;
     private final WarningCollectorFactory warningCollectorFactory;
+    private final ExchangeMetricsCollector exchangeMetricsCollector;
     private final ListeningExecutorService executor;
     private final int maxStateMachineThreadsPerQuery;
     private final int queryReportedRuleStatsLimit;
@@ -86,6 +88,7 @@ public class LocalDispatchQueryFactory
             LocationFactory locationFactory,
             Map<Class<? extends Statement>, QueryExecutionFactory<?>> executionFactories,
             WarningCollectorFactory warningCollectorFactory,
+            ExchangeMetricsCollector exchangeMetricsCollector,
             ClusterSizeMonitor clusterSizeMonitor,
             DispatchExecutor dispatchExecutor,
             FeaturesConfig featuresConfig,
@@ -100,6 +103,7 @@ public class LocalDispatchQueryFactory
         this.locationFactory = requireNonNull(locationFactory, "locationFactory is null");
         this.executionFactories = requireNonNull(executionFactories, "executionFactories is null");
         this.warningCollectorFactory = requireNonNull(warningCollectorFactory, "warningCollectorFactory is null");
+        this.exchangeMetricsCollector = requireNonNull(exchangeMetricsCollector, "exchangeMetricsCollector is null");
         this.clusterSizeMonitor = requireNonNull(clusterSizeMonitor, "clusterSizeMonitor is null");
         this.executor = dispatchExecutor.getExecutor();
         this.maxStateMachineThreadsPerQuery = queryManagerConfig.getMaxStateMachineCallbackThreads();
@@ -134,6 +138,7 @@ public class LocalDispatchQueryFactory
                 metadata,
                 warningCollector,
                 planOptimizersStatsCollector,
+                exchangeMetricsCollector,
                 getQueryType(preparedQuery.getStatement()),
                 faultTolerantExecutionExchangeEncryptionEnabled,
                 Optional.of(sessionPropertyResolver.getSessionPropertiesApplier(preparedQuery)),

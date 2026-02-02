@@ -272,6 +272,7 @@ public class TestQueryStats
 
             DynamicFiltersStats.EMPTY,
             ImmutableMap.of(),
+            ImmutableMap.of(),
             operatorSummaries,
             optimizerRulesSummaries);
 

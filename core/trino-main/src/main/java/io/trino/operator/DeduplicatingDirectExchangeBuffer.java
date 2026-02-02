@@ -34,6 +34,7 @@ import io.opentelemetry.api.trace.Span;
 import io.trino.annotation.NotThreadSafe;
 import io.trino.exchange.ExchangeContextInstance;
 import io.trino.exchange.ExchangeManagerRegistry;
+import io.trino.exchange.ExchangeMetricsCollector;
 import io.trino.execution.StageId;
 import io.trino.execution.TaskId;
 import io.trino.spi.QueryId;
@@ -55,6 +56,7 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
@@ -125,6 +127,7 @@ public class DeduplicatingDirectExchangeBuffer
             DataSize bufferCapacity,
             RetryPolicy retryPolicy,
             ExchangeManagerRegistry exchangeManagerRegistry,
+            Optional<ExchangeMetricsCollector> exchangeMetricsCollector,
             QueryId queryId,
             Span parentSpan,
             ExchangeId exchangeId)
@@ -133,6 +136,7 @@ public class DeduplicatingDirectExchangeBuffer
         checkArgument(retryPolicy == QUERY, "the class is used for query level retries only, got: %s", retryPolicy);
         this.pageBuffer = new PageBuffer(
                 exchangeManagerRegistry,
+                exchangeMetricsCollector,
                 queryId,
                 parentSpan,
                 exchangeId,
@@ -432,6 +436,7 @@ public class DeduplicatingDirectExchangeBuffer
             implements Closeable
     {
         private final ExchangeManagerRegistry exchangeManagerRegistry;
+        private final Optional<ExchangeMetricsCollector> exchangeMetricsCollector;
         private final QueryId queryId;
         private final Span parentSpan;
         private final ExchangeId exchangeId;
@@ -468,6 +473,7 @@ public class DeduplicatingDirectExchangeBuffer
 
         private PageBuffer(
                 ExchangeManagerRegistry exchangeManagerRegistry,
+                Optional<ExchangeMetricsCollector> exchangeMetricsCollector,
                 QueryId queryId,
                 Span parentSpan,
                 ExchangeId exchangeId,
@@ -475,6 +481,7 @@ public class DeduplicatingDirectExchangeBuffer
                 DataSize pageBufferCapacity)
         {
             this.exchangeManagerRegistry = requireNonNull(exchangeManagerRegistry, "exchangeManagerRegistry is null");
+            this.exchangeMetricsCollector = requireNonNull(exchangeMetricsCollector, "exchangeMetricsCollector is null");
             this.queryId = requireNonNull(queryId, "queryId is null");
             this.parentSpan = requireNonNull(parentSpan, "querySpan is null");
             this.exchangeId = requireNonNull(exchangeId, "exchangeId is null");
@@ -509,6 +516,7 @@ public class DeduplicatingDirectExchangeBuffer
 
                 exchangeManager = exchangeManagerRegistry.getExchangeManager();
                 exchange = exchangeManager.createExchange(new ExchangeContextInstance(queryId, exchangeId, parentSpan), 1, true);
+                exchangeMetricsCollector.ifPresent(registry -> registry.register(queryId, exchange));
 
                 sinkHandle = exchange.addSink(0);
                 exchange.noMoreSinks();

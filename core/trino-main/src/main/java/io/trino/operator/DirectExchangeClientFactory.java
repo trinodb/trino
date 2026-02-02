@@ -24,6 +24,7 @@ import io.opentelemetry.api.trace.Span;
 import io.trino.FeaturesConfig;
 import io.trino.FeaturesConfig.DataIntegrityVerification;
 import io.trino.exchange.ExchangeManagerRegistry;
+import io.trino.exchange.ExchangeMetricsCollector;
 import io.trino.execution.TaskFailureListener;
 import io.trino.memory.context.LocalMemoryContext;
 import io.trino.spi.QueryId;
@@ -32,6 +33,7 @@ import jakarta.annotation.PreDestroy;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 
+import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadPoolExecutor;
@@ -57,6 +59,7 @@ public class DirectExchangeClientFactory
     private final ThreadPoolExecutorMBean executorMBean;
     private final ExecutorService pageBufferClientCallbackExecutor;
     private final ExchangeManagerRegistry exchangeManagerRegistry;
+    private final Optional<ExchangeMetricsCollector> exchangeMetricsCollector;
 
     @Inject
     public DirectExchangeClientFactory(
@@ -66,7 +69,8 @@ public class DirectExchangeClientFactory
             @ForExchange HttpClient httpClient,
             @ForExchange HttpClientConfig httpClientConfig,
             @ForExchange ScheduledExecutorService scheduler,
-            ExchangeManagerRegistry exchangeManagerRegistry)
+            ExchangeManagerRegistry exchangeManagerRegistry,
+            Optional<ExchangeMetricsCollector> exchangeMetricsCollector)
     {
         this(
                 nodeInfo,
@@ -81,7 +85,8 @@ public class DirectExchangeClientFactory
                 config.getPageBufferClientMaxCallbackThreads(),
                 httpClient,
                 scheduler,
-                exchangeManagerRegistry);
+                exchangeManagerRegistry,
+                exchangeMetricsCollector);
     }
 
     public DirectExchangeClientFactory(
@@ -97,7 +102,8 @@ public class DirectExchangeClientFactory
             int pageBufferClientMaxCallbackThreads,
             HttpClient httpClient,
             ScheduledExecutorService scheduler,
-            ExchangeManagerRegistry exchangeManagerRegistry)
+            ExchangeManagerRegistry exchangeManagerRegistry,
+            Optional<ExchangeMetricsCollector> exchangeMetricsCollector)
     {
         this.nodeInfo = requireNonNull(nodeInfo, "nodeInfo is null");
         this.dataIntegrityVerification = requireNonNull(dataIntegrityVerification, "dataIntegrityVerification is null");
@@ -123,6 +129,7 @@ public class DirectExchangeClientFactory
         checkArgument(maxResponseSize.toBytes() > 0, "maxResponseSize must be at least 1 byte: %s", maxResponseSize);
         checkArgument(concurrentRequestMultiplier > 0, "concurrentRequestMultiplier must be at least 1: %s", concurrentRequestMultiplier);
         this.exchangeManagerRegistry = requireNonNull(exchangeManagerRegistry, "exchangeManagerRegistry is null");
+        this.exchangeMetricsCollector = requireNonNull(exchangeMetricsCollector, "exchangeMetricsCollector is null");
     }
 
     @PreDestroy
@@ -150,7 +157,15 @@ public class DirectExchangeClientFactory
         @SuppressWarnings("resource")
         DirectExchangeBuffer buffer = switch (retryPolicy) {
             case TASK -> throw new UnsupportedOperationException();
-            case QUERY -> new DeduplicatingDirectExchangeBuffer(scheduler, deduplicationBufferSize, retryPolicy, exchangeManagerRegistry, queryId, parentSpan, exchangeId);
+            case QUERY -> new DeduplicatingDirectExchangeBuffer(
+                    scheduler,
+                    deduplicationBufferSize,
+                    retryPolicy,
+                    exchangeManagerRegistry,
+                    exchangeMetricsCollector,
+                    queryId,
+                    parentSpan,
+                    exchangeId);
             case NONE -> new StreamingDirectExchangeBuffer(scheduler, maxBufferedBytes);
         };
 

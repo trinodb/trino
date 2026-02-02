@@ -25,6 +25,7 @@ import io.airlift.units.Duration;
 import io.opentelemetry.api.OpenTelemetry;
 import io.trino.Session;
 import io.trino.client.FailureInfo;
+import io.trino.exchange.ExchangeMetricsCollector;
 import io.trino.execution.warnings.DefaultWarningCollector;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.execution.warnings.WarningCollectorConfig;
@@ -869,6 +870,7 @@ public class TestQueryStateMachine
                     metadata,
                     warningCollector,
                     createPlanOptimizersStatsCollector(),
+                    new ExchangeMetricsCollector(ImmutableList::of, java.time.Duration.ofMillis(1)),
                     QUERY_TYPE,
                     false,
                     Optional.empty(),
