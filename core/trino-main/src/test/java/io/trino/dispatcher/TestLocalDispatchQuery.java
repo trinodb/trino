@@ -30,6 +30,7 @@ import io.trino.event.QueryMonitor;
 import io.trino.event.QueryMonitorConfig;
 import io.trino.eventlistener.EventListenerConfig;
 import io.trino.eventlistener.EventListenerManager;
+import io.trino.exchange.ExchangeMetricsCollector;
 import io.trino.execution.ClusterSizeMonitor;
 import io.trino.execution.DataDefinitionExecution;
 import io.trino.execution.DataDefinitionTask;
@@ -120,6 +121,7 @@ public class TestLocalDispatchQuery
                 metadata,
                 WarningCollector.NOOP,
                 createPlanOptimizersStatsCollector(),
+                new ExchangeMetricsCollector(ImmutableList::of, java.time.Duration.ofMillis(1)),
                 Optional.of(QueryType.DATA_DEFINITION),
                 true,
                 Optional.empty(),

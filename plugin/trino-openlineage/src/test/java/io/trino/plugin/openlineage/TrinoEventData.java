@@ -140,6 +140,7 @@ public class TrinoEventData
                 Collections.emptyList(),
                 Collections.emptyList(),
                 ImmutableMap.of(),
+                ImmutableMap.of(),
                 Optional.empty());
 
         queryCompleteEvent = new QueryCompletedEvent(

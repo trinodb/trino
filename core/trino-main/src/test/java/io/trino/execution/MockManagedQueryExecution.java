@@ -268,6 +268,7 @@ public class MockManagedQueryExecution
                         ImmutableList.of(),
                         DynamicFiltersStats.EMPTY,
                         ImmutableMap.of(),
+                        ImmutableMap.of(),
                         ImmutableList.of(),
                         ImmutableList.of()),
                 Optional.empty(),

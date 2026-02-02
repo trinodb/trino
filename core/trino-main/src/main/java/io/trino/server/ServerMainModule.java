@@ -37,6 +37,7 @@ import io.trino.SystemSessionPropertiesProvider;
 import io.trino.block.BlockJsonSerde;
 import io.trino.connector.system.SystemConnectorModule;
 import io.trino.dispatcher.DispatchManager;
+import io.trino.exchange.ExchangeMetricsCollector;
 import io.trino.execution.DynamicFilterConfig;
 import io.trino.execution.ExplainAnalyzeContext;
 import io.trino.execution.FailureInjector;
@@ -321,6 +322,7 @@ public class ServerMainModule
 
         // exchange client
         binder.bind(DirectExchangeClientSupplier.class).to(DirectExchangeClientFactory.class).in(Scopes.SINGLETON);
+        newOptionalBinder(binder, ExchangeMetricsCollector.class);
 
         InternalCommunicationConfig internalCommunicationConfig = buildConfigObject(InternalCommunicationConfig.class);
 

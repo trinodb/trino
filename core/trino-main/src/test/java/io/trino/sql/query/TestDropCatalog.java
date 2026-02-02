@@ -13,10 +13,12 @@
  */
 package io.trino.sql.query;
 
+import com.google.common.collect.ImmutableList;
 import io.airlift.units.Duration;
 import io.trino.connector.MockConnectorFactory;
 import io.trino.connector.MockConnectorPlugin;
 import io.trino.connector.MockConnectorTableHandle;
+import io.trino.exchange.ExchangeMetricsCollector;
 import io.trino.execution.QueryStateMachine;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.spi.NodeVersion;
@@ -152,6 +154,7 @@ public class TestDropCatalog
                 queryRunner.getPlannerContext().getMetadata(),
                 WarningCollector.NOOP,
                 createPlanOptimizersStatsCollector(),
+                new ExchangeMetricsCollector(ImmutableList::of, java.time.Duration.ofMillis(1)),
                 Optional.empty(),
                 true,
                 Optional.empty(),

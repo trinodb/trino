@@ -44,6 +44,7 @@ import io.trino.dispatcher.LocalDispatchQueryFactory;
 import io.trino.dispatcher.QueuedStatementResource;
 import io.trino.event.QueryMonitor;
 import io.trino.event.QueryMonitorConfig;
+import io.trino.exchange.ExchangeMetricsCollector;
 import io.trino.execution.ClusterSizeMonitor;
 import io.trino.execution.DynamicFiltersCollector.VersionedDynamicFilterDomains;
 import io.trino.execution.ExecutionFailureInfo;
@@ -315,6 +316,9 @@ public class CoordinatorModule
         // node monitor
         binder.bind(ClusterSizeMonitor.class).in(Scopes.SINGLETON);
         newExporter(binder).export(ClusterSizeMonitor.class).withGeneratedName();
+
+        //exchanges metrics
+        binder.bind(ExchangeMetricsCollector.class).in(Scopes.SINGLETON);
 
         // statistics calculator
         binder.install(new StatsCalculatorModule());

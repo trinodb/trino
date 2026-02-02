@@ -20,6 +20,7 @@ import io.airlift.units.Duration;
 import io.opentelemetry.api.OpenTelemetry;
 import io.trino.Session;
 import io.trino.Session.SessionBuilder;
+import io.trino.exchange.ExchangeMetricsCollector;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.Metadata;
 import io.trino.plugin.base.security.DefaultSystemAccessControl;
@@ -266,6 +267,7 @@ public class TestStartTransactionTask
                 metadata,
                 WarningCollector.NOOP,
                 createPlanOptimizersStatsCollector(),
+                new ExchangeMetricsCollector(ImmutableList::of, java.time.Duration.ofMillis(1)),
                 Optional.empty(),
                 true,
                 Optional.empty(),

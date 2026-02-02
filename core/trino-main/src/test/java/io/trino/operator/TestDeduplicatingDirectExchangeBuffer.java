@@ -28,6 +28,7 @@ import io.opentelemetry.api.OpenTelemetry;
 import io.opentelemetry.api.trace.Span;
 import io.trino.exchange.ExchangeManagerConfig;
 import io.trino.exchange.ExchangeManagerRegistry;
+import io.trino.exchange.ExchangeMetricsCollector;
 import io.trino.execution.StageId;
 import io.trino.execution.TaskId;
 import io.trino.plugin.exchange.filesystem.FileSystemExchangeManagerFactory;
@@ -39,9 +40,11 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
 
+import java.time.Duration;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -451,6 +454,7 @@ public class TestDeduplicatingDirectExchangeBuffer
                 DataSize.of(100, BYTE),
                 RetryPolicy.QUERY,
                 new ExchangeManagerRegistry(OpenTelemetry.noop(), Tracing.noopTracer(), new SecretsResolver(ImmutableMap.of()), new ExchangeManagerConfig()),
+                Optional.of(new ExchangeMetricsCollector(ImmutableList::of, Duration.ofMillis(1))),
                 new QueryId("query"),
                 Span.getInvalid(),
                 createRandomExchangeId())) {
@@ -475,6 +479,7 @@ public class TestDeduplicatingDirectExchangeBuffer
                 DataSize.of(100, BYTE),
                 RetryPolicy.QUERY,
                 new ExchangeManagerRegistry(OpenTelemetry.noop(), Tracing.noopTracer(), new SecretsResolver(ImmutableMap.of()), new ExchangeManagerConfig()),
+                Optional.of(new ExchangeMetricsCollector(ImmutableList::of, Duration.ofMillis(1))),
                 new QueryId("query"),
                 Span.getInvalid(),
                 createRandomExchangeId())) {
@@ -696,6 +701,7 @@ public class TestDeduplicatingDirectExchangeBuffer
                 bufferCapacity,
                 retryPolicy,
                 exchangeManagerRegistry,
+                Optional.of(new ExchangeMetricsCollector(ImmutableList::of, Duration.ofMillis(1))),
                 new QueryId("query"),
                 Span.getInvalid(),
                 createRandomExchangeId());

@@ -147,6 +147,7 @@ public final class TestUtils
                 Collections.emptyList(),
                 Collections.emptyList(),
                 ImmutableMap.of(),
+                ImmutableMap.of(),
                 Optional.empty());
 
         queryFailureInfo = Optional.of(
