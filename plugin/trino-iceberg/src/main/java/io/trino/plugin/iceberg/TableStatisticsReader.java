@@ -26,7 +26,6 @@ import io.airlift.log.Logger;
 import io.trino.cache.NonEvictableLoadingCache;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnHandle;
-import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.statistics.ColumnStatistics;
@@ -103,7 +102,6 @@ public final class TableStatisticsReader
     }
 
     public TableStatistics getTableStatistics(
-            ConnectorSession session,
             IcebergTableHandle tableHandle,
             Set<IcebergColumnHandle> projectedColumns,
             Table icebergTable)
