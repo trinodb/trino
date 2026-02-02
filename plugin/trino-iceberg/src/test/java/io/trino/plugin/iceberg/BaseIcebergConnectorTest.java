@@ -9347,6 +9347,11 @@ public abstract class BaseIcebergConnectorTest
             return Optional.of(setup.withNewValueLiteral("TIMESTAMP '2020-02-12 14:03:00.123000 +00:00'"));
         }
         switch ("%s -> %s".formatted(setup.sourceColumnType(), setup.newColumnType())) {
+            // Iceberg allows updating column types if the update is safe. Safe updates are:
+            // - int to bigint
+            // - float to double
+            // - decimal(P,S) to decimal(P2,S) when P2 > P (scale cannot change)
+            // https://iceberg.apache.org/docs/latest/spark-ddl/#alter-table--alter-column
             case "tinyint -> smallint":
             case "bigint -> integer":
             case "bigint -> smallint":
@@ -9357,15 +9362,10 @@ public abstract class BaseIcebergConnectorTest
             case "time(6) -> time(3)":
             case "timestamp(6) -> timestamp(3)":
             case "array(integer) -> array(bigint)":
-                // Iceberg allows updating column types if the update is safe. Safe updates are:
-                // - int to bigint
-                // - float to double
-                // - decimal(P,S) to decimal(P2,S) when P2 > P (scale cannot change)
-                // https://iceberg.apache.org/docs/latest/spark-ddl/#alter-table--alter-column
                 return Optional.of(setup.asUnsupported());
 
+            // Iceberg connector ignores the varchar length
             case "varchar(100) -> varchar(50)":
-                // Iceberg connector ignores the varchar length
                 return Optional.empty();
         }
         return Optional.of(setup);
@@ -9387,6 +9387,11 @@ public abstract class BaseIcebergConnectorTest
             return Optional.of(setup.withNewValueLiteral("TIMESTAMP '2020-02-12 14:03:00.123000 +00:00'"));
         }
         switch ("%s -> %s".formatted(setup.sourceColumnType(), setup.newColumnType())) {
+            // Iceberg allows updating column types if the update is safe. Safe updates are:
+            // - int to bigint
+            // - float to double
+            // - decimal(P,S) to decimal(P2,S) when P2 > P (scale cannot change)
+            // https://iceberg.apache.org/docs/latest/spark-ddl/#alter-table--alter-column
             case "tinyint -> smallint":
             case "bigint -> integer":
             case "bigint -> smallint":
@@ -9406,15 +9411,10 @@ public abstract class BaseIcebergConnectorTest
             case "row(x integer, y integer) -> row(\"z\" integer, \"y\" integer, \"x\" integer)":
             case "row(x row(nested integer)) -> row(\"x\" row(\"nested\" bigint))":
             case "row(x row(a integer, b integer)) -> row(\"x\" row(\"b\" integer, \"a\" integer))":
-                // Iceberg allows updating column types if the update is safe. Safe updates are:
-                // - int to bigint
-                // - float to double
-                // - decimal(P,S) to decimal(P2,S) when P2 > P (scale cannot change)
-                // https://iceberg.apache.org/docs/latest/spark-ddl/#alter-table--alter-column
                 return Optional.of(setup.asUnsupported());
 
+            // Iceberg connector ignores the varchar length
             case "varchar(100) -> varchar(50)":
-                // Iceberg connector ignores the varchar length
                 return Optional.empty();
         }
         return Optional.of(setup);
