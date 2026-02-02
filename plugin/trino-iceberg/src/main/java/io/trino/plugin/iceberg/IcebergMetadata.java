@@ -3876,7 +3876,6 @@ public class IcebergMetadata
                 projectedColumns -> {
                     Table icebergTable = catalog.loadTable(session, originalHandle.getSchemaTableName());
                     return tableStatisticsReader.getTableStatistics(
-                            session,
                             originalHandle,
                             projectedColumns,
                             icebergTable);
