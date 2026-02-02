@@ -9376,7 +9376,7 @@ public abstract class BaseIcebergConnectorTest
     {
         assertThat(e).hasMessageMatching(".*(Failed to set column type: Cannot change (column type:|type from .* to )" +
                 "|Time(stamp)? precision \\(3\\) not supported for Iceberg. Use \"time(stamp)?\\(6\\)\" instead" +
-                "|Type not supported for Iceberg: tinyint|smallint|char\\(20\\)).*");
+                "|Type not supported for Iceberg: (tinyint|smallint|char\\(20\\))).*");
     }
 
     @Override
@@ -9425,7 +9425,7 @@ public abstract class BaseIcebergConnectorTest
     {
         assertThat(e).hasMessageMatching(".*(Failed to set field type: Cannot change (column type:|type from .* to )" +
                 "|Time(stamp)? precision \\(3\\) not supported for Iceberg. Use \"time(stamp)?\\(6\\)\" instead" +
-                "|Type not supported for Iceberg: tinyint|smallint|char\\(20\\)" +
+                "|Type not supported for Iceberg: (tinyint|smallint|char\\(20\\))" +
                 "|Iceberg doesn't support changing field type (from|to) non-primitive types).*");
     }
 
