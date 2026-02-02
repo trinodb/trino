@@ -29,7 +29,6 @@ import static io.trino.spi.type.DateTimeEncoding.unpackMillisUtc;
 import static io.trino.spi.type.DateTimeEncoding.updateMillisUtc;
 import static io.trino.type.DateTimes.round;
 import static io.trino.util.DateTimeZoneIndex.unpackChronology;
-import static java.lang.Math.toIntExact;
 
 @Description("Add the specified amount of time to the given timestamp")
 @ScalarFunction("date_add")
@@ -48,7 +47,7 @@ public final class DateAdd
         try {
             long epochMillis = unpackMillisUtc(packedEpochMillis);
 
-            epochMillis = getTimestampField(unpackChronology(packedEpochMillis), unit).add(epochMillis, toIntExact(value));
+            epochMillis = getTimestampField(unpackChronology(packedEpochMillis), unit).add(epochMillis, value);
             epochMillis = round(epochMillis, (int) (3 - precision));
 
             return updateMillisUtc(epochMillis, packedEpochMillis);
@@ -66,7 +65,7 @@ public final class DateAdd
             @SqlType("timestamp(p) with time zone") LongTimestampWithTimeZone timestamp)
     {
         try {
-            long epochMillis = getTimestampField(unpackChronology(timestamp.getTimeZoneKey()), unit).add(timestamp.getEpochMillis(), toIntExact(value));
+            long epochMillis = getTimestampField(unpackChronology(timestamp.getTimeZoneKey()), unit).add(timestamp.getEpochMillis(), value);
 
             return LongTimestampWithTimeZone.fromEpochMillisAndFraction(epochMillis, timestamp.getPicosOfMilli(), timestamp.getTimeZoneKey());
         }

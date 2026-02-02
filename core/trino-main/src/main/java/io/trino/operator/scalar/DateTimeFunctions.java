@@ -64,7 +64,6 @@ import static io.trino.util.DateTimeZoneIndex.getChronology;
 import static io.trino.util.DateTimeZoneIndex.packDateTimeWithZone;
 import static java.lang.Math.floorDiv;
 import static java.lang.Math.floorMod;
-import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.US_ASCII;
 import static java.util.concurrent.TimeUnit.DAYS;
@@ -311,8 +310,13 @@ public final class DateTimeFunctions
     @SqlType(StandardTypes.DATE)
     public static long addFieldValueDate(@SqlType("varchar(x)") Slice unit, @SqlType(StandardTypes.BIGINT) long value, @SqlType(StandardTypes.DATE) long date)
     {
-        long millis = getDateField(UTC_CHRONOLOGY, unit).add(DAYS.toMillis(date), toIntExact(value));
-        return MILLISECONDS.toDays(millis);
+        try {
+            long millis = getDateField(UTC_CHRONOLOGY, unit).add(DAYS.toMillis(date), value);
+            return MILLISECONDS.toDays(millis);
+        }
+        catch (IllegalArgumentException | ArithmeticException e) {
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, e);
+        }
     }
 
     @Description("Difference of the given dates in the given unit")
