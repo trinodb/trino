@@ -93,7 +93,7 @@ public class IcebergConfig
     private boolean queryPartitionFilterRequired;
     private Set<String> queryPartitionFilterRequiredSchemas = ImmutableSet.of();
     private int splitManagerThreads = Math.min(Runtime.getRuntime().availableProcessors() * 2, 32);
-    private int planningThreads = Math.min(Runtime.getRuntime().availableProcessors(), 16);
+    private int planningThreads = Runtime.getRuntime().availableProcessors() * 2;
     private int fileDeleteThreads = Runtime.getRuntime().availableProcessors() * 2;
     private List<String> allowedExtraProperties = ImmutableList.of();
     private boolean incrementalRefreshEnabled = true;

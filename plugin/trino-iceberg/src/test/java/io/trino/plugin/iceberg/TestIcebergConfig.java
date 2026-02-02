@@ -76,7 +76,7 @@ public class TestIcebergConfig
                 .setQueryPartitionFilterRequired(false)
                 .setQueryPartitionFilterRequiredSchemas(ImmutableSet.of())
                 .setSplitManagerThreads(Integer.toString(Math.min(Runtime.getRuntime().availableProcessors() * 2, 32)))
-                .setPlanningThreads(Integer.toString(Math.min(Runtime.getRuntime().availableProcessors(), 16)))
+                .setPlanningThreads(Integer.toString(Runtime.getRuntime().availableProcessors() * 2))
                 .setFileDeleteThreads(Integer.toString(Runtime.getRuntime().availableProcessors() * 2))
                 .setAllowedExtraProperties(ImmutableList.of())
                 .setIncrementalRefreshEnabled(true)
