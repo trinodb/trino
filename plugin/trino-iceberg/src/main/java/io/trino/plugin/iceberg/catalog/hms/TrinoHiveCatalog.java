@@ -133,6 +133,7 @@ public class TrinoHiveCatalog
 {
     private static final Logger log = Logger.get(TrinoHiveCatalog.class);
     private static final int PER_QUERY_CACHE_SIZE = 1000;
+    private static final Column DUMMY_COLUMN = new Column("dummy", HIVE_STRING, Optional.empty(), ImmutableMap.of());
 
     private final CachingHiveMetastore metastore;
     private final TrinoViewHiveMetastore trinoViewHiveMetastore;
@@ -582,13 +583,12 @@ public class TrinoHiveCatalog
             Location storageMetadataLocation = createMaterializedViewStorage(session, viewName, definition, materializedViewProperties);
 
             Map<String, String> viewProperties = createMaterializedViewProperties(session, storageMetadataLocation);
-            Column dummyColumn = new Column("dummy", HIVE_STRING, Optional.empty(), ImmutableMap.of());
             io.trino.metastore.Table.Builder tableBuilder = io.trino.metastore.Table.builder()
                     .setDatabaseName(viewName.getSchemaName())
                     .setTableName(viewName.getTableName())
                     .setOwner(isUsingSystemSecurity ? Optional.empty() : Optional.of(session.getUser()))
                     .setTableType(VIRTUAL_VIEW.name())
-                    .setDataColumns(ImmutableList.of(dummyColumn))
+                    .setDataColumns(ImmutableList.of(DUMMY_COLUMN))
                     .setPartitionColumns(ImmutableList.of())
                     .setParameters(viewProperties)
                     .withStorage(storage -> storage.setStorageFormat(VIEW_STORAGE_FORMAT))
@@ -638,14 +638,13 @@ public class TrinoHiveCatalog
 
         // Create a view indicating the storage table
         Map<String, String> viewProperties = createMaterializedViewProperties(session, storageTable);
-        Column dummyColumn = new Column("dummy", HIVE_STRING, Optional.empty(), Map.of());
 
         io.trino.metastore.Table.Builder tableBuilder = io.trino.metastore.Table.builder()
                 .setDatabaseName(viewName.getSchemaName())
                 .setTableName(viewName.getTableName())
                 .setOwner(isUsingSystemSecurity ? Optional.empty() : Optional.of(session.getUser()))
                 .setTableType(VIRTUAL_VIEW.name())
-                .setDataColumns(ImmutableList.of(dummyColumn))
+                .setDataColumns(ImmutableList.of(DUMMY_COLUMN))
                 .setPartitionColumns(ImmutableList.of())
                 .setParameters(viewProperties)
                 .withStorage(storage -> storage.setStorageFormat(VIEW_STORAGE_FORMAT))
