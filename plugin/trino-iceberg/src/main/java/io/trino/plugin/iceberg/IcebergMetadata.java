@@ -251,7 +251,6 @@ import static com.google.common.base.Verify.verifyNotNull;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static com.google.common.collect.Iterables.getLast;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Iterables.size;
 import static com.google.common.collect.Maps.transformValues;
@@ -2767,25 +2766,11 @@ public class IcebergMetadata
     @Override
     public void addField(ConnectorSession session, ConnectorTableHandle tableHandle, List<String> parentPath, String fieldName, io.trino.spi.type.Type type, boolean ignoreExisting)
     {
-        // Iceberg disallows ambiguous field names in a table. e.g. (a row(b int), "a.b" int)
-        String parentName = String.join(".", parentPath);
-
         Table icebergTable = catalog.loadTable(session, ((IcebergTableHandle) tableHandle).getSchemaTableName());
-        NestedField parent = icebergTable.schema().caseInsensitiveFindField(parentName);
-
+        NestedField parent = icebergTable.schema().caseInsensitiveFindField(String.join(".", parentPath));
         String caseSensitiveParentName = icebergTable.schema().findColumnName(parent.fieldId());
 
-        Types.StructType structType;
-        if (parent.type().isListType()) {
-            // list(struct...)
-            structType = parent.type().asListType().elementType().asStructType();
-        }
-        else {
-            // just struct
-            structType = parent.type().asStructType();
-        }
-
-        NestedField field = structType.caseInsensitiveField(fieldName);
+        NestedField field = icebergTable.schema().caseInsensitiveFindField(caseSensitiveParentName + "." + fieldName);
         if (field != null) {
             if (ignoreExisting) {
                 return;
@@ -2872,16 +2857,13 @@ public class IcebergMetadata
     public void renameField(ConnectorSession session, ConnectorTableHandle tableHandle, List<String> fieldPath, String target)
     {
         Table icebergTable = catalog.loadTable(session, ((IcebergTableHandle) tableHandle).getSchemaTableName());
-        String parentPath = String.join(".", fieldPath.subList(0, fieldPath.size() - 1));
-        NestedField parent = icebergTable.schema().caseInsensitiveFindField(parentPath);
+        NestedField field = icebergTable.schema().caseInsensitiveFindField(String.join(".", fieldPath));
+        verify(field != null, "Field %s not found", String.join(".", fieldPath));
 
-        String caseSensitiveParentName = icebergTable.schema().findColumnName(parent.fieldId());
-        NestedField source = parent.type().asStructType().caseInsensitiveField(getLast(fieldPath));
-
-        String sourcePath = caseSensitiveParentName + "." + source.name();
+        String caseSensitiveFieldName = icebergTable.schema().findColumnName(field.fieldId());
         try {
             icebergTable.updateSchema()
-                    .renameColumn(sourcePath, target)
+                    .renameColumn(caseSensitiveFieldName, target)
                     .commit();
         }
         catch (RuntimeException e) {
