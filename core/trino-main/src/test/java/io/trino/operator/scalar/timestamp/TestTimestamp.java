@@ -29,6 +29,7 @@ import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.util.function.BiFunction;
 
+import static com.google.common.base.Preconditions.checkState;
 import static io.trino.server.testing.TestingTrinoServer.SESSION_START_TIME_PROPERTY;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.function.OperatorType.ADD;
@@ -2862,6 +2863,51 @@ public class TestTimestamp
         assertThat(assertions.expression("date_add('year', 4, TIMESTAMP '2001-09-10 13:31:00.1111111111')")).matches("TIMESTAMP '2005-09-10 13:31:00.1111111111'");
         assertThat(assertions.expression("date_add('year', 4, TIMESTAMP '2001-09-10 13:31:00.11111111111')")).matches("TIMESTAMP '2005-09-10 13:31:00.11111111111'");
         assertThat(assertions.expression("date_add('year', 4, TIMESTAMP '2001-09-10 13:31:00.111111111111')")).matches("TIMESTAMP '2005-09-10 13:31:00.111111111111'");
+
+        // Test addition of a large value (exceeding max integer)
+        long value = 30L * 24 * 60 * 60 * 1000;
+        checkState(value > Integer.MAX_VALUE);
+        assertThat(assertions.expression("date_add('millisecond', " + value + ", TIMESTAMP '0001-01-01 00:00:00')")).matches("TIMESTAMP '0001-01-31 00:00:00'");
+        assertThat(assertions.expression("date_add('millisecond', " + value + ", TIMESTAMP '0001-01-01 00:00:00.0')")).matches("TIMESTAMP '0001-01-31 00:00:00.0'");
+        assertThat(assertions.expression("date_add('millisecond', " + value + ", TIMESTAMP '0001-01-01 00:00:00.00')")).matches("TIMESTAMP '0001-01-31 00:00:00.00'");
+        assertThat(assertions.expression("date_add('millisecond', " + value + ", TIMESTAMP '0001-01-01 00:00:00.000')")).matches("TIMESTAMP '0001-01-31 00:00:00.000'");
+        assertThat(assertions.expression("date_add('millisecond', " + value + ", TIMESTAMP '0001-01-01 00:00:00.0000')")).matches("TIMESTAMP '0001-01-31 00:00:00.0000'");
+        assertThat(assertions.expression("date_add('millisecond', " + value + ", TIMESTAMP '0001-01-01 00:00:00.00000')")).matches("TIMESTAMP '0001-01-31 00:00:00.00000'");
+        assertThat(assertions.expression("date_add('millisecond', " + value + ", TIMESTAMP '0001-01-01 00:00:00.000000')")).matches("TIMESTAMP '0001-01-31 00:00:00.000000'");
+        assertThat(assertions.expression("date_add('millisecond', " + value + ", TIMESTAMP '0001-01-01 00:00:00.0000000')")).matches("TIMESTAMP '0001-01-31 00:00:00.0000000'");
+        assertThat(assertions.expression("date_add('millisecond', " + value + ", TIMESTAMP '0001-01-01 00:00:00.00000000')")).matches("TIMESTAMP '0001-01-31 00:00:00.00000000'");
+        assertThat(assertions.expression("date_add('millisecond', " + value + ", TIMESTAMP '0001-01-01 00:00:00.000000000')")).matches("TIMESTAMP '0001-01-31 00:00:00.000000000'");
+        assertThat(assertions.expression("date_add('millisecond', " + value + ", TIMESTAMP '0001-01-01 00:00:00.0000000000')")).matches("TIMESTAMP '0001-01-31 00:00:00.0000000000'");
+        assertThat(assertions.expression("date_add('millisecond', " + value + ", TIMESTAMP '0001-01-01 00:00:00.00000000000')")).matches("TIMESTAMP '0001-01-31 00:00:00.00000000000'");
+        assertThat(assertions.expression("date_add('millisecond', " + value + ", TIMESTAMP '0001-01-01 00:00:00.000000000000')")).matches("TIMESTAMP '0001-01-31 00:00:00.000000000000'");
+
+        assertTrinoExceptionThrownBy(assertions.expression("date_add('day', " + value + ", TIMESTAMP '0001-01-01 00:00:00')")::evaluate)
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
+                .hasMessage("long overflow");
+        assertThatThrownBy(() -> assertions.expression("date_add('day', " + value + ", TIMESTAMP '0001-01-01 00:00:00.000000000000')").evaluate())
+                .hasMessage("long overflow");
+        assertTrinoExceptionThrownBy(assertions.expression("date_add('week', " + value + ", TIMESTAMP '0001-01-01 00:00:00')")::evaluate)
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
+                .hasMessage("long overflow");
+        assertThatThrownBy(() -> assertions.expression("date_add('week', " + value + ", TIMESTAMP '0001-01-01 00:00:00.000000000000')").evaluate())
+                .hasMessage("long overflow");
+        assertTrinoExceptionThrownBy(assertions.expression("date_add('month', " + value + ", TIMESTAMP '0001-01-01 00:00:00')")::evaluate)
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
+                .hasMessage("long overflow");
+        assertThatThrownBy(() -> assertions.expression("date_add('month', " + value + ", TIMESTAMP '0001-01-01 00:00:00.000000000000')").evaluate())
+                .hasMessage("long overflow");
+        assertTrinoExceptionThrownBy(assertions.expression("date_add('quarter', " + value + ", TIMESTAMP '0001-01-01 00:00:00')")::evaluate)
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
+                .hasMessageMatching("Magnitude of add amount is too large: .*");
+        assertTrinoExceptionThrownBy(assertions.expression("date_add('quarter', " + value + ", TIMESTAMP '0001-01-01 00:00:00.000000000000')")::evaluate)
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
+                .hasMessageMatching("Magnitude of add amount is too large: .*");
+        assertTrinoExceptionThrownBy(assertions.expression("date_add('year', " + value + ", TIMESTAMP '0001-01-01 00:00:00')")::evaluate)
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
+                .hasMessageMatching("Value cannot fit in an int: .*");
+        assertTrinoExceptionThrownBy(assertions.expression("date_add('year', " + value + ", TIMESTAMP '0001-01-01 00:00:00.000000000000')")::evaluate)
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
+                .hasMessageMatching("Value cannot fit in an int: .*");
 
         assertTrinoExceptionThrownBy(assertions.expression("date_diff('foo', TIMESTAMP '2001-01-31 19:34:55', TIMESTAMP '2005-09-10 13:31:00')")::evaluate)
                 .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
