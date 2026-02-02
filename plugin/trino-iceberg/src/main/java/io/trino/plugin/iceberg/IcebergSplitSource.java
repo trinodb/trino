@@ -529,7 +529,8 @@ public class IcebergSplitSource
                 "dataManifests", new LongCount(scanMetrics.scannedDataManifests().value()),
                 "deleteManifests", new LongCount(scanMetrics.scannedDeleteManifests().value()),
                 "equalityDeleteFiles", new LongCount(scanMetrics.equalityDeleteFiles().value()),
-                "positionalDeleteFiles", new LongCount(scanMetrics.positionalDeleteFiles().value())));
+                "positionalDeleteFiles", new LongCount(scanMetrics.positionalDeleteFiles().value()),
+                "deletionVectorFiles", new LongCount(scanMetrics.dvs().value())));
     }
 
     @Override
