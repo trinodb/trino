@@ -1508,6 +1508,10 @@ public abstract class BaseIcebergConnectorTest
                         CROSS JOIN UNNEST (sequence(1, 10_000)) a(i)
                         """.formatted(tableName, values, highValues, lowValues), 30000);
 
+        computeActual("SELECT sort_order_id from \"" + tableName + "$files\"")
+                .getOnlyColumn()
+                .forEach(sortOrderId -> assertThat((Integer) sortOrderId).isEqualTo(1));
+
         assertUpdate("DROP TABLE " + tableName);
     }
 
@@ -1575,13 +1579,16 @@ public abstract class BaseIcebergConnectorTest
             assertUpdate("ALTER TABLE " + table.getName() + " SET PROPERTIES sorted_by = ARRAY['name']");
             assertUpdate(withSmallRowGroups, "INSERT INTO " + table.getName() + " SELECT * FROM nation", 25);
 
-            for (Object filePath : computeActual("SELECT file_path from \"" + table.getName() + "$files\"").getOnlyColumnAsSet()) {
-                String path = (String) filePath;
+            for (MaterializedRow row : computeActual("SELECT file_path, sort_order_id from \"" + table.getName() + "$files\"").getMaterializedRows()) {
+                String path = (String) row.getField(0);
+                int sortOrderId = (Integer) row.getField(1);
                 if (sortedByComment.contains(path)) {
                     assertThat(isFileSorted(path, "comment")).isTrue();
+                    assertThat(sortOrderId).isEqualTo(1);
                 }
                 else {
                     assertThat(isFileSorted(path, "name")).isTrue();
+                    assertThat(sortOrderId).isEqualTo(2);
                 }
             }
             assertQuery("SELECT * FROM " + table.getName(), "SELECT * FROM nation UNION ALL SELECT * FROM nation");
@@ -1598,8 +1605,9 @@ public abstract class BaseIcebergConnectorTest
                 "test_sorting_disabled",
                 "WITH (sorted_by = ARRAY['comment']) AS SELECT * FROM nation WITH NO DATA")) {
             assertUpdate(withSortingDisabled, "INSERT INTO " + table.getName() + " SELECT * FROM nation", 25);
-            for (Object filePath : computeActual("SELECT file_path from \"" + table.getName() + "$files\"").getOnlyColumnAsSet()) {
-                assertThat(isFileSorted((String) filePath, "comment")).isFalse();
+            for (MaterializedRow row : computeActual("SELECT file_path, sort_order_id from \"" + table.getName() + "$files\"").getMaterializedRows()) {
+                assertThat(isFileSorted((String) row.getField(0), "comment")).isFalse();
+                assertThat(((Integer) row.getField(1))).isEqualTo(0);
             }
             assertQuery("SELECT * FROM " + table.getName(), "SELECT * FROM nation");
         }
@@ -1619,8 +1627,9 @@ public abstract class BaseIcebergConnectorTest
             // For optimize we need to set task_min_writer_count to 1, otherwise it will create more than one file.
             assertUpdate(withSingleWriterPerTask(withSmallRowGroups), "ALTER TABLE " + table.getName() + " EXECUTE optimize");
 
-            for (Object filePath : computeActual("SELECT file_path from \"" + table.getName() + "$files\"").getOnlyColumnAsSet()) {
-                assertThat(isFileSorted((String) filePath, "comment")).isTrue();
+            for (MaterializedRow row : computeActual("SELECT file_path, sort_order_id from \"" + table.getName() + "$files\"").getMaterializedRows()) {
+                assertThat(isFileSorted((String) row.getField(0), "comment")).isTrue();
+                assertThat(((Integer) row.getField(1))).isEqualTo(1);
             }
             assertQuery("SELECT * FROM " + table.getName(), "SELECT * FROM nation");
         }
@@ -1641,10 +1650,40 @@ public abstract class BaseIcebergConnectorTest
             assertQuery(
                     "SELECT custkey, name, address, nationkey, phone, acctbal, mktsegment, comment FROM " + table.getName(),
                     "SELECT custkey, name, address, nationkey, phone, acctbal, mktsegment, substring(comment, 2) FROM customer");
-            for (Object filePath : computeActual("SELECT file_path from \"" + table.getName() + "$files\" WHERE content != 1").getOnlyColumnAsSet()) {
-                assertThat(isFileSorted((String) filePath, "comment")).isTrue();
+            for (MaterializedRow row : computeActual("SELECT file_path, sort_order_id from \"" + table.getName() + "$files\" WHERE content != 1").getMaterializedRows()) {
+                assertThat(isFileSorted((String) row.getField(0), "comment")).isTrue();
+                assertThat(((Integer) row.getField(1))).isEqualTo(1);
+            }
+
+            // Verify MERGE INTO maintains sort order
+            assertUpdate(
+                    withSmallRowGroups,
+                    "MERGE INTO " + table.getName() + " t USING (SELECT custkey, comment FROM tpch.tiny.customer WHERE custkey <= 1000) s " +
+                            "ON t.custkey = s.custkey " +
+                            "WHEN MATCHED THEN UPDATE SET comment = s.comment",
+                    1000);
+            for (MaterializedRow row : computeActual("SELECT file_path, sort_order_id from \"" + table.getName() + "$files\" WHERE content != 1").getMaterializedRows()) {
+                assertThat(isFileSorted((String) row.getField(0), "comment")).isTrue();
+                assertThat(((Integer) row.getField(1))).isEqualTo(1);
             }
         }
+    }
+
+    @Test
+    public void testCreateWithSortOrder()
+    {
+        // Verify that CTAS with sorted_by creates sorted files
+        Session withSmallRowGroups = withSmallRowGroups(getSession());
+        String tableName = "test_create_with_sort_order_" + randomNameSuffix();
+        assertUpdate(withSmallRowGroups,
+                "CREATE TABLE " + tableName + " WITH (sorted_by = ARRAY['comment']) AS SELECT * FROM nation",
+                25);
+        for (MaterializedRow row : computeActual("SELECT file_path, sort_order_id from \"" + tableName + "$files\"").getMaterializedRows()) {
+            assertThat(isFileSorted((String) row.getField(0), "comment")).isTrue();
+            assertThat(((Integer) row.getField(1))).isEqualTo(1);
+        }
+        assertQuery("SELECT * FROM " + tableName, "SELECT * FROM nation");
+        assertUpdate("DROP TABLE " + tableName);
     }
 
     protected abstract boolean isFileSorted(String path, String sortColumnName);
