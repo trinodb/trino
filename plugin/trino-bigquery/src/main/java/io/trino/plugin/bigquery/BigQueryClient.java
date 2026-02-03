@@ -366,10 +366,23 @@ public class BigQueryClient
 
     private List<DatasetId> listDatasetIdsFromBigQuery(String projectId)
     {
-        // BigQuery.listDatasets returns partial information on each dataset. See javadoc for more details.
-        return stream(bigQuery.listDatasets(projectId, BigQuery.DatasetListOption.pageSize(metadataPageSize)).iterateAll())
-                .map(Dataset::getDatasetId)
-                .collect(toImmutableList());
+        try {
+            // BigQuery.listDatasets returns partial information on each dataset. See javadoc for more details.
+            return stream(bigQuery.listDatasets(projectId, BigQuery.DatasetListOption.pageSize(metadataPageSize)).iterateAll())
+                    .map(Dataset::getDatasetId)
+                    .collect(toImmutableList());
+        }
+        catch (BigQueryException e) {
+            throw new TrinoException(
+                    BIGQUERY_LISTING_DATASET_ERROR,
+                    "Failed to list datasets. code: %s, reason: %s, retryable: %s, debug: %s, message: %s".formatted(
+                            e.getCode(),
+                            e.getReason(),
+                            e.isRetryable(),
+                            e.getDebugInfo(),
+                            requireNonNullElse(e.getMessage(), e)),
+                    e);
+        }
     }
 
     public Iterable<TableId> listTableIds(DatasetId remoteDatasetId)
