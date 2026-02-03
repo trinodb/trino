@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.deltalake.transactionlog.writer;
 
-import com.google.inject.Inject;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.plugin.deltalake.DeltaLakeFileSystemFactory;
@@ -32,7 +31,6 @@ public class LocalTransactionLogSynchronizer
 {
     private final DeltaLakeFileSystemFactory fileSystemFactory;
 
-    @Inject
     public LocalTransactionLogSynchronizer(DeltaLakeFileSystemFactory fileSystemFactory)
     {
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
