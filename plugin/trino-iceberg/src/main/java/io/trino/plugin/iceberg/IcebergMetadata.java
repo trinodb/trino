@@ -1526,12 +1526,14 @@ public class IcebergMetadata
 
     private IcebergWritableTableHandle newWritableTableHandle(SchemaTableName name, Table table)
     {
+        SortFieldInfo sortInfo = getSupportedSortFields(table.schema(), table.sortOrder());
         return new IcebergWritableTableHandle(
                 name,
                 SchemaParser.toJson(table.schema()),
                 transformValues(table.specs(), PartitionSpecParser::toJson),
                 table.spec().specId(),
-                getSupportedSortFields(table.schema(), table.sortOrder()),
+                sortInfo.supportedSortFields(),
+                sortInfo.sortOrderId(),
                 getPartitionColumns(table, typeManager),
                 table.location(),
                 getFileFormat(table),
@@ -1539,10 +1541,10 @@ public class IcebergMetadata
                 table.io().properties());
     }
 
-    private static List<TrinoSortField> getSupportedSortFields(Schema schema, SortOrder sortOrder)
+    private static SortFieldInfo getSupportedSortFields(Schema schema, SortOrder sortOrder)
     {
         if (!sortOrder.isSorted()) {
-            return ImmutableList.of();
+            return new SortFieldInfo(SortOrder.unsorted().orderId(), ImmutableList.of());
         }
         Set<Integer> baseColumnFieldIds = schema.columns().stream()
                 .map(Types.NestedField::fieldId)
@@ -1560,8 +1562,16 @@ public class IcebergMetadata
             sortFields.add(TrinoSortField.fromIceberg(sortField));
         }
 
-        return sortFields.build();
+        List<TrinoSortField> supportedSortFields = sortFields.build();
+        // Trino supports sorting only by identity transforms, so the supported sort fields in Trino may be a subset of the iceberg table sort order.
+        // The writer can populate sort_order_id in the iceberg metadata only when the iceberg table sort order is fully supported by Trino.
+        if (supportedSortFields.size() == sortOrder.fields().size()) {
+            return new SortFieldInfo(sortOrder.orderId(), supportedSortFields);
+        }
+        return new SortFieldInfo(SortOrder.unsorted().orderId(), supportedSortFields);
     }
+
+    private record SortFieldInfo(int sortOrderId, List<TrinoSortField> supportedSortFields) {}
 
     @Override
     public Optional<ConnectorOutputMetadata> finishInsert(
@@ -1590,12 +1600,14 @@ public class IcebergMetadata
                 .toArray(Type[]::new);
 
         AppendFiles appendFiles = isMergeManifestsOnWrite(session) ? transaction.newAppend() : transaction.newFastAppend();
+        Map<Integer, SortOrder> sortOrders = icebergTable.sortOrders();
         for (CommitTaskData task : commitTasks) {
             DataFiles.Builder builder = DataFiles.builder(icebergTable.spec())
                     .withPath(task.path())
                     .withFileSizeInBytes(task.fileSizeInBytes())
                     .withFormat(table.fileFormat().toIceberg())
-                    .withMetrics(task.metrics().metrics());
+                    .withMetrics(task.metrics().metrics())
+                    .withSortOrder(sortOrders.get(task.sortOrderId()));
             task.fileSplitOffsets().ifPresent(builder::withSplitOffsets);
 
             if (!icebergTable.spec().fields().isEmpty()) {
@@ -1679,7 +1691,7 @@ public class IcebergMetadata
             Map<String, Object> executeProperties)
     {
         DataSize maxScannedFileSize = (DataSize) executeProperties.get("file_size_threshold");
-
+        SortFieldInfo sortInfo = getSupportedSortFields(icebergTable.schema(), icebergTable.sortOrder());
         return Optional.of(new IcebergTableExecuteHandle(
                 tableHandle.getSchemaTableName(),
                 OPTIMIZE,
@@ -1688,9 +1700,8 @@ public class IcebergMetadata
                         tableHandle.getTableSchemaJson(),
                         tableHandle.getPartitionSpecJson().orElseThrow(() -> new VerifyException("Partition spec missing in the table handle")),
                         getPartitionColumns(icebergTable, typeManager),
-                        icebergTable.sortOrder().fields().stream()
-                                .map(TrinoSortField::fromIceberg)
-                                .collect(toImmutableList()),
+                        sortInfo.supportedSortFields(),
+                        sortInfo.sortOrderId(),
                         getFileFormat(tableHandle.getStorageProperties()),
                         tableHandle.getStorageProperties(),
                         maxScannedFileSize),
@@ -2002,12 +2013,14 @@ public class IcebergMetadata
                 .toArray(Type[]::new);
 
         Set<DataFile> newFiles = new HashSet<>();
+        Map<Integer, SortOrder> sortOrders = icebergTable.sortOrders();
         for (CommitTaskData task : commitTasks) {
             DataFiles.Builder builder = DataFiles.builder(icebergTable.spec())
                     .withPath(task.path())
                     .withFileSizeInBytes(task.fileSizeInBytes())
                     .withFormat(optimizeHandle.fileFormat().toIceberg())
-                    .withMetrics(task.metrics().metrics());
+                    .withMetrics(task.metrics().metrics())
+                    .withSortOrder(sortOrders.get(task.sortOrderId()));
             task.fileSplitOffsets().ifPresent(builder::withSplitOffsets);
 
             if (!icebergTable.spec().fields().isEmpty()) {
@@ -3428,6 +3441,7 @@ public class IcebergMetadata
             }
         }
 
+        Map<Integer, SortOrder> sortOrders = icebergTable.sortOrders();
         for (CommitTaskData task : dataTasks) {
             PartitionSpec partitionSpec = PartitionSpecParser.fromJson(schema, task.partitionSpecJson());
             Type[] partitionColumnTypes = partitionSpec.fields().stream()
@@ -3438,7 +3452,8 @@ public class IcebergMetadata
                     .withPath(task.path())
                     .withFormat(task.fileFormat().toIceberg())
                     .withFileSizeInBytes(task.fileSizeInBytes())
-                    .withMetrics(task.metrics().metrics());
+                    .withMetrics(task.metrics().metrics())
+                    .withSortOrder(sortOrders.get(task.sortOrderId()));
 
             if (!icebergTable.spec().fields().isEmpty()) {
                 String partitionDataJson = task.partitionDataJson()
@@ -4115,12 +4130,14 @@ public class IcebergMetadata
                 .toArray(Type[]::new);
 
         AppendFiles appendFiles = isMergeManifestsOnWrite(session) ? transaction.newAppend() : transaction.newFastAppend();
+        Map<Integer, SortOrder> sortOrders = icebergTable.sortOrders();
         for (CommitTaskData task : commitTasks) {
             DataFiles.Builder builder = DataFiles.builder(icebergTable.spec())
                     .withPath(task.path())
                     .withFileSizeInBytes(task.fileSizeInBytes())
                     .withFormat(table.fileFormat().toIceberg())
-                    .withMetrics(task.metrics().metrics());
+                    .withMetrics(task.metrics().metrics())
+                    .withSortOrder(sortOrders.get(task.sortOrderId()));
             task.fileSplitOffsets().ifPresent(builder::withSplitOffsets);
 
             if (!icebergTable.spec().fields().isEmpty()) {
