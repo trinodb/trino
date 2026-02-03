@@ -158,6 +158,9 @@
         <air.check.skip-pmd>true</air.check.skip-pmd>
         <air.check.skip-jacoco>true</air.check.skip-jacoco>
         <air.java.version>25.0.1</air.java.version>
+        <!-- Temurin JVM release used in the docker image and for product test environments -->
+        <!-- https://api.adoptium.net/q/swagger-ui/#/Release%20Info/getReleaseNames -->
+        <temurin.release>jdk-25.0.2+10</temurin.release>
         <air.javadoc.lint>syntax,reference,html,-missing</air.javadoc.lint>
         <air.modernizer.java-version>${project.build.targetJdk}</air.modernizer.java-version>
         <air.release.preparation-goals>clean verify -DskipTests</air.release.preparation-goals>

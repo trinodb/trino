@@ -24,16 +24,14 @@ import picocli.CommandLine.Option;
 
 import java.io.FileDescriptor;
 import java.io.FileOutputStream;
-import java.io.IOException;
 import java.io.OutputStream;
-import java.io.UncheckedIOException;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ListResourceBundle;
 import java.util.ResourceBundle;
 
 import static com.google.inject.util.Modules.EMPTY_MODULE;
 import static io.trino.testing.TestingProperties.getProjectVersion;
+import static io.trino.testing.TestingProperties.getTemurinRelease;
 import static io.trino.tests.product.launcher.cli.Launcher.EnvironmentCommand;
 import static io.trino.tests.product.launcher.cli.Launcher.SuiteCommand;
 import static io.trino.tests.product.launcher.cli.Launcher.TestCommand;
@@ -169,38 +167,15 @@ public class Launcher
         @Override
         protected Object[][] getContents()
         {
-            try {
-                Path jdkDistribution = findJdkDistribution();
-                return new Object[][] {
-                        {"project.version", getProjectVersion()},
-                        {"product-tests.module", "testing/trino-product-tests"},
-                        {"product-tests.name", "trino-product-tests"},
-                        {"server.package", "core/trino-server/target/trino-server-" + getProjectVersion() + ".tar.gz"},
-                        {"launcher.bin", "testing/trino-product-tests-launcher/bin/run-launcher"},
-                        {"cli.bin", format("client/trino-cli/target/trino-cli-%s-executable.jar", getProjectVersion())},
-                        {"jdk.current.release", Files.readString(jdkDistribution).trim()},
-                };
-            }
-            catch (IOException e) {
-                throw new UncheckedIOException(e);
-            }
-        }
-
-        protected Path findJdkDistribution()
-        {
-            String searchFor = "core/.temurin-release";
-            Path currentWorkingDirectory = Path.of("").toAbsolutePath();
-            Path current = currentWorkingDirectory; // current working directory
-
-            while (current != null) {
-                if (Files.exists(current.resolve(searchFor))) {
-                    return current.resolve(searchFor);
-                }
-
-                current = current.getParent();
-            }
-
-            throw new RuntimeException("Could not find %s in the directory %s and its' parents".formatted(searchFor, currentWorkingDirectory));
+            return new Object[][] {
+                    {"project.version", getProjectVersion()},
+                    {"product-tests.module", "testing/trino-product-tests"},
+                    {"product-tests.name", "trino-product-tests"},
+                    {"server.package", "core/trino-server/target/trino-server-" + getProjectVersion() + ".tar.gz"},
+                    {"launcher.bin", "testing/trino-product-tests-launcher/bin/run-launcher"},
+                    {"cli.bin", format("client/trino-cli/target/trino-cli-%s-executable.jar", getProjectVersion())},
+                    {"jdk.current.release", getTemurinRelease()},
+            };
         }
     }
 }
