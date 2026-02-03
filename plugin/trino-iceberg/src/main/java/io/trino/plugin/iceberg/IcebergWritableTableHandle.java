@@ -30,7 +30,7 @@ public record IcebergWritableTableHandle(
         String schemaAsJson,
         Map<Integer, String> partitionsSpecsAsJson,
         int partitionSpecId,
-        List<TrinoSortField> sortOrder,
+        List<TrinoSortField> sortFields,
         List<IcebergColumnHandle> partitionColumns,
         String outputPath,
         IcebergFileFormat fileFormat,
@@ -43,7 +43,7 @@ public record IcebergWritableTableHandle(
         requireNonNull(name, "name is null");
         requireNonNull(schemaAsJson, "schemaAsJson is null");
         partitionsSpecsAsJson = ImmutableMap.copyOf(requireNonNull(partitionsSpecsAsJson, "partitionsSpecsAsJson is null"));
-        sortOrder = ImmutableList.copyOf(requireNonNull(sortOrder, "sortOrder is null"));
+        sortFields = ImmutableList.copyOf(requireNonNull(sortFields, "sortFields is null"));
         partitionColumns = ImmutableList.copyOf(requireNonNull(partitionColumns, "partitionColumns is null"));
         requireNonNull(outputPath, "outputPath is null");
         requireNonNull(fileFormat, "fileFormat is null");
