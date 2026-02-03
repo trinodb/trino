@@ -97,6 +97,8 @@ import io.trino.spi.type.TimeZoneKey;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeManager;
+import io.trino.spi.type.TypeSignature;
 import io.trino.spi.type.VarbinaryType;
 import io.trino.spi.type.VarcharType;
 import microsoft.sql.DateTimeOffset;
@@ -137,7 +139,9 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.collect.MoreCollectors.toOptional;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
+import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.slice.Slices.wrappedBuffer;
+import static io.trino.plugin.base.util.JsonTypeUtil.jsonParse;
 import static io.trino.plugin.jdbc.CaseSensitivity.CASE_INSENSITIVE;
 import static io.trino.plugin.jdbc.CaseSensitivity.CASE_SENSITIVE;
 import static io.trino.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
@@ -191,6 +195,7 @@ import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
+import static io.trino.spi.type.StandardTypes.JSON;
 import static io.trino.spi.type.TimeType.createTimeType;
 import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
 import static io.trino.spi.type.TimeZoneKey.getTimeZoneKey;
@@ -236,6 +241,7 @@ public class SqlServerClient
 
     private final boolean statisticsEnabled;
 
+    private final Type jsonType;
     private final ConnectorExpressionRewriter<ParameterizedExpression> connectorExpressionRewriter;
     private final AggregateFunctionRewriter<JdbcExpression, ?> aggregateFunctionRewriter;
 
@@ -301,11 +307,14 @@ public class SqlServerClient
             JdbcStatisticsConfig statisticsConfig,
             ConnectionFactory connectionFactory,
             QueryBuilder queryBuilder,
+            TypeManager typeManager,
             IdentifierMapping identifierMapping,
             RemoteQueryModifier queryModifier)
     {
         super("\"", connectionFactory, queryBuilder, config.getJdbcTypesMappedToVarchar(), identifierMapping, queryModifier, true);
 
+        requireNonNull(typeManager, "typeManager is null");
+        jsonType = typeManager.getType(new TypeSignature(JSON));
         this.statisticsEnabled = statisticsConfig.isEnabled();
 
         this.connectorExpressionRewriter = JdbcConnectorExpressionRewriterBuilder.newBuilder()
@@ -601,6 +610,8 @@ public class SqlServerClient
                 return Optional.of(varbinaryColumnMapping());
             case "datetimeoffset":
                 return Optional.of(timestampWithTimeZoneColumnMapping(typeHandle.requiredDecimalDigits()));
+            case "json":
+                return Optional.of(jsonColumnMapping());
         }
 
         switch (typeHandle.jdbcType()) {
@@ -758,6 +769,10 @@ public class SqlServerClient
                 return WriteMapping.longMapping(dataType, timestampWriteFunction(timestampType));
             }
             return WriteMapping.objectMapping(dataType, longTimestampWriteFunction(timestampType, precision));
+        }
+
+        if (type == jsonType) {
+            return WriteMapping.sliceMapping("json", nvarcharWriteFunction());
         }
 
         throw new TrinoException(NOT_SUPPORTED, "Unsupported column type: " + type.getDisplayName());
@@ -1327,6 +1342,15 @@ public class SqlServerClient
                 varcharReadFunction(varcharType),
                 varcharWriteFunction(),
                 isCaseSensitive ? SQLSERVER_CHARACTER_PUSHDOWN : CASE_INSENSITIVE_CHARACTER_PUSHDOWN);
+    }
+
+    private ColumnMapping jsonColumnMapping()
+    {
+        return ColumnMapping.sliceMapping(
+                jsonType,
+                (resultSet, columnIndex) -> jsonParse(utf8Slice(resultSet.getString(columnIndex))),
+                nvarcharWriteFunction(),
+                DISABLE_PUSHDOWN);
     }
 
     private static SliceWriteFunction nvarcharWriteFunction()
