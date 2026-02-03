@@ -28,7 +28,7 @@ TRINO_VERSION=
 TAG_PREFIX=trino
 SERVER_ARTIFACT=trino-server
 
-TEMURIN_RELEASE=$(cat "${SOURCE_DIR}/core/.temurin-release")
+TEMURIN_RELEASE=$("${SOURCE_DIR}/mvnw" -f "${SOURCE_DIR}/pom.xml" --quiet help:evaluate -Dexpression=temurin.release -DforceStdout --raw-streams)
 TEMURIN_DOWNLOAD_URL="https://api.adoptium.net/v3/binary/version/{release_name}/linux/{arch}/jdk/hotspot/normal/eclipse?project=jdk"
 
 SKIP_TESTS=false
