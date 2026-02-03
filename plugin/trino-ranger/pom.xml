@@ -17,7 +17,7 @@
     <properties>
         <dep.graalvm.version>25.0.2</dep.graalvm.version>
         <!-- TODO: remove once Ranger upgrades to Jetty 12 -->
-        <dep.jetty11.version>11.0.26</dep.jetty11.version>
+        <dep.jetty11.version>12.1.6</dep.jetty11.version>
         <dep.ranger.version>2.7.0</dep.ranger.version>
         <!-- TODO: update with ranger version which fixes elasticsearch CVEs -->
         <dep.elasticsearch.version>7.17.29</dep.elasticsearch.version>
