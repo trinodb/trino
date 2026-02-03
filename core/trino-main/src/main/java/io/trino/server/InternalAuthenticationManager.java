@@ -23,7 +23,6 @@ import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.JwtParser;
 import io.trino.server.security.InternalPrincipal;
 import io.trino.server.security.SecurityConfig;
-import io.trino.spi.NodeVersion;
 import io.trino.spi.security.Identity;
 import jakarta.ws.rs.container.ContainerRequestContext;
 import jakarta.ws.rs.core.Response;
@@ -68,9 +67,9 @@ public class InternalAuthenticationManager
     private final StartupStatus startupStatus;
 
     @Inject
-    public InternalAuthenticationManager(NodeVersion nodeVersion, InternalCommunicationConfig internalCommunicationConfig, SecurityConfig securityConfig, NodeInfo nodeInfo, StartupStatus startupStatus)
+    public InternalAuthenticationManager(InternalCommunicationConfig internalCommunicationConfig, SecurityConfig securityConfig, NodeInfo nodeInfo, StartupStatus startupStatus)
     {
-        this(nodeVersion, getSharedSecret(internalCommunicationConfig, nodeInfo, !securityConfig.getAuthenticationTypes().equals(ImmutableList.of("insecure"))), nodeInfo.getNodeId(), startupStatus);
+        this(getSharedSecret(internalCommunicationConfig, nodeInfo, !securityConfig.getAuthenticationTypes().equals(ImmutableList.of("insecure"))), nodeInfo.getNodeId(), startupStatus);
     }
 
     private static String getSharedSecret(InternalCommunicationConfig internalCommunicationConfig, NodeInfo nodeInfo, boolean authenticationEnabled)
@@ -90,12 +89,12 @@ public class InternalAuthenticationManager
         return internalCommunicationConfig.getSharedSecret().orElseGet(nodeInfo::getEnvironment);
     }
 
-    public InternalAuthenticationManager(NodeVersion nodeVersion, String sharedSecret, String nodeId, StartupStatus startupStatus)
+    public InternalAuthenticationManager(String sharedSecret, String nodeId, StartupStatus startupStatus)
     {
         requireNonNull(sharedSecret, "sharedSecret is null");
         requireNonNull(nodeId, "nodeId is null");
         this.startupStatus = requireNonNull(startupStatus, "startupStatus is null");
-        this.hmac = expandKey(sharedSecret, nodeVersion);
+        this.hmac = expandKey(sharedSecret);
         this.nodeId = nodeId;
         this.jwtParser = newJwtParserBuilder().verifyWith(hmac).build();
         this.currentToken = new AtomicReference<>(createJwt());
@@ -192,7 +191,7 @@ public class InternalAuthenticationManager
         }
     }
 
-    private static SecretKey expandKey(String sharedSecret, NodeVersion nodeVersion)
+    private static SecretKey expandKey(String sharedSecret)
     {
         try {
             KDF hkdf = KDF.getInstance("HKDF-SHA256");
@@ -200,7 +199,6 @@ public class InternalAuthenticationManager
             AlgorithmParameterSpec params =
                     HKDFParameterSpec.ofExtract()
                             .addIKM(sharedSecret.getBytes(UTF_8))
-                            .addSalt(nodeVersion.toString().getBytes(UTF_8))
                             .thenExpand("internal-communication".getBytes(UTF_8), 32);
 
             return hkdf.deriveKey("HmacSHA256", params);
