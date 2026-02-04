@@ -26,6 +26,7 @@ import io.airlift.node.NodeInfo;
 import io.airlift.tracing.Tracing;
 import io.opentelemetry.api.OpenTelemetry;
 import io.trino.FeaturesConfig;
+import io.trino.FeaturesConfig.DataIntegrityVerification;
 import io.trino.exchange.DirectExchangeInput;
 import io.trino.exchange.ExchangeManagerConfig;
 import io.trino.exchange.ExchangeManagerRegistry;
@@ -97,7 +98,7 @@ public class TestMergeOperator
         serdeFactory = createTestingPagesSerdeFactory(LZ4);
 
         taskBuffers = buildNonEvictableCache(CacheBuilder.newBuilder(), CacheLoader.from(TestingTaskBuffer::new));
-        httpClient = new TestingHttpClient(new TestingExchangeHttpClientHandler(taskBuffers, serdeFactory), executor);
+        httpClient = new TestingHttpClient(new TestingExchangeHttpClientHandler(taskBuffers, serdeFactory, new FeaturesConfig().getExchangeDataIntegrityVerification() != DataIntegrityVerification.NONE), executor);
         exchangeClientFactory = new DirectExchangeClientFactory(
                 new NodeInfo("test"),
                 new FeaturesConfig(),

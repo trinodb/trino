@@ -32,6 +32,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static io.trino.TrinoMediaTypes.TRINO_PAGES;
+import static io.trino.execution.buffer.PagesSerdeUtil.NO_CHECKSUM;
 import static io.trino.execution.buffer.PagesSerdeUtil.calculateChecksum;
 import static io.trino.server.InternalHeaders.TRINO_BUFFER_COMPLETE;
 import static io.trino.server.InternalHeaders.TRINO_PAGE_NEXT_TOKEN;
@@ -48,11 +49,13 @@ public class TestingExchangeHttpClientHandler
 {
     private final LoadingCache<TaskId, TestingTaskBuffer> taskBuffers;
     private final PagesSerdeFactory serdeFactory;
+    private final boolean exchangeDataVerificationEnabled;
 
-    public TestingExchangeHttpClientHandler(LoadingCache<TaskId, TestingTaskBuffer> taskBuffers, PagesSerdeFactory serdeFactory)
+    public TestingExchangeHttpClientHandler(LoadingCache<TaskId, TestingTaskBuffer> taskBuffers, PagesSerdeFactory serdeFactory, boolean exchangeDataVerificationEnabled)
     {
         this.taskBuffers = requireNonNull(taskBuffers, "taskBuffers is null");
         this.serdeFactory = requireNonNull(serdeFactory, "serdeFactory is null");
+        this.exchangeDataVerificationEnabled = exchangeDataVerificationEnabled;
     }
 
     @Override
@@ -82,7 +85,7 @@ public class TestingExchangeHttpClientHandler
             Slice serializedPage = serdeFactory.createSerializer(Optional.empty()).serialize(page);
             DynamicSliceOutput output = new DynamicSliceOutput(256);
             output.writeInt(SERIALIZED_PAGES_MAGIC);
-            output.writeLong(calculateChecksum(ImmutableList.of(serializedPage)));
+            output.writeLong(exchangeDataVerificationEnabled ? calculateChecksum(ImmutableList.of(serializedPage)) : NO_CHECKSUM);
             output.writeInt(1);
             output.writeBytes(serializedPage);
             return new TestingResponse(HttpStatus.OK, headers.build(), output.slice().getInput());
@@ -92,7 +95,7 @@ public class TestingExchangeHttpClientHandler
             headers.put(TRINO_BUFFER_COMPLETE, String.valueOf(true));
             DynamicSliceOutput output = new DynamicSliceOutput(8);
             output.writeInt(SERIALIZED_PAGES_MAGIC);
-            output.writeLong(calculateChecksum(ImmutableList.of()));
+            output.writeLong(exchangeDataVerificationEnabled ? calculateChecksum(ImmutableList.of()) : NO_CHECKSUM);
             output.writeInt(0);
             return new TestingResponse(HttpStatus.OK, headers.build(), output.slice().getInput());
         }

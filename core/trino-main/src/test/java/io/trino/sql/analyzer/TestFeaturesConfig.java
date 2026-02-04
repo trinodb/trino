@@ -55,7 +55,7 @@ public class TestFeaturesConfig
                 .setMemoryRevokingTarget(0.5)
                 .setExchangeCompressionCodec(NONE)
                 .setExchangeVectorizedSerdeEnabled(true)
-                .setExchangeDataIntegrityVerification(DataIntegrityVerification.ABORT)
+                .setExchangeDataIntegrityVerification(DataIntegrityVerification.NONE)
                 .setPagesIndexEagerCompactionEnabled(false)
                 .setFilterAndProjectMinOutputPageSize(DataSize.of(500, KILOBYTE))
                 .setFilterAndProjectMinOutputPageRowCount(256)

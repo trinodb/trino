@@ -98,7 +98,7 @@ public class FeaturesConfig
     private boolean scaleWriters = true;
     private DataSize writerScalingMinDataProcessed = DataSize.of(120, MEGABYTE);
     private DataSize maxMemoryPerPartitionWriter = DataSize.of(256, MEGABYTE);
-    private DataIntegrityVerification exchangeDataIntegrityVerification = DataIntegrityVerification.ABORT;
+    private DataIntegrityVerification exchangeDataIntegrityVerification = DataIntegrityVerification.NONE;
     /**
      * default value is overwritten for fault tolerant execution in {@link #applyFaultTolerantExecutionDefaults()}}
      */

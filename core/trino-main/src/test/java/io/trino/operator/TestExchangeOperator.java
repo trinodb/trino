@@ -25,6 +25,7 @@ import io.airlift.tracing.Tracing;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.opentelemetry.api.OpenTelemetry;
+import io.trino.FeaturesConfig;
 import io.trino.FeaturesConfig.DataIntegrityVerification;
 import io.trino.exchange.DirectExchangeInput;
 import io.trino.exchange.ExchangeManagerConfig;
@@ -94,11 +95,11 @@ public class TestExchangeOperator
         scheduler = newScheduledThreadPool(4, daemonThreadsNamed(getClass().getSimpleName() + "-%s"));
         scheduledExecutor = newScheduledThreadPool(2, daemonThreadsNamed(getClass().getSimpleName() + "-scheduledExecutor-%s"));
         pageBufferClientCallbackExecutor = Executors.newSingleThreadExecutor();
-        httpClient = new TestingHttpClient(new TestingExchangeHttpClientHandler(taskBuffers, SERDE_FACTORY), scheduler);
+        httpClient = new TestingHttpClient(new TestingExchangeHttpClientHandler(taskBuffers, SERDE_FACTORY, new FeaturesConfig().getExchangeDataIntegrityVerification() != DataIntegrityVerification.NONE), scheduler);
 
         directExchangeClientSupplier = (queryId, exchangeId, span, memoryContext, taskFailureListener, retryPolicy) -> new DirectExchangeClient(
                 "localhost",
-                DataIntegrityVerification.ABORT,
+                new FeaturesConfig().getExchangeDataIntegrityVerification(),
                 new StreamingDirectExchangeBuffer(scheduler, DataSize.of(32, MEGABYTE)),
                 DataSize.of(10, MEGABYTE),
                 3,
