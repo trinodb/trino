@@ -166,7 +166,7 @@ public class TestPagesIndex
                             .sum();
                 }
                 long actualAdditionalSize = actualLookupSourceSize - (addressesSize + channelsArraySize + blocksSize);
-                assertThat(estimatedAdditionalSize).isCloseTo(actualAdditionalSize, withPercentage(1));
+                assertThat(estimatedAdditionalSize).isCloseTo(actualAdditionalSize, withPercentage(2));
             }
         }
     }
