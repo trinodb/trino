@@ -95,6 +95,7 @@ public final class TestGroups
     public static final String DELTA_LAKE_MINIO = "delta-lake-minio";
     public static final String DELTA_LAKE_AZURE = "delta-lake-azure";
     public static final String DELTA_LAKE_GCS = "delta-lake-gcs";
+    // DELTA_LAKE_DATABRICKS runs tests against oldest and newest Databricks runtimes
     public static final String DELTA_LAKE_DATABRICKS = "delta-lake-databricks";
     public static final String DELTA_LAKE_DATABRICKS_133 = "delta-lake-databricks-133";
     public static final String DELTA_LAKE_DATABRICKS_143 = "delta-lake-databricks-143";
