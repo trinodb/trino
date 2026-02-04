@@ -14,11 +14,12 @@
 package io.trino.execution.buffer;
 
 import com.google.common.collect.AbstractIterator;
+import io.airlift.compress.v3.xxhash.XxHash3Hasher;
+import io.airlift.compress.v3.xxhash.XxHash3Native;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;
 import io.airlift.slice.Slices;
-import io.airlift.slice.XxHash64;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockEncodingSerde;
@@ -77,16 +78,17 @@ public final class PagesSerdeUtil
 
     public static long calculateChecksum(List<Slice> pages)
     {
-        XxHash64 hash = new XxHash64();
-        for (Slice page : pages) {
-            hash.update(page);
+        try (XxHash3Hasher hasher = XxHash3Native.newHasher()) {
+            for (Slice page : pages) {
+                hasher.update(page.byteArray(), page.byteArrayOffset(), page.length());
+            }
+            long checksum = hasher.digest();
+            // Since NO_CHECKSUM is assigned a special meaning, it is not a valid checksum.
+            if (checksum == NO_CHECKSUM) {
+                return checksum + 1;
+            }
+            return checksum;
         }
-        long checksum = hash.hash();
-        // Since NO_CHECKSUM is assigned a special meaning, it is not a valid checksum.
-        if (checksum == NO_CHECKSUM) {
-            return checksum + 1;
-        }
-        return checksum;
     }
 
     public static long writePages(PageSerializer serializer, SliceOutput sliceOutput, Page... pages)

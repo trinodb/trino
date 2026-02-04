@@ -841,7 +841,7 @@ public class TestDirectExchangeClient
 
         assertThatThrownBy(() -> getNextPage(exchangeClient))
                 .isInstanceOf(TrinoException.class)
-                .hasMessageMatching("Checksum verification failure on localhost when reading from http://localhost:8080/0: Data corruption, read checksum: 0x7d7292e0ba4ce122, calculated checksum: 0x251e82faf1acd745");
+                .hasMessageMatching("Checksum verification failure on localhost when reading from http://localhost:8080/0: Data corruption, read checksum: 0xf9ee83215580229d, calculated checksum: 0xbd9b2de0145cb9b");
 
         exchangeClient.close();
     }
