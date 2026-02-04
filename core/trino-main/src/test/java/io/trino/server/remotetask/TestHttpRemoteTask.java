@@ -590,7 +590,7 @@ public class TestHttpRemoteTask
                 .describedAs(format("TaskStatus is not in a done state: %s", remoteTask.getTaskStatus()))
                 .isTrue();
 
-        ErrorCode actualErrorCode = getOnlyElement(remoteTask.getTaskStatus().failures()).getErrorCode();
+        ErrorCode actualErrorCode = getOnlyElement(remoteTask.getTaskStatus().failures()).errorCode();
         switch (failureScenario) {
             case TASK_MISMATCH:
             case TASK_MISMATCH_WHEN_VERSION_IS_HIGH:

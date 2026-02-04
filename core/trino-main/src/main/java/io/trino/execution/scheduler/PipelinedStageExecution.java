@@ -445,19 +445,19 @@ public class PipelinedStageExecution
 
     private ExecutionFailureInfo rewriteTransportFailure(ExecutionFailureInfo executionFailureInfo)
     {
-        if (executionFailureInfo.getRemoteHost() == null || !nodeManager.isGone(executionFailureInfo.getRemoteHost())) {
+        if (executionFailureInfo.remoteHost() == null || !nodeManager.isGone(executionFailureInfo.remoteHost())) {
             return executionFailureInfo;
         }
 
         return new ExecutionFailureInfo(
-                executionFailureInfo.getType(),
-                executionFailureInfo.getMessage(),
-                executionFailureInfo.getCause(),
-                executionFailureInfo.getSuppressed(),
-                executionFailureInfo.getStack(),
-                executionFailureInfo.getErrorLocation(),
+                executionFailureInfo.type(),
+                executionFailureInfo.message(),
+                executionFailureInfo.cause(),
+                executionFailureInfo.suppressed(),
+                executionFailureInfo.stack(),
+                executionFailureInfo.errorLocation(),
                 REMOTE_HOST_GONE.toErrorCode(),
-                executionFailureInfo.getRemoteHost());
+                executionFailureInfo.remoteHost());
     }
 
     @Override

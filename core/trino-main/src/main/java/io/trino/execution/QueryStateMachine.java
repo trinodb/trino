@@ -386,8 +386,8 @@ public class QueryStateMachine
             if (newState.isDone()) {
                 queryStateMachine.getFailureInfo().ifPresentOrElse(
                         failure -> {
-                            ErrorCode errorCode = requireNonNull(failure.getErrorCode());
-                            querySpan.setStatus(StatusCode.ERROR, nullToEmpty(failure.getMessage()))
+                            ErrorCode errorCode = requireNonNull(failure.errorCode());
+                            querySpan.setStatus(StatusCode.ERROR, nullToEmpty(failure.message()))
                                     .recordException(failure.toException())
                                     .setAttribute(TrinoAttributes.ERROR_CODE, errorCode.getCode())
                                     .setAttribute(TrinoAttributes.ERROR_NAME, errorCode.getName())
@@ -548,7 +548,7 @@ public class QueryStateMachine
         if (state == FAILED) {
             ExecutionFailureInfo failureCause = this.failureCause.get();
             if (failureCause != null) {
-                errorCode = failureCause.getErrorCode();
+                errorCode = failureCause.errorCode();
             }
         }
 
@@ -581,7 +581,7 @@ public class QueryStateMachine
         if (state == FAILED) {
             ExecutionFailureInfo failureCause = this.failureCause.get();
             if (failureCause != null) {
-                errorCode = failureCause.getErrorCode();
+                errorCode = failureCause.errorCode();
             }
         }
 
@@ -686,7 +686,7 @@ public class QueryStateMachine
         if (state == FAILED) {
             failureCause = this.failureCause.get();
             if (failureCause != null) {
-                errorCode = failureCause.getErrorCode();
+                errorCode = failureCause.errorCode();
             }
         }
 

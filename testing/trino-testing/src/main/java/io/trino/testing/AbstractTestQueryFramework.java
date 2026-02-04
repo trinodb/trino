@@ -271,7 +271,7 @@ public abstract class AbstractTestQueryFramework
                                         return taskDetail;
                                     }
                                     return " -- Failures: " + task.failures().stream()
-                                            .map(failure -> format("%s %s: %s", failure.getErrorCode(), failure.getType(), failure.getMessage()))
+                                            .map(failure -> format("%s %s: %s", failure.errorCode(), failure.type(), failure.message()))
                                             .collect(Collectors.joining(", ", "[", "]"));
                                 })
                                 .collect(Collectors.joining("\n\t\t", ":\n\t\t", ""));

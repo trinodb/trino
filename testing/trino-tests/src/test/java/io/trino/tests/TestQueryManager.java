@@ -88,7 +88,7 @@ public class TestQueryManager
             assertThat(queryInfo.getState()).isEqualTo(FAILED);
             assertThat(queryInfo.getErrorCode()).isEqualTo(GENERIC_INTERNAL_ERROR.toErrorCode());
             assertThat(queryInfo.getFailureInfo()).isNotNull();
-            assertThat(queryInfo.getFailureInfo().getMessage()).isEqualTo("mock exception");
+            assertThat(queryInfo.getFailureInfo().message()).isEqualTo("mock exception");
         }
     }
 
