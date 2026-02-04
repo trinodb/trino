@@ -20,27 +20,23 @@ import java.util.List;
 import java.util.Objects;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Strings.isNullOrEmpty;
 import static java.util.Objects.requireNonNull;
 
 public class BufferResult
 {
-    public static BufferResult emptyResults(String taskInstanceId, long token, boolean bufferComplete)
+    public static BufferResult emptyResults(long taskInstanceId, long token, boolean bufferComplete)
     {
         return new BufferResult(taskInstanceId, token, token, bufferComplete, ImmutableList.of());
     }
 
-    private final String taskInstanceId;
+    private final long taskInstanceId;
     private final long token;
     private final long nextToken;
     private final boolean bufferComplete;
     private final List<Slice> serializedPages;
 
-    public BufferResult(String taskInstanceId, long token, long nextToken, boolean bufferComplete, List<Slice> serializedPages)
+    public BufferResult(long taskInstanceId, long token, long nextToken, boolean bufferComplete, List<Slice> serializedPages)
     {
-        checkArgument(!isNullOrEmpty(taskInstanceId), "taskInstanceId is null");
-
         this.taskInstanceId = taskInstanceId;
         this.token = token;
         this.nextToken = nextToken;
@@ -78,7 +74,7 @@ public class BufferResult
         return serializedPages.isEmpty();
     }
 
-    public String getTaskInstanceId()
+    public long getTaskInstanceId()
     {
         return taskInstanceId;
     }
@@ -95,7 +91,7 @@ public class BufferResult
         BufferResult that = (BufferResult) o;
         return token == that.token &&
                 nextToken == that.nextToken &&
-                Objects.equals(taskInstanceId, that.taskInstanceId) &&
+                taskInstanceId == that.taskInstanceId &&
                 bufferComplete == that.bufferComplete &&
                 Objects.equals(serializedPages, that.serializedPages);
     }

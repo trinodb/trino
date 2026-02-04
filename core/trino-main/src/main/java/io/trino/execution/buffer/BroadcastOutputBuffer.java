@@ -56,7 +56,7 @@ import static java.util.Objects.requireNonNull;
 public class BroadcastOutputBuffer
         implements OutputBuffer
 {
-    private final String taskInstanceId;
+    private final long taskInstanceId;
     private final OutputBufferStateMachine stateMachine;
     private final OutputBufferMemoryManager memoryManager;
     private final PagesReleasedListener onPagesReleased;
@@ -78,14 +78,14 @@ public class BroadcastOutputBuffer
     private final Runnable notifyStatusChanged;
 
     public BroadcastOutputBuffer(
-            String taskInstanceId,
+            long taskInstanceId,
             OutputBufferStateMachine stateMachine,
             DataSize maxBufferSize,
             Supplier<LocalMemoryContext> memoryContextSupplier,
             Executor notificationExecutor,
             Runnable notifyStatusChanged)
     {
-        this.taskInstanceId = requireNonNull(taskInstanceId, "taskInstanceId is null");
+        this.taskInstanceId = taskInstanceId;
         this.stateMachine = requireNonNull(stateMachine, "stateMachine is null");
         this.memoryManager = new OutputBufferMemoryManager(
                 maxBufferSize.toBytes(),

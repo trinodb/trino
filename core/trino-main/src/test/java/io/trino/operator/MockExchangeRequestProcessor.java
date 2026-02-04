@@ -60,7 +60,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 public class MockExchangeRequestProcessor
         implements TestingHttpClient.Processor
 {
-    private static final String TASK_INSTANCE_ID = "task-instance-id";
+    private static final long TASK_INSTANCE_ID = 0x1337;
 
     private final PagesSerdeFactory serdeFactory = createTestingPagesSerdeFactory(LZ4);
 

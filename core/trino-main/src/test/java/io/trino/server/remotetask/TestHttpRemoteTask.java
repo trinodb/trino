@@ -766,8 +766,8 @@ public class TestHttpRemoteTask
     @Path("/task/{nodeId}")
     public static class TestingTaskResource
     {
-        private static final String INITIAL_TASK_INSTANCE_ID = "task-instance-id";
-        private static final String NEW_TASK_INSTANCE_ID = "task-instance-id-x";
+        private static final long INITIAL_TASK_INSTANCE_ID = -1;
+        private static final long NEW_TASK_INSTANCE_ID = 1;
 
         private final AtomicLong lastActivityNanos;
         private final FailureScenario failureScenario;
@@ -781,7 +781,7 @@ public class TestHttpRemoteTask
         private OptionalInt dynamicFilterFailureCount = OptionalInt.empty();
         private long version;
         private TaskState taskState;
-        private String taskInstanceId = INITIAL_TASK_INSTANCE_ID;
+        private long taskInstanceId = INITIAL_TASK_INSTANCE_ID;
         private Map<DynamicFilterId, Domain> latestDynamicFilterFromCoordinator = ImmutableMap.of();
 
         private long statusFetchCounter;

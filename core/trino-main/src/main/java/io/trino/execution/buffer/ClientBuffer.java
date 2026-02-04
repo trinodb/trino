@@ -44,7 +44,7 @@ import static java.util.Objects.requireNonNull;
 @ThreadSafe
 class ClientBuffer
 {
-    private final String taskInstanceId;
+    private final long taskInstanceId;
     private final OutputBufferId bufferId;
     private final PagesReleasedListener onPagesReleased;
 
@@ -70,9 +70,9 @@ class ClientBuffer
     @GuardedBy("this")
     private PendingRead pendingRead;
 
-    public ClientBuffer(String taskInstanceId, OutputBufferId bufferId, PagesReleasedListener onPagesReleased)
+    public ClientBuffer(long taskInstanceId, OutputBufferId bufferId, PagesReleasedListener onPagesReleased)
     {
-        this.taskInstanceId = requireNonNull(taskInstanceId, "taskInstanceId is null");
+        this.taskInstanceId = taskInstanceId;
         this.bufferId = requireNonNull(bufferId, "bufferId is null");
         this.onPagesReleased = requireNonNull(onPagesReleased, "onPagesReleased is null");
     }
@@ -439,14 +439,14 @@ class ClientBuffer
     @Immutable
     private static class PendingRead
     {
-        private final String taskInstanceId;
+        private final long taskInstanceId;
         private final long sequenceId;
         private final DataSize maxSize;
         private final SettableFuture<BufferResult> resultFuture = SettableFuture.create();
 
-        private PendingRead(String taskInstanceId, long sequenceId, DataSize maxSize)
+        private PendingRead(long taskInstanceId, long sequenceId, DataSize maxSize)
         {
-            this.taskInstanceId = requireNonNull(taskInstanceId, "taskInstanceId is null");
+            this.taskInstanceId = taskInstanceId;
             this.sequenceId = sequenceId;
             this.maxSize = maxSize;
         }

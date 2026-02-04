@@ -97,7 +97,7 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 public class MockRemoteTaskFactory
         implements RemoteTaskFactory
 {
-    private static final String TASK_INSTANCE_ID = "task-instance-id";
+    private static final long TASK_INSTANCE_ID = 0x1337;
     private final Executor executor;
     private final ScheduledExecutorService scheduledExecutor;
 

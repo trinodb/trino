@@ -475,7 +475,7 @@ public class BenchmarkPartitionedOutputOperator
         private TestingPartitionedOutputBuffer createPartitionedBuffer(PipelinedOutputBuffers buffers, DataSize dataSize)
         {
             return new TestingPartitionedOutputBuffer(
-                    "task-instance-id",
+                    0,
                     new OutputBufferStateMachine(new TaskId(new StageId(new QueryId("query"), 0), 0, 0), SCHEDULER),
                     buffers,
                     dataSize,
@@ -490,7 +490,7 @@ public class BenchmarkPartitionedOutputOperator
             private final Blackhole blackhole;
 
             public TestingPartitionedOutputBuffer(
-                    String taskInstanceId,
+                    long taskInstanceId,
                     OutputBufferStateMachine stateMachine,
                     PipelinedOutputBuffers outputBuffers,
                     DataSize maxBufferSize,
