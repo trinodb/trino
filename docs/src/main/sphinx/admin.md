@@ -40,8 +40,6 @@ with Trino for further analysis or reporting.
 The following event listeners are available:
 
 ```{toctree}
-:titlesonly: true
-
 admin/event-listeners-http
 admin/event-listeners-kafka
 admin/event-listeners-mysql
