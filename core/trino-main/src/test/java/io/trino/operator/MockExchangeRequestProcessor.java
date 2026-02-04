@@ -112,12 +112,12 @@ public class MockExchangeRequestProcessor
 
         byte[] bytes = new byte[0];
         HttpStatus status;
-        if (!result.getSerializedPages().isEmpty()) {
+        if (!result.serializedPages().isEmpty()) {
             DynamicSliceOutput sliceOutput = new DynamicSliceOutput(64);
             sliceOutput.writeInt(SERIALIZED_PAGES_MAGIC);
-            sliceOutput.writeLong(calculateChecksum(result.getSerializedPages()));
-            sliceOutput.writeInt(result.getSerializedPages().size());
-            for (Slice page : result.getSerializedPages()) {
+            sliceOutput.writeLong(calculateChecksum(result.serializedPages()));
+            sliceOutput.writeInt(result.serializedPages().size());
+            for (Slice page : result.serializedPages()) {
                 sliceOutput.writeBytes(page);
             }
             bytes = sliceOutput.slice().getBytes();
@@ -131,10 +131,10 @@ public class MockExchangeRequestProcessor
                 status,
                 ImmutableListMultimap.<String, String>builder()
                         .put(CONTENT_TYPE, TRINO_PAGES)
-                        .put(TRINO_TASK_INSTANCE_ID, String.valueOf(result.getTaskInstanceId()))
-                        .put(TRINO_PAGE_TOKEN, String.valueOf(result.getToken()))
-                        .put(TRINO_PAGE_NEXT_TOKEN, String.valueOf(result.getNextToken()))
-                        .put(TRINO_BUFFER_COMPLETE, String.valueOf(result.isBufferComplete()))
+                        .put(TRINO_TASK_INSTANCE_ID, String.valueOf(result.taskInstanceId()))
+                        .put(TRINO_PAGE_TOKEN, String.valueOf(result.token()))
+                        .put(TRINO_PAGE_NEXT_TOKEN, String.valueOf(result.nextToken()))
+                        .put(TRINO_BUFFER_COMPLETE, String.valueOf(result.bufferComplete()))
                         .put(TRINO_TASK_FAILED, "false")
                         .build(),
                 bytes);

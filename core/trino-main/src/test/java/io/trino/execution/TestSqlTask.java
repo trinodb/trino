@@ -190,14 +190,14 @@ public class TestSqlTask
         assertThat(sqlTask.getTaskInfo(STARTING_VERSION).isDone()).isTrue();
 
         BufferResult results = sqlTask.getTaskResults(OUT, 0, DataSize.of(1, MEGABYTE)).get();
-        assertThat(results.isBufferComplete()).isFalse();
-        assertThat(results.getSerializedPages()).hasSize(1);
-        assertThat(getSerializedPagePositionCount(results.getSerializedPages().get(0))).isEqualTo(1);
+        assertThat(results.bufferComplete()).isFalse();
+        assertThat(results.serializedPages()).hasSize(1);
+        assertThat(getSerializedPagePositionCount(results.serializedPages().get(0))).isEqualTo(1);
 
-        for (boolean moreResults = true; moreResults; moreResults = !results.isBufferComplete()) {
-            results = sqlTask.getTaskResults(OUT, results.getToken() + results.getSerializedPages().size(), DataSize.of(1, MEGABYTE)).get();
+        for (boolean moreResults = true; moreResults; moreResults = !results.bufferComplete()) {
+            results = sqlTask.getTaskResults(OUT, results.token() + results.serializedPages().size(), DataSize.of(1, MEGABYTE)).get();
         }
-        assertThat(results.getSerializedPages()).isEmpty();
+        assertThat(results.serializedPages()).isEmpty();
 
         // complete the task by calling destroy on it
         TaskInfo info = sqlTask.destroyTaskResults(OUT);
@@ -307,7 +307,7 @@ public class TestSqlTask
         // verify the buffer is closed
         bufferResult = sqlTask.getTaskResults(OUT, 0, DataSize.of(1, MEGABYTE));
         assertThat(bufferResult.isDone()).isTrue();
-        assertThat(bufferResult.get().isBufferComplete()).isTrue();
+        assertThat(bufferResult.get().bufferComplete()).isTrue();
     }
 
     @Test
@@ -329,7 +329,7 @@ public class TestSqlTask
 
         bufferResult = sqlTask.getTaskResults(OUT, 0, DataSize.of(1, MEGABYTE));
         assertThat(bufferResult.isDone()).isTrue();
-        assertThat(bufferResult.get().isBufferComplete()).isTrue();
+        assertThat(bufferResult.get().bufferComplete()).isTrue();
     }
 
     @Test

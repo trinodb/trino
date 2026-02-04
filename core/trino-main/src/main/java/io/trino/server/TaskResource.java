@@ -536,13 +536,13 @@ public class TaskResource
         // This response may have been created as the result of a timeout, so refresh the task heartbeat
         taskWithResults.recordHeartbeat();
 
-        List<Slice> serializedPages = result.getSerializedPages();
+        List<Slice> serializedPages = result.serializedPages();
 
         Response.ResponseBuilder response = Response.status(serializedPages.isEmpty() ? Status.NO_CONTENT : Status.OK)
-                .header(TRINO_TASK_INSTANCE_ID, result.getTaskInstanceId())
-                .header(TRINO_PAGE_TOKEN, result.getToken())
-                .header(TRINO_PAGE_NEXT_TOKEN, result.getNextToken())
-                .header(TRINO_BUFFER_COMPLETE, result.isBufferComplete())
+                .header(TRINO_TASK_INSTANCE_ID, result.taskInstanceId())
+                .header(TRINO_PAGE_TOKEN, result.token())
+                .header(TRINO_PAGE_NEXT_TOKEN, result.nextToken())
+                .header(TRINO_BUFFER_COMPLETE, result.bufferComplete())
                 // check for task failure after getting the result to ensure it's consistent with isBufferComplete()
                 .header(TRINO_TASK_FAILED, taskWithResults.isTaskFailedOrFailing());
 

@@ -55,22 +55,22 @@ public final class BufferTestUtils
 
     static void assertBufferResultEquals(List<? extends Type> types, BufferResult actual, BufferResult expected)
     {
-        assertThat(actual.getSerializedPages().size())
+        assertThat(actual.serializedPages().size())
                 .describedAs("page count")
-                .isEqualTo(expected.getSerializedPages().size());
-        assertThat(actual.getToken())
+                .isEqualTo(expected.serializedPages().size());
+        assertThat(actual.token())
                 .describedAs("token")
-                .isEqualTo(expected.getToken());
+                .isEqualTo(expected.token());
         PageDeserializer deserializer = PAGES_SERDE_FACTORY.createDeserializer(Optional.empty());
-        for (int i = 0; i < actual.getSerializedPages().size(); i++) {
-            Page actualPage = deserializer.deserialize(actual.getSerializedPages().get(i));
-            Page expectedPage = deserializer.deserialize(expected.getSerializedPages().get(i));
+        for (int i = 0; i < actual.serializedPages().size(); i++) {
+            Page actualPage = deserializer.deserialize(actual.serializedPages().get(i));
+            Page expectedPage = deserializer.deserialize(expected.serializedPages().get(i));
             assertThat(actualPage.getChannelCount()).isEqualTo(expectedPage.getChannelCount());
             PageAssertions.assertPageEquals(types, actualPage, expectedPage);
         }
-        assertThat(actual.isBufferComplete())
+        assertThat(actual.bufferComplete())
                 .describedAs("buffer complete")
-                .isEqualTo(expected.isBufferComplete());
+                .isEqualTo(expected.bufferComplete());
     }
 
     static BufferResult createBufferResult(long bufferId, long token, List<Page> pages)

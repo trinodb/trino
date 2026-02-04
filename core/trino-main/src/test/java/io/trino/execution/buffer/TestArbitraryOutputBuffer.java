@@ -461,7 +461,7 @@ public class TestArbitraryOutputBuffer
 
             BufferResult result = getFuture(firstReads.remove(completed), NO_WAIT);
             // Store completion order of first for follow up sequence
-            secondReads.add(buffer.get(completed, result.getNextToken(), sizeOfPages(1)));
+            secondReads.add(buffer.get(completed, result.nextToken(), sizeOfPages(1)));
         }
         // Test sanity
         assertThat(secondReads).hasSize(ids.length);
