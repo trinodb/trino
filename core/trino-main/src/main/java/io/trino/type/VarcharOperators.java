@@ -18,7 +18,10 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.function.LiteralParameters;
 import io.trino.spi.function.ScalarOperator;
 import io.trino.spi.function.SqlType;
+import io.trino.spi.type.Bigdecimal;
 import io.trino.spi.type.StandardTypes;
+
+import java.math.BigDecimal;
 
 import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static io.trino.spi.function.OperatorType.CAST;
@@ -146,6 +149,19 @@ public final class VarcharOperators
         }
         catch (Exception e) {
             throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to TINYINT", slice.toStringUtf8()));
+        }
+    }
+
+    @LiteralParameters("x")
+    @ScalarOperator(CAST)
+    @SqlType(StandardTypes.BIGDECIMAL)
+    public static Bigdecimal castToBigdecimal(@SqlType("varchar(x)") Slice slice)
+    {
+        try {
+            return Bigdecimal.from(new BigDecimal(slice.toStringUtf8().trim()));
+        }
+        catch (Exception e) {
+            throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to BIGDECIMAL", slice.toStringUtf8()), e);
         }
     }
 

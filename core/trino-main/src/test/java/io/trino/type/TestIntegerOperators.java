@@ -13,6 +13,7 @@
  */
 package io.trino.type;
 
+import io.trino.spi.type.SqlBigdecimal;
 import io.trino.sql.query.QueryAssertions;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -419,6 +420,22 @@ public class TestIntegerOperators
         assertThat(assertions.expression("cast(a as tinyint)")
                 .binding("a", "INTEGER '17'"))
                 .isEqualTo((byte) 17);
+    }
+
+    @Test
+    public void testCastToBigDecimal()
+    {
+        assertThat(assertions.expression("cast(a as bigdecimal)")
+                .binding("a", "INTEGER '37'"))
+                .isEqualTo(new SqlBigdecimal("37"));
+
+        assertThat(assertions.expression("cast(a as bigdecimal)")
+                .binding("a", "INTEGER '-1000017'"))
+                .isEqualTo(new SqlBigdecimal("-1000017"));
+
+        assertThat(assertions.expression("cast(a as bigdecimal)")
+                .binding("a", "INTEGER '0'"))
+                .isEqualTo(new SqlBigdecimal("0"));
     }
 
     @Test

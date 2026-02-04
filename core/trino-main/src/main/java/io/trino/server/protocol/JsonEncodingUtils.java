@@ -32,6 +32,7 @@ import io.trino.spi.type.MapType;
 import io.trino.spi.type.RealType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.SmallintType;
+import io.trino.spi.type.SqlBigdecimal;
 import io.trino.spi.type.SqlDate;
 import io.trino.spi.type.SqlDecimal;
 import io.trino.spi.type.SqlTime;
@@ -436,6 +437,9 @@ public final class JsonEncodingUtils
                 case BigDecimal bigDecimalValue -> generator.writeNumber(bigDecimalValue);
                 case SqlDate dateValue -> generator.writeString(dateValue.toString());
                 case SqlDecimal decimalValue -> generator.writeString(decimalValue.toString());
+                // Trino client protocol backward compatibility requires that any new types are base64-encoded strings.
+                // JsonDecodingUtils uses "base64 decoder" for any type it doesn't recognize.
+                case SqlBigdecimal bigdecimal -> generator.writeString(bigdecimal.base64Encoded());
                 case SqlIntervalDayTime intervalValue -> generator.writeString(intervalValue.toString());
                 case SqlIntervalYearMonth intervalValue -> generator.writeString(intervalValue.toString());
                 case SqlTime timeValue -> generator.writeString(timeValue.toString());
