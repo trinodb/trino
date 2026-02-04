@@ -13,7 +13,6 @@
  */
 package io.trino.type;
 
-import io.trino.metadata.InternalFunctionBundle;
 import io.trino.sql.query.QueryAssertions;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -51,10 +50,6 @@ public class TestDecimalOperators
     public void init()
     {
         assertions = new QueryAssertions();
-
-        assertions.addFunctions(InternalFunctionBundle.builder()
-                .scalars(TestMapOperators.class)
-                .build());
     }
 
     @AfterAll
