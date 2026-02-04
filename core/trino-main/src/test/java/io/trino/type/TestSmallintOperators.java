@@ -13,6 +13,7 @@
  */
 package io.trino.type;
 
+import io.trino.spi.type.SqlBigdecimal;
 import io.trino.spi.type.Type;
 import io.trino.sql.query.QueryAssertions;
 import org.junit.jupiter.api.AfterAll;
@@ -479,6 +480,22 @@ public class TestSmallintOperators
         assertThat(assertions.expression("cast(a as real)")
                 .binding("a", "SMALLINT '0'"))
                 .isEqualTo(0.0f);
+    }
+
+    @Test
+    public void testCastToBigDecimal()
+    {
+        assertThat(assertions.expression("cast(a as bigdecimal)")
+                .binding("a", "SMALLINT '37'"))
+                .isEqualTo(new SqlBigdecimal("37"));
+
+        assertThat(assertions.expression("cast(a as bigdecimal)")
+                .binding("a", "SMALLINT '-10017'"))
+                .isEqualTo(new SqlBigdecimal("-10017"));
+
+        assertThat(assertions.expression("cast(a as bigdecimal)")
+                .binding("a", "SMALLINT '0'"))
+                .isEqualTo(new SqlBigdecimal("0"));
     }
 
     @Test

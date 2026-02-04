@@ -20,6 +20,7 @@ import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.BlockBuilderStatus;
 import io.trino.spi.block.ValueBlock;
 import io.trino.spi.connector.ConnectorSession;
+import jakarta.annotation.Nullable;
 
 import java.util.List;
 import java.util.Optional;
@@ -124,6 +125,7 @@ public interface Type
      * {@code position}. This is the value returned to the user via the
      * REST endpoint and therefore must be JSON serializable.
      */
+    @Nullable
     Object getObjectValue(Block block, int position);
 
     /**

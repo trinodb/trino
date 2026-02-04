@@ -15,6 +15,7 @@ package io.trino.type;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.spi.type.ArrayType;
+import io.trino.spi.type.BigdecimalType;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.MapType;
@@ -362,6 +363,7 @@ public final class TypeCoercion
                 case StandardTypes.REAL -> Optional.of(REAL);
                 case StandardTypes.DOUBLE -> Optional.of(DOUBLE);
                 case StandardTypes.DECIMAL -> Optional.of(createDecimalType(3, 0));
+                case StandardTypes.BIGDECIMAL -> Optional.of(BigdecimalType.BIGDECIMAL);
                 default -> Optional.empty();
             };
             case StandardTypes.SMALLINT -> switch (resultTypeBase) {
@@ -370,6 +372,7 @@ public final class TypeCoercion
                 case StandardTypes.REAL -> Optional.of(REAL);
                 case StandardTypes.DOUBLE -> Optional.of(DOUBLE);
                 case StandardTypes.DECIMAL -> Optional.of(createDecimalType(5, 0));
+                case StandardTypes.BIGDECIMAL -> Optional.of(BigdecimalType.BIGDECIMAL);
                 default -> Optional.empty();
             };
             case StandardTypes.INTEGER -> switch (resultTypeBase) {
@@ -377,17 +380,21 @@ public final class TypeCoercion
                 case StandardTypes.REAL -> Optional.of(REAL);
                 case StandardTypes.DOUBLE -> Optional.of(DOUBLE);
                 case StandardTypes.DECIMAL -> Optional.of(createDecimalType(10, 0));
+                case StandardTypes.BIGDECIMAL -> Optional.of(BigdecimalType.BIGDECIMAL);
                 default -> Optional.empty();
             };
             case StandardTypes.BIGINT -> switch (resultTypeBase) {
                 case StandardTypes.REAL -> Optional.of(REAL);
                 case StandardTypes.DOUBLE -> Optional.of(DOUBLE);
                 case StandardTypes.DECIMAL -> Optional.of(createDecimalType(19, 0));
+                case StandardTypes.BIGDECIMAL -> Optional.of(BigdecimalType.BIGDECIMAL);
                 default -> Optional.empty();
             };
             case StandardTypes.DECIMAL -> switch (resultTypeBase) {
                 case StandardTypes.REAL -> Optional.of(REAL);
                 case StandardTypes.DOUBLE -> Optional.of(DOUBLE);
+                // TODO there should be coercion from DECIMAL to BIGDECIMAL, however this currently breaks arithmetics between integer types and decimals
+                //case StandardTypes.BIGDECIMAL -> Optional.of(BigdecimalType.BIGDECIMAL);
                 default -> Optional.empty();
             };
             case StandardTypes.REAL -> switch (resultTypeBase) {

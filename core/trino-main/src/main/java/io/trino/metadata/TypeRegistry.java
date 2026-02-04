@@ -67,6 +67,7 @@ import static io.trino.spi.function.OperatorType.INDETERMINATE;
 import static io.trino.spi.function.OperatorType.LESS_THAN;
 import static io.trino.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
 import static io.trino.spi.function.OperatorType.XX_HASH_64;
+import static io.trino.spi.type.BigdecimalType.BIGDECIMAL;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DateType.DATE;
@@ -136,6 +137,7 @@ public final class TypeRegistry
         addType(TINYINT);
         addType(DOUBLE);
         addType(REAL);
+        addType(BIGDECIMAL);
         addType(VARBINARY);
         addType(DATE);
         addType(INTERVAL_YEAR_MONTH);
