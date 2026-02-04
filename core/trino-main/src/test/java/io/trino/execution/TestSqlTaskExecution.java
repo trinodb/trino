@@ -215,7 +215,7 @@ public class TestSqlTaskExecution
     private PartitionedOutputBuffer newTestingOutputBuffer(ScheduledExecutorService taskNotificationExecutor)
     {
         return new PartitionedOutputBuffer(
-                TASK_ID.toString(),
+                TASK_ID.attemptId(),
                 new OutputBufferStateMachine(TASK_ID, taskNotificationExecutor),
                 PipelinedOutputBuffers.createInitial(PARTITIONED)
                         .withBuffer(OUTPUT_BUFFER_ID, 0)

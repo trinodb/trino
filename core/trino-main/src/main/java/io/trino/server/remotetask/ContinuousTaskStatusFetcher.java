@@ -36,7 +36,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 
-import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.net.HttpHeaders.CONTENT_TYPE;
 import static com.google.common.net.MediaType.JSON_UTF_8;
 import static io.airlift.http.client.FullJsonResponseHandler.createFullJsonResponseHandler;
@@ -233,7 +232,7 @@ class ContinuousTaskStatusFetcher
         AtomicBoolean taskMismatch = new AtomicBoolean();
         taskStatus.setIf(newValue, oldValue -> {
             // did the task instance id change
-            if (!isNullOrEmpty(oldValue.getTaskInstanceId()) && !oldValue.getTaskInstanceId().equals(newValue.getTaskInstanceId())) {
+            if (oldValue.getTaskInstanceId() != 0 && oldValue.getTaskInstanceId() != newValue.getTaskInstanceId()) {
                 taskMismatch.set(true);
                 return false;
             }

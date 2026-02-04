@@ -65,7 +65,7 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 public class TestingRemoteTaskFactory
         implements RemoteTaskFactory
 {
-    private static final String TASK_INSTANCE_ID = "task-instance-id";
+    private static final long TASK_INSTANCE_ID = 0x1337;
 
     private final Map<TaskId, TestingRemoteTask> tasks = new HashMap<>();
 

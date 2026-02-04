@@ -73,7 +73,7 @@ public final class BufferTestUtils
                 .isEqualTo(expected.isBufferComplete());
     }
 
-    static BufferResult createBufferResult(String bufferId, long token, List<Page> pages)
+    static BufferResult createBufferResult(long bufferId, long token, List<Page> pages)
     {
         checkArgument(!pages.isEmpty(), "pages is empty");
         ImmutableList.Builder<Slice> builder = ImmutableList.builderWithExpectedSize(pages.size());

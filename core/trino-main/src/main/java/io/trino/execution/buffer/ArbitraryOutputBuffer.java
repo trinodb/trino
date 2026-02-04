@@ -74,19 +74,19 @@ public class ArbitraryOutputBuffer
     private final AtomicInteger nextClientBufferIndex = new AtomicInteger(0);
 
     private final OutputBufferStateMachine stateMachine;
-    private final String taskInstanceId;
+    private final long taskInstanceId;
 
     private final AtomicLong totalPagesAdded = new AtomicLong();
     private final AtomicLong totalRowsAdded = new AtomicLong();
 
     public ArbitraryOutputBuffer(
-            String taskInstanceId,
+            long taskInstanceId,
             OutputBufferStateMachine stateMachine,
             DataSize maxBufferSize,
             Supplier<LocalMemoryContext> memoryContextSupplier,
             Executor notificationExecutor)
     {
-        this.taskInstanceId = requireNonNull(taskInstanceId, "taskInstanceId is null");
+        this.taskInstanceId = taskInstanceId;
         this.stateMachine = requireNonNull(stateMachine, "stateMachine is null");
         requireNonNull(maxBufferSize, "maxBufferSize is null");
         checkArgument(maxBufferSize.toBytes() > 0, "maxBufferSize must be at least 1");

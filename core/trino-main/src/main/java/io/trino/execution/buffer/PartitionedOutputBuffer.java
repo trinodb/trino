@@ -53,7 +53,7 @@ public class PartitionedOutputBuffer
     private final AtomicLong totalRowsAdded = new AtomicLong();
 
     public PartitionedOutputBuffer(
-            String taskInstanceId,
+            long taskInstanceId,
             OutputBufferStateMachine stateMachine,
             PipelinedOutputBuffers outputBuffers,
             DataSize maxBufferSize,

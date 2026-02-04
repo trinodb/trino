@@ -250,7 +250,7 @@ public class TestLeastWastedEffortTaskLowMemoryKiller
         return new TaskInfo(
                 new TaskStatus(
                         taskId,
-                        "task-instance-id",
+                        0,
                         0,
                         state,
                         URI.create("fake://task/" + taskId + "/node/some_node"),
