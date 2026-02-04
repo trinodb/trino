@@ -506,7 +506,7 @@ public class PipelinedQueryScheduler
         @Override
         public void taskCreated(PlanFragmentId fragmentId, RemoteTask task)
         {
-            URI taskUri = uriBuilderFrom(task.getTaskStatus().getSelf())
+            URI taskUri = uriBuilderFrom(task.getTaskStatus().self())
                     .appendPath("results")
                     .appendPath("0").build();
             DirectExchangeInput input = new DirectExchangeInput(task.getTaskId(), taskUri.toString());

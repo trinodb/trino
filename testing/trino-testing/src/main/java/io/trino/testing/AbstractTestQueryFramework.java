@@ -231,9 +231,9 @@ public abstract class AbstractTestQueryFramework
                         SqlTaskManager taskManager = server.getTaskManager();
                         List<TaskInfo> taskInfos = taskManager.getAllTaskInfo();
                         for (TaskInfo taskInfo : taskInfos) {
-                            TaskId taskId = taskInfo.taskStatus().getTaskId();
+                            TaskId taskId = taskInfo.taskStatus().taskId();
                             QueryId queryId = taskId.queryId();
-                            TaskState taskState = taskInfo.taskStatus().getState();
+                            TaskState taskState = taskInfo.taskStatus().state();
                             if (!taskState.isDone()) {
                                 try {
                                     BasicQueryInfo basicQueryInfo = queryManager.getQueryInfo(queryId);
@@ -266,11 +266,11 @@ public abstract class AbstractTestQueryFramework
                         return stageDetail + stageInfo.getTasks().stream()
                                 .map(TaskInfo::taskStatus)
                                 .map(task -> {
-                                    String taskDetail = format("Task %s [%s]", task.getTaskId(), task.getState());
-                                    if (task.getFailures().isEmpty()) {
+                                    String taskDetail = format("Task %s [%s]", task.taskId(), task.state());
+                                    if (task.failures().isEmpty()) {
                                         return taskDetail;
                                     }
-                                    return " -- Failures: " + task.getFailures().stream()
+                                    return " -- Failures: " + task.failures().stream()
                                             .map(failure -> format("%s %s: %s", failure.getErrorCode(), failure.getType(), failure.getMessage()))
                                             .collect(Collectors.joining(", ", "[", "]"));
                                 })

@@ -186,7 +186,7 @@ class TestNodeStateManager
 
         // simulate task completion after some time
         tasks.set(Collections.emptyList());
-        sqlTasksObservable.getTasks().get(task.taskStatus().getTaskId())
+        sqlTasksObservable.getTasks().get(task.taskStatus().taskId())
                 .stateChanged(TaskState.FINISHED);
 
         // when NodeStateManager sees task finished - it will drain after another drain period
@@ -223,7 +223,7 @@ class TestNodeStateManager
 
         // simulate task completion after some time
         tasks.set(Collections.emptyList());
-        sqlTasksObservable.getTasks().get(task.taskStatus().getTaskId())
+        sqlTasksObservable.getTasks().get(task.taskStatus().taskId())
                 .stateChanged(TaskState.FINISHED);
 
         // when NodeStateManager sees task finished - it will drain after another drain period
@@ -271,7 +271,7 @@ class TestNodeStateManager
 
         // simulate task completion after some time
         tasks.set(Collections.emptyList());
-        sqlTasksObservable.getTasks().get(task.taskStatus().getTaskId())
+        sqlTasksObservable.getTasks().get(task.taskStatus().taskId())
                 .stateChanged(TaskState.FINISHED);
 
         // this is ugly, but we need to be in the sleep in waitActiveTasksToFinish just after

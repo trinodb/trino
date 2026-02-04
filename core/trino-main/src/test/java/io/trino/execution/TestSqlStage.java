@@ -194,8 +194,8 @@ public class TestSqlStage
             // Tasks can race with the stage finish operation and be cancelled fully before
             // starting any splits running. These can report either cancelling or fully cancelled
             // depending on the timing of TaskInfo being created
-            TaskState taskState = info.taskStatus().getState();
-            int runningSplits = info.taskStatus().getRunningPartitionedDrivers();
+            TaskState taskState = info.taskStatus().state();
+            int runningSplits = info.taskStatus().runningPartitionedDrivers();
             if (runningSplits == 0) {
                 assertThat(taskState == TaskState.CANCELING || taskState == TaskState.CANCELED)
                         .describedAs("unexpected task state: " + taskState)
@@ -219,7 +219,7 @@ public class TestSqlStage
         // finishing all running splits on the task should trigger termination complete
         createdTasks.forEach(task -> {
             task.clearSplits();
-            assertThat(task.getTaskStatus().getState()).isEqualTo(TaskState.CANCELED);
+            assertThat(task.getTaskStatus().state()).isEqualTo(TaskState.CANCELED);
         });
 
         // once the final stage info is available, verify that it is complete

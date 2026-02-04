@@ -99,7 +99,7 @@ public class ScaledWriterScheduler
         Collection<TaskStatus> writerTasks = writerTasksProvider.get();
         // Do not scale tasks until all existing writer tasks are initialized with maxWriterCount
         if (writerTasks.size() != scheduledNodes.size()
-                || writerTasks.stream().map(TaskStatus::getMaxWriterCount).anyMatch(OptionalInt::isEmpty)) {
+                || writerTasks.stream().map(TaskStatus::maxWriterCount).anyMatch(OptionalInt::isEmpty)) {
             return 0;
         }
 
@@ -122,12 +122,12 @@ public class ScaledWriterScheduler
     {
         Collection<TaskStatus> writerTasks = writerTasksProvider.get();
         long writerInputBytes = writerTasks.stream()
-                .map(TaskStatus::getWriterInputDataSize)
+                .map(TaskStatus::writerInputDataSize)
                 .mapToLong(DataSize::toBytes)
                 .sum();
 
         long minWriterInputBytesToScaleUp = writerTasks.stream()
-                .map(TaskStatus::getMaxWriterCount)
+                .map(TaskStatus::maxWriterCount)
                 .mapToInt(OptionalInt::getAsInt)
                 .mapToLong(writerCount -> writerScalingMinDataProcessed * writerCount)
                 .sum();
@@ -139,10 +139,10 @@ public class ScaledWriterScheduler
         double totalOutputSize = 0.0;
         double overutilizedOutputSize = 0.0;
         for (TaskStatus task : sourceTasksProvider.get()) {
-            if (!task.getState().isTerminatingOrDone()) {
-                long outputDataSize = task.getOutputDataSize().toBytes();
+            if (!task.state().isTerminatingOrDone()) {
+                long outputDataSize = task.outputDataSize().toBytes();
                 totalOutputSize += outputDataSize;
-                if (task.getOutputBufferStatus().isOverutilized()) {
+                if (task.outputBufferStatus().isOverutilized()) {
                     overutilizedOutputSize += outputDataSize;
                 }
             }
@@ -154,8 +154,8 @@ public class ScaledWriterScheduler
     private boolean isAverageBufferFull()
     {
         return sourceTasksProvider.get().stream()
-                .filter(task -> !task.getState().isTerminatingOrDone())
-                .map(TaskStatus::getOutputBufferStatus)
+                .filter(task -> !task.state().isTerminatingOrDone())
+                .map(TaskStatus::outputBufferStatus)
                 .map(OutputBufferStatus::isOverutilized)
                 .mapToDouble(full -> full ? 1.0 : 0.0)
                 .average().orElse(0.0) >= BUFFER_FULL_THRESHOLD;

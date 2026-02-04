@@ -572,8 +572,8 @@ public class QueryMonitor
                 failureInfo.getErrorCode(),
                 Optional.ofNullable(failureInfo.getType()),
                 Optional.ofNullable(failureInfo.getMessage()),
-                failedTask.map(task -> task.taskStatus().getTaskId().toString()),
-                failedTask.map(task -> task.taskStatus().getSelf().getHost()),
+                failedTask.map(task -> task.taskStatus().taskId().toString()),
+                failedTask.map(task -> task.taskStatus().self().getHost()),
                 executionFailureInfoCodec.toJson(failureInfo)));
     }
 
@@ -581,7 +581,7 @@ public class QueryMonitor
     {
         for (StageInfo stageInfo : stages.getSubStagesDeep(stages.getOutputStageId(), true)) {
             Optional<TaskInfo> failedTaskInfo = stageInfo.getTasks().stream()
-                    .filter(taskInfo -> taskInfo.taskStatus().getState() == TaskState.FAILED)
+                    .filter(taskInfo -> taskInfo.taskStatus().state() == TaskState.FAILED)
                     .findFirst();
             if (failedTaskInfo.isPresent()) {
                 return failedTaskInfo;

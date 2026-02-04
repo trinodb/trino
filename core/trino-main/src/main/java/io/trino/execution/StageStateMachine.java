@@ -307,7 +307,7 @@ public class StageStateMachine
         Set<BlockedReason> blockedReasons = new HashSet<>();
 
         for (TaskInfo taskInfo : taskInfos) {
-            TaskState taskState = taskInfo.taskStatus().getState();
+            TaskState taskState = taskInfo.taskStatus().state();
             TaskStats taskStats = taskInfo.stats();
 
             boolean taskFailedOrFailing = taskState == TaskState.FAILED || taskState == TaskState.FAILING;
@@ -492,7 +492,7 @@ public class StageStateMachine
 
         int maxTaskOperatorSummaries = 0;
         for (TaskInfo taskInfo : taskInfos) {
-            TaskState taskState = taskInfo.taskStatus().getState();
+            TaskState taskState = taskInfo.taskStatus().state();
             if (taskState.isDone()) {
                 completedTasks++;
             }
