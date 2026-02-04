@@ -311,13 +311,13 @@ public final class SqlStage
 
     private void updateTaskStatus(TaskStatus status)
     {
-        boolean isDone = status.getState().isDone();
+        boolean isDone = status.state().isDone();
         if (!isDone && stateMachine.getState() == StageState.RUNNING) {
             return;
         }
         synchronized (this) {
             if (isDone) {
-                finishedTasks.add(status.getTaskId());
+                finishedTasks.add(status.taskId());
             }
             if (finishedTasks.size() == allTasks.size()) {
                 stateMachine.transitionToPending();
@@ -330,7 +330,7 @@ public final class SqlStage
 
     private synchronized void updateFinalTaskInfo(TaskInfo finalTaskInfo)
     {
-        tasksWithFinalInfo.add(finalTaskInfo.taskStatus().getTaskId());
+        tasksWithFinalInfo.add(finalTaskInfo.taskStatus().taskId());
         checkAllTaskFinal();
     }
 
@@ -377,8 +377,8 @@ public final class SqlStage
             if (finalUsageReported) {
                 return;
             }
-            long currentUserMemory = taskStatus.getMemoryReservation().toBytes();
-            long currentRevocableMemory = taskStatus.getRevocableMemoryReservation().toBytes();
+            long currentUserMemory = taskStatus.memoryReservation().toBytes();
+            long currentRevocableMemory = taskStatus.revocableMemoryReservation().toBytes();
             long deltaUserMemoryInBytes = currentUserMemory - previousUserMemory;
             long deltaRevocableMemoryInBytes = currentRevocableMemory - previousRevocableMemory;
             long deltaTotalMemoryInBytes = (currentUserMemory + currentRevocableMemory) - (previousUserMemory + previousRevocableMemory);
@@ -386,7 +386,7 @@ public final class SqlStage
             previousRevocableMemory = currentRevocableMemory;
             stateMachine.updateMemoryUsage(deltaUserMemoryInBytes, deltaRevocableMemoryInBytes, deltaTotalMemoryInBytes);
 
-            if (taskStatus.getState().isDone()) {
+            if (taskStatus.state().isDone()) {
                 // if task is finished perform final memory update to 0
                 stateMachine.updateMemoryUsage(-currentUserMemory, -currentRevocableMemory, -(currentUserMemory + currentRevocableMemory));
                 previousUserMemory = 0;

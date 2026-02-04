@@ -106,7 +106,7 @@ public class TestTaskExecutorStuckSplits
                 assertThat(taskInfos).hasSize(1);
 
                 TaskInfo taskInfo = pollTerminatingTaskInfoUntilDone(sqlTaskManager, taskInfos.get(0));
-                assertThat(taskInfo.taskStatus().getState()).isEqualTo(TaskState.FAILED);
+                assertThat(taskInfo.taskStatus().state()).isEqualTo(TaskState.FAILED);
             }
         }
         finally {
@@ -145,10 +145,10 @@ public class TestTaskExecutorStuckSplits
     private static TaskInfo pollTerminatingTaskInfoUntilDone(SqlTaskManager taskManager, TaskInfo taskInfo)
             throws InterruptedException, ExecutionException, TimeoutException
     {
-        assertThat(taskInfo.taskStatus().getState().isTerminatingOrDone()).isTrue();
+        assertThat(taskInfo.taskStatus().state().isTerminatingOrDone()).isTrue();
         int attempts = 3;
-        while (attempts > 0 && taskInfo.taskStatus().getState().isTerminating()) {
-            taskInfo = taskManager.getTaskInfo(taskInfo.taskStatus().getTaskId(), taskInfo.taskStatus().getVersion()).get(5, SECONDS);
+        while (attempts > 0 && taskInfo.taskStatus().state().isTerminating()) {
+            taskInfo = taskManager.getTaskInfo(taskInfo.taskStatus().taskId(), taskInfo.taskStatus().version()).get(5, SECONDS);
             attempts--;
         }
         return taskInfo;

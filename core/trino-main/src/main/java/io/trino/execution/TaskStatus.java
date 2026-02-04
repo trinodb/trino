@@ -13,8 +13,6 @@
  */
 package io.trino.execution;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
@@ -33,7 +31,30 @@ import static io.trino.execution.TaskState.PLANNED;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
-public class TaskStatus
+public record TaskStatus(
+        TaskId taskId,
+        long taskInstanceId,
+        long version,
+        TaskState state,
+        URI self,
+        String nodeId,
+        boolean speculative,
+        List<ExecutionFailureInfo> failures,
+        int queuedPartitionedDrivers,
+        int runningPartitionedDrivers,
+        OutputBufferStatus outputBufferStatus,
+        DataSize outputDataSize,
+        DataSize writerInputDataSize,
+        DataSize physicalWrittenDataSize,
+        OptionalInt maxWriterCount,
+        DataSize memoryReservation,
+        DataSize peakMemoryReservation,
+        DataSize revocableMemoryReservation,
+        long fullGcCount,
+        Duration fullGcTime,
+        long dynamicFiltersVersion,
+        long queuedPartitionedSplitsWeight,
+        long runningPartitionedSplitsWeight)
 {
     /**
      * Version of task status that can be used to create an initial local task
@@ -47,235 +68,34 @@ public class TaskStatus
      */
     private static final long MAX_VERSION = Long.MAX_VALUE;
 
-    private final TaskId taskId;
-    private final long taskInstanceId;
-    private final long version;
-    private final TaskState state;
-    private final URI self;
-    private final String nodeId;
-    private final boolean speculative;
-
-    private final int queuedPartitionedDrivers;
-    private final long queuedPartitionedSplitsWeight;
-    private final int runningPartitionedDrivers;
-    private final long runningPartitionedSplitsWeight;
-    private final OutputBufferStatus outputBufferStatus;
-    private final DataSize writerInputDataSize;
-    private final DataSize outputDataSize;
-    private final DataSize physicalWrittenDataSize;
-    private final OptionalInt maxWriterCount;
-    private final DataSize memoryReservation;
-    private final DataSize peakMemoryReservation;
-    private final DataSize revocableMemoryReservation;
-
-    private final long fullGcCount;
-    private final Duration fullGcTime;
-
-    private final List<ExecutionFailureInfo> failures;
-
-    private final long dynamicFiltersVersion;
-
-    @JsonCreator
-    public TaskStatus(
-            @JsonProperty("taskId") TaskId taskId,
-            @JsonProperty("taskInstanceId") long taskInstanceId,
-            @JsonProperty("version") long version,
-            @JsonProperty("state") TaskState state,
-            @JsonProperty("self") URI self,
-            @JsonProperty("nodeId") String nodeId,
-            @JsonProperty("speculative") boolean speculative,
-            @JsonProperty("failures") List<ExecutionFailureInfo> failures,
-            @JsonProperty("queuedPartitionedDrivers") int queuedPartitionedDrivers,
-            @JsonProperty("runningPartitionedDrivers") int runningPartitionedDrivers,
-            @JsonProperty("outputBufferStatus") OutputBufferStatus outputBufferStatus,
-            @JsonProperty("outputDataSize") DataSize outputDataSize,
-            @JsonProperty("writerInputDataSize") DataSize writerInputDataSize,
-            @JsonProperty("physicalWrittenDataSize") DataSize physicalWrittenDataSize,
-            @JsonProperty("writerCount") OptionalInt maxWriterCount,
-            @JsonProperty("memoryReservation") DataSize memoryReservation,
-            @JsonProperty("peakMemoryReservation") DataSize peakMemoryReservation,
-            @JsonProperty("revocableMemoryReservation") DataSize revocableMemoryReservation,
-            @JsonProperty("fullGcCount") long fullGcCount,
-            @JsonProperty("fullGcTime") Duration fullGcTime,
-            @JsonProperty("dynamicFiltersVersion") long dynamicFiltersVersion,
-            @JsonProperty("queuedPartitionedSplitsWeight") long queuedPartitionedSplitsWeight,
-            @JsonProperty("runningPartitionedSplitsWeight") long runningPartitionedSplitsWeight)
+    public TaskStatus
     {
-        this.taskId = requireNonNull(taskId, "taskId is null");
-        this.taskInstanceId = taskInstanceId;
-
+        requireNonNull(taskId, "taskId is null");
         checkState(version >= STARTING_VERSION, "version must be >= STARTING_VERSION");
-        this.version = version;
-        this.state = requireNonNull(state, "state is null");
-        this.self = requireNonNull(self, "self is null");
-        this.nodeId = requireNonNull(nodeId, "nodeId is null");
-        this.speculative = speculative;
+        requireNonNull(state, "state is null");
+        requireNonNull(self, "self is null");
+        requireNonNull(nodeId, "nodeId is null");
 
         checkArgument(queuedPartitionedDrivers >= 0, "queuedPartitionedDrivers must be positive");
-        this.queuedPartitionedDrivers = queuedPartitionedDrivers;
         checkArgument(queuedPartitionedSplitsWeight >= 0, "queuedPartitionedSplitsWeight must be positive");
-        this.queuedPartitionedSplitsWeight = queuedPartitionedSplitsWeight;
-
         checkArgument(runningPartitionedDrivers >= 0, "runningPartitionedDrivers must be positive");
-        this.runningPartitionedDrivers = runningPartitionedDrivers;
         checkArgument(runningPartitionedSplitsWeight >= 0, "runningPartitionedSplitsWeight must be positive");
-        this.runningPartitionedSplitsWeight = runningPartitionedSplitsWeight;
 
-        this.outputBufferStatus = requireNonNull(outputBufferStatus, "outputBufferStatus is null");
-        this.outputDataSize = requireNonNull(outputDataSize, "outputDataSize is null");
+        requireNonNull(outputBufferStatus, "outputBufferStatus is null");
+        requireNonNull(outputDataSize, "outputDataSize is null");
 
-        this.writerInputDataSize = requireNonNull(writerInputDataSize, "writerInputDataSize is null");
-        this.physicalWrittenDataSize = requireNonNull(physicalWrittenDataSize, "physicalWrittenDataSize is null");
-        this.maxWriterCount = requireNonNull(maxWriterCount, "maxWriterCount is null");
+        requireNonNull(writerInputDataSize, "writerInputDataSize is null");
+        requireNonNull(physicalWrittenDataSize, "physicalWrittenDataSize is null");
+        requireNonNull(maxWriterCount, "maxWriterCount is null");
 
-        this.memoryReservation = requireNonNull(memoryReservation, "memoryReservation is null");
-        this.peakMemoryReservation = requireNonNull(peakMemoryReservation, "peakMemoryReservation is null");
-        this.revocableMemoryReservation = requireNonNull(revocableMemoryReservation, "revocableMemoryReservation is null");
-        this.failures = ImmutableList.copyOf(requireNonNull(failures, "failures is null"));
+        requireNonNull(memoryReservation, "memoryReservation is null");
+        requireNonNull(peakMemoryReservation, "peakMemoryReservation is null");
+        requireNonNull(revocableMemoryReservation, "revocableMemoryReservation is null");
+        failures = ImmutableList.copyOf(requireNonNull(failures, "failures is null"));
 
         checkArgument(fullGcCount >= 0, "fullGcCount is negative");
-        this.fullGcCount = fullGcCount;
-        this.fullGcTime = requireNonNull(fullGcTime, "fullGcTime is null");
+        requireNonNull(fullGcTime, "fullGcTime is null");
         checkArgument(dynamicFiltersVersion >= INITIAL_DYNAMIC_FILTERS_VERSION, "dynamicFiltersVersion must be >= INITIAL_DYNAMIC_FILTERS_VERSION");
-        this.dynamicFiltersVersion = dynamicFiltersVersion;
-    }
-
-    @JsonProperty
-    public TaskId getTaskId()
-    {
-        return taskId;
-    }
-
-    @JsonProperty
-    public long getTaskInstanceId()
-    {
-        return taskInstanceId;
-    }
-
-    @JsonProperty
-    public long getVersion()
-    {
-        return version;
-    }
-
-    @JsonProperty
-    public TaskState getState()
-    {
-        return state;
-    }
-
-    @JsonProperty
-    public URI getSelf()
-    {
-        return self;
-    }
-
-    @JsonProperty
-    public String getNodeId()
-    {
-        return nodeId;
-    }
-
-    @JsonProperty
-    public boolean isSpeculative()
-    {
-        return speculative;
-    }
-
-    @JsonProperty
-    public List<ExecutionFailureInfo> getFailures()
-    {
-        return failures;
-    }
-
-    @JsonProperty
-    public int getQueuedPartitionedDrivers()
-    {
-        return queuedPartitionedDrivers;
-    }
-
-    @JsonProperty
-    public int getRunningPartitionedDrivers()
-    {
-        return runningPartitionedDrivers;
-    }
-
-    @JsonProperty
-    public DataSize getWriterInputDataSize()
-    {
-        return writerInputDataSize;
-    }
-
-    @JsonProperty
-    public DataSize getPhysicalWrittenDataSize()
-    {
-        return physicalWrittenDataSize;
-    }
-
-    @JsonProperty
-    public OptionalInt getMaxWriterCount()
-    {
-        return maxWriterCount;
-    }
-
-    @JsonProperty
-    public OutputBufferStatus getOutputBufferStatus()
-    {
-        return outputBufferStatus;
-    }
-
-    @JsonProperty
-    public DataSize getOutputDataSize()
-    {
-        return outputDataSize;
-    }
-
-    @JsonProperty
-    public DataSize getMemoryReservation()
-    {
-        return memoryReservation;
-    }
-
-    @JsonProperty
-    public DataSize getPeakMemoryReservation()
-    {
-        return peakMemoryReservation;
-    }
-
-    @JsonProperty
-    public DataSize getRevocableMemoryReservation()
-    {
-        return revocableMemoryReservation;
-    }
-
-    @JsonProperty
-    public long getFullGcCount()
-    {
-        return fullGcCount;
-    }
-
-    @JsonProperty
-    public Duration getFullGcTime()
-    {
-        return fullGcTime;
-    }
-
-    @JsonProperty
-    public long getDynamicFiltersVersion()
-    {
-        return dynamicFiltersVersion;
-    }
-
-    @JsonProperty
-    public long getQueuedPartitionedSplitsWeight()
-    {
-        return queuedPartitionedSplitsWeight;
-    }
-
-    @JsonProperty
-    public long getRunningPartitionedSplitsWeight()
-    {
-        return runningPartitionedSplitsWeight;
     }
 
     @Override
@@ -318,28 +138,28 @@ public class TaskStatus
     public static TaskStatus failWith(TaskStatus taskStatus, TaskState state, List<ExecutionFailureInfo> exceptions)
     {
         return new TaskStatus(
-                taskStatus.getTaskId(),
-                taskStatus.getTaskInstanceId(),
+                taskStatus.taskId(),
+                taskStatus.taskInstanceId(),
                 MAX_VERSION,
                 state,
-                taskStatus.getSelf(),
-                taskStatus.getNodeId(),
+                taskStatus.self(),
+                taskStatus.nodeId(),
                 false,
                 exceptions,
-                taskStatus.getQueuedPartitionedDrivers(),
-                taskStatus.getRunningPartitionedDrivers(),
-                taskStatus.getOutputBufferStatus(),
-                taskStatus.getOutputDataSize(),
-                taskStatus.getWriterInputDataSize(),
-                taskStatus.getPhysicalWrittenDataSize(),
-                taskStatus.getMaxWriterCount(),
-                taskStatus.getMemoryReservation(),
-                taskStatus.getPeakMemoryReservation(),
-                taskStatus.getRevocableMemoryReservation(),
-                taskStatus.getFullGcCount(),
-                taskStatus.getFullGcTime(),
-                taskStatus.getDynamicFiltersVersion(),
-                taskStatus.getQueuedPartitionedSplitsWeight(),
-                taskStatus.getRunningPartitionedSplitsWeight());
+                taskStatus.queuedPartitionedDrivers(),
+                taskStatus.runningPartitionedDrivers(),
+                taskStatus.outputBufferStatus(),
+                taskStatus.outputDataSize(),
+                taskStatus.writerInputDataSize(),
+                taskStatus.physicalWrittenDataSize(),
+                taskStatus.maxWriterCount(),
+                taskStatus.memoryReservation(),
+                taskStatus.peakMemoryReservation(),
+                taskStatus.revocableMemoryReservation(),
+                taskStatus.fullGcCount(),
+                taskStatus.fullGcTime(),
+                taskStatus.dynamicFiltersVersion(),
+                taskStatus.queuedPartitionedSplitsWeight(),
+                taskStatus.runningPartitionedSplitsWeight());
     }
 }

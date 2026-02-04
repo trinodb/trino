@@ -214,8 +214,8 @@ public class TestHttpRemoteTask
         poll(() -> testingTaskResource.getTaskSplitAssignment(TABLE_SCAN_NODE_ID).isNoMoreSplits());
 
         remoteTask.cancel();
-        poll(() -> remoteTask.getTaskStatus().getState().isDone());
-        poll(() -> remoteTask.getTaskInfo().taskStatus().getState().isDone());
+        poll(() -> remoteTask.getTaskStatus().state().isDone());
+        poll(() -> remoteTask.getTaskInfo().taskStatus().state().isDone());
 
         httpRemoteTaskFactory.stop();
     }
@@ -272,7 +272,7 @@ public class TestHttpRemoteTask
         // make sure server failures while fetching dynamic filters cause task to fail
         testingTaskResource.setDynamicFilterFailure(new RuntimeException("DF fetch failed"), MAX_VALUE);
         testingTaskResource.setDynamicFilterDomains(new VersionedDynamicFilterDomains(2L, domain));
-        assertEventually(new Duration(30, SECONDS), () -> assertThat(remoteTask.getTaskStatus().getState()).isEqualTo(FAILED));
+        assertEventually(new Duration(30, SECONDS), () -> assertThat(remoteTask.getTaskStatus().state()).isEqualTo(FAILED));
         assertThat(remoteTask.getDynamicFiltersFetcher().isRunning()).isFalse();
 
         httpRemoteTaskFactory.stop();
@@ -321,7 +321,7 @@ public class TestHttpRemoteTask
 
         // make sure getting older DF version after newer version was observed causes task to fail
         remoteTask.getDynamicFiltersFetcher().updateDynamicFiltersVersionAndFetchIfNecessary(10L);
-        assertEventually(new Duration(30, SECONDS), () -> assertThat(remoteTask.getTaskStatus().getState()).isEqualTo(FAILED));
+        assertEventually(new Duration(30, SECONDS), () -> assertThat(remoteTask.getTaskStatus().state()).isEqualTo(FAILED));
         assertThat(remoteTask.getDynamicFiltersFetcher().isRunning()).isFalse();
 
         httpRemoteTaskFactory.stop();
@@ -531,8 +531,8 @@ public class TestHttpRemoteTask
         poll(() -> testingTaskResource.getTaskSplitAssignment(TABLE_SCAN_NODE_ID).isNoMoreSplits());
 
         remoteTask.cancel();
-        poll(() -> remoteTask.getTaskStatus().getState().isDone());
-        poll(() -> remoteTask.getTaskInfo().taskStatus().getState().isDone());
+        poll(() -> remoteTask.getTaskStatus().state().isDone());
+        poll(() -> remoteTask.getTaskInfo().taskStatus().state().isDone());
 
         httpRemoteTaskFactory.stop();
     }
@@ -586,15 +586,15 @@ public class TestHttpRemoteTask
         waitUntilIdle(lastActivityNanos);
 
         httpRemoteTaskFactory.stop();
-        assertThat(remoteTask.getTaskStatus().getState().isDone())
+        assertThat(remoteTask.getTaskStatus().state().isDone())
                 .describedAs(format("TaskStatus is not in a done state: %s", remoteTask.getTaskStatus()))
                 .isTrue();
 
-        ErrorCode actualErrorCode = getOnlyElement(remoteTask.getTaskStatus().getFailures()).getErrorCode();
+        ErrorCode actualErrorCode = getOnlyElement(remoteTask.getTaskStatus().failures()).getErrorCode();
         switch (failureScenario) {
             case TASK_MISMATCH:
             case TASK_MISMATCH_WHEN_VERSION_IS_HIGH:
-                assertThat(remoteTask.getTaskInfo().taskStatus().getState().isDone())
+                assertThat(remoteTask.getTaskInfo().taskStatus().state().isDone())
                         .describedAs(format("TaskInfo is not in a done state: %s", remoteTask.getTaskInfo()))
                         .isTrue();
                 assertThat(actualErrorCode).isEqualTo(REMOTE_TASK_MISMATCH.toErrorCode());
@@ -907,8 +907,8 @@ public class TestHttpRemoteTask
         {
             this.initialTaskInfo = initialTaskInfo;
             this.initialTaskStatus = initialTaskInfo.taskStatus();
-            this.taskState = initialTaskStatus.getState();
-            this.version = initialTaskStatus.getVersion();
+            this.taskState = initialTaskStatus.state();
+            this.version = initialTaskStatus.version();
             switch (failureScenario) {
                 case TASK_MISMATCH_WHEN_VERSION_IS_HIGH:
                     // Make the initial version large enough.
@@ -1002,29 +1002,29 @@ public class TestHttpRemoteTask
             }
 
             return new TaskStatus(
-                    initialTaskStatus.getTaskId(),
+                    initialTaskStatus.taskId(),
                     taskInstanceId,
                     ++version,
                     taskState,
-                    initialTaskStatus.getSelf(),
+                    initialTaskStatus.self(),
                     "fake",
                     false,
-                    initialTaskStatus.getFailures(),
-                    initialTaskStatus.getQueuedPartitionedDrivers(),
-                    initialTaskStatus.getRunningPartitionedDrivers(),
-                    initialTaskStatus.getOutputBufferStatus(),
-                    initialTaskStatus.getOutputDataSize(),
-                    initialTaskStatus.getWriterInputDataSize(),
-                    initialTaskStatus.getPhysicalWrittenDataSize(),
-                    initialTaskStatus.getMaxWriterCount(),
-                    initialTaskStatus.getMemoryReservation(),
-                    initialTaskStatus.getPeakMemoryReservation(),
-                    initialTaskStatus.getRevocableMemoryReservation(),
-                    initialTaskStatus.getFullGcCount(),
-                    initialTaskStatus.getFullGcTime(),
+                    initialTaskStatus.failures(),
+                    initialTaskStatus.queuedPartitionedDrivers(),
+                    initialTaskStatus.runningPartitionedDrivers(),
+                    initialTaskStatus.outputBufferStatus(),
+                    initialTaskStatus.outputDataSize(),
+                    initialTaskStatus.writerInputDataSize(),
+                    initialTaskStatus.physicalWrittenDataSize(),
+                    initialTaskStatus.maxWriterCount(),
+                    initialTaskStatus.memoryReservation(),
+                    initialTaskStatus.peakMemoryReservation(),
+                    initialTaskStatus.revocableMemoryReservation(),
+                    initialTaskStatus.fullGcCount(),
+                    initialTaskStatus.fullGcTime(),
                     dynamicFilterDomains.map(VersionedDynamicFilterDomains::getVersion).orElse(INITIAL_DYNAMIC_FILTERS_VERSION),
-                    initialTaskStatus.getQueuedPartitionedSplitsWeight(),
-                    initialTaskStatus.getRunningPartitionedSplitsWeight());
+                    initialTaskStatus.queuedPartitionedSplitsWeight(),
+                    initialTaskStatus.runningPartitionedSplitsWeight());
         }
 
         private record DynamicFiltersFetchRequest(

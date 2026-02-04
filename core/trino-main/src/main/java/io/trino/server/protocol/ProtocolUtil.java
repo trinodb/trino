@@ -254,7 +254,7 @@ public final class ProtocolUtil
         List<TaskInfo> tasks = stageInfo.getTasks();
         Set<String> stageUniqueNodes = newHashSet(tasks.size());
         for (TaskInfo task : tasks) {
-            String nodeId = task.taskStatus().getNodeId();
+            String nodeId = task.taskStatus().nodeId();
             stageUniqueNodes.add(nodeId);
             globalUniqueNodes.add(nodeId);
         }

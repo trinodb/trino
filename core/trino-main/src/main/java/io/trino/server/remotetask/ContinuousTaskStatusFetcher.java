@@ -87,7 +87,7 @@ class ContinuousTaskStatusFetcher
     {
         requireNonNull(initialTaskStatus, "initialTaskStatus is null");
 
-        this.taskId = initialTaskStatus.getTaskId();
+        this.taskId = initialTaskStatus.taskId();
         this.onFail = requireNonNull(onFail, "onFail is null");
         this.taskStatus = new StateMachine<>("task-" + taskId, executor, initialTaskStatus);
 
@@ -99,7 +99,7 @@ class ContinuousTaskStatusFetcher
         this.httpClient = requireNonNull(httpClient, "httpClient is null");
         this.spanBuilderFactory = requireNonNull(spanBuilderFactory, "spanBuilderFactory is null");
 
-        this.errorTracker = new RequestErrorTracker(taskId, initialTaskStatus.getSelf(), maxErrorDuration, errorScheduledExecutor, "getting task status");
+        this.errorTracker = new RequestErrorTracker(taskId, initialTaskStatus.self(), maxErrorDuration, errorScheduledExecutor, "getting task status");
         this.stats = requireNonNull(stats, "stats is null");
     }
 
@@ -126,7 +126,7 @@ class ContinuousTaskStatusFetcher
     {
         // stopped or done?
         TaskStatus taskStatus = getTaskStatus();
-        if (!running || taskStatus.getState().isDone()) {
+        if (!running || taskStatus.state().isDone()) {
             return;
         }
 
@@ -145,9 +145,9 @@ class ContinuousTaskStatusFetcher
         }
 
         Request request = prepareGet()
-                .setUri(uriBuilderFrom(taskStatus.getSelf()).appendPath("status").build())
+                .setUri(uriBuilderFrom(taskStatus.self()).appendPath("status").build())
                 .setHeader(CONTENT_TYPE, JSON_UTF_8.toString())
-                .setHeader(TRINO_CURRENT_VERSION, Long.toString(taskStatus.getVersion()))
+                .setHeader(TRINO_CURRENT_VERSION, Long.toString(taskStatus.version()))
                 .setHeader(TRINO_MAX_WAIT, refreshMaxWait.toString())
                 .setSpanBuilder(spanBuilderFactory.get())
                 .build();
@@ -188,7 +188,7 @@ class ContinuousTaskStatusFetcher
                 updateStats(requestStartNanos);
                 // if task not already done, record error
                 TaskStatus taskStatus = getTaskStatus();
-                if (!taskStatus.getState().isDone()) {
+                if (!taskStatus.state().isDone()) {
                     errorTracker.requestFailed(cause);
                 }
             }
@@ -232,27 +232,27 @@ class ContinuousTaskStatusFetcher
         AtomicBoolean taskMismatch = new AtomicBoolean();
         taskStatus.setIf(newValue, oldValue -> {
             // did the task instance id change
-            if (oldValue.getTaskInstanceId() != 0 && oldValue.getTaskInstanceId() != newValue.getTaskInstanceId()) {
+            if (oldValue.taskInstanceId() != 0 && oldValue.taskInstanceId() != newValue.taskInstanceId()) {
                 taskMismatch.set(true);
                 return false;
             }
 
-            if (oldValue.getState().isDone()) {
+            if (oldValue.state().isDone()) {
                 // never update if the task has reached a terminal state
                 return false;
             }
             // don't update to an older version (same version is ok)
-            return newValue.getVersion() >= oldValue.getVersion();
+            return newValue.version() >= oldValue.version();
         });
 
         if (taskMismatch.get()) {
             // This will also set the task status to FAILED state directly.
             // Additionally, this will issue a DELETE for the task to the worker.
             // While sending the DELETE is not required, it is preferred because a task was created by the previous request.
-            onFail.accept(new TrinoException(REMOTE_TASK_MISMATCH, format("%s (%s)", REMOTE_TASK_MISMATCH_ERROR, HostAddress.fromUri(getTaskStatus().getSelf()))));
+            onFail.accept(new TrinoException(REMOTE_TASK_MISMATCH, format("%s (%s)", REMOTE_TASK_MISMATCH_ERROR, HostAddress.fromUri(getTaskStatus().self()))));
         }
 
-        dynamicFiltersFetcher.updateDynamicFiltersVersionAndFetchIfNecessary(newValue.getDynamicFiltersVersion());
+        dynamicFiltersFetcher.updateDynamicFiltersVersionAndFetchIfNecessary(newValue.dynamicFiltersVersion());
     }
 
     /**

@@ -117,7 +117,7 @@ public class TaskInfoFetcher
         requireNonNull(initialTask, "initialTask is null");
         requireNonNull(errorScheduledExecutor, "errorScheduledExecutor is null");
 
-        this.taskId = initialTask.taskStatus().getTaskId();
+        this.taskId = initialTask.taskStatus().taskId();
         this.onFail = requireNonNull(onFail, "onFail is null");
         this.taskStatusFetcher = requireNonNull(taskStatusFetcher, "taskStatusFetcher is null");
         this.taskInfo = new StateMachine<>("task " + taskId, executor, initialTask);
@@ -126,7 +126,7 @@ public class TaskInfoFetcher
 
         this.updateIntervalMillis = updateInterval.toMillis();
         this.updateScheduledExecutor = requireNonNull(updateScheduledExecutor, "updateScheduledExecutor is null");
-        this.errorTracker = new RequestErrorTracker(taskId, initialTask.taskStatus().getSelf(), maxErrorDuration, errorScheduledExecutor, "getting info for task");
+        this.errorTracker = new RequestErrorTracker(taskId, initialTask.taskStatus().self(), maxErrorDuration, errorScheduledExecutor, "getting info for task");
 
         this.summarizeTaskInfo = summarizeTaskInfo;
 
@@ -187,7 +187,7 @@ public class TaskInfoFetcher
     {
         Optional<TaskInfo> finalTaskInfo = this.finalTaskInfo.get();
         checkState(finalTaskInfo.isPresent(), "finalTaskInfo must be present");
-        TaskState taskState = finalTaskInfo.get().taskStatus().getState();
+        TaskState taskState = finalTaskInfo.get().taskStatus().state();
         checkState(taskState == TaskState.FINISHED, "task must be FINISHED, got: %s", taskState);
         SpoolingOutputStats.Snapshot result = spoolingOutputStats.getAndSet(ALREADY_RETRIEVED_MARKER);
         checkState(result != ALREADY_RETRIEVED_MARKER, "spooling output stats were already retrieved");
@@ -241,7 +241,7 @@ public class TaskInfoFetcher
             return;
         }
 
-        HttpUriBuilder httpUriBuilder = uriBuilderFrom(taskStatus.getSelf());
+        HttpUriBuilder httpUriBuilder = uriBuilderFrom(taskStatus.self());
         URI uri = summarizeTaskInfo ? httpUriBuilder.addParameter("summarize").build() : httpUriBuilder.build();
         Request request = prepareGet()
                 .setUri(uri)
@@ -259,15 +259,15 @@ public class TaskInfoFetcher
         TaskStatus localTaskStatus = taskStatusFetcher.getTaskStatus();
         TaskStatus newRemoteTaskStatus = newTaskInfo.taskStatus();
 
-        if (!newRemoteTaskStatus.getTaskId().equals(taskId)) {
-            log.debug("Task ID mismatch on remote task status. Member task ID is %s, but remote task ID is %s. This will confuse finalTaskInfo listeners.", taskId, newRemoteTaskStatus.getTaskId());
+        if (!newRemoteTaskStatus.taskId().equals(taskId)) {
+            log.debug("Task ID mismatch on remote task status. Member task ID is %s, but remote task ID is %s. This will confuse finalTaskInfo listeners.", taskId, newRemoteTaskStatus.taskId());
         }
 
-        if (localTaskStatus.getState().isDone() && newRemoteTaskStatus.getState().isDone() && localTaskStatus.getState() != newRemoteTaskStatus.getState()) {
+        if (localTaskStatus.state().isDone() && newRemoteTaskStatus.state().isDone() && localTaskStatus.state() != newRemoteTaskStatus.state()) {
             // prefer local
             newTaskInfo = newTaskInfo.withTaskStatus(localTaskStatus);
-            if (!localTaskStatus.getTaskId().equals(taskId)) {
-                log.debug("Task ID mismatch on local task status. Member task ID is %s, but status-fetcher ID is %s. This will confuse finalTaskInfo listeners.", taskId, newRemoteTaskStatus.getTaskId());
+            if (!localTaskStatus.taskId().equals(taskId)) {
+                log.debug("Task ID mismatch on local task status. Member task ID is %s, but status-fetcher ID is %s. This will confuse finalTaskInfo listeners.", taskId, newRemoteTaskStatus.taskId());
             }
         }
 
@@ -276,9 +276,9 @@ public class TaskInfoFetcher
         }
 
         boolean missingSpoolingOutputStats = false;
-        if (newTaskInfo.taskStatus().getState().isDone()) {
+        if (newTaskInfo.taskStatus().state().isDone()) {
             boolean wasSet = spoolingOutputStats.compareAndSet(null, newTaskInfo.outputBuffers().getSpoolingOutputStats().orElse(null));
-            if (newTaskInfo.taskStatus().getState() == TaskState.FINISHED && retryPolicy == TASK && wasSet && spoolingOutputStats.get() == null) {
+            if (newTaskInfo.taskStatus().state() == TaskState.FINISHED && retryPolicy == TASK && wasSet && spoolingOutputStats.get() == null) {
                 missingSpoolingOutputStats = true;
                 if (log.isDebugEnabled()) {
                     log.debug("Task %s was updated to null spoolingOutputStats. Future calls to retrieveAndDropSpoolingOutputStats will fail; taskInfo=%s", taskId, taskInfoCodec.toJson(newTaskInfo));
@@ -291,15 +291,15 @@ public class TaskInfoFetcher
         boolean updated = taskInfo.setIf(newValue, oldValue -> {
             TaskStatus oldTaskStatus = oldValue.taskStatus();
             TaskStatus newTaskStatus = newValue.taskStatus();
-            if (oldTaskStatus.getState().isDone()) {
+            if (oldTaskStatus.state().isDone()) {
                 // never update if the task has reached a terminal state
                 return false;
             }
             // don't update to an older version (same version is ok)
-            return newTaskStatus.getVersion() >= oldTaskStatus.getVersion();
+            return newTaskStatus.version() >= oldTaskStatus.version();
         });
 
-        if (updated && newValue.taskStatus().getState().isDone()) {
+        if (updated && newValue.taskStatus().state().isDone()) {
             taskStatusFetcher.updateTaskStatus(newTaskInfo.taskStatus());
             boolean finalTaskInfoUpdated = finalTaskInfo.compareAndSet(Optional.empty(), Optional.of(newValue));
             if (missingSpoolingOutputStats && finalTaskInfoUpdated) {
@@ -379,6 +379,6 @@ public class TaskInfoFetcher
 
     private static boolean isDone(TaskInfo taskInfo)
     {
-        return taskInfo.taskStatus().getState().isDone();
+        return taskInfo.taskStatus().state().isDone();
     }
 }
