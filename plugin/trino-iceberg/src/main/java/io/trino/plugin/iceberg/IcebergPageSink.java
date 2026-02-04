@@ -84,7 +84,6 @@ import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_MICROSECOND;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.UuidType.UUID;
 import static io.trino.spi.type.UuidType.trinoUuidToJavaUuid;
-import static java.lang.Math.min;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.UUID.randomUUID;
@@ -95,8 +94,6 @@ public class IcebergPageSink
         implements ConnectorPageSink
 {
     private static final Logger LOG = Logger.get(IcebergPageSink.class);
-
-    private static final int MAX_PAGE_POSITIONS = 4096;
 
     private final int maxOpenWriters;
     private final Schema outputSchema;
@@ -228,7 +225,7 @@ public class IcebergPageSink
     @Override
     public CompletableFuture<?> appendPage(Page page)
     {
-        doAppend(page);
+        writePage(page);
         return NOT_BLOCKED;
     }
 
@@ -266,16 +263,6 @@ public class IcebergPageSink
         }
         if (error != null) {
             throw error;
-        }
-    }
-
-    private void doAppend(Page page)
-    {
-        int writeOffset = 0;
-        while (writeOffset < page.getPositionCount()) {
-            Page chunk = page.getRegion(writeOffset, min(page.getPositionCount() - writeOffset, MAX_PAGE_POSITIONS));
-            writeOffset += chunk.getPositionCount();
-            writePage(chunk);
         }
     }
 
