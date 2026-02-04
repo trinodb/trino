@@ -569,9 +569,9 @@ public class QueryMonitor
         Optional<TaskInfo> failedTask = stages.flatMap(QueryMonitor::findFailedTask);
 
         return Optional.of(new QueryFailureInfo(
-                failureInfo.getErrorCode(),
-                Optional.ofNullable(failureInfo.getType()),
-                Optional.ofNullable(failureInfo.getMessage()),
+                failureInfo.errorCode(),
+                Optional.ofNullable(failureInfo.type()),
+                Optional.ofNullable(failureInfo.message()),
                 failedTask.map(task -> task.taskStatus().taskId().toString()),
                 failedTask.map(task -> task.taskStatus().self().getHost()),
                 executionFailureInfoCodec.toJson(failureInfo)));

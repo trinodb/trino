@@ -370,7 +370,7 @@ public class PipelinedQueryScheduler
             if (state == DistributedStagesSchedulerState.FAILED) {
                 StageFailureInfo stageFailureInfo = distributedStagesScheduler.getFailureCause()
                         .orElseGet(() -> new StageFailureInfo(toFailure(new VerifyException("distributedStagesScheduler failed but failure cause is not present")), Optional.empty()));
-                ErrorCode errorCode = stageFailureInfo.getFailureInfo().getErrorCode();
+                ErrorCode errorCode = stageFailureInfo.getFailureInfo().errorCode();
                 if (shouldRetry(errorCode)) {
                     long delayInMillis = min(retryInitialDelay.toMillis() * ((long) pow(retryDelayScaleFactor, currentAttempt.get())), retryMaxDelay.toMillis());
                     currentAttempt.incrementAndGet();

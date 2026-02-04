@@ -300,7 +300,7 @@ public class TestQueuesDb
                 LONG_LASTING_QUERY);
         waitForQueryState(queryRunner, firstQuery, FAILED);
         assertThat(queryManager.getFullQueryInfo(firstQuery).getErrorCode()).isEqualTo(EXCEEDED_TIME_LIMIT.toErrorCode());
-        assertThat(queryManager.getFullQueryInfo(firstQuery).getFailureInfo().getMessage()).contains("Query exceeded the maximum execution time limit of 1.00ms");
+        assertThat(queryManager.getFullQueryInfo(firstQuery).getFailureInfo().message()).contains("Query exceeded the maximum execution time limit of 1.00ms");
         // set max running queries to 0 for the dashboard resource group so that new queries get queued immediately
         dao.updateResourceGroup(5, "dashboard-${USER}", "1MB", 1, null, 0, null, null, null, null, null, null, 3L, TEST_ENVIRONMENT);
         dbConfigurationManager.load();
@@ -567,7 +567,7 @@ public class TestQueuesDb
         assertThat(fullQueryInfo.isPresent()).isTrue();
         ExecutionFailureInfo failureInfo = fullQueryInfo.get().getFailureInfo();
         assertThat(failureInfo).isNotNull();
-        assertThat(failureInfo.getMessage()).isEqualTo(message);
+        assertThat(failureInfo.message()).isEqualTo(message);
     }
 
     private void assertResourceGroupWithClientTags(Set<String> clientTags, ResourceGroupId expectedResourceGroup)

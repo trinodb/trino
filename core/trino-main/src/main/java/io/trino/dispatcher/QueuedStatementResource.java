@@ -467,8 +467,8 @@ public class QueuedStatementResource
         private QueryError toQueryError(ExecutionFailureInfo executionFailureInfo)
         {
             ErrorCode errorCode;
-            if (executionFailureInfo.getErrorCode() != null) {
-                errorCode = executionFailureInfo.getErrorCode();
+            if (executionFailureInfo.errorCode() != null) {
+                errorCode = executionFailureInfo.errorCode();
             }
             else {
                 errorCode = GENERIC_INTERNAL_ERROR.toErrorCode();
@@ -476,12 +476,12 @@ public class QueuedStatementResource
             }
 
             return new QueryError(
-                    requireNonNullElse(executionFailureInfo.getMessage(), "Internal error"),
+                    requireNonNullElse(executionFailureInfo.message(), "Internal error"),
                     null,
                     errorCode.getCode(),
                     errorCode.getName(),
                     errorCode.getType().toString(),
-                    executionFailureInfo.getErrorLocation(),
+                    executionFailureInfo.errorLocation(),
                     executionFailureInfo.toFailureInfo());
         }
     }

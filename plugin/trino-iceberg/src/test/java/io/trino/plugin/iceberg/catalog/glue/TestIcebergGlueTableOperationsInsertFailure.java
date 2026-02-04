@@ -126,7 +126,7 @@ public class TestIcebergGlueTableOperationsInsertFailure
                     assertThat(throwable.getCause()).isInstanceOf(Failure.class);
                     Failure failure = (Failure) throwable.getCause();
                     assertThat(failure.getMessage()).contains("Test-simulated Glue timeout exception");
-                    assertThat(failure.getFailureInfo().getType()).isEqualTo("io.trino.spi.TrinoException");
+                    assertThat(failure.getFailureInfo().type()).isEqualTo("io.trino.spi.TrinoException");
                 });
         assertQuery("SELECT * FROM " + tableName, "VALUES 'Trino', 'rocks'");
     }
