@@ -729,17 +729,16 @@ public class ParquetReader
 
     private static void parseField(Field field, Map<Integer, PrimitiveField> primitiveFields)
     {
-        if (field instanceof PrimitiveField primitiveField) {
-            primitiveFields.put(primitiveField.getId(), primitiveField);
-        }
-        else if (field instanceof GroupField groupField) {
-            groupField.getChildren().stream()
+        switch (field) {
+            case PrimitiveField primitiveField -> primitiveFields.put(primitiveField.getId(), primitiveField);
+            case GroupField groupField -> groupField.getChildren().stream()
                     .flatMap(Optional::stream)
                     .forEach(child -> parseField(child, primitiveFields));
-        }
-        else if (field instanceof VariantField variantField) {
-            parseField(variantField.getValue(), primitiveFields);
-            parseField(variantField.getMetadata(), primitiveFields);
+            case VariantField variantField -> {
+                parseField(variantField.getValue(), primitiveFields);
+                parseField(variantField.getMetadata(), primitiveFields);
+            }
+            default -> throw new IllegalArgumentException("Unsupported field type: " + field.getType());
         }
     }
 
@@ -752,23 +751,14 @@ public class ParquetReader
     private ColumnChunk readColumnChunk(Field field)
             throws IOException
     {
-        ColumnChunk columnChunk;
-        if (field instanceof VariantField variantField) {
-            columnChunk = readVariant(variantField);
-        }
-        else if (field.getType() instanceof RowType) {
-            columnChunk = readStruct((GroupField) field);
-        }
-        else if (field.getType() instanceof MapType) {
-            columnChunk = readMap((GroupField) field);
-        }
-        else if (field.getType() instanceof ArrayType) {
-            columnChunk = readArray((GroupField) field);
-        }
-        else {
-            columnChunk = readPrimitive((PrimitiveField) field);
-        }
-        return columnChunk;
+        return switch (field) {
+            case VariantField variantField -> readVariant(variantField);
+            case GroupField groupField when groupField.getType() instanceof RowType -> readStruct(groupField);
+            case GroupField groupField when groupField.getType() instanceof MapType -> readMap(groupField);
+            case GroupField groupField when groupField.getType() instanceof ArrayType -> readArray(groupField);
+            case PrimitiveField primitiveField -> readPrimitive(primitiveField);
+            default -> throw new IllegalArgumentException("Unsupported field type: " + field.getType());
+        };
     }
 
     public ParquetDataSource getDataSource()
