@@ -16,7 +16,6 @@ package io.trino.operator;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
-import io.trino.plugin.base.metrics.TDigestHistogram;
 import io.trino.spi.Mergeable;
 
 import java.util.List;
@@ -36,7 +35,6 @@ public class DirectExchangeClientStatus
     private final long spilledBytes;
     private final boolean noMoreLocations;
     private final List<PageBufferClientStatus> pageBufferClientStatuses;
-    private final TDigestHistogram requestDuration;
 
     @JsonCreator
     public DirectExchangeClientStatus(
@@ -48,8 +46,7 @@ public class DirectExchangeClientStatus
             @JsonProperty("spilledPages") int spilledPages,
             @JsonProperty("spilledBytes") long spilledBytes,
             @JsonProperty("noMoreLocations") boolean noMoreLocations,
-            @JsonProperty("pageBufferClientStatuses") List<PageBufferClientStatus> pageBufferClientStatuses,
-            @JsonProperty("requestDuration") TDigestHistogram requestDuration)
+            @JsonProperty("pageBufferClientStatuses") List<PageBufferClientStatus> pageBufferClientStatuses)
     {
         this.bufferedBytes = bufferedBytes;
         this.maxBufferedBytes = maxBufferedBytes;
@@ -60,7 +57,6 @@ public class DirectExchangeClientStatus
         this.spilledBytes = spilledBytes;
         this.noMoreLocations = noMoreLocations;
         this.pageBufferClientStatuses = ImmutableList.copyOf(requireNonNull(pageBufferClientStatuses, "pageBufferClientStatuses is null"));
-        this.requestDuration = requireNonNull(requestDuration, "requestsDuration is null");
     }
 
     @JsonProperty
@@ -117,12 +113,6 @@ public class DirectExchangeClientStatus
         return pageBufferClientStatuses;
     }
 
-    @JsonProperty
-    public TDigestHistogram getRequestDuration()
-    {
-        return requestDuration;
-    }
-
     @Override
     public boolean isFinal()
     {
@@ -142,7 +132,6 @@ public class DirectExchangeClientStatus
                 .add("spilledBytes", spilledBytes)
                 .add("noMoreLocations", noMoreLocations)
                 .add("pageBufferClientStatuses", pageBufferClientStatuses)
-                .add("requestDuration", requestDuration)
                 .toString();
     }
 
@@ -158,8 +147,7 @@ public class DirectExchangeClientStatus
                 spilledPages + other.spilledPages,
                 spilledBytes + other.spilledBytes,
                 noMoreLocations && other.noMoreLocations, // if at least one has some locations, mergee has some too
-                ImmutableList.of(), // pageBufferClientStatuses may be long, so we don't want to combine the lists
-                requestDuration.mergeWith(other.requestDuration)); // this is correct as long as all clients have the same shape of histogram
+                ImmutableList.of()); // pageBufferClientStatuses may be long, so we don't want to combine the lists
     }
 
     @Override
@@ -177,7 +165,6 @@ public class DirectExchangeClientStatus
         int spilledPages = this.spilledPages;
         long spilledBytes = this.spilledBytes;
         boolean noMoreLocations = this.noMoreLocations;
-        ImmutableList.Builder<TDigestHistogram> requestDurations = ImmutableList.builderWithExpectedSize(others.size());
         for (DirectExchangeClientStatus other : others) {
             bufferedBytes = (bufferedBytes + other.bufferedBytes) / 2; // this is correct as long as all clients have the same buffer size (capacity)
             maxBufferedBytes = Math.max(maxBufferedBytes, other.maxBufferedBytes);
@@ -187,7 +174,6 @@ public class DirectExchangeClientStatus
             spilledPages = spilledPages + other.spilledPages;
             spilledBytes = spilledBytes + other.spilledBytes;
             noMoreLocations = noMoreLocations && other.noMoreLocations; // if at least one has some locations, mergee has some too
-            requestDurations.add(other.requestDuration);
         }
 
         return new DirectExchangeClientStatus(
@@ -199,8 +185,7 @@ public class DirectExchangeClientStatus
                 spilledPages,
                 spilledBytes,
                 noMoreLocations,
-                ImmutableList.of(), // pageBufferClientStatuses may be long, so we don't want to combine the lists
-                TDigestHistogram.merge(requestDurations.build()).orElseThrow()); // this is correct as long as all clients have the same shape of histogram
+                ImmutableList.of()); // pageBufferClientStatuses may be long, so we don't want to combine the lists
     }
 
     private static long mergeAvgs(long value1, long count1, long value2, long count2)

@@ -179,8 +179,6 @@ public class TestDirectExchangeClient
 
         // client should have sent only 3 requests: one to get all pages, one to acknowledge and one to get the done signal
         assertStatus(status.getPageBufferClientStatuses().get(0), location, "closed", 3, 3, 3, "not scheduled");
-        assertThat(status.getRequestDuration().getDigest().getCount()).isEqualTo(2.0);
-
         exchangeClient.close();
 
         assertEventually(() -> assertThat(exchangeClient.getStatus().getPageBufferClientStatuses().get(0).getHttpRequestState())

@@ -21,7 +21,6 @@ import com.google.errorprone.annotations.concurrent.GuardedBy;
 import io.airlift.http.client.HttpClient;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
-import io.airlift.stats.TDigest;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.FeaturesConfig.DataIntegrityVerification;
@@ -30,7 +29,6 @@ import io.trino.execution.TaskId;
 import io.trino.memory.context.LocalMemoryContext;
 import io.trino.operator.HttpPageBufferClient.ClientCallback;
 import io.trino.operator.WorkProcessor.ProcessState;
-import io.trino.plugin.base.metrics.TDigestHistogram;
 import jakarta.annotation.Nullable;
 
 import java.io.Closeable;
@@ -86,8 +84,6 @@ public class DirectExchangeClient
     private long averageBytesPerRequest;
     @GuardedBy("this")
     private boolean closed;
-    @GuardedBy("this")
-    private final TDigest requestDuration = new TDigest();
 
     @GuardedBy("memoryContextLock")
     @Nullable
@@ -148,8 +144,7 @@ public class DirectExchangeClient
                     buffer.getSpilledPageCount(),
                     buffer.getSpilledBytes(),
                     noMoreLocations,
-                    pageBufferClientStatus,
-                    new TDigestHistogram(TDigest.copyOf(requestDuration)));
+                    pageBufferClientStatus);
         }
     }
 
@@ -390,7 +385,6 @@ public class DirectExchangeClient
 
     private synchronized void requestComplete(HttpPageBufferClient client)
     {
-        requestDuration.add(client.getLastRequestDurationMillis());
         if (!completedClients.contains(client) && !queuedClients.contains(client)) {
             queuedClients.add(client);
             runningClients.remove(client);
