@@ -142,7 +142,7 @@ public class ScaledWriterScheduler
             if (!task.state().isTerminatingOrDone()) {
                 long outputDataSize = task.outputDataSize().toBytes();
                 totalOutputSize += outputDataSize;
-                if (task.outputBufferStatus().isOverutilized()) {
+                if (task.outputBufferStatus().overutilized()) {
                     overutilizedOutputSize += outputDataSize;
                 }
             }
@@ -156,7 +156,7 @@ public class ScaledWriterScheduler
         return sourceTasksProvider.get().stream()
                 .filter(task -> !task.state().isTerminatingOrDone())
                 .map(TaskStatus::outputBufferStatus)
-                .map(OutputBufferStatus::isOverutilized)
+                .map(OutputBufferStatus::overutilized)
                 .mapToDouble(full -> full ? 1.0 : 0.0)
                 .average().orElse(0.0) >= BUFFER_FULL_THRESHOLD;
     }

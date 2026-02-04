@@ -543,7 +543,7 @@ public class PipelinedStageExecution
         return tasks.values().stream()
                 .map(RemoteTask::getTaskStatus)
                 .map(TaskStatus::outputBufferStatus)
-                .anyMatch(OutputBufferStatus::isOverutilized);
+                .anyMatch(OutputBufferStatus::overutilized);
     }
 
     @Override
