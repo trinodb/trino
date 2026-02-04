@@ -25,6 +25,7 @@ public final class ClientStandardTypes
     public static final String DECIMAL = "decimal";
     public static final String REAL = "real";
     public static final String DOUBLE = "double";
+    public static final String NUMBER = "number";
     public static final String HYPER_LOG_LOG = "HyperLogLog";
     public static final String QDIGEST = "qdigest";
     public static final String TDIGEST = "tdigest";

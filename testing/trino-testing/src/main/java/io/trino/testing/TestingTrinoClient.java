@@ -64,6 +64,7 @@ import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.NumberType.NUMBER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TinyintType.TINYINT;
@@ -256,6 +257,10 @@ public class TestingTrinoClient
         }
         if (type instanceof DecimalType) {
             return new BigDecimal((String) value);
+        }
+        if (type == NUMBER) {
+            //noinspection RedundantCast
+            return (BigDecimal) value;
         }
         if (type == UUID) {
             return java.util.UUID.fromString((String) value);
