@@ -313,4 +313,10 @@
             <unpack />
         </artifact>
     </artifactSet>
+
+    <artifactSet to="plugin/weaviate">
+        <artifact id="${project.groupId}:trino-weaviate:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
 </runtime>

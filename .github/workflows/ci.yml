@@ -402,6 +402,7 @@ jobs:
             !:trino-tests,
             !:trino-thrift,
             !:trino-vertica,
+            !:trino-weaviate,
             !:trino-web-ui'
       - name: Upload test results
         uses: ./.github/actions/process-test-results
@@ -517,6 +518,7 @@ jobs:
             - { modules: plugin/trino-snowflake, profile: cloud-tests }
             - { modules: plugin/trino-sqlserver }
             - { modules: plugin/trino-vertica }
+            - { modules: plugin/trino-weaviate }
             - { modules: testing/trino-faulttolerant-tests, profile: default }
             - { modules: testing/trino-faulttolerant-tests, profile: test-fault-tolerant-delta }
             - { modules: testing/trino-faulttolerant-tests, profile: test-fault-tolerant-hive }
