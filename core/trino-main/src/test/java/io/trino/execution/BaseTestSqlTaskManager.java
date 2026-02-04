@@ -145,15 +145,15 @@ public abstract class BaseTestSqlTaskManager
             assertThat(taskInfo.taskStatus().getState()).isEqualTo(TaskState.FLUSHING);
 
             BufferResult results = sqlTaskManager.getTaskResults(taskId, OUT, 0, DataSize.of(1, Unit.MEGABYTE)).getResultsFuture().get();
-            assertThat(results.isBufferComplete()).isFalse();
-            assertThat(results.getSerializedPages()).hasSize(1);
-            assertThat(getSerializedPagePositionCount(results.getSerializedPages().get(0))).isEqualTo(1);
+            assertThat(results.bufferComplete()).isFalse();
+            assertThat(results.serializedPages()).hasSize(1);
+            assertThat(getSerializedPagePositionCount(results.serializedPages().get(0))).isEqualTo(1);
 
-            for (boolean moreResults = true; moreResults; moreResults = !results.isBufferComplete()) {
-                results = sqlTaskManager.getTaskResults(taskId, OUT, results.getToken() + results.getSerializedPages().size(), DataSize.of(1, Unit.MEGABYTE)).getResultsFuture().get();
+            for (boolean moreResults = true; moreResults; moreResults = !results.bufferComplete()) {
+                results = sqlTaskManager.getTaskResults(taskId, OUT, results.token() + results.serializedPages().size(), DataSize.of(1, Unit.MEGABYTE)).getResultsFuture().get();
             }
-            assertThat(results.isBufferComplete()).isTrue();
-            assertThat(results.getSerializedPages()).isEmpty();
+            assertThat(results.bufferComplete()).isTrue();
+            assertThat(results.serializedPages()).isEmpty();
 
             // complete the task by calling destroy on it
             TaskInfo info = sqlTaskManager.destroyTaskResults(taskId, OUT);
