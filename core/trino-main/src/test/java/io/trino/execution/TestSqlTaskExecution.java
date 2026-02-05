@@ -292,7 +292,7 @@ public class TestSqlTaskExecution
         public void abort()
         {
             outputBuffer.destroy(outputBufferId);
-            assertThat(outputBuffer.getInfo().getState()).isEqualTo(BufferState.FINISHED);
+            assertThat(outputBuffer.getInfo().state()).isEqualTo(BufferState.FINISHED);
         }
     }
 

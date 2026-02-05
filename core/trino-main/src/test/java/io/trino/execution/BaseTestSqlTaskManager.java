@@ -157,7 +157,7 @@ public abstract class BaseTestSqlTaskManager
 
             // complete the task by calling destroy on it
             TaskInfo info = sqlTaskManager.destroyTaskResults(taskId, OUT);
-            assertThat(info.outputBuffers().getState()).isEqualTo(BufferState.FINISHED);
+            assertThat(info.outputBuffers().state()).isEqualTo(BufferState.FINISHED);
 
             taskInfo = sqlTaskManager.getTaskInfo(taskId, taskInfo.taskStatus().version()).get();
             assertThat(taskInfo.taskStatus().state()).isEqualTo(TaskState.FINISHED);

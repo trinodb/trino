@@ -277,7 +277,7 @@ public class TaskInfoFetcher
 
         boolean missingSpoolingOutputStats = false;
         if (newTaskInfo.taskStatus().state().isDone()) {
-            boolean wasSet = spoolingOutputStats.compareAndSet(null, newTaskInfo.outputBuffers().getSpoolingOutputStats().orElse(null));
+            boolean wasSet = spoolingOutputStats.compareAndSet(null, newTaskInfo.outputBuffers().spoolingOutputStats().orElse(null));
             if (newTaskInfo.taskStatus().state() == TaskState.FINISHED && retryPolicy == TASK && wasSet && spoolingOutputStats.get() == null) {
                 missingSpoolingOutputStats = true;
                 if (log.isDebugEnabled()) {
