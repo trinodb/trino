@@ -20,6 +20,7 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;
 import io.airlift.slice.Slices;
+import io.airlift.slice.XxHash64;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockEncodingSerde;
@@ -80,12 +81,24 @@ public final class PagesSerdeUtil
 
     public static long calculateChecksum(List<Slice> pages)
     {
-        XxHash3Hasher hasher = HASHERS.get();
-        hasher.reset();
-        for (Slice page : pages) {
-            hasher.update(page.byteArray(), page.byteArrayOffset(), page.length());
+        int size = pages.stream().mapToInt(Slice::length).sum();
+        long checksum;
+        if (size > 16384) {
+            XxHash3Hasher hasher = HASHERS.get();
+            hasher.reset();
+            for (Slice page : pages) {
+                hasher.update(page.byteArray(), page.byteArrayOffset(), page.length());
+            }
+            checksum = hasher.digest();
         }
-        long checksum = hasher.digest();
+        else {
+            XxHash64 hasher = new XxHash64();
+            for (Slice page : pages) {
+                hasher.update(page);
+            }
+            checksum = hasher.hash();
+        }
+
         // Since NO_CHECKSUM is assigned a special meaning, it is not a valid checksum.
         if (checksum == NO_CHECKSUM) {
             return checksum + 1;
