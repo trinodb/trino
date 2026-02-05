@@ -17,6 +17,8 @@ import com.google.common.base.CharMatcher;
 import com.google.common.primitives.Shorts;
 import com.google.common.primitives.SignedBytes;
 import io.airlift.slice.Slice;
+import io.trino.spi.type.Bigdecimal;
+import io.trino.spi.type.BigdecimalType;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Decimals;
@@ -237,7 +239,6 @@ public final class StandardColumnMappings
             }
 
             @Override
-            @SuppressWarnings("unchecked")
             public void set(PreparedStatement statement, int index, Object value)
                     throws SQLException
             {
@@ -253,6 +254,41 @@ public final class StandardColumnMappings
                 statement.setNull(index, Types.DECIMAL);
             }
         };
+    }
+
+    public static ColumnMapping bigdecimalColumnMapping()
+    {
+        return ColumnMapping.objectMapping(
+                BigdecimalType.BIGDECIMAL,
+                ObjectReadFunction.of(Bigdecimal.class, (resultSet, columnIndex) -> {
+                    BigDecimal bigDecimal = resultSet.getBigDecimal(columnIndex);
+                    if (bigDecimal == null || resultSet.wasNull()) {
+                        return null;
+                    }
+                    return Bigdecimal.from(bigDecimal);
+                }),
+                new ObjectWriteFunction()
+                {
+                    @Override
+                    public Class<?> getJavaType()
+                    {
+                        return Bigdecimal.class;
+                    }
+
+                    @Override
+                    public void setNull(PreparedStatement statement, int index)
+                            throws SQLException
+                    {
+                        statement.setNull(index, Types.DECIMAL);
+                    }
+
+                    @Override
+                    public void set(PreparedStatement statement, int index, Object value)
+                            throws SQLException
+                    {
+                        statement.setBigDecimal(index, ((Bigdecimal) value).toBigDecimal());
+                    }
+                });
     }
 
     public static ColumnMapping defaultCharColumnMapping(int columnSize, boolean isRemoteCaseSensitive)
@@ -412,7 +448,8 @@ public final class StandardColumnMappings
 
     public static LongReadFunction dateReadFunctionUsingLocalDate()
     {
-        return new LongReadFunction() {
+        return new LongReadFunction()
+        {
             @Override
             public boolean isNull(ResultSet resultSet, int columnIndex)
                     throws SQLException
