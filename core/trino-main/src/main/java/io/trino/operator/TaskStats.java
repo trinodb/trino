@@ -13,8 +13,6 @@
  */
 package io.trino.operator;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.units.DataSize;
@@ -31,67 +29,52 @@ import static io.airlift.units.Duration.succinctDuration;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
-public class TaskStats
+public record TaskStats(
+        Instant createTime,
+        @Nullable Instant firstStartTime,
+        @Nullable Instant lastStartTime,
+        @Nullable Instant terminatingStartTime,
+        @Nullable Instant lastEndTime,
+        @Nullable Instant endTime,
+        Duration elapsedTime,
+        Duration queuedTime,
+        int totalDrivers,
+        int queuedDrivers,
+        int queuedPartitionedDrivers,
+        long queuedPartitionedSplitsWeight,
+        int runningDrivers,
+        int runningPartitionedDrivers,
+        long runningPartitionedSplitsWeight,
+        int blockedDrivers,
+        int completedDrivers,
+        double cumulativeUserMemory,
+        DataSize userMemoryReservation,
+        DataSize peakUserMemoryReservation,
+        DataSize revocableMemoryReservation,
+        DataSize spilledDataSize,
+        Duration totalScheduledTime,
+        Duration totalCpuTime,
+        Duration totalBlockedTime,
+        boolean fullyBlocked,
+        Set<BlockedReason> blockedReasons,
+        DataSize physicalInputDataSize,
+        long physicalInputPositions,
+        Duration physicalInputReadTime,
+        DataSize internalNetworkInputDataSize,
+        long internalNetworkInputPositions,
+        DataSize processedInputDataSize,
+        long processedInputPositions,
+        Duration inputBlockedTime,
+        DataSize outputDataSize,
+        long outputPositions,
+        Duration outputBlockedTime,
+        DataSize writerInputDataSize,
+        DataSize physicalWrittenDataSize,
+        OptionalInt maxWriterCount,
+        int fullGcCount,
+        Duration fullGcTime,
+        List<PipelineStats> pipelines)
 {
-    private final Instant createTime;
-    private final Instant firstStartTime;
-    private final Instant lastStartTime;
-    private final Instant terminatingStartTime;
-    private final Instant lastEndTime;
-    private final Instant endTime;
-
-    private final Duration elapsedTime;
-    private final Duration queuedTime;
-
-    private final int totalDrivers;
-    private final int queuedDrivers;
-    private final int queuedPartitionedDrivers;
-    private final long queuedPartitionedSplitsWeight;
-    private final int runningDrivers;
-    private final int runningPartitionedDrivers;
-    private final long runningPartitionedSplitsWeight;
-    private final int blockedDrivers;
-    private final int completedDrivers;
-
-    private final double cumulativeUserMemory;
-    private final DataSize userMemoryReservation;
-    private final DataSize peakUserMemoryReservation;
-    private final DataSize revocableMemoryReservation;
-
-    private final DataSize spilledDataSize;
-
-    private final Duration totalScheduledTime;
-    private final Duration totalCpuTime;
-    private final Duration totalBlockedTime;
-    private final boolean fullyBlocked;
-    private final Set<BlockedReason> blockedReasons;
-
-    private final DataSize physicalInputDataSize;
-    private final long physicalInputPositions;
-    private final Duration physicalInputReadTime;
-
-    private final DataSize internalNetworkInputDataSize;
-    private final long internalNetworkInputPositions;
-
-    private final DataSize processedInputDataSize;
-    private final long processedInputPositions;
-
-    private final Duration inputBlockedTime;
-
-    private final DataSize outputDataSize;
-    private final long outputPositions;
-
-    private final Duration outputBlockedTime;
-
-    private final DataSize writerInputDataSize;
-    private final DataSize physicalWrittenDataSize;
-    private final OptionalInt maxWriterCount;
-
-    private final int fullGcCount;
-    private final Duration fullGcTime;
-
-    private final List<PipelineStats> pipelines;
-
     public TaskStats(Instant createTime, Instant endTime)
     {
         this(createTime,
@@ -140,409 +123,58 @@ public class TaskStats
                 ImmutableList.of());
     }
 
-    @JsonCreator
-    public TaskStats(
-            @JsonProperty("createTime") Instant createTime,
-            @JsonProperty("firstStartTime") Instant firstStartTime,
-            @JsonProperty("lastStartTime") Instant lastStartTime,
-            @JsonProperty("terminatingStartTime") Instant terminatingStartTime,
-            @JsonProperty("lastEndTime") Instant lastEndTime,
-            @JsonProperty("endTime") Instant endTime,
-            @JsonProperty("elapsedTime") Duration elapsedTime,
-            @JsonProperty("queuedTime") Duration queuedTime,
-
-            @JsonProperty("totalDrivers") int totalDrivers,
-            @JsonProperty("queuedDrivers") int queuedDrivers,
-            @JsonProperty("queuedPartitionedDrivers") int queuedPartitionedDrivers,
-            @JsonProperty("queuedPartitionedSplitsWeight") long queuedPartitionedSplitsWeight,
-            @JsonProperty("runningDrivers") int runningDrivers,
-            @JsonProperty("runningPartitionedDrivers") int runningPartitionedDrivers,
-            @JsonProperty("runningPartitionedSplitsWeight") long runningPartitionedSplitsWeight,
-            @JsonProperty("blockedDrivers") int blockedDrivers,
-            @JsonProperty("completedDrivers") int completedDrivers,
-
-            @JsonProperty("cumulativeUserMemory") double cumulativeUserMemory,
-            @JsonProperty("userMemoryReservation") DataSize userMemoryReservation,
-            @JsonProperty("peakUserMemoryReservation") DataSize peakUserMemoryReservation,
-            @JsonProperty("revocableMemoryReservation") DataSize revocableMemoryReservation,
-
-            @JsonProperty("spilledDataSize") DataSize spilledDataSize,
-
-            @JsonProperty("totalScheduledTime") Duration totalScheduledTime,
-            @JsonProperty("totalCpuTime") Duration totalCpuTime,
-            @JsonProperty("totalBlockedTime") Duration totalBlockedTime,
-            @JsonProperty("fullyBlocked") boolean fullyBlocked,
-            @JsonProperty("blockedReasons") Set<BlockedReason> blockedReasons,
-
-            @JsonProperty("physicalInputDataSize") DataSize physicalInputDataSize,
-            @JsonProperty("physicalInputPositions") long physicalInputPositions,
-            @JsonProperty("physicalInputReadTime") Duration physicalInputReadTime,
-
-            @JsonProperty("internalNetworkInputDataSize") DataSize internalNetworkInputDataSize,
-            @JsonProperty("internalNetworkInputPositions") long internalNetworkInputPositions,
-
-            @JsonProperty("processedInputDataSize") DataSize processedInputDataSize,
-            @JsonProperty("processedInputPositions") long processedInputPositions,
-
-            @JsonProperty("inputBlockedTime") Duration inputBlockedTime,
-
-            @JsonProperty("outputDataSize") DataSize outputDataSize,
-            @JsonProperty("outputPositions") long outputPositions,
-
-            @JsonProperty("outputBlockedTime") Duration outputBlockedTime,
-
-            @JsonProperty("writerInputDataSize") DataSize writerInputDataSize,
-            @JsonProperty("physicalWrittenDataSize") DataSize physicalWrittenDataSize,
-            @JsonProperty("writerCount") OptionalInt writerCount,
-
-            @JsonProperty("fullGcCount") int fullGcCount,
-            @JsonProperty("fullGcTime") Duration fullGcTime,
-
-            @JsonProperty("pipelines") List<PipelineStats> pipelines)
+    public TaskStats
     {
-        this.createTime = requireNonNull(createTime, "createTime is null");
-        this.firstStartTime = firstStartTime;
-        this.lastStartTime = lastStartTime;
-        this.terminatingStartTime = terminatingStartTime;
-        this.lastEndTime = lastEndTime;
-        this.endTime = endTime;
-        this.elapsedTime = requireNonNull(elapsedTime, "elapsedTime is null");
-        this.queuedTime = requireNonNull(queuedTime, "queuedTime is null");
+        requireNonNull(createTime, "createTime is null");
+        requireNonNull(elapsedTime, "elapsedTime is null");
+        requireNonNull(queuedTime, "queuedTime is null");
 
         checkArgument(totalDrivers >= 0, "totalDrivers is negative");
-        this.totalDrivers = totalDrivers;
         checkArgument(queuedDrivers >= 0, "queuedDrivers is negative");
-        this.queuedDrivers = queuedDrivers;
         checkArgument(queuedPartitionedDrivers >= 0, "queuedPartitionedDrivers is negative");
-        this.queuedPartitionedDrivers = queuedPartitionedDrivers;
         checkArgument(queuedPartitionedSplitsWeight >= 0, "queuedPartitionedSplitsWeight must be positive");
-        this.queuedPartitionedSplitsWeight = queuedPartitionedSplitsWeight;
-
         checkArgument(runningDrivers >= 0, "runningDrivers is negative");
-        this.runningDrivers = runningDrivers;
         checkArgument(runningPartitionedDrivers >= 0, "runningPartitionedDrivers is negative");
-        this.runningPartitionedDrivers = runningPartitionedDrivers;
         checkArgument(runningPartitionedSplitsWeight >= 0, "runningPartitionedSplitsWeight must be positive");
-        this.runningPartitionedSplitsWeight = runningPartitionedSplitsWeight;
-
         checkArgument(blockedDrivers >= 0, "blockedDrivers is negative");
-        this.blockedDrivers = blockedDrivers;
-
         checkArgument(completedDrivers >= 0, "completedDrivers is negative");
-        this.completedDrivers = completedDrivers;
 
-        this.cumulativeUserMemory = cumulativeUserMemory;
-        this.userMemoryReservation = requireNonNull(userMemoryReservation, "userMemoryReservation is null");
-        this.peakUserMemoryReservation = requireNonNull(peakUserMemoryReservation, "peakUserMemoryReservation is null");
-        this.revocableMemoryReservation = requireNonNull(revocableMemoryReservation, "revocableMemoryReservation is null");
+        requireNonNull(userMemoryReservation, "userMemoryReservation is null");
+        requireNonNull(peakUserMemoryReservation, "peakUserMemoryReservation is null");
+        requireNonNull(revocableMemoryReservation, "revocableMemoryReservation is null");
 
-        this.spilledDataSize = requireNonNull(spilledDataSize, "spilledDataSize is null");
+        requireNonNull(spilledDataSize, "spilledDataSize is null");
 
-        this.totalScheduledTime = requireNonNull(totalScheduledTime, "totalScheduledTime is null");
-        this.totalCpuTime = requireNonNull(totalCpuTime, "totalCpuTime is null");
-        this.totalBlockedTime = requireNonNull(totalBlockedTime, "totalBlockedTime is null");
-        this.fullyBlocked = fullyBlocked;
-        this.blockedReasons = ImmutableSet.copyOf(requireNonNull(blockedReasons, "blockedReasons is null"));
+        requireNonNull(totalScheduledTime, "totalScheduledTime is null");
+        requireNonNull(totalCpuTime, "totalCpuTime is null");
+        requireNonNull(totalBlockedTime, "totalBlockedTime is null");
+        blockedReasons = ImmutableSet.copyOf(requireNonNull(blockedReasons, "blockedReasons is null"));
 
-        this.physicalInputDataSize = requireNonNull(physicalInputDataSize, "physicalInputDataSize is null");
+        requireNonNull(physicalInputDataSize, "physicalInputDataSize is null");
         checkArgument(physicalInputPositions >= 0, "physicalInputPositions is negative");
-        this.physicalInputPositions = physicalInputPositions;
-        this.physicalInputReadTime = requireNonNull(physicalInputReadTime, "physicalInputReadTime is null");
+        requireNonNull(physicalInputReadTime, "physicalInputReadTime is null");
 
-        this.internalNetworkInputDataSize = requireNonNull(internalNetworkInputDataSize, "internalNetworkInputDataSize is null");
+        requireNonNull(internalNetworkInputDataSize, "internalNetworkInputDataSize is null");
         checkArgument(internalNetworkInputPositions >= 0, "internalNetworkInputPositions is negative");
-        this.internalNetworkInputPositions = internalNetworkInputPositions;
 
-        this.processedInputDataSize = requireNonNull(processedInputDataSize, "processedInputDataSize is null");
+        requireNonNull(processedInputDataSize, "processedInputDataSize is null");
         checkArgument(processedInputPositions >= 0, "processedInputPositions is negative");
-        this.processedInputPositions = processedInputPositions;
 
-        this.inputBlockedTime = requireNonNull(inputBlockedTime, "inputBlockedTime is null");
+        requireNonNull(inputBlockedTime, "inputBlockedTime is null");
 
-        this.outputDataSize = requireNonNull(outputDataSize, "outputDataSize is null");
+        requireNonNull(outputDataSize, "outputDataSize is null");
         checkArgument(outputPositions >= 0, "outputPositions is negative");
-        this.outputPositions = outputPositions;
 
-        this.outputBlockedTime = requireNonNull(outputBlockedTime, "outputBlockedTime is null");
+        requireNonNull(outputBlockedTime, "outputBlockedTime is null");
 
-        this.writerInputDataSize = requireNonNull(writerInputDataSize, "writerInputDataSize is null");
-        this.physicalWrittenDataSize = requireNonNull(physicalWrittenDataSize, "physicalWrittenDataSize is null");
-        this.maxWriterCount = requireNonNull(writerCount, "writerCount is null");
+        requireNonNull(writerInputDataSize, "writerInputDataSize is null");
+        requireNonNull(physicalWrittenDataSize, "physicalWrittenDataSize is null");
+        requireNonNull(maxWriterCount, "writerCount is null");
 
         checkArgument(fullGcCount >= 0, "fullGcCount is negative");
-        this.fullGcCount = fullGcCount;
-        this.fullGcTime = requireNonNull(fullGcTime, "fullGcTime is null");
+        requireNonNull(fullGcTime, "fullGcTime is null");
 
-        this.pipelines = ImmutableList.copyOf(requireNonNull(pipelines, "pipelines is null"));
-    }
-
-    @JsonProperty
-    public Instant getCreateTime()
-    {
-        return createTime;
-    }
-
-    @Nullable
-    @JsonProperty
-    public Instant getFirstStartTime()
-    {
-        return firstStartTime;
-    }
-
-    @Nullable
-    @JsonProperty
-    public Instant getLastStartTime()
-    {
-        return lastStartTime;
-    }
-
-    @Nullable
-    @JsonProperty
-    public Instant getTerminatingStartTime()
-    {
-        return terminatingStartTime;
-    }
-
-    @Nullable
-    @JsonProperty
-    public Instant getLastEndTime()
-    {
-        return lastEndTime;
-    }
-
-    @Nullable
-    @JsonProperty
-    public Instant getEndTime()
-    {
-        return endTime;
-    }
-
-    @JsonProperty
-    public Duration getElapsedTime()
-    {
-        return elapsedTime;
-    }
-
-    @JsonProperty
-    public Duration getQueuedTime()
-    {
-        return queuedTime;
-    }
-
-    @JsonProperty
-    public int getTotalDrivers()
-    {
-        return totalDrivers;
-    }
-
-    @JsonProperty
-    public int getQueuedDrivers()
-    {
-        return queuedDrivers;
-    }
-
-    @JsonProperty
-    public int getRunningDrivers()
-    {
-        return runningDrivers;
-    }
-
-    @JsonProperty
-    public int getBlockedDrivers()
-    {
-        return blockedDrivers;
-    }
-
-    @JsonProperty
-    public int getCompletedDrivers()
-    {
-        return completedDrivers;
-    }
-
-    @JsonProperty
-    public double getCumulativeUserMemory()
-    {
-        return cumulativeUserMemory;
-    }
-
-    @JsonProperty
-    public DataSize getUserMemoryReservation()
-    {
-        return userMemoryReservation;
-    }
-
-    @JsonProperty
-    public DataSize getPeakUserMemoryReservation()
-    {
-        return peakUserMemoryReservation;
-    }
-
-    @JsonProperty
-    public DataSize getRevocableMemoryReservation()
-    {
-        return revocableMemoryReservation;
-    }
-
-    @JsonProperty
-    public DataSize getSpilledDataSize()
-    {
-        return spilledDataSize;
-    }
-
-    @JsonProperty
-    public Duration getTotalScheduledTime()
-    {
-        return totalScheduledTime;
-    }
-
-    @JsonProperty
-    public Duration getTotalCpuTime()
-    {
-        return totalCpuTime;
-    }
-
-    @JsonProperty
-    public Duration getTotalBlockedTime()
-    {
-        return totalBlockedTime;
-    }
-
-    @JsonProperty
-    public boolean isFullyBlocked()
-    {
-        return fullyBlocked;
-    }
-
-    @JsonProperty
-    public Set<BlockedReason> getBlockedReasons()
-    {
-        return blockedReasons;
-    }
-
-    @JsonProperty
-    public DataSize getPhysicalInputDataSize()
-    {
-        return physicalInputDataSize;
-    }
-
-    @JsonProperty
-    public long getPhysicalInputPositions()
-    {
-        return physicalInputPositions;
-    }
-
-    @JsonProperty
-    public Duration getPhysicalInputReadTime()
-    {
-        return physicalInputReadTime;
-    }
-
-    @JsonProperty
-    public DataSize getInternalNetworkInputDataSize()
-    {
-        return internalNetworkInputDataSize;
-    }
-
-    @JsonProperty
-    public long getInternalNetworkInputPositions()
-    {
-        return internalNetworkInputPositions;
-    }
-
-    @JsonProperty
-    public DataSize getProcessedInputDataSize()
-    {
-        return processedInputDataSize;
-    }
-
-    @JsonProperty
-    public long getProcessedInputPositions()
-    {
-        return processedInputPositions;
-    }
-
-    @JsonProperty
-    public Duration getInputBlockedTime()
-    {
-        return inputBlockedTime;
-    }
-
-    @JsonProperty
-    public DataSize getOutputDataSize()
-    {
-        return outputDataSize;
-    }
-
-    @JsonProperty
-    public long getOutputPositions()
-    {
-        return outputPositions;
-    }
-
-    @JsonProperty
-    public Duration getOutputBlockedTime()
-    {
-        return outputBlockedTime;
-    }
-
-    @JsonProperty
-    public DataSize getWriterInputDataSize()
-    {
-        return writerInputDataSize;
-    }
-
-    @JsonProperty
-    public DataSize getPhysicalWrittenDataSize()
-    {
-        return physicalWrittenDataSize;
-    }
-
-    @JsonProperty
-    public OptionalInt getMaxWriterCount()
-    {
-        return maxWriterCount;
-    }
-
-    @JsonProperty
-    public List<PipelineStats> getPipelines()
-    {
-        return pipelines;
-    }
-
-    @JsonProperty
-    public int getQueuedPartitionedDrivers()
-    {
-        return queuedPartitionedDrivers;
-    }
-
-    @JsonProperty
-    public long getQueuedPartitionedSplitsWeight()
-    {
-        return queuedPartitionedSplitsWeight;
-    }
-
-    @JsonProperty
-    public int getRunningPartitionedDrivers()
-    {
-        return runningPartitionedDrivers;
-    }
-
-    @JsonProperty
-    public long getRunningPartitionedSplitsWeight()
-    {
-        return runningPartitionedSplitsWeight;
-    }
-
-    @JsonProperty
-    public int getFullGcCount()
-    {
-        return fullGcCount;
-    }
-
-    @JsonProperty
-    public Duration getFullGcTime()
-    {
-        return fullGcTime;
+        pipelines = ImmutableList.copyOf(requireNonNull(pipelines, "pipelines is null"));
     }
 
     public TaskStats summarize()

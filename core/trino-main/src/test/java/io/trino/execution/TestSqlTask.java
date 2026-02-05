@@ -228,11 +228,11 @@ public class TestSqlTask
                 ImmutableMap.of(),
                 false);
         assertThat(taskInfo.taskStatus().state()).isEqualTo(TaskState.RUNNING);
-        assertThat(taskInfo.stats().getEndTime()).isNull();
+        assertThat(taskInfo.stats().endTime()).isNull();
 
         taskInfo = sqlTask.getTaskInfo();
         assertThat(taskInfo.taskStatus().state()).isEqualTo(TaskState.RUNNING);
-        assertThat(taskInfo.stats().getEndTime()).isNull();
+        assertThat(taskInfo.stats().endTime()).isNull();
 
         taskInfo = sqlTask.cancel();
         // This call can race and report either cancelling or cancelled
@@ -246,11 +246,11 @@ public class TestSqlTask
         assertThat(taskInfo.taskStatus().state())
                 .describedAs("Failed to see CANCELED after " + attempts + " attempts")
                 .isEqualTo(TaskState.CANCELED);
-        assertThat(taskInfo.stats().getEndTime()).isNotNull();
+        assertThat(taskInfo.stats().endTime()).isNotNull();
 
         taskInfo = sqlTask.getTaskInfo();
         assertThat(taskInfo.taskStatus().state()).isEqualTo(TaskState.CANCELED);
-        assertThat(taskInfo.stats().getEndTime()).isNotNull();
+        assertThat(taskInfo.stats().endTime()).isNotNull();
     }
 
     @Test

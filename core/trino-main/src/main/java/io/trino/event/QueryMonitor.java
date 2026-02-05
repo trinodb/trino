@@ -632,12 +632,12 @@ public class QueryMonitor
                 for (TaskInfo taskInfo : stage.tasks()) {
                     TaskStats taskStats = taskInfo.stats();
 
-                    Instant firstStartTime = taskStats.getFirstStartTime();
+                    Instant firstStartTime = taskStats.firstStartTime();
                     if (firstStartTime != null) {
                         firstTaskStartTime = min(firstStartTime, firstTaskStartTime);
                     }
 
-                    Instant endTime = taskStats.getEndTime();
+                    Instant endTime = taskStats.endTime();
                     if (endTime != null) {
                         lastTaskEndTime = max(endTime, lastTaskEndTime);
                     }
@@ -737,7 +737,7 @@ public class QueryMonitor
         Distribution cpuDistribution = new Distribution();
 
         for (TaskInfo taskInfo : stageInfo.tasks()) {
-            cpuDistribution.add(taskInfo.stats().getTotalCpuTime().toMillis());
+            cpuDistribution.add(taskInfo.stats().totalCpuTime().toMillis());
         }
 
         DistributionSnapshot snapshot = cpuDistribution.snapshot();
@@ -815,12 +815,12 @@ public class QueryMonitor
     private StageTaskStatistics computeStageTaskStatistics(QueryInfo queryInfo, StageInfo stageInfo)
     {
         long queryCreateTimeMillis = queryInfo.getQueryStats().getCreateTime().toEpochMilli();
-        LongSymmetricDistribution createTimeMillisDistribution = getTasksSymmetricDistribution(stageInfo, taskInfo -> Optional.of(taskInfo.stats().getCreateTime().toEpochMilli() - queryCreateTimeMillis));
-        LongSymmetricDistribution firstStartTimeMillisDistribution = getTasksSymmetricDistribution(stageInfo, taskInfo -> Optional.ofNullable(taskInfo.stats().getFirstStartTime()).map(value -> value.toEpochMilli() - queryCreateTimeMillis));
-        LongSymmetricDistribution lastStartTimeMillisDistribution = getTasksSymmetricDistribution(stageInfo, taskInfo -> Optional.ofNullable(taskInfo.stats().getLastStartTime()).map(value -> value.toEpochMilli() - queryCreateTimeMillis));
-        LongSymmetricDistribution terminatingStartTimeMillisDistribution = getTasksSymmetricDistribution(stageInfo, taskInfo -> Optional.ofNullable(taskInfo.stats().getTerminatingStartTime()).map(value -> value.toEpochMilli() - queryCreateTimeMillis));
-        LongSymmetricDistribution lastEndTimeMillisDistribution = getTasksSymmetricDistribution(stageInfo, taskInfo -> Optional.ofNullable(taskInfo.stats().getLastEndTime()).map(value -> value.toEpochMilli() - queryCreateTimeMillis));
-        LongSymmetricDistribution endTimeMillisDistribution = getTasksSymmetricDistribution(stageInfo, taskInfo -> Optional.ofNullable(taskInfo.stats().getEndTime()).map(value -> value.toEpochMilli() - queryCreateTimeMillis));
+        LongSymmetricDistribution createTimeMillisDistribution = getTasksSymmetricDistribution(stageInfo, taskInfo -> Optional.of(taskInfo.stats().createTime().toEpochMilli() - queryCreateTimeMillis));
+        LongSymmetricDistribution firstStartTimeMillisDistribution = getTasksSymmetricDistribution(stageInfo, taskInfo -> Optional.ofNullable(taskInfo.stats().firstStartTime()).map(value -> value.toEpochMilli() - queryCreateTimeMillis));
+        LongSymmetricDistribution lastStartTimeMillisDistribution = getTasksSymmetricDistribution(stageInfo, taskInfo -> Optional.ofNullable(taskInfo.stats().lastStartTime()).map(value -> value.toEpochMilli() - queryCreateTimeMillis));
+        LongSymmetricDistribution terminatingStartTimeMillisDistribution = getTasksSymmetricDistribution(stageInfo, taskInfo -> Optional.ofNullable(taskInfo.stats().terminatingStartTime()).map(value -> value.toEpochMilli() - queryCreateTimeMillis));
+        LongSymmetricDistribution lastEndTimeMillisDistribution = getTasksSymmetricDistribution(stageInfo, taskInfo -> Optional.ofNullable(taskInfo.stats().lastEndTime()).map(value -> value.toEpochMilli() - queryCreateTimeMillis));
+        LongSymmetricDistribution endTimeMillisDistribution = getTasksSymmetricDistribution(stageInfo, taskInfo -> Optional.ofNullable(taskInfo.stats().endTime()).map(value -> value.toEpochMilli() - queryCreateTimeMillis));
 
         Optional<Long> queryExecutionTime = Optional.ofNullable(queryInfo.getQueryStats().getEndTime()).map(value -> value.toEpochMilli() - queryCreateTimeMillis);
         DoubleSymmetricDistribution createTimeScaledDistribution;
@@ -868,17 +868,17 @@ public class QueryMonitor
         return new StageTaskStatistics(
                 stageInfo.stageId().id(),
                 stageInfo.tasks().size(),
-                getTasksDistribution(stageInfo, taskInfo -> Optional.of(taskInfo.stats().getTotalCpuTime().toMillis())),
-                getTasksDistribution(stageInfo, taskInfo -> Optional.of(taskInfo.stats().getTotalScheduledTime().toMillis())),
-                getTasksDistribution(stageInfo, taskInfo -> Optional.of(taskInfo.stats().getPeakUserMemoryReservation().toBytes())),
+                getTasksDistribution(stageInfo, taskInfo -> Optional.of(taskInfo.stats().totalCpuTime().toMillis())),
+                getTasksDistribution(stageInfo, taskInfo -> Optional.of(taskInfo.stats().totalScheduledTime().toMillis())),
+                getTasksDistribution(stageInfo, taskInfo -> Optional.of(taskInfo.stats().peakUserMemoryReservation().toBytes())),
                 getTasksDistribution(stageInfo, taskInfo -> taskInfo.estimatedMemory().map(DataSize::toBytes)),
-                getTasksDistribution(stageInfo, taskInfo -> Optional.of(taskInfo.stats().getInternalNetworkInputDataSize().toBytes() + taskInfo.stats().getPhysicalInputDataSize().toBytes())),
-                getTasksDistribution(stageInfo, taskInfo -> Optional.of(taskInfo.stats().getProcessedInputPositions())),
-                getTasksDistribution(stageInfo, taskInfo -> Optional.of(taskInfo.stats().getProcessedInputDataSize().toBytes())),
-                getTasksDistribution(stageInfo, taskInfo -> Optional.of(taskInfo.stats().getProcessedInputPositions())),
-                getTasksDistribution(stageInfo, taskInfo -> Optional.of(taskInfo.stats().getOutputDataSize().toBytes())),
-                getTasksDistribution(stageInfo, taskInfo -> Optional.of(taskInfo.stats().getOutputPositions())),
-                getTasksDistribution(stageInfo, taskInfo -> Optional.of((long) taskInfo.stats().getTotalDrivers())),
+                getTasksDistribution(stageInfo, taskInfo -> Optional.of(taskInfo.stats().internalNetworkInputDataSize().toBytes() + taskInfo.stats().physicalInputDataSize().toBytes())),
+                getTasksDistribution(stageInfo, taskInfo -> Optional.of(taskInfo.stats().processedInputPositions())),
+                getTasksDistribution(stageInfo, taskInfo -> Optional.of(taskInfo.stats().processedInputDataSize().toBytes())),
+                getTasksDistribution(stageInfo, taskInfo -> Optional.of(taskInfo.stats().processedInputPositions())),
+                getTasksDistribution(stageInfo, taskInfo -> Optional.of(taskInfo.stats().outputDataSize().toBytes())),
+                getTasksDistribution(stageInfo, taskInfo -> Optional.of(taskInfo.stats().outputPositions())),
+                getTasksDistribution(stageInfo, taskInfo -> Optional.of((long) taskInfo.stats().totalDrivers())),
                 createTimeMillisDistribution,
                 firstStartTimeMillisDistribution,
                 lastStartTimeMillisDistribution,

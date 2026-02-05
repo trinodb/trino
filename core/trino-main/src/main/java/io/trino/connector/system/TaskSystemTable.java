@@ -117,30 +117,30 @@ public class TaskSystemTable
                     taskStatus.taskId().queryId().toString(),
                     taskStatus.state().toString(),
 
-                    (long) stats.getTotalDrivers(),
-                    (long) stats.getQueuedDrivers(),
-                    (long) stats.getRunningDrivers(),
-                    (long) stats.getCompletedDrivers(),
+                    (long) stats.totalDrivers(),
+                    (long) stats.queuedDrivers(),
+                    (long) stats.runningDrivers(),
+                    (long) stats.completedDrivers(),
 
-                    toMillis(stats.getTotalScheduledTime()),
-                    toMillis(stats.getTotalCpuTime()),
-                    toMillis(stats.getTotalBlockedTime()),
+                    toMillis(stats.totalScheduledTime()),
+                    toMillis(stats.totalCpuTime()),
+                    toMillis(stats.totalBlockedTime()),
 
-                    toBytes(stats.getInternalNetworkInputDataSize()),
+                    toBytes(stats.internalNetworkInputDataSize()),
 
-                    toBytes(stats.getProcessedInputDataSize()),
-                    stats.getProcessedInputPositions(),
+                    toBytes(stats.processedInputDataSize()),
+                    stats.processedInputPositions(),
 
-                    toBytes(stats.getOutputDataSize()),
-                    stats.getOutputPositions(),
+                    toBytes(stats.outputDataSize()),
+                    stats.outputPositions(),
 
-                    toBytes(stats.getPhysicalInputDataSize()),
-                    toBytes(stats.getPhysicalWrittenDataSize()),
+                    toBytes(stats.physicalInputDataSize()),
+                    toBytes(stats.physicalWrittenDataSize()),
 
-                    toTimestampWithTimeZoneMillis(stats.getCreateTime()),
-                    toTimestampWithTimeZoneMillis(stats.getFirstStartTime()),
+                    toTimestampWithTimeZoneMillis(stats.createTime()),
+                    toTimestampWithTimeZoneMillis(stats.firstStartTime()),
                     toTimestampWithTimeZoneMillis(taskInfo.lastHeartbeat()),
-                    toTimestampWithTimeZoneMillis(stats.getEndTime()));
+                    toTimestampWithTimeZoneMillis(stats.endTime()));
         }
         return table.build().cursor();
     }

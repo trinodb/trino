@@ -316,44 +316,44 @@ public class StageStateMachine
                 failedTasks++;
             }
 
-            totalDrivers += taskStats.getTotalDrivers();
-            queuedDrivers += taskStats.getQueuedDrivers();
-            runningDrivers += taskStats.getRunningDrivers();
-            completedDrivers += taskStats.getCompletedDrivers();
-            blockedDrivers += taskStats.getBlockedDrivers();
+            totalDrivers += taskStats.totalDrivers();
+            queuedDrivers += taskStats.queuedDrivers();
+            runningDrivers += taskStats.runningDrivers();
+            completedDrivers += taskStats.completedDrivers();
+            blockedDrivers += taskStats.blockedDrivers();
 
-            cumulativeUserMemory += taskStats.getCumulativeUserMemory();
+            cumulativeUserMemory += taskStats.cumulativeUserMemory();
             if (taskFailedOrFailing) {
-                failedCumulativeUserMemory += taskStats.getCumulativeUserMemory();
+                failedCumulativeUserMemory += taskStats.cumulativeUserMemory();
             }
 
-            long taskUserMemory = taskStats.getUserMemoryReservation().toBytes();
-            long taskRevocableMemory = taskStats.getRevocableMemoryReservation().toBytes();
+            long taskUserMemory = taskStats.userMemoryReservation().toBytes();
+            long taskRevocableMemory = taskStats.revocableMemoryReservation().toBytes();
             userMemoryReservation += taskUserMemory;
             totalMemoryReservation += taskUserMemory + taskRevocableMemory;
 
-            totalScheduledTime += taskStats.getTotalScheduledTime().roundTo(NANOSECONDS);
-            totalCpuTime += taskStats.getTotalCpuTime().roundTo(NANOSECONDS);
+            totalScheduledTime += taskStats.totalScheduledTime().roundTo(NANOSECONDS);
+            totalCpuTime += taskStats.totalCpuTime().roundTo(NANOSECONDS);
             if (taskFailedOrFailing) {
-                failedScheduledTime += taskStats.getTotalScheduledTime().roundTo(NANOSECONDS);
-                failedCpuTime += taskStats.getTotalCpuTime().roundTo(NANOSECONDS);
+                failedScheduledTime += taskStats.totalScheduledTime().roundTo(NANOSECONDS);
+                failedCpuTime += taskStats.totalCpuTime().roundTo(NANOSECONDS);
             }
             if (!taskState.isDone()) {
-                fullyBlocked &= taskStats.isFullyBlocked();
-                blockedReasons.addAll(taskStats.getBlockedReasons());
+                fullyBlocked &= taskStats.fullyBlocked();
+                blockedReasons.addAll(taskStats.blockedReasons());
             }
 
-            physicalInputDataSize += taskStats.getPhysicalInputDataSize().toBytes();
-            physicalInputPositions += taskStats.getPhysicalInputPositions();
-            physicalInputReadTime += taskStats.getPhysicalInputReadTime().roundTo(NANOSECONDS);
-            physicalWrittenBytes += taskStats.getPhysicalWrittenDataSize().toBytes();
+            physicalInputDataSize += taskStats.physicalInputDataSize().toBytes();
+            physicalInputPositions += taskStats.physicalInputPositions();
+            physicalInputReadTime += taskStats.physicalInputReadTime().roundTo(NANOSECONDS);
+            physicalWrittenBytes += taskStats.physicalWrittenDataSize().toBytes();
 
-            internalNetworkInputDataSize += taskStats.getInternalNetworkInputDataSize().toBytes();
-            internalNetworkInputPositions += taskStats.getInternalNetworkInputPositions();
+            internalNetworkInputDataSize += taskStats.internalNetworkInputDataSize().toBytes();
+            internalNetworkInputPositions += taskStats.internalNetworkInputPositions();
 
-            processedInputPositions += taskStats.getProcessedInputPositions();
+            processedInputPositions += taskStats.processedInputPositions();
 
-            spilledDataSize += taskStats.getSpilledDataSize().toBytes();
+            spilledDataSize += taskStats.spilledDataSize().toBytes();
         }
 
         OptionalDouble progressPercentage = OptionalDouble.empty();
@@ -507,88 +507,88 @@ public class StageStateMachine
 
             TaskStats taskStats = taskInfo.stats();
 
-            totalDrivers += taskStats.getTotalDrivers();
-            queuedDrivers += taskStats.getQueuedDrivers();
-            runningDrivers += taskStats.getRunningDrivers();
-            blockedDrivers += taskStats.getBlockedDrivers();
-            completedDrivers += taskStats.getCompletedDrivers();
+            totalDrivers += taskStats.totalDrivers();
+            queuedDrivers += taskStats.queuedDrivers();
+            runningDrivers += taskStats.runningDrivers();
+            blockedDrivers += taskStats.blockedDrivers();
+            completedDrivers += taskStats.completedDrivers();
 
-            cumulativeUserMemory += taskStats.getCumulativeUserMemory();
+            cumulativeUserMemory += taskStats.cumulativeUserMemory();
             if (taskFailedOrFailing) {
-                failedCumulativeUserMemory += taskStats.getCumulativeUserMemory();
+                failedCumulativeUserMemory += taskStats.cumulativeUserMemory();
             }
 
-            spilledDataSize += taskStats.getSpilledDataSize().toBytes();
+            spilledDataSize += taskStats.spilledDataSize().toBytes();
 
-            totalScheduledTime += taskStats.getTotalScheduledTime().roundTo(NANOSECONDS);
-            totalCpuTime += taskStats.getTotalCpuTime().roundTo(NANOSECONDS);
-            totalBlockedTime += taskStats.getTotalBlockedTime().roundTo(NANOSECONDS);
+            totalScheduledTime += taskStats.totalScheduledTime().roundTo(NANOSECONDS);
+            totalCpuTime += taskStats.totalCpuTime().roundTo(NANOSECONDS);
+            totalBlockedTime += taskStats.totalBlockedTime().roundTo(NANOSECONDS);
             if (taskFailedOrFailing) {
-                failedScheduledTime += taskStats.getTotalScheduledTime().roundTo(NANOSECONDS);
-                failedCpuTime += taskStats.getTotalCpuTime().roundTo(NANOSECONDS);
+                failedScheduledTime += taskStats.totalScheduledTime().roundTo(NANOSECONDS);
+                failedCpuTime += taskStats.totalCpuTime().roundTo(NANOSECONDS);
             }
             if (!taskState.isDone()) {
-                fullyBlocked &= taskStats.isFullyBlocked();
-                blockedReasons.addAll(taskStats.getBlockedReasons());
+                fullyBlocked &= taskStats.fullyBlocked();
+                blockedReasons.addAll(taskStats.blockedReasons());
             }
 
-            physicalInputDataSize += taskStats.getPhysicalInputDataSize().toBytes();
-            physicalInputPositions += taskStats.getPhysicalInputPositions();
-            physicalInputReadTime += taskStats.getPhysicalInputReadTime().roundTo(NANOSECONDS);
+            physicalInputDataSize += taskStats.physicalInputDataSize().toBytes();
+            physicalInputPositions += taskStats.physicalInputPositions();
+            physicalInputReadTime += taskStats.physicalInputReadTime().roundTo(NANOSECONDS);
 
-            internalNetworkInputDataSize += taskStats.getInternalNetworkInputDataSize().toBytes();
-            internalNetworkInputPositions += taskStats.getInternalNetworkInputPositions();
+            internalNetworkInputDataSize += taskStats.internalNetworkInputDataSize().toBytes();
+            internalNetworkInputPositions += taskStats.internalNetworkInputPositions();
 
-            processedInputDataSize += taskStats.getProcessedInputDataSize().toBytes();
-            processedInputPositions += taskStats.getProcessedInputPositions();
+            processedInputDataSize += taskStats.processedInputDataSize().toBytes();
+            processedInputPositions += taskStats.processedInputPositions();
 
-            inputBlockedTime += taskStats.getInputBlockedTime().roundTo(NANOSECONDS);
+            inputBlockedTime += taskStats.inputBlockedTime().roundTo(NANOSECONDS);
 
             bufferedDataSize += taskInfo.outputBuffers().totalBufferedBytes();
 
             Optional<Metrics> bufferMetrics = taskInfo.outputBuffers().metrics();
 
             taskInfo.outputBuffers().utilization().ifPresent(bufferUtilizationHistograms::add);
-            outputDataSize += taskStats.getOutputDataSize().toBytes();
-            outputPositions += taskStats.getOutputPositions();
+            outputDataSize += taskStats.outputDataSize().toBytes();
+            outputPositions += taskStats.outputPositions();
             bufferMetrics.ifPresent(outputBufferMetrics::add);
 
-            outputBlockedTime += taskStats.getOutputBlockedTime().roundTo(NANOSECONDS);
+            outputBlockedTime += taskStats.outputBlockedTime().roundTo(NANOSECONDS);
 
-            physicalWrittenDataSize += taskStats.getPhysicalWrittenDataSize().toBytes();
+            physicalWrittenDataSize += taskStats.physicalWrittenDataSize().toBytes();
 
             if (taskFailedOrFailing) {
-                failedPhysicalInputDataSize += taskStats.getPhysicalInputDataSize().toBytes();
-                failedPhysicalInputPositions += taskStats.getPhysicalInputPositions();
-                failedPhysicalInputReadTime += taskStats.getPhysicalInputReadTime().roundTo(NANOSECONDS);
+                failedPhysicalInputDataSize += taskStats.physicalInputDataSize().toBytes();
+                failedPhysicalInputPositions += taskStats.physicalInputPositions();
+                failedPhysicalInputReadTime += taskStats.physicalInputReadTime().roundTo(NANOSECONDS);
 
-                failedInternalNetworkInputDataSize += taskStats.getInternalNetworkInputDataSize().toBytes();
-                failedInternalNetworkInputPositions += taskStats.getInternalNetworkInputPositions();
+                failedInternalNetworkInputDataSize += taskStats.internalNetworkInputDataSize().toBytes();
+                failedInternalNetworkInputPositions += taskStats.internalNetworkInputPositions();
 
-                failedProcessedInputDataSize += taskStats.getProcessedInputDataSize().toBytes();
-                failedProcessedInputPositions += taskStats.getProcessedInputPositions();
+                failedProcessedInputDataSize += taskStats.processedInputDataSize().toBytes();
+                failedProcessedInputPositions += taskStats.processedInputPositions();
 
-                failedInputBlockedTime += taskStats.getInputBlockedTime().roundTo(NANOSECONDS);
+                failedInputBlockedTime += taskStats.inputBlockedTime().roundTo(NANOSECONDS);
 
-                failedOutputDataSize += taskStats.getOutputDataSize().toBytes();
-                failedOutputPositions += taskStats.getOutputPositions();
+                failedOutputDataSize += taskStats.outputDataSize().toBytes();
+                failedOutputPositions += taskStats.outputPositions();
 
-                failedPhysicalWrittenDataSize += taskStats.getPhysicalWrittenDataSize().toBytes();
+                failedPhysicalWrittenDataSize += taskStats.physicalWrittenDataSize().toBytes();
 
-                failedOutputBlockedTime += taskStats.getOutputBlockedTime().roundTo(NANOSECONDS);
+                failedOutputBlockedTime += taskStats.outputBlockedTime().roundTo(NANOSECONDS);
             }
 
-            fullGcCount += taskStats.getFullGcCount();
-            fullGcTaskCount += taskStats.getFullGcCount() > 0 ? 1 : 0;
+            fullGcCount += taskStats.fullGcCount();
+            fullGcTaskCount += taskStats.fullGcCount() > 0 ? 1 : 0;
 
-            int gcSec = toIntExact(taskStats.getFullGcTime().roundTo(SECONDS));
+            int gcSec = toIntExact(taskStats.fullGcTime().roundTo(SECONDS));
             totalFullGcSec += gcSec;
             minFullGcSec = min(minFullGcSec, gcSec);
             maxFullGcSec = max(maxFullGcSec, gcSec);
 
             // Count and record the maximum number of pipeline / operators across all task infos
             int taskOperatorSummaries = 0;
-            for (PipelineStats pipeline : taskStats.getPipelines()) {
+            for (PipelineStats pipeline : taskStats.pipelines()) {
                 taskOperatorSummaries += pipeline.getOperatorSummaries().size();
             }
             maxTaskOperatorSummaries = max(taskOperatorSummaries, maxTaskOperatorSummaries);
@@ -711,7 +711,7 @@ public class StageStateMachine
         int taskInfoCount = taskInfos.size();
         LongFunction<List<OperatorStats>> statsListCreator = key -> new ArrayList<>(taskInfoCount);
         for (TaskInfo taskInfo : taskInfos) {
-            for (PipelineStats pipeline : taskInfo.stats().getPipelines()) {
+            for (PipelineStats pipeline : taskInfo.stats().pipelines()) {
                 // Place the pipelineId in the high bits of the combinedKey mask
                 long pipelineKeyMask = Integer.toUnsignedLong(pipeline.getPipelineId()) << 32;
                 for (OperatorStats operator : pipeline.getOperatorSummaries()) {
