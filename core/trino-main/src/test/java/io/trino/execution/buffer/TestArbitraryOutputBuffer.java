@@ -1022,14 +1022,14 @@ public class TestArbitraryOutputBuffer
     {
         OutputBufferInfo outputBufferInfo = buffer.getInfo();
 
-        long assignedPages = outputBufferInfo.pipelinedBufferStates().orElse(ImmutableList.of()).stream().mapToInt(PipelinedBufferInfo::getBufferedPages).sum();
+        long assignedPages = outputBufferInfo.pipelinedBufferStates().orElse(ImmutableList.of()).stream().mapToInt(PipelinedBufferInfo::bufferedPages).sum();
 
         assertThat(outputBufferInfo.totalBufferedPages() - assignedPages)
                 .describedAs("unassignedPages")
                 .isEqualTo(unassignedPages);
 
         PipelinedBufferInfo bufferInfo = outputBufferInfo.pipelinedBufferStates().orElse(ImmutableList.of()).stream()
-                .filter(info -> info.getBufferId().equals(bufferId))
+                .filter(info -> info.bufferId().equals(bufferId))
                 .findAny()
                 .orElse(null);
 
@@ -1049,19 +1049,19 @@ public class TestArbitraryOutputBuffer
     {
         OutputBufferInfo outputBufferInfo = buffer.getInfo();
 
-        long assignedPages = outputBufferInfo.pipelinedBufferStates().orElse(ImmutableList.of()).stream().mapToInt(PipelinedBufferInfo::getBufferedPages).sum();
+        long assignedPages = outputBufferInfo.pipelinedBufferStates().orElse(ImmutableList.of()).stream().mapToInt(PipelinedBufferInfo::bufferedPages).sum();
         assertThat(outputBufferInfo.totalBufferedPages() - assignedPages)
                 .describedAs("unassignedPages")
                 .isEqualTo(unassignedPages);
 
         PipelinedBufferInfo bufferInfo = outputBufferInfo.pipelinedBufferStates().orElse(ImmutableList.of()).stream()
-                .filter(info -> info.getBufferId().equals(bufferId))
+                .filter(info -> info.bufferId().equals(bufferId))
                 .findAny()
                 .orElse(null);
 
-        assertThat(bufferInfo.getBufferedPages()).isEqualTo(0);
-        assertThat(bufferInfo.getPagesSent()).isEqualTo(pagesSent);
-        assertThat(bufferInfo.isFinished()).isTrue();
+        assertThat(bufferInfo.bufferedPages()).isEqualTo(0);
+        assertThat(bufferInfo.pagesSent()).isEqualTo(pagesSent);
+        assertThat(bufferInfo.finished()).isTrue();
     }
 
     private ArbitraryOutputBuffer createArbitraryBuffer(OutputBuffers buffers, DataSize dataSize)
