@@ -36,7 +36,7 @@ public class DecimalSessionSessionProperties
     private final List<PropertyMetadata<?>> properties;
 
     @Inject
-    public DecimalSessionSessionProperties(DecimalConfig decimalConfig)
+    public DecimalSessionSessionProperties(LegacyDecimalConfig decimalConfig)
     {
         properties = ImmutableList.of(
                 enumProperty(

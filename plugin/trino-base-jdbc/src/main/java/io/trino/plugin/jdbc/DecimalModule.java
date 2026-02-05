@@ -25,7 +25,7 @@ public class DecimalModule
     @Override
     public void configure(Binder binder)
     {
-        configBinder(binder).bindConfig(DecimalConfig.class);
+        configBinder(binder).bindConfig(LegacyDecimalConfig.class);
         bindSessionPropertiesProvider(binder, DecimalSessionSessionProperties.class);
     }
 }

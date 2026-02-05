@@ -26,12 +26,12 @@ import static io.trino.plugin.jdbc.DecimalConfig.DecimalMapping.STRICT;
 import static java.math.RoundingMode.HALF_UP;
 import static java.math.RoundingMode.UNNECESSARY;
 
-public class TestDecimalConfig
+public class TestLegacyDecimalConfig
 {
     @Test
     public void testDefaults()
     {
-        assertRecordedDefaults(recordDefaults(DecimalConfig.class)
+        assertRecordedDefaults(recordDefaults(LegacyDecimalConfig.class)
                 .setDecimalMapping(STRICT)
                 .setDecimalDefaultScale(0)
                 .setDecimalRoundingMode(UNNECESSARY));
@@ -46,7 +46,7 @@ public class TestDecimalConfig
                 .put("decimal-rounding-mode", "HALF_UP")
                 .buildOrThrow();
 
-        DecimalConfig expected = new DecimalConfig()
+        LegacyDecimalConfig expected = new LegacyDecimalConfig()
                 .setDecimalMapping(ALLOW_OVERFLOW)
                 .setDecimalDefaultScale(16)
                 .setDecimalRoundingMode(HALF_UP);
