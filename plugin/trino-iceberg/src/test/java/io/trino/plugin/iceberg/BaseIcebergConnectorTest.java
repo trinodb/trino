@@ -5400,8 +5400,8 @@ public abstract class BaseIcebergConnectorTest
                 .orElseThrow();
         StageId outputStageId = stagesInfo.getOutputStageId();
         StageInfo writerStage = stagesInfo.getSubStages(outputStageId).getFirst();
-        assertThat(PlanNodeSearcher.searchFrom(writerStage.getPlan().getRoot()).whereIsInstanceOfAny(TableWriterNode.class).matches()).isTrue();
-        assertThat(writerStage.getTasks().size()).isEqualTo(1);
+        assertThat(PlanNodeSearcher.searchFrom(writerStage.plan().getRoot()).whereIsInstanceOfAny(TableWriterNode.class).matches()).isTrue();
+        assertThat(writerStage.tasks().size()).isEqualTo(1);
 
         assertUpdate("DROP TABLE IF EXISTS test_max_writer_task_count_insert");
     }

@@ -260,8 +260,8 @@ public class StageStateMachine
         Optional<StageInfo> finalStageInfo = this.finalStageInfo.get();
         if (finalStageInfo.isPresent()) {
             return finalStageInfo.get()
-                    .getStageStats()
-                    .toBasicStageStats(finalStageInfo.get().getState());
+                    .stageStats()
+                    .toBasicStageStats(finalStageInfo.get().state());
         }
 
         // stage state must be captured first in order to provide a

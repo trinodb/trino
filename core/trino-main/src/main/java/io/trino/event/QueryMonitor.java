@@ -532,13 +532,13 @@ public class QueryMonitor
 
     private static void extractPlanNodeStats(StageInfo stageInfo, ImmutableMultimap.Builder<FragmentNode, OperatorStats> planNodeStats)
     {
-        PlanFragment fragment = stageInfo.getPlan();
+        PlanFragment fragment = stageInfo.plan();
         if (fragment == null) {
             return;
         }
 
         // Note: a plan node may be mapped to multiple operators
-        Map<PlanNodeId, Collection<OperatorStats>> allOperatorStats = Multimaps.index(stageInfo.getStageStats().getOperatorSummaries(), OperatorStats::getPlanNodeId).asMap();
+        Map<PlanNodeId, Collection<OperatorStats>> allOperatorStats = Multimaps.index(stageInfo.stageStats().getOperatorSummaries(), OperatorStats::getPlanNodeId).asMap();
 
         // Sometimes a plan node is merged with other nodes into a single operator, and in that case,
         // use the stats of the nearest parent node with stats.
@@ -580,7 +580,7 @@ public class QueryMonitor
     private static Optional<TaskInfo> findFailedTask(StagesInfo stages)
     {
         for (StageInfo stageInfo : stages.getSubStagesDeep(stages.getOutputStageId(), true)) {
-            Optional<TaskInfo> failedTaskInfo = stageInfo.getTasks().stream()
+            Optional<TaskInfo> failedTaskInfo = stageInfo.tasks().stream()
                     .filter(taskInfo -> taskInfo.taskStatus().state() == TaskState.FAILED)
                     .findFirst();
             if (failedTaskInfo.isPresent()) {
@@ -625,11 +625,11 @@ public class QueryMonitor
             Instant lastTaskEndTime = queryStartTime.plusMillis(planning);
             for (StageInfo stage : stages) {
                 // only consider leaf stages
-                if (!stage.getSubStages().isEmpty()) {
+                if (!stage.subStages().isEmpty()) {
                     continue;
                 }
 
-                for (TaskInfo taskInfo : stage.getTasks()) {
+                for (TaskInfo taskInfo : stage.tasks()) {
                     TaskStats taskStats = taskInfo.stats();
 
                     Instant firstStartTime = taskStats.getFirstStartTime();
@@ -736,15 +736,15 @@ public class QueryMonitor
     {
         Distribution cpuDistribution = new Distribution();
 
-        for (TaskInfo taskInfo : stageInfo.getTasks()) {
+        for (TaskInfo taskInfo : stageInfo.tasks()) {
             cpuDistribution.add(taskInfo.stats().getTotalCpuTime().toMillis());
         }
 
         DistributionSnapshot snapshot = cpuDistribution.snapshot();
 
         return new StageCpuDistribution(
-                stageInfo.getStageId().id(),
-                stageInfo.getTasks().size(),
+                stageInfo.stageId().id(),
+                stageInfo.tasks().size(),
                 (long) snapshot.p25(),
                 (long) snapshot.p50(),
                 (long) snapshot.p75(),
@@ -768,10 +768,10 @@ public class QueryMonitor
 
     private static Optional<StageOutputBufferUtilization> computeStageOutputBufferUtilization(StageInfo stageInfo)
     {
-        return stageInfo.getStageStats().getOutputBufferUtilization()
+        return stageInfo.stageStats().getOutputBufferUtilization()
                 .map(utilization -> new StageOutputBufferUtilization(
-                            stageInfo.getStageId().id(),
-                            stageInfo.getTasks().size(),
+                            stageInfo.stageId().id(),
+                            stageInfo.tasks().size(),
                             // scale ratio to percentages
                             utilization.p01() * 100,
                             utilization.p05() * 100,
@@ -798,11 +798,11 @@ public class QueryMonitor
 
     private static Optional<StageOutputBufferMetrics> computeStageOutputBufferMetrics(StageInfo stageInfo)
     {
-        Metrics metrics = stageInfo.getStageStats().getOutputBufferMetrics();
+        Metrics metrics = stageInfo.stageStats().getOutputBufferMetrics();
         if (metrics.getMetrics().isEmpty()) {
             return Optional.empty();
         }
-        return Optional.of(new StageOutputBufferMetrics(stageInfo.getStageId().id(), metrics));
+        return Optional.of(new StageOutputBufferMetrics(stageInfo.stageId().id(), metrics));
     }
 
     private List<StageTaskStatistics> getStageTaskStatistics(QueryInfo queryInfo)
@@ -846,7 +846,7 @@ public class QueryMonitor
             endTimeScaledDistribution = DoubleSymmetricDistribution.ZERO;
         }
 
-        Map<String, DoubleSymmetricDistribution> getSplitDistribution = stageInfo.getStageStats().getGetSplitDistribution()
+        Map<String, DoubleSymmetricDistribution> getSplitDistribution = stageInfo.stageStats().getGetSplitDistribution()
                 .entrySet().stream()
                 .collect(toImmutableMap(entry -> entry.getKey().toString(), entry -> {
                     DistributionSnapshot distributionSnapshot = entry.getValue();
@@ -866,8 +866,8 @@ public class QueryMonitor
                             distributionSnapshot.count());
                 }));
         return new StageTaskStatistics(
-                stageInfo.getStageId().id(),
-                stageInfo.getTasks().size(),
+                stageInfo.stageId().id(),
+                stageInfo.tasks().size(),
                 getTasksDistribution(stageInfo, taskInfo -> Optional.of(taskInfo.stats().getTotalCpuTime().toMillis())),
                 getTasksDistribution(stageInfo, taskInfo -> Optional.of(taskInfo.stats().getTotalScheduledTime().toMillis())),
                 getTasksDistribution(stageInfo, taskInfo -> Optional.of(taskInfo.stats().getPeakUserMemoryReservation().toBytes())),
@@ -897,7 +897,7 @@ public class QueryMonitor
     private static LongDistribution getTasksDistribution(StageInfo stageInfo, Function<TaskInfo, Optional<Long>> metricFunction)
     {
         Distribution distribution = new Distribution();
-        for (TaskInfo taskInfo : stageInfo.getTasks()) {
+        for (TaskInfo taskInfo : stageInfo.tasks()) {
             metricFunction.apply(taskInfo).ifPresent(distribution::add);
         }
         DistributionSnapshot snapshot = distribution.snapshot();
@@ -917,7 +917,7 @@ public class QueryMonitor
     private static LongSymmetricDistribution getTasksSymmetricDistribution(StageInfo stageInfo, Function<TaskInfo, Optional<Long>> metricFunction)
     {
         Distribution distribution = new Distribution();
-        for (TaskInfo taskInfo : stageInfo.getTasks()) {
+        for (TaskInfo taskInfo : stageInfo.tasks()) {
             metricFunction.apply(taskInfo).ifPresent(distribution::add);
         }
         DistributionSnapshot snapshot = distribution.snapshot();

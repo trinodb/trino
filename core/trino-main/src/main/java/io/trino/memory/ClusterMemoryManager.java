@@ -407,7 +407,7 @@ public class ClusterMemoryManager
         QueryInfo queryInfo = query.getQueryInfo();
 
         Map<TaskId, TaskInfo> taskInfos = queryInfo.getStages().map(stagesInfo ->
-                stagesInfo.getStages().stream().flatMap(stageInfo -> stageInfo.getTasks().stream())
+                stagesInfo.getStages().stream().flatMap(stageInfo -> stageInfo.tasks().stream())
                         .collect(toImmutableMap(
                                 taskInfo -> taskInfo.taskStatus().taskId(),
                                 identity())))
