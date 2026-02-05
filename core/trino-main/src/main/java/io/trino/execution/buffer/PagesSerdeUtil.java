@@ -40,6 +40,8 @@ import static java.util.Objects.requireNonNull;
 
 public final class PagesSerdeUtil
 {
+    private static ThreadLocal<XxHash3Hasher> HASHERS = ThreadLocal.withInitial(XxHash3Native::newHasher);
+
     private PagesSerdeUtil() {}
 
     static final int SERIALIZED_PAGE_POSITION_COUNT_OFFSET = 0;
@@ -78,17 +80,17 @@ public final class PagesSerdeUtil
 
     public static long calculateChecksum(List<Slice> pages)
     {
-        try (XxHash3Hasher hasher = XxHash3Native.newHasher()) {
-            for (Slice page : pages) {
-                hasher.update(page.byteArray(), page.byteArrayOffset(), page.length());
-            }
-            long checksum = hasher.digest();
-            // Since NO_CHECKSUM is assigned a special meaning, it is not a valid checksum.
-            if (checksum == NO_CHECKSUM) {
-                return checksum + 1;
-            }
-            return checksum;
+        XxHash3Hasher hasher = HASHERS.get();
+        hasher.reset();
+        for (Slice page : pages) {
+            hasher.update(page.byteArray(), page.byteArrayOffset(), page.length());
         }
+        long checksum = hasher.digest();
+        // Since NO_CHECKSUM is assigned a special meaning, it is not a valid checksum.
+        if (checksum == NO_CHECKSUM) {
+            return checksum + 1;
+        }
+        return checksum;
     }
 
     public static long writePages(PageSerializer serializer, SliceOutput sliceOutput, Page... pages)
