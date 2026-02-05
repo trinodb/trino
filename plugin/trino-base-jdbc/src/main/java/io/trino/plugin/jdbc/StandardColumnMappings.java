@@ -22,8 +22,10 @@ import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Decimals;
 import io.trino.spi.type.Int128;
 import io.trino.spi.type.LongTimestamp;
+import io.trino.spi.type.NumberType;
 import io.trino.spi.type.TimeType;
 import io.trino.spi.type.TimestampType;
+import io.trino.spi.type.TrinoNumber;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
 import org.joda.time.DateTimeZone;
@@ -250,6 +252,67 @@ public final class StandardColumnMappings
                     throws SQLException
             {
                 statement.setNull(index, Types.DECIMAL);
+            }
+        };
+    }
+
+    public static ColumnMapping numberColumnMapping()
+    {
+        return ColumnMapping.objectMapping(
+                NumberType.NUMBER,
+                numberReadFunction(),
+                numberWriteFunction());
+    }
+
+    public static ObjectReadFunction numberReadFunction()
+    {
+        return ObjectReadFunction.of(TrinoNumber.class, (resultSet, columnIndex) -> {
+            Object value = resultSet.getObject(columnIndex);
+            if (value == null || resultSet.wasNull()) {
+                return null;
+            }
+            if (value instanceof Double doubleValue) {
+                if (Double.isNaN(doubleValue)) {
+                    return TrinoNumber.from(new TrinoNumber.NotANumber());
+                }
+                if (Double.isInfinite(doubleValue)) {
+                    return TrinoNumber.from(new TrinoNumber.Infinity(doubleValue < 0.0));
+                }
+                return TrinoNumber.from(new TrinoNumber.BigDecimalValue(new BigDecimal(doubleValue)));
+            }
+            if (value instanceof BigDecimal bigDecimal) {
+                return TrinoNumber.from(new TrinoNumber.BigDecimalValue(bigDecimal));
+            }
+            throw new UnsupportedOperationException("Unsupported type for conversion to NUMBER: " + value.getClass());
+        });
+    }
+
+    public static ObjectWriteFunction numberWriteFunction()
+    {
+        return new ObjectWriteFunction()
+        {
+            @Override
+            public Class<?> getJavaType()
+            {
+                return TrinoNumber.class;
+            }
+
+            @Override
+            public void setNull(PreparedStatement statement, int index)
+                    throws SQLException
+            {
+                statement.setNull(index, Types.DECIMAL);
+            }
+
+            @Override
+            public void set(PreparedStatement statement, int index, Object value)
+                    throws SQLException
+            {
+                switch (((TrinoNumber) value).toBigDecimal()) {
+                    case TrinoNumber.NotANumber() -> statement.setDouble(index, Double.NaN);
+                    case TrinoNumber.Infinity(boolean negative) -> statement.setDouble(index, negative ? Double.NEGATIVE_INFINITY : Double.POSITIVE_INFINITY);
+                    case TrinoNumber.BigDecimalValue(BigDecimal bigDecimal) -> statement.setBigDecimal(index, bigDecimal);
+                }
             }
         };
     }
