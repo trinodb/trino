@@ -41,7 +41,7 @@ public class SplitAssignment
         this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
         // Sort the splits to make sure that the order of scheduling splits is deterministic
         this.splits = requireNonNull(splits, "splits is null").stream()
-                .collect(toImmutableSortedSet(comparingLong(ScheduledSplit::getSequenceId)));
+                .collect(toImmutableSortedSet(comparingLong(ScheduledSplit::sequenceId)));
         this.noMoreSplits = noMoreSplits;
     }
 
