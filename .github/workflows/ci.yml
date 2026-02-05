@@ -818,7 +818,7 @@ jobs:
         run: |
           $MAVEN test ${MAVEN_TEST} -pl :trino-teradata -Prun-only-long-tests
       - name: Teradata Data Mapping Test
-        id: data-mapping
+        id: tests-data-mapping
         env:
          CLEARSCAPE_TOKEN: ${{ secrets.CLEARSCAPE_TOKEN }}
          CLEARSCAPE_PASSWORD: ${{ secrets.CLEARSCAPE_PASSWORD }}
@@ -856,6 +856,7 @@ jobs:
               || steps.tests-redshift.outcome == 'failure'
               || steps.tests-teradata.outcome == 'failure'
               || steps.tests-long-run-teradata.outcome == 'failure'
+              || steps.tests-data-mapping.outcome == 'failure'
               || steps.tests-snowflake.outcome == 'failure'
             }}
           upload-heap-dump: ${{ env.SECRETS_PRESENT == '' && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository }}
