@@ -41,7 +41,7 @@ import static java.util.Objects.requireNonNull;
 
 public final class PagesSerdeUtil
 {
-    private static ThreadLocal<XxHash3Hasher> HASHERS = ThreadLocal.withInitial(XxHash3Native::newHasher);
+    private static final ThreadLocal<XxHash3Hasher> XX_HASH3 = ThreadLocal.withInitial(XxHash3Native::newHasher);
 
     private PagesSerdeUtil() {}
 
@@ -84,7 +84,7 @@ public final class PagesSerdeUtil
         int size = pages.stream().mapToInt(Slice::length).sum();
         long checksum;
         if (size > 16384) {
-            XxHash3Hasher hasher = HASHERS.get();
+            XxHash3Hasher hasher = XX_HASH3.get();
             hasher.reset();
             for (Slice page : pages) {
                 hasher.update(page.byteArray(), page.byteArrayOffset(), page.length());
