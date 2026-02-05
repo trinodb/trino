@@ -741,7 +741,7 @@ public class TestDoubleOperators
     }
 
     @Test
-    public void testCastToFloat()
+    public void testCastToReal()
     {
         assertThat(assertions.expression("cast(a as real)")
                 .binding("a", "'754.1985'"))
