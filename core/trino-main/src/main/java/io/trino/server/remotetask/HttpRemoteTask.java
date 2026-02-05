@@ -646,7 +646,7 @@ public final class HttpRemoteTask
                 if (pendingSplits.remove(planNodeId, split)) {
                     if (isPartitionedSource) {
                         removed++;
-                        removedWeight = addExact(removedWeight, split.getSplit().getSplitWeight().getRawValue());
+                        removedWeight = addExact(removedWeight, split.split().getSplitWeight().getRawValue());
                     }
                 }
             }
@@ -826,7 +826,7 @@ public final class HttpRemoteTask
         if (planFragment.isPartitionedSources(planNodeId) && currentSplitBatchSize < splits.size()) {
             log.debug("%s - Splits are limited by splitBatchSize: splitBatchSize=%s, splits=%s, planNodeId=%s", taskId, currentSplitBatchSize, splits.size(), planNodeId);
             splits = splits.stream()
-                    .sorted(Comparator.comparingLong(ScheduledSplit::getSequenceId))
+                    .sorted(Comparator.comparingLong(ScheduledSplit::sequenceId))
                     .limit(currentSplitBatchSize)
                     .collect(Collectors.toCollection(LinkedHashSet::new));
             // if not last batch, we need to defer setting no more splits
