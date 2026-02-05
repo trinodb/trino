@@ -259,11 +259,11 @@ public abstract class AbstractTestQueryFramework
         else {
             return queryDetails + getAllStages(queryInfo.getStages()).stream()
                     .map(stageInfo -> {
-                        String stageDetail = format("Stage %s [%s]", stageInfo.getStageId(), stageInfo.getState());
-                        if (stageInfo.getTasks().isEmpty()) {
+                        String stageDetail = format("Stage %s [%s]", stageInfo.stageId(), stageInfo.state());
+                        if (stageInfo.tasks().isEmpty()) {
                             return stageDetail;
                         }
-                        return stageDetail + stageInfo.getTasks().stream()
+                        return stageDetail + stageInfo.tasks().stream()
                                 .map(TaskInfo::taskStatus)
                                 .map(task -> {
                                     String taskDetail = format("Task %s [%s]", task.taskId(), task.state());

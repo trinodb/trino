@@ -197,8 +197,8 @@ public class TestQueryResource
         assertThat(queryInfoPruned.getStages()).isPresent();
         assertThat(queryInfoNotPruned.getStages()).isPresent();
 
-        assertThat(queryInfoPruned.getStages().get().getOutputStage().getTasks()).isEmpty();
-        assertThat(queryInfoNotPruned.getStages().get().getOutputStage().getTasks()).isNotEmpty();
+        assertThat(queryInfoPruned.getStages().get().getOutputStage().tasks()).isEmpty();
+        assertThat(queryInfoNotPruned.getStages().get().getOutputStage().tasks()).isNotEmpty();
     }
 
     @Test

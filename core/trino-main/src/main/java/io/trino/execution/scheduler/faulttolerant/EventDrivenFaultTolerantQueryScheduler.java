@@ -506,13 +506,13 @@ public class EventDrivenFaultTolerantQueryScheduler
                                 sourceFragments.stream()
                                         .map(sourceFragment -> {
                                             StageInfo stageInfo1 = reportedStageInfos.get(sourceFragment);
-                                            return stageInfo1.getStageId(); })
+                                            return stageInfo1.stageId(); })
                                         .collect(toImmutableList())));
             });
 
             // todo: handle stages which are no longer part of the plan
 
-            return new StagesInfo(reportedStageInfos.get(plan.getFragment().getId()).getStageId(), ImmutableList.copyOf(reportedStageInfos.values()));
+            return new StagesInfo(reportedStageInfos.get(plan.getFragment().getId()).stageId(), ImmutableList.copyOf(reportedStageInfos.values()));
         }
 
         private void collectFragments(SubPlan plan, Map<PlanFragmentId, PlanFragment> fragments)
@@ -1079,7 +1079,7 @@ public class EventDrivenFaultTolerantQueryScheduler
             for (StageExecution execution : stageExecutions.values()) {
                 if (execution.getState() == StageState.FAILED) {
                     StageInfo stageInfo = execution.getStageInfo();
-                    ExecutionFailureInfo failureCause = stageInfo.getFailureCause();
+                    ExecutionFailureInfo failureCause = stageInfo.failureCause();
                     RuntimeException failure = failureCause == null ?
                             new TrinoException(GENERIC_INTERNAL_ERROR, "stage failed due to unknown error: %s".formatted(execution.getStageId())) :
                             failureCause.toException();
@@ -1521,7 +1521,7 @@ public class EventDrivenFaultTolerantQueryScheduler
                 Function<PlanFragmentId, PlanFragment> planFragmentLookup = planFragmentId -> {
                     StageExecution stageExecution = stageExecutions.get(getStageId(planFragmentId));
                     checkArgument(stageExecution != null, "stage for fragment %s not started yet", planFragmentId);
-                    return stageExecution.getStageInfo().getPlan();
+                    return stageExecution.getStageInfo().plan();
                 };
 
                 List<StageExecution> sourceStageExecutions = subPlan.getChildren().stream()
