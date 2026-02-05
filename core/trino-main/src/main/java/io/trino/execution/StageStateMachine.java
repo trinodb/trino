@@ -544,11 +544,11 @@ public class StageStateMachine
 
             inputBlockedTime += taskStats.getInputBlockedTime().roundTo(NANOSECONDS);
 
-            bufferedDataSize += taskInfo.outputBuffers().getTotalBufferedBytes();
+            bufferedDataSize += taskInfo.outputBuffers().totalBufferedBytes();
 
-            Optional<Metrics> bufferMetrics = taskInfo.outputBuffers().getMetrics();
+            Optional<Metrics> bufferMetrics = taskInfo.outputBuffers().metrics();
 
-            taskInfo.outputBuffers().getUtilization().ifPresent(bufferUtilizationHistograms::add);
+            taskInfo.outputBuffers().utilization().ifPresent(bufferUtilizationHistograms::add);
             outputDataSize += taskStats.getOutputDataSize().toBytes();
             outputPositions += taskStats.getOutputPositions();
             bufferMetrics.ifPresent(outputBufferMetrics::add);
