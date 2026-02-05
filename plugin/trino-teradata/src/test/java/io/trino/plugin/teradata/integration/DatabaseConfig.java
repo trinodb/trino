@@ -15,6 +15,8 @@ package io.trino.plugin.teradata.integration;
 
 import java.util.Map;
 
+import static java.util.Objects.requireNonNull;
+
 public class DatabaseConfig
 {
     private final String jdbcUrl;
@@ -29,11 +31,11 @@ public class DatabaseConfig
     {
         jdbcUrl = builder.jdbcUrl;
         hostName = builder.hostName;
-        databaseName = builder.databaseName;
         useClearScape = builder.useClearScape;
-        authConfig = builder.authConfig;
-        clearScapeEnvName = builder.clearScapeEnvName;
-        jdbcProperties = builder.jdbcProperties;
+        databaseName = requireNonNull(builder.databaseName, "databaseName is null");
+        authConfig = requireNonNull(builder.authConfig, "authConfig is null");
+        clearScapeEnvName = requireNonNull(builder.clearScapeEnvName, "clearScapeEnvName isnull");
+        jdbcProperties = requireNonNull(builder.jdbcProperties, "jdbcProperties is null");
     }
 
     public static Builder builder()

@@ -33,14 +33,10 @@ public class ClearScapeSetup
             boolean destroyEnv,
             String region)
     {
-        requireNonNull(token, "token is null");
-        requireNonNull(password, "password is null");
-        requireNonNull(envName, "envName is null");
-        requireNonNull(region, "region is null");
-        this.token = token;
-        this.password = password;
-        this.envName = envName;
-        this.region = region;
+        this.token = requireNonNull(token, "token is null");
+        this.password = requireNonNull(password, "password is null");
+        this.envName = requireNonNull(envName, "envName is null");
+        this.region = requireNonNull(region, "region is null");
         this.destroyEnv = destroyEnv;
     }
 
@@ -59,14 +55,14 @@ public class ClearScapeSetup
 
     private Model createModel()
     {
-        Model model = new Model();
-        model.setEnvName(envName);
-        model.setUserName(TeradataTestConstants.CLEARSCAPE_USERNAME);
-        model.setPassword(password);
-        model.setDatabaseName(TeradataTestConstants.CLEARSCAPE_USERNAME);
-        model.setToken(token);
-        model.setRegion(region);
-        return model;
+        return new Model(
+                envName,
+                null,
+                TeradataTestConstants.CLEARSCAPE_USERNAME,
+                password,
+                TeradataTestConstants.CLEARSCAPE_USERNAME,
+                token,
+                region);
     }
 
     public void cleanup()

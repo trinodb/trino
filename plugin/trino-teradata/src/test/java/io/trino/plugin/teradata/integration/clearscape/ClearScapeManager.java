@@ -29,7 +29,7 @@ public class ClearScapeManager
 
     public ClearScapeManager(Model model)
     {
-        requireNonNull(model, "model should not be null");
+        requireNonNull(model, "model is null");
         this.model = model;
     }
 

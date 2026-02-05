@@ -24,20 +24,24 @@ import io.trino.plugin.jdbc.ConnectionFactory;
 import io.trino.plugin.jdbc.DriverConnectionFactory;
 import io.trino.plugin.jdbc.ForBaseJdbc;
 import io.trino.plugin.jdbc.JdbcClient;
-import io.trino.plugin.jdbc.JdbcJoinPushdownSupportModule;
-import io.trino.plugin.jdbc.JdbcStatisticsConfig;
 import io.trino.plugin.jdbc.credential.CredentialProvider;
 
 import java.sql.Driver;
 import java.sql.DriverManager;
 import java.sql.SQLException;
-import java.util.Properties;
 
 import static io.airlift.configuration.ConfigBinder.configBinder;
 
 public class TeradataClientModule
         extends AbstractConfigurationAwareModule
 {
+    @Override
+    public void setup(Binder binder)
+    {
+        binder.bind(JdbcClient.class).annotatedWith(ForBaseJdbc.class).to(TeradataClient.class).in(Scopes.SINGLETON);
+        configBinder(binder).bindConfig(TeradataConfig.class);
+    }
+
     @Provides
     @Singleton
     @ForBaseJdbc
@@ -45,18 +49,7 @@ public class TeradataClientModule
             throws SQLException
     {
         Driver driver = DriverManager.getDriver(config.getConnectionUrl());
-        Properties connectionProperties = new Properties();
-        connectionProperties.setProperty("LOGMECH", "TD2");
         return DriverConnectionFactory.builder(driver, config.getConnectionUrl(), credentialProvider)
-                .setConnectionProperties(connectionProperties)
                 .setOpenTelemetry(openTelemetry).build();
-    }
-
-    @Override
-    public void setup(Binder binder)
-    {
-        binder.bind(JdbcClient.class).annotatedWith(ForBaseJdbc.class).to(TeradataClient.class).in(Scopes.SINGLETON);
-        configBinder(binder).bindConfig(JdbcStatisticsConfig.class);
-        install(new JdbcJoinPushdownSupportModule());
     }
 }

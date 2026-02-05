@@ -74,6 +74,26 @@ with a different name, making sure it ends in `.properties`. For example,
 if you name the property file `sales.properties`, Trino creates a
 catalog named `sales` using the configured connector.
 
+### Specific configuration properties
+
+The Teradata connector supports additional catalog properties to configure the
+behavior of the connector and the queries issued to the database.
+
+:::{list-table}
+:widths: 45, 55
+:header-rows: 1
+
+* - Property name
+  - Description
+* - `teradata.permanent-space`
+  - Permanent space allocation in bytes for new databases created via
+    `CREATE SCHEMA`. Defaults to `60000000` (60 MB). You can configure this 
+    property to specify a different permanent space allocation, or create the 
+    database manually in Teradata before using it in Trino. Refer to the 
+    [Teradata PERMANENT clause documentation](https://docs.teradata.com/r/Enterprise_IntelliFlex_VMware/SQL-Data-Definition-Language-Syntax-and-Examples/Database-Statements/CREATE-DATABASE/CREATE-DATABASE-Syntax-Elements/PERMANENT) 
+    for more information.
+:::
+
 ## Type mapping
 
 Because Trino and Teradata each support types that the other does not, this
@@ -123,12 +143,9 @@ this table:
 * - `DECIMAL(p, s)`
   - `DECIMAL(p, s)`
   - 
-* - `CHAR(n)`
+* - `CHAR(n)`, `CHARACTER(n)`
   - `CHAR(n)`
-  -
-* - `CHARACTER(n)`
-  - `CHAR(n)`
-  -
+  - `CHAR` is an alias of `CHARACTER`. See [Teradata CHARACTER documentation](https://docs.teradata.com/r/Enterprise_IntelliFlex_VMware/SQL-Data-Types-and-Literals/Character-and-CLOB-Data-Types/CHARACTER-Data-Type)
 * - `VARCHAR(n)`
   - `VARCHAR(n)`
   - 
@@ -145,34 +162,26 @@ The connector maps Trino types to the corresponding Teradata types following
 this table:
 
 :::{list-table} Trino type to Teradata type mapping
-:widths: 40, 40, 20
+:widths: 50, 50
 :header-rows: 1
 
 * - Trino type
   - Teradata type
-  - Notes
 * - `TINYINT`
   - `SMALLINT`
-  -
 * - `SMALLINT`
   - `SMALLINT`
-  -
 * - `INTEGER`
   - `INTEGER`
-  -
 * - `BIGINT`
   - `BIGINT`
-  -
 * - `REAL`
   - `FLOAT`
-  -
 * - `DOUBLE`
   - `DOUBLE`
-  - 
 * - `DATE`
   - `DATE`
-  -
-::::
+:::
 
 No other types are supported.
 
