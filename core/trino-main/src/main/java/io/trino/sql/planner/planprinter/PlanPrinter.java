@@ -1412,7 +1412,7 @@ public class PlanPrinter
 
         private void printTableScanInfo(NodeRepresentation nodeOutput, TableScanNode node, TableInfo tableInfo)
         {
-            TupleDomain<ColumnHandle> predicate = tableInfo.getPredicate();
+            TupleDomain<ColumnHandle> predicate = tableInfo.predicate();
 
             if (predicate.isNone()) {
                 nodeOutput.appendDetails(":: NONE");
