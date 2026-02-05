@@ -13,8 +13,6 @@
  */
 package io.trino.execution;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.errorprone.annotations.Immutable;
 import io.trino.Session;
 import io.trino.metadata.CatalogInfo;
@@ -38,39 +36,16 @@ import static io.trino.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
-public class TableInfo
+public record TableInfo(
+        Optional<String> connectorName,
+        QualifiedObjectName tableName,
+        TupleDomain<ColumnHandle> predicate)
 {
-    private final Optional<String> connectorName;
-    private final QualifiedObjectName tableName;
-    private final TupleDomain<ColumnHandle> predicate;
-
-    @JsonCreator
-    public TableInfo(
-            @JsonProperty("connectorName") Optional<String> connectorName,
-            @JsonProperty("tableName") QualifiedObjectName tableName,
-            @JsonProperty("predicate") TupleDomain<ColumnHandle> predicate)
+    public TableInfo
     {
-        this.connectorName = requireNonNull(connectorName, "connectorName is null");
-        this.tableName = requireNonNull(tableName, "tableName is null");
-        this.predicate = requireNonNull(predicate, "predicate is null");
-    }
-
-    @JsonProperty
-    public Optional<String> getConnectorName()
-    {
-        return connectorName;
-    }
-
-    @JsonProperty
-    public QualifiedObjectName getTableName()
-    {
-        return tableName;
-    }
-
-    @JsonProperty
-    public TupleDomain<ColumnHandle> getPredicate()
-    {
-        return predicate;
+        requireNonNull(connectorName, "connectorName is null");
+        requireNonNull(tableName, "tableName is null");
+        requireNonNull(predicate, "predicate is null");
     }
 
     public static Map<PlanNodeId, TableInfo> extract(Session session, Metadata metadata, PlanFragment fragment)
