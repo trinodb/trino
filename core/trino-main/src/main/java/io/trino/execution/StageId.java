@@ -32,8 +32,7 @@ public record StageId(QueryId queryId, int id)
     @JsonCreator
     public static StageId valueOf(String stageId)
     {
-        List<String> ids = QueryId.parseDottedId(stageId, 2, "stageId");
-        return valueOf(ids);
+        return valueOf(QueryId.parseDottedId(stageId, 2, "stageId"));
     }
 
     public static StageId valueOf(List<String> ids)
