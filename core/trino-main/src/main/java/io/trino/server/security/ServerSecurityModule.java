@@ -86,7 +86,7 @@ public class ServerSecurityModule
 
         configBinder(binder).bindConfig(InsecureAuthenticatorConfig.class);
         binder.bind(InsecureAuthenticator.class).in(Scopes.SINGLETON);
-        install(authenticatorModule(securityConfig, "insecure", InsecureAuthenticator.class, unused -> {}));
+        install(authenticatorModule(securityConfig, "insecure", InsecureAuthenticator.class, _ -> {}));
     }
 
     @Provides

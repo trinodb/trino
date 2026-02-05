@@ -896,7 +896,7 @@ public final class ValidateDependenciesChecker
                     .flatMap(assignment -> switch (assignment) {
                         case ApplyNode.In in -> Stream.of(in.value(), in.reference());
                         case ApplyNode.QuantifiedComparison comparison -> Stream.of(comparison.value(), comparison.reference());
-                        case ApplyNode.Exists unused -> Stream.empty();
+                        case ApplyNode.Exists _ -> Stream.empty();
                     })
                     .toList();
 
