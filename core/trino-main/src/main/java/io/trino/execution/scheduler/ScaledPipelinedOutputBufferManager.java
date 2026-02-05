@@ -35,7 +35,7 @@ public class ScaledPipelinedOutputBufferManager
             return;
         }
 
-        PipelinedOutputBuffers newOutputBuffers = outputBuffers.withBuffer(newBuffer, newBuffer.getId());
+        PipelinedOutputBuffers newOutputBuffers = outputBuffers.withBuffer(newBuffer, newBuffer.id());
 
         // don't update if nothing changed
         if (newOutputBuffers != outputBuffers) {

@@ -205,7 +205,7 @@ public class PipelinedOutputBuffers
         ARBITRARY,
     }
 
-    public static class OutputBufferId
+    public record OutputBufferId(int id)
     {
         // this is needed by JAX-RS
         public static OutputBufferId fromString(String id)
@@ -213,36 +213,15 @@ public class PipelinedOutputBuffers
             return new OutputBufferId(parseInt(id));
         }
 
-        private final int id;
-
         @JsonCreator
-        public OutputBufferId(int id)
+        public OutputBufferId
         {
             checkArgument(id >= 0, "id is negative");
-            this.id = id;
         }
 
         @Override
-        public boolean equals(Object o)
-        {
-            if (this == o) {
-                return true;
-            }
-            if (o == null || getClass() != o.getClass()) {
-                return false;
-            }
-            OutputBufferId that = (OutputBufferId) o;
-            return id == that.id;
-        }
-
         @JsonValue
-        public int getId()
-        {
-            return id;
-        }
-
-        @Override
-        public int hashCode()
+        public int id()
         {
             return id;
         }

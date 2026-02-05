@@ -213,7 +213,7 @@ public class PartitionedOutputBuffer
         requireNonNull(outputBufferId, "outputBufferId is null");
         checkArgument(maxSize.toBytes() > 0, "maxSize must be at least 1 byte");
 
-        return partitions.get(outputBufferId.getId()).getPages(startingSequenceId, maxSize);
+        return partitions.get(outputBufferId.id()).getPages(startingSequenceId, maxSize);
     }
 
     @Override
@@ -221,7 +221,7 @@ public class PartitionedOutputBuffer
     {
         requireNonNull(outputBufferId, "outputBufferId is null");
 
-        partitions.get(outputBufferId.getId()).acknowledgePages(sequenceId);
+        partitions.get(outputBufferId.id()).acknowledgePages(sequenceId);
     }
 
     @Override
@@ -229,7 +229,7 @@ public class PartitionedOutputBuffer
     {
         requireNonNull(bufferId, "bufferId is null");
 
-        partitions.get(bufferId.getId()).destroy();
+        partitions.get(bufferId.id()).destroy();
 
         checkFlushComplete();
     }
