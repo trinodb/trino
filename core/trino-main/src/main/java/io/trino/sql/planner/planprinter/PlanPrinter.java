@@ -524,10 +524,10 @@ public class PlanPrinter
             StageStats stageStats = stageInfo.get().stageStats();
 
             List<TaskInfo> tasks = stageInfo.get().tasks();
-            double avgPositionsPerTask = tasks.stream().mapToLong(task -> task.stats().getProcessedInputPositions()).average().orElse(Double.NaN);
-            double squaredDifferences = tasks.stream().mapToDouble(task -> Math.pow(task.stats().getProcessedInputPositions() - avgPositionsPerTask, 2)).sum();
+            double avgPositionsPerTask = tasks.stream().mapToLong(task -> task.stats().processedInputPositions()).average().orElse(Double.NaN);
+            double squaredDifferences = tasks.stream().mapToDouble(task -> Math.pow(task.stats().processedInputPositions() - avgPositionsPerTask, 2)).sum();
             double sdAmongTasks = Math.sqrt(squaredDifferences / tasks.size());
-            DataSize maxPeakTaskMemoryUsage = tasks.stream().map(task -> task.stats().getPeakUserMemoryReservation()).max(DataSize::compareTo).orElse(DataSize.ofBytes(0));
+            DataSize maxPeakTaskMemoryUsage = tasks.stream().map(task -> task.stats().peakUserMemoryReservation()).max(DataSize::compareTo).orElse(DataSize.ofBytes(0));
 
             builder.append(indentString(1))
                     .append(format("CPU: %s, Scheduled: %s, Blocked %s (Input: %s, Output: %s), Input: %s (%s); per task: avg.: %s std.dev.: %s, Output: %s (%s)\n",
@@ -567,9 +567,9 @@ public class PlanPrinter
             }
 
             TDigest taskOutputDistribution = new TDigest();
-            stageInfo.get().tasks().forEach(task -> taskOutputDistribution.add(task.stats().getOutputDataSize().toBytes()));
+            stageInfo.get().tasks().forEach(task -> taskOutputDistribution.add(task.stats().outputDataSize().toBytes()));
             TDigest taskInputDistribution = new TDigest();
-            stageInfo.get().tasks().forEach(task -> taskInputDistribution.add(task.stats().getProcessedInputDataSize().toBytes()));
+            stageInfo.get().tasks().forEach(task -> taskInputDistribution.add(task.stats().processedInputDataSize().toBytes()));
 
             if (verbose) {
                 builder.append(indentString(1))

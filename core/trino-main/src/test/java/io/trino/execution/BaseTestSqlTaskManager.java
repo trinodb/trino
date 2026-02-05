@@ -174,19 +174,19 @@ public abstract class BaseTestSqlTaskManager
             TaskId taskId = newTaskId();
             TaskInfo taskInfo = createTask(sqlTaskManager, taskId, PipelinedOutputBuffers.createInitial(PARTITIONED).withBuffer(OUT, 0).withNoMoreBufferIds());
             assertThat(taskInfo.taskStatus().state()).isEqualTo(TaskState.RUNNING);
-            assertThat(taskInfo.stats().getEndTime()).isNull();
+            assertThat(taskInfo.stats().endTime()).isNull();
 
             taskInfo = sqlTaskManager.getTaskInfo(taskId);
             assertThat(taskInfo.taskStatus().state()).isEqualTo(TaskState.RUNNING);
-            assertThat(taskInfo.stats().getEndTime()).isNull();
+            assertThat(taskInfo.stats().endTime()).isNull();
 
             taskInfo = pollTerminatingTaskInfoUntilDone(sqlTaskManager, sqlTaskManager.cancelTask(taskId));
             assertThat(taskInfo.taskStatus().state()).isEqualTo(TaskState.CANCELED);
-            assertThat(taskInfo.stats().getEndTime()).isNotNull();
+            assertThat(taskInfo.stats().endTime()).isNotNull();
 
             taskInfo = sqlTaskManager.getTaskInfo(taskId);
             assertThat(taskInfo.taskStatus().state()).isEqualTo(TaskState.CANCELED);
-            assertThat(taskInfo.stats().getEndTime()).isNotNull();
+            assertThat(taskInfo.stats().endTime()).isNotNull();
         }
     }
 
@@ -198,19 +198,19 @@ public abstract class BaseTestSqlTaskManager
             TaskId taskId = newTaskId();
             TaskInfo taskInfo = createTask(sqlTaskManager, taskId, PipelinedOutputBuffers.createInitial(PARTITIONED).withBuffer(OUT, 0).withNoMoreBufferIds());
             assertThat(taskInfo.taskStatus().state()).isEqualTo(TaskState.RUNNING);
-            assertThat(taskInfo.stats().getEndTime()).isNull();
+            assertThat(taskInfo.stats().endTime()).isNull();
 
             taskInfo = sqlTaskManager.getTaskInfo(taskId);
             assertThat(taskInfo.taskStatus().state()).isEqualTo(TaskState.RUNNING);
-            assertThat(taskInfo.stats().getEndTime()).isNull();
+            assertThat(taskInfo.stats().endTime()).isNull();
 
             taskInfo = pollTerminatingTaskInfoUntilDone(sqlTaskManager, sqlTaskManager.abortTask(taskId));
             assertThat(taskInfo.taskStatus().state()).isEqualTo(TaskState.ABORTED);
-            assertThat(taskInfo.stats().getEndTime()).isNotNull();
+            assertThat(taskInfo.stats().endTime()).isNotNull();
 
             taskInfo = sqlTaskManager.getTaskInfo(taskId);
             assertThat(taskInfo.taskStatus().state()).isEqualTo(TaskState.ABORTED);
-            assertThat(taskInfo.stats().getEndTime()).isNotNull();
+            assertThat(taskInfo.stats().endTime()).isNotNull();
         }
     }
 

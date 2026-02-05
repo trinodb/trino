@@ -95,12 +95,12 @@ public class TaskExecutionStats
 
         public void update(TaskStats stats)
         {
-            elapsedTime.add(stats.getElapsedTime());
-            scheduledTime.add(stats.getTotalScheduledTime());
-            cpuTime.add(stats.getTotalCpuTime());
-            inputBlockedTime.add(stats.getInputBlockedTime());
-            outputBlockedTime.add(stats.getOutputBlockedTime());
-            peakMemoryReservationInBytes.add(stats.getPeakUserMemoryReservation().toBytes());
+            elapsedTime.add(stats.elapsedTime());
+            scheduledTime.add(stats.totalScheduledTime());
+            cpuTime.add(stats.totalCpuTime());
+            inputBlockedTime.add(stats.inputBlockedTime());
+            outputBlockedTime.add(stats.outputBlockedTime());
+            peakMemoryReservationInBytes.add(stats.peakUserMemoryReservation().toBytes());
         }
 
         @Managed

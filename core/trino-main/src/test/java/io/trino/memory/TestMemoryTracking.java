@@ -330,12 +330,12 @@ public class TestMemoryTracking
         assertThat(operatorStats.getUserMemoryReservation().toBytes()).isEqualTo(expectedUserMemory);
         assertThat(driverStats.getUserMemoryReservation().toBytes()).isEqualTo(expectedUserMemory);
         assertThat(pipelineStats.getUserMemoryReservation().toBytes()).isEqualTo(expectedUserMemory);
-        assertThat(taskStats.getUserMemoryReservation().toBytes()).isEqualTo(expectedUserMemory);
+        assertThat(taskStats.userMemoryReservation().toBytes()).isEqualTo(expectedUserMemory);
 
         assertThat(operatorStats.getRevocableMemoryReservation().toBytes()).isEqualTo(expectedRevocableMemory);
         assertThat(driverStats.getRevocableMemoryReservation().toBytes()).isEqualTo(expectedRevocableMemory);
         assertThat(pipelineStats.getRevocableMemoryReservation().toBytes()).isEqualTo(expectedRevocableMemory);
-        assertThat(taskStats.getRevocableMemoryReservation().toBytes()).isEqualTo(expectedRevocableMemory);
+        assertThat(taskStats.revocableMemoryReservation().toBytes()).isEqualTo(expectedRevocableMemory);
     }
 
     // the allocations that are done at the operator level are reflected at that level and all the way up to the pools
