@@ -420,7 +420,7 @@ public class TestBigintOperators
     }
 
     @Test
-    public void testCastToFloat()
+    public void testCastToReal()
     {
         assertThat(assertions.expression("cast(a as real)")
                 .binding("a", "BIGINT '37'"))
