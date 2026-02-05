@@ -274,6 +274,17 @@ public class H2QueryRunner
                         row.add(doubleValue);
                     }
                 }
+                else if (type instanceof DecimalType decimalType) {
+                    BigDecimal decimalValue = resultSet.getBigDecimal(i);
+                    if (resultSet.wasNull()) {
+                        row.add(null);
+                    }
+                    else {
+                        row.add(decimalValue
+                                .setScale(decimalType.getScale(), HALF_UP)
+                                .round(new MathContext(decimalType.getPrecision())));
+                    }
+                }
                 else if (JSON.equals(type)) {
                     String stringValue = resultSet.getString(i);
                     if (resultSet.wasNull()) {
@@ -360,17 +371,6 @@ public class H2QueryRunner
                     Object objectValue = resultSet.getObject(i);
                     checkState(resultSet.wasNull(), "Expected a null value, but got %s", objectValue);
                     row.add(null);
-                }
-                else if (type instanceof DecimalType decimalType) {
-                    BigDecimal decimalValue = resultSet.getBigDecimal(i);
-                    if (resultSet.wasNull()) {
-                        row.add(null);
-                    }
-                    else {
-                        row.add(decimalValue
-                                .setScale(decimalType.getScale(), HALF_UP)
-                                .round(new MathContext(decimalType.getPrecision())));
-                    }
                 }
                 else if (type instanceof ArrayType) {
                     Array array = resultSet.getArray(i);
