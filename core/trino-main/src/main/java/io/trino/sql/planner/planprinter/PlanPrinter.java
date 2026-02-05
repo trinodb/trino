@@ -2022,7 +2022,7 @@ public class PlanPrinter
             for (Entry<Symbol, ApplyNode.SetExpression> entry : assignments.entrySet()) {
                 String assignment = switch (entry.getValue()) {
                     case ApplyNode.In in -> "%s IN %s".formatted(anonymizer.anonymize(in.value()), anonymizer.anonymize(in.reference()));
-                    case ApplyNode.Exists unused -> "EXISTS";
+                    case ApplyNode.Exists _ -> "EXISTS";
                     case ApplyNode.QuantifiedComparison comparison -> "%s %s %s %s".formatted(
                             anonymizer.anonymize(comparison.value()),
                             switch (comparison.operator()) {

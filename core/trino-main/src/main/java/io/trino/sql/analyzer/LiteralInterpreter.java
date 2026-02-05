@@ -133,7 +133,7 @@ public final class LiteralInterpreter
         protected Object visitGenericLiteral(GenericLiteral node, Void context)
         {
             return switch (type) {
-                case TimeType unused -> parseTime(node.getValue());
+                case TimeType _ -> parseTime(node.getValue());
                 case TimeWithTimeZoneType value -> parseTimeWithTimeZone(value.getPrecision(), node.getValue());
                 case TimestampType value -> parseTimestamp(value.getPrecision(), node.getValue());
                 case TimestampWithTimeZoneType value -> parseTimestampWithTimeZone(value.getPrecision(), node.getValue());

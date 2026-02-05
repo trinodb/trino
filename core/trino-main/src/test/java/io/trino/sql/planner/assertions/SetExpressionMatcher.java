@@ -48,7 +48,7 @@ public class SetExpressionMatcher
 
         for (Map.Entry<Symbol, ApplyNode.SetExpression> entry : applyNode.getSubqueryAssignments().entrySet()) {
             Map.Entry<Symbol, ApplyNode.SetExpression> match = switch (expression) {
-                case ApplyNode.Exists unused when entry.getValue() instanceof ApplyNode.Exists -> entry;
+                case ApplyNode.Exists _ when entry.getValue() instanceof ApplyNode.Exists -> entry;
                 case ApplyNode.In expected
                         when entry.getValue() instanceof ApplyNode.In actual &&
                         matches(aliases, expected.value(), actual.value()) &&
