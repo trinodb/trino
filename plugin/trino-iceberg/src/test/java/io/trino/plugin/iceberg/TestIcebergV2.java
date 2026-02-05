@@ -43,6 +43,7 @@ import io.trino.spi.statistics.TableStatistics;
 import io.trino.spi.type.ArrayType;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
+import io.trino.testing.MaterializedResult;
 import io.trino.testing.MaterializedRow;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.sql.TestTable;
@@ -445,6 +446,25 @@ public class TestIcebergV2
                     .isEqualTo(resultBuilder(getSession(), ImmutableList.of(new ArrayType(BIGINT)))
                             .row(ImmutableList.of(4L))
                             .build());
+        }
+    }
+
+    @Test
+    public void testMergePopulateSplitOffsets()
+    {
+        try (TestTable table = newTrinoTable("test_merge_split_offsets", "AS SELECT * FROM tpch.tiny.nation")) {
+            assertUpdate("MERGE INTO " + table.getName() + " t " +
+                            "USING " + table.getName() + " s " +
+                            "ON t.nationkey = s.nationkey " +
+                            "WHEN MATCHED THEN UPDATE SET name = CONCAT(t.name, '_updated')",
+                    25);
+
+            // Verify that split_offsets are populated in the files
+            MaterializedResult result = computeActual("SELECT split_offsets FROM \"" + table.getName() + "$files\"");
+            assertThat(result.getRowCount()).isGreaterThan(0);
+            for (MaterializedRow row : result.getMaterializedRows()) {
+                assertThat((List<?>) row.getField(0)).isEqualTo(ImmutableList.of(4L));
+            }
         }
     }
 
