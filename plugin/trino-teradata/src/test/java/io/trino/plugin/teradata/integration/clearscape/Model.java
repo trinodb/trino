@@ -13,24 +13,39 @@
  */
 package io.trino.plugin.teradata.integration.clearscape;
 
+import static java.util.Objects.requireNonNull;
+
 public class Model
 {
-    String envName;
+    final String envName;
+    final String userName;
+    final String password;
+    final String databaseName;
+    final String token;
+    final String region;
     String hostName;
-    String userName;
-    String password;
-    String databaseName;
-    String token;
-    String region;
+
+    public Model(
+            String envName,
+            String hostName,
+            String userName,
+            String password,
+            String databaseName,
+            String token,
+            String region)
+    {
+        this.envName = requireNonNull(envName, "envName is null");
+        this.userName = requireNonNull(userName, "userName is null");
+        this.password = requireNonNull(password, "password is null");
+        this.databaseName = requireNonNull(databaseName, "databaseName is null");
+        this.token = requireNonNull(token, "token is null");
+        this.region = requireNonNull(region, "region is null");
+        this.hostName = hostName;
+    }
 
     public String getEnvName()
     {
         return envName;
-    }
-
-    public void setEnvName(String envName)
-    {
-        this.envName = envName;
     }
 
     public String getHostName()
@@ -43,24 +58,9 @@ public class Model
         this.hostName = hostName;
     }
 
-    public void setUserName(String userName)
-    {
-        this.userName = userName;
-    }
-
     public String getPassword()
     {
         return password;
-    }
-
-    public void setPassword(String password)
-    {
-        this.password = password;
-    }
-
-    public void setDatabaseName(String databaseName)
-    {
-        this.databaseName = databaseName;
     }
 
     public String getToken()
@@ -68,18 +68,8 @@ public class Model
         return token;
     }
 
-    public void setToken(String token)
-    {
-        this.token = token;
-    }
-
     public String getRegion()
     {
         return region;
-    }
-
-    public void setRegion(String region)
-    {
-        this.region = region;
     }
 }

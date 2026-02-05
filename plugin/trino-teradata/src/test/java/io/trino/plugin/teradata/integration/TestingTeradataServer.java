@@ -41,6 +41,9 @@ public final class TestingTeradataServer
     private static final long BASE_RETRY_DELAY_MS = 1500L;
     private static final long MAX_RETRY_DELAY_MS = 10_000L;
     private static final Random RANDOM = new Random();
+    private static final int TERADATA_TRANSIENT_CONCURRENCY_ERROR_CODE = 3598;
+    private static final int TERADATA_CLOSED_CONNECTION_ERROR_CODE = 1095;
+    private static final int TERADATA_SOCKET_COMMUNICATION_FAILURE_ERROR_CODE = 804;
 
     private volatile Connection connection;
     private DatabaseConfig config;
@@ -107,7 +110,7 @@ public final class TestingTeradataServer
         });
     }
 
-    public boolean isTableExists(String tableName)
+    public boolean tableExists(String tableName)
     {
         ensureConnection();
         String query = "SELECT count(1) FROM DBC.TablesV WHERE DataBaseName = ? AND TableName = ?";
@@ -335,7 +338,7 @@ public final class TestingTeradataServer
         }
         if (root instanceof SQLException sqlEx) {
             try {
-                if (sqlEx.getErrorCode() == 3598) {
+                if (sqlEx.getErrorCode() == TERADATA_TRANSIENT_CONCURRENCY_ERROR_CODE) {
                     return true;
                 }
             }
@@ -352,7 +355,7 @@ public final class TestingTeradataServer
         }
         try {
             int code = e.getErrorCode();
-            if (code == 1095 || code == 804) { // 1095 == closed connection, 804 socket communication failure
+            if (code == TERADATA_CLOSED_CONNECTION_ERROR_CODE || code == TERADATA_SOCKET_COMMUNICATION_FAILURE_ERROR_CODE) {
                 return true;
             }
         }

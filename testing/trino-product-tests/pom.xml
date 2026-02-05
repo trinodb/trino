@@ -267,7 +267,6 @@
         <dependency>
             <groupId>com.teradata.jdbc</groupId>
             <artifactId>terajdbc</artifactId>
-            <version>20.00.00.51</version>
             <scope>runtime</scope>
         </dependency>
 

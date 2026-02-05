@@ -95,22 +95,27 @@ public class TeradataClient
         extends BaseJdbcClient
 {
     private static final Logger log = Logger.get(TeradataClient.class);
+    private final long permanentSpace;
 
     @Inject
     public TeradataClient(
             BaseJdbcConfig config,
+            TeradataConfig teradataConfig,
             ConnectionFactory connectionFactory,
             QueryBuilder queryBuilder,
             IdentifierMapping identifierMapping,
             RemoteQueryModifier remoteQueryModifier)
     {
         super("\"", connectionFactory, queryBuilder, config.getJdbcTypesMappedToVarchar(), identifierMapping, remoteQueryModifier, true);
+        this.permanentSpace = teradataConfig.getPermanentSpace();
     }
 
     @Override
     protected void createSchema(ConnectorSession session, Connection connection, String remoteSchemaName)
     {
-        execute(session, format("CREATE DATABASE %s AS PERMANENT = 60000000", quoted(remoteSchemaName)));
+        // Teradata requires database sizing parameters on creation.
+        // The permanent space allocation can be configured using the teradata.permanent-space property.
+        execute(session, format("CREATE DATABASE %s AS PERMANENT = %d", quoted(remoteSchemaName), permanentSpace));
     }
 
     @Override
@@ -268,9 +273,9 @@ public class TeradataClient
             case Types.DECIMAL:
                 return numberMapping(typeHandle);
             case Types.CHAR:
-                return Optional.of(charColumnMapping(typeHandle.requiredColumnSize(), deriveCaseSensitivity(typeHandle.caseSensitivity().orElse(null))));
+                return Optional.of(charColumnMapping(typeHandle.requiredColumnSize(), deriveCaseSensitivity(typeHandle.caseSensitivity())));
             case Types.VARCHAR:
-                return Optional.of(varcharColumnMapping(typeHandle.requiredColumnSize(), deriveCaseSensitivity(typeHandle.caseSensitivity().orElse(null))));
+                return Optional.of(varcharColumnMapping(typeHandle.requiredColumnSize(), deriveCaseSensitivity(typeHandle.caseSensitivity())));
             case Types.DATE:
                 return Optional.of(dateColumnMappingUsingLocalDate());
         }
@@ -316,9 +321,9 @@ public class TeradataClient
                 isCaseSensitive ? FULL_PUSHDOWN : CASE_INSENSITIVE_CHARACTER_PUSHDOWN);
     }
 
-    private boolean deriveCaseSensitivity(CaseSensitivity caseSensitivity)
+    private static boolean deriveCaseSensitivity(Optional<CaseSensitivity> caseSensitivity)
     {
-        return caseSensitivity == CASE_SENSITIVE;
+        return caseSensitivity.equals(Optional.of(CASE_SENSITIVE));
     }
 
     @Override

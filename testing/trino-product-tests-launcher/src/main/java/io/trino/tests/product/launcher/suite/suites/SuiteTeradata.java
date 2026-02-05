@@ -21,6 +21,8 @@ import io.trino.tests.product.launcher.suite.SuiteTestRun;
 
 import java.util.List;
 
+import static io.trino.tests.product.TestGroups.CONFIGURED_FEATURES;
+import static io.trino.tests.product.TestGroups.TERADATA;
 import static io.trino.tests.product.launcher.suite.SuiteTestRun.testOnEnvironment;
 
 public class SuiteTeradata
@@ -31,7 +33,7 @@ public class SuiteTeradata
     {
         return ImmutableList.of(
                 testOnEnvironment(EnvMultinodeTeradata.class)
-                        .withGroups("configured_features", "teradata")
+                        .withGroups(CONFIGURED_FEATURES, TERADATA)
                         .build());
     }
 }

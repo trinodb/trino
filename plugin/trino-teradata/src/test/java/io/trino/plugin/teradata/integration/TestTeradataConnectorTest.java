@@ -119,7 +119,6 @@ final class TestTeradataConnectorTest
     }
 
     @Override
-    // Override because Teradata Object name limit is 128 characters
     protected OptionalInt maxSchemaNameLength()
     {
         return OptionalInt.of(TERADATA_OBJECT_NAME_LIMIT);
@@ -133,7 +132,6 @@ final class TestTeradataConnectorTest
     }
 
     @Override
-    // Override because Teradata Object name limit is 128 characters
     protected OptionalInt maxColumnNameLength()
     {
         return OptionalInt.of(TERADATA_OBJECT_NAME_LIMIT);
@@ -148,28 +146,26 @@ final class TestTeradataConnectorTest
 
     @Override
     @Test
+    @Tag("data_mapping")
     public void testDataMappingSmokeTest()
     {
-        skipTestUnless(false);
+        super.testDataMappingSmokeTest();
     }
 
     @Override
-    // Override because Teradata Table name limit is 128 characters
     protected OptionalInt maxTableNameLength()
     {
         return OptionalInt.of(TERADATA_OBJECT_NAME_LIMIT);
     }
 
     @Override
-    // Override because the expected error message is different
     protected void verifyTableNameLengthFailurePermissible(Throwable e)
     {
         assertThat(e)
                 .hasMessageMatching(format("Table name must be shorter than or equal to '%s' characters but got '%s'", TERADATA_OBJECT_NAME_LIMIT, TERADATA_OBJECT_NAME_LIMIT + 1));
     }
 
-    @Override
-    // Overriding this test case as Teradata defines varchar with a length.
+    @Override // Overriding this test case as Teradata defines varchar with a length.
     @Test
     public void testVarcharCastToDateInPredicate()
     {

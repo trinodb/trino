@@ -2322,6 +2322,13 @@
             </dependency>
 
             <dependency>
+                <groupId>com.teradata.jdbc</groupId>
+                <artifactId>terajdbc</artifactId>
+                <version>20.00.00.54</version>
+                <scope>runtime</scope>
+            </dependency>
+
+            <dependency>
                 <groupId>io.confluent</groupId>
                 <artifactId>kafka-json-schema-serializer</artifactId>
                 <version>${dep.confluent.version}</version>

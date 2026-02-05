@@ -23,10 +23,10 @@ import java.util.Map;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static org.assertj.core.api.Assertions.assertThat;
 
-public class TestTeradataPlugin
+final class TestTeradataPlugin
 {
     @Test
-    public void testCreateConnector()
+    void testCreateConnector()
     {
         TeradataPlugin plugin = new TeradataPlugin();
         ConnectorFactory factory = getOnlyElement(plugin.getConnectorFactories());

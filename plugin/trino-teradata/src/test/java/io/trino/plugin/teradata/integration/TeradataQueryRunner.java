@@ -57,36 +57,6 @@ public final class TeradataQueryRunner
             this.server = requireNonNull(server, "server is null");
         }
 
-        public void copyTable(QueryRunner queryRunner, QualifiedObjectName table, Session session)
-        {
-            @Language("SQL") String sql = format("CREATE TABLE %s AS SELECT * FROM %s", table.objectName(), table);
-            queryRunner.execute(session, sql);
-            assertThat(queryRunner.execute(session, "SELECT count(*) FROM " + table.objectName())
-                    .getOnlyValue())
-                    .as("Table is not loaded properly: %s", new Object[] {table.objectName()})
-                    .isEqualTo(queryRunner.execute(session, "SELECT count(*) FROM " + table).getOnlyValue());
-        }
-
-        public void copyTpchTables(QueryRunner queryRunner, String sourceCatalog, String sourceSchema, Session session, Iterable<TpchTable<?>> tables)
-        {
-            for (TpchTable<?> table : tables) {
-                copyTable(queryRunner, sourceCatalog, sourceSchema, table.getTableName().toLowerCase(Locale.ENGLISH), session);
-            }
-        }
-
-        public void copyTpchTables(QueryRunner queryRunner, String sourceCatalog, String sourceSchema, Iterable<TpchTable<?>> tables)
-        {
-            copyTpchTables(queryRunner, sourceCatalog, sourceSchema, queryRunner.getDefaultSession(), tables);
-        }
-
-        public void copyTable(QueryRunner queryRunner, String sourceCatalog, String sourceSchema, String sourceTable, Session session)
-        {
-            QualifiedObjectName table = new QualifiedObjectName(sourceCatalog, sourceSchema, sourceTable);
-            if (!server.isTableExists(sourceTable)) {
-                copyTable(queryRunner, table, session);
-            }
-        }
-
         @CanIgnoreReturnValue
         public Builder setInitialTables(Iterable<TpchTable<?>> initialTables)
         {
@@ -108,6 +78,36 @@ public final class TeradataQueryRunner
                 copyTpchTables(runner, "tpch", TINY_SCHEMA_NAME, initialTables);
             });
             return super.build();
+        }
+
+        private void copyTpchTables(QueryRunner queryRunner, String sourceCatalog, String sourceSchema, Iterable<TpchTable<?>> tables)
+        {
+            copyTpchTables(queryRunner, sourceCatalog, sourceSchema, queryRunner.getDefaultSession(), tables);
+        }
+
+        private void copyTpchTables(QueryRunner queryRunner, String sourceCatalog, String sourceSchema, Session session, Iterable<TpchTable<?>> tables)
+        {
+            for (TpchTable<?> table : tables) {
+                copyTable(queryRunner, sourceCatalog, sourceSchema, table.getTableName().toLowerCase(Locale.ENGLISH), session);
+            }
+        }
+
+        private void copyTable(QueryRunner queryRunner, String sourceCatalog, String sourceSchema, String sourceTable, Session session)
+        {
+            QualifiedObjectName table = new QualifiedObjectName(sourceCatalog, sourceSchema, sourceTable);
+            if (!server.tableExists(sourceTable)) {
+                copyTable(queryRunner, table, session);
+            }
+        }
+
+        private void copyTable(QueryRunner queryRunner, QualifiedObjectName table, Session session)
+        {
+            @Language("SQL") String sql = format("CREATE TABLE %s AS SELECT * FROM %s", table.objectName(), table);
+            queryRunner.execute(session, sql);
+            assertThat(queryRunner.execute(session, "SELECT count(*) FROM " + table.objectName())
+                    .getOnlyValue())
+                    .as("Table is not loaded properly: %s", new Object[] {table.objectName()})
+                    .isEqualTo(queryRunner.execute(session, "SELECT count(*) FROM " + table).getOnlyValue());
         }
 
         static void main()

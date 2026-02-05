@@ -15,8 +15,7 @@ package io.trino.plugin.teradata.integration.clearscape;
 
 import static java.util.Objects.requireNonNull;
 
-public record OperationRequest(
-        String operation)
+public record OperationRequest(String operation)
 {
     public OperationRequest
     {
