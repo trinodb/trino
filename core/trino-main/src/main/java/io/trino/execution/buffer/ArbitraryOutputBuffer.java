@@ -139,7 +139,7 @@ public class ArbitraryOutputBuffer
         for (ClientBuffer buffer : buffers) {
             PipelinedBufferInfo bufferInfo = buffer.getInfo();
             infos.add(bufferInfo);
-            totalBufferedPages += bufferInfo.getBufferedPages();
+            totalBufferedPages += bufferInfo.bufferedPages();
         }
 
         return new OutputBufferInfo(

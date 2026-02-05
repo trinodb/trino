@@ -460,9 +460,9 @@ public class TestClientBuffer
     private static void assertBufferDestroyed(ClientBuffer buffer, int pagesSent)
     {
         PipelinedBufferInfo bufferInfo = buffer.getInfo();
-        assertThat(bufferInfo.getBufferedPages()).isEqualTo(0);
-        assertThat(bufferInfo.getPagesSent()).isEqualTo(pagesSent);
-        assertThat(bufferInfo.isFinished()).isTrue();
+        assertThat(bufferInfo.bufferedPages()).isEqualTo(0);
+        assertThat(bufferInfo.pagesSent()).isEqualTo(pagesSent);
+        assertThat(bufferInfo.finished()).isTrue();
         assertThat(buffer.isDestroyed()).isTrue();
     }
 
