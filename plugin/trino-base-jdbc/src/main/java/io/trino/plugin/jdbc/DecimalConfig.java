@@ -13,13 +13,24 @@
  */
 package io.trino.plugin.jdbc;
 
-public final class DecimalConfig
-{
-    private DecimalConfig() {}
+import java.math.RoundingMode;
 
-    public enum DecimalMapping
+public interface DecimalConfig
+{
+    DecimalMapping getDecimalMapping();
+
+    int getDecimalDefaultScale();
+
+    RoundingMode getDecimalRoundingMode();
+
+    enum DecimalMapping
     {
         STRICT,
+
+        /**
+         * @deprecated Map to high-precision dynamic scale decimal type instead.
+         */
+        @Deprecated
         ALLOW_OVERFLOW,
         /**/;
     }

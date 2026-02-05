@@ -19,13 +19,44 @@ import com.google.inject.Module;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.trino.plugin.jdbc.JdbcModule.bindSessionPropertiesProvider;
 
+// TODO this class should eventually be removed
 public class DecimalModule
         implements Module
 {
+    private final boolean deprecated;
+
+    /**
+     * Creates a module that installs decimal configs with user-visible deprecation.
+     * This should be used when connector wants to migrate away from the decimal configs,
+     * most likely towards the new high-precision decimal type.
+     */
+    public static DecimalModule withDeprecatedConfigs()
+    {
+        return new DecimalModule(true);
+    }
+
+    /**
+     * Creates a module that installs decimal configs without user-visible deprecation.
+     * This constructor is deprecated, connectors should migrate to {@link #withDeprecatedConfigs()}
+     * and eventually stop using this class.
+     */
+    @Deprecated
+    public DecimalModule()
+    {
+        this(false);
+    }
+
+    private DecimalModule(boolean deprecated)
+    {
+        this.deprecated = deprecated;
+    }
+
     @Override
     public void configure(Binder binder)
     {
-        configBinder(binder).bindConfig(LegacyDecimalConfig.class);
+        Class<? extends DecimalConfig> configClass = deprecated ? LegacyDecimalConfig.class : DeprecatedDecimalConfig.class;
+        configBinder(binder).bindConfig(configClass);
+        binder.bind(DecimalConfig.class).to(configClass);
         bindSessionPropertiesProvider(binder, DecimalSessionSessionProperties.class);
     }
 }

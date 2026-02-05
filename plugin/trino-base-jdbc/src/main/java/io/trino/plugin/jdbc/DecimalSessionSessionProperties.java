@@ -26,6 +26,7 @@ import static io.trino.plugin.jdbc.DecimalConfig.DecimalMapping;
 import static io.trino.spi.session.PropertyMetadata.enumProperty;
 import static io.trino.spi.session.PropertyMetadata.integerProperty;
 
+@Deprecated
 public class DecimalSessionSessionProperties
         implements SessionPropertiesProvider
 {
@@ -36,7 +37,7 @@ public class DecimalSessionSessionProperties
     private final List<PropertyMetadata<?>> properties;
 
     @Inject
-    public DecimalSessionSessionProperties(LegacyDecimalConfig decimalConfig)
+    public DecimalSessionSessionProperties(DecimalConfig decimalConfig)
     {
         properties = ImmutableList.of(
                 enumProperty(
@@ -69,11 +70,19 @@ public class DecimalSessionSessionProperties
         return session.getProperty(DECIMAL_MAPPING, DecimalMapping.class);
     }
 
+    /**
+     * @deprecated Map to high-precision dynamic scale decimal type instead.
+     */
+    @Deprecated
     public static int getDecimalDefaultScale(ConnectorSession session)
     {
         return session.getProperty(DECIMAL_DEFAULT_SCALE, Integer.class);
     }
 
+    /**
+     * @deprecated Map to high-precision dynamic scale decimal type instead.
+     */
+    @Deprecated
     public static RoundingMode getDecimalRoundingMode(ConnectorSession session)
     {
         return session.getProperty(DECIMAL_ROUNDING_MODE, RoundingMode.class);
