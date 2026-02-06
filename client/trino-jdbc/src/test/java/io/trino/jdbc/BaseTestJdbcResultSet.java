@@ -238,6 +238,133 @@ public abstract class BaseTestJdbcResultSet
     }
 
     @Test
+    public void testNumber()
+            throws Exception
+    {
+        try (ConnectedStatement connectedStatement = newStatement()) {
+            checkRepresentation(connectedStatement.getStatement(), "CAST(NULL AS number)", Types.OTHER, (rs, column) -> {
+                assertThat(rs.getObject(column)).isNull();
+                assertThat(rs.wasNull()).isTrue();
+                assertThat(rs.getByte(column)).isEqualTo((byte) 0);
+                assertThat(rs.wasNull()).isTrue();
+                assertThat(rs.getShort(column)).isEqualTo((short) 0);
+                assertThat(rs.wasNull()).isTrue();
+                assertThat(rs.getInt(column)).isEqualTo(0);
+                assertThat(rs.wasNull()).isTrue();
+                assertThat(rs.getLong(column)).isEqualTo(0);
+                assertThat(rs.wasNull()).isTrue();
+                assertThat(rs.getBigDecimal(column)).isNull();
+                assertThat(rs.wasNull()).isTrue();
+                assertThat(rs.getFloat(column)).isEqualTo(0);
+                assertThat(rs.wasNull()).isTrue();
+                assertThat(rs.getDouble(column)).isEqualTo(0);
+                assertThat(rs.wasNull()).isTrue();
+                assertThat(rs.getString(column)).isNull();
+                assertThat(rs.wasNull()).isTrue();
+                assertThat(rs.getBytes(column)).isNull();
+                assertThat(rs.wasNull()).isTrue();
+            });
+
+            checkRepresentation(connectedStatement.getStatement(), "NUMBER '0.1'", Types.OTHER, new BigDecimal("0.1"));
+            checkRepresentation(connectedStatement.getStatement(), "NUMBER '0.100'", Types.OTHER, new BigDecimal("0.1"));
+            checkRepresentation(connectedStatement.getStatement(), "NUMBER '100'", Types.OTHER, new BigDecimal("1e2"));
+            checkRepresentation(connectedStatement.getStatement(), "NUMBER '20050910133100123'", Types.OTHER, new BigDecimal("20050910133100123"));
+
+            checkRepresentation(connectedStatement.getStatement(), "NUMBER '1'", Types.OTHER, (rs, column) -> {
+                assertThat(rs.getObject(column)).isEqualTo(new BigDecimal("1"));
+                assertThat(rs.getByte(column)).isEqualTo((byte) 1);
+                assertThat(rs.getShort(column)).isEqualTo((short) 1);
+                assertThat(rs.getInt(column)).isEqualTo(1);
+                assertThat(rs.getLong(column)).isEqualTo(1);
+                assertThat(rs.getBigDecimal(column)).isEqualTo(new BigDecimal("1"));
+                assertThat(rs.getFloat(column)).isEqualTo(1f);
+                assertThat(rs.getDouble(column)).isEqualTo(1.0);
+                assertThat(rs.getString(column)).isEqualTo("1");
+                assertThatThrownBy(() -> rs.getBytes(column)).hasMessage("Value is not a byte array: 1");
+
+                ResultSetMetaData metaData = rs.getMetaData();
+                assertThat(metaData.getColumnTypeName(column)).isEqualTo("number");
+                assertThat(metaData.getColumnDisplaySize(column)).isEqualTo(0);
+                assertThat(metaData.getColumnClassName(column)).isEqualTo("java.lang.Number");
+            });
+
+            checkRepresentation(connectedStatement.getStatement(), "NUMBER '0.12'", Types.OTHER, (rs, column) -> {
+                assertThat(rs.getObject(column)).isEqualTo(new BigDecimal("0.12"));
+                assertThat(rs.getByte(column)).isEqualTo((byte) 0);
+                assertThat(rs.getShort(column)).isEqualTo((short) 0);
+                assertThat(rs.getInt(column)).isEqualTo(0);
+                assertThat(rs.getLong(column)).isEqualTo(0);
+                assertThat(rs.getBigDecimal(column)).isEqualTo(new BigDecimal("0.12"));
+                assertThat(rs.getFloat(column)).isEqualTo(0.12f);
+                assertThat(rs.getDouble(column)).isEqualTo(0.12);
+                assertThat(rs.getString(column)).isEqualTo("0.12");
+                assertThatThrownBy(() -> rs.getBytes(column)).hasMessage("Value is not a byte array: 0.12");
+
+                ResultSetMetaData metaData = rs.getMetaData();
+                assertThat(metaData.getColumnTypeName(column)).isEqualTo("number");
+                assertThat(metaData.getColumnDisplaySize(column)).isEqualTo(0);
+                assertThat(metaData.getColumnClassName(column)).isEqualTo("java.lang.Number");
+            });
+
+            long outsideOfDoubleExactRange = 9223372036854775774L;
+            //noinspection ConstantConditions
+            verify((long) (double) outsideOfDoubleExactRange - outsideOfDoubleExactRange != 0, "outsideOfDoubleExactRange should not be exact-representable as a double");
+            checkRepresentation(connectedStatement.getStatement(), format("NUMBER '%s'", outsideOfDoubleExactRange), Types.OTHER, (rs, column) -> {
+                assertThat(rs.getObject(column)).isEqualTo(new BigDecimal("9223372036854775774"));
+                // TODO (https://github.com/trinodb/trino/issues/28146) silent numeric truncation
+                assertThat(rs.getByte(column)).isEqualTo((byte) -34);
+                assertThat(rs.getShort(column)).isEqualTo((short) -34);
+                assertThat(rs.getInt(column)).isEqualTo(-34);
+                assertThat(rs.getLong(column)).isEqualTo(9223372036854775774L);
+                assertThat(rs.getBigDecimal(column)).isEqualTo(new BigDecimal("9223372036854775774"));
+                assertThat(rs.getFloat(column)).isEqualTo(9.223372E18f);
+                assertThat(rs.getDouble(column)).isEqualTo(9.223372036854776E18);
+                assertThat(rs.getString(column)).isEqualTo("9223372036854775774");
+                assertThatThrownBy(() -> rs.getBytes(column)).hasMessage("Value is not a byte array: 9223372036854775774");
+
+                ResultSetMetaData metaData = rs.getMetaData();
+                assertThat(metaData.getColumnTypeName(column)).isEqualTo("number");
+                assertThat(metaData.getColumnDisplaySize(column)).isEqualTo(0);
+                assertThat(metaData.getColumnClassName(column)).isEqualTo("java.lang.Number");
+            });
+
+            checkRepresentation(connectedStatement.getStatement(), "NUMBER '3.141592653589793238462643383279502884197169399375105820974944592307'", Types.OTHER, (rs, column) -> {
+                assertThat(rs.getObject(column)).isEqualTo(new BigDecimal("3.141592653589793238462643383279502884197169399375105820974944592307"));
+                assertThat(rs.getByte(column)).isEqualTo((byte) 3);
+                assertThat(rs.getShort(column)).isEqualTo((short) 3);
+                assertThat(rs.getInt(column)).isEqualTo(3);
+                assertThat(rs.getLong(column)).isEqualTo(3);
+                assertThat(rs.getBigDecimal(column)).isEqualTo(new BigDecimal("3.141592653589793238462643383279502884197169399375105820974944592307"));
+                assertThat(rs.getFloat(column)).isEqualTo(3.1415927f);
+                assertThat(rs.getDouble(column)).isEqualTo(3.141592653589793);
+                assertThat(rs.getString(column)).isEqualTo("3.141592653589793238462643383279502884197169399375105820974944592307");
+                assertThatThrownBy(() -> rs.getBytes(column)).hasMessage("Value is not a byte array: 3.141592653589793238462643383279502884197169399375105820974944592307");
+
+                ResultSetMetaData metaData = rs.getMetaData();
+                assertThat(metaData.getColumnTypeName(column)).isEqualTo("number");
+                assertThat(metaData.getColumnDisplaySize(column)).isEqualTo(0);
+                assertThat(metaData.getColumnClassName(column)).isEqualTo("java.lang.Number");
+            });
+
+            // TODO support NaN and Infinity
+            assertThatThrownBy(() -> checkRepresentation(connectedStatement.getStatement(), "NUMBER 'NaN'", Types.OTHER, (rs, column) -> {
+                // TODO fill this when no longer fails
+            }))
+                    .hasMessageEndingWith("'NaN' is not a valid NUMBER literal");
+
+            assertThatThrownBy(() -> checkRepresentation(connectedStatement.getStatement(), "NUMBER '+Infinity'", Types.OTHER, (rs, column) -> {
+                // TODO fill this when no longer fails
+            }))
+                    .hasMessageEndingWith("'+Infinity' is not a valid NUMBER literal");
+
+            assertThatThrownBy(() -> checkRepresentation(connectedStatement.getStatement(), "NUMBER '-Infinity'", Types.OTHER, (rs, column) -> {
+                // TODO fill this when no longer fails
+            }))
+                    .hasMessageEndingWith("'-Infinity' is not a valid NUMBER literal");
+        }
+    }
+
+    @Test
     public void testVarbinary()
             throws Exception
     {

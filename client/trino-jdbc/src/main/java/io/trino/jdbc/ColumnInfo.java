@@ -236,6 +236,9 @@ class ColumnInfo
 
             case ClientStandardTypes.DECIMAL:
                 return new TypeInfo(Types.DECIMAL, java.math.BigDecimal.class);
+            case ClientStandardTypes.NUMBER:
+                // NUMERIC/DECIMAL type could suggest clients to use ResultSet.getBigDecimal, but this will fail for some values. OTHER feel safer.
+                return new TypeInfo(Types.OTHER, java.lang.Number.class);
 
             case ClientStandardTypes.VARCHAR:
                 return new TypeInfo(Types.VARCHAR, String.class);
