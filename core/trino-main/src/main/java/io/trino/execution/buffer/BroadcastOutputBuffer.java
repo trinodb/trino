@@ -37,6 +37,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.LongAdder;
 import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -70,8 +71,8 @@ public class BroadcastOutputBuffer
     @GuardedBy("this")
     private final List<SerializedPageReference> initialPagesForNewBuffers = new ArrayList<>();
 
-    private final AtomicLong totalPagesAdded = new AtomicLong();
-    private final AtomicLong totalRowsAdded = new AtomicLong();
+    private final LongAdder totalPagesAdded = new LongAdder();
+    private final LongAdder totalRowsAdded = new LongAdder();
     private final AtomicLong totalBufferedPages = new AtomicLong();
 
     private final AtomicBoolean hasBlockedBefore = new AtomicBoolean();
@@ -141,8 +142,8 @@ public class BroadcastOutputBuffer
                 state.canAddPages(),
                 memoryManager.getBufferedBytes(),
                 totalBufferedPages.get(),
-                totalRowsAdded.get(),
-                totalPagesAdded.get(),
+                totalRowsAdded.sum(),
+                totalPagesAdded.sum(),
                 Optional.of(buffers.stream()
                         .map(ClientBuffer::getInfo)
                         .collect(toImmutableList())),
@@ -230,8 +231,8 @@ public class BroadcastOutputBuffer
         List<SerializedPageReference> serializedPageReferences = references.build();
 
         // update stats
-        totalRowsAdded.addAndGet(rowCount);
-        totalPagesAdded.addAndGet(serializedPageReferences.size());
+        totalRowsAdded.add(rowCount);
+        totalPagesAdded.add(serializedPageReferences.size());
         totalBufferedPages.addAndGet(serializedPageReferences.size());
 
         // reserve memory
