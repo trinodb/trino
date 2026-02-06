@@ -324,7 +324,7 @@ public class MaterializedResult
                 case SqlTimestamp sqlTimestamp -> sqlTimestamp.toLocalDateTime();
                 case SqlTimestampWithTimeZone sqlTimestampWithTimeZone -> sqlTimestampWithTimeZone.toZonedDateTime();
                 case SqlDecimal sqlDecimal -> sqlDecimal.toBigDecimal();
-                case SqlBigdecimal sqlBigdecimal -> new BigDecimal(sqlBigdecimal.stringified());
+                case SqlBigdecimal sqlBigdecimal -> new BigDecimal(sqlBigdecimal.toString());
                 default -> trinoValue;
             };
             convertedValues.add(convertedValue);

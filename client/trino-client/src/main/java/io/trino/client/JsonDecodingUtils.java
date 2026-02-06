@@ -66,7 +66,6 @@ import static io.trino.client.ClientStandardTypes.UUID;
 import static io.trino.client.ClientStandardTypes.VARBINARY;
 import static io.trino.client.ClientStandardTypes.VARCHAR;
 import static java.lang.String.format;
-import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Collections.unmodifiableList;
 import static java.util.Collections.unmodifiableMap;
 import static java.util.Objects.requireNonNull;
@@ -273,10 +272,7 @@ public final class JsonDecodingUtils
         public Object decode(JsonParser parser)
                 throws IOException
         {
-            // TODO maybe we could send numbers without base64. This probably requires client capabilities.
-            // Old clients apply base64 decoding to any type they don't recognize.
-            // TODO If Base64 stays, `parser.getBinaryValue(Base64Variants.MIME)` might be a better way to parse it.
-            return new BigDecimal(new String(Base64.getDecoder().decode(parser.getValueAsString()), UTF_8));
+            return new BigDecimal(parser.getValueAsString());
         }
     }
 

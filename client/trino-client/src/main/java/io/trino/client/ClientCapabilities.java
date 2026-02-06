@@ -29,6 +29,11 @@ public enum ClientCapabilities
     PARAMETRIC_DATETIME,
 
     /**
+     * Whether client supports the `bigdecimal` type. When this capability is not set, the server returns `varchar` for `bigdecimal` columns.
+     */
+    BIGDECIMAL,
+
+    /**
      * Whether clients support the session authorization set/reset feature
      */
     SESSION_AUTHORIZATION;

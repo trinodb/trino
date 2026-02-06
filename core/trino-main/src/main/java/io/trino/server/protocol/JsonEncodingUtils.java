@@ -437,9 +437,9 @@ public final class JsonEncodingUtils
                 case BigDecimal bigDecimalValue -> generator.writeNumber(bigDecimalValue);
                 case SqlDate dateValue -> generator.writeString(dateValue.toString());
                 case SqlDecimal decimalValue -> generator.writeString(decimalValue.toString());
-                // Trino client protocol backward compatibility requires that any new types are base64-encoded strings.
-                // JsonDecodingUtils uses "base64 decoder" for any type it doesn't recognize.
-                case SqlBigdecimal bigdecimal -> generator.writeString(bigdecimal.base64Encoded());
+                // When client does not have BIGDECIMAL capability, bigdecimal values are sent as varchar (strings).
+                // When it has the capability, they are also sent as strings.
+                case SqlBigdecimal bigdecimal -> generator.writeString(bigdecimal.toString());
                 case SqlIntervalDayTime intervalValue -> generator.writeString(intervalValue.toString());
                 case SqlIntervalYearMonth intervalValue -> generator.writeString(intervalValue.toString());
                 case SqlTime timeValue -> generator.writeString(timeValue.toString());

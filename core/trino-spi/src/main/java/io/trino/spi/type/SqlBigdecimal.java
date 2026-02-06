@@ -14,35 +14,22 @@
 package io.trino.spi.type;
 
 import java.math.BigDecimal;
-import java.util.Base64;
 import java.util.Objects;
 
-import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.Objects.requireNonNull;
 
 public final class SqlBigdecimal
 {
-    private final String stringified;
-    private final String base64Encoded;
+    private final String valueAsString;
 
     public SqlBigdecimal(BigDecimal value)
     {
         this(value.toString());
     }
 
-    public SqlBigdecimal(String value)
+    public SqlBigdecimal(String valueAsString)
     {
-        stringified = value;
-        base64Encoded = Base64.getEncoder().encodeToString(stringified.getBytes(UTF_8));
-    }
-
-    public String stringified()
-    {
-        return stringified;
-    }
-
-    public String base64Encoded()
-    {
-        return base64Encoded;
+        this.valueAsString = requireNonNull(valueAsString, "valueAsString is null");
     }
 
     @Override
@@ -51,18 +38,18 @@ public final class SqlBigdecimal
         if (!(o instanceof SqlBigdecimal that)) {
             return false;
         }
-        return Objects.equals(stringified, that.stringified);
+        return Objects.equals(valueAsString, that.valueAsString);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hashCode(stringified);
+        return Objects.hashCode(valueAsString);
     }
 
     @Override
     public String toString()
     {
-        return stringified;
+        return valueAsString;
     }
 }
