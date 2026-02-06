@@ -38,7 +38,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.LongAdder;
 import java.util.function.Supplier;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -76,8 +76,8 @@ public class ArbitraryOutputBuffer
     private final OutputBufferStateMachine stateMachine;
     private final long taskInstanceId;
 
-    private final AtomicLong totalPagesAdded = new AtomicLong();
-    private final AtomicLong totalRowsAdded = new AtomicLong();
+    private final LongAdder totalPagesAdded = new LongAdder();
+    private final LongAdder totalRowsAdded = new LongAdder();
 
     public ArbitraryOutputBuffer(
             long taskInstanceId,
@@ -149,8 +149,8 @@ public class ArbitraryOutputBuffer
                 state.canAddPages(),
                 memoryManager.getBufferedBytes(),
                 totalBufferedPages,
-                totalRowsAdded.get(),
-                totalPagesAdded.get(),
+                totalRowsAdded.sum(),
+                totalPagesAdded.sum(),
                 Optional.of(infos.build()),
                 Optional.of(new TDigestHistogram(memoryManager.getUtilizationHistogram())),
                 Optional.empty(),
@@ -233,8 +233,8 @@ public class ArbitraryOutputBuffer
         List<SerializedPageReference> serializedPageReferences = references.build();
 
         // update stats
-        totalRowsAdded.addAndGet(rowCount);
-        totalPagesAdded.addAndGet(serializedPageReferences.size());
+        totalRowsAdded.add(rowCount);
+        totalPagesAdded.add(serializedPageReferences.size());
 
         // reserve memory
         memoryManager.updateMemoryUsage(bytesAdded);

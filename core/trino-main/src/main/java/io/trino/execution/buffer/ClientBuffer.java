@@ -31,6 +31,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.LongAdder;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -48,8 +49,8 @@ class ClientBuffer
     private final OutputBufferId bufferId;
     private final PagesReleasedListener onPagesReleased;
 
-    private final AtomicLong rowsAdded = new AtomicLong();
-    private final AtomicLong pagesAdded = new AtomicLong();
+    private final LongAdder rowsAdded = new LongAdder();
+    private final LongAdder pagesAdded = new LongAdder();
 
     private final AtomicLong bufferedBytes = new AtomicLong();
 
@@ -90,9 +91,9 @@ class ClientBuffer
         long sequenceId = this.currentSequenceId.get();
 
         // if destroyed the buffered page count must be zero regardless of observation ordering in this lock free code
-        int bufferedPages = destroyed ? 0 : Math.max(toIntExact(pagesAdded.get() - sequenceId), 0);
+        int bufferedPages = destroyed ? 0 : Math.max(toIntExact(pagesAdded.sum() - sequenceId), 0);
 
-        return new PipelinedBufferInfo(bufferId, rowsAdded.get(), pagesAdded.get(), bufferedPages, bufferedBytes.get(), sequenceId, destroyed);
+        return new PipelinedBufferInfo(bufferId, rowsAdded.sum(), pagesAdded.sum(), bufferedPages, bufferedBytes.get(), sequenceId, destroyed);
     }
 
     public boolean isDestroyed()
@@ -113,7 +114,7 @@ class ClientBuffer
             removedPages = ImmutableList.copyOf(pages);
             pages.clear();
 
-            bufferedBytes.getAndSet(0);
+            bufferedBytes.set(0);
 
             noMorePages = true;
             destroyed.set(true);
@@ -163,8 +164,8 @@ class ClientBuffer
             bytesAdded += page.getRetainedSizeInBytes();
         }
         this.pages.addAll(pages);
-        rowsAdded.addAndGet(rowCount);
-        pagesAdded.addAndGet(pageCount);
+        rowsAdded.add(rowCount);
+        pagesAdded.add(pageCount);
         bufferedBytes.addAndGet(bytesAdded);
     }
 
