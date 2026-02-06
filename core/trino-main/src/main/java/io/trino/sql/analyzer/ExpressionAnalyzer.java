@@ -1188,7 +1188,7 @@ public class ExpressionAnalyzer
                                     resolvedType = plannerContext.getTypeManager().fromSqlType(node.getType());
                                 }
                                 catch (TypeNotFoundException e) {
-                                    throw semanticException(TYPE_NOT_FOUND, node, "Unknown resolvedType: %s", node.getType());
+                                    throw semanticException(TYPE_NOT_FOUND, node, "Unknown type: %s", node.getType());
                                 }
 
                                 if (!JSON.equals(resolvedType)) {
@@ -1196,7 +1196,7 @@ public class ExpressionAnalyzer
                                         plannerContext.getMetadata().getCoercion(VARCHAR, resolvedType);
                                     }
                                     catch (IllegalArgumentException e) {
-                                        throw semanticException(INVALID_LITERAL, node, "No literal form for resolvedType %s", resolvedType);
+                                        throw semanticException(INVALID_LITERAL, node, "No literal form for type %s", resolvedType);
                                     }
                                 }
                                 return resolvedType;
