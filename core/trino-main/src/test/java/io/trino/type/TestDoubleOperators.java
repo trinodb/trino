@@ -851,7 +851,6 @@ public class TestDoubleOperators
     {
         double[] zeroes = {0.0, -0.0};
         for (double zero : zeroes) {
-            //noinspection SimplifiedTestNGAssertion
             assertThat(zero).isZero();
             assertThat(executeHashOperator(zero)).isEqualTo(executeHashOperator(zeroes[0]));
             assertThat(executeXxHash64Operator(zero)).isEqualTo(executeXxHash64Operator(zeroes[0]));
