@@ -303,7 +303,7 @@ public final class IcebergUtil
         List<Integer> path = requireNonNull(indexPaths.get(fieldId));
         if (!path.isEmpty()) {
             baseField = indexById.get(path.getFirst());
-            path = ImmutableList.<Integer>builder()
+            path = ImmutableList.<Integer>builderWithExpectedSize(path.size())
                     .addAll(path.subList(1, path.size())) // Base column id shouldn't exist in IcebergColumnHandle.path
                     .add(fieldId) // Append the leaf field id
                     .build();
@@ -817,7 +817,7 @@ public final class IcebergUtil
             Set<IcebergColumnHandle> identityPartitionColumns,
             Map<Integer, Optional<String>> partitionKeys)
     {
-        ImmutableMap.Builder<ColumnHandle, NullableValue> bindings = ImmutableMap.builder();
+        ImmutableMap.Builder<ColumnHandle, NullableValue> bindings = ImmutableMap.builderWithExpectedSize(identityPartitionColumns.size());
         for (IcebergColumnHandle partitionColumn : identityPartitionColumns) {
             Object partitionValue = deserializePartitionValue(
                     partitionColumn.getType(),
