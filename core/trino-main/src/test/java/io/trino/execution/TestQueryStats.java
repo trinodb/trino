@@ -218,6 +218,7 @@ public class TestQueryStats
             DataSize.ofBytes(26),
             DataSize.ofBytes(27),
             DataSize.ofBytes(28),
+            ImmutableMap.of("node1", DataSize.ofBytes(15), "node2", DataSize.ofBytes(13)),
 
             true,
             OptionalDouble.of(8.88),

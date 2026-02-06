@@ -302,6 +302,7 @@ public class FailedDispatchQuery
                 DataSize.ofBytes(0),
                 DataSize.ofBytes(0),
                 DataSize.ofBytes(0),
+                ImmutableMap.of(),
                 false,
                 OptionalDouble.empty(),
                 OptionalDouble.empty(),

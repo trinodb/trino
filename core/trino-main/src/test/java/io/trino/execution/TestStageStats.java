@@ -62,6 +62,7 @@ public class TestStageStats
             DataSize.ofBytes(17),
             DataSize.ofBytes(18),
             DataSize.ofBytes(19),
+            ImmutableMap.of("node1", DataSize.ofBytes(10), "node2", DataSize.ofBytes(9)),
 
             new Duration(19, NANOSECONDS),
             new Duration(20, NANOSECONDS),

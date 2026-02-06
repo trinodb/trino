@@ -91,6 +91,7 @@ public class TestBasicQueryInfo
                                 DataSize.valueOf("30GB"),
                                 DataSize.valueOf("31GB"),
                                 DataSize.valueOf("32GB"),
+                                ImmutableMap.of(),
                                 true,
                                 OptionalDouble.of(100),
                                 OptionalDouble.of(0),

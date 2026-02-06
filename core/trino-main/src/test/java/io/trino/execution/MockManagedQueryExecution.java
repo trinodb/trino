@@ -222,6 +222,7 @@ public class MockManagedQueryExecution
                         DataSize.ofBytes(26),
 
                         DataSize.ofBytes(27),
+                        ImmutableMap.of(),
 
                         !state.isDone(),
                         state.isDone() ? OptionalDouble.empty() : OptionalDouble.of(8.88),
