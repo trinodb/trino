@@ -518,7 +518,7 @@ public class MySqlClient
     @Override
     protected String getColumnDefinitionSql(ConnectorSession session, ColumnMetadata column, String columnName)
     {
-        if (column.getComment() != null) {
+        if (column.getComment().isPresent()) {
             throw new TrinoException(NOT_SUPPORTED, "This connector does not support creating tables with column comment");
         }
 
@@ -960,7 +960,7 @@ public class MySqlClient
 
     private void addColumn(ConnectorSession session, RemoteTableName table, ColumnMetadata column, String position)
     {
-        if (column.getComment() != null) {
+        if (column.getComment().isPresent()) {
             throw new TrinoException(NOT_SUPPORTED, "This connector does not support adding columns with comments");
         }
 

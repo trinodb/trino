@@ -873,7 +873,7 @@ public class MongoMetadata
     private static List<MongoColumnHandle> buildColumnHandles(ConnectorTableMetadata tableMetadata)
     {
         return tableMetadata.getColumns().stream()
-                .map(m -> new MongoColumnHandle(m.getName(), ImmutableList.of(), m.getType(), m.isHidden(), false, Optional.ofNullable(m.getComment())))
+                .map(m -> new MongoColumnHandle(m.getName(), ImmutableList.of(), m.getType(), m.isHidden(), false, m.getComment()))
                 .collect(toList());
     }
 

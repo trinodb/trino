@@ -2856,7 +2856,7 @@ public class IcebergMetadata
                     })
                     .orElse(null);
 
-            updateSchema.addColumn(null, column.getName(), icebergType, column.getComment(), defaultLiteral);
+            updateSchema.addColumn(null, column.getName(), icebergType, column.getComment().orElse(null), defaultLiteral);
             switch (position) {
                 case ColumnPosition.First _ -> updateSchema.moveFirst(column.getName());
                 case ColumnPosition.After after -> updateSchema.moveAfter(column.getName(), after.columnName());

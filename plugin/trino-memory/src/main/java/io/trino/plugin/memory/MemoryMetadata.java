@@ -356,7 +356,7 @@ public class MemoryMetadata
         for (int i = 0; i < tableMetadata.getColumns().size(); i++) {
             ColumnMetadata column = tableMetadata.getColumns().get(i);
             MemoryColumnHandle handle = new MemoryColumnHandle(i, column.getName(), column.getType());
-            columns.add(new ColumnInfo(handle, column.getDefaultValue(), column.isNullable(), Optional.ofNullable(column.getComment())));
+            columns.add(new ColumnInfo(handle, column.getDefaultValue(), column.isNullable(), column.getComment()));
         }
 
         tableIds.put(tableMetadata.getTable(), tableId);
@@ -458,7 +458,7 @@ public class MemoryMetadata
 
         List<ColumnInfo> columns = ImmutableList.<ColumnInfo>builderWithExpectedSize(table.columns().size() + 1)
                 .addAll(table.columns())
-                .add(new ColumnInfo(newColumn, column.getDefaultValue(), column.isNullable(), Optional.ofNullable(column.getComment())))
+                .add(new ColumnInfo(newColumn, column.getDefaultValue(), column.isNullable(), column.getComment()))
                 .build();
 
         tables.put(tableId, new TableInfo(tableId, table.schemaName(), table.tableName(), columns, table.truncated(), table.dataFragments(), table.comment()));

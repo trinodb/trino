@@ -724,7 +724,7 @@ public class BigQueryMetadata
                     targetTable.projectId(),
                     targetTable.datasetName(),
                     generateTemporaryTableName(session));
-            createTable(client, pageSinkTable.projectId(), pageSinkTable.datasetName(), pageSinkTable.tableName(), ImmutableList.of(typeManager.toField(pageSinkIdColumnName, TRINO_PAGE_SINK_ID_COLUMN_TYPE, null)), Optional.empty());
+            createTable(client, pageSinkTable.projectId(), pageSinkTable.datasetName(), pageSinkTable.tableName(), ImmutableList.of(typeManager.toField(pageSinkIdColumnName, TRINO_PAGE_SINK_ID_COLUMN_TYPE, Optional.empty())), Optional.empty());
             closer.register(() -> bigQueryClientFactory.create(session).dropTable(pageSinkTable.toTableId()));
 
             insertIntoSinkTable(session, pageSinkTable, pageSinkIdColumnName, fragments);

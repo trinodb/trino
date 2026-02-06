@@ -858,7 +858,7 @@ public final class IcebergUtil
                         .isOptional(column.isNullable())
                         .withName(column.getName())
                         .ofType(type)
-                        .withDoc(column.getComment());
+                        .withDoc(column.getComment().orElse(null));
 
                 // Set initial-default and write-default if present
                 // Note: DEFAULT NULL results in icebergDefault=null, which we skip since null is already the implicit default
