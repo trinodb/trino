@@ -29,6 +29,11 @@ public enum ClientCapabilities
     PARAMETRIC_DATETIME,
 
     /**
+     * Whether client supports the `NUMBER` type. When this capability is not set, the server returns `varchar` for `NUMBER` columns.
+     */
+    NUMBER,
+
+    /**
      * Whether clients support the session authorization set/reset feature
      */
     SESSION_AUTHORIZATION;
