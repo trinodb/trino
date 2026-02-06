@@ -155,24 +155,24 @@ public abstract class BaseTestJdbcResultSet
         try (ConnectedStatement connectedStatement = newStatement()) {
             checkRepresentation(connectedStatement.getStatement(), "0.1", Types.DECIMAL, new BigDecimal("0.1"));
             checkRepresentation(connectedStatement.getStatement(), "DECIMAL '0.12'", Types.DECIMAL, (rs, column) -> {
+                assertThat(rs.getObject(column)).isEqualTo(new BigDecimal("0.12"));
                 assertThat(rs.getBigDecimal(column)).isEqualTo(new BigDecimal("0.12"));
                 assertThat(rs.getDouble(column)).isEqualTo(0.12);
                 assertThat(rs.getLong(column)).isEqualTo(0);
                 assertThat(rs.getFloat(column)).isEqualTo(0.12f);
+                assertThat(rs.getString(column)).isEqualTo("0.12");
             });
 
             long outsideOfDoubleExactRange = 9223372036854775774L;
             //noinspection ConstantConditions
             verify((long) (double) outsideOfDoubleExactRange - outsideOfDoubleExactRange != 0, "outsideOfDoubleExactRange should not be exact-representable as a double");
-            checkRepresentation(connectedStatement.getStatement(), format("DECIMAL '%s'",
-                    outsideOfDoubleExactRange), Types.DECIMAL,
-                    (rs, column) -> {
-                        assertThat(rs.getObject(column)).isEqualTo(new BigDecimal("9223372036854775774"));
-                        assertThat(rs.getBigDecimal(column)).isEqualTo(new BigDecimal("9223372036854775774"));
-                        assertThat(rs.getLong(column)).isEqualTo(9223372036854775774L);
-                        assertThat(rs.getDouble(column)).isEqualTo(9.223372036854776E18);
-                        assertThat(rs.getString(column)).isEqualTo("9223372036854775774");
-                    });
+            checkRepresentation(connectedStatement.getStatement(), format("DECIMAL '%s'", outsideOfDoubleExactRange), Types.DECIMAL, (rs, column) -> {
+                assertThat(rs.getObject(column)).isEqualTo(new BigDecimal("9223372036854775774"));
+                assertThat(rs.getBigDecimal(column)).isEqualTo(new BigDecimal("9223372036854775774"));
+                assertThat(rs.getLong(column)).isEqualTo(9223372036854775774L);
+                assertThat(rs.getDouble(column)).isEqualTo(9.223372036854776E18);
+                assertThat(rs.getString(column)).isEqualTo("9223372036854775774");
+            });
 
             checkRepresentation(connectedStatement.getStatement(), "VARCHAR ''", Types.VARCHAR, (rs, column) -> {
                 assertThatThrownBy(() -> rs.getBigDecimal(column))
