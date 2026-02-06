@@ -78,6 +78,51 @@ public abstract class BaseTestJdbcResultSet
     }
 
     @Test
+    public void testNullUnknown()
+            throws Exception
+    {
+        try (ConnectedStatement connectedStatement = newStatement()) {
+            checkRepresentation(connectedStatement.getStatement(), "NULL", Types.NULL, (rs, column) -> {
+                assertThat(rs.getObject(column)).isNull();
+                assertThat(rs.wasNull()).isTrue();
+                assertThat(rs.getBoolean(column)).isEqualTo(false);
+                assertThat(rs.wasNull()).isTrue();
+                assertThat(rs.getByte(column)).isEqualTo((byte) 0);
+                assertThat(rs.wasNull()).isTrue();
+                assertThat(rs.getShort(column)).isEqualTo((short) 0);
+                assertThat(rs.wasNull()).isTrue();
+                assertThat(rs.getInt(column)).isEqualTo(0);
+                assertThat(rs.wasNull()).isTrue();
+                assertThat(rs.getLong(column)).isEqualTo(0);
+                assertThat(rs.wasNull()).isTrue();
+                assertThat(rs.getBigDecimal(column)).isNull();
+                assertThat(rs.wasNull()).isTrue();
+                assertThat(rs.getFloat(column)).isEqualTo(0f);
+                assertThat(rs.wasNull()).isTrue();
+                assertThat(rs.getDouble(column)).isEqualTo(0.0);
+                assertThat(rs.wasNull()).isTrue();
+                assertThat(rs.getDate(column)).isNull();
+                assertThat(rs.wasNull()).isTrue();
+                assertThat(rs.getTime(column)).isNull();
+                assertThat(rs.wasNull()).isTrue();
+                assertThat(rs.getTimestamp(column)).isNull();
+                assertThat(rs.wasNull()).isTrue();
+                assertThat(rs.getString(column)).isNull();
+                assertThat(rs.wasNull()).isTrue();
+                assertThat(rs.getAsciiStream(column)).isNull();
+                assertThat(rs.wasNull()).isTrue();
+                assertThat(rs.getBytes(column)).isNull();
+                assertThat(rs.wasNull()).isTrue();
+
+                ResultSetMetaData metaData = rs.getMetaData();
+                assertThat(metaData.getColumnTypeName(column)).isEqualTo("unknown");
+                assertThat(metaData.getColumnDisplaySize(column)).isEqualTo(0);
+                assertThat(metaData.getColumnClassName(column)).isEqualTo("unknown"); // TODO "unknown" feels wrong, is not a valid class name
+            });
+        }
+    }
+
+    @Test
     public void testPrimitiveTypes()
             throws Exception
     {
