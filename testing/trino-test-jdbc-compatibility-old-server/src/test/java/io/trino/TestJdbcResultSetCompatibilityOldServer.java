@@ -41,6 +41,7 @@ import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 @Test(singleThreaded = true)
 public class TestJdbcResultSetCompatibilityOldServer
@@ -130,6 +131,20 @@ public class TestJdbcResultSetCompatibilityOldServer
 
             removeDockerImage(imageName);
         }
+    }
+
+    @Override
+    public void testBigdecimal()
+            throws Exception
+    {
+        if (parseInt(getTestedTrinoVersion()) < 480) {
+            try (ConnectedStatement statementWrapper = newStatement()) {
+                assertThatThrownBy(() -> statementWrapper.getStatement().executeUpdate("SELECT BIGDECIMAL '1'"))
+                        .hasMessageMatching(".*Unknown (resolvedType|type): BIGDECIMAL.*");
+            }
+            return;
+        }
+        super.testBigdecimal();
     }
 
     @Override

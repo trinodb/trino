@@ -241,6 +241,7 @@ class ColumnInfo
             case ClientStandardTypes.DATE:
                 return Types.DATE;
             case ClientStandardTypes.DECIMAL:
+            case ClientStandardTypes.BIGDECIMAL:
                 return Types.DECIMAL;
             case ClientStandardTypes.UNKNOWN:
                 return Types.NULL;
