@@ -24,6 +24,8 @@ import io.airlift.bootstrap.Bootstrap;
 import io.airlift.jaxrs.JsonMapper;
 import io.airlift.json.JsonCodec;
 import io.airlift.json.JsonModule;
+import io.airlift.log.Level;
+import io.airlift.log.Logging;
 import io.airlift.units.DataSize;
 import io.trino.connector.CatalogHandle;
 import io.trino.exchange.SpoolingExchangeInput;
@@ -53,6 +55,12 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestTaskDescriptorStorage
 {
+    static {
+        Logging logging = Logging.initialize();
+        logging.setLevel("org.hibernate.validator.internal.util.Version", Level.ERROR);
+        logging.setLevel("Bootstrap", Level.ERROR);
+    }
+
     private static final QueryId QUERY_1 = new QueryId("query1");
     private static final QueryId QUERY_2 = new QueryId("query2");
 
@@ -363,7 +371,10 @@ public class TestTaskDescriptorStorage
                     jsonCodecBinder(binder).bindJsonCodec(Split.class);
                 });
 
-        Injector injector = app.initialize();
+        Injector injector = app
+                .doNotInitializeLogging()
+                .quiet()
+                .initialize();
         JsonCodec<TaskDescriptor> taskDescriptorJsonCodec = injector.getInstance(Key.get(new TypeLiteral<>() { }));
         JsonCodec<Split> splitJsonCodec = injector.getInstance(Key.get(new TypeLiteral<>() { }));
 
