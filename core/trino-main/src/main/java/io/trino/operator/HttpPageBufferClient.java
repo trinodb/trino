@@ -60,6 +60,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.isNullOrEmpty;
+import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.net.HttpHeaders.CONTENT_TYPE;
 import static io.airlift.http.client.HttpStatus.NO_CONTENT;
 import static io.airlift.http.client.HttpStatus.familyForStatusCode;
@@ -640,7 +641,7 @@ public final class HttpPageBufferClient
     private static Throwable rewriteException(Throwable t)
     {
         if (Throwables.getCausalChain(t).stream()
-                .anyMatch(e -> e.getMessage().contains("exceeded maximum length"))) {
+                .anyMatch(e -> nullToEmpty(e.getMessage()).contains("exceeded maximum length"))) {
             return new PageTooLargeException();
         }
         return t;
