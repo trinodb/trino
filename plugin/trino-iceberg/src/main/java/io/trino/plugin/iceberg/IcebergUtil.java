@@ -206,6 +206,7 @@ import static org.apache.iceberg.TableProperties.PARQUET_COMPRESSION;
 import static org.apache.iceberg.TableProperties.WRITE_DATA_LOCATION;
 import static org.apache.iceberg.TableProperties.WRITE_LOCATION_PROVIDER_IMPL;
 import static org.apache.iceberg.TableUtil.formatVersion;
+import static org.apache.iceberg.expressions.Expressions.lit;
 import static org.apache.iceberg.types.Type.TypeID.BINARY;
 import static org.apache.iceberg.types.Type.TypeID.FIXED;
 import static org.apache.iceberg.util.LocationUtil.stripTrailingSlash;
@@ -864,8 +865,8 @@ public final class IcebergUtil
                 column.getDefaultValue().ifPresent(defaultValue -> {
                     Object icebergDefault = parseDefaultValue(defaultValue, column.getType(), type);
                     if (icebergDefault != null) {
-                        fieldBuilder.withInitialDefault(icebergDefault);
-                        fieldBuilder.withWriteDefault(icebergDefault);
+                        fieldBuilder.withInitialDefault(lit(icebergDefault));
+                        fieldBuilder.withWriteDefault(lit(icebergDefault));
                     }
                 });
 
