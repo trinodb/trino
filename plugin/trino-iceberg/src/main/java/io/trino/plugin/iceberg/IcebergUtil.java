@@ -432,7 +432,7 @@ public final class IcebergUtil
     public static List<ColumnMetadata> getColumnMetadatas(Schema schema, TypeManager typeManager)
     {
         List<NestedField> icebergColumns = schema.columns();
-        ImmutableList.Builder<ColumnMetadata> columns = builderWithExpectedSize(icebergColumns.size() + 2);
+        ImmutableList.Builder<ColumnMetadata> columns = builderWithExpectedSize(icebergColumns.size() + 3);
         for (NestedField column : icebergColumns) {
             columns.add(ColumnMetadata.builder()
                     .setName(column.name())
