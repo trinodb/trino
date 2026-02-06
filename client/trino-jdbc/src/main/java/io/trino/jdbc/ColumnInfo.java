@@ -14,6 +14,7 @@
 package io.trino.jdbc;
 
 import com.google.common.collect.ImmutableList;
+import io.trino.client.ClientStandardTypes;
 import io.trino.client.ClientTypeSignature;
 import io.trino.client.ClientTypeSignatureParameter;
 
@@ -207,41 +208,41 @@ class ColumnInfo
     private static int getType(ClientTypeSignature type)
     {
         switch (type.getRawType()) {
-            case "array":
+            case ClientStandardTypes.ARRAY:
                 return Types.ARRAY;
-            case "boolean":
+            case ClientStandardTypes.BOOLEAN:
                 return Types.BOOLEAN;
-            case "bigint":
+            case ClientStandardTypes.BIGINT:
                 return Types.BIGINT;
-            case "integer":
+            case ClientStandardTypes.INTEGER:
                 return Types.INTEGER;
-            case "smallint":
+            case ClientStandardTypes.SMALLINT:
                 return Types.SMALLINT;
-            case "tinyint":
+            case ClientStandardTypes.TINYINT:
                 return Types.TINYINT;
-            case "real":
+            case ClientStandardTypes.REAL:
                 return Types.REAL;
-            case "double":
+            case ClientStandardTypes.DOUBLE:
                 return Types.DOUBLE;
-            case "varchar":
+            case ClientStandardTypes.VARCHAR:
                 return Types.VARCHAR;
-            case "char":
+            case ClientStandardTypes.CHAR:
                 return Types.CHAR;
-            case "varbinary":
+            case ClientStandardTypes.VARBINARY:
                 return Types.VARBINARY;
-            case "time":
+            case ClientStandardTypes.TIME:
                 return Types.TIME;
-            case "time with time zone":
+            case ClientStandardTypes.TIME_WITH_TIME_ZONE:
                 return Types.TIME_WITH_TIMEZONE;
-            case "timestamp":
+            case ClientStandardTypes.TIMESTAMP:
                 return Types.TIMESTAMP;
-            case "timestamp with time zone":
+            case ClientStandardTypes.TIMESTAMP_WITH_TIME_ZONE:
                 return Types.TIMESTAMP_WITH_TIMEZONE;
-            case "date":
+            case ClientStandardTypes.DATE:
                 return Types.DATE;
-            case "decimal":
+            case ClientStandardTypes.DECIMAL:
                 return Types.DECIMAL;
-            case "unknown":
+            case ClientStandardTypes.UNKNOWN:
                 return Types.NULL;
             default:
                 return Types.JAVA_OBJECT;
