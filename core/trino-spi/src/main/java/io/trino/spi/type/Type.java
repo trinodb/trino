@@ -20,6 +20,7 @@ import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.BlockBuilderStatus;
 import io.trino.spi.block.ValueBlock;
 import io.trino.spi.connector.ConnectorSession;
+import jakarta.annotation.Nullable;
 
 import java.util.List;
 import java.util.Optional;
@@ -123,31 +124,39 @@ public interface Type
      * Gets an object representation of the type value in the {@code block}
      * {@code position}. This is the value returned to the user via the
      * REST endpoint and therefore must be JSON serializable.
+     * Returns {@code null} for SQL {@code NULL} value.
+     * The position must be valid within the block.
      */
+    @Nullable
     Object getObjectValue(Block block, int position);
 
     /**
      * Gets the value at the {@code block} {@code position} as a boolean.
+     * The position must be valid within the block and not {@link Block#isNull(int) null}.
      */
     boolean getBoolean(Block block, int position);
 
     /**
      * Gets the value at the {@code block} {@code position} as a long.
+     * The position must be valid within the block and not {@link Block#isNull(int) null}.
      */
     long getLong(Block block, int position);
 
     /**
      * Gets the value at the {@code block} {@code position} as a double.
+     * The position must be valid within the block and not {@link Block#isNull(int) null}.
      */
     double getDouble(Block block, int position);
 
     /**
      * Gets the value at the {@code block} {@code position} as a Slice.
+     * The position must be valid within the block and not {@link Block#isNull(int) null}.
      */
     Slice getSlice(Block block, int position);
 
     /**
      * Gets the value at the {@code block} {@code position} as an Object.
+     * The position must be valid within the block and not {@link Block#isNull(int) null}.
      */
     Object getObject(Block block, int position);
 
