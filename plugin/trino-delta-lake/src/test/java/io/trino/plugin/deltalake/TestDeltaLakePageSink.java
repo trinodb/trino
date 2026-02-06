@@ -164,7 +164,7 @@ public class TestDeltaLakePageSink
         DeltaLakeConfig deltaLakeConfig = new DeltaLakeConfig();
         DeltaLakeTable.Builder deltaTable = DeltaLakeTable.builder();
         for (DeltaLakeColumnHandle column : getColumnHandles()) {
-            deltaTable.addColumn(column.columnName(), serializeColumnType(NONE, new AtomicInteger(), column.type()), true, null, ImmutableMap.of());
+            deltaTable.addColumn(column.columnName(), serializeColumnType(NONE, new AtomicInteger(), column.type()), true, Optional.empty(), ImmutableMap.of());
         }
         String schemaString = serializeSchemaAsJson(deltaTable.build());
         DeltaLakeOutputTableHandle tableHandle = new DeltaLakeOutputTableHandle(

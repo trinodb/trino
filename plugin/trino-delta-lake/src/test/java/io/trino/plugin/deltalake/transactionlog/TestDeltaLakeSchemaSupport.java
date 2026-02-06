@@ -236,7 +236,7 @@ public class TestDeltaLakeSchemaSupport
         List<DeltaLakeColumnHandle> columnHandles = ImmutableList.of(arrayColumn, structColumn, mapColumn);
         DeltaLakeTable.Builder deltaTable = DeltaLakeTable.builder();
         for (DeltaLakeColumnHandle column : columnHandles) {
-            deltaTable.addColumn(column.columnName(), serializeColumnType(ColumnMappingMode.NONE, new AtomicInteger(), column.baseType()), true, null, ImmutableMap.of());
+            deltaTable.addColumn(column.columnName(), serializeColumnType(ColumnMappingMode.NONE, new AtomicInteger(), column.baseType()), true, Optional.empty(), ImmutableMap.of());
         }
 
         String jsonEncoding = serializeSchemaAsJson(deltaTable.build());
@@ -256,7 +256,7 @@ public class TestDeltaLakeSchemaSupport
 
         DeltaLakeTable.Builder deltaTable = DeltaLakeTable.builder();
         for (ColumnMetadata column : schema) {
-            deltaTable.addColumn(column.getName(), serializeColumnType(ColumnMappingMode.NONE, new AtomicInteger(), column.getType()), true, null, ImmutableMap.of());
+            deltaTable.addColumn(column.getName(), serializeColumnType(ColumnMappingMode.NONE, new AtomicInteger(), column.getType()), true, Optional.empty(), ImmutableMap.of());
         }
 
         ObjectMapper objectMapper = new ObjectMapper();

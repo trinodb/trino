@@ -256,9 +256,9 @@ public class InformationSchemaPageSource
                         column.getDefaultValue().orElse(null),
                         column.isNullable() ? "YES" : "NO",
                         column.getType().getDisplayName(),
-                        column.getComment(),
-                        column.getExtraInfo(),
-                        column.getComment());
+                        column.getComment().orElse(null),
+                        column.getExtraInfo().orElse(null),
+                        column.getComment().orElse(null));
                 ordinalPosition++;
                 if (isLimitExhausted()) {
                     return;

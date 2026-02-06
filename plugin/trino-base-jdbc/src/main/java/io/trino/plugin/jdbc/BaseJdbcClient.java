@@ -953,7 +953,7 @@ public abstract class BaseJdbcClient
 
     protected String getColumnDefinitionSql(ConnectorSession session, ColumnMetadata column, String columnName)
     {
-        if (column.getComment() != null) {
+        if (column.getComment().isPresent()) {
             throw new TrinoException(NOT_SUPPORTED, "This connector does not support creating tables with column comment");
         }
         StringBuilder sb = new StringBuilder()
@@ -1342,7 +1342,7 @@ public abstract class BaseJdbcClient
 
     private void addColumn(ConnectorSession session, RemoteTableName table, ColumnMetadata column)
     {
-        if (column.getComment() != null) {
+        if (column.getComment().isPresent()) {
             throw new TrinoException(NOT_SUPPORTED, "This connector does not support adding columns with comments");
         }
 

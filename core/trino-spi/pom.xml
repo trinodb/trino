@@ -778,6 +778,36 @@
                                     <new>method void io.trino.spi.eventlistener.QueryStatistics::&lt;init&gt;(java.time.Duration, java.time.Duration, java.time.Duration, java.time.Duration, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, long, long, long, long, long, long, long, long, long, long, long, long, long, long, double, double, java.util.List&lt;io.trino.spi.eventlistener.StageGcStatistics&gt;, int, boolean, java.util.List&lt;io.trino.spi.eventlistener.StageCpuDistribution&gt;, java.util.List&lt;io.trino.spi.eventlistener.StageOutputBufferUtilization&gt;, java.util.List&lt;io.trino.spi.eventlistener.StageOutputBufferMetrics&gt;, java.util.List&lt;io.trino.spi.eventlistener.StageTaskStatistics&gt;, java.util.List&lt;io.trino.spi.eventlistener.DynamicFilterDomainStatistics&gt;, java.util.function.Supplier&lt;java.util.List&lt;java.lang.String&gt;&gt;, java.util.List&lt;io.trino.spi.eventlistener.QueryPlanOptimizerStatistics&gt;, java.util.Map&lt;java.lang.String, io.trino.spi.metrics.Metrics&gt;, java.util.Map&lt;java.lang.String, io.trino.spi.metrics.Metrics&gt;, java.util.Optional&lt;java.lang.String&gt;)</new>
                                     <justification>Expose exchange performance metrics via event listener SPI</justification>
                                 </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.returnTypeChanged</code>
+                                    <old>method java.lang.String io.trino.spi.connector.ColumnMetadata::getComment()</old>
+                                    <new>method java.util.Optional&lt;java.lang.String&gt; io.trino.spi.connector.ColumnMetadata::getComment()</new>
+                                    <justification>Make field optional</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.annotation.removed</code>
+                                    <old>method java.lang.String io.trino.spi.connector.ColumnMetadata::getComment()</old>
+                                    <new>method java.util.Optional&lt;java.lang.String&gt; io.trino.spi.connector.ColumnMetadata::getComment()</new>
+                                    <annotation>@jakarta.annotation.Nullable</annotation>
+                                    <justification>Make field optional</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.returnTypeChanged</code>
+                                    <old>method java.lang.String io.trino.spi.connector.ColumnMetadata::getExtraInfo()</old>
+                                    <new>method java.util.Optional&lt;java.lang.String&gt; io.trino.spi.connector.ColumnMetadata::getExtraInfo()</new>
+                                    <justification>Make field optional</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.annotation.removed</code>
+                                    <old>method java.lang.String io.trino.spi.connector.ColumnMetadata::getExtraInfo()</old>
+                                    <new>method java.util.Optional&lt;java.lang.String&gt; io.trino.spi.connector.ColumnMetadata::getExtraInfo()</new>
+                                    <annotation>@jakarta.annotation.Nullable</annotation>
+                                    <justification>Make field optional</justification>
+                                </item>
                             </differences>
                         </revapi.differences>
                     </analysisConfiguration>

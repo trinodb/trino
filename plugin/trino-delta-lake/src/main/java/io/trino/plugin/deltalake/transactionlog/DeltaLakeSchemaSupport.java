@@ -271,7 +271,7 @@ public final class DeltaLakeSchemaSupport
         return schema.buildOrThrow();
     }
 
-    private static Map<String, Object> serializeStructField(String name, Object type, @Nullable String comment, boolean nullable, @Nullable Map<String, Object> metadata)
+    private static Map<String, Object> serializeStructField(String name, Object type, Optional<String> comment, boolean nullable, @Nullable Map<String, Object> metadata)
     {
         // https://github.com/delta-io/delta/blob/master/PROTOCOL.md#struct-field
         ImmutableMap.Builder<String, Object> fieldContents = ImmutableMap.builder();
@@ -281,9 +281,7 @@ public final class DeltaLakeSchemaSupport
         fieldContents.put("nullable", nullable);
 
         ImmutableMap.Builder<String, Object> columnMetadata = ImmutableMap.builder();
-        if (comment != null) {
-            columnMetadata.put("comment", comment);
-        }
+        comment.ifPresent(value -> columnMetadata.put("comment", value));
         if (metadata != null) {
             metadata.entrySet().stream()
                     .filter(entry -> !entry.getKey().equals("comment"))
@@ -348,7 +346,7 @@ public final class DeltaLakeSchemaSupport
                     }
                     Object fieldType = serializeColumnType(columnMappingMode, maxColumnId, field.getType());
                     Map<String, Object> metadata = generateColumnMetadata(columnMappingMode, maxColumnId);
-                    return serializeStructField(name, fieldType, null, true, metadata);
+                    return serializeStructField(name, fieldType, Optional.empty(), true, metadata);
                 })
                 .collect(toImmutableList()));
 

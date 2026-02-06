@@ -48,7 +48,6 @@ import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.VarbinaryType;
 import io.trino.spi.type.VarcharType;
-import jakarta.annotation.Nullable;
 import org.joda.time.DateTimeZone;
 import org.joda.time.Days;
 import org.joda.time.LocalDateTime;
@@ -583,10 +582,9 @@ public final class HiveUtil
         }
     }
 
-    @Nullable
-    public static String columnExtraInfo(boolean partitionKey)
+    public static Optional<String> columnExtraInfo(boolean partitionKey)
     {
-        return partitionKey ? "partition key" : null;
+        return partitionKey ? Optional.of("partition key") : Optional.empty();
     }
 
     public static NullableValue getPrefilledColumnValue(
@@ -846,7 +844,7 @@ public final class HiveUtil
                 .setName(handle.getName())
                 .setType(handle.getType())
                 .setComment(handle.isHidden() ? Optional.empty() : columnComment.get(handle.getName()))
-                .setExtraInfo(Optional.ofNullable(columnExtraInfo(handle.isPartitionKey())))
+                .setExtraInfo(columnExtraInfo(handle.isPartitionKey()))
                 .setHidden(handle.isHidden())
                 .setProperties(getPartitionProjectionTrinoColumnProperties(table, handle.getName()))
                 .build();

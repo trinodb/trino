@@ -160,7 +160,6 @@ import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.VarcharType;
-import jakarta.annotation.Nullable;
 
 import java.io.IOException;
 import java.net.URI;
@@ -944,7 +943,7 @@ public class DeltaLakeMetadata
     private static ColumnMetadata getColumnMetadata(DeltaLakeTable deltaTable, DeltaLakeColumnHandle column)
     {
         if (column.projectionInfo().isPresent() || column.columnType() == SYNTHESIZED) {
-            return getColumnMetadata(column, null, true, Optional.empty());
+            return getColumnMetadata(column, Optional.empty(), true, Optional.empty());
         }
         DeltaLakeColumn deltaColumn = deltaTable.findColumn(column.baseColumnName());
         return getColumnMetadata(
@@ -4511,7 +4510,7 @@ public class DeltaLakeMetadata
         return metastore;
     }
 
-    private static ColumnMetadata getColumnMetadata(DeltaLakeColumnHandle column, @Nullable String comment, boolean nullability, Optional<String> generationExpression)
+    private static ColumnMetadata getColumnMetadata(DeltaLakeColumnHandle column, Optional<String> comment, boolean nullability, Optional<String> generationExpression)
     {
         String columnName;
         Type columnType;
@@ -4528,7 +4527,7 @@ public class DeltaLakeMetadata
                 .setName(columnName)
                 .setType(columnType)
                 .setHidden(column.columnType() == SYNTHESIZED)
-                .setComment(Optional.ofNullable(comment))
+                .setComment(comment)
                 .setNullable(nullability)
                 .setExtraInfo(generationExpression.map(expression -> "generated: " + expression))
                 .build();

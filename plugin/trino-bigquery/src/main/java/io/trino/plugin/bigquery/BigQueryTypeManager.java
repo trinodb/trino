@@ -43,7 +43,6 @@ import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.TypeSignature;
 import io.trino.spi.type.VarbinaryType;
 import io.trino.spi.type.VarcharType;
-import jakarta.annotation.Nullable;
 
 import java.time.Instant;
 import java.time.LocalDate;
@@ -213,7 +212,7 @@ public final class BigQueryTypeManager
         return format("FROM_BASE64('%s')", Base64.getEncoder().encodeToString(slice.getBytes()));
     }
 
-    public Field toField(String name, Type type, @Nullable String comment)
+    public Field toField(String name, Type type, Optional<String> comment)
     {
         if (type instanceof ArrayType arrayType) {
             Type elementType = arrayType.getElementType();
@@ -222,14 +221,14 @@ public final class BigQueryTypeManager
         return toInnerField(name, type, false, comment);
     }
 
-    private Field toInnerField(String name, Type type, boolean repeated, @Nullable String comment)
+    private Field toInnerField(String name, Type type, boolean repeated, Optional<String> comment)
     {
         Field.Builder builder;
         if (type instanceof RowType rowType) {
-            builder = Field.newBuilder(name, StandardSQLTypeName.STRUCT, toFieldList(rowType)).setDescription(comment);
+            builder = Field.newBuilder(name, StandardSQLTypeName.STRUCT, toFieldList(rowType)).setDescription(comment.orElse(null));
         }
         else {
-            builder = Field.newBuilder(name, toStandardSqlTypeName(type)).setDescription(comment);
+            builder = Field.newBuilder(name, toStandardSqlTypeName(type)).setDescription(comment.orElse(null));
         }
         if (repeated) {
             builder = builder.setMode(REPEATED);
@@ -243,7 +242,7 @@ public final class BigQueryTypeManager
         for (RowType.Field field : rowType.getFields()) {
             String fieldName = field.getName()
                     .orElseThrow(() -> new TrinoException(NOT_SUPPORTED, "ROW type does not have field names declared: " + rowType));
-            fields.add(toField(fieldName, field.getType(), null));
+            fields.add(toField(fieldName, field.getType(), Optional.empty()));
         }
         return FieldList.of(fields.build());
     }
