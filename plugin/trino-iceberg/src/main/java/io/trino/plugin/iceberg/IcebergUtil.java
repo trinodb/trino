@@ -433,17 +433,15 @@ public final class IcebergUtil
     {
         List<NestedField> icebergColumns = schema.columns();
         ImmutableList.Builder<ColumnMetadata> columns = builderWithExpectedSize(icebergColumns.size() + 2);
-
-        icebergColumns.stream()
-                .map(column ->
-                        ColumnMetadata.builder()
-                                .setName(column.name())
-                                .setType(toTrinoType(column.type(), typeManager))
-                                .setNullable(column.isOptional())
-                                .setComment(Optional.ofNullable(column.doc()))
-                                .setDefaultValue(formatIcebergDefaultAsSql(column.writeDefault(), column.type()))
-                                .build())
-                .forEach(columns::add);
+        for (NestedField column : icebergColumns) {
+            columns.add(ColumnMetadata.builder()
+                    .setName(column.name())
+                    .setType(toTrinoType(column.type(), typeManager))
+                    .setNullable(column.isOptional())
+                    .setComment(Optional.ofNullable(column.doc()))
+                    .setDefaultValue(formatIcebergDefaultAsSql(column.writeDefault(), column.type()))
+                    .build());
+        }
         columns.add(partitionColumnMetadata());
         columns.add(pathColumnMetadata());
         columns.add(fileModifiedTimeColumnMetadata());
