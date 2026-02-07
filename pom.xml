@@ -1581,7 +1581,7 @@
             <dependency>
                 <groupId>io.trino.hive</groupId>
                 <artifactId>hive-thrift</artifactId>
-                <version>2</version>
+                <version>3</version>
             </dependency>
 
             <dependency>
