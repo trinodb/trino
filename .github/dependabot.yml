@@ -23,3 +23,17 @@ updates:
     ignore:
       # Airbase and Airlift are best updated together. Update Airbase only when updating Airlift.
       - dependency-name: "io.airlift:airbase"
+  - package-ecosystem: "npm"
+    directory: "/core/trino-web-ui/src/main/resources/webapp-preview"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 10
+    allow:
+      - dependency-type: "all"
+        update-types:
+          - "version-update:semver-minor"
+          - "version-update:semver-patch"
+    cooldown:
+      # Apply 7 day cooldown to avoid updating dependencies right away. This reduces the opportunity window
+      # when supply chain is compromised.
+      default-days: 7
