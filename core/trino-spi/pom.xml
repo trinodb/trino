@@ -808,6 +808,11 @@
                                     <annotation>@jakarta.annotation.Nullable</annotation>
                                     <justification>Make field optional</justification>
                                 </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.class.externalClassExposedInAPI</code>
+                                    <new>class io.opentelemetry.api.common.Empty</new>
+                                </item>
                             </differences>
                         </revapi.differences>
                     </analysisConfiguration>
