@@ -72,6 +72,7 @@ jobs:
         include:
           - { java-version: 25.0.2, cache: 'true', cleanup-node: true }
           - { java-version: 26-ea, cache: 'restore', cleanup-node: true }
+          - { java-version: 27-ea, cache: 'restore', cleanup-node: true }
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v6
