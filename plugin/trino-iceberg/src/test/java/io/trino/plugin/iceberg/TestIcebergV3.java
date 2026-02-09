@@ -19,12 +19,12 @@ import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
-import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.metastore.HiveMetastore;
 import io.trino.plugin.hive.HivePlugin;
+import io.trino.plugin.iceberg.catalog.TrinoCatalog;
 import io.trino.plugin.tpch.TpchPlugin;
-import io.trino.spi.security.ConnectorIdentity;
+import io.trino.spi.connector.SchemaTableName;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
@@ -56,20 +56,22 @@ import org.junit.jupiter.api.Test;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.Comparator;
+import java.util.Optional;
 import java.util.UUID;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.trino.plugin.iceberg.IcebergQueryRunner.ICEBERG_CATALOG;
+import static io.trino.plugin.iceberg.IcebergTestUtils.SESSION;
 import static io.trino.plugin.iceberg.IcebergTestUtils.getFileSystemFactory;
 import static io.trino.plugin.iceberg.IcebergTestUtils.getHiveMetastore;
+import static io.trino.plugin.iceberg.IcebergTestUtils.getTrinoCatalog;
+import static io.trino.plugin.iceberg.IcebergUtil.getLatestMetadataLocation;
 import static io.trino.plugin.iceberg.util.EqualityDeleteUtils.writeEqualityDeleteForTable;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.TestingSession.testSessionBuilder;
-import static org.apache.iceberg.Files.localInput;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -78,7 +80,7 @@ public class TestIcebergV3
 {
     private HiveMetastore metastore;
     private TrinoFileSystemFactory fileSystemFactory;
-    private Path dataDirectory;
+    private TrinoCatalog catalog;
 
     @Override
     protected QueryRunner createQueryRunner()
@@ -94,7 +96,7 @@ public class TestIcebergV3
         queryRunner.installPlugin(new TpchPlugin());
         queryRunner.createCatalog("tpch", "tpch");
 
-        dataDirectory = queryRunner.getCoordinator().getBaseDataDir().resolve("iceberg_data");
+        Path dataDirectory = queryRunner.getCoordinator().getBaseDataDir().resolve("iceberg_data");
         dataDirectory.toFile().mkdirs();
 
         queryRunner.installPlugin(new TestingIcebergPlugin(dataDirectory));
@@ -108,6 +110,7 @@ public class TestIcebergV3
 
         metastore = getHiveMetastore(queryRunner);
         fileSystemFactory = getFileSystemFactory(queryRunner);
+        catalog = getTrinoCatalog(metastore, fileSystemFactory, "iceberg");
 
         queryRunner.installPlugin(new HivePlugin());
         queryRunner.createCatalog("hive", "hive", ImmutableMap.of(
@@ -278,72 +281,35 @@ public class TestIcebergV3
 
     @Test
     void testV3InitialDefault()
-            throws IOException
     {
         // Create a data file with only 'id' column
-        String temp = "tmp_v3_defaults_src_" + randomNameSuffix();
-        assertUpdate("CREATE TABLE " + temp + " (id INTEGER) WITH (format = 'ORC')");
-        assertUpdate("INSERT INTO " + temp + " VALUES 1", 1);
+        String tableName = "v3_defaults_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " (id INTEGER) WITH (format_version = 3, format = 'ORC')");
+        assertUpdate("INSERT INTO " + tableName + " VALUES 1", 1);
 
-        String dataFilePath = (String) computeScalar("SELECT \"$path\" FROM " + temp);
-        long dataFileSize = getFileSize(dataFilePath);
-
-        String hadoopTableName = "hadoop_v3_defaults_" + randomNameSuffix();
-        Path hadoopTableLocation = dataDirectory.resolve(hadoopTableName);
-
-        // Create a v3 table with two columns: id (exists in file) and value (missing from file, has initial-default)
-        Schema schemaWithInitialDefault = new Schema(
-                Types.NestedField.optional("id")
-                        .withId(1)
-                        .ofType(Types.IntegerType.get())
-                        .build(),
-                Types.NestedField.optional("value")
-                        .withId(2)
-                        .ofType(Types.IntegerType.get())
-                        .withInitialDefault(Expressions.lit(42))
-                        .build());
-
-        Table icebergTable = new HadoopTables(new Configuration(false)).create(
-                schemaWithInitialDefault,
-                PartitionSpec.unpartitioned(),
-                SortOrder.unsorted(),
-                ImmutableMap.of(
-                        "format-version", "3",
-                        "write.format.default", "ORC"),
-                hadoopTableLocation.toString());
-
-        icebergTable.newFastAppend()
-                .appendFile(orcDataFile(dataFilePath, dataFileSize))
+        // Add a value column (missing from file, has initial-default)
+        loadTable(tableName).updateSchema()
+                .addColumn("value", Types.IntegerType.get(), Expressions.lit(42))
                 .commit();
 
-        String registered = "registered_v3_defaults_" + randomNameSuffix();
-        assertUpdate("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')"
-                .formatted(registered, hadoopTableLocation));
-
         // The 'value' column is missing from the data file, so it should return the initial-default (42)
-        assertQuery("SELECT id, value FROM " + registered, "VALUES (1, 42)");
+        assertQuery("SELECT id, value FROM " + tableName, "VALUES (1, 42)");
 
-        assertUpdate("DROP TABLE " + registered);
-        assertUpdate("DROP TABLE " + temp);
+        assertUpdate("DROP TABLE " + tableName);
     }
 
     @Test
     void testV3WriteDefault()
-            throws IOException
     {
         // Create a data file with only 'id' column
         String temp = "tmp_v3_write_defaults_src_" + randomNameSuffix();
         assertUpdate("CREATE TABLE " + temp + " (id INTEGER) WITH (format = 'ORC')");
         assertUpdate("INSERT INTO " + temp + " VALUES 1", 1);
 
-        String dataFilePath = (String) computeScalar("SELECT \"$path\" FROM " + temp);
-        long dataFileSize = getFileSize(dataFilePath);
-
-        String hadoopTableName = "hadoop_v3_write_defaults_" + randomNameSuffix();
-        Path hadoopTableLocation = dataDirectory.resolve(hadoopTableName);
-
         // Create a v3 table with a column that has write-default (but not initial-default)
         // Note: write-default is used for INSERT, initial-default is used for reading missing columns
+        String tableName = "v3_write_defaults_" + randomNameSuffix();
+        SchemaTableName schemaTableName = new SchemaTableName("tpch", tableName);
         Schema schemaWithWriteDefault = new Schema(
                 Types.NestedField.optional("id")
                         .withId(1)
@@ -355,36 +321,34 @@ public class TestIcebergV3
                         .withWriteDefault(Expressions.lit(99))
                         .build());
 
-        Table icebergTable = new HadoopTables(new Configuration(false)).create(
-                schemaWithWriteDefault,
-                PartitionSpec.unpartitioned(),
-                SortOrder.unsorted(),
-                ImmutableMap.of(
-                        "format-version", "3",
-                        "write.format.default", "ORC"),
-                hadoopTableLocation.toString());
+        catalog.newCreateTableTransaction(
+                        SESSION,
+                        schemaTableName,
+                        schemaWithWriteDefault,
+                        PartitionSpec.unpartitioned(),
+                        SortOrder.unsorted(),
+                        Optional.ofNullable(catalog.defaultTableLocation(SESSION, schemaTableName)),
+                        ImmutableMap.of("format-version", "3"))
+                .commitTransaction();
 
-        icebergTable.newFastAppend()
-                .appendFile(orcDataFile(dataFilePath, dataFileSize))
+        BaseTable tempTable = loadTable(temp);
+        loadTable(tableName).newFastAppend()
+                .appendFile(getOnlyElement(tempTable.currentSnapshot().addedDataFiles(tempTable.io())))
                 .commit();
-
-        String registered = "registered_v3_write_defaults_" + randomNameSuffix();
-        assertUpdate("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')"
-                .formatted(registered, hadoopTableLocation));
 
         // The 'value' column is missing from the data file and has no initial-default, so it should return NULL
         // (write-default is only used for INSERT, not for reading missing columns)
-        assertQuery("SELECT id, value FROM " + registered, "VALUES (1, NULL)");
+        assertQuery("SELECT id, value FROM " + tableName, "VALUES (1, NULL)");
 
-        assertUpdate("DROP TABLE " + registered);
+        assertUpdate("DROP TABLE " + tableName);
         assertUpdate("DROP TABLE " + temp);
     }
 
     @Test
     void testWriteDefaultOnInsert()
     {
-        String hadoopTableName = "hadoop_v3_write_default_insert_" + randomNameSuffix();
-        Path hadoopTableLocation = dataDirectory.resolve(hadoopTableName);
+        String tableName = "test_write_default_insert_" + randomNameSuffix();
+        SchemaTableName schemaTableName = new SchemaTableName("tpch", tableName);
 
         // Create a v3 table with write-default on column 'b'
         Schema schemaWithWriteDefault = new Schema(
@@ -398,18 +362,15 @@ public class TestIcebergV3
                         .withWriteDefault(Expressions.lit(42))
                         .build());
 
-        new HadoopTables(new Configuration(false)).create(
-                schemaWithWriteDefault,
-                PartitionSpec.unpartitioned(),
-                SortOrder.unsorted(),
-                ImmutableMap.of(
-                        "format-version", "3",
-                        "write.format.default", "ORC"),
-                hadoopTableLocation.toString());
-
-        String tableName = "test_write_default_insert_" + randomNameSuffix();
-        assertUpdate("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')"
-                .formatted(tableName, hadoopTableLocation));
+        catalog.newCreateTableTransaction(
+                        SESSION,
+                        schemaTableName,
+                        schemaWithWriteDefault,
+                        PartitionSpec.unpartitioned(),
+                        SortOrder.unsorted(),
+                        Optional.ofNullable(catalog.defaultTableLocation(SESSION, schemaTableName)),
+                        ImmutableMap.of("format-version", "3"))
+                .commitTransaction();
 
         // Verify SHOW CREATE TABLE shows DEFAULT
         assertThat((String) computeScalar("SHOW CREATE TABLE " + tableName))
@@ -716,17 +677,14 @@ public class TestIcebergV3
         String temp = "tmp_v3_encryption_src_" + randomNameSuffix();
         assertUpdate("CREATE TABLE " + temp + " (id INTEGER) WITH (format = 'ORC')");
         assertUpdate("INSERT INTO " + temp + " VALUES 1", 1);
-
-        String dataFilePath = (String) computeScalar("SELECT \"$path\" FROM " + temp);
-        long dataFileSize = getFileSize(dataFilePath);
+        Table tempTable = loadTable(temp);
 
         String hadoopTableName = "hadoop_v3_encryption_" + randomNameSuffix();
-        Path hadoopTableLocation = dataDirectory.resolve(hadoopTableName);
+        Path hadoopTableLocation = Path.of(tempTable.location()).resolveSibling(hadoopTableName);
 
-        Schema schema = new Schema(Types.NestedField.optional(1, "id", Types.IntegerType.get()));
-
+        // Use HadoopTables to prevent stale caches from direct metadata.json modification
         Table icebergTable = new HadoopTables(new Configuration(false)).create(
-                schema,
+                new Schema(Types.NestedField.optional(1, "id", Types.IntegerType.get())),
                 PartitionSpec.unpartitioned(),
                 SortOrder.unsorted(),
                 ImmutableMap.of(
@@ -735,7 +693,7 @@ public class TestIcebergV3
                 hadoopTableLocation.toString());
 
         icebergTable.newFastAppend()
-                .appendFile(orcDataFile(dataFilePath, dataFileSize))
+                .appendFile(getOnlyElement(tempTable.currentSnapshot().addedDataFiles(tempTable.io())))
                 .commit();
 
         // Inject encryption-keys + snapshot key-id into the current metadata.json.
@@ -759,19 +717,13 @@ public class TestIcebergV3
     void testIcebergWritesAndTrinoReadsDeletionVector()
             throws Exception
     {
-        Path hadoopTableLocation = dataDirectory.resolve("deletion_vector" + randomNameSuffix());
+        String tableName = "deletion_vector" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " (id INTEGER) WITH (format_version = 3)");
 
-        Table icebergTable = new HadoopTables(new Configuration(false)).create(
-                new Schema(Types.NestedField.optional(1, "id", Types.IntegerType.get())),
-                PartitionSpec.unpartitioned(),
-                SortOrder.unsorted(),
-                ImmutableMap.of(
-                        "format-version", "3",
-                        "write.format.default", "PARQUET"),
-                hadoopTableLocation.toString());
+        Table icebergTable = loadTable(tableName);
 
         // Write a data file with 5 rows: ids 0 to 4
-        String dataPath = hadoopTableLocation.resolve("data")
+        String dataPath = Path.of(icebergTable.location()).resolve("data")
                 .resolve("data-" + UUID.randomUUID() + ".parquet")
                 .toString();
         try (DataWriter<Record> writer = Parquet.writeData(icebergTable.io().newOutputFile(dataPath))
@@ -805,14 +757,10 @@ public class TestIcebergV3
                     .commit();
         }
 
-        String registered = "registered_v3_dv_" + randomNameSuffix();
-        assertUpdate("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')"
-                .formatted(registered, hadoopTableLocation));
-
-        assertThat(query("SELECT * FROM " + registered))
+        assertThat(query("SELECT * FROM " + tableName))
                 .matches("VALUES (1), (2), (4)");
 
-        assertUpdate("DROP TABLE " + registered);
+        assertUpdate("DROP TABLE " + tableName);
     }
 
     @Test
@@ -1001,21 +949,10 @@ public class TestIcebergV3
         }
     }
 
-    private static DataFile orcDataFile(String dataFilePath, long size)
-    {
-        return org.apache.iceberg.DataFiles.builder(PartitionSpec.unpartitioned())
-                .withFormat(FileFormat.ORC)
-                .withInputFile(localInput(new java.io.File(dataFilePath)))
-                .withPath(dataFilePath)
-                .withFileSizeInBytes(size)
-                .withRecordCount(1)
-                .build();
-    }
-
-    private static void injectEncryptionKeysIntoMetadataJson(Path tableLocation, String keyId)
+    private void injectEncryptionKeysIntoMetadataJson(Path tableLocation, String keyId)
             throws IOException
     {
-        Path metadataFile = latestMetadataJson(tableLocation);
+        Path metadataFile = Path.of(getLatestMetadataLocation(fileSystemFactory.create(SESSION), tableLocation.toString()));
 
         ObjectMapper mapper = new ObjectMapper();
         ObjectNode root = (ObjectNode) mapper.readTree(metadataFile.toFile());
@@ -1048,26 +985,5 @@ public class TestIcebergV3
         // delete the crc file, since it is no longer valid
         Path crc = metadataFile.resolveSibling("." + metadataFile.getFileName() + ".crc");
         Files.deleteIfExists(crc);
-    }
-
-    private static Path latestMetadataJson(Path tableLocation)
-            throws IOException
-    {
-        Path metadataDir = tableLocation.resolve("metadata");
-        try (var stream = Files.list(metadataDir)) {
-            return stream
-                    .filter(path -> path.getFileName().toString().endsWith(".metadata.json"))
-                    .max(Comparator.naturalOrder())
-                    .orElseThrow(() -> new IllegalStateException("No metadata.json found in " + metadataDir));
-        }
-    }
-
-    private long getFileSize(String dataFilePath)
-            throws IOException
-    {
-        return getFileSystemFactory(getQueryRunner())
-                .create(ConnectorIdentity.ofUser("test"))
-                .newInputFile(Location.of(dataFilePath))
-                .length();
     }
 }
