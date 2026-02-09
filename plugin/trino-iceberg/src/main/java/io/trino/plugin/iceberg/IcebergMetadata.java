@@ -335,8 +335,10 @@ import static io.trino.plugin.iceberg.IcebergTableProperties.MAX_PREVIOUS_VERSIO
 import static io.trino.plugin.iceberg.IcebergTableProperties.OBJECT_STORE_LAYOUT_ENABLED_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergTableProperties.ORC_BLOOM_FILTER_COLUMNS_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergTableProperties.PARQUET_BLOOM_FILTER_COLUMNS_PROPERTY;
+import static io.trino.plugin.iceberg.IcebergTableProperties.PARQUET_WRITER_BLOCK_SIZE;
 import static io.trino.plugin.iceberg.IcebergTableProperties.PARTITIONING_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergTableProperties.SORTED_BY_PROPERTY;
+import static io.trino.plugin.iceberg.IcebergTableProperties.TARGET_MAX_FILE_SIZE;
 import static io.trino.plugin.iceberg.IcebergTableProperties.getFormatVersion;
 import static io.trino.plugin.iceberg.IcebergTableProperties.getPartitioning;
 import static io.trino.plugin.iceberg.IcebergTableProperties.getTableLocation;
@@ -452,8 +454,10 @@ import static org.apache.iceberg.TableProperties.MIN_SNAPSHOTS_TO_KEEP_DEFAULT;
 import static org.apache.iceberg.TableProperties.OBJECT_STORE_ENABLED;
 import static org.apache.iceberg.TableProperties.ORC_BLOOM_FILTER_COLUMNS;
 import static org.apache.iceberg.TableProperties.PARQUET_BLOOM_FILTER_COLUMN_ENABLED_PREFIX;
+import static org.apache.iceberg.TableProperties.PARQUET_ROW_GROUP_SIZE_BYTES;
 import static org.apache.iceberg.TableProperties.WRITE_DATA_LOCATION;
 import static org.apache.iceberg.TableProperties.WRITE_LOCATION_PROVIDER_IMPL;
+import static org.apache.iceberg.TableProperties.WRITE_TARGET_FILE_SIZE_BYTES;
 import static org.apache.iceberg.TableUtil.formatVersion;
 import static org.apache.iceberg.expressions.Expressions.alwaysTrue;
 import static org.apache.iceberg.types.TypeUtil.indexParents;
@@ -2747,6 +2751,18 @@ public class IcebergMetadata
                 throw new TrinoException(INVALID_TABLE_PROPERTY, "Data location can only be set when object store layout is enabled");
             }
             updateProperties.set(WRITE_DATA_LOCATION, dataLocation);
+        }
+
+        if (properties.containsKey(TARGET_MAX_FILE_SIZE)) {
+            DataSize targetMaxFileSize = (DataSize) properties.get(TARGET_MAX_FILE_SIZE)
+                    .orElseThrow(() -> new IllegalArgumentException("The target_max_file_size property cannot be empty"));
+            updateProperties.set(WRITE_TARGET_FILE_SIZE_BYTES, Long.toString(targetMaxFileSize.toBytes()));
+        }
+
+        if (properties.containsKey(PARQUET_WRITER_BLOCK_SIZE)) {
+            DataSize parquetWriterBlockSize = (DataSize) properties.get(PARQUET_WRITER_BLOCK_SIZE)
+                    .orElseThrow(() -> new IllegalArgumentException("The parquet_writer_block_size property cannot be empty"));
+            updateProperties.set(PARQUET_ROW_GROUP_SIZE_BYTES, Long.toString(parquetWriterBlockSize.toBytes()));
         }
 
         try {

@@ -56,6 +56,7 @@ public class IcebergPageSinkProvider
     private final DataSize sortingFileWriterBufferSize;
     private final int sortingFileWriterMaxOpenFiles;
     private final Optional<String> sortingFileWriterLocalStagingPath;
+    private final long defaultTargetMaxFileSize;
     private final TypeManager typeManager;
     private final PageSorter pageSorter;
 
@@ -77,6 +78,7 @@ public class IcebergPageSinkProvider
         this.sortingFileWriterBufferSize = sortingFileWriterConfig.getWriterSortBufferSize();
         this.sortingFileWriterMaxOpenFiles = sortingFileWriterConfig.getMaxOpenSortFiles();
         this.sortingFileWriterLocalStagingPath = icebergConfig.getSortedWritingLocalStagingPath();
+        this.defaultTargetMaxFileSize = icebergConfig.getTargetMaxFileSize().toBytes();
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.pageSorter = requireNonNull(pageSorter, "pageSorter is null");
     }
@@ -114,6 +116,7 @@ public class IcebergPageSinkProvider
                 maxPartitionsPerWriter(session),
                 tableHandle.sortFields(),
                 tableHandle.sortOrderId(),
+                defaultTargetMaxFileSize,
                 sortingFileWriterBufferSize,
                 sortingFileWriterMaxOpenFiles,
                 sortingFileWriterLocalStagingPath,
@@ -147,6 +150,7 @@ public class IcebergPageSinkProvider
                         maxPartitionsPerWriter(session),
                         optimizeHandle.sortFields(),
                         optimizeHandle.sortOrderId(),
+                        defaultTargetMaxFileSize,
                         sortingFileWriterBufferSize,
                         sortingFileWriterMaxOpenFiles,
                         sortingFileWriterLocalStagingPath,

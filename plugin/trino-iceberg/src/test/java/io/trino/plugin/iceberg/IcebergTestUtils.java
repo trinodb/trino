@@ -106,7 +106,6 @@ public final class IcebergTestUtils
     {
         return Session.builder(session)
                 .setCatalogSessionProperty("iceberg", "orc_writer_max_stripe_rows", "20")
-                .setCatalogSessionProperty("iceberg", "parquet_writer_block_size", "1kB")
                 .setCatalogSessionProperty("iceberg", "parquet_writer_batch_size", "20")
                 .build();
     }

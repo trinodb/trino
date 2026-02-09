@@ -1602,7 +1602,7 @@ public abstract class BaseIcebergConnectorTest
                 .build();
         try (TestTable table = newTrinoTable(
                 "test_sorting_disabled",
-                "WITH (sorted_by = ARRAY['comment']) AS SELECT * FROM nation WITH NO DATA")) {
+                "WITH (sorted_by = ARRAY['comment'], parquet_writer_block_size = '1kB') AS SELECT * FROM nation WITH NO DATA")) {
             assertUpdate(withSortingDisabled, "INSERT INTO " + table.getName() + " SELECT * FROM nation", 25);
             for (MaterializedRow row : computeActual("SELECT file_path, sort_order_id from \"" + table.getName() + "$files\"").getMaterializedRows()) {
                 assertThat(isFileSorted((String) row.getField(0), "comment")).isFalse();
@@ -1617,7 +1617,7 @@ public abstract class BaseIcebergConnectorTest
     {
         try (TestTable table = newTrinoTable(
                 "test_optimize_with_sort_order",
-                "WITH (sorted_by = ARRAY['comment']) AS SELECT * FROM nation WITH NO DATA")) {
+                "WITH (sorted_by = ARRAY['comment'], parquet_writer_block_size = '1kB') AS SELECT * FROM nation WITH NO DATA")) {
             assertUpdate("INSERT INTO " + table.getName() + " SELECT * FROM nation WHERE nationkey < 10", 10);
             assertUpdate("INSERT INTO " + table.getName() + " SELECT * FROM nation WHERE nationkey >= 10 AND nationkey < 20", 10);
             assertUpdate("INSERT INTO " + table.getName() + " SELECT * FROM nation WHERE nationkey >= 20", 5);
@@ -1638,7 +1638,7 @@ public abstract class BaseIcebergConnectorTest
     {
         try (TestTable table = newTrinoTable(
                 "test_sorted_update",
-                "WITH (sorted_by = ARRAY['comment']) AS TABLE tpch.tiny.customer WITH NO DATA")) {
+                "WITH (sorted_by = ARRAY['comment'], parquet_writer_block_size = '1kB') AS TABLE tpch.tiny.customer WITH NO DATA")) {
             assertUpdate(
                     "INSERT INTO " + table.getName() + " TABLE tpch.tiny.customer",
                     "VALUES 1500");
@@ -5176,7 +5176,7 @@ public abstract class BaseIcebergConnectorTest
             try (TestTable table = newTrinoTable(
                     "test_split_pruning_data_file_statistics",
                     // Random double is needed to make sure rows are different. Otherwise compression may deduplicate rows, resulting in only one row group
-                    "(col " + testSetup.getTrinoTypeName() + ", r double)")) {
+                    "(col " + testSetup.getTrinoTypeName() + ", r double) WITH (parquet_writer_block_size = '1kB')")) {
                 String tableName = table.getName();
                 String values =
                         Stream.concat(
@@ -5846,9 +5846,8 @@ public abstract class BaseIcebergConnectorTest
                 .setSystemProperty("task_min_writer_count", "1")
                 // task scale writers should be disabled since we want to write with a single task writer
                 .setSystemProperty("task_scale_writers_enabled", "false")
-                .setCatalogSessionProperty("iceberg", "target_max_file_size", maxSize.toString())
                 .build();
-
+        createTableSql = format("CREATE TABLE %s WITH (target_max_file_size = '%s') AS SELECT * FROM tpch.sf1.lineitem LIMIT 200000", tableName, maxSize.toString());
         assertUpdate(session, createTableSql, 200000);
         assertThat(query(format("SELECT count(*) FROM %s", tableName))).matches("VALUES BIGINT '200000'");
         List<String> updatedFiles = getActiveFiles(tableName);
@@ -5882,9 +5881,8 @@ public abstract class BaseIcebergConnectorTest
                 .setSystemProperty("task_min_writer_count", "1")
                 // task scale writers should be disabled since we want to write with a single task writer
                 .setSystemProperty("task_scale_writers_enabled", "false")
-                .setCatalogSessionProperty("iceberg", "target_max_file_size", maxSize.toString())
                 .build();
-
+        createTableSql = format("CREATE TABLE %s WITH (sorted_by = ARRAY['shipdate'], target_max_file_size = '%s') AS SELECT * FROM tpch.sf1.lineitem LIMIT 200000", tableName, maxSize.toString());
         assertUpdate(session, createTableSql, 200000);
         assertThat(query(format("SELECT count(*) FROM %s", tableName))).matches("VALUES BIGINT '200000'");
         List<String> updatedFiles = getActiveFiles(tableName);
