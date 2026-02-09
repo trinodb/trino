@@ -13,6 +13,8 @@
  */
 package io.trino.type;
 
+import io.trino.spi.type.SqlNumber;
+import io.trino.spi.type.TrinoNumber;
 import io.trino.sql.query.QueryAssertions;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -725,6 +727,42 @@ public class TestRealOperators
         assertThat(assertions.expression("cast(a as DOUBLE)")
                 .binding("a", "REAL '-Infinity'"))
                 .isEqualTo(Double.NEGATIVE_INFINITY);
+    }
+
+    @Test
+    public void testCastToNumber()
+    {
+        assertThat(assertions.expression("cast(a as number)")
+                .binding("a", "REAL '3.14159'"))
+                .isEqualTo(new SqlNumber("3.14159"));
+
+        assertThat(assertions.expression("cast(a as number)")
+                .binding("a", "REAL '754.1985'"))
+                .isEqualTo(new SqlNumber("754.1985"));
+
+        assertThat(assertions.expression("cast(a as number)")
+                .binding("a", "REAL '-754.2008'"))
+                .isEqualTo(new SqlNumber("-754.2008"));
+
+        assertThat(assertions.expression("cast(a as number)")
+                .binding("a", "REAL '0.0'"))
+                .isEqualTo(new SqlNumber("0"));
+
+        assertThat(assertions.expression("cast(a as number)")
+                .binding("a", "REAL '-0.0'"))
+                .isEqualTo(new SqlNumber("0"));
+
+        assertThat(assertions.expression("cast(a as number)")
+                .binding("a", "REAL 'NaN'"))
+                .isEqualTo(new SqlNumber(new TrinoNumber.NotANumber()));
+
+        assertThat(assertions.expression("cast(a as number)")
+                .binding("a", "REAL 'Infinity'"))
+                .isEqualTo(new SqlNumber(new TrinoNumber.Infinity(false)));
+
+        assertThat(assertions.expression("cast(a as number)")
+                .binding("a", "REAL '-Infinity'"))
+                .isEqualTo(new SqlNumber(new TrinoNumber.Infinity(true)));
     }
 
     @Test

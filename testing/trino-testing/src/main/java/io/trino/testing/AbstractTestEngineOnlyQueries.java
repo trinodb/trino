@@ -6689,10 +6689,12 @@ public abstract class AbstractTestEngineOnlyQueries
         assertThat(computeActual("SELECT NUMBER '" + minPositiveValue + "'").getOnlyValue())
                 .isEqualTo(new BigDecimal(minPositiveValue));
 
-        // Test testing NUMBER with H2QueryRunner
-        assertQuery(
-                "SELECT NUMBER '3' + NUMBER '.14159265358979'",
-                "SELECT CAST('3.14159265358979' AS DECIMAL(100000, 50000))");
+        assertThat(computeActual("SELECT NUMBER '+Infinity'").getOnlyValue())
+                .isEqualTo(Double.POSITIVE_INFINITY);
+        assertThat(computeActual("SELECT NUMBER '-Infinity'").getOnlyValue())
+                .isEqualTo(Double.NEGATIVE_INFINITY);
+        assertThat(computeActual("SELECT NUMBER 'NaN'").getOnlyValue())
+                .isEqualTo(Double.NaN);
     }
 
     private static int getNumberMaxDecimalPrecision()

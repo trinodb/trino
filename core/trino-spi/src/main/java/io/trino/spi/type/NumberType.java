@@ -24,7 +24,9 @@ import io.trino.spi.function.ScalarOperator;
 import static io.trino.spi.function.OperatorType.COMPARISON_UNORDERED_LAST;
 import static io.trino.spi.function.OperatorType.EQUAL;
 import static io.trino.spi.function.OperatorType.LESS_THAN;
+import static io.trino.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
 import static io.trino.spi.function.OperatorType.XX_HASH_64;
+import static io.trino.spi.type.TrinoNumber.AsBigDecimal.COMPARE_NAN_LAST;
 import static io.trino.spi.type.TypeOperatorDeclaration.extractOperatorDeclaration;
 import static java.lang.invoke.MethodHandles.lookup;
 
@@ -142,6 +144,10 @@ public class NumberType
     @ScalarOperator(EQUAL)
     private static boolean equalOperator(TrinoNumber left, TrinoNumber right)
     {
+        if (left.isNaN() || right.isNaN()) {
+            // NaN is not equal to any value, including itself
+            return false;
+        }
         return left.bytes().equals(right.bytes());
     }
 
@@ -161,8 +167,7 @@ public class NumberType
     @ScalarOperator(COMPARISON_UNORDERED_LAST)
     private static long comparisonOperator(TrinoNumber left, TrinoNumber right)
     {
-        // TODO NaN
-        return left.toBigDecimal().compareTo(right.toBigDecimal());
+        return COMPARE_NAN_LAST.compare(left.toBigDecimal(), right.toBigDecimal());
     }
 
     // TODO COMPARISON_UNORDERED_LAST with block, position, block, position
@@ -170,11 +175,24 @@ public class NumberType
     @ScalarOperator(LESS_THAN)
     private static boolean lessThanOperator(TrinoNumber left, TrinoNumber right)
     {
-        return left.toBigDecimal().compareTo(right.toBigDecimal()) < 0;
+        if (left.isNaN() || right.isNaN()) {
+            // NaN is not less than any value, including itself
+            return false;
+        }
+        return COMPARE_NAN_LAST.compare(left.toBigDecimal(), right.toBigDecimal()) < 0;
     }
 
-    // TODO LESS_THAN_OR_EQUAL with object, object ?
-    // TODO LESS_THAN_OR_EQUAL with block, position, block, position ?
-
     // TODO LESS_THAN with block, position, block, position
+
+    @ScalarOperator(LESS_THAN_OR_EQUAL)
+    private static boolean lessThanOrEqualOperator(TrinoNumber left, TrinoNumber right)
+    {
+        if (left.isNaN() || right.isNaN()) {
+            // NaN is not less than or equal to any value, including itself
+            return false;
+        }
+        return COMPARE_NAN_LAST.compare(left.toBigDecimal(), right.toBigDecimal()) <= 0;
+    }
+
+    // TODO LESS_THAN_OR_EQUAL with block, position, block, position ?
 }

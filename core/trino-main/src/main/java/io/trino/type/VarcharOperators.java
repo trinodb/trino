@@ -157,11 +157,18 @@ public final class VarcharOperators
     @SqlType(StandardTypes.NUMBER)
     public static TrinoNumber castToNumber(@SqlType("varchar(x)") Slice slice)
     {
+        String value = slice.toStringUtf8();
         try {
-            return TrinoNumber.from(new BigDecimal(slice.toStringUtf8().trim()));
+            return TrinoNumber.from(switch (value.trim()) {
+                // case-sensitive consistently with castToDouble
+                case "NaN" -> new TrinoNumber.NotANumber();
+                case "+Infinity", "Infinity" -> new TrinoNumber.Infinity(false);
+                case "-Infinity" -> new TrinoNumber.Infinity(true);
+                case String trimmed -> new TrinoNumber.BigDecimalValue(new BigDecimal(trimmed));
+            });
         }
         catch (IllegalArgumentException e) {
-            throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to NUMBER", slice.toStringUtf8()), e);
+            throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to NUMBER", value), e);
         }
     }
 

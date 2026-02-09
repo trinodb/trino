@@ -24,7 +24,9 @@ import io.trino.spi.function.LiteralParameters;
 import io.trino.spi.function.ScalarOperator;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.type.StandardTypes;
+import io.trino.spi.type.TrinoNumber;
 
+import java.math.BigDecimal;
 import java.text.DecimalFormat;
 import java.text.DecimalFormatSymbols;
 
@@ -172,6 +174,19 @@ public final class DoubleOperators
     public static long castToReal(@SqlType(StandardTypes.DOUBLE) double value)
     {
         return floatToRawIntBits((float) value);
+    }
+
+    @ScalarOperator(CAST)
+    @SqlType(StandardTypes.NUMBER)
+    public static TrinoNumber castToNumber(@SqlType(StandardTypes.DOUBLE) double value)
+    {
+        if (Double.isNaN(value)) {
+            return TrinoNumber.from(new TrinoNumber.NotANumber());
+        }
+        if (Double.isInfinite(value)) {
+            return TrinoNumber.from(new TrinoNumber.Infinity(value < 0.0));
+        }
+        return TrinoNumber.from(BigDecimal.valueOf(value));
     }
 
     @ScalarOperator(CAST)

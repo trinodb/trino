@@ -16,23 +16,32 @@ package io.trino.spi.type;
 import java.math.BigDecimal;
 import java.util.Objects;
 
+import static java.util.Objects.requireNonNull;
+
 public final class SqlNumber
 {
-    private final String stringified;
+    private final TrinoNumber.AsBigDecimal value;
 
-    public SqlNumber(BigDecimal value)
-    {
-        this(value.toString());
-    }
+    // TODO remove redundant constructors
 
     public SqlNumber(String value)
     {
-        stringified = value;
+        this(new BigDecimal(value));
     }
 
-    public String stringified()
+    public SqlNumber(BigDecimal value)
     {
-        return stringified;
+        this(new TrinoNumber.BigDecimalValue(value));
+    }
+
+    public SqlNumber(TrinoNumber.AsBigDecimal value)
+    {
+        this.value = requireNonNull(value, "value is null");
+    }
+
+    public TrinoNumber.AsBigDecimal value()
+    {
+        return value;
     }
 
     @Override
@@ -41,18 +50,18 @@ public final class SqlNumber
         if (!(o instanceof SqlNumber that)) {
             return false;
         }
-        return Objects.equals(stringified, that.stringified);
+        return Objects.equals(value, that.value);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hashCode(stringified);
+        return Objects.hashCode(value);
     }
 
     @Override
     public String toString()
     {
-        return stringified;
+        return value.toString();
     }
 }

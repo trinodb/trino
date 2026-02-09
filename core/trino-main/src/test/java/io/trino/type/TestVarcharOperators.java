@@ -503,6 +503,37 @@ public class TestVarcharOperators
         assertThat(assertions.expression("CAST(a AS number)")
                 .binding("a", "'" + bigDecimalMaxNegativeValue.toPlainString() + "'"))
                 .isEqualTo(new SqlNumber(bigDecimalMaxNegativeValue));
+
+        // NaN
+        assertThat(assertions.expression("CAST(a AS number)")
+                .binding("a", "' \t\n\f NaN \t\n\f '"))
+                .isEqualTo(new SqlNumber(new TrinoNumber.NotANumber()));
+        // NaN with sign
+        assertTrinoExceptionThrownBy(assertions.expression("CAST(a AS number)")
+                .binding("a", "'+NaN'")::evaluate)
+                .hasErrorCode(INVALID_CAST_ARGUMENT)
+                .hasMessage("Cannot cast '+NaN' to NUMBER");
+        assertTrinoExceptionThrownBy(assertions.expression("CAST(a AS number)")
+                .binding("a", "'-NaN'")::evaluate)
+                .hasErrorCode(INVALID_CAST_ARGUMENT)
+                .hasMessage("Cannot cast '-NaN' to NUMBER");
+
+        // ±Infinity
+        assertThat(assertions.expression("CAST(a AS number)")
+                .binding("a", "' \t\n\f Infinity \t\n\f '"))
+                .isEqualTo(new SqlNumber(new TrinoNumber.Infinity(false)));
+        assertThat(assertions.expression("CAST(a AS number)")
+                .binding("a", "' \t\n\f +Infinity \t\n\f '"))
+                .isEqualTo(new SqlNumber(new TrinoNumber.Infinity(false)));
+        assertThat(assertions.expression("CAST(a AS number)")
+                .binding("a", "' \t\n\f -Infinity \t\n\f '"))
+                .isEqualTo(new SqlNumber(new TrinoNumber.Infinity(true)));
+
+        // Space between sign and Infinity
+        assertTrinoExceptionThrownBy(assertions.expression("CAST(a AS number)")
+                .binding("a", "'+ Infinity'")::evaluate)
+                .hasErrorCode(INVALID_CAST_ARGUMENT)
+                .hasMessage("Cannot cast '+ Infinity' to NUMBER");
     }
 
     private static int getNumberMaxDecimalPrecision()

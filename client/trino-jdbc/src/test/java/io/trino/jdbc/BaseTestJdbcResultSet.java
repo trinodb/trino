@@ -528,21 +528,45 @@ public abstract class BaseTestJdbcResultSet
                 assertThat(metaData.getColumnClassName(column)).isEqualTo("java.lang.Number");
             });
 
-            // TODO support NaN and Infinity
-            Assertions.assertThatThrownBy(() -> checkRepresentation(connectedStatement.getStatement(), "NUMBER 'NaN'", Types.OTHER, (rs, column) -> {
-                        // TODO fill this when no longer fails
-            }))
-                    .hasMessageEndingWith("'NaN' is not a valid NUMBER literal");
+            checkRepresentation(connectedStatement.getStatement(), "NUMBER 'NaN'", Types.OTHER, (rs, column) -> {
+                assertThat(rs.getObject(column)).isEqualTo(Double.NaN);
+                assertSqlExceptionThrownBy(() -> rs.getBoolean(column)).hasMessage("Value is not a boolean: NaN");
+                assertThat(rs.getByte(column)).isEqualTo((byte) 0); // TODO (https://github.com/trinodb/trino/issues/28146) silent numeric conversion, NaN != 0
+                assertThat(rs.getShort(column)).isEqualTo((short) 0); // TODO (https://github.com/trinodb/trino/issues/28146) silent numeric conversion, NaN != 0
+                assertThat(rs.getInt(column)).isEqualTo(0); // TODO (https://github.com/trinodb/trino/issues/28146) silent numeric conversion, NaN != 0
+                assertThat(rs.getLong(column)).isEqualTo(0L); // TODO (https://github.com/trinodb/trino/issues/28146) silent numeric conversion, NaN != 0
+                assertSqlExceptionThrownBy(() -> rs.getBigDecimal(column)).hasMessage("Value is not a number: NaN");
+                assertThat(rs.getFloat(column)).isNaN();
+                assertThat(rs.getDouble(column)).isNaN();
+                assertThat(rs.getString(column)).isEqualTo("NaN");
+                assertSqlExceptionThrownBy(() -> rs.getBytes(column)).hasMessage("Value is not a byte array: NaN");
+            });
 
-            Assertions.assertThatThrownBy(() -> checkRepresentation(connectedStatement.getStatement(), "NUMBER '+Infinity'", Types.OTHER, (rs, column) -> {
-                        // TODO fill this when no longer fails
-            }))
-                    .hasMessageEndingWith("'+Infinity' is not a valid NUMBER literal");
+            checkRepresentation(connectedStatement.getStatement(), "NUMBER '+Infinity'", Types.OTHER, (rs, column) -> {
+                assertThat(rs.getObject(column)).isEqualTo(Double.POSITIVE_INFINITY);
+                assertThat(rs.getByte(column)).isEqualTo((byte) -1); // TODO (https://github.com/trinodb/trino/issues/28146) silent numeric conversion, Infinity != -1
+                assertThat(rs.getShort(column)).isEqualTo((short) -1); // TODO (https://github.com/trinodb/trino/issues/28146) silent numeric conversion, Infinity != -1
+                assertThat(rs.getInt(column)).isEqualTo(Integer.MAX_VALUE);
+                assertThat(rs.getLong(column)).isEqualTo(Long.MAX_VALUE);
+                assertSqlExceptionThrownBy(() -> rs.getBigDecimal(column)).hasMessage("Value is not a number: +Infinity");
+                assertThat(rs.getFloat(column)).isEqualTo(Float.POSITIVE_INFINITY);
+                assertThat(rs.getDouble(column)).isEqualTo(Double.POSITIVE_INFINITY);
+                assertThat(rs.getString(column)).isEqualTo("+Infinity");
+                assertSqlExceptionThrownBy(() -> rs.getBytes(column)).hasMessage("Value is not a byte array: +Infinity");
+            });
 
-            Assertions.assertThatThrownBy(() -> checkRepresentation(connectedStatement.getStatement(), "NUMBER '-Infinity'", Types.OTHER, (rs, column) -> {
-                        // TODO fill this when no longer fails
-            }))
-                    .hasMessageEndingWith("'-Infinity' is not a valid NUMBER literal");
+            checkRepresentation(connectedStatement.getStatement(), "NUMBER '-Infinity'", Types.OTHER, (rs, column) -> {
+                assertThat(rs.getObject(column)).isEqualTo(Double.NEGATIVE_INFINITY);
+                assertThat(rs.getByte(column)).isEqualTo((byte) 0); // TODO (https://github.com/trinodb/trino/issues/28146) silent numeric conversion, -Infinity != 0
+                assertThat(rs.getShort(column)).isEqualTo((short) 0); // TODO (https://github.com/trinodb/trino/issues/28146) silent numeric conversion, -Infinity != 0
+                assertThat(rs.getInt(column)).isEqualTo(Integer.MIN_VALUE);
+                assertThat(rs.getLong(column)).isEqualTo(Long.MIN_VALUE);
+                assertSqlExceptionThrownBy(() -> rs.getBigDecimal(column)).hasMessage("Value is not a number: -Infinity");
+                assertThat(rs.getFloat(column)).isEqualTo(Float.NEGATIVE_INFINITY);
+                assertThat(rs.getDouble(column)).isEqualTo(Double.NEGATIVE_INFINITY);
+                assertThat(rs.getString(column)).isEqualTo("-Infinity");
+                assertSqlExceptionThrownBy(() -> rs.getBytes(column)).hasMessage("Value is not a byte array: -Infinity");
+            });
         }
     }
 

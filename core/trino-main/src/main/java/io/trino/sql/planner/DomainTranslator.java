@@ -400,7 +400,7 @@ public final class DomainTranslator
                             remainingExpression = residuals.get(0);
                         }
                         else if (matchingSingleSymbolDomains) {
-                            // Types REAL and DOUBLE require special handling because they include NaN value. In this case, we cannot rely on the union of domains.
+                            // Types REAL, DOUBLE and NUMBER require special handling because they include NaN value. In this case, we cannot rely on the union of domains.
                             // That is because domains covering the value set partially might union up to a domain covering the whole value set.
                             // While the component domains didn't include NaN, the resulting domain could be further translated to predicate "TRUE" or "a IS NOT NULL",
                             // which is satisfied by NaN. So during domain union, NaN might be implicitly added.
