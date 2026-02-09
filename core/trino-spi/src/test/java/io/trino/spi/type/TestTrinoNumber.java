@@ -13,6 +13,7 @@
  */
 package io.trino.spi.type;
 
+import io.trino.spi.type.TrinoNumber.BigDecimalValue;
 import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
@@ -107,7 +108,7 @@ class TestTrinoNumber
             assertThat(resultingJdkBigDecimal)
                     .isCloseTo(inputJdkBigDecimal, withPercentage(0.000000000000000000000000001));
         }
-        TrinoNumber converted = TrinoNumber.from(inputJdkBigDecimal, TEST_MAX_DECIMAL_PRECISION);
-        assertThat(converted.toBigDecimal()).isEqualTo(resultingJdkBigDecimal);
+        TrinoNumber converted = TrinoNumber.from(new BigDecimalValue(inputJdkBigDecimal), TEST_MAX_DECIMAL_PRECISION);
+        assertThat(converted.toBigDecimal()).isEqualTo(new BigDecimalValue(resultingJdkBigDecimal));
     }
 }

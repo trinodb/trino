@@ -13,7 +13,6 @@
  */
 package io.trino.spi.type;
 
-import java.math.BigDecimal;
 import java.util.Base64;
 import java.util.Objects;
 
@@ -24,7 +23,7 @@ public final class SqlNumber
     private final String stringified;
     private final String base64Encoded;
 
-    public SqlNumber(BigDecimal value)
+    public SqlNumber(TrinoNumber.AsBigDecimal value)
     {
         this(value.toString());
     }

@@ -59,6 +59,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_NANOSECOND;
 import static io.trino.spi.type.Timestamps.roundDiv;
+import static java.lang.Double.parseDouble;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
@@ -324,7 +325,13 @@ public class MaterializedResult
                 case SqlTimestamp sqlTimestamp -> sqlTimestamp.toLocalDateTime();
                 case SqlTimestampWithTimeZone sqlTimestampWithTimeZone -> sqlTimestampWithTimeZone.toZonedDateTime();
                 case SqlDecimal sqlDecimal -> sqlDecimal.toBigDecimal();
-                case SqlNumber sqlNumber -> new BigDecimal(sqlNumber.stringified());
+                case SqlNumber sqlNumber -> {
+                    double doubleValue = parseDouble(sqlNumber.stringified());
+                    if (!Double.isFinite(doubleValue)) {
+                        yield doubleValue;
+                    }
+                    yield new BigDecimal(sqlNumber.stringified());
+                }
                 default -> trinoValue;
             };
             convertedValues.add(convertedValue);

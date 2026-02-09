@@ -157,6 +157,7 @@ import io.trino.spi.type.MapType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.TimestampWithTimeZoneType;
+import io.trino.spi.type.TrinoNumber;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.VarcharType;
@@ -350,6 +351,7 @@ import static io.trino.spi.type.DateTimeEncoding.unpackMillisUtc;
 import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.NumberType.NUMBER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MICROS;
@@ -4630,6 +4632,12 @@ public class DeltaLakeMetadata
         }
         if (type == REAL) {
             return !Float.isFinite(Float.intBitsToFloat(toIntExact((long) object)));
+        }
+        if (type == NUMBER) {
+            return switch (((TrinoNumber) object).toBigDecimal()) {
+                case TrinoNumber.NotANumber _, TrinoNumber.Infinity _ -> true;
+                case TrinoNumber.BigDecimalValue _ -> false;
+            };
         }
         return false;
     }

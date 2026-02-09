@@ -259,6 +259,9 @@ public class TestingTrinoClient
             return new BigDecimal((String) value);
         }
         if (type == NUMBER) {
+            if (value instanceof Double doubleValue) {
+                return doubleValue;
+            }
             //noinspection RedundantCast
             return (BigDecimal) value;
         }

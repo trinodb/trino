@@ -287,13 +287,8 @@ public class H2QueryRunner
                     }
                 }
                 else if (NUMBER == type) {
-                    BigDecimal value = resultSet.getBigDecimal(i);
-                    if (resultSet.wasNull()) {
-                        row.add(null);
-                    }
-                    else {
-                        row.add(value.stripTrailingZeros());
-                    }
+                    throw new UnsupportedOperationException("H2QueryRunner is incapable of testing queries involving Trino NUMBER. " +
+                            "H2's DECIMAL has similar capabilities to Trino's NUMBER, but syntax differs due to different type name and edge case values.");
                 }
                 else if (JSON.equals(type)) {
                     String stringValue = resultSet.getString(i);

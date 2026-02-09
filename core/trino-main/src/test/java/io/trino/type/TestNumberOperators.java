@@ -15,6 +15,7 @@ package io.trino.type;
 
 import io.trino.spi.type.SqlDecimal;
 import io.trino.spi.type.SqlNumber;
+import io.trino.spi.type.TrinoNumber;
 import io.trino.sql.query.QueryAssertions;
 import io.trino.sql.query.QueryAssertions.ExpressionAssertProvider;
 import io.trino.testing.QueryFailedException;
@@ -28,8 +29,8 @@ import java.math.BigDecimal;
 import java.util.function.BiFunction;
 import java.util.function.BiPredicate;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.nullToEmpty;
-import static io.trino.spi.StandardErrorCode.DIVISION_BY_ZERO;
 import static io.trino.spi.StandardErrorCode.FUNCTION_NOT_FOUND;
 import static io.trino.spi.function.OperatorType.ADD;
 import static io.trino.spi.function.OperatorType.DIVIDE;
@@ -46,9 +47,14 @@ import static io.trino.spi.type.NumberType.NUMBER;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
+import static java.lang.Double.NEGATIVE_INFINITY;
+import static java.lang.Double.NaN;
+import static java.lang.Double.POSITIVE_INFINITY;
+import static java.lang.Double.parseDouble;
 import static java.lang.Math.max;
 import static java.math.RoundingMode.HALF_UP;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.offset;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
@@ -103,6 +109,22 @@ public class TestNumberOperators
             "256",
     };
 
+    private final String[] doubles = new String[] {
+            "NaN",
+            "+Infinity",
+            "-Infinity",
+            "0",
+            "1",
+            "-1",
+            "100",
+            "1e-4",
+            "1e+4",
+            "-1e-4",
+            "-1e+4",
+            "3.1416",
+            "1234",
+    };
+
     private QueryAssertions assertions;
 
     @BeforeAll
@@ -150,8 +172,9 @@ public class TestNumberOperators
                     }
                     catch (ArithmeticException e) {
                         if (nullToEmpty(e.getMessage()).matches("/ by zero|Division by zero|Division undefined|BigInteger divide by zero")) {
-                            assertTrinoExceptionThrownBy(operatorCall::evaluate)
-                                    .hasErrorCode(DIVISION_BY_ZERO);
+                            // For "Division by zero" we align with double semantics instead (returning ±infinity or NaN)
+                            assertThat(parseDouble(((SqlNumber) operatorCall.evaluate().value()).stringified()))
+                                    .isNotFinite();
                             continue;
                         }
                         throw new RuntimeException("Failed to calculate expected value for %s(%s, %s)".formatted(testedOperator.name(), left, right), e);
@@ -210,8 +233,9 @@ public class TestNumberOperators
                     }
                     catch (QueryFailedException e) {
                         if (nullToEmpty(e.getMessage()).matches("Division by zero")) {
-                            assertTrinoExceptionThrownBy(operatorCall::evaluate)
-                                    .hasErrorCode(DIVISION_BY_ZERO);
+                            // For "Division by zero" we align with double semantics instead (returning ±infinity or NaN)
+                            assertThat(parseDouble(((SqlNumber) operatorCall.evaluate().value()).stringified()))
+                                    .isNotFinite();
                             continue;
                         }
                         throw new RuntimeException("Failed to calculate expected value for %s(%s, %s)".formatted(testedOperator.name(), left, right), e);
@@ -237,6 +261,60 @@ public class TestNumberOperators
                     boolean expected = (boolean) assertions.expression("l %s r".formatted(testedOperator.operator))
                             .binding("l", "DECIMAL '%s'".formatted(left))
                             .binding("r", "DECIMAL '%s'".formatted(right))
+                            .evaluate().value();
+                    assertThat(assertions.expression("l %s r".formatted(testedOperator.operator))
+                            .binding("l", leftExpression)
+                            .binding("r", rightExpression))
+                            .as("%s(%s, %s)".formatted(testedOperator.operator, leftExpression, rightExpression))
+                            .isEqualTo(expected);
+                }
+            }
+        }
+    }
+
+    /**
+     * Compare arithmetic results between Trino NUMBER and {@code double}
+     */
+    @Test
+    void testVerifyArithmeticWithTrinoDouble()
+    {
+        for (String left : doubles) {
+            String leftExpression = "NUMBER '%s'".formatted(left);
+            for (String right : doubles) {
+                String rightExpression = "NUMBER '%s'".formatted(right);
+                for (var testedOperator : TestedArithmeticOperator.values()) {
+                    Double expected = (Double) assertions.expression("l %s r".formatted(testedOperator.operator))
+                            .binding("l", "DOUBLE '%s'".formatted(left))
+                            .binding("r", "DOUBLE '%s'".formatted(right))
+                            .evaluate().value();
+                    assertThat(assertions.expression("l %s r".formatted(testedOperator.operator))
+                            .binding("l", leftExpression)
+                            .binding("r", rightExpression))
+                            .as("%s(%s, %s)".formatted(testedOperator.operator, leftExpression, rightExpression))
+                            .satisfies(result -> {
+                                SqlNumber sqlNumber = (SqlNumber) result;
+                                assertThat(parseDouble(sqlNumber.toString()))
+                                        .isEqualTo(expected, offset(1e-4));
+                            });
+                }
+            }
+        }
+    }
+
+    /**
+     * Compare comparison results between Trino NUMBER and {@code double}.
+     */
+    @Test
+    void testVerifyComparisonWithTrinoDouble()
+    {
+        for (String left : doubles) {
+            String leftExpression = "NUMBER '%s'".formatted(left);
+            for (String right : doubles) {
+                String rightExpression = "NUMBER '%s'".formatted(right);
+                for (var testedOperator : TestedComparisonOperator.values()) {
+                    boolean expected = (Boolean) assertions.expression("l %s r".formatted(testedOperator.operator))
+                            .binding("l", "DOUBLE '%s'".formatted(left))
+                            .binding("r", "DOUBLE '%s'".formatted(right))
                             .evaluate().value();
                     assertThat(assertions.expression("l %s r".formatted(testedOperator.operator))
                             .binding("l", leftExpression)
@@ -350,6 +428,60 @@ public class TestNumberOperators
 
         assertThat(assertions.operator(ADD, "NUMBER '10'", "NUMBER '0.0000000000000000000000000000000000001'"))
                 .isEqualTo(number("10.0000000000000000000000000000000000001"));
+
+        assertThat(assertions.operator(ADD, "NUMBER '-Infinity'", "NUMBER '0'"))
+                .isEqualTo(number(NEGATIVE_INFINITY));
+
+        assertThat(assertions.operator(ADD, "NUMBER '-Infinity'", "NUMBER '1'"))
+                .isEqualTo(number(NEGATIVE_INFINITY));
+
+        assertThat(assertions.operator(ADD, "NUMBER '-Infinity'", "NUMBER '-1'"))
+                .isEqualTo(number(NEGATIVE_INFINITY));
+
+        assertThat(assertions.operator(ADD, "NUMBER '-Infinity'", "NUMBER 'Infinity'"))
+                .isEqualTo(number(NaN));
+
+        assertThat(assertions.operator(ADD, "NUMBER '-Infinity'", "NUMBER '-Infinity'"))
+                .isEqualTo(number(NEGATIVE_INFINITY));
+
+        assertThat(assertions.operator(ADD, "NUMBER '-Infinity'", "NUMBER 'NaN'"))
+                .isEqualTo(number(NaN));
+
+        assertThat(assertions.operator(ADD, "NUMBER '+Infinity'", "NUMBER '0'"))
+                .isEqualTo(number(POSITIVE_INFINITY));
+
+        assertThat(assertions.operator(ADD, "NUMBER '+Infinity'", "NUMBER '1'"))
+                .isEqualTo(number(POSITIVE_INFINITY));
+
+        assertThat(assertions.operator(ADD, "NUMBER '+Infinity'", "NUMBER '-1'"))
+                .isEqualTo(number(POSITIVE_INFINITY));
+
+        assertThat(assertions.operator(ADD, "NUMBER '+Infinity'", "NUMBER 'Infinity'"))
+                .isEqualTo(number(POSITIVE_INFINITY));
+
+        assertThat(assertions.operator(ADD, "NUMBER '+Infinity'", "NUMBER '-Infinity'"))
+                .isEqualTo(number(NaN));
+
+        assertThat(assertions.operator(ADD, "NUMBER '+Infinity'", "NUMBER 'NaN'"))
+                .isEqualTo(number(NaN));
+
+        assertThat(assertions.operator(ADD, "NUMBER 'NaN'", "NUMBER '0'"))
+                .isEqualTo(number(NaN));
+
+        assertThat(assertions.operator(ADD, "NUMBER 'NaN'", "NUMBER '1'"))
+                .isEqualTo(number(NaN));
+
+        assertThat(assertions.operator(ADD, "NUMBER 'NaN'", "NUMBER '-1'"))
+                .isEqualTo(number(NaN));
+
+        assertThat(assertions.operator(ADD, "NUMBER 'NaN'", "NUMBER 'Infinity'"))
+                .isEqualTo(number(NaN));
+
+        assertThat(assertions.operator(ADD, "NUMBER 'NaN'", "NUMBER '-Infinity'"))
+                .isEqualTo(number(NaN));
+
+        assertThat(assertions.operator(ADD, "NUMBER 'NaN'", "NUMBER 'NaN'"))
+                .isEqualTo(number(NaN));
     }
 
     @Test
@@ -451,6 +583,60 @@ public class TestNumberOperators
 
         assertThat(assertions.operator(SUBTRACT, "NUMBER '10'", "NUMBER '0.0000000000000000000000000000000000001'"))
                 .isEqualTo(number("9.9999999999999999999999999999999999999"));
+
+        assertThat(assertions.operator(SUBTRACT, "NUMBER '-Infinity'", "NUMBER '0'"))
+                .isEqualTo(number(NEGATIVE_INFINITY));
+
+        assertThat(assertions.operator(SUBTRACT, "NUMBER '-Infinity'", "NUMBER '1'"))
+                .isEqualTo(number(NEGATIVE_INFINITY));
+
+        assertThat(assertions.operator(SUBTRACT, "NUMBER '-Infinity'", "NUMBER '-1'"))
+                .isEqualTo(number(NEGATIVE_INFINITY));
+
+        assertThat(assertions.operator(SUBTRACT, "NUMBER '-Infinity'", "NUMBER 'Infinity'"))
+                .isEqualTo(number(NEGATIVE_INFINITY));
+
+        assertThat(assertions.operator(SUBTRACT, "NUMBER '-Infinity'", "NUMBER '-Infinity'"))
+                .isEqualTo(number(NaN));
+
+        assertThat(assertions.operator(SUBTRACT, "NUMBER '-Infinity'", "NUMBER 'NaN'"))
+                .isEqualTo(number(NaN));
+
+        assertThat(assertions.operator(SUBTRACT, "NUMBER '+Infinity'", "NUMBER '0'"))
+                .isEqualTo(number(POSITIVE_INFINITY));
+
+        assertThat(assertions.operator(SUBTRACT, "NUMBER '+Infinity'", "NUMBER '1'"))
+                .isEqualTo(number(POSITIVE_INFINITY));
+
+        assertThat(assertions.operator(SUBTRACT, "NUMBER '+Infinity'", "NUMBER '-1'"))
+                .isEqualTo(number(POSITIVE_INFINITY));
+
+        assertThat(assertions.operator(SUBTRACT, "NUMBER '+Infinity'", "NUMBER 'Infinity'"))
+                .isEqualTo(number(NaN));
+
+        assertThat(assertions.operator(SUBTRACT, "NUMBER '+Infinity'", "NUMBER '-Infinity'"))
+                .isEqualTo(number(POSITIVE_INFINITY));
+
+        assertThat(assertions.operator(SUBTRACT, "NUMBER '+Infinity'", "NUMBER 'NaN'"))
+                .isEqualTo(number(NaN));
+
+        assertThat(assertions.operator(SUBTRACT, "NUMBER 'NaN'", "NUMBER '0'"))
+                .isEqualTo(number(NaN));
+
+        assertThat(assertions.operator(SUBTRACT, "NUMBER 'NaN'", "NUMBER '1'"))
+                .isEqualTo(number(NaN));
+
+        assertThat(assertions.operator(SUBTRACT, "NUMBER 'NaN'", "NUMBER '-1'"))
+                .isEqualTo(number(NaN));
+
+        assertThat(assertions.operator(SUBTRACT, "NUMBER 'NaN'", "NUMBER 'Infinity'"))
+                .isEqualTo(number(NaN));
+
+        assertThat(assertions.operator(SUBTRACT, "NUMBER 'NaN'", "NUMBER '-Infinity'"))
+                .isEqualTo(number(NaN));
+
+        assertThat(assertions.operator(SUBTRACT, "NUMBER 'NaN'", "NUMBER 'NaN'"))
+                .isEqualTo(number(NaN));
     }
 
     @Test
@@ -598,6 +784,60 @@ public class TestNumberOperators
                 "NUMBER '66253166201757048147019387751429455554737010320073440042660951972479154873726992102003231643719422615777393043'",
                 "NUMBER '18262774589350675530582336394934775228395046345354563393581350068572539440130541361187755243849469688290680443'"))
                 .isEqualTo(number("1.2099666401734756302615960804662809455013260652052016476208956457442034413389008286145859185565320271851315022978671553334828770682233313021073582891886195122714730571619107009764269825599972382875203E+219"));
+
+        assertThat(assertions.operator(MULTIPLY, "NUMBER '-Infinity'", "NUMBER '0'"))
+                .isEqualTo(number(NaN));
+
+        assertThat(assertions.operator(MULTIPLY, "NUMBER '-Infinity'", "NUMBER '1'"))
+                .isEqualTo(number(NEGATIVE_INFINITY));
+
+        assertThat(assertions.operator(MULTIPLY, "NUMBER '-Infinity'", "NUMBER '-1'"))
+                .isEqualTo(number(POSITIVE_INFINITY));
+
+        assertThat(assertions.operator(MULTIPLY, "NUMBER '-Infinity'", "NUMBER 'Infinity'"))
+                .isEqualTo(number(NEGATIVE_INFINITY));
+
+        assertThat(assertions.operator(MULTIPLY, "NUMBER '-Infinity'", "NUMBER '-Infinity'"))
+                .isEqualTo(number(POSITIVE_INFINITY));
+
+        assertThat(assertions.operator(MULTIPLY, "NUMBER '-Infinity'", "NUMBER 'NaN'"))
+                .isEqualTo(number(NaN));
+
+        assertThat(assertions.operator(MULTIPLY, "NUMBER '+Infinity'", "NUMBER '0'"))
+                .isEqualTo(number(NaN));
+
+        assertThat(assertions.operator(MULTIPLY, "NUMBER '+Infinity'", "NUMBER '1'"))
+                .isEqualTo(number(POSITIVE_INFINITY));
+
+        assertThat(assertions.operator(MULTIPLY, "NUMBER '+Infinity'", "NUMBER '-1'"))
+                .isEqualTo(number(NEGATIVE_INFINITY));
+
+        assertThat(assertions.operator(MULTIPLY, "NUMBER '+Infinity'", "NUMBER 'Infinity'"))
+                .isEqualTo(number(POSITIVE_INFINITY));
+
+        assertThat(assertions.operator(MULTIPLY, "NUMBER '+Infinity'", "NUMBER '-Infinity'"))
+                .isEqualTo(number(NEGATIVE_INFINITY));
+
+        assertThat(assertions.operator(MULTIPLY, "NUMBER '+Infinity'", "NUMBER 'NaN'"))
+                .isEqualTo(number(NaN));
+
+        assertThat(assertions.operator(MULTIPLY, "NUMBER 'NaN'", "NUMBER '0'"))
+                .isEqualTo(number(NaN));
+
+        assertThat(assertions.operator(MULTIPLY, "NUMBER 'NaN'", "NUMBER '1'"))
+                .isEqualTo(number(NaN));
+
+        assertThat(assertions.operator(MULTIPLY, "NUMBER 'NaN'", "NUMBER '-1'"))
+                .isEqualTo(number(NaN));
+
+        assertThat(assertions.operator(MULTIPLY, "NUMBER 'NaN'", "NUMBER 'Infinity'"))
+                .isEqualTo(number(NaN));
+
+        assertThat(assertions.operator(MULTIPLY, "NUMBER 'NaN'", "NUMBER '-Infinity'"))
+                .isEqualTo(number(NaN));
+
+        assertThat(assertions.operator(MULTIPLY, "NUMBER 'NaN'", "NUMBER 'NaN'"))
+                .isEqualTo(number(NaN));
     }
 
     @Test
@@ -828,20 +1068,74 @@ public class TestNumberOperators
                 .isEqualTo(number("8.100000072900000663390006036849054935918"));
 
         // division by zero tests
-        assertTrinoExceptionThrownBy(assertions.operator(DIVIDE, "NUMBER '1'", "NUMBER '0'")::evaluate)
-                .hasErrorCode(DIVISION_BY_ZERO);
+        assertThat(assertions.operator(DIVIDE, "NUMBER '1'", "NUMBER '0'"))
+                .isEqualTo(number(POSITIVE_INFINITY));
 
-        assertTrinoExceptionThrownBy(assertions.operator(DIVIDE, "NUMBER '1.000000000000000000000000000000000000'", "NUMBER '0'")::evaluate)
-                .hasErrorCode(DIVISION_BY_ZERO);
+        assertThat(assertions.operator(DIVIDE, "NUMBER '1.000000000000000000000000000000000000'", "NUMBER '0'"))
+                .isEqualTo(number(POSITIVE_INFINITY));
 
-        assertTrinoExceptionThrownBy(assertions.operator(DIVIDE, "NUMBER '1.000000000000000000000000000000000000'", "NUMBER '0.0000000000000000000000000000000000000'")::evaluate)
-                .hasErrorCode(DIVISION_BY_ZERO);
+        assertThat(assertions.operator(DIVIDE, "NUMBER '1.000000000000000000000000000000000000'", "NUMBER '0.0000000000000000000000000000000000000'"))
+                .isEqualTo(number(POSITIVE_INFINITY));
 
-        assertTrinoExceptionThrownBy(assertions.operator(DIVIDE, "NUMBER '1'", "NUMBER '0.0000000000000000000000000000000000000'")::evaluate)
-                .hasErrorCode(DIVISION_BY_ZERO);
+        assertThat(assertions.operator(DIVIDE, "NUMBER '1'", "NUMBER '0.0000000000000000000000000000000000000'"))
+                .isEqualTo(number(POSITIVE_INFINITY));
 
         assertThat(assertions.operator(DIVIDE, "NUMBER '1000'", "NUMBER '25'"))
                 .isEqualTo(number("4E+1"));
+
+        assertThat(assertions.operator(DIVIDE, "NUMBER '-Infinity'", "NUMBER '0'"))
+                .isEqualTo(number(NEGATIVE_INFINITY));
+
+        assertThat(assertions.operator(DIVIDE, "NUMBER '-Infinity'", "NUMBER '1'"))
+                .isEqualTo(number(NEGATIVE_INFINITY));
+
+        assertThat(assertions.operator(DIVIDE, "NUMBER '-Infinity'", "NUMBER '-1'"))
+                .isEqualTo(number(POSITIVE_INFINITY));
+
+        assertThat(assertions.operator(DIVIDE, "NUMBER '-Infinity'", "NUMBER 'Infinity'"))
+                .isEqualTo(number(NaN));
+
+        assertThat(assertions.operator(DIVIDE, "NUMBER '-Infinity'", "NUMBER '-Infinity'"))
+                .isEqualTo(number(NaN));
+
+        assertThat(assertions.operator(DIVIDE, "NUMBER '-Infinity'", "NUMBER 'NaN'"))
+                .isEqualTo(number(NaN));
+
+        assertThat(assertions.operator(DIVIDE, "NUMBER '+Infinity'", "NUMBER '0'"))
+                .isEqualTo(number(POSITIVE_INFINITY));
+
+        assertThat(assertions.operator(DIVIDE, "NUMBER '+Infinity'", "NUMBER '1'"))
+                .isEqualTo(number(POSITIVE_INFINITY));
+
+        assertThat(assertions.operator(DIVIDE, "NUMBER '+Infinity'", "NUMBER '-1'"))
+                .isEqualTo(number(NEGATIVE_INFINITY));
+
+        assertThat(assertions.operator(DIVIDE, "NUMBER '+Infinity'", "NUMBER 'Infinity'"))
+                .isEqualTo(number(NaN));
+
+        assertThat(assertions.operator(DIVIDE, "NUMBER '+Infinity'", "NUMBER '-Infinity'"))
+                .isEqualTo(number(NaN));
+
+        assertThat(assertions.operator(DIVIDE, "NUMBER '+Infinity'", "NUMBER 'NaN'"))
+                .isEqualTo(number(NaN));
+
+        assertThat(assertions.operator(DIVIDE, "NUMBER 'NaN'", "NUMBER '0'"))
+                .isEqualTo(number(NaN));
+
+        assertThat(assertions.operator(DIVIDE, "NUMBER 'NaN'", "NUMBER '1'"))
+                .isEqualTo(number(NaN));
+
+        assertThat(assertions.operator(DIVIDE, "NUMBER 'NaN'", "NUMBER '-1'"))
+                .isEqualTo(number(NaN));
+
+        assertThat(assertions.operator(DIVIDE, "NUMBER 'NaN'", "NUMBER 'Infinity'"))
+                .isEqualTo(number(NaN));
+
+        assertThat(assertions.operator(DIVIDE, "NUMBER 'NaN'", "NUMBER '-Infinity'"))
+                .isEqualTo(number(NaN));
+
+        assertThat(assertions.operator(DIVIDE, "NUMBER 'NaN'", "NUMBER 'NaN'"))
+                .isEqualTo(number(NaN));
     }
 
     @Test
@@ -1070,20 +1364,74 @@ public class TestNumberOperators
                 .isEqualTo(number("0"));
 
         // division by zero tests
-        assertTrinoExceptionThrownBy(assertions.operator(MODULUS, "NUMBER '1'", "NUMBER '0'")::evaluate)
-                .hasErrorCode(DIVISION_BY_ZERO);
+        assertThat(assertions.operator(MODULUS, "NUMBER '1'", "NUMBER '0'"))
+                .isEqualTo(number(NaN));
 
-        assertTrinoExceptionThrownBy(assertions.operator(MODULUS, "NUMBER '1.000000000000000000000000000000000000'", "NUMBER '0'")::evaluate)
-                .hasErrorCode(DIVISION_BY_ZERO);
+        assertThat(assertions.operator(MODULUS, "NUMBER '1.000000000000000000000000000000000000'", "NUMBER '0'"))
+                .isEqualTo(number(NaN));
 
-        assertTrinoExceptionThrownBy(assertions.operator(MODULUS, "NUMBER '1.000000000000000000000000000000000000'", "NUMBER '0.0000000000000000000000000000000000000'")::evaluate)
-                .hasErrorCode(DIVISION_BY_ZERO);
+        assertThat(assertions.operator(MODULUS, "NUMBER '1.000000000000000000000000000000000000'", "NUMBER '0.0000000000000000000000000000000000000'"))
+                .isEqualTo(number(NaN));
 
-        assertTrinoExceptionThrownBy(assertions.operator(MODULUS, "NUMBER '1'", "NUMBER '0.0000000000000000000000000000000000000'")::evaluate)
-                .hasErrorCode(DIVISION_BY_ZERO);
+        assertThat(assertions.operator(MODULUS, "NUMBER '1'", "NUMBER '0.0000000000000000000000000000000000000'"))
+                .isEqualTo(number(NaN));
 
-        assertTrinoExceptionThrownBy(assertions.operator(MODULUS, "NUMBER '1'", "NUMBER '0'")::evaluate)
-                .hasErrorCode(DIVISION_BY_ZERO);
+        assertThat(assertions.operator(MODULUS, "NUMBER '1'", "NUMBER '0'"))
+                .isEqualTo(number(NaN));
+
+        assertThat(assertions.operator(MODULUS, "NUMBER '-Infinity'", "NUMBER '0'"))
+                .isEqualTo(number(NaN));
+
+        assertThat(assertions.operator(MODULUS, "NUMBER '-Infinity'", "NUMBER '1'"))
+                .isEqualTo(number(NaN));
+
+        assertThat(assertions.operator(MODULUS, "NUMBER '-Infinity'", "NUMBER '-1'"))
+                .isEqualTo(number(NaN));
+
+        assertThat(assertions.operator(MODULUS, "NUMBER '-Infinity'", "NUMBER 'Infinity'"))
+                .isEqualTo(number(NaN));
+
+        assertThat(assertions.operator(MODULUS, "NUMBER '-Infinity'", "NUMBER '-Infinity'"))
+                .isEqualTo(number(NaN));
+
+        assertThat(assertions.operator(MODULUS, "NUMBER '-Infinity'", "NUMBER 'NaN'"))
+                .isEqualTo(number(NaN));
+
+        assertThat(assertions.operator(MODULUS, "NUMBER '+Infinity'", "NUMBER '0'"))
+                .isEqualTo(number(NaN));
+
+        assertThat(assertions.operator(MODULUS, "NUMBER '+Infinity'", "NUMBER '1'"))
+                .isEqualTo(number(NaN));
+
+        assertThat(assertions.operator(MODULUS, "NUMBER '+Infinity'", "NUMBER '-1'"))
+                .isEqualTo(number(NaN));
+
+        assertThat(assertions.operator(MODULUS, "NUMBER '+Infinity'", "NUMBER 'Infinity'"))
+                .isEqualTo(number(NaN));
+
+        assertThat(assertions.operator(MODULUS, "NUMBER '+Infinity'", "NUMBER '-Infinity'"))
+                .isEqualTo(number(NaN));
+
+        assertThat(assertions.operator(MODULUS, "NUMBER '+Infinity'", "NUMBER 'NaN'"))
+                .isEqualTo(number(NaN));
+
+        assertThat(assertions.operator(MODULUS, "NUMBER 'NaN'", "NUMBER '0'"))
+                .isEqualTo(number(NaN));
+
+        assertThat(assertions.operator(MODULUS, "NUMBER 'NaN'", "NUMBER '1'"))
+                .isEqualTo(number(NaN));
+
+        assertThat(assertions.operator(MODULUS, "NUMBER 'NaN'", "NUMBER '-1'"))
+                .isEqualTo(number(NaN));
+
+        assertThat(assertions.operator(MODULUS, "NUMBER 'NaN'", "NUMBER 'Infinity'"))
+                .isEqualTo(number(NaN));
+
+        assertThat(assertions.operator(MODULUS, "NUMBER 'NaN'", "NUMBER '-Infinity'"))
+                .isEqualTo(number(NaN));
+
+        assertThat(assertions.operator(MODULUS, "NUMBER 'NaN'", "NUMBER 'NaN'"))
+                .isEqualTo(number(NaN));
     }
 
     @Test
@@ -1118,6 +1466,15 @@ public class TestNumberOperators
 
         assertThat(assertions.operator(NEGATION, "NUMBER '123456789012345678.90123456789012345678'"))
                 .isEqualTo(number("-123456789012345678.90123456789012345678"));
+
+        assertThat(assertions.operator(NEGATION, "NUMBER '-Infinity'"))
+                .isEqualTo(number(POSITIVE_INFINITY));
+
+        assertThat(assertions.operator(NEGATION, "NUMBER '+Infinity'"))
+                .isEqualTo(number(NEGATIVE_INFINITY));
+
+        assertThat(assertions.operator(NEGATION, "NUMBER 'NaN'"))
+                .isEqualTo(number(NaN));
     }
 
     @Test
@@ -1217,6 +1574,60 @@ public class TestNumberOperators
                 .isEqualTo(false);
 
         assertThat(assertions.operator(EQUAL, "NUMBER '-00000000038.0000000000000000000000'", "NUMBER '00000000038.0000000000000000000000'"))
+                .isEqualTo(false);
+
+        assertThat(assertions.operator(EQUAL, "NUMBER '-Infinity'", "NUMBER '0'"))
+                .isEqualTo(false);
+
+        assertThat(assertions.operator(EQUAL, "NUMBER '-Infinity'", "NUMBER '1'"))
+                .isEqualTo(false);
+
+        assertThat(assertions.operator(EQUAL, "NUMBER '-Infinity'", "NUMBER '-1'"))
+                .isEqualTo(false);
+
+        assertThat(assertions.operator(EQUAL, "NUMBER '-Infinity'", "NUMBER 'Infinity'"))
+                .isEqualTo(false);
+
+        assertThat(assertions.operator(EQUAL, "NUMBER '-Infinity'", "NUMBER '-Infinity'"))
+                .isEqualTo(true);
+
+        assertThat(assertions.operator(EQUAL, "NUMBER '-Infinity'", "NUMBER 'NaN'"))
+                .isEqualTo(false);
+
+        assertThat(assertions.operator(EQUAL, "NUMBER '+Infinity'", "NUMBER '0'"))
+                .isEqualTo(false);
+
+        assertThat(assertions.operator(EQUAL, "NUMBER '+Infinity'", "NUMBER '1'"))
+                .isEqualTo(false);
+
+        assertThat(assertions.operator(EQUAL, "NUMBER '+Infinity'", "NUMBER '-1'"))
+                .isEqualTo(false);
+
+        assertThat(assertions.operator(EQUAL, "NUMBER '+Infinity'", "NUMBER 'Infinity'"))
+                .isEqualTo(true);
+
+        assertThat(assertions.operator(EQUAL, "NUMBER '+Infinity'", "NUMBER '-Infinity'"))
+                .isEqualTo(false);
+
+        assertThat(assertions.operator(EQUAL, "NUMBER '+Infinity'", "NUMBER 'NaN'"))
+                .isEqualTo(false);
+
+        assertThat(assertions.operator(EQUAL, "NUMBER 'NaN'", "NUMBER '0'"))
+                .isEqualTo(false);
+
+        assertThat(assertions.operator(EQUAL, "NUMBER 'NaN'", "NUMBER '1'"))
+                .isEqualTo(false);
+
+        assertThat(assertions.operator(EQUAL, "NUMBER 'NaN'", "NUMBER '-1'"))
+                .isEqualTo(false);
+
+        assertThat(assertions.operator(EQUAL, "NUMBER 'NaN'", "NUMBER 'Infinity'"))
+                .isEqualTo(false);
+
+        assertThat(assertions.operator(EQUAL, "NUMBER 'NaN'", "NUMBER '-Infinity'"))
+                .isEqualTo(false);
+
+        assertThat(assertions.operator(EQUAL, "NUMBER 'NaN'", "NUMBER 'NaN'"))
                 .isEqualTo(false);
     }
 
@@ -1387,6 +1798,96 @@ public class TestNumberOperators
                 .binding("a", "NUMBER '00000000000037.00000000000000000000'")
                 .binding("b", "NUMBER '-00000000000037.00000000000000000000'"))
                 .isEqualTo(true);
+
+        assertThat(assertions.expression("a != b")
+                .binding("a", "NUMBER '-Infinity'")
+                .binding("b", "NUMBER '0'"))
+                .isEqualTo(true);
+
+        assertThat(assertions.expression("a != b")
+                .binding("a", "NUMBER '-Infinity'")
+                .binding("b", "NUMBER '1'"))
+                .isEqualTo(true);
+
+        assertThat(assertions.expression("a != b")
+                .binding("a", "NUMBER '-Infinity'")
+                .binding("b", "NUMBER '-1'"))
+                .isEqualTo(true);
+
+        assertThat(assertions.expression("a != b")
+                .binding("a", "NUMBER '-Infinity'")
+                .binding("b", "NUMBER 'Infinity'"))
+                .isEqualTo(true);
+
+        assertThat(assertions.expression("a != b")
+                .binding("a", "NUMBER '-Infinity'")
+                .binding("b", "NUMBER '-Infinity'"))
+                .isEqualTo(false);
+
+        assertThat(assertions.expression("a != b")
+                .binding("a", "NUMBER '-Infinity'")
+                .binding("b", "NUMBER 'NaN'"))
+                .isEqualTo(true);
+
+        assertThat(assertions.expression("a != b")
+                .binding("a", "NUMBER '+Infinity'")
+                .binding("b", "NUMBER '0'"))
+                .isEqualTo(true);
+
+        assertThat(assertions.expression("a != b")
+                .binding("a", "NUMBER '+Infinity'")
+                .binding("b", "NUMBER '1'"))
+                .isEqualTo(true);
+
+        assertThat(assertions.expression("a != b")
+                .binding("a", "NUMBER '+Infinity'")
+                .binding("b", "NUMBER '-1'"))
+                .isEqualTo(true);
+
+        assertThat(assertions.expression("a != b")
+                .binding("a", "NUMBER '+Infinity'")
+                .binding("b", "NUMBER 'Infinity'"))
+                .isEqualTo(false);
+
+        assertThat(assertions.expression("a != b")
+                .binding("a", "NUMBER '+Infinity'")
+                .binding("b", "NUMBER '-Infinity'"))
+                .isEqualTo(true);
+
+        assertThat(assertions.expression("a != b")
+                .binding("a", "NUMBER '+Infinity'")
+                .binding("b", "NUMBER 'NaN'"))
+                .isEqualTo(true);
+
+        assertThat(assertions.expression("a != b")
+                .binding("a", "NUMBER 'NaN'")
+                .binding("b", "NUMBER '0'"))
+                .isEqualTo(true);
+
+        assertThat(assertions.expression("a != b")
+                .binding("a", "NUMBER 'NaN'")
+                .binding("b", "NUMBER '1'"))
+                .isEqualTo(true);
+
+        assertThat(assertions.expression("a != b")
+                .binding("a", "NUMBER 'NaN'")
+                .binding("b", "NUMBER '-1'"))
+                .isEqualTo(true);
+
+        assertThat(assertions.expression("a != b")
+                .binding("a", "NUMBER 'NaN'")
+                .binding("b", "NUMBER 'Infinity'"))
+                .isEqualTo(true);
+
+        assertThat(assertions.expression("a != b")
+                .binding("a", "NUMBER 'NaN'")
+                .binding("b", "NUMBER '-Infinity'"))
+                .isEqualTo(true);
+
+        assertThat(assertions.expression("a != b")
+                .binding("a", "NUMBER 'NaN'")
+                .binding("b", "NUMBER 'NaN'"))
+                .isEqualTo(true);
     }
 
     @Test
@@ -1509,6 +2010,60 @@ public class TestNumberOperators
 
         assertThat(assertions.operator(LESS_THAN, "NUMBER '-00000000000100.000000000000'", "NUMBER '0000000020.0000000000000'"))
                 .isEqualTo(true);
+
+        assertThat(assertions.operator(LESS_THAN, "NUMBER '-Infinity'", "NUMBER '0'"))
+                .isEqualTo(true);
+
+        assertThat(assertions.operator(LESS_THAN, "NUMBER '-Infinity'", "NUMBER '1'"))
+                .isEqualTo(true);
+
+        assertThat(assertions.operator(LESS_THAN, "NUMBER '-Infinity'", "NUMBER '-1'"))
+                .isEqualTo(true);
+
+        assertThat(assertions.operator(LESS_THAN, "NUMBER '-Infinity'", "NUMBER 'Infinity'"))
+                .isEqualTo(true);
+
+        assertThat(assertions.operator(LESS_THAN, "NUMBER '-Infinity'", "NUMBER '-Infinity'"))
+                .isEqualTo(false);
+
+        assertThat(assertions.operator(LESS_THAN, "NUMBER '-Infinity'", "NUMBER 'NaN'"))
+                .isEqualTo(false);
+
+        assertThat(assertions.operator(LESS_THAN, "NUMBER '+Infinity'", "NUMBER '0'"))
+                .isEqualTo(false);
+
+        assertThat(assertions.operator(LESS_THAN, "NUMBER '+Infinity'", "NUMBER '1'"))
+                .isEqualTo(false);
+
+        assertThat(assertions.operator(LESS_THAN, "NUMBER '+Infinity'", "NUMBER '-1'"))
+                .isEqualTo(false);
+
+        assertThat(assertions.operator(LESS_THAN, "NUMBER '+Infinity'", "NUMBER 'Infinity'"))
+                .isEqualTo(false);
+
+        assertThat(assertions.operator(LESS_THAN, "NUMBER '+Infinity'", "NUMBER '-Infinity'"))
+                .isEqualTo(false);
+
+        assertThat(assertions.operator(LESS_THAN, "NUMBER '+Infinity'", "NUMBER 'NaN'"))
+                .isEqualTo(false);
+
+        assertThat(assertions.operator(LESS_THAN, "NUMBER 'NaN'", "NUMBER '0'"))
+                .isEqualTo(false);
+
+        assertThat(assertions.operator(LESS_THAN, "NUMBER 'NaN'", "NUMBER '1'"))
+                .isEqualTo(false);
+
+        assertThat(assertions.operator(LESS_THAN, "NUMBER 'NaN'", "NUMBER '-1'"))
+                .isEqualTo(false);
+
+        assertThat(assertions.operator(LESS_THAN, "NUMBER 'NaN'", "NUMBER 'Infinity'"))
+                .isEqualTo(false);
+
+        assertThat(assertions.operator(LESS_THAN, "NUMBER 'NaN'", "NUMBER '-Infinity'"))
+                .isEqualTo(false);
+
+        assertThat(assertions.operator(LESS_THAN, "NUMBER 'NaN'", "NUMBER 'NaN'"))
+                .isEqualTo(false);
     }
 
     @Test
@@ -1709,6 +2264,96 @@ public class TestNumberOperators
                 .binding("a", "NUMBER '000000000000100.0000000000000000000000'")
                 .binding("b", "NUMBER '-0000000020.00000000000000000000000'"))
                 .isEqualTo(true);
+
+        assertThat(assertions.expression("a > b")
+                .binding("a", "NUMBER '-Infinity'")
+                .binding("b", "NUMBER '0'"))
+                .isEqualTo(false);
+
+        assertThat(assertions.expression("a > b")
+                .binding("a", "NUMBER '-Infinity'")
+                .binding("b", "NUMBER '1'"))
+                .isEqualTo(false);
+
+        assertThat(assertions.expression("a > b")
+                .binding("a", "NUMBER '-Infinity'")
+                .binding("b", "NUMBER '-1'"))
+                .isEqualTo(false);
+
+        assertThat(assertions.expression("a > b")
+                .binding("a", "NUMBER '-Infinity'")
+                .binding("b", "NUMBER 'Infinity'"))
+                .isEqualTo(false);
+
+        assertThat(assertions.expression("a > b")
+                .binding("a", "NUMBER '-Infinity'")
+                .binding("b", "NUMBER '-Infinity'"))
+                .isEqualTo(false);
+
+        assertThat(assertions.expression("a > b")
+                .binding("a", "NUMBER '-Infinity'")
+                .binding("b", "NUMBER 'NaN'"))
+                .isEqualTo(false);
+
+        assertThat(assertions.expression("a > b")
+                .binding("a", "NUMBER '+Infinity'")
+                .binding("b", "NUMBER '0'"))
+                .isEqualTo(true);
+
+        assertThat(assertions.expression("a > b")
+                .binding("a", "NUMBER '+Infinity'")
+                .binding("b", "NUMBER '1'"))
+                .isEqualTo(true);
+
+        assertThat(assertions.expression("a > b")
+                .binding("a", "NUMBER '+Infinity'")
+                .binding("b", "NUMBER '-1'"))
+                .isEqualTo(true);
+
+        assertThat(assertions.expression("a > b")
+                .binding("a", "NUMBER '+Infinity'")
+                .binding("b", "NUMBER 'Infinity'"))
+                .isEqualTo(false);
+
+        assertThat(assertions.expression("a > b")
+                .binding("a", "NUMBER '+Infinity'")
+                .binding("b", "NUMBER '-Infinity'"))
+                .isEqualTo(true);
+
+        assertThat(assertions.expression("a > b")
+                .binding("a", "NUMBER '+Infinity'")
+                .binding("b", "NUMBER 'NaN'"))
+                .isEqualTo(false);
+
+        assertThat(assertions.expression("a > b")
+                .binding("a", "NUMBER 'NaN'")
+                .binding("b", "NUMBER '0'"))
+                .isEqualTo(false);
+
+        assertThat(assertions.expression("a > b")
+                .binding("a", "NUMBER 'NaN'")
+                .binding("b", "NUMBER '1'"))
+                .isEqualTo(false);
+
+        assertThat(assertions.expression("a > b")
+                .binding("a", "NUMBER 'NaN'")
+                .binding("b", "NUMBER '-1'"))
+                .isEqualTo(false);
+
+        assertThat(assertions.expression("a > b")
+                .binding("a", "NUMBER 'NaN'")
+                .binding("b", "NUMBER 'Infinity'"))
+                .isEqualTo(false);
+
+        assertThat(assertions.expression("a > b")
+                .binding("a", "NUMBER 'NaN'")
+                .binding("b", "NUMBER '-Infinity'"))
+                .isEqualTo(false);
+
+        assertThat(assertions.expression("a > b")
+                .binding("a", "NUMBER 'NaN'")
+                .binding("b", "NUMBER 'NaN'"))
+                .isEqualTo(false);
     }
 
     @Test
@@ -1833,6 +2478,60 @@ public class TestNumberOperators
 
         assertThat(assertions.operator(LESS_THAN_OR_EQUAL, "NUMBER '-00000000000100.000000000000'", "NUMBER '0000000020.0000000000000'"))
                 .isEqualTo(true);
+
+        assertThat(assertions.operator(LESS_THAN_OR_EQUAL, "NUMBER '-Infinity'", "NUMBER '0'"))
+                .isEqualTo(true);
+
+        assertThat(assertions.operator(LESS_THAN_OR_EQUAL, "NUMBER '-Infinity'", "NUMBER '1'"))
+                .isEqualTo(true);
+
+        assertThat(assertions.operator(LESS_THAN_OR_EQUAL, "NUMBER '-Infinity'", "NUMBER '-1'"))
+                .isEqualTo(true);
+
+        assertThat(assertions.operator(LESS_THAN_OR_EQUAL, "NUMBER '-Infinity'", "NUMBER 'Infinity'"))
+                .isEqualTo(true);
+
+        assertThat(assertions.operator(LESS_THAN_OR_EQUAL, "NUMBER '-Infinity'", "NUMBER '-Infinity'"))
+                .isEqualTo(true);
+
+        assertThat(assertions.operator(LESS_THAN_OR_EQUAL, "NUMBER '-Infinity'", "NUMBER 'NaN'"))
+                .isEqualTo(false);
+
+        assertThat(assertions.operator(LESS_THAN_OR_EQUAL, "NUMBER '+Infinity'", "NUMBER '0'"))
+                .isEqualTo(false);
+
+        assertThat(assertions.operator(LESS_THAN_OR_EQUAL, "NUMBER '+Infinity'", "NUMBER '1'"))
+                .isEqualTo(false);
+
+        assertThat(assertions.operator(LESS_THAN_OR_EQUAL, "NUMBER '+Infinity'", "NUMBER '-1'"))
+                .isEqualTo(false);
+
+        assertThat(assertions.operator(LESS_THAN_OR_EQUAL, "NUMBER '+Infinity'", "NUMBER 'Infinity'"))
+                .isEqualTo(true);
+
+        assertThat(assertions.operator(LESS_THAN_OR_EQUAL, "NUMBER '+Infinity'", "NUMBER '-Infinity'"))
+                .isEqualTo(false);
+
+        assertThat(assertions.operator(LESS_THAN_OR_EQUAL, "NUMBER '+Infinity'", "NUMBER 'NaN'"))
+                .isEqualTo(false);
+
+        assertThat(assertions.operator(LESS_THAN_OR_EQUAL, "NUMBER 'NaN'", "NUMBER '0'"))
+                .isEqualTo(false);
+
+        assertThat(assertions.operator(LESS_THAN_OR_EQUAL, "NUMBER 'NaN'", "NUMBER '1'"))
+                .isEqualTo(false);
+
+        assertThat(assertions.operator(LESS_THAN_OR_EQUAL, "NUMBER 'NaN'", "NUMBER '-1'"))
+                .isEqualTo(false);
+
+        assertThat(assertions.operator(LESS_THAN_OR_EQUAL, "NUMBER 'NaN'", "NUMBER 'Infinity'"))
+                .isEqualTo(false);
+
+        assertThat(assertions.operator(LESS_THAN_OR_EQUAL, "NUMBER 'NaN'", "NUMBER '-Infinity'"))
+                .isEqualTo(false);
+
+        assertThat(assertions.operator(LESS_THAN_OR_EQUAL, "NUMBER 'NaN'", "NUMBER 'NaN'"))
+                .isEqualTo(false);
     }
 
     @Test
@@ -2037,6 +2736,96 @@ public class TestNumberOperators
                 .binding("a", "NUMBER '000000000000100.0000000000000000000000'")
                 .binding("b", "NUMBER '-0000000020.00000000000000000000000'"))
                 .isEqualTo(true);
+
+        assertThat(assertions.expression("a >= b")
+                .binding("a", "NUMBER '-Infinity'")
+                .binding("b", "NUMBER '0'"))
+                .isEqualTo(false);
+
+        assertThat(assertions.expression("a >= b")
+                .binding("a", "NUMBER '-Infinity'")
+                .binding("b", "NUMBER '1'"))
+                .isEqualTo(false);
+
+        assertThat(assertions.expression("a >= b")
+                .binding("a", "NUMBER '-Infinity'")
+                .binding("b", "NUMBER '-1'"))
+                .isEqualTo(false);
+
+        assertThat(assertions.expression("a >= b")
+                .binding("a", "NUMBER '-Infinity'")
+                .binding("b", "NUMBER 'Infinity'"))
+                .isEqualTo(false);
+
+        assertThat(assertions.expression("a >= b")
+                .binding("a", "NUMBER '-Infinity'")
+                .binding("b", "NUMBER '-Infinity'"))
+                .isEqualTo(true);
+
+        assertThat(assertions.expression("a >= b")
+                .binding("a", "NUMBER '-Infinity'")
+                .binding("b", "NUMBER 'NaN'"))
+                .isEqualTo(false);
+
+        assertThat(assertions.expression("a >= b")
+                .binding("a", "NUMBER '+Infinity'")
+                .binding("b", "NUMBER '0'"))
+                .isEqualTo(true);
+
+        assertThat(assertions.expression("a >= b")
+                .binding("a", "NUMBER '+Infinity'")
+                .binding("b", "NUMBER '1'"))
+                .isEqualTo(true);
+
+        assertThat(assertions.expression("a >= b")
+                .binding("a", "NUMBER '+Infinity'")
+                .binding("b", "NUMBER '-1'"))
+                .isEqualTo(true);
+
+        assertThat(assertions.expression("a >= b")
+                .binding("a", "NUMBER '+Infinity'")
+                .binding("b", "NUMBER 'Infinity'"))
+                .isEqualTo(true);
+
+        assertThat(assertions.expression("a >= b")
+                .binding("a", "NUMBER '+Infinity'")
+                .binding("b", "NUMBER '-Infinity'"))
+                .isEqualTo(true);
+
+        assertThat(assertions.expression("a >= b")
+                .binding("a", "NUMBER '+Infinity'")
+                .binding("b", "NUMBER 'NaN'"))
+                .isEqualTo(false);
+
+        assertThat(assertions.expression("a >= b")
+                .binding("a", "NUMBER 'NaN'")
+                .binding("b", "NUMBER '0'"))
+                .isEqualTo(false);
+
+        assertThat(assertions.expression("a >= b")
+                .binding("a", "NUMBER 'NaN'")
+                .binding("b", "NUMBER '1'"))
+                .isEqualTo(false);
+
+        assertThat(assertions.expression("a >= b")
+                .binding("a", "NUMBER 'NaN'")
+                .binding("b", "NUMBER '-1'"))
+                .isEqualTo(false);
+
+        assertThat(assertions.expression("a >= b")
+                .binding("a", "NUMBER 'NaN'")
+                .binding("b", "NUMBER 'Infinity'"))
+                .isEqualTo(false);
+
+        assertThat(assertions.expression("a >= b")
+                .binding("a", "NUMBER 'NaN'")
+                .binding("b", "NUMBER '-Infinity'"))
+                .isEqualTo(false);
+
+        assertThat(assertions.expression("a >= b")
+                .binding("a", "NUMBER 'NaN'")
+                .binding("b", "NUMBER 'NaN'"))
+                .isEqualTo(false);
     }
 
     @Test
@@ -2762,5 +3551,18 @@ public class TestNumberOperators
     private static SqlNumber number(String value)
     {
         return new SqlNumber(value);
+    }
+
+    private static SqlNumber number(double value)
+    {
+        if (Double.isNaN(value)) {
+            return new SqlNumber(new TrinoNumber.NotANumber());
+        }
+        if (Double.isInfinite(value)) {
+            return new SqlNumber(new TrinoNumber.Infinity(value == NEGATIVE_INFINITY));
+        }
+        BigDecimal bigDecimal = new BigDecimal(Double.toString(value));
+        checkArgument(bigDecimal.doubleValue() == value, "Value %s cannot be represented as a BigDecimal losslessly", value);
+        return new SqlNumber(new TrinoNumber.BigDecimalValue(bigDecimal.stripTrailingZeros()));
     }
 }

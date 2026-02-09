@@ -23,8 +23,6 @@ import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.predicate.ValueSet;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Decimals;
-import io.trino.spi.type.DoubleType;
-import io.trino.spi.type.RealType;
 import io.trino.spi.type.Type;
 import io.trino.sql.ir.Between;
 import io.trino.sql.ir.Call;
@@ -63,6 +61,7 @@ import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.HyperLogLogType.HYPER_LOG_LOG;
 import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.NumberType.NUMBER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
@@ -1849,12 +1848,12 @@ public class TestDomainTranslator
 
         public boolean isFractional()
         {
-            return type == DOUBLE || type == REAL || (type instanceof DecimalType decimalType && decimalType.getScale() > 0);
+            return type == DOUBLE || type == REAL || (type instanceof DecimalType decimalType && decimalType.getScale() > 0) || type == NUMBER;
         }
 
         public boolean isTypeWithNaN()
         {
-            return type instanceof DoubleType || type instanceof RealType;
+            return type == REAL || type == DOUBLE || type == NUMBER;
         }
     }
 }
