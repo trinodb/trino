@@ -30,9 +30,11 @@ updates:
     open-pull-requests-limit: 10
     allow:
       - dependency-type: "all"
+    ignore:
+      # Ignore major updates for all dependencies; allow only minor/patch updates.
+      - dependency-name: "*"
         update-types:
-          - "version-update:semver-minor"
-          - "version-update:semver-patch"
+          - "version-update:semver-major"
     cooldown:
       # Apply 7 day cooldown to avoid updating dependencies right away. This reduces the opportunity window
       # when supply chain is compromised.
