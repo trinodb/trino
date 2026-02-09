@@ -584,7 +584,7 @@ jobs:
           S3_BUCKET_ENDPOINT: "s3.${{ vars.TRINO_AWS_REGION }}.amazonaws.com"
         if: >-
           contains(matrix.modules, 'trino-hdfs') && contains(matrix.profile, 'cloud-tests') &&
-          (env.CI_SKIP_SECRETS_PRESENCE_CHECKS != '' || env.AWS_ACCESS_KEY_ID != '' || env.AWS_SECRET_ACCESS_KEY != '')
+          (env.CI_SKIP_SECRETS_PRESENCE_CHECKS != '' || (env.AWS_ACCESS_KEY_ID != '' && github.actor != 'dependabot[bot]') || env.AWS_SECRET_ACCESS_KEY != '')
         run: |
           $MAVEN test ${MAVEN_TEST} -pl :trino-hdfs -P cloud-tests
       - name: S3 FileSystem Cloud Tests
@@ -595,7 +595,7 @@ jobs:
           AWS_REGION: ${{ vars.TRINO_AWS_REGION }}
         if: >-
           contains(matrix.modules, 'trino-filesystem-s3') && contains(matrix.profile, 'cloud-tests') &&
-          (env.CI_SKIP_SECRETS_PRESENCE_CHECKS != '' || env.AWS_ACCESS_KEY_ID != '' || env.AWS_SECRET_ACCESS_KEY != '')
+          (env.CI_SKIP_SECRETS_PRESENCE_CHECKS != '' || (env.AWS_ACCESS_KEY_ID != '' && github.actor != 'dependabot[bot]') || env.AWS_SECRET_ACCESS_KEY != '')
         run: |
           # Create an empty S3 bucket for S3 filesystem cloud tests and add the bucket name to GitHub environment variables
           .github/bin/s3/setup-empty-s3-bucket.sh
@@ -651,7 +651,7 @@ jobs:
         # Run tests if any of the secrets is present. Do not skip tests when one secret renamed, or secret name has a typo.
         if: >-
           contains(matrix.modules, 'trino-delta-lake') && contains(matrix.profile, 'cloud-tests') &&
-          (env.CI_SKIP_SECRETS_PRESENCE_CHECKS != '' || env.ABFS_ACCOUNT != '' || env.ABFS_CONTAINER != '' || env.ABFS_ACCESSKEY != '' || env.AWS_ACCESS_KEY_ID != '' || env.AWS_SECRET_ACCESS_KEY != '' || env.GCP_CREDENTIALS_KEY != '')
+          (env.CI_SKIP_SECRETS_PRESENCE_CHECKS != '' || ((env.ABFS_ACCOUNT != '' || env.ABFS_CONTAINER != '') && github.actor != 'dependabot[bot]') || env.ABFS_ACCESSKEY != '' || (env.AWS_ACCESS_KEY_ID != '' && github.actor != 'dependabot[bot]') || env.AWS_SECRET_ACCESS_KEY != '' || env.GCP_CREDENTIALS_KEY != '')
         run: |
           $MAVEN test ${MAVEN_TEST} ${{ format('-P {0}', matrix.profile) }} -pl :trino-delta-lake \
             -Dtesting.azure-abfs-container="${ABFS_CONTAINER}" \
@@ -737,7 +737,7 @@ jobs:
           SNOWFLAKE_CATALOG_S3_REGION: ${{ vars.SNOWFLAKE_CATALOG_S3_REGION }}
         if: >-
           contains(matrix.modules, 'trino-iceberg') && contains(matrix.profile, 'cloud-tests') &&
-          (env.CI_SKIP_SECRETS_PRESENCE_CHECKS != '' || env.AWS_ACCESS_KEY_ID != '' || env.AWS_SECRET_ACCESS_KEY != '' || env.GCP_CREDENTIALS_KEY != '')
+          (env.CI_SKIP_SECRETS_PRESENCE_CHECKS != '' || (env.AWS_ACCESS_KEY_ID != '' && github.actor != 'dependabot[bot]') || env.AWS_SECRET_ACCESS_KEY != '' || env.GCP_CREDENTIALS_KEY != '')
         run: |
           $MAVEN test ${MAVEN_TEST} -pl :trino-iceberg ${{ format('-P {0}', matrix.profile) }} \
             -Dtesting.gcp-storage-bucket="${GCP_STORAGE_BUCKET}" \
@@ -770,7 +770,7 @@ jobs:
         if: >-
           contains(matrix.modules, 'trino-redshift') &&
           (contains(matrix.profile, 'cloud-tests') || contains(matrix.profile, 'fte-tests')) &&
-          (env.CI_SKIP_SECRETS_PRESENCE_CHECKS != '' || env.AWS_ACCESS_KEY_ID != '' || env.REDSHIFT_SUBNET_GROUP_NAME != '')
+          (env.CI_SKIP_SECRETS_PRESENCE_CHECKS != '' || ((env.AWS_ACCESS_KEY_ID != '' || env.REDSHIFT_SUBNET_GROUP_NAME != '') && github.actor != 'dependabot[bot]'))
         run: |
           source .github/bin/redshift/setup-aws-redshift.sh
 
@@ -940,8 +940,8 @@ jobs:
             - suite: suite-azure
               ignore exclusion if: >-
                 ${{ env.CI_SKIP_SECRETS_PRESENCE_CHECKS != '' ||
-                    vars.AZURE_ABFS_HIERARCHICAL_CONTAINER != '' ||
-                    vars.AZURE_ABFS_HIERARCHICAL_ACCOUNT != '' ||
+                    (vars.AZURE_ABFS_HIERARCHICAL_CONTAINER != '' && github.actor != 'dependabot[bot]') ||
+                    (vars.AZURE_ABFS_HIERARCHICAL_ACCOUNT != '' && github.actor != 'dependabot[bot]') ||
                     secrets.AZURE_ABFS_HIERARCHICAL_ACCESS_KEY != '' }}
 
             - suite: suite-gcs
