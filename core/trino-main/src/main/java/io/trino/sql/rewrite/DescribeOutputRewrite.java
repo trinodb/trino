@@ -116,7 +116,7 @@ public final class DescribeOutputRewrite
         {
             this.session = requireNonNull(session, "session is null");
             this.parser = requireNonNull(parser, "parser is null");
-            this.analyzerFactory = analyzerFactory;
+            this.analyzerFactory = requireNonNull(analyzerFactory, "analyzerFactory is null");
             this.parameters = parameters;
             this.parameterLookup = parameterLookup;
             this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
