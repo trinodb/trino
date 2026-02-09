@@ -16,7 +16,7 @@
     "check:clean": "npm clean-install && npm run lint && npm run prettier:check"
   },
   "dependencies": {
-    "@dagrejs/dagre": "^1.1.5",
+    "@dagrejs/dagre": "^1.1.8",
     "@emotion/react": "^11.14.0",
     "@emotion/styled": "^11.14.1",
     "@fontsource/roboto": "^5.2.9",
