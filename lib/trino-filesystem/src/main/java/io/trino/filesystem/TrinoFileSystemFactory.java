@@ -25,11 +25,21 @@ public interface TrinoFileSystemFactory
         return create(session.getIdentity());
     }
 
+    /**
+     * Creates a file system for the given session with explicit caching control.
+     * The default implementation ignores the cachingEnabled parameter and delegates to {@link #create(ConnectorSession)}.
+     * Implementations that support caching control should override this method.
+     */
     default TrinoFileSystem create(ConnectorSession session, boolean cachingEnabled)
     {
         return create(session);
     }
 
+    /**
+     * Creates a file system for the given identity with explicit caching control.
+     * The default implementation ignores the cachingEnabled parameter and delegates to {@link #create(ConnectorIdentity)}.
+     * Implementations that support caching control should override this method.
+     */
     default TrinoFileSystem create(ConnectorIdentity identity, boolean cachingEnabled)
     {
         return create(identity);

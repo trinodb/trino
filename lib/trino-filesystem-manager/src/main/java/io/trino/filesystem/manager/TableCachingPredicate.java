@@ -25,7 +25,7 @@ import static java.util.Objects.requireNonNull;
 
 /**
  * Predicate to determine if a table should be cached based on configured include list.
- * Supports wildcards: schema.table, schema.*, or use * to cache listings for all tables in all schemas
+ * Supports wildcards: schema.table, schema.*, or use * to cache all tables in all schemas
  */
 public class TableCachingPredicate
 {

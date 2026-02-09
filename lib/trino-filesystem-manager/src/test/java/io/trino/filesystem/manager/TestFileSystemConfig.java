@@ -15,6 +15,7 @@ package io.trino.filesystem.manager;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.NotEmpty;
 import org.junit.jupiter.api.Test;
 
@@ -83,5 +84,16 @@ public class TestFileSystemConfig
                 "cacheIncludeTables",
                 "must not be empty",
                 NotEmpty.class);
+    }
+
+    @Test
+    public void testCacheIncludeTablesRequiresCacheEnabled()
+    {
+        assertFailsValidation(
+                new FileSystemConfig()
+                        .setCacheIncludeTables(ImmutableList.of("schema1.table1")),
+                "cacheIncludeTablesConfigValid",
+                "fs.cache.enabled must be true when fs.cache.include-tables is explicitly configured",
+                AssertTrue.class);
     }
 }

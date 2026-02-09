@@ -16,6 +16,7 @@ package io.trino.filesystem.manager;
 import com.google.common.collect.ImmutableList;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
+import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.NotEmpty;
 
 import java.util.List;
@@ -127,11 +128,17 @@ public class FileSystemConfig
     }
 
     @Config("fs.cache.include-tables")
-    @ConfigDescription("List of tables to include in file system cache, use * to cache listings for all tables in all schemas")
+    @ConfigDescription("List of tables to include in file system cache, use * to cache all tables in all schemas")
     public FileSystemConfig setCacheIncludeTables(List<String> tables)
     {
         this.cacheIncludeTables = ImmutableList.copyOf(tables);
         return this;
+    }
+
+    @AssertTrue(message = "fs.cache.enabled must be true when fs.cache.include-tables is explicitly configured")
+    public boolean isCacheIncludeTablesConfigValid()
+    {
+        return cacheEnabled || cacheIncludeTables.equals(ImmutableList.of("*"));
     }
 
     public boolean isTrackingEnabled()
