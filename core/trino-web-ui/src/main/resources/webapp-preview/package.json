@@ -26,7 +26,7 @@
     "@mui/material-pigment-css": "^7.3.7",
     "@mui/x-charts": "^8.11.3",
     "@xyflow/react": "^12.8.5",
-    "axios": "^1.12.2",
+    "axios": "^1.13.4",
     "lodash": "^4.17.21",
     "react": "^19.1.4",
     "react-calendar-timeline": "^0.30.0-beta.3",
