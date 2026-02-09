@@ -89,6 +89,7 @@ import static java.util.Objects.requireNonNull;
 import static java.util.UUID.randomUUID;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.iceberg.FileContent.DATA;
+import static org.apache.iceberg.TableProperties.WRITE_TARGET_FILE_SIZE_BYTES;
 
 public class IcebergPageSink
         implements ConnectorPageSink
@@ -146,6 +147,7 @@ public class IcebergPageSink
             int maxOpenWriters,
             List<TrinoSortField> sortFields,
             int sortOrderId,
+            long defaultTargetMaxFileSize,
             DataSize sortingFileWriterBufferSize,
             int sortingFileWriterMaxOpenFiles,
             Optional<String> sortedWritingLocalStagingPath,
@@ -164,7 +166,7 @@ public class IcebergPageSink
         this.metricsConfig = MetricsConfig.fromProperties(requireNonNull(storageProperties, "storageProperties is null"));
         this.maxOpenWriters = maxOpenWriters;
         this.pagePartitioner = new PagePartitioner(pageIndexerFactory, toPartitionColumns(partitionColumns, partitionSpec, outputSchema));
-        this.targetMaxFileSize = IcebergSessionProperties.getTargetMaxFileSize(session);
+        this.targetMaxFileSize = getTargetMaxFileSize(storageProperties, defaultTargetMaxFileSize);
         this.idleWriterMinFileSize = IcebergSessionProperties.getIdleWriterMinFileSize(session);
         this.storageProperties = requireNonNull(storageProperties, "storageProperties is null");
         this.sortFields = requireNonNull(sortFields, "sortFields is null");
@@ -596,6 +598,21 @@ public class IcebergPageSink
             return location;
         }
         return Location.of("local:///" + location.path());
+    }
+
+    static long getTargetMaxFileSize(Map<String, String> storageProperties, long defaultBytes)
+    {
+        String tableProperty = storageProperties.get(WRITE_TARGET_FILE_SIZE_BYTES);
+        if (tableProperty != null) {
+            try {
+                return Long.parseLong(tableProperty);
+            }
+            catch (NumberFormatException e) {
+                // Fall through to default if table property is invalid
+            }
+        }
+
+        return defaultBytes;
     }
 
     private static class WriteContext

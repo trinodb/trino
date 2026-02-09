@@ -146,8 +146,10 @@ import static io.trino.plugin.iceberg.IcebergTableProperties.PROTECTED_ICEBERG_N
 import static io.trino.plugin.iceberg.IcebergTableProperties.SORTED_BY_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergTableProperties.SUPPORTED_PROPERTIES;
 import static io.trino.plugin.iceberg.IcebergTableProperties.getMaxPreviousVersions;
+import static io.trino.plugin.iceberg.IcebergTableProperties.getParquetWriterBlockSize;
 import static io.trino.plugin.iceberg.IcebergTableProperties.getPartitioning;
 import static io.trino.plugin.iceberg.IcebergTableProperties.getSortOrder;
+import static io.trino.plugin.iceberg.IcebergTableProperties.getTargetMaxFileSize;
 import static io.trino.plugin.iceberg.IcebergTableProperties.isDeleteAfterCommitEnabled;
 import static io.trino.plugin.iceberg.IcebergTableProperties.validateCompression;
 import static io.trino.plugin.iceberg.PartitionFields.parsePartitionFields;
@@ -203,8 +205,10 @@ import static org.apache.iceberg.TableProperties.ORC_BLOOM_FILTER_FPP;
 import static org.apache.iceberg.TableProperties.ORC_COMPRESSION;
 import static org.apache.iceberg.TableProperties.PARQUET_BLOOM_FILTER_COLUMN_ENABLED_PREFIX;
 import static org.apache.iceberg.TableProperties.PARQUET_COMPRESSION;
+import static org.apache.iceberg.TableProperties.PARQUET_ROW_GROUP_SIZE_BYTES;
 import static org.apache.iceberg.TableProperties.WRITE_DATA_LOCATION;
 import static org.apache.iceberg.TableProperties.WRITE_LOCATION_PROVIDER_IMPL;
+import static org.apache.iceberg.TableProperties.WRITE_TARGET_FILE_SIZE_BYTES;
 import static org.apache.iceberg.TableUtil.formatVersion;
 import static org.apache.iceberg.expressions.Expressions.lit;
 import static org.apache.iceberg.types.Type.TypeID.BINARY;
@@ -983,6 +987,11 @@ public final class IcebergUtil
                 propertiesBuilder.put(PARQUET_BLOOM_FILTER_COLUMN_ENABLED_PREFIX + column, "true");
             }
         }
+
+        getParquetWriterBlockSize(tableMetadata.getProperties())
+                .ifPresent(value -> propertiesBuilder.put(PARQUET_ROW_GROUP_SIZE_BYTES, Long.toString(value.toBytes())));
+        getTargetMaxFileSize(tableMetadata.getProperties())
+                .ifPresent(value -> propertiesBuilder.put(WRITE_TARGET_FILE_SIZE_BYTES, Long.toString(value.toBytes())));
 
         if (tableMetadata.getComment().isPresent()) {
             propertiesBuilder.put(TABLE_COMMENT, tableMetadata.getComment().get());

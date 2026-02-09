@@ -69,13 +69,12 @@ public class TestIcebergSortedWriting
         // Using a larger table forces buffered data to be written to disk
         Session withSmallRowGroups = Session.builder(getSession())
                 .setCatalogSessionProperty("iceberg", "orc_writer_max_stripe_rows", "200")
-                .setCatalogSessionProperty("iceberg", "parquet_writer_block_size", "20kB")
                 .setCatalogSessionProperty("iceberg", "parquet_writer_batch_size", "200")
                 .build();
         try (TestTable table = new TestTable(
                 getQueryRunner()::execute,
                 "test_sorted_lineitem_table",
-                "WITH (sorted_by = ARRAY['comment'], format = '" + format.name() + "') AS TABLE tpch.tiny.lineitem WITH NO DATA")) {
+                "WITH (sorted_by = ARRAY['comment'], format = '" + format.name() + "'" + ", parquet_writer_block_size = '20kB'" + ") AS TABLE tpch.tiny.lineitem WITH NO DATA")) {
             assertUpdate(
                     withSmallRowGroups,
                     "INSERT INTO " + table.getName() + " TABLE tpch.tiny.lineitem",

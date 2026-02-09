@@ -33,6 +33,7 @@ import io.trino.plugin.base.metrics.FileFormatDataSourceStats;
 import io.trino.plugin.hive.HiveCompressionCodec;
 import io.trino.plugin.hive.HiveCompressionOption;
 import io.trino.plugin.hive.orc.OrcWriterConfig;
+import io.trino.plugin.hive.parquet.ParquetWriterConfig;
 import io.trino.plugin.iceberg.fileio.ForwardingOutputFile;
 import io.trino.spi.NodeVersion;
 import io.trino.spi.TrinoException;
@@ -72,7 +73,6 @@ import static io.trino.plugin.iceberg.IcebergSessionProperties.getOrcWriterMaxSt
 import static io.trino.plugin.iceberg.IcebergSessionProperties.getOrcWriterMinStripeSize;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.getOrcWriterValidateMode;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.getParquetWriterBatchSize;
-import static io.trino.plugin.iceberg.IcebergSessionProperties.getParquetWriterBlockSize;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.getParquetWriterPageSize;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.getParquetWriterPageValueCount;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.isOrcWriterValidate;
@@ -88,6 +88,7 @@ import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static org.apache.iceberg.TableProperties.DEFAULT_WRITE_METRICS_MODE;
+import static org.apache.iceberg.TableProperties.PARQUET_ROW_GROUP_SIZE_BYTES;
 import static org.apache.iceberg.io.DeleteSchemaUtil.pathPosSchema;
 import static org.apache.iceberg.parquet.ParquetSchemaUtil.convert;
 
@@ -103,6 +104,7 @@ public class IcebergFileWriterFactory
     private final OrcWriterStats orcWriterStats = new OrcWriterStats();
     private final HiveCompressionOption hiveCompressionOption;
     private final OrcWriterOptions orcWriterOptions;
+    private final DataSize defaultParquetBlockSize;
 
     @Inject
     public IcebergFileWriterFactory(
@@ -110,7 +112,8 @@ public class IcebergFileWriterFactory
             NodeVersion nodeVersion,
             FileFormatDataSourceStats readStats,
             IcebergConfig icebergConfig,
-            OrcWriterConfig orcWriterConfig)
+            OrcWriterConfig orcWriterConfig,
+            ParquetWriterConfig parquetWriterConfig)
     {
         checkArgument(!orcWriterConfig.isUseLegacyVersion(), "the ORC writer shouldn't be configured to use a legacy version");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
@@ -118,6 +121,7 @@ public class IcebergFileWriterFactory
         this.readStats = requireNonNull(readStats, "readStats is null");
         this.hiveCompressionOption = icebergConfig.getCompressionCodec();
         this.orcWriterOptions = orcWriterConfig.toOrcWriterOptions();
+        this.defaultParquetBlockSize = parquetWriterConfig.getBlockSize();
     }
 
     @Managed
@@ -180,7 +184,7 @@ public class IcebergFileWriterFactory
             ParquetWriterOptions parquetWriterOptions = ParquetWriterOptions.builder()
                     .setMaxPageSize(getParquetWriterPageSize(session))
                     .setMaxPageValueCount(getParquetWriterPageValueCount(session))
-                    .setMaxBlockSize(getParquetWriterBlockSize(session))
+                    .setMaxBlockSize(getParquetWriterBlockSize(storageProperties, defaultParquetBlockSize))
                     .setBatchSize(getParquetWriterBatchSize(session))
                     .setBloomFilterColumns(getParquetBloomFilterColumns(storageProperties))
                     .build();
@@ -316,5 +320,20 @@ public class IcebergFileWriterFactory
                 icebergSchema,
                 columnTypes,
                 compressionCodec);
+    }
+
+    static DataSize getParquetWriterBlockSize(Map<String, String> storageProperties, DataSize defaultBlockSize)
+    {
+        String tableProperty = storageProperties.get(PARQUET_ROW_GROUP_SIZE_BYTES);
+        if (tableProperty != null) {
+            try {
+                return DataSize.ofBytes(Long.parseLong(tableProperty));
+            }
+            catch (NumberFormatException e) {
+                // Fall through to default if table property is invalid
+            }
+        }
+
+        return defaultBlockSize;
     }
 }

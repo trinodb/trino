@@ -68,7 +68,7 @@ public class TestIcebergParquetConnectorTest
     {
         try (TestTable table = newTrinoTable(
                 "test_row_group_reset_dictionary",
-                "(plain_col varchar, dict_col int)")) {
+                "WITH (parquet_writer_block_size = '1kB') AS SELECT CAST(NULL AS varchar) plain_col, CAST(NULL AS int) dict_col LIMIT 0")) {
             String tableName = table.getName();
             String values = IntStream.range(0, 100)
                     .mapToObj(i -> "('ABCDEFGHIJ" + i + "' , " + (i < 20 ? "1" : "null") + ")")
@@ -108,7 +108,7 @@ public class TestIcebergParquetConnectorTest
     {
         try (TestTable table = newTrinoTable(
                 "test_ignore_parquet_statistics",
-                "WITH (sorted_by = ARRAY['custkey']) AS TABLE tpch.tiny.customer WITH NO DATA")) {
+                "WITH (sorted_by = ARRAY['custkey'], parquet_writer_block_size = '1kB') AS TABLE tpch.tiny.customer WITH NO DATA")) {
             assertUpdate(
                     withSmallRowGroups(getSession()),
                     "INSERT INTO " + table.getName() + " TABLE tpch.tiny.customer",
@@ -140,7 +140,7 @@ public class TestIcebergParquetConnectorTest
     {
         try (TestTable table = newTrinoTable(
                 "test_pushdown_predicate_statistics",
-                "WITH (sorted_by = ARRAY['custkey']) AS TABLE tpch.tiny.customer WITH NO DATA")) {
+                "WITH (sorted_by = ARRAY['custkey'], parquet_writer_block_size = '1kB') AS TABLE tpch.tiny.customer WITH NO DATA")) {
             assertUpdate(
                     withSmallRowGroups(getSession()),
                     "INSERT INTO " + table.getName() + " TABLE tpch.tiny.customer",
@@ -170,7 +170,7 @@ public class TestIcebergParquetConnectorTest
     {
         try (TestTable table = newTrinoTable(
                 "test_table_changes_function_multi_row_groups_",
-                "AS SELECT orderkey, partkey, suppkey FROM tpch.tiny.lineitem WITH NO DATA")) {
+                "WITH (parquet_writer_block_size = '1kB') AS SELECT orderkey, partkey, suppkey FROM tpch.tiny.lineitem WITH NO DATA")) {
             long initialSnapshot = getMostRecentSnapshotId(table.getName());
             assertUpdate(
                     withSmallRowGroups(getSession()),
