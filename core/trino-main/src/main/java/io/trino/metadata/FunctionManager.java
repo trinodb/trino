@@ -261,6 +261,9 @@ public class FunctionManager
                     verifyFunctionSignature(parameterType.equals(InOut.class), "Expected IN_OUT argument type to be InOut");
                     break;
                 case FUNCTION:
+                    verifyFunctionSignature(lambdaArgumentIndex < scalarFunctionImplementation.getLambdaInterfaces().size(),
+                            "Expected %d lambdaInterface(s) in ScalarFunctionImplementation but %s interfaces are declared",
+                            lambdaArgumentIndex + 1, scalarFunctionImplementation.getLambdaInterfaces().size());
                     Class<?> lambdaInterface = scalarFunctionImplementation.getLambdaInterfaces().get(lambdaArgumentIndex);
                     verifyFunctionSignature(parameterType.equals(lambdaInterface),
                             "Expected function interface to be %s, but is %s", lambdaInterface, parameterType);
