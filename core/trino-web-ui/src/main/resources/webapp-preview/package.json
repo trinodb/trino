@@ -23,7 +23,7 @@
     "@monaco-editor/react": "^4.7.0",
     "@mui/icons-material": "^7.3.2",
     "@mui/material": "^7.3.2",
-    "@mui/material-pigment-css": "^7.3.2",
+    "@mui/material-pigment-css": "^7.3.7",
     "@mui/x-charts": "^8.11.3",
     "@xyflow/react": "^12.8.5",
     "axios": "^1.12.2",
