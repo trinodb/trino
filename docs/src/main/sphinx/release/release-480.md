@@ -3,8 +3,11 @@
 ## General
 
 * Add coordinator and worker counts to `/metrics` endpoint. ({issue}`27408`)
-* Add `task.scale-writers.max-writer-memory-percentage` configuration property
-  to improve management of insert memory consumption. ({issue}`27874`)
+* Allow configuring the maximum amount of memory to use while writing tables
+  through the `task.scale-writers.max-writer-memory-percentage` configuration
+  property. ({issue}`27874`)
+* Add `array_first(array(E), function(E, boolean))` to return an element
+  matching the predicate. ({issue}`27706`)
 * {{breaking}} Remove `enable-large-dynamic-filters` configuration property and the 
   corresponding system session property `enable_large_dynamic_filters`. ({issue}`27637`)
 * {{breaking}} Remove the `dynamic-filtering.small*` and `dynamic-filtering.large-broadcast*` 
@@ -17,6 +20,7 @@
 * Fix {func}`localtimestamp` failure for precisions 7 and 8. ({issue}`27807`)
 * Fix spurious query failures when querying the `system` catalog during catalog
   drop operations. ({issue}`28017`)
+* Fix failure when executing `date_add` function with larger value. ({issue}`27899`)
 
 ## Web UI
 
@@ -48,6 +52,7 @@
   writing to Delta Lake tables on S3. ({issue}`27701`)
 * Fix potential table corruption when executing `CREATE OR REPLACE` with table definition
   changes. ({issue}`27805`)
+* Fix Azure Storage connectivity issues ({issue}`28058`)
 
 ## DuckDB connector
 
@@ -68,6 +73,7 @@
 * {{breaking}} Remove the deprecated `gcs.use-access-token` configuration property. ({issue}`26941`)
 * {{breaking}} Remove the `hive.fs.new-file-inherit-ownership` configuration property. ({issue}`28029`)
 * Improve the effectiveness of Bloom filters for high-cardinality columns in Parquet files. ({issue}`27656`)
+* Fix Azure Storage connectivity issues ({issue}`28058`)
 
 ## Hudi connector
 
@@ -80,6 +86,7 @@
   `parquet.writer.page-size`, instead. ({issue}`27729`)
 * {{breaking}} Remove the deprecated `gcs.use-access-token` configuration property. ({issue}`26941`)
 * {{breaking}} Remove the `hive.fs.new-file-inherit-ownership` configuration property. ({issue}`28029`)
+* Fix Azure Storage connectivity issues ({issue}`28058`)
 
 ## Iceberg connector
 
@@ -88,6 +95,7 @@
 * Add support for column default values in Iceberg v3 tables. ({issue}`27837`)
 * Add support for creating, writing to or deleting from Iceberg v3 tables. ({issue}`27786`, {issue}`27788`)
 * Add `content` column to `$manifests` and `$all_manifests` metadata tables. ({issue}`27975`)
+* Add support for changing nested types in `array` and `map` types. ({issue}`27998`)
 * Clean up unused files from materialized views when they are refreshed. ({issue}`28008`)
 * {{breaking}} Remove the `hive.write-validation-threads` configuration property. ({issue}`27729`)
 * {{breaking}} Remove the `parquet.optimized-writer.validation-percentage` configuration
@@ -102,14 +110,18 @@
   `extended_statistics_enabled` session property. ({issue}`27914`)
 * Improve the effectiveness of Bloom filters for high-cardinality columns in Parquet files. ({issue}`27656`)
 * Improve query performance when querying a fresh materialized view. ({issue}`27608`)
+* Improve `optimize_manifests` to cluster manifests by partitions for improving
+  performance of reads with partition filters. ({issue}`27358`)
 * Reduce planning time of queries on tables containing delete files. ({issue}`27955`)
 * Reduce planning time for queries involving simple `FROM` and `WHERE` clauses. ({issue}`27973`)
-* Fix failure when reading `$files` metadata table with partition evolution using 
-  `truncate` or `bucket` on the same column. ({issue}`26109`)
+* Reduce query planning time on large tables. ({issue}`28068`)
+* Fix failure when reading `$files` metadata tables when
+  scheme involving `bucket` or `truncate` changes. ({issue}`26109`)
 * Fix failure when reading `$file_modified_time` metadata column on tables with equality
   deletes. ({issue}`27850`)
-* Avoid Parquet footer explosion when binary columns contain certain pathological values. ({issue}`27903`)
+* Avoid large footers in Parquet files from certain rare string inputs. ({issue}`27903`)
 * Fix failures for queries with joins on metadata columns. ({issue}`27984`)
+* Fix Azure Storage connectivity issues ({issue}`28058`)
 
 ## Ignite connector
 
@@ -177,3 +189,4 @@
   `TypeParameter.Type` instead. ({issue}`27574`)
 * Deprecate `MaterializedViewFreshness#getLastFreshTime`.
   Use `getLastKnownFreshTime` instead. ({issue}`27803`)
+* Change `ColumnMetadata.comment` and `ColumnMetadata.extraInfo` to `Optional<String>`. ({issue}`28151`)
