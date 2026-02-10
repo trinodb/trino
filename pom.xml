@@ -182,6 +182,8 @@
             --sun-misc-unsafe-memory-access=allow
             <!-- # Disable superfluous bootstrap logging in tests -->
             -Dairlift.quiet=true
+            <!-- # Fail of final field mutation -->
+            --illegal-final-field-mutation=deny
         </air.test.jvm.additional-arguments.default>
         <air.test.jvm.additional-arguments>${air.test.jvm.additional-arguments.default}</air.test.jvm.additional-arguments>
 
