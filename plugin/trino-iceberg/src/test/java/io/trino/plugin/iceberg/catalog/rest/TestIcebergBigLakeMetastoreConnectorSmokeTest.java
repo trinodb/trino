@@ -14,10 +14,8 @@
 package io.trino.plugin.iceberg.catalog.rest;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.json.ObjectMapperProvider;
-import io.trino.filesystem.FileIterator;
 import io.trino.filesystem.Location;
 import io.trino.plugin.iceberg.BaseIcebergConnectorSmokeTest;
 import io.trino.plugin.iceberg.IcebergConfig;
@@ -38,7 +36,6 @@ import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Base64;
-import java.util.List;
 
 import static io.trino.plugin.iceberg.IcebergTestUtils.checkParquetFileSorting;
 import static io.trino.testing.SystemEnvironmentUtils.requireEnv;
@@ -313,16 +310,5 @@ final class TestIcebergBigLakeMetastoreConnectorSmokeTest
                 .isFalse();
 
         assertThat(getQueryRunner().tableExists(getSession(), tableName)).isFalse();
-    }
-
-    private List<String> listFiles(Location location)
-            throws IOException
-    {
-        ImmutableList.Builder<String> builder = ImmutableList.builder();
-        FileIterator iterator = fileSystem.listFiles(location);
-        while (iterator.hasNext()) {
-            builder.add(iterator.next().location().toString());
-        }
-        return builder.build();
     }
 }
