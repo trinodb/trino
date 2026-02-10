@@ -359,6 +359,7 @@ import static io.trino.spi.type.TypeUtils.isFloatingPointNaN;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.Math.floorDiv;
+import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.time.Instant.EPOCH;
 import static java.util.Collections.unmodifiableMap;
@@ -4620,19 +4621,15 @@ public class DeltaLakeMetadata
 
     private static boolean isNotFinite(Optional<Object> value, Type type)
     {
-        if (type.equals(DOUBLE)) {
-            return value
-                    .map(Double.class::cast)
-                    .filter(val -> !Double.isFinite(val))
-                    .isPresent();
+        if (value.isEmpty()) {
+            return false;
         }
-        if (type.equals(REAL)) {
-            return value
-                    .map(Long.class::cast)
-                    .map(Math::toIntExact)
-                    .map(Float::intBitsToFloat)
-                    .filter(val -> !Float.isFinite(val))
-                    .isPresent();
+        Object object = value.get();
+        if (type == DOUBLE) {
+            return !Double.isFinite((double) object);
+        }
+        if (type == REAL) {
+            return !Float.isFinite(Float.intBitsToFloat(toIntExact((long) object)));
         }
         return false;
     }
