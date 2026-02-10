@@ -26,6 +26,11 @@
         </dependency>
 
         <dependency>
+            <groupId>com.github.RoaringBitmap.RoaringBitmap</groupId>
+            <artifactId>roaringbitmap</artifactId>
+        </dependency>
+
+        <dependency>
             <groupId>com.google.errorprone</groupId>
             <artifactId>error_prone_annotations</artifactId>
             <optional>true</optional>
@@ -172,11 +177,6 @@
                     <artifactId>javax.annotation-api</artifactId>
                 </exclusion>
             </exclusions>
-        </dependency>
-
-        <dependency>
-            <groupId>org.roaringbitmap</groupId>
-            <artifactId>RoaringBitmap</artifactId>
         </dependency>
 
         <dependency>

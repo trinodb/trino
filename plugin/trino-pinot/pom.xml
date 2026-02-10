@@ -48,6 +48,11 @@
         </dependency>
 
         <dependency>
+            <groupId>com.github.RoaringBitmap.RoaringBitmap</groupId>
+            <artifactId>roaringbitmap</artifactId>
+        </dependency>
+
+        <dependency>
             <groupId>com.google.guava</groupId>
             <artifactId>guava</artifactId>
         </dependency>
@@ -316,11 +321,6 @@
                     <artifactId>log4j-slf4j2-impl</artifactId>
                 </exclusion>
             </exclusions>
-        </dependency>
-
-        <dependency>
-            <groupId>org.roaringbitmap</groupId>
-            <artifactId>RoaringBitmap</artifactId>
         </dependency>
 
         <dependency>
