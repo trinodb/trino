@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.weaviate;
 
+import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.primitives.Floats;
@@ -27,7 +28,6 @@ import io.weaviate.client6.v1.api.collections.CollectionConfig;
 import io.weaviate.client6.v1.api.collections.CollectionHandle;
 import io.weaviate.client6.v1.api.collections.WeaviateObject;
 import io.weaviate.client6.v1.api.collections.pagination.Paginator;
-import io.weaviate.client6.v1.api.collections.query.ConsistencyLevel;
 import io.weaviate.client6.v1.api.collections.query.Metadata;
 import io.weaviate.client6.v1.api.collections.tenants.Tenant;
 
@@ -41,8 +41,8 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.OptionalInt;
 import java.util.OptionalLong;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -57,15 +57,21 @@ import static java.util.Objects.requireNonNull;
 
 public class WeaviateService
 {
-    private final WeaviateClient weaviateClient;
-    private final ConsistencyLevel consistencyLevel;
-    private final OptionalInt pageSize;
+    private final Supplier<WeaviateClient> weaviateClient;
+    private final WeaviateConfig weaviateConfig;
 
     @Inject
     public WeaviateService(WeaviateConfig weaviateConfig)
     {
-        requireNonNull(weaviateConfig, "weaviateConfig is null");
+        this.weaviateConfig = requireNonNull(weaviateConfig, "weaviateConfig is null");
 
+        // WeaviateClient will try to connect to the server on initialization.
+        // The server may not be running at the time when WeaviatePlugin is created, so we initialize the client lazily.
+        this.weaviateClient = Suppliers.memoize(this::createClient);
+    }
+
+    private WeaviateClient createClient()
+    {
         Config.Custom config = new Config.Custom();
         config.scheme(weaviateConfig.getScheme());
         config.httpHost(weaviateConfig.getHttpHost());
@@ -100,19 +106,16 @@ public class WeaviateService
                     weaviateConfig.getClientSecret().orElseThrow(),
                     weaviateConfig.getScopes()));
         }
-
-        this.consistencyLevel = weaviateConfig.getConsistencyLevel();
-        this.pageSize = weaviateConfig.getPageSize();
-        this.weaviateClient = new WeaviateClient(config.build());
+        return new WeaviateClient(config.build());
     }
 
     List<String> listTenants()
     {
         try {
-            return weaviateClient.collections.list().stream()
+            return weaviateClient.get().collections.list().stream()
                     .filter(collection -> collection.multiTenancy().enabled())
                     .map(CollectionConfig::collectionName)
-                    .flatMap(collectionName -> weaviateClient.collections.use(collectionName).tenants.list().stream())
+                    .flatMap(collectionName -> weaviateClient.get().collections.use(collectionName).tenants.list().stream())
                     .map(Tenant::name)
                     .toList();
         }
@@ -126,7 +129,7 @@ public class WeaviateService
         requireNonNull(tableName, "tableName is null");
 
         try {
-            return weaviateClient.collections.getConfig(resolveTableName(tableName))
+            return weaviateClient.get().collections.getConfig(resolveTableName(tableName))
                     .map(WeaviateService::newTableHandle)
                     .orElseThrow(() -> WeaviateErrorCode.tableNotFound(tableName));
         }
@@ -138,7 +141,7 @@ public class WeaviateService
     List<WeaviateTableHandle> listTableHandles()
     {
         try {
-            return weaviateClient.collections.list().stream()
+            return weaviateClient.get().collections.list().stream()
                     .map(WeaviateService::newTableHandle)
                     .toList();
         }
@@ -150,7 +153,7 @@ public class WeaviateService
     List<Alias> listAliases()
     {
         try {
-            return weaviateClient.alias.list();
+            return weaviateClient.get().alias.list();
         }
         catch (IOException e) {
             throw new UncheckedIOException(e);
@@ -175,8 +178,8 @@ public class WeaviateService
 
         CollectionHandle<Map<String, Object>> collectionHandle = collectionHandle(tableHandle);
         Paginator<Map<String, Object>> paginator = collectionHandle.paginate(opt -> {
-            if (pageSize.isPresent()) {
-                opt.pageSize(pageSize.getAsInt());
+            if (weaviateConfig.getPageSize().isPresent()) {
+                opt.pageSize(weaviateConfig.getPageSize().getAsInt());
             }
             return opt.returnMetadata(Metadata.ALL);
         });
@@ -192,9 +195,9 @@ public class WeaviateService
 
     private CollectionHandle<Map<String, Object>> collectionHandle(WeaviateTableHandle tableHandle)
     {
-        return weaviateClient.collections.use(
+        return weaviateClient.get().collections.use(
                 resolveTableName(tableHandle.tableName()), h -> h
-                        .consistencyLevel(consistencyLevel)
+                        .consistencyLevel(weaviateConfig.getConsistencyLevel())
                         .tenant(tableHandle.tenantIgnoreDefault()));
     }
 
