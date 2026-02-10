@@ -28,7 +28,6 @@ import static java.util.Objects.requireNonNull;
 public record WeaviateColumnHandle(String name, Type trinoType, boolean hidden)
         implements ColumnHandle
 {
-
     public WeaviateColumnHandle
     {
         requireNonNull(name, "name is null");
