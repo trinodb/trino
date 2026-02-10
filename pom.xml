@@ -2942,6 +2942,7 @@
                                     -Xep:InconsistentHashCode:ERROR \
                                     -Xep:InjectOnConstructorOfAbstractClass:ERROR \
                                     -Xep:InvalidInlineTag:ERROR \
+                                    -Xep:LongFloatConversion:ERROR \
                                     -Xep:MissingCasesInEnumSwitch:ERROR \
                                     -Xep:MissingOverride:ERROR \
                                     <!-- Sometimes our javadoc contains just a @see directive -->
