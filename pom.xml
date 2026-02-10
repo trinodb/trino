@@ -52,6 +52,7 @@
         <module>lib/trino-geospatial-toolkit</module>
         <module>lib/trino-hdfs</module>
         <module>lib/trino-hive-formats</module>
+        <module>lib/trino-lance-file</module>
         <module>lib/trino-matching</module>
         <module>lib/trino-memory-context</module>
         <module>lib/trino-metastore</module>
@@ -88,6 +89,7 @@
         <module>plugin/trino-kafka</module>
         <module>plugin/trino-kafka-event-listener</module>
         <module>plugin/trino-lakehouse</module>
+        <module>plugin/trino-lance</module>
         <module>plugin/trino-ldap-group-provider</module>
         <module>plugin/trino-loki</module>
         <module>plugin/trino-mariadb</module>
@@ -306,6 +308,12 @@
                 <version>2.41.20</version>
                 <type>pom</type>
                 <scope>import</scope>
+            </dependency>
+
+            <dependency>
+                <groupId>build.buf.gen</groupId>
+                <artifactId>lancedb_lance_protocolbuffers_java</artifactId>
+                <version>25.8.0.1.20251015015903.554c918d1601</version>
             </dependency>
 
             <dependency>
@@ -1195,6 +1203,18 @@
             <dependency>
                 <groupId>io.trino</groupId>
                 <artifactId>trino-kafka-event-listener</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.trino</groupId>
+                <artifactId>trino-lance</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.trino</groupId>
+                <artifactId>trino-lance-file</artifactId>
                 <version>${project.version}</version>
             </dependency>
 
@@ -2339,6 +2359,13 @@
                 <version>${dep.confluent.version}</version>
                 <!-- This is under Confluent Community License and it should not be used with compile scope -->
                 <scope>provided</scope>
+            </dependency>
+
+            <dependency>
+                <groupId>com.lancedb</groupId>
+                <artifactId>lance-core</artifactId>
+                <version>0.38.3-beta.4</version>
+                <scope>test</scope>
             </dependency>
 
             <dependency>
