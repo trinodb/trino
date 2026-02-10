@@ -40,8 +40,7 @@ import static io.airlift.configuration.ConfigurationLoader.loadPropertiesFrom;
 import static java.util.Objects.requireNonNull;
 
 public class CatalogStoreManager
-        implements CatalogStore
-{
+        implements CatalogStore {
     private static final Logger log = Logger.get(CatalogStoreManager.class);
     private static final File CATALOG_STORE_CONFIGURATION = new File("etc/catalog-store.properties");
     private final Map<String, CatalogStoreFactory> catalogStoreFactories = new ConcurrentHashMap<>();
@@ -50,16 +49,15 @@ public class CatalogStoreManager
     private final String catalogStoreKind;
 
     @Inject
-    public CatalogStoreManager(SecretsResolver secretsResolver, CatalogStoreConfig catalogStoreConfig)
-    {
+    public CatalogStoreManager(SecretsResolver secretsResolver, CatalogStoreConfig catalogStoreConfig) {
         this.secretsResolver = requireNonNull(secretsResolver, "secretsResolver is null");
         this.catalogStoreKind = requireNonNull(catalogStoreConfig.getCatalogStoreKind(), "catalogStoreKind is null");
         addCatalogStoreFactory(new InMemoryCatalogStoreFactory());
         addCatalogStoreFactory(new FileCatalogStoreFactory());
+        addCatalogStoreFactory(new JdbcCatalogStoreFactory());
     }
 
-    public void addCatalogStoreFactory(CatalogStoreFactory catalogStoreFactory)
-    {
+    public void addCatalogStoreFactory(CatalogStoreFactory catalogStoreFactory) {
         requireNonNull(catalogStoreFactory, "catalogStoreFactory is null");
 
         if (catalogStoreFactories.putIfAbsent(catalogStoreFactory.getName(), catalogStoreFactory) != null) {
@@ -67,14 +65,12 @@ public class CatalogStoreManager
         }
     }
 
-    public void loadConfiguredCatalogStore()
-    {
+    public void loadConfiguredCatalogStore() {
         loadConfiguredCatalogStore(catalogStoreKind, CATALOG_STORE_CONFIGURATION);
     }
 
     @VisibleForTesting
-    void loadConfiguredCatalogStore(String catalogStoreName, File catalogStoreFile)
-    {
+    void loadConfiguredCatalogStore(String catalogStoreName, File catalogStoreFile) {
         if (configuredCatalogStore.get().isPresent()) {
             return;
         }
@@ -82,8 +78,7 @@ public class CatalogStoreManager
         if (catalogStoreFile.exists()) {
             try {
                 properties = new HashMap<>(loadPropertiesFrom(catalogStoreFile.getPath()));
-            }
-            catch (IOException e) {
+            } catch (IOException e) {
                 throw new UncheckedIOException("Failed to read configuration file: " + catalogStoreFile, e);
             }
         }
@@ -91,8 +86,7 @@ public class CatalogStoreManager
     }
 
     @VisibleForTesting
-    protected void setConfiguredCatalogStore(String name, Map<String, String> properties)
-    {
+    protected void setConfiguredCatalogStore(String name, Map<String, String> properties) {
         requireNonNull(name, "name is null");
         requireNonNull(properties, "properties is null");
 
@@ -112,38 +106,32 @@ public class CatalogStoreManager
     }
 
     @VisibleForTesting
-    protected void setConfiguredCatalogStore(CatalogStore catalogStore)
-    {
+    protected void setConfiguredCatalogStore(CatalogStore catalogStore) {
         checkState(configuredCatalogStore.compareAndSet(Optional.empty(), Optional.of(catalogStore)), "catalogStore is already set");
     }
 
     @Override
-    public Collection<StoredCatalog> getCatalogs()
-    {
+    public Collection<StoredCatalog> getCatalogs() {
         return getCatalogStore().getCatalogs();
     }
 
     @Override
-    public CatalogProperties createCatalogProperties(CatalogName catalogName, ConnectorName connectorName, Map<String, String> properties)
-    {
+    public CatalogProperties createCatalogProperties(CatalogName catalogName, ConnectorName connectorName, Map<String, String> properties) {
         return getCatalogStore().createCatalogProperties(catalogName, connectorName, properties);
     }
 
     @Override
-    public void addOrReplaceCatalog(CatalogProperties catalogProperties)
-    {
+    public void addOrReplaceCatalog(CatalogProperties catalogProperties) {
         getCatalogStore().addOrReplaceCatalog(catalogProperties);
     }
 
     @Override
-    public void removeCatalog(CatalogName catalogName)
-    {
+    public void removeCatalog(CatalogName catalogName) {
         getCatalogStore().removeCatalog(catalogName);
     }
 
     @VisibleForTesting
-    public CatalogStore getCatalogStore()
-    {
+    public CatalogStore getCatalogStore() {
         return configuredCatalogStore.get().orElseThrow(() -> new IllegalStateException("Catalog store is not configured"));
     }
 }
