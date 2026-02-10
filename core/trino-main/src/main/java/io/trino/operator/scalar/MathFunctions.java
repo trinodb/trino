@@ -1119,7 +1119,7 @@ public final class MathFunctions
         @SqlType("decimal(1,0)")
         public static long signDecimalShort(@SqlType("decimal(p, s)") long num)
         {
-            return (long) Math.signum(num);
+            return Long.signum(num);
         }
 
         @LiteralParameters({"p", "s"})
@@ -1140,7 +1140,7 @@ public final class MathFunctions
     @SqlType(StandardTypes.BIGINT)
     public static long sign(@SqlType(StandardTypes.BIGINT) long num)
     {
-        return (long) Math.signum(num);
+        return Long.signum(num);
     }
 
     @Description("Signum")
@@ -1148,7 +1148,7 @@ public final class MathFunctions
     @SqlType(StandardTypes.INTEGER)
     public static long signInteger(@SqlType(StandardTypes.INTEGER) long num)
     {
-        return (long) Math.signum(num);
+        return Long.signum(num);
     }
 
     @Description("Signum")
@@ -1156,7 +1156,7 @@ public final class MathFunctions
     @SqlType(StandardTypes.SMALLINT)
     public static long signSmallint(@SqlType(StandardTypes.SMALLINT) long num)
     {
-        return (long) Math.signum(num);
+        return Long.signum(num);
     }
 
     @Description("Signum")
@@ -1164,7 +1164,7 @@ public final class MathFunctions
     @SqlType(StandardTypes.TINYINT)
     public static long signTinyint(@SqlType(StandardTypes.TINYINT) long num)
     {
-        return (long) Math.signum(num);
+        return Long.signum(num);
     }
 
     @Description("Signum")
