@@ -24,7 +24,7 @@ import static io.trino.testing.TestingSession.testSessionBuilder;
 
 public final class WeaviateQueryRunner
 {
-    static final String WEAVIATE = "weaviate";
+    static final String CATALOG_NAME = "weaviate";
 
     private WeaviateQueryRunner()
     {
@@ -35,12 +35,12 @@ public final class WeaviateQueryRunner
         HostAndPort httpAddress = weaviateServer.getHttpAddress();
         HostAndPort grpcAddress = weaviateServer.getGrpcAddress();
         return new Builder(weaviateServer)
-                .addConnectorProperty("scheme", "http")
-                .addConnectorProperty("http-host", "localhost")
-                .addConnectorProperty("grpc-host", "localhost")
-                .addConnectorProperty("http-port", String.valueOf(httpAddress.getPort()))
-                .addConnectorProperty("grpc-port", String.valueOf(grpcAddress.getPort()))
-                .addConnectorProperty("consistency-level", "ONE");
+                .addConnectorProperty("weaviate.scheme", "http")
+                .addConnectorProperty("weaviate.http-host", "localhost")
+                .addConnectorProperty("weaviate.grpc-host", "localhost")
+                .addConnectorProperty("weaviate.http-port", String.valueOf(httpAddress.getPort()))
+                .addConnectorProperty("weaviate.grpc-port", String.valueOf(grpcAddress.getPort()))
+                .addConnectorProperty("weaviate.consistency-level", "ONE");
     }
 
     public static class Builder
@@ -51,13 +51,13 @@ public final class WeaviateQueryRunner
 
         private Builder(WeaviateServer weaviateServer)
         {
-            super(testSessionBuilder().setCatalog(WEAVIATE).setSchema("default").build());
+            super(testSessionBuilder().setCatalog(CATALOG_NAME).setSchema("default").build());
             this.weaviateServer = weaviateServer;
         }
 
         private Builder addConnectorProperty(String key, String value)
         {
-            this.connectorProperties.put(WEAVIATE + "." + key, value);
+            this.connectorProperties.put(key, value);
             return this;
         }
 
@@ -68,7 +68,7 @@ public final class WeaviateQueryRunner
             DistributedQueryRunner queryRunner = super.build();
             try {
                 queryRunner.installPlugin(new WeaviatePlugin());
-                queryRunner.createCatalog(WEAVIATE, WEAVIATE, connectorProperties);
+                queryRunner.createCatalog(CATALOG_NAME, "weaviate", connectorProperties);
                 queryRunner.registerResource(weaviateServer);
                 return queryRunner;
             }

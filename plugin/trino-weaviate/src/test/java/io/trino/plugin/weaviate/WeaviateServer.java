@@ -15,12 +15,10 @@ package io.trino.plugin.weaviate;
 
 import com.google.common.net.HostAndPort;
 import io.weaviate.client6.v1.api.WeaviateClient;
-import org.testcontainers.containers.Network;
 import org.testcontainers.weaviate.WeaviateContainer;
 
 import java.io.Closeable;
 import java.io.IOException;
-import java.time.Duration;
 
 public class WeaviateServer
         implements Closeable
@@ -36,24 +34,12 @@ public class WeaviateServer
 
     public WeaviateServer(String image)
     {
-        this(Network.SHARED, image);
-    }
-
-    public WeaviateServer(Network network, String image)
-    {
         container = new WeaviateContainer(image);
-        container.withNetwork(network);
-        container.withNetworkAliases("weaviate-server");
-        container.withStartupTimeout(Duration.ofMinutes(5));
-
         container.start();
     }
 
     public WeaviateClient getClient()
     {
-        if (!container.isRunning()) {
-            container.start();
-        }
         HostAndPort http = getHttpAddress();
         HostAndPort grpc = getGrpcAddress();
         return WeaviateClient.connectToLocal(
