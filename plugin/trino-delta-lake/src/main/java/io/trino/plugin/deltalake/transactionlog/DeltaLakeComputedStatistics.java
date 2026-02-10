@@ -22,6 +22,7 @@ import io.trino.spi.statistics.ComputedStatistics;
 import io.trino.spi.type.Type;
 
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.OptionalLong;
 
@@ -63,7 +64,7 @@ public final class DeltaLakeComputedStatistics
                 .map(stats -> Map.entry(lowercaseToColumnsHandles.get(stats.getKey().getColumnName()).basePhysicalColumnName(), getBigintValue(stats.getValue())))
                 .filter(stats -> stats.getValue().isPresent())
                 .map(nonNullCount -> Map.entry(nonNullCount.getKey(), rowCount - nonNullCount.getValue().getAsLong()))
-                .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
+                .collect(toImmutableMap(Entry::getKey, Entry::getValue));
     }
 
     private static Map<String, Object> getColumnStatistics(ComputedStatistics statistics, ColumnStatisticType statisticType, Map</* lowercase */ String, DeltaLakeColumnHandle> lowercaseToColumnsHandles)
@@ -74,10 +75,10 @@ public final class DeltaLakeComputedStatistics
                 .map(stats -> mapSingleStatisticsValueToJsonRepresentation(stats, lowercaseToColumnsHandles))
                 .filter(Optional::isPresent)
                 .flatMap(Optional::stream)
-                .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
+                .collect(toImmutableMap(Entry::getKey, Entry::getValue));
     }
 
-    private static Optional<Map.Entry<String, Object>> mapSingleStatisticsValueToJsonRepresentation(Map.Entry<ColumnStatisticMetadata, Block> statistics, Map</* lowercase */ String, DeltaLakeColumnHandle> lowercaseToColumnsHandles)
+    private static Optional<Entry<String, Object>> mapSingleStatisticsValueToJsonRepresentation(Entry<ColumnStatisticMetadata, Block> statistics, Map</* lowercase */ String, DeltaLakeColumnHandle> lowercaseToColumnsHandles)
     {
         Type columnType = lowercaseToColumnsHandles.get(statistics.getKey().getColumnName()).basePhysicalType();
         String physicalName = lowercaseToColumnsHandles.get(statistics.getKey().getColumnName()).basePhysicalColumnName();

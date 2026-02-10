@@ -93,6 +93,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.OptionalLong;
@@ -1572,7 +1573,7 @@ public abstract class BaseHiveConnectorTest
         data.put("2019-01-01", new TypeAndEstimate(DateType.DATE, new EstimatedStatsAndCost(1.0, 13.0, 13.0, 0.0, 0.0)));
         data.put("2019-01-01 23:22:21.123", new TypeAndEstimate(TimestampType.TIMESTAMP_MILLIS, new EstimatedStatsAndCost(1.0, 17.0, 17.0, 0.0, 0.0)));
         int index = 0;
-        for (Map.Entry<Object, TypeAndEstimate> entry : data.entrySet()) {
+        for (Entry<Object, TypeAndEstimate> entry : data.entrySet()) {
             index++;
             Type type = entry.getValue().type;
             EstimatedStatsAndCost estimate = entry.getValue().estimate;

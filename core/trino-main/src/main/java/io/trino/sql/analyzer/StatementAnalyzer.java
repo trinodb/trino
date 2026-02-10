@@ -291,6 +291,7 @@ import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Set;
@@ -1921,7 +1922,7 @@ class StatementAnalyzer
                     argumentAnalysis.getTableArgumentAnalysis().ifPresent(tableArgumentAnalyses::add);
                 }
                 // apply defaults for not specified arguments
-                for (Map.Entry<String, ArgumentSpecification> entry : argumentSpecificationsByName.entrySet()) {
+                for (Entry<String, ArgumentSpecification> entry : argumentSpecificationsByName.entrySet()) {
                     ArgumentSpecification argumentSpecification = entry.getValue();
                     passedArguments.put(argumentSpecification.getName(), analyzeDefault(argumentSpecification, errorLocation));
                 }

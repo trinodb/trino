@@ -35,7 +35,7 @@ import io.trino.sql.planner.plan.Patterns;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.ProjectNode;
 
-import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -224,7 +224,7 @@ public class TransformCorrelatedGlobalAggregationWithoutProjection
         AggregationNode globalAggregation = captures.get(AGGREGATION);
         ImmutableMap.Builder<Symbol, Symbol> masks = ImmutableMap.builder();
         Assignments.Builder assignmentsBuilder = Assignments.builder();
-        for (Map.Entry<Symbol, Aggregation> entry : globalAggregation.getAggregations().entrySet()) {
+        for (Entry<Symbol, Aggregation> entry : globalAggregation.getAggregations().entrySet()) {
             Aggregation aggregation = entry.getValue();
             if (aggregation.getMask().isPresent()) {
                 Symbol newMask = context.getSymbolAllocator().newSymbol("mask", BOOLEAN);

@@ -96,6 +96,7 @@ import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.OptionalInt;
@@ -4321,7 +4322,7 @@ public abstract class BaseIcebergConnectorTest
             Map<String, ColumnHandle> columns = metadata.getColumnHandles(session, table);
             TupleDomain<ColumnHandle> domains = TupleDomain.withColumnDomains(
                     filter.entrySet().stream()
-                            .collect(toImmutableMap(entry -> columns.get(entry.getKey()), Map.Entry::getValue)));
+                            .collect(toImmutableMap(entry -> columns.get(entry.getKey()), Entry::getValue)));
 
             Optional<ConstraintApplicationResult<TableHandle>> result = metadata.applyFilter(session, table, new Constraint(domains));
 
@@ -4331,10 +4332,10 @@ public abstract class BaseIcebergConnectorTest
                 IcebergTableHandle newTable = (IcebergTableHandle) result.get().getHandle().connectorHandle();
 
                 assertThat(newTable.getEnforcedPredicate()).isEqualTo(TupleDomain.withColumnDomains(expectedEnforcedPredicate.entrySet().stream()
-                        .collect(toImmutableMap(entry -> columns.get(entry.getKey()), Map.Entry::getValue))));
+                        .collect(toImmutableMap(entry -> columns.get(entry.getKey()), Entry::getValue))));
 
                 assertThat(newTable.getUnenforcedPredicate()).isEqualTo(TupleDomain.withColumnDomains(expectedUnenforcedPredicate.entrySet().stream()
-                        .collect(toImmutableMap(entry -> columns.get(entry.getKey()), Map.Entry::getValue))));
+                        .collect(toImmutableMap(entry -> columns.get(entry.getKey()), Entry::getValue))));
             }
         });
     }
@@ -7020,7 +7021,7 @@ public abstract class BaseIcebergConnectorTest
                         assertThat(query("SELECT * FROM " + tableName)).matches("SELECT * FROM nation");
 
                         // Verify number of files per suffix
-                        for (Map.Entry<IcebergFileFormat, Integer> entry : fileCounter.buildOrThrow().entrySet()) {
+                        for (Entry<IcebergFileFormat, Integer> entry : fileCounter.buildOrThrow().entrySet()) {
                             assertThat(query(format("SELECT count(*) FROM \"%s$files\" WHERE file_path LIKE '%%.%s'", tableName, entry.getKey().name().toLowerCase(ENGLISH))))
                                     .matches("SELECT BIGINT '1'");
                         }
@@ -7082,7 +7083,7 @@ public abstract class BaseIcebergConnectorTest
                     assertThat(query("SELECT * FROM " + tableName)).matches("SELECT * FROM nation");
 
                     // Verify number of files per suffix
-                    for (Map.Entry<IcebergFileFormat, Integer> entry : fileCounter.buildOrThrow().entrySet()) {
+                    for (Entry<IcebergFileFormat, Integer> entry : fileCounter.buildOrThrow().entrySet()) {
                         assertThat(query(format("SELECT count(*) FROM \"%s$files\" WHERE file_path LIKE '%%.%s'", tableName, entry.getKey().name().toLowerCase(ENGLISH))))
                                 .matches("SELECT BIGINT '1'");
                     }

@@ -40,6 +40,7 @@ import io.trino.sql.planner.plan.ProjectNode;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -321,7 +322,7 @@ public class PushPartialAggregationThroughJoin
     private PlanNode toIntermediateAggregation(AggregationNode partialAggregation, PlanNode source, Context context)
     {
         ImmutableMap.Builder<Symbol, Aggregation> intermediateAggregation = ImmutableMap.builder();
-        for (Map.Entry<Symbol, AggregationNode.Aggregation> entry : partialAggregation.getAggregations().entrySet()) {
+        for (Entry<Symbol, AggregationNode.Aggregation> entry : partialAggregation.getAggregations().entrySet()) {
             AggregationNode.Aggregation aggregation = entry.getValue();
             ResolvedFunction resolvedFunction = aggregation.getResolvedFunction();
 

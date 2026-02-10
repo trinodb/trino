@@ -43,6 +43,7 @@ import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -1012,7 +1013,7 @@ public class TestHiveStorageFormats
             setSessionProperty(connection, "task_min_writer_count", "4");
             setSessionProperty(connection, "task_scale_writers_enabled", "false");
             setSessionProperty(connection, "redistribute_writes", "false");
-            for (Map.Entry<String, String> sessionProperty : sessionProperties.entrySet()) {
+            for (Entry<String, String> sessionProperty : sessionProperties.entrySet()) {
                 setSessionProperty(connection, sessionProperty.getKey(), sessionProperty.getValue());
             }
         }

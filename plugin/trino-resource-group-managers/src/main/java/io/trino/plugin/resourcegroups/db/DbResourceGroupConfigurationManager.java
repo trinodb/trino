@@ -45,6 +45,7 @@ import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -231,7 +232,7 @@ public class DbResourceGroupConfigurationManager
     public synchronized void load()
     {
         try {
-            Map.Entry<ManagerSpec, Map<ResourceGroupIdTemplate, ResourceGroupSpec>> specsFromDb = buildSpecsFromDb();
+            Entry<ManagerSpec, Map<ResourceGroupIdTemplate, ResourceGroupSpec>> specsFromDb = buildSpecsFromDb();
             ManagerSpec managerSpec = specsFromDb.getKey();
             Map<ResourceGroupIdTemplate, ResourceGroupSpec> newResourceGroupSpecs = specsFromDb.getValue();
             Map<ResourceGroupIdTemplate, Set<ResourceGroup>> templateToGroup = configuredGroups.getAllTemplateToGroupsMappings();
@@ -259,7 +260,7 @@ public class DbResourceGroupConfigurationManager
                 for (ResourceGroup deleted : deletedGroups) {
                     log.info("Resource group deleted '%s'", deleted.getId());
                 }
-                for (Map.Entry<ResourceGroup, ResourceGroupSpec> entry : changedGroups.entrySet()) {
+                for (Entry<ResourceGroup, ResourceGroupSpec> entry : changedGroups.entrySet()) {
                     log.info("Resource group '%s' changed to %s", entry.getKey().getId(), entry.getValue());
                 }
             }
@@ -283,7 +284,7 @@ public class DbResourceGroupConfigurationManager
             Map<ResourceGroupIdTemplate, ResourceGroupSpec> newResourceGroupSpecs)
     {
         ImmutableMap.Builder<ResourceGroup, ResourceGroupSpec> changedGroups = ImmutableMap.builder();
-        for (Map.Entry<ResourceGroupIdTemplate, Set<ResourceGroup>> entry : templateToGroups.entrySet()) {
+        for (Entry<ResourceGroupIdTemplate, Set<ResourceGroup>> entry : templateToGroups.entrySet()) {
             ResourceGroupSpec newSpec = newResourceGroupSpecs.get(entry.getKey());
             if (newSpec != null) {
                 Set<ResourceGroup> changedGroupsForCurrentTemplate = entry.getValue().stream()
@@ -330,7 +331,7 @@ public class DbResourceGroupConfigurationManager
         }
     }
 
-    private synchronized Map.Entry<ManagerSpec, Map<ResourceGroupIdTemplate, ResourceGroupSpec>> buildSpecsFromDb()
+    private synchronized Entry<ManagerSpec, Map<ResourceGroupIdTemplate, ResourceGroupSpec>> buildSpecsFromDb()
     {
         // New resource group spec map
         Map<ResourceGroupIdTemplate, ResourceGroupSpec> resourceGroupSpecs = new HashMap<>();
@@ -403,7 +404,7 @@ public class DbResourceGroupConfigurationManager
 
     private synchronized void configureChangedGroups(Map<ResourceGroup, ResourceGroupSpec> changedGroups)
     {
-        for (Map.Entry<ResourceGroup, ResourceGroupSpec> entry : changedGroups.entrySet()) {
+        for (Entry<ResourceGroup, ResourceGroupSpec> entry : changedGroups.entrySet()) {
             ResourceGroup group = entry.getKey();
             ResourceGroupSpec groupSpec = entry.getValue();
             synchronized (getRootGroup(group.getId())) {
@@ -482,7 +483,7 @@ public class DbResourceGroupConfigurationManager
         synchronized Map<ResourceGroupIdTemplate, Set<ResourceGroup>> getAllTemplateToGroupsMappings()
         {
             return templateToGroups.entrySet().stream()
-                    .collect(toImmutableMap(Map.Entry::getKey, entry -> ImmutableSet.copyOf(entry.getValue())));
+                    .collect(toImmutableMap(Entry::getKey, entry -> ImmutableSet.copyOf(entry.getValue())));
         }
     }
 }

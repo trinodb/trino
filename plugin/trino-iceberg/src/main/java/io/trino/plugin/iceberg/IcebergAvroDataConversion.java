@@ -53,6 +53,7 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.UUID;
 import java.util.stream.IntStream;
 
@@ -333,7 +334,7 @@ public final class IcebergAvroDataConversion
             org.apache.iceberg.types.Type keyIcebergType = icebergType.asMapType().keyType();
             org.apache.iceberg.types.Type valueIcebergType = icebergType.asMapType().valueType();
             ((MapBlockBuilder) builder).buildEntry((keyBuilder, valueBuilder) -> {
-                for (Map.Entry<?, ?> entry : map.entrySet()) {
+                for (Entry<?, ?> entry : map.entrySet()) {
                     serializeToTrinoBlock(keyType, keyIcebergType, keyBuilder, entry.getKey());
                     serializeToTrinoBlock(valueType, valueIcebergType, valueBuilder, entry.getValue());
                 }

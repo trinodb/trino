@@ -64,6 +64,7 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.function.BiFunction;
@@ -836,14 +837,14 @@ public class QueryAssertions
                 return run("VALUES ROW(%s)".formatted(expression));
             }
 
-            List<Map.Entry<String, String>> entries = ImmutableList.copyOf(bindings.entrySet());
+            List<Entry<String, String>> entries = ImmutableList.copyOf(bindings.entrySet());
 
             List<String> columns = entries.stream()
-                    .map(Map.Entry::getKey)
+                    .map(Entry::getKey)
                     .collect(toList());
 
             List<String> values = entries.stream()
-                    .map(Map.Entry::getValue)
+                    .map(Entry::getValue)
                     .collect(toList());
 
             // Evaluate the expression using two modes:

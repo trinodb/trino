@@ -34,6 +34,7 @@ import io.trino.sql.planner.rowpattern.ir.IrLabel;
 
 import java.util.Collection;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Set;
 
 import static io.trino.matching.Capture.newCapture;
@@ -178,7 +179,7 @@ public final class MergePatternRecognitionNodes
             return false;
         }
 
-        for (Map.Entry<IrLabel, ExpressionAndValuePointers> parentDefinition : parentVariableDefinitions.entrySet()) {
+        for (Entry<IrLabel, ExpressionAndValuePointers> parentDefinition : parentVariableDefinitions.entrySet()) {
             IrLabel label = parentDefinition.getKey();
             ExpressionAndValuePointers parentExpression = parentDefinition.getValue();
             ExpressionAndValuePointers childExpression = childVariableDefinitions.get(label);

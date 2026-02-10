@@ -50,6 +50,7 @@ import java.net.URI;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -505,7 +506,7 @@ public class HeartbeatFailureDetector
         public synchronized Map<String, Double> getRecentFailuresByType()
         {
             ImmutableMap.Builder<String, Double> builder = ImmutableMap.builder();
-            for (Map.Entry<Class<? extends Throwable>, DecayCounter> entry : failureCountByType.entrySet()) {
+            for (Entry<Class<? extends Throwable>, DecayCounter> entry : failureCountByType.entrySet()) {
                 builder.put(entry.getKey().getName(), entry.getValue().getCount());
             }
             return builder.buildOrThrow();

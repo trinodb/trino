@@ -27,6 +27,7 @@ import io.trino.spi.function.SqlType;
 import io.trino.spi.type.DoubleType;
 
 import java.util.Map;
+import java.util.Map.Entry;
 
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.type.StandardTypes.BIGINT;
@@ -92,7 +93,7 @@ public final class DoubleHistogramAggregation
         else {
             Map<Double, Double> value = state.get().getBuckets();
             ((MapBlockBuilder) out).buildEntry((keyBuilder, valueBuilder) -> {
-                for (Map.Entry<Double, Double> entry : value.entrySet()) {
+                for (Entry<Double, Double> entry : value.entrySet()) {
                     DoubleType.DOUBLE.writeDouble(keyBuilder, entry.getKey());
                     DoubleType.DOUBLE.writeDouble(valueBuilder, entry.getValue());
                 }

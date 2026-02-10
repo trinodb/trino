@@ -35,7 +35,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
+import java.util.Map.Entry;
 import java.util.function.Function;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -64,7 +64,7 @@ public class TestHiveCompatibility
         // only admin user is allowed to change session properties
         setAdminRole(onTrino().getConnection());
 
-        for (Map.Entry<String, String> sessionProperty : storageFormat.getSessionProperties().entrySet()) {
+        for (Entry<String, String> sessionProperty : storageFormat.getSessionProperties().entrySet()) {
             setSessionProperty(onTrino().getConnection(), sessionProperty.getKey(), sessionProperty.getValue());
         }
 

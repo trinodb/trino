@@ -41,6 +41,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Properties;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
@@ -252,7 +253,7 @@ public final class TestingKafka
     private static Properties toProperties(Map<String, String> map)
     {
         Properties properties = new Properties();
-        for (Map.Entry<String, String> entry : map.entrySet()) {
+        for (Entry<String, String> entry : map.entrySet()) {
             properties.setProperty(entry.getKey(), entry.getValue());
         }
         return properties;

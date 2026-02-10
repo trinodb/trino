@@ -31,6 +31,7 @@ import io.trino.sql.planner.plan.PlanNode;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Set;
 
@@ -131,7 +132,7 @@ public class MultipleDistinctAggregationToMarkDistinct
         Map<Symbol, Aggregation> newAggregations = new HashMap<>();
         PlanNode subPlan = parent.getSource();
 
-        for (Map.Entry<Symbol, Aggregation> entry : parent.getAggregations().entrySet()) {
+        for (Entry<Symbol, Aggregation> entry : parent.getAggregations().entrySet()) {
             Aggregation aggregation = entry.getValue();
 
             if (aggregation.isDistinct() && aggregation.getFilter().isEmpty() && aggregation.getMask().isEmpty()) {

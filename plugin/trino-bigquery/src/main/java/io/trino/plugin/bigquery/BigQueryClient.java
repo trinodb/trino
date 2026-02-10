@@ -55,6 +55,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Set;
@@ -221,7 +222,7 @@ public class BigQueryClient
             collisionTracker.computeIfAbsent(cacheKey, _ -> new HashSet<>()).add(table.getTable());
         }
 
-        for (Map.Entry<TableId, Set<String>> entry : collisionTracker.entrySet()) {
+        for (Entry<TableId, Set<String>> entry : collisionTracker.entrySet()) {
             TableId cacheKey = entry.getKey();
             Set<String> remoteNames = entry.getValue();
             if (remoteNames.size() == 1) {

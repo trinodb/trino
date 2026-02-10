@@ -21,6 +21,7 @@ import io.trino.sql.planner.PartitioningHandle;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Objects;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -118,7 +119,7 @@ public class PipelinedOutputBuffers
         }
 
         // assure we have not changed the buffer assignments
-        for (Map.Entry<OutputBufferId, Integer> entry : buffers.entrySet()) {
+        for (Entry<OutputBufferId, Integer> entry : buffers.entrySet()) {
             if (!entry.getValue().equals(newOutputBuffers.getBuffers().get(entry.getKey()))) {
                 throw new IllegalArgumentException("newOutputBuffers has changed the assignment for task " + entry.getKey());
             }
@@ -152,7 +153,7 @@ public class PipelinedOutputBuffers
         requireNonNull(buffers, "buffers is null");
 
         Map<OutputBufferId, Integer> newBuffers = new HashMap<>();
-        for (Map.Entry<OutputBufferId, Integer> entry : buffers.entrySet()) {
+        for (Entry<OutputBufferId, Integer> entry : buffers.entrySet()) {
             OutputBufferId bufferId = entry.getKey();
             int partition = entry.getValue();
 

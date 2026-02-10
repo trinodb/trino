@@ -61,6 +61,7 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
@@ -237,7 +238,7 @@ public final class MigrationUtils
             else {
                 List<String> partitionNames = partitionFilter == null ? ImmutableList.of() : ImmutableList.of(PARTITION_JOINER.join(partitionFilter));
                 Map<String, Optional<Partition>> partitions = metastore.getPartitionsByNames(sourceTable, partitionNames);
-                for (Map.Entry<String, Optional<Partition>> partition : partitions.entrySet()) {
+                for (Entry<String, Optional<Partition>> partition : partitions.entrySet()) {
                     Storage storage = partition.getValue().orElseThrow(() -> new IllegalArgumentException("Invalid partition: " + partition.getKey())).getStorage();
                     log.debug("Building data files from partition: %s", partition);
                     HiveStorageFormat partitionStorageFormat = extractHiveStorageFormat(storage.getStorageFormat());

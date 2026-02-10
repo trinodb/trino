@@ -20,6 +20,7 @@ import org.junit.jupiter.api.Test;
 
 import java.util.HashSet;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -122,10 +123,10 @@ public class TestNumericHistogram
         }
 
         NumericHistogram expected = new NumericHistogram(10, 1000);
-        for (Map.Entry<Double, Double> entry : histogram1.getBuckets().entrySet()) {
+        for (Entry<Double, Double> entry : histogram1.getBuckets().entrySet()) {
             expected.add(entry.getKey(), entry.getValue());
         }
-        for (Map.Entry<Double, Double> entry : histogram2.getBuckets().entrySet()) {
+        for (Entry<Double, Double> entry : histogram2.getBuckets().entrySet()) {
             expected.add(entry.getKey(), entry.getValue());
         }
         expected.compact();

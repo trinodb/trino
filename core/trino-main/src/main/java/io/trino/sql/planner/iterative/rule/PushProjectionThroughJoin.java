@@ -27,7 +27,7 @@ import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.ProjectNode;
 
 import java.util.List;
-import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Set;
 
@@ -66,7 +66,7 @@ public final class PushProjectionThroughJoin
 
         Assignments.Builder leftAssignmentsBuilder = Assignments.builder();
         Assignments.Builder rightAssignmentsBuilder = Assignments.builder();
-        for (Map.Entry<Symbol, Expression> assignment : projectNode.getAssignments().entrySet()) {
+        for (Entry<Symbol, Expression> assignment : projectNode.getAssignments().entrySet()) {
             Expression expression = assignment.getValue();
             Set<Symbol> symbols = extractUnique(expression);
             if (leftChild.getOutputSymbols().containsAll(symbols)) {

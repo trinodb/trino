@@ -69,6 +69,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -214,7 +215,7 @@ public class MigrateProcedure
             else {
                 Map<String, Optional<Partition>> partitions = listAllPartitions(metastore, hiveTable);
                 int fileCount = 1;
-                for (Map.Entry<String, Optional<Partition>> partition : partitions.entrySet()) {
+                for (Entry<String, Optional<Partition>> partition : partitions.entrySet()) {
                     Storage storage = partition.getValue().orElseThrow().getStorage();
                     log.debug("Building data files from '%s' for partition %d of %d", storage.getLocation(), fileCount++, partitions.size());
                     HiveStorageFormat partitionStorageFormat = extractHiveStorageFormat(storage.getStorageFormat());

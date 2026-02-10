@@ -90,6 +90,7 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -381,7 +382,7 @@ public final class PropertyDerivations
         public ActualProperties visitGroupId(GroupIdNode node, List<ActualProperties> inputProperties)
         {
             Map<Symbol, Symbol> inputToOutputMappings = new HashMap<>();
-            for (Map.Entry<Symbol, Symbol> setMapping : node.getGroupingColumns().entrySet()) {
+            for (Entry<Symbol, Symbol> setMapping : node.getGroupingColumns().entrySet()) {
                 if (node.getCommonGroupingColumns().contains(setMapping.getKey())) {
                     // TODO: Add support for translating a property on a single column to multiple columns
                     // when GroupIdNode is copying a single input grouping column into multiple output grouping columns (i.e. aliases), this is basically picking one arbitrarily
@@ -661,7 +662,7 @@ public final class PropertyDerivations
         {
             checkArgument(node.getScope() != REMOTE || inputProperties.stream().noneMatch(ActualProperties::isNullsAndAnyReplicated), "Null-and-any replicated inputs should not be remotely exchanged");
 
-            Set<Map.Entry<Symbol, NullableValue>> entries = null;
+            Set<Entry<Symbol, NullableValue>> entries = null;
             for (int sourceIndex = 0; sourceIndex < node.getSources().size(); sourceIndex++) {
                 Map<Symbol, Symbol> inputToOutput = exchangeInputToOutput(node, sourceIndex);
                 ActualProperties translated = inputProperties.get(sourceIndex).translate(symbol -> Optional.ofNullable(inputToOutput.get(symbol)));
@@ -671,7 +672,7 @@ public final class PropertyDerivations
             checkState(entries != null);
 
             Map<Symbol, NullableValue> constants = entries.stream()
-                    .collect(toMap(Map.Entry::getKey, Map.Entry::getValue));
+                    .collect(toMap(Entry::getKey, Entry::getValue));
 
             ImmutableList.Builder<LocalProperty<Symbol>> localProperties = ImmutableList.builder();
             node.getOrderingScheme().ifPresent(orderingScheme -> localProperties.addAll(orderingScheme.toLocalProperties()));
@@ -766,7 +767,7 @@ public final class PropertyDerivations
 
             // Extract additional constants
             Map<Symbol, NullableValue> constants = new HashMap<>();
-            for (Map.Entry<Symbol, Expression> assignment : node.getAssignments().entrySet()) {
+            for (Entry<Symbol, Expression> assignment : node.getAssignments().entrySet()) {
                 Expression expression = assignment.getValue();
 
                 Type type = expression.type();
@@ -876,7 +877,7 @@ public final class PropertyDerivations
 
             Map<Symbol, NullableValue> symbolConstants = globalConstants.entrySet().stream()
                     .filter(entry -> assignments.containsKey(entry.getKey()))
-                    .collect(toMap(entry -> assignments.get(entry.getKey()), Map.Entry::getValue));
+                    .collect(toMap(entry -> assignments.get(entry.getKey()), Entry::getValue));
             properties.constants(symbolConstants);
 
             // Partitioning properties
@@ -910,7 +911,7 @@ public final class PropertyDerivations
         private static Map<Symbol, Symbol> computeIdentityTranslations(Map<Symbol, Expression> assignments)
         {
             Map<Symbol, Symbol> inputToOutput = new HashMap<>();
-            for (Map.Entry<Symbol, Expression> assignment : assignments.entrySet()) {
+            for (Entry<Symbol, Expression> assignment : assignments.entrySet()) {
                 if (assignment.getValue() instanceof Reference) {
                     inputToOutput.put(Symbol.from(assignment.getValue()), assignment.getKey());
                 }
@@ -980,7 +981,7 @@ public final class PropertyDerivations
         // We are using the property that the result of coalesce from full outer join keys would not be null despite of the order
         // of the arguments. Thus we extract and compare the symbols of the CoalesceExpression as a set rather than compare the
         // CoalesceExpression directly.
-        for (Map.Entry<Symbol, Expression> entry : assignments.entrySet()) {
+        for (Entry<Symbol, Expression> entry : assignments.entrySet()) {
             if (entry.getValue() instanceof Coalesce value) {
                 Set<Expression> candidateArguments = ImmutableSet.copyOf(value.operands());
                 if (!candidateArguments.stream().allMatch(Reference.class::isInstance)) {

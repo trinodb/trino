@@ -103,6 +103,7 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Set;
@@ -956,7 +957,7 @@ public class BigQueryMetadata
         ImmutableMap.Builder<ConnectorExpression, Variable> newVariablesBuilder = ImmutableMap.builder();
         ImmutableSet.Builder<BigQueryColumnHandle> projectedColumnsBuilder = ImmutableSet.builder();
 
-        for (Map.Entry<ConnectorExpression, ProjectedColumnRepresentation> entry : columnProjections.entrySet()) {
+        for (Entry<ConnectorExpression, ProjectedColumnRepresentation> entry : columnProjections.entrySet()) {
             ConnectorExpression expression = entry.getKey();
             ProjectedColumnRepresentation projectedColumn = entry.getValue();
 
@@ -1068,7 +1069,7 @@ public class BigQueryMetadata
             Map<ColumnHandle, Domain> supported = new HashMap<>();
             Map<ColumnHandle, Domain> unsupported = new HashMap<>();
 
-            for (Map.Entry<ColumnHandle, Domain> entry : domains.entrySet()) {
+            for (Entry<ColumnHandle, Domain> entry : domains.entrySet()) {
                 BigQueryColumnHandle columnHandle = (BigQueryColumnHandle) entry.getKey();
                 Domain domain = entry.getValue();
                 if (columnHandle.isPushdownSupported()) {

@@ -65,6 +65,7 @@ import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
@@ -407,11 +408,11 @@ public class PinotClient
     {
         Map<String, Map<String, List<String>>> routingTable = sendHttpGetToBrokerJson(tableName, format(ROUTING_TABLE_API_TEMPLATE, tableName), ROUTING_TABLE_CODEC);
         ImmutableMap.Builder<String, Map<String, List<String>>> routingTableMap = ImmutableMap.builder();
-        for (Map.Entry<String, Map<String, List<String>>> entry : routingTable.entrySet()) {
+        for (Entry<String, Map<String, List<String>>> entry : routingTable.entrySet()) {
             String tableNameWithType = entry.getKey();
             if (!entry.getValue().isEmpty() && tableName.equals(extractRawTableName(tableNameWithType))) {
                 ImmutableMap.Builder<String, List<String>> segmentBuilder = ImmutableMap.builder();
-                for (Map.Entry<String, List<String>> segmentEntry : entry.getValue().entrySet()) {
+                for (Entry<String, List<String>> segmentEntry : entry.getValue().entrySet()) {
                     if (!segmentEntry.getValue().isEmpty()) {
                         segmentBuilder.put(segmentEntry.getKey(), segmentEntry.getValue());
                     }

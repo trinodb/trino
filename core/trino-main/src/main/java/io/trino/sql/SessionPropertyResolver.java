@@ -33,6 +33,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Set;
 import java.util.function.Function;
 
@@ -114,7 +115,7 @@ public class SessionPropertyResolver
         systemProperties.putAll(resolvedSessionProperties.systemProperties());
 
         Map<String, Map<String, String>> catalogProperties = new HashMap<>(session.getCatalogProperties());
-        for (Map.Entry<String, Map<String, String>> catalogEntry : resolvedSessionProperties.catalogProperties().entrySet()) {
+        for (Entry<String, Map<String, String>> catalogEntry : resolvedSessionProperties.catalogProperties().entrySet()) {
             catalogProperties.computeIfAbsent(catalogEntry.getKey(), _ -> new HashMap<>())
                     .putAll(catalogEntry.getValue());
         }
@@ -124,7 +125,7 @@ public class SessionPropertyResolver
 
     private void validateSystemProperties(Session session, Map<String, String> systemProperties)
     {
-        for (Map.Entry<String, String> property : systemProperties.entrySet()) {
+        for (Entry<String, String> property : systemProperties.entrySet()) {
             // verify permissions
             accessControl.checkCanSetSystemSessionProperty(session.getIdentity(), session.getQueryId(), property.getKey());
         }
@@ -133,8 +134,8 @@ public class SessionPropertyResolver
     private void validateCatalogProperties(Session session, Map<String, Map<String, String>> catalogsProperties)
     {
         checkState(session.getTransactionId().isPresent(), "Not in transaction");
-        for (Map.Entry<String, Map<String, String>> catalogProperties : catalogsProperties.entrySet()) {
-            for (Map.Entry<String, String> catalogProperty : catalogProperties.getValue().entrySet()) {
+        for (Entry<String, Map<String, String>> catalogProperties : catalogsProperties.entrySet()) {
+            for (Entry<String, String> catalogProperty : catalogProperties.getValue().entrySet()) {
                 // verify permissions
                 accessControl.checkCanSetCatalogSessionProperty(new SecurityContext(session.getRequiredTransactionId(), session.getIdentity(), session.getQueryId(), session.getStart()), catalogProperties.getKey(), catalogProperty.getKey());
             }

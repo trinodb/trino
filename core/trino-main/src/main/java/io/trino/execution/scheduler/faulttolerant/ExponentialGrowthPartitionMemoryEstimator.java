@@ -31,6 +31,7 @@ import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -110,7 +111,7 @@ public class ExponentialGrowthPartitionMemoryEstimator
         {
             Map<String, Optional<MemoryInfo>> workerMemoryInfos = workerMemoryInfoSupplier.get();
             long maxNodePoolSizeBytes = -1;
-            for (Map.Entry<String, Optional<MemoryInfo>> entry : workerMemoryInfos.entrySet()) {
+            for (Entry<String, Optional<MemoryInfo>> entry : workerMemoryInfos.entrySet()) {
                 if (entry.getValue().isEmpty()) {
                     continue;
                 }

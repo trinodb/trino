@@ -33,6 +33,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 
 import static io.trino.testing.TestingHandles.TEST_CATALOG_NAME;
@@ -171,7 +172,7 @@ public class RuleTester
                     .setSchema("tiny")
                     .setSystemProperty("task_concurrency", "1"); // these tests don't handle exchanges from local parallel
 
-            for (Map.Entry<String, String> entry : sessionProperties.entrySet()) {
+            for (Entry<String, String> entry : sessionProperties.entrySet()) {
                 sessionBuilder.setSystemProperty(entry.getKey(), entry.getValue());
             }
 

@@ -26,7 +26,7 @@ import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.planner.plan.FilterNode;
 import io.trino.sql.planner.plan.ProjectNode;
 
-import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 
 import static io.trino.spi.type.BooleanType.BOOLEAN;
@@ -86,7 +86,7 @@ public class ImplementFilteredAggregations
         ImmutableList.Builder<Expression> maskSymbols = ImmutableList.builder();
         boolean aggregateWithoutFilterOrMaskPresent = false;
 
-        for (Map.Entry<Symbol, Aggregation> entry : aggregationNode.getAggregations().entrySet()) {
+        for (Entry<Symbol, Aggregation> entry : aggregationNode.getAggregations().entrySet()) {
             Symbol output = entry.getKey();
 
             // strip the filters

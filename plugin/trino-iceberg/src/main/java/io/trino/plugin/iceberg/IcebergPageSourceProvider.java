@@ -118,6 +118,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalLong;
@@ -668,7 +669,7 @@ public class IcebergPageSourceProvider
             Map<IcebergColumnHandle, Domain> effectivePredicateDomains = effectivePredicate.getDomains()
                     .orElseThrow(() -> new IllegalArgumentException("Effective predicate is none"));
             for (IcebergColumnHandle column : columns) {
-                for (Map.Entry<IcebergColumnHandle, Domain> domainEntry : effectivePredicateDomains.entrySet()) {
+                for (Entry<IcebergColumnHandle, Domain> domainEntry : effectivePredicateDomains.entrySet()) {
                     IcebergColumnHandle predicateColumn = domainEntry.getKey();
                     OrcColumn predicateOrcColumn = fileColumnsByIcebergId.get(predicateColumn.getId());
                     if (predicateOrcColumn != null && column.getBaseColumnIdentity().equals(predicateColumn.getBaseColumnIdentity())) {

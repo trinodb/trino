@@ -56,6 +56,7 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -296,10 +297,10 @@ public class DeduplicatingDirectExchangeBuffer
 
         Map<TaskId, Throwable> failures = failedTasks.entrySet().stream()
                 .filter(entry -> entry.getKey().attemptId() == maxAttemptId)
-                .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
+                .collect(toImmutableMap(Entry::getKey, Entry::getValue));
 
         Throwable failure = null;
-        for (Map.Entry<TaskId, Throwable> entry : failures.entrySet()) {
+        for (Entry<TaskId, Throwable> entry : failures.entrySet()) {
             TaskId taskId = entry.getKey();
             Throwable taskFailure = entry.getValue();
 
@@ -537,7 +538,7 @@ public class DeduplicatingDirectExchangeBuffer
             }
 
             if (!pageBuffer.isEmpty()) {
-                for (Map.Entry<TaskId, List<Slice>> entry : asMap(pageBuffer).entrySet()) {
+                for (Entry<TaskId, List<Slice>> entry : asMap(pageBuffer).entrySet()) {
                     writeToSink(entry.getKey(), entry.getValue());
                 }
                 pageBuffer.clear();
@@ -626,9 +627,9 @@ public class DeduplicatingDirectExchangeBuffer
 
             long removedPagesRetainedSizeInBytes = 0;
             int removedPagesCount = 0;
-            Iterator<Map.Entry<TaskId, List<Slice>>> iterator = asMap(pageBuffer).entrySet().iterator();
+            Iterator<Entry<TaskId, List<Slice>>> iterator = asMap(pageBuffer).entrySet().iterator();
             while (iterator.hasNext()) {
-                Map.Entry<TaskId, List<Slice>> entry = iterator.next();
+                Entry<TaskId, List<Slice>> entry = iterator.next();
                 TaskId taskId = entry.getKey();
                 if (taskId.attemptId() < currentAttemptId) {
                     for (Slice page : entry.getValue()) {
@@ -650,7 +651,7 @@ public class DeduplicatingDirectExchangeBuffer
             if (exchangeSink == null) {
                 Iterator<Slice> iterator = pageBuffer.entries().stream()
                         .filter(entry -> selectedTasks.contains(entry.getKey()))
-                        .map(Map.Entry::getValue)
+                        .map(Entry::getValue)
                         .iterator();
                 return new InMemoryBufferOutputSource(iterator);
             }

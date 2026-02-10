@@ -25,6 +25,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.concurrent.Callable;
 import java.util.stream.Stream;
@@ -69,7 +70,7 @@ public class PluginReader
             }
         }
         Map<String, String> modulesToPlugins = mapModulesToPlugins(rootPom);
-        Stream<Map.Entry<String, String>> modulesStream = modulesToPlugins.entrySet().stream();
+        Stream<Entry<String, String>> modulesStream = modulesToPlugins.entrySet().stream();
         if (impactedModules.isPresent()) {
             List<String> nonPluginModules = impactedModules.get().stream()
                     .filter(not(modulesToPlugins::containsKey))

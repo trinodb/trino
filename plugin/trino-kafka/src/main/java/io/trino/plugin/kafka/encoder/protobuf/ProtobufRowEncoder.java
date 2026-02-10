@@ -38,6 +38,7 @@ import io.trino.spi.type.VarcharType;
 import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -301,7 +302,7 @@ public class ProtobufRowEncoder
     {
         Descriptor descriptor = fieldDescriptor.getMessageType();
         ImmutableList.Builder<DynamicMessage> dynamicMessageListBuilder = ImmutableList.builder();
-        for (Map.Entry<Object, Object> entry : value.entrySet()) {
+        for (Entry<Object, Object> entry : value.entrySet()) {
             DynamicMessage.Builder builder = DynamicMessage.newBuilder(descriptor);
             setField(
                     descriptor.findFieldByNumber(1),

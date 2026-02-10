@@ -21,6 +21,7 @@ import io.airlift.bytecode.Variable;
 import java.lang.invoke.MethodHandle;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Map.Entry;
 
 import static io.airlift.bytecode.Access.FINAL;
 import static io.airlift.bytecode.Access.PRIVATE;
@@ -56,7 +57,7 @@ public final class CachedInstanceBinder
 
     public void generateInitializations(Variable thisVariable, BytecodeBlock block)
     {
-        for (Map.Entry<FieldDefinition, MethodHandle> entry : initializers.entrySet()) {
+        for (Entry<FieldDefinition, MethodHandle> entry : initializers.entrySet()) {
             Binding binding = callSiteBinder.bind(entry.getValue());
             block.append(thisVariable)
                     .append(invoke(binding, "instanceFieldConstructor"))

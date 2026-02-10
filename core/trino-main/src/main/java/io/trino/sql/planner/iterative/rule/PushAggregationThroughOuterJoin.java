@@ -43,6 +43,7 @@ import io.trino.sql.planner.plan.ValuesNode;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Set;
 
@@ -285,7 +286,7 @@ public class PushAggregationThroughOuterJoin
         ImmutableMap.Builder<Symbol, Symbol> aggregationsSymbolMappingBuilder = ImmutableMap.builder();
         ImmutableMap.Builder<Symbol, AggregationNode.Aggregation> aggregationsOverNullBuilder = ImmutableMap.builder();
         SymbolMapper mapper = symbolMapper(sourcesSymbolMappingBuilder.buildOrThrow());
-        for (Map.Entry<Symbol, AggregationNode.Aggregation> entry : referenceAggregation.getAggregations().entrySet()) {
+        for (Entry<Symbol, AggregationNode.Aggregation> entry : referenceAggregation.getAggregations().entrySet()) {
             Symbol aggregationSymbol = entry.getKey();
             Aggregation overNullAggregation = mapper.map(entry.getValue());
             Symbol overNullSymbol = symbolAllocator.newSymbol(overNullAggregation.getResolvedFunction().signature().getName().functionName(), aggregationSymbol.type());

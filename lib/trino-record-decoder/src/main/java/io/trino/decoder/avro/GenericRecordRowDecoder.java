@@ -21,6 +21,7 @@ import org.apache.avro.generic.GenericRecord;
 import java.util.AbstractMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Set;
 
@@ -31,7 +32,7 @@ import static java.util.Objects.requireNonNull;
 class GenericRecordRowDecoder
         implements RowDecoder
 {
-    private final List<Map.Entry<DecoderColumnHandle, AvroColumnDecoder>> columnDecoders;
+    private final List<Entry<DecoderColumnHandle, AvroColumnDecoder>> columnDecoders;
     private final AvroDeserializer<GenericRecord> deserializer;
 
     public GenericRecordRowDecoder(AvroDeserializer<GenericRecord> deserializer, Set<DecoderColumnHandle> columns)
@@ -54,6 +55,6 @@ class GenericRecordRowDecoder
             return Optional.empty();
         }
         return Optional.of(columnDecoders.stream()
-                .collect(toImmutableMap(Map.Entry::getKey, entry -> entry.getValue().decodeField(avroRecord))));
+                .collect(toImmutableMap(Entry::getKey, entry -> entry.getValue().decodeField(avroRecord))));
     }
 }

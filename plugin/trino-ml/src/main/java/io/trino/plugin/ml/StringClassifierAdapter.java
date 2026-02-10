@@ -22,6 +22,7 @@ import io.trino.plugin.ml.type.ModelType;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Map.Entry;
 
 import static com.google.common.base.Preconditions.checkState;
 import static io.trino.plugin.ml.ModelUtils.serialize;
@@ -61,7 +62,7 @@ public class StringClassifierAdapter
         output.appendBytes(classifierBytes);
         output.appendInt(labelEnumeration.size());
         // Write the enumeration keys
-        for (Map.Entry<Integer, String> entry : labelEnumeration.entrySet()) {
+        for (Entry<Integer, String> entry : labelEnumeration.entrySet()) {
             output.appendInt(entry.getKey());
             byte[] bytes = entry.getValue().getBytes(UTF_8);
             output.appendInt(bytes.length);

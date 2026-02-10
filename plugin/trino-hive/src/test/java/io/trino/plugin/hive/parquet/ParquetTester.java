@@ -85,6 +85,7 @@ import java.io.UncheckedIOException;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Properties;
@@ -763,7 +764,7 @@ class ParquetTester
                 else if (type instanceof MapType mapType) {
                     Map<?, ?> map = (Map<?, ?>) value;
                     ((MapBlockBuilder) blockBuilder).buildEntry((keyBuilder, valueBuilder) -> {
-                        for (Map.Entry<?, ?> entry : map.entrySet()) {
+                        for (Entry<?, ?> entry : map.entrySet()) {
                             writeValue(mapType.getKeyType(), keyBuilder, entry.getKey());
                             writeValue(mapType.getValueType(), valueBuilder, entry.getValue());
                         }

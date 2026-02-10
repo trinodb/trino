@@ -35,6 +35,7 @@ import io.trino.sql.planner.plan.TableFunctionNode.TableArgumentProperties;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
@@ -91,7 +92,7 @@ public class TableFunctionMatcher
         if (arguments.size() != tableFunctionNode.getArguments().size()) {
             return NO_MATCH;
         }
-        for (Map.Entry<String, ArgumentValue> entry : arguments.entrySet()) {
+        for (Entry<String, ArgumentValue> entry : arguments.entrySet()) {
             String name = entry.getKey();
             Argument actual = tableFunctionNode.getArguments().get(name);
             if (actual == null) {

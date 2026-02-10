@@ -43,7 +43,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Collection;
 import java.util.List;
-import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.concurrent.Callable;
 import java.util.stream.Stream;
@@ -162,7 +162,7 @@ public class EnvironmentDescribe
             mountsTable.addHeader(MOUNTS_LIST_HEADER);
 
             for (DockerContainer container : containers) {
-                for (Map.Entry<MountableFile, String> file : container.getCopyToFileContainerPathMap().entrySet()) {
+                for (Entry<MountableFile, String> file : container.getCopyToFileContainerPathMap().entrySet()) {
                     MountableFile mountableFile = file.getKey();
                     Path mountedFilePath = Path.of(mountableFile.getFilesystemPath());
                     boolean isDirectory = Files.isDirectory(mountedFilePath);

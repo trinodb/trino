@@ -24,6 +24,7 @@ import it.unimi.dsi.fastutil.ints.Int2DoubleOpenHashMap;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Map.Entry;
 
 import static java.lang.Math.clamp;
 
@@ -80,7 +81,7 @@ public class FeatureUnitNormalizer
     public void train(Dataset dataset)
     {
         for (FeatureVector vector : dataset.getDatapoints()) {
-            for (Map.Entry<Integer, Double> feature : vector.getFeatures().entrySet()) {
+            for (Entry<Integer, Double> feature : vector.getFeatures().entrySet()) {
                 int key = feature.getKey();
                 double value = feature.getValue();
                 if (value < mins.get(key)) {
@@ -105,7 +106,7 @@ public class FeatureUnitNormalizer
     public FeatureVector transform(FeatureVector features)
     {
         Map<Integer, Double> transformed = new HashMap<>();
-        for (Map.Entry<Integer, Double> entry : features.getFeatures().entrySet()) {
+        for (Entry<Integer, Double> entry : features.getFeatures().entrySet()) {
             int key = entry.getKey();
             double value = entry.getValue();
             if (mins.containsKey(entry.getKey())) {

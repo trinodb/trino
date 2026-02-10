@@ -21,7 +21,7 @@ import io.trino.sql.planner.plan.PlanNode;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkState;
@@ -44,10 +44,10 @@ public class SetExpressionMatcher
             return Optional.empty();
         }
 
-        List<Map.Entry<Symbol, ApplyNode.SetExpression>> matches = new ArrayList<>();
+        List<Entry<Symbol, ApplyNode.SetExpression>> matches = new ArrayList<>();
 
-        for (Map.Entry<Symbol, ApplyNode.SetExpression> entry : applyNode.getSubqueryAssignments().entrySet()) {
-            Map.Entry<Symbol, ApplyNode.SetExpression> match = switch (expression) {
+        for (Entry<Symbol, ApplyNode.SetExpression> entry : applyNode.getSubqueryAssignments().entrySet()) {
+            Entry<Symbol, ApplyNode.SetExpression> match = switch (expression) {
                 case ApplyNode.Exists _ when entry.getValue() instanceof ApplyNode.Exists -> entry;
                 case ApplyNode.In expected
                         when entry.getValue() instanceof ApplyNode.In actual &&
@@ -69,7 +69,7 @@ public class SetExpressionMatcher
 
         checkState(matches.size() <= 1, "Ambiguous expression %s matches multiple assignments: %s", expression, matches);
 
-        return matches.stream().map(Map.Entry::getKey).findFirst();
+        return matches.stream().map(Entry::getKey).findFirst();
     }
 
     private boolean matches(SymbolAliases aliases, Symbol expected, Symbol actual)

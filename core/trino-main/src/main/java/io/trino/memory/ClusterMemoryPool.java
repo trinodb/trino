@@ -25,6 +25,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
@@ -137,10 +138,10 @@ public class ClusterMemoryPool
             totalDistributedBytes += poolInfo.getMaxBytes();
             reservedDistributedBytes += poolInfo.getReservedBytes();
             reservedRevocableDistributedBytes += poolInfo.getReservedRevocableBytes();
-            for (Map.Entry<QueryId, Long> entry : poolInfo.getQueryMemoryReservations().entrySet()) {
+            for (Entry<QueryId, Long> entry : poolInfo.getQueryMemoryReservations().entrySet()) {
                 queryMemoryReservations.merge(entry.getKey(), entry.getValue(), Long::sum);
             }
-            for (Map.Entry<QueryId, List<MemoryAllocation>> entry : poolInfo.getQueryMemoryAllocations().entrySet()) {
+            for (Entry<QueryId, List<MemoryAllocation>> entry : poolInfo.getQueryMemoryAllocations().entrySet()) {
                 queryMemoryAllocations.merge(entry.getKey(), entry.getValue(), this::mergeQueryAllocations);
             }
         }

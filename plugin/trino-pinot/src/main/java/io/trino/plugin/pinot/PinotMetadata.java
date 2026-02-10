@@ -64,6 +64,7 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Set;
@@ -309,7 +310,7 @@ public class PinotMetadata
 
             Map<ColumnHandle, Domain> supported = new HashMap<>();
             Map<ColumnHandle, Domain> unsupported = new HashMap<>();
-            for (Map.Entry<ColumnHandle, Domain> entry : domains.entrySet()) {
+            for (Entry<ColumnHandle, Domain> entry : domains.entrySet()) {
                 Type columnType = ((PinotColumnHandle) entry.getKey()).getDataType();
                 if (columnType instanceof ArrayType) {
                     // Pinot does not support array literals

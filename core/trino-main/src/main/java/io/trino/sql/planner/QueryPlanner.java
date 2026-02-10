@@ -119,6 +119,7 @@ import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
@@ -1460,7 +1461,7 @@ class QueryPlanner
                 .stream()
                 .collect(Collectors.groupingBy(analysis::getWindow, LinkedHashMap::new, toUnmodifiableList()));
 
-        for (Map.Entry<ResolvedWindow, List<FunctionCall>> entry : functions.entrySet()) {
+        for (Entry<ResolvedWindow, List<FunctionCall>> entry : functions.entrySet()) {
             ResolvedWindow window = entry.getKey();
             List<FunctionCall> functionCalls = entry.getValue();
 

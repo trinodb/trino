@@ -22,6 +22,7 @@ import io.trino.sql.planner.plan.DynamicFilterId;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Map.Entry;
 
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static java.lang.Math.max;
@@ -52,7 +53,7 @@ public class DynamicFiltersCollector
 
         synchronized (this) {
             long currentVersion = ++this.currentVersion;
-            for (Map.Entry<DynamicFilterId, Domain> entry : newDynamicFilterDomains.entrySet()) {
+            for (Entry<DynamicFilterId, Domain> entry : newDynamicFilterDomains.entrySet()) {
                 dynamicFilterDomains.merge(
                         entry.getKey(),
                         new VersionedDomain(currentVersion, entry.getValue()),
@@ -89,7 +90,7 @@ public class DynamicFiltersCollector
         return new VersionedDynamicFilterDomains(
                 currentVersion,
                 dynamicFilterDomains.entrySet().stream()
-                        .collect(toImmutableMap(Map.Entry::getKey, entry -> entry.getValue().getDomain())));
+                        .collect(toImmutableMap(Entry::getKey, entry -> entry.getValue().getDomain())));
     }
 
     public static class VersionedDynamicFilterDomains
