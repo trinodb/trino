@@ -13,7 +13,10 @@
  */
 package io.trino.operator.scalar;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.io.BaseEncoding;
+import io.trino.spi.type.ArrayType;
+import io.trino.spi.type.SqlVarbinary;
 import io.trino.sql.query.QueryAssertions;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -29,11 +32,15 @@ import static io.trino.spi.function.OperatorType.INDETERMINATE;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
+import static io.trino.spi.type.RowType.field;
+import static io.trino.spi.type.RowType.rowType;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.SqlVarbinaryTestingUtil.sqlVarbinary;
 import static io.trino.testing.SqlVarbinaryTestingUtil.sqlVarbinaryFromHex;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
+import static io.trino.type.JsonType.JSON;
+import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
@@ -988,6 +995,46 @@ public class TestVarbinaryFunctions
 
         assertThat(assertions.function("reverse", "CAST('racecar' AS VARBINARY)"))
                 .isEqualTo(sqlVarbinary("racecar"));
+    }
+
+    @Test
+    public void testVarbinaryToJson()
+    {
+        assertThat(assertions.expression("CAST(binary as JSON)")
+                .binding("binary", "from_base64('" + encodeBase64("hello") + "')"))
+                .hasType(JSON)
+                .isEqualTo(format("\"%s\"", encodeBase64("hello")));
+
+        assertThat(assertions.expression("CAST(CAST(row(binary) AS row(data varbinary)) as JSON)")
+                .binding("binary", "from_base64('" + encodeBase64("hello") + "')"))
+                .hasType(JSON)
+                .isEqualTo("{\"data\":\"aGVsbG8=\"}");
+
+        assertThat(assertions.expression("CAST(ARRAY[binary] as JSON)")
+                .binding("binary", "from_base64('" + encodeBase64("hello") + "')"))
+                .hasType(JSON)
+                .isEqualTo("[\"aGVsbG8=\"]");
+    }
+
+    @Test
+    public void testJsonToVarbinary()
+    {
+        SqlVarbinary helloVarbinary = new SqlVarbinary("hello".getBytes(UTF_8));
+
+        assertThat(assertions.expression("CAST(json as VARBINARY)")
+                .binding("json", "JSON '\"" + encodeBase64("hello") + "\"'"))
+                .hasType(VARBINARY)
+                .isEqualTo(helloVarbinary);
+
+        assertThat(assertions.expression("CAST(json AS row(data varbinary))")
+                .binding("json", "JSON '{\"data\":\"aGVsbG8=\"}'"))
+                .hasType(rowType(field("data", VARBINARY)))
+                .isEqualTo(ImmutableList.of(helloVarbinary));
+
+        assertThat(assertions.expression("CAST(json AS array(varbinary))")
+                .binding("json", "JSON '[\"aGVsbG8=\"]'"))
+                .hasType(new ArrayType(VARBINARY))
+                .isEqualTo(ImmutableList.of(helloVarbinary));
     }
 
     private static String encodeBase64(byte[] value)

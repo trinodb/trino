@@ -51,6 +51,7 @@ import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.TinyintType;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.VarbinaryType;
 import io.trino.spi.type.VarcharType;
 import io.trino.type.BigintOperators;
 import io.trino.type.BooleanOperators;
@@ -65,6 +66,7 @@ import java.io.OutputStream;
 import java.io.Reader;
 import java.math.BigDecimal;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
@@ -90,6 +92,7 @@ import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TinyintType.TINYINT;
+import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.UNBOUNDED_LENGTH;
 import static io.trino.type.DateTimes.formatTimestamp;
 import static io.trino.type.JsonType.JSON;
@@ -164,6 +167,7 @@ public final class JsonUtil
                 type instanceof DoubleType ||
                 type instanceof DecimalType ||
                 type instanceof VarcharType ||
+                type instanceof VarbinaryType ||
                 type instanceof JsonType ||
                 type instanceof TimestampType ||
                 type instanceof DateType) {
@@ -194,6 +198,7 @@ public final class JsonUtil
                 type instanceof DoubleType ||
                 type instanceof DecimalType ||
                 type instanceof VarcharType ||
+                type instanceof VarbinaryType ||
                 type instanceof JsonType) {
             return true;
         }
@@ -301,6 +306,9 @@ public final class JsonUtil
             }
             if (type instanceof VarcharType) {
                 return new VarcharJsonGeneratorWriter(type);
+            }
+            if (type instanceof VarbinaryType) {
+                return new VarbinaryJsonGeneratorWriter();
             }
             if (type instanceof JsonType) {
                 return new JsonJsonGeneratorWriter();
@@ -491,6 +499,23 @@ public final class JsonUtil
             else {
                 Slice value = type.getSlice(block, position);
                 jsonGenerator.writeString(value.toStringUtf8());
+            }
+        }
+    }
+
+    private static class VarbinaryJsonGeneratorWriter
+            implements JsonGeneratorWriter
+    {
+        @Override
+        public void writeJsonValue(JsonGenerator jsonGenerator, Block block, int position)
+                throws IOException
+        {
+            if (block.isNull(position)) {
+                jsonGenerator.writeNull();
+            }
+            else {
+                Slice value = VARBINARY.getSlice(block, position);
+                jsonGenerator.writeBinary(value.byteArray(), value.byteArrayOffset(), value.length());
             }
         }
     }
@@ -887,6 +912,9 @@ public final class JsonUtil
             if (type instanceof VarcharType) {
                 return new VarcharBlockBuilderAppender(type);
             }
+            if (type instanceof VarbinaryType) {
+                return new VarbinaryBlockBuilderAppender();
+            }
             if (type instanceof JsonType) {
                 return (parser, blockBuilder) -> {
                     String json = OBJECT_MAPPED_UNORDERED.writeValueAsString(parser.readValueAsTree());
@@ -1103,6 +1131,28 @@ public final class JsonUtil
             }
             else {
                 type.writeSlice(blockBuilder, result);
+            }
+        }
+    }
+
+    private static class VarbinaryBlockBuilderAppender
+            implements BlockBuilderAppender
+    {
+        @Override
+        public void append(JsonParser parser, BlockBuilder blockBuilder)
+                throws IOException
+        {
+            Slice result = currentTokenAsVarchar(parser);
+            if (result == null) {
+                blockBuilder.appendNull();
+            }
+            else {
+                try {
+                    VARBINARY.writeSlice(blockBuilder, Slices.wrappedHeapBuffer(Base64.getDecoder().decode(result.toByteBuffer())));
+                }
+                catch (IllegalArgumentException e) {
+                    throw new JsonCastException(e.getMessage());
+                }
             }
         }
     }

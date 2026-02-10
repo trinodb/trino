@@ -19,6 +19,7 @@ import com.google.common.io.BaseEncoding;
 import com.google.common.primitives.Ints;
 import io.airlift.slice.Murmur3Hash128;
 import io.airlift.slice.Slice;
+import io.airlift.slice.SliceOutput;
 import io.airlift.slice.Slices;
 import io.airlift.slice.SpookyHashV2;
 import io.airlift.slice.XxHash64;
@@ -26,6 +27,7 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.function.Description;
 import io.trino.spi.function.LiteralParameters;
 import io.trino.spi.function.ScalarFunction;
+import io.trino.spi.function.ScalarOperator;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.type.StandardTypes;
 
@@ -35,7 +37,11 @@ import java.util.zip.CRC32;
 
 import static io.airlift.slice.Slices.EMPTY_SLICE;
 import static io.trino.operator.scalar.HmacFunctions.computeHash;
+import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static io.trino.spi.function.OperatorType.CAST;
+import static io.trino.spi.type.StandardTypes.JSON;
+import static io.trino.spi.type.StandardTypes.VARBINARY;
 import static io.trino.util.Failures.checkCondition;
 
 public final class VarbinaryFunctions
@@ -500,5 +506,28 @@ public final class VarbinaryFunctions
             reverse.setByte(i, inputSlice.getByte((length - 1) - i));
         }
         return reverse;
+    }
+
+    @SqlType(JSON)
+    @ScalarOperator(CAST)
+    public static Slice castToJson(@SqlType(VARBINARY) Slice binary)
+    {
+        int base64EncodedLength = 4 * ((binary.length() + 2) / 3);
+        Slice slice = Slices.allocate(2 + base64EncodedLength);
+        SliceOutput output = slice.getOutput();
+        output.writeByte('"');
+        output.writeBytes(toBase64(binary));
+        output.writeByte('"');
+        return slice;
+    }
+
+    @SqlType(VARBINARY)
+    @ScalarOperator(CAST)
+    public static Slice castFromJson(@SqlType(JSON) Slice json)
+    {
+        if (json.length() < 2 || json.getByte(0) != '"' || json.getByte(json.length() - 1) != '"') {
+            throw new TrinoException(INVALID_CAST_ARGUMENT, "Expected quoted base64-encoded JSON string");
+        }
+        return fromBase64Varbinary(json.slice(1, json.length() - 2));
     }
 }
