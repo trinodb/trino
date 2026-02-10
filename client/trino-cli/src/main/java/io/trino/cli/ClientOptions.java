@@ -208,7 +208,7 @@ public class ClientOptions
 
     @PropertyMapping(EXTRA_HEADERS)
     @Option(names = "--extra-header", paramLabel = "<header>", description = "Additional HTTP header to add to HTTP requests (property can be used multiple times; format is key=value)")
-    public final List<ExtraHeader> extraHeaders = new ArrayList<>();
+    public List<ExtraHeader> extraHeaders = new ArrayList<>();
 
     @PropertyMapping(TRACE_TOKEN)
     @Option(names = "--trace-token", paramLabel = "<token>", description = "Trace token")
@@ -256,11 +256,11 @@ public class ClientOptions
 
     @PropertyMapping(RESOURCE_ESTIMATES)
     @Option(names = "--resource-estimate", paramLabel = "<estimate>", description = "Resource estimate (property can be used multiple times; format is key=value)")
-    public final List<ClientResourceEstimate> resourceEstimates = new ArrayList<>();
+    public List<ClientResourceEstimate> resourceEstimates = new ArrayList<>();
 
     @PropertyMapping(SESSION_PROPERTIES)
     @Option(names = "--session", paramLabel = "<session>", description = "Session property (property can be used multiple times; format is key=value; use 'SHOW SESSION' to see available properties)")
-    public final List<ClientSessionProperty> sessionProperties = new ArrayList<>();
+    public List<ClientSessionProperty> sessionProperties = new ArrayList<>();
 
     @PropertyMapping(SESSION_USER)
     @Option(names = "--session-user", paramLabel = "<user>", description = "Username to impersonate")
@@ -268,7 +268,7 @@ public class ClientOptions
 
     @PropertyMapping(EXTRA_CREDENTIALS)
     @Option(names = "--extra-credential", paramLabel = "<credential>", description = "Extra credentials (property can be used multiple times; format is key=value)")
-    public final List<ClientExtraCredential> extraCredentials = new ArrayList<>();
+    public List<ClientExtraCredential> extraCredentials = new ArrayList<>();
 
     @PropertyMapping(SOCKS_PROXY)
     @Option(names = "--socks-proxy", paramLabel = "<proxy>", description = "SOCKS proxy to use for server connections")
