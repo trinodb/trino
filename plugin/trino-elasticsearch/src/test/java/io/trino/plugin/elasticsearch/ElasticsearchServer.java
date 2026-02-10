@@ -38,6 +38,7 @@ import java.nio.file.Path;
 import java.time.Duration;
 import java.util.Base64;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 
 import static com.google.common.io.MoreFiles.deleteRecursively;
@@ -86,7 +87,7 @@ public class ElasticsearchServer
                 .put("server.key", loadResource("server.key"))
                 .buildOrThrow();
 
-        for (Map.Entry<String, String> entry : configurationFiles.entrySet()) {
+        for (Entry<String, String> entry : configurationFiles.entrySet()) {
             String name = entry.getKey();
             String contents = entry.getValue();
 

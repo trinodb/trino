@@ -65,7 +65,7 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalInt;
@@ -327,12 +327,12 @@ public class MockRemoteTaskFactory
 
         public synchronized void finishSplits(int splits)
         {
-            List<Map.Entry<PlanNodeId, Split>> toRemove = new ArrayList<>();
-            Iterator<Map.Entry<PlanNodeId, Split>> iterator = this.splits.entries().iterator();
+            List<Entry<PlanNodeId, Split>> toRemove = new ArrayList<>();
+            Iterator<Entry<PlanNodeId, Split>> iterator = this.splits.entries().iterator();
             while (toRemove.size() < splits && iterator.hasNext()) {
                 toRemove.add(iterator.next());
             }
-            for (Map.Entry<PlanNodeId, Split> entry : toRemove) {
+            for (Entry<PlanNodeId, Split> entry : toRemove) {
                 this.splits.remove(entry.getKey(), entry.getValue());
             }
             updateSplitQueueSpace();

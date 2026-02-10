@@ -60,6 +60,7 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.Set;
@@ -226,7 +227,7 @@ public class BinPackingNodeAllocatorService
 
         Map<String, Optional<MemoryInfo>> workerMemoryInfos = workerMemoryInfoSupplier.get();
         long maxNodePoolSizeBytes = -1;
-        for (Map.Entry<String, Optional<MemoryInfo>> entry : workerMemoryInfos.entrySet()) {
+        for (Entry<String, Optional<MemoryInfo>> entry : workerMemoryInfos.entrySet()) {
             if (entry.getValue().isEmpty()) {
                 continue;
             }

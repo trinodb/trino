@@ -36,6 +36,7 @@ import io.trino.spi.type.TypeParameter;
 
 import java.math.BigDecimal;
 import java.util.Map;
+import java.util.Map.Entry;
 
 import static io.trino.spi.block.MapValueBuilder.buildMapValue;
 import static io.trino.spi.type.RealType.REAL;
@@ -108,7 +109,7 @@ public final class StructuralTestUtil
         }
         else if (type instanceof MapType mapType && element instanceof Map<?, ?>) {
             ((MapBlockBuilder) blockBuilder).buildEntry((keyBuilder, valueBuilder) -> {
-                for (Map.Entry<?, ?> entry : ((Map<?, ?>) element).entrySet()) {
+                for (Entry<?, ?> entry : ((Map<?, ?>) element).entrySet()) {
                     appendToBlockBuilder(mapType.getKeyType(), entry.getKey(), keyBuilder);
                     appendToBlockBuilder(mapType.getValueType(), entry.getValue(), valueBuilder);
                 }

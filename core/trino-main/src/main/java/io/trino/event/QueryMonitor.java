@@ -90,6 +90,7 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalLong;
@@ -594,8 +595,8 @@ public class QueryMonitor
     {
         Map<String, String> mergedProperties = new LinkedHashMap<>(session.getSystemProperties());
 
-        for (Map.Entry<String, Map<String, String>> catalogEntry : session.getCatalogProperties().entrySet()) {
-            for (Map.Entry<String, String> entry : catalogEntry.getValue().entrySet()) {
+        for (Entry<String, Map<String, String>> catalogEntry : session.getCatalogProperties().entrySet()) {
+            for (Entry<String, String> entry : catalogEntry.getValue().entrySet()) {
                 mergedProperties.put(catalogEntry.getKey() + "." + entry.getKey(), entry.getValue());
             }
         }

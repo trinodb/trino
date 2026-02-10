@@ -68,6 +68,7 @@ import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalInt;
@@ -1272,7 +1273,7 @@ public abstract class BaseJdbcClient
         SchemaTableName tableName = tableHandle.asPlainTable().getSchemaTableName();
 
         ImmutableMap.Builder<Integer, JdbcOutputTableHandle> outputHandles = ImmutableMap.builder();
-        for (Map.Entry<Integer, Collection<ColumnHandle>> entry : updateColumnHandles.entrySet()) {
+        for (Entry<Integer, Collection<ColumnHandle>> entry : updateColumnHandles.entrySet()) {
             int caseNumber = entry.getKey();
             checkArgument(caseNumber >= 0, "caseNumber shouldn't be negative, updateColumnHandles: %s", updateColumnHandles);
 

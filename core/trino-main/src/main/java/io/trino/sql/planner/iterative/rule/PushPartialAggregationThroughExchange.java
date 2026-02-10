@@ -39,7 +39,7 @@ import io.trino.sql.planner.plan.ProjectNode;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
@@ -194,7 +194,7 @@ public class PushPartialAggregationThroughExchange
         // otherwise, add a partial and final with an exchange in between
         ImmutableMap.Builder<Symbol, AggregationNode.Aggregation> intermediateAggregation = ImmutableMap.builder();
         ImmutableMap.Builder<Symbol, AggregationNode.Aggregation> finalAggregation = ImmutableMap.builder();
-        for (Map.Entry<Symbol, AggregationNode.Aggregation> entry : node.getAggregations().entrySet()) {
+        for (Entry<Symbol, AggregationNode.Aggregation> entry : node.getAggregations().entrySet()) {
             AggregationNode.Aggregation originalAggregation = entry.getValue();
             ResolvedFunction resolvedFunction = originalAggregation.getResolvedFunction();
             AggregationFunctionMetadata functionMetadata = plannerContext.getMetadata().getAggregationFunctionMetadata(context.getSession(), resolvedFunction);

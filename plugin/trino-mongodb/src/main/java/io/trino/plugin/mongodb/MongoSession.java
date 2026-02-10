@@ -80,6 +80,7 @@ import java.util.Comparator;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
@@ -612,7 +613,7 @@ public class MongoSession
     {
         ImmutableList.Builder<Document> queryBuilder = ImmutableList.builder();
         if (tupleDomain.getDomains().isPresent()) {
-            for (Map.Entry<ColumnHandle, Domain> entry : tupleDomain.getDomains().get().entrySet()) {
+            for (Entry<ColumnHandle, Domain> entry : tupleDomain.getDomains().get().entrySet()) {
                 MongoColumnHandle column = (MongoColumnHandle) entry.getKey();
                 Optional<Document> predicate = buildPredicate(column, entry.getValue());
                 predicate.ifPresent(queryBuilder::add);

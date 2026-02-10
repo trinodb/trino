@@ -78,6 +78,7 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Random;
@@ -275,7 +276,7 @@ public class FakerMetadata
                     relationColumns.put(name, columns);
                 });
 
-        for (Map.Entry<SchemaTableName, ConnectorViewDefinition> entry : getViews(session, schemaName).entrySet()) {
+        for (Entry<SchemaTableName, ConnectorViewDefinition> entry : getViews(session, schemaName).entrySet()) {
             relationColumns.put(entry.getKey(), RelationColumnsMetadata.forView(entry.getKey(), entry.getValue().getColumns()));
         }
 
@@ -317,7 +318,7 @@ public class FakerMetadata
                         properties.entrySet().stream()
                                 .filter(entry -> entry.getValue().isPresent())
                                 .map(entry -> Map.entry(entry.getKey(), entry.getValue().get())))
-                .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
+                .collect(toImmutableMap(Entry::getKey, Entry::getValue));
         tables.put(tableName, oldInfo.withProperties(newProperties));
     }
 

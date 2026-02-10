@@ -29,6 +29,7 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 
 import static io.airlift.slice.Slices.utf8Slice;
@@ -250,7 +251,7 @@ public class TestMapBlock
                 offsets[i + 1] = offsets[i];
             }
             else {
-                for (Map.Entry<String, Long> entry : map.entrySet()) {
+                for (Entry<String, Long> entry : map.entrySet()) {
                     keys.add(entry.getKey());
                     values.add(entry.getValue());
                 }
@@ -271,7 +272,7 @@ public class TestMapBlock
         }
         else {
             mapBlockBuilder.buildEntry((keyBuilder, valueBuilder) -> {
-                for (Map.Entry<String, Long> entry : map.entrySet()) {
+                for (Entry<String, Long> entry : map.entrySet()) {
                     VARCHAR.writeSlice(keyBuilder, utf8Slice(entry.getKey()));
                     if (entry.getValue() == null) {
                         valueBuilder.appendNull();
@@ -303,7 +304,7 @@ public class TestMapBlock
         assertThat(sqlMap.getSize()).isEqualTo(map.size());
 
         // Test new/hash-index access: assert inserted keys
-        for (Map.Entry<String, Long> entry : map.entrySet()) {
+        for (Entry<String, Long> entry : map.entrySet()) {
             int index = sqlMap.seekKey(utf8Slice(entry.getKey()));
             assertThat(index)
                     .isNotEqualTo(-1);
@@ -391,7 +392,7 @@ public class TestMapBlock
             return 0;
         }
         int size = 0;
-        for (Map.Entry<String, Long> entry : map.entrySet()) {
+        for (Entry<String, Long> entry : map.entrySet()) {
             size += entry.getKey().length();
             size += entry.getValue() == null ? 0 : Long.BYTES;
         }

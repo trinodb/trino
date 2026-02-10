@@ -48,6 +48,7 @@ import io.trino.sql.planner.plan.ValuesNode;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Function;
@@ -167,7 +168,7 @@ public class PushPredicateIntoTableScan
                 decomposedPredicate.getRemainingExpression());
         Map<String, ColumnHandle> connectorExpressionAssignments = node.getAssignments()
                 .entrySet().stream()
-                .collect(toImmutableMap(entry -> entry.getKey().name(), Map.Entry::getValue));
+                .collect(toImmutableMap(entry -> entry.getKey().name(), Entry::getValue));
 
         Map<ColumnHandle, Symbol> assignments = ImmutableBiMap.copyOf(node.getAssignments()).inverse();
 
@@ -363,7 +364,7 @@ public class PushPredicateIntoTableScan
         Map<ColumnHandle, Domain> predicateDomains = predicate.getDomains().get();
         Map<ColumnHandle, Domain> unenforcedDomains = unenforced.getDomains().get();
         ImmutableMap.Builder<ColumnHandle, Domain> enforcedDomainsBuilder = ImmutableMap.builder();
-        for (Map.Entry<ColumnHandle, Domain> entry : predicateDomains.entrySet()) {
+        for (Entry<ColumnHandle, Domain> entry : predicateDomains.entrySet()) {
             ColumnHandle predicateColumnHandle = entry.getKey();
             Domain predicateDomain = entry.getValue();
             if (unenforcedDomains.containsKey(predicateColumnHandle)) {

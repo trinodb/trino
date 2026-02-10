@@ -71,6 +71,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Properties;
 import java.util.function.LongFunction;
@@ -1486,7 +1487,7 @@ public class TestOpenxJsonFormat
         ObjectInspector keyInspector = inspector.getMapKeyObjectInspector();
         ObjectInspector valueInspector = inspector.getMapValueObjectInspector();
         Map<Object, Object> values = new HashMap<>();
-        for (Map.Entry<?, ?> entry : map.entrySet()) {
+        for (Entry<?, ?> entry : map.entrySet()) {
             // Hive skips map entries with null keys
             if (!filterNullMapKeys || entry.getKey() != null) {
                 values.put(

@@ -287,6 +287,7 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalDouble;
@@ -1110,7 +1111,7 @@ public class LocalExecutionPlanner
 
             ImmutableList.Builder<WindowFunctionDefinition> windowFunctionsBuilder = ImmutableList.builder();
             ImmutableList.Builder<Symbol> windowFunctionOutputSymbolsBuilder = ImmutableList.builder();
-            for (Map.Entry<Symbol, WindowNode.Function> entry : node.getWindowFunctions().entrySet()) {
+            for (Entry<Symbol, WindowNode.Function> entry : node.getWindowFunctions().entrySet()) {
                 Optional<Integer> frameStartChannel = Optional.empty();
                 Optional<Integer> sortKeyChannelForStartComparison = Optional.empty();
                 Optional<Integer> frameEndChannel = Optional.empty();
@@ -1342,14 +1343,14 @@ public class LocalExecutionPlanner
             }
 
             // measures go in remaining channels starting after the last channel from the source operator, one per channel
-            for (Map.Entry<Symbol, Measure> measure : node.getMeasures().entrySet()) {
+            for (Entry<Symbol, Measure> measure : node.getMeasures().entrySet()) {
                 outputMappings.put(measure.getKey(), nextOutputChannel);
                 nextOutputChannel++;
             }
 
             // process window functions
             ImmutableList.Builder<WindowFunctionDefinition> windowFunctionsBuilder = ImmutableList.builder();
-            for (Map.Entry<Symbol, WindowNode.Function> entry : node.getWindowFunctions().entrySet()) {
+            for (Entry<Symbol, WindowNode.Function> entry : node.getWindowFunctions().entrySet()) {
                 // window functions outputs go in remaining channels starting after the last measure channel
                 outputMappings.put(entry.getKey(), nextOutputChannel);
                 nextOutputChannel++;
@@ -1618,17 +1619,17 @@ public class LocalExecutionPlanner
                         ResolvedFunction resolvedFunction = pointer.getFunction();
                         AggregationImplementation aggregationImplementation = plannerContext.getFunctionManager().getAggregationImplementation(pointer.getFunction());
 
-                        ImmutableList.Builder<Map.Entry<Expression, Type>> builder = ImmutableList.builder();
+                        ImmutableList.Builder<Entry<Expression, Type>> builder = ImmutableList.builder();
                         List<Type> signatureTypes = resolvedFunction.signature().getArgumentTypes();
                         for (int i = 0; i < pointer.getArguments().size(); i++) {
                             builder.add(new SimpleEntry<>(pointer.getArguments().get(i), signatureTypes.get(i)));
                         }
-                        Map<Boolean, List<Map.Entry<Expression, Type>>> arguments = builder.build().stream()
+                        Map<Boolean, List<Entry<Expression, Type>>> arguments = builder.build().stream()
                                 .collect(partitioningBy(entry -> entry.getKey() instanceof Lambda));
 
                         // handle lambda arguments
                         List<Lambda> lambdas = arguments.get(true).stream()
-                                .map(Map.Entry::getKey)
+                                .map(Entry::getKey)
                                 .map(Lambda.class::cast)
                                 .collect(toImmutableList());
 
@@ -1649,7 +1650,7 @@ public class LocalExecutionPlanner
                                 .flatMap(Optional::stream)
                                 .collect(toImmutableSet());
 
-                        for (Map.Entry<Expression, Type> argumentWithType : arguments.get(false)) {
+                        for (Entry<Expression, Type> argumentWithType : arguments.get(false)) {
                             Expression argument = argumentWithType.getKey();
                             boolean isRuntimeEvaluated = !(argument instanceof Reference) || runtimeEvaluatedSymbols.contains(Symbol.from(argument));
                             if (isRuntimeEvaluated) {
@@ -2396,7 +2397,7 @@ public class LocalExecutionPlanner
 
             // Create the mapping from index source look up symbol to probe key Input
             ImmutableSetMultimap.Builder<Symbol, Integer> builder = ImmutableSetMultimap.builder();
-            for (Map.Entry<Symbol, Symbol> entry : indexKeyTrace.entrySet()) {
+            for (Entry<Symbol, Symbol> entry : indexKeyTrace.entrySet()) {
                 Symbol indexJoinSymbol = entry.getKey();
                 Symbol indexLookupSymbol = entry.getValue();
                 builder.putAll(indexLookupSymbol, indexToProbeKeyInput.get(indexJoinSymbol));
@@ -2495,7 +2496,7 @@ public class LocalExecutionPlanner
             // inputs from index side of the join are laid out following the input from the probe side,
             // so adjust the channel ids but keep the field layouts intact
             int offset = probeSource.getTypes().size();
-            for (Map.Entry<Symbol, Integer> entry : indexSource.getLayout().entrySet()) {
+            for (Entry<Symbol, Integer> entry : indexSource.getLayout().entrySet()) {
                 Integer input = entry.getValue();
                 outputMappings.put(entry.getKey(), offset + input);
             }
@@ -3079,7 +3080,7 @@ public class LocalExecutionPlanner
             Map<DynamicFilterId, Integer> dynamicFilterChannels = node.getDynamicFilters().entrySet().stream()
                     .collect(toImmutableMap(
                             // Dynamic filter ID
-                            Map.Entry::getKey,
+                            Entry::getKey,
                             // Build-side channel index
                             entry -> {
                                 Symbol buildSymbol = entry.getValue();
@@ -3089,7 +3090,7 @@ public class LocalExecutionPlanner
                             }));
             Map<DynamicFilterId, Type> dynamicFilterChannelTypes = dynamicFilterChannels.entrySet().stream()
                     .collect(toImmutableMap(
-                            Map.Entry::getKey,
+                            Entry::getKey,
                             entry -> source.getTypes().get(entry.getValue())));
 
             TaskContext taskContext = context.getTaskContext();
@@ -3199,7 +3200,7 @@ public class LocalExecutionPlanner
         {
             ImmutableMap.Builder<Symbol, Integer> joinSourcesLayout = ImmutableMap.builder();
             joinSourcesLayout.putAll(lookupSourceLayout);
-            for (Map.Entry<Symbol, Integer> probeLayoutEntry : probeSourceLayout.entrySet()) {
+            for (Entry<Symbol, Integer> probeLayoutEntry : probeSourceLayout.entrySet()) {
                 joinSourcesLayout.put(probeLayoutEntry.getKey(), probeLayoutEntry.getValue() + lookupSourceLayout.size());
             }
             return joinSourcesLayout.buildOrThrow();
@@ -3303,7 +3304,7 @@ public class LocalExecutionPlanner
             return domains -> taskContext.updateDomains(
                     domains.entrySet().stream()
                             .filter(entry -> coordinatorDynamicFilters.contains(entry.getKey()))
-                            .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue)));
+                            .collect(toImmutableMap(Entry::getKey, Entry::getValue)));
         }
 
         @Override
@@ -3985,7 +3986,7 @@ public class LocalExecutionPlanner
         {
             int outputChannel = startOutputChannel;
             ImmutableList.Builder<AggregatorFactory> aggregatorFactories = ImmutableList.builder();
-            for (Map.Entry<Symbol, Aggregation> entry : aggregations.entrySet()) {
+            for (Entry<Symbol, Aggregation> entry : aggregations.entrySet()) {
                 Symbol symbol = entry.getKey();
                 Aggregation aggregation = entry.getValue();
                 aggregatorFactories.add(buildAggregatorFactory(source, aggregation, step));
@@ -4043,7 +4044,7 @@ public class LocalExecutionPlanner
         {
             List<Symbol> aggregationOutputSymbols = new ArrayList<>();
             List<AggregatorFactory> aggregatorFactories = new ArrayList<>();
-            for (Map.Entry<Symbol, Aggregation> entry : aggregations.entrySet()) {
+            for (Entry<Symbol, Aggregation> entry : aggregations.entrySet()) {
                 Symbol symbol = entry.getKey();
                 Aggregation aggregation = entry.getValue();
 

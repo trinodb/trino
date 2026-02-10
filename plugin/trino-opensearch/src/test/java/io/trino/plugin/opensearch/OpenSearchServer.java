@@ -22,6 +22,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Map;
+import java.util.Map.Entry;
 
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
@@ -53,7 +54,7 @@ public class OpenSearchServer
         }
 
         configurationPath = createTempDirectory(null);
-        for (Map.Entry<String, String> entry : configurationFiles.entrySet()) {
+        for (Entry<String, String> entry : configurationFiles.entrySet()) {
             String name = entry.getKey();
             String contents = entry.getValue();
 

@@ -25,6 +25,7 @@ import org.junit.jupiter.api.Test;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 
 import static io.trino.spi.StandardErrorCode.NOT_FOUND;
@@ -97,7 +98,7 @@ final class TestBlackHoleMetadata
                 .put(new SchemaTableName("default2", "test_view2"), viewDefinition)
                 .buildOrThrow();
 
-        for (Map.Entry<SchemaTableName, ConnectorViewDefinition> entry : views.entrySet()) {
+        for (Entry<SchemaTableName, ConnectorViewDefinition> entry : views.entrySet()) {
             metadata.createView(SESSION, entry.getKey(), entry.getValue(), ImmutableMap.of(), false);
         }
 

@@ -35,6 +35,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -178,7 +179,7 @@ public class TestAvroPageDataReaderWithoutTypeManager
             int totalRecords = 0;
             while (avroFileReader.hasNext()) {
                 Page p = avroFileReader.next();
-                for (Map.Entry<Integer, Class<?>> channelClass : expectedBlockPerChannel.entrySet()) {
+                for (Entry<Integer, Class<?>> channelClass : expectedBlockPerChannel.entrySet()) {
                     assertThat(p.getBlock(channelClass.getKey())).isInstanceOf(channelClass.getValue());
                 }
                 totalRecords += p.getPositionCount();

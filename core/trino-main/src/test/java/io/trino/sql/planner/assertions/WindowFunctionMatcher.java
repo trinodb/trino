@@ -22,6 +22,7 @@ import io.trino.sql.planner.plan.WindowNode;
 import io.trino.sql.planner.plan.WindowNode.Function;
 
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -56,7 +57,7 @@ public class WindowFunctionMatcher
         }
 
         WindowFunction expectedCall = callMaker.getExpectedValue(symbolAliases);
-        for (Map.Entry<Symbol, Function> assignment : assignments.entrySet()) {
+        for (Entry<Symbol, Function> assignment : assignments.entrySet()) {
             Function function = assignment.getValue();
             if (windowFunctionMatches(function, expectedCall, symbolAliases)) {
                 checkState(result.isEmpty(), "Ambiguous function calls in %s", node);

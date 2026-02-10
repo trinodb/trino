@@ -19,6 +19,7 @@ import io.trino.annotation.NotThreadSafe;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -169,7 +170,7 @@ final class SchedulingGroup<T>
     public String toString()
     {
         StringBuilder builder = new StringBuilder();
-        for (Map.Entry<T, Task> entry : tasks.entrySet()) {
+        for (Entry<T, Task> entry : tasks.entrySet()) {
             T key = entry.getKey();
             Task task = entry.getValue();
 

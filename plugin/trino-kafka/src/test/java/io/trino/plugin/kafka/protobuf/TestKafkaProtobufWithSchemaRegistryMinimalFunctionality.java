@@ -43,6 +43,7 @@ import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 
 import static com.google.common.io.Resources.getResource;
 import static com.google.protobuf.Descriptors.FieldDescriptor.JavaType.ENUM;
@@ -332,7 +333,7 @@ public class TestKafkaProtobufWithSchemaRegistryMinimalFunctionality
     private DynamicMessage buildDynamicMessage(Descriptor descriptor, Map<String, Object> data)
     {
         DynamicMessage.Builder builder = DynamicMessage.newBuilder(descriptor);
-        for (Map.Entry<String, Object> entry : data.entrySet()) {
+        for (Entry<String, Object> entry : data.entrySet()) {
             FieldDescriptor fieldDescriptor = descriptor.findFieldByName(entry.getKey());
             if (entry.getValue() instanceof Map<?, ?>) {
                 builder.setField(fieldDescriptor, buildDynamicMessage(fieldDescriptor.getMessageType(), (Map<String, Object>) entry.getValue()));

@@ -29,6 +29,7 @@ import io.trino.sql.planner.plan.AggregationNode.Aggregation;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -65,7 +66,7 @@ public class StatisticAggregations
         ImmutableMap.Builder<Symbol, Aggregation> partialAggregation = ImmutableMap.builder();
         ImmutableMap.Builder<Symbol, Aggregation> finalAggregation = ImmutableMap.builder();
         ImmutableMap.Builder<Symbol, Symbol> mappings = ImmutableMap.builder();
-        for (Map.Entry<Symbol, Aggregation> entry : aggregations.entrySet()) {
+        for (Entry<Symbol, Aggregation> entry : aggregations.entrySet()) {
             Aggregation originalAggregation = entry.getValue();
             ResolvedFunction resolvedFunction = originalAggregation.getResolvedFunction();
             AggregationFunctionMetadata functionMetadata = plannerContext.getMetadata().getAggregationFunctionMetadata(session, resolvedFunction);

@@ -43,6 +43,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
@@ -185,7 +186,7 @@ public class PartitionsTable
             }
 
             return partitions.entrySet().stream()
-                    .collect(toImmutableMap(Map.Entry::getKey, entry -> entry.getValue().build()));
+                    .collect(toImmutableMap(Entry::getKey, entry -> entry.getValue().build()));
         }
         catch (IOException e) {
             throw new UncheckedIOException(e);
@@ -201,7 +202,7 @@ public class PartitionsTable
 
         ImmutableList.Builder<List<Object>> records = ImmutableList.builder();
 
-        for (Map.Entry<StructLikeWrapperWithFieldIdToIndex, IcebergStatistics> partitionEntry : partitionStatistics.entrySet()) {
+        for (Entry<StructLikeWrapperWithFieldIdToIndex, IcebergStatistics> partitionEntry : partitionStatistics.entrySet()) {
             StructLikeWrapperWithFieldIdToIndex partitionStruct = partitionEntry.getKey();
             IcebergStatistics icebergStatistics = partitionEntry.getValue();
             List<Object> row = new ArrayList<>();

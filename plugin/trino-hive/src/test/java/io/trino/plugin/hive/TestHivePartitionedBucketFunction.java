@@ -33,6 +33,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
@@ -76,7 +77,7 @@ public class TestHivePartitionedBucketFunction
 
         BucketFunction hivePartitionedBucketFunction = partitionedBucketFunction(hiveBucketingVersion, numBuckets, ImmutableList.of(HIVE_LONG), ImmutableList.of(BIGINT), 100);
         // All positions of a bucket should hash to the same partitioned bucket
-        for (Map.Entry<Integer, Collection<Integer>> entry : bucketPositions.asMap().entrySet()) {
+        for (Entry<Integer, Collection<Integer>> entry : bucketPositions.asMap().entrySet()) {
             assertBucketCount(hivePartitionedBucketFunction, page, entry.getValue(), 1);
         }
 
@@ -119,8 +120,8 @@ public class TestHivePartitionedBucketFunction
 
         BucketFunction hivePartitionedBucketFunction = partitionedBucketFunction(hiveBucketingVersion, numBuckets, ImmutableList.of(HIVE_LONG), ImmutableList.of(BIGINT), 4000);
         // All positions of a hive partition and bucket should hash to the same partitioned bucket
-        for (Map.Entry<Long, HashMultimap<Integer, Integer>> partitionEntry : partitionedBucketPositions.entrySet()) {
-            for (Map.Entry<Integer, Collection<Integer>> entry : partitionEntry.getValue().asMap().entrySet()) {
+        for (Entry<Long, HashMultimap<Integer, Integer>> partitionEntry : partitionedBucketPositions.entrySet()) {
+            for (Entry<Integer, Collection<Integer>> entry : partitionEntry.getValue().asMap().entrySet()) {
                 assertBucketCount(hivePartitionedBucketFunction, page, entry.getValue(), 1);
             }
         }

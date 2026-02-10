@@ -79,6 +79,7 @@ import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Set;
@@ -298,7 +299,7 @@ public class ElasticsearchClient
         NodesResponse nodesResponse = doRequest("/_nodes/http", NODES_RESPONSE_CODEC::fromJson);
 
         ImmutableSet.Builder<ElasticsearchNode> result = ImmutableSet.builder();
-        for (Map.Entry<String, NodesResponse.Node> entry : nodesResponse.getNodes().entrySet()) {
+        for (Entry<String, NodesResponse.Node> entry : nodesResponse.getNodes().entrySet()) {
             String nodeId = entry.getKey();
             NodesResponse.Node node = entry.getValue();
 
@@ -429,7 +430,7 @@ public class ElasticsearchClient
                 ImmutableMap.Builder<String, List<String>> result = ImmutableMap.builder();
                 JsonNode root = OBJECT_MAPPER.readTree(body);
 
-                for (Map.Entry<String, JsonNode> element : root.properties()) {
+                for (Entry<String, JsonNode> element : root.properties()) {
                     JsonNode aliases = element.getValue().get("aliases");
                     Iterator<String> aliasNames = aliases.fieldNames();
                     if (aliasNames.hasNext()) {
@@ -488,7 +489,7 @@ public class ElasticsearchClient
     private IndexMetadata.ObjectType parseType(JsonNode properties, JsonNode metaProperties)
     {
         ImmutableList.Builder<IndexMetadata.Field> result = ImmutableList.builder();
-        for (Map.Entry<String, JsonNode> field : properties.properties()) {
+        for (Entry<String, JsonNode> field : properties.properties()) {
             String name = field.getKey();
             JsonNode value = field.getValue();
 

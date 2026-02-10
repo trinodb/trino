@@ -69,6 +69,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.TreeMap;
 
@@ -630,7 +631,7 @@ public final class JsonUtil
                 }
 
                 jsonGenerator.writeStartObject();
-                for (Map.Entry<String, Integer> entry : orderedKeyToValuePosition.entrySet()) {
+                for (Entry<String, Integer> entry : orderedKeyToValuePosition.entrySet()) {
                     jsonGenerator.writeFieldName(entry.getKey());
                     valueWriter.writeJsonValue(jsonGenerator, rawValueBlock, rawOffset + entry.getValue());
                 }

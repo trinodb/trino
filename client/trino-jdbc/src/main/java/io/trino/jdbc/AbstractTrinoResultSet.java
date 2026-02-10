@@ -65,6 +65,7 @@ import java.util.Calendar;
 import java.util.GregorianCalendar;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.TimeZone;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -689,7 +690,7 @@ abstract class AbstractTrinoResultSet
                 ClientTypeSignature valueType = typeSignatures.get(1);
                 Map<?, ?> mapValue = (Map<?, ?>) value;
                 Map<Object, Object> converted = Maps.newHashMapWithExpectedSize(mapValue.size());
-                for (Map.Entry<?, ?> entry : mapValue.entrySet()) {
+                for (Entry<?, ?> entry : mapValue.entrySet()) {
                     converted.put(convertFromClientRepresentation(keyType, entry.getKey()), convertFromClientRepresentation(valueType, entry.getValue()));
                 }
                 return unmodifiableMap(converted);

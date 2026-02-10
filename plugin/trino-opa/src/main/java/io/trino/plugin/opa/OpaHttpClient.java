@@ -39,6 +39,7 @@ import java.net.URI;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
@@ -134,7 +135,7 @@ public class OpaHttpClient
                 requestBuilder,
                 (item, result) -> result.result().map(viewExpression -> Map.entry(item, viewExpression)),
                 uri,
-                deserializer).stream().collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
+                deserializer).stream().collect(toImmutableMap(Entry::getKey, Entry::getValue));
     }
 
     public <T> Set<T> parallelFilterFromOpa(Collection<T> items, Function<T, OpaQueryInput> requestBuilder, URI uri, JsonCodec<? extends OpaQueryResult> deserializer)
@@ -158,7 +159,7 @@ public class OpaHttpClient
 
     public <K, V> Map<K, Set<V>> parallelBatchFilterFromOpa(Map<K, ? extends Collection<V>> items, BiFunction<K, List<V>, OpaQueryInput> requestBuilder, URI uri, JsonCodec<? extends OpaBatchQueryResult> deserializer)
     {
-        List<Map.Entry<K, ImmutableList<V>>> parallelRequestItems = items.entrySet()
+        List<Entry<K, ImmutableList<V>>> parallelRequestItems = items.entrySet()
                 .stream()
                 .filter(entry -> !entry.getValue().isEmpty())
                 .map(entry -> Map.entry(entry.getKey(), ImmutableList.copyOf(entry.getValue())))
@@ -176,7 +177,7 @@ public class OpaHttpClient
                     uri,
                     deserializer)
                 .stream()
-                .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
+                .collect(toImmutableMap(Entry::getKey, Entry::getValue));
     }
 
     private <T> T parseOpaResponse(FullJsonResponseHandler.JsonResponse<T> response, URI uri)

@@ -32,6 +32,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Set;
@@ -669,7 +670,7 @@ public class TestArbitraryDistributionSplitAssigner
         ListMultimap<PlanNodeId, Split> expectedReplicatedSplits = ArrayListMultimap.create();
         Map<Integer, ListMultimap<PlanNodeId, Split>> expectedPartitionedSplits = new HashMap<>();
         Set<PlanNodeId> finishedReplicatedSources = new HashSet<>();
-        Map<Map.Entry<Optional<HostAddress>, Boolean>, PartitionAssignment> currentSplitAssignments = new HashMap<>();
+        Map<Entry<Optional<HostAddress>, Boolean>, PartitionAssignment> currentSplitAssignments = new HashMap<>();
         AtomicInteger nextPartitionId = new AtomicInteger();
         for (SplitBatch batch : batches) {
             PlanNodeId planNodeId = batch.getPlanNodeId();
@@ -750,7 +751,7 @@ public class TestArbitraryDistributionSplitAssigner
         }
     }
 
-    private static int addUpSplits(HostAddress address, Map<Map.Entry<Optional<HostAddress>, Boolean>, PartitionAssignment> assignments)
+    private static int addUpSplits(HostAddress address, Map<Entry<Optional<HostAddress>, Boolean>, PartitionAssignment> assignments)
     {
         PartitionAssignment assignment1 = assignments.get(Map.entry(Optional.of(address), true));
         PartitionAssignment assignment2 = assignments.get(Map.entry(Optional.of(address), false));

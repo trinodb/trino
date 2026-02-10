@@ -45,6 +45,7 @@ import io.trino.sql.planner.plan.ProjectNode;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
@@ -287,7 +288,7 @@ public class PreAggregateCaseAggregations
         return aggregations.stream()
                 .collect(toImmutableSetMultimap(PreAggregationKey::new, identity()))
                 .asMap().entrySet().stream().collect(toImmutableMap(
-                        Map.Entry::getKey,
+                        Entry::getKey,
                         entry -> {
                             PreAggregationKey key = entry.getKey();
                             Set<CaseAggregation> caseAggregations = (Set<CaseAggregation>) entry.getValue();
@@ -318,7 +319,7 @@ public class PreAggregateCaseAggregations
     private Optional<List<CaseAggregation>> extractCaseAggregations(AggregationNode aggregationNode, ProjectNode projectNode, Context context)
     {
         ImmutableList.Builder<CaseAggregation> caseAggregations = ImmutableList.builder();
-        for (Map.Entry<Symbol, Aggregation> aggregation : aggregationNode.getAggregations().entrySet()) {
+        for (Entry<Symbol, Aggregation> aggregation : aggregationNode.getAggregations().entrySet()) {
             Optional<CaseAggregation> caseAggregation = extractCaseAggregation(
                     aggregation.getKey(),
                     aggregation.getValue(),

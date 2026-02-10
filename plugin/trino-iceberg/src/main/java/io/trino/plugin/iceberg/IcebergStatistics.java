@@ -27,6 +27,7 @@ import java.lang.invoke.MethodHandle;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 
 import static io.trino.plugin.iceberg.IcebergTypes.convertIcebergValueToTrino;
@@ -177,7 +178,7 @@ public record IcebergStatistics(
             if (fileStatistics == null) {
                 return;
             }
-            for (Map.Entry<Integer, Long> entry : fileStatistics.entrySet()) {
+            for (Entry<Integer, Long> entry : fileStatistics.entrySet()) {
                 Long value = entry.getValue();
                 if (value != null) {
                     Integer fieldId = entry.getKey();

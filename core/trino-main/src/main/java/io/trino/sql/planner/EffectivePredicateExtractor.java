@@ -62,6 +62,7 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.function.Predicate;
@@ -86,10 +87,10 @@ import static java.util.Objects.requireNonNull;
  */
 public class EffectivePredicateExtractor
 {
-    private static final Predicate<Map.Entry<Symbol, ? extends Expression>> SYMBOL_MATCHES_EXPRESSION =
+    private static final Predicate<Entry<Symbol, ? extends Expression>> SYMBOL_MATCHES_EXPRESSION =
             entry -> entry.getValue().equals(entry.getKey().toSymbolReference());
 
-    private static final Function<Map.Entry<Symbol, ? extends Expression>, Expression> ENTRY_TO_EQUALITY =
+    private static final Function<Entry<Symbol, ? extends Expression>, Expression> ENTRY_TO_EQUALITY =
             entry -> {
                 Reference reference = entry.getKey().toSymbolReference();
                 Expression expression = entry.getValue();
@@ -206,12 +207,12 @@ public class EffectivePredicateExtractor
 
             Expression underlyingPredicate = node.getSource().accept(this, context);
 
-            List<Map.Entry<Symbol, Expression>> nonIdentityAssignments = node.getAssignments().entrySet().stream()
+            List<Entry<Symbol, Expression>> nonIdentityAssignments = node.getAssignments().entrySet().stream()
                     .filter(SYMBOL_MATCHES_EXPRESSION.negate())
                     .collect(toImmutableList());
 
             Set<Symbol> newlyAssignedSymbols = nonIdentityAssignments.stream()
-                    .map(Map.Entry::getKey)
+                    .map(Entry::getKey)
                     .collect(toImmutableSet());
 
             List<Expression> validUnderlyingEqualities = extractConjuncts(underlyingPredicate).stream()
@@ -542,7 +543,7 @@ public class EffectivePredicateExtractor
             };
         }
 
-        private Expression deriveCommonPredicates(PlanNode node, Function<Integer, Collection<Map.Entry<Symbol, Reference>>> mapping)
+        private Expression deriveCommonPredicates(PlanNode node, Function<Integer, Collection<Entry<Symbol, Reference>>> mapping)
         {
             // Find the predicates that can be pulled up from each source
             List<Set<Expression>> sourceOutputConjuncts = new ArrayList<>();

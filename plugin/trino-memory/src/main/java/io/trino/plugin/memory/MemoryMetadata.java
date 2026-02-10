@@ -65,6 +65,7 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalDouble;
@@ -166,8 +167,8 @@ public class MemoryMetadata
         schemas.add(target);
 
         Map<SchemaTableName, Long> newTableIds = new HashMap<>();
-        for (Iterator<Map.Entry<SchemaTableName, Long>> iterator = tableIds.entrySet().iterator(); iterator.hasNext(); ) {
-            Map.Entry<SchemaTableName, Long> table = iterator.next();
+        for (Iterator<Entry<SchemaTableName, Long>> iterator = tableIds.entrySet().iterator(); iterator.hasNext(); ) {
+            Entry<SchemaTableName, Long> table = iterator.next();
             if (table.getKey().getSchemaName().equals(source)) {
                 iterator.remove();
                 newTableIds.put(new SchemaTableName(target, table.getKey().getTableName()), table.getValue());
@@ -181,8 +182,8 @@ public class MemoryMetadata
                         : table);
 
         Map<SchemaTableName, ConnectorViewDefinition> newViews = new HashMap<>();
-        for (Iterator<Map.Entry<SchemaTableName, ConnectorViewDefinition>> iterator = views.entrySet().iterator(); iterator.hasNext(); ) {
-            Map.Entry<SchemaTableName, ConnectorViewDefinition> view = iterator.next();
+        for (Iterator<Entry<SchemaTableName, ConnectorViewDefinition>> iterator = views.entrySet().iterator(); iterator.hasNext(); ) {
+            Entry<SchemaTableName, ConnectorViewDefinition> view = iterator.next();
             if (view.getKey().getSchemaName().equals(source)) {
                 iterator.remove();
                 newViews.put(new SchemaTableName(target, view.getKey().getTableName()), view.getValue());
@@ -191,8 +192,8 @@ public class MemoryMetadata
         views.putAll(newViews);
 
         Map<SchemaFunctionName, Map<String, LanguageFunction>> newFunctions = new HashMap<>();
-        for (Iterator<Map.Entry<SchemaFunctionName, Map<String, LanguageFunction>>> iterator = functions.entrySet().iterator(); iterator.hasNext(); ) {
-            Map.Entry<SchemaFunctionName, Map<String, LanguageFunction>> function = iterator.next();
+        for (Iterator<Entry<SchemaFunctionName, Map<String, LanguageFunction>>> iterator = functions.entrySet().iterator(); iterator.hasNext(); ) {
+            Entry<SchemaFunctionName, Map<String, LanguageFunction>> function = iterator.next();
             if (function.getKey().schemaName().equals(source)) {
                 iterator.remove();
                 newFunctions.put(new SchemaFunctionName(target, function.getKey().functionName()), function.getValue());

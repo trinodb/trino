@@ -58,6 +58,7 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Set;
 
 import static io.trino.decoder.avro.AvroDecoderTestUtil.checkArrayValues;
@@ -105,7 +106,7 @@ public class TestAvroDecoder
     {
         Schema.Parser parser = new Schema.Parser();
         FieldAssembler<Schema> fieldAssembler = getFieldBuilder();
-        for (Map.Entry<String, String> field : fields.entrySet()) {
+        for (Entry<String, String> field : fields.entrySet()) {
             FieldBuilder<Schema> fieldBuilder = fieldAssembler.name(field.getKey());
             Schema fieldSchema = parser.parse(field.getValue());
             GenericDefault<Schema> genericDefault = fieldBuilder.type(fieldSchema);
