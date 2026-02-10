@@ -25,7 +25,7 @@
     "@mui/material": "^7.3.2",
     "@mui/material-pigment-css": "^7.3.7",
     "@mui/x-charts": "^8.11.3",
-    "@xyflow/react": "^12.8.5",
+    "@xyflow/react": "^12.10.0",
     "axios": "^1.13.4",
     "lodash": "^4.17.21",
     "react": "^19.1.4",
