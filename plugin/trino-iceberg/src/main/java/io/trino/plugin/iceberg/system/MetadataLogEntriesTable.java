@@ -14,7 +14,6 @@
 package io.trino.plugin.iceberg.system;
 
 import com.google.common.collect.ImmutableList;
-import io.trino.plugin.iceberg.util.PageListBuilder;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.SchemaTableName;
@@ -63,14 +62,12 @@ public class MetadataLogEntriesTable
     }
 
     @Override
-    protected void addRow(PageListBuilder pagesBuilder, Row row, TimeZoneKey timeZoneKey)
+    protected void addRow(IcebergSystemTablePageSource pageSource, Row row, TimeZoneKey timeZoneKey)
     {
-        pagesBuilder.beginRow();
-        pagesBuilder.appendTimestampTzMillis(row.get(TIMESTAMP_COLUMN_NAME, Long.class) / MICROSECONDS_PER_MILLISECOND, timeZoneKey);
-        pagesBuilder.appendVarchar(row.get(FILE_COLUMN_NAME, String.class));
-        pagesBuilder.appendBigint(row.get(LATEST_SNAPSHOT_ID_COLUMN_NAME, Long.class));
-        pagesBuilder.appendInteger(row.get(LATEST_SCHEMA_ID_COLUMN_NAME, Integer.class));
-        pagesBuilder.appendBigint(row.get(LATEST_SEQUENCE_NUMBER_COLUMN_NAME, Long.class));
-        pagesBuilder.endRow();
+        pageSource.appendTimestampTzMillis(row.get(TIMESTAMP_COLUMN_NAME, Long.class) / MICROSECONDS_PER_MILLISECOND, timeZoneKey);
+        pageSource.appendVarchar(row.get(FILE_COLUMN_NAME, String.class));
+        pageSource.appendBigint(row.get(LATEST_SNAPSHOT_ID_COLUMN_NAME, Long.class));
+        pageSource.appendInteger(row.get(LATEST_SCHEMA_ID_COLUMN_NAME, Integer.class));
+        pageSource.appendBigint(row.get(LATEST_SEQUENCE_NUMBER_COLUMN_NAME, Long.class));
     }
 }
