@@ -43,6 +43,7 @@ import io.trino.plugin.iceberg.catalog.hms.IcebergHiveMetastoreCatalogModule;
 import io.trino.plugin.iceberg.delete.DefaultDeletionVectorWriter;
 import io.trino.plugin.iceberg.delete.DeletionVectorWriter;
 import io.trino.plugin.iceberg.fileio.ForwardingFileIoFactory;
+import io.trino.plugin.iceberg.functions.IcebergFunctionProvider;
 
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.airlift.configuration.ConfigBinder.configBinder;
@@ -77,6 +78,8 @@ public class LakehouseIcebergModule
         jsonCodecBinder(binder).bindJsonCodec(CommitTaskData.class);
 
         binder.bind(ForwardingFileIoFactory.class).in(Scopes.SINGLETON);
+
+        binder.bind(IcebergFunctionProvider.class).in(Scopes.SINGLETON);
 
         install(switch (buildConfigObject(MetastoreTypeConfig.class).getMetastoreType()) {
             case THRIFT -> new IcebergHiveMetastoreCatalogModule();
