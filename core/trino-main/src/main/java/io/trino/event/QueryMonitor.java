@@ -482,7 +482,7 @@ public class QueryMonitor
                     input.getSchema(),
                     input.getTable(),
                     input.getColumns().stream()
-                            .map(column -> new QueryInputMetadata.Column(column.getName(), column.getType()))
+                            .map(column -> new QueryInputMetadata.Column(column.name(), column.type()))
                             .collect(toImmutableList()),
                     input.getConnectorInfo(),
                     connectorMetrics,
@@ -501,8 +501,8 @@ public class QueryMonitor
             Optional<List<OutputColumnMetadata>> outputColumnsMetadata = queryInfo.getOutput().get().getColumns()
                     .map(columns -> columns.stream()
                             .map(column -> new OutputColumnMetadata(
-                                    column.getColumn().getName(),
-                                    column.getColumn().getType(),
+                                    column.getColumn().name(),
+                                    column.getColumn().type(),
                                     column.getSourceColumns().stream()
                                             .map(Analysis.SourceColumn::getColumnDetail)
                                             .collect(toImmutableSet())))
