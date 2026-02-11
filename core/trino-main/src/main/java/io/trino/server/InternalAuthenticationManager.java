@@ -127,6 +127,7 @@ public class InternalAuthenticationManager
                     .type(TEXT_PLAIN_TYPE.toString())
                     .entity("Trino server is still initializing")
                     .build());
+            return;
         }
 
         Identity identity = Identity.forUser("<internal>")
