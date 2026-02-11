@@ -36,6 +36,7 @@ public record ResolvedFunction(
         FunctionId functionId,
         FunctionKind functionKind,
         boolean deterministic,
+        boolean neverFails,
         FunctionNullability functionNullability,
         Map<TypeSignature, Type> typeDependencies,
         Set<ResolvedFunction> functionDependencies)
