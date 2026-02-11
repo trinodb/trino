@@ -22,6 +22,7 @@ import static io.trino.client.ProtocolHeaders.Headers.REQUEST_CLIENT_CAPABILITIE
 import static io.trino.client.ProtocolHeaders.Headers.REQUEST_CLIENT_INFO;
 import static io.trino.client.ProtocolHeaders.Headers.REQUEST_CLIENT_TAGS;
 import static io.trino.client.ProtocolHeaders.Headers.REQUEST_EXTRA_CREDENTIAL;
+import static io.trino.client.ProtocolHeaders.Headers.REQUEST_INTERNAL_AUTH;
 import static io.trino.client.ProtocolHeaders.Headers.REQUEST_LANGUAGE;
 import static io.trino.client.ProtocolHeaders.Headers.REQUEST_ORIGINAL_ROLES;
 import static io.trino.client.ProtocolHeaders.Headers.REQUEST_ORIGINAL_USER;
@@ -80,6 +81,7 @@ public final class ProtocolHeaders
         REQUEST_RESOURCE_ESTIMATE("Resource-Estimate"),
         REQUEST_EXTRA_CREDENTIAL("Extra-Credential"),
         REQUEST_QUERY_DATA_ENCODING("Query-Data-Encoding"),
+        REQUEST_INTERNAL_AUTH("Internal-Auth"),
         RESPONSE_SET_CATALOG("Set-Catalog"),
         RESPONSE_SET_SCHEMA("Set-Schema"),
         RESPONSE_SET_PATH("Set-Path"),
@@ -129,6 +131,7 @@ public final class ProtocolHeaders
     private final String requestResourceEstimate;
     private final String requestExtraCredential;
     private final String requestQueryDataEncoding;
+    private final String requestInternalAuthorization;
     private final String responseSetCatalog;
     private final String responseSetSchema;
     private final String responseSetPath;
@@ -178,6 +181,7 @@ public final class ProtocolHeaders
         requestResourceEstimate = REQUEST_RESOURCE_ESTIMATE.withProtocolName(name);
         requestExtraCredential = REQUEST_EXTRA_CREDENTIAL.withProtocolName(name);
         requestQueryDataEncoding = REQUEST_QUERY_DATA_ENCODING.withProtocolName(name);
+        requestInternalAuthorization = REQUEST_INTERNAL_AUTH.withProtocolName(name);
         responseSetCatalog = RESPONSE_SET_CATALOG.withProtocolName(name);
         responseSetSchema = RESPONSE_SET_SCHEMA.withProtocolName(name);
         responseSetPath = RESPONSE_SET_PATH.withProtocolName(name);
@@ -307,6 +311,11 @@ public final class ProtocolHeaders
     public String requestQueryDataEncoding()
     {
         return requestQueryDataEncoding;
+    }
+
+    public String requestInternalAuthorization()
+    {
+        return requestInternalAuthorization;
     }
 
     public String responseSetCatalog()

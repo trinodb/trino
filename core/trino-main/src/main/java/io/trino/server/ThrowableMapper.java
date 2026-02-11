@@ -19,6 +19,7 @@ import io.airlift.jaxrs.JsonParsingException;
 import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.ForbiddenException;
 import jakarta.ws.rs.InternalServerErrorException;
+import jakarta.ws.rs.NotAuthorizedException;
 import jakarta.ws.rs.NotFoundException;
 import jakarta.ws.rs.ServerErrorException;
 import jakarta.ws.rs.ServiceUnavailableException;
@@ -31,6 +32,7 @@ import org.eclipse.jetty.io.EofException;
 import java.util.concurrent.TimeoutException;
 
 import static jakarta.ws.rs.core.HttpHeaders.CONTENT_TYPE;
+import static jakarta.ws.rs.core.HttpHeaders.WWW_AUTHENTICATE;
 import static jakarta.ws.rs.core.MediaType.TEXT_PLAIN;
 
 public class ThrowableMapper
@@ -63,6 +65,10 @@ public class ThrowableMapper
         return switch (throwable) {
             case ForbiddenException forbiddenException -> plainTextError(Response.Status.FORBIDDEN)
                     .entity("Error 403 Forbidden: " + forbiddenException.getMessage())
+                    .build();
+            case NotAuthorizedException unauthorizedException -> plainTextError(Response.Status.UNAUTHORIZED)
+                    .entity("Error 401 Unauthorized: " + unauthorizedException.getMessage())
+                    .header(WWW_AUTHENTICATE, unauthorizedException.getChallenges().getFirst())
                     .build();
             case ServiceUnavailableException serviceUnavailableException -> plainTextError(Response.Status.SERVICE_UNAVAILABLE)
                     .entity("Error 503 Service Unavailable: " + serviceUnavailableException.getMessage())
