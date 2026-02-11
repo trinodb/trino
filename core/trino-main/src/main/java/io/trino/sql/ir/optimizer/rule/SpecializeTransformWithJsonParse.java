@@ -16,6 +16,7 @@ package io.trino.sql.ir.optimizer.rule;
 import com.google.common.collect.ImmutableList;
 import io.trino.Session;
 import io.trino.metadata.Metadata;
+import io.trino.metadata.ResolvedFunction;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Constant;
@@ -24,6 +25,7 @@ import io.trino.sql.ir.Lambda;
 import io.trino.sql.ir.optimizer.IrOptimizerRule;
 import io.trino.sql.planner.Symbol;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
@@ -53,18 +55,18 @@ public class SpecializeTransformWithJsonParse
     @Override
     public Optional<Expression> apply(Expression expression, Session session, Map<Symbol, Expression> bindings)
     {
-        if (expression instanceof Call call
-                && call.function().name().getFunctionName().equals(ARRAY_TRANSFORM_NAME)) {
-            if (!(call.arguments().getFirst() instanceof Call transformArrayCall
-                    && transformArrayCall.function().name().equals(builtinFunctionName(JSON_STRING_TO_ARRAY_NAME)))) {
+        if (expression instanceof Call(ResolvedFunction function, List<Expression> arguments)
+                && function.name().getFunctionName().equals(ARRAY_TRANSFORM_NAME)) {
+            if (!(arguments.getFirst() instanceof Call(ResolvedFunction innerFunction, List<Expression> innerArguments)
+                    && innerFunction.name().equals(builtinFunctionName(JSON_STRING_TO_ARRAY_NAME)))) {
                 return Optional.empty();
             }
 
-            if (call.arguments().getLast() instanceof Lambda transform
-                    && transform.body() instanceof Call transformLambdaCall
-                    && transformLambdaCall.function().name().equals(builtinFunctionName("json_extract_scalar"))) {
-                Expression jsonData = transformArrayCall.arguments().getFirst();
-                Constant jsonPath = (Constant) transformLambdaCall.arguments().getLast();
+            if (arguments.getLast() instanceof Lambda transform
+                    && transform.body() instanceof Call(ResolvedFunction innerTransformFunction, List<Expression> innerTransformArguments)
+                    && innerTransformFunction.name().equals(builtinFunctionName("json_extract_scalar"))) {
+                Expression jsonData = innerArguments.getFirst();
+                Constant jsonPath = (Constant) innerTransformArguments.getLast();
                 Call newCall = new Call(
                         metadata.resolveBuiltinFunction(
                                 JSON_STRING_ARRAY_EXTRACT_SCALAR_NAME,
