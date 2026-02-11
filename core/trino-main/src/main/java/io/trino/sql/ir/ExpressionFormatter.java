@@ -114,7 +114,7 @@ public final class ExpressionFormatter
         protected String visitCall(Call node, Void context)
         {
             String name = isBuiltinFunctionName(node.function().name()) ?
-                    node.function().name().getFunctionName() :
+                    node.function().name().functionName() :
                     node.function().name().toString();
 
             return name + '(' + joinExpressions(node.arguments()) + ')';

@@ -1800,9 +1800,9 @@ public class TracingMetadata
     private Span startSpan(String methodName, CatalogSchemaFunctionName table)
     {
         return startSpan(methodName)
-                .setAttribute(TrinoAttributes.CATALOG, table.getCatalogName())
-                .setAttribute(TrinoAttributes.SCHEMA, table.getSchemaName())
-                .setAttribute(TrinoAttributes.FUNCTION, table.getFunctionName());
+                .setAttribute(TrinoAttributes.CATALOG, table.catalogName())
+                .setAttribute(TrinoAttributes.SCHEMA, table.schemaName())
+                .setAttribute(TrinoAttributes.FUNCTION, table.functionName());
     }
 
     private Span startSpan(String methodName, EntityKindAndName entity, Set<EntityPrivilege> privileges, TrinoPrincipal grantee, boolean grantOption)

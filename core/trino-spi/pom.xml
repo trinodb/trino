@@ -813,6 +813,80 @@
                                     <code>java.class.externalClassExposedInAPI</code>
                                     <new>class io.opentelemetry.api.common.Empty</new>
                                 </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.removed</code>
+                                    <old>method java.lang.String io.trino.spi.function.CatalogSchemaFunctionName::getCatalogName()</old>
+                                    <justification>Class converted to a record</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.removed</code>
+                                    <old>method io.trino.spi.function.SchemaFunctionName io.trino.spi.function.CatalogSchemaFunctionName::getSchemaFunctionName()</old>
+                                    <justification>Class converted to a record</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.class.kindChanged</code>
+                                    <old>class io.trino.spi.function.CatalogSchemaFunctionName</old>
+                                    <new>class io.trino.spi.function.CatalogSchemaFunctionName</new>
+                                    <justification>Class converted to a record</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.annotation.removed</code>
+                                    <old>parameter void io.trino.spi.function.SchemaFunctionName::&lt;init&gt;(===java.lang.String===, java.lang.String)</old>
+                                    <new>parameter void io.trino.spi.function.SchemaFunctionName::&lt;init&gt;(===java.lang.String===, java.lang.String)</new>
+                                    <annotation>@com.fasterxml.jackson.annotation.JsonProperty("schemaName")</annotation>
+                                    <justification>Class converted to a record</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.annotation.removed</code>
+                                    <old>parameter void io.trino.spi.function.SchemaFunctionName::&lt;init&gt;(java.lang.String, ===java.lang.String===)</old>
+                                    <new>parameter void io.trino.spi.function.SchemaFunctionName::&lt;init&gt;(java.lang.String, ===java.lang.String===)</new>
+                                    <annotation>@com.fasterxml.jackson.annotation.JsonProperty("functionName")</annotation>
+                                    <justification>Class converted to a record</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.annotation.removed</code>
+                                    <old>method void io.trino.spi.function.SchemaFunctionName::&lt;init&gt;(java.lang.String, java.lang.String)</old>
+                                    <new>method void io.trino.spi.function.SchemaFunctionName::&lt;init&gt;(java.lang.String, java.lang.String)</new>
+                                    <annotation>@com.fasterxml.jackson.annotation.JsonCreator</annotation>
+                                    <justification>Class converted to a record</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.removed</code>
+                                    <old>method java.lang.String io.trino.spi.function.SchemaFunctionName::getFunctionName()</old>
+                                    <justification>Class converted to a record</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.removed</code>
+                                    <old>method java.lang.String io.trino.spi.function.SchemaFunctionName::getSchemaName()</old>
+                                    <justification>Class converted to a record</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.class.kindChanged</code>
+                                    <old>class io.trino.spi.function.SchemaFunctionName</old>
+                                    <new>class io.trino.spi.function.SchemaFunctionName</new>
+                                    <justification>Class converted to a record</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.removed</code>
+                                    <old>method java.lang.String io.trino.spi.function.CatalogSchemaFunctionName::getFunctionName()</old>
+                                    <justification>Class converted to a record</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.removed</code>
+                                    <old>method java.lang.String io.trino.spi.function.CatalogSchemaFunctionName::getSchemaName()</old>
+                                    <justification>Class converted to a record</justification>
+                                </item>
                             </differences>
                         </revapi.differences>
                     </analysisConfiguration>

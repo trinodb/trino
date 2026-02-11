@@ -50,7 +50,7 @@ public class CatalogTableFunctions
     private static SchemaFunctionName lowerCaseSchemaFunctionName(SchemaFunctionName name)
     {
         return new SchemaFunctionName(
-                name.getSchemaName().toLowerCase(ENGLISH),
-                name.getFunctionName().toLowerCase(ENGLISH));
+                name.schemaName().toLowerCase(ENGLISH),
+                name.functionName().toLowerCase(ENGLISH));
     }
 }

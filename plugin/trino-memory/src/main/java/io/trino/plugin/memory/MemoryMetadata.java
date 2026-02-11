@@ -193,9 +193,9 @@ public class MemoryMetadata
         Map<SchemaFunctionName, Map<String, LanguageFunction>> newFunctions = new HashMap<>();
         for (Iterator<Map.Entry<SchemaFunctionName, Map<String, LanguageFunction>>> iterator = functions.entrySet().iterator(); iterator.hasNext(); ) {
             Map.Entry<SchemaFunctionName, Map<String, LanguageFunction>> function = iterator.next();
-            if (function.getKey().getSchemaName().equals(source)) {
+            if (function.getKey().schemaName().equals(source)) {
                 iterator.remove();
-                newFunctions.put(new SchemaFunctionName(target, function.getKey().getFunctionName()), function.getValue());
+                newFunctions.put(new SchemaFunctionName(target, function.getKey().functionName()), function.getValue());
             }
         }
         functions.putAll(newFunctions);
@@ -729,7 +729,7 @@ public class MemoryMetadata
     public synchronized Collection<LanguageFunction> listLanguageFunctions(ConnectorSession session, String schemaName)
     {
         return functions.entrySet().stream()
-                .filter(entry -> entry.getKey().getSchemaName().equals(schemaName))
+                .filter(entry -> entry.getKey().schemaName().equals(schemaName))
                 .flatMap(entry -> entry.getValue().values().stream())
                 .toList();
     }

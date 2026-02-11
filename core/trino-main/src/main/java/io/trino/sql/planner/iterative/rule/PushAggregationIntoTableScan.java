@@ -242,7 +242,7 @@ public class PushAggregationIntoTableScan
                 .map(symbol -> new Variable(symbol.name(), symbol.type()));
 
         return new AggregateFunction(
-                signature.getName().getFunctionName(),
+                signature.getName().functionName(),
                 signature.getReturnType(),
                 arguments.build(),
                 sortBy.orElse(ImmutableList.of()),

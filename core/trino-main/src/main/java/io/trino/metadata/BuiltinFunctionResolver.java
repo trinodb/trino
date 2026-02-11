@@ -146,7 +146,7 @@ class BuiltinFunctionResolver
                                 FUNCTION_IMPLEMENTATION_ERROR,
                                 format("Builtin function %s cannot depend on a non-builtin function: %s", functionBinding.functionBinding().getBoundSignature().getName(), catalogSchemaFunctionName));
                     }
-                    return getBuiltinFunctions(catalogSchemaFunctionName.getFunctionName());
+                    return getBuiltinFunctions(catalogSchemaFunctionName.functionName());
                 },
                 this::resolveBuiltin);
     }

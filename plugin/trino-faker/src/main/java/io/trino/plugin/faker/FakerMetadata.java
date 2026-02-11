@@ -772,7 +772,7 @@ public class FakerMetadata
     public Collection<FunctionMetadata> getFunctions(ConnectorSession session, SchemaFunctionName name)
     {
         return functionsProvider.functionsMetadata().stream()
-                .filter(function -> function.getCanonicalName().equals(name.getFunctionName()))
+                .filter(function -> function.getCanonicalName().equals(name.functionName()))
                 .collect(toImmutableList());
     }
 

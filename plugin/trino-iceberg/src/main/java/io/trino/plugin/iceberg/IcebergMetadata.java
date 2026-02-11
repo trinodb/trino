@@ -564,11 +564,11 @@ public class IcebergMetadata
     @Override
     public Collection<FunctionMetadata> getFunctions(ConnectorSession session, SchemaFunctionName name)
     {
-        if (!name.getSchemaName().equals(SYSTEM_SCHEMA)) {
+        if (!name.schemaName().equals(SYSTEM_SCHEMA)) {
             return List.of();
         }
         return IcebergFunctionProvider.FUNCTIONS.stream()
-                .filter(function -> function.getCanonicalName().equals(name.getFunctionName()))
+                .filter(function -> function.getCanonicalName().equals(name.functionName()))
                 .toList();
     }
 

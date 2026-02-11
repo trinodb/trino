@@ -1865,10 +1865,10 @@ class StatementAnalyzer
         {
             boolean unauthorized = false;
             for (CatalogSchemaFunctionName name : toPath(session, node.getName(), accessControl)) {
-                CatalogHandle catalogHandle = getRequiredCatalogHandle(metadata, session, node, name.getCatalogName());
-                Optional<ConnectorTableFunction> resolved = tableFunctionRegistry.resolve(catalogHandle, name.getSchemaFunctionName());
+                CatalogHandle catalogHandle = getRequiredCatalogHandle(metadata, session, node, name.catalogName());
+                Optional<ConnectorTableFunction> resolved = tableFunctionRegistry.resolve(catalogHandle, name.schemaFunctionName());
                 if (resolved.isPresent()) {
-                    if (isBuiltinFunctionName(name) || accessControl.canExecuteFunction(SecurityContext.of(session), new QualifiedObjectName(name.getCatalogName(), name.getSchemaName(), name.getFunctionName()))) {
+                    if (isBuiltinFunctionName(name) || accessControl.canExecuteFunction(SecurityContext.of(session), new QualifiedObjectName(name.catalogName(), name.schemaName(), name.functionName()))) {
                         return Optional.of(new TableFunctionMetadata(catalogHandle, resolved.get()));
                     }
                     unauthorized = true;

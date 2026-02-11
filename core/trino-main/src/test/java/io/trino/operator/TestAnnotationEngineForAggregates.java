@@ -1180,7 +1180,7 @@ public class TestAnnotationEngineForAggregates
 
     private static ResolvedFunction resolveDependency(FunctionDependencyDeclaration.FunctionDependency dependency)
     {
-        QualifiedName name = QualifiedName.of(dependency.getName().getCatalogName(), dependency.getName().getSchemaName(), dependency.getName().getFunctionName());
+        QualifiedName name = QualifiedName.of(dependency.getName().catalogName(), dependency.getName().schemaName(), dependency.getName().functionName());
         return PLANNER_CONTEXT.getFunctionResolver().resolveFunction(TEST_SESSION, name, fromTypeSignatures(dependency.getArgumentTypes()), new AllowAllAccessControl());
     }
 

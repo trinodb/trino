@@ -56,7 +56,7 @@ public class SpecializeTransformWithJsonParse
     public Optional<Expression> apply(Expression expression, Session session, Map<Symbol, Expression> bindings)
     {
         if (expression instanceof Call(ResolvedFunction function, List<Expression> arguments)
-                && function.name().getFunctionName().equals(ARRAY_TRANSFORM_NAME)) {
+                && function.name().functionName().equals(ARRAY_TRANSFORM_NAME)) {
             if (!(arguments.getFirst() instanceof Call(ResolvedFunction innerFunction, List<Expression> innerArguments)
                     && innerFunction.name().equals(builtinFunctionName(JSON_STRING_TO_ARRAY_NAME)))) {
                 return Optional.empty();

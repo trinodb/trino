@@ -924,7 +924,7 @@ public abstract class AbstractMockMetadata
                 BUILTIN_SCHEMA,
                 FunctionMetadata.scalarBuilder("random")
                         .signature(Signature.builder().returnType(DOUBLE).build())
-                        .alias(RAND_NAME.getFunctionName())
+                        .alias(RAND_NAME.functionName())
                         .nondeterministic()
                         .noDescription()
                         .build()));

@@ -2650,7 +2650,7 @@ public final class MetadataManager
             throw new TrinoException(FUNCTION_IMPLEMENTATION_MISSING, format("%s not found", name));
         }
 
-        return functionResolver.resolveCoercion(name.getFunctionName(), fromType, toType);
+        return functionResolver.resolveCoercion(name.functionName(), fromType, toType);
     }
 
     @Override
@@ -2671,11 +2671,11 @@ public final class MetadataManager
     public Collection<CatalogFunctionMetadata> getFunctions(Session session, CatalogSchemaFunctionName name)
     {
         if (isBuiltinFunctionName(name)) {
-            return getBuiltinFunctions(name.getFunctionName());
+            return getBuiltinFunctions(name.functionName());
         }
 
-        return getOptionalCatalogMetadata(session, name.getCatalogName())
-                .map(metadata -> getFunctions(session, metadata.getMetadata(session), metadata.getCatalogHandle(), name.getSchemaFunctionName()))
+        return getOptionalCatalogMetadata(session, name.catalogName())
+                .map(metadata -> getFunctions(session, metadata.getMetadata(session), metadata.getCatalogHandle(), name.schemaFunctionName()))
                 .orElse(ImmutableList.of());
     }
 
@@ -2692,7 +2692,7 @@ public final class MetadataManager
         ImmutableList.Builder<CatalogFunctionMetadata> functions = ImmutableList.builder();
 
         metadata.getFunctions(connectorSession, name).stream()
-                .map(function -> new CatalogFunctionMetadata(catalogHandle, name.getSchemaName(), function))
+                .map(function -> new CatalogFunctionMetadata(catalogHandle, name.schemaName(), function))
                 .forEach(functions::add);
 
         RunAsIdentityLoader identityLoader = owner -> {
@@ -2708,7 +2708,7 @@ public final class MetadataManager
         };
 
         languageFunctionManager.getFunctions(session, catalogHandle, name, metadata::getLanguageFunctions, identityLoader).stream()
-                .map(function -> new CatalogFunctionMetadata(catalogHandle, name.getSchemaName(), function))
+                .map(function -> new CatalogFunctionMetadata(catalogHandle, name.schemaName(), function))
                 .forEach(functions::add);
 
         return functions.build();

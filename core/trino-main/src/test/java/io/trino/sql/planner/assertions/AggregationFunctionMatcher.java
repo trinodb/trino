@@ -59,7 +59,7 @@ public class AggregationFunctionMatcher
 
     private static boolean aggregationMatches(Aggregation aggregation, AggregationFunction expectedCall)
     {
-        return Objects.equals(expectedCall.name(), aggregation.getResolvedFunction().signature().getName().getFunctionName()) &&
+        return Objects.equals(expectedCall.name(), aggregation.getResolvedFunction().signature().getName().functionName()) &&
                 Objects.equals(expectedCall.filter(), aggregation.getFilter()) &&
                 Objects.equals(expectedCall.orderingScheme(), aggregation.getOrderingScheme()) &&
                 expectedCall.distinct() == aggregation.isDistinct() &&

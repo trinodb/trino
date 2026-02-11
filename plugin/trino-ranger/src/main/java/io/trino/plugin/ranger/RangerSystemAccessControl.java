@@ -799,7 +799,7 @@ public class RangerSystemAccessControl
         Set<SchemaFunctionName> toExclude = new HashSet<>();
 
         for (SchemaFunctionName functionName : functionNames) {
-            RangerTrinoResource resource = RangerTrinoResource.forSchemaFunction(catalogName, functionName.getSchemaName(), functionName.getFunctionName());
+            RangerTrinoResource resource = RangerTrinoResource.forSchemaFunction(catalogName, functionName.schemaName(), functionName.functionName());
 
             if (!hasPermissionForFilter(resource, context, _ANY, "filterFunctions")) {
                 toExclude.add(functionName);
