@@ -61,6 +61,7 @@ import static io.airlift.units.DataSize.succinctBytes;
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.execution.QueryState.FINISHED;
 import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -237,7 +238,7 @@ public class TestQueryInfo
                 null,
                 null,
                 ImmutableList.of(new TrinoWarning(new WarningCode(1, "name"), "message")),
-                ImmutableSet.of(new Input(Optional.of("connectorName"), "catalog", new CatalogVersion("default"), "schema", "talble", Optional.empty(), ImmutableList.of(new Column("name", "type")), new PlanFragmentId("id"), new PlanNodeId("1"))),
+                ImmutableSet.of(new Input(Optional.of("connectorName"), "catalog", new CatalogVersion("default"), "schema", "talble", Optional.empty(), ImmutableList.of(new Column("name", VARCHAR.getTypeId())), new PlanFragmentId("id"), new PlanNodeId("1"))),
                 Optional.empty(),
                 Optional.empty(),
                 ImmutableList.of(),

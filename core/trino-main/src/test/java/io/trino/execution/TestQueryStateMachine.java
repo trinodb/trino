@@ -95,6 +95,7 @@ import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.StandardErrorCode.TYPE_MISMATCH;
 import static io.trino.spi.StandardErrorCode.USER_CANCELED;
 import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.TestingEventListenerManager.emptyEventListenerManager;
 import static io.trino.transaction.InMemoryTransactionManager.createTestTransactionManager;
 import static java.util.concurrent.Executors.newCachedThreadPool;
@@ -117,7 +118,7 @@ public class TestQueryStateMachine
             "schema",
             "table",
             Optional.empty(),
-            ImmutableList.of(new Column("a", "varchar")),
+            ImmutableList.of(new Column("a", VARCHAR.getTypeId())),
             new PlanFragmentId("fragment"),
             new PlanNodeId("plan-node")));
     private static final Optional<Output> OUTPUT = Optional.empty();

@@ -685,8 +685,7 @@ class StatementAnalyzer
 
             Stream<Column> columnStream = Streams.zip(
                     insertColumns.stream(),
-                    tableTypes.stream()
-                            .map(Type::toString),
+                    tableTypes.stream().map(Type::getTypeId),
                     Column::new);
 
             analysis.setUpdateTarget(
@@ -765,7 +764,7 @@ class StatementAnalyzer
             Stream<Column> columns = Streams.zip(
                     insertColumns.stream(),
                     tableTypes.stream()
-                            .map(Type::toString),
+                            .map(Type::getTypeId),
                     Column::new);
 
             analysis.setUpdateTarget(
@@ -1000,7 +999,7 @@ class StatementAnalyzer
                     }
                     String columnName = node.getColumnAliases().get().get(aliasPosition).getValue();
                     columnsBuilder.add(new ColumnMetadata(columnName, metadata.getSupportedType(session, catalogHandle, properties, field.getType()).orElse(field.getType())));
-                    outputColumns.add(new OutputColumn(new Column(columnName, field.getType().toString()), analysis.getSourceColumns(field)));
+                    outputColumns.add(new OutputColumn(new Column(columnName, field.getType().getTypeId()), analysis.getSourceColumns(field)));
                     aliasPosition++;
                 }
             }
@@ -3633,7 +3632,7 @@ class StatementAnalyzer
                     Optional.of(table),
                     Optional.of(updatedColumnSchemas.stream()
                             .map(column -> new OutputColumn(
-                                    new Column(column.getName(), column.getType().toString()),
+                                    new Column(column.getName(), column.getType().getTypeId()),
                                     sourceColumnsByColumnName.getOrDefault(column.getName(), ImmutableSet.of())))
                             .collect(toImmutableList())));
 
@@ -3807,7 +3806,7 @@ class StatementAnalyzer
 
             List<OutputColumn> updatedColumns = allColumnHandles.keySet().stream()
                     .filter(allUpdateColumnNames::contains)
-                    .map(columnHandle -> new OutputColumn(new Column(columnHandle, dataColumnTypes.get(columnHandle).toString()), ImmutableSet.of()))
+                    .map(columnHandle -> new OutputColumn(new Column(columnHandle, dataColumnTypes.get(columnHandle).getTypeId()), ImmutableSet.of()))
                     .collect(toImmutableList());
 
             analysis.setUpdateTarget(targetTableHandle.catalogHandle().getVersion(), tableName, Optional.of(table), Optional.of(updatedColumns));
@@ -6040,7 +6039,7 @@ class StatementAnalyzer
 
         private OutputColumn createOutputColumn(Field field)
         {
-            return new OutputColumn(new Column(field.getName().orElseThrow(), field.getType().toString()), analysis.getSourceColumns(field));
+            return new OutputColumn(new Column(field.getName().orElseThrow(), field.getType().getTypeId()), analysis.getSourceColumns(field));
         }
 
         /**

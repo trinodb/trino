@@ -55,8 +55,10 @@ import io.trino.spi.metrics.Metrics;
 import io.trino.spi.security.ViewExpression;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeId;
 import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.TypeSignature;
+import io.trino.spi.type.VarcharType;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolKeyDeserializer;
 import io.trino.testing.AbstractTestQueryFramework;
@@ -114,8 +116,8 @@ public class TestEventListenerBasic
 {
     private static final JsonCodec<Map<String, JsonRenderedNode>> ANONYMIZED_PLAN_JSON_CODEC = mapJsonCodec(String.class, JsonRenderedNode.class);
     private static final String IGNORE_EVENT_MARKER = " -- ignore_generated_event";
-    private static final String VARCHAR_TYPE = "varchar(15)";
-    private static final String BIGINT_TYPE = BIGINT.getDisplayName();
+    private static final TypeId VARCHAR_TYPE = createVarcharType(15).getTypeId();
+    private static final TypeId BIGINT_TYPE = BIGINT.getTypeId();
     private static final Metrics TEST_METRICS = new Metrics(ImmutableMap.of("test_metrics", new LongCount(1)));
 
     private EventsAwaitingQueries queries;
@@ -610,9 +612,9 @@ public class TestEventListenerBasic
         assertThat(event.getIoMetadata().getOutput().get().getColumns().get())
                 .containsExactly(
                         new OutputColumnMetadata("nationkey", BIGINT_TYPE, ImmutableSet.of(new ColumnDetail("tpch", "tiny", "nation", "nationkey"))),
-                        new OutputColumnMetadata("name", "varchar(25)", ImmutableSet.of(new ColumnDetail("tpch", "tiny", "nation", "name"))),
+                        new OutputColumnMetadata("name", createVarcharType(25).getTypeId(), ImmutableSet.of(new ColumnDetail("tpch", "tiny", "nation", "name"))),
                         new OutputColumnMetadata("regionkey", BIGINT_TYPE, ImmutableSet.of(new ColumnDetail("tpch", "tiny", "nation", "regionkey"))),
-                        new OutputColumnMetadata("comment", "varchar(152)", ImmutableSet.of(new ColumnDetail("tpch", "tiny", "nation", "comment"))));
+                        new OutputColumnMetadata("comment", createVarcharType(152).getTypeId(), ImmutableSet.of(new ColumnDetail("tpch", "tiny", "nation", "comment"))));
 
         List<TableInfo> tables = event.getMetadata().getTables();
         assertThat(getOnlyElement(tables))
@@ -638,9 +640,9 @@ public class TestEventListenerBasic
         assertThat(event.getIoMetadata().getOutput().get().getColumns().get())
                 .containsExactly(
                         new OutputColumnMetadata("nationkey", BIGINT_TYPE, ImmutableSet.of(new ColumnDetail("tpch", "tiny", "nation", "nationkey"))),
-                        new OutputColumnMetadata("name", "varchar(25)", ImmutableSet.of(new ColumnDetail("tpch", "tiny", "nation", "name"))),
+                        new OutputColumnMetadata("name", createVarcharType(25).getTypeId(), ImmutableSet.of(new ColumnDetail("tpch", "tiny", "nation", "name"))),
                         new OutputColumnMetadata("regionkey", BIGINT_TYPE, ImmutableSet.of(new ColumnDetail("tpch", "tiny", "nation", "regionkey"))),
-                        new OutputColumnMetadata("comment", "varchar(152)", ImmutableSet.of(new ColumnDetail("tpch", "tiny", "nation", "comment"))));
+                        new OutputColumnMetadata("comment", createVarcharType(152).getTypeId(), ImmutableSet.of(new ColumnDetail("tpch", "tiny", "nation", "comment"))));
 
         List<TableInfo> tables = event.getMetadata().getTables();
         assertThat(getOnlyElement(tables))
@@ -1013,9 +1015,9 @@ public class TestEventListenerBasic
         assertThat(event.getIoMetadata().getOutput().get().getColumns().get())
                 .containsExactly(
                         new OutputColumnMetadata("nationkey", BIGINT_TYPE, ImmutableSet.of(new ColumnDetail("tpch", "tiny", "nation", "nationkey"))),
-                        new OutputColumnMetadata("name", "varchar(25)", ImmutableSet.of(new ColumnDetail("tpch", "tiny", "nation", "name"))),
+                        new OutputColumnMetadata("name", createVarcharType(25).getTypeId(), ImmutableSet.of(new ColumnDetail("tpch", "tiny", "nation", "name"))),
                         new OutputColumnMetadata("regionkey", BIGINT_TYPE, ImmutableSet.of(new ColumnDetail("tpch", "tiny", "nation", "regionkey"))),
-                        new OutputColumnMetadata("comment", "varchar(152)", ImmutableSet.of(new ColumnDetail("tpch", "tiny", "nation", "comment"))));
+                        new OutputColumnMetadata("comment", createVarcharType(152).getTypeId(), ImmutableSet.of(new ColumnDetail("tpch", "tiny", "nation", "comment"))));
     }
 
     @Test
@@ -1049,7 +1051,7 @@ public class TestEventListenerBasic
         assertThat(event.getIoMetadata().getOutput().get().getColumns().get())
                 .containsExactly(
                         new OutputColumnMetadata("aliased_bigint", BIGINT_TYPE, ImmutableSet.of(new ColumnDetail("tpch", "tiny", "nation", "nationkey"))),
-                        new OutputColumnMetadata("aliased_varchar", "varchar", ImmutableSet.of(new ColumnDetail("tpch", "tiny", "nation", "name"), new ColumnDetail("tpch", "tiny", "nation", "comment"))));
+                        new OutputColumnMetadata("aliased_varchar", VarcharType.VARCHAR.getTypeId(), ImmutableSet.of(new ColumnDetail("tpch", "tiny", "nation", "name"), new ColumnDetail("tpch", "tiny", "nation", "comment"))));
     }
 
     @Test
@@ -1414,8 +1416,8 @@ public class TestEventListenerBasic
                         new OutputColumnMetadata("test_column", BIGINT_TYPE, ImmutableSet.of()),
                         new OutputColumnMetadata("test_varchar", VARCHAR_TYPE, ImmutableSet.of()),
                         new OutputColumnMetadata("test_bigint", BIGINT_TYPE, ImmutableSet.of()),
-                        new OutputColumnMetadata("test_varchar_array", "array(varchar(15))", ImmutableSet.of()),
-                        new OutputColumnMetadata("test_bigint_array", "array(bigint)", ImmutableSet.of()));
+                        new OutputColumnMetadata("test_varchar_array", new ArrayType(createVarcharType(15)).getTypeId(), ImmutableSet.of()),
+                        new OutputColumnMetadata("test_bigint_array", new ArrayType(BIGINT).getTypeId(), ImmutableSet.of()));
     }
 
     @Test

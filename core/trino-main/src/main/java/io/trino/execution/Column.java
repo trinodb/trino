@@ -13,9 +13,11 @@
  */
 package io.trino.execution;
 
+import io.trino.spi.type.TypeId;
+
 import static java.util.Objects.requireNonNull;
 
-public record Column(String name, String type)
+public record Column(String name, TypeId type)
 {
     public Column
     {

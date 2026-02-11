@@ -373,7 +373,7 @@ public class OpenLineageListener
                                                     outputColumns.stream()
                                                             .map(column -> openLineage.newSchemaDatasetFacetFieldsBuilder()
                                                                     .name(column.getColumnName())
-                                                                    .type(column.getColumnType())
+                                                                    .type(column.getColumnType().toString())
                                                                     .build())
                                                             .toList()
                                             ).build())

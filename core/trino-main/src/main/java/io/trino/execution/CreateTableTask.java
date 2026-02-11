@@ -317,7 +317,7 @@ public class CreateTableTask
                 tableName.schemaName(),
                 tableName.objectName(),
                 Optional.of(tableMetadata.getColumns().stream()
-                        .map(column -> new OutputColumn(new Column(column.getName(), column.getType().toString()), ImmutableSet.of()))
+                        .map(column -> new OutputColumn(new Column(column.getName(), column.getType().getTypeId()), ImmutableSet.of()))
                         .collect(toImmutableList()))));
         return immediateVoidFuture();
     }

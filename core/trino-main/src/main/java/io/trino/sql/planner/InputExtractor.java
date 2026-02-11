@@ -41,8 +41,8 @@ import java.util.Set;
 
 public class InputExtractor
 {
-    private final Metadata metadata;
     private final Session session;
+    private final Metadata metadata;
 
     public InputExtractor(Metadata metadata, Session session)
     {
@@ -61,7 +61,7 @@ public class InputExtractor
 
     private static Column createColumn(ColumnMetadata columnMetadata)
     {
-        return new Column(columnMetadata.getName(), columnMetadata.getType().toString());
+        return new Column(columnMetadata.getName(), columnMetadata.getType().getTypeId());
     }
 
     private Input createInput(Session session, TableHandle table, Set<Column> columns, PlanFragmentId fragmentId, PlanNodeId planNodeId)
@@ -116,7 +116,6 @@ public class InputExtractor
             for (ColumnHandle columnHandle : assignments.values()) {
                 columns.add(createColumn(metadata.getColumnMetadata(session, tableHandle, columnHandle)));
             }
-
             inputs.add(createInput(session, tableHandle, columns, fragmentId, planNodeId));
         }
 

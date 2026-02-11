@@ -24,6 +24,7 @@ import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 
+import static io.trino.spi.type.VarcharType.VARCHAR;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestOutput
@@ -41,7 +42,7 @@ public class TestOutput
                 Optional.of(
                         ImmutableList.of(
                                 new OutputColumn(
-                                        new Column("column", "type"),
+                                        new Column("column", VARCHAR.getTypeId()),
                                         ImmutableSet.of(
                                                 new SourceColumn(QualifiedObjectName.valueOf("catalog.schema.table"), "column"))))));
 
@@ -62,7 +63,7 @@ public class TestOutput
                 Optional.of(
                         ImmutableList.of(
                                 new OutputColumn(
-                                        new Column("ko.LU-mieńka", "type"),
+                                        new Column("ko.LU-mieńka", VARCHAR.getTypeId()),
                                         ImmutableSet.of(
                                                 new SourceColumn(new QualifiedObjectName("catalog.twój", "schema.ściema", "tabel.tabelkówna"), "co-lumn.słodziak\""))))));
 

@@ -887,6 +887,21 @@
                                     <old>method java.lang.String io.trino.spi.function.CatalogSchemaFunctionName::getSchemaName()</old>
                                     <justification>Class converted to a record</justification>
                                 </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.parameterTypeChanged</code>
+                                    <old>parameter void io.trino.spi.eventlistener.OutputColumnMetadata::&lt;init&gt;(java.lang.String, ===java.lang.String===, java.util.Set&lt;io.trino.spi.eventlistener.ColumnDetail&gt;)</old>
+                                    <new>parameter void io.trino.spi.eventlistener.OutputColumnMetadata::&lt;init&gt;(java.lang.String, ===io.trino.spi.type.TypeId===, java.util.Set&lt;io.trino.spi.eventlistener.ColumnDetail&gt;)</new>
+                                    <parameterIndex>1</parameterIndex>
+                                    <justification>TypeId is used to carry over Type information</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.returnTypeChanged</code>
+                                    <old>method java.lang.String io.trino.spi.eventlistener.OutputColumnMetadata::getColumnType()</old>
+                                    <new>method io.trino.spi.type.TypeId io.trino.spi.eventlistener.OutputColumnMetadata::getColumnType()</new>
+                                    <justification>TypeId is used to carry over Type information</justification>
+                                </item>
                             </differences>
                         </revapi.differences>
                     </analysisConfiguration>

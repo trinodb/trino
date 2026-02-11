@@ -16,6 +16,7 @@ package io.trino.spi.eventlistener;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import io.trino.spi.Unstable;
+import io.trino.spi.type.TypeId;
 
 import java.util.Objects;
 import java.util.Set;
@@ -28,12 +29,12 @@ import static java.util.Objects.requireNonNull;
 public class OutputColumnMetadata
 {
     private final String columnName;
-    private final String columnType;
+    private final TypeId columnType;
     private final Set<ColumnDetail> sourceColumns;
 
     @JsonCreator
     @Unstable
-    public OutputColumnMetadata(String columnName, String columnType, Set<ColumnDetail> sourceColumns)
+    public OutputColumnMetadata(String columnName, TypeId columnType, Set<ColumnDetail> sourceColumns)
     {
         this.columnName = requireNonNull(columnName, "columnName is null");
         this.columnType = requireNonNull(columnType, "columnType is null");
@@ -47,7 +48,7 @@ public class OutputColumnMetadata
     }
 
     @JsonProperty
-    public String getColumnType()
+    public TypeId getColumnType()
     {
         return columnType;
     }

@@ -22,6 +22,7 @@ import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 
+import static io.trino.spi.type.VarcharType.VARCHAR;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestInput
@@ -39,9 +40,9 @@ public class TestInput
                 "table",
                 Optional.empty(),
                 ImmutableList.of(
-                        new Column("column1", "string"),
-                        new Column("column2", "string"),
-                        new Column("column3", "string")),
+                        new Column("column1", VARCHAR.getTypeId()),
+                        new Column("column2", VARCHAR.getTypeId()),
+                        new Column("column3", VARCHAR.getTypeId())),
                 new PlanFragmentId("fragment"),
                 new PlanNodeId("plan-node"));
 

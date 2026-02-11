@@ -482,7 +482,7 @@ public class QueryMonitor
                     input.schema(),
                     input.table(),
                     input.columns().stream()
-                            .map(column -> new QueryInputMetadata.Column(column.name(), column.type()))
+                            .map(column -> new QueryInputMetadata.Column(column.name(), column.type().getId()))
                             .collect(toImmutableList()),
                     input.connectorInfo(),
                     connectorMetrics,

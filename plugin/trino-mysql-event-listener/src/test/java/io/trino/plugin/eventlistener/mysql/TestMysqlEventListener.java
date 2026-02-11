@@ -35,6 +35,9 @@ import io.trino.spi.metrics.Metrics;
 import io.trino.spi.resourcegroups.QueryType;
 import io.trino.spi.resourcegroups.ResourceGroupId;
 import io.trino.spi.session.ResourceEstimates;
+import io.trino.spi.type.BigintType;
+import io.trino.spi.type.StandardTypes;
+import io.trino.spi.type.VarcharType;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -57,7 +60,6 @@ import java.util.OptionalLong;
 import java.util.Set;
 
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
-import static io.trino.spi.type.StandardTypes.BIGINT;
 import static io.trino.spi.type.StandardTypes.INTEGER;
 import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
 import static java.lang.Boolean.TRUE;
@@ -184,7 +186,7 @@ final class TestMysqlEventListener
                             new CatalogVersion("default"),
                             "schema1",
                             "table1",
-                            List.of(new QueryInputMetadata.Column("column1", BIGINT), new QueryInputMetadata.Column("column2", INTEGER)),
+                            List.of(new QueryInputMetadata.Column("column1", StandardTypes.BIGINT), new QueryInputMetadata.Column("column2", INTEGER)),
                             Optional.of("connectorInfo1"),
                             new Metrics(ImmutableMap.of()),
                             OptionalLong.of(201),
@@ -195,7 +197,7 @@ final class TestMysqlEventListener
                             new CatalogVersion("default"),
                             "schema2",
                             "table2",
-                            List.of(new QueryInputMetadata.Column("column3", BIGINT), new QueryInputMetadata.Column("column4", INTEGER)),
+                            List.of(new QueryInputMetadata.Column("column3", StandardTypes.BIGINT), new QueryInputMetadata.Column("column4", INTEGER)),
                             Optional.of("connectorInfo2"),
                             new Metrics(ImmutableMap.of()),
                             OptionalLong.of(203),
@@ -208,7 +210,7 @@ final class TestMysqlEventListener
                     Optional.of(List.of(
                             new OutputColumnMetadata(
                                     "column5",
-                                    "BIGINT",
+                                    BigintType.BIGINT.getTypeId(),
                                     Set.of(new ColumnDetail(
                                             "catalog4",
                                             "schema4",
@@ -216,7 +218,7 @@ final class TestMysqlEventListener
                                             "column6"))),
                             new OutputColumnMetadata(
                                     "column6",
-                                    "VARCHAR",
+                                    VarcharType.VARCHAR.getTypeId(),
                                     Set.of()))),
                     Optional.of("outputMetadata"),
                     Optional.of(TRUE))));

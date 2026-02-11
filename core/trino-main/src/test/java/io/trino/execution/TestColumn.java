@@ -16,6 +16,7 @@ package io.trino.execution;
 import io.airlift.json.JsonCodec;
 import org.junit.jupiter.api.Test;
 
+import static io.trino.spi.type.VarcharType.VARCHAR;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestColumn
@@ -25,7 +26,7 @@ public class TestColumn
     @Test
     public void testRoundTrip()
     {
-        Column expected = new Column("name", "type");
+        Column expected = new Column("name", VARCHAR.getTypeId());
         String json = codec.toJson(expected);
         Column actual = codec.fromJson(json);
 
