@@ -77,7 +77,6 @@ import static io.trino.sql.ir.IrUtils.combineConjuncts;
 import static io.trino.sql.ir.IrUtils.expressionOrNullSymbols;
 import static io.trino.sql.ir.IrUtils.extractConjuncts;
 import static io.trino.sql.ir.IrUtils.filterDeterministicConjuncts;
-import static io.trino.sql.ir.optimizer.IrExpressionOptimizer.newOptimizer;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -371,7 +370,7 @@ public class EffectivePredicateExtractor
                             nonDeterministic[i] = true;
                         }
                         else {
-                            Expression item = newOptimizer(plannerContext).process(value, session, ImmutableMap.of()).orElse(value);
+                            Expression item = plannerContext.getExpressionOptimizer().process(value, session, ImmutableMap.of()).orElse(value);
                             if (!(item instanceof Constant constant)) {
                                 return TRUE;
                             }
@@ -400,7 +399,7 @@ public class EffectivePredicateExtractor
                     if (!DeterminismEvaluator.isDeterministic(expression)) {
                         return TRUE;
                     }
-                    Expression evaluated = newOptimizer(plannerContext).process(expression, session, ImmutableMap.of()).orElse(expression);
+                    Expression evaluated = plannerContext.getExpressionOptimizer().process(expression, session, ImmutableMap.of()).orElse(expression);
                     if (!(evaluated instanceof Constant constant)) {
                         return TRUE;
                     }

@@ -21,7 +21,6 @@ import io.trino.security.AccessControl;
 import io.trino.spi.type.Type;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.ir.Cast;
-import io.trino.sql.ir.optimizer.IrExpressionEvaluator;
 import io.trino.sql.planner.TranslationMap;
 import io.trino.sql.tree.Expression;
 import io.trino.type.TypeCoercion;
@@ -69,6 +68,6 @@ public final class ConstantEvaluator
             rewritten = new Cast(rewritten, expectedType);
         }
 
-        return new IrExpressionEvaluator(plannerContext).evaluate(rewritten, session, ImmutableMap.of());
+        return plannerContext.getExpressionEvaluator().evaluate(rewritten, session, ImmutableMap.of());
     }
 }

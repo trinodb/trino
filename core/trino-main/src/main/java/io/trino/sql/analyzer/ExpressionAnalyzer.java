@@ -67,7 +67,6 @@ import io.trino.sql.analyzer.PatternRecognitionAnalysis.Navigation;
 import io.trino.sql.analyzer.PatternRecognitionAnalysis.NavigationMode;
 import io.trino.sql.analyzer.PatternRecognitionAnalysis.PatternInputAnalysis;
 import io.trino.sql.analyzer.PatternRecognitionAnalysis.ScalarInputDescriptor;
-import io.trino.sql.ir.optimizer.IrExpressionEvaluator;
 import io.trino.sql.tree.ArithmeticBinaryExpression;
 import io.trino.sql.tree.ArithmeticUnaryExpression;
 import io.trino.sql.tree.Array;
@@ -3979,8 +3978,7 @@ public class ExpressionAnalyzer
             }
         }
 
-        IrExpressionEvaluator expressionEvaluator = new IrExpressionEvaluator(plannerContext);
-        expressionEvaluator.evaluate(
+        plannerContext.getExpressionEvaluator().evaluate(
                 new io.trino.sql.ir.Cast(new io.trino.sql.ir.Constant(literalType, value), type),
                 session,
                 ImmutableMap.of());
