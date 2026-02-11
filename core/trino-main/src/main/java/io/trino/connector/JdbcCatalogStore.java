@@ -25,11 +25,15 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.catalog.CatalogName;
 import io.trino.spi.catalog.CatalogProperties;
 import io.trino.spi.catalog.CatalogStore;
+import io.trino.spi.catalog.StoredCatalog;
 import io.trino.spi.connector.ConnectorName;
+import org.jdbi.v3.core.Jdbi;
+import org.jdbi.v3.sqlobject.SqlObjectPlugin;
 
 import java.io.UncheckedIOException;
 import java.util.Collection;
 import java.util.Map;
+import java.util.Optional;
 
 import static io.trino.connector.FileCatalogStore.computeCatalogVersion;
 import static io.trino.spi.StandardErrorCode.CATALOG_STORE_ERROR;
@@ -50,6 +54,21 @@ public final class JdbcCatalogStore
     public JdbcCatalogStore(JdbcCatalogStoreDao dao, JdbcCatalogStoreConfig config) {
         this.dao = requireNonNull(dao, "dao is null");
         this.readOnly = requireNonNull(config, "config is null").isReadOnly();
+    }
+
+    // New method for polling
+    public Map<String, Long> getCatalogVersions() {
+        return dao.getCatalogVersions();
+    }
+    
+    // New method to fetch single catalog properties
+    public Optional<CatalogProperties> getCatalogProperties(String catalogName) {
+        return dao.getCatalog(catalogName).map(record -> 
+             new CatalogProperties(
+                new CatalogName(record.catalogName()),
+                computeCatalogVersion(new CatalogName(record.catalogName()), new ConnectorName(record.connectorName()), deserializeProperties(record.properties())),
+                new ConnectorName(record.connectorName()),
+                deserializeProperties(record.properties())));
     }
 
     @Override
@@ -80,12 +99,16 @@ public final class JdbcCatalogStore
         String catalogNameStr = catalogName.toString();
         String connectorNameStr = catalogProperties.connectorName().toString();
         String propertiesJson = serializeProperties(catalogProperties.properties());
+        // Simple versioning: system current time as crude version or just currentTimeMillis
+        // In a real system, we might want monotonic increasing ID from DB sequence
+        long version = System.currentTimeMillis(); 
 
         try {
             // Use delete + insert pattern for upsert to avoid mapping complexities
+            // Ideally should be a single transaction
             dao.deleteCatalog(catalogNameStr);
-            dao.insertCatalog(catalogNameStr, connectorNameStr, propertiesJson);
-            log.info("Stored catalog %s", catalogName);
+            dao.insertCatalog(catalogNameStr, connectorNameStr, propertiesJson, version);
+            log.info("Stored catalog %s (v%d)", catalogName, version);
         } catch (RuntimeException e) {
             log.error(e, "Could not store catalog properties for %s", catalogName);
             throw new TrinoException(CATALOG_STORE_ERROR, "Could not store catalog properties", e);

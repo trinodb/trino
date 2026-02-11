@@ -21,15 +21,26 @@ import com.google.inject.Singleton;
 import io.trino.spi.catalog.CatalogStore;
 import org.jdbi.v3.core.Jdbi;
 import org.jdbi.v3.sqlobject.SqlObjectPlugin;
-
+import java.util.concurrent.ScheduledExecutorService;
 import static io.airlift.configuration.ConfigBinder.configBinder;
+import static io.airlift.concurrent.Threads.daemonThreadsNamed;
+import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
 
 public class JdbcCatalogStoreModule
         implements Module {
     @Override
     public void configure(Binder binder) {
         configBinder(binder).bindConfig(JdbcCatalogStoreConfig.class);
+        binder.bind(JdbcCatalogStore.class).in(Scopes.SINGLETON);
         binder.bind(CatalogStore.class).to(JdbcCatalogStore.class).in(Scopes.SINGLETON);
+        binder.bind(JdbcCatalogWatcher.class).asEagerSingleton();
+    }
+
+    @Provides
+    @Singleton
+    @ForJdbcCatalogStore
+    public ScheduledExecutorService createScheduledExecutor() {
+        return newSingleThreadScheduledExecutor(daemonThreadsNamed("jdbc-catalog-watcher-%s"));
     }
 
     @Provides

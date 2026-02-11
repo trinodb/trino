@@ -18,8 +18,12 @@ import org.jdbi.v3.sqlobject.config.RegisterConstructorMapper;
 import org.jdbi.v3.sqlobject.customizer.Bind;
 import org.jdbi.v3.sqlobject.statement.SqlQuery;
 import org.jdbi.v3.sqlobject.statement.SqlUpdate;
+import org.jdbi.v3.sqlobject.config.KeyColumn;
+import org.jdbi.v3.sqlobject.config.ValueColumn;
 
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 
 @RegisterConstructorMapper(JdbcCatalogStoreDao.CatalogRecord.class)
 public interface JdbcCatalogStoreDao {
@@ -27,35 +31,43 @@ public interface JdbcCatalogStoreDao {
             CREATE TABLE IF NOT EXISTS catalogs (
                 catalog_name VARCHAR(256) NOT NULL PRIMARY KEY,
                 connector_name VARCHAR(256) NOT NULL,
-                properties TEXT NOT NULL
+                properties TEXT NOT NULL,
+                version BIGINT NOT NULL
             )
             """)
     void createCatalogsTable();
 
-    @SqlQuery("SELECT catalog_name, connector_name, properties FROM catalogs")
+    @SqlQuery("SELECT catalog_name, connector_name, properties, version FROM catalogs")
     List<CatalogRecord> getCatalogs();
 
-    @SqlQuery("SELECT catalog_name, connector_name, properties FROM catalogs WHERE catalog_name = :catalogName")
-    CatalogRecord getCatalog(@Bind("catalogName") String catalogName);
+    @SqlQuery("SELECT catalog_name, connector_name, properties, version FROM catalogs WHERE catalog_name = :catalogName")
+    Optional<CatalogRecord> getCatalog(@Bind("catalogName") String catalogName);
+    
+    @SqlQuery("SELECT catalog_name, version FROM catalogs")
+    @KeyColumn("catalog_name")
+    @ValueColumn("version")
+    Map<String, Long> getCatalogVersions();
 
     @SqlUpdate("""
-            INSERT INTO catalogs (catalog_name, connector_name, properties)
-            VALUES (:catalogName, :connectorName, :properties)
+            INSERT INTO catalogs (catalog_name, connector_name, properties, version)
+            VALUES (:catalogName, :connectorName, :properties, :version)
             """)
     void insertCatalog(
             @Bind("catalogName") String catalogName,
             @Bind("connectorName") String connectorName,
-            @Bind("properties") String properties);
+            @Bind("properties") String properties,
+            @Bind("version") long version);
 
     @SqlUpdate("""
             UPDATE catalogs
-            SET connector_name = :connectorName, properties = :properties
+            SET connector_name = :connectorName, properties = :properties, version = :version
             WHERE catalog_name = :catalogName
             """)
     void updateCatalog(
             @Bind("catalogName") String catalogName,
             @Bind("connectorName") String connectorName,
-            @Bind("properties") String properties);
+            @Bind("properties") String properties,
+            @Bind("version") long version);
 
     @SqlUpdate("DELETE FROM catalogs WHERE catalog_name = :catalogName")
     void deleteCatalog(@Bind("catalogName") String catalogName);
@@ -63,6 +75,7 @@ public interface JdbcCatalogStoreDao {
     record CatalogRecord(
             @ColumnName("catalog_name") String catalogName,
             @ColumnName("connector_name") String connectorName,
-            @ColumnName("properties") String properties) {
+            @ColumnName("properties") String properties,
+            @ColumnName("version") long version) {
     }
 }

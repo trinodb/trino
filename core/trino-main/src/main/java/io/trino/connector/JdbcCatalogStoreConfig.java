@@ -16,6 +16,8 @@ package io.trino.connector;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.ConfigSecuritySensitive;
+import io.airlift.units.Duration;
+import java.util.concurrent.TimeUnit;
 import jakarta.validation.constraints.NotNull;
 
 public class JdbcCatalogStoreConfig {
@@ -23,6 +25,8 @@ public class JdbcCatalogStoreConfig {
     private String user;
     private String password;
     private boolean readOnly;
+    private boolean pollingEnabled = false;
+    private Duration pollingInterval = new Duration(10, TimeUnit.SECONDS);
 
     @NotNull
     public String getUrl() {
@@ -67,6 +71,29 @@ public class JdbcCatalogStoreConfig {
     @ConfigDescription("Whether the catalog store is read-only")
     public JdbcCatalogStoreConfig setReadOnly(boolean readOnly) {
         this.readOnly = readOnly;
+        return this;
+    }
+
+    public boolean isPollingEnabled() {
+        return pollingEnabled;
+    }
+
+    @Config("catalog.jdbc.polling-enabled")
+    @ConfigDescription("Enable background polling for catalog changes")
+    public JdbcCatalogStoreConfig setPollingEnabled(boolean pollingEnabled) {
+        this.pollingEnabled = pollingEnabled;
+        return this;
+    }
+
+    @NotNull
+    public Duration getPollingInterval() {
+        return pollingInterval;
+    }
+
+    @Config("catalog.jdbc.polling-interval")
+    @ConfigDescription("Interval between checks for catalog updates")
+    public JdbcCatalogStoreConfig setPollingInterval(Duration pollingInterval) {
+        this.pollingInterval = pollingInterval;
         return this;
     }
 }
