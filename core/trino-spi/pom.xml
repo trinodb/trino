@@ -908,6 +908,12 @@
                                     <annotation>@com.google.errorprone.annotations.Immutable</annotation>
                                     <justification>Location converted to a record class</justification>
                                 </item>
+                                <item>
+                                    <code>java.method.numberOfParametersChanged</code>
+                                    <old>method io.trino.spi.function.FunctionMetadata io.trino.spi.function.FunctionMetadata::fromJson(io.trino.spi.function.FunctionId, io.trino.spi.function.Signature, java.lang.String, java.util.Set&lt;java.lang.String&gt;, io.trino.spi.function.FunctionNullability, boolean, boolean, java.lang.String, io.trino.spi.function.FunctionKind, boolean)</old>
+                                    <new>method io.trino.spi.function.FunctionMetadata io.trino.spi.function.FunctionMetadata::fromJson(io.trino.spi.function.FunctionId, io.trino.spi.function.Signature, java.lang.String, java.util.Set&lt;java.lang.String&gt;, io.trino.spi.function.FunctionNullability, boolean, boolean, boolean, java.lang.String, io.trino.spi.function.FunctionKind, boolean)</new>
+                                    <justification>Function declares whether it never fails</justification>
+                                </item>
                             </differences>
                         </revapi.differences>
                     </analysisConfiguration>

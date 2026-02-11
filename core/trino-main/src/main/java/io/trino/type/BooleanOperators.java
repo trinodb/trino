@@ -92,7 +92,7 @@ public final class BooleanOperators
     }
 
     @SqlType(StandardTypes.BOOLEAN)
-    @ScalarFunction(value = "$not", hidden = true) // TODO: this should not be callable from SQL
+    @ScalarFunction(value = "$not", hidden = true, neverFails = true) // TODO: this should not be callable from SQL
     public static boolean not(@SqlType(StandardTypes.BOOLEAN) boolean value)
     {
         return !value;
