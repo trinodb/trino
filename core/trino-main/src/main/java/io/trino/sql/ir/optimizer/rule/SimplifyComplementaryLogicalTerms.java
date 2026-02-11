@@ -16,6 +16,7 @@ package io.trino.sql.ir.optimizer.rule;
 import com.google.common.collect.ImmutableList;
 import io.trino.Session;
 import io.trino.metadata.Metadata;
+import io.trino.metadata.ResolvedFunction;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Expression;
@@ -58,16 +59,16 @@ public class SimplifyComplementaryLogicalTerms
     @Override
     public Optional<Expression> apply(Expression expression, Session session, Map<Symbol, Expression> bindings)
     {
-        if (!(expression instanceof Logical logical)) {
+        if (!(expression instanceof Logical(Logical.Operator operator, List<Expression> terms))) {
             return Optional.empty();
         }
 
         Set<Expression> positives = new HashSet<>();
         Set<Expression> negatives = new HashSet<>();
-        for (Expression term : logical.terms()) {
+        for (Expression term : terms) {
             if (isDeterministic(term)) {
-                if (term instanceof Call not && not.function().name().equals(builtinFunctionName("$not"))) {
-                    negatives.add(not.arguments().getFirst());
+                if (term instanceof Call(ResolvedFunction function, List<Expression> arguments) && function.name().equals(builtinFunctionName("$not"))) {
+                    negatives.add(arguments.getFirst());
                 }
                 else {
                     positives.add(term);
@@ -82,17 +83,17 @@ public class SimplifyComplementaryLogicalTerms
         List<Expression> newTerms = new ArrayList<>();
         Set<Expression> seen = new HashSet<>();
         boolean changed = false;
-        for (Expression term : logical.terms()) {
+        for (Expression term : terms) {
             if (isDeterministic(term)) {
                 Expression unwrapped = term;
-                if (term instanceof Call not && not.function().name().equals(builtinFunctionName("$not"))) {
-                    unwrapped = not.arguments().getFirst();
+                if (term instanceof Call(ResolvedFunction function, List<Expression> arguments) && function.name().equals(builtinFunctionName("$not"))) {
+                    unwrapped = arguments.getFirst();
                 }
 
                 if (positives.contains(unwrapped) && negatives.contains(unwrapped)) {
                     if (!seen.contains(unwrapped)) {
                         changed = true;
-                        newTerms.add(switch (logical.operator()) {
+                        newTerms.add(switch (operator) {
                             case AND -> new Logical(AND, ImmutableList.of(unwrapped, new IsNull(unwrapped)));
                             case OR -> new Logical(OR, ImmutableList.of(unwrapped, not(metadata, new IsNull(unwrapped))));
                         });
@@ -116,6 +117,6 @@ public class SimplifyComplementaryLogicalTerms
             return Optional.of(newTerms.getFirst());
         }
 
-        return Optional.of(new Logical(logical.operator(), newTerms));
+        return Optional.of(new Logical(operator, newTerms));
     }
 }
