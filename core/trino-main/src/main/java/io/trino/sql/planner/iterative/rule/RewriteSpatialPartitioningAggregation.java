@@ -91,7 +91,7 @@ public class RewriteSpatialPartitioningAggregation
     @Override
     public Result apply(AggregationNode node, Captures captures, Context context)
     {
-        ResolvedFunction spatialPartitioningFunction = plannerContext.getMetadata().resolveBuiltinFunction(NAME.getFunctionName(), fromTypeSignatures(GEOMETRY_TYPE_SIGNATURE, INTEGER.getTypeSignature()));
+        ResolvedFunction spatialPartitioningFunction = plannerContext.getMetadata().resolveBuiltinFunction(NAME.functionName(), fromTypeSignatures(GEOMETRY_TYPE_SIGNATURE, INTEGER.getTypeSignature()));
         ResolvedFunction stEnvelopeFunction = plannerContext.getMetadata().resolveBuiltinFunction("ST_Envelope", fromTypeSignatures(GEOMETRY_TYPE_SIGNATURE));
 
         ImmutableMap.Builder<Symbol, Aggregation> aggregations = ImmutableMap.builder();

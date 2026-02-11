@@ -1192,7 +1192,7 @@ public class SemiTransactionalHiveMetastore
     public synchronized boolean functionExists(SchemaFunctionName name, String signatureToken)
     {
         checkReadable();
-        return delegate.functionExists(name.getSchemaName(), name.getFunctionName(), signatureToken);
+        return delegate.functionExists(name.schemaName(), name.functionName(), signatureToken);
     }
 
     public synchronized Collection<LanguageFunction> getFunctions(String schemaName)
@@ -1204,22 +1204,22 @@ public class SemiTransactionalHiveMetastore
     public synchronized Collection<LanguageFunction> getFunctions(SchemaFunctionName name)
     {
         checkReadable();
-        return delegate.getFunctions(name.getSchemaName(), name.getFunctionName());
+        return delegate.getFunctions(name.schemaName(), name.functionName());
     }
 
     public synchronized void createFunction(SchemaFunctionName name, LanguageFunction function)
     {
-        setExclusive(delegate -> delegate.createFunction(name.getSchemaName(), name.getFunctionName(), function));
+        setExclusive(delegate -> delegate.createFunction(name.schemaName(), name.functionName(), function));
     }
 
     public synchronized void replaceFunction(SchemaFunctionName name, LanguageFunction function)
     {
-        setExclusive(delegate -> delegate.replaceFunction(name.getSchemaName(), name.getFunctionName(), function));
+        setExclusive(delegate -> delegate.replaceFunction(name.schemaName(), name.functionName(), function));
     }
 
     public synchronized void dropFunction(SchemaFunctionName name, String signatureToken)
     {
-        setExclusive(delegate -> delegate.dropFunction(name.getSchemaName(), name.getFunctionName(), signatureToken));
+        setExclusive(delegate -> delegate.dropFunction(name.schemaName(), name.functionName(), signatureToken));
     }
 
     public synchronized String declareIntentionToWrite(ConnectorSession session, WriteMode writeMode, Location stagingPathRoot, SchemaTableName schemaTableName)

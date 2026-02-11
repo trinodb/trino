@@ -47,7 +47,7 @@ public record SpecialForm(
     {
         String mangleOperatorName = mangleOperatorName(operator);
         for (ResolvedFunction function : functionDependencies) {
-            if (function.signature().getName().getFunctionName().equalsIgnoreCase(mangleOperatorName)) {
+            if (function.signature().getName().functionName().equalsIgnoreCase(mangleOperatorName)) {
                 return function;
             }
         }

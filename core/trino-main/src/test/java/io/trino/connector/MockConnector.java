@@ -914,7 +914,7 @@ public class MockConnector
         {
             // assume that functions are in every schema
             return functions.stream()
-                    .filter(function -> function.getNames().contains(name.getFunctionName()))
+                    .filter(function -> function.getNames().contains(name.functionName()))
                     .collect(toImmutableList());
         }
 

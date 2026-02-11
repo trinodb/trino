@@ -373,7 +373,7 @@ public class PreAggregateCaseAggregations
         Type aggregationType = resolvedFunction.signature().getReturnType();
         ResolvedFunction cumulativeFunction;
         try {
-            cumulativeFunction = plannerContext.getMetadata().resolveBuiltinFunction(name.getFunctionName(), fromTypes(aggregationType));
+            cumulativeFunction = plannerContext.getMetadata().resolveBuiltinFunction(name.functionName(), fromTypes(aggregationType));
         }
         catch (TrinoException e) {
             // there is no cumulative aggregation

@@ -655,8 +655,8 @@ public sealed class OpaAccessControl
                         OpaQueryInputResource.builder()
                                 .function(
                                         new TrinoFunction(
-                                                new TrinoSchema(catalogName, function.getSchemaName()),
-                                                function.getFunctionName()))
+                                                new TrinoSchema(catalogName, function.schemaName()),
+                                                function.functionName()))
                                 .build()));
     }
 

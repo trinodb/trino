@@ -395,12 +395,12 @@ class TestingSystemSecurityMetadata
         return functionOwners.keySet().stream()
                 .filter(catalogSchemaFunctionName -> prefix.matches(
                         new QualifiedObjectName(
-                                catalogSchemaFunctionName.getCatalogName(),
-                                catalogSchemaFunctionName.getSchemaName(),
-                                catalogSchemaFunctionName.getFunctionName())))
+                                catalogSchemaFunctionName.catalogName(),
+                                catalogSchemaFunctionName.schemaName(),
+                                catalogSchemaFunctionName.functionName())))
                 .map(functionName -> {
                     Identity owner = functionOwners.get(functionName);
-                    return new FunctionAuthorization(functionName.getSchemaFunctionName(), new TrinoPrincipal(USER, owner.getUser()));
+                    return new FunctionAuthorization(functionName.schemaFunctionName(), new TrinoPrincipal(USER, owner.getUser()));
                 })
                 .collect(toImmutableSet());
     }
