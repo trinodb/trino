@@ -56,10 +56,6 @@ public class DesugarBetween
     @Override
     public Optional<Expression> apply(Expression expression, Session session, Map<Symbol, Expression> bindings)
     {
-        if (!(expression instanceof Between)) {
-            return Optional.empty();
-        }
-
         return switch (expression) {
             case Between(Constant value, Expression min, Expression max) -> Optional.of(new Logical(AND, ImmutableList.of(
                     new Comparison(LESS_THAN_OR_EQUAL, min, value),
