@@ -25,7 +25,7 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.catalog.CatalogName;
 import io.trino.spi.catalog.CatalogProperties;
 import io.trino.spi.catalog.CatalogStore;
-import io.trino.spi.catalog.StoredCatalog;
+import io.trino.spi.catalog.CatalogStore.StoredCatalog;
 import io.trino.spi.connector.ConnectorName;
 import org.jdbi.v3.core.Jdbi;
 import org.jdbi.v3.sqlobject.SqlObjectPlugin;
