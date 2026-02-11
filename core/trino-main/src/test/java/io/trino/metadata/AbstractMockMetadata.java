@@ -594,6 +594,12 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
+    public Optional<CatalogInfo> getCatalogInfo(Session session, String catalogName)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public List<CatalogInfo> listCatalogs(Session session)
     {
         throw new UnsupportedOperationException();
