@@ -412,8 +412,8 @@ public class UnaliasSymbolReferences
         @Override
         public PlanAndMappings visitExchange(ExchangeNode node, UnaliasContext context)
         {
-            ImmutableList.Builder<PlanNode> rewrittenChildren = ImmutableList.builder();
-            ImmutableList.Builder<List<Symbol>> rewrittenInputsBuilder = ImmutableList.builder();
+            ImmutableList.Builder<PlanNode> rewrittenChildren = ImmutableList.builderWithExpectedSize(node.getSources().size());
+            ImmutableList.Builder<List<Symbol>> rewrittenInputsBuilder = ImmutableList.builderWithExpectedSize(node.getSources().size());
 
             // rewrite child and map corresponding input list accordingly to the child's mapping
             for (int i = 0; i < node.getSources().size(); i++) {
