@@ -33,7 +33,6 @@ import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.sql.planner.plan.PlanVisitor;
 import io.trino.sql.planner.plan.TableScanNode;
 
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -112,11 +111,11 @@ public class InputExtractor
 
         private void processScan(PlanFragmentId fragmentId, PlanNodeId planNodeId, TableHandle tableHandle, Map<Symbol, ColumnHandle> assignments)
         {
-            Set<Column> columns = new HashSet<>();
+            ImmutableSet.Builder<Column> builder = ImmutableSet.builderWithExpectedSize(assignments.size());
             for (ColumnHandle columnHandle : assignments.values()) {
-                columns.add(createColumn(metadata.getColumnMetadata(session, tableHandle, columnHandle)));
+                builder.add(createColumn(metadata.getColumnMetadata(session, tableHandle, columnHandle)));
             }
-            inputs.add(createInput(session, tableHandle, columns, fragmentId, planNodeId));
+            inputs.add(createInput(session, tableHandle, builder.build(), fragmentId, planNodeId));
         }
 
         @Override
