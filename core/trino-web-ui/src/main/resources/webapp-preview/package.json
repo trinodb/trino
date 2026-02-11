@@ -27,7 +27,7 @@
     "@mui/x-charts": "^8.27.0",
     "@xyflow/react": "^12.10.0",
     "axios": "^1.13.4",
-    "lodash": "^4.17.21",
+    "lodash": "^4.17.23",
     "react": "^19.1.4",
     "react-calendar-timeline": "^0.30.0-beta.4",
     "react-dom": "^19.2.4",
@@ -37,7 +37,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.39.2",
-    "@types/lodash": "^4.17.20",
+    "@types/lodash": "^4.17.23",
     "@types/lodash.merge": "^4.6.9",
     "@types/react": "^19.1.13",
     "@types/react-dom": "^19.2.3",
