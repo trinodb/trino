@@ -252,6 +252,13 @@ final class TestIcebergUnityRestCatalogConnectorSmokeTest
 
     @Test
     @Override
+    public void testUncommittedManifestCleanupAfterConcurrentWrites()
+    {
+        testFailsDueToReadOnlyCatalog(super::testUncommittedManifestCleanupAfterConcurrentWrites);
+    }
+
+    @Test
+    @Override
     public void testCreateOrReplaceTable()
     {
         testFailsDueToReadOnlyCatalog(super::testCreateOrReplaceTable);
