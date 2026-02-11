@@ -136,6 +136,11 @@ public class TestIcebergMotoConnectorSmokeTest
     public void testDeleteRowsConcurrently() {}
 
     @Test
+    @Disabled("Moto is not concurrency safe")
+    @Override
+    public void testUncommittedManifestCleanupAfterConcurrentWrites() {}
+
+    @Test
     @Override
     public void testRenameSchema()
     {

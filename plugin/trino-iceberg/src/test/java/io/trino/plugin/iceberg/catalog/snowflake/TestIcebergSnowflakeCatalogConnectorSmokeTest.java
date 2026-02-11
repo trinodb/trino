@@ -268,6 +268,14 @@ public class TestIcebergSnowflakeCatalogConnectorSmokeTest
 
     @Test
     @Override
+    public void testUncommittedManifestCleanupAfterConcurrentWrites()
+    {
+        assertThatThrownBy(super::testUncommittedManifestCleanupAfterConcurrentWrites)
+                .hasMessageContaining("Snowflake managed Iceberg tables do not support modifications");
+    }
+
+    @Test
+    @Override
     public void testCreateOrReplaceTable()
     {
         assertThatThrownBy(super::testCreateOrReplaceTable)
