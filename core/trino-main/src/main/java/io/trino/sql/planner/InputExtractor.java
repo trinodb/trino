@@ -69,11 +69,10 @@ public class InputExtractor
         CatalogSchemaTableName tableName = metadata.getTableName(session, table);
         SchemaTableName schemaTable = tableName.getSchemaTableName();
         Optional<Object> inputMetadata = metadata.getInfo(session, table);
-        Optional<String> connectorName = metadata.listCatalogs(session).stream()
+        Optional<String> connectorName = metadata.getCatalogInfo(session, tableName.getCatalogName())
                 .filter(catalogInfo -> catalogInfo.catalogName().equals(tableName.getCatalogName()))
                 .map(CatalogInfo::connectorName)
-                .map(ConnectorName::toString)
-                .findFirst();
+                .map(ConnectorName::toString);
         return new Input(
                 connectorName,
                 tableName.getCatalogName(),

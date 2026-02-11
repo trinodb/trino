@@ -118,6 +118,12 @@ public class TestingTransactionManager
     }
 
     @Override
+    public Optional<CatalogInfo> getOptionalCatalogInfo(TransactionId requiredTransactionId, String catalogName)
+    {
+        return Optional.empty();
+    }
+
+    @Override
     public CatalogMetadata getCatalogMetadata(TransactionId transactionId, CatalogHandle catalogHandle)
     {
         throw new UnsupportedOperationException();

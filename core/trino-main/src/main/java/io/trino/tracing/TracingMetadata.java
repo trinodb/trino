@@ -887,6 +887,15 @@ public class TracingMetadata
     }
 
     @Override
+    public Optional<CatalogInfo> getCatalogInfo(Session session, String catalogName)
+    {
+        Span span = startSpan("getCatalogInfo", catalogName);
+        try (var _ = scopedSpan(span)) {
+            return delegate.getCatalogInfo(session, catalogName);
+        }
+    }
+
+    @Override
     public List<CatalogInfo> listCatalogs(Session session)
     {
         Span span = startSpan("listCatalogs");
