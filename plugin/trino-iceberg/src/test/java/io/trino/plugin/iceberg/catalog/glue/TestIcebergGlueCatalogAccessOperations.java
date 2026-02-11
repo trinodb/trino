@@ -63,7 +63,6 @@ import static io.trino.plugin.iceberg.TableType.PARTITIONS;
 import static io.trino.plugin.iceberg.TableType.PROPERTIES;
 import static io.trino.plugin.iceberg.TableType.REFS;
 import static io.trino.plugin.iceberg.TableType.SNAPSHOTS;
-import static io.trino.plugin.iceberg.util.FileOperationUtils.FileType.METADATA_JSON;
 import static io.trino.plugin.iceberg.util.FileOperationUtils.FileType.fromFilePath;
 import static io.trino.testing.MultisetAssertions.assertMultisetsEqual;
 import static io.trino.testing.TestingNames.randomNameSuffix;
@@ -284,7 +283,7 @@ public class TestIcebergGlueCatalogAccessOperations
 
             assertGlueMetastoreApiInvocations("REFRESH MATERIALIZED VIEW test_refresh_mview_view",
                     ImmutableMultiset.<GlueMetastoreMethod>builder()
-                            .addCopies(GET_TABLE, 6)
+                            .addCopies(GET_TABLE, 7)
                             .add(UPDATE_TABLE)
                             .build());
         }
@@ -559,10 +558,7 @@ public class TestIcebergGlueCatalogAccessOperations
                         ImmutableMultiset.<GlueMetastoreMethod>builder()
                                 .add(GET_TABLE)
                                 .build(),
-                        ImmutableMultiset.<FileOperation>builder()
-                                .add(new FileOperation(METADATA_JSON, "InputFile.length"))
-                                .add(new FileOperation(METADATA_JSON, "InputFile.newInput"))
-                                .build());
+                        ImmutableMultiset.of());
 
                 // Pointed columns lookup via DESCRIBE (which does some additional things before delegating to information_schema.columns)
                 assertInvocations(
@@ -572,10 +568,7 @@ public class TestIcebergGlueCatalogAccessOperations
                                 .add(GET_DATABASE)
                                 .add(GET_TABLE)
                                 .build(),
-                        ImmutableMultiset.<FileOperation>builder()
-                                .add(new FileOperation(METADATA_JSON, "InputFile.length"))
-                                .add(new FileOperation(METADATA_JSON, "InputFile.newInput"))
-                                .build());
+                        ImmutableMultiset.of());
             }
             finally {
                 for (int i = 0; i < tablesCreated; i++) {
@@ -632,10 +625,7 @@ public class TestIcebergGlueCatalogAccessOperations
                         ImmutableMultiset.<GlueMetastoreMethod>builder()
                                 .add(GET_TABLE)
                                 .build(),
-                        ImmutableMultiset.<FileOperation>builder()
-                                .add(new FileOperation(METADATA_JSON, "InputFile.length"))
-                                .add(new FileOperation(METADATA_JSON, "InputFile.newInput"))
-                                .build());
+                        ImmutableMultiset.of());
             }
             finally {
                 for (int i = 0; i < tablesCreated; i++) {

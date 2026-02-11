@@ -63,7 +63,6 @@ public class GlueIcebergTableOperations
     private final TypeManager typeManager;
     private final boolean cacheTableMetadata;
     private final TrinoGlueClient glueClient;
-    private final GetGlueTable getGlueTable;
 
     @Nullable
     private String glueVersionId;
@@ -72,7 +71,6 @@ public class GlueIcebergTableOperations
             TypeManager typeManager,
             boolean cacheTableMetadata,
             TrinoGlueClient glueClient,
-            GetGlueTable getGlueTable,
             FileIO fileIo,
             ConnectorSession session,
             String database,
@@ -84,7 +82,6 @@ public class GlueIcebergTableOperations
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.cacheTableMetadata = cacheTableMetadata;
         this.glueClient = requireNonNull(glueClient, "glueClient is null");
-        this.getGlueTable = requireNonNull(getGlueTable, "getGlueTable is null");
     }
 
     @Override
@@ -207,11 +204,6 @@ public class GlueIcebergTableOperations
 
     private Table getTable(String database, String tableName, boolean invalidateCaches)
     {
-        return getGlueTable.get(new SchemaTableName(database, tableName), invalidateCaches);
-    }
-
-    public interface GetGlueTable
-    {
-        Table get(SchemaTableName tableName, boolean invalidateCaches);
+        return glueClient.getTable(new SchemaTableName(database, tableName), invalidateCaches);
     }
 }
