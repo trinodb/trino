@@ -14,7 +14,6 @@
 package io.trino.plugin.iceberg.catalog.glue;
 
 import com.google.common.collect.ImmutableMap;
-import io.trino.plugin.hive.metastore.glue.GlueMetastoreStats;
 import io.trino.plugin.iceberg.UnknownTableTypeException;
 import io.trino.plugin.iceberg.catalog.AbstractIcebergTableOperations;
 import io.trino.spi.TrinoException;
@@ -27,7 +26,6 @@ import org.apache.iceberg.TableMetadata;
 import org.apache.iceberg.exceptions.CommitFailedException;
 import org.apache.iceberg.exceptions.CommitStateUnknownException;
 import org.apache.iceberg.io.FileIO;
-import software.amazon.awssdk.services.glue.GlueClient;
 import software.amazon.awssdk.services.glue.model.AlreadyExistsException;
 import software.amazon.awssdk.services.glue.model.ConcurrentModificationException;
 import software.amazon.awssdk.services.glue.model.EntityNotFoundException;
@@ -64,8 +62,7 @@ public class GlueIcebergTableOperations
 {
     private final TypeManager typeManager;
     private final boolean cacheTableMetadata;
-    private final GlueClient glueClient;
-    private final GlueMetastoreStats stats;
+    private final TrinoGlueClient glueClient;
     private final GetGlueTable getGlueTable;
 
     @Nullable
@@ -74,8 +71,7 @@ public class GlueIcebergTableOperations
     protected GlueIcebergTableOperations(
             TypeManager typeManager,
             boolean cacheTableMetadata,
-            GlueClient glueClient,
-            GlueMetastoreStats stats,
+            TrinoGlueClient glueClient,
             GetGlueTable getGlueTable,
             FileIO fileIo,
             ConnectorSession session,
@@ -88,7 +84,6 @@ public class GlueIcebergTableOperations
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.cacheTableMetadata = cacheTableMetadata;
         this.glueClient = requireNonNull(glueClient, "glueClient is null");
-        this.stats = requireNonNull(stats, "stats is null");
         this.getGlueTable = requireNonNull(getGlueTable, "getGlueTable is null");
     }
 
@@ -132,9 +127,7 @@ public class GlueIcebergTableOperations
         TableInput tableInput = getTableInput(typeManager, tableName, owner, metadata, metadata.location(), newMetadataLocation, ImmutableMap.of(), cacheTableMetadata);
 
         try {
-            stats.getCreateTable().call(() -> glueClient.createTable(x -> x
-                    .databaseName(database)
-                    .tableInput(tableInput)));
+            glueClient.createTable(database, tableInput);
         }
         catch (GlueException e) {
             switch (e) {
@@ -194,10 +187,7 @@ public class GlueIcebergTableOperations
         TableInput tableInput = tableUpdateFunction.apply(table, newMetadataLocation);
 
         try {
-            stats.getUpdateTable().call(() -> glueClient.updateTable(x -> x
-                    .databaseName(database)
-                    .tableInput(tableInput)
-                    .versionId(glueVersionId)));
+            glueClient.updateTable(database, tableInput, Optional.ofNullable(glueVersionId));
         }
         catch (ConcurrentModificationException e) {
             // CommitFailedException is handled as a special case in the Iceberg library. This commit will automatically retry

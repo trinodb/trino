@@ -30,7 +30,6 @@ import io.trino.metastore.TableInfo;
 import io.trino.plugin.hive.TrinoViewUtil;
 import io.trino.plugin.hive.ViewAlreadyExistsException;
 import io.trino.plugin.hive.ViewReaderUtil;
-import io.trino.plugin.hive.metastore.glue.GlueMetastoreStats;
 import io.trino.plugin.iceberg.IcebergMaterializedViewDefinition;
 import io.trino.plugin.iceberg.IcebergMetadata;
 import io.trino.plugin.iceberg.UnknownTableTypeException;
@@ -68,15 +67,12 @@ import org.apache.iceberg.Transaction;
 import org.apache.iceberg.exceptions.NotFoundException;
 import org.apache.iceberg.io.FileIO;
 import software.amazon.awssdk.core.exception.SdkException;
-import software.amazon.awssdk.services.glue.GlueClient;
 import software.amazon.awssdk.services.glue.model.AccessDeniedException;
 import software.amazon.awssdk.services.glue.model.AlreadyExistsException;
 import software.amazon.awssdk.services.glue.model.Column;
 import software.amazon.awssdk.services.glue.model.Database;
 import software.amazon.awssdk.services.glue.model.DatabaseInput;
 import software.amazon.awssdk.services.glue.model.EntityNotFoundException;
-import software.amazon.awssdk.services.glue.model.GetDatabasesResponse;
-import software.amazon.awssdk.services.glue.model.GetTablesResponse;
 import software.amazon.awssdk.services.glue.model.StorageDescriptor;
 import software.amazon.awssdk.services.glue.model.Table;
 import software.amazon.awssdk.services.glue.model.TableInput;
@@ -172,8 +168,7 @@ public class TrinoGlueCatalog
     private final String trinoVersion;
     private final boolean cacheTableMetadata;
     private final Optional<String> defaultSchemaLocation;
-    private final GlueClient glueClient;
-    private final GlueMetastoreStats stats;
+    private final TrinoGlueClient glueClient;
     private final boolean hideMaterializedViewStorageTable;
     private final boolean isUsingSystemSecurity;
     private final Executor metadataFetchingExecutor;
@@ -201,8 +196,7 @@ public class TrinoGlueCatalog
             boolean cacheTableMetadata,
             IcebergTableOperationsProvider tableOperationsProvider,
             String trinoVersion,
-            GlueClient glueClient,
-            GlueMetastoreStats stats,
+            TrinoGlueClient glueClient,
             boolean isUsingSystemSecurity,
             Optional<String> defaultSchemaLocation,
             boolean useUniqueTableLocation,
@@ -213,7 +207,6 @@ public class TrinoGlueCatalog
         this.trinoVersion = requireNonNull(trinoVersion, "trinoVersion is null");
         this.cacheTableMetadata = cacheTableMetadata;
         this.glueClient = requireNonNull(glueClient, "glueClient is null");
-        this.stats = requireNonNull(stats, "stats is null");
         this.isUsingSystemSecurity = isUsingSystemSecurity;
         this.defaultSchemaLocation = requireNonNull(defaultSchemaLocation, "defaultSchemaLocation is null");
         this.hideMaterializedViewStorageTable = hideMaterializedViewStorageTable;
@@ -228,30 +221,23 @@ public class TrinoGlueCatalog
             // In fact, Glue stores database names lowercase only (but accepted mixed case on lookup).
             return false;
         }
-        return stats.getGetDatabase().call(() -> {
-            try {
-                glueClient.getDatabase(x -> x.name(namespace));
-                return true;
-            }
-            catch (EntityNotFoundException e) {
-                return false;
-            }
-            catch (SdkException e) {
-                throw new TrinoException(ICEBERG_CATALOG_ERROR, e);
-            }
-        });
+        try {
+            glueClient.getDatabase(namespace);
+            return true;
+        }
+        catch (EntityNotFoundException e) {
+            return false;
+        }
+        catch (SdkException e) {
+            throw new TrinoException(ICEBERG_CATALOG_ERROR, e);
+        }
     }
 
     @Override
     public List<String> listNamespaces(ConnectorSession session)
     {
         try {
-            return stats.getGetDatabases().call(() ->
-                    glueClient.getDatabasesPaginator(_ -> {}).stream()
-                            .map(GetDatabasesResponse::databaseList)
-                            .flatMap(List::stream)
-                            .map(Database::name)
-                            .collect(toImmutableList()));
+            return glueClient.listDatabases();
         }
         catch (SdkException e) {
             throw new TrinoException(ICEBERG_CATALOG_ERROR, e);
@@ -271,8 +257,7 @@ public class TrinoGlueCatalog
     {
         try {
             glueTableCache.invalidateAll();
-            stats.getDeleteDatabase().call(() ->
-                    glueClient.deleteDatabase(x -> x.name(namespace)));
+            glueClient.dropDatabase(namespace);
         }
         catch (EntityNotFoundException e) {
             throw new SchemaNotFoundException(namespace, e);
@@ -286,8 +271,7 @@ public class TrinoGlueCatalog
     public Map<String, Object> loadNamespaceMetadata(ConnectorSession session, String namespace)
     {
         try {
-            Database database = stats.getGetDatabase().call(() ->
-                    glueClient.getDatabase(x -> x.name(namespace)).database());
+            Database database = glueClient.getDatabase(namespace);
             ImmutableMap.Builder<String, Object> metadata = ImmutableMap.builder();
             if (database.locationUri() != null) {
                 metadata.put(LOCATION_PROPERTY, database.locationUri());
@@ -315,9 +299,7 @@ public class TrinoGlueCatalog
         checkArgument(owner.getName().equals(session.getUser().toLowerCase(ENGLISH)), "Explicit schema owner is not supported");
 
         try {
-            stats.getCreateDatabase().call(() ->
-                    glueClient.createDatabase(x -> x
-                            .databaseInput(createDatabaseInput(namespace, properties))));
+            glueClient.createDatabase(createDatabaseInput(namespace, properties));
         }
         catch (AlreadyExistsException e) {
             throw new SchemaAlreadyExistsException(namespace, e);
@@ -406,7 +388,7 @@ public class TrinoGlueCatalog
         Map<SchemaTableName, Table> unprocessed = new HashMap<>();
 
         listNamespaces(session, namespace).stream()
-                .flatMap(glueNamespace -> getGlueTables(glueNamespace)
+                .flatMap(glueNamespace -> glueClient.streamTables(glueNamespace)
                         .map(table -> entry(new SchemaTableName(glueNamespace, table.name()), table)))
                 .forEach(entry -> {
                     SchemaTableName name = entry.getKey();
@@ -498,7 +480,7 @@ public class TrinoGlueCatalog
         Map<SchemaTableName, Table> unprocessed = new HashMap<>();
 
         listNamespaces(session, namespace).stream()
-                .flatMap(glueNamespace -> getGlueTables(glueNamespace)
+                .flatMap(glueNamespace -> glueClient.streamTables(glueNamespace)
                         .map(table -> entry(new SchemaTableName(glueNamespace, table.name()), table)))
                 .forEach(entry -> {
                     SchemaTableName name = entry.getKey();
@@ -921,9 +903,8 @@ public class TrinoGlueCatalog
     @Override
     public String defaultTableLocation(ConnectorSession session, SchemaTableName schemaTableName)
     {
-        String databaseLocation = stats.getGetDatabase().call(() ->
-                glueClient.getDatabase(x -> x.name(schemaTableName.getSchemaName()))
-                        .database().locationUri());
+        String databaseLocation = glueClient.getDatabase(schemaTableName.getSchemaName())
+                .locationUri();
 
         String tableName = createNewTableName(schemaTableName.getTableName());
 
@@ -1487,11 +1468,7 @@ public class TrinoGlueCatalog
         try {
             return uncheckedCacheGet(glueTableCache, tableName, () -> {
                 try {
-                    return stats.getGetTable().call(() ->
-                            glueClient.getTable(x -> x
-                                            .databaseName(tableName.getSchemaName())
-                                            .name(tableName.getTableName()))
-                                    .table());
+                    return glueClient.getTable(tableName);
                 }
                 catch (EntityNotFoundException e) {
                     throw new TableNotFoundException(tableName, e);
@@ -1519,7 +1496,7 @@ public class TrinoGlueCatalog
                 boolean firstCall = (delegate == null);
                 try {
                     if (delegate == null) {
-                        delegate = getGlueTables(glueNamespace)
+                        delegate = glueClient.streamTables(glueNamespace)
                                 .iterator();
                     }
 
@@ -1546,40 +1523,22 @@ public class TrinoGlueCatalog
         });
     }
 
-    private Stream<Table> getGlueTables(String glueNamespace)
-    {
-        return stats.getGetTables().call(() ->
-                glueClient.getTablesPaginator(x -> x.databaseName(glueNamespace))
-                        .stream()
-                        .map(GetTablesResponse::tableList)
-                        .flatMap(List::stream));
-    }
-
     private void createTable(String schemaName, TableInput tableInput)
     {
         glueTableCache.invalidateAll();
-        stats.getCreateTable().call(() ->
-                glueClient.createTable(x -> x
-                        .databaseName(schemaName)
-                        .tableInput(tableInput)));
+        glueClient.createTable(schemaName, tableInput);
     }
 
     private void updateTable(String schemaName, TableInput tableInput)
     {
         glueTableCache.invalidateAll();
-        stats.getUpdateTable().call(() ->
-                glueClient.updateTable(x -> x
-                        .databaseName(schemaName)
-                        .tableInput(tableInput)));
+        glueClient.updateTable(schemaName, tableInput, Optional.empty());
     }
 
     private void deleteTable(String schema, String table)
     {
         glueTableCache.invalidateAll();
-        stats.getDeleteTable().call(() ->
-                glueClient.deleteTable(x -> x
-                        .databaseName(schema)
-                        .name(table)));
+        glueClient.deleteTable(schema, table);
     }
 
     private record MaterializedViewData(

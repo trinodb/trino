@@ -36,8 +36,7 @@ public class GlueIcebergTableOperationsProvider
     private final ForwardingFileIoFactory fileIoFactory;
     private final TypeManager typeManager;
     private final boolean cacheTableMetadata;
-    private final GlueClient glueClient;
-    private final GlueMetastoreStats stats;
+    private final TrinoGlueClient glueClient;
 
     @Inject
     public GlueIcebergTableOperationsProvider(
@@ -52,8 +51,7 @@ public class GlueIcebergTableOperationsProvider
         this.fileIoFactory = requireNonNull(fileIoFactory, "fileIoFactory is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.cacheTableMetadata = catalogConfig.isCacheTableMetadata();
-        this.stats = requireNonNull(stats, "stats is null");
-        this.glueClient = requireNonNull(glueClient, "glueClient is null");
+        this.glueClient = new DefaultTrinoGlueClient(glueClient, stats);
     }
 
     @Override
@@ -69,7 +67,6 @@ public class GlueIcebergTableOperationsProvider
                 typeManager,
                 cacheTableMetadata,
                 glueClient,
-                stats,
                 // Share Glue Table cache between Catalog and TableOperations so that, when doing metadata queries (e.g. information_schema.columns)
                 // the GetTableRequest is issued once per table.
                 ((TrinoGlueCatalog) catalog)::getTable,
