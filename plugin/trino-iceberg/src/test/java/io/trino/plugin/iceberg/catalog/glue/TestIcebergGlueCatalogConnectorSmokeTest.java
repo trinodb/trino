@@ -139,14 +139,6 @@ public class TestIcebergGlueCatalogConnectorSmokeTest
 
     @Test
     @Override
-    public void testUncommittedManifestCleanupAfterConcurrentWrites()
-    {
-        assertThatThrownBy(super::testUncommittedManifestCleanupAfterConcurrentWrites)
-                .hasMessageContaining("No orphaned manifests expected - uncommitted files should be cleaned up during commit");
-    }
-
-    @Test
-    @Override
     public void testRenameSchema()
     {
         assertThatThrownBy(super::testRenameSchema)

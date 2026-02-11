@@ -168,15 +168,10 @@ public class TrinoGlueCatalog
     private final String trinoVersion;
     private final boolean cacheTableMetadata;
     private final Optional<String> defaultSchemaLocation;
-    private final TrinoGlueClient glueClient;
+    private final QueryScopedCachingTrinoGlueClient glueClient;
     private final boolean hideMaterializedViewStorageTable;
     private final boolean isUsingSystemSecurity;
     private final Executor metadataFetchingExecutor;
-
-    private final Cache<SchemaTableName, Table> glueTableCache = EvictableCacheBuilder.newBuilder()
-            // Even though this is query-scoped, this still needs to be bounded. information_schema queries can access large number of tables.
-            .maximumSize(Math.max(PER_QUERY_CACHES_SIZE, IcebergMetadata.GET_METADATA_BATCH_SIZE))
-            .build();
 
     private final Cache<SchemaTableName, TableMetadata> tableMetadataCache = EvictableCacheBuilder.newBuilder()
             .maximumSize(PER_QUERY_CACHES_SIZE)
@@ -206,7 +201,7 @@ public class TrinoGlueCatalog
         super(catalogName, useUniqueTableLocation, typeManager, tableOperationsProvider, fileSystemFactory, fileIoFactory);
         this.trinoVersion = requireNonNull(trinoVersion, "trinoVersion is null");
         this.cacheTableMetadata = cacheTableMetadata;
-        this.glueClient = requireNonNull(glueClient, "glueClient is null");
+        this.glueClient = new QueryScopedCachingTrinoGlueClient(glueClient);
         this.isUsingSystemSecurity = isUsingSystemSecurity;
         this.defaultSchemaLocation = requireNonNull(defaultSchemaLocation, "defaultSchemaLocation is null");
         this.hideMaterializedViewStorageTable = hideMaterializedViewStorageTable;
@@ -256,7 +251,6 @@ public class TrinoGlueCatalog
     public void dropNamespace(ConnectorSession session, String namespace)
     {
         try {
-            glueTableCache.invalidateAll();
             glueClient.dropDatabase(namespace);
         }
         catch (EntityNotFoundException e) {
@@ -449,7 +443,7 @@ public class TrinoGlueCatalog
         for (SchemaTableName tableName : relationFilter.apply(glueTables.keySet())) {
             Table table = glueTables.get(tableName);
             // potentially racy with invalidation, but TrinoGlueCatalog is session-scoped
-            uncheckedCacheGet(glueTableCache, tableName, () -> table);
+            glueClient.populateCache(tableName, table);
             List<ColumnMetadata> columns;
             try {
                 columns = getColumnMetadatas(loadTable(session, tableName).schema(), typeManager);
@@ -545,7 +539,7 @@ public class TrinoGlueCatalog
         for (SchemaTableName tableName : relationFilter.apply(glueTables.keySet())) {
             Table table = glueTables.get(tableName);
             // potentially racy with invalidation, but TrinoGlueCatalog is session-scoped
-            uncheckedCacheGet(glueTableCache, tableName, () -> table);
+            glueClient.populateCache(tableName, table);
             Optional<String> comment;
             try {
                 comment = getTableComment(loadTable(session, tableName));
@@ -629,7 +623,7 @@ public class TrinoGlueCatalog
             return Optional.empty();
         }
 
-        Table glueTable = getTable(tableName, false);
+        Table glueTable = glueClient.getTable(tableName, false);
         return getCachedColumnMetadata(glueTable);
     }
 
@@ -676,7 +670,7 @@ public class TrinoGlueCatalog
     {
         BaseTable table = loadTable(session, schemaTableName);
         try {
-            deleteTable(schemaTableName.getSchemaName(), schemaTableName.getTableName());
+            glueClient.deleteTable(schemaTableName.getSchemaName(), schemaTableName.getTableName());
         }
         catch (SdkException e) {
             throw new TrinoException(HIVE_METASTORE_ERROR, e);
@@ -761,7 +755,7 @@ public class TrinoGlueCatalog
                 tableMetadata.metadataFileLocation(),
                 ImmutableMap.of(),
                 cacheTableMetadata);
-        createTable(schemaTableName.getSchemaName(), tableInput);
+        glueClient.createTable(schemaTableName.getSchemaName(), tableInput);
     }
 
     @Override
@@ -780,7 +774,7 @@ public class TrinoGlueCatalog
         }
 
         try {
-            deleteTable(schemaTableName.getSchemaName(), schemaTableName.getTableName());
+            glueClient.deleteTable(schemaTableName.getSchemaName(), schemaTableName.getTableName());
         }
         catch (SdkException e) {
             throw new TrinoException(HIVE_METASTORE_ERROR, e);
@@ -811,15 +805,15 @@ public class TrinoGlueCatalog
                     metadataLocation,
                     tableParameters,
                     cacheTableMetadata);
-            createTable(to.getSchemaName(), tableInput);
+            glueClient.createTable(to.getSchemaName(), tableInput);
             newTableCreated = true;
-            deleteTable(from.getSchemaName(), from.getTableName());
+            glueClient.deleteTable(from.getSchemaName(), from.getTableName());
             invalidateTableCache(from);
         }
         catch (RuntimeException e) {
             if (newTableCreated) {
                 try {
-                    deleteTable(to.getSchemaName(), to.getTableName());
+                    glueClient.deleteTable(to.getSchemaName(), to.getTableName());
                 }
                 catch (RuntimeException cleanupException) {
                     if (!cleanupException.equals(e)) {
@@ -835,7 +829,7 @@ public class TrinoGlueCatalog
     {
         Table table;
         try {
-            table = getTable(schemaTableName, false);
+            table = glueClient.getTable(schemaTableName, false);
         }
         catch (TableNotFoundException e) {
             return Optional.empty();
@@ -957,12 +951,12 @@ public class TrinoGlueCatalog
                 throw new ViewAlreadyExistsException(schemaViewName);
             }
 
-            updateTable(schemaViewName.getSchemaName(), viewTableInput);
+            glueClient.updateTable(schemaViewName.getSchemaName(), viewTableInput, Optional.empty());
             return;
         }
 
         try {
-            createTable(schemaViewName.getSchemaName(), viewTableInput);
+            glueClient.createTable(schemaViewName.getSchemaName(), viewTableInput);
         }
         catch (AlreadyExistsException e) {
             throw new ViewAlreadyExistsException(schemaViewName);
@@ -982,14 +976,14 @@ public class TrinoGlueCatalog
                     existingView.viewOriginalText(),
                     existingView.owner(),
                     createViewProperties(session, trinoVersion, TRINO_CREATED_BY_VALUE));
-            createTable(target.getSchemaName(), viewTableInput);
+            glueClient.createTable(target.getSchemaName(), viewTableInput);
             newTableCreated = true;
-            deleteTable(source.getSchemaName(), source.getTableName());
+            glueClient.deleteTable(source.getSchemaName(), source.getTableName());
         }
         catch (Exception e) {
             if (newTableCreated) {
                 try {
-                    deleteTable(target.getSchemaName(), target.getTableName());
+                    glueClient.deleteTable(target.getSchemaName(), target.getTableName());
                 }
                 catch (Exception cleanupException) {
                     if (!cleanupException.equals(e)) {
@@ -1016,7 +1010,7 @@ public class TrinoGlueCatalog
 
         try {
             viewCache.invalidate(schemaViewName);
-            deleteTable(schemaViewName.getSchemaName(), schemaViewName.getTableName());
+            glueClient.deleteTable(schemaViewName.getSchemaName(), schemaViewName.getTableName());
         }
         catch (SdkException e) {
             throw new TrinoException(HIVE_METASTORE_ERROR, e);
@@ -1095,7 +1089,7 @@ public class TrinoGlueCatalog
                 createViewProperties(session, trinoVersion, TRINO_CREATED_BY_VALUE));
 
         try {
-            updateTable(viewName.getSchemaName(), viewTableInput);
+            glueClient.updateTable(viewName.getSchemaName(), viewTableInput, Optional.empty());
         }
         catch (SdkException e) {
             throw new TrinoException(ICEBERG_CATALOG_ERROR, e);
@@ -1134,10 +1128,10 @@ public class TrinoGlueCatalog
                     createMaterializedViewProperties(session, storageMetadataLocation));
             try {
                 if (existing.isPresent()) {
-                    updateTable(viewName.getSchemaName(), materializedViewTableInput);
+                    glueClient.updateTable(viewName.getSchemaName(), materializedViewTableInput, Optional.empty());
                 }
                 else {
-                    createTable(viewName.getSchemaName(), materializedViewTableInput);
+                    glueClient.createTable(viewName.getSchemaName(), materializedViewTableInput);
                 }
             }
             catch (RuntimeException e) {
@@ -1178,7 +1172,7 @@ public class TrinoGlueCatalog
 
         if (existing.isPresent()) {
             try {
-                updateTable(viewName.getSchemaName(), materializedViewTableInput);
+                glueClient.updateTable(viewName.getSchemaName(), materializedViewTableInput, Optional.empty());
             }
             catch (RuntimeException e) {
                 try {
@@ -1195,7 +1189,7 @@ public class TrinoGlueCatalog
             dropMaterializedViewStorage(session, existing.get());
         }
         else {
-            createTable(viewName.getSchemaName(), materializedViewTableInput);
+            glueClient.createTable(viewName.getSchemaName(), materializedViewTableInput);
         }
     }
 
@@ -1223,14 +1217,14 @@ public class TrinoGlueCatalog
 
     private void updateMaterializedView(SchemaTableName viewName, ConnectorMaterializedViewDefinition newDefinition)
     {
-        Table table = getTable(viewName, false);
+        Table table = glueClient.getTable(viewName, false);
         TableInput materializedViewTableInput = getMaterializedViewTableInput(
                 viewName.getTableName(),
                 encodeMaterializedViewData(fromConnectorMaterializedViewDefinition(newDefinition)),
                 table.owner(),
                 table.parameters());
         try {
-            updateTable(viewName.getSchemaName(), materializedViewTableInput);
+            glueClient.updateTable(viewName.getSchemaName(), materializedViewTableInput, Optional.empty());
         }
         catch (SdkException e) {
             throw new TrinoException(ICEBERG_CATALOG_ERROR, e);
@@ -1248,7 +1242,7 @@ public class TrinoGlueCatalog
         }
         materializedViewCache.invalidate(viewName);
         dropMaterializedViewStorage(session, view);
-        deleteTable(view.databaseName(), view.name());
+        glueClient.deleteTable(view.databaseName(), view.name());
     }
 
     private void dropMaterializedViewStorage(ConnectorSession session, Table view)
@@ -1405,14 +1399,14 @@ public class TrinoGlueCatalog
                 throw new TrinoException(UNSUPPORTED_TABLE_TYPE, "Not a Materialized View: " + source);
             }
             TableInput tableInput = getMaterializedViewTableInput(target.getTableName(), glueTable.viewOriginalText(), glueTable.owner(), tableParameters);
-            createTable(target.getSchemaName(), tableInput);
+            glueClient.createTable(target.getSchemaName(), tableInput);
             newTableCreated = true;
-            deleteTable(source.getSchemaName(), source.getTableName());
+            glueClient.deleteTable(source.getSchemaName(), source.getTableName());
         }
         catch (RuntimeException e) {
             if (newTableCreated) {
                 try {
-                    deleteTable(target.getSchemaName(), target.getTableName());
+                    glueClient.deleteTable(target.getSchemaName(), target.getTableName());
                 }
                 catch (RuntimeException cleanupException) {
                     if (!cleanupException.equals(e)) {
@@ -1459,29 +1453,9 @@ public class TrinoGlueCatalog
         tableMetadataCache.invalidate(schemaTableName);
     }
 
-    Table getTable(SchemaTableName tableName, boolean invalidateCaches)
+    TrinoGlueClient getGlueClient()
     {
-        if (invalidateCaches) {
-            glueTableCache.invalidate(tableName);
-        }
-
-        try {
-            return uncheckedCacheGet(glueTableCache, tableName, () -> {
-                try {
-                    return glueClient.getTable(tableName);
-                }
-                catch (EntityNotFoundException e) {
-                    throw new TableNotFoundException(tableName, e);
-                }
-                catch (SdkException e) {
-                    throw new TrinoException(ICEBERG_CATALOG_ERROR, e);
-                }
-            });
-        }
-        catch (UncheckedExecutionException e) {
-            throwIfInstanceOf(e.getCause(), TrinoException.class);
-            throw new TrinoException(GENERIC_INTERNAL_ERROR, "Get table request failed: " + requireNonNullElse(e.getMessage(), e), e.getCause());
-        }
+        return glueClient;
     }
 
     private Stream<Table> getGlueTablesWithExceptionHandling(String glueNamespace)
@@ -1523,24 +1497,6 @@ public class TrinoGlueCatalog
         });
     }
 
-    private void createTable(String schemaName, TableInput tableInput)
-    {
-        glueTableCache.invalidateAll();
-        glueClient.createTable(schemaName, tableInput);
-    }
-
-    private void updateTable(String schemaName, TableInput tableInput)
-    {
-        glueTableCache.invalidateAll();
-        glueClient.updateTable(schemaName, tableInput, Optional.empty());
-    }
-
-    private void deleteTable(String schema, String table)
-    {
-        glueTableCache.invalidateAll();
-        glueClient.deleteTable(schema, table);
-    }
-
     private record MaterializedViewData(
             ConnectorMaterializedViewDefinition connectorMaterializedViewDefinition,
             Optional<String> storageMetadataLocation)
@@ -1549,6 +1505,104 @@ public class TrinoGlueCatalog
         {
             requireNonNull(connectorMaterializedViewDefinition, "connectorMaterializedViewDefinition is null");
             requireNonNull(storageMetadataLocation, "storageMetadataLocation is null");
+        }
+    }
+
+    private static class QueryScopedCachingTrinoGlueClient
+            implements TrinoGlueClient
+    {
+        private final Cache<SchemaTableName, Table> tableCache = EvictableCacheBuilder.newBuilder()
+                // Even though this is query-scoped, this still needs to be bounded. information_schema queries can access large number of tables.
+                .maximumSize(Math.max(PER_QUERY_CACHES_SIZE, IcebergMetadata.GET_METADATA_BATCH_SIZE))
+                .build();
+        private final TrinoGlueClient delegate;
+
+        public QueryScopedCachingTrinoGlueClient(TrinoGlueClient delegate)
+        {
+            this.delegate = requireNonNull(delegate, "delegate is null");
+        }
+
+        @Override
+        public Table getTable(SchemaTableName tableName, boolean invalidateCache)
+        {
+            if (invalidateCache) {
+                tableCache.invalidate(tableName);
+            }
+
+            try {
+                return uncheckedCacheGet(tableCache, tableName, () -> {
+                    try {
+                        return delegate.getTable(tableName, invalidateCache);
+                    }
+                    catch (EntityNotFoundException e) {
+                        throw new TableNotFoundException(tableName, e);
+                    }
+                    catch (SdkException e) {
+                        throw new TrinoException(ICEBERG_CATALOG_ERROR, e);
+                    }
+                });
+            }
+            catch (UncheckedExecutionException e) {
+                throwIfInstanceOf(e.getCause(), TrinoException.class);
+                throw new TrinoException(GENERIC_INTERNAL_ERROR, "Get table request failed: " + requireNonNullElse(e.getMessage(), e), e.getCause());
+            }
+        }
+
+        @Override
+        public void deleteTable(String databaseName, String tableName)
+        {
+            tableCache.invalidateAll();
+            delegate.deleteTable(databaseName, tableName);
+        }
+
+        @Override
+        public void updateTable(String databaseName, TableInput table, Optional<String> versionId)
+        {
+            tableCache.invalidateAll();
+            delegate.updateTable(databaseName, table, versionId);
+        }
+
+        @Override
+        public void createTable(String databaseName, TableInput table)
+        {
+            tableCache.invalidateAll();
+            delegate.createTable(databaseName, table);
+        }
+
+        @Override
+        public Stream<Table> streamTables(String databaseName)
+        {
+            return delegate.streamTables(databaseName);
+        }
+
+        @Override
+        public Database getDatabase(String databaseName)
+        {
+            return delegate.getDatabase(databaseName);
+        }
+
+        @Override
+        public List<String> listDatabases()
+        {
+            return delegate.listDatabases();
+        }
+
+        @Override
+        public void dropDatabase(String databaseName)
+        {
+            tableCache.invalidateAll();
+            delegate.dropDatabase(databaseName);
+        }
+
+        @Override
+        public void createDatabase(DatabaseInput database)
+        {
+            delegate.createDatabase(database);
+        }
+
+        public void populateCache(SchemaTableName tableName, Table table)
+        {
+            uncheckedCacheGet(tableCache, tableName, () -> table);
         }
     }
 }

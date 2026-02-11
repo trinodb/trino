@@ -43,7 +43,7 @@ public class DefaultTrinoGlueClient
     }
 
     @Override
-    public Table getTable(SchemaTableName tableName)
+    public Table getTable(SchemaTableName tableName, boolean invalidateCache)
     {
         return stats.getGetTable().call(() ->
                 glueClient.getTable(request -> request

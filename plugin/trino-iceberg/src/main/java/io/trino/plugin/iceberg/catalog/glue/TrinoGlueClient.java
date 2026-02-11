@@ -25,7 +25,7 @@ import java.util.stream.Stream;
 
 public interface TrinoGlueClient
 {
-    Table getTable(SchemaTableName tableName);
+    Table getTable(SchemaTableName tableName, boolean invalidateCache);
 
     void deleteTable(String databaseName, String tableName);
 
