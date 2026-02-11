@@ -1410,6 +1410,12 @@ public final class MetadataManager
     }
 
     @Override
+    public Optional<CatalogInfo> getCatalogInfo(Session session, String catalogName)
+    {
+        return transactionManager.getOptionalCatalogInfo(session.getRequiredTransactionId(), catalogName);
+    }
+
+    @Override
     public List<CatalogInfo> listCatalogs(Session session)
     {
         return transactionManager.getCatalogs(session.getRequiredTransactionId());

@@ -203,6 +203,14 @@ public class InMemoryTransactionManager
     }
 
     @Override
+    public Optional<CatalogInfo> getOptionalCatalogInfo(TransactionId transactionId, String catalogName)
+    {
+        TransactionMetadata transactionMetadata = getTransactionMetadata(transactionId);
+        return getCatalogHandle(transactionId, catalogName)
+                .flatMap(transactionMetadata::getActiveCatalog);
+    }
+
+    @Override
     public CatalogMetadata getCatalogMetadata(TransactionId transactionId, CatalogHandle catalogHandle)
     {
         return getTransactionMetadata(transactionId).getTransactionCatalogMetadata(catalogHandle);
@@ -389,8 +397,16 @@ public class InMemoryTransactionManager
                     .distinct()
                     .map(key -> registeredCatalogs.getOrDefault(key, Optional.empty()))
                     .flatMap(Optional::stream)
-                    .map(catalog -> new CatalogInfo(catalog.getCatalogName().toString(), catalog.getCatalogHandle(), catalog.getConnectorName(), catalog.getCatalogStatus()))
+                    .map(Catalog::toInfo)
                     .collect(toImmutableList());
+        }
+
+        private synchronized Optional<CatalogInfo> getActiveCatalog(CatalogHandle catalogHandle)
+        {
+            return Optional.ofNullable(activeCatalogs.get(catalogHandle))
+                    .map(CatalogMetadata::getCatalogName)
+                    .flatMap(key -> registeredCatalogs.getOrDefault(key, Optional.empty()))
+                    .map(Catalog::toInfo);
         }
 
         private synchronized List<CatalogInfo> listCatalogs()
@@ -402,7 +418,7 @@ public class InMemoryTransactionManager
             return registeredCatalogs.values().stream()
                     .filter(Optional::isPresent)
                     .map(Optional::get)
-                    .map(catalog -> new CatalogInfo(catalog.getCatalogName().toString(), catalog.getCatalogHandle(), catalog.getConnectorName(), catalog.getCatalogStatus()))
+                    .map(Catalog::toInfo)
                     .collect(toImmutableList());
         }
 

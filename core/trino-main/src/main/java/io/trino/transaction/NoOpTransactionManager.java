@@ -90,6 +90,12 @@ public class NoOpTransactionManager
     }
 
     @Override
+    public Optional<CatalogInfo> getOptionalCatalogInfo(TransactionId requiredTransactionId, String catalogName)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public CatalogMetadata getCatalogMetadata(TransactionId transactionId, CatalogHandle catalogHandle)
     {
         throw new UnsupportedOperationException();
