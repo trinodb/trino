@@ -99,7 +99,6 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.spi.predicate.TupleDomain.extractFixedValues;
-import static io.trino.sql.ir.optimizer.IrExpressionOptimizer.newOptimizer;
 import static io.trino.sql.planner.SystemPartitioningHandle.ARBITRARY_DISTRIBUTION;
 import static io.trino.sql.planner.optimizations.ActualProperties.Global.arbitraryPartition;
 import static io.trino.sql.planner.optimizations.ActualProperties.Global.coordinatorSinglePartition;
@@ -169,7 +168,7 @@ public final class PropertyDerivations
         public Visitor(PlannerContext plannerContext, Session session)
         {
             this.plannerContext = plannerContext;
-            this.optimizer = newOptimizer(plannerContext);
+            this.optimizer = plannerContext.getExpressionOptimizer();
             this.session = session;
         }
 

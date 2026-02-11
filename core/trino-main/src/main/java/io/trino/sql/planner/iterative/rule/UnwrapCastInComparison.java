@@ -78,7 +78,6 @@ import static io.trino.sql.ir.Comparison.Operator.NOT_EQUAL;
 import static io.trino.sql.ir.IrExpressions.not;
 import static io.trino.sql.ir.IrUtils.and;
 import static io.trino.sql.ir.IrUtils.or;
-import static io.trino.sql.ir.optimizer.IrExpressionOptimizer.newOptimizer;
 import static java.lang.Float.intBitsToFloat;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
@@ -152,7 +151,7 @@ public class UnwrapCastInComparison
             this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
             this.session = requireNonNull(session, "session is null");
             this.functionInvoker = new InterpretedFunctionInvoker(plannerContext.getFunctionManager());
-            this.optimizer = newOptimizer(plannerContext);
+            this.optimizer = plannerContext.getExpressionOptimizer();
         }
 
         @Override

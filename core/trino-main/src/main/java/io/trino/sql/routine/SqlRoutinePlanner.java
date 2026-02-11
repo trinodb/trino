@@ -80,7 +80,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.sql.ir.Comparison.Operator.EQUAL;
-import static io.trino.sql.ir.optimizer.IrExpressionOptimizer.newOptimizer;
 import static io.trino.sql.planner.LogicalPlanner.buildLambdaDeclarationToSymbolMap;
 import static io.trino.sql.relational.Expressions.call;
 import static io.trino.sql.relational.Expressions.constantNull;
@@ -96,7 +95,7 @@ public final class SqlRoutinePlanner
     public SqlRoutinePlanner(PlannerContext plannerContext)
     {
         this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
-        this.optimizer = newOptimizer(plannerContext);
+        this.optimizer = plannerContext.getExpressionOptimizer();
     }
 
     public IrRoutine planSqlFunction(Session session, SqlRoutineAnalysis analysis)
