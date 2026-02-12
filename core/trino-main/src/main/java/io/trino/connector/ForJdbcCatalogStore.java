@@ -23,6 +23,10 @@ import java.lang.annotation.Target;
 @Retention(RetentionPolicy.RUNTIME)
 @Target({ElementType.FIELD, ElementType.PARAMETER, ElementType.METHOD})
 @BindingAnnotation
+/**
+ * Binding annotation for internal resources required by the JDBC Catalog Store implementation
+ * (e.g., the ScheduledExecutorService used for background polling).
+ */
 public @interface ForJdbcCatalogStore
 {
 }
