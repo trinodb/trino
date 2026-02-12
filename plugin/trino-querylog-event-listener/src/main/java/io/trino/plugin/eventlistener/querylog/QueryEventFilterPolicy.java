@@ -57,7 +57,7 @@ public class QueryEventFilter
     public boolean shouldLogQueryCreated(QueryCreatedEvent event)
     {
         QueryCreatedEvent.QueryMetadata metadata = event.getMetadata();
-        
+
         // Check query state - fast path since it's required
         if (ignoredQueryStates.contains(metadata.getQueryState())) {
             return false;
@@ -85,7 +85,7 @@ public class QueryEventFilter
     public boolean shouldLogQueryCompleted(QueryCompletedEvent event)
     {
         QueryCompletedEvent.QueryMetadata metadata = event.getMetadata();
-        
+
         // Check query state
         if (ignoredQueryStates.contains(metadata.getQueryState())) {
             return false;
@@ -122,7 +122,7 @@ public class QueryEventFilter
     public boolean shouldLogQueryExecuted(QueryExecutionEvent event)
     {
         QueryExecutionEvent.QueryMetadata metadata = event.getMetadata();
-        
+
         // Check query state
         if (ignoredQueryStates.contains(metadata.getQueryState())) {
             return false;

@@ -560,4 +560,3 @@ public class TestQueryLogEventListener
         assertThatCode(() -> listener.queryExecuted(event)).doesNotThrowAnyException();
     }
 }
-

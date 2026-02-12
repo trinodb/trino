@@ -13,16 +13,12 @@
  */
 package io.trino.plugin.eventlistener.querylog;
 
-import com.fasterxml.jackson.core.JsonGenerator;
-import com.fasterxml.jackson.databind.JsonSerializer;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.SerializerProvider;
 import com.fasterxml.jackson.databind.ser.FilterProvider;
 import com.fasterxml.jackson.databind.ser.impl.SimpleFilterProvider;
 import io.airlift.json.ObjectMapperProvider;
 import io.airlift.units.DataSize;
 
-import java.io.IOException;
 import java.util.Set;
 
 import static com.fasterxml.jackson.databind.ser.impl.SimpleBeanPropertyFilter.serializeAllExcept;
@@ -117,7 +113,7 @@ public class QueryEventFieldFilter
 
         // Truncate the value
         String truncatedValue = truncateString(fieldValue, truncationSizeLimitBytes);
-        
+
         // Escape quotes in truncated value for JSON using StringBuilder for efficiency
         String escapedValue = escapeJsonString(truncatedValue);
 
