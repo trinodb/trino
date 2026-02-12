@@ -89,6 +89,7 @@
         <module>plugin/trino-kafka-event-listener</module>
         <module>plugin/trino-lakehouse</module>
         <module>plugin/trino-ldap-group-provider</module>
+        <module>plugin/trino-logger-event-listener</module>
         <module>plugin/trino-loki</module>
         <module>plugin/trino-mariadb</module>
         <module>plugin/trino-memory</module>
@@ -104,7 +105,6 @@
         <module>plugin/trino-pinot</module>
         <module>plugin/trino-postgresql</module>
         <module>plugin/trino-prometheus</module>
-        <module>plugin/trino-querylog-event-listener</module>
         <module>plugin/trino-ranger</module>
         <module>plugin/trino-redis</module>
         <module>plugin/trino-redshift</module>
@@ -1209,6 +1209,12 @@
 
             <dependency>
                 <groupId>io.trino</groupId>
+                <artifactId>trino-logger-event-listener</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.trino</groupId>
                 <artifactId>trino-main</artifactId>
                 <version>${project.version}</version>
             </dependency>
@@ -1361,12 +1367,6 @@
             <dependency>
                 <groupId>io.trino</groupId>
                 <artifactId>trino-product-tests-groups</artifactId>
-                <version>${project.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>io.trino</groupId>
-                <artifactId>trino-querylog-event-listener</artifactId>
                 <version>${project.version}</version>
             </dependency>
 
