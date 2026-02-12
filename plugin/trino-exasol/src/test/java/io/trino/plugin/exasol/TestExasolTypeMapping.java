@@ -40,6 +40,7 @@ import static io.trino.spi.type.CharType.createCharType;
 import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.DoubleType.DOUBLE;
+import static io.trino.spi.type.TimestampType.createTimestampType;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.testing.TestingNames.randomNameSuffix;
@@ -278,6 +279,154 @@ final class TestExasolTypeMapping
                 .execute(getQueryRunner(), session, exasolCreateAndInsert(TEST_SCHEMA + "." + "test_date"));
     }
 
+    @Test
+    void testTimestamp()
+    {
+        // See for more details:
+        // https://docs.exasol.com/db/latest/sql_references/data_types/datatypedetails.htm
+
+        testTimestamp(UTC);
+        testTimestamp(jvmZone);
+        // using two non-JVM zones so that we don't need to worry what Exasol system zone is
+        testTimestamp(vilnius);
+        testTimestamp(kathmandu);
+        testTimestamp(TestingSession.DEFAULT_TIME_ZONE_KEY.getZoneId());
+    }
+
+    private void testTimestamp(ZoneId sessionZone)
+    {
+        Session session = Session.builder(getSession())
+                .setTimeZoneKey(TimeZoneKey.getTimeZoneKey(sessionZone.getId()))
+                .build();
+
+        SqlDataTypeTest.create()
+                .addRoundTrip("timestamp", "NULL", createTimestampType(3), "CAST(NULL AS TIMESTAMP)")
+                .addRoundTrip("timestamp", "TIMESTAMP '2019-03-18 10:01:17.987'", createTimestampType(3), "TIMESTAMP '2019-03-18 10:01:17.987'")
+                .addRoundTrip("timestamp", "TIMESTAMP '2013-03-11 17:30:15.123'", createTimestampType(3), "TIMESTAMP '2013-03-11 17:30:15.123'")
+                .addRoundTrip("timestamp", "TIMESTAMP '2018-10-28 01:33:17.456'", createTimestampType(3), "TIMESTAMP '2018-10-28 01:33:17.456'")
+                .addRoundTrip("timestamp", "TIMESTAMP '2018-10-28 03:33:33.333'", createTimestampType(3), "TIMESTAMP '2018-10-28 03:33:33.333'")
+                .addRoundTrip("timestamp", "TIMESTAMP '1970-01-01 00:13:42.000'", createTimestampType(3), "TIMESTAMP '1970-01-01 00:13:42.000'")
+                .addRoundTrip("timestamp", "TIMESTAMP '2020-09-27 12:34:56.999'", createTimestampType(3), "TIMESTAMP '2020-09-27 12:34:56.999'")
+                .addRoundTrip("timestamp", "TIMESTAMP '2018-03-25 03:17:17.000'", createTimestampType(3), "TIMESTAMP '2018-03-25 03:17:17.000'")
+                .addRoundTrip("timestamp", "TIMESTAMP '1986-01-01 00:13:07.000'", createTimestampType(3), "TIMESTAMP '1986-01-01 00:13:07.000'")
+                .addRoundTrip("timestamp(6)", "TIMESTAMP '2013-03-11 17:30:15.123456'", createTimestampType(6), "TIMESTAMP '2013-03-11 17:30:15.123456'")
+                .addRoundTrip("timestamp(9)", "TIMESTAMP '2013-03-11 17:30:15.123456789'", createTimestampType(9), "TIMESTAMP '2013-03-11 17:30:15.123456789'")
+                .addRoundTrip("timestamp(1)", "TIMESTAMP '2016-08-19 19:28:05.0'", createTimestampType(1), "TIMESTAMP '2016-08-19 19:28:05.0'")
+                .addRoundTrip("timestamp(2)", "TIMESTAMP '2016-08-19 19:28:05.01'", createTimestampType(2), "TIMESTAMP '2016-08-19 19:28:05.01'")
+                .addRoundTrip("timestamp", "TIMESTAMP '3030-03-03 12:34:56.123'", createTimestampType(3), "TIMESTAMP '3030-03-03 12:34:56.123'")
+                .addRoundTrip("timestamp(4)", "TIMESTAMP '3030-03-03 12:34:56.1234'", createTimestampType(4), "TIMESTAMP '3030-03-03 12:34:56.1234'")
+                .addRoundTrip("timestamp(5)", "TIMESTAMP '3030-03-03 12:34:56.12345'", createTimestampType(5), "TIMESTAMP '3030-03-03 12:34:56.12345'")
+                .addRoundTrip("timestamp(6)", "TIMESTAMP '3030-03-03 12:34:56.123456'", createTimestampType(6), "TIMESTAMP '3030-03-03 12:34:56.123456'")
+                .addRoundTrip("timestamp(7)", "TIMESTAMP '3030-03-03 12:34:56.1234567'", createTimestampType(7), "TIMESTAMP '3030-03-03 12:34:56.1234567'")
+                .addRoundTrip("timestamp(8)", "TIMESTAMP '3030-03-03 12:34:56.12345678'", createTimestampType(8), "TIMESTAMP '3030-03-03 12:34:56.12345678'")
+                .addRoundTrip("timestamp(9)", "TIMESTAMP '3030-03-03 12:34:56.123456789'", createTimestampType(9), "TIMESTAMP '3030-03-03 12:34:56.123456789'")
+                .addRoundTrip("timestamp(0)", "TIMESTAMP '2017-07-01'", createTimestampType(0), "TIMESTAMP '2017-07-01'") // summer on northern hemisphere (possible DST)
+                .addRoundTrip("timestamp(0)", "TIMESTAMP '2017-01-01'", createTimestampType(0), "TIMESTAMP '2017-01-01'") // winter on northern hemisphere (possible DST on southern hemisphere)
+                .addRoundTrip("timestamp(0)", "TIMESTAMP '1970-01-01'", createTimestampType(0), "TIMESTAMP '1970-01-01'") // change forward at midnight in JVM
+                .addRoundTrip("timestamp(0)", "TIMESTAMP '1983-04-01'", createTimestampType(0), "TIMESTAMP '1983-04-01'") // change forward at midnight in Vilnius
+                .addRoundTrip("timestamp(0)", "TIMESTAMP '1983-10-01'", createTimestampType(0), "TIMESTAMP '1983-10-01'") // change backward at midnight in Vilnius
+                .addRoundTrip("timestamp(0)", "TIMESTAMP '9999-12-31'", createTimestampType(0), "TIMESTAMP '9999-12-31'") // max value in Exasol
+
+                //test cases for timestamp with zero precision and with non-zero seconds
+                .addRoundTrip("timestamp(0)", "TIMESTAMP '2017-07-01 00:00:01'", createTimestampType(0), "TIMESTAMP '2017-07-01 00:00:01'") // summer on northern hemisphere (possible DST)
+                .addRoundTrip("timestamp(0)", "TIMESTAMP '2017-01-01 00:00:02'", createTimestampType(0), "TIMESTAMP '2017-01-01 00:00:02'") // winter on northern hemisphere (possible DST on southern hemisphere)
+                .addRoundTrip("timestamp(0)", "TIMESTAMP '1970-01-01 00:00:03'", createTimestampType(0), "TIMESTAMP '1970-01-01 00:00:03'") // change forward at midnight in JVM
+                .addRoundTrip("timestamp(0)", "TIMESTAMP '1983-04-01 00:00:04'", createTimestampType(0), "TIMESTAMP '1983-04-01 00:00:04'") // change forward at midnight in Vilnius
+                .addRoundTrip("timestamp(0)", "TIMESTAMP '1983-10-01 00:00:05'", createTimestampType(0), "TIMESTAMP '1983-10-01 00:00:05'") // change backward at midnight in Vilnius
+                .addRoundTrip("timestamp(0)", "TIMESTAMP '9999-12-31 00:00:59'", createTimestampType(0), "TIMESTAMP '9999-12-31 00:00:59'") // max value in Exasol
+
+                //DST ambiguity (overlap) time for "America/Bahia_Banderas" time zone
+                .addRoundTrip("timestamp(3)", "TIMESTAMP '2018-10-28 01:13:55.123'", createTimestampType(3), "TIMESTAMP '2018-10-28 01:13:55.123'")
+                .addRoundTrip("timestamp(6)", "TIMESTAMP '2018-10-28 01:13:55.123456'", createTimestampType(6), "TIMESTAMP '2018-10-28 01:13:55.123456'")
+
+                // Invalid DST gap time in "America/Bahia_Banderas" JVM time zone.
+                // The value '2018-04-01 02:13:55.123' is invalid in JVM time zone, because this local time
+                // never occurs: the clock jumps from 01:59 to 03:00 during DST
+                .addRoundTrip("timestamp(3)", resolveInvalidDstGapValue("2018-04-01 02:13:55.123"), createTimestampType(3), "TIMESTAMP '2018-04-01 03:13:55.123'")
+                .addRoundTrip("timestamp(3)", resolveInvalidDstGapValue("2018-04-01 02:13:55.123"), createTimestampType(3), "TIMESTAMP '2018-04-01 03:13:55.123'")
+
+                // Valid shifted DST gap time in "America/Bahia_Banderas" JVM timezone
+                .addRoundTrip("timestamp(3)", "TIMESTAMP '2018-04-01 03:13:55.123'", createTimestampType(3), "TIMESTAMP '2018-04-01 03:13:55.123'")
+                .addRoundTrip("timestamp(6)", "TIMESTAMP '2018-04-01 03:13:55.123456'", createTimestampType(6), "TIMESTAMP '2018-04-01 03:13:55.123456'")
+                .execute(getQueryRunner(), session, exasolCreateAndInsert(TEST_SCHEMA + "." + "test_timestamp"));
+    }
+
+    @Test
+    /**
+     * Additional test supplementing {@link #testTimestamp}
+     * with timestamp precisions higher than the input value decimal digits
+     *
+     * @see #testTimestamp
+     */
+    void testTimestampCoercion()
+    {
+        // See for more details:
+        // https://docs.exasol.com/db/latest/sql_references/data_types/datatypedetails.htm
+
+        testTimestampCoercion(UTC);
+        testTimestampCoercion(jvmZone);
+        // using two non-JVM zones so that we don't need to worry what Exasol system zone is
+        testTimestampCoercion(vilnius);
+        testTimestampCoercion(kathmandu);
+        testTimestampCoercion(TestingSession.DEFAULT_TIME_ZONE_KEY.getZoneId());
+    }
+
+    private void testTimestampCoercion(ZoneId sessionZone)
+    {
+        Session session = Session.builder(getSession())
+                .setTimeZoneKey(TimeZoneKey.getTimeZoneKey(sessionZone.getId()))
+                .build();
+
+        SqlDataTypeTest.create()
+                // Coerce timestamp with 4 decimal digits to timestamp with precision 3
+                .addRoundTrip("timestamp", "TIMESTAMP '2018-10-28 01:13:55.1234'", createTimestampType(3), "TIMESTAMP '2018-10-28 01:13:55.123'")
+                // Coerce timestamp with 5 decimal digits to timestamp with precision 3
+                .addRoundTrip("timestamp", "TIMESTAMP '2018-10-28 01:13:55.12345'", createTimestampType(3), "TIMESTAMP '2018-10-28 01:13:55.123'")
+
+                // Coerce timestamps with 6 decimal digits to timestamps with precisions 3-5
+                .addRoundTrip("timestamp(3)", "TIMESTAMP '2013-03-11 17:30:15.123456'", createTimestampType(3), "TIMESTAMP '2013-03-11 17:30:15.123'")
+                .addRoundTrip("timestamp(4)", "TIMESTAMP '2013-03-11 17:30:15.123456'", createTimestampType(4), "TIMESTAMP '2013-03-11 17:30:15.1234'")
+                .addRoundTrip("timestamp(5)", "TIMESTAMP '2013-03-11 17:30:15.123456'", createTimestampType(5), "TIMESTAMP '2013-03-11 17:30:15.12345'")
+
+                // Coerce timestamps with 9 decimal digits to timestamps with precisions 4-8
+                .addRoundTrip("timestamp(4)", "TIMESTAMP '2013-03-11 17:30:15.123456789'", createTimestampType(4), "TIMESTAMP '2013-03-11 17:30:15.1234'")
+                .addRoundTrip("timestamp(5)", "TIMESTAMP '2013-03-11 17:30:15.123456789'", createTimestampType(5), "TIMESTAMP '2013-03-11 17:30:15.12345'")
+                .addRoundTrip("timestamp(6)", "TIMESTAMP '2013-03-11 17:30:15.123456789'", createTimestampType(6), "TIMESTAMP '2013-03-11 17:30:15.123456'")
+                .addRoundTrip("timestamp(7)", "TIMESTAMP '2013-03-11 17:30:15.123456789'", createTimestampType(7), "TIMESTAMP '2013-03-11 17:30:15.1234567'")
+                .addRoundTrip("timestamp(8)", "TIMESTAMP '2013-03-11 17:30:15.123456789'", createTimestampType(8), "TIMESTAMP '2013-03-11 17:30:15.12345678'")
+                .execute(getQueryRunner(), session, exasolCreateAndInsert(TEST_SCHEMA + "." + "test_timestamp_coercion"));
+    }
+
+    @Test
+    void testUnsupportedTimestampValues()
+    {
+        // See for more details:
+        // https://docs.exasol.com/db/latest/sql_references/data_types/datatypedetails.htm
+
+        // Above maximum supported TIMESTAMP value (must be <= 9999-12-31)
+        testUnsupportedInsertValue(
+                "TIMESTAMP",
+                "TIMESTAMP '10000-01-01 00:00:00.000000'",
+                "data exception - invalid character value for cast; Value: '10000-01-01 00:00:00.000000'");
+
+        // Below minimum supported TIMESTAMP value (must be >= 0001-01-01)
+        testUnsupportedInsertValue(
+                "TIMESTAMP",
+                "TIMESTAMP '0000-12-31 23:59:59.999999'",
+                "data exception - invalid date value; Value: '0000-12-31 23:59:59.999999'");
+
+        // Exceeds TIMESTAMP maximum supported fractional seconds precision (9 digits)
+        testUnsupportedInsertValue(
+                "TIMESTAMP",
+                "TIMESTAMP '2024-01-01 12:34:56.1234567890'",
+                "data exception - invalid character value for cast; Value: '2024-01-01 12:34:56.1234567890'");
+
+        // Negative precisions are not supported
+        testUnsupportedDefinition(
+                "TIMESTAMP(-1)",
+                "syntax error, unexpected '-', expecting UNSIGNED_INTEGER");
+    }
+
     // See for more details: https://docs.exasol.com/saas/microcontent/Resources/MicroContent/general/hash-data-type.htm
     @Test
     void testHashtype()
@@ -444,5 +593,54 @@ final class TestExasolTypeMapping
     private SqlExecutor onRemoteDatabase()
     {
         return exasolServer::execute;
+    }
+
+    private void testUnsupportedDefinition(
+            String exasolType,
+            String expectedException)
+    {
+        String tableName = "test_unsupported_definition_" + randomNameSuffix();
+        assertExasolSqlQueryFails(
+                "CREATE TABLE %s.%s (col %s)".formatted(TEST_SCHEMA, tableName, exasolType),
+                expectedException);
+    }
+
+    private void testUnsupportedInsertValue(
+            String exasolType,
+            String inputLiteral,
+            String expectedException)
+    {
+        try (TestTable table = new TestTable(onRemoteDatabase(),
+                TEST_SCHEMA + ".test_unsupported_hashtype_" + randomNameSuffix(),
+                "(col %s)".formatted(exasolType))) {
+            assertExasolSqlQueryFails("INSERT INTO %s VALUES (%s)".formatted(table.getName(), inputLiteral), expectedException);
+        }
+    }
+
+    // Resolves DST-gap values that are invalid in the JVM zone ("America/Bahia_Banderas")
+    // but may be valid in the Exasol DB zone. We convert via UTC to avoid ambiguity,
+    // ensuring the value maps back to the intended Exasol time zone representation.
+    //
+    // Example: "2018-04-01 02:13:55.123" is invalid in "America/Bahia_Banderas" (JVM)
+    // but valid in "Europe/Berlin" (Exasol).
+    // Without converting to UTC and back, it would be incorrectly mapped
+    // to "2018-04-01 03:13:55.123" in "Europe/Berlin" (Exasol),
+    // not to expected "2018-04-01 02:13:55.123"
+    // Converting through UTC guarantees the correct match.
+    private static String resolveInvalidDstGapValue(String invalidJvmZoneDstGapString)
+    {
+        return """
+          CONVERT_TZ(
+              CONVERT_TZ(
+                  TIMESTAMP '%s',
+                  'America/Bahia_Banderas',
+                  'UTC',
+                  'INVALID SHIFT AMBIGUOUS REJECT'
+              ),
+              'UTC',
+              'America/Bahia_Banderas',
+              'INVALID SHIFT AMBIGUOUS REJECT'
+          )
+          """.formatted(invalidJvmZoneDstGapString);
     }
 }
