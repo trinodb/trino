@@ -103,6 +103,12 @@ Trino data type mapping:
 * - `HASHTYPE`
   - `VARBINARY`
   -
+* - `INTERVAL YEAR(y) TO MONTH`
+  - `BIGINT`
+  -
+* - `INTERVAL DAY(d) TO SECOND(s)`
+  - `BIGINT`
+  -
 :::
 
 No other types are supported.
