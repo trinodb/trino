@@ -1,0 +1,66 @@
+/*
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package io.trino.plugin.eventlistener.querylog;
+
+import com.google.inject.Injector;
+import com.google.inject.Scopes;
+import io.airlift.bootstrap.Bootstrap;
+import io.airlift.json.JsonModule;
+import io.opentelemetry.api.OpenTelemetry;
+import io.opentelemetry.api.trace.Tracer;
+import io.trino.spi.eventlistener.EventListener;
+import io.trino.spi.eventlistener.EventListenerFactory;
+import io.trino.spi.eventlistener.QueryCompletedEvent;
+import io.trino.spi.eventlistener.QueryCreatedEvent;
+import io.trino.spi.eventlistener.QueryExecutionEvent;
+
+import java.util.Map;
+
+import static io.airlift.configuration.ConfigBinder.configBinder;
+import static io.airlift.json.JsonCodecBinder.jsonCodecBinder;
+
+public class QueryLogEventListenerFactory
+        implements EventListenerFactory
+{
+    @Override
+    public String getName()
+    {
+        return "querylog";
+    }
+
+    @Override
+    public EventListener create(Map<String, String> config, EventListenerContext context)
+    {
+        Bootstrap app = new Bootstrap(
+                "io.trino.bootstrap.listener." + getName(),
+                new JsonModule(),
+                binder -> {
+                    binder.bind(OpenTelemetry.class).toInstance(context.getOpenTelemetry());
+                    binder.bind(Tracer.class).toInstance(context.getTracer());
+                    jsonCodecBinder(binder).bindJsonCodec(QueryCompletedEvent.class);
+                    jsonCodecBinder(binder).bindJsonCodec(QueryCreatedEvent.class);
+                    jsonCodecBinder(binder).bindJsonCodec(QueryExecutionEvent.class);
+                    configBinder(binder).bindConfig(QueryLogEventListenerConfig.class);
+                    binder.bind(QueryLogEventListener.class).in(Scopes.SINGLETON);
+                });
+
+        Injector injector = app
+                .doNotInitializeLogging()
+                .disableSystemProperties()
+                .setRequiredConfigurationProperties(config)
+                .initialize();
+
+        return injector.getInstance(QueryLogEventListener.class);
+    }
+}

@@ -104,6 +104,7 @@
         <module>plugin/trino-pinot</module>
         <module>plugin/trino-postgresql</module>
         <module>plugin/trino-prometheus</module>
+        <module>plugin/trino-querylog-event-listener</module>
         <module>plugin/trino-ranger</module>
         <module>plugin/trino-redis</module>
         <module>plugin/trino-redshift</module>
@@ -1203,6 +1204,12 @@
             <dependency>
                 <groupId>io.trino</groupId>
                 <artifactId>trino-kafka-event-listener</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+             <dependency>
+                <groupId>io.trino</groupId>
+                <artifactId>trino-querylog-event-listener</artifactId>
                 <version>${project.version}</version>
             </dependency>
 
