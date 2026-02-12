@@ -154,7 +154,7 @@ public final class Standard
 
     private DockerContainer createTracingCollector()
     {
-        DockerContainer container = new DockerContainer("jaegertracing/all-in-one:latest", OPENTRACING_COLLECTOR)
+        DockerContainer container = new DockerContainer("jaegertracing/all-in-one:1.75.0", OPENTRACING_COLLECTOR)
                 .withEnv(ImmutableMap.of(
                         "COLLECTOR_OTLP_ENABLED", "true",
                         "SPAN_STORAGE_TYPE", "badger",
