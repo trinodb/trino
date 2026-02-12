@@ -25,6 +25,7 @@ import io.trino.spi.function.OperatorType;
 import io.trino.spi.function.Signature;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
+import io.trino.spi.type.TypeSignature;
 import io.trino.sql.analyzer.TypeSignatureProvider;
 
 import java.util.Collection;
@@ -56,6 +57,7 @@ class BuiltinFunctionResolver
 
     private final NonEvictableCache<OperatorCacheKey, ResolvedFunction> operatorCache;
     private final NonEvictableCache<CoercionCacheKey, ResolvedFunction> coercionCache;
+    private final NonEvictableCache<FunctionCacheKey, ResolvedFunction> functionCache;
 
     public BuiltinFunctionResolver(Metadata metadata, TypeManager typeManager, GlobalFunctionCatalog globalFunctionCatalog)
     {
@@ -66,12 +68,24 @@ class BuiltinFunctionResolver
 
         operatorCache = buildNonEvictableCache(CacheBuilder.newBuilder().maximumSize(1000));
         coercionCache = buildNonEvictableCache(CacheBuilder.newBuilder().maximumSize(1000));
+        functionCache = buildNonEvictableCache(CacheBuilder.newBuilder().maximumSize(1000));
     }
 
     ResolvedFunction resolveBuiltinFunction(String name, List<TypeSignatureProvider> parameterTypes)
     {
-        CatalogFunctionBinding functionBinding = functionBinder.bindFunction(parameterTypes, getBuiltinFunctions(name), name);
-        return resolveBuiltin(functionBinding);
+        try {
+            return uncheckedCacheGet(functionCache, FunctionCacheKey.from(name, parameterTypes),
+                () -> {
+                    CatalogFunctionBinding functionBinding = functionBinder.bindFunction(parameterTypes, getBuiltinFunctions(name), name);
+                    return resolveBuiltin(functionBinding);
+                });
+        }
+        catch (UncheckedExecutionException e) {
+            if (e.getCause() instanceof TrinoException cause) {
+                throw cause;
+            }
+            throw e;
+        }
     }
 
     ResolvedFunction resolveOperator(OperatorType operatorType, List<? extends Type> argumentTypes)
@@ -174,6 +188,22 @@ class BuiltinFunctionResolver
             requireNonNull(operatorType, "operatorType is null");
             requireNonNull(fromType, "fromType is null");
             requireNonNull(toType, "toType is null");
+        }
+    }
+
+    private record FunctionCacheKey(String name, List<? extends TypeSignature> types)
+    {
+        private FunctionCacheKey
+        {
+            requireNonNull(name, "name is null");
+            requireNonNull(types, "types is null");
+        }
+
+        public static FunctionCacheKey from(String name, List<TypeSignatureProvider> parameterTypes)
+        {
+            return new FunctionCacheKey(name, parameterTypes.stream()
+                    .map(TypeSignatureProvider::getTypeSignature)
+                    .collect(toImmutableList()));
         }
     }
 }
