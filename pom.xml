@@ -1207,12 +1207,6 @@
                 <version>${project.version}</version>
             </dependency>
 
-             <dependency>
-                <groupId>io.trino</groupId>
-                <artifactId>trino-querylog-event-listener</artifactId>
-                <version>${project.version}</version>
-            </dependency>
-
             <dependency>
                 <groupId>io.trino</groupId>
                 <artifactId>trino-main</artifactId>
@@ -1367,6 +1361,12 @@
             <dependency>
                 <groupId>io.trino</groupId>
                 <artifactId>trino-product-tests-groups</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.trino</groupId>
+                <artifactId>trino-querylog-event-listener</artifactId>
                 <version>${project.version}</version>
             </dependency>
 
