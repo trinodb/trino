@@ -54,7 +54,7 @@ import static org.testcontainers.utility.MountableFile.forHostPath;
 public class ElasticsearchServer
         implements Closeable
 {
-    public static final String ELASTICSEARCH_7_IMAGE = "elasticsearch:7.16.2";
+    public static final String ELASTICSEARCH_7_IMAGE = "elasticsearch:7.17.27";
     public static final String ELASTICSEARCH_8_IMAGE = "elasticsearch:8.11.3";
 
     private final Path configurationPath;
