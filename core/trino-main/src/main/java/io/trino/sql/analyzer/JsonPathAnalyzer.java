@@ -104,7 +104,7 @@ public class JsonPathAnalyzer
     public JsonPathAnalysis analyzeJsonPath(StringLiteral path, Map<String, Type> parameterTypes)
     {
         Location pathStart = extractLocation(path)
-                .map(location -> new Location(location.getLineNumber(), location.getColumnNumber()))
+                .map(location -> new Location(location.lineNumber(), location.columnNumber()))
                 .orElseThrow(() -> new IllegalStateException("missing NodeLocation in path"));
         PathNode root = PathParser.withRelativeErrorLocation(pathStart).parseJsonPath(path.getValue());
         new Visitor(parameterTypes, path).process(root);

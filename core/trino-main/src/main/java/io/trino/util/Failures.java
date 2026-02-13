@@ -241,7 +241,7 @@ public final class Failures
         }
         if (throwable instanceof TrinoException trinoException) {
             return trinoException.getLocation()
-                    .map(location -> new ErrorLocation(location.getLineNumber(), location.getColumnNumber()))
+                    .map(location -> new ErrorLocation(location.lineNumber(), location.columnNumber()))
                     .orElse(null);
         }
         return null;
