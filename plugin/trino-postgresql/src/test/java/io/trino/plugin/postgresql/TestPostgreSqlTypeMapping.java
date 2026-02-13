@@ -69,6 +69,7 @@ import static io.trino.plugin.jdbc.UnsupportedTypeHandling.IGNORE;
 import static io.trino.plugin.postgresql.PostgreSqlConfig.ArrayMapping.AS_ARRAY;
 import static io.trino.plugin.postgresql.PostgreSqlConfig.ArrayMapping.AS_JSON;
 import static io.trino.plugin.postgresql.PostgreSqlConfig.ArrayMapping.DISABLED;
+import static io.trino.spi.type.BigdecimalType.BIGDECIMAL;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.CharType.createCharType;
@@ -518,20 +519,11 @@ public class TestPostgreSqlTypeMapping
     }
 
     @Test
-    public void testDecimalExceedingPrecisionMaxIgnored()
+    public void testDecimalExceedingPrecisionMax()
     {
-        testUnsupportedDataTypeAsIgnored("decimal(50,0)", "12345678901234567890123456789012345678901234567890");
-    }
-
-    @Test
-    public void testDecimalExceedingPrecisionMaxConvertedToVarchar()
-    {
-        testUnsupportedDataTypeConvertedToVarchar(
-                getSession(),
-                "decimal(50,0)",
-                "numeric",
-                "12345678901234567890123456789012345678901234567890",
-                "'12345678901234567890123456789012345678901234567890'");
+        SqlDataTypeTest.create()
+                .addRoundTrip("decimal(50,0)", "12345678901234567890123456789012345678901234567890", BIGDECIMAL, "BIGDECIMAL '12345678901234567890123456789012345678901234567890'")
+                .execute(getQueryRunner(), postgresCreateAndInsert("test_decimal_exceeding_precision_max"));
     }
 
     @Test
@@ -559,7 +551,7 @@ public class TestPostgreSqlTypeMapping
             assertQuery(
                     sessionWithDecimalMappingStrict(CONVERT_TO_VARCHAR),
                     format("SELECT column_name, data_type FROM information_schema.columns WHERE table_schema = 'tpch' AND table_name = '%s'", testTable.getName()),
-                    "VALUES ('d_col', 'varchar')");
+                    "VALUES ('d_col', 'bigdecimal')");
             assertQuery(
                     sessionWithDecimalMappingStrict(CONVERT_TO_VARCHAR),
                     "SELECT d_col FROM " + testTable.getName(),
@@ -616,7 +608,7 @@ public class TestPostgreSqlTypeMapping
             assertQuery(
                     sessionWithDecimalMappingStrict(CONVERT_TO_VARCHAR),
                     format("SELECT column_name, data_type FROM information_schema.columns WHERE table_schema = 'tpch' AND table_name = '%s'", testTable.getName()),
-                    "VALUES ('d_col', 'varchar')");
+                    "VALUES ('d_col', 'bigdecimal')");
             assertQuery(
                     sessionWithDecimalMappingStrict(CONVERT_TO_VARCHAR),
                     "SELECT d_col FROM " + testTable.getName(),
@@ -760,7 +752,7 @@ public class TestPostgreSqlTypeMapping
             assertQuery(
                     sessionWithDecimalMappingStrict(CONVERT_TO_VARCHAR),
                     format("SELECT column_name, data_type FROM information_schema.columns WHERE table_schema = 'tpch' AND table_name = '%s'", testTable.getName()),
-                    "VALUES ('key', 'varchar(5)'),('d_col', 'varchar')");
+                    "VALUES ('key', 'varchar(5)'), ('d_col', 'bigdecimal')");
             assertQuery(
                     sessionWithDecimalMappingStrict(CONVERT_TO_VARCHAR),
                     "SELECT * FROM " + testTable.getName(),
@@ -768,7 +760,7 @@ public class TestPostgreSqlTypeMapping
             assertQuery(
                     sessionWithDecimalMappingStrict(IGNORE),
                     format("SELECT column_name, data_type FROM information_schema.columns WHERE table_schema = 'tpch' AND table_name = '%s'", testTable.getName()),
-                    "VALUES ('key', 'varchar(5)')");
+                    "VALUES ('key', 'varchar(5)'), ('d_col', 'bigdecimal')");
         }
     }
 

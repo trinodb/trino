@@ -53,7 +53,9 @@ public class ClickHouseClientModule
         binder.bind(JdbcClient.class).annotatedWith(ForBaseJdbc.class).to(ClickHouseClient.class).in(Scopes.SINGLETON);
         bindTablePropertiesProvider(binder, ClickHouseTableProperties.class);
         configBinder(binder).bindConfigDefaults(JdbcMetadataConfig.class, config -> config.setDomainCompactionThreshold(DEFAULT_DOMAIN_COMPACTION_THRESHOLD));
-        binder.install(new DecimalModule());
+        @SuppressWarnings("deprecation") // TODO migrate towards high-precision decimal type
+        DecimalModule decimalModule = new DecimalModule();
+        binder.install(decimalModule);
         newSetBinder(binder, ConnectorTableFunction.class).addBinding().toProvider(Query.class).in(Scopes.SINGLETON);
     }
 

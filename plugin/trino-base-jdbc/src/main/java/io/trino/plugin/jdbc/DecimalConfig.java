@@ -13,70 +13,25 @@
  */
 package io.trino.plugin.jdbc;
 
-import io.airlift.configuration.Config;
-import io.airlift.configuration.ConfigDescription;
-import jakarta.validation.constraints.Max;
-import jakarta.validation.constraints.Min;
-import jakarta.validation.constraints.NotNull;
-
 import java.math.RoundingMode;
 
-import static io.trino.plugin.jdbc.DecimalSessionSessionProperties.DECIMAL_MAPPING;
-import static java.math.RoundingMode.UNNECESSARY;
-
-public class DecimalConfig
+public interface DecimalConfig
 {
-    private DecimalMapping decimalMapping = DecimalMapping.STRICT;
-    private int decimalDefaultScale;
-    private RoundingMode decimalRoundingMode = UNNECESSARY;
+    DecimalMapping getDecimalMapping();
 
-    public enum DecimalMapping
+    int getDecimalDefaultScale();
+
+    RoundingMode getDecimalRoundingMode();
+
+    enum DecimalMapping
     {
         STRICT,
+
+        /**
+         * @deprecated Map to high-precision dynamic scale decimal type instead.
+         */
+        @Deprecated
         ALLOW_OVERFLOW,
         /**/;
-    }
-
-    @NotNull
-    public DecimalMapping getDecimalMapping()
-    {
-        return decimalMapping;
-    }
-
-    @Config("decimal-mapping")
-    @ConfigDescription("Decimal mapping for unspecified and exceeding precision decimals. STRICT skips them. ALLOW_OVERFLOW requires setting proper decimal scale and rounding mode")
-    public DecimalConfig setDecimalMapping(DecimalMapping decimalMapping)
-    {
-        this.decimalMapping = decimalMapping;
-        return this;
-    }
-
-    @Min(0)
-    @Max(38)
-    public int getDecimalDefaultScale()
-    {
-        return decimalDefaultScale;
-    }
-
-    @Config("decimal-default-scale")
-    @ConfigDescription("Default decimal scale for mapping unspecified and exceeding precision decimals. Not used when " + DECIMAL_MAPPING + " is set to STRICT")
-    public DecimalConfig setDecimalDefaultScale(Integer decimalDefaultScale)
-    {
-        this.decimalDefaultScale = decimalDefaultScale;
-        return this;
-    }
-
-    @NotNull
-    public RoundingMode getDecimalRoundingMode()
-    {
-        return decimalRoundingMode;
-    }
-
-    @Config("decimal-rounding-mode")
-    @ConfigDescription("Rounding mode for mapping unspecified and exceeding precision decimals. Not used when" + DECIMAL_MAPPING + "is set to STRICT")
-    public DecimalConfig setDecimalRoundingMode(RoundingMode decimalRoundingMode)
-    {
-        this.decimalRoundingMode = decimalRoundingMode;
-        return this;
     }
 }
