@@ -23,17 +23,31 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 public class DescribeOutput
         extends Statement
 {
-    private final Identifier name;
+    private final Target target;
 
     public DescribeOutput(NodeLocation location, Identifier name)
     {
         super(location);
-        this.name = name;
+        this.target = new Target.PreparedStatement(name);
     }
 
-    public Identifier getName()
+    public DescribeOutput(NodeLocation location, Query query)
     {
-        return name;
+        super(location);
+        this.target = new Target.InlineQuery(query);
+    }
+
+    public Target getTarget()
+    {
+        return target;
+    }
+
+    public sealed interface Target
+            permits Target.PreparedStatement, Target.InlineQuery
+    {
+        record PreparedStatement(Identifier name) implements Target {}
+
+        record InlineQuery(Query query) implements Target {}
     }
 
     @Override
@@ -45,13 +59,16 @@ public class DescribeOutput
     @Override
     public List<Node> getChildren()
     {
-        return ImmutableList.of();
+        return switch (target) {
+            case Target.PreparedStatement(Identifier name) -> ImmutableList.of(name);
+            case Target.InlineQuery(Query query) -> ImmutableList.of(query);
+        };
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(name);
+        return Objects.hash(target);
     }
 
     @Override
@@ -64,14 +81,14 @@ public class DescribeOutput
             return false;
         }
         DescribeOutput o = (DescribeOutput) obj;
-        return Objects.equals(name, o.name);
+        return Objects.equals(target, o.target);
     }
 
     @Override
     public String toString()
     {
         return toStringHelper(this)
-                .add("name", name)
+                .add("target", target)
                 .toString();
     }
 }
