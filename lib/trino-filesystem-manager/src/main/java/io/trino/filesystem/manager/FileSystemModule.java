@@ -130,6 +130,8 @@ public class FileSystemModule
         newOptionalBinder(binder, CachingHostAddressProvider.class).setDefault().to(DefaultCachingHostAddressProvider.class).in(Scopes.SINGLETON);
         newOptionalBinder(binder, CacheKeyProvider.class).setDefault().to(DefaultCacheKeyProvider.class).in(Scopes.SINGLETON);
 
+        binder.bind(TableCachingPredicate.class).in(Scopes.SINGLETON);
+
         newOptionalBinder(binder, TrinoFileSystemCache.class);
         newOptionalBinder(binder, MemoryFileSystemCache.class);
 
