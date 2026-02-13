@@ -1055,6 +1055,7 @@ jobs:
         with:
           # The job doesn't build anything, so the ~/.m2/repository cache isn't useful
           cache: 'false'
+          cleanup-node: ${{ format('{0}', matrix.suite == 'suite-compatibility') }}
       - name: Product tests artifact
         uses: actions/download-artifact@v7
         with:
