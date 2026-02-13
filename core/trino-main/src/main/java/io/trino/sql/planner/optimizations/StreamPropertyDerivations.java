@@ -237,10 +237,10 @@ public final class StreamPropertyDerivations
             boolean unordered = spillPossible(session, node);
 
             return switch (node.getType()) {
-                case INNER -> leftProperties
+                case INNER, ASOF -> leftProperties
                         .translate(column -> PropertyDerivations.filterOrRewrite(node.getOutputSymbols(), node.getCriteria(), column))
                         .unordered(unordered);
-                case LEFT -> leftProperties
+                case LEFT, ASOF_LEFT -> leftProperties
                         .translate(column -> PropertyDerivations.filterIfMissing(node.getOutputSymbols(), column))
                         .unordered(unordered);
                 case RIGHT ->
@@ -540,6 +540,7 @@ public final class StreamPropertyDerivations
             return switch (node.getJoinType()) {
                 case INNER, LEFT -> translatedProperties;
                 case RIGHT, FULL -> translatedProperties.unordered(true);
+                case ASOF, ASOF_LEFT -> throw new IllegalStateException("ASOF joins are not supported by UNNEST");
             };
         }
 

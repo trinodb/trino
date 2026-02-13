@@ -142,9 +142,14 @@ public class AdaptiveReorderPartitionedJoin
             return Result.empty();
         }
 
+        Optional<JoinNode> flippedJoinNode = joinNode.flipChildren();
+        if (flippedJoinNode.isEmpty()) {
+            return Result.empty();
+        }
+
         boolean flipJoin = flipJoinBasedOnStats(joinNode, context);
         if (flipJoin) {
-            return Result.ofPlanNode(flipJoinAndFixLocalExchanges(joinNode, localExchangeNode.getId(), metadata, context));
+            return Result.ofPlanNode(flipJoinAndFixLocalExchanges(flippedJoinNode.get(), localExchangeNode.getId(), metadata, context));
         }
         return Result.empty();
     }
@@ -156,13 +161,11 @@ public class AdaptiveReorderPartitionedJoin
     }
 
     private static JoinNode flipJoinAndFixLocalExchanges(
-            JoinNode joinNode,
+            JoinNode flippedJoinNode,
             PlanNodeId buildSideLocalExchangeId,
             Metadata metadata,
             Context context)
     {
-        JoinNode flippedJoinNode = joinNode.flipChildren();
-
         // Fix local exchange on probe side
         BuildToProbeLocalExchangeRewriter buildToProbeLocalExchangeRewriter = new BuildToProbeLocalExchangeRewriter(
                 buildSideLocalExchangeId,

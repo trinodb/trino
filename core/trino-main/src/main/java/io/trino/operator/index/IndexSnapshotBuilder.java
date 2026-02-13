@@ -126,7 +126,7 @@ public class IndexSnapshotBuilder
         }
         pages.clear();
 
-        LookupSource lookupSource = outputPagesIndex.createLookupSourceSupplier(session, keyOutputChannels, Optional.empty(), Optional.empty(), ImmutableList.of()).get();
+        LookupSource lookupSource = outputPagesIndex.createLookupSourceSupplier(session, keyOutputChannels, Optional.empty(), Optional.empty(), false, ImmutableList.of()).get();
 
         // Build a page containing the keys that produced no output rows, so in future requests can skip these keys
         verify(missingKeysPageBuilder.isEmpty());

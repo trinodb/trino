@@ -266,6 +266,8 @@ class RelationPlanner
             case LEFT -> JoinType.LEFT;
             case RIGHT -> JoinType.RIGHT;
             case FULL -> JoinType.FULL;
+            case ASOF -> JoinType.ASOF;
+            case ASOF_LEFT -> JoinType.ASOF_LEFT;
         };
     }
 

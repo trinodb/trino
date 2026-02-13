@@ -540,6 +540,53 @@ public class TestPushJoinIntoTableScan
     }
 
     @Test
+    public void testPushJoinIntoTableDoesNotFireForAsofJoin()
+    {
+        assertAsofJoinDoesNotFire(io.trino.sql.planner.plan.JoinType.ASOF);
+    }
+
+    @Test
+    public void testPushJoinIntoTableDoesNotFireForAsofLeftJoin()
+    {
+        assertAsofJoinDoesNotFire(io.trino.sql.planner.plan.JoinType.ASOF_LEFT);
+    }
+
+    private void assertAsofJoinDoesNotFire(io.trino.sql.planner.plan.JoinType joinType)
+    {
+        MockConnectorFactory connectorFactory = createMockConnectorFactory(
+                (_, _, _, _, _, _, _, _) -> {
+                    throw new IllegalStateException("applyJoin should not be called!");
+                });
+        try (RuleTester ruleTester = RuleTester.builder().withDefaultCatalogConnectorFactory(connectorFactory).build()) {
+            ruleTester.assertThat(new PushJoinIntoTableScan(ruleTester.getPlannerContext()))
+                    .withSession(MOCK_SESSION)
+                    .on(p -> {
+                        Symbol columnA1Symbol = p.symbol(COLUMN_A1);
+                        Symbol columnA2Symbol = p.symbol(COLUMN_A2);
+                        Symbol columnB1Symbol = p.symbol(COLUMN_B1);
+
+                        TableScanNode left = p.tableScan(
+                                ruleTester.getCurrentCatalogTableHandle(SCHEMA, TABLE_A),
+                                ImmutableList.of(columnA1Symbol, columnA2Symbol),
+                                ImmutableMap.of(
+                                        columnA1Symbol, COLUMN_A1_HANDLE,
+                                        columnA2Symbol, COLUMN_A2_HANDLE));
+                        TableScanNode right = p.tableScan(
+                                ruleTester.getCurrentCatalogTableHandle(SCHEMA, TABLE_B),
+                                ImmutableList.of(columnB1Symbol),
+                                ImmutableMap.of(columnB1Symbol, COLUMN_B1_HANDLE));
+
+                        return p.join(
+                                joinType,
+                                left,
+                                right,
+                                new Comparison(Comparison.Operator.LESS_THAN_OR_EQUAL, columnA1Symbol.toSymbolReference(), columnB1Symbol.toSymbolReference()));
+                    })
+                    .doesNotFire();
+        }
+    }
+
+    @Test
     public void testPushJoinIntoTableRequiresFullColumnHandleMappingInResult()
     {
         MockConnectorFactory connectorFactory = createMockConnectorFactory((_, _, _, _, _, _, _, _) -> Optional.of(new JoinApplicationResult<>(
@@ -629,6 +676,7 @@ public class TestPushJoinIntoTableScan
             case LEFT -> JoinType.LEFT_OUTER;
             case RIGHT -> JoinType.RIGHT_OUTER;
             case FULL -> JoinType.FULL_OUTER;
+            case ASOF, ASOF_LEFT -> throw new UnsupportedOperationException("ASOF join pushdown is not supported");
         };
     }
 

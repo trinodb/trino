@@ -42,6 +42,8 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.filter;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.join;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
+import static io.trino.sql.planner.plan.JoinType.ASOF;
+import static io.trino.sql.planner.plan.JoinType.ASOF_LEFT;
 import static io.trino.sql.planner.plan.JoinType.INNER;
 
 public class TestPushInequalityFilterExpressionBelowJoinRuleSet
@@ -89,6 +91,50 @@ public class TestPushInequalityFilterExpressionBelowJoinRuleSet
                 })
                 .matches(
                         join(INNER, builder -> builder
+                                .filter(new Comparison(LESS_THAN, new Reference(BIGINT, "expr"), new Reference(BIGINT, "a")))
+                                .left(values("a"))
+                                .right(project(
+                                        ImmutableMap.of("expr", expression(new Call(ADD_BIGINT, ImmutableList.of(new Reference(BIGINT, "b"), new Constant(BIGINT, 1L))))),
+                                        values("b")))));
+    }
+
+    @Test
+    public void testJoinFilterExpressionPushedDownToRightJoinSourceAsof()
+    {
+        tester().assertThat(ruleSet.pushJoinInequalityFilterExpressionBelowJoinRule())
+                .on(p -> {
+                    Symbol a = p.symbol("a");
+                    Symbol b = p.symbol("b");
+                    return p.join(
+                            ASOF,
+                            p.values(a),
+                            p.values(b),
+                            comparison(LESS_THAN, add(b, 1), a.toSymbolReference()));
+                })
+                .matches(
+                        join(ASOF, builder -> builder
+                                .filter(new Comparison(LESS_THAN, new Reference(BIGINT, "expr"), new Reference(BIGINT, "a")))
+                                .left(values("a"))
+                                .right(project(
+                                        ImmutableMap.of("expr", expression(new Call(ADD_BIGINT, ImmutableList.of(new Reference(BIGINT, "b"), new Constant(BIGINT, 1L))))),
+                                        values("b")))));
+    }
+
+    @Test
+    public void testJoinFilterExpressionPushedDownToRightJoinSourceAsofLeft()
+    {
+        tester().assertThat(ruleSet.pushJoinInequalityFilterExpressionBelowJoinRule())
+                .on(p -> {
+                    Symbol a = p.symbol("a");
+                    Symbol b = p.symbol("b");
+                    return p.join(
+                            ASOF_LEFT,
+                            p.values(a),
+                            p.values(b),
+                            comparison(LESS_THAN, add(b, 1), a.toSymbolReference()));
+                })
+                .matches(
+                        join(ASOF_LEFT, builder -> builder
                                 .filter(new Comparison(LESS_THAN, new Reference(BIGINT, "expr"), new Reference(BIGINT, "a")))
                                 .left(values("a"))
                                 .right(project(
@@ -217,6 +263,49 @@ public class TestPushInequalityFilterExpressionBelowJoinRuleSet
                                                                         "expr_less", expression(new Call(ADD_BIGINT, ImmutableList.of(new Reference(BIGINT, "b"), new Constant(BIGINT, 1L)))),
                                                                         "expr_greater", expression(new Call(ADD_BIGINT, ImmutableList.of(new Reference(BIGINT, "b"), new Constant(BIGINT, 10L))))),
                                                                 values("b")))))));
+    }
+
+    @Test
+    public void testParentFilterExpressionPushedDownToRightJoinSourceAsof()
+    {
+        tester().assertThat(ruleSet.pushParentInequalityFilterExpressionBelowJoinRule())
+                .on(p -> {
+                    Symbol a = p.symbol("a");
+                    Symbol b = p.symbol("b");
+                    return p.filter(
+                            comparison(LESS_THAN, add(b, 1), a.toSymbolReference()),
+                            p.join(
+                                    ASOF,
+                                    p.values(a),
+                                    p.values(b)));
+                })
+                .matches(
+                        project(
+                                filter(
+                                        new Comparison(LESS_THAN, new Reference(BIGINT, "expr"), new Reference(BIGINT, "a")),
+                                        join(ASOF, builder -> builder
+                                                .left(values("a"))
+                                                .right(
+                                                        project(
+                                                                ImmutableMap.of("expr", expression(new Call(ADD_BIGINT, ImmutableList.of(new Reference(BIGINT, "b"), new Constant(BIGINT, 1L))))),
+                                                                values("b")))))));
+    }
+
+    @Test
+    public void testParentFilterExpressionNotPushedDownToRightJoinSourceAsofLeft()
+    {
+        tester().assertThat(ruleSet.pushParentInequalityFilterExpressionBelowJoinRule())
+                .on(p -> {
+                    Symbol a = p.symbol("a");
+                    Symbol b = p.symbol("b");
+                    return p.filter(
+                            comparison(LESS_THAN, add(b, 1), a.toSymbolReference()),
+                            p.join(
+                                    ASOF_LEFT,
+                                    p.values(a),
+                                    p.values(b)));
+                })
+                .doesNotFire();
     }
 
     @Test

@@ -48,6 +48,7 @@ import static io.trino.sql.planner.DeterminismEvaluator.isDeterministic;
 import static io.trino.sql.planner.SymbolsExtractor.extractUnique;
 import static io.trino.sql.planner.iterative.Rule.Context;
 import static io.trino.sql.planner.iterative.Rule.Result;
+import static io.trino.sql.planner.plan.JoinType.ASOF;
 import static io.trino.sql.planner.plan.JoinType.INNER;
 import static io.trino.sql.planner.plan.Patterns.filter;
 import static io.trino.sql.planner.plan.Patterns.join;
@@ -111,7 +112,7 @@ public class PushInequalityFilterExpressionBelowJoinRuleSet
 
         Expression parentFilterPredicate = filterNode.map(FilterNode::getPredicate).orElse(TRUE);
         Map<Boolean, List<Expression>> parentFilterCandidates;
-        if (joinNode.getType() == INNER) {
+        if (joinNode.getType() == INNER || joinNode.getType() == ASOF) {
             parentFilterCandidates = extractPushDownCandidates(joinNodeContext, parentFilterPredicate);
         }
         else {

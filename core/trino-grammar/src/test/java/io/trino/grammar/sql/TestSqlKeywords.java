@@ -37,6 +37,7 @@ public class TestSqlKeywords
                         "ANY",
                         "ARRAY",
                         "AS",
+                        "ASOF",
                         "ASC",
                         "AT",
                         "AUTHORIZATION",

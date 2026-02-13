@@ -43,6 +43,7 @@ import static io.trino.sql.planner.plan.AggregationNode.Step.PARTIAL;
 import static io.trino.sql.planner.plan.ExchangeNode.Scope.LOCAL;
 import static io.trino.sql.planner.plan.ExchangeNode.Type.REPARTITION;
 import static io.trino.sql.planner.plan.JoinNode.DistributionType.PARTITIONED;
+import static io.trino.sql.planner.plan.JoinType.ASOF;
 import static io.trino.sql.planner.plan.JoinType.INNER;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 
@@ -218,6 +219,57 @@ public class TestAdaptiveReorderPartitionedJoin
         assertWithoutPartialAgg(20_000_000_000L, Double.NaN)
                 .doesNotFire();
         assertWithoutPartialAgg(Double.NaN, Double.NaN)
+                .doesNotFire();
+    }
+
+    @Test
+    public void testAsofJoinIsNotReordered()
+    {
+        // Configure stats that would cause reordering for INNER join, but must not for ASOF
+        RuleTester ruleTester = tester();
+        String buildRemoteSourceId = "buildRemoteSourceId";
+        String probeRemoteSourceId = "probeRemoteSourceId";
+        ruleTester.assertThat(new AdaptiveReorderPartitionedJoin(ruleTester.getMetadata()))
+                .setSystemProperty(RETRY_POLICY, TASK.name())
+                .overrideStats("buildRemoteSourceId", PlanNodeStatsEstimate.builder()
+                        .setOutputRowCount(20_000_000_000L)
+                        .build())
+                .overrideStats("probeRemoteSourceId", PlanNodeStatsEstimate.builder()
+                        .setOutputRowCount(10_000_000_000L)
+                        .build())
+                .on(p -> {
+                    Symbol buildSymbol = p.symbol("buildSymbol", BIGINT);
+                    Symbol symbol1 = p.symbol("symbol1", BIGINT);
+                    Symbol probeSymbol = p.symbol("probeSymbol", BIGINT);
+                    Symbol symbol2 = p.symbol("symbol2", BIGINT);
+                    return p.join(
+                            ASOF,
+                            PARTITIONED,
+                            // probe on the left
+                            p.remoteSource(
+                                    new PlanNodeId(probeRemoteSourceId),
+                                    ImmutableList.of(new PlanFragmentId("1")),
+                                    ImmutableList.of(probeSymbol, symbol2),
+                                    Optional.empty(),
+                                    REPARTITION,
+                                    TASK),
+                            // build on the right
+                            p.exchange(builder -> builder
+                                    .addInputsSet(buildSymbol, symbol1)
+                                    .addSource(p.remoteSource(
+                                            new PlanNodeId(buildRemoteSourceId),
+                                            ImmutableList.of(new PlanFragmentId("2")),
+                                            ImmutableList.of(buildSymbol, symbol1),
+                                            Optional.empty(),
+                                            REPARTITION,
+                                            TASK))
+                                    .fixedHashDistributionPartitioningScheme(
+                                            ImmutableList.of(buildSymbol, symbol1),
+                                            ImmutableList.of(buildSymbol))
+                                    .type(REPARTITION)
+                                    .scope(LOCAL)),
+                            new JoinNode.EquiJoinClause(probeSymbol, buildSymbol));
+                })
                 .doesNotFire();
     }
 

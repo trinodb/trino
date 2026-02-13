@@ -428,7 +428,9 @@ public class TestAdaptivePlanner
                 return Result.empty();
             }
             alreadyVisited.add(node.getId());
-            return Result.ofPlanNode(node.flipChildren());
+            return node.flipChildren()
+                    .map(Result::ofPlanNode)
+                    .orElse(Result.empty());
         }
     }
 }

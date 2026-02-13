@@ -116,7 +116,9 @@ import static io.trino.sql.ir.Booleans.FALSE;
 import static io.trino.sql.ir.Booleans.TRUE;
 import static io.trino.sql.ir.Comparison.Operator.EQUAL;
 import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN;
+import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN_OR_EQUAL;
 import static io.trino.sql.ir.Comparison.Operator.LESS_THAN;
+import static io.trino.sql.ir.Comparison.Operator.LESS_THAN_OR_EQUAL;
 import static io.trino.sql.ir.Comparison.Operator.NOT_EQUAL;
 import static io.trino.sql.ir.IrExpressions.not;
 import static io.trino.sql.ir.Logical.Operator.AND;
@@ -177,6 +179,8 @@ import static io.trino.sql.planner.plan.FrameBoundType.CURRENT_ROW;
 import static io.trino.sql.planner.plan.FrameBoundType.UNBOUNDED_FOLLOWING;
 import static io.trino.sql.planner.plan.JoinNode.DistributionType.PARTITIONED;
 import static io.trino.sql.planner.plan.JoinNode.DistributionType.REPLICATED;
+import static io.trino.sql.planner.plan.JoinType.ASOF;
+import static io.trino.sql.planner.plan.JoinType.ASOF_LEFT;
 import static io.trino.sql.planner.plan.JoinType.INNER;
 import static io.trino.sql.planner.plan.JoinType.LEFT;
 import static io.trino.sql.planner.plan.RowsPerMatch.WINDOW;
@@ -564,6 +568,44 @@ public class TestLogicalPlanner
                                                                 ImmutableMap.of(
                                                                         "O_SHIPPRIORITY", "shippriority",
                                                                         "O_ORDERKEY", "orderkey"))))))));
+    }
+
+    @Test
+    public void testAsofJoinPlan()
+    {
+        assertPlan("""
+                SELECT o.orderkey, l.comment
+                FROM orders o
+                ASOF JOIN lineitem l
+                  ON o.orderkey = l.orderkey AND l.partkey <= o.orderkey
+                """,
+                output(join(ASOF, builder -> builder
+                        .equiCriteria("O_ORDERKEY", "L_ORDERKEY")
+                        .filter(new Comparison(LESS_THAN_OR_EQUAL, new Reference(BIGINT, "L_PARTKEY"), new Reference(BIGINT, "O_ORDERKEY")))
+                        .dynamicFilter(ImmutableList.of(
+                                new DynamicFilterPattern(new Reference(BIGINT, "O_ORDERKEY"), EQUAL, "L_ORDERKEY"),
+                                new DynamicFilterPattern(new Reference(BIGINT, "O_ORDERKEY"), GREATER_THAN_OR_EQUAL, "L_PARTKEY")))
+                        .left(filter(TRUE, tableScan("orders", ImmutableMap.of(
+                                "O_ORDERKEY", "orderkey"))))
+                        .right(exchange(tableScan("lineitem", ImmutableMap.of(
+                                "L_ORDERKEY", "orderkey",
+                                "L_PARTKEY", "partkey",
+                                "L_COMMENT", "comment")))))));
+        assertPlan("""
+                SELECT o.orderkey, l.comment
+                FROM orders o
+                ASOF LEFT JOIN lineitem l
+                  ON o.orderkey = l.orderkey AND l.partkey <= o.orderkey
+                """,
+                output(join(ASOF_LEFT, builder -> builder
+                        .equiCriteria("O_ORDERKEY", "L_ORDERKEY")
+                        .filter(new Comparison(LESS_THAN_OR_EQUAL, new Reference(BIGINT, "L_PARTKEY"), new Reference(BIGINT, "O_ORDERKEY")))
+                        .left(tableScan("orders", ImmutableMap.of(
+                                "O_ORDERKEY", "orderkey")))
+                        .right(exchange(tableScan("lineitem", ImmutableMap.of(
+                                "L_ORDERKEY", "orderkey",
+                                "L_PARTKEY", "partkey",
+                                "L_COMMENT", "comment")))))));
     }
 
     @Test
