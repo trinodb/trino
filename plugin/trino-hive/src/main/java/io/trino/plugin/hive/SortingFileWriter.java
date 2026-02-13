@@ -115,7 +115,7 @@ public final class SortingFileWriter
     @Override
     public long getMemoryUsage()
     {
-        return INSTANCE_SIZE + sortBuffer.getRetainedBytes();
+        return INSTANCE_SIZE + sortBuffer.getRetainedBytes() + outputWriter.getMemoryUsage();
     }
 
     @Override

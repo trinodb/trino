@@ -200,6 +200,7 @@ public final class OrcWriter
             }
         }
         this.columnWriters = columnWriters.build();
+        this.columnWritersRetainedBytes = this.columnWriters.stream().mapToLong(ColumnWriter::getRetainedBytes).sum();
         this.dictionaryCompressionOptimizer = new DictionaryCompressionOptimizer(
                 sliceColumnWriters.build(),
                 stripeMinBytes,
