@@ -70,8 +70,7 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { java-version: 25.0.2, cache: 'true', cleanup-node: true }
-          - { java-version: 26-ea, cache: 'restore', cleanup-node: true }
+          - { java-version: 26-ea, cache: 'true', cleanup-node: true }
           - { java-version: 27-ea, cache: 'restore', cleanup-node: true }
     timeout-minutes: 45
     steps:
@@ -209,7 +208,7 @@ jobs:
         with:
           cache: restore
           cleanup-node: true # fix "No space left on device" error
-          java-version: 25.0.2
+          java-version: 26-ea
       - name: Maven Install
         run: |
           # build everything to make sure dependencies of impacted modules are present
@@ -549,7 +548,7 @@ jobs:
         with:
           cache: restore
           cleanup-node: ${{ format('{0}', matrix.modules == 'plugin/trino-singlestore' || matrix.modules == 'plugin/trino-exasol' || matrix.modules == 'plugin/trino-oracle' || matrix.modules == 'plugin/trino-iceberg') }}
-          java-version: ${{ matrix.jdk != '' && matrix.jdk || '25.0.2' }}
+          java-version: ${{ matrix.jdk != '' && matrix.jdk || '26-ea' }}
       - name: Maven Install
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"

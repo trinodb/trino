@@ -14,6 +14,7 @@
 
 package io.trino.plugin.jdbc;
 
+import java.lang.reflect.InvocationTargetException;
 import java.sql.Array;
 import java.sql.Blob;
 import java.sql.CallableStatement;
@@ -472,5 +473,53 @@ public abstract class ForwardingConnection
             throws SQLException
     {
         return delegate().isWrapperFor(iface);
+    }
+
+    @SuppressWarnings("MissingOverride") // Part of the JDK 26, JDBC 4.5 spec
+    public String enquoteLiteral(String val)
+            throws SQLException
+    {
+        try {
+            return (String) delegate().getClass().getMethod("enquoteLiteral", String.class).invoke(delegate(), val);
+        }
+        catch (IllegalAccessException | InvocationTargetException | NoSuchMethodException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    @SuppressWarnings("MissingOverride") // Part of the JDK 26, JDBC 4.5 spec
+    public String enquoteIdentifier(String identifier, boolean alwaysDelimit)
+            throws SQLException
+    {
+        try {
+            return (String) delegate().getClass().getMethod("enquoteIdentifier", String.class, Boolean.class).invoke(delegate(), identifier, alwaysDelimit);
+        }
+        catch (IllegalAccessException | InvocationTargetException | NoSuchMethodException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    @SuppressWarnings("MissingOverride") // Part of the JDK 26, JDBC 4.5 spec
+    public boolean isSimpleIdentifier(String identifier)
+            throws SQLException
+    {
+        try {
+            return (boolean) delegate().getClass().getMethod("isSimpleIdentifier", String.class).invoke(delegate(), identifier);
+        }
+        catch (IllegalAccessException | InvocationTargetException | NoSuchMethodException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    @SuppressWarnings("MissingOverride") // Part of the JDK 26, JDBC 4.5 spec
+    public String enquoteNCharLiteral(String val)
+            throws SQLException
+    {
+        try {
+            return (String) delegate().getClass().getMethod("enquoteNCharLiteral", String.class).invoke(delegate(), val);
+        }
+        catch (IllegalAccessException | InvocationTargetException | NoSuchMethodException e) {
+            throw new RuntimeException(e);
+        }
     }
 }

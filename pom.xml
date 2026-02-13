@@ -148,19 +148,18 @@
     </scm>
 
     <properties>
-        <project.build.targetJdk>25</project.build.targetJdk>
+        <project.build.targetJdk>26</project.build.targetJdk>
         <!-- for reproducible build support, updated by release plugin -->
         <project.build.outputTimestamp>2025-12-15T02:35:04Z</project.build.outputTimestamp>
         <!-- TODO remove this property when no module overrides it -->
         <trino.error-prone.guarded-by>ERROR</trino.error-prone.guarded-by>
-
         <air.check.skip-spotbugs>true</air.check.skip-spotbugs>
         <air.check.skip-pmd>true</air.check.skip-pmd>
         <air.check.skip-jacoco>true</air.check.skip-jacoco>
-        <air.java.version>25.0.1</air.java.version>
+        <air.java.version>26</air.java.version>
         <!-- Temurin JVM release used in the docker image and for product test environments -->
         <!-- https://api.adoptium.net/q/swagger-ui/#/Release%20Info/getReleaseNames -->
-        <temurin.release>jdk-25.0.2+10</temurin.release>
+        <temurin.release>jdk-26+33-ea-beta</temurin.release>
         <air.javadoc.lint>syntax,reference,html,-missing</air.javadoc.lint>
         <air.modernizer.java-version>${project.build.targetJdk}</air.modernizer.java-version>
         <air.release.preparation-goals>clean verify -DskipTests</air.release.preparation-goals>
@@ -183,6 +182,8 @@
             --sun-misc-unsafe-memory-access=allow
             <!-- # Disable superfluous bootstrap logging in tests -->
             -Dairlift.quiet=true
+            <!-- # Fail of final field mutation -->
+            --illegal-final-field-mutation=deny
         </air.test.jvm.additional-arguments.default>
         <air.test.jvm.additional-arguments>${air.test.jvm.additional-arguments.default}</air.test.jvm.additional-arguments>
 
