@@ -1698,72 +1698,82 @@ public class TestIcebergSparkCompatibility
     }
 
     @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS}, dataProvider = "storageFormatsAndCompressionCodecs")
-    public void testTrinoReadingSparkCompressedData(StorageFormat storageFormat, String compressionCodec)
+    public void testSparkConfiguredCompressionCodecOnSparkAndTrino(StorageFormat storageFormat, CompressionCodec compressionCodec)
     {
-        String baseTableName = toLowerCase("test_spark_compression" +
+        String baseTableName = toLowerCase("test_spark_origin_compression" +
                 "_" + storageFormat +
                 "_" + compressionCodec +
                 "_" + randomNameSuffix());
         String trinoTableName = trinoTableName(baseTableName);
         String sparkTableName = sparkTableName(baseTableName);
 
-        List<Row> rows = IntStream.range(0, 555)
-                .mapToObj(i -> row("a" + i, i))
+        String createTable = format(
+                "CREATE TABLE %s (a string, b bigint) USING ICEBERG TBLPROPERTIES ('write.format.default'='%s','%s'='%s')",
+                sparkTableName,
+                storageFormat.name(),
+                getIcebergCompressionCodecTableProperty(storageFormat),
+                getIcebergCompressionCodecName(storageFormat, compressionCodec));
+
+        onSpark().executeQuery(createTable);
+
+        List<Row> sparkRows = IntStream.range(0, 13)
+                .mapToObj(i -> row("spark" + i, i))
                 .collect(toImmutableList());
-
-        switch (storageFormat) {
-            case PARQUET:
-                onSpark().executeQuery("SET spark.sql.parquet.compression.codec = " + compressionCodec);
-                break;
-
-            case ORC:
-                if ("GZIP".equals(compressionCodec)) {
-                    onSpark().executeQuery("SET spark.sql.orc.compression.codec = zlib");
-                }
-                else {
-                    onSpark().executeQuery("SET spark.sql.orc.compression.codec = " + compressionCodec);
-                }
-                break;
-
-            case AVRO:
-                if ("NONE".equals(compressionCodec)) {
-                    onSpark().executeQuery("SET spark.sql.avro.compression.codec = uncompressed");
-                }
-                else if ("SNAPPY".equals(compressionCodec)) {
-                    onSpark().executeQuery("SET spark.sql.avro.compression.codec = snappy");
-                }
-                else if ("ZSTD".equals(compressionCodec)) {
-                    onSpark().executeQuery("SET spark.sql.avro.compression.codec = zstandard");
-                }
-                else {
-                    assertQueryFailure(() -> onSpark().executeQuery("SET spark.sql.avro.compression.codec = " + compressionCodec))
-                            .hasMessageContaining("The value of spark.sql.avro.compression.codec should be one of bzip2, deflate, uncompressed, xz, snappy, zstandard");
-                    throw new SkipException("Unsupported compression codec");
-                }
-                break;
-
-            default:
-                throw new UnsupportedOperationException("Unsupported storage format: " + storageFormat);
-        }
-
-        onSpark().executeQuery(
-                "CREATE TABLE " + sparkTableName + " (a string, b bigint) " +
-                        "USING ICEBERG TBLPROPERTIES ('write.format.default' = '" + storageFormat + "')");
         onSpark().executeQuery(
                 "INSERT INTO " + sparkTableName + " VALUES " +
-                        rows.stream()
+                        sparkRows.stream()
                                 .map(row -> format("('%s', %s)", row.getValues().get(0), row.getValues().get(1)))
                                 .collect(Collectors.joining(", ")));
+
         assertThat(onSpark().executeQuery("SELECT * FROM " + sparkTableName))
-                .containsOnly(rows);
-        assertThat(onTrino().executeQuery("SELECT * FROM " + trinoTableName))
-                .containsOnly(rows);
+                .containsOnly(sparkRows);
+
+        String selectAll = "SELECT * FROM " + trinoTableName;
+        // https://github.com/trinodb/trino/issues/28291
+        if (storageFormat == StorageFormat.PARQUET && compressionCodec == CompressionCodec.LZ4) {
+            assertQueryFailure(() -> onTrino().executeQuery(selectAll))
+                    .hasMessageMatching("\\QQuery failed (#\\E\\S+\\Q): Compression codec LZ4 not supported for Parquet");
+            return;
+        }
+        // https://github.com/trinodb/trino/issues/28293
+        if (storageFormat == StorageFormat.AVRO && compressionCodec == CompressionCodec.NONE) {
+            assertQueryFailure(() -> onTrino().executeQuery(selectAll))
+                    .hasMessageMatching("\\QQuery failed (#\\E\\S+\\Q): Compression codec uncompressed is unsupported.");
+            return;
+        }
+        if (storageFormat == StorageFormat.ORC && compressionCodec == CompressionCodec.GZIP) {
+            assertQueryFailure(() -> onTrino().executeQuery(selectAll))
+                    .hasMessageMatching("\\QQuery failed (#\\E\\S+\\Q): Compression codec zlib is unsupported.");
+            return;
+        }
+        if (storageFormat == StorageFormat.PARQUET && compressionCodec == CompressionCodec.NONE) {
+            assertQueryFailure(() -> onTrino().executeQuery(selectAll))
+                    .hasMessageMatching("\\QQuery failed (#\\E\\S+\\Q): Compression codec uncompressed is unsupported.");
+            return;
+        }
+        assertThat(onTrino().executeQuery(selectAll))
+                .containsOnly(sparkRows);
+
+        List<Row> trinoRows = IntStream.range(0, 13)
+                .mapToObj(i -> row("trino" + i, i))
+                .collect(toImmutableList());
+        String insertQuery = "INSERT INTO " + trinoTableName + " VALUES " +
+                trinoRows.stream()
+                        .map(row -> format("('%s', %s)", row.getValues().get(0), row.getValues().get(1)))
+                        .collect(Collectors.joining(", "));
+
+        onTrino().executeQuery(insertQuery);
+
+        assertThat(onSpark().executeQuery("SELECT * FROM %s WHERE a LIKE 'trino%%'".formatted(sparkTableName)))
+                .containsOnly(trinoRows);
+        assertThat(onTrino().executeQuery("SELECT * FROM %s WHERE a LIKE 'trino%%'".formatted(trinoTableName)))
+                .containsOnly(trinoRows);
 
         onSpark().executeQuery("DROP TABLE " + sparkTableName);
     }
 
     @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS}, dataProvider = "storageFormatsAndCompressionCodecs")
-    public void testSparkReadingTrinoCompressedData(StorageFormat storageFormat, String compressionCodec)
+    public void testTrinoConfiguredCompressionCodecOnSparkAndTrino(StorageFormat storageFormat, CompressionCodec compressionCodec)
     {
         String baseTableName = toLowerCase("test_trino_compression" +
                 "_" + storageFormat +
@@ -1772,27 +1782,63 @@ public class TestIcebergSparkCompatibility
         String trinoTableName = trinoTableName(baseTableName);
         String sparkTableName = sparkTableName(baseTableName);
 
-        String createTable = "CREATE TABLE " + trinoTableName + " WITH (format = '" + storageFormat + "', compression_codec = '" + compressionCodec + "') AS TABLE tpch.tiny.nation";
-        if (storageFormat == StorageFormat.PARQUET && "LZ4".equals(compressionCodec)) {
+        String createTable = format(
+                "CREATE TABLE %s (a VARCHAR, b BIGINT) WITH (format='%s',compression_codec='%s')",
+                trinoTableName,
+                storageFormat.name(),
+                compressionCodec.name());
+
+        if (storageFormat == StorageFormat.PARQUET && compressionCodec == CompressionCodec.LZ4) {
             // TODO (https://github.com/trinodb/trino/issues/9142) LZ4 is not supported with native Parquet writer
             assertQueryFailure(() -> onTrino().executeQuery(createTable))
                     .hasMessageMatching("\\QQuery failed (#\\E\\S+\\Q): Compression codec LZ4 not supported for Parquet");
             return;
         }
-        if (storageFormat == StorageFormat.AVRO && compressionCodec.equals("LZ4")) {
-            assertQueryFailure(() -> onTrino().executeQuery(createTable))
-                    .hasMessageMatching("\\QQuery failed (#\\E\\S+\\Q): Compression codec LZ4 not supported for Avro");
-            return;
-        }
         onTrino().executeQuery(createTable);
 
-        List<Row> expected = onTrino().executeQuery("TABLE tpch.tiny.nation").rows().stream()
-                .map(row -> row(row.toArray()))
+        List<Row> trinoRows = IntStream.range(0, 13)
+                .mapToObj(i -> row("trino" + i, i))
                 .collect(toImmutableList());
+        onTrino().executeQuery("INSERT INTO " + trinoTableName + " VALUES " +
+                trinoRows.stream()
+                        .map(row -> format("('%s', %s)", row.getValues().get(0), row.getValues().get(1)))
+                        .collect(Collectors.joining(", ")));
+
         assertThat(onTrino().executeQuery("SELECT * FROM " + trinoTableName))
-                .containsOnly(expected);
+                .containsOnly(trinoRows);
         assertThat(onSpark().executeQuery("SELECT * FROM " + sparkTableName))
-                .containsOnly(expected);
+                .containsOnly(trinoRows);
+
+        List<Row> sparkRows = IntStream.range(0, 13)
+                .mapToObj(i -> row("spark" + i, i))
+                .collect(toImmutableList());
+        String insertQuery = "INSERT INTO " + sparkTableName + " VALUES " +
+                sparkRows.stream()
+                        .map(row -> format("('%s', %s)", row.getValues().get(0), row.getValues().get(1)))
+                        .collect(Collectors.joining(", "));
+
+        // https://github.com/trinodb/trino/issues/28293
+        if (storageFormat == StorageFormat.AVRO && compressionCodec == CompressionCodec.NONE) {
+            assertQueryFailure(() -> onSpark().executeQuery(insertQuery))
+                    .hasMessageContaining("Unsupported compression codec: NONE");
+           return;
+        }
+        if (storageFormat == StorageFormat.PARQUET && compressionCodec == CompressionCodec.NONE) {
+            assertQueryFailure(() -> onSpark().executeQuery(insertQuery))
+                    .hasMessageContaining("Unsupported compression codec: NONE");
+            return;
+        }
+        if (storageFormat == StorageFormat.ORC && compressionCodec == CompressionCodec.GZIP) {
+            assertQueryFailure(() -> onSpark().executeQuery(insertQuery))
+                    .hasMessageContaining("Unsupported compression codec: GZIP");
+            return;
+        }
+        onSpark().executeQuery(insertQuery);
+
+        assertThat(onTrino().executeQuery("SELECT * FROM %s WHERE a LIKE 'spark%%'".formatted(trinoTableName)))
+                .containsOnly(sparkRows);
+        assertThat(onSpark().executeQuery("SELECT * FROM %s WHERE a LIKE 'spark%%'".formatted(sparkTableName)))
+                .containsOnly(sparkRows);
 
         onTrino().executeQuery("DROP TABLE " + trinoTableName);
     }
@@ -1800,21 +1846,57 @@ public class TestIcebergSparkCompatibility
     @DataProvider
     public Object[][] storageFormatsAndCompressionCodecs()
     {
-        List<String> compressionCodecs = compressionCodecs();
         return Stream.of(StorageFormat.values())
-                .flatMap(storageFormat -> compressionCodecs.stream()
+                .flatMap(storageFormat ->
+                        Stream.of(CompressionCodec.values())
                         .map(compressionCodec -> new Object[] {storageFormat, compressionCodec}))
+                .filter(array -> array[0] != StorageFormat.AVRO || array[1] != CompressionCodec.LZ4)
                 .toArray(Object[][]::new);
     }
 
-    private List<String> compressionCodecs()
+    private String getIcebergCompressionCodecTableProperty(StorageFormat storageFormat)
     {
-        return List.of(
-                "NONE",
-                "SNAPPY",
-                "LZ4",
-                "ZSTD",
-                "GZIP");
+        return switch(storageFormat) {
+            case AVRO -> "write.avro.compression-codec";
+            case PARQUET -> "write.parquet.compression-codec";
+            case ORC -> "write.orc.compression-codec";
+        };
+    }
+
+    public enum CompressionCodec {
+        GZIP,
+        ZSTD,
+        SNAPPY,
+        LZ4,
+        NONE,
+    }
+
+    private String getIcebergCompressionCodecName(StorageFormat storageFormat, CompressionCodec compressionCodec)
+    {
+        return switch (storageFormat) {
+            case AVRO -> switch (compressionCodec) {
+                case GZIP -> "gzip";
+                case ZSTD -> "zstd";
+                case SNAPPY -> "snappy";
+                case NONE -> "uncompressed";
+                default -> throw new IllegalArgumentException(
+                        "Out of spec avro compression codec %s".formatted(compressionCodec));
+            };
+            case PARQUET -> switch (compressionCodec) {
+                case ZSTD -> "zstd";
+                case LZ4 -> "lz4";
+                case GZIP -> "gzip";
+                case SNAPPY -> "snappy";
+                case NONE -> "uncompressed";
+            };
+            case ORC -> switch (compressionCodec) {
+                case ZSTD -> "zstd";
+                case LZ4 -> "lz4";
+                case GZIP -> "zlib";
+                case SNAPPY -> "snappy";
+                case NONE -> "none";
+            };
+        };
     }
 
     @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS}, dataProvider = "storageFormats")
