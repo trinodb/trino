@@ -119,7 +119,6 @@
         <module>plugin/trino-thrift-testing-server</module>
         <module>plugin/trino-tpcds</module>
         <module>plugin/trino-tpch</module>
-        <module>plugin/trino-vertica</module>
         <module>service/trino-proxy</module>
         <module>service/trino-verifier</module>
         <module>testing/trino-benchmark-queries</module>
@@ -1515,12 +1514,6 @@
             <dependency>
                 <groupId>io.trino</groupId>
                 <artifactId>trino-tpch</artifactId>
-                <version>${project.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>io.trino</groupId>
-                <artifactId>trino-vertica</artifactId>
                 <version>${project.version}</version>
             </dependency>
 
