@@ -410,7 +410,7 @@
             <dependency>
                 <groupId>com.exasol</groupId>
                 <artifactId>exasol-jdbc</artifactId>
-                <version>25.2.6</version>
+                <version>26.2.7</version>
             </dependency>
 
             <dependency>
