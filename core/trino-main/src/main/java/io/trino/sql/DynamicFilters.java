@@ -296,20 +296,21 @@ public final class DynamicFilters
                 return domain;
             }
             if (domain.isNone()) {
-                // Dynamic filter collection skips nulls
-                // In case of IS NOT DISTINCT FROM, an empty Domain should still allow null
-                if (nullAllowed) {
-                    return Domain.onlyNull(domain.getType());
-                }
                 return domain;
+            }
+            if (domain.isOnlyNull()) {
+                if (nullAllowed) {
+                    return domain;
+                }
+                return Domain.none(domain.getType());
             }
             Range span = domain.getValues().getRanges().getSpan();
             return switch (operator) {
                 case EQUAL -> {
                     if (nullAllowed) {
-                        yield Domain.create(domain.getValues(), true);
+                        yield domain;
                     }
-                    yield domain;
+                    yield Domain.create(domain.getValues(), false);
                 }
                 case LESS_THAN -> {
                     Range range = Range.lessThan(span.getType(), span.getHighBoundedValue());
