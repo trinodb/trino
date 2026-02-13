@@ -59,6 +59,7 @@ import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static io.trino.spi.type.BigdecimalType.BIGDECIMAL;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DateType.DATE;
@@ -256,6 +257,10 @@ public class TestingTrinoClient
         }
         if (type instanceof DecimalType) {
             return new BigDecimal((String) value);
+        }
+        if (type == BIGDECIMAL) {
+            //noinspection RedundantCast
+            return (BigDecimal) value;
         }
         if (type == UUID) {
             return java.util.UUID.fromString((String) value);

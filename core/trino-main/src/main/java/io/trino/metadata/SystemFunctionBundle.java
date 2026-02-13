@@ -253,6 +253,7 @@ import io.trino.operator.window.RowNumberFunction;
 import io.trino.spi.NodeVersion;
 import io.trino.spi.type.TypeOperators;
 import io.trino.sql.DynamicFilters;
+import io.trino.type.BigdecimalOperators;
 import io.trino.type.BigintOperators;
 import io.trino.type.BlockTypeOperators;
 import io.trino.type.BooleanOperators;
@@ -318,8 +319,10 @@ import static io.trino.operator.scalar.ZipFunction.ZIP_FUNCTIONS;
 import static io.trino.operator.scalar.ZipWithFunction.ZIP_WITH_FUNCTION;
 import static io.trino.operator.scalar.json.JsonArrayFunction.JSON_ARRAY_FUNCTION;
 import static io.trino.operator.scalar.json.JsonObjectFunction.JSON_OBJECT_FUNCTION;
+import static io.trino.type.DecimalCasts.BIGDECIMAL_TO_DECIMAL_CAST;
 import static io.trino.type.DecimalCasts.BIGINT_TO_DECIMAL_CAST;
 import static io.trino.type.DecimalCasts.BOOLEAN_TO_DECIMAL_CAST;
+import static io.trino.type.DecimalCasts.DECIMAL_TO_BIGDECIMAL_CAST;
 import static io.trino.type.DecimalCasts.DECIMAL_TO_BIGINT_CAST;
 import static io.trino.type.DecimalCasts.DECIMAL_TO_BOOLEAN_CAST;
 import static io.trino.type.DecimalCasts.DECIMAL_TO_DOUBLE_CAST;
@@ -463,6 +466,7 @@ public final class SystemFunctionBundle
                 .scalars(TinyintOperators.class)
                 .scalars(DoubleOperators.class)
                 .scalars(RealOperators.class)
+                .scalars(BigdecimalOperators.class)
                 .scalars(VarcharOperators.class)
                 .scalars(DateOperators.class)
                 .scalars(IntervalDayTimeOperators.class)
@@ -547,6 +551,7 @@ public final class SystemFunctionBundle
                 .aggregates(MultimapAggregationFunction.class)
                 .functions(DECIMAL_TO_VARCHAR_CAST, DECIMAL_TO_INTEGER_CAST, DECIMAL_TO_BIGINT_CAST, DECIMAL_TO_DOUBLE_CAST, DECIMAL_TO_REAL_CAST, DECIMAL_TO_BOOLEAN_CAST, DECIMAL_TO_TINYINT_CAST, DECIMAL_TO_SMALLINT_CAST)
                 .functions(VARCHAR_TO_DECIMAL_CAST, INTEGER_TO_DECIMAL_CAST, BIGINT_TO_DECIMAL_CAST, DOUBLE_TO_DECIMAL_CAST, REAL_TO_DECIMAL_CAST, BOOLEAN_TO_DECIMAL_CAST, TINYINT_TO_DECIMAL_CAST, SMALLINT_TO_DECIMAL_CAST)
+                .functions(BIGDECIMAL_TO_DECIMAL_CAST, DECIMAL_TO_BIGDECIMAL_CAST)
                 .functions(JSON_TO_DECIMAL_CAST, DECIMAL_TO_JSON_CAST)
                 .functions(featuresConfig.isLegacyArithmeticDecimalOperators() ? LEGACY_DECIMAL_ADD_OPERATOR : DECIMAL_ADD_OPERATOR)
                 .functions(featuresConfig.isLegacyArithmeticDecimalOperators() ? LEGACY_DECIMAL_SUBTRACT_OPERATOR : DECIMAL_SUBTRACT_OPERATOR)
