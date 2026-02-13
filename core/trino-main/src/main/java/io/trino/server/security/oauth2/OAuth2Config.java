@@ -42,6 +42,7 @@ public class OAuth2Config
     private Set<String> scopes = ImmutableSet.of(OPENID_SCOPE);
     private String principalField = "sub";
     private Optional<String> groupsField = Optional.empty();
+    private boolean requireAudience;
     private List<String> additionalAudiences = Collections.emptyList();
     private Duration challengeTimeout = new Duration(15, TimeUnit.MINUTES);
     private Duration maxClockSkew = new Duration(1, TimeUnit.MINUTES);
@@ -104,6 +105,19 @@ public class OAuth2Config
     public OAuth2Config setClientSecret(String clientSecret)
     {
         this.clientSecret = clientSecret;
+        return this;
+    }
+
+    public boolean isRequireAudience()
+    {
+        return this.requireAudience;
+    }
+
+    @Config("http-server.authentication.oauth2.require-audience")
+    @ConfigDescription("Require a valid audience. If false (default), access tokens without an aud claim will be accepted.")
+    public OAuth2Config setRequireAudience(boolean requireAudience)
+    {
+        this.requireAudience = requireAudience;
         return this;
     }
 
