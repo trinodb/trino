@@ -1733,12 +1733,6 @@ public class TestIcebergSparkCompatibility
                 .containsOnly(sparkRows);
 
         String firstSelect = "SELECT * FROM " + trinoTableName;
-        // https://github.com/trinodb/trino/issues/28291
-        if (storageFormat == StorageFormat.PARQUET && compressionCodec == CompressionCodec.LZ4) {
-            assertQueryFailure(() -> onTrino().executeQuery(firstSelect))
-                    .hasMessageMatching("\\QQuery failed (#\\E\\S+\\Q): Compression codec LZ4 not supported for Parquet");
-            return;
-        }
         // https://github.com/trinodb/trino/issues/28293
         if (storageFormat == StorageFormat.AVRO && compressionCodec == CompressionCodec.NONE) {
             assertQueryFailure(() -> onTrino().executeQuery(firstSelect))
@@ -1766,6 +1760,12 @@ public class TestIcebergSparkCompatibility
                         .map(row -> format("('%s', %s)", row.getValues().get(0), row.getValues().get(1)))
                         .collect(Collectors.joining(", "));
 
+        // https://github.com/trinodb/trino/issues/9142
+        if (storageFormat == StorageFormat.PARQUET && compressionCodec == CompressionCodec.LZ4) {
+            assertQueryFailure(() -> onTrino().executeQuery(insertQuery))
+                    .hasMessageMatching("\\QQuery failed (#\\E\\S+\\Q): Compression codec LZ4 not supported for Parquet");
+            return;
+        }
         onTrino().executeQuery(insertQuery);
 
         assertThat(onSpark().executeQuery("SELECT * FROM %s WHERE a LIKE 'trino%%'".formatted(sparkTableName)))
