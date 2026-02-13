@@ -168,8 +168,10 @@ implementation is used:
     catalog session property is `query_partition_filter_required`.
   - `false`
 * - `iceberg.query-partition-filter-required-schemas`
-  - Specify the list of schemas for which Trino can enforce that queries use a
-    filter on partition keys for source tables. Equivalent session property is
+  - Specify the list of schema names or regex patterns for which Trino can enforce
+    that queries use a filter on partition keys for source tables. Each entry can be
+    an exact schema name (e.g., `schema1`) or a regular expression pattern (e.g., `schema.*`
+    to match all schemas starting with "schema"). Equivalent session property is
     `query_partition_filter_required_schemas`. The list is used if the
     `iceberg.query-partition-filter-required` configuration property or the
     `query_partition_filter_required` catalog session property is set to `true`.
