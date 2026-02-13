@@ -410,6 +410,7 @@ public abstract class BaseIcebergConnectorTest
     @Test
     public void testShowCreateTable()
     {
+        String compressionCodec = format == PARQUET ? "   compression_codec = 'ZSTD',\n" : "";
         assertThat((String) computeActual("SHOW CREATE TABLE orders").getOnlyValue())
                 .matches("\\QCREATE TABLE iceberg.tpch.orders (\n" +
                         "   orderkey bigint,\n" +
@@ -423,6 +424,7 @@ public abstract class BaseIcebergConnectorTest
                         "   comment varchar\n" +
                         ")\n" +
                         "WITH (\n" +
+                        compressionCodec +
                         "   format = '" + format.name() + "',\n" +
                         "   format_version = 2,\n" +
                         "   location = '\\E.*/tpch/orders-.*\\Q'\n" +
@@ -1318,6 +1320,7 @@ public abstract class BaseIcebergConnectorTest
                         "FROM tpch.tiny.orders",
                 "SELECT count(*) from orders");
 
+        String compressionCodec = format == PARQUET ? "   compression_codec = 'ZSTD',\n" : "";
         assertThat(computeScalar("SHOW CREATE TABLE test_create_partitioned_table_as")).isEqualTo(format(
                 "CREATE TABLE %s.%s.%s (\n" +
                         "   \"order key\" bigint,\n" +
@@ -1325,6 +1328,7 @@ public abstract class BaseIcebergConnectorTest
                         "   order_status varchar\n" +
                         ")\n" +
                         "WITH (\n" +
+                        compressionCodec +
                         "   format = '%s',\n" +
                         "   format_version = 2,\n" +
                         "   location = '%s',\n" +
@@ -1718,6 +1722,7 @@ public abstract class BaseIcebergConnectorTest
                 ")\n" +
                 "COMMENT '%s'\n" +
                 "WITH (\n" +
+                "   compression_codec = 'ZSTD',\n" +
                 format("   format = '%s',\n", format) +
                 "   format_version = 2,\n" +
                 format("   location = '%s'\n", tempDirPath) +
@@ -1727,6 +1732,7 @@ public abstract class BaseIcebergConnectorTest
                 "   _x bigint\n" +
                 ")\n" +
                 "WITH (\n" +
+                "   compression_codec = 'ZSTD',\n" +
                 "   format = '" + format + "',\n" +
                 "   format_version = 2,\n" +
                 "   location = '" + tempDirPath + "'\n" +
@@ -2025,6 +2031,7 @@ public abstract class BaseIcebergConnectorTest
     {
         File tempDir = getDistributedQueryRunner().getCoordinator().getBaseDataDir().toFile();
         String tempDirPath = tempDir.toURI().toASCIIString() + randomNameSuffix();
+        String compressionCodec = format == PARQUET ? "compression_codec = 'ZSTD',\n   " : "";
 
         // LIKE source INCLUDING PROPERTIES copies all the properties of the source table, including the `location`.
         // For this reason the source and the copied table will share the same directory.
@@ -2033,11 +2040,12 @@ public abstract class BaseIcebergConnectorTest
         assertThat(getTablePropertiesString("test_create_table_like_original")).isEqualTo(format(
                 """
                         WITH (
-                           format = '%s',
+                           %sformat = '%s',
                            format_version = 2,
                            location = '%s',
                            partitioning = ARRAY['adate']
                         )""",
+                compressionCodec,
                 format,
                 tempDirPath));
 
@@ -2049,10 +2057,11 @@ public abstract class BaseIcebergConnectorTest
         assertThat(getTablePropertiesString("test_create_table_like_copy1")).isEqualTo(format(
                 """
                         WITH (
-                           format = '%s',
+                           %sformat = '%s',
                            format_version = 2,
                            location = '%s'
                         )""",
+                compressionCodec,
                 format,
                 getTableLocation("test_create_table_like_copy1")));
 
@@ -2060,10 +2069,11 @@ public abstract class BaseIcebergConnectorTest
         assertThat(getTablePropertiesString("test_create_table_like_copy2")).isEqualTo(format(
                 """
                         WITH (
-                           format = '%s',
+                           %sformat = '%s',
                            format_version = 2,
                            location = '%s'
                         )""",
+                compressionCodec,
                 format,
                 getTableLocation("test_create_table_like_copy2")));
         assertUpdate("DROP TABLE test_create_table_like_copy2");
