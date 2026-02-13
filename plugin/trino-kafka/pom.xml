@@ -16,6 +16,8 @@
 
     <properties>
         <air.compiler.fail-warnings>true</air.compiler.fail-warnings>
+        <!-- wire 5.2 and confluent libraries in trino-kafka doesn't support protobuf 4.x -->
+        <dep.protobuf.version>3.25.8</dep.protobuf.version>
     </properties>
 
     <dependencies>
@@ -182,6 +184,12 @@
             <groupId>com.google.api.grpc</groupId>
             <artifactId>proto-google-common-protos</artifactId>
             <scope>runtime</scope>
+            <exclusions>
+                <exclusion>
+                    <groupId>com.google.protobuf</groupId>
+                    <artifactId>protobuf-java</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
         <dependency>
