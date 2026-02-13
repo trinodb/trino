@@ -54,6 +54,42 @@ public record HudiSplit(
         requireNonNull(splitWeight, "splitWeight is null");
     }
 
+    // Getter methods for consistency with internal fork
+    public String getLocation()
+    {
+        return location;
+    }
+
+    public long getStart()
+    {
+        return start;
+    }
+
+    public long getLength()
+    {
+        return length;
+    }
+
+    public long getFileSize()
+    {
+        return fileSize;
+    }
+
+    public long getFileModifiedTime()
+    {
+        return fileModifiedTime;
+    }
+
+    public TupleDomain<HiveColumnHandle> getPredicate()
+    {
+        return predicate;
+    }
+
+    public List<HivePartitionKey> getPartitionKeys()
+    {
+        return partitionKeys;
+    }
+
     @Override
     public long getRetainedSizeInBytes()
     {
