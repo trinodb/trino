@@ -60,7 +60,7 @@ project root directory:
 
 On the first build, Maven downloads all the dependencies from the internet
 and caches them in the local repository (`~/.m2/repository`), which can take a
-while, depending on your connection speed. Subsequent builds are faster.
+while, depending on your speed. Subsequent builds are faster.
 
 Trino has a comprehensive set of tests that take a considerable amount of time
 to run, and are thus disabled by the above command. These tests are run by the
