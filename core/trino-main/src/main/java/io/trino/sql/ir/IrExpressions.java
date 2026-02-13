@@ -16,40 +16,21 @@ package io.trino.sql.ir;
 import com.google.common.collect.ImmutableList;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.ResolvedFunction;
-import io.trino.spi.function.CatalogSchemaFunctionName;
 import io.trino.spi.type.RowType;
 import io.trino.sql.PlannerContext;
 import io.trino.type.TypeCoercion;
 
 import java.util.List;
 
-import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
 import static io.trino.spi.block.RowValueBuilder.buildRowValue;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.TypeUtils.writeNativeValue;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.DynamicFilters.isDynamicFilterFunction;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
-import static io.trino.type.LikeFunctions.LIKE_FUNCTION_NAME;
 
 public final class IrExpressions
 {
-    // TODO: these should be attributes of the function
-    private static final List<CatalogSchemaFunctionName> NEVER_FAIL = ImmutableList.of(
-            builtinFunctionName("length"),
-            builtinFunctionName("try_cast"),
-            builtinFunctionName("$not"),
-            builtinFunctionName("substring"),
-            builtinFunctionName("trim"),
-            builtinFunctionName("ltrim"),
-            builtinFunctionName("rtrim"),
-            builtinFunctionName("replace"),
-            builtinFunctionName("reverse"),
-            builtinFunctionName("lower"),
-            builtinFunctionName("upper"),
-            builtinFunctionName("to_utf8"),
-            builtinFunctionName(LIKE_FUNCTION_NAME));
-
     private IrExpressions() {}
 
     public static Expression ifExpression(Expression condition, Expression trueCase)
@@ -125,7 +106,7 @@ public final class IrExpressions
 
     private static boolean mayFail(ResolvedFunction function)
     {
-        return !NEVER_FAIL.contains(function.name()) && !isDynamicFilterFunction(function.name());
+        return !function.neverFails() && !isDynamicFilterFunction(function.name());
     }
 
     public static Expression not(Metadata metadata, Expression expression)
