@@ -19,6 +19,7 @@ import io.trino.Session;
 import io.trino.spi.function.CatalogSchemaFunctionName;
 import io.trino.spi.type.BigintType;
 import io.trino.spi.type.DecimalType;
+import io.trino.spi.type.FixedWidthType;
 import io.trino.spi.type.IntegerType;
 import io.trino.spi.type.SmallintType;
 import io.trino.spi.type.TinyintType;
@@ -108,6 +109,11 @@ public class ScalarStatsCalculator
                 estimate.setLowValue(doubleValue.getAsDouble());
                 estimate.setHighValue(doubleValue.getAsDouble());
             }
+
+            if (type instanceof FixedWidthType fixedWidthType) {
+                estimate.setAverageRowSize(fixedWidthTypeSizeEstimate(fixedWidthType));
+            }
+
             return estimate.build();
         }
 
@@ -135,11 +141,16 @@ public class ScalarStatsCalculator
                 return nullStatsEstimate();
             }
 
-            if (value instanceof Constant) {
-                return SymbolStatsEstimate.builder()
+            if (value instanceof Constant constant) {
+                SymbolStatsEstimate.Builder estimate = SymbolStatsEstimate.builder()
                         .setNullsFraction(0)
-                        .setDistinctValuesCount(1)
-                        .build();
+                        .setDistinctValuesCount(1);
+
+                if (constant.type() instanceof FixedWidthType fixedWidthType) {
+                    estimate.setAverageRowSize(fixedWidthTypeSizeEstimate(fixedWidthType));
+                }
+
+                return estimate.build();
             }
 
             return SymbolStatsEstimate.unknown();
@@ -171,13 +182,21 @@ public class ScalarStatsCalculator
                 }
             }
 
+            double averageRowSize;
+            if (node.type() instanceof FixedWidthType fixedWidthType) {
+                averageRowSize = fixedWidthTypeSizeEstimate(fixedWidthType);
+            }
+            else {
+                // Source average row size is a reasonable approximation for CAST result
+                averageRowSize = sourceStats.getAverageRowSize();
+            }
+
             return SymbolStatsEstimate.builder()
                     .setNullsFraction(sourceStats.getNullsFraction())
                     .setLowValue(lowValue)
                     .setHighValue(highValue)
                     .setDistinctValuesCount(distinctValuesCount)
-                    // Source average row size is a reasonable approximation for CAST result
-                    .setAverageRowSize(sourceStats.getAverageRowSize())
+                    .setAverageRowSize(averageRowSize)
                     .build();
         }
 
@@ -298,6 +317,12 @@ public class ScalarStatsCalculator
                     .setAverageRowSize(max(left.getAverageRowSize(), right.getAverageRowSize()))
                     .build();
         }
+    }
+
+    private static double fixedWidthTypeSizeEstimate(FixedWidthType fixedWidthType)
+    {
+        // Additional byte for "is null"
+        return fixedWidthType.getFixedSize() + 1;
     }
 
     private static SymbolStatsEstimate nullStatsEstimate()

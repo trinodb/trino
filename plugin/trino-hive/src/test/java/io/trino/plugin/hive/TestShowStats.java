@@ -409,7 +409,7 @@ public class TestShowStats
         assertQuery(
                 "SHOW STATS FOR (SELECT 1 AS x FROM nation_partitioned)",
                 "VALUES " +
-                        "   ('x', null, 1, 0, null, 1, 1), " +
+                        "   ('x', 125.0, 1, 0, null, 1, 1), " +
                         "   (null, null, null, null, 25, null, null)");
     }
 

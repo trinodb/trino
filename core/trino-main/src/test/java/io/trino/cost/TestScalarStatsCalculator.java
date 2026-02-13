@@ -72,49 +72,57 @@ public class TestScalarStatsCalculator
                 .distinctValuesCount(1.0)
                 .lowValue(7)
                 .highValue(7)
-                .nullsFraction(0.0);
+                .nullsFraction(0.0)
+                .averageRowSize(TINYINT.getFixedSize() + 1);
 
         assertCalculate(new Constant(SMALLINT, 8L))
                 .distinctValuesCount(1.0)
                 .lowValue(8)
                 .highValue(8)
-                .nullsFraction(0.0);
+                .nullsFraction(0.0)
+                .averageRowSize(SMALLINT.getFixedSize() + 1);
 
         assertCalculate(new Constant(INTEGER, 9L))
                 .distinctValuesCount(1.0)
                 .lowValue(9)
                 .highValue(9)
-                .nullsFraction(0.0);
+                .nullsFraction(0.0)
+                .averageRowSize(INTEGER.getFixedSize() + 1);
 
         assertCalculate(new Constant(BIGINT, MAX_VALUE))
                 .distinctValuesCount(1.0)
                 .lowValue(Long.MAX_VALUE)
                 .highValue(Long.MAX_VALUE)
-                .nullsFraction(0.0);
+                .nullsFraction(0.0)
+                .averageRowSize(BIGINT.getFixedSize() + 1);
 
         assertCalculate(new Constant(DOUBLE, 7.5))
                 .distinctValuesCount(1.0)
                 .lowValue(7.5)
                 .highValue(7.5)
-                .nullsFraction(0.0);
+                .nullsFraction(0.0)
+                .averageRowSize(DOUBLE.getFixedSize() + 1);
 
         assertCalculate(new Constant(createDecimalType(3, 1), Decimals.valueOfShort(new BigDecimal("75.5"))))
                 .distinctValuesCount(1.0)
                 .lowValue(75.5)
                 .highValue(75.5)
-                .nullsFraction(0.0);
+                .nullsFraction(0.0)
+                .averageRowSize(createDecimalType(3, 1).getFixedSize() + 1);
 
         assertCalculate(new Constant(VarcharType.VARCHAR, Slices.utf8Slice("blah")))
                 .distinctValuesCount(1.0)
                 .lowValueUnknown()
                 .highValueUnknown()
-                .nullsFraction(0.0);
+                .nullsFraction(0.0)
+                .dataSizeUnknown();
 
         assertCalculate(new Constant(UnknownType.UNKNOWN, null))
                 .distinctValuesCount(0.0)
                 .lowValueUnknown()
                 .highValueUnknown()
-                .nullsFraction(1.0);
+                .nullsFraction(1.0)
+                .dataSizeUnknown();
     }
 
     @Test
@@ -192,7 +200,7 @@ public class TestScalarStatsCalculator
                 .highValue(17.0)
                 .distinctValuesCount(10)
                 .nullsFraction(0.3)
-                .averageRowSize(2.0);
+                .averageRowSize(BIGINT.getFixedSize() + 1);
     }
 
     @Test
@@ -215,7 +223,7 @@ public class TestScalarStatsCalculator
                 .highValue(3.0)
                 .distinctValuesCount(2)
                 .nullsFraction(0.3)
-                .averageRowSize(2.0);
+                .averageRowSize(BIGINT.getFixedSize() + 1);
     }
 
     @Test
@@ -237,7 +245,7 @@ public class TestScalarStatsCalculator
                 .highValue(3.0)
                 .distinctValuesCountUnknown()
                 .nullsFraction(0.3)
-                .averageRowSize(2.0);
+                .averageRowSize(BIGINT.getFixedSize() + 1);
     }
 
     @Test
@@ -260,7 +268,7 @@ public class TestScalarStatsCalculator
                 .highValue(10.0)
                 .distinctValuesCount(4)
                 .nullsFraction(0.3)
-                .averageRowSize(2.0);
+                .averageRowSize(DOUBLE.getFixedSize() + 1);
     }
 
     @Test
@@ -273,7 +281,7 @@ public class TestScalarStatsCalculator
                 .highValueUnknown()
                 .distinctValuesCountUnknown()
                 .nullsFractionUnknown()
-                .dataSizeUnknown();
+                .averageRowSize(BIGINT.getFixedSize() + 1);
     }
 
     private SymbolStatsAssertion assertCalculate(Expression scalarExpression)

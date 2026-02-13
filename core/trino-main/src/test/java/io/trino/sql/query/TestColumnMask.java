@@ -783,7 +783,7 @@ public class TestColumnMask
                 .containsAll(
                         """
                         VALUES
-                         (VARCHAR 'orderkey', CAST(NULL AS double), 1e0, 0e1, NULL, '7', '7'),
+                         (VARCHAR 'orderkey', 135e3, 1e0, 0e1, NULL, '7', '7'),
                          (VARCHAR 'clerk', 15e3, 1e3, 0e1, NULL, CAST(NULL AS varchar), CAST(NULL AS varchar)),
                          (NULL, NULL, NULL, NULL, 15e3, NULL, NULL)
                         """);
@@ -791,7 +791,7 @@ public class TestColumnMask
                 .matches(
                         """
                         VALUES
-                         (VARCHAR 'orderkey', CAST(NULL AS double), 1e0, 0e1, NULL, VARCHAR '7', VARCHAR '7'),
+                         (VARCHAR 'orderkey', 135e3, 1e0, 0e1, NULL, VARCHAR '7', VARCHAR '7'),
                          (NULL, NULL, NULL, NULL, 15e3, NULL, NULL)
                         """);
         assertThat(assertions.query("SHOW STATS FOR (SELECT clerk FROM orders)"))
