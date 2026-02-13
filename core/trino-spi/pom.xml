@@ -887,6 +887,33 @@
                                     <old>method java.lang.String io.trino.spi.function.CatalogSchemaFunctionName::getSchemaName()</old>
                                     <justification>Class converted to a record</justification>
                                 </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.removed</code>
+                                    <old>method int io.trino.spi.Location::getColumnNumber()</old>
+                                    <justification>Location converted to a record class</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.removed</code>
+                                    <old>method int io.trino.spi.Location::getLineNumber()</old>
+                                    <justification>Location converted to a record class</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.class.kindChanged</code>
+                                    <old>class io.trino.spi.Location</old>
+                                    <new>class io.trino.spi.Location</new>
+                                    <justification>Location converted to a record class</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.annotation.removed</code>
+                                    <old>class io.trino.spi.Location</old>
+                                    <new>class io.trino.spi.Location</new>
+                                    <annotation>@com.google.errorprone.annotations.Immutable</annotation>
+                                    <justification>Location converted to a record class</justification>
+                                </item>
                             </differences>
                         </revapi.differences>
                     </analysisConfiguration>
