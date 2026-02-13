@@ -14,6 +14,8 @@
 package io.trino.execution.buffer;
 
 import com.google.common.collect.AbstractIterator;
+import io.airlift.compress.v3.xxhash.XxHash3Hasher;
+import io.airlift.compress.v3.xxhash.XxHash3Native;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;
@@ -39,6 +41,8 @@ import static java.util.Objects.requireNonNull;
 
 public final class PagesSerdeUtil
 {
+    private static final ThreadLocal<XxHash3Hasher> XX_HASH3 = ThreadLocal.withInitial(XxHash3Native::newHasher);
+
     private PagesSerdeUtil() {}
 
     static final int SERIALIZED_PAGE_POSITION_COUNT_OFFSET = 0;
@@ -77,11 +81,24 @@ public final class PagesSerdeUtil
 
     public static long calculateChecksum(List<Slice> pages)
     {
-        XxHash64 hash = new XxHash64();
-        for (Slice page : pages) {
-            hash.update(page);
+        int size = pages.stream().mapToInt(Slice::length).sum();
+        long checksum;
+        if (size > 16384) {
+            XxHash3Hasher hasher = XX_HASH3.get();
+            hasher.reset();
+            for (Slice page : pages) {
+                hasher.update(page.byteArray(), page.byteArrayOffset(), page.length());
+            }
+            checksum = hasher.digest();
         }
-        long checksum = hash.hash();
+        else {
+            XxHash64 hasher = new XxHash64();
+            for (Slice page : pages) {
+                hasher.update(page);
+            }
+            checksum = hasher.hash();
+        }
+
         // Since NO_CHECKSUM is assigned a special meaning, it is not a valid checksum.
         if (checksum == NO_CHECKSUM) {
             return checksum + 1;
