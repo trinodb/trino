@@ -143,6 +143,7 @@ public class TestQueryStateInfo
                         DataSize.valueOf("28GB"),
                         DataSize.valueOf("29GB"),
                         DataSize.valueOf("30GB"),
+                        ImmutableMap.of(),
                         true,
                         OptionalDouble.of(8.88),
                         OptionalDouble.of(0),

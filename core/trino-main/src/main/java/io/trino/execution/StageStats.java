@@ -71,6 +71,12 @@ public class StageStats
     private final DataSize peakRevocableMemoryReservation;
 
     private final DataSize spilledDataSize;
+    /**
+     * Spilled data size grouped by worker node ID.
+     * The map key is the node identifier (UUID string).
+     * Empty when no spilling occurred.
+     */
+    private final Map<String, DataSize> spilledDataSizeByNode;
 
     private final Duration totalScheduledTime;
     private final Duration failedScheduledTime;
@@ -145,6 +151,7 @@ public class StageStats
             @JsonProperty("peakRevocableMemoryReservation") DataSize peakRevocableMemoryReservation,
 
             @JsonProperty("spilledDataSize") DataSize spilledDataSize,
+            @JsonProperty("spilledDataSizeByNode") Map<String, DataSize> spilledDataSizeByNode,
 
             @JsonProperty("totalScheduledTime") Duration totalScheduledTime,
             @JsonProperty("failedScheduledTime") Duration failedScheduledTime,
@@ -224,6 +231,7 @@ public class StageStats
         this.peakUserMemoryReservation = requireNonNull(peakUserMemoryReservation, "peakUserMemoryReservation is null");
         this.peakRevocableMemoryReservation = requireNonNull(peakRevocableMemoryReservation, "peakRevocableMemoryReservation is null");
         this.spilledDataSize = requireNonNull(spilledDataSize, "spilledDataSize is null");
+        this.spilledDataSizeByNode = ImmutableMap.copyOf(requireNonNull(spilledDataSizeByNode, "spilledDataSizeByNode is null"));
 
         this.totalScheduledTime = requireNonNull(totalScheduledTime, "totalScheduledTime is null");
         this.failedScheduledTime = requireNonNull(failedScheduledTime, "failedScheduledTime is null");
@@ -397,6 +405,12 @@ public class StageStats
     public DataSize getSpilledDataSize()
     {
         return spilledDataSize;
+    }
+
+    @JsonProperty
+    public Map<String, DataSize> getSpilledDataSizeByNode()
+    {
+        return spilledDataSizeByNode;
     }
 
     @JsonProperty
@@ -683,6 +697,7 @@ public class StageStats
                 zeroBytes,
                 zeroBytes,
                 zeroBytes,
+                ImmutableMap.of(),
                 zeroSeconds,
                 zeroSeconds,
                 zeroSeconds,

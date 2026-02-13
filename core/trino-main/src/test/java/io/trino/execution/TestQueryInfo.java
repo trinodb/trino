@@ -294,6 +294,7 @@ public class TestQueryInfo
                 succinctBytes(value),
                 succinctBytes(value),
                 succinctBytes(value),
+                ImmutableMap.of("node" + value, succinctBytes(value)),
                 Duration.succinctDuration(value, SECONDS),
                 Duration.succinctDuration(value, SECONDS),
                 Duration.succinctDuration(value, SECONDS),
