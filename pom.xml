@@ -2264,7 +2264,7 @@
             <dependency>
                 <groupId>org.mariadb.jdbc</groupId>
                 <artifactId>mariadb-java-client</artifactId>
-                <version>3.3.4</version>
+                <version>3.5.7</version>
             </dependency>
 
             <dependency>
