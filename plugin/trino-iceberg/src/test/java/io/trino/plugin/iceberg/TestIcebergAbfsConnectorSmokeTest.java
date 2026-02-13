@@ -140,6 +140,12 @@ public class TestIcebergAbfsConnectorSmokeTest
     }
 
     @Override
+    protected String getViewMetadataLocation(String viewName)
+    {
+        throw new UnsupportedOperationException("getViewMetadataLocation is not supported for Hive catalog");
+    }
+
+    @Override
     protected String schemaPath()
     {
         return formatAbfsUrl(container, account, bucketName) + schemaName;

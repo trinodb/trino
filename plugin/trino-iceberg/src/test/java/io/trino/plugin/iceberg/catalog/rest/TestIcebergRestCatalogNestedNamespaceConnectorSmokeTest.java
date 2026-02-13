@@ -234,7 +234,7 @@ final class TestIcebergRestCatalogNestedNamespaceConnectorSmokeTest
         assertThatThrownBy(super::testDropTableWithMissingSnapshotFile)
                 .isInstanceOf(QueryFailedException.class)
                 .cause()
-                .hasMessageContaining("Failed to drop table")
+                .hasMessageMatching("Failed to open input stream for file: .*avro")
                 .hasNoCause();
     }
 
@@ -285,6 +285,12 @@ final class TestIcebergRestCatalogNestedNamespaceConnectorSmokeTest
     {
         BaseTable table = (BaseTable) backend.loadTable(toIdentifier(tableName));
         return table.operations().current().metadataFileLocation();
+    }
+
+    @Override
+    protected String getViewMetadataLocation(String viewName)
+    {
+        return backend.loadView(toIdentifier(viewName)).location();
     }
 
     @Override
