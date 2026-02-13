@@ -758,6 +758,18 @@ public class TestDoubleOperators
         assertThat(assertions.expression("cast(a as real)")
                 .binding("a", "DOUBLE '-0.0'"))
                 .isEqualTo(-0.0f);
+
+        assertThat(assertions.expression("cast(a as real)")
+                .binding("a", "DOUBLE 'NaN'"))
+                .isEqualTo(Float.NaN);
+
+        assertThat(assertions.expression("cast(a as real)")
+                .binding("a", "DOUBLE '+Infinity'"))
+                .isEqualTo(Float.POSITIVE_INFINITY);
+
+        assertThat(assertions.expression("cast(a as real)")
+                .binding("a", "DOUBLE '-Infinity'"))
+                .isEqualTo(Float.NEGATIVE_INFINITY);
     }
 
     @Test
