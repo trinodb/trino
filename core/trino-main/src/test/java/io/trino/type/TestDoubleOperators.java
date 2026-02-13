@@ -744,19 +744,19 @@ public class TestDoubleOperators
     public void testCastToReal()
     {
         assertThat(assertions.expression("cast(a as real)")
-                .binding("a", "'754.1985'"))
+                .binding("a", "DOUBLE '754.1985'"))
                 .isEqualTo(754.1985f);
 
         assertThat(assertions.expression("cast(a as real)")
-                .binding("a", "'-754.2008'"))
+                .binding("a", "DOUBLE '-754.2008'"))
                 .isEqualTo(-754.2008f);
 
         assertThat(assertions.expression("cast(a as real)")
-                .binding("a", "'0.0'"))
+                .binding("a", "DOUBLE '0.0'"))
                 .isEqualTo(0.0f);
 
         assertThat(assertions.expression("cast(a as real)")
-                .binding("a", "'-0.0'"))
+                .binding("a", "DOUBLE '-0.0'"))
                 .isEqualTo(-0.0f);
     }
 
