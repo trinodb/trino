@@ -318,12 +318,6 @@ public class Query
             }
             handler.processRows(client);
         }
-        catch (RuntimeException | IOException e) {
-            if (client.isClientAborted() && !(e instanceof QueryAbortedException)) {
-                throw new QueryAbortedException(e);
-            }
-            throw e;
-        }
     }
 
     private void sendOutput(PrintStream out, OutputFormat format, int maxWidth, List<Column> fieldNames)
