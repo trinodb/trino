@@ -116,6 +116,7 @@ import io.trino.spi.type.TypeSignature;
 import io.trino.spi.type.VarcharType;
 import org.jdbi.v3.core.Handle;
 import org.jdbi.v3.core.Jdbi;
+import org.locationtech.jts.geom.Geometry;
 import org.postgresql.core.TypeInfo;
 import org.postgresql.jdbc.PgConnection;
 
@@ -157,10 +158,10 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.slice.Slices.wrappedBuffer;
+import static io.trino.geospatial.serde.JtsGeometrySerde.deserialize;
+import static io.trino.geospatial.serde.JtsGeometrySerde.serialize;
 import static io.trino.plugin.base.util.JsonTypeUtil.jsonParse;
 import static io.trino.plugin.base.util.JsonTypeUtil.toJsonValue;
-import static io.trino.plugin.geospatial.GeoFunctions.stAsBinary;
-import static io.trino.plugin.geospatial.GeoFunctions.stGeomFromBinary;
 import static io.trino.plugin.jdbc.DecimalConfig.DecimalMapping.ALLOW_OVERFLOW;
 import static io.trino.plugin.jdbc.DecimalSessionSessionProperties.getDecimalDefaultScale;
 import static io.trino.plugin.jdbc.DecimalSessionSessionProperties.getDecimalRounding;
@@ -1865,21 +1866,27 @@ public class PostgreSqlClient
 
     private ColumnMapping geometryColumnMapping()
     {
-        return ColumnMapping.sliceMapping(
+        return ColumnMapping.objectMapping(
                 geometryType,
-                (resultSet, columnIndex) -> {
+                ObjectReadFunction.of(Geometry.class, (resultSet, columnIndex) -> {
                     String hexWkb = resultSet.getString(columnIndex);
                     byte[] wkb = HexFormat.of().parseHex(hexWkb);
-                    return stGeomFromBinary(wrappedBuffer(wkb));
-                },
+                    return deserialize(wrappedBuffer(wkb));
+                }),
                 geometryWriteFunction(),
                 DISABLE_PUSHDOWN);
     }
 
-    private static SliceWriteFunction geometryWriteFunction()
+    private static ObjectWriteFunction geometryWriteFunction()
     {
-        return new SliceWriteFunction()
+        return new ObjectWriteFunction()
         {
+            @Override
+            public Class<?> getJavaType()
+            {
+                return Geometry.class;
+            }
+
             @Override
             public String getBindExpression()
             {
@@ -1887,11 +1894,11 @@ public class PostgreSqlClient
             }
 
             @Override
-            public void set(PreparedStatement statement, int index, Slice slice)
+            public void set(PreparedStatement statement, int index, Object value)
                     throws SQLException
             {
-                byte[] bytes = stAsBinary(slice).getBytes();
-                statement.setBytes(index, bytes);
+                Geometry geometry = (Geometry) value;
+                statement.setBytes(index, serialize(geometry).getBytes());
             }
         };
     }

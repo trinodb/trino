@@ -13,8 +13,8 @@
  */
 package io.trino.plugin.geospatial;
 
-import io.airlift.slice.Slice;
 import org.junit.jupiter.api.Test;
+import org.locationtech.jts.geom.Geometry;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
@@ -74,10 +74,10 @@ public class BenchmarkSTArea
     @State(Scope.Thread)
     public static class BenchmarkData
     {
-        private Slice geometry;
-        private Slice geometry500k;
-        private Slice geography;
-        private Slice geography500k;
+        private Geometry geometry;
+        private Geometry geometry500k;
+        private Geometry geography;
+        private Geometry geography500k;
 
         @Setup
         public void setup()
@@ -109,7 +109,7 @@ public class BenchmarkSTArea
 
         assertThat(Math.round(1000 * (Double) benchmark.stSphericalArea(data) / 3.659E8)).isEqualTo(1000);
         assertThat(Math.round(1000 * (Double) benchmark.stSphericalArea500k(data) / 38842273735.0)).isEqualTo(1000);
-        assertThat(benchmark.stArea(data)).isEqualTo(0.05033099592771004);
+        assertThat(benchmark.stArea(data)).isEqualTo(0.05033099592771002);
         assertThat(Math.round(1000 * (Double) benchmark.stArea500k(data) / Math.PI)).isEqualTo(1000);
     }
 
@@ -123,7 +123,8 @@ public class BenchmarkSTArea
                     return Math.cos(angle) + " " + Math.sin(angle);
                 })
                 .collect(Collectors.joining(",")));
-        builder.append("))");
+        // Close the polygon ring by repeating the first vertex
+        builder.append(", 1.0 0.0))");
         return builder.toString();
     }
 }
