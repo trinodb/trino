@@ -65,6 +65,7 @@ import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.operator.scalar.JsonFunctions.jsonParse;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.plugin.tpch.TpchRecordSet.createTpchRecordSet;
+import static io.trino.spi.type.BigdecimalType.BIGDECIMAL;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DateType.DATE;
@@ -274,6 +275,26 @@ public class H2QueryRunner
                         row.add(doubleValue);
                     }
                 }
+                else if (type instanceof DecimalType decimalType) {
+                    BigDecimal decimalValue = resultSet.getBigDecimal(i);
+                    if (resultSet.wasNull()) {
+                        row.add(null);
+                    }
+                    else {
+                        row.add(decimalValue
+                                .setScale(decimalType.getScale(), HALF_UP)
+                                .round(new MathContext(decimalType.getPrecision())));
+                    }
+                }
+                else if (BIGDECIMAL == type) {
+                    BigDecimal value = resultSet.getBigDecimal(i);
+                    if (resultSet.wasNull()) {
+                        row.add(null);
+                    }
+                    else {
+                        row.add(value.stripTrailingZeros());
+                    }
+                }
                 else if (JSON.equals(type)) {
                     String stringValue = resultSet.getString(i);
                     if (resultSet.wasNull()) {
@@ -360,17 +381,6 @@ public class H2QueryRunner
                     Object objectValue = resultSet.getObject(i);
                     checkState(resultSet.wasNull(), "Expected a null value, but got %s", objectValue);
                     row.add(null);
-                }
-                else if (type instanceof DecimalType decimalType) {
-                    BigDecimal decimalValue = resultSet.getBigDecimal(i);
-                    if (resultSet.wasNull()) {
-                        row.add(null);
-                    }
-                    else {
-                        row.add(decimalValue
-                                .setScale(decimalType.getScale(), HALF_UP)
-                                .round(new MathContext(decimalType.getPrecision())));
-                    }
                 }
                 else if (type instanceof ArrayType) {
                     Array array = resultSet.getArray(i);

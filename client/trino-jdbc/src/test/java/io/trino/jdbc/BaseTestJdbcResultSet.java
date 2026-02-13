@@ -78,6 +78,51 @@ public abstract class BaseTestJdbcResultSet
     }
 
     @Test
+    public void testNullUnknown()
+            throws Exception
+    {
+        try (ConnectedStatement connectedStatement = newStatement()) {
+            checkRepresentation(connectedStatement.getStatement(), "NULL", Types.NULL, (rs, column) -> {
+                assertThat(rs.getObject(column)).isNull();
+                assertThat(rs.wasNull()).isTrue();
+                assertThat(rs.getBoolean(column)).isEqualTo(false);
+                assertThat(rs.wasNull()).isTrue();
+                assertThat(rs.getByte(column)).isEqualTo((byte) 0);
+                assertThat(rs.wasNull()).isTrue();
+                assertThat(rs.getShort(column)).isEqualTo((short) 0);
+                assertThat(rs.wasNull()).isTrue();
+                assertThat(rs.getInt(column)).isEqualTo(0);
+                assertThat(rs.wasNull()).isTrue();
+                assertThat(rs.getLong(column)).isEqualTo(0);
+                assertThat(rs.wasNull()).isTrue();
+                assertThat(rs.getBigDecimal(column)).isNull();
+                assertThat(rs.wasNull()).isTrue();
+                assertThat(rs.getFloat(column)).isEqualTo(0f);
+                assertThat(rs.wasNull()).isTrue();
+                assertThat(rs.getDouble(column)).isEqualTo(0.0);
+                assertThat(rs.wasNull()).isTrue();
+                assertThat(rs.getDate(column)).isNull();
+                assertThat(rs.wasNull()).isTrue();
+                assertThat(rs.getTime(column)).isNull();
+                assertThat(rs.wasNull()).isTrue();
+                assertThat(rs.getTimestamp(column)).isNull();
+                assertThat(rs.wasNull()).isTrue();
+                assertThat(rs.getString(column)).isNull();
+                assertThat(rs.wasNull()).isTrue();
+                assertThat(rs.getAsciiStream(column)).isNull();
+                assertThat(rs.wasNull()).isTrue();
+                assertThat(rs.getBytes(column)).isNull();
+                assertThat(rs.wasNull()).isTrue();
+
+                ResultSetMetaData metaData = rs.getMetaData();
+                assertThat(metaData.getColumnTypeName(column)).isEqualTo("unknown");
+                assertThat(metaData.getColumnDisplaySize(column)).isEqualTo(0);
+                assertThat(metaData.getColumnClassName(column)).isEqualTo("unknown"); // TODO "unknown" feels wrong, is not a valid class name
+            });
+        }
+    }
+
+    @Test
     public void testPrimitiveTypes()
             throws Exception
     {
@@ -155,24 +200,24 @@ public abstract class BaseTestJdbcResultSet
         try (ConnectedStatement connectedStatement = newStatement()) {
             checkRepresentation(connectedStatement.getStatement(), "0.1", Types.DECIMAL, new BigDecimal("0.1"));
             checkRepresentation(connectedStatement.getStatement(), "DECIMAL '0.12'", Types.DECIMAL, (rs, column) -> {
+                assertThat(rs.getObject(column)).isEqualTo(new BigDecimal("0.12"));
                 assertThat(rs.getBigDecimal(column)).isEqualTo(new BigDecimal("0.12"));
                 assertThat(rs.getDouble(column)).isEqualTo(0.12);
                 assertThat(rs.getLong(column)).isEqualTo(0);
                 assertThat(rs.getFloat(column)).isEqualTo(0.12f);
+                assertThat(rs.getString(column)).isEqualTo("0.12");
             });
 
             long outsideOfDoubleExactRange = 9223372036854775774L;
             //noinspection ConstantConditions
             verify((long) (double) outsideOfDoubleExactRange - outsideOfDoubleExactRange != 0, "outsideOfDoubleExactRange should not be exact-representable as a double");
-            checkRepresentation(connectedStatement.getStatement(), format("DECIMAL '%s'",
-                    outsideOfDoubleExactRange), Types.DECIMAL,
-                    (rs, column) -> {
-                        assertThat(rs.getObject(column)).isEqualTo(new BigDecimal("9223372036854775774"));
-                        assertThat(rs.getBigDecimal(column)).isEqualTo(new BigDecimal("9223372036854775774"));
-                        assertThat(rs.getLong(column)).isEqualTo(9223372036854775774L);
-                        assertThat(rs.getDouble(column)).isEqualTo(9.223372036854776E18);
-                        assertThat(rs.getString(column)).isEqualTo("9223372036854775774");
-                    });
+            checkRepresentation(connectedStatement.getStatement(), format("DECIMAL '%s'", outsideOfDoubleExactRange), Types.DECIMAL, (rs, column) -> {
+                assertThat(rs.getObject(column)).isEqualTo(new BigDecimal("9223372036854775774"));
+                assertThat(rs.getBigDecimal(column)).isEqualTo(new BigDecimal("9223372036854775774"));
+                assertThat(rs.getLong(column)).isEqualTo(9223372036854775774L);
+                assertThat(rs.getDouble(column)).isEqualTo(9.223372036854776E18);
+                assertThat(rs.getString(column)).isEqualTo("9223372036854775774");
+            });
 
             checkRepresentation(connectedStatement.getStatement(), "VARCHAR ''", Types.VARCHAR, (rs, column) -> {
                 assertThatThrownBy(() -> rs.getBigDecimal(column))
@@ -188,6 +233,117 @@ public abstract class BaseTestJdbcResultSet
 
             checkRepresentation(connectedStatement.getStatement(), "VARCHAR '123e-1'", Types.VARCHAR,
                     (rs, column) -> assertThat(rs.getBigDecimal(column)).isEqualTo(new BigDecimal("12.3")));
+        }
+    }
+
+    @Test
+    public void testBigdecimal()
+            throws Exception
+    {
+        try (ConnectedStatement connectedStatement = newStatement()) {
+            checkRepresentation(connectedStatement.getStatement(), "CAST(NULL AS BIGDECIMAL)", Types.DECIMAL, (rs, column) -> {
+                assertThat(rs.getObject(column)).isNull();
+                assertThat(rs.wasNull()).isTrue();
+                assertThat(rs.getByte(column)).isEqualTo((byte) 0);
+                assertThat(rs.wasNull()).isTrue();
+                assertThat(rs.getShort(column)).isEqualTo((short) 0);
+                assertThat(rs.wasNull()).isTrue();
+                assertThat(rs.getInt(column)).isEqualTo(0);
+                assertThat(rs.wasNull()).isTrue();
+                assertThat(rs.getLong(column)).isEqualTo(0);
+                assertThat(rs.wasNull()).isTrue();
+                assertThat(rs.getBigDecimal(column)).isNull();
+                assertThat(rs.wasNull()).isTrue();
+                assertThat(rs.getFloat(column)).isEqualTo(0);
+                assertThat(rs.wasNull()).isTrue();
+                assertThat(rs.getDouble(column)).isEqualTo(0);
+                assertThat(rs.wasNull()).isTrue();
+                assertThat(rs.getString(column)).isNull();
+                assertThat(rs.wasNull()).isTrue();
+                assertThat(rs.getBytes(column)).isNull();
+                assertThat(rs.wasNull()).isTrue();
+            });
+
+            checkRepresentation(connectedStatement.getStatement(), "BIGDECIMAL '0.1'", Types.DECIMAL, new BigDecimal("0.1"));
+            checkRepresentation(connectedStatement.getStatement(), "BIGDECIMAL '0.100'", Types.DECIMAL, new BigDecimal("0.1"));
+            checkRepresentation(connectedStatement.getStatement(), "BIGDECIMAL '100'", Types.DECIMAL, new BigDecimal("1e2"));
+            checkRepresentation(connectedStatement.getStatement(), "BIGDECIMAL '20050910133100123'", Types.DECIMAL, new BigDecimal("20050910133100123"));
+
+            checkRepresentation(connectedStatement.getStatement(), "BIGDECIMAL '1'", Types.DECIMAL, (rs, column) -> {
+                assertThat(rs.getObject(column)).isEqualTo(new BigDecimal("1"));
+                assertThat(rs.getByte(column)).isEqualTo((byte) 1);
+                assertThat(rs.getShort(column)).isEqualTo((short) 1);
+                assertThat(rs.getInt(column)).isEqualTo(1);
+                assertThat(rs.getLong(column)).isEqualTo(1);
+                assertThat(rs.getBigDecimal(column)).isEqualTo(new BigDecimal("1"));
+                assertThat(rs.getFloat(column)).isEqualTo(1f);
+                assertThat(rs.getDouble(column)).isEqualTo(1.0);
+                assertThat(rs.getString(column)).isEqualTo("1");
+                assertThatThrownBy(() -> rs.getBytes(column)).hasMessage("Value is not a byte array: 1");
+
+                ResultSetMetaData metaData = rs.getMetaData();
+                assertThat(metaData.getColumnTypeName(column)).isEqualTo("bigdecimal");
+                assertThat(metaData.getColumnDisplaySize(column)).isEqualTo(0);
+                assertThat(metaData.getColumnClassName(column)).isEqualTo("java.math.BigDecimal");
+            });
+
+            checkRepresentation(connectedStatement.getStatement(), "BIGDECIMAL '0.12'", Types.DECIMAL, (rs, column) -> {
+                assertThat(rs.getObject(column)).isEqualTo(new BigDecimal("0.12"));
+                assertThat(rs.getByte(column)).isEqualTo((byte) 0);
+                assertThat(rs.getShort(column)).isEqualTo((short) 0);
+                assertThat(rs.getInt(column)).isEqualTo(0);
+                assertThat(rs.getLong(column)).isEqualTo(0);
+                assertThat(rs.getBigDecimal(column)).isEqualTo(new BigDecimal("0.12"));
+                assertThat(rs.getFloat(column)).isEqualTo(0.12f);
+                assertThat(rs.getDouble(column)).isEqualTo(0.12);
+                assertThat(rs.getString(column)).isEqualTo("0.12");
+                assertThatThrownBy(() -> rs.getBytes(column)).hasMessage("Value is not a byte array: 0.12");
+
+                ResultSetMetaData metaData = rs.getMetaData();
+                assertThat(metaData.getColumnTypeName(column)).isEqualTo("bigdecimal");
+                assertThat(metaData.getColumnDisplaySize(column)).isEqualTo(0);
+                assertThat(metaData.getColumnClassName(column)).isEqualTo("java.math.BigDecimal");
+            });
+
+            long outsideOfDoubleExactRange = 9223372036854775774L;
+            //noinspection ConstantConditions
+            verify((long) (double) outsideOfDoubleExactRange - outsideOfDoubleExactRange != 0, "outsideOfDoubleExactRange should not be exact-representable as a double");
+            checkRepresentation(connectedStatement.getStatement(), format("BIGDECIMAL '%s'", outsideOfDoubleExactRange), Types.DECIMAL, (rs, column) -> {
+                assertThat(rs.getObject(column)).isEqualTo(new BigDecimal("9223372036854775774"));
+                // TODO (https://github.com/trinodb/trino/issues/28146) silent numeric truncation
+                assertThat(rs.getByte(column)).isEqualTo((byte) -34);
+                assertThat(rs.getShort(column)).isEqualTo((short) -34);
+                assertThat(rs.getInt(column)).isEqualTo(-34);
+                assertThat(rs.getLong(column)).isEqualTo(9223372036854775774L);
+                assertThat(rs.getBigDecimal(column)).isEqualTo(new BigDecimal("9223372036854775774"));
+                assertThat(rs.getFloat(column)).isEqualTo(9.223372E18f);
+                assertThat(rs.getDouble(column)).isEqualTo(9.223372036854776E18);
+                assertThat(rs.getString(column)).isEqualTo("9223372036854775774");
+                assertThatThrownBy(() -> rs.getBytes(column)).hasMessage("Value is not a byte array: 9223372036854775774");
+
+                ResultSetMetaData metaData = rs.getMetaData();
+                assertThat(metaData.getColumnTypeName(column)).isEqualTo("bigdecimal");
+                assertThat(metaData.getColumnDisplaySize(column)).isEqualTo(0);
+                assertThat(metaData.getColumnClassName(column)).isEqualTo("java.math.BigDecimal");
+            });
+
+            checkRepresentation(connectedStatement.getStatement(), "BIGDECIMAL '3.141592653589793238462643383279502884197169399375105820974944592307'", Types.DECIMAL, (rs, column) -> {
+                assertThat(rs.getObject(column)).isEqualTo(new BigDecimal("3.141592653589793238462643383279502884197169399375105820974944592307"));
+                assertThat(rs.getByte(column)).isEqualTo((byte) 3);
+                assertThat(rs.getShort(column)).isEqualTo((short) 3);
+                assertThat(rs.getInt(column)).isEqualTo(3);
+                assertThat(rs.getLong(column)).isEqualTo(3);
+                assertThat(rs.getBigDecimal(column)).isEqualTo(new BigDecimal("3.141592653589793238462643383279502884197169399375105820974944592307"));
+                assertThat(rs.getFloat(column)).isEqualTo(3.1415927f);
+                assertThat(rs.getDouble(column)).isEqualTo(3.141592653589793);
+                assertThat(rs.getString(column)).isEqualTo("3.141592653589793238462643383279502884197169399375105820974944592307");
+                assertThatThrownBy(() -> rs.getBytes(column)).hasMessage("Value is not a byte array: 3.141592653589793238462643383279502884197169399375105820974944592307");
+
+                ResultSetMetaData metaData = rs.getMetaData();
+                assertThat(metaData.getColumnTypeName(column)).isEqualTo("bigdecimal");
+                assertThat(metaData.getColumnDisplaySize(column)).isEqualTo(0);
+                assertThat(metaData.getColumnClassName(column)).isEqualTo("java.math.BigDecimal");
+            });
         }
     }
 

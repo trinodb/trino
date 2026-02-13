@@ -19,6 +19,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
 
 import java.io.IOException;
+import java.math.BigDecimal;
 import java.util.Base64;
 import java.util.HashMap;
 import java.util.LinkedList;
@@ -31,6 +32,7 @@ import static com.fasterxml.jackson.core.JsonToken.START_OBJECT;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static io.trino.client.ClientStandardTypes.ARRAY;
+import static io.trino.client.ClientStandardTypes.BIGDECIMAL;
 import static io.trino.client.ClientStandardTypes.BIGINT;
 import static io.trino.client.ClientStandardTypes.BING_TILE;
 import static io.trino.client.ClientStandardTypes.BOOLEAN;
@@ -78,6 +80,7 @@ public final class JsonDecodingUtils
     private static final TinyintDecoder TINYINT_DECODER = new TinyintDecoder();
     private static final DoubleDecoder DOUBLE_DECODER = new DoubleDecoder();
     private static final RealDecoder REAL_DECODER = new RealDecoder();
+    private static final BigdecimalDecoder BIGDECIMAL_DECODER = new BigdecimalDecoder();
     private static final BooleanDecoder BOOLEAN_DECODER = new BooleanDecoder();
     private static final StringDecoder STRING_DECODER = new StringDecoder();
     private static final Base64Decoder BASE_64_DECODER = new Base64Decoder();
@@ -114,6 +117,8 @@ public final class JsonDecodingUtils
                 return DOUBLE_DECODER;
             case REAL:
                 return REAL_DECODER;
+            case BIGDECIMAL:
+                return BIGDECIMAL_DECODER;
             case BOOLEAN:
                 return BOOLEAN_DECODER;
             case ARRAY:
@@ -257,6 +262,17 @@ public final class JsonDecodingUtils
                 default:
                     throw illegalToken(parser);
             }
+        }
+    }
+
+    private static class BigdecimalDecoder
+            implements TypeDecoder
+    {
+        @Override
+        public Object decode(JsonParser parser)
+                throws IOException
+        {
+            return new BigDecimal(parser.getValueAsString());
         }
     }
 

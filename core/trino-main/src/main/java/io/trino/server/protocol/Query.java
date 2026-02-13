@@ -130,6 +130,7 @@ class Query
     @GuardedBy("this")
     private PageDeserializer deserializer;
     private final boolean supportsParametricDateTime;
+    private final boolean supportsBigdecimal;
 
     @GuardedBy("this")
     private OptionalLong nextToken = OptionalLong.of(0);
@@ -257,6 +258,7 @@ class Query
         this.resultsProcessorExecutor = resultsProcessorExecutor;
         this.timeoutExecutor = timeoutExecutor;
         this.supportsParametricDateTime = session.getClientCapabilities().contains(ClientCapabilities.PARAMETRIC_DATETIME.toString());
+        this.supportsBigdecimal = session.getClientCapabilities().contains(ClientCapabilities.BIGDECIMAL.toString());
         deserializer = createExchangePagesSerdeFactory(blockEncodingSerde, session)
                 .createDeserializer(session.getExchangeEncryptionKey().map(Ciphers::deserializeAesEncryptionKey));
     }
@@ -689,7 +691,7 @@ class Query
 
             ImmutableList.Builder<Column> list = ImmutableList.builder();
             for (int i = 0; i < columnNames.size(); i++) {
-                list.add(createColumn(columnNames.get(i), columnTypes.get(i), supportsParametricDateTime));
+                list.add(createColumn(columnNames.get(i), columnTypes.get(i), supportsParametricDateTime, supportsBigdecimal));
             }
             columns = list.build();
             types = outputInfo.getColumnTypes();

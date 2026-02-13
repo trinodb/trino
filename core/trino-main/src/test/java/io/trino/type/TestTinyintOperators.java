@@ -13,6 +13,7 @@
  */
 package io.trino.type;
 
+import io.trino.spi.type.SqlBigdecimal;
 import io.trino.sql.query.QueryAssertions;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -463,7 +464,7 @@ public class TestTinyintOperators
     }
 
     @Test
-    public void testCastToFloat()
+    public void testCastToReal()
     {
         assertThat(assertions.expression("cast(a as real)")
                 .binding("a", "TINYINT '37'"))
@@ -476,6 +477,22 @@ public class TestTinyintOperators
         assertThat(assertions.expression("cast(a as real)")
                 .binding("a", "TINYINT '0'"))
                 .isEqualTo(0.0f);
+    }
+
+    @Test
+    public void testCastToBigDecimal()
+    {
+        assertThat(assertions.expression("cast(a as bigdecimal)")
+                .binding("a", "TINYINT '37'"))
+                .isEqualTo(new SqlBigdecimal("37"));
+
+        assertThat(assertions.expression("cast(a as bigdecimal)")
+                .binding("a", "TINYINT '-117'"))
+                .isEqualTo(new SqlBigdecimal("-117"));
+
+        assertThat(assertions.expression("cast(a as bigdecimal)")
+                .binding("a", "TINYINT '0'"))
+                .isEqualTo(new SqlBigdecimal("0"));
     }
 
     @Test

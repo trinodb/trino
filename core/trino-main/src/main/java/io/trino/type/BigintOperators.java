@@ -22,7 +22,10 @@ import io.trino.spi.function.LiteralParameter;
 import io.trino.spi.function.LiteralParameters;
 import io.trino.spi.function.ScalarOperator;
 import io.trino.spi.function.SqlType;
+import io.trino.spi.type.Bigdecimal;
 import io.trino.spi.type.StandardTypes;
+
+import java.math.BigDecimal;
 
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.spi.StandardErrorCode.DIVISION_BY_ZERO;
@@ -195,6 +198,13 @@ public final class BigintOperators
     public static long castToReal(@SqlType(StandardTypes.BIGINT) long value)
     {
         return floatToRawIntBits((float) value);
+    }
+
+    @ScalarOperator(CAST)
+    @SqlType(StandardTypes.BIGDECIMAL)
+    public static Bigdecimal castToBigdecimal(@SqlType(StandardTypes.BIGINT) long value)
+    {
+        return Bigdecimal.from(new BigDecimal(value));
     }
 
     @ScalarOperator(CAST)
