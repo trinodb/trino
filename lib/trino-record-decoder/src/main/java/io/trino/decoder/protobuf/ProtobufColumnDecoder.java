@@ -50,7 +50,6 @@ import io.trino.spi.type.VarcharType;
 import jakarta.annotation.Nullable;
 
 import java.util.List;
-import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Set;
@@ -70,6 +69,10 @@ public class ProtobufColumnDecoder
     // Trino JSON types are expected to be sorted by key
     private static final ObjectMapper mapper = JsonMapper.builder().configure(ORDER_MAP_ENTRIES_BY_KEYS, true).build();
     private static final String ANY_TYPE_NAME = "google.protobuf.Any";
+    private static final Set<String> STRUCT_TYPES = Set.of(
+            "google.protobuf.Struct",
+            "google.protobuf.Value",
+            "google.protobuf.ListValue");
     private static final Slice EMPTY_JSON = Slices.utf8Slice("{}");
 
     private static final Set<Type> SUPPORTED_PRIMITIVE_TYPES = ImmutableSet.of(
@@ -174,6 +177,12 @@ public class ProtobufColumnDecoder
             return createAnyJson((Message) value, valueDescriptor.get());
         }
 
+        if (valueDescriptor.isPresent()
+                && STRUCT_TYPES.contains(valueDescriptor.get().getFullName())
+                && value instanceof Message structMessage) {
+            return structToJsonSlice(structMessage);
+        }
+
         return value;
     }
 
@@ -239,12 +248,24 @@ public class ProtobufColumnDecoder
         }
     }
 
+    static Slice structToJsonSlice(Message message)
+    {
+        try {
+            return Slices.utf8Slice(sorted(JsonFormat.printer()
+                    .omittingInsignificantWhitespace()
+                    .print(message)));
+        }
+        catch (InvalidProtocolBufferException e) {
+            throw new TrinoException(GENERIC_INTERNAL_ERROR, "Failed to convert Struct message to JSON", e);
+        }
+    }
+
     private static String sorted(String json)
     {
         try {
             // Trino JSON types are expected to be sorted by key
             // This routine takes an input JSON string and sorts the entire tree by key, including nested maps
-            return mapper.writeValueAsString(mapper.treeToValue(mapper.readTree(json), Map.class));
+            return mapper.writeValueAsString(mapper.treeToValue(mapper.readTree(json), Object.class));
         }
         catch (JsonProcessingException e) {
             throw new TrinoException(GENERIC_INTERNAL_ERROR, "Failed to process JSON", e);
