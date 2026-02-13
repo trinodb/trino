@@ -13,6 +13,9 @@
  */
 package io.trino.filesystem.gcs;
 
+import io.trino.filesystem.Location;
+import io.trino.filesystem.TrinoInput;
+import io.trino.filesystem.TrinoInputFile;
 import io.trino.filesystem.TrinoOutputFile;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -22,6 +25,7 @@ import java.io.IOException;
 
 import static io.trino.testing.SystemEnvironmentUtils.requireEnv;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.assertj.core.api.Assertions.assertThat;
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 public class TestGcsFileSystem
@@ -32,6 +36,23 @@ public class TestGcsFileSystem
             throws IOException
     {
         initialize(requireEnv("GCP_CREDENTIALS_KEY"));
+    }
+
+    @Test
+    void testRoundTripFileWithHashInName()
+            throws Exception
+    {
+        byte[] buffer = new byte[8];
+        String stringToWrite = "test";
+        Location fileLocation = getRootLocation().appendPath("#testFileWith#HashesInName#");
+        TrinoOutputFile outputFile = getFileSystem().newOutputFile(fileLocation);
+        outputFile.createOrOverwrite(stringToWrite.getBytes(UTF_8));
+        TrinoInputFile inputFile = getFileSystem().newInputFile(fileLocation);
+        try (TrinoInput trinoInput = inputFile.newInput()) {
+            int readBytes = trinoInput.readTail(buffer, 0, 8);
+            String readString = new String(buffer, 0, readBytes, UTF_8);
+            assertThat(readString).isEqualTo(stringToWrite);
+        }
     }
 
     @Test
