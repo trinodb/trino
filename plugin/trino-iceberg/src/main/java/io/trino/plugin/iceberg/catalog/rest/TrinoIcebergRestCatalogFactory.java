@@ -135,10 +135,13 @@ public class TrinoIcebergRestCatalogFactory
             }
 
             RESTSessionCatalog icebergCatalogInstance = new RESTSessionCatalog(
-                    config -> HTTPClient.builder(config)
-                            .uri(config.get(CatalogProperties.URI))
-                            .withHeaders(RESTUtil.configHeaders(config))
-                            .build(),
+                    config -> {
+                        var client = HTTPClient.builder(config)
+                                .uri(config.get(CatalogProperties.URI))
+                                .withHeaders(RESTUtil.configHeaders(config))
+                                .build();
+                        return vendedCredentialsEnabled ? new StorageCredentialsMergingRestClient(client) : client;
+                    },
                     (context, config) -> {
                         ConnectorIdentity currentIdentity = (context.wrappedIdentity() != null)
                                 ? ((ConnectorIdentity) context.wrappedIdentity())
