@@ -1,10 +1,9 @@
 # OpenLineage event listener
 
-The OpenLineage event listener plugin allows streaming of lineage information,
-encoded in
-JSON format aligned with OpenLineage specification, to an external, OpenLineage
-compatible API, by POSTing them
-to a specified URI.
+The OpenLineage event listener plugin enables streaming of lineage information,
+encoded in JSON format and aligned with the OpenLineage specification,
+to external OpenLineage-compatible endpoints, including HTTP APIs (via POST to a specified URI)
+and Kafka-compatible systems.
 
 ## Rationale
 
@@ -90,9 +89,7 @@ If you want to disable this facet, add `trino_query_statistics` to
 ## Requirements
 
 You need to perform the following steps:
-
-- Provide an HTTP/S service that accepts POST events with a JSON body and is
-  compatible with the OpenLineage API format.
+- Provide an HTTP/S service that accepts POST events or Kafka system capable of receiving events in OpenLineage API format.
 - Configure `openlineage-event-listener.transport.url` in the event listener
   properties file with the URI of the service
 - Configure `openlineage-event-listener.trino.uri` so proper OpenLineage job 
@@ -172,6 +169,7 @@ event-listener.config-files=etc/openlineage-event-listener.properties,...
 
 - `CONSOLE` - sends OpenLineage JSON event to Trino coordinator standard output.
 - `HTTP` - sends OpenLineage JSON event to OpenLineage compatible HTTP endpoint.
+- `KAFKA` - sends OpenLineage JSON event to Kafka topic.
 
 :::{list-table} OpenLineage `HTTP` Transport Configuration properties
 :widths: 40, 40, 20
@@ -217,6 +215,108 @@ event-listener.config-files=etc/openlineage-event-listener.properties,...
     - `none`
 
 :::
+
+:::{list-table} OpenLineage `KAFKA` Transport Configuration properties
+:widths: 40, 40, 20
+:header-rows: 1
+
+*
+    - Property name
+    - Description
+    - Default
+*
+    - openlineage-event-listener.kafka-transport.broker-endpoints
+    - Comma-separated list of Kafka broker addresses in the format `host:port`.
+      Required if `KAFKA` transport is configured.
+    - None.
+*
+    - openlineage-event-listener.kafka-transport.topic-name
+    - Name of the Kafka topic to publish OpenLineage events to.
+      Required if `KAFKA` transport is configured.
+    - None.
+*
+    - openlineage-event-listener.kafka-transport.message-key
+    - Optional key for all Kafka messages produced by transport. If not specified, OpenLineage will use default value based on event type.
+    - None.
+*
+    - openlineage-event-listener.kafka-transport.client-id
+    - Kafka client ID for identifying this producer.
+    - None.
+*
+    - openlineage-event-listener.kafka-transport.request-timeout
+    - [Timeout](prop-type-duration) for Kafka requests.
+    - `10s`
+*
+    - openlineage-event-listener.kafka-transport.config.resources
+    - A comma-separated list of Kafka client configuration files. These files must exist on the machines running Trino.
+      Only specify this if absolutely necessary to access Kafka.
+      Example: `/etc/kafka-configuration.properties`
+    - None.
+*
+    - kafka.security-protocol
+    - Security protocol to use when connecting to Kafka brokers.
+      Allowed values: `PLAINTEXT`, `SSL`.
+    - `PLAINTEXT`
+*
+    - kafka.ssl.keystore.type
+    - Type of the SSL keystore. Required when `kafka.security-protocol` is `SSL``.
+      Allowed values: `JKS`, `PKCS12`.
+    - None.
+*
+    - kafka.ssl.keystore.location
+    - Path to the SSL keystore file. Required when `kafka.security-protocol` is `SSL`.
+    - None.
+*
+    - kafka.ssl.keystore.password
+    - Password for the SSL keystore. Required when `kafka.security-protocol` is `SSL`.
+    - None.
+*
+    - kafka.ssl.key.password
+    - Password for the private key in the keystore. Required when `kafka.security-protocol` is `SSL`.
+    - None.
+*
+    - kafka.ssl.truststore.type
+    - Type of the SSL truststore. Required when `kafka.security-protocol` is `SSL`.
+      Allowed values: `JKS`, `PKCS12`.
+    - None.
+*
+    - kafka.ssl.truststore.location
+    - Path to the SSL truststore file. Required when `kafka.security-protocol` is `SSL`.
+    - None.
+*
+    - kafka.ssl.truststore.password
+    - Password for the SSL truststore. Required when `kafka.security-protocol` is `SSL`.
+    - None.
+:::
+
+(openlineage-event-listener-custom-kafka-configuration)=
+### Custom Kafka Configuration
+
+In some cases, such as when using specialized authentication methods, it is
+necessary to specify additional Kafka client properties in order to access
+your Kafka cluster. To do so, add the `openlineage-event-listener.kafka-transport.config.resources`
+property to reference your Kafka config files. Note that configs can be
+overwritten if defined explicitly in `openlineage-event-listener.properties`:
+
+```properties
+event-listener.name=kafka
+openlineage-event-listener.kafka-transport.broker-endpoints=kafka.example.com:9093
+openlineage-event-listener.kafka-transport.topic-name=openlineage-topic
+openlineage-event-listener.kafka-transport.config.resources=/etc/kafka-configuration.properties
+```
+
+The contents of `/etc/kafka-configuration.properties` can for example be:
+
+```properties
+sasl.mechanism=SCRAM-SHA-512
+security.protocol=SASL_SSL
+sasl.jaas.config=org.apache.kafka.common.security.scram.ScramLoginModule required \
+  username="kafkaclient1" \
+  password="kafkaclient1-secret";
+```
+
+Kafka transport uses `zstd` compression by default for efficient message delivery.
+This can be overridden via the config resources file by setting `compression.type`.
 
 (openlineage-event-listener-custom-headers)=
 
