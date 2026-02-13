@@ -1392,7 +1392,9 @@ public class IcebergMetadata
         Location location = Location.of(transaction.table().location());
         try {
             // S3 Tables internally assigns a unique location for each table
-            if (!isS3Tables(location.toString())) {
+            // we create a non-staged table if tableLocation.isEmpty(), in that case, the table location will not be
+            // empty
+            if (!isS3Tables(location.toString()) && !(tableLocation != null && tableLocation.isEmpty())) {
                 TrinoFileSystem fileSystem = fileSystemFactory.create(session.getIdentity(), transaction.table().io().properties());
                 if (!replace && fileSystem.listFiles(location).hasNext()) {
                     throw new TrinoException(ICEBERG_FILESYSTEM_ERROR, format("" +
