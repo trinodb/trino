@@ -602,6 +602,11 @@ public abstract class AstVisitor<R, C>
         return visitTableElement(node, context);
     }
 
+    protected R visitPrimaryKeyDefinition(PrimaryKeyDefinition node, C context)
+    {
+        return visitTableElement(node, context);
+    }
+
     protected R visitLikeClause(LikeClause node, C context)
     {
         return visitTableElement(node, context);
