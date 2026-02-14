@@ -218,7 +218,9 @@ public class TestHiveSchema
                         row("column_name"),
                         row("ordinal_position"),
                         row("column_default"),
+                        row("is_autoincrement"),
                         row("is_nullable"),
+                        row("is_readonly"),
                         row("data_type"));
         // information_schema.column_privileges exists in Hive 3
         assertThat(onTrino().executeQuery("SELECT column_name FROM information_schema.columns WHERE table_schema = 'information_schema' AND table_name = 'column_privileges'"))

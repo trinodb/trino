@@ -27,7 +27,6 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import static io.trino.plugin.jdbc.H2QueryRunner.createH2QueryRunner;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.fail;
 import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 
 @Execution(SAME_THREAD)
@@ -54,12 +53,17 @@ public class TestJdbcTableProperties
     }
 
     @Test
-    public void testGetTablePropertiesIsNotCalledForSelect()
+    public void testGetTablePropertiesIsCalledForSelect()
     {
-        onGetTableProperties = () -> fail("Unexpected call of: getTableProperties");
+        // Providing ResultSetMetadata make SELECT accessing table
+        // properties for each table present in the select command.
+        AtomicInteger counter = new AtomicInteger();
+        onGetTableProperties = counter::incrementAndGet;
         assertUpdate("CREATE TABLE copy_of_nation AS SELECT * FROM nation", 25);
         assertQuerySucceeds("SELECT * FROM copy_of_nation");
+        assertThat(counter.get()).isEqualTo(1);
         assertQuerySucceeds("SELECT nationkey FROM copy_of_nation");
+        assertThat(counter.get()).isEqualTo(2);
     }
 
     @Test

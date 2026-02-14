@@ -314,6 +314,7 @@ import static io.trino.plugin.hive.HiveMetadata.TRINO_QUERY_ID_NAME;
 import static io.trino.plugin.hive.TableType.EXTERNAL_TABLE;
 import static io.trino.plugin.hive.TableType.MANAGED_TABLE;
 import static io.trino.plugin.hive.TableType.VIRTUAL_VIEW;
+import static io.trino.plugin.hive.ViewReaderUtil.isSomeKindOfAView;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.buildInitialPrivilegeSet;
 import static io.trino.plugin.hive.util.HiveTypeTranslator.toHiveType;
 import static io.trino.plugin.hive.util.HiveUtil.escapeTableName;
@@ -709,7 +710,7 @@ public class DeltaLakeMetadata
             return null;
         }
         Optional<Table> metastoreTable = metastore.getRawMetastoreTable(tableName.getSchemaName(), tableName.getTableName());
-        if (metastoreTable.isEmpty()) {
+        if (metastoreTable.isEmpty() || isSomeKindOfAView(metastoreTable.get())) {
             return null;
         }
         DeltaMetastoreTable table = convertToDeltaMetastoreTable(metastoreTable.get());

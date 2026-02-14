@@ -1,149 +1,151 @@
 -- delimiter: |; trimValues:true;
-system| information_schema| applicable_roles| grantee| varchar| YES| null| null|
-system| information_schema| applicable_roles| grantee_type| varchar| YES| null| null|
-system| information_schema| applicable_roles| role_name| varchar| YES| null| null|
-system| information_schema| applicable_roles| is_grantable| varchar| YES| null| null|
-system| information_schema| columns| table_catalog| varchar| YES| null| null|
-system| information_schema| columns| table_schema| varchar| YES| null| null|
-system| information_schema| columns| table_name| varchar| YES| null| null|
-system| information_schema| columns| column_name| varchar| YES| null| null|
-system| information_schema| columns| ordinal_position| bigint| YES| null| null|
-system| information_schema| columns| column_default| varchar| YES| null| null|
-system| information_schema| columns| is_nullable| varchar| YES| null| null|
-system| information_schema| columns| data_type| varchar| YES| null| null|
-system| information_schema| enabled_roles| role_name| varchar| YES| null| null|
-system| information_schema| roles| role_name| varchar| YES| null| null|
-system| information_schema| schemata| catalog_name| varchar| YES| null| null|
-system| information_schema| schemata| schema_name| varchar| YES| null| null|
-system| information_schema| table_privileges| grantor| varchar| YES| null| null|
-system| information_schema| table_privileges| grantor_type| varchar| YES| null| null|
-system| information_schema| table_privileges| grantee| varchar| YES| null| null|
-system| information_schema| table_privileges| grantee_type| varchar| YES| null| null|
-system| information_schema| table_privileges| table_catalog| varchar| YES| null| null|
-system| information_schema| table_privileges| table_schema| varchar| YES| null| null|
-system| information_schema| table_privileges| table_name| varchar| YES| null| null|
-system| information_schema| table_privileges| privilege_type| varchar| YES| null| null|
-system| information_schema| table_privileges| is_grantable| varchar| YES| null| null|
-system| information_schema| table_privileges| with_hierarchy| varchar| YES| null| null|
-system| information_schema| tables| table_catalog| varchar| YES| null| null|
-system| information_schema| tables| table_schema| varchar| YES| null| null|
-system| information_schema| tables| table_name| varchar| YES| null| null|
-system| information_schema| tables| table_type| varchar| YES| null| null|
-system| information_schema| views| table_catalog| varchar| YES| null| null|
-system| information_schema| views| table_schema| varchar| YES| null| null|
-system| information_schema| views| table_name| varchar| YES| null| null|
-system| information_schema| views| view_definition| varchar| YES| null| null|
-system| metadata| analyze_properties| catalog_name| varchar| YES| null| null|
-system| metadata| analyze_properties| property_name| varchar| YES| null| null|
-system| metadata| analyze_properties| default_value| varchar| YES| null| null|
-system| metadata| analyze_properties| type| varchar| YES| null| null|
-system| metadata| analyze_properties| description| varchar| YES| null| null|
-system| metadata| catalogs| catalog_name| varchar| YES| null| null|
-system| metadata| catalogs| connector_id| varchar| YES| null| null|
-system| metadata| catalogs| connector_name| varchar| YES| null| null|
-system| metadata| catalogs| state| varchar| YES| null| null|
-system| metadata| column_properties| catalog_name| varchar| YES| null| null|
-system| metadata| column_properties| property_name| varchar| YES| null| null|
-system| metadata| column_properties| default_value| varchar| YES| null| null|
-system| metadata| column_properties| type| varchar| YES| null| null|
-system| metadata| column_properties| description| varchar| YES| null| null|
-system| metadata| functions_authorization| catalog| varchar| YES| null| null|
-system| metadata| functions_authorization| schema| varchar| YES| null| null|
-system| metadata| functions_authorization| name| varchar| YES| null| null|
-system| metadata| functions_authorization| authorization_type| varchar| YES| null| null|
-system| metadata| functions_authorization| authorization| varchar| YES| null| null|
-system| metadata| materialized_view_properties| catalog_name| varchar| YES| null| null|
-system| metadata| materialized_view_properties| property_name| varchar| YES| null| null|
-system| metadata| materialized_view_properties| default_value| varchar| YES| null| null|
-system| metadata| materialized_view_properties| type| varchar| YES| null| null|
-system| metadata| materialized_view_properties| description| varchar| YES| null| null|
-system| metadata| materialized_views| catalog_name| varchar| YES| null| null|
-system| metadata| materialized_views| schema_name| varchar| YES| null| null|
-system| metadata| materialized_views| name| varchar| YES| null| null|
-system| metadata| materialized_views| storage_catalog| varchar| YES| null| null|
-system| metadata| materialized_views| storage_schema| varchar| YES| null| null|
-system| metadata| materialized_views| storage_table| varchar| YES| null| null|
-system| metadata| materialized_views| freshness| varchar| YES| null| null|
-system| metadata| materialized_views| last_fresh_time| timestamp(9) with time zone| YES| null| null|
-system| metadata| materialized_views| comment| varchar| YES| null| null|
-system| metadata| materialized_views| definition| varchar| YES| null| null|
-system| metadata| schema_properties| catalog_name| varchar| YES| null| null|
-system| metadata| schema_properties| property_name| varchar| YES| null| null|
-system| metadata| schema_properties| default_value| varchar| YES| null| null|
-system| metadata| schema_properties| type| varchar| YES| null| null|
-system| metadata| schema_properties| description| varchar| YES| null| null|
-system| metadata| schemas_authorization| catalog| varchar| YES| null| null|
-system| metadata| schemas_authorization| schema| varchar| YES| null| null|
-system| metadata| schemas_authorization| authorization_type| varchar| YES| null| null|
-system| metadata| schemas_authorization| authorization| varchar| YES| null| null|
-system| metadata| table_comments| catalog_name| varchar| YES| null| null|
-system| metadata| table_comments| schema_name| varchar| YES| null| null|
-system| metadata| table_comments| table_name| varchar| YES| null| null|
-system| metadata| table_comments| comment| varchar| YES| null| null|
-system| metadata| table_properties| catalog_name| varchar| YES| null| null|
-system| metadata| table_properties| property_name| varchar| YES| null| null|
-system| metadata| table_properties| default_value| varchar| YES| null| null|
-system| metadata| table_properties| type| varchar| YES| null| null|
-system| metadata| table_properties| description| varchar| YES| null| null|
-system| metadata| tables_authorization| catalog| varchar| YES| null| null|
-system| metadata| tables_authorization| schema| varchar| YES| null| null|
-system| metadata| tables_authorization| name| varchar| YES| null| null|
-system| metadata| tables_authorization| authorization_type| varchar| YES| null| null|
-system| metadata| tables_authorization| authorization| varchar| YES| null| null|
-system| runtime| nodes| node_id| varchar| YES| null| null|
-system| runtime| nodes| http_uri| varchar| YES| null| null|
-system| runtime| nodes| node_version| varchar| YES| null| null|
-system| runtime| nodes| coordinator| boolean| YES| null| null|
-system| runtime| nodes| state| varchar| YES| null| null|
-system| runtime| optimizer_rule_stats| rule_name| varchar| YES| null| null|
-system| runtime| optimizer_rule_stats| invocations| bigint| YES| null| null|
-system| runtime| optimizer_rule_stats| matches| bigint| YES| null| null|
-system| runtime| optimizer_rule_stats| failures| bigint| YES| null| null|
-system| runtime| optimizer_rule_stats| average_time| double| YES| null| null|
-system| runtime| optimizer_rule_stats| time_distribution_percentiles| map(double, double)| YES| null| null|
-system| runtime| queries| query_id| varchar| YES| null| null|
-system| runtime| queries| state| varchar| YES| null| null|
-system| runtime| queries| user| varchar| YES| null| null|
-system| runtime| queries| source| varchar| YES| null| null|
-system| runtime| queries| query| varchar| YES| null| null|
-system| runtime| queries| resource_group_id| array(varchar)| YES| null| null|
-system| runtime| queries| queued_time_ms| bigint| YES| null| null|
-system| runtime| queries| analysis_time_ms| bigint| YES| null| null|
-system| runtime| queries| planning_time_ms| bigint| YES| null| null|
-system| runtime| queries| created| timestamp(3) with time zone| YES| null| null|
-system| runtime| queries| started| timestamp(3) with time zone| YES| null| null|
-system| runtime| queries| last_heartbeat| timestamp(3) with time zone| YES| null| null|
-system| runtime| queries| end| timestamp(3) with time zone| YES| null| null|
-system| runtime| queries| error_type| varchar| YES| null| null|
-system| runtime| queries| error_code| varchar| YES| null| null|
-system| runtime| tasks| node_id| varchar| YES| null| null|
-system| runtime| tasks| task_id| varchar| YES| null| null|
-system| runtime| tasks| stage_id| varchar| YES| null| null|
-system| runtime| tasks| query_id| varchar| YES| null| null|
-system| runtime| tasks| state| varchar| YES| null| null|
-system| runtime| tasks| splits| bigint| YES| null| null|
-system| runtime| tasks| queued_splits| bigint| YES| null| null|
-system| runtime| tasks| running_splits| bigint| YES| null| null|
-system| runtime| tasks| completed_splits| bigint| YES| null| null|
-system| runtime| tasks| split_scheduled_time_ms| bigint| YES| null| null|
-system| runtime| tasks| split_cpu_time_ms| bigint| YES| null| null|
-system| runtime| tasks| split_blocked_time_ms| bigint| YES| null| null|
-system| runtime| tasks| internal_network_input_bytes| bigint| YES| null| null|
-system| runtime| tasks| processed_input_bytes| bigint| YES| null| null|
-system| runtime| tasks| processed_input_rows| bigint| YES| null| null|
-system| runtime| tasks| output_bytes| bigint| YES| null| null|
-system| runtime| tasks| output_rows| bigint| YES| null| null|
-system| runtime| tasks| physical_input_bytes| bigint| YES| null| null|
-system| runtime| tasks| physical_written_bytes| bigint| YES| null| null|
-system| runtime| tasks| created| timestamp(3) with time zone| YES| null| null|
-system| runtime| tasks| start| timestamp(3) with time zone| YES| null| null|
-system| runtime| tasks| last_heartbeat| timestamp(3) with time zone| YES| null| null|
-system| runtime| tasks| end| timestamp(3) with time zone| YES| null| null|
-system| runtime| transactions| transaction_id| varchar| YES| null| null|
-system| runtime| transactions| isolation_level| varchar| YES| null| null|
-system| runtime| transactions| read_only| boolean| YES| null| null|
-system| runtime| transactions| auto_commit_context| boolean| YES| null| null|
-system| runtime| transactions| create_time| timestamp(3) with time zone| YES| null| null|
-system| runtime| transactions| idle_time_secs| bigint| YES| null| null|
-system| runtime| transactions| written_catalog| varchar| YES| null| null|
-system| runtime| transactions| catalogs| array(varchar)| YES| null| null|
+system| information_schema| applicable_roles| grantee| varchar| NO| YES| NO| null| null|
+system| information_schema| applicable_roles| grantee_type| varchar| NO| YES| NO| null| null|
+system| information_schema| applicable_roles| role_name| varchar| NO| YES| NO| null| null|
+system| information_schema| applicable_roles| is_grantable| varchar| NO| YES| NO| null| null|
+system| information_schema| columns| table_catalog| varchar| NO| YES| NO| null| null|
+system| information_schema| columns| table_schema| varchar| NO| YES| NO| null| null|
+system| information_schema| columns| table_name| varchar| NO| YES| NO| null| null|
+system| information_schema| columns| column_name| varchar| NO| YES| NO| null| null|
+system| information_schema| columns| ordinal_position| bigint| NO| YES| NO| null| null|
+system| information_schema| columns| column_default| varchar| NO| YES| NO| null| null|
+system| information_schema| columns| is_autoincrement| varchar| NO| YES| NO| null| null|
+system| information_schema| columns| is_nullable| varchar| NO| YES| NO| null| null|
+system| information_schema| columns| is_readonly| varchar| NO| YES| NO| null| null|
+system| information_schema| columns| data_type| varchar| NO| YES| NO| null| null|
+system| information_schema| enabled_roles| role_name| varchar| NO| YES| NO| null| null|
+system| information_schema| roles| role_name| varchar| NO| YES| NO| null| null|
+system| information_schema| schemata| catalog_name| varchar| NO| YES| NO| null| null|
+system| information_schema| schemata| schema_name| varchar| NO| YES| NO| null| null|
+system| information_schema| table_privileges| grantor| varchar| NO| YES| NO| null| null|
+system| information_schema| table_privileges| grantor_type| varchar| NO| YES| NO| null| null|
+system| information_schema| table_privileges| grantee| varchar| NO| YES| NO| null| null|
+system| information_schema| table_privileges| grantee_type| varchar| NO| YES| NO| null| null|
+system| information_schema| table_privileges| table_catalog| varchar| NO| YES| NO| null| null|
+system| information_schema| table_privileges| table_schema| varchar| NO| YES| NO| null| null|
+system| information_schema| table_privileges| table_name| varchar| NO| YES| NO| null| null|
+system| information_schema| table_privileges| privilege_type| varchar| NO| YES| NO| null| null|
+system| information_schema| table_privileges| is_grantable| varchar| NO| YES| NO| null| null|
+system| information_schema| table_privileges| with_hierarchy| varchar| NO| YES| NO| null| null|
+system| information_schema| tables| table_catalog| varchar| NO| YES| NO| null| null|
+system| information_schema| tables| table_schema| varchar| NO| YES| NO| null| null|
+system| information_schema| tables| table_name| varchar| NO| YES| NO| null| null|
+system| information_schema| tables| table_type| varchar| NO| YES| NO| null| null|
+system| information_schema| views| table_catalog| varchar| NO| YES| NO| null| null|
+system| information_schema| views| table_schema| varchar| NO| YES| NO| null| null|
+system| information_schema| views| table_name| varchar| NO| YES| NO| null| null|
+system| information_schema| views| view_definition| varchar| NO| YES| NO| null| null|
+system| metadata| analyze_properties| catalog_name| varchar| NO| YES| NO| null| null|
+system| metadata| analyze_properties| property_name| varchar| NO| YES| NO| null| null|
+system| metadata| analyze_properties| default_value| varchar| NO| YES| NO| null| null|
+system| metadata| analyze_properties| type| varchar| NO| YES| NO| null| null|
+system| metadata| analyze_properties| description| varchar| NO| YES| NO| null| null|
+system| metadata| catalogs| catalog_name| varchar| NO| YES| NO| null| null|
+system| metadata| catalogs| connector_id| varchar| NO| YES| NO| null| null|
+system| metadata| catalogs| connector_name| varchar| NO| YES| NO| null| null|
+system| metadata| catalogs| state| varchar| NO| YES| NO| null| null|
+system| metadata| column_properties| catalog_name| varchar| NO| YES| NO| null| null|
+system| metadata| column_properties| property_name| varchar| NO| YES| NO| null| null|
+system| metadata| column_properties| default_value| varchar| NO| YES| NO| null| null|
+system| metadata| column_properties| type| varchar| NO| YES| NO| null| null|
+system| metadata| column_properties| description| varchar| NO| YES| NO| null| null|
+system| metadata| functions_authorization| catalog| varchar| NO| YES| NO| null| null|
+system| metadata| functions_authorization| schema| varchar| NO| YES| NO| null| null|
+system| metadata| functions_authorization| name| varchar| NO| YES| NO| null| null|
+system| metadata| functions_authorization| authorization_type| varchar| NO| YES| NO| null| null|
+system| metadata| functions_authorization| authorization| varchar| NO| YES| NO| null| null|
+system| metadata| materialized_view_properties| catalog_name| varchar| NO| YES| NO| null| null|
+system| metadata| materialized_view_properties| property_name| varchar| NO| YES| NO| null| null|
+system| metadata| materialized_view_properties| default_value| varchar| NO| YES| NO| null| null|
+system| metadata| materialized_view_properties| type| varchar| NO| YES| NO| null| null|
+system| metadata| materialized_view_properties| description| varchar| NO| YES| NO| null| null|
+system| metadata| materialized_views| catalog_name| varchar| NO| YES| NO| null| null|
+system| metadata| materialized_views| schema_name| varchar| NO| YES| NO| null| null|
+system| metadata| materialized_views| name| varchar| NO| YES| NO| null| null|
+system| metadata| materialized_views| storage_catalog| varchar| NO| YES| NO| null| null|
+system| metadata| materialized_views| storage_schema| varchar| NO| YES| NO| null| null|
+system| metadata| materialized_views| storage_table| varchar| NO| YES| NO| null| null|
+system| metadata| materialized_views| freshness| varchar| NO| YES| NO| null| null|
+system| metadata| materialized_views| last_fresh_time| timestamp(9) with time zone| NO| YES| NO| null| null|
+system| metadata| materialized_views| comment| varchar| NO| YES| NO| null| null|
+system| metadata| materialized_views| definition| varchar| NO| YES| NO| null| null|
+system| metadata| schema_properties| catalog_name| varchar| NO| YES| NO| null| null|
+system| metadata| schema_properties| property_name| varchar| NO| YES| NO| null| null|
+system| metadata| schema_properties| default_value| varchar| NO| YES| NO| null| null|
+system| metadata| schema_properties| type| varchar| NO| YES| NO| null| null|
+system| metadata| schema_properties| description| varchar| NO| YES| NO| null| null|
+system| metadata| schemas_authorization| catalog| varchar| NO| YES| NO| null| null|
+system| metadata| schemas_authorization| schema| varchar| NO| YES| NO| null| null|
+system| metadata| schemas_authorization| authorization_type| varchar| NO| YES| NO| null| null|
+system| metadata| schemas_authorization| authorization| varchar| NO| YES| NO| null| null|
+system| metadata| table_comments| catalog_name| varchar| NO| YES| NO| null| null|
+system| metadata| table_comments| schema_name| varchar| NO| YES| NO| null| null|
+system| metadata| table_comments| table_name| varchar| NO| YES| NO| null| null|
+system| metadata| table_comments| comment| varchar| NO| YES| NO| null| null|
+system| metadata| table_properties| catalog_name| varchar| NO| YES| NO| null| null|
+system| metadata| table_properties| property_name| varchar| NO| YES| NO| null| null|
+system| metadata| table_properties| default_value| varchar| NO| YES| NO| null| null|
+system| metadata| table_properties| type| varchar| NO| YES| NO| null| null|
+system| metadata| table_properties| description| varchar| NO| YES| NO| null| null|
+system| metadata| tables_authorization| catalog| varchar| NO| YES| NO| null| null|
+system| metadata| tables_authorization| schema| varchar| NO| YES| NO| null| null|
+system| metadata| tables_authorization| name| varchar| NO| YES| NO| null| null|
+system| metadata| tables_authorization| authorization_type| varchar| NO| YES| NO| null| null|
+system| metadata| tables_authorization| authorization| varchar| NO| YES| NO| null| null|
+system| runtime| nodes| node_id| varchar| NO| YES| NO| null| null|
+system| runtime| nodes| http_uri| varchar| NO| YES| NO| null| null|
+system| runtime| nodes| node_version| varchar| NO| YES| NO| null| null|
+system| runtime| nodes| coordinator| boolean| NO| YES| NO| null| null|
+system| runtime| nodes| state| varchar| NO| YES| NO| null| null|
+system| runtime| optimizer_rule_stats| rule_name| varchar| NO| YES| NO| null| null|
+system| runtime| optimizer_rule_stats| invocations| bigint| NO| YES| NO| null| null|
+system| runtime| optimizer_rule_stats| matches| bigint| NO| YES| NO| null| null|
+system| runtime| optimizer_rule_stats| failures| bigint| NO| YES| NO| null| null|
+system| runtime| optimizer_rule_stats| average_time| double| NO| YES| NO| null| null|
+system| runtime| optimizer_rule_stats| time_distribution_percentiles| map(double, double)| NO| YES| NO| null| null|
+system| runtime| queries| query_id| varchar| NO| YES| NO| null| null|
+system| runtime| queries| state| varchar| NO| YES| NO| null| null|
+system| runtime| queries| user| varchar| NO| YES| NO| null| null|
+system| runtime| queries| source| varchar| NO| YES| NO| null| null|
+system| runtime| queries| query| varchar| NO| YES| NO| null| null|
+system| runtime| queries| resource_group_id| array(varchar)| NO| YES| NO| null| null|
+system| runtime| queries| queued_time_ms| bigint| NO| YES| NO| null| null|
+system| runtime| queries| analysis_time_ms| bigint| NO| YES| NO| null| null|
+system| runtime| queries| planning_time_ms| bigint| NO| YES| NO| null| null|
+system| runtime| queries| created| timestamp(3) with time zone| NO| YES| NO| null| null|
+system| runtime| queries| started| timestamp(3) with time zone| NO| YES| NO| null| null|
+system| runtime| queries| last_heartbeat| timestamp(3) with time zone| NO| YES| NO| null| null|
+system| runtime| queries| end| timestamp(3) with time zone| NO| YES| NO| null| null|
+system| runtime| queries| error_type| varchar| NO| YES| NO| null| null|
+system| runtime| queries| error_code| varchar| NO| YES| NO| null| null|
+system| runtime| tasks| node_id| varchar| NO| YES| NO| null| null|
+system| runtime| tasks| task_id| varchar| NO| YES| NO| null| null|
+system| runtime| tasks| stage_id| varchar| NO| YES| NO| null| null|
+system| runtime| tasks| query_id| varchar| NO| YES| NO| null| null|
+system| runtime| tasks| state| varchar| NO| YES| NO| null| null|
+system| runtime| tasks| splits| bigint| NO| YES| NO| null| null|
+system| runtime| tasks| queued_splits| bigint| NO| YES| NO| null| null|
+system| runtime| tasks| running_splits| bigint| NO| YES| NO| null| null|
+system| runtime| tasks| completed_splits| bigint| NO| YES| NO| null| null|
+system| runtime| tasks| split_scheduled_time_ms| bigint| NO| YES| NO| null| null|
+system| runtime| tasks| split_cpu_time_ms| bigint| NO| YES| NO| null| null|
+system| runtime| tasks| split_blocked_time_ms| bigint| NO| YES| NO| null| null|
+system| runtime| tasks| internal_network_input_bytes| bigint| NO| YES| NO| null| null|
+system| runtime| tasks| processed_input_bytes| bigint| NO| YES| NO| null| null|
+system| runtime| tasks| processed_input_rows| bigint| NO| YES| NO| null| null|
+system| runtime| tasks| output_bytes| bigint| NO| YES| NO| null| null|
+system| runtime| tasks| output_rows| bigint| NO| YES| NO| null| null|
+system| runtime| tasks| physical_input_bytes| bigint| NO| YES| NO| null| null|
+system| runtime| tasks| physical_written_bytes| bigint| NO| YES| NO| null| null|
+system| runtime| tasks| created| timestamp(3) with time zone| NO| YES| NO| null| null|
+system| runtime| tasks| start| timestamp(3) with time zone| NO| YES| NO| null| null|
+system| runtime| tasks| last_heartbeat| timestamp(3) with time zone| NO| YES| NO| null| null|
+system| runtime| tasks| end| timestamp(3) with time zone| NO| YES| NO| null| null|
+system| runtime| transactions| transaction_id| varchar| NO| YES| NO| null| null|
+system| runtime| transactions| isolation_level| varchar| NO| YES| NO| null| null|
+system| runtime| transactions| read_only| boolean| NO| YES| NO| null| null|
+system| runtime| transactions| auto_commit_context| boolean| NO| YES| NO| null| null|
+system| runtime| transactions| create_time| timestamp(3) with time zone| NO| YES| NO| null| null|
+system| runtime| transactions| idle_time_secs| bigint| NO| YES| NO| null| null|
+system| runtime| transactions| written_catalog| varchar| NO| YES| NO| null| null|
+system| runtime| transactions| catalogs| array(varchar)| NO| YES| NO| null| null|

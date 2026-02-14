@@ -28,6 +28,7 @@ import io.trino.client.Warning;
 import io.trino.execution.BasicStageInfo;
 import io.trino.execution.BasicStageStats;
 import io.trino.execution.BasicStagesInfo;
+import io.trino.execution.ColumnInfo;
 import io.trino.execution.ExecutionFailureInfo;
 import io.trino.execution.QueryState;
 import io.trino.execution.StageId;
@@ -74,11 +75,16 @@ public final class ProtocolUtil
 
     private ProtocolUtil() {}
 
-    public static Column createColumn(String name, Type type, boolean supportsParametricDateTime)
+    public static Column createColumn(ColumnInfo columnInfo, Type type, boolean supportsParametricDateTime)
+    {
+        return createColumn(columnInfo.getCatalogName(), columnInfo.getSchemaName(), columnInfo.getTableName(), columnInfo.getName(), columnInfo.getLabel(), columnInfo.isAutoIncrement(), false, columnInfo.isNullable(), columnInfo.isReadOnly(), type, supportsParametricDateTime);
+    }
+
+    private static Column createColumn(Optional<String> catalog, Optional<String> schema, Optional<String> table, String name, Optional<String> label, boolean autoIncrement, boolean caseSensitive, boolean nullable, boolean readOnly, Type type, boolean supportsParametricDateTime)
     {
         String formatted = formatType(TypeSignatureTranslator.toSqlType(type), supportsParametricDateTime);
 
-        return new Column(name, formatted, toClientTypeSignature(type.getTypeSignature(), supportsParametricDateTime));
+        return new Column(catalog, schema, table, name, label, autoIncrement, caseSensitive, nullable, readOnly, formatted, toClientTypeSignature(type.getTypeSignature(), supportsParametricDateTime));
     }
 
     private static String formatType(DataType type, boolean supportsParametricDateTime)
