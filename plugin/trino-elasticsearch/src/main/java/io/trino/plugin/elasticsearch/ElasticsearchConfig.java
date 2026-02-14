@@ -77,6 +77,7 @@ public class ElasticsearchConfig
     private boolean verifyHostnames = true;
 
     private Security security;
+    private String pathPrefix;
 
     @NotNull
     public List<String> getHosts()
@@ -339,6 +340,19 @@ public class ElasticsearchConfig
     public ElasticsearchConfig setIgnorePublishAddress(boolean ignorePublishAddress)
     {
         this.ignorePublishAddress = ignorePublishAddress;
+        return this;
+    }
+
+    public Optional<String> getPathPrefix()
+    {
+        return Optional.ofNullable(pathPrefix);
+    }
+
+    @Config("elasticsearch.path-prefix")
+    @ConfigDescription("Path prefix for REST client")
+    public ElasticsearchConfig setPathPrefix(String pathPrefix)
+    {
+        this.pathPrefix = pathPrefix;
         return this;
     }
 
