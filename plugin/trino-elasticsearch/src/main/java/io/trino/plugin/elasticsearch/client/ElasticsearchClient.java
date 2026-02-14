@@ -206,6 +206,8 @@ public class ElasticsearchClient
                         .map(httpHost -> new HttpHost(httpHost, config.getPort(), config.isTlsEnabled() ? "https" : "http"))
                         .toArray(HttpHost[]::new));
 
+        config.getPathPrefix().ifPresent(builder::setPathPrefix);
+
         builder.setHttpClientConfigCallback(_ -> {
             RequestConfig requestConfig = RequestConfig.custom()
                     .setConnectTimeout(toIntExact(config.getConnectTimeout().toMillis()))
@@ -341,6 +343,11 @@ public class ElasticsearchClient
                 chosen = shardGroup.stream()
                         .min(this::shardPreference)
                         .get();
+
+                if (nodes.isEmpty()) {
+                    shards.add(new Shard(chosen.getIndex(), chosen.getShard(), Optional.empty()));
+                    continue;
+                }
                 node = nodes.get(chosen.getShard() % nodes.size());
             }
             else {
