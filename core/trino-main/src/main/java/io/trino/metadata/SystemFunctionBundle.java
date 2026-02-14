@@ -169,6 +169,7 @@ import io.trino.operator.scalar.SessionFunctions;
 import io.trino.operator.scalar.SplitToMapFunction;
 import io.trino.operator.scalar.SplitToMultimapFunction;
 import io.trino.operator.scalar.StringFunctions;
+import io.trino.operator.scalar.SwitchFunction;
 import io.trino.operator.scalar.TDigestFunctions;
 import io.trino.operator.scalar.TryFunction;
 import io.trino.operator.scalar.TypeOfFunction;
@@ -725,6 +726,8 @@ public final class SystemFunctionBundle
                 .scalar(io.trino.operator.scalar.timetz.AtTimeZone.class)
                 .scalar(io.trino.operator.scalar.timetz.AtTimeZoneWithOffset.class)
                 .scalar(CurrentTime.class);
+
+        builder.function(SwitchFunction.SWITCH_FUNCTION);
 
         switch (featuresConfig.getRegexLibrary()) {
             case JONI:
