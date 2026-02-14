@@ -180,7 +180,7 @@ final class TestIcebergS3TablesConnectorSmokeTest
     public void testRenameTable()
     {
         assertThatThrownBy(super::testRenameTable)
-                .hasStackTraceContaining("Unable to process: RenameTable endpoint is not supported for Glue Catalog");
+                .hasStackTraceContaining("RenameTable endpoint is not supported for Glue Catalog");
     }
 
     @Test
