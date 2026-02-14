@@ -25,8 +25,8 @@ import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.clients.producer.RecordMetadata;
 import org.apache.kafka.common.serialization.LongSerializer;
 import org.testcontainers.containers.GenericContainer;
-import org.testcontainers.containers.KafkaContainer;
 import org.testcontainers.containers.Network;
+import org.testcontainers.kafka.ConfluentKafkaContainer;
 import org.testcontainers.utility.DockerImageName;
 import org.testcontainers.utility.MountableFile;
 
@@ -43,6 +43,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Properties;
+import java.util.UUID;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.stream.Stream;
@@ -58,14 +59,14 @@ public final class TestingKafka
 {
     private static final Logger log = Logger.get(TestingKafka.class);
 
-    private static final String DEFAULT_CONFLUENT_PLATFORM_VERSION = "7.9.0";
+    private static final String DEFAULT_CONFLUENT_PLATFORM_VERSION = "8.1.1";
     private static final int SCHEMA_REGISTRY_PORT = 8081;
 
     private static final DockerImageName KAFKA_IMAGE_NAME = DockerImageName.parse("confluentinc/cp-kafka");
     private static final DockerImageName SCHEMA_REGISTRY_IMAGE_NAME = DockerImageName.parse("confluentinc/cp-schema-registry");
 
     private final Network network;
-    private final KafkaContainer kafka;
+    private final ConfluentKafkaContainer kafka;
     private final GenericContainer<?> schemaRegistry;
     private final boolean withSchemaRegistry;
     private final Closer closer = Closer.create();
@@ -96,10 +97,15 @@ public final class TestingKafka
         // Modify the template directly instead.
         MountableFile kafkaLogTemplate = forClasspathResource("log4j-kafka.properties.template");
         MountableFile schemaRegistryLogTemplate = forClasspathResource("log4j-schema-registry.properties.template");
-        kafka = new KafkaContainer(KAFKA_IMAGE_NAME.withTag(confluentPlatformVersion))
+        kafka = new ConfluentKafkaContainer(KAFKA_IMAGE_NAME.withTag(confluentPlatformVersion))
                 .withStartupAttempts(3)
                 .withNetwork(network)
                 .withNetworkAliases("kafka")
+                .withEnv("CLUSTER_ID", "test-cluster-" + UUID.randomUUID().toString().replaceAll("-", ""))
+                .withEnv("KAFKA_NODE_ID", "1")
+                .withEnv("KAFKA_CONTROLLER_QUORUM_VOTERS", "1@kafka:9094")
+                .withEnv("KAFKA_LISTENERS", "PLAINTEXT://0.0.0.0:9093,BROKER://0.0.0.0:9092,CONTROLLER://0.0.0.0:9094")
+                .withExposedPorts(9092, 9093)
                 .withCopyFileToContainer(
                         kafkaLogTemplate,
                         "/etc/confluent/docker/log4j.properties.template");

@@ -16,6 +16,8 @@
     <properties>
         <air.compiler.fail-warnings>true</air.compiler.fail-warnings>
         <dep.wire.version>5.2.1</dep.wire.version>
+        <!-- wire 5.2 and confluent libraries in trino-kafka doesn't support protobuf 4.x -->
+        <dep.protobuf.version>3.25.8</dep.protobuf.version>
     </properties>
 
     <dependencies>
