@@ -18,6 +18,8 @@ import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
 import io.trino.parquet.metadata.ColumnChunkMetadata;
 import io.trino.plugin.base.type.DecodedTimestamp;
+import io.trino.plugin.deltalake.transactionlog.statistics.DeltaLakeJsonFileStatistics;
+import io.trino.plugin.deltalake.transactionlog.statistics.DeltaLakeParquetFileStatistics;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.SqlRow;
 import io.trino.spi.type.ArrayType;
@@ -128,11 +130,35 @@ public final class DeltaLakeParquetStatisticsUtils
             return (long) floatToRawIntBits((float) (double) jsonValue);
         }
         if (type == DOUBLE) {
+            if (jsonValue instanceof String stringValue) {
+                switch (stringValue) {
+                    case "Infinity" -> {
+                        return Double.POSITIVE_INFINITY;
+                    }
+                    case "-Infinity" -> {
+                        return Double.NEGATIVE_INFINITY;
+                    }
+                    case "NaN" -> {
+                        return Double.NaN;
+                    }
+                }
+            }
+
             //noinspection RedundantCast
             return (double) jsonValue;
         }
         if (type instanceof DecimalType decimalType) {
-            BigDecimal decimal = new BigDecimal((String) jsonValue);
+            BigDecimal decimal;
+
+            if (jsonValue instanceof Double doubleValue) {
+                decimal = BigDecimal.valueOf(doubleValue);
+            }
+            else if (jsonValue instanceof Long longValue) {
+                decimal = BigDecimal.valueOf(longValue);
+            }
+            else {
+                decimal = new BigDecimal((String) jsonValue);
+            }
 
             if (decimalType.isShort()) {
                 return Decimals.encodeShortScaledValue(decimal, decimalType.getScale());
@@ -149,14 +175,19 @@ public final class DeltaLakeParquetStatisticsUtils
             return Instant.parse((String) jsonValue).toEpochMilli() * MICROSECONDS_PER_MILLISECOND;
         }
         if (type == TIMESTAMP_MICROS) {
-            Instant instant = Instant.parse((String) jsonValue);
+            String stringValue = (String) jsonValue;
+            // TIMESTAMP_MICROS stats may or may not have timezone information. We accept both for maximum compatibility, assuming UTC
+            if (!stringValue.endsWith("Z")) {
+                stringValue += "Z";
+            }
+            Instant instant = Instant.parse(stringValue);
             return (instant.getEpochSecond() * MICROSECONDS_PER_SECOND) + (instant.getNano() / NANOSECONDS_PER_MICROSECOND);
         }
         if (type instanceof RowType rowType) {
             Map<?, ?> values = (Map<?, ?>) jsonValue;
             List<Type> fieldTypes = rowType.getFieldTypes();
             return buildRowValue(rowType, fields -> {
-                for (int i = 0; i < values.size(); ++i) {
+                for (int i = 0; i < fieldTypes.size(); ++i) {
                     Type fieldType = fieldTypes.get(i);
                     String fieldName = rowType.getFields().get(i).getName().orElseThrow(() -> new IllegalArgumentException("Field name must exist"));
                     Object fieldValue = jsonValueToTrinoValue(fieldType, values.remove(fieldName));
@@ -492,5 +523,14 @@ public final class DeltaLakeParquetStatisticsUtils
 
         LOG.debug("Accumulating Parquet statistics with Trino type: %s and Parquet statistics of type: %s is not supported", type, statistics);
         return Optional.empty();
+    }
+
+    public static DeltaLakeJsonFileStatistics convertParquetToJsonStatistics(Map<String, Type> columnTypeMapping, DeltaLakeParquetFileStatistics parquetFileStatistics)
+    {
+        return new DeltaLakeJsonFileStatistics(
+                parquetFileStatistics.getNumRecords(),
+                parquetFileStatistics.getMinValues().map(values -> toJsonValues(columnTypeMapping, values)),
+                parquetFileStatistics.getMaxValues().map(values -> toJsonValues(columnTypeMapping, values)),
+                parquetFileStatistics.getNullCount().map(nullCounts -> toNullCounts(columnTypeMapping, nullCounts)));
     }
 }
