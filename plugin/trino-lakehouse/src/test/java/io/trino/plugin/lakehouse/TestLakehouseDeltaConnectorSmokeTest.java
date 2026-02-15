@@ -21,6 +21,7 @@ import static io.trino.plugin.deltalake.DeltaLakeTableType.PARTITIONS;
 import static io.trino.plugin.deltalake.DeltaLakeTableType.PROPERTIES;
 import static io.trino.plugin.deltalake.DeltaLakeTableType.TRANSACTIONS;
 import static io.trino.plugin.lakehouse.TableType.DELTA;
+import static io.trino.testing.TestingNames.randomNameSuffix;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -86,5 +87,18 @@ public class TestLakehouseDeltaConnectorSmokeTest
                 .failure().hasMessageMatching(".* Table .* does not exist");
         assertThat(query("SELECT count(*) FROM lakehouse.tpch.\"region$timeline\""))
                 .failure().hasMessageMatching(".* Table .* does not exist");
+    }
+
+    @Test
+    public void testTableProcedures()
+    {
+        String tableName = "test_table_procedures_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " (key integer, value varchar)");
+        try {
+            assertThat(query("ALTER TABLE " + tableName + " EXECUTE optimize(file_size_threshold => '10kB')")).succeeds();
+        }
+        finally {
+            assertUpdate("DROP TABLE " + tableName);
+        }
     }
 }
