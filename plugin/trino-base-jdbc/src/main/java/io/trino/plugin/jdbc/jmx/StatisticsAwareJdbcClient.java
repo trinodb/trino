@@ -400,9 +400,15 @@ public final class StatisticsAwareJdbcClient
     }
 
     @Override
-    public void rollbackCreateTable(ConnectorSession session, JdbcOutputTableHandle handle)
+    public void rollbackDestinationTableCreation(ConnectorSession session, RemoteTableName remoteTableName)
     {
-        stats.getRollbackCreateTable().wrap(() -> delegate().rollbackCreateTable(session, handle));
+        stats.getRollbackDestinationTableCreation().wrap(() -> delegate().rollbackDestinationTableCreation(session, remoteTableName));
+    }
+
+    @Override
+    public void rollbackTemporaryTableCreation(ConnectorSession session, JdbcOutputTableHandle handle)
+    {
+        stats.getRollbackTemporaryTableCreation().wrap(() -> delegate().rollbackTemporaryTableCreation(session, handle));
     }
 
     @Override
