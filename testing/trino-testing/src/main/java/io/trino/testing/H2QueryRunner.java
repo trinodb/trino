@@ -70,6 +70,7 @@ import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.NumberType.NUMBER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
@@ -283,6 +284,15 @@ public class H2QueryRunner
                         row.add(decimalValue
                                 .setScale(decimalType.getScale(), HALF_UP)
                                 .round(new MathContext(decimalType.getPrecision())));
+                    }
+                }
+                else if (NUMBER == type) {
+                    BigDecimal value = resultSet.getBigDecimal(i);
+                    if (resultSet.wasNull()) {
+                        row.add(null);
+                    }
+                    else {
+                        row.add(value.stripTrailingZeros());
                     }
                 }
                 else if (JSON.equals(type)) {

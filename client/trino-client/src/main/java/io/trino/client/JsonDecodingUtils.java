@@ -19,6 +19,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
 
 import java.io.IOException;
+import java.math.BigDecimal;
 import java.util.Base64;
 import java.util.HashMap;
 import java.util.LinkedList;
@@ -48,6 +49,7 @@ import static io.trino.client.ClientStandardTypes.IPADDRESS;
 import static io.trino.client.ClientStandardTypes.JSON;
 import static io.trino.client.ClientStandardTypes.KDB_TREE;
 import static io.trino.client.ClientStandardTypes.MAP;
+import static io.trino.client.ClientStandardTypes.NUMBER;
 import static io.trino.client.ClientStandardTypes.P4_HYPER_LOG_LOG;
 import static io.trino.client.ClientStandardTypes.QDIGEST;
 import static io.trino.client.ClientStandardTypes.REAL;
@@ -64,6 +66,7 @@ import static io.trino.client.ClientStandardTypes.UUID;
 import static io.trino.client.ClientStandardTypes.VARBINARY;
 import static io.trino.client.ClientStandardTypes.VARCHAR;
 import static java.lang.String.format;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Collections.unmodifiableList;
 import static java.util.Collections.unmodifiableMap;
 import static java.util.Objects.requireNonNull;
@@ -78,6 +81,7 @@ public final class JsonDecodingUtils
     private static final TinyintDecoder TINYINT_DECODER = new TinyintDecoder();
     private static final DoubleDecoder DOUBLE_DECODER = new DoubleDecoder();
     private static final RealDecoder REAL_DECODER = new RealDecoder();
+    private static final NumberDecoder NUMBER_DECODER = new NumberDecoder();
     private static final BooleanDecoder BOOLEAN_DECODER = new BooleanDecoder();
     private static final StringDecoder STRING_DECODER = new StringDecoder();
     private static final Base64Decoder BASE_64_DECODER = new Base64Decoder();
@@ -114,6 +118,8 @@ public final class JsonDecodingUtils
                 return DOUBLE_DECODER;
             case REAL:
                 return REAL_DECODER;
+            case NUMBER:
+                return NUMBER_DECODER;
             case BOOLEAN:
                 return BOOLEAN_DECODER;
             case ARRAY:
@@ -257,6 +263,20 @@ public final class JsonDecodingUtils
                 default:
                     throw illegalToken(parser);
             }
+        }
+    }
+
+    private static class NumberDecoder
+            implements TypeDecoder
+    {
+        @Override
+        public Object decode(JsonParser parser)
+                throws IOException
+        {
+            // TODO maybe we could send numbers without base64. This probably requires client capabilities.
+            // Old clients apply base64 decoding to any type they don't recognize.
+            // TODO If Base64 stays, `parser.getBinaryValue(Base64Variants.MIME)` might be a better way to parse it.
+            return new BigDecimal(new String(Base64.getDecoder().decode(parser.getValueAsString()), UTF_8));
         }
     }
 

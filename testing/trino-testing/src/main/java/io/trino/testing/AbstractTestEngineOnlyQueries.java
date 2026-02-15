@@ -36,6 +36,7 @@ import io.trino.type.SqlIntervalYearMonth;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -792,6 +793,61 @@ public abstract class AbstractTestEngineOnlyQueries
                 "    UNION ALL" +
                 "    SELECT 'yy' AS c" +
                 ")");
+    }
+
+    /**
+     * Supplements {@link #testCoercions}
+     */
+    @Test
+    public void testNumericCoercions()
+    {
+        String[] numericTypes = new String[] {
+                "tinyint",
+                "smallint",
+                "integer",
+                "bigint",
+                "real",
+                "double",
+                "decimal(10,5)",
+                "decimal(24,11)",
+                "number",
+        };
+
+        for (String left : numericTypes) {
+            for (String right : numericTypes) {
+                try {
+                    String add = "SELECT CAST(CAST('3' AS " + left + ") + CAST('4' AS " + right + ") AS varchar)";
+                    String subtract = "SELECT CAST(CAST('3' AS " + left + ") - CAST('4' AS " + right + ") AS varchar)";
+                    String multiply = "SELECT CAST(CAST('3' AS " + left + ") * CAST('4' AS " + right + ") AS varchar)";
+                    String divide = "SELECT CAST(CAST('12' AS " + left + ") / CAST('4' AS " + right + ") AS varchar)";
+                    String modulus = "SELECT CAST(CAST('12' AS " + left + ") % CAST('7' AS " + right + ") AS varchar)";
+                    List<String> both = List.of(left, right);
+                    // There currently is no coercion between number and real/double/decimal
+                    boolean unsupported =
+                            both.contains("number") &&
+                            (both.contains("real") || both.contains("double") || both.contains("decimal(10,5)") || both.contains("decimal(24,11)"));
+                    if (unsupported) {
+                        assertThat(query(add)).failure().hasMessageMatching("line 1:\\d+: Cannot apply operator: .* \\+ .*");
+                        assertThat(query(subtract)).failure().hasMessageMatching("line 1:\\d+: Cannot apply operator: .* - .*");
+                        assertThat(query(multiply)).failure().hasMessageMatching("line 1:\\d+: Cannot apply operator: .* \\* .*");
+                        assertThat(query(divide)).failure().hasMessageMatching("line 1:\\d+: Cannot apply operator: .* / .*");
+                        assertThat(query(modulus)).failure().hasMessageMatching("line 1:\\d+: Cannot apply operator: .* % .*");
+                    }
+                    else {
+                        assertThat((String) computeActual(add).getOnlyValue()).matches("7(\\.0E0|\\.0+)?");
+                        assertThat((String) computeActual(subtract).getOnlyValue()).matches("-1(\\.0E0|\\.0+)?");
+                        assertThat((String) computeActual(multiply).getOnlyValue()).matches("12(\\.0+)?|1.2E1");
+                        assertThat((String) computeActual(divide).getOnlyValue()).matches("3(\\.0E0|\\.0+)?");
+                        assertThat((String) computeActual(modulus).getOnlyValue()).matches("5(\\.0E0|\\.0+)?");
+                    }
+                }
+                catch (Throwable e) {
+                    e.addSuppressed(new Exception("left = " + left));
+                    e.addSuppressed(new Exception("right = " + right));
+                    throw e;
+                }
+            }
+        }
     }
 
     @Test
@@ -6612,6 +6668,20 @@ public abstract class AbstractTestEngineOnlyQueries
 
         assertQueryFails("CREATE FUNCTION a.b.c() RETURNS varchar RETURN 8",
                 "line 1:48: Value of RETURN must evaluate to varchar \\(actual: integer\\)");
+    }
+
+    @Test
+    public void testNumber()
+    {
+        assertThat(query("SELECT NUMBER '3' + NUMBER '.14159265358979'"))
+                .matches("VALUES NUMBER '3.14159265358979'");
+        assertThat(computeActual("SELECT NUMBER '3' + NUMBER '.14159265358979'").getOnlyValue())
+                .isEqualTo(new BigDecimal("3.14159265358979"));
+
+        // Test testing NUMBER with H2QueryRunner
+        assertQuery(
+                "SELECT NUMBER '3' + NUMBER '.14159265358979'",
+                "SELECT CAST('3.14159265358979' AS DECIMAL(100000, 50000))");
     }
 
     private static ZonedDateTime zonedDateTime(String value)
