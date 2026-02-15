@@ -89,6 +89,7 @@
         <module>plugin/trino-kafka-event-listener</module>
         <module>plugin/trino-lakehouse</module>
         <module>plugin/trino-ldap-group-provider</module>
+        <module>plugin/trino-logger-event-listener</module>
         <module>plugin/trino-loki</module>
         <module>plugin/trino-mariadb</module>
         <module>plugin/trino-memory</module>
@@ -1197,6 +1198,12 @@
             <dependency>
                 <groupId>io.trino</groupId>
                 <artifactId>trino-kafka-event-listener</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.trino</groupId>
+                <artifactId>trino-logger-event-listener</artifactId>
                 <version>${project.version}</version>
             </dependency>
 
