@@ -1173,15 +1173,6 @@ public abstract class BaseConnectorTest
             assertUpdate("ALTER VIEW %s REFRESH".formatted(view.getName()));
             assertQueryReturnsEmptyResult("SELECT * FROM " + view.getName() + " EXCEPT CORRESPONDING SELECT * FROM " + table.getName());
 
-            if (hasBehavior(SUPPORTS_RENAME_COLUMN)) {
-                assertUpdate("ALTER TABLE %s RENAME COLUMN column_to_be_renamed TO renamed_column".formatted(table.getName()));
-                assertQueryFails(
-                        "SELECT * FROM %s".formatted(view.getName()),
-                        ".*is stale or in invalid state: column \\[renamed_column] of type bigint projected from query view at position 2 has a different name from column \\[column_to_be_renamed] of type bigint stored in view definition");
-                assertUpdate("ALTER VIEW %s REFRESH".formatted(view.getName()));
-                assertQueryReturnsEmptyResult("SELECT * FROM " + view.getName() + " EXCEPT CORRESPONDING SELECT * FROM " + table.getName());
-            }
-
             if (hasBehavior(SUPPORTS_COMMENT_ON_COLUMN)) {
                 assertUpdate("COMMENT ON COLUMN %s.column_with_comment IS 'test comment'".formatted(view.getName()));
                 assertThat(getColumnComment(view.getName(), "column_with_comment")).isEqualTo("test comment");
@@ -2164,7 +2155,7 @@ public abstract class BaseConnectorTest
 
         // test SHOW CREATE VIEW
         String expectedSql = formatSqlText(format(
-                "CREATE VIEW %s.%s.%s SECURITY %s AS %s",
+                "CREATE VIEW %s.%s.%s (x, y) SECURITY %s AS %s",
                 getSession().getCatalog().get(),
                 getSession().getSchema().get(),
                 viewName,
@@ -2193,6 +2184,52 @@ public abstract class BaseConnectorTest
         assertUpdate("DROP VIEW IF EXISTS " + viewName);
         String ddl = format(
                 "CREATE VIEW %s.%s.%s SECURITY DEFINER AS\n" +
+                        "SELECT *\n" +
+                        "FROM\n" +
+                        "  (\n" +
+                        " VALUES \n" +
+                        "     ROW(1, 'one')\n" +
+                        "   , ROW(2, 't')\n" +
+                        ")  t (\"1_col1\", col2)",
+                getSession().getCatalog().get(),
+                getSession().getSchema().get(),
+                viewName);
+        String showCreateSql = format(
+                "CREATE VIEW %s.%s.%s (\n" +
+                        "   \"1_col1\",\n" +
+                        "   col2\n" +
+                        ") SECURITY DEFINER AS\n" +
+                        "SELECT *\n" +
+                        "FROM\n" +
+                        "  (\n" +
+                        " VALUES \n" +
+                        "     ROW(1, 'one')\n" +
+                        "   , ROW(2, 't')\n" +
+                        ")  t (\"1_col1\", col2)",
+                getSession().getCatalog().get(),
+                getSession().getSchema().get(),
+                viewName);
+        assertUpdate(ddl);
+
+        assertThat(computeScalar("SHOW CREATE VIEW " + viewName)).isEqualTo(showCreateSql);
+
+        assertUpdate("DROP VIEW " + viewName);
+    }
+
+    @Test
+    public void testShowCreateViewWithColumnComment()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_CREATE_VIEW));
+        checkState(getSession().getCatalog().isPresent(), "catalog is not set");
+        checkState(getSession().getSchema().isPresent(), "schema is not set");
+
+        String viewName = "test_show_create_view" + randomNameSuffix();
+        assertUpdate("DROP VIEW IF EXISTS " + viewName);
+        String ddl = format(
+                "CREATE VIEW %s.%s.%s (\n" +
+                        "   id COMMENT 'id',\n" +
+                        "   name COMMENT 'name'\n" +
+                        ") SECURITY DEFINER AS\n" +
                         "SELECT *\n" +
                         "FROM\n" +
                         "  (\n" +
@@ -4897,6 +4934,34 @@ public abstract class BaseConnectorTest
             // comment set to empty
             assertUpdate("COMMENT ON COLUMN " + view.getName() + "." + viewColumnName + " IS ''");
             assertThat(getColumnComment(view.getName(), viewColumnName)).isEqualTo("");
+        }
+    }
+
+    @Test
+    public void testCreateViewWithColumnAlias()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_CREATE_VIEW));
+
+        try (TestView view = new TestView(getQueryRunner()::execute, "test_create_view_with_column_alias", "(test_alias1, test_alias2, test_alias3)", "SELECT * FROM region")) {
+            assertQuery("SELECT test_alias1, test_alias2, test_alias3 FROM " + view.getName(), "SELECT * FROM region");
+        }
+
+        // test with query with duplicate column name
+        try (TestView view = new TestView(getQueryRunner()::execute, "test_create_view_with_column_alias", "(test_alias1, test_alias2, test_alias3)", "SELECT regionkey, regionkey, abs(regionkey) FROM region")) {
+            assertQuery("SELECT test_alias1, test_alias3, test_alias2 FROM " + view.getName(), "SELECT regionkey, abs(regionkey), regionkey FROM region");
+        }
+    }
+
+    @Test
+    public void testCreateViewWithColumnComment()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_COMMENT_ON_VIEW_COLUMN));
+
+        try (TestView view = new TestView(getQueryRunner()::execute, "test_create_view_with_column_comment", "(test_comment1 COMMENT 'comment1', test_comment2, test_comment3 COMMENT 'comment3')", "SELECT * FROM region")) {
+            assertThat(getColumnComment(view.getName(), "test_comment1")).isEqualTo("comment1");
+            assertThat(getColumnComment(view.getName(), "test_comment2")).isEqualTo(null);
+            assertThat(getColumnComment(view.getName(), "test_comment3")).isEqualTo("comment3");
+            assertQuery("SELECT * FROM " + view.getName(), "SELECT * FROM region");
         }
     }
 

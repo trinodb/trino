@@ -28,6 +28,7 @@ import io.trino.sql.analyzer.AnalyzerFactory;
 import io.trino.sql.parser.SqlParser;
 import io.trino.sql.rewrite.StatementRewrite;
 import io.trino.sql.tree.AllColumns;
+import io.trino.sql.tree.ColumnComment;
 import io.trino.sql.tree.CreateView;
 import io.trino.sql.tree.Identifier;
 import io.trino.sql.tree.NodeLocation;
@@ -42,6 +43,7 @@ import org.junit.jupiter.api.TestInstance;
 import java.util.List;
 import java.util.Optional;
 
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.trino.spi.StandardErrorCode.INVALID_VIEW_PROPERTY;
 import static io.trino.spi.StandardErrorCode.TABLE_ALREADY_EXISTS;
@@ -169,6 +171,16 @@ public class TestCreateViewTask
                 .hasMessage("line 1:88: Invalid value for catalog 'test_catalog' view property 'boolean_property': Cannot convert ['unknown'] to boolean");
     }
 
+    @Test
+    public void testCreateViewWithColumnComment()
+    {
+        QualifiedObjectName viewName = qualifiedObjectName("view_with_column_comment");
+        getFutureValue(executeCreateViewWithColumnComment(asQualifiedName(viewName), false, Optional.of(ImmutableList.of(new ColumnComment(QualifiedName.of("test_view_column_comment"), Optional.of("new test column comment"))))));
+        assertThat(metadata.isView(testSession, viewName)).isTrue();
+        assertThat(metadata.getView(testSession, viewName).get().getColumns().stream().filter(column -> "test_view_column_comment".equals(column.name())).collect(onlyElement()).comment())
+                .isEqualTo(Optional.of("new test column comment"));
+    }
+
     private ListenableFuture<Void> executeCreateView(QualifiedName viewName, boolean replace)
     {
         return executeCreateView(viewName, ImmutableList.of(), replace);
@@ -185,6 +197,27 @@ public class TestCreateViewTask
                 Optional.empty(),
                 Optional.empty(),
                 viewProperties);
+        return new CreateViewTask(
+                plannerContext,
+                new AllowAllAccessControl(),
+                parser,
+                analyzerFactory,
+                new ViewPropertyManager(catalogHandle -> ImmutableMap.of("boolean_property", booleanProperty("boolean_property", "Mock description", false, false))))
+                .execute(statement, queryStateMachine, ImmutableList.of(), WarningCollector.NOOP);
+    }
+
+    private ListenableFuture<Void> executeCreateViewWithColumnComment(QualifiedName viewName, boolean replace, Optional<List<ColumnComment>> columnComments)
+    {
+        Query query = simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("mock_table")));
+        CreateView statement = new CreateView(
+                new NodeLocation(1, 1),
+                viewName,
+                query,
+                replace,
+                Optional.empty(),
+                Optional.empty(),
+                ImmutableList.of(),
+                columnComments);
         return new CreateViewTask(
                 plannerContext,
                 new AllowAllAccessControl(),

@@ -34,6 +34,7 @@ import io.trino.sql.tree.Call;
 import io.trino.sql.tree.CallArgument;
 import io.trino.sql.tree.Cast;
 import io.trino.sql.tree.CoalesceExpression;
+import io.trino.sql.tree.ColumnComment;
 import io.trino.sql.tree.ColumnDefinition;
 import io.trino.sql.tree.ColumnPosition;
 import io.trino.sql.tree.Comment;
@@ -4353,6 +4354,23 @@ public class TestSqlParser
         assertStatement("CREATE VIEW bar.foo AS SELECT * FROM t", new CreateView(location(1, 1), QualifiedName.of("bar", "foo"), query, false, Optional.empty(), Optional.empty(), ImmutableList.of()));
         assertStatement("CREATE VIEW \"awesome view\" AS SELECT * FROM t", new CreateView(location(1, 1), QualifiedName.of("awesome view"), query, false, Optional.empty(), Optional.empty(), ImmutableList.of()));
         assertStatement("CREATE VIEW \"awesome schema\".\"awesome view\" AS SELECT * FROM t", new CreateView(location(1, 1), QualifiedName.of("awesome schema", "awesome view"), query, false, Optional.empty(), Optional.empty(), ImmutableList.of()));
+        assertStatement("CREATE VIEW a (test_comment COMMENT 'comment') AS SELECT * FROM t", new CreateView(location(1, 1), QualifiedName.of("a"), query, false, Optional.empty(), Optional.empty(), ImmutableList.of(), Optional.of(ImmutableList.of(new ColumnComment(QualifiedName.of("test_comment"), Optional.of("comment"))))));
+        assertStatement(
+                "CREATE VIEW a (test_comment_1 COMMENT 'comment1', test_comment_2, test_comment_3 COMMENT 'comment3') AS SELECT * FROM t",
+                new CreateView(
+                        location(1, 1),
+                        QualifiedName.of("a"),
+                        query,
+                        false,
+                        Optional.empty(),
+                        Optional.empty(),
+                        ImmutableList.of(),
+                        Optional.of(
+                                ImmutableList.of(
+                                        new ColumnComment(QualifiedName.of("test_comment_1"), Optional.of("comment1")),
+                                        new ColumnComment(QualifiedName.of("test_comment_2"), Optional.empty()),
+                                        new ColumnComment(QualifiedName.of("test_comment_3"), Optional.of("comment3"))))));
+        assertStatement("CREATE OR REPLACE VIEW a (test_comment COMMENT 'comment') AS SELECT * FROM t", new CreateView(location(1, 1), QualifiedName.of("a"), query, true, Optional.empty(), Optional.empty(), ImmutableList.of(), Optional.of(ImmutableList.of(new ColumnComment(QualifiedName.of("test_comment"), Optional.of("comment"))))));
     }
 
     @Test
