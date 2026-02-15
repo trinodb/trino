@@ -90,6 +90,7 @@ public class TestDruidConnectorTest
                  SUPPORTS_RENAME_TABLE,
                  SUPPORTS_ROW_TYPE,
                  SUPPORTS_SET_COLUMN_TYPE,
+                 SUPPORTS_SET_NOT_NULL_CONSTRAINT,
                  SUPPORTS_TOPN_PUSHDOWN,
                  SUPPORTS_UPDATE,
                  SUPPORTS_MERGE -> false;

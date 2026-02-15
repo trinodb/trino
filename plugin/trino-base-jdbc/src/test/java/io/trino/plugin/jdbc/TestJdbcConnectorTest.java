@@ -337,4 +337,11 @@ public class TestJdbcConnectorTest
     {
         return OptionalInt.of(256);
     }
+
+    @Override
+    protected String errorMessageRegexTestSetNotNullConstraintOnNonEmptyTable()
+    {
+        return "Column \"COL\" contains null values; SQL statement:\n" +
+                "ALTER TABLE .* ALTER COLUMN \"COL\" SET NOT NULL.*";
+    }
 }

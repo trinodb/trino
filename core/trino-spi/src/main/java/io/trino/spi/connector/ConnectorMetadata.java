@@ -623,6 +623,17 @@ public interface ConnectorMetadata
     }
 
     /**
+     * Set a NOT NULL constraint to the specified column.
+     * <p>
+     * The engine does not validate existing data for nullability. Ensuring that no existing
+     * rows violate the constraint is the responsibility of the underlying connector.
+     */
+    default void setNotNullConstraint(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle column)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support setting a not null constraint");
+    }
+
+    /**
      * Drop a not null constraint on the specified column
      */
     default void dropNotNullConstraint(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle column)

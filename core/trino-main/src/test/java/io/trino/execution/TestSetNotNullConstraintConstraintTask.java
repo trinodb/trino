@@ -27,10 +27,10 @@ import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorCapabilities;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.type.Type;
-import io.trino.sql.tree.DropNotNullConstraint;
 import io.trino.sql.tree.Identifier;
 import io.trino.sql.tree.NodeLocation;
 import io.trino.sql.tree.QualifiedName;
+import io.trino.sql.tree.SetNotNullConstraint;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -49,7 +49,7 @@ import static io.trino.testing.TestingHandles.TEST_CATALOG_NAME;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static org.assertj.core.api.Assertions.assertThat;
 
-public class TestDropNotNullConstraintConstraintTask
+final class TestSetNotNullConstraintConstraintTask
         extends BaseDataDefinitionTaskTest
 {
     @Override
@@ -62,93 +62,93 @@ public class TestDropNotNullConstraintConstraintTask
     }
 
     @Test
-    public void testDropNotNullConstraint()
+    void testSetNotNullConstraint()
     {
         QualifiedObjectName tableName = qualifiedObjectName("existing_table");
 
         metadata.createTable(testSession, TEST_CATALOG_NAME, simpleTable(tableName), FAIL);
         TableHandle table = metadata.getTableHandle(testSession, tableName).orElseThrow();
         assertThat(metadata.getTableMetadata(testSession, table).columns())
-                .containsExactly(notNullColumn("a", BIGINT), notNullColumn("b", BIGINT));
+                .containsExactly(nullableColumn("a", BIGINT), nullableColumn("b", BIGINT));
 
-        getFutureValue(executeDropNotNullConstraint(asQualifiedName(tableName), identifier("b"), false));
+        getFutureValue(executeSetNotNullConstraint(asQualifiedName(tableName), identifier("b"), false));
         assertThat(metadata.getTableMetadata(testSession, table).columns())
-                .containsExactly(notNullColumn("a", BIGINT), nullableColumn("b", BIGINT));
+                .containsExactly(nullableColumn("a", BIGINT), notNullColumn("b", BIGINT));
     }
 
     @Test
-    public void testDropNotNullConstraintNotExistingTable()
+    void testSetNotNullConstraintNotExistingTable()
     {
         QualifiedObjectName tableName = qualifiedObjectName("not_existing_table");
 
-        assertTrinoExceptionThrownBy(() -> getFutureValue(executeDropNotNullConstraint(asQualifiedName(tableName), identifier("b"), false)))
+        assertTrinoExceptionThrownBy(() -> getFutureValue(executeSetNotNullConstraint(asQualifiedName(tableName), identifier("b"), false)))
                 .hasErrorCode(TABLE_NOT_FOUND)
                 .hasMessageContaining("Table '%s' does not exist", tableName);
     }
 
     @Test
-    public void testDropNotNullConstraintNotExistingTableIfExists()
+    void testSetNotNullConstraintNotExistingTableIfExists()
     {
         QualifiedName tableName = qualifiedName("not_existing_table");
 
-        getFutureValue(executeDropNotNullConstraint(tableName, identifier("b"), true));
+        getFutureValue(executeSetNotNullConstraint(tableName, identifier("b"), true));
         // no exception
     }
 
     @Test
-    public void testDropNotNullConstraintMissingColumn()
+    void testSetNotNullConstraintMissingColumn()
     {
         QualifiedObjectName tableName = qualifiedObjectName("existing_table");
         metadata.createTable(testSession, TEST_CATALOG_NAME, simpleTable(tableName), FAIL);
 
-        assertTrinoExceptionThrownBy(() -> getFutureValue(executeDropNotNullConstraint(asQualifiedName(tableName), identifier("missing_column"), false)))
+        assertTrinoExceptionThrownBy(() -> getFutureValue(executeSetNotNullConstraint(asQualifiedName(tableName), identifier("missing_column"), false)))
                 .hasErrorCode(COLUMN_NOT_FOUND)
                 .hasMessageContaining("Column 'missing_column' does not exist");
     }
 
     @Test
-    public void testDropNotNullConstraintNullableColumn()
+    void testSetNotNullConstraintNotNullColumn()
     {
         QualifiedObjectName tableName = qualifiedObjectName("existing_table");
-        ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(tableName.asSchemaTableName(), ImmutableList.of(nullableColumn("a", BIGINT)));
+        ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(tableName.asSchemaTableName(), ImmutableList.of(notNullColumn("a", BIGINT)));
         metadata.createTable(testSession, TEST_CATALOG_NAME, tableMetadata, FAIL);
 
-        assertTrinoExceptionThrownBy(() -> getFutureValue(executeDropNotNullConstraint(asQualifiedName(tableName), identifier("a"), false)))
+        assertTrinoExceptionThrownBy(() -> getFutureValue(executeSetNotNullConstraint(asQualifiedName(tableName), identifier("a"), false)))
                 .hasErrorCode(NOT_SUPPORTED)
-                .hasMessageContaining("Column is already nullable");
+                .hasMessageContaining("Column is already not nullable");
     }
 
     @Test
-    public void testDropNotNullConstraintOnView()
+    void testSetNotNullConstraintOnView()
     {
         QualifiedObjectName viewName = qualifiedObjectName("existing_view");
         metadata.createView(testSession, viewName, someView(), ImmutableMap.of(), false);
 
-        assertTrinoExceptionThrownBy(() -> getFutureValue(executeDropNotNullConstraint(asQualifiedName(viewName), identifier("test"), false)))
+        assertTrinoExceptionThrownBy(() -> getFutureValue(executeSetNotNullConstraint(asQualifiedName(viewName), identifier("test"), false)))
                 .hasErrorCode(TABLE_NOT_FOUND)
                 .hasMessageContaining("Table '%s' does not exist, but a view with that name exists.", viewName);
     }
 
     @Test
-    public void testDropNotNullConstraintOnMaterializedView()
+    void testSetNotNullConstraintOnMaterializedView()
     {
         QualifiedObjectName materializedViewName = qualifiedObjectName("existing_materialized_view");
         metadata.createMaterializedView(testSession, QualifiedObjectName.valueOf(materializedViewName.toString()), someMaterializedView(), MATERIALIZED_VIEW_PROPERTIES, false, false);
 
-        assertTrinoExceptionThrownBy(() -> getFutureValue(executeDropNotNullConstraint(asQualifiedName(materializedViewName), identifier("test"), false)))
+        assertTrinoExceptionThrownBy(() -> getFutureValue(executeSetNotNullConstraint(asQualifiedName(materializedViewName), identifier("test"), false)))
                 .hasErrorCode(TABLE_NOT_FOUND)
                 .hasMessageContaining("Table '%s' does not exist, but a materialized view with that name exists.", materializedViewName);
     }
 
-    private ListenableFuture<Void> executeDropNotNullConstraint(QualifiedName table, Identifier column, boolean tableExists)
+    private ListenableFuture<Void> executeSetNotNullConstraint(QualifiedName table, Identifier column, boolean tableExists)
     {
-        return new DropNotNullConstraintTask(plannerContext, new AllowAllAccessControl())
-                .execute(new DropNotNullConstraint(new NodeLocation(1, 1), table, column, tableExists), queryStateMachine, ImmutableList.of(), WarningCollector.NOOP);
+        return new SetNotNullConstraintTask(plannerContext, new AllowAllAccessControl())
+                .execute(new SetNotNullConstraint(new NodeLocation(1, 1), table, column, tableExists), queryStateMachine, ImmutableList.of(), WarningCollector.NOOP);
     }
 
     private static ConnectorTableMetadata simpleTable(QualifiedObjectName tableName)
     {
-        return new ConnectorTableMetadata(tableName.asSchemaTableName(), ImmutableList.of(notNullColumn("a", BIGINT), notNullColumn("b", BIGINT)));
+        return new ConnectorTableMetadata(tableName.asSchemaTableName(), ImmutableList.of(nullableColumn("a", BIGINT), nullableColumn("b", BIGINT)));
     }
 
     private static ColumnMetadata nullableColumn(String name, Type type)

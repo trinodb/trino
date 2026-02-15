@@ -149,6 +149,7 @@ import io.trino.sql.tree.SessionProperty;
 import io.trino.sql.tree.SetAuthorizationStatement;
 import io.trino.sql.tree.SetColumnType;
 import io.trino.sql.tree.SetDefaultValue;
+import io.trino.sql.tree.SetNotNullConstraint;
 import io.trino.sql.tree.SetPath;
 import io.trino.sql.tree.SetProperties;
 import io.trino.sql.tree.SetRole;
@@ -1924,6 +1925,21 @@ public final class SqlFormatter
                     .append(formatName(node.getColumnName()))
                     .append(" SET DATA TYPE ")
                     .append(node.getType().toString());
+
+            return null;
+        }
+
+        @Override
+        protected Void visitSetNotNullConstraint(SetNotNullConstraint node, Integer context)
+        {
+            builder.append("ALTER TABLE ");
+            if (node.isTableExists()) {
+                builder.append("IF EXISTS ");
+            }
+            builder.append(formatName(node.getTable()))
+                    .append(" ALTER COLUMN ")
+                    .append(formatName(node.getColumn()))
+                    .append(" SET NOT NULL");
 
             return null;
         }

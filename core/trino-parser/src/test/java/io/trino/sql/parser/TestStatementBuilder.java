@@ -213,6 +213,9 @@ public class TestStatementBuilder
         printStatement("alter table foo alter column x set data type bigint");
         printStatement("alter table a.b.c alter column x set data type bigint");
 
+        printStatement("alter table foo alter column x set not null");
+        printStatement("alter table a.b.c alter column x set not null");
+
         printStatement("alter table foo alter column x drop not null");
         printStatement("alter table a.b.c alter column x drop not null");
 

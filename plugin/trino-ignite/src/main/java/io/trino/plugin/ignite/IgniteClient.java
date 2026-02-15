@@ -677,4 +677,10 @@ public class IgniteClient
     {
         throw new TrinoException(NOT_SUPPORTED, "This connector does not support renaming schemas");
     }
+
+    @Override
+    public void setNotNullConstraint(ConnectorSession session, JdbcTableHandle handle, JdbcColumnHandle column)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support setting a not null constraint");
+    }
 }
