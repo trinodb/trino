@@ -89,6 +89,7 @@ import static com.google.common.base.Verify.verifyNotNull;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.util.concurrent.Uninterruptibles.sleepUninterruptibly;
+import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.concurrent.MoreFutures.tryGetFutureValue;
 import static io.airlift.units.Duration.nanosSince;
 import static io.trino.SystemSessionProperties.IGNORE_STATS_CALCULATOR_FAILURES;
@@ -5997,6 +5998,40 @@ public abstract class BaseConnectorTest
         assertThat(getQueryRunner().tableExists(getSession(), "test_drop_if_exists")).isFalse();
         assertUpdate("DROP TABLE IF EXISTS test_drop_if_exists");
         assertThat(getQueryRunner().tableExists(getSession(), "test_drop_if_exists")).isFalse();
+    }
+
+    @Test
+    public void testDropTableIfExistsConcurrently()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE));
+
+        String tableName = "test_drop_if_exists_con_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " (x int)");
+        assertThat(getQueryRunner().tableExists(getSession(), tableName)).isTrue();
+
+        int threads = 4;
+        CyclicBarrier barrier = new CyclicBarrier(threads);
+        ExecutorService executor = newFixedThreadPool(threads);
+
+        ImmutableList.Builder<Future<?>> dropTableFutures = ImmutableList.builder();
+        for (int i = 0; i < threads; i++) {
+            Runnable dropTableTask = () -> {
+                try {
+                    barrier.await(10, SECONDS);
+                }
+                catch (Throwable e) {
+                    throw new RuntimeException(e);
+                }
+                assertUpdate("DROP TABLE IF EXISTS " + tableName);
+            };
+            dropTableFutures.add(executor.submit(dropTableTask));
+        }
+
+        for (Future<?> dropTableFuture : dropTableFutures.build()) {
+            getFutureValue(dropTableFuture);
+        }
+
+        assertThat(getQueryRunner().tableExists(getSession(), tableName)).isFalse();
     }
 
     @Test

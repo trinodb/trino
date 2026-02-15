@@ -9684,4 +9684,12 @@ public abstract class BaseHiveConnectorTest
                 .setCatalogSessionProperty(getSession().getCatalog().orElseThrow(), "orc_tiny_stripe_threshold", "0B")
                 .build();
     }
+
+    @Test
+    @Override
+    public void testDropTableIfExistsConcurrently()
+    {
+        assertThatThrownBy(super::testDropTableIfExistsConcurrently)
+                .hasMessageMatching("The following metastore delete operations failed: drop table .*");
+    }
 }

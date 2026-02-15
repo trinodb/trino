@@ -806,6 +806,15 @@ public class ClickHouseClient
         throw new TrinoException(NOT_SUPPORTED, "Unsupported column type: " + type);
     }
 
+    @Override
+    protected boolean isTableNotFoundException(TrinoException exception)
+    {
+        if (exception.getCause() instanceof SQLException sqlException) {
+            return sqlException.getSQLState().equals("07000");
+        }
+        return false;
+    }
+
     private ClickHouseVersion getClickHouseServerVersion(ConnectorSession session)
     {
         return clickHouseVersion.updateAndGet(current -> {

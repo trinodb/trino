@@ -1321,6 +1321,15 @@ public class MySqlClient
         }
     }
 
+    @Override
+    protected boolean isTableNotFoundException(TrinoException exception)
+    {
+        if (exception.getCause() instanceof SQLException sqlException) {
+            return "42S02".equals(sqlException.getSQLState());
+        }
+        return false;
+    }
+
     private static Optional<ColumnHistogram> getColumnHistogram(Map<String, String> columnHistograms, String columnName)
     {
         return Optional.ofNullable(columnHistograms.get(columnName))
