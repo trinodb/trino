@@ -47,12 +47,12 @@ import java.util.function.Function;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.trino.filesystem.s3.S3FileSystemConfig.RetryMode.getRetryStrategy;
-import static io.trino.filesystem.s3.S3FileSystemUtils.createS3PreSigner;
-import static io.trino.filesystem.s3.S3FileSystemUtils.createStaticCredentialsProvider;
-import static io.trino.filesystem.s3.S3FileSystemUtils.createStsClient;
 import static io.trino.filesystem.s3.S3FileSystemConstants.EXTRA_CREDENTIALS_CROSS_REGION_ACCESS_ENABLED_PROPERTY;
 import static io.trino.filesystem.s3.S3FileSystemConstants.EXTRA_CREDENTIALS_ENDPOINT_PROPERTY;
 import static io.trino.filesystem.s3.S3FileSystemConstants.EXTRA_CREDENTIALS_REGION_PROPERTY;
+import static io.trino.filesystem.s3.S3FileSystemUtils.createS3PreSigner;
+import static io.trino.filesystem.s3.S3FileSystemUtils.createStaticCredentialsProvider;
+import static io.trino.filesystem.s3.S3FileSystemUtils.createStsClient;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
@@ -131,6 +131,12 @@ final class S3FileSystemLoader
             }
         }
         clients.clear();
+        for (S3Presigner preSigner : preSigners.values()) {
+            try (var _ = preSigner) {
+                // Resource automatically closed
+            }
+        }
+        preSigners.clear();
         try (httpClient) {
             uploadExecutor.shutdownNow();
         }
