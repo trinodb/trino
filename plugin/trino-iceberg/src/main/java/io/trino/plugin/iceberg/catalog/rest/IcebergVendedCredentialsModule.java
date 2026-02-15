@@ -26,8 +26,6 @@ public class IcebergVendedCredentialsModule
     @Override
     protected void setup(Binder binder)
     {
-        // Bind the vended credentials mapper using OptionalBinder
-        // This allows coexistence with S3SecurityMappingModule without conflicts
         binder.bind(IcebergVendedCredentialsMapper.class).in(Scopes.SINGLETON);
         newOptionalBinder(binder, S3CredentialsMapper.class).setBinding().to(IcebergVendedCredentialsMapper.class).in(Scopes.SINGLETON);
     }

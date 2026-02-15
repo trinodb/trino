@@ -62,8 +62,8 @@ final class IcebergVendedCredentialsMapper
         String vendedEndpoint = identity.getExtraCredentials().get(EXTRA_CREDENTIALS_ENDPOINT_PROPERTY);
         String vendedCrossRegionAccess = identity.getExtraCredentials().get(EXTRA_CREDENTIALS_CROSS_REGION_ACCESS_ENABLED_PROPERTY);
 
-        Optional<String> region = staticRegion.or(() -> Optional.ofNullable(vendedRegion));
-        Optional<String> endpoint = staticEndpoint.or(() -> Optional.ofNullable(vendedEndpoint));
+        Optional<String> region = Optional.ofNullable(vendedRegion).or(() -> staticRegion);
+        Optional<String> endpoint = Optional.ofNullable(vendedEndpoint).or(() -> staticEndpoint);
 
         Optional<Boolean> crossRegionAccessEnabled;
         if (staticCrossRegionAccessEnabled) {

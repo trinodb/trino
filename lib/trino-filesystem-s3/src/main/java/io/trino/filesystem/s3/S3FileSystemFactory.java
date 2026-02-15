@@ -19,10 +19,12 @@ import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.spi.security.ConnectorIdentity;
 import jakarta.annotation.PreDestroy;
+import software.amazon.awssdk.auth.credentials.AwsCredentials;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 
@@ -58,38 +60,31 @@ public final class S3FileSystemFactory
     @Override
     public TrinoFileSystem create(ConnectorIdentity identity)
     {
-        String region = staticRegion;
-        if (region == null) {
-            region = S3FileSystemLoader.extractRegionFromIdentity(identity).orElse(null);
-        }
+        Optional<AwsCredentials> vendedCredentials = S3FileSystemLoader.extractCredentialsFromIdentity(identity);
+        String region = S3FileSystemLoader.extractRegionFromIdentity(identity).orElse(staticRegion);
+        String endpoint = S3FileSystemLoader.extractEndpointFromIdentity(identity).orElse(staticEndpoint);
 
-        String endpoint = staticEndpoint;
-        if (endpoint == null) {
-            endpoint = S3FileSystemLoader.extractEndpointFromIdentity(identity).orElse(null);
-        }
-
-        Boolean crossRegionAccessEnabled = staticCrossRegionAccessEnabled;
-        Boolean vendedCrossRegionAccessEnabled = S3FileSystemLoader.extractCrossRegionAccessEnabledFromIdentity(identity).orElse(null);
-        if (!staticCrossRegionAccessEnabled && vendedCrossRegionAccessEnabled != null) {
-            crossRegionAccessEnabled = vendedCrossRegionAccessEnabled;
-        }
-
-        final String finalRegion = region;
-        final String finalEndpoint = endpoint;
-        final Boolean finalCrossRegionAccessEnabled = crossRegionAccessEnabled;
-
-        S3Client s3Client;
-        if ((finalRegion != null && !finalRegion.equals(staticRegion)) ||
-                (finalEndpoint != null && !finalEndpoint.equals(staticEndpoint)) ||
-                (finalCrossRegionAccessEnabled != null && finalCrossRegionAccessEnabled != staticCrossRegionAccessEnabled)) {
-            ClientKey key = new ClientKey(finalRegion, finalEndpoint, finalCrossRegionAccessEnabled);
-            s3Client = dynamicClients.computeIfAbsent(key, _ -> loader.createClientWithOverrides(finalRegion, finalEndpoint, finalCrossRegionAccessEnabled));
+        boolean crossRegionAccessEnabled;
+        if (staticCrossRegionAccessEnabled) {
+            crossRegionAccessEnabled = true;
         }
         else {
-            s3Client = client;
+            crossRegionAccessEnabled = S3FileSystemLoader.extractCrossRegionAccessEnabledFromIdentity(identity).orElse(false);
         }
 
-        return new S3FileSystem(uploadExecutor, s3Client, preSigner, context.withCredentials(identity));
+        boolean hasOverrides = vendedCredentials.isPresent()
+                || (region != null && !region.equals(staticRegion))
+                || (endpoint != null && !endpoint.equals(staticEndpoint))
+                || crossRegionAccessEnabled != staticCrossRegionAccessEnabled;
+
+        if (hasOverrides) {
+            ClientKey key = new ClientKey(vendedCredentials.orElse(null), region, endpoint, crossRegionAccessEnabled);
+            S3Client s3Client = dynamicClients.computeIfAbsent(key, _ ->
+                    loader.createClientWithOverrides(vendedCredentials, region, endpoint, crossRegionAccessEnabled));
+            return new S3FileSystem(uploadExecutor, s3Client, preSigner, context.withCredentials(identity));
+        }
+
+        return new S3FileSystem(uploadExecutor, client, preSigner, context.withCredentials(identity));
     }
 
     @PreDestroy
@@ -107,5 +102,5 @@ public final class S3FileSystemFactory
         loader.destroy();
     }
 
-    private record ClientKey(String region, String endpoint, Boolean crossRegionAccessEnabled) {}
+    private record ClientKey(AwsCredentials credentials, String region, String endpoint, boolean crossRegionAccessEnabled) {}
 }

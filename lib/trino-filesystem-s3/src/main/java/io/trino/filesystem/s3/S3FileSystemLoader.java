@@ -21,7 +21,9 @@ import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.filesystem.s3.S3Context.S3SseContext;
 import io.trino.spi.security.ConnectorIdentity;
 import jakarta.annotation.PreDestroy;
+import software.amazon.awssdk.auth.credentials.AwsCredentials;
 import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
+import software.amazon.awssdk.auth.credentials.AwsSessionCredentials;
 import software.amazon.awssdk.auth.credentials.WebIdentityTokenFileCredentialsProvider;
 import software.amazon.awssdk.core.checksums.RequestChecksumCalculation;
 import software.amazon.awssdk.core.client.config.ClientOverrideConfiguration;
@@ -47,9 +49,12 @@ import java.util.function.Function;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.trino.filesystem.s3.S3FileSystemConfig.RetryMode.getRetryStrategy;
+import static io.trino.filesystem.s3.S3FileSystemConstants.EXTRA_CREDENTIALS_ACCESS_KEY_PROPERTY;
 import static io.trino.filesystem.s3.S3FileSystemConstants.EXTRA_CREDENTIALS_CROSS_REGION_ACCESS_ENABLED_PROPERTY;
 import static io.trino.filesystem.s3.S3FileSystemConstants.EXTRA_CREDENTIALS_ENDPOINT_PROPERTY;
 import static io.trino.filesystem.s3.S3FileSystemConstants.EXTRA_CREDENTIALS_REGION_PROPERTY;
+import static io.trino.filesystem.s3.S3FileSystemConstants.EXTRA_CREDENTIALS_SECRET_KEY_PROPERTY;
+import static io.trino.filesystem.s3.S3FileSystemConstants.EXTRA_CREDENTIALS_SESSION_TOKEN_PROPERTY;
 import static io.trino.filesystem.s3.S3FileSystemUtils.createS3PreSigner;
 import static io.trino.filesystem.s3.S3FileSystemUtils.createStaticCredentialsProvider;
 import static io.trino.filesystem.s3.S3FileSystemUtils.createStsClient;
@@ -157,26 +162,37 @@ final class S3FileSystemLoader
         return uploadExecutor;
     }
 
-    public static Optional<String> extractRegionFromIdentity(ConnectorIdentity identity)
+    static Optional<AwsCredentials> extractCredentialsFromIdentity(ConnectorIdentity identity)
+    {
+        String accessKey = identity.getExtraCredentials().get(EXTRA_CREDENTIALS_ACCESS_KEY_PROPERTY);
+        String secretKey = identity.getExtraCredentials().get(EXTRA_CREDENTIALS_SECRET_KEY_PROPERTY);
+        String sessionToken = identity.getExtraCredentials().get(EXTRA_CREDENTIALS_SESSION_TOKEN_PROPERTY);
+        if (accessKey != null && secretKey != null && sessionToken != null) {
+            return Optional.of(AwsSessionCredentials.create(accessKey, secretKey, sessionToken));
+        }
+        return Optional.empty();
+    }
+
+    static Optional<String> extractRegionFromIdentity(ConnectorIdentity identity)
     {
         return Optional.ofNullable(identity.getExtraCredentials().get(EXTRA_CREDENTIALS_REGION_PROPERTY));
     }
 
-    public static Optional<String> extractEndpointFromIdentity(ConnectorIdentity identity)
+    static Optional<String> extractEndpointFromIdentity(ConnectorIdentity identity)
     {
         return Optional.ofNullable(identity.getExtraCredentials().get(EXTRA_CREDENTIALS_ENDPOINT_PROPERTY));
     }
 
-    public static Optional<Boolean> extractCrossRegionAccessEnabledFromIdentity(ConnectorIdentity identity)
+    static Optional<Boolean> extractCrossRegionAccessEnabledFromIdentity(ConnectorIdentity identity)
     {
         String value = identity.getExtraCredentials().get(EXTRA_CREDENTIALS_CROSS_REGION_ACCESS_ENABLED_PROPERTY);
         return value != null ? Optional.of(Boolean.parseBoolean(value)) : Optional.empty();
     }
 
-    S3Client createClientWithOverrides(String region, String endpoint, Boolean crossRegionAccessEnabled)
+    S3Client createClientWithOverrides(Optional<AwsCredentials> credentials, String region, String endpoint, Boolean crossRegionAccessEnabled)
     {
         S3SecurityMappingResult customMapping = new S3SecurityMappingResult(
-                Optional.empty(),
+                credentials,
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),

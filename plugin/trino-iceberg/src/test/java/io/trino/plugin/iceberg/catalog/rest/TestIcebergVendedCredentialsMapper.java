@@ -75,7 +75,7 @@ final class TestIcebergVendedCredentialsMapper
     }
 
     @Test
-    void testStaticRegionTakesPrecedence()
+    void testVendedRegionTakesPrecedenceOverStatic()
     {
         S3FileSystemConfig config = new S3FileSystemConfig()
                 .setRegion("us-east-1");
@@ -96,11 +96,11 @@ final class TestIcebergVendedCredentialsMapper
         Optional<S3SecurityMappingResult> result = mapper.getMapping(identity, DEFAULT_LOCATION);
 
         assertThat(result).isPresent();
-        assertThat(result.get().region()).hasValue("us-east-1");
+        assertThat(result.get().region()).hasValue("us-west-2");
     }
 
     @Test
-    void testStaticEndpointTakesPrecedence()
+    void testVendedEndpointTakesPrecedenceOverStatic()
     {
         S3FileSystemConfig config = new S3FileSystemConfig()
                 .setEndpoint("https://s3.amazonaws.com");
@@ -121,7 +121,7 @@ final class TestIcebergVendedCredentialsMapper
         Optional<S3SecurityMappingResult> result = mapper.getMapping(identity, DEFAULT_LOCATION);
 
         assertThat(result).isPresent();
-        assertThat(result.get().endpoint()).hasValue("https://s3.amazonaws.com");
+        assertThat(result.get().endpoint()).hasValue("https://minio.example.com");
     }
 
     @Test
@@ -235,5 +235,53 @@ final class TestIcebergVendedCredentialsMapper
 
         assertThat(result).isPresent();
         assertThat(result.get().endpoint()).hasValue("https://custom-s3.example.com");
+    }
+
+    @Test
+    void testStaticRegionUsedWhenVendedNotProvided()
+    {
+        S3FileSystemConfig config = new S3FileSystemConfig()
+                .setRegion("us-east-1");
+
+        IcebergVendedCredentialsMapper mapper = new IcebergVendedCredentialsMapper(config);
+
+        Map<String, String> extraCredentials = ImmutableMap.<String, String>builder()
+                .put(EXTRA_CREDENTIALS_ACCESS_KEY_PROPERTY, "vended-access")
+                .put(EXTRA_CREDENTIALS_SECRET_KEY_PROPERTY, "vended-secret")
+                .put(EXTRA_CREDENTIALS_SESSION_TOKEN_PROPERTY, "vended-token")
+                .buildOrThrow();
+
+        ConnectorIdentity identity = ConnectorIdentity.forUser("test")
+                .withExtraCredentials(extraCredentials)
+                .build();
+
+        Optional<S3SecurityMappingResult> result = mapper.getMapping(identity, DEFAULT_LOCATION);
+
+        assertThat(result).isPresent();
+        assertThat(result.get().region()).hasValue("us-east-1");
+    }
+
+    @Test
+    void testStaticEndpointUsedWhenVendedNotProvided()
+    {
+        S3FileSystemConfig config = new S3FileSystemConfig()
+                .setEndpoint("https://s3.amazonaws.com");
+
+        IcebergVendedCredentialsMapper mapper = new IcebergVendedCredentialsMapper(config);
+
+        Map<String, String> extraCredentials = ImmutableMap.<String, String>builder()
+                .put(EXTRA_CREDENTIALS_ACCESS_KEY_PROPERTY, "vended-access")
+                .put(EXTRA_CREDENTIALS_SECRET_KEY_PROPERTY, "vended-secret")
+                .put(EXTRA_CREDENTIALS_SESSION_TOKEN_PROPERTY, "vended-token")
+                .buildOrThrow();
+
+        ConnectorIdentity identity = ConnectorIdentity.forUser("test")
+                .withExtraCredentials(extraCredentials)
+                .build();
+
+        Optional<S3SecurityMappingResult> result = mapper.getMapping(identity, DEFAULT_LOCATION);
+
+        assertThat(result).isPresent();
+        assertThat(result.get().endpoint()).hasValue("https://s3.amazonaws.com");
     }
 }

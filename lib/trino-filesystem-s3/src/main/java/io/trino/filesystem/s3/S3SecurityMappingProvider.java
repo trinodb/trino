@@ -62,7 +62,6 @@ final class S3SecurityMappingProvider
     }
 
     @Override
-
     public Optional<S3SecurityMappingResult> getMapping(ConnectorIdentity identity, Location location)
     {
         S3SecurityMapping mapping = mappingsProvider.get().getMapping(identity, new S3Location(location))
