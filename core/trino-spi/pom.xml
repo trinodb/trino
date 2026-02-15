@@ -127,6 +127,18 @@
         </dependency>
 
         <dependency>
+            <groupId>org.apache.iceberg</groupId>
+            <artifactId>iceberg-api</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.iceberg</groupId>
+            <artifactId>iceberg-core</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
             <groupId>org.assertj</groupId>
             <artifactId>assertj-core</artifactId>
             <scope>test</scope>
@@ -932,6 +944,16 @@
                         </goals>
                     </execution>
                 </executions>
+            </plugin>
+            <plugin>
+                <groupId>org.basepom.maven</groupId>
+                <artifactId>duplicate-finder-maven-plugin</artifactId>
+                <configuration>
+                    <ignoredResourcePatterns combine.children="append">
+                        <!-- ignore the Iceberg build metadata file -->
+                        <ignoredResourcePattern>^iceberg-build\.properties$</ignoredResourcePattern>
+                    </ignoredResourcePatterns>
+                </configuration>
             </plugin>
         </plugins>
     </build>

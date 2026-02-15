@@ -211,8 +211,11 @@ public final class OrcMetrics
                 }
                 return;
             case STRUCT:
+                // Variant types are stored as STRUCT with iceberg.variant-type=true
+                // The children (metadata, value) are internal and should be excluded
+                boolean isVariantType = "true".equals(orcColumn.getAttributes().get(OrcTypeConverter.ICEBERG_VARIANT_TYPE_KIND));
                 for (OrcColumnId child : orcColumn.getFieldTypeIndexes()) {
-                    populateExcludedColumns(orcColumns, child, exclude, excludedColumns);
+                    populateExcludedColumns(orcColumns, child, exclude || isVariantType, excludedColumns);
                 }
                 return;
             default:

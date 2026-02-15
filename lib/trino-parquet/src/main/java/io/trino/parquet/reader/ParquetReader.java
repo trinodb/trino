@@ -48,6 +48,7 @@ import io.trino.spi.block.DictionaryBlock;
 import io.trino.spi.block.LongArrayBlock;
 import io.trino.spi.block.RowBlock;
 import io.trino.spi.block.RunLengthEncodedBlock;
+import io.trino.spi.block.VariantBlock;
 import io.trino.spi.connector.SourcePage;
 import io.trino.spi.metrics.Metric;
 import io.trino.spi.metrics.Metrics;
@@ -92,6 +93,7 @@ import static io.trino.parquet.reader.ListColumnReader.calculateCollectionOffset
 import static io.trino.parquet.reader.PageReader.createPageReader;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.spi.type.VariantType.VARIANT;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
 import static java.lang.Math.toIntExact;
@@ -519,6 +521,37 @@ public class ParquetReader
             throws IOException
     {
         ColumnChunk metadataChunk = readColumnChunk(field.getMetadata());
+        ColumnChunk valueChunk = readColumnChunk(field.getValue());
+
+        // position cound and nulls are derived from metadata def levels
+        int positionsCount = metadataChunk.getDefinitionLevels().length;
+        int variantDefLevel = field.getDefinitionLevel();
+        boolean[] isNull = null;
+        for (int i = 0; i < positionsCount; i++) {
+            if (metadataChunk.getDefinitionLevels()[i] < variantDefLevel) {
+                if (isNull == null) {
+                    isNull = new boolean[positionsCount];
+                }
+                isNull[i] = true;
+            }
+        }
+
+        // if isNull is present, we need to convert the blocks to not-null-suppressed blocks
+        Block metadataBlock = metadataChunk.getBlock();
+        Block valueBlock = valueChunk.getBlock();
+        if (isNull != null) {
+            metadataBlock = toNotNullSupressedBlock(positionsCount, isNull, metadataBlock);
+            valueBlock = toNotNullSupressedBlock(positionsCount, isNull, valueBlock);
+        }
+
+        Block variantBlock = VariantBlock.create(positionsCount, metadataBlock, valueBlock, Optional.ofNullable(isNull));
+        return new ColumnChunk(variantBlock, metadataChunk.getDefinitionLevels(), metadataChunk.getRepetitionLevels());
+    }
+
+    private ColumnChunk readVariantAsJson(VariantField field)
+            throws IOException
+    {
+        ColumnChunk metadataChunk = readColumnChunk(field.getMetadata());
 
         int positionCount = metadataChunk.getBlock().getPositionCount();
         BlockBuilder variantBlock = VARCHAR.createBlockBuilder(null, max(1, positionCount));
@@ -754,7 +787,13 @@ public class ParquetReader
     {
         ColumnChunk columnChunk;
         if (field instanceof VariantField variantField) {
-            columnChunk = readVariant(variantField);
+            if (variantField.getType() == VARIANT) {
+                // Directly read VARIANT as a single block
+                columnChunk = readVariant(variantField);
+            }
+            else {
+                columnChunk = readVariantAsJson(variantField);
+            }
         }
         else if (field.getType() instanceof RowType) {
             columnChunk = readStruct((GroupField) field);

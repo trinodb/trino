@@ -63,6 +63,7 @@ import static io.trino.client.ClientStandardTypes.TINYINT;
 import static io.trino.client.ClientStandardTypes.UUID;
 import static io.trino.client.ClientStandardTypes.VARBINARY;
 import static io.trino.client.ClientStandardTypes.VARCHAR;
+import static io.trino.client.ClientStandardTypes.VARIANT;
 import static java.lang.String.format;
 import static java.util.Collections.unmodifiableList;
 import static java.util.Collections.unmodifiableMap;
@@ -81,6 +82,7 @@ public final class JsonDecodingUtils
     private static final BooleanDecoder BOOLEAN_DECODER = new BooleanDecoder();
     private static final StringDecoder STRING_DECODER = new StringDecoder();
     private static final Base64Decoder BASE_64_DECODER = new Base64Decoder();
+    private static final VariantDecoder VARIANT_DECODER = new VariantDecoder();
     private static final ObjectDecoder OBJECT_DECODER = new ObjectDecoder();
 
     public static TypeDecoder[] createTypeDecoders(List<Column> columns)
@@ -116,6 +118,8 @@ public final class JsonDecodingUtils
                 return REAL_DECODER;
             case BOOLEAN:
                 return BOOLEAN_DECODER;
+            case VARIANT:
+                return VARIANT_DECODER;
             case ARRAY:
                 return new ArrayDecoder(signature);
             case MAP:
@@ -293,6 +297,33 @@ public final class JsonDecodingUtils
                 throws IOException
         {
             return Base64.getDecoder().decode(parser.getValueAsString());
+        }
+    }
+
+    private static class VariantDecoder
+            implements TypeDecoder
+    {
+        @Override
+        public Object decode(JsonParser parser)
+                throws IOException
+        {
+            switch (parser.currentToken()) {
+                case START_ARRAY:
+                    break;
+                case VALUE_NULL:
+                    return null;
+                default:
+                    throw illegalToken(parser);
+            }
+
+            requireNonNull(parser.nextToken());
+            byte[] metadata = Base64.getDecoder().decode(parser.getValueAsString());
+            requireNonNull(parser.nextToken());
+            byte[] value = Base64.getDecoder().decode(parser.getValueAsString());
+            if (parser.nextToken() != END_ARRAY) {
+                throw illegalToken(parser);
+            }
+            return List.of(metadata, value);
         }
     }
 

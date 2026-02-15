@@ -419,6 +419,7 @@ import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MICROS;
 import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.spi.type.VariantType.VARIANT;
 import static java.lang.Boolean.parseBoolean;
 import static java.lang.Math.floorDiv;
 import static java.lang.Math.max;
@@ -3240,6 +3241,7 @@ public class IcebergMetadata
                     io.trino.spi.type.Type type = column.getType();
                     return !(type instanceof MapType || type instanceof ArrayType || type instanceof RowType); // is scalar type
                 })
+                .filter(column -> column.getType() != VARIANT) // variant does not support NDV statistics
                 .map(ColumnMetadata::getName)
                 .collect(toImmutableSet());
 

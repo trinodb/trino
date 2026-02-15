@@ -43,6 +43,8 @@ import io.trino.spi.type.TinyintType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarbinaryType;
 import io.trino.spi.type.VarcharType;
+import io.trino.spi.type.VariantType;
+import io.trino.spi.variant.Variant;
 import io.trino.type.SqlIntervalDayTime;
 import io.trino.type.SqlIntervalYearMonth;
 
@@ -63,6 +65,7 @@ import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.spi.type.VariantType.VARIANT;
 import static java.util.Objects.requireNonNull;
 
 public final class JsonEncodingUtils
@@ -78,6 +81,7 @@ public final class JsonEncodingUtils
     private static final TinyintEncoder TINYINT_ENCODER = new TinyintEncoder();
     private static final VarcharEncoder VARCHAR_ENCODER = new VarcharEncoder();
     private static final VarbinaryEncoder VARBINARY_ENCODER = new VarbinaryEncoder();
+    private static final VariantEncoder VARIANT_ENCODER = new VariantEncoder();
 
     public static TypeEncoder[] createTypeEncoders(Session session, List<Type> types)
     {
@@ -105,6 +109,7 @@ public final class JsonEncodingUtils
             case VarcharType _ -> VARCHAR_ENCODER;
             case VarbinaryType _ -> VARBINARY_ENCODER;
             case CharType charType -> new CharEncoder(charType.getLength());
+            case VariantType _ -> VARIANT_ENCODER;
             // TODO: add specialized Short/Long decimal encoders
             case ArrayType arrayType -> new ArrayEncoder(arrayType, createTypeEncoder(arrayType.getElementType(), supportsParametricDateTime));
             case MapType mapType -> new MapEncoder(mapType, createTypeEncoder(mapType.getValueType(), supportsParametricDateTime));
@@ -308,6 +313,28 @@ public final class JsonEncodingUtils
             // Optimization: avoid copying Slice to byte array
             Slice slice = VARBINARY.getSlice(block, position);
             generator.writeBinary(slice.byteArray(), slice.byteArrayOffset(), slice.length());
+        }
+    }
+
+    private static final class VariantEncoder
+            implements TypeEncoder
+    {
+        @Override
+        public void encode(JsonGenerator generator, Block block, int position)
+                throws IOException
+        {
+            if (block.isNull(position)) {
+                generator.writeNull();
+                return;
+            }
+
+            Variant variant = VARIANT.getObject(block, position);
+            generator.writeStartArray();
+            Slice metadata = variant.metadata().toSlice();
+            generator.writeBinary(metadata.byteArray(), metadata.byteArrayOffset(), metadata.length());
+            Slice value = variant.data();
+            generator.writeBinary(value.byteArray(), value.byteArrayOffset(), value.length());
+            generator.writeEndArray();
         }
     }
 
