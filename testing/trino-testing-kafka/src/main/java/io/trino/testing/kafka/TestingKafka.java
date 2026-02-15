@@ -68,6 +68,7 @@ public final class TestingKafka
     private final KafkaContainer kafka;
     private final GenericContainer<?> schemaRegistry;
     private final boolean withSchemaRegistry;
+    private final boolean withBasicAuth;
     private final Closer closer = Closer.create();
     private boolean stopped;
 
@@ -78,17 +79,28 @@ public final class TestingKafka
 
     public static TestingKafka create(String confluentPlatformVersions)
     {
-        return new TestingKafka(confluentPlatformVersions, false);
+        return new TestingKafka(confluentPlatformVersions, false, false);
+    }
+
+    public static TestingKafka create(String confluentPlatformVersions, boolean withSchemaRegistry)
+    {
+        return new TestingKafka(confluentPlatformVersions, withSchemaRegistry, false);
     }
 
     public static TestingKafka createWithSchemaRegistry()
     {
-        return new TestingKafka(DEFAULT_CONFLUENT_PLATFORM_VERSION, true);
+        return new TestingKafka(DEFAULT_CONFLUENT_PLATFORM_VERSION, true, false);
     }
 
-    private TestingKafka(String confluentPlatformVersion, boolean withSchemaRegistry)
+    public static TestingKafka createWithSchemaRegistry(boolean withBasicAuth)
+    {
+        return new TestingKafka(DEFAULT_CONFLUENT_PLATFORM_VERSION, true, withBasicAuth);
+    }
+
+    private TestingKafka(String confluentPlatformVersion, boolean withSchemaRegistry, boolean withBasicAuth)
     {
         this.withSchemaRegistry = withSchemaRegistry;
+        this.withBasicAuth = withBasicAuth;
         network = Network.newNetwork();
         closer.register(network::close);
 
@@ -96,6 +108,8 @@ public final class TestingKafka
         // Modify the template directly instead.
         MountableFile kafkaLogTemplate = forClasspathResource("log4j-kafka.properties.template");
         MountableFile schemaRegistryLogTemplate = forClasspathResource("log4j-schema-registry.properties.template");
+        MountableFile schemaRegistryJaasConfig = forClasspathResource("schema_registry_jaas_config.conf");
+        MountableFile schemaRegistryPasswordFile = forClasspathResource("schema_registry_password-file");
         kafka = new KafkaContainer(KAFKA_IMAGE_NAME.withTag(confluentPlatformVersion))
                 .withStartupAttempts(3)
                 .withNetwork(network)
@@ -103,19 +117,46 @@ public final class TestingKafka
                 .withCopyFileToContainer(
                         kafkaLogTemplate,
                         "/etc/confluent/docker/log4j.properties.template");
-        schemaRegistry = new GenericContainer<>(SCHEMA_REGISTRY_IMAGE_NAME.withTag(confluentPlatformVersion))
-                .withStartupAttempts(3)
-                .withNetwork(network)
-                .withNetworkAliases("schema-registry")
-                .withEnv("SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS", "PLAINTEXT://kafka:9092")
-                .withEnv("SCHEMA_REGISTRY_HOST_NAME", "0.0.0.0")
-                .withEnv("SCHEMA_REGISTRY_LISTENERS", "http://0.0.0.0:" + SCHEMA_REGISTRY_PORT)
-                .withEnv("SCHEMA_REGISTRY_HEAP_OPTS", "-Xmx1G")
-                .withExposedPorts(SCHEMA_REGISTRY_PORT)
-                .withCopyFileToContainer(
-                        schemaRegistryLogTemplate,
-                        "/etc/confluent/docker/log4j.properties.template")
-                .dependsOn(kafka);
+        if (this.withBasicAuth) {
+            schemaRegistry = new GenericContainer<>(SCHEMA_REGISTRY_IMAGE_NAME.withTag(confluentPlatformVersion))
+                    .withStartupAttempts(3)
+                    .withNetwork(network)
+                    .withNetworkAliases("schema-registry")
+                    .withEnv("SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS", "PLAINTEXT://kafka:9092")
+                    .withEnv("SCHEMA_REGISTRY_HOST_NAME", "0.0.0.0")
+                    .withEnv("SCHEMA_REGISTRY_LISTENERS", "http://0.0.0.0:" + SCHEMA_REGISTRY_PORT)
+                    .withEnv("SCHEMA_REGISTRY_HEAP_OPTS", "-Xmx1G")
+                    .withEnv(Map.of(
+                            "SCHEMA_REGISTRY_LOG4J_ROOT_LOGLEVEL", "INFO",
+                            "SCHEMA_REGISTRY_AUTHENTICATION_METHOD", "BASIC",
+                            "SCHEMA_REGISTRY_AUTHENTICATION_REALM", "SchemaRegistry-Props",
+                            "SCHEMA_REGISTRY_AUTHENTICATION_ROLES", "admin",
+                            "SCHEMA_REGISTRY_OPTS", "-Djava.security.auth.login.config=/etc/confluent/docker/schema_registry_jaas_config.conf"))
+                    .withExposedPorts(SCHEMA_REGISTRY_PORT)
+                    .withCopyFileToContainer(
+                            schemaRegistryLogTemplate,
+                            "/etc/confluent/docker/log4j.properties.template")
+                    .withCopyFileToContainer(schemaRegistryJaasConfig,
+                            "/etc/confluent/docker/schema_registry_jaas_config.conf")
+                    .withCopyFileToContainer(schemaRegistryPasswordFile,
+                            "/etc/confluent/docker/password-file")
+                    .dependsOn(kafka);
+        }
+        else {
+            schemaRegistry = new GenericContainer<>(SCHEMA_REGISTRY_IMAGE_NAME.withTag(confluentPlatformVersion))
+                    .withStartupAttempts(3)
+                    .withNetwork(network)
+                    .withNetworkAliases("schema-registry")
+                    .withEnv("SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS", "PLAINTEXT://kafka:9092")
+                    .withEnv("SCHEMA_REGISTRY_HOST_NAME", "0.0.0.0")
+                    .withEnv("SCHEMA_REGISTRY_LISTENERS", "http://0.0.0.0:" + SCHEMA_REGISTRY_PORT)
+                    .withEnv("SCHEMA_REGISTRY_HEAP_OPTS", "-Xmx1G")
+                    .withExposedPorts(SCHEMA_REGISTRY_PORT)
+                    .withCopyFileToContainer(
+                            schemaRegistryLogTemplate,
+                            "/etc/confluent/docker/log4j.properties.template")
+                    .dependsOn(kafka);
+        }
         closer.register(kafka::stop);
         closer.register(schemaRegistry::stop);
 
