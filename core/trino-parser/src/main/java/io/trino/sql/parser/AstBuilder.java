@@ -976,6 +976,7 @@ class AstBuilder
                 getQualifiedName(context.qualifiedName()),
                 (Query) visit(context.rootQuery()),
                 context.REPLACE() != null,
+                context.EXISTS() != null,
                 comment,
                 security,
                 properties);
