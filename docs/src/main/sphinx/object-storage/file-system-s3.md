@@ -25,11 +25,20 @@ support:
   - Activate the native implementation for S3 storage support. Defaults to
     `false`. Set to `true` to use S3 and enable all other properties.
 * - `s3.endpoint`
-  - S3 service endpoint URL to communicate with.
+  - S3 service endpoint URL to communicate with. When using the Iceberg REST catalog
+    with `iceberg.rest-catalog.vended-credentials-enabled=true`, this property can
+    be provided by the REST catalog via `s3.endpoint`. Static catalog configuration
+    takes precedence over vended values.
 * - `s3.region`
-  - S3 region to communicate with.
+  - S3 region to communicate with. When using the Iceberg REST catalog with
+    `iceberg.rest-catalog.vended-credentials-enabled=true`, this property can be
+    provided by the REST catalog via `client.region`. Static catalog configuration
+    takes precedence over vended values.
 * - `s3.cross-region-access`
-  - Enable cross region access. Defaults to `false`.
+  - Enable cross region access. Defaults to `false`. When using the Iceberg REST catalog
+    with `iceberg.rest-catalog.vended-credentials-enabled=true`, this property can be
+    provided by the REST catalog via `s3.cross-region-access-enabled`. Static catalog
+    configuration takes precedence over vended values.
 * - `s3.path-style-access`
   - Use path-style access for all requests to S3
 * - `s3.storage-class`
