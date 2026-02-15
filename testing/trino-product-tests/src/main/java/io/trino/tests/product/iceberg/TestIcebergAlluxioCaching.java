@@ -91,8 +91,7 @@ public class TestIcebergAlluxioCaching
     {
         onTrino().executeQuery("DROP TABLE IF EXISTS " + tableName);
         onTrino().executeQuery("DROP SCHEMA IF EXISTS iceberg.test_caching");
-        onTrino().executeQuery("SET SESSION iceberg.target_max_file_size = '2MB'");
         onTrino().executeQuery("CREATE SCHEMA iceberg.test_caching with (location = 's3://" + bucketName + "/test_iceberg_caching')");
-        onTrino().executeQuery("CREATE TABLE " + tableName + " AS SELECT * FROM tpch.sf1.customer");
+        onTrino().executeQuery("CREATE TABLE " + tableName + " WITH (target_max_file_size = '2MB') AS SELECT * FROM tpch.sf1.customer");
     }
 }

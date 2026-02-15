@@ -65,7 +65,6 @@ import static com.google.common.collect.MoreCollectors.onlyElement;
 import static io.airlift.slice.SizeOf.instanceSize;
 import static io.trino.plugin.iceberg.IcebergTestUtils.FILE_IO_FACTORY;
 import static io.trino.plugin.iceberg.IcebergTestUtils.getFileSystemFactory;
-import static io.trino.plugin.iceberg.IcebergTestUtils.withSmallRowGroups;
 import static io.trino.spi.function.table.ReturnTypeSpecification.GenericTable.GENERIC_TABLE;
 import static io.trino.spi.function.table.TableFunctionProcessorState.Finished.FINISHED;
 import static io.trino.spi.function.table.TableFunctionProcessorState.Processed.produced;
@@ -1115,8 +1114,9 @@ public abstract class BaseIcebergMaterializedViewTest
     public void testSplitOffsetsOnStorageTable()
     {
         String materializedViewName = "test_split_offsets_" + randomNameSuffix();
-        computeActual(format("CREATE MATERIALIZED VIEW %s AS SELECT * FROM tpch.tiny.nation", materializedViewName));
-        assertUpdate(withSmallRowGroups(getSession()), "REFRESH MATERIALIZED VIEW " + materializedViewName, 25);
+        // Storage table gets parquet_writer_block_size so REFRESH writes multiple row groups → multiple splits when reading
+        computeActual(format("CREATE MATERIALIZED VIEW %s WITH (parquet_writer_block_size = '1kB') AS SELECT * FROM tpch.tiny.nation", materializedViewName));
+        assertUpdate("REFRESH MATERIALIZED VIEW " + materializedViewName, 25);
 
         assertQueryStats(
                 getSession(),
