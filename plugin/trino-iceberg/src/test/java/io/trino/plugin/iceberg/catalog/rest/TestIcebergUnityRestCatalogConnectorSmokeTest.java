@@ -263,6 +263,14 @@ final class TestIcebergUnityRestCatalogConnectorSmokeTest
 
     @Test
     @Override
+    public void testUncommittedManifestCleanupAfterConcurrentWrites()
+    {
+        assertThatThrownBy(super::testUncommittedManifestCleanupAfterConcurrentWrites)
+                .hasMessageContaining("Access Denied");
+    }
+
+    @Test
+    @Override
     public void testCreateOrReplaceTable()
     {
         assertThatThrownBy(super::testCreateOrReplaceTable)

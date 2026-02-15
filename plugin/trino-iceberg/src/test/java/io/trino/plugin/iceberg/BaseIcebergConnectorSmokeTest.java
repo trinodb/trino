@@ -14,7 +14,9 @@
 package io.trino.plugin.iceberg;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Sets;
 import com.google.common.collect.Streams;
 import io.trino.Session;
 import io.trino.filesystem.FileIterator;
@@ -182,6 +184,64 @@ public abstract class BaseIcebergConnectorSmokeTest
             executor.shutdownNow();
             assertThat(executor.awaitTermination(10, SECONDS)).isTrue();
         }
+    }
+
+    @Test
+    public void testUncommittedManifestCleanupAfterConcurrentWrites()
+            throws Exception
+    {
+        int threads = 3;
+        CyclicBarrier barrier = new CyclicBarrier(threads);
+        ExecutorService executor = newFixedThreadPool(threads);
+
+        // Use concurrent INSERT operations to trigger conflicts and retries,
+        // which creates uncommitted manifest files that should be cleaned up.
+        try (TestTable table = newTrinoTable("test_uncommitted_cleanup", "(a INT, part INT)")) {
+            List<Future<Void>> futures = IntStream.range(0, threads)
+                    .mapToObj(_ -> executor.<Void>submit(() -> {
+                        barrier.await(10, SECONDS);
+                        getQueryRunner().execute("INSERT INTO " + table.getName() + " VALUES (1, 2)");
+                        return null;
+                    }))
+                    .collect(toImmutableList());
+
+            futures.forEach(future -> tryGetFutureValue(future, 20, SECONDS));
+
+            Set<String> allManifestFiles = listManifestFiles(table.getName());
+
+            Session cleanupSession = Session.builder(getSession())
+                    .setCatalogSessionProperty("iceberg", "expire_snapshots_min_retention", "0s")
+                    .setCatalogSessionProperty("iceberg", "remove_orphan_files_min_retention", "0s")
+                    .build();
+            assertUpdate(cleanupSession, "ALTER TABLE " + table.getName() + " EXECUTE REMOVE_ORPHAN_FILES (retention_threshold => '0s')");
+
+            Set<String> remainingManifestFiles = listManifestFiles(table.getName());
+            Set<String> removedManifests = Sets.difference(allManifestFiles, remainingManifestFiles);
+
+            // Uncommitted manifests should be cleaned up automatically during commit
+            assertThat(removedManifests)
+                    .describedAs("No orphaned manifests expected - uncommitted files should be cleaned up during commit")
+                    .isEmpty();
+        }
+        finally {
+            executor.shutdownNow();
+            assertThat(executor.awaitTermination(10, SECONDS)).isTrue();
+        }
+    }
+
+    private Set<String> listManifestFiles(String tableName)
+            throws IOException
+    {
+        Location directory = Location.of(getMetadataLocation(tableName)).parentDirectory();
+        ImmutableSet.Builder<String> files = ImmutableSet.builder();
+        FileIterator listing = fileSystem.listFiles(directory);
+        while (listing.hasNext()) {
+            String location = listing.next().location().toString();
+            if (location.endsWith(".avro")) {
+                files.add(location);
+            }
+        }
+        return files.build();
     }
 
     @Test
