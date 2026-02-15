@@ -124,6 +124,15 @@
         </artifact>
     </artifactSet>
 
+    <artifactSet to="plugin/paimon">
+        <artifact id="${project.groupId}:trino-paimon:zip:${project.version}">
+            <unpack />
+        </artifact>
+        <artifact id="${project.groupId}:trino-hdfs:zip:${project.version}">
+            <unpack useRoot="true" />
+        </artifact>
+    </artifactSet>
+
     <artifactSet to="plugin/ignite">
         <artifact id="${project.groupId}:trino-ignite:zip:${project.version}">
             <unpack />
