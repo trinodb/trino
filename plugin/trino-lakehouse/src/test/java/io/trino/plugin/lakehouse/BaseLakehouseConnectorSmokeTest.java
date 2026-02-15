@@ -159,6 +159,7 @@ public abstract class BaseLakehouseConnectorSmokeTest
                    comment varchar
                 )
                 WITH (
+                   column_mapping_mode = 'NAME',
                    location = \\E's3://test-bucket-.*/tpch/create_delta-.*'\\Q,
                    type = 'DELTA'
                 )\\E""");

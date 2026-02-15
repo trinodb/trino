@@ -595,6 +595,7 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
                                 "   comment varchar\n" +
                                 ")\n" +
                                 "WITH (\n" +
+                                "   column_mapping_mode = 'NAME',\n" +
                                 "   location = '%s',\n" +
                                 "   partitioned_by = ARRAY['regionkey']\n" +
                                 ")",
@@ -1592,6 +1593,7 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
                         "   another_string varchar\n" +
                         ")\n" +
                         "WITH (\n" +
+                        "   column_mapping_mode = 'NAME',\n" +
                         "   location = '" + newLocation + "'" + (secondPartitioned ? "," : "") + "\n" +
                         (secondPartitioned ? "   partitioned_by = ARRAY['a_number']\n" : "") +
                         ")");

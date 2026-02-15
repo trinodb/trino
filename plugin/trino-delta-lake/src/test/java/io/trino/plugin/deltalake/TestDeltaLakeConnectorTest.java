@@ -357,6 +357,7 @@ public class TestDeltaLakeConnectorTest
                         "   comment varchar\n" +
                         ")\n" +
                         "WITH (\n" +
+                        "   column_mapping_mode = 'NAME',\n" +
                         "   location = \\E'.*/test_schema/orders.*'\n\\Q" +
                         ")");
     }
@@ -515,38 +516,6 @@ public class TestDeltaLakeConnectorTest
     }
 
     @Test
-    @Override
-    public void testDropColumn()
-    {
-        // Override because the connector doesn't support dropping columns with 'none' column mapping
-        // There are some tests in in io.trino.tests.product.deltalake.TestDeltaLakeColumnMappingMode
-        assertThatThrownBy(super::testDropColumn)
-                .hasMessageContaining("Cannot drop column from table using column mapping mode NONE");
-    }
-
-    @Test
-    @Override
-    public void testAddAndDropColumnName()
-    {
-        for (String columnName : testColumnNameDataProvider()) {
-            // Override because the connector doesn't support dropping columns with 'none' column mapping
-            // There are some tests in in io.trino.tests.product.deltalake.TestDeltaLakeColumnMappingMode
-            assertThatThrownBy(() -> testAddAndDropColumnName(columnName, requiresDelimiting(columnName)))
-                    .hasMessageContaining("Cannot drop column from table using column mapping mode NONE");
-        }
-    }
-
-    @Test
-    @Override
-    public void testDropAndAddColumnWithSameName()
-    {
-        // Override because the connector doesn't support dropping columns with 'none' column mapping
-        // There are some tests in in io.trino.tests.product.deltalake.TestDeltaLakeColumnMappingMode
-        assertThatThrownBy(super::testDropAndAddColumnWithSameName)
-                .hasMessageContaining("Cannot drop column from table using column mapping mode NONE");
-    }
-
-    @Test
     public void testDropPartitionColumn()
     {
         testDropPartitionColumn(ColumnMappingMode.ID);
@@ -575,26 +544,6 @@ public class TestDeltaLakeConnectorTest
     }
 
     @Test
-    @Override
-    public void testRenameColumn()
-    {
-        // Override because the connector doesn't support renaming columns with 'none' column mapping
-        // There are some tests in in io.trino.tests.product.deltalake.TestDeltaLakeColumnMappingMode
-        assertThatThrownBy(super::testRenameColumn)
-                .hasMessageContaining("Cannot rename column in table using column mapping mode NONE");
-    }
-
-    @Test
-    @Override
-    public void testRenameColumnWithComment()
-    {
-        // Override because the connector doesn't support renaming columns with 'none' column mapping
-        // There are some tests in in io.trino.tests.product.deltalake.TestDeltaLakeColumnMappingMode
-        assertThatThrownBy(super::testRenameColumnWithComment)
-                .hasMessageContaining("Cannot rename column in table using column mapping mode NONE");
-    }
-
-    @Test
     public void testDeltaRenameColumnWithComment()
     {
         testDeltaRenameColumnWithComment(ColumnMappingMode.ID);
@@ -619,28 +568,6 @@ public class TestDeltaLakeConnectorTest
         assertThat(getColumnComment(tableName, "new_part")).isEqualTo("test partition comment");
 
         assertUpdate("DROP TABLE " + tableName);
-    }
-
-    @Test
-    @Override
-    public void testAlterTableRenameColumnToLongName()
-    {
-        // Override because the connector doesn't support renaming columns with 'none' column mapping
-        // There are some tests in in io.trino.tests.product.deltalake.TestDeltaLakeColumnMappingMode
-        assertThatThrownBy(super::testAlterTableRenameColumnToLongName)
-                .hasMessageContaining("Cannot rename column in table using column mapping mode NONE");
-    }
-
-    @Test
-    @Override
-    public void testRenameColumnName()
-    {
-        for (String columnName : testColumnNameDataProvider()) {
-            // Override because the connector doesn't support renaming columns with 'none' column mapping
-            // There are some tests in in io.trino.tests.product.deltalake.TestDeltaLakeColumnMappingMode
-            assertThatThrownBy(() -> testRenameColumnName(columnName, requiresDelimiting(columnName)))
-                    .hasMessageContaining("Cannot rename column in table using column mapping mode NONE");
-        }
     }
 
     @Test
@@ -1663,7 +1590,7 @@ public class TestDeltaLakeConnectorTest
     @Test
     public void testCreateTableWithChangeDataFeed()
     {
-        try (TestTable table = newTrinoTable("test_cdf", "(x int) WITH (change_data_feed_enabled = true)")) {
+        try (TestTable table = newTrinoTable("test_cdf", "(x int) WITH (change_data_feed_enabled = true, column_mapping_mode = 'none')")) {
             assertThat(query("SELECT * FROM \"" + table.getName() + "$properties\""))
                     .skippingTypesCheck()
                     .matches("VALUES " +
@@ -1674,7 +1601,7 @@ public class TestDeltaLakeConnectorTest
         }
 
         // timestamp type requires reader version 3 and writer version 7
-        try (TestTable table = newTrinoTable("test_cdf", "(x timestamp) WITH (change_data_feed_enabled = true)")) {
+        try (TestTable table = newTrinoTable("test_cdf", "(x timestamp) WITH (change_data_feed_enabled = true, column_mapping_mode = 'none')")) {
             assertThat(query("SELECT * FROM \"" + table.getName() + "$properties\""))
                     .skippingTypesCheck()
                     .matches("VALUES " +
@@ -2354,7 +2281,7 @@ public class TestDeltaLakeConnectorTest
         try (TestTable table = newTrinoTable(
                 "test_create_or_replace_",
                 "  WITH (partitioned_by=ARRAY['a']) AS SELECT BIGINT '42' a, 'some data' b UNION ALL SELECT BIGINT '43' a, 'another data' b")) {
-            assertUpdate("CREATE OR REPLACE TABLE " + table.getName() + " AS SELECT BIGINT '42' a, 'some data' b UNION ALL SELECT BIGINT '43' a, 'another data' b", 2);
+            assertUpdate("CREATE OR REPLACE TABLE " + table.getName() + " WITH (column_mapping_mode = 'none') AS SELECT BIGINT '42' a, 'some data' b UNION ALL SELECT BIGINT '43' a, 'another data' b", 2);
             assertThat(query("SELECT * FROM " + table.getName()))
                     .matches("VALUES (BIGINT '42', CAST('some data' AS VARCHAR)), (BIGINT '43', CAST('another data' AS VARCHAR))");
 
@@ -2641,7 +2568,7 @@ public class TestDeltaLakeConnectorTest
     {
         try (TestTable table = newTrinoTable(
                 "create_or_replace_with_change_column_mapping_",
-                " AS SELECT 1 as colA, 'B' as colB")) {
+                "WITH (column_mapping_mode = 'none') AS SELECT 1 as colA, 'B' as colB")) {
             assertQueryFails(
                     "ALTER TABLE " + table.getName() + " DROP COLUMN colA",
                     "Cannot drop column from table using column mapping mode NONE");
@@ -3086,7 +3013,7 @@ public class TestDeltaLakeConnectorTest
     public void testProjectionPushdownExplain()
     {
         String tableName = "test_projection_pushdown_explain_" + randomNameSuffix();
-        assertUpdate("CREATE TABLE " + tableName + " (id BIGINT, root ROW(f1 BIGINT, f2 BIGINT)) WITH (partitioned_by = ARRAY['id'])");
+        assertUpdate("CREATE TABLE " + tableName + " (id BIGINT, root ROW(f1 BIGINT, f2 BIGINT)) WITH (partitioned_by = ARRAY['id'], column_mapping_mode = 'none')");
 
         assertExplain(
                 "EXPLAIN SELECT root.f2 FROM " + tableName,
@@ -3112,7 +3039,8 @@ public class TestDeltaLakeConnectorTest
         String tableName = "test_projection_pushdown_non_primtive_type_" + randomNameSuffix();
 
         assertUpdate("CREATE TABLE " + tableName +
-                " (id BIGINT, _row ROW(child BIGINT), _array ARRAY(ROW(child BIGINT)), _map MAP(BIGINT, BIGINT))");
+                " (id BIGINT, _row ROW(child BIGINT), _array ARRAY(ROW(child BIGINT)), _map MAP(BIGINT, BIGINT))" +
+                "WITH (column_mapping_mode = 'none')");
 
         assertExplain(
                 "EXPLAIN SELECT id, _row.child, _array[1].child, _map[1] FROM " + tableName,
@@ -4467,7 +4395,7 @@ public class TestDeltaLakeConnectorTest
     @Test
     void testAddTimestampNtzColumnToCdfEnabledTable()
     {
-        try (TestTable table = newTrinoTable("test_timestamp_ntz", "(x int) WITH (change_data_feed_enabled = true)")) {
+        try (TestTable table = newTrinoTable("test_timestamp_ntz", "(x int) WITH (change_data_feed_enabled = true, column_mapping_mode = 'none')")) {
             assertThat(getTableProperties(table.getName()))
                     .containsExactlyInAnyOrderEntriesOf(ImmutableMap.<String, String>builder()
                             .put("delta.enableChangeDataFeed", "true")
@@ -5591,7 +5519,7 @@ public class TestDeltaLakeConnectorTest
     @Test
     public void testMetastoreAfterCreateTable()
     {
-        try (TestTable table = newTrinoTable("test_cache_metastore", "(col int) COMMENT 'test comment'")) {
+        try (TestTable table = newTrinoTable("test_cache_metastore", "(col int) COMMENT 'test comment' WITH (column_mapping_mode = 'none')")) {
             assertThat(metastore.getTable(SCHEMA, table.getName()).orElseThrow().getParameters())
                     .contains(
                             entry("comment", "test comment"),
@@ -5604,7 +5532,7 @@ public class TestDeltaLakeConnectorTest
     public void testMetastoreAfterCreateOrReplaceTable()
     {
         try (TestTable table = newTrinoTable("test_cache_metastore", "(col int) COMMENT 'test comment'")) {
-            assertUpdate("CREATE OR REPLACE TABLE " + table.getName() + "(new_col varchar) COMMENT 'new comment'");
+            assertUpdate("CREATE OR REPLACE TABLE " + table.getName() + "(new_col varchar) COMMENT 'new comment' WITH (column_mapping_mode = 'none')");
             assertThat(metastore.getTable(SCHEMA, table.getName()).orElseThrow().getParameters())
                     .contains(
                             entry("comment", "new comment"),
@@ -5616,7 +5544,7 @@ public class TestDeltaLakeConnectorTest
     @Test
     public void testMetastoreAfterCreateTableAsSelect()
     {
-        try (TestTable table = newTrinoTable("test_cache_metastore", "COMMENT 'test comment' AS SELECT 1 col")) {
+        try (TestTable table = newTrinoTable("test_cache_metastore", "COMMENT 'test comment' WITH (column_mapping_mode = 'none') AS SELECT 1 col")) {
             assertThat(metastore.getTable(SCHEMA, table.getName()).orElseThrow().getParameters())
                     .contains(
                             entry("comment", "test comment"),
@@ -5629,7 +5557,7 @@ public class TestDeltaLakeConnectorTest
     public void testMetastoreAfterCreateOrReplaceTableAsSelect()
     {
         try (TestTable table = newTrinoTable("test_cache_metastore", "COMMENT 'test comment' AS SELECT 1 col")) {
-            assertUpdate("CREATE OR REPLACE TABLE " + table.getName() + " COMMENT 'new comment' AS SELECT 'test' new_col", 1);
+            assertUpdate("CREATE OR REPLACE TABLE " + table.getName() + " COMMENT 'new comment' WITH (column_mapping_mode = 'none') AS SELECT 'test' new_col", 1);
             assertThat(metastore.getTable(SCHEMA, table.getName()).orElseThrow().getParameters())
                     .contains(
                             entry("comment", "new comment"),
@@ -5641,7 +5569,7 @@ public class TestDeltaLakeConnectorTest
     @Test
     public void testMetastoreAfterCommentTable()
     {
-        try (TestTable table = newTrinoTable("test_cache_metastore", "(col int)")) {
+        try (TestTable table = newTrinoTable("test_cache_metastore", "(col int) WITH (column_mapping_mode = 'none')")) {
             assertThat(metastore.getTable(SCHEMA, table.getName()).orElseThrow().getParameters())
                     .doesNotContainKey("comment")
                     .contains(
@@ -5660,7 +5588,7 @@ public class TestDeltaLakeConnectorTest
     @Test
     public void testMetastoreAfterCommentColumn()
     {
-        try (TestTable table = newTrinoTable("test_cache_metastore", "(col int COMMENT 'test comment')")) {
+        try (TestTable table = newTrinoTable("test_cache_metastore", "(col int COMMENT 'test comment') WITH (column_mapping_mode = 'none')")) {
             assertThat(metastore.getTable(SCHEMA, table.getName()).orElseThrow().getParameters())
                     .doesNotContainKey("comment")
                     .contains(
@@ -5741,7 +5669,7 @@ public class TestDeltaLakeConnectorTest
     @Test
     public void testMetastoreAfterSetTableProperties()
     {
-        try (TestTable table = newTrinoTable("test_cache_metastore", "(col int)")) {
+        try (TestTable table = newTrinoTable("test_cache_metastore", "(col int) WITH (column_mapping_mode = 'none')")) {
             assertUpdate("ALTER TABLE " + table.getName() + " SET PROPERTIES change_data_feed_enabled = true");
             assertEventually(() -> assertThat(metastore.getTable(SCHEMA, table.getName()).orElseThrow().getParameters())
                     .contains(
@@ -5753,7 +5681,7 @@ public class TestDeltaLakeConnectorTest
     @Test
     public void testMetastoreAfterOptimize()
     {
-        try (TestTable table = newTrinoTable("test_cache_metastore", "(col int)")) {
+        try (TestTable table = newTrinoTable("test_cache_metastore", "(col int) WITH (column_mapping_mode = 'none')")) {
             assertUpdate("ALTER TABLE " + table.getName() + " EXECUTE optimize");
             assertEventually(() -> assertThat(metastore.getTable(SCHEMA, table.getName()).orElseThrow().getParameters())
                     .contains(
@@ -5765,7 +5693,7 @@ public class TestDeltaLakeConnectorTest
     @Test
     public void testMetastoreAfterRegisterTable()
     {
-        try (TestTable table = newTrinoTable("test_cache_metastore", "(col int) COMMENT 'test comment'")) {
+        try (TestTable table = newTrinoTable("test_cache_metastore", "(col int) COMMENT 'test comment' WITH (column_mapping_mode = 'none')")) {
             assertUpdate("INSERT INTO " + table.getName() + " VALUES 1", 1);
             String tableLocation = metastore.getTable(SCHEMA, table.getName()).orElseThrow().getStorage().getLocation();
             metastore.dropTable(SCHEMA, table.getName(), false);
@@ -5782,7 +5710,7 @@ public class TestDeltaLakeConnectorTest
     @Test
     public void testMetastoreAfterCreateTableRemotely()
     {
-        try (TestTable table = newTrinoTable("test_cache_metastore", "(col int) COMMENT 'test comment'")) {
+        try (TestTable table = newTrinoTable("test_cache_metastore", "(col int) COMMENT 'test comment' WITH (column_mapping_mode = 'none')")) {
             Table metastoreTable = metastore.getTable(SCHEMA, table.getName()).orElseThrow();
             metastore.dropTable(SCHEMA, table.getName(), false);
 
@@ -5810,7 +5738,7 @@ public class TestDeltaLakeConnectorTest
     {
         String schemaString = "{\"type\":\"struct\",\"fields\":[{\"name\":\"col\",\"type\":\"integer\",\"nullable\":true,\"metadata\":{}}]}";
 
-        try (TestTable table = newTrinoTable("test_cache_metastore", "(col int)")) {
+        try (TestTable table = newTrinoTable("test_cache_metastore", "(col int) WITH (column_mapping_mode = 'none')")) {
             assertThat(metastore.getTable(SCHEMA, table.getName()).orElseThrow().getParameters())
                     .contains(entry("trino_last_transaction_version", "0"), entry("trino_metadata_schema_string", schemaString));
 
@@ -5844,7 +5772,7 @@ public class TestDeltaLakeConnectorTest
     {
         String schemaString = "{\"type\":\"struct\",\"fields\":[{\"name\":\"col\",\"type\":\"integer\",\"nullable\":true,\"metadata\":{}}]}";
 
-        try (TestTable table = newTrinoTable("test_cache_metastore", "AS SELECT 1 col")) {
+        try (TestTable table = newTrinoTable("test_cache_metastore", "WITH (column_mapping_mode = 'none') AS SELECT 1 col")) {
             assertThat(metastore.getTable(SCHEMA, table.getName()).orElseThrow().getParameters())
                     .contains(entry("trino_last_transaction_version", "0"), entry("trino_metadata_schema_string", schemaString));
 

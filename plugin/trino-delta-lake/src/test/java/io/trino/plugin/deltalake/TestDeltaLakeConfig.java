@@ -16,6 +16,7 @@ package io.trino.plugin.deltalake;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.ColumnMappingMode;
 import io.trino.plugin.hive.HiveCompressionOption;
 import org.junit.jupiter.api.Test;
 
@@ -72,6 +73,7 @@ public class TestDeltaLakeConfig
                 .setRegisterTableProcedureEnabled(false)
                 .setProjectionPushdownEnabled(true)
                 .setQueryPartitionFilterRequired(false)
+                .setColumnMappingMode(ColumnMappingMode.NAME)
                 .setDeletionVectorsEnabled(false)
                 .setDeltaLogFileSystemCacheDisabled(false)
                 .setMetadataParallelism(8)
@@ -114,6 +116,7 @@ public class TestDeltaLakeConfig
                 .put("delta.register-table-procedure.enabled", "true")
                 .put("delta.projection-pushdown-enabled", "false")
                 .put("delta.query-partition-filter-required", "true")
+                .put("delta.column-mapping-mode", "none")
                 .put("delta.deletion-vectors-enabled", "true")
                 .put("delta.fs.cache.disable-transaction-log-caching", "true")
                 .put("delta.metadata.parallelism", "10")
@@ -153,6 +156,7 @@ public class TestDeltaLakeConfig
                 .setRegisterTableProcedureEnabled(true)
                 .setProjectionPushdownEnabled(false)
                 .setQueryPartitionFilterRequired(true)
+                .setColumnMappingMode(ColumnMappingMode.NONE)
                 .setDeletionVectorsEnabled(true)
                 .setDeltaLogFileSystemCacheDisabled(true)
                 .setMetadataParallelism(10)

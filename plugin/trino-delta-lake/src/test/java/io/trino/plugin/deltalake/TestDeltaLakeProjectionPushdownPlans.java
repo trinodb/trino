@@ -159,7 +159,7 @@ public class TestDeltaLakeProjectionPushdownPlans
         QualifiedObjectName completeTableName = new QualifiedObjectName(DELTA_CATALOG, SCHEMA, testTable);
 
         getPlanTester().executeStatement(format(
-                "CREATE TABLE %s (col0, col1) WITH (partitioned_by = ARRAY['col1']) AS" +
+                "CREATE TABLE %s (col0, col1) WITH (partitioned_by = ARRAY['col1'], column_mapping_mode = 'none') AS" +
                         " SELECT CAST(row(5, 6) AS row(x bigint, y bigint)) AS col0, 5 AS col1",
                 testTable));
 
