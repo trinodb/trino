@@ -64,6 +64,7 @@ import io.trino.sql.tree.BooleanLiteral;
 import io.trino.sql.tree.Cast;
 import io.trino.sql.tree.CoalesceExpression;
 import io.trino.sql.tree.ComparisonExpression;
+import io.trino.sql.tree.CompositeIntervalQualifier;
 import io.trino.sql.tree.CurrentCatalog;
 import io.trino.sql.tree.CurrentDate;
 import io.trino.sql.tree.CurrentPath;
@@ -83,6 +84,7 @@ import io.trino.sql.tree.Identifier;
 import io.trino.sql.tree.IfExpression;
 import io.trino.sql.tree.InListExpression;
 import io.trino.sql.tree.InPredicate;
+import io.trino.sql.tree.IntervalField;
 import io.trino.sql.tree.IntervalLiteral;
 import io.trino.sql.tree.IsNotNullPredicate;
 import io.trino.sql.tree.IsNullPredicate;
@@ -109,6 +111,7 @@ import io.trino.sql.tree.Parameter;
 import io.trino.sql.tree.Row;
 import io.trino.sql.tree.SearchedCaseExpression;
 import io.trino.sql.tree.SimpleCaseExpression;
+import io.trino.sql.tree.SimpleIntervalQualifier;
 import io.trino.sql.tree.StringLiteral;
 import io.trino.sql.tree.SubscriptExpression;
 import io.trino.sql.tree.Trim;
@@ -396,12 +399,26 @@ public class TranslationMap
     {
         Type type = analysis.getType(expression);
 
+        // TODO: the value should be interpreted according to the analyzed type. However, currently the analyzed type
+        //       is hard-coded to either INTERVAL DAY TO SECOND or INTERVAL YEAR TO MONTH, as arbitrary precision
+        //       invervals are not yet supported in the underlying type system.
+
+        IntervalField start = switch (expression.qualifier()) {
+            case SimpleIntervalQualifier simple -> simple.getField();
+            case CompositeIntervalQualifier composite -> composite.getFrom();
+        };
+
+        Optional<IntervalField> end = switch (expression.qualifier()) {
+            case SimpleIntervalQualifier _ -> Optional.empty();
+            case CompositeIntervalQualifier composite -> Optional.of(composite.getTo());
+        };
+
         return new Constant(
                 type,
                 switch (type) {
-                    case IntervalYearMonthType t -> expression.getSign().multiplier() * parseYearMonthInterval(expression.getValue(), expression.getStartField(), expression.getEndField());
-                    case IntervalDayTimeType t -> expression.getSign().multiplier() * parseDayTimeInterval(expression.getValue(), expression.getStartField(), expression.getEndField());
-                    default -> throw new IllegalArgumentException("Unexpected type for IntervalLiteral: %s" + type);
+                    case IntervalDayTimeType _ -> expression.getSign().multiplier() * parseDayTimeInterval(expression.getValue(), start, end);
+                    case IntervalYearMonthType _ -> expression.getSign().multiplier() * parseYearMonthInterval(expression.getValue(), start, end);
+                    default -> throw new UnsupportedOperationException("Unhandled interval type: " + type);
                 });
     }
 

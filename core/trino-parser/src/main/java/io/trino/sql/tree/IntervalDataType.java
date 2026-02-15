@@ -21,42 +21,25 @@ import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
-public final class IntervalDayTimeDataType
+public final class IntervalDataType
         extends DataType
 {
-    public enum Field
+    private final IntervalQualifier qualifier;
+
+    public IntervalDataType(NodeLocation location, IntervalQualifier qualifier)
     {
-        YEAR,
-        MONTH,
-        DAY,
-        HOUR,
-        MINUTE,
-        SECOND,
+        this(Optional.of(location), qualifier);
     }
 
-    private final Field from;
-    private final Field to;
-
-    public IntervalDayTimeDataType(NodeLocation location, Field from, Field to)
-    {
-        this(Optional.of(location), from, to);
-    }
-
-    public IntervalDayTimeDataType(Optional<NodeLocation> location, Field from, Field to)
+    public IntervalDataType(Optional<NodeLocation> location, IntervalQualifier qualifier)
     {
         super(location);
-        this.from = requireNonNull(from, "from is null");
-        this.to = requireNonNull(to, "to is null");
+        this.qualifier = requireNonNull(qualifier, "qualifier is null");
     }
 
-    public Field getFrom()
+    public IntervalQualifier qualifier()
     {
-        return from;
-    }
-
-    public Field getTo()
-    {
-        return to;
+        return qualifier;
     }
 
     @Override
@@ -74,21 +57,16 @@ public final class IntervalDayTimeDataType
     @Override
     public boolean equals(Object o)
     {
-        if (this == o) {
-            return true;
-        }
-        if (o == null || getClass() != o.getClass()) {
+        if (!(o instanceof IntervalDataType that)) {
             return false;
         }
-        IntervalDayTimeDataType that = (IntervalDayTimeDataType) o;
-        return from == that.from &&
-                to == that.to;
+        return Objects.equals(qualifier, that.qualifier);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(from, to);
+        return Objects.hashCode(qualifier);
     }
 
     @Override
@@ -98,8 +76,7 @@ public final class IntervalDayTimeDataType
             return false;
         }
 
-        IntervalDayTimeDataType otherType = (IntervalDayTimeDataType) other;
-        return from.equals(otherType.from) &&
-                to == otherType.to;
+        IntervalDataType otherType = (IntervalDataType) other;
+        return qualifier.equals(otherType.qualifier);
     }
 }

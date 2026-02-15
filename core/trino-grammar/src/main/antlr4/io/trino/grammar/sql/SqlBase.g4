@@ -760,11 +760,7 @@ booleanValue
     ;
 
 interval
-    : INTERVAL sign=(PLUS | MINUS)? string from=intervalField (TO to=intervalField)?
-    ;
-
-intervalField
-    : YEAR | MONTH | DAY | HOUR | MINUTE | SECOND
+    : INTERVAL sign=(PLUS | MINUS)? string intervalQualifier
     ;
 
 normalForm
@@ -773,7 +769,7 @@ normalForm
 
 type
     : ROW '(' rowField (',' rowField)* ')'                                         #rowType
-    | INTERVAL from=intervalField (TO to=intervalField)?                           #intervalType
+    | INTERVAL intervalQualifier                                                   #intervalType
     | base=TIMESTAMP ('(' precision = typeParameter ')')? (WITHOUT TIME ZONE)?     #dateTimeType
     | base=TIMESTAMP ('(' precision = typeParameter ')')? WITH TIME ZONE           #dateTimeType
     | base=TIME ('(' precision = typeParameter ')')? (WITHOUT TIME ZONE)?          #dateTimeType
@@ -784,6 +780,18 @@ type
     | type ARRAY ('[' INTEGER_VALUE ']')?                                          #arrayType
     | identifier ('(' typeParameter (',' typeParameter)* ')')?                     #genericType
     ;
+
+intervalQualifier
+  : YEAR ('(' precision=INTEGER_VALUE ')')? TO MONTH                                              #compositeYearToMonthInterval
+  | field=(YEAR | MONTH) ('(' precision=INTEGER_VALUE ')')?                                       #simpleYearMonthInterval
+  | start=(DAY | HOUR | MINUTE) ('(' leadingPrecision=INTEGER_VALUE ')')?
+    TO (
+      end=HOUR |
+      end=MINUTE |
+      end=SECOND ('(' fractionalPrecision=INTEGER_VALUE ')')?)                                    #compositeDayTimeInterval
+  | field=(DAY | HOUR | MINUTE) ('(' precision=INTEGER_VALUE ')')?                                #simpleDayTimeInterval
+  | SECOND ('(' leadingPrecision=INTEGER_VALUE (',' fractionalPrecision=INTEGER_VALUE)? ')')?     #secondsDayTimeInterval
+  ;
 
 rowField
     : type

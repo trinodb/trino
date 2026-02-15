@@ -20,12 +20,15 @@ import io.trino.spi.NodeVersion;
 import io.trino.spi.TrinoException;
 import io.trino.spi.resourcegroups.ResourceGroupId;
 import io.trino.spi.type.TimeZoneNotSupportedException;
+import io.trino.sql.tree.CompositeIntervalQualifier;
 import io.trino.sql.tree.FunctionCall;
 import io.trino.sql.tree.Identifier;
+import io.trino.sql.tree.IntervalField;
 import io.trino.sql.tree.IntervalLiteral;
 import io.trino.sql.tree.NodeLocation;
 import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.SetTimeZone;
+import io.trino.sql.tree.SimpleIntervalQualifier;
 import io.trino.sql.tree.StringLiteral;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.StandaloneQueryRunner;
@@ -39,6 +42,7 @@ import java.net.URI;
 import java.time.Duration;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.concurrent.ExecutorService;
 
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
@@ -46,8 +50,6 @@ import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.SystemSessionProperties.TIME_ZONE_ID;
 import static io.trino.execution.querystats.PlanOptimizersStatsCollector.createPlanOptimizersStatsCollector;
-import static io.trino.sql.tree.IntervalLiteral.IntervalField.HOUR;
-import static io.trino.sql.tree.IntervalLiteral.IntervalField.MINUTE;
 import static io.trino.sql.tree.IntervalLiteral.Sign.NEGATIVE;
 import static io.trino.sql.tree.IntervalLiteral.Sign.POSITIVE;
 import static io.trino.testing.TestingSession.testSession;
@@ -166,7 +168,7 @@ public class TestSetTimeZoneTask
         QueryStateMachine stateMachine = createQueryStateMachine("SET TIME ZONE INTERVAL '10' HOUR");
         SetTimeZone setTimeZone = new SetTimeZone(
                 new NodeLocation(1, 1),
-                Optional.of(new IntervalLiteral("10", POSITIVE, HOUR)));
+                Optional.of(new IntervalLiteral("10", POSITIVE, new SimpleIntervalQualifier(new NodeLocation(1, 28), OptionalInt.empty(), new IntervalField.Hour()))));
         executeSetTimeZone(setTimeZone, stateMachine);
 
         Map<String, String> setSessionProperties = stateMachine.getSetSessionProperties();
@@ -218,7 +220,7 @@ public class TestSetTimeZoneTask
         QueryStateMachine stateMachine = createQueryStateMachine("SET TIME ZONE INTERVAL '15' HOUR");
         SetTimeZone setTimeZone = new SetTimeZone(
                 new NodeLocation(1, 1),
-                Optional.of(new IntervalLiteral("15", POSITIVE, HOUR)));
+                Optional.of(new IntervalLiteral("15", POSITIVE, new SimpleIntervalQualifier(new NodeLocation(1, 28), OptionalInt.empty(), new IntervalField.Hour()))));
         assertThatThrownBy(() -> executeSetTimeZone(setTimeZone, stateMachine))
                 .isInstanceOf(TrinoException.class)
                 .hasMessage("Invalid offset minutes 900");
@@ -230,7 +232,7 @@ public class TestSetTimeZoneTask
         QueryStateMachine stateMachine = createQueryStateMachine("SET TIME ZONE INTERVAL -'15' HOUR");
         SetTimeZone setTimeZone = new SetTimeZone(
                 new NodeLocation(1, 1),
-                Optional.of(new IntervalLiteral("15", NEGATIVE, HOUR)));
+                Optional.of(new IntervalLiteral("15", NEGATIVE, new SimpleIntervalQualifier(new NodeLocation(1, 29), OptionalInt.empty(), new IntervalField.Hour()))));
         assertThatThrownBy(() -> executeSetTimeZone(setTimeZone, stateMachine))
                 .isInstanceOf(TrinoException.class)
                 .hasMessage("Invalid offset minutes -900");
@@ -242,7 +244,7 @@ public class TestSetTimeZoneTask
         QueryStateMachine stateMachine = createQueryStateMachine("SET TIME ZONE INTERVAL -'08:00' HOUR TO MINUTE");
         SetTimeZone setTimeZone = new SetTimeZone(
                 new NodeLocation(1, 1),
-                Optional.of(new IntervalLiteral("8", NEGATIVE, HOUR, Optional.of(MINUTE))));
+                Optional.of(new IntervalLiteral("8", NEGATIVE, new CompositeIntervalQualifier(new NodeLocation(1, 32), OptionalInt.empty(), new IntervalField.Hour(), new IntervalField.Minute()))));
         executeSetTimeZone(setTimeZone, stateMachine);
 
         Map<String, String> setSessionProperties = stateMachine.getSetSessionProperties();

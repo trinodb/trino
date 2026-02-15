@@ -39,6 +39,7 @@ import io.trino.sql.tree.ColumnPosition;
 import io.trino.sql.tree.Comment;
 import io.trino.sql.tree.Commit;
 import io.trino.sql.tree.ComparisonExpression;
+import io.trino.sql.tree.CompositeIntervalQualifier;
 import io.trino.sql.tree.Corresponding;
 import io.trino.sql.tree.CreateBranch;
 import io.trino.sql.tree.CreateCatalog;
@@ -102,8 +103,8 @@ import io.trino.sql.tree.Identifier;
 import io.trino.sql.tree.IfExpression;
 import io.trino.sql.tree.Insert;
 import io.trino.sql.tree.Intersect;
+import io.trino.sql.tree.IntervalField;
 import io.trino.sql.tree.IntervalLiteral;
-import io.trino.sql.tree.IntervalLiteral.IntervalField;
 import io.trino.sql.tree.IntervalLiteral.Sign;
 import io.trino.sql.tree.IsNullPredicate;
 import io.trino.sql.tree.Isolation;
@@ -209,6 +210,7 @@ import io.trino.sql.tree.ShowStats;
 import io.trino.sql.tree.ShowTables;
 import io.trino.sql.tree.SimpleCaseExpression;
 import io.trino.sql.tree.SimpleGroupBy;
+import io.trino.sql.tree.SimpleIntervalQualifier;
 import io.trino.sql.tree.SingleColumn;
 import io.trino.sql.tree.SortItem;
 import io.trino.sql.tree.StartTransaction;
@@ -249,6 +251,7 @@ import org.junit.jupiter.api.Timeout;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalInt;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.sql.QueryUtil.aliased;
@@ -422,9 +425,9 @@ public class TestSqlParser
         assertThat(expression("TIMESTAMP 'abc'"))
                 .isEqualTo(new GenericLiteral(location, "TIMESTAMP", "abc"));
         assertThat(expression("INTERVAL '33' day"))
-                .isEqualTo(new IntervalLiteral(location, "33", Sign.POSITIVE, IntervalField.DAY, Optional.empty()));
+                .isEqualTo(new IntervalLiteral(location, "33", Sign.POSITIVE, new SimpleIntervalQualifier(new NodeLocation(1, 15), OptionalInt.empty(), new IntervalField.Day())));
         assertThat(expression("INTERVAL '33' day to second"))
-                .isEqualTo(new IntervalLiteral(location, "33", Sign.POSITIVE, IntervalField.DAY, Optional.of(IntervalField.SECOND)));
+                .isEqualTo(new IntervalLiteral(location, "33", Sign.POSITIVE, new CompositeIntervalQualifier(new NodeLocation(1, 15), OptionalInt.empty(), new IntervalField.Day(), new IntervalField.Second(OptionalInt.empty()))));
         assertThat(expression("CHAR 'abc'"))
                 .isEqualTo(new GenericLiteral(location, "CHAR", "abc"));
     }
@@ -1294,23 +1297,74 @@ public class TestSqlParser
     {
         NodeLocation location = new NodeLocation(1, 1);
         assertThat(expression("INTERVAL '123' YEAR"))
-                .isEqualTo(new IntervalLiteral(location, "123", Sign.POSITIVE, IntervalField.YEAR, Optional.empty()));
+                .isEqualTo(new IntervalLiteral(location, "123", Sign.POSITIVE, new SimpleIntervalQualifier(location(1, 16), OptionalInt.empty(), new IntervalField.Year())));
         assertThat(expression("INTERVAL '123-3' YEAR TO MONTH"))
-                .isEqualTo(new IntervalLiteral(location, "123-3", Sign.POSITIVE, IntervalField.YEAR, Optional.of(IntervalField.MONTH)));
+                .isEqualTo(new IntervalLiteral(location, "123-3", Sign.POSITIVE, new CompositeIntervalQualifier(location(1, 18), OptionalInt.empty(), new IntervalField.Year(), new IntervalField.Month())));
         assertThat(expression("INTERVAL '123' MONTH"))
-                .isEqualTo(new IntervalLiteral(location, "123", Sign.POSITIVE, IntervalField.MONTH, Optional.empty()));
+                .isEqualTo(new IntervalLiteral(location, "123", Sign.POSITIVE, new SimpleIntervalQualifier(location(1, 16), OptionalInt.empty(), new IntervalField.Month())));
         assertThat(expression("INTERVAL '123' DAY"))
-                .isEqualTo(new IntervalLiteral(location, "123", Sign.POSITIVE, IntervalField.DAY, Optional.empty()));
+                .isEqualTo(new IntervalLiteral(location, "123", Sign.POSITIVE, new SimpleIntervalQualifier(location(1, 16), OptionalInt.empty(), new IntervalField.Day())));
         assertThat(expression("INTERVAL '123 23:58:53.456' DAY TO SECOND"))
-                .isEqualTo(new IntervalLiteral(location, "123 23:58:53.456", Sign.POSITIVE, IntervalField.DAY, Optional.of(IntervalField.SECOND)));
+                .isEqualTo(new IntervalLiteral(location, "123 23:58:53.456", Sign.POSITIVE, new CompositeIntervalQualifier(location(1, 29), OptionalInt.empty(), new IntervalField.Day(), new IntervalField.Second(OptionalInt.empty()))));
         assertThat(expression("INTERVAL '123' HOUR"))
-                .isEqualTo(new IntervalLiteral(location, "123", Sign.POSITIVE, IntervalField.HOUR, Optional.empty()));
+                .isEqualTo(new IntervalLiteral(location, "123", Sign.POSITIVE, new SimpleIntervalQualifier(location(1, 16), OptionalInt.empty(), new IntervalField.Hour())));
         assertThat(expression("INTERVAL '23:59' HOUR TO MINUTE"))
-                .isEqualTo(new IntervalLiteral(location, "23:59", Sign.POSITIVE, IntervalField.HOUR, Optional.of(IntervalField.MINUTE)));
+                .isEqualTo(new IntervalLiteral(location, "23:59", Sign.POSITIVE, new CompositeIntervalQualifier(location(1, 18), OptionalInt.empty(), new IntervalField.Hour(), new IntervalField.Minute())));
         assertThat(expression("INTERVAL '123' MINUTE"))
-                .isEqualTo(new IntervalLiteral(location, "123", Sign.POSITIVE, IntervalField.MINUTE, Optional.empty()));
+                .isEqualTo(new IntervalLiteral(location, "123", Sign.POSITIVE, new SimpleIntervalQualifier(location(1, 16), OptionalInt.empty(), new IntervalField.Minute())));
         assertThat(expression("INTERVAL '123' SECOND"))
-                .isEqualTo(new IntervalLiteral(location, "123", Sign.POSITIVE, IntervalField.SECOND, Optional.empty()));
+                .isEqualTo(new IntervalLiteral(location, "123", Sign.POSITIVE, new SimpleIntervalQualifier(location(1, 16), OptionalInt.empty(), new IntervalField.Second(OptionalInt.empty()))));
+
+        assertThat(expression("INTERVAL '1' YEAR(1)"))
+                .isEqualTo(new IntervalLiteral(location, "1", Sign.POSITIVE, new SimpleIntervalQualifier(location(1, 14), OptionalInt.of(1), new IntervalField.Year())));
+
+        assertThat(expression("INTERVAL '1' YEAR(1) TO MONTH"))
+                .isEqualTo(new IntervalLiteral(location, "1", Sign.POSITIVE, new CompositeIntervalQualifier(location(1, 14), OptionalInt.of(1), new IntervalField.Year(), new IntervalField.Month())));
+
+        assertThat(expression("INTERVAL '1' MONTH(1)"))
+                .isEqualTo(new IntervalLiteral(location, "1", Sign.POSITIVE, new SimpleIntervalQualifier(location(1, 14), OptionalInt.of(1), new IntervalField.Month())));
+
+        assertThat(expression("INTERVAL '1' DAY(1)"))
+                .isEqualTo(new IntervalLiteral(location, "1", Sign.POSITIVE, new SimpleIntervalQualifier(location(1, 14), OptionalInt.of(1), new IntervalField.Day())));
+
+        assertThat(expression("INTERVAL '1' DAY(1) TO HOUR"))
+                .isEqualTo(new IntervalLiteral(location, "1", Sign.POSITIVE, new CompositeIntervalQualifier(location(1, 14), OptionalInt.of(1), new IntervalField.Day(), new IntervalField.Hour())));
+
+        assertThat(expression("INTERVAL '1' DAY(1) TO MINUTE"))
+                .isEqualTo(new IntervalLiteral(location, "1", Sign.POSITIVE, new CompositeIntervalQualifier(location(1, 14), OptionalInt.of(1), new IntervalField.Day(), new IntervalField.Minute())));
+
+        assertThat(expression("INTERVAL '1' DAY(1) TO SECOND"))
+                .isEqualTo(new IntervalLiteral(location, "1", Sign.POSITIVE, new CompositeIntervalQualifier(location(1, 14), OptionalInt.of(1), new IntervalField.Day(), new IntervalField.Second(OptionalInt.empty()))));
+
+        assertThat(expression("INTERVAL '1' DAY(1) TO SECOND(2)"))
+                .isEqualTo(new IntervalLiteral(location, "1", Sign.POSITIVE, new CompositeIntervalQualifier(location(1, 14), OptionalInt.of(1), new IntervalField.Day(), new IntervalField.Second(OptionalInt.of(2)))));
+
+        assertThat(expression("INTERVAL '1' HOUR(1)"))
+                .isEqualTo(new IntervalLiteral(location, "1", Sign.POSITIVE, new SimpleIntervalQualifier(location(1, 14), OptionalInt.of(1), new IntervalField.Hour())));
+
+        assertThat(expression("INTERVAL '1' HOUR(1) TO MINUTE"))
+                .isEqualTo(new IntervalLiteral(location, "1", Sign.POSITIVE, new CompositeIntervalQualifier(location(1, 14), OptionalInt.of(1), new IntervalField.Hour(), new IntervalField.Minute())));
+
+        assertThat(expression("INTERVAL '1' HOUR(1) TO SECOND"))
+                .isEqualTo(new IntervalLiteral(location, "1", Sign.POSITIVE, new CompositeIntervalQualifier(location(1, 14), OptionalInt.of(1), new IntervalField.Hour(), new IntervalField.Second(OptionalInt.empty()))));
+
+        assertThat(expression("INTERVAL '1' HOUR(1) TO SECOND(2)"))
+                .isEqualTo(new IntervalLiteral(location, "1", Sign.POSITIVE, new CompositeIntervalQualifier(location(1, 14), OptionalInt.of(1), new IntervalField.Hour(), new IntervalField.Second(OptionalInt.of(2)))));
+
+        assertThat(expression("INTERVAL '1' MINUTE(1)"))
+                .isEqualTo(new IntervalLiteral(location, "1", Sign.POSITIVE, new SimpleIntervalQualifier(location(1, 14), OptionalInt.of(1), new IntervalField.Minute())));
+
+        assertThat(expression("INTERVAL '1' MINUTE(1) TO SECOND"))
+                .isEqualTo(new IntervalLiteral(location, "1", Sign.POSITIVE, new CompositeIntervalQualifier(location(1, 14), OptionalInt.of(1), new IntervalField.Minute(), new IntervalField.Second(OptionalInt.empty()))));
+
+        assertThat(expression("INTERVAL '1' MINUTE(1) TO SECOND(2)"))
+                .isEqualTo(new IntervalLiteral(location, "1", Sign.POSITIVE, new CompositeIntervalQualifier(location(1, 14), OptionalInt.of(1), new IntervalField.Minute(), new IntervalField.Second(OptionalInt.of(2)))));
+
+        assertThat(expression("INTERVAL '1' SECOND(1)"))
+                .isEqualTo(new IntervalLiteral(location, "1", Sign.POSITIVE, new SimpleIntervalQualifier(location(1, 14), OptionalInt.of(1), new IntervalField.Second(OptionalInt.empty()))));
+
+        assertThat(expression("INTERVAL '1' SECOND(1, 2)"))
+                .isEqualTo(new IntervalLiteral(location, "1", Sign.POSITIVE, new SimpleIntervalQualifier(location(1, 14), OptionalInt.of(1), new IntervalField.Second(OptionalInt.of(2)))));
     }
 
     @Test
@@ -4724,13 +4778,13 @@ public class TestSqlParser
                                 location(1, 1),
                                 Optional.of(new IntervalLiteral(
                                         location(1, 15),
-                                        "10", Sign.POSITIVE, IntervalField.HOUR, Optional.empty()))));
+                                        "10", Sign.POSITIVE, new SimpleIntervalQualifier(location(1, 29), OptionalInt.empty(), new IntervalField.Hour())))));
         assertThat(statement("SET TIME ZONE INTERVAL -'08:00' HOUR TO MINUTE"))
                 .isEqualTo(
                         new SetTimeZone(
                                 location(1, 1),
                                 Optional.of(new IntervalLiteral(
-                                        location(1, 15), "08:00", Sign.NEGATIVE, IntervalField.HOUR, Optional.of(IntervalField.MINUTE)))));
+                                        location(1, 15), "08:00", Sign.NEGATIVE, new CompositeIntervalQualifier(location(1, 33), OptionalInt.empty(), new IntervalField.Hour(), new IntervalField.Minute())))));
     }
 
     @Test
@@ -5972,7 +6026,7 @@ public class TestSqlParser
                                 Optional.empty()),
                         false,
                         false,
-                        Optional.of(new IntervalLiteral(new NodeLocation(1, 41), "2", Sign.POSITIVE, IntervalField.DAY, Optional.empty())),
+                        Optional.of(new IntervalLiteral(new NodeLocation(1, 41), "2", Sign.POSITIVE, new SimpleIntervalQualifier(location(1, 54), OptionalInt.empty(), new IntervalField.Day()))),
                         Optional.empty(),
                         ImmutableList.of(),
                         Optional.empty()));
