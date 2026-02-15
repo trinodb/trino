@@ -1188,8 +1188,11 @@ public final class SqlFormatter
             if (node.isReplace()) {
                 builder.append("OR REPLACE ");
             }
-            builder.append("VIEW ")
-                    .append(formatName(node.getName()));
+            builder.append("VIEW ");
+            if (node.isNotExists()) {
+                builder.append("IF NOT EXISTS ");
+            }
+            builder.append(formatName(node.getName()));
 
             node.getComment().ifPresent(comment -> builder
                     .append(" COMMENT ")

@@ -4325,17 +4325,21 @@ public class TestSqlParser
     {
         Query query = simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("t")));
 
-        assertStatement("CREATE VIEW a AS SELECT * FROM t", new CreateView(location(1, 1), QualifiedName.of("a"), query, false, Optional.empty(), Optional.empty(), ImmutableList.of()));
-        assertStatement("CREATE OR REPLACE VIEW a AS SELECT * FROM t", new CreateView(location(1, 1), QualifiedName.of("a"), query, true, Optional.empty(), Optional.empty(), ImmutableList.of()));
+        assertStatement("CREATE VIEW a AS SELECT * FROM t", new CreateView(location(1, 1), QualifiedName.of("a"), query, false, false, Optional.empty(), Optional.empty(), ImmutableList.of()));
+        assertStatement("CREATE OR REPLACE VIEW a AS SELECT * FROM t", new CreateView(location(1, 1), QualifiedName.of("a"), query, true, false, Optional.empty(), Optional.empty(), ImmutableList.of()));
 
-        assertStatement("CREATE VIEW a SECURITY DEFINER AS SELECT * FROM t", new CreateView(location(1, 1), QualifiedName.of("a"), query, false, Optional.empty(), Optional.of(CreateView.Security.DEFINER), ImmutableList.of()));
-        assertStatement("CREATE VIEW a SECURITY INVOKER AS SELECT * FROM t", new CreateView(location(1, 1), QualifiedName.of("a"), query, false, Optional.empty(), Optional.of(CreateView.Security.INVOKER), ImmutableList.of()));
+        assertStatement("CREATE VIEW IF NOT EXISTS a AS SELECT * FROM t", new CreateView(location(1, 1), QualifiedName.of("a"), query, false, true, Optional.empty(), Optional.empty(), ImmutableList.of()));
+        assertStatement("CREATE OR REPLACE VIEW IF NOT EXISTS a AS SELECT * FROM t", new CreateView(location(1, 1), QualifiedName.of("a"), query, true, true, Optional.empty(), Optional.empty(), ImmutableList.of()));
 
-        assertStatement("CREATE VIEW a COMMENT 'comment' SECURITY DEFINER AS SELECT * FROM t", new CreateView(location(1, 1), QualifiedName.of("a"), query, false, Optional.of("comment"), Optional.of(CreateView.Security.DEFINER), ImmutableList.of()));
-        assertStatement("CREATE VIEW a COMMENT '' SECURITY INVOKER AS SELECT * FROM t", new CreateView(location(1, 1), QualifiedName.of("a"), query, false, Optional.of(""), Optional.of(CreateView.Security.INVOKER), ImmutableList.of()));
 
-        assertStatement("CREATE VIEW a COMMENT 'comment' AS SELECT * FROM t", new CreateView(location(1, 1), QualifiedName.of("a"), query, false, Optional.of("comment"), Optional.empty(), ImmutableList.of()));
-        assertStatement("CREATE VIEW a COMMENT '' AS SELECT * FROM t", new CreateView(location(1, 1), QualifiedName.of("a"), query, false, Optional.of(""), Optional.empty(), ImmutableList.of()));
+        assertStatement("CREATE VIEW a SECURITY DEFINER AS SELECT * FROM t", new CreateView(location(1, 1), QualifiedName.of("a"), query, false, false, Optional.empty(), Optional.of(CreateView.Security.DEFINER), ImmutableList.of()));
+        assertStatement("CREATE VIEW a SECURITY INVOKER AS SELECT * FROM t", new CreateView(location(1, 1), QualifiedName.of("a"), query, false, false, Optional.empty(), Optional.of(CreateView.Security.INVOKER), ImmutableList.of()));
+
+        assertStatement("CREATE VIEW a COMMENT 'comment' SECURITY DEFINER AS SELECT * FROM t", new CreateView(location(1, 1), QualifiedName.of("a"), query, false, false, Optional.of("comment"), Optional.of(CreateView.Security.DEFINER), ImmutableList.of()));
+        assertStatement("CREATE VIEW a COMMENT '' SECURITY INVOKER AS SELECT * FROM t", new CreateView(location(1, 1), QualifiedName.of("a"), query, false, false, Optional.of(""), Optional.of(CreateView.Security.INVOKER), ImmutableList.of()));
+
+        assertStatement("CREATE VIEW a COMMENT 'comment' AS SELECT * FROM t", new CreateView(location(1, 1), QualifiedName.of("a"), query, false, false, Optional.of("comment"), Optional.empty(), ImmutableList.of()));
+        assertStatement("CREATE VIEW a COMMENT '' AS SELECT * FROM t", new CreateView(location(1, 1), QualifiedName.of("a"), query, false, false, Optional.of(""), Optional.empty(), ImmutableList.of()));
 
         assertStatement(
                 "CREATE VIEW a WITH (property_1 = 'value_1', property_2 = 2) AS SELECT * FROM t",
@@ -4344,15 +4348,16 @@ public class TestSqlParser
                         QualifiedName.of("a"),
                         query,
                         false,
+                        false,
                         Optional.empty(),
                         Optional.empty(),
                         ImmutableList.of(
                                 new Property(new Identifier("property_1"), new StringLiteral("value_1")),
                                 new Property(new Identifier("property_2"), new LongLiteral("2")))));
 
-        assertStatement("CREATE VIEW bar.foo AS SELECT * FROM t", new CreateView(location(1, 1), QualifiedName.of("bar", "foo"), query, false, Optional.empty(), Optional.empty(), ImmutableList.of()));
-        assertStatement("CREATE VIEW \"awesome view\" AS SELECT * FROM t", new CreateView(location(1, 1), QualifiedName.of("awesome view"), query, false, Optional.empty(), Optional.empty(), ImmutableList.of()));
-        assertStatement("CREATE VIEW \"awesome schema\".\"awesome view\" AS SELECT * FROM t", new CreateView(location(1, 1), QualifiedName.of("awesome schema", "awesome view"), query, false, Optional.empty(), Optional.empty(), ImmutableList.of()));
+        assertStatement("CREATE VIEW bar.foo AS SELECT * FROM t", new CreateView(location(1, 1), QualifiedName.of("bar", "foo"), query, false, false, Optional.empty(), Optional.empty(), ImmutableList.of()));
+        assertStatement("CREATE VIEW \"awesome view\" AS SELECT * FROM t", new CreateView(location(1, 1), QualifiedName.of("awesome view"), query, false, false, Optional.empty(), Optional.empty(), ImmutableList.of()));
+        assertStatement("CREATE VIEW \"awesome schema\".\"awesome view\" AS SELECT * FROM t", new CreateView(location(1, 1), QualifiedName.of("awesome schema", "awesome view"), query, false, false, Optional.empty(), Optional.empty(), ImmutableList.of()));
     }
 
     @Test
