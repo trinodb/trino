@@ -25,6 +25,7 @@ public class SnowflakeConfig
     private String role;
     private String warehouse;
     private String httpProxy;
+    private String privateKey;
 
     public Optional<String> getAccount()
     {
@@ -84,6 +85,19 @@ public class SnowflakeConfig
     public SnowflakeConfig setHttpProxy(String httpProxy)
     {
         this.httpProxy = httpProxy;
+        return this;
+    }
+
+    public Optional<String> getPrivateKey()
+    {
+        return Optional.ofNullable(privateKey);
+    }
+
+    @Config("snowflake.private-key")
+    @ConfigSecuritySensitive
+    public SnowflakeConfig setPrivateKey(String privateKey)
+    {
+        this.privateKey = privateKey;
         return this;
     }
 }
