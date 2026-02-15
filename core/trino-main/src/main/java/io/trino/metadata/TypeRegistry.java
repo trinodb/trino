@@ -73,6 +73,7 @@ import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.HyperLogLogType.HYPER_LOG_LOG;
 import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.NumberType.NUMBER;
 import static io.trino.spi.type.P4HyperLogLogType.P4_HYPER_LOG_LOG;
 import static io.trino.spi.type.QuantileDigestParametricType.QDIGEST;
 import static io.trino.spi.type.RealType.REAL;
@@ -136,6 +137,7 @@ public final class TypeRegistry
         addType(TINYINT);
         addType(DOUBLE);
         addType(REAL);
+        addType(NUMBER);
         addType(VARBINARY);
         addType(DATE);
         addType(INTERVAL_YEAR_MONTH);

@@ -13,6 +13,7 @@
  */
 package io.trino.type;
 
+import io.trino.spi.type.SqlNumber;
 import io.trino.sql.query.QueryAssertions;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -28,6 +29,7 @@ import static io.trino.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.NumberType.NUMBER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TinyintType.TINYINT;
@@ -138,6 +140,14 @@ public class TestVarcharOperators
         assertThat(assertions.expression("CAST(VARCHAR ' 21 ' AS TINYINT)"))
                 .hasType(TINYINT)
                 .isEqualTo((byte) 21);
+
+        assertThat(assertions.expression("CAST(VARCHAR '13.37' AS NUMBER)"))
+                .hasType(NUMBER)
+                .isEqualTo(new SqlNumber("13.37"));
+
+        assertThat(assertions.expression("CAST(VARCHAR ' 13.37 ' AS NUMBER)"))
+                .hasType(NUMBER)
+                .isEqualTo(new SqlNumber("13.37"));
     }
 
     @Test

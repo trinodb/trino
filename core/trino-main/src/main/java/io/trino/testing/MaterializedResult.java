@@ -27,12 +27,14 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SourcePage;
 import io.trino.spi.type.SqlDate;
 import io.trino.spi.type.SqlDecimal;
+import io.trino.spi.type.SqlNumber;
 import io.trino.spi.type.SqlTime;
 import io.trino.spi.type.SqlTimeWithTimeZone;
 import io.trino.spi.type.SqlTimestamp;
 import io.trino.spi.type.SqlTimestampWithTimeZone;
 import io.trino.spi.type.Type;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.OffsetTime;
@@ -57,6 +59,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_NANOSECOND;
 import static io.trino.spi.type.Timestamps.roundDiv;
+import static java.lang.Double.parseDouble;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
@@ -322,6 +325,13 @@ public class MaterializedResult
                 case SqlTimestamp sqlTimestamp -> sqlTimestamp.toLocalDateTime();
                 case SqlTimestampWithTimeZone sqlTimestampWithTimeZone -> sqlTimestampWithTimeZone.toZonedDateTime();
                 case SqlDecimal sqlDecimal -> sqlDecimal.toBigDecimal();
+                case SqlNumber sqlNumber -> {
+                    double doubleValue = parseDouble(sqlNumber.stringified());
+                    if (!Double.isFinite(doubleValue)) {
+                        yield doubleValue;
+                    }
+                    yield new BigDecimal(sqlNumber.stringified());
+                }
                 default -> trinoValue;
             };
             convertedValues.add(convertedValue);

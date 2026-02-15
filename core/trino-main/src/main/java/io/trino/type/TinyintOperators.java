@@ -21,6 +21,9 @@ import io.trino.spi.function.LiteralParameters;
 import io.trino.spi.function.ScalarOperator;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.type.StandardTypes;
+import io.trino.spi.type.TrinoNumber;
+
+import java.math.BigDecimal;
 
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.spi.StandardErrorCode.DIVISION_BY_ZERO;
@@ -152,6 +155,13 @@ public final class TinyintOperators
     public static long castToReal(@SqlType(StandardTypes.TINYINT) long value)
     {
         return floatToRawIntBits((float) value);
+    }
+
+    @ScalarOperator(CAST)
+    @SqlType(StandardTypes.NUMBER)
+    public static TrinoNumber castToNumber(@SqlType(StandardTypes.TINYINT) long value)
+    {
+        return TrinoNumber.from(new BigDecimal(value));
     }
 
     @ScalarOperator(CAST)

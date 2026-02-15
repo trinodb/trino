@@ -15,8 +15,6 @@ package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.metadata.ResolvedFunction;
-import io.trino.spi.type.DoubleType;
-import io.trino.spi.type.RealType;
 import io.trino.spi.type.Type;
 import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Comparison;
@@ -30,6 +28,9 @@ import java.util.List;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
+import static io.trino.spi.type.DoubleType.DOUBLE;
+import static io.trino.spi.type.NumberType.NUMBER;
+import static io.trino.spi.type.RealType.REAL;
 import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN;
 import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN_OR_EQUAL;
 import static io.trino.sql.ir.Comparison.Operator.IDENTICAL;
@@ -89,7 +90,7 @@ public final class PushDownNegationsExpressionRewriter
 
         private boolean typeHasNaN(Type type)
         {
-            return type instanceof DoubleType || type instanceof RealType;
+            return type == REAL || type == DOUBLE || type == NUMBER;
         }
     }
 }

@@ -25,9 +25,7 @@ import io.trino.spi.function.InvocationConvention;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.DateType;
 import io.trino.spi.type.DecimalType;
-import io.trino.spi.type.DoubleType;
 import io.trino.spi.type.LongTimestampWithTimeZone;
-import io.trino.spi.type.RealType;
 import io.trino.spi.type.TimeWithTimeZoneType;
 import io.trino.spi.type.TimeZoneKey;
 import io.trino.spi.type.TimestampType;
@@ -65,6 +63,7 @@ import static io.trino.spi.type.DateTimeEncoding.unpackZoneKey;
 import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.NumberType.NUMBER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_NANOSECOND;
 import static io.trino.spi.type.TypeUtils.isFloatingPointNaN;
@@ -481,7 +480,7 @@ public class UnwrapCastInComparison
 
         private boolean typeHasNaN(Type type)
         {
-            return type instanceof DoubleType || type instanceof RealType;
+            return type == REAL || type == DOUBLE || type == NUMBER;
         }
 
         private int compare(Type type, Object first, Object second)
