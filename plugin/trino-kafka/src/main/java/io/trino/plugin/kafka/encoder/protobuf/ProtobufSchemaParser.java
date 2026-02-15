@@ -14,6 +14,7 @@
 package io.trino.plugin.kafka.encoder.protobuf;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Streams;
 import com.google.inject.Inject;
 import com.google.protobuf.Descriptors;
@@ -60,6 +61,10 @@ public class ProtobufSchemaParser
 {
     private static final String ANY_TYPE_NAME = "google.protobuf.Any";
     private static final String TIMESTAMP_TYPE_NAME = "google.protobuf.Timestamp";
+    private static final Set<String> STRUCT_TYPES = ImmutableSet.of(
+            "google.protobuf.Struct",
+            "google.protobuf.Value",
+            "google.protobuf.ListValue");
     private final TypeManager typeManager;
     private final boolean isProtobufAnySupportEnabled;
 
@@ -148,6 +153,9 @@ public class ProtobufSchemaParser
             return createTimestampType(6);
         }
         else if (isProtobufAnySupportEnabled && descriptor.getFullName().equals(ANY_TYPE_NAME)) {
+            return typeManager.getType(new TypeSignature(JSON));
+        }
+        else if (STRUCT_TYPES.contains(descriptor.getFullName())) {
             return typeManager.getType(new TypeSignature(JSON));
         }
 

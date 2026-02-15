@@ -1,0 +1,10 @@
+syntax = "proto3";
+
+import "google/protobuf/struct.proto";
+
+message schema {
+    int32 id = 1;
+    google.protobuf.Struct metadata = 2;
+    google.protobuf.Value any_value = 3;
+    google.protobuf.ListValue tags = 4;
+}
