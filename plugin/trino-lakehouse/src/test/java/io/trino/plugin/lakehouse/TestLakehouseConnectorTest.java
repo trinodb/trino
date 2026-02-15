@@ -436,4 +436,13 @@ public class TestLakehouseConnectorTest
             assertCountMetricExists(metrics, "lakehouse", "iceberg.metastore.getTable.time.total");
         }
     }
+
+    @Test
+    void testBucketFunction()
+    {
+        assertThat(query("SELECT lakehouse.system.bucket('trino', 16)")).matches("VALUES 10");
+
+        assertThat(query("SELECT lakehouse.system.other_function('trino', 16)"))
+                .failure().hasMessageMatching("line .:.: Function 'lakehouse.system.other_function' not registered");
+    }
 }
