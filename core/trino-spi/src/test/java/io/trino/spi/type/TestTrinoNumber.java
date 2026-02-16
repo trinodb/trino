@@ -13,17 +13,36 @@
  */
 package io.trino.spi.type;
 
+import com.google.common.primitives.Shorts;
 import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
 
 import static java.math.RoundingMode.UNNECESSARY;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.data.Percentage.withPercentage;
 
 class TestTrinoNumber
 {
     private static final int TEST_MAX_DECIMAL_PRECISION = 30;
+
+    @Test
+    void testHeaderRoundTrip()
+    {
+        for (var negated : new boolean[] {false, true}) {
+            for (int scale = TrinoNumber.MIN_SCALE; scale <= TrinoNumber.MAX_SCALE; scale++) {
+                short header = TrinoNumber.header(negated, scale);
+                assertThat(TrinoNumber.scaleFromHeader(header)).isEqualTo(Shorts.checkedCast(scale));
+                assertThat(TrinoNumber.negatedFromHeader(header)).isEqualTo(negated);
+            }
+
+            for (int badScale : new int[] {TrinoNumber.MIN_SCALE - 1, TrinoNumber.MAX_SCALE + 1, Integer.MIN_VALUE, Integer.MAX_VALUE}) {
+                assertThatThrownBy(() -> TrinoNumber.header(negated, badScale))
+                        .hasMessage("Scale out of range: " + badScale);
+            }
+        }
+    }
 
     @Test
     void testBigDecimalRoundTrip()

@@ -29,10 +29,13 @@ import static java.math.RoundingMode.HALF_UP;
 public class TrinoNumber
 {
     static final int SCALE_BASE = 1 << 14;
-    private static final int MIN_SCALE = -SCALE_BASE;
-    private static final int MAX_SCALE = (SCALE_BASE - 1);
+    // visible for testing
+    static final int MIN_SCALE = -SCALE_BASE;
+    // visible for testing
+    static final int MAX_SCALE = (SCALE_BASE - 1);
 
-    private static short header(boolean negated, int scale)
+    // visible for testing
+    static short header(boolean negated, int scale)
     {
         checkArgument(MIN_SCALE <= scale && scale <= MAX_SCALE, "Scale out of range: %s", scale);
         short header = (short) ((scale + SCALE_BASE) & 0x7fff);
@@ -42,12 +45,14 @@ public class TrinoNumber
         return header;
     }
 
-    private static short scaleFromHeader(short header)
+    // visible for testing
+    static short scaleFromHeader(short header)
     {
         return (short) ((header & 0x7fff) - SCALE_BASE);
     }
 
-    private static boolean negatedFromHeader(short header)
+    // visible for testing
+    static boolean negatedFromHeader(short header)
     {
         return (header & 0x8000) != 0;
     }
