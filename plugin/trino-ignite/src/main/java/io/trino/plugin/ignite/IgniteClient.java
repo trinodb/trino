@@ -144,7 +144,7 @@ import static java.util.stream.Collectors.joining;
 public class IgniteClient
         extends BaseJdbcClient
 {
-    private static final String IGNITE_SCHEMA = "PUBLIC";
+    protected static final String IGNITE_SCHEMA = "PUBLIC";
 
     private static final String IGNITE_DUMMY_ID = "dummy_id";
     private static final Splitter SPLITTER = Splitter.on("\"").omitEmptyStrings().trimResults();

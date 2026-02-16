@@ -171,8 +171,8 @@ public class TestIgniteCaseInsensitiveMapping
                 .map(name -> name.toLowerCase(ENGLISH))
                 .collect(toImmutableSet()))
                 .hasSize(1);
-        try (AutoCloseable ignore = withTable("public", nameVariants[0], "(a varchar(1), b int primary key)");
-                AutoCloseable ignore1 = withTable("public", "some_table", "(d varchar(5), ignore varchar(1) primary key)")) {
+        try (AutoCloseable ignore = withTable("PUBLIC", nameVariants[0], "(a varchar(1), b int primary key)");
+                AutoCloseable ignore1 = withTable("PUBLIC", "some_table", "(d varchar(5), ignore varchar(1) primary key)")) {
             List<MaterializedRow> rows = computeActual("SHOW COLUMNS FROM some_table").getMaterializedRows();
             assertThat(rows != null && rows.size() == 2).isTrue();
             assertThat(rows.get(0).getField(0)).isEqualTo("D");

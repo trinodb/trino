@@ -261,7 +261,7 @@ final class TestElasticsearchComplexTypePredicatePushDown
         // no predicate push down for matching with ROW type, as file format only stores stats for primitives
         assertQueryStats(
                 getSession(),
-                "SELECT * FROM " + tableName + " WHERE col1Row.c = ROW(-1, ROW(-1, -1))",
+                "SELECT * FROM \"" + tableName + "\" WHERE col1Row.c = ROW(-1, ROW(-1, -1))",
                 queryStats -> assertThat(queryStats.getProcessedInputDataSize().toBytes()).isGreaterThan(0),
                 results -> assertThat(results.getRowCount()).isEqualTo(0));
 

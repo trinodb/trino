@@ -51,7 +51,7 @@ public abstract class BaseTestOpenLineageQueries
             String catalogName = "mock";
             String schemaName = "mock";
             switch (tableType) {
-                case TABLE, VIEW: {
+                case TABLE, VIEW -> {
                     catalogName = "marquez";
                     schemaName = "default";
                 }
@@ -96,7 +96,7 @@ public abstract class BaseTestOpenLineageQueries
             String catalogName = "mock";
             String schemaName = "mock";
             switch (tableType) {
-                case TABLE, VIEW: {
+                case TABLE, VIEW -> {
                     catalogName = "marquez";
                     schemaName = "default";
                 }
