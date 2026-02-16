@@ -14,6 +14,8 @@
 package io.trino.jdbc;
 
 import com.google.common.collect.ImmutableList;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import com.google.errorprone.annotations.CheckReturnValue;
 import io.trino.client.ClientStandardTypes;
 import io.trino.client.ClientTypeSignature;
 import io.trino.client.ClientTypeSignatureParameter;
@@ -341,89 +343,105 @@ class ColumnInfo
         private String schemaName;
         private String catalogName;
 
+        @CanIgnoreReturnValue
         public Builder setColumnType(int columnType)
         {
             this.columnType = columnType;
             return this;
         }
 
-        public void setColumnParameterTypes(List<Integer> columnParameterTypes)
+        @CanIgnoreReturnValue
+        public Builder setColumnParameterTypes(List<Integer> columnParameterTypes)
         {
             this.columnParameterTypes = ImmutableList.copyOf(requireNonNull(columnParameterTypes, "columnParameterTypes is null"));
+            return this;
         }
 
+        @CanIgnoreReturnValue
         public Builder setColumnTypeSignature(ClientTypeSignature columnTypeSignature)
         {
             this.columnTypeSignature = columnTypeSignature;
             return this;
         }
 
+        @CanIgnoreReturnValue
         public Builder setNullable(Nullable nullable)
         {
             this.nullable = nullable;
             return this;
         }
 
+        @CanIgnoreReturnValue
         public Builder setCurrency(boolean currency)
         {
             this.currency = currency;
             return this;
         }
 
+        @CanIgnoreReturnValue
         public Builder setSigned(boolean signed)
         {
             this.signed = signed;
             return this;
         }
 
+        @CanIgnoreReturnValue
         public Builder setPrecision(int precision)
         {
             this.precision = precision;
             return this;
         }
 
+        @CanIgnoreReturnValue
         public Builder setScale(int scale)
         {
             this.scale = scale;
             return this;
         }
 
+        @CanIgnoreReturnValue
         public Builder setColumnDisplaySize(int columnDisplaySize)
         {
             this.columnDisplaySize = columnDisplaySize;
             return this;
         }
 
+        @CanIgnoreReturnValue
         public Builder setColumnLabel(String columnLabel)
         {
             this.columnLabel = columnLabel;
             return this;
         }
 
+        @CanIgnoreReturnValue
         public Builder setColumnName(String columnName)
         {
             this.columnName = columnName;
             return this;
         }
 
+        @CanIgnoreReturnValue
         public Builder setTableName(String tableName)
         {
             this.tableName = tableName;
             return this;
         }
 
+        @CanIgnoreReturnValue
         public Builder setSchemaName(String schemaName)
         {
             this.schemaName = schemaName;
             return this;
         }
 
+        @CanIgnoreReturnValue
         public Builder setCatalogName(String catalogName)
         {
             this.catalogName = catalogName;
             return this;
         }
 
+        @CheckReturnValue
         public ColumnInfo build()
         {
             return new ColumnInfo(
