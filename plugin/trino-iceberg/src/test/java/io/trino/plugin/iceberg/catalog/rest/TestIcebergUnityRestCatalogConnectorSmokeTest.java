@@ -117,6 +117,12 @@ final class TestIcebergUnityRestCatalogConnectorSmokeTest
     }
 
     @Override
+    protected String getViewMetadataLocation(String viewName)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     protected String schemaPath()
     {
         return format("%s/%s", warehouseLocation, getSession().getSchema().orElseThrow());
@@ -404,6 +410,14 @@ final class TestIcebergUnityRestCatalogConnectorSmokeTest
     public void testUnregisterTableAccessControl()
     {
         testFailsDueToReadOnlyCatalog(super::testUnregisterTableAccessControl);
+    }
+
+    @Test
+    @Override
+    public void testRegisterView()
+    {
+        assertThatThrownBy(super::testRegisterView)
+                .hasMessageContaining("Access Denied");
     }
 
     @Test

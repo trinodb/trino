@@ -124,6 +124,12 @@ final class TestIcebergBigLakeMetastoreConnectorSmokeTest
     }
 
     @Override
+    protected String getViewMetadataLocation(String viewName)
+    {
+        throw new UnsupportedOperationException("getViewMetadataLocation is not supported for BigLake catalog");
+    }
+
+    @Override
     protected String schemaPath()
     {
         return "gs://%s/%s".formatted(GCP_STORAGE_BUCKET, SCHEMA);

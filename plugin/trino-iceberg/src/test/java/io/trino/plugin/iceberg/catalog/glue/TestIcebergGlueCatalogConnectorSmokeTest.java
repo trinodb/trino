@@ -203,6 +203,12 @@ public class TestIcebergGlueCatalogConnectorSmokeTest
     }
 
     @Override
+    protected String getViewMetadataLocation(String viewName)
+    {
+        throw new UnsupportedOperationException("getViewMetadataLocation is not supported for Glue catalog");
+    }
+
+    @Override
     protected void deleteDirectory(String location)
     {
         try (S3Client s3 = S3Client.create()) {

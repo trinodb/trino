@@ -107,6 +107,7 @@ public class TestIcebergJdbcCatalogConnectorSmokeTest
                                 .put("iceberg.jdbc-catalog.connection-password", PASSWORD)
                                 .put("iceberg.jdbc-catalog.catalog-name", "tpch")
                                 .put("iceberg.register-table-procedure.enabled", "true")
+                                .put("iceberg.register-view-procedure.enabled", "true")
                                 .put("iceberg.writer-sort-buffer-size", "1MB")
                                 .put("iceberg.jdbc-catalog.default-warehouse-dir", warehouseLocation.getAbsolutePath())
                                 .put("iceberg.jdbc-catalog.retryable-status-codes", "57P01,57P05")
@@ -210,6 +211,12 @@ public class TestIcebergJdbcCatalogConnectorSmokeTest
     {
         BaseTable table = (BaseTable) jdbcCatalog.loadTable(toIdentifier(tableName));
         return table.operations().current().metadataFileLocation();
+    }
+
+    @Override
+    protected String getViewMetadataLocation(String viewName)
+    {
+        return jdbcCatalog.loadView(toIdentifier(viewName)).location();
     }
 
     @Override

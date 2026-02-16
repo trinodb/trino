@@ -77,6 +77,12 @@ public class TestIcebergConnectorSmokeTest
     }
 
     @Override
+    protected String getViewMetadataLocation(String viewName)
+    {
+        throw new UnsupportedOperationException("getViewMetadataLocation is not supported for Hive catalog");
+    }
+
+    @Override
     protected String schemaPath()
     {
         return "local:///%s".formatted(getSession().getSchema().orElseThrow());
