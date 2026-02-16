@@ -240,13 +240,12 @@ public class TrinoResultSetMetaData
         return String.class.getName();
     }
 
-    @SuppressWarnings("unchecked")
     @Override
     public <T> T unwrap(Class<T> iface)
             throws SQLException
     {
         if (isWrapperFor(iface)) {
-            return (T) this;
+            return iface.cast(this);
         }
         throw new SQLException("No wrapper for " + iface);
     }
