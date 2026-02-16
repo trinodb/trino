@@ -33,6 +33,35 @@ public class TestWeaviatePlugin
                 .shutdown();
     }
 
+    @Test
+    public void testLocalConnection()
+    {
+        ConnectorFactory factory = getConnectorFactory();
+        factory.create("test",
+                        Map.of(
+                                "weaviate.http-host", "localhost",
+                                "weaviate.grpc-host", "localhost",
+                                "weaviate.http-port", "8080",
+                                "weaviate.grpc-port", "50051"),
+                        new TestingConnectorContext())
+                .shutdown();
+    }
+
+    @Test
+    public void testApiKeyAuthentication()
+    {
+        ConnectorFactory factory = getConnectorFactory();
+        factory.create("test",
+                        Map.of(
+                                "weaviate.http-host", "localhost",
+                                "weaviate.grpc-host", "localhost",
+                                "weaviate.http-port", "8080",
+                                "weaviate.grpc-port", "50051",
+                                "weaviate.auth.api-key", "xxx-xxx"),
+                        new TestingConnectorContext())
+                .shutdown();
+    }
+
     private static ConnectorFactory getConnectorFactory()
     {
         return getOnlyElement(new WeaviatePlugin().getConnectorFactories());
