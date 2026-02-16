@@ -14,15 +14,11 @@
 package io.trino.spi.type;
 
 import java.math.BigDecimal;
-import java.util.Base64;
 import java.util.Objects;
-
-import static java.nio.charset.StandardCharsets.UTF_8;
 
 public final class SqlNumber
 {
     private final String stringified;
-    private final String base64Encoded;
 
     public SqlNumber(BigDecimal value)
     {
@@ -32,17 +28,11 @@ public final class SqlNumber
     public SqlNumber(String value)
     {
         stringified = value;
-        base64Encoded = Base64.getEncoder().encodeToString(stringified.getBytes(UTF_8));
     }
 
     public String stringified()
     {
         return stringified;
-    }
-
-    public String base64Encoded()
-    {
-        return base64Encoded;
     }
 
     @Override

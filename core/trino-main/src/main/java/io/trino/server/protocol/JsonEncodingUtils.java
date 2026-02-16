@@ -49,6 +49,7 @@ import io.trino.type.SqlIntervalYearMonth;
 
 import java.io.IOException;
 import java.math.BigDecimal;
+import java.util.Base64;
 import java.util.List;
 import java.util.function.Consumer;
 
@@ -64,6 +65,7 @@ import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 
 public final class JsonEncodingUtils
@@ -439,7 +441,7 @@ public final class JsonEncodingUtils
                 case SqlDecimal decimalValue -> generator.writeString(decimalValue.toString());
                 // Trino client protocol backward compatibility requires that any new types are base64-encoded strings.
                 // JsonDecodingUtils uses "base64 decoder" for any type it doesn't recognize.
-                case SqlNumber number -> generator.writeString(number.base64Encoded());
+                case SqlNumber number -> generator.writeString(Base64.getEncoder().encodeToString(number.toString().getBytes(UTF_8)));
                 case SqlIntervalDayTime intervalValue -> generator.writeString(intervalValue.toString());
                 case SqlIntervalYearMonth intervalValue -> generator.writeString(intervalValue.toString());
                 case SqlTime timeValue -> generator.writeString(timeValue.toString());
