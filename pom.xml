@@ -201,7 +201,7 @@
         <dep.frontend-maven-plugin.version>2.0.0</dep.frontend-maven-plugin.version>
         <dep.frontend-node.version>v24.12.0</dep.frontend-node.version>
         <dep.frontend-npm.version>11.7.0</dep.frontend-npm.version>
-        <dep.httpcore5.version>5.4</dep.httpcore5.version>
+        <dep.httpcore5.version>5.4.1</dep.httpcore5.version>
         <dep.iceberg.version>1.10.1</dep.iceberg.version>
         <dep.jna.version>5.18.1</dep.jna.version>
         <dep.jsonwebtoken.version>0.13.0</dep.jsonwebtoken.version>
