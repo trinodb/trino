@@ -24,6 +24,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import static java.util.Collections.unmodifiableMap;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toCollection;
 
@@ -36,6 +37,7 @@ public class Identity
     private final Map<String, SelectedRole> catalogRoles;
     private final Map<String, String> extraCredentials;
     private final Optional<Runnable> onDestroy;
+    private final Map<String, List<String>> httpHeaders;
 
     private Identity(
             String user,
@@ -44,7 +46,8 @@ public class Identity
             Set<String> enabledRoles,
             Map<String, SelectedRole> catalogRoles,
             Map<String, String> extraCredentials,
-            Optional<Runnable> onDestroy)
+            Optional<Runnable> onDestroy,
+            Map<String, List<String>> httpHeaders)
     {
         this.user = requireNonNull(user, "user is null");
         this.groups = Set.copyOf(requireNonNull(groups, "groups is null"));
@@ -53,6 +56,7 @@ public class Identity
         this.catalogRoles = Map.copyOf(requireNonNull(catalogRoles, "catalogRoles is null"));
         this.extraCredentials = Map.copyOf(requireNonNull(extraCredentials, "extraCredentials is null"));
         this.onDestroy = requireNonNull(onDestroy, "onDestroy is null");
+        this.httpHeaders = unmodifiableMap(new HashMap<>(requireNonNull(httpHeaders, "httpHeaders is null")));
     }
 
     public String getUser()
@@ -92,6 +96,11 @@ public class Identity
     public Map<String, String> getExtraCredentials()
     {
         return extraCredentials;
+    }
+
+    public Map<String, List<String>> getHttpHeaders()
+    {
+        return httpHeaders;
     }
 
     public ConnectorIdentity toConnectorIdentity()
@@ -189,7 +198,8 @@ public class Identity
                 .withPrincipal(identity.getPrincipal())
                 .withEnabledRoles(identity.enabledRoles)
                 .withConnectorRoles(identity.getCatalogRoles())
-                .withExtraCredentials(identity.getExtraCredentials());
+                .withExtraCredentials(identity.getExtraCredentials())
+                .withHttpHeaders(identity.getHttpHeaders());
     }
 
     public static class Builder
@@ -201,6 +211,7 @@ public class Identity
         private Map<String, SelectedRole> connectorRoles = new HashMap<>();
         private Map<String, String> extraCredentials = new HashMap<>();
         private Optional<Runnable> onDestroy = Optional.empty();
+        private Map<String, List<String>> httpHeaders = new HashMap<>();
 
         public Builder(String user)
         {
@@ -312,9 +323,15 @@ public class Identity
             return this;
         }
 
+        public Builder withHttpHeaders(Map<String, List<String>> httpHeaders)
+        {
+            this.httpHeaders = new HashMap<>(requireNonNull(httpHeaders, "httpHeaders is null"));
+            return this;
+        }
+
         public Identity build()
         {
-            return new Identity(user, groups, principal, enabledRoles, connectorRoles, extraCredentials, onDestroy);
+            return new Identity(user, groups, principal, enabledRoles, connectorRoles, extraCredentials, onDestroy, httpHeaders);
         }
     }
 

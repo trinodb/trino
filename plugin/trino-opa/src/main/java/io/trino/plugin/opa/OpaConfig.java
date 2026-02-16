@@ -34,6 +34,8 @@ public class OpaConfig
     private Optional<URI> opaColumnMaskingUri = Optional.empty();
     private Optional<URI> opaBatchColumnMaskingUri = Optional.empty();
     private Optional<Path> additionalContextFile = Optional.empty();
+    private boolean includeRequestHeaders;
+    private String additionalHeaders = "";
 
     @NotNull
     public URI getOpaUri()
@@ -154,6 +156,32 @@ public class OpaConfig
     public OpaConfig setAdditionalContextFile(Path additionalContextFile)
     {
         this.additionalContextFile = Optional.ofNullable(additionalContextFile);
+        return this;
+    }
+
+    public boolean isIncludeRequestHeaders()
+    {
+        return includeRequestHeaders;
+    }
+
+    @Config("opa.include-request-headers")
+    @ConfigDescription("Whether to include HTTP request headers in OPA queries")
+    public OpaConfig setIncludeRequestHeaders(boolean includeRequestHeaders)
+    {
+        this.includeRequestHeaders = includeRequestHeaders;
+        return this;
+    }
+
+    public String getAdditionalHeaders()
+    {
+        return additionalHeaders;
+    }
+
+    @Config("opa.additional-headers")
+    @ConfigDescription("Comma-separated list of HTTP request headers to include in OPA queries (e.g., Authorization,X-Tenant-Id,X-Request-Id)")
+    public OpaConfig setAdditionalHeaders(String additionalHeaders)
+    {
+        this.additionalHeaders = additionalHeaders != null ? additionalHeaders : "";
         return this;
     }
 }

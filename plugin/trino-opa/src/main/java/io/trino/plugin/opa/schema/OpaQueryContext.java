@@ -13,21 +13,48 @@
  */
 package io.trino.plugin.opa.schema;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableMap;
 import io.trino.spi.QueryId;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import static com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL;
 import static java.util.Objects.requireNonNull;
 
-public record OpaQueryContext(TrinoIdentity identity, OpaPluginContext softwareStack, Map<String, String> properties, Optional<QueryId> queryId)
+@JsonInclude(NON_NULL)
+public record OpaQueryContext(
+        TrinoIdentity identity,
+        OpaPluginContext softwareStack,
+        Map<String, String> properties,
+        Optional<QueryId> queryId,
+        @JsonProperty("requestHeaders")
+        Optional<Map<String, List<String>>> requestHeaders)
 {
+    public OpaQueryContext(
+            TrinoIdentity identity,
+            OpaPluginContext softwareStack,
+            Map<String, String> properties,
+            Optional<QueryId> queryId)
+    {
+        this(identity, softwareStack, properties, queryId, Optional.empty());
+    }
+
     public OpaQueryContext
     {
         requireNonNull(identity, "identity is null");
         requireNonNull(softwareStack, "softwareStack is null");
         properties = ImmutableMap.copyOf(properties);
         requireNonNull(queryId, "queryId is null");
+        if (requestHeaders.isPresent()) {
+            Map<String, List<String>> headers = new java.util.HashMap<>();
+            for (Map.Entry<String, List<String>> entry : requestHeaders.get().entrySet()) {
+                headers.put(entry.getKey(), java.util.List.copyOf(entry.getValue()));
+            }
+            requestHeaders = Optional.of(ImmutableMap.copyOf(headers));
+        }
     }
 }

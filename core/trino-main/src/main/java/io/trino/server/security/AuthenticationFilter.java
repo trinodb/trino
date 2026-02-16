@@ -22,10 +22,14 @@ import jakarta.annotation.Priority;
 import jakarta.ws.rs.ForbiddenException;
 import jakarta.ws.rs.container.ContainerRequestContext;
 import jakarta.ws.rs.container.ContainerRequestFilter;
+import jakarta.ws.rs.core.MultivaluedMap;
 
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.stream.Stream;
 
@@ -102,7 +106,13 @@ public class AuthenticationFilter
             }
 
             // authentication succeeded
-            setAuthenticatedIdentity(request, authenticatedIdentity);
+            // Extract HTTP headers and add them to the Identity
+            Map<String, List<String>> httpHeaders = extractHttpHeaders(request);
+            Identity identityWithHeaders = Identity.from(authenticatedIdentity)
+                    .withHttpHeaders(httpHeaders)
+                    .build();
+
+            setAuthenticatedIdentity(request, identityWithHeaders);
             return;
         }
 
@@ -115,5 +125,17 @@ public class AuthenticationFilter
         String error = Joiner.on(" | ").join(messages);
 
         sendWwwAuthenticate(request, error, authenticateHeaders);
+    }
+
+    private static Map<String, List<String>> extractHttpHeaders(ContainerRequestContext request)
+    {
+        Map<String, List<String>> httpHeaders = new HashMap<>();
+        MultivaluedMap<String, String> requestHeaders = request.getHeaders();
+
+        for (Map.Entry<String, List<String>> entry : requestHeaders.entrySet()) {
+            httpHeaders.put(entry.getKey(), new ArrayList<>(entry.getValue()));
+        }
+
+        return httpHeaders;
     }
 }

@@ -55,6 +55,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
+import java.util.stream.Collectors;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
@@ -92,6 +93,7 @@ public sealed class OpaAccessControl
     private final OpaHighLevelClient opaHighLevelClient;
     private final boolean allowPermissionManagementOperations;
     private final OpaPluginContext pluginContext;
+    private final OpaConfig opaConfig;
 
     @Inject
     public OpaAccessControl(LifeCycleManager lifeCycleManager, OpaHighLevelClient opaHighLevelClient, OpaConfig config, OpaPluginContext pluginContext)
@@ -100,6 +102,7 @@ public sealed class OpaAccessControl
         this.opaHighLevelClient = requireNonNull(opaHighLevelClient, "opaHighLevelClient is null");
         this.allowPermissionManagementOperations = config.getAllowPermissionManagementOperations();
         this.pluginContext = requireNonNull(pluginContext, "pluginContext is null");
+        this.opaConfig = requireNonNull(config, "config is null");
     }
 
     @Override
@@ -801,13 +804,38 @@ public sealed class OpaAccessControl
                 .collect(toImmutableMap(Entry::getKey, Entry::getValue));
     }
 
+    private Map<String, List<String>> extractAndFilterHeaders(SystemSecurityContext context)
+    {
+        if (!opaConfig.isIncludeRequestHeaders()) {
+            return java.util.Collections.emptyMap();
+        }
+
+        String additionalHeaders = opaConfig.getAdditionalHeaders();
+        if (additionalHeaders.isEmpty()) {
+            return java.util.Collections.emptyMap();
+        }
+
+        // Get headers from Identity (set in AuthenticationFilter)
+        Map<String, List<String>> httpHeaders = context.getIdentity().getHttpHeaders();
+
+        // Parse allowed headers from comma-separated config
+        java.util.Set<String> allowedHeaders = java.util.Set.copyOf(
+                java.util.Arrays.asList(additionalHeaders.split("\\s*,\\s*")));
+
+        // Filter headers by whitelist
+        return httpHeaders.entrySet().stream()
+                .filter(e -> allowedHeaders.contains(e.getKey()))
+                .collect(Collectors.toMap(Entry::getKey, Entry::getValue));
+    }
+
     OpaQueryContext buildQueryContext(Identity trinoIdentity)
     {
-        return new OpaQueryContext(TrinoIdentity.fromTrinoIdentity(trinoIdentity), pluginContext, opaHighLevelClient.getAdditionalContext(), Optional.empty());
+        return new OpaQueryContext(TrinoIdentity.fromTrinoIdentity(trinoIdentity), pluginContext, opaHighLevelClient.getAdditionalContext(), Optional.empty(), Optional.empty());
     }
 
     OpaQueryContext buildQueryContext(SystemSecurityContext securityContext)
     {
-        return new OpaQueryContext(TrinoIdentity.fromTrinoIdentity(securityContext.getIdentity()), pluginContext, opaHighLevelClient.getAdditionalContext(), Optional.of(securityContext.getQueryId()));
+        Map<String, List<String>> headers = extractAndFilterHeaders(securityContext);
+        return new OpaQueryContext(TrinoIdentity.fromTrinoIdentity(securityContext.getIdentity()), pluginContext, opaHighLevelClient.getAdditionalContext(), Optional.of(securityContext.getQueryId()), headers.isEmpty() ? Optional.empty() : Optional.of(headers));
     }
 }
