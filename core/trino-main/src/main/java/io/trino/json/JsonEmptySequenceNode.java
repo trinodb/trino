@@ -34,6 +34,7 @@ public class JsonEmptySequenceNode
     private JsonEmptySequenceNode() {}
 
     @Override
+    @SuppressWarnings("TypeParameterUnusedInFormals") // forced by library interface
     public <T extends JsonNode> T deepCopy()
     {
         throw new UnsupportedOperationException();

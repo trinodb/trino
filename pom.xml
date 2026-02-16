@@ -2984,6 +2984,7 @@
                                     -Xep:SuppressWarningsDeprecated:ERROR \
                                     -Xep:ThreeLetterTimeZoneID:ERROR \
                                     -Xep:TraditionalSwitchExpression:ERROR \
+                                    -Xep:TypeParameterUnusedInFormals:ERROR \
                                     -Xep:UnicodeEscape:ERROR \
                                     -Xep:UnnamedVariable:ERROR \
                                     -Xep:UnnecessaryCopy:ERROR \

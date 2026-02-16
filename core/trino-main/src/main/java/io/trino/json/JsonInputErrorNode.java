@@ -34,6 +34,7 @@ public class JsonInputErrorNode
     private JsonInputErrorNode() {}
 
     @Override
+    @SuppressWarnings("TypeParameterUnusedInFormals") // forced by library interface
     public <T extends JsonNode> T deepCopy()
     {
         throw new UnsupportedOperationException();
