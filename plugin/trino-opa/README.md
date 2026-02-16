@@ -99,7 +99,3 @@ opa.additional-headers=X-Request-Id,X-Correlation-Id
 - **Header Validation**: OPA policies should validate header values. The plugin passes headers as-is from clients.
 - **Sensitive Data**: Do not include sensitive headers (cookies, tokens) unless OPA policies have appropriate handling.
 - **Multi-valued Headers**: Headers can have multiple values (e.g., X-Forwarded-For with proxy chains, Set-Cookie). OPA receives all values as a list.
-
-## More Information
-
-For complete documentation on OPA integration with Trino, see the [OPA Access Control documentation](../../docs/src/main/sphinx/security/opa-access-control.md).
