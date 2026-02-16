@@ -760,7 +760,7 @@ public class TestSourcePartitionedScheduler
                 dummyMetadata(),
                 stageId,
                 fragment,
-                ImmutableMap.of(TABLE_SCAN_NODE_ID, new TableInfo(Optional.of("test"), new QualifiedObjectName("test", "test", "test", Optional.empty()), TupleDomain.all())),
+                ImmutableMap.of(TABLE_SCAN_NODE_ID, new TableInfo(Optional.of("test"), new QualifiedObjectName("test", "test", "test"), TupleDomain.all())),
                 new MockRemoteTaskFactory(queryExecutor, scheduledExecutor),
                 TEST_SESSION,
                 true,

@@ -1258,9 +1258,9 @@ public abstract class BaseConnectorTest
         String otherSchema = "other_schema" + randomNameSuffix();
         assertUpdate(createSchemaSql(otherSchema));
 
-        QualifiedObjectName view = new QualifiedObjectName(catalog, schema, "test_materialized_view_" + randomNameSuffix(), Optional.empty());
-        QualifiedObjectName otherView = new QualifiedObjectName(catalog, otherSchema, "test_materialized_view_" + randomNameSuffix(), Optional.empty());
-        QualifiedObjectName viewWithComment = new QualifiedObjectName(catalog, schema, "test_materialized_view_with_comment_" + randomNameSuffix(), Optional.empty());
+        QualifiedObjectName view = new QualifiedObjectName(catalog, schema, "test_materialized_view_" + randomNameSuffix());
+        QualifiedObjectName otherView = new QualifiedObjectName(catalog, otherSchema, "test_materialized_view_" + randomNameSuffix());
+        QualifiedObjectName viewWithComment = new QualifiedObjectName(catalog, schema, "test_materialized_view_with_comment_" + randomNameSuffix());
 
         createTestingMaterializedView(view, Optional.empty());
         createTestingMaterializedView(otherView, Optional.of("sarcastic comment"));
@@ -1632,7 +1632,7 @@ public abstract class BaseConnectorTest
         String schema = getSession().getSchema().orElseThrow();
 
         try (TestTable table = newTrinoTable("test_base_table", "AS TABLE \"region\"")) {
-            QualifiedObjectName baseTable = new QualifiedObjectName(catalog, schema, table.getName(), Optional.empty());
+            QualifiedObjectName baseTable = new QualifiedObjectName(catalog, schema, table.getName());
 
             Session defaultSession = getSession();
             Session futureSession = Session.builder(defaultSession)
@@ -1647,7 +1647,7 @@ public abstract class BaseConnectorTest
                                                     tableScan(baseTable.objectName()))))));
             PlanMatchPattern readFromStorageTable = node(OutputNode.class, node(TableScanNode.class));
 
-            QualifiedObjectName viewName = new QualifiedObjectName(catalog, schema, "mv_when_stale_" + randomNameSuffix(), Optional.empty());
+            QualifiedObjectName viewName = new QualifiedObjectName(catalog, schema, "mv_when_stale_" + randomNameSuffix());
 
             if (includeWhenStaleInlineClause) {
                 assertUpdate(
@@ -1732,7 +1732,7 @@ public abstract class BaseConnectorTest
         }
 
         try (TestTable table = newTrinoTable("test_base_table", "AS TABLE \"region\"")) {
-            QualifiedObjectName baseTable = new QualifiedObjectName(catalog, schema, table.getName(), Optional.empty());
+            QualifiedObjectName baseTable = new QualifiedObjectName(catalog, schema, table.getName());
 
             Session defaultSession = getSession();
             Session futureSession = Session.builder(defaultSession)
@@ -1741,7 +1741,7 @@ public abstract class BaseConnectorTest
 
             PlanMatchPattern readFromStorageTable = node(OutputNode.class, node(TableScanNode.class));
 
-            QualifiedObjectName viewName = new QualifiedObjectName(catalog, schema, "mv_when_stale_fail_" + randomNameSuffix(), Optional.empty());
+            QualifiedObjectName viewName = new QualifiedObjectName(catalog, schema, "mv_when_stale_fail_" + randomNameSuffix());
 
             assertUpdate(
                     """
@@ -2235,7 +2235,7 @@ public abstract class BaseConnectorTest
         QualifiedObjectName originalMaterializedView = new QualifiedObjectName(
                 session.getCatalog().orElseThrow(),
                 session.getSchema().orElseThrow(),
-                "test_materialized_view_rename_" + randomNameSuffix(), Optional.empty());
+                "test_materialized_view_rename_" + randomNameSuffix());
 
         createTestingMaterializedView(originalMaterializedView, Optional.empty());
 
@@ -3443,7 +3443,7 @@ public abstract class BaseConnectorTest
 
         try (TestTable table = newTrinoTable("test_set_default", "(col int DEFAULT 123)")) {
             if (!hasBehavior(SUPPORTS_DROP_DEFAULT_COLUMN_VALUE)) {
-                assertQueryFails("ALTER TABLE " + table.getName() + " ALTER COLUMN nationkey DROP DEFAULT", ".* Catalog '.*' does not support default value for column .*");
+                assertQueryFails("ALTER TABLE " + table.getName() + " ALTER COLUMN col DROP DEFAULT", ".* Catalog '.*' does not support default value for column .*");
                 return;
             }
 
@@ -3456,8 +3456,8 @@ public abstract class BaseConnectorTest
 
     protected String getColumnDefault(String tableName, String columnName)
     {
-        return (String) computeScalar("SELECT column_default FROM \"information_schema\".\"columns\" " +
-                "WHERE \"table_schema\" = CURRENT_SCHEMA AND \"table_name\" = '" + tableName + "' AND column_name = '" + columnName + "'");
+        return (String) computeScalar("SELECT \"column_default\" FROM \"information_schema\".\"columns\" " +
+                "WHERE \"table_schema\" = CURRENT_SCHEMA AND \"table_name\" = '" + tableName + "' AND \"column_name\" = '" + columnName + "'");
     }
 
     @Test
@@ -4606,7 +4606,7 @@ public abstract class BaseConnectorTest
         assertUpdate("CREATE TABLE IF NOT EXISTS " + tableName + " AS SELECT 'Name 1' NaMe, 'Region 1' ReGionKey", 1L);
         assertTableColumnNames(canonicalize(tableName), canonicalize("NaMe"), canonicalize("ReGionKey"));
         // FIXME: cant get this test working
-        //assertThat(getTableComment(canonicalize(tableName))).isNull();
+        assertThat(getTableComment(canonicalize(tableName))).isNull();
         assertUpdate("DROP TABLE " + tableName);
 
         // FIXME: CTAS with FROM clause on another connector use the connector's resolver (ie: lower case conversion for undelimited identifier with tpch)
@@ -7018,29 +7018,31 @@ public abstract class BaseConnectorTest
 
         String tableName = "test_merge_" + randomNameSuffix();
 
-        createTableForWrites("CREATE TABLE %s (orderkey BIGINT, custkey BIGINT, totalprice DOUBLE)", tableName, Optional.of("orderkey"));
+        createTableForWrites("CREATE TABLE %s (\"orderkey\" BIGINT, \"custkey\" BIGINT, \"totalprice\" DOUBLE)", tableName, Optional.of("orderkey"));
 
         assertUpdate(
-                format("INSERT INTO %s SELECT orderkey, custkey, totalprice FROM tpch.sf1.orders", tableName),
+                format("INSERT INTO %s SELECT \"orderkey\", \"custkey\", \"totalprice\" FROM tpch.sf1.orders", tableName),
                 (long) computeScalar("SELECT count(*) FROM tpch.sf1.orders"));
 
-        @Language("SQL") String mergeSql = "" +
-                "MERGE INTO " + tableName + " t USING (SELECT * FROM tpch.sf1.orders) s ON (t.orderkey = s.orderkey)\n" +
-                "WHEN MATCHED AND mod(s.orderkey, 3) = 0 THEN UPDATE SET totalprice = t.totalprice + s.totalprice\n" +
-                "WHEN MATCHED AND mod(s.orderkey, 3) = 1 THEN DELETE";
+        @Language("SQL") String mergeSql =
+                """
+                MERGE INTO %s t USING (SELECT * FROM tpch.sf1.orders) s ON (t."orderkey" = s."orderkey")
+                WHEN MATCHED AND mod(s."orderkey", 3) = 0 THEN UPDATE SET "totalprice" = t."totalprice" + s."totalprice"
+                WHEN MATCHED AND mod(s."orderkey", 3) = 1 THEN DELETE\
+                """.formatted(tableName);
 
         assertUpdate(mergeSql, 1_000_000);
 
         // verify deleted rows
-        assertQuery("SELECT count(*) FROM " + tableName + " WHERE mod(orderkey, 3) = 1", "SELECT 0");
+        assertQuery("SELECT count(*) FROM " + tableName + " WHERE mod(\"orderkey\", 3) = 1", "SELECT 0");
 
         // verify untouched rows
-        assertThat(query("SELECT count(*), sum(cast(totalprice AS decimal(18,2))) FROM " + tableName + " WHERE mod(orderkey, 3) = 2"))
-                .matches("SELECT count(*), sum(cast(totalprice AS decimal(18,2))) FROM tpch.sf1.orders WHERE mod(orderkey, 3) = 2");
+        assertThat(query("SELECT count(*), sum(cast(\"totalprice\" AS decimal(18,2))) FROM " + tableName + " WHERE mod(\"orderkey\", 3) = 2"))
+                .matches("SELECT count(*), sum(cast(\"totalprice\" AS decimal(18,2))) FROM tpch.sf1.orders WHERE mod(\"orderkey\", 3) = 2");
 
         // verify updated rows
-        assertThat(query("SELECT count(*), sum(cast(totalprice AS decimal(18,2))) FROM " + tableName + " WHERE mod(orderkey, 3) = 0"))
-                .matches("SELECT count(*), sum(cast(totalprice AS decimal(18,2)) * 2) FROM tpch.sf1.orders WHERE mod(orderkey, 3) = 0");
+        assertThat(query("SELECT count(*), sum(cast(\"totalprice\" AS decimal(18,2))) FROM " + tableName + " WHERE mod(\"orderkey\", 3) = 0"))
+                .matches("SELECT count(*), sum(cast(\"totalprice\" AS decimal(18,2)) * 2) FROM tpch.sf1.orders WHERE mod(\"orderkey\", 3) = 0");
 
         assertUpdate("DROP TABLE " + tableName);
     }
@@ -7550,21 +7552,23 @@ public abstract class BaseConnectorTest
         String targetTable = "merge_nation_target_" + randomNameSuffix();
         String sourceTable = "merge_nation_source_" + randomNameSuffix();
 
-        createTableForWrites("CREATE TABLE %s (nation_name VARCHAR, region_name VARCHAR)", targetTable, Optional.of("nation_name"));
+        createTableForWrites("CREATE TABLE %s (\"nation_name\" VARCHAR, \"region_name\" VARCHAR)", targetTable, Optional.of("nation_name"));
 
-        assertUpdate(format("INSERT INTO %s (nation_name, region_name) VALUES ('FRANCE', 'EUROPE'), ('ALGERIA', 'AFRICA'), ('GERMANY', 'EUROPE')", targetTable), 3);
+        assertUpdate(format("INSERT INTO %s (\"nation_name\", \"region_name\") VALUES ('FRANCE', 'EUROPE'), ('ALGERIA', 'AFRICA'), ('GERMANY', 'EUROPE')", targetTable), 3);
 
-        createTableForWrites("CREATE TABLE %s (nation_name VARCHAR, region_name VARCHAR)", sourceTable, Optional.empty());
+        createTableForWrites("CREATE TABLE %s (\"nation_name\" VARCHAR, \"region_name\" VARCHAR)", sourceTable, Optional.empty());
 
         assertUpdate(format("INSERT INTO %s VALUES ('ALGERIA', 'AFRICA'), ('FRANCE', 'EUROPE'), ('EGYPT', 'MIDDLE EAST'), ('RUSSIA', 'EUROPE')", sourceTable), 4);
 
         assertUpdate(
-                format("MERGE INTO %s t USING %s s", targetTable, sourceTable) +
-                        "    ON (t.nation_name = s.nation_name)" +
-                        "    WHEN MATCHED AND t.nation_name > (SELECT name FROM tpch.tiny.\"region\" WHERE name = t.region_name AND name LIKE ('A%'))" +
-                        "        THEN DELETE" +
-                        "    WHEN NOT MATCHED AND s.region_name = 'EUROPE'" +
-                        "        THEN INSERT VALUES(s.nation_name, (SELECT 'EUROPE'))",
+                """
+                MERGE INTO %s t USING %s s
+                  ON (t."nation_name" = s."nation_name")
+                  WHEN MATCHED AND t."nation_name" > (SELECT "name" FROM tpch.tiny.region WHERE "name" = t."region_name" AND "name" LIKE ('%s'))
+                    THEN DELETE
+                    WHEN NOT MATCHED AND s."region_name" = 'EUROPE'
+                    THEN INSERT VALUES(s."nation_name", (SELECT 'EUROPE'))\
+                """.formatted(targetTable, sourceTable, "A%"),
                 2);
 
         assertQuery("SELECT * FROM " + targetTable, "VALUES ('FRANCE', 'EUROPE'), ('GERMANY', 'EUROPE'), ('RUSSIA', 'EUROPE')");
@@ -7695,7 +7699,7 @@ public abstract class BaseConnectorTest
     @Test
     public void testCreateFunction()
     {
-        // FIXME: Create function doesnt support canonicalized identifier
+        // FIXME: Create function doesn't support canonicalized identifier
         if (!hasBehavior(SUPPORTS_CREATE_FUNCTION)) {
             String catalog = getQueryRunner().getDefaultSession().getCatalog().orElseThrow();
             String schema = getQueryRunner().getDefaultSession().getSchema().orElseThrow();

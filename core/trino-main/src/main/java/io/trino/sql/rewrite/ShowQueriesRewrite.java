@@ -356,9 +356,6 @@ public final class ShowQueriesRewrite
                     node,
                     node.getCatalog().map(Canonicalizer.LOWERCASE_CANONICALIZER::canonicalize));
 
-            Resolver resolver = plannerContext.getResolver(session, catalog.orElse(GlobalSystemConnector.NAME));
-            node.getCatalog().ifPresent(identifier -> identifier.asCatalog().setResolver(resolver));
-
             if (node.isCurrent()) {
                 accessControl.checkCanShowCurrentRoles(session.toSecurityContext(), catalog);
                 Set<String> enabledRoles = catalog.map(c -> metadata.listEnabledRoles(session, c))
@@ -412,7 +409,7 @@ public final class ShowQueriesRewrite
                 throw semanticException(MISSING_CATALOG_NAME, node, "Catalog must be specified when session catalog is not set");
             }
 
-            String catalog = node.getCatalog().map(Identifier::getCanonicalizedValue).orElseGet(() -> getSessionCatalog(session, node));
+            String catalog = node.getCatalog().map(Identifier::getValue).orElseGet(() -> getSessionCatalog(session, node));
             accessControl.checkCanShowSchemas(session.toSecurityContext(), catalog);
 
             Optional<Expression> predicate = Optional.empty();
@@ -461,6 +458,7 @@ public final class ShowQueriesRewrite
         protected Node visitShowColumns(ShowColumns showColumns, Void context)
         {
             QualifiedObjectName tableName = createQualifiedObjectName(session, showColumns, showColumns.getTable(), plannerContext);
+            System.out.println("ShowQueriesRewrite.visitShowColumns() tableName: " + tableName);
             getRequiredCatalogHandle(metadata, session, showColumns, tableName.catalogName());
             if (!metadata.schemaExists(session, new CatalogSchemaName(tableName.catalogName(), tableName.schemaName()))) {
                 throw semanticException(SCHEMA_NOT_FOUND, showColumns, "Schema '%s' does not exist", tableName.schemaName());
@@ -541,7 +539,7 @@ public final class ShowQueriesRewrite
         private Query showCreateMaterializedView(ShowCreate node)
         {
             List<Identifier> identifiers = getQualifiedObjectIdentifiers(session, node, node.getName(), plannerContext);
-            QualifiedObjectName objectName = createQualifiedObjectName(identifiers);
+            QualifiedObjectName objectName = createQualifiedObjectName(session, plannerContext, identifiers);
             Optional<MaterializedViewDefinition> viewDefinition = metadata.getMaterializedView(session, objectName);
 
             if (viewDefinition.isEmpty()) {
@@ -589,7 +587,7 @@ public final class ShowQueriesRewrite
         private Query showCreateView(ShowCreate node)
         {
             List<Identifier> identifiers = getQualifiedObjectIdentifiers(session, node, node.getName(), plannerContext);
-            QualifiedObjectName objectName = createQualifiedObjectName(identifiers);
+            QualifiedObjectName objectName = createQualifiedObjectName(session, plannerContext, identifiers);
 
             if (metadata.isMaterializedView(session, objectName)) {
                 throw semanticException(NOT_SUPPORTED, node, "Relation '%s' is a materialized view, not a view", objectName);
@@ -628,7 +626,7 @@ public final class ShowQueriesRewrite
         private Query showCreateTable(ShowCreate node)
         {
             List<Identifier> identifiers = getQualifiedObjectIdentifiers(session, node, node.getName(), plannerContext);
-            QualifiedObjectName objectName = createQualifiedObjectName(identifiers);
+            QualifiedObjectName objectName = createQualifiedObjectName(session, plannerContext, identifiers);
 
             if (metadata.isMaterializedView(session, objectName)) {
                 throw semanticException(NOT_SUPPORTED, node, "Relation '%s' is a materialized view, not a table", objectName);
@@ -665,7 +663,7 @@ public final class ShowQueriesRewrite
                                 column.getProperties(),
                                 allColumnProperties);
                         return new ColumnDefinition(
-                                QualifiedName.of(identifier(column.getName(), resolver.predicate(column.getName())).setResolver(resolver)),
+                                QualifiedName.of(identifier(column.getName(), resolver.predicate(column.getName()))),
                                 toSqlType(column.getType()),
                                 column.getDefaultValue().map(value -> parseDefaultColumnValueExpression(value, objectName, node)),
                                 column.isNullable(),
@@ -701,7 +699,7 @@ public final class ShowQueriesRewrite
         private Query showCreateSchema(ShowCreate node)
         {
             List<Identifier> identifiers = getCatalogSchemaIdentifiers(session, node, Optional.of(node.getName()), plannerContext);
-            CatalogSchemaName schemaName = createCatalogSchemaName(identifiers);
+            CatalogSchemaName schemaName = createCatalogSchemaName(session, plannerContext, identifiers);
 
             if (!metadata.schemaExists(session, schemaName)) {
                 throw semanticException(SCHEMA_NOT_FOUND, node, "Schema '%s' does not exist", schemaName);
@@ -728,7 +726,7 @@ public final class ShowQueriesRewrite
 
         private Node showCreateFunction(ShowCreate node)
         {
-            QualifiedObjectName functionName = qualifiedFunctionName(functionSchema, node, node.getName());
+            QualifiedObjectName functionName = qualifiedFunctionName(session, functionSchema, node, node.getName(), plannerContext);
 
             accessControl.checkCanShowCreateFunction(session.toSecurityContext(), functionName);
 

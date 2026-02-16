@@ -603,7 +603,7 @@ class QueryPlanner
         // FIXME: We need to take UpdateAssignement.Identifier canonicalized value
         io.trino.sql.tree.Expression[] orderedColumnValuesArray = new io.trino.sql.tree.Expression[updatedColumnHandles.size()];
         node.getAssignments().forEach(assignment -> {
-            ColumnHandle handle = nameToHandle.get(assignment.getName().getCanonicalizedValue());
+            ColumnHandle handle = nameToHandle.get(assignment.getName().getValue());
             int index = updatedColumnHandles.indexOf(handle);
             if (index >= 0) {
                 orderedColumnValuesArray[index] = assignment.getValue();

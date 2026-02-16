@@ -348,7 +348,7 @@ public final class HiveQueryRunner
             ColumnNaming columnNaming)
     {
         for (TpchTable<?> table : tables) {
-            copyTableBucketed(queryRunner, new QualifiedObjectName(sourceCatalog, sourceSchema, table.getTableName().toLowerCase(ENGLISH), Optional.empty()), table, session, columnNaming);
+            copyTableBucketed(queryRunner, new QualifiedObjectName(sourceCatalog, sourceSchema, table.getTableName().toLowerCase(ENGLISH)), table, session, columnNaming);
         }
     }
 

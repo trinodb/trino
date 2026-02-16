@@ -197,7 +197,7 @@ public class TestMaterializedViews
                 Identity.ofUser("some user"),
                 ImmutableList.of(),
                 Optional.of(new CatalogSchemaTableName(TEST_CATALOG_NAME, SCHEMA, "storage_table_with_casts")));
-        QualifiedObjectName materializedViewWithCasts = new QualifiedObjectName(TEST_CATALOG_NAME, SCHEMA, "materialized_view_with_casts", Optional.empty());
+        QualifiedObjectName materializedViewWithCasts = new QualifiedObjectName(TEST_CATALOG_NAME, SCHEMA, "materialized_view_with_casts");
         planTester.inTransaction(session -> {
             metadata.createMaterializedView(
                     session,
@@ -213,7 +213,7 @@ public class TestMaterializedViews
         planTester.inTransaction(session -> {
             metadata.createMaterializedView(
                     session,
-                    new QualifiedObjectName(TEST_CATALOG_NAME, SCHEMA, "stale_materialized_view_with_casts", Optional.empty()),
+                    new QualifiedObjectName(TEST_CATALOG_NAME, SCHEMA, "stale_materialized_view_with_casts"),
                     materializedViewDefinitionWithCasts,
                     ImmutableMap.of(),
                     false,
@@ -232,7 +232,7 @@ public class TestMaterializedViews
                 Identity.ofUser("some user"),
                 ImmutableList.of(),
                 Optional.of(new CatalogSchemaTableName(TEST_CATALOG_NAME, SCHEMA, "timestamp_test_storage")));
-        QualifiedObjectName materializedViewWithTimestamp = new QualifiedObjectName(TEST_CATALOG_NAME, SCHEMA, "timestamp_mv_test", Optional.empty());
+        QualifiedObjectName materializedViewWithTimestamp = new QualifiedObjectName(TEST_CATALOG_NAME, SCHEMA, "timestamp_mv_test");
         planTester.inTransaction(session -> {
             metadata.createMaterializedView(
                     session,
@@ -251,7 +251,7 @@ public class TestMaterializedViews
 
     private void createFreshAndStaleMaterializedViews(String name, PlanTester planTester, Metadata metadata, WhenStaleBehavior whenStaleBehavior)
     {
-        QualifiedObjectName freshMaterializedView = new QualifiedObjectName(TEST_CATALOG_NAME, SCHEMA, name, Optional.empty());
+        QualifiedObjectName freshMaterializedView = new QualifiedObjectName(TEST_CATALOG_NAME, SCHEMA, name);
         MaterializedViewDefinition materializedViewDefinition = new MaterializedViewDefinition(
                 "SELECT a, b FROM test_table",
                 Optional.of(TEST_CATALOG_NAME),
@@ -275,7 +275,7 @@ public class TestMaterializedViews
         });
         testingConnectorMetadata.markMaterializedViewIsFresh(freshMaterializedView.asSchemaTableName());
 
-        QualifiedObjectName notFreshMaterializedView = new QualifiedObjectName(TEST_CATALOG_NAME, SCHEMA, "not_" + name, Optional.empty());
+        QualifiedObjectName notFreshMaterializedView = new QualifiedObjectName(TEST_CATALOG_NAME, SCHEMA, "not_" + name);
         planTester.inTransaction(session -> {
             metadata.createMaterializedView(
                     session,
@@ -291,7 +291,7 @@ public class TestMaterializedViews
     private void createMaterializedView(String materializedViewName, String query)
     {
         Metadata metadata = getPlanTester().getPlannerContext().getMetadata();
-        QualifiedObjectName matViewName = new QualifiedObjectName(TEST_CATALOG_NAME, SCHEMA, materializedViewName, Optional.empty());
+        QualifiedObjectName matViewName = new QualifiedObjectName(TEST_CATALOG_NAME, SCHEMA, materializedViewName);
         MaterializedViewDefinition matViewDefinition = new MaterializedViewDefinition(
                 query,
                 Optional.of(TEST_CATALOG_NAME),
@@ -414,7 +414,7 @@ public class TestMaterializedViews
     {
         TestingAccessControlManager accessControl = getPlanTester().getAccessControl();
         accessControl.columnMask(
-                new QualifiedObjectName(TEST_CATALOG_NAME, SCHEMA, "materialized_view_with_casts", Optional.empty()),
+                new QualifiedObjectName(TEST_CATALOG_NAME, SCHEMA, "materialized_view_with_casts"),
                 "a",
                 "user",
                 ViewExpression.builder().expression("a + 1").build());

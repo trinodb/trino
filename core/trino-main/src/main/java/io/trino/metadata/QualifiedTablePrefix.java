@@ -109,7 +109,7 @@ public class QualifiedTablePrefix
     {
         if (tableName.isPresent()) {
             verify(schemaName.isPresent());
-            return Optional.of(new QualifiedObjectName(catalogName, schemaName.get(), tableName.get(), Optional.empty()));
+            return Optional.of(new QualifiedObjectName(catalogName, schemaName.get(), tableName.get()));
         }
 
         return Optional.empty();

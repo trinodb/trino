@@ -14,6 +14,7 @@
 package io.trino.metadata;
 
 import io.trino.Session;
+import io.trino.connector.system.GlobalSystemConnector;
 import io.trino.sql.tree.Resolver;
 
 import java.util.ArrayList;
@@ -49,6 +50,14 @@ public class ResolverManager
     {
         setResolver(session, catalog, factory);
         return resolvers.get(catalog);
+    }
+
+    public Resolver getDefaultResolver(Session session, BiFunction<Session, String, Resolver> factory)
+    {
+        if (hasSession(session)) {
+            return resolvers.get(getQuery(session).getLast());
+        }
+        return getResolver(session, GlobalSystemConnector.NAME, factory);
     }
 
     public Optional<Resolver> getResolver(Session session, BiFunction<Session, String, Resolver> factory)

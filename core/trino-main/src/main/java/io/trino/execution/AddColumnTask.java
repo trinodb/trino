@@ -46,7 +46,6 @@ import io.trino.sql.tree.Resolver;
 
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
@@ -59,7 +58,6 @@ import static io.trino.spi.StandardErrorCode.COLUMN_ALREADY_EXISTS;
 import static io.trino.spi.StandardErrorCode.COLUMN_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.COLUMN_TYPE_UNKNOWN;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
-import static io.trino.spi.StandardErrorCode.RESOLVER_NO_FOUND;
 import static io.trino.spi.StandardErrorCode.TABLE_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.TYPE_NOT_FOUND;
 import static io.trino.spi.connector.ConnectorCapabilities.DEFAULT_COLUMN_VALUE;
@@ -67,6 +65,7 @@ import static io.trino.spi.connector.ConnectorCapabilities.NOT_NULL_COLUMN_CONST
 import static io.trino.sql.analyzer.ExpressionAnalyzer.analyzeDefaultColumnValue;
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
 import static io.trino.sql.analyzer.TypeSignatureTranslator.toTypeSignature;
+import static io.trino.sql.tree.IdentifierKind.COLUMN;
 import static io.trino.type.UnknownType.UNKNOWN;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
@@ -101,9 +100,8 @@ public class AddColumnTask
     {
         Session session = stateMachine.getSession();
         QualifiedObjectName originalTableName = createQualifiedObjectName(session, statement, statement.getName(), plannerContext);
-        if (statement.getName().getResolver().isEmpty()) {
-            throw semanticException(RESOLVER_NO_FOUND, statement, "Resolver for table '%s' not found", originalTableName);
-        }
+        Resolver resolver = plannerContext.getResolver(session, originalTableName.catalogName());
+
         Map<NodeRef<Parameter>, Expression> parameterLookup = bindParameters(statement, parameters);
         RedirectionAwareTableHandle redirectionAwareTableHandle = plannerContext.getMetadata().getRedirectionAwareTableHandle(session, originalTableName);
         if (redirectionAwareTableHandle.tableHandle().isEmpty()) {
@@ -119,10 +117,10 @@ public class AddColumnTask
 
         TableMetadata tableMetadata = plannerContext.getMetadata().getTableMetadata(session, tableHandle);
         Map<String, ColumnMetadata> columns = tableMetadata.columns().stream()
-                .collect(toImmutableMap(metadata -> statement.getName().getResolver().get().compare(metadata.getName(), Identifier.COLUMN), identity()));
+                .collect(toImmutableMap(metadata -> resolver.compare(metadata.getName(), COLUMN), identity()));
 
         ColumnDefinition element = statement.getColumn();
-        String columnName = element.getName().resolveIdentifiers(statement.getName().getResolver()).getOriginalParts().getFirst().getCanonicalizedValue();
+        String columnName = resolver.canonicalize(element.getName().getOriginalParts().getFirst());
         ColumnPosition position = statement.getPosition().orElse(new ColumnPosition.Last());
         Type type;
         try {
@@ -138,7 +136,7 @@ public class AddColumnTask
             if (type.equals(UNKNOWN)) {
                 throw semanticException(COLUMN_TYPE_UNKNOWN, element, "Unknown type '%s' for column '%s'", element.getType(), columnName);
             }
-            if (columns.containsKey(statement.getName().getResolver().get().compare(columnName, Identifier.COLUMN))) {
+            if (columns.containsKey(resolver.compare(columnName, COLUMN))) {
                 if (!statement.isColumnNotExists()) {
                     throw semanticException(COLUMN_ALREADY_EXISTS, statement, "Column '%s' already exists", columnName);
                 }
@@ -151,8 +149,8 @@ public class AddColumnTask
                 throw semanticException(NOT_SUPPORTED, element, "Catalog '%s' does not support NOT NULL for column '%s'", catalogHandle, columnName);
             }
             if (position instanceof ColumnPosition.After(Identifier after)) {
-                String afterColumn = after.setResolver(statement.getName().getResolver()).getCanonicalizedValue();
-                if (!columns.containsKey(statement.getName().getResolver().get().compare(afterColumn, Identifier.COLUMN))) {
+                String afterColumn = resolver.canonicalize(after);
+                if (!columns.containsKey(resolver.compare(afterColumn, COLUMN))) {
                     throw semanticException(COLUMN_NOT_FOUND, statement, "Column '%s' does not exist", after.getValue());
                 }
             }
@@ -183,12 +181,12 @@ public class AddColumnTask
                     tableHandle,
                     qualifiedTableName.asCatalogSchemaTableName(),
                     column,
-                    toConnectorColumnPosition(position, statement.getName().getResolver()));
+                    toConnectorColumnPosition(position, resolver));
         }
         else {
             accessControl.checkCanAlterColumn(session.toSecurityContext(), qualifiedTableName);
 
-            if (!columns.containsKey(statement.getName().getResolver().get().compare(columnName, Identifier.COLUMN))) {
+            if (!columns.containsKey(resolver.compare(columnName, COLUMN))) {
                 throw semanticException(COLUMN_NOT_FOUND, statement, "Column '%s' does not exist", columnName);
             }
             if (!(position instanceof ColumnPosition.Last)) {
@@ -197,13 +195,13 @@ public class AddColumnTask
             }
 
             List<String> parentPath = statement.getColumn().getName().getOriginalParts().subList(0, statement.getColumn().getName().getOriginalParts().size() - 1).stream()
-                    .map(Identifier::getCanonicalizedValue)
+                    .map(resolver::canonicalize)
                     .collect(toImmutableList());
             List<String> fieldPath = statement.getColumn().getName().getOriginalParts().subList(1, statement.getColumn().getName().getOriginalParts().size()).stream()
-                    .map(Identifier::getCanonicalizedValue)
+                    .map(resolver::canonicalize)
                     .collect(toImmutableList());
 
-            ColumnMetadata columnMetadata = columns.get(statement.getName().getResolver().get().compare(columnName, Identifier.COLUMN));
+            ColumnMetadata columnMetadata = columns.get(resolver.compare(columnName, COLUMN));
             Type currentType = columnMetadata.getType();
             for (int i = 0; i < fieldPath.size() - 1; i++) {
                 String fieldName = fieldPath.get(i);
@@ -222,7 +220,7 @@ public class AddColumnTask
                 throw new TrinoException(NOT_SUPPORTED, "Unsupported type: " + currentType);
             }
 
-            String fieldName = statement.getColumn().getName().getOriginalParts().getLast().getCanonicalizedValue();
+            String fieldName = resolver.canonicalize(statement.getColumn().getName().getOriginalParts().getLast());
             List<RowType.Field> candidates = getCandidates(currentType, fieldName);
 
             if (!candidates.isEmpty()) {
@@ -271,11 +269,11 @@ public class AddColumnTask
                 .orElse(type);
     }
 
-    private static io.trino.spi.connector.ColumnPosition toConnectorColumnPosition(ColumnPosition columnPosition, Optional<Resolver> resolver)
+    private static io.trino.spi.connector.ColumnPosition toConnectorColumnPosition(ColumnPosition columnPosition, Resolver resolver)
     {
         return switch (columnPosition) {
             case ColumnPosition.First _ -> new First();
-            case ColumnPosition.After after -> new After(after.column().setResolver(resolver).getCanonicalizedValue());
+            case ColumnPosition.After after -> new After(resolver.canonicalize(after.column()));
             case ColumnPosition.Last _ -> new Last();
         };
     }

@@ -32,12 +32,14 @@ import io.trino.sql.parser.SqlParser;
 import io.trino.sql.tree.CreateFunction;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.FunctionSpecification;
+import io.trino.sql.tree.Identifier;
 import io.trino.sql.tree.Node;
 import io.trino.sql.tree.NodeRef;
 import io.trino.sql.tree.Parameter;
 import io.trino.sql.tree.PropertiesCharacteristic;
 import io.trino.sql.tree.Property;
 import io.trino.sql.tree.QualifiedName;
+import io.trino.sql.tree.Resolver;
 
 import java.util.List;
 import java.util.Map;
@@ -55,6 +57,7 @@ import static io.trino.sql.SqlFormatter.formatSql;
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
 import static io.trino.sql.routine.SqlRoutineAnalyzer.getProperties;
 import static io.trino.sql.routine.SqlRoutineAnalyzer.isRunAsInvoker;
+import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
 public class CreateFunctionTask
@@ -95,18 +98,24 @@ public class CreateFunctionTask
     {
         Session session = stateMachine.getSession();
 
+        System.out.println("CreateFunctionTask.execute() 1");
         FunctionSpecification function = statement.getSpecification();
-        QualifiedObjectName name = qualifiedFunctionName(defaultFunctionSchema, statement, function.getName());
-        plannerContext.setResolver(session, name.catalogName());
+        QualifiedObjectName name = qualifiedFunctionName(session, defaultFunctionSchema, statement, function.getName(), plannerContext);
+        Resolver resolver = plannerContext.getResolver(session, name.catalogName());
+        System.out.println("CreateFunctionTask.execute() 2");
 
         accessControl.checkCanCreateFunction(session.toSecurityContext(), name);
+        System.out.println("CreateFunctionTask.execute() 3");
 
         languageFunctionManager.verifyForCreate(session, function, functionManager, accessControl);
+        System.out.println("CreateFunctionTask.execute() 4");
 
         function = materializeFunctionProperties(session, function, bindParameters(statement, parameters));
+        System.out.println("CreateFunctionTask.execute() 5");
 
         String signatureToken = languageFunctionManager.getSignatureToken(function.getParameters());
 
+        System.out.println("CreateFunctionTask.execute() 6");
         String sql = functionToSql(function);
 
         // system path elements currently are not stored
@@ -161,6 +170,7 @@ public class CreateFunctionTask
     private String functionToSql(FunctionSpecification function)
     {
         String sql = formatSql(function);
+        System.out.println("CreateFunctionTask.functionToSql() sql: " + sql);
         try {
             FunctionSpecification parsed = sqlParser.createFunctionSpecification(sql);
             if (!function.equals(parsed)) {
@@ -178,19 +188,30 @@ public class CreateFunctionTask
         return combine(config.getDefaultFunctionCatalog(), config.getDefaultFunctionSchema(), CatalogSchemaName::new);
     }
 
-    public static QualifiedObjectName qualifiedFunctionName(Optional<CatalogSchemaName> functionSchema, Node node, QualifiedName name)
+    public static QualifiedObjectName qualifiedFunctionName(Session session, Optional<CatalogSchemaName> functionSchema, Node node, QualifiedName name, PlannerContext plannerContext)
     {
-        List<String> parts = name.getParts();
-        return switch (parts.size()) {
+        String catalog;
+        String schema;
+        Resolver resolver;
+        List<Identifier> parts = name.getOriginalParts();
+        switch (parts.size()) {
             case 1 -> {
-                CatalogSchemaName schema = functionSchema.orElseThrow(() ->
+                CatalogSchemaName catalogSchema = functionSchema.orElseThrow(() ->
                         semanticException(NOT_SUPPORTED, node, "Catalog and schema must be specified when function schema is not configured"));
-                yield new QualifiedObjectName(schema.getCatalogName(), schema.getSchemaName(), parts.get(0), Optional.empty());
+                catalog = catalogSchema.getCatalogName();
+                resolver = plannerContext.getResolver(session, catalog);
+                schema = catalogSchema.getSchemaName();
             }
             case 2 -> throw semanticException(NOT_SUPPORTED, node, "Function name must be unqualified or fully qualified with catalog and schema");
-            case 3 -> new QualifiedObjectName(parts.get(0), parts.get(1), parts.get(2), Optional.empty());
+            case 3 -> {
+                catalog = parts.getFirst().getValue();
+                resolver = plannerContext.getResolver(session, catalog);
+                schema = resolver.canonicalize(parts.get(1));
+            }
             default -> throw semanticException(SYNTAX_ERROR, node, "Too many dots in function name: %s", name);
-        };
+        }
+        String function = parts.getLast().getValue();
+        return new QualifiedObjectName(catalog, schema, function, Optional.of(resolver::predicate));
     }
 
     private static TrinoException formattingFailure(Throwable cause, String message, FunctionSpecification function, String sql)

@@ -214,7 +214,7 @@ public class TestMemoryConnectorTest
         for (JoinDistributionType joinDistributionType : JoinDistributionType.values()) {
             // Probe-side is not scanned at all, due to dynamic filtering:
             assertDynamicFiltering(
-                    "SELECT * FROM \"lineitem\" JOIN \"orders\" ON \"lineitem\".\"orderkey\" = \"orders\".\"orderkey\" AND \"orders\".totalprice < 0",
+                    "SELECT * FROM \"lineitem\" JOIN \"orders\" ON \"lineitem\".\"orderkey\" = \"orders\".\"orderkey\" AND \"orders\".\"totalprice\" < 0",
                     noJoinReordering(joinDistributionType),
                     0,
                     0, ORDERS_COUNT);
@@ -267,10 +267,10 @@ public class TestMemoryConnectorTest
     @Test
     public void testJoinDynamicFilteringImplicitCoercion()
     {
-        assertUpdate("CREATE TABLE coerce_test AS SELECT CAST(\"orderkey\" as INT) orderkey_int FROM tpch.tiny.lineitem", "SELECT count(*) FROM \"lineitem\"");
+        assertUpdate("CREATE TABLE coerce_test AS SELECT CAST(\"orderkey\" as INT) \"orderkey_int\" FROM tpch.tiny.lineitem", "SELECT count(*) FROM \"lineitem\"");
         // Probe-side is partially scanned, dynamic filters from build side are coerced to the probe column type
         assertDynamicFiltering(
-                "SELECT * FROM coerce_test l JOIN \"orders\" o ON l.orderkey_int = o.\"orderkey\" AND o.\"comment\" = 'nstructions sleep furiously among '",
+                "SELECT * FROM coerce_test l JOIN \"orders\" o ON l.\"orderkey_int\" = o.\"orderkey\" AND o.\"comment\" = 'nstructions sleep furiously among '",
                 noJoinReordering(BROADCAST),
                 6,
                 6, ORDERS_COUNT);

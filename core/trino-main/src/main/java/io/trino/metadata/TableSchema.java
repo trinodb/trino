@@ -34,7 +34,7 @@ public record TableSchema(CatalogName catalogName, ConnectorTableSchema tableSch
 
     public QualifiedObjectName qualifiedName()
     {
-        return new QualifiedObjectName(catalogName.toString(), tableSchema.getTable().getSchemaName(), tableSchema.getTable().getTableName(), Optional.empty());
+        return new QualifiedObjectName(catalogName.toString(), tableSchema.getTable().getSchemaName(), tableSchema.getTable().getTableName());
     }
 
     public SchemaTableName table()

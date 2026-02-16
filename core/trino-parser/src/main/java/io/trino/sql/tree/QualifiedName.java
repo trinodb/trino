@@ -18,26 +18,44 @@ import com.google.common.collect.Lists;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.isEmpty;
-import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
 public class QualifiedName
 {
     private final List<Identifier> originalParts;
-    private final List<String> priorParts;
     private final Optional<QualifiedName> prefix;
-
-    private List<String> parts;
-    private Optional<Resolver> resolver = Optional.empty();
+    private final List<String> parts;
 
     // Following fields are not part of the equals/hashCode methods as
     // they are exist solely to speed-up certain method calls.
-    private String name;
-    private String suffix;
+    private final String name;
+    private final String suffix;
+
+    public static QualifiedName of(Function<Identifier, String> canonicalizer, QualifiedName qualifiedName)
+    {
+        requireNonNull(canonicalizer, "canonicalizer is null");
+        requireNonNull(qualifiedName, "qualifiedName is null");
+        return new QualifiedName(canonicalizer, qualifiedName.originalParts, qualifiedName.originalParts.size() > 2);
+    }
+
+    public static QualifiedName of(Function<Identifier, String> canonicalizer, Identifier identifier)
+    {
+        requireNonNull(canonicalizer, "canonicalizer is null");
+        requireNonNull(identifier, "identifier is null");
+        return new QualifiedName(canonicalizer, ImmutableList.of(identifier), false);
+    }
+
+    public static QualifiedName of(Function<Identifier, String> canonicalizer, List<Identifier> identifiers)
+    {
+        requireNonNull(canonicalizer, "canonicalizer is null");
+        requireNonNull(identifiers, "identifiers is null");
+        return new QualifiedName(canonicalizer, identifiers, identifiers.size() > 2);
+    }
 
     public static QualifiedName of(String first, String... rest)
     {
@@ -77,103 +95,49 @@ public class QualifiedName
 
     public static QualifiedName of(List<Identifier> originalParts)
     {
+        return of(originalParts, false);
+    }
+
+    public static QualifiedName of(List<Identifier> originalParts, boolean withCatalog)
+    {
         requireNonNull(originalParts, "originalParts is null");
         checkArgument(!isEmpty(originalParts), "originalParts is empty");
-        return new QualifiedName(ImmutableList.copyOf(originalParts));
+        return new QualifiedName(Identifier::getValue, ImmutableList.copyOf(originalParts), withCatalog);
     }
 
-    public QualifiedName(List<Identifier> originalParts)
+    public QualifiedName(Function<Identifier, String> canonicalizer, List<Identifier> originalParts, boolean withCatalog)
     {
+        int size = originalParts.size();
         this.originalParts = originalParts;
-        // Iteration instead of stream for performance reasons
-        ImmutableList.Builder<String> partsBuilder = ImmutableList.builderWithExpectedSize(originalParts.size());
-        for (Identifier identifier : originalParts) {
-            if (resolver.isEmpty() && identifier.isResolved()) {
-                resolver = identifier.getResolver();
-            }
-            else if (resolver.isPresent() && !identifier.isResolved()) {
-                identifier.setResolver(resolver);
-            }
-            partsBuilder.add(identifier.getCanonicalizedValue());
-        }
 
-        if (resolver.isPresent() && needResolver()) {
-            System.out.println("QualifiedName::new needResolver *********************************************");
-        }
-
-        if (originalParts.size() == 1) {
+        if (size == 1) {
             this.prefix = Optional.empty();
+            this.suffix = withCatalog ? originalParts.getFirst().getValue() : canonicalizer.apply(originalParts.getFirst());
+            this.parts = ImmutableList.of(suffix);
+            this.name = suffix;
         }
         else {
-            List<Identifier> subList = originalParts.subList(0, originalParts.size() - 1);
-            this.prefix = Optional.of(new QualifiedName(subList));
-        }
-        setQualifiedName(partsBuilder.build());
-        this.priorParts = isResolved() ? getPriorParts(originalParts) : ImmutableList.copyOf(parts);
-    }
-
-    private static List<String> getPriorParts(List<Identifier> originalParts)
-    {
-        return originalParts.stream()
-                .map(id -> id.isCatalog() ? id.getValue().toLowerCase(ENGLISH) : id.getValue())
-                .toList();
-    }
-
-    public QualifiedName resolveIdentifiers(Resolver resolver)
-    {
-        return resolveIdentifiers(Optional.of(resolver));
-    }
-
-    public QualifiedName resolveIdentifiers(Optional<Resolver> resolver)
-    {
-        prefix.ifPresent(qualifiedName -> qualifiedName.resolveIdentifiers(resolver));
-
-        ImmutableList.Builder<String> partsBuilder = ImmutableList.builderWithExpectedSize(originalParts.size());
-        for (Identifier identifier : originalParts) {
-            String value;
-            if (identifier.isResolved()) {
-                value = identifier.getCanonicalizedValue();
+            // Iteration instead of stream for performance reasons
+            List<Identifier> subList = originalParts.subList(0, size - 1);
+            this.prefix = Optional.of(new QualifiedName(canonicalizer, subList, withCatalog));
+            ImmutableList.Builder<String> partsBuilder = ImmutableList.builderWithExpectedSize(size);
+            for (Identifier identifier : originalParts) {
+                if (withCatalog) {
+                    partsBuilder.add(identifier.getValue());
+                    withCatalog = false;
+                    continue;
+                }
+                partsBuilder.add(canonicalizer.apply(identifier));
             }
-            else {
-                value = identifier.setResolver(resolver).getCanonicalizedValue();
-            }
-            partsBuilder.add(value);
+            this.parts = partsBuilder.build();
+            this.name = String.join(".", parts);
+            this.suffix = parts.getLast();
         }
-        this.resolver = resolver;
-        setQualifiedName(partsBuilder.build());
-        return this;
-    }
-
-    public boolean isResolved()
-    {
-        return resolver.isPresent();
-    }
-
-    public boolean needResolver()
-    {
-        return originalParts.stream().anyMatch(id -> id.getResolver().isEmpty());
-    }
-
-    public Optional<Resolver> getResolver()
-    {
-        return resolver;
-    }
-
-    private void setQualifiedName(List<String> parts)
-    {
-        this.parts = parts;
-        this.name = String.join(".", parts);
-        this.suffix = parts.getLast();
     }
 
     public List<String> getParts()
     {
         return parts;
-    }
-
-    public List<String> getParts(Optional<Resolver> resolver)
-    {
-        return this.resolver.isPresent() && (resolver.isEmpty() || !this.resolver.get().equals(resolver.get())) ? priorParts : parts;
     }
 
     public List<Identifier> getOriginalParts()
@@ -205,12 +169,12 @@ public class QualifiedName
         }
 
         int start = parts.size() - suffix.getParts().size();
-        return getParts(suffix.getResolver()).subList(start, parts.size()).equals(suffix.getParts(resolver));
+        return getParts().subList(start, parts.size()).equals(suffix.getParts());
     }
 
     public String getSuffix()
     {
-        return isResolved() ? this.suffix : this.suffix.toLowerCase(ENGLISH);
+        return this.suffix;
     }
 
     @Override

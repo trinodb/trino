@@ -263,7 +263,7 @@ public class CounterBasedAnonymizer
         return new QualifiedObjectName(
                 anonymize(catalogName, ObjectType.CATALOG),
                 anonymize(schemaName, ObjectType.SCHEMA),
-                anonymize(objectName, ObjectType.TABLE), Optional.empty())
+                anonymize(objectName, ObjectType.TABLE))
                 .toString();
     }
 

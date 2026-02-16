@@ -8377,7 +8377,7 @@ public class TestAnalyzer
                 Optional.empty());
         inSetupTransaction(session -> metadata.createMaterializedView(
                 session,
-                new QualifiedObjectName(TPCH_CATALOG, "s1", "mv1", Optional.empty()),
+                new QualifiedObjectName(TPCH_CATALOG, "s1", "mv1"),
                 materializedViewData1,
                 ImmutableMap.of(),
                 false,
@@ -8392,7 +8392,7 @@ public class TestAnalyzer
                 Optional.of("comment"),
                 Optional.of(Identity.ofUser("user")),
                 ImmutableList.of());
-        inSetupTransaction(session -> metadata.createView(session, new QualifiedObjectName(TPCH_CATALOG, "s1", "v1", Optional.empty()), viewData1, ImmutableMap.of(), false));
+        inSetupTransaction(session -> metadata.createView(session, new QualifiedObjectName(TPCH_CATALOG, "s1", "v1"), viewData1, ImmutableMap.of(), false));
 
         // stale view (different column type)
         ViewDefinition viewData2 = new ViewDefinition(
@@ -8403,7 +8403,7 @@ public class TestAnalyzer
                 Optional.of("comment"),
                 Optional.of(Identity.ofUser("user")),
                 ImmutableList.of());
-        inSetupTransaction(session -> metadata.createView(session, new QualifiedObjectName(TPCH_CATALOG, "s1", "v2", Optional.empty()), viewData2, ImmutableMap.of(), false));
+        inSetupTransaction(session -> metadata.createView(session, new QualifiedObjectName(TPCH_CATALOG, "s1", "v2"), viewData2, ImmutableMap.of(), false));
 
         // valid view with uppercase column name
         ViewDefinition viewData4 = new ViewDefinition(
@@ -8414,7 +8414,7 @@ public class TestAnalyzer
                 Optional.of("comment"),
                 Optional.of(Identity.ofUser("user")),
                 ImmutableList.of());
-        inSetupTransaction(session -> metadata.createView(session, new QualifiedObjectName("tpch", "s1", "v4", Optional.empty()), viewData4, ImmutableMap.of(), false));
+        inSetupTransaction(session -> metadata.createView(session, new QualifiedObjectName("tpch", "s1", "v4"), viewData4, ImmutableMap.of(), false));
 
         // recursive view referencing to itself
         ViewDefinition viewData5 = new ViewDefinition(
@@ -8425,7 +8425,7 @@ public class TestAnalyzer
                 Optional.of("comment"),
                 Optional.of(Identity.ofUser("user")),
                 ImmutableList.of());
-        inSetupTransaction(session -> metadata.createView(session, new QualifiedObjectName(TPCH_CATALOG, "s1", "v5", Optional.empty()), viewData5, ImmutableMap.of(), false));
+        inSetupTransaction(session -> metadata.createView(session, new QualifiedObjectName(TPCH_CATALOG, "s1", "v5"), viewData5, ImmutableMap.of(), false));
 
         // type analysis for INSERT
         SchemaTableName table8 = new SchemaTableName("s1", "t8");
@@ -8490,7 +8490,7 @@ public class TestAnalyzer
                         new ColumnMetadata("b", singleFieldRowType))),
                 FAIL));
 
-        QualifiedObjectName tableViewAndMaterializedView = new QualifiedObjectName(TPCH_CATALOG, "s1", "table_view_and_materialized_view", Optional.empty());
+        QualifiedObjectName tableViewAndMaterializedView = new QualifiedObjectName(TPCH_CATALOG, "s1", "table_view_and_materialized_view");
         inSetupTransaction(session -> metadata.createMaterializedView(
                 session,
                 tableViewAndMaterializedView,
@@ -8530,7 +8530,7 @@ public class TestAnalyzer
                         ImmutableList.of(new ColumnMetadata("a", BIGINT))),
                 FAIL));
 
-        QualifiedObjectName tableAndView = new QualifiedObjectName(TPCH_CATALOG, "s1", "table_and_view", Optional.empty());
+        QualifiedObjectName tableAndView = new QualifiedObjectName(TPCH_CATALOG, "s1", "table_and_view");
         inSetupTransaction(session -> metadata.createView(
                 session,
                 tableAndView,
@@ -8566,7 +8566,7 @@ public class TestAnalyzer
                 // t3 has a, b column and hidden column x
                 Optional.of(new CatalogSchemaTableName(TPCH_CATALOG, "s1", "t3")));
 
-        QualifiedObjectName freshMaterializedView = new QualifiedObjectName(TPCH_CATALOG, "s1", "fresh_materialized_view" + suffix, Optional.empty());
+        QualifiedObjectName freshMaterializedView = new QualifiedObjectName(TPCH_CATALOG, "s1", "fresh_materialized_view" + suffix);
         inSetupTransaction(session -> metadata.createMaterializedView(
                 session,
                 freshMaterializedView,
@@ -8576,7 +8576,7 @@ public class TestAnalyzer
                 false));
         testingConnectorMetadata.markMaterializedViewIsFresh(freshMaterializedView.asSchemaTableName());
 
-        QualifiedObjectName staleMaterializedView = new QualifiedObjectName(TPCH_CATALOG, "s1", "stale_materialized_view" + suffix, Optional.empty());
+        QualifiedObjectName staleMaterializedView = new QualifiedObjectName(TPCH_CATALOG, "s1", "stale_materialized_view" + suffix);
         inSetupTransaction(session -> metadata.createMaterializedView(
                 session,
                 staleMaterializedView,
@@ -8598,7 +8598,7 @@ public class TestAnalyzer
                 // t3 has a, b column and hidden column x
                 Optional.of(new CatalogSchemaTableName(TPCH_CATALOG, "s1", "t3")));
 
-        QualifiedObjectName freshMaterializedViewNonExistentTable = new QualifiedObjectName(TPCH_CATALOG, "s1", "fresh_materialized_view_non_existent_table" + suffix, Optional.empty());
+        QualifiedObjectName freshMaterializedViewNonExistentTable = new QualifiedObjectName(TPCH_CATALOG, "s1", "fresh_materialized_view_non_existent_table" + suffix);
         inSetupTransaction(session -> metadata.createMaterializedView(
                 session,
                 freshMaterializedViewNonExistentTable,
@@ -8608,7 +8608,7 @@ public class TestAnalyzer
                 false));
         testingConnectorMetadata.markMaterializedViewIsFresh(freshMaterializedViewNonExistentTable.asSchemaTableName());
 
-        QualifiedObjectName staleMaterializedViewNonExistentTable = new QualifiedObjectName(TPCH_CATALOG, "s1", "stale_materialized_view_non_existent_table" + suffix, Optional.empty());
+        QualifiedObjectName staleMaterializedViewNonExistentTable = new QualifiedObjectName(TPCH_CATALOG, "s1", "stale_materialized_view_non_existent_table" + suffix);
         inSetupTransaction(session -> metadata.createMaterializedView(
                 session,
                 staleMaterializedViewNonExistentTable,
@@ -8617,7 +8617,7 @@ public class TestAnalyzer
                 false,
                 false));
 
-        QualifiedObjectName freshMaterializedViewMismatchedColumnCount = new QualifiedObjectName(TPCH_CATALOG, "s1", "fresh_materialized_view_mismatched_column_count" + suffix, Optional.empty());
+        QualifiedObjectName freshMaterializedViewMismatchedColumnCount = new QualifiedObjectName(TPCH_CATALOG, "s1", "fresh_materialized_view_mismatched_column_count" + suffix);
         inSetupTransaction(session -> metadata.createMaterializedView(
                 session,
                 freshMaterializedViewMismatchedColumnCount,
@@ -8637,7 +8637,7 @@ public class TestAnalyzer
                 false));
         testingConnectorMetadata.markMaterializedViewIsFresh(freshMaterializedViewMismatchedColumnCount.asSchemaTableName());
 
-        QualifiedObjectName freshMaterializedMismatchedColumnName = new QualifiedObjectName(TPCH_CATALOG, "s1", "fresh_materialized_view_mismatched_column_name" + suffix, Optional.empty());
+        QualifiedObjectName freshMaterializedMismatchedColumnName = new QualifiedObjectName(TPCH_CATALOG, "s1", "fresh_materialized_view_mismatched_column_name" + suffix);
         inSetupTransaction(session -> metadata.createMaterializedView(
                 session,
                 freshMaterializedMismatchedColumnName,
@@ -8657,7 +8657,7 @@ public class TestAnalyzer
                 false));
         testingConnectorMetadata.markMaterializedViewIsFresh(freshMaterializedMismatchedColumnName.asSchemaTableName());
 
-        QualifiedObjectName freshMaterializedMismatchedColumnType = new QualifiedObjectName(TPCH_CATALOG, "s1", "fresh_materialized_view_mismatched_column_type" + suffix, Optional.empty());
+        QualifiedObjectName freshMaterializedMismatchedColumnType = new QualifiedObjectName(TPCH_CATALOG, "s1", "fresh_materialized_view_mismatched_column_type" + suffix);
         inSetupTransaction(session -> metadata.createMaterializedView(
                 session,
                 freshMaterializedMismatchedColumnType,

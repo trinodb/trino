@@ -3860,7 +3860,7 @@ public abstract class BaseHiveConnectorTest
         return transaction(getQueryRunner().getTransactionManager(), metadata, getQueryRunner().getAccessControl())
                 .readOnly()
                 .execute(session, transactionSession -> {
-                    Optional<TableHandle> tableHandle = metadata.getTableHandle(transactionSession, new QualifiedObjectName(catalog, schema, tableName, Optional.empty()));
+                    Optional<TableHandle> tableHandle = metadata.getTableHandle(transactionSession, new QualifiedObjectName(catalog, schema, tableName));
                     assertThat(tableHandle).isPresent();
                     return metadata.getTableMetadata(transactionSession, tableHandle.get());
                 });
@@ -3874,7 +3874,7 @@ public abstract class BaseHiveConnectorTest
         return transaction(getQueryRunner().getTransactionManager(), metadata, getQueryRunner().getAccessControl())
                 .readOnly()
                 .execute(session, transactionSession -> {
-                    QualifiedObjectName name = new QualifiedObjectName(catalog, TPCH_SCHEMA, tableName, Optional.empty());
+                    QualifiedObjectName name = new QualifiedObjectName(catalog, TPCH_SCHEMA, tableName);
                     TableHandle table = metadata.getTableHandle(transactionSession, name)
                             .orElseThrow(() -> new AssertionError("table not found: " + name));
                     table = metadata.applyFilter(transactionSession, table, Constraint.alwaysTrue())

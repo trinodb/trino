@@ -614,8 +614,8 @@ public class TestMultiSourcePartitionedScheduler
                 stageId,
                 fragment,
                 ImmutableMap.of(
-                        TABLE_SCAN_1_NODE_ID, new TableInfo(Optional.of("test"), new QualifiedObjectName("test", "test", "test", Optional.empty()), TupleDomain.all()),
-                        TABLE_SCAN_2_NODE_ID, new TableInfo(Optional.of("test"), new QualifiedObjectName("test", "test", "test", Optional.empty()), TupleDomain.all())),
+                        TABLE_SCAN_1_NODE_ID, new TableInfo(Optional.of("test"), new QualifiedObjectName("test", "test", "test"), TupleDomain.all()),
+                        TABLE_SCAN_2_NODE_ID, new TableInfo(Optional.of("test"), new QualifiedObjectName("test", "test", "test"), TupleDomain.all())),
                 new MockRemoteTaskFactory(queryExecutor, scheduledExecutor),
                 TEST_SESSION,
                 true,

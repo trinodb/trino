@@ -36,6 +36,7 @@ import io.trino.sql.tree.Resolver;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -83,12 +84,12 @@ public final class MetadataUtil
         return requireNonNull(tableName, "tableName is null");
     }
 
-    public static void checkObjectName(String catalogName, String schemaName, String objectName, Optional<Resolver> resolver)
+    public static void checkObjectName(String catalogName, String schemaName, String objectName, Optional<Predicate<String>> predicate)
     {
         requireNonNull(catalogName, "catalogName is null");
         requireNonNull(schemaName, "schemaName is null");
         requireNonNull(objectName, "objectName is null");
-        requireNonNull(resolver, "resolver is null");
+        requireNonNull(predicate, "predicate is null");
     }
 
     public static ColumnMetadata findColumnMetadata(ConnectorTableMetadata tableMetadata, String columnName)
@@ -156,37 +157,40 @@ public final class MetadataUtil
 
     public static CatalogSchemaName createCatalogSchemaName(Session session, Node node, Optional<QualifiedName> schema, PlannerContext plannerContext)
     {
-        return createCatalogSchemaName(getCatalogSchemaIdentifiers(session, node, schema, plannerContext));
+        return createCatalogSchemaName(session, plannerContext, getCatalogSchemaIdentifiers(session, node, schema, plannerContext));
     }
 
-    public static CatalogSchemaName createCatalogSchemaName(List<Identifier> identifiers)
+    public static CatalogSchemaName createCatalogSchemaName(Session session, PlannerContext plannerContext, List<Identifier> identifiers)
     {
-        return new CatalogSchemaName(identifiers.getFirst().getCanonicalizedValue(), identifiers.getLast().getCanonicalizedValue());
+        String catalog = identifiers.getFirst().getValue();
+        Resolver resolver = plannerContext.getResolver(session, catalog);
+        return new CatalogSchemaName(catalog, resolver.canonicalize(identifiers.getLast()));
     }
 
     public static QualifiedObjectName createQualifiedObjectName(Session session, Node node, QualifiedName name, PlannerContext plannerContext)
     {
-        return createQualifiedObjectName(getQualifiedObjectIdentifiers(session, node, name, plannerContext));
+        return createQualifiedObjectName(session, plannerContext, getQualifiedObjectIdentifiers(session, node, name, plannerContext));
     }
 
-    public static QualifiedObjectName createQualifiedObjectName(List<Identifier> identifiers)
+    public static QualifiedObjectName createQualifiedObjectName(Session session, PlannerContext plannerContext, List<Identifier> identifiers)
     {
         requireNonNull(identifiers, "identifiers is null");
         if (identifiers.size() < 3) {
             throw new TrinoException(SYNTAX_ERROR, format("Not enough parts in table name: %s", identifiers.getLast().getValue()));
         }
 
+        String catalog = identifiers.getFirst().getValue();
+        Resolver resolver = getResolver(session, plannerContext, catalog);
         return new QualifiedObjectName(
-                identifiers.getFirst().getCanonicalizedValue(),
-                identifiers.get(1).getCanonicalizedValue(),
-                identifiers.get(2).getCanonicalizedValue(),
-                identifiers.getFirst().getResolver());
+                catalog,
+                resolver.canonicalize(identifiers.get(1)),
+                resolver.canonicalize(identifiers.get(2)),
+                Optional.of(resolver::predicate));
     }
 
     public static List<Identifier> getCatalogSchemaIdentifiers(Session session, Node node, Optional<QualifiedName> qualifiedName, PlannerContext plannerContext)
     {
         requireNonNull(plannerContext, "plannerContext is null");
-        Resolver resolver = null;
         Identifier catalog = null;
         Identifier schema = null;
 
@@ -196,27 +200,16 @@ public final class MetadataUtil
                 throw semanticException(SYNTAX_ERROR, node, "Too many parts in schema name: %s", qualifiedName.get());
             }
             if (parts.size() == 2) {
-                catalog = parts.getFirst().asCatalog();
-                resolver = getResolver(session, plannerContext, catalog.getCanonicalizedValue());
-                catalog.setResolver(resolver);
+                catalog = parts.getFirst();
             }
             schema = parts.getLast();
         }
 
         if (catalog == null) {
-            String currentCatalog = getSessionCatalog(session, node);
-            resolver = getResolver(session, plannerContext, currentCatalog);
-            catalog = getCatalogIdentifier(resolver, currentCatalog);
-        }
-
-        if (qualifiedName.isPresent()) {
-            qualifiedName.get().resolveIdentifiers(resolver);
+            catalog = new Identifier(getSessionCatalog(session, node));
         }
         if (schema == null) {
-            schema = getSessionSchemaIdentifier(session, node, resolver);
-        }
-        else {
-            schema.setResolver(resolver);
+            schema = getSessionSchemaIdentifier(session, node, getResolver(session, plannerContext, catalog.getValue()));
         }
         return ImmutableList.of(catalog, schema);
     }
@@ -229,31 +222,26 @@ public final class MetadataUtil
             throw new TrinoException(SYNTAX_ERROR, format("Too many dots in table name: %s", name));
         }
 
-        List<Identifier> identifiers = name.getOriginalParts().reversed();
-        ImmutableList.Builder<Identifier> partsBuilder = ImmutableList.builder();
         Identifier catalog;
-        Resolver resolver;
-        if (identifiers.size() > 2) {
-            catalog = identifiers.get(2).asCatalog();
-            resolver = getResolver(session, plannerContext, catalog.getCanonicalizedValue());
-        }
-        else {
-            String currentCatalog = getSessionCatalog(session, node);
-            resolver = getResolver(session, plannerContext, currentCatalog);
-            catalog = getCatalogIdentifier(resolver, currentCatalog);
-        }
-        partsBuilder.add(catalog);
-        name.resolveIdentifiers(resolver);
         Identifier schema;
-        if (identifiers.size() > 1) {
-            schema = new Identifier(identifiers.get(1), Optional.of(resolver));
+        List<Identifier> identifiers = name.getOriginalParts();
+        switch (identifiers.size()) {
+            case 3 -> {
+                catalog = identifiers.getFirst();
+                schema = identifiers.get(1);
+            }
+            case 2 -> {
+                String currentCatalog = getSessionCatalog(session, node);
+                catalog = new Identifier(currentCatalog);
+                schema = identifiers.getFirst();
+            }
+            default -> {
+                String currentCatalog = getSessionCatalog(session, node);
+                catalog = new Identifier(currentCatalog);
+                schema = getSessionSchemaIdentifier(session, node, getResolver(session, plannerContext, currentCatalog));
+            }
         }
-        else {
-            schema = getSessionSchemaIdentifier(session, node, resolver);
-        }
-        partsBuilder.add(schema);
-        partsBuilder.add(new Identifier(identifiers.getFirst(), Optional.of(resolver)));
-        return partsBuilder.build();
+        return ImmutableList.of(catalog, schema, identifiers.getLast());
     }
 
     public static String getSessionCatalog(Session session, Node node)
@@ -267,18 +255,13 @@ public final class MetadataUtil
         return plannerContext.getResolver(session, catalog);
     }
 
-    private static Identifier getCatalogIdentifier(Resolver resolver, String catalog)
-    {
-        return new Identifier(catalog, false, true, resolver);
-    }
-
     private static Identifier getSessionSchemaIdentifier(Session session, Node node, Resolver resolver)
     {
         if (session.getSchema().isEmpty()) {
             throw semanticException(MISSING_SCHEMA_NAME, node, "Schema must be specified when session schema is not set");
         }
         String schema = session.getSchema().get();
-        return new Identifier(schema, resolver.predicate(schema), false, resolver);
+        return new Identifier(schema, resolver.predicate(schema));
     }
 
     public static EntityKindAndName createEntityKindAndName(String entityKind, QualifiedName name)
@@ -320,7 +303,7 @@ public final class MetadataUtil
         if (session.getCatalog().isEmpty() || session.getSchema().isEmpty()) {
             return false;
         }
-        QualifiedObjectName name = new QualifiedObjectName(session.getCatalog().get(), session.getSchema().get(), table, Optional.empty());
+        QualifiedObjectName name = new QualifiedObjectName(session.getCatalog().get(), session.getSchema().get(), table);
         return metadata.getTableHandle(session, name).isPresent();
     }
 

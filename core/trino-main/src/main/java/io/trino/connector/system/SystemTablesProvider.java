@@ -74,7 +74,7 @@ public class SystemTablesProvider
         // PageSourceProvider interface for SystemSplit through the Connector interface
         return metadata.getSystemTable(
                 ((FullConnectorSession) session).getSession(),
-                new QualifiedObjectName(catalogName, tableName.getSchemaName(), tableName.getTableName(), Optional.empty()));
+                new QualifiedObjectName(catalogName, tableName.getSchemaName(), tableName.getTableName()));
     }
 
     private boolean isCoordinatorTransaction(ConnectorSession connectorSession)

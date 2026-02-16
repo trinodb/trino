@@ -80,12 +80,9 @@ public class SetDefaultValueTask
         Session session = stateMachine.getSession();
         Map<NodeRef<Parameter>, Expression> parameterLookup = bindParameters(statement, parameters);
         QualifiedObjectName tableName = createQualifiedObjectName(session, statement, statement.getTableName(), plannerContext);
-        RedirectionAwareTableHandle redirectionAwareTableHandle = metadata.getRedirectionAwareTableHandle(session, tableName);
-        Optional<Resolver> resolver = plannerContext.getResolver(session);
-        if (resolver.isEmpty()) {
-            throw semanticException(RESOLVER_NO_FOUND, statement, "Resolver for table '%s' not found", tableName);
-        }
+        Resolver resolver = plannerContext.getResolver(session, tableName.catalogName());
 
+        RedirectionAwareTableHandle redirectionAwareTableHandle = metadata.getRedirectionAwareTableHandle(session, tableName);
         if (redirectionAwareTableHandle.tableHandle().isEmpty()) {
             String exceptionMessage = "Table '%s' does not exist".formatted(tableName);
             if (metadata.getMaterializedView(session, tableName).isPresent()) {
@@ -103,11 +100,11 @@ public class SetDefaultValueTask
 
         TableHandle tableHandle = redirectionAwareTableHandle.tableHandle().get();
         CatalogHandle catalogHandle = tableHandle.catalogHandle();
-        QualifiedName field = statement.getColumnName().resolveIdentifiers(statement.getTableName().getResolver());
+        QualifiedName field = QualifiedName.of(resolver::canonicalize, statement.getColumnName());
         if (field.getOriginalParts().size() != 1) {
             throw semanticException(NOT_SUPPORTED, statement, "Cannot modify nested fields");
         }
-        String columnName = field.getOriginalParts().getFirst().getCanonicalizedValue();
+        String columnName = field.getSuffix();
         ColumnHandle columnHandle = metadata.getColumnHandles(session, tableHandle).get(columnName);
 
         if (columnHandle == null) {

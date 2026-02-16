@@ -126,7 +126,7 @@ public class TestDenyOnTable
         String username = randomUsername();
 
         denyCalled = false;
-        expectedTableName = new QualifiedObjectName("local", "default", "table_one", Optional.empty());
+        expectedTableName = new QualifiedObjectName("local", "default", "table_one");
         if (privilege.equalsIgnoreCase("all privileges")) {
             expectedPrivileges = ImmutableSet.copyOf(Privilege.values());
         }

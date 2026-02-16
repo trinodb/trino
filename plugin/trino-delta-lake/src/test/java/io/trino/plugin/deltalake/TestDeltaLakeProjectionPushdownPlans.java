@@ -156,7 +156,7 @@ public class TestDeltaLakeProjectionPushdownPlans
     public void testDereferencePushdown()
     {
         String testTable = "test_simple_projection_pushdown" + randomNameSuffix();
-        QualifiedObjectName completeTableName = new QualifiedObjectName(DELTA_CATALOG, SCHEMA, testTable, Optional.empty());
+        QualifiedObjectName completeTableName = new QualifiedObjectName(DELTA_CATALOG, SCHEMA, testTable);
 
         getPlanTester().executeStatement(format(
                 "CREATE TABLE %s (col0, col1) WITH (partitioned_by = ARRAY['col1']) AS" +

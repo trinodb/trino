@@ -149,6 +149,11 @@ public class PlannerContext
         return resolverManager.getResolver(session, catalog, metadata::getResolver);
     }
 
+    public Resolver getDefaultResolver(Session session)
+    {
+        return resolverManager.getDefaultResolver(session, metadata::getResolver);
+    }
+
     public Optional<Resolver> getResolver(Session session)
     {
         return resolverManager.getResolver(session, metadata::getResolver);

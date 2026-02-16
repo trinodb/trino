@@ -29,7 +29,7 @@ import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.Identifier;
+import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.RenameColumn;
 import io.trino.sql.tree.Resolver;
 
@@ -39,7 +39,6 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.Iterables.getLast;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static io.trino.metadata.MetadataUtil.createQualifiedObjectName;
@@ -49,6 +48,7 @@ import static io.trino.spi.StandardErrorCode.COLUMN_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.TABLE_NOT_FOUND;
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
+import static io.trino.sql.tree.IdentifierKind.COLUMN;
 import static java.util.Objects.requireNonNull;
 
 public class RenameColumnTask
@@ -91,18 +91,18 @@ public class RenameColumnTask
         TableHandle tableHandle = redirectionAwareTableHandle.tableHandle().get();
 
         Resolver resolver = plannerContext.getResolver(session, originalTableName.catalogName());
-        String source = statement.getSource().resolveIdentifiers(resolver).getParts().getFirst();
-        String target = statement.getTarget().setResolver(resolver).getCanonicalizedValue();
+        String source = resolver.canonicalize(statement.getSource().getOriginalParts().getFirst());
+        String target = resolver.canonicalize(statement.getTarget());
 
         QualifiedObjectName qualifiedTableName = redirectionAwareTableHandle.redirectedTableName().orElse(originalTableName);
 
         Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(session, tableHandle).entrySet().stream()
-                .map(entry -> new AbstractMap.SimpleEntry<>(resolver.compare(entry.getKey(), Identifier.COLUMN), entry.getValue()))
+                .map(entry -> new AbstractMap.SimpleEntry<>(resolver.compare(entry.getKey(), COLUMN), entry.getValue()))
                 .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
-        ColumnHandle columnHandle = columnHandles.get(resolver.compare(source, Identifier.COLUMN));
+        ColumnHandle columnHandle = columnHandles.get(resolver.compare(source, COLUMN));
         if (columnHandle == null) {
             if (!statement.isColumnExists()) {
-                throw semanticException(COLUMN_NOT_FOUND, statement, "Column '%s' does not exist", resolver.compare(source, Identifier.COLUMN));
+                throw semanticException(COLUMN_NOT_FOUND, statement, "Column '%s' does not exist", resolver.compare(source, COLUMN));
             }
             return immediateVoidFuture();
         }
@@ -113,8 +113,8 @@ public class RenameColumnTask
         if (statement.getSource().getParts().size() == 1) {
             accessControl.checkCanRenameColumn(session.toSecurityContext(), qualifiedTableName);
 
-            if (columnHandles.containsKey(resolver.compare(target, Identifier.COLUMN))) {
-                throw semanticException(COLUMN_ALREADY_EXISTS, statement, "Column '%s' already exists", resolver.compare(target, Identifier.COLUMN));
+            if (columnHandles.containsKey(resolver.compare(target, COLUMN))) {
+                throw semanticException(COLUMN_ALREADY_EXISTS, statement, "Column '%s' already exists", resolver.compare(target, COLUMN));
             }
 
             metadata.renameColumn(session, tableHandle, qualifiedTableName.asCatalogSchemaTableName(), columnHandle, target);
@@ -122,7 +122,7 @@ public class RenameColumnTask
         else {
             accessControl.checkCanAlterColumn(session.toSecurityContext(), qualifiedTableName);
 
-            List<String> fieldPath = statement.getSource().getParts();
+            List<String> fieldPath = QualifiedName.of(resolver::canonicalize, statement.getSource()).getParts();
 
             ColumnMetadata columnMetadata = metadata.getColumnMetadata(session, tableHandle, columnHandle);
             Type currentType = columnMetadata.getType();
@@ -139,7 +139,7 @@ public class RenameColumnTask
                 currentType = getOnlyElement(candidates).getType();
             }
 
-            String sourceFieldName = getLast(statement.getSource().getParts());
+            String sourceFieldName = resolver.canonicalize(statement.getSource().getOriginalParts().getLast());
             List<RowType.Field> sourceCandidates = getCandidates(currentType, sourceFieldName);
             if (sourceCandidates.isEmpty()) {
                 if (!statement.isColumnExists()) {

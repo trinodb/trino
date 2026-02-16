@@ -90,7 +90,7 @@ public class SetAuthorizationTask
                 }
             }
             case "TABLE" -> {
-                QualifiedObjectName tableName = new QualifiedObjectName(name.get(0), name.get(1), name.get(2), Optional.empty());
+                QualifiedObjectName tableName = new QualifiedObjectName(name.get(0), name.get(1), name.get(2));
                 getRequiredCatalogHandle(metadata, session, statement, name.get(0));
                 RedirectionAwareTableHandle redirection = metadata.getRedirectionAwareTableHandle(session, tableName);
                 if (redirection.tableHandle().isEmpty()) {
@@ -101,14 +101,14 @@ public class SetAuthorizationTask
                 }
             }
             case "VIEW" -> {
-                QualifiedObjectName viewName = new QualifiedObjectName(name.get(0), name.get(1), name.get(2), Optional.empty());
+                QualifiedObjectName viewName = new QualifiedObjectName(name.get(0), name.get(1), name.get(2));
                 getRequiredCatalogHandle(metadata, session, statement, viewName.catalogName());
                 if (!metadata.isView(session, viewName)) {
                     throw semanticException(TABLE_NOT_FOUND, statement, "View '%s' does not exist", viewName);
                 }
             }
             case "MATERIALIZED VIEW" -> {
-                QualifiedObjectName viewName = new QualifiedObjectName(name.get(0), name.get(1), name.get(2), Optional.empty());
+                QualifiedObjectName viewName = new QualifiedObjectName(name.get(0), name.get(1), name.get(2));
                 getRequiredCatalogHandle(metadata, session, statement, viewName.catalogName());
                 if (!metadata.isMaterializedView(session, viewName)) {
                     throw semanticException(TABLE_NOT_FOUND, statement, "Materialized view '%s' does not exist", viewName);

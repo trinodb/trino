@@ -96,13 +96,13 @@ public class DereferenceExpression
 
         List<Identifier> parts = null;
         if (expression.base instanceof Identifier identifier) {
-            parts = ImmutableList.of(identifier.setResolver(field.getResolver()), field);
+            parts = ImmutableList.of(identifier, field);
         }
         else if (expression.base instanceof DereferenceExpression dereferenceExpression) {
             QualifiedName baseQualifiedName = getQualifiedName(dereferenceExpression);
             if (baseQualifiedName != null) {
                 ImmutableList.Builder<Identifier> builder = ImmutableList.builder();
-                builder.addAll(baseQualifiedName.resolveIdentifiers(field.getResolver()).getOriginalParts());
+                builder.addAll(baseQualifiedName.getOriginalParts());
                 builder.add(field);
                 parts = builder.build();
             }
@@ -119,10 +119,10 @@ public class DereferenceExpression
 
         for (Identifier part : name.getOriginalParts()) {
             if (result == null) {
-                result = new Identifier(part, part.getResolver());
+                result = part;
             }
             else {
-                result = new DereferenceExpression(result, new Identifier(part, part.getResolver()));
+                result = new DereferenceExpression(result, part);
             }
         }
 

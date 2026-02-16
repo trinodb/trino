@@ -518,7 +518,7 @@ public final class QueryAssertions
 
     public static void copyTable(QueryRunner queryRunner, String sourceCatalog, String sourceSchema, String sourceTable, Session session)
     {
-        QualifiedObjectName table = new QualifiedObjectName(sourceCatalog, sourceSchema, sourceTable, Optional.empty());
+        QualifiedObjectName table = new QualifiedObjectName(sourceCatalog, sourceSchema, sourceTable);
         copyTable(queryRunner, table, session);
     }
 

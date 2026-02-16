@@ -158,7 +158,7 @@ public final class ElasticsearchQueryRunner
         long start = System.nanoTime();
         LOG.info("Running import for %s", table.getTableName());
         ElasticsearchLoader loader = new ElasticsearchLoader(client, table.getTableName(), trinoClient.getServer(), trinoClient.getDefaultSession());
-        loader.execute(format("SELECT * from %s", new QualifiedObjectName(TPCH_SCHEMA, TINY_SCHEMA_NAME, table.getTableName(), Optional.empty())));
+        loader.execute(format("SELECT * from %s", new QualifiedObjectName(TPCH_SCHEMA, TINY_SCHEMA_NAME, table.getTableName())));
         LOG.info("Imported %s in %s", table.getTableName(), nanosSince(start).convertToMostSuccinctTimeUnit());
     }
 

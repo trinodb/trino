@@ -195,16 +195,7 @@ public class Field
         // TODO: need to know whether the qualified name and the name of this field were quoted
         // FIXME: If we want to be able to differentiate between fields that only differ in their case,
         //        then we must resolve the fields taking case and resolver into account?
-        boolean match = matchesPrefix(name.getPrefix()) && name.matchesSuffix(this.name.get());
-        if (match && relationAlias.isPresent() && relationAlias.get().isResolved() != name.isResolved()) {
-            if (name.isResolved()) {
-                relationAlias.get().resolveIdentifiers(name.getResolver());
-            }
-            else {
-                name.resolveIdentifiers(relationAlias.get().getResolver());
-            }
-        }
-        return match;
+        return matchesPrefix(name.getPrefix()) && name.matchesSuffix(this.name.get());
     }
 
     @Override

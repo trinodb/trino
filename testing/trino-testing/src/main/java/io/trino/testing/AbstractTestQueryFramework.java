@@ -760,8 +760,7 @@ public abstract class AbstractTestQueryFramework
         return new QualifiedObjectName(
                 session.getCatalog().orElseThrow(),
                 session.getSchema().orElseThrow(),
-                tableName,
-                Optional.empty());
+                tableName);
     }
 
     private CatalogSchemaTableName getTableName(TableHandle tableHandle)

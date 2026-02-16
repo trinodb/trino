@@ -14,6 +14,7 @@
 package io.trino.metadata;
 
 import io.trino.sql.tree.Identifier;
+import io.trino.sql.tree.IdentifierKind;
 
 import static java.util.Locale.ENGLISH;
 
@@ -37,7 +38,7 @@ public interface Canonicalizer
         return canonicalize(identifier.getValue(), identifier.isDelimited());
     }
 
-    default String compare(String value, Integer type)
+    default String compare(String value, IdentifierKind kind)
     {
         return value;
     }

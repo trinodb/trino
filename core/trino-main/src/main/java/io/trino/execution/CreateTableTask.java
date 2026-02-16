@@ -136,6 +136,9 @@ public class CreateTableTask
 
         Map<NodeRef<Parameter>, Expression> parameterLookup = bindParameters(statement, parameters);
         QualifiedObjectName tableName = createQualifiedObjectName(session, statement, statement.getName(), plannerContext);
+        String catalogName = tableName.catalogName();
+        Resolver resolver = plannerContext.getResolver(session, catalogName);
+
         Optional<TableHandle> tableHandle;
         try {
             tableHandle = plannerContext.getMetadata().getTableHandle(session, tableName);
@@ -153,7 +156,6 @@ public class CreateTableTask
             return immediateVoidFuture();
         }
 
-        String catalogName = tableName.catalogName();
         CatalogHandle catalogHandle = getRequiredCatalogHandle(plannerContext.getMetadata(), session, statement, catalogName);
 
         Map<String, Object> properties = tablePropertyManager.getProperties(
@@ -170,14 +172,13 @@ public class CreateTableTask
         Map<String, Object> inheritedProperties = ImmutableMap.of();
         boolean includingProperties = false;
         boolean supportsDefaultColumnValue = plannerContext.getMetadata().getConnectorCapabilities(session, catalogHandle).contains(DEFAULT_COLUMN_VALUE);
-        Resolver resolver = plannerContext.getResolver(session, catalogName);
         for (TableElement element : statement.getElements()) {
             if (element instanceof ColumnDefinition column) {
                 if (column.getName().getOriginalParts().size() != 1) {
                     throw semanticException(NOT_SUPPORTED, statement, "Column name '%s' must not be qualified", column.getName());
                 }
-                Identifier identifier = getOnlyElement(column.getName().resolveIdentifiers(resolver).getOriginalParts());
-                String name = identifier.getCanonicalizedValue();
+                Identifier identifier = getOnlyElement(column.getName().getOriginalParts());
+                String name = resolver.canonicalize(identifier);
                 Type type;
                 try {
                     type = plannerContext.getTypeManager().getType(toTypeSignature(column.getType()));

@@ -519,7 +519,7 @@ public class InjectedConnectorAccessControl
     public void checkCanExecuteProcedure(ConnectorSecurityContext context, SchemaRoutineName procedure)
     {
         checkArgument(context == null, "context must be null");
-        accessControl.checkCanExecuteProcedure(securityContext, new QualifiedObjectName(catalogName, procedure.getSchemaName(), procedure.getRoutineName(), Optional.empty()));
+        accessControl.checkCanExecuteProcedure(securityContext, new QualifiedObjectName(catalogName, procedure.getSchemaName(), procedure.getRoutineName()));
     }
 
     @Override
@@ -536,14 +536,14 @@ public class InjectedConnectorAccessControl
     public boolean canExecuteFunction(ConnectorSecurityContext context, SchemaRoutineName function)
     {
         checkArgument(context == null, "context must be null");
-        return accessControl.canExecuteFunction(securityContext, new QualifiedObjectName(catalogName, function.getSchemaName(), function.getRoutineName(), Optional.empty()));
+        return accessControl.canExecuteFunction(securityContext, new QualifiedObjectName(catalogName, function.getSchemaName(), function.getRoutineName()));
     }
 
     @Override
     public boolean canCreateViewWithExecuteFunction(ConnectorSecurityContext context, SchemaRoutineName function)
     {
         checkArgument(context == null, "context must be null");
-        return accessControl.canCreateViewWithExecuteFunction(securityContext, new QualifiedObjectName(catalogName, function.getSchemaName(), function.getRoutineName(), Optional.empty()));
+        return accessControl.canCreateViewWithExecuteFunction(securityContext, new QualifiedObjectName(catalogName, function.getSchemaName(), function.getRoutineName()));
     }
 
     @Override
@@ -564,50 +564,50 @@ public class InjectedConnectorAccessControl
     public void checkCanCreateFunction(ConnectorSecurityContext context, SchemaRoutineName function)
     {
         checkArgument(context == null, "context must be null");
-        accessControl.checkCanCreateFunction(securityContext, new QualifiedObjectName(catalogName, function.getSchemaName(), function.getRoutineName(), Optional.empty()));
+        accessControl.checkCanCreateFunction(securityContext, new QualifiedObjectName(catalogName, function.getSchemaName(), function.getRoutineName()));
     }
 
     @Override
     public void checkCanDropFunction(ConnectorSecurityContext context, SchemaRoutineName function)
     {
-        accessControl.checkCanDropFunction(securityContext, new QualifiedObjectName(catalogName, function.getSchemaName(), function.getRoutineName(), Optional.empty()));
+        accessControl.checkCanDropFunction(securityContext, new QualifiedObjectName(catalogName, function.getSchemaName(), function.getRoutineName()));
     }
 
     @Override
     public void checkCanShowCreateFunction(ConnectorSecurityContext context, SchemaRoutineName function)
     {
-        accessControl.checkCanShowCreateFunction(securityContext, new QualifiedObjectName(catalogName, function.getSchemaName(), function.getRoutineName(), Optional.empty()));
+        accessControl.checkCanShowCreateFunction(securityContext, new QualifiedObjectName(catalogName, function.getSchemaName(), function.getRoutineName()));
     }
 
     @Override
     public void checkCanShowBranches(ConnectorSecurityContext context, SchemaTableName tableName)
     {
-        accessControl.checkCanShowBranches(securityContext, new QualifiedObjectName(catalogName, tableName.getSchemaName(), tableName.getTableName(), Optional.empty()));
+        accessControl.checkCanShowBranches(securityContext, new QualifiedObjectName(catalogName, tableName.getSchemaName(), tableName.getTableName()));
     }
 
     @Override
     public void checkCanCreateBranch(ConnectorSecurityContext context, SchemaTableName tableName, String branchName)
     {
-        accessControl.checkCanCreateBranch(securityContext, new QualifiedObjectName(catalogName, tableName.getSchemaName(), tableName.getTableName(), Optional.empty()), branchName);
+        accessControl.checkCanCreateBranch(securityContext, new QualifiedObjectName(catalogName, tableName.getSchemaName(), tableName.getTableName()), branchName);
     }
 
     @Override
     public void checkCanDropBranch(ConnectorSecurityContext context, SchemaTableName tableName, String branchName)
     {
-        accessControl.checkCanDropBranch(securityContext, new QualifiedObjectName(catalogName, tableName.getSchemaName(), tableName.getTableName(), Optional.empty()), branchName);
+        accessControl.checkCanDropBranch(securityContext, new QualifiedObjectName(catalogName, tableName.getSchemaName(), tableName.getTableName()), branchName);
     }
 
     @Override
     public void checkCanFastForwardBranch(ConnectorSecurityContext context, SchemaTableName tableName, String sourceBranchName, String targetBranchName)
     {
-        accessControl.checkCanFastForwardBranch(securityContext, new QualifiedObjectName(catalogName, tableName.getSchemaName(), tableName.getTableName(), Optional.empty()), sourceBranchName, targetBranchName);
+        accessControl.checkCanFastForwardBranch(securityContext, new QualifiedObjectName(catalogName, tableName.getSchemaName(), tableName.getTableName()), sourceBranchName, targetBranchName);
     }
 
     @Override
     public List<ViewExpression> getRowFilters(ConnectorSecurityContext context, SchemaTableName tableName)
     {
         checkArgument(context == null, "context must be null");
-        if (accessControl.getRowFilters(securityContext, new QualifiedObjectName(catalogName, tableName.getSchemaName(), tableName.getTableName(), Optional.empty())).isEmpty()) {
+        if (accessControl.getRowFilters(securityContext, new QualifiedObjectName(catalogName, tableName.getSchemaName(), tableName.getTableName())).isEmpty()) {
             return ImmutableList.of();
         }
         throw new TrinoException(NOT_SUPPORTED, "Row filtering not supported");
@@ -617,7 +617,7 @@ public class InjectedConnectorAccessControl
     public Map<ColumnSchema, ViewExpression> getColumnMasks(ConnectorSecurityContext context, SchemaTableName tableName, List<ColumnSchema> columns)
     {
         checkArgument(context == null, "context must be null");
-        if (accessControl.getColumnMasks(securityContext, new QualifiedObjectName(catalogName, tableName.getSchemaName(), tableName.getTableName(), Optional.empty()), columns).isEmpty()) {
+        if (accessControl.getColumnMasks(securityContext, new QualifiedObjectName(catalogName, tableName.getSchemaName(), tableName.getTableName()), columns).isEmpty()) {
             return ImmutableMap.of();
         }
         throw new TrinoException(NOT_SUPPORTED, "Column masking not supported");
@@ -625,12 +625,12 @@ public class InjectedConnectorAccessControl
 
     private QualifiedObjectName getQualifiedObjectName(SchemaTableName schemaTableName)
     {
-        return new QualifiedObjectName(catalogName, schemaTableName.getSchemaName(), schemaTableName.getTableName(), Optional.empty());
+        return new QualifiedObjectName(catalogName, schemaTableName.getSchemaName(), schemaTableName.getTableName());
     }
 
     private QualifiedObjectName getQualifiedObjectName(SchemaRoutineName schemaRoutineName)
     {
-        return new QualifiedObjectName(catalogName, schemaRoutineName.getSchemaName(), schemaRoutineName.getRoutineName(), Optional.empty());
+        return new QualifiedObjectName(catalogName, schemaRoutineName.getSchemaName(), schemaRoutineName.getRoutineName());
     }
 
     private List<String> getQualifiedObjectNameParts(SchemaTableName schemaTableName)

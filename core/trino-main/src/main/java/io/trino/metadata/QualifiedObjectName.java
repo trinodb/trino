@@ -20,10 +20,10 @@ import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.SchemaRoutineName;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.function.SchemaFunctionName;
-import io.trino.sql.tree.Resolver;
 
 import java.util.Optional;
 import java.util.function.Function;
+import java.util.function.Predicate;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -31,7 +31,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.metadata.MetadataUtil.checkObjectName;
 import static java.util.Objects.requireNonNull;
 
-public record QualifiedObjectName(String catalogName, String schemaName, String objectName, Optional<Resolver> resolver)
+public record QualifiedObjectName(String catalogName, String schemaName, String objectName, Optional<Predicate<String>> predicate)
 {
     private static final Pattern UNQUOTED_COMPONENT = Pattern.compile("[a-zA-Z0-9_]+");
     private static final String COMPONENT = UNQUOTED_COMPONENT.pattern() + "|\"([^\"]|\"\")*\"";
@@ -43,17 +43,23 @@ public record QualifiedObjectName(String catalogName, String schemaName, String 
         requireNonNull(name, "name is null");
         Matcher matcher = PATTERN.matcher(name);
         checkArgument(matcher.matches(), "Invalid name %s", name);
-        return new QualifiedObjectName(unquoteIfNeeded(matcher.group("catalog")), unquoteIfNeeded(matcher.group("schema")), unquoteIfNeeded(matcher.group("table")), Optional.empty());
+        return new QualifiedObjectName(unquoteIfNeeded(matcher.group("catalog")), unquoteIfNeeded(matcher.group("schema")), unquoteIfNeeded(matcher.group("table")));
     }
 
     public QualifiedObjectName
     {
-        checkObjectName(catalogName, schemaName, objectName, resolver);
+        checkObjectName(catalogName, schemaName, objectName, predicate);
     }
 
-    public QualifiedObjectName asResolvedQualifiedObjectName(Optional<Resolver> resolver)
+    public QualifiedObjectName(String catalogName, String schemaName, String objectName)
     {
-        return new QualifiedObjectName(catalogName, schemaName, objectName, resolver);
+        this(catalogName, schemaName, objectName, Optional.empty());
+    }
+
+    public QualifiedObjectName asResolvedQualifiedObjectName(Predicate<String> predicate)
+    {
+        requireNonNull(predicate, "predicate is null");
+        return new QualifiedObjectName(catalogName, schemaName, objectName, Optional.of(predicate));
     }
 
     public SchemaTableName asSchemaTableName()
@@ -90,12 +96,12 @@ public record QualifiedObjectName(String catalogName, String schemaName, String 
     @Override
     public String toString()
     {
-        return quoteIfNeeded(catalogName, Optional.empty()) + '.' + quoteIfNeeded(schemaName, resolver) + '.' + quoteIfNeeded(objectName, resolver);
+        return quoteIfNeeded(catalogName, Optional.empty()) + '.' + quoteIfNeeded(schemaName, predicate) + '.' + quoteIfNeeded(objectName, predicate);
     }
 
     public static Function<SchemaTableName, QualifiedObjectName> convertFromSchemaTableName(String catalogName)
     {
-        return input -> new QualifiedObjectName(catalogName, input.getSchemaName(), input.getTableName(), Optional.empty());
+        return input -> new QualifiedObjectName(catalogName, input.getSchemaName(), input.getTableName());
     }
 
     private static String unquoteIfNeeded(String name)
@@ -107,9 +113,9 @@ public record QualifiedObjectName(String catalogName, String schemaName, String 
         return name.substring(1, name.length() - 1).replace("\"\"", "\"");
     }
 
-    private static String quoteIfNeeded(String name, Optional<Resolver> resolver)
+    private static String quoteIfNeeded(String name, Optional<Predicate<String>> predicate)
     {
-        if (UNQUOTED_COMPONENT.matcher(name).matches() && !resolver.map(res -> res.predicate(name)).orElse(false)) {
+        if (UNQUOTED_COMPONENT.matcher(name).matches() && !predicate.map(p -> p.test(name)).orElse(false)) {
             return name;
         }
         return "\"" + name.replace("\"", "\"\"") + "\"";

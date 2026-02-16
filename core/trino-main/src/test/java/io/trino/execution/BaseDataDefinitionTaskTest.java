@@ -173,7 +173,7 @@ public abstract class BaseDataDefinitionTaskTest
 
     protected static QualifiedObjectName qualifiedObjectName(String objectName)
     {
-        return new QualifiedObjectName(TEST_CATALOG_NAME, SCHEMA, objectName, Optional.empty());
+        return new QualifiedObjectName(TEST_CATALOG_NAME, SCHEMA, objectName);
     }
 
     protected static QualifiedName qualifiedName(String name)
@@ -332,9 +332,9 @@ public abstract class BaseDataDefinitionTaskTest
         public List<QualifiedObjectName> listTables(Session session, QualifiedTablePrefix prefix)
         {
             List<QualifiedObjectName> tables = ImmutableList.<QualifiedObjectName>builder()
-                    .addAll(this.tables.keySet().stream().map(table -> new QualifiedObjectName(catalogName, table.getSchemaName(), table.getTableName(), Optional.empty())).collect(toImmutableList()))
-                    .addAll(this.views.keySet().stream().map(view -> new QualifiedObjectName(catalogName, view.getSchemaName(), view.getTableName(), Optional.empty())).collect(toImmutableList()))
-                    .addAll(this.materializedViews.keySet().stream().map(mv -> new QualifiedObjectName(catalogName, mv.getSchemaName(), mv.getTableName(), Optional.empty())).collect(toImmutableList()))
+                    .addAll(this.tables.keySet().stream().map(table -> new QualifiedObjectName(catalogName, table.getSchemaName(), table.getTableName())).collect(toImmutableList()))
+                    .addAll(this.views.keySet().stream().map(view -> new QualifiedObjectName(catalogName, view.getSchemaName(), view.getTableName())).collect(toImmutableList()))
+                    .addAll(this.materializedViews.keySet().stream().map(mv -> new QualifiedObjectName(catalogName, mv.getSchemaName(), mv.getTableName())).collect(toImmutableList()))
                     .build();
             return tables.stream().filter(prefix::matches).collect(toImmutableList());
         }

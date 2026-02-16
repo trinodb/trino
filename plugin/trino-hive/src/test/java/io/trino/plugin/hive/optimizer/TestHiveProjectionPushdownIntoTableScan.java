@@ -142,7 +142,7 @@ public class TestHiveProjectionPushdownIntoTableScan
     public void testDereferencePushdown()
     {
         String testTable = "test_simple_projection_pushdown";
-        QualifiedObjectName completeTableName = new QualifiedObjectName(HIVE_CATALOG_NAME, SCHEMA_NAME, testTable, Optional.empty());
+        QualifiedObjectName completeTableName = new QualifiedObjectName(HIVE_CATALOG_NAME, SCHEMA_NAME, testTable);
 
         getPlanTester().executeStatement(format(
                 "CREATE TABLE %s (col0, col1) AS" +

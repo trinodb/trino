@@ -22,15 +22,20 @@ public class Resolver
 {
     private final String catalog;
     private final BiFunction<String, Boolean, String> canonicalizer;
-    private final BiFunction<String, Integer, String> comparator;
+    private final BiFunction<String, IdentifierKind, String> comparator;
     private final Predicate<String> predicator;
 
-    public Resolver(String catalog, BiFunction<String, Boolean, String> canonicalizer, BiFunction<String, Integer, String> comparator, Predicate<String> predicator)
+    public Resolver(String catalog, BiFunction<String, Boolean, String> canonicalizer, BiFunction<String, IdentifierKind, String> comparator, Predicate<String> predicator)
     {
         this.catalog = requireNonNull(catalog, "catalog is null");
         this.canonicalizer = requireNonNull(canonicalizer, "canonicalizer is null");
         this.comparator = requireNonNull(comparator, "comparator is null");
         this.predicator = requireNonNull(predicator, "predicator is null");
+    }
+
+    public BiFunction<String, Boolean, String> getCanonicalizer()
+    {
+        return canonicalizer;
     }
 
     public String getCatalog()
@@ -48,24 +53,24 @@ public class Resolver
         return canonicalizer.apply(value, delimited);
     }
 
-    public String compare(String value, Integer type)
+    public String compare(String value, IdentifierKind kind)
     {
-        return comparator.apply(value, type);
+        return comparator.apply(value, kind);
     }
 
     public String compareSchema(String value)
     {
-        return comparator.apply(value, Identifier.SCHEMA);
+        return comparator.apply(value, IdentifierKind.SCHEMA);
     }
 
     public String compareTable(String value)
     {
-        return comparator.apply(value, Identifier.TABLE);
+        return comparator.apply(value, IdentifierKind.TABLE);
     }
 
     public String compareColumn(String value)
     {
-        return comparator.apply(value, Identifier.COLUMN);
+        return comparator.apply(value, IdentifierKind.COLUMN);
     }
 
     public boolean predicate(String value)

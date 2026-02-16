@@ -29,19 +29,19 @@ public class TestQualifiedObjectName
     public void testJsonSerializationRoundTrip()
     {
         // simple
-        testRoundTrip(new QualifiedObjectName("catalog", "schema", "table_name", Optional.empty()));
+        testRoundTrip(new QualifiedObjectName("catalog", "schema", "table_name"));
 
         // names with dots
-        testRoundTrip(new QualifiedObjectName("catalog.twój", "schema.ściema", "tabel.tabelkówna", Optional.empty()));
+        testRoundTrip(new QualifiedObjectName("catalog.twój", "schema.ściema", "tabel.tabelkówna"));
 
         // names with apostrophes
-        testRoundTrip(new QualifiedObjectName("cata\"l.o.g\"", "s\"ch.e.ma\"", "\"t.a.b.e.l\"", Optional.empty()));
+        testRoundTrip(new QualifiedObjectName("cata\"l.o.g\"", "s\"ch.e.ma\"", "\"t.a.b.e.l\""));
 
         // non-lowercase
-        testRoundTrip(new QualifiedObjectName("CataLOG", "SchemA", "TabEl", Optional.empty()));
+        testRoundTrip(new QualifiedObjectName("CataLOG", "SchemA", "TabEl"));
 
         // empty
-        testRoundTrip(new QualifiedObjectName("", "", "", Optional.empty()));
+        testRoundTrip(new QualifiedObjectName("", "", ""));
     }
 
     private void testRoundTrip(QualifiedObjectName value)

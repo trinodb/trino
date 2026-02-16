@@ -65,7 +65,7 @@ public record TableInfo(
         Optional<String> connectorName = metadata.getCatalogInfo(session, tableName.getCatalogName())
                 .map(CatalogInfo::connectorName)
                 .map(ConnectorName::toString);
-        QualifiedObjectName objectName = new QualifiedObjectName(tableName.getCatalogName(), tableName.getSchemaTableName().getSchemaName(), tableName.getSchemaTableName().getTableName(), Optional.empty());
+        QualifiedObjectName objectName = new QualifiedObjectName(tableName.getCatalogName(), tableName.getSchemaTableName().getSchemaName(), tableName.getSchemaTableName().getTableName());
         return new TableInfo(connectorName, objectName, tableProperties.getPredicate());
     }
 }

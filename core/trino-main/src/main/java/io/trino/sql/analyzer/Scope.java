@@ -18,13 +18,16 @@ import com.google.errorprone.annotations.Immutable;
 import io.trino.spi.type.RowType;
 import io.trino.sql.tree.AllColumns;
 import io.trino.sql.tree.Expression;
+import io.trino.sql.tree.Identifier;
 import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.WithQuery;
 
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.function.Function;
 import java.util.function.Predicate;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -42,6 +45,7 @@ import static java.util.Objects.requireNonNull;
 @Immutable
 public class Scope
 {
+    private final Optional<Function<Identifier, String>> canonicalizer;
     private final Optional<Scope> parent;
     private final boolean queryBoundary;
     private final RelationId relationId;
@@ -59,12 +63,14 @@ public class Scope
     }
 
     private Scope(
+            Optional<Function<Identifier, String>> canonicalizer,
             Optional<Scope> parent,
             boolean queryBoundary,
             RelationId relationId,
             RelationType relation,
             Map<String, WithQuery> namedQueries)
     {
+        this.canonicalizer = requireNonNull(canonicalizer, "canonicalizer is null");
         this.parent = requireNonNull(parent, "parent is null");
         this.relationId = requireNonNull(relationId, "relationId is null");
         this.queryBoundary = queryBoundary;
@@ -72,9 +78,27 @@ public class Scope
         this.namedQueries = ImmutableMap.copyOf(requireNonNull(namedQueries, "namedQueries is null"));
     }
 
+    public String canonicalizerType()
+    {
+        if (canonicalizer.isPresent()) {
+            String value = canonicalizer.get().apply(new Identifier("Xy", false));
+            return switch (value) {
+                case "Xy" -> "Identity";
+                case "xy" -> "LowerCase";
+                case "XY" -> "UpperCase";
+                default -> "Unknow";
+            };
+        }
+        return "No canonicalizer";
+    }
     public Scope withRelationType(RelationType relationType)
     {
-        return new Scope(parent, queryBoundary, relationId, relationType, namedQueries);
+        return new Scope(canonicalizer, parent, queryBoundary, relationId, relationType, namedQueries);
+    }
+
+    public Scope withCanonicalizer(Function<Identifier, String> canonicalizer)
+    {
+        return new Scope(Optional.of(canonicalizer), parent, queryBoundary, relationId, relation, namedQueries);
     }
 
     public Scope getQueryBoundaryScope()
@@ -134,6 +158,21 @@ public class Scope
     public RelationType getRelationType()
     {
         return relation;
+    }
+
+    public boolean hasCanonicalizer()
+    {
+        return canonicalizer.isPresent();
+    }
+
+    public String canonicalize(Identifier identifier)
+    {
+        return canonicalizer.map(c -> c.apply(identifier)).orElse(identifier.getValue());
+    }
+
+    public Optional<Function<Identifier, String>> getCanonicalizer()
+    {
+        return canonicalizer;
     }
 
     /**
@@ -224,12 +263,16 @@ public class Scope
 
     public ResolvedField resolveField(Expression expression, QualifiedName name)
     {
-        return tryResolveField(expression, name).orElseThrow(() -> missingAttributeException(expression, name));
+        System.out.println("Scope.resolveField() name suffix: " + name.getSuffix());
+        return tryResolveField(expression, name).orElseThrow(() -> {
+            System.out.println("MetadataManager.getCanonicalizer() stacktrace: " + Arrays.toString(Thread.currentThread().getStackTrace()).replace(',', '\n'));
+            return missingAttributeException(expression, name);
+        });
     }
 
     public Optional<ResolvedField> tryResolveField(Expression expression)
     {
-        QualifiedName qualifiedName = asQualifiedName(expression);
+        QualifiedName qualifiedName = asQualifiedName(expression, this::canonicalize);
         if (qualifiedName != null) {
             return tryResolveField(expression, qualifiedName);
         }
@@ -243,6 +286,7 @@ public class Scope
 
     private Optional<ResolvedField> resolveField(Expression node, QualifiedName name, boolean local)
     {
+        System.out.println("Scope.resolveField()");
         List<Field> matches = relation.resolveFields(name);
         if (matches.size() > 1) {
             throw ambiguousAttributeException(node, name);
@@ -298,6 +342,7 @@ public class Scope
 
     private static boolean isColumnReference(QualifiedName name, RelationType relation)
     {
+        System.out.println("Scope.isColumnReference()");
         while (name.getPrefix().isPresent()) {
             name = name.getPrefix().get();
             if (!relation.resolveFields(name).isEmpty()) {
@@ -330,6 +375,7 @@ public class Scope
 
     public static final class Builder
     {
+        private Optional<Function<Identifier, String>> canonicalizer = Optional.empty();
         private RelationId relationId = RelationId.anonymous();
         private RelationType relationType = new RelationType();
         private final Map<String, WithQuery> namedQueries = new HashMap<>();
@@ -338,11 +384,18 @@ public class Scope
 
         public Builder like(Scope other)
         {
+            canonicalizer = other.canonicalizer;
             relationId = other.relationId;
             relationType = other.relation;
             namedQueries.putAll(other.namedQueries);
             parent = other.parent;
             queryBoundary = other.queryBoundary;
+            return this;
+        }
+
+        public Builder withCanonicalizer(Optional<Function<Identifier, String>> canonicalizer)
+        {
+            this.canonicalizer = requireNonNull(canonicalizer, "canonicalizer is null");
             return this;
         }
 
@@ -357,6 +410,7 @@ public class Scope
         {
             checkArgument(this.parent.isEmpty(), "parent is already set");
             this.parent = Optional.of(parent);
+            this.canonicalizer = parent.canonicalizer;
             return this;
         }
 
@@ -364,6 +418,7 @@ public class Scope
         {
             checkArgument(this.parent.isEmpty(), "parent is already set");
             this.parent = Optional.of(parent);
+            this.canonicalizer = parent.canonicalizer;
             this.queryBoundary = true;
             return this;
         }
@@ -382,7 +437,7 @@ public class Scope
 
         public Scope build()
         {
-            return new Scope(parent, queryBoundary, relationId, relationType, namedQueries);
+            return new Scope(canonicalizer, parent, queryBoundary, relationId, relationType, namedQueries);
         }
     }
 

@@ -33,7 +33,7 @@ public record TableMetadata(CatalogName catalogName, ConnectorTableMetadata meta
 
     public QualifiedObjectName qualifiedName()
     {
-        return new QualifiedObjectName(catalogName.toString(), metadata.getTable().getSchemaName(), metadata.getTable().getTableName(), Optional.empty());
+        return new QualifiedObjectName(catalogName.toString(), metadata.getTable().getSchemaName(), metadata.getTable().getTableName());
     }
 
     public SchemaTableName table()

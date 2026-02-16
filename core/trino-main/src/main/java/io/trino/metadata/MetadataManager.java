@@ -126,6 +126,7 @@ import io.trino.spi.type.TypeNotFoundException;
 import io.trino.sql.analyzer.TypeSignatureProvider;
 import io.trino.sql.planner.PartitioningHandle;
 import io.trino.sql.tree.Identifier;
+import io.trino.sql.tree.IdentifierKind;
 import io.trino.sql.tree.Resolver;
 import io.trino.transaction.TransactionManager;
 import io.trino.type.TypeCoercion;
@@ -685,7 +686,7 @@ public final class MetadataManager
         Optional<String> relationName = prefix.getTableName();
 
         if (relationName.isPresent()) {
-            QualifiedObjectName objectName = new QualifiedObjectName(catalogName, schemaName.orElseThrow(), relationName.get(), Optional.empty());
+            QualifiedObjectName objectName = new QualifiedObjectName(catalogName, schemaName.orElseThrow(), relationName.get());
             SchemaTableName schemaTableName = objectName.asSchemaTableName();
 
             try {
@@ -787,7 +788,7 @@ public final class MetadataManager
                         .build());
             }
             catch (TypeNotFoundException e) {
-                QualifiedObjectName name = new QualifiedObjectName(catalogName, materializedViewName.getSchemaName(), materializedViewName.getTableName(), Optional.empty());
+                QualifiedObjectName name = new QualifiedObjectName(catalogName, materializedViewName.getSchemaName(), materializedViewName.getTableName());
                 throw new TrinoException(INVALID_VIEW, format("Unknown type '%s' for column '%s' in materialized view: %s", column.getType(), column.getName(), name));
             }
         }
@@ -806,7 +807,7 @@ public final class MetadataManager
                         .build());
             }
             catch (TypeNotFoundException e) {
-                QualifiedObjectName name = new QualifiedObjectName(catalogName, viewName.getSchemaName(), viewName.getTableName(), Optional.empty());
+                QualifiedObjectName name = new QualifiedObjectName(catalogName, viewName.getSchemaName(), viewName.getTableName());
                 throw new TrinoException(INVALID_VIEW, format("Unknown type '%s' for column '%s' in view: %s", column.getType(), column.getName(), name));
             }
         }
@@ -1543,7 +1544,7 @@ public final class MetadataManager
                     QualifiedObjectName viewName = new QualifiedObjectName(
                             prefix.getCatalogName(),
                             entry.getKey().getSchemaName(),
-                            entry.getKey().getTableName(), Optional.empty());
+                            entry.getKey().getTableName());
                     views.put(viewName, new ViewInfo(entry.getValue()));
                 }
             }
@@ -1824,7 +1825,7 @@ public final class MetadataManager
                     QualifiedObjectName viewName = new QualifiedObjectName(
                             prefix.getCatalogName(),
                             entry.getKey().getSchemaName(),
-                            entry.getKey().getTableName(), Optional.empty());
+                            entry.getKey().getTableName());
                     views.put(viewName, new ViewInfo(entry.getValue()));
                 }
             }
@@ -2035,6 +2036,7 @@ public final class MetadataManager
     public RedirectionAwareTableHandle getRedirectionAwareTableHandle(Session session, QualifiedObjectName tableName, Optional<TableVersion> startVersion, Optional<TableVersion> endVersion)
     {
         QualifiedObjectName targetTableName = getRedirectedTableName(session, tableName, startVersion, endVersion);
+        System.out.println("MetadataManager.getRedirectionAwareTableHandle() tableName: " + tableName + " - targetTableName: " + targetTableName);
         if (targetTableName.equals(tableName)) {
             return noRedirection(getTableHandle(session, tableName, startVersion, endVersion));
         }
@@ -3149,13 +3151,12 @@ public final class MetadataManager
                     }
 
                     @Override
-                    public String compare(String value, Integer type)
+                    public String compare(String value, IdentifierKind kind)
                     {
-                        return switch (type) {
-                            case Identifier.SCHEMA -> metadata.compareSchema(value);
-                            case Identifier.TABLE -> metadata.compareTable(value);
-                            case Identifier.COLUMN -> metadata.compareColumn(value);
-                            default -> metadata.compare(value);
+                        return switch (kind) {
+                            case SCHEMA -> metadata.compareSchema(value);
+                            case TABLE -> metadata.compareTable(value);
+                            case COLUMN -> metadata.compareColumn(value);
                         };
                     }
 

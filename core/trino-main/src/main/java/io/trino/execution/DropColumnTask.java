@@ -49,6 +49,7 @@ import static io.trino.spi.StandardErrorCode.COLUMN_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.TABLE_NOT_FOUND;
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
+import static io.trino.sql.tree.IdentifierKind.COLUMN;
 import static java.util.Objects.requireNonNull;
 
 public class DropColumnTask
@@ -81,6 +82,8 @@ public class DropColumnTask
     {
         Session session = stateMachine.getSession();
         QualifiedObjectName tableName = createQualifiedObjectName(session, statement, statement.getTable(), plannerContext);
+        Resolver resolver = plannerContext.getResolver(session, tableName.catalogName());
+
         RedirectionAwareTableHandle redirectionAwareTableHandle = metadata.getRedirectionAwareTableHandle(session, tableName);
         if (redirectionAwareTableHandle.tableHandle().isEmpty()) {
             if (!statement.isTableExists()) {
@@ -91,20 +94,19 @@ public class DropColumnTask
         TableHandle tableHandle = redirectionAwareTableHandle.tableHandle().get();
 
         // Use getCanonicalizedValue method because the columnName should be canonicalized
-        Resolver resolver = plannerContext.getResolver(session, tableName.catalogName());
-        String columnName = statement.getField().resolveIdentifiers(statement.getTable().getResolver()).getOriginalParts().getFirst().getCanonicalizedValue();
+        String columnName = resolver.canonicalize(statement.getField().getOriginalParts().getFirst());
 
-        QualifiedObjectName qualifiedTableName = redirectionAwareTableHandle.redirectedTableName().map(r -> r.asResolvedQualifiedObjectName(tableName.resolver())).orElse(tableName);
+        QualifiedObjectName qualifiedTableName = redirectionAwareTableHandle.redirectedTableName().map(r -> r.asResolvedQualifiedObjectName(resolver::predicate)).orElse(tableName);
         accessControl.checkCanDropColumn(session.toSecurityContext(), qualifiedTableName);
 
         Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(session, tableHandle).entrySet().stream()
-                .map(entry -> new AbstractMap.SimpleEntry<>(resolver.compare(entry.getKey(), Identifier.COLUMN), entry.getValue()))
+                .map(entry -> new AbstractMap.SimpleEntry<>(resolver.compare(entry.getKey(), COLUMN), entry.getValue()))
                 .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
 
-        ColumnHandle columnHandle = columnHandles.get(resolver.compare(columnName, Identifier.COLUMN));
+        ColumnHandle columnHandle = columnHandles.get(resolver.compare(columnName, COLUMN));
         if (columnHandle == null) {
             if (!statement.isColumnExists()) {
-                throw semanticException(COLUMN_NOT_FOUND, statement, "Column '%s' does not exist", resolver.compare(columnName, Identifier.COLUMN));
+                throw semanticException(COLUMN_NOT_FOUND, statement, "Column '%s' does not exist", resolver.compare(columnName, COLUMN));
             }
             return immediateVoidFuture();
         }

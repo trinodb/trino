@@ -70,10 +70,7 @@ public class DropNotNullConstraintTask
     {
         Session session = stateMachine.getSession();
         QualifiedObjectName tableName = createQualifiedObjectName(session, statement, statement.getTable(), plannerContext);
-        if (statement.getTable().getResolver().isEmpty()) {
-            throw semanticException(RESOLVER_NO_FOUND, statement, "Resolver for table '%s' not found", tableName);
-        }
-        Resolver resolver = statement.getTable().getResolver().get();
+        Resolver resolver = plannerContext.getResolver(session, tableName.catalogName());
         RedirectionAwareTableHandle redirectionAwareTableHandle = metadata.getRedirectionAwareTableHandle(session, tableName);
         if (redirectionAwareTableHandle.tableHandle().isEmpty()) {
             String exceptionMessage = "Table '%s' does not exist".formatted(tableName);
@@ -91,7 +88,7 @@ public class DropNotNullConstraintTask
         accessControl.checkCanAlterColumn(session.toSecurityContext(), tableName);
 
         TableHandle tableHandle = redirectionAwareTableHandle.tableHandle().get();
-        String column = statement.getColumn().setResolver(resolver).getCanonicalizedValue();
+        String column = resolver.canonicalize(statement.getColumn());
         ColumnHandle columnHandle = metadata.getColumnHandles(session, tableHandle).get(column);
 
         if (columnHandle == null) {

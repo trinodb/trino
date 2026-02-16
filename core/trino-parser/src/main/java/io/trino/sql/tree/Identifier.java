@@ -47,25 +47,9 @@ public class Identifier
     private final String value;
     private final boolean delimited;
 
-    // FIXME: resolver has been added to Identifier
-    private Optional<Resolver> resolver;
-    private int canonicalizeCount;
-    private boolean isCatalog;
-
-    public Identifier(Identifier identifier, Optional<Resolver> resolver)
-    {
-        this(identifier.getLocation(), identifier.getValue(), identifier.isDelimited(), identifier.isCatalog(), resolver);
-    }
-
-    // FIXME: new constructor for catalog and schema session
-    public Identifier(String value, boolean delimited, boolean isCatalog, Resolver resolver)
-    {
-        this(Optional.empty(), value, delimited, isCatalog, Optional.of(resolver));
-    }
-
     public Identifier(NodeLocation location, String value, boolean delimited)
     {
-        this(Optional.of(location), value, delimited, false, Optional.empty());
+        this(Optional.of(location), value, delimited);
     }
 
     public Identifier(String value)
@@ -75,17 +59,14 @@ public class Identifier
 
     public Identifier(String value, boolean delimited)
     {
-        this(Optional.empty(), value, delimited, false, Optional.empty());
+        this(Optional.empty(), value, delimited);
     }
 
-    private Identifier(Optional<NodeLocation> location, String value, boolean delimited, boolean isCatalog, Optional<Resolver> resolver)
+    private Identifier(Optional<NodeLocation> location, String value, boolean delimited)
     {
         super(location);
         this.value = requireNonNull(value, "value is null");
         this.delimited = delimited;
-        this.isCatalog = isCatalog;
-        this.resolver = requireNonNull(resolver, "resolver is null");
-
         checkArgument(!value.isEmpty(), "value is empty");
         checkArgument(delimited || isValidIdentifier(value), "value contains illegal characters: %s", value);
     }
@@ -97,56 +78,7 @@ public class Identifier
 
     public boolean isDelimited()
     {
-        //return !catalog && predicator.map(predicate -> predicate.test(value)).orElse(delimited);
         return delimited;
-    }
-
-    public boolean isCatalog()
-    {
-        return isCatalog;
-    }
-
-    public Optional<Resolver> getResolver()
-    {
-        return resolver;
-    }
-
-    public Identifier setResolver(Resolver resolver)
-    {
-        return setResolver(Optional.of(resolver));
-    }
-
-    public Identifier setResolver(Optional<Resolver> resolver)
-    {
-        this.resolver = resolver;
-        return this;
-    }
-
-    public Identifier asCatalog()
-    {
-        isCatalog = true;
-        return this;
-    }
-
-    public boolean isResolved()
-    {
-        return resolver.isPresent();
-    }
-
-    public int getCanonicalizeCount()
-    {
-        return canonicalizeCount;
-    }
-
-    public String getCanonicalizedValue()
-    {
-        if (!isCatalog) {
-            if (resolver.isPresent()) {
-                return resolver.get().canonicalize(value, delimited);
-            }
-            return value;
-        }
-        return value.toLowerCase(ENGLISH);
     }
 
     public String getCanonicalValue()

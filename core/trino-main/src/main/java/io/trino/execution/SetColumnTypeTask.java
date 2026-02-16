@@ -34,7 +34,6 @@ import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.TypeNotFoundException;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.Identifier;
 import io.trino.sql.tree.Resolver;
 import io.trino.sql.tree.SetColumnType;
 
@@ -56,6 +55,7 @@ import static io.trino.spi.StandardErrorCode.TABLE_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.TYPE_NOT_FOUND;
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
 import static io.trino.sql.analyzer.TypeSignatureTranslator.toTypeSignature;
+import static io.trino.sql.tree.IdentifierKind.COLUMN;
 import static io.trino.type.UnknownType.UNKNOWN;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -92,6 +92,8 @@ public class SetColumnTypeTask
     {
         Session session = stateMachine.getSession();
         QualifiedObjectName qualifiedObjectName = createQualifiedObjectName(session, statement, statement.getTableName(), plannerContext);
+        Resolver resolver = plannerContext.getResolver(session, qualifiedObjectName.catalogName());
+
         RedirectionAwareTableHandle redirectionAwareTableHandle = metadata.getRedirectionAwareTableHandle(session, qualifiedObjectName);
         if (redirectionAwareTableHandle.tableHandle().isEmpty()) {
             String exceptionMessage = format("Table '%s' does not exist", qualifiedObjectName);
@@ -109,13 +111,12 @@ public class SetColumnTypeTask
 
         accessControl.checkCanAlterColumn(session.toSecurityContext(), redirectionAwareTableHandle.redirectedTableName().orElse(qualifiedObjectName));
 
-        Resolver resolver = plannerContext.getResolver(session, qualifiedObjectName.catalogName());
         TableHandle tableHandle = redirectionAwareTableHandle.tableHandle().get();
         Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(session, tableHandle).entrySet().stream()
-                .map(entry -> new AbstractMap.SimpleEntry<>(resolver.compare(entry.getKey(), Identifier.COLUMN), entry.getValue()))
+                .map(entry -> new AbstractMap.SimpleEntry<>(resolver.compare(entry.getKey(), COLUMN), entry.getValue()))
                 .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
-        String columnName = statement.getColumnName().resolveIdentifiers(resolver).getOriginalParts().getFirst().getCanonicalizedValue();
-        ColumnHandle column = columnHandles.get(resolver.compare(columnName, Identifier.COLUMN));
+        String columnName = resolver.canonicalize(statement.getColumnName().getOriginalParts().getFirst());
+        ColumnHandle column = columnHandles.get(resolver.compare(columnName, COLUMN));
         if (column == null) {
             throw semanticException(COLUMN_NOT_FOUND, statement, "Column '%s' does not exist", statement.getColumnName());
         }

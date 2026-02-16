@@ -165,7 +165,7 @@ public class MaterializedViewSystemTable
         }
 
         getMaterializedViews(session, metadata, accessControl, tablePrefix).forEach((tableName, definition) -> {
-            QualifiedObjectName name = new QualifiedObjectName(tablePrefix.getCatalogName(), tableName.getSchemaName(), tableName.getTableName(), Optional.empty());
+            QualifiedObjectName name = new QualifiedObjectName(tablePrefix.getCatalogName(), tableName.getSchemaName(), tableName.getTableName());
             Optional<MaterializedViewFreshness> freshness = Optional.empty();
 
             if (needFreshness) {

@@ -51,7 +51,7 @@ public class InternalMetadataProvider
     public Optional<ConnectorTableSchema> getRelationMetadata(ConnectorSession connectorSession, CatalogSchemaTableName tableName)
     {
         Session session = ((FullConnectorSession) connectorSession).getSession();
-        QualifiedObjectName qualifiedName = new QualifiedObjectName(tableName.getCatalogName(), tableName.getSchemaTableName().getSchemaName(), tableName.getSchemaTableName().getTableName(), Optional.empty());
+        QualifiedObjectName qualifiedName = new QualifiedObjectName(tableName.getCatalogName(), tableName.getSchemaTableName().getSchemaName(), tableName.getSchemaTableName().getTableName());
 
         Optional<MaterializedViewDefinition> materializedView = metadata.getMaterializedView(session, qualifiedName);
         if (materializedView.isPresent()) {

@@ -134,7 +134,7 @@ public final class RedisQueryRunner
                 redisServer,
                 trinoClient,
                 redisTableName(table),
-                new QualifiedObjectName("tpch", TINY_SCHEMA_NAME, table.getTableName().toLowerCase(ENGLISH), Optional.empty()),
+                new QualifiedObjectName("tpch", TINY_SCHEMA_NAME, table.getTableName().toLowerCase(ENGLISH)),
                 dataFormat);
         log.info("Imported %s in %s", table.getTableName(), nanosSince(start).convertToMostSuccinctTimeUnit());
     }

@@ -317,7 +317,7 @@ public final class MetadataListing
                 .filter(tableColumnsMetadata -> tableColumnsMetadata.getColumns().isEmpty())
                 .forEach(tableColumnsMetadata -> {
                     SchemaTableName table = tableColumnsMetadata.getTable();
-                    QualifiedObjectName originalTableName = new QualifiedObjectName(prefix.getCatalogName(), table.getSchemaName(), table.getTableName(), Optional.empty());
+                    QualifiedObjectName originalTableName = new QualifiedObjectName(prefix.getCatalogName(), table.getSchemaName(), table.getTableName());
                     QualifiedObjectName actualTableName;
                     TableHandle targetTableHandle;
                     try {

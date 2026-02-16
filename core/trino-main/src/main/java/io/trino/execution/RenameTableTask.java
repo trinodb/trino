@@ -31,7 +31,6 @@ import io.trino.sql.tree.RenameTable;
 import io.trino.sql.tree.Resolver;
 
 import java.util.List;
-import java.util.Optional;
 
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static io.trino.metadata.MetadataUtil.createQualifiedObjectName;
@@ -101,9 +100,7 @@ public class RenameTableTask
         TableHandle tableHandle = redirectionAwareTableHandle.tableHandle().get();
         QualifiedObjectName source = redirectionAwareTableHandle.redirectedTableName().orElse(tableName);
         Resolver resolver = plannerContext.getResolver(session, source.catalogName());
-        if (!statement.getTarget().isResolved()) {
-            statement.getTarget().resolveIdentifiers(resolver);
-        }
+
         QualifiedObjectName target = createTargetQualifiedObjectName(source, statement.getTarget(), resolver);
         if (metadata.getCatalogHandle(session, target.catalogName()).isEmpty()) {
             throw semanticException(CATALOG_NOT_FOUND, statement, "Target catalog '%s' not found", target.catalogName());
@@ -135,10 +132,10 @@ public class RenameTableTask
         }
 
         List<Identifier> parts = target.getOriginalParts().reversed();
-        String objectName = parts.get(0).getCanonicalizedValue();
-        String schemaName = (parts.size() > 1) ? parts.get(1).getCanonicalizedValue() : source.schemaName();
-        String catalogName = (parts.size() > 2) ? parts.get(2).getCanonicalizedValue() : source.catalogName();
+        String objectName = parts.get(0).getValue();
+        String schemaName = (parts.size() > 1) ? resolver.canonicalize(parts.get(1)) : source.schemaName();
+        String catalogName = (parts.size() > 2) ? resolver.canonicalize(parts.get(2)) : source.catalogName();
 
-        return new QualifiedObjectName(catalogName, schemaName, objectName, Optional.of(resolver));
+        return new QualifiedObjectName(catalogName, schemaName, objectName);
     }
 }

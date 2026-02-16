@@ -292,7 +292,7 @@ public class InformationSchemaMetadata
                             .map(_ -> Stream.of(prefix))
                             .orElseGet(() -> listSchemaNames(session)))
                     .flatMap(prefix -> tables.get().stream()
-                            .map(table -> new QualifiedObjectName(catalogName, prefix.getSchemaName().get(), table, Optional.empty())))
+                            .map(table -> new QualifiedObjectName(catalogName, prefix.getSchemaName().get(), table)))
                     .filter(objectName -> predicate.isEmpty() || predicate.get().test(asFixedValues(objectName)))
                     .map(QualifiedObjectName::asQualifiedTablePrefix)
                     .distinct()
