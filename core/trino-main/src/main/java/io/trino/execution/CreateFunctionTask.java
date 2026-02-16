@@ -57,7 +57,6 @@ import static io.trino.sql.SqlFormatter.formatSql;
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
 import static io.trino.sql.routine.SqlRoutineAnalyzer.getProperties;
 import static io.trino.sql.routine.SqlRoutineAnalyzer.isRunAsInvoker;
-import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
 public class CreateFunctionTask
@@ -101,7 +100,6 @@ public class CreateFunctionTask
         System.out.println("CreateFunctionTask.execute() 1");
         FunctionSpecification function = statement.getSpecification();
         QualifiedObjectName name = qualifiedFunctionName(session, defaultFunctionSchema, statement, function.getName(), plannerContext);
-        Resolver resolver = plannerContext.getResolver(session, name.catalogName());
         System.out.println("CreateFunctionTask.execute() 2");
 
         accessControl.checkCanCreateFunction(session.toSecurityContext(), name);

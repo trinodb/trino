@@ -4793,6 +4793,7 @@ public abstract class BaseConnectorTest
             assertUpdate("DROP TABLE " + tableName);
             return;
         }
+        assertQuery("SELECT x FROM " + tableName, "VALUES 123");
 
         try {
             assertUpdate("ALTER TABLE " + tableName + " RENAME TO " + renamedTable);

@@ -132,9 +132,9 @@ public class RenameTableTask
         }
 
         List<Identifier> parts = target.getOriginalParts().reversed();
-        String objectName = parts.get(0).getValue();
+        String objectName = resolver.canonicalize(parts.get(0));
         String schemaName = (parts.size() > 1) ? resolver.canonicalize(parts.get(1)) : source.schemaName();
-        String catalogName = (parts.size() > 2) ? resolver.canonicalize(parts.get(2)) : source.catalogName();
+        String catalogName = (parts.size() > 2) ? parts.get(2).getValue() : source.catalogName();
 
         return new QualifiedObjectName(catalogName, schemaName, objectName);
     }

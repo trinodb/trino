@@ -24,7 +24,6 @@ import com.google.common.collect.LinkedHashMultimap;
 import com.google.common.collect.Multimap;
 import io.airlift.slice.Slice;
 import io.trino.Session;
-import io.trino.connector.system.GlobalSystemConnector;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.FunctionResolver;
 import io.trino.metadata.LanguageFunctionAnalysisException;
@@ -168,6 +167,7 @@ import io.trino.type.UnknownType;
 import jakarta.annotation.Nullable;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -680,6 +680,7 @@ public class ExpressionAnalyzer
         {
             this.baseScope = requireNonNull(baseScope, "baseScope is null");
             this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
+            System.out.println("Visitor::new baseScope canonicalizer type: " + baseScope.canonicalizerType());
         }
 
         public List<PatternInputAnalysis> getPatternRecognitionInputs()
@@ -703,10 +704,12 @@ public class ExpressionAnalyzer
         @Override
         protected Type visitRow(Row node, Context context)
         {
+            System.out.println("ExpressionAnalyzer.visitRow() scope canonicalizer " + context.getScope().canonicalizerType());
+            System.out.println("ExpressionAnalyzer.visitRow() baseScope canonicalizer " + baseScope.canonicalizerType());
             // FIXME: Row fields use now identifier canonicalized value
             List<RowType.Field> fields = node.getFields().stream()
                     .map(field -> new RowType.Field(
-                            field.getName().map(identifier -> baseScope.canonicalize(identifier)),
+                            field.getName().map(baseScope::canonicalize),
                             process(field.getExpression(), context)))
                     .collect(toImmutableList());
 
@@ -822,17 +825,19 @@ public class ExpressionAnalyzer
         @Override
         protected Type visitDereferenceExpression(DereferenceExpression node, Context context)
         {
+            System.out.println("ExpressionAnalyzer.visitDereferenceExpression() scope canonicalizer: " + context.getScope().canonicalizerType());
             if (isQualifiedAllFieldsReference(node)) {
                 throw semanticException(NOT_SUPPORTED, node, "<identifier>.* not allowed in this context");
             }
 
-            QualifiedName qualifiedName = DereferenceExpression.getQualifiedName(node);
+            Function<Identifier, String> canonicalizer = context.getScope()::canonicalize;
+            QualifiedName qualifiedName = DereferenceExpression.getQualifiedName(canonicalizer, node);
 
             // If this Dereference looks like column reference, try match it to column first.
             if (qualifiedName != null) {
                 // In the context of row pattern matching, fields are optionally prefixed with labels. Labels are irrelevant during type analysis.
                 if (context.isPatternRecognition()) {
-                    String label = label(qualifiedName.getOriginalParts().getFirst());
+                    String label = label(canonicalizer, qualifiedName.getOriginalParts().getFirst());
                     if (context.getPatternRecognitionContext().labels().contains(label)) {
                         // In the context of row pattern matching, the name of row pattern input table cannot be used to qualify column names.
                         // (it can only be accessed in PARTITION BY and ORDER BY clauses of MATCH_RECOGNIZE). Consequentially, if a dereference
@@ -866,6 +871,7 @@ public class ExpressionAnalyzer
                     return handleResolvedField(node, resolvedField.get(), context);
                 }
                 if (!scope.isColumnReference(qualifiedName)) {
+                    System.out.println("ExpressionAnalyzer.visitDereferenceExpression() stacktrace: " + Arrays.toString(Thread.currentThread().getStackTrace()).replace(',', '\n'));
                     throw missingAttributeException(node, qualifiedName);
                 }
             }
@@ -1805,7 +1811,7 @@ public class ExpressionAnalyzer
                         // to resolve `count(label.*)` correctly, we should skip the argument, like for `count(*)`
                         // process the argument but do not include it in the list
                         DereferenceExpression allRowsDereference = (DereferenceExpression) argument;
-                        String label = label((Identifier) allRowsDereference.getBase());
+                        String label = label(context.getScope()::canonicalize, (Identifier) allRowsDereference.getBase());
                         if (!context.getPatternRecognitionContext().labels().contains(label)) {
                             throw semanticException(INVALID_FUNCTION_ARGUMENT, allRowsDereference.getBase(), "%s is not a primary pattern variable or subset name", label);
                         }
@@ -1847,7 +1853,7 @@ public class ExpressionAnalyzer
                 if (!(argument instanceof Identifier identifier)) {
                     throw semanticException(TYPE_MISMATCH, argument, "CLASSIFIER function argument should be primary pattern variable or subset name. Actual: %s", argument.getClass().getSimpleName());
                 }
-                label = Optional.of(label(identifier));
+                label = Optional.of(label(context.getScope()::canonicalize, identifier));
                 if (!context.getPatternRecognitionContext().labels().contains(label.get())) {
                     throw semanticException(INVALID_FUNCTION_ARGUMENT, argument, "%s is not a primary pattern variable or subset name", identifier.getValue());
                 }
@@ -2113,7 +2119,12 @@ public class ExpressionAnalyzer
 
         private String label(Identifier identifier)
         {
-            return identifier.getCanonicalValue();
+            return label(Identifier::getValue, identifier);
+        }
+
+        private String label(Function<Identifier, String> canonicalizer, Identifier identifier)
+        {
+            return canonicalizer.apply(identifier);
         }
 
         private void analyzePatternAggregation(FunctionCall node, ResolvedFunction function)
@@ -2426,6 +2437,7 @@ public class ExpressionAnalyzer
         @Override
         protected Type visitInPredicate(InPredicate node, Context context)
         {
+            System.out.println("ExpressionAnalyzer.visitInPredicate() scope canonicalizer: " + context.getScope().canonicalizerType());
             Expression value = node.getValue();
             Expression valueList = node.getValueList();
 
@@ -2447,11 +2459,12 @@ public class ExpressionAnalyzer
                         .ifPresent(function -> {
                             throw semanticException(NOT_SUPPORTED, function, "IN-PREDICATE with %s function is not yet supported", function.getName().getSuffix());
                         });
+                Function<Identifier, String> canonicalizer = context.getScope()::canonicalize;
                 extractExpressions(ImmutableList.of(value), DereferenceExpression.class)
                         .forEach(dereference -> {
-                            QualifiedName qualifiedName = DereferenceExpression.getQualifiedName(dereference);
+                            QualifiedName qualifiedName = DereferenceExpression.getQualifiedName(canonicalizer, dereference);
                             if (qualifiedName != null) {
-                                String label = label(qualifiedName.getOriginalParts().getFirst());
+                                String label = label(canonicalizer, qualifiedName.getOriginalParts().getFirst());
                                 if (context.getPatternRecognitionContext().labels().contains(label)) {
                                     throw semanticException(NOT_SUPPORTED, dereference, "IN-PREDICATE with labeled column reference is not yet supported");
                                 }
@@ -3742,11 +3755,17 @@ public class ExpressionAnalyzer
             WarningCollector warningCollector,
             CorrelationSupport correlationSupport)
     {
+        System.out.println("ExpressionAnalyzer.analyzeExpression() 1 scope canonicalizer: " + scope.canonicalizerType());
         ExpressionAnalyzer analyzer = new ExpressionAnalyzer(plannerContext, accessControl, statementAnalyzerFactory, analysis, session, warningCollector);
+        System.out.println("ExpressionAnalyzer.analyzeExpression() 2");
+
         analyzer.analyze(expression, scope, correlationSupport);
+        System.out.println("ExpressionAnalyzer.analyzeExpression() 3");
 
         updateAnalysis(analysis, analyzer, session, accessControl);
+        System.out.println("ExpressionAnalyzer.analyzeExpression() 4");
         analysis.addExpressionFields(expression, analyzer.getSourceFields());
+        System.out.println("ExpressionAnalyzer.analyzeExpression() 5");
 
         return new ExpressionAnalysis(
                 analyzer.getExpressionTypes(),

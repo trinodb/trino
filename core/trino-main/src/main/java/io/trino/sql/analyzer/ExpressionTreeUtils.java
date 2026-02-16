@@ -142,15 +142,18 @@ public final class ExpressionTreeUtils
                 .map(location -> new Location(location.getLineNumber(), location.getColumnNumber()));
     }
 
-    public static QualifiedName asQualifiedName(Expression expression, Function<Identifier, String> canonicalizer)
+    public static QualifiedName asQualifiedName(Function<Identifier, String> canonicalizer, Expression expression)
     {
         QualifiedName name = null;
         if (expression instanceof Identifier identifier) {
             // FIXME: QualifiedName must use the canonicalizer
             name = QualifiedName.of(canonicalizer, identifier);
+            System.out.println("ExpressionTreeUtils.asQualifiedName() 1 QualifiedName " + name);
+
         }
         else if (expression instanceof DereferenceExpression dereferenceExpression) {
-            name = DereferenceExpression.getQualifiedName(dereferenceExpression);
+            name = DereferenceExpression.getQualifiedName(canonicalizer, dereferenceExpression);
+            System.out.println("ExpressionTreeUtils.asQualifiedName() 2 QualifiedName " + name);
         }
         return name;
     }

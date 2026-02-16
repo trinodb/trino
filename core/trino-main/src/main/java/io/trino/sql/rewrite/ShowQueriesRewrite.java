@@ -21,7 +21,6 @@ import com.google.common.collect.Multimaps;
 import com.google.inject.Inject;
 import io.trino.Session;
 import io.trino.connector.CatalogHandle;
-import io.trino.connector.system.GlobalSystemConnector;
 import io.trino.execution.querystats.PlanOptimizersStatsCollector;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.Canonicalizer;

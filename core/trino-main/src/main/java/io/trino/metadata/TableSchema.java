@@ -19,7 +19,6 @@ import io.trino.spi.connector.ConnectorTableSchema;
 import io.trino.spi.connector.SchemaTableName;
 
 import java.util.List;
-import java.util.Optional;
 
 import static com.google.common.collect.MoreCollectors.toOptional;
 import static java.util.Objects.requireNonNull;

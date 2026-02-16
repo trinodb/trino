@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableList;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
@@ -82,11 +83,7 @@ public class DereferenceExpression
         return field;
     }
 
-    /**
-     * If this DereferenceExpression looks like a QualifiedName, return QualifiedName.
-     * Otherwise return null
-     */
-    public static QualifiedName getQualifiedName(DereferenceExpression expression)
+    public static QualifiedName getQualifiedName(Function<Identifier, String> canonicalizer, DereferenceExpression expression)
     {
         if (!expression.field.isPresent()) {
             return null;
@@ -99,7 +96,7 @@ public class DereferenceExpression
             parts = ImmutableList.of(identifier, field);
         }
         else if (expression.base instanceof DereferenceExpression dereferenceExpression) {
-            QualifiedName baseQualifiedName = getQualifiedName(dereferenceExpression);
+            QualifiedName baseQualifiedName = getQualifiedName(canonicalizer, dereferenceExpression);
             if (baseQualifiedName != null) {
                 ImmutableList.Builder<Identifier> builder = ImmutableList.builder();
                 builder.addAll(baseQualifiedName.getOriginalParts());
@@ -110,7 +107,11 @@ public class DereferenceExpression
         if (parts == null) {
             return null;
         }
-        return QualifiedName.of(parts);
+        QualifiedName name = QualifiedName.of(canonicalizer, parts);
+        if (parts.size() > 2) {
+            System.out.println("DereferenceExpression.getQualifiedName() 1 name " + name);
+        }
+        return name;
     }
 
     public static Expression from(QualifiedName name)
