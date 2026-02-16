@@ -239,9 +239,8 @@ public class TestHiveBucketedTables
     {
         String tableName = mutableTablesState().get(BUCKETED_NATION_PREPARED).getNameInDatabase();
 
-        String ctasQuery = "CREATE TABLE %s WITH (bucket_count = 4, bucketed_by = ARRAY['n_regionkey'], partitioned_by = ARRAY['part_key']) " +
-                "AS SELECT n_nationkey, n_name, n_regionkey, n_comment, n_name as part_key FROM %s";
-        onTrino().executeQuery(format(ctasQuery, tableName, NATION.getName()));
+        onTrino().executeQuery("CREATE TABLE " + tableName + " WITH (bucket_count = 4, bucketed_by = ARRAY['n_regionkey'], partitioned_by = ARRAY['part_key']) " +
+                "AS SELECT n_nationkey, n_name, n_regionkey, n_comment, n_name as part_key FROM " + NATION.getName());
 
         assertThat(onTrino().executeQuery(format("SELECT count(*) FROM %s", tableName))).containsExactlyInOrder(row(25));
         assertThat(onTrino().executeQuery(format("SELECT count(*) FROM %s WHERE n_regionkey=0", tableName))).containsExactlyInOrder(row(5));

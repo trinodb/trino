@@ -140,8 +140,8 @@ public class TestSqlCancel
     {
         Stopwatch stopwatch = Stopwatch.createStarted();
         while (stopwatch.elapsed(SECONDS) < 30) {
-            String findQuerySql = "SELECT query_id from system.runtime.queries WHERE query = '%s' and state = 'RUNNING' LIMIT 2";
-            QueryResult queryResult = onTrino().executeQuery(format(findQuerySql, sql));
+            String findQuerySql = "SELECT query_id from system.runtime.queries WHERE query = '" + sql.replace("'", "''") + "' and state = 'RUNNING' LIMIT 2";
+            QueryResult queryResult = onTrino().executeQuery(findQuerySql);
             checkState(queryResult.getRowsCount() < 2, "Query is executed multiple times");
             if (queryResult.getRowsCount() == 1) {
                 String queryId = (String) queryResult.getOnlyValue();

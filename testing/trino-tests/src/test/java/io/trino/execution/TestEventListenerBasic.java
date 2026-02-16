@@ -1586,12 +1586,10 @@ public class TestEventListenerBasic
     public void testAllImmediateFailureEventsPresent()
             throws Exception
     {
-        String immediatelyFailingQuery = "grant select on fake_catalog_%s.fake_schema.fake_table to fake_role";
-        String expectedFailure = "line 1:1: Table 'fake_catalog_%s.fake_schema.fake_table' does not exist";
-        int queryCount = 100;
-
-        for (int i = 0; i < queryCount; i++) {
-            assertFailedQuery(immediatelyFailingQuery.formatted(i), expectedFailure.formatted(i));
+        for (int i = 0; i < 100; i++) {
+            assertFailedQuery(
+                    "grant select on fake_catalog_%s.fake_schema.fake_table to fake_role".formatted(i),
+                    "line 1:1: Table 'fake_catalog_%s.fake_schema.fake_table' does not exist".formatted(i));
         }
     }
 

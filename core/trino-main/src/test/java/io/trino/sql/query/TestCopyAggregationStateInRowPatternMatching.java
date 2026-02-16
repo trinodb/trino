@@ -152,6 +152,7 @@ public class TestCopyAggregationStateInRowPatternMatching
     @Test
     public void testMapUnion()
     {
+        @SuppressWarnings("InlineFormatString") // out of line to keep consistent with tests using QUERY constant
         String query =
                 """
                 SELECT m.id, m.classy

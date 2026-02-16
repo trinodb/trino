@@ -596,9 +596,8 @@ public class MariaDbClient
     protected void copyTableSchema(ConnectorSession session, Connection connection, String catalogName, String schemaName, String tableName, String newTableName, List<String> columnNames)
     {
         // Copy all columns for enforcing NOT NULL option in the temp table
-        String tableCopyFormat = "CREATE TABLE %s AS SELECT * FROM %s WHERE 0 = 1";
         String sql = format(
-                tableCopyFormat,
+                "CREATE TABLE %s AS SELECT * FROM %s WHERE 0 = 1",
                 quoted(catalogName, schemaName, newTableName),
                 quoted(catalogName, schemaName, tableName));
         try {

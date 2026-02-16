@@ -26,7 +26,6 @@ import java.util.Map;
 
 import static io.trino.plugin.deltalake.DeltaLakeConnectorFactory.CONNECTOR_NAME;
 import static io.trino.testing.TestingSession.testSessionBuilder;
-import static java.lang.String.format;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
 @TestInstance(PER_CLASS)
@@ -88,20 +87,20 @@ public class TestDeltaLakeSharedFileMetastoreWithTableRedirections
     @Override
     protected String getExpectedHiveCreateSchema(String catalogName)
     {
-        String expectedHiveCreateSchema = "CREATE SCHEMA %s.%s\n" +
-                "WITH (\n" +
-                "   location = '%s/%s'\n" +
-                ")";
-        return format(expectedHiveCreateSchema, catalogName, schema, dataDirectory, schema);
+        return """
+               CREATE SCHEMA %s.%s
+               WITH (
+                  location = '%s/%s'
+               )""".formatted(catalogName, schema, dataDirectory, schema);
     }
 
     @Override
     protected String getExpectedDeltaLakeCreateSchema(String catalogName)
     {
-        String expectedDeltaLakeCreateSchema = "CREATE SCHEMA %s.%s\n" +
-                "WITH (\n" +
-                "   location = '%s/%s'\n" +
-                ")";
-        return format(expectedDeltaLakeCreateSchema, catalogName, schema, dataDirectory, schema);
+        return """
+               CREATE SCHEMA %s.%s
+               WITH (
+                  location = '%s/%s'
+               )""".formatted(catalogName, schema, dataDirectory, schema);
     }
 }

@@ -2951,6 +2951,7 @@
                                     -Xep:InconsistentCapitalization:ERROR \
                                     -Xep:InconsistentHashCode:ERROR \
                                     -Xep:InjectOnConstructorOfAbstractClass:ERROR \
+                                    -Xep:InlineFormatString:ERROR \
                                     -Xep:InvalidInlineTag:ERROR \
                                     -Xep:LongFloatConversion:ERROR \
                                     -Xep:MissingCasesInEnumSwitch:ERROR \

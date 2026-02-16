@@ -111,13 +111,6 @@ public class PinotClient
     private static final Object ALL_TABLES_CACHE_KEY = new Object();
     private static final JsonCodec<QueryRequest> QUERY_REQUEST_JSON_CODEC = jsonCodec(QueryRequest.class);
 
-    private static final String GET_ALL_TABLES_API_TEMPLATE = "tables";
-    private static final String TABLE_INSTANCES_API_TEMPLATE = "tables/%s/instances";
-    private static final String TABLE_SCHEMA_API_TEMPLATE = "tables/%s/schema";
-    private static final String ROUTING_TABLE_API_TEMPLATE = "debug/routingTable/%s";
-    private static final String TIME_BOUNDARY_API_TEMPLATE = "debug/timeBoundary/%s";
-    private static final String QUERY_URL_PATH = "query/sql";
-
     private final List<URI> controllerUrls;
     private final Optional<HostAndPort> brokerHostAndPort;
     private final HttpClient httpClient;
@@ -271,7 +264,7 @@ public class PinotClient
 
     protected Multimap<String, String> getAllTables()
     {
-        List<String> allTables = sendHttpGetToControllerJson(GET_ALL_TABLES_API_TEMPLATE, tablesJsonCodec).getTables();
+        List<String> allTables = sendHttpGetToControllerJson("tables", tablesJsonCodec).getTables();
         ImmutableListMultimap.Builder<String, String> builder = ImmutableListMultimap.builder();
         for (String table : allTables) {
             builder.put(table.toLowerCase(ENGLISH), table);
@@ -282,7 +275,7 @@ public class PinotClient
     public Schema getTableSchema(String table)
             throws Exception
     {
-        return sendHttpGetToControllerJson(format(TABLE_SCHEMA_API_TEMPLATE, table), schemaJsonCodec);
+        return sendHttpGetToControllerJson(format("tables/%s/schema", table), schemaJsonCodec);
     }
 
     public List<String> getPinotTableNames()
@@ -362,7 +355,7 @@ public class PinotClient
     @VisibleForTesting
     public List<String> getAllBrokersForTable(String table)
     {
-        ArrayList<String> brokers = sendHttpGetToControllerJson(format(TABLE_INSTANCES_API_TEMPLATE, table), brokersForTableJsonCodec)
+        ArrayList<String> brokers = sendHttpGetToControllerJson(format("tables/%s/instances", table), brokersForTableJsonCodec)
                 .getBrokers().stream()
                 .flatMap(broker -> broker.getInstances().stream())
                 .distinct()
@@ -406,7 +399,7 @@ public class PinotClient
 
     public Map<String, Map<String, List<String>>> getRoutingTableForTable(String tableName)
     {
-        Map<String, Map<String, List<String>>> routingTable = sendHttpGetToBrokerJson(tableName, format(ROUTING_TABLE_API_TEMPLATE, tableName), ROUTING_TABLE_CODEC);
+        Map<String, Map<String, List<String>>> routingTable = sendHttpGetToBrokerJson(tableName, format("debug/routingTable/%s", tableName), ROUTING_TABLE_CODEC);
         ImmutableMap.Builder<String, Map<String, List<String>>> routingTableMap = ImmutableMap.builder();
         for (Entry<String, Map<String, List<String>>> entry : routingTable.entrySet()) {
             String tableNameWithType = entry.getKey();
@@ -466,7 +459,7 @@ public class PinotClient
     public TimeBoundary getTimeBoundaryForTable(String table)
     {
         try {
-            return sendHttpGetToBrokerJson(table, format(TIME_BOUNDARY_API_TEMPLATE, table), timeBoundaryJsonCodec);
+            return sendHttpGetToBrokerJson(table, format("debug/timeBoundary/%s", table), timeBoundaryJsonCodec);
         }
         catch (Exception e) {
             String[] errorMessageSplits = e.getMessage().split(" ");
@@ -548,7 +541,7 @@ public class PinotClient
             HttpUriBuilder httpUriBuilder = getBrokerHttpUriBuilder(getBrokerHost(query.table()));
             URI queryPathUri = httpUriBuilder
                     .scheme(scheme)
-                    .appendPath(QUERY_URL_PATH)
+                    .appendPath("query/sql")
                     .build();
             LOG.debug("Query '%s' on broker host '%s'", query.query(), queryPathUri);
             Request.Builder builder = Request.Builder.preparePost().setUri(queryPathUri);
