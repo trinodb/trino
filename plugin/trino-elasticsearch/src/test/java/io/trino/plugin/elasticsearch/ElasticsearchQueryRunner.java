@@ -42,7 +42,6 @@ import static io.trino.plugin.elasticsearch.ElasticsearchServer.ELASTICSEARCH_7_
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
-import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
@@ -158,8 +157,8 @@ public final class ElasticsearchQueryRunner
     {
         long start = System.nanoTime();
         LOG.info("Running import for %s", table.getTableName());
-        ElasticsearchLoader loader = new ElasticsearchLoader(client, table.getTableName().toLowerCase(ENGLISH), trinoClient.getServer(), trinoClient.getDefaultSession());
-        loader.execute(format("SELECT * from %s", new QualifiedObjectName(TPCH_SCHEMA, TINY_SCHEMA_NAME, table.getTableName().toLowerCase(ENGLISH), Optional.empty())));
+        ElasticsearchLoader loader = new ElasticsearchLoader(client, table.getTableName(), trinoClient.getServer(), trinoClient.getDefaultSession());
+        loader.execute(format("SELECT * from %s", new QualifiedObjectName(TPCH_SCHEMA, TINY_SCHEMA_NAME, table.getTableName(), Optional.empty())));
         LOG.info("Imported %s in %s", table.getTableName(), nanosSince(start).convertToMostSuccinctTimeUnit());
     }
 

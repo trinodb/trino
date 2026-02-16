@@ -2645,7 +2645,7 @@ public abstract class BaseConnectorTest
         if (!hasBehavior(SUPPORTS_RENAME_SCHEMA)) {
             String schemaName = getSession().getSchema().orElseThrow();
             assertQueryFails(
-                    format("ALTER SCHEMA %s RENAME TO %s", schemaName, schemaName + randomNameSuffix()),
+                    format("ALTER SCHEMA \"%s\" RENAME TO \"%s\"", schemaName, schemaName + randomNameSuffix()),
                     "This connector does not support renaming schemas");
             return;
         }
@@ -3295,7 +3295,7 @@ public abstract class BaseConnectorTest
     public void testRenameColumn()
     {
         if (!hasBehavior(SUPPORTS_RENAME_COLUMN)) {
-            assertQueryFails("ALTER TABLE \"nation\" RENAME COLUMN nationkey TO test_rename_column", "This connector does not support renaming columns");
+            assertQueryFails("ALTER TABLE \"nation\" RENAME COLUMN \"nationkey\" TO \"test_rename_column\"", "This connector does not support renaming columns");
             return;
         }
 
@@ -5284,7 +5284,7 @@ public abstract class BaseConnectorTest
     public void testInsertNegativeDate()
     {
         if (!hasBehavior(SUPPORTS_INSERT)) {
-            assertQueryFails("INSERT INTO orders (orderdate) VALUES (DATE '-0001-01-01')", "This connector does not support inserts");
+            assertQueryFails("INSERT INTO \"orders\" (\"orderdate\") VALUES (DATE '-0001-01-01')", "This connector does not support inserts");
             return;
         }
         if (!hasBehavior(SUPPORTS_CREATE_TABLE)) {

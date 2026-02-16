@@ -598,7 +598,6 @@ public abstract class BaseFailureRecoveryTest
             String tableName = "table_" + randomNameSuffix();
             if (setup.isPresent()) {
                 String sql = resolveTableName(setup.get(), tableName);
-                System.out.println("BaseFailureRecoveryTest.execute() sql: " + sql);
                 getQueryRunner().execute(noRetries(session), sql);
             }
 
