@@ -221,7 +221,7 @@ public class ShowStatsRewrite
         private static List<SelectItem> buildSelectItems(List<String> columnNames)
         {
             return columnNames.stream()
-                    .map(QueryUtil::unaliasedName)
+                    .map(QueryUtil::delimitedUnaliasedName)
                     .collect(toImmutableList());
         }
 

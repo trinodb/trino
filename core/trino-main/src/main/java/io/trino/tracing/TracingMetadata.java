@@ -24,6 +24,7 @@ import io.trino.Session;
 import io.trino.connector.CatalogHandle;
 import io.trino.metadata.AnalyzeMetadata;
 import io.trino.metadata.AnalyzeTableHandle;
+import io.trino.metadata.Canonicalizer;
 import io.trino.metadata.CatalogFunctionMetadata;
 import io.trino.metadata.CatalogInfo;
 import io.trino.metadata.InsertTableHandle;
@@ -1737,6 +1738,33 @@ public class TracingMetadata
         Span span = startSpan("getTableCredentials", catalogHandle, tableHandle);
         try (var _ = scopedSpan(span)) {
             return delegate.getTableCredentials(session, catalogHandle, tableHandle);
+        }
+    }
+
+    @Override
+    public Canonicalizer getCanonicalizer(Session session)
+    {
+        Span span = startSpan("getCanonicalizer");
+        try (var ignored = scopedSpan(span)) {
+            return delegate.getCanonicalizer(session);
+        }
+    }
+
+    @Override
+    public Canonicalizer getCanonicalizer(Session session, String catalogName)
+    {
+        Span span = startSpan("getCanonicalizer", catalogName);
+        try (var ignored = scopedSpan(span)) {
+            return delegate.getCanonicalizer(session, catalogName);
+        }
+    }
+
+    @Override
+    public Canonicalizer getCanonicalizer(Session session, Optional<String> catalogName)
+    {
+        Span span = startSpan("getCanonicalizer", catalogName);
+        try (var ignored = scopedSpan(span)) {
+            return delegate.getCanonicalizer(session, catalogName);
         }
     }
 

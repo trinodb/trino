@@ -18,6 +18,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.inject.Inject;
 import io.trino.Session;
 import io.trino.execution.warnings.WarningCollector;
+import io.trino.metadata.Canonicalizer;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.RedirectionAwareTableHandle;
@@ -35,8 +36,10 @@ import io.trino.spi.type.TypeNotFoundException;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.SetColumnType;
 
+import java.util.AbstractMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -53,7 +56,6 @@ import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
 import static io.trino.sql.analyzer.TypeSignatureTranslator.toTypeSignature;
 import static io.trino.type.UnknownType.UNKNOWN;
 import static java.lang.String.format;
-import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
 public class SetColumnTypeTask
@@ -85,7 +87,7 @@ public class SetColumnTypeTask
             WarningCollector warningCollector)
     {
         Session session = stateMachine.getSession();
-        QualifiedObjectName qualifiedObjectName = createQualifiedObjectName(session, statement, statement.getTableName());
+        QualifiedObjectName qualifiedObjectName = createQualifiedObjectName(session, statement, statement.getTableName(), metadata);
         RedirectionAwareTableHandle redirectionAwareTableHandle = metadata.getRedirectionAwareTableHandle(session, qualifiedObjectName);
         if (redirectionAwareTableHandle.tableHandle().isEmpty()) {
             String exceptionMessage = format("Table '%s' does not exist", qualifiedObjectName);
@@ -103,10 +105,13 @@ public class SetColumnTypeTask
 
         accessControl.checkCanAlterColumn(session.toSecurityContext(), redirectionAwareTableHandle.redirectedTableName().orElse(qualifiedObjectName));
 
+        Canonicalizer canonicalizer = metadata.getCanonicalizer(session, qualifiedObjectName.catalogName());
         TableHandle tableHandle = redirectionAwareTableHandle.tableHandle().get();
-        Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(session, tableHandle);
-        String columnName = statement.getColumnName().getParts().get(0).toLowerCase(ENGLISH);
-        ColumnHandle column = columnHandles.get(columnName);
+        Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(session, tableHandle).entrySet().stream()
+                .map(entry -> new AbstractMap.SimpleEntry<>(canonicalizer.compareColumn(entry.getKey()), entry.getValue()))
+                .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+        String columnName = statement.getColumnName().canonicalizeColumn(canonicalizer::canonicalizeColumn).getOriginalParts().getFirst().getCanonicalizedValue();
+        ColumnHandle column = columnHandles.get(canonicalizer.compareColumn(columnName));
         if (column == null) {
             throw semanticException(COLUMN_NOT_FOUND, statement, "Column '%s' does not exist", statement.getColumnName());
         }

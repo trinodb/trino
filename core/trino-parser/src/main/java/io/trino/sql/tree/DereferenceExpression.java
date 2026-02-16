@@ -107,8 +107,10 @@ public class DereferenceExpression
                 parts = builder.build();
             }
         }
-
-        return parts == null ? null : QualifiedName.of(parts);
+        if (parts == null) {
+            return null;
+        }
+        return QualifiedName.of(parts);
     }
 
     public static Expression from(QualifiedName name)
@@ -117,10 +119,10 @@ public class DereferenceExpression
 
         for (String part : name.getParts()) {
             if (result == null) {
-                result = new Identifier(part);
+                result = new Identifier(part, true);
             }
             else {
-                result = new DereferenceExpression(result, new Identifier(part));
+                result = new DereferenceExpression(result, new Identifier(part, true));
             }
         }
 

@@ -112,18 +112,19 @@ public class TestJdbcFlushMetadataCacheProcedure
         assertQuerySucceeds(query);
 
         // H2 stores unquoted names as uppercase. So this query should fail
-        assertThatThrownBy(() -> h2SqlExecutor.execute("SELECT * FROM tpch.\"cached_name\""))
-                .hasRootCauseMessage("Table \"cached_name\" not found (candidates are: \"CACHED_NAME\"); SQL statement:\n" +
-                        "SELECT * FROM tpch.\"cached_name\" [42103-240]");
+        // FIXME: H2 store unquoted names as lowercase. This can be inverted by implementing a Canonicalizer
+        assertThatThrownBy(() -> h2SqlExecutor.execute("SELECT * FROM \"tpch\".\"CACHED_NAME\""))
+                .hasRootCauseMessage("Table \"CACHED_NAME\" not found (candidates are: \"cached_name\"); SQL statement:\n" +
+                        "SELECT * FROM \"tpch\".\"CACHED_NAME\" [42103-240]");
         // H2 stores unquoted names as uppercase. So this query should succeed
-        h2SqlExecutor.execute("SELECT * FROM tpch.\"CACHED_NAME\"");
+        h2SqlExecutor.execute("SELECT * FROM \"tpch\".\"cached_name\"");
 
         // Rename to lowercase name outside Trino
-        h2SqlExecutor.execute("ALTER TABLE tpch.\"CACHED_NAME\" RENAME TO tpch.\"cached_name\"");
+        h2SqlExecutor.execute("ALTER TABLE \"tpch\".\"cached_name\" RENAME TO \"tpch\".\"CACHED_NAME\"");
 
         // Should fail as Trino has old lowercase identifier mapping to uppercase cached
         assertThatThrownBy(() -> getQueryRunner().execute(query))
-                .hasMessageMatching("(?s)Table \"CACHED_NAME\" not found.*");
+                .hasMessageMatching("(?s)Table \"cached_name\" not found.*");
 
         // Should succeed after flushing Trino cache
         getQueryRunner().execute(getSession(), "CALL system.flush_metadata_cache()");

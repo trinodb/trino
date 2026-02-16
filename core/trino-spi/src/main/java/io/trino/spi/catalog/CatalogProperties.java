@@ -20,13 +20,14 @@ import java.util.Map;
 
 import static java.util.Objects.requireNonNull;
 
-public record CatalogProperties(CatalogName name, CatalogVersion version, ConnectorName connectorName, Map<String, String> properties)
+public record CatalogProperties(CatalogName name, CatalogVersion version, ConnectorName connectorName, Map<String, String> metadataMapping, Map<String, String> properties)
 {
     public CatalogProperties
     {
         requireNonNull(name, "name is null");
         requireNonNull(version, "version is null");
         requireNonNull(connectorName, "connectorName is null");
+        requireNonNull(metadataMapping, "metadataMapping is null");
         properties = Map.copyOf(requireNonNull(properties, "properties is null"));
     }
 }

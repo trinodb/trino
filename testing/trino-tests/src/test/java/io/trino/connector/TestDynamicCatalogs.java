@@ -95,6 +95,7 @@ public class TestDynamicCatalogs
                         BROKEN_CATALOG_NAME,
                         computeCatalogVersion(BROKEN_CATALOG_NAME, MEMORY_CONNECTOR_NAME, properties),
                         MEMORY_CONNECTOR_NAME,
+                        ImmutableMap.of(),
                         properties))))
                 .setAdditionalSetup(runner -> runner.installPlugin(new MemoryPlugin()))
                 .setCoordinatorProperties(ImmutableMap.of("catalog.store", "prepopulated_memory"))
@@ -123,6 +124,7 @@ public class TestDynamicCatalogs
                         PREPOPULATED_CATALOG_NAME,
                         new CatalogVersion("abc123"),
                         MEMORY_CONNECTOR_NAME,
+                        ImmutableMap.of(),
                         properties))))
                 .setAdditionalSetup(runner -> runner.installPlugin(new MemoryPlugin()))
                 .setCoordinatorProperties(ImmutableMap.of("catalog.store", "prepopulated_memory"))

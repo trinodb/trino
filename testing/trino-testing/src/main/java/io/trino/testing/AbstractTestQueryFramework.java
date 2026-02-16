@@ -90,6 +90,7 @@ import static io.trino.testing.TransactionBuilder.transaction;
 import static io.trino.testing.assertions.Assert.assertEventually;
 import static java.lang.String.format;
 import static java.util.Collections.emptyList;
+import static java.util.Locale.ENGLISH;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -532,7 +533,7 @@ public abstract class AbstractTestQueryFramework
         List<String> actual = result.getMaterializedRows().stream()
                 .map(row -> (String) row.getField(0))
                 .collect(toImmutableList());
-        assertThat(actual).as("Columns of table %s", tableName)
+        assertThat(actual).as("Columns of table %s", canonicalize(tableName))
                 .isEqualTo(List.of(columnNames));
     }
 
@@ -799,5 +800,20 @@ public abstract class AbstractTestQueryFramework
                         "In particular, make sure you do not allocate any resources in a test class constructor, " +
                         "as this can easily lead to OutOfMemoryErrors and other types of test flakiness.");
         return afterClassCloser.register(resource);
+    }
+
+    protected String canonicalize(String value)
+    {
+        return value.toLowerCase(ENGLISH);
+    }
+
+    protected String canonicalizeColumn(String value)
+    {
+        return canonicalize(value);
+    }
+
+    protected String compareColumn(String value)
+    {
+        return canonicalize(value);
     }
 }

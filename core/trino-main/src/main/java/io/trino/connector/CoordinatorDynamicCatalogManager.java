@@ -162,6 +162,7 @@ public class CoordinatorDynamicCatalogManager
     @Override
     public Optional<Catalog> getCatalog(CatalogName catalogName)
     {
+        System.out.println("CoordinatorDynamicCatalogManager.getCatalog() catalog: " + catalogName.toString());
         return Optional.ofNullable(activeCatalogs.get(catalogName));
     }
 

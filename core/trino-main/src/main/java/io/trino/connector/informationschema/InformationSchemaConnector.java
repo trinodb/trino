@@ -25,6 +25,8 @@ import io.trino.spi.transaction.IsolationLevel;
 import io.trino.transaction.InternalConnector;
 import io.trino.transaction.TransactionId;
 
+import java.util.Map;
+
 import static java.util.Objects.requireNonNull;
 
 public class InformationSchemaConnector
@@ -34,12 +36,18 @@ public class InformationSchemaConnector
     private final ConnectorSplitManager splitManager;
     private final ConnectorPageSourceProvider pageSourceProvider;
 
-    public InformationSchemaConnector(String catalogName, InternalNode currentNode, Metadata metadata, AccessControl accessControl, int maxPrefetchedInformationSchemaPrefixes)
+    public InformationSchemaConnector(
+            String catalogName,
+            InternalNode currentNode,
+            Metadata metadata,
+            AccessControl accessControl,
+            Map<String, String> metadataMapping,
+            int maxPrefetchedInformationSchemaPrefixes)
     {
         requireNonNull(catalogName, "catalogName is null");
         requireNonNull(metadata, "metadata is null");
 
-        this.metadata = new InformationSchemaMetadata(catalogName, metadata, maxPrefetchedInformationSchemaPrefixes);
+        this.metadata = new InformationSchemaMetadata(catalogName, metadata, metadataMapping, maxPrefetchedInformationSchemaPrefixes);
         this.splitManager = new InformationSchemaSplitManager(currentNode.getHostAndPort());
         this.pageSourceProvider = new InformationSchemaPageSourceProvider(metadata, accessControl);
     }

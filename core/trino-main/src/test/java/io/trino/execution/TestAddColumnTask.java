@@ -20,6 +20,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import io.trino.Session;
 import io.trino.connector.CatalogHandle;
 import io.trino.execution.warnings.WarningCollector;
+import io.trino.metadata.Canonicalizer;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.TableHandle;
@@ -73,6 +74,7 @@ import static io.trino.sql.analyzer.TypeSignatureTranslator.toSqlType;
 import static io.trino.sql.planner.TestingPlannerContext.plannerContextBuilder;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_NAME;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
+import static java.util.Locale.ENGLISH;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestAddColumnTask
@@ -522,7 +524,7 @@ public class TestAddColumnTask
                 .hasMessageContaining("Field 'a' already exists");
         assertTrinoExceptionThrownBy(() -> getFutureValue(executeAddColumn(asQualifiedName(tableName), QualifiedName.of("col", "A"), INTEGER, false, false)))
                 .hasErrorCode(COLUMN_ALREADY_EXISTS)
-                .hasMessageContaining("Field 'a' already exists");
+                .hasMessageContaining("Field 'A' already exists");
         assertThat(metadata.getTableMetadata(testSession, table).columns())
                 .containsExactly(new ColumnMetadata("col", rowType(new RowType.Field(Optional.of("a"), BIGINT))));
     }
@@ -606,6 +608,24 @@ public class TestAddColumnTask
         public Set<ConnectorCapabilities> getConnectorCapabilities(Session session, CatalogHandle catalogHandle)
         {
             return capabilities;
+        }
+
+        @Override
+        public Canonicalizer getCanonicalizer(Session session)
+        {
+            return value -> value.toLowerCase(ENGLISH);
+        }
+
+        @Override
+        public Canonicalizer getCanonicalizer(Session session, String catalogName)
+        {
+            return value -> value.toLowerCase(ENGLISH);
+        }
+
+        @Override
+        public Canonicalizer getCanonicalizer(Session session, Optional<String> catalogName)
+        {
+            return value -> value.toLowerCase(ENGLISH);
         }
     }
 }

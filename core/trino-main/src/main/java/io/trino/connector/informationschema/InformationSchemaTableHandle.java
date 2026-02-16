@@ -31,6 +31,7 @@ public record InformationSchemaTableHandle(String catalogName, InformationSchema
         requireNonNull(table, "table is null");
         prefixes = ImmutableSet.copyOf(requireNonNull(prefixes, "prefixes is null"));
         requireNonNull(limit, "limit is null");
+        System.out.println("InformationSchemaTableHandler::new prefixes: " + String.join(", ", prefixes.stream().map(QualifiedTablePrefix::toString).toList()));
     }
 
     @Override

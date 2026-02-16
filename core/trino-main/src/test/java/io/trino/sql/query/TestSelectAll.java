@@ -62,7 +62,7 @@ public class TestSelectAll
         assertThat(assertions.query("SELECT (ROW (1, 'a')).*")).matches("SELECT 1, 'a'");
 
         // wildcard from nested row
-        assertThat(assertions.query("SELECT a.b.* FROM (VALUES (ROW (ROW (1, 2, 3)))) A (b)")).matches("SELECT 1, 2, 3");
+        assertThat(assertions.query("SELECT a.b.* FROM (VALUES (ROW (ROW (1, 2, 3)))) a (b)")).matches("SELECT 1, 2, 3");
         assertThat(assertions.query("SELECT b[1][1].* FROM (VALUES (ROW (ROW (ROW ( ROW (1, 2, 3)))))) A (b)")).matches("SELECT 1, 2, 3");
 
         // mixed select items

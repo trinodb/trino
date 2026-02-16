@@ -13,6 +13,7 @@
  */
 package io.trino.connector;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.errorprone.annotations.ThreadSafe;
 import com.google.inject.Inject;
 import io.airlift.configuration.secrets.SecretsResolver;
@@ -141,6 +142,8 @@ public class DefaultCatalogFactory
 
     private CatalogConnector createCatalog(CatalogHandle catalogHandle, ConnectorName connectorName, Connector connector, Optional<CatalogProperties> catalogProperties)
     {
+        System.out.println("DefaultCatalogFactory.createCatalog() connector: " + connectorName);
+        System.out.println("DefaultCatalogFactory.createCatalog() catalogHandle: " + catalogHandle.getCatalogName());
         Tracer tracer = createTracer(catalogHandle.getCatalogName());
 
         ConnectorServices catalogConnector = new ConnectorServices(tracer, catalogHandle, connector);
@@ -153,6 +156,7 @@ public class DefaultCatalogFactory
                         currentNode,
                         metadata,
                         accessControl,
+                        catalogProperties.map(CatalogProperties::metadataMapping).orElse(ImmutableMap.of()),
                         maxPrefetchedInformationSchemaPrefixes));
 
         SystemTablesProvider systemTablesProvider = new SystemTablesProvider(

@@ -67,7 +67,6 @@ import static io.trino.metadata.MetadataUtil.findColumnMetadata;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static java.util.Collections.emptyList;
-import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
 
@@ -80,19 +79,24 @@ public class InformationSchemaMetadata
 
     private final String catalogName;
     private final Metadata metadata;
+    private final Map<String, String> mapping;
     private final int maxPrefetchedInformationSchemaPrefixes;
 
-    public InformationSchemaMetadata(String catalogName, Metadata metadata, int maxPrefetchedInformationSchemaPrefixes)
+    public InformationSchemaMetadata(String catalogName, Metadata metadata, Map<String, String> mapping, int maxPrefetchedInformationSchemaPrefixes)
     {
         this.catalogName = requireNonNull(catalogName, "catalogName is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
+        this.mapping = requireNonNull(mapping, "mapping is null");
         this.maxPrefetchedInformationSchemaPrefixes = maxPrefetchedInformationSchemaPrefixes;
+        System.out.println("InformationSchemaMetadata::new catalogName: " + catalogName);
     }
 
     @Override
     public List<String> listSchemaNames(ConnectorSession session)
     {
-        return ImmutableList.of(INFORMATION_SCHEMA);
+        System.out.println("InformationSchemaMetadata.listSchemaNames() 1 for catalog: " + catalogName);
+        System.out.println("InformationSchemaMetadata.listSchemaNames() 1 schema: " + mapping.getOrDefault(INFORMATION_SCHEMA, INFORMATION_SCHEMA));
+        return ImmutableList.of(mapping.getOrDefault(INFORMATION_SCHEMA, INFORMATION_SCHEMA));
     }
 
     @Override
@@ -101,6 +105,7 @@ public class InformationSchemaMetadata
         if (startVersion.isPresent() || endVersion.isPresent()) {
             throw new TrinoException(NOT_SUPPORTED, "This connector does not support versioned tables");
         }
+        System.out.println("InformationSchemaMetadata.getTableHandle() 1 tableName: " + tableName);
 
         return InformationSchemaTable.of(tableName)
                 .map(table -> new InformationSchemaTableHandle(catalogName, table, defaultPrefixes(catalogName), OptionalLong.empty()))
@@ -110,6 +115,7 @@ public class InformationSchemaMetadata
     @Override
     public ConnectorTableMetadata getTableMetadata(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
+        System.out.println("InformationSchemaMetadata.getTableMetadata() 1");
         InformationSchemaTableHandle informationSchemaTableHandle = (InformationSchemaTableHandle) tableHandle;
         return informationSchemaTableHandle.table().getTableMetadata();
     }
@@ -117,6 +123,7 @@ public class InformationSchemaMetadata
     @Override
     public List<SchemaTableName> listTables(ConnectorSession session, Optional<String> schemaName)
     {
+        System.out.println("InformationSchemaMetadata.listTables() 1");
         if (schemaName.isPresent() && !schemaName.get().equals(INFORMATION_SCHEMA)) {
             return ImmutableList.of();
         }
@@ -128,6 +135,7 @@ public class InformationSchemaMetadata
     @Override
     public ColumnMetadata getColumnMetadata(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle columnHandle)
     {
+        System.out.println("InformationSchemaMetadata.getColumnMetadata() 1");
         InformationSchemaTableHandle informationSchemaTableHandle = (InformationSchemaTableHandle) tableHandle;
         ConnectorTableMetadata tableMetadata = informationSchemaTableHandle.table().getTableMetadata();
 
@@ -141,6 +149,7 @@ public class InformationSchemaMetadata
     @Override
     public Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
+        System.out.println("InformationSchemaMetadata.getColumnHandles() 1");
         InformationSchemaTableHandle informationSchemaTableHandle = (InformationSchemaTableHandle) tableHandle;
 
         ConnectorTableMetadata tableMetadata = informationSchemaTableHandle.table().getTableMetadata();
@@ -153,6 +162,7 @@ public class InformationSchemaMetadata
     @Override
     public Map<SchemaTableName, List<ColumnMetadata>> listTableColumns(ConnectorSession session, SchemaTablePrefix prefix)
     {
+        System.out.println("InformationSchemaMetadata.listTableColumns() 1");
         requireNonNull(prefix, "prefix is null");
         return Arrays.stream(InformationSchemaTable.values())
                 .filter(table -> prefix.matches(table.getSchemaTableName()))
@@ -162,6 +172,7 @@ public class InformationSchemaMetadata
     @Override
     public ConnectorTableProperties getTableProperties(ConnectorSession session, ConnectorTableHandle table)
     {
+        System.out.println("InformationSchemaMetadata.getTableProperties() 1");
         InformationSchemaTableHandle tableHandle = (InformationSchemaTableHandle) table;
         return new ConnectorTableProperties(
                 tableHandle.prefixes().isEmpty() ? TupleDomain.none() : TupleDomain.all(),
@@ -173,6 +184,7 @@ public class InformationSchemaMetadata
     @Override
     public Optional<LimitApplicationResult<ConnectorTableHandle>> applyLimit(ConnectorSession session, ConnectorTableHandle handle, long limit)
     {
+        System.out.println("InformationSchemaMetadata.applyLimit() 1");
         InformationSchemaTableHandle table = (InformationSchemaTableHandle) handle;
 
         if (table.limit().isPresent() && table.limit().getAsLong() <= limit) {
@@ -188,6 +200,7 @@ public class InformationSchemaMetadata
     @Override
     public Optional<ConstraintApplicationResult<ConnectorTableHandle>> applyFilter(ConnectorSession session, ConnectorTableHandle handle, Constraint constraint)
     {
+        System.out.println("InformationSchemaMetadata.applyLimit() 1");
         InformationSchemaTableHandle table = (InformationSchemaTableHandle) handle;
 
         Set<QualifiedTablePrefix> prefixes = table.prefixes();
@@ -205,6 +218,7 @@ public class InformationSchemaMetadata
 
     public static Set<QualifiedTablePrefix> defaultPrefixes(String catalogName)
     {
+        System.out.println("InformationSchemaMetadata.defaultPrefixes() 1");
         return ImmutableSet.of(new QualifiedTablePrefix(catalogName));
     }
 
@@ -228,6 +242,7 @@ public class InformationSchemaMetadata
 
     public static boolean isTablesEnumeratingTable(InformationSchemaTable table)
     {
+        System.out.println("InformationSchemaMetadata.isTablesEnumeratingTable() table: " + table);
         return ImmutableSet.of(COLUMNS, VIEWS, TABLES, TABLE_PRIVILEGES).contains(table);
     }
 
@@ -236,6 +251,7 @@ public class InformationSchemaMetadata
             TupleDomain<ColumnHandle> constraint,
             Optional<Predicate<Map<ColumnHandle, NullableValue>>> predicate)
     {
+        System.out.println("InformationSchemaMetadata.calculatePrefixesWithSchemaName() 1");
         Optional<Set<String>> schemas = filterString(constraint, SCHEMA_COLUMN_HANDLE);
         if (schemas.isPresent()) {
             Set<QualifiedTablePrefix> schemasFromPredicate = schemas.get().stream()
@@ -272,6 +288,7 @@ public class InformationSchemaMetadata
             TupleDomain<ColumnHandle> constraint,
             Optional<Predicate<Map<ColumnHandle, NullableValue>>> predicate)
     {
+        System.out.println("InformationSchemaMetadata.calculatePrefixesWithTableName() 1");
         Session session = ((FullConnectorSession) connectorSession).getSession();
 
         Optional<Set<String>> tables = filterString(constraint, TABLE_NAME_COLUMN_HANDLE);
@@ -319,6 +336,7 @@ public class InformationSchemaMetadata
 
     private boolean isColumnsEnumeratingTable(InformationSchemaTable table)
     {
+        System.out.println("InformationSchemaMetadata.isColumnsEnumeratingTable() 1");
         return COLUMNS == table;
     }
 
@@ -378,6 +396,6 @@ public class InformationSchemaMetadata
 
     private boolean isLowerCase(String value)
     {
-        return value.toLowerCase(ENGLISH).equals(value);
+        return true;
     }
 }

@@ -145,7 +145,8 @@ public final class ExpressionTreeUtils
     {
         QualifiedName name = null;
         if (expression instanceof Identifier identifier) {
-            name = QualifiedName.of(identifier.getValue());
+            System.out.println("ExpressionTreeUtils.asQualifierName() identifier: " + identifier.getValue() + " - isDelimited: " + identifier.isDelimited());
+            name = QualifiedName.of(identifier.getValue(), true);
         }
         else if (expression instanceof DereferenceExpression dereferenceExpression) {
             name = DereferenceExpression.getQualifiedName(dereferenceExpression);

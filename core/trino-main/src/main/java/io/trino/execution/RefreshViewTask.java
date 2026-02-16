@@ -86,7 +86,7 @@ public class RefreshViewTask
     {
         Metadata metadata = plannerContext.getMetadata();
         Session session = stateMachine.getSession();
-        QualifiedObjectName viewName = createQualifiedObjectName(session, refreshView, refreshView.getName());
+        QualifiedObjectName viewName = createQualifiedObjectName(session, refreshView, refreshView.getName(), metadata);
 
         ViewDefinition viewDefinition = metadata.getView(session, viewName)
                 .orElseThrow(() -> semanticException(TABLE_NOT_FOUND, refreshView, "View '%s' not found", viewName));

@@ -1055,7 +1055,7 @@ public class TestCassandraConnectorTest
                     .row("table_2")
                     .build(), new Duration(1, MINUTES));
             assertContains(computeActual("SHOW COLUMNS FROM cassandra.%s.table_2".formatted(lowerCaseKeyspaceName)), resultBuilder(getSession(), createUnboundedVarcharType(), createUnboundedVarcharType(), createUnboundedVarcharType(), createUnboundedVarcharType())
-                    .row("column_2", "bigint", "", "")
+                    .row("COLUMN_2", "bigint", "", "")
                     .build());
 
             assertUpdate("INSERT INTO " + quotedUppercaseKeyspaceName + ".\"TABLE_2\" (\"COLUMN_2\") VALUES (1)", 1);

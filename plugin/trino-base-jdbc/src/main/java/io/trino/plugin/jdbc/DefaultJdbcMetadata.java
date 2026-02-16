@@ -1076,11 +1076,13 @@ public class DefaultJdbcMetadata
         JdbcTableHandle handle = (JdbcTableHandle) table;
         SchemaTableName schemaTableName = handle.getRequiredNamedRelation().getSchemaTableName();
         RemoteTableName remoteTableName = handle.getRequiredNamedRelation().getRemoteTableName();
+        List<ColumnMetadata> columns = jdbcClient.getColumns(session, schemaTableName, remoteTableName).stream()
+                .map(JdbcColumnHandle::getColumnMetadata)
+                .collect(toImmutableList());
+        System.out.println("DefaultJdbcMetadata.getTableMetadata() columns: " + String.join(", ", columns.stream().map(ColumnMetadata::getName).toList()));
         return new ConnectorTableMetadata(
                 schemaTableName,
-                jdbcClient.getColumns(session, schemaTableName, remoteTableName).stream()
-                        .map(JdbcColumnHandle::getColumnMetadata)
-                        .collect(toImmutableList()),
+                columns,
                 jdbcClient.getTableProperties(session, handle),
                 getTableComment(handle));
     }

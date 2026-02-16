@@ -17,6 +17,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.inject.Inject;
 import io.trino.Session;
 import io.trino.execution.warnings.WarningCollector;
+import io.trino.metadata.Canonicalizer;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.RedirectionAwareTableHandle;
@@ -32,8 +33,11 @@ import io.trino.sql.tree.DropColumn;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.Identifier;
 
+import java.util.AbstractMap;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 import static com.google.common.base.Verify.verifyNotNull;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -73,7 +77,7 @@ public class DropColumnTask
             WarningCollector warningCollector)
     {
         Session session = stateMachine.getSession();
-        QualifiedObjectName tableName = createQualifiedObjectName(session, statement, statement.getTable());
+        QualifiedObjectName tableName = createQualifiedObjectName(session, statement, statement.getTable(), metadata);
         RedirectionAwareTableHandle redirectionAwareTableHandle = metadata.getRedirectionAwareTableHandle(session, tableName);
         if (redirectionAwareTableHandle.tableHandle().isEmpty()) {
             if (!statement.isTableExists()) {
@@ -83,21 +87,26 @@ public class DropColumnTask
         }
         TableHandle tableHandle = redirectionAwareTableHandle.tableHandle().get();
 
-        // Use getParts method because the column name should be lowercase
-        String column = statement.getField().getParts().get(0);
+        // Use getCanonicalizedValue method because the columnName should be canonicalized
+        Canonicalizer canonicalizer = metadata.getCanonicalizer(session, tableName.catalogName());
+        String columnName = statement.getField().canonicalizeColumn(canonicalizer::canonicalizeColumn).getOriginalParts().getFirst().getCanonicalizedValue();
 
         QualifiedObjectName qualifiedTableName = redirectionAwareTableHandle.redirectedTableName().orElse(tableName);
         accessControl.checkCanDropColumn(session.toSecurityContext(), qualifiedTableName);
 
-        ColumnHandle columnHandle = metadata.getColumnHandles(session, tableHandle).get(column);
+        Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(session, tableHandle).entrySet().stream()
+                .map(entry -> new AbstractMap.SimpleEntry<>(canonicalizer.compareColumn(entry.getKey()), entry.getValue()))
+                .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+
+        ColumnHandle columnHandle = columnHandles.get(canonicalizer.compareColumn(columnName));
         if (columnHandle == null) {
             if (!statement.isColumnExists()) {
-                throw semanticException(COLUMN_NOT_FOUND, statement, "Column '%s' does not exist", column);
+                throw semanticException(COLUMN_NOT_FOUND, statement, "Column '%s' does not exist", canonicalizer.compareColumn(columnName));
             }
             return immediateVoidFuture();
         }
 
-        // Use getOriginalParts method because field names in row types are case-sensitive
+        // Use getValue method because field names in row types are case-sensitive
         List<String> fieldPath = statement.getField().getOriginalParts().subList(1, statement.getField().getOriginalParts().size()).stream()
                 .map(Identifier::getValue)
                 .collect(toImmutableList());

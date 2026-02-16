@@ -89,7 +89,15 @@ public final class CatalogHandle
     @JsonValue
     public String getId()
     {
-        return catalogName + ":" + type.toString().toLowerCase(ROOT) + ":" + version;
+        return catalogName + ":" + getTypeName() + ":" + version;
+    }
+
+    private String getTypeName()
+    {
+        return switch (type) {
+            case INFORMATION_SCHEMA -> type.toString();
+            default -> type.toString().toLowerCase(ROOT);
+        };
     }
 
     /**

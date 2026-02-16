@@ -71,7 +71,7 @@ public abstract class BaseConnectorSmokeTest
 
     protected String createSchemaSql(String schemaName)
     {
-        return "CREATE SCHEMA " + schemaName;
+        return "CREATE SCHEMA \"%s\"".formatted(schemaName);
     }
 
     /**
@@ -263,7 +263,7 @@ public abstract class BaseConnectorSmokeTest
     {
         assumeTrue(hasBehavior(SUPPORTS_CREATE_TABLE) && hasBehavior(SUPPORTS_UPDATE));
         try (TestTable table = newTrinoTable("test_row_update", "AS SELECT * FROM nation")) {
-            assertUpdate("UPDATE " + table.getName() + " SET nationkey = 100 WHERE regionkey = 2", 5);
+            assertUpdate("UPDATE " + table.getName() + " SET \"nationkey\" = 100 WHERE \"regionkey\" = 2", 5);
             assertQuery("SELECT count(*) FROM " + table.getName() + " WHERE nationkey = 100", "VALUES 5");
         }
     }
@@ -339,8 +339,8 @@ public abstract class BaseConnectorSmokeTest
     {
         if (!hasBehavior(SUPPORTS_MERGE)) {
             // Note this change is a no-op, if actually run
-            assertQueryFails("MERGE INTO nation n USING nation s ON (n.nationkey = s.nationkey) " +
-                            "WHEN MATCHED AND n.regionkey < 1 THEN UPDATE SET nationkey = 5",
+            assertQueryFails("MERGE INTO nation n USING nation s ON (n.\"nationkey\" = s.\"nationkey\") " +
+                            "WHEN MATCHED AND n.\"regionkey\" < 1 THEN UPDATE SET \"nationkey\" = 5",
                     MODIFYING_ROWS_MESSAGE);
             return;
         }
@@ -350,7 +350,7 @@ public abstract class BaseConnectorSmokeTest
         }
 
         try (TemporaryRelation table = createTestTableForWrites("test_merge_")) {
-            assertUpdate("INSERT INTO " + table.getName() + " (a, b) SELECT regionkey, regionkey * 2.5 FROM region", "SELECT count(*) FROM region");
+            assertUpdate("INSERT INTO " + table.getName() + " (a, b) SELECT \"regionkey\", \"regionkey\" * 2.5 FROM region", "SELECT count(*) FROM region");
             assertThat(query("SELECT CAST(a AS bigint), b FROM " + table.getName()))
                     .matches(expectedValues("(0, 0.0), (1, 2.5), (2, 5.0), (3, 7.5), (4, 10.0)"));
 

@@ -288,6 +288,7 @@ public class TestSqlTaskManagerRaceWithCatalogPrune
                         catalogHandle.getCatalogName(),
                         catalogHandle.getVersion(),
                         new ConnectorName("mock"),
+                        ImmutableMap.of(),
                         ImmutableMap.of())));
     }
 

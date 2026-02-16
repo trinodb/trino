@@ -953,4 +953,42 @@ public interface Metadata
      * or {@link Optional#empty} if there are no credentials.
      */
     Optional<ConnectorTableCredentials> getTableCredentials(Session session, CatalogHandle catalogHandle, ConnectorWritableTableHandle writableTableHandle);
+
+    /**
+     * Canonicalizes the provided SQL identifier according to connector-specific rules
+     */
+    default Canonicalizer getCanonicalizer(Session session)
+    {
+        return getCanonicalizer(session, session.getCatalog());
+    }
+
+    default Canonicalizer getCanonicalizer(Session session, String catalogName)
+    {
+        return getCanonicalizer(session, Optional.ofNullable(catalogName));
+    }
+
+    Canonicalizer getCanonicalizer(Session session, Optional<String> catalogName);
+
+    /**
+     * convert metadata identifier according to connector-specific rules
+     */
+    default String informationSchema(String schema)
+    {
+        return schema;
+    }
+
+    default String schemaMetadata(String schema)
+    {
+        return schema;
+    }
+
+    default String tableMetadata(String table)
+    {
+        return table;
+    }
+
+    default String columnMetadata(String column)
+    {
+        return column;
+    }
 }

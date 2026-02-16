@@ -298,7 +298,7 @@ public abstract class BaseFailureRecoveryTest
     @Test
     protected void testExplainAnalyze()
     {
-        testSelect("EXPLAIN ANALYZE SELECT orderStatus, count(*) FROM orders GROUP BY orderStatus");
+        testSelect("EXPLAIN ANALYZE SELECT orderstatus, count(*) FROM orders GROUP BY orderstatus");
 
         testTableModification(
                 Optional.of("CREATE TABLE <table> AS SELECT * FROM orders WITH NO DATA"),
