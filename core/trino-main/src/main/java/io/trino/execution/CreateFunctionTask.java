@@ -97,23 +97,17 @@ public class CreateFunctionTask
     {
         Session session = stateMachine.getSession();
 
-        System.out.println("CreateFunctionTask.execute() 1");
         FunctionSpecification function = statement.getSpecification();
         QualifiedObjectName name = qualifiedFunctionName(session, defaultFunctionSchema, statement, function.getName(), plannerContext);
-        System.out.println("CreateFunctionTask.execute() 2");
 
         accessControl.checkCanCreateFunction(session.toSecurityContext(), name);
-        System.out.println("CreateFunctionTask.execute() 3");
 
         languageFunctionManager.verifyForCreate(session, function, functionManager, accessControl);
-        System.out.println("CreateFunctionTask.execute() 4");
 
         function = materializeFunctionProperties(session, function, bindParameters(statement, parameters));
-        System.out.println("CreateFunctionTask.execute() 5");
 
         String signatureToken = languageFunctionManager.getSignatureToken(function.getParameters());
 
-        System.out.println("CreateFunctionTask.execute() 6");
         String sql = functionToSql(function);
 
         // system path elements currently are not stored
@@ -168,7 +162,6 @@ public class CreateFunctionTask
     private String functionToSql(FunctionSpecification function)
     {
         String sql = formatSql(function);
-        System.out.println("CreateFunctionTask.functionToSql() sql: " + sql);
         try {
             FunctionSpecification parsed = sqlParser.createFunctionSpecification(sql);
             if (!function.equals(parsed)) {

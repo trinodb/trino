@@ -256,7 +256,7 @@ public class TestJdbcConnectorTest
     @Override
     public void testNativeQueryColumnAlias()
     {
-        assertThat(query(format("SELECT region_name FROM TABLE(system.query(query => 'SELECT \"name\" AS region_name FROM \"%s\".\"region\" WHERE \"regionkey\" = 0'))", getSession().getSchema().orElseThrow())))
+        assertThat(query(format("SELECT \"region_name\" FROM TABLE(system.query(query => 'SELECT \"name\" AS \"region_name\" FROM \"%s\".\"region\" WHERE \"regionkey\" = 0'))", getSession().getSchema().orElseThrow())))
                 .matches("VALUES CAST('AFRICA' AS VARCHAR(25))");
     }
 

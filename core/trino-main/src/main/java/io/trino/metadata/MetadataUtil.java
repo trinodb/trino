@@ -36,6 +36,7 @@ import io.trino.sql.tree.Resolver;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
@@ -174,6 +175,11 @@ public final class MetadataUtil
 
     public static QualifiedObjectName createQualifiedObjectName(Session session, PlannerContext plannerContext, List<Identifier> identifiers)
     {
+        return createQualifiedObjectName(session, plannerContext, identifiers, Optional.empty());
+    }
+
+    public static QualifiedObjectName createQualifiedObjectName(Session session, PlannerContext plannerContext, List<Identifier> identifiers, Optional<Function<Identifier, String>> canonicalizer)
+    {
         requireNonNull(identifiers, "identifiers is null");
         if (identifiers.size() < 3) {
             throw new TrinoException(SYNTAX_ERROR, format("Not enough parts in table name: %s", identifiers.getLast().getValue()));
@@ -184,7 +190,8 @@ public final class MetadataUtil
         return new QualifiedObjectName(
                 catalog,
                 resolver.canonicalize(identifiers.get(1)),
-                resolver.canonicalize(identifiers.get(2)),
+                canonicalizer.map(function -> function.apply(identifiers.get(2)))
+                        .orElse(resolver.canonicalize(identifiers.get(2))),
                 Optional.of(resolver::predicate));
     }
 

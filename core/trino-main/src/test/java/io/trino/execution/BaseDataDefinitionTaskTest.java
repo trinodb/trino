@@ -765,9 +765,14 @@ public abstract class BaseDataDefinitionTaskTest
         }
 
         @Override
+        public Resolver getResolver(Canonicalizer canonicalizer)
+        {
+            return new Resolver(canonicalizer.name(), canonicalizer::canonicalize, canonicalizer::compare, canonicalizer::predicate);
+        }
+
+        @Override
         public Resolver getResolver(Session session, String catalog)
         {
-            System.out.println("BaseDataDefinitionTaskTest.getResolver()");
             // FIXME: we need to retrieve the canonicalizer of the connector
             Canonicalizer canonicalizer = Canonicalizer.UPPERCASE_CANONICALIZER;
             return new Resolver(catalogName, canonicalizer::canonicalize, canonicalizer::compare, canonicalizer::predicate);

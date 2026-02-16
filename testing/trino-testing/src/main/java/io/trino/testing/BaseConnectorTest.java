@@ -2070,7 +2070,7 @@ public abstract class BaseConnectorTest
         String viewName = "test_view_" + randomNameSuffix();
 
         assertUpdate("CREATE TABLE " + tableName + " AS SELECT 'abcdefg' a", 1);
-        assertUpdate("CREATE VIEW " + viewName + " AS SELECT a FROM " + tableName);
+        assertUpdate("CREATE VIEW " + viewName + " AS SELECT " + canonicalize("a") + " FROM " + tableName);
 
         assertQuery("SELECT * FROM " + viewName, "VALUES 'abcdefg'");
 
@@ -4602,9 +4602,9 @@ public abstract class BaseConnectorTest
             return;
         }
 
-        // FIXME: CTAS without FROM clause use the connector's resolver
+        // FIXME: CTAS without FROM clause use the target connector canonicalizer?
         assertUpdate("CREATE TABLE IF NOT EXISTS " + tableName + " AS SELECT 'Name 1' NaMe, 'Region 1' ReGionKey", 1L);
-        assertTableColumnNames(canonicalize(tableName), canonicalize("NaMe"), canonicalize("ReGionKey"));
+        assertTableColumnNames(canonicalize(tableName),canonicalize("NaMe"), canonicalize("ReGionKey"));
         // FIXME: cant get this test working
         assertThat(getTableComment(canonicalize(tableName))).isNull();
         assertUpdate("DROP TABLE " + tableName);
@@ -7794,7 +7794,6 @@ public abstract class BaseConnectorTest
                         .row(name3, "double", "", "scalar", false, "")
                         .build());
 
-        System.out.println("BaseConnectorTest.testCreateFunction() sql: " + computeScalar("SELECT current_path"));
         assertThat(query("SHOW FUNCTIONS FROM " + computeScalar("SELECT current_path")))
                 .result()
                 .skippingTypesCheck()

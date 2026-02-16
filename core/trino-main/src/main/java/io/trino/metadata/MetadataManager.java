@@ -2036,7 +2036,6 @@ public final class MetadataManager
     public RedirectionAwareTableHandle getRedirectionAwareTableHandle(Session session, QualifiedObjectName tableName, Optional<TableVersion> startVersion, Optional<TableVersion> endVersion)
     {
         QualifiedObjectName targetTableName = getRedirectedTableName(session, tableName, startVersion, endVersion);
-        System.out.println("MetadataManager.getRedirectionAwareTableHandle() tableName: " + tableName + " - targetTableName: " + targetTableName);
         if (targetTableName.equals(tableName)) {
             return noRedirection(getTableHandle(session, tableName, startVersion, endVersion));
         }
@@ -3120,6 +3119,12 @@ public final class MetadataManager
     }
 
     @Override
+    public Resolver getResolver(Canonicalizer canonicalizer)
+    {
+        return new Resolver(canonicalizer.name(), canonicalizer::canonicalize, canonicalizer::compare, canonicalizer::predicate);
+    }
+
+    @Override
     public Resolver getResolver(Session session, String catalogName)
     {
         Canonicalizer canonicalizer;
@@ -3138,6 +3143,12 @@ public final class MetadataManager
                 ConnectorMetadata metadata = catalogMetadata.get().getMetadata(session);
                 canonicalizer = new Canonicalizer()
                 {
+                    @Override
+                    public String name()
+                    {
+                        return catalogName;
+                    }
+
                     @Override
                     public String canonicalize(String value)
                     {

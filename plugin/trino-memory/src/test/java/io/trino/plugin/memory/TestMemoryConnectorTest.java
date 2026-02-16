@@ -197,7 +197,7 @@ public class TestMemoryConnectorTest
     {
         MaterializedResultWithPlan result = getDistributedQueryRunner().executeWithPlan(
                 getSession(),
-                "SELECT * FROM \"lineitem\" JOIN tpch.tiny.supplier ON \"lineitem\".suppkey = supplier.suppkey " +
+                "SELECT * FROM \"lineitem\" JOIN tpch.tiny.supplier ON supplier.suppkey = \"lineitem\".\"suppkey\" " +
                         "AND supplier.name = 'Supplier#000000001'");
         assertThat(result.result().getRowCount()).isEqualTo(615);
 

@@ -20,11 +20,46 @@ import static java.util.Locale.ENGLISH;
 
 public interface Canonicalizer
 {
-    Canonicalizer IDENTITY_CANONICALIZER = value -> value;
+    Canonicalizer IDENTITY_CANONICALIZER = new Canonicalizer()
+    {
+        public String canonicalize(String value)
+        {
+            return value;
+        }
 
-    Canonicalizer LOWERCASE_CANONICALIZER = value -> value.toLowerCase(ENGLISH);
+        public String name()
+        {
+            return "IDENTITY";
+        }
+    };
 
-    Canonicalizer UPPERCASE_CANONICALIZER = value -> value.toUpperCase(ENGLISH);
+    Canonicalizer LOWERCASE_CANONICALIZER = new Canonicalizer()
+    {
+        public String canonicalize(String value)
+        {
+            return value.toLowerCase(ENGLISH);
+        }
+
+        public String name()
+        {
+            return "LOWERCASE";
+        }
+    };
+
+    Canonicalizer UPPERCASE_CANONICALIZER = new Canonicalizer()
+    {
+        public String canonicalize(String value)
+        {
+            return value.toUpperCase(ENGLISH);
+        }
+
+        public String name()
+        {
+            return "UPPERCASE";
+        }
+    };
+
+    String name();
 
     String canonicalize(String value);
 

@@ -107,11 +107,7 @@ public class DereferenceExpression
         if (parts == null) {
             return null;
         }
-        QualifiedName name = QualifiedName.of(canonicalizer, parts);
-        if (parts.size() > 2) {
-            System.out.println("DereferenceExpression.getQualifiedName() 1 name " + name);
-        }
-        return name;
+        return QualifiedName.of(canonicalizer, parts);
     }
 
     public static Expression from(QualifiedName name)

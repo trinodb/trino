@@ -140,7 +140,6 @@ import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.QuantifiedComparisonExpression;
 import io.trino.sql.tree.QueryColumn;
 import io.trino.sql.tree.RangeQuantifier;
-import io.trino.sql.tree.Resolver;
 import io.trino.sql.tree.Row;
 import io.trino.sql.tree.RowPattern;
 import io.trino.sql.tree.SearchedCaseExpression;
@@ -167,7 +166,6 @@ import io.trino.type.UnknownType;
 import jakarta.annotation.Nullable;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -680,7 +678,6 @@ public class ExpressionAnalyzer
         {
             this.baseScope = requireNonNull(baseScope, "baseScope is null");
             this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
-            System.out.println("Visitor::new baseScope canonicalizer type: " + baseScope.canonicalizerType());
         }
 
         public List<PatternInputAnalysis> getPatternRecognitionInputs()
@@ -704,8 +701,6 @@ public class ExpressionAnalyzer
         @Override
         protected Type visitRow(Row node, Context context)
         {
-            System.out.println("ExpressionAnalyzer.visitRow() scope canonicalizer " + context.getScope().canonicalizerType());
-            System.out.println("ExpressionAnalyzer.visitRow() baseScope canonicalizer " + baseScope.canonicalizerType());
             // FIXME: Row fields use now identifier canonicalized value
             List<RowType.Field> fields = node.getFields().stream()
                     .map(field -> new RowType.Field(
@@ -768,8 +763,6 @@ public class ExpressionAnalyzer
         {
             //System.out.println("ExpressionAnalyzer.visitIdentifier() stacktrace: " + Arrays.toString(Thread.currentThread().getStackTrace()).replace(',', '\n'));
             // FIXME: The context canonicalizer will be used to canonicalize QualifiedName
-            //node.setResolver(plannerContext.getResolver(session));
-            System.out.println("ExpressionAnalyzer.visitIdentifier() node: " + node.getValue() + " - isDelimited: " + node.isDelimited() + " - canonicalizer type: " + context.getScope().canonicalizerType());
             ResolvedField resolvedField = context.getScope().resolveField(node, QualifiedName.of(context.getScope()::canonicalize, node));
 
             if (context.isPatternRecognition()) {
@@ -780,13 +773,6 @@ public class ExpressionAnalyzer
             }
 
             return handleResolvedField(node, resolvedField, context);
-        }
-
-        private Function<Identifier, String> getDefaultCanonicalizer()
-        {
-            Resolver resolver = plannerContext.getDefaultResolver(session);
-            System.out.println("ExpressionAnalyzer.getDefaultCanonicalizer() catalog: " + resolver.getCatalog());
-            return resolver::canonicalize;
         }
 
         private Type handleResolvedField(Expression node, ResolvedField resolvedField, Context context)
@@ -825,7 +811,6 @@ public class ExpressionAnalyzer
         @Override
         protected Type visitDereferenceExpression(DereferenceExpression node, Context context)
         {
-            System.out.println("ExpressionAnalyzer.visitDereferenceExpression() scope canonicalizer: " + context.getScope().canonicalizerType());
             if (isQualifiedAllFieldsReference(node)) {
                 throw semanticException(NOT_SUPPORTED, node, "<identifier>.* not allowed in this context");
             }
@@ -871,7 +856,6 @@ public class ExpressionAnalyzer
                     return handleResolvedField(node, resolvedField.get(), context);
                 }
                 if (!scope.isColumnReference(qualifiedName)) {
-                    System.out.println("ExpressionAnalyzer.visitDereferenceExpression() stacktrace: " + Arrays.toString(Thread.currentThread().getStackTrace()).replace(',', '\n'));
                     throw missingAttributeException(node, qualifiedName);
                 }
             }
@@ -1340,7 +1324,6 @@ public class ExpressionAnalyzer
                             throw semanticException(INVALID_FUNCTION_ARGUMENT, allRowsReference, "label.* syntax is only supported as the only argument of row pattern count function");
                         }
                     });
-            System.out.println("ExpressionAnalyzer.visitFunctionCall() 2");
             if (context.isPatternRecognition()) {
                 if (isPatternRecognitionFunction(node)) {
                     validatePatternRecognitionFunction(node);
@@ -1370,7 +1353,6 @@ public class ExpressionAnalyzer
                 }
             }
 
-            System.out.println("ExpressionAnalyzer.visitFunctionCall() 3");
             if (node.getProcessingMode().isPresent()) {
                 ProcessingMode processingMode = node.getProcessingMode().get();
                 if (!context.isPatternRecognition()) {
@@ -1381,7 +1363,6 @@ public class ExpressionAnalyzer
                 }
             }
 
-            System.out.println("ExpressionAnalyzer.visitFunctionCall() 4");
             if (node.getWindow().isPresent()) {
                 ResolvedWindow window = getResolvedWindow.apply(node);
                 checkState(window != null, "no resolved window for: %s", node);
@@ -1395,7 +1376,6 @@ public class ExpressionAnalyzer
                 }
             }
 
-            System.out.println("ExpressionAnalyzer.visitFunctionCall() 5");
             if (node.getFilter().isPresent()) {
                 Expression expression = node.getFilter().get();
                 Type type = process(expression, context);
@@ -1404,7 +1384,6 @@ public class ExpressionAnalyzer
 
             List<TypeSignatureProvider> argumentTypes = getCallArgumentTypes(node.getArguments(), context);
 
-            System.out.println("ExpressionAnalyzer.visitFunctionCall() 6");
             if (QualifiedName.of("LISTAGG").equals(node.getName())) {
                 // Due to fact that the LISTAGG function is transformed out of pragmatic reasons
                 // in a synthetic function call, the type expression of this function call is evaluated
@@ -1417,7 +1396,6 @@ public class ExpressionAnalyzer
                 }
             }
 
-            System.out.println("ExpressionAnalyzer.visitFunctionCall() 7");
             ResolvedFunction function;
             try {
                 function = functionResolver.resolveFunction(session, node.getName(), argumentTypes, accessControl);
@@ -1440,7 +1418,6 @@ public class ExpressionAnalyzer
                 throw new TrinoException(e::getErrorCode, extractLocation(node), e.getMessage(), e);
             }
 
-            System.out.println("ExpressionAnalyzer.visitFunctionCall() 8");
             if (node.getArguments().size() > 127) {
                 throw semanticException(TOO_MANY_ARGUMENTS, node, "Too many arguments for function call %s()", function.signature().getName().functionName());
             }
@@ -2437,7 +2414,6 @@ public class ExpressionAnalyzer
         @Override
         protected Type visitInPredicate(InPredicate node, Context context)
         {
-            System.out.println("ExpressionAnalyzer.visitInPredicate() scope canonicalizer: " + context.getScope().canonicalizerType());
             Expression value = node.getValue();
             Expression valueList = node.getValueList();
 
@@ -3755,17 +3731,11 @@ public class ExpressionAnalyzer
             WarningCollector warningCollector,
             CorrelationSupport correlationSupport)
     {
-        System.out.println("ExpressionAnalyzer.analyzeExpression() 1 scope canonicalizer: " + scope.canonicalizerType());
         ExpressionAnalyzer analyzer = new ExpressionAnalyzer(plannerContext, accessControl, statementAnalyzerFactory, analysis, session, warningCollector);
-        System.out.println("ExpressionAnalyzer.analyzeExpression() 2");
-
         analyzer.analyze(expression, scope, correlationSupport);
-        System.out.println("ExpressionAnalyzer.analyzeExpression() 3");
 
         updateAnalysis(analysis, analyzer, session, accessControl);
-        System.out.println("ExpressionAnalyzer.analyzeExpression() 4");
         analysis.addExpressionFields(expression, analyzer.getSourceFields());
-        System.out.println("ExpressionAnalyzer.analyzeExpression() 5");
 
         return new ExpressionAnalysis(
                 analyzer.getExpressionTypes(),

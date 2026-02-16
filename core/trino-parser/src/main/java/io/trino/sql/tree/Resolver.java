@@ -45,32 +45,12 @@ public class Resolver
 
     public String canonicalize(Identifier identifier)
     {
-        return canonicalize(identifier.getValue(), identifier.isDelimited());
-    }
-
-    public String canonicalize(String value, boolean delimited)
-    {
-        return canonicalizer.apply(value, delimited);
+        return canonicalizer.apply(identifier.getValue(), identifier.isDelimited());
     }
 
     public String compare(String value, IdentifierKind kind)
     {
         return comparator.apply(value, kind);
-    }
-
-    public String compareSchema(String value)
-    {
-        return comparator.apply(value, IdentifierKind.SCHEMA);
-    }
-
-    public String compareTable(String value)
-    {
-        return comparator.apply(value, IdentifierKind.TABLE);
-    }
-
-    public String compareColumn(String value)
-    {
-        return comparator.apply(value, IdentifierKind.COLUMN);
     }
 
     public boolean predicate(String value)

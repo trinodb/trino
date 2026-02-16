@@ -17,15 +17,19 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.errorprone.annotations.Immutable;
+import io.trino.sql.tree.Expression;
+import io.trino.sql.tree.Identifier;
 import io.trino.sql.tree.QualifiedName;
 
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.sql.analyzer.ExpressionTreeUtils.asQualifiedName;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -129,20 +133,32 @@ public class RelationType
      */
     public List<Field> resolveFields(QualifiedName name)
     {
-        if (name.toString().equals("NaMe")) {
-            System.out.println("RelationType.resolveFields() QualifiedName: " + name);
-            //System.out.println("RelationType.resolveField() stacktrace: " + Arrays.toString(Thread.currentThread().getStackTrace()).replace(',', '\n'));
-        }
-        List<String> fieldNames = allFields.stream().map(field -> field.getName().orElse("No name")).toList();
-        System.out.println("RelationType.resolveFields() QualifiedName: " + name + " - fields: " + String.join(", ", fieldNames));
         return allFields.stream()
                 .filter(input -> input.canResolve(name))
                 .collect(toImmutableList());
     }
 
+    public List<Field> resolveJoinedFields(List<Function<Identifier, String>> canonicalizers, Expression expression)
+    {
+        int index = 0;
+        int half = (allFields.size() / 2) - 1;
+        ImmutableList.Builder<Field> builder = ImmutableList.builder();
+        Function<Identifier, String> canonicalizer = canonicalizers.getFirst();
+        for (Field field : allFields) {
+            QualifiedName name = asQualifiedName(canonicalizer, expression);
+            if (name != null && field.canResolve(name)) {
+                builder.add(field);
+            }
+            if (index == half) {
+                canonicalizer = canonicalizers.getLast();
+            }
+            index++;
+        }
+        return builder.build();
+    }
+
     public boolean canResolve(QualifiedName name)
     {
-        System.out.println("RelationType.canResolve()");
         return !resolveFields(name).isEmpty();
     }
 

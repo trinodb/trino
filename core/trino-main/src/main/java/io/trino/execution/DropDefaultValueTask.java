@@ -98,7 +98,7 @@ public class DropDefaultValueTask
         }
         Identifier identifier = field.getOriginalParts().getFirst();
         Resolver resolver = plannerContext.getResolver(session, tableName.catalogName());
-        String columnName = resolver.canonicalize(identifier.getValue(), identifier.isDelimited());
+        String columnName = resolver.canonicalize(identifier);
         ColumnHandle columnHandle = metadata.getColumnHandles(session, tableHandle).get(columnName);
 
         if (columnHandle == null) {

@@ -82,7 +82,7 @@ public class UseTask
             denyCatalogAccess(catalog);
         }
 
-        String schema = plannerContext.getResolver(session, catalog).canonicalize(statement.getSchema().getValue(), statement.getSchema().isDelimited());
+        String schema = plannerContext.getResolver(session, catalog).canonicalize(statement.getSchema());
 
         CatalogSchemaName name = new CatalogSchemaName(catalog, schema);
         if (!metadata.schemaExists(session, name)) {

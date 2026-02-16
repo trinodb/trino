@@ -58,8 +58,13 @@ public record QualifiedObjectName(String catalogName, String schemaName, String 
 
     public QualifiedObjectName asResolvedQualifiedObjectName(Predicate<String> predicate)
     {
+        return asResolvedQualifiedObjectName(Optional.of(predicate));
+    }
+
+    public QualifiedObjectName asResolvedQualifiedObjectName(Optional<Predicate<String>> predicate)
+    {
         requireNonNull(predicate, "predicate is null");
-        return new QualifiedObjectName(catalogName, schemaName, objectName, Optional.of(predicate));
+        return new QualifiedObjectName(catalogName, schemaName, objectName, predicate);
     }
 
     public SchemaTableName asSchemaTableName()

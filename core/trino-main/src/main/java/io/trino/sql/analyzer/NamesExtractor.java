@@ -22,7 +22,6 @@ import io.trino.sql.tree.NodeRef;
 import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.SubqueryExpression;
 
-import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 
@@ -65,7 +64,6 @@ public final class NamesExtractor
         protected Void visitDereferenceExpression(DereferenceExpression node, ImmutableSet.Builder<QualifiedName> builder)
         {
             if (columnReferences.contains(NodeRef.<Expression>of(node))) {
-                System.out.println("NamesExtractor.visitDereferenceExpression() scope canonicalizer 1");
                 builder.add(DereferenceExpression.getQualifiedName(canonicalizer, node));
             }
             else {

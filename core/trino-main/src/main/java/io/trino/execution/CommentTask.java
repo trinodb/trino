@@ -166,7 +166,7 @@ public class CommentTask
 
             Identifier identifier = statement.getName().getOriginalParts().getLast();
             Resolver resolver = plannerContext.getResolver(session, originalObjectName.catalogName());
-            String columnName = resolver.canonicalize(identifier.getValue(), identifier.isDelimited());
+            String columnName = resolver.canonicalize(identifier);
             Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(session, tableHandle);
             if (!columnHandles.containsKey(columnName)) {
                 throw semanticException(COLUMN_NOT_FOUND, statement, "Column does not exist: %s", columnName);

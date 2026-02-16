@@ -148,12 +148,9 @@ public final class ExpressionTreeUtils
         if (expression instanceof Identifier identifier) {
             // FIXME: QualifiedName must use the canonicalizer
             name = QualifiedName.of(canonicalizer, identifier);
-            System.out.println("ExpressionTreeUtils.asQualifiedName() 1 QualifiedName " + name);
-
         }
         else if (expression instanceof DereferenceExpression dereferenceExpression) {
             name = DereferenceExpression.getQualifiedName(canonicalizer, dereferenceExpression);
-            System.out.println("ExpressionTreeUtils.asQualifiedName() 2 QualifiedName " + name);
         }
         return name;
     }

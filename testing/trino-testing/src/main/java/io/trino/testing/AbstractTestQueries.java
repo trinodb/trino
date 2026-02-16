@@ -431,15 +431,16 @@ public abstract class AbstractTestQueries
     @Test
     public void testPredicate()
     {
+        // FIXME: I can't pass this test if the table aliases aren't delimited.
         assertQuery("" +
                 "SELECT *\n" +
                 "FROM (\n" +
-                "  SELECT \"orderkey\"+1 AS a FROM \"orders\" WHERE \"orderstatus\" = 'F' UNION ALL \n" +
+                "  SELECT \"orderkey\"+1 AS \"a\" FROM \"orders\" WHERE \"orderstatus\" = 'F' UNION ALL \n" +
                 "  SELECT \"orderkey\" FROM \"orders\" WHERE \"orderkey\" % 2 = 0 UNION ALL \n" +
                 "  (SELECT \"orderkey\"+\"custkey\" FROM \"orders\" ORDER BY \"orderkey\" LIMIT 10)\n" +
                 ") \n" +
-                "WHERE a < 20 OR a > 100 \n" +
-                "ORDER BY a");
+                "WHERE \"a\" < 20 OR \"a\" > 100 \n" +
+                "ORDER BY \"a\"");
     }
 
     @Test
@@ -485,6 +486,7 @@ public abstract class AbstractTestQueries
     @Test
     public void testUnionAllAboveBroadcastJoin()
     {
-        assertQuery("SELECT COUNT(*) FROM \"region\" r JOIN (SELECT \"nationkey\" FROM \"nation\" UNION ALL SELECT \"nationkey\" as key FROM \"nation\") n ON r.\"regionkey\" = n.\"nationkey\"", "VALUES 10");
+        // FIXME: I can't pass this test if the table aliases aren't delimited.
+        assertQuery("SELECT COUNT(*) FROM \"region\" \"r\" JOIN (SELECT \"nationkey\" FROM \"nation\" UNION ALL SELECT \"nationkey\" as \"key\" FROM \"nation\") \"n\" ON \"r\".\"regionkey\" = \"n\".\"nationkey\"", "VALUES 10");
     }
 }

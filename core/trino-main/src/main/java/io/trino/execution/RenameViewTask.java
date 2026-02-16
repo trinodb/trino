@@ -84,9 +84,7 @@ public class RenameViewTask
             throw semanticException(TABLE_NOT_FOUND, statement, "View '%s' does not exist", viewName);
         }
 
-        System.out.println("RenameViewTask.execute() statement.getTarget(): " + statement.getTarget());
         QualifiedObjectName target = createQualifiedObjectName(session, statement, statement.getTarget(), plannerContext);
-        System.out.println("RenameViewTask.execute() target: " + target);
         if (metadata.getCatalogHandle(session, target.catalogName()).isEmpty()) {
             throw semanticException(CATALOG_NOT_FOUND, statement, "Target catalog '%s' not found", target.catalogName());
         }
@@ -99,7 +97,6 @@ public class RenameViewTask
         if (metadata.getTableHandle(session, target).isPresent()) {
             throw semanticException(TABLE_ALREADY_EXISTS, statement, "Target view '%s' does not exist, but a table with that name exists.", target);
         }
-        System.out.println("RenameViewTask.execute() view catalog: " + viewName.catalogName() + " - target catalog: " + target.catalogName());
         if (!viewName.catalogName().equals(target.catalogName())) {
             throw semanticException(NOT_SUPPORTED, statement, "View rename across catalogs is not supported");
         }

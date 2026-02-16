@@ -18,6 +18,7 @@ import com.google.inject.Inject;
 import io.opentelemetry.api.trace.Tracer;
 import io.trino.Session;
 import io.trino.execution.warnings.WarningCollector;
+import io.trino.metadata.Canonicalizer;
 import io.trino.metadata.FunctionManager;
 import io.trino.metadata.FunctionResolver;
 import io.trino.metadata.LanguageFunctionManager;
@@ -144,28 +145,18 @@ public class PlannerContext
         resolverManager.setResolver(session, catalog, metadata::getResolver);
     }
 
+    public Resolver getResolver(Canonicalizer canonicalizer)
+    {
+        return metadata.getResolver(canonicalizer);
+    }
+
     public Resolver getResolver(Session session, String catalog)
     {
         return resolverManager.getResolver(session, catalog, metadata::getResolver);
     }
 
-    public Resolver getDefaultResolver(Session session)
-    {
-        return resolverManager.getDefaultResolver(session, metadata::getResolver);
-    }
-
     public Optional<Resolver> getResolver(Session session)
     {
         return resolverManager.getResolver(session, metadata::getResolver);
-    }
-
-    public boolean isQueryResolved(Session session)
-    {
-        return resolverManager.hasSession(session);
-    }
-
-    public Optional<String> lastResolverName(Session session)
-    {
-        return resolverManager.lastResolverName(session);
     }
 }
