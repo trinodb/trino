@@ -459,9 +459,9 @@ public class TestVarcharOperators
                 .isEqualTo(new SqlNumber(bigDecimalMaxValue));
 
         assertTrinoExceptionThrownBy(assertions.expression("CAST(a AS number)")
-                .binding("a", "'1e" + (-TrinoNumberShim.getScaleMinValue() + 1) + "'")::evaluate)
+                .binding("a", "'1e" + (-TrinoNumberShim.getScaleMaxValue() - 1) + "'")::evaluate)
                 .hasErrorCode(INVALID_CAST_ARGUMENT)
-                .hasMessage("Cannot cast '1e16385' to NUMBER");
+                .hasMessage("Cannot cast '1e-16384' to NUMBER");
 
         // min representable value
         String minValue = "-" + maxValue;
