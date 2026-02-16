@@ -1727,25 +1727,7 @@ public class TestIcebergSparkCompatibility
 
         assertThat(onSpark().executeQuery("SELECT * FROM " + sparkTableName))
                 .containsOnly(sparkRows);
-
-        String selectAll = "SELECT * FROM " + trinoTableName;
-        // https://github.com/trinodb/trino/issues/28293
-        if (storageFormat == StorageFormat.AVRO && compressionCodec == CompressionCodec.NONE) {
-            assertQueryFailure(() -> onTrino().executeQuery(selectAll))
-                    .hasMessageMatching("\\QQuery failed (#\\E\\S+\\Q): Compression codec uncompressed is unsupported.");
-            return;
-        }
-        if (storageFormat == StorageFormat.ORC && compressionCodec == CompressionCodec.GZIP) {
-            assertQueryFailure(() -> onTrino().executeQuery(selectAll))
-                    .hasMessageMatching("\\QQuery failed (#\\E\\S+\\Q): Compression codec zlib is unsupported.");
-            return;
-        }
-        if (storageFormat == StorageFormat.PARQUET && compressionCodec == CompressionCodec.NONE) {
-            assertQueryFailure(() -> onTrino().executeQuery(selectAll))
-                    .hasMessageMatching("\\QQuery failed (#\\E\\S+\\Q): Compression codec uncompressed is unsupported.");
-            return;
-        }
-        assertThat(onTrino().executeQuery(selectAll))
+        assertThat(onTrino().executeQuery("SELECT * FROM " + trinoTableName))
                 .containsOnly(sparkRows);
 
         List<Row> trinoRows = IntStream.range(0, 13)
@@ -1812,28 +1794,10 @@ public class TestIcebergSparkCompatibility
         List<Row> sparkRows = IntStream.range(0, 13)
                 .mapToObj(i -> row("spark" + i, i))
                 .collect(toImmutableList());
-        String insertQuery = "INSERT INTO " + sparkTableName + " VALUES " +
+        onSpark().executeQuery("INSERT INTO " + sparkTableName + " VALUES " +
                 sparkRows.stream()
                         .map(row -> format("('%s', %s)", row.getValues().get(0), row.getValues().get(1)))
-                        .collect(Collectors.joining(", "));
-
-        // https://github.com/trinodb/trino/issues/28293
-        if (storageFormat == StorageFormat.AVRO && compressionCodec == CompressionCodec.NONE) {
-            assertQueryFailure(() -> onSpark().executeQuery(insertQuery))
-                    .hasMessageContaining("Unsupported compression codec: NONE");
-           return;
-        }
-        if (storageFormat == StorageFormat.PARQUET && compressionCodec == CompressionCodec.NONE) {
-            assertQueryFailure(() -> onSpark().executeQuery(insertQuery))
-                    .hasMessageContaining("Unsupported compression codec: NONE");
-            return;
-        }
-        if (storageFormat == StorageFormat.ORC && compressionCodec == CompressionCodec.GZIP) {
-            assertQueryFailure(() -> onSpark().executeQuery(insertQuery))
-                    .hasMessageContaining("Unsupported compression codec: GZIP");
-            return;
-        }
-        onSpark().executeQuery(insertQuery);
+                        .collect(Collectors.joining(", ")));
 
         assertThat(onTrino().executeQuery("SELECT * FROM %s WHERE a LIKE 'spark%%'".formatted(trinoTableName)))
                 .containsOnly(sparkRows);

@@ -115,6 +115,11 @@ import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.metastore.Table.TABLE_COMMENT;
 import static io.trino.parquet.writer.ParquetWriter.SUPPORTED_BLOOM_FILTER_TYPES;
 import static io.trino.plugin.base.io.ByteBuffers.getWrappedBytes;
+import static io.trino.plugin.hive.HiveCompressionCodec.GZIP;
+import static io.trino.plugin.hive.HiveCompressionCodec.LZ4;
+import static io.trino.plugin.hive.HiveCompressionCodec.NONE;
+import static io.trino.plugin.hive.HiveCompressionCodec.SNAPPY;
+import static io.trino.plugin.hive.HiveCompressionCodec.ZSTD;
 import static io.trino.plugin.iceberg.ColumnIdentity.createColumnIdentity;
 import static io.trino.plugin.iceberg.IcebergColumnHandle.fileModifiedTimeColumnHandle;
 import static io.trino.plugin.iceberg.IcebergColumnHandle.fileModifiedTimeColumnMetadata;
@@ -1023,16 +1028,43 @@ public final class IcebergUtil
     public static Optional<HiveCompressionCodec> getHiveCompressionCodec(IcebergFileFormat icebergFileFormat, Map<String, String> storageProperties)
     {
         String compressionProperty = getCompressionPropertyName(icebergFileFormat);
-
         return Optional.ofNullable(storageProperties.get(compressionProperty))
                 .filter(value -> !value.isEmpty())
                 .map(value -> {
+                    String upperCaseValue = value.toUpperCase(ENGLISH);
+                    // https://github.com/trinodb/trino/issues/28293
+                    // Not iceberg specification valid,
+                    // but Trino made these so we must read for backwards compatibility.
                     try {
-                        return HiveCompressionCodec.valueOf(value.toUpperCase(ENGLISH));
+                        return HiveCompressionCodec.valueOf(upperCaseValue);
                     }
-                    catch (IllegalArgumentException e) {
-                        throw new TrinoException(INVALID_TABLE_PROPERTY,
-                                format("Compression codec %s is unsupported.", value));
+                    catch (IllegalArgumentException _) {
+                        return switch (icebergFileFormat) {
+                            // Based on https://iceberg.apache.org/docs/1.10.1/docs/configuration/#write-properties.
+                            case PARQUET -> switch (upperCaseValue) {
+                                case "UNCOMPRESSED" -> NONE;
+                                case "SNAPPY" -> SNAPPY;
+                                case "ZSTD" -> ZSTD;
+                                case "LZ4" -> LZ4;
+                                case "GZIP" -> GZIP;
+                                default -> throw new TrinoException(INVALID_TABLE_PROPERTY, format("Unsupported compression codec: %s", upperCaseValue));
+                            };
+                            case AVRO -> switch (upperCaseValue) {
+                                case "UNCOMPRESSED" -> NONE;
+                                case "SNAPPY" -> SNAPPY;
+                                case "ZSTD" -> ZSTD;
+                                case "GZIP" -> GZIP;
+                                default -> throw new TrinoException(INVALID_TABLE_PROPERTY, format("Unsupported compression codec: %s", upperCaseValue));
+                            };
+                            case ORC -> switch (upperCaseValue) {
+                                case "ZLIB" -> GZIP;
+                                case "ZSTD" -> ZSTD;
+                                case "LZ4" -> LZ4;
+                                case "SNAPPY" -> SNAPPY;
+                                case "NONE" -> NONE;
+                                default -> throw new TrinoException(INVALID_TABLE_PROPERTY, format("Unsupported compression codec: %s", upperCaseValue));
+                            };
+                        };
                     }
                 });
     }
