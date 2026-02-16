@@ -263,7 +263,6 @@ public class TestJdbcConnectorTest
     @Override
     protected String errorMessageForInsertIntoNotNullColumn(String columnName)
     {
-        // FIXME: H2 has been switched to lower case and don't need anymore toLowerCase(ENGLISH) on columnName.
         return format("NULL not allowed for column \"%s\"(?s).*", columnName);
     }
 

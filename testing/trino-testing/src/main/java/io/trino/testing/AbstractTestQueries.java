@@ -25,6 +25,8 @@ import java.util.Set;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.connector.informationschema.InformationSchemaTable.INFORMATION_SCHEMA;
+import static io.trino.spi.StandardErrorCode.REQUIRE_DELIMITED_IDENTIFIER;
+import static io.trino.spi.connector.ConnectorMetadata.MODIFYING_ROWS_MESSAGE;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.MaterializedResult.resultBuilder;
@@ -37,6 +39,7 @@ import static java.lang.String.format;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.IntStream.range;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public abstract class AbstractTestQueries
         extends AbstractTestQueryFramework
@@ -46,9 +49,11 @@ public abstract class AbstractTestQueries
     @Test
     public void testAggregationOverUnknown()
     {
-        assertQuery("SELECT \"clerk\", min(\"totalprice\"), max(\"totalprice\"), min(nullvalue), max(nullvalue) " +
-                "FROM (SELECT \"clerk\", \"totalprice\", null AS nullvalue FROM \"orders\") " +
-                "GROUP BY \"clerk\"");
+        assertQuery("""
+                SELECT "clerk", min("totalprice"), max("totalprice"), min(%1$s), max(%1$s) \
+                FROM (SELECT "clerk", "totalprice", null AS %1$s FROM "orders") \
+                GROUP BY "clerk"\
+                """.formatted(canonicalize("nullvalue")));
     }
 
     @Test
@@ -368,36 +373,69 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testJoinRequiredDelimiter()
+    {
+        String unDelimitedJoinQuery = "SELECT n.name, r.name FROM nation n LEFT JOIN tpch.tiny.region r ON n.regionkey = r.regionkey ORDER BY n.name LIMIT 1";
+        String fullDelimitedJoinQuery = "SELECT \"n\".\"name\", \"r\".\"name\" FROM \"nation\" \"n\" LEFT JOIN tpch.tiny.region r ON \"n\".\"regionkey\" = \"r\".\"regionkey\" ORDER BY \"n\".\"name\" LIMIT 1";
+        String leftDelimitedJoinQuery = "SELECT \"n\".\"name\", r.\"name\" FROM \"nation\" \"n\" LEFT JOIN tpch.tiny.region r ON \"n\".\"regionkey\" = r.\"regionkey\" ORDER BY \"n\".\"name\" LIMIT 1";
+        String rightDelimitedJoinQuery = "SELECT n.\"name\", \"r\".\"name\" FROM \"nation\" n LEFT JOIN tpch.tiny.region r ON n.\"regionkey\" = \"r\".\"regionkey\" ORDER BY n.\"name\" LIMIT 1";
+        String resultQuery = "SELECT n.name, r.name FROM tpch.tiny.nation n LEFT JOIN tpch.tiny.region r ON n.regionkey = r.regionkey ORDER BY n.name LIMIT 1";
+        if (canonicalize("x").equals("x")) {
+            // FIXME: If the connectors use the same canonicalizer, everything works as before delimited identifier support.
+            //        Connector with IDENTITY canonicalizer match any other canonicalizer
+            assertThat(getQueryRunner().execute(getSession(), unDelimitedJoinQuery).getMaterializedRows())
+                    .isEqualTo(getQueryRunner().execute(getSession(), resultQuery).getMaterializedRows());
+            assertThat(getQueryRunner().execute(getSession(), fullDelimitedJoinQuery).getMaterializedRows())
+                    .isEqualTo(getQueryRunner().execute(getSession(), resultQuery).getMaterializedRows());
+            assertThat(getQueryRunner().execute(getSession(), leftDelimitedJoinQuery).getMaterializedRows())
+                    .isEqualTo(getQueryRunner().execute(getSession(), resultQuery).getMaterializedRows());
+            assertThat(getQueryRunner().execute(getSession(), rightDelimitedJoinQuery).getMaterializedRows())
+                    .isEqualTo(getQueryRunner().execute(getSession(), resultQuery).getMaterializedRows());
+        }
+        else {
+            // FIXME: This is the right way to use JOIN on connectors with different canonicalizer, IDENTITY canonicalizer excluded.
+            assertThat(getQueryRunner().execute(getSession(), fullDelimitedJoinQuery).getMaterializedRows())
+                    .isEqualTo(getQueryRunner().execute(getSession(), resultQuery).getMaterializedRows());
+            assertThatThrownBy(() -> getQueryRunner().execute(getSession(), unDelimitedJoinQuery))
+                    .hasMessage("line 1:28: Table '%s.%s.NATION' does not exist".formatted(getSession().getCatalog().orElseThrow(), getSession().getSchema().orElseThrow()));
+            assertThatThrownBy(() -> getQueryRunner().execute(getSession(), leftDelimitedJoinQuery))
+                    .hasMessage("line 1:97: Column 'R.regionkey' require delimiter");
+            assertThatThrownBy(() -> getQueryRunner().execute(getSession(), rightDelimitedJoinQuery))
+                    .hasMessage("line 1:77: Column 'N.regionkey' require delimiter");
+        }
+    }
+
+    @Test
     public void testTopN()
     {
-        //assertQueryOrdered("SELECT n.\"name\", r.\"name\" FROM \"nation\" n LEFT JOIN \"region\" r ON n.\"regionkey\" = r.\"regionkey\" ORDER BY n.\"name\" LIMIT 1");
+        assertQueryOrdered("SELECT n.\"name\", r.\"name\" FROM \"nation\" n LEFT JOIN \"region\" r ON n.\"regionkey\" = r.\"regionkey\" ORDER BY n.\"name\" LIMIT 1");
 
-        //assertQueryOrdered("SELECT \"orderkey\" FROM \"orders\" ORDER BY \"orderkey\" LIMIT 10");
-        //assertQueryOrdered("SELECT \"orderkey\" FROM \"orders\" ORDER BY \"orderkey\" DESC LIMIT 10");
+        assertQueryOrdered("SELECT \"orderkey\" FROM \"orders\" ORDER BY \"orderkey\" LIMIT 10");
+        assertQueryOrdered("SELECT \"orderkey\" FROM \"orders\" ORDER BY \"orderkey\" DESC LIMIT 10");
 
         // multiple sort columns with different sort orders
-        //assertQueryOrdered("SELECT \"orderpriority\", \"totalprice\" FROM \"orders\" ORDER BY \"orderpriority\" DESC, \"totalprice\" ASC LIMIT 10");
+        assertQueryOrdered("SELECT \"orderpriority\", \"totalprice\" FROM \"orders\" ORDER BY \"orderpriority\" DESC, \"totalprice\" ASC LIMIT 10");
 
         // TopN with Filter
-        //assertQueryOrdered("SELECT \"orderkey\" FROM \"orders\" WHERE \"orderkey\" > 10 ORDER BY \"orderkey\" DESC LIMIT 10");
+        assertQueryOrdered("SELECT \"orderkey\" FROM \"orders\" WHERE \"orderkey\" > 10 ORDER BY \"orderkey\" DESC LIMIT 10");
 
         // TopN over aggregation column
-        //assertQueryOrdered("SELECT sum(\"totalprice\"), \"clerk\" FROM \"orders\" GROUP BY \"clerk\" ORDER BY sum(\"totalprice\") LIMIT 10");
+        assertQueryOrdered("SELECT sum(\"totalprice\"), \"clerk\" FROM \"orders\" GROUP BY \"clerk\" ORDER BY sum(\"totalprice\") LIMIT 10");
 
         // TopN over TopN
-        //assertQueryOrdered("SELECT \"orderkey\", \"totalprice\" FROM (SELECT \"orderkey\", \"totalprice\" FROM \"orders\" ORDER BY 1, 2 LIMIT 10) ORDER BY 2, 1 LIMIT 5");
+        assertQueryOrdered("SELECT \"orderkey\", \"totalprice\" FROM (SELECT \"orderkey\", \"totalprice\" FROM \"orders\" ORDER BY 1, 2 LIMIT 10) ORDER BY 2, 1 LIMIT 5");
 
         // TopN over complex query
         assertQueryOrdered(
-                "SELECT totalprice_sum, \"clerk\" " +
-                        "FROM (SELECT SUM(\"totalprice\") as totalprice_sum, \"clerk\" FROM \"orders\" WHERE \"orderpriority\"='1-URGENT' GROUP BY \"clerk\" ORDER BY totalprice_sum DESC LIMIT 10)" +
+                "SELECT \"totalprice_sum\", \"clerk\" " +
+                        "FROM (SELECT SUM(\"totalprice\") as \"totalprice_sum\", \"clerk\" FROM \"orders\" WHERE \"orderpriority\"='1-URGENT' GROUP BY \"clerk\" ORDER BY \"totalprice_sum\" DESC LIMIT 10)" +
                         "ORDER BY \"clerk\" DESC LIMIT 5");
 
         // TopN over aggregation with filter
         assertQueryOrdered(
                 "SELECT * " +
                         "FROM (SELECT SUM(\"totalprice\") as sum, \"custkey\" AS total FROM \"orders\" GROUP BY \"custkey\" HAVING COUNT(*) > 3) " +
-                        "ORDER BY sum DESC LIMIT 10");
+                        "ORDER BY %s DESC LIMIT 10".formatted(canonicalize("sum")));
     }
 
     @Test

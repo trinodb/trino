@@ -1036,7 +1036,7 @@ class StatementAnalyzer
 
             // analyze the query that creates the table
             // FIXME We need to inject the current canonicalizer in outerQueryScope
-            Scope queryScope = analyze(node.getQuery(), createScope(scope, resolver::canonicalize), false);
+            Scope queryScope = analyze(node.getQuery(), scope, false);
 
             ImmutableList.Builder<ColumnMetadata> columnsBuilder = ImmutableList.builder();
 
@@ -1656,6 +1656,7 @@ class StatementAnalyzer
         @Override
         protected Scope visitQuery(Query node, Optional<Scope> scope)
         {
+            System.out.println("StatementAnalyzer.visitQuery() 1 scope canonicalizer: " + scope.map(Scope::canonicalizerType).orElse("No scope"));
             // In case of simple select with no table we set as last resolver the SYSTEM_CANONICALIZER
             // and if the query has a FROM clause when the visitTable will override the last resolver.
             for (FunctionSpecification function : node.getFunctions()) {
@@ -1705,7 +1706,7 @@ class StatementAnalyzer
 
             Scope queryScope = Scope.builder()
                     .withParent(withScope)
-                    .withCanonicalizers(queryBodyScope.getCanonicalizers())
+                    //.withCanonicalizers(queryBodyScope.getCanonicalizers())
                     .withRelationType(RelationId.of(node), queryBodyScope.getRelationType())
                     .build();
 
@@ -1767,7 +1768,7 @@ class StatementAnalyzer
         {
             StatementAnalyzer analyzer = statementAnalyzerFactory.createStatementAnalyzer(analysis, session, warningCollector, CorrelationSupport.ALLOWED);
             Scope queryScope = analyzer.analyze(node.getQuery(), scope.orElseThrow());
-            return createAndAssignScope(node, scope, queryScope.getRelationType(), queryScope.getCanonicalizers());
+            return createAndAssignScope(node, scope, queryScope.getRelationType());
         }
 
         @Override
@@ -2402,27 +2403,13 @@ class StatementAnalyzer
         @Override
         protected Scope visitTable(Table table, Optional<Scope> scope)
         {
-            List<Identifier> identifiers = getQualifiedObjectIdentifiers(session, table, table.getName(), plannerContext);
-            QualifiedObjectName name = createQualifiedObjectName(session, plannerContext, identifiers);
-            Resolver resolver = plannerContext.getResolver(session, name.catalogName());
-
-            // FIXME: Need to canonicalize table.getName() to have testDuplicateOutputsInAnchorAndStepRelation() working
+            System.out.println("StatementAnalyzer.visitTable() scope canonicalizer: " + scope.map(Scope::canonicalizerType).orElse("No scope"));
             // is this a reference to a WITH query?
             if (table.getName().getPrefix().isEmpty()) {
-                Function<Identifier, String> canonicalizer;
-                if (scope.isPresent() && scope.get().hasCanonicalizer()) {
-                    // FIXME: the WITH clause will use the UPPERCASE_CANONICALIZER
-                    canonicalizer = scope.get().getCanonicalizers().getFirst();
-                }
-                else {
-                    canonicalizer = resolver::canonicalize;
-                }
-                Identifier identifier = table.getName().getOriginalParts().getLast();
-                QualifiedName tableName = QualifiedName.of(canonicalizer, identifier);
-                Optional<WithQuery> withQuery = createScope(scope).getNamedQuery(resolver.canonicalize(identifier));
+                Optional<WithQuery> withQuery = createScope(scope).getNamedQuery(table.getName().getSuffix());
                 if (withQuery.isPresent()) {
-                    analysis.setRelationName(table, tableName);
-                    return createScopeForCommonTableExpression(table, scope, withQuery.get(), canonicalizer);
+                    analysis.setRelationName(table, table.getName());
+                    return createScopeForCommonTableExpression(table, scope, withQuery.get());
                 }
                 // is this a recursive reference in expandable WITH query? If so, there's base scope recorded.
                 Optional<Scope> expandableBaseScope = analysis.getExpandableBaseScope(table);
@@ -2431,13 +2418,18 @@ class StatementAnalyzer
                     // adjust local and outer parent scopes accordingly to the local context of the recursive reference
                     Scope resultScope = scopeBuilder(scope)
                             .withRelationType(baseScope.getRelationId(), baseScope.getRelationType())
-                            .withCanonicalizer(canonicalizer)
                             .build();
                     analysis.setScope(table, resultScope);
                     analysis.setRelationName(table, tableName);
                     return resultScope;
                 }
             }
+
+            List<Identifier> identifiers = getQualifiedObjectIdentifiers(session, table, table.getName(), plannerContext);
+            QualifiedObjectName name = createQualifiedObjectName(session, plannerContext, identifiers);
+            Resolver resolver = plannerContext.getResolver(session, name.catalogName());
+
+            // FIXME: Need to canonicalize table.getName() to have testDuplicateOutputsInAnchorAndStepRelation() working
 
             analysis.setRelationName(table, QualifiedName.of(resolver::canonicalize, identifiers));
 
@@ -2662,7 +2654,7 @@ class StatementAnalyzer
             }
         }
 
-        private Scope createScopeForCommonTableExpression(Table table, Optional<Scope> scope, WithQuery withQuery, Function<Identifier, String> canonicalizer)
+        private Scope createScopeForCommonTableExpression(Table table, Optional<Scope> scope, WithQuery withQuery)
         {
             Query query = withQuery.getQuery();
             analysis.registerNamedQuery(table, query);
@@ -2672,7 +2664,6 @@ class StatementAnalyzer
 
             List<Field> fields;
             Optional<List<Identifier>> columnNames = withQuery.getColumnNames();
-            QualifiedName tableName = QualifiedName.of(canonicalizer, table.getName().getOriginalParts().getLast());
             if (columnNames.isPresent()) {
                 // if columns are explicitly aliased -> WITH cte(alias1, alias2 ...)
                 checkState(columnNames.get().size() == queryDescriptor.getVisibleFieldCount(), "mismatched aliases");
@@ -2682,8 +2673,8 @@ class StatementAnalyzer
                     Field inputField = queryDescriptor.getFieldByIndex(i);
                     if (!inputField.isHidden()) {
                         Field field = Field.newQualified(
-                                tableName,
-                                Optional.of(canonicalizer.apply(aliases.next())),
+                                QualifiedName.of(table.getName().getSuffix()),
+                                Optional.of(aliases.next().getValue()),
                                 inputField.getType(),
                                 false,
                                 inputField.getOriginTable(),
@@ -2702,7 +2693,7 @@ class StatementAnalyzer
                     Field inputField = queryDescriptor.getFieldByIndex(i);
                     if (!inputField.isHidden()) {
                         Field field = Field.newQualified(
-                                tableName,
+                                QualifiedName.of(table.getName().getSuffix()),
                                 inputField.getName(),
                                 inputField.getType(),
                                 false,
@@ -2717,7 +2708,7 @@ class StatementAnalyzer
                 fields = fieldBuilder.build();
             }
 
-            return createAndAssignScope(table, scope, canonicalizer, fields);
+            return createAndAssignScope(table, scope, fields);
         }
 
         private Scope createScopeForMaterializedView(Table table, QualifiedObjectName name, Optional<Scope> scope, MaterializedViewDefinition view, Function<Identifier, String> canonicalizer, Optional<TableHandle> freshStorageTable)
@@ -2800,7 +2791,7 @@ class StatementAnalyzer
                     .collect(toImmutableList());
 
             if (freshStorageTable.isPresent()) {
-                List<Field> storageTableFields = analyzeStorageTable(table, viewFields, freshStorageTable.get(), scope, canonicalizer);
+                List<Field> storageTableFields = analyzeStorageTable(table, viewFields, freshStorageTable.get(), canonicalizer);
                 analysis.setMaterializedViewStorageTableFields(table, storageTableFields);
             }
             else {
@@ -2829,7 +2820,7 @@ class StatementAnalyzer
             return createAndAssignScope(table, scope, canonicalizer, viewFields);
         }
 
-        private List<Field> analyzeStorageTable(Table table, List<Field> viewFields, TableHandle storageTable, Optional<Scope> scope, Function<Identifier, String> canonicalizer)
+        private List<Field> analyzeStorageTable(Table table, List<Field> viewFields, TableHandle storageTable, Function<Identifier, String> canonicalizer)
         {
             TableSchema tableSchema = metadata.getTableSchema(session, storageTable);
             Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(session, storageTable);
@@ -3123,9 +3114,11 @@ class StatementAnalyzer
         @Override
         protected Scope visitAliasedRelation(AliasedRelation relation, Optional<Scope> scope)
         {
+            System.out.println("StatementAnalyzer.visitAliasedRelation() 1 scope canonicalizer: " + scope.map(Scope::lastCanonicalizerType).orElse("No scope"));
             // FIXME: AliasedRelation are now canonicalized
             analysis.addAliased(relation.getRelation());
             Scope relationScope = process(relation.getRelation(), scope);
+            System.out.println("StatementAnalyzer.visitAliasedRelation() 2 relationScope canonicalizer: " + relationScope.lastCanonicalizerType());
             analysis.setRelationName(relation, QualifiedName.of(relationScope::canonicalize, relation.getAlias()));
             RelationType relationType = relationScope.getRelationType();
 
@@ -3165,8 +3158,8 @@ class StatementAnalyzer
                     descriptor.getAllFields().stream(),
                     inputFields.stream(),
                     (newField, field) -> analysis.addSourceColumns(newField, analysis.getSourceColumns(field)));
-
-            return createAndAssignScope(relation, scope, descriptor, relationScope.getCanonicalizers());
+            System.out.println("StatementAnalyzer.visitAliasedRelation() end");
+            return createAndAssignScope(relation, scope, descriptor, relationScope.getCanonicalizer());
         }
 
         // As described by the SQL standard ISO/IEC 9075-2, 7.6 <table reference>, p. 409
@@ -3322,18 +3315,19 @@ class StatementAnalyzer
         {
             StatementAnalyzer analyzer = statementAnalyzerFactory.createStatementAnalyzer(analysis, session, warningCollector, CorrelationSupport.ALLOWED);
             Scope queryScope = analyzer.analyze(node.getQuery(), scope.orElseThrow());
-            return createAndAssignScope(node, scope, queryScope.getRelationType(), queryScope.getCanonicalizers());
+            return createAndAssignScope(node, scope, queryScope.getRelationType());
         }
 
         @Override
         protected Scope visitQuerySpecification(QuerySpecification node, Optional<Scope> scope)
         {
+            System.out.println("StatementAnalyzer.visitQuerySpecification() 1 scope canonicalizer: " + scope.map(Scope::canonicalizerType).orElse("No scope"));
+
             // TODO: extract candidate names from SELECT, WHERE, HAVING, GROUP BY and ORDER BY expressions
             //       to pass down to analyzeFrom
 
             // FIXME: We inject the latest canonicalizer used for this query
             Scope sourceScope = analyzeFrom(node, scope);
-            //Scope sourceScope = analyzeFrom(node, scope);
 
             analyzeWindowDefinitions(node, sourceScope);
             resolveFunctionCallAndMeasureWindows(node);
@@ -3350,6 +3344,7 @@ class StatementAnalyzer
             Optional<Scope> orderByScope = Optional.empty();
             if (node.getOrderBy().isPresent()) {
                 OrderBy orderBy = node.getOrderBy().get();
+                // FIXME canonicalizer must be propagated here!!!
                 orderByScope = Optional.of(computeAndAssignOrderByScope(orderBy, sourceScope, outputScope));
 
                 orderByExpressions = analyzeOrderBy(node, orderBy.getSortItems(), orderByScope.get());
@@ -3584,13 +3579,18 @@ class StatementAnalyzer
         @Override
         protected Scope visitJoin(Join node, Optional<Scope> scope)
         {
+            System.out.println("StatementAnalyzer.visitJoin() 1 scope canonicalizer: " + scope.map(Scope::canonicalizerType).orElse("No scope"));
             JoinCriteria criteria = node.getCriteria().orElse(null);
             if (criteria instanceof NaturalJoin) {
                 throw semanticException(NOT_SUPPORTED, node, "Natural join not supported");
             }
 
+            boolean isLateral = isLateralRelation(node.getRight());
+            System.out.println("StatementAnalyzer.visitJoin() 2 isLateral: " + isLateral);
             Scope left = process(node.getLeft(), scope);
+            System.out.println("StatementAnalyzer.visitJoin() 3 left scope canonicalizer: " + left.canonicalizerType() + " - lastIdentifier: " + left.lastCanonicalizerType());
             Scope right = process(node.getRight(), isLateralRelation(node.getRight()) ? Optional.of(left) : scope);
+            System.out.println("StatementAnalyzer.visitJoin() 4 right scope canonicalizer: " + right.canonicalizerType() + " - lastIdentifier: " + right.lastCanonicalizerType());
             if (isLateralRelation(node.getRight())) {
                 if (node.getType() == RIGHT || node.getType() == FULL) {
                     Stream<Expression> leftScopeReferences = getReferencesToScope(node.getRight(), analysis, left);
@@ -3642,27 +3642,29 @@ class StatementAnalyzer
             }
 
             if (criteria instanceof JoinUsing joinUsing) {
+                System.out.println("StatementAnalyzer.visitJoin() 5 joinUsing");
                 return analyzeJoinUsing(node, joinUsing.getColumns(), scope, left, right);
             }
 
-            // FIXME: We need to collect the left and right canonicalizer
-            List<Function<Identifier, String>> canonicalizers = Stream.concat(
-                    left.getCanonicalizers().stream(),
-                            right.getCanonicalizers().stream())
-                    .collect(Collectors.toList());
-            Optional<Scope> outerQueryScope = Optional.of(createScope(scope, canonicalizers));
-            Scope output = createAndAssignScope(node, outerQueryScope, left.getRelationType().joinWith(right.getRelationType()));
+            boolean requireDelimiter = left.incompatibleCanonicalizer(right);
+            System.out.println("StatementAnalyzer.visitJoin() ******************************");
+            RelationType joinRelation = left.getRelationType().joinWith(right.getRelationType());
+            Scope output = createAndAssignScope(node, scope, joinRelation, left.getCanonicalizer(), requireDelimiter);
 
             if (node.getType() == Join.Type.CROSS || node.getType() == Join.Type.IMPLICIT) {
+                System.out.println("StatementAnalyzer.visitJoin() 6 cross or implicit");
                 return output;
             }
             if (criteria instanceof JoinOn joinOn) {
+                System.out.println("StatementAnalyzer.visitJoin() 7 joinOn");
                 Expression expression = joinOn.getExpression();
                 verifyNoAggregateWindowOrGroupingFunctions(session, functionResolver, accessControl, expression, "JOIN clause");
 
                 // Need to register coercions in case when join criteria requires coercion (e.g. join on char(1) = char(2))
                 // Correlations are only currently support in the join criteria for INNER joins
+                System.out.println("StatementAnalyzer.visitJoin() 8 joinOn");
                 ExpressionAnalysis expressionAnalysis = analyzeExpression(expression, output, node.getType() == INNER ? CorrelationSupport.ALLOWED : CorrelationSupport.DISALLOWED);
+                System.out.println("StatementAnalyzer.visitJoin() 9 joinOn");
                 Type clauseType = expressionAnalysis.getType(expression);
                 if (!clauseType.equals(BOOLEAN)) {
                     if (!clauseType.equals(UNKNOWN)) {
@@ -3671,14 +3673,15 @@ class StatementAnalyzer
                     // coerce expression to boolean
                     analysis.addCoercion(expression, BOOLEAN);
                 }
-
+                System.out.println("StatementAnalyzer.visitJoin() 10 joinOn");
                 analysis.recordSubqueries(node, expressionAnalysis);
+                System.out.println("StatementAnalyzer.visitJoin() 11 joinOn");
                 analysis.setJoinCriteria(node, expression);
             }
             else {
                 throw new UnsupportedOperationException("Unsupported join criteria: " + criteria.getClass().getName());
             }
-
+            System.out.println("StatementAnalyzer.visitJoin() end");
             return output;
         }
 
@@ -3911,8 +3914,12 @@ class StatementAnalyzer
             }
             Scope mergeScope = createScope(scope, resolver::canonicalize);
             Scope targetTableScope = analyzer.analyzeForUpdate(relation, Optional.of(mergeScope), UpdateKind.MERGE);
+            System.out.println("StatementAnalyzer.visitMerge() targetTableScope canonicalizer: " + targetTableScope.canonicalizerType());
             Scope sourceTableScope = process(merge.getSource(), mergeScope);
-            Scope joinScope = createAndAssignScope(merge, Optional.of(mergeScope), targetTableScope.getRelationType().joinWith(sourceTableScope.getRelationType()));
+            System.out.println("StatementAnalyzer.visitMerge() sourceTableScope canonicalizer: " + sourceTableScope.canonicalizerType());
+            boolean requireDelimiter = targetTableScope.incompatibleCanonicalizer(sourceTableScope);
+            RelationType joinRelation = targetTableScope.getRelationType().joinWith(sourceTableScope.getRelationType());
+            Scope joinScope = createAndAssignScope(merge, Optional.of(mergeScope), joinRelation, mergeScope.getCanonicalizer(), requireDelimiter);
             analyzeCheckConstraints(table, tableName, targetTableScope, tableSchema.tableSchema().getCheckConstraints());
             analysis.registerTable(table, redirection.tableHandle(), tableName, table.getBranch().map(Identifier::getValue), session.getIdentity().getUser(), targetTableScope, Optional.empty());
 
@@ -4831,6 +4838,7 @@ class StatementAnalyzer
 
         private void analyzeHaving(QuerySpecification node, Scope scope)
         {
+            System.out.println("StatementAnalyzer.analyzeHaving()");
             if (node.getHaving().isPresent()) {
                 Expression predicate = node.getHaving().get();
 
@@ -5084,15 +5092,17 @@ class StatementAnalyzer
                 }
             }
 
-            return createAndAssignScope(node, scope, sourceScope.getCanonicalizers(), outputFields.build());
+            return createAndAssignScope(node, scope, outputFields.build());
         }
 
         private Scope computeAndAssignOrderByScope(OrderBy node, Scope sourceScope, Scope outputScope)
         {
             // ORDER BY should "see" both output and FROM fields during initial analysis and non-aggregation query planning
+            // FIXME: To be able to read ORDER undelimited identifier we must propagate the sourceScope canonicalizer
             Scope orderByScope = Scope.builder()
                     .withParent(sourceScope)
                     .withRelationType(outputScope.getRelationId(), outputScope.getRelationType())
+                    .withCanonicalizer(sourceScope.getCanonicalizer())
                     .build();
             analysis.setScope(node, orderByScope);
             return orderByScope;
@@ -5764,7 +5774,7 @@ class StatementAnalyzer
             With with = node.getWith().get();
             // FIXME: the WITH clause will use the UPPERCASE_CANONICALIZER
             Resolver resolver = plannerContext.getResolver(UPPERCASE_CANONICALIZER);
-            Scope.Builder withScopeBuilder = scopeBuilder(scope, resolver::canonicalize);
+            Scope.Builder withScopeBuilder = scopeBuilder(scope);
 
             for (WithQuery withQuery : with.getQueries()) {
                 String name = resolver.canonicalize(withQuery.getName());
@@ -6278,41 +6288,34 @@ class StatementAnalyzer
             return createAndAssignScope(node, parentScope, new RelationType(fields));
         }
 
-        private Scope createAndAssignScope(Node node, Optional<Scope> parentScope, List<Function<Identifier, String>> canonicalizers, Field... fields)
-        {
-            return createAndAssignScope(node, parentScope, new RelationType(fields), canonicalizers);
-        }
-
         private Scope createAndAssignScope(Node node, Optional<Scope> parentScope, Function<Identifier, String> canonicalizer, Field... fields)
         {
-            return createAndAssignScope(node, parentScope, new RelationType(fields), Arrays.asList(canonicalizer));
+            return createAndAssignScope(node, parentScope, new RelationType(fields), Optional.of(canonicalizer));
         }
 
         private Scope createAndAssignScope(Node node, Optional<Scope> parentScope, Function<Identifier, String> canonicalizer, List<Field> fields)
         {
-            return createAndAssignScope(node, parentScope, new RelationType(fields), Collections.singletonList(canonicalizer));
-        }
-
-        private Scope createAndAssignScope(Node node, Optional<Scope> parentScope, List<Function<Identifier, String>> canonicalizers, List<Field> fields)
-        {
-            return createAndAssignScope(node, parentScope, new RelationType(fields), canonicalizers);
+            return createAndAssignScope(node, parentScope, new RelationType(fields), Optional.of(canonicalizer));
         }
 
         private Scope createAndAssignScope(Node node, Optional<Scope> parentScope, List<Field> fields)
         {
-            return createAndAssignScope(node, parentScope, new RelationType(fields), parentScope.map(Scope::getCanonicalizers).orElse(ImmutableList.of()));
+            return createAndAssignScope(node, parentScope, new RelationType(fields), Optional.empty());
         }
 
         private Scope createAndAssignScope(Node node, Optional<Scope> parentScope, RelationType relationType)
         {
-            return createAndAssignScope(node, parentScope, relationType, parentScope.map(Scope::getCanonicalizers).orElse(ImmutableList.of()));
+            return createAndAssignScope(node, parentScope, relationType, Optional.empty());
         }
-
-        private Scope createAndAssignScope(Node node, Optional<Scope> parentScope, RelationType relationType, List<Function<Identifier, String>> canonicalizers)
+        private Scope createAndAssignScope(Node node, Optional<Scope> parentScope, RelationType relationType, Optional<Function<Identifier, String>> canonicalizer)
         {
-            Scope scope = scopeBuilder(parentScope)
+            return createAndAssignScope(node, parentScope, relationType, canonicalizer, false);
+        }
+        private Scope createAndAssignScope(Node node, Optional<Scope> parentScope, RelationType relationType, Optional<Function<Identifier, String>> canonicalizer, boolean requireDelimiter)
+        {
+            Scope scope = scopeBuilder(parentScope, canonicalizer)
                     .withRelationType(RelationId.of(node), relationType)
-                    .withCanonicalizers(canonicalizers)
+                    .withRequiredDelimiter(requireDelimiter)
                     .build();
 
             analysis.setScope(node, scope);
@@ -6326,27 +6329,21 @@ class StatementAnalyzer
 
         private Scope createScope(Optional<Scope> scope, Function<Identifier, String> canonicalizer)
         {
+            return createScope(scope, Optional.of(canonicalizer));
+        }
+
+        private Scope createScope(Optional<Scope> scope, Optional<Function<Identifier, String>> canonicalizer)
+        {
             return scope.map(s -> s.withCanonicalizer(scope, canonicalizer))
                     .orElse(Scope.builder().withCanonicalizer(canonicalizer).build());
         }
 
-        private Scope createScope(Optional<Scope> scope, List<Function<Identifier, String>> canonicalizers)
-        {
-            return scope.map(s -> s.withCanonicalizers(scope, canonicalizers))
-                    .orElse(Scope.builder().withCanonicalizers(canonicalizers).build());
-        }
-
         private Scope.Builder scopeBuilder(Optional<Scope> parentScope)
         {
-            return scopeBuilder(parentScope, emptyList());
+            return scopeBuilder(parentScope, Optional.empty());
         }
 
-        private Scope.Builder scopeBuilder(Optional<Scope> parentScope, Function<Identifier, String> canonicalizer)
-        {
-            return scopeBuilder(parentScope, Collections.singletonList(canonicalizer));
-        }
-
-        private Scope.Builder scopeBuilder(Optional<Scope> parentScope, List<Function<Identifier, String>> canonicalizers)
+        private Scope.Builder scopeBuilder(Optional<Scope> parentScope, Optional<Function<Identifier, String>> canonicalizer)
         {
             Scope.Builder scopeBuilder = Scope.builder();
 
@@ -6358,8 +6355,8 @@ class StatementAnalyzer
             else {
                 outerQueryScope.ifPresent(scopeBuilder::withOuterQueryParent);
             }
-            if (!canonicalizers.isEmpty()) {
-                scopeBuilder.withCanonicalizers(canonicalizers);
+            if (canonicalizer.isPresent()) {
+                scopeBuilder.withCanonicalizer(canonicalizer.get());
             }
 
             return scopeBuilder;

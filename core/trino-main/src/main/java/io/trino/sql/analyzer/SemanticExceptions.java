@@ -23,6 +23,7 @@ import io.trino.sql.tree.QualifiedName;
 import static io.trino.spi.StandardErrorCode.AMBIGUOUS_NAME;
 import static io.trino.spi.StandardErrorCode.COLUMN_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.INVALID_COLUMN_REFERENCE;
+import static io.trino.spi.StandardErrorCode.REQUIRE_DELIMITED_IDENTIFIER;
 import static io.trino.sql.analyzer.ExpressionTreeUtils.extractLocation;
 import static java.lang.String.format;
 
@@ -43,6 +44,11 @@ public final class SemanticExceptions
     public static TrinoException ambiguousAttributeException(Expression node, QualifiedName name)
     {
         throw semanticException(AMBIGUOUS_NAME, node, "Column '%s' is ambiguous", name);
+    }
+
+    public static TrinoException requireDelimiterException(Expression node, QualifiedName name)
+    {
+        throw semanticException(REQUIRE_DELIMITED_IDENTIFIER, node, "Column '%s' require delimiter", name);
     }
 
     @SuppressWarnings("FormatStringAnnotation")

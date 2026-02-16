@@ -195,10 +195,20 @@ public class TestMemoryConnectorTest
     @Timeout(30)
     public void testPhysicalInputPositions()
     {
+        String query;
+        if (canonicalize("x").equals("x")) {
+            query = """
+                SELECT * FROM lineitem JOIN tpch.tiny.supplier ON supplier.suppkey = lineitem.suppkey AND supplier.name = 'Supplier#000000001'\
+                """;
+        }
+        else {
+            query = """
+                SELECT * FROM "lineitem" JOIN tpch.tiny.supplier ON "supplier"."suppkey" = "lineitem"."suppkey" AND "supplier"."name" = 'Supplier#000000001'\
+                """;
+        }
         MaterializedResultWithPlan result = getDistributedQueryRunner().executeWithPlan(
                 getSession(),
-                "SELECT * FROM \"lineitem\" JOIN tpch.tiny.supplier ON supplier.suppkey = \"lineitem\".\"suppkey\" " +
-                        "AND supplier.name = 'Supplier#000000001'");
+                query);
         assertThat(result.result().getRowCount()).isEqualTo(615);
 
         OperatorStats probeStats = getScanOperatorStats(getDistributedQueryRunner(), result.queryId()).stream()

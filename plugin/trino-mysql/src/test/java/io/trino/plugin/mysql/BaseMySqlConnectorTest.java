@@ -811,6 +811,15 @@ public abstract class BaseMySqlConnectorTest
         }
     }
 
+    @Test
+    @Override // Override because MySql does not support primary key on varchar
+    public void testMergeSubqueries()
+    {
+        assertThatThrownBy(super::testMergeSubqueries)
+                .isInstanceOf(RuntimeException.class)
+                .hasMessage("java.sql.SQLSyntaxErrorException: BLOB/TEXT column 'nation_name' used in key specification without a key length");
+    }
+
     @Override
     protected void createTableForWrites(@Language("SQL") String createTable, String tableName, Optional<String> primaryKey, OptionalInt updateCount)
     {

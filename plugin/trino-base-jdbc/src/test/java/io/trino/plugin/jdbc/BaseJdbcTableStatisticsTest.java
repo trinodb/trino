@@ -353,7 +353,9 @@ public abstract class BaseJdbcTableStatisticsTest
     public void testStatsWithJoinPushdown()
     {
         // Simple join with heavily filtered side, should be eligible for pushdown.
-        String query = "SELECT r.\"regionkey\" \"regionkey\", r.\"name\" \"r_name\", n.\"name\" \"n_name\" FROM \"region\" r JOIN \"nation\" n ON r.\"regionkey\" = n.\"regionkey\" WHERE n.\"nationkey\" = 5";
+        String query = """
+                SELECT "r"."regionkey" "regionkey", "r"."name" "r_name", "n"."name" "n_name" FROM "region" "r" JOIN "nation" "n" ON "r"."regionkey" = "n"."regionkey" WHERE "n"."nationkey" = 5\
+                """;
 
         // Verify query can be pushed down, that's the situation we want to test for.
         assertThat(query(query)).isFullyPushedDown();

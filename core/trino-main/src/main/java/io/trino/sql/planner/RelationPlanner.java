@@ -307,7 +307,7 @@ class RelationPlanner
         if (namedQuery != null) {
             RelationPlan subPlan;
             if (analysis.isExpandableQuery(namedQuery)) {
-                subPlan = new QueryPlanner(analysis, symbolAllocator, idAllocator, lambdaDeclarationToSymbolMap, plannerContext, outerContext, session, recursiveSubqueries, scope.getCanonicalizer())
+                subPlan = new QueryPlanner(analysis, symbolAllocator, idAllocator, lambdaDeclarationToSymbolMap, plannerContext, outerContext, session, recursiveSubqueries, scope::canonicalize)
                         .planExpand(namedQuery);
             }
             else {
@@ -1868,7 +1868,7 @@ class RelationPlanner
     @Override
     protected RelationPlan visitQuery(Query node, Void context)
     {
-        Function<Identifier, String> canonicalizer = analysis.getScope(node).getCanonicalizer();
+        Function<Identifier, String> canonicalizer = analysis.getScope(node)::canonicalize;
         return new QueryPlanner(analysis, symbolAllocator, idAllocator, lambdaDeclarationToSymbolMap, plannerContext, outerContext, session, recursiveSubqueries, canonicalizer)
                 .plan(node);
     }
@@ -1876,7 +1876,7 @@ class RelationPlanner
     @Override
     protected RelationPlan visitQuerySpecification(QuerySpecification node, Void context)
     {
-        Function<Identifier, String> canonicalizer = analysis.getScope(node).getCanonicalizer();
+        Function<Identifier, String> canonicalizer = analysis.getScope(node)::canonicalize;
         return new QueryPlanner(analysis, symbolAllocator, idAllocator, lambdaDeclarationToSymbolMap, plannerContext, outerContext, session, recursiveSubqueries, canonicalizer)
                 .plan(node);
     }

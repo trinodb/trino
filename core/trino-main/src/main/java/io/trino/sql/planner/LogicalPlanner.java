@@ -856,7 +856,7 @@ public class LogicalPlanner
 
     private RelationPlan createDeletePlan(Analysis analysis, Delete node)
     {
-        Function<Identifier, String> canonicalizer = analysis.getScope(node).getCanonicalizer();
+        Function<Identifier, String> canonicalizer = analysis.getScope(node)::canonicalize;
         PlanNode planNode = new QueryPlanner(analysis, symbolAllocator, idAllocator, buildLambdaDeclarationToSymbolMap(analysis, symbolAllocator), plannerContext, Optional.empty(), session, ImmutableMap.of(), canonicalizer)
                 .plan(node);
 
@@ -874,7 +874,7 @@ public class LogicalPlanner
 
     private RelationPlan createUpdatePlan(Analysis analysis, Update node)
     {
-        Function<Identifier, String> canonicalizer = analysis.getScope(node).getCanonicalizer();
+        Function<Identifier, String> canonicalizer = analysis.getScope(node)::canonicalize;
         PlanNode planNode = new QueryPlanner(analysis, symbolAllocator, idAllocator, buildLambdaDeclarationToSymbolMap(analysis, symbolAllocator), plannerContext, Optional.empty(), session, ImmutableMap.of(), canonicalizer)
                 .plan(node);
 
@@ -892,7 +892,7 @@ public class LogicalPlanner
 
     private RelationPlan createMergePlan(Analysis analysis, Merge node)
     {
-        Function<Identifier, String> canonicalizer = analysis.getScope(node).getCanonicalizer();
+        Function<Identifier, String> canonicalizer = analysis.getScope(node)::canonicalize;
         MergeWriterNode mergeNode = new QueryPlanner(analysis, symbolAllocator, idAllocator, buildLambdaDeclarationToSymbolMap(analysis, symbolAllocator), plannerContext, Optional.empty(), session, ImmutableMap.of(), canonicalizer)
                 .plan(node);
 

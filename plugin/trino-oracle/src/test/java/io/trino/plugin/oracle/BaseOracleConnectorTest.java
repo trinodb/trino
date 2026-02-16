@@ -33,6 +33,7 @@ import static io.trino.plugin.oracle.TestingOracleServer.TEST_USER;
 import static io.trino.spi.connector.ConnectorMetadata.MODIFYING_ROWS_MESSAGE;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.MaterializedResult.resultBuilder;
+import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_TABLE;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
@@ -189,6 +190,52 @@ public abstract class BaseOracleConnectorTest
                 .row("shippriority", "decimal(10,0)", "", "")
                 .row("comment", "varchar(79)", "", "")
                 .build();
+    }
+
+    @Test
+    @Override
+    public void testCreateTableMixedCaseDelimited()
+    {
+        String table = "Test Create MixedCase Delimited " + randomNameSuffix();
+        if (!hasBehavior(SUPPORTS_CREATE_TABLE)) {
+            assertQueryFails("CREATE TABLE \"" + table + "\" (\"Column A\" bigint, \"Column B\" double)", "This connector does not support creating tables");
+            return;
+        }
+
+        assertThat(computeActual("SHOW TABLES").getOnlyColumnAsSet()) // prime the cache, if any
+                .doesNotContain(table);
+        assertUpdate("CREATE TABLE \"" + table + "\" (\"Column A\" bigint, \"Column B\" double)");
+        assertThat(getQueryRunner().tableExists(getSession(), canonicalize(table, true))).isTrue();
+
+        assertThat(query("SHOW COLUMNS FROM \"" + table + "\""))
+                .result().matches(resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
+                        .row(canonicalize("Column A", true), "decimal(19,0)", "", "")
+                        .row(canonicalize("Column B", true), "double", "", "")
+                        .build());
+
+        String catalog = getSession().getCatalog().orElseThrow();
+        String schema = getSession().getSchema().orElseThrow();
+        assertThat(computeActual("SHOW CREATE TABLE \"" + table + "\"").getOnlyValue())
+                // If the connector reports additional column properties, the expected value needs to be adjusted in the test subclass
+                .asString().matches(getCreateTableMixedCaseDelimited(catalog, schema, table));
+        assertThat(getQueryRunner().tableExists(getSession(), canonicalize(table, true))).isTrue();
+        assertUpdate("DROP TABLE \"" + table + "\"");
+        assertThat(getQueryRunner().tableExists(getSession(), canonicalize(table, true))).isFalse();
+    }
+
+    @Override
+    protected String getCreateTableMixedCaseDelimited(String catalog, String schema, String table)
+    {
+        return format(
+                """
+                \\QCREATE TABLE %s.%s."%s" (
+                   "Column A" decimal(19,0),
+                   "Column B" double
+                )\\E\
+                """,
+                catalog,
+                canonicalize(schema).equals(schema) ? schema : '"' + schema + '"',
+                table);
     }
 
     @Test

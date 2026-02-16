@@ -177,6 +177,11 @@ public class QualifiedName
         return this.suffix;
     }
 
+    public boolean isDelimited()
+    {
+        return originalParts.stream().allMatch(Identifier::isDelimited);
+    }
+
     @Override
     public boolean equals(Object o)
     {

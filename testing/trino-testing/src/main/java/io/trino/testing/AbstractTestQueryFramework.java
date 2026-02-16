@@ -780,8 +780,9 @@ public abstract class AbstractTestQueryFramework
 
     protected String getTableComment(String catalogName, String schemaName, String tableName)
     {
+        // FIXME: I am forced to use LIKE instead of EQUALITY for table names if they contain an underscore.
         return (String) computeScalar("SELECT \"comment\" FROM \"system\".\"metadata\".\"table_comments\" " +
-                "WHERE \"catalog_name\" = '" + catalogName + "' AND \"schema_name\" = '" + schemaName + "' AND \"table_name\" = '" + tableName + "'");
+                "WHERE \"catalog_name\" = '" + catalogName + "' AND \"schema_name\" = '" + schemaName + "' AND \"table_name\" LIKE '" + tableName + "'");
     }
 
     private <T> T inTransaction(Session session, Function<Session, T> transactionSessionConsumer)

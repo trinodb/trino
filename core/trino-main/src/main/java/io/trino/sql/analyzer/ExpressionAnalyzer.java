@@ -271,6 +271,7 @@ import static io.trino.sql.analyzer.PatternRecognitionAnalysis.NavigationAnchor.
 import static io.trino.sql.analyzer.PatternRecognitionAnalysis.NavigationAnchor.LAST;
 import static io.trino.sql.analyzer.SemanticExceptions.invalidReferenceException;
 import static io.trino.sql.analyzer.SemanticExceptions.missingAttributeException;
+import static io.trino.sql.analyzer.SemanticExceptions.requireDelimiterException;
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.trino.sql.analyzer.TypeSignatureTranslator.toTypeSignature;
@@ -702,9 +703,10 @@ public class ExpressionAnalyzer
         protected Type visitRow(Row node, Context context)
         {
             // FIXME: Row fields use now identifier canonicalized value
+            Function<Identifier, String> canonicalizer = context.getScope()::canonicalize;
             List<RowType.Field> fields = node.getFields().stream()
                     .map(field -> new RowType.Field(
-                            field.getName().map(baseScope::canonicalize),
+                            field.getName().map(canonicalizer),
                             process(field.getExpression(), context)))
                     .collect(toImmutableList());
 
@@ -763,7 +765,7 @@ public class ExpressionAnalyzer
         {
             //System.out.println("ExpressionAnalyzer.visitIdentifier() stacktrace: " + Arrays.toString(Thread.currentThread().getStackTrace()).replace(',', '\n'));
             // FIXME: The context canonicalizer will be used to canonicalize QualifiedName
-            ResolvedField resolvedField = context.getScope().resolveField(node, QualifiedName.of(context.getScope()::canonicalize, node));
+            ResolvedField resolvedField = context.getScope().resolveField(node, node);
 
             if (context.isPatternRecognition()) {
                 labels.put(NodeRef.of(node), Optional.empty());
@@ -815,6 +817,7 @@ public class ExpressionAnalyzer
                 throw semanticException(NOT_SUPPORTED, node, "<identifier>.* not allowed in this context");
             }
 
+            System.out.println("ExpressionAnalyzer.visitDereferenceExpression() canonicalizer type: " + context.getScope().canonicalizerType());
             Function<Identifier, String> canonicalizer = context.getScope()::canonicalize;
             QualifiedName qualifiedName = DereferenceExpression.getQualifiedName(canonicalizer, node);
 
@@ -855,7 +858,11 @@ public class ExpressionAnalyzer
                 if (resolvedField.isPresent()) {
                     return handleResolvedField(node, resolvedField.get(), context);
                 }
+                if (scope.requireDelimiter() && !qualifiedName.isDelimited()) {
+                    throw requireDelimiterException(node, qualifiedName);
+                }
                 if (!scope.isColumnReference(qualifiedName)) {
+                    System.out.println("ExpressionAnalyzer.visitDereferenceExpression() is Delimited: " + qualifiedName.isDelimited() + " - requireDelimiter: " + scope.requireDelimiter());
                     throw missingAttributeException(node, qualifiedName);
                 }
             }
@@ -2657,7 +2664,7 @@ public class ExpressionAnalyzer
                 fieldToLambdaArgumentDeclaration.putAll(context.getFieldToLambdaArgumentDeclaration());
             }
             for (LambdaArgumentDeclaration lambdaArgument : lambdaArguments) {
-                ResolvedField resolvedField = lambdaScope.resolveField(lambdaArgument, QualifiedName.of(lambdaArgument.getName()));
+                ResolvedField resolvedField = lambdaScope.resolveField(lambdaArgument, lambdaArgument.getName());
                 fieldToLambdaArgumentDeclaration.put(FieldId.from(resolvedField), lambdaArgument);
             }
 

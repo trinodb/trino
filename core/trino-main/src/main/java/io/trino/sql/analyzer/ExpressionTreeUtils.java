@@ -142,6 +142,16 @@ public final class ExpressionTreeUtils
                 .map(location -> new Location(location.getLineNumber(), location.getColumnNumber()));
     }
 
+    public static boolean isQualifiedName(Expression expression)
+    {
+        return expression instanceof Identifier || expression instanceof DereferenceExpression;
+    }
+
+    public static QualifiedName asQualifiedName(Expression expression)
+    {
+        return asQualifiedName(Identifier::getValue, expression);
+    }
+
     public static QualifiedName asQualifiedName(Function<Identifier, String> canonicalizer, Expression expression)
     {
         QualifiedName name = null;

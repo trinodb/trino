@@ -393,10 +393,10 @@ public class TestSpatialJoins
         assertThat(new QueryAssertions(getQueryRunner()).query(
                 """
                 WITH
-                    points(lat, lon) AS ( VALUES (0.5, 0.5), (2, 2) ),
-                    polygons(id, x) AS ( VALUES (1, ST_GeometryFromText('POLYGON ((0 0, 0 1, 1 1, 1 0, 0 0))')) )
+                    \"points\"(lat, lon) AS ( VALUES (0.5, 0.5), (2, 2) ),
+                    \"polygons\"(id, x) AS ( VALUES (1, ST_GeometryFromText('POLYGON ((0 0, 0 1, 1 1, 1 0, 0 0))')) )
                 SELECT id, lat, lon
-                FROM points LEFT JOIN polygons ON st_contains(x, ST_Point(lat, lon))
+                FROM \"points\" LEFT JOIN \"polygons\" ON st_contains(x, ST_Point(lat, lon))
                 """))
                 .matches(
                         """

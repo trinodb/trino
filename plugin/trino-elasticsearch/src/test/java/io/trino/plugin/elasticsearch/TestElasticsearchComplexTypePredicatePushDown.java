@@ -328,7 +328,7 @@ final class TestElasticsearchComplexTypePredicatePushDown
         // no predicate push down for ARRAY type dereference
         assertQueryStats(
                 getSession(),
-                "SELECT * FROM \"" + tableName + "\" WHERE colArray[1] = -1",
+                "SELECT * FROM \"" + tableName + "\" WHERE \"colArray\"[1] = -1",
                 queryStats -> assertThat(queryStats.getProcessedInputDataSize().toBytes()).isGreaterThan(0),
                 results -> assertThat(results.getRowCount()).isEqualTo(0));
 
