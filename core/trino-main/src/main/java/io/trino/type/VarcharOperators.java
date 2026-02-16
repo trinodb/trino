@@ -160,7 +160,7 @@ public final class VarcharOperators
         try {
             return TrinoNumber.from(new BigDecimal(slice.toStringUtf8().trim()));
         }
-        catch (NumberFormatException e) {
+        catch (IllegalArgumentException e) {
             throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to NUMBER", slice.toStringUtf8()), e);
         }
     }

@@ -29,6 +29,7 @@ import io.trino.Session;
 import io.trino.SystemSessionProperties;
 import io.trino.spi.session.PropertyMetadata;
 import io.trino.spi.type.TimeZoneKey;
+import io.trino.spi.type.TrinoNumberShim;
 import io.trino.tests.QueryTemplate;
 import io.trino.tpch.TpchTable;
 import io.trino.type.SqlIntervalDayTime;
@@ -6677,6 +6678,14 @@ public abstract class AbstractTestEngineOnlyQueries
                 .matches("VALUES NUMBER '3.14159265358979'");
         assertThat(computeActual("SELECT NUMBER '3' + NUMBER '.14159265358979'").getOnlyValue())
                 .isEqualTo(new BigDecimal("3.14159265358979"));
+
+        String maxValue = "9".repeat(TrinoNumberShim.getMaxDecimalPrecision()) + "e" + -TrinoNumberShim.getScaleMinValue();
+        assertThat(computeActual("SELECT NUMBER '" + maxValue + "'").getOnlyValue())
+                .isEqualTo(new BigDecimal(maxValue));
+
+        String minPositiveValue = "1e" + -TrinoNumberShim.getScaleMinValue();
+        assertThat(computeActual("SELECT NUMBER '" + minPositiveValue + "'").getOnlyValue())
+                .isEqualTo(new BigDecimal(minPositiveValue));
 
         // Test testing NUMBER with H2QueryRunner
         assertQuery(

@@ -14,6 +14,7 @@
 package io.trino.type;
 
 import io.trino.spi.type.SqlNumber;
+import io.trino.spi.type.TrinoNumberShim;
 import io.trino.sql.query.QueryAssertions;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -21,6 +22,9 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
 
+import java.math.BigDecimal;
+
+import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static io.trino.spi.function.OperatorType.EQUAL;
 import static io.trino.spi.function.OperatorType.IDENTICAL;
 import static io.trino.spi.function.OperatorType.INDETERMINATE;
@@ -35,6 +39,7 @@ import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createVarcharType;
+import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
@@ -393,5 +398,108 @@ public class TestVarcharOperators
 
         assertThat(assertions.operator(INDETERMINATE, "cast(true as varchar)"))
                 .isEqualTo(false);
+    }
+
+    /**
+     * Test {@link VarcharOperators#castToNumber}. More coverage is provided also by {@link TestNumberOperators}.
+     */
+    @Test
+    public void testCastToNumber()
+    {
+        assertThat(assertions.expression("CAST(a AS number)")
+                .binding("a", "CAST(NULL AS varchar)"))
+                .isNull(NUMBER);
+        assertThat(assertions.expression("CAST(a AS number)")
+                .binding("a", "'0'"))
+                .isEqualTo(new SqlNumber("0"));
+        assertThat(assertions.expression("CAST(a AS number)")
+                .binding("a", "'1'"))
+                .isEqualTo(new SqlNumber("1"));
+        assertThat(assertions.expression("CAST(a AS number)")
+                .binding("a", "'3.14159265358979'"))
+                .isEqualTo(new SqlNumber("3.14159265358979"));
+        assertThat(assertions.expression("CAST(a AS number)")
+                .binding("a", "'20050910133100123'"))
+                .isEqualTo(new SqlNumber("20050910133100123"));
+        assertThat(assertions.expression("CAST(a AS number)")
+                .binding("a", "'20050910.133100123'"))
+                .isEqualTo(new SqlNumber("20050910.133100123"));
+        // leading and trailing zeros
+        assertThat(assertions.expression("CAST(a AS number)")
+                .binding("a", "'000000001.3000000000'"))
+                .isEqualTo(new SqlNumber("1.3"));
+        // leading and trailing zeros after decimal point
+        assertThat(assertions.expression("CAST(a AS number)")
+                .binding("a", "'0.0000000013000000000'"))
+                .isEqualTo(new SqlNumber("1.3E-9"));
+        // leading and trailing zeros before decimal point
+        assertThat(assertions.expression("CAST(a AS number)")
+                .binding("a", "'0000000013000000000.0000000000'"))
+                .isEqualTo(new SqlNumber("1.3E+10"));
+        // leading and trailing whitespace
+        assertThat(assertions.expression("CAST(a AS number)")
+                .binding("a", "' \t\n\f 20050910.133100123  \t\n\f '"))
+                .isEqualTo(new SqlNumber("20050910.133100123"));
+
+        // max representable value
+        String maxValue = "9".repeat(TrinoNumberShim.getMaxDecimalPrecision()) + "e" + -TrinoNumberShim.getScaleMinValue();
+        BigDecimal bigDecimalMaxValue = new BigDecimal(maxValue);
+        assertThat(assertions.expression("CAST(a AS number)")
+                .binding("a", "'" + maxValue + "'"))
+                .isEqualTo(new SqlNumber(bigDecimalMaxValue));
+        assertThat(assertions.expression("CAST(a AS number)")
+                .binding("a", "'" + bigDecimalMaxValue.toString() + "'"))
+                .isEqualTo(new SqlNumber(bigDecimalMaxValue));
+        assertThat(assertions.expression("CAST(a AS number)")
+                .binding("a", "'" + bigDecimalMaxValue.toPlainString() + "'"))
+                .isEqualTo(new SqlNumber(bigDecimalMaxValue));
+        // Rounding due to max precision reached
+        assertThat(assertions.expression("CAST(a AS number)")
+                .binding("a", "'" + bigDecimalMaxValue.add(BigDecimal.ONE) + "'"))
+                .isEqualTo(new SqlNumber(bigDecimalMaxValue));
+
+        assertTrinoExceptionThrownBy(assertions.expression("CAST(a AS number)")
+                .binding("a", "'1e" + (-TrinoNumberShim.getScaleMinValue() + 1) + "'")::evaluate)
+                .hasErrorCode(INVALID_CAST_ARGUMENT)
+                .hasMessage("Cannot cast '1e16385' to NUMBER");
+
+        // min representable value
+        String minValue = "-" + maxValue;
+        BigDecimal bigDecimalMinValue = new BigDecimal(minValue);
+        assertThat(assertions.expression("CAST(a AS number)")
+                .binding("a", "'" + minValue + "'"))
+                .isEqualTo(new SqlNumber(bigDecimalMinValue));
+        assertThat(assertions.expression("CAST(a AS number)")
+                .binding("a", "'" + bigDecimalMinValue.toString() + "'"))
+                .isEqualTo(new SqlNumber(bigDecimalMinValue));
+        assertThat(assertions.expression("CAST(a AS number)")
+                .binding("a", "'" + bigDecimalMinValue.toPlainString() + "'"))
+                .isEqualTo(new SqlNumber(bigDecimalMinValue));
+
+        // min positive representable value
+        String minPositiveValue = "1e" + -TrinoNumberShim.getScaleMinValue();
+        BigDecimal bigDecimalMinPositiveValue = new BigDecimal(minPositiveValue);
+        assertThat(assertions.expression("CAST(a AS number)")
+                .binding("a", "'" + minPositiveValue + "'"))
+                .isEqualTo(new SqlNumber(bigDecimalMinPositiveValue));
+        assertThat(assertions.expression("CAST(a AS number)")
+                .binding("a", "'" + bigDecimalMinPositiveValue.toString() + "'"))
+                .isEqualTo(new SqlNumber(bigDecimalMinPositiveValue));
+        assertThat(assertions.expression("CAST(a AS number)")
+                .binding("a", "'" + bigDecimalMinPositiveValue.toPlainString() + "'"))
+                .isEqualTo(new SqlNumber(bigDecimalMinPositiveValue));
+
+        // max negative representable value
+        String maxNegativeValue = "-" + minPositiveValue;
+        BigDecimal bigDecimalMaxNegativeValue = new BigDecimal(maxNegativeValue);
+        assertThat(assertions.expression("CAST(a AS number)")
+                .binding("a", "'" + maxNegativeValue + "'"))
+                .isEqualTo(new SqlNumber(bigDecimalMaxNegativeValue));
+        assertThat(assertions.expression("CAST(a AS number)")
+                .binding("a", "'" + bigDecimalMaxNegativeValue.toString() + "'"))
+                .isEqualTo(new SqlNumber(bigDecimalMaxNegativeValue));
+        assertThat(assertions.expression("CAST(a AS number)")
+                .binding("a", "'" + bigDecimalMaxNegativeValue.toPlainString() + "'"))
+                .isEqualTo(new SqlNumber(bigDecimalMaxNegativeValue));
     }
 }
