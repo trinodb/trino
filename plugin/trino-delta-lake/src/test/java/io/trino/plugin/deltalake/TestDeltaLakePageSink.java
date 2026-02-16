@@ -181,7 +181,7 @@ public class TestDeltaLakePageSink
                 NONE,
                 OptionalInt.empty(),
                 false,
-                false,
+                Optional.of(getColumnHandles()),
                 OptionalLong.empty(),
                 new ProtocolEntry(DEFAULT_READER_VERSION, DEFAULT_WRITER_VERSION, Optional.empty(), Optional.empty()));
 
