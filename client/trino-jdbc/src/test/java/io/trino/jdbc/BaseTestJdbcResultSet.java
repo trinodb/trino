@@ -16,6 +16,7 @@ package io.trino.jdbc;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.math.IntMath;
+import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 
 import java.math.BigDecimal;
@@ -1027,7 +1028,7 @@ public abstract class BaseTestJdbcResultSet
         }
     }
 
-    private void checkRepresentation(Statement statement, String expression, int expectedSqlType, Object expectedRepresentation)
+    private void checkRepresentation(Statement statement, @Language("SQL") String expression, int expectedSqlType, Object expectedRepresentation)
             throws SQLException
     {
         checkRepresentation(statement, expression, expectedSqlType, (rs, column) -> {
@@ -1036,7 +1037,7 @@ public abstract class BaseTestJdbcResultSet
         });
     }
 
-    private void checkRepresentation(Statement statement, String expression, int expectedSqlType, ResultAssertion assertion)
+    private void checkRepresentation(Statement statement, @Language("SQL") String expression, int expectedSqlType, ResultAssertion assertion)
             throws SQLException
     {
         try (ResultSet rs = statement.executeQuery("SELECT " + expression)) {
@@ -1049,7 +1050,7 @@ public abstract class BaseTestJdbcResultSet
         }
     }
 
-    private Object getObjectRepresentation(Connection connection, String expression)
+    private Object getObjectRepresentation(Connection connection, @Language("SQL") String expression)
             throws SQLException
     {
         try (Statement statement = connection.createStatement();
