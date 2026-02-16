@@ -301,7 +301,7 @@ public class TestRecursiveCte
                         .setSystemProperty(MAX_RECURSION_DEPTH, "4")
                         .build(),
                 "WITH RECURSIVE " +
-                        "        T(a, orig_a) AS (VALUES (1, 0), (2, 0), (3, 1), (4, 1), (5, 2), (6, 3), (7, 5)), " +
+                        "        T(A, ORIG_A) AS (VALUES (1, 0), (2, 0), (3, 1), (4, 1), (5, 2), (6, 3), (7, 5)), " +
                         "        CTE(a, orig_a, base_id, root_a) AS( " +
                         "                                           SELECT a, orig_a, 'base_entry', a " +
                         "                                               FROM T " +

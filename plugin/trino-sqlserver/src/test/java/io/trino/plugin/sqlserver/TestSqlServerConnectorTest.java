@@ -33,7 +33,6 @@ import static io.trino.plugin.sqlserver.SqlServerSessionProperties.BULK_COPY_FOR
 import static io.trino.plugin.sqlserver.SqlServerSessionProperties.BULK_COPY_FOR_WRITE_LOCK_DESTINATION_TABLE;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
-import static java.util.Locale.ENGLISH;
 import static java.util.stream.Collectors.joining;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -181,7 +180,6 @@ public class TestSqlServerConnectorTest
             tableName = addRandomNameSuffix(tableName);
             String tableNameInSql = "\"" + tableName.replace("\"", "\"\"") + "\"";
             // Until https://github.com/trinodb/trino/issues/17 the table name is effectively lowercase
-            tableName = tableName.toLowerCase(ENGLISH);
             assertUpdate("CREATE TABLE " + tableNameInSql + " (a bigint, b double, c varchar(50))");
             assertThat(getQueryRunner().tableExists(getSession(), tableName)).isTrue();
             assertTableColumnNames(tableNameInSql, "a", "b", "c");
@@ -205,7 +203,7 @@ public class TestSqlServerConnectorTest
             assertTableColumnNames(tableName, sourceColumnName);
 
             assertUpdate("ALTER TABLE " + tableName + " RENAME COLUMN \"" + sourceColumnName + "\" TO " + nameInSql);
-            assertTableColumnNames(tableName, columnName.toLowerCase(ENGLISH));
+            assertTableColumnNames(tableName, columnName);
 
             assertUpdate("DROP TABLE " + tableName);
         }

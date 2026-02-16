@@ -759,6 +759,7 @@ public class ExpressionAnalyzer
         @Override
         protected Type visitIdentifier(Identifier node, Context context)
         {
+            System.out.println("ExpressionAnalyser.visitIdentifier() node: " + node.getValue());
             ResolvedField resolvedField = context.getScope().resolveField(node, QualifiedName.of(node.getValue()));
 
             if (context.isPatternRecognition()) {
@@ -787,7 +788,6 @@ public class ExpressionAnalyzer
                     return setExpressionType(node, field.getType());
                 }
             }
-
             if (field.getOriginTable().isPresent() && field.getOriginColumnName().isPresent()) {
                 tableColumnReferences.put(field.getOriginTable().get(), field.getOriginColumnName().get());
             }
@@ -812,6 +812,7 @@ public class ExpressionAnalyzer
             }
 
             QualifiedName qualifiedName = DereferenceExpression.getQualifiedName(node);
+            System.out.println("ExpressionAnalyzer.visitDereferenceExpression() qualifiedName: " + qualifiedName);
 
             // If this Dereference looks like column reference, try match it to column first.
             if (qualifiedName != null) {

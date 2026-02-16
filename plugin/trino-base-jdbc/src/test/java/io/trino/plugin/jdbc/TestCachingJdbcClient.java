@@ -929,7 +929,7 @@ public class TestCachingJdbcClient
 
         assertThat(results)
                 .containsExactlyInAnyOrder(
-                        "example.test_load_failure_not_shared " + database.getDatabaseName() + ".EXAMPLE.TEST_LOAD_FAILURE_NOT_SHARED",
+                        "EXAMPLE.test_load_failure_not_shared " + database.getDatabaseName() + ".EXAMPLE.TEST_LOAD_FAILURE_NOT_SHARED",
                         "com.google.common.util.concurrent.UncheckedExecutionException: java.lang.RuntimeException: first attempt is poised to fail");
     }
 

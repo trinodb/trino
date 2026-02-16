@@ -96,10 +96,12 @@ public class DereferenceExpression
 
         List<Identifier> parts = null;
         if (expression.base instanceof Identifier identifier) {
+            System.out.println("DereferenceExpression.getQualifiedName() identifier: " + identifier.getValue() + " - delimited: " + identifier.isDelimited());
             parts = ImmutableList.of(identifier, field);
         }
         else if (expression.base instanceof DereferenceExpression dereferenceExpression) {
             QualifiedName baseQualifiedName = getQualifiedName(dereferenceExpression);
+            System.out.println("DereferenceExpression.getQualifiedName() baseQualifiedName: " + baseQualifiedName);
             if (baseQualifiedName != null) {
                 ImmutableList.Builder<Identifier> builder = ImmutableList.builder();
                 builder.addAll(baseQualifiedName.getOriginalParts());
@@ -107,8 +109,12 @@ public class DereferenceExpression
                 parts = builder.build();
             }
         }
-
-        return parts == null ? null : QualifiedName.of(parts);
+        if (parts == null) {
+            return null;
+        }
+        QualifiedName qualifiedName = QualifiedName.of(parts);
+        System.out.println("DereferenceExpression.getQualifiedName() qualifiedName: " + qualifiedName);
+        return qualifiedName;
     }
 
     public static Expression from(QualifiedName name)

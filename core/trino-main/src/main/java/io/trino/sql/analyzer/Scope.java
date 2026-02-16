@@ -309,6 +309,7 @@ public class Scope
 
     public Optional<WithQuery> getNamedQuery(String name)
     {
+        System.out.println("Scope.getNamedQuery() namedQueries: " + String.join(", ", namedQueries.keySet()));
         if (namedQueries.containsKey(name)) {
             return Optional.of(namedQueries.get(name));
         }

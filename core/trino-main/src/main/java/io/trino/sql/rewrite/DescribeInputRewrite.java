@@ -120,7 +120,9 @@ public final class DescribeInputRewrite
         @Override
         protected Node visitDescribeInput(DescribeInput node, Void context)
         {
+            System.out.println("DescribeInputRewrite.visitDescribeInput() node name: " + node.getName().getValue());
             String sqlString = session.getPreparedStatement(node.getName().getValue());
+            System.out.println("DescribeInputRewrite.visitDescribeInput() sql: " + sqlString);
             Statement statement = parser.createStatement(sqlString);
 
             // create  analysis for the query we are describing.

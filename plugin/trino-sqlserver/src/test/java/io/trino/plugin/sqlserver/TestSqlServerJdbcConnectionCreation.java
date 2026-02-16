@@ -84,9 +84,9 @@ public class TestSqlServerJdbcConnectionCreation
     @Test
     public void testJdbcConnectionCreations()
     {
-        assertJdbcConnections("SELECT * FROM nation LIMIT 1", 3, Optional.empty());
-        assertJdbcConnections("SELECT * FROM nation ORDER BY nationkey LIMIT 1", 3, Optional.empty());
-        assertJdbcConnections("SELECT * FROM nation WHERE nationkey = 1", 3, Optional.empty());
+        assertJdbcConnections("SELECT * FROM nation LIMIT 1", 2, Optional.empty());
+        assertJdbcConnections("SELECT * FROM nation ORDER BY nationkey LIMIT 1", 2, Optional.empty());
+        assertJdbcConnections("SELECT * FROM nation WHERE nationkey = 1", 2, Optional.empty());
         assertJdbcConnections("SELECT avg(nationkey) FROM nation", 2, Optional.empty());
         assertJdbcConnections("SELECT * FROM nation, region", 3, Optional.empty());
         assertJdbcConnections("SELECT * FROM nation n, region r WHERE n.regionkey = r.regionkey", 3, Optional.empty());
@@ -96,7 +96,7 @@ public class TestSqlServerJdbcConnectionCreation
         assertJdbcConnections("SELECT * FROM information_schema.columns", 1, Optional.empty());
         assertJdbcConnections("SELECT * FROM nation", 2, Optional.empty());
         assertJdbcConnections("SELECT * FROM TABLE (system.query(query => 'SELECT * FROM dbo.nation'))", 2, Optional.empty());
-        assertJdbcConnections("CREATE TABLE copy_of_nation AS SELECT * FROM nation", 6, Optional.empty());
+        assertJdbcConnections("CREATE TABLE copy_of_nation AS SELECT * FROM nation", 7, Optional.empty());
         assertJdbcConnections("INSERT INTO copy_of_nation SELECT * FROM nation", 6, Optional.empty());
         assertJdbcConnections("DELETE FROM copy_of_nation WHERE nationkey = 3", 1, Optional.empty());
         assertJdbcConnections("UPDATE copy_of_nation SET name = 'POLAND' WHERE nationkey = 1", 1, Optional.empty());

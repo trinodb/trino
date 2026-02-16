@@ -371,7 +371,7 @@ public class TestSqlParser
         assertThat(QualifiedName.of("a", "b", "c", "d").toString())
                 .isEqualTo("a.b.c.d");
         assertThat(QualifiedName.of("A", "b", "C", "d").toString())
-                .isEqualTo("a.b.c.d");
+                .isEqualTo("A.b.C.d");
         assertThat(QualifiedName.of("a", "b", "c", "d").hasSuffix(QualifiedName.of("b", "c", "d"))).isTrue();
         assertThat(QualifiedName.of("a", "b", "c", "d").hasSuffix(QualifiedName.of("a", "b", "c", "d"))).isTrue();
         assertThat(QualifiedName.of("a", "b", "c", "d").hasSuffix(QualifiedName.of("a", "c", "d"))).isFalse();

@@ -1352,4 +1352,60 @@ public class ClassLoaderSafeConnectorMetadata
             return delegate.getInsertWriterScalingOptions(session, tableHandle);
         }
     }
+
+    @Override
+    public String canonicalize(String value, boolean delimiter)
+    {
+        try (ThreadContextClassLoader _ = new ThreadContextClassLoader(classLoader)) {
+            return delegate.canonicalize(value, delimiter);
+        }
+    }
+
+    @Override
+    public String canonicalizeColumn(String value, boolean delimiter)
+    {
+        try (ThreadContextClassLoader _ = new ThreadContextClassLoader(classLoader)) {
+            return delegate.canonicalizeColumn(value, delimiter);
+        }
+    }
+
+    @Override
+    public String canonicalizeField(String value)
+    {
+        try (ThreadContextClassLoader _ = new ThreadContextClassLoader(classLoader)) {
+            return delegate.canonicalizeField(value);
+        }
+    }
+
+    @Override
+    public String compareColumn(String value)
+    {
+        try (ThreadContextClassLoader _ = new ThreadContextClassLoader(classLoader)) {
+            return delegate.compareColumn(value);
+        }
+    }
+
+    @Override
+    public String schemaMetadata(String value)
+    {
+        try (ThreadContextClassLoader _ = new ThreadContextClassLoader(classLoader)) {
+            return delegate.schemaMetadata(value);
+        }
+    }
+
+    @Override
+    public String tableMetadata(String value)
+    {
+        try (ThreadContextClassLoader _ = new ThreadContextClassLoader(classLoader)) {
+            return delegate.tableMetadata(value);
+        }
+    }
+
+    @Override
+    public String columnMetadata(String value)
+    {
+        try (ThreadContextClassLoader _ = new ThreadContextClassLoader(classLoader)) {
+            return delegate.columnMetadata(value);
+        }
+    }
 }

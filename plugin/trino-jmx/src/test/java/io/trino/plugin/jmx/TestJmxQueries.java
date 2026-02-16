@@ -99,7 +99,7 @@ public class TestJmxQueries
     public void testOrderOfParametersIsIgnored()
     {
         assertThat(assertions.query("SELECT node FROM \"java.nio:type=bufferpool,name=direct\""))
-                .matches("SELECT node FROM \"java.nio:name=direct,type=bufferpool\"");
+                .matches("SELECT node FROM \"java.nio:Name=direct,Type=bufferpool\"");
     }
 
     @Test
@@ -112,9 +112,6 @@ public class TestJmxQueries
                 .succeeds();
 
         assertThat(assertions.query("SELECT * FROM \"java.lang:*\""))
-                .result().rowCount().isGreaterThan(1);
-
-        assertThat(assertions.query("SELECT * FROM \"jAVA.LANg:*\""))
                 .result().rowCount().isGreaterThan(1);
     }
 }

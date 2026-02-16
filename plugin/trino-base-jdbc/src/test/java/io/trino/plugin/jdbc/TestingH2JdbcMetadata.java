@@ -1,0 +1,56 @@
+/*
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package io.trino.plugin.jdbc;
+
+import java.util.Set;
+
+import static java.util.Locale.ENGLISH;
+
+public class TestingH2JdbcMetadata
+        extends DefaultJdbcMetadata
+{
+    public TestingH2JdbcMetadata(JdbcClient jdbcClient, TimestampTimeZoneDomain timestampTimeZoneDomain, Set<JdbcQueryEventListener> jdbcQueryEventListeners)
+    {
+        super(jdbcClient, timestampTimeZoneDomain, false, jdbcQueryEventListeners);
+    }
+
+    @Override
+    public String canonicalize(String value, boolean delimited)
+    {
+        return delimited ? value : canonicalize(value);
+    }
+
+    @Override
+    public String schemaMetadata(String value)
+    {
+        return canonicalize(value);
+    }
+
+    @Override
+    public String tableMetadata(String value)
+    {
+        return canonicalize(value);
+    }
+
+    @Override
+    public String columnMetadata(String value)
+    {
+        return canonicalize(value);
+    }
+
+    private String canonicalize(String value)
+    {
+        return value.toUpperCase(ENGLISH);
+    }
+}

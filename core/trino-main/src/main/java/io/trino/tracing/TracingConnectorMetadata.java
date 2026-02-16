@@ -1503,6 +1503,69 @@ public class TracingConnectorMetadata
         }
     }
 
+    @Override
+    public String canonicalize(String value, boolean delimited)
+    {
+        Span span = startSpan("canonicalize");
+        try (var _ = scopedSpan(span)) {
+            return delegate.canonicalize(value, delimited);
+        }
+    }
+
+    @Override
+    public String canonicalizeColumn(String value, boolean delimited)
+    {
+        Span span = startSpan("canonicalizeColumn");
+        try (var _ = scopedSpan(span)) {
+            return delegate.canonicalizeColumn(value, delimited);
+        }
+    }
+
+    @Override
+    public String canonicalizeField(String value)
+    {
+        Span span = startSpan("canonicalizeField");
+        try (var _ = scopedSpan(span)) {
+            return delegate.canonicalizeField(value);
+        }
+    }
+
+    @Override
+    public String compareColumn(String value)
+    {
+        Span span = startSpan("compareColumn");
+        try (var _ = scopedSpan(span)) {
+            return delegate.compareColumn(value);
+        }
+    }
+
+    @Override
+    public String schemaMetadata(String value)
+    {
+        Span span = startSpan("schemaMetadata");
+        try (var _ = scopedSpan(span)) {
+            return delegate.schemaMetadata(value);
+        }
+    }
+
+    @Override
+    public String tableMetadata(String value)
+    {
+        Span span = startSpan("tableMetadata");
+        try (var _ = scopedSpan(span)) {
+            return delegate.tableMetadata(value);
+        }
+    }
+
+    @Override
+    public String columnMetadata(String value)
+    {
+        Span span = startSpan("columnMetadata");
+        try (var _ = scopedSpan(span)) {
+            return delegate.columnMetadata(value);
+        }
+    }
+
     private Span startSpan(String methodName)
     {
         return tracer.spanBuilder("ConnectorMetadata." + methodName)

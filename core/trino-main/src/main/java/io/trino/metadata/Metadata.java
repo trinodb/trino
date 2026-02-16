@@ -936,4 +936,19 @@ public interface Metadata
      * Returns list of functions authorization info
      */
     Set<FunctionAuthorization> getFunctionsAuthorizationInfo(Session session, QualifiedObjectPrefix prefix);
+
+    /**
+     * Canonicalizes the provided SQL identifier according to connector-specific rules
+     */
+    default Canonicalizer getCanonicalizer(Session session)
+    {
+        return getCanonicalizer(session, session.getCatalog());
+    }
+
+    default Canonicalizer getCanonicalizer(Session session, String catalogName)
+    {
+        return getCanonicalizer(session, Optional.ofNullable(catalogName));
+    }
+
+    Canonicalizer getCanonicalizer(Session session, Optional<String> catalogName);
 }

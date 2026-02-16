@@ -260,6 +260,7 @@ public class MariaDbClient
                     schemaNames.add(schemaName);
                 }
             }
+            System.out.println("MariaDBClient.listSchemas() schemas: " + String.join(", ", schemaNames.build()));
             return schemaNames.build();
         }
         catch (SQLException e) {
