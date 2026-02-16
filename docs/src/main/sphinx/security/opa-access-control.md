@@ -69,6 +69,15 @@ The following table lists the configuration properties for the OPA access contro
   - Optional properties file, containing user defined properties
     (e.g. tenant namespace, tier or cluster) to be included in
     the OPA query context.
+* - `opa.include-request-headers`
+  - Enable HTTP request headers to be included in OPA queries. When enabled,
+    headers specified in `opa.additional-headers` are extracted from the
+    request and passed to OPA policies. Defaults to `false`.
+* - `opa.additional-headers`
+  - Comma-separated list of HTTP request header names to include in OPA
+    queries when `opa.include-request-headers` is enabled. Only headers in
+    this list are extracted and passed to OPA. Defaults to empty (no headers).
+    Example: `Authorization,X-Tenant-Id,X-Request-Id,X-Forwarded-For`
 :::
 
 ### Logging
@@ -79,6 +88,175 @@ configuration must be updated to include this class, to ensure log entries are
 created.
 
 Note that enabling these options produces very large amounts of log data.
+
+(opa-http-headers)=
+### HTTP request headers in OPA policies
+
+Trino can extract HTTP request headers and include them in OPA authorization
+queries. This enables OPA policies to make decisions based on request context
+such as proxy information, authentication schemes, tenant identification, and
+request correlation identifiers.
+
+To enable HTTP headers support:
+
+1. Set `opa.include-request-headers=true` in `etc/access-control.properties`
+2. Specify which headers to include using `opa.additional-headers`
+
+Only headers explicitly listed in `opa.additional-headers` are extracted and
+passed to OPA, implementing a secure whitelist approach.
+
+#### Configuration example
+
+```properties
+access-control.name=opa
+opa.policy.uri=https://opa.example.com/v1/data/trino/allow
+opa.include-request-headers=true
+opa.additional-headers=Authorization,X-Tenant-Id,X-Request-Id,X-Forwarded-For
+```
+
+#### How headers are included in OPA requests
+
+When enabled, headers appear in the OPA query context as a map of header names
+to lists of values:
+
+```json
+{
+  "context": {
+    "identity": {
+      "user": "foo",
+      "groups": ["some-group"]
+    },
+    "queryId": "20250718_081710_03427_trino",
+    "softwareStack": {
+      "trinoVersion": "434"
+    },
+    "requestHeaders": {
+      "Authorization": ["Bearer eyJhbGci..."],
+      "X-Tenant-Id": ["acme"],
+      "X-Request-Id": ["req-12345"],
+      "X-Forwarded-For": ["203.0.113.195", "70.41.3.18"]
+    }
+  },
+  "action": {
+    ...
+  }
+}
+```
+
+Note that headers with multiple values are preserved as lists, allowing OPA
+policies to examine all values.
+
+#### Use cases
+
+**Tenant isolation**: Enforce that users can only access tables within their
+assigned tenant:
+
+```rego
+package trino
+
+allow if {
+    tenant := input.context.requestHeaders.get("X-Tenant-Id", [""])[0]
+    tenant in ["acme", "widgets-inc"]
+    # Additional authorization logic...
+}
+```
+
+**Proxy chain validation**: Verify requests come through trusted proxies:
+
+```rego
+package trino
+
+is_trusted_proxy if {
+    ips := input.context.requestHeaders.get("X-Forwarded-For", [])
+    count(ips) > 0
+    last_proxy := ips[count(ips) - 1]
+    last_proxy in ["10.0.0.1", "10.0.0.2"]
+}
+
+allow if {
+    is_trusted_proxy
+    # Additional authorization logic...
+}
+```
+
+**Custom authentication**: Support custom authentication schemes via headers:
+
+```rego
+package trino
+
+is_valid_bearer_token if {
+    auth_headers := input.context.requestHeaders.get("Authorization", [])
+    some auth in auth_headers
+    startswith(auth, "Bearer ")
+    token := substring(auth, 7, -1)
+    # Validate token...
+}
+
+allow if {
+    is_valid_bearer_token
+    # Additional authorization logic...
+}
+```
+
+**Request correlation**: Include request ID for audit logging:
+
+```rego
+package trino
+
+audit_entry if {
+    request_id := input.context.requestHeaders.get("X-Request-Id", [""])[0]
+    tenant := input.context.requestHeaders.get("X-Tenant-Id", [""])[0]
+    user := input.context.identity.user
+    # Log audit entry with correlation...
+}
+
+allow if {
+    audit_entry
+    # Additional authorization logic...
+}
+```
+
+#### Common headers for authorization
+
+The following headers are commonly used for authorization decisions:
+
+- `Authorization`: Bearer tokens or other authentication credentials
+- `X-Tenant-Id`: Multi-tenant applications to enforce tenant isolation
+- `X-Request-Id`: Request correlation for audit trails
+- `X-Forwarded-For`: Client IP addresses in proxy chains
+- `X-Original-URL`: Original request URL when behind a reverse proxy
+- `X-API-Key`: Custom API key authentication
+
+#### Multi-valued headers
+
+HTTP headers can contain multiple values. Common multi-valued headers include:
+
+- `X-Forwarded-For`: Contains multiple IP addresses in proxy chains
+- `Accept`: Multiple content types with quality preferences
+- `Set-Cookie`: Multiple cookies from the server
+- `Via`: Multiple proxies in the request path
+
+OPA receives all values as a list in the `requestHeaders` map. For example:
+
+```json
+{
+  "X-Forwarded-For": ["203.0.113.195", "70.41.3.18", "150.172.238.178"],
+  "Accept": ["application/json", "text/html;q=0.9"]
+}
+```
+
+#### Security considerations
+
+- Only headers explicitly listed in `opa.additional-headers` are exposed to OPA
+- Headers are extracted from the incoming HTTP request during authentication
+- Headers are not modified or validated by Trino - OPA policies must validate
+  header contents
+- Sensitive headers (e.g., containing credentials) should not be included unless
+  absolutely necessary
+- Header extraction has minimal performance overhead - it only processes headers
+  listed in the configuration
+- OPA policies should handle missing headers gracefully using the `.get()` function
+  with default values
 
 (opa-permission-management)=
 ### Permission management
