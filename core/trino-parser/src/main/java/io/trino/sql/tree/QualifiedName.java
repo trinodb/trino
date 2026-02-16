@@ -18,6 +18,7 @@ import com.google.common.collect.Lists;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -50,37 +51,63 @@ public class QualifiedName
 
     public static QualifiedName of(Iterable<Identifier> originalParts)
     {
-        requireNonNull(originalParts, "originalParts is null");
-        checkArgument(!isEmpty(originalParts), "originalParts is empty");
-
-        return new QualifiedName(ImmutableList.copyOf(originalParts));
+        return of(ImmutableList.copyOf(originalParts));
     }
 
-    private QualifiedName(List<Identifier> originalParts)
+    public static QualifiedName of(List<Identifier> originalParts)
+    {
+        requireNonNull(originalParts, "originalParts is null");
+        checkArgument(!isEmpty(originalParts), "originalParts is empty");
+        return new QualifiedName(ImmutableList.copyOf(originalParts), Optional.empty(), false);
+    }
+
+    public static QualifiedName of(Identifier originalPart, Function<Identifier, String> canonicalizer)
+    {
+        return new QualifiedName(ImmutableList.of(originalPart), Optional.of(canonicalizer), false);
+    }
+
+    // For proper canonicalization we must call this method with a catalog in the originalParts. See PR#28331.
+    public static QualifiedName of(List<Identifier> originalParts, Function<Identifier, String> canonicalizer)
+    {
+        requireNonNull(originalParts, "originalParts is null");
+        checkArgument(!isEmpty(originalParts), "originalParts is empty");
+        return new QualifiedName(ImmutableList.copyOf(originalParts), Optional.of(canonicalizer), true);
+    }
+
+    private QualifiedName(List<Identifier> originalParts, Optional<Function<Identifier, String>> canonicalizer, boolean withCatalog)
     {
         this.originalParts = originalParts;
         // Iteration instead of stream for performance reasons
-        ImmutableList.Builder<String> partsBuilder = ImmutableList.builderWithExpectedSize(originalParts.size());
+        int size = originalParts.size();
+        boolean isCatalog = withCatalog;
+        ImmutableList.Builder<String> partsBuilder = ImmutableList.builderWithExpectedSize(size);
         for (Identifier identifier : originalParts) {
-            partsBuilder.add(mapIdentifier(identifier));
+            partsBuilder.add(mapIdentifier(identifier, canonicalizer, isCatalog));
+            isCatalog = false;
         }
         this.parts = partsBuilder.build();
         this.name = String.join(".", parts);
 
         if (originalParts.size() == 1) {
             this.prefix = Optional.empty();
-            this.suffix = mapIdentifier(originalParts.get(0));
+            this.suffix = parts.getFirst();
         }
         else {
             List<Identifier> subList = originalParts.subList(0, originalParts.size() - 1);
-            this.prefix = Optional.of(new QualifiedName(subList));
-            this.suffix = mapIdentifier(originalParts.getLast());
+            this.prefix = Optional.of(new QualifiedName(subList, canonicalizer, withCatalog));
+            this.suffix = parts.getLast();
         }
     }
 
-    private static String mapIdentifier(Identifier identifier)
+    private static String mapIdentifier(Identifier identifier, Optional<Function<Identifier, String>> canonicalizer, boolean isCatalog)
     {
-        return identifier.getValue().toLowerCase(ENGLISH);
+        if (isCatalog) {
+            return identifier.getValue().toLowerCase(ENGLISH);
+        }
+        if (canonicalizer.isEmpty()) {
+            return identifier.getValue();
+        }
+        return canonicalizer.get().apply(identifier);
     }
 
     public List<String> getParts()

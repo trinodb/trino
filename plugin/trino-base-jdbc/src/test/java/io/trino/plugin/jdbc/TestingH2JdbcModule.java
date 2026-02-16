@@ -29,6 +29,7 @@ import java.util.Map;
 import java.util.concurrent.ThreadLocalRandom;
 
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
+import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -50,6 +51,7 @@ public class TestingH2JdbcModule
     @Override
     public void configure(Binder binder)
     {
+        newOptionalBinder(binder, JdbcMetadataFactory.class).setBinding().to(TestingH2JdbcMetadataFactory.class).in(Scopes.SINGLETON);
         newSetBinder(binder, ConnectorTableFunction.class).addBinding().toProvider(Query.class).in(Scopes.SINGLETON);
     }
 
@@ -78,7 +80,8 @@ public class TestingH2JdbcModule
 
     public static String createH2ConnectionUrl()
     {
-        return format("jdbc:h2:mem:test%s;DB_CLOSE_DELAY=-1;DEFAULT_LOCK_TIMEOUT=10000", System.nanoTime() + ThreadLocalRandom.current().nextLong());
+        // FIXME: H2 must implement its own canonicalizer and don't use DATABASE_TO_LOWER=true anymore.
+        return format("jdbc:h2:mem:test%s;DB_CLOSE_DELAY=-1;DEFAULT_LOCK_TIMEOUT=10000;DATABASE_TO_LOWER=true", System.nanoTime() + ThreadLocalRandom.current().nextLong());
     }
 
     public interface TestingH2JdbcClientFactory

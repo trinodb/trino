@@ -91,7 +91,7 @@ public class CreateSchemaTask
             Session session,
             List<Expression> parameters)
     {
-        CatalogSchemaName schema = createCatalogSchemaName(session, statement, Optional.of(statement.getSchemaName()));
+        CatalogSchemaName schema = createCatalogSchemaName(session, statement, Optional.of(statement.getSchemaName()), plannerContext.getMetadata());
 
         String catalogName = schema.getCatalogName();
         CatalogHandle catalogHandle = getRequiredCatalogHandle(plannerContext.getMetadata(), session, statement, catalogName);

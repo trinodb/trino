@@ -34,6 +34,7 @@ import io.trino.connector.system.GlobalSystemConnector;
 import io.trino.execution.Column;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.AnalyzePropertyManager;
+import io.trino.metadata.Canonicalizer;
 import io.trino.metadata.FunctionResolver;
 import io.trino.metadata.MaterializedViewDefinition;
 import io.trino.metadata.Metadata;
@@ -313,6 +314,7 @@ import static io.trino.SystemSessionProperties.getMaxGroupingSets;
 import static io.trino.metadata.FunctionResolver.toPath;
 import static io.trino.metadata.GlobalFunctionCatalog.isBuiltinFunctionName;
 import static io.trino.metadata.MetadataUtil.createQualifiedObjectName;
+import static io.trino.metadata.MetadataUtil.getQualifiedObjectNameParts;
 import static io.trino.metadata.MetadataUtil.getRequiredCatalogHandle;
 import static io.trino.metadata.TableVersion.toTableVersion;
 import static io.trino.spi.StandardErrorCode.AMBIGUOUS_NAME;
@@ -459,6 +461,7 @@ class StatementAnalyzer
 
     private final WarningCollector warningCollector;
     private final CorrelationSupport correlationSupport;
+    private final Canonicalizer canonicalizer;
 
     StatementAnalyzer(
             StatementAnalyzerFactory statementAnalyzerFactory,
@@ -495,6 +498,7 @@ class StatementAnalyzer
         this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
         this.correlationSupport = requireNonNull(correlationSupport, "correlationSupport is null");
         this.functionResolver = plannerContext.getFunctionResolver(warningCollector);
+        this.canonicalizer = getCanonicalizer();
     }
 
     public Scope analyze(Node node)
@@ -524,6 +528,15 @@ class StatementAnalyzer
         DELETE,
         UPDATE,
         MERGE,
+    }
+
+    private Canonicalizer getCanonicalizer()
+    {
+        // FIXME: This should not depend on whether the session has a catalog or not.
+        if (session.getCatalog().isPresent()) {
+            return metadata.getCanonicalizer(session, session.getCatalog().get());
+        }
+        return Canonicalizer.LEGACY_CANONICALIZER;
     }
 
     /**
@@ -576,7 +589,7 @@ class StatementAnalyzer
         @Override
         protected Scope visitInsert(Insert insert, Optional<Scope> scope)
         {
-            QualifiedObjectName targetTable = createQualifiedObjectName(session, insert, insert.getTarget());
+            QualifiedObjectName targetTable = createQualifiedObjectName(session, insert, insert.getTarget(), metadata);
 
             if (metadata.isMaterializedView(session, targetTable)) {
                 throw semanticException(NOT_SUPPORTED, insert, "Inserting into materialized views is not supported");
@@ -641,11 +654,11 @@ class StatementAnalyzer
                 }
             });
 
+            Canonicalizer canonicalizer = metadata.getCanonicalizer(session, targetTable.catalogName());
             List<String> insertColumns;
             if (insert.getColumns().isPresent()) {
                 insertColumns = insert.getColumns().get().stream()
-                        .map(Identifier::getValue)
-                        .map(column -> column.toLowerCase(ENGLISH))
+                        .map(identifier -> canonicalizer.canonicalizeColumn(identifier))
                         .collect(toImmutableList());
 
                 Set<String> columnNames = new HashSet<>();
@@ -712,7 +725,7 @@ class StatementAnalyzer
         @Override
         protected Scope visitRefreshMaterializedView(RefreshMaterializedView refreshMaterializedView, Optional<Scope> scope)
         {
-            QualifiedObjectName name = createQualifiedObjectName(session, refreshMaterializedView, refreshMaterializedView.getName());
+            QualifiedObjectName name = createQualifiedObjectName(session, refreshMaterializedView, refreshMaterializedView.getName(), metadata);
             MaterializedViewDefinition view = metadata.getMaterializedView(session, name)
                     .orElseThrow(() -> semanticException(TABLE_NOT_FOUND, refreshMaterializedView, "Materialized view '%s' does not exist", name));
 
@@ -733,7 +746,7 @@ class StatementAnalyzer
             QualifiedName storageName = getMaterializedViewStorageTableName(view)
                     .orElseThrow(() -> semanticException(TABLE_NOT_FOUND, refreshMaterializedView, "Storage Table for materialized view '%s' does not exist", name));
 
-            QualifiedObjectName targetTable = createQualifiedObjectName(session, refreshMaterializedView, storageName);
+            QualifiedObjectName targetTable = createQualifiedObjectName(session, refreshMaterializedView, storageName, metadata);
             checkStorageTableNotRedirected(targetTable);
 
             // analyze the query that creates the data
@@ -840,7 +853,7 @@ class StatementAnalyzer
         protected Scope visitDelete(Delete node, Optional<Scope> scope)
         {
             Table table = node.getTable();
-            QualifiedObjectName originalName = createQualifiedObjectName(session, table, table.getName());
+            QualifiedObjectName originalName = createQualifiedObjectName(session, table, table.getName(), metadata);
             if (metadata.isMaterializedView(session, originalName)) {
                 throw semanticException(NOT_SUPPORTED, node, "Deleting from materialized views is not supported");
             }
@@ -894,7 +907,7 @@ class StatementAnalyzer
         @Override
         protected Scope visitAnalyze(Analyze node, Optional<Scope> scope)
         {
-            QualifiedObjectName tableName = createQualifiedObjectName(session, node, node.getTableName());
+            QualifiedObjectName tableName = createQualifiedObjectName(session, node, node.getTableName(), metadata);
             if (metadata.isView(session, tableName)) {
                 throw semanticException(NOT_SUPPORTED, node, "Analyzing views is not supported");
             }
@@ -942,7 +955,7 @@ class StatementAnalyzer
         protected Scope visitCreateTableAsSelect(CreateTableAsSelect node, Optional<Scope> scope)
         {
             // turn this into a query that has a new table writer node on top.
-            QualifiedObjectName targetTable = createQualifiedObjectName(session, node, node.getName());
+            QualifiedObjectName targetTable = createQualifiedObjectName(session, node, node.getName(), metadata);
 
             Optional<TableHandle> targetTableHandle = metadata.getTableHandle(session, targetTable);
             if (targetTableHandle.isPresent() && node.getSaveMode() != REPLACE) {
@@ -992,14 +1005,15 @@ class StatementAnalyzer
             // analyze target table columns and column aliases
             ImmutableList.Builder<OutputColumn> outputColumns = ImmutableList.builder();
             if (node.getColumnAliases().isPresent()) {
-                validateColumnAliases(node.getColumnAliases().get(), queryScope.getRelationType().getVisibleFieldCount());
+                Canonicalizer canonicalizer = metadata.getCanonicalizer(session, catalogName);
+                validateColumnAliases(canonicalizer, node.getColumnAliases().get(), queryScope.getRelationType().getVisibleFieldCount());
 
                 int aliasPosition = 0;
                 for (Field field : queryScope.getRelationType().getVisibleFields()) {
                     if (field.getType().equals(UNKNOWN)) {
                         throw semanticException(COLUMN_TYPE_UNKNOWN, node, "Column type is unknown at position %s", queryScope.getRelationType().indexOf(field) + 1);
                     }
-                    String columnName = node.getColumnAliases().get().get(aliasPosition).getValue();
+                    String columnName = canonicalizer.canonicalizeColumn(node.getColumnAliases().get().get(aliasPosition));
                     columnsBuilder.add(new ColumnMetadata(columnName, metadata.getSupportedType(session, catalogHandle, properties, field.getType()).orElse(field.getType())));
                     outputColumns.add(new OutputColumn(new Column(columnName, field.getType().toString()), analysis.getSourceColumns(field)));
                     aliasPosition++;
@@ -1008,7 +1022,7 @@ class StatementAnalyzer
             else {
                 validateColumns(node, queryScope.getRelationType());
                 columnsBuilder.addAll(queryScope.getRelationType().getVisibleFields().stream()
-                        .map(field -> new ColumnMetadata(field.getName().orElseThrow(), metadata.getSupportedType(session, catalogHandle, properties, field.getType()).orElse(field.getType())))
+                        .map(field -> createColumnMetadata(catalogHandle, properties, field))
                         .collect(toImmutableList()));
                 queryScope.getRelationType().getVisibleFields().stream()
                         .map(this::createOutputColumn)
@@ -1058,7 +1072,7 @@ class StatementAnalyzer
         @Override
         protected Scope visitCreateView(CreateView node, Optional<Scope> scope)
         {
-            QualifiedObjectName viewName = createQualifiedObjectName(session, node, node.getName());
+            QualifiedObjectName viewName = createQualifiedObjectName(session, node, node.getName(), metadata);
 
             node.getQuery().getFunctions().stream().findFirst().ifPresent(function -> {
                 throw semanticException(NOT_SUPPORTED, function, "Views cannot contain inline functions");
@@ -1269,7 +1283,7 @@ class StatementAnalyzer
         protected Scope visitTableExecute(TableExecute node, Optional<Scope> scope)
         {
             Table table = node.getTable();
-            QualifiedObjectName originalName = createQualifiedObjectName(session, table, table.getName());
+            QualifiedObjectName originalName = createQualifiedObjectName(session, table, table.getName(), metadata);
             String procedureName = node.getProcedureName().getCanonicalValue();
 
             if (metadata.isMaterializedView(session, originalName)) {
@@ -1474,7 +1488,7 @@ class StatementAnalyzer
         @Override
         protected Scope visitCreateMaterializedView(CreateMaterializedView node, Optional<Scope> scope)
         {
-            QualifiedObjectName viewName = createQualifiedObjectName(session, node, node.getName());
+            QualifiedObjectName viewName = createQualifiedObjectName(session, node, node.getName(), metadata);
 
             if (node.isReplace() && node.isNotExists()) {
                 throw semanticException(NOT_SUPPORTED, node, "'CREATE OR REPLACE' and 'IF NOT EXISTS' clauses can not be used together");
@@ -1538,14 +1552,27 @@ class StatementAnalyzer
             // TODO: collect errors and return them all at once
             Set<String> names = new HashSet<>();
             for (Field field : descriptor.getVisibleFields()) {
-                String fieldName = field.getName()
+                String name = field.getName()
                         .orElseThrow(() -> semanticException(MISSING_COLUMN_NAME, node, "Column name not specified at position %s", descriptor.indexOf(field) + 1));
-                if (!names.add(fieldName)) {
-                    throw semanticException(DUPLICATE_COLUMN_NAME, node, "Column name '%s' specified more than once", fieldName);
+                if (!names.add(name)) {
+                    throw semanticException(DUPLICATE_COLUMN_NAME, node, "Column name '%s' specified more than once", name);
                 }
                 if (field.getType().equals(UNKNOWN)) {
-                    throw semanticException(COLUMN_TYPE_UNKNOWN, node, "Column type is unknown: %s", fieldName);
+                    throw semanticException(COLUMN_TYPE_UNKNOWN, node, "Column type is unknown: %s", name);
                 }
+            }
+        }
+
+        private void validateColumnAliases(Canonicalizer canonicalizer, List<Identifier> columnAliases, int sourceColumnSize)
+        {
+            validateColumnAliasesCount(columnAliases, sourceColumnSize);
+            Set<String> names = new HashSet<>();
+            for (Identifier identifier : columnAliases) {
+                String alias = canonicalizer.canonicalizeColumn(identifier);
+                if (names.contains(alias)) {
+                    throw semanticException(DUPLICATE_COLUMN_NAME, identifier, "Column name '%s' specified more than once", alias);
+                }
+                names.add(alias);
             }
         }
 
@@ -1554,10 +1581,10 @@ class StatementAnalyzer
             validateColumnAliasesCount(columnAliases, sourceColumnSize);
             Set<String> names = new HashSet<>();
             for (Identifier identifier : columnAliases) {
-                if (names.contains(identifier.getValue().toLowerCase(ENGLISH))) {
+                if (names.contains(identifier.getValue())) {
                     throw semanticException(DUPLICATE_COLUMN_NAME, identifier, "Column name '%s' specified more than once", identifier.getValue());
                 }
-                names.add(identifier.getValue().toLowerCase(ENGLISH));
+                names.add(identifier.getValue());
             }
         }
 
@@ -1710,6 +1737,7 @@ class StatementAnalyzer
 
             ConnectorTableFunction function = tableFunctionMetadata.function();
             CatalogHandle catalogHandle = tableFunctionMetadata.catalogHandle();
+            String catalog = catalogHandle.getCatalogName().toString();
 
             Node errorLocation = node;
             if (!node.getArguments().isEmpty()) {
@@ -1723,7 +1751,7 @@ class StatementAnalyzer
                     session.toConnectorSession(catalogHandle),
                     transactionHandle,
                     argumentsAnalysis.getPassedArguments(),
-                    new InjectedConnectorAccessControl(accessControl, session.toSecurityContext(), catalogHandle.getCatalogName().toString()));
+                    new InjectedConnectorAccessControl(accessControl, session.toSecurityContext(), catalog));
 
             List<List<String>> copartitioningLists = analyzeCopartitioning(node.getCopartitioning(), argumentsAnalysis.getTableArgumentAnalyses());
 
@@ -2184,7 +2212,7 @@ class StatementAnalyzer
                     }
                     if (candidates.isEmpty()) {
                         // qualify the name using current schema and catalog
-                        QualifiedObjectName fullyQualifiedName = createQualifiedObjectName(session, name.getOriginalParts().get(0), name);
+                        QualifiedObjectName fullyQualifiedName = createQualifiedObjectName(session, name.getOriginalParts().get(0), name, metadata);
                         candidates = qualifiedInputs.get(QualifiedName.of(fullyQualifiedName.catalogName(), fullyQualifiedName.schemaName(), fullyQualifiedName.objectName()));
                     }
                     if (candidates.isEmpty()) {
@@ -2298,8 +2326,14 @@ class StatementAnalyzer
                 }
             }
 
-            QualifiedObjectName name = createQualifiedObjectName(session, table, table.getName());
-            analysis.setRelationName(table, QualifiedName.of(name.catalogName(), name.schemaName(), name.objectName()));
+            List<Identifier> identifiers = getQualifiedObjectNameParts(session, table, table.getName(), metadata);
+            QualifiedObjectName name = createQualifiedObjectName(session, identifiers, metadata);
+            // FIXME: QualifiedName.of() should no longer be used with identifiers that have already been canonicalized.
+            // FIXME: and QualifiedName must embed a canonicalizer in order to be able to convert non-delimited identifiers.
+            // FIXME: Like as example: analysis.setRelationName(table, createQualifiedName(session, table, table.getName(), metadata, canonicalizer));
+
+            Canonicalizer canonicalizer = metadata.getCanonicalizer(session, name.catalogName());
+            analysis.setRelationName(table, QualifiedName.of(identifiers, canonicalizer::canonicalize));
 
             Optional<MaterializedViewDefinition> optionalMaterializedView = metadata.getMaterializedView(session, name);
             if (optionalMaterializedView.isPresent()) {
@@ -2309,7 +2343,7 @@ class StatementAnalyzer
                     // If materialized view is sufficiently fresh with respect to its grace period, answer the query using the storage table
                     QualifiedName storageName = getMaterializedViewStorageTableName(materializedViewDefinition)
                             .orElseThrow(() -> semanticException(INVALID_VIEW, table, "Materialized view '%s' is fresh but does not have storage table name", name));
-                    QualifiedObjectName storageTableName = createQualifiedObjectName(session, table, storageName);
+                    QualifiedObjectName storageTableName = createQualifiedObjectName(session, table, storageName, metadata);
                     checkStorageTableNotRedirected(storageTableName);
                     TableHandle tableHandle = metadata.getTableHandle(session, storageTableName)
                             .orElseThrow(() -> semanticException(INVALID_VIEW, table, "Storage table '%s' does not exist", storageTableName));
@@ -2613,13 +2647,13 @@ class StatementAnalyzer
         {
             Statement statement = analysis.getStatement();
             if (statement instanceof CreateView viewStatement) {
-                QualifiedObjectName viewNameFromStatement = createQualifiedObjectName(session, viewStatement, viewStatement.getName());
+                QualifiedObjectName viewNameFromStatement = createQualifiedObjectName(session, viewStatement, viewStatement.getName(), metadata);
                 if (viewStatement.isReplace() && viewNameFromStatement.equals(name)) {
                     throw semanticException(VIEW_IS_RECURSIVE, table, "Statement would create a recursive view");
                 }
             }
             if (statement instanceof CreateMaterializedView viewStatement) {
-                QualifiedObjectName viewNameFromStatement = createQualifiedObjectName(session, viewStatement, viewStatement.getName());
+                QualifiedObjectName viewNameFromStatement = createQualifiedObjectName(session, viewStatement, viewStatement.getName(), metadata);
                 if (viewStatement.isReplace() && viewNameFromStatement.equals(name)) {
                     throw semanticException(VIEW_IS_RECURSIVE, table, "Statement would create a recursive materialized view");
                 }
@@ -2676,7 +2710,7 @@ class StatementAnalyzer
         {
             TableSchema tableSchema = metadata.getTableSchema(session, storageTable);
             Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(session, storageTable);
-            QualifiedObjectName tableName = createQualifiedObjectName(session, table, table.getName());
+            QualifiedObjectName tableName = createQualifiedObjectName(session, table, table.getName(), metadata);
             checkStorageTableNotRedirected(tableName);
             List<Field> tableFields = analyzeTableOutputFields(table, tableName, tableSchema, columnHandles)
                     .stream()
@@ -2778,7 +2812,7 @@ class StatementAnalyzer
             Set<String> inputNames = new HashSet<>();
             for (Field field : inputScope.getRelationType().getAllFields()) {
                 field.getName().ifPresent(name -> {
-                    if (!inputNames.add(name.toUpperCase(ENGLISH))) {
+                    if (!inputNames.add(name)) {
                         throw semanticException(AMBIGUOUS_NAME, relation.getInput(), "ambiguous column: %s in row pattern input relation", name);
                     }
                 });
@@ -2911,7 +2945,7 @@ class StatementAnalyzer
         {
             QualifiedName qualifiedName;
             if (expression instanceof Identifier identifier) {
-                qualifiedName = QualifiedName.of(ImmutableList.of(identifier));
+                qualifiedName = QualifiedName.of(identifier, canonicalizer::canonicalizeColumn);
             }
             else if (expression instanceof DereferenceExpression dereferenceExpression) {
                 qualifiedName = getQualifiedName(dereferenceExpression);
@@ -2973,7 +3007,7 @@ class StatementAnalyzer
         @Override
         protected Scope visitAliasedRelation(AliasedRelation relation, Optional<Scope> scope)
         {
-            analysis.setRelationName(relation, QualifiedName.of(ImmutableList.of(relation.getAlias())));
+            analysis.setRelationName(relation, QualifiedName.of(relation.getAlias(), canonicalizer::canonicalize));
             analysis.addAliased(relation.getRelation());
             Scope relationScope = process(relation.getRelation(), scope);
             RelationType relationType = relationScope.getRelationType();
@@ -3027,7 +3061,7 @@ class StatementAnalyzer
                     .map(TableArgumentAnalysis::getName)
                     .filter(Optional::isPresent)
                     .map(Optional::get)
-                    .filter(name -> name.hasSuffix(QualifiedName.of(ImmutableList.of(relation.getAlias()))))
+                    .filter(name -> name.hasSuffix(QualifiedName.of(relation.getAlias(), canonicalizer::canonicalize)))
                     .findFirst()
                     .ifPresent(name -> {
                         throw semanticException(DUPLICATE_RANGE_VARIABLE, relation.getAlias(), "Relation alias: %s is a duplicate of input table name: %s", relation.getAlias(), name);
@@ -3046,7 +3080,7 @@ class StatementAnalyzer
                     // proper columns are not hidden, so we don't need to skip hidden fields
                     Field field = relationType.getFieldByIndex(i);
                     fieldsBuilder.add(Field.newQualified(
-                            QualifiedName.of(ImmutableList.of(relation.getAlias())),
+                            QualifiedName.of(relation.getAlias(), canonicalizer::canonicalize),
                             Optional.of(relation.getColumnNames().get(i).getCanonicalValue()), // although the canonical name is recorded, fields are resolved case-insensitive
                             field.getType(),
                             field.isHidden(),
@@ -3059,7 +3093,7 @@ class StatementAnalyzer
                 for (int i = 0; i < properColumnsCount; i++) {
                     Field field = relationType.getFieldByIndex(i);
                     fieldsBuilder.add(Field.newQualified(
-                            QualifiedName.of(ImmutableList.of(relation.getAlias())),
+                            QualifiedName.of(relation.getAlias(), canonicalizer::canonicalize),
                             field.getName(),
                             field.getType(),
                             field.isHidden(),
@@ -3082,8 +3116,6 @@ class StatementAnalyzer
                     .map(Field::getName)
                     .filter(Optional::isPresent)
                     .map(Optional::get)
-                    // field names are resolved case-insensitive
-                    .map(name -> name.toLowerCase(ENGLISH))
                     .forEach(name -> {
                         if (!names.add(name)) {
                             throw semanticException(DUPLICATE_COLUMN_NAME, relation.getRelation(), "Duplicate name of table function proper column: %s", name);
@@ -3410,18 +3442,24 @@ class StatementAnalyzer
 
         private static Map<String, Integer> buildNameToIndex(SetOperation node, RelationType relationType)
         {
+            // FIXME: If we want to follow the SQL recommendations, then we need to resolve issue #28440.
+            // FIXME: To keep backward compatibility we compare field in lower case if mixed case is not supported.
             Map<String, Integer> nameToIndex = new LinkedHashMap<>();
             for (int i = 0; i < relationType.getAllFieldCount(); i++) {
-                Field field = relationType.getFieldByIndex(i);
-                String name = field.getName()
-                        .orElseThrow(() -> semanticException(MISSING_COLUMN_NAME, node, "Anonymous columns are not allowed in set operations with CORRESPONDING"))
-                        // TODO https://github.com/trinodb/trino/issues/17 Add support for case sensitive identifiers
-                        .toLowerCase(ENGLISH);
+                String name = getFieldName(node, relationType.getFieldByIndex(i));
                 if (nameToIndex.put(name, i) != null) {
                     throw semanticException(AMBIGUOUS_NAME, node, "Duplicate columns found when using CORRESPONDING in set operations: %s", name);
                 }
             }
             return ImmutableMap.copyOf(nameToIndex);
+        }
+
+        private static String getFieldName(SetOperation node, Field field)
+        {
+            if (field.getName().isEmpty()) {
+                throw semanticException(MISSING_COLUMN_NAME, node, "Anonymous columns are not allowed in set operations with CORRESPONDING");
+            }
+            return field.getName().get();
         }
 
         @Override
@@ -3513,7 +3551,7 @@ class StatementAnalyzer
         protected Scope visitUpdate(Update update, Optional<Scope> scope)
         {
             Table table = update.getTable();
-            QualifiedObjectName originalName = createQualifiedObjectName(session, table, table.getName());
+            QualifiedObjectName originalName = createQualifiedObjectName(session, table, table.getName(), metadata);
             if (metadata.isMaterializedView(session, originalName)) {
                 throw semanticException(NOT_SUPPORTED, update, "Updating materialized views is not supported");
             }
@@ -3542,15 +3580,16 @@ class StatementAnalyzer
             Map<String, ColumnSchema> columns = allColumns.stream()
                     .collect(toImmutableMap(ColumnSchema::getName, Function.identity()));
 
+            Canonicalizer canonicalizer = metadata.getCanonicalizer(session, tableName.catalogName());
             for (UpdateAssignment assignment : update.getAssignments()) {
-                String columnName = assignment.getName().getValue().toLowerCase(ENGLISH);
+                String columnName = canonicalizer.canonicalizeColumn(assignment.getName());
                 if (!columns.containsKey(columnName)) {
                     throw semanticException(COLUMN_NOT_FOUND, assignment.getName(), "The UPDATE SET target column %s doesn't exist", columnName);
                 }
             }
 
             Set<String> assignmentTargets = update.getAssignments().stream()
-                    .map(assignment -> assignment.getName().getValue().toLowerCase(ENGLISH))
+                    .map(assignment -> canonicalizer.canonicalizeColumn(assignment.getName()))
                     .collect(toImmutableSet());
             accessControl.checkCanUpdateTableColumns(session.toSecurityContext(), tableName, assignmentTargets);
 
@@ -3588,7 +3627,7 @@ class StatementAnalyzer
             ImmutableList.Builder<Type> expressionTypesBuilder = ImmutableList.builder();
             ImmutableMap.Builder<String, Set<SourceColumn>> sourceColumnsByColumnNameBuilder = ImmutableMap.builder();
             for (UpdateAssignment assignment : update.getAssignments()) {
-                String targetColumnName = assignment.getName().getValue().toLowerCase(ENGLISH);
+                String targetColumnName = canonicalizer.canonicalizeColumn(assignment.getName());
                 Expression expression = assignment.getValue();
                 ExpressionAnalysis expressionAnalysis = analyzeExpression(expression, tableScope);
                 analysesBuilder.add(expressionAnalysis);
@@ -3606,7 +3645,9 @@ class StatementAnalyzer
             Map<String, Set<SourceColumn>> sourceColumnsByColumnName = sourceColumnsByColumnNameBuilder.buildOrThrow();
 
             List<Type> tableTypes = update.getAssignments().stream()
-                    .map(assignment -> requireNonNull(columns.get(assignment.getName().getValue().toLowerCase(ENGLISH))))
+                    .map(UpdateAssignment::getName)
+                    .map(canonicalizer::canonicalizeColumn)
+                    .map(column -> requireNonNull(columns.get(column)))
                     .map(ColumnSchema::getType)
                     .collect(toImmutableList());
 
@@ -3651,7 +3692,7 @@ class StatementAnalyzer
         {
             Relation relation = merge.getTarget();
             Table table = getMergeTargetTable(relation);
-            QualifiedObjectName originalTableName = createQualifiedObjectName(session, table, table.getName());
+            QualifiedObjectName originalTableName = createQualifiedObjectName(session, table, table.getName(), metadata);
             if (metadata.isMaterializedView(session, originalTableName)) {
                 throw semanticException(NOT_SUPPORTED, merge, "Merging into materialized views is not supported");
             }
@@ -3695,10 +3736,11 @@ class StatementAnalyzer
                     .findFirst()
                     .ifPresent(mergeCase -> accessControl.checkCanDeleteFromTable(session.toSecurityContext(), tableName));
 
+            Canonicalizer canonicalizer = metadata.getCanonicalizer(session, tableName.catalogName());
             Set<String> allUpdateColumnNames = new HashSet<>();
             for (int caseCounter = 0; caseCounter < merge.getMergeCases().size(); caseCounter++) {
                 MergeCase operation = merge.getMergeCases().get(caseCounter);
-                List<String> caseColumnNames = lowercaseIdentifierList(operation.getSetColumns());
+                List<String> caseColumnNames = canonicalizeIdentifier(canonicalizer, operation.getSetColumns());
                 if (operation instanceof MergeUpdate) {
                     allUpdateColumnNames.addAll(caseColumnNames);
                 }
@@ -3741,7 +3783,7 @@ class StatementAnalyzer
 
             for (int caseCounter = 0; caseCounter < merge.getMergeCases().size(); caseCounter++) {
                 MergeCase operation = merge.getMergeCases().get(caseCounter);
-                List<String> caseColumnNames = lowercaseIdentifierList(operation.getSetColumns());
+                List<String> caseColumnNames = canonicalizeIdentifier(canonicalizer, operation.getSetColumns());
                 if (operation instanceof MergeUpdate) {
                     allUpdateColumnNames.addAll(caseColumnNames);
                 }
@@ -3812,7 +3854,7 @@ class StatementAnalyzer
                     .collect(toImmutableList());
 
             analysis.setUpdateTarget(targetTableHandle.catalogHandle().getVersion(), tableName, Optional.of(table), Optional.of(updatedColumns));
-            List<List<ColumnHandle>> mergeCaseColumnHandles = buildCaseColumnLists(merge, dataColumnSchemas, allColumnHandles);
+            List<List<ColumnHandle>> mergeCaseColumnHandles = buildColumnLists(merge, canonicalizer, dataColumnSchemas, allColumnHandles);
 
             checkArgument(
                     mergeCaseColumnHandles.size() == merge.getMergeCases().size(),
@@ -3942,7 +3984,7 @@ class StatementAnalyzer
             return (Table) ((AliasedRelation) relation).getRelation();
         }
 
-        private List<List<ColumnHandle>> buildCaseColumnLists(Merge merge, List<ColumnSchema> columnSchemas, Map<String, ColumnHandle> allColumnHandles)
+        private List<List<ColumnHandle>> buildColumnLists(Merge merge, Canonicalizer canonicalizer, List<ColumnSchema> columnSchemas, Map<String, ColumnHandle> allColumnHandles)
         {
             ImmutableList.Builder<List<ColumnHandle>> mergeCaseColumnsListsBuilder = ImmutableList.builder();
             for (int caseCounter = 0; caseCounter < merge.getMergeCases().size(); caseCounter++) {
@@ -3952,7 +3994,7 @@ class StatementAnalyzer
                     mergeColumnNames = columnSchemas.stream().map(ColumnSchema::getName).collect(toImmutableList());
                 }
                 else {
-                    mergeColumnNames = lowercaseIdentifierList(operation.getSetColumns());
+                    mergeColumnNames = canonicalizeIdentifier(canonicalizer, operation.getSetColumns());
                 }
                 mergeCaseColumnsListsBuilder.add(
                         mergeColumnNames.stream()
@@ -3962,10 +4004,10 @@ class StatementAnalyzer
             return mergeCaseColumnsListsBuilder.build();
         }
 
-        private List<String> lowercaseIdentifierList(Collection<Identifier> identifiers)
+        private List<String> canonicalizeIdentifier(Canonicalizer canonicalizer, Collection<Identifier> identifiers)
         {
             return identifiers.stream()
-                    .map(identifier -> identifier.getValue().toLowerCase(ENGLISH))
+                    .map(canonicalizer::canonicalizeColumn)
                     .collect(toImmutableList());
         }
 
@@ -5499,7 +5541,7 @@ class StatementAnalyzer
             Scope.Builder withScopeBuilder = scopeBuilder(scope);
 
             for (WithQuery withQuery : with.getQueries()) {
-                String name = withQuery.getName().getValue().toLowerCase(ENGLISH);
+                String name = canonicalizer.canonicalize(withQuery.getName());
                 if (withScopeBuilder.containsNamedQuery(name)) {
                     throw semanticException(DUPLICATE_NAMED_QUERY, withQuery, "WITH query name '%s' specified more than once", name);
                 }
@@ -6039,9 +6081,19 @@ class StatementAnalyzer
             return scopeBuilder;
         }
 
+        private ColumnMetadata createColumnMetadata(CatalogHandle catalogHandle, Map<String, Object> properties, Field field)
+        {
+            return new ColumnMetadata(getFieldName(field), metadata.getSupportedType(session, catalogHandle, properties, field.getType()).orElse(field.getType()));
+        }
+
         private OutputColumn createOutputColumn(Field field)
         {
-            return new OutputColumn(new Column(field.getName().orElseThrow(), field.getType().toString()), analysis.getSourceColumns(field));
+            return new OutputColumn(new Column(getFieldName(field), field.getType().toString()), analysis.getSourceColumns(field));
+        }
+
+        private String getFieldName(Field field)
+        {
+            return field.getName().orElseThrow();
         }
 
         /**

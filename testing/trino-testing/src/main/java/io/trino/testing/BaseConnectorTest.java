@@ -288,10 +288,10 @@ public abstract class BaseConnectorTest
         assertQueryFails(createSchemaSql(schemaName), format("line 1:1: Schema '.*\\.%s' already exists", schemaName));
 
         // cleanup
-        assertUpdate("DROP SCHEMA " + schemaName);
+        assertUpdate("DROP SCHEMA " + quoted(schemaName));
 
         // verify DROP SCHEMA for non-existing schema
-        assertQueryFails("DROP SCHEMA " + schemaName, format("line 1:1: Schema '.*\\.%s' does not exist", schemaName));
+        assertQueryFails("DROP SCHEMA " + quoted(schemaName), format("line 1:1: Schema '.*\\.%s' does not exist", schemaName));
     }
 
     @Test
@@ -2163,10 +2163,14 @@ public abstract class BaseConnectorTest
                         .build());
 
         // test SHOW CREATE VIEW
+        String schema = getSession().getSchema().get();
+        String quote = canonicalize(schema).equals(schema) ? "" : "\"";
         String expectedSql = formatSqlText(format(
-                "CREATE VIEW %s.%s.%s SECURITY %s AS %s",
+                "CREATE VIEW %s.%s%s%s.%s SECURITY %s AS %s",
                 getSession().getCatalog().get(),
-                getSession().getSchema().get(),
+                quote,
+                schema,
+                quote,
                 viewName,
                 securityClauseInShowCreate,
                 query)).trim();
@@ -2191,8 +2195,10 @@ public abstract class BaseConnectorTest
 
         String viewName = "test_show_create_view" + randomNameSuffix();
         assertUpdate("DROP VIEW IF EXISTS " + viewName);
+        String schema = getSession().getSchema().get();
+        String quote = canonicalize(schema).equals(schema) ? "" : "\"";
         String ddl = format(
-                "CREATE VIEW %s.%s.%s SECURITY DEFINER AS\n" +
+                "CREATE VIEW %s.%s%s%s.%s SECURITY DEFINER AS\n" +
                         "SELECT *\n" +
                         "FROM\n" +
                         "  (\n" +
@@ -2201,7 +2207,9 @@ public abstract class BaseConnectorTest
                         "   , ROW(2, 't')\n" +
                         ")  t (col1, col2)",
                 getSession().getCatalog().get(),
-                getSession().getSchema().get(),
+                quote,
+                schema,
+                quote,
                 viewName);
         assertUpdate(ddl);
 
@@ -2438,7 +2446,7 @@ public abstract class BaseConnectorTest
     {
         String catalog = getSession().getCatalog().orElseThrow();
         String schema = getSession().getSchema().orElseThrow();
-        assertThat(computeScalar("SHOW CREATE TABLE orders"))
+        assertThat(computeScalar("SHOW CREATE TABLE \"orders\""))
                 // If the connector reports additional column properties, the expected value needs to be adjusted in the test subclass
                 .isEqualTo(format(
                         """
@@ -2705,7 +2713,12 @@ public abstract class BaseConnectorTest
             tableName = table.getName();
             assertUpdate("INSERT INTO " + table.getName() + " SELECT 'first'", 1);
             assertQueryFails("ALTER TABLE " + table.getName() + " ADD COLUMN x bigint", ".* Column 'x' already exists");
-            assertQueryFails("ALTER TABLE " + table.getName() + " ADD COLUMN X bigint", ".* Column 'X' already exists");
+            if (canonicalize("x").equals(canonicalize("X"))) {
+                assertQueryFails("ALTER TABLE " + table.getName() + " ADD COLUMN X bigint", ".* Column 'x' already exists");
+            }
+            else {
+                assertUpdate("ALTER TABLE " + table.getName() + " ADD COLUMN X bigint");
+            }
             assertQueryFails("ALTER TABLE " + table.getName() + " ADD COLUMN q bad_type", ".* Unknown type 'bad_type' for column 'q'");
 
             assertUpdate("ALTER TABLE " + table.getName() + " ADD COLUMN a varchar(50)");
@@ -3274,10 +3287,14 @@ public abstract class BaseConnectorTest
                     "VALUES 'some value'");
 
             assertUpdate("ALTER TABLE " + tableName + " RENAME COLUMN IF EXISTS z TO a");
-            assertQuery(
-                    "SELECT a FROM " + tableName,
-                    "VALUES 'some value'");
-
+            if (canonicalize("z").equals(canonicalize("Z"))) {
+                assertQuery("SELECT a FROM " + tableName, "VALUES 'some value'");
+            }
+            else {
+                assertThatThrownBy(() ->
+                        assertQuery("SELECT a FROM " + tableName, "VALUES 'some value'"))
+                        .hasMessageMatching("Execution of 'actual' query .* failed: SELECT a FROM " + tableName);
+            }
             // There should be exactly one column
             assertQuery("SELECT * FROM " + tableName, "VALUES 'some value'");
         }
@@ -4639,7 +4656,7 @@ public abstract class BaseConnectorTest
         String uppercaseName = "TEST_RENAME_" + randomNameSuffix(); // Test an upper-case, not delimited identifier
         assertUpdate("ALTER TABLE " + testExistsTableName + " RENAME TO " + uppercaseName);
         assertQuery(
-                "SELECT x FROM " + uppercaseName.toLowerCase(ENGLISH), // Ensure select allows for lower-case, not delimited identifier
+                "SELECT x FROM " + uppercaseName, // Ensure select allows for lower-case, not delimited identifier
                 "VALUES 123");
 
         assertUpdate("DROP TABLE " + uppercaseName);
@@ -5606,7 +5623,7 @@ public abstract class BaseConnectorTest
         skipTestUnless(hasBehavior(SUPPORTS_UPDATE));
 
         try (TestTable table = newTrinoTable("test_row_update", "AS SELECT * FROM nation")) {
-            assertUpdate("UPDATE " + table.getName() + " SET NATIONKEY = 100 WHERE REGIONKEY = 2", 5);
+            assertUpdate("UPDATE " + table.getName() + " SET nationkey = 100 WHERE regionkey = 2", 5);
             assertQuery("SELECT count(*) FROM " + table.getName() + " WHERE nationkey = 100", "VALUES 5");
         }
     }
@@ -6264,15 +6281,20 @@ public abstract class BaseConnectorTest
             }
             throw e;
         }
-        assertTableColumnNames(tableName, columnName.toLowerCase(ENGLISH), "value");
+        assertTableColumnNames(tableName, canonicalize(columnName), "value");
 
         assertUpdate("ALTER TABLE " + tableName + " DROP COLUMN " + nameInSql);
         assertTableColumnNames(tableName, "value");
 
         assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN " + nameInSql + " varchar(50)");
-        assertTableColumnNames(tableName, "value", columnName.toLowerCase(ENGLISH));
+        assertTableColumnNames(tableName, "value", canonicalize(columnName));
 
         assertUpdate("DROP TABLE " + tableName);
+    }
+
+    protected String canonicalize(String value)
+    {
+        return value.toLowerCase(ENGLISH);
     }
 
     /**
@@ -6305,7 +6327,7 @@ public abstract class BaseConnectorTest
             assertTableColumnNames(tableName, sourceColumnName);
 
             assertUpdate("ALTER TABLE " + tableName + " RENAME COLUMN \"" + sourceColumnName + "\" TO " + nameInSql);
-            assertTableColumnNames(tableName, columnName.toLowerCase(ENGLISH));
+            assertTableColumnNames(tableName, canonicalize(columnName));
         }
         catch (RuntimeException e) {
             if (isColumnNameRejected(e, columnName, delimited)) {
@@ -6568,28 +6590,30 @@ public abstract class BaseConnectorTest
         }
         setup.run();
 
+        String rowId = canonicalize("row_id");
+        String value = canonicalize("value");
         // without pushdown, i.e. test read data mapping
-        assertQuery("SELECT row_id FROM " + tableName + " WHERE rand() = 42 OR value IS NULL", "VALUES 'null value'");
-        assertQuery("SELECT row_id FROM " + tableName + " WHERE rand() = 42 OR value IS NOT NULL", "VALUES 'sample value', 'high value'");
-        assertQuery("SELECT row_id FROM " + tableName + " WHERE rand() = 42 OR value = " + sampleValueLiteral, "VALUES 'sample value'");
-        assertQuery("SELECT row_id FROM " + tableName + " WHERE rand() = 42 OR value = " + highValueLiteral, "VALUES 'high value'");
+        assertQuery("SELECT " + rowId + " FROM " + tableName + " WHERE rand() = 42 OR " + value + " IS NULL", "VALUES 'null value'");
+        assertQuery("SELECT " + rowId + " FROM " + tableName + " WHERE rand() = 42 OR " + value + " IS NOT NULL", "VALUES 'sample value', 'high value'");
+        assertQuery("SELECT " + rowId + " FROM " + tableName + " WHERE rand() = 42 OR " + value + " = " + sampleValueLiteral, "VALUES 'sample value'");
+        assertQuery("SELECT " + rowId + " FROM " + tableName + " WHERE rand() = 42 OR " + value + " = " + highValueLiteral, "VALUES 'high value'");
 
-        assertQuery("SELECT row_id FROM " + tableName + " WHERE value IS NULL", "VALUES 'null value'");
-        assertQuery("SELECT row_id FROM " + tableName + " WHERE value IS NOT NULL", "VALUES 'sample value', 'high value'");
-        assertQuery("SELECT row_id FROM " + tableName + " WHERE value = " + sampleValueLiteral, "VALUES 'sample value'");
-        assertQuery("SELECT row_id FROM " + tableName + " WHERE value != " + sampleValueLiteral, "VALUES 'high value'");
-        assertQuery("SELECT row_id FROM " + tableName + " WHERE value <= " + sampleValueLiteral, "VALUES 'sample value'");
-        assertQuery("SELECT row_id FROM " + tableName + " WHERE value > " + sampleValueLiteral, "VALUES 'high value'");
-        assertQuery("SELECT row_id FROM " + tableName + " WHERE value <= " + highValueLiteral, "VALUES 'sample value', 'high value'");
+        assertQuery("SELECT " + rowId + " FROM " + tableName + " WHERE " + value + " IS NULL", "VALUES 'null value'");
+        assertQuery("SELECT " + rowId + " FROM " + tableName + " WHERE " + value + " IS NOT NULL", "VALUES 'sample value', 'high value'");
+        assertQuery("SELECT " + rowId + " FROM " + tableName + " WHERE " + value + " = " + sampleValueLiteral, "VALUES 'sample value'");
+        assertQuery("SELECT " + rowId + " FROM " + tableName + " WHERE " + value + " != " + sampleValueLiteral, "VALUES 'high value'");
+        assertQuery("SELECT " + rowId + " FROM " + tableName + " WHERE " + value + " <= " + sampleValueLiteral, "VALUES 'sample value'");
+        assertQuery("SELECT " + rowId + " FROM " + tableName + " WHERE " + value + " > " + sampleValueLiteral, "VALUES 'high value'");
+        assertQuery("SELECT " + rowId + " FROM " + tableName + " WHERE " + value + " <= " + highValueLiteral, "VALUES 'sample value', 'high value'");
 
-        assertQuery("SELECT row_id FROM " + tableName + " WHERE value IS NULL OR value = " + sampleValueLiteral, "VALUES 'null value', 'sample value'");
-        assertQuery("SELECT row_id FROM " + tableName + " WHERE value IS NULL OR value != " + sampleValueLiteral, "VALUES 'null value', 'high value'");
-        assertQuery("SELECT row_id FROM " + tableName + " WHERE value IS NULL OR value <= " + sampleValueLiteral, "VALUES 'null value', 'sample value'");
-        assertQuery("SELECT row_id FROM " + tableName + " WHERE value IS NULL OR value > " + sampleValueLiteral, "VALUES 'null value', 'high value'");
-        assertQuery("SELECT row_id FROM " + tableName + " WHERE value IS NULL OR value <= " + highValueLiteral, "VALUES 'null value', 'sample value', 'high value'");
+        assertQuery("SELECT " + rowId + " FROM " + tableName + " WHERE " + value + " IS NULL OR " + value + " = " + sampleValueLiteral, "VALUES 'null value', 'sample value'");
+        assertQuery("SELECT " + rowId + " FROM " + tableName + " WHERE " + value + " IS NULL OR " + value + " != " + sampleValueLiteral, "VALUES 'null value', 'high value'");
+        assertQuery("SELECT " + rowId + " FROM " + tableName + " WHERE " + value + " IS NULL OR " + value + " <= " + sampleValueLiteral, "VALUES 'null value', 'sample value'");
+        assertQuery("SELECT " + rowId + " FROM " + tableName + " WHERE " + value + " IS NULL OR " + value + " > " + sampleValueLiteral, "VALUES 'null value', 'high value'");
+        assertQuery("SELECT " + rowId + " FROM " + tableName + " WHERE " + value + " IS NULL OR " + value + " <= " + highValueLiteral, "VALUES 'null value', 'sample value', 'high value'");
 
         // complex condition, one that cannot be represented with a TupleDomain
-        assertQuery("SELECT row_id FROM " + tableName + " WHERE value = " + sampleValueLiteral + " OR another_column = " + sampleValueLiteral, "VALUES 'sample value'");
+        assertQuery("SELECT " + rowId + " FROM " + tableName + " WHERE " + value + " = " + sampleValueLiteral + " OR another_column = " + sampleValueLiteral, "VALUES 'sample value'");
 
         assertUpdate("DROP TABLE " + tableName);
     }
@@ -7969,7 +7993,13 @@ public abstract class BaseConnectorTest
 
     protected String createSchemaSql(String schemaName)
     {
-        return "CREATE SCHEMA " + schemaName;
+        return "CREATE SCHEMA " + quoted(schemaName);
+    }
+
+    protected String quoted(String identifier)
+    {
+        String delimiter = "\"";
+        return delimiter + identifier.replace(delimiter, delimiter + delimiter) + delimiter;
     }
 
     protected boolean supportsPhysicalPushdown()

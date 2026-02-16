@@ -56,7 +56,7 @@ public class TestJdbcPageSource
     {
         database = new TestingDatabase();
         jdbcClient = database.getJdbcClient();
-        table = database.getTableHandle(SESSION, new SchemaTableName("example", "numbers"));
+        table = database.getTableHandle(SESSION, new SchemaTableName("EXAMPLE", "NUMBERS"));
         split = database.getSplit(SESSION, table);
         columnHandles = database.getColumnHandles(SESSION, table);
         executor = newDirectExecutorService();
@@ -77,9 +77,9 @@ public class TestJdbcPageSource
     public void testCursorSimple()
     {
         try (JdbcPageSource pageSource = createPageSource(ImmutableList.of(
-                columnHandles.get("text"),
-                columnHandles.get("text_short"),
-                columnHandles.get("value")))) {
+                columnHandles.get("TEXT"),
+                columnHandles.get("TEXT_SHORT"),
+                columnHandles.get("VALUE")))) {
             assertThat(pageSource.isBlocked().isDone()).isTrue();
             Map<String, Long> data = new LinkedHashMap<>();
             for (SourcePage page = pageSource.getNextSourcePage(); ; page = pageSource.getNextSourcePage()) {
@@ -119,9 +119,9 @@ public class TestJdbcPageSource
     public void testCursorMixedOrder()
     {
         try (JdbcPageSource pageSource = createPageSource(ImmutableList.of(
-                columnHandles.get("value"),
-                columnHandles.get("value"),
-                columnHandles.get("text")))) {
+                columnHandles.get("VALUE"),
+                columnHandles.get("VALUE"),
+                columnHandles.get("TEXT")))) {
             Map<String, Long> data = new LinkedHashMap<>();
             for (SourcePage page = pageSource.getNextSourcePage(); ; page = pageSource.getNextSourcePage()) {
                 if (page == null) {
@@ -157,9 +157,9 @@ public class TestJdbcPageSource
     public void testIdempotentClose()
     {
         JdbcPageSource pageSource = createPageSource(ImmutableList.of(
-                columnHandles.get("value"),
-                columnHandles.get("value"),
-                columnHandles.get("text")));
+                columnHandles.get("VALUE"),
+                columnHandles.get("VALUE"),
+                columnHandles.get("TEXT")));
 
         pageSource.close();
         pageSource.close();
@@ -169,9 +169,9 @@ public class TestJdbcPageSource
     public void testGetNextPageAfterClose()
     {
         JdbcPageSource pageSource = createPageSource(ImmutableList.of(
-                columnHandles.get("value"),
-                columnHandles.get("value"),
-                columnHandles.get("text")));
+                columnHandles.get("VALUE"),
+                columnHandles.get("VALUE"),
+                columnHandles.get("TEXT")));
 
         pageSource.close();
         assertThatThrownBy(pageSource::getNextSourcePage)
@@ -184,9 +184,9 @@ public class TestJdbcPageSource
     public void testGetNextPageAfterFinish()
     {
         JdbcPageSource pageSource = createPageSource(ImmutableList.of(
-                columnHandles.get("value"),
-                columnHandles.get("value"),
-                columnHandles.get("text")));
+                columnHandles.get("VALUE"),
+                columnHandles.get("VALUE"),
+                columnHandles.get("TEXT")));
 
         while (!pageSource.isFinished()) {
             pageSource.getNextSourcePage();

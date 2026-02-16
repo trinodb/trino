@@ -50,7 +50,6 @@ import static io.trino.spi.security.PrincipalType.ROLE;
 import static io.trino.spi.security.PrincipalType.USER;
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
 import static java.lang.String.format;
-import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
 public final class MetadataUtil
@@ -60,41 +59,32 @@ public final class MetadataUtil
     public static void checkTableName(String catalogName, Optional<String> schemaName, Optional<String> tableName)
     {
         checkCatalogName(catalogName);
-        schemaName.ifPresent(name -> checkLowerCase(name, "schemaName"));
-        tableName.ifPresent(name -> checkLowerCase(name, "tableName"));
+        schemaName.ifPresent(name -> requireNonNull(name, "schemaName is null"));
+        tableName.ifPresent(name -> requireNonNull(name, "tableName is null"));
 
         checkArgument(schemaName.isPresent() || tableName.isEmpty(), "tableName specified but schemaName is missing");
     }
 
     public static String checkCatalogName(String catalogName)
     {
-        return checkLowerCase(catalogName, "catalogName");
+        return requireNonNull(catalogName, "catalogName is null");
     }
 
     public static String checkSchemaName(String schemaName)
     {
-        return checkLowerCase(schemaName, "schemaName");
+        return requireNonNull(schemaName, "schemaName is null");
     }
 
     public static String checkTableName(String tableName)
     {
-        return checkLowerCase(tableName, "tableName");
+        return requireNonNull(tableName, "tableName is null");
     }
 
     public static void checkObjectName(String catalogName, String schemaName, String objectName)
     {
-        checkLowerCase(catalogName, "catalogName");
-        checkLowerCase(schemaName, "schemaName");
-        checkLowerCase(objectName, "objectName");
-    }
-
-    public static String checkLowerCase(String value, String name)
-    {
-        if (value == null) {
-            throw new NullPointerException(format("%s is null", name));
-        }
-        checkArgument(value.equals(value.toLowerCase(ENGLISH)), "%s is not lowercase: %s", name, value);
-        return value;
+        requireNonNull(catalogName, "catalogName is null");
+        requireNonNull(schemaName, "schemaName is null");
+        requireNonNull(objectName, "objectName is null");
     }
 
     public static ColumnMetadata findColumnMetadata(ConnectorTableMetadata tableMetadata, String columnName)
@@ -162,48 +152,99 @@ public final class MetadataUtil
         return name.stream().collect(Collectors.joining("."));
     }
 
-    public static CatalogSchemaName createCatalogSchemaName(Session session, Node node, Optional<QualifiedName> schema)
+    public static CatalogSchemaName createCatalogSchemaName(Session session, Node node, Optional<QualifiedName> schema, Metadata metadata)
     {
-        String catalogName = session.getCatalog().orElse(null);
-        String schemaName = session.getSchema().orElse(null);
+        return createCatalogSchemaName(session, getCatalogSchemaNameParts(session, node, schema, metadata), metadata);
+    }
 
-        if (schema.isPresent()) {
-            List<String> parts = schema.get().getParts();
-            if (parts.size() > 2) {
-                throw semanticException(SYNTAX_ERROR, node, "Too many parts in schema name: %s", schema.get());
-            }
-            if (parts.size() == 2) {
-                catalogName = parts.get(0);
-            }
-            schemaName = schema.get().getSuffix();
-        }
-
-        if (catalogName == null) {
-            throw semanticException(MISSING_CATALOG_NAME, node, "Catalog must be specified when session catalog is not set");
-        }
-        if (schemaName == null) {
-            throw semanticException(MISSING_SCHEMA_NAME, node, "Schema must be specified when session schema is not set");
-        }
-
+    public static CatalogSchemaName createCatalogSchemaName(Session session, List<Identifier> identifiers, Metadata metadata)
+    {
+        String catalogName = Canonicalizer.LEGACY_CANONICALIZER.canonicalize(identifiers.getFirst());
+        String schemaName = metadata.getCanonicalizer(session, catalogName).canonicalize(identifiers.getLast());
         return new CatalogSchemaName(catalogName, schemaName);
     }
 
-    public static QualifiedObjectName createQualifiedObjectName(Session session, Node node, QualifiedName name)
+    public static List<Identifier> getCatalogSchemaNameParts(Session session, Node node, Optional<QualifiedName> qualifiedName, Metadata metadata)
+    {
+        requireNonNull(metadata, "metadata is null");
+        Identifier catalog = session.getCatalog().map(name -> new Identifier(name, false)).orElse(null);
+        Identifier schema = null;
+
+        if (qualifiedName.isPresent()) {
+            List<Identifier> parts = qualifiedName.get().getOriginalParts();
+            if (parts.size() > 2) {
+                throw semanticException(SYNTAX_ERROR, node, "Too many parts in schema name: %s", qualifiedName.get());
+            }
+            if (parts.size() == 2) {
+                catalog = parts.getFirst();
+            }
+            schema = parts.getLast();
+        }
+        else if (session.getSchema().isPresent()) {
+            schema = new Identifier(session.getSchema().get(), requiresDelimiter(session, metadata, catalog, session.getSchema().get()));
+        }
+
+        if (catalog == null) {
+            throw semanticException(MISSING_CATALOG_NAME, node, "Catalog must be specified when session catalog is not set");
+        }
+        if (schema == null) {
+            throw semanticException(MISSING_SCHEMA_NAME, node, "Schema must be specified when session schema is not set");
+        }
+        return ImmutableList.of(catalog, schema);
+    }
+
+    private static boolean requiresDelimiter(Session session, Metadata metadata, Identifier catalog, String schema)
+    {
+        return !Identifier.isValidIdentifier(schema) ||
+                !metadata.getCanonicalizer(session, Canonicalizer.LEGACY_CANONICALIZER.canonicalize(catalog)).canonicalize(schema, false).equals(schema);
+    }
+
+    public static QualifiedObjectName createQualifiedObjectName(Session session, Node node, QualifiedName name, Metadata metadata)
+    {
+        return createQualifiedObjectName(session, getQualifiedObjectNameParts(session, node, name, metadata), metadata);
+    }
+
+    public static QualifiedObjectName createQualifiedObjectName(Session session, List<Identifier> identifiers, Metadata metadata)
+    {
+        requireNonNull(identifiers, "identifiers is null");
+        if (identifiers.size() < 3) {
+            throw new TrinoException(SYNTAX_ERROR, format("Not enough parts in table name: %s", identifiers.getLast().getValue()));
+        }
+
+        String catalog = Canonicalizer.LEGACY_CANONICALIZER.canonicalize(identifiers.getFirst());
+        Canonicalizer canonicalizer = metadata.getCanonicalizer(session, catalog);
+        return new QualifiedObjectName(catalog, canonicalizer.canonicalize(identifiers.get(1)), canonicalizer.canonicalize(identifiers.getLast()));
+    }
+
+    public static List<Identifier> getQualifiedObjectNameParts(Session session, Node node, QualifiedName name, Metadata metadata)
     {
         requireNonNull(session, "session is null");
         requireNonNull(name, "name is null");
-        if (name.getParts().size() > 3) {
+        if (name.getOriginalParts().size() > 3) {
             throw new TrinoException(SYNTAX_ERROR, format("Too many dots in table name: %s", name));
         }
 
-        List<String> parts = name.getParts().reversed();
-        String objectName = parts.get(0);
-        String schemaName = (parts.size() > 1) ? parts.get(1) : session.getSchema().orElseThrow(() ->
-                semanticException(MISSING_SCHEMA_NAME, node, "Schema must be specified when session schema is not set"));
-        String catalogName = (parts.size() > 2) ? parts.get(2) : session.getCatalog().orElseThrow(() ->
-                semanticException(MISSING_CATALOG_NAME, node, "Catalog must be specified when session catalog is not set"));
+        List<Identifier> identifiers = name.getOriginalParts().reversed();
+        Identifier catalog = getCatalogIdentifier(session, identifiers, node);
+        ImmutableList.Builder<Identifier> partsBuilder = ImmutableList.builder();
+        partsBuilder.add(catalog);
+        partsBuilder.add(getSchemaIdentifier(session, identifiers, node, metadata, catalog));
+        partsBuilder.add(identifiers.getFirst());
+        return partsBuilder.build();
+    }
 
-        return new QualifiedObjectName(catalogName, schemaName, objectName);
+    private static Identifier getCatalogIdentifier(Session session, List<Identifier> identifiers, Node node)
+    {
+        return identifiers.size() > 2 ? identifiers.get(2) :
+                session.getCatalog().map(catalog -> new Identifier(catalog, false)).orElseThrow(() ->
+                        semanticException(MISSING_CATALOG_NAME, node, "Catalog must be specified when session catalog is not set"));
+    }
+
+    private static Identifier getSchemaIdentifier(Session session, List<Identifier> identifiers, Node node, Metadata metadata, Identifier catalog)
+    {
+        return identifiers.size() > 1 ? identifiers.get(1) :
+                session.getSchema().map(schema -> new Identifier(schema, requiresDelimiter(session, metadata, catalog, schema))).orElseThrow(() ->
+                        semanticException(MISSING_SCHEMA_NAME, node, "Schema must be specified when session schema is not set"));
     }
 
     public static EntityKindAndName createEntityKindAndName(String entityKind, QualifiedName name)

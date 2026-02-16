@@ -1352,4 +1352,20 @@ public class ClassLoaderSafeConnectorMetadata
             return delegate.getInsertWriterScalingOptions(session, tableHandle);
         }
     }
+
+    @Override
+    public String canonicalize(String value, boolean delimited)
+    {
+        try (ThreadContextClassLoader _ = new ThreadContextClassLoader(classLoader)) {
+            return delegate.canonicalize(value, delimited);
+        }
+    }
+
+    @Override
+    public String canonicalizeColumn(String value, boolean delimited)
+    {
+        try (ThreadContextClassLoader _ = new ThreadContextClassLoader(classLoader)) {
+            return delegate.canonicalizeColumn(value, delimited);
+        }
+    }
 }

@@ -36,7 +36,6 @@ import static io.trino.plugin.jdbc.UnsupportedTypeHandling.CONVERT_TO_VARCHAR;
 import static io.trino.plugin.jdbc.UnsupportedTypeHandling.IGNORE;
 import static io.trino.spi.connector.ConnectorMetadata.MODIFYING_ROWS_MESSAGE;
 import static java.lang.String.format;
-import static java.util.Locale.ENGLISH;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assumptions.abort;
@@ -266,7 +265,8 @@ public class TestJdbcConnectorTest
     @Override
     protected String errorMessageForInsertIntoNotNullColumn(String columnName)
     {
-        return format("NULL not allowed for column \"%s\"(?s).*", columnName.toUpperCase(ENGLISH));
+        // FIXME: H2 has been switched to lower case and don't need anymore toLowerCase(ENGLISH) on columnName.
+        return format("NULL not allowed for column \"%s\"(?s).*", columnName);
     }
 
     @Override
