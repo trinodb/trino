@@ -37,7 +37,7 @@ final class TestFakerViews
     void testView()
     {
         @Language("SQL") String query = "SELECT orderkey, orderstatus, (totalprice / 2) half FROM tpch.tiny.orders";
-        @Language("SQL") String expectedQuery = "SELECT orderkey, orderstatus, (totalprice / 2) half FROM orders";
+        @Language("SQL") String expectedQuery = "SELECT \"orderkey\", \"orderstatus\", (\"totalprice\" / 2) \"half\" FROM \"orders\"";
 
         String catalogName = getSession().getCatalog().orElseThrow();
         String schemaName = getSession().getSchema().orElseThrow();
@@ -86,7 +86,7 @@ final class TestFakerViews
                 """
                 SELECT *
                 FROM (%1$s) a
-                JOIN (%1$s) b ON a.orderkey = b.orderkey
+                JOIN (%1$s) b ON a.\"orderkey\" = b.\"orderkey\"
                 """.formatted(expectedQuery));
 
         assertQuery(

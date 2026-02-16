@@ -117,6 +117,7 @@ import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.TypeUtils.readNativeValue;
 import static java.lang.String.format;
+import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.Objects.requireNonNullElse;
 
@@ -155,6 +156,12 @@ public class FakerMetadata
         this.functionBundle = requireNonNull(functionBundle, "functionBundle is null");
         this.random = new Random(1);
         this.faker = new Faker(random);
+    }
+
+    @Override
+    public String canonicalize(String value)
+    {
+        return value.toLowerCase(ENGLISH);
     }
 
     @Override
