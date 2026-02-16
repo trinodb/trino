@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.deltalake;
 
-import com.google.common.collect.ImmutableMap;
 import com.google.inject.Inject;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
@@ -45,17 +44,21 @@ public class DefaultDeltaLakeFileSystemFactory
     {
         requireNonNull(vendedCredentialsHandle, "vendedCredentialsHandle is null");
 
-        Optional<FileSystemCredentials> freshCredentials = vendedCredentialsProvider.getFreshCredentials(vendedCredentialsHandle).vendedCredentials();
-
         ConnectorIdentity identity = session.getIdentity();
-        ConnectorIdentity identityWithExtraCredentials = ConnectorIdentity.forUser(identity.getUser())
-                .withGroups(identity.getGroups())
-                .withPrincipal(identity.getPrincipal())
-                .withEnabledSystemRoles(identity.getEnabledSystemRoles())
-                .withConnectorRole(identity.getConnectorRole())
-                .withExtraCredentials(freshCredentials.map(FileSystemCredentials::asExtraCredentials).orElse(ImmutableMap.of()))
-                .build();
-        return fileSystemFactory.create(identityWithExtraCredentials);
+        Optional<FileSystemCredentials> vendedCredentials = vendedCredentialsProvider.getFreshCredentials(vendedCredentialsHandle).vendedCredentials();
+        if (vendedCredentials.isPresent()) {
+            // Do not include original credentials as they should not be used in vended mode
+            ConnectorIdentity identityWithExtraCredentials = ConnectorIdentity.forUser(identity.getUser())
+                    .withGroups(identity.getGroups())
+                    .withPrincipal(identity.getPrincipal())
+                    .withEnabledSystemRoles(identity.getEnabledSystemRoles())
+                    .withConnectorRole(identity.getConnectorRole())
+                    .withExtraCredentials(vendedCredentials.get().asExtraCredentials())
+                    .build();
+            return fileSystemFactory.create(identityWithExtraCredentials);
+        }
+
+        return fileSystemFactory.create(identity);
     }
 
     @Override
