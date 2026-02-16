@@ -29,12 +29,6 @@ import static java.util.Objects.requireNonNull;
 public class Identifier
         extends Expression
 {
-    public static final int UNKNOW = 0;
-    public static final int CATALOG = 1;
-    public static final int SCHEMA = 2;
-    public static final int TABLE = 3;
-    public static final int COLUMN = 4;
-
     private static final CharMatcher FIRST_CHAR_DISALLOWED_MATCHER = CharMatcher.inRange('0', '9')
             .precomputed();
 
