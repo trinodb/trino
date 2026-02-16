@@ -31,6 +31,7 @@ import java.util.function.BiPredicate;
 import static com.google.common.base.Strings.nullToEmpty;
 import static io.trino.spi.StandardErrorCode.DIVISION_BY_ZERO;
 import static io.trino.spi.StandardErrorCode.FUNCTION_NOT_FOUND;
+import static io.trino.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
 import static io.trino.spi.function.OperatorType.ADD;
 import static io.trino.spi.function.OperatorType.DIVIDE;
 import static io.trino.spi.function.OperatorType.EQUAL;
@@ -42,7 +43,13 @@ import static io.trino.spi.function.OperatorType.MODULUS;
 import static io.trino.spi.function.OperatorType.MULTIPLY;
 import static io.trino.spi.function.OperatorType.NEGATION;
 import static io.trino.spi.function.OperatorType.SUBTRACT;
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.DoubleType.DOUBLE;
+import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.NumberType.NUMBER;
+import static io.trino.spi.type.RealType.REAL;
+import static io.trino.spi.type.SmallintType.SMALLINT;
+import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
@@ -2671,6 +2678,277 @@ public class TestNumberOperators
 
         assertThat(assertions.operator(INDETERMINATE, "NUMBER '12345678901234567.89012345678901234567'"))
                 .isEqualTo(false);
+    }
+
+    @Test
+    void testCastToTinyint()
+    {
+        assertThat(assertions.expression("cast(a as tinyint)")
+                .binding("a", "CAST(NULL as number)"))
+                .isNull(TINYINT);
+
+        assertThat(assertions.expression("cast(a as tinyint)")
+                .binding("a", "NUMBER '0'"))
+                .hasType(TINYINT)
+                .isEqualTo((byte) 0);
+
+        assertThat(assertions.expression("cast(a as tinyint)")
+                .binding("a", "NUMBER '127'"))
+                .hasType(TINYINT)
+                .isEqualTo((byte) 127);
+
+        assertThat(assertions.expression("cast(a as tinyint)")
+                .binding("a", "NUMBER '-128'"))
+                .hasType(TINYINT)
+                .isEqualTo((byte) -128);
+
+        assertThat(assertions.expression("cast(a as tinyint)")
+                .binding("a", "NUMBER '1.5'"))
+                .hasType(TINYINT)
+                .isEqualTo((byte) 2);
+
+        assertThat(assertions.expression("cast(a as tinyint)")
+                .binding("a", "NUMBER '2.5'"))
+                .hasType(TINYINT)
+                .isEqualTo((byte) 3);
+
+        assertThat(assertions.expression("cast(a as tinyint)")
+                .binding("a", "NUMBER '-2.5'"))
+                .hasType(TINYINT)
+                .isEqualTo((byte) -3);
+
+        assertTrinoExceptionThrownBy(assertions.expression("cast(a as tinyint)")
+                .binding("a", "NUMBER '128'")::evaluate)
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE);
+
+        assertTrinoExceptionThrownBy(assertions.expression("cast(a as tinyint)")
+                .binding("a", "NUMBER '-129'")::evaluate)
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE);
+
+        assertTrinoExceptionThrownBy(assertions.expression("cast(a as tinyint)")
+                .binding("a", "NUMBER '12345678901234567890'")::evaluate)
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE);
+    }
+
+    @Test
+    void testCastToSmallint()
+    {
+        assertThat(assertions.expression("cast(a as smallint)")
+                .binding("a", "CAST(NULL as number)"))
+                .isNull(SMALLINT);
+
+        assertThat(assertions.expression("cast(a as smallint)")
+                .binding("a", "NUMBER '0'"))
+                .hasType(SMALLINT)
+                .isEqualTo((short) 0);
+
+        assertThat(assertions.expression("cast(a as smallint)")
+                .binding("a", "NUMBER '32767'"))
+                .hasType(SMALLINT)
+                .isEqualTo((short) 32767);
+
+        assertThat(assertions.expression("cast(a as smallint)")
+                .binding("a", "NUMBER '-32768'"))
+                .hasType(SMALLINT)
+                .isEqualTo((short) -32768);
+
+        assertThat(assertions.expression("cast(a as smallint)")
+                .binding("a", "NUMBER '1.5'"))
+                .hasType(SMALLINT)
+                .isEqualTo((short) 2);
+
+        assertThat(assertions.expression("cast(a as smallint)")
+                .binding("a", "NUMBER '-2.5'"))
+                .hasType(SMALLINT)
+                .isEqualTo((short) -3);
+
+        assertTrinoExceptionThrownBy(assertions.expression("cast(a as smallint)")
+                .binding("a", "NUMBER '32768'")::evaluate)
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE);
+
+        assertTrinoExceptionThrownBy(assertions.expression("cast(a as smallint)")
+                .binding("a", "NUMBER '-32769'")::evaluate)
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE);
+
+        assertTrinoExceptionThrownBy(assertions.expression("cast(a as smallint)")
+                .binding("a", "NUMBER '12345678901234567890'")::evaluate)
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE);
+    }
+
+    @Test
+    void testCastToInteger()
+    {
+        assertThat(assertions.expression("cast(a as integer)")
+                .binding("a", "CAST(NULL as number)"))
+                .isNull(INTEGER);
+
+        assertThat(assertions.expression("cast(a as integer)")
+                .binding("a", "NUMBER '0'"))
+                .hasType(INTEGER)
+                .isEqualTo(0);
+
+        assertThat(assertions.expression("cast(a as integer)")
+                .binding("a", "NUMBER '2147483647'"))
+                .hasType(INTEGER)
+                .isEqualTo(2147483647);
+
+        assertThat(assertions.expression("cast(a as integer)")
+                .binding("a", "NUMBER '-2147483648'"))
+                .hasType(INTEGER)
+                .isEqualTo(-2147483648);
+
+        assertThat(assertions.expression("cast(a as integer)")
+                .binding("a", "NUMBER '1.5'"))
+                .hasType(INTEGER)
+                .isEqualTo(2);
+
+        assertThat(assertions.expression("cast(a as integer)")
+                .binding("a", "NUMBER '-2.5'"))
+                .hasType(INTEGER)
+                .isEqualTo(-3);
+
+        assertTrinoExceptionThrownBy(assertions.expression("cast(a as integer)")
+                .binding("a", "NUMBER '2147483648'")::evaluate)
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE);
+
+        assertTrinoExceptionThrownBy(assertions.expression("cast(a as integer)")
+                .binding("a", "NUMBER '-2147483649'")::evaluate)
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE);
+
+        assertTrinoExceptionThrownBy(assertions.expression("cast(a as integer)")
+                .binding("a", "NUMBER '12345678901234567890'")::evaluate)
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE);
+    }
+
+    @Test
+    void testCastToBigint()
+    {
+        assertThat(assertions.expression("cast(a as bigint)")
+                .binding("a", "CAST(NULL as number)"))
+                .isNull(BIGINT);
+
+        assertThat(assertions.expression("cast(a as bigint)")
+                .binding("a", "NUMBER '0'"))
+                .hasType(BIGINT)
+                .isEqualTo(0L);
+
+        assertThat(assertions.expression("cast(a as bigint)")
+                .binding("a", "NUMBER '9223372036854775807'"))
+                .hasType(BIGINT)
+                .isEqualTo(9223372036854775807L);
+
+        assertThat(assertions.expression("cast(a as bigint)")
+                .binding("a", "NUMBER '-9223372036854775808'"))
+                .hasType(BIGINT)
+                .isEqualTo(-9223372036854775808L);
+
+        assertThat(assertions.expression("cast(a as bigint)")
+                .binding("a", "NUMBER '1.5'"))
+                .hasType(BIGINT)
+                .isEqualTo(2L);
+
+        assertThat(assertions.expression("cast(a as bigint)")
+                .binding("a", "NUMBER '2.5'"))
+                .hasType(BIGINT)
+                .isEqualTo(3L);
+
+        assertThat(assertions.expression("cast(a as bigint)")
+                .binding("a", "NUMBER '-2.5'"))
+                .hasType(BIGINT)
+                .isEqualTo(-3L);
+
+        assertTrinoExceptionThrownBy(assertions.expression("cast(a as bigint)")
+                .binding("a", "NUMBER '9223372036854775808'")::evaluate)
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE);
+
+        assertTrinoExceptionThrownBy(assertions.expression("cast(a as bigint)")
+                .binding("a", "NUMBER '-9223372036854775809'")::evaluate)
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE);
+
+        assertTrinoExceptionThrownBy(assertions.expression("cast(a as bigint)")
+                .binding("a", "NUMBER '12345678901234567890'")::evaluate)
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE);
+    }
+
+    @Test
+    void testCastToReal()
+    {
+        assertThat(assertions.expression("cast(a as real)")
+                .binding("a", "CAST(NULL as number)"))
+                .isNull(REAL);
+
+        assertThat(assertions.expression("cast(a as real)")
+                .binding("a", "NUMBER '0'"))
+                .hasType(REAL)
+                .isEqualTo(0.0f);
+
+        assertThat(assertions.expression("cast(a as real)")
+                .binding("a", "NUMBER '1.5'"))
+                .hasType(REAL)
+                .isEqualTo(1.5f);
+
+        assertThat(assertions.expression("cast(a as real)")
+                .binding("a", "NUMBER '-2.5'"))
+                .hasType(REAL)
+                .isEqualTo(-2.5f);
+
+        assertThat(assertions.expression("cast(a as real)")
+                .binding("a", "NUMBER '3.14159'"))
+                .hasType(REAL)
+                .isEqualTo(3.14159f);
+
+        assertThat(assertions.expression("cast(a as real)")
+                .binding("a", "NUMBER '12345.6789'"))
+                .hasType(REAL)
+                .isEqualTo(12345.6789f);
+
+        assertThat(assertions.expression("cast(a as real)")
+                .binding("a", "NUMBER '9999e100'"))
+                .hasType(REAL)
+                .isEqualTo(Float.POSITIVE_INFINITY);
+    }
+
+    @Test
+    void testCastToDouble()
+    {
+        assertThat(assertions.expression("cast(a as double)")
+                .binding("a", "CAST(NULL as number)"))
+                .isNull(DOUBLE);
+
+        assertThat(assertions.expression("cast(a as double)")
+                .binding("a", "NUMBER '0'"))
+                .hasType(DOUBLE)
+                .isEqualTo(0.0);
+
+        assertThat(assertions.expression("cast(a as double)")
+                .binding("a", "NUMBER '1.5'"))
+                .hasType(DOUBLE)
+                .isEqualTo(1.5);
+
+        assertThat(assertions.expression("cast(a as double)")
+                .binding("a", "NUMBER '-2.5'"))
+                .hasType(DOUBLE)
+                .isEqualTo(-2.5);
+
+        assertThat(assertions.expression("cast(a as double)")
+                .binding("a", "NUMBER '3.14159'"))
+                .hasType(DOUBLE)
+                .isEqualTo(3.14159);
+
+        assertThat(assertions.expression("cast(a as double)")
+                .binding("a", "NUMBER '12345.6789'"))
+                .hasType(DOUBLE)
+                .isEqualTo(12345.6789);
+
+        assertThat(assertions.expression("cast(a as double)")
+                .binding("a", "NUMBER '1234567890123456'"))
+                .hasType(DOUBLE)
+                .isEqualTo(1234567890123456.0);
+
+        assertThat(assertions.expression("cast(a as double)")
+                .binding("a", "NUMBER '9999e500'"))
+                .hasType(DOUBLE)
+                .isEqualTo(Double.POSITIVE_INFINITY);
     }
 
     @Test

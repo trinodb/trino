@@ -28,6 +28,7 @@ import java.math.RoundingMode;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.spi.StandardErrorCode.DIVISION_BY_ZERO;
 import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
+import static io.trino.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
 import static io.trino.spi.function.OperatorType.ADD;
 import static io.trino.spi.function.OperatorType.CAST;
 import static io.trino.spi.function.OperatorType.DIVIDE;
@@ -35,6 +36,7 @@ import static io.trino.spi.function.OperatorType.MODULUS;
 import static io.trino.spi.function.OperatorType.MULTIPLY;
 import static io.trino.spi.function.OperatorType.NEGATION;
 import static io.trino.spi.function.OperatorType.SUBTRACT;
+import static java.lang.Float.floatToRawIntBits;
 import static java.lang.String.format;
 
 public final class NumberOperators
@@ -95,6 +97,84 @@ public final class NumberOperators
     public static TrinoNumber negate(@SqlType(StandardTypes.NUMBER) TrinoNumber value)
     {
         return TrinoNumber.from(value.toBigDecimal().negate());
+    }
+
+    @ScalarOperator(CAST)
+    @SqlType(StandardTypes.TINYINT)
+    public static long castToTinyint(@SqlType(StandardTypes.NUMBER) TrinoNumber value)
+    {
+        BigDecimal bigDecimal = value.toBigDecimal();
+        try {
+            long valueAsLong = bigDecimal.setScale(0, RoundingMode.HALF_UP).longValueExact();
+            if (valueAsLong >= Byte.MIN_VALUE && valueAsLong <= Byte.MAX_VALUE) {
+                return valueAsLong;
+            }
+        }
+        catch (ArithmeticException e) {
+            throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, format("Cannot cast NUMBER '%s' to TINYINT", bigDecimal), e);
+        }
+        throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, format("Cannot cast NUMBER '%s' to TINYINT", bigDecimal));
+    }
+
+    @ScalarOperator(CAST)
+    @SqlType(StandardTypes.SMALLINT)
+    public static long castToSmallint(@SqlType(StandardTypes.NUMBER) TrinoNumber value)
+    {
+        BigDecimal bigDecimal = value.toBigDecimal();
+        try {
+            long valueAsLong = bigDecimal.setScale(0, RoundingMode.HALF_UP).longValueExact();
+            if (valueAsLong >= Short.MIN_VALUE && valueAsLong <= Short.MAX_VALUE) {
+                return valueAsLong;
+            }
+        }
+        catch (ArithmeticException e) {
+            throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, format("Cannot cast NUMBER '%s' to SMALLINT", bigDecimal), e);
+        }
+        throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, format("Cannot cast NUMBER '%s' to SMALLINT", bigDecimal));
+    }
+
+    @ScalarOperator(CAST)
+    @SqlType(StandardTypes.INTEGER)
+    public static long castToInteger(@SqlType(StandardTypes.NUMBER) TrinoNumber value)
+    {
+        BigDecimal bigDecimal = value.toBigDecimal();
+        try {
+            long valueAsLong = bigDecimal.setScale(0, RoundingMode.HALF_UP).longValueExact();
+            if (valueAsLong >= Integer.MIN_VALUE && valueAsLong <= Integer.MAX_VALUE) {
+                return valueAsLong;
+            }
+        }
+        catch (ArithmeticException e) {
+            throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, format("Cannot cast NUMBER '%s' to INTEGER", bigDecimal), e);
+        }
+        throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, format("Cannot cast NUMBER '%s' to INTEGER", bigDecimal));
+    }
+
+    @ScalarOperator(CAST)
+    @SqlType(StandardTypes.BIGINT)
+    public static long castToBigint(@SqlType(StandardTypes.NUMBER) TrinoNumber value)
+    {
+        BigDecimal bigDecimal = value.toBigDecimal();
+        try {
+            return bigDecimal.setScale(0, RoundingMode.HALF_UP).longValueExact();
+        }
+        catch (ArithmeticException e) {
+            throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, format("Cannot cast NUMBER '%s' to BIGINT", bigDecimal), e);
+        }
+    }
+
+    @ScalarOperator(CAST)
+    @SqlType(StandardTypes.REAL)
+    public static long castToReal(@SqlType(StandardTypes.NUMBER) TrinoNumber value)
+    {
+        return floatToRawIntBits(value.toBigDecimal().floatValue());
+    }
+
+    @ScalarOperator(CAST)
+    @SqlType(StandardTypes.DOUBLE)
+    public static double castToDouble(@SqlType(StandardTypes.NUMBER) TrinoNumber value)
+    {
+        return value.toBigDecimal().doubleValue();
     }
 
     @ScalarOperator(CAST)
