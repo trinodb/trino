@@ -18,6 +18,8 @@ import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
 import org.junit.jupiter.api.Test;
 
+import static java.util.Locale.ENGLISH;
+
 public class TestHudiSystemTables
         extends AbstractTestQueryFramework
 {
@@ -28,6 +30,12 @@ public class TestHudiSystemTables
         return HudiQueryRunner.builder()
                 .setDataLoader(new ResourceHudiTablesInitializer())
                 .build();
+    }
+
+    @Override
+    protected String canonicalize(String value)
+    {
+        return value.toLowerCase(ENGLISH);
     }
 
     @Test

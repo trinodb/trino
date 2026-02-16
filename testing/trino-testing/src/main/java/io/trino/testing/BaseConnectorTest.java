@@ -2127,7 +2127,7 @@ public abstract class BaseConnectorTest
         // test INFORMATION_SCHEMA.TABLES
         MaterializedResult actual = computeActual(format(
                 "SELECT \"table_name\", \"table_type\" FROM \"information_schema\".\"tables\" WHERE \"table_schema\" = '%s'",
-                getSession().getSchema().get()));
+                getSession().getSchema().orElseThrow()));
 
         MaterializedResult expected = resultBuilder(getSession(), actual.getTypes())
                 .row("customer", "BASE TABLE")
@@ -2171,9 +2171,9 @@ public abstract class BaseConnectorTest
         // test SHOW CREATE VIEW
         String schema = getSession().getSchema().get();
         String expectedSql = formatSqlText(format(
-                "CREATE VIEW %s.\"%s\".%s SECURITY %s AS %s",
-                getSession().getCatalog().get(),
-                schema,
+                "CREATE VIEW %s.%s.%s SECURITY %s AS %s",
+                getSession().getCatalog().orElseThrow(),
+                canonicalize(schema).equals(schema) ? schema : '"' + schema + '"',
                 viewName,
                 securityClauseInShowCreate,
                 query)).trim();
@@ -2182,7 +2182,7 @@ public abstract class BaseConnectorTest
 
         assertThat(getOnlyElement(actual.getOnlyColumnAsSet())).isEqualTo(expectedSql);
 
-        actual = computeActual(format("SHOW CREATE VIEW %s.\"%s\".%s", getSession().getCatalog().get(), getSession().getSchema().get(), viewName));
+        actual = computeActual(format("SHOW CREATE VIEW %s.%s.%s", getSession().getCatalog().get(), canonicalize(getSession().getSchema().get()), viewName));
 
         assertThat(getOnlyElement(actual.getOnlyColumnAsSet())).isEqualTo(expectedSql);
 
@@ -4013,7 +4013,7 @@ public abstract class BaseConnectorTest
         }
 
         assertThat(computeActual("SHOW TABLES").getOnlyColumnAsSet()) // prime the cache, if any
-                .doesNotContain(tableName);
+                .doesNotContain(canonicalize(tableName));
         assertUpdate("CREATE TABLE " + tableName + " (a bigint, b double, c varchar(50))");
         assertThat(getQueryRunner().tableExists(getSession(), canonicalize(tableName))).isTrue();
         assertThat(computeActual("SHOW TABLES").getOnlyColumnAsSet())
@@ -4076,9 +4076,10 @@ public abstract class BaseConnectorTest
 
         String catalog = getSession().getCatalog().orElseThrow();
         String schema = getSession().getSchema().orElseThrow();
-        assertThat(computeScalar("SHOW CREATE TABLE \"" + table + "\""))
+        assertThat(computeActual("SHOW CREATE TABLE \"" + table + "\"").getOnlyValue())
                 // If the connector reports additional column properties, the expected value needs to be adjusted in the test subclass
-                .isEqualTo(getCreateTableMixedCaseDelimited(catalog, schema, table));
+                .asString().matches(getCreateTableMixedCaseDelimited(catalog, schema, table));
+        assertThat(getQueryRunner().tableExists(getSession(), table)).isTrue();
         assertUpdate("DROP TABLE \"" + table + "\"");
         assertThat(getQueryRunner().tableExists(getSession(), table)).isFalse();
     }
@@ -4087,11 +4088,11 @@ public abstract class BaseConnectorTest
     {
         return format(
                 """
-                        CREATE TABLE %s.%s."%s" (
-                           "Column A" bigint,
-                           "Column B" double
-                        )\
-                        """,
+                \\QCREATE TABLE %s.%s."%s" (
+                   "Column A" bigint,
+                   "Column B" double
+                )\\E\
+                """,
                 catalog,
                 canonicalize(schema).equals(schema) ? schema : '"' + schema + '"',
                 table);
@@ -4115,9 +4116,9 @@ public abstract class BaseConnectorTest
 
         String catalog = getSession().getCatalog().orElseThrow();
         String schema = getSession().getSchema().orElseThrow();
-        assertThat(computeScalar("SHOW CREATE TABLE " + table))
+        assertThat(computeActual("SHOW CREATE TABLE " + table).getOnlyValue())
                 // If the connector reports additional column properties, the expected value needs to be adjusted in the test subclass
-                .isEqualTo(getCreateTableMixedCaseUnDelimited(catalog, schema, table));
+                .asString().matches(getCreateTableMixedCaseUnDelimited(catalog, schema, table));
         assertUpdate("DROP TABLE " + table);
         assertThat(getQueryRunner().tableExists(getSession(), table)).isFalse();
     }
@@ -4126,11 +4127,11 @@ public abstract class BaseConnectorTest
     {
         return format(
                 """
-                        CREATE TABLE %s.%s.%s (
-                           %s bigint,
-                           %s double
-                        )\
-                        """,
+                \\QCREATE TABLE %s.%s.%s (
+                   %s bigint,
+                   %s double
+                )\\E\
+                """,
                 catalog,
                 canonicalize(schema).equals(schema) ? schema : '"' + schema + '"',
                 table,
@@ -4208,7 +4209,7 @@ public abstract class BaseConnectorTest
         }
 
         try (TestTable table = newTrinoTable("test_create_or_replace_", "AS SELECT CAST(1 AS BIGINT) AS nationkey, 'test' AS name, CAST(2 AS BIGINT) AS \"regionkey\" FROM \"nation\" LIMIT 1")) {
-            @Language("SQL") String query = "SELECT nationkey, name, \"regionkey\" FROM \"nation\"";
+            @Language("SQL") String query = "SELECT \"nationkey\", \"name\", \"regionkey\" FROM \"nation\"";
             @Language("SQL") String rowCountQuery = "SELECT count(*) FROM \"nation\"";
             assertUpdate("CREATE OR REPLACE TABLE " + table.getName() + " AS " + query, rowCountQuery);
             assertQuery("SELECT * FROM " + table.getName(), query);
@@ -4224,8 +4225,8 @@ public abstract class BaseConnectorTest
             return;
         }
 
-        try (TestTable table = newTrinoTable("test_create_or_replace_", " AS SELECT nationkey, name, \"regionkey\" FROM \"nation\"")) {
-            assertUpdate("CREATE OR REPLACE TABLE " + table.getName() + " AS SELECT nationkey, name, \"regionkey\" FROM \"nation\" WITH NO DATA", 0L);
+        try (TestTable table = newTrinoTable("test_create_or_replace_", " AS SELECT \"nationkey\", \"name\", \"regionkey\" FROM \"nation\"")) {
+            assertUpdate("CREATE OR REPLACE TABLE " + table.getName() + " AS SELECT \"nationkey\", \"name\", \"regionkey\" FROM \"nation\" WITH NO DATA", 0L);
             assertQueryReturnsEmptyResult("SELECT * FROM " + table.getName());
         }
     }
@@ -4239,9 +4240,9 @@ public abstract class BaseConnectorTest
             return;
         }
 
-        try (TestTable table = newTrinoTable("test_create_or_replace_", " AS SELECT nationkey, name, \"regionkey\" FROM \"nation\"")) {
+        try (TestTable table = newTrinoTable("test_create_or_replace_", " AS SELECT \"nationkey\", \"name\", \"regionkey\" FROM \"nation\"")) {
             assertTableColumnNames(canonicalize(table.getName()), "nationkey", "name", "regionkey");
-            @Language("SQL") String query = "SELECT nationkey AS nationkey_new, name AS name_new_2, \"regionkey\" AS region_key_new FROM \"nation\"";
+            @Language("SQL") String query = "SELECT \"nationkey\" AS \"nationkey_new\", \"name\" AS \"name_new_2\", \"regionkey\" AS \"region_key_new\" FROM \"nation\"";
             @Language("SQL") String rowCountQuery = "SELECT count(*) FROM \"nation\"";
             assertUpdate("CREATE OR REPLACE TABLE " + table.getName() + " AS " + query, rowCountQuery);
             assertTableColumnNames(canonicalize(table.getName()), "nationkey_new", "name_new_2", "region_key_new");
@@ -4258,8 +4259,8 @@ public abstract class BaseConnectorTest
             return;
         }
 
-        try (TestTable table = newTrinoTable("test_create_or_replace_", " AS SELECT nationkey, name FROM \"nation\"")) {
-            @Language("SQL") String query = "SELECT name AS nationkey, nationkey AS name FROM \"nation\"";
+        try (TestTable table = newTrinoTable("test_create_or_replace_", " AS SELECT \"nationkey\", \"name\" FROM \"nation\"")) {
+            @Language("SQL") String query = "SELECT \"name\" AS \"nationkey\", \"nationkey\" AS \"name\" FROM \"nation\"";
             @Language("SQL") String rowCountQuery = "SELECT count(*) FROM \"nation\"";
             assertUpdate("CREATE OR REPLACE TABLE " + table.getName() + " AS " + query, rowCountQuery);
             assertQuery(getSession(), "SELECT * FROM " + table.getName(), query);

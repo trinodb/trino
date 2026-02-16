@@ -113,14 +113,14 @@ public class TestClickHouseConnectorTest
     {
         return format(
                 """
-                        CREATE TABLE %s.%s.%s (
-                           %s bigint,
-                           %s double
-                        )
-                        WITH (
-                           engine = 'LOG'
-                        )\
-                        """,
+                \\QCREATE TABLE %s.%s.%s (
+                   %s bigint,
+                   %s double
+                )
+                WITH (
+                   engine = 'LOG'
+                )\\E\
+                """,
                 catalog,
                 schema,
                 table,
@@ -133,14 +133,14 @@ public class TestClickHouseConnectorTest
     {
         return format(
                 """
-                        CREATE TABLE %s.%s."%s" (
-                           "Column A" bigint,
-                           "Column B" double
-                        )
-                        WITH (
-                           engine = 'LOG'
-                        )\
-                        """,
+                \\QCREATE TABLE %s.%s."%s" (
+                   "Column A" bigint,
+                   "Column B" double
+                )
+                WITH (
+                   engine = 'LOG'
+                )\\E\
+                """,
                 catalog,
                 schema,
                 table);

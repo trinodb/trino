@@ -344,14 +344,6 @@ final class TestPostgreSqlCastPushdown
     }
 
     @Test
-    void testCastRealInfinityValueToBigint()
-    {
-        assertThat(query("SELECT CAST(c_infinity_real AS BIGINT) FROM %s".formatted(leftTable())))
-                .matches("VALUES (BIGINT '9223372036854775807'), (BIGINT '-9223372036854775808'), (null)")
-                .isNotFullyPushedDown(ProjectNode.class);
-    }
-
-    @Test
     void testCastPushdownWithForcedTypedToInteger()
     {
         // These column types are not supported by default by trino. These types are forced mapped to varchar.

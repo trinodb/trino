@@ -37,6 +37,7 @@ import java.util.Comparator;
 import java.util.List;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.plugin.memory.MemoryMetadata.SCHEMA_NAME;
 import static io.trino.sql.planner.OptimizerConfig.JoinDistributionType;
 import static io.trino.sql.planner.OptimizerConfig.JoinDistributionType.BROADCAST;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -124,7 +125,7 @@ public class TestMemoryConnectorTest
         // it has to be RuntimeException as FailureInfo$FailureException is private
         assertThatThrownBy(() -> assertUpdate(createTableSql))
                 .isInstanceOf(RuntimeException.class)
-                .hasMessage("line 1:1: Destination table 'memory.\"default\".\"nation\"' already exists");
+                .hasMessage("line 1:1: Destination table 'memory." + SCHEMA_NAME + ".\"nation\"' already exists");
     }
 
     @Test
@@ -225,7 +226,7 @@ public class TestMemoryConnectorTest
     public void testJoinLargeBuildSideDynamicFiltering()
     {
         for (JoinDistributionType joinDistributionType : JoinDistributionType.values()) {
-            @Language("SQL") String sql = "SELECT * FROM \"lineitem\" JOIN \"orders\" ON \"lineitem\".\"orderkey\" = \"orders\".\"orderkey\" and \"orders\".custkey BETWEEN 300 AND 700";
+            @Language("SQL") String sql = "SELECT * FROM \"lineitem\" JOIN \"orders\" ON \"lineitem\".\"orderkey\" = \"orders\".\"orderkey\" and \"orders\".\"custkey\" BETWEEN 300 AND 700";
             int expectedRowCount = 15793;
             // Probe-side is partially scanned because we extract min/max from large build-side for dynamic filtering
             assertDynamicFiltering(
@@ -536,7 +537,7 @@ public class TestMemoryConnectorTest
 
         assertThat(query("SHOW SCHEMAS"))
                 .skippingTypesCheck()
-                .containsAll("VALUES 'default', 'information_schema', '%s', '%s'".formatted(canonicalize("schema1"), canonicalize("schema2")));
+                .containsAll("VALUES '%s', 'information_schema', '%s', '%s'".formatted(SCHEMA_NAME, canonicalize("schema1"), canonicalize("schema2")));
         assertUpdate("CREATE TABLE schema1.nation AS SELECT * FROM tpch.tiny.nation WHERE nationkey % 2 = 0", "SELECT count(*) FROM \"nation\" WHERE MOD(\"nationkey\", 2) = 0");
         assertUpdate("CREATE TABLE schema2.nation AS SELECT * FROM tpch.tiny.nation WHERE nationkey % 2 = 1", "SELECT count(*) FROM \"nation\" WHERE MOD(\"nationkey\", 2) = 1");
 
@@ -566,17 +567,17 @@ public class TestMemoryConnectorTest
         assertUpdate("CREATE VIEW test_view AS SELECT 123 x");
         assertUpdate("CREATE OR REPLACE VIEW test_view AS " + query);
 
-        assertQueryFails("CREATE TABLE test_view (x date)", ".*Table 'memory.\"default\".%s' already exists"
-                .formatted(canonicalize("test_view")));
-        assertQueryFails("CREATE VIEW test_view AS SELECT 123 x", ".*View already exists: 'memory.\"default\".%s'"
-                .formatted(canonicalize("test_view")));
+        assertQueryFails("CREATE TABLE test_view (x date)", ".*Table 'memory.%s.%s' already exists"
+                .formatted(SCHEMA_NAME, canonicalize("test_view")));
+        assertQueryFails("CREATE VIEW test_view AS SELECT 123 x", ".*View already exists: 'memory.%s.%s'"
+                .formatted(SCHEMA_NAME, canonicalize("test_view")));
 
         assertQuery("SELECT * FROM test_view", query);
 
         assertThat(computeActual("SHOW TABLES").getOnlyColumnAsSet()).contains(canonicalize("test_view"));
 
         assertUpdate("DROP VIEW test_view");
-        assertQueryFails("DROP VIEW test_view", "line 1:1: View 'memory.\"default\".%s' does not exist".formatted(canonicalize("test_view")));
+        assertQueryFails("DROP VIEW test_view", "line 1:1: View 'memory.%s.%s' does not exist".formatted(SCHEMA_NAME, canonicalize("test_view")));
     }
 
     @Test

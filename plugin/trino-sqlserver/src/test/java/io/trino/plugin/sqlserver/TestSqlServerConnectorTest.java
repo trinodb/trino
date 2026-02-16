@@ -232,14 +232,14 @@ public class TestSqlServerConnectorTest
     {
         return format(
                 """
-                        CREATE TABLE %s.%s."%s" (
-                           "Column A" bigint,
-                           "Column B" double
-                        )
-                        WITH (
-                           data_compression = 'NONE'
-                        )\
-                        """,
+                \\QCREATE TABLE %s.%s."%s" (
+                   "Column A" bigint,
+                   "Column B" double
+                )
+                WITH (
+                   data_compression = 'NONE'
+                )\\E\
+                """,
                 catalog,
                 schema,
                 table);
@@ -250,14 +250,14 @@ public class TestSqlServerConnectorTest
     {
         return format(
                 """
-                        CREATE TABLE %s.%s.%s (
-                           Column_A bigint,
-                           Column_B double
-                        )
-                        WITH (
-                           data_compression = 'NONE'
-                        )\
-                        """,
+                \\QCREATE TABLE %s.%s.%s (
+                   Column_A bigint,
+                   Column_B double
+                )
+                WITH (
+                   data_compression = 'NONE'
+                )\\E\
+                """,
                 catalog,
                 schema,
                 table);

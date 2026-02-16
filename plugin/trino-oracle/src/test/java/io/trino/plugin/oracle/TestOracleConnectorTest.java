@@ -97,12 +97,13 @@ public class TestOracleConnectorTest
     @Override
     protected String getCreateTableMixedCaseUnDelimited(String catalog, String schema, String table)
     {
-        return format("""
-                        CREATE TABLE %s.%s.%s (
-                           COLUMN_A decimal(19, 0),
-                           COLUMN_B double
-                        )\
-                        """,
+        return format(
+                """
+                \\QCREATE TABLE %s.%s.%s (
+                   COLUMN_A decimal(19, 0),
+                   COLUMN_B double
+                )\\E\
+                """,
                 catalog,
                 schema,
                 table);
@@ -111,12 +112,13 @@ public class TestOracleConnectorTest
     @Override
     protected String getCreateTableMixedCaseDelimited(String catalog, String schema, String table)
     {
-        return format("""
-                        CREATE TABLE %s.%s."%s" (
-                           "Column A" decimal(19, 0),
-                           "Column B" double
-                        )\
-                        """,
+        return format(
+                """
+                \\QCREATE TABLE %s.%s."%s" (
+                   "Column A" decimal(19, 0),
+                   "Column B" double
+                )\\E\
+                """,
                 catalog,
                 schema,
                 table);

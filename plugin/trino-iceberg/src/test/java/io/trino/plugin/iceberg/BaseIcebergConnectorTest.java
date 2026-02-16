@@ -302,6 +302,48 @@ public abstract class BaseIcebergConnectorTest
         return value.toLowerCase(ENGLISH);
     }
 
+    @Override
+    protected String getCreateTableMixedCaseDelimited(String catalog, String schema, String table)
+    {
+        return format(
+                """
+                \\QCREATE TABLE %1$s.%2$s."%3$s" (
+                   "Column A" bigint,
+                   "Column B" double
+                )
+                WITH (
+                   format = 'PARQUET',
+                   format_version = 3,
+                   location = 'local:///iceberg/tpch/%3$s-\\E.*'
+                \\)\
+                """,
+                catalog,
+                canonicalize(schema).equals(schema) ? schema : '"' + schema + '"',
+                table);
+    }
+
+    @Override
+    protected String getCreateTableMixedCaseUnDelimited(String catalog, String schema, String table)
+    {
+        return format(
+                """
+                \\QCREATE TABLE %1$s.%2$s.%3$s (
+                   %4$s bigint,
+                   %5$s double
+                )
+                WITH (
+                   format = 'PARQUET',
+                   format_version = 3,
+                   location = 'local:///iceberg/tpch/%3$s-\\E.*'
+                \\)\
+                """,
+                catalog,
+                canonicalize(schema).equals(schema) ? schema : '"' + schema + '"',
+                table,
+                canonicalize("Column_A"),
+                canonicalize("Column_B"));
+    }
+
     @Test
     @Override
     public void testCreateTableWithDefaultColumn()
@@ -1336,7 +1378,7 @@ public abstract class BaseIcebergConnectorTest
                         "AS " +
                         "SELECT orderkey AS \"order key\", shippriority AS ship_priority, orderstatus AS order_status " +
                         "FROM tpch.tiny.orders",
-                "SELECT count(*) from orders");
+                "SELECT count(*) from \"orders\"");
 
         assertThat(computeScalar("SHOW CREATE TABLE test_create_partitioned_table_as")).isEqualTo(format(
                 "CREATE TABLE %s.%s.%s (\n" +
@@ -1356,7 +1398,7 @@ public abstract class BaseIcebergConnectorTest
                 format,
                 tempDirPath));
 
-        assertQuery("SELECT * from test_create_partitioned_table_as", "SELECT orderkey, shippriority, orderstatus FROM orders");
+        assertQuery("SELECT * from test_create_partitioned_table_as", "SELECT \"orderkey\", \"shippriority\", \"orderstatus\" FROM \"orders\"");
 
         assertUpdate("DROP TABLE test_create_partitioned_table_as");
     }
@@ -1367,19 +1409,19 @@ public abstract class BaseIcebergConnectorTest
         testCreatePartitionedTableWithQuotedIdentifierCasing("x", "x", true);
         testCreatePartitionedTableWithQuotedIdentifierCasing("X", "x", true);
         testCreatePartitionedTableWithQuotedIdentifierCasing("\"x\"", "x", true);
-        testCreatePartitionedTableWithQuotedIdentifierCasing("\"X\"", "x", true);
+        testCreatePartitionedTableWithQuotedIdentifierCasing("\"X\"", "x", false);
         testCreatePartitionedTableWithQuotedIdentifierCasing("x", "\"x\"", true);
         testCreatePartitionedTableWithQuotedIdentifierCasing("X", "\"x\"", true);
         testCreatePartitionedTableWithQuotedIdentifierCasing("\"x\"", "\"x\"", true);
-        testCreatePartitionedTableWithQuotedIdentifierCasing("\"X\"", "\"x\"", true);
+        testCreatePartitionedTableWithQuotedIdentifierCasing("\"X\"", "\"x\"", false);
         testCreatePartitionedTableWithQuotedIdentifierCasing("x", "X", true);
         testCreatePartitionedTableWithQuotedIdentifierCasing("X", "X", true);
         testCreatePartitionedTableWithQuotedIdentifierCasing("\"x\"", "X", true);
-        testCreatePartitionedTableWithQuotedIdentifierCasing("\"X\"", "X", true);
+        testCreatePartitionedTableWithQuotedIdentifierCasing("\"X\"", "X", false);
         testCreatePartitionedTableWithQuotedIdentifierCasing("x", "\"X\"", false);
         testCreatePartitionedTableWithQuotedIdentifierCasing("X", "\"X\"", false);
         testCreatePartitionedTableWithQuotedIdentifierCasing("\"x\"", "\"X\"", false);
-        testCreatePartitionedTableWithQuotedIdentifierCasing("\"X\"", "\"X\"", false);
+        testCreatePartitionedTableWithQuotedIdentifierCasing("\"X\"", "\"X\"", true);
     }
 
     private void testCreatePartitionedTableWithQuotedIdentifierCasing(String columnName, String partitioningField, boolean success)
@@ -1581,11 +1623,10 @@ public abstract class BaseIcebergConnectorTest
         testCreateSortedTableWithQuotedIdentifierCasing("col", "col");
         testCreateSortedTableWithQuotedIdentifierCasing("COL", "col");
         testCreateSortedTableWithQuotedIdentifierCasing("\"col\"", "col");
-        testCreateSortedTableWithQuotedIdentifierCasing("\"COL\"", "col");
         testCreateSortedTableWithQuotedIdentifierCasing("col", "\"col\"");
         testCreateSortedTableWithQuotedIdentifierCasing("COL", "\"col\"");
         testCreateSortedTableWithQuotedIdentifierCasing("\"col\"", "\"col\"");
-        testCreateSortedTableWithQuotedIdentifierCasing("\"COL\"", "\"col\"");
+        testCreateSortedTableWithQuotedIdentifierCasing("\"COL\"", "\"COL\"");
     }
 
     private void testCreateSortedTableWithQuotedIdentifierCasing(String columnName, String sortField)
@@ -1619,14 +1660,14 @@ public abstract class BaseIcebergConnectorTest
     {
         try (TestTable table = newTrinoTable(
                 "test_sort_order_change",
-                "WITH (sorted_by = ARRAY['comment']) AS SELECT * FROM nation WITH NO DATA")) {
-            assertUpdate("INSERT INTO " + table.getName() + " SELECT * FROM nation", 25);
+                "WITH (sorted_by = ARRAY['comment']) AS SELECT * FROM \"nation\" WITH NO DATA")) {
+            assertUpdate("INSERT INTO " + table.getName() + " SELECT * FROM \"nation\"", 25);
             Set<String> sortedByComment = new HashSet<>();
             computeActual("SELECT file_path from \"" + table.getName() + "$files\"").getOnlyColumnAsSet()
                     .forEach(fileName -> sortedByComment.add((String) fileName));
 
             assertUpdate("ALTER TABLE " + table.getName() + " SET PROPERTIES sorted_by = ARRAY['name']");
-            assertUpdate("INSERT INTO " + table.getName() + " SELECT * FROM nation", 25);
+            assertUpdate("INSERT INTO " + table.getName() + " SELECT * FROM \"nation\"", 25);
 
             for (MaterializedRow row : computeActual("SELECT file_path, sort_order_id from \"" + table.getName() + "$files\"").getMaterializedRows()) {
                 String path = (String) row.getField(0);
@@ -1640,7 +1681,7 @@ public abstract class BaseIcebergConnectorTest
                     assertThat(sortOrderId).isEqualTo(2);
                 }
             }
-            assertQuery("SELECT * FROM " + table.getName(), "SELECT * FROM nation UNION ALL SELECT * FROM nation");
+            assertQuery("SELECT * FROM " + table.getName(), "SELECT * FROM \"nation\" UNION ALL SELECT * FROM \"nation\"");
         }
     }
 
@@ -1658,7 +1699,7 @@ public abstract class BaseIcebergConnectorTest
                 assertThat(isFileSorted((String) row.getField(0), "comment")).isFalse();
                 assertThat(((Integer) row.getField(1))).isEqualTo(0);
             }
-            assertQuery("SELECT * FROM " + table.getName(), "SELECT * FROM nation");
+            assertQuery("SELECT * FROM " + table.getName(), "SELECT * FROM \"nation\"");
         }
     }
 
@@ -1679,7 +1720,7 @@ public abstract class BaseIcebergConnectorTest
                 assertThat(isFileSorted((String) row.getField(0), "comment")).isTrue();
                 assertThat(((Integer) row.getField(1))).isEqualTo(1);
             }
-            assertQuery("SELECT * FROM " + table.getName(), "SELECT * FROM nation");
+            assertQuery("SELECT * FROM " + table.getName(), "SELECT * FROM \"nation\"");
         }
     }
 
@@ -1695,7 +1736,7 @@ public abstract class BaseIcebergConnectorTest
             assertUpdate("UPDATE " + table.getName() + " SET comment = substring(comment, 2)", 1500);
             assertQuery(
                     "SELECT custkey, name, address, nationkey, phone, acctbal, mktsegment, comment FROM " + table.getName(),
-                    "SELECT custkey, name, address, nationkey, phone, acctbal, mktsegment, substring(comment, 2) FROM customer");
+                    "SELECT \"custkey\", \"name\", \"address\", \"nationkey\", \"phone\", \"acctbal\", \"mktsegment\", substring(\"comment\", 2) FROM \"customer\"");
             for (MaterializedRow row : computeActual("SELECT file_path, sort_order_id from \"" + table.getName() + "$files\" WHERE content != 1").getMaterializedRows()) {
                 assertThat(isFileSorted((String) row.getField(0), "comment")).isTrue();
                 assertThat(((Integer) row.getField(1))).isEqualTo(1);
@@ -1724,7 +1765,7 @@ public abstract class BaseIcebergConnectorTest
             assertThat(isFileSorted((String) row.getField(0), "comment")).isTrue();
             assertThat(((Integer) row.getField(1))).isEqualTo(1);
         }
-        assertQuery("SELECT * FROM " + tableName, "SELECT * FROM nation");
+        assertQuery("SELECT * FROM " + tableName, "SELECT * FROM \"nation\"");
         assertUpdate("DROP TABLE " + tableName);
     }
 
@@ -4040,17 +4081,17 @@ public abstract class BaseIcebergConnectorTest
                         "INSERT INTO test_metadata_delete " +
                         "SELECT orderkey, linenumber, linestatus " +
                         "FROM tpch.tiny.lineitem",
-                "SELECT count(*) FROM lineitem");
+                "SELECT count(*) FROM \"lineitem\"");
 
         assertQuery("SELECT COUNT(*) FROM \"test_metadata_delete$partitions\"", "SELECT 14");
 
         assertUpdate("DELETE FROM test_metadata_delete WHERE linestatus = 'F' AND linenumber = 3", 5378);
-        assertQuery("SELECT * FROM test_metadata_delete", "SELECT orderkey, linenumber, linestatus FROM lineitem WHERE linestatus <> 'F' or linenumber <> 3");
+        assertQuery("SELECT * FROM test_metadata_delete", "SELECT \"orderkey\", \"linenumber\", \"linestatus\" FROM \"lineitem\" WHERE \"linestatus\" <> 'F' or \"linenumber\" <> 3");
         assertQuery("SELECT count(*) FROM \"test_metadata_delete$partitions\"", "SELECT 13");
 
         assertUpdate("DELETE FROM test_metadata_delete WHERE linestatus='O'", 30049);
         assertQuery("SELECT count(*) FROM \"test_metadata_delete$partitions\"", "SELECT 6");
-        assertQuery("SELECT * FROM test_metadata_delete", "SELECT orderkey, linenumber, linestatus FROM lineitem WHERE linestatus <> 'O' AND linenumber <> 3");
+        assertQuery("SELECT * FROM test_metadata_delete", "SELECT \"orderkey\", \"linenumber\", \"linestatus\" FROM \"lineitem\" WHERE \"linestatus\" <> 'O' AND \"linenumber\" <> 3");
 
         assertUpdate("DROP TABLE test_metadata_delete");
     }
@@ -5396,7 +5437,7 @@ public abstract class BaseIcebergConnectorTest
                 .matches("SELECT * FROM " + sourceRelation);
 
         // verify data files, i.e. repartitioning took place
-        assertThat(query(session, "SELECT count(*) FROM \"" + tableName + "$files\""))
+        assertThat(query(session, "SELECT count(*) FROM \"" + canonicalize(tableName) + "$files\""))
                 .matches("VALUES BIGINT '" + expectedFiles + "'");
 
         assertUpdate(session, "DROP TABLE " + tableName);
@@ -5999,7 +6040,7 @@ public abstract class BaseIcebergConnectorTest
 
         assertQuery(
                 "SELECT * FROM " + tableName,
-                "SELECT * FROM nation WHERE nationkey NOT IN (7, 8)");
+                "SELECT * FROM \"nation\" WHERE \"nationkey\" NOT IN (7, 8)");
         assertUpdate("DROP TABLE " + tableName);
     }
 
@@ -7235,14 +7276,14 @@ public abstract class BaseIcebergConnectorTest
     {
         String tableName = "test_updating_file_format_" + randomNameSuffix();
 
-        assertUpdate("CREATE TABLE " + tableName + " WITH (format = 'orc') AS SELECT * FROM nation WHERE nationkey < 10", "SELECT count(*) FROM nation WHERE nationkey < 10");
+        assertUpdate("CREATE TABLE " + tableName + " WITH (format = 'orc') AS SELECT * FROM nation WHERE nationkey < 10", "SELECT count(*) FROM \"nation\" WHERE \"nationkey\" < 10");
         assertQuery("SELECT value FROM \"" + tableName + "$properties\" WHERE key = 'write.format.default'", "VALUES 'ORC'");
 
         assertUpdate("ALTER TABLE " + tableName + " SET PROPERTIES format = 'parquet'");
         assertQuery("SELECT value FROM \"" + tableName + "$properties\" WHERE key = 'write.format.default'", "VALUES 'PARQUET'");
-        assertUpdate("INSERT INTO " + tableName + " SELECT * FROM nation WHERE nationkey >= 10", "SELECT count(*) FROM nation WHERE nationkey >= 10");
+        assertUpdate("INSERT INTO " + tableName + " SELECT * FROM nation WHERE nationkey >= 10", "SELECT count(*) FROM \"nation\" WHERE \"nationkey\" >= 10");
 
-        assertQuery("SELECT * FROM " + tableName, "SELECT * FROM nation");
+        assertQuery("SELECT * FROM " + tableName, "SELECT * FROM \"nation\"");
         assertQuery("SELECT count(*) FROM \"" + tableName + "$files\" WHERE file_path LIKE '%.orc'", "VALUES 1");
         assertQuery("SELECT count(*) FROM \"" + tableName + "$files\" WHERE file_path LIKE '%.parquet'", "VALUES 1");
 
@@ -7259,19 +7300,19 @@ public abstract class BaseIcebergConnectorTest
             if (isCompressionCodecSupportedForFormat(format, compressionCodec)) {
                 assertUpdate(
                         format("CREATE TABLE %s WITH (format = '%s', compression_codec = '%s') AS SELECT * FROM nation", tableName, format, compressionCodec.name()),
-                        "SELECT count(*) FROM nation");
+                        "SELECT count(*) FROM \"nation\"");
 
-                assertThat(getTableProperties(tableName))
+                assertThat(getTableProperties(canonicalize(tableName)))
                         .containsEntry(DEFAULT_FILE_FORMAT, format.toString())
                         .containsEntry(compressionProperty, toCompressionCodecTableProperty(format, compressionCodec));
 
                 assertThat(query("SELECT * FROM " + tableName)).matches("SELECT * FROM nation");
-                assertThat(query(format("SELECT count(*) FROM \"%s$files\" WHERE file_path LIKE '%%.%s'", tableName, format.name().toLowerCase(ENGLISH))))
+                assertThat(query(format("SELECT count(*) FROM \"%s$files\" WHERE \"file_path\" LIKE '%%.%s'", canonicalize(tableName), format.name().toLowerCase(ENGLISH))))
                         .matches("SELECT BIGINT '1'");
 
                 assertUpdate(
                         "INSERT INTO " + tableName + " SELECT * FROM nation WHERE nationkey >= 10",
-                        "SELECT count(*) FROM nation WHERE nationkey >= 10");
+                        "SELECT count(*) FROM \"nation\" WHERE \"nationkey\" >= 10");
 
                 assertUpdate("DROP TABLE " + tableName);
             }
@@ -7304,8 +7345,8 @@ public abstract class BaseIcebergConnectorTest
             String compressionProperty = getCompressionPropertyName(format);
             String newCompressionCodec = compressionCodec.name();
 
-            assertThat(query(format("CREATE TABLE %s WITH (format = '%s', compression_codec = '%s') AS SELECT * FROM nation WHERE nationkey < 10", tableName, format, initialCompressionCodec)))
-                    .matches("SELECT count(*) FROM nation WHERE nationkey < 10");
+            assertThat(query(format("CREATE TABLE %s WITH (format = '%s', compression_codec = '%s') AS SELECT * FROM \"nation\" WHERE \"nationkey\" < 10", tableName, format, initialCompressionCodec)))
+                    .matches("SELECT count(*) FROM \"nation\" WHERE \"nationkey\" < 10");
             assertThat(getTableProperties(tableName))
                     .containsEntry(DEFAULT_FILE_FORMAT, format.toString())
                     .containsEntry(compressionProperty, toCompressionCodecTableProperty(format, initialCompressionCodec));
@@ -7316,10 +7357,10 @@ public abstract class BaseIcebergConnectorTest
                         .containsEntry(DEFAULT_FILE_FORMAT, format.toString())
                         .containsEntry(compressionProperty, toCompressionCodecTableProperty(format, compressionCodec));
                 assertUpdate(
-                        "INSERT INTO " + tableName + " SELECT * FROM nation WHERE nationkey >= 10",
-                        "SELECT count(*) FROM nation WHERE nationkey >= 10");
+                        "INSERT INTO " + tableName + " SELECT * FROM \"nation\" WHERE \"nationkey\" >= 10",
+                        "SELECT count(*) FROM \"nation\" WHERE \"nationkey\" >= 10");
 
-                assertThat(query("SELECT * FROM " + tableName)).matches("SELECT * FROM nation");
+                assertThat(query("SELECT * FROM " + tableName)).matches("SELECT * FROM \"nation\"");
                 assertThat(query(format("SELECT count(*) FROM \"%s$files\" WHERE file_path LIKE '%%.%s'", tableName, format.name().toLowerCase(ENGLISH))))
                         .matches("SELECT BIGINT '2'");
             }
@@ -7348,7 +7389,7 @@ public abstract class BaseIcebergConnectorTest
                 if (isCompressionCodecSupportedForFormat(format, compressionCodec)) {
                     assertUpdate(
                             format("CREATE TABLE %s WITH (format = '%s', compression_codec = '%s') AS SELECT * FROM nation WHERE nationkey < 10", tableName, format, compressionCodec),
-                            "SELECT count(*) FROM nation WHERE nationkey < 10");
+                            "SELECT count(*) FROM \"nation\" WHERE \"nationkey\" < 10");
 
                     assertThat(getTableProperties(tableName))
                             .containsEntry(DEFAULT_FILE_FORMAT, format.toString())
@@ -7365,7 +7406,7 @@ public abstract class BaseIcebergConnectorTest
                                 .containsEntry(newCompressionProperty, toCompressionCodecTableProperty(fileFormat, compressionCodec));
                         assertUpdate(
                                 "INSERT INTO " + tableName + " SELECT * FROM nation WHERE nationkey >= 10",
-                                "SELECT count(*) FROM nation WHERE nationkey >= 10");
+                                "SELECT count(*) FROM \"nation\" WHERE \"nationkey\" >= 10");
                         fileCounter.put(fileFormat, 1);
 
                         assertThat(query("SELECT * FROM " + tableName)).matches("SELECT * FROM nation");
@@ -7410,7 +7451,7 @@ public abstract class BaseIcebergConnectorTest
                 // Create initial table
                 assertUpdate(
                         format("CREATE TABLE %s WITH (format = '%s', compression_codec = '%s') AS SELECT * FROM nation WHERE nationkey < 10", tableName, format, initialCompressionCodec),
-                        "SELECT count(*) FROM nation WHERE nationkey < 10");
+                        "SELECT count(*) FROM \"nation\" WHERE \"nationkey\" < 10");
                 assertThat(getTableProperties(tableName))
                         .containsEntry(DEFAULT_FILE_FORMAT, format.toString())
                         .containsEntry(compressionProperty, toCompressionCodecTableProperty(format, initialCompressionCodec));
@@ -7427,7 +7468,7 @@ public abstract class BaseIcebergConnectorTest
                             .containsEntry(compressionProperty, toCompressionCodecTableProperty(fileFormat, compressionCodec));
                     assertUpdate(
                             "INSERT INTO " + tableName + " SELECT * FROM nation WHERE nationkey >= 10",
-                            "SELECT count(*) FROM nation WHERE nationkey >= 10");
+                            "SELECT count(*) FROM \"nation\" WHERE \"nationkey\" >= 10");
                     fileCounter.put(fileFormat, 1);
 
                     assertThat(query("SELECT * FROM " + tableName)).matches("SELECT * FROM nation");
@@ -7555,7 +7596,7 @@ public abstract class BaseIcebergConnectorTest
     {
         String tableName = "test_empty_insert_" + randomNameSuffix();
 
-        assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM nation", "SELECT count(*) FROM nation");
+        assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM nation", "SELECT count(*) FROM \"nation\"");
         List<Long> initialTableSnapshots = getSnapshotIds(tableName);
 
         assertUpdate("INSERT INTO " + tableName + " SELECT * FROM nation WHERE false", 0);
@@ -7574,7 +7615,7 @@ public abstract class BaseIcebergConnectorTest
     {
         String tableName = "test_empty_update_" + randomNameSuffix();
 
-        assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM nation", "SELECT count(*) FROM nation");
+        assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM nation", "SELECT count(*) FROM \"nation\"");
         List<Long> initialTableSnapshots = getSnapshotIds(tableName);
 
         assertUpdate("UPDATE " + tableName + " SET comment = 'new comment' WHERE nationkey IS NULL", 0);
@@ -7593,7 +7634,7 @@ public abstract class BaseIcebergConnectorTest
     {
         String tableName = "test_empty_delete_" + randomNameSuffix();
 
-        assertUpdate("CREATE TABLE " + tableName + " WITH (format = '" + format.name() + "') AS SELECT * FROM nation", "SELECT count(*) FROM nation");
+        assertUpdate("CREATE TABLE " + tableName + " WITH (format = '" + format.name() + "') AS SELECT * FROM nation", "SELECT count(*) FROM \"nation\"");
         List<Long> initialTableSnapshots = getSnapshotIds(tableName);
 
         assertUpdate("DELETE FROM " + tableName + " WHERE nationkey IS NULL", 0);
@@ -7746,7 +7787,7 @@ public abstract class BaseIcebergConnectorTest
         assertUpdate("CREATE TABLE " + tableName + " (x INT) WITH (partitioning = ARRAY['bucket(x, 7)'])");
 
         assertUpdate(session, "INSERT INTO " + tableName + " SELECT nationkey FROM nation", 25);
-        assertQuery("SELECT * FROM " + tableName, "SELECT nationkey FROM nation");
+        assertQuery("SELECT * FROM " + tableName, "SELECT \"nationkey\" FROM \"nation\"");
 
         assertUpdate("DROP TABLE " + tableName);
     }
@@ -8825,27 +8866,27 @@ public abstract class BaseIcebergConnectorTest
             assertQuery(
                     "SELECT nationkey, name, _change_type, _change_version_id, _change_ordinal " +
                             "FROM TABLE(system.table_changes(CURRENT_SCHEMA, '%s', %s, %s))".formatted(table.getName(), initialSnapshot, snapshotAfterInsert),
-                    "SELECT nationkey, name, 'insert', %s, 0 FROM nation WHERE nationkey < 5".formatted(snapshotAfterInsert));
+                    "SELECT \"nationkey\", \"name\", 'insert', %s, 0 FROM \"nation\" WHERE \"nationkey\" < 5".formatted(snapshotAfterInsert));
 
             assertQuery(
                     "SELECT nationkey, _change_type, _change_version_id, _change_ordinal " +
                             "FROM TABLE(system.table_changes(CURRENT_SCHEMA, '%s', %s, %s))".formatted(table.getName(), initialSnapshot, snapshotAfterDropColumn),
-                    "SELECT nationkey, 'insert', %s, 0 FROM nation WHERE nationkey < 5 UNION SELECT nationkey, 'insert', %s, 1 FROM nation WHERE nationkey >= 5 AND nationkey < 10 ".formatted(snapshotAfterInsert, snapshotAfterDropColumn));
+                    "SELECT \"nationkey\", 'insert', %s, 0 FROM \"nation\" WHERE \"nationkey\" < 5 UNION SELECT \"nationkey\", 'insert', %s, 1 FROM \"nation\" WHERE \"nationkey\" >= 5 AND \"nationkey\" < 10 ".formatted(snapshotAfterInsert, snapshotAfterDropColumn));
 
             assertQuery(
                     "SELECT nationkey, comment, _change_type, _change_version_id, _change_ordinal " +
                             "FROM TABLE(system.table_changes(CURRENT_SCHEMA, '%s', %s, %s))".formatted(table.getName(), initialSnapshot, snapshotAfterAddColumn),
-                    ("SELECT nationkey, NULL, 'insert', %s, 0 FROM nation WHERE nationkey < 5 " +
-                            "UNION SELECT nationkey, NULL, 'insert', %s, 1 FROM nation WHERE nationkey >= 5 AND nationkey < 10 " +
-                            "UNION SELECT nationkey, comment, 'insert', %s, 2 FROM nation WHERE nationkey >= 10 AND nationkey < 15").formatted(snapshotAfterInsert, snapshotAfterDropColumn, snapshotAfterAddColumn));
+                    ("SELECT \"nationkey\", NULL, 'insert', %s, 0 FROM \"nation\" WHERE \"nationkey\" < 5 " +
+                            "UNION SELECT \"nationkey\", NULL, 'insert', %s, 1 FROM \"nation\" WHERE \"nationkey\" >= 5 AND \"nationkey\" < 10 " +
+                            "UNION SELECT \"nationkey\", \"comment\", 'insert', %s, 2 FROM \"nation\" WHERE \"nationkey\" >= 10 AND \"nationkey\" < 15").formatted(snapshotAfterInsert, snapshotAfterDropColumn, snapshotAfterAddColumn));
 
             assertQuery(
                     "SELECT nationkey, comment, name, _change_type, _change_version_id, _change_ordinal " +
                             "FROM TABLE(system.table_changes(CURRENT_SCHEMA, '%s', %s, %s))".formatted(table.getName(), initialSnapshot, snapshotAfterReaddingNameColumn),
-                    ("SELECT nationkey, NULL, NULL, 'insert', %s, 0 FROM nation WHERE nationkey < 5 " +
-                            "UNION SELECT nationkey, NULL, NULL, 'insert', %s, 1 FROM nation WHERE nationkey >= 5 AND nationkey < 10 " +
-                            "UNION SELECT nationkey, comment, NULL, 'insert', %s, 2 FROM nation WHERE nationkey >= 10 AND nationkey < 15" +
-                            "UNION SELECT nationkey, comment, name, 'insert', %s, 3 FROM nation WHERE nationkey >= 15").formatted(snapshotAfterInsert, snapshotAfterDropColumn, snapshotAfterAddColumn, snapshotAfterReaddingNameColumn));
+                    ("SELECT \"nationkey\", NULL, NULL, 'insert', %s, 0 FROM \"nation\" WHERE \"nationkey\" < 5 " +
+                            "UNION SELECT \"nationkey\", NULL, NULL, 'insert', %s, 1 FROM \"nation\" WHERE \"nationkey\" >= 5 AND \"nationkey\" < 10 " +
+                            "UNION SELECT \"nationkey\", \"comment\", NULL, 'insert', %s, 2 FROM \"nation\" WHERE \"nationkey\" >= 10 AND \"nationkey\" < 15" +
+                            "UNION SELECT \"nationkey\", \"comment\", \"name\", 'insert', %s, 3 FROM \"nation\" WHERE \"nationkey\" >= 15").formatted(snapshotAfterInsert, snapshotAfterDropColumn, snapshotAfterAddColumn, snapshotAfterReaddingNameColumn));
         }
     }
 
@@ -8917,43 +8958,43 @@ public abstract class BaseIcebergConnectorTest
 
             // a basic scan should not use a partitioned read as it is not helpful to the query
             @Language("SQL") String query = "SELECT value1 FROM test_bucketed_select WHERE key1 < 10";
-            @Language("SQL") String expectedQuery = "SELECT comment FROM orders WHERE orderkey < 10";
+            @Language("SQL") String expectedQuery = "SELECT \"comment\" FROM \"orders\" WHERE \"orderkey\" < 10";
             assertQuery(planWithTableNodePartitioning, query, expectedQuery, assertNoReadPartitioning("key1", "key2"));
 
             // aggregation on key1, key2, or (key1, key2) should not require a remote exchange
             query = "SELECT count(value1) FROM test_bucketed_select GROUP BY key1";
-            expectedQuery = "SELECT count(comment) FROM orders GROUP BY orderkey";
+            expectedQuery = "SELECT count(\"comment\") FROM \"orders\" GROUP BY \"orderkey\"";
             assertQuery(planWithTableNodePartitioning, query, expectedQuery, assertRemoteExchangesCount(0));
             assertQuery(planWithoutTableNodePartitioning, query, expectedQuery, assertRemoteExchangesCount(1));
 
             query = "SELECT count(value1) FROM test_bucketed_select GROUP BY key2";
-            expectedQuery = "SELECT count(comment) FROM orders GROUP BY custkey";
+            expectedQuery = "SELECT count(\"comment\") FROM \"orders\" GROUP BY \"custkey\"";
             assertQuery(planWithTableNodePartitioning, query, expectedQuery, assertRemoteExchangesCount(0));
             assertQuery(planWithoutTableNodePartitioning, query, expectedQuery, assertRemoteExchangesCount(1));
 
             query = "SELECT count(value1) FROM test_bucketed_select GROUP BY key2, key1";
-            expectedQuery = "SELECT count(comment) FROM orders GROUP BY custkey, orderkey";
+            expectedQuery = "SELECT count(\"comment\") FROM \"orders\" GROUP BY \"custkey\", \"orderkey\"";
             assertQuery(planWithTableNodePartitioning, query, expectedQuery, assertRemoteExchangesCount(0));
             assertQuery(planWithoutTableNodePartitioning, query, expectedQuery, assertRemoteExchangesCount(1));
 
             // join on key1, key2, or (key1, key2) should not require a remote exchange
             query = "SELECT key1 FROM test_bucketed_select JOIN test_bucketed_select USING (key1)";
-            expectedQuery = "SELECT a.orderkey FROM orders a JOIN orders USING (orderkey)";
+            expectedQuery = "SELECT a.\"orderkey\" FROM \"orders\" a JOIN \"orders\" USING (\"orderkey\")";
             assertQuery(planWithTableNodePartitioning, query, expectedQuery, assertRemoteExchangesCount(0));
             assertQuery(planWithoutTableNodePartitioning, query, expectedQuery, assertRemoteExchangesCount(2));
 
             query = "SELECT key2 FROM test_bucketed_select JOIN test_bucketed_select USING (key2)";
-            expectedQuery = "SELECT a.custkey FROM orders a JOIN orders USING (custkey)";
+            expectedQuery = "SELECT a.\"custkey\" FROM \"orders\" a JOIN \"orders\" USING (\"custkey\")";
             assertQuery(planWithTableNodePartitioning, query, expectedQuery, assertRemoteExchangesCount(0));
             assertQuery(planWithoutTableNodePartitioning, query, expectedQuery, assertRemoteExchangesCount(2));
 
             query = "SELECT key2, key1 FROM test_bucketed_select JOIN test_bucketed_select USING (key2, key1)";
-            expectedQuery = "SELECT a.custkey, a.orderkey FROM orders a JOIN orders USING (custkey, orderkey)";
+            expectedQuery = "SELECT a.\"custkey\", a.\"orderkey\" FROM \"orders\" a JOIN \"orders\" USING (\"custkey\", \"orderkey\")";
             assertQuery(planWithTableNodePartitioning, query, expectedQuery, assertRemoteExchangesCount(0));
             assertQuery(planWithoutTableNodePartitioning, query, expectedQuery, assertRemoteExchangesCount(2));
 
             query = "SELECT a.key2, b.key1 FROM test_bucketed_select a JOIN test_bucketed_select b on a.key1 = b.key2";
-            expectedQuery = "SELECT a.custkey, b.orderkey FROM orders a JOIN orders b on a.orderkey = b.custkey";
+            expectedQuery = "SELECT a.\"custkey\", b.\"orderkey\" FROM \"orders\" a JOIN \"orders\" b on a.\"orderkey\" = b.\"custkey\"";
             assertQuery(planWithTableNodePartitioning, query, expectedQuery, assertRemoteExchangesCount(1));
             assertQuery(planWithoutTableNodePartitioning, query, expectedQuery, assertRemoteExchangesCount(2));
 

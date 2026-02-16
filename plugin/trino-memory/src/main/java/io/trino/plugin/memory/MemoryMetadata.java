@@ -95,7 +95,7 @@ import static java.util.function.Function.identity;
 public class MemoryMetadata
         implements ConnectorMetadata
 {
-    public static final String SCHEMA_NAME = "default";
+    public static final String SCHEMA_NAME = "DEFAULT";
 
     private final NodeManager nodeManager;
     @GuardedBy("this")
