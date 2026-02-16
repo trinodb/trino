@@ -25,6 +25,7 @@ import static java.lang.String.format;
  * @see ShortTimestampType
  * @see LongTimestampType
  */
+@SuppressWarnings("ClassInitializationDeadlock") // ShortTimestampType and LongTimestampType classes only ever access from TimestampType class
 public abstract sealed class TimestampType
         extends AbstractType
         implements FixedWidthType
@@ -40,7 +41,9 @@ public abstract sealed class TimestampType
 
     static {
         for (int precision = 0; precision <= MAX_PRECISION; precision++) {
-            TYPES[precision] = (precision <= MAX_SHORT_PRECISION) ? new ShortTimestampType(precision) : new LongTimestampType(precision);
+            @SuppressWarnings("StaticInitializerReferencesSubClass")
+            TimestampType type = (precision <= MAX_SHORT_PRECISION) ? new ShortTimestampType(precision) : new LongTimestampType(precision);
+            TYPES[precision] = type;
         }
     }
 

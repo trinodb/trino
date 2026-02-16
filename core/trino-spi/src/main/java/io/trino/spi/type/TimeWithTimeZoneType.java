@@ -19,6 +19,7 @@ import io.trino.spi.block.ValueBlock;
 import static io.trino.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
 import static java.lang.String.format;
 
+@SuppressWarnings("ClassInitializationDeadlock") // ShortTimeWithTimeZoneType and LongTimeWithTimeZoneType classes only ever access from TimeWithTimeZoneType class
 public abstract sealed class TimeWithTimeZoneType
         extends AbstractType
         implements FixedWidthType
@@ -34,7 +35,9 @@ public abstract sealed class TimeWithTimeZoneType
 
     static {
         for (int precision = 0; precision <= MAX_PRECISION; precision++) {
-            TYPES[precision] = (precision <= MAX_SHORT_PRECISION) ? new ShortTimeWithTimeZoneType(precision) : new LongTimeWithTimeZoneType(precision);
+            @SuppressWarnings("StaticInitializerReferencesSubClass")
+            TimeWithTimeZoneType type = (precision <= MAX_SHORT_PRECISION) ? new ShortTimeWithTimeZoneType(precision) : new LongTimeWithTimeZoneType(precision);
+            TYPES[precision] = type;
         }
     }
 
