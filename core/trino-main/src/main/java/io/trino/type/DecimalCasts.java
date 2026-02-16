@@ -248,7 +248,7 @@ public final class DecimalCasts
     {
         try {
             Int128 result = multiply(tenToScale, value);
-            if (Decimals.overflows(result, (int) precision)) {
+            if (overflows(result, (int) precision)) {
                 throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast BIGINT '%s' to DECIMAL(%s, %s)", value, precision, scale));
             }
             return result;
@@ -306,7 +306,7 @@ public final class DecimalCasts
     {
         try {
             Int128 result = multiply(tenToScale, value);
-            if (Decimals.overflows(result, (int) precision)) {
+            if (overflows(result, (int) precision)) {
                 throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast INTEGER '%s' to DECIMAL(%s, %s)", value, precision, scale));
             }
             return result;
@@ -365,7 +365,7 @@ public final class DecimalCasts
     {
         try {
             Int128 result = multiply(tenToScale, value);
-            if (Decimals.overflows(result, (int) precision)) {
+            if (overflows(result, (int) precision)) {
                 throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast SMALLINT '%s' to DECIMAL(%s, %s)", value, precision, scale));
             }
             return result;
@@ -423,7 +423,7 @@ public final class DecimalCasts
     {
         try {
             Int128 result = multiply(tenToScale, value);
-            if (Decimals.overflows(result, (int) precision)) {
+            if (overflows(result, (int) precision)) {
                 throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast TINYINT '%s' to DECIMAL(%s, %s)", value, precision, scale));
             }
             return result;
