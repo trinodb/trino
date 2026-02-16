@@ -28,8 +28,9 @@ import io.opentelemetry.api.trace.Span;
 import io.trino.Session;
 import io.trino.SystemSessionProperties;
 import io.trino.spi.session.PropertyMetadata;
+import io.trino.spi.type.NumberType;
 import io.trino.spi.type.TimeZoneKey;
-import io.trino.spi.type.TrinoNumberShim;
+import io.trino.spi.type.TrinoNumber;
 import io.trino.tests.QueryTemplate;
 import io.trino.tpch.TpchTable;
 import io.trino.type.SqlIntervalDayTime;
@@ -37,6 +38,7 @@ import io.trino.type.SqlIntervalYearMonth;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 
+import java.lang.reflect.Field;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -6679,11 +6681,11 @@ public abstract class AbstractTestEngineOnlyQueries
         assertThat(computeActual("SELECT NUMBER '3' + NUMBER '.14159265358979'").getOnlyValue())
                 .isEqualTo(new BigDecimal("3.14159265358979"));
 
-        String maxValue = "9".repeat(TrinoNumberShim.getMaxDecimalPrecision()) + "e" + -TrinoNumberShim.getScaleMinValue();
+        String maxValue = "9".repeat(getNumberMaxDecimalPrecision()) + "e" + -getNumberScaleMinValue();
         assertThat(computeActual("SELECT NUMBER '" + maxValue + "'").getOnlyValue())
                 .isEqualTo(new BigDecimal(maxValue));
 
-        String minPositiveValue = "1e" + -TrinoNumberShim.getScaleMaxValue();
+        String minPositiveValue = "1e" + -getNumberScaleMaxValue();
         assertThat(computeActual("SELECT NUMBER '" + minPositiveValue + "'").getOnlyValue())
                 .isEqualTo(new BigDecimal(minPositiveValue));
 
@@ -6691,6 +6693,42 @@ public abstract class AbstractTestEngineOnlyQueries
         assertQuery(
                 "SELECT NUMBER '3' + NUMBER '.14159265358979'",
                 "SELECT CAST('3.14159265358979' AS DECIMAL(100000, 50000))");
+    }
+
+    private static int getNumberMaxDecimalPrecision()
+    {
+        try {
+            Field field = NumberType.class.getDeclaredField("MAX_DECIMAL_PRECISION");
+            field.setAccessible(true);
+            return (int) field.get(null);
+        }
+        catch (ReflectiveOperationException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    private static int getNumberScaleMaxValue()
+    {
+        try {
+            Field field = TrinoNumber.class.getDeclaredField("MAX_SCALE");
+            field.setAccessible(true);
+            return (int) field.get(null);
+        }
+        catch (ReflectiveOperationException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    private static int getNumberScaleMinValue()
+    {
+        try {
+            Field field = TrinoNumber.class.getDeclaredField("MIN_SCALE");
+            field.setAccessible(true);
+            return (int) field.get(null);
+        }
+        catch (ReflectiveOperationException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     private static ZonedDateTime zonedDateTime(String value)

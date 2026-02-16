@@ -13,8 +13,9 @@
  */
 package io.trino.type;
 
+import io.trino.spi.type.NumberType;
 import io.trino.spi.type.SqlNumber;
-import io.trino.spi.type.TrinoNumberShim;
+import io.trino.spi.type.TrinoNumber;
 import io.trino.sql.query.QueryAssertions;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -22,6 +23,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
 
+import java.lang.reflect.Field;
 import java.math.BigDecimal;
 
 import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
@@ -442,7 +444,7 @@ public class TestVarcharOperators
                 .isEqualTo(new SqlNumber("20050910.133100123"));
 
         // max representable value
-        String maxValue = "9".repeat(TrinoNumberShim.getMaxDecimalPrecision()) + "e" + -TrinoNumberShim.getScaleMinValue();
+        String maxValue = "9".repeat(getNumberMaxDecimalPrecision()) + "e" + -getNumberScaleMinValue();
         BigDecimal bigDecimalMaxValue = new BigDecimal(maxValue);
         assertThat(assertions.expression("CAST(a AS number)")
                 .binding("a", "'" + maxValue + "'"))
@@ -459,7 +461,7 @@ public class TestVarcharOperators
                 .isEqualTo(new SqlNumber(bigDecimalMaxValue));
 
         assertTrinoExceptionThrownBy(assertions.expression("CAST(a AS number)")
-                .binding("a", "'1e" + (-TrinoNumberShim.getScaleMaxValue() - 1) + "'")::evaluate)
+                .binding("a", "'1e" + (-getNumberScaleMaxValue() - 1) + "'")::evaluate)
                 .hasErrorCode(INVALID_CAST_ARGUMENT)
                 .hasMessage("Cannot cast '1e-16384' to NUMBER");
 
@@ -477,7 +479,7 @@ public class TestVarcharOperators
                 .isEqualTo(new SqlNumber(bigDecimalMinValue));
 
         // min positive representable value
-        String minPositiveValue = "1e" + -TrinoNumberShim.getScaleMinValue();
+        String minPositiveValue = "1e" + -getNumberScaleMinValue();
         BigDecimal bigDecimalMinPositiveValue = new BigDecimal(minPositiveValue);
         assertThat(assertions.expression("CAST(a AS number)")
                 .binding("a", "'" + minPositiveValue + "'"))
@@ -501,5 +503,41 @@ public class TestVarcharOperators
         assertThat(assertions.expression("CAST(a AS number)")
                 .binding("a", "'" + bigDecimalMaxNegativeValue.toPlainString() + "'"))
                 .isEqualTo(new SqlNumber(bigDecimalMaxNegativeValue));
+    }
+
+    private static int getNumberMaxDecimalPrecision()
+    {
+        try {
+            Field field = NumberType.class.getDeclaredField("MAX_DECIMAL_PRECISION");
+            field.setAccessible(true);
+            return (int) field.get(null);
+        }
+        catch (ReflectiveOperationException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    private static int getNumberScaleMaxValue()
+    {
+        try {
+            Field field = TrinoNumber.class.getDeclaredField("MAX_SCALE");
+            field.setAccessible(true);
+            return (int) field.get(null);
+        }
+        catch (ReflectiveOperationException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    private static int getNumberScaleMinValue()
+    {
+        try {
+            Field field = TrinoNumber.class.getDeclaredField("MIN_SCALE");
+            field.setAccessible(true);
+            return (int) field.get(null);
+        }
+        catch (ReflectiveOperationException e) {
+            throw new RuntimeException(e);
+        }
     }
 }
