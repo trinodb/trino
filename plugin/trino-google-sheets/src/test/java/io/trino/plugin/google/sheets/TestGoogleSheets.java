@@ -43,6 +43,7 @@ import static io.trino.plugin.google.sheets.TestSheetsPlugin.DATA_SHEET_ID;
 import static io.trino.plugin.google.sheets.TestSheetsPlugin.getTestCredentialsPath;
 import static io.trino.testing.assertions.Assert.assertEventually;
 import static java.lang.Math.toIntExact;
+import static java.util.Locale.ENGLISH;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestGoogleSheets
@@ -127,14 +128,20 @@ public class TestGoogleSheets
         return spreadsheetId;
     }
 
+    @Override
+    protected String canonicalize(String value)
+    {
+        return value.toLowerCase(ENGLISH);
+    }
+
     @Test
     public void testListTable()
     {
         @Language("SQL") String expectedTableNamesStatement = "SELECT * FROM (VALUES 'metadata_table', 'number_text', 'table_with_duplicate_and_missing_column_names', 'nation_insert_test')";
         assertQuery("show tables", expectedTableNamesStatement);
         assertQueryReturnsEmptyResult("SHOW TABLES IN gsheets.\"information_schema\" LIKE 'number_text'");
-        assertQuery("select table_name from gsheets.\"information_schema\".\"tables\" WHERE \"table_schema\" <> 'information_schema'", expectedTableNamesStatement);
-        assertQuery("select table_name from gsheets.\"information_schema\".\"tables\" WHERE \"table_schema\" <> 'information_schema' LIMIT 1000", expectedTableNamesStatement);
+        assertQuery("select \"table_name\" from gsheets.\"information_schema\".\"tables\" WHERE \"table_schema\" <> 'information_schema'", expectedTableNamesStatement);
+        assertQuery("select \"table_name\" from gsheets.\"information_schema\".\"tables\" WHERE \"table_schema\" <> 'information_schema' LIMIT 1000", expectedTableNamesStatement);
         assertThat(getQueryRunner().execute("select \"table_name\" from gsheets.\"information_schema\".\"tables\" WHERE \"table_schema\" = 'unknown_schema'").getRowCount()).isEqualTo(0);
     }
 
@@ -150,7 +157,7 @@ public class TestGoogleSheets
     public void testSelectFromTable()
     {
         assertQuery("SELECT count(*) FROM \"number_text\"", "SELECT 5");
-        assertQuery("SELECT number FROM \"number_text\"", "SELECT * FROM (VALUES '1','2','3','4','5')");
+        assertQuery("SELECT \"number\" FROM \"number_text\"", "SELECT * FROM (VALUES '1','2','3','4','5')");
         assertQuery("SELECT text FROM \"number_text\"", "SELECT * FROM (VALUES 'one','two','three','four','five')");
         assertQuery("SELECT * FROM \"number_text\"", "SELECT * FROM (VALUES ('1','one'), ('2','two'), ('3','three'), ('4','four'), ('5','five'))");
     }
@@ -159,7 +166,7 @@ public class TestGoogleSheets
     public void testSelectFromTableIgnoreCase()
     {
         assertQuery("SELECT count(*) FROM \"number_text\"", "SELECT 5");
-        assertQueryFails("SELECT count(*) FROM Number_Text", "Sheet expression not found for table NUMBER_TEXT");
+        assertQuery("SELECT count(*) FROM Number_Text", "SELECT 5");
         assertQuery("SELECT NumBer FROM \"number_text\"", "SELECT * FROM (VALUES '1','2','3','4','5')");
         assertQueryFails("SELECT number FROM \"Number_Text\"", "Sheet expression not found for table Number_Text");
     }
@@ -167,8 +174,8 @@ public class TestGoogleSheets
     @Test
     public void testQueryingUnknownSchemaAndTable()
     {
-        assertQueryFails("select * from gsheets.foo.bar", "line 1:15: Schema 'FOO' does not exist");
-        assertQueryFails("select * from gsheets.\"default\".foo_bar_table", "Sheet expression not found for table FOO_BAR_TABLE");
+        assertQueryFails("select * from gsheets.foo.bar", "line 1:15: Schema 'foo' does not exist");
+        assertQueryFails("select * from gsheets.default.foo_bar_table", "Sheet expression not found for table foo_bar_table");
     }
 
     @Test

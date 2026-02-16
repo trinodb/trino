@@ -48,12 +48,17 @@ public abstract class BaseTestOpenLineageQueries
     {
         for (LineageTestTableType tableType : LineageTestTableType.values()) {
             String tableName = format("test_create_%s_as_select_from_table", tableType.toNameSuffix());
-            String catalogName = "mock";
-            String schemaName = "mock";
+            String catalogName;
+            String schemaName;
             switch (tableType) {
                 case TABLE, VIEW -> {
                     catalogName = "marquez";
                     schemaName = "DEFAULT";
+                }
+                // for MATERIALIZED_VIEW
+                default -> {
+                    catalogName = "mock";
+                    schemaName = "mock";
                 }
             }
             String outputTable = format("%s.%s.%s", catalogName, schemaName, tableName);
@@ -93,12 +98,17 @@ public abstract class BaseTestOpenLineageQueries
         for (LineageTestTableType tableType : LineageTestTableType.values()) {
             String viewName = format("test_view_%s", tableType.toNameSuffix());
             String tableName = format("test_create_%s_as_select_from_view", tableType.toNameSuffix());
-            String catalogName = "mock";
-            String schemaName = "mock";
+            String catalogName;
+            String schemaName;
             switch (tableType) {
                 case TABLE, VIEW -> {
                     catalogName = "marquez";
                     schemaName = "DEFAULT";
+                }
+                // for MATERIALIZED_VIEW
+                default -> {
+                    catalogName = "mock";
+                    schemaName = "mock";
                 }
             }
             String outputTable = format("%s.%s.%s", catalogName, schemaName, tableName);

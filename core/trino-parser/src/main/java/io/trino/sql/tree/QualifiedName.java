@@ -192,8 +192,10 @@ public class QualifiedName
 
     public boolean matchesSuffix(String name)
     {
-        // FIXME: It must be taken into account that the field name may not already resolved.
-        return resolver.isPresent() ? suffix.equalsIgnoreCase(name) : suffix.equals(name);
+        // FIXME: If we want to be able to differentiate between fields that only differ in their case,
+        //        then we must resolve the fields taking case and resolver into account?
+        //return resolver.isPresent() ? suffix.equalsIgnoreCase(name) : suffix.equals(name);
+        return suffix.equals(name);
     }
 
     public boolean hasSuffix(QualifiedName suffix)

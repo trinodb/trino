@@ -492,12 +492,6 @@ public class HiveMetadata
     }
 
     @Override
-    public String canonicalize(String value, boolean delimited)
-    {
-        return value.toLowerCase(ENGLISH);
-    }
-
-    @Override
     public String compare(String value)
     {
         return value.toLowerCase(ENGLISH);

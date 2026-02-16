@@ -1081,13 +1081,13 @@ public abstract class BaseConnectorTest
         // column listing
         assertThat(query("SHOW COLUMNS FROM " + testView))
                 .result()
-                .projected("Column") // column types can very between connectors
+                .projected(canonicalize("Column", true)) // column types can very between connectors
                 .skippingTypesCheck()
                 .matches("VALUES 'orderkey', 'orderstatus', 'half'");
 
         assertThat(query("DESCRIBE " + testView))
                 .result()
-                .projected("Column") // column types can very between connectors
+                .projected(canonicalize("Column", true)) // column types can very between connectors
                 .skippingTypesCheck()
                 .matches("VALUES 'orderkey', 'orderstatus', 'half'");
 
@@ -4072,16 +4072,22 @@ public abstract class BaseConnectorTest
         assertThat(computeActual("SHOW TABLES").getOnlyColumnAsSet()) // prime the cache, if any
                 .doesNotContain(table);
         assertUpdate("CREATE TABLE \"" + table + "\" (\"Column A\" bigint, \"Column B\" double)");
-        assertThat(getQueryRunner().tableExists(getSession(), table)).isTrue();
+        assertThat(getQueryRunner().tableExists(getSession(), canonicalize(table, true))).isTrue();
+
+        assertThat(query("SHOW COLUMNS FROM \"" + table + "\""))
+                .result().matches(resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
+                        .row(canonicalize("Column A", true), "bigint", "", "")
+                        .row(canonicalize("Column B", true), "double", "", "")
+                        .build());
 
         String catalog = getSession().getCatalog().orElseThrow();
         String schema = getSession().getSchema().orElseThrow();
         assertThat(computeActual("SHOW CREATE TABLE \"" + table + "\"").getOnlyValue())
                 // If the connector reports additional column properties, the expected value needs to be adjusted in the test subclass
                 .asString().matches(getCreateTableMixedCaseDelimited(catalog, schema, table));
-        assertThat(getQueryRunner().tableExists(getSession(), table)).isTrue();
+        assertThat(getQueryRunner().tableExists(getSession(), canonicalize(table, true))).isTrue();
         assertUpdate("DROP TABLE \"" + table + "\"");
-        assertThat(getQueryRunner().tableExists(getSession(), table)).isFalse();
+        assertThat(getQueryRunner().tableExists(getSession(), canonicalize(table, true))).isFalse();
     }
 
     protected String getCreateTableMixedCaseDelimited(String catalog, String schema, String table)
@@ -5397,18 +5403,18 @@ public abstract class BaseConnectorTest
 
         try (TestTable table = newTrinoTable(
                 "test_insert_select_",
-                "AS SELECT nationkey, name, regionkey FROM \"nation\" WHERE nationkey = 1")) {
+                "AS SELECT \"nationkey\", \"name\", \"regionkey\" FROM \"nation\" WHERE \"nationkey\" = 1")) {
             String tableName = table.getName();
             boolean commit;
             try {
                 inTransaction(session -> {
                     // SELECT first, to prime transactional caches, if any
-                    assertQuery(session, "TABLE " + tableName, "SELECT nationkey, name, regionkey FROM \"nation\" WHERE nationkey = 1");
+                    assertQuery(session, "TABLE " + tableName, "SELECT \"nationkey\", \"name\", \"regionkey\" FROM \"nation\" WHERE \"nationkey\" = 1");
                     // INSERT
-                    assertUpdate(session, "INSERT INTO " + tableName + "(nationkey, name, regionkey) SELECT nationkey, name, regionkey FROM \"nation\" WHERE nationkey = 2", 1);
+                    assertUpdate(session, "INSERT INTO " + tableName + "(\"nationkey\", \"name\", \"regionkey\") SELECT \"nationkey\", \"name\", \"regionkey\" FROM \"nation\" WHERE \"nationkey\" = 2", 1);
                     // SELECT again
                     try {
-                        assertQuery(session, "TABLE " + tableName, "SELECT nationkey, name, regionkey FROM \"nation\" WHERE nationkey IN (1, 2)");
+                        assertQuery(session, "TABLE " + tableName, "SELECT \"nationkey\", \"name\", \"regionkey\" FROM \"nation\" WHERE \"nationkey\" IN (1, 2)");
                     }
                     catch (Throwable e) {
                         verifySelectAfterInsertFailurePermissible(e);
@@ -5429,7 +5435,7 @@ public abstract class BaseConnectorTest
                     new Duration(1, SECONDS),
                     () -> assertQuery(
                             "TABLE " + tableName,
-                    "SELECT nationkey, name, regionkey FROM \"nation\" WHERE nationkey IN " + (isCommit ? "(1, 2)" : "(1)")));
+                    "SELECT \"nationkey\", \"name\", \"regionkey\" FROM \"nation\" WHERE \"nationkey\" IN " + (isCommit ? "(1, 2)" : "(1)")));
         }
     }
 
