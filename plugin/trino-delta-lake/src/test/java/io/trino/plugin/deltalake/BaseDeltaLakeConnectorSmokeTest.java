@@ -1446,7 +1446,7 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
     }
 
     @Test
-    public void testCreateOrReplaceCheckpointing()
+    public void testCreateOrReplaceWithSameSchemaWritesCheckpoint()
     {
         String tableName = "test_create_or_replace_checkpointing_" + randomNameSuffix();
         assertUpdate(
@@ -1463,27 +1463,64 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
         assertThat(listCheckpointFiles(transactionLogDirectory)).isEmpty();
         assertQuery("SELECT * FROM " + tableName, "VALUES (1,'ala'),  (2,'kota'), (3, 'psa')");
 
-        // replace table
+        // replace table with same schema, expect a checkpoint because the checkpoint interval threshold has been reached
         assertUpdate(
-                format("CREATE OR REPLACE TABLE %s (a_number integer) " +
+                format("CREATE OR REPLACE TABLE %s (a_number integer, a_string varchar) " +
                                 " WITH (checkpoint_interval = 2)",
                         tableName));
         assertThat(listCheckpointFiles(transactionLogDirectory)).hasSize(1);
         assertThat(query("SELECT * FROM " + tableName)).returnsEmptyResult();
 
-        assertUpdate(format("INSERT INTO " + tableName + " VALUES 1", tableName), 1);
+        assertUpdate(format("INSERT INTO " + tableName + " VALUES (1, 'bobra')", tableName), 1);
         assertThat(listCheckpointFiles(transactionLogDirectory)).hasSize(1);
-        assertQuery("SELECT * FROM " + tableName, "VALUES 1");
+        assertQuery("SELECT * FROM " + tableName, "VALUES (1, 'bobra')");
 
         // replace table with selection
         assertUpdate(
-                format("CREATE OR REPLACE TABLE %s (a_string) " +
+                format("CREATE OR REPLACE TABLE %s (a_number, a_string) " +
                                 " WITH (checkpoint_interval = 2) " +
-                                " AS VALUES 'bobra', 'kreta'",
+                                " AS VALUES (1, 'bobra'), (2, 'kreta')",
                         tableName),
                 2);
         assertThat(listCheckpointFiles(transactionLogDirectory)).hasSize(2);
-        assertQuery("SELECT * FROM " + tableName, "VALUES 'bobra', 'kreta'");
+        assertQuery("SELECT * FROM " + tableName, "VALUES (1, 'bobra'), (2, 'kreta')");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testCreateOrReplaceWithDifferentSchemaWritesCheckpoint()
+    {
+        String tableName = "test_create_or_replace_checkpointing_" + randomNameSuffix();
+        assertUpdate(
+                format("CREATE OR REPLACE TABLE %s (a_number, a_string) " +
+                                " WITH (location = '%s', " +
+                                "       partitioned_by = ARRAY['a_number']) " +
+                                " AS VALUES (1, 'ala')",
+                        tableName,
+                        getLocationForTable(bucketName, tableName)),
+                1);
+        String transactionLogDirectory = format("%s/_delta_log", tableName);
+
+        assertUpdate(format("INSERT INTO %s VALUES (2, 'kota'), (3, 'psa')", tableName), 2);
+        assertThat(listCheckpointFiles(transactionLogDirectory)).isEmpty();
+        assertQuery("SELECT * FROM " + tableName, "VALUES (1,'ala'),  (2,'kota'), (3, 'psa')");
+
+        // replace table with same schema and a large checkpoint_interval, expect no new checkpoint
+        assertUpdate(
+                format("CREATE OR REPLACE TABLE %s (a_number integer, a_string varchar) " +
+                                " WITH (checkpoint_interval = 100)",
+                        tableName));
+        assertThat(listCheckpointFiles(transactionLogDirectory)).hasSize(0);
+        assertThat(query("SELECT * FROM " + tableName)).returnsEmptyResult();
+
+        // replace table with a different schema and a large checkpoint_interval, expect a new checkpoint because columns have changed
+        assertUpdate(
+                format("CREATE OR REPLACE TABLE %s (a_number integer, a_string integer) " +
+                                " WITH (checkpoint_interval = 100)",
+                        tableName));
+        assertThat(listCheckpointFiles(transactionLogDirectory)).hasSize(1);
+        assertThat(query("SELECT * FROM " + tableName)).returnsEmptyResult();
 
         assertUpdate("DROP TABLE " + tableName);
     }

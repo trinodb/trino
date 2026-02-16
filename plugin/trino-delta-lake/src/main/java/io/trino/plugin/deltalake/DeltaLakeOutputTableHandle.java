@@ -42,7 +42,7 @@ public record DeltaLakeOutputTableHandle(
         ColumnMappingMode columnMappingMode,
         OptionalInt maxColumnId,
         boolean replace,
-        boolean isSchemaChanged,
+        Optional<List<DeltaLakeColumnHandle>> existingColumns,
         OptionalLong readVersion,
         ProtocolEntry protocolEntry)
         implements ConnectorOutputTableHandle
@@ -59,6 +59,7 @@ public record DeltaLakeOutputTableHandle(
         requireNonNull(schemaString, "schemaString is null");
         requireNonNull(columnMappingMode, "columnMappingMode is null");
         requireNonNull(maxColumnId, "maxColumnId is null");
+        requireNonNull(existingColumns, "existingColumns is null");
         requireNonNull(readVersion, "readVersion is null");
         requireNonNull(protocolEntry, "protocolEntry is null");
     }
