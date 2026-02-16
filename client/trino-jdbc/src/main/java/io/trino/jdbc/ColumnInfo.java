@@ -36,6 +36,7 @@ class ColumnInfo
     private static final int DATE_MAX = "yyyy-MM-dd".length();
 
     private final int columnType;
+    private final String columnJavaClassName;
     private final List<Integer> columnParameterTypes;
     private final ClientTypeSignature columnTypeSignature;
     private final Nullable nullable;
@@ -57,6 +58,7 @@ class ColumnInfo
 
     public ColumnInfo(
             int columnType,
+            String columnJavaClassName,
             List<Integer> columnParameterTypes,
             ClientTypeSignature columnTypeSignature,
             Nullable nullable,
@@ -72,6 +74,7 @@ class ColumnInfo
             String catalogName)
     {
         this.columnType = columnType;
+        this.columnJavaClassName = requireNonNull(columnJavaClassName, "columnJavaClassName is null");
         this.columnParameterTypes = ImmutableList.copyOf(requireNonNull(columnParameterTypes, "columnParameterTypes is null"));
         this.columnTypeSignature = requireNonNull(columnTypeSignature, "columnTypeSignature is null");
         this.nullable = requireNonNull(nullable, "nullable is null");
@@ -89,10 +92,14 @@ class ColumnInfo
 
     public static void setTypeInfo(Builder builder, ClientTypeSignature type)
     {
-        builder.setColumnType(getType(type));
+        TypeInfo typeInfo = typeInfo(type);
+        builder.setColumnType(typeInfo.jdbcType);
+        builder.setColumnJavaClassName(typeInfo.jdbcJavaClass.getName());
         ImmutableList.Builder<Integer> parameterTypes = ImmutableList.builder();
-        for (ClientTypeSignatureParameter parameter : type.getArguments()) {
-            parameterTypes.add(getType(parameter));
+        if (!type.getArguments().isEmpty()) {
+            for (ClientTypeSignatureParameter parameter : type.getArguments()) {
+                parameterTypes.add(getType(parameter));
+            }
         }
         builder.setColumnParameterTypes(parameterTypes.build());
         switch (type.getRawType()) {
@@ -201,59 +208,81 @@ class ColumnInfo
     {
         switch (typeParameter.getKind()) {
             case TYPE:
-                return getType(typeParameter.getTypeSignature());
+                return typeInfo(typeParameter.getTypeSignature()).jdbcType;
             default:
                 return Types.JAVA_OBJECT;
         }
     }
 
-    private static int getType(ClientTypeSignature type)
+    private static TypeInfo typeInfo(ClientTypeSignature type)
     {
         switch (type.getRawType()) {
-            case ClientStandardTypes.ARRAY:
-                return Types.ARRAY;
             case ClientStandardTypes.BOOLEAN:
-                return Types.BOOLEAN;
-            case ClientStandardTypes.BIGINT:
-                return Types.BIGINT;
-            case ClientStandardTypes.INTEGER:
-                return Types.INTEGER;
-            case ClientStandardTypes.SMALLINT:
-                return Types.SMALLINT;
+                return new TypeInfo(Types.BOOLEAN, Boolean.class);
+
             case ClientStandardTypes.TINYINT:
-                return Types.TINYINT;
+                return new TypeInfo(Types.TINYINT, Byte.class);
+            case ClientStandardTypes.SMALLINT:
+                return new TypeInfo(Types.SMALLINT, Short.class);
+            case ClientStandardTypes.INTEGER:
+                return new TypeInfo(Types.INTEGER, Integer.class);
+            case ClientStandardTypes.BIGINT:
+                return new TypeInfo(Types.BIGINT, Long.class);
+
             case ClientStandardTypes.REAL:
-                return Types.REAL;
+                return new TypeInfo(Types.REAL, Float.class);
             case ClientStandardTypes.DOUBLE:
-                return Types.DOUBLE;
-            case ClientStandardTypes.VARCHAR:
-                return Types.VARCHAR;
-            case ClientStandardTypes.CHAR:
-                return Types.CHAR;
-            case ClientStandardTypes.VARBINARY:
-                return Types.VARBINARY;
-            case ClientStandardTypes.TIME:
-                return Types.TIME;
-            case ClientStandardTypes.TIME_WITH_TIME_ZONE:
-                return Types.TIME_WITH_TIMEZONE;
-            case ClientStandardTypes.TIMESTAMP:
-                return Types.TIMESTAMP;
-            case ClientStandardTypes.TIMESTAMP_WITH_TIME_ZONE:
-                return Types.TIMESTAMP_WITH_TIMEZONE;
-            case ClientStandardTypes.DATE:
-                return Types.DATE;
+                return new TypeInfo(Types.DOUBLE, Double.class);
+
             case ClientStandardTypes.DECIMAL:
-                return Types.DECIMAL;
+                return new TypeInfo(Types.DECIMAL, java.math.BigDecimal.class);
+
+            case ClientStandardTypes.VARCHAR:
+                return new TypeInfo(Types.VARCHAR, String.class);
+            case ClientStandardTypes.CHAR:
+                return new TypeInfo(Types.CHAR, String.class);
+            case ClientStandardTypes.VARBINARY:
+                return new TypeInfo(Types.VARBINARY, byte[].class);
+
+            case ClientStandardTypes.DATE:
+                return new TypeInfo(Types.DATE, java.sql.Date.class);
+            case ClientStandardTypes.TIME:
+                return new TypeInfo(Types.TIME, java.sql.Time.class);
+            case ClientStandardTypes.TIME_WITH_TIME_ZONE:
+                return new TypeInfo(Types.TIME_WITH_TIMEZONE, java.sql.Time.class);
+            case ClientStandardTypes.TIMESTAMP:
+                return new TypeInfo(Types.TIMESTAMP, java.sql.Timestamp.class);
+            case ClientStandardTypes.TIMESTAMP_WITH_TIME_ZONE:
+                return new TypeInfo(Types.TIMESTAMP_WITH_TIMEZONE, java.sql.Timestamp.class);
+
+            case ClientStandardTypes.ARRAY:
+                return new TypeInfo(Types.ARRAY, java.sql.Array.class);
+            case ClientStandardTypes.MAP:
+                return new TypeInfo(Types.JAVA_OBJECT, java.util.Map.class);
+            case ClientStandardTypes.ROW:
+                return new TypeInfo(Types.JAVA_OBJECT, io.trino.jdbc.Row.class);
+
+            case ClientStandardTypes.JSON:
+            case ClientStandardTypes.IPADDRESS:
+            case ClientStandardTypes.UUID:
+                return new TypeInfo(Types.JAVA_OBJECT, String.class);
+
             case ClientStandardTypes.UNKNOWN:
-                return Types.NULL;
+                return new TypeInfo(Types.NULL, Object.class);
+
             default:
-                return Types.JAVA_OBJECT;
+                return new TypeInfo(Types.JAVA_OBJECT, Object.class);
         }
     }
 
     public int getColumnType()
     {
         return columnType;
+    }
+
+    public String getColumnJavaClassName()
+    {
+        return columnJavaClassName;
     }
 
     public List<Integer> getColumnParameterTypes()
@@ -329,6 +358,7 @@ class ColumnInfo
     static class Builder
     {
         private int columnType;
+        private String columnJavaClassName;
         private List<Integer> columnParameterTypes;
         private ClientTypeSignature columnTypeSignature;
         private Nullable nullable;
@@ -347,6 +377,13 @@ class ColumnInfo
         public Builder setColumnType(int columnType)
         {
             this.columnType = columnType;
+            return this;
+        }
+
+        @CanIgnoreReturnValue
+        public Builder setColumnJavaClassName(String columnJavaClassName)
+        {
+            this.columnJavaClassName = columnJavaClassName;
             return this;
         }
 
@@ -446,6 +483,7 @@ class ColumnInfo
         {
             return new ColumnInfo(
                     columnType,
+                    columnJavaClassName,
                     columnParameterTypes,
                     columnTypeSignature,
                     nullable,
@@ -459,6 +497,18 @@ class ColumnInfo
                     tableName,
                     schemaName,
                     catalogName);
+        }
+    }
+
+    private static class TypeInfo
+    {
+        private final int jdbcType;
+        private final Class<?> jdbcJavaClass;
+
+        public TypeInfo(int jdbcType, Class<?> jdbcJavaClass)
+        {
+            this.jdbcType = jdbcType;
+            this.jdbcJavaClass = requireNonNull(jdbcJavaClass, "jdbcJavaClass is null");
         }
     }
 }

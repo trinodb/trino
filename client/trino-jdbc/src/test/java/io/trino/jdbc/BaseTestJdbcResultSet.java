@@ -118,7 +118,7 @@ public abstract class BaseTestJdbcResultSet
                 ResultSetMetaData metaData = rs.getMetaData();
                 assertThat(metaData.getColumnTypeName(column)).isEqualTo("unknown");
                 assertThat(metaData.getColumnDisplaySize(column)).isEqualTo(0);
-                assertThat(metaData.getColumnClassName(column)).isEqualTo("unknown"); // TODO "unknown" feels wrong, is not a valid class name
+                assertThat(metaData.getColumnClassName(column)).isEqualTo("java.lang.Object");
             });
         }
     }
@@ -1046,6 +1046,21 @@ public abstract class BaseTestJdbcResultSet
             assertThat(metadata.getColumnType(1)).isEqualTo(expectedSqlType);
             assertThat(rs.next()).isTrue();
             assertion.accept(rs, 1);
+            Class<?> objectClass;
+            try {
+                objectClass = Class.forName(metadata.getColumnClassName(1));
+            }
+            catch (ClassNotFoundException e) {
+                throw new RuntimeException(e);
+            }
+            Object object = rs.getObject(1);
+            if (object != null) {
+                // general contract for metadata.getColumnTypeName
+                assertThat(object).isInstanceOf(objectClass);
+                // for any non-NULL (not UNKNOWN) type, we should know better than Object.class
+                assertThat(objectClass).as("getColumnTypeName for value of type %s [%s] returning %s", metadata.getColumnType(1), expression, object.getClass())
+                        .isNotEqualTo(Object.class);
+            }
             assertThat(rs.next()).isFalse();
         }
     }
