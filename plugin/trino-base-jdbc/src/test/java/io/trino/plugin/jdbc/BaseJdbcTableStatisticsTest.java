@@ -45,10 +45,12 @@ public abstract class BaseJdbcTableStatisticsTest
 
     private void setUpTableFromTpch(String tableName)
     {
+        String sqlTableName = "\"" + tableName + "\"";
         // Create the table. Some subclasses use shared resources, so the table may actually exist.
-        computeActual("CREATE TABLE IF NOT EXISTS \"" + tableName + "\" AS TABLE tpch.tiny." + tableName);
+        //assertThat(query("DROP TABLE IF EXISTS " + sqlTableName)).succeeds();
+        computeActual("CREATE TABLE " + sqlTableName + " AS TABLE tpch.tiny." + tableName);
         // Sanity check on state of the  table in case it already existed.
-        assertThat(query("SELECT count(*) FROM \"" + tableName + "\""))
+        assertThat(query("SELECT count(*) FROM " + sqlTableName))
                 .matches("SELECT count(*) FROM tpch.tiny." + tableName);
 
         try {
@@ -77,20 +79,20 @@ public abstract class BaseJdbcTableStatisticsTest
     public void testEmptyTable()
     {
         String tableName = "test_stats_table_empty_" + randomNameSuffix();
-        computeActual(format("CREATE TABLE \"%s\" AS SELECT \"orderkey\", \"custkey\", \"orderpriority\", \"comment\" FROM tpch.tiny.orders WHERE false", tableName));
+        computeActual(format("CREATE TABLE %s AS SELECT \"orderkey\", \"custkey\", \"orderpriority\", \"comment\" FROM tpch.tiny.orders WHERE false", tableName));
         try {
             gatherStats(tableName);
             checkEmptyTableStats(tableName);
         }
         finally {
-            assertUpdate("DROP TABLE \"" + tableName + '"');
+            assertUpdate("DROP TABLE " + tableName);
         }
     }
 
     protected void checkEmptyTableStats(String tableName)
     {
         assertQuery(
-                "SHOW STATS FOR \"" + tableName + '"',
+                "SHOW STATS FOR " + tableName,
                 "VALUES " +
                         "('orderkey', 0, 0, 1, null, null, null)," +
                         "('custkey', 0, 0, 1, null, null, null)," +
@@ -174,10 +176,10 @@ public abstract class BaseJdbcTableStatisticsTest
         try (TestTable table = newTrinoTable(
                 "varchar_duplicates",
                 // each letter A-E repeated 5 times
-                " AS SELECT \"nationkey\", chr(codepoint('A') + \"nationkey\" / 5) \"fl\" FROM  tpch.tiny.\"nation\"")) {
+                " AS SELECT \"nationkey\", chr(codepoint('A') + \"nationkey\" / 5) \"fl\" FROM tpch.tiny.\"nation\"")) {
             gatherStats(table.getName());
 
-            assertThat(query("SHOW STATS FOR (SELECT * FROM " + table.getName() + " WHERE fl = 'B')"))
+            assertThat(query("SHOW STATS FOR (SELECT * FROM " + table.getName() + " WHERE \"fl\" = 'B')"))
                     .result()
                     .exceptColumns("data_size", "low_value", "high_value")
                     .skippingTypesCheck()

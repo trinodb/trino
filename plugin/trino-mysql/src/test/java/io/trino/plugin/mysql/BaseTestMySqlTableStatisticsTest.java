@@ -73,6 +73,12 @@ public abstract class BaseTestMySqlTableStatisticsTest
     }
 
     @Override
+    protected String canonicalize(String value)
+    {
+        return value;
+    }
+
+    @Override
     @Test
     public void testNotAnalyzed()
     {

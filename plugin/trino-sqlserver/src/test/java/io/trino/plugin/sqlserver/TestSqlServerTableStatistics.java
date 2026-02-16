@@ -23,6 +23,7 @@ import org.jdbi.v3.core.Jdbi;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
+import java.util.Map;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Streams.stream;
@@ -44,7 +45,7 @@ public class TestSqlServerTableStatistics
     {
         sqlServer = closeAfterClass(new TestingSqlServer());
         return SqlServerQueryRunner.builder(sqlServer)
-                //.addConnectorProperties(Map.of("case-insensitive-name-matching", "true"))
+                .addConnectorProperties(Map.of("case-insensitive-name-matching", "true"))
                 .setInitialTables(List.of(ORDERS))
                 .build();
     }

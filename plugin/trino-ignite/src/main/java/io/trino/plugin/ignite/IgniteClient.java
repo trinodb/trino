@@ -162,7 +162,7 @@ public class IgniteClient
             IdentifierMapping identifierMapping,
             RemoteQueryModifier queryModifier)
     {
-        super("`", connectionFactory, queryBuilder, config.getJdbcTypesMappedToVarchar(), identifierMapping, queryModifier, false);
+        super("\"", connectionFactory, queryBuilder, config.getJdbcTypesMappedToVarchar(), identifierMapping, queryModifier, false);
 
         JdbcTypeHandle bigintTypeHandle = new JdbcTypeHandle(Types.BIGINT, Optional.of("bigint"), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty());
         this.connectorExpressionRewriter = JdbcConnectorExpressionRewriterBuilder.newBuilder()
@@ -385,7 +385,6 @@ public class IgniteClient
         }
 
         List<String> columnNames = columnNamesBuilder.build();
-        System.out.println("IgniteClient.beginCreateTable() columnNames: " + String.join(", ", columnNames));
         List<String> primaryKeys = IgniteTableProperties.getPrimaryKey(tableMetadata.getProperties());
 
         for (String primaryKey : primaryKeys) {

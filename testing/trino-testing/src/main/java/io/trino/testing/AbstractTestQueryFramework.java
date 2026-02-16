@@ -803,6 +803,11 @@ public abstract class AbstractTestQueryFramework
         return afterClassCloser.register(resource);
     }
 
+    protected String canonicalize(String value, boolean delimited)
+    {
+        return delimited ? value : canonicalize(value);
+    }
+
     protected String canonicalize(String value)
     {
         // FIXME: trino-base-jdbc use H2 has connector. For other connectors, this method needs to be overridden.

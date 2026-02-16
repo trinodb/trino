@@ -43,7 +43,7 @@ public abstract class BaseSqlServerTransactionIsolationTest
     @Test
     public void testCreateReadTable()
     {
-        assertUpdate("CREATE TABLE ctas_read AS SELECT * FROM tpch.tiny.nation", "SELECT count(*) FROM nation");
+        assertUpdate("CREATE TABLE ctas_read AS SELECT * FROM tpch.tiny.nation", "SELECT count(*) FROM \"nation\"");
         assertQuery("SELECT AVG(LENGTH(name)) FROM ctas_read", "SELECT 7.08");
         assertQuery("SELECT SUM(LENGTH(name)) FROM ctas_read WHERE regionkey = 1", "SELECT 38");
         assertUpdate("DROP TABLE ctas_read");
@@ -52,7 +52,7 @@ public abstract class BaseSqlServerTransactionIsolationTest
     @Test
     public void testDescribeShowTable()
     {
-        assertUpdate("CREATE TABLE ctas_describe AS SELECT regionkey, nationkey, comment FROM tpch.tiny.nation", "SELECT count(*) FROM nation");
+        assertUpdate("CREATE TABLE ctas_describe AS SELECT regionkey, nationkey, comment FROM tpch.tiny.nation", "SELECT count(*) FROM \"nation\"");
 
         MaterializedResult expectedColumns = MaterializedResult.resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
                 .row("regionkey", "bigint", "", "")

@@ -183,7 +183,7 @@ public class TestOpenLineageEventsFromQueries
                 .hasSize(1);
         assertCompletedEventInput(
                 completeCreateTableEvent.getInputs().getFirst(),
-                format("marquez.default.%s", viewName),
+                format("marquez.DEFAULT.%s", viewName),
                 ImmutableList.of(
                         openLineage.newSchemaDatasetFacetFields("nationkey", null, null, null, null),
                         openLineage.newSchemaDatasetFacetFields("regionkey", null, null, null, null),
@@ -196,28 +196,28 @@ public class TestOpenLineageEventsFromQueries
                 "nationkey", openLineage.newColumnLineageDatasetFacetFieldsAdditionalBuilder()
                         .inputFields(ImmutableList.of(openLineage.newInputFieldBuilder()
                                 .namespace(OPEN_LINEAGE_NAMESPACE)
-                                .name(format("marquez.default.%s", viewName))
+                                .name(format("marquez.DEFAULT.%s", viewName))
                                 .field("nationkey")
                                 .build()))
                         .build(),
                 "name", openLineage.newColumnLineageDatasetFacetFieldsAdditionalBuilder()
                         .inputFields(ImmutableList.of(openLineage.newInputFieldBuilder()
                                 .namespace(OPEN_LINEAGE_NAMESPACE)
-                                .name(format("marquez.default.%s", viewName))
+                                .name(format("marquez.DEFAULT.%s", viewName))
                                 .field("name")
                                 .build()))
                         .build(),
                 "regionkey", openLineage.newColumnLineageDatasetFacetFieldsAdditionalBuilder()
                         .inputFields(ImmutableList.of(openLineage.newInputFieldBuilder()
                                 .namespace(OPEN_LINEAGE_NAMESPACE)
-                                .name(format("marquez.default.%s", viewName))
+                                .name(format("marquez.DEFAULT.%s", viewName))
                                 .field("regionkey")
                                 .build()))
                         .build(),
                 "comment", openLineage.newColumnLineageDatasetFacetFieldsAdditionalBuilder()
                         .inputFields(ImmutableList.of(openLineage.newInputFieldBuilder()
                                 .namespace(OPEN_LINEAGE_NAMESPACE)
-                                .name(format("marquez.default.%s", viewName))
+                                .name(format("marquez.DEFAULT.%s", viewName))
                                 .field("comment")
                                 .build()))
                         .build());
@@ -326,7 +326,7 @@ public class TestOpenLineageEventsFromQueries
                 openLineage.newSchemaDatasetFacetFields("avg_order_value", "double", null, null, null));
         assertCompletedEventOutput(
                 completedEvent.getOutputs().getFirst(),
-                "marquez.default.test_create_table_with_join",
+                "marquez.DEFAULT.test_create_table_with_join",
                 expectedColumnLineage,
                 expectedColumnLineageDataset,
                 expectedSchemaFields);
@@ -456,7 +456,7 @@ public class TestOpenLineageEventsFromQueries
                 openLineage.newSchemaDatasetFacetFields("store_rank", "bigint", null, null, null));
         assertCompletedEventOutput(
                 completedEvent.getOutputs().getFirst(),
-                "marquez.default.monthly_store_rankings",
+                "marquez.DEFAULT.monthly_store_rankings",
                 expectedColumnLineage,
                 expectedColumnLineageDataset,
                 expectedSchemaFields);
@@ -573,7 +573,7 @@ public class TestOpenLineageEventsFromQueries
                 openLineage.newSchemaDatasetFacetFields("nation_name", "varchar(25)", null, null, null));
         assertCompletedEventOutput(
                 completedEvent.getOutputs().getFirst(),
-                "marquez.default.active_suppliers",
+                "marquez.DEFAULT.active_suppliers",
                 expectedColumnLineage,
                 expectedColumnLineageDataset,
                 expectedSchemaFields);

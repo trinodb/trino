@@ -105,7 +105,7 @@ public class TestSpatialJoinPlanning
     {
         PlanTester planTester = PlanTester.create(testSessionBuilder()
                 .setCatalog("memory")
-                .setSchema("default")
+                .setSchema("DEFAULT")
                 .build());
         planTester.installPlugin(new GeoPlugin());
         planTester.createCatalog("tpch", new TpchConnectorFactory(1), ImmutableMap.of());
@@ -235,7 +235,7 @@ public class TestSpatialJoinPlanning
                 "SELECT b.\"name\", a.\"name\" " +
                         "FROM \"points\" a, \"polygons\" b " +
                         "WHERE ST_Contains(ST_GeometryFromText(\"wkt\"), ST_Point(\"lng\", \"lat\"))",
-                "Table not found: memory.default.non_existent_table");
+                "Table not found: memory.DEFAULT.non_existent_table");
 
         // empty table
         getPlanTester().executeStatement("CREATE TABLE \"empty_table\" AS SELECT 'a' AS v WHERE false");
@@ -245,7 +245,7 @@ public class TestSpatialJoinPlanning
                 "SELECT b.\"name\", a.\"name\" " +
                         "FROM \"points\" a, \"polygons\" b " +
                         "WHERE ST_Contains(ST_GeometryFromText(\"wkt\"), ST_Point(\"lng\", \"lat\"))",
-                "Expected exactly one row for table memory.default.empty_table, but got none");
+                "Expected exactly one row for table memory.DEFAULT.empty_table, but got none");
 
         // invalid JSON
         getPlanTester().executeStatement("CREATE TABLE \"invalid_kdb_tree\" AS SELECT 'invalid-json' AS v");
@@ -265,7 +265,7 @@ public class TestSpatialJoinPlanning
                 "SELECT b.\"name\", a.\"name\" " +
                         "FROM \"points\" a, \"polygons\" b " +
                         "WHERE ST_Contains(ST_GeometryFromText(\"wkt\"), ST_Point(\"lng\", \"lat\"))",
-                "Expected exactly one row for table memory.default.too_many_rows, but found 2 rows");
+                "Expected exactly one row for table memory.DEFAULT.too_many_rows, but found 2 rows");
 
         // more than one column
         getPlanTester().executeStatement("CREATE TABLE \"too_many_columns\" AS SELECT '%s' as c1, 100 as c2");
@@ -275,7 +275,7 @@ public class TestSpatialJoinPlanning
                 "SELECT b.\"name\", a.\"name\" " +
                         "FROM \"points\" a, \"polygons\" b " +
                         "WHERE ST_Contains(ST_GeometryFromText(\"wkt\"), ST_Point(\"lng\", \"lat\"))",
-                "Expected single column for table memory.default.too_many_columns, but found 2 columns");
+                "Expected single column for table memory.DEFAULT.too_many_columns, but found 2 columns");
     }
 
     private void assertInvalidSpatialPartitioning(Session session, String sql, String expectedMessageRegExp)
@@ -313,7 +313,7 @@ public class TestSpatialJoinPlanning
         assertDistributedPlan("SELECT b.\"name\", a.\"name\" " +
                         "FROM \"polygons\" a, \"polygons\" b " +
                         "WHERE ST_Intersects(ST_GeometryFromText(a.\"wkt\"), ST_GeometryFromText(b.\"wkt\"))",
-                withSpatialPartitioning("default.kdb_tree"),
+                withSpatialPartitioning("DEFAULT.kdb_tree"),
                 anyTree(
                         spatialJoin(
                                 new Call(ST_INTERSECTS, ImmutableList.of(new Reference(GEOMETRY, "geometry_a"), new Reference(GEOMETRY, "geometry_b"))), Optional.of(KDB_TREE_JSON), Optional.empty(),

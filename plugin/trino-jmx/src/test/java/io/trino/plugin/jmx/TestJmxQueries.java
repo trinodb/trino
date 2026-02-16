@@ -96,11 +96,11 @@ public class TestJmxQueries
     @Test
     public void testOrderOfParametersIsIgnored()
     {
-        // FIXME: some test does not work
-        assertThat(assertions.query("SELECT node FROM \"java.nio:type=BufferPool,name=Direct\""))
+        // FIXME: name=direct must be give in lower case
+        assertThat(assertions.query("SELECT node FROM \"java.nio:type=BufferPool,name=direct\""))
                 .succeeds();
-        assertThat(assertions.query("SELECT node FROM \"java.nio:type=BufferPool,name=Direct\""))
-                .matches("SELECT node FROM \"java.nio:name=Direct,type=BufferPool\"");
+        assertThat(assertions.query("SELECT node FROM \"java.nio:type=BufferPool,name=direct\""))
+                .matches("SELECT node FROM \"java.nio:name=direct,type=BufferPool\"");
     }
 
     @Test

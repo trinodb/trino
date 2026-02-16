@@ -5353,15 +5353,15 @@ public abstract class BaseConnectorTest
         if (!hasBehavior(SUPPORTS_NOT_NULL_CONSTRAINT)) {
             assertQueryFails(
                     "CREATE TABLE not_null_constraint (not_null_col INTEGER NOT NULL)",
-                    format("line 1:35: Catalog '%s' does not support non-null column for column name 'not_null_col'", getSession().getCatalog().orElseThrow()));
+                    format("line 1:35: Catalog '%s' does not support non-null column for column name '%s'", getSession().getCatalog().orElseThrow(), canonicalize("not_null_col")));
             return;
         }
 
         try (TestTable table = createTestTableForWrites("update_not_null", "(nullable_col INTEGER, not_null_col INTEGER NOT NULL)", "not_null_col")) {
             assertUpdate(format("INSERT INTO %s (nullable_col, not_null_col) VALUES (1, 10)", table.getName()), 1);
             assertQuery("SELECT * FROM " + table.getName(), "VALUES (1, 10)");
-            assertQueryFails("UPDATE " + table.getName() + " SET not_null_col = NULL WHERE nullable_col = 1", "NULL value not allowed for NOT NULL column: not_null_col");
-            assertQueryFails("UPDATE " + table.getName() + " SET not_null_col = TRY(5/0) where nullable_col = 1", "NULL value not allowed for NOT NULL column: not_null_col");
+            assertQueryFails("UPDATE " + table.getName() + " SET not_null_col = NULL WHERE nullable_col = 1", "NULL value not allowed for NOT NULL column: %s".formatted(canonicalize("not_null_col")));
+            assertQueryFails("UPDATE " + table.getName() + " SET not_null_col = TRY(5/0) where nullable_col = 1", "NULL value not allowed for NOT NULL column: %s".formatted(canonicalize("not_null_col")));
         }
     }
 
@@ -5757,16 +5757,16 @@ public abstract class BaseConnectorTest
 
         try (TestTable table = createTestTableForWrites("test_update", "AS TABLE tpch.tiny.\"nation\"", "nationkey,regionkey")) {
             String tableName = table.getName();
-            assertUpdate("UPDATE " + tableName + " SET nationkey = 100 + nationkey WHERE regionkey = 2", 5);
-            assertThat(query("SELECT CAST(nationkey AS bigint), name, CAST(regionkey AS bigint), comment FROM " + tableName))
+            assertUpdate("UPDATE " + tableName + " SET \"nationkey\" = 100 + \"nationkey\" WHERE \"regionkey\" = 2", 5);
+            assertThat(query("SELECT CAST(\"nationkey\" AS bigint), \"name\", CAST(\"regionkey\" AS bigint), \"comment\" FROM " + tableName))
                     .skippingTypesCheck()
-                    .matches("SELECT IF(regionkey=2, nationkey + 100, nationkey) nationkey, name, regionkey, comment FROM tpch.tiny.\"nation\"");
+                    .matches("SELECT IF(\"regionkey\"=2, \"nationkey\" + 100, \"nationkey\") \"nationkey\", \"name\", \"regionkey\", \"comment\" FROM tpch.tiny.\"nation\"");
 
             // UPDATE after UPDATE
-            assertUpdate("UPDATE " + tableName + " SET nationkey = nationkey * 2 WHERE regionkey IN (2,3)", 10);
-            assertThat(query("SELECT CAST(nationkey AS bigint), name, CAST(regionkey AS bigint), comment FROM " + tableName))
+            assertUpdate("UPDATE " + tableName + " SET \"nationkey\" = \"nationkey\" * 2 WHERE \"regionkey\" IN (2,3)", 10);
+            assertThat(query("SELECT CAST(\"nationkey\" AS bigint), \"name\", CAST(\"regionkey\" AS bigint), \"comment\" FROM " + tableName))
                     .skippingTypesCheck()
-                    .matches("SELECT CASE regionkey WHEN 2 THEN 2*(nationkey+100) WHEN 3 THEN 2*nationkey ELSE nationkey END nationkey, name, regionkey, comment FROM tpch.tiny.\"nation\"");
+                    .matches("SELECT CASE \"regionkey\" WHEN 2 THEN 2*(\"nationkey\"+100) WHEN 3 THEN 2*\"nationkey\" ELSE \"nationkey\" END \"nationkey\", \"name\", \"regionkey\", \"comment\" FROM tpch.tiny.\"nation\"");
         }
     }
 
@@ -6435,13 +6435,13 @@ public abstract class BaseConnectorTest
             }
             throw e;
         }
-        assertTableColumnNames(canonicalize(tableName), columnName, canonicalize("value"));
+        assertTableColumnNames(canonicalize(tableName), canonicalize(columnName, delimited), canonicalize("value"));
 
         assertUpdate("ALTER TABLE " + tableName + " DROP COLUMN " + nameInSql);
         assertTableColumnNames(canonicalize(tableName), canonicalize("value"));
 
         assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN " + nameInSql + " varchar(50)");
-        assertTableColumnNames(canonicalize(tableName), canonicalize("value"), columnName);
+        assertTableColumnNames(canonicalize(tableName), canonicalize("value"), canonicalize(columnName, delimited));
 
         assertUpdate("DROP TABLE " + tableName);
     }
@@ -7583,14 +7583,14 @@ public abstract class BaseConnectorTest
                 " USING (VALUES ('ALGERIA', 'AFRICA')) s(nation_name, region_name)\n" +
                 " ON (t.nation_name = s.nation_name)\n" +
                 " WHEN MATCHED THEN UPDATE SET region_name = NULL"))
-                .hasMessage("NULL value not allowed for NOT NULL column: region_name");
+                .hasMessage("NULL value not allowed for NOT NULL column: %s".formatted(canonicalize("region_name")));
 
         // Show that inserting using a null value fails
         assertThatThrownBy(() -> computeActual(format("MERGE INTO %s t\n", targetTable) +
                 " USING (VALUES ('IMAGINARIA', 'AFRICA')) s(nation_name, region_name)\n" +
                 " ON (t.nation_name = s.nation_name)\n" +
                 " WHEN NOT MATCHED THEN INSERT (nation_name, region_name) VALUES ('IMAGINARIA', NULL)"))
-                .hasMessage("NULL value not allowed for NOT NULL column: region_name");
+                .hasMessage("NULL value not allowed for NOT NULL column: %s".formatted(canonicalize("region_name")));
 
         // Show that inserting using an implicit null value fails
         assertThatThrownBy(() -> computeActual(format("MERGE INTO %s t\n", targetTable) +
@@ -7598,7 +7598,7 @@ public abstract class BaseConnectorTest
                 " ON (t.nation_name = s.nation_name)\n" +
                 // The region_name is implicitly assigned null
                 " WHEN NOT MATCHED THEN INSERT (nation_name) VALUES ('IMAGINARIA')"))
-                .hasMessage("NULL value not allowed for NOT NULL column: region_name");
+                .hasMessage("NULL value not allowed for NOT NULL column: %s".formatted(canonicalize("region_name")));
 
         // Show that if the updated value is provided by a function unpredicatably computing null,
         // the merge fails
@@ -7606,7 +7606,7 @@ public abstract class BaseConnectorTest
                 " USING (VALUES ('ALGERIA', 'AFRICA')) s(nation_name, region_name)\n" +
                 " ON (t.nation_name = s.nation_name)\n" +
                 " WHEN MATCHED THEN UPDATE SET region_name = CAST(TRY(5/0) AS VARCHAR)"))
-                .hasMessage("NULL value not allowed for NOT NULL column: region_name");
+                .hasMessage("NULL value not allowed for NOT NULL column: %s".formatted(canonicalize("region_name")));
 
         assertUpdate("DROP TABLE " + targetTable);
     }
@@ -7636,9 +7636,9 @@ public abstract class BaseConnectorTest
         skipTestUnless(hasBehavior(SUPPORTS_MERGE));
 
         try (TestTable table = createTestTableForWrites("test_update_with_subquery", " AS SELECT * FROM \"orders\"", "orderkey")) {
-            assertQuery("SELECT count(*) FROM " + table.getName() + " WHERE shippriority = 101 AND custkey = (SELECT min(custkey) FROM customer)", "VALUES 0");
-            assertUpdate("UPDATE " + table.getName() + " SET shippriority = 101 WHERE custkey = (SELECT min(custkey) FROM customer)", 9);
-            assertQuery("SELECT count(*) FROM " + table.getName() + " WHERE shippriority = 101 AND custkey = (SELECT min(custkey) FROM customer)", "VALUES 9");
+            assertQuery("SELECT count(*) FROM " + table.getName() + " WHERE \"shippriority\" = 101 AND \"custkey\" = (SELECT min(\"custkey\") FROM \"customer\")", "VALUES 0");
+            assertUpdate("UPDATE " + table.getName() + " SET \"shippriority\" = 101 WHERE \"custkey\" = (SELECT min(\"custkey\") FROM \"customer\")", 9);
+            assertQuery("SELECT count(*) FROM " + table.getName() + " WHERE \"shippriority\" = 101 AND \"custkey\" = (SELECT min(\"custkey\") FROM \"customer\")", "VALUES 9");
         }
     }
 

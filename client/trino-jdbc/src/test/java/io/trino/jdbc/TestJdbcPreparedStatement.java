@@ -530,7 +530,7 @@ public class TestJdbcPreparedStatement
             throws Exception
     {
         String tableName = "test_execute_batch_" + randomNameSuffix();
-        try (Connection connection = createConnection("memory", "default", explicitPrepare)) {
+        try (Connection connection = createConnection("memory", "DEFAULT", explicitPrepare)) {
             try (Statement statement = connection.createStatement()) {
                 statement.execute("CREATE TABLE " + tableName + "(c_int integer)");
             }

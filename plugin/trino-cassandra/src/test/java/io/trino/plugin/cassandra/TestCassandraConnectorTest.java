@@ -286,7 +286,7 @@ public class TestCassandraConnectorTest
         String schema = getSession().getSchema().orElseThrow();
         assertThat(computeScalar("SHOW CREATE TABLE " + table))
                 // If the connector reports additional column properties, the expected value needs to be adjusted in the test subclass
-                .isEqualTo(getCreateTableMixedCaseUnDelimited(catalog, schema, table));
+                .asString().matches(getCreateTableMixedCaseUnDelimited(catalog, schema, table));
         assertUpdate("DROP TABLE " + table);
         assertThat(getQueryRunner().tableExists(getSession(), table)).isFalse();
     }

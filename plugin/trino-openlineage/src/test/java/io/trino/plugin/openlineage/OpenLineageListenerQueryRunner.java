@@ -36,7 +36,7 @@ import static io.trino.testing.TestingSession.testSessionBuilder;
 public final class OpenLineageListenerQueryRunner
 {
     public static final String CATALOG = "marquez";
-    public static final String SCHEMA = "default";
+    public static final String SCHEMA = "DEFAULT";
 
     private OpenLineageListenerQueryRunner() {}
 

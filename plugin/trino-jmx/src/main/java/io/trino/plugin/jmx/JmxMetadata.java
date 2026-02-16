@@ -92,6 +92,18 @@ public class JmxMetadata
     }
 
     @Override
+    public String canonicalize(String value, boolean delimited)
+    {
+        return canonicalize(value);
+    }
+
+    @Override
+    public String canonicalize(String value)
+    {
+        return value;
+    }
+
+    @Override
     public List<String> listSchemaNames(ConnectorSession session)
     {
         return ImmutableList.of(JMX_SCHEMA_NAME, HISTORY_SCHEMA_NAME);
@@ -167,8 +179,6 @@ public class JmxMetadata
     public static String toPattern(String tableName)
     {
         try {
-            System.out.println("JmxMetadata.toPattern() table: " + tableName);
-            System.out.println("JmxMetadata.toPattern() CanonicalName: " + new ObjectName(tableName).getCanonicalName());
             if (!tableName.contains("*")) {
                 return Pattern.quote(new ObjectName(tableName).getCanonicalName());
             }
@@ -305,11 +315,5 @@ public class JmxMetadata
             case "java.lang.Number", "float", "java.lang.Float", "double", "java.lang.Double" -> DOUBLE;
             default -> createUnboundedVarcharType();
         };
-    }
-
-    @Override
-    public String canonicalize(String value)
-    {
-        return value;
     }
 }

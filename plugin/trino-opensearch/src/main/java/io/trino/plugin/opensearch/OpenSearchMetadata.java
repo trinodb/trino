@@ -165,6 +165,12 @@ public class OpenSearchMetadata
     }
 
     @Override
+    public String canonicalize(String value)
+    {
+        return value;
+    }
+
+    @Override
     public List<String> listSchemaNames(ConnectorSession session)
     {
         return ImmutableList.of(schemaName);

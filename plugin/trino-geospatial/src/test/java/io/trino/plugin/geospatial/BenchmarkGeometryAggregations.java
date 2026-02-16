@@ -66,7 +66,7 @@ public class BenchmarkGeometryAggregations
         {
             queryRunner = new StandaloneQueryRunner(testSessionBuilder()
                     .setCatalog("memory")
-                    .setSchema("default")
+                    .setSchema("DEFAULT")
                     .build());
             queryRunner.installPlugin(new GeoPlugin());
             queryRunner.installPlugin(new MemoryPlugin());
@@ -82,7 +82,7 @@ public class BenchmarkGeometryAggregations
             }
 
             queryRunner.execute(
-                    format("CREATE TABLE memory.\"default\".\"us_states\" AS SELECT ST_GeometryFromText(t.\"wkt\") AS \"geom\" FROM (VALUES %s) as t (\"name\", \"wkt\")",
+                    format("CREATE TABLE memory.DEFAULT.\"us_states\" AS SELECT ST_GeometryFromText(t.\"wkt\") AS \"geom\" FROM (VALUES %s) as t (\"name\", \"wkt\")",
                             polygonValues));
         }
 

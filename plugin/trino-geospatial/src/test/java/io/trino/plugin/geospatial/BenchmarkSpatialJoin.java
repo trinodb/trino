@@ -78,7 +78,7 @@ public class BenchmarkSpatialJoin
         {
             queryRunner = new StandaloneQueryRunner(testSessionBuilder()
                     .setCatalog("memory")
-                    .setSchema("default")
+                    .setSchema("DEFAULT")
                     .build());
             queryRunner.installPlugin(new GeoPlugin());
             queryRunner.installPlugin(new MemoryPlugin());
@@ -92,7 +92,7 @@ public class BenchmarkSpatialJoin
                         .map(parts -> format("('%s', '%s')", parts[0], parts[1]))
                         .collect(Collectors.joining(","));
             }
-            queryRunner.execute(format("CREATE TABLE memory.\"default\".\"polygons\" AS SELECT * FROM (VALUES %s) as t (\"name\", \"wkt\")", polygonValues));
+            queryRunner.execute(format("CREATE TABLE memory.DEFAULT.\"polygons\" AS SELECT * FROM (VALUES %s) as t (\"name\", \"wkt\")", polygonValues));
         }
 
         @Setup(Level.Invocation)
@@ -100,7 +100,7 @@ public class BenchmarkSpatialJoin
         {
             // Generate random points within the approximate bounding box of the US polygon:
             //  POLYGON ((-124 27, -65 27, -65 49, -124 49, -124 27))
-            queryRunner.execute(format("CREATE TABLE memory.\"default\".\"points\" AS " +
+            queryRunner.execute(format("CREATE TABLE memory.DEFAULT.\"points\" AS " +
                     "SELECT 'p' || cast(elem AS VARCHAR) as \"name\", xMin + (xMax - xMin) * random() as \"longitude\", yMin + (yMax - yMin) * random() as \"latitude\" " +
                     "FROM (SELECT -124 AS xMin, -65 AS xMax, 27 AS yMin, 49 AS yMax) " +
                     "CROSS JOIN UNNEST(sequence(1, %s)) AS t(elem)", pointCount));
@@ -111,10 +111,10 @@ public class BenchmarkSpatialJoin
         {
             queryRunner.inTransaction(queryRunner.getDefaultSession(), transactionSession -> {
                 Metadata metadata = queryRunner.getPlannerContext().getMetadata();
-                QualifiedObjectName tableName = QualifiedObjectName.valueOf("memory.default.points");
+                QualifiedObjectName tableName = QualifiedObjectName.valueOf("memory.DEFAULT.points");
                 Optional<TableHandle> tableHandle = metadata.getTableHandle(transactionSession, tableName);
                 assertThat(tableHandle.isPresent())
-                        .describedAs("Table memory.default.points does not exist")
+                        .describedAs("Table memory.DEFAULT.points does not exist")
                         .isTrue();
                 metadata.dropTable(transactionSession, tableHandle.get(), tableName.asCatalogSchemaTableName());
                 return null;

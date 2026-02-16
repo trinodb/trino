@@ -53,7 +53,7 @@ public abstract class BaseTestOpenLineageQueries
             switch (tableType) {
                 case TABLE, VIEW -> {
                     catalogName = "marquez";
-                    schemaName = "default";
+                    schemaName = "DEFAULT";
                 }
             }
             String outputTable = format("%s.%s.%s", catalogName, schemaName, tableName);
@@ -98,7 +98,7 @@ public abstract class BaseTestOpenLineageQueries
             switch (tableType) {
                 case TABLE, VIEW -> {
                     catalogName = "marquez";
-                    schemaName = "default";
+                    schemaName = "DEFAULT";
                 }
             }
             String outputTable = format("%s.%s.%s", catalogName, schemaName, tableName);
@@ -198,9 +198,9 @@ public abstract class BaseTestOpenLineageQueries
                       s."s_store_name",
                       SUM(ss."ss_sales_price") AS "monthly_total"
                     FROM
-                      tpcds.tiny.store_sales ss
-                      JOIN tpcds.tiny.date_dim d ON ss.ss_sold_date_sk = d.d_date_sk
-                      JOIN tpcds.tiny.store s ON ss.ss_store_sk = s.s_store_sk
+                      tpcds."tiny"."store_sales" ss
+                      JOIN tpcds."tiny"."date_dim" d ON ss."ss_sold_date_sk" = d."d_date_sk"
+                      JOIN tpcds."tiny"."store" s ON ss."ss_store_sk" = s."s_store_sk"
                     WHERE
                       d."d_year" = 2001
                     GROUP BY
@@ -301,7 +301,7 @@ public abstract class BaseTestOpenLineageQueries
             throws Exception
     {
         String catalog = "marquez";
-        String schema = "default";
+        String schema = "DEFAULT";
         for (String setOperator : ImmutableList.of("UNION", "UNION ALL", "INTERSECT", "INTERSECT ALL", "EXCEPT", "EXCEPT ALL")) {
             String table = format("cross_dataset_analysis_%s", setOperator.toLowerCase(Locale.ENGLISH).replace(" ", "_"));
             String outputTable = format("%s.%s.%s", catalog, schema, table);
@@ -350,7 +350,7 @@ public abstract class BaseTestOpenLineageQueries
             throws Exception
     {
         String catalog = "marquez";
-        String schema = "default";
+        String schema = "DEFAULT";
         String table = "test_insert_into_create_as_select_from_table";
         String outputTable = "%s.%s.%s".formatted(catalog, schema, table);
         String sqlOutputTable = "%s.\"%s\".\"%s\"".formatted(catalog, schema, table);

@@ -1395,18 +1395,20 @@ public class SqlServerClient
         Long getTableObjectId(String catalog, String schema, String tableName)
         {
             return handle.createQuery("SELECT object_id(:table)")
-                    .bind("table", format("%s.%s.%s", catalog, schema, tableName))
+                    .bind("table", format("%s.\"%s\".\"%s\"", catalog, schema, tableName))
                     .mapTo(Long.class)
                     .one();
         }
 
         Long getRowCount(long tableObjectId)
         {
-            return handle.createQuery("" +
-                            "SELECT sum(rows) row_count " +
-                            "FROM sys.partitions " +
-                            "WHERE object_id = :object_id " +
-                            "AND index_id IN (0, 1)") // 0 = heap, 1 = clustered index, 2 or greater = non-clustered index
+            return handle.createQuery(
+                    """
+                        SELECT sum("rows") "row_count" \
+                        FROM "sys"."partitions" \
+                        WHERE "object_id" = :object_id \
+                        AND "index_id" IN (0, 1)\
+                        """) // 0 = heap, 1 = clustered index, 2 or greater = non-clustered index
                     .bind("object_id", tableObjectId)
                     .mapTo(Long.class)
                     .one();
@@ -1414,14 +1416,16 @@ public class SqlServerClient
 
         List<String> getSingleColumnStatistics(long tableObjectId)
         {
-            return handle.createQuery("" +
-                            "SELECT s.name " +
-                            "FROM sys.stats AS s " +
-                            "JOIN sys.stats_columns AS sc ON s.object_id = sc.object_id AND s.stats_id = sc.stats_id " +
-                            "WHERE s.object_id = :object_id " +
-                            "GROUP BY s.name " +
-                            "HAVING count(*) = 1 " +
-                            "ORDER BY s.name")
+            return handle.createQuery(
+                    """
+                        SELECT s."name" \
+                        FROM "sys"."stats" AS s \
+                        JOIN "sys"."stats_columns" AS sc ON s."object_id" = sc."object_id" AND s."stats_id" = sc."stats_id" \
+                        WHERE s."object_id" = :object_id \
+                        GROUP BY s."name" \
+                        HAVING count(*) = 1 \
+                        ORDER BY s."name"\
+                        """)
                     .bind("object_id", tableObjectId)
                     .mapTo(String.class)
                     .list();
@@ -1429,13 +1433,15 @@ public class SqlServerClient
 
         String getSingleColumnStatisticsColumnName(long tableObjectId, String statisticsName)
         {
-            return handle.createQuery("" +
-                            "SELECT c.name " +
-                            "FROM sys.stats AS s " +
-                            "JOIN sys.stats_columns AS sc ON s.object_id = sc.object_id AND s.stats_id = sc.stats_id " +
-                            "JOIN sys.columns AS c ON sc.object_id = c.object_id AND c.column_id = sc.column_id " +
-                            "WHERE s.object_id = :object_id " +
-                            "AND s.name = :statistics_name")
+            return handle.createQuery(
+                    """
+                        SELECT c."name" \
+                        FROM "sys"."stats" AS s \
+                        JOIN "sys"."stats_columns" AS sc ON s."object_id" = sc."object_id" AND s."stats_id" = sc."stats_id" \
+                        JOIN "sys"."columns" AS c ON sc."object_id" = c."object_id" AND c."column_id" = sc."column_id" \
+                        WHERE s."object_id" = :object_id \
+                        AND s."name" = :statistics_name\
+                        """)
                     .bind("object_id", tableObjectId)
                     .bind("statistics_name", statisticsName)
                     .mapTo(String.class)

@@ -314,16 +314,18 @@ public class TestPostgreSqlTableStatistics
     @Override
     protected void testCaseColumnNames(String tableName)
     {
-        executeInPostgres("" +
-                "CREATE TABLE " + tableName +
-                "AS SELECT " +
-                "  orderkey AS CASE_UNQUOTED_UPPER, " +
-                "  custkey AS case_unquoted_lower, " +
-                "  orderstatus AS cASe_uNQuoTeD_miXED, " +
-                "  totalprice AS \"CASE_QUOTED_UPPER\", " +
-                "  orderdate AS \"case_quoted_lower\"," +
-                "  orderpriority AS \"CasE_QuoTeD_miXED\" " +
-                "FROM orders");
+        executeInPostgres(
+                """
+                CREATE TABLE %s \
+                AS SELECT \
+                  orderkey AS CASE_UNQUOTED_UPPER, \
+                  custkey AS case_unquoted_lower, \
+                  orderstatus AS cASe_uNQuoTeD_miXED, \
+                  totalprice AS "CASE_QUOTED_UPPER", \
+                  orderdate AS "case_quoted_lower", \
+                  orderpriority AS "CasE_QuoTeD_miXED" \
+                FROM orders\
+                """.formatted(tableName));
         try {
             gatherStats(tableName);
             assertQuery(
@@ -401,6 +403,7 @@ public class TestPostgreSqlTableStatistics
                 long estimatedCount = handle.createQuery(format("SELECT reltuples FROM pg_class WHERE oid = '%s'::regclass::oid", tableName))
                         .mapTo(Long.class)
                         .one();
+                System.out.println("TestPostgreSqlTableStatistics.gatherStats() actualCount: " + actualCount + " - estimatedCount: " + estimatedCount);
                 if (actualCount == estimatedCount) {
                     return;
                 }
@@ -424,6 +427,7 @@ public class TestPostgreSqlTableStatistics
                 long estimatedCount = handle.createQuery(format("SELECT SUM(reltuples) FROM pg_class WHERE oid IN (%s)", parameter))
                         .mapTo(Long.class)
                         .one();
+                System.out.println("TestPostgreSqlTableStatistics.gatherStatsPartitionedTable() actualCount: " + actualCount + " - estimatedCount: " + estimatedCount);
                 if (actualCount == estimatedCount) {
                     return;
                 }

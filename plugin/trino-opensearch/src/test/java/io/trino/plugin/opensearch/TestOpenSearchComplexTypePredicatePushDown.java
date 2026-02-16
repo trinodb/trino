@@ -57,6 +57,12 @@ final class TestOpenSearchComplexTypePredicatePushDown
         return OpenSearchQueryRunner.builder(opensearch.getAddress()).build();
     }
 
+    @Override
+    protected String canonicalize(String value)
+    {
+        return value;
+    }
+
     @Test
     void testRowTypeOnlyNullsRowGroupPruning()
             throws IOException
