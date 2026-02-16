@@ -52,7 +52,7 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.QueryUtil.aliased;
-import static io.trino.sql.QueryUtil.identifier;
+import static io.trino.sql.QueryUtil.delimitedIdentifier;
 import static io.trino.sql.QueryUtil.row;
 import static io.trino.sql.QueryUtil.selectList;
 import static io.trino.sql.QueryUtil.simpleQuery;
@@ -153,13 +153,13 @@ public final class DescribeOutputRewrite
         {
             return simpleQuery(
                     selectList(
-                            identifier("Column Name"),
-                            identifier("Catalog"),
-                            identifier("Schema"),
-                            identifier("Table"),
-                            identifier("Type"),
-                            identifier("Type Size"),
-                            identifier("Aliased")),
+                            delimitedIdentifier("Column Name"),
+                            delimitedIdentifier("Catalog"),
+                            delimitedIdentifier("Schema"),
+                            delimitedIdentifier("Table"),
+                            delimitedIdentifier("Type"),
+                            delimitedIdentifier("Type Size"),
+                            delimitedIdentifier("Aliased")),
                     aliased(
                             values(rows),
                             "Statement Output",

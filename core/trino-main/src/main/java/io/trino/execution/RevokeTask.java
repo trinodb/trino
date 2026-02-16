@@ -25,6 +25,7 @@ import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.spi.connector.EntityKindAndName;
 import io.trino.spi.connector.EntityPrivilege;
 import io.trino.spi.security.Privilege;
+import io.trino.sql.PlannerContext;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.Identifier;
 import io.trino.sql.tree.Revoke;
@@ -49,13 +50,15 @@ import static java.util.Objects.requireNonNull;
 public class RevokeTask
         implements DataDefinitionTask<Revoke>
 {
+    private final PlannerContext plannerContext;
     private final Metadata metadata;
     private final AccessControl accessControl;
 
     @Inject
-    public RevokeTask(Metadata metadata, AccessControl accessControl)
+    public RevokeTask(PlannerContext plannerContext, AccessControl accessControl)
     {
-        this.metadata = requireNonNull(metadata, "metadata is null");
+        this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
+        this.metadata = plannerContext.getMetadata();
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
     }
 
@@ -92,7 +95,7 @@ public class RevokeTask
             throw semanticException(NOT_SUPPORTED, statement, "Revoking on branch is not supported");
         }
 
-        CatalogSchemaName schemaName = createCatalogSchemaName(session, statement, Optional.of(statement.getGrantObject().getName()));
+        CatalogSchemaName schemaName = createCatalogSchemaName(session, statement, Optional.of(statement.getGrantObject().getName()), plannerContext);
 
         if (!metadata.schemaExists(session, schemaName)) {
             throw semanticException(SCHEMA_NOT_FOUND, statement, "Schema '%s' does not exist", schemaName);
@@ -108,7 +111,7 @@ public class RevokeTask
 
     private void executeRevokeOnTable(Session session, Revoke statement)
     {
-        QualifiedObjectName tableName = createQualifiedObjectName(session, statement, statement.getGrantObject().getName());
+        QualifiedObjectName tableName = createQualifiedObjectName(session, statement, statement.getGrantObject().getName(), plannerContext);
         Optional<Identifier> branch = statement.getGrantObject().getBranch();
 
         if (!metadata.isMaterializedView(session, tableName) && !metadata.isView(session, tableName)) {

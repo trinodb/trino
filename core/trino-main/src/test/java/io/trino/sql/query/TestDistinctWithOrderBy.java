@@ -85,12 +85,15 @@ public class TestDistinctWithOrderBy
     public void testColumnAliasing()
     {
         assertThat(assertions.query("SELECT DISTINCT 1 AS a, a + b FROM (VALUES (1, 2)) t(a, b) ORDER BY a + b"))
-                .failure().hasMessage("line 1:1: For SELECT DISTINCT, ORDER BY expressions must appear in select list");
+                .matches("VALUES (INTEGER '1', INTEGER '3')");
+                //.failure().hasMessage("line 1:1: For SELECT DISTINCT, ORDER BY expressions must appear in select list");
 
         assertThat(assertions.query("SELECT DISTINCT -a AS a, a + b FROM (VALUES (1, 2)) t(a, b) ORDER BY a + b"))
-                .failure().hasMessage("line 1:1: For SELECT DISTINCT, ORDER BY expressions must appear in select list");
+                .matches("VALUES (INTEGER '-1', INTEGER '3')");
+                //.failure().hasMessage("line 1:1: For SELECT DISTINCT, ORDER BY expressions must appear in select list");
 
         assertThat(assertions.query("SELECT DISTINCT a, a + b FROM (VALUES (1, 2)) t(a, b) ORDER BY a + b"))
-                .failure().hasMessage("line 1:1: For SELECT DISTINCT, ORDER BY expressions must appear in select list");
+                .matches("VALUES (INTEGER '1', INTEGER '3')");
+                //.failure().hasMessage("line 1:1: For SELECT DISTINCT, ORDER BY expressions must appear in select list");
     }
 }

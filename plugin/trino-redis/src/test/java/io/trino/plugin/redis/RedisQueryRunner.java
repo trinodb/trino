@@ -34,6 +34,7 @@ import io.trino.tpch.TpchTable;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import static io.airlift.units.Duration.nanosSince;
 import static io.trino.plugin.redis.util.RedisTestUtils.installRedisPlugin;
@@ -133,7 +134,7 @@ public final class RedisQueryRunner
                 redisServer,
                 trinoClient,
                 redisTableName(table),
-                new QualifiedObjectName("tpch", TINY_SCHEMA_NAME, table.getTableName().toLowerCase(ENGLISH)),
+                new QualifiedObjectName("tpch", TINY_SCHEMA_NAME, table.getTableName().toLowerCase(ENGLISH), Optional.empty()),
                 dataFormat);
         log.info("Imported %s in %s", table.getTableName(), nanosSince(start).convertToMostSuccinctTimeUnit());
     }

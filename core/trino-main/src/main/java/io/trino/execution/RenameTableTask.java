@@ -23,11 +23,15 @@ import io.trino.metadata.RedirectionAwareTableHandle;
 import io.trino.metadata.TableHandle;
 import io.trino.security.AccessControl;
 import io.trino.spi.TrinoException;
+import io.trino.sql.PlannerContext;
 import io.trino.sql.tree.Expression;
+import io.trino.sql.tree.Identifier;
 import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.RenameTable;
+import io.trino.sql.tree.Resolver;
 
 import java.util.List;
+import java.util.Optional;
 
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static io.trino.metadata.MetadataUtil.createQualifiedObjectName;
@@ -44,13 +48,15 @@ import static java.util.Objects.requireNonNull;
 public class RenameTableTask
         implements DataDefinitionTask<RenameTable>
 {
+    private final PlannerContext plannerContext;
     private final Metadata metadata;
     private final AccessControl accessControl;
 
     @Inject
-    public RenameTableTask(Metadata metadata, AccessControl accessControl)
+    public RenameTableTask(PlannerContext plannerContext, AccessControl accessControl)
     {
-        this.metadata = requireNonNull(metadata, "metadata is null");
+        this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
+        this.metadata = plannerContext.getMetadata();
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
     }
 
@@ -68,7 +74,7 @@ public class RenameTableTask
             WarningCollector warningCollector)
     {
         Session session = stateMachine.getSession();
-        QualifiedObjectName tableName = createQualifiedObjectName(session, statement, statement.getSource());
+        QualifiedObjectName tableName = createQualifiedObjectName(session, statement, statement.getSource(), plannerContext);
 
         if (metadata.isMaterializedView(session, tableName)) {
             throw semanticException(
@@ -94,7 +100,11 @@ public class RenameTableTask
 
         TableHandle tableHandle = redirectionAwareTableHandle.tableHandle().get();
         QualifiedObjectName source = redirectionAwareTableHandle.redirectedTableName().orElse(tableName);
-        QualifiedObjectName target = createTargetQualifiedObjectName(source, statement.getTarget());
+        Resolver resolver = plannerContext.getResolver(session, source.catalogName());
+        if (!statement.getTarget().isResolved()) {
+            statement.getTarget().resolveIdentifiers(resolver);
+        }
+        QualifiedObjectName target = createTargetQualifiedObjectName(source, statement.getTarget(), resolver);
         if (metadata.getCatalogHandle(session, target.catalogName()).isEmpty()) {
             throw semanticException(CATALOG_NOT_FOUND, statement, "Target catalog '%s' not found", target.catalogName());
         }
@@ -117,18 +127,18 @@ public class RenameTableTask
         return immediateVoidFuture();
     }
 
-    private static QualifiedObjectName createTargetQualifiedObjectName(QualifiedObjectName source, QualifiedName target)
+    private static QualifiedObjectName createTargetQualifiedObjectName(QualifiedObjectName source, QualifiedName target, Resolver resolver)
     {
         requireNonNull(target, "target is null");
-        if (target.getParts().size() > 3) {
+        if (target.getOriginalParts().size() > 3) {
             throw new TrinoException(SYNTAX_ERROR, format("Too many dots in table name: %s", target));
         }
 
-        List<String> parts = target.getParts().reversed();
-        String objectName = parts.get(0);
-        String schemaName = (parts.size() > 1) ? parts.get(1) : source.schemaName();
-        String catalogName = (parts.size() > 2) ? parts.get(2) : source.catalogName();
+        List<Identifier> parts = target.getOriginalParts().reversed();
+        String objectName = parts.get(0).getCanonicalizedValue();
+        String schemaName = (parts.size() > 1) ? parts.get(1).getCanonicalizedValue() : source.schemaName();
+        String catalogName = (parts.size() > 2) ? parts.get(2).getCanonicalizedValue() : source.catalogName();
 
-        return new QualifiedObjectName(catalogName, schemaName, objectName);
+        return new QualifiedObjectName(catalogName, schemaName, objectName, Optional.of(resolver));
     }
 }

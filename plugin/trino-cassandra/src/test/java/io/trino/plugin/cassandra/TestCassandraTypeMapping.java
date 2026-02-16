@@ -65,6 +65,7 @@ import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.type.IpAddressType.IPADDRESS;
 import static java.lang.String.format;
 import static java.time.ZoneOffset.UTC;
+import static java.util.Locale.ENGLISH;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
@@ -117,6 +118,12 @@ public class TestCassandraTypeMapping
         checkIsDoubled(vilnius, timeDoubledInVilnius);
 
         checkIsGap(kathmandu, timeGapInKathmandu);
+    }
+
+    @Override
+    protected String canonicalize(String value)
+    {
+        return value.toLowerCase(ENGLISH);
     }
 
     private static void checkIsGap(ZoneId zone, LocalDateTime dateTime)

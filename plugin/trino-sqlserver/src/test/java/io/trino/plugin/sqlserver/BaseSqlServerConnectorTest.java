@@ -78,6 +78,12 @@ public abstract class BaseSqlServerConnectorTest
     }
 
     @Override
+    protected String canonicalize(String value)
+    {
+        return value;
+    }
+
+    @Override
     protected TestTable createTableWithDefaultColumns()
     {
         return new TestTable(
@@ -491,8 +497,8 @@ public abstract class BaseSqlServerConnectorTest
                     ") ON " + partitionScheme + "(SalesDate) WITH (DATA_COMPRESSION = PAGE)");
             assertThat((String) computeActual("SHOW CREATE TABLE " + tableName).getOnlyValue())
                     .matches("CREATE TABLE \\w+\\.\\w+\\." + tableName + " \\Q(\n" +
-                            "   salesdate date,\n" +
-                            "   quantity integer\n" +
+                            "   SalesDate date,\n" +
+                            "   Quantity integer\n" +
                             ")");
         }
         finally {

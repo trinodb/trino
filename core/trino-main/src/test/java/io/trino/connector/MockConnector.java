@@ -458,6 +458,18 @@ public class MockConnector
             implements ConnectorMetadata
     {
         @Override
+        public String canonicalize(String value)
+        {
+            return value;
+        }
+
+        @Override
+        public String canonicalize(String value, boolean delimited)
+        {
+            return value;
+        }
+
+        @Override
         public boolean schemaExists(ConnectorSession session, String schemaName)
         {
             return listSchemaNames.apply(session).contains(schemaName);

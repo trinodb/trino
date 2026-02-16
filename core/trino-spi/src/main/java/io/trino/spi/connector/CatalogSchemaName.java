@@ -30,8 +30,8 @@ public final class CatalogSchemaName
             @JsonProperty("catalogName") String catalogName,
             @JsonProperty("schemaName") String schemaName)
     {
-        this.catalogName = catalogName.toLowerCase(ENGLISH);
-        this.schemaName = schemaName.toLowerCase(ENGLISH);
+        this.catalogName = catalogName;
+        this.schemaName = schemaName;
     }
 
     @JsonProperty
@@ -70,5 +70,10 @@ public final class CatalogSchemaName
     public String toString()
     {
         return catalogName + '.' + schemaName;
+    }
+
+    public CatalogSchemaName toLowerCase()
+    {
+        return new CatalogSchemaName(catalogName, schemaName.toLowerCase(ENGLISH));
     }
 }

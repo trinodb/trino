@@ -166,7 +166,7 @@ public class TestSetColumnTypeTask
 
     private ListenableFuture<Void> executeSetColumnType(QualifiedName table, QualifiedName column, DataType type, boolean exists)
     {
-        return new SetColumnTypeTask(metadata, plannerContext.getTypeManager(), new AllowAllAccessControl())
+        return new SetColumnTypeTask(plannerContext, plannerContext.getTypeManager(), new AllowAllAccessControl())
                 .execute(new SetColumnType(new NodeLocation(1, 1), table, column, type, exists), queryStateMachine, ImmutableList.of(), WarningCollector.NOOP);
     }
 }

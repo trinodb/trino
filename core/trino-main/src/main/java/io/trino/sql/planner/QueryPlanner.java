@@ -176,7 +176,6 @@ import static io.trino.sql.tree.WindowFrame.Type.ROWS;
 import static io.trino.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
 import static io.trino.type.IntervalYearMonthType.INTERVAL_YEAR_MONTH;
 import static java.lang.String.format;
-import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toUnmodifiableList;
 
@@ -601,10 +600,10 @@ class QueryPlanner
         }
         Map<String, ColumnHandle> nameToHandle = nameToHandleBuilder.buildOrThrow();
 
+        // FIXME: We need to take UpdateAssignement.Identifier canonicalized value
         io.trino.sql.tree.Expression[] orderedColumnValuesArray = new io.trino.sql.tree.Expression[updatedColumnHandles.size()];
         node.getAssignments().forEach(assignment -> {
-            String name = assignment.getName().getValue().toLowerCase(ENGLISH);
-            ColumnHandle handle = nameToHandle.get(name);
+            ColumnHandle handle = nameToHandle.get(assignment.getName().getCanonicalizedValue());
             int index = updatedColumnHandles.indexOf(handle);
             if (index >= 0) {
                 orderedColumnValuesArray[index] = assignment.getValue();

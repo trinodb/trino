@@ -242,7 +242,7 @@ public class TableWriterNode
             QualifiedObjectName tableName = new QualifiedObjectName(
                     catalog,
                     tableMetadata.getTableSchema().getTable().getSchemaName(),
-                    tableMetadata.getTableSchema().getTable().getTableName());
+                    tableMetadata.getTableSchema().getTable().getTableName(), Optional.empty());
             return metadata.getNewTableWriterScalingOptions(session, tableName, tableMetadata.getProperties());
         }
 

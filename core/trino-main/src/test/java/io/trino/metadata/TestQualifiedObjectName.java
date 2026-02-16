@@ -16,9 +16,10 @@ package io.trino.metadata;
 import io.airlift.json.JsonCodec;
 import org.junit.jupiter.api.Test;
 
+import java.util.Optional;
+
 import static io.airlift.json.JsonCodec.jsonCodec;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestQualifiedObjectName
 {
@@ -28,21 +29,19 @@ public class TestQualifiedObjectName
     public void testJsonSerializationRoundTrip()
     {
         // simple
-        testRoundTrip(new QualifiedObjectName("catalog", "schema", "table_name"));
+        testRoundTrip(new QualifiedObjectName("catalog", "schema", "table_name", Optional.empty()));
 
         // names with dots
-        testRoundTrip(new QualifiedObjectName("catalog.twój", "schema.ściema", "tabel.tabelkówna"));
+        testRoundTrip(new QualifiedObjectName("catalog.twój", "schema.ściema", "tabel.tabelkówna", Optional.empty()));
 
         // names with apostrophes
-        testRoundTrip(new QualifiedObjectName("cata\"l.o.g\"", "s\"ch.e.ma\"", "\"t.a.b.e.l\""));
+        testRoundTrip(new QualifiedObjectName("cata\"l.o.g\"", "s\"ch.e.ma\"", "\"t.a.b.e.l\"", Optional.empty()));
 
-        // non-lowercase (currently illegal but TODO coming in https://github.com/trinodb/trino/issues/17)
-        assertThatThrownBy(() -> new QualifiedObjectName("CataLOG", "SchemA", "TabEl"))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessage("catalogName is not lowercase: CataLOG");
+        // non-lowercase
+        testRoundTrip(new QualifiedObjectName("CataLOG", "SchemA", "TabEl", Optional.empty()));
 
         // empty
-        testRoundTrip(new QualifiedObjectName("", "", ""));
+        testRoundTrip(new QualifiedObjectName("", "", "", Optional.empty()));
     }
 
     private void testRoundTrip(QualifiedObjectName value)

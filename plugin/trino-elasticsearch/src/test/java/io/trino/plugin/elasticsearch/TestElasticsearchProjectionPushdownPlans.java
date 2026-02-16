@@ -159,7 +159,7 @@ final class TestElasticsearchProjectionPushdownPlans
             throws IOException
     {
         String tableName = "test_simple_projection_pushdown" + randomNameSuffix();
-        QualifiedObjectName completeTableName = new QualifiedObjectName(CATALOG, SCHEMA, tableName);
+        QualifiedObjectName completeTableName = new QualifiedObjectName(CATALOG, SCHEMA, tableName, Optional.empty());
 
         index(tableName, ImmutableMap.<String, Object>builder()
                 .put("col0", ImmutableMap.<String, Object>builder()

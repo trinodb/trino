@@ -76,7 +76,7 @@ public class CreateBranchTask
     {
         Session session = stateMachine.getSession();
 
-        QualifiedObjectName table = createQualifiedObjectName(session, statement, statement.getTableName());
+        QualifiedObjectName table = createQualifiedObjectName(session, statement, statement.getTableName(), plannerContext);
         String branch = statement.getBranchName().getValue();
         Optional<String> fromBranch = statement.getFromBranch().map(Identifier::getValue);
 

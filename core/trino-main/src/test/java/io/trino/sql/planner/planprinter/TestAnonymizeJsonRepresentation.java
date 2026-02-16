@@ -81,7 +81,7 @@ public class TestAnonymizeJsonRepresentation
             TEST_COLUMN_HANDLE_D, all(BIGINT)));
     private static final TableInfo TABLE_INFO = new TableInfo(
             Optional.of("tpch"),
-            new QualifiedObjectName("tpch", TINY_SCHEMA_NAME, "orders"),
+            new QualifiedObjectName("tpch", TINY_SCHEMA_NAME, "orders", Optional.empty()),
             TEST_TUPLE_DOMAIN);
 
     private QueryRunner queryRunner;

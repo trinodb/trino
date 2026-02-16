@@ -718,7 +718,7 @@ public class PlanTester
         return inTransaction(transactionSession ->
                 getPlannerContext().getMetadata().getTableHandle(
                                 transactionSession,
-                                new QualifiedObjectName(catalogName, schemaName, tableName))
+                                new QualifiedObjectName(catalogName, schemaName, tableName, Optional.empty()))
                         .orElseThrow());
     }
 
@@ -1011,7 +1011,7 @@ public class PlanTester
                         new DescribeOutputRewrite(sqlParser),
                         new ShowQueriesRewrite(
                                 new SqlEnvironmentConfig(),
-                                plannerContext.getMetadata(),
+                                plannerContext,
                                 sqlParser,
                                 accessControl,
                                 sessionPropertyManager,

@@ -123,7 +123,6 @@ import static java.lang.Math.floorMod;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.time.ZoneOffset.UTC;
-import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.stream.Collectors.toList;
@@ -214,7 +213,6 @@ public class MongoSession
     {
         return Streams.stream(listDatabaseNames())
                 .filter(schema -> !SYSTEM_DATABASES.contains(schema))
-                .map(schema -> schema.toLowerCase(ENGLISH))
                 .collect(toImmutableList());
     }
 
@@ -252,9 +250,7 @@ public class MongoSession
                 .collect(toSet()));
         builder.addAll(getTableMetadataNames(schemaName));
 
-        return builder.build().stream()
-                .map(name -> name.toLowerCase(ENGLISH))
-                .collect(toImmutableSet());
+        return builder.build();
     }
 
     public MongoTable getTable(SchemaTableName tableName)
@@ -1023,7 +1019,6 @@ public class MongoSession
 
     private String toRemoteSchemaName(String schemaName)
     {
-        verify(schemaName.equals(schemaName.toLowerCase(ENGLISH)), "schemaName not in lower-case: %s", schemaName);
         if (!caseInsensitiveNameMatching) {
             return schemaName;
         }
@@ -1031,7 +1026,7 @@ public class MongoSession
             return schemaName;
         }
         for (String remoteSchemaName : listDatabaseNames()) {
-            if (schemaName.equals(remoteSchemaName.toLowerCase(ENGLISH))) {
+            if (schemaName.equals(remoteSchemaName)) {
                 return remoteSchemaName;
             }
         }
@@ -1048,12 +1043,11 @@ public class MongoSession
 
     private String toRemoteTableName(String schemaName, String tableName)
     {
-        verify(tableName.equals(tableName.toLowerCase(ENGLISH)), "tableName not in lower-case: %s", tableName);
         if (!caseInsensitiveNameMatching) {
             return tableName;
         }
         for (String remoteTableName : listCollectionNames(schemaName)) {
-            if (tableName.equals(remoteTableName.toLowerCase(ENGLISH))) {
+            if (tableName.equals(remoteTableName)) {
                 return remoteTableName;
             }
         }

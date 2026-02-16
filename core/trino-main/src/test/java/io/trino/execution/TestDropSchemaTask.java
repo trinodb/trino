@@ -71,7 +71,7 @@ public class TestDropSchemaTask
         DropSchemaTask dropSchemaTask = getDropSchemaTask();
         DropSchema dropSchema = new DropSchema(new NodeLocation(1, 1), QualifiedName.of(CATALOG_SCHEMA_NAME.getSchemaName()), false, false);
 
-        QualifiedObjectName tableName = new QualifiedObjectName(CATALOG_SCHEMA_NAME.getCatalogName(), CATALOG_SCHEMA_NAME.getSchemaName(), "test_table");
+        QualifiedObjectName tableName = new QualifiedObjectName(CATALOG_SCHEMA_NAME.getCatalogName(), CATALOG_SCHEMA_NAME.getSchemaName(), "test_table", Optional.empty());
         metadata.createTable(testSession, CATALOG_SCHEMA_NAME.getCatalogName(), someTable(tableName), FAIL);
 
         assertThatExceptionOfType(TrinoException.class)
@@ -117,7 +117,7 @@ public class TestDropSchemaTask
         DropSchemaTask dropSchemaTask = getDropSchemaTask();
         DropSchema dropSchema = new DropSchema(new NodeLocation(1, 1), QualifiedName.of(CATALOG_SCHEMA_NAME.getSchemaName()), false, true);
 
-        QualifiedObjectName tableName = new QualifiedObjectName(CATALOG_SCHEMA_NAME.getCatalogName(), CATALOG_SCHEMA_NAME.getSchemaName(), "test_table");
+        QualifiedObjectName tableName = new QualifiedObjectName(CATALOG_SCHEMA_NAME.getCatalogName(), CATALOG_SCHEMA_NAME.getSchemaName(), "test_table", Optional.empty());
         metadata.createTable(testSession, CATALOG_SCHEMA_NAME.getCatalogName(), someTable(tableName), FAIL);
 
         getFutureValue(dropSchemaTask.execute(dropSchema, queryStateMachine, emptyList(), NOOP));
@@ -144,6 +144,6 @@ public class TestDropSchemaTask
 
     private DropSchemaTask getDropSchemaTask()
     {
-        return new DropSchemaTask(metadata, new AllowAllAccessControl());
+        return new DropSchemaTask(plannerContext, new AllowAllAccessControl());
     }
 }

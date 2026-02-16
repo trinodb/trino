@@ -116,7 +116,12 @@ public class TestCachingJdbcClient
     {
         database = new TestingDatabase();
         jdbcClient = database.getJdbcClient();
-        schema = jdbcClient.getSchemaNames(SESSION).iterator().next();
+        // schema = jdbcClient.getSchemaNames(SESSION).iterator().next();
+        schema = jdbcClient.getSchemaNames(SESSION).stream()
+            .filter("example"::equals)
+            .findAny()
+            .orElseThrow();
+        System.out.println("TestCachingJdbcClient.setup() schema: " + schema);
         executor = newCachedThreadPool(daemonThreadsNamed("TestCachingJdbcClient-%s"));
     }
 
@@ -200,7 +205,7 @@ public class TestCachingJdbcClient
         SchemaTableName phantomTable = new SchemaTableName(schema, "phantom_table");
 
         createTable(phantomTable);
-        PreparedQuery query = new PreparedQuery(format("SELECT * FROM %s.phantom_table", schema), ImmutableList.of());
+        PreparedQuery query = new PreparedQuery(format("SELECT * FROM \"%s\".\"phantom_table\"", schema), ImmutableList.of());
         JdbcTableHandle cachedTable = assertTableHandleByQueryCache(cachingJdbcClient)
                 .misses(1)
                 .loads(1)
@@ -301,7 +306,8 @@ public class TestCachingJdbcClient
         createTable(phantomTable);
         createProcedure("test_procedure");
 
-        ProcedureQuery query = new ProcedureQuery("CALL %s.test_procedure ('%s')".formatted(schema, phantomTable));
+        String sql = "CALL \"%s\".test_procedure ('\"%s\".\"%s\"')".formatted(schema, phantomTable.getSchemaName(), phantomTable.getTableName());
+        ProcedureQuery query = new ProcedureQuery(sql);
         JdbcProcedureHandle cachedProcedure = assertProcedureHandleByQueryCache(cachingJdbcClient)
                 .misses(1)
                 .loads(1)
@@ -395,7 +401,7 @@ public class TestCachingJdbcClient
             throws SQLException
     {
         try (Statement statement = database.getConnection().createStatement()) {
-            statement.execute("CREATE ALIAS %s.%s FOR \"io.trino.plugin.jdbc.TestCachingJdbcClient.generateData\"".formatted(schema, procedureName));
+            statement.execute("CREATE ALIAS \"%s\".%s FOR \"io.trino.plugin.jdbc.TestCachingJdbcClient.generateData\"".formatted(schema, procedureName));
         }
     }
 
@@ -403,7 +409,7 @@ public class TestCachingJdbcClient
             throws SQLException
     {
         try (Statement statement = database.getConnection().createStatement()) {
-            statement.execute("DROP ALIAS %s.%s".formatted(schema, procedureName));
+            statement.execute("DROP ALIAS \"%s\".%s".formatted(schema, procedureName));
         }
     }
 
@@ -929,7 +935,7 @@ public class TestCachingJdbcClient
 
         assertThat(results)
                 .containsExactlyInAnyOrder(
-                        "example.test_load_failure_not_shared " + database.getDatabaseName() + ".EXAMPLE.TEST_LOAD_FAILURE_NOT_SHARED",
+                        "example.test_load_failure_not_shared " + database.getDatabaseName() + ".example.test_load_failure_not_shared",
                         "com.google.common.util.concurrent.UncheckedExecutionException: java.lang.RuntimeException: first attempt is poised to fail");
     }
 

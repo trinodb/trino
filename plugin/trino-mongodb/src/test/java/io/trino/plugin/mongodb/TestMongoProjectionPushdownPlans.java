@@ -140,7 +140,7 @@ public class TestMongoProjectionPushdownPlans
     public void testDereferencePushdown()
     {
         String tableName = "test_simple_projection_pushdown" + randomNameSuffix();
-        QualifiedObjectName completeTableName = new QualifiedObjectName(CATALOG, SCHEMA, tableName);
+        QualifiedObjectName completeTableName = new QualifiedObjectName(CATALOG, SCHEMA, tableName, Optional.empty());
 
         getPlanTester().executeStatement("CREATE TABLE " + tableName + " (col0, col1)" +
                 " AS SELECT CAST(row(5, 6) AS row(x BIGINT, y BIGINT)) AS col0, BIGINT '5' AS col1");
@@ -235,7 +235,7 @@ public class TestMongoProjectionPushdownPlans
     public void testDereferencePushdownWithDotAndDollarContainingField()
     {
         String tableName = "test_dereference_pushdown_with_dot_and_dollar_containing_field_" + randomNameSuffix();
-        QualifiedObjectName completeTableName = new QualifiedObjectName(CATALOG, SCHEMA, tableName);
+        QualifiedObjectName completeTableName = new QualifiedObjectName(CATALOG, SCHEMA, tableName, Optional.empty());
 
         getPlanTester().executeStatement(
                 "CREATE TABLE " + tableName + " (id, root1) AS" +

@@ -21,6 +21,7 @@ import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.TableHandle;
 import io.trino.security.AccessControl;
+import io.trino.sql.PlannerContext;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.FastForwardBranch;
 
@@ -38,13 +39,15 @@ import static java.util.Objects.requireNonNull;
 public class FastForwardBranchTask
         implements DataDefinitionTask<FastForwardBranch>
 {
+    private final PlannerContext plannerContext;
     private final Metadata metadata;
     private final AccessControl accessControl;
 
     @Inject
-    public FastForwardBranchTask(Metadata metadata, AccessControl accessControl)
+    public FastForwardBranchTask(PlannerContext plannerContext, AccessControl accessControl)
     {
-        this.metadata = requireNonNull(metadata, "metadata is null");
+        this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
+        this.metadata = plannerContext.getMetadata();
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
     }
 
@@ -59,7 +62,7 @@ public class FastForwardBranchTask
     {
         Session session = stateMachine.getSession();
 
-        QualifiedObjectName table = createQualifiedObjectName(session, statement, statement.geTableName());
+        QualifiedObjectName table = createQualifiedObjectName(session, statement, statement.geTableName(), plannerContext);
         String sourceBranch = statement.getSourceBranchName().getValue();
         String targetBranch = statement.getTargetBranchName().getValue();
 

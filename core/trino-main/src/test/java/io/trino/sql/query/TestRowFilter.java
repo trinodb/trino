@@ -157,14 +157,14 @@ public class TestRowFilter
     {
         accessControl.reset();
         accessControl.rowFilter(
-                new QualifiedObjectName(LOCAL_CATALOG, "tiny", "orders"),
+                new QualifiedObjectName(LOCAL_CATALOG, "tiny", "orders", Optional.empty()),
                 USER,
                 ViewExpression.builder().expression("orderkey < 10").build());
         assertThat(assertions.query("SELECT count(*) FROM orders")).matches("VALUES BIGINT '7'");
 
         accessControl.reset();
         accessControl.rowFilter(
-                new QualifiedObjectName(LOCAL_CATALOG, "tiny", "orders"),
+                new QualifiedObjectName(LOCAL_CATALOG, "tiny", "orders", Optional.empty()),
                 USER,
                 ViewExpression.builder().expression("NULL").build());
         assertThat(assertions.query("SELECT count(*) FROM orders")).matches("VALUES BIGINT '0'");
@@ -175,14 +175,14 @@ public class TestRowFilter
     {
         accessControl.reset();
         accessControl.rowFilter(
-                new QualifiedObjectName(MOCK_CATALOG, "tiny", "nation_with_optional_column"),
+                new QualifiedObjectName(MOCK_CATALOG, "tiny", "nation_with_optional_column", Optional.empty()),
                 USER,
                 ViewExpression.builder().expression("nationkey < 5").build());
         assertThat(assertions.query("SELECT count(*) FROM mock.tiny.nation_with_optional_column FOR VERSION AS OF 'dev'")).matches("VALUES BIGINT '5'");
 
         accessControl.reset();
         accessControl.rowFilter(
-                new QualifiedObjectName(MOCK_CATALOG, "tiny", "nation_with_optional_column"),
+                new QualifiedObjectName(MOCK_CATALOG, "tiny", "nation_with_optional_column", Optional.empty()),
                 USER,
                 ViewExpression.builder().expression("NULL").build());
         assertThat(assertions.query("SELECT count(*) FROM mock.tiny.nation_with_optional_column FOR VERSION AS OF 'dev'")).matches("VALUES BIGINT '0'");
@@ -193,12 +193,12 @@ public class TestRowFilter
     {
         accessControl.reset();
         accessControl.rowFilter(
-                new QualifiedObjectName(LOCAL_CATALOG, "tiny", "orders"),
+                new QualifiedObjectName(LOCAL_CATALOG, "tiny", "orders", Optional.empty()),
                 USER,
                 ViewExpression.builder().expression("orderkey < 10").build());
 
         accessControl.rowFilter(
-                new QualifiedObjectName(LOCAL_CATALOG, "tiny", "orders"),
+                new QualifiedObjectName(LOCAL_CATALOG, "tiny", "orders", Optional.empty()),
                 USER,
                 ViewExpression.builder().expression("orderkey > 5").build());
 
@@ -210,7 +210,7 @@ public class TestRowFilter
     {
         accessControl.reset();
         accessControl.rowFilter(
-                new QualifiedObjectName(LOCAL_CATALOG, "tiny", "orders"),
+                new QualifiedObjectName(LOCAL_CATALOG, "tiny", "orders", Optional.empty()),
                 USER,
                 ViewExpression.builder()
                         .catalog(LOCAL_CATALOG)
@@ -226,7 +226,7 @@ public class TestRowFilter
         // filter on the underlying table for view owner when running query as different user
         accessControl.reset();
         accessControl.rowFilter(
-                new QualifiedObjectName(LOCAL_CATALOG, "tiny", "nation"),
+                new QualifiedObjectName(LOCAL_CATALOG, "tiny", "nation", Optional.empty()),
                 VIEW_OWNER,
                 ViewExpression.builder().expression("nationkey = 1").build());
 
@@ -240,7 +240,7 @@ public class TestRowFilter
         // filter on the underlying table for view owner when running as themselves
         accessControl.reset();
         accessControl.rowFilter(
-                new QualifiedObjectName(LOCAL_CATALOG, "tiny", "nation"),
+                new QualifiedObjectName(LOCAL_CATALOG, "tiny", "nation", Optional.empty()),
                 VIEW_OWNER,
                 ViewExpression.builder()
                         .catalog(LOCAL_CATALOG)
@@ -258,7 +258,7 @@ public class TestRowFilter
         // filter on the underlying table for user running the query (different from view owner) should not be applied
         accessControl.reset();
         accessControl.rowFilter(
-                new QualifiedObjectName(LOCAL_CATALOG, "tiny", "nation"),
+                new QualifiedObjectName(LOCAL_CATALOG, "tiny", "nation", Optional.empty()),
                 RUN_AS_USER,
                 ViewExpression.builder()
                         .catalog(LOCAL_CATALOG)
@@ -275,7 +275,7 @@ public class TestRowFilter
         // filter on the view
         accessControl.reset();
         accessControl.rowFilter(
-                new QualifiedObjectName(MOCK_CATALOG, "default", "nation_view"),
+                new QualifiedObjectName(MOCK_CATALOG, "default", "nation_view", Optional.empty()),
                 USER,
                 ViewExpression.builder()
                         .catalog(LOCAL_CATALOG)
@@ -290,7 +290,7 @@ public class TestRowFilter
     {
         accessControl.reset();
         accessControl.rowFilter(
-                new QualifiedObjectName(LOCAL_CATALOG, "tiny", "orders"),
+                new QualifiedObjectName(LOCAL_CATALOG, "tiny", "orders", Optional.empty()),
                 USER,
                 ViewExpression.builder().expression("orderkey = 1").build());
         assertThat(assertions.query("WITH t AS (SELECT count(*) FROM orders) SELECT * FROM t")).matches("VALUES BIGINT '1'");
@@ -301,7 +301,7 @@ public class TestRowFilter
     {
         accessControl.reset();
         accessControl.rowFilter(
-                new QualifiedObjectName(LOCAL_CATALOG, "tiny", "orders"),
+                new QualifiedObjectName(LOCAL_CATALOG, "tiny", "orders", Optional.empty()),
                 USER,
                 ViewExpression.builder()
                         .catalog(LOCAL_CATALOG)
@@ -316,7 +316,7 @@ public class TestRowFilter
     {
         accessControl.reset();
         accessControl.rowFilter(
-                new QualifiedObjectName(LOCAL_CATALOG, "tiny", "orders"),
+                new QualifiedObjectName(LOCAL_CATALOG, "tiny", "orders", Optional.empty()),
                 RUN_AS_USER,
                 ViewExpression.builder()
                         .identity(RUN_AS_USER)
@@ -326,7 +326,7 @@ public class TestRowFilter
                         .build());
 
         accessControl.rowFilter(
-                new QualifiedObjectName(LOCAL_CATALOG, "tiny", "orders"),
+                new QualifiedObjectName(LOCAL_CATALOG, "tiny", "orders", Optional.empty()),
                 USER,
                 ViewExpression.builder()
                         .identity(RUN_AS_USER)
@@ -342,7 +342,7 @@ public class TestRowFilter
     {
         accessControl.reset();
         accessControl.rowFilter(
-                new QualifiedObjectName(LOCAL_CATALOG, "tiny", "orders"),
+                new QualifiedObjectName(LOCAL_CATALOG, "tiny", "orders", Optional.empty()),
                 USER,
                 ViewExpression.builder()
                         .catalog(LOCAL_CATALOG)
@@ -358,7 +358,7 @@ public class TestRowFilter
         // different reference style to same table
         accessControl.reset();
         accessControl.rowFilter(
-                new QualifiedObjectName(LOCAL_CATALOG, "tiny", "orders"),
+                new QualifiedObjectName(LOCAL_CATALOG, "tiny", "orders", Optional.empty()),
                 USER,
                 ViewExpression.builder()
                         .catalog(LOCAL_CATALOG)
@@ -373,7 +373,7 @@ public class TestRowFilter
         // mutual recursion
         accessControl.reset();
         accessControl.rowFilter(
-                new QualifiedObjectName(LOCAL_CATALOG, "tiny", "orders"),
+                new QualifiedObjectName(LOCAL_CATALOG, "tiny", "orders", Optional.empty()),
                 RUN_AS_USER,
                 ViewExpression.builder()
                         .catalog(LOCAL_CATALOG)
@@ -382,7 +382,7 @@ public class TestRowFilter
                         .build());
 
         accessControl.rowFilter(
-                new QualifiedObjectName(LOCAL_CATALOG, "tiny", "orders"),
+                new QualifiedObjectName(LOCAL_CATALOG, "tiny", "orders", Optional.empty()),
                 USER,
                 ViewExpression.builder()
                         .catalog(LOCAL_CATALOG)
@@ -401,7 +401,7 @@ public class TestRowFilter
     {
         accessControl.reset();
         accessControl.rowFilter(
-                new QualifiedObjectName(LOCAL_CATALOG, "tiny", "customer"),
+                new QualifiedObjectName(LOCAL_CATALOG, "tiny", "customer", Optional.empty()),
                 USER,
                 ViewExpression.builder()
                         .catalog(LOCAL_CATALOG)
@@ -420,7 +420,7 @@ public class TestRowFilter
     {
         accessControl.reset();
         accessControl.rowFilter(
-                new QualifiedObjectName(LOCAL_CATALOG, "tiny", "nation"),
+                new QualifiedObjectName(LOCAL_CATALOG, "tiny", "nation", Optional.empty()),
                 USER,
                 ViewExpression.builder()
                         .catalog(LOCAL_CATALOG)
@@ -439,7 +439,7 @@ public class TestRowFilter
         // parse error
         accessControl.reset();
         accessControl.rowFilter(
-                new QualifiedObjectName(LOCAL_CATALOG, "tiny", "orders"),
+                new QualifiedObjectName(LOCAL_CATALOG, "tiny", "orders", Optional.empty()),
                 USER,
                 ViewExpression.builder()
                         .catalog(LOCAL_CATALOG)
@@ -455,7 +455,7 @@ public class TestRowFilter
         // unknown column
         accessControl.reset();
         accessControl.rowFilter(
-                new QualifiedObjectName(LOCAL_CATALOG, "tiny", "orders"),
+                new QualifiedObjectName(LOCAL_CATALOG, "tiny", "orders", Optional.empty()),
                 USER,
                 ViewExpression.builder()
                         .catalog(LOCAL_CATALOG)
@@ -471,7 +471,7 @@ public class TestRowFilter
         // invalid type
         accessControl.reset();
         accessControl.rowFilter(
-                new QualifiedObjectName(LOCAL_CATALOG, "tiny", "orders"),
+                new QualifiedObjectName(LOCAL_CATALOG, "tiny", "orders", Optional.empty()),
                 USER,
                 ViewExpression.builder()
                         .catalog(LOCAL_CATALOG)
@@ -487,7 +487,7 @@ public class TestRowFilter
         // aggregation
         accessControl.reset();
         accessControl.rowFilter(
-                new QualifiedObjectName(LOCAL_CATALOG, "tiny", "orders"),
+                new QualifiedObjectName(LOCAL_CATALOG, "tiny", "orders", Optional.empty()),
                 USER,
                 ViewExpression.builder()
                         .catalog(LOCAL_CATALOG)
@@ -503,7 +503,7 @@ public class TestRowFilter
         // window function
         accessControl.reset();
         accessControl.rowFilter(
-                new QualifiedObjectName(LOCAL_CATALOG, "tiny", "orders"),
+                new QualifiedObjectName(LOCAL_CATALOG, "tiny", "orders", Optional.empty()),
                 USER,
                 ViewExpression.builder()
                         .catalog(LOCAL_CATALOG)
@@ -519,7 +519,7 @@ public class TestRowFilter
         // window function
         accessControl.reset();
         accessControl.rowFilter(
-                new QualifiedObjectName(LOCAL_CATALOG, "tiny", "orders"),
+                new QualifiedObjectName(LOCAL_CATALOG, "tiny", "orders", Optional.empty()),
                 USER,
                 ViewExpression.builder()
                         .catalog(LOCAL_CATALOG)
@@ -538,7 +538,7 @@ public class TestRowFilter
     {
         accessControl.reset();
         accessControl.rowFilter(
-                new QualifiedObjectName(LOCAL_CATALOG, "tiny", "orders"),
+                new QualifiedObjectName(LOCAL_CATALOG, "tiny", "orders", Optional.empty()),
                 USER,
                 ViewExpression.builder()
                         .identity(RUN_AS_USER)
@@ -563,7 +563,7 @@ public class TestRowFilter
     {
         accessControl.reset();
         accessControl.rowFilter(
-                new QualifiedObjectName(MOCK_CATALOG, "tiny", "nation"),
+                new QualifiedObjectName(MOCK_CATALOG, "tiny", "nation", Optional.empty()),
                 USER,
                 ViewExpression.builder().expression("nationkey < 10").build());
 
@@ -595,7 +595,7 @@ public class TestRowFilter
     {
         accessControl.reset();
         accessControl.rowFilter(
-                new QualifiedObjectName(MOCK_CATALOG, "tiny", "nation"),
+                new QualifiedObjectName(MOCK_CATALOG, "tiny", "nation", Optional.empty()),
                 USER,
                 ViewExpression.builder().expression("nationkey < 10").build());
 
@@ -644,7 +644,7 @@ public class TestRowFilter
     {
         accessControl.reset();
         accessControl.rowFilter(
-                new QualifiedObjectName(MOCK_CATALOG, "tiny", "nation"),
+                new QualifiedObjectName(MOCK_CATALOG, "tiny", "nation", Optional.empty()),
                 USER,
                 ViewExpression.builder().expression("nationkey < 10").build());
 
@@ -702,7 +702,7 @@ public class TestRowFilter
     {
         accessControl.reset();
         accessControl.rowFilter(
-                new QualifiedObjectName(MOCK_CATALOG, "tiny", "nation"),
+                new QualifiedObjectName(MOCK_CATALOG, "tiny", "nation", Optional.empty()),
                 USER,
                 ViewExpression.builder().expression("nationkey < 10").build());
 
@@ -795,7 +795,7 @@ public class TestRowFilter
     {
         accessControl.reset();
         accessControl.rowFilter(
-                new QualifiedObjectName(MOCK_CATALOG, "tiny", "nation"),
+                new QualifiedObjectName(MOCK_CATALOG, "tiny", "nation", Optional.empty()),
                 USER,
                 ViewExpression.builder().expression("nationkey > 100").build());
 
@@ -834,7 +834,7 @@ public class TestRowFilter
     {
         accessControl.reset();
         accessControl.rowFilter(
-                new QualifiedObjectName(MOCK_CATALOG, "tiny", "nation"),
+                new QualifiedObjectName(MOCK_CATALOG, "tiny", "nation", Optional.empty()),
                 USER,
                 ViewExpression.builder().expression("nationkey > 100").build());
 
@@ -889,7 +889,7 @@ public class TestRowFilter
     {
         accessControl.reset();
         accessControl.rowFilter(
-                new QualifiedObjectName(MOCK_CATALOG, "tiny", "nation_with_hidden_column"),
+                new QualifiedObjectName(MOCK_CATALOG, "tiny", "nation_with_hidden_column", Optional.empty()),
                 USER,
                 ViewExpression.builder().expression("nationkey < 1").build());
 
@@ -924,7 +924,7 @@ public class TestRowFilter
     {
         accessControl.reset();
         accessControl.rowFilter(
-                new QualifiedObjectName(MOCK_CATALOG, "tiny", "nation_with_hidden_column"),
+                new QualifiedObjectName(MOCK_CATALOG, "tiny", "nation_with_hidden_column", Optional.empty()),
                 USER,
                 ViewExpression.builder().expression("\"$hidden\" < 1").build());
 
@@ -953,7 +953,7 @@ public class TestRowFilter
         accessControl.reset();
 
         accessControl.rowFilter(
-                new QualifiedObjectName(MOCK_CATALOG_MISSING_COLUMNS, "tiny", "nation_with_optional_column"),
+                new QualifiedObjectName(MOCK_CATALOG_MISSING_COLUMNS, "tiny", "nation_with_optional_column", Optional.empty()),
                 USER,
                 ViewExpression.builder().expression("length(optional) > 2").build());
 

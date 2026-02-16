@@ -184,6 +184,6 @@ public class TestCommentTask
 
     private ListenableFuture<Void> setComment(Comment.Type type, QualifiedName viewName, Optional<String> comment)
     {
-        return new CommentTask(metadata, new AllowAllAccessControl()).execute(new Comment(new NodeLocation(1, 1), type, viewName, comment), queryStateMachine, ImmutableList.of(), WarningCollector.NOOP);
+        return new CommentTask(plannerContext, new AllowAllAccessControl()).execute(new Comment(new NodeLocation(1, 1), type, viewName, comment), queryStateMachine, ImmutableList.of(), WarningCollector.NOOP);
     }
 }

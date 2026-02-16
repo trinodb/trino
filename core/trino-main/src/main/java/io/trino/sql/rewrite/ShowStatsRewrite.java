@@ -146,6 +146,7 @@ public class ShowStatsRewrite
         @Override
         protected Node visitShowStats(ShowStats node, Void context)
         {
+            System.out.println("ShowStatsRewrite.visitShowStats()");
             Query query = getRelation(node);
             Plan plan = queryExplainer.getLogicalPlan(session, query, parameters, warningCollector, planOptimizersStatsCollector);
             CachingStatsProvider cachingStatsProvider = new CachingStatsProvider(statsCalculator, session, new CachingTableStatsProvider(metadata, session, () -> false));
@@ -174,6 +175,7 @@ public class ShowStatsRewrite
             for (int columnIndex = 0; columnIndex < root.getOutputSymbols().size(); columnIndex++) {
                 Symbol outputSymbol = root.getOutputSymbols().get(columnIndex);
                 String columnName = root.getColumnNames().get(columnIndex);
+                System.out.println("ShowStatsRewrite.rewriteShowStats() columnName: " + columnName);
                 Type columnType = outputSymbol.type();
                 SymbolStatsEstimate symbolStatistics = planNodeStatsEstimate.getSymbolStatistics(outputSymbol);
                 rowsBuilder.add(row(
@@ -221,7 +223,7 @@ public class ShowStatsRewrite
         private static List<SelectItem> buildSelectItems(List<String> columnNames)
         {
             return columnNames.stream()
-                    .map(QueryUtil::unaliasedName)
+                    .map(QueryUtil::delimitedUnaliasedName)
                     .collect(toImmutableList());
         }
 

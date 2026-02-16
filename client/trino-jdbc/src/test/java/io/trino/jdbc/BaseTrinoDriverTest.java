@@ -126,10 +126,10 @@ public abstract class BaseTrinoDriverTest
     {
         try (Connection connection = createConnection("blackhole", "blackhole");
                 Statement statement = connection.createStatement()) {
-            assertThat(statement.executeUpdate("CREATE SCHEMA blackhole.blackhole")).isEqualTo(0);
-            assertThat(statement.executeUpdate("CREATE TABLE test_table (x bigint)")).isEqualTo(0);
+            assertThat(statement.executeUpdate("CREATE SCHEMA blackhole.\"blackhole\"")).isEqualTo(0);
+            assertThat(statement.executeUpdate("CREATE TABLE \"test_table\" (x bigint)")).isEqualTo(0);
 
-            assertThat(statement.executeUpdate("CREATE TABLE slow_test_table (x bigint) " +
+            assertThat(statement.executeUpdate("CREATE TABLE \"slow_test_table\" (x bigint) " +
                     "WITH (" +
                     "   split_count = 1, " +
                     "   pages_per_split = 1, " +
@@ -1200,7 +1200,7 @@ public abstract class BaseTrinoDriverTest
     private QueryState getQueryState(String queryId)
             throws SQLException
     {
-        String sql = format("SELECT state FROM system.runtime.queries WHERE query_id = '%s'", queryId);
+        String sql = format("SELECT state FROM system.runtime.queries WHERE \"query_id\" = '%s'", queryId);
         try (Connection connection = createConnection();
                 Statement statement = connection.createStatement();
                 ResultSet resultSet = statement.executeQuery(sql)) {

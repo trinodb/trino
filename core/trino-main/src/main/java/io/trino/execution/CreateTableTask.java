@@ -46,12 +46,12 @@ import io.trino.sql.tree.Identifier;
 import io.trino.sql.tree.LikeClause;
 import io.trino.sql.tree.NodeRef;
 import io.trino.sql.tree.Parameter;
+import io.trino.sql.tree.Resolver;
 import io.trino.sql.tree.TableElement;
 
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
@@ -135,7 +135,7 @@ public class CreateTableTask
         checkArgument(!statement.getElements().isEmpty(), "no columns for table");
 
         Map<NodeRef<Parameter>, Expression> parameterLookup = bindParameters(statement, parameters);
-        QualifiedObjectName tableName = createQualifiedObjectName(session, statement, statement.getName());
+        QualifiedObjectName tableName = createQualifiedObjectName(session, statement, statement.getName(), plannerContext);
         Optional<TableHandle> tableHandle;
         try {
             tableHandle = plannerContext.getMetadata().getTableHandle(session, tableName);
@@ -170,12 +170,14 @@ public class CreateTableTask
         Map<String, Object> inheritedProperties = ImmutableMap.of();
         boolean includingProperties = false;
         boolean supportsDefaultColumnValue = plannerContext.getMetadata().getConnectorCapabilities(session, catalogHandle).contains(DEFAULT_COLUMN_VALUE);
+        Resolver resolver = plannerContext.getResolver(session, catalogName);
         for (TableElement element : statement.getElements()) {
             if (element instanceof ColumnDefinition column) {
-                if (column.getName().getParts().size() != 1) {
+                if (column.getName().getOriginalParts().size() != 1) {
                     throw semanticException(NOT_SUPPORTED, statement, "Column name '%s' must not be qualified", column.getName());
                 }
-                Identifier name = getOnlyElement(column.getName().getOriginalParts());
+                Identifier identifier = getOnlyElement(column.getName().resolveIdentifiers(resolver).getOriginalParts());
+                String name = identifier.getCanonicalizedValue();
                 Type type;
                 try {
                     type = plannerContext.getTypeManager().getType(toTypeSignature(column.getType()));
@@ -186,7 +188,7 @@ public class CreateTableTask
                 if (type.equals(UNKNOWN)) {
                     throw semanticException(COLUMN_TYPE_UNKNOWN, element, "Unknown type '%s' for column '%s'", column.getType(), name);
                 }
-                if (columns.containsKey(name.getValue().toLowerCase(ENGLISH))) {
+                if (columns.containsKey(name)) {
                     throw semanticException(DUPLICATE_COLUMN_NAME, column, "Column name '%s' specified more than once", name);
                 }
                 if (column.getDefaultValue().isPresent() && !supportsDefaultColumnValue) {
@@ -207,8 +209,8 @@ public class CreateTableTask
 
                 Type supportedType = getSupportedType(session, catalogHandle, properties, type);
                 column.getDefaultValue().ifPresent(value -> analyzeDefaultColumnValue(session, plannerContext, accessControl, parameterLookup, warningCollector, supportedType, value));
-                columns.put(name.getValue().toLowerCase(ENGLISH), ColumnMetadata.builder()
-                        .setName(name.getValue().toLowerCase(ENGLISH))
+                columns.put(name, ColumnMetadata.builder()
+                        .setName(name)
                         .setType(supportedType)
                         .setDefaultValue(column.getDefaultValue().map(Expression::toString))
                         .setNullable(column.isNullable())
@@ -217,7 +219,7 @@ public class CreateTableTask
                         .build());
             }
             else if (element instanceof LikeClause likeClause) {
-                QualifiedObjectName originalLikeTableName = createQualifiedObjectName(session, statement, likeClause.getTableName());
+                QualifiedObjectName originalLikeTableName = createQualifiedObjectName(session, statement, likeClause.getTableName(), plannerContext);
                 if (plannerContext.getMetadata().getCatalogHandle(session, originalLikeTableName.catalogName()).isEmpty()) {
                     throw semanticException(CATALOG_NOT_FOUND, statement, "LIKE table catalog '%s' not found", originalLikeTableName.catalogName());
                 }
@@ -277,11 +279,11 @@ public class CreateTableTask
                 likeTableMetadata.columns().stream()
                         .filter(column -> !column.isHidden())
                         .forEach(column -> {
-                            if (columns.containsKey(column.getName().toLowerCase(Locale.ENGLISH))) {
+                            if (columns.containsKey(column.getName())) {
                                 throw semanticException(DUPLICATE_COLUMN_NAME, element, "Column name '%s' specified more than once", column.getName());
                             }
                             columns.put(
-                                    column.getName().toLowerCase(Locale.ENGLISH),
+                                    column.getName(),
                                     ColumnMetadata.builderFrom(column)
                                             .setType(getSupportedType(session, catalogHandle, properties, column.getType()))
                                             .build());

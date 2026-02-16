@@ -2003,7 +2003,7 @@ public final class SqlFormatter
             for (UpdateAssignment assignment : node.getAssignments()) {
                 builder.append("\n")
                         .append(indentString(indent + 1))
-                        .append(assignment.getName().getValue())
+                        .append(assignment.getName().getCanonicalizedValue())
                         .append(" = ")
                         .append(formatExpression(assignment.getValue()));
                 if (setCounter > 0) {

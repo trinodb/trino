@@ -296,6 +296,12 @@ public abstract class BaseIcebergConnectorTest
         };
     }
 
+    @Override
+    protected String canonicalize(String value)
+    {
+        return value.toLowerCase(ENGLISH);
+    }
+
     @Test
     @Override
     public void testCreateTableWithDefaultColumn()
@@ -4351,7 +4357,7 @@ public abstract class BaseIcebergConnectorTest
     @Test
     public void testPredicatePushdown()
     {
-        QualifiedObjectName tableName = new QualifiedObjectName("iceberg", "tpch", "test_predicate");
+        QualifiedObjectName tableName = new QualifiedObjectName("iceberg", "tpch", "test_predicate", Optional.empty());
         assertUpdate(format("CREATE TABLE %s (col1 BIGINT, col2 BIGINT, col3 BIGINT) WITH (partitioning = ARRAY['col2', 'col3'])", tableName));
         assertUpdate(format("INSERT INTO %s VALUES (1, 10, 100)", tableName), 1L);
         assertUpdate(format("INSERT INTO %s VALUES (2, 20, 200)", tableName), 1L);

@@ -42,7 +42,7 @@ public class TestMinimalFunctionality
     @Test
     public void testTableExists()
     {
-        QualifiedObjectName name = new QualifiedObjectName("redis", "default", tableName);
+        QualifiedObjectName name = new QualifiedObjectName("redis", "default", tableName, Optional.empty());
         Metadata metadata = queryRunner.getPlannerContext().getMetadata();
         transaction(queryRunner.getTransactionManager(), metadata, new AllowAllAccessControl())
                 .singleStatement()

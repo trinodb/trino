@@ -486,6 +486,30 @@ public class HiveMetadata
     }
 
     @Override
+    public String canonicalize(String value)
+    {
+        return value.toLowerCase(ENGLISH);
+    }
+
+    @Override
+    public String canonicalize(String value, boolean delimited)
+    {
+        return value.toLowerCase(ENGLISH);
+    }
+
+    @Override
+    public String compare(String value)
+    {
+        return value.toLowerCase(ENGLISH);
+    }
+
+    @Override
+    public String compareColumn(String value)
+    {
+        return value.toLowerCase(ENGLISH);
+    }
+
+    @Override
     public SemiTransactionalHiveMetastore getMetastore()
     {
         return metastore;
@@ -500,11 +524,6 @@ public class HiveMetadata
     @Override
     public boolean schemaExists(ConnectorSession session, String schemaName)
     {
-        if (!schemaName.equals(schemaName.toLowerCase(ENGLISH))) {
-            // Currently, Trino schemas are always lowercase, so this one cannot exist (https://github.com/trinodb/trino/issues/17)
-            // In fact, some metastores (e.g., Glue) store database names lowercase only, but accepted mixed-case on lookup, so we need to filter out here.
-            return false;
-        }
         if (isHiveSystemSchema(schemaName)) {
             return false;
         }

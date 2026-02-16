@@ -26,9 +26,12 @@ import io.trino.metadata.ViewColumn;
 import io.trino.metadata.ViewDefinition;
 import io.trino.security.AccessControl;
 import io.trino.spi.connector.ColumnHandle;
+import io.trino.sql.PlannerContext;
 import io.trino.sql.tree.Comment;
 import io.trino.sql.tree.Expression;
+import io.trino.sql.tree.Identifier;
 import io.trino.sql.tree.QualifiedName;
+import io.trino.sql.tree.Resolver;
 
 import java.util.List;
 import java.util.Map;
@@ -46,13 +49,15 @@ import static java.util.Objects.requireNonNull;
 public class CommentTask
         implements DataDefinitionTask<Comment>
 {
+    private final PlannerContext plannerContext;
     private final Metadata metadata;
     private final AccessControl accessControl;
 
     @Inject
-    public CommentTask(Metadata metadata, AccessControl accessControl)
+    public CommentTask(PlannerContext plannerContext, AccessControl accessControl)
     {
-        this.metadata = requireNonNull(metadata, "metadata is null");
+        this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
+        this.metadata = plannerContext.getMetadata();
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
     }
 
@@ -89,7 +94,7 @@ public class CommentTask
 
     private void commentOnTable(Comment statement, Session session)
     {
-        QualifiedObjectName originalTableName = createQualifiedObjectName(session, statement, statement.getName());
+        QualifiedObjectName originalTableName = createQualifiedObjectName(session, statement, statement.getName(), plannerContext);
         if (metadata.isMaterializedView(session, originalTableName)) {
             throw semanticException(
                     TABLE_NOT_FOUND,
@@ -116,7 +121,7 @@ public class CommentTask
 
     private void commentOnView(Comment statement, Session session)
     {
-        QualifiedObjectName viewName = createQualifiedObjectName(session, statement, statement.getName());
+        QualifiedObjectName viewName = createQualifiedObjectName(session, statement, statement.getName(), plannerContext);
         if (!metadata.isView(session, viewName)) {
             String additionalInformation;
             if (metadata.getMaterializedView(session, viewName).isPresent()) {
@@ -140,7 +145,7 @@ public class CommentTask
         QualifiedName prefix = statement.getName().getPrefix()
                 .orElseThrow(() -> semanticException(MISSING_TABLE, statement, "Table must be specified"));
 
-        QualifiedObjectName originalObjectName = createQualifiedObjectName(session, statement, prefix);
+        QualifiedObjectName originalObjectName = createQualifiedObjectName(session, statement, prefix, plannerContext);
         Optional<ViewDefinition> view = metadata.getView(session, originalObjectName);
         if (view.isPresent()) {
             ViewDefinition viewDefinition = view.get();
@@ -159,7 +164,9 @@ public class CommentTask
             }
             TableHandle tableHandle = redirectionAwareTableHandle.tableHandle().get();
 
-            String columnName = statement.getName().getSuffix();
+            Identifier identifier = statement.getName().getOriginalParts().getLast();
+            Resolver resolver = plannerContext.getResolver(session, originalObjectName.catalogName());
+            String columnName = resolver.canonicalize(identifier.getValue(), identifier.isDelimited());
             Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(session, tableHandle);
             if (!columnHandles.containsKey(columnName)) {
                 throw semanticException(COLUMN_NOT_FOUND, statement, "Column does not exist: %s", columnName);

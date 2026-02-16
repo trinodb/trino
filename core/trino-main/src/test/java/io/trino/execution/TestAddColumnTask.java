@@ -522,7 +522,7 @@ public class TestAddColumnTask
                 .hasMessageContaining("Field 'a' already exists");
         assertTrinoExceptionThrownBy(() -> getFutureValue(executeAddColumn(asQualifiedName(tableName), QualifiedName.of("col", "A"), INTEGER, false, false)))
                 .hasErrorCode(COLUMN_ALREADY_EXISTS)
-                .hasMessageContaining("Field 'a' already exists");
+                .hasMessageContaining("Field 'A' already exists");
         assertThat(metadata.getTableMetadata(testSession, table).columns())
                 .containsExactly(new ColumnMetadata("col", rowType(new RowType.Field(Optional.of("a"), BIGINT))));
     }

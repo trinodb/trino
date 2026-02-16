@@ -109,7 +109,7 @@ public class TestIcebergInputInfo
             QualifiedObjectName qualifiedObjectName = new QualifiedObjectName(
                     session.getCatalog().orElse(ICEBERG_CATALOG),
                     session.getSchema().orElse("tpch"),
-                    tableName);
+                    tableName, Optional.empty());
             Optional<TableHandle> tableHandle = metadata.getTableHandle(session, qualifiedObjectName);
             assertThat(tableHandle).isPresent();
             Optional<Object> tableInfo = metadata.getInfo(session, tableHandle.get());

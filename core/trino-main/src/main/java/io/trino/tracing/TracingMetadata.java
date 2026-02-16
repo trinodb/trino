@@ -117,6 +117,7 @@ import io.trino.spi.statistics.TableStatisticsMetadata;
 import io.trino.spi.type.Type;
 import io.trino.sql.analyzer.TypeSignatureProvider;
 import io.trino.sql.planner.PartitioningHandle;
+import io.trino.sql.tree.Resolver;
 
 import java.util.Collection;
 import java.util.List;
@@ -1749,6 +1750,15 @@ public class TracingMetadata
         Span span = startSpan("getTableCredentials", catalogHandle, tableFunctionHandle);
         try (var _ = scopedSpan(span)) {
             return delegate.getTableCredentials(session, catalogHandle, tableFunctionHandle);
+        }
+    }
+
+    @Override
+    public Resolver getResolver(Session session, String catalogName)
+    {
+        Span span = startSpan("getResolver", catalogName);
+        try (var ignored = scopedSpan(span)) {
+            return delegate.getResolver(session, catalogName);
         }
     }
 

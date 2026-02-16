@@ -381,7 +381,7 @@ class TestingSystemSecurityMetadata
                         new QualifiedObjectName(
                                 catalogSchemaTableName.getCatalogName(),
                                 catalogSchemaTableName.getSchemaTableName().getSchemaName(),
-                                catalogSchemaTableName.getSchemaTableName().getTableName())))
+                                catalogSchemaTableName.getSchemaTableName().getTableName(), Optional.empty())))
                 .map(viewName -> {
                     Identity owner = combined.get(viewName);
                     return new TableAuthorization(viewName.getSchemaTableName(), new TrinoPrincipal(USER, owner.getUser()));
@@ -397,7 +397,7 @@ class TestingSystemSecurityMetadata
                         new QualifiedObjectName(
                                 catalogSchemaFunctionName.catalogName(),
                                 catalogSchemaFunctionName.schemaName(),
-                                catalogSchemaFunctionName.functionName())))
+                                catalogSchemaFunctionName.functionName(), Optional.empty())))
                 .map(functionName -> {
                     Identity owner = functionOwners.get(functionName);
                     return new FunctionAuthorization(functionName.schemaFunctionName(), new TrinoPrincipal(USER, owner.getUser()));

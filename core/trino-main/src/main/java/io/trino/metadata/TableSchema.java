@@ -19,6 +19,7 @@ import io.trino.spi.connector.ConnectorTableSchema;
 import io.trino.spi.connector.SchemaTableName;
 
 import java.util.List;
+import java.util.Optional;
 
 import static com.google.common.collect.MoreCollectors.toOptional;
 import static java.util.Objects.requireNonNull;
@@ -33,7 +34,7 @@ public record TableSchema(CatalogName catalogName, ConnectorTableSchema tableSch
 
     public QualifiedObjectName qualifiedName()
     {
-        return new QualifiedObjectName(catalogName.toString(), tableSchema.getTable().getSchemaName(), tableSchema.getTable().getTableName());
+        return new QualifiedObjectName(catalogName.toString(), tableSchema.getTable().getSchemaName(), tableSchema.getTable().getTableName(), Optional.empty());
     }
 
     public SchemaTableName table()

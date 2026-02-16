@@ -24,6 +24,7 @@ import io.trino.connector.TestingColumnHandle;
 import io.trino.exchange.ExchangeMetricsCollector;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.AbstractMockMetadata;
+import io.trino.metadata.Canonicalizer;
 import io.trino.metadata.ColumnPropertyManager;
 import io.trino.metadata.MaterializedViewDefinition;
 import io.trino.metadata.MaterializedViewPropertyManager;
@@ -58,6 +59,7 @@ import io.trino.spi.type.Type;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.planner.TestingConnectorTransactionHandle;
 import io.trino.sql.tree.QualifiedName;
+import io.trino.sql.tree.Resolver;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.StandaloneQueryRunner;
 import io.trino.testing.TestingMetadata.TestingTableHandle;
@@ -171,7 +173,7 @@ public abstract class BaseDataDefinitionTaskTest
 
     protected static QualifiedObjectName qualifiedObjectName(String objectName)
     {
-        return new QualifiedObjectName(TEST_CATALOG_NAME, SCHEMA, objectName);
+        return new QualifiedObjectName(TEST_CATALOG_NAME, SCHEMA, objectName, Optional.empty());
     }
 
     protected static QualifiedName qualifiedName(String name)
@@ -330,9 +332,9 @@ public abstract class BaseDataDefinitionTaskTest
         public List<QualifiedObjectName> listTables(Session session, QualifiedTablePrefix prefix)
         {
             List<QualifiedObjectName> tables = ImmutableList.<QualifiedObjectName>builder()
-                    .addAll(this.tables.keySet().stream().map(table -> new QualifiedObjectName(catalogName, table.getSchemaName(), table.getTableName())).collect(toImmutableList()))
-                    .addAll(this.views.keySet().stream().map(view -> new QualifiedObjectName(catalogName, view.getSchemaName(), view.getTableName())).collect(toImmutableList()))
-                    .addAll(this.materializedViews.keySet().stream().map(mv -> new QualifiedObjectName(catalogName, mv.getSchemaName(), mv.getTableName())).collect(toImmutableList()))
+                    .addAll(this.tables.keySet().stream().map(table -> new QualifiedObjectName(catalogName, table.getSchemaName(), table.getTableName(), Optional.empty())).collect(toImmutableList()))
+                    .addAll(this.views.keySet().stream().map(view -> new QualifiedObjectName(catalogName, view.getSchemaName(), view.getTableName(), Optional.empty())).collect(toImmutableList()))
+                    .addAll(this.materializedViews.keySet().stream().map(mv -> new QualifiedObjectName(catalogName, mv.getSchemaName(), mv.getTableName(), Optional.empty())).collect(toImmutableList()))
                     .build();
             return tables.stream().filter(prefix::matches).collect(toImmutableList());
         }
@@ -760,6 +762,15 @@ public abstract class BaseDataDefinitionTaskTest
             MockConnectorTableMetadata table = tables.get(tableName.asSchemaTableName());
             requireNonNull(table, "table is null");
             return table.branches().contains(branch);
+        }
+
+        @Override
+        public Resolver getResolver(Session session, String catalog)
+        {
+            System.out.println("BaseDataDefinitionTaskTest.getResolver()");
+            // FIXME: we need to retrieve the canonicalizer of the connector
+            Canonicalizer canonicalizer = Canonicalizer.UPPERCASE_CANONICALIZER;
+            return new Resolver(catalogName, canonicalizer::canonicalize, canonicalizer::compare, canonicalizer::predicate);
         }
 
         private static ColumnMetadata withComment(ColumnMetadata tableColumn, Optional<String> comment)

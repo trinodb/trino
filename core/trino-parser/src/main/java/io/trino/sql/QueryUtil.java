@@ -61,9 +61,14 @@ public final class QueryUtil
         return new Identifier(name);
     }
 
-    public static Identifier quotedIdentifier(String name)
+    public static Identifier delimitedIdentifier(String name)
     {
-        return new Identifier(name, true);
+        return identifier(name, true);
+    }
+
+    public static Identifier identifier(String name, boolean delimited)
+    {
+        return new Identifier(name, delimited);
     }
 
     public static Expression nameReference(String first, String... rest)
@@ -71,14 +76,19 @@ public final class QueryUtil
         return DereferenceExpression.from(QualifiedName.of(first, rest));
     }
 
-    public static SelectItem unaliasedName(String name)
+    public static SelectItem delimitedUnaliasedName(String name)
     {
-        return new SingleColumn(identifier(name));
+        return new SingleColumn(identifier(name, true));
     }
 
     public static SelectItem aliasedName(String name, String alias)
     {
         return new SingleColumn(identifier(name), identifier(alias));
+    }
+
+    public static SelectItem delimitedAliasedName(String name, String alias)
+    {
+        return new SingleColumn(identifier(name, true), identifier(alias, true));
     }
 
     public static Select selectList(Expression... expressions)
@@ -120,6 +130,11 @@ public final class QueryUtil
         return new SortItem(identifier(name), SortItem.Ordering.ASCENDING, SortItem.NullOrdering.UNDEFINED);
     }
 
+    public static SortItem delimitedAscending(String name)
+    {
+        return new SortItem(identifier(name, true), SortItem.Ordering.ASCENDING, SortItem.NullOrdering.UNDEFINED);
+    }
+
     public static Expression logicalAnd(Expression left, Expression right)
     {
         return LogicalExpression.and(left, right);
@@ -154,15 +169,15 @@ public final class QueryUtil
     {
         return new AliasedRelation(
                 relation,
-                identifier(alias),
+                delimitedIdentifier(alias),
                 columnAliases.stream()
-                        .map(QueryUtil::identifier)
+                        .map(QueryUtil::delimitedIdentifier)
                         .collect(Collectors.toList()));
     }
 
-    public static SelectItem aliasedNullToEmpty(String column, String alias)
+    public static SelectItem delimitedAliasedNullToEmpty(String column, String alias)
     {
-        return new SingleColumn(new CoalesceExpression(identifier(column), new StringLiteral("")), identifier(alias));
+        return new SingleColumn(new CoalesceExpression(identifier(column, true), new StringLiteral("")), identifier(alias, true));
     }
 
     public static OrderBy ordering(SortItem... items)

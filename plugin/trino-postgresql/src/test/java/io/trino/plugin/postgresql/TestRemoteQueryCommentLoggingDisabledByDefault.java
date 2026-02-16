@@ -21,6 +21,7 @@ import org.junit.jupiter.api.parallel.Execution;
 
 import static io.trino.tpch.TpchTable.CUSTOMER;
 import static io.trino.tpch.TpchTable.NATION;
+import static java.util.Locale.ENGLISH;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 
@@ -38,6 +39,12 @@ public class TestRemoteQueryCommentLoggingDisabledByDefault
         return PostgreSqlQueryRunner.builder(postgreSqlServer)
                 .setInitialTables(ImmutableList.of(CUSTOMER, NATION))
                 .build();
+    }
+
+    @Override
+    protected String canonicalize(String value)
+    {
+        return value.toLowerCase(ENGLISH);
     }
 
     @Test

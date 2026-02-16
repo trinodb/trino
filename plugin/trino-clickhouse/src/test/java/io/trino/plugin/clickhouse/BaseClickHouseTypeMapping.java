@@ -60,6 +60,7 @@ import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.type.IpAddressType.IPADDRESS;
 import static java.lang.String.format;
+import static java.util.Locale.ENGLISH;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
@@ -95,6 +96,12 @@ public abstract class BaseClickHouseTypeMapping
 
         LocalDate timeGapInKathmandu = LocalDate.of(1986, 1, 1);
         checkIsGap(KATHMANDU, timeGapInKathmandu.atStartOfDay());
+    }
+
+    @Override
+    protected String canonicalize(String value)
+    {
+        return value.toLowerCase(ENGLISH);
     }
 
     private static void checkIsGap(ZoneId zone, LocalDateTime dateTime)

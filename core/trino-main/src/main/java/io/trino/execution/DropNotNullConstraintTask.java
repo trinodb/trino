@@ -24,8 +24,10 @@ import io.trino.metadata.TableHandle;
 import io.trino.security.AccessControl;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
+import io.trino.sql.PlannerContext;
 import io.trino.sql.tree.DropNotNullConstraint;
 import io.trino.sql.tree.Expression;
+import io.trino.sql.tree.Resolver;
 
 import java.util.List;
 
@@ -33,6 +35,7 @@ import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static io.trino.metadata.MetadataUtil.createQualifiedObjectName;
 import static io.trino.spi.StandardErrorCode.COLUMN_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.trino.spi.StandardErrorCode.RESOLVER_NO_FOUND;
 import static io.trino.spi.StandardErrorCode.TABLE_NOT_FOUND;
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
 import static java.util.Objects.requireNonNull;
@@ -40,13 +43,15 @@ import static java.util.Objects.requireNonNull;
 public class DropNotNullConstraintTask
         implements DataDefinitionTask<DropNotNullConstraint>
 {
+    private final PlannerContext plannerContext;
     private final Metadata metadata;
     private final AccessControl accessControl;
 
     @Inject
-    public DropNotNullConstraintTask(Metadata metadata, AccessControl accessControl)
+    public DropNotNullConstraintTask(PlannerContext plannerContext, AccessControl accessControl)
     {
-        this.metadata = requireNonNull(metadata, "metadata is null");
+        this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
+        this.metadata = plannerContext.getMetadata();
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
     }
 
@@ -64,7 +69,11 @@ public class DropNotNullConstraintTask
             WarningCollector warningCollector)
     {
         Session session = stateMachine.getSession();
-        QualifiedObjectName tableName = createQualifiedObjectName(session, statement, statement.getTable());
+        QualifiedObjectName tableName = createQualifiedObjectName(session, statement, statement.getTable(), plannerContext);
+        if (statement.getTable().getResolver().isEmpty()) {
+            throw semanticException(RESOLVER_NO_FOUND, statement, "Resolver for table '%s' not found", tableName);
+        }
+        Resolver resolver = statement.getTable().getResolver().get();
         RedirectionAwareTableHandle redirectionAwareTableHandle = metadata.getRedirectionAwareTableHandle(session, tableName);
         if (redirectionAwareTableHandle.tableHandle().isEmpty()) {
             String exceptionMessage = "Table '%s' does not exist".formatted(tableName);
@@ -82,7 +91,7 @@ public class DropNotNullConstraintTask
         accessControl.checkCanAlterColumn(session.toSecurityContext(), tableName);
 
         TableHandle tableHandle = redirectionAwareTableHandle.tableHandle().get();
-        String column = statement.getColumn().toString();
+        String column = statement.getColumn().setResolver(resolver).getCanonicalizedValue();
         ColumnHandle columnHandle = metadata.getColumnHandles(session, tableHandle).get(column);
 
         if (columnHandle == null) {

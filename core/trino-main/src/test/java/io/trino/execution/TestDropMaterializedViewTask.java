@@ -110,7 +110,7 @@ public class TestDropMaterializedViewTask
 
     private ListenableFuture<Void> executeDropMaterializedView(QualifiedName viewName, boolean exists)
     {
-        return new DropMaterializedViewTask(metadata, new AllowAllAccessControl())
+        return new DropMaterializedViewTask(plannerContext, new AllowAllAccessControl())
                 .execute(new DropMaterializedView(new NodeLocation(1, 1), viewName, exists), queryStateMachine, ImmutableList.of(), WarningCollector.NOOP);
     }
 }

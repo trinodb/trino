@@ -27,6 +27,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
 
+import java.util.Optional;
+
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.SELECT_COLUMN;
 import static io.trino.testing.TestingAccessControlManager.privilege;
@@ -157,7 +159,7 @@ public class TestFilterInaccessibleColumns
     {
         accessControl.reset();
 
-        accessControl.rowFilter(new QualifiedObjectName(TEST_CATALOG_NAME, TINY_SCHEMA_NAME, "nation"),
+        accessControl.rowFilter(new QualifiedObjectName(TEST_CATALOG_NAME, TINY_SCHEMA_NAME, "nation", Optional.empty()),
                 USER,
                 ViewExpression.builder()
                         .identity(ADMIN)
@@ -175,7 +177,7 @@ public class TestFilterInaccessibleColumns
     {
         accessControl.reset();
 
-        accessControl.rowFilter(new QualifiedObjectName(TEST_CATALOG_NAME, TINY_SCHEMA_NAME, "nation"),
+        accessControl.rowFilter(new QualifiedObjectName(TEST_CATALOG_NAME, TINY_SCHEMA_NAME, "nation", Optional.empty()),
                 USER,
                 ViewExpression.builder()
                         .identity(USER)
@@ -194,7 +196,7 @@ public class TestFilterInaccessibleColumns
         accessControl.reset();
 
         accessControl.deny(privilege(USER, "nation.comment", SELECT_COLUMN));
-        QualifiedObjectName table = new QualifiedObjectName(TEST_CATALOG_NAME, TINY_SCHEMA_NAME, "nation");
+        QualifiedObjectName table = new QualifiedObjectName(TEST_CATALOG_NAME, TINY_SCHEMA_NAME, "nation", Optional.empty());
         ViewExpression filter = ViewExpression.builder()
                 .catalog(TEST_CATALOG_NAME)
                 .schema(TINY_SCHEMA_NAME)
@@ -214,7 +216,7 @@ public class TestFilterInaccessibleColumns
     {
         accessControl.reset();
 
-        accessControl.columnMask(new QualifiedObjectName(TEST_CATALOG_NAME, TINY_SCHEMA_NAME, "nation"),
+        accessControl.columnMask(new QualifiedObjectName(TEST_CATALOG_NAME, TINY_SCHEMA_NAME, "nation", Optional.empty()),
                 "nationkey",
                 USER,
                 ViewExpression.builder()
@@ -233,7 +235,7 @@ public class TestFilterInaccessibleColumns
         accessControl.reset();
 
         accessControl.deny(privilege(USER, "nation.nationkey", SELECT_COLUMN));
-        accessControl.columnMask(new QualifiedObjectName(TEST_CATALOG_NAME, TINY_SCHEMA_NAME, "nation"),
+        accessControl.columnMask(new QualifiedObjectName(TEST_CATALOG_NAME, TINY_SCHEMA_NAME, "nation", Optional.empty()),
                 "comment",
                 USER,
                 ViewExpression.builder()
@@ -253,7 +255,7 @@ public class TestFilterInaccessibleColumns
         accessControl.reset();
 
         accessControl.deny(privilege(USER, "nation.nationkey", SELECT_COLUMN));
-        accessControl.columnMask(new QualifiedObjectName(TEST_CATALOG_NAME, TINY_SCHEMA_NAME, "nation"),
+        accessControl.columnMask(new QualifiedObjectName(TEST_CATALOG_NAME, TINY_SCHEMA_NAME, "nation", Optional.empty()),
                 "comment",
                 USER,
                 ViewExpression.builder()
@@ -276,7 +278,7 @@ public class TestFilterInaccessibleColumns
         accessControl.reset();
 
         accessControl.deny(privilege(USER, "nation.nationkey", SELECT_COLUMN));
-        QualifiedObjectName table = new QualifiedObjectName(TEST_CATALOG_NAME, TINY_SCHEMA_NAME, "nation");
+        QualifiedObjectName table = new QualifiedObjectName(TEST_CATALOG_NAME, TINY_SCHEMA_NAME, "nation", Optional.empty());
         ViewExpression mask = ViewExpression.builder()
                 .catalog(TEST_CATALOG_NAME)
                 .schema(TINY_SCHEMA_NAME)

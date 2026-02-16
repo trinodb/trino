@@ -93,6 +93,7 @@ import io.trino.spi.statistics.TableStatisticsMetadata;
 import io.trino.spi.type.Type;
 import io.trino.sql.analyzer.TypeSignatureProvider;
 import io.trino.sql.planner.PartitioningHandle;
+import io.trino.sql.tree.Resolver;
 
 import java.util.Collection;
 import java.util.List;
@@ -1183,5 +1184,11 @@ public abstract class AbstractMockMetadata
     public Optional<ConnectorTableCredentials> getTableCredentials(Session session, CatalogHandle catalogHandle, ConnectorTableFunctionHandle tableFunctionHandle)
     {
         return Optional.empty();
+    }
+
+    @Override
+    public Resolver getResolver(Session session, String catalog)
+    {
+        throw new UnsupportedOperationException();
     }
 }

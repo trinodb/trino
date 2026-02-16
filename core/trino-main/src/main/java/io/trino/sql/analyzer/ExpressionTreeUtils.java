@@ -145,7 +145,9 @@ public final class ExpressionTreeUtils
     {
         QualifiedName name = null;
         if (expression instanceof Identifier identifier) {
-            name = QualifiedName.of(identifier.getValue());
+            // FIXME: QualifiedName must use the canonicalized value
+            name = QualifiedName.of(identifier);
+            //name = QualifiedName.of(identifier.getValue());
         }
         else if (expression instanceof DereferenceExpression dereferenceExpression) {
             name = DereferenceExpression.getQualifiedName(dereferenceExpression);

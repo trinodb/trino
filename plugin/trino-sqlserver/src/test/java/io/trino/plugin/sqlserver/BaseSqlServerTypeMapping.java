@@ -105,6 +105,12 @@ public abstract class BaseSqlServerTypeMapping
         checkIsGap(kathmandu, timeGapInKathmandu);
     }
 
+    @Override
+    protected String canonicalize(String value)
+    {
+        return value;
+    }
+
     @Test
     public void testTrinoBoolean()
     {

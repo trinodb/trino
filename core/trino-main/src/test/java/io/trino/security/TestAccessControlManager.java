@@ -106,7 +106,7 @@ public class TestAccessControlManager
     public void testReadOnlySystemAccessControl()
     {
         Identity identity = Identity.forUser(USER_NAME).withPrincipal(PRINCIPAL).build();
-        QualifiedObjectName tableName = new QualifiedObjectName(TEST_CATALOG_NAME, "schema", "table");
+        QualifiedObjectName tableName = new QualifiedObjectName(TEST_CATALOG_NAME, "schema", "table", Optional.empty());
 
         assertAccessControl(new ReadOnlySystemAccessControl(), new AllowAllAccessControl(), (accessControlManager, securityContext) ->
         {
@@ -141,7 +141,7 @@ public class TestAccessControlManager
 
         transaction(transactionManager, metadata, accessControlManager)
                 .execute(transactionId -> {
-                    accessControlManager.checkCanSelectFromColumns(context(transactionId), new QualifiedObjectName(TEST_CATALOG_NAME, "schema", "table"), Optional.empty(), ImmutableSet.of("column"));
+                    accessControlManager.checkCanSelectFromColumns(context(transactionId), new QualifiedObjectName(TEST_CATALOG_NAME, "schema", "table", Optional.empty()), Optional.empty(), ImmutableSet.of("column"));
                 });
     }
 
@@ -150,7 +150,7 @@ public class TestAccessControlManager
     {
         assertAccessControl(new AllowAllSystemAccessControl(), new DenyConnectorAccessControl(), (accessControlManager, securityContext) ->
                 assertThatThrownBy(
-                        () -> accessControlManager.checkCanSelectFromColumns(securityContext, new QualifiedObjectName(TEST_CATALOG_NAME, "schema", "table"), Optional.empty(), ImmutableSet.of("column")))
+                        () -> accessControlManager.checkCanSelectFromColumns(securityContext, new QualifiedObjectName(TEST_CATALOG_NAME, "schema", "table", Optional.empty()), Optional.empty(), ImmutableSet.of("column")))
                         .isInstanceOf(AccessDeniedException.class)
                         .hasMessage("Access Denied: Cannot select from columns [column] in table or view schema.table"));
     }
@@ -160,7 +160,7 @@ public class TestAccessControlManager
     {
         assertAccessControl(new TestSystemAccessControl(), new AllowAllAccessControl(), (accessControlManager, securityContext) ->
                 assertThatThrownBy(
-                        () -> accessControlManager.checkCanSelectFromColumns(securityContext, new QualifiedObjectName("secured_catalog", "schema", "table"), Optional.empty(), ImmutableSet.of("column")))
+                        () -> accessControlManager.checkCanSelectFromColumns(securityContext, new QualifiedObjectName("secured_catalog", "schema", "table", Optional.empty()), Optional.empty(), ImmutableSet.of("column")))
                         .isInstanceOf(AccessDeniedException.class)
                         .hasMessage("Access Denied: Cannot select from table secured_catalog.schema.table"));
     }
@@ -170,7 +170,7 @@ public class TestAccessControlManager
     {
         assertAccessControl(new TestSystemAccessControl(), new AllowAllAccessControl(), (accessControlManager, securityContext) ->
                 assertThatThrownBy(
-                        () -> accessControlManager.checkCanExecuteProcedure(securityContext, new QualifiedObjectName(TEST_CATALOG_NAME, "schema", "procedure")))
+                        () -> accessControlManager.checkCanExecuteProcedure(securityContext, new QualifiedObjectName(TEST_CATALOG_NAME, "schema", "procedure", Optional.empty())))
                         .isInstanceOf(AccessDeniedException.class)
                         .hasMessage("Access Denied: Cannot execute procedure test_catalog.schema.procedure"));
     }
@@ -180,7 +180,7 @@ public class TestAccessControlManager
     {
         assertAccessControl(new AllowAllSystemAccessControl(), new DenyConnectorAccessControl(), (accessControlManager, securityContext) ->
                 assertThatThrownBy(
-                        () -> accessControlManager.checkCanExecuteProcedure(securityContext, new QualifiedObjectName(TEST_CATALOG_NAME, "schema", "procedure")))
+                        () -> accessControlManager.checkCanExecuteProcedure(securityContext, new QualifiedObjectName(TEST_CATALOG_NAME, "schema", "procedure", Optional.empty())))
                         .isInstanceOf(AccessDeniedException.class)
                         .hasMessage("Access Denied: Cannot execute procedure schema.procedure"));
     }
@@ -189,7 +189,7 @@ public class TestAccessControlManager
     public void testAllowExecuteProcedure()
     {
         assertAccessControl(new AllowAllSystemAccessControl(), new AllowAllAccessControl(), (accessControlManager, securityContext) ->
-                accessControlManager.checkCanExecuteProcedure(securityContext, new QualifiedObjectName(TEST_CATALOG_NAME, "schema", "procedure")));
+                accessControlManager.checkCanExecuteProcedure(securityContext, new QualifiedObjectName(TEST_CATALOG_NAME, "schema", "procedure", Optional.empty())));
     }
 
     @Test
@@ -271,7 +271,7 @@ public class TestAccessControlManager
     @Test
     public void testDenyExecuteFunctionBySystemAccessControl()
     {
-        QualifiedObjectName functionName = new QualifiedObjectName(TEST_CATALOG_NAME, "schema", "executed_function");
+        QualifiedObjectName functionName = new QualifiedObjectName(TEST_CATALOG_NAME, "schema", "executed_function", Optional.empty());
         assertAccessControl(new TestSystemAccessControl(), new AllowAllAccessControl(), (accessControlManager, securityContext) ->
         {
             assertThat(accessControlManager.canExecuteFunction(securityContext, functionName)).isFalse();
@@ -282,7 +282,7 @@ public class TestAccessControlManager
     @Test
     public void testAllowExecuteFunction()
     {
-        QualifiedObjectName functionName = new QualifiedObjectName(TEST_CATALOG_NAME, "schema", "executed_function");
+        QualifiedObjectName functionName = new QualifiedObjectName(TEST_CATALOG_NAME, "schema", "executed_function", Optional.empty());
         assertAccessControl(new AllowAllSystemAccessControl(), new AllowAllAccessControl(), (accessControlManager, securityContext) ->
         {
             assertThat(accessControlManager.canExecuteFunction(securityContext, functionName)).isTrue();
@@ -293,7 +293,7 @@ public class TestAccessControlManager
     @Test
     public void testAllowExecuteTableFunction()
     {
-        QualifiedObjectName functionName = new QualifiedObjectName(TEST_CATALOG_NAME, "schema", "executed_function");
+        QualifiedObjectName functionName = new QualifiedObjectName(TEST_CATALOG_NAME, "schema", "executed_function", Optional.empty());
         assertAccessControl(new AllowAllSystemAccessControl(), new AllowAllAccessControl(), (accessControlManager, securityContext) ->
         {
             assertThat(accessControlManager.canExecuteFunction(securityContext, functionName)).isTrue();

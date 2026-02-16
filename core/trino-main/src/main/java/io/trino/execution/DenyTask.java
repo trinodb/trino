@@ -25,6 +25,7 @@ import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.spi.connector.EntityKindAndName;
 import io.trino.spi.connector.EntityPrivilege;
 import io.trino.spi.security.Privilege;
+import io.trino.sql.PlannerContext;
 import io.trino.sql.tree.Deny;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.Identifier;
@@ -49,13 +50,15 @@ import static java.util.Objects.requireNonNull;
 public class DenyTask
         implements DataDefinitionTask<Deny>
 {
+    private final PlannerContext plannerContext;
     private final Metadata metadata;
     private final AccessControl accessControl;
 
     @Inject
-    public DenyTask(Metadata metadata, AccessControl accessControl)
+    public DenyTask(PlannerContext plannerContext, AccessControl accessControl)
     {
-        this.metadata = requireNonNull(metadata, "metadata is null");
+        this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
+        this.metadata = plannerContext.getMetadata();
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
     }
 
@@ -70,10 +73,10 @@ public class DenyTask
     {
         String entityKind = statement.getGrantObject().getEntityKind().orElse("TABLE");
         if (entityKind.equalsIgnoreCase("TABLE")) {
-            executeDenyOnTable(stateMachine.getSession(), statement, metadata, accessControl);
+            executeDenyOnTable(stateMachine.getSession(), statement, plannerContext, accessControl);
         }
         else if (entityKind.equalsIgnoreCase("SCHEMA")) {
-            executeDenyOnSchema(stateMachine.getSession(), statement, metadata, accessControl);
+            executeDenyOnSchema(stateMachine.getSession(), statement, plannerContext, accessControl);
         }
         else {
             executeDenyOnEntity(stateMachine.getSession(), statement, metadata, entityKind, accessControl);
@@ -81,15 +84,15 @@ public class DenyTask
         return immediateVoidFuture();
     }
 
-    private static void executeDenyOnSchema(Session session, Deny statement, Metadata metadata, AccessControl accessControl)
+    private static void executeDenyOnSchema(Session session, Deny statement, PlannerContext plannerContext, AccessControl accessControl)
     {
         if (statement.getGrantObject().getBranch().isPresent()) {
             throw semanticException(NOT_SUPPORTED, statement, "Denying on branch is not supported");
         }
 
-        CatalogSchemaName schemaName = createCatalogSchemaName(session, statement, Optional.of(statement.getGrantObject().getName()));
+        CatalogSchemaName schemaName = createCatalogSchemaName(session, statement, Optional.of(statement.getGrantObject().getName()), plannerContext);
 
-        if (!metadata.schemaExists(session, schemaName)) {
+        if (!plannerContext.getMetadata().schemaExists(session, schemaName)) {
             throw semanticException(SCHEMA_NOT_FOUND, statement, "Schema '%s' does not exist", schemaName);
         }
 
@@ -98,16 +101,16 @@ public class DenyTask
             accessControl.checkCanDenySchemaPrivilege(session.toSecurityContext(), privilege, schemaName, createPrincipal(statement.getGrantee()));
         }
 
-        metadata.denySchemaPrivileges(session, schemaName, privileges, createPrincipal(statement.getGrantee()));
+        plannerContext.getMetadata().denySchemaPrivileges(session, schemaName, privileges, createPrincipal(statement.getGrantee()));
     }
 
-    private static void executeDenyOnTable(Session session, Deny statement, Metadata metadata, AccessControl accessControl)
+    private static void executeDenyOnTable(Session session, Deny statement, PlannerContext plannerContext, AccessControl accessControl)
     {
-        QualifiedObjectName tableName = createQualifiedObjectName(session, statement, statement.getGrantObject().getName());
+        QualifiedObjectName tableName = createQualifiedObjectName(session, statement, statement.getGrantObject().getName(), plannerContext);
         Optional<Identifier> branch = statement.getGrantObject().getBranch();
 
-        if (!metadata.isMaterializedView(session, tableName) && !metadata.isView(session, tableName)) {
-            RedirectionAwareTableHandle redirection = metadata.getRedirectionAwareTableHandle(session, tableName);
+        if (!plannerContext.getMetadata().isMaterializedView(session, tableName) && !plannerContext.getMetadata().isView(session, tableName)) {
+            RedirectionAwareTableHandle redirection = plannerContext.getMetadata().getRedirectionAwareTableHandle(session, tableName);
             if (redirection.tableHandle().isEmpty()) {
                 throw semanticException(TABLE_NOT_FOUND, statement, "Table '%s' does not exist", tableName);
             }
@@ -120,12 +123,12 @@ public class DenyTask
 
         if (branch.isEmpty()) {
             privileges.forEach(privilege -> accessControl.checkCanDenyTablePrivilege(session.toSecurityContext(), privilege, tableName, createPrincipal(statement.getGrantee())));
-            metadata.denyTablePrivileges(session, tableName, privileges, createPrincipal(statement.getGrantee()));
+            plannerContext.getMetadata().denyTablePrivileges(session, tableName, privileges, createPrincipal(statement.getGrantee()));
         }
         else {
             String branchName = branch.get().getValue();
             privileges.forEach(privilege -> accessControl.checkCanDenyTableBranchPrivilege(session.toSecurityContext(), privilege, tableName, branchName, createPrincipal(statement.getGrantee())));
-            metadata.denyTableBranchPrivileges(session, tableName, branchName, privileges, createPrincipal(statement.getGrantee()));
+            plannerContext.getMetadata().denyTableBranchPrivileges(session, tableName, branchName, privileges, createPrincipal(statement.getGrantee()));
         }
     }
 

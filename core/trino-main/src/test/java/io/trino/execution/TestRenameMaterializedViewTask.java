@@ -143,7 +143,7 @@ public class TestRenameMaterializedViewTask
 
     private ListenableFuture<Void> executeRenameMaterializedView(QualifiedName source, QualifiedName target, boolean exists)
     {
-        return new RenameMaterializedViewTask(metadata, new AllowAllAccessControl())
+        return new RenameMaterializedViewTask(plannerContext, new AllowAllAccessControl())
                 .execute(new RenameMaterializedView(new NodeLocation(1, 1), source, target, exists), queryStateMachine, ImmutableList.of(), WarningCollector.NOOP);
     }
 }

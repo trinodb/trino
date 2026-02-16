@@ -306,7 +306,7 @@ public class TestDynamicTable
         DynamicTable dynamicTable = buildFromPql(pinotMetadata, new SchemaTableName("default", query), mockClusterInfoFetcher, TESTING_TYPE_CONVERTER);
         String expectedPql =
                 """
-                SELECT "OriginCityName" FROM %s WHERE text_match("OriginCityName", 'new and york') LIMIT 70""".formatted(tableNameWithSuffix);
+                SELECT "OriginCityName" FROM %s WHERE text_match("OriginCityName", 'new AND york') LIMIT 70""".formatted(tableNameWithSuffix);
         assertThat(extractPql(dynamicTable, TupleDomain.all())).isEqualTo(expectedPql);
         assertThat(dynamicTable.tableName()).isEqualTo(tableName);
     }

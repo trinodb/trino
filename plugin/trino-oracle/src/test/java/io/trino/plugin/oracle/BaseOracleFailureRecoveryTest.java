@@ -24,6 +24,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import static java.util.Locale.ENGLISH;
+
 public abstract class BaseOracleFailureRecoveryTest
         extends BaseJdbcFailureRecoveryTest
 {
@@ -56,8 +58,8 @@ public abstract class BaseOracleFailureRecoveryTest
     {
         // This simple update on JDBC ends up as a very simple, single-fragment, coordinator-only plan,
         // which has no ability to recover from errors. This test simply verifies that's still the case.
-        Optional<String> setupQuery = Optional.of("CREATE TABLE <table> AS SELECT * FROM orders");
-        String testQuery = "UPDATE <table> SET shippriority = 101 WHERE custkey = 1";
+        Optional<String> setupQuery = Optional.of("CREATE TABLE <table> AS SELECT * FROM \"orders\"");
+        String testQuery = "UPDATE <table> SET \"shippriority\" = 101 WHERE \"custkey\" = 1";
         Optional<String> cleanupQuery = Optional.of("DROP TABLE <table>");
 
         assertThatQuery(testQuery)
@@ -72,5 +74,11 @@ public abstract class BaseOracleFailureRecoveryTest
         // we could not ensure that tmp tables are always promptly removed in Oracle.
         // checking if tmp_trino tables are deleted immediatelly after DML operation renders test flaky.
         return false;
+    }
+
+    @Override
+    protected String canonicalize(String value)
+    {
+        return value.toUpperCase(ENGLISH);
     }
 }

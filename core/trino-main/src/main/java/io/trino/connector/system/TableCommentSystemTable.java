@@ -131,7 +131,7 @@ public class TableCommentSystemTable
     private void addTableCommentForCatalog(Session session, Builder table, String catalog, QualifiedTablePrefix prefix)
     {
         if (prefix.getTableName().isPresent()) {
-            QualifiedObjectName relationName = new QualifiedObjectName(catalog, prefix.getSchemaName().orElseThrow(), prefix.getTableName().get());
+            QualifiedObjectName relationName = new QualifiedObjectName(catalog, prefix.getSchemaName().orElseThrow(), prefix.getTableName().get(), Optional.empty());
             RelationComment relationComment;
             try {
                 relationComment = getRelationComment(session, relationName);
@@ -173,7 +173,7 @@ public class TableCommentSystemTable
                 }
                 else {
                     try {
-                        RelationComment relationComment = getTableCommentRedirectionAware(session, new QualifiedObjectName(catalog, name.getSchemaName(), name.getTableName()));
+                        RelationComment relationComment = getTableCommentRedirectionAware(session, new QualifiedObjectName(catalog, name.getSchemaName(), name.getTableName(), Optional.empty()));
                         if (relationComment.found()) {
                             table.addRow(catalog, name.getSchemaName(), name.getTableName(), relationComment.comment().orElse(null));
                         }

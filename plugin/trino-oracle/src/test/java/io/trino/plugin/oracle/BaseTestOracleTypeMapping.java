@@ -68,6 +68,7 @@ import static java.math.RoundingMode.HALF_EVEN;
 import static java.math.RoundingMode.HALF_UP;
 import static java.math.RoundingMode.UNNECESSARY;
 import static java.time.ZoneOffset.UTC;
+import static java.util.Locale.ENGLISH;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
@@ -1180,6 +1181,12 @@ public abstract class BaseTestOracleTypeMapping
     public void testUnsupportedBasicType()
     {
         testUnsupportedOracleType("BFILE"); // Never in mapping
+    }
+
+    @Override
+    protected String canonicalize(String value)
+    {
+        return value.toUpperCase(ENGLISH);
     }
 
     /**

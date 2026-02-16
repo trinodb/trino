@@ -584,6 +584,12 @@ public class IcebergMetadata
     }
 
     @Override
+    public String canonicalize(String value)
+    {
+        return value.toLowerCase(ENGLISH);
+    }
+
+    @Override
     public Optional<ConnectorTableCredentials> getTableCredentials(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         return getOrLoadTableCredentials(session, getSchemaTableName(tableHandle));
@@ -1578,7 +1584,7 @@ public class IcebergMetadata
                 .distinct()
                 .collect(toImmutableList());
         List<String> partitioningColumnNames = partitioningColumns.stream()
-                .map(column -> column.getName().toLowerCase(ENGLISH))
+                .map(column -> column.getName())
                 .collect(toImmutableList());
 
         if (!forceRepartitioning && partitionSpec.fields().stream().allMatch(field -> field.transform().isIdentity())) {
@@ -4677,7 +4683,7 @@ public class IcebergMetadata
     private static CollectedStatistics processComputedTableStatistics(Table table, Collection<ComputedStatistics> computedStatistics)
     {
         Map<String, Integer> columnNameToId = table.schema().columns().stream()
-                .collect(toImmutableMap(nestedField -> nestedField.name().toLowerCase(ENGLISH), Types.NestedField::fieldId));
+                .collect(toImmutableMap(nestedField -> nestedField.name(), Types.NestedField::fieldId));
 
         ImmutableMap.Builder<Integer, CompactThetaSketch> ndvSketches = ImmutableMap.builder();
         for (ComputedStatistics computedStatistic : computedStatistics) {

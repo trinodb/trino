@@ -23,6 +23,7 @@ import java.time.format.DateTimeFormatter;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
 import static java.time.ZoneOffset.UTC;
+import static java.util.Locale.ENGLISH;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public abstract class BaseSharedMetastoreTest
@@ -37,6 +38,12 @@ public abstract class BaseSharedMetastoreTest
     protected abstract String getExpectedHiveCreateSchema(String catalogName);
 
     protected abstract String getExpectedIcebergCreateSchema(String catalogName);
+
+    @Override
+    protected String canonicalize(String value)
+    {
+        return value.toLowerCase(ENGLISH);
+    }
 
     @Test
     public void testSelect()

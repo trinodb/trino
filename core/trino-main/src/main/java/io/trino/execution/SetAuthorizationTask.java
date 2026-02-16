@@ -24,6 +24,7 @@ import io.trino.security.AccessControl;
 import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.spi.connector.EntityKindAndName;
 import io.trino.spi.security.TrinoPrincipal;
+import io.trino.sql.PlannerContext;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.SetAuthorizationStatement;
 
@@ -45,13 +46,15 @@ import static java.util.Objects.requireNonNull;
 public class SetAuthorizationTask
         implements DataDefinitionTask<SetAuthorizationStatement>
 {
+    private final PlannerContext plannerContext;
     private final Metadata metadata;
     private final AccessControl accessControl;
 
     @Inject
-    public SetAuthorizationTask(Metadata metadata, AccessControl accessControl)
+    public SetAuthorizationTask(PlannerContext plannerContext, AccessControl accessControl)
     {
-        this.metadata = requireNonNull(metadata, "metadata is null");
+        this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
+        this.metadata = plannerContext.getMetadata();
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
     }
 
@@ -81,13 +84,13 @@ public class SetAuthorizationTask
         // Preprocess SCHEMA, TABLE and VIEW to generate error messages in the order compatible with existing tests
         switch (statement.getOwnedEntityKind()) {
             case "SCHEMA" -> {
-                CatalogSchemaName source = createCatalogSchemaName(session, statement, Optional.of(statement.getSource()));
+                CatalogSchemaName source = createCatalogSchemaName(session, statement, Optional.of(statement.getSource()), plannerContext);
                 if (!metadata.schemaExists(session, source)) {
                     throw semanticException(SCHEMA_NOT_FOUND, statement, "Schema '%s' does not exist", source);
                 }
             }
             case "TABLE" -> {
-                QualifiedObjectName tableName = new QualifiedObjectName(name.get(0), name.get(1), name.get(2));
+                QualifiedObjectName tableName = new QualifiedObjectName(name.get(0), name.get(1), name.get(2), Optional.empty());
                 getRequiredCatalogHandle(metadata, session, statement, name.get(0));
                 RedirectionAwareTableHandle redirection = metadata.getRedirectionAwareTableHandle(session, tableName);
                 if (redirection.tableHandle().isEmpty()) {
@@ -98,14 +101,14 @@ public class SetAuthorizationTask
                 }
             }
             case "VIEW" -> {
-                QualifiedObjectName viewName = new QualifiedObjectName(name.get(0), name.get(1), name.get(2));
+                QualifiedObjectName viewName = new QualifiedObjectName(name.get(0), name.get(1), name.get(2), Optional.empty());
                 getRequiredCatalogHandle(metadata, session, statement, viewName.catalogName());
                 if (!metadata.isView(session, viewName)) {
                     throw semanticException(TABLE_NOT_FOUND, statement, "View '%s' does not exist", viewName);
                 }
             }
             case "MATERIALIZED VIEW" -> {
-                QualifiedObjectName viewName = new QualifiedObjectName(name.get(0), name.get(1), name.get(2));
+                QualifiedObjectName viewName = new QualifiedObjectName(name.get(0), name.get(1), name.get(2), Optional.empty());
                 getRequiredCatalogHandle(metadata, session, statement, viewName.catalogName());
                 if (!metadata.isMaterializedView(session, viewName)) {
                     throw semanticException(TABLE_NOT_FOUND, statement, "Materialized view '%s' does not exist", viewName);

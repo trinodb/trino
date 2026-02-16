@@ -142,7 +142,7 @@ public class TestDropNotNullConstraintConstraintTask
 
     private ListenableFuture<Void> executeDropNotNullConstraint(QualifiedName table, Identifier column, boolean tableExists)
     {
-        return new DropNotNullConstraintTask(plannerContext.getMetadata(), new AllowAllAccessControl())
+        return new DropNotNullConstraintTask(plannerContext, new AllowAllAccessControl())
                 .execute(new DropNotNullConstraint(new NodeLocation(1, 1), table, column, tableExists), queryStateMachine, ImmutableList.of(), WarningCollector.NOOP);
     }
 

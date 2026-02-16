@@ -140,6 +140,7 @@ import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.QuantifiedComparisonExpression;
 import io.trino.sql.tree.QueryColumn;
 import io.trino.sql.tree.RangeQuantifier;
+import io.trino.sql.tree.Resolver;
 import io.trino.sql.tree.Row;
 import io.trino.sql.tree.RowPattern;
 import io.trino.sql.tree.SearchedCaseExpression;
@@ -701,9 +702,10 @@ public class ExpressionAnalyzer
         @Override
         protected Type visitRow(Row node, Context context)
         {
+            // FIXME: Row fields use now identifier canonicalized value
             List<RowType.Field> fields = node.getFields().stream()
                     .map(field -> new RowType.Field(
-                            field.getName().map(Identifier::getCanonicalValue),
+                            field.getName().map(Identifier::getCanonicalizedValue),
                             process(field.getExpression(), context)))
                     .collect(toImmutableList());
 
@@ -760,7 +762,8 @@ public class ExpressionAnalyzer
         @Override
         protected Type visitIdentifier(Identifier node, Context context)
         {
-            ResolvedField resolvedField = context.getScope().resolveField(node, QualifiedName.of(node.getValue()));
+            // FIXME: The plannerContext canonicalizer will be used to canonicalize QualifiedName
+            ResolvedField resolvedField = context.getScope().resolveField(node, QualifiedName.of(node.setResolver(plannerContext.getResolver(session))));
 
             if (context.isPatternRecognition()) {
                 labels.put(NodeRef.of(node), Optional.empty());
@@ -808,6 +811,9 @@ public class ExpressionAnalyzer
         @Override
         protected Type visitDereferenceExpression(DereferenceExpression node, Context context)
         {
+            // FIXME: If a node has an identifier, we must canonicalize it.
+            Optional<Resolver> resolver = plannerContext.getResolver(session);
+            node.getField().ifPresent(identifier -> identifier.setResolver(resolver));
             if (isQualifiedAllFieldsReference(node)) {
                 throw semanticException(NOT_SUPPORTED, node, "<identifier>.* not allowed in this context");
             }
@@ -816,6 +822,8 @@ public class ExpressionAnalyzer
 
             // If this Dereference looks like column reference, try match it to column first.
             if (qualifiedName != null) {
+                // FIXME: The plannerContext canonicalizer will be used to canonicalize QualifiedName
+                qualifiedName.resolveIdentifiers(resolver);
                 // In the context of row pattern matching, fields are optionally prefixed with labels. Labels are irrelevant during type analysis.
                 if (context.isPatternRecognition()) {
                     String label = label(qualifiedName.getOriginalParts().getFirst());
@@ -862,6 +870,7 @@ public class ExpressionAnalyzer
             }
 
             Identifier field = node.getField().orElseThrow();
+            // FIXME: field will bee compared case insensitive
             String fieldName = field.getValue();
 
             boolean foundFieldName = false;
@@ -2091,6 +2100,7 @@ public class ExpressionAnalyzer
 
         private String label(Identifier identifier)
         {
+            // return identifier.getCanonicalizedValue();
             return identifier.getCanonicalValue();
         }
 

@@ -81,4 +81,10 @@ public abstract class BaseSqlServerTransactionIsolationTest
         assertQuery("SELECT AVG(col) FROM insert_table", "SELECT 2.5");
         assertUpdate("DROP TABLE insert_table");
     }
+
+    @Override
+    protected String canonicalize(String value)
+    {
+        return value;
+    }
 }

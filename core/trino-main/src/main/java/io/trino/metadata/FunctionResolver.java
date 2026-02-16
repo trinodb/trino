@@ -299,6 +299,6 @@ public class FunctionResolver
         }
         return accessControl.canExecuteFunction(
                 SecurityContext.of(session),
-                new QualifiedObjectName(functionName.catalogName(), functionName.schemaName(), functionName.functionName()));
+                new QualifiedObjectName(functionName.catalogName(), functionName.schemaName(), functionName.functionName(), Optional.empty()));
     }
 }

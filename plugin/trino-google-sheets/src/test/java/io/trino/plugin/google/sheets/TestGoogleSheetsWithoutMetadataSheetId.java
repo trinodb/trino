@@ -18,6 +18,7 @@ import io.trino.testing.QueryRunner;
 import org.junit.jupiter.api.Test;
 
 import static io.trino.plugin.google.sheets.TestSheetsPlugin.DATA_SHEET_ID;
+import static java.util.Locale.ENGLISH;
 
 public class TestGoogleSheetsWithoutMetadataSheetId
         extends AbstractTestQueryFramework
@@ -29,6 +30,12 @@ public class TestGoogleSheetsWithoutMetadataSheetId
         return SheetsQueryRunner.builder()
                 .addConnectorProperty("gsheets.read-timeout", "1m")
                 .build();
+    }
+
+    @Override
+    protected String canonicalize(String value)
+    {
+        return value.toLowerCase(ENGLISH);
     }
 
     @Test

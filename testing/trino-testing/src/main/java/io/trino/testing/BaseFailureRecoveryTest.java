@@ -200,7 +200,7 @@ public abstract class BaseFailureRecoveryTest
     {
         testTableModification(
                 Optional.empty(),
-                "CREATE TABLE <table> AS SELECT * FROM orders",
+                "CREATE TABLE <table> AS SELECT * FROM \"orders\"",
                 Optional.of("DROP TABLE <table>"));
     }
 
@@ -208,8 +208,8 @@ public abstract class BaseFailureRecoveryTest
     protected void testInsert()
     {
         testTableModification(
-                Optional.of("CREATE TABLE <table> AS SELECT * FROM orders WITH NO DATA"),
-                "INSERT INTO <table> SELECT * FROM orders",
+                Optional.of("CREATE TABLE <table> AS SELECT * FROM \"orders\" WITH NO DATA"),
+                "INSERT INTO <table> SELECT * FROM \"orders\"",
                 Optional.of("DROP TABLE <table>"));
     }
 
@@ -217,8 +217,8 @@ public abstract class BaseFailureRecoveryTest
     protected void testDelete()
     {
         testTableModification(
-                Optional.of("CREATE TABLE <table> AS SELECT * FROM orders"),
-                "DELETE FROM <table> WHERE orderkey = 1",
+                Optional.of("CREATE TABLE <table> AS SELECT * FROM \"orders\""),
+                "DELETE FROM <table> WHERE \"orderkey\" = 1",
                 Optional.of("DROP TABLE <table>"));
     }
 
@@ -227,8 +227,8 @@ public abstract class BaseFailureRecoveryTest
     {
         testNonSelect(
                 Optional.empty(),
-                Optional.of("CREATE TABLE <table> AS SELECT * FROM orders"),
-                "DELETE FROM <table> WHERE custkey IN (SELECT custkey FROM customer WHERE nationkey = 1)",
+                Optional.of("CREATE TABLE <table> AS SELECT * FROM \"orders\""),
+                "DELETE FROM <table> WHERE \"custkey\" IN (SELECT \"custkey\" FROM \"customer\" WHERE \"nationkey\" = 1)",
                 Optional.of("DROP TABLE <table>"),
                 true,
                 Optional.of("orderkey"));
@@ -238,8 +238,8 @@ public abstract class BaseFailureRecoveryTest
     protected void testUpdate()
     {
         testTableModification(
-                Optional.of("CREATE TABLE <table> AS SELECT * FROM orders"),
-                "UPDATE <table> SET shippriority = 101 WHERE custkey = 1",
+                Optional.of("CREATE TABLE <table> AS SELECT * FROM \"orders\""),
+                "UPDATE <table> SET \"shippriority\" = 101 WHERE \"custkey\" = 1",
                 Optional.of("DROP TABLE <table>"));
     }
 
@@ -248,8 +248,8 @@ public abstract class BaseFailureRecoveryTest
     {
         testNonSelect(
                 Optional.empty(),
-                Optional.of("CREATE TABLE <table> AS SELECT * FROM orders"),
-                "UPDATE <table> SET shippriority = 101 WHERE custkey = (SELECT min(custkey) FROM customer)",
+                Optional.of("CREATE TABLE <table> AS SELECT * FROM \"orders\""),
+                "UPDATE <table> SET \"shippriority\" = 101 WHERE \"custkey\" = (SELECT min(\"custkey\") FROM \"customer\")",
                 Optional.of("DROP TABLE <table>"),
                 true,
                 Optional.of("orderkey"));
@@ -260,7 +260,7 @@ public abstract class BaseFailureRecoveryTest
     {
         testNonSelect(
                 Optional.empty(),
-                Optional.of("CREATE TABLE <table> AS SELECT * FROM orders"),
+                Optional.of("CREATE TABLE <table> AS SELECT * FROM \"orders\""),
                 "ANALYZE <table>",
                 Optional.of("DROP TABLE <table>"),
                 false);
@@ -271,14 +271,14 @@ public abstract class BaseFailureRecoveryTest
     {
         testNonSelect(
                 Optional.empty(),
-                Optional.of("CREATE TABLE <table> AS SELECT * FROM orders"),
+                Optional.of("CREATE TABLE <table> AS SELECT * FROM \"orders\""),
                 """
                 MERGE INTO <table> t
-                USING (SELECT orderkey, 'X' clerk FROM <table>) s
-                ON t.orderkey = s.orderkey
-                WHEN MATCHED AND s.orderkey > 1000
-                    THEN UPDATE SET clerk = t.clerk || s.clerk
-                WHEN MATCHED AND s.orderkey <= 1000
+                USING (SELECT "orderkey", 'X' "clerk" FROM <table>) s
+                ON t."orderkey" = s."orderkey"
+                WHEN MATCHED AND s."orderkey" > 1000
+                    THEN UPDATE SET "clerk" = t."clerk" || s."clerk"
+                WHEN MATCHED AND s."orderkey" <= 1000
                     THEN DELETE
                 """,
                 Optional.of("DROP TABLE <table>"),
@@ -290,7 +290,7 @@ public abstract class BaseFailureRecoveryTest
     protected void testRefreshMaterializedView()
     {
         testTableModification(
-                Optional.of("CREATE MATERIALIZED VIEW <table> AS SELECT * FROM orders"),
+                Optional.of("CREATE MATERIALIZED VIEW <table> AS SELECT * FROM \"orders\""),
                 "REFRESH MATERIALIZED VIEW <table>",
                 Optional.of("DROP MATERIALIZED VIEW <table>"));
     }
@@ -298,11 +298,11 @@ public abstract class BaseFailureRecoveryTest
     @Test
     protected void testExplainAnalyze()
     {
-        testSelect("EXPLAIN ANALYZE SELECT orderStatus, count(*) FROM orders GROUP BY orderStatus");
+        testSelect("EXPLAIN ANALYZE SELECT \"orderstatus\", count(*) FROM \"orders\" GROUP BY \"orderstatus\"");
 
         testTableModification(
-                Optional.of("CREATE TABLE <table> AS SELECT * FROM orders WITH NO DATA"),
-                "EXPLAIN ANALYZE INSERT INTO <table> SELECT * FROM orders",
+                Optional.of("CREATE TABLE <table> AS SELECT * FROM \"orders\" WITH NO DATA"),
+                "EXPLAIN ANALYZE INSERT INTO <table> SELECT * FROM \"orders\"",
                 Optional.of("DROP TABLE <table>"));
     }
 
@@ -310,8 +310,8 @@ public abstract class BaseFailureRecoveryTest
     protected void testRequestTimeouts()
     {
         if (areWriteRetriesSupported()) {
-            assertThatQuery("INSERT INTO <table> SELECT * FROM orders")
-                    .withSetupQuery(Optional.of("CREATE TABLE <table> AS SELECT * FROM orders WITH NO DATA"))
+            assertThatQuery("INSERT INTO <table> SELECT * FROM \"orders\"")
+                    .withSetupQuery(Optional.of("CREATE TABLE <table> AS SELECT * FROM \"orders\" WITH NO DATA"))
                     .withCleanupQuery(Optional.of("DROP TABLE <table>"))
                     .experiencing(TASK_GET_RESULTS_REQUEST_TIMEOUT)
                     .at(leafStage())
@@ -596,7 +596,11 @@ public abstract class BaseFailureRecoveryTest
         private ExecutionResult execute(Session session, String query, Optional<String> traceToken)
         {
             String tableName = "table_" + randomNameSuffix();
-            setup.ifPresent(sql -> getQueryRunner().execute(noRetries(session), resolveTableName(sql, tableName)));
+            if (setup.isPresent()) {
+                String sql = resolveTableName(setup.get(), tableName);
+                System.out.println("BaseFailureRecoveryTest.execute() sql: " + sql);
+                getQueryRunner().execute(noRetries(session), sql);
+            }
 
             primaryKey.ifPresent(key -> addPrimaryKeyForMergeTarget(session, tableName, key));
 

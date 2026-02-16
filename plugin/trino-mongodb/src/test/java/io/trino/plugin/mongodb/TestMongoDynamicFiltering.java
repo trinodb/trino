@@ -82,7 +82,7 @@ public class TestMongoDynamicFiltering
                 .setCatalogSessionProperty("mongodb", DYNAMIC_FILTERING_WAIT_TIMEOUT, "1s")
                 .build()
                 .beginTransactionId(transactionId, transactionManager, new AllowAllAccessControl());
-        QualifiedObjectName tableName = new QualifiedObjectName("mongodb", "tpch", "orders");
+        QualifiedObjectName tableName = new QualifiedObjectName("mongodb", "tpch", "orders", Optional.empty());
         Optional<TableHandle> tableHandle = runner.getPlannerContext().getMetadata().getTableHandle(session, tableName);
         assertThat(tableHandle).isPresent();
         CompletableFuture<Void> dynamicFilterBlocked = new CompletableFuture<>();

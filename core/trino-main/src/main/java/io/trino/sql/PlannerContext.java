@@ -16,17 +16,21 @@ package io.trino.sql;
 import com.google.common.base.Suppliers;
 import com.google.inject.Inject;
 import io.opentelemetry.api.trace.Tracer;
+import io.trino.Session;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.FunctionManager;
 import io.trino.metadata.FunctionResolver;
 import io.trino.metadata.LanguageFunctionManager;
 import io.trino.metadata.Metadata;
+import io.trino.metadata.ResolverManager;
 import io.trino.spi.block.BlockEncodingSerde;
 import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.TypeOperators;
 import io.trino.sql.ir.optimizer.IrExpressionEvaluator;
 import io.trino.sql.ir.optimizer.IrExpressionOptimizer;
+import io.trino.sql.tree.Resolver;
 
+import java.util.Optional;
 import java.util.function.Supplier;
 
 import static io.trino.sql.ir.optimizer.IrExpressionOptimizer.newOptimizer;
@@ -54,6 +58,7 @@ public class PlannerContext
     private final Supplier<IrExpressionOptimizer> expressionOptimizer = Suppliers.memoize(() -> newOptimizer(this));
     private final Supplier<IrExpressionEvaluator> expressionEvaluator = Suppliers.memoize(() -> new IrExpressionEvaluator(this));
     private final Supplier<IrExpressionOptimizer> partialEvaluator = Suppliers.memoize(() -> newPartialEvaluator(this));
+    private final ResolverManager resolverManager;
 
     @Inject
     public PlannerContext(Metadata metadata,
@@ -71,6 +76,7 @@ public class PlannerContext
         this.functionManager = requireNonNull(functionManager, "functionManager is null");
         this.languageFunctionManager = requireNonNull(languageFunctionManager, "languageFunctionManager is null");
         this.tracer = requireNonNull(tracer, "tracer is null");
+        this.resolverManager = new ResolverManager();
     }
 
     public Metadata getMetadata()
@@ -131,5 +137,30 @@ public class PlannerContext
     public Tracer getTracer()
     {
         return tracer;
+    }
+
+    public void setResolver(Session session, String catalog)
+    {
+        resolverManager.setResolver(session, catalog, metadata::getResolver);
+    }
+
+    public Resolver getResolver(Session session, String catalog)
+    {
+        return resolverManager.getResolver(session, catalog, metadata::getResolver);
+    }
+
+    public Optional<Resolver> getResolver(Session session)
+    {
+        return resolverManager.getResolver(session, metadata::getResolver);
+    }
+
+    public boolean isQueryResolved(Session session)
+    {
+        return resolverManager.hasSession(session);
+    }
+
+    public Optional<String> lastResolverName(Session session)
+    {
+        return resolverManager.lastResolverName(session);
     }
 }

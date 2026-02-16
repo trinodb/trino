@@ -17,8 +17,13 @@ import io.trino.Session;
 import io.trino.plugin.jdbc.BaseJdbcConnectorSmokeTest;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
+import org.junit.jupiter.api.Test;
+
+import java.util.regex.Pattern;
 
 import static io.trino.plugin.jdbc.JdbcWriteSessionProperties.NON_TRANSACTIONAL_MERGE;
+import static java.lang.String.format;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestMySqlGlobalTransactionMyConnectorSmokeTest
         extends BaseJdbcConnectorSmokeTest
@@ -56,5 +61,20 @@ public class TestMySqlGlobalTransactionMyConnectorSmokeTest
     protected String getCreateTableDefaultDefinition()
     {
         return "(a bigint NOT NULL, b double) WITH (primary_key = ARRAY['a'])";
+    }
+
+    @Test
+    @Override
+    public void testShowCreateTable()
+    {
+        assertThat((String) computeScalar("SHOW CREATE TABLE region"))
+                .matches(format(
+                        "CREATE TABLE %s.%s.region \\(\n" +
+                                "   regionkey (bigint|decimal\\(19, 0\\)),\n" +
+                                "   name varchar(\\(\\d+\\))?,\n" +
+                                "   comment varchar(\\(\\d+\\))?\n" +
+                                "\\)",
+                        Pattern.quote(getSession().getCatalog().orElseThrow()),
+                        Pattern.quote(getSession().getSchema().orElseThrow())));
     }
 }

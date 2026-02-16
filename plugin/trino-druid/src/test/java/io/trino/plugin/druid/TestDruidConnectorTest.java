@@ -98,6 +98,12 @@ public class TestDruidConnectorTest
     }
 
     @Override
+    protected String canonicalize(String value)
+    {
+        return value;
+    }
+
+    @Override
     protected SqlExecutor onRemoteDatabase()
     {
         return druidServer::execute;

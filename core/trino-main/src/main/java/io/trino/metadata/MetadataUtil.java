@@ -26,11 +26,13 @@ import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.security.PrincipalType;
 import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.type.Type;
+import io.trino.sql.PlannerContext;
 import io.trino.sql.tree.GrantorSpecification;
 import io.trino.sql.tree.Identifier;
 import io.trino.sql.tree.Node;
 import io.trino.sql.tree.PrincipalSpecification;
 import io.trino.sql.tree.QualifiedName;
+import io.trino.sql.tree.Resolver;
 
 import java.util.List;
 import java.util.Optional;
@@ -48,9 +50,9 @@ import static io.trino.spi.StandardErrorCode.ROLE_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.SYNTAX_ERROR;
 import static io.trino.spi.security.PrincipalType.ROLE;
 import static io.trino.spi.security.PrincipalType.USER;
+import static io.trino.sql.QueryUtil.identifier;
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
 import static java.lang.String.format;
-import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
 public final class MetadataUtil
@@ -60,41 +62,33 @@ public final class MetadataUtil
     public static void checkTableName(String catalogName, Optional<String> schemaName, Optional<String> tableName)
     {
         checkCatalogName(catalogName);
-        schemaName.ifPresent(name -> checkLowerCase(name, "schemaName"));
-        tableName.ifPresent(name -> checkLowerCase(name, "tableName"));
+        schemaName.ifPresent(name -> requireNonNull(name, "schemaName is null"));
+        tableName.ifPresent(name -> requireNonNull(name, "tableName is null"));
 
         checkArgument(schemaName.isPresent() || tableName.isEmpty(), "tableName specified but schemaName is missing");
     }
 
     public static String checkCatalogName(String catalogName)
     {
-        return checkLowerCase(catalogName, "catalogName");
+        return requireNonNull(catalogName, "catalogName is null");
     }
 
     public static String checkSchemaName(String schemaName)
     {
-        return checkLowerCase(schemaName, "schemaName");
+        return requireNonNull(schemaName, "schemaName is null");
     }
 
     public static String checkTableName(String tableName)
     {
-        return checkLowerCase(tableName, "tableName");
+        return requireNonNull(tableName, "tableName is null");
     }
 
-    public static void checkObjectName(String catalogName, String schemaName, String objectName)
+    public static void checkObjectName(String catalogName, String schemaName, String objectName, Optional<Resolver> resolver)
     {
-        checkLowerCase(catalogName, "catalogName");
-        checkLowerCase(schemaName, "schemaName");
-        checkLowerCase(objectName, "objectName");
-    }
-
-    public static String checkLowerCase(String value, String name)
-    {
-        if (value == null) {
-            throw new NullPointerException(format("%s is null", name));
-        }
-        checkArgument(value.equals(value.toLowerCase(ENGLISH)), "%s is not lowercase: %s", name, value);
-        return value;
+        requireNonNull(catalogName, "catalogName is null");
+        requireNonNull(schemaName, "schemaName is null");
+        requireNonNull(objectName, "objectName is null");
+        requireNonNull(resolver, "resolver is null");
     }
 
     public static ColumnMetadata findColumnMetadata(ConnectorTableMetadata tableMetadata, String columnName)
@@ -162,48 +156,131 @@ public final class MetadataUtil
         return name.stream().collect(Collectors.joining("."));
     }
 
-    public static CatalogSchemaName createCatalogSchemaName(Session session, Node node, Optional<QualifiedName> schema)
+    public static CatalogSchemaName createCatalogSchemaName(Session session, Node node, Optional<QualifiedName> schema, PlannerContext plannerContext)
     {
-        String catalogName = session.getCatalog().orElse(null);
-        String schemaName = session.getSchema().orElse(null);
-
-        if (schema.isPresent()) {
-            List<String> parts = schema.get().getParts();
-            if (parts.size() > 2) {
-                throw semanticException(SYNTAX_ERROR, node, "Too many parts in schema name: %s", schema.get());
-            }
-            if (parts.size() == 2) {
-                catalogName = parts.get(0);
-            }
-            schemaName = schema.get().getSuffix();
-        }
-
-        if (catalogName == null) {
-            throw semanticException(MISSING_CATALOG_NAME, node, "Catalog must be specified when session catalog is not set");
-        }
-        if (schemaName == null) {
-            throw semanticException(MISSING_SCHEMA_NAME, node, "Schema must be specified when session schema is not set");
-        }
-
-        return new CatalogSchemaName(catalogName, schemaName);
+        return createCatalogSchemaName(getCatalogSchemaIdentifiers(session, node, schema, plannerContext));
     }
 
-    public static QualifiedObjectName createQualifiedObjectName(Session session, Node node, QualifiedName name)
+    public static CatalogSchemaName createCatalogSchemaName(List<Identifier> identifiers)
+    {
+        return new CatalogSchemaName(identifiers.getFirst().getCanonicalizedValue(), identifiers.getLast().getCanonicalizedValue());
+    }
+
+    public static QualifiedObjectName createQualifiedObjectName(Session session, Node node, QualifiedName name, PlannerContext plannerContext)
+    {
+        return createQualifiedObjectName(getQualifiedObjectIdentifiers(session, node, name, plannerContext));
+    }
+
+    public static QualifiedObjectName createQualifiedObjectName(List<Identifier> identifiers)
+    {
+        requireNonNull(identifiers, "identifiers is null");
+        if (identifiers.size() < 3) {
+            throw new TrinoException(SYNTAX_ERROR, format("Not enough parts in table name: %s", identifiers.getLast().getValue()));
+        }
+
+        return new QualifiedObjectName(
+                identifiers.getFirst().getCanonicalizedValue(),
+                identifiers.get(1).getCanonicalizedValue(),
+                identifiers.get(2).getCanonicalizedValue(),
+                identifiers.getFirst().getResolver());
+    }
+
+    public static List<Identifier> getCatalogSchemaIdentifiers(Session session, Node node, Optional<QualifiedName> qualifiedName, PlannerContext plannerContext)
+    {
+        requireNonNull(plannerContext, "plannerContext is null");
+        Resolver resolver = null;
+        Identifier catalog = null;
+        Identifier schema = null;
+
+        if (qualifiedName.isPresent()) {
+            List<Identifier> parts = qualifiedName.get().getOriginalParts();
+            if (parts.size() > 2) {
+                throw semanticException(SYNTAX_ERROR, node, "Too many parts in schema name: %s", qualifiedName.get());
+            }
+            if (parts.size() == 2) {
+                catalog = parts.getFirst().asCatalog();
+                resolver = getResolver(session, plannerContext, catalog.getCanonicalizedValue());
+                catalog.setResolver(resolver);
+            }
+            schema = parts.getLast();
+        }
+
+        if (catalog == null) {
+            String currentCatalog = getSessionCatalog(session, node);
+            resolver = getResolver(session, plannerContext, currentCatalog);
+            catalog = getCatalogIdentifier(resolver, currentCatalog);
+        }
+
+        if (qualifiedName.isPresent()) {
+            qualifiedName.get().resolveIdentifiers(resolver);
+        }
+        if (schema == null) {
+            schema = getSessionSchemaIdentifier(session, node, resolver);
+        }
+        else {
+            schema.setResolver(resolver);
+        }
+        return ImmutableList.of(catalog, schema);
+    }
+
+    public static List<Identifier> getQualifiedObjectIdentifiers(Session session, Node node, QualifiedName name, PlannerContext plannerContext)
     {
         requireNonNull(session, "session is null");
         requireNonNull(name, "name is null");
-        if (name.getParts().size() > 3) {
+        if (name.getOriginalParts().size() > 3) {
             throw new TrinoException(SYNTAX_ERROR, format("Too many dots in table name: %s", name));
         }
 
-        List<String> parts = name.getParts().reversed();
-        String objectName = parts.get(0);
-        String schemaName = (parts.size() > 1) ? parts.get(1) : session.getSchema().orElseThrow(() ->
-                semanticException(MISSING_SCHEMA_NAME, node, "Schema must be specified when session schema is not set"));
-        String catalogName = (parts.size() > 2) ? parts.get(2) : session.getCatalog().orElseThrow(() ->
-                semanticException(MISSING_CATALOG_NAME, node, "Catalog must be specified when session catalog is not set"));
+        List<Identifier> identifiers = name.getOriginalParts().reversed();
+        ImmutableList.Builder<Identifier> partsBuilder = ImmutableList.builder();
+        Identifier catalog;
+        Resolver resolver;
+        if (identifiers.size() > 2) {
+            catalog = identifiers.get(2).asCatalog();
+            resolver = getResolver(session, plannerContext, catalog.getCanonicalizedValue());
+        }
+        else {
+            String currentCatalog = getSessionCatalog(session, node);
+            resolver = getResolver(session, plannerContext, currentCatalog);
+            catalog = getCatalogIdentifier(resolver, currentCatalog);
+        }
+        partsBuilder.add(catalog);
+        name.resolveIdentifiers(resolver);
+        Identifier schema;
+        if (identifiers.size() > 1) {
+            schema = new Identifier(identifiers.get(1), Optional.of(resolver));
+        }
+        else {
+            schema = getSessionSchemaIdentifier(session, node, resolver);
+        }
+        partsBuilder.add(schema);
+        partsBuilder.add(new Identifier(identifiers.getFirst(), Optional.of(resolver)));
+        return partsBuilder.build();
+    }
 
-        return new QualifiedObjectName(catalogName, schemaName, objectName);
+    public static String getSessionCatalog(Session session, Node node)
+    {
+        return session.getCatalog().orElseThrow(() ->
+                semanticException(MISSING_CATALOG_NAME, node, "Catalog must be specified when session catalog is not set"));
+    }
+
+    public static Resolver getResolver(Session session, PlannerContext plannerContext, String catalog)
+    {
+        return plannerContext.getResolver(session, catalog);
+    }
+
+    private static Identifier getCatalogIdentifier(Resolver resolver, String catalog)
+    {
+        return new Identifier(catalog, false, true, resolver);
+    }
+
+    private static Identifier getSessionSchemaIdentifier(Session session, Node node, Resolver resolver)
+    {
+        if (session.getSchema().isEmpty()) {
+            throw semanticException(MISSING_SCHEMA_NAME, node, "Schema must be specified when session schema is not set");
+        }
+        String schema = session.getSchema().get();
+        return new Identifier(schema, resolver.predicate(schema), false, resolver);
     }
 
     public static EntityKindAndName createEntityKindAndName(String entityKind, QualifiedName name)
@@ -235,8 +312,8 @@ public final class MetadataUtil
     {
         PrincipalType type = principal.getType();
         return switch (type) {
-            case USER -> new PrincipalSpecification(PrincipalSpecification.Type.USER, new Identifier(principal.getName()));
-            case ROLE -> new PrincipalSpecification(PrincipalSpecification.Type.ROLE, new Identifier(principal.getName()));
+            case USER -> new PrincipalSpecification(PrincipalSpecification.Type.USER, identifier(principal.getName()));
+            case ROLE -> new PrincipalSpecification(PrincipalSpecification.Type.ROLE, identifier(principal.getName()));
         };
     }
 
@@ -245,7 +322,7 @@ public final class MetadataUtil
         if (session.getCatalog().isEmpty() || session.getSchema().isEmpty()) {
             return false;
         }
-        QualifiedObjectName name = new QualifiedObjectName(session.getCatalog().get(), session.getSchema().get(), table);
+        QualifiedObjectName name = new QualifiedObjectName(session.getCatalog().get(), session.getSchema().get(), table, Optional.empty());
         return metadata.getTableHandle(session, name).isPresent();
     }
 

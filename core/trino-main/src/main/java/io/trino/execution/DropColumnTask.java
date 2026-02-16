@@ -28,12 +28,17 @@ import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
+import io.trino.sql.PlannerContext;
 import io.trino.sql.tree.DropColumn;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.Identifier;
+import io.trino.sql.tree.Resolver;
 
+import java.util.AbstractMap;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 import static com.google.common.base.Verify.verifyNotNull;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -49,13 +54,15 @@ import static java.util.Objects.requireNonNull;
 public class DropColumnTask
         implements DataDefinitionTask<DropColumn>
 {
+    private final PlannerContext plannerContext;
     private final Metadata metadata;
     private final AccessControl accessControl;
 
     @Inject
-    public DropColumnTask(Metadata metadata, AccessControl accessControl)
+    public DropColumnTask(PlannerContext plannerContext, AccessControl accessControl)
     {
-        this.metadata = requireNonNull(metadata, "metadata is null");
+        this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
+        this.metadata = plannerContext.getMetadata();
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
     }
 
@@ -73,7 +80,7 @@ public class DropColumnTask
             WarningCollector warningCollector)
     {
         Session session = stateMachine.getSession();
-        QualifiedObjectName tableName = createQualifiedObjectName(session, statement, statement.getTable());
+        QualifiedObjectName tableName = createQualifiedObjectName(session, statement, statement.getTable(), plannerContext);
         RedirectionAwareTableHandle redirectionAwareTableHandle = metadata.getRedirectionAwareTableHandle(session, tableName);
         if (redirectionAwareTableHandle.tableHandle().isEmpty()) {
             if (!statement.isTableExists()) {
@@ -83,21 +90,26 @@ public class DropColumnTask
         }
         TableHandle tableHandle = redirectionAwareTableHandle.tableHandle().get();
 
-        // Use getParts method because the column name should be lowercase
-        String column = statement.getField().getParts().get(0);
+        // Use getCanonicalizedValue method because the columnName should be canonicalized
+        Resolver resolver = plannerContext.getResolver(session, tableName.catalogName());
+        String columnName = statement.getField().resolveIdentifiers(statement.getTable().getResolver()).getOriginalParts().getFirst().getCanonicalizedValue();
 
-        QualifiedObjectName qualifiedTableName = redirectionAwareTableHandle.redirectedTableName().orElse(tableName);
+        QualifiedObjectName qualifiedTableName = redirectionAwareTableHandle.redirectedTableName().map(r -> r.asResolvedQualifiedObjectName(tableName.resolver())).orElse(tableName);
         accessControl.checkCanDropColumn(session.toSecurityContext(), qualifiedTableName);
 
-        ColumnHandle columnHandle = metadata.getColumnHandles(session, tableHandle).get(column);
+        Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(session, tableHandle).entrySet().stream()
+                .map(entry -> new AbstractMap.SimpleEntry<>(resolver.compare(entry.getKey(), Identifier.COLUMN), entry.getValue()))
+                .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+
+        ColumnHandle columnHandle = columnHandles.get(resolver.compare(columnName, Identifier.COLUMN));
         if (columnHandle == null) {
             if (!statement.isColumnExists()) {
-                throw semanticException(COLUMN_NOT_FOUND, statement, "Column '%s' does not exist", column);
+                throw semanticException(COLUMN_NOT_FOUND, statement, "Column '%s' does not exist", resolver.compare(columnName, Identifier.COLUMN));
             }
             return immediateVoidFuture();
         }
 
-        // Use getOriginalParts method because field names in row types are case-sensitive
+        // Use getValue method because field names in row types are case-sensitive
         List<String> fieldPath = statement.getField().getOriginalParts().subList(1, statement.getField().getOriginalParts().size()).stream()
                 .map(Identifier::getValue)
                 .collect(toImmutableList());

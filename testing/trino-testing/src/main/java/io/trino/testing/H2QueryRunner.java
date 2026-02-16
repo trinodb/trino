@@ -86,7 +86,6 @@ import static io.trino.tpch.TpchTable.REGION;
 import static io.trino.type.JsonType.JSON;
 import static io.trino.type.UnknownType.UNKNOWN;
 import static java.lang.Math.toIntExact;
-import static java.lang.String.format;
 import static java.math.RoundingMode.HALF_UP;
 import static java.util.Collections.nCopies;
 
@@ -97,83 +96,91 @@ public class H2QueryRunner
 
     public H2QueryRunner()
     {
+        // FIXME: If we want to have lowercase table and column name we must use delimited identifier with H2
         handle = Jdbi.open("jdbc:h2:mem:test" + System.nanoTime() + ThreadLocalRandom.current().nextLong() + ";NON_KEYWORDS=KEY,VALUE"); // key and value are reserved keywords in H2 2.x
         TpchMetadata tpchMetadata = new TpchMetadata();
 
-        handle.execute("CREATE TABLE orders (\n" +
-                "  orderkey BIGINT PRIMARY KEY,\n" +
-                "  custkey BIGINT NOT NULL,\n" +
-                "  orderstatus VARCHAR(1) NOT NULL,\n" +
-                "  totalprice DOUBLE NOT NULL,\n" +
-                "  orderdate DATE NOT NULL,\n" +
-                "  orderpriority VARCHAR(15) NOT NULL,\n" +
-                "  clerk VARCHAR(15) NOT NULL,\n" +
-                "  shippriority INTEGER NOT NULL,\n" +
-                "  comment VARCHAR(79) NOT NULL\n" +
-                ")");
-        handle.execute("CREATE INDEX custkey_index ON orders (custkey)");
+        handle.execute("""
+                CREATE TABLE "orders" (
+                  "orderkey" BIGINT PRIMARY KEY,
+                  "custkey" BIGINT NOT NULL,
+                  "orderstatus" VARCHAR(1) NOT NULL,
+                  "totalprice" DOUBLE NOT NULL,
+                  "orderdate" DATE NOT NULL,
+                  "orderpriority" VARCHAR(15) NOT NULL,
+                  "clerk" VARCHAR(15) NOT NULL,
+                  "shippriority" INTEGER NOT NULL,
+                  "comment" VARCHAR(79) NOT NULL
+                )""");
+        handle.execute("""
+                CREATE INDEX "custkey_index" ON "orders" ("custkey")""");
         insertRows(tpchMetadata, ORDERS);
 
-        handle.execute("CREATE TABLE lineitem (\n" +
-                "  orderkey BIGINT,\n" +
-                "  partkey BIGINT NOT NULL,\n" +
-                "  suppkey BIGINT NOT NULL,\n" +
-                "  linenumber INTEGER,\n" +
-                "  quantity DOUBLE NOT NULL,\n" +
-                "  extendedprice DOUBLE NOT NULL,\n" +
-                "  discount DOUBLE NOT NULL,\n" +
-                "  tax DOUBLE NOT NULL,\n" +
-                "  returnflag CHAR(1) NOT NULL,\n" +
-                "  linestatus CHAR(1) NOT NULL,\n" +
-                "  shipdate DATE NOT NULL,\n" +
-                "  commitdate DATE NOT NULL,\n" +
-                "  receiptdate DATE NOT NULL,\n" +
-                "  shipinstruct VARCHAR(25) NOT NULL,\n" +
-                "  shipmode VARCHAR(10) NOT NULL,\n" +
-                "  comment VARCHAR(44) NOT NULL,\n" +
-                "  PRIMARY KEY (orderkey, linenumber)" +
-                ")");
+        handle.execute("""
+                CREATE TABLE "lineitem" (
+                  "orderkey" BIGINT,
+                  "partkey" BIGINT NOT NULL,
+                  "suppkey" BIGINT NOT NULL,
+                  "linenumber" INTEGER,
+                  "quantity" DOUBLE NOT NULL,
+                  "extendedprice" DOUBLE NOT NULL,
+                  "discount" DOUBLE NOT NULL,
+                  "tax" DOUBLE NOT NULL,
+                  "returnflag" CHAR(1) NOT NULL,
+                  "linestatus" CHAR(1) NOT NULL,
+                  "shipdate" DATE NOT NULL,
+                  "commitdate" DATE NOT NULL,
+                  "receiptdate" DATE NOT NULL,
+                  "shipinstruct" VARCHAR(25) NOT NULL,
+                  "shipmode" VARCHAR(10) NOT NULL,
+                  "comment" VARCHAR(44) NOT NULL,
+                  PRIMARY KEY ("orderkey", "linenumber")
+                )""");
         insertRows(tpchMetadata, LINE_ITEM);
 
-        handle.execute("CREATE TABLE nation (\n" +
-                "  nationkey BIGINT PRIMARY KEY,\n" +
-                "  name VARCHAR(25) NOT NULL,\n" +
-                "  regionkey BIGINT NOT NULL,\n" +
-                "  comment VARCHAR(114) NOT NULL\n" +
-                ")");
+        handle.execute("""
+                CREATE TABLE "nation" (
+                  "nationkey" BIGINT PRIMARY KEY,
+                  "name" VARCHAR(25) NOT NULL,
+                  "regionkey" BIGINT NOT NULL,
+                  "comment" VARCHAR(114) NOT NULL
+                )""");
         insertRows(tpchMetadata, NATION);
 
-        handle.execute("CREATE TABLE region(\n" +
-                "  regionkey BIGINT PRIMARY KEY,\n" +
-                "  name VARCHAR(25) NOT NULL,\n" +
-                "  comment VARCHAR(115) NOT NULL\n" +
-                ")");
+        handle.execute("""
+                CREATE TABLE "region" (
+                  "regionkey" BIGINT PRIMARY KEY,
+                  "name" VARCHAR(25) NOT NULL,
+                  "comment" VARCHAR(115) NOT NULL
+                )""");
         insertRows(tpchMetadata, REGION);
 
-        handle.execute("CREATE TABLE part(\n" +
-                "  partkey BIGINT PRIMARY KEY,\n" +
-                "  name VARCHAR(55) NOT NULL,\n" +
-                "  mfgr VARCHAR(25) NOT NULL,\n" +
-                "  brand VARCHAR(10) NOT NULL,\n" +
-                "  type VARCHAR(25) NOT NULL,\n" +
-                "  size INTEGER NOT NULL,\n" +
-                "  container VARCHAR(10) NOT NULL,\n" +
-                "  retailprice DOUBLE NOT NULL,\n" +
-                "  comment VARCHAR(23) NOT NULL\n" +
-                ")");
+        handle.execute("""
+                CREATE TABLE "part" (
+                  "partkey" BIGINT PRIMARY KEY,
+                  "name" VARCHAR(55) NOT NULL,
+                  "mfgr" VARCHAR(25) NOT NULL,
+                  "brand" VARCHAR(10) NOT NULL,
+                  "type" VARCHAR(25) NOT NULL,
+                  "size" INTEGER NOT NULL,
+                  "container" VARCHAR(10) NOT NULL,
+                  "retailprice" DOUBLE NOT NULL,
+                  "comment" VARCHAR(23) NOT NULL
+                )""");
         insertRows(tpchMetadata, PART);
 
-        handle.execute("CREATE TABLE customer (\n" +
-                "  custkey BIGINT NOT NULL,\n" +
-                "  name VARCHAR(25) NOT NULL,\n" +
-                "  address VARCHAR(40) NOT NULL,\n" +
-                "  nationkey BIGINT NOT NULL,\n" +
-                "  phone VARCHAR(15) NOT NULL,\n" +
-                "  acctbal DOUBLE NOT NULL,\n" +
-                "  mktsegment VARCHAR(10) NOT NULL,\n" +
-                "  comment VARCHAR(117) NOT NULL,\n" +
-                "  PRIMARY KEY (custkey)" +
-                ")");
+        handle.execute("""
+                CREATE TABLE "customer" (
+                  "custkey" BIGINT NOT NULL,
+                  "name" VARCHAR(25) NOT NULL,
+                  "address" VARCHAR(40) NOT NULL,
+                  "nationkey" BIGINT NOT NULL,
+                  "phone" VARCHAR(15) NOT NULL,
+                  "acctbal" DOUBLE NOT NULL,
+                  "mktsegment" VARCHAR(10) NOT NULL,
+                  "comment" VARCHAR(117) NOT NULL,
+                  PRIMARY KEY ("custkey")
+                )""");
         insertRows(tpchMetadata, CUSTOMER);
     }
 
@@ -401,7 +408,8 @@ public class H2QueryRunner
                 .collect(toImmutableList());
 
         String vars = Joiner.on(',').join(nCopies(columns.size(), "?"));
-        String sql = format("INSERT INTO %s VALUES (%s)", tableMetadata.getTable().getTableName(), vars);
+        String sql = """
+                INSERT INTO "%s" VALUES (%s)""".formatted(tableMetadata.getTable().getTableName(), vars);
 
         RecordCursor cursor = data.cursor();
         while (true) {

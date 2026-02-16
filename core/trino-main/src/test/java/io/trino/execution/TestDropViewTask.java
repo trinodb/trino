@@ -110,6 +110,6 @@ public class TestDropViewTask
 
     private ListenableFuture<Void> executeDropView(QualifiedName viewName, boolean exists)
     {
-        return new DropViewTask(metadata, new AllowAllAccessControl()).execute(new DropView(new NodeLocation(1, 1), viewName, exists), queryStateMachine, ImmutableList.of(), WarningCollector.NOOP);
+        return new DropViewTask(plannerContext, new AllowAllAccessControl()).execute(new DropView(new NodeLocation(1, 1), viewName, exists), queryStateMachine, ImmutableList.of(), WarningCollector.NOOP);
     }
 }

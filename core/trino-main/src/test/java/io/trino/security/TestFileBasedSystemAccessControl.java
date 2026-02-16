@@ -75,13 +75,13 @@ public class TestFileBasedSystemAccessControl
     private static final Identity admin = Identity.forUser("alberto").withEnabledRoles(ImmutableSet.of("admin")).build();
     private static final Identity nonAsciiUser = Identity.forUser("\u0194\u0194\u0194").withGroups(ImmutableSet.of("\u0194\u0194\u0194")).build();
     private static final Set<String> allCatalogs = ImmutableSet.of("secret", "open-to-all", "all-allowed", "alice-catalog", "\u0200\u0200\u0200", "staff-catalog");
-    private static final QualifiedObjectName aliceTable = new QualifiedObjectName("alice-catalog", "schema", "table");
-    private static final QualifiedObjectName aliceView = new QualifiedObjectName("alice-catalog", "schema", "view");
-    private static final QualifiedObjectName aliceMaterializedView = new QualifiedObjectName("alice-catalog", "schema", "materialized-view");
+    private static final QualifiedObjectName aliceTable = new QualifiedObjectName("alice-catalog", "schema", "table", Optional.empty());
+    private static final QualifiedObjectName aliceView = new QualifiedObjectName("alice-catalog", "schema", "view", Optional.empty());
+    private static final QualifiedObjectName aliceMaterializedView = new QualifiedObjectName("alice-catalog", "schema", "materialized-view", Optional.empty());
     private static final CatalogSchemaName aliceSchema = new CatalogSchemaName("alice-catalog", "schema");
-    private static final QualifiedObjectName staffTable = new QualifiedObjectName("staff-catalog", "schema2", "table");
-    private static final QualifiedObjectName staffView = new QualifiedObjectName("staff-catalog", "schema2", "view");
-    private static final QualifiedObjectName staffMaterializedView = new QualifiedObjectName("staff-catalog", "schema2", "materialized-view");
+    private static final QualifiedObjectName staffTable = new QualifiedObjectName("staff-catalog", "schema2", "table", Optional.empty());
+    private static final QualifiedObjectName staffView = new QualifiedObjectName("staff-catalog", "schema2", "view", Optional.empty());
+    private static final QualifiedObjectName staffMaterializedView = new QualifiedObjectName("staff-catalog", "schema2", "materialized-view", Optional.empty());
     private static final QueryId queryId = new QueryId("query_id");
     private static final Instant queryStart = Instant.now();
 

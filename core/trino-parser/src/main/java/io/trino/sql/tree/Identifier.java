@@ -29,6 +29,12 @@ import static java.util.Objects.requireNonNull;
 public class Identifier
         extends Expression
 {
+    public static final int UNKNOW = 0;
+    public static final int CATALOG = 1;
+    public static final int SCHEMA = 2;
+    public static final int TABLE = 3;
+    public static final int COLUMN = 4;
+
     private static final CharMatcher FIRST_CHAR_DISALLOWED_MATCHER = CharMatcher.inRange('0', '9')
             .precomputed();
 
@@ -41,26 +47,44 @@ public class Identifier
     private final String value;
     private final boolean delimited;
 
-    public Identifier(NodeLocation location, String value, boolean delimited)
+    // FIXME: resolver has been added to Identifier
+    private Optional<Resolver> resolver;
+    private int canonicalizeCount;
+    private boolean isCatalog;
+
+    public Identifier(Identifier identifier, Optional<Resolver> resolver)
     {
-        this(Optional.of(location), value, delimited);
+        this(identifier.getLocation(), identifier.getValue(), identifier.isDelimited(), identifier.isCatalog(), resolver);
     }
 
-    public Identifier(String value, boolean delimited)
+    // FIXME: new constructor for catalog and schema session
+    public Identifier(String value, boolean delimited, boolean isCatalog, Resolver resolver)
     {
-        this(Optional.empty(), value, delimited);
+        this(Optional.empty(), value, delimited, isCatalog, Optional.of(resolver));
+    }
+
+    public Identifier(NodeLocation location, String value, boolean delimited)
+    {
+        this(Optional.of(location), value, delimited, false, Optional.empty());
     }
 
     public Identifier(String value)
     {
-        this(Optional.empty(), value, !isValidIdentifier(value));
+        this(value, requiresDelimiter(value));
     }
 
-    private Identifier(Optional<NodeLocation> location, String value, boolean delimited)
+    public Identifier(String value, boolean delimited)
+    {
+        this(Optional.empty(), value, delimited, false, Optional.empty());
+    }
+
+    private Identifier(Optional<NodeLocation> location, String value, boolean delimited, boolean isCatalog, Optional<Resolver> resolver)
     {
         super(location);
         this.value = requireNonNull(value, "value is null");
         this.delimited = delimited;
+        this.isCatalog = isCatalog;
+        this.resolver = requireNonNull(resolver, "resolver is null");
 
         checkArgument(!value.isEmpty(), "value is empty");
         checkArgument(delimited || isValidIdentifier(value), "value contains illegal characters: %s", value);
@@ -73,15 +97,64 @@ public class Identifier
 
     public boolean isDelimited()
     {
+        //return !catalog && predicator.map(predicate -> predicate.test(value)).orElse(delimited);
         return delimited;
+    }
+
+    public boolean isCatalog()
+    {
+        return isCatalog;
+    }
+
+    public Optional<Resolver> getResolver()
+    {
+        return resolver;
+    }
+
+    public Identifier setResolver(Resolver resolver)
+    {
+        return setResolver(Optional.of(resolver));
+    }
+
+    public Identifier setResolver(Optional<Resolver> resolver)
+    {
+        this.resolver = resolver;
+        return this;
+    }
+
+    public Identifier asCatalog()
+    {
+        isCatalog = true;
+        return this;
+    }
+
+    public boolean isResolved()
+    {
+        return resolver.isPresent();
+    }
+
+    public int getCanonicalizeCount()
+    {
+        return canonicalizeCount;
+    }
+
+    public String getCanonicalizedValue()
+    {
+        if (!isCatalog) {
+            if (resolver.isPresent()) {
+                return resolver.get().canonicalize(value, delimited);
+            }
+            return value;
+        }
+        return value.toLowerCase(ENGLISH);
     }
 
     public String getCanonicalValue()
     {
-        if (isDelimited()) {
+        // FIXME: The SQL canonicalizer is used by queries executed in the system.query.* namespace
+        if (delimited) {
             return value;
         }
-
         return value.toUpperCase(ENGLISH);
     }
 
@@ -106,7 +179,7 @@ public class Identifier
         if (o == null || getClass() != o.getClass()) {
             return false;
         }
-
+        // FIXME: To follow PR#28331 Does we need to change this equality check to handle canonicalized value?
         Identifier that = (Identifier) o;
         return Objects.equals(value, that.value);
     }
@@ -123,12 +196,12 @@ public class Identifier
         if (!sameClass(this, other)) {
             return false;
         }
-
+        // FIXME: To follow PR#28331 Does we need to change this equality check to handle canonicalized value?
         Identifier that = (Identifier) other;
         return Objects.equals(value, that.value) && delimited == that.delimited;
     }
 
-    private static boolean isValidIdentifier(String value)
+    public static boolean isValidIdentifier(String value)
     {
         verify(!Strings.isNullOrEmpty(value), "Identifier cannot be empty or null");
 
@@ -139,5 +212,10 @@ public class Identifier
         // We've already checked that first char does not contain digits,
         // so to avoid copying we are checking whole string.
         return ALLOWED_CHARS_MATCHER.matchesAllOf(value);
+    }
+
+    public static boolean requiresDelimiter(String value)
+    {
+        return !isValidIdentifier(value);
     }
 }

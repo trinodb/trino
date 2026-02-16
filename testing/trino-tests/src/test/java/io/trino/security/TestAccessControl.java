@@ -1422,7 +1422,7 @@ public class TestAccessControl
         TestingAccessControlManager accessControlManager = getQueryRunner().getAccessControl();
         accessControlManager.denyIdentityTable((identity, table) -> (identity.getGroups().contains("group") && "orders".equals(table)));
         accessControlManager.columnMask(
-                new QualifiedObjectName("blackhole", "default", "orders"),
+                new QualifiedObjectName("blackhole", "default", "orders", Optional.empty()),
                 "comment",
                 getSession().getUser(),
                 ViewExpression.builder().expression("substr(comment,1,3)").build());
@@ -1439,7 +1439,7 @@ public class TestAccessControl
         TestingAccessControlManager accessControlManager = getQueryRunner().getAccessControl();
         accessControlManager.denyIdentityTable((identity, table) -> (identity.getGroups().contains("group") && "nation".equals(table)));
         accessControlManager.rowFilter(
-                new QualifiedObjectName("blackhole", "default", "nation"),
+                new QualifiedObjectName("blackhole", "default", "nation", Optional.empty()),
                 getSession().getUser(),
                 ViewExpression.builder().expression("nationkey % 2 = 0").build());
 
@@ -1462,7 +1462,7 @@ public class TestAccessControl
         TestingAccessControlManager accessControlManager = getQueryRunner().getAccessControl();
         accessControlManager.denyIdentityTable((identity, table) -> (identity.getEnabledRoles().contains(role) && "orders".equals(table)));
         accessControlManager.columnMask(
-                new QualifiedObjectName("blackhole", "default", "orders"),
+                new QualifiedObjectName("blackhole", "default", "orders", Optional.empty()),
                 "comment",
                 getSession().getUser(),
                 ViewExpression.builder().expression("substr(comment,1,3)").build());
@@ -1486,7 +1486,7 @@ public class TestAccessControl
         TestingAccessControlManager accessControlManager = getQueryRunner().getAccessControl();
         accessControlManager.denyIdentityTable((identity, table) -> (identity.getEnabledRoles().contains(role) && "nation".equals(table)));
         accessControlManager.rowFilter(
-                new QualifiedObjectName("blackhole", "default", "nation"),
+                new QualifiedObjectName("blackhole", "default", "nation", Optional.empty()),
                 getSession().getUser(),
                 ViewExpression.builder().expression("nationkey % 2 = 0").build());
 

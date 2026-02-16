@@ -174,12 +174,12 @@ public abstract class BaseAutomaticJoinPushdownTest
 
     private TestTable joinTestTable(String name, long rowsCount, int keyDistinctValues)
     {
-        String sourceTable = "tpch.tiny.orders";
+        String sourceTable = "tpch.\"tiny\".\"orders\"";
         checkArgument(rowsCount < ((long) computeScalar("SELECT count(*) FROM " + sourceTable)), "rowsCount too high: %s", rowsCount);
         String padding = "x".repeat(50);
         return newTrinoTable(
                 name,
-                format("(key, padding, intpadding) AS SELECT mod(orderkey, %s), '%s', orderkey FROM %s ORDER BY orderkey LIMIT %s", keyDistinctValues, padding, sourceTable, rowsCount));
+                format("(\"key\", \"padding\", \"intpadding\") AS SELECT mod(\"orderkey\", %s), '%s', \"orderkey\" FROM %s ORDER BY \"orderkey\" LIMIT %s", keyDistinctValues, padding, sourceTable, rowsCount));
     }
 
     protected abstract void gatherStats(String tableName);

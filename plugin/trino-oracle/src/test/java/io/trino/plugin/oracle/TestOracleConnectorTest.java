@@ -64,7 +64,7 @@ public class TestOracleConnectorTest
         String longInClauses = range(0, 10)
                 .mapToObj(value -> getLongInClause(value * 1_000, 1_000))
                 .collect(joining(" OR "));
-        onRemoteDatabase().execute(format("SELECT count(*) FROM %s.orders WHERE %s", TEST_SCHEMA, longInClauses));
+        onRemoteDatabase().execute(format("SELECT count(*) FROM %s.\"orders\" WHERE %s", TEST_SCHEMA, longInClauses));
     }
 
     private String getLongInClause(int start, int length)
@@ -72,7 +72,7 @@ public class TestOracleConnectorTest
         String longValues = range(start, start + length)
                 .mapToObj(Integer::toString)
                 .collect(joining(", "));
-        return "orderkey IN (" + longValues + ")";
+        return "\"orderkey\" IN (" + longValues + ")";
     }
 
     @Override
@@ -92,5 +92,33 @@ public class TestOracleConnectorTest
                 oracleServer.execute(sql);
             }
         };
+    }
+
+    @Override
+    protected String getCreateTableMixedCaseUnDelimited(String catalog, String schema, String table)
+    {
+        return format("""
+                        CREATE TABLE %s.%s.%s (
+                           COLUMN_A decimal(19, 0),
+                           COLUMN_B double
+                        )\
+                        """,
+                catalog,
+                schema,
+                table);
+    }
+
+    @Override
+    protected String getCreateTableMixedCaseDelimited(String catalog, String schema, String table)
+    {
+        return format("""
+                        CREATE TABLE %s.%s."%s" (
+                           "Column A" decimal(19, 0),
+                           "Column B" double
+                        )\
+                        """,
+                catalog,
+                schema,
+                table);
     }
 }

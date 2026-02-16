@@ -510,15 +510,15 @@ public class ExtractSpatialJoins
     {
         List<String> ids = ImmutableList.copyOf(Splitter.on('.').split(name));
         if (ids.size() == 3) {
-            return new QualifiedObjectName(ids.get(0), ids.get(1), ids.get(2));
+            return new QualifiedObjectName(ids.get(0), ids.get(1), ids.get(2), Optional.empty());
         }
 
         if (ids.size() == 2) {
-            return new QualifiedObjectName(catalog, ids.get(0), ids.get(1));
+            return new QualifiedObjectName(catalog, ids.get(0), ids.get(1), Optional.empty());
         }
 
         if (ids.size() == 1) {
-            return new QualifiedObjectName(catalog, schema, ids.get(0));
+            return new QualifiedObjectName(catalog, schema, ids.get(0), Optional.empty());
         }
 
         throw new TrinoException(INVALID_SPATIAL_PARTITIONING, format("Invalid name: %s", name));

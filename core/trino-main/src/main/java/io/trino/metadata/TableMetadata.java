@@ -19,6 +19,7 @@ import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.SchemaTableName;
 
 import java.util.List;
+import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
@@ -32,7 +33,7 @@ public record TableMetadata(CatalogName catalogName, ConnectorTableMetadata meta
 
     public QualifiedObjectName qualifiedName()
     {
-        return new QualifiedObjectName(catalogName.toString(), metadata.getTable().getSchemaName(), metadata.getTable().getTableName());
+        return new QualifiedObjectName(catalogName.toString(), metadata.getTable().getSchemaName(), metadata.getTable().getTableName(), Optional.empty());
     }
 
     public SchemaTableName table()

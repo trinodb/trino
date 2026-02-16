@@ -20,6 +20,7 @@ import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.security.AccessControl;
+import io.trino.sql.PlannerContext;
 import io.trino.sql.tree.DropMaterializedView;
 import io.trino.sql.tree.Expression;
 
@@ -34,13 +35,15 @@ import static java.util.Objects.requireNonNull;
 public class DropMaterializedViewTask
         implements DataDefinitionTask<DropMaterializedView>
 {
+    private final PlannerContext plannerContext;
     private final Metadata metadata;
     private final AccessControl accessControl;
 
     @Inject
-    public DropMaterializedViewTask(Metadata metadata, AccessControl accessControl)
+    public DropMaterializedViewTask(PlannerContext plannerContext, AccessControl accessControl)
     {
-        this.metadata = requireNonNull(metadata, "metadata is null");
+        this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
+        this.metadata = plannerContext.getMetadata();
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
     }
 
@@ -58,7 +61,7 @@ public class DropMaterializedViewTask
             WarningCollector warningCollector)
     {
         Session session = stateMachine.getSession();
-        QualifiedObjectName name = createQualifiedObjectName(session, statement, statement.getName());
+        QualifiedObjectName name = createQualifiedObjectName(session, statement, statement.getName(), plannerContext);
 
         if (!metadata.isMaterializedView(session, name)) {
             if (metadata.isView(session, name)) {

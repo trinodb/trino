@@ -118,6 +118,7 @@ import static io.trino.plugin.hive.util.HiveUtil.isIcebergTable;
 import static io.trino.plugin.iceberg.IcebergTableName.isIcebergTableName;
 import static io.trino.plugin.iceberg.IcebergTableName.isMaterializedViewStorage;
 import static io.trino.plugin.lakehouse.LakehouseTableProperties.getTableType;
+import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
 public class LakehouseMetadata
@@ -1000,6 +1001,12 @@ public class LakehouseMetadata
     public WriterScalingOptions getInsertWriterScalingOptions(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         return forHandle(tableHandle).getInsertWriterScalingOptions(session, tableHandle);
+    }
+
+    @Override
+    public String canonicalize(String value)
+    {
+        return value.toLowerCase(ENGLISH);
     }
 
     private ConnectorMetadata forHandle(ConnectorTableHandle handle)

@@ -41,6 +41,7 @@ import org.junit.jupiter.api.parallel.Isolated;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 
@@ -115,7 +116,7 @@ public class TestDeltaLakeDynamicFiltering
                 .setCatalogSessionProperty(DELTA_CATALOG, "dynamic_filtering_wait_timeout", "1s")
                 .build()
                 .beginTransactionId(transactionId, transactionManager, new AllowAllAccessControl());
-        QualifiedObjectName tableName = new QualifiedObjectName(DELTA_CATALOG, schemaName, "orders");
+        QualifiedObjectName tableName = new QualifiedObjectName(DELTA_CATALOG, schemaName, "orders", Optional.empty());
         TableHandle tableHandle = runner.getPlannerContext().getMetadata().getTableHandle(session, tableName).orElseThrow();
         CompletableFuture<Void> dynamicFilterBlocked = new CompletableFuture<>();
         try {

@@ -53,6 +53,7 @@ import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
+import static java.util.Locale.ENGLISH;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assumptions.abort;
@@ -99,6 +100,50 @@ public class TestClickHouseConnectorTest
                 .addConnectorProperty("clickhouse.map-string-as-varchar", "true")
                 .setInitialTables(REQUIRED_TPCH_TABLES)
                 .build();
+    }
+
+    @Override
+    protected String canonicalize(String value)
+    {
+        return value.toLowerCase(ENGLISH);
+    }
+
+    @Override
+    protected String getCreateTableMixedCaseUnDelimited(String catalog, String schema, String table)
+    {
+        return format(
+                """
+                        CREATE TABLE %s.%s.%s (
+                           %s bigint,
+                           %s double
+                        )
+                        WITH (
+                           engine = 'LOG'
+                        )\
+                        """,
+                catalog,
+                schema,
+                table,
+                canonicalize("Column_A"),
+                canonicalize("Column_B"));
+    }
+
+    @Override
+    protected String getCreateTableMixedCaseDelimited(String catalog, String schema, String table)
+    {
+        return format(
+                """
+                        CREATE TABLE %s.%s."%s" (
+                           "Column A" bigint,
+                           "Column B" double
+                        )
+                        WITH (
+                           engine = 'LOG'
+                        )\
+                        """,
+                catalog,
+                schema,
+                table);
     }
 
     @Test

@@ -97,13 +97,13 @@ public class CallTask
             List<Expression> parameters,
             WarningCollector warningCollector)
     {
-        if (!transactionManager.getTransactionInfo(stateMachine.getSession().getRequiredTransactionId()).isAutoCommitContext()) {
+        Session session = stateMachine.getSession();
+        if (!transactionManager.getTransactionInfo(session.getRequiredTransactionId()).isAutoCommitContext()) {
             throw new TrinoException(NOT_SUPPORTED, "Procedures cannot be called within a transaction (use autocommit mode)");
         }
 
-        Session session = stateMachine.getSession();
-        QualifiedObjectName procedureName = createQualifiedObjectName(session, call, call.getName());
-        CatalogHandle catalogHandle = getRequiredCatalogHandle(plannerContext.getMetadata(), stateMachine.getSession(), call, procedureName.catalogName());
+        QualifiedObjectName procedureName = createQualifiedObjectName(session, call, call.getName(), plannerContext);
+        CatalogHandle catalogHandle = getRequiredCatalogHandle(plannerContext.getMetadata(), session, call, procedureName.catalogName());
         Procedure procedure = procedureRegistry.resolve(catalogHandle, procedureName.asSchemaTableName());
 
         // map declared argument names to positions

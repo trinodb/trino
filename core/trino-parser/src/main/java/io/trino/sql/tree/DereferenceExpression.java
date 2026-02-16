@@ -96,31 +96,33 @@ public class DereferenceExpression
 
         List<Identifier> parts = null;
         if (expression.base instanceof Identifier identifier) {
-            parts = ImmutableList.of(identifier, field);
+            parts = ImmutableList.of(identifier.setResolver(field.getResolver()), field);
         }
         else if (expression.base instanceof DereferenceExpression dereferenceExpression) {
             QualifiedName baseQualifiedName = getQualifiedName(dereferenceExpression);
             if (baseQualifiedName != null) {
                 ImmutableList.Builder<Identifier> builder = ImmutableList.builder();
-                builder.addAll(baseQualifiedName.getOriginalParts());
+                builder.addAll(baseQualifiedName.resolveIdentifiers(field.getResolver()).getOriginalParts());
                 builder.add(field);
                 parts = builder.build();
             }
         }
-
-        return parts == null ? null : QualifiedName.of(parts);
+        if (parts == null) {
+            return null;
+        }
+        return QualifiedName.of(parts);
     }
 
     public static Expression from(QualifiedName name)
     {
         Expression result = null;
 
-        for (String part : name.getParts()) {
+        for (Identifier part : name.getOriginalParts()) {
             if (result == null) {
-                result = new Identifier(part);
+                result = new Identifier(part, part.getResolver());
             }
             else {
-                result = new DereferenceExpression(result, new Identifier(part));
+                result = new DereferenceExpression(result, new Identifier(part, part.getResolver()));
             }
         }
 

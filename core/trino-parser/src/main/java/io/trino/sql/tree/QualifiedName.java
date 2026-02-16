@@ -28,13 +28,16 @@ import static java.util.Objects.requireNonNull;
 public class QualifiedName
 {
     private final List<Identifier> originalParts;
-    private final List<String> parts;
+    private final List<String> priorParts;
+    private final Optional<QualifiedName> prefix;
+
+    private List<String> parts;
+    private Optional<Resolver> resolver = Optional.empty();
 
     // Following fields are not part of the equals/hashCode methods as
     // they are exist solely to speed-up certain method calls.
-    private final String name;
-    private final Optional<QualifiedName> prefix;
-    private final String suffix;
+    private String name;
+    private String suffix;
 
     public static QualifiedName of(String first, String... rest)
     {
@@ -48,44 +51,129 @@ public class QualifiedName
         return of(ImmutableList.of(new Identifier(name)));
     }
 
+    public static QualifiedName of(boolean delimited, String first, String... rest)
+    {
+        requireNonNull(first, "first is null");
+        return of(Lists.asList(first, rest).stream().map(name -> new Identifier(name, delimited)).collect(toImmutableList()));
+    }
+
+    public static QualifiedName of(String name, boolean delimited)
+    {
+        requireNonNull(name, "name is null");
+        return of(ImmutableList.of(new Identifier(name, delimited)));
+    }
+
+    public static QualifiedName of(Identifier identifier)
+    {
+        requireNonNull(identifier, "identifier is null");
+        return of(ImmutableList.of(identifier));
+    }
+
     public static QualifiedName of(Iterable<Identifier> originalParts)
     {
         requireNonNull(originalParts, "originalParts is null");
-        checkArgument(!isEmpty(originalParts), "originalParts is empty");
+        return of(ImmutableList.copyOf(originalParts));
+    }
 
+    public static QualifiedName of(List<Identifier> originalParts)
+    {
+        requireNonNull(originalParts, "originalParts is null");
+        checkArgument(!isEmpty(originalParts), "originalParts is empty");
         return new QualifiedName(ImmutableList.copyOf(originalParts));
     }
 
-    private QualifiedName(List<Identifier> originalParts)
+    public QualifiedName(List<Identifier> originalParts)
     {
         this.originalParts = originalParts;
         // Iteration instead of stream for performance reasons
         ImmutableList.Builder<String> partsBuilder = ImmutableList.builderWithExpectedSize(originalParts.size());
         for (Identifier identifier : originalParts) {
-            partsBuilder.add(mapIdentifier(identifier));
+            if (resolver.isEmpty() && identifier.isResolved()) {
+                resolver = identifier.getResolver();
+            }
+            else if (resolver.isPresent() && !identifier.isResolved()) {
+                identifier.setResolver(resolver);
+            }
+            partsBuilder.add(identifier.getCanonicalizedValue());
         }
-        this.parts = partsBuilder.build();
-        this.name = String.join(".", parts);
+
+        if (resolver.isPresent() && needResolver()) {
+            System.out.println("QualifiedName::new needResolver *********************************************");
+        }
 
         if (originalParts.size() == 1) {
             this.prefix = Optional.empty();
-            this.suffix = mapIdentifier(originalParts.get(0));
         }
         else {
             List<Identifier> subList = originalParts.subList(0, originalParts.size() - 1);
             this.prefix = Optional.of(new QualifiedName(subList));
-            this.suffix = mapIdentifier(originalParts.getLast());
         }
+        setQualifiedName(partsBuilder.build());
+        this.priorParts = isResolved() ? getPriorParts(originalParts) : ImmutableList.copyOf(parts);
     }
 
-    private static String mapIdentifier(Identifier identifier)
+    private static List<String> getPriorParts(List<Identifier> originalParts)
     {
-        return identifier.getValue().toLowerCase(ENGLISH);
+        return originalParts.stream()
+                .map(id -> id.isCatalog() ? id.getValue().toLowerCase(ENGLISH) : id.getValue())
+                .toList();
+    }
+
+    public QualifiedName resolveIdentifiers(Resolver resolver)
+    {
+        return resolveIdentifiers(Optional.of(resolver));
+    }
+
+    public QualifiedName resolveIdentifiers(Optional<Resolver> resolver)
+    {
+        prefix.ifPresent(qualifiedName -> qualifiedName.resolveIdentifiers(resolver));
+
+        ImmutableList.Builder<String> partsBuilder = ImmutableList.builderWithExpectedSize(originalParts.size());
+        for (Identifier identifier : originalParts) {
+            String value;
+            if (identifier.isResolved()) {
+                value = identifier.getCanonicalizedValue();
+            }
+            else {
+                value = identifier.setResolver(resolver).getCanonicalizedValue();
+            }
+            partsBuilder.add(value);
+        }
+        this.resolver = resolver;
+        setQualifiedName(partsBuilder.build());
+        return this;
+    }
+
+    public boolean isResolved()
+    {
+        return resolver.isPresent();
+    }
+
+    public boolean needResolver()
+    {
+        return originalParts.stream().anyMatch(id -> id.getResolver().isEmpty());
+    }
+
+    public Optional<Resolver> getResolver()
+    {
+        return resolver;
+    }
+
+    private void setQualifiedName(List<String> parts)
+    {
+        this.parts = parts;
+        this.name = String.join(".", parts);
+        this.suffix = parts.getLast();
     }
 
     public List<String> getParts()
     {
         return parts;
+    }
+
+    public List<String> getParts(Optional<Resolver> resolver)
+    {
+        return this.resolver.isPresent() && (resolver.isEmpty() || !this.resolver.get().equals(resolver.get())) ? priorParts : parts;
     }
 
     public List<Identifier> getOriginalParts()
@@ -102,6 +190,12 @@ public class QualifiedName
         return this.prefix;
     }
 
+    public boolean matchesSuffix(String name)
+    {
+        // FIXME: It must be taken into account that the field name may not already resolved.
+        return resolver.isPresent() ? suffix.equalsIgnoreCase(name) : suffix.equals(name);
+    }
+
     public boolean hasSuffix(QualifiedName suffix)
     {
         if (parts.size() < suffix.getParts().size()) {
@@ -109,12 +203,12 @@ public class QualifiedName
         }
 
         int start = parts.size() - suffix.getParts().size();
-        return parts.subList(start, parts.size()).equals(suffix.getParts());
+        return getParts(suffix.getResolver()).subList(start, parts.size()).equals(suffix.getParts(resolver));
     }
 
     public String getSuffix()
     {
-        return this.suffix;
+        return isResolved() ? this.suffix : this.suffix.toLowerCase(ENGLISH);
     }
 
     @Override

@@ -162,15 +162,15 @@ public class TestJdbcConnection
         try (Connection connection = createConnection();
                 Statement statement = connection.createStatement()) {
             statement.execute("SET ROLE admin IN hive");
-            statement.execute("CREATE SCHEMA default");
-            statement.execute("CREATE TABLE hive.default.dummy(a bigint)");
+            statement.execute("CREATE SCHEMA \"default\"");
+            statement.execute("CREATE TABLE hive.\"default\".\"dummy\"(a bigint)");
 
-            statement.execute("CREATE SCHEMA fruit");
+            statement.execute("CREATE SCHEMA \"fruit\"");
             statement.execute(
-                    "CREATE TABLE blackhole.default.devzero(dummy bigint) " +
+                    "CREATE TABLE blackhole.\"default\".\"devzero\"(dummy bigint) " +
                             "WITH (split_count = 100000, pages_per_split = 100000, rows_per_page = 10000)");
             statement.execute(
-                    "CREATE TABLE blackhole.default.delay(dummy bigint) " +
+                    "CREATE TABLE blackhole.\"default\".\"delay\"(dummy bigint) " +
                             "WITH (split_count = 1, pages_per_split = 1, rows_per_page = 1, page_processing_delay = '60s')");
         }
     }
@@ -674,6 +674,7 @@ public class TestJdbcConnection
     public void testMixedCaseSchema()
             throws SQLException
     {
+        // FIXME: As schema is not longer converted to lowercase this test fail now.
         try (Connection conn = createConnectionCatalogSchema("hive", "DeFaUlT")) {
             assertThat(conn.createStatement().execute("select * from dummy")).isTrue();
         }

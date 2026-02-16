@@ -147,7 +147,7 @@ public class TestIcebergProjectionPushdownPlans
     public void testDereferencePushdown()
     {
         String testTable = "test_simple_projection_pushdown" + randomNameSuffix();
-        QualifiedObjectName completeTableName = new QualifiedObjectName(CATALOG, SCHEMA, testTable);
+        QualifiedObjectName completeTableName = new QualifiedObjectName(CATALOG, SCHEMA, testTable, Optional.empty());
 
         getPlanTester().executeStatement(format(
                 "CREATE TABLE %s (col0, col1) WITH (partitioning = ARRAY['col1']) AS" +

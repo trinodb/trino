@@ -38,6 +38,7 @@ import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
 
 import java.util.EnumSet;
+import java.util.Optional;
 import java.util.Set;
 
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
@@ -125,7 +126,7 @@ public class TestDenyOnTable
         String username = randomUsername();
 
         denyCalled = false;
-        expectedTableName = new QualifiedObjectName("local", "default", "table_one");
+        expectedTableName = new QualifiedObjectName("local", "default", "table_one", Optional.empty());
         if (privilege.equalsIgnoreCase("all privileges")) {
             expectedPrivileges = ImmutableSet.copyOf(Privilege.values());
         }

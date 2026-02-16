@@ -303,6 +303,12 @@ public abstract class BaseHiveConnectorTest
         };
     }
 
+    @Override
+    public String canonicalize(String value)
+    {
+        return value.toLowerCase(ENGLISH);
+    }
+
     @Test
     @Override
     public void verifySupportsUpdateDeclaration()
@@ -3844,7 +3850,7 @@ public abstract class BaseHiveConnectorTest
         return transaction(getQueryRunner().getTransactionManager(), metadata, getQueryRunner().getAccessControl())
                 .readOnly()
                 .execute(session, transactionSession -> {
-                    Optional<TableHandle> tableHandle = metadata.getTableHandle(transactionSession, new QualifiedObjectName(catalog, schema, tableName));
+                    Optional<TableHandle> tableHandle = metadata.getTableHandle(transactionSession, new QualifiedObjectName(catalog, schema, tableName, Optional.empty()));
                     assertThat(tableHandle).isPresent();
                     return metadata.getTableMetadata(transactionSession, tableHandle.get());
                 });
@@ -3858,7 +3864,7 @@ public abstract class BaseHiveConnectorTest
         return transaction(getQueryRunner().getTransactionManager(), metadata, getQueryRunner().getAccessControl())
                 .readOnly()
                 .execute(session, transactionSession -> {
-                    QualifiedObjectName name = new QualifiedObjectName(catalog, TPCH_SCHEMA, tableName);
+                    QualifiedObjectName name = new QualifiedObjectName(catalog, TPCH_SCHEMA, tableName, Optional.empty());
                     TableHandle table = metadata.getTableHandle(transactionSession, name)
                             .orElseThrow(() -> new AssertionError("table not found: " + name));
                     table = metadata.applyFilter(transactionSession, table, Constraint.alwaysTrue())
@@ -8921,7 +8927,7 @@ public abstract class BaseHiveConnectorTest
                 .setCatalog(Optional.empty())
                 .setSchema(Optional.empty())
                 .build();
-        assertQueryFails(sessionNoCatalog, "SELECT count(*) FROM " + viewName, ".*Schema must be specified when session schema is not set.*");
+        assertQueryFails(sessionNoCatalog, "SELECT count(*) FROM " + viewName, ".*Catalog must be specified when session catalog is not set.*");
         assertQuery(sessionNoCatalog, "SELECT count(*) FROM hive.tpch." + viewName, "VALUES 1");
     }
 

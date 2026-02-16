@@ -16,6 +16,7 @@ package io.trino.plugin.jdbc;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
+import io.trino.testing.MaterializedResult;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.JdbcSqlExecutor;
@@ -35,6 +36,8 @@ import static io.trino.plugin.jdbc.TypeHandlingJdbcSessionProperties.UNSUPPORTED
 import static io.trino.plugin.jdbc.UnsupportedTypeHandling.CONVERT_TO_VARCHAR;
 import static io.trino.plugin.jdbc.UnsupportedTypeHandling.IGNORE;
 import static io.trino.spi.connector.ConnectorMetadata.MODIFYING_ROWS_MESSAGE;
+import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.testing.MaterializedResult.resultBuilder;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -97,7 +100,7 @@ public class TestJdbcConnectorTest
     {
         return new TestTable(
                 onRemoteDatabase(),
-                "tpch.table",
+                "PUBLIC.table",
                 "(col_required BIGINT NOT NULL," +
                         "col_nullable BIGINT," +
                         "col_default BIGINT DEFAULT 43," +
@@ -110,7 +113,7 @@ public class TestJdbcConnectorTest
     {
         return new TestTable(
                 onRemoteDatabase(),
-                "tpch.test_unsupported_column_present",
+                "public.test_unsupported_column_present",
                 "(one bigint, two geometry, three varchar(10))");
     }
 
@@ -144,7 +147,7 @@ public class TestJdbcConnectorTest
     {
         try (TestTable table = new TestTable(
                 onRemoteDatabase(),
-                "tpch.test_failure_on_unknown_type_as_ignored",
+                "test_failure_on_unknown_type_as_ignored",
                 "(int_column int, geometry_column GEOMETRY)",
                 ImmutableList.of(
                         "1, NULL",
@@ -154,12 +157,12 @@ public class TestJdbcConnectorTest
             assertQuery(ignoreUnsupportedType, "SELECT * FROM " + table.getName(), "VALUES 1, 2");
             assertQuery(
                     ignoreUnsupportedType,
-                    "SELECT column_name, data_type FROM information_schema.columns WHERE table_name LIKE 'test_failure_on_unknown_type_as_ignored%'",
-                    "VALUES ('int_column', 'integer')");
+                    "SELECT \"column_name\", \"data_type\" FROM \"information_schema\".\"columns\" WHERE \"table_schema\" = 'PUBLIC' AND \"table_name\" = '%s'".formatted(canonicalize(table.getName())),
+                    "VALUES ('INT_COLUMN', 'integer')");
             assertQuery(
                     ignoreUnsupportedType,
                     "DESCRIBE " + table.getName(),
-                    "VALUES ('int_column', 'integer', '', '')");
+                    "VALUES ('INT_COLUMN', 'integer', '', '')");
 
             assertUpdate(ignoreUnsupportedType, format("INSERT INTO %s (int_column) VALUES (3)", table.getName()), 1);
             assertQuery(ignoreUnsupportedType, "SELECT * FROM " + table.getName(), "VALUES 1, 2, 3");
@@ -171,7 +174,7 @@ public class TestJdbcConnectorTest
     {
         try (TestTable table = new TestTable(
                 onRemoteDatabase(),
-                "tpch.test_failure_on_unknown_type_as_varchar",
+                "test_failure_on_unknown_type_as_varchar",
                 "(int_column int, geometry_column GEOMETRY)",
                 ImmutableList.of(
                         "1, NULL",
@@ -192,12 +195,12 @@ public class TestJdbcConnectorTest
 
             assertQuery(
                     convertToVarcharUnsupportedTypes,
-                    "SELECT column_name, data_type FROM information_schema.columns WHERE table_name LIKE 'test_failure_on_unknown_type_as_varchar%'",
-                    "VALUES ('int_column', 'integer'), ('geometry_column', 'varchar')");
+                    "SELECT \"column_name\", \"data_type\" FROM \"information_schema\".\"columns\" WHERE \"table_schema\" = 'PUBLIC' AND \"table_name\" = '%s'".formatted(canonicalize(table.getName())),
+                    "VALUES ('INT_COLUMN', 'integer'), ('GEOMETRY_COLUMN', 'varchar')");
             assertQuery(
                     convertToVarcharUnsupportedTypes,
                     "DESCRIBE " + table.getName(),
-                    "VALUES ('int_column', 'integer', '', ''), ('geometry_column', 'varchar', '','')");
+                    "VALUES ('INT_COLUMN', 'integer', '', ''), ('GEOMETRY_COLUMN', 'varchar', '','')");
 
             assertUpdate(
                     convertToVarcharUnsupportedTypes,
@@ -219,23 +222,23 @@ public class TestJdbcConnectorTest
     public void testTableWithOnlyUnsupportedColumns()
     {
         Session session = Session.builder(getSession())
-                .setSchema("public")
+                .setSchema("PUBLIC")
                 .build();
         try (TestTable table = new TestTable(onRemoteDatabase(), "unsupported_table", "(geometry_column GEOMETRY)", ImmutableList.of("NULL", "'POINT(7 52)'"))) {
             // SELECT all tables to avoid any optimizations that could skip the table listing
-            assertThat(getQueryRunner().execute("SELECT table_name FROM information_schema.tables").getOnlyColumn())
-                    .contains(table.getName());
+            assertThat(getQueryRunner().execute("SELECT \"table_name\" FROM \"information_schema\".\"tables\"").getOnlyColumn())
+                    .contains(canonicalize(table.getName()));
             assertQuery(
-                    format("SELECT count(*) FROM information_schema.tables WHERE table_name = '%s'", table.getName()),
+                    format("SELECT count(*) FROM \"information_schema\".\"tables\" WHERE \"table_name\" = '%s'", canonicalize(table.getName())),
                     "SELECT 1");
             assertQuery(
-                    format("SELECT count(*) FROM information_schema.columns WHERE table_name = '%s'", table.getName()),
+                    format("SELECT count(*) FROM \"information_schema\".\"columns\" WHERE \"table_name\" = '%s'", canonicalize(table.getName())),
                     "SELECT 0");
             assertQuery(
                     session,
-                    format("SHOW TABLES LIKE '%s'", table.getName()),
-                    format("SELECT '%s'", table.getName()));
-            String unsupportedTableErrorMessage = "Table 'public.*' has no supported columns.*";
+                    format("SHOW TABLES LIKE '%s'", canonicalize(table.getName())),
+                    format("SELECT '%s'", canonicalize(table.getName())));
+            String unsupportedTableErrorMessage = "Table 'PUBLIC.*' has no supported columns.*";
             assertQueryFails(
                     session,
                     "SELECT * FROM " + table.getName(),
@@ -259,14 +262,15 @@ public class TestJdbcConnectorTest
     @Override
     public void testNativeQueryColumnAlias()
     {
-        assertThat(query(format("SELECT region_name FROM TABLE(system.query(query => 'SELECT name AS region_name FROM %s.region WHERE regionkey = 0'))", getSession().getSchema().orElseThrow())))
+        assertThat(query(format("SELECT region_name FROM TABLE(system.query(query => 'SELECT \"name\" AS region_name FROM \"%s\".\"region\" WHERE \"regionkey\" = 0'))", getSession().getSchema().orElseThrow())))
                 .matches("VALUES CAST('AFRICA' AS VARCHAR(25))");
     }
 
     @Override
     protected String errorMessageForInsertIntoNotNullColumn(String columnName)
     {
-        return format("NULL not allowed for column \"%s\"(?s).*", columnName.toUpperCase(ENGLISH));
+        // FIXME: H2 has been switched to lower case and don't need anymore toLowerCase(ENGLISH) on columnName.
+        return format("NULL not allowed for column \"%s\"(?s).*", columnName);
     }
 
     @Override
@@ -317,7 +321,7 @@ public class TestJdbcConnectorTest
     @Override
     protected void verifyTableNameLengthFailurePermissible(Throwable e)
     {
-        assertThat(e).hasMessageMatching("(?s)(.*The name that starts with .* is too long\\..*)");
+        assertThat(e).hasMessageMatching("The name that starts with \".*\" is too long\\. The maximum length is \"256\"; SQL statement:(?s).*");
     }
 
     @Override
@@ -336,5 +340,54 @@ public class TestJdbcConnectorTest
     protected OptionalInt maxTableNameLength()
     {
         return OptionalInt.of(256);
+    }
+
+    @Override
+    protected String canonicalize(String value)
+    {
+        return value.toUpperCase(ENGLISH);
+    }
+
+    @Test
+    @Override
+    public void testShowCreateInformationSchemaTable()
+    {
+        assertQueryFails("SHOW CREATE VIEW information_schema.schemata", "line 1:1: Relation '\\w+.%s' is a table, not a view".formatted(canonicalize("information_schema.schemata")));
+        assertQueryFails("SHOW CREATE MATERIALIZED VIEW information_schema.schemata", "line 1:1: Relation '\\w+.%s' is a table, not a materialized view".formatted(canonicalize("information_schema.schemata")));
+
+        assertThat((String) computeScalar("SHOW CREATE TABLE information_schema.schemata"))
+                .isEqualTo("""
+                        CREATE TABLE %s.information_schema.schemata (
+                           CATALOG_NAME varchar,
+                           SCHEMA_NAME varchar,
+                           SCHEMA_OWNER varchar,
+                           DEFAULT_CHARACTER_SET_CATALOG varchar,
+                           DEFAULT_CHARACTER_SET_SCHEMA varchar,
+                           DEFAULT_CHARACTER_SET_NAME varchar,
+                           SQL_PATH varchar,
+                           DEFAULT_COLLATION_NAME varchar,
+                           REMARKS varchar
+                        )""".formatted(getSession().getCatalog().orElseThrow()));
+    }
+
+    @Test
+    @Override
+    public void testShowColumns()
+    {
+        // FIXME: To enable this test to work, it was necessary to canonicalize
+        // FIXME: the aliases selected in ShowQueriesRewrite.visitShowColumns()
+        MaterializedResult expectedDescribeOrders = resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
+                .row("orderkey", "bigint", "", "")
+                .row("custkey", "bigint", "", "")
+                .row("orderstatus", "varchar(1)", "", "")
+                .row("totalprice", "double", "", "")
+                .row("orderdate", "date", "", "")
+                .row("orderpriority", "varchar(15)", "", "")
+                .row("clerk", "varchar(15)", "", "")
+                .row("shippriority", "integer", "", "")
+                .row("comment", "varchar(79)", "", "")
+                .build();
+
+        assertThat(query("SHOW COLUMNS FROM \"orders\"")).result().matches(expectedDescribeOrders);
     }
 }

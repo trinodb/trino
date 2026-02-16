@@ -377,7 +377,8 @@ public final class SqlRoutinePlanner
             // stop-gap: lowercasing for now to match what is happening during analysis;
             // otherwise we do not support non-lowercase variables in functions.
             // Rework as part of https://github.com/trinodb/trino/pull/24829
-            return name.getValue().toLowerCase(ENGLISH);
+            // FIXME: We should use getCanonicalizedValue()?
+            return name.isDelimited() ? name.getValue() : name.getValue().toLowerCase(ENGLISH);
         }
     }
 

@@ -171,8 +171,8 @@ public abstract class BaseJdbcConnectorTest
             String unqualifiedTableName = testTable.getName().replaceAll("^\\w+\\.", "");
             // Check that column 'two' is not supported.
             assertQuery(
-                    "SELECT column_name FROM information_schema.columns WHERE table_schema = '" + getSession().getSchema().orElseThrow() + "' AND table_name = '" + unqualifiedTableName + "'",
-                    "VALUES 'one', 'three'");
+                    "SELECT \"column_name\" FROM \"information_schema\".\"columns\" WHERE \"table_schema\" = '" + getSession().getSchema().orElseThrow() + "' AND \"table_name\" = '" + canonicalize(unqualifiedTableName) + "'",
+                    "VALUES '%s', '%s'".formatted(canonicalize("one"), canonicalize("three")));
             assertUpdate("INSERT INTO " + testTable.getName() + " (one, three) VALUES (123, 'test')", 1);
             assertQuery("SELECT one, three FROM " + testTable.getName(), "SELECT 123, 'test'");
         }
@@ -207,7 +207,7 @@ public abstract class BaseJdbcConnectorTest
     public void testAggregationPushdown()
     {
         if (!hasBehavior(SUPPORTS_AGGREGATION_PUSHDOWN)) {
-            assertThat(query("SELECT count(nationkey) FROM nation")).isNotFullyPushedDown(AggregationNode.class);
+            assertThat(query("SELECT count(\"nationkey\") FROM \"nation\"")).isNotFullyPushedDown(AggregationNode.class);
             return;
         }
 
@@ -215,11 +215,11 @@ public abstract class BaseJdbcConnectorTest
         // TODO support aggregation over expressions
 
         // count()
-        assertThat(query("SELECT count(*) FROM nation")).isFullyPushedDown();
-        assertThat(query("SELECT count(nationkey) FROM nation")).isFullyPushedDown();
-        assertThat(query("SELECT count(1) FROM nation")).isFullyPushedDown();
-        assertThat(query("SELECT count() FROM nation")).isFullyPushedDown();
-        assertThat(query("SELECT regionkey, count(1) FROM nation GROUP BY regionkey")).isFullyPushedDown();
+        assertThat(query("SELECT count(*) FROM \"nation\"")).isFullyPushedDown();
+        assertThat(query("SELECT count(\"nationkey\") FROM \"nation\"")).isFullyPushedDown();
+        assertThat(query("SELECT count(1) FROM \"nation\"")).isFullyPushedDown();
+        assertThat(query("SELECT count() FROM \"nation\"")).isFullyPushedDown();
+        assertThat(query("SELECT \"regionkey\", count(1) FROM \"nation\" GROUP BY \"regionkey\"")).isFullyPushedDown();
         try (TestTable emptyTable = createAggregationTestTable(getSession().getSchema().orElseThrow() + ".empty_table", ImmutableList.of())) {
             assertThat(query("SELECT count(*) FROM " + emptyTable.getName())).isFullyPushedDown();
             assertThat(query("SELECT count(a_bigint) FROM " + emptyTable.getName())).isFullyPushedDown();
@@ -229,10 +229,10 @@ public abstract class BaseJdbcConnectorTest
         }
 
         // GROUP BY
-        assertThat(query("SELECT regionkey, min(nationkey) FROM nation GROUP BY regionkey")).isFullyPushedDown();
-        assertThat(query("SELECT regionkey, max(nationkey) FROM nation GROUP BY regionkey")).isFullyPushedDown();
-        assertThat(query("SELECT regionkey, sum(nationkey) FROM nation GROUP BY regionkey")).isFullyPushedDown();
-        assertThat(query("SELECT regionkey, avg(nationkey) FROM nation GROUP BY regionkey")).isFullyPushedDown();
+        assertThat(query("SELECT \"regionkey\", min(\"nationkey\") FROM \"nation\" GROUP BY \"regionkey\"")).isFullyPushedDown();
+        assertThat(query("SELECT \"regionkey\", max(\"nationkey\") FROM \"nation\" GROUP BY \"regionkey\"")).isFullyPushedDown();
+        assertThat(query("SELECT \"regionkey\", sum(\"nationkey\") FROM \"nation\" GROUP BY \"regionkey\"")).isFullyPushedDown();
+        assertThat(query("SELECT \"regionkey\", avg(\"nationkey\") FROM \"nation\" GROUP BY \"regionkey\"")).isFullyPushedDown();
         try (TestTable emptyTable = createAggregationTestTable(getSession().getSchema().orElseThrow() + ".empty_table", ImmutableList.of())) {
             assertThat(query("SELECT t_double, min(a_bigint) FROM " + emptyTable.getName() + " GROUP BY t_double")).isFullyPushedDown();
             assertThat(query("SELECT t_double, max(a_bigint) FROM " + emptyTable.getName() + " GROUP BY t_double")).isFullyPushedDown();
@@ -242,70 +242,70 @@ public abstract class BaseJdbcConnectorTest
 
         // GROUP BY and WHERE on bigint column
         // GROUP BY and WHERE on aggregation key
-        assertThat(query("SELECT regionkey, sum(nationkey) FROM nation WHERE regionkey < 4 GROUP BY regionkey")).isFullyPushedDown();
+        assertThat(query("SELECT \"regionkey\", sum(\"nationkey\") FROM \"nation\" WHERE \"regionkey\" < 4 GROUP BY \"regionkey\"")).isFullyPushedDown();
 
         // GROUP BY and WHERE on varchar column
         // GROUP BY and WHERE on "other" (not aggregation key, not aggregation input)
         assertConditionallyPushedDown(
                 getSession(),
-                "SELECT regionkey, sum(nationkey) FROM nation WHERE regionkey < 4 AND name > 'AAA' GROUP BY regionkey",
+                "SELECT \"regionkey\", sum(\"nationkey\") FROM \"nation\" WHERE \"regionkey\" < 4 AND \"name\" > 'AAA' GROUP BY \"regionkey\"",
                 hasBehavior(SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_INEQUALITY),
                 node(FilterNode.class, node(TableScanNode.class)));
         // GROUP BY above WHERE and LIMIT
         assertConditionallyPushedDown(
                 getSession(),
-                "SELECT regionkey, sum(nationkey) FROM (SELECT * FROM nation WHERE regionkey < 2 LIMIT 11) GROUP BY regionkey",
+                "SELECT \"regionkey\", sum(\"nationkey\") FROM (SELECT * FROM \"nation\" WHERE \"regionkey\" < 2 LIMIT 11) GROUP BY \"regionkey\"",
                 hasBehavior(SUPPORTS_LIMIT_PUSHDOWN),
                 node(LimitNode.class, anyTree(node(TableScanNode.class))));
         // GROUP BY above TopN
         assertConditionallyPushedDown(
                 getSession(),
-                "SELECT custkey, sum(totalprice) FROM (SELECT custkey, totalprice FROM orders ORDER BY orderdate ASC, totalprice ASC LIMIT 10) GROUP BY custkey",
+                "SELECT \"custkey\", sum(\"totalprice\") FROM (SELECT \"custkey\", \"totalprice\" FROM \"orders\" ORDER BY \"orderdate\" ASC, \"totalprice\" ASC LIMIT 10) GROUP BY \"custkey\"",
                 hasBehavior(SUPPORTS_TOPN_PUSHDOWN),
                 project(node(TopNNode.class, anyTree(node(TableScanNode.class)))));
         // GROUP BY with JOIN
         assertConditionallyPushedDown(
                 joinPushdownEnabled(getSession()),
-                "SELECT n.regionkey, sum(c.acctbal) acctbals FROM nation n LEFT JOIN customer c USING (nationkey) GROUP BY 1",
+                "SELECT n.\"regionkey\", sum(c.\"acctbal\") acctbals FROM \"nation\" n LEFT JOIN \"customer\" c USING (\"nationkey\") GROUP BY 1",
                 hasBehavior(SUPPORTS_JOIN_PUSHDOWN),
                 node(JoinNode.class, anyTree(node(TableScanNode.class)), anyTree(node(TableScanNode.class))));
         // GROUP BY with WHERE on neither grouping nor aggregation column
         assertConditionallyPushedDown(
                 getSession(),
-                "SELECT nationkey, min(regionkey) FROM nation WHERE name = 'ARGENTINA' GROUP BY nationkey",
+                "SELECT \"nationkey\", min(\"regionkey\") FROM \"nation\" WHERE \"name\" = 'ARGENTINA' GROUP BY \"nationkey\"",
                 hasBehavior(SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_EQUALITY),
                 node(FilterNode.class, node(TableScanNode.class)));
         // GROUP BY with WHERE complex predicate
         assertConditionallyPushedDown(
                 getSession(),
-                "SELECT regionkey, sum(nationkey) FROM nation WHERE name LIKE '%N%' GROUP BY regionkey",
+                "SELECT \"regionkey\", sum(\"nationkey\") FROM \"nation\" WHERE \"name\" LIKE '%N%' GROUP BY \"regionkey\"",
                 hasBehavior(SUPPORTS_PREDICATE_EXPRESSION_PUSHDOWN_WITH_LIKE),
                 node(FilterNode.class, node(TableScanNode.class)));
         // aggregation on varchar column
-        assertThat(query("SELECT count(name) FROM nation")).isFullyPushedDown();
+        assertThat(query("SELECT count(\"name\") FROM \"nation\"")).isFullyPushedDown();
         // aggregation on varchar column with GROUPING
-        assertThat(query("SELECT nationkey, count(name) FROM nation GROUP BY nationkey")).isFullyPushedDown();
+        assertThat(query("SELECT \"nationkey\", count(\"name\") FROM \"nation\" GROUP BY \"nationkey\"")).isFullyPushedDown();
         // aggregation on varchar column with WHERE
         assertConditionallyPushedDown(
                 getSession(),
-                "SELECT count(name) FROM nation WHERE name = 'ARGENTINA'",
+                "SELECT count(\"name\") FROM \"nation\" WHERE \"name\" = 'ARGENTINA'",
                 hasBehavior(SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_EQUALITY),
                 node(FilterNode.class, node(TableScanNode.class)));
 
         // pruned away aggregation
-        assertThat(query("SELECT -13 FROM (SELECT count(*) FROM nation)"))
+        assertThat(query("SELECT -13 FROM (SELECT count(*) FROM \"nation\")"))
                 .matches("VALUES -13")
                 .hasPlan(node(OutputNode.class, node(ValuesNode.class)));
         // aggregation over aggregation
-        assertThat(query("SELECT count(*) FROM (SELECT count(*) FROM nation)"))
+        assertThat(query("SELECT count(*) FROM (SELECT count(*) FROM \"nation\")"))
                 .matches("VALUES BIGINT '1'")
                 .hasPlan(node(OutputNode.class, node(ValuesNode.class)));
-        assertThat(query("SELECT count(*) FROM (SELECT count(*) FROM nation GROUP BY regionkey)"))
+        assertThat(query("SELECT count(*) FROM (SELECT count(*) FROM \"nation\" GROUP BY \"regionkey\")"))
                 .matches("VALUES BIGINT '5'")
                 .isFullyPushedDown();
 
         // aggregation with UNION ALL and aggregation
-        assertThat(query("SELECT count(*) FROM (SELECT name FROM nation UNION ALL SELECT name FROM region)"))
+        assertThat(query("SELECT count(*) FROM (SELECT \"name\" FROM \"nation\" UNION ALL SELECT \"name\" FROM \"region\")"))
                 .matches("VALUES BIGINT '30'")
                 // TODO (https://github.com/trinodb/trino/issues/12547): support count(*) over UNION ALL pushdown
                 .isNotFullyPushedDown(
@@ -314,7 +314,7 @@ public abstract class BaseJdbcConnectorTest
                                 node(AggregationNode.class, node(TableScanNode.class))));
 
         // aggregation with UNION ALL and aggregation
-        assertThat(query("SELECT count(*) FROM (SELECT count(*) FROM nation UNION ALL SELECT count(*) FROM region)"))
+        assertThat(query("SELECT count(*) FROM (SELECT count(*) FROM \"nation\" UNION ALL SELECT count(*) FROM \"region\")"))
                 .matches("VALUES BIGINT '2'")
                 .hasPlan(
                         // Note: engine could fold this to single ValuesNode
@@ -482,31 +482,31 @@ public abstract class BaseJdbcConnectorTest
     public void testAggregationWithUnsupportedResultType()
     {
         // TODO array_agg returns array, so it could be supported
-        assertThat(query("SELECT array_agg(nationkey) FROM nation"))
+        assertThat(query("SELECT array_agg(\"nationkey\") FROM \"nation\""))
                 .skipResultsCorrectnessCheckForPushdown() // array_agg doesn't have a deterministic order of elements in result array
                 .isNotFullyPushedDown(AggregationNode.class);
         // histogram returns map, which is not supported
-        assertThat(query("SELECT histogram(regionkey) FROM nation")).isNotFullyPushedDown(AggregationNode.class);
+        assertThat(query("SELECT histogram(\"regionkey\") FROM \"nation\"")).isNotFullyPushedDown(AggregationNode.class);
         // multimap_agg returns multimap, which is not supported
-        assertThat(query("SELECT multimap_agg(regionkey, nationkey) FROM nation"))
+        assertThat(query("SELECT multimap_agg(\"regionkey\", \"nationkey\") FROM \"nation\""))
                 .skipResultsCorrectnessCheckForPushdown() // multimap_agg doesn't have a deterministic order of values for a key
                 .isNotFullyPushedDown(AggregationNode.class);
         // approx_set returns HyperLogLog, which is not supported
-        assertThat(query("SELECT approx_set(nationkey) FROM nation")).isNotFullyPushedDown(AggregationNode.class);
+        assertThat(query("SELECT approx_set(\"nationkey\") FROM \"nation\"")).isNotFullyPushedDown(AggregationNode.class);
     }
 
     @Test
     public void testDistinctAggregationPushdown()
     {
         if (!hasBehavior(SUPPORTS_AGGREGATION_PUSHDOWN)) {
-            assertThat(query("SELECT count(DISTINCT regionkey) FROM nation")).isNotFullyPushedDown(AggregationNode.class);
+            assertThat(query("SELECT count(DISTINCT \"regionkey\") FROM \"nation\"")).isNotFullyPushedDown(AggregationNode.class);
             return;
         }
 
         // SELECT DISTINCT
-        assertThat(query("SELECT DISTINCT regionkey FROM nation")).isFullyPushedDown();
-        assertThat(query("SELECT min(DISTINCT regionkey) FROM nation")).isFullyPushedDown();
-        assertThat(query("SELECT DISTINCT regionkey, min(nationkey) FROM nation GROUP BY regionkey")).isFullyPushedDown();
+        assertThat(query("SELECT DISTINCT \"regionkey\" FROM \"nation\"")).isFullyPushedDown();
+        assertThat(query("SELECT min(DISTINCT \"regionkey\") FROM \"nation\"")).isFullyPushedDown();
+        assertThat(query("SELECT DISTINCT \"regionkey\", min(\"nationkey\") FROM \"nation\" GROUP BY \"regionkey\"")).isFullyPushedDown();
         try (TestTable emptyTable = createAggregationTestTable(getSession().getSchema().orElseThrow() + ".empty_table", ImmutableList.of())) {
             assertThat(query("SELECT DISTINCT a_bigint FROM " + emptyTable.getName())).isFullyPushedDown();
             assertThat(query("SELECT min(DISTINCT a_bigint) FROM " + emptyTable.getName())).isFullyPushedDown();
@@ -517,35 +517,35 @@ public abstract class BaseJdbcConnectorTest
                 .setSystemProperty(DISTINCT_AGGREGATIONS_STRATEGY, "mark_distinct")
                 .build();
         // distinct aggregation
-        assertThat(query(withMarkDistinct, "SELECT count(DISTINCT regionkey) FROM nation")).isFullyPushedDown();
+        assertThat(query(withMarkDistinct, "SELECT count(DISTINCT \"regionkey\") FROM \"nation\"")).isFullyPushedDown();
         // distinct aggregation with GROUP BY
-        assertThat(query(withMarkDistinct, "SELECT count(DISTINCT nationkey) FROM nation GROUP BY regionkey")).isFullyPushedDown();
+        assertThat(query(withMarkDistinct, "SELECT count(DISTINCT \"nationkey\") FROM \"nation\" GROUP BY \"regionkey\"")).isFullyPushedDown();
         // distinct aggregation with varchar
         assertConditionallyPushedDown(
                 withMarkDistinct,
-                "SELECT count(DISTINCT comment) FROM nation",
+                "SELECT count(DISTINCT \"comment\") FROM \"nation\"",
                 hasBehavior(SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_INEQUALITY),
                 node(AggregationNode.class, node(TableScanNode.class)));
         // two distinct aggregations
         assertConditionallyPushedDown(
                 withMarkDistinct,
-                "SELECT count(DISTINCT regionkey), sum(nationkey) FROM nation",
+                "SELECT count(DISTINCT \"regionkey\"), sum(\"nationkey\") FROM \"nation\"",
                 hasBehavior(SUPPORTS_AGGREGATION_PUSHDOWN_COUNT_DISTINCT),
                 node(MarkDistinctNode.class, node(ExchangeNode.class, node(ExchangeNode.class, node(TableScanNode.class)))));
         assertConditionallyPushedDown(
                 withMarkDistinct,
-                "SELECT sum(DISTINCT regionkey), sum(DISTINCT nationkey) FROM nation",
+                "SELECT sum(DISTINCT \"regionkey\"), sum(DISTINCT \"nationkey\") FROM \"nation\"",
                 hasBehavior(SUPPORTS_PREDICATE_PUSHDOWN),
                 node(MarkDistinctNode.class, node(ExchangeNode.class, node(ExchangeNode.class, node(TableScanNode.class)))));
         // distinct aggregation and a non-distinct aggregation
         assertConditionallyPushedDown(
                 withMarkDistinct,
-                "SELECT count(DISTINCT regionkey), count(DISTINCT nationkey) FROM nation",
+                "SELECT count(DISTINCT \"regionkey\"), count(DISTINCT \"nationkey\") FROM \"nation\"",
                 hasBehavior(SUPPORTS_AGGREGATION_PUSHDOWN_COUNT_DISTINCT),
                 node(MarkDistinctNode.class, node(ExchangeNode.class, node(ExchangeNode.class, node(TableScanNode.class)))));
         assertConditionallyPushedDown(
                 withMarkDistinct,
-                "SELECT sum(DISTINCT regionkey), count(nationkey) FROM nation",
+                "SELECT sum(DISTINCT \"regionkey\"), count(\"nationkey\") FROM \"nation\"",
                 hasBehavior(SUPPORTS_PREDICATE_PUSHDOWN),
                 node(MarkDistinctNode.class, node(ExchangeNode.class, node(ExchangeNode.class, node(TableScanNode.class)))));
 
@@ -570,36 +570,36 @@ public abstract class BaseJdbcConnectorTest
     private void verifyDistinctAggregationPushdown(Session session, PlanMatchPattern multiDistinctOtherwiseExpected)
     {
         // distinct aggregation
-        assertThat(query(session, "SELECT count(DISTINCT regionkey) FROM nation")).isFullyPushedDown();
+        assertThat(query(session, "SELECT count(DISTINCT \"regionkey\") FROM \"nation\"")).isFullyPushedDown();
         // distinct aggregation with GROUP BY
-        assertThat(query(session, "SELECT count(DISTINCT nationkey) FROM nation GROUP BY regionkey")).isFullyPushedDown();
+        assertThat(query(session, "SELECT count(DISTINCT \"nationkey\") FROM \"nation\" GROUP BY \"regionkey\"")).isFullyPushedDown();
         // distinct aggregation with varchar
         assertConditionallyPushedDown(
                 session,
-                "SELECT count(DISTINCT comment) FROM nation",
+                "SELECT count(DISTINCT \"comment\") FROM \"nation\"",
                 hasBehavior(SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_INEQUALITY),
                 node(AggregationNode.class, node(TableScanNode.class)));
         // two distinct aggregations
         assertConditionallyPushedDown(
                 session,
-                "SELECT count(DISTINCT regionkey), count(DISTINCT nationkey) FROM nation",
+                "SELECT count(DISTINCT \"regionkey\"), count(DISTINCT \"nationkey\") FROM \"nation\"",
                 hasBehavior(SUPPORTS_AGGREGATION_PUSHDOWN_COUNT_DISTINCT),
                 multiDistinctOtherwiseExpected);
         assertConditionallyPushedDown(
                 session,
-                "SELECT sum(DISTINCT regionkey), sum(DISTINCT nationkey) FROM nation",
+                "SELECT sum(DISTINCT \"regionkey\"), sum(DISTINCT \"nationkey\") FROM \"nation\"",
                 hasBehavior(SUPPORTS_PREDICATE_PUSHDOWN),
                 multiDistinctOtherwiseExpected);
 
         // distinct aggregation and a non-distinct aggregation
         assertConditionallyPushedDown(
                 session,
-                "SELECT count(DISTINCT regionkey), sum(nationkey) FROM nation",
+                "SELECT count(DISTINCT \"regionkey\"), sum(\"nationkey\") FROM \"nation\"",
                 hasBehavior(SUPPORTS_AGGREGATION_PUSHDOWN_COUNT_DISTINCT),
                 multiDistinctOtherwiseExpected);
         assertConditionallyPushedDown(
                 session,
-                "SELECT sum(DISTINCT regionkey), sum(nationkey) FROM nation",
+                "SELECT sum(DISTINCT \"regionkey\"), sum(\"nationkey\") FROM \"nation\"",
                 hasBehavior(SUPPORTS_PREDICATE_PUSHDOWN),
                 multiDistinctOtherwiseExpected);
     }
@@ -608,10 +608,10 @@ public abstract class BaseJdbcConnectorTest
     public void testNumericAggregationPushdown()
     {
         if (!hasBehavior(SUPPORTS_AGGREGATION_PUSHDOWN)) {
-            assertThat(query("SELECT min(nationkey) FROM nation")).isNotFullyPushedDown(AggregationNode.class);
-            assertThat(query("SELECT max(nationkey) FROM nation")).isNotFullyPushedDown(AggregationNode.class);
-            assertThat(query("SELECT sum(nationkey) FROM nation")).isNotFullyPushedDown(AggregationNode.class);
-            assertThat(query("SELECT avg(nationkey) FROM nation")).isNotFullyPushedDown(AggregationNode.class);
+            assertThat(query("SELECT min(\"nationkey\") FROM \"nation\"")).isNotFullyPushedDown(AggregationNode.class);
+            assertThat(query("SELECT max(\"nationkey\") FROM \"nation\"")).isNotFullyPushedDown(AggregationNode.class);
+            assertThat(query("SELECT sum(\"nationkey\") FROM \"nation\"")).isNotFullyPushedDown(AggregationNode.class);
+            assertThat(query("SELECT avg(\"nationkey\") FROM \"nation\"")).isNotFullyPushedDown(AggregationNode.class);
             return;
         }
 
@@ -943,7 +943,7 @@ public abstract class BaseJdbcConnectorTest
         skipTestUnless(hasBehavior(SUPPORTS_LIMIT_PUSHDOWN));
 
         // distinct limit can be pushed down even without aggregation pushdown
-        assertThat(query("SELECT DISTINCT regionkey FROM nation LIMIT 5")).isFullyPushedDown();
+        assertThat(query("SELECT DISTINCT \"regionkey\" FROM \"nation\" LIMIT 5")).isFullyPushedDown();
 
         // with join
         PlanMatchPattern joinOverTableScans = node(JoinNode.class,
@@ -951,9 +951,9 @@ public abstract class BaseJdbcConnectorTest
                 anyTree(node(TableScanNode.class)));
         assertConditionallyPushedDown(
                 joinPushdownEnabled(getSession()),
-                "SELECT n.name, r.name " +
-                        "FROM nation n " +
-                        "LEFT JOIN region r USING (regionkey) " +
+                "SELECT n.\"name\", r.\"name\" " +
+                        "FROM \"nation\" n " +
+                        "LEFT JOIN \"region\" r USING (\"regionkey\") " +
                         "LIMIT 30",
                 hasBehavior(SUPPORTS_JOIN_PUSHDOWN),
                 joinOverTableScans);
@@ -965,7 +965,7 @@ public abstract class BaseJdbcConnectorTest
         Session topNPushdownDisabled = Session.builder(getSession())
                 .setCatalogSessionProperty(getSession().getCatalog().orElseThrow(), "topn_pushdown_enabled", "false")
                 .build();
-        assertThat(query(topNPushdownDisabled, "SELECT orderkey FROM orders ORDER BY orderkey LIMIT 10"))
+        assertThat(query(topNPushdownDisabled, "SELECT \"orderkey\" FROM \"orders\" ORDER BY \"orderkey\" LIMIT 10"))
                 .ordered()
                 .isNotFullyPushedDown(TopNNode.class);
     }
@@ -983,8 +983,8 @@ public abstract class BaseJdbcConnectorTest
                 Session.builder(getSession())
                         .setCatalogSessionProperty(getSession().getCatalog().orElseThrow(), JOIN_PUSHDOWN_ENABLED, "false")
                         .build(),
-                "SELECT * FROM nation n LEFT JOIN region r ON n.regionkey = r.regionkey " +
-                        "ORDER BY n.nationkey LIMIT 3"))
+                "SELECT * FROM \"nation\" n LEFT JOIN \"region\" r ON n.\"regionkey\" = r.\"regionkey\" " +
+                        "ORDER BY n.\"nationkey\" LIMIT 3"))
                 .ordered()
                 .isNotFullyPushedDown(
                         node(TopNNode.class, // FINAL TopN
@@ -1029,25 +1029,25 @@ public abstract class BaseJdbcConnectorTest
     public void testArithmeticPredicatePushdown()
     {
         if (!hasBehavior(SUPPORTS_PREDICATE_ARITHMETIC_EXPRESSION_PUSHDOWN)) {
-            assertThat(query("SELECT shippriority FROM orders WHERE shippriority % 4 = 0")).isNotFullyPushedDown(FilterNode.class);
+            assertThat(query("SELECT \"shippriority\" FROM \"orders\" WHERE \"shippriority\" % 4 = 0")).isNotFullyPushedDown(FilterNode.class);
             return;
         }
-        assertThat(query("SELECT shippriority FROM orders WHERE shippriority % 4 = 0")).isFullyPushedDown();
+        assertThat(query("SELECT \"shippriority\" FROM \"orders\" WHERE \"shippriority\" % 4 = 0")).isFullyPushedDown();
 
-        assertThat(query("SELECT nationkey, name, regionkey FROM nation WHERE nationkey > 0 AND (nationkey - regionkey) % nationkey = 2"))
+        assertThat(query("SELECT \"nationkey\", \"name\", \"regionkey\" FROM \"nation\" WHERE \"nationkey\" > 0 AND (\"nationkey\" - \"regionkey\") % \"nationkey\" = 2"))
                 .isFullyPushedDown()
                 .matches("VALUES (BIGINT '3', CAST('CANADA' AS varchar(25)), BIGINT '1')");
 
         // some databases calculate remainder instead of modulus when one of the values is negative
-        assertThat(query("SELECT nationkey, name, regionkey FROM nation WHERE nationkey > 0 AND (nationkey - regionkey) % -nationkey = 2"))
+        assertThat(query("SELECT \"nationkey\", \"name\", \"regionkey\" FROM \"nation\" WHERE \"nationkey\" > 0 AND (\"nationkey\" - \"regionkey\") % -\"nationkey\" = 2"))
                 .isFullyPushedDown()
                 .matches("VALUES (BIGINT '3', CAST('CANADA' AS varchar(25)), BIGINT '1')");
 
-        assertThat(query("SELECT nationkey, name, regionkey FROM nation WHERE nationkey > 0 AND (nationkey - regionkey) % 0 = 2"))
+        assertThat(query("SELECT \"nationkey\", \"name\", \"regionkey\" FROM \"nation\" WHERE \"nationkey\" > 0 AND (\"nationkey\" - \"regionkey\") % 0 = 2"))
                 .failure().hasMessageContaining("by zero");
 
         // Expression that evaluates to 0 for some rows on RHS of modulus
-        assertThat(query("SELECT nationkey, name, regionkey FROM nation WHERE nationkey > 0 AND (nationkey - regionkey) % (regionkey - 1) = 2"))
+        assertThat(query("SELECT \"nationkey\", \"name\", \"regionkey\" FROM \"nation\" WHERE \"nationkey\" > 0 AND (\"nationkey\" - \"regionkey\") % (\"regionkey\" - 1) = 2"))
                 .failure().hasMessageContaining("by zero");
 
         // TODO add coverage for other arithmetic pushdowns https://github.com/trinodb/trino/issues/14808
@@ -1111,11 +1111,11 @@ public abstract class BaseJdbcConnectorTest
     @Test
     public void testCaseInsensitivePredicate()
     {
-        assertThat(query("SELECT address FROM customer WHERE address IN ('01bR7OOM6zPqo29DpAq', 'BJYZYJQk4yD5B', 'a6M1wdC44LW')"))
+        assertThat(query("SELECT \"address\" FROM \"customer\" WHERE \"address\" IN ('01bR7OOM6zPqo29DpAq', 'BJYZYJQk4yD5B', 'a6M1wdC44LW')"))
                 .skippingTypesCheck()
                 .matches("VALUES 'BJYZYJQk4yD5B', 'a6M1wdC44LW', '01bR7OOM6zPqo29DpAq'");
 
-        assertThat(query("SELECT COUNT(*) FROM customer WHERE address >= '01bR7OOM6zPqo29DpAq' AND address <= 'a6M1wdC44LW'"))
+        assertThat(query("SELECT COUNT(*) FROM \"customer\" WHERE \"address\" >= '01bR7OOM6zPqo29DpAq' AND \"address\" <= 'a6M1wdC44LW'"))
                 .matches("VALUES BIGINT '858'");
 
         assertThat(query(
@@ -1124,7 +1124,7 @@ public abstract class BaseJdbcConnectorTest
                 Session.builder(getSession())
                         .setCatalogSessionProperty(getSession().getCatalog().orElseThrow(), "domain_compaction_threshold", "1")
                         .build(),
-                "SELECT address FROM customer WHERE address IN ('01bR7OOM6zPqo29DpAq', 'BJYZYJQk4yD5B', 'a6M1wdC44LW')"))
+                "SELECT \"address\" FROM \"customer\" WHERE \"address\" IN ('01bR7OOM6zPqo29DpAq', 'BJYZYJQk4yD5B', 'a6M1wdC44LW')"))
                 .skippingTypesCheck()
                 .matches("VALUES 'BJYZYJQk4yD5B', 'a6M1wdC44LW', '01bR7OOM6zPqo29DpAq'");
     }
@@ -1140,7 +1140,7 @@ public abstract class BaseJdbcConnectorTest
                 // Disable optimized hash generation so that expected plans in case of no pushdown remain "simple"
                 .build();
 
-        assertThat(query(noJoinPushdown, "SELECT r.name, n.name FROM nation n JOIN region r ON n.regionkey = r.regionkey"))
+        assertThat(query(noJoinPushdown, "SELECT r.\"name\", n.\"name\" FROM \"nation\" n JOIN \"region\" r ON n.\"regionkey\" = r.\"regionkey\""))
                 .joinIsNotFullyPushedDown();
     }
 
@@ -1150,7 +1150,7 @@ public abstract class BaseJdbcConnectorTest
         Session session = joinPushdownEnabled(getSession());
 
         if (!hasBehavior(SUPPORTS_JOIN_PUSHDOWN)) {
-            assertThat(query(session, "SELECT r.name, n.name FROM nation n JOIN region r ON n.regionkey = r.regionkey"))
+            assertThat(query(session, "SELECT r.\"name\", n.\"name\" FROM \"nation\" n JOIN \"region\" r ON n.\"regionkey\" = r.\"regionkey\""))
                     .joinIsNotFullyPushedDown();
             return;
         }
@@ -1158,12 +1158,12 @@ public abstract class BaseJdbcConnectorTest
         try (TestTable nationLowercaseTable = newTrinoTable(
                 // If a connector supports Join pushdown, but does not allow CTAS, we need to make the table creation here overridable.
                 "nation_lowercase",
-                "AS SELECT nationkey, lower(name) name, regionkey FROM nation")) {
+                "AS SELECT \"nationkey\", lower(\"name\") \"name\", \"regionkey\" FROM \"nation\"")) {
             for (JoinOperator joinOperator : JoinOperator.values()) {
                 log.info("Testing joinOperator=%s", joinOperator);
 
                 if (joinOperator == FULL_JOIN && !hasBehavior(SUPPORTS_JOIN_PUSHDOWN_WITH_FULL_JOIN)) {
-                    assertThat(query(session, "SELECT r.name, n.name FROM nation n FULL JOIN region r ON n.regionkey = r.regionkey"))
+                    assertThat(query(session, "SELECT r.\"name\", n.\"name\" FROM \"nation\" n FULL JOIN \"region\" r ON n.\"regionkey\" = r.\"regionkey\""))
                             .joinIsNotFullyPushedDown();
                     continue;
                 }
@@ -1181,33 +1181,33 @@ public abstract class BaseJdbcConnectorTest
                         .collect(toImmutableList());
 
                 // basic case
-                assertThat(query(session, format("SELECT r.name, n.name FROM nation n %s region r ON n.regionkey = r.regionkey", joinOperator))).isFullyPushedDown();
+                assertThat(query(session, format("SELECT r.\"name\", n.\"name\" FROM \"nation\" n %s \"region\" r ON n.\"regionkey\" = r.\"regionkey\"", joinOperator))).isFullyPushedDown();
 
                 // join over different columns
-                assertThat(query(session, format("SELECT r.name, n.name FROM nation n %s region r ON n.nationkey = r.regionkey", joinOperator))).isFullyPushedDown();
+                assertThat(query(session, format("SELECT r.\"name\", n.\"name\" FROM \"nation\" n %s \"region\" r ON n.\"nationkey\" = r.\"regionkey\"", joinOperator))).isFullyPushedDown();
 
                 // filter join condition (effectively empty)
-                assertThat(query(session, format("SELECT n.name FROM nation n %s orders o ON DATE '2025-03-19' = o.orderdate", joinOperator))).joinIsNotFullyPushedDown();
+                assertThat(query(session, format("SELECT n.\"name\" FROM \"nation\" n %s \"orders\" o ON DATE '2025-03-19' = o.\"orderdate\"", joinOperator))).joinIsNotFullyPushedDown();
 
                 // no projection on the probe side, only filter
-                assertJoinConditionallyPushedDown(session, format("SELECT n.name FROM nation n %s orders o ON n.regionkey = 1", joinOperator),
+                assertJoinConditionallyPushedDown(session, format("SELECT n.\"name\" FROM \"nation\" n %s \"orders\" o ON n.\"regionkey\" = 1", joinOperator),
                         expectJoinPushdownOnEmptyProjection(joinOperator));
 
                 // pushdown when using USING
-                assertThat(query(session, format("SELECT r.name, n.name FROM nation n %s region r USING(regionkey)", joinOperator))).isFullyPushedDown();
+                assertThat(query(session, format("SELECT r.\"name\", n.\"name\" FROM \"nation\" n %s \"region\" r USING(\"regionkey\")", joinOperator))).isFullyPushedDown();
 
                 // varchar equality predicate
                 assertJoinConditionallyPushedDown(
                         session,
-                        format("SELECT n.name, n2.regionkey FROM nation n %s nation n2 ON n.name = n2.name", joinOperator),
+                        format("SELECT n.\"name\", n2.\"regionkey\" FROM \"nation\" n %s \"nation\" n2 ON n.\"name\" = n2.\"name\"", joinOperator),
                         hasBehavior(SUPPORTS_JOIN_PUSHDOWN_WITH_VARCHAR_EQUALITY));
                 assertJoinConditionallyPushedDown(
                         session,
-                        format("SELECT n.name, nl.regionkey FROM nation n %s %s nl ON n.name = nl.name", joinOperator, nationLowercaseTable.getName()),
+                        format("SELECT n.\"name\", nl.\"regionkey\" FROM \"nation\" n %s %s nl ON n.\"name\" = nl.\"name\"", joinOperator, nationLowercaseTable.getName()),
                         hasBehavior(SUPPORTS_JOIN_PUSHDOWN_WITH_VARCHAR_EQUALITY));
 
                 // multiple bigint predicates
-                assertThat(query(session, format("SELECT n.name, c.name FROM nation n %s customer c ON n.nationkey = c.nationkey and n.regionkey = c.custkey", joinOperator)))
+                assertThat(query(session, format("SELECT n.\"name\", c.\"name\" FROM \"nation\" n %s \"customer\" c ON n.\"nationkey\" = c.\"nationkey\" and n.\"regionkey\" = c.\"custkey\"", joinOperator)))
                         .isFullyPushedDown();
 
                 // inequality
@@ -1215,13 +1215,13 @@ public abstract class BaseJdbcConnectorTest
                     // bigint inequality predicate
                     assertJoinConditionallyPushedDown(
                             withoutDynamicFiltering,
-                            format("SELECT r.name, n.name FROM nation n %s region r ON n.regionkey %s r.regionkey", joinOperator, operator),
+                            format("SELECT r.\"name\", n.\"name\" FROM \"nation\" n %s \"region\" r ON n.\"regionkey\" %s r.\"regionkey\"", joinOperator, operator),
                             expectJoinPushdown(operator) && expectJoinPushdownOnInequalityOperator(joinOperator));
 
                     // varchar inequality predicate
                     assertJoinConditionallyPushedDown(
                             withoutDynamicFiltering,
-                            format("SELECT n.name, nl.name FROM nation n %s %s nl ON n.name %s nl.name", joinOperator, nationLowercaseTable.getName(), operator),
+                            format("SELECT n.\"name\", nl.\"name\" FROM \"nation\" n %s %s nl ON n.\"name\" %s nl.\"name\"", joinOperator, nationLowercaseTable.getName(), operator),
                             expectVarcharJoinPushdown(operator) && expectJoinPushdownOnInequalityOperator(joinOperator));
                 }
 
@@ -1230,7 +1230,7 @@ public abstract class BaseJdbcConnectorTest
                     log.info("Testing [joinOperator=%s] operator=%s on number", joinOperator, operator);
                     assertJoinConditionallyPushedDown(
                             session,
-                            format("SELECT n.name, c.name FROM nation n %s customer c ON n.nationkey = c.nationkey AND n.regionkey %s c.custkey", joinOperator, operator),
+                            format("SELECT n.\"name\", c.\"name\" FROM \"nation\" n %s \"customer\" c ON n.\"nationkey\" = c.\"nationkey\" AND n.\"regionkey\" %s c.\"custkey\"", joinOperator, operator),
                             expectJoinPushdown(operator));
                 }
 
@@ -1239,54 +1239,54 @@ public abstract class BaseJdbcConnectorTest
                     log.info("Testing [joinOperator=%s] operator=%s on varchar", joinOperator, operator);
                     assertJoinConditionallyPushedDown(
                             session,
-                            format("SELECT n.name, nl.name FROM nation n %s %s nl ON n.regionkey = nl.regionkey AND n.name %s nl.name", joinOperator, nationLowercaseTable.getName(), operator),
+                            format("SELECT n.\"name\", nl.\"name\" FROM \"nation\" n %s %s nl ON n.\"regionkey\" = nl.\"regionkey\" AND n.\"name\" %s nl.\"name\"", joinOperator, nationLowercaseTable.getName(), operator),
                             expectVarcharJoinPushdown(operator));
                 }
 
                 // Join over a (double) predicate
                 assertThat(query(session, format("" +
-                        "SELECT c.name, n.name " +
-                        "FROM (SELECT * FROM customer WHERE acctbal > 8000) c " +
-                        "%s nation n ON c.custkey = n.nationkey", joinOperator)))
+                        "SELECT c.\"name\", n.\"name\" " +
+                        "FROM (SELECT * FROM \"customer\" WHERE \"acctbal\" > 8000) c " +
+                        "%s \"nation\" n ON c.\"custkey\" = n.\"nationkey\"", joinOperator)))
                         .isFullyPushedDown();
 
                 // Join over a varchar equality predicate
                 assertJoinConditionallyPushedDown(
                         session,
-                        format("SELECT c.name, n.name FROM (SELECT * FROM customer WHERE address = 'TcGe5gaZNgVePxU5kRrvXBfkasDTea') c " +
-                                "%s nation n ON c.custkey = n.nationkey", joinOperator),
+                        format("SELECT c.\"name\", n.\"name\" FROM (SELECT * FROM \"customer\" WHERE \"address\" = 'TcGe5gaZNgVePxU5kRrvXBfkasDTea') c " +
+                                "%s \"nation\" n ON c.\"custkey\" = n.\"nationkey\"", joinOperator),
                         hasBehavior(SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_EQUALITY));
 
                 // Join over a varchar inequality predicate
                 assertJoinConditionallyPushedDown(
                         session,
-                        format("SELECT c.name, n.name FROM (SELECT * FROM customer WHERE address < 'TcGe5gaZNgVePxU5kRrvXBfkasDTea') c " +
-                                "%s nation n ON c.custkey = n.nationkey", joinOperator),
+                        format("SELECT c.\"name\", n.\"name\" FROM (SELECT * FROM \"customer\" WHERE \"address\" < 'TcGe5gaZNgVePxU5kRrvXBfkasDTea') c " +
+                                "%s \"nation\" n ON c.\"custkey\" = n.\"nationkey\"", joinOperator),
                         hasBehavior(SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_INEQUALITY));
 
                 // join over aggregation
                 assertJoinConditionallyPushedDown(
                         session,
-                        format("SELECT * FROM (SELECT regionkey rk, count(nationkey) c FROM nation GROUP BY regionkey) n " +
-                                "%s region r ON n.rk = r.regionkey", joinOperator),
+                        format("SELECT * FROM (SELECT \"regionkey\" rk, count(\"nationkey\") c FROM \"nation\" GROUP BY \"regionkey\") n " +
+                                "%s \"region\" r ON n.rk = r.\"regionkey\"", joinOperator),
                         hasBehavior(SUPPORTS_AGGREGATION_PUSHDOWN));
 
                 // join over LIMIT
                 assertJoinConditionallyPushedDown(
                         session,
-                        format("SELECT * FROM (SELECT nationkey FROM nation LIMIT 30) n " +
-                                "%s region r ON n.nationkey = r.regionkey", joinOperator),
+                        format("SELECT * FROM (SELECT \"nationkey\" FROM \"nation\" LIMIT 30) n " +
+                                "%s \"region\" r ON n.\"nationkey\" = r.\"regionkey\"", joinOperator),
                         hasBehavior(SUPPORTS_LIMIT_PUSHDOWN));
 
                 // join over TopN
                 assertJoinConditionallyPushedDown(
                         session,
-                        format("SELECT * FROM (SELECT nationkey FROM nation ORDER BY regionkey LIMIT 5) n " +
-                                "%s region r ON n.nationkey = r.regionkey", joinOperator),
+                        format("SELECT * FROM (SELECT \"nationkey\" FROM \"nation\" ORDER BY \"regionkey\" LIMIT 5) n " +
+                                "%s \"region\" r ON n.\"nationkey\" = r.\"regionkey\"", joinOperator),
                         hasBehavior(SUPPORTS_TOPN_PUSHDOWN));
 
                 // join over join
-                assertThat(query(session, "SELECT * FROM nation n, region r, customer c WHERE n.regionkey = r.regionkey AND r.regionkey = c.custkey"))
+                assertThat(query(session, "SELECT * FROM \"nation\" n, \"region\" r, \"customer\" c WHERE n.\"regionkey\" = r.\"regionkey\" AND r.\"regionkey\" = c.\"custkey\""))
                         .isFullyPushedDown();
             }
         }
@@ -1297,7 +1297,7 @@ public abstract class BaseJdbcConnectorTest
     {
         String catalog = getSession().getCatalog().orElseThrow();
         Session session = joinPushdownEnabled(getSession());
-        String query = "SELECT n.name, o.orderstatus FROM nation n JOIN orders o ON n.regionkey = o.orderkey AND n.nationkey + o.custkey - 3 = 0";
+        String query = "SELECT n.\"name\", o.\"orderstatus\" FROM \"nation\" n JOIN \"orders\" o ON n.\"regionkey\" = o.\"orderkey\" AND n.\"nationkey\" + o.\"custkey\" - 3 = 0";
 
         // The join cannot be pushed down without "complex join pushdown"
         assertThat(query(
@@ -1318,7 +1318,7 @@ public abstract class BaseJdbcConnectorTest
     public void testExplainAnalyzePhysicalReadWallTime()
     {
         assertExplainAnalyze(
-                "EXPLAIN ANALYZE VERBOSE SELECT * FROM nation a",
+                "EXPLAIN ANALYZE VERBOSE SELECT * FROM \"nation\" a",
                 "Physical input time: .*s");
     }
 
@@ -1433,7 +1433,7 @@ public abstract class BaseJdbcConnectorTest
                     }
                     String newNationName = newNation.getName().replaceFirst("^" + Pattern.quote(schemaName) + ".", "");
                     String newRegionName = newRegion.getName().replaceFirst("^" + Pattern.quote(schemaName) + ".", "");
-                    testBulkColumnListingOptions(Optional.of(schemaName), Optional.of(newNationName), Optional.of(newRegionName));
+                    testBulkColumnListingOptions(Optional.of(canonicalize(schemaName)), Optional.of(canonicalize(newNationName)), Optional.of(canonicalize(newRegionName)));
                 }
             }
             finally {
@@ -1465,7 +1465,7 @@ public abstract class BaseJdbcConnectorTest
                 .build();
 
         try {
-            computeActual(session, "SELECT * FROM information_schema.columns WHERE table_schema = CURRENT_SCHEMA");
+            computeActual(session, "SELECT * FROM \"information_schema\".\"columns\" WHERE \"table_schema\" = CURRENT_SCHEMA");
         }
         catch (QueryFailedException maybeExpected) {
             // Perhaps given mode is not supported
@@ -1478,71 +1478,92 @@ public abstract class BaseJdbcConnectorTest
             // Hack for Druid, where numeric columns are NOT NULL by default
             String numericNullable = (String) computeScalar(
                     """
-                    SELECT is_nullable FROM information_schema.columns
-                    WHERE table_schema = CURRENT_SCHEMA AND table_name = 'nation' AND column_name = 'nationkey'
-                    """);
+                    SELECT "is_nullable" FROM "information_schema"."columns"
+                    WHERE "table_schema" = '%s' AND "table_name" = '%s' AND "column_name" = '%s'
+                    """.formatted(
+                            temporarySchema.get(),
+                            temporaryNationTable.orElseThrow(),
+                            canonicalize("nationkey")
+                    ));
 
             // information_schema.columns for single, isolated schema
             assertThat(query(session,
                     """
-                    SELECT table_name, column_name, is_nullable FROM information_schema.columns
-                    WHERE table_schema = '%s'
+                    SELECT "table_name", "column_name", "is_nullable" FROM "information_schema"."columns"
+                    WHERE "table_schema" = '%s'
                     """.formatted(temporarySchema.get())))
                     .skippingTypesCheck()
                     .matches(
                             """
                             VALUES
-                                ('%1$s', 'nationkey', '%3$s')
-                              , ('%1$s', 'name', 'YES')
-                              , ('%2$s', 'regionkey', '%3$s')
-                              , ('%2$s', 'name', 'YES')
-                            """.formatted(temporaryNationTable.orElseThrow(), temporaryRegionTable.orElseThrow(), numericNullable));
+                                ('%1$s', '%3$s', '%6$s')
+                              , ('%1$s', '%5$s', 'YES')
+                              , ('%2$s', '%4$s', '%6$s')
+                              , ('%2$s', '%5$s', 'YES')
+                            """.formatted(
+                                    temporaryNationTable.orElseThrow(),
+                                    temporaryRegionTable.orElseThrow(),
+                                    canonicalize("nationkey"),
+                                    canonicalize("regionkey"),
+                                    canonicalize("name"),
+                                    numericNullable));
 
             // system.jdbc.columns for single, isolated schema
+            // FIXME: cant use equality predicate on TABLE_SCHEM when predicate have underscore
+            //        but LIKE predicate work fine...
             assertThat(query(session,
                     """
-                    SELECT table_name, column_name, is_nullable FROM system.jdbc.columns
-                    WHERE table_cat = CURRENT_CATALOG AND table_schem = '%s'
-                    """.formatted(temporarySchema.get())))
+                    SELECT "TABLE_NAME", "COLUMN_NAME", "IS_NULLABLE" FROM "system"."jdbc"."columns"
+                    WHERE "TABLE_CAT" = '%s' AND "TABLE_SCHEM" LIKE '%s'
+                    """.formatted(
+                            catalogName,
+                            temporarySchema.get())))
                     .skippingTypesCheck()
                     .matches(
                             """
                             VALUES
-                                ('%1$s', 'nationkey', '%3$s')
-                              , ('%1$s', 'name', 'YES')
-                              , ('%2$s', 'regionkey', '%3$s')
-                              , ('%2$s', 'name', 'YES')
-                            """.formatted(temporaryNationTable.orElseThrow(), temporaryRegionTable.orElseThrow(), numericNullable));
+                                ('%1$s', '%3$s', '%6$s')
+                              , ('%1$s', '%5$s', 'YES')
+                              , ('%2$s', '%4$s', '%6$s')
+                              , ('%2$s', '%5$s', 'YES')
+                            """.formatted(
+                                    temporaryNationTable.orElseThrow(),
+                                    temporaryRegionTable.orElseThrow(),
+                                    canonicalize("nationkey"),
+                                    canonicalize("regionkey"),
+                                    canonicalize("name"),
+                                    numericNullable));
         }
 
         // information_schema.columns for single schema with more tables
         assertThat(query(session,
                 """
-                SELECT table_name, column_name, is_nullable FROM information_schema.columns
-                WHERE table_schema = CURRENT_SCHEMA
-                AND ((column_name LIKE 'n_me' AND table_name IN ('customer', 'nation')) OR rand() = 42) -- not pushed down into connector
-                """))
+                SELECT "table_name", "column_name", "is_nullable" FROM "information_schema"."columns"
+                WHERE "table_catalog" = '%s'
+                AND (("column_name" LIKE 'n_me' AND "table_name" IN ('nation', 'region')) OR rand() = 42) -- not pushed down into connector
+                """.formatted(catalogName)))
                 .skippingTypesCheck()
                 .matches(
                         """
                         VALUES
-                            ('customer', 'name', 'YES')
-                          , ('nation', 'name', 'YES')
+                            ('nation', 'name', 'YES')
+                          , ('region', 'name', 'YES')
                         """);
 
         // system.jdbc.columns for single schema with more tables
+        // FIXME: can't use: "TABLE_SCHEM" LIKE CURRENT_SCHEMA predicate to success?
         assertThat(query(session,
                 """
-                SELECT table_name, column_name, is_nullable FROM system.jdbc.columns
-                WHERE table_cat = CURRENT_CATALOG AND table_schem = CURRENT_SCHEMA
-                AND ((column_name LIKE 'n_me' AND table_name IN ('customer', 'nation')) OR rand() = 42) -- not pushed down into connector
-                """))
+                SELECT "TABLE_NAME", "COLUMN_NAME", "IS_NULLABLE" FROM system.jdbc.columns
+                WHERE "TABLE_CAT" = '%s'
+                AND (("COLUMN_NAME" LIKE 'n_me' AND "TABLE_NAME" IN ('nation', 'region')) OR rand() = 42) -- not pushed down into connector
+                """.formatted(catalogName)))
                 .skippingTypesCheck()
                 .matches(
                         """
                         VALUES
-                            ('customer', 'name', 'YES')
-                          , ('nation', 'name', 'YES')
+                            ('nation', 'name', 'YES')
+                          , ('region', 'name', 'YES')
                         """);
     }
 
@@ -1748,7 +1769,7 @@ public abstract class BaseJdbcConnectorTest
     public void testConstantUpdateWithVarcharInequalityPredicates()
     {
         skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE) && hasBehavior(SUPPORTS_UPDATE));
-        try (TestTable table = createTestTableForWrites("test_update_varchar", "(col1 INT, col2 varchar(1), pk INT)", ImmutableList.of("1, 'a', 1", "2, 'A', 2"), "pk")) {
+        try (TestTable table = createTestTableForWrites("test_update_varchar", "(col1 INT, col2 varchar(1), pk INT)", ImmutableList.of("1, 'a', 1", "2, 'A', 2"), canonicalize("pk"))) {
             if (!hasBehavior(SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_INEQUALITY) && !hasBehavior(SUPPORTS_ROW_LEVEL_UPDATE)) {
                 assertQueryFails("UPDATE " + table.getName() + " SET col1 = 20 WHERE col2 != 'A'", MODIFYING_ROWS_MESSAGE);
                 return;
@@ -1782,10 +1803,10 @@ public abstract class BaseJdbcConnectorTest
     public void testDeleteWithBigintEqualityPredicate()
     {
         skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE) && hasBehavior(SUPPORTS_ROW_LEVEL_DELETE));
-        try (TestTable table = newTrinoTable("test_delete_with_bigint_equality_predicate", "AS SELECT * FROM region")) {
-            assertUpdate("DELETE FROM " + table.getName() + " WHERE regionkey = 1", 1);
+        try (TestTable table = newTrinoTable("test_delete_with_bigint_equality_predicate", "AS SELECT * FROM \"region\"")) {
+            assertUpdate("DELETE FROM " + table.getName() + " WHERE \"regionkey\" = 1", 1);
             assertQuery(
-                    "SELECT regionkey, name FROM " + table.getName(),
+                    "SELECT \"regionkey\", \"name\" FROM " + table.getName(),
                     "VALUES "
                             + "(0, 'AFRICA'),"
                             + "(2, 'ASIA'),"
@@ -1996,7 +2017,7 @@ public abstract class BaseJdbcConnectorTest
                     .singleStatement()
                     .execute(session, (Session transactionSession) -> queryRunner.createPlan(
                             transactionSession,
-                            "INSERT INTO " + table.getName() + " (a, b) SELECT clerk, orderkey FROM tpch.sf100.orders LIMIT " + numberOfRows));
+                            "INSERT INTO " + table.getName() + " (a, b) SELECT \"clerk\", \"orderkey\" FROM tpch.sf100.orders LIMIT " + numberOfRows));
             TableWriterNode.WriterTarget target = ((TableWriterNode) searchFrom(plan.getRoot())
                     .where(node -> node instanceof TableWriterNode)
                     .findOnlyElement()).getTarget();
@@ -2023,7 +2044,7 @@ public abstract class BaseJdbcConnectorTest
             return;
         }
         assertQueryFails(
-                format("SELECT * FROM TABLE(system.query(query => 'SELECT name FROM %s.nation WHERE nationkey = 0'))", getSession().getSchema().orElseThrow()),
+                format("SELECT * FROM TABLE(system.query(query => 'SELECT \"name\" FROM %s.\"nation\" WHERE \"nationkey\" = 0'))", getSession().getSchema().orElseThrow()),
                 "line 1:21: Table function 'system.query' not registered");
     }
 
@@ -2051,7 +2072,7 @@ public abstract class BaseJdbcConnectorTest
     {
         skipTestUnless(hasBehavior(SUPPORTS_NATIVE_QUERY));
         assertQuery(
-                format("SELECT * FROM TABLE(system.query(query => 'SELECT name FROM %s.nation WHERE nationkey = 0'))", getSession().getSchema().orElseThrow()),
+                format("SELECT * FROM TABLE(system.query(query => 'SELECT \"name\" FROM %s.\"nation\" WHERE \"nationkey\" = 0'))", getSession().getSchema().orElseThrow()),
                 "VALUES 'ALGERIA'");
     }
 
@@ -2071,7 +2092,7 @@ public abstract class BaseJdbcConnectorTest
     {
         skipTestUnless(hasBehavior(SUPPORTS_NATIVE_QUERY));
         // The output column type may differ per connector. Skipping the check because it's unrelated to the test purpose.
-        assertThat(query(format("SELECT region_name FROM TABLE(system.query(query => 'SELECT name AS region_name FROM %s.region WHERE regionkey = 0'))", getSession().getSchema().orElseThrow())))
+        assertThat(query(format("SELECT region_name FROM TABLE(system.query(query => 'SELECT \"name\" AS region_name FROM %s.\"region\" WHERE \"regionkey\" = 0'))", getSession().getSchema().orElseThrow())))
                 .skippingTypesCheck()
                 .matches("VALUES 'AFRICA'");
     }
@@ -2081,10 +2102,16 @@ public abstract class BaseJdbcConnectorTest
     {
         skipTestUnless(hasBehavior(SUPPORTS_NATIVE_QUERY));
         assertQueryFails(
-                format("SELECT name FROM TABLE(system.query(query => 'SELECT name AS region_name FROM %s.region'))", getSession().getSchema().orElseThrow()),
+                format(
+                        "SELECT \"name\" FROM TABLE(system.query(query => 'SELECT \"name\" AS region_name FROM %s.%s'))",
+                        getSession().getSchema().orElseThrow(),
+                        "region".equals(canonicalize("region")) ? "region" : "\"region\""),
                 ".* Column 'name' cannot be resolved");
         assertQueryFails(
-                format("SELECT column_not_found FROM TABLE(system.query(query => 'SELECT name AS region_name FROM %s.region'))", getSession().getSchema().orElseThrow()),
+                format(
+                        "SELECT column_not_found FROM TABLE(system.query(query => 'SELECT \"name\" AS region_name FROM %s.%s'))",
+                        getSession().getSchema().orElseThrow(),
+                        "region".equals(canonicalize("region")) ? "region" : "\"region\""),
                 ".* Column 'column_not_found' cannot be resolved");
     }
 
@@ -2101,10 +2128,10 @@ public abstract class BaseJdbcConnectorTest
             String unqualifiedTableName = testTable.getName().replaceAll("^\\w+\\.", "");
             // Check that column 'two' is not supported.
             assertQuery(
-                    "SELECT column_name FROM information_schema.columns WHERE table_schema = '" + getSession().getSchema().orElseThrow() + "' AND table_name = '" + unqualifiedTableName + "'",
-                    "VALUES 'one', 'three'");
+                    "SELECT \"column_name\" FROM \"information_schema\".\"columns\" WHERE \"table_schema\" = '" + getSession().getSchema().orElseThrow() + "' AND \"table_name\" = '" + canonicalize(unqualifiedTableName) + "'",
+                    "VALUES '%s', '%s'".formatted(canonicalize("one"), canonicalize("three")));
             assertUpdate("INSERT INTO " + testTable.getName() + " (one, three) VALUES (123, 'test')", 1);
-            QueryAssert queryAssert = assertThat(query(format("SELECT * FROM TABLE(system.query(query => 'SELECT * FROM %s'))", testTable.getName())));
+            QueryAssert queryAssert = assertThat(query(format("SELECT * FROM TABLE(\"system\".\"query\"(query => 'SELECT * FROM %s'))", testTable.getName())));
             if (expectSuccess) {
                 // For some connectors, the type introspection for regular tables (usually done via JDBC DatabaseMetaData)
                 // is not the same as the type introspection for queries (usually done via JDBC ResultSetMetaData).
@@ -2189,11 +2216,11 @@ public abstract class BaseJdbcConnectorTest
         skipTestUnless(hasBehavior(SUPPORTS_DYNAMIC_FILTER_PUSHDOWN));
 
         assertDynamicFiltering(
-                "SELECT * FROM orders a JOIN orders b ON a.orderkey = b.orderkey AND b.totalprice < 1000",
+                "SELECT * FROM \"orders\" a JOIN \"orders\" b ON a.\"orderkey\" = b.\"orderkey\" AND b.\"totalprice\" < 1000",
                 BROADCAST);
 
         assertDynamicFiltering(
-                "SELECT * FROM orders a JOIN orders b ON a.orderkey = b.orderkey AND b.totalprice < 1000",
+                "SELECT * FROM \"orders\" a JOIN \"orders\" b ON a.\"orderkey\" = b.\"orderkey\" AND b.\"totalprice\" < 1000",
                 PARTITIONED);
     }
 
@@ -2202,8 +2229,8 @@ public abstract class BaseJdbcConnectorTest
     {
         skipTestUnless(hasBehavior(SUPPORTS_DYNAMIC_FILTER_PUSHDOWN));
         assertDynamicFiltering(
-                "SELECT * FROM (SELECT orderkey, count(*) FROM orders GROUP BY orderkey) a JOIN orders b " +
-                        "ON a.orderkey = b.orderkey AND b.totalprice < 1000",
+                "SELECT * FROM (SELECT \"orderkey\", count(*) FROM \"orders\" GROUP BY \"orderkey\") a JOIN \"orders\" b " +
+                        "ON a.\"orderkey\" = b.\"orderkey\" AND b.\"totalprice\" < 1000",
                 PARTITIONED);
     }
 
@@ -2217,13 +2244,13 @@ public abstract class BaseJdbcConnectorTest
     {
         skipTestUnless(hasBehavior(SUPPORTS_DYNAMIC_FILTER_PUSHDOWN));
         MaterializedResultWithPlan resultWithPlan = getDistributedQueryRunner()
-                .executeWithPlan(getSession(), "SELECT custkey, count(*) count FROM orders GROUP BY custkey");
+                .executeWithPlan(getSession(), "SELECT \"custkey\", count(*) count FROM \"orders\" GROUP BY \"custkey\"");
         // Detecting whether above aggregation is fully pushed down explicitly as there are cases where SUPPORTS_AGGREGATION_PUSHDOWN
         // is false as not all aggregations are pushed down but the above aggregation is.
         boolean isAggregationPushedDown = getPhysicalInputPositions(resultWithPlan.queryId()) == 1000;
         assertDynamicFiltering(
-                "SELECT * FROM (SELECT custkey, count(*) count FROM orders GROUP BY custkey) a JOIN orders b " +
-                        "ON a.count = b.custkey AND b.totalprice < 1000",
+                "SELECT * FROM (SELECT \"custkey\", count(*) count FROM \"orders\" GROUP BY \"custkey\") a JOIN \"orders\" b " +
+                        "ON a.count = b.\"custkey\" AND b.\"totalprice\" < 1000",
                 PARTITIONED,
                 isAggregationPushedDown);
     }
@@ -2234,8 +2261,8 @@ public abstract class BaseJdbcConnectorTest
         skipTestUnless(hasBehavior(SUPPORTS_DYNAMIC_FILTER_PUSHDOWN));
         // DF pushdown is not supported for grouping column that is not part of every grouping set
         assertNoDynamicFiltering(
-                "SELECT * FROM (SELECT orderkey, count(*) FROM orders GROUP BY GROUPING SETS ((orderkey), ())) a JOIN orders b " +
-                        "ON a.orderkey = b.orderkey AND b.totalprice < 1000");
+                "SELECT * FROM (SELECT \"orderkey\", count(*) FROM \"orders\" GROUP BY GROUPING SETS ((\"orderkey\"), ())) a JOIN \"orders\" b " +
+                        "ON a.\"orderkey\" = b.\"orderkey\" AND b.\"totalprice\" < 1000");
     }
 
     @Test
@@ -2244,8 +2271,8 @@ public abstract class BaseJdbcConnectorTest
         skipTestUnless(hasBehavior(SUPPORTS_DYNAMIC_FILTER_PUSHDOWN));
         // DF pushdown is not supported for limit queries
         assertNoDynamicFiltering(
-                "SELECT * FROM (SELECT orderkey FROM orders LIMIT 10000000) a JOIN orders b " +
-                        "ON a.orderkey = b.orderkey AND b.totalprice < 1000");
+                "SELECT * FROM (SELECT \"orderkey\" FROM \"orders\" LIMIT 10000000) a JOIN \"orders\" b " +
+                        "ON a.\"orderkey\" = b.\"orderkey\" AND b.\"totalprice\" < 1000");
     }
 
     @Test
@@ -2260,7 +2287,7 @@ public abstract class BaseJdbcConnectorTest
         skipTestUnless(hasBehavior(SUPPORTS_DYNAMIC_FILTER_PUSHDOWN));
         String tableName = "orderkeys_" + randomNameSuffix();
         assertUpdate("CREATE TABLE " + tableName + " (orderkey) AS VALUES 30000, 60000", 2);
-        @Language("SQL") String query = "SELECT * FROM orders a JOIN " + tableName + " b ON a.orderkey = b.orderkey";
+        @Language("SQL") String query = "SELECT * FROM \"orders\" a JOIN " + tableName + " b ON a.\"orderkey\" = b.orderkey";
 
         MaterializedResultWithPlan dynamicFilteringResult = getDistributedQueryRunner().executeWithPlan(
                 dynamicFiltering(true),
@@ -2323,16 +2350,16 @@ public abstract class BaseJdbcConnectorTest
 
         assertUpdate("CREATE TABLE " + schemaTableName + "(a int)");
         try {
-            assertUpdate("CALL system.execute('INSERT INTO " + schemaTableName + " VALUES (1)')");
+            assertUpdate("CALL \"system\".\"execute\"('INSERT INTO " + schemaTableName + " VALUES (1)')");
             assertQuery("SELECT * FROM " + schemaTableName, "VALUES 1");
 
-            assertUpdate("CALL system.execute('UPDATE " + schemaTableName + " SET a = 2')");
+            assertUpdate("CALL \"system\".\"execute\"('UPDATE " + schemaTableName + " SET a = 2')");
             assertQuery("SELECT * FROM " + schemaTableName, "VALUES 2");
 
-            assertUpdate("CALL system.execute('DELETE FROM " + schemaTableName + "')");
+            assertUpdate("CALL \"system\".\"execute\"('DELETE FROM " + schemaTableName + "')");
             assertQueryReturnsEmptyResult("SELECT * FROM " + schemaTableName);
 
-            assertUpdate("EXECUTE IMMEDIATE 'CALL system.execute(?)' USING 'DROP TABLE " + schemaTableName + "'");
+            assertUpdate("EXECUTE IMMEDIATE 'CALL \"system\".\"execute\"(?)' USING 'DROP TABLE " + schemaTableName + "'");
             assertThat(getQueryRunner().tableExists(getSession(), tableName)).isFalse();
         }
         finally {
@@ -2346,11 +2373,11 @@ public abstract class BaseJdbcConnectorTest
         String tableName = "test_execute" + randomNameSuffix();
         String schemaTableName = getSession().getSchema().orElseThrow() + "." + tableName;
 
-        assertUpdate("CREATE TABLE " + schemaTableName + "(a int)");
+        assertUpdate("CREATE TABLE " + schemaTableName + " (a int)");
         try {
-            assertThat(getQueryRunner().tableExists(getSession(), tableName)).isTrue();
-            assertUpdate("CALL system.execute(query => 'DROP TABLE " + schemaTableName + "')");
-            assertThat(getQueryRunner().tableExists(getSession(), tableName)).isFalse();
+            assertThat(getQueryRunner().tableExists(getSession(), canonicalize(tableName))).isTrue();
+            assertUpdate("CALL \"system\".\"execute\"(query => 'DROP TABLE " + schemaTableName + "')");
+            assertThat(getQueryRunner().tableExists(getSession(), canonicalize(tableName))).isFalse();
         }
         finally {
             assertUpdate("DROP TABLE IF EXISTS " + schemaTableName);
@@ -2360,8 +2387,8 @@ public abstract class BaseJdbcConnectorTest
     @Test
     public void testExecuteProcedureWithInvalidQuery()
     {
-        assertQueryFails("CALL system.execute('SELECT 1')", "(?s)Failed to execute query.*");
-        assertQueryFails("CALL system.execute('invalid')", "(?s)Failed to execute query.*");
+        assertQueryFails("CALL \"system\".\"execute\"('SELECT 1')", "(?s)Failed to execute query.*");
+        assertQueryFails("CALL \"system\".\"execute\"('invalid')", "(?s)Failed to execute query.*");
     }
 
     protected void assertDynamicFiltering(@Language("SQL") String sql, JoinDistributionType joinDistributionType)
