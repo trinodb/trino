@@ -718,7 +718,8 @@ public class IcebergMetadata
                 DATA,
                 tableSnapshotId,
                 SchemaParser.toJson(tableSchema),
-                partitionSpec.map(PartitionSpecParser::toJson),
+                partitionSpec.map(PartitionSpec::specId),
+                transformValues(table.specs(), PartitionSpecParser::toJson),
                 formatVersion(table),
                 TupleDomain.all(),
                 TupleDomain.all(),
@@ -960,7 +961,7 @@ public class IcebergMetadata
     public Optional<ConnectorTableHandle> applyPartitioning(ConnectorSession session, ConnectorTableHandle tableHandle, Optional<ConnectorPartitioningHandle> partitioningHandle, List<ColumnHandle> partitioningColumns)
     {
         IcebergTableHandle icebergTableHandle = checkValidTableHandle(tableHandle);
-        if (icebergTableHandle.getPartitionSpecJson().isEmpty()) {
+        if (icebergTableHandle.getSpecId().isEmpty()) {
             return Optional.empty();
         }
 
@@ -1093,8 +1094,8 @@ public class IcebergMetadata
         IcebergTableHandle table = (IcebergTableHandle) handle;
         if (isQueryPartitionFilterRequiredForTable(session, table) && table.getEnforcedPredicate().isAll() && !table.getForAnalyze().orElseThrow()) {
             Schema schema = SchemaParser.fromJson(table.getTableSchemaJson());
-            Optional<PartitionSpec> partitionSpec = table.getPartitionSpecJson()
-                    .map(partitionSpecJson -> PartitionSpecParser.fromJson(schema, partitionSpecJson));
+            Optional<PartitionSpec> partitionSpec = table.getSpecId()
+                    .map(specId -> PartitionSpecParser.fromJson(schema, table.getPartitionSpecJsons().get(specId)));
             if (partitionSpec.isEmpty() || partitionSpec.get().isUnpartitioned()) {
                 return;
             }
@@ -1434,9 +1435,8 @@ public class IcebergMetadata
     {
         IcebergTableHandle table = (IcebergTableHandle) tableHandle;
         Schema schema = SchemaParser.fromJson(table.getTableSchemaJson());
-        PartitionSpec partitionSpec = PartitionSpecParser.fromJson(
-                schema,
-                table.getPartitionSpecJson().orElseThrow(() -> new VerifyException("Partition spec missing in the table handle")));
+        int specId = table.getSpecId().orElseThrow(() -> new VerifyException("Partition spec missing in the table handle"));
+        PartitionSpec partitionSpec = PartitionSpecParser.fromJson(schema, table.getPartitionSpecJsons().get(specId));
         return getWriteLayout(schema, partitionSpec, false);
     }
 
@@ -1693,13 +1693,14 @@ public class IcebergMetadata
     {
         DataSize maxScannedFileSize = (DataSize) executeProperties.get("file_size_threshold");
         SortFieldInfo sortInfo = getSupportedSortFields(icebergTable.schema(), icebergTable.sortOrder());
+        int specId = tableHandle.getSpecId().orElseThrow(() -> new VerifyException("Partition spec missing in the table handle"));
         return Optional.of(new IcebergTableExecuteHandle(
                 tableHandle.getSchemaTableName(),
                 OPTIMIZE,
                 new IcebergOptimizeHandle(
                         tableHandle.getSnapshotId(),
                         tableHandle.getTableSchemaJson(),
-                        tableHandle.getPartitionSpecJson().orElseThrow(() -> new VerifyException("Partition spec missing in the table handle")),
+                        tableHandle.getPartitionSpecJsons().get(specId),
                         getPartitionColumns(icebergTable, typeManager),
                         sortInfo.supportedSortFields(),
                         sortInfo.sortOrderId(),
@@ -2586,8 +2587,8 @@ public class IcebergMetadata
     public Optional<Object> getInfo(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         IcebergTableHandle icebergTableHandle = (IcebergTableHandle) tableHandle;
-        List<String> partitionFields = icebergTableHandle.getPartitionSpecJson()
-                .map(partitionSpecJson -> PartitionSpecParser.fromJson(SchemaParser.fromJson(icebergTableHandle.getTableSchemaJson()), partitionSpecJson)
+        List<String> partitionFields = icebergTableHandle.getSpecId()
+                .map(specId -> PartitionSpecParser.fromJson(SchemaParser.fromJson(icebergTableHandle.getTableSchemaJson()), icebergTableHandle.getPartitionSpecJsons().get(specId))
                         .fields().stream()
                         .map(field -> field.name() + ": " + field.transform())
                         .collect(toImmutableList()))
@@ -3676,7 +3677,8 @@ public class IcebergMetadata
                 table.getTableType(),
                 table.getSnapshotId(),
                 table.getTableSchemaJson(),
-                table.getPartitionSpecJson(),
+                table.getSpecId(),
+                table.getPartitionSpecJsons(),
                 table.getFormatVersion(),
                 table.getUnenforcedPredicate(), // known to be ALL
                 table.getEnforcedPredicate(),
@@ -3772,7 +3774,8 @@ public class IcebergMetadata
                         table.getTableType(),
                         table.getSnapshotId(),
                         table.getTableSchemaJson(),
-                        table.getPartitionSpecJson(),
+                        table.getSpecId(),
+                        table.getPartitionSpecJsons(),
                         table.getFormatVersion(),
                         newUnenforcedConstraint,
                         newEnforcedConstraint,
@@ -3984,7 +3987,8 @@ public class IcebergMetadata
                 originalHandle.getTableType(),
                 originalHandle.getSnapshotId(),
                 originalHandle.getTableSchemaJson(),
-                originalHandle.getPartitionSpecJson(),
+                originalHandle.getSpecId(),
+                originalHandle.getPartitionSpecJsons(),
                 originalHandle.getFormatVersion(),
                 originalHandle.getUnenforcedPredicate(),
                 // Skip $file_modified_time in cache key as the statistics do not depend on it

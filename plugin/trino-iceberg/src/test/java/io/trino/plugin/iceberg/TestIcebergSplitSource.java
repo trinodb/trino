@@ -73,6 +73,7 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
+import static com.google.common.collect.Maps.transformValues;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.google.common.util.concurrent.MoreExecutors.newDirectExecutorService;
 import static io.trino.metastore.cache.CachingHiveMetastore.createPerTransactionCache;
@@ -443,7 +444,8 @@ public class TestIcebergSplitSource
                 TableType.DATA,
                 Optional.empty(),
                 SchemaParser.toJson(nationTable.schema()),
-                Optional.of(PartitionSpecParser.toJson(nationTable.spec())),
+                Optional.ofNullable(nationTable.spec()).map(PartitionSpec::specId),
+                transformValues(nationTable.specs(), PartitionSpecParser::toJson),
                 1,
                 unenforcedPredicate,
                 TupleDomain.all(),
