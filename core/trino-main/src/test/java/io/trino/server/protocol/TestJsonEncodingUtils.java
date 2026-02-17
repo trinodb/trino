@@ -20,6 +20,7 @@ import io.trino.client.QueryDataDecoder;
 import io.trino.client.Row;
 import io.trino.client.spooling.DataAttributes;
 import io.trino.client.spooling.encoding.JsonQueryDataDecoder;
+import io.trino.execution.ColumnInfo;
 import io.trino.server.protocol.spooling.QueryDataEncoder;
 import io.trino.server.protocol.spooling.encoding.JsonQueryDataEncoder;
 import io.trino.spi.Page;
@@ -572,7 +573,7 @@ public class TestJsonEncodingUtils
     {
         ImmutableList.Builder<Column> columns = ImmutableList.builderWithExpectedSize(types.size());
         for (TypedColumn typedColumn : types) {
-            columns.add(createColumn(typedColumn.name(), typedColumn.type(), true));
+            columns.add(createColumn(new ColumnInfo(typedColumn.name()), typedColumn.type(), true));
         }
         return createDecoder(columns.build());
     }

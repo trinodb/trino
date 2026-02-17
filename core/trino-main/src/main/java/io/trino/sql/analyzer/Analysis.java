@@ -285,7 +285,7 @@ public class Analysis
         //  - INSERT/UPDATE/DELETE/MERGE ✓
         //  - ALTER TABLE ADD COLUMN ✓
         //  - SET COLUMN TYPE or any other DDL ✓
-        if (!(root instanceof Query)) {
+        if (!isQuery()) {
             return Optional.empty();
         }
 
@@ -795,6 +795,28 @@ public class Analysis
     public ColumnHandle getColumn(Field field)
     {
         return columns.get(field);
+    }
+
+    public boolean isQuery()
+    {
+        return root instanceof Query;
+    }
+
+    public List<Field> getColumnFields(List<String> columnNames, final boolean isQuery)
+    {
+        return isQuery ? getColumnFields(columnNames) : ImmutableList.of();
+    }
+
+    private List<Field> getColumnFields(List<String> columnNames)
+    {
+        Collection<Field> fields = getOutputDescriptor().getVisibleFields();
+        checkArgument(columnNames.size() == fields.size(), "Column names and fields size mismatch");
+
+        ImmutableList.Builder<Field> columnFields = ImmutableList.builder();
+        for (Field field : fields) {
+            columnFields.add(field);
+        }
+        return columnFields.build();
     }
 
     public CorrespondingAnalysis getCorrespondingAnalysis(Node node)
