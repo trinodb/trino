@@ -205,6 +205,12 @@
                         <ignoredResourcePatterns>
                             <ignoredResourcePattern>mime.types</ignoredResourcePattern>
                         </ignoredResourcePatterns>
+                        <ignoredDependencies>
+                            <dependency>
+                                <groupId>net.snowflake</groupId>
+                                <artifactId>snowflake-jdbc</artifactId>
+                            </dependency>
+                        </ignoredDependencies>
                     </configuration>
                 </plugin>
             </plugins>
