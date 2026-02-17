@@ -6,8 +6,8 @@
 * Allow configuring the maximum amount of memory to use while writing tables
   through the `task.scale-writers.max-writer-memory-percentage` configuration
   property. ({issue}`27874`)
-* Add `array_first(array(E), function(E, boolean))` to return an element
-  matching the predicate. ({issue}`27706`)
+* Add variant of {func}`array_first` for finding the first element that matches
+  a predicate. ({issue}`27706`)
 * {{breaking}} Remove `enable-large-dynamic-filters` configuration property and the 
   corresponding system session property `enable_large_dynamic_filters`. ({issue}`27637`)
 * {{breaking}} Remove the `dynamic-filtering.small*` and `dynamic-filtering.large-broadcast*` 
@@ -20,15 +20,13 @@
 * Fix {func}`localtimestamp` failure for precisions 7 and 8. ({issue}`27807`)
 * Fix spurious query failures when querying the `system` catalog during catalog
   drop operations. ({issue}`28017`)
-* Fix failure when executing `date_add` function with larger value. ({issue}`27899`)
+* Fix failure when executing {func}`date_add` function with a value greater than
+  `Integer.MAX_VALUE`. ({issue}`27899`)
 
 ## Web UI
 
 * Add cluster status info to the header in the preview UI. ({issue}`27712`)
 * Sort stages in the query details page numerically rather than alphabetically. ({issue}`27655`)
-
-## CLI
-* Fix warning generated when system terminal cannot be created. ({issue}`28321`)
 
 ## ClickHouse connector
 
@@ -77,7 +75,7 @@
 * {{breaking}} Remove the `hive.fs.new-file-inherit-ownership` configuration property. ({issue}`28029`)
 * Improve the effectiveness of Bloom filters for high-cardinality columns in Parquet files. ({issue}`27656`)
 * Fix Azure Storage connectivity issues. ({issue}`28058`)
-* Fix memory accounting for insert queries on a bucketed sorted table. ({issue}`28315`)
+* Fix incorrect memory accounting for `INSERT` queries targeting bucketed and sorted tables. ({issue}`28315`)
 
 ## Hudi connector
 
@@ -99,7 +97,7 @@
 * Add support for column default values in Iceberg v3 tables. ({issue}`27837`)
 * Add support for creating, writing to or deleting from Iceberg v3 tables. ({issue}`27786`, {issue}`27788`)
 * Add `content` column to `$manifests` and `$all_manifests` metadata tables. ({issue}`27975`)
-* Add support for changing nested types in `array` and `map` types. ({issue}`27998`)
+* Add support for changing `map` and `array` nested types through `ALTER ... SET DATA TYPE`. ({issue}`27998`)
 * Clean up unused files from materialized views when they are refreshed. ({issue}`28008`)
 * {{breaking}} Remove the `hive.write-validation-threads` configuration property. ({issue}`27729`)
 * {{breaking}} Remove the `parquet.optimized-writer.validation-percentage` configuration
@@ -114,8 +112,8 @@
   `extended_statistics_enabled` session property. ({issue}`27914`)
 * Improve the effectiveness of Bloom filters for high-cardinality columns in Parquet files. ({issue}`27656`)
 * Improve query performance when querying a fresh materialized view. ({issue}`27608`)
-* Improve `optimize_manifests` to cluster manifests by partitions for improving
-  performance of reads with partition filters. ({issue}`27358`)
+* Enhance `optimize_manifests` to cluster manifests by partition, improving read
+  performance for queries that apply partition filters. ({issue}`27358`)
 * Reduce planning time of queries on tables containing delete files. ({issue}`27955`)
 * Reduce planning time for queries involving simple `FROM` and `WHERE` clauses. ({issue}`27973`)
 * Reduce query planning time on large tables. ({issue}`28068`)
@@ -126,7 +124,7 @@
 * Avoid large footers in Parquet files from certain rare string inputs. ({issue}`27903`)
 * Fix failures for queries with joins on metadata columns. ({issue}`27984`)
 * Fix Azure Storage connectivity issues. ({issue}`28058`)
-* Fix memory accounting for insert queries on a bucketed sorted table. ({issue}`28315`)
+* Fix incorrect memory accounting for `INSERT` queries targeting bucketed and sorted tables. ({issue}`28315`)
 
 ## Ignite connector
 
