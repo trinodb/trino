@@ -21,6 +21,7 @@ import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
 
 import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
+import static io.trino.spi.StandardErrorCode.TYPE_MISMATCH;
 import static io.trino.spi.function.OperatorType.EQUAL;
 import static io.trino.spi.function.OperatorType.HASH_CODE;
 import static io.trino.spi.function.OperatorType.IDENTICAL;
@@ -179,6 +180,16 @@ public class TestIpAddressOperators
                 .binding("a", "CAST('64:ff9b::10.0.0.0' as IPADDRESS)"))
                 .hasType(VARCHAR)
                 .isEqualTo("64:ff9b::a00:0");
+
+        assertTrinoExceptionThrownBy(assertions.expression("cast(a AS VARCHAR(14))")
+                .binding("a", "CAST('64:ff9b::10.0.0.0' as IPADDRESS)")::evaluate)
+                .hasErrorCode(TYPE_MISMATCH)
+                .hasMessageContaining("Cannot cast ipaddress to varchar(14)");
+
+        assertTrinoExceptionThrownBy(assertions.expression("cast(a AS VARCHAR(4))")
+                .binding("a", "CAST('64:ff9b::10.0.0.0' as IPADDRESS)")::evaluate)
+                .hasErrorCode(TYPE_MISMATCH)
+                .hasMessageContaining("Cannot cast ipaddress to varchar(4)");
     }
 
     @Test

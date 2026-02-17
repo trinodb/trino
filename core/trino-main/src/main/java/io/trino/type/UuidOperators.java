@@ -16,6 +16,7 @@ package io.trino.type;
 import io.airlift.slice.Slice;
 import io.trino.spi.TrinoException;
 import io.trino.spi.function.Description;
+import io.trino.spi.function.LiteralParameter;
 import io.trino.spi.function.LiteralParameters;
 import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.ScalarOperator;
@@ -28,6 +29,7 @@ import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static io.trino.spi.function.OperatorType.CAST;
 import static io.trino.spi.type.UuidType.javaUuidToTrinoUuid;
 import static io.trino.spi.type.UuidType.trinoUuidToJavaUuid;
+import static java.lang.String.format;
 import static java.util.UUID.randomUUID;
 
 public final class UuidOperators
@@ -61,10 +63,16 @@ public final class UuidOperators
     }
 
     @ScalarOperator(CAST)
-    @SqlType(StandardTypes.VARCHAR)
-    public static Slice castFromUuidToVarchar(@SqlType(StandardTypes.UUID) Slice slice)
+    @LiteralParameters("x")
+    @SqlType("varchar(x)")
+    public static Slice castFromUuidToVarchar(@LiteralParameter("x") long x, @SqlType(StandardTypes.UUID) Slice slice)
     {
-        return utf8Slice(trinoUuidToJavaUuid(slice).toString());
+        Slice varchar = utf8Slice(trinoUuidToJavaUuid(slice).toString());
+        // varchar is all-ASCII, so varchar.length() here returns actual code points count
+        if (varchar.length() <= x) {
+            return varchar;
+        }
+        throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to varchar(%s)", varchar.toStringUtf8(), x));
     }
 
     @ScalarOperator(CAST)

@@ -20,6 +20,7 @@ import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
 import io.trino.spi.TrinoException;
+import io.trino.spi.function.LiteralParameter;
 import io.trino.spi.function.LiteralParameters;
 import io.trino.spi.function.ScalarOperator;
 import io.trino.spi.function.SqlNullable;
@@ -28,6 +29,7 @@ import io.trino.util.JsonCastException;
 
 import java.io.IOException;
 
+import static io.airlift.slice.SliceUtf8.countCodePoints;
 import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static io.trino.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
 import static io.trino.spi.function.OperatorType.CAST;
@@ -40,7 +42,6 @@ import static io.trino.spi.type.StandardTypes.JSON;
 import static io.trino.spi.type.StandardTypes.REAL;
 import static io.trino.spi.type.StandardTypes.SMALLINT;
 import static io.trino.spi.type.StandardTypes.TINYINT;
-import static io.trino.spi.type.StandardTypes.VARCHAR;
 import static io.trino.util.DateTimeUtils.printDate;
 import static io.trino.util.Failures.checkCondition;
 import static io.trino.util.JsonUtil.createJsonFactory;
@@ -67,17 +68,20 @@ public final class JsonOperators
     @SqlNullable
     @LiteralParameters("x")
     @SqlType("varchar(x)")
-    public static Slice castToVarchar(@SqlType(JSON) Slice json)
+    public static Slice castToVarchar(@LiteralParameter("x") long x, @SqlType(JSON) Slice json)
     {
         try (JsonParser parser = createJsonParser(JSON_FACTORY, json)) {
             parser.nextToken();
             Slice result = currentTokenAsVarchar(parser);
             checkCondition(parser.nextToken() == null, INVALID_CAST_ARGUMENT, "Cannot cast input json to VARCHAR"); // check no trailing token
-            return result;
+            if (result == null || countCodePoints(result) <= x) {
+                return result;
+            }
         }
         catch (IOException | JsonCastException e) {
-            throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to %s", json.toStringUtf8(), VARCHAR), e);
+            throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to varchar(%s)", json.toStringUtf8(), x), e);
         }
+        throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to varchar(%s)", json.toStringUtf8(), x));
     }
 
     @ScalarOperator(CAST)
