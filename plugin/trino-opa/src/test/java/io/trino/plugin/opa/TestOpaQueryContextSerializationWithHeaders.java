@@ -13,8 +13,9 @@
  */
 package io.trino.plugin.opa;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableMap;
+import io.airlift.json.JsonCodec;
+import io.airlift.json.JsonCodecFactory;
 import io.trino.plugin.opa.schema.OpaPluginContext;
 import io.trino.plugin.opa.schema.OpaQueryContext;
 import io.trino.plugin.opa.schema.TrinoIdentity;
@@ -30,7 +31,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 final class TestOpaQueryContextSerializationWithHeaders
 {
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    private final JsonCodec<OpaQueryContext> codec = new JsonCodecFactory().jsonCodec(OpaQueryContext.class);
     private static final TrinoIdentity TEST_IDENTITY = new TrinoIdentity("user", Collections.emptySet());
     private static final OpaPluginContext OPA_PLUGIN_CONTEXT = new OpaPluginContext("1.0");
 
@@ -49,7 +50,7 @@ final class TestOpaQueryContextSerializationWithHeaders
                 Optional.of(QueryId.valueOf("query123")),
                 Optional.of(headers));
 
-        String json = objectMapper.writeValueAsString(context);
+        String json = codec.toJson(context);
         assertThat(json).contains("requestHeaders");
         assertThat(json).contains("Authorization");
         assertThat(json).contains("Bearer token123");
@@ -68,8 +69,9 @@ final class TestOpaQueryContextSerializationWithHeaders
                 Optional.of(QueryId.valueOf("query123")),
                 Optional.empty());
 
-        String json = objectMapper.writeValueAsString(context);
-        assertThat(json).doesNotContain("requestHeaders");
+        String json = codec.toJson(context);
+        // Optional.empty() serializes as null with JsonCodecFactory
+        assertThat(json).contains("\"requestHeaders\":null");
     }
 
     @Test
@@ -83,8 +85,9 @@ final class TestOpaQueryContextSerializationWithHeaders
                 Collections.emptyMap(),
                 Optional.of(QueryId.valueOf("query123")));
 
-        String json = objectMapper.writeValueAsString(context);
-        assertThat(json).doesNotContain("requestHeaders");
+        String json = codec.toJson(context);
+        // Old constructor defaults to Optional.empty() which serializes as null
+        assertThat(json).contains("\"requestHeaders\":null");
     }
 
     @Test
@@ -98,7 +101,7 @@ final class TestOpaQueryContextSerializationWithHeaders
                 Optional.of(QueryId.valueOf("query123")),
                 Optional.of(Collections.emptyMap()));
 
-        String json = objectMapper.writeValueAsString(context);
+        String json = codec.toJson(context);
         // Empty map should be included due to Optional.of()
         assertThat(json).contains("requestHeaders");
     }
@@ -121,7 +124,7 @@ final class TestOpaQueryContextSerializationWithHeaders
                 Optional.of(QueryId.valueOf("query123")),
                 Optional.of(headers));
 
-        String json = objectMapper.writeValueAsString(context);
+        String json = codec.toJson(context);
         assertThat(json).contains("Authorization");
         assertThat(json).contains("X-Tenant-Id");
         assertThat(json).contains("X-Request-Id");
@@ -143,13 +146,13 @@ final class TestOpaQueryContextSerializationWithHeaders
                 Optional.of(QueryId.valueOf("query123")),
                 Optional.of(mutableHeaders));
 
-        String json = objectMapper.writeValueAsString(context);
+        String json = codec.toJson(context);
         assertThat(json).contains("Authorization");
         assertThat(json).contains("Bearer token");
 
         // Modify original map shouldn't affect context
         mutableHeaders.put("Authorization", new java.util.ArrayList<>(java.util.List.of("Bearer modified")));
-        String json2 = objectMapper.writeValueAsString(context);
+        String json2 = codec.toJson(context);
 
         // Original value should still be in serialization
         assertThat(json2).contains("Bearer token");

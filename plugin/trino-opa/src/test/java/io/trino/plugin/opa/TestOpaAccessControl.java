@@ -686,7 +686,9 @@ final class TestOpaAccessControl
                             "trinoVersion": "%s"
                         },
                         "properties" : {
-                        }
+                        },
+                        "queryId": null,
+                        "requestHeaders": null
                     }
                 }\
                 """.formatted(expectedTrinoVersion);
@@ -723,7 +725,9 @@ final class TestOpaAccessControl
                         "properties" : {
                             "namespace" : "some-namespace",
                             "cluster" : "some-cluster"
-                        }
+                        },
+                        "queryId": null,
+                        "requestHeaders": null
                     }
                 }
                 """;

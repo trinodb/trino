@@ -138,7 +138,8 @@ to lists of values:
     }
   },
   "action": {
-    ...
+    "operation": "...",
+    "resource": {}
   }
 }
 ```
@@ -151,7 +152,7 @@ policies to examine all values.
 **Tenant isolation**: Enforce that users can only access tables within their
 assigned tenant:
 
-```rego
+```text
 package trino
 
 allow if {
@@ -163,7 +164,7 @@ allow if {
 
 **Proxy chain validation**: Verify requests come through trusted proxies:
 
-```rego
+```text
 package trino
 
 is_trusted_proxy if {
@@ -181,7 +182,7 @@ allow if {
 
 **Custom authentication**: Support custom authentication schemes via headers:
 
-```rego
+```text
 package trino
 
 is_valid_bearer_token if {
@@ -200,7 +201,7 @@ allow if {
 
 **Request correlation**: Include request ID for audit logging:
 
-```rego
+```text
 package trino
 
 audit_entry if {

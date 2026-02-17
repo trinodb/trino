@@ -38,7 +38,9 @@ final class TestOpaConfig
                 .setLogRequests(false)
                 .setLogResponses(false)
                 .setAllowPermissionManagementOperations(false)
-                .setAdditionalContextFile(null));
+                .setAdditionalContextFile(null)
+                .setIncludeRequestHeaders(false)
+                .setAdditionalHeaders(""));
     }
 
     @Test
@@ -54,6 +56,8 @@ final class TestOpaConfig
                 .put("opa.log-responses", "true")
                 .put("opa.allow-permission-management-operations", "true")
                 .put("opa.context-file", "src/test/resources/additional-context.properties")
+                .put("opa.include-request-headers", "true")
+                .put("opa.additional-headers", "Authorization,X-Tenant-Id")
                 .buildOrThrow();
 
         OpaConfig expected = new OpaConfig()
@@ -65,7 +69,9 @@ final class TestOpaConfig
                 .setLogRequests(true)
                 .setLogResponses(true)
                 .setAllowPermissionManagementOperations(true)
-                .setAdditionalContextFile(Path.of("src/test/resources/additional-context.properties"));
+                .setAdditionalContextFile(Path.of("src/test/resources/additional-context.properties"))
+                .setIncludeRequestHeaders(true)
+                .setAdditionalHeaders("Authorization,X-Tenant-Id");
 
         assertFullMapping(properties, expected);
     }

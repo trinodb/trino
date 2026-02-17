@@ -16,6 +16,8 @@ package io.trino.plugin.opa;
 import com.google.common.collect.ImmutableMap;
 import org.junit.jupiter.api.Test;
 
+import java.net.URI;
+import java.nio.file.Path;
 import java.util.Map;
 
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
@@ -29,6 +31,15 @@ final class TestOpaConfigHeaderProperties
     void testDefaultHeaderProperties()
     {
         assertRecordedDefaults(recordDefaults(OpaConfig.class)
+                .setOpaUri(null)
+                .setOpaBatchUri(null)
+                .setOpaRowFiltersUri(null)
+                .setOpaColumnMaskingUri(null)
+                .setOpaBatchColumnMaskingUri(null)
+                .setLogRequests(false)
+                .setLogResponses(false)
+                .setAllowPermissionManagementOperations(false)
+                .setAdditionalContextFile(null)
                 .setIncludeRequestHeaders(false)
                 .setAdditionalHeaders(""));
     }
@@ -37,11 +48,29 @@ final class TestOpaConfigHeaderProperties
     void testExplicitHeaderProperties()
     {
         Map<String, String> properties = ImmutableMap.<String, String>builder()
+                .put("opa.policy.uri", "https://opa.example.com")
+                .put("opa.policy.batched-uri", "https://opa-batch.example.com")
+                .put("opa.policy.row-filters-uri", "https://opa-row-filtering.example.com")
+                .put("opa.policy.column-masking-uri", "https://opa-column-masking.example.com")
+                .put("opa.policy.batch-column-masking-uri", "https://opa-column-masking.example.com")
+                .put("opa.log-requests", "true")
+                .put("opa.log-responses", "true")
+                .put("opa.allow-permission-management-operations", "true")
+                .put("opa.context-file", "src/test/resources/additional-context.properties")
                 .put("opa.include-request-headers", "true")
                 .put("opa.additional-headers", "Authorization,X-Tenant-Id,X-Request-Id")
                 .buildOrThrow();
 
         OpaConfig expected = new OpaConfig()
+                .setOpaUri(URI.create("https://opa.example.com"))
+                .setOpaBatchUri(URI.create("https://opa-batch.example.com"))
+                .setOpaRowFiltersUri(URI.create("https://opa-row-filtering.example.com"))
+                .setOpaColumnMaskingUri(URI.create("https://opa-column-masking.example.com"))
+                .setOpaBatchColumnMaskingUri(URI.create("https://opa-column-masking.example.com"))
+                .setLogRequests(true)
+                .setLogResponses(true)
+                .setAllowPermissionManagementOperations(true)
+                .setAdditionalContextFile(Path.of("src/test/resources/additional-context.properties"))
                 .setIncludeRequestHeaders(true)
                 .setAdditionalHeaders("Authorization,X-Tenant-Id,X-Request-Id");
 
@@ -82,11 +111,29 @@ final class TestOpaConfigHeaderProperties
     void testAdditionalHeadersMultiple()
     {
         Map<String, String> properties = ImmutableMap.<String, String>builder()
+                .put("opa.policy.uri", "https://opa.example.com")
+                .put("opa.policy.batched-uri", "https://opa-batch.example.com")
+                .put("opa.policy.row-filters-uri", "https://opa-row-filtering.example.com")
+                .put("opa.policy.column-masking-uri", "https://opa-column-masking.example.com")
+                .put("opa.policy.batch-column-masking-uri", "https://opa-column-masking.example.com")
+                .put("opa.log-requests", "true")
+                .put("opa.log-responses", "true")
+                .put("opa.allow-permission-management-operations", "true")
+                .put("opa.context-file", "src/test/resources/additional-context.properties")
                 .put("opa.include-request-headers", "true")
                 .put("opa.additional-headers", "Authorization,X-Tenant-Id,X-Request-Id,X-Custom")
                 .buildOrThrow();
 
         OpaConfig expected = new OpaConfig()
+                .setOpaUri(URI.create("https://opa.example.com"))
+                .setOpaBatchUri(URI.create("https://opa-batch.example.com"))
+                .setOpaRowFiltersUri(URI.create("https://opa-row-filtering.example.com"))
+                .setOpaColumnMaskingUri(URI.create("https://opa-column-masking.example.com"))
+                .setOpaBatchColumnMaskingUri(URI.create("https://opa-column-masking.example.com"))
+                .setLogRequests(true)
+                .setLogResponses(true)
+                .setAllowPermissionManagementOperations(true)
+                .setAdditionalContextFile(Path.of("src/test/resources/additional-context.properties"))
                 .setIncludeRequestHeaders(true)
                 .setAdditionalHeaders("Authorization,X-Tenant-Id,X-Request-Id,X-Custom");
 

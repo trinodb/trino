@@ -122,7 +122,8 @@ public class TestIdentityHttpHeaders
                 .build();
 
         assertThat(modified.getHttpHeaders()).containsAllEntriesOf(newHeaders);
-        assertThat(modified.getHttpHeaders()).doesNotContainKey("Authorization");
+        assertThat(modified.getHttpHeaders().get("Authorization")).containsExactly("Bearer token2");
+        assertThat(modified.getHttpHeaders().get("X-New")).containsExactly("newvalue");
     }
 
     @Test
