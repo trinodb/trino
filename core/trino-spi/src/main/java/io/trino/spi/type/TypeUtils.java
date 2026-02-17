@@ -101,16 +101,21 @@ public final class TypeUtils
         }
     }
 
+    public static boolean typeHasNaN(Type type)
+    {
+        return type == REAL || type == DOUBLE;
+    }
+
     public static boolean isFloatingPointNaN(Type type, Object value)
     {
         requireNonNull(type, "type is null");
         requireNonNull(value, "value is null");
 
-        if (type == DOUBLE) {
-            return Double.isNaN((double) value);
-        }
         if (type == REAL) {
             return Float.isNaN(intBitsToFloat(toIntExact((long) value)));
+        }
+        if (type == DOUBLE) {
+            return Double.isNaN((double) value);
         }
         return false;
     }
