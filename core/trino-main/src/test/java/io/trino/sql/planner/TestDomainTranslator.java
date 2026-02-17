@@ -1754,7 +1754,7 @@ public class TestDomainTranslator
         TupleDomain<Symbol> actual = result.getTupleDomain();
         TupleDomain<Symbol> expected = tupleDomain(symbol, expectedDomain);
         if (!actual.equals(expected)) {
-            fail(format("for comparison [%s] expected [%s] but found [%s]", expression.toString(), expected.toString(), actual.toString()));
+            fail(format("for comparison [%s] expected [%s] but found [%s]", expression, expected, actual));
         }
     }
 
