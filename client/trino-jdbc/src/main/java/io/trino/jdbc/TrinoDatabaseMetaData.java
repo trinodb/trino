@@ -16,6 +16,7 @@ package io.trino.jdbc;
 import com.google.common.base.Joiner;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
+import io.trino.client.ClientStandardTypes;
 import io.trino.client.ClientTypeSignature;
 import io.trino.client.ClientTypeSignatureParameter;
 import io.trino.client.Column;
@@ -1430,7 +1431,7 @@ public class TrinoDatabaseMetaData
 
         ImmutableList.Builder<Column> columns = ImmutableList.builder();
         columns.add(new Column("NAME", "varchar", varchar));
-        columns.add(new Column("MAX_LEN", "integer", new ClientTypeSignature("integer")));
+        columns.add(new Column("MAX_LEN", "integer", new ClientTypeSignature(ClientStandardTypes.INTEGER)));
         columns.add(new Column("DEFAULT_VALUE", "varchar", varchar));
         columns.add(new Column("DESCRIPTION", "varchar", varchar));
 

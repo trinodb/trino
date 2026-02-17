@@ -16,6 +16,7 @@ package io.trino.jdbc;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.math.IntMath;
+import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 
 import java.math.BigDecimal;
@@ -74,6 +75,51 @@ public abstract class BaseTestJdbcResultSet
                 assertThat(rs.getLong(2)).isEqualTo(456L);
                 assertThat(rs.getLong("x")).isEqualTo(123L);
             }
+        }
+    }
+
+    @Test
+    public void testNullUnknown()
+            throws Exception
+    {
+        try (ConnectedStatement connectedStatement = newStatement()) {
+            checkRepresentation(connectedStatement.getStatement(), "NULL", Types.NULL, (rs, column) -> {
+                assertThat(rs.getObject(column)).isNull();
+                assertThat(rs.wasNull()).isTrue();
+                assertThat(rs.getBoolean(column)).isEqualTo(false);
+                assertThat(rs.wasNull()).isTrue();
+                assertThat(rs.getByte(column)).isEqualTo((byte) 0);
+                assertThat(rs.wasNull()).isTrue();
+                assertThat(rs.getShort(column)).isEqualTo((short) 0);
+                assertThat(rs.wasNull()).isTrue();
+                assertThat(rs.getInt(column)).isEqualTo(0);
+                assertThat(rs.wasNull()).isTrue();
+                assertThat(rs.getLong(column)).isEqualTo(0);
+                assertThat(rs.wasNull()).isTrue();
+                assertThat(rs.getBigDecimal(column)).isNull();
+                assertThat(rs.wasNull()).isTrue();
+                assertThat(rs.getFloat(column)).isEqualTo(0f);
+                assertThat(rs.wasNull()).isTrue();
+                assertThat(rs.getDouble(column)).isEqualTo(0.0);
+                assertThat(rs.wasNull()).isTrue();
+                assertThat(rs.getDate(column)).isNull();
+                assertThat(rs.wasNull()).isTrue();
+                assertThat(rs.getTime(column)).isNull();
+                assertThat(rs.wasNull()).isTrue();
+                assertThat(rs.getTimestamp(column)).isNull();
+                assertThat(rs.wasNull()).isTrue();
+                assertThat(rs.getString(column)).isNull();
+                assertThat(rs.wasNull()).isTrue();
+                assertThat(rs.getAsciiStream(column)).isNull();
+                assertThat(rs.wasNull()).isTrue();
+                assertThat(rs.getBytes(column)).isNull();
+                assertThat(rs.wasNull()).isTrue();
+
+                ResultSetMetaData metaData = rs.getMetaData();
+                assertThat(metaData.getColumnTypeName(column)).isEqualTo("unknown");
+                assertThat(metaData.getColumnDisplaySize(column)).isEqualTo(0);
+                assertThat(metaData.getColumnClassName(column)).isEqualTo("java.lang.Object");
+            });
         }
     }
 
@@ -155,24 +201,24 @@ public abstract class BaseTestJdbcResultSet
         try (ConnectedStatement connectedStatement = newStatement()) {
             checkRepresentation(connectedStatement.getStatement(), "0.1", Types.DECIMAL, new BigDecimal("0.1"));
             checkRepresentation(connectedStatement.getStatement(), "DECIMAL '0.12'", Types.DECIMAL, (rs, column) -> {
+                assertThat(rs.getObject(column)).isEqualTo(new BigDecimal("0.12"));
                 assertThat(rs.getBigDecimal(column)).isEqualTo(new BigDecimal("0.12"));
                 assertThat(rs.getDouble(column)).isEqualTo(0.12);
                 assertThat(rs.getLong(column)).isEqualTo(0);
                 assertThat(rs.getFloat(column)).isEqualTo(0.12f);
+                assertThat(rs.getString(column)).isEqualTo("0.12");
             });
 
             long outsideOfDoubleExactRange = 9223372036854775774L;
             //noinspection ConstantConditions
             verify((long) (double) outsideOfDoubleExactRange - outsideOfDoubleExactRange != 0, "outsideOfDoubleExactRange should not be exact-representable as a double");
-            checkRepresentation(connectedStatement.getStatement(), format("DECIMAL '%s'",
-                    outsideOfDoubleExactRange), Types.DECIMAL,
-                    (rs, column) -> {
-                        assertThat(rs.getObject(column)).isEqualTo(new BigDecimal("9223372036854775774"));
-                        assertThat(rs.getBigDecimal(column)).isEqualTo(new BigDecimal("9223372036854775774"));
-                        assertThat(rs.getLong(column)).isEqualTo(9223372036854775774L);
-                        assertThat(rs.getDouble(column)).isEqualTo(9.223372036854776E18);
-                        assertThat(rs.getString(column)).isEqualTo("9223372036854775774");
-                    });
+            checkRepresentation(connectedStatement.getStatement(), format("DECIMAL '%s'", outsideOfDoubleExactRange), Types.DECIMAL, (rs, column) -> {
+                assertThat(rs.getObject(column)).isEqualTo(new BigDecimal("9223372036854775774"));
+                assertThat(rs.getBigDecimal(column)).isEqualTo(new BigDecimal("9223372036854775774"));
+                assertThat(rs.getLong(column)).isEqualTo(9223372036854775774L);
+                assertThat(rs.getDouble(column)).isEqualTo(9.223372036854776E18);
+                assertThat(rs.getString(column)).isEqualTo("9223372036854775774");
+            });
 
             checkRepresentation(connectedStatement.getStatement(), "VARCHAR ''", Types.VARCHAR, (rs, column) -> {
                 assertThatThrownBy(() -> rs.getBigDecimal(column))
@@ -982,7 +1028,7 @@ public abstract class BaseTestJdbcResultSet
         }
     }
 
-    private void checkRepresentation(Statement statement, String expression, int expectedSqlType, Object expectedRepresentation)
+    private void checkRepresentation(Statement statement, @Language("SQL") String expression, int expectedSqlType, Object expectedRepresentation)
             throws SQLException
     {
         checkRepresentation(statement, expression, expectedSqlType, (rs, column) -> {
@@ -991,7 +1037,7 @@ public abstract class BaseTestJdbcResultSet
         });
     }
 
-    private void checkRepresentation(Statement statement, String expression, int expectedSqlType, ResultAssertion assertion)
+    private void checkRepresentation(Statement statement, @Language("SQL") String expression, int expectedSqlType, ResultAssertion assertion)
             throws SQLException
     {
         try (ResultSet rs = statement.executeQuery("SELECT " + expression)) {
@@ -1000,11 +1046,26 @@ public abstract class BaseTestJdbcResultSet
             assertThat(metadata.getColumnType(1)).isEqualTo(expectedSqlType);
             assertThat(rs.next()).isTrue();
             assertion.accept(rs, 1);
+            Class<?> objectClass;
+            try {
+                objectClass = Class.forName(metadata.getColumnClassName(1));
+            }
+            catch (ClassNotFoundException e) {
+                throw new RuntimeException(e);
+            }
+            Object object = rs.getObject(1);
+            if (object != null) {
+                // general contract for metadata.getColumnTypeName
+                assertThat(object).isInstanceOf(objectClass);
+                // for any non-NULL (not UNKNOWN) type, we should know better than Object.class
+                assertThat(objectClass).as("getColumnTypeName for value of type %s [%s] returning %s", metadata.getColumnType(1), expression, object.getClass())
+                        .isNotEqualTo(Object.class);
+            }
             assertThat(rs.next()).isFalse();
         }
     }
 
-    private Object getObjectRepresentation(Connection connection, String expression)
+    private Object getObjectRepresentation(Connection connection, @Language("SQL") String expression)
             throws SQLException
     {
         try (Statement statement = connection.createStatement();
