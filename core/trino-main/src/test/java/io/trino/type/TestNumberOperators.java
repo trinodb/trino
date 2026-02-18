@@ -622,6 +622,9 @@ public class TestNumberOperators
         assertThat(assertions.operator(DIVIDE, "NUMBER '1.0'", "NUMBER '9.0'"))
                 .isEqualTo(number("0.111111"));
 
+        assertThat(assertions.operator(DIVIDE, "NUMBER '1000'", "NUMBER '25'"))
+                .isEqualTo(number("4E+1"));
+
         assertThat(assertions.operator(DIVIDE, "NUMBER '500.00'", "NUMBER '0.1'"))
                 .isEqualTo(number("5E+3"));
 
@@ -846,9 +849,6 @@ public class TestNumberOperators
 
         assertTrinoExceptionThrownBy(assertions.operator(DIVIDE, "NUMBER '1'", "NUMBER '0.0000000000000000000000000000000000000'")::evaluate)
                 .hasErrorCode(DIVISION_BY_ZERO);
-
-        assertThat(assertions.operator(DIVIDE, "NUMBER '1000'", "NUMBER '25'"))
-                .isEqualTo(number("4E+1"));
     }
 
     @Test
