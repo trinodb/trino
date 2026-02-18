@@ -20,6 +20,7 @@ import io.trino.spi.SplitWeight;
 import io.trino.spi.connector.ConnectorSplit;
 
 import java.util.Map;
+import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static io.airlift.slice.SizeOf.estimatedSizeOf;
@@ -36,6 +37,7 @@ public record TableChangesSplit(
         long fileSize,
         long fileRecordCount,
         IcebergFileFormat fileFormat,
+        Optional<byte[]> encryptionKeyMetadata,
         String partitionSpecJson,
         String partitionDataJson,
         SplitWeight splitWeight,
@@ -48,6 +50,7 @@ public record TableChangesSplit(
         requireNonNull(changeType, "changeType is null");
         requireNonNull(path, "path is null");
         requireNonNull(fileFormat, "fileFormat is null");
+        requireNonNull(encryptionKeyMetadata, "encryptionKeyMetadata is null");
         requireNonNull(partitionSpecJson, "partitionSpecJson is null");
         requireNonNull(partitionDataJson, "partitionDataJson is null");
         requireNonNull(splitWeight, "splitWeight is null");
@@ -67,6 +70,7 @@ public record TableChangesSplit(
                 + estimatedSizeOf(path)
                 + estimatedSizeOf(partitionSpecJson)
                 + estimatedSizeOf(partitionDataJson)
+                + encryptionKeyMetadata.map(SizeOf::sizeOf).orElse(0L)
                 + splitWeight.getRetainedSizeInBytes()
                 + estimatedSizeOf(fileIoProperties, SizeOf::estimatedSizeOf, SizeOf::estimatedSizeOf);
     }

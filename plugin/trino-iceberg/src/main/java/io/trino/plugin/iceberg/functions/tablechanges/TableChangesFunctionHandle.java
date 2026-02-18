@@ -14,11 +14,13 @@
 package io.trino.plugin.iceberg.functions.tablechanges;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import io.trino.plugin.iceberg.IcebergColumnHandle;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.function.table.ConnectorTableFunctionHandle;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
@@ -27,6 +29,7 @@ public record TableChangesFunctionHandle(
         SchemaTableName schemaTableName,
         String tableSchemaJson,
         List<IcebergColumnHandle> columns,
+        Map<String, String> storageProperties,
         Optional<String> nameMappingJson,
         long startSnapshotId,
         long endSnapshotId) implements ConnectorTableFunctionHandle
@@ -36,6 +39,7 @@ public record TableChangesFunctionHandle(
         requireNonNull(schemaTableName, "schemaTableName is null");
         requireNonNull(tableSchemaJson, "tableSchemaJson is null");
         columns = ImmutableList.copyOf(requireNonNull(columns, "columns is null"));
+        storageProperties = ImmutableMap.copyOf(requireNonNull(storageProperties, "storageProperties is null"));
         requireNonNull(nameMappingJson, "nameMappingJson is null");
     }
 }

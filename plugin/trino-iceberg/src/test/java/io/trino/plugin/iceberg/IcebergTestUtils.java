@@ -46,6 +46,7 @@ import io.trino.plugin.iceberg.catalog.IcebergTableOperationsProvider;
 import io.trino.plugin.iceberg.catalog.TrinoCatalog;
 import io.trino.plugin.iceberg.catalog.file.FileMetastoreTableOperationsProvider;
 import io.trino.plugin.iceberg.catalog.hms.TrinoHiveCatalog;
+import io.trino.plugin.iceberg.encryption.IcebergEncryptionManagerFactory;
 import io.trino.plugin.iceberg.fileio.ForwardingFileIoFactory;
 import io.trino.plugin.iceberg.fileio.ForwardingInputFile;
 import io.trino.spi.block.Block;
@@ -229,8 +230,22 @@ public final class IcebergTestUtils
             String catalogName,
             String schemaName)
     {
-        IcebergTableOperationsProvider tableOperationsProvider = new FileMetastoreTableOperationsProvider(fileSystemFactory, FILE_IO_FACTORY);
-        TrinoCatalog catalog = getTrinoCatalog(metastore, fileSystemFactory, catalogName);
+        IcebergEncryptionManagerFactory encryptionManagerFactory = new IcebergEncryptionManagerFactory(new IcebergConfig());
+        return loadTable(tableName, metastore, fileSystemFactory, catalogName, schemaName, encryptionManagerFactory);
+    }
+
+    public static BaseTable loadTable(String tableName,
+            HiveMetastore metastore,
+            TrinoFileSystemFactory fileSystemFactory,
+            String catalogName,
+            String schemaName,
+            IcebergEncryptionManagerFactory encryptionManagerFactory)
+    {
+        IcebergTableOperationsProvider tableOperationsProvider = new FileMetastoreTableOperationsProvider(
+                fileSystemFactory,
+                FILE_IO_FACTORY,
+                encryptionManagerFactory);
+        TrinoCatalog catalog = getTrinoCatalog(metastore, fileSystemFactory, catalogName, encryptionManagerFactory);
         return loadIcebergTable(catalog, tableOperationsProvider, SESSION, new SchemaTableName(schemaName, tableName));
     }
 
@@ -239,7 +254,20 @@ public final class IcebergTestUtils
             TrinoFileSystemFactory fileSystemFactory,
             String catalogName)
     {
-        IcebergTableOperationsProvider tableOperationsProvider = new FileMetastoreTableOperationsProvider(fileSystemFactory, FILE_IO_FACTORY);
+        IcebergEncryptionManagerFactory encryptionManagerFactory = new IcebergEncryptionManagerFactory(new IcebergConfig());
+        return getTrinoCatalog(metastore, fileSystemFactory, catalogName, encryptionManagerFactory);
+    }
+
+    public static TrinoCatalog getTrinoCatalog(
+            HiveMetastore metastore,
+            TrinoFileSystemFactory fileSystemFactory,
+            String catalogName,
+            IcebergEncryptionManagerFactory encryptionManagerFactory)
+    {
+        IcebergTableOperationsProvider tableOperationsProvider = new FileMetastoreTableOperationsProvider(
+                fileSystemFactory,
+                FILE_IO_FACTORY,
+                encryptionManagerFactory);
         CachingHiveMetastore cachingHiveMetastore = createPerTransactionCache(metastore, 1000);
         return new TrinoHiveCatalog(
                 new CatalogName(catalogName),

@@ -642,36 +642,33 @@ public class TestIcebergV3
     }
 
     @Test
-    void testV3RejectsEncryptionKeyProperty()
+    void testV3RequiresKmsClientForEncryptionKeyProperty()
     {
         String tableName = "test_v3_encryption_" + randomNameSuffix();
         assertUpdate("CREATE TABLE " + tableName + " (id INTEGER) WITH (format = 'ORC', format_version = 3)");
         assertUpdate("INSERT INTO " + tableName + " VALUES 1", 1);
 
-        // Set encryption.key-id property via Iceberg API
         BaseTable icebergTable = loadTable(tableName);
         icebergTable.updateProperties()
                 .set("encryption.key-id", "test_key")
                 .commit();
 
-        assertQueryFails(
-                "SELECT * FROM " + tableName,
-                ".*Iceberg table encryption is not supported.*");
+        assertThatThrownBy(() -> getQueryRunner().execute("SELECT * FROM " + tableName))
+                .hasMessageContaining("Iceberg table encryption requires iceberg.encryption.kms-impl or encryption.kms-impl table property");
 
-        // Also verify INSERT fails with encryption key set
-        assertQueryFails(
-                "INSERT INTO " + tableName + " VALUES 2",
-                ".*Iceberg table encryption is not supported.*");
+        // Also verify INSERT fails with encryption key set and no KMS client.
+        assertThatThrownBy(() -> getQueryRunner().execute("INSERT INTO " + tableName + " VALUES 2"))
+                .hasMessageContaining("Iceberg table encryption requires iceberg.encryption.kms-impl or encryption.kms-impl table property");
 
-        // Clean up by removing the property first
-        icebergTable.updateProperties()
+        // The key cannot be removed without configuring KMS client either.
+        assertThatThrownBy(() -> icebergTable.updateProperties()
                 .remove("encryption.key-id")
-                .commit();
-        assertUpdate("DROP TABLE " + tableName);
+                .commit())
+                .hasMessageContaining("Iceberg table encryption requires iceberg.encryption.kms-impl or encryption.kms-impl table property");
     }
 
     @Test
-    void testV3RejectsEncryptionKeysInMetadata()
+    void testV3AllowsEncryptionKeysInMetadata()
             throws Exception
     {
         String temp = "tmp_v3_encryption_src_" + randomNameSuffix();
@@ -703,9 +700,7 @@ public class TestIcebergV3
         assertUpdate("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')"
                 .formatted(registered, hadoopTableLocation));
 
-        assertQueryFails(
-                "SELECT * FROM " + registered,
-                ".*Iceberg table encryption is not supported.*");
+        assertQuery("SELECT * FROM " + registered, "VALUES 1");
 
         // Use unregister_table instead of DROP TABLE because DROP TABLE triggers the same validation error
         assertUpdate("CALL system.unregister_table(CURRENT_SCHEMA, '%s')".formatted(registered));

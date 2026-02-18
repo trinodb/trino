@@ -31,6 +31,7 @@ import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.PartitionSpecParser;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.SchemaParser;
+import org.apache.iceberg.encryption.EncryptionManager;
 import org.apache.iceberg.mapping.NameMappingParser;
 
 import java.io.IOException;
@@ -113,6 +114,7 @@ public class TableChangesFunctionProcessor
             }
         }
 
+        Optional<EncryptionManager> encryptionManager = icebergPageSourceProvider.encryptionManager(functionHandle.storageProperties());
         this.pageSource = icebergPageSourceProvider.createPageSource(
                 session,
                 functionHandle.columns(),
@@ -121,8 +123,8 @@ public class TableChangesFunctionProcessor
                 PartitionData.fromJson(split.partitionDataJson(), partitionColumnTypes),
                 ImmutableList.of(),
                 DynamicFilter.EMPTY,
-                TupleDomain.all(),
-                TupleDomain.all(),
+                TupleDomain.<IcebergColumnHandle>all(),
+                TupleDomain.<IcebergColumnHandle>all(),
                 split.path(),
                 split.start(),
                 split.length(),
@@ -132,7 +134,9 @@ public class TableChangesFunctionProcessor
                 split.fileFormat(),
                 split.fileIoProperties(),
                 0,
-                functionHandle.nameMappingJson().map(NameMappingParser::fromJson));
+                functionHandle.nameMappingJson().map(NameMappingParser::fromJson),
+                split.encryptionKeyMetadata(),
+                encryptionManager);
         this.delegateColumnMap = delegateColumnMap;
 
         this.changeTypeIndex = changeTypeIndex;

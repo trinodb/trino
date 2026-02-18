@@ -222,6 +222,7 @@ import org.apache.iceberg.util.PartitionUtil;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.nio.ByteBuffer;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -328,6 +329,8 @@ import static io.trino.plugin.iceberg.IcebergTableName.tableNameFrom;
 import static io.trino.plugin.iceberg.IcebergTableProperties.COMPRESSION_CODEC;
 import static io.trino.plugin.iceberg.IcebergTableProperties.DATA_LOCATION_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergTableProperties.DELETE_AFTER_COMMIT_ENABLED;
+import static io.trino.plugin.iceberg.IcebergTableProperties.ENCRYPTION_DATA_KEY_LENGTH_PROPERTY;
+import static io.trino.plugin.iceberg.IcebergTableProperties.ENCRYPTION_KEY_ID_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergTableProperties.EXTRA_PROPERTIES_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergTableProperties.FILE_FORMAT_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergTableProperties.FORMAT_VERSION_PROPERTY;
@@ -443,6 +446,8 @@ import static org.apache.iceberg.SnapshotSummary.TOTAL_RECORDS_PROP;
 import static org.apache.iceberg.TableProperties.COMMIT_NUM_RETRIES;
 import static org.apache.iceberg.TableProperties.DELETE_ISOLATION_LEVEL;
 import static org.apache.iceberg.TableProperties.DELETE_ISOLATION_LEVEL_DEFAULT;
+import static org.apache.iceberg.TableProperties.ENCRYPTION_DEK_LENGTH;
+import static org.apache.iceberg.TableProperties.ENCRYPTION_TABLE_KEY;
 import static org.apache.iceberg.TableProperties.FORMAT_VERSION;
 import static org.apache.iceberg.TableProperties.MANIFEST_TARGET_SIZE_BYTES;
 import static org.apache.iceberg.TableProperties.MANIFEST_TARGET_SIZE_BYTES_DEFAULT;
@@ -484,6 +489,8 @@ public class IcebergMetadata
             .add(PARQUET_BLOOM_FILTER_COLUMNS_PROPERTY)
             .add(PARTITIONING_PROPERTY)
             .add(SORTED_BY_PROPERTY)
+            .add(ENCRYPTION_KEY_ID_PROPERTY)
+            .add(ENCRYPTION_DATA_KEY_LENGTH_PROPERTY)
             .build();
     private static final String SYSTEM_SCHEMA = "system";
 
@@ -683,11 +690,6 @@ public class IcebergMetadata
         TableMetadata metadata = table.operations().current();
         if (metadata.formatVersion() < 3) {
             return;
-        }
-
-        // Reject Iceberg table encryption
-        if (!metadata.encryptionKeys().isEmpty() || snapshot.keyId() != null || metadata.properties().containsKey("encryption.key-id")) {
-            throw new TrinoException(NOT_SUPPORTED, "Iceberg table encryption is not supported");
         }
     }
 
@@ -1394,7 +1396,7 @@ public class IcebergMetadata
         try {
             // S3 Tables internally assigns a unique location for each table
             if (!isS3Tables(location.toString())) {
-                TrinoFileSystem fileSystem = fileSystemFactory.create(session.getIdentity(), transaction.table().io().properties());
+                TrinoFileSystem fileSystem = fileSystemFactory.create(session.getIdentity(), getFileIoProperties(transaction.table()));
                 if (!replace && fileSystem.listFiles(location).hasNext()) {
                     throw new TrinoException(ICEBERG_FILESYSTEM_ERROR, format("" +
                             "Cannot create a table on a non-empty location: %s, set 'iceberg.unique-table-location=true' in your Iceberg catalog properties " +
@@ -1539,7 +1541,12 @@ public class IcebergMetadata
                 table.location(),
                 getFileFormat(table),
                 table.properties(),
-                table.io().properties());
+                getFileIoProperties(table));
+    }
+
+    private static Map<String, String> getFileIoProperties(Table table)
+    {
+        return IcebergUtil.getFileIoProperties(table);
     }
 
     private static SortFieldInfo getSupportedSortFields(Schema schema, SortOrder sortOrder)
@@ -1610,6 +1617,7 @@ public class IcebergMetadata
                     .withMetrics(task.metrics().metrics())
                     .withSortOrder(sortOrders.get(task.sortOrderId()));
             task.fileSplitOffsets().ifPresent(builder::withSplitOffsets);
+            task.encryptionKeyMetadata().ifPresent(metadata -> builder.withEncryptionKeyMetadata(ByteBuffer.wrap(metadata)));
 
             if (!icebergTable.spec().fields().isEmpty()) {
                 String partitionDataJson = task.partitionDataJson()
@@ -1707,7 +1715,7 @@ public class IcebergMetadata
                         tableHandle.getStorageProperties(),
                         maxScannedFileSize),
                 tableHandle.getTableLocation(),
-                icebergTable.io().properties()));
+                getFileIoProperties(icebergTable)));
     }
 
     private Optional<ConnectorTableExecuteHandle> getTableHandleForOptimizeManifests(ConnectorSession session, IcebergTableHandle tableHandle)
@@ -1719,7 +1727,7 @@ public class IcebergMetadata
                 OPTIMIZE_MANIFESTS,
                 new IcebergOptimizeManifestsHandle(),
                 icebergTable.location(),
-                icebergTable.io().properties()));
+                getFileIoProperties(icebergTable)));
     }
 
     private Optional<ConnectorTableExecuteHandle> getTableHandleForDropExtendedStats(ConnectorSession session, IcebergTableHandle tableHandle)
@@ -1731,7 +1739,7 @@ public class IcebergMetadata
                 DROP_EXTENDED_STATS,
                 new IcebergDropExtendedStatsHandle(),
                 icebergTable.location(),
-                icebergTable.io().properties()));
+                getFileIoProperties(icebergTable)));
     }
 
     private Optional<ConnectorTableExecuteHandle> getTableHandleForExpireSnapshots(ConnectorSession session, IcebergTableHandle tableHandle, Map<String, Object> executeProperties)
@@ -1748,7 +1756,7 @@ public class IcebergMetadata
                 EXPIRE_SNAPSHOTS,
                 new IcebergExpireSnapshotsHandle(retentionThreshold, retainLast, cleanExpiredMetadata),
                 icebergTable.location(),
-                icebergTable.io().properties()));
+                getFileIoProperties(icebergTable)));
     }
 
     private Optional<ConnectorTableExecuteHandle> getTableHandleForRemoveOrphanFiles(ConnectorSession session, IcebergTableHandle tableHandle, Map<String, Object> executeProperties)
@@ -1761,7 +1769,7 @@ public class IcebergMetadata
                 REMOVE_ORPHAN_FILES,
                 new IcebergRemoveOrphanFilesHandle(retentionThreshold),
                 icebergTable.location(),
-                icebergTable.io().properties()));
+                getFileIoProperties(icebergTable)));
     }
 
     private Optional<ConnectorTableExecuteHandle> getTableHandleForAddFiles(ConnectorSession session, ConnectorAccessControl accessControl, IcebergTableHandle tableHandle, Map<String, Object> executeProperties)
@@ -1785,7 +1793,7 @@ public class IcebergMetadata
                 ADD_FILES,
                 new IcebergAddFilesHandle(location, format, recursiveDirectory),
                 icebergTable.location(),
-                icebergTable.io().properties()));
+                getFileIoProperties(icebergTable)));
     }
 
     private static void verifyTableVersionForExecute(IcebergTableProcedureId icebergTableProcedureId, int maxVersion, Table icebergTable)
@@ -1875,7 +1883,7 @@ public class IcebergMetadata
                 ADD_FILES_FROM_TABLE,
                 new IcebergAddFilesFromTableHandle(sourceTable, partitionFilter, recursiveDirectory),
                 icebergTable.location(),
-                icebergTable.io().properties()));
+                getFileIoProperties(icebergTable)));
     }
 
     private Optional<ConnectorTableExecuteHandle> getTableHandleForRollbackToSnapshot(ConnectorSession session, IcebergTableHandle tableHandle, Map<String, Object> executeProperties)
@@ -1888,7 +1896,7 @@ public class IcebergMetadata
                 ROLLBACK_TO_SNAPSHOT,
                 new IcebergRollbackToSnapshotHandle(snapshotId),
                 icebergTable.location(),
-                icebergTable.io().properties()));
+                getFileIoProperties(icebergTable)));
     }
 
     private static Object requireProcedureArgument(Map<String, Object> properties, String name)
@@ -2023,6 +2031,7 @@ public class IcebergMetadata
                     .withMetrics(task.metrics().metrics())
                     .withSortOrder(sortOrders.get(task.sortOrderId()));
             task.fileSplitOffsets().ifPresent(builder::withSplitOffsets);
+            task.encryptionKeyMetadata().ifPresent(metadata -> builder.withEncryptionKeyMetadata(ByteBuffer.wrap(metadata)));
 
             if (!icebergTable.spec().fields().isEmpty()) {
                 String partitionDataJson = task.partitionDataJson()
@@ -2491,7 +2500,7 @@ public class IcebergMetadata
     {
         IcebergAddFilesHandle addFilesHandle = (IcebergAddFilesHandle) executeHandle.procedureHandle();
         Table table = catalog.loadTable(session, executeHandle.schemaTableName());
-        TrinoFileSystem fileSystem = fileSystemFactory.create(session.getIdentity(), table.io().properties());
+        TrinoFileSystem fileSystem = fileSystemFactory.create(session.getIdentity(), getFileIoProperties(table));
         addFiles(
                 session,
                 fileSystem,
@@ -2507,7 +2516,7 @@ public class IcebergMetadata
     {
         IcebergAddFilesFromTableHandle addFilesHandle = (IcebergAddFilesFromTableHandle) executeHandle.procedureHandle();
         Table table = catalog.loadTable(session, executeHandle.schemaTableName());
-        TrinoFileSystem fileSystem = fileSystemFactory.create(session.getIdentity(), table.io().properties());
+        TrinoFileSystem fileSystem = fileSystemFactory.create(session.getIdentity(), getFileIoProperties(table));
         addFilesFromTable(
                 session,
                 fileSystem,
@@ -2748,6 +2757,32 @@ public class IcebergMetadata
                 throw new TrinoException(INVALID_TABLE_PROPERTY, "Data location can only be set when object store layout is enabled");
             }
             updateProperties.set(WRITE_DATA_LOCATION, dataLocation);
+        }
+
+        String existingEncryptionKeyId = icebergTable.properties().get(ENCRYPTION_TABLE_KEY);
+        if (properties.containsKey(ENCRYPTION_KEY_ID_PROPERTY)) {
+            String newEncryptionKeyId = (String) properties.get(ENCRYPTION_KEY_ID_PROPERTY)
+                    .orElseThrow(() -> new IllegalArgumentException("The encryption_key_id property cannot be empty"));
+            if (existingEncryptionKeyId != null && !existingEncryptionKeyId.equals(newEncryptionKeyId)) {
+                throw new TrinoException(NOT_SUPPORTED, "The encryption_key_id property cannot be modified once set");
+            }
+            if (existingEncryptionKeyId == null) {
+                updateProperties.set(ENCRYPTION_TABLE_KEY, newEncryptionKeyId);
+                existingEncryptionKeyId = newEncryptionKeyId;
+            }
+        }
+
+        if (properties.containsKey(ENCRYPTION_DATA_KEY_LENGTH_PROPERTY)) {
+            int dataKeyLength = (int) properties.get(ENCRYPTION_DATA_KEY_LENGTH_PROPERTY)
+                    .orElseThrow(() -> new IllegalArgumentException("The encryption_data_key_length property cannot be empty"));
+            if (existingEncryptionKeyId == null && !properties.containsKey(ENCRYPTION_KEY_ID_PROPERTY)) {
+                throw new TrinoException(INVALID_TABLE_PROPERTY, "encryption_data_key_length requires encryption_key_id");
+            }
+            String existingLength = icebergTable.properties().get(ENCRYPTION_DEK_LENGTH);
+            if (existingEncryptionKeyId != null && existingLength != null && Integer.parseInt(existingLength) != dataKeyLength) {
+                throw new TrinoException(NOT_SUPPORTED, "The encryption_data_key_length property cannot be modified once set");
+            }
+            updateProperties.set(ENCRYPTION_DEK_LENGTH, Integer.toString(dataKeyLength));
         }
 
         try {
@@ -3461,6 +3496,7 @@ public class IcebergMetadata
                     .withMetrics(task.metrics().metrics())
                     .withSortOrder(sortOrders.get(task.sortOrderId()));
             task.fileSplitOffsets().ifPresent(builder::withSplitOffsets);
+            task.encryptionKeyMetadata().ifPresent(metadata -> builder.withEncryptionKeyMetadata(ByteBuffer.wrap(metadata)));
 
             if (!icebergTable.spec().fields().isEmpty()) {
                 String partitionDataJson = task.partitionDataJson()
@@ -3494,6 +3530,7 @@ public class IcebergMetadata
                         .withFileSizeInBytes(task.fileSizeInBytes())
                         .withMetrics(task.metrics().metrics());
                 task.fileSplitOffsets().ifPresent(deleteBuilder::withSplitOffsets);
+                task.encryptionKeyMetadata().ifPresent(metadata -> deleteBuilder.withEncryptionKeyMetadata(ByteBuffer.wrap(metadata)));
                 toPartitionData(partitionSpec, schema, task.partitionDataJson()).ifPresent(deleteBuilder::withPartition);
                 rowDelta.addDeletes(deleteBuilder.build());
             }
@@ -4146,6 +4183,7 @@ public class IcebergMetadata
                     .withMetrics(task.metrics().metrics())
                     .withSortOrder(sortOrders.get(task.sortOrderId()));
             task.fileSplitOffsets().ifPresent(builder::withSplitOffsets);
+            task.encryptionKeyMetadata().ifPresent(metadata -> builder.withEncryptionKeyMetadata(ByteBuffer.wrap(metadata)));
 
             if (!icebergTable.spec().fields().isEmpty()) {
                 String partitionDataJson = task.partitionDataJson()

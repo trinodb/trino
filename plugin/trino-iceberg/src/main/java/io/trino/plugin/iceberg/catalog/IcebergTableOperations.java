@@ -16,8 +16,15 @@ package io.trino.plugin.iceberg.catalog;
 import org.apache.iceberg.TableMetadata;
 import org.apache.iceberg.TableOperations;
 
+import java.util.Map;
+
 public interface IcebergTableOperations
         extends TableOperations
 {
     void initializeFromMetadata(TableMetadata tableMetadata);
+
+    default Map<String, String> fileIoProperties()
+    {
+        return io().properties();
+    }
 }

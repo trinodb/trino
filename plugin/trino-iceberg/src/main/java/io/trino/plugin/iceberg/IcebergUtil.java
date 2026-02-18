@@ -60,6 +60,7 @@ import org.apache.iceberg.BaseTable;
 import org.apache.iceberg.ContentFile;
 import org.apache.iceberg.FileFormat;
 import org.apache.iceberg.FileScanTask;
+import org.apache.iceberg.HasTableOperations;
 import org.apache.iceberg.HistoryEntry;
 import org.apache.iceberg.ManifestFile;
 import org.apache.iceberg.ManifestFiles;
@@ -75,6 +76,7 @@ import org.apache.iceberg.Table;
 import org.apache.iceberg.TableMetadata;
 import org.apache.iceberg.TableOperations;
 import org.apache.iceberg.Transaction;
+import org.apache.iceberg.encryption.EncryptingFileIO;
 import org.apache.iceberg.io.FileIO;
 import org.apache.iceberg.io.LocationProvider;
 import org.apache.iceberg.types.Type.PrimitiveType;
@@ -85,6 +87,7 @@ import org.apache.iceberg.types.Types.StructType;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.lang.invoke.MethodHandle;
+import java.lang.reflect.Field;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.nio.ByteBuffer;
@@ -132,6 +135,8 @@ import static io.trino.plugin.iceberg.IcebergMetadata.calculateTableCompressionP
 import static io.trino.plugin.iceberg.IcebergTableProperties.COMPRESSION_CODEC;
 import static io.trino.plugin.iceberg.IcebergTableProperties.DATA_LOCATION_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergTableProperties.DELETE_AFTER_COMMIT_ENABLED;
+import static io.trino.plugin.iceberg.IcebergTableProperties.ENCRYPTION_DATA_KEY_LENGTH_PROPERTY;
+import static io.trino.plugin.iceberg.IcebergTableProperties.ENCRYPTION_KEY_ID_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergTableProperties.FILE_FORMAT_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergTableProperties.FORMAT_VERSION_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergTableProperties.LOCATION_PROPERTY;
@@ -193,6 +198,8 @@ import static org.apache.iceberg.TableProperties.AVRO_COMPRESSION;
 import static org.apache.iceberg.TableProperties.COMMIT_NUM_RETRIES;
 import static org.apache.iceberg.TableProperties.DEFAULT_FILE_FORMAT;
 import static org.apache.iceberg.TableProperties.DEFAULT_FILE_FORMAT_DEFAULT;
+import static org.apache.iceberg.TableProperties.ENCRYPTION_DEK_LENGTH;
+import static org.apache.iceberg.TableProperties.ENCRYPTION_TABLE_KEY;
 import static org.apache.iceberg.TableProperties.FORMAT_VERSION;
 import static org.apache.iceberg.TableProperties.METADATA_DELETE_AFTER_COMMIT_ENABLED;
 import static org.apache.iceberg.TableProperties.METADATA_PREVIOUS_VERSIONS_MAX;
@@ -238,6 +245,7 @@ public final class IcebergUtil
     //  - v0.gz.metadata.json
     //  - v0.metadata.json.gz
     private static final Pattern HADOOP_GENERATED_METADATA_FILE_NAME_PATTERN = Pattern.compile("v(?<version>\\d+)(?<compression>\\.[a-zA-Z0-9]+)?" + Pattern.quote(METADATA_FILE_EXTENSION) + "(?<compression2>\\.[a-zA-Z0-9]+)?");
+    private static final Field ENCRYPTING_FILE_IO_DELEGATE_FIELD = getEncryptingFileIoDelegateField();
 
     private IcebergUtil() {}
 
@@ -269,6 +277,41 @@ public final class IcebergUtil
                 Optional.empty());
         operations.initializeFromMetadata(tableMetadata);
         return new BaseTable(operations, quotedTableName(table), TRINO_METRICS_REPORTER);
+    }
+
+    public static Map<String, String> getFileIoProperties(Table table)
+    {
+        requireNonNull(table, "table is null");
+        if (table instanceof HasTableOperations hasTableOperations && hasTableOperations.operations() instanceof IcebergTableOperations icebergTableOperations) {
+            return icebergTableOperations.fileIoProperties();
+        }
+        FileIO fileIo = table.io();
+        try {
+            return fileIo.properties();
+        }
+        catch (UnsupportedOperationException e) {
+            if (fileIo instanceof EncryptingFileIO encryptingFileIo) {
+                try {
+                    return ((FileIO) ENCRYPTING_FILE_IO_DELEGATE_FIELD.get(encryptingFileIo)).properties();
+                }
+                catch (IllegalAccessException reflectionException) {
+                    throw new RuntimeException("Failed to extract wrapped FileIO from EncryptingFileIO", reflectionException);
+                }
+            }
+            throw e;
+        }
+    }
+
+    private static Field getEncryptingFileIoDelegateField()
+    {
+        try {
+            Field field = EncryptingFileIO.class.getDeclaredField("io");
+            field.setAccessible(true);
+            return field;
+        }
+        catch (ReflectiveOperationException e) {
+            throw new RuntimeException("Failed to initialize EncryptingFileIO delegate field", e);
+        }
     }
 
     public static List<IcebergColumnHandle> getPartitionColumns(Table table, TypeManager typeManager)
@@ -351,6 +394,11 @@ public final class IcebergUtil
 
         int formatVersion = formatVersion(icebergTable);
         properties.put(FORMAT_VERSION_PROPERTY, formatVersion);
+
+        Optional.ofNullable(icebergTable.properties().get(ENCRYPTION_TABLE_KEY))
+                .ifPresent(value -> properties.put(ENCRYPTION_KEY_ID_PROPERTY, value));
+        Optional.ofNullable(icebergTable.properties().get(ENCRYPTION_DEK_LENGTH))
+                .ifPresent(value -> properties.put(ENCRYPTION_DATA_KEY_LENGTH_PROPERTY, Integer.parseInt(value)));
 
         if (icebergTable.properties().containsKey(COMMIT_NUM_RETRIES)) {
             int commitNumRetries = parseInt(icebergTable.properties().get(COMMIT_NUM_RETRIES));
@@ -964,6 +1012,14 @@ public final class IcebergUtil
             }
             propertiesBuilder.put(WRITE_DATA_LOCATION, location);
         });
+
+        Optional<String> encryptionKeyId = IcebergTableProperties.getEncryptionKeyId(tableMetadata.getProperties());
+        Optional<Integer> encryptionDataKeyLength = IcebergTableProperties.getEncryptionDataKeyLength(tableMetadata.getProperties());
+        if (encryptionDataKeyLength.isPresent() && encryptionKeyId.isEmpty()) {
+            throw new TrinoException(INVALID_TABLE_PROPERTY, "encryption_data_key_length requires encryption_key_id");
+        }
+        encryptionKeyId.ifPresent(value -> propertiesBuilder.put(ENCRYPTION_TABLE_KEY, value));
+        encryptionDataKeyLength.ifPresent(value -> propertiesBuilder.put(ENCRYPTION_DEK_LENGTH, Integer.toString(value)));
 
         // iceberg ORC format bloom filter properties used by create table
         List<String> orcBloomFilterColumns = IcebergTableProperties.getOrcBloomFilterColumns(tableMetadata.getProperties());

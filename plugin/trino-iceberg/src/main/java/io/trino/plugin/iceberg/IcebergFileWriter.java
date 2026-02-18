@@ -24,5 +24,10 @@ public interface IcebergFileWriter
 {
     FileMetrics getFileMetrics();
 
+    default Optional<byte[]> getEncryptionKeyMetadata()
+    {
+        return Optional.empty();
+    }
+
     record FileMetrics(Metrics metrics, Optional<List<Long>> splitOffsets) {}
 }

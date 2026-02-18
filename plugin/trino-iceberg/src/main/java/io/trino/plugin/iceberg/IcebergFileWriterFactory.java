@@ -33,6 +33,9 @@ import io.trino.plugin.base.metrics.FileFormatDataSourceStats;
 import io.trino.plugin.hive.HiveCompressionCodec;
 import io.trino.plugin.hive.HiveCompressionOption;
 import io.trino.plugin.hive.orc.OrcWriterConfig;
+import io.trino.plugin.iceberg.fileio.EncryptedTrinoInputFile;
+import io.trino.plugin.iceberg.fileio.EncryptedTrinoOutputFile;
+import io.trino.plugin.iceberg.fileio.ForwardingInputFile;
 import io.trino.plugin.iceberg.fileio.ForwardingOutputFile;
 import io.trino.spi.NodeVersion;
 import io.trino.spi.TrinoException;
@@ -41,7 +44,14 @@ import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import org.apache.iceberg.MetricsConfig;
 import org.apache.iceberg.Schema;
+import org.apache.iceberg.encryption.EncryptedFiles;
+import org.apache.iceberg.encryption.EncryptedOutputFile;
+import org.apache.iceberg.encryption.EncryptionManager;
+import org.apache.iceberg.encryption.EncryptionUtil;
+import org.apache.iceberg.io.InputFile;
+import org.apache.iceberg.io.OutputFile;
 import org.apache.iceberg.types.Types;
+import org.apache.iceberg.util.ByteBuffers;
 import org.weakref.jmx.Managed;
 
 import java.io.Closeable;
@@ -133,13 +143,14 @@ public class IcebergFileWriterFactory
             ConnectorSession session,
             IcebergFileFormat fileFormat,
             MetricsConfig metricsConfig,
-            Map<String, String> storageProperties)
+            Map<String, String> storageProperties,
+            Optional<EncryptionManager> encryptionManager)
     {
         return switch (fileFormat) {
             // TODO use metricsConfig https://github.com/trinodb/trino/issues/9791
-            case PARQUET -> createParquetWriter(MetricsConfig.getDefault(), fileSystem, outputPath, icebergSchema, session, storageProperties);
-            case ORC -> createOrcWriter(metricsConfig, fileSystem, outputPath, icebergSchema, session, storageProperties, getOrcStringStatisticsLimit(session));
-            case AVRO -> createAvroWriter(fileSystem, outputPath, icebergSchema, storageProperties);
+            case PARQUET -> createParquetWriter(MetricsConfig.getDefault(), fileSystem, outputPath, icebergSchema, session, storageProperties, encryptionManager);
+            case ORC -> createOrcWriter(metricsConfig, fileSystem, outputPath, icebergSchema, session, storageProperties, getOrcStringStatisticsLimit(session), encryptionManager);
+            case AVRO -> createAvroWriter(fileSystem, outputPath, icebergSchema, storageProperties, encryptionManager);
         };
     }
 
@@ -148,12 +159,13 @@ public class IcebergFileWriterFactory
             Location outputPath,
             ConnectorSession session,
             IcebergFileFormat fileFormat,
-            Map<String, String> storageProperties)
+            Map<String, String> storageProperties,
+            Optional<EncryptionManager> encryptionManager)
     {
         return switch (fileFormat) {
-            case PARQUET -> createParquetWriter(FULL_METRICS_CONFIG, fileSystem, outputPath, POSITION_DELETE_SCHEMA, session, storageProperties);
-            case ORC -> createOrcWriter(FULL_METRICS_CONFIG, fileSystem, outputPath, POSITION_DELETE_SCHEMA, session, storageProperties, DataSize.ofBytes(Integer.MAX_VALUE));
-            case AVRO -> createAvroWriter(fileSystem, outputPath, POSITION_DELETE_SCHEMA, storageProperties);
+            case PARQUET -> createParquetWriter(FULL_METRICS_CONFIG, fileSystem, outputPath, POSITION_DELETE_SCHEMA, session, storageProperties, encryptionManager);
+            case ORC -> createOrcWriter(FULL_METRICS_CONFIG, fileSystem, outputPath, POSITION_DELETE_SCHEMA, session, storageProperties, DataSize.ofBytes(Integer.MAX_VALUE), encryptionManager);
+            case AVRO -> createAvroWriter(fileSystem, outputPath, POSITION_DELETE_SCHEMA, storageProperties, encryptionManager);
         };
     }
 
@@ -163,7 +175,8 @@ public class IcebergFileWriterFactory
             Location outputPath,
             Schema icebergSchema,
             ConnectorSession session,
-            Map<String, String> storageProperties)
+            Map<String, String> storageProperties,
+            Optional<EncryptionManager> encryptionManager)
     {
         List<String> fileColumnNames = icebergSchema.columns().stream()
                 .map(Types.NestedField::name)
@@ -173,7 +186,8 @@ public class IcebergFileWriterFactory
                 .collect(toImmutableList());
 
         try {
-            TrinoOutputFile outputFile = fileSystem.newOutputFile(outputPath);
+            EncryptedOutput encryptedOutput = createOutputFile(fileSystem, outputPath, encryptionManager);
+            TrinoOutputFile outputFile = encryptedOutput.trinoOutputFile();
 
             Closeable rollbackAction = () -> fileSystem.deleteFile(outputPath);
 
@@ -188,7 +202,7 @@ public class IcebergFileWriterFactory
             HiveCompressionCodec compressionCodec = getHiveCompressionCodec(PARQUET, storageProperties)
                     .orElse(toCompressionCodec(hiveCompressionOption));
 
-            return new IcebergParquetFileWriter(
+            IcebergFileWriter writer = new IcebergParquetFileWriter(
                     metricsConfig,
                     outputFile,
                     rollbackAction,
@@ -201,6 +215,7 @@ public class IcebergFileWriterFactory
                     compressionCodec.getParquetCompressionCodec()
                             .orElseThrow(() -> new TrinoException(NOT_SUPPORTED, "Compression codec %s not supported for Parquet".formatted(compressionCodec))),
                     nodeVersion.toString());
+            return withEncryptionKeyMetadata(writer, encryptedOutput.keyMetadata());
         }
         catch (IOException | UncheckedIOException e) {
             throw new TrinoException(ICEBERG_WRITER_OPEN_ERROR, "Error creating Parquet file", e);
@@ -214,10 +229,12 @@ public class IcebergFileWriterFactory
             Schema icebergSchema,
             ConnectorSession session,
             Map<String, String> storageProperties,
-            DataSize stringStatisticsLimit)
+            DataSize stringStatisticsLimit,
+            Optional<EncryptionManager> encryptionManager)
     {
         try {
-            OrcDataSink orcDataSink = OutputStreamOrcDataSink.create(fileSystem.newOutputFile(outputPath));
+            EncryptedOutput encryptedOutput = createOutputFile(fileSystem, outputPath, encryptionManager);
+            OrcDataSink orcDataSink = OutputStreamOrcDataSink.create(encryptedOutput.trinoOutputFile());
 
             Closeable rollbackAction = () -> fileSystem.deleteFile(outputPath);
 
@@ -234,7 +251,7 @@ public class IcebergFileWriterFactory
             if (isOrcWriterValidate(session)) {
                 validationInputFactory = Optional.of(() -> {
                     try {
-                        TrinoInputFile inputFile = fileSystem.newInputFile(outputPath);
+                        TrinoInputFile inputFile = createValidationInputFile(fileSystem, outputPath, encryptedOutput.keyMetadata(), encryptionManager);
                         return new TrinoOrcDataSource(inputFile, new OrcReaderOptions(), readStats);
                     }
                     catch (IOException | UncheckedIOException e) {
@@ -246,7 +263,7 @@ public class IcebergFileWriterFactory
             HiveCompressionCodec compressionCodec = getHiveCompressionCodec(ORC, storageProperties)
                     .orElse(toCompressionCodec(hiveCompressionOption));
 
-            return new IcebergOrcFileWriter(
+            IcebergFileWriter writer = new IcebergOrcFileWriter(
                     metricsConfig,
                     icebergSchema,
                     orcDataSink,
@@ -270,6 +287,7 @@ public class IcebergFileWriterFactory
                     validationInputFactory,
                     getOrcWriterValidateMode(session),
                     orcWriterStats);
+            return withEncryptionKeyMetadata(writer, encryptedOutput.keyMetadata());
         }
         catch (IOException | UncheckedIOException e) {
             throw new TrinoException(ICEBERG_WRITER_OPEN_ERROR, "Error creating ORC file", e);
@@ -299,7 +317,8 @@ public class IcebergFileWriterFactory
             TrinoFileSystem fileSystem,
             Location outputPath,
             Schema icebergSchema,
-            Map<String, String> storageProperties)
+            Map<String, String> storageProperties,
+            Optional<EncryptionManager> encryptionManager)
     {
         Closeable rollbackAction = () -> fileSystem.deleteFile(outputPath);
 
@@ -310,11 +329,113 @@ public class IcebergFileWriterFactory
         HiveCompressionCodec compressionCodec = getHiveCompressionCodec(AVRO, storageProperties)
                 .orElse(toCompressionCodec(hiveCompressionOption));
 
-        return new IcebergAvroFileWriter(
-                new ForwardingOutputFile(fileSystem, outputPath),
+        EncryptedOutput encryptedOutput = createOutputFile(fileSystem, outputPath, encryptionManager);
+
+        IcebergFileWriter writer = new IcebergAvroFileWriter(
+                encryptedOutput.icebergOutputFile(),
                 rollbackAction,
                 icebergSchema,
                 columnTypes,
                 compressionCodec);
+        return withEncryptionKeyMetadata(writer, encryptedOutput.keyMetadata());
+    }
+
+    private static TrinoInputFile createValidationInputFile(
+            TrinoFileSystem fileSystem,
+            Location outputPath,
+            Optional<byte[]> keyMetadata,
+            Optional<EncryptionManager> encryptionManager)
+    {
+        TrinoInputFile inputFile = fileSystem.newInputFile(outputPath);
+        if (keyMetadata.isEmpty() || encryptionManager.isEmpty()) {
+            return inputFile;
+        }
+        InputFile encryptedInputFile = new ForwardingInputFile(inputFile);
+        InputFile decryptedInputFile = encryptionManager.get().decrypt(EncryptedFiles.encryptedInput(encryptedInputFile, keyMetadata.get()));
+        return new EncryptedTrinoInputFile(inputFile, decryptedInputFile);
+    }
+
+    private EncryptedOutput createOutputFile(TrinoFileSystem fileSystem, Location outputPath, Optional<EncryptionManager> encryptionManager)
+    {
+        OutputFile icebergOutputFile = new ForwardingOutputFile(fileSystem, outputPath);
+        EncryptedOutputFile encryptedOutputFile = encryptionManager
+                .map(manager -> manager.encrypt(icebergOutputFile))
+                .orElseGet(() -> EncryptionUtil.plainAsEncryptedOutput(icebergOutputFile));
+        OutputFile encryptingOutputFile = encryptedOutputFile.encryptingOutputFile();
+        TrinoOutputFile trinoOutputFile = new EncryptedTrinoOutputFile(outputPath, encryptingOutputFile);
+        Optional<byte[]> keyMetadata = Optional.ofNullable(encryptedOutputFile.keyMetadata().buffer())
+                .map(ByteBuffers::toByteArray);
+        return new EncryptedOutput(trinoOutputFile, encryptingOutputFile, keyMetadata);
+    }
+
+    private static IcebergFileWriter withEncryptionKeyMetadata(IcebergFileWriter writer, Optional<byte[]> keyMetadata)
+    {
+        if (keyMetadata.isEmpty()) {
+            return writer;
+        }
+        return new EncryptionMetadataFileWriter(writer, keyMetadata);
+    }
+
+    private record EncryptedOutput(TrinoOutputFile trinoOutputFile, OutputFile icebergOutputFile, Optional<byte[]> keyMetadata) {}
+
+    private static class EncryptionMetadataFileWriter
+            implements IcebergFileWriter
+    {
+        private final IcebergFileWriter delegate;
+        private final Optional<byte[]> keyMetadata;
+
+        private EncryptionMetadataFileWriter(IcebergFileWriter delegate, Optional<byte[]> keyMetadata)
+        {
+            this.delegate = requireNonNull(delegate, "delegate is null");
+            this.keyMetadata = requireNonNull(keyMetadata, "keyMetadata is null");
+        }
+
+        @Override
+        public FileMetrics getFileMetrics()
+        {
+            return delegate.getFileMetrics();
+        }
+
+        @Override
+        public Optional<byte[]> getEncryptionKeyMetadata()
+        {
+            return keyMetadata;
+        }
+
+        @Override
+        public long getWrittenBytes()
+        {
+            return delegate.getWrittenBytes();
+        }
+
+        @Override
+        public long getMemoryUsage()
+        {
+            return delegate.getMemoryUsage();
+        }
+
+        @Override
+        public void appendRows(io.trino.spi.Page dataPage)
+        {
+            delegate.appendRows(dataPage);
+        }
+
+        @Override
+        public Closeable commit()
+        {
+            return delegate.commit();
+        }
+
+        @Override
+        public void rollback()
+        {
+            delegate.rollback();
+        }
+
+        @Override
+        public long getValidationCpuNanos()
+        {
+            return delegate.getValidationCpuNanos();
+        }
     }
 }

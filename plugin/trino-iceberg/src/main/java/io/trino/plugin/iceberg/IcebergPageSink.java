@@ -41,6 +41,7 @@ import org.apache.iceberg.PartitionField;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.PartitionSpecParser;
 import org.apache.iceberg.Schema;
+import org.apache.iceberg.encryption.EncryptionManager;
 import org.apache.iceberg.io.LocationProvider;
 import org.apache.iceberg.transforms.Transform;
 import org.apache.iceberg.types.TypeUtil;
@@ -109,6 +110,7 @@ public class IcebergPageSink
     private final long targetMaxFileSize;
     private final long idleWriterMinFileSize;
     private final Map<String, String> storageProperties;
+    private final Optional<EncryptionManager> encryptionManager;
     private final List<TrinoSortField> sortFields;
     private final int sortOrderId;
     private final boolean sortedWritingEnabled;
@@ -143,6 +145,7 @@ public class IcebergPageSink
             ConnectorSession session,
             IcebergFileFormat fileFormat,
             Map<String, String> storageProperties,
+            Optional<EncryptionManager> encryptionManager,
             int maxOpenWriters,
             List<TrinoSortField> sortFields,
             int sortOrderId,
@@ -167,6 +170,7 @@ public class IcebergPageSink
         this.targetMaxFileSize = IcebergSessionProperties.getTargetMaxFileSize(session);
         this.idleWriterMinFileSize = IcebergSessionProperties.getIdleWriterMinFileSize(session);
         this.storageProperties = requireNonNull(storageProperties, "storageProperties is null");
+        this.encryptionManager = requireNonNull(encryptionManager, "encryptionManager is null");
         this.sortFields = requireNonNull(sortFields, "sortFields is null");
         this.sortedWritingEnabled = isSortedWritingEnabled(session);
         this.sortingFileWriterBufferSize = requireNonNull(sortingFileWriterBufferSize, "sortingFileWriterBufferSize is null");
@@ -418,10 +422,12 @@ public class IcebergPageSink
         writers.set(writerIndex, null);
         currentOpenWriters--;
 
+        long fileSizeInBytes = writer.getWrittenBytes();
+        Optional<byte[]> encryptionKeyMetadata = encryptionKeyMetadata(writer);
         CommitTaskData task = new CommitTaskData(
                 writeContext.getPath(),
                 fileFormat,
-                writer.getWrittenBytes(),
+                fileSizeInBytes,
                 new MetricsWrapper(writer.getFileMetrics().metrics()),
                 PartitionSpecParser.toJson(partitionSpec),
                 writeContext.getPartitionData().map(PartitionData::toJson),
@@ -429,6 +435,7 @@ public class IcebergPageSink
                 Optional.empty(),
                 writer.getFileMetrics().splitOffsets(),
                 sortOrderId,
+                encryptionKeyMetadata,
                 Optional.empty());
 
         commitTasks.add(wrappedBuffer(jsonCodec.toJsonBytes(task)));
@@ -443,9 +450,15 @@ public class IcebergPageSink
                 session,
                 fileFormat,
                 metricsConfig,
-                storageProperties);
+                storageProperties,
+                encryptionManager);
 
         return new WriteContext(writer, outputPath, partitionData);
+    }
+
+    private static Optional<byte[]> encryptionKeyMetadata(IcebergFileWriter writer)
+    {
+        return writer.getEncryptionKeyMetadata();
     }
 
     private Optional<PartitionData> getPartitionData(List<PartitionColumn> columns, Page page, int position)

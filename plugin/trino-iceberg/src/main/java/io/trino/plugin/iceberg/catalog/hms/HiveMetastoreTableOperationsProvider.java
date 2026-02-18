@@ -19,6 +19,7 @@ import io.trino.plugin.hive.metastore.thrift.ThriftMetastoreFactory;
 import io.trino.plugin.iceberg.catalog.IcebergTableOperations;
 import io.trino.plugin.iceberg.catalog.IcebergTableOperationsProvider;
 import io.trino.plugin.iceberg.catalog.TrinoCatalog;
+import io.trino.plugin.iceberg.encryption.IcebergEncryptionManagerFactory;
 import io.trino.plugin.iceberg.fileio.ForwardingFileIoFactory;
 import io.trino.spi.connector.ConnectorSession;
 
@@ -34,18 +35,21 @@ public class HiveMetastoreTableOperationsProvider
     private final ForwardingFileIoFactory fileIoFactory;
     private final ThriftMetastoreFactory thriftMetastoreFactory;
     private final boolean lockingEnabled;
+    private final IcebergEncryptionManagerFactory encryptionManagerFactory;
 
     @Inject
     public HiveMetastoreTableOperationsProvider(
             TrinoFileSystemFactory fileSystemFactory,
             ForwardingFileIoFactory fileIoFactory,
             ThriftMetastoreFactory thriftMetastoreFactory,
-            IcebergHiveCatalogConfig metastoreConfig)
+            IcebergHiveCatalogConfig metastoreConfig,
+            IcebergEncryptionManagerFactory encryptionManagerFactory)
     {
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
         this.fileIoFactory = requireNonNull(fileIoFactory, "fileIoFactory is null");
         this.thriftMetastoreFactory = requireNonNull(thriftMetastoreFactory, "thriftMetastoreFactory is null");
         this.lockingEnabled = metastoreConfig.getLockingEnabled();
+        this.encryptionManagerFactory = requireNonNull(encryptionManagerFactory, "encryptionManagerFactory is null");
     }
 
     @Override
@@ -59,6 +63,7 @@ public class HiveMetastoreTableOperationsProvider
     {
         return new HiveMetastoreTableOperations(
                 fileIoFactory.create(fileSystemFactory.create(session), isUseFileSizeFromMetadata(session)),
+                encryptionManagerFactory,
                 ((TrinoHiveCatalog) catalog).getMetastore(),
                 thriftMetastoreFactory.createMetastore(Optional.of(session.getIdentity())),
                 lockingEnabled,

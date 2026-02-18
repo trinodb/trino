@@ -15,6 +15,7 @@ package org.apache.iceberg.snowflake;
 
 import io.trino.plugin.iceberg.catalog.AbstractIcebergTableOperations;
 import io.trino.plugin.iceberg.catalog.snowflake.TrinoSnowflakeCatalog;
+import io.trino.plugin.iceberg.encryption.IcebergEncryptionManagerFactory;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
 import org.apache.iceberg.TableMetadata;
@@ -37,6 +38,7 @@ public class SnowflakeIcebergTableOperations
     public SnowflakeIcebergTableOperations(
             TrinoSnowflakeCatalog trinoSnowflakeCatalog,
             FileIO fileIo,
+            IcebergEncryptionManagerFactory encryptionManagerFactory,
             ConnectorSession session,
             String snowflakeDatabase,
             String database,
@@ -44,7 +46,7 @@ public class SnowflakeIcebergTableOperations
             Optional<String> owner,
             Optional<String> location)
     {
-        super(fileIo, session, database, table, owner, location);
+        super(fileIo, encryptionManagerFactory, session, database, table, owner, location);
         TableIdentifier tableIdentifier = TableIdentifier.of(Namespace.of(snowflakeDatabase, database), table);
         this.icebergSnowflakeTableOperations = requireNonNull((SnowflakeTableOperations) trinoSnowflakeCatalog.getSnowflakeCatalog().newTableOps(tableIdentifier), "snowflakeTableOperations is null");
     }

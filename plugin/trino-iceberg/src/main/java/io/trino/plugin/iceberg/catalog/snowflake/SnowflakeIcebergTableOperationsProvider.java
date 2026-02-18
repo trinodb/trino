@@ -18,6 +18,7 @@ import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.plugin.iceberg.catalog.IcebergTableOperations;
 import io.trino.plugin.iceberg.catalog.IcebergTableOperationsProvider;
 import io.trino.plugin.iceberg.catalog.TrinoCatalog;
+import io.trino.plugin.iceberg.encryption.IcebergEncryptionManagerFactory;
 import io.trino.plugin.iceberg.fileio.ForwardingFileIoFactory;
 import io.trino.spi.connector.ConnectorSession;
 import org.apache.iceberg.snowflake.SnowflakeIcebergTableOperations;
@@ -32,17 +33,20 @@ public class SnowflakeIcebergTableOperationsProvider
 {
     private final TrinoFileSystemFactory fileSystemFactory;
     private final ForwardingFileIoFactory fileIoFactory;
+    private final IcebergEncryptionManagerFactory encryptionManagerFactory;
     private final String snowflakeDatabase;
 
     @Inject
     public SnowflakeIcebergTableOperationsProvider(
             TrinoFileSystemFactory fileSystemFactory,
             ForwardingFileIoFactory fileIoFactory,
+            IcebergEncryptionManagerFactory encryptionManagerFactory,
             IcebergSnowflakeCatalogConfig icebergSnowflakeCatalogConfig)
     {
         this.snowflakeDatabase = requireNonNull(icebergSnowflakeCatalogConfig.getDatabase(), "database is null");
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
         this.fileIoFactory = requireNonNull(fileIoFactory, "fileIoFactory is null");
+        this.encryptionManagerFactory = requireNonNull(encryptionManagerFactory, "encryptionManagerFactory is null");
     }
 
     @Override
@@ -57,6 +61,7 @@ public class SnowflakeIcebergTableOperationsProvider
         return new SnowflakeIcebergTableOperations(
                 (TrinoSnowflakeCatalog) catalog,
                 fileIoFactory.create(fileSystemFactory.create(session), isUseFileSizeFromMetadata(session)),
+                encryptionManagerFactory,
                 session,
                 snowflakeDatabase,
                 database,

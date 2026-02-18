@@ -21,11 +21,14 @@ import io.airlift.slice.Slice;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoInput;
+import io.trino.filesystem.TrinoInputFile;
 import io.trino.plugin.base.util.Closables;
 import io.trino.plugin.iceberg.IcebergColumnHandle;
 import io.trino.plugin.iceberg.IcebergFileSystemFactory;
 import io.trino.plugin.iceberg.IcebergPageSourceProviderFactory;
 import io.trino.plugin.iceberg.IcebergTableHandle;
+import io.trino.plugin.iceberg.fileio.EncryptedTrinoInputFile;
+import io.trino.plugin.iceberg.fileio.ForwardingInputFile;
 import io.trino.spi.NodeVersion;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorPageSource;
@@ -41,7 +44,12 @@ import org.apache.iceberg.ManifestReader;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.RowDelta;
 import org.apache.iceberg.Table;
+import org.apache.iceberg.encryption.EncryptedFiles;
+import org.apache.iceberg.encryption.EncryptedOutputFile;
+import org.apache.iceberg.encryption.EncryptionManager;
+import org.apache.iceberg.encryption.PlaintextEncryptionManager;
 import org.apache.iceberg.io.FileIO;
+import org.apache.iceberg.io.InputFile;
 import org.apache.iceberg.io.LocationProvider;
 import org.apache.iceberg.io.OutputFile;
 import org.apache.iceberg.puffin.Blob;
@@ -51,11 +59,13 @@ import org.apache.iceberg.puffin.PuffinWriter;
 import org.apache.iceberg.util.ContentFileUtil;
 
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.function.Function;
@@ -64,6 +74,7 @@ import static com.google.common.base.Verify.verify;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_BAD_DATA;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_WRITER_DATA_ERROR;
 import static io.trino.plugin.iceberg.IcebergUtil.getColumnHandle;
+import static io.trino.plugin.iceberg.IcebergUtil.getFileIoProperties;
 import static io.trino.plugin.iceberg.IcebergUtil.getLocationProvider;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
@@ -72,6 +83,7 @@ import static org.apache.iceberg.FileFormat.PUFFIN;
 import static org.apache.iceberg.MetadataColumns.DELETE_FILE_PATH;
 import static org.apache.iceberg.MetadataColumns.DELETE_FILE_POS;
 import static org.apache.iceberg.puffin.StandardBlobTypes.DV_V1;
+import static org.apache.iceberg.util.ByteBuffers.toByteArray;
 
 public class DefaultDeletionVectorWriter
         implements DeletionVectorWriter
@@ -109,6 +121,7 @@ public class DefaultDeletionVectorWriter
             RowDelta rowDelta)
     {
         long snapshotId = table.getSnapshotId().orElseThrow(() -> new TrinoException(ICEBERG_BAD_DATA, "Missing base snapshot id for v3 deletion vector rewrite"));
+        Optional<EncryptionManager> encryptionManager = encryptionManager(icebergTable);
 
         // deletion vector info may contain multiple entries for the same data file; merge them here
         Map<String, DeletionVector.Builder> deletionVectorBuilders = deletionVectorInfos.stream().collect(toMap(
@@ -119,9 +132,13 @@ public class DefaultDeletionVectorWriter
         ExistingDeletes existingDeletes = getExistingDeletesByMetadataOnly(icebergTable, snapshotId, deletionVectorBuilders.keySet());
 
         // merge existing deletion vectors into the new ones
-        TrinoFileSystem fileSystem = fileSystemFactory.create(session.getIdentity(), icebergTable.io().properties());
+        TrinoFileSystem fileSystem = fileSystemFactory.create(session.getIdentity(), getFileIoProperties(icebergTable));
         existingDeletes.deletionVectors().forEach((dataFilePath, deleteFile) -> {
-            try (TrinoInput input = fileSystem.newInputFile(Location.of(deleteFile.location()), deleteFile.fileSizeInBytes()).newInput()) {
+            TrinoInputFile inputFile = decryptInputFileIfNeeded(
+                    newInputFile(fileSystem, deleteFile, encryptionManager),
+                    deleteFile,
+                    encryptionManager);
+            try (TrinoInput input = inputFile.newInput()) {
                 Slice data = input.readFully(deleteFile.contentOffset(), toIntExact(deleteFile.contentSizeInBytes()));
                 deletionVectorBuilders.get(dataFilePath).deserialize(data);
             }
@@ -142,7 +159,7 @@ public class DefaultDeletionVectorWriter
                 deletionVectorsWithLegacyDelete.forEach((dataFilePath, deletionVector) -> {
                     Collection<DeleteFile> deleteFiles = existingDeletes.fileScopedDeletes().get(dataFilePath);
                     for (DeleteFile deleteFile : deleteFiles) {
-                        try (ConnectorPageSource connectorPageSource = openDeleteFilePageSource(session, deleteFile, fileSystem)) {
+                        try (ConnectorPageSource connectorPageSource = openDeleteFilePageSource(session, deleteFile, fileSystem, encryptionManager)) {
                             PositionDeleteReader.readSingleFilePositionDeletes(connectorPageSource, deletionVector::add);
                         }
                         catch (IOException e) {
@@ -153,7 +170,7 @@ public class DefaultDeletionVectorWriter
 
                 // process the partition-scoped delete files
                 for (DeleteFile deleteFile : existingDeletes.partitionScopedDeletes()) {
-                    try (ConnectorPageSource connectorPageSource = openDeleteFilePageSource(session, deleteFile, fileSystem)) {
+                    try (ConnectorPageSource connectorPageSource = openDeleteFilePageSource(session, deleteFile, fileSystem, encryptionManager)) {
                         PositionDeleteReader.readMultiFilePositionDeletes(connectorPageSource, (dataFilePath, position) -> {
                             DeletionVector.Builder deletionVector = deletionVectorsWithLegacyDelete.get(dataFilePath);
                             if (deletionVector != null) {
@@ -180,7 +197,7 @@ public class DefaultDeletionVectorWriter
         LocationProvider locationProvider = getLocationProvider(table.getSchemaTableName(), table.getTableLocation(), table.getStorageProperties());
 
         // write deletion vectors to a puffin file and delete files to the row delta
-        writeDeletionVectorsPuffin(session, icebergTable, locationProvider, deletionVectorInfos, deletionVectors, trinoVersion)
+        writeDeletionVectorsPuffin(session, icebergTable, locationProvider, deletionVectorInfos, deletionVectors, trinoVersion, encryptionManager)
                 .forEach(rowDelta::addDeletes);
 
         // remove existing DVs and file-scoped position deletes
@@ -241,7 +258,8 @@ public class DefaultDeletionVectorWriter
             LocationProvider locationProvider,
             List<DeletionVectorInfo> deletionVectorInfos,
             Map<String, DeletionVector> deletionVectors,
-            String trinoVersion)
+            String trinoVersion,
+            Optional<EncryptionManager> encryptionManager)
     {
         if (deletionVectors.isEmpty()) {
             return List.of();
@@ -252,12 +270,20 @@ public class DefaultDeletionVectorWriter
 
         FileIO fileIO = icebergTable.io();
         OutputFile outputFile = fileIO.newOutputFile(puffinPath);
+        Optional<ByteBuffer> keyMetadata = Optional.empty();
+        if (encryptionManager.isPresent()) {
+            EncryptedOutputFile encryptedOutputFile = encryptionManager.get().encrypt(outputFile);
+            outputFile = encryptedOutputFile.encryptingOutputFile();
+            keyMetadata = Optional.ofNullable(encryptedOutputFile.keyMetadata().buffer());
+        }
         try {
             try (PuffinWriter writer = Puffin.write(outputFile).createdBy("Trino version " + trinoVersion).build()) {
                 deletionVectors.forEach((referencedDataFile, deletionVector) ->
                         writer.add(createDeletionVectorBlob(referencedDataFile, deletionVector)));
 
                 writer.finish();
+                Optional<byte[]> encryptionKeyMetadata = keyMetadata
+                        .map(buffer -> toByteArray(buffer));
 
                 Map<String, DeletionVectorInfo> partitionInfo = deletionVectorInfos.stream()
                         .collect(toMap(
@@ -289,6 +315,7 @@ public class DefaultDeletionVectorWriter
                             .withContentOffset(meta.offset())
                             .withContentSizeInBytes(meta.length())
                             .withRecordCount(cardinality);
+                    encryptionKeyMetadata.ifPresent(bytes -> deleteBuilder.withEncryptionKeyMetadata(ByteBuffer.wrap(bytes)));
                     deletionVectorInfo.partitionData().ifPresent(deleteBuilder::withPartition);
                     deleteFiles.add(deleteBuilder.build());
                 }
@@ -307,14 +334,50 @@ public class DefaultDeletionVectorWriter
         }
     }
 
-    private ConnectorPageSource openDeleteFilePageSource(ConnectorSession session, DeleteFile deleteFile, TrinoFileSystem fileSystem)
+    private ConnectorPageSource openDeleteFilePageSource(
+            ConnectorSession session,
+            DeleteFile deleteFile,
+            TrinoFileSystem fileSystem,
+            Optional<EncryptionManager> encryptionManager)
     {
         return pageSourceProviderFactory.createPageSourceProvider().openDeleteFile(
                 session,
                 fileSystem,
                 io.trino.plugin.iceberg.delete.DeleteFile.fromIceberg(deleteFile),
                 List.of(deleteFilePathColumnHandle, deleteFilePositionColumnHandle),
-                TupleDomain.all());
+                TupleDomain.all(),
+                encryptionManager);
+    }
+
+    private static Optional<EncryptionManager> encryptionManager(Table icebergTable)
+    {
+        EncryptionManager encryptionManager = icebergTable.encryption();
+        if (encryptionManager instanceof PlaintextEncryptionManager) {
+            return Optional.empty();
+        }
+        return Optional.of(encryptionManager);
+    }
+
+    private static TrinoInputFile newInputFile(TrinoFileSystem fileSystem, DeleteFile deleteFile, Optional<EncryptionManager> encryptionManager)
+    {
+        if (encryptionManager.isPresent() && deleteFile.keyMetadata() != null) {
+            return fileSystem.newInputFile(Location.of(deleteFile.location()));
+        }
+        return fileSystem.newInputFile(Location.of(deleteFile.location()), deleteFile.fileSizeInBytes());
+    }
+
+    private static TrinoInputFile decryptInputFileIfNeeded(
+            TrinoInputFile inputFile,
+            DeleteFile deleteFile,
+            Optional<EncryptionManager> encryptionManager)
+    {
+        if (encryptionManager.isEmpty() || deleteFile.keyMetadata() == null) {
+            return inputFile;
+        }
+        ByteBuffer keyMetadata = deleteFile.keyMetadata();
+        InputFile encryptedInputFile = new ForwardingInputFile(inputFile);
+        InputFile decryptedInputFile = encryptionManager.get().decrypt(EncryptedFiles.encryptedInput(encryptedInputFile, keyMetadata));
+        return new EncryptedTrinoInputFile(inputFile, decryptedInputFile);
     }
 
     private static boolean isDeletionVector(DeleteFile deleteFile)

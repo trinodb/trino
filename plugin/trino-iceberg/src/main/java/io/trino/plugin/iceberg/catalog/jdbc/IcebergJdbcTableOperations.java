@@ -14,6 +14,7 @@
 package io.trino.plugin.iceberg.catalog.jdbc;
 
 import io.trino.plugin.iceberg.catalog.AbstractIcebergTableOperations;
+import io.trino.plugin.iceberg.encryption.IcebergEncryptionManagerFactory;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.TableNotFoundException;
 import org.apache.iceberg.TableMetadata;
@@ -32,6 +33,7 @@ public class IcebergJdbcTableOperations
 
     public IcebergJdbcTableOperations(
             FileIO fileIo,
+            IcebergEncryptionManagerFactory encryptionManagerFactory,
             IcebergJdbcClient jdbcClient,
             ConnectorSession session,
             String database,
@@ -39,7 +41,7 @@ public class IcebergJdbcTableOperations
             Optional<String> owner,
             Optional<String> location)
     {
-        super(fileIo, session, database, table, owner, location);
+        super(fileIo, encryptionManagerFactory, session, database, table, owner, location);
         this.jdbcClient = requireNonNull(jdbcClient, "jdbcClient is null");
     }
 

@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import org.apache.iceberg.FileContent;
 import org.apache.iceberg.FileFormat;
 import org.apache.iceberg.types.Conversions;
+import org.apache.iceberg.util.ByteBuffers;
 
 import java.util.List;
 import java.util.Optional;
@@ -25,6 +26,7 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static io.airlift.slice.SizeOf.SIZE_OF_INT;
 import static io.airlift.slice.SizeOf.estimatedSizeOf;
 import static io.airlift.slice.SizeOf.instanceSize;
+import static io.airlift.slice.SizeOf.sizeOf;
 import static java.util.Objects.requireNonNull;
 import static org.apache.iceberg.MetadataColumns.DELETE_FILE_POS;
 
@@ -34,6 +36,7 @@ public record DeleteFile(
         FileFormat format,
         long recordCount,
         long fileSizeInBytes,
+        Optional<byte[]> encryptionKeyMetadata,
         List<Integer> equalityFieldIds,
         Optional<Long> rowPositionLowerBound,
         Optional<Long> rowPositionUpperBound,
@@ -54,6 +57,8 @@ public record DeleteFile(
 
         Optional<Long> contentOffset = Optional.ofNullable(deleteFile.contentOffset());
         Optional<Integer> contentSizeInBytes = Optional.ofNullable(deleteFile.contentSizeInBytes()).map(Math::toIntExact);
+        Optional<byte[]> encryptionKeyMetadata = Optional.ofNullable(deleteFile.keyMetadata())
+                .map(ByteBuffers::toByteArray);
 
         return new DeleteFile(
                 deleteFile.content(),
@@ -61,6 +66,7 @@ public record DeleteFile(
                 deleteFile.format(),
                 deleteFile.recordCount(),
                 deleteFile.fileSizeInBytes(),
+                encryptionKeyMetadata,
                 Optional.ofNullable(deleteFile.equalityFieldIds()).orElseGet(ImmutableList::of),
                 rowPositionLowerBound,
                 rowPositionUpperBound,
@@ -74,6 +80,7 @@ public record DeleteFile(
         requireNonNull(content, "content is null");
         requireNonNull(path, "path is null");
         requireNonNull(format, "format is null");
+        requireNonNull(encryptionKeyMetadata, "encryptionKeyMetadata is null");
         equalityFieldIds = ImmutableList.copyOf(requireNonNull(equalityFieldIds, "equalityFieldIds is null"));
         requireNonNull(rowPositionLowerBound, "rowPositionLowerBound is null");
         requireNonNull(rowPositionUpperBound, "rowPositionUpperBound is null");
@@ -93,6 +100,7 @@ public record DeleteFile(
     {
         return INSTANCE_SIZE
                 + estimatedSizeOf(path)
+                + encryptionKeyMetadata.map(value -> sizeOf(value)).orElse(0L)
                 + estimatedSizeOf(equalityFieldIds, _ -> SIZE_OF_INT);
     }
 

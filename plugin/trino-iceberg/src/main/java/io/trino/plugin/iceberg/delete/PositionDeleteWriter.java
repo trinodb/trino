@@ -30,6 +30,7 @@ import org.apache.iceberg.FileContent;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.PartitionSpecParser;
 import org.apache.iceberg.SortOrder;
+import org.apache.iceberg.encryption.EncryptionManager;
 import org.apache.iceberg.io.LocationProvider;
 
 import java.util.Map;
@@ -60,7 +61,8 @@ public class PositionDeleteWriter
             TrinoFileSystem fileSystem,
             ConnectorSession session,
             IcebergFileFormat fileFormat,
-            Map<String, String> storageProperties)
+            Map<String, String> storageProperties,
+            Optional<EncryptionManager> encryptionManager)
     {
         this.dataFilePath = requireNonNull(dataFilePath, "dataFilePath is null");
         this.dataFilePathBlock = nativeValueToBlock(VARCHAR, utf8Slice(dataFilePath));
@@ -74,7 +76,7 @@ public class PositionDeleteWriter
         this.outputPath = partition
                 .map(partitionData -> locationProvider.newDataLocation(partitionSpec, partitionData, fileName))
                 .orElseGet(() -> locationProvider.newDataLocation(fileName));
-        this.writer = fileWriterFactory.createPositionDeleteWriter(fileSystem, Location.of(outputPath), session, fileFormat, storageProperties);
+        this.writer = fileWriterFactory.createPositionDeleteWriter(fileSystem, Location.of(outputPath), session, fileFormat, storageProperties, encryptionManager);
     }
 
     public CommitTaskData write(DeletionVector rowsToDelete)
@@ -82,10 +84,13 @@ public class PositionDeleteWriter
         writeDeletes(rowsToDelete);
         writer.commit();
 
+        long fileSizeInBytes = writer.getWrittenBytes();
+        Optional<byte[]> encryptionKeyMetadata = writer.getEncryptionKeyMetadata();
+
         return new CommitTaskData(
                 outputPath,
                 fileFormat,
-                writer.getWrittenBytes(),
+                fileSizeInBytes,
                 new MetricsWrapper(writer.getFileMetrics().metrics()),
                 PartitionSpecParser.toJson(partitionSpec),
                 partition.map(PartitionData::toJson),
@@ -93,6 +98,7 @@ public class PositionDeleteWriter
                 Optional.of(dataFilePath),
                 writer.getFileMetrics().splitOffsets(),
                 SortOrder.unsorted().orderId(),
+                encryptionKeyMetadata,
                 Optional.empty());
     }
 

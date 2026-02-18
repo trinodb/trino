@@ -30,15 +30,18 @@ import org.apache.iceberg.SplittableScanTask;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.io.CloseableIterable;
 import org.apache.iceberg.io.CloseableIterator;
+import org.apache.iceberg.util.ByteBuffers;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 
 import static com.google.common.collect.Iterators.singletonIterator;
+import static io.trino.plugin.iceberg.IcebergUtil.getFileIoProperties;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
 import static java.util.Collections.emptyIterator;
@@ -151,10 +154,11 @@ public class TableChangesSplitSource
                 task.file().fileSizeInBytes(),
                 task.file().recordCount(),
                 IcebergFileFormat.fromIceberg(task.file().format()),
+                Optional.ofNullable(task.file().keyMetadata()).map(ByteBuffers::toByteArray),
                 PartitionSpecParser.toJson(task.spec()),
                 PartitionData.toJson(task.file().partition()),
                 SplitWeight.standard(),
-                icebergTable.io().properties());
+                getFileIoProperties(icebergTable));
     }
 
     private TableChangesSplit toSplit(DeletedDataFileScanTask task)
@@ -170,9 +174,10 @@ public class TableChangesSplitSource
                 task.file().fileSizeInBytes(),
                 task.file().recordCount(),
                 IcebergFileFormat.fromIceberg(task.file().format()),
+                Optional.ofNullable(task.file().keyMetadata()).map(ByteBuffers::toByteArray),
                 PartitionSpecParser.toJson(task.spec()),
                 PartitionData.toJson(task.file().partition()),
                 SplitWeight.standard(),
-                icebergTable.io().properties());
+                getFileIoProperties(icebergTable));
     }
 }

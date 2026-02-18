@@ -104,6 +104,7 @@ public class IcebergConfig
     private int metadataParallelism = 8;
     private boolean bucketExecutionEnabled = true;
     private boolean fileBasedConflictDetectionEnabled = true;
+    private Optional<String> encryptionKmsImpl = Optional.empty();
 
     public CatalogType getCatalogType()
     {
@@ -693,6 +694,19 @@ public class IcebergConfig
     public IcebergConfig setFileBasedConflictDetectionEnabled(boolean fileBasedConflictDetectionEnabled)
     {
         this.fileBasedConflictDetectionEnabled = fileBasedConflictDetectionEnabled;
+        return this;
+    }
+
+    public Optional<String> getEncryptionKmsImpl()
+    {
+        return encryptionKmsImpl;
+    }
+
+    @Config("iceberg.encryption.kms-impl")
+    @ConfigDescription("KMS implementation class for Iceberg table encryption")
+    public IcebergConfig setEncryptionKmsImpl(String encryptionKmsImpl)
+    {
+        this.encryptionKmsImpl = Optional.ofNullable(encryptionKmsImpl);
         return this;
     }
 }

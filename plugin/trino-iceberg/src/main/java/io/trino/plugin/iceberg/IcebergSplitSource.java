@@ -68,6 +68,7 @@ import org.apache.iceberg.metrics.InMemoryMetricsReporter;
 import org.apache.iceberg.metrics.ScanMetricsResult;
 import org.apache.iceberg.metrics.ScanReport;
 import org.apache.iceberg.types.Type;
+import org.apache.iceberg.util.ByteBuffers;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -204,7 +205,7 @@ public class IcebergSplitSource
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
         this.session = requireNonNull(session, "session is null");
         this.tableHandle = requireNonNull(tableHandle, "tableHandle is null");
-        this.fileIoProperties = requireNonNull(icebergTable.io().properties(), "fileIoProperties is null");
+        this.fileIoProperties = requireNonNull(IcebergUtil.getFileIoProperties(icebergTable), "fileIoProperties is null");
         this.tableScan = requireNonNull(tableScan, "tableScan is null");
         this.maxScannedFileSizeInBytes = maxScannedFileSize.map(DataSize::toBytes);
         this.fieldIdToType = primitiveFieldTypes(tableScan.schema());
@@ -726,6 +727,7 @@ public class IcebergSplitSource
                 task.file().fileSizeInBytes(),
                 task.file().recordCount(),
                 IcebergFileFormat.fromIceberg(task.file().format()),
+                Optional.ofNullable(task.file().keyMetadata()).map(ByteBuffers::toByteArray),
                 partitionValues,
                 PartitionSpecParser.toJson(task.spec()),
                 PartitionData.toJson(task.file().partition()),

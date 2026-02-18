@@ -46,6 +46,7 @@ public class IcebergSplit
     private final long fileSize;
     private final long fileRecordCount;
     private final IcebergFileFormat fileFormat;
+    private final Optional<byte[]> encryptionKeyMetadata;
     private final Optional<List<Object>> partitionValues;
     private final String partitionSpecJson;
     private final String partitionDataJson;
@@ -64,6 +65,7 @@ public class IcebergSplit
             @JsonProperty("fileSize") long fileSize,
             @JsonProperty("fileRecordCount") long fileRecordCount,
             @JsonProperty("fileFormat") IcebergFileFormat fileFormat,
+            @JsonProperty("encryptionKeyMetadata") Optional<byte[]> encryptionKeyMetadata,
             @JsonProperty("partitionSpecJson") String partitionSpecJson,
             @JsonProperty("partitionDataJson") String partitionDataJson,
             @JsonProperty("deletes") List<DeleteFile> deletes,
@@ -79,6 +81,7 @@ public class IcebergSplit
                 fileSize,
                 fileRecordCount,
                 fileFormat,
+                Optional.ofNullable(encryptionKeyMetadata).orElse(Optional.empty()),
                 Optional.empty(),
                 partitionSpecJson,
                 partitionDataJson,
@@ -97,6 +100,7 @@ public class IcebergSplit
             long fileSize,
             long fileRecordCount,
             IcebergFileFormat fileFormat,
+            Optional<byte[]> encryptionKeyMetadata,
             Optional<List<Object>> partitionValues,
             String partitionSpecJson,
             String partitionDataJson,
@@ -113,6 +117,7 @@ public class IcebergSplit
         this.fileSize = fileSize;
         this.fileRecordCount = fileRecordCount;
         this.fileFormat = requireNonNull(fileFormat, "fileFormat is null");
+        this.encryptionKeyMetadata = requireNonNull(encryptionKeyMetadata, "encryptionKeyMetadata is null");
         this.partitionValues = requireNonNull(partitionValues, "partitionValues is null");
         this.partitionSpecJson = requireNonNull(partitionSpecJson, "partitionSpecJson is null");
         this.partitionDataJson = requireNonNull(partitionDataJson, "partitionDataJson is null");
@@ -165,6 +170,12 @@ public class IcebergSplit
     public IcebergFileFormat getFileFormat()
     {
         return fileFormat;
+    }
+
+    @JsonProperty
+    public Optional<byte[]> getEncryptionKeyMetadata()
+    {
+        return encryptionKeyMetadata;
     }
 
     @JsonProperty
@@ -227,6 +238,7 @@ public class IcebergSplit
                 + estimatedSizeOf(path)
                 + estimatedSizeOf(partitionSpecJson)
                 + estimatedSizeOf(partitionDataJson)
+                + encryptionKeyMetadata.map(SizeOf::sizeOf).orElse(0L)
                 + estimatedSizeOf(deletes, DeleteFile::retainedSizeInBytes)
                 + splitWeight.getRetainedSizeInBytes()
                 + fileStatisticsDomain.getRetainedSizeInBytes(IcebergColumnHandle::getRetainedSizeInBytes)

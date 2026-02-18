@@ -67,6 +67,12 @@ public final class IcebergSortingFileWriter
     }
 
     @Override
+    public java.util.Optional<byte[]> getEncryptionKeyMetadata()
+    {
+        return outputWriter.getEncryptionKeyMetadata();
+    }
+
+    @Override
     public long getWrittenBytes()
     {
         return sortingFileWriter.getWrittenBytes();

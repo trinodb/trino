@@ -34,6 +34,7 @@ import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.PartitionSpecParser;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.SortOrder;
+import org.apache.iceberg.encryption.EncryptionManager;
 import org.apache.iceberg.io.LocationProvider;
 import org.apache.iceberg.types.Type;
 
@@ -65,6 +66,7 @@ public class IcebergMergeSink
     private final ConnectorSession session;
     private final IcebergFileFormat fileFormat;
     private final Map<String, String> storageProperties;
+    private final Optional<EncryptionManager> encryptionManager;
     private final Schema schema;
     private final Map<Integer, PartitionSpec> partitionsSpecs;
     private final ConnectorPageSink insertPageSink;
@@ -81,6 +83,7 @@ public class IcebergMergeSink
             ConnectorSession session,
             IcebergFileFormat fileFormat,
             Map<String, String> storageProperties,
+            Optional<EncryptionManager> encryptionManager,
             Schema schema,
             Map<Integer, PartitionSpec> partitionsSpecs,
             ConnectorPageSink insertPageSink,
@@ -94,6 +97,7 @@ public class IcebergMergeSink
         this.session = requireNonNull(session, "session is null");
         this.fileFormat = requireNonNull(fileFormat, "fileFormat is null");
         this.storageProperties = ImmutableMap.copyOf(requireNonNull(storageProperties, "storageProperties is null"));
+        this.encryptionManager = requireNonNull(encryptionManager, "encryptionManager is null");
         this.schema = requireNonNull(schema, "schema is null");
         this.partitionsSpecs = ImmutableMap.copyOf(requireNonNull(partitionsSpecs, "partitionsSpecs is null"));
         this.insertPageSink = requireNonNull(insertPageSink, "insertPageSink is null");
@@ -171,6 +175,7 @@ public class IcebergMergeSink
                         Optional.of(dataFilePath.toStringUtf8()),
                         Optional.empty(), // unused for v3
                         SortOrder.unsorted().orderId(),
+                        Optional.empty(),
                         Optional.of(deletionVector.serialize().getBytes()));
                 fragments.add(wrappedBuffer(jsonCodec.toJsonBytes(task)));
             }));
@@ -199,7 +204,8 @@ public class IcebergMergeSink
                 fileSystem,
                 session,
                 fileFormat,
-                storageProperties);
+                storageProperties,
+                encryptionManager);
     }
 
     private Slice writePositionDeletes(PositionDeleteWriter writer, DeletionVector rowsToDelete)

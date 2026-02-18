@@ -25,6 +25,7 @@ import io.trino.plugin.iceberg.IcebergMetadata;
 import io.trino.plugin.iceberg.TableStatisticsWriter;
 import io.trino.plugin.iceberg.catalog.BaseTrinoCatalogTest;
 import io.trino.plugin.iceberg.catalog.TrinoCatalog;
+import io.trino.plugin.iceberg.encryption.IcebergEncryptionManagerFactory;
 import io.trino.spi.NodeVersion;
 import io.trino.spi.catalog.CatalogName;
 import io.trino.spi.connector.ConnectorMaterializedViewDefinition;
@@ -100,7 +101,8 @@ public class TestTrinoGlueCatalog
                         TESTING_TYPE_MANAGER,
                         catalogConfig,
                         new GlueMetastoreStats(),
-                        glueClient),
+                        glueClient,
+                        new IcebergEncryptionManagerFactory(new IcebergConfig())),
                 "test",
                 glueClient,
                 new GlueMetastoreStats(),
@@ -245,7 +247,8 @@ public class TestTrinoGlueCatalog
                         TESTING_TYPE_MANAGER,
                         catalogConfig,
                         new GlueMetastoreStats(),
-                        glueClient),
+                        glueClient,
+                        new IcebergEncryptionManagerFactory(new IcebergConfig())),
                 "test",
                 glueClient,
                 new GlueMetastoreStats(),

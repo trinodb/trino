@@ -211,10 +211,10 @@ class TestFileBasedConflictDetection
                 {"partitionValues":[40]}
                 """;
         CommitTaskData commitTaskData1 = new CommitTaskData("test_location/data/new.parquet", IcebergFileFormat.PARQUET, 0, new MetricsWrapper(new Metrics()), PartitionSpecParser.toJson(currentPartitionSpec),
-                Optional.of(partitionDataJson), DATA, Optional.empty(), Optional.empty(), SortOrder.unsorted().orderId(), Optional.empty());
+                Optional.of(partitionDataJson), DATA, Optional.empty(), Optional.empty(), SortOrder.unsorted().orderId(), Optional.empty(), Optional.empty());
         // Remove file from version with previous partition specification
         CommitTaskData commitTaskData2 = new CommitTaskData("test_location/data/old.parquet", IcebergFileFormat.PARQUET, 0, new MetricsWrapper(new Metrics()), PartitionSpecParser.toJson(previousPartitionSpec),
-                Optional.of(partitionDataJson), POSITION_DELETES, Optional.empty(), Optional.empty(), SortOrder.unsorted().orderId(), Optional.empty());
+                Optional.of(partitionDataJson), POSITION_DELETES, Optional.empty(), Optional.empty(), SortOrder.unsorted().orderId(), Optional.empty(), Optional.empty());
         TupleDomain<IcebergColumnHandle> icebergColumnHandleTupleDomain = extractTupleDomainsFromCommitTasks(getIcebergTableHandle(currentPartitionSpec), icebergTable, List.of(commitTaskData1, commitTaskData2), null);
         assertThat(icebergColumnHandleTupleDomain.getDomains().orElseThrow()).isEmpty();
 
@@ -235,6 +235,7 @@ class TestFileBasedConflictDetection
                 Optional.empty(),
                 Optional.empty(),
                 SortOrder.unsorted().orderId(),
+                Optional.empty(),
                 Optional.empty());
         CommitTaskData commitTaskData2 = new CommitTaskData(
                 "test_location/data/old.parquet",
@@ -247,6 +248,7 @@ class TestFileBasedConflictDetection
                 Optional.empty(),
                 Optional.empty(),
                 SortOrder.unsorted().orderId(),
+                Optional.empty(),
                 Optional.empty());
 
         return List.of(commitTaskData1, commitTaskData2);

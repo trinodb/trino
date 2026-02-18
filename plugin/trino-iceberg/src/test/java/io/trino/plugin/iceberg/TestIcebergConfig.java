@@ -87,7 +87,8 @@ public class TestIcebergConfig
                 .setObjectStoreLayoutEnabled(false)
                 .setMetadataParallelism(8)
                 .setBucketExecutionEnabled(true)
-                .setFileBasedConflictDetectionEnabled(true));
+                .setFileBasedConflictDetectionEnabled(true)
+                .setEncryptionKmsImpl(null));
     }
 
     @Test
@@ -135,6 +136,7 @@ public class TestIcebergConfig
                 .put("iceberg.metadata.parallelism", "10")
                 .put("iceberg.bucket-execution", "false")
                 .put("iceberg.file-based-conflict-detection", "false")
+                .put("iceberg.encryption.kms-impl", "example.kms.TestKmsClient")
                 .buildOrThrow();
 
         IcebergConfig expected = new IcebergConfig()
@@ -179,7 +181,8 @@ public class TestIcebergConfig
                 .setObjectStoreLayoutEnabled(true)
                 .setMetadataParallelism(10)
                 .setBucketExecutionEnabled(false)
-                .setFileBasedConflictDetectionEnabled(false);
+                .setFileBasedConflictDetectionEnabled(false)
+                .setEncryptionKmsImpl("example.kms.TestKmsClient");
 
         assertFullMapping(properties, expected);
     }
