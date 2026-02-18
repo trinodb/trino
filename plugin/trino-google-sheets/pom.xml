@@ -148,12 +148,6 @@
         </dependency>
 
         <dependency>
-            <groupId>org.openjdk.jol</groupId>
-            <artifactId>jol-core</artifactId>
-            <scope>provided</scope>
-        </dependency>
-
-        <dependency>
             <groupId>com.google.code.gson</groupId>
             <artifactId>gson</artifactId>
             <scope>runtime</scope>

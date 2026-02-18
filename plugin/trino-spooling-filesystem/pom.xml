@@ -142,12 +142,6 @@
         </dependency>
 
         <dependency>
-            <groupId>org.openjdk.jol</groupId>
-            <artifactId>jol-core</artifactId>
-            <scope>provided</scope>
-        </dependency>
-
-        <dependency>
             <groupId>software.amazon.awssdk</groupId>
             <artifactId>auth</artifactId>
             <scope>runtime</scope>

@@ -53,10 +53,6 @@
                     <groupId>io.airlift</groupId>
                     <artifactId>slice</artifactId>
                 </exclusion>
-                <exclusion>
-                    <groupId>org.openjdk.jol</groupId>
-                    <artifactId>jol-core</artifactId>
-                </exclusion>
             </exclusions>
         </dependency>
 

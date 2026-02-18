@@ -165,12 +165,6 @@
         </dependency>
 
         <dependency>
-            <groupId>org.openjdk.jol</groupId>
-            <artifactId>jol-core</artifactId>
-            <scope>provided</scope>
-        </dependency>
-
-        <dependency>
             <!-- Add new LZ4 dependency to replace excluded old version -->
             <groupId>at.yawk.lz4</groupId>
             <artifactId>lz4-java</artifactId>
