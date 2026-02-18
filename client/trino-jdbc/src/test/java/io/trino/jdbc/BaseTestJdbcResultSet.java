@@ -138,48 +138,12 @@ public abstract class BaseTestJdbcResultSet
             checkRepresentation(connectedStatement.getStatement(), "1.0E0 / 0.0E0", Types.DOUBLE, Double.POSITIVE_INFINITY);
             checkRepresentation(connectedStatement.getStatement(), "0.0E0 / 0.0E0", Types.DOUBLE, Double.NaN);
             checkRepresentation(connectedStatement.getStatement(), "true", Types.BOOLEAN, true);
-            checkRepresentation(connectedStatement.getStatement(), "'hello'", Types.VARCHAR, (rs, column) -> {
-                assertThat(rs.getObject(column)).isEqualTo("hello");
-                assertThat(rs.getAsciiStream(column)).hasBinaryContent("hello".getBytes(StandardCharsets.US_ASCII));
-                assertSqlExceptionThrownBy(() -> rs.getBinaryStream(column)).hasMessage("Value is not a byte array: hello");
-            });
-            checkRepresentation(connectedStatement.getStatement(), "CAST(NULL AS VARCHAR)", Types.VARCHAR, (rs, column) -> {
-                assertThat(rs.getAsciiStream(column)).isNull();
-                assertThat(rs.getBinaryStream(column)).isNull();
-            });
-            checkRepresentation(connectedStatement.getStatement(), "cast('foo' as char(5))", Types.CHAR, (rs, column) -> {
-                assertThat(rs.getObject(column)).isEqualTo("foo  ");
-                assertThat(rs.getAsciiStream(column)).hasBinaryContent("foo  ".getBytes(StandardCharsets.US_ASCII));
-            });
-            checkRepresentation(connectedStatement.getStatement(), "VARCHAR '123'", Types.VARCHAR,
-                    (rs, column) -> assertThat(rs.getLong(column)).isEqualTo(123L));
-
-            checkRepresentation(connectedStatement.getStatement(), "VARCHAR ''", Types.VARCHAR, (rs, column) -> {
-                assertSqlExceptionThrownBy(() -> rs.getLong(column)).hasMessage("Value is not a number: ");
-                assertSqlExceptionThrownBy(() -> rs.getDouble(column)).hasMessage("Value is not a number: ");
-                assertSqlExceptionThrownBy(() -> rs.getBoolean(column)).hasMessage("Value is not a boolean: ");
-                assertThat(rs.getAsciiStream(column)).isEmpty();
-            });
-
-            checkRepresentation(connectedStatement.getStatement(), "VARCHAR '123e-1'", Types.VARCHAR, (rs, column) -> {
-                assertThat(rs.getDouble(column)).isEqualTo(12.3);
-                assertThat(rs.getLong(column)).isEqualTo(12);
-                assertThat(rs.getFloat(column)).isEqualTo(12.3f);
-                assertThat(rs.getAsciiStream(column)).hasBinaryContent("123e-1".getBytes(StandardCharsets.US_ASCII));
-            });
 
             checkRepresentation(connectedStatement.getStatement(), "DOUBLE '123.456'", Types.DOUBLE, (rs, column) -> {
                 assertThat(rs.getDouble(column)).isEqualTo(123.456);
                 assertThat(rs.getLong(column)).isEqualTo(123);
                 assertThat(rs.getFloat(column)).isEqualTo(123.456f);
                 assertSqlExceptionThrownBy(() -> rs.getAsciiStream(column)).hasMessage("Value is not a string: 123.456");
-            });
-
-            checkRepresentation(connectedStatement.getStatement(), "VARCHAR '123'", Types.VARCHAR, (rs, column) -> {
-                assertThat(rs.getDouble(column)).isEqualTo(123.0);
-                assertThat(rs.getLong(column)).isEqualTo(123);
-                assertThat(rs.getFloat(column)).isEqualTo(123f);
-                assertThat(rs.getAsciiStream(column)).hasBinaryContent("123".getBytes(StandardCharsets.US_ASCII));
             });
         }
     }
@@ -209,17 +173,6 @@ public abstract class BaseTestJdbcResultSet
                 assertThat(rs.getDouble(column)).isEqualTo(9.223372036854776E18);
                 assertThat(rs.getString(column)).isEqualTo("9223372036854775774");
             });
-
-            checkRepresentation(connectedStatement.getStatement(), "VARCHAR ''", Types.VARCHAR, (rs, column) -> {
-                assertSqlExceptionThrownBy(() -> rs.getBigDecimal(column)).hasMessage("Value is not a number: ");
-            });
-
-            checkRepresentation(connectedStatement.getStatement(), "VARCHAR '123a'", Types.VARCHAR, (rs, column) -> {
-                assertSqlExceptionThrownBy(() -> rs.getBigDecimal(column)).hasMessage("Value is not a number: 123a");
-            });
-
-            checkRepresentation(connectedStatement.getStatement(), "VARCHAR '123e-1'", Types.VARCHAR,
-                    (rs, column) -> assertThat(rs.getBigDecimal(column)).isEqualTo(new BigDecimal("12.3")));
         }
     }
 
@@ -347,6 +300,65 @@ public abstract class BaseTestJdbcResultSet
                         // TODO fill this when no longer fails
             }))
                     .hasMessageEndingWith("'-Infinity' is not a valid NUMBER literal");
+        }
+    }
+
+    @Test
+    public void testChar()
+            throws Exception
+    {
+        try (ConnectedStatement connectedStatement = newStatement()) {
+            checkRepresentation(connectedStatement.getStatement(), "cast('foo' as char(5))", Types.CHAR, (rs, column) -> {
+                assertThat(rs.getObject(column)).isEqualTo("foo  ");
+                assertThat(rs.getAsciiStream(column)).hasBinaryContent("foo  ".getBytes(StandardCharsets.US_ASCII));
+            });
+        }
+    }
+
+    @Test
+    public void testVarchar()
+            throws Exception
+    {
+        try (ConnectedStatement connectedStatement = newStatement()) {
+            checkRepresentation(connectedStatement.getStatement(), "'hello'", Types.VARCHAR, (rs, column) -> {
+                assertThat(rs.getObject(column)).isEqualTo("hello");
+                assertThat(rs.getAsciiStream(column)).hasBinaryContent("hello".getBytes(StandardCharsets.US_ASCII));
+                assertSqlExceptionThrownBy(() -> rs.getBinaryStream(column)).hasMessage("Value is not a byte array: hello");
+            });
+            checkRepresentation(connectedStatement.getStatement(), "CAST(NULL AS VARCHAR)", Types.VARCHAR, (rs, column) -> {
+                assertThat(rs.getAsciiStream(column)).isNull();
+                assertThat(rs.getBinaryStream(column)).isNull();
+            });
+
+            checkRepresentation(connectedStatement.getStatement(), "VARCHAR '123'", Types.VARCHAR, (rs, column) -> {
+                assertThat(rs.getLong(column)).isEqualTo(123);
+                assertThat(rs.getFloat(column)).isEqualTo(123f);
+                assertThat(rs.getDouble(column)).isEqualTo(123.0);
+                assertThat(rs.getBigDecimal(column)).isEqualTo(new BigDecimal("123"));
+                assertThat(rs.getAsciiStream(column)).hasBinaryContent("123".getBytes(StandardCharsets.US_ASCII));
+            });
+            checkRepresentation(connectedStatement.getStatement(), "VARCHAR '123a'", Types.VARCHAR, (rs, column) -> {
+                assertSqlExceptionThrownBy(() -> rs.getBoolean(column)).hasMessage("Value is not a boolean: 123a");
+                assertSqlExceptionThrownBy(() -> rs.getLong(column)).hasMessage("Value is not a number: 123a");
+                assertSqlExceptionThrownBy(() -> rs.getDouble(column)).hasMessage("Value is not a number: 123a");
+                assertSqlExceptionThrownBy(() -> rs.getBigDecimal(column)).hasMessage("Value is not a number: 123a");
+            });
+
+            checkRepresentation(connectedStatement.getStatement(), "VARCHAR ''", Types.VARCHAR, (rs, column) -> {
+                assertSqlExceptionThrownBy(() -> rs.getBoolean(column)).hasMessage("Value is not a boolean: ");
+                assertSqlExceptionThrownBy(() -> rs.getLong(column)).hasMessage("Value is not a number: ");
+                assertSqlExceptionThrownBy(() -> rs.getDouble(column)).hasMessage("Value is not a number: ");
+                assertSqlExceptionThrownBy(() -> rs.getBigDecimal(column)).hasMessage("Value is not a number: ");
+                assertThat(rs.getAsciiStream(column)).isEmpty();
+            });
+
+            checkRepresentation(connectedStatement.getStatement(), "VARCHAR '123e-1'", Types.VARCHAR, (rs, column) -> {
+                assertThat(rs.getLong(column)).isEqualTo(12);
+                assertThat(rs.getFloat(column)).isEqualTo(12.3f);
+                assertThat(rs.getDouble(column)).isEqualTo(12.3);
+                assertThat(rs.getBigDecimal(column)).isEqualTo(new BigDecimal("12.3"));
+                assertThat(rs.getAsciiStream(column)).hasBinaryContent("123e-1".getBytes(StandardCharsets.US_ASCII));
+            });
         }
     }
 
