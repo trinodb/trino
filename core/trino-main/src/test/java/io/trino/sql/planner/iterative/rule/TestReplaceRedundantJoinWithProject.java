@@ -24,6 +24,8 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
+import static io.trino.sql.planner.plan.JoinType.ASOF;
+import static io.trino.sql.planner.plan.JoinType.ASOF_LEFT;
 import static io.trino.sql.planner.plan.JoinType.FULL;
 import static io.trino.sql.planner.plan.JoinType.INNER;
 import static io.trino.sql.planner.plan.JoinType.LEFT;
@@ -43,6 +45,15 @@ public class TestReplaceRedundantJoinWithProject
                                 p.values(0, p.symbol("a")),
                                 p.values(0, p.symbol("b"))))
                 .doesNotFire();
+
+        // ASOF is treated like INNER in this rule (never fires)
+        tester().assertThat(new ReplaceRedundantJoinWithProject())
+                .on(p ->
+                        p.join(
+                                ASOF,
+                                p.values(0, p.symbol("a")),
+                                p.values(0, p.symbol("b"))))
+                .doesNotFire();
     }
 
     @Test
@@ -52,6 +63,15 @@ public class TestReplaceRedundantJoinWithProject
                 .on(p ->
                         p.join(
                                 LEFT,
+                                p.values(0, p.symbol("a")),
+                                p.values(0, p.symbol("b"))))
+                .doesNotFire();
+
+        // ASOF LEFT behaves like LEFT here; outer (left) empty -> no fire
+        tester().assertThat(new ReplaceRedundantJoinWithProject())
+                .on(p ->
+                        p.join(
+                                ASOF_LEFT,
                                 p.values(0, p.symbol("a")),
                                 p.values(0, p.symbol("b"))))
                 .doesNotFire();
@@ -84,6 +104,20 @@ public class TestReplaceRedundantJoinWithProject
                 .on(p ->
                         p.join(
                                 LEFT,
+                                p.values(10, p.symbol("a")),
+                                p.values(0, p.symbol("b"))))
+                .matches(
+                        project(
+                                ImmutableMap.of(
+                                        "a", expression(new Reference(BIGINT, "a")),
+                                        "b", expression(new Constant(BIGINT, null))),
+                                values(ImmutableList.of("a"), nCopies(10, ImmutableList.of(new Constant(BIGINT, null))))));
+
+        // ASOF LEFT behaves like LEFT; replace with left and append nulls for right outputs
+        tester().assertThat(new ReplaceRedundantJoinWithProject())
+                .on(p ->
+                        p.join(
+                                ASOF_LEFT,
                                 p.values(10, p.symbol("a")),
                                 p.values(0, p.symbol("b"))))
                 .matches(

@@ -54,13 +54,15 @@ public final class SortedPositionLinks
         private final PositionComparator comparator;
         private final PagesHashStrategy pagesHashStrategy;
         private final LongArrayList addresses;
+        private final int orderingSign;
 
-        public FactoryBuilder(int size, PagesHashStrategy pagesHashStrategy, LongArrayList addresses)
+        public FactoryBuilder(int size, PagesHashStrategy pagesHashStrategy, LongArrayList addresses, boolean descendingOrder)
         {
             this.size = size;
             this.comparator = new PositionComparator(pagesHashStrategy, addresses);
             this.pagesHashStrategy = pagesHashStrategy;
             this.addresses = addresses;
+            this.orderingSign = descendingOrder ? -1 : 1;
             positionLinks = new Int2ObjectOpenHashMap<>();
         }
 
@@ -80,8 +82,8 @@ public final class SortedPositionLinks
                 return from;
             }
 
-            // make sure that from value is the smaller one
-            if (comparator.compare(from, to) > 0) {
+            // make sure that from value is the smaller (or larger depending on ordering) one
+            if (comparator.compare(from, to) * orderingSign > 0) {
                 // _from_ is larger so, just add to current chain _to_
                 positionLinks.computeIfAbsent(to, key -> new IntArrayList()).add(from);
                 return to;
@@ -121,7 +123,7 @@ public final class SortedPositionLinks
                 if (positions.length > 0) {
                     // Use the positionsList array for the merge sort temporary work buffer to avoid an extra redundant
                     // copy. This works because we know that initially it has the same values as the array being sorted
-                    IntArrays.mergeSort(positions, 0, positions.length, comparator, positionsList.elements());
+                    IntArrays.mergeSort(positions, 0, positions.length, (left, right) -> comparator.compare(left, right) * orderingSign, positionsList.elements());
                     // add link from starting position to position links chain
                     arrayPositionLinksFactoryBuilder.link(key, positions[0]);
                     // add links for the sorted internal elements
@@ -190,9 +192,9 @@ public final class SortedPositionLinks
         return retainedSize;
     }
 
-    public static FactoryBuilder builder(int size, PagesHashStrategy pagesHashStrategy, LongArrayList addresses)
+    public static FactoryBuilder builder(int size, PagesHashStrategy pagesHashStrategy, LongArrayList addresses, boolean descendingOrder)
     {
-        return new FactoryBuilder(size, pagesHashStrategy, addresses);
+        return new FactoryBuilder(size, pagesHashStrategy, addresses, descendingOrder);
     }
 
     @Override

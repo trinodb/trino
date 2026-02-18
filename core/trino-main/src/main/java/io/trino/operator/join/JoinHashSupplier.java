@@ -62,6 +62,7 @@ public class JoinHashSupplier
             List<ObjectArrayList<Block>> channels,
             Optional<JoinFilterFunctionFactory> filterFunctionFactory,
             Optional<Integer> sortChannel,
+            boolean sortedPositionLinksDescendingOrder,
             List<JoinFilterFunctionFactory> searchFunctionFactories,
             HashArraySizeSupplier hashArraySizeSupplier,
             OptionalInt singleBigintJoinChannel)
@@ -79,7 +80,8 @@ public class JoinHashSupplier
             positionLinksFactoryBuilder = SortedPositionLinks.builder(
                     addresses.size(),
                     pagesHashStrategy,
-                    addresses);
+                    addresses,
+                    sortedPositionLinksDescendingOrder);
         }
         else {
             positionLinksFactoryBuilder = ArrayPositionLinks.builder(addresses.size());

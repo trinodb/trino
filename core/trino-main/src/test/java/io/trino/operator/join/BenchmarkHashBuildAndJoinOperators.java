@@ -331,6 +331,7 @@ public class BenchmarkHashBuildAndJoinOperators
                 buildContext.getHashChannels(),
                 Optional.empty(),
                 Optional.empty(),
+                false,
                 ImmutableList.of(),
                 10_000,
                 new PagesIndex.TestingFactory(false),

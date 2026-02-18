@@ -4285,6 +4285,97 @@ public class TestAnalyzer
     }
 
     @Test
+    public void testAsofJoinAnalyzes()
+    {
+        // ASOF inner join with no inequality predicate
+        analyze("SELECT a.t, a.k, b.v " +
+                "FROM (VALUES (1, 1), (2, 1)) AS a(t, k) " +
+                "ASOF JOIN (VALUES (1, 1, 'x'), (2, 1, 'y')) AS b(t, k, v) " +
+                "ON a.k = b.k AND b.t <= a.t");
+        // ASOF inner join with inequality predicate
+        analyze("SELECT a.t, a.k, b.v " +
+                "FROM (VALUES (1, 1), (2, 1)) AS a(t, k) " +
+                "ASOF JOIN (VALUES (1, 1, 'x'), (2, 1, 'y')) AS b(t, k, v) " +
+                "ON a.k = b.k AND b.t <= a.t");
+        // ASOF left join with inequality predicate
+        analyze("SELECT a.t, a.k, b.v " +
+                "FROM (VALUES (1, 1), (5, 1)) AS a(t, k) " +
+                "ASOF LEFT JOIN (VALUES (2, 1, 'm'), (4, 1, 'n')) AS b(t, k, v) " +
+                "ON a.k = b.k AND b.t <= a.t");
+        // ASOF join requires exactly one inequality predicate; only equi-conjuncts should fail
+        assertFails("SELECT a.k FROM (VALUES (1)) AS a(k) ASOF JOIN (VALUES (1)) AS b(k) ON a.k = b.k")
+                .hasErrorCode(INVALID_ARGUMENTS)
+                .hasMessageContaining("ASOF JOIN requires exactly one inequality predicate in ON clause");
+
+        // Multiple inequalities (ASOF candidates) in ON should fail
+        assertFails("SELECT * FROM (VALUES (1, 1)) AS a(k, t) ASOF JOIN (VALUES (1, 1)) AS b(k, t) " +
+                "ON a.k = b.k AND b.t <= a.t AND b.t < a.t")
+                .hasErrorCode(INVALID_ARGUMENTS)
+                .hasMessageContaining("ASOF JOIN requires exactly one inequality predicate in ON clause");
+        assertFails("SELECT * FROM (VALUES (1, 1)) AS a(k, t) ASOF JOIN (VALUES (1, 1)) AS b(k, t) " +
+                "ON a.k = b.k AND b.t BETWEEN a.t - 10 AND a.t + 10")
+                .hasErrorCode(INVALID_ARGUMENTS)
+                .hasMessageContaining("ASOF JOIN requires exactly one inequality predicate in ON clause");
+
+        // UNNEST with ASOF join should fail
+        assertFails("SELECT * FROM (VALUES array[2, 2]) a(x) ASOF LEFT JOIN UNNEST(x) ON true")
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("line 1:15: ASOF JOIN involving UNNEST is not supported");
+
+        // Mixed-scope side in inequality should fail (side references both a.* and b.*)
+        assertFails("SELECT 1 FROM (VALUES (1, 1)) a(t, k) ASOF JOIN (VALUES (1, 1)) b(t, k) ON a.k = b.k AND a.t + b.k <= b.t")
+                .hasErrorCode(INVALID_ARGUMENTS)
+                .hasMessageContaining("ASOF inequality side mixes left and right references");
+        assertFails("SELECT 1 FROM (VALUES (1, 1)) a(t, k) ASOF JOIN (VALUES (1, 1)) b(t, k) ON a.k = b.k AND b.t <= a.t + b.k")
+                .hasErrorCode(INVALID_ARGUMENTS)
+                .hasMessageContaining("ASOF inequality side mixes left and right references");
+
+        // Same-side inequalities are OK when accompanied by exactly one ASOF candidate inequality
+        analyze("SELECT 1 FROM (VALUES (1, 1)) a(t, k) ASOF JOIN (VALUES (1, 1)) b(t, k) ON a.k = b.k AND b.t <= a.t AND a.t + a.k <= 10");
+        analyze("SELECT 1 FROM (VALUES (1, 1)) a(t, k) ASOF JOIN (VALUES (1, 1)) b(t, k) ON a.k = b.k AND b.t <= a.t AND 10 <= a.t");
+        analyze("SELECT 1 FROM (VALUES (1, 1)) a(t, k) ASOF JOIN (VALUES (1, 1)) b(t, k) ON a.k = b.k AND b.t <= a.t AND b.t + b.k <= 10");
+        analyze("SELECT 1 FROM (VALUES (1, 1)) a(t, k) ASOF JOIN (VALUES (1, 1)) b(t, k) ON a.k = b.k AND b.t <= a.t AND 10 <= b.t");
+
+        // Multiple inequalities in ON, but only one qualifies as ASOF candidate (others are same-side or constants)
+        analyze("SELECT 1 FROM (VALUES (1, 1)) a(t, k) ASOF JOIN (VALUES (1, 1)) b(t, k) " +
+                "ON a.k = b.k AND b.t <= a.t AND a.t > 10");
+        analyze("SELECT 1 FROM (VALUES (1, 1)) a(t, k) ASOF JOIN (VALUES (1, 1)) b(t, k) " +
+                "ON a.k = b.k AND b.t <= a.t AND b.t < 100");
+        analyze("SELECT 1 FROM (VALUES (1, 1)) a(t, k) ASOF JOIN (VALUES (1, 1)) b(t, k) " +
+                "ON a.k = b.k AND b.t <= a.t AND 5 < 10");
+
+        // Inequality wrapped in OR is not a valid ASOF candidate
+        assertFails("SELECT 1 FROM (VALUES (1, 1)) a(t, k) ASOF JOIN (VALUES (1, 1)) b(t, k) " +
+                "ON a.k = b.k AND (b.t <= a.t OR a.t < 0)")
+                .hasErrorCode(INVALID_ARGUMENTS)
+                .hasMessageContaining("ASOF JOIN requires exactly one inequality predicate in ON clause");
+
+        // ASOF LEFT with multiple inequalities where only one is a candidate
+        analyze("SELECT 1 FROM (VALUES (1, 1)) a(t, k) ASOF LEFT JOIN (VALUES (1, 1)) b(t, k) " +
+                "ON a.k = b.k AND b.t <= a.t AND a.t >= 0");
+        analyze("SELECT 1 FROM (VALUES (1, 1)) a(t, k) ASOF LEFT JOIN (VALUES (1, 1)) b(t, k) " +
+                "ON a.k = b.k AND b.t <= a.t AND b.t > -100");
+
+        // BETWEEN present but only one ASOF candidate (the BETWEEN is same-side only)
+        analyze("SELECT 1 FROM (VALUES (1, 1)) a(t, k) ASOF JOIN (VALUES (1, 1)) b(t, k) " +
+                "ON a.k = b.k AND b.t <= a.t AND a.t BETWEEN 0 AND 10");
+        analyze("SELECT 1 FROM (VALUES (1, 1)) a(t, k) ASOF JOIN (VALUES (1, 1)) b(t, k) " +
+                "ON a.k = b.k AND b.t BETWEEN a.t AND 10");
+        assertFails("SELECT 1 FROM (VALUES (1, 1)) a(t, k) ASOF JOIN (VALUES (1, 1)) b(t, k) " +
+                "ON a.k = b.k AND b.t BETWEEN a.t + b.t AND 10")
+                .hasErrorCode(INVALID_ARGUMENTS)
+                .hasMessageContaining("ASOF inequality side mixes left and right references");
+
+        // USING clause with ASOF join should be rejected
+        assertFails("SELECT 1 FROM (VALUES (1, 1)) a(t, k) ASOF JOIN (VALUES (1, 1)) b(t, k) USING (k)")
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("line 1:15: ASOF JOIN with USING clause is not supported");
+        assertFails("SELECT 1 FROM (VALUES (1, 1)) a(t, k) ASOF LEFT JOIN (VALUES (1, 1)) b(t, k) USING (k)")
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("line 1:15: ASOF JOIN with USING clause is not supported");
+    }
+
+    @Test
     public void testNullTreatment()
     {
         assertFails("SELECT count() RESPECT NULLS OVER ()")

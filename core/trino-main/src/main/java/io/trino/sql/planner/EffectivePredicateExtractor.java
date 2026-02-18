@@ -304,6 +304,7 @@ public class EffectivePredicateExtractor
             return switch (node.getJoinType()) {
                 case INNER, LEFT -> pullExpressionThroughSymbols(node.getSource().accept(this, context), node.getOutputSymbols());
                 case RIGHT, FULL -> TRUE;
+                case ASOF, ASOF_LEFT -> throw new IllegalStateException("ASOF joins are not supported by UNNEST");
             };
         }
 
@@ -318,13 +319,13 @@ public class EffectivePredicateExtractor
                     .collect(toImmutableList());
 
             return switch (node.getType()) {
-                case INNER -> pullExpressionThroughSymbols(combineConjuncts(ImmutableList.<Expression>builder()
+                case INNER, ASOF -> pullExpressionThroughSymbols(combineConjuncts(ImmutableList.<Expression>builder()
                         .add(leftPredicate)
                         .add(rightPredicate)
                         .add(combineConjuncts(joinConjuncts))
                         .add(node.getFilter().orElse(TRUE))
                         .build()), node.getOutputSymbols());
-                case LEFT -> combineConjuncts(ImmutableList.<Expression>builder()
+                case LEFT, ASOF_LEFT -> combineConjuncts(ImmutableList.<Expression>builder()
                         .add(pullExpressionThroughSymbols(leftPredicate, node.getOutputSymbols()))
                         .addAll(pullNullableConjunctsThroughOuterJoin(extractConjuncts(rightPredicate), node.getOutputSymbols(), node.getRight().getOutputSymbols()::contains))
                         .addAll(pullNullableConjunctsThroughOuterJoin(joinConjuncts, node.getOutputSymbols(), node.getRight().getOutputSymbols()::contains))

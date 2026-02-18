@@ -459,7 +459,7 @@ public class PagesIndex
 
     public Supplier<LookupSource> createLookupSourceSupplier(Session session, List<Integer> joinChannels)
     {
-        return createLookupSourceSupplier(session, joinChannels, Optional.empty(), Optional.empty(), ImmutableList.of());
+        return createLookupSourceSupplier(session, joinChannels, Optional.empty(), Optional.empty(), false, ImmutableList.of());
     }
 
     public PagesHashStrategy createPagesHashStrategy(List<Integer> joinChannels)
@@ -498,9 +498,10 @@ public class PagesIndex
             List<Integer> joinChannels,
             Optional<JoinFilterFunctionFactory> filterFunctionFactory,
             Optional<Integer> sortChannel,
+            boolean sortedPositionLinksDescendingOrder,
             List<JoinFilterFunctionFactory> searchFunctionFactories)
     {
-        return createLookupSourceSupplier(session, joinChannels, filterFunctionFactory, sortChannel, searchFunctionFactories, Optional.empty(), defaultHashArraySizeSupplier());
+        return createLookupSourceSupplier(session, joinChannels, filterFunctionFactory, sortChannel, sortedPositionLinksDescendingOrder, searchFunctionFactories, Optional.empty(), defaultHashArraySizeSupplier());
     }
 
     public PagesSpatialIndexSupplier createPagesSpatialIndex(
@@ -524,6 +525,7 @@ public class PagesIndex
             List<Integer> joinChannels,
             Optional<JoinFilterFunctionFactory> filterFunctionFactory,
             Optional<Integer> sortChannel,
+            boolean sortedPositionLinksDescendingOrder,
             List<JoinFilterFunctionFactory> searchFunctionFactories,
             Optional<List<Integer>> outputChannels,
             HashArraySizeSupplier hashArraySizeSupplier)
@@ -536,6 +538,7 @@ public class PagesIndex
                 channels,
                 filterFunctionFactory,
                 sortChannel,
+                sortedPositionLinksDescendingOrder,
                 searchFunctionFactories,
                 hashArraySizeSupplier);
     }

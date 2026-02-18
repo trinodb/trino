@@ -150,6 +150,7 @@ public class TestPagesIndex
                         ImmutableList.of(joinChannel),
                         sortChannel.map(channel -> filterFunctionFactory),
                         sortChannel,
+                        false,
                         ImmutableList.of(filterFunctionFactory),
                         Optional.of(ImmutableList.of(0, 1)),
                         defaultHashArraySizeSupplier()).get();
