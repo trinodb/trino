@@ -1469,6 +1469,11 @@ public class ExpressionAnalyzer
                     if (!type.isComparable()) {
                         throw semanticException(TYPE_MISMATCH, expression, "%s is not comparable, and therefore cannot be used in window function PARTITION BY", type);
                     }
+                    if (!type.isOrderable()) {
+                        // TODO this is not a hard requirement, just the implication of how we do partitioning right now, using PagesIndex and iterating over ordered values
+                        // to find partition boundaries.
+                        throw semanticException(TYPE_MISMATCH, expression, "%s is not orderable, and therefore cannot be used in window function PARTITION BY", type);
+                    }
                 }
             }
 

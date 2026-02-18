@@ -281,6 +281,14 @@ public class TestAnalyzer
     }
 
     @Test
+    public void testNonOrderableWindowPartition()
+    {
+        assertFails("SELECT row_number() OVER (PARTITION BY t.x) FROM (VALUES(MAP(ARRAY['key1', 'key2', 'key3' ], ARRAY[2373, 3463, 45837])) )AS t(x)")
+                .hasErrorCode(TYPE_MISMATCH)
+                .hasMessage("line 1:40: map(varchar(4), integer) is not orderable, and therefore cannot be used in window function PARTITION BY");
+    }
+
+    @Test
     public void testNonComparableWindowOrder()
     {
         assertFails("SELECT row_number() OVER (ORDER BY t.x) FROM (VALUES(color('red'))) AS t(x)")
