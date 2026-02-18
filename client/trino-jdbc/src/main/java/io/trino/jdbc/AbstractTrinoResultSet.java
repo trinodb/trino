@@ -140,6 +140,7 @@ abstract class AbstractTrinoResultSet
     @VisibleForTesting
     static final Map<String, Class<?>> DEFAULT_OBJECT_REPRESENTATION = ImmutableMap.<String, Class<?>>builder()
             .put("decimal", BigDecimal.class)
+            .put("number", Number.class)
             .put("date", java.sql.Date.class)
             .put("time", java.sql.Time.class)
             .put("time with time zone", java.sql.Time.class)
@@ -155,6 +156,8 @@ abstract class AbstractTrinoResultSet
     static final TypeConversions TYPE_CONVERSIONS =
             TypeConversions.builder()
                     .add("decimal", String.class, BigDecimal.class, AbstractTrinoResultSet::parseBigDecimal)
+                    .add("number", String.class, Number.class, value -> new BigDecimal(value))
+                    .add("number", String.class, BigDecimal.class, value -> new BigDecimal(value))
                     .add("varbinary", byte[].class, String.class, value -> "0x" + BaseEncoding.base16().encode(value))
                     .add("date", String.class, Date.class, string -> parseDate(string, CURRENT_TIME_ZONE, CURRENT_JAVA_TIME_ZONE))
                     .add("date", String.class, java.time.LocalDate.class, string -> parseDate(string, CURRENT_TIME_ZONE, CURRENT_JAVA_TIME_ZONE).toLocalDate())
