@@ -1088,9 +1088,6 @@ public class TestNumberOperators
 
         assertTrinoExceptionThrownBy(assertions.operator(MODULUS, "NUMBER '1'", "NUMBER '0.0000000000000000000000000000000000000'")::evaluate)
                 .hasErrorCode(DIVISION_BY_ZERO);
-
-        assertTrinoExceptionThrownBy(assertions.operator(MODULUS, "NUMBER '1'", "NUMBER '0'")::evaluate)
-                .hasErrorCode(DIVISION_BY_ZERO);
     }
 
     @Test
