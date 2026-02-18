@@ -15,7 +15,9 @@ package io.trino.plugin.snowflake;
 
 import com.google.common.collect.ImmutableList;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import io.airlift.log.Level;
 import io.airlift.log.Logger;
+import io.airlift.log.Logging;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.tpch.TpchTable;
@@ -32,6 +34,11 @@ import static java.util.Objects.requireNonNull;
 
 public final class SnowflakeQueryRunner
 {
+    static {
+        Logging logging = Logging.initialize();
+        logging.setLevel("net.snowflake.client.internal.core", Level.WARN);
+    }
+
     private SnowflakeQueryRunner() {}
 
     public static final String TPCH_SCHEMA = "tpch";
