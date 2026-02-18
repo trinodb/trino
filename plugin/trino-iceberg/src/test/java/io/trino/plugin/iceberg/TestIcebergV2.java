@@ -45,6 +45,7 @@ import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.MaterializedRow;
+import io.trino.testing.QueryFailedException;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.sql.TestTable;
 import org.apache.iceberg.BaseTable;
@@ -128,6 +129,7 @@ import static org.apache.iceberg.TableProperties.SPLIT_SIZE;
 import static org.apache.iceberg.TableUtil.formatVersion;
 import static org.apache.iceberg.mapping.NameMappingParser.toJson;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 
@@ -415,20 +417,6 @@ public class TestIcebergV2
             assertThat(loadTable(tableName).currentSnapshot().summary()).containsEntry("total-equality-deletes", "1");
             List<String> updatedFiles = getActiveFiles(tableName);
             assertThat(updatedFiles).doesNotContain(initialActiveFiles.stream().filter(path -> !path.contains("regionkey=1")).toArray(String[]::new));
-        }
-    }
-
-    @Test
-    public void testSelectivelyOptimizingLeavesEqualityDeletes()
-            throws Exception
-    {
-        try (TestTable table = newTrinoTable("test_selectively_optimizing_leaves_eq_deletes_", "WITH (partitioning = ARRAY['nationkey']) AS SELECT * FROM tpch.tiny.nation")) {
-            String tableName = table.getName();
-            Table icebergTable = loadTable(tableName);
-            writeEqualityDeleteToNationTable(icebergTable, Optional.of(icebergTable.spec()), Optional.of(new PartitionData(new Long[] {1L})));
-            assertUpdate("ALTER TABLE " + tableName + " EXECUTE OPTIMIZE WHERE nationkey < 5");
-            assertQuery("SELECT * FROM " + tableName, "SELECT * FROM nation WHERE regionkey != 1 OR nationkey != 1");
-            assertThat(loadTable(tableName).currentSnapshot().summary()).containsEntry("total-equality-deletes", "1");
         }
     }
 
@@ -739,6 +727,171 @@ public class TestIcebergV2
 
             assertThat(query("SELECT * FROM " + testTable.getName()))
                     .matches("SELECT * FROM nation WHERE regionkey != 1 AND regionkey % 2 = 1");
+        }
+    }
+
+    @Test
+    public void testOptimizePartitionRemovesPartitionScopedEqualityDeletes()
+            throws Exception
+    {
+        try (TestTable testTable = newTrinoTable("test_optimize_partition_eq_deletes_", "WITH (partitioning = ARRAY['regionkey']) AS SELECT * FROM tpch.tiny.nation")) {
+            Table icebergTable = loadTable(testTable.getName());
+            // Write a partition-scoped equality delete for regionkey=1
+            writeEqualityDeleteToNationTable(icebergTable, Optional.of(icebergTable.spec()), Optional.of(new PartitionData(new Long[] {1L})));
+
+            assertQuery("SELECT count(*) FROM \"" + testTable.getName() + "$files\" WHERE content = " + EQUALITY_DELETES.id(), "VALUES 1");
+
+            assertThat(query("SELECT * FROM " + testTable.getName()))
+                    .matches("SELECT * FROM nation WHERE regionkey != 1");
+
+            // OPTIMIZE only partition regionkey=1 — partition-scoped equality delete should be cleaned up
+            assertQuerySucceeds("ALTER TABLE " + testTable.getName() + " EXECUTE OPTIMIZE WHERE regionkey = 1");
+
+            assertQuery("SELECT count(*) FROM \"" + testTable.getName() + "$files\" WHERE content = " + EQUALITY_DELETES.id(), "VALUES 0");
+
+            assertThat(query("SELECT * FROM " + testTable.getName()))
+                    .matches("SELECT * FROM nation WHERE regionkey != 1");
+        }
+    }
+
+    @Test
+    public void testOptimizeWithInnerPartitionPredicateRemovesPartitionScopedEqualityDeletes()
+            throws Exception
+    {
+        try (TestTable testTable = newTrinoTable("test_optimize_multi_partition_eq_deletes_", "(country VARCHAR, age INT, name VARCHAR) WITH (partitioning = ARRAY['country', 'age'])")) {
+            assertQuerySucceeds("INSERT INTO " + testTable.getName() + " VALUES ('US', 30, 'John'), ('US', 30, 'Bob'), ('US', 20, 'Alice'), ('CA', 30, 'Carol'), ('CA', 30, 'John'), ('CA', 15, 'Sarah'), ('UK', 30, 'Tom')");
+            Table icebergTable = loadTable(testTable.getName());
+            // Write a partition-scoped equality delete for age=30 in each country partition
+            writeEqualityDeleteForTable(
+                    icebergTable,
+                    fileSystemFactory,
+                    Optional.of(icebergTable.spec()),
+                    Optional.of(new PartitionData(new Object[] {"US", 30})),
+                    ImmutableMap.of("name", "John"),
+                    Optional.empty());
+            writeEqualityDeleteForTable(
+                    icebergTable,
+                    fileSystemFactory,
+                    Optional.of(icebergTable.spec()),
+                    Optional.of(new PartitionData(new Object[] {"CA", 30})),
+                    ImmutableMap.of("name", "John"),
+                    Optional.empty());
+
+            assertQuery("SELECT count(*) FROM \"" + testTable.getName() + "$files\" WHERE content = " + EQUALITY_DELETES.id(), "VALUES 2");
+
+            assertThat(query("SELECT * FROM " + testTable.getName()))
+                    .matches("SELECT CAST(country AS VARCHAR), CAST(age AS INT), CAST(name AS VARCHAR) FROM (VALUES('US', 30, 'Bob'), ('US', 20, 'Alice'), ('CA', 30, 'Carol'), ('CA', 15, 'Sarah'), ('UK', 30, 'Tom')) AS t(country, age, name)");
+
+            // OPTIMIZE only partition age=25 - no delete files there to clean up
+            assertQuerySucceeds("ALTER TABLE " + testTable.getName() + " EXECUTE OPTIMIZE WHERE age = 25");
+
+            assertQuery("SELECT count(*) FROM \"" + testTable.getName() + "$files\" WHERE content = " + EQUALITY_DELETES.id(), "VALUES 2");
+
+            // OPTIMIZE with predicate not directly matching partition column should fail
+            assertThatThrownBy(() -> getQueryRunner().execute("ALTER TABLE " + testTable.getName() + " EXECUTE OPTIMIZE WHERE age % 30 = 0"))
+                    .isInstanceOf(QueryFailedException.class)
+                    .hasMessage("Unexpected FilterNode found in plan; probably connector was not able to handle provided WHERE expression");
+
+            // OPTIMIZE only partition age=30 — partition-scoped equality delete for US/30 AND CA/30 should be cleaned up
+            assertQuerySucceeds("ALTER TABLE " + testTable.getName() + " EXECUTE OPTIMIZE WHERE age = 30");
+
+            assertQuery("SELECT count(*) FROM \"" + testTable.getName() + "$files\" WHERE content = " + EQUALITY_DELETES.id(), "VALUES 0");
+
+            assertThat(query("SELECT * FROM " + testTable.getName()))
+                    .matches("SELECT CAST(country AS VARCHAR), CAST(age AS INT), CAST(name AS VARCHAR) FROM (VALUES('US', 30, 'Bob'), ('US', 20, 'Alice'), ('CA', 30, 'Carol'), ('CA', 15, 'Sarah'), ('UK', 30, 'Tom')) AS t(country, age, name)");
+        }
+    }
+
+    @Test
+    public void testOptimizeWithOuterPartitionRemovesPartitionScopedEqualityDeletes()
+            throws Exception
+    {
+        try (TestTable testTable = newTrinoTable("test_optimize_multi_partition_eq_deletes_", "(country VARCHAR, age INT, name VARCHAR) WITH (partitioning = ARRAY['country', 'age'])")) {
+            assertQuerySucceeds("INSERT INTO " + testTable.getName() + " VALUES ('US', 30, 'John'), ('US', 30, 'Bob'), ('US', 20, 'Alice'), ('CA', 30, 'Carol'), ('CA', 30, 'John'), ('CA', 15, 'Sarah'), ('UK', 30, 'Tom')");
+            Table icebergTable = loadTable(testTable.getName());
+            // Write a partition-scoped equality delete for age=30 in each country partition
+            writeEqualityDeleteForTable(
+                    icebergTable,
+                    fileSystemFactory,
+                    Optional.of(icebergTable.spec()),
+                    Optional.of(new PartitionData(new Object[] {"US", 30})),
+                    ImmutableMap.of("name", "John"),
+                    Optional.empty());
+            writeEqualityDeleteForTable(
+                    icebergTable,
+                    fileSystemFactory,
+                    Optional.of(icebergTable.spec()),
+                    Optional.of(new PartitionData(new Object[] {"CA", 30})),
+                    ImmutableMap.of("name", "John"),
+                    Optional.empty());
+
+            assertQuery("SELECT count(*) FROM \"" + testTable.getName() + "$files\" WHERE content = " + EQUALITY_DELETES.id(), "VALUES 2");
+
+            assertThat(query("SELECT * FROM " + testTable.getName()))
+                    .matches("SELECT CAST(country AS VARCHAR), CAST(age AS INT), CAST(name AS VARCHAR) FROM (VALUES('US', 30, 'Bob'), ('US', 20, 'Alice'), ('CA', 30, 'Carol'), ('CA', 15, 'Sarah'), ('UK', 30, 'Tom')) AS t(country, age, name)");
+
+            // OPTIMIZE only partition country='UK' - no delete files there to clean up
+            assertQuerySucceeds("ALTER TABLE " + testTable.getName() + " EXECUTE OPTIMIZE WHERE country = 'UK'");
+
+            assertQuery("SELECT count(*) FROM \"" + testTable.getName() + "$files\" WHERE content = " + EQUALITY_DELETES.id(), "VALUES 2");
+
+            // OPTIMIZE only partition country='US' — partition-scoped equality delete for US should be cleaned up,
+            // but the CA partition's equality delete should remain
+            assertQuerySucceeds("ALTER TABLE " + testTable.getName() + " EXECUTE OPTIMIZE WHERE country = 'US'");
+
+            assertQuery("SELECT count(*) FROM \"" + testTable.getName() + "$files\" WHERE content = " + EQUALITY_DELETES.id(), "VALUES 1");
+
+            assertThat(query("SELECT * FROM " + testTable.getName()))
+                    .matches("SELECT CAST(country AS VARCHAR), CAST(age AS INT), CAST(name AS VARCHAR) FROM (VALUES('US', 30, 'Bob'), ('US', 20, 'Alice'), ('CA', 30, 'Carol'), ('CA', 15, 'Sarah'), ('UK', 30, 'Tom')) AS t(country, age, name)");
+        }
+    }
+
+    @Test
+    public void testOptimizeWithGlobalEqualityDelete()
+            throws Exception
+    {
+        try (TestTable testTable = newTrinoTable("test_optimize_global_eq_deletes_", "WITH (partitioning = ARRAY['regionkey']) AS SELECT * FROM tpch.tiny.nation")) {
+            BaseTable icebergTable = loadTable(testTable.getName());
+
+            // Evolve partition spec to unpartitioned so that the equality delete is stored
+            // with an unpartitioned spec — making it a global delete
+            assertQuerySucceeds("ALTER TABLE " + testTable.getName() + " SET PROPERTIES partitioning = DEFAULT");
+
+            // delete on soon-to-be partition column
+            writeEqualityDeleteForTable(
+                    icebergTable,
+                    fileSystemFactory,
+                    Optional.empty(),
+                    Optional.empty(),
+                    ImmutableMap.of("regionkey", 1L),
+                    Optional.of(ImmutableList.of("regionkey")));
+
+            // delete on regular column
+            writeEqualityDeleteForTable(
+                    icebergTable,
+                    fileSystemFactory,
+                    Optional.empty(),
+                    Optional.empty(),
+                    ImmutableMap.of("name", "ETHIOPIA"),
+                    Optional.of(ImmutableList.of("name")));
+
+            // Evolve partition spec back to partitioned by regionkey
+            assertQuerySucceeds("ALTER TABLE " + testTable.getName() + " SET PROPERTIES partitioning = ARRAY['regionkey']");
+
+            assertQuery("SELECT count(*) FROM \"" + testTable.getName() + "$files\" WHERE content = " + EQUALITY_DELETES.id(), "VALUES 2");
+
+            // Verify the global equality delete is applied across all partitions
+            assertThat(query("SELECT * FROM " + testTable.getName()))
+                    .matches("SELECT * FROM nation WHERE regionkey != 1 AND name != 'ETHIOPIA'");
+
+            // OPTIMIZE only partition regionkey=1 — global equality delete must NOT be cleaned up
+            // because it is stored with an unpartitioned spec and applies across all partitions
+            assertQuerySucceeds("ALTER TABLE " + testTable.getName() + " EXECUTE OPTIMIZE WHERE regionkey = 1");
+
+            assertQuery("SELECT count(*) FROM \"" + testTable.getName() + "$files\" WHERE content = " + EQUALITY_DELETES.id(), "VALUES 2");
+
+            assertThat(query("SELECT * FROM " + testTable.getName()))
+                    .matches("SELECT * FROM nation WHERE regionkey != 1 AND name != 'ETHIOPIA'");
         }
     }
 
