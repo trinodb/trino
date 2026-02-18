@@ -127,23 +127,266 @@ public abstract class BaseTestJdbcResultSet
     }
 
     @Test
-    public void testPrimitiveTypes()
+    public void testBoolean()
             throws Exception
     {
         try (ConnectedStatement connectedStatement = newStatement()) {
-            checkRepresentation(connectedStatement.getStatement(), "123", Types.INTEGER, 123);
-            checkRepresentation(connectedStatement.getStatement(), "12300000000", Types.BIGINT, 12300000000L);
-            checkRepresentation(connectedStatement.getStatement(), "REAL '123.45'", Types.REAL, 123.45f);
-            checkRepresentation(connectedStatement.getStatement(), "1e-1", Types.DOUBLE, 0.1);
-            checkRepresentation(connectedStatement.getStatement(), "1.0E0 / 0.0E0", Types.DOUBLE, Double.POSITIVE_INFINITY);
-            checkRepresentation(connectedStatement.getStatement(), "0.0E0 / 0.0E0", Types.DOUBLE, Double.NaN);
-            checkRepresentation(connectedStatement.getStatement(), "true", Types.BOOLEAN, true);
+            checkRepresentation(connectedStatement.getStatement(), "false", Types.BOOLEAN, (rs, column) -> {
+                assertThat(rs.getObject(column)).isEqualTo(false);
+                assertThat(rs.getByte(column)).isEqualTo((byte) 0);
+                assertThat(rs.getShort(column)).isEqualTo((short) 0);
+                assertThat(rs.getInt(column)).isEqualTo(0);
+                assertThat(rs.getLong(column)).isEqualTo(0L);
+                assertSqlExceptionThrownBy(() -> rs.getBigDecimal(column)).hasMessage("Value is not a number: false");
+                assertThat(rs.getFloat(column)).isEqualTo(0f);
+                assertThat(rs.getDouble(column)).isEqualTo(0.0);
+                assertThat(rs.getString(column)).isEqualTo("false");
+                assertSqlExceptionThrownBy(() -> rs.getBytes(column)).hasMessage("Value is not a byte array: false");
 
-            checkRepresentation(connectedStatement.getStatement(), "DOUBLE '123.456'", Types.DOUBLE, (rs, column) -> {
-                assertThat(rs.getDouble(column)).isEqualTo(123.456);
-                assertThat(rs.getLong(column)).isEqualTo(123);
-                assertThat(rs.getFloat(column)).isEqualTo(123.456f);
-                assertSqlExceptionThrownBy(() -> rs.getAsciiStream(column)).hasMessage("Value is not a string: 123.456");
+                ResultSetMetaData metaData = rs.getMetaData();
+                assertThat(metaData.getColumnTypeName(column)).isEqualTo("boolean");
+                assertThat(metaData.getColumnDisplaySize(column)).isEqualTo(5);
+                assertThat(metaData.getColumnClassName(column)).isEqualTo("java.lang.Boolean");
+            });
+            checkRepresentation(connectedStatement.getStatement(), "true", Types.BOOLEAN, (rs, column) -> {
+                assertThat(rs.getObject(column)).isEqualTo(true);
+                assertThat(rs.getByte(column)).isEqualTo((byte) 1);
+                assertThat(rs.getShort(column)).isEqualTo((short) 1);
+                assertThat(rs.getInt(column)).isEqualTo(1);
+                assertThat(rs.getLong(column)).isEqualTo(1L);
+                assertSqlExceptionThrownBy(() -> rs.getBigDecimal(column)).hasMessage("Value is not a number: true");
+                assertThat(rs.getFloat(column)).isEqualTo(1f);
+                assertThat(rs.getDouble(column)).isEqualTo(1.0);
+                assertThat(rs.getString(column)).isEqualTo("true");
+                assertSqlExceptionThrownBy(() -> rs.getBytes(column)).hasMessage("Value is not a byte array: true");
+            });
+        }
+    }
+
+    @Test
+    public void testTinyint()
+            throws Exception
+    {
+        try (ConnectedStatement connectedStatement = newStatement()) {
+            checkRepresentation(connectedStatement.getStatement(), "TINYINT '123'", Types.TINYINT, (rs, column) -> {
+                assertThat(rs.getObject(column)).isEqualTo((byte) 123);
+                assertThat(rs.getByte(column)).isEqualTo((byte) 123);
+                assertThat(rs.getShort(column)).isEqualTo((short) 123);
+                assertThat(rs.getInt(column)).isEqualTo(123);
+                assertThat(rs.getLong(column)).isEqualTo(123L);
+                assertThat(rs.getBigDecimal(column)).isEqualTo(new BigDecimal("123"));
+                assertThat(rs.getFloat(column)).isEqualTo(123f);
+                assertThat(rs.getDouble(column)).isEqualTo(123.0);
+                assertThat(rs.getString(column)).isEqualTo("123");
+                assertSqlExceptionThrownBy(() -> rs.getBytes(column)).hasMessage("Value is not a byte array: 123");
+
+                ResultSetMetaData metaData = rs.getMetaData();
+                assertThat(metaData.getColumnTypeName(column)).isEqualTo("tinyint");
+                assertThat(metaData.getColumnDisplaySize(column)).isEqualTo(4);
+                assertThat(metaData.getColumnClassName(column)).isEqualTo("java.lang.Byte");
+            });
+        }
+    }
+
+    @Test
+    public void testSmallint()
+            throws Exception
+    {
+        try (ConnectedStatement connectedStatement = newStatement()) {
+            checkRepresentation(connectedStatement.getStatement(), "SMALLINT '12345'", Types.SMALLINT, (rs, column) -> {
+                assertThat(rs.getObject(column)).isEqualTo((short) 12345);
+                assertThat(rs.getByte(column)).isEqualTo((byte) 57); // TODO (https://github.com/trinodb/trino/issues/28146) silent numeric truncation
+                assertThat(rs.getShort(column)).isEqualTo((short) 12345);
+                assertThat(rs.getInt(column)).isEqualTo(12345);
+                assertThat(rs.getLong(column)).isEqualTo(12345L);
+                assertThat(rs.getBigDecimal(column)).isEqualTo(new BigDecimal("12345"));
+                assertThat(rs.getFloat(column)).isEqualTo(12345f);
+                assertThat(rs.getDouble(column)).isEqualTo(12345.0);
+                assertThat(rs.getString(column)).isEqualTo("12345");
+                assertSqlExceptionThrownBy(() -> rs.getBytes(column)).hasMessage("Value is not a byte array: 12345");
+
+                ResultSetMetaData metaData = rs.getMetaData();
+                assertThat(metaData.getColumnTypeName(column)).isEqualTo("smallint");
+                assertThat(metaData.getColumnDisplaySize(column)).isEqualTo(6);
+                assertThat(metaData.getColumnClassName(column)).isEqualTo("java.lang.Short");
+            });
+        }
+    }
+
+    @Test
+    public void testInteger()
+            throws Exception
+    {
+        try (ConnectedStatement connectedStatement = newStatement()) {
+            checkRepresentation(connectedStatement.getStatement(), "1234567890", Types.INTEGER, (rs, column) -> {
+                assertThat(rs.getObject(column)).isEqualTo(1234567890);
+                assertThat(rs.getByte(column)).isEqualTo((byte) -46); // TODO (https://github.com/trinodb/trino/issues/28146) silent numeric truncation
+                assertThat(rs.getShort(column)).isEqualTo((short) 722); // TODO (https://github.com/trinodb/trino/issues/28146) silent numeric truncation
+                assertThat(rs.getInt(column)).isEqualTo(1234567890);
+                assertThat(rs.getLong(column)).isEqualTo(1234567890L);
+                assertThat(rs.getBigDecimal(column)).isEqualTo(new BigDecimal("1234567890"));
+                assertThat(rs.getFloat(column)).isEqualTo(1234567890f);
+                assertThat(rs.getDouble(column)).isEqualTo(1234567890.0);
+                assertThat(rs.getString(column)).isEqualTo("1234567890");
+                assertSqlExceptionThrownBy(() -> rs.getBytes(column)).hasMessage("Value is not a byte array: 1234567890");
+
+                ResultSetMetaData metaData = rs.getMetaData();
+                assertThat(metaData.getColumnTypeName(column)).isEqualTo("integer");
+                assertThat(metaData.getColumnDisplaySize(column)).isEqualTo(11);
+                assertThat(metaData.getColumnClassName(column)).isEqualTo("java.lang.Integer");
+            });
+        }
+    }
+
+    @Test
+    public void testBigint()
+            throws Exception
+    {
+        try (ConnectedStatement connectedStatement = newStatement()) {
+            checkRepresentation(connectedStatement.getStatement(), "1234567890123456789", Types.BIGINT, (rs, column) -> {
+                assertThat(rs.getObject(column)).isEqualTo(1234567890123456789L);
+                assertThat(rs.getByte(column)).isEqualTo((byte) 21); // TODO (https://github.com/trinodb/trino/issues/28146) silent numeric truncation
+                assertThat(rs.getShort(column)).isEqualTo((short) -32491); // TODO (https://github.com/trinodb/trino/issues/28146) silent numeric truncation
+                assertThat(rs.getInt(column)).isEqualTo(2112454933); // TODO (https://github.com/trinodb/trino/issues/28146) silent numeric truncation
+                assertThat(rs.getLong(column)).isEqualTo(1234567890123456789L);
+                assertThat(rs.getBigDecimal(column)).isEqualTo(new BigDecimal("1234567890123456789"));
+                assertThat(rs.getFloat(column)).isEqualTo(1234567890123456789f);
+                assertThat(rs.getDouble(column)).isEqualTo(1234567890123456789.0);
+                assertThat(rs.getString(column)).isEqualTo("1234567890123456789");
+                assertSqlExceptionThrownBy(() -> rs.getBytes(column)).hasMessage("Value is not a byte array: 1234567890123456789");
+
+                ResultSetMetaData metaData = rs.getMetaData();
+                assertThat(metaData.getColumnTypeName(column)).isEqualTo("bigint");
+                assertThat(metaData.getColumnDisplaySize(column)).isEqualTo(20);
+                assertThat(metaData.getColumnClassName(column)).isEqualTo("java.lang.Long");
+            });
+        }
+    }
+
+    @Test
+    public void testReal()
+            throws Exception
+    {
+        try (ConnectedStatement connectedStatement = newStatement()) {
+            checkRepresentation(connectedStatement.getStatement(), "REAL '123.45'", Types.REAL, (rs, column) -> {
+                assertThat(rs.getObject(column)).isEqualTo(123.45f);
+                assertThat(rs.getByte(column)).isEqualTo((byte) 123);
+                assertThat(rs.getShort(column)).isEqualTo((short) 123);
+                assertThat(rs.getInt(column)).isEqualTo(123);
+                assertThat(rs.getLong(column)).isEqualTo(123L);
+                assertThat(rs.getBigDecimal(column)).isEqualTo(new BigDecimal("123.45"));
+                assertThat(rs.getFloat(column)).isEqualTo(123.45f);
+                assertThat(rs.getDouble(column)).isEqualTo(123.44999694824219);
+                assertThat(rs.getString(column)).isEqualTo("123.45");
+                assertSqlExceptionThrownBy(() -> rs.getBytes(column)).hasMessage("Value is not a byte array: 123.45");
+
+                ResultSetMetaData metaData = rs.getMetaData();
+                assertThat(metaData.getColumnTypeName(column)).isEqualTo("real");
+                assertThat(metaData.getColumnDisplaySize(column)).isEqualTo(16);
+                assertThat(metaData.getColumnClassName(column)).isEqualTo("java.lang.Float");
+            });
+
+            checkRepresentation(connectedStatement.getStatement(), "REAL '12345e21'", Types.REAL, (rs, column) -> {
+                assertThat(rs.getObject(column)).isEqualTo(1.2345e25f);
+                assertThat(rs.getByte(column)).isEqualTo((byte) -1); // TODO (https://github.com/trinodb/trino/issues/28146) silent numeric truncation
+                assertThat(rs.getShort(column)).isEqualTo((short) -1); // TODO (https://github.com/trinodb/trino/issues/28146) silent numeric truncation
+                assertThat(rs.getInt(column)).isEqualTo(Integer.MAX_VALUE);
+                assertThat(rs.getLong(column)).isEqualTo(Long.MAX_VALUE);
+                assertThat(rs.getBigDecimal(column)).isEqualTo(new BigDecimal("1.2345E+25"));
+                assertThat(rs.getFloat(column)).isEqualTo(1.2345e25f);
+                assertThat(rs.getDouble(column)).isEqualTo(1.2345000397219687E25);
+                assertThat(rs.getString(column)).isEqualTo("1.2345E25");
+                assertSqlExceptionThrownBy(() -> rs.getBytes(column)).hasMessage("Value is not a byte array: 1.2345E25");
+            });
+
+            checkRepresentation(connectedStatement.getStatement(), "REAL 'NaN'", Types.REAL, (rs, column) -> {
+                assertThat(rs.getObject(column)).isEqualTo(Float.NaN);
+                assertThat(rs.getByte(column)).isEqualTo((byte) 0); // TODO (https://github.com/trinodb/trino/issues/28146) silent numeric conversion, NaN != 0
+                assertThat(rs.getShort(column)).isEqualTo((short) 0); // TODO (https://github.com/trinodb/trino/issues/28146) silent numeric conversion, NaN != 0
+                assertThat(rs.getInt(column)).isEqualTo(0); // TODO (https://github.com/trinodb/trino/issues/28146) silent numeric conversion, NaN != 0
+                assertThat(rs.getLong(column)).isEqualTo(0L); // TODO (https://github.com/trinodb/trino/issues/28146) silent numeric conversion, NaN != 0
+                assertSqlExceptionThrownBy(() -> rs.getBigDecimal(column)).hasMessage("Value is not a number: NaN");
+                assertThat(rs.getFloat(column)).isNaN();
+                assertThat(rs.getDouble(column)).isNaN();
+                assertThat(rs.getString(column)).isEqualTo("NaN");
+                assertSqlExceptionThrownBy(() -> rs.getBytes(column)).hasMessage("Value is not a byte array: NaN");
+            });
+
+            checkRepresentation(connectedStatement.getStatement(), "REAL '-Infinity'", Types.REAL, (rs, column) -> {
+                assertThat(rs.getObject(column)).isEqualTo(Float.NEGATIVE_INFINITY);
+                assertThat(rs.getByte(column)).isEqualTo((byte) 0); // TODO (https://github.com/trinodb/trino/issues/28146) silent numeric conversion, -Infinity != 0
+                assertThat(rs.getShort(column)).isEqualTo((short) 0); // TODO (https://github.com/trinodb/trino/issues/28146) silent numeric conversion, -Infinity != 0
+                assertThat(rs.getInt(column)).isEqualTo(Integer.MIN_VALUE);
+                assertThat(rs.getLong(column)).isEqualTo(Long.MIN_VALUE);
+                assertSqlExceptionThrownBy(() -> rs.getBigDecimal(column)).hasMessage("Value is not a number: -Infinity");
+                assertThat(rs.getFloat(column)).isEqualTo(Float.NEGATIVE_INFINITY);
+                assertThat(rs.getDouble(column)).isEqualTo(Double.NEGATIVE_INFINITY);
+                assertThat(rs.getString(column)).isEqualTo("-Infinity");
+                assertSqlExceptionThrownBy(() -> rs.getBytes(column)).hasMessage("Value is not a byte array: -Infinity");
+            });
+        }
+    }
+
+    @Test
+    public void testDouble()
+            throws Exception
+    {
+        try (ConnectedStatement connectedStatement = newStatement()) {
+            checkRepresentation(connectedStatement.getStatement(), "DOUBLE '123.45'", Types.DOUBLE, (rs, column) -> {
+                assertThat(rs.getObject(column)).isEqualTo(123.45);
+                assertThat(rs.getByte(column)).isEqualTo((byte) 123);
+                assertThat(rs.getShort(column)).isEqualTo((short) 123);
+                assertThat(rs.getInt(column)).isEqualTo(123);
+                assertThat(rs.getLong(column)).isEqualTo(123L);
+                assertThat(rs.getBigDecimal(column)).isEqualTo(new BigDecimal("123.45"));
+                assertThat(rs.getFloat(column)).isEqualTo(123.45f);
+                assertThat(rs.getDouble(column)).isEqualTo(123.45);
+                assertThat(rs.getString(column)).isEqualTo("123.45");
+                assertSqlExceptionThrownBy(() -> rs.getBytes(column)).hasMessage("Value is not a byte array: 123.45");
+
+                ResultSetMetaData metaData = rs.getMetaData();
+                assertThat(metaData.getColumnTypeName(column)).isEqualTo("double");
+                assertThat(metaData.getColumnDisplaySize(column)).isEqualTo(24);
+                assertThat(metaData.getColumnClassName(column)).isEqualTo("java.lang.Double");
+            });
+
+            checkRepresentation(connectedStatement.getStatement(), "DOUBLE '12345e21'", Types.DOUBLE, (rs, column) -> {
+                assertThat(rs.getObject(column)).isEqualTo(1.2345e25);
+                assertThat(rs.getByte(column)).isEqualTo((byte) -1); // TODO (https://github.com/trinodb/trino/issues/28146) silent numeric truncation
+                assertThat(rs.getShort(column)).isEqualTo((short) -1); // TODO (https://github.com/trinodb/trino/issues/28146) silent numeric truncation
+                assertThat(rs.getInt(column)).isEqualTo(Integer.MAX_VALUE);
+                assertThat(rs.getLong(column)).isEqualTo(Long.MAX_VALUE);
+                assertThat(rs.getBigDecimal(column)).isEqualTo(new BigDecimal("1.2345E+25"));
+                assertThat(rs.getFloat(column)).isEqualTo(1.2345e25f);
+                assertThat(rs.getDouble(column)).isEqualTo(1.2345e25);
+                assertThat(rs.getString(column)).isEqualTo("1.2345E25");
+                assertSqlExceptionThrownBy(() -> rs.getBytes(column)).hasMessage("Value is not a byte array: 1.2345E25");
+            });
+
+            checkRepresentation(connectedStatement.getStatement(), "DOUBLE 'NaN'", Types.DOUBLE, (rs, column) -> {
+                assertThat(rs.getObject(column)).isEqualTo(Double.NaN);
+                assertThat(rs.getByte(column)).isEqualTo((byte) 0); // TODO (https://github.com/trinodb/trino/issues/28146) silent numeric conversion, NaN != 0
+                assertThat(rs.getShort(column)).isEqualTo((short) 0); // TODO (https://github.com/trinodb/trino/issues/28146) silent numeric conversion, NaN != 0
+                assertThat(rs.getInt(column)).isEqualTo(0); // TODO (https://github.com/trinodb/trino/issues/28146) silent numeric conversion, NaN != 0
+                assertThat(rs.getLong(column)).isEqualTo(0L); // TODO (https://github.com/trinodb/trino/issues/28146) silent numeric conversion, NaN != 0
+                assertSqlExceptionThrownBy(() -> rs.getBigDecimal(column)).hasMessage("Value is not a number: NaN");
+                assertThat(rs.getFloat(column)).isNaN();
+                assertThat(rs.getDouble(column)).isNaN();
+                assertThat(rs.getString(column)).isEqualTo("NaN");
+                assertSqlExceptionThrownBy(() -> rs.getBytes(column)).hasMessage("Value is not a byte array: NaN");
+            });
+
+            checkRepresentation(connectedStatement.getStatement(), "DOUBLE '-Infinity'", Types.DOUBLE, (rs, column) -> {
+                assertThat(rs.getObject(column)).isEqualTo(Double.NEGATIVE_INFINITY);
+                assertThat(rs.getByte(column)).isEqualTo((byte) 0); // TODO (https://github.com/trinodb/trino/issues/28146) silent numeric conversion, -Infinity != 0
+                assertThat(rs.getShort(column)).isEqualTo((short) 0); // TODO (https://github.com/trinodb/trino/issues/28146) silent numeric conversion, -Infinity != 0
+                assertThat(rs.getInt(column)).isEqualTo(Integer.MIN_VALUE);
+                assertThat(rs.getLong(column)).isEqualTo(Long.MIN_VALUE);
+                assertSqlExceptionThrownBy(() -> rs.getBigDecimal(column)).hasMessage("Value is not a number: -Infinity");
+                assertThat(rs.getFloat(column)).isEqualTo(Float.NEGATIVE_INFINITY);
+                assertThat(rs.getDouble(column)).isEqualTo(Double.NEGATIVE_INFINITY);
+                assertThat(rs.getString(column)).isEqualTo("-Infinity");
+                assertSqlExceptionThrownBy(() -> rs.getBytes(column)).hasMessage("Value is not a byte array: -Infinity");
             });
         }
     }
@@ -331,17 +574,27 @@ public abstract class BaseTestJdbcResultSet
             });
 
             checkRepresentation(connectedStatement.getStatement(), "VARCHAR '123'", Types.VARCHAR, (rs, column) -> {
-                assertThat(rs.getLong(column)).isEqualTo(123);
+                assertSqlExceptionThrownBy(() -> rs.getBoolean(column)).hasMessage("Value is not a boolean: 123");
+                assertThat(rs.getByte(column)).isEqualTo((byte) 123);
+                assertThat(rs.getShort(column)).isEqualTo((short) 123);
+                assertThat(rs.getInt(column)).isEqualTo(123);
+                assertThat(rs.getLong(column)).isEqualTo(123L);
+                assertThat(rs.getBigDecimal(column)).isEqualTo(new BigDecimal("123"));
                 assertThat(rs.getFloat(column)).isEqualTo(123f);
                 assertThat(rs.getDouble(column)).isEqualTo(123.0);
-                assertThat(rs.getBigDecimal(column)).isEqualTo(new BigDecimal("123"));
                 assertThat(rs.getAsciiStream(column)).hasBinaryContent("123".getBytes(StandardCharsets.US_ASCII));
             });
+
             checkRepresentation(connectedStatement.getStatement(), "VARCHAR '123a'", Types.VARCHAR, (rs, column) -> {
                 assertSqlExceptionThrownBy(() -> rs.getBoolean(column)).hasMessage("Value is not a boolean: 123a");
+                assertSqlExceptionThrownBy(() -> rs.getByte(column)).hasMessage("Value is not a number: 123a");
+                assertSqlExceptionThrownBy(() -> rs.getShort(column)).hasMessage("Value is not a number: 123a");
+                assertSqlExceptionThrownBy(() -> rs.getInt(column)).hasMessage("Value is not a number: 123a");
                 assertSqlExceptionThrownBy(() -> rs.getLong(column)).hasMessage("Value is not a number: 123a");
-                assertSqlExceptionThrownBy(() -> rs.getDouble(column)).hasMessage("Value is not a number: 123a");
                 assertSqlExceptionThrownBy(() -> rs.getBigDecimal(column)).hasMessage("Value is not a number: 123a");
+                assertSqlExceptionThrownBy(() -> rs.getFloat(column)).hasMessage("Value is not a number: 123a");
+                assertSqlExceptionThrownBy(() -> rs.getDouble(column)).hasMessage("Value is not a number: 123a");
+                assertThat(rs.getAsciiStream(column)).hasBinaryContent("123a".getBytes(StandardCharsets.US_ASCII));
             });
 
             checkRepresentation(connectedStatement.getStatement(), "VARCHAR ''", Types.VARCHAR, (rs, column) -> {
@@ -353,10 +606,14 @@ public abstract class BaseTestJdbcResultSet
             });
 
             checkRepresentation(connectedStatement.getStatement(), "VARCHAR '123e-1'", Types.VARCHAR, (rs, column) -> {
-                assertThat(rs.getLong(column)).isEqualTo(12);
+                assertSqlExceptionThrownBy(() -> rs.getBoolean(column)).hasMessage("Value is not a boolean: 123e-1");
+                assertThat(rs.getByte(column)).isEqualTo((byte) 12);
+                assertThat(rs.getShort(column)).isEqualTo((short) 12);
+                assertThat(rs.getInt(column)).isEqualTo(12);
+                assertThat(rs.getLong(column)).isEqualTo(12L);
+                assertThat(rs.getBigDecimal(column)).isEqualTo(new BigDecimal("12.3"));
                 assertThat(rs.getFloat(column)).isEqualTo(12.3f);
                 assertThat(rs.getDouble(column)).isEqualTo(12.3);
-                assertThat(rs.getBigDecimal(column)).isEqualTo(new BigDecimal("12.3"));
                 assertThat(rs.getAsciiStream(column)).hasBinaryContent("123e-1".getBytes(StandardCharsets.US_ASCII));
             });
         }
