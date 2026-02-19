@@ -133,14 +133,14 @@ public abstract class BaseTestTableFormats
 
     protected void testLocationContainsDiscouragedCharacter(String schemaLocation)
     {
-        // According to https://docs.cloud.google.com/storage/docs/objects#recommendations some chars ([*]) are discouraged
+        // According to https://docs.cloud.google.com/storage/docs/objects#recommendations some chars ([*]#?) are discouraged
         // because they are specially treated in gcloud cli. But they are not directly prohibited.
         // Chars used in schema location are not escaped like those in partition names
         // so it allows to test whether whole stack works e2e with discouraged characters.
         String schemaName = getCatalogName() + ".test";
         String tableName = "%s.test_location_contains_discouraged_character_%s".formatted(schemaName, randomNameSuffix());
         try {
-            String locationWithDiscouragedChars = schemaLocation + "/[*]";
+            String locationWithDiscouragedChars = schemaLocation + "/[*]#?";
             onTrino().executeQuery("CREATE SCHEMA " + schemaName + " WITH (location = '" + locationWithDiscouragedChars + "')");
             onTrino().executeQuery("CREATE TABLE " + tableName + " (id bigint, someValue varchar)");
 

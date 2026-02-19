@@ -174,11 +174,11 @@ public abstract class AbstractTestGcsFileSystem
     void testRoundTripFileWithDiscouragedCharsName()
             throws Exception
     {
-        // According to https://docs.cloud.google.com/storage/docs/objects#recommendations some chars ([*]) are discouraged
+        // According to https://docs.cloud.google.com/storage/docs/objects#recommendations some chars ([*]#?) are discouraged
         // because they are specially treated in gcloud cli. But they are not directly prohibited.
         byte[] buffer = new byte[8];
         String stringToWrite = "test";
-        Location fileLocation = getRootLocation().appendPath("[*]");
+        Location fileLocation = getRootLocation().appendPath("[*]#?");
         TrinoOutputFile outputFile = getFileSystem().newOutputFile(fileLocation);
         outputFile.createOrOverwrite(stringToWrite.getBytes(UTF_8));
         TrinoInputFile inputFile = getFileSystem().newInputFile(fileLocation);
