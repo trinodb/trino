@@ -31,7 +31,7 @@ import static io.trino.spi.function.OperatorType.READ_VALUE;
 import static java.lang.Boolean.TRUE;
 
 @Description("Returns true if the array contains one or more elements that match the given predicate")
-@ScalarFunction("any_match")
+@ScalarFunction(value = "any_match", neverFails = true)
 public final class ArrayAnyMatchFunction
 {
     private ArrayAnyMatchFunction() {}

@@ -19,7 +19,7 @@ import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.function.TypeParameter;
 
-@ScalarFunction("reverse")
+@ScalarFunction(value = "reverse", neverFails = true)
 @Description("Returns an array which has the reversed order of the given array.")
 public final class ArrayReverseFunction
 {

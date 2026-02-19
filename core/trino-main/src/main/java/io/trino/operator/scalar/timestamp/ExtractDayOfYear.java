@@ -24,7 +24,7 @@ import org.joda.time.chrono.ISOChronology;
 import static io.trino.type.DateTimes.scaleEpochMicrosToMillis;
 
 @Description("Day of the year of the given timestamp")
-@ScalarFunction(value = "day_of_year", alias = "doy")
+@ScalarFunction(value = "day_of_year", alias = "doy", neverFails = true)
 public final class ExtractDayOfYear
 {
     private ExtractDayOfYear() {}

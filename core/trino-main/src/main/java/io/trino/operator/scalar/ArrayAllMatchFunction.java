@@ -31,7 +31,7 @@ import static io.trino.spi.function.OperatorType.READ_VALUE;
 import static java.lang.Boolean.FALSE;
 
 @Description("Returns true if all elements of the array match the given predicate")
-@ScalarFunction("all_match")
+@ScalarFunction(value = "all_match", neverFails = true)
 public final class ArrayAllMatchFunction
 {
     private ArrayAllMatchFunction() {}

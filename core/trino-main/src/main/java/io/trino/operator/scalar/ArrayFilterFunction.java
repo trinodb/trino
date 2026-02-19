@@ -24,7 +24,7 @@ import io.trino.spi.type.Type;
 import static java.lang.Boolean.TRUE;
 
 @Description("Return array containing elements that match the given predicate")
-@ScalarFunction(value = "filter")
+@ScalarFunction(value = "filter", neverFails = true)
 public final class ArrayFilterFunction
 {
     private ArrayFilterFunction() {}

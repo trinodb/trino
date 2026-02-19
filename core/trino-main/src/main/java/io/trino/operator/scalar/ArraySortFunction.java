@@ -27,7 +27,7 @@ import static io.trino.spi.function.InvocationConvention.InvocationArgumentConve
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.function.OperatorType.COMPARISON_UNORDERED_LAST;
 
-@ScalarFunction("array_sort")
+@ScalarFunction(value = "array_sort", neverFails = true)
 @Description("Sorts the given array in ascending order according to the natural ordering of its elements.")
 public final class ArraySortFunction
 {
