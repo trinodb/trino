@@ -66,23 +66,22 @@ public final class IrExpressions
     public static boolean mayFail(PlannerContext plannerContext, Expression expression)
     {
         return switch (expression) {
+            // These expressions never fail
+            case Bind _, Constant _, FieldReference _, Lambda _, Reference _ -> false;
+
+            // These expressions need to verify their operands
             case Array e -> e.elements().stream().anyMatch(element -> mayFail(plannerContext, element));
             case Between e -> mayFail(plannerContext, e.value()) || mayFail(plannerContext, e.min()) || mayFail(plannerContext, e.max());
-            case Bind e -> false;
             case Call e -> mayFail(e.function()) || e.arguments().stream().anyMatch(argument -> mayFail(plannerContext, argument)); // TODO: allow functions to be marked as non-failing
             case Case e -> e.whenClauses().stream().anyMatch(clause -> mayFail(plannerContext, clause.getOperand()) || mayFail(plannerContext, clause.getResult())) ||
                     mayFail(plannerContext, e.defaultValue());
             case Cast e -> mayFail(plannerContext, e);
             case Coalesce e -> e.operands().stream().anyMatch(argument -> mayFail(plannerContext, argument));
             case Comparison e -> mayFail(plannerContext, e.left()) || mayFail(plannerContext, e.right());
-            case Constant e -> false;
-            case FieldReference e -> false;
             case In e -> mayFail(plannerContext, e.value()) || e.valueList().stream().anyMatch(argument -> mayFail(plannerContext, argument));
             case IsNull e -> mayFail(plannerContext, e.value());
-            case Lambda e -> false;
             case Logical e -> e.terms().stream().anyMatch(argument -> mayFail(plannerContext, argument));
             case NullIf e -> mayFail(plannerContext, e.first()) || mayFail(plannerContext, e.second());
-            case Reference e -> false;
             case Row e -> e.items().stream().anyMatch(argument -> mayFail(plannerContext, argument));
             case Switch e -> mayFail(plannerContext, e.operand()) || e.whenClauses().stream().anyMatch(clause -> mayFail(plannerContext, clause.getOperand()) || mayFail(plannerContext, clause.getResult())) ||
                     mayFail(plannerContext, e.defaultValue());
