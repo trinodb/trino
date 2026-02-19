@@ -26,6 +26,7 @@ import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ColumnPosition;
 import io.trino.spi.connector.ConnectorAccessControl;
 import io.trino.spi.connector.ConnectorAnalyzeMetadata;
+import io.trino.spi.connector.ConnectorIdentifier;
 import io.trino.spi.connector.ConnectorInsertTableHandle;
 import io.trino.spi.connector.ConnectorMaterializedViewDefinition;
 import io.trino.spi.connector.ConnectorMergeTableHandle;
@@ -430,23 +431,23 @@ public class ClassLoaderSafeConnectorMetadata
     }
 
     @Override
-    public void createSchema(ConnectorSession session, String schemaName, Map<String, Object> properties, TrinoPrincipal owner)
+    public void createSchema(ConnectorSession session, ConnectorIdentifier schema, Map<String, Object> properties, TrinoPrincipal owner)
     {
         try (ThreadContextClassLoader _ = new ThreadContextClassLoader(classLoader)) {
-            delegate.createSchema(session, schemaName, properties, owner);
+            delegate.createSchema(session, schema, properties, owner);
         }
     }
 
     @Override
-    public void dropSchema(ConnectorSession session, String schemaName, boolean cascade)
+    public void dropSchema(ConnectorSession session, ConnectorIdentifier schema, boolean cascade)
     {
         try (ThreadContextClassLoader _ = new ThreadContextClassLoader(classLoader)) {
-            delegate.dropSchema(session, schemaName, cascade);
+            delegate.dropSchema(session, schema, cascade);
         }
     }
 
     @Override
-    public void renameSchema(ConnectorSession session, String source, String target)
+    public void renameSchema(ConnectorSession session, ConnectorIdentifier source, ConnectorIdentifier target)
     {
         try (ThreadContextClassLoader _ = new ThreadContextClassLoader(classLoader)) {
             delegate.renameSchema(session, source, target);

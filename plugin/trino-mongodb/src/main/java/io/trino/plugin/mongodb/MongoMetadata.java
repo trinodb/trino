@@ -29,6 +29,7 @@ import io.trino.spi.connector.Assignment;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ColumnPosition;
+import io.trino.spi.connector.ConnectorIdentifier;
 import io.trino.spi.connector.ConnectorInsertTableHandle;
 import io.trino.spi.connector.ConnectorMetadata;
 import io.trino.spi.connector.ConnectorOutputMetadata;
@@ -149,16 +150,16 @@ public class MongoMetadata
     }
 
     @Override
-    public void createSchema(ConnectorSession session, String schemaName, Map<String, Object> properties, TrinoPrincipal owner)
+    public void createSchema(ConnectorSession session, ConnectorIdentifier schema, Map<String, Object> properties, TrinoPrincipal owner)
     {
         checkArgument(properties.isEmpty(), "Can't have properties for schema creation");
-        mongoSession.createSchema(schemaName);
+        mongoSession.createSchema(schema.getValue());
     }
 
     @Override
-    public void dropSchema(ConnectorSession session, String schemaName, boolean cascade)
+    public void dropSchema(ConnectorSession session, ConnectorIdentifier schema, boolean cascade)
     {
-        mongoSession.dropSchema(schemaName, cascade);
+        mongoSession.dropSchema(schema.getValue(), cascade);
     }
 
     @Override

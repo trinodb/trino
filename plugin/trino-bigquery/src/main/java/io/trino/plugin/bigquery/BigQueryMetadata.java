@@ -53,6 +53,7 @@ import io.trino.spi.connector.Assignment;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorAnalyzeMetadata;
+import io.trino.spi.connector.ConnectorIdentifier;
 import io.trino.spi.connector.ConnectorInsertTableHandle;
 import io.trino.spi.connector.ConnectorMaterializedViewDefinition;
 import io.trino.spi.connector.ConnectorMergeTableHandle;
@@ -505,19 +506,19 @@ public class BigQueryMetadata
     }
 
     @Override
-    public void createSchema(ConnectorSession session, String schemaName, Map<String, Object> properties, TrinoPrincipal owner)
+    public void createSchema(ConnectorSession session, ConnectorIdentifier schema, Map<String, Object> properties, TrinoPrincipal owner)
     {
         BigQueryClient client = bigQueryClientFactory.create(session);
         checkArgument(properties.isEmpty(), "Can't have properties for schema creation");
-        DatasetInfo datasetInfo = DatasetInfo.newBuilder(client.toDatasetId(schemaName)).build();
+        DatasetInfo datasetInfo = DatasetInfo.newBuilder(client.toDatasetId(schema.getValue())).build();
         client.createSchema(datasetInfo);
     }
 
     @Override
-    public void dropSchema(ConnectorSession session, String schemaName, boolean cascade)
+    public void dropSchema(ConnectorSession session, ConnectorIdentifier schema, boolean cascade)
     {
         BigQueryClient client = bigQueryClientFactory.create(session);
-        DatasetId localDatasetId = client.toDatasetId(schemaName);
+        DatasetId localDatasetId = client.toDatasetId(schema.getValue());
         String remoteSchemaName = getRemoteSchemaName(client, localDatasetId.getProject(), localDatasetId.getDataset());
         client.dropSchema(DatasetId.of(localDatasetId.getProject(), remoteSchemaName), cascade);
     }

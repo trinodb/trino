@@ -66,6 +66,7 @@ import io.trino.spi.connector.AggregateFunction;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ColumnPosition;
+import io.trino.spi.connector.ConnectorIdentifier;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.expression.ConnectorExpression;
@@ -491,32 +492,32 @@ public class ClickHouseClient
     }
 
     @Override
-    protected void createSchema(ConnectorSession session, Connection connection, String remoteSchemaName)
+    protected void createSchema(ConnectorSession session, Connection connection, ConnectorIdentifier schema)
             throws SQLException
     {
-        execute(session, connection, "CREATE DATABASE " + quoted(remoteSchemaName));
+        execute(session, connection, "CREATE DATABASE " + quoted(schema));
     }
 
     @Override
-    protected void dropSchema(ConnectorSession session, Connection connection, String remoteSchemaName, boolean cascade)
+    protected void dropSchema(ConnectorSession session, Connection connection, ConnectorIdentifier schema, boolean cascade)
             throws SQLException
     {
         // ClickHouse always deletes all tables inside the database https://clickhouse.com/docs/en/sql-reference/statements/drop
         if (!cascade) {
-            try (ResultSet tables = getTables(connection, Optional.of(remoteSchemaName), Optional.empty())) {
+            try (ResultSet tables = getTables(connection, Optional.of(schema.getValue()), Optional.empty())) {
                 if (tables.next()) {
-                    throw new TrinoException(SCHEMA_NOT_EMPTY, "Cannot drop non-empty schema '%s'".formatted(remoteSchemaName));
+                    throw new TrinoException(SCHEMA_NOT_EMPTY, "Cannot drop non-empty schema '%s'".formatted(schema.getValue()));
                 }
             }
         }
-        execute(session, connection, "DROP DATABASE " + quoted(remoteSchemaName));
+        execute(session, connection, "DROP DATABASE " + quoted(schema));
     }
 
     @Override
-    protected void renameSchema(ConnectorSession session, Connection connection, String remoteSchemaName, String newRemoteSchemaName)
+    protected void renameSchema(ConnectorSession session, Connection connection, ConnectorIdentifier schema, ConnectorIdentifier newSchema)
             throws SQLException
     {
-        execute(session, connection, "RENAME DATABASE " + quoted(remoteSchemaName) + " TO " + quoted(newRemoteSchemaName));
+        execute(session, connection, "RENAME DATABASE " + quoted(schema) + " TO " + quoted(newSchema));
     }
 
     @Override

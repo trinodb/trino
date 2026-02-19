@@ -35,6 +35,7 @@ import io.trino.spi.connector.AggregateFunction;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ColumnPosition;
+import io.trino.spi.connector.ConnectorIdentifier;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplitSource;
 import io.trino.spi.connector.ConnectorTableMetadata;
@@ -481,9 +482,21 @@ public final class StatisticsAwareJdbcClient
     }
 
     @Override
+    public void createSchema(ConnectorSession session, ConnectorIdentifier schema)
+    {
+        stats.getCreateSchema().wrap(() -> delegate().createSchema(session, schema));
+    }
+
+    @Override
     public void dropSchema(ConnectorSession session, String schemaName, boolean cascade)
     {
         stats.getDropSchema().wrap(() -> delegate().dropSchema(session, schemaName, cascade));
+    }
+
+    @Override
+    public void dropSchema(ConnectorSession session, ConnectorIdentifier schema, boolean cascade)
+    {
+        stats.getDropSchema().wrap(() -> delegate().dropSchema(session, schema, cascade));
     }
 
     @Override
@@ -493,9 +506,21 @@ public final class StatisticsAwareJdbcClient
     }
 
     @Override
+    public void renameSchema(ConnectorSession session, ConnectorIdentifier schema, ConnectorIdentifier newSchema)
+    {
+        stats.getRenameSchema().wrap(() -> delegate().renameSchema(session, schema, newSchema));
+    }
+
+    @Override
     public Optional<SystemTable> getSystemTable(ConnectorSession session, SchemaTableName tableName)
     {
         return delegate().getSystemTable(session, tableName);
+    }
+
+    @Override
+    public String quoted(ConnectorIdentifier identifier)
+    {
+        return delegate().quoted(identifier);
     }
 
     @Override

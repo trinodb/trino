@@ -23,6 +23,7 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
+import io.trino.spi.connector.ConnectorIdentifier;
 import io.trino.spi.connector.ConnectorMetadata;
 import io.trino.spi.connector.ConnectorOutputMetadata;
 import io.trino.spi.connector.ConnectorOutputTableHandle;
@@ -167,18 +168,18 @@ public class FakerMetadata
     }
 
     @Override
-    public synchronized void createSchema(ConnectorSession session, String schemaName, Map<String, Object> properties, TrinoPrincipal owner)
+    public synchronized void createSchema(ConnectorSession session, ConnectorIdentifier schema, Map<String, Object> properties, TrinoPrincipal owner)
     {
-        if (schemas.stream().anyMatch(schema -> schema.name().equals(schemaName))) {
-            throw new TrinoException(SCHEMA_ALREADY_EXISTS, format("Schema '%s' already exists", schemaName));
+        if (schemas.stream().anyMatch(info -> info.name().equals(schema.getValue()))) {
+            throw new TrinoException(SCHEMA_ALREADY_EXISTS, format("Schema '%s' already exists", schema.getValue()));
         }
-        schemas.add(new SchemaInfo(schemaName, properties));
+        schemas.add(new SchemaInfo(schema.getValue(), properties));
     }
 
     @Override
-    public synchronized void dropSchema(ConnectorSession session, String schemaName, boolean cascade)
+    public synchronized void dropSchema(ConnectorSession session, ConnectorIdentifier schema, boolean cascade)
     {
-        verify(schemas.remove(getSchema(schemaName)));
+        verify(schemas.remove(getSchema(schema.getValue())));
     }
 
     private synchronized SchemaInfo getSchema(String name)

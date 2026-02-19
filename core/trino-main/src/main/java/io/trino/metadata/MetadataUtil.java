@@ -20,6 +20,7 @@ import io.trino.connector.CatalogHandle;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.spi.connector.ColumnMetadata;
+import io.trino.spi.connector.ConnectorIdentifier;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.EntityKindAndName;
 import io.trino.spi.connector.SchemaTableName;
@@ -166,6 +167,8 @@ public final class MetadataUtil
     {
         String catalogName = session.getCatalog().orElse(null);
         String schemaName = session.getSchema().orElse(null);
+        boolean isCatalogDelimited = false;
+        boolean isSchemaDelimited = false;
 
         if (schema.isPresent()) {
             List<String> parts = schema.get().getParts();
@@ -174,8 +177,10 @@ public final class MetadataUtil
             }
             if (parts.size() == 2) {
                 catalogName = parts.get(0);
+                isCatalogDelimited = schema.get().isDelimitedPart(0);
             }
             schemaName = schema.get().getSuffix();
+            isSchemaDelimited = schema.get().isDelimitedSuffix();
         }
 
         if (catalogName == null) {
@@ -185,7 +190,9 @@ public final class MetadataUtil
             throw semanticException(MISSING_SCHEMA_NAME, node, "Schema must be specified when session schema is not set");
         }
 
-        return new CatalogSchemaName(catalogName, schemaName);
+        return new CatalogSchemaName(
+                new ConnectorIdentifier(catalogName, isCatalogDelimited),
+                new ConnectorIdentifier(schemaName, isSchemaDelimited));
     }
 
     public static QualifiedObjectName createQualifiedObjectName(Session session, Node node, QualifiedName name)

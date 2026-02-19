@@ -86,6 +86,7 @@ import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ColumnPosition;
 import io.trino.spi.connector.ConnectorAccessControl;
 import io.trino.spi.connector.ConnectorAnalyzeMetadata;
+import io.trino.spi.connector.ConnectorIdentifier;
 import io.trino.spi.connector.ConnectorInsertTableHandle;
 import io.trino.spi.connector.ConnectorMaterializedViewDefinition;
 import io.trino.spi.connector.ConnectorMergeTableHandle;
@@ -1231,29 +1232,29 @@ public class IcebergMetadata
     }
 
     @Override
-    public void createSchema(ConnectorSession session, String schemaName, Map<String, Object> properties, TrinoPrincipal owner)
+    public void createSchema(ConnectorSession session, ConnectorIdentifier schema, Map<String, Object> properties, TrinoPrincipal owner)
     {
-        catalog.createNamespace(session, schemaName, properties, owner);
+        catalog.createNamespace(session, schema.getValue(), properties, owner);
     }
 
     @Override
-    public void dropSchema(ConnectorSession session, String schemaName, boolean cascade)
+    public void dropSchema(ConnectorSession session, ConnectorIdentifier schema, boolean cascade)
     {
         if (cascade) {
-            List<String> nestedNamespaces = getChildNamespaces(session, schemaName);
+            List<String> nestedNamespaces = getChildNamespaces(session, schema.getValue());
             if (!nestedNamespaces.isEmpty()) {
                 throw new TrinoException(
                         ICEBERG_CATALOG_ERROR,
-                        format("Cannot drop non-empty schema: %s, contains %s nested schema(s)", schemaName, Joiner.on(", ").join(nestedNamespaces)));
+                        format("Cannot drop non-empty schema: %s, contains %s nested schema(s)", schema.getValue(), Joiner.on(", ").join(nestedNamespaces)));
             }
 
-            for (SchemaTableName materializedView : listMaterializedViews(session, Optional.of(schemaName))) {
+            for (SchemaTableName materializedView : listMaterializedViews(session, Optional.of(schema.getValue()))) {
                 dropMaterializedView(session, materializedView);
             }
-            for (SchemaTableName viewName : listViews(session, Optional.of(schemaName))) {
+            for (SchemaTableName viewName : listViews(session, Optional.of(schema.getValue()))) {
                 dropView(session, viewName);
             }
-            for (SchemaTableName tableName : listTables(session, Optional.of(schemaName))) {
+            for (SchemaTableName tableName : listTables(session, Optional.of(schema.getValue()))) {
                 ConnectorTableHandle tableHandle = getTableHandle(session, tableName, Optional.empty(), Optional.empty());
                 if (tableHandle != null) {
                     // getTableHandle method returns null if the table is dropped concurrently
@@ -1261,13 +1262,13 @@ public class IcebergMetadata
                 }
             }
         }
-        catalog.dropNamespace(session, schemaName);
+        catalog.dropNamespace(session, schema.getValue());
     }
 
     @Override
-    public void renameSchema(ConnectorSession session, String source, String target)
+    public void renameSchema(ConnectorSession session, ConnectorIdentifier source, ConnectorIdentifier target)
     {
-        catalog.renameNamespace(session, source, target);
+        catalog.renameNamespace(session, source.getValue(), target.getValue());
     }
 
     @Override

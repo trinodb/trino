@@ -80,6 +80,7 @@ import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ColumnPosition;
 import io.trino.spi.connector.ConnectorAccessControl;
 import io.trino.spi.connector.ConnectorAnalyzeMetadata;
+import io.trino.spi.connector.ConnectorIdentifier;
 import io.trino.spi.connector.ConnectorInsertTableHandle;
 import io.trino.spi.connector.ConnectorMergeTableHandle;
 import io.trino.spi.connector.ConnectorOutputMetadata;
@@ -991,7 +992,7 @@ public class HiveMetadata
     }
 
     @Override
-    public void createSchema(ConnectorSession session, String schemaName, Map<String, Object> properties, TrinoPrincipal owner)
+    public void createSchema(ConnectorSession session, ConnectorIdentifier schema, Map<String, Object> properties, TrinoPrincipal owner)
     {
         Optional<String> location = HiveSchemaProperties.getLocation(properties).map(locationUri -> {
             try {
@@ -1004,7 +1005,7 @@ public class HiveMetadata
         });
 
         Database database = Database.builder()
-                .setDatabaseName(schemaName)
+                .setDatabaseName(schema.getValue())
                 .setLocation(location)
                 .setOwnerType(usingSystemSecurity ? Optional.empty() : Optional.of(owner.getType()))
                 .setOwnerName(usingSystemSecurity ? Optional.empty() : Optional.of(owner.getName()))
@@ -1015,12 +1016,12 @@ public class HiveMetadata
     }
 
     @Override
-    public void dropSchema(ConnectorSession session, String schemaName, boolean cascade)
+    public void dropSchema(ConnectorSession session, ConnectorIdentifier schema, boolean cascade)
     {
         if (cascade) {
             // List all objects first because such operations after adding/dropping/altering tables/views in a transaction is disallowed
-            List<SchemaTableName> views = listViews(session, Optional.of(schemaName));
-            List<SchemaTableName> tables = listTables(session, Optional.of(schemaName)).stream()
+            List<SchemaTableName> views = listViews(session, Optional.of(schema.getValue()));
+            List<SchemaTableName> tables = listTables(session, Optional.of(schema.getValue())).stream()
                     .filter(table -> !views.contains(table))
                     .collect(toImmutableList());
 
@@ -1039,18 +1040,18 @@ public class HiveMetadata
 
             // Commit and then drop the database with raw metastore because exclusive operation after dropping object is disallowed in SemiTransactionalHiveMetastore
             metastore.commit();
-            boolean deleteData = metastore.shouldDeleteDatabaseData(session, schemaName);
-            metastore.unsafeGetRawHiveMetastore().dropDatabase(schemaName, deleteData);
+            boolean deleteData = metastore.shouldDeleteDatabaseData(session, schema.getValue());
+            metastore.unsafeGetRawHiveMetastore().dropDatabase(schema.getValue(), deleteData);
         }
         else {
-            metastore.dropDatabase(session, schemaName);
+            metastore.dropDatabase(session, schema.getValue());
         }
     }
 
     @Override
-    public void renameSchema(ConnectorSession session, String source, String target)
+    public void renameSchema(ConnectorSession session, ConnectorIdentifier source, ConnectorIdentifier target)
     {
-        metastore.renameDatabase(source, target);
+        metastore.renameDatabase(source.getValue(), target.getValue());
     }
 
     @Override

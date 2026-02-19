@@ -18,32 +18,52 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.Objects;
 
-import static java.util.Locale.ENGLISH;
+import static java.util.Objects.requireNonNull;
 
 public final class CatalogSchemaName
 {
-    private final String catalogName;
-    private final String schemaName;
+    private final ConnectorIdentifier catalog;
+    private final ConnectorIdentifier schema;
 
     @JsonCreator
     public CatalogSchemaName(
-            @JsonProperty("catalogName") String catalogName,
-            @JsonProperty("schemaName") String schemaName)
+            @JsonProperty("catalog") ConnectorIdentifier catalog,
+            @JsonProperty("schema") ConnectorIdentifier schema)
     {
-        this.catalogName = catalogName.toLowerCase(ENGLISH);
-        this.schemaName = schemaName.toLowerCase(ENGLISH);
+        this.catalog = requireNonNull(catalog, "catalog is null");
+        this.schema = requireNonNull(schema, "schema is null");
+    }
+
+    public CatalogSchemaName(
+            String catalog,
+            String schema)
+    {
+        this.catalog = new ConnectorIdentifier(catalog, false);
+        this.schema = new ConnectorIdentifier(schema, false);
+    }
+
+    @JsonProperty
+    public ConnectorIdentifier getCatalog()
+    {
+        return catalog;
+    }
+
+    @JsonProperty
+    public ConnectorIdentifier getSchema()
+    {
+        return schema;
     }
 
     @JsonProperty
     public String getCatalogName()
     {
-        return catalogName;
+        return catalog.getValue();
     }
 
     @JsonProperty
     public String getSchemaName()
     {
-        return schemaName;
+        return schema.getValue();
     }
 
     @Override
@@ -56,19 +76,19 @@ public final class CatalogSchemaName
             return false;
         }
         CatalogSchemaName that = (CatalogSchemaName) obj;
-        return Objects.equals(catalogName, that.catalogName) &&
-                Objects.equals(schemaName, that.schemaName);
+        return Objects.equals(catalog, that.catalog) &&
+                Objects.equals(schema, that.schema);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(catalogName, schemaName);
+        return Objects.hash(catalog, schema);
     }
 
     @Override
     public String toString()
     {
-        return catalogName + '.' + schemaName;
+        return catalog.getValue() + '.' + schema.getValue();
     }
 }

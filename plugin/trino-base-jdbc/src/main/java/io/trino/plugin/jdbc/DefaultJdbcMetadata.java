@@ -32,6 +32,7 @@ import io.trino.spi.connector.Assignment;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ColumnPosition;
+import io.trino.spi.connector.ConnectorIdentifier;
 import io.trino.spi.connector.ConnectorInsertTableHandle;
 import io.trino.spi.connector.ConnectorMergeTableHandle;
 import io.trino.spi.connector.ConnectorOutputMetadata;
@@ -1488,21 +1489,21 @@ public class DefaultJdbcMetadata
     }
 
     @Override
-    public void createSchema(ConnectorSession session, String schemaName, Map<String, Object> properties, TrinoPrincipal owner)
+    public void createSchema(ConnectorSession session, ConnectorIdentifier schema, Map<String, Object> properties, TrinoPrincipal owner)
     {
-        jdbcClient.createSchema(session, schemaName);
+        jdbcClient.createSchema(session, schema);
     }
 
     @Override
-    public void dropSchema(ConnectorSession session, String schemaName, boolean cascade)
+    public void dropSchema(ConnectorSession session, ConnectorIdentifier schema, boolean cascade)
     {
-        jdbcClient.dropSchema(session, schemaName, cascade);
+        jdbcClient.dropSchema(session, schema, cascade);
     }
 
     @Override
-    public void renameSchema(ConnectorSession session, String schemaName, String newSchemaName)
+    public void renameSchema(ConnectorSession session, ConnectorIdentifier schema, ConnectorIdentifier newSchema)
     {
-        jdbcClient.renameSchema(session, schemaName, newSchemaName);
+        jdbcClient.renameSchema(session, schema, newSchema);
     }
 
     @Override

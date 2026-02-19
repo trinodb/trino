@@ -24,6 +24,7 @@ import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ColumnPosition;
 import io.trino.spi.connector.ConnectorAnalyzeMetadata;
+import io.trino.spi.connector.ConnectorIdentifier;
 import io.trino.spi.connector.ConnectorInsertTableHandle;
 import io.trino.spi.connector.ConnectorMergeTableHandle;
 import io.trino.spi.connector.ConnectorMetadata;
@@ -111,12 +112,12 @@ public class BlackHoleMetadata
     }
 
     @Override
-    public synchronized void createSchema(ConnectorSession session, String schemaName, Map<String, Object> properties, TrinoPrincipal owner)
+    public synchronized void createSchema(ConnectorSession session, ConnectorIdentifier schema, Map<String, Object> properties, TrinoPrincipal owner)
     {
-        if (schemas.contains(schemaName)) {
-            throw new TrinoException(ALREADY_EXISTS, format("Schema [%s] already exists", schemaName));
+        if (schemas.contains(schema.getValue())) {
+            throw new TrinoException(ALREADY_EXISTS, format("Schema [%s] already exists", schema.getValue()));
         }
-        schemas.add(schemaName);
+        schemas.add(schema.getValue());
     }
 
     @Override

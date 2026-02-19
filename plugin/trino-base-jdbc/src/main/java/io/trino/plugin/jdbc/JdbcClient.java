@@ -20,6 +20,7 @@ import io.trino.spi.connector.AggregateFunction;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ColumnPosition;
+import io.trino.spi.connector.ConnectorIdentifier;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplitSource;
 import io.trino.spi.connector.ConnectorTableMetadata;
@@ -252,15 +253,35 @@ public interface JdbcClient
 
     TableStatistics getTableStatistics(ConnectorSession session, JdbcTableHandle handle);
 
-    void createSchema(ConnectorSession session, String schemaName);
+    default void createSchema(ConnectorSession session, String schemaName)
+    {
+        createSchema(session, new ConnectorIdentifier(schemaName, false));
+    }
 
-    void dropSchema(ConnectorSession session, String schemaName, boolean cascade);
+    void createSchema(ConnectorSession session, ConnectorIdentifier schema);
 
-    void renameSchema(ConnectorSession session, String schemaName, String newSchemaName);
+    default void dropSchema(ConnectorSession session, String schemaName, boolean cascade)
+    {
+        dropSchema(session, new ConnectorIdentifier(schemaName, false), cascade);
+    }
+
+    void dropSchema(ConnectorSession session, ConnectorIdentifier schema, boolean cascade);
+
+    default void renameSchema(ConnectorSession session, String schemaName, String newSchemaName)
+    {
+        renameSchema(session, new ConnectorIdentifier(schemaName, false), new ConnectorIdentifier(newSchemaName, false));
+    }
+
+    void renameSchema(ConnectorSession session, ConnectorIdentifier schema, ConnectorIdentifier newSchema);
 
     default Optional<SystemTable> getSystemTable(ConnectorSession session, SchemaTableName tableName)
     {
         return Optional.empty();
+    }
+
+    default String quoted(ConnectorIdentifier identifier)
+    {
+        return identifier.isDelimited() ? quoted(identifier.getValue()) : identifier.getValue();
     }
 
     String quoted(String name);

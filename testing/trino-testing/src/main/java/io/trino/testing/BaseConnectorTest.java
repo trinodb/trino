@@ -309,8 +309,8 @@ public abstract class BaseConnectorTest
             assertQueryFails("DROP SCHEMA " + schemaName, ".*Cannot drop non-empty schema '\\Q" + schemaName + "\\E'");
         }
         finally {
-            assertUpdate("DROP TABLE IF EXISTS " + schemaName + ".t");
-            assertUpdate("DROP SCHEMA IF EXISTS " + schemaName);
+            assertUpdate(dropSchemaSql(schemaName + ".t"));
+            assertUpdate(dropSchemaSql(schemaName));
         }
     }
 
@@ -333,8 +333,8 @@ public abstract class BaseConnectorTest
             assertQueryFails("DROP SCHEMA " + schemaName, ".*Cannot drop non-empty schema '\\Q" + schemaName + "\\E'");
         }
         finally {
-            assertUpdate("DROP VIEW IF EXISTS " + schemaName + ".v_t");
-            assertUpdate("DROP SCHEMA IF EXISTS " + schemaName);
+            assertUpdate(dropSchemaSql(schemaName + ".v_t"));
+            assertUpdate(dropSchemaSql(schemaName));
         }
     }
 
@@ -358,7 +358,7 @@ public abstract class BaseConnectorTest
         }
         finally {
             assertUpdate("DROP MATERIALIZED VIEW IF EXISTS " + schemaName + ".mv_t");
-            assertUpdate("DROP SCHEMA IF EXISTS " + schemaName);
+            assertUpdate(dropSchemaSql(schemaName));
         }
     }
 
@@ -2641,8 +2641,8 @@ public abstract class BaseConnectorTest
                     .contains(schemaName + "_renamed");
         }
         finally {
-            assertUpdate("DROP SCHEMA IF EXISTS " + schemaName);
-            assertUpdate("DROP SCHEMA IF EXISTS " + schemaName + "_renamed");
+            assertUpdate(dropSchemaSql(schemaName));
+            assertUpdate(dropSchemaSql(schemaName + "_renamed"));
         }
     }
 
@@ -2688,7 +2688,7 @@ public abstract class BaseConnectorTest
             assertUpdate("DROP TABLE IF EXISTS " + schemaName + "." + tableName);
             assertUpdate("DROP VIEW IF EXISTS " + schemaName + "." + viewName);
             assertUpdate("DROP MATERIALIZED VIEW IF EXISTS " + schemaName + "." + materializedViewName);
-            assertUpdate("DROP SCHEMA IF EXISTS " + schemaName);
+            assertUpdate(dropSchemaSql(schemaName));
         }
     }
 
@@ -4020,7 +4020,7 @@ public abstract class BaseConnectorTest
                     .containsAll(format("VALUES '%s'", schemaName));
         }
         finally {
-            assertUpdate(newSession, "DROP SCHEMA IF EXISTS " + schemaName);
+            assertUpdate(newSession, dropSchemaSql(schemaName));
         }
     }
 
@@ -7967,11 +7967,6 @@ public abstract class BaseConnectorTest
         }
     }
 
-    protected String createSchemaSql(String schemaName)
-    {
-        return "CREATE SCHEMA " + schemaName;
-    }
-
     protected boolean supportsPhysicalPushdown()
     {
         return true;
@@ -8059,5 +8054,21 @@ public abstract class BaseConnectorTest
             return queryAssert.isFullyPushedDown();
         }
         return queryAssert.isNotFullyPushedDown(otherwiseExpected);
+    }
+
+    protected String createSchemaSql(String schemaName)
+    {
+        // If we want the connectors to create views with delimited identifiers,
+        // then it is necessary to provide quoted identifiers to Trino,
+        // otherwise the views will be created with undelimited identifiers.
+        return format("CREATE SCHEMA \"%s\"", schemaName);
+    }
+
+    protected String dropSchemaSql(String schemaName)
+    {
+        // If we want the connectors to drop views with delimited identifiers,
+        // then it is necessary to provide quoted identifiers to Trino,
+        // otherwise the views will be droped with undelimited identifiers.
+        return format("DROP SCHEMA IF EXISTS \"%s\"", schemaName);
     }
 }

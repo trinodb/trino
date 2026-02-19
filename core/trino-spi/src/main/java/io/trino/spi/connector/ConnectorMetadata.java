@@ -445,6 +445,14 @@ public interface ConnectorMetadata
      */
     default void createSchema(ConnectorSession session, String schemaName, Map<String, Object> properties, TrinoPrincipal owner)
     {
+        createSchema(session, new ConnectorIdentifier(schemaName, true), properties, owner);
+    }
+
+    /**
+     * Creates a schema.
+     */
+    default void createSchema(ConnectorSession session, ConnectorIdentifier schema, Map<String, Object> properties, TrinoPrincipal owner)
+    {
         throw new TrinoException(NOT_SUPPORTED, "This connector does not support creating schemas");
     }
 
@@ -455,6 +463,16 @@ public interface ConnectorMetadata
      */
     default void dropSchema(ConnectorSession session, String schemaName, boolean cascade)
     {
+        dropSchema(session, new ConnectorIdentifier(schemaName, true), cascade);
+    }
+
+    /**
+     * Drops the specified schema.
+     *
+     * @throws TrinoException with {@code SCHEMA_NOT_EMPTY} if {@code cascade} is false and the schema is not empty
+     */
+    default void dropSchema(ConnectorSession session, ConnectorIdentifier schema, boolean cascade)
+    {
         throw new TrinoException(NOT_SUPPORTED, "This connector does not support dropping schemas");
     }
 
@@ -462,6 +480,14 @@ public interface ConnectorMetadata
      * Renames the specified schema.
      */
     default void renameSchema(ConnectorSession session, String source, String target)
+    {
+        renameSchema(session, new ConnectorIdentifier(source, true), new ConnectorIdentifier(target, true));
+    }
+
+    /**
+     * Renames the specified schema.
+     */
+    default void renameSchema(ConnectorSession session, ConnectorIdentifier source, ConnectorIdentifier target)
     {
         throw new TrinoException(NOT_SUPPORTED, "This connector does not support renaming schemas");
     }

@@ -62,6 +62,7 @@ import io.trino.plugin.jdbc.logging.RemoteQueryModifier;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.AggregateFunction;
 import io.trino.spi.connector.ColumnHandle;
+import io.trino.spi.connector.ConnectorIdentifier;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.JoinCondition;
@@ -336,14 +337,14 @@ public class OracleClient
     }
 
     @Override
-    public void createSchema(ConnectorSession session, String schemaName)
+    public void createSchema(ConnectorSession session, ConnectorIdentifier schema)
     {
         // ORA-02420: missing schema authorization clause
         throw new TrinoException(NOT_SUPPORTED, "This connector does not support creating schemas");
     }
 
     @Override
-    public void dropSchema(ConnectorSession session, String schemaName, boolean cascade)
+    public void dropSchema(ConnectorSession session, ConnectorIdentifier schema, boolean cascade)
     {
         throw new TrinoException(NOT_SUPPORTED, "This connector does not support dropping schemas");
     }
@@ -380,7 +381,7 @@ public class OracleClient
     }
 
     @Override
-    public void renameSchema(ConnectorSession session, String schemaName, String newSchemaName)
+    public void renameSchema(ConnectorSession session, ConnectorIdentifier schema, ConnectorIdentifier newSchema)
     {
         throw new TrinoException(NOT_SUPPORTED, "This connector does not support renaming schemas");
     }

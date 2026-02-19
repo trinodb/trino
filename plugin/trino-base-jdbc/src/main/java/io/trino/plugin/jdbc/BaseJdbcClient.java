@@ -32,6 +32,7 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ColumnPosition;
+import io.trino.spi.connector.ConnectorIdentifier;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplitSource;
 import io.trino.spi.connector.ConnectorTableHandle;
@@ -1550,71 +1551,70 @@ public abstract class BaseJdbcClient
     }
 
     @Override
-    public void createSchema(ConnectorSession session, String schemaName)
+    public void createSchema(ConnectorSession session, ConnectorIdentifier schema)
     {
-        ConnectorIdentity identity = session.getIdentity();
         try (Connection connection = connectionFactory.openConnection(session)) {
             verify(connection.getAutoCommit());
-            schemaName = identifierMapping.toRemoteSchemaName(getRemoteIdentifiers(connection), identity, schemaName);
-            verifySchemaName(connection.getMetaData(), schemaName);
-            createSchema(session, connection, schemaName);
+            verifySchemaName(connection.getMetaData(), schema);
+            System.out.println("BaseJdbcClient.createSchema() schema: " + schema.getValue());
+            createSchema(session, connection, schema);
         }
         catch (SQLException e) {
             throw new TrinoException(JDBC_ERROR, e);
         }
     }
 
-    protected void createSchema(ConnectorSession session, Connection connection, String remoteSchemaName)
+    protected void createSchema(ConnectorSession session, Connection connection, ConnectorIdentifier schema)
             throws SQLException
     {
-        execute(session, connection, "CREATE SCHEMA " + quoted(remoteSchemaName));
+        String createSchema = "CREATE SCHEMA " + quoted(schema);
+        System.out.println("BaseJdbcClient.createSchema() query: " + createSchema);
+        execute(session, connection, createSchema);
     }
 
     @Override
-    public void dropSchema(ConnectorSession session, String schemaName, boolean cascade)
+    public void dropSchema(ConnectorSession session, ConnectorIdentifier schema, boolean cascade)
     {
         ConnectorIdentity identity = session.getIdentity();
         try (Connection connection = connectionFactory.openConnection(session)) {
             verify(connection.getAutoCommit());
-            schemaName = identifierMapping.toRemoteSchemaName(getRemoteIdentifiers(connection), identity, schemaName);
-            dropSchema(session, connection, schemaName, cascade);
+            System.out.println("BaseJdbcClient.dropSchema() schema: " + schema.getValue());
+            dropSchema(session, connection, schema, cascade);
         }
         catch (SQLException e) {
             throw new TrinoException(JDBC_ERROR, e);
         }
     }
 
-    protected void dropSchema(ConnectorSession session, Connection connection, String remoteSchemaName, boolean cascade)
+    protected void dropSchema(ConnectorSession session, Connection connection, ConnectorIdentifier schema, boolean cascade)
             throws SQLException
     {
-        String dropSchema = "DROP SCHEMA " + quoted(remoteSchemaName);
+        String dropSchema = "DROP SCHEMA " + quoted(schema);
         if (cascade) {
             dropSchema += " CASCADE";
         }
+        System.out.println("BaseJdbcClient.dropSchema() query: " + dropSchema);
         execute(session, connection, dropSchema);
     }
 
     @Override
-    public void renameSchema(ConnectorSession session, String schemaName, String newSchemaName)
+    public void renameSchema(ConnectorSession session, ConnectorIdentifier schema, ConnectorIdentifier newSchema)
     {
         ConnectorIdentity identity = session.getIdentity();
         try (Connection connection = connectionFactory.openConnection(session)) {
             verify(connection.getAutoCommit());
-            RemoteIdentifiers remoteIdentifiers = getRemoteIdentifiers(connection);
-            String remoteSchemaName = identifierMapping.toRemoteSchemaName(remoteIdentifiers, identity, schemaName);
-            String newRemoteSchemaName = identifierMapping.toRemoteSchemaName(remoteIdentifiers, identity, newSchemaName);
-            verifySchemaName(connection.getMetaData(), newRemoteSchemaName);
-            renameSchema(session, connection, remoteSchemaName, newRemoteSchemaName);
+            verifySchemaName(connection.getMetaData(), newSchema);
+            renameSchema(session, connection, schema, newSchema);
         }
         catch (SQLException e) {
             throw new TrinoException(JDBC_ERROR, e);
         }
     }
 
-    protected void renameSchema(ConnectorSession session, Connection connection, String remoteSchemaName, String newRemoteSchemaName)
+    protected void renameSchema(ConnectorSession session, Connection connection, ConnectorIdentifier schema, ConnectorIdentifier newSchema)
             throws SQLException
     {
-        execute(session, connection, "ALTER SCHEMA " + quoted(remoteSchemaName) + " RENAME TO " + quoted(newRemoteSchemaName));
+        execute(session, connection, "ALTER SCHEMA " + quoted(schema) + " RENAME TO " + quoted(newSchema));
     }
 
     @Override
@@ -1826,6 +1826,12 @@ public abstract class BaseJdbcClient
         catch (SQLException e) {
             throw new TrinoException(JDBC_ERROR, e);
         }
+    }
+
+    protected void verifySchemaName(DatabaseMetaData databaseMetadata, ConnectorIdentifier schema)
+            throws SQLException
+    {
+        // expect remote databases throw an exception for unsupported schema names
     }
 
     protected void verifySchemaName(DatabaseMetaData databaseMetadata, String schemaName)

@@ -88,6 +88,22 @@ public class QualifiedName
         return parts;
     }
 
+    public boolean isDelimitedPart(int part)
+    {
+        if (part >= 0 && part < originalParts.size()) {
+            return originalParts.get(part).isDelimited();
+        }
+        return false;
+    }
+
+    public boolean isDelimitedSuffix()
+    {
+        if (!originalParts.isEmpty()) {
+            return originalParts.getFirst().isDelimited();
+        }
+        return false;
+    }
+
     public List<Identifier> getOriginalParts()
     {
         return originalParts;

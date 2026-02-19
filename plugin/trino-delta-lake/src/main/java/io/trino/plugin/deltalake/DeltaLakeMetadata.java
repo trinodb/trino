@@ -103,6 +103,7 @@ import io.trino.spi.connector.ColumnNotFoundException;
 import io.trino.spi.connector.ColumnPosition;
 import io.trino.spi.connector.ConnectorAccessControl;
 import io.trino.spi.connector.ConnectorAnalyzeMetadata;
+import io.trino.spi.connector.ConnectorIdentifier;
 import io.trino.spi.connector.ConnectorInsertTableHandle;
 import io.trino.spi.connector.ConnectorMaterializedViewDefinition;
 import io.trino.spi.connector.ConnectorMergeTableHandle;
@@ -1192,7 +1193,7 @@ public class DeltaLakeMetadata
     }
 
     @Override
-    public void createSchema(ConnectorSession session, String schemaName, Map<String, Object> properties, TrinoPrincipal owner)
+    public void createSchema(ConnectorSession session, ConnectorIdentifier schema, Map<String, Object> properties, TrinoPrincipal owner)
     {
         Optional<String> location = DeltaLakeSchemaProperties.getLocation(properties).map(locationUri -> {
             try {
@@ -1207,7 +1208,7 @@ public class DeltaLakeMetadata
         String queryId = session.getQueryId();
 
         Database database = Database.builder()
-                .setDatabaseName(schemaName)
+                .setDatabaseName(schema.getValue())
                 .setLocation(location)
                 .setOwnerType(Optional.of(owner.getType()))
                 .setOwnerName(Optional.of(owner.getName()))
@@ -1224,10 +1225,10 @@ public class DeltaLakeMetadata
     }
 
     @Override
-    public void dropSchema(ConnectorSession session, String schemaName, boolean cascade)
+    public void dropSchema(ConnectorSession session, ConnectorIdentifier schema, boolean cascade)
     {
         if (cascade) {
-            for (SchemaTableName viewName : listViews(session, Optional.of(schemaName))) {
+            for (SchemaTableName viewName : listViews(session, Optional.of(schema.getValue()))) {
                 try {
                     dropView(session, viewName);
                 }
@@ -1235,7 +1236,7 @@ public class DeltaLakeMetadata
                     LOG.debug("View disappeared during DROP SCHEMA CASCADE: %s", viewName);
                 }
             }
-            for (SchemaTableName tableName : listTables(session, Optional.of(schemaName))) {
+            for (SchemaTableName tableName : listTables(session, Optional.of(schema.getValue()))) {
                 ConnectorTableHandle table = getTableHandle(session, tableName, Optional.empty(), Optional.empty());
                 if (table == null) {
                     LOG.debug("Table disappeared during DROP SCHEMA CASCADE: %s", tableName);
@@ -1250,8 +1251,8 @@ public class DeltaLakeMetadata
             }
         }
 
-        Optional<String> location = metastore.getDatabase(schemaName)
-                .orElseThrow(() -> new SchemaNotFoundException(schemaName))
+        Optional<String> location = metastore.getDatabase(schema.getValue())
+                .orElseThrow(() -> new SchemaNotFoundException(schema.getValue()))
                 .getLocation();
 
         // If we see files in the schema location, don't delete it.
@@ -1266,7 +1267,7 @@ public class DeltaLakeMetadata
             }
         }).orElse(deleteSchemaLocationsFallback);
 
-        metastore.dropDatabase(schemaName, deleteData);
+        metastore.dropDatabase(schema.getValue(), deleteData);
     }
 
     @Override

@@ -33,6 +33,7 @@ import io.trino.spi.connector.AggregateFunction;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ColumnPosition;
+import io.trino.spi.connector.ConnectorIdentifier;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplitSource;
 import io.trino.spi.connector.ConnectorTableMetadata;
@@ -508,6 +509,13 @@ public class CachingJdbcClient
     }
 
     @Override
+    public void createSchema(ConnectorSession session, ConnectorIdentifier schema)
+    {
+        delegate.createSchema(session, schema);
+        invalidateSchemasCache();
+    }
+
+    @Override
     public void dropSchema(ConnectorSession session, String schemaName, boolean cascade)
     {
         delegate.dropSchema(session, schemaName, cascade);
@@ -515,9 +523,23 @@ public class CachingJdbcClient
     }
 
     @Override
+    public void dropSchema(ConnectorSession session, ConnectorIdentifier schema, boolean cascade)
+    {
+        delegate.dropSchema(session, schema, cascade);
+        invalidateSchemasCache();
+    }
+
+    @Override
     public void renameSchema(ConnectorSession session, String schemaName, String newSchemaName)
     {
         delegate.renameSchema(session, schemaName, newSchemaName);
+        invalidateSchemasCache();
+    }
+
+    @Override
+    public void renameSchema(ConnectorSession session, ConnectorIdentifier schema, ConnectorIdentifier newSchema)
+    {
+        delegate.renameSchema(session, schema, newSchema);
         invalidateSchemasCache();
     }
 
@@ -609,6 +631,12 @@ public class CachingJdbcClient
     public Optional<SystemTable> getSystemTable(ConnectorSession session, SchemaTableName tableName)
     {
         return delegate.getSystemTable(session, tableName);
+    }
+
+    @Override
+    public String quoted(ConnectorIdentifier identifier)
+    {
+        return delegate.quoted(identifier);
     }
 
     @Override

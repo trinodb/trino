@@ -72,6 +72,7 @@ import io.trino.plugin.jdbc.logging.RemoteQueryModifier;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.AggregateFunction;
 import io.trino.spi.connector.ColumnHandle;
+import io.trino.spi.connector.ConnectorIdentifier;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.JoinCondition;
@@ -353,14 +354,14 @@ public class SqlServerClient
     }
 
     @Override
-    protected void dropSchema(ConnectorSession session, Connection connection, String remoteSchemaName, boolean cascade)
+    protected void dropSchema(ConnectorSession session, Connection connection, ConnectorIdentifier schema, boolean cascade)
             throws SQLException
     {
         if (cascade) {
             // SQL Server doesn't support CASCADE option https://learn.microsoft.com/en-us/sql/t-sql/statements/drop-schema-transact-sql
             throw new TrinoException(NOT_SUPPORTED, "This connector does not support dropping schemas with CASCADE option");
         }
-        execute(session, connection, "DROP SCHEMA " + quoted(remoteSchemaName));
+        execute(session, connection, "DROP SCHEMA " + quoted(schema));
     }
 
     @Override
@@ -536,7 +537,7 @@ public class SqlServerClient
     }
 
     @Override
-    public void renameSchema(ConnectorSession session, String schemaName, String newSchemaName)
+    public void renameSchema(ConnectorSession session, ConnectorIdentifier schema, ConnectorIdentifier newSchema)
     {
         throw new TrinoException(NOT_SUPPORTED, "This connector does not support renaming schemas");
     }

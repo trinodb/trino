@@ -43,6 +43,7 @@ import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ColumnPosition;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableMetadata;
+import io.trino.spi.connector.ConnectorIdentifier;
 import io.trino.spi.type.Type;
 
 import java.sql.Connection;
@@ -172,19 +173,19 @@ public class ExasolClient
     }
 
     @Override
-    public void createSchema(ConnectorSession session, String schemaName)
+    public void createSchema(ConnectorSession session, ConnectorIdentifier schema)
     {
         throw new TrinoException(NOT_SUPPORTED, "This connector does not support creating schemas");
     }
 
     @Override
-    public void dropSchema(ConnectorSession session, String schemaName, boolean cascade)
+    public void dropSchema(ConnectorSession session, ConnectorIdentifier schema, boolean cascade)
     {
         throw new TrinoException(NOT_SUPPORTED, "This connector does not support dropping schemas");
     }
 
     @Override
-    public void renameSchema(ConnectorSession session, String schemaName, String newSchemaName)
+    public void renameSchema(ConnectorSession session, ConnectorIdentifier schema, ConnectorIdentifier newSchema)
     {
         throw new TrinoException(NOT_SUPPORTED, "This connector does not support renaming schemas");
     }

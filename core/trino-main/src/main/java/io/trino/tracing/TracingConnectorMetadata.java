@@ -26,6 +26,7 @@ import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ColumnPosition;
 import io.trino.spi.connector.ConnectorAccessControl;
 import io.trino.spi.connector.ConnectorAnalyzeMetadata;
+import io.trino.spi.connector.ConnectorIdentifier;
 import io.trino.spi.connector.ConnectorInsertTableHandle;
 import io.trino.spi.connector.ConnectorMaterializedViewDefinition;
 import io.trino.spi.connector.ConnectorMergeTableHandle;
@@ -352,6 +353,15 @@ public class TracingConnectorMetadata
     }
 
     @Override
+    public void createSchema(ConnectorSession session, ConnectorIdentifier schema, Map<String, Object> properties, TrinoPrincipal owner)
+    {
+        Span span = startSpan("createSchema", schema.getValue());
+        try (var _ = scopedSpan(span)) {
+            delegate.createSchema(session, schema, properties, owner);
+        }
+    }
+
+    @Override
     public void dropSchema(ConnectorSession session, String schemaName, boolean cascade)
     {
         Span span = startSpan("dropSchema", schemaName)
@@ -362,9 +372,28 @@ public class TracingConnectorMetadata
     }
 
     @Override
-    public void renameSchema(ConnectorSession session, String source, String target)
+    public void dropSchema(ConnectorSession session, ConnectorIdentifier schema, boolean cascade)
     {
-        Span span = startSpan("renameSchema", source);
+        Span span = startSpan("dropSchema", schema.getValue())
+                .setAttribute(TrinoAttributes.CASCADE, cascade);
+        try (var _ = scopedSpan(span)) {
+            delegate.dropSchema(session, schema, cascade);
+        }
+    }
+
+    @Override
+    public void renameSchema(ConnectorSession session, String schemaName, String newSchemaName)
+    {
+        Span span = startSpan("renameSchema", schemaName);
+        try (var _ = scopedSpan(span)) {
+            delegate.renameSchema(session, schemaName, newSchemaName);
+        }
+    }
+
+    @Override
+    public void renameSchema(ConnectorSession session, ConnectorIdentifier source, ConnectorIdentifier target)
+    {
+        Span span = startSpan("renameSchema", source.getValue());
         try (var _ = scopedSpan(span)) {
             delegate.renameSchema(session, source, target);
         }

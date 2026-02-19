@@ -69,11 +69,6 @@ public abstract class BaseConnectorSmokeTest
         return connectorBehavior.hasBehaviorByDefault(this::hasBehavior);
     }
 
-    protected String createSchemaSql(String schemaName)
-    {
-        return "CREATE SCHEMA " + schemaName;
-    }
-
     /**
      * Ensure the tests are run with {@link io.trino.testing.DistributedQueryRunner} with multiple workers.
      */
@@ -765,5 +760,13 @@ public abstract class BaseConnectorSmokeTest
                 getSession().getSchema().orElseThrow(),
                 tableName,
                 columnName));
+    }
+
+    protected String createSchemaSql(String schemaName)
+    {
+        // If we want the connectors to create views with delimited identifiers,
+        // then it is necessary to provide quoted identifiers to Trino,
+        // otherwise the views will be created with undelimited identifiers.
+        return format("CREATE SCHEMA \"%s\"", schemaName);
     }
 }

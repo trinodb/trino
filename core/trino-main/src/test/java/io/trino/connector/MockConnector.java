@@ -37,6 +37,7 @@ import io.trino.spi.connector.ColumnPosition;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorAccessControl;
 import io.trino.spi.connector.ConnectorCapabilities;
+import io.trino.spi.connector.ConnectorIdentifier;
 import io.trino.spi.connector.ConnectorInsertTableHandle;
 import io.trino.spi.connector.ConnectorMaterializedViewDefinition;
 import io.trino.spi.connector.ConnectorMergeSink;
@@ -529,16 +530,16 @@ public class MockConnector
         }
 
         @Override
-        public void createSchema(ConnectorSession session, String schemaName, Map<String, Object> properties, TrinoPrincipal owner) {}
+        public void createSchema(ConnectorSession session, ConnectorIdentifier schemaName, Map<String, Object> properties, TrinoPrincipal owner) {}
 
         @Override
-        public void renameSchema(ConnectorSession session, String source, String target) {}
+        public void renameSchema(ConnectorSession session, ConnectorIdentifier source, ConnectorIdentifier target) {}
 
         @Override
         public void setSchemaAuthorization(ConnectorSession session, String schemaName, TrinoPrincipal principal) {}
 
         @Override
-        public void dropSchema(ConnectorSession session, String schemaName, boolean cascade) {}
+        public void dropSchema(ConnectorSession session, ConnectorIdentifier schemaName, boolean cascade) {}
 
         @Override
         public ConnectorTableHandle getTableHandle(ConnectorSession session, SchemaTableName tableName, Optional<ConnectorTableVersion> startVersion, Optional<ConnectorTableVersion> endVersion)

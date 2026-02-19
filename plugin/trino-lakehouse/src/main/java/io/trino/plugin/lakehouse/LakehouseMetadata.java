@@ -48,6 +48,7 @@ import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ColumnPosition;
 import io.trino.spi.connector.ConnectorAccessControl;
 import io.trino.spi.connector.ConnectorAnalyzeMetadata;
+import io.trino.spi.connector.ConnectorIdentifier;
 import io.trino.spi.connector.ConnectorInsertTableHandle;
 import io.trino.spi.connector.ConnectorMaterializedViewDefinition;
 import io.trino.spi.connector.ConnectorMergeTableHandle;
@@ -338,20 +339,38 @@ public class LakehouseMetadata
     @Override
     public void createSchema(ConnectorSession session, String schemaName, Map<String, Object> properties, TrinoPrincipal owner)
     {
-        hiveMetadata.createSchema(session, schemaName, properties, owner);
+        createSchema(session, new ConnectorIdentifier(schemaName, true), properties, owner);
+    }
+
+    @Override
+    public void createSchema(ConnectorSession session, ConnectorIdentifier schema, Map<String, Object> properties, TrinoPrincipal owner)
+    {
+        hiveMetadata.createSchema(session, schema.getValue(), properties, owner);
     }
 
     @Override
     public void dropSchema(ConnectorSession session, String schemaName, boolean cascade)
     {
-        // use Iceberg to allow dropping materialized views
-        icebergMetadata.dropSchema(session, schemaName, cascade);
+        dropSchema(session, new ConnectorIdentifier(schemaName, true), cascade);
     }
 
     @Override
-    public void renameSchema(ConnectorSession session, String source, String target)
+    public void dropSchema(ConnectorSession session, ConnectorIdentifier schema, boolean cascade)
     {
-        hiveMetadata.renameSchema(session, source, target);
+        // use Iceberg to allow dropping materialized views
+        icebergMetadata.dropSchema(session, schema.getValue(), cascade);
+    }
+
+    @Override
+    public void renameSchema(ConnectorSession session, String schemaName, String newSchemaName)
+    {
+        renameSchema(session, new ConnectorIdentifier(schemaName, true), new ConnectorIdentifier(newSchemaName, true));
+    }
+
+    @Override
+    public void renameSchema(ConnectorSession session, ConnectorIdentifier source, ConnectorIdentifier target)
+    {
+        hiveMetadata.renameSchema(session, source.getValue(), target.getValue());
     }
 
     @Override

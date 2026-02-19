@@ -30,6 +30,7 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ColumnPosition;
+import io.trino.spi.connector.ConnectorIdentifier;
 import io.trino.spi.connector.ConnectorInsertTableHandle;
 import io.trino.spi.connector.ConnectorMetadata;
 import io.trino.spi.connector.ConnectorOutputMetadata;
@@ -123,62 +124,62 @@ public class MemoryMetadata
     }
 
     @Override
-    public synchronized void createSchema(ConnectorSession session, String schemaName, Map<String, Object> properties, TrinoPrincipal owner)
+    public synchronized void createSchema(ConnectorSession session, ConnectorIdentifier schema, Map<String, Object> properties, TrinoPrincipal owner)
     {
-        if (schemas.contains(schemaName)) {
-            throw new TrinoException(ALREADY_EXISTS, format("Schema [%s] already exists", schemaName));
+        if (schemas.contains(schema.getValue())) {
+            throw new TrinoException(ALREADY_EXISTS, format("Schema [%s] already exists", schema.getValue()));
         }
-        schemas.add(schemaName);
+        schemas.add(schema.getValue());
     }
 
     @Override
-    public synchronized void dropSchema(ConnectorSession session, String schemaName, boolean cascade)
+    public synchronized void dropSchema(ConnectorSession session, ConnectorIdentifier schema, boolean cascade)
     {
-        if (!schemas.contains(schemaName)) {
-            throw new TrinoException(NOT_FOUND, format("Schema [%s] does not exist", schemaName));
+        if (!schemas.contains(schema.getValue())) {
+            throw new TrinoException(NOT_FOUND, format("Schema [%s] does not exist", schema.getValue()));
         }
 
         if (cascade) {
             Set<SchemaTableName> viewNames = views.keySet().stream()
-                    .filter(view -> view.getSchemaName().equals(schemaName))
+                    .filter(view -> view.getSchemaName().equals(schema.getValue()))
                     .collect(toImmutableSet());
             viewNames.forEach(viewName -> dropView(session, viewName));
 
             Set<SchemaTableName> tableNames = tables.values().stream()
-                    .filter(table -> table.schemaName().equals(schemaName))
+                    .filter(table -> table.schemaName().equals(schema.getValue()))
                     .map(TableInfo::getSchemaTableName)
                     .collect(toImmutableSet());
             tableNames.forEach(tableName -> dropTable(session, getTableHandle(session, tableName, Optional.empty(), Optional.empty())));
         }
         // DropSchemaTask has the same logic, but needs to check in connector side considering concurrent operations
-        if (!isSchemaEmpty(schemaName)) {
-            throw new TrinoException(SCHEMA_NOT_EMPTY, "Schema not empty: " + schemaName);
+        if (!isSchemaEmpty(schema.getValue())) {
+            throw new TrinoException(SCHEMA_NOT_EMPTY, "Schema not empty: " + schema);
         }
 
-        verify(schemas.remove(schemaName));
+        verify(schemas.remove(schema.getValue()));
     }
 
     @Override
-    public synchronized void renameSchema(ConnectorSession session, String source, String target)
+    public synchronized void renameSchema(ConnectorSession session, ConnectorIdentifier source, ConnectorIdentifier target)
     {
-        if (!schemas.remove(source)) {
-            throw new SchemaNotFoundException(source);
+        if (!schemas.remove(source.getValue())) {
+            throw new SchemaNotFoundException(source.getValue());
         }
-        schemas.add(target);
+        schemas.add(target.getValue());
 
         Map<SchemaTableName, Long> newTableIds = new HashMap<>();
         for (Iterator<Entry<SchemaTableName, Long>> iterator = tableIds.entrySet().iterator(); iterator.hasNext(); ) {
             Entry<SchemaTableName, Long> table = iterator.next();
             if (table.getKey().getSchemaName().equals(source)) {
                 iterator.remove();
-                newTableIds.put(new SchemaTableName(target, table.getKey().getTableName()), table.getValue());
+                newTableIds.put(new SchemaTableName(target.getValue(), table.getKey().getTableName()), table.getValue());
             }
         }
         tableIds.putAll(newTableIds);
 
         tables.replaceAll((tableId, table) ->
-                table.schemaName().equals(source)
-                        ? new TableInfo(tableId, target, table.tableName(), table.columns(), table.truncated(), table.dataFragments(), table.comment())
+                table.schemaName().equals(source.getValue())
+                        ? new TableInfo(tableId, target.getValue(), table.tableName(), table.columns(), table.truncated(), table.dataFragments(), table.comment())
                         : table);
 
         Map<SchemaTableName, ConnectorViewDefinition> newViews = new HashMap<>();
@@ -186,7 +187,7 @@ public class MemoryMetadata
             Entry<SchemaTableName, ConnectorViewDefinition> view = iterator.next();
             if (view.getKey().getSchemaName().equals(source)) {
                 iterator.remove();
-                newViews.put(new SchemaTableName(target, view.getKey().getTableName()), view.getValue());
+                newViews.put(new SchemaTableName(target.getValue(), view.getKey().getTableName()), view.getValue());
             }
         }
         views.putAll(newViews);
@@ -196,7 +197,7 @@ public class MemoryMetadata
             Entry<SchemaFunctionName, Map<String, LanguageFunction>> function = iterator.next();
             if (function.getKey().schemaName().equals(source)) {
                 iterator.remove();
-                newFunctions.put(new SchemaFunctionName(target, function.getKey().functionName()), function.getValue());
+                newFunctions.put(new SchemaFunctionName(target.getValue(), function.getKey().functionName()), function.getValue());
             }
         }
         functions.putAll(newFunctions);

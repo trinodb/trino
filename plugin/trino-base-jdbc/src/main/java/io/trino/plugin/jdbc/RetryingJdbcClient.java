@@ -21,6 +21,7 @@ import io.trino.spi.connector.AggregateFunction;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ColumnPosition;
+import io.trino.spi.connector.ConnectorIdentifier;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplitSource;
 import io.trino.spi.connector.ConnectorTableMetadata;
@@ -480,10 +481,24 @@ public class RetryingJdbcClient
     }
 
     @Override
+    public void createSchema(ConnectorSession session, ConnectorIdentifier schema)
+    {
+        // no retrying as it could be not idempotent operation
+        delegate.createSchema(session, schema);
+    }
+
+    @Override
     public void dropSchema(ConnectorSession session, String schemaName, boolean cascade)
     {
         // no retrying as it could be not idempotent operation
         delegate.dropSchema(session, schemaName, cascade);
+    }
+
+    @Override
+    public void dropSchema(ConnectorSession session, ConnectorIdentifier schema, boolean cascade)
+    {
+        // no retrying as it could be not idempotent operation
+        delegate.dropSchema(session, schema, cascade);
     }
 
     @Override
@@ -494,10 +509,23 @@ public class RetryingJdbcClient
     }
 
     @Override
+    public void renameSchema(ConnectorSession session, ConnectorIdentifier schema, ConnectorIdentifier newSchema)
+    {
+        // no retrying as it could be not idempotent operation
+        delegate.renameSchema(session, schema, newSchema);
+    }
+
+    @Override
     public Optional<SystemTable> getSystemTable(ConnectorSession session, SchemaTableName tableName)
     {
         // there should be no remote database interaction
         return delegate.getSystemTable(session, tableName);
+    }
+
+    @Override
+    public String quoted(ConnectorIdentifier identifier)
+    {
+        return delegate.quoted(identifier);
     }
 
     @Override

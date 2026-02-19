@@ -69,6 +69,7 @@ import io.trino.spi.connector.AggregateFunction;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ColumnPosition;
+import io.trino.spi.connector.ConnectorIdentifier;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.JoinCondition;
@@ -394,18 +395,18 @@ public class MySqlClient
     }
 
     @Override
-    protected void dropSchema(ConnectorSession session, Connection connection, String remoteSchemaName, boolean cascade)
+    protected void dropSchema(ConnectorSession session, Connection connection, ConnectorIdentifier schema, boolean cascade)
             throws SQLException
     {
         // MySQL always deletes all tables inside the database https://dev.mysql.com/doc/refman/8.0/en/drop-database.html
         if (!cascade) {
-            try (ResultSet tables = getTables(connection, Optional.of(remoteSchemaName), Optional.empty())) {
+            try (ResultSet tables = getTables(connection, Optional.of(schema.getValue()), Optional.empty())) {
                 if (tables.next()) {
-                    throw new TrinoException(SCHEMA_NOT_EMPTY, "Cannot drop non-empty schema '%s'".formatted(remoteSchemaName));
+                    throw new TrinoException(SCHEMA_NOT_EMPTY, "Cannot drop non-empty schema '%s'".formatted(schema.getValue()));
                 }
             }
         }
-        execute(session, connection, "DROP SCHEMA " + quoted(remoteSchemaName));
+        execute(session, connection, "DROP SCHEMA " + quoted(schema));
     }
 
     @Override
@@ -1007,7 +1008,7 @@ public class MySqlClient
     }
 
     @Override
-    public void renameSchema(ConnectorSession session, String schemaName, String newSchemaName)
+    public void renameSchema(ConnectorSession session, ConnectorIdentifier schema, ConnectorIdentifier newSchema)
     {
         throw new TrinoException(NOT_SUPPORTED, "This connector does not support renaming schemas");
     }

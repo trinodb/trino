@@ -1420,7 +1420,7 @@ public abstract class BaseJdbcConnectorTest
     {
         if (hasBehavior(SUPPORTS_CREATE_SCHEMA)) {
             String schemaName = "test_columns_listing_" + randomNameSuffix();
-            assertUpdate("CREATE SCHEMA " + schemaName);
+            assertUpdate(createSchemaSql(schemaName));
             try {
                 try (TestTable newNation = newTrinoTable(
                         schemaName + ".nation",
@@ -1437,7 +1437,7 @@ public abstract class BaseJdbcConnectorTest
                 }
             }
             finally {
-                assertUpdate("DROP SCHEMA " + schemaName);
+                assertUpdate(dropSchemaSql(schemaName));
             }
             return;
         }
