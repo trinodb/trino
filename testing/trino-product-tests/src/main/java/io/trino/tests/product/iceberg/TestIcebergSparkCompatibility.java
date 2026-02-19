@@ -1820,7 +1820,7 @@ public class TestIcebergSparkCompatibility
 
     private String getIcebergCompressionCodecTableProperty(StorageFormat storageFormat)
     {
-        return switch(storageFormat) {
+        return switch (storageFormat) {
             case AVRO -> "write.avro.compression-codec";
             case PARQUET -> "write.parquet.compression-codec";
             case ORC -> "write.orc.compression-codec";
