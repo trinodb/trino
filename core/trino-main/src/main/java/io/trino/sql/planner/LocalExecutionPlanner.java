@@ -98,6 +98,8 @@ import io.trino.operator.TopNRankingOperator;
 import io.trino.operator.ValuesOperator.ValuesOperatorFactory;
 import io.trino.operator.WindowFunctionDefinition;
 import io.trino.operator.WindowOperator.WindowOperatorFactory;
+import io.trino.operator.WorkProcessorOperatorAdapter;
+import io.trino.operator.WorkProcessorOperatorFactory;
 import io.trino.operator.aggregation.AccumulatorFactory;
 import io.trino.operator.aggregation.AggregatorFactory;
 import io.trino.operator.aggregation.DistinctAccumulatorFactory;
@@ -122,6 +124,7 @@ import io.trino.operator.index.IndexSourceOperator;
 import io.trino.operator.join.HashBuilderOperator.HashBuilderOperatorFactory;
 import io.trino.operator.join.JoinBridgeManager;
 import io.trino.operator.join.JoinOperatorFactory;
+import io.trino.operator.join.LookupJoinOperatorFactory;
 import io.trino.operator.join.LookupSourceFactory;
 import io.trino.operator.join.NestedLoopJoinBridge;
 import io.trino.operator.join.NestedLoopJoinPagesSupplier;
@@ -719,34 +722,82 @@ public class LocalExecutionPlanner
             boolean inputDriver = context.isInputDriver();
             OptionalInt driverInstances = context.getDriverInstanceCount();
             List<OperatorFactory> operatorFactories = physicalOperation.getOperatorFactories();
-            addLookupOuterDrivers(outputDriver, operatorFactories);
-            addDriverFactory(inputDriver, outputDriver, operatorFactories, driverInstances);
+
+            // addLookupOuterDrivers may adjust LookupJoinOperatorFactory's totalOperatorsCount
+            // to account for additional operators created by duplicating factories
+            List<OperatorFactory> adjustedFactories = addLookupOuterDrivers(outputDriver, operatorFactories);
+            addDriverFactory(inputDriver, outputDriver, adjustedFactories, driverInstances);
         }
 
-        private void addLookupOuterDrivers(boolean isOutputDriver, List<OperatorFactory> operatorFactories)
+        /**
+         * For an outer join on the lookup side (RIGHT or FULL), adds an additional driver
+         * to output the unused rows in the lookup source.
+         *
+         * When duplicating factories, this method also adjusts the totalOperatorsCount of
+         * LookupJoinOperatorFactory to account for the additional operators that will be
+         * created by the duplicated factories.
+         *
+         * @return the adjusted list of operator factories (with updated totalOperatorsCount)
+         */
+        private List<OperatorFactory> addLookupOuterDrivers(boolean isOutputDriver, List<OperatorFactory> operatorFactories)
         {
-            // For an outer join on the lookup side (RIGHT or FULL) add an additional
-            // driver to output the unused rows in the lookup source
-            for (int i = 0; i < operatorFactories.size(); i++) {
-                OperatorFactory operatorFactory = operatorFactories.get(i);
+            // Use ArrayList to allow in-place modifications
+            List<OperatorFactory> adjustedFactories = new ArrayList<>(operatorFactories);
+
+            for (int i = 0; i < adjustedFactories.size(); i++) {
+                OperatorFactory operatorFactory = adjustedFactories.get(i);
                 if (!(operatorFactory instanceof JoinOperatorFactory lookupJoin)) {
                     continue;
                 }
 
                 Optional<OperatorFactory> outerOperatorFactoryResult = lookupJoin.createOuterOperatorFactory();
                 if (outerOperatorFactoryResult.isPresent()) {
+                    // Before duplicating, adjust the totalOperatorsCount of LookupJoinOperatorFactory
+                    // in the original list. Each outer driver creates 1 additional operator instance
+                    // (outerDriverInstances = 1), so we increment by 1.
+                    for (int j = i + 1; j < adjustedFactories.size(); j++) {
+                        OperatorFactory original = adjustedFactories.get(j);
+                        OperatorFactory adjusted = adjustFactoryIfLookupJoin(original, 1);
+                        if (adjusted != original) {
+                            adjustedFactories.set(j, adjusted);
+                        }
+                    }
+
                     // Add a new driver to output the unmatched rows in an outer join.
                     // We duplicate all of the factories above the JoinOperator (the ones reading from the joins),
                     // and replace the JoinOperator with the OuterOperator (the one that produces unmatched rows).
                     ImmutableList.Builder<OperatorFactory> newOperators = ImmutableList.builder();
                     newOperators.add(outerOperatorFactoryResult.get());
-                    operatorFactories.subList(i + 1, operatorFactories.size()).stream()
+                    adjustedFactories.subList(i + 1, adjustedFactories.size()).stream()
                             .map(OperatorFactory::duplicate)
                             .forEach(newOperators::add);
 
                     addDriverFactory(false, isOutputDriver, newOperators.build(), OptionalInt.of(1));
                 }
             }
+
+            return adjustedFactories;
+        }
+
+        /**
+         * If the factory is a LookupJoinOperatorFactory (directly or wrapped in WorkProcessorOperatorAdapter),
+         * returns a new factory with adjusted totalOperatorsCount.
+         */
+        private static OperatorFactory adjustFactoryIfLookupJoin(OperatorFactory factory, int additionalOperators)
+        {
+            if (factory instanceof LookupJoinOperatorFactory lookupJoin) {
+                return (OperatorFactory) lookupJoin.withAdjustedTotalOperatorsCount(additionalOperators);
+            }
+            if (factory instanceof WorkProcessorOperatorAdapter.Factory adapterFactory) {
+                WorkProcessorOperatorFactory innerFactory = adapterFactory.getWorkProcessorOperatorFactory();
+                if (innerFactory instanceof LookupJoinOperatorFactory lookupJoin) {
+                    LookupJoinOperatorFactory adjusted = lookupJoin.withAdjustedTotalOperatorsCount(additionalOperators);
+                    if (adjusted != lookupJoin) {
+                        return WorkProcessorOperatorAdapter.createAdapterOperatorFactory(adjusted);
+                    }
+                }
+            }
+            return factory;
         }
 
         private void addDriverFactory(boolean inputDriver, boolean outputDriver, List<OperatorFactory> operatorFactories, OptionalInt driverInstances)
