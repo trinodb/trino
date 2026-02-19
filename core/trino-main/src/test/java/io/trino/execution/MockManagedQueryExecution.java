@@ -55,10 +55,13 @@ public class MockManagedQueryExecution
     private DataSize memoryUsage;
     private Duration cpuUsage;
     private DataSize physicalInputDataUsage;
+    private int runningDrivers;
+    private int queuedDrivers;
+    private int blockedDrivers;
     private QueryState state = QUEUED;
     private Throwable failureCause;
 
-    private MockManagedQueryExecution(String queryId, int priority, DataSize memoryUsage, Duration cpuUsage, DataSize physicalInputDataUsage)
+    private MockManagedQueryExecution(String queryId, int priority, DataSize memoryUsage, Duration cpuUsage, DataSize physicalInputDataUsage, int runningDrivers, int queuedDrivers, int blockedDrivers)
     {
         requireNonNull(queryId, "queryId is null");
         this.session = testSessionBuilder()
@@ -69,6 +72,9 @@ public class MockManagedQueryExecution
         this.memoryUsage = requireNonNull(memoryUsage, "memoryUsage is null");
         this.cpuUsage = requireNonNull(cpuUsage, "cpuUsage is null");
         this.physicalInputDataUsage = requireNonNull(physicalInputDataUsage, "physicalInputDataUsage is null");
+        this.runningDrivers = runningDrivers;
+        this.queuedDrivers = queuedDrivers;
+        this.blockedDrivers = blockedDrivers;
     }
 
     public void consumeCpuTimeMillis(long cpuTimeDeltaMillis)
@@ -89,6 +95,12 @@ public class MockManagedQueryExecution
         checkState(state == RUNNING, "cannot set physical input data usage in a non-running state");
         long newDataScan = physicalInputDataUsage.toBytes() + physicalInputDataBytes;
         this.physicalInputDataUsage = DataSize.ofBytes(newDataScan);
+    }
+
+    public void setState(QueryState state)
+    {
+        this.state = state;
+        fireStateChange();
     }
 
     public void complete()
@@ -136,11 +148,11 @@ public class MockManagedQueryExecution
                         new Duration(5, NANOSECONDS),
                         new Duration(6, NANOSECONDS),
                         99,
-                        6,
-                        7,
-                        8,
+                        runningDrivers + queuedDrivers + blockedDrivers + 9,
+                        queuedDrivers,
+                        runningDrivers,
                         9,
-                        5,
+                        blockedDrivers,
                         15,
                         DataSize.ofBytes(13),
                         physicalInputDataUsage,
@@ -368,6 +380,9 @@ public class MockManagedQueryExecution
         private DataSize physicalInputDataUsage = DataSize.ofBytes(0);
         private int priority = 1;
         private String queryId = "query_id";
+        private int runningDrivers;
+        private int queuedDrivers;
+        private int blockedDrivers;
 
         public MockManagedQueryExecutionBuilder() {}
 
@@ -401,9 +416,27 @@ public class MockManagedQueryExecution
             return this;
         }
 
+        public MockManagedQueryExecutionBuilder withRunningDrivers(int runningDrivers)
+        {
+            this.runningDrivers = runningDrivers;
+            return this;
+        }
+
+        public MockManagedQueryExecutionBuilder withQueuedDrivers(int queuedDrivers)
+        {
+            this.queuedDrivers = queuedDrivers;
+            return this;
+        }
+
+        public MockManagedQueryExecutionBuilder withBlockedDrivers(int blockedDrivers)
+        {
+            this.blockedDrivers = blockedDrivers;
+            return this;
+        }
+
         public MockManagedQueryExecution build()
         {
-            return new MockManagedQueryExecution(queryId, priority, memoryUsage, cpuUsage, physicalInputDataUsage);
+            return new MockManagedQueryExecution(queryId, priority, memoryUsage, cpuUsage, physicalInputDataUsage, runningDrivers, queuedDrivers, blockedDrivers);
         }
     }
 }

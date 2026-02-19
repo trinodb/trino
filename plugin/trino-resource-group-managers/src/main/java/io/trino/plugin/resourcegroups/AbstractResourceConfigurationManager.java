@@ -243,5 +243,10 @@ public abstract class AbstractResourceConfigurationManager
             rate = Math.max(1, rate);
             group.setPhysicalDataScanQuotaGenerationBytesPerSecond(rate);
         }
+        match.getPerQueryMemoryLimit().map(DataSize::toBytes).ifPresent(group::setPerQueryMemoryLimitBytes);
+        match.getPerQueryCpuLimit().map(Duration::toMillis).ifPresent(group::setPerQueryCpuLimitMillis);
+        match.getPerQueryScanLimit().map(DataSize::toBytes).ifPresent(group::setPerQueryScanLimitBytes);
+        match.getHardTotalDriverLimit().ifPresent(group::setHardTotalDriverLimit);
+        match.getHardPlanningConcurrencyLimit().ifPresent(group::setHardPlanningConcurrencyLimit);
     }
 }

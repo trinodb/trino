@@ -119,7 +119,12 @@ public class ResourceGroupSpecBuilder
                 jmxExport,
                 softCpuLimit,
                 hardCpuLimit,
-                hardPhysicalDataScanLimit);
+                hardPhysicalDataScanLimit,
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty());
     }
 
     public static class Mapper
