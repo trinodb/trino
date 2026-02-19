@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.operator.join;
+package io.trino.operator.join.spilling;
 
 import com.google.common.io.Closer;
 import com.google.common.util.concurrent.Futures;
@@ -19,7 +19,12 @@ import com.google.common.util.concurrent.ListenableFuture;
 import io.trino.operator.SpillMetrics;
 import io.trino.operator.WorkProcessor;
 import io.trino.operator.join.DefaultPageJoiner.SavedRow;
+import io.trino.operator.join.LookupSource;
+import io.trino.operator.join.LookupSourceFactory;
+import io.trino.operator.join.LookupSourceProvider;
+import io.trino.operator.join.PageJoiner;
 import io.trino.operator.join.PageJoiner.PageJoinerFactory;
+import io.trino.operator.join.StaticLookupSourceProvider;
 import io.trino.spi.Page;
 import io.trino.spiller.PartitioningSpillerFactory;
 import jakarta.annotation.Nullable;

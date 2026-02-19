@@ -22,8 +22,8 @@ import io.trino.operator.WorkProcessorOperator;
 import io.trino.operator.WorkProcessorOperatorFactory;
 import io.trino.operator.join.JoinBridgeManager;
 import io.trino.operator.join.JoinOperatorFactory;
-import io.trino.operator.join.LookupJoinOperatorFactory.JoinType;
 import io.trino.operator.join.LookupOuterOperator.LookupOuterOperatorFactory;
+import io.trino.operator.join.spilling.LookupJoinOperatorFactory.JoinType;
 import io.trino.operator.join.unspilled.JoinProbe.JoinProbeFactory;
 import io.trino.spi.Page;
 import io.trino.spi.type.Type;
@@ -34,8 +34,8 @@ import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
-import static io.trino.operator.join.LookupJoinOperatorFactory.JoinType.INNER;
-import static io.trino.operator.join.LookupJoinOperatorFactory.JoinType.PROBE_OUTER;
+import static io.trino.operator.join.spilling.LookupJoinOperatorFactory.JoinType.INNER;
+import static io.trino.operator.join.spilling.LookupJoinOperatorFactory.JoinType.PROBE_OUTER;
 import static java.util.Objects.requireNonNull;
 
 public class LookupJoinOperatorFactory

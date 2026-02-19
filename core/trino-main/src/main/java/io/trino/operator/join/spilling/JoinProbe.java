@@ -11,9 +11,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.operator.join;
+package io.trino.operator.join.spilling;
 
 import com.google.common.primitives.Ints;
+import io.trino.operator.join.LookupSource;
 import io.trino.spi.Page;
 
 import java.util.List;

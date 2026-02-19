@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.operator.join;
+package io.trino.operator.join.spilling;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -21,7 +21,12 @@ import com.google.errorprone.annotations.Immutable;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
 import io.trino.annotation.NotThreadSafe;
 import io.trino.operator.NullSafeHashCompiler;
+import io.trino.operator.join.LookupSource;
+import io.trino.operator.join.LookupSourceFactory;
+import io.trino.operator.join.LookupSourceProvider;
 import io.trino.operator.join.LookupSourceProvider.LookupSourceLease;
+import io.trino.operator.join.OuterPositionIterator;
+import io.trino.operator.join.TrackingLookupSourceSupplier;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.type.Type;
@@ -48,7 +53,7 @@ import static com.google.common.util.concurrent.Futures.nonCancellationPropagati
 import static com.google.common.util.concurrent.Futures.transform;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.trino.operator.join.OuterLookupSource.createOuterLookupSourceSupplier;
-import static io.trino.operator.join.PartitionedLookupSource.createPartitionedLookupSourceSupplier;
+import static io.trino.operator.join.spilling.PartitionedLookupSource.createPartitionedLookupSourceSupplier;
 import static java.util.Collections.emptyList;
 import static java.util.Objects.requireNonNull;
 

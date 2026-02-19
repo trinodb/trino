@@ -13,13 +13,13 @@
  */
 package io.trino.operator;
 
-import io.trino.operator.join.LookupJoinOperatorFactory;
+import io.trino.operator.join.spilling.LookupJoinOperatorFactory;
 import io.trino.sql.planner.plan.JoinType;
 
-import static io.trino.operator.join.LookupJoinOperatorFactory.JoinType.FULL_OUTER;
-import static io.trino.operator.join.LookupJoinOperatorFactory.JoinType.INNER;
-import static io.trino.operator.join.LookupJoinOperatorFactory.JoinType.LOOKUP_OUTER;
-import static io.trino.operator.join.LookupJoinOperatorFactory.JoinType.PROBE_OUTER;
+import static io.trino.operator.join.spilling.LookupJoinOperatorFactory.JoinType.FULL_OUTER;
+import static io.trino.operator.join.spilling.LookupJoinOperatorFactory.JoinType.INNER;
+import static io.trino.operator.join.spilling.LookupJoinOperatorFactory.JoinType.LOOKUP_OUTER;
+import static io.trino.operator.join.spilling.LookupJoinOperatorFactory.JoinType.PROBE_OUTER;
 import static java.util.Objects.requireNonNull;
 
 public class JoinOperatorType

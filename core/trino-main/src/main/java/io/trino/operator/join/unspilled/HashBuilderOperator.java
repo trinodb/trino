@@ -42,7 +42,7 @@ import static io.trino.memory.context.CoarseGrainLocalMemoryContext.DEFAULT_GRAN
 import static java.util.Objects.requireNonNull;
 
 /**
- * Like {@link io.trino.operator.join.HashBuilderOperator} but simplified,
+ * Like {@link io.trino.operator.join.spilling.HashBuilderOperator} but simplified,
  * without spill support.
  */
 @ThreadSafe

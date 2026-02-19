@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.operator.join;
+package io.trino.operator.join.spilling;
 
 import com.google.common.util.concurrent.ListenableFuture;
 import io.trino.operator.HashGenerator;
@@ -20,9 +20,13 @@ import io.trino.operator.ProcessorContext;
 import io.trino.operator.SpillMetrics;
 import io.trino.operator.WorkProcessor;
 import io.trino.operator.WorkProcessorOperator;
-import io.trino.operator.join.JoinProbe.JoinProbeFactory;
-import io.trino.operator.join.LookupJoinOperatorFactory.JoinType;
+import io.trino.operator.join.DefaultPageJoiner;
+import io.trino.operator.join.JoinStatisticsCounter;
+import io.trino.operator.join.LookupSourceFactory;
+import io.trino.operator.join.LookupSourceProvider;
 import io.trino.operator.join.PageJoiner.PageJoinerFactory;
+import io.trino.operator.join.spilling.JoinProbe.JoinProbeFactory;
+import io.trino.operator.join.spilling.LookupJoinOperatorFactory.JoinType;
 import io.trino.spi.Page;
 import io.trino.spi.metrics.Metrics;
 import io.trino.spi.type.Type;

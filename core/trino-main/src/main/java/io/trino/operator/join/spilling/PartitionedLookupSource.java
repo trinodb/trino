@@ -11,13 +11,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.operator.join;
+package io.trino.operator.join.spilling;
 
 import com.google.common.io.Closer;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
 import io.trino.annotation.NotThreadSafe;
 import io.trino.operator.NullSafeHashCompiler;
 import io.trino.operator.exchange.LocalPartitionGenerator;
+import io.trino.operator.join.LookupSource;
+import io.trino.operator.join.OuterPositionIterator;
+import io.trino.operator.join.TrackingLookupSourceSupplier;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.type.Type;

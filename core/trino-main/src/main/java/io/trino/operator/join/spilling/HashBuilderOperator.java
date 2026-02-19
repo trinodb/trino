@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.operator.join;
+package io.trino.operator.join.spilling;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
@@ -31,6 +31,8 @@ import io.trino.operator.OperatorContext;
 import io.trino.operator.OperatorFactory;
 import io.trino.operator.PagesIndex;
 import io.trino.operator.SpillMetrics;
+import io.trino.operator.join.JoinBridgeManager;
+import io.trino.operator.join.LookupSourceSupplier;
 import io.trino.spi.Page;
 import io.trino.spi.metrics.Metric;
 import io.trino.spi.metrics.Metrics;
