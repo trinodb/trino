@@ -214,8 +214,13 @@ public class DeltaLakeTableMetadataScheduler
 
     public static boolean isSameTransactionVersion(Table table, TableSnapshot snapshot)
     {
+        return isSameTransactionVersion(table, snapshot.getVersion());
+    }
+
+    public static boolean isSameTransactionVersion(Table table, long snapshotVersion)
+    {
         return getLastTransactionVersion(table)
-                .map(version -> version == snapshot.getVersion())
+                .map(version -> version == snapshotVersion)
                 .orElse(false);
     }
 

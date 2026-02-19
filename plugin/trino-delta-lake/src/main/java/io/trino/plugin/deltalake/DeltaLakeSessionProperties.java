@@ -75,6 +75,7 @@ public final class DeltaLakeSessionProperties
     private static final String PROJECTION_PUSHDOWN_ENABLED = "projection_pushdown_enabled";
     private static final String QUERY_PARTITION_FILTER_REQUIRED = "query_partition_filter_required";
     private static final String STORE_TABLE_METADATA = "store_table_metadata";
+    private static final String LOAD_METADATA_FROM_CHECKSUM_FILE = "load_metadata_from_checksum_file";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -227,6 +228,11 @@ public final class DeltaLakeSessionProperties
                         deltaLakeConfig.isQueryPartitionFilterRequired(),
                         false),
                 booleanProperty(
+                        LOAD_METADATA_FROM_CHECKSUM_FILE,
+                        "Use checksum metadata file for metadata and protocol entry retrieval",
+                        deltaLakeConfig.isLoadMetadataFromChecksumFile(),
+                        false),
+                booleanProperty(
                         STORE_TABLE_METADATA,
                         "Store table metadata in metastore",
                         deltaLakeConfig.isStoreTableMetadataEnabled(),
@@ -342,6 +348,11 @@ public final class DeltaLakeSessionProperties
     public static boolean isQueryPartitionFilterRequired(ConnectorSession session)
     {
         return session.getProperty(QUERY_PARTITION_FILTER_REQUIRED, Boolean.class);
+    }
+
+    public static boolean isLoadMetadataFromChecksumFile(ConnectorSession session)
+    {
+        return session.getProperty(LOAD_METADATA_FROM_CHECKSUM_FILE, Boolean.class);
     }
 
     public static boolean isStoreTableMetadataInMetastoreEnabled(ConnectorSession session)

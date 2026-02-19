@@ -52,6 +52,7 @@ import io.trino.spi.type.SqlDate;
 import io.trino.spi.type.SqlTimestamp;
 import io.trino.spi.type.TimeZoneKey;
 import io.trino.testing.AbstractTestQueryFramework;
+import io.trino.testing.MaterializedResult;
 import io.trino.testing.MaterializedRow;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingSession;
@@ -2007,6 +2008,85 @@ public class TestDeltaLakeBasic
     }
 
     /**
+     * @see deltalake.checksum
+     * @see deltalake.checksum_missing_latest
+     * @see deltalake.checksum_without_metadata
+     */
+    @Test
+    public void testLoadMetadataFromChecksumFileMatchesTransactionLog()
+            throws Exception
+    {
+        Session loadMetadataFromChecksumFileEnabledSession = loadMetadataFromChecksumFileSession(true);
+        Session loadMetadataFromChecksumFileDisabledSession = loadMetadataFromChecksumFileSession(false);
+
+        for (String fixture : ImmutableList.of(
+                "deltalake/checksum",
+                "deltalake/checksum_missing_latest",
+                "deltalake/checksum_without_metadata")) {
+            String tableName = "checksum_fixture_" + randomNameSuffix();
+            Path tableLocation = catalogDir.resolve(tableName);
+            copyDirectoryContents(Path.of(getResourceLocation(fixture).toURI()), tableLocation);
+            assertUpdate("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')".formatted(tableName, tableLocation.toUri()));
+            try {
+                assertMetadataAndProtocolQueriesMatch(tableName, loadMetadataFromChecksumFileEnabledSession, loadMetadataFromChecksumFileDisabledSession);
+            }
+            finally {
+                assertQuerySucceeds("DROP TABLE IF EXISTS " + tableName);
+            }
+        }
+    }
+
+    /**
+     * @see deltalake.checksum_invalid_json
+     * @see deltalake.checksum_trailing_json_content
+     * @see deltalake.checksum_invalid_json_mapping
+     */
+    @Test
+    public void testLoadMetadataFromChecksumFileFallsBackForMalformedChecksum()
+            throws Exception
+    {
+        Session loadMetadataFromChecksumFileEnabledSession = loadMetadataFromChecksumFileSession(true);
+        Session loadMetadataFromChecksumFileDisabledSession = loadMetadataFromChecksumFileSession(false);
+
+        for (String fixture : ImmutableList.of(
+                "deltalake/checksum_invalid_json",
+                "deltalake/checksum_trailing_json_content",
+                "deltalake/checksum_invalid_json_mapping")) {
+            String tableName = "checksum_fixture_" + randomNameSuffix();
+            Path tableLocation = catalogDir.resolve(tableName);
+            copyDirectoryContents(Path.of(getResourceLocation(fixture).toURI()), tableLocation);
+            assertUpdate("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')".formatted(tableName, tableLocation.toUri()));
+            try {
+                assertMetadataAndProtocolQueriesMatch(tableName, loadMetadataFromChecksumFileEnabledSession, loadMetadataFromChecksumFileDisabledSession);
+            }
+            finally {
+                assertQuerySucceeds("DROP TABLE IF EXISTS " + tableName);
+            }
+        }
+    }
+
+    private void assertMetadataAndProtocolQueriesMatch(String tableName, Session loadMetadataFromChecksumFileEnabledSession, Session loadMetadataFromChecksumFileDisabledSession)
+    {
+        MaterializedResult checksumEnabledDescribe = loadVisibleTableMetadata(tableName, loadMetadataFromChecksumFileEnabledSession, "DESCRIBE " + tableName);
+        MaterializedResult checksumDisabledDescribe = loadVisibleTableMetadata(tableName, loadMetadataFromChecksumFileDisabledSession, "DESCRIBE " + tableName);
+        assertThat(checksumEnabledDescribe).isEqualTo(checksumDisabledDescribe);
+
+        MaterializedResult checksumEnabledShowCreate = loadVisibleTableMetadata(tableName, loadMetadataFromChecksumFileEnabledSession, "SHOW CREATE TABLE " + tableName);
+        MaterializedResult checksumDisabledShowCreate = loadVisibleTableMetadata(tableName, loadMetadataFromChecksumFileDisabledSession, "SHOW CREATE TABLE " + tableName);
+        assertThat(checksumEnabledShowCreate).isEqualTo(checksumDisabledShowCreate);
+
+        MaterializedResult checksumEnabledProperties = loadVisibleTableMetadata(tableName, loadMetadataFromChecksumFileEnabledSession, "SELECT key, value FROM \"" + tableName + "$properties\" ORDER BY key");
+        MaterializedResult checksumDisabledProperties = loadVisibleTableMetadata(tableName, loadMetadataFromChecksumFileDisabledSession, "SELECT key, value FROM \"" + tableName + "$properties\" ORDER BY key");
+        assertThat(checksumEnabledProperties).isEqualTo(checksumDisabledProperties);
+    }
+
+    private MaterializedResult loadVisibleTableMetadata(String tableName, Session session, @Language("SQL") String sql)
+    {
+        assertUpdate("CALL system.flush_metadata_cache(schema_name => CURRENT_SCHEMA, table_name => '%s')".formatted(tableName));
+        return computeActual(session, sql);
+    }
+
+    /**
      * @see deltalake.stats_with_minmax_nulls
      */
     @Test
@@ -2968,6 +3048,13 @@ public class TestDeltaLakeBasic
                 .filter(log -> log.getProtocol() != null)
                 .collect(onlyElement());
         return transactionLog.getProtocol();
+    }
+
+    private Session loadMetadataFromChecksumFileSession(boolean enabled)
+    {
+        return Session.builder(getSession())
+                .setCatalogSessionProperty(getSession().getCatalog().orElseThrow(), "load_metadata_from_checksum_file", Boolean.toString(enabled))
+                .build();
     }
 
     private String getTableLocation(String tableName)
