@@ -383,12 +383,11 @@ public class TestIcebergFileOperations
         String catalog = getSession().getCatalog().orElseThrow();
 
         assertUpdate("DROP TABLE IF EXISTS test_read_whole_splittable_file");
-        assertUpdate("CREATE TABLE test_read_whole_splittable_file(key varchar, data varchar) WITH (partitioning=ARRAY['key'])");
+        assertUpdate("CREATE TABLE test_read_whole_splittable_file(key varchar, data varchar) WITH (partitioning=ARRAY['key'], parquet_writer_block_size='1kB')");
 
         assertUpdate(
                 Session.builder(getSession())
                         .setSystemProperty(SystemSessionProperties.WRITER_SCALING_MIN_DATA_PROCESSED, "1PB")
-                        .setCatalogSessionProperty(catalog, "parquet_writer_block_size", "1kB")
                         .setCatalogSessionProperty(catalog, "orc_writer_max_stripe_size", "1kB")
                         .setCatalogSessionProperty(catalog, "orc_writer_max_stripe_rows", "1000")
                         .build(),

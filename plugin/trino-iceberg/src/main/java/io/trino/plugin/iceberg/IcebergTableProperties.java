@@ -17,10 +17,12 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.inject.Inject;
+import io.airlift.units.DataSize;
 import io.trino.plugin.hive.HiveCompressionCodec;
 import io.trino.plugin.hive.HiveCompressionCodecs;
 import io.trino.plugin.hive.HiveCompressionOption;
 import io.trino.plugin.hive.orc.OrcWriterConfig;
+import io.trino.plugin.hive.parquet.ParquetWriterConfig;
 import io.trino.spi.TrinoException;
 import io.trino.spi.session.PropertyMetadata;
 import io.trino.spi.type.ArrayType;
@@ -35,6 +37,7 @@ import java.util.Set;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static io.trino.plugin.base.session.PropertyMetadataUtil.dataSizeProperty;
 import static io.trino.plugin.iceberg.IcebergConfig.FORMAT_VERSION_SUPPORT_MAX;
 import static io.trino.plugin.iceberg.IcebergConfig.FORMAT_VERSION_SUPPORT_MIN;
 import static io.trino.plugin.iceberg.IcebergFileFormat.AVRO;
@@ -53,7 +56,9 @@ import static org.apache.iceberg.TableProperties.DEFAULT_FILE_FORMAT;
 import static org.apache.iceberg.TableProperties.FORMAT_VERSION;
 import static org.apache.iceberg.TableProperties.ORC_BLOOM_FILTER_COLUMNS;
 import static org.apache.iceberg.TableProperties.ORC_BLOOM_FILTER_FPP;
+import static org.apache.iceberg.TableProperties.PARQUET_ROW_GROUP_SIZE_BYTES;
 import static org.apache.iceberg.TableProperties.RESERVED_PROPERTIES;
+import static org.apache.iceberg.TableProperties.WRITE_TARGET_FILE_SIZE_BYTES;
 
 public class IcebergTableProperties
 {
@@ -69,6 +74,8 @@ public class IcebergTableProperties
     public static final String ORC_BLOOM_FILTER_COLUMNS_PROPERTY = "orc_bloom_filter_columns";
     public static final String ORC_BLOOM_FILTER_FPP_PROPERTY = "orc_bloom_filter_fpp";
     public static final String PARQUET_BLOOM_FILTER_COLUMNS_PROPERTY = "parquet_bloom_filter_columns";
+    public static final String TARGET_MAX_FILE_SIZE = "target_max_file_size";
+    public static final String PARQUET_WRITER_BLOCK_SIZE = "parquet_writer_block_size";
     public static final String OBJECT_STORE_LAYOUT_ENABLED_PROPERTY = "object_store_layout_enabled";
     public static final String DATA_LOCATION_PROPERTY = "data_location";
     public static final String EXTRA_PROPERTIES_PROPERTY = "extra_properties";
@@ -89,6 +96,8 @@ public class IcebergTableProperties
             .add(DATA_LOCATION_PROPERTY)
             .add(EXTRA_PROPERTIES_PROPERTY)
             .add(PARQUET_BLOOM_FILTER_COLUMNS_PROPERTY)
+            .add(TARGET_MAX_FILE_SIZE)
+            .add(PARQUET_WRITER_BLOCK_SIZE)
             .build();
 
     // These properties are used by Trino or Iceberg internally and cannot be set directly by users through extra_properties
@@ -98,6 +107,8 @@ public class IcebergTableProperties
             .add(ORC_BLOOM_FILTER_FPP)
             .add(DEFAULT_FILE_FORMAT)
             .add(FORMAT_VERSION)
+            .add(WRITE_TARGET_FILE_SIZE_BYTES)
+            .add(PARQUET_ROW_GROUP_SIZE_BYTES)
             .build();
 
     private final List<PropertyMetadata<?>> tableProperties;
@@ -106,6 +117,7 @@ public class IcebergTableProperties
     public IcebergTableProperties(
             IcebergConfig icebergConfig,
             OrcWriterConfig orcWriterConfig,
+            ParquetWriterConfig parquetWriterConfig,
             TypeManager typeManager)
     {
         tableProperties = ImmutableList.<PropertyMetadata<?>>builder()
@@ -205,6 +217,16 @@ public class IcebergTableProperties
                                 .map(name -> name.toLowerCase(ENGLISH))
                                 .collect(toImmutableList()),
                         value -> value))
+                .add(dataSizeProperty(
+                        TARGET_MAX_FILE_SIZE,
+                        "Target maximum size of written files; the actual size may be larger",
+                        icebergConfig.getTargetMaxFileSize(),
+                        false))
+                .add(dataSizeProperty(
+                        PARQUET_WRITER_BLOCK_SIZE,
+                        "Parquet writer block size (row group size)",
+                        parquetWriterConfig.getBlockSize(),
+                        false))
                 .add(new PropertyMetadata<>(
                         EXTRA_PROPERTIES_PROPERTY,
                         "Extra table properties",
@@ -346,6 +368,16 @@ public class IcebergTableProperties
     {
         List<String> parquetBloomFilterColumns = (List<String>) tableProperties.get(PARQUET_BLOOM_FILTER_COLUMNS_PROPERTY);
         return parquetBloomFilterColumns == null ? ImmutableList.of() : ImmutableList.copyOf(parquetBloomFilterColumns);
+    }
+
+    public static Optional<DataSize> getTargetMaxFileSize(Map<String, Object> tableProperties)
+    {
+        return Optional.ofNullable((DataSize) tableProperties.get(TARGET_MAX_FILE_SIZE));
+    }
+
+    public static Optional<DataSize> getParquetWriterBlockSize(Map<String, Object> tableProperties)
+    {
+        return Optional.ofNullable((DataSize) tableProperties.get(PARQUET_WRITER_BLOCK_SIZE));
     }
 
     public static boolean getObjectStoreLayoutEnabled(Map<String, Object> tableProperties)
