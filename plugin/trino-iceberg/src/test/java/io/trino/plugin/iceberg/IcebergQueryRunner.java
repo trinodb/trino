@@ -421,6 +421,44 @@ public final class IcebergQueryRunner
         }
     }
 
+    public static final class IcebergMinioHiveMetastoreSparkQueryRunnerMain
+    {
+        private IcebergMinioHiveMetastoreSparkQueryRunnerMain() {}
+
+        static void main()
+                throws Exception
+        {
+            String bucketName = "test-bucket";
+            @SuppressWarnings("resource")
+            SparkIcebergHive3MinioDataLake sparkIcebergHive3MinioDataLake = new SparkIcebergHive3MinioDataLake(bucketName);
+
+            @SuppressWarnings("resource")
+            QueryRunner queryRunner = builder()
+                    .addCoordinatorProperty("http-server.http.port", "8080")
+                    .setIcebergProperties(Map.of(
+                            "iceberg.catalog.type", "HIVE_METASTORE",
+                            "hive.metastore.uri", sparkIcebergHive3MinioDataLake.hiveHadoop().getHiveMetastoreEndpoint().toString(),
+                            "fs.native-s3.enabled", "true",
+                            "s3.aws-access-key", MINIO_ROOT_USER,
+                            "s3.aws-secret-key", MINIO_ROOT_PASSWORD,
+                            "s3.region", MINIO_REGION,
+                            "s3.endpoint", sparkIcebergHive3MinioDataLake.minio().getMinioAddress(),
+                            "s3.path-style-access", "true",
+                            "s3.streaming.part-size", "5MB"))
+                    .setSchemaInitializer(
+                            SchemaInitializer.builder()
+                                    .withSchemaName("tpch")
+                                    .withClonedTpchTables(TpchTable.getTables())
+                                    .withSchemaProperties(Map.of("location", "'s3://" + bucketName + "/tpch'"))
+                                    .build())
+                    .build();
+
+            Logger log = Logger.get(IcebergMinioHiveMetastoreSparkQueryRunnerMain.class);
+            log.info("======== SERVER STARTED ========");
+            log.info("\n====\n%s\n====", queryRunner.getCoordinator().getBaseUrl());
+        }
+    }
+
     public static final class IcebergAzureQueryRunnerMain
     {
         private IcebergAzureQueryRunnerMain() {}
