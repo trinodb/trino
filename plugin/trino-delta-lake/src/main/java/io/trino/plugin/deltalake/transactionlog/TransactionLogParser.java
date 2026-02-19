@@ -17,10 +17,13 @@ import com.fasterxml.jackson.core.JsonParseException;
 import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Throwables;
 import dev.failsafe.Failsafe;
 import dev.failsafe.RetryPolicy;
 import io.airlift.json.JsonMapperProvider;
 import io.airlift.log.Logger;
+import io.trino.filesystem.FileEntry;
+import io.trino.filesystem.FileIterator;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoInputFile;
@@ -33,6 +36,7 @@ import io.trino.spi.type.Decimals;
 import io.trino.spi.type.Type;
 import jakarta.annotation.Nullable;
 
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.UncheckedIOException;
@@ -49,9 +53,12 @@ import java.time.format.DateTimeParseException;
 import java.time.format.ResolverStyle;
 import java.time.format.SignStyle;
 import java.time.temporal.ChronoField;
+import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.function.Function;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import static com.google.common.base.Verify.verify;
 import static com.google.common.math.LongMath.divide;
@@ -99,6 +106,9 @@ public final class TransactionLogParser
     public static final long START_OF_MODERN_ERA_EPOCH_MICROS = LocalDateTime.of(START_OF_MODERN_ERA_DATE, LocalTime.MIN).toEpochSecond(UTC) * MICROSECONDS_PER_SECOND;
 
     public static final String LAST_CHECKPOINT_FILENAME = "_last_checkpoint";
+
+    private static final Pattern COMMIT_FILE_PATTERN = Pattern.compile("^(\\d{20})\\.json$");
+    private static final Pattern CHECKSUM_FILE_PATTERN = Pattern.compile("^(\\d{20})\\.crc$");
 
     private TransactionLogParser() {}
 
@@ -303,6 +313,130 @@ public final class TransactionLogParser
                 return version;
             }
             version++;
+        }
+    }
+
+    public record CommitVersionChecksumFileInfo(long version, boolean hasVersionChecksumFile)
+    {
+    }
+
+    public static Optional<CommitVersionChecksumFileInfo> findLatestCommitVersionChecksumFileInfo(TrinoFileSystem fileSystem, String tableLocation, Optional<Long> startVersion, Optional<Long> endVersion)
+            throws IOException
+    {
+        // Find the latest commit in the table at the provided table location within the range specified by startVersion and
+        // endVersion, while simultaneously checking whether that commit has a version checksum file
+
+        long latestCommitVersion = -1;
+        long latestVersionChecksumFileVersion = -1;
+
+        Location transactionLogLocation = Location.of(getTransactionLogDir(tableLocation));
+
+        FileIterator files;
+        if (startVersion.isEmpty()) {
+            files = fileSystem.listFiles(transactionLogLocation);
+        }
+        else {
+            // startVersion is exclusive. Only consider commits or version checksum files with a version strictly greater
+            // than startVersion
+            String startingFrom = format("%020d.", startVersion.get() + 1);
+            files = fileSystem.listFilesStartingFrom(transactionLogLocation, startingFrom);
+        }
+
+        while (files.hasNext()) {
+            FileEntry file = files.next();
+            String fileName = file.location().fileName();
+
+            long version = -1;
+            boolean isCommit = false;
+
+            Optional<Long> commitVersion = extractCommitVersion(fileName);
+            if (commitVersion.isPresent()) {
+                version = commitVersion.orElseThrow();
+                isCommit = true;
+            }
+            else {
+                Optional<Long> checksumVersion = extractVersionChecksumVersion(fileName);
+                if (checksumVersion.isPresent()) {
+                    version = checksumVersion.orElseThrow();
+                    isCommit = false;
+                }
+            }
+
+            if (version == -1) {
+                continue;
+            }
+
+            if (endVersion.isPresent() && version > endVersion.orElseThrow()) {
+                continue;
+            }
+
+            if (startVersion.isPresent() && version <= startVersion.orElseThrow()) {
+                // Per contract of listFilesStartingFrom
+                throw new IllegalStateException(format("Expected parsed version to be greater than %d, but got %d", startVersion.orElseThrow(), version));
+            }
+
+            if (isCommit) {
+                latestCommitVersion = Long.max(latestCommitVersion, version);
+            }
+            else {
+                latestVersionChecksumFileVersion = Long.max(latestVersionChecksumFileVersion, version);
+            }
+        }
+
+        if (latestCommitVersion == -1) {
+            return Optional.empty();
+        }
+
+        boolean latestCommitHasVersionChecksumFile = latestVersionChecksumFileVersion == latestCommitVersion;
+        return Optional.of(new CommitVersionChecksumFileInfo(latestCommitVersion, latestCommitHasVersionChecksumFile));
+    }
+
+    private static Optional<Long> extractCommitVersion(String fileName)
+    {
+        Matcher matcher = COMMIT_FILE_PATTERN.matcher(fileName);
+        if (!matcher.matches()) {
+            return Optional.empty();
+        }
+
+        return Optional.of(parseLong(matcher.group(1)));
+    }
+
+    private static Optional<Long> extractVersionChecksumVersion(String fileName)
+    {
+        Matcher matcher = CHECKSUM_FILE_PATTERN.matcher(fileName);
+        if (!matcher.matches()) {
+            return Optional.empty();
+        }
+
+        return Optional.of(parseLong(matcher.group(1)));
+    }
+
+    public static Optional<DeltaLakeVersionChecksum> readVersionChecksumFile(TrinoFileSystem fileSystem, String tableLocation, long version)
+            throws IOException
+    {
+        Location checksumPath = Location.of(getTransactionLogDir(tableLocation)).appendPath("%020d.crc".formatted(version));
+        TrinoInputFile inputFile = fileSystem.newInputFile(checksumPath);
+        try (InputStream checksumInput = inputFile.newStream()) {
+            return Optional.of(JsonUtils.parseJson(JSON_MAPPER, checksumInput, DeltaLakeVersionChecksum.class));
+        }
+        catch (IllegalArgumentException e) {
+            return Optional.empty();
+        }
+        catch (IOException | UncheckedIOException e) {
+            List<Throwable> causalChain = Throwables.getCausalChain(e);
+
+            // We generally expect that readVersionChecksumFile is only called for validation commit versions in the Delta
+            // table. However, per the Delta spec, a valid commit need not have a corresponding version checksum file. This
+            // is relevant for the time travel case in DeltaLakeMetadata.loadDescriptor
+            if (causalChain.stream().anyMatch(FileNotFoundException.class::isInstance)) {
+                return Optional.empty();
+            }
+
+            if (causalChain.stream().anyMatch(cause -> cause instanceof JsonParseException || cause instanceof JsonMappingException)) {
+                return Optional.empty();
+            }
+
+            throw e;
         }
     }
 }
