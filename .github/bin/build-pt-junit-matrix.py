@@ -25,10 +25,14 @@ AGGREGATE_LEGACY_SUITES = (
     "Suite7NonGeneric",
 )
 
+# Use this when coverage is removed from an aggregate legacy suite that still
+# exists for unrelated tests.
+LEGACY_COVERAGE_REMOVED = ()
+
 BUCKETS = [
     ("jdbc-core", [
         ("SuiteMysql", ("SuiteMysql",)),
-        ("SuitePostgresql", AGGREGATE_LEGACY_SUITES),
+        ("SuitePostgresql", LEGACY_COVERAGE_REMOVED),
         ("SuiteSqlServer", AGGREGATE_LEGACY_SUITES),
         ("SuiteFunctions", ("SuiteFunctions",)),
         ("SuiteTpch", ("SuiteTpch",)),
