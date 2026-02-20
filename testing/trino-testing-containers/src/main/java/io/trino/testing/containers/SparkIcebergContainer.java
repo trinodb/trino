@@ -18,7 +18,9 @@ import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.images.builder.Transferable;
 import org.testcontainers.utility.DockerImageName;
+import org.testcontainers.utility.MountableFile;
 
+import java.nio.file.Path;
 import java.time.Duration;
 
 /**
@@ -122,6 +124,24 @@ public class SparkIcebergContainer
         withCopyToContainer(
                 Transferable.of(SPARK_DEFAULTS_CONF + "spark.sql.catalog.iceberg_test.encryption.kms-type=aws\n"),
                 "/spark/conf/spark-defaults.conf");
+        return this;
+    }
+
+    public SparkIcebergContainer withIcebergSparkRuntime(Path runtimeJar, String icebergVersion)
+    {
+        withCopyFileToContainer(
+                MountableFile.forHostPath(runtimeJar),
+                "/spark/jars/iceberg-spark-" + icebergVersion + ".jar");
+        withCommand(
+                "bash",
+                "-c",
+                "rm -f /spark/jars/iceberg-spark-runtime-*.jar && exec spark-submit " +
+                        "--master 'local[*]' " +
+                        "--class org.apache.spark.sql.hive.thriftserver.HiveThriftServer2 " +
+                        "--name 'Thrift JDBC/ODBC Server' " +
+                        "--packages org.apache.spark:spark-avro_2.13:4.0.0,org.apache.iceberg:iceberg-aws-bundle:" + icebergVersion + " " +
+                        "--conf spark.hive.server2.thrift.port=" + SPARK_THRIFT_PORT + " " +
+                        "spark-internal");
         return this;
     }
 

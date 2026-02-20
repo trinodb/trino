@@ -473,6 +473,25 @@
                 </configuration>
                 <executions>
                     <execution>
+                        <id>copy-iceberg-spark-runtime</id>
+                        <goals>
+                            <goal>copy</goal>
+                        </goals>
+                        <phase>process-test-resources</phase>
+                        <configuration>
+                            <skip>false</skip>
+                            <artifactItems>
+                                <artifactItem>
+                                    <groupId>org.apache.iceberg</groupId>
+                                    <artifactId>iceberg-spark-runtime-4.0_2.13</artifactId>
+                                    <version>${dep.iceberg.version}</version>
+                                    <outputDirectory>${project.build.directory}</outputDirectory>
+                                    <destFileName>iceberg-spark-runtime.jar</destFileName>
+                                </artifactItem>
+                            </artifactItems>
+                        </configuration>
+                    </execution>
+                    <execution>
                         <id>copy-runtime-classpath</id>
                         <goals>
                             <goal>copy-dependencies</goal>
