@@ -110,7 +110,7 @@ import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
 @TestInstance(PER_CLASS)
 @Execution(CONCURRENT)
-public class TestPostgreSqlTypeMapping
+public class TestPostgreSqlTypeMappingBase
         extends AbstractTestQueryFramework
 {
     protected TestingPostgreSqlServer postgreSqlServer;
@@ -802,22 +802,22 @@ public class TestPostgreSqlTypeMapping
                 .execute(getQueryRunner(), session, trinoCreateAsSelect(session, "test_array_basic"))
                 .execute(getQueryRunner(), session, trinoCreateAndInsert(session, "test_array_basic"));
 
-        arrayDateTest(TestPostgreSqlTypeMapping::trinoArrayFactory)
+        arrayDateTest(TestPostgreSqlTypeMappingBase::trinoArrayFactory)
                 .execute(getQueryRunner(), session, trinoCreateAsSelect(session, "test_array_date"))
                 .execute(getQueryRunner(), session, trinoCreateAndInsert(session, "test_array_date"));
-        arrayDateTest(TestPostgreSqlTypeMapping::postgreSqlArrayFactory)
+        arrayDateTest(TestPostgreSqlTypeMappingBase::postgreSqlArrayFactory)
                 .execute(getQueryRunner(), session, postgresCreateAndInsert("test_array_date"));
 
-        arrayDecimalTest(TestPostgreSqlTypeMapping::trinoArrayFactory)
+        arrayDecimalTest(TestPostgreSqlTypeMappingBase::trinoArrayFactory)
                 .execute(getQueryRunner(), session, trinoCreateAsSelect(session, "test_array_decimal"))
                 .execute(getQueryRunner(), session, trinoCreateAndInsert(session, "test_array_decimal"));
-        arrayDecimalTest(TestPostgreSqlTypeMapping::postgreSqlArrayFactory)
+        arrayDecimalTest(TestPostgreSqlTypeMappingBase::postgreSqlArrayFactory)
                 .execute(getQueryRunner(), session, postgresCreateAndInsert("test_array_decimal"));
 
-        arrayVarcharTest(TestPostgreSqlTypeMapping::trinoArrayFactory)
+        arrayVarcharTest(TestPostgreSqlTypeMappingBase::trinoArrayFactory)
                 .execute(getQueryRunner(), session, trinoCreateAsSelect(session, "test_array_varchar"))
                 .execute(getQueryRunner(), session, trinoCreateAndInsert(session, "test_array_varchar"));
-        arrayVarcharTest(TestPostgreSqlTypeMapping::postgreSqlArrayFactory)
+        arrayVarcharTest(TestPostgreSqlTypeMappingBase::postgreSqlArrayFactory)
                 .execute(getQueryRunner(), session, postgresCreateAndInsert("test_array_varchar"));
 
         testUnsupportedDataTypeAsIgnored(session, "bytea[]", "ARRAY['binary value'::bytea]");
@@ -826,15 +826,15 @@ public class TestPostgreSqlTypeMapping
         testUnsupportedDataTypeAsIgnored(session, "_bytea", "ARRAY['binary value'::bytea]");
         testUnsupportedDataTypeConvertedToVarchar(session, "bytea[]", "_bytea", "ARRAY['binary value'::bytea]", "'{\"\\\\x62696e6172792076616c7565\"}'");
 
-        arrayUnicodeDataTypeTest(TestPostgreSqlTypeMapping::trinoArrayFactory)
+        arrayUnicodeDataTypeTest(TestPostgreSqlTypeMappingBase::trinoArrayFactory)
                 .execute(getQueryRunner(), session, trinoCreateAsSelect(session, "test_array_parameterized_char_unicode"))
                 .execute(getQueryRunner(), session, trinoCreateAndInsert(session, "test_array_parameterized_char_unicode"));
-        arrayUnicodeDataTypeTest(TestPostgreSqlTypeMapping::postgreSqlArrayFactory)
+        arrayUnicodeDataTypeTest(TestPostgreSqlTypeMappingBase::postgreSqlArrayFactory)
                 .execute(getQueryRunner(), session, postgresCreateAndInsert("test_array_parameterized_char_unicode"));
-        arrayVarcharUnicodeDataTypeTest(TestPostgreSqlTypeMapping::trinoArrayFactory)
+        arrayVarcharUnicodeDataTypeTest(TestPostgreSqlTypeMappingBase::trinoArrayFactory)
                 .execute(getQueryRunner(), session, trinoCreateAsSelect(session, "test_array_parameterized_varchar_unicode"))
                 .execute(getQueryRunner(), session, trinoCreateAndInsert(session, "test_array_parameterized_varchar_unicode"));
-        arrayVarcharUnicodeDataTypeTest(TestPostgreSqlTypeMapping::postgreSqlArrayFactory)
+        arrayVarcharUnicodeDataTypeTest(TestPostgreSqlTypeMappingBase::postgreSqlArrayFactory)
                 .execute(getQueryRunner(), session, postgresCreateAndInsert("test_array_parameterized_varchar_unicode"));
     }
 
