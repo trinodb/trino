@@ -163,6 +163,11 @@ public @interface TestGroup
 
     @Target({TYPE, METHOD})
     @Retention(RUNTIME)
+    @Tag("postgresql_secrets_provider")
+    @interface PostgresqlSecretsProvider {}
+
+    @Target({TYPE, METHOD})
+    @Retention(RUNTIME)
     @Tag("sqlserver")
     @interface Sqlserver {}
 
