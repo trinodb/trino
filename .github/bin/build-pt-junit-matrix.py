@@ -85,7 +85,7 @@ BUCKETS = [
         ("SuiteIceberg", LEGACY_COVERAGE_REMOVED),
     ]),
     ("delta-lake", [
-        ("SuiteDeltaLakeOss", ("SuiteDeltaLakeOss",)),
+        ("SuiteDeltaLakeOss", LEGACY_COVERAGE_REMOVED),
         ("SuiteCompatibility", ("SuiteCompatibility",)),
     ]),
     ("cloud-object-store", [
