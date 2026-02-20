@@ -63,6 +63,12 @@ public class SparkHudiContainer
             spark.hadoop.dfs.client.use.datanode.hostname=true
             spark.hadoop.dfs.client.socket-timeout=180000
             spark.hadoop.dfs.datanode.socket.write.timeout=600000
+
+            # Single-node HDFS configuration - disable datanode replacement on write failure
+            # Required for Hudi writes in single-datanode environments
+            spark.hadoop.dfs.client.block.write.replace-datanode-on-failure.enable=false
+            spark.hadoop.dfs.client.block.write.replace-datanode-on-failure.policy=NEVER
+            spark.hadoop.dfs.replication=1
             """;
 
     // S3 configuration template: accessKey, secretKey, endpoint, metastoreUri, warehouseDir

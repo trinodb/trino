@@ -104,7 +104,8 @@ public class HudiEnvironment
                         "connector.name", "hive",
                         "hive.metastore.uri", "thrift://" + HadoopContainer.HOST_NAME + ":" + HadoopContainer.HIVE_METASTORE_PORT,
                         "fs.hadoop.enabled", "true",
-                        "hive.config.resources", "/etc/trino/hdfs-site.xml"))
+                        "hive.config.resources", "/etc/trino/hdfs-site.xml",
+                        "hive.hudi-catalog-name", "hudi"))
                 .build();
         trino.start();
 
@@ -230,5 +231,17 @@ public class HudiEnvironment
     public String getWarehouseDirectory()
     {
         return hadoop.getWarehouseDirectory();
+    }
+
+    static void main(String[] args)
+    {
+        try (HudiEnvironment environment = new HudiEnvironment()) {
+            environment.start();
+            System.out.println("HudiEnvironment started. Press Ctrl+C to stop.");
+            Thread.sleep(Long.MAX_VALUE);
+        }
+        catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
     }
 }
