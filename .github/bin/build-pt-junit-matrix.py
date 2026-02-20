@@ -77,7 +77,7 @@ BUCKETS = [
     ]),
     ("hive-storage", [
         ("SuiteHiveSpark", AGGREGATE_LEGACY_SUITES),
-        ("SuiteHiveAlluxioCaching", AGGREGATE_LEGACY_SUITES),
+        ("SuiteHiveAlluxioCaching", LEGACY_COVERAGE_REMOVED),
         ("SuiteStorageFormatsDetailed", ("SuiteStorageFormatsDetailed",)),
         ("SuiteParquet", ("SuiteParquet",)),
     ]),
