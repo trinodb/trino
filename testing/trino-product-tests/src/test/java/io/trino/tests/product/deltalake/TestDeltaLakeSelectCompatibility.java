@@ -13,47 +13,51 @@
  */
 package io.trino.tests.product.deltalake;
 
-import com.google.common.collect.ImmutableList;
-import io.trino.tempto.assertions.QueryAssert.Row;
-import org.testng.annotations.Test;
+import io.trino.testing.containers.environment.ProductTest;
+import io.trino.testing.containers.environment.RequiresEnvironment;
+import io.trino.testing.containers.environment.Row;
+import io.trino.tests.product.TestGroup;
+import org.junit.jupiter.api.Test;
 
 import java.net.URI;
 import java.util.List;
 
-import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.testing.TestingNames.randomNameSuffix;
-import static io.trino.tests.product.TestGroups.DELTA_LAKE_OSS;
-import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
-import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.dropDeltaTableWithRetry;
-import static io.trino.tests.product.utils.QueryExecutors.onDelta;
-import static io.trino.tests.product.utils.QueryExecutors.onTrino;
+import static io.trino.testing.containers.environment.QueryResultAssert.assertThat;
+import static io.trino.testing.containers.environment.Row.row;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 
-public class TestDeltaLakeSelectCompatibility
-        extends BaseTestDeltaLakeS3Storage
+/**
+ * Tests Delta Lake select compatibility between Trino and Spark.
+ * <p>
+ */
+@ProductTest
+@RequiresEnvironment(DeltaLakeMinioEnvironment.class)
+@TestGroup.DeltaLakeMinio
+class TestDeltaLakeSelectCompatibility
 {
-    @Test(groups = {DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS})
-    public void testPartitionedSelectSpecialCharacters()
+    @Test
+    void testPartitionedSelectSpecialCharacters(DeltaLakeMinioEnvironment env)
     {
         String tableName = "test_dl_partitioned_select_special" + randomNameSuffix();
 
-        onDelta().executeQuery("" +
+        env.executeSparkUpdate("" +
                 "CREATE TABLE default." + tableName +
                 "         (a_number INT, a_string STRING)" +
                 "         USING delta " +
                 "         PARTITIONED BY (a_string)" +
-                "         LOCATION 's3://" + bucketName + "/databricks-compatibility-test-" + tableName + "'");
+                "         LOCATION 's3://" + env.getBucketName() + "/databricks-compatibility-test-" + tableName + "'");
 
         try {
-            onDelta().executeQuery("INSERT INTO default." + tableName + " VALUES " +
+            env.executeSparkUpdate("INSERT INTO default." + tableName + " VALUES " +
                     "(1, 'spark=equal'), " +
                     "(2, 'spark+plus'), " +
                     "(3, 'spark space')," +
                     "(4, 'spark:colon')," +
                     "(5, 'spark%percent')," +
                     "(6, 'spark/forwardslash')");
-            onTrino().executeQuery("INSERT INTO delta.default." + tableName + " VALUES " +
+            env.executeTrinoUpdate("INSERT INTO delta.default." + tableName + " VALUES " +
                     "(10, 'trino=equal'), " +
                     "(20, 'trino+plus'), " +
                     "(30, 'trino space')," +
@@ -61,7 +65,7 @@ public class TestDeltaLakeSelectCompatibility
                     "(50, 'trino%percent')," +
                     "(60, 'trino/forwardslash')");
 
-            List<Row> expectedRows = ImmutableList.of(
+            List<Row> expectedRows = List.of(
                     row(1, "spark=equal"),
                     row(2, "spark+plus"),
                     row(3, "spark space"),
@@ -75,22 +79,22 @@ public class TestDeltaLakeSelectCompatibility
                     row(50, "trino%percent"),
                     row(60, "trino/forwardslash"));
 
-            assertThat(onDelta().executeQuery("SELECT * FROM default." + tableName))
+            assertThat(env.executeSpark("SELECT * FROM default." + tableName))
                     .containsOnly(expectedRows);
-            assertThat(onTrino().executeQuery("SELECT * FROM delta.default." + tableName))
+            assertThat(env.executeTrino("SELECT * FROM delta.default." + tableName))
                     .containsOnly(expectedRows);
 
-            String deltaFilePath = (String) onDelta().executeQuery("SELECT input_file_name() FROM default." + tableName + " WHERE a_number = 1").getOnlyValue();
-            String trinoFilePath = (String) onTrino().executeQuery("SELECT \"$path\" FROM delta.default." + tableName + " WHERE a_number = 1").getOnlyValue();
+            String deltaFilePath = (String) env.executeSpark("SELECT input_file_name() FROM default." + tableName + " WHERE a_number = 1").getOnlyValue();
+            String trinoFilePath = (String) env.executeTrino("SELECT \"$path\" FROM delta.default." + tableName + " WHERE a_number = 1").getOnlyValue();
             // File paths returned by the input_file_name function are URI encoded https://github.com/delta-io/delta/issues/1517 while the $path of Trino is not
             assertThat(deltaFilePath).isNotEqualTo(trinoFilePath);
-            assertThat(format("s3://%s%s", bucketName, URI.create(deltaFilePath).getPath())).isEqualTo(trinoFilePath);
+            assertThat(format("s3://%s%s", env.getBucketName(), URI.create(deltaFilePath).getPath())).isEqualTo(trinoFilePath);
 
-            assertThat(onTrino().executeQuery("SELECT * FROM delta.default." + tableName + " WHERE \"$path\" = '" + trinoFilePath + "'"))
+            assertThat(env.executeTrino("SELECT * FROM delta.default." + tableName + " WHERE \"$path\" = '" + trinoFilePath + "'"))
                     .containsOnly(row(1, "spark=equal"));
         }
         finally {
-            dropDeltaTableWithRetry("default." + tableName);
+            env.executeSparkUpdate("DROP TABLE IF EXISTS default." + tableName);
         }
     }
 }
