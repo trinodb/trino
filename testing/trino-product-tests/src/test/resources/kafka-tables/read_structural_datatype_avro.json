@@ -4,7 +4,7 @@
   "topicName": "read_structural_datatype_avro",
   "message": {
     "dataFormat": "avro",
-    "dataSchema": "/docker/trino-product-tests/conf/trino/etc/catalog/kafka/structural_datatype_avro_schema.avsc",
+    "dataSchema": "/etc/trino/kafka-tables/structural_datatype_avro_schema.avsc",
     "fields": [
       {
         "name": "c_array",

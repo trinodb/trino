@@ -4,7 +4,7 @@
   "topicName": "write_all_datatypes_avro",
   "message": {
     "dataFormat": "avro",
-    "dataSchema": "/docker/trino-product-tests/conf/trino/etc/catalog/kafka/all_datatypes_avro_schema.avsc",
+    "dataSchema": "/etc/trino/kafka-tables/all_datatypes_avro_schema.avsc",
     "fields": [
       {
         "name": "c_varchar",
