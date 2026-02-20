@@ -161,7 +161,6 @@ import static io.trino.plugin.base.util.JsonTypeUtil.jsonParse;
 import static io.trino.plugin.base.util.JsonTypeUtil.toJsonValue;
 import static io.trino.plugin.geospatial.GeoFunctions.stAsBinary;
 import static io.trino.plugin.geospatial.GeoFunctions.stGeomFromBinary;
-import static io.trino.plugin.jdbc.DecimalConfig.DecimalMapping.ALLOW_OVERFLOW;
 import static io.trino.plugin.jdbc.DecimalSessionSessionProperties.getDecimalDefaultScale;
 import static io.trino.plugin.jdbc.DecimalSessionSessionProperties.getDecimalRounding;
 import static io.trino.plugin.jdbc.DecimalSessionSessionProperties.getDecimalRoundingMode;
@@ -622,24 +621,31 @@ public class PostgreSqlClient
 
             case Types.NUMERIC: {
                 int columnSize = typeHandle.requiredColumnSize();
-                int precision;
                 int decimalDigits = typeHandle.decimalDigits().orElse(0);
-                if (getDecimalRounding(session) == ALLOW_OVERFLOW) {
-                    if (columnSize == PRECISION_OF_UNSPECIFIED_DECIMAL) {
-                        // decimal type with unspecified scale - up to 131072 digits before the decimal point; up to 16383 digits after the decimal point)
-                        return Optional.of(decimalColumnMapping(createDecimalType(Decimals.MAX_PRECISION, getDecimalDefaultScale(session)), getDecimalRoundingMode(session)));
+                if (columnSize != PRECISION_OF_UNSPECIFIED_DECIMAL) {
+                    // TODO (https://github.com/trinodb/trino/issues/28388) negative scale doesn't actually work
+                    int precision = columnSize + max(-decimalDigits, 0); // Map decimal(p, -s) (negative scale) to decimal(p+s, 0).
+                    if (precision <= Decimals.MAX_PRECISION) {
+                        return Optional.of(decimalColumnMapping(createDecimalType(precision, max(decimalDigits, 0)), UNNECESSARY));
                     }
-                    precision = columnSize;
-                    if (precision > Decimals.MAX_PRECISION) {
-                        int scale = min(decimalDigits, getDecimalDefaultScale(session));
+                }
+                switch (getDecimalRounding(session)) {
+                    case STRICT -> {
+                        // skipped (unhandled type)
+                    }
+                    case ALLOW_OVERFLOW -> {
+                        int scale;
+                        if (columnSize == PRECISION_OF_UNSPECIFIED_DECIMAL) {
+                            // decimal type with unspecified scale - up to 131072 digits before the decimal point; up to 16383 digits after the decimal point)
+                            scale = getDecimalDefaultScale(session);
+                        }
+                        else {
+                            scale = min(decimalDigits, getDecimalDefaultScale(session));
+                        }
                         return Optional.of(decimalColumnMapping(createDecimalType(Decimals.MAX_PRECISION, scale), getDecimalRoundingMode(session)));
                     }
                 }
-                precision = columnSize + max(-decimalDigits, 0); // Map decimal(p, -s) (negative scale) to decimal(p+s, 0).
-                if (columnSize == PRECISION_OF_UNSPECIFIED_DECIMAL || precision > Decimals.MAX_PRECISION) {
-                    break;
-                }
-                return Optional.of(decimalColumnMapping(createDecimalType(precision, max(decimalDigits, 0)), UNNECESSARY));
+                break;
             }
 
             case Types.CHAR:
