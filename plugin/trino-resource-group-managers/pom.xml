@@ -15,7 +15,7 @@
     <description>Trino - Resource group configuration managers</description>
 
     <properties>
-        <dep.flyway.version>12.0.0</dep.flyway.version>
+        <dep.flyway.version>12.0.1</dep.flyway.version>
         <air.compiler.fail-warnings>true</air.compiler.fail-warnings>
     </properties>
 
