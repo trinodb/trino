@@ -514,6 +514,14 @@
                         <ignoredNonTestScopedDependency>io.trino.hive:hive-thrift</ignoredNonTestScopedDependency>
                         <!-- Required by TestHiveStorageFormatsJunit -->
                         <ignoredNonTestScopedDependency>org.apache.parquet:parquet-column</ignoredNonTestScopedDependency>
+                        <ignoredNonTestScopedDependency>org.apache.parquet:parquet-common</ignoredNonTestScopedDependency>
+                        <ignoredNonTestScopedDependency>software.amazon.awssdk:auth</ignoredNonTestScopedDependency>
+                        <ignoredNonTestScopedDependency>software.amazon.awssdk:aws-core</ignoredNonTestScopedDependency>
+                        <ignoredNonTestScopedDependency>software.amazon.awssdk:glue</ignoredNonTestScopedDependency>
+                        <ignoredNonTestScopedDependency>software.amazon.awssdk:regions</ignoredNonTestScopedDependency>
+                        <ignoredNonTestScopedDependency>software.amazon.awssdk:s3</ignoredNonTestScopedDependency>
+                        <ignoredNonTestScopedDependency>software.amazon.awssdk:sdk-core</ignoredNonTestScopedDependency>
+                        <ignoredNonTestScopedDependency>dev.failsafe:failsafe</ignoredNonTestScopedDependency>
                     </ignoredNonTestScopedDependencies>
                 </configuration>
             </plugin>
