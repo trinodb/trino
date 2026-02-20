@@ -51,7 +51,7 @@ BUCKETS = [
     ]),
     ("auth-and-clients", [
         ("SuiteKafka", LEGACY_COVERAGE_REMOVED),
-        ("SuiteLdap", ("SuiteLdap",)),
+        ("SuiteLdap", LEGACY_COVERAGE_REMOVED),
         ("SuiteOauth2", ("SuiteOauth2",)),
         ("SuiteClients", ("SuiteClients",)),
         ("SuiteJdbcKerberos", AGGREGATE_LEGACY_SUITES),
