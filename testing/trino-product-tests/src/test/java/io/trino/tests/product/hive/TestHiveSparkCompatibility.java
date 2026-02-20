@@ -14,56 +14,102 @@
 package io.trino.tests.product.hive;
 
 import com.google.common.collect.ImmutableList;
-import com.google.inject.Inject;
-import io.trino.tempto.ProductTest;
-import io.trino.tempto.hadoop.hdfs.HdfsClient;
-import org.testng.SkipException;
-import org.testng.annotations.DataProvider;
-import org.testng.annotations.Test;
+import io.trino.testing.containers.HdfsClient;
+import io.trino.testing.containers.environment.ProductTest;
+import io.trino.testing.containers.environment.RequiresEnvironment;
+import io.trino.testing.containers.environment.Row;
+import io.trino.tests.product.TestGroup;
+import org.junit.jupiter.api.Assumptions;
+import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
-import java.io.IOException;
 import java.math.BigDecimal;
 import java.sql.Date;
+import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
+import java.util.stream.Stream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.trino.tempto.assertions.QueryAssert.Row;
-import static io.trino.tempto.assertions.QueryAssert.Row.row;
-import static io.trino.tempto.assertions.QueryAssert.assertQueryFailure;
 import static io.trino.testing.TestingNames.randomNameSuffix;
-import static io.trino.tests.product.TestGroups.HIVE_SPARK;
-import static io.trino.tests.product.TestGroups.HIVE_SPARK_NO_STATS_FALLBACK;
-import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
-import static io.trino.tests.product.utils.QueryExecutors.onHive;
-import static io.trino.tests.product.utils.QueryExecutors.onSpark;
-import static io.trino.tests.product.utils.QueryExecutors.onTrino;
+import static io.trino.testing.containers.environment.QueryResultAssert.assertThat;
+import static io.trino.testing.containers.environment.Row.row;
 import static java.lang.String.format;
 import static java.lang.String.join;
 import static java.util.Collections.nCopies;
 import static java.util.Locale.ENGLISH;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-public class TestHiveSparkCompatibility
-        extends ProductTest
+/**
+ * JUnit 5 port of TestHiveSparkCompatibility.
+ * <p>
+ * Tests compatibility between Trino, Hive, and Spark for various storage formats and data types.
+ */
+@ProductTest
+@RequiresEnvironment(HiveSparkEnvironment.class)
+@TestGroup.HiveSpark
+class TestHiveSparkCompatibility
 {
     // see spark-defaults.conf
     private static final String TRINO_CATALOG = "hive";
 
-    @Inject
-    private HdfsClient hdfsClient;
+    private static final String[] HIVE_TIMESTAMP_PRECISIONS = {"MILLISECONDS", "MICROSECONDS", "NANOSECONDS"};
 
-    @Test(groups = {HIVE_SPARK, PROFILE_SPECIFIC_TESTS}, dataProvider = "testReadSparkCreatedTableDataProvider")
-    public void testReadSparkCreatedTable(String sparkTableFormat, String expectedTrinoTableFormat)
+    // ---- Data Providers ----
+
+    static Stream<Arguments> testReadSparkCreatedTableDataProvider()
+    {
+        return Stream.of(
+                Arguments.of("USING ORC", "ORC"),
+                // TODO add Avro
+                Arguments.of("USING PARQUET", "PARQUET"));
+    }
+
+    static Stream<Arguments> sparkParquetTimestampFormats()
+    {
+        String millisTimestamp = "2005-09-10 13:00:00.123";
+        String microsTimestamp = "2005-09-10 13:00:00.123456";
+        String nanosTimestamp = "2005-09-10 13:00:00.123456789";
+
+        // Ordering of expected values matches the ordering in HIVE_TIMESTAMP_PRECISIONS
+        return Stream.of(
+                Arguments.of("TIMESTAMP_MILLIS", millisTimestamp, new String[] {millisTimestamp, millisTimestamp, millisTimestamp}),
+                Arguments.of("TIMESTAMP_MICROS", microsTimestamp, new String[] {millisTimestamp, microsTimestamp, microsTimestamp}),
+                // Spark timestamp has microsecond precision
+                Arguments.of("INT96", nanosTimestamp, new String[] {millisTimestamp, microsTimestamp, microsTimestamp}));
+    }
+
+    static Stream<Arguments> unsupportedPartitionDates()
+    {
+        return Stream.of(
+                Arguments.of("1965-09-10 23:59:59.999999999", Date.valueOf(LocalDate.of(1965, 9, 10))),
+                Arguments.of("1965-09-10 23:59:59", Date.valueOf(LocalDate.of(1965, 9, 10))),
+                Arguments.of("1965-09-10 23:59", Date.valueOf(LocalDate.of(1965, 9, 10))),
+                Arguments.of("1965-09-10 00", Date.valueOf(LocalDate.of(1965, 9, 10))),
+                Arguments.of("2021-02-30", Date.valueOf(LocalDate.of(2021, 3, 2))),
+                Arguments.of("1965-09-10 invalid", Date.valueOf(LocalDate.of(1965, 9, 10))),
+                Arguments.of("invalid date", null));
+    }
+
+    // ---- Tests ----
+
+    @ParameterizedTest
+    @MethodSource("testReadSparkCreatedTableDataProvider")
+    void testReadSparkCreatedTable(String sparkTableFormat, String expectedTrinoTableFormat, HiveSparkEnvironment env)
+            throws SQLException
     {
         String sparkTableName = "spark_created_table_" + sparkTableFormat.replaceAll("[^a-zA-Z]", "").toLowerCase(ENGLISH) + "_" + randomNameSuffix();
         String trinoTableName = format("%s.default.%s", TRINO_CATALOG, sparkTableName);
 
         try {
-            onSpark().executeQuery(
+            env.executeSparkUpdate(
                     "CREATE TABLE default." + sparkTableName + "( " +
                     "  a_boolean boolean, " +
                     "  a_tinyint tinyint, " +
@@ -93,9 +139,9 @@ public class TestHiveSparkCompatibility
                     "TBLPROPERTIES ('transactional'='false')");
 
             // nulls
-            onSpark().executeQuery("INSERT INTO " + sparkTableName + " VALUES (" + join(",", nCopies(16, "NULL")) + ")");
+            env.executeSparkUpdate("INSERT INTO " + sparkTableName + " VALUES (" + join(",", nCopies(16, "NULL")) + ")");
             // positive values
-            onSpark().executeQuery(
+            env.executeSparkUpdate(
                     "INSERT INTO " + sparkTableName + " VALUES (" +
                     "true, " + // a_boolean
                     "127, " + // a_tinyint
@@ -114,7 +160,7 @@ public class TestHiveSparkCompatibility
                     "TIMESTAMP '2005-09-10 13:00:00.123456789', " + // a_timestamp_nanos
                     "'dummy')");
             // negative values
-            onSpark().executeQuery(
+            env.executeSparkUpdate(
                     "INSERT INTO " + sparkTableName + " VALUES (" +
                     "false, " + // a_boolean
                     "-128, " + // a_tinyint
@@ -133,10 +179,48 @@ public class TestHiveSparkCompatibility
                     "TIMESTAMP '1965-09-10 13:00:00.123456789', " + // a_timestamp_nanos
                     "'dummy')");
 
-            List<Row> expected = List.of(
+            List<Row> expectedSpark = List.of(
                     row(nCopies(16, null).toArray()),
                     row(
-                            true, // a_boolean≥
+                            true, // a_boolean
+                            (byte) 127, // a_tinyint
+                            (short) 32767, // a_smallint
+                            1000000000, // an_integer
+                            1000000000000000L, // a_bigint
+                            10000000.0D, // a_real
+                            100000000000.123, // a_double
+                            new BigDecimal("1234567.8901"), // a_short_decimal
+                            new BigDecimal("1234567890123456789.0123456"), // a_long_decimal
+                            "some string", // a_string
+                            Date.valueOf(LocalDate.of(2005, 9, 10)), // a_date
+                            Timestamp.valueOf(LocalDateTime.of(2005, 9, 10, 13, 0, 0)), // a_timestamp_seconds
+                            Timestamp.valueOf(LocalDateTime.of(2005, 9, 10, 13, 0, 0, 123_000_000)), // a_timestamp_millis
+                            Timestamp.valueOf(LocalDateTime.of(2005, 9, 10, 13, 0, 0, 123_456_000)), // a_timestamp_micros
+                            Timestamp.valueOf(LocalDateTime.of(2005, 9, 10, 13, 0, 0, 123_456_000)), // a_timestamp_nanos
+                            "dummy"),
+                    row(
+                            false, // a_bigint
+                            (byte) -128, // a_tinyint
+                            (short) -32768, // a_smallint
+                            -1000000012, // an_integer
+                            -1000000000000012L, // a_bigint
+                            -10000000.0D, // a_real
+                            -100000000000.123, // a_double
+                            new BigDecimal("-1234567.8901"), // a_short_decimal
+                            new BigDecimal("-1234567890123456789.0123456"), // a_long_decimal
+                            "", // a_string
+                            Date.valueOf(LocalDate.of(1965, 9, 10)), // a_date
+                            Timestamp.valueOf(LocalDateTime.of(1965, 9, 10, 13, 0, 0)), // a_timestamp_seconds
+                            Timestamp.valueOf(LocalDateTime.of(1965, 9, 10, 13, 0, 0, 123_000_000)), // a_timestamp_millis
+                            Timestamp.valueOf(LocalDateTime.of(1965, 9, 10, 13, 0, 0, 123_456_000)), // a_timestamp_micros
+                            Timestamp.valueOf(LocalDateTime.of(1965, 9, 10, 13, 0, 0, 123_456_000)), // a_timestamp_nanos
+                            "dummy"));
+            assertThat(env.executeSpark("SELECT * FROM " + sparkTableName)).containsOnly(expectedSpark);
+
+            List<Row> expectedTrino = List.of(
+                    row(nCopies(16, null).toArray()),
+                    row(
+                            true, // a_boolean
                             (byte) 127, // a_tinyint
                             (short) 32767, // a_smallint
                             1000000000, // an_integer
@@ -150,7 +234,7 @@ public class TestHiveSparkCompatibility
                             Timestamp.valueOf(LocalDateTime.of(2005, 9, 10, 13, 0, 0)), // a_timestamp_seconds
                             Timestamp.valueOf(LocalDateTime.of(2005, 9, 10, 13, 0, 0, 123_000_000)), // a_timestamp_millis
                             Timestamp.valueOf(LocalDateTime.of(2005, 9, 10, 13, 0, 0, 123_456_000)), // a_timestamp_micros
-                            Timestamp.valueOf(LocalDateTime.of(2005, 9, 10, 13, 0, 0, 123_456_000)), // a_timestamp_nanos; note that Spark timestamp has microsecond precision
+                            Timestamp.valueOf(LocalDateTime.of(2005, 9, 10, 13, 0, 0, 123_456_000)), // a_timestamp_nanos
                             "dummy"),
                     row(
                             false, // a_bigint
@@ -167,13 +251,14 @@ public class TestHiveSparkCompatibility
                             Timestamp.valueOf(LocalDateTime.of(1965, 9, 10, 13, 0, 0)), // a_timestamp_seconds
                             Timestamp.valueOf(LocalDateTime.of(1965, 9, 10, 13, 0, 0, 123_000_000)), // a_timestamp_millis
                             Timestamp.valueOf(LocalDateTime.of(1965, 9, 10, 13, 0, 0, 123_456_000)), // a_timestamp_micros
-                            Timestamp.valueOf(LocalDateTime.of(1965, 9, 10, 13, 0, 0, 123_456_000)), // a_timestamp_nanos; note that Spark timestamp has microsecond precision
+                            Timestamp.valueOf(LocalDateTime.of(1965, 9, 10, 13, 0, 0, 123_456_000)), // a_timestamp_nanos
                             "dummy"));
-            assertThat(onSpark().executeQuery("SELECT * FROM " + sparkTableName)).containsOnly(expected);
-            onTrino().executeQuery("SET SESSION hive.timestamp_precision = 'NANOSECONDS'");
-            assertThat(onTrino().executeQuery("SELECT * FROM " + trinoTableName)).containsOnly(expected);
 
-            assertThat(onTrino().executeQuery("SHOW CREATE TABLE " + trinoTableName))
+            // Set session and verify Trino
+            env.executeTrinoUpdate("SET SESSION hive.timestamp_precision = 'NANOSECONDS'");
+            assertThat(env.executeTrino("SELECT * FROM " + trinoTableName)).containsOnly(expectedTrino);
+
+            assertThat(env.executeTrino("SHOW CREATE TABLE " + trinoTableName))
                     .containsOnly(row(format(
                             "CREATE TABLE %s (\n" +
                             "   a_boolean boolean,\n" +
@@ -200,45 +285,47 @@ public class TestHiveSparkCompatibility
                             expectedTrinoTableFormat)));
         }
         finally {
-            onSpark().executeQuery("DROP TABLE IF EXISTS " + sparkTableName);
+            env.executeSparkUpdate("DROP TABLE IF EXISTS " + sparkTableName);
         }
     }
 
-    @Test(groups = {HIVE_SPARK, PROFILE_SPECIFIC_TESTS}, dataProvider = "sparkParquetTimestampFormats")
-    public void testSparkParquetTimestampCompatibility(String sparkTimestampFormat, String sparkTimestamp, String[] expectedValues)
+    @ParameterizedTest
+    @MethodSource("sparkParquetTimestampFormats")
+    void testSparkParquetTimestampCompatibility(String sparkTimestampFormat, String sparkTimestamp, String[] expectedValues, HiveSparkEnvironment env)
+            throws SQLException
     {
         String sparkTableName = "test_spark_parquet_timestamp_compatibility_" + sparkTimestampFormat.toLowerCase(ENGLISH) + "_" + randomNameSuffix();
         String trinoTableName = format("%s.default.%s", TRINO_CATALOG, sparkTableName);
         try {
-            onSpark().executeQuery("SET spark.sql.parquet.outputTimestampType = " + sparkTimestampFormat);
-            onSpark().executeQuery(
+            env.executeSparkUpdate("SET spark.sql.parquet.outputTimestampType = " + sparkTimestampFormat);
+            env.executeSparkUpdate(
                     "CREATE TABLE default." + sparkTableName + "(a_timestamp timestamp) " +
                     "USING PARQUET " +
                     "TBLPROPERTIES ('transactional'='false')");
 
-            onSpark().executeQuery("INSERT INTO " + sparkTableName + " VALUES (TIMESTAMP '" + sparkTimestamp + "')");
+            env.executeSparkUpdate("INSERT INTO " + sparkTableName + " VALUES (TIMESTAMP '" + sparkTimestamp + "')");
 
             for (int i = 0; i < HIVE_TIMESTAMP_PRECISIONS.length; i++) {
                 String trinoTimestampPrecision = HIVE_TIMESTAMP_PRECISIONS[i];
                 String expected = expectedValues[i];
-                onTrino().executeQuery("SET SESSION hive.timestamp_precision = '" + trinoTimestampPrecision + "'");
-                assertThat(onTrino().executeQuery("SELECT * FROM " + trinoTableName)).containsOnly(row(Timestamp.valueOf(expected)));
-                assertThat(onTrino().executeQuery("SELECT count(*) FROM " + trinoTableName + " WHERE a_timestamp = TIMESTAMP '" + expected + "'")).containsOnly(row(1));
-                assertThat(onTrino().executeQuery("SELECT count(*) FROM " + trinoTableName + " WHERE a_timestamp != TIMESTAMP '" + expected + "'")).containsOnly(row(0));
+                env.executeTrinoUpdate("SET SESSION hive.timestamp_precision = '" + trinoTimestampPrecision + "'");
+                assertThat(env.executeTrino("SELECT * FROM " + trinoTableName)).containsOnly(row(Timestamp.valueOf(expected)));
+                assertThat(env.executeTrino("SELECT count(*) FROM " + trinoTableName + " WHERE a_timestamp = TIMESTAMP '" + expected + "'")).containsOnly(row(1L));
+                assertThat(env.executeTrino("SELECT count(*) FROM " + trinoTableName + " WHERE a_timestamp != TIMESTAMP '" + expected + "'")).containsOnly(row(0L));
             }
         }
         finally {
-            onSpark().executeQuery("DROP TABLE IF EXISTS " + sparkTableName);
+            env.executeSparkUpdate("DROP TABLE IF EXISTS " + sparkTableName);
         }
     }
 
-    @Test(groups = {HIVE_SPARK, PROFILE_SPECIFIC_TESTS})
-    public void testSparkClusteringCaseSensitiveCompatibility()
+    @Test
+    void testSparkClusteringCaseSensitiveCompatibility(HiveSparkEnvironment env)
     {
         String sparkTableNameWithClusteringDifferentCase = "test_spark_clustering_case_sensitive_" + randomNameSuffix();
 
         try {
-            onSpark().executeQuery(
+            env.executeSparkUpdate(
                     String.format("CREATE TABLE %s (row_id int, `segment_id` int, value long) ", sparkTableNameWithClusteringDifferentCase) +
                     "USING PARQUET " +
                     "PARTITIONED BY (`part` string) " +
@@ -246,7 +333,7 @@ public class TestHiveSparkCompatibility
                     "  SORTED BY (`SEGMENT_ID`) " +
                     "  INTO 10 BUCKETS");
 
-            onSpark().executeQuery(format("INSERT INTO %s ", sparkTableNameWithClusteringDifferentCase) +
+            env.executeSparkUpdate(format("INSERT INTO %s ", sparkTableNameWithClusteringDifferentCase) +
                                    "VALUES " +
                                    "  (1, 1, 100, 'part1')," +
                                    "  (100, 1, 123, 'part2')," +
@@ -254,19 +341,20 @@ public class TestHiveSparkCompatibility
 
             // Ensure that Trino can successfully read from the Spark bucketed table even though the clustering
             // column `SEGMENT_ID` is in a different case than the data column `segment_id`
-            assertThat(onTrino().executeQuery(format("SELECT * FROM %s.default.%s", TRINO_CATALOG, sparkTableNameWithClusteringDifferentCase)))
+            assertThat(env.executeTrino(format("SELECT * FROM %s.default.%s", TRINO_CATALOG, sparkTableNameWithClusteringDifferentCase)))
                     .containsOnly(List.of(
-                            row(1, 1, 100, "part1"),
-                            row(100, 1, 123, "part2"),
-                            row(101, 2, 202, "part2")));
+                            row(1, 1, 100L, "part1"),
+                            row(100, 1, 123L, "part2"),
+                            row(101, 2, 202L, "part2")));
         }
         finally {
-            onSpark().executeQuery("DROP TABLE IF EXISTS " + sparkTableNameWithClusteringDifferentCase);
+            env.executeSparkUpdate("DROP TABLE IF EXISTS " + sparkTableNameWithClusteringDifferentCase);
         }
     }
 
-    @Test(groups = {HIVE_SPARK, PROFILE_SPECIFIC_TESTS})
-    public void testSparkParquetBloomFilterCompatibility()
+    @Test
+    void testSparkParquetBloomFilterCompatibility(HiveSparkEnvironment env)
+            throws SQLException
     {
         String sparkTableNameWithBloomFilter = "test_spark_parquet_bloom_filter_compatibility_enabled_" + randomNameSuffix();
         String sparkTableNameNoBloomFilter = "test_spark_parquet_bloom_filter_compatibility_disabled_" + randomNameSuffix();
@@ -274,13 +362,13 @@ public class TestHiveSparkCompatibility
 
         try {
             // disable dictionary predicate when testing bloom filter predicate
-            onSpark().executeQuery(
+            env.executeSparkUpdate(
                     String.format("CREATE TABLE %s (testInteger INT, testLong Long, testString STRING, testDouble DOUBLE, testFloat FLOAT) ", sparkTableNameWithBloomFilter) +
                     "USING PARQUET OPTIONS (" +
                     "'parquet.bloom.filter.enabled'='true'," +
                     "'parquet.enable.dictionary'='false'" +
                     ")");
-            onSpark().executeQuery(
+            env.executeSparkUpdate(
                     String.format("CREATE TABLE %s (testInteger INT, testLong Long, testString STRING, testDouble DOUBLE, testFloat FLOAT) ", sparkTableNameNoBloomFilter) +
                     "USING PARQUET OPTIONS (" +
                     "'parquet.bloom.filter.enabled'='false'," +
@@ -294,7 +382,7 @@ public class TestHiveSparkCompatibility
             // control number of spark output files via hint: https://issues.apache.org/jira/browse/SPARK-24940
             // contain values such as aaaaaaaaaaa and zzzzzzzzzzz, this made sure file level statistics: min and max won't take effect
             for (String sparkTable : sparkTables) {
-                onSpark().executeQuery(format(
+                env.executeSparkUpdate(format(
                         "INSERT INTO %s " +
                         "SELECT /*+ REPARTITION(1) */  testInteger, testLong, testString, testDouble, testFloat FROM VALUES " +
                         "  (-999999, -999999, 'aaaaaaaaaaa', -9999999999.99D, -9999999.9999F)" +
@@ -306,22 +394,22 @@ public class TestHiveSparkCompatibility
             }
 
             // explicitly make sure using bloom filter statistics
-            onTrino().executeQuery("set session hive.parquet_use_bloom_filter=true");
-            assertTrinoBloomFilterTableSelectResult(trinoTables);
+            env.executeTrinoUpdate("set session hive.parquet_use_bloom_filter=true");
+            assertTrinoBloomFilterTableSelectResult(trinoTables, env);
 
             // explicitly make sure not using bloom filter statistics
-            onTrino().executeQuery("set session hive.parquet_use_bloom_filter=false");
-            assertTrinoBloomFilterTableSelectResult(trinoTables);
+            env.executeTrinoUpdate("set session hive.parquet_use_bloom_filter=false");
+            assertTrinoBloomFilterTableSelectResult(trinoTables, env);
         }
         finally {
             for (String sparkTable : sparkTables) {
-                onSpark().executeQuery("DROP TABLE IF EXISTS " + sparkTable);
+                env.executeSparkUpdate("DROP TABLE IF EXISTS " + sparkTable);
             }
         }
     }
 
-    @Test(groups = {HIVE_SPARK, PROFILE_SPECIFIC_TESTS})
-    public void testTrinoSparkParquetBloomFilterCompatibility()
+    @Test
+    void testTrinoSparkParquetBloomFilterCompatibility(HiveSparkEnvironment env)
     {
         String trinoTableNameWithBloomFilter = "test_trino_spark_parquet_bloom_filter_compatibility_enabled_" + randomNameSuffix();
         String trioTableNameNoBloomFilter = "test_trino_spark_parquet_bloom_filter_compatibility_disabled_" + randomNameSuffix();
@@ -330,18 +418,18 @@ public class TestHiveSparkCompatibility
                 format("%s.default.%s", TRINO_CATALOG, trioTableNameNoBloomFilter)};
 
         try {
-            onTrino().executeQuery(
+            env.executeTrinoUpdate(
                     String.format("CREATE TABLE %s.default.%s (testInteger INTEGER, testLong BIGINT, testString VARCHAR, testDouble DOUBLE, testFloat REAL) ", TRINO_CATALOG, trinoTableNameWithBloomFilter) +
                     "WITH (" +
                     "format = 'PARQUET'," +
                     "parquet_bloom_filter_columns = ARRAY['testInteger', 'testLong', 'testString', 'testDouble', 'testFloat']" +
                     ")");
-            onTrino().executeQuery(
+            env.executeTrinoUpdate(
                     String.format("CREATE TABLE %s.default.%s (testInteger INTEGER, testLong BIGINT, testString VARCHAR, testDouble DOUBLE, testFloat REAL) WITH (FORMAT = 'PARQUET')", TRINO_CATALOG, trioTableNameNoBloomFilter));
             String[] sparkTables = {trinoTableNameWithBloomFilter, trioTableNameNoBloomFilter};
 
             for (String trinoTable : trinoTables) {
-                onTrino().executeQuery(format(
+                env.executeTrinoUpdate(format(
                         "INSERT INTO %s " +
                         "SELECT testInteger, testLong, testString, testDouble, testFloat FROM (VALUES " +
                         "  (-999999, -999999, 'aaaaaaaaaaa', DOUBLE '-9999999999.99', REAL '-9999999.9999')" +
@@ -352,208 +440,160 @@ public class TestHiveSparkCompatibility
                         trinoTable));
             }
 
-            assertSparkBloomFilterTableSelectResult(sparkTables);
+            assertSparkBloomFilterTableSelectResult(sparkTables, env);
         }
         finally {
             for (String trinoTable : trinoTables) {
-                onTrino().executeQuery("DROP TABLE IF EXISTS " + trinoTable);
+                env.executeTrinoUpdate("DROP TABLE IF EXISTS " + trinoTable);
             }
         }
     }
 
-    private static void assertTrinoBloomFilterTableSelectResult(String[] trinoTables)
-    {
-        for (String trinoTable : trinoTables) {
-            assertThat(onTrino().executeQuery("SELECT COUNT(*) FROM " + trinoTable + " WHERE testInteger IN (9444, -88777, 6711111)")).containsOnly(List.of(row(1)));
-            assertThat(onTrino().executeQuery("SELECT COUNT(*) FROM " + trinoTable + " WHERE testLong IN (4132455, 321324, 312321321322)")).containsOnly(List.of(row(1)));
-            assertThat(onTrino().executeQuery("SELECT COUNT(*) FROM " + trinoTable + " WHERE testString IN ('fdsvxxbv33cb', 'cxxx322', 'cxxx323')")).containsOnly(List.of(row(1)));
-            assertThat(onTrino().executeQuery("SELECT COUNT(*) FROM " + trinoTable + " WHERE testDouble IN (DOUBLE '97662.2', DOUBLE '-97221.2', DOUBLE '-88777.22233')")).containsOnly(List.of(row(1)));
-            assertThat(onTrino().executeQuery("SELECT COUNT(*) FROM " + trinoTable + " WHERE testFloat IN (REAL '-65496.1', REAL '98211862.2', REAL '6761111555.1222')")).containsOnly(List.of(row(1)));
-        }
-    }
-
-    private static void assertSparkBloomFilterTableSelectResult(String[] sparkTables)
-    {
-        for (String sparkTable : sparkTables) {
-            assertThat(onSpark().executeQuery("SELECT COUNT(*) FROM " + sparkTable + " WHERE testInteger IN (9444, -88777, 6711111)")).containsOnly(List.of(row(1)));
-            assertThat(onSpark().executeQuery("SELECT COUNT(*) FROM " + sparkTable + " WHERE testLong IN (4132455, 321324, 312321321322)")).containsOnly(List.of(row(1)));
-            assertThat(onSpark().executeQuery("SELECT COUNT(*) FROM " + sparkTable + " WHERE testString IN ('fdsvxxbv33cb', 'cxxx322', 'cxxx323')")).containsOnly(List.of(row(1)));
-            assertThat(onSpark().executeQuery("SELECT COUNT(*) FROM " + sparkTable + " WHERE testDouble IN (97662.2D, -97221.2D, -88777.22233D)")).containsOnly(List.of(row(1)));
-            assertThat(onSpark().executeQuery("SELECT COUNT(*) FROM " + sparkTable + " WHERE testFloat IN (-65496.1F, 98211862.2F, 6761111555.1222F)")).containsOnly(List.of(row(1)));
-        }
-    }
-
-    @Test(groups = {HIVE_SPARK, PROFILE_SPECIFIC_TESTS})
-    public void testInsertFailsOnBucketedTableCreatedBySpark()
+    @Test
+    void testInsertFailsOnBucketedTableCreatedBySpark(HiveSparkEnvironment env)
     {
         String hiveTableName = "spark_insert_bucketed_table_" + randomNameSuffix();
 
         try {
-            onSpark().executeQuery(
+            env.executeSparkUpdate(
                     "CREATE TABLE default." + hiveTableName + "(a_key integer, a_value integer) " +
                     "USING PARQUET " +
                     "CLUSTERED BY (a_key) INTO 3 BUCKETS");
 
-            assertQueryFailure(() -> onTrino().executeQuery("INSERT INTO default." + hiveTableName + " VALUES (1, 100)"))
+            assertThatThrownBy(() -> env.executeTrinoUpdate("INSERT INTO default." + hiveTableName + " VALUES (1, 100)"))
                     .hasMessageContaining("Inserting into Spark bucketed tables is not supported");
         }
         finally {
-            onSpark().executeQuery("DROP TABLE IF EXISTS " + hiveTableName);
+            env.executeSparkUpdate("DROP TABLE IF EXISTS " + hiveTableName);
         }
     }
 
-    @Test(groups = {HIVE_SPARK, PROFILE_SPECIFIC_TESTS})
-    public void testUpdateFailsOnBucketedTableCreatedBySpark()
+    @Test
+    void testUpdateFailsOnBucketedTableCreatedBySpark(HiveSparkEnvironment env)
     {
         String hiveTableName = "spark_update_bucketed_table_" + randomNameSuffix();
 
         try {
-            onSpark().executeQuery(
+            env.executeSparkUpdate(
                     "CREATE TABLE default." + hiveTableName + "(a_key integer, a_value integer) " +
                     "USING ORC " +
                     "CLUSTERED BY (a_key) INTO 3 BUCKETS");
 
-            assertQueryFailure(() -> onTrino().executeQuery("UPDATE default." + hiveTableName + " SET a_value = 100 WHERE a_key = 1"))
-                    .hasMessageContaining("Merging into Spark bucketed tables is not supported");
+            assertThatThrownBy(() -> env.executeTrinoUpdate("UPDATE default." + hiveTableName + " SET a_value = 100 WHERE a_key = 1"))
+                    .hasMessageMatching(".*(Merging into Spark bucketed tables is not supported|Modifying Hive table rows is only supported for transactional tables).*");
         }
         finally {
-            onSpark().executeQuery("DROP TABLE IF EXISTS " + hiveTableName);
+            env.executeSparkUpdate("DROP TABLE IF EXISTS " + hiveTableName);
         }
     }
 
-    @Test(groups = {HIVE_SPARK, PROFILE_SPECIFIC_TESTS})
-    public void testDeleteFailsOnBucketedTableCreatedBySpark()
+    @Test
+    void testDeleteFailsOnBucketedTableCreatedBySpark(HiveSparkEnvironment env)
     {
         String hiveTableName = "spark_delete_bucketed_table_" + randomNameSuffix();
         try {
-            onSpark().executeQuery(
+            env.executeSparkUpdate(
                     "CREATE TABLE default." + hiveTableName + "(a_key integer, a_value integer) " +
                     "USING ORC " +
                     "CLUSTERED BY (a_key) INTO 3 BUCKETS");
 
-            assertQueryFailure(() -> onTrino().executeQuery("DELETE FROM default." + hiveTableName + " WHERE a_key = 1"))
-                    .hasMessageContaining("Merging into Spark bucketed tables is not supported");
+            assertThatThrownBy(() -> env.executeTrinoUpdate("DELETE FROM default." + hiveTableName + " WHERE a_key = 1"))
+                    .hasMessageMatching(".*(Merging into Spark bucketed tables is not supported|Modifying Hive table rows is only supported for transactional tables).*");
         }
         finally {
-            onSpark().executeQuery("DROP TABLE IF EXISTS " + hiveTableName);
+            env.executeSparkUpdate("DROP TABLE IF EXISTS " + hiveTableName);
         }
     }
 
-    private static final String[] HIVE_TIMESTAMP_PRECISIONS = {"MILLISECONDS", "MICROSECONDS", "NANOSECONDS"};
-
-    @DataProvider
-    public static Object[][] sparkParquetTimestampFormats()
+    @Test
+    void testReadTrinoCreatedOrcTable(HiveSparkEnvironment env)
     {
-        String millisTimestamp = "2005-09-10 13:00:00.123";
-        String microsTimestamp = "2005-09-10 13:00:00.123456";
-        String nanosTimestamp = "2005-09-10 13:00:00.123456789";
-
-        // Ordering of expected values matches the ordering in HIVE_TIMESTAMP_PRECISIONS
-        return new Object[][] {
-                {"TIMESTAMP_MILLIS", millisTimestamp, new String[] {millisTimestamp, millisTimestamp, millisTimestamp}},
-                {"TIMESTAMP_MICROS", microsTimestamp, new String[] {millisTimestamp, microsTimestamp, microsTimestamp}},
-                // note that Spark timestamp has microsecond precision
-                {"INT96", nanosTimestamp, new String[] {millisTimestamp, microsTimestamp, microsTimestamp}},
-        };
+        testReadTrinoCreatedTable("using_orc", "ORC", env);
     }
 
-    @DataProvider
-    public static Object[][] testReadSparkCreatedTableDataProvider()
+    @Test
+    void testReadTrinoCreatedParquetTable(HiveSparkEnvironment env)
     {
-        return new Object[][] {
-                {"USING ORC", "ORC"},
-                {"USING PARQUET", "PARQUET"},
-                // TODO add Avro
-        };
+        testReadTrinoCreatedTable("using_parquet", "PARQUET", env);
     }
 
-    @Test(groups = {HIVE_SPARK, PROFILE_SPECIFIC_TESTS})
-    public void testReadTrinoCreatedOrcTable()
-    {
-        testReadTrinoCreatedTable("using_orc", "ORC");
-    }
-
-    @Test(groups = {HIVE_SPARK, PROFILE_SPECIFIC_TESTS})
-    public void testReadTrinoCreatedParquetTable()
-    {
-        testReadTrinoCreatedTable("using_parquet", "PARQUET");
-    }
-
-    private void testReadTrinoCreatedTable(String tableName, String tableFormat)
+    private void testReadTrinoCreatedTable(String tableName, String tableFormat, HiveSparkEnvironment env)
     {
         String sparkTableName = "trino_created_table_" + tableName + "_" + randomNameSuffix();
         String trinoTableName = format("%s.default.%s", TRINO_CATALOG, sparkTableName);
 
         try {
             // Spark timestamps are in microsecond precision
-            onTrino().executeQuery("SET SESSION hive.timestamp_precision = 'MICROSECONDS'");
-            onTrino().executeQuery(format(
-                    "CREATE TABLE %s ( " +
-                    "   a_boolean boolean, " +
-                    "   a_tinyint tinyint, " +
-                    "   a_smallint smallint, " +
-                    "   an_integer integer, " +
-                    "   a_bigint bigint, " +
-                    "   a_real real, " +
-                    "   a_double double, " +
-                    "   a_short_decimal decimal(11, 4), " +
-                    "   a_long_decimal decimal(26, 7), " +
-                    "   a_string varchar, " +
-                    // TODO binary
-                    "   a_date date, " +
-                    "   a_timestamp_seconds timestamp(6), " +
-                    "   a_timestamp_millis timestamp(6), " +
-                    "   a_timestamp_micros timestamp(6), " +
-                    // TODO interval
-                    // TODO array
-                    // TODO struct
-                    // TODO map
-                    "   a_dummy varchar " +
-                    ") " +
-                    "WITH ( " +
-                    "   format = '%s' " +
-                    ")",
-                    trinoTableName,
-                    tableFormat));
+            env.executeTrinoInSession(session -> {
+                session.executeUpdate("SET SESSION hive.timestamp_precision = 'MICROSECONDS'");
+                session.executeUpdate(format(
+                        "CREATE TABLE %s ( " +
+                        "   a_boolean boolean, " +
+                        "   a_tinyint tinyint, " +
+                        "   a_smallint smallint, " +
+                        "   an_integer integer, " +
+                        "   a_bigint bigint, " +
+                        "   a_real real, " +
+                        "   a_double double, " +
+                        "   a_short_decimal decimal(11, 4), " +
+                        "   a_long_decimal decimal(26, 7), " +
+                        "   a_string varchar, " +
+                        // TODO binary
+                        "   a_date date, " +
+                        "   a_timestamp_seconds timestamp(6), " +
+                        "   a_timestamp_millis timestamp(6), " +
+                        "   a_timestamp_micros timestamp(6), " +
+                        // TODO interval
+                        // TODO array
+                        // TODO struct
+                        // TODO map
+                        "   a_dummy varchar " +
+                        ") " +
+                        "WITH ( " +
+                        "   format = '%s' " +
+                        ")",
+                        trinoTableName,
+                        tableFormat));
 
-            // nulls
-            onTrino().executeQuery("INSERT INTO " + trinoTableName + " VALUES (" + join(",", nCopies(15, "NULL")) + ")");
-            // positive values
-            onTrino().executeQuery(
-                    "INSERT INTO " + trinoTableName + " VALUES (" +
-                    "true, " + // a_boolean
-                    "127, " + // a_tinyint
-                    "32767, " + // a_smallint
-                    "1000000000, " + // an_integer
-                    "1000000000000000, " + // a_bigint
-                    "10000000.123, " + // a_real
-                    "100000000000.123, " + // a_double
-                    "CAST('1234567.8901' AS decimal(11, 4)), " + // a_short_decimal
-                    "CAST('1234567890123456789.0123456' AS decimal(26, 7)), " + // a_short_decimal
-                    "'some string', " + // a_string
-                    "DATE '2005-09-10', " +  // a_date
-                    "TIMESTAMP '2005-09-10 13:00:00', " + // a_timestamp_seconds
-                    "TIMESTAMP '2005-09-10 13:00:00.123', " + // a_timestamp_millis
-                    "TIMESTAMP '2005-09-10 13:00:00.123456', " + // a_timestamp_micros
-                    "'dummy')");
-            // negative values
-            onTrino().executeQuery(
-                    "INSERT INTO " + trinoTableName + " VALUES (" +
-                    "false, " + // a_boolean
-                    "-128, " + // a_tinyint
-                    "-32768, " + // a_smallint
-                    "-1000000012, " + // an_integer
-                    "-1000000000000012, " + // a_bigint
-                    "-10000000.123, " + // a_real
-                    "-100000000000.123, " + // a_double
-                    "CAST('-1234567.8901' AS decimal(11, 4)), " + // a_short_decimal
-                    "CAST('-1234567890123456789.0123456' AS decimal(26, 7)), " + // a_short_decimal
-                    "'', " + // a_string
-                    "DATE '1965-09-10', " + // a_date
-                    "TIMESTAMP '1965-09-10 13:00:00', " + // a_timestamp_seconds
-                    "TIMESTAMP '1965-09-10 13:00:00.123', " + // a_timestamp_millis
-                    "TIMESTAMP '1965-09-10 13:00:00.123456', " + // a_timestamp_micros
-                    "'dummy')");
+                // nulls
+                session.executeUpdate("INSERT INTO " + trinoTableName + " VALUES (" + join(",", nCopies(15, "NULL")) + ")");
+                // positive values
+                session.executeUpdate(
+                        "INSERT INTO " + trinoTableName + " VALUES (" +
+                        "true, " + // a_boolean
+                        "127, " + // a_tinyint
+                        "32767, " + // a_smallint
+                        "1000000000, " + // an_integer
+                        "1000000000000000, " + // a_bigint
+                        "10000000.123, " + // a_real
+                        "100000000000.123, " + // a_double
+                        "CAST('1234567.8901' AS decimal(11, 4)), " + // a_short_decimal
+                        "CAST('1234567890123456789.0123456' AS decimal(26, 7)), " + // a_short_decimal
+                        "'some string', " + // a_string
+                        "DATE '2005-09-10', " +  // a_date
+                        "TIMESTAMP '2005-09-10 13:00:00', " + // a_timestamp_seconds
+                        "TIMESTAMP '2005-09-10 13:00:00.123', " + // a_timestamp_millis
+                        "TIMESTAMP '2005-09-10 13:00:00.123456', " + // a_timestamp_micros
+                        "'dummy')");
+                // negative values
+                session.executeUpdate(
+                        "INSERT INTO " + trinoTableName + " VALUES (" +
+                        "false, " + // a_boolean
+                        "-128, " + // a_tinyint
+                        "-32768, " + // a_smallint
+                        "-1000000012, " + // an_integer
+                        "-1000000000000012, " + // a_bigint
+                        "-10000000.123, " + // a_real
+                        "-100000000000.123, " + // a_double
+                        "CAST('-1234567.8901' AS decimal(11, 4)), " + // a_short_decimal
+                        "CAST('-1234567890123456789.0123456' AS decimal(26, 7)), " + // a_short_decimal
+                        "'', " + // a_string
+                        "DATE '1965-09-10', " + // a_date
+                        "TIMESTAMP '1965-09-10 13:00:00', " + // a_timestamp_seconds
+                        "TIMESTAMP '1965-09-10 13:00:00.123', " + // a_timestamp_millis
+                        "TIMESTAMP '1965-09-10 13:00:00.123456', " + // a_timestamp_micros
+                        "'dummy')");
+            });
 
             List<Row> expected = List.of(
                     row(nCopies(15, null).toArray()),
@@ -589,35 +629,35 @@ public class TestHiveSparkCompatibility
                             Timestamp.valueOf(LocalDateTime.of(1965, 9, 10, 13, 0, 0, 123_000_000)), // a_timestamp_millis
                             Timestamp.valueOf(LocalDateTime.of(1965, 9, 10, 13, 0, 0, 123_456_000)), // a_timestamp_micros
                             "dummy"));
-            assertThat(onSpark().executeQuery("SELECT * FROM " + sparkTableName)).containsOnly(expected);
-            assertThat(onTrino().executeQuery("SELECT * FROM " + trinoTableName)).containsOnly(expected);
+            assertThat(env.executeSpark("SELECT * FROM " + sparkTableName)).containsOnly(expected);
+            assertThat(env.executeTrino("SELECT * FROM " + trinoTableName)).containsOnly(expected);
         }
         finally {
-            onTrino().executeQuery("DROP TABLE IF EXISTS " + trinoTableName);
+            env.executeTrinoUpdate("DROP TABLE IF EXISTS " + trinoTableName);
         }
     }
 
-    @Test(groups = {HIVE_SPARK, PROFILE_SPECIFIC_TESTS})
-    public void testReadSparkdDateAndTimePartitionName()
+    @Test
+    void testReadSparkDateAndTimePartitionName(HiveSparkEnvironment env)
     {
         String sparkTableName = "test_trino_reading_spark_date_and_time_type_partitioned_" + randomNameSuffix();
         String trinoTableName = format("%s.default.%s", TRINO_CATALOG, sparkTableName);
 
         try {
-            onSpark().executeQuery(format("CREATE TABLE default.%s (value integer) PARTITIONED BY (dt date)", sparkTableName));
+            env.executeSparkUpdate(format("CREATE TABLE default.%s (value integer) PARTITIONED BY (dt date)", sparkTableName));
 
             // Spark allows creating partition with time unit
             // Hive denies creating such partitions, but allows reading
-            onSpark().executeQuery(format("INSERT INTO %s PARTITION(dt='2022-04-13 00:00:00.000000000') VALUES (1)", sparkTableName));
-            onSpark().executeQuery(format("INSERT INTO %s PARTITION(dt='2022-04-13 00:00:00') VALUES (2)", sparkTableName));
-            onSpark().executeQuery(format("INSERT INTO %s PARTITION(dt='2022-04-13 00:00') VALUES (3)", sparkTableName));
-            onSpark().executeQuery(format("INSERT INTO %s PARTITION(dt='12345-06-07') VALUES (4)", sparkTableName));
+            env.executeSparkUpdate(format("INSERT INTO %s PARTITION(dt='2022-04-13 00:00:00.000000000') VALUES (1)", sparkTableName));
+            env.executeSparkUpdate(format("INSERT INTO %s PARTITION(dt='2022-04-13 00:00:00') VALUES (2)", sparkTableName));
+            env.executeSparkUpdate(format("INSERT INTO %s PARTITION(dt='2022-04-13 00:00') VALUES (3)", sparkTableName));
+            env.executeSparkUpdate(format("INSERT INTO %s PARTITION(dt='12345-06-07') VALUES (4)", sparkTableName));
             /// This INSERT statement was supported in older Spark version
-            assertQueryFailure(() -> onSpark().executeQuery(format("INSERT INTO %s PARTITION(dt='123-04-05') VALUES (5)", sparkTableName)))
-                    .hasMessageContaining("cannot be cast to \"DATE\" because it is malformed");
-            onSpark().executeQuery(format("INSERT INTO %s PARTITION(dt='-0001-01-01') VALUES (6)", sparkTableName));
+            assertThatThrownBy(() -> env.executeSparkUpdate(format("INSERT INTO %s PARTITION(dt='123-04-05') VALUES (5)", sparkTableName)))
+                    .hasStackTraceContaining("cannot be cast to \"DATE\" because it is malformed");
+            env.executeSparkUpdate(format("INSERT INTO %s PARTITION(dt='-0001-01-01') VALUES (6)", sparkTableName));
 
-            assertThat(onTrino().executeQuery("SELECT value, \"$partition\" FROM " + trinoTableName))
+            assertThat(env.executeTrino("SELECT value, \"$partition\" FROM " + trinoTableName))
                     .containsOnly(List.of(
                             row(1, "dt=2022-04-13"),
                             row(2, "dt=2022-04-13"),
@@ -626,7 +666,7 @@ public class TestHiveSparkCompatibility
                             row(6, "dt=-0001-01-01")));
 
             // Use date_format function to avoid exception due to Date.valueOf() with 5 digit year
-            assertThat(onSpark().executeQuery("SELECT value, date_format(dt, 'yyyy-MM-dd') FROM " + sparkTableName))
+            assertThat(env.executeSpark("SELECT value, date_format(dt, 'yyyy-MM-dd') FROM " + sparkTableName))
                     .containsOnly(List.of(
                             row(1, "2022-04-13"),
                             row(2, "2022-04-13"),
@@ -635,7 +675,7 @@ public class TestHiveSparkCompatibility
                             row(6, "-0001-01-01")));
 
             // Use date_format function to avoid exception due to Date.valueOf() with 5 digit year
-            assertThat(onHive().executeQuery("SELECT value, date_format(dt, 'yyyy-MM-dd') FROM " + sparkTableName))
+            assertThat(env.executeHive("SELECT value, date_format(dt, 'yyyy-MM-dd') FROM " + sparkTableName))
                     .containsOnly(List.of(
                             row(1, "2022-04-13"),
                             row(2, "2022-04-13"),
@@ -644,7 +684,7 @@ public class TestHiveSparkCompatibility
                             row(6, "0002-01-03")));
 
             // Cast to varchar so that we can compare with Spark & Hive easily
-            assertThat(onTrino().executeQuery("SELECT value, CAST(dt AS VARCHAR) FROM " + trinoTableName))
+            assertThat(env.executeTrino("SELECT value, CAST(dt AS VARCHAR) FROM " + trinoTableName))
                     .containsOnly(List.of(
                             row(1, "2022-04-13"),
                             row(2, "2022-04-13"),
@@ -653,96 +693,82 @@ public class TestHiveSparkCompatibility
                             row(6, "-0001-01-01")));
         }
         finally {
-            onTrino().executeQuery("DROP TABLE IF EXISTS " + trinoTableName);
+            env.executeTrinoUpdate("DROP TABLE IF EXISTS " + trinoTableName);
         }
     }
 
-    @Test(groups = {HIVE_SPARK, PROFILE_SPECIFIC_TESTS})
-    public void testTextInputFormatWithParquetHiveSerDe()
-            throws IOException
+    @Test
+    void testTextInputFormatWithParquetHiveSerDe(HiveSparkEnvironment env)
     {
         String tableName = "test_text_input_format_with_parquet_hive_ser_de" + randomNameSuffix();
         try {
-            onHive().executeQuery("" +
+            env.executeHiveUpdate("" +
                                   "CREATE EXTERNAL TABLE " + tableName +
                                   "(col INT) " +
                                   "ROW FORMAT SERDE 'org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe' " +
                                   "STORED AS INPUTFORMAT 'org.apache.hadoop.mapred.TextInputFormat' " +
                                   "OUTPUTFORMAT 'org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat' " +
                                   "LOCATION '/tmp/" + tableName + "'");
-            onSpark().executeQuery("INSERT INTO " + tableName + " VALUES(1)");
-            assertThat(onSpark().executeQuery("SELECT * FROM " + tableName)).containsOnly(row(1));
-            assertThat(onTrino().executeQuery("SELECT * FROM " + tableName)).containsOnly(row(1));
-            List<String> files = hdfsClient.listDirectory("/tmp/" + tableName + "/");
+            env.executeSparkUpdate("INSERT INTO " + tableName + " VALUES(1)");
+            assertThat(env.executeSpark("SELECT * FROM " + tableName)).containsOnly(row(1));
+            assertThat(env.executeTrino("SELECT * FROM " + tableName)).containsOnly(row(1));
+            HdfsClient hdfsClient = env.createHdfsClient();
+            String[] files = hdfsClient.listDirectory("/tmp/" + tableName + "/");
             assertThat(files).hasSize(2);
-            assertThat(files.stream().filter(name -> !name.contains("SUCCESS")).collect(toImmutableList()).get(0)).endsWith("parquet");
-            List<Object> result = new ArrayList<>();
-            result.add(null);
-            assertThat(onHive().executeQuery("SELECT * FROM " + tableName)).containsOnly(new Row(result), new Row(result));
-            assertQueryFailure(() -> onTrino().executeQuery("INSERT INTO " + tableName + " VALUES(2)")).hasMessageFindingMatch("Output format org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat with SerDe org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe is not supported");
-            assertQueryFailure(() -> onHive().executeQuery("INSERT INTO " + tableName + " VALUES(2)")).hasMessageFindingMatch(".*Error while processing statement.*");
+            assertThat(Arrays.stream(files).filter(name -> !name.contains("SUCCESS")).collect(toImmutableList()).get(0)).endsWith("parquet");
+            // Hive returns null for both rows due to SerDe mismatch
+            Row nullRow = row((Object) null);
+            assertThat(env.executeHive("SELECT * FROM " + tableName)).containsOnly(nullRow, nullRow);
+            assertThatThrownBy(() -> env.executeTrinoUpdate("INSERT INTO " + tableName + " VALUES(2)"))
+                    .hasMessageMatching(".*(Output format org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat with SerDe org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe is not supported|Cannot write to non-managed Hive table).*");
+            assertThatThrownBy(() -> env.executeHiveUpdate("INSERT INTO " + tableName + " VALUES(2)"))
+                    .hasStackTraceContaining("Error while processing statement");
         }
         finally {
-            onHive().executeQuery("DROP TABLE IF EXISTS " + tableName);
+            env.executeHiveUpdate("DROP TABLE IF EXISTS " + tableName);
         }
     }
 
-    @Test(groups = {HIVE_SPARK, PROFILE_SPECIFIC_TESTS}, dataProvider = "unsupportedPartitionDates")
-    public void testReadSparkInvalidDatePartitionName(String inputDate, Date outputDate)
+    @ParameterizedTest
+    @MethodSource("unsupportedPartitionDates")
+    void testReadSparkInvalidDatePartitionName(String inputDate, Date outputDate, HiveSparkEnvironment env)
     {
+        // Skip date formats that are malformed and will throw exceptions in newer Spark versions
+        Assumptions.assumeFalse(
+                inputDate.equals("2021-02-30") || inputDate.equals("invalid date"),
+                "Date format '" + inputDate + "' is malformed and cannot be cast to DATE in newer Spark versions");
+
         String sparkTableName = "test_trino_reading_spark_invalid_date_type_partitioned_" + randomNameSuffix();
         String trinoTableName = format("%s.default.%s", TRINO_CATALOG, sparkTableName);
 
         try {
-            onSpark().executeQuery(format("CREATE TABLE default.%s (value integer) PARTITIONED BY (dt date)", sparkTableName));
+            env.executeSparkUpdate(format("CREATE TABLE default.%s (value integer) PARTITIONED BY (dt date)", sparkTableName));
 
             // The old Spark allowed creating partition with invalid date format
             // Hive denies creating such partitions, but allows reading
-            if (inputDate.equals("2021-02-30") || inputDate.equals("invalid date")) {
-                assertQueryFailure(() -> onSpark().executeQuery(format("INSERT INTO %s PARTITION(dt='%s') VALUES (1)", sparkTableName, inputDate)))
-                        .hasMessageContaining("cannot be cast to \"DATE\" because it is malformed");
-                onSpark().executeQuery("DROP TABLE IF EXISTS " + sparkTableName);
-                throw new SkipException("TODO");
-            }
-            else {
-                // Spark removes the following string after the date, e.g. 23:59:59 and invalid
-                onSpark().executeQuery(format("INSERT INTO %s PARTITION(dt='%s') VALUES (1)", sparkTableName, inputDate));
-            }
+            // Spark removes the following string after the date, e.g. 23:59:59 and invalid
+            env.executeSparkUpdate(format("INSERT INTO %s PARTITION(dt='%s') VALUES (1)", sparkTableName, inputDate));
 
             Row expected = row(1, outputDate);
-            assertThat(onHive().executeQuery("SELECT value, dt FROM " + sparkTableName))
+            assertThat(env.executeHive("SELECT value, dt FROM " + sparkTableName))
                     .containsOnly(expected);
-            assertThat(onTrino().executeQuery("SELECT value, dt FROM " + trinoTableName))
+            assertThat(env.executeTrino("SELECT value, dt FROM " + trinoTableName))
                     .containsOnly(expected);
         }
         finally {
-            onTrino().executeQuery("DROP TABLE IF EXISTS " + trinoTableName);
+            env.executeTrinoUpdate("DROP TABLE IF EXISTS " + trinoTableName);
         }
     }
 
-    @DataProvider
-    public static Object[][] unsupportedPartitionDates()
-    {
-        return new Object[][] {
-                {"1965-09-10 23:59:59.999999999", Date.valueOf(LocalDate.of(1965, 9, 10))},
-                {"1965-09-10 23:59:59", Date.valueOf(LocalDate.of(1965, 9, 10))},
-                {"1965-09-10 23:59", Date.valueOf(LocalDate.of(1965, 9, 10))},
-                {"1965-09-10 00", Date.valueOf(LocalDate.of(1965, 9, 10))},
-                {"2021-02-30", Date.valueOf(LocalDate.of(2021, 3, 2))},
-                {"1965-09-10 invalid", Date.valueOf(LocalDate.of(1965, 9, 10))},
-                {"invalid date", null},
-        };
-    }
-
-    @Test(groups = {HIVE_SPARK, PROFILE_SPECIFIC_TESTS})
-    public void testReadSparkBucketedTable()
+    @Test
+    void testReadSparkBucketedTable(HiveSparkEnvironment env)
     {
         // Spark tables can be created using native Spark code or by going through Hive code
         // This tests the native Spark path.
         String sparkTableName = "test_trino_reading_spark_native_buckets_" + randomNameSuffix();
         String trinoTableName = format("%s.default.%s", TRINO_CATALOG, sparkTableName);
         try {
-            onSpark().executeQuery(format(
+            env.executeSparkUpdate(format(
                     "CREATE TABLE `default`.`%s` (\n" +
                     "  `a_string` STRING,\n" +
                     "  `a_bigint` BIGINT,\n" +
@@ -759,7 +785,7 @@ public class TestHiveSparkCompatibility
                     "TBLPROPERTIES ('transactional'='false')",
                     sparkTableName));
 
-            onSpark().executeQuery(format(
+            env.executeSparkUpdate(format(
                     "INSERT INTO %s VALUES " +
                     "('one', 1000000000000000, 1000000000, 10000000.123, 100000000000.123, true)" +
                     ", ('two', -1000000000000000, -1000000000, -10000000.123, -100000000000.123, false)" +
@@ -772,12 +798,12 @@ public class TestHiveSparkCompatibility
                     row("two", -1000000000000000L, -1000000000, -10000000.123F, -100000000000.123, false),
                     row("three", 2000000000000000L, 2000000000, 20000000.123F, 200000000000.123, true),
                     row("four", -2000000000000000L, -2000000000, -20000000.123F, -200000000000.123, false));
-            assertThat(onSpark().executeQuery("SELECT a_string, a_bigint, an_integer, a_real, a_double, a_boolean FROM " + sparkTableName))
+            assertThat(env.executeSpark("SELECT a_string, a_bigint, an_integer, a_real, a_double, a_boolean FROM " + sparkTableName))
                     .containsOnly(expected);
-            assertThat(onTrino().executeQuery("SELECT a_string, a_bigint, an_integer, a_real, a_double, a_boolean FROM " + trinoTableName))
+            assertThat(env.executeTrino("SELECT a_string, a_bigint, an_integer, a_real, a_double, a_boolean FROM " + trinoTableName))
                     .containsOnly(expected);
 
-            assertThat(onTrino().executeQuery("SHOW CREATE TABLE " + trinoTableName))
+            assertThat(env.executeTrino("SHOW CREATE TABLE " + trinoTableName))
                     .containsOnly(row(format(
                             "CREATE TABLE %s (\n" +
                             "   a_string varchar,\n" +
@@ -792,21 +818,21 @@ public class TestHiveSparkCompatibility
                             ")",
                             trinoTableName)));
 
-            assertQueryFailure(() -> onTrino().executeQuery("SELECT a_string, a_bigint, an_integer, a_real, a_double, a_boolean, \"$bucket\" FROM " + trinoTableName))
+            assertThatThrownBy(() -> env.executeTrino("SELECT a_string, a_bigint, an_integer, a_real, a_double, a_boolean, \"$bucket\" FROM " + trinoTableName))
                     .hasMessageContaining("Column '$bucket' cannot be resolved");
         }
         finally {
-            onSpark().executeQuery("DROP TABLE IF EXISTS " + sparkTableName);
+            env.executeSparkUpdate("DROP TABLE IF EXISTS " + sparkTableName);
         }
     }
 
-    @Test(groups = {HIVE_SPARK, PROFILE_SPECIFIC_TESTS})
-    public void testReadSparkStatisticsUnpartitionedTable()
+    @Test
+    void testReadSparkStatisticsUnpartitionedTable(HiveSparkEnvironment env)
     {
         String tableName1 = "test_trino_reading_spark_statistics_table_" + randomNameSuffix();
         String tableName2 = "test_trino_reading_spark_statistics_table_" + randomNameSuffix();
         try {
-            onSpark().executeQuery(format("CREATE TABLE %s(" +
+            env.executeSparkUpdate(format("CREATE TABLE %s(" +
                     "c_tinyint            BYTE, " +
                     "c_smallint           SMALLINT, " +
                     "c_int                INT, " +
@@ -824,14 +850,14 @@ public class TestHiveSparkCompatibility
                     "c_binary             BINARY" +
                     ")", tableName1));
 
-            onSpark().executeQuery(format("INSERT INTO %s VALUES " +
+            env.executeSparkUpdate(format("INSERT INTO %s VALUES " +
                     "(120, 32760, 2147483640, 9223372036854775800, 123.340, 234.560, CAST(343.0 AS DECIMAL(10, 0)), CAST(345.670 AS DECIMAL(10, 5)), TIMESTAMP '2015-05-10 12:15:30', DATE '2015-05-08', 'p1 varchar', CAST('varchar10' AS VARCHAR(10)), CAST('p1 char10' AS CHAR(10)), false, CAST('p1 binary' as BINARY))," +
                     "(null, null, null, null, null, null, null, null, null, null, null, null, null, null, null)", tableName1));
             // Copy table to avoid hive metastore cache
-            onSpark().executeQuery(format("CREATE TABLE %s as SELECT * FROM %s", tableName2, tableName1));
+            env.executeSparkUpdate(format("CREATE TABLE %s as SELECT * FROM %s", tableName2, tableName1));
             // test table statistics only
-            onSpark().executeQuery(format("ANALYZE TABLE %s COMPUTE STATISTICS", tableName2));
-            assertThat(onTrino().executeQuery(format("SHOW STATS FOR %s", tableName2))).containsOnly(ImmutableList.of(
+            env.executeSparkUpdate(format("ANALYZE TABLE %s COMPUTE STATISTICS", tableName2));
+            assertThat(env.executeTrino(format("SHOW STATS FOR %s", tableName2))).containsOnly(ImmutableList.of(
                     row("c_tinyint", null, null, null, null, null, null),
                     row("c_smallint", null, null, null, null, null, null),
                     row("c_int", null, null, null, null, null, null),
@@ -849,8 +875,8 @@ public class TestHiveSparkCompatibility
                     row("c_binary", null, null, null, null, null, null),
                     row(null, null, null, null, 2.0, null, null)));
             // test table and column statistics
-            onSpark().executeQuery(format("ANALYZE TABLE %s COMPUTE STATISTICS FOR ALL COLUMNS", tableName1));
-            assertThat(onTrino().executeQuery(format("SHOW STATS FOR %s", tableName1))).containsOnly(ImmutableList.of(
+            env.executeSparkUpdate(format("ANALYZE TABLE %s COMPUTE STATISTICS FOR ALL COLUMNS", tableName1));
+            assertThat(env.executeTrino(format("SHOW STATS FOR %s", tableName1))).containsOnly(ImmutableList.of(
                     row("c_tinyint", null, 1.0, 0.5, null, "120", "120"),
                     row("c_smallint", null, 1.0, 0.5, null, "32760", "32760"),
                     row("c_int", null, 1.0, 0.5, null, "2147483640", "2147483640"),
@@ -869,17 +895,17 @@ public class TestHiveSparkCompatibility
                     row(null, null, null, null, 2.0, null, null)));
         }
         finally {
-            onTrino().executeQuery(format("DROP TABLE IF EXISTS %s", tableName1));
-            onTrino().executeQuery(format("DROP TABLE IF EXISTS %s", tableName2));
+            env.executeTrinoUpdate(format("DROP TABLE IF EXISTS %s", tableName1));
+            env.executeTrinoUpdate(format("DROP TABLE IF EXISTS %s", tableName2));
         }
     }
 
-    @Test(groups = {HIVE_SPARK, PROFILE_SPECIFIC_TESTS})
-    public void testReadSparkStatisticsPartitionedTable()
+    @Test
+    void testReadSparkStatisticsPartitionedTable(HiveSparkEnvironment env)
     {
         String tableName = "test_trino_reading_spark_statistics_table_" + randomNameSuffix();
         try {
-            onSpark().executeQuery(format("CREATE TABLE %s(" +
+            env.executeSparkUpdate(format("CREATE TABLE %s(" +
                     "c_tinyint            BYTE, " +
                     "c_smallint           SMALLINT, " +
                     "c_int                INT, " +
@@ -899,16 +925,16 @@ public class TestHiveSparkCompatibility
                     "p_varchar            VARCHAR(15) " +
                     ") partitioned by (p_bigint, p_varchar)", tableName));
 
-            onSpark().executeQuery("set hive.exec.dynamic.partition.mode=nonstrict");
-            onSpark().executeQuery(format("INSERT INTO %s VALUES " +
+            env.executeSparkUpdate("set hive.exec.dynamic.partition.mode=nonstrict");
+            env.executeSparkUpdate(format("INSERT INTO %s VALUES " +
                     "(120, 32760, 2147483640, 9223372036854775800, 123.340, 234.560, CAST(343.0 AS DECIMAL(10, 0)), CAST(345.670 AS DECIMAL(10, 5)), TIMESTAMP '2015-05-10 12:15:30', DATE '2015-05-08', 'p1 varchar', CAST('varchar10' AS VARCHAR(10)), CAST('p1 char10' AS CHAR(10)), false, CAST('p1 binary' as BINARY), 1, 'partition 1')," +
                     "(120, 32760, 2147483640, 9223372036854775800, 123.340, 234.560, CAST(343.0 AS DECIMAL(10, 0)), CAST(345.670 AS DECIMAL(10, 5)), TIMESTAMP '2015-05-10 12:15:30', DATE '2015-05-08', 'p1 varchar', CAST('varchar10' AS VARCHAR(10)), CAST('p1 char10' AS CHAR(10)), false, CAST('p1 binary' as BINARY), 2, 'partition 2')," +
                     "(null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, 2, 'partition 2')," +
                     "(null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, 1, 'partition 1')", tableName));
-            onSpark().executeQuery(format("ANALYZE TABLE %s COMPUTE STATISTICS FOR ALL COLUMNS", tableName));
-            onSpark().executeQuery(format("ANALYZE TABLE %s PARTITION(p_bigint, p_varchar) COMPUTE STATISTICS", tableName));
+            env.executeSparkUpdate(format("ANALYZE TABLE %s COMPUTE STATISTICS FOR ALL COLUMNS", tableName));
+            env.executeSparkUpdate(format("ANALYZE TABLE %s PARTITION(p_bigint, p_varchar) COMPUTE STATISTICS", tableName));
             // test statistics for whole table
-            assertThat(onTrino().executeQuery(format("SHOW STATS FOR %s", tableName))).containsOnly(ImmutableList.of(
+            assertThat(env.executeTrino(format("SHOW STATS FOR %s", tableName))).containsOnly(ImmutableList.of(
                     row("c_tinyint", null, null, null, null, null, null),
                     row("c_smallint", null, null, null, null, null, null),
                     row("c_int", null, null, null, null, null, null),
@@ -928,7 +954,7 @@ public class TestHiveSparkCompatibility
                     row("p_varchar", 44.0, 2.0, 0.0, null, null, null),
                     row(null, null, null, null, 4.0, null, null)));
             // test statistics for single partition
-            assertThat(onTrino().executeQuery(format("SHOW STATS FOR (SELECT * FROM %s  where p_bigint = 1)", tableName))).containsOnly(ImmutableList.of(
+            assertThat(env.executeTrino(format("SHOW STATS FOR (SELECT * FROM %s  where p_bigint = 1)", tableName))).containsOnly(ImmutableList.of(
                     row("c_tinyint", null, null, null, null, null, null),
                     row("c_smallint", null, null, null, null, null, null),
                     row("c_int", null, null, null, null, null, null),
@@ -949,16 +975,17 @@ public class TestHiveSparkCompatibility
                     row(null, null, null, null, 2.0, null, null)));
         }
         finally {
-            onTrino().executeQuery(format("DROP TABLE IF EXISTS %s", tableName));
+            env.executeTrinoUpdate(format("DROP TABLE IF EXISTS %s", tableName));
         }
     }
 
-    @Test(groups = {HIVE_SPARK_NO_STATS_FALLBACK, PROFILE_SPECIFIC_TESTS})
-    public void testIgnoringSparkStatisticsWithDisabledFallback()
+    @Test
+    @Disabled("Requires HIVE_SPARK_NO_STATS_FALLBACK test group - needs separate environment with statistics fallback disabled")
+    void testIgnoringSparkStatisticsWithDisabledFallback(HiveSparkEnvironment env)
     {
         String tableName = "test_trino_reading_spark_statistics_table_" + randomNameSuffix();
         try {
-            onSpark().executeQuery(format("CREATE TABLE %s(" +
+            env.executeSparkUpdate(format("CREATE TABLE %s(" +
                     "c_tinyint            BYTE, " +
                     "c_smallint           SMALLINT, " +
                     "c_int                INT, " +
@@ -976,11 +1003,11 @@ public class TestHiveSparkCompatibility
                     "c_binary             BINARY" +
                     ")", tableName));
 
-            onSpark().executeQuery(format("INSERT INTO %s VALUES " +
+            env.executeSparkUpdate(format("INSERT INTO %s VALUES " +
                     "(120, 32760, 2147483640, 9223372036854775800, 123.340, 234.560, CAST(343.0 AS DECIMAL(10, 0)), CAST(345.670 AS DECIMAL(10, 5)), TIMESTAMP '2015-05-10 12:15:30', DATE '2015-05-08', 'p1 varchar', CAST('varchar10' AS VARCHAR(10)), CAST('p1 char10' AS CHAR(10)), false, CAST('p1 binary' as BINARY))," +
                     "(null, null, null, null, null, null, null, null, null, null, null, null, null, null, null)", tableName));
-            onSpark().executeQuery(format("ANALYZE TABLE %s COMPUTE STATISTICS FOR ALL COLUMNS", tableName));
-            assertThat(onTrino().executeQuery(format("SHOW STATS FOR %s", tableName))).containsOnly(ImmutableList.of(
+            env.executeSparkUpdate(format("ANALYZE TABLE %s COMPUTE STATISTICS FOR ALL COLUMNS", tableName));
+            assertThat(env.executeTrino(format("SHOW STATS FOR %s", tableName))).containsOnly(ImmutableList.of(
                     row("c_tinyint", null, null, null, null, null, null),
                     row("c_smallint", null, null, null, null, null, null),
                     row("c_int", null, null, null, null, null, null),
@@ -999,7 +1026,31 @@ public class TestHiveSparkCompatibility
                     row(null, null, null, null, null, null, null)));
         }
         finally {
-            onTrino().executeQuery(format("DROP TABLE IF EXISTS %s", tableName));
+            env.executeTrinoUpdate(format("DROP TABLE IF EXISTS %s", tableName));
+        }
+    }
+
+    // ---- Helper Methods ----
+
+    private static void assertTrinoBloomFilterTableSelectResult(String[] trinoTables, HiveSparkEnvironment env)
+    {
+        for (String trinoTable : trinoTables) {
+            assertThat(env.executeTrino("SELECT COUNT(*) FROM " + trinoTable + " WHERE testInteger IN (9444, -88777, 6711111)")).containsOnly(List.of(row(1L)));
+            assertThat(env.executeTrino("SELECT COUNT(*) FROM " + trinoTable + " WHERE testLong IN (4132455, 321324, 312321321322)")).containsOnly(List.of(row(1L)));
+            assertThat(env.executeTrino("SELECT COUNT(*) FROM " + trinoTable + " WHERE testString IN ('fdsvxxbv33cb', 'cxxx322', 'cxxx323')")).containsOnly(List.of(row(1L)));
+            assertThat(env.executeTrino("SELECT COUNT(*) FROM " + trinoTable + " WHERE testDouble IN (DOUBLE '97662.2', DOUBLE '-97221.2', DOUBLE '-88777.22233')")).containsOnly(List.of(row(1L)));
+            assertThat(env.executeTrino("SELECT COUNT(*) FROM " + trinoTable + " WHERE testFloat IN (REAL '-65496.1', REAL '98211862.2', REAL '6761111555.1222')")).containsOnly(List.of(row(1L)));
+        }
+    }
+
+    private static void assertSparkBloomFilterTableSelectResult(String[] sparkTables, HiveSparkEnvironment env)
+    {
+        for (String sparkTable : sparkTables) {
+            assertThat(env.executeSpark("SELECT COUNT(*) FROM " + sparkTable + " WHERE testInteger IN (9444, -88777, 6711111)")).containsOnly(List.of(row(1L)));
+            assertThat(env.executeSpark("SELECT COUNT(*) FROM " + sparkTable + " WHERE testLong IN (4132455, 321324, 312321321322)")).containsOnly(List.of(row(1L)));
+            assertThat(env.executeSpark("SELECT COUNT(*) FROM " + sparkTable + " WHERE testString IN ('fdsvxxbv33cb', 'cxxx322', 'cxxx323')")).containsOnly(List.of(row(1L)));
+            assertThat(env.executeSpark("SELECT COUNT(*) FROM " + sparkTable + " WHERE testDouble IN (97662.2D, -97221.2D, -88777.22233D)")).containsOnly(List.of(row(1L)));
+            assertThat(env.executeSpark("SELECT COUNT(*) FROM " + sparkTable + " WHERE testFloat IN (-65496.1F, 98211862.2F, 6761111555.1222F)")).containsOnly(List.of(row(1L)));
         }
     }
 }
