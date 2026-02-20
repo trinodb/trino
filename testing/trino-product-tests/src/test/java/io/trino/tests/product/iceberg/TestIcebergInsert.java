@@ -14,12 +14,16 @@
 package io.trino.tests.product.iceberg;
 
 import io.airlift.concurrent.MoreFutures;
-import io.trino.tempto.ProductTest;
-import io.trino.tempto.assertions.QueryAssert;
-import io.trino.tempto.query.QueryExecutionException;
-import io.trino.tempto.query.QueryExecutor;
-import org.testng.annotations.Test;
+import io.trino.testing.containers.environment.ProductTest;
+import io.trino.testing.containers.environment.RequiresEnvironment;
+import io.trino.testing.containers.environment.Row;
+import io.trino.tests.product.TestGroup;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 
+import java.sql.Connection;
+import java.sql.SQLException;
+import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.Callable;
@@ -30,33 +34,37 @@ import java.util.stream.IntStream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.testing.TestingNames.randomNameSuffix;
-import static io.trino.tests.product.TestGroups.HMS_ONLY;
-import static io.trino.tests.product.TestGroups.ICEBERG;
-import static io.trino.tests.product.TestGroups.STORAGE_FORMATS_DETAILED;
-import static io.trino.tests.product.utils.QueryExecutors.onTrino;
+import static io.trino.testing.containers.environment.QueryResultAssert.assertThat;
+import static io.trino.testing.containers.environment.Row.row;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
 
-public class TestIcebergInsert
-        extends ProductTest
+/**
+ * Tests for concurrent insert operations on Iceberg tables.
+ * <p>
+ * Ported from the Tempto-based TestIcebergInsert.
+ *
+ * @see TestIcebergSparkCompatibility#testTrinoSparkConcurrentInsert()
+ */
+@ProductTest
+@RequiresEnvironment(SparkIcebergEnvironment.class)
+@TestGroup.Iceberg
+class TestIcebergInsert
 {
-    /**
-     * @see TestIcebergSparkCompatibility#testTrinoSparkConcurrentInsert()
-     */
-    @Test(groups = {ICEBERG, STORAGE_FORMATS_DETAILED, HMS_ONLY}, timeOut = 60_000)
-    public void testIcebergConcurrentInsert()
+    @Test
+    @Timeout(value = 60, unit = SECONDS)
+    void testIcebergConcurrentInsert(SparkIcebergEnvironment env)
             throws Exception
     {
         int threads = 3;
         int insertsPerThread = 4;
 
         String tableName = "iceberg.default.test_insert_concurrent_" + randomNameSuffix();
-        onTrino().executeQuery("CREATE TABLE " + tableName + "(a bigint)");
+        env.executeTrinoUpdate("CREATE TABLE " + tableName + "(a bigint)");
 
         ExecutorService executor = Executors.newFixedThreadPool(threads);
         try {
             CyclicBarrier barrier = new CyclicBarrier(threads);
-            QueryExecutor onTrino = onTrino();
             List<Long> allInserted = executor.invokeAll(
                     IntStream.range(0, threads)
                             .mapToObj(thread -> (Callable<List<Long>>) () -> {
@@ -64,14 +72,14 @@ public class TestIcebergInsert
                                 for (int i = 0; i < insertsPerThread; i++) {
                                     barrier.await(20, SECONDS);
                                     long value = i + (long) insertsPerThread * thread;
-                                    try {
-                                        onTrino.executeQuery("INSERT INTO " + tableName + " VALUES " + value);
+                                    try (Connection conn = env.createTrinoConnection();
+                                            Statement stmt = conn.createStatement()) {
+                                        stmt.executeUpdate("INSERT INTO " + tableName + " VALUES " + value);
+                                        inserted.add(value);
                                     }
-                                    catch (QueryExecutionException queryExecutionException) {
-                                        // failed to insert
-                                        continue;
+                                    catch (SQLException e) {
+                                        // failed to insert due to concurrent modification - this is expected behavior
                                     }
-                                    inserted.add(value);
                                 }
                                 return inserted;
                             })
@@ -81,14 +89,15 @@ public class TestIcebergInsert
                     .collect(toImmutableList());
 
             // At least one INSERT per round should succeed
-            assertThat(allInserted).hasSizeBetween(insertsPerThread, threads * insertsPerThread);
+            assertThat(allInserted)
+                    .hasSizeBetween(insertsPerThread, threads * insertsPerThread);
 
-            assertThat(onTrino().executeQuery("SELECT * FROM " + tableName))
+            assertThat(env.executeTrino("SELECT * FROM " + tableName))
                     .containsOnly(allInserted.stream()
-                            .map(QueryAssert.Row::row)
-                            .toArray(QueryAssert.Row[]::new));
+                            .map(v -> row(v))
+                            .toArray(Row[]::new));
 
-            onTrino().executeQuery("DROP TABLE " + tableName);
+            env.executeTrinoUpdate("DROP TABLE " + tableName);
         }
         finally {
             executor.shutdownNow();
