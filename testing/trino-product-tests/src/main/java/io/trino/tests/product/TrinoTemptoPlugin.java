@@ -31,10 +31,10 @@ import static io.trino.tests.product.hive.AllSimpleTypesTableDefinitions.ALL_HIV
 import static io.trino.tests.product.hive.AllSimpleTypesTableDefinitions.ALL_HIVE_SIMPLE_TYPES_PARQUET;
 import static io.trino.tests.product.hive.AllSimpleTypesTableDefinitions.ALL_HIVE_SIMPLE_TYPES_RCFILE;
 import static io.trino.tests.product.hive.AllSimpleTypesTableDefinitions.ALL_HIVE_SIMPLE_TYPES_TEXTFILE;
-import static io.trino.tests.product.hive.TestHiveBucketedTables.BUCKETED_NATION;
-import static io.trino.tests.product.hive.TestHiveBucketedTables.BUCKETED_NATION_PREPARED;
-import static io.trino.tests.product.hive.TestHiveBucketedTables.BUCKETED_PARTITIONED_NATION;
-import static io.trino.tests.product.hive.TestHiveBucketedTables.BUCKETED_SORTED_NATION;
+import static io.trino.tests.product.hive.HiveBucketedTableDefinitions.BUCKETED_NATION;
+import static io.trino.tests.product.hive.HiveBucketedTableDefinitions.BUCKETED_NATION_PREPARED;
+import static io.trino.tests.product.hive.HiveBucketedTableDefinitions.BUCKETED_PARTITIONED_NATION;
+import static io.trino.tests.product.hive.HiveBucketedTableDefinitions.BUCKETED_SORTED_NATION;
 
 public class TrinoTemptoPlugin
         implements TemptoPlugin
