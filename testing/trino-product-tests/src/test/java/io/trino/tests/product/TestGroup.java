@@ -394,8 +394,8 @@ public @interface TestGroup
 
     @Target({TYPE, METHOD})
     @Retention(RUNTIME)
-    @Tag("delta-lake-minio")
-    @interface DeltaLakeMinio {}
+    @Tag("delta-lake-floci")
+    @interface DeltaLakeFloci {}
 
     @Target({TYPE, METHOD})
     @Retention(RUNTIME)
