@@ -238,7 +238,6 @@ public class TestThriftMetastoreUtil
         Table.Builder builder = Table.builder(bucketed);
         builder.getStorageBuilder().setBucketProperty(Optional.empty());
         Table unbucketed = builder.build();
-
         io.trino.hive.thrift.metastore.Table metastoreApiTable = ThriftMetastoreUtil.toMetastoreApiTable(unbucketed, NO_PRIVILEGES);
         assertThat(metastoreApiTable.getSd().getNumBuckets()).isEqualTo(-1);
     }
