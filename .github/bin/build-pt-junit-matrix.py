@@ -43,7 +43,7 @@ BUCKETS = [
         ("SuiteSnowflake", ("SuiteSnowflake",)),
     ]),
     ("connector-smoke", [
-        ("SuiteCassandra", ("SuiteCassandra",)),
+        ("SuiteCassandra", LEGACY_COVERAGE_REMOVED),
         ("SuiteClickhouse", ("SuiteClickhouse",)),
         ("SuiteBlackHole", ("SuiteAllConnectorsSmoke",)),
         ("SuiteAllConnectorsSmoke", ("SuiteAllConnectorsSmoke",)),
