@@ -189,7 +189,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.offset;
 import static org.assertj.core.api.Fail.fail;
-import static org.junit.jupiter.api.Assumptions.abort;
 
 public abstract class BaseIcebergConnectorTest
         extends BaseConnectorTest
@@ -5293,7 +5292,15 @@ public abstract class BaseIcebergConnectorTest
     @Override
     protected TestTable createTableWithDefaultColumns()
     {
-        return abort("Iceberg connector does not support column default values");
+        return new TestTable(
+                getQueryRunner()::execute,
+                "tpch.table",
+                "(col_required BIGINT NOT NULL," +
+                        "col_nullable BIGINT," +
+                        "col_default BIGINT DEFAULT 43," +
+                        "col_nonnull_default BIGINT DEFAULT 42 NOT NULL," +
+                        "col_required2 BIGINT NOT NULL)" +
+                        "WITH (format_version = 3)");
     }
 
     @Override
