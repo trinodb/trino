@@ -15,6 +15,7 @@ package io.trino.tests.product.hive;
 
 import io.trino.testing.containers.environment.ProductTest;
 import io.trino.testing.containers.environment.RequiresEnvironment;
+import io.trino.tests.product.TestGroup;
 import org.junit.jupiter.api.Test;
 
 import static io.trino.testing.TestingNames.randomNameSuffix;
@@ -34,6 +35,7 @@ import static io.trino.testing.containers.environment.Row.row;
  */
 @ProductTest
 @RequiresEnvironment(HiveIcebergRedirectionsEnvironment.class)
+@TestGroup.HiveIcebergRedirections
 class TestHiveIcebergRedirectionsEnvironment
 {
     @Test
