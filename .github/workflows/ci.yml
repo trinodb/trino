@@ -1100,8 +1100,15 @@ jobs:
           retention-days: 1
       - id: set-junit-matrix
         run: |
-          echo "JUnit matrix: {}"
-          echo "matrix-junit={}" >> $GITHUB_OUTPUT
+          cat <<'EOF' > matrix-junit.json
+          {
+            "include": [
+              {"bucket": "jdbc-core", "suites": "SuiteMysql"}
+            ]
+          }
+          EOF
+          echo "JUnit matrix: $(jq '.' matrix-junit.json)"
+          echo "matrix-junit=$(jq -c '.' matrix-junit.json)" >> $GITHUB_OUTPUT
 
   pt:
     runs-on: 'ubuntu-latest'
