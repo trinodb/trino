@@ -13,10 +13,22 @@
  */
 package io.trino.tests.product.hive;
 
-public class TestAvroSchemaEvolutionOnTableWithPartitioning
-        extends BaseTestAvroSchemaEvolution
+import io.trino.testing.containers.environment.ProductTest;
+import io.trino.testing.containers.environment.RequiresEnvironment;
+import io.trino.tests.product.TestGroup;
+
+/**
+ * Tests for Avro schema evolution on partitioned tables.
+ * <p>
+ * Ported from the Tempto-based TestAvroSchemaEvolutionOnTableWithPartitioning.
+ */
+@ProductTest
+@RequiresEnvironment(HiveStorageFormatsEnvironment.class)
+@TestGroup.StorageFormats
+class TestAvroSchemaEvolutionOnTableWithPartitioning
+        extends BaseTestAvroSchemaEvolutionJunit
 {
-    public TestAvroSchemaEvolutionOnTableWithPartitioning()
+    TestAvroSchemaEvolutionOnTableWithPartitioning()
     {
         super("product_tests_avro_table_with_partitioning", "partition_col");
     }
