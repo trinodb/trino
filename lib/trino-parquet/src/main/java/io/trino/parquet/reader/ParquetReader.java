@@ -587,7 +587,10 @@ public class ParquetReader
         }
 
         if (columnChunk == null) {
-            throw new ParquetCorruptionException(dataSource.getId(), "Struct field does not have any children: %s", field);
+            if (field.getReferenceField().isEmpty()) {
+                throw new ParquetCorruptionException(dataSource.getId(), "Struct field does not have any children: %s", field);
+            }
+            columnChunk = readPrimitive(field.getReferenceField().get());
         }
 
         StructColumnReader.RowBlockPositions structIsNull = StructColumnReader.calculateStructOffsets(field, columnChunk.getDefinitionLevels(), columnChunk.getRepetitionLevels());
@@ -731,9 +734,12 @@ public class ParquetReader
     {
         switch (field) {
             case PrimitiveField primitiveField -> primitiveFields.put(primitiveField.getId(), primitiveField);
-            case GroupField groupField -> groupField.getChildren().stream()
+            case GroupField groupField -> {
+                groupField.getChildren().stream()
                     .flatMap(Optional::stream)
                     .forEach(child -> parseField(child, primitiveFields));
+                groupField.getReferenceField().ifPresent(referenceField -> primitiveFields.put(referenceField.getId(), referenceField));
+            }
             case VariantField variantField -> {
                 parseField(variantField.getValue(), primitiveFields);
                 parseField(variantField.getMetadata(), primitiveFields);
