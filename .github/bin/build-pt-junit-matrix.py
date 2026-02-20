@@ -68,7 +68,7 @@ BUCKETS = [
         ("SuiteHdfsImpersonation", LEGACY_COVERAGE_REMOVED),
         ("SuiteTwoHives", LEGACY_COVERAGE_REMOVED),
         ("SuiteHive4", LEGACY_COVERAGE_REMOVED),
-        ("SuiteHudi", ("SuiteHudi",)),
+        ("SuiteHudi", LEGACY_COVERAGE_REMOVED),
     ]),
     ("hive-transactional", [
         ("SuiteHiveTransactional", LEGACY_COVERAGE_REMOVED),
