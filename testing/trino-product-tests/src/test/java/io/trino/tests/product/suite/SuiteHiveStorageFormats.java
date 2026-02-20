@@ -35,7 +35,6 @@ public final class SuiteHiveStorageFormats
                 .includeTag(TestGroup.StorageFormats.class)
                 .excludeTag(TestGroup.StorageFormatsDetailed.class)
                 .excludeTag(TestGroup.HiveCompression.class)
-                .excludeTag(TestGroup.HmsOnly.class)
                 .run());
 
         SuiteRunner.printSummary(results);
