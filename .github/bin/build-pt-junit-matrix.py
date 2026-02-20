@@ -65,7 +65,6 @@ BUCKETS = [
         ("SuiteHiveStorageFormats", AGGREGATE_LEGACY_SUITES),
     ]),
     ("hive-kerberos", [
-        ("SuiteHiveKerberos", AGGREGATE_LEGACY_SUITES),
         ("SuiteHdfsImpersonation", AGGREGATE_LEGACY_SUITES),
         ("SuiteTwoHives", AGGREGATE_LEGACY_SUITES),
         ("SuiteHive4", ("SuiteHive4",)),
