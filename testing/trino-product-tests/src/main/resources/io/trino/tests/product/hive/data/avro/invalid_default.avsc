@@ -1,0 +1,20 @@
+{
+    "type": "record",
+    "name": "invalid_union_default",
+    "namespace": "io.trino.test.avroschema",
+    "doc": "This schema has columns with illegal null defaults. These should be illegal and are rejected by Avro 1.9.2, but are allowed by Avro 1.8.2 and can be read by Avro 1.10.1.",
+    "fields": [
+        {
+            "name": "valid",
+            "doc": "A union with a legal null default",
+            "default": null,
+            "type": ["null", "string"]
+        },
+        {
+            "name": "invalid",
+            "doc": "Invalid: the default of a union should correspond to the first type",
+            "default": null,
+            "type": ["string", "null"]
+        }
+    ]
+}
