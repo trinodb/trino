@@ -16,6 +16,7 @@ package io.trino.tests.product.hive;
 import io.trino.testing.containers.environment.ProductTest;
 import io.trino.testing.containers.environment.RequiresEnvironment;
 import io.trino.testing.services.junit.Flaky;
+import io.trino.tests.product.TestGroup;
 import org.junit.jupiter.api.Test;
 
 import static io.trino.tests.product.utils.HadoopTestUtils.RETRYABLE_FAILURES_ISSUES;
@@ -30,6 +31,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
  */
 @ProductTest
 @RequiresEnvironment(HiveStorageFormatsEnvironment.class)
+@TestGroup.StorageFormats
 class TestHiveDeltaLakeTable
 {
     @Test
