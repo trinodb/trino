@@ -13,10 +13,20 @@
  */
 package io.trino.tests.product.hive;
 
-public class TestAvroSchemaEvolutionOnSimpleTable
-        extends BaseTestAvroSchemaEvolution
+import io.trino.testing.containers.environment.ProductTest;
+import io.trino.testing.containers.environment.RequiresEnvironment;
+import io.trino.tests.product.TestGroup;
+
+/**
+ * Tests for Avro schema evolution on simple (non-partitioned) tables.
+ */
+@ProductTest
+@RequiresEnvironment(HiveStorageFormatsEnvironment.class)
+@TestGroup.StorageFormats
+class TestAvroSchemaEvolutionOnSimpleTable
+        extends BaseTestAvroSchemaEvolutionJunit
 {
-    public TestAvroSchemaEvolutionOnSimpleTable()
+    TestAvroSchemaEvolutionOnSimpleTable()
     {
         super("product_tests_avro_table");
     }
