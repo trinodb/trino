@@ -40,11 +40,12 @@ import io.trino.testing.sql.TrinoSqlExecutor;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.TestInstance;
-import org.junit.jupiter.api.parallel.Execution;
+import org.testcontainers.utility.DockerImageName;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
@@ -53,6 +54,7 @@ import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkState;
@@ -95,6 +97,7 @@ import static io.trino.testing.datatype.DataType.integerDataType;
 import static io.trino.testing.datatype.DataType.realDataType;
 import static io.trino.testing.datatype.DataType.timestampDataType;
 import static io.trino.type.JsonType.JSON;
+import static java.lang.Integer.parseInt;
 import static java.lang.String.format;
 import static java.math.RoundingMode.HALF_UP;
 import static java.math.RoundingMode.UNNECESSARY;
@@ -102,17 +105,15 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.time.ZoneOffset.UTC;
 import static java.util.Arrays.asList;
 import static java.util.Collections.singletonList;
+import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
-import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
-@TestInstance(PER_CLASS)
-@Execution(CONCURRENT)
-public class TestPostgreSqlTypeMappingBase
+public abstract class BasePostgreSqlTypeMappingTest
         extends AbstractTestQueryFramework
 {
+    private final DockerImageName postgreSqlImage;
     protected TestingPostgreSqlServer postgreSqlServer;
 
     private final LocalDateTime beforeEpoch = LocalDateTime.of(1958, 1, 1, 13, 18, 3, 123_000_000);
@@ -136,11 +137,16 @@ public class TestPostgreSqlTypeMappingBase
     private final ZoneOffset fixedOffsetEast = ZoneOffset.ofHoursMinutes(2, 17);
     private final ZoneOffset fixedOffsetWest = ZoneOffset.ofHoursMinutes(-7, -31);
 
+    protected BasePostgreSqlTypeMappingTest(DockerImageName postgreSqlImage)
+    {
+        this.postgreSqlImage = requireNonNull(postgreSqlImage, "postgreSqlImage is null");
+    }
+
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        postgreSqlServer = closeAfterClass(new TestingPostgreSqlServer());
+        postgreSqlServer = closeAfterClass(new TestingPostgreSqlServer(postgreSqlImage));
         return PostgreSqlQueryRunner.builder(postgreSqlServer)
                 .addConnectorProperties(Map.of("jdbc-types-mapped-to-varchar", "Tsrange, Inet" /* make sure that types are compared case insensitively */))
                 .build();
@@ -384,6 +390,98 @@ public class TestPostgreSqlTypeMappingBase
         SqlDataTypeTest.create()
                 .addRoundTrip("numeric", "1.1", createDecimalType(Decimals.MAX_PRECISION, 5), "CAST(1.1 AS DECIMAL(38, 5))")
                 .execute(getQueryRunner(), sessionWithDecimalMappingAllowOverflow(UNNECESSARY, 5), postgresCreateAndInsert("test_unspecified_decimal"));
+    }
+
+    @Test
+    public void testPostgreSqlDecimalScaleExceedingPrecision()
+    {
+        if (parseInt(postgreSqlImage.getVersionPart()) < 15) {
+            assertPostgreSqlQueryFails(
+                    "CREATE TABLE verify_exuberant_scale_not_supported(a decimal(5, 6))",
+                    "ERROR: NUMERIC scale 6 must be between 0 and precision 5");
+            return;
+        }
+
+        SqlDataTypeTest.create()
+                .addRoundTrip("decimal(5, 6)", "0.012345", createDecimalType(6, 6), "DECIMAL '0.012345'")
+                .addRoundTrip("decimal(27, 38)", "0.00000000000123456789912345678991234567", createDecimalType(38, 38), "DECIMAL '0.00000000000123456789912345678991234567'")
+                .execute(getQueryRunner(), postgresCreateAndInsert("test_postgresql_decimal_exuberant_scale"));
+
+        // exceeding 38 precision on Trino side
+        testUnsupportedDataTypeAsIgnored("decimal(27, 39)", "0.000000000000123456789912345678991234567");
+
+        // exceeding 38 precision on PostgreSQL side
+        testUnsupportedDataTypeAsIgnored("decimal(40, 80)", "0." + "0".repeat(40) + "1234567899".repeat(4));
+
+        // Highest possible scale
+        assertPostgreSqlQueryFails(
+                "CREATE TABLE verify_negative_scale_not_supported(a decimal(5, 1001))",
+                "ERROR: NUMERIC scale 1001 must be between -1000 and 1000");
+        testUnsupportedDataTypeAsIgnored("decimal(30, 1000)", "0." + "0".repeat(1000 - 30) + "1234567899".repeat(3));
+
+        // numeric as declared type
+        SqlDataTypeTest.create()
+                .addRoundTrip("numeric(5, 6)", "0.012345", createDecimalType(6, 6), "DECIMAL '0.012345'")
+                .addRoundTrip("numeric(27, 38)", "0.00000000000123456789912345678991234567", createDecimalType(38, 38), "DECIMAL '0.00000000000123456789912345678991234567'")
+                .execute(getQueryRunner(), postgresCreateAndInsert("test_postgresql_decimal_exuberant_scale"));
+    }
+
+    @Test
+    public void testPostgreSqlDecimalNegativeScale()
+    {
+        if (parseInt(postgreSqlImage.getVersionPart()) < 15) {
+            assertPostgreSqlQueryFails(
+                    "CREATE TABLE verify_negative_scale_not_supported(a decimal(5, -1))",
+                    "ERROR: NUMERIC scale -1 must be between 0 and precision 5");
+            return;
+        }
+
+        SqlDataTypeTest.create()
+                .addRoundTrip("decimal(5, -1)", "123450", createDecimalType(6, 0), "DECIMAL '123450'")
+                .addRoundTrip("decimal(5, -3)", "12345000", createDecimalType(8, 0), "DECIMAL '12345000'")
+                .addRoundTrip("decimal(9, -7)", "1234567890000000", createDecimalType(16, 0), "DECIMAL '1234567890000000'")
+                .addRoundTrip("decimal(27, -11)", "12345678901234567890123456700000000000", createDecimalType(38, 0), "DECIMAL '12345678901234567890123456700000000000'")
+                .execute(getQueryRunner(), postgresCreateAndInsert("test_postgresql_decimal_negative_scale"));
+
+        // exceeding 38 precision on Trino side
+        testUnsupportedDataTypeAsIgnored("decimal(27, -12)", "123456789012345678901234567000000000000");
+
+        // exceeding 38 precision on Trino side, with ALLOW_OVERFLOW mapping
+        SqlDataTypeTest.create()
+                .addRoundTrip("decimal(27, -12)", "65432789012345678901234567000000000000", createDecimalType(38, 0), "DECIMAL '65432789012345678901234567000000000000'")
+                .execute(getQueryRunner(), sessionWithDecimalMappingAllowOverflow(UNNECESSARY, 5), postgresCreateAndInsert("test_postgresql_decimal_negative_scale"));
+
+        // exceeding 38 precision on PostgreSQL side
+        testUnsupportedDataTypeAsIgnored("decimal(39, -1)", "12345678901234567890123456700000000000");
+
+        // exceeding 38 precision on PostgreSQL side, with ALLOW_OVERFLOW mapping
+        SqlDataTypeTest.create()
+                .addRoundTrip("decimal(39, -1)", "12345678901234567890123456700000000000", createDecimalType(38, 0), "DECIMAL '12345678901234567890123456700000000000'")
+                .execute(getQueryRunner(), sessionWithDecimalMappingAllowOverflow(UNNECESSARY, 5), postgresCreateAndInsert("test_postgresql_decimal_negative_scale"));
+
+        // Lowest possible scale
+        assertPostgreSqlQueryFails(
+                "CREATE TABLE verify_negative_scale_not_supported(a decimal(5, -1001))",
+                "ERROR: NUMERIC scale -1001 must be between -1000 and 1000");
+        testUnsupportedDataTypeAsIgnored("decimal(30, -1000)", "123" + "0".repeat(1000));
+
+        // numeric as declared type
+        SqlDataTypeTest.create()
+                .addRoundTrip("numeric(5, -1)", "123450", createDecimalType(6, 0), "DECIMAL '123450'")
+                .addRoundTrip("numeric(5, -3)", "12345000", createDecimalType(8, 0), "DECIMAL '12345000'")
+                .addRoundTrip("numeric(9, -7)", "1234567890000000", createDecimalType(16, 0), "DECIMAL '1234567890000000'")
+                .addRoundTrip("numeric(27, -11)", "12345678901234567890123456700000000000", createDecimalType(38, 0), "DECIMAL '12345678901234567890123456700000000000'")
+                .execute(getQueryRunner(), postgresCreateAndInsert("test_postgresql_decimal_negative_scale"));
+    }
+
+    private static Optional<Integer> getInteger(ResultSet resultSet, String columnLabel)
+            throws SQLException
+    {
+        int value = resultSet.getInt(columnLabel);
+        if (resultSet.wasNull()) {
+            return Optional.empty();
+        }
+        return Optional.of(value);
     }
 
     @Test
@@ -802,22 +900,22 @@ public class TestPostgreSqlTypeMappingBase
                 .execute(getQueryRunner(), session, trinoCreateAsSelect(session, "test_array_basic"))
                 .execute(getQueryRunner(), session, trinoCreateAndInsert(session, "test_array_basic"));
 
-        arrayDateTest(TestPostgreSqlTypeMappingBase::trinoArrayFactory)
+        arrayDateTest(BasePostgreSqlTypeMappingTest::trinoArrayFactory)
                 .execute(getQueryRunner(), session, trinoCreateAsSelect(session, "test_array_date"))
                 .execute(getQueryRunner(), session, trinoCreateAndInsert(session, "test_array_date"));
-        arrayDateTest(TestPostgreSqlTypeMappingBase::postgreSqlArrayFactory)
+        arrayDateTest(BasePostgreSqlTypeMappingTest::postgreSqlArrayFactory)
                 .execute(getQueryRunner(), session, postgresCreateAndInsert("test_array_date"));
 
-        arrayDecimalTest(TestPostgreSqlTypeMappingBase::trinoArrayFactory)
+        arrayDecimalTest(BasePostgreSqlTypeMappingTest::trinoArrayFactory)
                 .execute(getQueryRunner(), session, trinoCreateAsSelect(session, "test_array_decimal"))
                 .execute(getQueryRunner(), session, trinoCreateAndInsert(session, "test_array_decimal"));
-        arrayDecimalTest(TestPostgreSqlTypeMappingBase::postgreSqlArrayFactory)
+        arrayDecimalTest(BasePostgreSqlTypeMappingTest::postgreSqlArrayFactory)
                 .execute(getQueryRunner(), session, postgresCreateAndInsert("test_array_decimal"));
 
-        arrayVarcharTest(TestPostgreSqlTypeMappingBase::trinoArrayFactory)
+        arrayVarcharTest(BasePostgreSqlTypeMappingTest::trinoArrayFactory)
                 .execute(getQueryRunner(), session, trinoCreateAsSelect(session, "test_array_varchar"))
                 .execute(getQueryRunner(), session, trinoCreateAndInsert(session, "test_array_varchar"));
-        arrayVarcharTest(TestPostgreSqlTypeMappingBase::postgreSqlArrayFactory)
+        arrayVarcharTest(BasePostgreSqlTypeMappingTest::postgreSqlArrayFactory)
                 .execute(getQueryRunner(), session, postgresCreateAndInsert("test_array_varchar"));
 
         testUnsupportedDataTypeAsIgnored(session, "bytea[]", "ARRAY['binary value'::bytea]");
@@ -826,15 +924,15 @@ public class TestPostgreSqlTypeMappingBase
         testUnsupportedDataTypeAsIgnored(session, "_bytea", "ARRAY['binary value'::bytea]");
         testUnsupportedDataTypeConvertedToVarchar(session, "bytea[]", "_bytea", "ARRAY['binary value'::bytea]", "'{\"\\\\x62696e6172792076616c7565\"}'");
 
-        arrayUnicodeDataTypeTest(TestPostgreSqlTypeMappingBase::trinoArrayFactory)
+        arrayUnicodeDataTypeTest(BasePostgreSqlTypeMappingTest::trinoArrayFactory)
                 .execute(getQueryRunner(), session, trinoCreateAsSelect(session, "test_array_parameterized_char_unicode"))
                 .execute(getQueryRunner(), session, trinoCreateAndInsert(session, "test_array_parameterized_char_unicode"));
-        arrayUnicodeDataTypeTest(TestPostgreSqlTypeMappingBase::postgreSqlArrayFactory)
+        arrayUnicodeDataTypeTest(BasePostgreSqlTypeMappingTest::postgreSqlArrayFactory)
                 .execute(getQueryRunner(), session, postgresCreateAndInsert("test_array_parameterized_char_unicode"));
-        arrayVarcharUnicodeDataTypeTest(TestPostgreSqlTypeMappingBase::trinoArrayFactory)
+        arrayVarcharUnicodeDataTypeTest(BasePostgreSqlTypeMappingTest::trinoArrayFactory)
                 .execute(getQueryRunner(), session, trinoCreateAsSelect(session, "test_array_parameterized_varchar_unicode"))
                 .execute(getQueryRunner(), session, trinoCreateAndInsert(session, "test_array_parameterized_varchar_unicode"));
-        arrayVarcharUnicodeDataTypeTest(TestPostgreSqlTypeMappingBase::postgreSqlArrayFactory)
+        arrayVarcharUnicodeDataTypeTest(BasePostgreSqlTypeMappingTest::postgreSqlArrayFactory)
                 .execute(getQueryRunner(), session, postgresCreateAndInsert("test_array_parameterized_varchar_unicode"));
     }
 
@@ -1924,14 +2022,14 @@ public class TestPostgreSqlTypeMappingBase
         return arrayDataType(postgreSqlTimestampWithTimeZoneDataType(precision), format("timestamptz(%d)[]", precision));
     }
 
-    private Session sessionWithArrayAsArray()
+    protected Session sessionWithArrayAsArray()
     {
         return Session.builder(getSession())
                 .setSystemProperty("postgresql.array_mapping", AS_ARRAY.name())
                 .build();
     }
 
-    private Session sessionWithDecimalMappingAllowOverflow(RoundingMode roundingMode, int scale)
+    protected Session sessionWithDecimalMappingAllowOverflow(RoundingMode roundingMode, int scale)
     {
         return Session.builder(getSession())
                 .setCatalogSessionProperty("postgresql", DECIMAL_MAPPING, ALLOW_OVERFLOW.name())
@@ -1940,7 +2038,7 @@ public class TestPostgreSqlTypeMappingBase
                 .build();
     }
 
-    private Session sessionWithDecimalMappingStrict(UnsupportedTypeHandling unsupportedTypeHandling)
+    protected Session sessionWithDecimalMappingStrict(UnsupportedTypeHandling unsupportedTypeHandling)
     {
         return Session.builder(getSession())
                 .setCatalogSessionProperty("postgresql", DECIMAL_MAPPING, STRICT.name())
@@ -1948,32 +2046,32 @@ public class TestPostgreSqlTypeMappingBase
                 .build();
     }
 
-    private DataSetup trinoCreateAsSelect(String tableNamePrefix)
+    protected DataSetup trinoCreateAsSelect(String tableNamePrefix)
     {
         return trinoCreateAsSelect(getSession(), tableNamePrefix);
     }
 
-    private DataSetup trinoCreateAsSelect(Session session, String tableNamePrefix)
+    protected DataSetup trinoCreateAsSelect(Session session, String tableNamePrefix)
     {
         return new CreateAsSelectDataSetup(new TrinoSqlExecutor(getQueryRunner(), session), tableNamePrefix);
     }
 
-    private DataSetup trinoCreateAndInsert(String tableNamePrefix)
+    protected DataSetup trinoCreateAndInsert(String tableNamePrefix)
     {
         return trinoCreateAndInsert(getSession(), tableNamePrefix);
     }
 
-    private DataSetup trinoCreateAndInsert(Session session, String tableNamePrefix)
+    protected DataSetup trinoCreateAndInsert(Session session, String tableNamePrefix)
     {
         return new CreateAndInsertDataSetup(new TrinoSqlExecutor(getQueryRunner(), session), tableNamePrefix);
     }
 
-    private DataSetup postgresCreateAndInsert(String tableNamePrefix)
+    protected DataSetup postgresCreateAndInsert(String tableNamePrefix)
     {
         return new CreateAndInsertDataSetup(new JdbcSqlExecutor(postgreSqlServer.getJdbcUrl(), postgreSqlServer.getProperties()), tableNamePrefix);
     }
 
-    private DataSetup postgresCreateAndTrinoInsert(String tableNamePrefix)
+    protected DataSetup postgresCreateAndTrinoInsert(String tableNamePrefix)
     {
         return new CreateAndTrinoInsertDataSetup(new JdbcSqlExecutor(postgreSqlServer.getJdbcUrl(), postgreSqlServer.getProperties()), new TrinoSqlExecutor(getQueryRunner()), tableNamePrefix);
     }

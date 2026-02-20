@@ -55,6 +55,10 @@ public class TestingPostgreSqlServer
 {
     // the oldest supported PostgreSQL version
     public static final DockerImageName DEFAULT_IMAGE_NAME = DockerImageName.parse("postgres:12");
+    // first PostgreSQL version that expanded PostgreSQL numeric type
+    public static final DockerImageName IMAGE_15_NAME = DockerImageName.parse("postgres:15");
+    // newest tested PostgreSQL version
+    public static final DockerImageName LATEST_IMAGE_NAME = DockerImageName.parse("postgres:18");
 
     private static final String USER = "test";
     private static final String PASSWORD = "test";

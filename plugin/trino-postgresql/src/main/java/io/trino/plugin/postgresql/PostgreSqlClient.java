@@ -239,10 +239,10 @@ import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.trino.spi.type.VarcharType.createVarcharType;
+import static java.lang.Math.clamp;
 import static java.lang.Math.floorDiv;
 import static java.lang.Math.floorMod;
 import static java.lang.Math.max;
-import static java.lang.Math.min;
 import static java.lang.String.format;
 import static java.lang.String.join;
 import static java.math.RoundingMode.UNNECESSARY;
@@ -625,12 +625,21 @@ public class PostgreSqlClient
 
             case Types.NUMERIC: {
                 int columnSize = typeHandle.requiredColumnSize();
-                int decimalDigits = typeHandle.decimalDigits().orElse(0);
+                OptionalInt pgScale = getPostgreSqlDecimalScale(typeHandle);
+                if (columnSize != UNCONSTRAINED_NUMERIC_COLUMN_SIZE && pgScale.isEmpty()) {
+                    // This is impossible in current PostgreSQL. We don't fall back to "overflow" mode,
+                    // as that could mean anything (e.g. PostgreSQL changing how decimal metadata is reported)
+                    // and we don't want future fix to be backwards incompatible change for connector's users.
+                    break;
+                }
                 if (columnSize != UNCONSTRAINED_NUMERIC_COLUMN_SIZE) {
-                    // TODO (https://github.com/trinodb/trino/issues/28388) negative scale doesn't actually work
-                    int precision = columnSize + max(-decimalDigits, 0); // Map decimal(p, -s) (negative scale) to decimal(p+s, 0).
+                    int scale = pgScale.orElseThrow();
+                    // Map decimal(p, -s) (negative scale) to decimal(p+s, 0).
+                    // Map decimal(p, s) with s>p, to decimal(s, s).
+                    int precision = max(columnSize + max(-scale, 0), scale);
+                    scale = max(scale, 0);
                     if (precision <= Decimals.MAX_PRECISION) {
-                        return Optional.of(decimalColumnMapping(createDecimalType(precision, max(decimalDigits, 0)), UNNECESSARY));
+                        return Optional.of(decimalColumnMapping(createDecimalType(precision, scale), UNNECESSARY));
                     }
                 }
                 switch (getDecimalRounding(session)) {
@@ -643,7 +652,7 @@ public class PostgreSqlClient
                             scale = getDecimalDefaultScale(session);
                         }
                         else {
-                            scale = min(decimalDigits, getDecimalDefaultScale(session));
+                            scale = clamp(pgScale.orElseThrow(), 0, getDecimalDefaultScale(session));
                         }
                         return Optional.of(decimalColumnMapping(createDecimalType(Decimals.MAX_PRECISION, scale), getDecimalRoundingMode(session)));
                     }
@@ -690,6 +699,28 @@ public class PostgreSqlClient
         }
 
         return Optional.empty();
+    }
+
+    private static OptionalInt getPostgreSqlDecimalScale(JdbcTypeHandle typeHandle)
+    {
+        // This should be the case for "unconstrained numeric", i.e. PostgreSQL "NUMERIC" / "DECIMAL"
+        // with precision and scale unspecified, and therefore enjoying dynamic scale.
+        if (typeHandle.decimalDigits().isEmpty()) {
+            return OptionalInt.empty();
+        }
+        int decimalDigits = typeHandle.requiredDecimalDigits();
+
+        // PostgreSQL supports scales from -1000 to 1000.
+        // The nonnegative scale number N is represented in metadata as DECIMAL_DIGITS N (so values 0..1000)
+        // The negative scale number -N is represented in metadata as DECIMAL_DIGITS 2048-N (so values 1048..2047)
+        if (0 <= decimalDigits && decimalDigits <= 1000) {
+            return OptionalInt.of(decimalDigits);
+        }
+        if ((2048 - 1000) <= decimalDigits && decimalDigits < 2048) {
+            return OptionalInt.of(decimalDigits - 2048);
+        }
+        // This is impossible in current PostgreSQL.
+        return OptionalInt.empty();
     }
 
     private Optional<ColumnMapping> arrayToTrinoType(ConnectorSession session, Connection connection, JdbcTypeHandle typeHandle)
