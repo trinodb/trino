@@ -72,6 +72,7 @@ public class HiveImpersonationEnvironment
 
         // Start Hadoop (provides HDFS, Hive Metastore, and HiveServer2)
         hadoop = new HadoopContainer()
+                .withTrinoProxyUser()
                 .withNetwork(network)
                 .withNetworkAliases(HadoopContainer.HOST_NAME);
         hadoop.start();
