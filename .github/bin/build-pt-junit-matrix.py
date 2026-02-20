@@ -93,19 +93,19 @@ BUCKETS = [
         ("SuiteAzure", ("SuiteAzure",)),
     ]),
     ("databricks-133", [
-        ("SuiteDeltaLakeDatabricks133", ("SuiteDeltaLakeDatabricks133",)),
+        ("SuiteDeltaLakeDatabricks133", LEGACY_COVERAGE_REMOVED),
     ]),
     ("databricks-143", [
-        ("SuiteDeltaLakeDatabricks143", ("SuiteDeltaLakeDatabricks143",)),
+        ("SuiteDeltaLakeDatabricks143", LEGACY_COVERAGE_REMOVED),
     ]),
     ("databricks-154", [
-        ("SuiteDeltaLakeDatabricks154", ("SuiteDeltaLakeDatabricks154",)),
+        ("SuiteDeltaLakeDatabricks154", LEGACY_COVERAGE_REMOVED),
     ]),
     ("databricks-164", [
-        ("SuiteDeltaLakeDatabricks164", ("SuiteDeltaLakeDatabricks164",)),
+        ("SuiteDeltaLakeDatabricks164", LEGACY_COVERAGE_REMOVED),
     ]),
     ("databricks-173", [
-        ("SuiteDeltaLakeDatabricks173", ("SuiteDeltaLakeDatabricks173",)),
+        ("SuiteDeltaLakeDatabricks173", LEGACY_COVERAGE_REMOVED),
     ]),
 ]
 
