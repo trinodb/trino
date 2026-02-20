@@ -115,6 +115,7 @@ public final class DecimalSaturatedFloorCasts
                         .returnType(type.getTypeSignature())
                         .build())
                 .deterministic(true)
+                .neverFails(true) // saturated casts never overflow
                 .choice(choice -> choice
                         .implementation(methodsGroup -> methodsGroup
                                 .methods("shortDecimalToGenericIntegerType", "longDecimalToGenericIntegerType")
