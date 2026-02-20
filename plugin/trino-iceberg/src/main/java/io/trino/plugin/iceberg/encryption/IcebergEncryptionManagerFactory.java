@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.iceberg.encryption;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.inject.Inject;
 import io.trino.plugin.iceberg.IcebergConfig;
 import io.trino.spi.TrinoException;
@@ -34,14 +35,18 @@ import static java.util.Objects.requireNonNull;
 public class IcebergEncryptionManagerFactory
 {
     private final Optional<String> kmsImpl;
+    private final Map<String, String> kmsProperties;
 
     private volatile KeyManagementClient catalogKmsClient;
 
     @Inject
     public IcebergEncryptionManagerFactory(IcebergConfig config)
     {
-        requireNonNull(config, "config is null");
-        this.kmsImpl = config.getEncryptionKmsImpl();
+        // TODO: Once Iceberg commit https://github.com/apache/iceberg/commit/8c2ca1d084fca37671ba8b38d59ea3f5a187b147 is available in the version we use,
+        // switch to CatalogProperties.ENCRYPTION_KMS_TYPE instead of mapping to encryption.kms-impl.
+        this.kmsImpl = config.getEncryptionKmsType()
+                .map(IcebergConfig.EncryptionKmsType::getKmsClientClassName);
+        this.kmsProperties = parseKmsProperties(config.getEncryptionKmsProperties());
     }
 
     public EncryptionManager createEncryptionManager(TableMetadata metadata)
@@ -57,22 +62,15 @@ public class IcebergEncryptionManagerFactory
             return PlaintextEncryptionManager.instance();
         }
 
-        KeyManagementClient client = getOrCreateKmsClient(tableProperties);
+        KeyManagementClient client = getOrCreateKmsClient();
         return EncryptionUtil.createEncryptionManager(tableProperties, client);
     }
 
-    private KeyManagementClient getOrCreateKmsClient(Map<String, String> tableProperties)
+    private KeyManagementClient getOrCreateKmsClient()
     {
-        Map<String, String> properties = new HashMap<>(tableProperties);
-        String configuredKmsImpl = kmsImpl.orElse(properties.get(CatalogProperties.ENCRYPTION_KMS_IMPL));
+        String configuredKmsImpl = kmsImpl.orElse(null);
         if (configuredKmsImpl == null || configuredKmsImpl.isEmpty()) {
-            throw new TrinoException(NOT_SUPPORTED, "Iceberg table encryption requires iceberg.encryption.kms-impl or encryption.kms-impl table property");
-        }
-        properties.put(CatalogProperties.ENCRYPTION_KMS_IMPL, configuredKmsImpl);
-
-        if (kmsImpl.isEmpty()) {
-            // Table-level KMS configuration can differ across tables.
-            return EncryptionUtil.createKmsClient(properties);
+            throw new TrinoException(NOT_SUPPORTED, "Iceberg table encryption requires iceberg.encryption.kms-type catalog property");
         }
 
         if (catalogKmsClient != null) {
@@ -83,8 +81,30 @@ public class IcebergEncryptionManagerFactory
             if (catalogKmsClient != null) {
                 return catalogKmsClient;
             }
+            Map<String, String> properties = new HashMap<>(kmsProperties);
+            // Iceberg 1.10.x does not support encryption.kms-type yet, so set the KMS impl explicitly.
+            properties.remove(CatalogProperties.ENCRYPTION_KMS_TYPE);
+            properties.put(CatalogProperties.ENCRYPTION_KMS_IMPL, configuredKmsImpl);
             catalogKmsClient = EncryptionUtil.createKmsClient(properties);
             return catalogKmsClient;
         }
+    }
+
+    private static Map<String, String> parseKmsProperties(Iterable<String> kmsProperties)
+    {
+        Map<String, String> properties = new HashMap<>();
+        for (String property : kmsProperties) {
+            int delimiter = property.indexOf('=');
+            if (delimiter <= 0 || delimiter == property.length() - 1) {
+                throw new IllegalArgumentException("Invalid iceberg.encryption.kms-properties entry: " + property);
+            }
+            String key = property.substring(0, delimiter).trim();
+            String value = property.substring(delimiter + 1).trim();
+            if (key.isEmpty() || value.isEmpty()) {
+                throw new IllegalArgumentException("Invalid iceberg.encryption.kms-properties entry: " + property);
+            }
+            properties.put(key, value);
+        }
+        return ImmutableMap.copyOf(properties);
     }
 }

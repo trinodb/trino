@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.iceberg;
 
+import com.google.common.collect.ImmutableList;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.metastore.HiveMetastore;
 import io.trino.plugin.iceberg.encryption.IcebergEncryptionManagerFactory;
@@ -44,12 +45,11 @@ import static io.trino.plugin.iceberg.IcebergTestUtils.loadTable;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 
-public class TestIcebergTableEncryptionWithLocalStackKms
+final class TestIcebergTableEncryptionWithLocalStackKms
         extends AbstractTestQueryFramework
 {
     private static final DockerImageName LOCALSTACK_IMAGE = DockerImageName.parse("localstack/localstack:4.0.3");
     private static final int LOCALSTACK_PORT = 4566;
-    private static final String AWS_KMS_IMPL = "org.apache.iceberg.aws.AwsKeyManagementClient";
 
     private GenericContainer<?> localstack;
     private String kmsKeyArn;
@@ -73,25 +73,25 @@ public class TestIcebergTableEncryptionWithLocalStackKms
         kmsKeyArn = createKmsKey(kmsEndpoint);
 
         return IcebergQueryRunner.builder()
-                .addIcebergProperty("iceberg.encryption.kms-impl", AWS_KMS_IMPL)
-                .addIcebergProperty("iceberg.allowed-extra-properties", "client.factory," + TestingLocalStackAwsClientFactory.KMS_ENDPOINT_PROPERTY)
+                .addIcebergProperty("iceberg.encryption.kms-type", "aws")
+                .addIcebergProperty(
+                        "iceberg.encryption.kms-properties",
+                        "client.factory=%s,%s=%s".formatted(
+                                TestingLocalStackAwsClientFactory.class.getName(),
+                                TestingLocalStackAwsClientFactory.KMS_ENDPOINT_PROPERTY,
+                                kmsEndpoint))
                 .build();
     }
 
     @Test
-    public void testEncryptedTableOperationsWithLocalStackKms()
+    void testEncryptedTableOperationsWithLocalStackKms()
     {
-        String localstackKmsEndpoint = localstackEndpoint().toString();
         String tableDefinition = format(
                 "(id INT, data VARCHAR) WITH (" +
                         "format_version = 3, " +
                         "encryption_key_id = '%s', " +
-                        "encryption_data_key_length = 16, " +
-                        "extra_properties = MAP(ARRAY['client.factory', '%s'], ARRAY['%s', '%s']))",
-                kmsKeyArn,
-                TestingLocalStackAwsClientFactory.KMS_ENDPOINT_PROPERTY,
-                TestingLocalStackAwsClientFactory.class.getName(),
-                localstackKmsEndpoint);
+                        "encryption_data_key_length = 16)",
+                kmsKeyArn);
 
         try (TestTable table = new TestTable(
                 getQueryRunner()::execute,
@@ -128,7 +128,11 @@ public class TestIcebergTableEncryptionWithLocalStackKms
     {
         HiveMetastore metastore = getHiveMetastore(getQueryRunner());
         TrinoFileSystemFactory fileSystemFactory = getFileSystemFactory(getQueryRunner());
-        IcebergConfig icebergConfig = new IcebergConfig().setEncryptionKmsImpl(AWS_KMS_IMPL);
+        IcebergConfig icebergConfig = new IcebergConfig()
+                .setEncryptionKmsType(IcebergConfig.EncryptionKmsType.AWS)
+                .setEncryptionKmsProperties(ImmutableList.of(
+                        "client.factory=" + TestingLocalStackAwsClientFactory.class.getName(),
+                        TestingLocalStackAwsClientFactory.KMS_ENDPOINT_PROPERTY + "=" + localstackEndpoint()));
         IcebergEncryptionManagerFactory encryptionManagerFactory = new IcebergEncryptionManagerFactory(icebergConfig);
         BaseTable icebergTable = loadTable(
                 tableName,

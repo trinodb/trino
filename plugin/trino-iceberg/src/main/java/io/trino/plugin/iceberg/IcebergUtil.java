@@ -290,6 +290,7 @@ public final class IcebergUtil
             return fileIo.properties();
         }
         catch (UnsupportedOperationException e) {
+            // TODO: Remove this catch block once https://github.com/apache/iceberg/pull/15289 is released.
             if (fileIo instanceof EncryptingFileIO encryptingFileIo) {
                 try {
                     return ((FileIO) ENCRYPTING_FILE_IO_DELEGATE_FIELD.get(encryptingFileIo)).properties();

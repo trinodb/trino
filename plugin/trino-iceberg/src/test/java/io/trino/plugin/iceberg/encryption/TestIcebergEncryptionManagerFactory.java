@@ -13,22 +13,20 @@
  */
 package io.trino.plugin.iceberg.encryption;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.plugin.iceberg.IcebergConfig;
-import org.apache.iceberg.CatalogProperties;
 import org.apache.iceberg.TableProperties;
 import org.apache.iceberg.encryption.PlaintextEncryptionManager;
 import org.junit.jupiter.api.Test;
 
-import java.util.Map;
-
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-public class TestIcebergEncryptionManagerFactory
+final class TestIcebergEncryptionManagerFactory
 {
     @Test
-    public void testReturnsPlaintextManagerWhenEncryptionDisabled()
+    void testReturnsPlaintextManagerWhenEncryptionDisabled()
     {
         IcebergEncryptionManagerFactory factory = new IcebergEncryptionManagerFactory(new IcebergConfig());
         assertThat(factory.createEncryptionManager(ImmutableMap.of()))
@@ -36,18 +34,37 @@ public class TestIcebergEncryptionManagerFactory
     }
 
     @Test
-    public void testDoesNotReuseTableLevelKmsClientAcrossTables()
+    void testRequiresCatalogKmsConfigurationWhenEncryptionEnabled()
     {
         IcebergEncryptionManagerFactory factory = new IcebergEncryptionManagerFactory(new IcebergConfig());
-        Map<String, String> validKmsProperties = ImmutableMap.of(
-                TableProperties.ENCRYPTION_TABLE_KEY, "key-a",
-                CatalogProperties.ENCRYPTION_KMS_IMPL, TestingKmsClient.class.getName());
-        Map<String, String> invalidKmsProperties = ImmutableMap.of(
-                TableProperties.ENCRYPTION_TABLE_KEY, "key-b",
-                CatalogProperties.ENCRYPTION_KMS_IMPL, "invalid.kms.Client");
 
-        assertThat(factory.createEncryptionManager(validKmsProperties)).isNotNull();
-        assertThatThrownBy(() -> factory.createEncryptionManager(invalidKmsProperties))
-                .isInstanceOf(RuntimeException.class);
+        assertThatThrownBy(() -> factory.createEncryptionManager(ImmutableMap.of(
+                TableProperties.ENCRYPTION_TABLE_KEY, "key",
+                "encryption.kms-impl", "test.kms.Client")))
+                .hasMessageContaining("Iceberg table encryption requires iceberg.encryption.kms-type catalog property");
+    }
+
+    @Test
+    void testCatalogKmsClientUsesKmsProperties()
+    {
+        IcebergEncryptionManagerFactory factory = new IcebergEncryptionManagerFactory(new IcebergConfig()
+                .setEncryptionKmsType(IcebergConfig.EncryptionKmsType.AWS)
+                .setEncryptionKmsProperties(ImmutableList.of(
+                        "client.factory=" + TestingPropertyAwareAwsClientFactory.class.getName(),
+                        TestingPropertyAwareAwsClientFactory.REQUIRED_PROPERTY + "=catalog-value")));
+
+        assertThat(factory.createEncryptionManager(ImmutableMap.of(TableProperties.ENCRYPTION_TABLE_KEY, "key")))
+                .isNotNull();
+    }
+
+    @Test
+    void testRejectsInvalidKmsPropertiesEntry()
+    {
+        assertThatThrownBy(() -> new IcebergEncryptionManagerFactory(
+                new IcebergConfig()
+                        .setEncryptionKmsType(IcebergConfig.EncryptionKmsType.AWS)
+                        .setEncryptionKmsProperties(ImmutableList.of("invalid"))))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Invalid iceberg.encryption.kms-properties entry");
     }
 }

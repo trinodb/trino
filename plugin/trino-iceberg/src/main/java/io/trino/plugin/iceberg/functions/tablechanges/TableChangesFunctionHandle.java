@@ -39,7 +39,7 @@ public record TableChangesFunctionHandle(
         requireNonNull(schemaTableName, "schemaTableName is null");
         requireNonNull(tableSchemaJson, "tableSchemaJson is null");
         columns = ImmutableList.copyOf(requireNonNull(columns, "columns is null"));
-        storageProperties = ImmutableMap.copyOf(requireNonNull(storageProperties, "storageProperties is null"));
+        storageProperties = ImmutableMap.copyOf(storageProperties);
         requireNonNull(nameMappingJson, "nameMappingJson is null");
     }
 }

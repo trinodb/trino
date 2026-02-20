@@ -104,7 +104,8 @@ public class IcebergConfig
     private int metadataParallelism = 8;
     private boolean bucketExecutionEnabled = true;
     private boolean fileBasedConflictDetectionEnabled = true;
-    private Optional<String> encryptionKmsImpl = Optional.empty();
+    private Optional<EncryptionKmsType> encryptionKmsType = Optional.empty();
+    private List<String> encryptionKmsProperties = ImmutableList.of();
 
     public CatalogType getCatalogType()
     {
@@ -697,16 +698,49 @@ public class IcebergConfig
         return this;
     }
 
-    public Optional<String> getEncryptionKmsImpl()
+    public Optional<EncryptionKmsType> getEncryptionKmsType()
     {
-        return encryptionKmsImpl;
+        return encryptionKmsType;
     }
 
-    @Config("iceberg.encryption.kms-impl")
-    @ConfigDescription("KMS implementation class for Iceberg table encryption")
-    public IcebergConfig setEncryptionKmsImpl(String encryptionKmsImpl)
+    @Config("iceberg.encryption.kms-type")
+    @ConfigDescription("KMS type for Iceberg table encryption")
+    public IcebergConfig setEncryptionKmsType(EncryptionKmsType encryptionKmsType)
     {
-        this.encryptionKmsImpl = Optional.ofNullable(encryptionKmsImpl);
+        this.encryptionKmsType = Optional.ofNullable(encryptionKmsType);
         return this;
+    }
+
+    public List<String> getEncryptionKmsProperties()
+    {
+        return encryptionKmsProperties;
+    }
+
+    @Config("iceberg.encryption.kms-properties")
+    @ConfigDescription("Catalog-level KMS client properties in key=value format")
+    public IcebergConfig setEncryptionKmsProperties(List<String> encryptionKmsProperties)
+    {
+        this.encryptionKmsProperties = Optional.ofNullable(encryptionKmsProperties)
+                .map(ImmutableList::copyOf)
+                .orElseGet(ImmutableList::of);
+        return this;
+    }
+
+    public enum EncryptionKmsType
+    {
+        AWS("org.apache.iceberg.aws.AwsKeyManagementClient"),
+        GCP("org.apache.iceberg.gcp.GcpKeyManagementClient");
+
+        private final String kmsClientClassName;
+
+        EncryptionKmsType(String kmsClientClassName)
+        {
+            this.kmsClientClassName = kmsClientClassName;
+        }
+
+        public String getKmsClientClassName()
+        {
+            return kmsClientClassName;
+        }
     }
 }

@@ -13,11 +13,12 @@
  */
 package io.trino.plugin.iceberg;
 
+import com.google.common.collect.ImmutableList;
 import io.trino.Session;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.metastore.HiveMetastore;
 import io.trino.plugin.iceberg.encryption.IcebergEncryptionManagerFactory;
-import io.trino.plugin.iceberg.encryption.TestingKmsClient;
+import io.trino.plugin.iceberg.encryption.TestingPropertyAwareAwsClientFactory;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.sql.TestTable;
@@ -35,7 +36,7 @@ import static io.trino.plugin.iceberg.IcebergTestUtils.getHiveMetastore;
 import static io.trino.plugin.iceberg.IcebergTestUtils.loadTable;
 import static org.assertj.core.api.Assertions.assertThat;
 
-public class TestIcebergTableEncryption
+final class TestIcebergTableEncryption
         extends AbstractTestQueryFramework
 {
     @Override
@@ -43,12 +44,17 @@ public class TestIcebergTableEncryption
             throws Exception
     {
         return IcebergQueryRunner.builder()
-                .addIcebergProperty("iceberg.encryption.kms-impl", TestingKmsClient.class.getName())
+                .addIcebergProperty("iceberg.encryption.kms-type", "aws")
+                .addIcebergProperty(
+                        "iceberg.encryption.kms-properties",
+                        "client.factory=%s,%s=configured".formatted(
+                                TestingPropertyAwareAwsClientFactory.class.getName(),
+                                TestingPropertyAwareAwsClientFactory.REQUIRED_PROPERTY))
                 .build();
     }
 
     @Test
-    public void testEncryptedTableOperations()
+    void testEncryptedTableOperations()
     {
         try (TestTable table = new TestTable(
                 getQueryRunner()::execute,
@@ -68,7 +74,7 @@ public class TestIcebergTableEncryption
     }
 
     @Test
-    public void testEncryptedOrcWriterValidation()
+    void testEncryptedOrcWriterValidation()
     {
         Session session = Session.builder(getSession())
                 .setCatalogSessionProperty(ICEBERG_CATALOG, "orc_writer_validate_percentage", "100")
@@ -89,7 +95,7 @@ public class TestIcebergTableEncryption
     }
 
     @Test
-    public void testEncryptedTableChangesFunction()
+    void testEncryptedTableChangesFunction()
     {
         try (TestTable table = new TestTable(
                 getQueryRunner()::execute,
@@ -115,7 +121,11 @@ public class TestIcebergTableEncryption
     {
         HiveMetastore metastore = getHiveMetastore(getQueryRunner());
         TrinoFileSystemFactory fileSystemFactory = getFileSystemFactory(getQueryRunner());
-        IcebergConfig icebergConfig = new IcebergConfig().setEncryptionKmsImpl(TestingKmsClient.class.getName());
+        IcebergConfig icebergConfig = new IcebergConfig()
+                .setEncryptionKmsType(IcebergConfig.EncryptionKmsType.AWS)
+                .setEncryptionKmsProperties(ImmutableList.of(
+                        "client.factory=" + TestingPropertyAwareAwsClientFactory.class.getName(),
+                        TestingPropertyAwareAwsClientFactory.REQUIRED_PROPERTY + "=configured"));
         IcebergEncryptionManagerFactory encryptionManagerFactory = new IcebergEncryptionManagerFactory(icebergConfig);
         BaseTable icebergTable = loadTable(
                 tableName,

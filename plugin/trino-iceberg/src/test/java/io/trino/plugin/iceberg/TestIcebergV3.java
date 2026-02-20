@@ -75,7 +75,7 @@ import static io.trino.testing.TestingSession.testSessionBuilder;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-public class TestIcebergV3
+final class TestIcebergV3
         extends AbstractTestQueryFramework
 {
     private HiveMetastore metastore;
@@ -654,17 +654,17 @@ public class TestIcebergV3
                 .commit();
 
         assertThatThrownBy(() -> getQueryRunner().execute("SELECT * FROM " + tableName))
-                .hasMessageContaining("Iceberg table encryption requires iceberg.encryption.kms-impl or encryption.kms-impl table property");
+                .hasMessageContaining("Iceberg table encryption requires iceberg.encryption.kms-type catalog property");
 
         // Also verify INSERT fails with encryption key set and no KMS client.
         assertThatThrownBy(() -> getQueryRunner().execute("INSERT INTO " + tableName + " VALUES 2"))
-                .hasMessageContaining("Iceberg table encryption requires iceberg.encryption.kms-impl or encryption.kms-impl table property");
+                .hasMessageContaining("Iceberg table encryption requires iceberg.encryption.kms-type catalog property");
 
         // The key cannot be removed without configuring KMS client either.
         assertThatThrownBy(() -> icebergTable.updateProperties()
                 .remove("encryption.key-id")
                 .commit())
-                .hasMessageContaining("Iceberg table encryption requires iceberg.encryption.kms-impl or encryption.kms-impl table property");
+                .hasMessageContaining("Iceberg table encryption requires iceberg.encryption.kms-type catalog property");
     }
 
     @Test
