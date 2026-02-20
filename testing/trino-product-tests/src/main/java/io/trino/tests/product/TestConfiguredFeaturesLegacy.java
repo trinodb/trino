@@ -28,14 +28,7 @@ import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.sql.JDBCType.VARCHAR;
 import static org.assertj.core.api.Assertions.assertThat;
 
-/**
- * Tests in this class verify that the test environments have been defined correctly,
- * that is that the Trino features they declare to be using
- * matches what's enabled in the running Trino server.
- *
- * They don't test that these features work correctly in the Trino server itself.
- */
-public class TestConfiguredFeatures
+public class TestConfiguredFeaturesLegacy
         extends ProductTest
 {
     @Inject
