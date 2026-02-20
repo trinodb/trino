@@ -53,10 +53,8 @@ class TestHiveImpersonationEnvironment
         assertThat(env.executeTrino("SHOW SCHEMAS FROM hive")).contains(row("default"));
     }
 
-    // Note: Tests that create tables or schemas are disabled because they require
-    // HDFS proxy user configuration (hadoop.proxyuser.trino.hosts=* and
-    // hadoop.proxyuser.trino.groups=*) which is not configured in the base
-    // Hadoop container image.
+    // Table-creation and read/write coverage for this environment is validated in
+    // TestHiveOnOrcLegacyDateCompatibilityJunit.
 
     @Test
     void verifyImpersonationConfigured(HiveImpersonationEnvironment env)
