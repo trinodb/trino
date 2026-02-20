@@ -71,7 +71,7 @@ BUCKETS = [
         ("SuiteHudi", ("SuiteHudi",)),
     ]),
     ("hive-transactional", [
-        ("SuiteHiveTransactional", ("SuiteHiveTransactional",)),
+        ("SuiteHiveTransactional", LEGACY_COVERAGE_REMOVED),
         ("SuiteAuthorization", LEGACY_COVERAGE_REMOVED),
         ("SuiteFaultTolerant", LEGACY_COVERAGE_REMOVED),
     ]),
