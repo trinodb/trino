@@ -41,11 +41,6 @@
 
         <dependency>
             <groupId>io.airlift</groupId>
-            <artifactId>concurrent</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>io.airlift</groupId>
             <artifactId>http-client</artifactId>
         </dependency>
 
@@ -179,11 +174,6 @@
 
         <dependency>
             <groupId>software.amazon.awssdk</groupId>
-            <artifactId>kms</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>software.amazon.awssdk</groupId>
             <artifactId>regions</artifactId>
         </dependency>
 
@@ -300,6 +290,12 @@
         <dependency>
             <groupId>com.squareup.okhttp3</groupId>
             <artifactId>okhttp-urlconnection</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.airlift</groupId>
+            <artifactId>concurrent</artifactId>
             <scope>test</scope>
         </dependency>
 
@@ -422,6 +418,12 @@
             <artifactId>testcontainers-trino</artifactId>
             <scope>test</scope>
         </dependency>
+
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>kms</artifactId>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 
     <repositories>
@@ -489,6 +491,21 @@
                                     <destFileName>iceberg-spark-runtime.jar</destFileName>
                                 </artifactItem>
                             </artifactItems>
+                        </configuration>
+                    </execution>
+                    <!-- The JUnit migration makes concurrent test scoped, but the legacy TestNG listener
+                         still needs it in the packaged test runtime until the legacy framework is removed. -->
+                    <execution>
+                        <id>copy-legacy-product-test-runtime-dependencies</id>
+                        <goals>
+                            <goal>copy-dependencies</goal>
+                        </goals>
+                        <phase>package</phase>
+                        <configuration>
+                            <skip>false</skip>
+                            <includeArtifactIds>concurrent</includeArtifactIds>
+                            <includeScope>test</includeScope>
+                            <outputDirectory>${project.build.directory}/lib</outputDirectory>
                         </configuration>
                     </execution>
                     <execution>
