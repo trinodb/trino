@@ -1102,7 +1102,7 @@ jobs:
           {
             "include": [
               {"bucket": "jdbc-core", "suites": "SuiteMysql SuitePostgresql SuiteSqlServer"},
-              {"bucket": "connector-smoke", "suites": "SuiteCassandra"}
+              {"bucket": "connector-smoke", "suites": "SuiteCassandra SuiteClickhouse"}
             ]
           }
           EOF
