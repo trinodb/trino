@@ -22,25 +22,41 @@ import io.trino.plugin.hive.metastore.MetastoreUtil;
 import io.trino.plugin.iceberg.catalog.hms.AbstractMetastoreTableOperations;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
+import jakarta.annotation.Nullable;
 import org.apache.iceberg.TableMetadata;
+import org.apache.iceberg.encryption.EncryptionManager;
+import org.apache.iceberg.encryption.EncryptionUtil;
+import org.apache.iceberg.encryption.KeyManagementClient;
+import org.apache.iceberg.encryption.PlaintextEncryptionManager;
 import org.apache.iceberg.exceptions.CommitFailedException;
 import org.apache.iceberg.exceptions.CommitStateUnknownException;
 import org.apache.iceberg.io.FileIO;
 
+import java.util.Objects;
 import java.util.Optional;
 import java.util.function.BiFunction;
 
 import static com.google.common.base.Preconditions.checkState;
 import static io.trino.metastore.PrincipalPrivileges.NO_PRIVILEGES;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_CONCURRENT_MODIFICATION_DETECTED;
+import static io.trino.plugin.iceberg.IcebergTableName.isMaterializedViewStorage;
 import static io.trino.plugin.iceberg.IcebergTableName.tableNameFrom;
 import static org.apache.iceberg.BaseMetastoreTableOperations.METADATA_LOCATION_PROP;
 import static org.apache.iceberg.BaseMetastoreTableOperations.PREVIOUS_METADATA_LOCATION_PROP;
+import static org.apache.iceberg.TableProperties.ENCRYPTION_DEK_LENGTH;
+import static org.apache.iceberg.TableProperties.ENCRYPTION_DEK_LENGTH_DEFAULT;
+import static org.apache.iceberg.TableProperties.ENCRYPTION_TABLE_KEY;
 
 @NotThreadSafe
 public class FileMetastoreTableOperations
         extends AbstractMetastoreTableOperations
 {
+    private final Optional<KeyManagementClient> keyManagementClient;
+    @Nullable
+    private String tableKeyId;
+    private int encryptionDekLength = ENCRYPTION_DEK_LENGTH_DEFAULT;
+    private EncryptionManager encryptionManager;
+
     public FileMetastoreTableOperations(
             FileIO fileIo,
             CachingHiveMetastore metastore,
@@ -48,9 +64,59 @@ public class FileMetastoreTableOperations
             String database,
             String table,
             Optional<String> owner,
-            Optional<String> location)
+            Optional<String> location,
+            Optional<KeyManagementClient> keyManagementClient)
     {
         super(fileIo, metastore, session, database, table, owner, location);
+        this.keyManagementClient = keyManagementClient;
+    }
+
+    @Override
+    public EncryptionManager encryption()
+    {
+        if (encryptionManager != null) {
+            return encryptionManager;
+        }
+
+        if (tableKeyId == null) {
+            return PlaintextEncryptionManager.instance();
+        }
+
+        KeyManagementClient kmsClient = keyManagementClient.orElseThrow(() -> new RuntimeException("Can't create encryption manager, because key management client is not set"));
+        encryptionManager = EncryptionUtil.createEncryptionManager(
+                ImmutableMap.of(
+                        ENCRYPTION_TABLE_KEY, tableKeyId,
+                        ENCRYPTION_DEK_LENGTH, Integer.toString(encryptionDekLength)),
+                kmsClient);
+        return encryptionManager;
+    }
+
+    @Override
+    protected String getRefreshedLocation(boolean invalidateCaches)
+    {
+        String refreshedLocation = super.getRefreshedLocation(invalidateCaches);
+        updateEncryptionPropertiesFromMetastore();
+        return refreshedLocation;
+    }
+
+    @Override
+    public void initializeFromMetadata(TableMetadata tableMetadata)
+    {
+        super.initializeFromMetadata(tableMetadata);
+        updateEncryptionPropertiesFromMetastore();
+    }
+
+    private void updateEncryptionPropertiesFromMetastore()
+    {
+        Table table = isMaterializedViewStorage(tableName) ? getTable(database, tableNameFrom(tableName)) : getTable();
+        String newTableKeyId = table.getParameters().get(ENCRYPTION_TABLE_KEY);
+        String dekLength = table.getParameters().get(ENCRYPTION_DEK_LENGTH);
+        int newEncryptionDekLength = dekLength == null ? ENCRYPTION_DEK_LENGTH_DEFAULT : Integer.parseInt(dekLength);
+        if (!Objects.equals(tableKeyId, newTableKeyId) || encryptionDekLength != newEncryptionDekLength) {
+            tableKeyId = newTableKeyId;
+            encryptionDekLength = newEncryptionDekLength;
+            encryptionManager = null;
+        }
     }
 
     @Override

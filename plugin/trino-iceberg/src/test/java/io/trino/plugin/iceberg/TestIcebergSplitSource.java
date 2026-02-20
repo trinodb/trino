@@ -20,6 +20,7 @@ import io.airlift.units.Duration;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.filesystem.cache.DefaultCachingHostAddressProvider;
 import io.trino.metastore.HiveMetastore;
+import io.trino.metastore.PrincipalPrivileges;
 import io.trino.metastore.cache.CachingHiveMetastore;
 import io.trino.plugin.hive.TrinoViewHiveMetastore;
 import io.trino.plugin.hive.orc.OrcReaderConfig;
@@ -53,12 +54,21 @@ import org.apache.iceberg.data.Record;
 import org.apache.iceberg.data.parquet.GenericParquetWriter;
 import org.apache.iceberg.deletes.PositionDelete;
 import org.apache.iceberg.deletes.PositionDeleteWriter;
+import org.apache.iceberg.encryption.EncryptedInputFile;
+import org.apache.iceberg.encryption.EncryptedOutputFile;
+import org.apache.iceberg.encryption.EncryptionKeyMetadata;
+import org.apache.iceberg.encryption.EncryptionManager;
+import org.apache.iceberg.encryption.EncryptionTestHelpers;
+import org.apache.iceberg.encryption.NativeEncryptionInputFile;
+import org.apache.iceberg.encryption.NativeEncryptionKeyMetadata;
+import org.apache.iceberg.encryption.NativeEncryptionOutputFile;
 import org.apache.iceberg.io.FileIO;
 import org.apache.iceberg.metrics.InMemoryMetricsReporter;
 import org.apache.iceberg.parquet.Parquet;
 import org.apache.iceberg.types.Conversions;
 import org.apache.iceberg.types.Type;
 import org.apache.iceberg.types.Types;
+import org.apache.iceberg.util.ByteBuffers;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.Timeout;
@@ -86,6 +96,9 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.tpch.TpchTable.NATION;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static org.apache.iceberg.BaseMetastoreTableOperations.METADATA_LOCATION_PROP;
+import static org.apache.iceberg.BaseMetastoreTableOperations.PREVIOUS_METADATA_LOCATION_PROP;
+import static org.apache.iceberg.TableProperties.ENCRYPTION_TABLE_KEY;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
@@ -105,6 +118,7 @@ public class TestIcebergSplitSource
 
     private TrinoFileSystemFactory fileSystemFactory;
     private TrinoCatalog catalog;
+    private HiveMetastore metastore;
 
     @Override
     protected QueryRunner createQueryRunner()
@@ -114,7 +128,7 @@ public class TestIcebergSplitSource
                 .setInitialTables(NATION)
                 .build();
 
-        HiveMetastore metastore = getHiveMetastore(queryRunner);
+        metastore = getHiveMetastore(queryRunner);
 
         this.fileSystemFactory = getFileSystemFactory(queryRunner);
         CachingHiveMetastore cachingHiveMetastore = createPerTransactionCache(metastore, 1000);
@@ -125,7 +139,7 @@ public class TestIcebergSplitSource
                 fileSystemFactory,
                 FILE_IO_FACTORY,
                 TESTING_TYPE_MANAGER,
-                new FileMetastoreTableOperationsProvider(fileSystemFactory, FILE_IO_FACTORY),
+                new FileMetastoreTableOperationsProvider(fileSystemFactory, FILE_IO_FACTORY, Optional.of(new TestingFileMetastoreKeyManagementClient())),
                 false,
                 false,
                 false,
@@ -222,6 +236,8 @@ public class TestIcebergSplitSource
 
         IcebergSplit split = generateSplit(nationTable, tableHandle, DynamicFilter.EMPTY);
         assertThat(split.getFileStatisticsDomain()).isEqualTo(TupleDomain.all());
+        assertThat(split.getEncryptionKey()).isEmpty();
+        assertThat(split.getAadPrefix()).isEmpty();
 
         IcebergColumnHandle nationKey = IcebergColumnHandle.optional(new ColumnIdentity(1, "nationkey", ColumnIdentity.TypeCategory.PRIMITIVE, ImmutableList.of()))
                 .columnType(BIGINT)
@@ -398,6 +414,229 @@ public class TestIcebergSplitSource
 
         split = generateSplit(nationTable, tableHandle, DynamicFilter.EMPTY);
         assertThat(split.getSplitWeight().getRawValue()).isGreaterThan(splitWeightWithPositionDelete.getRawValue());
+    }
+
+    @Test
+    public void testParquetFileDecryptionData()
+    {
+        byte[] expectedKey = new byte[] {1, 2, 3};
+        byte[] expectedAadPrefix = new byte[] {4, 5, 6};
+        ByteBuffer keyMetadata = ByteBuffer.wrap(new byte[] {7, 8, 9});
+
+        FileIO fileIo = new FileIO()
+        {
+            @Override
+            public org.apache.iceberg.io.InputFile newInputFile(String path)
+            {
+                return new TestingInputFile(path);
+            }
+
+            @Override
+            public org.apache.iceberg.io.InputFile newInputFile(String path, long length)
+            {
+                return new TestingInputFile(path);
+            }
+
+            @Override
+            public org.apache.iceberg.io.OutputFile newOutputFile(String path)
+            {
+                throw new UnsupportedOperationException();
+            }
+
+            @Override
+            public void deleteFile(String path)
+            {
+                throw new UnsupportedOperationException();
+            }
+        };
+
+        EncryptionManager encryptionManager = new EncryptionManager()
+        {
+            @Override
+            public org.apache.iceberg.io.InputFile decrypt(EncryptedInputFile encrypted)
+            {
+                return new NativeEncryptionInputFile()
+                {
+                    @Override
+                    public org.apache.iceberg.io.InputFile encryptedInputFile()
+                    {
+                        return encrypted.encryptedInputFile();
+                    }
+
+                    @Override
+                    public NativeEncryptionKeyMetadata keyMetadata()
+                    {
+                        return new NativeEncryptionKeyMetadata()
+                        {
+                            @Override
+                            public ByteBuffer encryptionKey()
+                            {
+                                return ByteBuffer.wrap(expectedKey);
+                            }
+
+                            @Override
+                            public ByteBuffer aadPrefix()
+                            {
+                                return ByteBuffer.wrap(expectedAadPrefix);
+                            }
+
+                            @Override
+                            public ByteBuffer buffer()
+                            {
+                                return keyMetadata;
+                            }
+
+                            @Override
+                            public EncryptionKeyMetadata copy()
+                            {
+                                return this;
+                            }
+                        };
+                    }
+
+                    @Override
+                    public long getLength()
+                    {
+                        return encrypted.encryptedInputFile().getLength();
+                    }
+
+                    @Override
+                    public org.apache.iceberg.io.SeekableInputStream newStream()
+                    {
+                        throw new UnsupportedOperationException();
+                    }
+
+                    @Override
+                    public String location()
+                    {
+                        return encrypted.encryptedInputFile().location();
+                    }
+
+                    @Override
+                    public boolean exists()
+                    {
+                        return encrypted.encryptedInputFile().exists();
+                    }
+                };
+            }
+
+            @Override
+            public EncryptedOutputFile encrypt(org.apache.iceberg.io.OutputFile rawOutput)
+            {
+                throw new UnsupportedOperationException();
+            }
+        };
+
+        assertThat(IcebergSplitSource.parquetFileDecryptionData(
+                org.apache.iceberg.FileFormat.ORC,
+                "memory:///test.orc",
+                10,
+                keyMetadata,
+                fileIo,
+                encryptionManager)).isEmpty();
+
+        assertThat(IcebergSplitSource.parquetFileDecryptionData(
+                org.apache.iceberg.FileFormat.PARQUET,
+                "memory:///test.parquet",
+                10,
+                null,
+                fileIo,
+                encryptionManager)).isEmpty();
+
+        Optional<IcebergSplitSource.ParquetFileDecryptionData> decryptionData = IcebergSplitSource.parquetFileDecryptionData(
+                org.apache.iceberg.FileFormat.PARQUET,
+                "memory:///test.parquet",
+                10,
+                keyMetadata,
+                fileIo,
+                encryptionManager);
+
+        assertThat(decryptionData).isPresent();
+        assertThat(decryptionData.orElseThrow().fileEncryptionKey()).containsExactly(expectedKey);
+        assertThat(decryptionData.orElseThrow().fileAadPrefix()).containsExactly(expectedAadPrefix);
+    }
+
+    @Test
+    public void testParquetFileDecryptionDataWithStandardKeyMetadataManager()
+    {
+        FileIO fileIo = FILE_IO_FACTORY.create(fileSystemFactory.create(SESSION));
+        String location = "local:///standard-key-metadata-manager-" + UUID.randomUUID() + ".parquet";
+        setTableEncryptionKey("tpch", "nation", Optional.of("test-key-id"));
+        try {
+            EncryptionManager standardEncryptionManager = EncryptionTestHelpers.createEncryptionManager();
+            NativeEncryptionOutputFile encryptedOutputFile = (NativeEncryptionOutputFile) standardEncryptionManager.encrypt(fileIo.newOutputFile(location));
+            byte[] expectedKey = ByteBuffers.toByteArray(encryptedOutputFile.keyMetadata().encryptionKey());
+            byte[] expectedAadPrefix = ByteBuffers.toByteArray(encryptedOutputFile.keyMetadata().aadPrefix());
+            EncryptionManager tableEncryptionManager = catalog.loadTable(SESSION, new SchemaTableName("tpch", "nation")).encryption();
+
+            Optional<IcebergSplitSource.ParquetFileDecryptionData> decryptionData = IcebergSplitSource.parquetFileDecryptionData(
+                    org.apache.iceberg.FileFormat.PARQUET,
+                    location,
+                    10,
+                    encryptedOutputFile.keyMetadata().buffer(),
+                    fileIo,
+                    tableEncryptionManager);
+
+            assertThat(decryptionData).isPresent();
+            assertThat(decryptionData.orElseThrow().fileEncryptionKey()).containsExactly(expectedKey);
+            assertThat(decryptionData.orElseThrow().fileAadPrefix()).containsExactly(expectedAadPrefix);
+        }
+        finally {
+            setTableEncryptionKey("tpch", "nation", Optional.empty());
+        }
+    }
+
+    private void setTableEncryptionKey(String schemaName, String tableName, Optional<String> keyId)
+    {
+        io.trino.metastore.Table table = metastore.getTable(schemaName, tableName).orElseThrow();
+        String metadataLocation = table.getParameters().get(METADATA_LOCATION_PROP);
+        metastore.replaceTable(
+                schemaName,
+                tableName,
+                io.trino.metastore.Table.builder(table)
+                        .setParameter(ENCRYPTION_TABLE_KEY, keyId)
+                        .setParameter(PREVIOUS_METADATA_LOCATION_PROP, metadataLocation)
+                        .build(),
+                PrincipalPrivileges.NO_PRIVILEGES,
+                ImmutableMap.of(
+                        "expected_parameter_key", METADATA_LOCATION_PROP,
+                        "expected_parameter_value", metadataLocation));
+        ((TrinoHiveCatalog) catalog).getMetastore().invalidateTable(schemaName, tableName);
+    }
+
+    private static class TestingInputFile
+            implements org.apache.iceberg.io.InputFile
+    {
+        private final String path;
+
+        private TestingInputFile(String path)
+        {
+            this.path = path;
+        }
+
+        @Override
+        public long getLength()
+        {
+            return 0;
+        }
+
+        @Override
+        public org.apache.iceberg.io.SeekableInputStream newStream()
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public String location()
+        {
+            return path;
+        }
+
+        @Override
+        public boolean exists()
+        {
+            return true;
+        }
     }
 
     private IcebergSplit generateSplit(Table nationTable, IcebergTableHandle tableHandle, DynamicFilter dynamicFilter)

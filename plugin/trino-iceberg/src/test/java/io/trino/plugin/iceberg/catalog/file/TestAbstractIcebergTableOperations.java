@@ -61,6 +61,7 @@ public class TestAbstractIcebergTableOperations
                 "test-database",
                 "test-table",
                 Optional.of("test-owner"),
+                Optional.empty(),
                 Optional.empty())
         {
             // Without this, we'd have to create a table that's never accessed anyway, because we're simulating S3 errors.

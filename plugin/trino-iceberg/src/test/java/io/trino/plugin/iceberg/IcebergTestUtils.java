@@ -229,7 +229,7 @@ public final class IcebergTestUtils
             String catalogName,
             String schemaName)
     {
-        IcebergTableOperationsProvider tableOperationsProvider = new FileMetastoreTableOperationsProvider(fileSystemFactory, FILE_IO_FACTORY);
+        IcebergTableOperationsProvider tableOperationsProvider = new FileMetastoreTableOperationsProvider(fileSystemFactory, FILE_IO_FACTORY, Optional.of(new TestingFileMetastoreKeyManagementClient()));
         TrinoCatalog catalog = getTrinoCatalog(metastore, fileSystemFactory, catalogName);
         return loadIcebergTable(catalog, tableOperationsProvider, SESSION, new SchemaTableName(schemaName, tableName));
     }
@@ -239,7 +239,7 @@ public final class IcebergTestUtils
             TrinoFileSystemFactory fileSystemFactory,
             String catalogName)
     {
-        IcebergTableOperationsProvider tableOperationsProvider = new FileMetastoreTableOperationsProvider(fileSystemFactory, FILE_IO_FACTORY);
+        IcebergTableOperationsProvider tableOperationsProvider = new FileMetastoreTableOperationsProvider(fileSystemFactory, FILE_IO_FACTORY, Optional.of(new TestingFileMetastoreKeyManagementClient()));
         CachingHiveMetastore cachingHiveMetastore = createPerTransactionCache(metastore, 1000);
         return new TrinoHiveCatalog(
                 new CatalogName(catalogName),

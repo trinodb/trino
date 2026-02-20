@@ -22,6 +22,8 @@ import io.trino.plugin.iceberg.catalog.IcebergTableOperationsProvider;
 import io.trino.plugin.iceberg.catalog.TrinoCatalogFactory;
 import io.trino.plugin.iceberg.catalog.hms.TrinoHiveCatalogFactory;
 
+import static io.airlift.configuration.ConfigBinder.configBinder;
+
 public class IcebergFileMetastoreCatalogModule
         extends AbstractConfigurationAwareModule
 {
@@ -30,6 +32,7 @@ public class IcebergFileMetastoreCatalogModule
     {
         binder.bind(IcebergTableOperationsProvider.class).to(FileMetastoreTableOperationsProvider.class).in(Scopes.SINGLETON);
         binder.bind(TrinoCatalogFactory.class).to(TrinoHiveCatalogFactory.class).in(Scopes.SINGLETON);
+        configBinder(binder).bindConfig(IcebergFileMetastoreEncryptionConfig.class);
 
         install(new IcebergHiveMetastoreModule());
         install(new FileMetastoreModule());

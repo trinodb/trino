@@ -102,6 +102,7 @@ public class TestIcebergV3
         queryRunner.installPlugin(new TestingIcebergPlugin(dataDirectory));
         queryRunner.createCatalog(ICEBERG_CATALOG, "iceberg", ImmutableMap.of(
                 "iceberg.catalog.type", "TESTING_FILE_METASTORE",
+                "iceberg.file-metastore.encryption.kms-impl", TestingFileMetastoreKeyManagementClient.class.getName(),
                 "iceberg.register-table-procedure.enabled", "true",
                 "iceberg.add-files-procedure.enabled", "true",
                 "iceberg.hive-catalog-name", "hive",
@@ -642,7 +643,7 @@ public class TestIcebergV3
     }
 
     @Test
-    void testV3RejectsEncryptionKeyProperty()
+    void testV3AllowsEncryptionKeyPropertyForReads()
     {
         String tableName = "test_v3_encryption_" + randomNameSuffix();
         assertUpdate("CREATE TABLE " + tableName + " (id INTEGER) WITH (format = 'ORC', format_version = 3)");
@@ -654,24 +655,14 @@ public class TestIcebergV3
                 .set("encryption.key-id", "test_key")
                 .commit();
 
-        assertQueryFails(
-                "SELECT * FROM " + tableName,
-                ".*Iceberg table encryption is not supported.*");
+        assertThat(query("SELECT * FROM " + tableName))
+                .matches("VALUES 1");
 
-        // Also verify INSERT fails with encryption key set
-        assertQueryFails(
-                "INSERT INTO " + tableName + " VALUES 2",
-                ".*Iceberg table encryption is not supported.*");
-
-        // Clean up by removing the property first
-        icebergTable.updateProperties()
-                .remove("encryption.key-id")
-                .commit();
         assertUpdate("DROP TABLE " + tableName);
     }
 
     @Test
-    void testV3RejectsEncryptionKeysInMetadata()
+    void testV3AllowsEncryptionKeysInMetadataForReads()
             throws Exception
     {
         String temp = "tmp_v3_encryption_src_" + randomNameSuffix();
@@ -703,14 +694,14 @@ public class TestIcebergV3
         assertUpdate("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')"
                 .formatted(registered, hadoopTableLocation));
 
-        assertQueryFails(
-                "SELECT * FROM " + registered,
-                ".*Iceberg table encryption is not supported.*");
+        assertThat(query("SELECT * FROM " + registered))
+                .matches("VALUES 1");
 
-        // Use unregister_table instead of DROP TABLE because DROP TABLE triggers the same validation error
-        assertUpdate("CALL system.unregister_table(CURRENT_SCHEMA, '%s')".formatted(registered));
+        assertUpdate("DROP TABLE " + registered);
         assertUpdate("DROP TABLE " + temp);
-        deleteRecursively(hadoopTableLocation, ALLOW_INSECURE);
+        if (Files.exists(hadoopTableLocation)) {
+            deleteRecursively(hadoopTableLocation, ALLOW_INSECURE);
+        }
     }
 
     @Test

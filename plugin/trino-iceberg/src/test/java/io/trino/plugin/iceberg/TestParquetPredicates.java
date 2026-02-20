@@ -19,6 +19,7 @@ import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.RowType;
 import org.apache.parquet.column.ColumnDescriptor;
+import org.apache.parquet.hadoop.metadata.ColumnPath;
 import org.apache.parquet.schema.GroupType;
 import org.apache.parquet.schema.MessageType;
 import org.apache.parquet.schema.PrimitiveType;
@@ -26,6 +27,7 @@ import org.junit.jupiter.api.Test;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import static io.trino.parquet.ParquetTypeUtils.getDescriptors;
 import static io.trino.plugin.iceberg.ColumnIdentity.TypeCategory.PRIMITIVE;
@@ -37,6 +39,7 @@ import static io.trino.spi.type.RowType.rowType;
 import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.INT32;
 import static org.apache.parquet.schema.Type.Repetition.OPTIONAL;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestParquetPredicates
 {
@@ -203,5 +206,28 @@ public class TestParquetPredicates
         TupleDomain<ColumnDescriptor> calculatedTupleDomain = getParquetTupleDomain(descriptorsByPath, tupleDomain);
 
         assertThat(calculatedTupleDomain.isAll()).isTrue();
+    }
+
+    @Test
+    public void testParquetFileDecryptionProperties()
+    {
+        byte[] fileKey = new byte[] {1, 2, 3};
+        byte[] aadPrefix = new byte[] {4, 5, 6};
+
+        assertThat(IcebergPageSourceProvider.createParquetFileDecryptionProperties(Optional.empty(), Optional.empty())).isEmpty();
+        assertThatThrownBy(() -> IcebergPageSourceProvider.createParquetFileDecryptionProperties(Optional.empty(), Optional.of(aadPrefix)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("AAD prefix");
+
+        Optional<io.trino.parquet.crypto.FileDecryptionProperties> fileDecryptionProperties = IcebergPageSourceProvider.createParquetFileDecryptionProperties(
+                Optional.of(fileKey),
+                Optional.of(aadPrefix));
+        assertThat(fileDecryptionProperties).isPresent();
+        assertThat(fileDecryptionProperties.orElseThrow().getAadPrefix()).isPresent();
+        assertThat(fileDecryptionProperties.orElseThrow().getAadPrefix().orElseThrow()).containsExactly(aadPrefix);
+        assertThat(fileDecryptionProperties.orElseThrow().getKeyRetriever().getFooterKey(Optional.empty()))
+                .hasValueSatisfying(key -> assertThat(key).containsExactly(fileKey));
+        assertThat(fileDecryptionProperties.orElseThrow().getKeyRetriever().getColumnKey(ColumnPath.fromDotString("c"), Optional.empty()))
+                .hasValueSatisfying(key -> assertThat(key).containsExactly(fileKey));
     }
 }

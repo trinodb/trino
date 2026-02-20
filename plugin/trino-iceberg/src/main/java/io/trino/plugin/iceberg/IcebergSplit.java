@@ -33,6 +33,7 @@ import java.util.Optional;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static io.airlift.slice.SizeOf.estimatedSizeOf;
 import static io.airlift.slice.SizeOf.instanceSize;
+import static io.airlift.slice.SizeOf.sizeOf;
 import static java.util.Objects.requireNonNull;
 
 public class IcebergSplit
@@ -54,9 +55,10 @@ public class IcebergSplit
     private final TupleDomain<IcebergColumnHandle> fileStatisticsDomain;
     private final Map<String, String> fileIoProperties;
     private final long dataSequenceNumber;
+    private final Optional<byte[]> encryptionKey;
+    private final Optional<byte[]> aadPrefix;
     private final List<HostAddress> addresses;
 
-    @JsonCreator
     public IcebergSplit(
             @JsonProperty("path") String path,
             @JsonProperty("start") long start,
@@ -79,6 +81,42 @@ public class IcebergSplit
                 fileSize,
                 fileRecordCount,
                 fileFormat,
+                partitionSpecJson,
+                partitionDataJson,
+                deletes,
+                splitWeight,
+                fileStatisticsDomain,
+                fileIoProperties,
+                dataSequenceNumber,
+                Optional.empty(),
+                Optional.empty());
+    }
+
+    @JsonCreator
+    public IcebergSplit(
+            @JsonProperty("path") String path,
+            @JsonProperty("start") long start,
+            @JsonProperty("length") long length,
+            @JsonProperty("fileSize") long fileSize,
+            @JsonProperty("fileRecordCount") long fileRecordCount,
+            @JsonProperty("fileFormat") IcebergFileFormat fileFormat,
+            @JsonProperty("partitionSpecJson") String partitionSpecJson,
+            @JsonProperty("partitionDataJson") String partitionDataJson,
+            @JsonProperty("deletes") List<DeleteFile> deletes,
+            @JsonProperty("splitWeight") SplitWeight splitWeight,
+            @JsonProperty("fileStatisticsDomain") TupleDomain<IcebergColumnHandle> fileStatisticsDomain,
+            @JsonProperty("fileIoProperties") Map<String, String> fileIoProperties,
+            @JsonProperty("dataSequenceNumber") long dataSequenceNumber,
+            @JsonProperty("encryptionKey") Optional<byte[]> encryptionKey,
+            @JsonProperty("aadPrefix") Optional<byte[]> aadPrefix)
+    {
+        this(
+                path,
+                start,
+                length,
+                fileSize,
+                fileRecordCount,
+                fileFormat,
                 Optional.empty(),
                 partitionSpecJson,
                 partitionDataJson,
@@ -87,7 +125,9 @@ public class IcebergSplit
                 fileStatisticsDomain,
                 fileIoProperties,
                 ImmutableList.of(),
-                dataSequenceNumber);
+                dataSequenceNumber,
+                encryptionKey,
+                aadPrefix);
     }
 
     public IcebergSplit(
@@ -105,7 +145,9 @@ public class IcebergSplit
             TupleDomain<IcebergColumnHandle> fileStatisticsDomain,
             Map<String, String> fileIoProperties,
             List<HostAddress> addresses,
-            long dataSequenceNumber)
+            long dataSequenceNumber,
+            Optional<byte[]> encryptionKey,
+            Optional<byte[]> aadPrefix)
     {
         this.path = requireNonNull(path, "path is null");
         this.start = start;
@@ -122,6 +164,8 @@ public class IcebergSplit
         this.fileIoProperties = ImmutableMap.copyOf(requireNonNull(fileIoProperties, "fileIoProperties is null"));
         this.addresses = requireNonNull(addresses, "addresses is null");
         this.dataSequenceNumber = dataSequenceNumber;
+        this.encryptionKey = requireNonNull(encryptionKey, "encryptionKey is null");
+        this.aadPrefix = requireNonNull(aadPrefix, "aadPrefix is null");
     }
 
     @JsonIgnore
@@ -220,6 +264,18 @@ public class IcebergSplit
         return dataSequenceNumber;
     }
 
+    @JsonProperty
+    public Optional<byte[]> getEncryptionKey()
+    {
+        return encryptionKey;
+    }
+
+    @JsonProperty
+    public Optional<byte[]> getAadPrefix()
+    {
+        return aadPrefix;
+    }
+
     @Override
     public long getRetainedSizeInBytes()
     {
@@ -231,6 +287,8 @@ public class IcebergSplit
                 + splitWeight.getRetainedSizeInBytes()
                 + fileStatisticsDomain.getRetainedSizeInBytes(IcebergColumnHandle::getRetainedSizeInBytes)
                 + estimatedSizeOf(fileIoProperties, SizeOf::estimatedSizeOf, SizeOf::estimatedSizeOf)
+                + sizeOf(encryptionKey, SizeOf::sizeOf)
+                + sizeOf(aadPrefix, SizeOf::sizeOf)
                 + estimatedSizeOf(addresses, HostAddress::getRetainedSizeInBytes);
     }
 

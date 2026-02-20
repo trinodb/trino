@@ -49,6 +49,7 @@ import io.trino.plugin.hive.HiveStorageFormat;
 import io.trino.plugin.iceberg.aggregation.DataSketchStateSerializer;
 import io.trino.plugin.iceberg.aggregation.IcebergThetaSketchForStats;
 import io.trino.plugin.iceberg.catalog.TrinoCatalog;
+import io.trino.plugin.iceberg.catalog.file.FileMetastoreTableOperations;
 import io.trino.plugin.iceberg.delete.DeletionVectorWriter;
 import io.trino.plugin.iceberg.delete.DeletionVectorWriter.DeletionVectorInfo;
 import io.trino.plugin.iceberg.functions.IcebergFunctionProvider;
@@ -687,6 +688,9 @@ public class IcebergMetadata
 
         // Reject Iceberg table encryption
         if (!metadata.encryptionKeys().isEmpty() || snapshot.keyId() != null || metadata.properties().containsKey("encryption.key-id")) {
+            if (table.operations() instanceof FileMetastoreTableOperations) {
+                return;
+            }
             throw new TrinoException(NOT_SUPPORTED, "Iceberg table encryption is not supported");
         }
     }
