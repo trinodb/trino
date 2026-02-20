@@ -38,22 +38,20 @@ import java.util.concurrent.CopyOnWriteArrayList;
  * This environment provides:
  * <ul>
  *   <li>Minio container providing S3-compatible object storage</li>
- *   <li>Hadoop container for Hive Metastore only (HDFS is not used by Trino)</li>
- *   <li>Spark container with Delta Lake support and Thrift Server</li>
+ *   <li>Hadoop container for Hive Metastore only (HDFS is not used)</li>
+ *   <li>Spark container with Delta Lake support and Thrift Server configured for S3</li>
  *   <li>Trino container with Delta Lake connector configured for S3 (Minio)</li>
  * </ul>
  * <p>
  * Catalog configuration:
  * <ul>
- *   <li>Trino uses "delta_lake" catalog for Delta Lake tables stored in Minio (S3)</li>
- *   <li>Spark uses "spark_catalog" with DeltaCatalog</li>
- *   <li>Both share the same Hive Metastore for table metadata</li>
+ *   <li>Trino uses "delta" catalog for Delta Lake tables stored in Minio (S3)</li>
+ *   <li>Spark uses "spark_catalog" with DeltaCatalog, also configured for S3 (Minio)</li>
+ *   <li>Both share the same Hive Metastore for table metadata and the same S3 storage</li>
  * </ul>
  * <p>
- * <b>Note:</b> The SparkDeltaContainer is currently configured with hardcoded HDFS settings,
- * so Spark writes to HDFS while Trino writes to S3 (Minio). This environment is primarily
- * designed for testing Trino's Delta Lake connector with S3-compatible storage. For full
- * Spark-Trino interoperability testing, use {@link DeltaLakeOssEnvironment} instead.
+ * This environment enables full Spark-Trino interoperability testing where both
+ * engines read and write to the same S3 storage location.
  */
 public class DeltaLakeMinioEnvironment
         extends ProductTestEnvironment
@@ -97,31 +95,64 @@ public class DeltaLakeMinioEnvironment
         minio.createBucket(BUCKET_NAME);
 
         // Start Hadoop (provides HMS only - HDFS is not used by Trino in this environment)
+        // Configure S3 so HMS can validate s3:// table locations
         hadoop = new HadoopContainer()
                 .withNetwork(network)
-                .withNetworkAliases(HadoopContainer.HOST_NAME);
+                .withNetworkAliases(HadoopContainer.HOST_NAME)
+                .withS3Config(
+                        "http://" + Minio.DEFAULT_HOST_NAME + ":" + Minio.MINIO_API_PORT,
+                        Minio.MINIO_ROOT_USER,
+                        Minio.MINIO_ROOT_PASSWORD);
         hadoop.start();
 
-        // Start Spark with Delta Lake (depends on Hadoop for HMS)
-        // Note: Spark writes to HDFS due to hardcoded configuration in SparkDeltaContainer
+        // Start Spark with Delta Lake configured for S3 (Minio)
         spark = new SparkDeltaContainer()
                 .withNetwork(network)
-                .withNetworkAliases(SparkDeltaContainer.HOST_NAME);
+                .withNetworkAliases(SparkDeltaContainer.HOST_NAME)
+                .withS3Config(
+                        "http://" + Minio.DEFAULT_HOST_NAME + ":" + Minio.MINIO_API_PORT,
+                        Minio.MINIO_ROOT_USER,
+                        Minio.MINIO_ROOT_PASSWORD,
+                        Minio.MINIO_REGION)
+                .withWarehouseDir("s3a://" + BUCKET_NAME + "/warehouse")
+                .build();
         spark.dependsOn(hadoop);
         spark.start();
 
-        // Start Trino with Delta Lake connector configured for S3 (Minio)
+        String metastoreUri = "thrift://" + HadoopContainer.HOST_NAME + ":" + HadoopContainer.HIVE_METASTORE_PORT;
+        String s3Endpoint = "http://" + Minio.DEFAULT_HOST_NAME + ":" + Minio.MINIO_API_PORT;
+
+        // Start Trino with Delta Lake and Hive connectors configured for S3 (Minio)
+        // Configuration matches the original singlenode-delta-lake-oss environment
         trino = TrinoProductTestContainer.builder()
                 .withNetwork(network)
-                .withCatalog("delta_lake", Map.of(
-                        "connector.name", "delta_lake",
-                        "hive.metastore.uri", "thrift://" + HadoopContainer.HOST_NAME + ":" + HadoopContainer.HIVE_METASTORE_PORT,
-                        "fs.native-s3.enabled", "true",
-                        "s3.endpoint", "http://" + Minio.DEFAULT_HOST_NAME + ":" + Minio.MINIO_API_PORT,
-                        "s3.aws-access-key", Minio.MINIO_ROOT_USER,
-                        "s3.aws-secret-key", Minio.MINIO_ROOT_PASSWORD,
-                        "s3.path-style-access", "true",
-                        "s3.region", Minio.MINIO_REGION))
+                .withCatalog("delta", Map.ofEntries(
+                        Map.entry("connector.name", "delta_lake"),
+                        Map.entry("hive.metastore.uri", metastoreUri),
+                        Map.entry("fs.native-s3.enabled", "true"),
+                        Map.entry("fs.hadoop.enabled", "false"),
+                        Map.entry("s3.endpoint", s3Endpoint),
+                        Map.entry("s3.aws-access-key", Minio.MINIO_ROOT_USER),
+                        Map.entry("s3.aws-secret-key", Minio.MINIO_ROOT_PASSWORD),
+                        Map.entry("s3.path-style-access", "true"),
+                        Map.entry("s3.region", Minio.MINIO_REGION),
+                        Map.entry("delta.enable-non-concurrent-writes", "true"),
+                        Map.entry("delta.hive-catalog-name", "hive")))
+                .withCatalog("hive", Map.ofEntries(
+                        Map.entry("connector.name", "hive"),
+                        Map.entry("hive.metastore.uri", metastoreUri),
+                        Map.entry("hive.non-managed-table-writes-enabled", "true"),
+                        Map.entry("fs.native-s3.enabled", "true"),
+                        Map.entry("fs.hadoop.enabled", "false"),
+                        Map.entry("s3.endpoint", s3Endpoint),
+                        Map.entry("s3.aws-access-key", Minio.MINIO_ROOT_USER),
+                        Map.entry("s3.aws-secret-key", Minio.MINIO_ROOT_PASSWORD),
+                        Map.entry("s3.path-style-access", "true"),
+                        Map.entry("s3.region", Minio.MINIO_REGION),
+                        Map.entry("hive.hive-views.enabled", "true"),
+                        Map.entry("hive.delta-lake-catalog-name", "delta"),
+                        Map.entry("hive.parquet.time-zone", "UTC"),
+                        Map.entry("hive.rcfile.time-zone", "UTC")))
                 .build();
         trino.start();
 
@@ -158,7 +189,7 @@ public class DeltaLakeMinioEnvironment
             return QueryResult.forResultSet(rs);
         }
         catch (SQLException e) {
-            throw new RuntimeException("Failed to execute Spark query: " + sql, e);
+            throw new RuntimeException("Failed to execute Spark query: " + sql + ". " + formatSqlException(e), e);
         }
     }
 
@@ -175,8 +206,13 @@ public class DeltaLakeMinioEnvironment
             return stmt.executeUpdate(sql);
         }
         catch (SQLException e) {
-            throw new RuntimeException("Failed to execute Spark update: " + sql, e);
+            throw new RuntimeException("Failed to execute Spark update: " + sql + ". " + formatSqlException(e), e);
         }
+    }
+
+    private static String formatSqlException(SQLException e)
+    {
+        return "SQLState=" + e.getSQLState() + ", ErrorCode=" + e.getErrorCode() + ", Message=" + e.getMessage();
     }
 
     // Minio access
