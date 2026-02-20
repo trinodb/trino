@@ -1084,7 +1084,8 @@ jobs:
               {"bucket": "hive-kerberos", "suites": "SuiteHiveKerberos SuiteHdfsImpersonation SuiteTwoHives SuiteHive4 SuiteHudi"},
               {"bucket": "hive-transactional", "suites": "SuiteHiveTransactional SuiteAuthorization SuiteFaultTolerant"},
               {"bucket": "hive-storage", "suites": "SuiteHiveSpark SuiteHiveAlluxioCaching SuiteStorageFormatsDetailed"},
-              {"bucket": "iceberg", "suites": "SuiteIceberg"}
+              {"bucket": "iceberg", "suites": "SuiteIceberg"},
+              {"bucket": "delta-lake", "suites": "SuiteDeltaLakeOss"}
             ]
           }
           EOF
