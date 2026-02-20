@@ -1100,7 +1100,7 @@ jobs:
             "include": [
               {"bucket": "jdbc-core", "suites": "SuiteMysql SuitePostgresql SuiteSqlServer"},
               {"bucket": "connector-smoke", "suites": "SuiteCassandra SuiteClickhouse SuiteBlackHole"},
-              {"bucket": "auth-and-clients", "suites": "SuiteKafka SuiteLdap"}
+              {"bucket": "auth-and-clients", "suites": "SuiteKafka SuiteLdap SuiteClients"}
             ]
           }
           EOF
