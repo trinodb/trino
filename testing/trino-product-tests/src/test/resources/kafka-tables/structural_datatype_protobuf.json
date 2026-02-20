@@ -4,7 +4,7 @@
   "topicName": "structural_datatype_protobuf",
   "message": {
     "dataFormat": "protobuf",
-    "dataSchema": "/docker/trino-product-tests/conf/trino/etc/catalog/kafka/structural_datatype.proto",
+    "dataSchema": "/etc/trino/kafka-tables/structural_datatype.proto",
     "fields": [
       {
         "name": "c_array",
