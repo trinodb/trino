@@ -33,7 +33,7 @@ BUCKETS = [
     ("jdbc-core", [
         ("SuiteMysql", ("SuiteMysql",)),
         ("SuitePostgresql", LEGACY_COVERAGE_REMOVED),
-        ("SuiteSqlServer", AGGREGATE_LEGACY_SUITES),
+        ("SuiteSqlServer", LEGACY_COVERAGE_REMOVED),
         ("SuiteFunctions", ("SuiteFunctions",)),
         ("SuiteTpch", ("SuiteTpch",)),
         ("SuiteTpcds", ("SuiteTpcds",)),
