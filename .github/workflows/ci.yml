@@ -1088,7 +1088,10 @@ jobs:
               {"bucket": "jdbc-external", "suites": "SuiteExasol SuiteSnowflake"},
               {"bucket": "connector-smoke", "suites": "SuiteCassandra SuiteClickhouse SuiteBlackHole SuiteAllConnectorsSmoke SuiteIgnite"},
               {"bucket": "auth-and-clients", "suites": "SuiteKafka SuiteLdap SuiteOauth2 SuiteClients SuiteJdbcKerberos SuiteLoki SuiteRanger SuiteTls"},
-              {"bucket": "hive-transactional", "suites": "SuiteFaultTolerant"}
+              {"bucket": "hive-basic", "suites": "SuiteHiveBasic SuiteHmsOnly SuiteHiveStorageFormats"},
+              {"bucket": "hive-kerberos", "suites": "SuiteHiveKerberos SuiteHdfsImpersonation SuiteTwoHives"},
+              {"bucket": "hive-transactional", "suites": "SuiteHiveTransactional SuiteAuthorization SuiteFaultTolerant"},
+              {"bucket": "hive-storage", "suites": "SuiteHiveSpark SuiteHiveAlluxioCaching SuiteStorageFormatsDetailed"}
             ]
           }
           EOF
