@@ -50,7 +50,7 @@ BUCKETS = [
         ("SuiteIgnite", ("SuiteIgnite",)),
     ]),
     ("auth-and-clients", [
-        ("SuiteKafka", ("SuiteKafka",)),
+        ("SuiteKafka", LEGACY_COVERAGE_REMOVED),
         ("SuiteLdap", ("SuiteLdap",)),
         ("SuiteOauth2", ("SuiteOauth2",)),
         ("SuiteClients", ("SuiteClients",)),
