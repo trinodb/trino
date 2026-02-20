@@ -14,6 +14,7 @@
 package io.trino.tests.product.suite;
 
 import io.trino.tests.product.TestGroup;
+import io.trino.tests.product.mariadb.MariaDbEnvironment;
 import io.trino.tests.product.mysql.MySqlEnvironment;
 import io.trino.tests.product.suite.SuiteRunner.TestRunResult;
 
@@ -21,11 +22,16 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * JUnit 5 test suite for MySQL connector tests.
+ * JUnit 5 test suite for MySQL and MariaDB connector tests.
  * <p>
- * This suite runs MySQL tests tagged with {@code @TestGroup.Mysql} using {@link MySqlEnvironment}.
+ * This suite runs two sequential test runs:
+ * <ol>
+ *   <li>MySQL tests: All tests tagged with {@code @TestGroup.Mysql} using {@link MySqlEnvironment}</li>
+ *   <li>MariaDB tests: All tests tagged with {@code @TestGroup.Mariadb} using {@link MariaDbEnvironment}</li>
+ * </ol>
  * <p>
- * Additional database runs can be appended as more environments are introduced in later commits.
+ * The environments are run sequentially with explicit shutdown between runs to prevent
+ * OOM conditions on CI runners.
  * <p>
  * To run this suite:
  * <pre>
@@ -51,6 +57,11 @@ public final class SuiteMysql
         // Run 1: MySQL tests
         results.add(SuiteRunner.forEnvironment(MySqlEnvironment.class)
                 .includeTag(TestGroup.Mysql.class)
+                .run());
+
+        // Run 2: MariaDB tests
+        results.add(SuiteRunner.forEnvironment(MariaDbEnvironment.class)
+                .includeTag(TestGroup.Mariadb.class)
                 .run());
 
         // Print combined summary
