@@ -44,7 +44,7 @@ BUCKETS = [
     ]),
     ("connector-smoke", [
         ("SuiteCassandra", LEGACY_COVERAGE_REMOVED),
-        ("SuiteClickhouse", ("SuiteClickhouse",)),
+        ("SuiteClickhouse", LEGACY_COVERAGE_REMOVED),
         ("SuiteBlackHole", ("SuiteAllConnectorsSmoke",)),
         ("SuiteAllConnectorsSmoke", ("SuiteAllConnectorsSmoke",)),
         ("SuiteIgnite", ("SuiteIgnite",)),
