@@ -1102,7 +1102,8 @@ jobs:
           cat <<'EOF' > matrix-junit.json
           {
             "include": [
-              {"bucket": "jdbc-core", "suites": "SuiteMysql SuitePostgresql SuiteSqlServer"}
+              {"bucket": "jdbc-core", "suites": "SuiteMysql SuitePostgresql SuiteSqlServer"},
+              {"bucket": "connector-smoke", "suites": "SuiteCassandra"}
             ]
           }
           EOF
