@@ -74,7 +74,7 @@ BUCKETS = [
     ("hive-transactional", [
         ("SuiteHiveTransactional", ("SuiteHiveTransactional",)),
         ("SuiteAuthorization", ("SuiteHiveTransactional",)),
-        ("SuiteFaultTolerant", AGGREGATE_LEGACY_SUITES),
+        ("SuiteFaultTolerant", LEGACY_COVERAGE_REMOVED),
     ]),
     ("hive-storage", [
         ("SuiteHiveSpark", AGGREGATE_LEGACY_SUITES),
