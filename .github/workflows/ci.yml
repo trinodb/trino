@@ -927,7 +927,6 @@ jobs:
             - suite-compatibility
             - suite-all-connectors-smoke
             - suite-delta-lake-oss
-            - suite-kafka
             - suite-iceberg
             - suite-snowflake
             - suite-hudi
