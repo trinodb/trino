@@ -34,7 +34,7 @@ BUCKETS = [
         ("SuiteMysql", ("SuiteMysql",)),
         ("SuitePostgresql", LEGACY_COVERAGE_REMOVED),
         ("SuiteSqlServer", LEGACY_COVERAGE_REMOVED),
-        ("SuiteFunctions", ("SuiteFunctions",)),
+        ("SuiteFunctions", LEGACY_COVERAGE_REMOVED),
         ("SuiteTpch", ("SuiteTpch",)),
         ("SuiteTpcds", ("SuiteTpcds",)),
     ]),
