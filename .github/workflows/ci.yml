@@ -1091,7 +1091,7 @@ jobs:
             "include": [
               {"bucket": "jdbc-core", "suites": "SuiteMysql SuitePostgresql SuiteSqlServer SuiteFunctions SuiteTpch SuiteTpcds"},
               {"bucket": "jdbc-external", "suites": "SuiteExasol"},
-              {"bucket": "connector-smoke", "suites": "SuiteCassandra SuiteClickhouse SuiteBlackHole SuiteAllConnectorsSmoke"},
+              {"bucket": "connector-smoke", "suites": "SuiteCassandra SuiteClickhouse SuiteBlackHole SuiteAllConnectorsSmoke SuiteIgnite"},
               {"bucket": "auth-and-clients", "suites": "SuiteKafka SuiteLdap SuiteOauth2 SuiteClients SuiteJdbcKerberos SuiteLoki SuiteRanger SuiteTls"},
               {"bucket": "hive-transactional", "suites": "SuiteFaultTolerant"}
             ]
