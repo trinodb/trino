@@ -16,29 +16,34 @@ package io.trino.tests.product.loki;
 import com.google.common.collect.ImmutableMap;
 import io.github.jeschkies.loki.client.LokiClient;
 import io.github.jeschkies.loki.client.LokiClientConfig;
-import org.testng.annotations.Test;
+import io.trino.testing.containers.environment.ProductTest;
+import io.trino.testing.containers.environment.RequiresEnvironment;
+import io.trino.tests.product.TestGroup;
+import org.junit.jupiter.api.Test;
 
 import java.net.URI;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.format.DateTimeFormatter;
 
-import static io.trino.tempto.assertions.QueryAssert.Row.row;
-import static io.trino.tests.product.TestGroups.LOKI;
-import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
-import static io.trino.tests.product.utils.QueryExecutors.onTrino;
+import static io.trino.testing.containers.environment.QueryResultAssert.assertThat;
+import static io.trino.testing.containers.environment.Row.row;
 import static java.time.ZoneOffset.UTC;
-import static org.assertj.core.api.Assertions.assertThat;
 
-public class TestLoki
+@ProductTest
+@RequiresEnvironment(LokiEnvironment.class)
+@TestGroup.ConfiguredFeatures
+@TestGroup.Loki
+@TestGroup.ProfileSpecificTests
+class TestLoki
 {
     private static final DateTimeFormatter TIMESTAMP_FORMATTER = DateTimeFormatter.ofPattern("uuuu-MM-dd HH:mm:ss.SSS'Z'").withZone(UTC);
 
-    @Test(groups = {LOKI, PROFILE_SPECIFIC_TESTS})
-    public void testQueryRange()
+    @Test
+    void testQueryRange(LokiEnvironment env)
             throws Exception
     {
-        LokiClient client = new LokiClient(new LokiClientConfig(URI.create("http://loki:3100"), Duration.ofSeconds(10)));
+        LokiClient client = new LokiClient(new LokiClientConfig(URI.create(env.getLokiHttpUrl()), Duration.ofSeconds(10)));
 
         Instant start = Instant.now().minus(Duration.ofHours(3));
         Instant end = start.plus(Duration.ofHours(2));
@@ -48,11 +53,11 @@ public class TestLoki
         client.pushLogLine("line 3", end.minus(Duration.ofMinutes(1)), ImmutableMap.of("test", "logs_query"));
         client.flush();
 
-        assertThat(onTrino().executeQuery("SELECT value FROM TABLE(loki.system.query_range(" +
-                                          "'{test=\"logs_query\"}'," +
-                                          "TIMESTAMP '" + TIMESTAMP_FORMATTER.format(start) + "'," +
-                                          "TIMESTAMP '" + TIMESTAMP_FORMATTER.format(end) + "'))" +
-                                          "LIMIT 1"))
+        assertThat(env.executeTrino("SELECT value FROM TABLE(loki.system.query_range(" +
+                "'{test=\"logs_query\"}'," +
+                "TIMESTAMP '" + TIMESTAMP_FORMATTER.format(start) + "'," +
+                "TIMESTAMP '" + TIMESTAMP_FORMATTER.format(end) + "'))" +
+                "LIMIT 1"))
                 .containsOnly(row("line 1"));
     }
 }
