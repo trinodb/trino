@@ -899,17 +899,12 @@ jobs:
             - suite-delta-lake-databricks154
             - suite-delta-lake-databricks164
             - suite-delta-lake-databricks173
-            - suite-gcs
             - suite-storage-formats-detailed
             - suite-parquet
           exclude:
             - suite: suite-azure
               ignore exclusion if: >-
                 ${{ env.CI_SKIP_SECRETS_PRESENCE_CHECKS != '' || secrets.AZURE_ABFS_HIERARCHICAL_ACCESS_KEY != '' }}
-
-            - suite: suite-gcs
-              ignore exclusion if: >-
-                ${{ env.CI_SKIP_SECRETS_PRESENCE_CHECKS != '' || secrets.GCP_CREDENTIALS_KEY != '' }}
 
             - suite: suite-delta-lake-databricks133
               ignore exclusion if: >-
