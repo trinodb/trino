@@ -906,7 +906,6 @@ jobs:
             - suite-parquet
             - suite-compatibility
             - suite-delta-lake-oss
-            - suite-iceberg
           exclude:
             - suite: suite-azure
               ignore exclusion if: >-
