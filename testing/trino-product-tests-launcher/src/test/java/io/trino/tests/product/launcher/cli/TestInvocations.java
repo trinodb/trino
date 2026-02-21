@@ -50,7 +50,7 @@ public class TestInvocations
         assertThat(invocationResult.exitCode()).isEqualTo(0);
         assertThat(invocationResult.lines())
                 .contains("Available suites: ")
-                .contains("suite-1");
+                .contains("suite-storage-formats-detailed");
     }
 
     @Test
@@ -81,11 +81,11 @@ public class TestInvocations
                 "--server-package",
                 Files.createTempFile("server", ".tar.gz").toString(),
                 "--suite",
-                "suite-1");
+                "suite-storage-formats-detailed");
 
         assertThat(invocationResult.exitCode()).isEqualTo(0);
         assertThat(invocationResult.lines())
-                .contains("Suite 'suite-1' with configuration 'config-default' consists of following test runs: ");
+                .contains("Suite 'suite-storage-formats-detailed' with configuration 'config-default' consists of following test runs: ");
     }
 
     @Test
