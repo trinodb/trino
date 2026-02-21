@@ -1095,7 +1095,7 @@ jobs:
               {"bucket": "jdbc-core", "suites": "SuiteMysql SuitePostgresql SuiteSqlServer SuiteFunctions SuiteTpch SuiteTpcds"},
               {"bucket": "jdbc-external", "suites": "SuiteExasol"},
               {"bucket": "connector-smoke", "suites": "SuiteCassandra SuiteClickhouse SuiteBlackHole"},
-              {"bucket": "auth-and-clients", "suites": "SuiteKafka SuiteLdap SuiteOauth2 SuiteClients SuiteJdbcKerberos SuiteTls"}
+              {"bucket": "auth-and-clients", "suites": "SuiteKafka SuiteLdap SuiteOauth2 SuiteClients SuiteJdbcKerberos SuiteLoki SuiteTls"}
             ]
           }
           EOF
