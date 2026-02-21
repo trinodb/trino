@@ -913,7 +913,6 @@ jobs:
             - suite-gcs
             - suite-parquet
             - suite-compatibility
-            - suite-delta-lake-oss
           exclude:
             - suite: suite-azure
               ignore exclusion if: >-
