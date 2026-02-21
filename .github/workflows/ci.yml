@@ -1077,7 +1077,8 @@ jobs:
               {"bucket": "hive-transactional", "suites": "SuiteHiveTransactional SuiteAuthorization SuiteFaultTolerant"},
               {"bucket": "hive-storage", "suites": "SuiteHiveSpark SuiteHiveAlluxioCaching SuiteStorageFormatsDetailed"},
               {"bucket": "iceberg", "suites": "SuiteIceberg"},
-              {"bucket": "delta-lake", "suites": "SuiteDeltaLakeOss SuiteCompatibility"}
+              {"bucket": "delta-lake", "suites": "SuiteDeltaLakeOss SuiteCompatibility"},
+              {"bucket": "cloud-object-store", "suites": "SuiteGcs"}
             ]
           }
           EOF
