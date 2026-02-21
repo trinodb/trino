@@ -47,7 +47,7 @@ BUCKETS = [
         ("SuiteClickhouse", LEGACY_COVERAGE_REMOVED),
         ("SuiteBlackHole", LEGACY_COVERAGE_REMOVED),
         ("SuiteAllConnectorsSmoke", LEGACY_COVERAGE_REMOVED),
-        ("SuiteIgnite", ("SuiteIgnite",)),
+        ("SuiteIgnite", LEGACY_COVERAGE_REMOVED),
     ]),
     ("auth-and-clients", [
         ("SuiteKafka", LEGACY_COVERAGE_REMOVED),
