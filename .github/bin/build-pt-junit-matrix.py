@@ -89,7 +89,7 @@ BUCKETS = [
         ("SuiteCompatibility", ("SuiteCompatibility",)),
     ]),
     ("cloud-object-store", [
-        ("SuiteGcs", ("SuiteGcs",)),
+        ("SuiteGcs", LEGACY_COVERAGE_REMOVED),
         ("SuiteAzure", ("SuiteAzure",)),
     ]),
     ("databricks-133", [
