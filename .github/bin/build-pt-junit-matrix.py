@@ -55,7 +55,7 @@ BUCKETS = [
         ("SuiteOauth2", LEGACY_COVERAGE_REMOVED),
         ("SuiteClients", LEGACY_COVERAGE_REMOVED),
         ("SuiteJdbcKerberos", LEGACY_COVERAGE_REMOVED),
-        ("SuiteLoki", ("SuiteLoki",)),
+        ("SuiteLoki", LEGACY_COVERAGE_REMOVED),
         ("SuiteRanger", ("SuiteRanger",)),
         ("SuiteTls", LEGACY_COVERAGE_REMOVED),
     ]),
