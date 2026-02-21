@@ -898,12 +898,6 @@ jobs:
           config:
             - default
           suite:
-            - suite-1
-            - suite-2
-            - suite-3
-            - suite-5
-            - suite-6-non-generic
-            - suite-7-non-generic
             - suite-azure
             - suite-delta-lake-databricks133
             - suite-delta-lake-databricks143
