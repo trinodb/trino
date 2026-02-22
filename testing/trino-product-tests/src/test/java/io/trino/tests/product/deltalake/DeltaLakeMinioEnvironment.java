@@ -137,6 +137,7 @@ public class DeltaLakeMinioEnvironment
                         Map.entry("s3.path-style-access", "true"),
                         Map.entry("s3.region", Minio.MINIO_REGION),
                         Map.entry("delta.enable-non-concurrent-writes", "true"),
+                        Map.entry("delta.register-table-procedure.enabled", "true"),
                         Map.entry("delta.hive-catalog-name", "hive")))
                 .withCatalog("hive", Map.ofEntries(
                         Map.entry("connector.name", "hive"),
