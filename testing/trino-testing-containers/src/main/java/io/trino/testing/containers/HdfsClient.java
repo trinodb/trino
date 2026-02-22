@@ -113,6 +113,26 @@ public final class HdfsClient
     }
 
     /**
+     * Sets the octal permissions for a file or directory.
+     */
+    public void setPermission(String path, String permission)
+    {
+        URI uri = buildUri(path, "SETPERMISSION", "&permission=" + permission);
+        Request request = new Request.Builder()
+                .url(uri.toString())
+                .put(RequestBody.create(new byte[0]))
+                .build();
+        try (Response response = httpClient.newCall(request).execute()) {
+            if (response.code() != 200) {
+                throw new IOException("Failed to set permission for " + path + ": " + response.body().string());
+            }
+        }
+        catch (IOException e) {
+            throw new UncheckedIOException("Failed to set permission for " + path, e);
+        }
+    }
+
+    /**
      * Creates a file with the given string content.
      */
     public void saveFile(String path, String content)

@@ -159,7 +159,20 @@ public class HiveImpersonationEnvironment
      */
     public HdfsClient createHdfsClient()
     {
-        return hadoop.createHdfsClient();
+        return createHdfsClient("hive");
+    }
+
+    public HdfsClient createHdfsClient(String username)
+    {
+        return hadoop.createHdfsClient(username);
+    }
+
+    /**
+     * Returns the default Hive warehouse location in HDFS.
+     */
+    public String getWarehouseDirectory()
+    {
+        return hadoop.getWarehouseDirectory();
     }
 
     // Standard ProductTestEnvironment methods
@@ -181,7 +194,10 @@ public class HiveImpersonationEnvironment
     public Connection createTrinoConnection(String jdbcUser)
             throws SQLException
     {
-        return TrinoProductTestContainer.createConnection(trino, jdbcUser);
+        Connection connection = TrinoProductTestContainer.createConnection(trino, jdbcUser);
+        connection.setCatalog("hive");
+        connection.setSchema("default");
+        return connection;
     }
 
     /**
