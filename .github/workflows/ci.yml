@@ -1073,7 +1073,7 @@ jobs:
               {"bucket": "hive-storage", "suites": "SuiteHiveSpark SuiteHiveAlluxioCaching SuiteStorageFormatsDetailed"},
               {"bucket": "iceberg", "suites": "SuiteIceberg"},
               {"bucket": "delta-lake", "suites": "SuiteDeltaLakeOss SuiteCompatibility"},
-              {"bucket": "cloud-object-store", "suites": "SuiteGcs"}
+              {"bucket": "cloud-object-store", "suites": "SuiteGcs SuiteAzure"}
             ]
           }
           EOF
