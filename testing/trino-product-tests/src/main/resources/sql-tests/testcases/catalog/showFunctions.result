@@ -1,4 +1,0 @@
--- delimiter: |; ignoreOrder: true; ignoreExcessRows:true; trimValues:true;
- abs        | bigint   | bigint     | scalar        | true          | Absolute value     |
- abs        | double   | double     | scalar        | true          | Absolute value     |
- acos       | double   | double     | scalar        | true          | Arc cosine         |

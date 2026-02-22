@@ -1,9 +1,0 @@
--- delimiter: |; ignoreOrder: true; ignoreExcessRows: true; trimValues:true
-regexp_extract | varchar(x) | varchar(x), joniregexp | scalar | true | String extracted using the given pattern |
-regexp_extract | varchar(x) | varchar(x), joniregexp, bigint | scalar | true | Returns regex group of extracted string with a pattern |
-regexp_extract_all | array(varchar(x)) | varchar(x), joniregexp | scalar | true | String(s) extracted using the given pattern |
-regexp_extract_all | array(varchar(x)) | varchar(x), joniregexp, bigint | scalar | true | Group(s) extracted using the given pattern |
-regexp_like | boolean | varchar(x), joniregexp | scalar | true | Returns whether the pattern is contained within the string |
-regexp_replace | varchar(x) | varchar(x), joniregexp | scalar | true | Removes substrings matching a regular expression |
-regexp_replace | varchar(z) | varchar(x), joniregexp, varchar(y) | scalar | true | Replaces substrings matching a regular expression by given string |
-regexp_split | array(varchar(x)) | varchar(x), joniregexp | scalar | true | Returns array of strings split by pattern |

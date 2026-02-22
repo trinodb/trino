@@ -37,7 +37,7 @@ public class RangerEnvironment
         extends ProductTestEnvironment
 {
     private static final String RANGER_CONFIG_DIR =
-            "testing/trino-product-tests-launcher/src/main/resources/docker/trino-product-tests/conf/environment/multinode-ranger";
+            "testing/trino-product-tests/src/test/resources/docker/trino-product-tests/conf/environment/multinode-ranger";
 
     private Network network;
     private MariaDBContainer mariadb;

@@ -53,7 +53,7 @@ public class AzureEnvironment
         extends ProductTestEnvironment
 {
     private static final String AZURE_CONFIG_DIR =
-            "testing/trino-product-tests-launcher/src/main/resources/docker/trino-product-tests/conf/environment/multinode-azure";
+            "testing/trino-product-tests/src/test/resources/docker/trino-product-tests/conf/environment/multinode-azure";
 
     private static final Duration HIVE_METASTORE_STARTUP_TIMEOUT = Duration.ofMinutes(4);
     private static final Duration HIVE_METASTORE_STARTUP_POLL_INTERVAL = Duration.ofSeconds(2);
