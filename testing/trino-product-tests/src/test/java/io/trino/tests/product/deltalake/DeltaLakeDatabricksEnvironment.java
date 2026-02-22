@@ -114,7 +114,7 @@ public class DeltaLakeDatabricksEnvironment
     protected String databricksJdbcUrl()
     {
         String rawUrl = appendJdbcOption(requireEnv("DATABRICKS_133_JDBC_URL"), "EnableArrow=0");
-        return appendJdbcOption(rawUrl, "SocketTimeout=120");
+        return rawUrl;
     }
 
     protected final String databricksLogin()
