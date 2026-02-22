@@ -40,7 +40,7 @@ BUCKETS = [
     ]),
     ("jdbc-external", [
         ("SuiteExasol", LEGACY_COVERAGE_REMOVED),
-        ("SuiteSnowflake", ("SuiteSnowflake",)),
+        ("SuiteSnowflake", LEGACY_COVERAGE_REMOVED),
     ]),
     ("connector-smoke", [
         ("SuiteCassandra", LEGACY_COVERAGE_REMOVED),
