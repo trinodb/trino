@@ -90,7 +90,7 @@ BUCKETS = [
     ]),
     ("cloud-object-store", [
         ("SuiteGcs", LEGACY_COVERAGE_REMOVED),
-        ("SuiteAzure", ("SuiteAzure",)),
+        ("SuiteAzure", LEGACY_COVERAGE_REMOVED),
     ]),
     ("databricks-133", [
         ("SuiteDeltaLakeDatabricks133", LEGACY_COVERAGE_REMOVED),
