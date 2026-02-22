@@ -262,7 +262,11 @@ public class PostgreSqlClient
     private static final int ARRAY_RESULT_SET_VALUE_COLUMN = 2;
     private static final String DUPLICATE_TABLE_SQLSTATE = "42P07";
     private static final int POSTGRESQL_MAX_SUPPORTED_TIMESTAMP_PRECISION = 6;
-    private static final int PRECISION_OF_UNSPECIFIED_DECIMAL = 0;
+    /**
+     * COLUMN_SIZE value for "unconstrained numeric" columns.
+     * Starting with PostgreSQL 15, unconstrained numeric columns can store up to 131072 digits before the decimal point and up to 16383 digits after the decimal point.
+     */
+    private static final int UNCONSTRAINED_NUMERIC_COLUMN_SIZE = 0;
 
     private static final DateTimeFormatter TIME_FORMATTER = DateTimeFormatter.ofPattern("HH:mm:ss.SSSSSS");
 
@@ -622,7 +626,7 @@ public class PostgreSqlClient
             case Types.NUMERIC: {
                 int columnSize = typeHandle.requiredColumnSize();
                 int decimalDigits = typeHandle.decimalDigits().orElse(0);
-                if (columnSize != PRECISION_OF_UNSPECIFIED_DECIMAL) {
+                if (columnSize != UNCONSTRAINED_NUMERIC_COLUMN_SIZE) {
                     // TODO (https://github.com/trinodb/trino/issues/28388) negative scale doesn't actually work
                     int precision = columnSize + max(-decimalDigits, 0); // Map decimal(p, -s) (negative scale) to decimal(p+s, 0).
                     if (precision <= Decimals.MAX_PRECISION) {
@@ -635,8 +639,7 @@ public class PostgreSqlClient
                     }
                     case ALLOW_OVERFLOW -> {
                         int scale;
-                        if (columnSize == PRECISION_OF_UNSPECIFIED_DECIMAL) {
-                            // decimal type with unspecified scale - up to 131072 digits before the decimal point; up to 16383 digits after the decimal point)
+                        if (columnSize == UNCONSTRAINED_NUMERIC_COLUMN_SIZE) {
                             scale = getDecimalDefaultScale(session);
                         }
                         else {
