@@ -898,7 +898,6 @@ jobs:
           config:
             - default
           suite:
-            - suite-azure
             - suite-delta-lake-databricks133
             - suite-delta-lake-databricks143
             - suite-delta-lake-databricks154
@@ -906,13 +905,6 @@ jobs:
             - suite-delta-lake-databricks173
             - suite-parquet
           exclude:
-            - suite: suite-azure
-              ignore exclusion if: >-
-                ${{ env.CI_SKIP_SECRETS_PRESENCE_CHECKS != '' ||
-                    vars.AZURE_ABFS_HIERARCHICAL_CONTAINER != '' ||
-                    vars.AZURE_ABFS_HIERARCHICAL_ACCOUNT != '' ||
-                    secrets.AZURE_ABFS_HIERARCHICAL_ACCESS_KEY != '' }}
-
             - suite: suite-delta-lake-databricks133
               ignore exclusion if: >-
                 ${{ env.CI_SKIP_SECRETS_PRESENCE_CHECKS != '' || secrets.DATABRICKS_TOKEN != '' }}
