@@ -15,10 +15,12 @@ package io.trino.tests.product.deltalake;
 
 import com.google.common.collect.ImmutableSet;
 import io.airlift.log.Logger;
-import io.trino.tempto.ProductTest;
-import io.trino.tempto.query.QueryResult;
-import io.trino.testng.services.Flaky;
-import org.testng.annotations.Test;
+import io.trino.testing.containers.environment.ProductTest;
+import io.trino.testing.containers.environment.QueryResult;
+import io.trino.testing.containers.environment.RequiresEnvironment;
+import io.trino.testing.services.junit.Flaky;
+import io.trino.tests.product.TestGroup;
+import org.junit.jupiter.api.Test;
 import software.amazon.awssdk.services.glue.GlueClient;
 import software.amazon.awssdk.services.glue.model.Database;
 import software.amazon.awssdk.services.glue.model.EntityNotFoundException;
@@ -32,49 +34,48 @@ import java.util.stream.Collectors;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.plugin.hive.metastore.glue.GlueConverter.getTableType;
-import static io.trino.tests.product.TestGroups.DELTA_LAKE_DATABRICKS;
-import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
-import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.DATABRICKS_COMMUNICATION_FAILURE_ISSUE;
-import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.DATABRICKS_COMMUNICATION_FAILURE_MATCH;
-import static io.trino.tests.product.utils.QueryExecutors.onTrino;
+import static io.trino.tests.product.deltalake.DeltaLakeDatabricksUtilsJunit.DATABRICKS_COMMUNICATION_FAILURE_ISSUE;
+import static io.trino.tests.product.deltalake.DeltaLakeDatabricksUtilsJunit.DATABRICKS_COMMUNICATION_FAILURE_MATCH;
 import static java.lang.String.format;
 import static java.lang.System.currentTimeMillis;
 import static java.util.Locale.ENGLISH;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.stream.Collectors.toUnmodifiableList;
 
-public class TestDatabricksWithGlueMetastoreCleanUp
-        extends ProductTest
+@ProductTest
+@RequiresEnvironment(DeltaLakeDatabricksEnvironment.class)
+@TestGroup.ConfiguredFeatures
+@TestGroup.DeltaLakeDatabricks
+@TestGroup.ProfileSpecificTests
+class TestDatabricksWithGlueMetastoreCleanUp
 {
     private static final Logger log = Logger.get(TestDatabricksWithGlueMetastoreCleanUp.class);
     private static final Instant SCHEMA_CLEANUP_THRESHOLD = Instant.now().minus(7, ChronoUnit.DAYS);
     private static final long MAX_JOB_TIME_MILLIS = MINUTES.toMillis(5);
 
-    @Test(groups = {DELTA_LAKE_DATABRICKS, PROFILE_SPECIFIC_TESTS})
+    @Test
     @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
-    public void testCleanUpOldTablesUsingDelta()
+    void testCleanUpOldTablesUsingDelta(DeltaLakeDatabricksEnvironment env)
     {
-        GlueClient glueClient = GlueClient.create();
+        GlueClient glueClient = env.createGlueClient();
         long startTime = currentTimeMillis();
-        List<String> schemas = onTrino().executeQuery("SELECT DISTINCT(table_schema) FROM information_schema.tables")
+        List<String> schemas = env.executeTrinoSql("SELECT DISTINCT(table_schema) FROM hive.information_schema.tables")
                 .rows().stream()
                 .map(row -> (String) row.get(0))
                 .filter(schema -> schema.toLowerCase(ENGLISH).startsWith("test") || schema.equals("default"))
                 .collect(toUnmodifiableList());
 
-        // this is needed to make deletion of some views possible
-        onTrino().executeQuery("SET SESSION hive.hive_views_legacy_translation = true");
-        schemas.forEach(schema -> cleanSchema(schema, startTime, glueClient));
+        env.executeTrinoSql("SET SESSION hive.hive_views_legacy_translation = true");
+        schemas.forEach(schema -> cleanSchema(env, schema, startTime, glueClient));
     }
 
-    private void cleanSchema(String schema, long startTime, GlueClient glueClient)
+    private void cleanSchema(DeltaLakeDatabricksEnvironment env, String schema, long startTime, GlueClient glueClient)
     {
         Database database;
         try {
             database = glueClient.getDatabase(builder -> builder.name(schema)).database();
         }
         catch (EntityNotFoundException _) {
-            // this may happen when database is being deleted concurrently
             return;
         }
 
@@ -83,7 +84,7 @@ public class TestDatabricksWithGlueMetastoreCleanUp
             return;
         }
 
-        Set<String> allTestTableNames = findAllTablesInSchema(schema).stream()
+        Set<String> allTestTableNames = findAllTablesInSchema(env, schema).stream()
                 .filter(name -> name.toLowerCase(ENGLISH).startsWith("test"))
                 .collect(toImmutableSet());
         log.info("Found %d tables to drop in schema %s", allTestTableNames.size(), schema);
@@ -94,11 +95,11 @@ public class TestDatabricksWithGlueMetastoreCleanUp
                 Instant createTime = table.createTime();
                 if (createTime.isBefore(SCHEMA_CLEANUP_THRESHOLD)) {
                     if (getTableType(table).contains("VIEW")) {
-                        onTrino().executeQuery(format("DROP VIEW IF EXISTS %s.%s", schema, tableName));
+                        env.executeTrinoSql(format("DROP VIEW IF EXISTS hive.%s.%s", schema, tableName));
                         log.info("Dropped view %s.%s", schema, tableName);
                     }
                     else {
-                        onTrino().executeQuery(format("DROP TABLE IF EXISTS %s.%s", schema, tableName));
+                        env.executeTrinoSql(format("DROP TABLE IF EXISTS hive.%s.%s", schema, tableName));
                         log.info("Dropped table %s.%s", schema, tableName);
                     }
                     droppedTablesCount++;
@@ -112,9 +113,9 @@ public class TestDatabricksWithGlueMetastoreCleanUp
             }
         }
         log.info("Dropped %d tables in schema %s", droppedTablesCount, schema);
-        if (!schema.equals("default") && findAllTablesInSchema(schema).isEmpty()) {
+        if (!schema.equals("default") && findAllTablesInSchema(env, schema).isEmpty()) {
             try {
-                onTrino().executeQuery("DROP SCHEMA IF EXISTS " + schema);
+                env.executeTrinoSql("DROP SCHEMA IF EXISTS hive." + schema);
                 log.info("Dropped schema %s", schema);
             }
             catch (Exception e) {
@@ -123,10 +124,10 @@ public class TestDatabricksWithGlueMetastoreCleanUp
         }
     }
 
-    private Set<String> findAllTablesInSchema(String schema)
+    private Set<String> findAllTablesInSchema(DeltaLakeDatabricksEnvironment env, String schema)
     {
         try {
-            QueryResult allTables = onTrino().executeQuery(format("SELECT table_name FROM information_schema.tables WHERE table_schema = '%s'", schema));
+            QueryResult allTables = env.executeTrinoSql(format("SELECT table_name FROM hive.information_schema.tables WHERE table_schema = '%s'", schema));
             return allTables.rows().stream()
                     .map(row -> (String) row.get(0))
                     .collect(Collectors.toUnmodifiableSet());
