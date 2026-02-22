@@ -30,11 +30,6 @@
         </dependency>
 
         <dependency>
-            <groupId>com.squareup.okhttp3</groupId>
-            <artifactId>okhttp-jvm</artifactId>
-        </dependency>
-
-        <dependency>
             <groupId>dev.failsafe</groupId>
             <artifactId>failsafe</artifactId>
         </dependency>
@@ -333,6 +328,12 @@
 
         <dependency>
             <groupId>com.squareup.okhttp3</groupId>
+            <artifactId>okhttp-jvm</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>com.squareup.okhttp3</groupId>
             <artifactId>okhttp-tls</artifactId>
             <scope>test</scope>
         </dependency>
@@ -497,9 +498,6 @@
                         <ignoredUnusedDeclaredDependency>org.apache.kafka:kafka-clients</ignoredUnusedDeclaredDependency>
                     </ignoredUnusedDeclaredDependencies>
                     <ignoredNonTestScopedDependencies>
-                        <!-- The analyzer sees only direct test usages, but legacy Loki and MinIO clients require this
-                             in the packaged runtime. -->
-                        <ignoredNonTestScopedDependency>com.squareup.okhttp3:okhttp-jvm</ignoredNonTestScopedDependency>
                         <!-- Legacy product tests execute test classes from the test runtime classpath, so Kafka must be
                              available at runtime even though the analyzer classifies it as test-only. -->
                         <ignoredNonTestScopedDependency>org.apache.kafka:kafka-clients</ignoredNonTestScopedDependency>

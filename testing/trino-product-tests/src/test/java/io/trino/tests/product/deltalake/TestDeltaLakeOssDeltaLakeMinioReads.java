@@ -13,11 +13,21 @@
  */
 package io.trino.tests.product.deltalake;
 
-public class TestDeltaLakeOssDeltaLakeMinioReads
-        extends BaseTestDeltaLakeMinioReads
+import io.trino.testing.containers.environment.RequiresEnvironment;
+
+@RequiresEnvironment(DeltaLakeMinioEnvironment.class)
+class TestDeltaLakeOssDeltaLakeMinioReads
+        extends BaseTestDeltaLakeMinioReadsJunit
 {
-    public TestDeltaLakeOssDeltaLakeMinioReads()
+    @Override
+    protected String tableName()
     {
-        super("region_deltalake", "io/trino/plugin/deltalake/testing/resources/ossdeltalake/region");
+        return "region_deltalake";
+    }
+
+    @Override
+    protected String regionResourcePath()
+    {
+        return "io/trino/plugin/deltalake/testing/resources/ossdeltalake/region";
     }
 }
