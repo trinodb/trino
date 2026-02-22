@@ -481,6 +481,7 @@
                         <ignoredUnusedDeclaredDependency>com.github.docker-java:docker-java-api</ignoredUnusedDeclaredDependency>
                         <!-- Used by AbstractTestingTrinoClient via reflection -->
                         <ignoredUnusedDeclaredDependency>io.airlift:testing</ignoredUnusedDeclaredDependency>
+                        <ignoredUnusedDeclaredDependency>org.apache.parquet:parquet-common</ignoredUnusedDeclaredDependency>
                     </ignoredUnusedDeclaredDependencies>
                     <ignoredNonTestScopedDependencies>
                         <!-- These are required at compile scope by transitive dependencies (hive, tempto-kafka, etc.)
