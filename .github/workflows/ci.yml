@@ -904,7 +904,6 @@ jobs:
             - suite-delta-lake-databricks173
             - suite-gcs
             - suite-parquet
-            - suite-compatibility
           exclude:
             - suite: suite-azure
               ignore exclusion if: >-
