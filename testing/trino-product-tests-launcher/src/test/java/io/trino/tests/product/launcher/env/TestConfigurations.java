@@ -51,12 +51,10 @@ public class TestConfigurations
     @Test
     public void testSuiteName()
     {
-        // suite name with a number
-        assertThat(nameForSuiteClass(Suite1.class)).isEqualTo("suite-1");
         // suite name with a word
-        assertThat(nameForSuiteClass(SuiteLoki.class)).isEqualTo("suite-loki");
-        // suite name with a number  and then a word
-        assertThat(nameForSuiteClass(Suite6NonGeneric.class)).isEqualTo("suite-6-non-generic");
+        assertThat(nameForSuiteClass(SuiteSnowflakeStyle.class)).isEqualTo("suite-snowflake-style");
+        // suite name with word and number suffix
+        assertThat(nameForSuiteClass(SuiteDeltaLakeDatabricks133Style.class)).isEqualTo("suite-delta-lake-databricks133-style");
     }
 
     @Test
@@ -67,7 +65,7 @@ public class TestConfigurations
         assertThat(canonicalJdkProviderName("built-IN")).isEqualTo("builtin");
     }
 
-    private static class Suite1
+    private static class SuiteSnowflakeStyle
             extends Suite
     {
         @Override
@@ -77,17 +75,7 @@ public class TestConfigurations
         }
     }
 
-    private static class SuiteLoki
-            extends Suite
-    {
-        @Override
-        public List<SuiteTestRun> getTestRuns(EnvironmentConfig config)
-        {
-            return List.of();
-        }
-    }
-
-    private static class Suite6NonGeneric
+    private static class SuiteDeltaLakeDatabricks133Style
             extends Suite
     {
         @Override
