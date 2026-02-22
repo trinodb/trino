@@ -17,10 +17,7 @@ import com.google.common.collect.ImmutableList;
 import io.trino.tests.product.launcher.env.EnvironmentConfig;
 import io.trino.tests.product.launcher.env.EnvironmentDefaults;
 import io.trino.tests.product.launcher.env.environment.EnvMultinodeMinioDataLakeTaskRetriesFilesystem;
-import io.trino.tests.product.launcher.env.environment.EnvMultinodePostgresql;
 import io.trino.tests.product.launcher.env.environment.EnvMultinodePostgresqlPostgis;
-import io.trino.tests.product.launcher.env.environment.EnvMultinodePostgresqlSpooling;
-import io.trino.tests.product.launcher.env.environment.EnvMultinodeSecretsProvider;
 import io.trino.tests.product.launcher.env.environment.EnvMultinodeSpooling;
 import io.trino.tests.product.launcher.env.environment.EnvMultinodeSqlserver;
 import io.trino.tests.product.launcher.env.environment.EnvSinglenodeKerberosHdfsImpersonationCrossRealm;
@@ -42,7 +39,6 @@ import static io.trino.tests.product.TestGroups.HDFS_IMPERSONATION;
 import static io.trino.tests.product.TestGroups.HIVE_SPARK;
 import static io.trino.tests.product.TestGroups.HIVE_SPARK_NO_STATS_FALLBACK;
 import static io.trino.tests.product.TestGroups.JOIN;
-import static io.trino.tests.product.TestGroups.POSTGRESQL;
 import static io.trino.tests.product.TestGroups.POSTGRESQL_POSTGIS;
 import static io.trino.tests.product.TestGroups.SMOKE;
 import static io.trino.tests.product.TestGroups.SQLSERVER;
@@ -61,17 +57,8 @@ public class Suite7NonGeneric
         verify(config.getHadoopBaseImage().equals(EnvironmentDefaults.HADOOP_BASE_IMAGE), "The suite should be run with default HADOOP_BASE_IMAGE. Leave HADOOP_BASE_IMAGE unset.");
 
         return ImmutableList.of(
-                testOnEnvironment(EnvMultinodePostgresql.class)
-                        .withGroups(CONFIGURED_FEATURES, POSTGRESQL)
-                        .build(),
-                testOnEnvironment(EnvMultinodePostgresqlSpooling.class)
-                        .withGroups(CONFIGURED_FEATURES, POSTGRESQL)
-                        .build(),
                 testOnEnvironment(EnvMultinodePostgresqlPostgis.class)
                         .withGroups(CONFIGURED_FEATURES, POSTGRESQL_POSTGIS)
-                        .build(),
-                testOnEnvironment(EnvMultinodeSecretsProvider.class)
-                        .withGroups(CONFIGURED_FEATURES, POSTGRESQL)
                         .build(),
                 testOnEnvironment(EnvMultinodeSqlserver.class)
                         .withGroups(CONFIGURED_FEATURES, SQLSERVER)
