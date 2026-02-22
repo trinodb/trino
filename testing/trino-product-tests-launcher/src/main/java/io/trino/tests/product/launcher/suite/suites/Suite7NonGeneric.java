@@ -19,7 +19,6 @@ import io.trino.tests.product.launcher.env.EnvironmentDefaults;
 import io.trino.tests.product.launcher.env.environment.EnvMultinodeMinioDataLakeTaskRetriesFilesystem;
 import io.trino.tests.product.launcher.env.environment.EnvMultinodePostgresqlPostgis;
 import io.trino.tests.product.launcher.env.environment.EnvMultinodeSpooling;
-import io.trino.tests.product.launcher.env.environment.EnvMultinodeSqlserver;
 import io.trino.tests.product.launcher.env.environment.EnvSinglenodeKerberosHdfsImpersonationCrossRealm;
 import io.trino.tests.product.launcher.env.environment.EnvSinglenodeSparkHive;
 import io.trino.tests.product.launcher.env.environment.EnvSinglenodeSparkHiveNoStatsFallback;
@@ -41,7 +40,6 @@ import static io.trino.tests.product.TestGroups.HIVE_SPARK_NO_STATS_FALLBACK;
 import static io.trino.tests.product.TestGroups.JOIN;
 import static io.trino.tests.product.TestGroups.POSTGRESQL_POSTGIS;
 import static io.trino.tests.product.TestGroups.SMOKE;
-import static io.trino.tests.product.TestGroups.SQLSERVER;
 import static io.trino.tests.product.TestGroups.STORAGE_FORMATS;
 import static io.trino.tests.product.TestGroups.TPCDS;
 import static io.trino.tests.product.TestGroups.TPCH;
@@ -59,9 +57,6 @@ public class Suite7NonGeneric
         return ImmutableList.of(
                 testOnEnvironment(EnvMultinodePostgresqlPostgis.class)
                         .withGroups(CONFIGURED_FEATURES, POSTGRESQL_POSTGIS)
-                        .build(),
-                testOnEnvironment(EnvMultinodeSqlserver.class)
-                        .withGroups(CONFIGURED_FEATURES, SQLSERVER)
                         .build(),
                 testOnEnvironment(EnvSinglenodeSparkHive.class)
                         .withGroups(CONFIGURED_FEATURES, HIVE_SPARK)
