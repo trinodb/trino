@@ -312,17 +312,4 @@ public class DeltaLakeDatabricksEnvironment
         }
         return StaticCredentialsProvider.create(AwsBasicCredentials.create(accessKey, secretKey));
     }
-    public void executeDatabricksSqlStatements(String... statements)
-    {
-        for (String statement : statements) {
-            executeDatabricksSql(statement);
-        }
-    }
-
-    public void executeTrinoSqlStatements(String... statements)
-    {
-        for (String statement : statements) {
-            executeTrinoSql(statement);
-        }
-    }
 }

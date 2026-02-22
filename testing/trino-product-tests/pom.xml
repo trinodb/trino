@@ -273,6 +273,13 @@
         </dependency>
 
         <dependency>
+            <groupId>com.databricks</groupId>
+            <artifactId>databricks-jdbc</artifactId>
+            <version>3.1.1</version>
+            <scope>runtime</scope>
+        </dependency>
+
+        <dependency>
             <groupId>com.exasol</groupId>
             <artifactId>exasol-jdbc</artifactId>
             <scope>runtime</scope>
