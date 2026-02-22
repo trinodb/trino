@@ -24,12 +24,6 @@
         </dependency>
 
         <dependency>
-            <groupId>com.google.inject</groupId>
-            <artifactId>guice</artifactId>
-            <classifier>classes</classifier>
-        </dependency>
-
-        <dependency>
             <groupId>dev.failsafe</groupId>
             <artifactId>failsafe</artifactId>
         </dependency>
@@ -110,53 +104,12 @@
 
         <dependency>
             <groupId>io.trino</groupId>
-            <artifactId>trino-product-tests-groups</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>io.trino</groupId>
-            <artifactId>trino-testing-containers</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>io.trino</groupId>
             <artifactId>trino-testing-services</artifactId>
         </dependency>
 
         <dependency>
             <groupId>io.trino.hive</groupId>
             <artifactId>hive-thrift</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>io.trino.tempto</groupId>
-            <artifactId>tempto-core</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>io.trino.tempto</groupId>
-            <artifactId>tempto-kafka</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>io.trino.tempto</groupId>
-            <artifactId>tempto-ldap</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>io.trino.tempto</groupId>
-            <artifactId>tempto-runner</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>org.apache.kafka</groupId>
-            <artifactId>kafka-clients</artifactId>
-            <exclusions>
-                <exclusion>
-                    <groupId>com.github.luben</groupId>
-                    <artifactId>zstd-jni</artifactId>
-                </exclusion>
-            </exclusions>
         </dependency>
 
         <dependency>
@@ -182,11 +135,6 @@
         <dependency>
             <groupId>org.jetbrains</groupId>
             <artifactId>annotations</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>org.testng</groupId>
-            <artifactId>testng</artifactId>
         </dependency>
 
         <dependency>
@@ -307,7 +255,6 @@
             <artifactId>snappy-java</artifactId>
             <scope>runtime</scope>
         </dependency>
-
         <dependency>
             <groupId>com.github.docker-java</groupId>
             <artifactId>docker-java-api</artifactId>
@@ -359,6 +306,12 @@
         <dependency>
             <groupId>io.github.jeschkies</groupId>
             <artifactId>loki-client</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-testing-containers</artifactId>
             <scope>test</scope>
         </dependency>
 
@@ -503,26 +456,6 @@
                         <ignoredNonTestScopedDependency>org.apache.kafka:kafka-clients</ignoredNonTestScopedDependency>
                     </ignoredNonTestScopedDependencies>
                 </configuration>
-                <executions>
-                    <execution>
-                        <id>copy-runtime-classpath</id>
-                        <goals>
-                            <goal>copy-dependencies</goal>
-                        </goals>
-                        <phase>package</phase>
-                        <configuration>
-                            <!-- The product test launcher mounts this directory together with the module jar
-                                 into the tests container and runs the tests with a wildcard classpath.
-                                 This replaces the former shaded executable uber-jar, which was slow to build
-                                 and rebuilt from scratch on every invocation. -->
-                            <!-- This execution packages the test runtime classpath, it is not a check.
-                                 Override the airbase plugin-level skip so it still runs with -Dair.check.skip-all. -->
-                            <skip>false</skip>
-                            <outputDirectory>${project.build.directory}/lib</outputDirectory>
-                            <includeScope>runtime</includeScope>
-                        </configuration>
-                    </execution>
-                </executions>
             </plugin>
 
             <plugin>
@@ -543,15 +476,10 @@
                     </systemPropertyVariables>
                 </configuration>
                 <dependencies>
-                    <!-- allow both JUnit and TestNG -->
+                    <!-- JUnit platform provider for framework sanity tests in this module -->
                     <dependency>
                         <groupId>org.apache.maven.surefire</groupId>
                         <artifactId>surefire-junit-platform</artifactId>
-                        <version>${dep.plugin.surefire.version}</version>
-                    </dependency>
-                    <dependency>
-                        <groupId>org.apache.maven.surefire</groupId>
-                        <artifactId>surefire-testng</artifactId>
                         <version>${dep.plugin.surefire.version}</version>
                     </dependency>
                 </dependencies>
