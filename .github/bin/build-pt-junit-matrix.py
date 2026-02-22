@@ -57,7 +57,7 @@ BUCKETS = [
         ("SuiteJdbcKerberos", LEGACY_COVERAGE_REMOVED),
         ("SuiteLoki", ("SuiteLoki",)),
         ("SuiteRanger", ("SuiteRanger",)),
-        ("SuiteTls", AGGREGATE_LEGACY_SUITES),
+        ("SuiteTls", LEGACY_COVERAGE_REMOVED),
     ]),
     ("hive-basic", [
         ("SuiteHiveBasic", AGGREGATE_LEGACY_SUITES),
