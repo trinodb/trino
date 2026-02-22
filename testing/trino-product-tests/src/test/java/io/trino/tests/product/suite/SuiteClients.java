@@ -14,6 +14,7 @@
 package io.trino.tests.product.suite;
 
 import io.trino.tests.product.TestGroup;
+import io.trino.tests.product.cli.CliEnvironment;
 import io.trino.tests.product.jdbc.JdbcBasicEnvironment;
 import io.trino.tests.product.suite.SuiteRunner.TestRunResult;
 
@@ -33,6 +34,10 @@ public final class SuiteClients
         results.add(SuiteRunner.forEnvironment(JdbcBasicEnvironment.class)
                 .includeTag(TestGroup.Jdbc.class)
                 .excludeTag(TestGroup.ProfileSpecificTests.class)
+                .run());
+
+        results.add(SuiteRunner.forEnvironment(CliEnvironment.class)
+                .includeTag(TestGroup.Cli.class)
                 .run());
 
         SuiteRunner.printSummary(results);
