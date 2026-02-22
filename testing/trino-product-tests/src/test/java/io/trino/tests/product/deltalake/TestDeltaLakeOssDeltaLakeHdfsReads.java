@@ -13,10 +13,13 @@
  */
 package io.trino.tests.product.deltalake;
 
-public class TestDeltaLakeOssDeltaLakeHdfsReads
-        extends BaseTestDeltaLakeHdfsReads
+import io.trino.testing.containers.environment.RequiresEnvironment;
+
+@RequiresEnvironment(DeltaLakeOssEnvironment.class)
+class TestDeltaLakeOssDeltaLakeHdfsReads
+        extends BaseTestDeltaLakeHdfsReadsJunit
 {
-    public TestDeltaLakeOssDeltaLakeHdfsReads()
+    TestDeltaLakeOssDeltaLakeHdfsReads()
     {
         super("io/trino/plugin/deltalake/testing/resources/ossdeltalake/region");
     }
