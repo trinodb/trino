@@ -14,6 +14,7 @@
 package io.trino.tests.product.suite;
 
 import io.trino.tests.product.TestGroup;
+import io.trino.tests.product.deltalake.DeltaLakeMinioCachingEnvironment;
 import io.trino.tests.product.deltalake.DeltaLakeMinioEnvironment;
 import io.trino.tests.product.deltalake.DeltaLakeOssEnvironment;
 import io.trino.tests.product.deltalake.HiveDeltaLakeMinioEnvironment;
@@ -42,6 +43,10 @@ public final class SuiteDeltaLakeOss
 
         results.add(SuiteRunner.forEnvironment(HiveDeltaLakeMinioEnvironment.class)
                 .includeTag(TestGroup.DeltaLakeOss.class)
+                .run());
+
+        results.add(SuiteRunner.forEnvironment(DeltaLakeMinioCachingEnvironment.class)
+                .includeTag(TestGroup.DeltaLakeAlluxioCaching.class)
                 .run());
 
         SuiteRunner.printSummary(results);
