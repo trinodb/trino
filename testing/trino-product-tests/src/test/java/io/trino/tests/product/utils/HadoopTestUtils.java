@@ -14,20 +14,13 @@
 package io.trino.tests.product.utils;
 
 import com.google.common.base.Throwables;
-import dev.failsafe.RetryPolicy;
-import io.airlift.log.Logger;
-import io.trino.tempto.query.QueryResult;
-import io.trino.tests.product.hive.HiveProductTest;
 import org.intellij.lang.annotations.Language;
 
-import java.time.temporal.ChronoUnit;
 import java.util.regex.Pattern;
 
 public final class HadoopTestUtils
 {
     private HadoopTestUtils() {}
-
-    private static final Logger log = Logger.get(HiveProductTest.class);
 
     /**
      * Link to issues:
@@ -49,14 +42,7 @@ public final class HadoopTestUtils
                     "|return code [12] from \\Qorg.apache.hadoop.hive.ql.exec.mr.MapRedTask\\E" +
                     ")";
 
-    public static final RetryPolicy<QueryResult> ERROR_COMMITTING_WRITE_TO_HIVE_RETRY_POLICY = RetryPolicy.<QueryResult>builder()
-            .handleIf(HadoopTestUtils::isErrorCommittingToHive)
-            .withBackoff(1, 10, ChronoUnit.SECONDS)
-            .withMaxRetries(30)
-            .onRetry(event -> log.warn(event.getLastException(), "Query failed on attempt %d, will retry.", event.getAttemptCount()))
-            .build();
-
-    private static boolean isErrorCommittingToHive(Throwable throwable)
+    public static boolean isErrorCommittingToHive(Throwable throwable)
     {
         return Pattern.compile(RETRYABLE_FAILURES_MATCH)
                 .matcher(Throwables.getStackTraceAsString(throwable))
