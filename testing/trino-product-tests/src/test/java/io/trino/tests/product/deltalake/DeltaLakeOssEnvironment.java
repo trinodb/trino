@@ -99,6 +99,7 @@ public class DeltaLakeOssEnvironment
                         "connector.name", "delta_lake",
                         "hive.metastore.uri", "thrift://" + HadoopContainer.HOST_NAME + ":" + HadoopContainer.HIVE_METASTORE_PORT,
                         "fs.hadoop.enabled", "true",
+                        "delta.register-table-procedure.enabled", "true",
                         "hive.config.resources", "/etc/trino/hdfs-site.xml"))
                 .withCatalog("hive", Map.of(
                         "connector.name", "hive",

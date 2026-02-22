@@ -15,6 +15,7 @@ package io.trino.tests.product.suite;
 
 import io.trino.tests.product.TestGroup;
 import io.trino.tests.product.deltalake.DeltaLakeMinioEnvironment;
+import io.trino.tests.product.deltalake.DeltaLakeOssEnvironment;
 import io.trino.tests.product.deltalake.HiveDeltaLakeMinioEnvironment;
 import io.trino.tests.product.suite.SuiteRunner.TestRunResult;
 
@@ -33,6 +34,10 @@ public final class SuiteDeltaLakeOss
 
         results.add(SuiteRunner.forEnvironment(DeltaLakeMinioEnvironment.class)
                 .includeTag(TestGroup.DeltaLakeMinio.class)
+                .run());
+
+        results.add(SuiteRunner.forEnvironment(DeltaLakeOssEnvironment.class)
+                .includeTag(TestGroup.DeltaLakeHdfs.class)
                 .run());
 
         results.add(SuiteRunner.forEnvironment(HiveDeltaLakeMinioEnvironment.class)
