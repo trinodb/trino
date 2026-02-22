@@ -13,11 +13,26 @@
  */
 package io.trino.tests.product.deltalake;
 
-public class TestDeltaLakeOssDeltaLakeHdfsReads
-        extends BaseTestDeltaLakeHdfsReads
+import io.trino.testing.containers.environment.RequiresEnvironment;
+import io.trino.tests.product.TestGroup;
+import org.junit.jupiter.api.Test;
+
+import static io.trino.tests.product.ConfiguredFeatures.assertDefaultConnectors;
+
+@RequiresEnvironment(DeltaLakeKerberosHdfsEnvironment.class)
+class TestDeltaLakeOssDeltaLakeHdfsReads
+        extends BaseTestDeltaLakeHdfsReadsJunit
 {
-    public TestDeltaLakeOssDeltaLakeHdfsReads()
+    TestDeltaLakeOssDeltaLakeHdfsReads()
     {
         super("io/trino/plugin/deltalake/testing/resources/ossdeltalake/region");
+    }
+
+    @Test
+    @TestGroup.DeltaLakeHdfs
+    @TestGroup.ProfileSpecificTests
+    void testConfiguredConnectors(DeltaLakeKerberosHdfsEnvironment env)
+    {
+        assertDefaultConnectors(env, "hive", "delta_lake");
     }
 }
