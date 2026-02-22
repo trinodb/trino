@@ -1042,7 +1042,7 @@ jobs:
               {"bucket": "hive-basic", "suites": "SuiteHiveBasic SuiteHmsOnly SuiteHiveStorageFormats"},
               {"bucket": "hive-kerberos", "suites": "SuiteHiveKerberos SuiteHdfsImpersonation SuiteTwoHives SuiteHive4 SuiteHudi"},
               {"bucket": "hive-transactional", "suites": "SuiteHiveTransactional SuiteAuthorization SuiteFaultTolerant"},
-              {"bucket": "hive-storage", "suites": "SuiteHiveSpark SuiteHiveAlluxioCaching SuiteStorageFormatsDetailed"},
+              {"bucket": "hive-storage", "suites": "SuiteHiveSpark SuiteHiveAlluxioCaching SuiteStorageFormatsDetailed SuiteParquet"},
               {"bucket": "iceberg", "suites": "SuiteIceberg"},
               {"bucket": "delta-lake", "suites": "SuiteDeltaLakeOss SuiteCompatibility"},
               {"bucket": "cloud-object-store", "suites": "SuiteGcs SuiteAzure"},
