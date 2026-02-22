@@ -925,7 +925,6 @@ jobs:
             - suite-gcs
             - suite-storage-formats-detailed
             - suite-parquet
-            - suite-compatibility
           exclude:
             - suite: suite-azure
               ignore exclusion if: >-
