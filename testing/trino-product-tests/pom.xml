@@ -488,6 +488,7 @@
                         <ignoredUnusedDeclaredDependency>com.github.docker-java:docker-java-api</ignoredUnusedDeclaredDependency>
                         <!-- Used by AbstractTestingTrinoClient via reflection -->
                         <ignoredUnusedDeclaredDependency>io.airlift:testing</ignoredUnusedDeclaredDependency>
+                        <ignoredUnusedDeclaredDependency>io.airlift:http-client</ignoredUnusedDeclaredDependency>
                         <ignoredUnusedDeclaredDependency>org.apache.parquet:parquet-common</ignoredUnusedDeclaredDependency>
                     </ignoredUnusedDeclaredDependencies>
                     <ignoredNonTestScopedDependencies>
