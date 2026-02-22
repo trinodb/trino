@@ -142,6 +142,11 @@ public @interface TestGroup
 
     @Target({TYPE, METHOD})
     @Retention(RUNTIME)
+    @Tag("tls_kerberos")
+    @interface TlsKerberos {}
+
+    @Target({TYPE, METHOD})
+    @Retention(RUNTIME)
     @Tag("authorization")
     @interface Authorization {}
 
