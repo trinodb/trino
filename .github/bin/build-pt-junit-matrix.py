@@ -63,6 +63,7 @@ BUCKETS = [
         ("SuiteHiveBasic", LEGACY_COVERAGE_REMOVED),
         ("SuiteHmsOnly", LEGACY_COVERAGE_REMOVED),
         ("SuiteHiveStorageFormats", LEGACY_COVERAGE_REMOVED),
+        ("SuiteSqlCancel", LEGACY_COVERAGE_REMOVED),
     ]),
     ("hive-kerberos", [
         ("SuiteHdfsImpersonation", LEGACY_COVERAGE_REMOVED),

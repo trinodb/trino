@@ -85,6 +85,11 @@ public @interface TestGroup
 
     @Target({TYPE, METHOD})
     @Retention(RUNTIME)
+    @Tag("sql_cancel")
+    @interface SqlCancel {}
+
+    @Target({TYPE, METHOD})
+    @Retention(RUNTIME)
     @Tag("compatibility")
     @interface Compatibility {}
 
