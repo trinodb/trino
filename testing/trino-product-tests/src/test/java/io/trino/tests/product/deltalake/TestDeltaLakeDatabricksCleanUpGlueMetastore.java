@@ -14,8 +14,10 @@
 package io.trino.tests.product.deltalake;
 
 import io.airlift.log.Logger;
-import io.trino.tempto.ProductTest;
-import org.testng.annotations.Test;
+import io.trino.testing.containers.environment.ProductTest;
+import io.trino.testing.containers.environment.RequiresEnvironment;
+import io.trino.tests.product.TestGroup;
+import org.junit.jupiter.api.Test;
 import software.amazon.awssdk.services.glue.GlueClient;
 import software.amazon.awssdk.services.glue.model.Database;
 import software.amazon.awssdk.services.glue.model.EntityNotFoundException;
@@ -23,21 +25,23 @@ import software.amazon.awssdk.services.glue.model.GetDatabasesResponse;
 
 import java.util.List;
 
-import static io.trino.tests.product.TestGroups.DELTA_LAKE_DATABRICKS;
-import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
 import static java.lang.System.currentTimeMillis;
 import static java.util.concurrent.TimeUnit.DAYS;
 
-public class TestDeltaLakeDatabricksCleanUpGlueMetastore
-        extends ProductTest
+@ProductTest
+@RequiresEnvironment(DeltaLakeDatabricksEnvironment.class)
+@TestGroup.ConfiguredFeatures
+@TestGroup.DeltaLakeDatabricks
+@TestGroup.ProfileSpecificTests
+class TestDeltaLakeDatabricksCleanUpGlueMetastore
 {
     private static final Logger log = Logger.get(TestDeltaLakeDatabricksCleanUpGlueMetastore.class);
     private static final String TEST_DATABASE_NAME_PREFIX = "test_";
 
-    @Test(groups = {DELTA_LAKE_DATABRICKS, PROFILE_SPECIFIC_TESTS})
-    public void testCleanupOrphanedDatabases()
+    @Test
+    void testCleanupOrphanedDatabases(DeltaLakeDatabricksEnvironment env)
     {
-        GlueClient glueClient = GlueClient.create();
+        GlueClient glueClient = env.createGlueClient();
         long creationTimeMillisThreshold = currentTimeMillis() - DAYS.toMillis(1);
         List<String> orphanedDatabases = glueClient.getDatabasesPaginator(_ -> {}).stream()
                 .map(GetDatabasesResponse::databaseList)
