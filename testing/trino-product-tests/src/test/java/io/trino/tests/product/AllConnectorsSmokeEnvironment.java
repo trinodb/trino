@@ -43,7 +43,7 @@ import static org.testcontainers.utility.MountableFile.forHostPath;
 public class AllConnectorsSmokeEnvironment
         extends ProductTestEnvironment
 {
-    private static final String MULTINODE_ALL_CONFIG_DIR = "testing/trino-product-tests-launcher/src/main/resources/docker/trino-product-tests/conf/environment/multinode-all";
+    private static final String MULTINODE_ALL_CONFIG_DIR = "testing/trino-product-tests/src/test/resources/docker/trino-product-tests/conf/environment/multinode-all";
     private static final String CATALOG_TARGET_DIR = "/etc/trino/catalog";
     private static final String JVM_CONFIG_TARGET = "/etc/trino/jvm.config";
 

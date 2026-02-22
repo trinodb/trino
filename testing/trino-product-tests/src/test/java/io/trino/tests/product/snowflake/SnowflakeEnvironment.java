@@ -36,7 +36,7 @@ public class SnowflakeEnvironment
         extends ProductTestEnvironment
 {
     private static final Path CONFIG_DIR = Path.of(
-            "testing/trino-product-tests-launcher/src/main/resources/docker/trino-product-tests/conf/environment/multinode-snowflake");
+            "testing/trino-product-tests/src/test/resources/docker/trino-product-tests/conf/environment/multinode-snowflake");
     private static final String JVM_CONFIG_TARGET = "/etc/trino/jvm.config";
 
     private Network network;

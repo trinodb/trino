@@ -14,68 +14,68 @@
 package io.trino.tests.product.deltalake;
 
 import io.trino.testing.containers.environment.ProductTest;
+import io.trino.testing.containers.environment.RequiresEnvironment;
 import io.trino.testing.services.junit.Flaky;
 import io.trino.tests.product.TestGroup;
 import org.junit.jupiter.api.Test;
 
-import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.testing.TestingNames.randomNameSuffix;
+import static io.trino.testing.containers.environment.QueryResultAssert.assertThat;
+import static io.trino.testing.containers.environment.Row.row;
+import static io.trino.tests.product.deltalake.DeltaLakeDatabricksUtilsJunit.DATABRICKS_COMMUNICATION_FAILURE_ISSUE;
+import static io.trino.tests.product.deltalake.DeltaLakeDatabricksUtilsJunit.DATABRICKS_COMMUNICATION_FAILURE_MATCH;
+import static io.trino.tests.product.deltalake.DeltaLakeDatabricksUtilsJunit.dropDeltaTableWithRetry;
+import static io.trino.tests.product.deltalake.DeltaLakeDatabricksUtilsJunit.getDatabricksRuntimeVersion;
 import static io.trino.tests.product.deltalake.util.DatabricksVersion.DATABRICKS_143_RUNTIME_VERSION;
-import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.DATABRICKS_COMMUNICATION_FAILURE_ISSUE;
-import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.DATABRICKS_COMMUNICATION_FAILURE_MATCH;
-import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.dropDeltaTableWithRetry;
-import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.getDatabricksRuntimeVersion;
-import static io.trino.tests.product.utils.QueryExecutors.onDelta;
-import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 
 @ProductTest
+@RequiresEnvironment(DeltaLakeDatabricksEnvironment.class)
 @TestGroup.ConfiguredFeatures
 @TestGroup.DeltaLakeDatabricks
 @TestGroup.ProfileSpecificTests
 class TestDeltaLakeAlterTableCompatibilityDatabricks
-        extends BaseTestDeltaLakeS3Storage
 {
     @Test
     @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
-    void testTrinoAlterTablePreservesGeneratedColumn()
+    void testTrinoAlterTablePreservesGeneratedColumn(DeltaLakeDatabricksEnvironment env)
     {
-        if (getDatabricksRuntimeVersion().orElseThrow().isAtLeast(DATABRICKS_143_RUNTIME_VERSION)) {
+        if (getDatabricksRuntimeVersion(env).orElseThrow().isAtLeast(DATABRICKS_143_RUNTIME_VERSION)) {
             return;
         }
 
         String tableName = "test_trino_alter_table_preserves_generated_column_" + randomNameSuffix();
         String tableDirectory = "databricks-compatibility-test-" + tableName;
 
-        onDelta().executeQuery(format(
+        env.executeDatabricksSql(format(
                 """
                 CREATE TABLE default.%s (a INT, b INT GENERATED ALWAYS AS (a * 2))
                 USING DELTA LOCATION 's3://%s/%s'
                 """,
                 tableName,
-                bucketName,
+                env.getBucketName(),
                 tableDirectory));
         try {
-            onTrino().executeQuery("COMMENT ON COLUMN delta.default." + tableName + ".b IS 'test column comment'");
-            onTrino().executeQuery("COMMENT ON TABLE delta.default." + tableName + " IS 'test table comment'");
-            onTrino().executeQuery("ALTER TABLE delta.default." + tableName + " ADD COLUMN c INT");
+            env.executeTrinoSql("COMMENT ON COLUMN delta.default." + tableName + ".b IS 'test column comment'");
+            env.executeTrinoSql("COMMENT ON TABLE delta.default." + tableName + " IS 'test table comment'");
+            env.executeTrinoSql("ALTER TABLE delta.default." + tableName + " ADD COLUMN c INT");
 
-            assertThat((String) onDelta().executeQuery("SHOW CREATE TABLE default." + tableName).getOnlyValue())
+            assertThat((String) env.executeDatabricksSql("SHOW CREATE TABLE default." + tableName).getOnlyValue())
                     .contains("b INT GENERATED ALWAYS AS ( a * 2 )");
-            onDelta().executeQuery("INSERT INTO default." + tableName + " (a, c) VALUES (1, 3)");
-            assertThat(onTrino().executeQuery("SELECT * FROM delta.default." + tableName))
+            env.executeDatabricksSql("INSERT INTO default." + tableName + " (a, c) VALUES (1, 3)");
+            assertThat(env.executeTrinoSql("SELECT * FROM delta.default." + tableName))
                     .containsOnly(row(1, 2, 3));
 
-            assertThat(onTrino().executeQuery("SELECT column_name, extra_info FROM delta.information_schema.columns WHERE table_schema = 'default' AND table_name = '" + tableName + "'"))
+            assertThat(env.executeTrinoSql("SELECT column_name, extra_info FROM delta.information_schema.columns WHERE table_schema = 'default' AND table_name = '" + tableName + "'"))
                     .containsOnly(row("a", null), row("b", "generated: a * 2"), row("c", null));
-            assertThat(onTrino().executeQuery("DESCRIBE delta.default." + tableName).project(1, 3))
+            assertThat(env.executeTrinoSql("DESCRIBE delta.default." + tableName).project(1, 3))
                     .containsOnly(row("a", ""), row("b", "generated: a * 2"), row("c", ""));
-            assertThat(onTrino().executeQuery("SHOW COLUMNS FROM delta.default." + tableName).project(1, 3))
+            assertThat(env.executeTrinoSql("SHOW COLUMNS FROM delta.default." + tableName).project(1, 3))
                     .containsOnly(row("a", ""), row("b", "generated: a * 2"), row("c", ""));
         }
         finally {
-            dropDeltaTableWithRetry("default." + tableName);
+            dropDeltaTableWithRetry(env, "default." + tableName);
         }
     }
 }

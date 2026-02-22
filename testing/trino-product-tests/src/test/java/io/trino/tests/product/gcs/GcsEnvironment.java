@@ -54,7 +54,7 @@ public class GcsEnvironment
         extends ProductTestEnvironment
 {
     private static final String GCS_CONFIG_DIR =
-            "testing/trino-product-tests-launcher/src/main/resources/docker/trino-product-tests/conf/environment/multinode-gcs";
+            "testing/trino-product-tests/src/test/resources/docker/trino-product-tests/conf/environment/multinode-gcs";
 
     private static final String HADOOP_GCP_CREDENTIALS_FILE = "/etc/trino/gcp-credentials.json";
     private static final String SPARK_GCP_CREDENTIALS_FILE = "/spark/conf/gcp-credentials.json";

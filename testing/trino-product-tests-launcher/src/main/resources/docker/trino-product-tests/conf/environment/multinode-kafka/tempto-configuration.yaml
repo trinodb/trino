@@ -1,2 +1,0 @@
-schema-registry:
-  url: http://schema-registry:8081
