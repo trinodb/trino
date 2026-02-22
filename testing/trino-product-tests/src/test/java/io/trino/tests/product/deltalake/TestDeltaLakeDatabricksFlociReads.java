@@ -13,11 +13,21 @@
  */
 package io.trino.tests.product.deltalake;
 
-public class TestDeltaLakeDatabricksMinioReads
-        extends BaseTestDeltaLakeMinioReads
+import io.trino.testing.containers.environment.RequiresEnvironment;
+
+@RequiresEnvironment(DeltaLakeFlociEnvironment.class)
+class TestDeltaLakeDatabricksFlociReads
+        extends BaseTestDeltaLakeFlociReadsJunit
 {
-    public TestDeltaLakeDatabricksMinioReads()
+    @Override
+    protected String tableName()
     {
-        super("region_databricks", "io/trino/plugin/deltalake/testing/resources/databricks73/region");
+        return "region_databricks";
+    }
+
+    @Override
+    protected String regionResourcePath()
+    {
+        return "io/trino/plugin/deltalake/testing/resources/databricks73/region";
     }
 }
