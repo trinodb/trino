@@ -17,7 +17,7 @@ import io.trino.tests.product.launcher.env.environment.EnvMultinodeSqlserver;
 import io.trino.tests.product.launcher.env.jdk.TemurinJdkProvider;
 import io.trino.tests.product.launcher.suite.suites.Suite1;
 import io.trino.tests.product.launcher.suite.suites.Suite6NonGeneric;
-import io.trino.tests.product.launcher.suite.suites.SuiteTpcds;
+import io.trino.tests.product.launcher.suite.suites.SuiteLoki;
 import org.junit.jupiter.api.Test;
 
 import static io.trino.tests.product.launcher.Configurations.canonicalEnvironmentName;
@@ -53,7 +53,7 @@ public class TestConfigurations
         // suite name with a number
         assertThat(nameForSuiteClass(Suite1.class)).isEqualTo("suite-1");
         // suite name with a word
-        assertThat(nameForSuiteClass(SuiteTpcds.class)).isEqualTo("suite-tpcds");
+        assertThat(nameForSuiteClass(SuiteLoki.class)).isEqualTo("suite-loki");
         // suite name with a number  and then a word
         assertThat(nameForSuiteClass(Suite6NonGeneric.class)).isEqualTo("suite-6-non-generic");
     }

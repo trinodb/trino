@@ -914,7 +914,6 @@ jobs:
             - suite-ranger
             - suite-gcs
             - suite-hive4
-            - suite-tpcds
             - suite-storage-formats-detailed
             - suite-parquet
             - suite-loki
