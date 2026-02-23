@@ -921,7 +921,6 @@ jobs:
             - suite-tpcds
             - suite-storage-formats-detailed
             - suite-parquet
-            - suite-oauth2
             - suite-loki
             - suite-compatibility
             - suite-all-connectors-smoke
