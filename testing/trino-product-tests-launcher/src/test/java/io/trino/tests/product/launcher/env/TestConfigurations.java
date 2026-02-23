@@ -15,10 +15,11 @@ package io.trino.tests.product.launcher.env;
 
 import io.trino.tests.product.launcher.env.environment.EnvMultinodeSqlserver;
 import io.trino.tests.product.launcher.env.jdk.TemurinJdkProvider;
-import io.trino.tests.product.launcher.suite.suites.Suite1;
-import io.trino.tests.product.launcher.suite.suites.Suite6NonGeneric;
-import io.trino.tests.product.launcher.suite.suites.SuiteLoki;
+import io.trino.tests.product.launcher.suite.Suite;
+import io.trino.tests.product.launcher.suite.SuiteTestRun;
 import org.junit.jupiter.api.Test;
+
+import java.util.List;
 
 import static io.trino.tests.product.launcher.Configurations.canonicalEnvironmentName;
 import static io.trino.tests.product.launcher.Configurations.canonicalJdkProviderName;
@@ -64,5 +65,35 @@ public class TestConfigurations
         assertThat(nameForJdkProviderName(TemurinJdkProvider.class)).isEqualTo("temurin");
         assertThat(canonicalJdkProviderName("BuiltIN")).isEqualTo("builtin");
         assertThat(canonicalJdkProviderName("built-IN")).isEqualTo("builtin");
+    }
+
+    private static class Suite1
+            extends Suite
+    {
+        @Override
+        public List<SuiteTestRun> getTestRuns(EnvironmentConfig config)
+        {
+            return List.of();
+        }
+    }
+
+    private static class SuiteLoki
+            extends Suite
+    {
+        @Override
+        public List<SuiteTestRun> getTestRuns(EnvironmentConfig config)
+        {
+            return List.of();
+        }
+    }
+
+    private static class Suite6NonGeneric
+            extends Suite
+    {
+        @Override
+        public List<SuiteTestRun> getTestRuns(EnvironmentConfig config)
+        {
+            return List.of();
+        }
     }
 }

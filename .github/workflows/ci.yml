@@ -916,7 +916,6 @@ jobs:
             - suite-hive4
             - suite-storage-formats-detailed
             - suite-parquet
-            - suite-loki
             - suite-compatibility
             - suite-all-connectors-smoke
             - suite-delta-lake-oss
