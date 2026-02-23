@@ -30,6 +30,7 @@ import io.trino.connector.system.jdbc.TableJdbcTable;
 import io.trino.connector.system.jdbc.TableTypeJdbcTable;
 import io.trino.connector.system.jdbc.TypesJdbcTable;
 import io.trino.connector.system.jdbc.UdtJdbcTable;
+import io.trino.operator.table.AllColumnSearchFunction;
 import io.trino.operator.table.ExcludeColumnsFunction;
 import io.trino.operator.table.SequenceFunction;
 import io.trino.spi.connector.SystemTable;
@@ -82,6 +83,7 @@ public class SystemConnectorModule
         binder.bind(GlobalSystemConnector.class).in(Scopes.SINGLETON);
 
         Multibinder<ConnectorTableFunction> tableFunctions = Multibinder.newSetBinder(binder, ConnectorTableFunction.class);
+        tableFunctions.addBinding().to(AllColumnSearchFunction.class).in(Scopes.SINGLETON);
         tableFunctions.addBinding().to(ExcludeColumnsFunction.class).in(Scopes.SINGLETON);
         tableFunctions.addBinding().to(SequenceFunction.class).in(Scopes.SINGLETON);
     }
