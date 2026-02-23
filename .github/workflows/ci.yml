@@ -920,7 +920,6 @@ jobs:
             - suite-iceberg
             - suite-snowflake
             - suite-hudi
-            - suite-ignite
           exclude:
             - suite: suite-azure
               ignore exclusion if: >-
