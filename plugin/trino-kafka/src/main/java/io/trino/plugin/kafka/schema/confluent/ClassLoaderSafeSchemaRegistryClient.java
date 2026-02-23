@@ -17,11 +17,16 @@ import com.google.common.base.Ticker;
 import io.confluent.kafka.schemaregistry.ParsedSchema;
 import io.confluent.kafka.schemaregistry.client.SchemaMetadata;
 import io.confluent.kafka.schemaregistry.client.SchemaRegistryClient;
+import io.confluent.kafka.schemaregistry.client.rest.entities.Association;
 import io.confluent.kafka.schemaregistry.client.rest.entities.Config;
 import io.confluent.kafka.schemaregistry.client.rest.entities.Metadata;
 import io.confluent.kafka.schemaregistry.client.rest.entities.RuleSet;
 import io.confluent.kafka.schemaregistry.client.rest.entities.SchemaReference;
+import io.confluent.kafka.schemaregistry.client.rest.entities.SchemaRegistryDeployment;
+import io.confluent.kafka.schemaregistry.client.rest.entities.SchemaRegistryServerVersion;
 import io.confluent.kafka.schemaregistry.client.rest.entities.SubjectVersion;
+import io.confluent.kafka.schemaregistry.client.rest.entities.requests.AssociationCreateOrUpdateRequest;
+import io.confluent.kafka.schemaregistry.client.rest.entities.requests.AssociationResponse;
 import io.confluent.kafka.schemaregistry.client.rest.entities.requests.RegisterSchemaResponse;
 import io.confluent.kafka.schemaregistry.client.rest.exceptions.RestClientException;
 import io.trino.spi.classloader.ThreadContextClassLoader;
@@ -52,6 +57,15 @@ public class ClassLoaderSafeSchemaRegistryClient
     {
         try (ThreadContextClassLoader _ = new ThreadContextClassLoader(classLoader)) {
             return delegate.parseSchema(schemaType, schemaString, references);
+        }
+    }
+
+    @Override
+    public ParsedSchema parseSchemaOrElseThrow(io.confluent.kafka.schemaregistry.client.rest.entities.Schema schema)
+            throws IOException
+    {
+        try (ThreadContextClassLoader _ = new ThreadContextClassLoader(classLoader)) {
+            return delegate.parseSchemaOrElseThrow(schema);
         }
     }
 
@@ -121,6 +135,24 @@ public class ClassLoaderSafeSchemaRegistryClient
     }
 
     @Override
+    public SchemaRegistryDeployment getSchemaRegistryDeployment()
+            throws RestClientException, IOException
+    {
+        try (ThreadContextClassLoader _ = new ThreadContextClassLoader(classLoader)) {
+            return delegate.getSchemaRegistryDeployment();
+        }
+    }
+
+    @Override
+    public SchemaRegistryServerVersion getSchemaRegistryServerVersion()
+            throws RestClientException, IOException
+    {
+        try (ThreadContextClassLoader _ = new ThreadContextClassLoader(classLoader)) {
+            return delegate.getSchemaRegistryServerVersion();
+        }
+    }
+
+    @Override
     @SuppressWarnings("deprecation")
     public Schema getByID(int id)
             throws IOException, RestClientException
@@ -146,6 +178,33 @@ public class ClassLoaderSafeSchemaRegistryClient
     {
         try (ThreadContextClassLoader _ = new ThreadContextClassLoader(classLoader)) {
             return delegate.getId(subject, schema, normalize);
+        }
+    }
+
+    @Override
+    public String getGuid(String subject, ParsedSchema schema)
+            throws IOException, RestClientException
+    {
+        try (ThreadContextClassLoader _ = new ThreadContextClassLoader(classLoader)) {
+            return delegate.getGuid(subject, schema, false);
+        }
+    }
+
+    @Override
+    public String getGuid(String subject, ParsedSchema schema, boolean normalize)
+            throws IOException, RestClientException
+    {
+        try (ThreadContextClassLoader _ = new ThreadContextClassLoader(classLoader)) {
+            return delegate.getGuid(subject, schema, normalize);
+        }
+    }
+
+    @Override
+    public RegisterSchemaResponse getIdWithResponse(String subject, ParsedSchema schema, boolean normalize)
+            throws IOException, RestClientException
+    {
+        try (ThreadContextClassLoader _ = new ThreadContextClassLoader(classLoader)) {
+            return delegate.getIdWithResponse(subject, schema, normalize);
         }
     }
 
@@ -309,6 +368,15 @@ public class ClassLoaderSafeSchemaRegistryClient
     {
         try (ThreadContextClassLoader _ = new ThreadContextClassLoader(classLoader)) {
             return delegate.getSchemaBySubjectAndId(subject, id);
+        }
+    }
+
+    @Override
+    public ParsedSchema getSchemaByGuid(String guid, String format)
+            throws IOException, RestClientException
+    {
+        try (ThreadContextClassLoader _ = new ThreadContextClassLoader(classLoader)) {
+            return delegate.getSchemaByGuid(guid, format);
         }
     }
 
@@ -613,6 +681,51 @@ public class ClassLoaderSafeSchemaRegistryClient
     {
         try (ThreadContextClassLoader _ = new ThreadContextClassLoader(classLoader)) {
             return delegate.setMode(mode, subject, force);
+        }
+    }
+
+    @Override
+    public AssociationResponse createAssociation(AssociationCreateOrUpdateRequest request)
+            throws IOException, RestClientException
+    {
+        try (ThreadContextClassLoader _ = new ThreadContextClassLoader(classLoader)) {
+            return delegate.createAssociation(request);
+        }
+    }
+
+    @Override
+    public AssociationResponse createOrUpdateAssociation(AssociationCreateOrUpdateRequest request)
+            throws IOException, RestClientException
+    {
+        try (ThreadContextClassLoader _ = new ThreadContextClassLoader(classLoader)) {
+            return delegate.createOrUpdateAssociation(request);
+        }
+    }
+
+    @Override
+    public List<Association> getAssociationsBySubject(String subject, String resourceType, List<String> associationTypes, String lifecycle, int offset, int limit)
+            throws IOException, RestClientException
+    {
+        try (ThreadContextClassLoader _ = new ThreadContextClassLoader(classLoader)) {
+            return delegate.getAssociationsBySubject(subject, resourceType, associationTypes, lifecycle, offset, limit);
+        }
+    }
+
+    @Override
+    public List<Association> getAssociationsByResourceId(String resourceId, String resourceType, List<String> associationTypes, String lifecycle, int offset, int limit)
+            throws IOException, RestClientException
+    {
+        try (ThreadContextClassLoader _ = new ThreadContextClassLoader(classLoader)) {
+            return delegate.getAssociationsByResourceId(resourceId, resourceType, associationTypes, lifecycle, offset, limit);
+        }
+    }
+
+    @Override
+    public void deleteAssociations(String resourceId, String resourceType, List<String> associationTypes, boolean cascadeLifecycle)
+            throws IOException, RestClientException
+    {
+        try (ThreadContextClassLoader _ = new ThreadContextClassLoader(classLoader)) {
+            delegate.deleteAssociations(resourceId, resourceType, associationTypes, cascadeLifecycle);
         }
     }
 

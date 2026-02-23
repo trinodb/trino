@@ -191,7 +191,7 @@
         <dep.avro.version>1.12.1</dep.avro.version>
         <dep.aws-sdk.version>1.12.797</dep.aws-sdk.version>
         <dep.cassandra.version>4.17.0</dep.cassandra.version>
-        <dep.confluent.version>7.8.0</dep.confluent.version>
+        <dep.confluent.version>8.1.1</dep.confluent.version>
         <dep.docker.images.version>123</dep.docker.images.version>
         <dep.drift.version>1.24</dep.drift.version>
         <!-- TODO: remove once updated to airbase 250 -->
@@ -208,7 +208,7 @@
         <dep.okio.version>3.16.4</dep.okio.version>
         <dep.netty.version>4.2.10.Final</dep.netty.version>
         <dep.parquet.version>1.17.0</dep.parquet.version>
-        <dep.protobuf.version>3.25.8</dep.protobuf.version>
+        <dep.protobuf.version>4.33.2</dep.protobuf.version>
         <dep.slice.version>2.5</dep.slice.version>
         <dep.swagger.version>2.2.42</dep.swagger.version>
         <dep.takari.version>2.3.2</dep.takari.version>
