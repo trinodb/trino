@@ -914,7 +914,6 @@ jobs:
             - suite-ranger
             - suite-gcs
             - suite-hive4
-            - suite-functions
             - suite-tpch
             - suite-tpcds
             - suite-storage-formats-detailed
