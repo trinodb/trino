@@ -914,7 +914,6 @@ jobs:
             - suite-tpcds
             - suite-storage-formats-detailed
             - suite-parquet
-            - suite-loki
             - suite-compatibility
             - suite-all-connectors-smoke
             - suite-delta-lake-oss
