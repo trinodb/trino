@@ -14,7 +14,9 @@
 package io.trino.tests.product.jdbc;
 
 import com.google.common.collect.ImmutableSet;
-import io.trino.testing.TestingProperties;
+import io.trino.jdbc.TrinoDriver;
+import io.trino.testing.containers.KerberosContainer;
+import io.trino.testing.containers.TrinoTestImages;
 import io.trino.testing.containers.environment.ProductTestEnvironment;
 import org.ietf.jgss.GSSCredential;
 import org.ietf.jgss.GSSManager;
@@ -24,6 +26,7 @@ import org.testcontainers.containers.Network;
 import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.images.builder.Transferable;
 import org.testcontainers.utility.DockerImageName;
+import org.testcontainers.utility.MountableFile;
 
 import javax.security.auth.Subject;
 import javax.security.auth.kerberos.KerberosPrincipal;
@@ -33,16 +36,18 @@ import javax.security.auth.login.LoginContext;
 import javax.security.auth.login.LoginException;
 
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.security.Principal;
 import java.sql.Connection;
-import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.time.Duration;
 import java.util.Map;
 import java.util.Properties;
 
+import static java.nio.file.StandardCopyOption.REPLACE_EXISTING;
 import static java.util.Collections.emptySet;
 import static java.util.Objects.requireNonNull;
 import static org.ietf.jgss.GSSCredential.DEFAULT_LIFETIME;
@@ -54,7 +59,7 @@ import static org.ietf.jgss.GSSName.NT_USER_NAME;
  * <p>
  * This environment configures:
  * <ul>
- *   <li>A Hadoop kerberized container with a KDC</li>
+ *   <li>A standalone KDC container</li>
  *   <li>Trino server with Kerberos authentication and constrained delegation support</li>
  *   <li>Pre-configured keytabs and principals for testing</li>
  * </ul>
@@ -65,25 +70,30 @@ public class JdbcKerberosEnvironment
         extends ProductTestEnvironment
 {
     private static final String KERBEROS_OID = "1.2.840.113554.1.2.2";
-    private static final String HADOOP_BASE_IMAGE = "ghcr.io/trinodb/testing/hdp3.1-hive";
-    private static final String DEFAULT_TRINO_IMAGE = "trinodb/trino:latest";
-    private static final String TRINO_IMAGE_PROPERTY = "trino.product-tests.image";
-    private static final String KEYSTORE_PATH = "/docker/trino-product-tests/conf/trino/etc/docker.cluster.jks";
-    private static final String KEYSTORE_PASSWORD = "123456";
+    private static final String TRUSTSTORE_RESOURCE = "jdbc/cert/truststore.jks";
+    private static final String TRINO_PEM_RESOURCE = "jdbc/cert/trino.pem";
+    private static final String TRINO_PEM_PATH = "/etc/trino/trino.pem";
+    private static final String TRUSTSTORE_PASSWORD = "123456";
     private static final int HTTPS_PORT = 7778;
-    private static final int KDC_PORT = 88;
 
     // Kerberos realm and principals
-    private static final String KERBEROS_REALM = "LABS.TERADATA.COM";
-    private static final String KERBEROS_PRINCIPAL = "presto-client/presto-master.docker.cluster@" + KERBEROS_REALM;
-    private static final String KERBEROS_KEYTAB_PATH = "/etc/trino/conf/presto-client.keytab";
-    private static final String KERBEROS_SERVICE_NAME = "presto-server";
+    private static final String KERBEROS_REALM = KerberosContainer.REALM;
+    private static final String CLIENT_PRINCIPAL = "trino-client/trino-master.docker.cluster";
+    private static final String SERVER_PRINCIPAL = "trino-server/trino-master.docker.cluster";
+    private static final String KERBEROS_PRINCIPAL = "trino-client/trino-master.docker.cluster@" + KERBEROS_REALM;
+    private static final String KDC_CLIENT_KEYTAB_PATH = "/keytabs/trino-client.keytab";
+    private static final String KDC_SERVER_KEYTAB_PATH = "/keytabs/trino-server.keytab";
+    private static final String TRINO_SERVER_KEYTAB_PATH = "/etc/trino/trino-server.keytab";
+    private static final String KERBEROS_SERVICE_NAME = "trino-server";
+    private static final String KERBEROS_SERVICE_PRINCIPAL_PATTERN = "${SERVICE}@trino-master.docker.cluster";
 
     private Network network;
-    private GenericContainer<?> hadoopMaster;
+    private KerberosContainer kdc;
     private GenericContainer<?> trinoMaster;
     private Path truststorePath;
+    private Path trinoPemPath;
     private Path keytabPath;
+    private Path serverKeytabPath;
     private Path krb5ConfPath;
 
     @Override
@@ -93,46 +103,43 @@ public class JdbcKerberosEnvironment
             return; // Already started
         }
 
-        String dockerImagesVersion = TestingProperties.getDockerImagesVersion();
-        String kerberizedImage = HADOOP_BASE_IMAGE + "-kerberized:" + dockerImagesVersion;
-
         network = Network.newNetwork();
 
-        // Start Hadoop master (KDC + Hadoop services)
-        hadoopMaster = new GenericContainer<>(DockerImageName.parse(kerberizedImage))
+        // Start standalone KDC and provision principals/keytabs.
+        kdc = new KerberosContainer()
                 .withNetwork(network)
-                .withNetworkAliases("hadoop-master")
-                .withCreateContainerCmdModifier(cmd -> cmd.withHostName("hadoop-master"))
-                .withCreateContainerCmdModifier(cmd -> cmd.withDomainName("docker.cluster"))
-                .withExposedPorts(KDC_PORT)
-                .waitingFor(Wait.forListeningPort())
-                .withStartupTimeout(Duration.ofMinutes(5));
-        hadoopMaster.start();
+                .withNetworkAliases(KerberosContainer.HOST_NAME)
+                .withPrincipal(CLIENT_PRINCIPAL, KDC_CLIENT_KEYTAB_PATH)
+                .withPrincipal(SERVER_PRINCIPAL, KDC_SERVER_KEYTAB_PATH);
+        kdc.start();
 
-        // Extract files from container
+        // Extract files/resources for client and server-side Kerberos + TLS setup.
         try {
-            truststorePath = extractFileFromContainer(hadoopMaster, KEYSTORE_PATH, "keystore-", ".jks");
-            keytabPath = extractFileFromContainer(hadoopMaster, KERBEROS_KEYTAB_PATH, "keytab-", ".keytab");
-            krb5ConfPath = createKrb5Conf();
+            truststorePath = extractClasspathResource(TRUSTSTORE_RESOURCE);
+            trinoPemPath = extractClasspathResource(TRINO_PEM_RESOURCE);
+            keytabPath = writeTempFile("client-keytab-", ".keytab", kdc.getKeytab(KDC_CLIENT_KEYTAB_PATH));
+            serverKeytabPath = writeTempFile("server-keytab-", ".keytab", kdc.getKeytab(KDC_SERVER_KEYTAB_PATH));
+            krb5ConfPath = createExternalKrb5Conf();
         }
         catch (IOException e) {
-            throw new RuntimeException("Failed to extract files from container", e);
+            throw new RuntimeException("Failed to prepare Kerberos/TLS materials", e);
         }
 
         // Start Trino master with Kerberos configuration
-        trinoMaster = new GenericContainer<>(DockerImageName.parse(System.getProperty(TRINO_IMAGE_PROPERTY, DEFAULT_TRINO_IMAGE)))
+        trinoMaster = new GenericContainer<>(DockerImageName.parse(TrinoTestImages.getDefaultTrinoImage()))
                 .withNetwork(network)
-                .withNetworkAliases("presto-master", "presto-master.docker.cluster")
-                .withCreateContainerCmdModifier(cmd -> cmd.withHostName("presto-master"))
+                .withNetworkAliases("trino-master", "trino-master.docker.cluster")
+                .withCreateContainerCmdModifier(cmd -> cmd.withHostName("trino-master"))
                 .withCreateContainerCmdModifier(cmd -> cmd.withDomainName("docker.cluster"))
                 .withExposedPorts(HTTPS_PORT)
-                .waitingFor(Wait.forHttps("/v1/info")
-                        .forPort(HTTPS_PORT)
-                        .allowInsecure()
+                .withCopyFileToContainer(MountableFile.forHostPath(trinoPemPath), TRINO_PEM_PATH)
+                // /v1/info may respond before auth/system access-control are fully initialized.
+                .waitingFor(Wait.forLogMessage(".*SERVER STARTED.*", 1)
                         .withStartupTimeout(Duration.ofMinutes(2)));
 
         // Configure Trino for Kerberos authentication
         configureTrino(trinoMaster);
+        copyHostFileToContainer(trinoMaster, serverKeytabPath, TRINO_SERVER_KEYTAB_PATH);
 
         trinoMaster.start();
     }
@@ -143,101 +150,140 @@ public class JdbcKerberosEnvironment
         String configProperties = """
                 node.id=trino-coordinator
                 node.environment=test
-                node.internal-address-source=FQDN
+                node.internal-address-source=HOSTNAME
                 coordinator=true
                 node-scheduler.include-coordinator=true
                 query.max-memory=1GB
                 query.max-memory-per-node=1GB
-                discovery.uri=https://presto-master.docker.cluster:7778
+                discovery.uri=https://trino-master:7778
                 http-server.http.enabled=false
                 http-server.https.enabled=true
                 http-server.https.port=7778
-                http-server.https.keystore.path=/docker/trino-product-tests/conf/trino/etc/docker.cluster.jks
-                http-server.https.keystore.key=123456
+                http-server.https.keystore.path=%s
                 http.authentication.krb5.config=/etc/krb5.conf
                 http-server.authentication.type=KERBEROS
-                http-server.authentication.krb5.service-name=presto-server
-                http-server.authentication.krb5.keytab=/etc/trino/conf/presto-server.keytab
+                http-server.authentication.krb5.service-name=trino-server
+                http-server.authentication.krb5.keytab=%s
                 internal-communication.https.required=true
                 internal-communication.shared-secret=internal-shared-secret
-                internal-communication.https.keystore.path=/docker/trino-product-tests/conf/trino/etc/docker.cluster.jks
-                internal-communication.https.keystore.key=123456
+                internal-communication.https.keystore.path=%s
                 http-server.log.enabled=false
                 catalog.management=dynamic
                 query.min-expire-age=1m
                 task.info.max-age=1m
-                """;
+                """.formatted(TRINO_PEM_PATH, TRINO_SERVER_KEYTAB_PATH, TRINO_PEM_PATH);
 
         container.withCopyToContainer(
                 Transferable.of(configProperties),
                 "/etc/trino/config.properties");
 
-        // krb5.conf with short ticket lifetime (80s) for testing expired tickets
-        String krb5Conf = """
-                [logging]
-                 default = FILE:/var/log/krb5libs.log
-                 kdc = FILE:/var/log/krb5kdc.log
-                 admin_server = FILE:/var/log/kadmind.log
-
-                [libdefaults]
-                 default_realm = LABS.TERADATA.COM
-                 dns_lookup_realm = false
-                 dns_lookup_kdc = false
-                 forwardable = true
-                 allow_weak_crypto = true
-                 ticket_lifetime = 80s
-
-                [realms]
-                 LABS.TERADATA.COM = {
-                  kdc = hadoop-master:88
-                  admin_server = hadoop-master
-                 }
-                 OTHERLABS.TERADATA.COM = {
-                  kdc = hadoop-master:89
-                  admin_server = hadoop-master
-                 }
-                """;
+        container.withCopyToContainer(
+                Transferable.of("connector.name=tpch\n"),
+                "/etc/trino/catalog/tpch.properties");
 
         container.withCopyToContainer(
-                Transferable.of(krb5Conf),
+                Transferable.of("connector.name=memory\n"),
+                "/etc/trino/catalog/memory.properties");
+
+        // krb5.conf with short ticket lifetime (80s) for testing expired tickets
+        container.withCopyToContainer(
+                Transferable.of(createInternalKrb5Conf()),
                 "/etc/krb5.conf");
     }
 
-    private Path extractFileFromContainer(GenericContainer<?> container, String containerPath, String prefix, String suffix)
+    private Path extractClasspathResource(String resourcePath)
             throws IOException
     {
-        Path tempFile = Files.createTempFile(prefix, suffix);
-        container.copyFileFromContainer(containerPath, tempFile.toString());
+        String fileName = resourcePath.substring(resourcePath.lastIndexOf('/') + 1);
+        Path tempFile = Files.createTempFile("jdbc-kerberos-", "-" + fileName);
+        try (InputStream input = getClass().getClassLoader().getResourceAsStream(resourcePath)) {
+            if (input == null) {
+                throw new IOException("Resource not found: " + resourcePath);
+            }
+            Files.copy(input, tempFile, REPLACE_EXISTING);
+        }
         return tempFile;
     }
 
-    private Path createKrb5Conf()
+    private static Path writeTempFile(String prefix, String suffix, byte[] data)
             throws IOException
     {
-        // Create krb5.conf that points to the exposed KDC port on localhost
-        String krb5Conf = """
+        Path tempFile = Files.createTempFile(prefix, suffix);
+        Files.write(tempFile, data);
+        return tempFile;
+    }
+
+    private static void copyHostFileToContainer(GenericContainer<?> container, Path hostFile, String containerPath)
+    {
+        try {
+            // Ensure files are readable by the non-root trino user inside the container.
+            container.withCopyToContainer(Transferable.of(Files.readAllBytes(hostFile), 0644), containerPath);
+        }
+        catch (IOException e) {
+            throw new UncheckedIOException("Failed to prepare container file: " + containerPath, e);
+        }
+    }
+
+    private static String createInternalKrb5Conf()
+    {
+        return """
                 [logging]
                  default = FILE:/var/log/krb5libs.log
                  kdc = FILE:/var/log/krb5kdc.log
                  admin_server = FILE:/var/log/kadmind.log
 
                 [libdefaults]
-                 default_realm = LABS.TERADATA.COM
+                 default_realm = %s
                  dns_lookup_realm = false
                  dns_lookup_kdc = false
+                 udp_preference_limit = 1
                  forwardable = true
                  allow_weak_crypto = true
                  ticket_lifetime = 80s
 
                 [realms]
-                 LABS.TERADATA.COM = {
+                 %s = {
                   kdc = %s:%d
                   admin_server = %s
                  }
                 """.formatted(
-                hadoopMaster.getHost(),
-                hadoopMaster.getMappedPort(KDC_PORT),
-                hadoopMaster.getHost());
+                KERBEROS_REALM,
+                KERBEROS_REALM,
+                KerberosContainer.HOST_NAME,
+                KerberosContainer.KDC_PORT,
+                KerberosContainer.HOST_NAME);
+    }
+
+    private Path createExternalKrb5Conf()
+            throws IOException
+    {
+        // Create krb5.conf that points to mapped KDC port on host.
+        String krb5Conf = """
+                [logging]
+                 default = FILE:/var/log/krb5libs.log
+                 kdc = FILE:/var/log/krb5kdc.log
+                 admin_server = FILE:/var/log/kadmind.log
+
+                [libdefaults]
+                 default_realm = %s
+                 dns_lookup_realm = false
+                 dns_lookup_kdc = false
+                 udp_preference_limit = 1
+                 forwardable = true
+                 allow_weak_crypto = true
+                 ticket_lifetime = 80s
+
+                [realms]
+                 %s = {
+                  kdc = %s:%d
+                  admin_server = %s
+                 }
+                """.formatted(
+                KERBEROS_REALM,
+                KERBEROS_REALM,
+                kdc.getHost(),
+                kdc.getMappedPort(KerberosContainer.KDC_PORT),
+                kdc.getHost());
 
         Path tempFile = Files.createTempFile("krb5-", ".conf");
         Files.writeString(tempFile, krb5Conf);
@@ -272,6 +318,7 @@ public class JdbcKerberosEnvironment
         String jdbcUrl = String.format(
                 "jdbc:trino://%s:%d/tpch/tiny?" +
                         "SSL=true&" +
+                        "SSLVerification=CA&" +
                         "SSLTrustStorePath=%s&" +
                         "SSLTrustStorePassword=%s&" +
                         "KerberosRemoteServiceName=%s&" +
@@ -280,13 +327,18 @@ public class JdbcKerberosEnvironment
                 trinoMaster.getHost(),
                 trinoMaster.getMappedPort(HTTPS_PORT),
                 truststorePath.toAbsolutePath(),
-                KEYSTORE_PASSWORD,
+                TRUSTSTORE_PASSWORD,
                 KERBEROS_SERVICE_NAME);
 
         Properties properties = new Properties();
+        properties.put("KerberosServicePrincipalPattern", KERBEROS_SERVICE_PRINCIPAL_PATTERN);
         properties.put("KerberosConstrainedDelegation", credential);
 
-        return DriverManager.getConnection(jdbcUrl, properties);
+        Connection connection = new TrinoDriver().connect(jdbcUrl, properties);
+        if (connection == null) {
+            throw new SQLException("Unable to create Trino connection for URL: " + jdbcUrl);
+        }
+        return connection;
     }
 
     /**
@@ -317,6 +369,7 @@ public class JdbcKerberosEnvironment
 
         // Set krb5.conf path
         System.setProperty("java.security.krb5.conf", krb5ConfPath.toAbsolutePath().toString());
+        System.setProperty("sun.security.krb5.disableReferrals", "true");
 
         KerberosPrincipal principal = new KerberosPrincipal(KERBEROS_PRINCIPAL);
         Configuration configuration = createKerberosConfiguration(KERBEROS_PRINCIPAL, keytabPath.toAbsolutePath().toString());
@@ -377,8 +430,14 @@ public class JdbcKerberosEnvironment
         cleanupTempFile(truststorePath);
         truststorePath = null;
 
+        cleanupTempFile(trinoPemPath);
+        trinoPemPath = null;
+
         cleanupTempFile(keytabPath);
         keytabPath = null;
+
+        cleanupTempFile(serverKeytabPath);
+        serverKeytabPath = null;
 
         cleanupTempFile(krb5ConfPath);
         krb5ConfPath = null;
@@ -387,9 +446,9 @@ public class JdbcKerberosEnvironment
             trinoMaster.close();
             trinoMaster = null;
         }
-        if (hadoopMaster != null) {
-            hadoopMaster.close();
-            hadoopMaster = null;
+        if (kdc != null) {
+            kdc.close();
+            kdc = null;
         }
         if (network != null) {
             network.close();

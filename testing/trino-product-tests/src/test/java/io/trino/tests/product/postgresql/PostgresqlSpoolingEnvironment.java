@@ -113,7 +113,7 @@ public class PostgresqlSpoolingEnvironment
                 """;
         trino.withCopyToContainer(
                 Transferable.of(enableSpoolingScript, 0755),
-                "/docker/presto-init.d/enable_spooling.sh");
+                "/docker/trino-init.d/enable_spooling.sh");
 
         trino.start();
 
