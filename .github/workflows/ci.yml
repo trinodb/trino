@@ -959,9 +959,6 @@ jobs:
             #   value of the property, and the exclusion will apply normally.
             - "false"
           include:
-            # this suite is designed specifically for apache-hive3. TODO remove the suite once we can run all regular tests on apache-hive3.
-            - config: apache-hive3
-              suite: suite-hms-only
           EOF
       - name: Build PT matrix (all)
         if: |
