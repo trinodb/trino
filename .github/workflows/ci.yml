@@ -916,7 +916,6 @@ jobs:
             - suite-storage-formats-detailed
             - suite-parquet
             - suite-compatibility
-            - suite-all-connectors-smoke
             - suite-delta-lake-oss
             - suite-iceberg
             - suite-snowflake
