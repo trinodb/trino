@@ -85,7 +85,7 @@ def filename(artifact, version, extension):
     extension = '.' + extension if extension else ''
     return artifact + '-' + version + extension
 
-# Download from Maven Central
+# Download from Maven Central - only trino-jdbc is still hosted in Maven Central
 def download_mc_url(artifact, version, extension):
     base = 'https://repo1.maven.org/maven2/io/trino'
     file = filename(artifact, version, extension)
