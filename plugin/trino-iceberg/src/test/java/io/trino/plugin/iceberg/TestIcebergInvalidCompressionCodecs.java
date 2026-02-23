@@ -32,7 +32,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 public class TestIcebergInvalidCompressionCodecs
         extends AbstractTestQueryFramework
 {
-    private static final String BUCKET_NAME = "test-bucket";
+    private static final String BUCKET_NAME = "invalid-compression-codecs";
     private static final String SCHEMA = "my_schema";
     private static final String AVRO_TABLE_NAME = "none_avro";
     private static final String PARQUET_TABLE_NAME = "none_parquet";
