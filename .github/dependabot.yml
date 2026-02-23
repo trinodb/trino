@@ -13,6 +13,11 @@ updates:
     schedule:
       interval: "daily"
     open-pull-requests-limit: 10
+    groups:
+      airlift:
+        patterns:
+          - "io.airlift:airbase"
+          - "io.airlift:bom"
     cooldown:
       # Apply 7 day cooldown to avoid updating dependencies right away. This reduces the opportunity window
       # when supply chain is compromised. This doesn't apply to the dependencies that we own and release.
@@ -20,9 +25,6 @@ updates:
       exclude:
         - io.airlift:*
         - io.trino:*
-    ignore:
-      # Airbase and Airlift are best updated together. Update Airbase only when updating Airlift.
-      - dependency-name: "io.airlift:airbase"
   - package-ecosystem: "npm"
     directory: "/core/trino-web-ui/src/main/resources/webapp-preview"
     schedule:
