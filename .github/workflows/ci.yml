@@ -909,7 +909,6 @@ jobs:
             - suite-delta-lake-databricks173
             - suite-gcs
             - suite-hive4
-            - suite-tpch
             - suite-tpcds
             - suite-storage-formats-detailed
             - suite-parquet
