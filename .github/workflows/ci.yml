@@ -910,7 +910,6 @@ jobs:
             - suite-compatibility
             - suite-delta-lake-oss
             - suite-iceberg
-            - suite-snowflake
             - suite-hudi
           exclude:
             - suite: suite-azure
@@ -936,9 +935,6 @@ jobs:
             - suite: suite-delta-lake-databricks173
               ignore exclusion if: >-
                 ${{ env.CI_SKIP_SECRETS_PRESENCE_CHECKS != '' || secrets.DATABRICKS_TOKEN != '' }}
-            - suite: suite-snowflake
-              ignore exclusion if: >-
-                ${{ env.CI_SKIP_SECRETS_PRESENCE_CHECKS != '' || secrets.SNOWFLAKE_PASSWORD != '' }}
 
           ignore exclusion if:
             # Do not use this property outside of the matrix configuration.

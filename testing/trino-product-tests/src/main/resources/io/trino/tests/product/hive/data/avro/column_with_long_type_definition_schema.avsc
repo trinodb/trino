@@ -1,0 +1,2024 @@
+{
+  "namespace": "com.facebook.test",
+  "name": "top_level",
+  "type": "record",
+  "fields": [
+    {
+      "name": "string_col",
+      "type": "string"
+    },
+    {
+      "name": "long_record",
+      "type": {
+        "type": "record",
+        "name": "long_record_type",
+        "fields": [
+          {
+            "name": "record_field",
+            "type": "string"
+          },
+          {
+            "name": "record_field0",
+            "type": "string"
+          },
+          {
+            "name": "record_field1",
+            "type": "string"
+          },
+          {
+            "name": "record_field2",
+            "type": "string"
+          },
+          {
+            "name": "record_field3",
+            "type": "string"
+          },
+          {
+            "name": "record_field4",
+            "type": "string"
+          },
+          {
+            "name": "record_field5",
+            "type": "string"
+          },
+          {
+            "name": "record_field6",
+            "type": "string"
+          },
+          {
+            "name": "record_field7",
+            "type": "string"
+          },
+          {
+            "name": "record_field8",
+            "type": "string"
+          },
+          {
+            "name": "record_field9",
+            "type": "string"
+          },
+          {
+            "name": "record_field10",
+            "type": "string"
+          },
+          {
+            "name": "record_field11",
+            "type": "string"
+          },
+          {
+            "name": "record_field12",
+            "type": "string"
+          },
+          {
+            "name": "record_field13",
+            "type": "string"
+          },
+          {
+            "name": "record_field14",
+            "type": "string"
+          },
+          {
+            "name": "record_field15",
+            "type": "string"
+          },
+          {
+            "name": "record_field16",
+            "type": "string"
+          },
+          {
+            "name": "record_field17",
+            "type": "string"
+          },
+          {
+            "name": "record_field18",
+            "type": "string"
+          },
+          {
+            "name": "record_field19",
+            "type": "string"
+          },
+          {
+            "name": "record_field20",
+            "type": "string"
+          },
+          {
+            "name": "record_field21",
+            "type": "string"
+          },
+          {
+            "name": "record_field22",
+            "type": "string"
+          },
+          {
+            "name": "record_field23",
+            "type": "string"
+          },
+          {
+            "name": "record_field24",
+            "type": "string"
+          },
+          {
+            "name": "record_field25",
+            "type": "string"
+          },
+          {
+            "name": "record_field26",
+            "type": "string"
+          },
+          {
+            "name": "record_field27",
+            "type": "string"
+          },
+          {
+            "name": "record_field28",
+            "type": "string"
+          },
+          {
+            "name": "record_field29",
+            "type": "string"
+          },
+          {
+            "name": "record_field30",
+            "type": "string"
+          },
+          {
+            "name": "record_field31",
+            "type": "string"
+          },
+          {
+            "name": "record_field32",
+            "type": "string"
+          },
+          {
+            "name": "record_field33",
+            "type": "string"
+          },
+          {
+            "name": "record_field34",
+            "type": "string"
+          },
+          {
+            "name": "record_field35",
+            "type": "string"
+          },
+          {
+            "name": "record_field36",
+            "type": "string"
+          },
+          {
+            "name": "record_field37",
+            "type": "string"
+          },
+          {
+            "name": "record_field38",
+            "type": "string"
+          },
+          {
+            "name": "record_field39",
+            "type": "string"
+          },
+          {
+            "name": "record_field40",
+            "type": "string"
+          },
+          {
+            "name": "record_field41",
+            "type": "string"
+          },
+          {
+            "name": "record_field42",
+            "type": "string"
+          },
+          {
+            "name": "record_field43",
+            "type": "string"
+          },
+          {
+            "name": "record_field44",
+            "type": "string"
+          },
+          {
+            "name": "record_field45",
+            "type": "string"
+          },
+          {
+            "name": "record_field46",
+            "type": "string"
+          },
+          {
+            "name": "record_field47",
+            "type": "string"
+          },
+          {
+            "name": "record_field48",
+            "type": "string"
+          },
+          {
+            "name": "record_field49",
+            "type": "string"
+          },
+          {
+            "name": "record_field50",
+            "type": "string"
+          },
+          {
+            "name": "record_field51",
+            "type": "string"
+          },
+          {
+            "name": "record_field52",
+            "type": "string"
+          },
+          {
+            "name": "record_field53",
+            "type": "string"
+          },
+          {
+            "name": "record_field54",
+            "type": "string"
+          },
+          {
+            "name": "record_field55",
+            "type": "string"
+          },
+          {
+            "name": "record_field56",
+            "type": "string"
+          },
+          {
+            "name": "record_field57",
+            "type": "string"
+          },
+          {
+            "name": "record_field58",
+            "type": "string"
+          },
+          {
+            "name": "record_field59",
+            "type": "string"
+          },
+          {
+            "name": "record_field60",
+            "type": "string"
+          },
+          {
+            "name": "record_field61",
+            "type": "string"
+          },
+          {
+            "name": "record_field62",
+            "type": "string"
+          },
+          {
+            "name": "record_field63",
+            "type": "string"
+          },
+          {
+            "name": "record_field64",
+            "type": "string"
+          },
+          {
+            "name": "record_field65",
+            "type": "string"
+          },
+          {
+            "name": "record_field66",
+            "type": "string"
+          },
+          {
+            "name": "record_field67",
+            "type": "string"
+          },
+          {
+            "name": "record_field68",
+            "type": "string"
+          },
+          {
+            "name": "record_field69",
+            "type": "string"
+          },
+          {
+            "name": "record_field70",
+            "type": "string"
+          },
+          {
+            "name": "record_field71",
+            "type": "string"
+          },
+          {
+            "name": "record_field72",
+            "type": "string"
+          },
+          {
+            "name": "record_field73",
+            "type": "string"
+          },
+          {
+            "name": "record_field74",
+            "type": "string"
+          },
+          {
+            "name": "record_field75",
+            "type": "string"
+          },
+          {
+            "name": "record_field76",
+            "type": "string"
+          },
+          {
+            "name": "record_field77",
+            "type": "string"
+          },
+          {
+            "name": "record_field78",
+            "type": "string"
+          },
+          {
+            "name": "record_field79",
+            "type": "string"
+          },
+          {
+            "name": "record_field80",
+            "type": "string"
+          },
+          {
+            "name": "record_field81",
+            "type": "string"
+          },
+          {
+            "name": "record_field82",
+            "type": "string"
+          },
+          {
+            "name": "record_field83",
+            "type": "string"
+          },
+          {
+            "name": "record_field84",
+            "type": "string"
+          },
+          {
+            "name": "record_field85",
+            "type": "string"
+          },
+          {
+            "name": "record_field86",
+            "type": "string"
+          },
+          {
+            "name": "record_field87",
+            "type": "string"
+          },
+          {
+            "name": "record_field88",
+            "type": "string"
+          },
+          {
+            "name": "record_field89",
+            "type": "string"
+          },
+          {
+            "name": "record_field90",
+            "type": "string"
+          },
+          {
+            "name": "record_field91",
+            "type": "string"
+          },
+          {
+            "name": "record_field92",
+            "type": "string"
+          },
+          {
+            "name": "record_field93",
+            "type": "string"
+          },
+          {
+            "name": "record_field94",
+            "type": "string"
+          },
+          {
+            "name": "record_field95",
+            "type": "string"
+          },
+          {
+            "name": "record_field96",
+            "type": "string"
+          },
+          {
+            "name": "record_field97",
+            "type": "string"
+          },
+          {
+            "name": "record_field98",
+            "type": "string"
+          },
+          {
+            "name": "record_field99",
+            "type": "string"
+          },
+          {
+            "name": "record_field100",
+            "type": "string"
+          },
+          {
+            "name": "record_field101",
+            "type": "string"
+          },
+          {
+            "name": "record_field102",
+            "type": "string"
+          },
+          {
+            "name": "record_field103",
+            "type": "string"
+          },
+          {
+            "name": "record_field104",
+            "type": "string"
+          },
+          {
+            "name": "record_field105",
+            "type": "string"
+          },
+          {
+            "name": "record_field106",
+            "type": "string"
+          },
+          {
+            "name": "record_field107",
+            "type": "string"
+          },
+          {
+            "name": "record_field108",
+            "type": "string"
+          },
+          {
+            "name": "record_field109",
+            "type": "string"
+          },
+          {
+            "name": "record_field110",
+            "type": "string"
+          },
+          {
+            "name": "record_field111",
+            "type": "string"
+          },
+          {
+            "name": "record_field112",
+            "type": "string"
+          },
+          {
+            "name": "record_field113",
+            "type": "string"
+          },
+          {
+            "name": "record_field114",
+            "type": "string"
+          },
+          {
+            "name": "record_field115",
+            "type": "string"
+          },
+          {
+            "name": "record_field116",
+            "type": "string"
+          },
+          {
+            "name": "record_field117",
+            "type": "string"
+          },
+          {
+            "name": "record_field118",
+            "type": "string"
+          },
+          {
+            "name": "record_field119",
+            "type": "string"
+          },
+          {
+            "name": "record_field120",
+            "type": "string"
+          },
+          {
+            "name": "record_field121",
+            "type": "string"
+          },
+          {
+            "name": "record_field122",
+            "type": "string"
+          },
+          {
+            "name": "record_field123",
+            "type": "string"
+          },
+          {
+            "name": "record_field124",
+            "type": "string"
+          },
+          {
+            "name": "record_field125",
+            "type": "string"
+          },
+          {
+            "name": "record_field126",
+            "type": "string"
+          },
+          {
+            "name": "record_field127",
+            "type": "string"
+          },
+          {
+            "name": "record_field128",
+            "type": "string"
+          },
+          {
+            "name": "record_field129",
+            "type": "string"
+          },
+          {
+            "name": "record_field130",
+            "type": "string"
+          },
+          {
+            "name": "record_field131",
+            "type": "string"
+          },
+          {
+            "name": "record_field132",
+            "type": "string"
+          },
+          {
+            "name": "record_field133",
+            "type": "string"
+          },
+          {
+            "name": "record_field134",
+            "type": "string"
+          },
+          {
+            "name": "record_field135",
+            "type": "string"
+          },
+          {
+            "name": "record_field136",
+            "type": "string"
+          },
+          {
+            "name": "record_field137",
+            "type": "string"
+          },
+          {
+            "name": "record_field138",
+            "type": "string"
+          },
+          {
+            "name": "record_field139",
+            "type": "string"
+          },
+          {
+            "name": "record_field140",
+            "type": "string"
+          },
+          {
+            "name": "record_field141",
+            "type": "string"
+          },
+          {
+            "name": "record_field142",
+            "type": "string"
+          },
+          {
+            "name": "record_field143",
+            "type": "string"
+          },
+          {
+            "name": "record_field144",
+            "type": "string"
+          },
+          {
+            "name": "record_field145",
+            "type": "string"
+          },
+          {
+            "name": "record_field146",
+            "type": "string"
+          },
+          {
+            "name": "record_field147",
+            "type": "string"
+          },
+          {
+            "name": "record_field148",
+            "type": "string"
+          },
+          {
+            "name": "record_field149",
+            "type": "string"
+          },
+          {
+            "name": "record_field150",
+            "type": "string"
+          },
+          {
+            "name": "record_field151",
+            "type": "string"
+          },
+          {
+            "name": "record_field152",
+            "type": "string"
+          },
+          {
+            "name": "record_field153",
+            "type": "string"
+          },
+          {
+            "name": "record_field154",
+            "type": "string"
+          },
+          {
+            "name": "record_field155",
+            "type": "string"
+          },
+          {
+            "name": "record_field156",
+            "type": "string"
+          },
+          {
+            "name": "record_field157",
+            "type": "string"
+          },
+          {
+            "name": "record_field158",
+            "type": "string"
+          },
+          {
+            "name": "record_field159",
+            "type": "string"
+          },
+          {
+            "name": "record_field160",
+            "type": "string"
+          },
+          {
+            "name": "record_field161",
+            "type": "string"
+          },
+          {
+            "name": "record_field162",
+            "type": "string"
+          },
+          {
+            "name": "record_field163",
+            "type": "string"
+          },
+          {
+            "name": "record_field164",
+            "type": "string"
+          },
+          {
+            "name": "record_field165",
+            "type": "string"
+          },
+          {
+            "name": "record_field166",
+            "type": "string"
+          },
+          {
+            "name": "record_field167",
+            "type": "string"
+          },
+          {
+            "name": "record_field168",
+            "type": "string"
+          },
+          {
+            "name": "record_field169",
+            "type": "string"
+          },
+          {
+            "name": "record_field170",
+            "type": "string"
+          },
+          {
+            "name": "record_field171",
+            "type": "string"
+          },
+          {
+            "name": "record_field172",
+            "type": "string"
+          },
+          {
+            "name": "record_field173",
+            "type": "string"
+          },
+          {
+            "name": "record_field174",
+            "type": "string"
+          },
+          {
+            "name": "record_field175",
+            "type": "string"
+          },
+          {
+            "name": "record_field176",
+            "type": "string"
+          },
+          {
+            "name": "record_field177",
+            "type": "string"
+          },
+          {
+            "name": "record_field178",
+            "type": "string"
+          },
+          {
+            "name": "record_field179",
+            "type": "string"
+          },
+          {
+            "name": "record_field180",
+            "type": "string"
+          },
+          {
+            "name": "record_field181",
+            "type": "string"
+          },
+          {
+            "name": "record_field182",
+            "type": "string"
+          },
+          {
+            "name": "record_field183",
+            "type": "string"
+          },
+          {
+            "name": "record_field184",
+            "type": "string"
+          },
+          {
+            "name": "record_field185",
+            "type": "string"
+          },
+          {
+            "name": "record_field186",
+            "type": "string"
+          },
+          {
+            "name": "record_field187",
+            "type": "string"
+          },
+          {
+            "name": "record_field188",
+            "type": "string"
+          },
+          {
+            "name": "record_field189",
+            "type": "string"
+          },
+          {
+            "name": "record_field190",
+            "type": "string"
+          },
+          {
+            "name": "record_field191",
+            "type": "string"
+          },
+          {
+            "name": "record_field192",
+            "type": "string"
+          },
+          {
+            "name": "record_field193",
+            "type": "string"
+          },
+          {
+            "name": "record_field194",
+            "type": "string"
+          },
+          {
+            "name": "record_field195",
+            "type": "string"
+          },
+          {
+            "name": "record_field196",
+            "type": "string"
+          },
+          {
+            "name": "record_field197",
+            "type": "string"
+          },
+          {
+            "name": "record_field198",
+            "type": "string"
+          },
+          {
+            "name": "record_field199",
+            "type": "string"
+          },
+          {
+            "name": "record_field200",
+            "type": "string"
+          },
+          {
+            "name": "record_field201",
+            "type": "string"
+          },
+          {
+            "name": "record_field202",
+            "type": "string"
+          },
+          {
+            "name": "record_field203",
+            "type": "string"
+          },
+          {
+            "name": "record_field204",
+            "type": "string"
+          },
+          {
+            "name": "record_field205",
+            "type": "string"
+          },
+          {
+            "name": "record_field206",
+            "type": "string"
+          },
+          {
+            "name": "record_field207",
+            "type": "string"
+          },
+          {
+            "name": "record_field208",
+            "type": "string"
+          },
+          {
+            "name": "record_field209",
+            "type": "string"
+          },
+          {
+            "name": "record_field210",
+            "type": "string"
+          },
+          {
+            "name": "record_field211",
+            "type": "string"
+          },
+          {
+            "name": "record_field212",
+            "type": "string"
+          },
+          {
+            "name": "record_field213",
+            "type": "string"
+          },
+          {
+            "name": "record_field214",
+            "type": "string"
+          },
+          {
+            "name": "record_field215",
+            "type": "string"
+          },
+          {
+            "name": "record_field216",
+            "type": "string"
+          },
+          {
+            "name": "record_field217",
+            "type": "string"
+          },
+          {
+            "name": "record_field218",
+            "type": "string"
+          },
+          {
+            "name": "record_field219",
+            "type": "string"
+          },
+          {
+            "name": "record_field220",
+            "type": "string"
+          },
+          {
+            "name": "record_field221",
+            "type": "string"
+          },
+          {
+            "name": "record_field222",
+            "type": "string"
+          },
+          {
+            "name": "record_field223",
+            "type": "string"
+          },
+          {
+            "name": "record_field224",
+            "type": "string"
+          },
+          {
+            "name": "record_field225",
+            "type": "string"
+          },
+          {
+            "name": "record_field226",
+            "type": "string"
+          },
+          {
+            "name": "record_field227",
+            "type": "string"
+          },
+          {
+            "name": "record_field228",
+            "type": "string"
+          },
+          {
+            "name": "record_field229",
+            "type": "string"
+          },
+          {
+            "name": "record_field230",
+            "type": "string"
+          },
+          {
+            "name": "record_field231",
+            "type": "string"
+          },
+          {
+            "name": "record_field232",
+            "type": "string"
+          },
+          {
+            "name": "record_field233",
+            "type": "string"
+          },
+          {
+            "name": "record_field234",
+            "type": "string"
+          },
+          {
+            "name": "record_field235",
+            "type": "string"
+          },
+          {
+            "name": "record_field236",
+            "type": "string"
+          },
+          {
+            "name": "record_field237",
+            "type": "string"
+          },
+          {
+            "name": "record_field238",
+            "type": "string"
+          },
+          {
+            "name": "record_field239",
+            "type": "string"
+          },
+          {
+            "name": "record_field240",
+            "type": "string"
+          },
+          {
+            "name": "record_field241",
+            "type": "string"
+          },
+          {
+            "name": "record_field242",
+            "type": "string"
+          },
+          {
+            "name": "record_field243",
+            "type": "string"
+          },
+          {
+            "name": "record_field244",
+            "type": "string"
+          },
+          {
+            "name": "record_field245",
+            "type": "string"
+          },
+          {
+            "name": "record_field246",
+            "type": "string"
+          },
+          {
+            "name": "record_field247",
+            "type": "string"
+          },
+          {
+            "name": "record_field248",
+            "type": "string"
+          },
+          {
+            "name": "record_field249",
+            "type": "string"
+          },
+          {
+            "name": "record_field250",
+            "type": "string"
+          },
+          {
+            "name": "record_field251",
+            "type": "string"
+          },
+          {
+            "name": "record_field252",
+            "type": "string"
+          },
+          {
+            "name": "record_field253",
+            "type": "string"
+          },
+          {
+            "name": "record_field254",
+            "type": "string"
+          },
+          {
+            "name": "record_field255",
+            "type": "string"
+          },
+          {
+            "name": "record_field256",
+            "type": "string"
+          },
+          {
+            "name": "record_field257",
+            "type": "string"
+          },
+          {
+            "name": "record_field258",
+            "type": "string"
+          },
+          {
+            "name": "record_field259",
+            "type": "string"
+          },
+          {
+            "name": "record_field260",
+            "type": "string"
+          },
+          {
+            "name": "record_field261",
+            "type": "string"
+          },
+          {
+            "name": "record_field262",
+            "type": "string"
+          },
+          {
+            "name": "record_field263",
+            "type": "string"
+          },
+          {
+            "name": "record_field264",
+            "type": "string"
+          },
+          {
+            "name": "record_field265",
+            "type": "string"
+          },
+          {
+            "name": "record_field266",
+            "type": "string"
+          },
+          {
+            "name": "record_field267",
+            "type": "string"
+          },
+          {
+            "name": "record_field268",
+            "type": "string"
+          },
+          {
+            "name": "record_field269",
+            "type": "string"
+          },
+          {
+            "name": "record_field270",
+            "type": "string"
+          },
+          {
+            "name": "record_field271",
+            "type": "string"
+          },
+          {
+            "name": "record_field272",
+            "type": "string"
+          },
+          {
+            "name": "record_field273",
+            "type": "string"
+          },
+          {
+            "name": "record_field274",
+            "type": "string"
+          },
+          {
+            "name": "record_field275",
+            "type": "string"
+          },
+          {
+            "name": "record_field276",
+            "type": "string"
+          },
+          {
+            "name": "record_field277",
+            "type": "string"
+          },
+          {
+            "name": "record_field278",
+            "type": "string"
+          },
+          {
+            "name": "record_field279",
+            "type": "string"
+          },
+          {
+            "name": "record_field280",
+            "type": "string"
+          },
+          {
+            "name": "record_field281",
+            "type": "string"
+          },
+          {
+            "name": "record_field282",
+            "type": "string"
+          },
+          {
+            "name": "record_field283",
+            "type": "string"
+          },
+          {
+            "name": "record_field284",
+            "type": "string"
+          },
+          {
+            "name": "record_field285",
+            "type": "string"
+          },
+          {
+            "name": "record_field286",
+            "type": "string"
+          },
+          {
+            "name": "record_field287",
+            "type": "string"
+          },
+          {
+            "name": "record_field288",
+            "type": "string"
+          },
+          {
+            "name": "record_field289",
+            "type": "string"
+          },
+          {
+            "name": "record_field290",
+            "type": "string"
+          },
+          {
+            "name": "record_field291",
+            "type": "string"
+          },
+          {
+            "name": "record_field292",
+            "type": "string"
+          },
+          {
+            "name": "record_field293",
+            "type": "string"
+          },
+          {
+            "name": "record_field294",
+            "type": "string"
+          },
+          {
+            "name": "record_field295",
+            "type": "string"
+          },
+          {
+            "name": "record_field296",
+            "type": "string"
+          },
+          {
+            "name": "record_field297",
+            "type": "string"
+          },
+          {
+            "name": "record_field298",
+            "type": "string"
+          },
+          {
+            "name": "record_field299",
+            "type": "string"
+          },
+          {
+            "name": "record_field300",
+            "type": "string"
+          },
+          {
+            "name": "record_field301",
+            "type": "string"
+          },
+          {
+            "name": "record_field302",
+            "type": "string"
+          },
+          {
+            "name": "record_field303",
+            "type": "string"
+          },
+          {
+            "name": "record_field304",
+            "type": "string"
+          },
+          {
+            "name": "record_field305",
+            "type": "string"
+          },
+          {
+            "name": "record_field306",
+            "type": "string"
+          },
+          {
+            "name": "record_field307",
+            "type": "string"
+          },
+          {
+            "name": "record_field308",
+            "type": "string"
+          },
+          {
+            "name": "record_field309",
+            "type": "string"
+          },
+          {
+            "name": "record_field310",
+            "type": "string"
+          },
+          {
+            "name": "record_field311",
+            "type": "string"
+          },
+          {
+            "name": "record_field312",
+            "type": "string"
+          },
+          {
+            "name": "record_field313",
+            "type": "string"
+          },
+          {
+            "name": "record_field314",
+            "type": "string"
+          },
+          {
+            "name": "record_field315",
+            "type": "string"
+          },
+          {
+            "name": "record_field316",
+            "type": "string"
+          },
+          {
+            "name": "record_field317",
+            "type": "string"
+          },
+          {
+            "name": "record_field318",
+            "type": "string"
+          },
+          {
+            "name": "record_field319",
+            "type": "string"
+          },
+          {
+            "name": "record_field320",
+            "type": "string"
+          },
+          {
+            "name": "record_field321",
+            "type": "string"
+          },
+          {
+            "name": "record_field322",
+            "type": "string"
+          },
+          {
+            "name": "record_field323",
+            "type": "string"
+          },
+          {
+            "name": "record_field324",
+            "type": "string"
+          },
+          {
+            "name": "record_field325",
+            "type": "string"
+          },
+          {
+            "name": "record_field326",
+            "type": "string"
+          },
+          {
+            "name": "record_field327",
+            "type": "string"
+          },
+          {
+            "name": "record_field328",
+            "type": "string"
+          },
+          {
+            "name": "record_field329",
+            "type": "string"
+          },
+          {
+            "name": "record_field330",
+            "type": "string"
+          },
+          {
+            "name": "record_field331",
+            "type": "string"
+          },
+          {
+            "name": "record_field332",
+            "type": "string"
+          },
+          {
+            "name": "record_field333",
+            "type": "string"
+          },
+          {
+            "name": "record_field334",
+            "type": "string"
+          },
+          {
+            "name": "record_field335",
+            "type": "string"
+          },
+          {
+            "name": "record_field336",
+            "type": "string"
+          },
+          {
+            "name": "record_field337",
+            "type": "string"
+          },
+          {
+            "name": "record_field338",
+            "type": "string"
+          },
+          {
+            "name": "record_field339",
+            "type": "string"
+          },
+          {
+            "name": "record_field340",
+            "type": "string"
+          },
+          {
+            "name": "record_field341",
+            "type": "string"
+          },
+          {
+            "name": "record_field342",
+            "type": "string"
+          },
+          {
+            "name": "record_field343",
+            "type": "string"
+          },
+          {
+            "name": "record_field344",
+            "type": "string"
+          },
+          {
+            "name": "record_field345",
+            "type": "string"
+          },
+          {
+            "name": "record_field346",
+            "type": "string"
+          },
+          {
+            "name": "record_field347",
+            "type": "string"
+          },
+          {
+            "name": "record_field348",
+            "type": "string"
+          },
+          {
+            "name": "record_field349",
+            "type": "string"
+          },
+          {
+            "name": "record_field350",
+            "type": "string"
+          },
+          {
+            "name": "record_field351",
+            "type": "string"
+          },
+          {
+            "name": "record_field352",
+            "type": "string"
+          },
+          {
+            "name": "record_field353",
+            "type": "string"
+          },
+          {
+            "name": "record_field354",
+            "type": "string"
+          },
+          {
+            "name": "record_field355",
+            "type": "string"
+          },
+          {
+            "name": "record_field356",
+            "type": "string"
+          },
+          {
+            "name": "record_field357",
+            "type": "string"
+          },
+          {
+            "name": "record_field358",
+            "type": "string"
+          },
+          {
+            "name": "record_field359",
+            "type": "string"
+          },
+          {
+            "name": "record_field360",
+            "type": "string"
+          },
+          {
+            "name": "record_field361",
+            "type": "string"
+          },
+          {
+            "name": "record_field362",
+            "type": "string"
+          },
+          {
+            "name": "record_field363",
+            "type": "string"
+          },
+          {
+            "name": "record_field364",
+            "type": "string"
+          },
+          {
+            "name": "record_field365",
+            "type": "string"
+          },
+          {
+            "name": "record_field366",
+            "type": "string"
+          },
+          {
+            "name": "record_field367",
+            "type": "string"
+          },
+          {
+            "name": "record_field368",
+            "type": "string"
+          },
+          {
+            "name": "record_field369",
+            "type": "string"
+          },
+          {
+            "name": "record_field370",
+            "type": "string"
+          },
+          {
+            "name": "record_field371",
+            "type": "string"
+          },
+          {
+            "name": "record_field372",
+            "type": "string"
+          },
+          {
+            "name": "record_field373",
+            "type": "string"
+          },
+          {
+            "name": "record_field374",
+            "type": "string"
+          },
+          {
+            "name": "record_field375",
+            "type": "string"
+          },
+          {
+            "name": "record_field376",
+            "type": "string"
+          },
+          {
+            "name": "record_field377",
+            "type": "string"
+          },
+          {
+            "name": "record_field378",
+            "type": "string"
+          },
+          {
+            "name": "record_field379",
+            "type": "string"
+          },
+          {
+            "name": "record_field380",
+            "type": "string"
+          },
+          {
+            "name": "record_field381",
+            "type": "string"
+          },
+          {
+            "name": "record_field382",
+            "type": "string"
+          },
+          {
+            "name": "record_field383",
+            "type": "string"
+          },
+          {
+            "name": "record_field384",
+            "type": "string"
+          },
+          {
+            "name": "record_field385",
+            "type": "string"
+          },
+          {
+            "name": "record_field386",
+            "type": "string"
+          },
+          {
+            "name": "record_field387",
+            "type": "string"
+          },
+          {
+            "name": "record_field388",
+            "type": "string"
+          },
+          {
+            "name": "record_field389",
+            "type": "string"
+          },
+          {
+            "name": "record_field390",
+            "type": "string"
+          },
+          {
+            "name": "record_field391",
+            "type": "string"
+          },
+          {
+            "name": "record_field392",
+            "type": "string"
+          },
+          {
+            "name": "record_field393",
+            "type": "string"
+          },
+          {
+            "name": "record_field394",
+            "type": "string"
+          },
+          {
+            "name": "record_field395",
+            "type": "string"
+          },
+          {
+            "name": "record_field396",
+            "type": "string"
+          },
+          {
+            "name": "record_field397",
+            "type": "string"
+          },
+          {
+            "name": "record_field398",
+            "type": "string"
+          },
+          {
+            "name": "record_field399",
+            "type": "string"
+          },
+          {
+            "name": "record_field400",
+            "type": "string"
+          },
+          {
+            "name": "record_field401",
+            "type": "string"
+          },
+          {
+            "name": "record_field402",
+            "type": "string"
+          },
+          {
+            "name": "record_field403",
+            "type": "string"
+          },
+          {
+            "name": "record_field404",
+            "type": "string"
+          },
+          {
+            "name": "record_field405",
+            "type": "string"
+          },
+          {
+            "name": "record_field406",
+            "type": "string"
+          },
+          {
+            "name": "record_field407",
+            "type": "string"
+          },
+          {
+            "name": "record_field408",
+            "type": "string"
+          },
+          {
+            "name": "record_field409",
+            "type": "string"
+          },
+          {
+            "name": "record_field410",
+            "type": "string"
+          },
+          {
+            "name": "record_field411",
+            "type": "string"
+          },
+          {
+            "name": "record_field412",
+            "type": "string"
+          },
+          {
+            "name": "record_field413",
+            "type": "string"
+          },
+          {
+            "name": "record_field414",
+            "type": "string"
+          },
+          {
+            "name": "record_field415",
+            "type": "string"
+          },
+          {
+            "name": "record_field416",
+            "type": "string"
+          },
+          {
+            "name": "record_field417",
+            "type": "string"
+          },
+          {
+            "name": "record_field418",
+            "type": "string"
+          },
+          {
+            "name": "record_field419",
+            "type": "string"
+          },
+          {
+            "name": "record_field420",
+            "type": "string"
+          },
+          {
+            "name": "record_field421",
+            "type": "string"
+          },
+          {
+            "name": "record_field422",
+            "type": "string"
+          },
+          {
+            "name": "record_field423",
+            "type": "string"
+          },
+          {
+            "name": "record_field424",
+            "type": "string"
+          },
+          {
+            "name": "record_field425",
+            "type": "string"
+          },
+          {
+            "name": "record_field426",
+            "type": "string"
+          },
+          {
+            "name": "record_field427",
+            "type": "string"
+          },
+          {
+            "name": "record_field428",
+            "type": "string"
+          },
+          {
+            "name": "record_field429",
+            "type": "string"
+          },
+          {
+            "name": "record_field430",
+            "type": "string"
+          },
+          {
+            "name": "record_field431",
+            "type": "string"
+          },
+          {
+            "name": "record_field432",
+            "type": "string"
+          },
+          {
+            "name": "record_field433",
+            "type": "string"
+          },
+          {
+            "name": "record_field434",
+            "type": "string"
+          },
+          {
+            "name": "record_field435",
+            "type": "string"
+          },
+          {
+            "name": "record_field436",
+            "type": "string"
+          },
+          {
+            "name": "record_field437",
+            "type": "string"
+          },
+          {
+            "name": "record_field438",
+            "type": "string"
+          },
+          {
+            "name": "record_field439",
+            "type": "string"
+          },
+          {
+            "name": "record_field440",
+            "type": "string"
+          },
+          {
+            "name": "record_field441",
+            "type": "string"
+          },
+          {
+            "name": "record_field442",
+            "type": "string"
+          },
+          {
+            "name": "record_field443",
+            "type": "string"
+          },
+          {
+            "name": "record_field444",
+            "type": "string"
+          },
+          {
+            "name": "record_field445",
+            "type": "string"
+          },
+          {
+            "name": "record_field446",
+            "type": "string"
+          },
+          {
+            "name": "record_field447",
+            "type": "string"
+          },
+          {
+            "name": "record_field448",
+            "type": "string"
+          },
+          {
+            "name": "record_field449",
+            "type": "string"
+          },
+          {
+            "name": "record_field450",
+            "type": "string"
+          },
+          {
+            "name": "record_field451",
+            "type": "string"
+          },
+          {
+            "name": "record_field452",
+            "type": "string"
+          },
+          {
+            "name": "record_field453",
+            "type": "string"
+          },
+          {
+            "name": "record_field454",
+            "type": "string"
+          },
+          {
+            "name": "record_field455",
+            "type": "string"
+          },
+          {
+            "name": "record_field456",
+            "type": "string"
+          },
+          {
+            "name": "record_field457",
+            "type": "string"
+          },
+          {
+            "name": "record_field458",
+            "type": "string"
+          },
+          {
+            "name": "record_field459",
+            "type": "string"
+          },
+          {
+            "name": "record_field460",
+            "type": "string"
+          },
+          {
+            "name": "record_field461",
+            "type": "string"
+          },
+          {
+            "name": "record_field462",
+            "type": "string"
+          },
+          {
+            "name": "record_field463",
+            "type": "string"
+          },
+          {
+            "name": "record_field464",
+            "type": "string"
+          },
+          {
+            "name": "record_field465",
+            "type": "string"
+          },
+          {
+            "name": "record_field466",
+            "type": "string"
+          },
+          {
+            "name": "record_field467",
+            "type": "string"
+          },
+          {
+            "name": "record_field468",
+            "type": "string"
+          },
+          {
+            "name": "record_field469",
+            "type": "string"
+          },
+          {
+            "name": "record_field470",
+            "type": "string"
+          },
+          {
+            "name": "record_field471",
+            "type": "string"
+          },
+          {
+            "name": "record_field472",
+            "type": "string"
+          },
+          {
+            "name": "record_field473",
+            "type": "string"
+          },
+          {
+            "name": "record_field474",
+            "type": "string"
+          },
+          {
+            "name": "record_field475",
+            "type": "string"
+          },
+          {
+            "name": "record_field476",
+            "type": "string"
+          },
+          {
+            "name": "record_field477",
+            "type": "string"
+          },
+          {
+            "name": "record_field478",
+            "type": "string"
+          },
+          {
+            "name": "record_field479",
+            "type": "string"
+          },
+          {
+            "name": "record_field480",
+            "type": "string"
+          },
+          {
+            "name": "record_field481",
+            "type": "string"
+          },
+          {
+            "name": "record_field482",
+            "type": "string"
+          },
+          {
+            "name": "record_field483",
+            "type": "string"
+          },
+          {
+            "name": "record_field484",
+            "type": "string"
+          },
+          {
+            "name": "record_field485",
+            "type": "string"
+          },
+          {
+            "name": "record_field486",
+            "type": "string"
+          },
+          {
+            "name": "record_field487",
+            "type": "string"
+          },
+          {
+            "name": "record_field488",
+            "type": "string"
+          },
+          {
+            "name": "record_field489",
+            "type": "string"
+          },
+          {
+            "name": "record_field490",
+            "type": "string"
+          },
+          {
+            "name": "record_field491",
+            "type": "string"
+          },
+          {
+            "name": "record_field492",
+            "type": "string"
+          },
+          {
+            "name": "record_field493",
+            "type": "string"
+          },
+          {
+            "name": "record_field494",
+            "type": "string"
+          },
+          {
+            "name": "record_field495",
+            "type": "string"
+          },
+          {
+            "name": "record_field496",
+            "type": "string"
+          },
+          {
+            "name": "record_field497",
+            "type": "string"
+          },
+          {
+            "name": "record_field498",
+            "type": "string"
+          },
+          {
+            "name": "record_field499",
+            "type": "string"
+          }
+        ]
+      }
+    }
+  ]
+}

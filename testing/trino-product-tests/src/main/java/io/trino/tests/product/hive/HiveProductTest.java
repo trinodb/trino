@@ -52,4 +52,11 @@ public class HiveProductTest
                 getHiveVersionMinor() == 1 &&
                 (getHiveVersionPatch() == 0 || getHiveVersionPatch() == 1);
     }
+
+    protected boolean isHiveVersionBefore12()
+    {
+        int major = getHiveVersionMajor();
+        int minor = getHiveVersionMinor();
+        return major == 0 || (major == 1 && minor < 2);
+    }
 }
