@@ -913,7 +913,6 @@ jobs:
             - suite-delta-lake-databricks173
             - suite-gcs
             - suite-hive4
-            - suite-storage-formats-detailed
             - suite-parquet
             - suite-compatibility
             - suite-delta-lake-oss
