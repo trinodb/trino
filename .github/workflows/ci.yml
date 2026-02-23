@@ -892,75 +892,10 @@ jobs:
             testing/trino-product-tests/target/*-executable.jar
             client/trino-cli/target/*-executable.jar
           retention-days: 1
-      - id: prepare-matrix-template
-        run: |
-          cat <<EOF > .github/test-pt-matrix.yaml
-          config:
-            - default
-          suite:
-            - suite-parquet
-          exclude:
-
-          ignore exclusion if:
-            # Do not use this property outside of the matrix configuration.
-            #
-            # This is added to all matrix entries so they may be conditionally
-            # excluded by adding them to the excludes list with a GHA expression
-            # for this property.
-            # - If the expression evaluates to true, it will never match the a
-            #   actual value of the property, and will therefore not be excluded.
-            # - If the expression evaluates to false, it will match the actual
-            #   value of the property, and the exclusion will apply normally.
-            - "false"
-          include:
-          EOF
-      - name: Build PT matrix (all)
-        if: |
-          github.event_name != 'pull_request' ||
-          steps.filter.outputs.product-tests == 'true' ||
-          contains(github.event.pull_request.labels.*.name, 'tests:all') ||
-          contains(github.event.pull_request.labels.*.name, 'tests:all-product')
-        run: |
-          # converts entire YAML file into JSON - no filtering since we want all PTs to run
-          ./.github/bin/build-pt-matrix-from-impacted-connectors.py -v -m .github/test-pt-matrix.yaml -o matrix.json
-      - name: Build PT matrix (impacted-features)
-        if: |
-          github.event_name == 'pull_request' &&
-          steps.filter.outputs.product-tests == 'false' &&
-          !contains(github.event.pull_request.labels.*.name, 'tests:all') &&
-          !contains(github.event.pull_request.labels.*.name, 'product-tests:all')
-        # all these envs are required to be set by some product test environments
-        env:
-          ABFS_CONTAINER: ""
-          ABFS_ACCOUNT: ""
-          ABFS_ACCESS_KEY: ""
-          S3_BUCKET: ""
-          AWS_REGION: ""
-          TRINO_AWS_ACCESS_KEY_ID: ""
-          TRINO_AWS_SECRET_ACCESS_KEY: ""
-          DATABRICKS_133_JDBC_URL: ""
-          DATABRICKS_143_JDBC_URL: ""
-          DATABRICKS_154_JDBC_URL: ""
-          DATABRICKS_164_JDBC_URL: ""
-          DATABRICKS_173_JDBC_URL: ""
-          DATABRICKS_LOGIN: ""
-          DATABRICKS_TOKEN: ""
-          GCP_CREDENTIALS_KEY: ""
-          GCP_STORAGE_BUCKET: ""
-          SNOWFLAKE_URL: ""
-          SNOWFLAKE_USER: ""
-          SNOWFLAKE_PASSWORD: ""
-          SNOWFLAKE_DATABASE: ""
-          SNOWFLAKE_ROLE: ""
-          SNOWFLAKE_WAREHOUSE: ""
-          TESTCONTAINERS_NEVER_PULL: true
-        run: |
-          # converts filtered YAML file into JSON
-          ./.github/bin/build-pt-matrix-from-impacted-connectors.py -v -m .github/test-pt-matrix.yaml -i impacted-features.log -o matrix.json
       - id: set-matrix
         run: |
-          echo "Matrix: $(jq '.' matrix.json)"
-          echo "matrix=$(jq -c '.' matrix.json)" >> $GITHUB_OUTPUT
+          echo "Matrix: {}"
+          echo "matrix={}" >> $GITHUB_OUTPUT
 
   build-pt-junit:
     needs: path-filters
