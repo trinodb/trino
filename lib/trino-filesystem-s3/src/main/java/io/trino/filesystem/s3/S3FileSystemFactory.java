@@ -19,9 +19,13 @@ import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.spi.security.ConnectorIdentity;
 import jakarta.annotation.PreDestroy;
+import software.amazon.awssdk.auth.credentials.AwsCredentials;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 
+import java.util.Map;
+import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 
 import static io.trino.filesystem.s3.S3FileSystemUtils.createS3PreSigner;
@@ -34,6 +38,10 @@ public final class S3FileSystemFactory
     private final S3Context context;
     private final Executor uploadExecutor;
     private final S3Presigner preSigner;
+    private final String staticRegion;
+    private final String staticEndpoint;
+    private final boolean staticCrossRegionAccessEnabled;
+    private final Map<ClientKey, S3Client> dynamicClients;
 
     @Inject
     public S3FileSystemFactory(OpenTelemetry openTelemetry, S3FileSystemConfig config, S3FileSystemStats stats)
@@ -43,19 +51,56 @@ public final class S3FileSystemFactory
         this.preSigner = createS3PreSigner(config, client);
         this.context = loader.context();
         this.uploadExecutor = loader.uploadExecutor();
-    }
-
-    @PreDestroy
-    public void destroy()
-    {
-        try (client) {
-            loader.destroy();
-        }
+        this.staticRegion = config.getRegion();
+        this.staticEndpoint = config.getEndpoint();
+        this.staticCrossRegionAccessEnabled = config.isCrossRegionAccessEnabled();
+        this.dynamicClients = new ConcurrentHashMap<>();
     }
 
     @Override
     public TrinoFileSystem create(ConnectorIdentity identity)
     {
+        Optional<AwsCredentials> vendedCredentials = S3FileSystemLoader.extractCredentialsFromIdentity(identity);
+        String region = S3FileSystemLoader.extractRegionFromIdentity(identity).orElse(staticRegion);
+        String endpoint = S3FileSystemLoader.extractEndpointFromIdentity(identity).orElse(staticEndpoint);
+
+        boolean crossRegionAccessEnabled;
+        if (staticCrossRegionAccessEnabled) {
+            crossRegionAccessEnabled = true;
+        }
+        else {
+            crossRegionAccessEnabled = S3FileSystemLoader.extractCrossRegionAccessEnabledFromIdentity(identity).orElse(false);
+        }
+
+        boolean hasOverrides = vendedCredentials.isPresent()
+                || (region != null && !region.equals(staticRegion))
+                || (endpoint != null && !endpoint.equals(staticEndpoint))
+                || crossRegionAccessEnabled != staticCrossRegionAccessEnabled;
+
+        if (hasOverrides) {
+            ClientKey key = new ClientKey(vendedCredentials.orElse(null), region, endpoint, crossRegionAccessEnabled);
+            S3Client s3Client = dynamicClients.computeIfAbsent(key, _ ->
+                    loader.createClientWithOverrides(vendedCredentials, region, endpoint, crossRegionAccessEnabled));
+            return new S3FileSystem(uploadExecutor, s3Client, preSigner, context.withCredentials(identity));
+        }
+
         return new S3FileSystem(uploadExecutor, client, preSigner, context.withCredentials(identity));
     }
+
+    @PreDestroy
+    public void destroy()
+    {
+        for (S3Client dynamicClient : dynamicClients.values()) {
+            try (var _ = dynamicClient) {
+                // Resource automatically closed
+            }
+        }
+        dynamicClients.clear();
+        try (var _ = client) {
+            // Resource automatically closed
+        }
+        loader.destroy();
+    }
+
+    private record ClientKey(AwsCredentials credentials, String region, String endpoint, boolean crossRegionAccessEnabled) {}
 }

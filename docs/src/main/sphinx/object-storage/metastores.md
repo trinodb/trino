@@ -513,8 +513,11 @@ following properties:
   - Controls whether to use the token exchange flow to acquire new tokens.
     Defaults to `true` 
 * - `iceberg.rest-catalog.vended-credentials-enabled`
-  - Use credentials provided by the REST backend for file system access.
-    Defaults to `false`.
+  - Use credentials and configuration provided by the REST backend for file system access.
+    When enabled, the REST catalog can provide S3 credentials (`s3.access-key-id`,
+    `s3.secret-access-key`, `s3.session-token`) and configuration properties
+    (`client.region`, `s3.endpoint`, `s3.cross-region-access-enabled`). Static catalog
+    configuration takes precedence over vended properties. Defaults to `false`.
 * - `iceberg.rest-catalog.nested-namespace-enabled`
   - Support querying objects under nested namespace.
     Defaults to `false`.
