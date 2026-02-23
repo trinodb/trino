@@ -46,6 +46,7 @@ import static io.trino.plugin.iceberg.catalog.jdbc.TestingIcebergJdbcServer.PASS
 import static io.trino.plugin.iceberg.catalog.jdbc.TestingIcebergJdbcServer.USER;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
+import static java.util.Objects.requireNonNull;
 import static org.apache.iceberg.CatalogProperties.CATALOG_IMPL;
 import static org.apache.iceberg.CatalogProperties.URI;
 import static org.apache.iceberg.CatalogProperties.WAREHOUSE_LOCATION;
@@ -58,15 +59,18 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
 @TestInstance(PER_CLASS)
-public class TestIcebergJdbcCatalogConnectorSmokeTest
+public abstract class BaseIcebergJdbcCatalogConnectorSmokeTest
         extends BaseIcebergConnectorSmokeTest
 {
+    private final SchemaVersion schemaVersion;
+
     private JdbcCatalog jdbcCatalog;
     private File warehouseLocation;
 
-    public TestIcebergJdbcCatalogConnectorSmokeTest()
+    public BaseIcebergJdbcCatalogConnectorSmokeTest(SchemaVersion schemaVersion)
     {
         super(new IcebergConfig().getFileFormat().toIceberg());
+        this.schemaVersion = requireNonNull(schemaVersion, "schemaVersion is null");
     }
 
     @Override
@@ -106,6 +110,7 @@ public class TestIcebergJdbcCatalogConnectorSmokeTest
                                 .put("iceberg.jdbc-catalog.connection-user", USER)
                                 .put("iceberg.jdbc-catalog.connection-password", PASSWORD)
                                 .put("iceberg.jdbc-catalog.catalog-name", "tpch")
+                                .put("iceberg.jdbc-catalog.schema-version", schemaVersion.toString())
                                 .put("iceberg.register-table-procedure.enabled", "true")
                                 .put("iceberg.writer-sort-buffer-size", "1MB")
                                 .put("iceberg.jdbc-catalog.default-warehouse-dir", warehouseLocation.getAbsolutePath())
