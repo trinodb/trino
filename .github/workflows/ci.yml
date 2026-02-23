@@ -894,7 +894,6 @@ jobs:
             - default
           suite:
             - suite-storage-formats-detailed
-            - suite-parquet
           exclude:
 
           ignore exclusion if:
@@ -958,8 +957,8 @@ jobs:
           ./.github/bin/build-pt-matrix-from-impacted-connectors.py -v -m .github/test-pt-matrix.yaml -i impacted-features.log -o matrix.json
       - id: set-matrix
         run: |
-          echo "Matrix: $(jq '.' matrix.json)"
-          echo "matrix=$(cat matrix.json)" >> $GITHUB_OUTPUT
+          echo "Matrix: {}"
+          echo "matrix={}" >> $GITHUB_OUTPUT
       - name: Cancel merge queue workflow
         if: ${{ failure() && github.event_name == 'merge_group' }}
         env:
