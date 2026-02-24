@@ -7,4 +7,8 @@ if ! grep -s -q 'node.id' /etc/trino/node.properties; then
     launcher_opts+=("-Dnode.id=${HOSTNAME}")
 fi
 
+if [[ -v QUIET ]]; then
+   launcher_opts+=("-Dairlift.quiet=true")
+fi
+
 exec /usr/lib/trino/bin/launcher run "${launcher_opts[@]}" "$@"
