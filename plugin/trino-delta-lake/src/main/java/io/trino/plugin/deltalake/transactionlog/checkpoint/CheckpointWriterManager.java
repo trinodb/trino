@@ -68,6 +68,10 @@ public class CheckpointWriterManager
     private final JsonCodec<LastCheckpoint> lastCheckpointCodec;
     private final Executor executorService;
     private final int checkpointProcessingParallelism;
+    private final boolean checkpointV1ParallelProcessingEnabled;
+    private final boolean checkpointV2ParallelProcessingEnabled;
+    private final boolean checkpointIntraFileParallelProcessingEnabled;
+    private final long checkpointIntraFileParallelProcessingSplitSize;
 
     @Inject
     public CheckpointWriterManager(
@@ -90,6 +94,10 @@ public class CheckpointWriterManager
         this.lastCheckpointCodec = requireNonNull(lastCheckpointCodec, "lastCheckpointCodec is null");
         this.executorService = requireNonNull(executorService, "ExecutorService is null");
         this.checkpointProcessingParallelism = deltaLakeConfig.getCheckpointProcessingParallelism();
+        this.checkpointV1ParallelProcessingEnabled = deltaLakeConfig.isCheckpointV1ParallelProcessingEnabled();
+        this.checkpointV2ParallelProcessingEnabled = deltaLakeConfig.isCheckpointV2ParallelProcessingEnabled();
+        this.checkpointIntraFileParallelProcessingEnabled = deltaLakeConfig.isCheckpointIntraFileParallelProcessingEnabled();
+        this.checkpointIntraFileParallelProcessingSplitSize = deltaLakeConfig.getCheckpointIntraFileParallelProcessingSplitSize().toBytes();
     }
 
     public void writeCheckpoint(ConnectorSession session, TableSnapshot snapshot, VendedCredentialsHandle credentialsHandle)
@@ -109,6 +117,7 @@ public class CheckpointWriterManager
 
             TrinoFileSystem fileSystem = fileSystemFactory.create(session, credentialsHandle);
             List<DeltaLakeTransactionLogEntry> checkpointLogEntries;
+            Executor checkpointProcessingExecutor = new BoundedExecutor(executorService, checkpointProcessingParallelism);
             try (Stream<DeltaLakeTransactionLogEntry> checkpointLogEntriesStream = snapshot.getCheckpointTransactionLogEntries(
                     session,
                     ImmutableSet.of(METADATA, PROTOCOL),
@@ -119,7 +128,11 @@ public class CheckpointWriterManager
                     Optional.empty(),
                     TupleDomain.all(),
                     Optional.empty(),
-                    new BoundedExecutor(executorService, checkpointProcessingParallelism))) {
+                    checkpointProcessingExecutor,
+                    checkpointV1ParallelProcessingEnabled,
+                    checkpointV2ParallelProcessingEnabled,
+                    checkpointIntraFileParallelProcessingEnabled,
+                    checkpointIntraFileParallelProcessingSplitSize)) {
                 checkpointLogEntries = checkpointLogEntriesStream.filter(entry -> entry.getMetaData() != null || entry.getProtocol() != null)
                         .collect(toImmutableList());
             }
@@ -145,6 +158,7 @@ public class CheckpointWriterManager
                 checkpointBuilder.addLogEntry(protocolLogEntry);
 
                 // read remaining entries from checkpoint register them in writer
+                checkpointProcessingExecutor = new BoundedExecutor(executorService, checkpointProcessingParallelism);
                 try (Stream<DeltaLakeTransactionLogEntry> checkpointLogEntriesStream = snapshot.getCheckpointTransactionLogEntries(
                         session,
                         ImmutableSet.of(TRANSACTION, ADD, REMOVE),
@@ -155,7 +169,11 @@ public class CheckpointWriterManager
                         Optional.of(new MetadataAndProtocolEntry(metadataLogEntry.getMetaData(), protocolLogEntry.getProtocol())),
                         TupleDomain.all(),
                         Optional.of(alwaysTrue()),
-                        new BoundedExecutor(executorService, checkpointProcessingParallelism))) {
+                        checkpointProcessingExecutor,
+                        checkpointV1ParallelProcessingEnabled,
+                        checkpointV2ParallelProcessingEnabled,
+                        checkpointIntraFileParallelProcessingEnabled,
+                        checkpointIntraFileParallelProcessingSplitSize)) {
                     checkpointLogEntriesStream.forEach(checkpointBuilder::addLogEntry);
                 }
             }

@@ -97,6 +97,8 @@ public class TestDeltaLakeFileStatistics
         CheckpointEntryIterator metadataEntryIterator = new CheckpointEntryIterator(
                 checkpointFile,
                 SESSION,
+                0,
+                checkpointFile.length(),
                 checkpointFile.length(),
                 checkpointSchemaManager,
                 typeManager,
@@ -113,6 +115,8 @@ public class TestDeltaLakeFileStatistics
         CheckpointEntryIterator protocolEntryIterator = new CheckpointEntryIterator(
                 checkpointFile,
                 SESSION,
+                0,
+                checkpointFile.length(),
                 checkpointFile.length(),
                 checkpointSchemaManager,
                 typeManager,
@@ -130,6 +134,8 @@ public class TestDeltaLakeFileStatistics
         CheckpointEntryIterator checkpointEntryIterator = new CheckpointEntryIterator(
                 checkpointFile,
                 SESSION,
+                0,
+                checkpointFile.length(),
                 checkpointFile.length(),
                 checkpointSchemaManager,
                 typeManager,
