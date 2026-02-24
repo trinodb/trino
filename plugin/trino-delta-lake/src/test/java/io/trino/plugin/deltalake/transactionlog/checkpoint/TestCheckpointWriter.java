@@ -498,6 +498,8 @@ public class TestCheckpointWriter
         Iterator<DeltaLakeTransactionLogEntry> checkpointEntryIterator = new CheckpointEntryIterator(
                 checkpointFile,
                 SESSION,
+                0,
+                checkpointFile.length(),
                 checkpointFile.length(),
                 checkpointSchemaManager,
                 typeManager,

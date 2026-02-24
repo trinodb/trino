@@ -14,6 +14,7 @@
 package io.trino.plugin.deltalake.transactionlog;
 
 import com.google.common.collect.HashMultiset;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMultiset;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multiset;
@@ -45,15 +46,19 @@ import java.net.URISyntaxException;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Stream;
 
 import static com.google.common.base.Predicates.alwaysTrue;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.util.concurrent.MoreExecutors.newDirectExecutorService;
+import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.trino.filesystem.tracing.FileSystemAttributes.FILE_LOCATION;
 import static io.trino.plugin.deltalake.DeltaLakeConfig.DEFAULT_TRANSACTION_LOG_MAX_CACHED_SIZE;
+import static io.trino.plugin.deltalake.DeltaTestingConnectorSession.SESSION;
 import static io.trino.plugin.deltalake.transactionlog.TableSnapshot.MetadataAndProtocolEntry;
 import static io.trino.plugin.deltalake.transactionlog.TableSnapshot.load;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogParser.readLastCheckpoint;
@@ -62,9 +67,9 @@ import static io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntr
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_FILE_SYSTEM_STATS;
 import static io.trino.testing.MultisetAssertions.assertMultisetsEqual;
-import static io.trino.testing.TestingConnectorSession.SESSION;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.Executors.newFixedThreadPool;
 import static java.util.stream.Collectors.toCollection;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -173,7 +178,11 @@ public class TestTableSnapshot
                 Optional.of(new MetadataAndProtocolEntry(metadataEntry, protocolEntry)),
                 TupleDomain.all(),
                 Optional.of(alwaysTrue()),
-                executorService)) {
+                executorService,
+                false,
+                false,
+                false,
+                128L * 1024 * 1024)) {
             List<DeltaLakeTransactionLogEntry> entries = stream.collect(toImmutableList());
 
             assertThat(entries).hasSize(9);
@@ -224,7 +233,11 @@ public class TestTableSnapshot
                 Optional.of(new MetadataAndProtocolEntry(metadataEntry, protocolEntry)),
                 TupleDomain.all(),
                 Optional.of(alwaysTrue()),
-                executorService)) {
+                executorService,
+                false,
+                false,
+                false,
+                128L * 1024 * 1024)) {
             List<DeltaLakeTransactionLogEntry> entries = stream.collect(toImmutableList());
 
             assertThat(entries).hasSize(10);
@@ -286,10 +299,232 @@ public class TestTableSnapshot
         assertThat(tableSnapshot.getVersion()).isEqualTo(13L);
     }
 
+    /**
+     * @see deltalake.multipart_checkpoint
+     */
+    @Test
+    public void testMultipartV1CheckpointParallelProcessingSubmitsTasksToExecutor()
+            throws Exception
+    {
+        String tableLocation = getClass().getClassLoader().getResource("deltalake/multipart_checkpoint").toURI().toString();
+        VendedCredentialsHandle fixtureCredentialsHandle = VendedCredentialsHandle.empty(tableLocation);
+        TrinoFileSystem fileSystem = tracingFileSystemFactory.create(SESSION, fixtureCredentialsHandle);
+        Optional<LastCheckpoint> lastCheckpoint = readLastCheckpoint(fileSystem, tableLocation);
+        TableSnapshot tableSnapshot = load(
+                SESSION,
+                new FileSystemTransactionLogReader(tableLocation, fixtureCredentialsHandle, tracingFileSystemFactory),
+                new SchemaTableName("schema", "multipart_checkpoint"),
+                lastCheckpoint,
+                tableLocation,
+                parquetReaderOptions,
+                true,
+                domainCompactionThreshold,
+                DEFAULT_TRANSACTION_LOG_MAX_CACHED_SIZE,
+                Optional.empty());
+
+        try (ExecutorService metadataExecutor = newDirectExecutorService();
+                RecordingExecutor serialCheckpointExecutor = new RecordingExecutor(4, "test-checkpoint-serial-submissions-%s");
+                RecordingExecutor fileParallelCheckpointExecutor = new RecordingExecutor(4, "test-checkpoint-file-parallel-submissions-%s");
+                RecordingExecutor intraFileCheckpointExecutor = new RecordingExecutor(4, "test-checkpoint-intra-file-submissions-%s")) {
+            TestingConnectorContext context = new TestingConnectorContext();
+            TypeManager typeManager = context.getTypeManager();
+            TransactionLogAccess transactionLogAccess = new TransactionLogAccess(
+                    typeManager,
+                    new CheckpointSchemaManager(typeManager),
+                    new DeltaLakeConfig(),
+                    new FileFormatDataSourceStats(),
+                    tracingFileSystemFactory,
+                    new ParquetReaderConfig(),
+                    metadataExecutor,
+                    new FileSystemTransactionLogReaderFactory(tracingFileSystemFactory));
+
+            MetadataEntry metadataEntry = transactionLogAccess.getMetadataEntry(SESSION, fileSystem, tableSnapshot);
+            ProtocolEntry protocolEntry = transactionLogAccess.getProtocolEntry(SESSION, fileSystem, tableSnapshot);
+            tableSnapshot.setCachedMetadata(Optional.of(metadataEntry));
+            tableSnapshot.setCachedProtocol(Optional.of(protocolEntry));
+
+            List<DeltaLakeTransactionLogEntry> serialEntries = readCheckpointEntries(
+                    tableSnapshot,
+                    fileSystem,
+                    metadataEntry,
+                    protocolEntry,
+                    serialCheckpointExecutor,
+                    false,
+                    false,
+                    false,
+                    1_024);
+            List<DeltaLakeTransactionLogEntry> fileParallelEntries = readCheckpointEntries(
+                    tableSnapshot,
+                    fileSystem,
+                    metadataEntry,
+                    protocolEntry,
+                    fileParallelCheckpointExecutor,
+                    true,
+                    false,
+                    false,
+                    1_024);
+            List<DeltaLakeTransactionLogEntry> intraFileEntries = readCheckpointEntries(
+                    tableSnapshot,
+                    fileSystem,
+                    metadataEntry,
+                    protocolEntry,
+                    intraFileCheckpointExecutor,
+                    true,
+                    false,
+                    true,
+                    1_024);
+
+            assertThat(serialEntries).containsExactlyInAnyOrderElementsOf(fileParallelEntries);
+            assertThat(intraFileEntries).containsExactlyInAnyOrderElementsOf(serialEntries);
+
+            assertThat(serialCheckpointExecutor.getSubmittedTaskCount()).isZero();
+            assertThat(fileParallelCheckpointExecutor.getSubmittedTaskCount()).isGreaterThan(1);
+            assertThat(intraFileCheckpointExecutor.getSubmittedTaskCount()).isGreaterThan(fileParallelCheckpointExecutor.getSubmittedTaskCount());
+        }
+    }
+
+    /**
+     * @see databricks73.person
+     * @see deltalake.multipart_checkpoint
+     * @see deltalake.v2_checkpoint_json
+     * @see deltalake.v2_checkpoint_parquet
+     * @see deltalake.multipart_v2_checkpoint
+     */
+    @Test
+    public void readsCheckpointFilesAcrossCheckpointProcessingModes()
+            throws Exception
+    {
+        List<CheckpointFixture> fixtures = ImmutableList.of(
+                new CheckpointFixture("person", "databricks73/person"),
+                new CheckpointFixture("multipart_checkpoint", "deltalake/multipart_checkpoint"),
+                new CheckpointFixture("v2_checkpoint_json", "deltalake/v2_checkpoint_json"),
+                new CheckpointFixture("v2_checkpoint_parquet", "deltalake/v2_checkpoint_parquet"),
+                new CheckpointFixture("multipart_v2_checkpoint", "deltalake/multipart_v2_checkpoint"));
+
+        try (ExecutorService metadataExecutor = newDirectExecutorService();
+                ExecutorService serialCheckpointExecutor = newDirectExecutorService();
+                ExecutorService parallelCheckpointExecutor = newFixedThreadPool(4, daemonThreadsNamed("test-checkpoint-processing-%s"))) {
+            TestingConnectorContext context = new TestingConnectorContext();
+            TypeManager typeManager = context.getTypeManager();
+            TransactionLogAccess transactionLogAccess = new TransactionLogAccess(
+                    typeManager,
+                    new CheckpointSchemaManager(typeManager),
+                    new DeltaLakeConfig(),
+                    new FileFormatDataSourceStats(),
+                    tracingFileSystemFactory,
+                    new ParquetReaderConfig(),
+                    metadataExecutor,
+                    new FileSystemTransactionLogReaderFactory(tracingFileSystemFactory));
+
+            for (CheckpointFixture fixture : fixtures) {
+                assertCheckpointEntriesEquivalentAcrossCheckpointProcessingModes(
+                        fixture,
+                        transactionLogAccess,
+                        serialCheckpointExecutor,
+                        parallelCheckpointExecutor);
+            }
+        }
+    }
+
+    private void assertCheckpointEntriesEquivalentAcrossCheckpointProcessingModes(
+            CheckpointFixture fixture,
+            TransactionLogAccess transactionLogAccess,
+            ExecutorService serialCheckpointExecutor,
+            ExecutorService parallelCheckpointExecutor)
+            throws Exception
+    {
+        String tableLocation = getClass().getClassLoader().getResource(fixture.resourcePath()).toURI().toString();
+        VendedCredentialsHandle fixtureCredentialsHandle = VendedCredentialsHandle.empty(tableLocation);
+        TrinoFileSystem fileSystem = tracingFileSystemFactory.create(SESSION, fixtureCredentialsHandle);
+        Optional<LastCheckpoint> lastCheckpoint = readLastCheckpoint(fileSystem, tableLocation);
+        TableSnapshot tableSnapshot = load(
+                SESSION,
+                new FileSystemTransactionLogReader(tableLocation, fixtureCredentialsHandle, tracingFileSystemFactory),
+                new SchemaTableName("schema", fixture.tableName()),
+                lastCheckpoint,
+                tableLocation,
+                parquetReaderOptions,
+                true,
+                domainCompactionThreshold,
+                DEFAULT_TRANSACTION_LOG_MAX_CACHED_SIZE,
+                Optional.empty());
+
+        MetadataEntry metadataEntry = transactionLogAccess.getMetadataEntry(SESSION, fileSystem, tableSnapshot);
+        ProtocolEntry protocolEntry = transactionLogAccess.getProtocolEntry(SESSION, fileSystem, tableSnapshot);
+        tableSnapshot.setCachedMetadata(Optional.of(metadataEntry));
+        tableSnapshot.setCachedProtocol(Optional.of(protocolEntry));
+
+        List<DeltaLakeTransactionLogEntry> serialEntries = readCheckpointEntries(
+                tableSnapshot,
+                fileSystem,
+                metadataEntry,
+                protocolEntry,
+                serialCheckpointExecutor,
+                false,
+                false,
+                false,
+                1_024);
+        List<DeltaLakeTransactionLogEntry> parallelEntries = readCheckpointEntries(
+                tableSnapshot,
+                fileSystem,
+                metadataEntry,
+                protocolEntry,
+                parallelCheckpointExecutor,
+                true,
+                true,
+                false,
+                1_024);
+        List<DeltaLakeTransactionLogEntry> parallelEntriesWithIntraFileProcessing = readCheckpointEntries(
+                tableSnapshot,
+                fileSystem,
+                metadataEntry,
+                protocolEntry,
+                parallelCheckpointExecutor,
+                true,
+                true,
+                true,
+                1_024);
+
+        assertThat(serialEntries).isNotEmpty();
+        assertThat(parallelEntries).containsExactlyInAnyOrderElementsOf(serialEntries);
+        assertThat(parallelEntriesWithIntraFileProcessing).containsExactlyInAnyOrderElementsOf(serialEntries);
+    }
+
     private void assertFileSystemAccesses(TestingTelemetry.CheckedRunnable<?> callback, Multiset<FileOperation> expectedAccesses)
             throws Exception
     {
         assertMultisetsEqual(getOperations(testingTelemetry.captureSpans(callback::run)), expectedAccesses);
+    }
+
+    private List<DeltaLakeTransactionLogEntry> readCheckpointEntries(
+            TableSnapshot tableSnapshot,
+            TrinoFileSystem fileSystem,
+            MetadataEntry metadataEntry,
+            ProtocolEntry protocolEntry,
+            Executor checkpointProcessingExecutor,
+            boolean checkpointV1ParallelProcessingEnabled,
+            boolean checkpointV2ParallelProcessingEnabled,
+            boolean checkpointIntraFileParallelProcessingEnabled,
+            long checkpointIntraFileParallelProcessingSplitSize)
+            throws IOException
+    {
+        try (Stream<DeltaLakeTransactionLogEntry> stream = tableSnapshot.getCheckpointTransactionLogEntries(
+                SESSION,
+                ImmutableSet.of(ADD, PROTOCOL),
+                checkpointSchemaManager,
+                TESTING_TYPE_MANAGER,
+                fileSystem,
+                new FileFormatDataSourceStats(),
+                Optional.of(new MetadataAndProtocolEntry(metadataEntry, protocolEntry)),
+                TupleDomain.all(),
+                Optional.of(alwaysTrue()),
+                checkpointProcessingExecutor,
+                checkpointV1ParallelProcessingEnabled,
+                checkpointV2ParallelProcessingEnabled,
+                checkpointIntraFileParallelProcessingEnabled,
+                checkpointIntraFileParallelProcessingSplitSize)) {
+            return stream.collect(toImmutableList());
+        }
     }
 
     private Multiset<FileOperation> getOperations(List<SpanData> spans)
@@ -308,4 +543,36 @@ public class TestTableSnapshot
             requireNonNull(operationType, "operationType is null");
         }
     }
+
+    private static final class RecordingExecutor
+            implements Executor, AutoCloseable
+    {
+        private final AtomicInteger submittedTaskCount = new AtomicInteger();
+        private final ExecutorService delegate;
+
+        private RecordingExecutor(int threads, String threadNameFormat)
+        {
+            delegate = newFixedThreadPool(threads, daemonThreadsNamed(threadNameFormat));
+        }
+
+        @Override
+        public void execute(Runnable command)
+        {
+            submittedTaskCount.incrementAndGet();
+            delegate.execute(command);
+        }
+
+        public int getSubmittedTaskCount()
+        {
+            return submittedTaskCount.get();
+        }
+
+        @Override
+        public void close()
+        {
+            delegate.shutdownNow();
+        }
+    }
+
+    private record CheckpointFixture(String tableName, String resourcePath) {}
 }

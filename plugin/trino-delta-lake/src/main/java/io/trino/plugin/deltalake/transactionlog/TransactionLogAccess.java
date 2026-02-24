@@ -75,6 +75,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Predicate;
@@ -118,6 +119,10 @@ public class TransactionLogAccess
     private final int domainCompactionThreshold;
     private final DataSize transactionLogMaxCachedFileSize;
     private final int checkpointProcessingParallelism;
+    private final boolean checkpointV1ParallelProcessingEnabled;
+    private final boolean checkpointV2ParallelProcessingEnabled;
+    private final boolean checkpointIntraFileParallelProcessingEnabled;
+    private final long checkpointIntraFileParallelProcessingSplitSize;
     private final TransactionLogReaderFactory transactionLogReaderFactory;
 
     private final Cache<TableLocation, TableSnapshot> tableSnapshots;
@@ -143,6 +148,10 @@ public class TransactionLogAccess
         this.domainCompactionThreshold = deltaLakeConfig.getDomainCompactionThreshold();
         this.transactionLogMaxCachedFileSize = deltaLakeConfig.getTransactionLogMaxCachedFileSize();
         this.checkpointProcessingParallelism = deltaLakeConfig.getCheckpointProcessingParallelism();
+        this.checkpointV1ParallelProcessingEnabled = deltaLakeConfig.isCheckpointV1ParallelProcessingEnabled();
+        this.checkpointV2ParallelProcessingEnabled = deltaLakeConfig.isCheckpointV2ParallelProcessingEnabled();
+        this.checkpointIntraFileParallelProcessingEnabled = deltaLakeConfig.isCheckpointIntraFileParallelProcessingEnabled();
+        this.checkpointIntraFileParallelProcessingSplitSize = deltaLakeConfig.getCheckpointIntraFileParallelProcessingSplitSize().toBytes();
         this.transactionLogReaderFactory = requireNonNull(transactionLogReaderFactory, "transactionLogReaderFactory is null");
 
         tableSnapshots = EvictableCacheBuilder.newBuilder()
@@ -407,21 +416,34 @@ public class TransactionLogAccess
     {
         List<Transaction> transactions = tableSnapshot.getTransactions();
         TrinoFileSystem fileSystem = fileSystemFactory.create(session, credentialsHandle);
-        try (Stream<DeltaLakeTransactionLogEntry> checkpointEntries = tableSnapshot.getCheckpointTransactionLogEntries(
-                session,
-                ImmutableSet.of(ADD),
-                checkpointSchemaManager,
-                typeManager,
-                fileSystem,
-                fileFormatDataSourceStats,
-                Optional.of(new MetadataAndProtocolEntry(metadataEntry, protocolEntry)),
-                partitionConstraint,
-                Optional.of(addStatsMinMaxColumnFilter),
-                new BoundedExecutor(executorService, checkpointProcessingParallelism))) {
-            return activeAddEntries(checkpointEntries, transactions, fileSystem)
-                    .filter(partitionConstraint.isAll()
-                            ? addAction -> true
-                            : addAction -> partitionMatchesPredicate(addAction.getCanonicalPartitionValues(), partitionConstraint.getDomains().orElseThrow()));
+        Executor checkpointProcessingExecutor = new BoundedExecutor(executorService, checkpointProcessingParallelism);
+        try {
+            Stream<DeltaLakeTransactionLogEntry> checkpointEntries = tableSnapshot.getCheckpointTransactionLogEntries(
+                    session,
+                    ImmutableSet.of(ADD),
+                    checkpointSchemaManager,
+                    typeManager,
+                    fileSystem,
+                    fileFormatDataSourceStats,
+                    Optional.of(new MetadataAndProtocolEntry(metadataEntry, protocolEntry)),
+                    partitionConstraint,
+                    Optional.of(addStatsMinMaxColumnFilter),
+                    checkpointProcessingExecutor,
+                    checkpointV1ParallelProcessingEnabled,
+                    checkpointV2ParallelProcessingEnabled,
+                    checkpointIntraFileParallelProcessingEnabled,
+                    checkpointIntraFileParallelProcessingSplitSize);
+
+            try {
+                return activeAddEntries(checkpointEntries, transactions, fileSystem)
+                        .filter(partitionConstraint.isAll()
+                                ? addAction -> true
+                                : addAction -> partitionMatchesPredicate(addAction.getCanonicalPartitionValues(), partitionConstraint.getDomains().orElseThrow()));
+            }
+            catch (Throwable e) {
+                checkpointEntries.close();
+                throw e;
+            }
         }
         catch (IOException e) {
             throw new TrinoException(DELTA_LAKE_INVALID_SCHEMA, "Error reading transaction log for " + tableSnapshot.getTable(), e);
@@ -589,8 +611,22 @@ public class TransactionLogAccess
     {
         try {
             // Passing TupleDomain.all() because this method is used for getting all entries
+            Executor checkpointProcessingExecutor = new BoundedExecutor(executorService, checkpointProcessingParallelism);
             try (Stream<DeltaLakeTransactionLogEntry> checkpointEntries = tableSnapshot.getCheckpointTransactionLogEntries(
-                    session, entryTypes, checkpointSchemaManager, typeManager, fileSystem, stats, Optional.empty(), TupleDomain.all(), Optional.of(alwaysTrue()), new BoundedExecutor(executorService, checkpointProcessingParallelism))) {
+                    session,
+                    entryTypes,
+                    checkpointSchemaManager,
+                    typeManager,
+                    fileSystem,
+                    stats,
+                    Optional.empty(),
+                    TupleDomain.all(),
+                    Optional.of(alwaysTrue()),
+                    checkpointProcessingExecutor,
+                    checkpointV1ParallelProcessingEnabled,
+                    checkpointV2ParallelProcessingEnabled,
+                    checkpointIntraFileParallelProcessingEnabled,
+                    checkpointIntraFileParallelProcessingSplitSize)) {
                 return checkpointMapper.apply(checkpointEntries);
             }
         }
