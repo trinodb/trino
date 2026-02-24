@@ -14,6 +14,7 @@
 package io.trino.plugin.hive;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.io.Resources;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
@@ -25,19 +26,24 @@ import io.trino.testing.MaterializedRow;
 import io.trino.testing.QueryRunner;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
+import org.locationtech.jts.geom.Geometry;
+import org.locationtech.jts.io.ParseException;
+import org.locationtech.jts.io.WKBReader;
+import org.locationtech.jts.io.WKTWriter;
 
 import java.io.IOException;
 import java.io.OutputStream;
 import java.net.URL;
-import java.util.Arrays;
-import java.util.HexFormat;
+import java.nio.charset.StandardCharsets;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.hive.TestingHiveUtils.getConnectorService;
-import static io.trino.testing.QueryAssertions.assertEqualsIgnoreOrder;
-import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestEsriTable
         extends AbstractTestQueryFramework
@@ -53,7 +59,7 @@ public class TestEsriTable
 
     @Test
     public void testCreateExternalTableWithData()
-            throws IOException
+            throws IOException, ParseException
     {
         URL resourceLocation = Resources.getResource("esri/counties.json");
         TrinoFileSystem fileSystem = getConnectorService(getQueryRunner(), TrinoFileSystemFactory.class).create(ConnectorIdentity.ofUser("test"));
@@ -67,8 +73,6 @@ public class TestEsriTable
             Resources.copy(resourceLocation, out);
         }
 
-        List<MaterializedRow> expected = readExpectedResults("esri/counties_expected.txt");
-
         // ESRI format is read-only, so create data files using the text file format
         @Language("SQL") String createCountiesTableSql =
                 """
@@ -81,8 +85,36 @@ public class TestEsriTable
         assertUpdate(createCountiesTableSql);
 
         MaterializedResult result = computeActual("SELECT * FROM counties");
+        List<MaterializedRow> rows = result.getMaterializedRows();
 
-        assertEqualsIgnoreOrder(result.getMaterializedRows(), expected);
+        // Verify we got the expected counties
+        assertThat(rows).hasSize(3);
+
+        // Verify we have all expected county names
+        Set<String> countyNames = rows.stream()
+                .map(row -> (String) row.getField(0))
+                .collect(Collectors.toSet());
+        assertThat(countyNames).isEqualTo(ImmutableSet.of("San Francisco", "Madera", "San Mateo"));
+
+        // Load expected WKT values
+        Map<String, String> expectedWkt = loadExpectedWkt("esri/counties_expected.txt");
+
+        // Verify each county has a valid geometry by converting WKB to WKT and comparing
+        WKBReader wkbReader = new WKBReader();
+        WKTWriter wktWriter = new WKTWriter();
+        for (MaterializedRow row : rows) {
+            String name = (String) row.getField(0);
+            byte[] bytes = (byte[]) row.getField(1);
+
+            // Parse WKB and convert to WKT
+            Geometry geometry = wkbReader.read(bytes);
+            String actualWkt = wktWriter.write(geometry);
+
+            // Verify WKT matches expected value
+            assertThat(actualWkt)
+                    .describedAs("WKT for county: %s", name)
+                    .isEqualTo(expectedWkt.get(name));
+        }
 
         assertQueryFails(
                 "INSERT INTO counties VALUES ('esri fails writes', X'0102030405')",
@@ -92,29 +124,17 @@ public class TestEsriTable
         assertUpdate("DROP TABLE counties");
     }
 
-    private static List<MaterializedRow> readExpectedResults(String resourcePath)
+    private static Map<String, String> loadExpectedWkt(String resourceName)
             throws IOException
     {
-        URL resourceUrl = Resources.getResource(resourcePath);
-        List<String> lines = Resources.readLines(resourceUrl, UTF_8);
-
-        return lines.stream()
-                .map(line -> {
-                    String[] parts = line.split("\t");  // Assuming tab-separated values
-                    return new MaterializedRow(Arrays.asList(
-                            parts[0],  // name
-                            hexToBytes(parts[1])  // hex string for boundaryshape
-                    ));
-                })
-                .collect(toImmutableList());
-    }
-
-    private static byte[] hexToBytes(String hex)
-    {
-        // Remove 'X' prefix, spaces, and single quotes if present
-        hex = hex.replaceAll("^X'|'$", "")  // Remove X' and trailing '
-                .replaceAll("\\s+", "");      // Remove all whitespace
-
-        return HexFormat.of().parseHex(hex);
+        Map<String, String> expected = new HashMap<>();
+        String content = Resources.toString(Resources.getResource(resourceName), StandardCharsets.UTF_8);
+        for (String line : content.split("\n")) {
+            String[] parts = line.split("\t", 2);
+            if (parts.length == 2) {
+                expected.put(parts[0], parts[1]);
+            }
+        }
+        return expected;
     }
 }

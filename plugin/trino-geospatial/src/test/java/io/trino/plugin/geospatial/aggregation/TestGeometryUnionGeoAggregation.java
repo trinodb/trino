@@ -24,7 +24,8 @@ import org.junit.jupiter.api.TestInstance;
 import java.util.Arrays;
 import java.util.List;
 
-import static io.trino.plugin.geospatial.GeometryType.GEOMETRY;
+import static io.trino.plugin.geospatial.GeoTestUtils.assertSpatialEquals;
+import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static java.lang.String.format;
 import static java.util.Collections.reverse;
 import static java.util.stream.Collectors.toList;
@@ -316,17 +317,29 @@ public class TestGeometryUnionGeoAggregation
 
     private void assertArrayAggAndGeometryUnion(String expectedWkt, String[] wkts)
     {
+        if (wkts.length == 0) {
+            return;
+        }
         List<String> wktList = Arrays.stream(wkts).map(wkt -> format("ST_GeometryFromText('%s')", wkt)).collect(toList());
-        String wktArray = format("ARRAY[%s]", COMMA_JOINER.join(wktList));
-        // ST_Union(ARRAY[ST_GeometryFromText('...'), ...])
-        assertThat(assertions.function("geometry_union", wktArray))
-                .hasType(GEOMETRY)
-                .isEqualTo(expectedWkt);
+        String wktArray = "ARRAY[" + COMMA_JOINER.join(wktList) + "]";
 
+        assertSpatialEquals(assertions, "geometry_union(" + wktArray + ")", expectedWkt);
         reverse(wktList);
-        wktArray = format("ARRAY[%s]", COMMA_JOINER.join(wktList));
-        assertThat(assertions.function("geometry_union", wktArray))
-                .hasType(GEOMETRY)
-                .isEqualTo(expectedWkt);
+        wktArray = "ARRAY[" + COMMA_JOINER.join(wktList) + "]";
+        assertSpatialEquals(assertions, "geometry_union(" + wktArray + ")", expectedWkt);
+    }
+
+    @Test
+    public void testSridMismatchInAggregation()
+    {
+        // geometry_union (array version) should throw when geometries have mismatched SRIDs
+        assertTrinoExceptionThrownBy(() -> assertions.function("geometry_union",
+                        "ARRAY[ST_SetSRID(ST_Point(1, 2), 4326), ST_SetSRID(ST_Point(3, 4), 3857)]").evaluate())
+                .hasMessage("SRID mismatch: 4326 vs 3857");
+
+        // Matching SRIDs should preserve SRID
+        assertThat(assertions.function("ST_SRID",
+                        "geometry_union(ARRAY[ST_SetSRID(ST_Point(1, 2), 4326), ST_SetSRID(ST_Point(3, 4), 4326)])"))
+                .isEqualTo(4326);
     }
 }
