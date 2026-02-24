@@ -15,7 +15,7 @@ package io.trino.util;
 
 import com.google.common.base.StandardSystemProperty;
 import com.google.common.collect.ImmutableSet;
-import oshi.SystemInfo;
+import oshi.SystemInfoFFM;
 import oshi.hardware.CentralProcessor;
 import oshi.hardware.CentralProcessor.ProcessorIdentifier;
 
@@ -32,7 +32,7 @@ public final class MachineInfo
 {
     // cache physical processor count, so that it's not queried multiple times during tests
     private static volatile int physicalProcessorCount = -1;
-    private static final SystemInfo SYSTEM_INFO = new SystemInfo();
+    private static final SystemInfoFFM SYSTEM_INFO = new SystemInfoFFM();
 
     private MachineInfo() {}
 

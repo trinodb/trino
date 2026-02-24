@@ -437,7 +437,7 @@
 
             <dependency>
                 <groupId>com.github.oshi</groupId>
-                <artifactId>oshi-core</artifactId>
+                <artifactId>oshi-core-java25</artifactId>
                 <version>6.9.3</version>
             </dependency>
 
@@ -1660,7 +1660,19 @@
 
             <dependency>
                 <groupId>net.java.dev.jna</groupId>
+                <artifactId>jna-jpms</artifactId>
+                <version>${dep.jna.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>net.java.dev.jna</groupId>
                 <artifactId>jna-platform</artifactId>
+                <version>${dep.jna.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>net.java.dev.jna</groupId>
+                <artifactId>jna-platform-jpms</artifactId>
                 <version>${dep.jna.version}</version>
             </dependency>
 
@@ -2613,6 +2625,26 @@
                                 <resources>
                                     <resource>org/publicsuffix/list/effective_tld_names.dat</resource>
                                 </resources>
+                            </exception>
+                            <exception>
+                                <conflictingDependencies>
+                                    <dependency>
+                                        <groupId>net.java.dev.jna</groupId>
+                                        <artifactId>jna</artifactId>
+                                    </dependency>
+                                    <dependency>
+                                        <groupId>net.java.dev.jna</groupId>
+                                        <artifactId>jna-jpms</artifactId>
+                                    </dependency>
+                                    <dependency>
+                                        <groupId>net.java.dev.jna</groupId>
+                                        <artifactId>jna-platform</artifactId>
+                                    </dependency>
+                                    <dependency>
+                                        <groupId>net.java.dev.jna</groupId>
+                                        <artifactId>jna-platform-jpms</artifactId>
+                                    </dependency>
+                                </conflictingDependencies>
                             </exception>
                             <exception>
                                 <conflictingDependencies>
