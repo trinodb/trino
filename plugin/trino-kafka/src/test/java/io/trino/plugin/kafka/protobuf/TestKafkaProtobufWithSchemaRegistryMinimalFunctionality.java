@@ -386,9 +386,7 @@ public class TestKafkaProtobufWithSchemaRegistryMinimalFunctionality
                 .build();
         assertCount(topicName, allMessages.size());
         String expectedValues = getExpectedValues(allMessages, getEvolvedSchema(), isKeyIncluded);
-        // TODO this is taking more than 1 minute to have the latest schema and assert the evolved query results,
-        //  investigate and optimize if possible (https://github.com/trinodb/trino/issues/28438)
-        assertQueryEventually(getSession(), evolvedQuery, expectedValues, io.airlift.units.Duration.valueOf("2m"));
+        assertQueryEventually(getSession(), evolvedQuery, expectedValues, io.airlift.units.Duration.valueOf("5s"));
     }
 
     private static String getExpectedValues(List<ProducerRecord<DynamicMessage, DynamicMessage>> messages, Descriptor descriptor, boolean isKeyIncluded)

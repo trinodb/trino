@@ -288,9 +288,7 @@ public class TestKafkaWithConfluentSchemaRegistryMinimalFunctionality
         assertCount(topicName, allMessages.size());
 
         String expectedValues = getExpectedValues(messages, EVOLVED_SCHEMA, isKeyIncluded);
-        // TODO this is taking more than 1 minute to have the latest schema and assert the evolved query results,
-        //  investigate and optimize if possible (https://github.com/trinodb/trino/issues/28438)
-        assertEventually(io.airlift.units.Duration.valueOf("2m"), () -> assertThat(query(evolvedQuery)).containsAll(expectedValues));
+        assertEventually(io.airlift.units.Duration.valueOf("5s"), () -> assertThat(query(evolvedQuery)).containsAll(expectedValues));
     }
 
     private static String getExpectedValues(List<ProducerRecord<Long, GenericRecord>> messages, Schema schema, boolean isKeyIncluded)
