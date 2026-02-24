@@ -85,5 +85,11 @@ public class PageSourceManager
                     columns,
                     dynamicFilter);
         }
+
+        @Override
+        public long getMemoryUsage()
+        {
+            return pageSourceProvider.getMemoryUsage();
+        }
     }
 }

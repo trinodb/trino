@@ -212,7 +212,7 @@ public class TableScanOperator
             catch (IOException e) {
                 throw new UncheckedIOException(e);
             }
-            memoryContext.setBytes(source.getMemoryUsage());
+            memoryContext.setBytes(source.getMemoryUsage() + pageSourceProvider.getMemoryUsage());
             operatorContext.setLatestConnectorMetrics(source.getMetrics());
         }
     }
@@ -223,7 +223,7 @@ public class TableScanOperator
         if (!finished) {
             finished = (source != null) && source.isFinished();
             if (source != null) {
-                memoryContext.setBytes(source.getMemoryUsage());
+                memoryContext.setBytes(source.getMemoryUsage() + pageSourceProvider.getMemoryUsage());
             }
         }
 
@@ -295,7 +295,7 @@ public class TableScanOperator
         readTimeNanos = endReadTimeNanos;
 
         // updating memory usage should happen after page is loaded.
-        memoryContext.setBytes(source.getMemoryUsage());
+        memoryContext.setBytes(source.getMemoryUsage() + pageSourceProvider.getMemoryUsage());
         operatorContext.setLatestConnectorMetrics(source.getMetrics());
         return page;
     }

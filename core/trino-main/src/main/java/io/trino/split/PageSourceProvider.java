@@ -30,4 +30,9 @@ public interface PageSourceProvider
             TableHandle table,
             List<ColumnHandle> columns,
             DynamicFilter dynamicFilter);
+
+    default long getMemoryUsage()
+    {
+        return 0;
+    }
 }
