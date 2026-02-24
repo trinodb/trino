@@ -76,6 +76,7 @@ import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.NumberType.NUMBER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TimeType.createTimeType;
@@ -518,20 +519,11 @@ public class TestPostgreSqlTypeMapping
     }
 
     @Test
-    public void testDecimalExceedingPrecisionMaxIgnored()
+    public void testDecimalExceedingPrecisionMax()
     {
-        testUnsupportedDataTypeAsIgnored("decimal(50,0)", "12345678901234567890123456789012345678901234567890");
-    }
-
-    @Test
-    public void testDecimalExceedingPrecisionMaxConvertedToVarchar()
-    {
-        testUnsupportedDataTypeConvertedToVarchar(
-                getSession(),
-                "decimal(50,0)",
-                "numeric",
-                "12345678901234567890123456789012345678901234567890",
-                "'12345678901234567890123456789012345678901234567890'");
+        SqlDataTypeTest.create()
+                .addRoundTrip("decimal(50,0)", "12345678901234567890123456789012345678901234567890", NUMBER, "NUMBER '12345678901234567890123456789012345678901234567890'")
+                .execute(getQueryRunner(), postgresCreateAndInsert("test_decimal_exceeding_precision_max"));
     }
 
     @Test
