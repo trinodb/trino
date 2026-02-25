@@ -2275,6 +2275,12 @@
                 <groupId>org.mariadb.jdbc</groupId>
                 <artifactId>mariadb-java-client</artifactId>
                 <version>3.3.4</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>com.github.waffle</groupId>
+                        <artifactId>waffle-jna</artifactId>
+                    </exclusion>
+                </exclusions>
             </dependency>
 
             <dependency>
