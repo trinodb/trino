@@ -36,7 +36,7 @@ public class TimeParametricType
             throw new IllegalArgumentException("Expected exactly one parameter for TIME");
         }
 
-        TypeParameter parameter = parameters.get(0);
+        TypeParameter parameter = parameters.getFirst();
 
         if (!(parameter instanceof TypeParameter.Numeric(long precision))) {
             throw new IllegalArgumentException("TIME precision must be a number");
