@@ -39,8 +39,8 @@ public final class MapParametricType
     public Type createType(TypeManager typeManager, List<TypeParameter> parameters)
     {
         checkArgument(parameters.size() == 2, "Expected two parameters, got %s", parameters);
-        TypeParameter firstParameter = parameters.get(0);
-        TypeParameter secondParameter = parameters.get(1);
+        TypeParameter firstParameter = parameters.getFirst();
+        TypeParameter secondParameter = parameters.getLast();
 
         if (!(firstParameter instanceof TypeParameter.Type firstType)) {
             throw new IllegalArgumentException("Expected key to be type, got %s".formatted(firstParameter));

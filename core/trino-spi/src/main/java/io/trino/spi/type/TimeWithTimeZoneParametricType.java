@@ -36,7 +36,7 @@ public class TimeWithTimeZoneParametricType
             throw new IllegalArgumentException("Expected exactly one parameter for TIME WITH TIME ZONE");
         }
 
-        TypeParameter parameter = parameters.get(0);
+        TypeParameter parameter = parameters.getFirst();
 
         if (!(parameter instanceof TypeParameter.Numeric(long precision))) {
             throw new IllegalArgumentException("TIME WITH TIME ZONE precision must be a number");

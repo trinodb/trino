@@ -46,7 +46,7 @@ public class VarcharParametricType
             throw new IllegalArgumentException("Expected exactly one parameter for VARCHAR");
         }
 
-        TypeParameter parameter = parameters.get(0);
+        TypeParameter parameter = parameters.getFirst();
 
         if (!(parameter instanceof TypeParameter.Numeric(long value))) {
             throw new IllegalArgumentException("VARCHAR length must be a number");

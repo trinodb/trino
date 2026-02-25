@@ -43,7 +43,7 @@ public final class ArrayParametricType
     {
         checkArgument(parameters.size() == 1, "Array type expects exactly one type as a parameter, got %s", parameters);
 
-        if (parameters.get(0) instanceof TypeParameter.Type(_, TypeSignature type)) {
+        if (parameters.getFirst() instanceof TypeParameter.Type(_, TypeSignature type)) {
             return new ArrayType(typeManager.getType(type));
         }
         throw new IllegalArgumentException("Array expects type as a parameter, got " + parameters);
