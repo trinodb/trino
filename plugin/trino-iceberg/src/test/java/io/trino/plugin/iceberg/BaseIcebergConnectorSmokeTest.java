@@ -955,6 +955,81 @@ public abstract class BaseIcebergConnectorSmokeTest
         return () -> {};
     }
 
+    @Test
+    public void testBranchOperations()
+    {
+        if (!hasBehavior(SUPPORTS_CREATE_TABLE)) {
+            return;
+        }
+        String tableName = "test_branch_operations_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " (id INTEGER, name VARCHAR)");
+        assertUpdate("INSERT INTO " + tableName + " VALUES (1, 'a')", 1);
+
+        // Initially only "main" branch exists
+        assertThat(query("SHOW BRANCHES IN TABLE " + tableName))
+                .skippingTypesCheck()
+                .matches("VALUES VARCHAR 'main'");
+
+        // Create a branch
+        assertUpdate("CREATE BRANCH test_branch IN TABLE " + tableName);
+
+        assertThat(query("SHOW BRANCHES IN TABLE " + tableName))
+                .skippingTypesCheck()
+                .matches("VALUES VARCHAR 'main', VARCHAR 'test_branch'");
+
+        // Insert data on the branch
+        assertUpdate("INSERT INTO " + tableName + "@test_branch VALUES (2, 'b')", 1);
+
+        // Main should only have original data
+        assertQuery("SELECT * FROM " + tableName, "VALUES (1, 'a')");
+
+        // Branch should have both rows
+        assertQuery(
+                "SELECT * FROM " + tableName + " FOR VERSION AS OF 'test_branch'",
+                "VALUES (1, 'a'), (2, 'b')");
+
+        // Drop the branch
+        assertUpdate("DROP BRANCH test_branch IN TABLE " + tableName);
+
+        assertThat(query("SHOW BRANCHES IN TABLE " + tableName))
+                .skippingTypesCheck()
+                .matches("VALUES VARCHAR 'main'");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testFastForwardBranch()
+    {
+        if (!hasBehavior(SUPPORTS_CREATE_TABLE)) {
+            return;
+        }
+        String tableName = "test_fast_forward_branch_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " (id INTEGER)");
+        assertUpdate("INSERT INTO " + tableName + " VALUES 1", 1);
+
+        // Create branch at current state
+        assertUpdate("CREATE BRANCH test_branch IN TABLE " + tableName);
+
+        // Insert more data on main (main moves ahead)
+        assertUpdate("INSERT INTO " + tableName + " VALUES 2", 1);
+
+        // Branch still sees old data
+        assertQuery(
+                "SELECT * FROM " + tableName + " FOR VERSION AS OF 'test_branch'",
+                "VALUES 1");
+
+        // Fast forward branch to main
+        assertUpdate("ALTER BRANCH test_branch IN TABLE " + tableName + " FAST FORWARD TO main");
+
+        // Now branch should see all data
+        assertQuery(
+                "SELECT * FROM " + tableName + " FOR VERSION AS OF 'test_branch'",
+                "VALUES 1, 2");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
     private long getMostRecentSnapshotId(String tableName)
     {
         return (long) Iterables.getOnlyElement(getQueryRunner().execute(format("SELECT snapshot_id FROM \"%s$snapshots\" ORDER BY committed_at DESC LIMIT 1", tableName))
