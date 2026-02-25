@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableList;
 import io.airlift.log.Logger;
 import io.trino.plugin.elasticsearch.client.ElasticsearchClient;
 import io.trino.plugin.elasticsearch.decoders.Decoder;
+import io.trino.plugin.elasticsearch.expression.TopN;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
@@ -44,6 +45,8 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.elasticsearch.BuiltinColumns.SOURCE;
 import static io.trino.plugin.elasticsearch.BuiltinColumns.isBuiltinColumn;
 import static io.trino.plugin.elasticsearch.ElasticsearchQueryBuilder.buildSearchQuery;
+import static io.trino.plugin.elasticsearch.expression.TopN.NO_LIMIT;
+import static io.trino.plugin.elasticsearch.expression.TopN.TopNSortItem.DEFAULT_SORT_BY_DOC;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Predicate.isEqual;
@@ -100,13 +103,14 @@ public class ScanQueryPageSource
                 .filter(name -> !isBuiltinColumn(name))
                 .collect(toList());
 
-        // sorting by _doc (index order) get special treatment in Elasticsearch and is more efficient
-        Optional<String> sort = Optional.of("_doc");
-
-        if (table.query().isPresent()) {
-            // However, if we're using a custom Elasticsearch query, use default sorting.
-            // Documents will be scored and returned based on relevance
-            sort = Optional.empty();
+        Optional<TopN> topN = table.topN();
+        if (topN.isEmpty()) {
+            if (table.query().isEmpty()) {
+                topN = Optional.of(new TopN(NO_LIMIT, ImmutableList.of(DEFAULT_SORT_BY_DOC)));
+            }
+            else {
+                topN = Optional.of(TopN.fromLimit(NO_LIMIT));
+            }
         }
 
         long start = System.nanoTime();
@@ -114,12 +118,12 @@ public class ScanQueryPageSource
                 split.index(),
                 split.shard(),
                 buildSearchQuery(table.constraint().transformKeys(ElasticsearchColumnHandle.class::cast), table.query(), table.regexes()),
+                Optional.empty(),
                 needAllFields ? Optional.empty() : Optional.of(requiredFields),
                 documentFields,
-                sort,
-                table.limit());
+                topN);
         readTimeNanos += System.nanoTime() - start;
-        this.iterator = new SearchHitIterator(client, () -> searchResponse, table.limit());
+        this.iterator = new SearchHitIterator(client, () -> searchResponse, OptionalLong.of(topN.get().limit()));
     }
 
     @Override
