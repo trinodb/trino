@@ -13,118 +13,210 @@
  */
 package io.trino.util;
 
+import com.google.common.base.CharMatcher;
+import com.google.common.base.Splitter;
 import com.google.common.base.StandardSystemProperty;
+import com.google.common.collect.HashMultiset;
 import com.google.common.collect.ImmutableSet;
-import oshi.SystemInfoFFM;
-import oshi.hardware.CentralProcessor;
-import oshi.hardware.CentralProcessor.ProcessorIdentifier;
+import com.google.common.collect.Iterables;
+import com.google.common.collect.Multiset;
 
-import java.util.Arrays;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
+import java.util.function.Supplier;
 
+import static com.google.common.base.Suppliers.memoize;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.lang.Math.min;
 import static java.util.Locale.ENGLISH;
+import static java.util.function.Predicate.not;
 
 public final class MachineInfo
 {
+    private static final Splitter FLAG_SPLITTER = Splitter.on(CharMatcher.whitespace())
+            .omitEmptyStrings();
+    private static final Splitter KEY_VALUE_SPLITTER = Splitter.on(':')
+            .limit(2)
+            .trimResults();
+
     // cache physical processor count, so that it's not queried multiple times during tests
-    private static volatile int physicalProcessorCount = -1;
-    private static final SystemInfoFFM SYSTEM_INFO = new SystemInfoFFM();
+    private static final Supplier<Integer> PHYSICAL_PROCESSOR_COUNT = memoize(MachineInfo::readAvailablePhysicalProcessorCount);
+    private static final Supplier<Set<String>> CPU_FLAGS = memoize(MachineInfo::readCpuFlagsInternal);
 
     private MachineInfo() {}
 
     public static int getAvailablePhysicalProcessorCount()
     {
-        if (physicalProcessorCount != -1) {
-            return physicalProcessorCount;
-        }
-
-        String osArch = StandardSystemProperty.OS_ARCH.value();
-        // logical core count (including container cpu quota if there is any)
-        int availableProcessorCount = Runtime.getRuntime().availableProcessors();
-        int totalPhysicalProcessorCount;
-        if ("amd64".equals(osArch) || "x86_64".equals(osArch)) {
-            // Oshi can recognize physical processor count (without hyper threading) for x86 platforms.
-            // However, it doesn't correctly recognize physical processor count for ARM platforms.
-            totalPhysicalProcessorCount = SYSTEM_INFO
-                    .getHardware()
-                    .getProcessor()
-                    .getPhysicalProcessorCount();
-        }
-        else {
-            // ARM platforms do not support hyper threading, therefore each logical processor is separate core
-            totalPhysicalProcessorCount = availableProcessorCount;
-        }
-
-        // cap available processor count to container cpu quota (if there is any).
-        physicalProcessorCount = min(totalPhysicalProcessorCount, availableProcessorCount);
-        return physicalProcessorCount;
-    }
-
-    public static ProcessorIdentifier getProcessorInfo()
-    {
-        return SYSTEM_INFO.getHardware().getProcessor().getProcessorIdentifier();
+        return PHYSICAL_PROCESSOR_COUNT.get();
     }
 
     public static Set<String> readCpuFlags()
     {
-        CentralProcessor cpu = SYSTEM_INFO.getHardware().getProcessor();
-        List<String> flags = cpu.getFeatureFlags();
-        if (flags == null || flags.isEmpty()) {
-            return ImmutableSet.of();
-        }
-        // Each element of flags represents the hardware support for an individual core, so we're want to calculate flags
-        // advertised by all cores
-        Set<String> intersection = null;
-
-        for (String line : flags) {
-            if (line == null || line.isBlank()) {
-                continue;
-            }
-
-            // Strip the "flags:" / "Features:" prefix if present.
-            String body = line;
-            int colon = line.indexOf(':');
-            if (colon >= 0) {
-                body = line.substring(colon + 1);
-            }
-
-            // Tokenize + normalize.
-            Set<String> tokens = Arrays.stream(body.trim().split("\\s+"))
-                    .map(token -> normalizeFlag(token))
-                    .filter(token -> !token.isEmpty())
-                    .collect(toImmutableSet());
-
-            if (tokens.isEmpty()) {
-                continue;
-            }
-
-            if (intersection == null) {
-                intersection = new HashSet<>(tokens);
-            }
-            else {
-                intersection.retainAll(tokens);
-                if (intersection.isEmpty()) {
-                    break; // nothing in common
-                }
-            }
-        }
-
-        return intersection == null ? ImmutableSet.of() : intersection;
+        return CPU_FLAGS.get();
     }
 
-    public static String normalizeFlag(String flag)
+    private static int readAvailablePhysicalProcessorCount()
+    {
+        String osArch = StandardSystemProperty.OS_ARCH.value();
+        String osName = StandardSystemProperty.OS_NAME.value();
+        // logical core count (including container cpu quota if there is any)
+        int availableProcessorCount = Runtime.getRuntime().availableProcessors();
+        int totalPhysicalProcessorCount;
+        if ("Linux".equals(osName) && "amd64".equals(osArch)) {
+            totalPhysicalProcessorCount = readLinuxPhysicalProcessorCount()
+                    .orElse(availableProcessorCount);
+        }
+        else {
+            // Fallback to logical processor count when physical core topology is not available.
+            totalPhysicalProcessorCount = availableProcessorCount;
+        }
+
+        // cap available processor count to container cpu quota (if there is any).
+        return min(totalPhysicalProcessorCount, availableProcessorCount);
+    }
+
+    private static Set<String> readCpuFlagsInternal()
+    {
+        return switch (StandardSystemProperty.OS_NAME.value()) {
+            case "Linux" -> readLinuxCpuFlags();
+            case "Mac OS X" -> readMacOsCpuFlags();
+            case null, default -> ImmutableSet.of();
+        };
+    }
+
+    private static Optional<Integer> readLinuxPhysicalProcessorCount()
+    {
+        return readLines(Path.of("/proc/cpuinfo"))
+                .flatMap(MachineInfo::parseLinuxPhysicalProcessorCount);
+    }
+
+    static Optional<Integer> parseLinuxPhysicalProcessorCount(List<String> cpuInfoLines)
+    {
+        Set<String> physicalCores = new HashSet<>();
+        String currentPhysicalId = null;
+        String currentCoreId = null;
+
+        // add a synthetic section separator so the final section is flushed
+        for (String line : withTrailingBlankLine(cpuInfoLines)) {
+            if (line.isBlank()) {
+                if (currentPhysicalId != null && currentCoreId != null) {
+                    physicalCores.add(currentPhysicalId + ":" + currentCoreId);
+                }
+                currentPhysicalId = null;
+                currentCoreId = null;
+                continue;
+            }
+
+            List<String> keyAndValue = KEY_VALUE_SPLITTER.splitToList(line);
+            if (keyAndValue.size() != 2) {
+                continue;
+            }
+
+            String key = keyAndValue.getFirst().toLowerCase(ENGLISH);
+            String value = keyAndValue.getLast();
+            if (key.equals("physical id")) {
+                currentPhysicalId = value;
+            }
+            else if (key.equals("core id")) {
+                currentCoreId = value;
+            }
+        }
+
+        if (physicalCores.isEmpty()) {
+            return Optional.empty();
+        }
+        return Optional.of(physicalCores.size());
+    }
+
+    private static Set<String> readLinuxCpuFlags()
+    {
+        return readLines(Path.of("/proc/cpuinfo"))
+                .map(MachineInfo::parseLinuxCpuFlags)
+                .orElse(ImmutableSet.of());
+    }
+
+    static Set<String> parseLinuxCpuFlags(List<String> cpuInfoLines)
+    {
+        Multiset<String> flagCounts = HashMultiset.create();
+        int sectionCount = 0;
+        Set<String> sectionFlags = new HashSet<>();
+
+        // add a synthetic section separator so the final section is flushed
+        for (String line : withTrailingBlankLine(cpuInfoLines)) {
+            if (line.isBlank()) {
+                if (!sectionFlags.isEmpty()) {
+                    sectionCount++;
+                    flagCounts.addAll(sectionFlags);
+                }
+                sectionFlags.clear();
+                continue;
+            }
+
+            List<String> pair = KEY_VALUE_SPLITTER.splitToList(line);
+            if (pair.size() != 2) {
+                continue;
+            }
+
+            String key = pair.getFirst().toLowerCase(ENGLISH).trim();
+            if (!key.equals("flags") && !key.equals("features")) {
+                continue;
+            }
+            sectionFlags.addAll(parseCpuFlags(pair.getLast()));
+        }
+
+        int requiredCount = sectionCount;
+        return flagCounts.elementSet().stream()
+                .filter(flag -> flagCounts.count(flag) == requiredCount)
+                .collect(toImmutableSet());
+    }
+
+    private static Set<String> readMacOsCpuFlags()
+    {
+        return switch (StandardSystemProperty.OS_ARCH.value()) {
+            case "aarch64" -> ImmutableSet.of("neon");
+            case null, default -> ImmutableSet.of();
+        };
+    }
+
+    private static Optional<List<String>> readLines(Path path)
+    {
+        try {
+            return Optional.of(Files.readAllLines(path));
+        }
+        catch (IOException e) {
+            return Optional.empty();
+        }
+    }
+
+    private static Iterable<String> withTrailingBlankLine(Iterable<String> lines)
+    {
+        return Iterables.concat(lines, List.of(""));
+    }
+
+    private static Set<String> parseCpuFlags(String value)
+    {
+        if (value.isBlank()) {
+            return ImmutableSet.of();
+        }
+
+        return FLAG_SPLITTER.splitToStream(value.trim())
+                .map(MachineInfo::normalizeCpuFlag)
+                .filter(not(String::isEmpty))
+                .collect(toImmutableSet());
+    }
+
+    public static String normalizeCpuFlag(String flag)
     {
         flag = flag.toLowerCase(ENGLISH).replace("_", "").trim();
 
-        // Skip stray keys that may sneak in if the colon wasn’t found.
-        if (flag.equals("flags") || flag.equals("features")) {
-            return "";
-        }
-
-        return flag;
+        return switch (flag) {
+            case "asimd", "advsimd" -> "neon";
+            default -> flag;
+        };
     }
 }
