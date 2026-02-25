@@ -41,12 +41,22 @@ import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.DecimalType;
+import io.trino.spi.type.ParametricType;
+import io.trino.spi.type.TimeParametricType;
 import io.trino.spi.type.TimeType;
+import io.trino.spi.type.TimeWithTimeZoneParametricType;
 import io.trino.spi.type.TimeWithTimeZoneType;
+import io.trino.spi.type.TimestampParametricType;
 import io.trino.spi.type.TimestampType;
+import io.trino.spi.type.TimestampWithTimeZoneParametricType;
 import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
+import io.trino.type.ArrayParametricType;
+import io.trino.type.CharParametricType;
+import io.trino.type.DecimalParametricType;
+import io.trino.type.RowParametricType;
+import io.trino.type.VarcharParametricType;
 
 import java.sql.DatabaseMetaData;
 import java.sql.Types;
@@ -412,6 +422,22 @@ public class ColumnJdbcTable
             return Types.ARRAY;
         }
         return Types.JAVA_OBJECT;
+    }
+
+    static int jdbcDataType(ParametricType type)
+    {
+        return switch (type) {
+            case VarcharParametricType _ -> Types.VARCHAR;
+            case CharParametricType _ -> Types.CHAR;
+            case RowParametricType _ -> Types.STRUCT;
+            case ArrayParametricType _ -> Types.ARRAY;
+            case TimestampWithTimeZoneParametricType _ -> Types.TIMESTAMP_WITH_TIMEZONE;
+            case TimeWithTimeZoneParametricType _ -> Types.TIME_WITH_TIMEZONE;
+            case DecimalParametricType _ -> Types.DECIMAL;
+            case TimeParametricType _ -> Types.TIME;
+            case TimestampParametricType _ -> Types.TIMESTAMP;
+            default -> Types.JAVA_OBJECT;
+        };
     }
 
     static Integer columnSize(Type type)

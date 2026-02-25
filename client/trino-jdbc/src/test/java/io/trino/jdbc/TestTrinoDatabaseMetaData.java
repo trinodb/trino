@@ -224,13 +224,13 @@ public class TestTrinoDatabaseMetaData
                         assertColumnSpec(typeInfo, Types.INTEGER, 10L, 10L, "integer");
                         break;
                     case Types.DECIMAL:
-                        assertColumnSpec(typeInfo, Types.DECIMAL, 38L, 10L, "decimal");
+                        assertColumnSpec(typeInfo, Types.DECIMAL, null, null, "decimal");
                         break;
                     case Types.VARCHAR:
                         assertColumnSpec(typeInfo, Types.VARCHAR, null, null, "varchar");
                         break;
                     case Types.TIMESTAMP:
-                        assertColumnSpec(typeInfo, Types.TIMESTAMP, 23L, null, "timestamp");
+                        assertColumnSpec(typeInfo, Types.TIMESTAMP, null, null, "timestamp");
                         break;
                     case Types.DOUBLE:
                         assertColumnSpec(typeInfo, Types.DOUBLE, 53L, 2L, "double");

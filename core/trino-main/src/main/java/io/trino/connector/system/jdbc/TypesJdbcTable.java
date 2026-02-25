@@ -27,7 +27,6 @@ import io.trino.spi.type.ParametricType;
 import io.trino.spi.type.Type;
 
 import java.sql.DatabaseMetaData;
-import java.sql.Types;
 
 import static io.trino.connector.system.jdbc.ColumnJdbcTable.columnSize;
 import static io.trino.connector.system.jdbc.ColumnJdbcTable.jdbcDataType;
@@ -119,14 +118,14 @@ public class TypesJdbcTable
         String typeName = type.getName();
         builder.addRow(
                 typeName,
-                typeName.equalsIgnoreCase("array") ? Types.ARRAY : Types.JAVA_OBJECT,
+                jdbcDataType(type),
                 null,
                 null,
                 null,
                 null,
                 DatabaseMetaData.typeNullable,
                 false,
-                DatabaseMetaData.typePredNone,
+                type.areAllTypesComparable() ? DatabaseMetaData.typeSearchable : DatabaseMetaData.typePredNone,
                 null,
                 false,
                 null,

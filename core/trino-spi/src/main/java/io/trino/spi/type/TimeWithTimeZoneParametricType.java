@@ -48,4 +48,10 @@ public class TimeWithTimeZoneParametricType
 
         return TimeWithTimeZoneType.createTimeWithTimeZoneType((int) precision);
     }
+
+    @Override
+    public boolean areAllTypesComparable()
+    {
+        return true;
+    }
 }
