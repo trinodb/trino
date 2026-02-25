@@ -48,4 +48,10 @@ public class TimestampParametricType
 
         return TimestampType.createTimestampType((int) precision);
     }
+
+    @Override
+    public boolean areAllTypesComparable()
+    {
+        return true;
+    }
 }

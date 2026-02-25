@@ -48,4 +48,10 @@ public class TimestampWithTimeZoneParametricType
 
         return TimestampWithTimeZoneType.createTimestampWithTimeZoneType((int) precision);
     }
+
+    @Override
+    public boolean areAllTypesComparable()
+    {
+        return true;
+    }
 }

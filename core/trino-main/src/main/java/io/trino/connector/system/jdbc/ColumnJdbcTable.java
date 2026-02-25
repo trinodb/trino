@@ -41,12 +41,25 @@ import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.DecimalType;
+import io.trino.spi.type.ParametricType;
+import io.trino.spi.type.QuantileDigestParametricType;
+import io.trino.spi.type.TimeParametricType;
 import io.trino.spi.type.TimeType;
+import io.trino.spi.type.TimeWithTimeZoneParametricType;
 import io.trino.spi.type.TimeWithTimeZoneType;
+import io.trino.spi.type.TimestampParametricType;
 import io.trino.spi.type.TimestampType;
+import io.trino.spi.type.TimestampWithTimeZoneParametricType;
 import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
+import io.trino.type.ArrayParametricType;
+import io.trino.type.CharParametricType;
+import io.trino.type.DecimalParametricType;
+import io.trino.type.FunctionParametricType;
+import io.trino.type.MapParametricType;
+import io.trino.type.RowParametricType;
+import io.trino.type.VarcharParametricType;
 
 import java.sql.DatabaseMetaData;
 import java.sql.Types;
@@ -412,6 +425,23 @@ public class ColumnJdbcTable
             return Types.ARRAY;
         }
         return Types.JAVA_OBJECT;
+    }
+
+    static int jdbcDataType(ParametricType type)
+    {
+        return switch (type) {
+            case VarcharParametricType _ -> Types.VARCHAR;
+            case CharParametricType _ -> Types.CHAR;
+            case RowParametricType _, MapParametricType _ -> Types.JAVA_OBJECT;
+            case ArrayParametricType _ -> Types.ARRAY;
+            case DecimalParametricType _ -> Types.DECIMAL;
+            case TimeParametricType _ -> Types.TIME;
+            case TimeWithTimeZoneParametricType _ -> Types.TIME_WITH_TIMEZONE;
+            case TimestampParametricType _ -> Types.TIMESTAMP;
+            case TimestampWithTimeZoneParametricType _ -> Types.TIMESTAMP_WITH_TIMEZONE;
+            case QuantileDigestParametricType _, FunctionParametricType _ -> Types.JAVA_OBJECT;
+            default -> throw new IllegalArgumentException("Unmapped parametric type " + type);
+        };
     }
 
     static Integer columnSize(Type type)

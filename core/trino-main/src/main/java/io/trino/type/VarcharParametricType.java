@@ -62,4 +62,10 @@ public class VarcharParametricType
 
         return VarcharType.createVarcharType(toIntExact(value));
     }
+
+    @Override
+    public boolean areAllTypesComparable()
+    {
+        return true;
+    }
 }

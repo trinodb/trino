@@ -58,4 +58,10 @@ public class CharParametricType
 
         return createCharType(toIntExact(value));
     }
+
+    @Override
+    public boolean areAllTypesComparable()
+    {
+        return true;
+    }
 }

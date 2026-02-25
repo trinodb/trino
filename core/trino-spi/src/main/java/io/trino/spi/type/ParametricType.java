@@ -20,4 +20,12 @@ public interface ParametricType
     String getName();
 
     Type createType(TypeManager typeManager, List<TypeParameter> parameters);
+
+    /**
+     * Returns true only if all created types return true for {@link Type#isComparable}
+     */
+    default boolean areAllTypesComparable()
+    {
+        return false;
+    }
 }

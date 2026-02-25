@@ -48,4 +48,10 @@ public class TimeParametricType
 
         return TimeType.createTimeType((int) precision);
     }
+
+    @Override
+    public boolean areAllTypesComparable()
+    {
+        return true;
+    }
 }
