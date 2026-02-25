@@ -74,6 +74,7 @@ import java.util.Optional;
 import java.util.TreeMap;
 
 import static com.fasterxml.jackson.core.JsonFactory.Feature.CANONICALIZE_FIELD_NAMES;
+import static com.fasterxml.jackson.core.JsonFactory.Feature.INTERN_FIELD_NAMES;
 import static com.fasterxml.jackson.core.JsonToken.END_ARRAY;
 import static com.fasterxml.jackson.core.JsonToken.END_OBJECT;
 import static com.fasterxml.jackson.core.JsonToken.FIELD_NAME;
@@ -121,7 +122,22 @@ public final class JsonUtil
     // Note: JsonFactory is mutable, instances cannot be shared openly.
     public static JsonFactory createJsonFactory()
     {
-        return jsonFactoryBuilder().disable(CANONICALIZE_FIELD_NAMES).build();
+        return jsonFactoryBuilder()
+                .disable(CANONICALIZE_FIELD_NAMES)
+                /*
+                 * When multiple threads deserialize JSON responses concurrently,
+                 * Jackson's default behavior of interning field names causes severe lock contention
+                 * on the JVM's global String pool. This manifests as threads blocked waiting at
+                 * {@code InternCache.intern()}.
+                 *
+                 * Disabling INTERN_FIELD_NAMES eliminates this contention with minimal performance
+                 * impact - field name deduplication becomes slightly less memory-efficient, but the
+                 * elimination of lock contention far outweighs this cost in high-concurrency scenarios.
+                 *
+                 * @see <a href="https://github.com/FasterXML/jackson-core/issues/332">Jackson issue on InternCache contention</a>
+                 */
+                .disable(INTERN_FIELD_NAMES)
+                .build();
     }
 
     public static JsonParser createJsonParser(JsonFactory factory, Slice json)
