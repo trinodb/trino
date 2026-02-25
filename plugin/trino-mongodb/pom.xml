@@ -15,7 +15,7 @@
 
     <properties>
         <air.compiler.fail-warnings>true</air.compiler.fail-warnings>
-        <mongo-java.version>5.6.3</mongo-java.version>
+        <mongo-java.version>5.6.4</mongo-java.version>
     </properties>
 
     <dependencies>
