@@ -1650,7 +1650,11 @@ public class IcebergMetadata
         }
         else if (!computedStatistics.isEmpty()) {
             long newSnapshotId = table.branch()
-                    .map(branch -> icebergTable.refs().get(branch).snapshotId())
+                    .map(branch -> {
+                        SnapshotRef ref = icebergTable.refs().get(branch);
+                        verify(ref != null, "Branch ref not found after commit: %s", branch);
+                        return ref.snapshotId();
+                    })
                     .orElseGet(() -> icebergTable.currentSnapshot().snapshotId());
 
             CollectedStatistics collectedStatistics = processComputedTableStatistics(icebergTable, computedStatistics);
@@ -1668,7 +1672,11 @@ public class IcebergMetadata
         transaction = null;
 
         Snapshot resultSnapshot = table.branch()
-                .map(branch -> icebergTable.snapshot(icebergTable.refs().get(branch).snapshotId()))
+                .map(branch -> {
+                    SnapshotRef ref = icebergTable.refs().get(branch);
+                    verify(ref != null, "Branch ref not found after commit: %s", branch);
+                    return icebergTable.snapshot(ref.snapshotId());
+                })
                 .orElseGet(icebergTable::currentSnapshot);
         Map<String, String> summary = resultSnapshot != null ? resultSnapshot.summary() : null;
         if (summary == null) {
@@ -2407,7 +2415,7 @@ public class IcebergMetadata
         IcebergTableHandle table = checkValidTableHandle(tableHandle);
 
         if (branch.equals(SnapshotRef.MAIN_BRANCH)) {
-            throw new TrinoException(NOT_SUPPORTED, "Cannot drop the main branch");
+            throw new TrinoException(INVALID_ARGUMENTS, "Cannot drop the main branch");
         }
 
         BaseTable icebergTable = catalog.loadTable(session, table.getSchemaTableName());

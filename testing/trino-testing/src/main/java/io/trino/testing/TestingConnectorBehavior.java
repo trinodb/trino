@@ -134,6 +134,8 @@ public enum TestingConnectorBehavior
 
     SUPPORTS_REPORTING_WRITTEN_BYTES(false),
 
+    SUPPORTS_BRANCH(false),
+
     /**/;
 
     private final Predicate<Predicate<TestingConnectorBehavior>> hasBehaviorByDefault;
@@ -155,7 +157,8 @@ public enum TestingConnectorBehavior
                                 name().equals("SUPPORTS_CREATE_OR_REPLACE_TABLE") ||
                                 name().equals("SUPPORTS_CREATE_FUNCTION") ||
                                 name().equals("SUPPORTS_REPORTING_WRITTEN_BYTES") ||
-                                name().equals("SUPPORTS_MULTI_STATEMENT_WRITES")),
+                                name().equals("SUPPORTS_MULTI_STATEMENT_WRITES") ||
+                                name().equals("SUPPORTS_BRANCH")),
                 "Every behavior should be expected to be true by default. Having mixed defaults makes reasoning about tests harder. False default provided for %s",
                 name());
     }
