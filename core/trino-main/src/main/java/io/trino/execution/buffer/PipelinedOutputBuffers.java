@@ -208,8 +208,8 @@ public class PipelinedOutputBuffers
 
     public record OutputBufferId(int id)
     {
-        // this is needed by JAX-RS
-        public static OutputBufferId fromString(String id)
+        // this is needed by JAX-RS, see: org.glassfish.jersey.internal.util.ReflectionHelper
+        public static OutputBufferId valueOf(String id)
         {
             return new OutputBufferId(parseInt(id));
         }
