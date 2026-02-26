@@ -107,6 +107,7 @@ public class TestIcebergV3
         queryRunner.installPlugin(new TestingIcebergPlugin(dataDirectory));
         queryRunner.createCatalog(ICEBERG_CATALOG, "iceberg", ImmutableMap.of(
                 "iceberg.catalog.type", "TESTING_FILE_METASTORE",
+                "iceberg.format-version", "3",
                 "iceberg.register-table-procedure.enabled", "true",
                 "iceberg.add-files-procedure.enabled", "true",
                 "iceberg.hive-catalog-name", "hive",

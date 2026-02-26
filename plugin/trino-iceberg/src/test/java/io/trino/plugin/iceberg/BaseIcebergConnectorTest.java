@@ -196,13 +196,15 @@ public abstract class BaseIcebergConnectorTest
     private static final Pattern WITH_CLAUSE_EXTRACTOR = Pattern.compile(".*(WITH\\s*\\([^)]*\\))\\s*$", Pattern.DOTALL);
 
     protected final IcebergFileFormat format;
+    protected final int formatVersion;
 
     protected TrinoFileSystem fileSystem;
     protected TimeUnit storageTimePrecision;
 
-    protected BaseIcebergConnectorTest(IcebergFileFormat format)
+    protected BaseIcebergConnectorTest(IcebergFileFormat format, int formatVersion)
     {
         this.format = requireNonNull(format, "format is null");
+        this.formatVersion = formatVersion;
     }
 
     @Override
@@ -218,6 +220,7 @@ public abstract class BaseIcebergConnectorTest
         return IcebergQueryRunner.builder()
                 .setIcebergProperties(ImmutableMap.<String, String>builder()
                         .put("iceberg.file-format", format.name())
+                        .put("iceberg.format-version", String.valueOf(formatVersion))
                         // Only allow some extra properties. Add "sorted_by" so that we can test that the property is disallowed by the connector explicitly.
                         .put("iceberg.allowed-extra-properties", "extra.property.one,extra.property.two,extra.property.three,sorted_by")
                         // Allows testing the sorting writer flushing to the file system with smaller tables
@@ -277,22 +280,26 @@ public abstract class BaseIcebergConnectorTest
             case SUPPORTS_CREATE_OR_REPLACE_TABLE,
                  SUPPORTS_REPORTING_WRITTEN_BYTES -> true;
             case SUPPORTS_ADD_COLUMN_NOT_NULL_CONSTRAINT,
-                 SUPPORTS_DEFAULT_COLUMN_VALUE,
                  SUPPORTS_LIMIT_PUSHDOWN,
                  SUPPORTS_REFRESH_VIEW,
                  SUPPORTS_RENAME_MATERIALIZED_VIEW_ACROSS_SCHEMAS,
                  SUPPORTS_TOPN_PUSHDOWN -> false;
+            case SUPPORTS_DEFAULT_COLUMN_VALUE -> formatVersion >= 3;
             default -> super.hasBehavior(connectorBehavior);
         };
     }
 
-    @Override
     @Test
+    @Override
     public void testCreateTableWithDefaultColumn()
     {
-        String tableName = "test_default_value_" + randomNameSuffix();
-        assertThatThrownBy(() -> assertUpdate("CREATE TABLE " + tableName + " (x int DEFAULT 1)"))
-                .hasMessageContaining("Default column values are not supported for Iceberg table format version < 3");
+        if (formatVersion < 3) {
+            String tableName = "test_default_value_" + randomNameSuffix();
+            assertQueryFails("CREATE TABLE " + tableName + " (x int DEFAULT 1)", "Default column values are not supported for Iceberg table format version < 3");
+            return;
+        }
+
+        super.testCreateTableWithDefaultColumn();
     }
 
     @Test
@@ -424,7 +431,7 @@ public abstract class BaseIcebergConnectorTest
                         ")\n" +
                         "WITH (\n" +
                         "   format = '" + format.name() + "',\n" +
-                        "   format_version = 2,\n" +
+                        "   format_version = " + formatVersion + ",\n" +
                         "   location = '\\E.*/tpch/orders-.*\\Q'\n" +
                         ")\\E");
     }
@@ -2064,11 +2071,12 @@ public abstract class BaseIcebergConnectorTest
                 """
                 WITH (
                    format = '%s',
-                   format_version = 2,
+                   format_version = %s,
                    location = '%s',
                    partitioning = ARRAY['adate']
                 )""",
                 format,
+                formatVersion,
                 tempDirPath));
 
         assertUpdate("CREATE TABLE test_create_table_like_copy0 (LIKE test_create_table_like_original, col2 INTEGER)");
@@ -2080,10 +2088,11 @@ public abstract class BaseIcebergConnectorTest
                 """
                 WITH (
                    format = '%s',
-                   format_version = 2,
+                   format_version = %s,
                    location = '%s'
                 )""",
                 format,
+                formatVersion,
                 getTableLocation("test_create_table_like_copy1")));
 
         assertUpdate("CREATE TABLE test_create_table_like_copy2 (LIKE test_create_table_like_original EXCLUDING PROPERTIES)");
@@ -2091,10 +2100,11 @@ public abstract class BaseIcebergConnectorTest
                 """
                 WITH (
                    format = '%s',
-                   format_version = 2,
+                   format_version = %s,
                    location = '%s'
                 )""",
                 format,
+                formatVersion,
                 getTableLocation("test_create_table_like_copy2")));
         assertUpdate("DROP TABLE test_create_table_like_copy2");
 
