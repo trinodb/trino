@@ -73,6 +73,9 @@ import static java.lang.Float.intBitsToFloat;
 import static java.lang.Math.multiplyExact;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
+import static java.lang.runtime.ExactConversionsSupport.isLongToByteExact;
+import static java.lang.runtime.ExactConversionsSupport.isLongToIntExact;
+import static java.lang.runtime.ExactConversionsSupport.isLongToShortExact;
 import static java.math.RoundingMode.HALF_UP;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
@@ -272,12 +275,10 @@ public final class DecimalCasts
             longResult = -((-decimal + tenToScale / 2) / tenToScale);
         }
 
-        try {
-            return toIntExact(longResult);
-        }
-        catch (ArithmeticException e) {
+        if (!isLongToIntExact(longResult)) {
             throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to INTEGER", longResult));
         }
+        return (int) longResult;
     }
 
     @UsedByGeneratedCode
@@ -330,12 +331,10 @@ public final class DecimalCasts
             longResult = -((-decimal + tenToScale / 2) / tenToScale);
         }
 
-        try {
-            return Shorts.checkedCast(longResult);
-        }
-        catch (IllegalArgumentException e) {
+        if (!isLongToShortExact(longResult)) {
             throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to SMALLINT", longResult));
         }
+        return (short) longResult;
     }
 
     @UsedByGeneratedCode
@@ -389,12 +388,10 @@ public final class DecimalCasts
             longResult = -((-decimal + tenToScale / 2) / tenToScale);
         }
 
-        try {
-            return SignedBytes.checkedCast(longResult);
-        }
-        catch (IllegalArgumentException e) {
+        if (!isLongToByteExact(longResult)) {
             throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to TINYINT", longResult));
         }
+        return (byte) longResult;
     }
 
     @UsedByGeneratedCode

@@ -16,8 +16,6 @@ package io.trino.operator.scalar;
 import com.google.common.math.DoubleMath;
 import com.google.common.math.LongMath;
 import com.google.common.primitives.Doubles;
-import com.google.common.primitives.Shorts;
-import com.google.common.primitives.SignedBytes;
 import io.airlift.slice.Slice;
 import io.trino.metadata.SqlScalarFunction;
 import io.trino.spi.TrinoException;
@@ -69,6 +67,9 @@ import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Float.intBitsToFloat;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
+import static java.lang.runtime.ExactConversionsSupport.isLongToByteExact;
+import static java.lang.runtime.ExactConversionsSupport.isLongToIntExact;
+import static java.lang.runtime.ExactConversionsSupport.isLongToShortExact;
 
 public final class MathFunctions
 {
@@ -766,12 +767,10 @@ public final class MathFunctions
     public static long roundTinyint(@SqlType(StandardTypes.TINYINT) long num, @SqlType(StandardTypes.INTEGER) long decimals)
     {
         long rounded = roundLong(num, decimals);
-        try {
-            return SignedBytes.checkedCast(rounded);
+        if (!isLongToByteExact(rounded)) {
+            throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, "Out of range for tinyint: " + rounded);
         }
-        catch (IllegalArgumentException e) {
-            throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, "Out of range for tinyint: " + rounded, e);
-        }
+        return (byte) rounded;
     }
 
     @Description("Round to nearest integer")
@@ -780,12 +779,10 @@ public final class MathFunctions
     public static long roundSmallint(@SqlType(StandardTypes.SMALLINT) long num, @SqlType(StandardTypes.INTEGER) long decimals)
     {
         long rounded = roundLong(num, decimals);
-        try {
-            return Shorts.checkedCast(rounded);
+        if (!isLongToShortExact(rounded)) {
+            throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, "Out of range for smallint: " + rounded);
         }
-        catch (IllegalArgumentException e) {
-            throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, "Out of range for smallint: " + rounded, e);
-        }
+        return (short) rounded;
     }
 
     @Description("Round to nearest integer")
@@ -794,12 +791,10 @@ public final class MathFunctions
     public static long roundInteger(@SqlType(StandardTypes.INTEGER) long num, @SqlType(StandardTypes.INTEGER) long decimals)
     {
         long rounded = roundLong(num, decimals);
-        try {
-            return toIntExact(rounded);
+        if (!isLongToIntExact(rounded)) {
+            throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, "Out of range for integer: " + rounded);
         }
-        catch (IllegalArgumentException e) {
-            throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, "Out of range for integer: " + rounded, e);
-        }
+        return (int) rounded;
     }
 
     @Description("Round to nearest integer")

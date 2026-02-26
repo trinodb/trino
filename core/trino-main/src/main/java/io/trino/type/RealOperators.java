@@ -14,8 +14,6 @@
 package io.trino.type;
 
 import com.google.common.math.DoubleMath;
-import com.google.common.primitives.Shorts;
-import com.google.common.primitives.SignedBytes;
 import io.airlift.slice.Slice;
 import io.trino.operator.scalar.MathFunctions;
 import io.trino.spi.TrinoException;
@@ -43,8 +41,10 @@ import static io.trino.spi.function.OperatorType.SATURATED_FLOOR_CAST;
 import static io.trino.spi.function.OperatorType.SUBTRACT;
 import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Float.intBitsToFloat;
-import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
+import static java.lang.runtime.ExactConversionsSupport.isLongToByteExact;
+import static java.lang.runtime.ExactConversionsSupport.isLongToIntExact;
+import static java.lang.runtime.ExactConversionsSupport.isLongToShortExact;
 import static java.math.RoundingMode.FLOOR;
 import static java.util.Locale.ENGLISH;
 
@@ -157,12 +157,11 @@ public final class RealOperators
         if (Float.isNaN(floatValue)) {
             throw new TrinoException(INVALID_CAST_ARGUMENT, "Cannot cast real NaN to integer");
         }
-        try {
-            return toIntExact((long) MathFunctions.round(floatValue));
+        long rounded = (long) MathFunctions.round(floatValue);
+        if (!isLongToIntExact(rounded)) {
+            throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, "Out of range for integer: " + floatValue);
         }
-        catch (ArithmeticException e) {
-            throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, "Out of range for integer: " + floatValue, e);
-        }
+        return (int) rounded;
     }
 
     @ScalarOperator(CAST)
@@ -173,12 +172,11 @@ public final class RealOperators
         if (Float.isNaN(floatValue)) {
             throw new TrinoException(INVALID_CAST_ARGUMENT, "Cannot cast real NaN to smallint");
         }
-        try {
-            return Shorts.checkedCast((long) MathFunctions.round(floatValue));
+        long rounded = (long) MathFunctions.round(floatValue);
+        if (!isLongToShortExact(rounded)) {
+            throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, "Out of range for smallint: " + floatValue);
         }
-        catch (IllegalArgumentException e) {
-            throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, "Out of range for smallint: " + floatValue, e);
-        }
+        return (short) rounded;
     }
 
     @ScalarOperator(CAST)
@@ -189,12 +187,11 @@ public final class RealOperators
         if (Float.isNaN(floatValue)) {
             throw new TrinoException(INVALID_CAST_ARGUMENT, "Cannot cast real NaN to tinyint");
         }
-        try {
-            return SignedBytes.checkedCast((long) MathFunctions.round(floatValue));
+        long rounded = (long) MathFunctions.round(floatValue);
+        if (!isLongToByteExact(rounded)) {
+            throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, "Out of range for tinyint: " + floatValue);
         }
-        catch (IllegalArgumentException e) {
-            throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, "Out of range for tinyint: " + floatValue, e);
-        }
+        return (byte) rounded;
     }
 
     @ScalarOperator(CAST)
