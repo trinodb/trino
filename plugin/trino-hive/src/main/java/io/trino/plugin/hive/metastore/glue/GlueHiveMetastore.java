@@ -1415,7 +1415,7 @@ public class GlueHiveMetastore
                     .functionName(metastoreFunctionName(functionName, signatureToken))));
             return true;
         }
-        catch (software.amazon.awssdk.services.glue.model.EntityNotFoundException e) {
+        catch (EntityNotFoundException e) {
             return false;
         }
         catch (SdkException e) {
@@ -1447,7 +1447,7 @@ public class GlueHiveMetastore
                     .map(GlueConverter::fromGlueFunction)
                     .collect(toImmutableList()));
         }
-        catch (software.amazon.awssdk.services.glue.model.EntityNotFoundException | AccessDeniedException e) {
+        catch (EntityNotFoundException | AccessDeniedException e) {
             log.warn(e, "Failed to get SQL routines for pattern: %s in schema: %s", functionNamePattern, databaseName);
             return ImmutableList.of();
         }
@@ -1463,15 +1463,15 @@ public class GlueHiveMetastore
             throw new TrinoException(NOT_SUPPORTED, "Function names with double underscore are not supported");
         }
         try {
-            software.amazon.awssdk.services.glue.model.UserDefinedFunctionInput functionInput = toGlueFunctionInput(functionName, function);
+            UserDefinedFunctionInput functionInput = toGlueFunctionInput(functionName, function);
             stats.getCreateUserDefinedFunction().call(() -> glueClient.createUserDefinedFunction(builder -> builder
                     .databaseName(databaseName)
                     .functionInput(functionInput)));
         }
-        catch (software.amazon.awssdk.services.glue.model.AlreadyExistsException e) {
+        catch (AlreadyExistsException e) {
             throw new TrinoException(ALREADY_EXISTS, "Function already exists: %s.%s".formatted(databaseName, functionName), e);
         }
-        catch (software.amazon.awssdk.services.glue.model.EntityNotFoundException e) {
+        catch (EntityNotFoundException e) {
             throw new SchemaNotFoundException(databaseName, e);
         }
         catch (SdkException e) {
@@ -1492,7 +1492,7 @@ public class GlueHiveMetastore
                     .functionName(metastoreFunctionName(functionName, function.signatureToken()))
                     .functionInput(functionInput)));
         }
-        catch (software.amazon.awssdk.services.glue.model.EntityNotFoundException e) {
+        catch (EntityNotFoundException e) {
             throw new TrinoException(FUNCTION_NOT_FOUND, "Function not found: %s.%s".formatted(databaseName, functionName), e);
         }
         catch (SdkException e) {
@@ -1511,7 +1511,7 @@ public class GlueHiveMetastore
                     .databaseName(databaseName)
                     .functionName(metastoreFunctionName(functionName, signatureToken))));
         }
-        catch (software.amazon.awssdk.services.glue.model.EntityNotFoundException e) {
+        catch (EntityNotFoundException e) {
             throw new TrinoException(FUNCTION_NOT_FOUND, "Function not found: %s.%s".formatted(databaseName, functionName), e);
         }
         catch (SdkException e) {

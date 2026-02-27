@@ -15,6 +15,7 @@ package io.trino.hive.formats.avro;
 
 import io.trino.spi.Page;
 import io.trino.spi.type.Type;
+import org.apache.avro.AvroRuntimeException;
 import org.apache.avro.Schema;
 import org.apache.avro.file.DataFileWriter;
 
@@ -63,7 +64,7 @@ public class AvroFileWriter
         catch (org.apache.avro.AvroTypeException e) {
             throw new AvroTypeException(e);
         }
-        catch (org.apache.avro.AvroRuntimeException e) {
+        catch (AvroRuntimeException e) {
             throw new IOException(e);
         }
     }

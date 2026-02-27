@@ -212,7 +212,7 @@ public class TestIcebergTrinoRestCatalogConnectorSmokeTest
     @Override
     protected boolean locationExists(String location)
     {
-        return java.nio.file.Files.exists(Path.of(location));
+        return Files.exists(Path.of(location));
     }
 
     @Test

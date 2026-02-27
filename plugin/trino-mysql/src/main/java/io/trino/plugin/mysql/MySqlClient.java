@@ -106,6 +106,7 @@ import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.sql.SQLSyntaxErrorException;
+import java.sql.Statement;
 import java.sql.Timestamp;
 import java.sql.Types;
 import java.time.Instant;
@@ -1362,7 +1363,7 @@ public class MySqlClient
 
     private static boolean isGtidMode(Connection connection)
     {
-        try (java.sql.Statement statement = connection.createStatement();
+        try (Statement statement = connection.createStatement();
                 ResultSet resultSet = statement.executeQuery("SHOW VARIABLES LIKE 'gtid_mode'")) {
             if (resultSet.next()) {
                 return !resultSet.getString("Value").equalsIgnoreCase("OFF");

@@ -2978,6 +2978,7 @@
                                     -Xep:TraditionalSwitchExpression:ERROR \
                                     -Xep:UnicodeEscape:ERROR \
                                     -Xep:UnnamedVariable:ERROR \
+                                    -Xep:UnnecessarilyFullyQualified:ERROR \
                                     -Xep:UnnecessaryCopy:ERROR \
                                     -Xep:UnnecessaryLongToIntConversion:ERROR \
                                     -Xep:UnnecessaryMethodReference:ERROR \

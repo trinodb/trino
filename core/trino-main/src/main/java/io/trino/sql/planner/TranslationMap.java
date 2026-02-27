@@ -54,6 +54,7 @@ import io.trino.sql.ir.Logical;
 import io.trino.sql.ir.NullIf;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.ir.Switch;
+import io.trino.sql.ir.WhenClause;
 import io.trino.sql.tree.ArithmeticBinaryExpression;
 import io.trino.sql.tree.ArithmeticUnaryExpression;
 import io.trino.sql.tree.Array;
@@ -389,7 +390,7 @@ public class TranslationMap
     {
         return switch (expression.getSign()) {
             case PLUS -> translateExpression(expression.getValue());
-            case MINUS -> new io.trino.sql.ir.Call(
+            case MINUS -> new Call(
                     plannerContext.getMetadata().resolveOperator(OperatorType.NEGATION, ImmutableList.of(analysis.getType(expression.getValue()))),
                     ImmutableList.of(translateExpression(expression.getValue())));
         };
@@ -426,7 +427,7 @@ public class TranslationMap
     {
         return new Case(
                 expression.getWhenClauses().stream()
-                        .map(clause -> new io.trino.sql.ir.WhenClause(
+                        .map(clause -> new WhenClause(
                                 translateExpression(clause.getOperand()),
                                 translateExpression(clause.getResult())))
                         .collect(toImmutableList()),
@@ -440,7 +441,7 @@ public class TranslationMap
         return new Switch(
                 translateExpression(expression.getOperand()),
                 expression.getWhenClauses().stream()
-                        .map(clause -> new io.trino.sql.ir.WhenClause(
+                        .map(clause -> new WhenClause(
                                 translateExpression(clause.getOperand()),
                                 translateExpression(clause.getResult())))
                         .collect(toImmutableList()),

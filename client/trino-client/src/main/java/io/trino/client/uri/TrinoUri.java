@@ -951,7 +951,7 @@ public class TrinoUri
             return setProperty(EXTERNAL_AUTHENTICATION, requireNonNull(externalAuthentication, "externalAuthentication is null"));
         }
 
-        public Builder setExternalAuthenticationTimeout(io.airlift.units.Duration externalAuthenticationTimeout)
+        public Builder setExternalAuthenticationTimeout(Duration externalAuthenticationTimeout)
         {
             return setProperty(EXTERNAL_AUTHENTICATION_TIMEOUT, requireNonNull(externalAuthenticationTimeout, "externalAuthenticationTimeout is null"));
         }

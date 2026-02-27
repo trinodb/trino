@@ -23,6 +23,7 @@ import io.trino.spi.type.LongTimestamp;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.VarcharType;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.chrono.IsoChronology;
 import java.time.format.DateTimeFormatter;
@@ -60,7 +61,7 @@ public final class TimestampCoercer
             .withChronology(IsoChronology.INSTANCE);
 
     // Before 1900, Java Time and Joda Time are not consistent with java.sql.Date and java.util.Calendar
-    private static final long START_OF_MODERN_ERA_SECONDS = java.time.LocalDate.of(1900, 1, 1).toEpochDay() * SECONDS_PER_DAY;
+    private static final long START_OF_MODERN_ERA_SECONDS = LocalDate.of(1900, 1, 1).toEpochDay() * SECONDS_PER_DAY;
 
     private TimestampCoercer() {}
 

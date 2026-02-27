@@ -13,6 +13,7 @@
  */
 package io.trino.tests.product.iceberg;
 
+import io.trino.jdbc.Row;
 import io.trino.tempto.ProductTest;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
@@ -152,12 +153,12 @@ public class TestIcebergPartitionEvolution
         return new Object[][] {{true}, {false}};
     }
 
-    private static io.trino.jdbc.Row singletonMetrics(Object value)
+    private static Row singletonMetrics(Object value)
     {
         return dataMetrics(value, value, 0, null);
     }
 
-    private static io.trino.jdbc.Row dataMetrics(Object min, Object max, long nullCount, Long nanCount)
+    private static Row dataMetrics(Object min, Object max, long nullCount, Long nanCount)
     {
         return rowBuilder()
                 .addField("min", min)
@@ -167,8 +168,8 @@ public class TestIcebergPartitionEvolution
                 .build();
     }
 
-    private static io.trino.jdbc.Row.Builder rowBuilder()
+    private static Row.Builder rowBuilder()
     {
-        return io.trino.jdbc.Row.builder();
+        return Row.builder();
     }
 }

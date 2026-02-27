@@ -37,6 +37,7 @@ import org.opensearch.core.rest.RestStatus;
 
 import java.io.Closeable;
 import java.io.IOException;
+import java.time.Duration;
 
 import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.base.Throwables.throwIfUnchecked;
@@ -62,7 +63,7 @@ public class BackpressureRestHighLevelClient
         backpressureRestClient = new BackpressureRestClient(delegate.getLowLevelClient(), config, backpressureStats);
         retryPolicy = RetryPolicy.<ActionResponse>builder()
                 .withMaxAttempts(-1)
-                .withMaxDuration(java.time.Duration.ofMillis(config.getMaxRetryTime().toMillis()))
+                .withMaxDuration(Duration.ofMillis(config.getMaxRetryTime().toMillis()))
                 .withBackoff(config.getBackoffInitDelay().toMillis(), config.getBackoffMaxDelay().toMillis(), MILLIS)
                 .withJitter(0.125)
                 .handleIf(BackpressureRestHighLevelClient::isBackpressure)

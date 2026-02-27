@@ -926,7 +926,7 @@ public class TestIcebergV3
 
             // Add equality delete for grp = 1
             Table icebergTable = loadTable(table.getName());
-            writeEqualityDeleteForTable(icebergTable, fileSystemFactory, java.util.Optional.empty(), java.util.Optional.empty(), ImmutableMap.of("grp", 1), java.util.Optional.empty());
+            writeEqualityDeleteForTable(icebergTable, fileSystemFactory, Optional.empty(), Optional.empty(), ImmutableMap.of("grp", 1), Optional.empty());
 
             // Verify equality delete applied
             assertThat(query("SELECT count(*), count_if(grp = 0), count_if(grp = 1) FROM " + table.getName()))

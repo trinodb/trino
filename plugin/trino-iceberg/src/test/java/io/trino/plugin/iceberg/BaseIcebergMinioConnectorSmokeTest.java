@@ -293,7 +293,7 @@ public abstract class BaseIcebergMinioConnectorSmokeTest
     {
         HiveMetastore metastore = getHiveMetastore(getQueryRunner());
         // simulate iceberg table created by spark with lowercase table type
-        Table lowerCaseTableType = io.trino.metastore.Table.builder()
+        Table lowerCaseTableType = Table.builder()
                 .setDatabaseName(schema)
                 .setTableName("lowercase_type_" + randomNameSuffix())
                 .setOwner(Optional.empty())

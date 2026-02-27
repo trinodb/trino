@@ -40,8 +40,8 @@ public class TestExplainAnalyzePartitionedTpcdsPlan
     @Override
     protected List<String> getTableNames()
     {
-        return io.trino.tpcds.Table.getBaseTables().stream()
-                .filter(table -> table != io.trino.tpcds.Table.DBGEN_VERSION)
+        return Table.getBaseTables().stream()
+                .filter(table -> table != Table.DBGEN_VERSION)
                 .map(Table::getName)
                 .collect(toImmutableList());
     }

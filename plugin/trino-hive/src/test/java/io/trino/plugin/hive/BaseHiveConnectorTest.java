@@ -82,6 +82,7 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.math.BigDecimal;
 import java.net.URL;
+import java.nio.file.Path;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -4538,7 +4539,7 @@ public abstract class BaseHiveConnectorTest
     public void testCreateExternalTableWithDataNotAllowed()
             throws IOException
     {
-        java.nio.file.Path tempDir = createTempDirectory(null);
+        Path tempDir = createTempDirectory(null);
 
         @Language("SQL") String createTableSql = format("" +
                         "CREATE TABLE test_create_external_with_data_not_allowed " +

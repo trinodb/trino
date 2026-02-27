@@ -112,6 +112,7 @@ import io.trino.sql.planner.plan.UnionNode;
 import io.trino.sql.planner.plan.UnnestNode;
 import io.trino.sql.planner.plan.ValuesNode;
 import io.trino.sql.planner.plan.WindowNode;
+import io.trino.sql.tree.NullLiteral;
 import io.trino.sql.tree.QualifiedName;
 import io.trino.testing.TestingHandle;
 import io.trino.testing.TestingMetadata.TestingColumnHandle;
@@ -509,7 +510,7 @@ public class PlanBuilder
 
     public ApplyNode apply(Map<Symbol, ApplyNode.SetExpression> subqueryAssignments, List<Symbol> correlation, PlanNode input, PlanNode subquery)
     {
-        io.trino.sql.tree.NullLiteral originSubquery = new io.trino.sql.tree.NullLiteral(); // does not matter for tests
+        NullLiteral originSubquery = new NullLiteral(); // does not matter for tests
         return new ApplyNode(idAllocator.getNextId(), input, subquery, subqueryAssignments, correlation, originSubquery);
     }
 
@@ -525,7 +526,7 @@ public class PlanBuilder
 
     public CorrelatedJoinNode correlatedJoin(List<Symbol> correlation, PlanNode input, JoinType type, Expression filter, PlanNode subquery)
     {
-        io.trino.sql.tree.NullLiteral originSubquery = new io.trino.sql.tree.NullLiteral(); // does not matter for tests
+        NullLiteral originSubquery = new NullLiteral(); // does not matter for tests
         return new CorrelatedJoinNode(idAllocator.getNextId(), input, subquery, correlation, type, filter, originSubquery);
     }
 

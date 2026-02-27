@@ -45,6 +45,7 @@ import org.gaul.modernizer_maven_annotations.SuppressModernizer;
 import software.amazon.awssdk.core.SdkBytes;
 import software.amazon.awssdk.services.glue.model.BinaryColumnStatisticsData;
 import software.amazon.awssdk.services.glue.model.BooleanColumnStatisticsData;
+import software.amazon.awssdk.services.glue.model.ColumnStatistics;
 import software.amazon.awssdk.services.glue.model.ColumnStatisticsData;
 import software.amazon.awssdk.services.glue.model.ColumnStatisticsType;
 import software.amazon.awssdk.services.glue.model.DatabaseInput;
@@ -399,7 +400,7 @@ public final class GlueConverter
                 .build();
     }
 
-    public static Map<String, HiveColumnStatistics> fromGlueStatistics(List<List<software.amazon.awssdk.services.glue.model.ColumnStatistics>> glueColumnStatistics)
+    public static Map<String, HiveColumnStatistics> fromGlueStatistics(List<List<ColumnStatistics>> glueColumnStatistics)
     {
         ImmutableMap.Builder<String, HiveColumnStatistics> columnStatistics = ImmutableMap.builder();
         for (var columns : glueColumnStatistics) {
@@ -472,7 +473,7 @@ public final class GlueConverter
         };
     }
 
-    public static List<software.amazon.awssdk.services.glue.model.ColumnStatistics> toGlueColumnStatistics(Map<Column, HiveColumnStatistics> columnStatistics)
+    public static List<ColumnStatistics> toGlueColumnStatistics(Map<Column, HiveColumnStatistics> columnStatistics)
     {
         return columnStatistics.entrySet().stream()
                 .map(e -> toGlueColumnStatistics(e.getKey(), e.getValue()))
@@ -480,10 +481,10 @@ public final class GlueConverter
                 .collect(toImmutableList());
     }
 
-    private static Optional<software.amazon.awssdk.services.glue.model.ColumnStatistics> toGlueColumnStatistics(Column column, HiveColumnStatistics statistics)
+    private static Optional<ColumnStatistics> toGlueColumnStatistics(Column column, HiveColumnStatistics statistics)
     {
         return toGlueColumnStatisticsData(statistics, column.getType())
-                .map(columnStatisticsData -> software.amazon.awssdk.services.glue.model.ColumnStatistics.builder()
+                .map(columnStatisticsData -> ColumnStatistics.builder()
                         .columnName(column.getName())
                         .columnType(column.getType().toString())
                         .statisticsData(columnStatisticsData)

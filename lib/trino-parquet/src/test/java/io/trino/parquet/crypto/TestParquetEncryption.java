@@ -15,6 +15,7 @@ package io.trino.parquet.crypto;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.trino.parquet.Column;
 import io.trino.parquet.ParquetDataSource;
 import io.trino.parquet.ParquetReaderOptions;
 import io.trino.parquet.PrimitiveField;
@@ -62,6 +63,7 @@ import java.util.OptionalInt;
 import java.util.function.Supplier;
 
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
+import static io.trino.parquet.ParquetReaderUtils.isOnlyDictionaryEncodingPages;
 import static io.trino.parquet.predicate.PredicateUtils.getFilteredRowGroups;
 import static io.trino.spi.predicate.Domain.singleValue;
 import static io.trino.spi.type.IntegerType.INTEGER;
@@ -345,7 +347,7 @@ public final class TestParquetEncryption
             assertThat(chunk.getEncodings()).anyMatch(Encoding::usesDictionary);
 
             // 3) (optional) Trino helper: all data pages are dictionary‑encoded
-            assertThat(io.trino.parquet.ParquetReaderUtils.isOnlyDictionaryEncodingPages(chunk)).isTrue();
+            assertThat(isOnlyDictionaryEncodingPages(chunk)).isTrue();
         }
     }
 
@@ -750,12 +752,12 @@ public final class TestParquetEncryption
             assertThat(id.getDictionaryPageOffset()).isGreaterThan(0);
 
             // column encodings include a dictionary encoding
-            assertThat(age.getEncodings()).anyMatch(org.apache.parquet.column.Encoding::usesDictionary);
-            assertThat(id.getEncodings()).anyMatch(org.apache.parquet.column.Encoding::usesDictionary);
+            assertThat(age.getEncodings()).anyMatch(Encoding::usesDictionary);
+            assertThat(id.getEncodings()).anyMatch(Encoding::usesDictionary);
 
             // (optional) every data page is dictionary-encoded
-            assertThat(io.trino.parquet.ParquetReaderUtils.isOnlyDictionaryEncodingPages(age)).isTrue();
-            assertThat(io.trino.parquet.ParquetReaderUtils.isOnlyDictionaryEncodingPages(id)).isTrue();
+            assertThat(isOnlyDictionaryEncodingPages(age)).isTrue();
+            assertThat(isOnlyDictionaryEncodingPages(id)).isTrue();
         }
     }
 
@@ -874,7 +876,7 @@ public final class TestParquetEncryption
                 byPath, UTC, 200, ParquetReaderOptions.builder().build());
 
         PrimitiveField field = new PrimitiveField(INTEGER, true, descriptor, 0);
-        io.trino.parquet.Column column = new io.trino.parquet.Column("age", field);
+        Column column = new Column("age", field);
 
         try (ParquetReader reader = new ParquetReader(
                 Optional.ofNullable(metadata.getFileMetaData().getCreatedBy()),
@@ -942,9 +944,9 @@ public final class TestParquetEncryption
         PrimitiveField ageField = new PrimitiveField(INTEGER, true, ageDescriptor, 0);
         PrimitiveField idField = new PrimitiveField(INTEGER, true, idDescriptor, 1);
 
-        List<io.trino.parquet.Column> columns = List.of(
-                new io.trino.parquet.Column("age", ageField),
-                new io.trino.parquet.Column("id", idField));
+        List<Column> columns = List.of(
+                new Column("age", ageField),
+                new Column("id", idField));
 
         try (ParquetReader reader = new ParquetReader(
                 Optional.ofNullable(metadata.getFileMetaData().getCreatedBy()),

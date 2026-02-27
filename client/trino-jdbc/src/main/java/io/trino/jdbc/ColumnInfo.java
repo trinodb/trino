@@ -20,8 +20,14 @@ import io.trino.client.ClientStandardTypes;
 import io.trino.client.ClientTypeSignature;
 import io.trino.client.ClientTypeSignatureParameter;
 
+import java.math.BigDecimal;
+import java.sql.Array;
+import java.sql.Date;
+import java.sql.Time;
+import java.sql.Timestamp;
 import java.sql.Types;
 import java.util.List;
+import java.util.Map;
 
 import static java.util.Objects.requireNonNull;
 
@@ -235,10 +241,10 @@ class ColumnInfo
                 return new TypeInfo(Types.DOUBLE, Double.class);
 
             case ClientStandardTypes.DECIMAL:
-                return new TypeInfo(Types.DECIMAL, java.math.BigDecimal.class);
+                return new TypeInfo(Types.DECIMAL, BigDecimal.class);
             case ClientStandardTypes.NUMBER:
                 // NUMERIC/DECIMAL type could suggest clients to use ResultSet.getBigDecimal, but this will fail for some values. OTHER feel safer.
-                return new TypeInfo(Types.OTHER, java.lang.Number.class);
+                return new TypeInfo(Types.OTHER, Number.class);
 
             case ClientStandardTypes.VARCHAR:
                 return new TypeInfo(Types.VARCHAR, String.class);
@@ -248,22 +254,22 @@ class ColumnInfo
                 return new TypeInfo(Types.VARBINARY, byte[].class);
 
             case ClientStandardTypes.DATE:
-                return new TypeInfo(Types.DATE, java.sql.Date.class);
+                return new TypeInfo(Types.DATE, Date.class);
             case ClientStandardTypes.TIME:
-                return new TypeInfo(Types.TIME, java.sql.Time.class);
+                return new TypeInfo(Types.TIME, Time.class);
             case ClientStandardTypes.TIME_WITH_TIME_ZONE:
-                return new TypeInfo(Types.TIME_WITH_TIMEZONE, java.sql.Time.class);
+                return new TypeInfo(Types.TIME_WITH_TIMEZONE, Time.class);
             case ClientStandardTypes.TIMESTAMP:
-                return new TypeInfo(Types.TIMESTAMP, java.sql.Timestamp.class);
+                return new TypeInfo(Types.TIMESTAMP, Timestamp.class);
             case ClientStandardTypes.TIMESTAMP_WITH_TIME_ZONE:
-                return new TypeInfo(Types.TIMESTAMP_WITH_TIMEZONE, java.sql.Timestamp.class);
+                return new TypeInfo(Types.TIMESTAMP_WITH_TIMEZONE, Timestamp.class);
 
             case ClientStandardTypes.ARRAY:
-                return new TypeInfo(Types.ARRAY, java.sql.Array.class);
+                return new TypeInfo(Types.ARRAY, Array.class);
             case ClientStandardTypes.MAP:
-                return new TypeInfo(Types.JAVA_OBJECT, java.util.Map.class);
+                return new TypeInfo(Types.JAVA_OBJECT, Map.class);
             case ClientStandardTypes.ROW:
-                return new TypeInfo(Types.JAVA_OBJECT, io.trino.jdbc.Row.class);
+                return new TypeInfo(Types.JAVA_OBJECT, Row.class);
 
             case ClientStandardTypes.JSON:
             case ClientStandardTypes.IPADDRESS:

@@ -143,6 +143,7 @@ import org.apache.avro.SchemaParseException;
 
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -396,8 +397,8 @@ public class HiveMetadata
     public static final String MODIFYING_NON_TRANSACTIONAL_TABLE_MESSAGE = "Modifying Hive table rows is only supported for transactional tables";
 
     private static final RetryPolicy<?> DELETE_RETRY_POLICY = RetryPolicy.builder()
-            .withDelay(java.time.Duration.ofSeconds(1))
-            .withMaxDuration(java.time.Duration.ofSeconds(30))
+            .withDelay(Duration.ofSeconds(1))
+            .withMaxDuration(Duration.ofSeconds(30))
             .withMaxAttempts(10)
             .build();
 

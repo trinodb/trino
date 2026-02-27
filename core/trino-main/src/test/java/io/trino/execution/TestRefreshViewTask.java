@@ -31,6 +31,7 @@ import io.trino.security.SecurityContext;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ColumnMetadata;
+import io.trino.spi.connector.ColumnPosition;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.security.Identity;
 import io.trino.spi.type.TypeId;
@@ -104,7 +105,7 @@ final class TestRefreshViewTask
                 metadata.getTableHandle(testSession, tableName).orElseThrow(),
                 new CatalogSchemaTableName(TEST_CATALOG_NAME, SCHEMA, "existing_table"),
                 new ColumnMetadata("new_col", BIGINT),
-                new io.trino.spi.connector.ColumnPosition.Last());
+                new ColumnPosition.Last());
 
         getFutureValue(executeRefreshView(asQualifiedName(qualifiedObjectName("existing_view"))));
         assertThat(metadata.getView(testSession, qualifiedObjectName("existing_view")).orElseThrow().getColumns())

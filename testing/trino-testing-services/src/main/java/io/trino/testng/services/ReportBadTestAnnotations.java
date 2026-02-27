@@ -16,6 +16,7 @@ package io.trino.testng.services;
 import com.google.common.annotations.VisibleForTesting;
 import org.testng.IClassListener;
 import org.testng.ITestClass;
+import org.testng.annotations.Test;
 
 import java.lang.annotation.Annotation;
 import java.lang.annotation.Retention;
@@ -91,7 +92,7 @@ public class ReportBadTestAnnotations
     static Optional<Class<?>> classWithMeaninglessTestAnnotation(Class<?> realClass)
     {
         for (Class<?> clazz = realClass; clazz != null; clazz = clazz.getSuperclass()) {
-            org.testng.annotations.Test testAnnotation = clazz.getAnnotation(org.testng.annotations.Test.class);
+            Test testAnnotation = clazz.getAnnotation(Test.class);
             if (testAnnotation != null && isAllDefaults(testAnnotation)) {
                 return Optional.of(clazz);
             }
@@ -99,10 +100,10 @@ public class ReportBadTestAnnotations
         return Optional.empty();
     }
 
-    private static boolean isAllDefaults(org.testng.annotations.Test annotationInstance)
+    private static boolean isAllDefaults(Test annotationInstance)
     {
         try {
-            for (Method method : org.testng.annotations.Test.class.getDeclaredMethods()) {
+            for (Method method : Test.class.getDeclaredMethods()) {
                 if (Modifier.isStatic(method.getModifiers())) {
                     continue;
                 }
@@ -186,7 +187,7 @@ public class ReportBadTestAnnotations
                     if ("org.openjdk.jmh.annotations.Benchmark".equals(annotationClass.getName())) {
                         return true;
                     }
-                    if (org.testng.annotations.Test.class.getPackage().equals(annotationClass.getPackage())) {
+                    if (Test.class.getPackage().equals(annotationClass.getPackage())) {
                         // testng annotation (@Test, @Before*, @DataProvider, etc.)
                         return true;
                     }

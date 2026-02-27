@@ -28,6 +28,7 @@ import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.MaterializedResult;
 import org.apache.hadoop.conf.Configuration;
+import org.apache.parquet.column.Encoding;
 import org.apache.parquet.crypto.ColumnEncryptionProperties;
 import org.apache.parquet.crypto.FileEncryptionProperties;
 import org.apache.parquet.crypto.ParquetCipher;
@@ -293,8 +294,8 @@ public class TestHiveParquetEncryption
 
             assertThat(ageChunk.getDictionaryPageOffset()).isGreaterThan(0);
             assertThat(idChunk.getDictionaryPageOffset()).isGreaterThan(0);
-            assertThat(ageChunk.getEncodings()).anyMatch(org.apache.parquet.column.Encoding::usesDictionary);
-            assertThat(idChunk.getEncodings()).anyMatch(org.apache.parquet.column.Encoding::usesDictionary);
+            assertThat(ageChunk.getEncodings()).anyMatch(Encoding::usesDictionary);
+            assertThat(idChunk.getEncodings()).anyMatch(Encoding::usesDictionary);
         }
     }
 

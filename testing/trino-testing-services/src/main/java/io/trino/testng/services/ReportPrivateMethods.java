@@ -16,6 +16,7 @@ package io.trino.testng.services;
 import com.google.common.annotations.VisibleForTesting;
 import org.testng.IClassListener;
 import org.testng.ITestClass;
+import org.testng.annotations.Test;
 
 import java.lang.annotation.Annotation;
 import java.lang.annotation.Retention;
@@ -92,7 +93,7 @@ public class ReportPrivateMethods
         return Arrays.stream(method.getAnnotations())
                 .map(Annotation::annotationType)
                 .anyMatch(annotationClass -> {
-                    if (org.testng.annotations.Test.class.getPackage().equals(annotationClass.getPackage())) {
+                    if (Test.class.getPackage().equals(annotationClass.getPackage())) {
                         // testng annotation (@Test, @Before*, @DataProvider, etc.)
                         return true;
                     }

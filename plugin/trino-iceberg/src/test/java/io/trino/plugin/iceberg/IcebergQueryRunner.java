@@ -475,9 +475,9 @@ public final class IcebergQueryRunner
                     .replace("%ABFS_ACCOUNT%", azureAccount);
 
             FileAttribute<Set<PosixFilePermission>> posixFilePermissions = PosixFilePermissions.asFileAttribute(PosixFilePermissions.fromString("rw-r--r--"));
-            Path hadoopCoreSiteXmlTempFile = java.nio.file.Files.createTempFile("core-site", ".xml", posixFilePermissions);
+            Path hadoopCoreSiteXmlTempFile = Files.createTempFile("core-site", ".xml", posixFilePermissions);
             hadoopCoreSiteXmlTempFile.toFile().deleteOnExit();
-            java.nio.file.Files.writeString(hadoopCoreSiteXmlTempFile, abfsSpecificCoreSiteXmlContent);
+            Files.writeString(hadoopCoreSiteXmlTempFile, abfsSpecificCoreSiteXmlContent);
 
             @SuppressWarnings("resource")
             HiveHadoop hiveHadoop = HiveHadoop.builder()

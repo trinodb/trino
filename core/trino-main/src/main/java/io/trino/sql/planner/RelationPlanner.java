@@ -102,6 +102,7 @@ import io.trino.sql.planner.rowpattern.ir.IrLabel;
 import io.trino.sql.planner.rowpattern.ir.IrRowPattern;
 import io.trino.sql.tree.AliasedRelation;
 import io.trino.sql.tree.AstVisitor;
+import io.trino.sql.tree.BooleanLiteral;
 import io.trino.sql.tree.ComparisonExpression;
 import io.trino.sql.tree.DereferenceExpression;
 import io.trino.sql.tree.Except;
@@ -929,7 +930,7 @@ class RelationPlanner
         if (type != CROSS && type != IMPLICIT) {
             List<io.trino.sql.tree.Expression> leftComparisonExpressions = new ArrayList<>();
             List<io.trino.sql.tree.Expression> rightComparisonExpressions = new ArrayList<>();
-            List<io.trino.sql.tree.ComparisonExpression.Operator> joinConditionComparisonOperators = new ArrayList<>();
+            List<ComparisonExpression.Operator> joinConditionComparisonOperators = new ArrayList<>();
 
             for (io.trino.sql.tree.Expression conjunct : AstUtils.extractConjuncts(criteria)) {
                 if (!isEqualComparisonExpression(conjunct) && type != INNER) {
@@ -944,10 +945,10 @@ class RelationPlanner
                     // it to the list complex expressions and let the optimizers figure out how to push it down later.
                     complexJoinExpressions.add(conjunct);
                 }
-                else if (conjunct instanceof io.trino.sql.tree.ComparisonExpression comparisonExpression) {
+                else if (conjunct instanceof ComparisonExpression comparisonExpression) {
                     io.trino.sql.tree.Expression firstExpression = comparisonExpression.getLeft();
                     io.trino.sql.tree.Expression secondExpression = comparisonExpression.getRight();
-                    io.trino.sql.tree.ComparisonExpression.Operator comparisonOperator = comparisonExpression.getOperator();
+                    ComparisonExpression.Operator comparisonOperator = comparisonExpression.getOperator();
                     Set<QualifiedName> firstDependencies = NamesExtractor.extractNames(firstExpression, analysis.getColumnReferences());
                     Set<QualifiedName> secondDependencies = NamesExtractor.extractNames(secondExpression, analysis.getColumnReferences());
 
@@ -984,7 +985,7 @@ class RelationPlanner
             rightPlanBuilder = rightCoercions.getSubPlan();
 
             for (int i = 0; i < leftComparisonExpressions.size(); i++) {
-                if (joinConditionComparisonOperators.get(i) == io.trino.sql.tree.ComparisonExpression.Operator.EQUAL) {
+                if (joinConditionComparisonOperators.get(i) == ComparisonExpression.Operator.EQUAL) {
                     Symbol leftSymbol = leftCoercions.get(leftComparisonExpressions.get(i));
                     Symbol rightSymbol = rightCoercions.get(rightComparisonExpressions.get(i));
 
@@ -1274,7 +1275,7 @@ class RelationPlanner
 
     private static boolean isEqualComparisonExpression(io.trino.sql.tree.Expression conjunct)
     {
-        return conjunct instanceof io.trino.sql.tree.ComparisonExpression comparison && comparison.getOperator() == io.trino.sql.tree.ComparisonExpression.Operator.EQUAL;
+        return conjunct instanceof ComparisonExpression comparison && comparison.getOperator() == ComparisonExpression.Operator.EQUAL;
     }
 
     private RelationPlan planJoinUnnest(RelationPlan leftPlan, Join joinNode, Unnest node)
@@ -1288,7 +1289,7 @@ class RelationPlanner
                 throw semanticException(NOT_SUPPORTED, joinNode, "USING for join involving UNNEST is not supported");
             }
             io.trino.sql.tree.Expression filter = (io.trino.sql.tree.Expression) getOnlyElement(criteria.getNodes());
-            if (!filter.equals(io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL)) {
+            if (!filter.equals(BooleanLiteral.TRUE_LITERAL)) {
                 throw semanticException(NOT_SUPPORTED, joinNode, "JOIN involving UNNEST on condition other than TRUE is not supported");
             }
         }
