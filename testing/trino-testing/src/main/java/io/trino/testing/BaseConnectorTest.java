@@ -7973,6 +7973,11 @@ public abstract class BaseConnectorTest
         return "CREATE SCHEMA " + schemaName;
     }
 
+    protected String getDefaultBranchName()
+    {
+        return "main";
+    }
+
     @Test
     public void testCreateAndShowBranches()
     {
@@ -7983,21 +7988,22 @@ public abstract class BaseConnectorTest
         assertUpdate("CREATE TABLE " + tableName + " (id INTEGER, name VARCHAR)");
         assertUpdate("INSERT INTO " + tableName + " VALUES (1, 'a')", 1);
 
+        String defaultBranch = getDefaultBranchName();
         assertThat(query("SHOW BRANCHES IN TABLE " + tableName))
                 .skippingTypesCheck()
-                .matches("VALUES VARCHAR 'main'");
+                .matches("VALUES VARCHAR '" + defaultBranch + "'");
 
         assertUpdate("CREATE BRANCH test_branch IN TABLE " + tableName);
 
         assertThat(query("SHOW BRANCHES IN TABLE " + tableName))
                 .skippingTypesCheck()
-                .matches("VALUES VARCHAR 'main', VARCHAR 'test_branch'");
+                .matches("VALUES VARCHAR '" + defaultBranch + "', VARCHAR 'test_branch'");
 
         assertUpdate("CREATE BRANCH another_branch IN TABLE " + tableName);
 
         assertThat(query("SHOW BRANCHES IN TABLE " + tableName))
                 .skippingTypesCheck()
-                .matches("VALUES VARCHAR 'main', VARCHAR 'test_branch', VARCHAR 'another_branch'");
+                .matches("VALUES VARCHAR '" + defaultBranch + "', VARCHAR 'test_branch', VARCHAR 'another_branch'");
 
         assertUpdate("DROP TABLE " + tableName);
     }
@@ -8015,12 +8021,10 @@ public abstract class BaseConnectorTest
         assertUpdate("CREATE BRANCH branch_a IN TABLE " + tableName);
         assertUpdate("CREATE BRANCH branch_b IN TABLE " + tableName + " FROM branch_a");
 
-        assertQuery(
-                "SELECT * FROM " + tableName + " FOR VERSION AS OF 'branch_a'",
-                "VALUES (1, 'a')");
-        assertQuery(
-                "SELECT * FROM " + tableName + " FOR VERSION AS OF 'branch_b'",
-                "VALUES (1, 'a')");
+        assertThat(query("SELECT * FROM " + tableName + " FOR VERSION AS OF 'branch_a'"))
+                .matches("VALUES (1, CAST('a' AS VARCHAR))");
+        assertThat(query("SELECT * FROM " + tableName + " FOR VERSION AS OF 'branch_b'"))
+                .matches("VALUES (1, CAST('a' AS VARCHAR))");
 
         assertUpdate("DROP TABLE " + tableName);
     }
@@ -8055,9 +8059,8 @@ public abstract class BaseConnectorTest
         assertUpdate("INSERT INTO " + tableName + " VALUES 2", 1);
         assertUpdate("CREATE OR REPLACE BRANCH test_branch IN TABLE " + tableName);
 
-        assertQuery(
-                "SELECT * FROM " + tableName + " FOR VERSION AS OF 'test_branch'",
-                "VALUES 1, 2");
+        assertThat(query("SELECT * FROM " + tableName + " FOR VERSION AS OF 'test_branch'"))
+                .matches("VALUES 1, 2");
 
         assertUpdate("DROP TABLE " + tableName);
     }
@@ -8068,6 +8071,7 @@ public abstract class BaseConnectorTest
         if (!hasBehavior(SUPPORTS_BRANCH)) {
             return;
         }
+        String defaultBranch = getDefaultBranchName();
         String tableName = "test_drop_branch_" + randomNameSuffix();
         assertUpdate("CREATE TABLE " + tableName + " (id INTEGER)");
         assertUpdate("INSERT INTO " + tableName + " VALUES 1", 1);
@@ -8075,12 +8079,12 @@ public abstract class BaseConnectorTest
         assertUpdate("CREATE BRANCH test_branch IN TABLE " + tableName);
         assertThat(query("SHOW BRANCHES IN TABLE " + tableName))
                 .skippingTypesCheck()
-                .matches("VALUES VARCHAR 'main', VARCHAR 'test_branch'");
+                .matches("VALUES VARCHAR '" + defaultBranch + "', VARCHAR 'test_branch'");
 
         assertUpdate("DROP BRANCH test_branch IN TABLE " + tableName);
         assertThat(query("SHOW BRANCHES IN TABLE " + tableName))
                 .skippingTypesCheck()
-                .matches("VALUES VARCHAR 'main'");
+                .matches("VALUES VARCHAR '" + defaultBranch + "'");
 
         assertUpdate("DROP TABLE " + tableName);
     }
@@ -8106,11 +8110,12 @@ public abstract class BaseConnectorTest
         if (!hasBehavior(SUPPORTS_BRANCH)) {
             return;
         }
+        String defaultBranch = getDefaultBranchName();
         String tableName = "test_drop_main_branch_" + randomNameSuffix();
         assertUpdate("CREATE TABLE " + tableName + " (id INTEGER)");
         assertUpdate("INSERT INTO " + tableName + " VALUES 1", 1);
 
-        assertThat(query("DROP BRANCH main IN TABLE " + tableName))
+        assertThat(query("DROP BRANCH " + defaultBranch + " IN TABLE " + tableName))
                 .failure().hasMessageContaining("Cannot drop the main branch");
 
         assertUpdate("DROP TABLE " + tableName);
@@ -8122,6 +8127,7 @@ public abstract class BaseConnectorTest
         if (!hasBehavior(SUPPORTS_BRANCH)) {
             return;
         }
+        String defaultBranch = getDefaultBranchName();
         String tableName = "test_fast_forward_branch_" + randomNameSuffix();
         assertUpdate("CREATE TABLE " + tableName + " (id INTEGER)");
         assertUpdate("INSERT INTO " + tableName + " VALUES 1", 1);
@@ -8129,15 +8135,13 @@ public abstract class BaseConnectorTest
         assertUpdate("CREATE BRANCH test_branch IN TABLE " + tableName);
         assertUpdate("INSERT INTO " + tableName + " VALUES 2", 1);
 
-        assertQuery(
-                "SELECT * FROM " + tableName + " FOR VERSION AS OF 'test_branch'",
-                "VALUES 1");
+        assertThat(query("SELECT * FROM " + tableName + " FOR VERSION AS OF 'test_branch'"))
+                .matches("VALUES 1");
 
-        assertUpdate("ALTER BRANCH test_branch IN TABLE " + tableName + " FAST FORWARD TO main");
+        assertUpdate("ALTER BRANCH test_branch IN TABLE " + tableName + " FAST FORWARD TO " + defaultBranch);
 
-        assertQuery(
-                "SELECT * FROM " + tableName + " FOR VERSION AS OF 'test_branch'",
-                "VALUES 1, 2");
+        assertThat(query("SELECT * FROM " + tableName + " FOR VERSION AS OF 'test_branch'"))
+                .matches("VALUES 1, 2");
 
         assertUpdate("DROP TABLE " + tableName);
     }
@@ -8155,10 +8159,10 @@ public abstract class BaseConnectorTest
         assertUpdate("CREATE BRANCH test_branch IN TABLE " + tableName);
         assertUpdate("INSERT INTO " + tableName + "@test_branch VALUES (2, 'b')", 1);
 
-        assertQuery("SELECT * FROM " + tableName, "VALUES (1, 'a')");
-        assertQuery(
-                "SELECT * FROM " + tableName + " FOR VERSION AS OF 'test_branch'",
-                "VALUES (1, 'a'), (2, 'b')");
+        assertThat(query("SELECT * FROM " + tableName))
+                .matches("VALUES (1, CAST('a' AS VARCHAR))");
+        assertThat(query("SELECT * FROM " + tableName + " FOR VERSION AS OF 'test_branch'"))
+                .matches("VALUES (1, CAST('a' AS VARCHAR)), (2, CAST('b' AS VARCHAR))");
 
         assertUpdate("DROP TABLE " + tableName);
     }
@@ -8170,15 +8174,15 @@ public abstract class BaseConnectorTest
             return;
         }
         String tableName = "test_delete_branch_" + randomNameSuffix();
-        assertUpdate("CREATE TABLE " + tableName + " WITH (format_version = 2) AS SELECT * FROM (VALUES (1, 'a'), (2, 'b'), (3, 'c')) AS t(id, name)", 3);
+        assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM (VALUES (1, 'a'), (2, 'b'), (3, 'c')) AS t(id, name)", 3);
 
         assertUpdate("CREATE BRANCH test_branch IN TABLE " + tableName);
         assertUpdate("DELETE FROM " + tableName + "@test_branch WHERE id = 2", 1);
 
-        assertQuery("SELECT * FROM " + tableName, "VALUES (1, 'a'), (2, 'b'), (3, 'c')");
-        assertQuery(
-                "SELECT * FROM " + tableName + " FOR VERSION AS OF 'test_branch'",
-                "VALUES (1, 'a'), (3, 'c')");
+        assertThat(query("SELECT * FROM " + tableName))
+                .matches("VALUES (1, CAST('a' AS VARCHAR)), (2, CAST('b' AS VARCHAR)), (3, CAST('c' AS VARCHAR))");
+        assertThat(query("SELECT * FROM " + tableName + " FOR VERSION AS OF 'test_branch'"))
+                .matches("VALUES (1, CAST('a' AS VARCHAR)), (3, CAST('c' AS VARCHAR))");
 
         assertUpdate("DROP TABLE " + tableName);
     }
@@ -8196,7 +8200,8 @@ public abstract class BaseConnectorTest
         assertUpdate("CREATE BRANCH test_branch IN TABLE " + tableName);
         assertUpdate("DELETE FROM " + tableName + "@test_branch", 2);
 
-        assertQuery("SELECT * FROM " + tableName, "VALUES (1, 'a'), (2, 'b')");
+        assertThat(query("SELECT * FROM " + tableName))
+                .matches("VALUES (1, CAST('a' AS VARCHAR)), (2, CAST('b' AS VARCHAR))");
         assertThat(query("SELECT * FROM " + tableName + " FOR VERSION AS OF 'test_branch'"))
                 .returnsEmptyResult();
 
@@ -8210,15 +8215,15 @@ public abstract class BaseConnectorTest
             return;
         }
         String tableName = "test_update_branch_" + randomNameSuffix();
-        assertUpdate("CREATE TABLE " + tableName + " WITH (format_version = 2) AS SELECT * FROM (VALUES (1, 'a'), (2, 'b')) AS t(id, name)", 2);
+        assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM (VALUES (1, 'a'), (2, 'b')) AS t(id, name)", 2);
 
         assertUpdate("CREATE BRANCH test_branch IN TABLE " + tableName);
         assertUpdate("UPDATE " + tableName + "@test_branch SET name = 'updated' WHERE id = 1", 1);
 
-        assertQuery("SELECT * FROM " + tableName, "VALUES (1, 'a'), (2, 'b')");
-        assertQuery(
-                "SELECT * FROM " + tableName + " FOR VERSION AS OF 'test_branch'",
-                "VALUES (1, 'updated'), (2, 'b')");
+        assertThat(query("SELECT * FROM " + tableName))
+                .matches("VALUES (1, CAST('a' AS VARCHAR)), (2, CAST('b' AS VARCHAR))");
+        assertThat(query("SELECT * FROM " + tableName + " FOR VERSION AS OF 'test_branch'"))
+                .matches("VALUES (1, CAST('updated' AS VARCHAR)), (2, CAST('b' AS VARCHAR))");
 
         assertUpdate("DROP TABLE " + tableName);
     }
@@ -8230,7 +8235,7 @@ public abstract class BaseConnectorTest
             return;
         }
         String tableName = "test_merge_branch_" + randomNameSuffix();
-        assertUpdate("CREATE TABLE " + tableName + " WITH (format_version = 2) AS SELECT * FROM (VALUES (1, 'a'), (2, 'b')) AS t(id, name)", 2);
+        assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM (VALUES (1, 'a'), (2, 'b')) AS t(id, name)", 2);
 
         assertUpdate("CREATE BRANCH test_branch IN TABLE " + tableName);
         assertUpdate("MERGE INTO " + tableName + "@test_branch t " +
@@ -8239,10 +8244,10 @@ public abstract class BaseConnectorTest
                 "WHEN MATCHED THEN UPDATE SET name = s.name " +
                 "WHEN NOT MATCHED THEN INSERT VALUES (s.id, s.name)", 2);
 
-        assertQuery("SELECT * FROM " + tableName, "VALUES (1, 'a'), (2, 'b')");
-        assertQuery(
-                "SELECT * FROM " + tableName + " FOR VERSION AS OF 'test_branch'",
-                "VALUES (1, 'merged'), (2, 'b'), (3, 'new')");
+        assertThat(query("SELECT * FROM " + tableName))
+                .matches("VALUES (1, CAST('a' AS VARCHAR)), (2, CAST('b' AS VARCHAR))");
+        assertThat(query("SELECT * FROM " + tableName + " FOR VERSION AS OF 'test_branch'"))
+                .matches("VALUES (1, CAST('merged' AS VARCHAR)), (2, CAST('b' AS VARCHAR)), (3, CAST('new' AS VARCHAR))");
 
         assertUpdate("DROP TABLE " + tableName);
     }

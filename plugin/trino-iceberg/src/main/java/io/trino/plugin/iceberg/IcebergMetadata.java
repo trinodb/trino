@@ -3788,9 +3788,17 @@ public class IcebergMetadata
         DeleteFiles deleteFiles = icebergTable.newDelete()
                 .deleteFromRowFilter(toIcebergExpression(handle.getEnforcedPredicate()))
                 .scanManifestsWith(icebergScanExecutor);
+        handle.getBranch().ifPresent(deleteFiles::toBranch);
         commitUpdate(deleteFiles, session, "delete");
 
-        Map<String, String> summary = icebergTable.currentSnapshot().summary();
+        Snapshot snapshot = handle.getBranch()
+                .map(branch -> {
+                    SnapshotRef ref = icebergTable.refs().get(branch);
+                    verify(ref != null, "Branch ref not found after commit: %s", branch);
+                    return icebergTable.snapshot(ref.snapshotId());
+                })
+                .orElseGet(icebergTable::currentSnapshot);
+        Map<String, String> summary = snapshot.summary();
         String deletedRowsStr = summary.get(DELETED_RECORDS_PROP);
         if (deletedRowsStr == null) {
             // TODO Iceberg should guarantee this is always present (https://github.com/apache/iceberg/issues/4647)
