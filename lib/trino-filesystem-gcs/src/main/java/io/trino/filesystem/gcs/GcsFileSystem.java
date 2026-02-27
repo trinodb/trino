@@ -76,8 +76,23 @@ public class GcsFileSystem
     private final long writeBlockSizeBytes;
     private final int pageSize;
     private final int batchSize;
+    private final Optional<EncryptionKey> defaultEncryptionKey;
+    private final Optional<EncryptionKey> defaultDecryptionKey;
 
     public GcsFileSystem(ListeningExecutorService executorService, Storage storage, int readBlockSizeBytes, long writeBlockSizeBytes, int pageSize, int batchSize)
+    {
+        this(executorService, storage, readBlockSizeBytes, writeBlockSizeBytes, pageSize, batchSize, Optional.empty(), Optional.empty());
+    }
+
+    public GcsFileSystem(
+            ListeningExecutorService executorService,
+            Storage storage,
+            int readBlockSizeBytes,
+            long writeBlockSizeBytes,
+            int pageSize,
+            int batchSize,
+            Optional<EncryptionKey> defaultEncryptionKey,
+            Optional<EncryptionKey> defaultDecryptionKey)
     {
         this.executorService = requireNonNull(executorService, "executorService is null");
         this.storage = requireNonNull(storage, "storage is null");
@@ -85,6 +100,8 @@ public class GcsFileSystem
         this.writeBlockSizeBytes = writeBlockSizeBytes;
         this.pageSize = pageSize;
         this.batchSize = batchSize;
+        this.defaultEncryptionKey = requireNonNull(defaultEncryptionKey, "defaultEncryptionKey is null");
+        this.defaultDecryptionKey = requireNonNull(defaultDecryptionKey, "defaultDecryptionKey is null");
     }
 
     @Override
@@ -92,7 +109,7 @@ public class GcsFileSystem
     {
         GcsLocation gcsLocation = new GcsLocation(location);
         checkIsValidFile(gcsLocation);
-        return new GcsInputFile(gcsLocation, storage, readBlockSizeBytes, OptionalLong.empty(), Optional.empty(), Optional.empty());
+        return new GcsInputFile(gcsLocation, storage, readBlockSizeBytes, OptionalLong.empty(), Optional.empty(), defaultDecryptionKey);
     }
 
     @Override
@@ -108,7 +125,7 @@ public class GcsFileSystem
     {
         GcsLocation gcsLocation = new GcsLocation(location);
         checkIsValidFile(gcsLocation);
-        return new GcsInputFile(gcsLocation, storage, readBlockSizeBytes, OptionalLong.of(length), Optional.empty(), Optional.empty());
+        return new GcsInputFile(gcsLocation, storage, readBlockSizeBytes, OptionalLong.of(length), Optional.empty(), defaultDecryptionKey);
     }
 
     @Override
@@ -124,7 +141,7 @@ public class GcsFileSystem
     {
         GcsLocation gcsLocation = new GcsLocation(location);
         checkIsValidFile(gcsLocation);
-        return new GcsInputFile(gcsLocation, storage, readBlockSizeBytes, OptionalLong.of(length), Optional.of(lastModified), Optional.empty());
+        return new GcsInputFile(gcsLocation, storage, readBlockSizeBytes, OptionalLong.of(length), Optional.of(lastModified), defaultDecryptionKey);
     }
 
     @Override
@@ -140,7 +157,7 @@ public class GcsFileSystem
     {
         GcsLocation gcsLocation = new GcsLocation(location);
         checkIsValidFile(gcsLocation);
-        return new GcsOutputFile(gcsLocation, storage, writeBlockSizeBytes, Optional.empty());
+        return new GcsOutputFile(gcsLocation, storage, writeBlockSizeBytes, defaultEncryptionKey);
     }
 
     @Override
