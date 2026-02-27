@@ -518,7 +518,7 @@
             <dependency>
                 <groupId>com.nimbusds</groupId>
                 <artifactId>nimbus-jose-jwt</artifactId>
-                <version>10.7</version>
+                <version>10.8</version>
             </dependency>
 
             <dependency>
