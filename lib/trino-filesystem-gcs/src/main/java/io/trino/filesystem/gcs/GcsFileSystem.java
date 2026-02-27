@@ -54,12 +54,14 @@ import java.util.Set;
 import static com.google.cloud.storage.Storage.BlobListOption.currentDirectory;
 import static com.google.cloud.storage.Storage.BlobListOption.matchGlob;
 import static com.google.cloud.storage.Storage.BlobListOption.pageSize;
+import static com.google.cloud.storage.Storage.BlobListOption.startOffset;
 import static com.google.cloud.storage.Storage.SignUrlOption.withExtHeaders;
 import static com.google.cloud.storage.Storage.SignUrlOption.withV4Signature;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Iterables.partition;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
+import static io.trino.filesystem.TrinoFileSystem.checkStartingFrom;
 import static io.trino.filesystem.gcs.GcsUtils.encodedKey;
 import static io.trino.filesystem.gcs.GcsUtils.getBlob;
 import static io.trino.filesystem.gcs.GcsUtils.handleGcsException;
@@ -217,6 +219,24 @@ public class GcsFileSystem
         GcsLocation gcsLocation = new GcsLocation(normalizeToDirectory(location));
         try {
             return new GcsFileIterator(gcsLocation, getPage(gcsLocation));
+        }
+        catch (RuntimeException e) {
+            throw handleGcsException(e, "listing files", gcsLocation);
+        }
+    }
+
+    @Override
+    public FileIterator listFilesStartingFrom(Location location, String startingFrom)
+            throws IOException
+    {
+        checkStartingFrom(startingFrom);
+        if (startingFrom.isEmpty()) {
+            return listFiles(location);
+        }
+
+        GcsLocation gcsLocation = new GcsLocation(normalizeToDirectory(location));
+        try {
+            return new GcsFileIterator(gcsLocation, getPage(gcsLocation, startOffset(gcsLocation.path() + startingFrom)));
         }
         catch (RuntimeException e) {
             throw handleGcsException(e, "listing files", gcsLocation);
