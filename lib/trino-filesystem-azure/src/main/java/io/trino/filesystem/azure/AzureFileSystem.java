@@ -42,6 +42,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import io.trino.filesystem.EmulatedListFilesStartingFromIterator;
 import io.trino.filesystem.FileIterator;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
@@ -307,21 +308,55 @@ public class AzureFileSystem
         try {
             // blob API returns directories as blobs, so it cannot be used when Gen2 is enabled
             return isHierarchicalNamespaceEnabled(azureLocation)
-                    ? listGen2Files(azureLocation)
-                    : listBlobFiles(azureLocation);
+                    ? listGen2Files(azureLocation, Optional.empty())
+                    : listBlobFiles(azureLocation, Optional.empty());
         }
         catch (RuntimeException e) {
             throw handleAzureException(e, "listing files", azureLocation);
         }
     }
 
-    private FileIterator listGen2Files(AzureLocation location)
+    @Override
+    public FileIterator listFilesStartingFrom(Location location, String startingFrom)
+            throws IOException
+    {
+        if (startingFrom.isEmpty()) {
+            return listFiles(location);
+        }
+
+        AzureLocation azureLocation = new AzureLocation(location);
+
+        try {
+            return isHierarchicalNamespaceEnabled(azureLocation)
+                    ? listGen2Files(azureLocation, Optional.of(startingFrom))
+                    : listBlobFiles(azureLocation, Optional.of(startingFrom));
+        }
+        catch (RuntimeException e) {
+            throw handleAzureException(e, "listing files", azureLocation);
+        }
+    }
+
+    private FileIterator listGen2Files(AzureLocation location, Optional<String> startingFrom)
             throws IOException
     {
         DataLakeFileSystemClient fileSystemClient = createFileSystemClient(location, Optional.empty());
+        ListPathsOptions options = new ListPathsOptions().setRecursive(true);
+
+        startingFrom.ifPresent(startFrom -> {
+            // In ADLS Gen2, listing results are ordered depth-first (i.e. nested directories before files) rather than
+            // strictly lexicographically. startFrom may therefore have surprising results for cursors containing slashes.
+            // We therefore need to truncate startingFrom to the first slash, and filter the results on the client side to
+            // achieve the intended semantics
+            int indexOfSlash = startFrom.indexOf('/');
+            if (indexOfSlash != -1) {
+                startFrom = startFrom.substring(0, indexOfSlash);
+            }
+            options.setStartFrom(startFrom);
+        });
+
         PagedIterable<PathItem> pathItems;
         if (location.path().isEmpty()) {
-            pathItems = fileSystemClient.listPaths(new ListPathsOptions().setRecursive(true), null);
+            pathItems = fileSystemClient.listPaths(options, null);
         }
         else {
             DataLakeDirectoryClient directoryClient = createDirectoryClient(fileSystemClient, location.path());
@@ -331,18 +366,27 @@ public class AzureFileSystem
             if (!directoryClient.getProperties().isDirectory()) {
                 throw new TrinoFileSystemException("Location is not a directory: " + location);
             }
-            pathItems = directoryClient.listPaths(true, false, null, null);
+
+            pathItems = directoryClient.listPaths(options, null, null);
         }
-        return new AzureDataLakeFileIterator(
+        FileIterator iterator = new AzureDataLakeFileIterator(
                 location,
                 pathItems.stream()
                         .filter(not(PathItem::isDirectory))
                         .iterator());
+        if (startingFrom.isPresent()) {
+            return new EmulatedListFilesStartingFromIterator(iterator, location.location(), startingFrom.orElseThrow());
+        }
+        return iterator;
     }
 
-    private FileIterator listBlobFiles(AzureLocation location)
+    private FileIterator listBlobFiles(AzureLocation location, Optional<String> startingFrom)
     {
-        PagedIterable<BlobItem> blobItems = createBlobContainerClient(location, Optional.empty()).listBlobs(new ListBlobsOptions().setPrefix(location.directoryPath()), null);
+        String directoryPath = location.directoryPath();
+        ListBlobsOptions options = new ListBlobsOptions().setPrefix(directoryPath);
+        startingFrom.ifPresent(startFrom -> options.setStartFrom(directoryPath.concat(startFrom)));
+
+        PagedIterable<BlobItem> blobItems = createBlobContainerClient(location, Optional.empty()).listBlobs(options, null);
         return new AzureBlobFileIterator(location, blobItems.iterator());
     }
 
