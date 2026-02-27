@@ -136,6 +136,7 @@ public class TableChangesFunctionProcessor
                 0,
                 functionHandle.nameMappingJson().map(NameMappingParser::fromJson),
                 split.encryptionKeyMetadata(),
+                split.parquetFileDecryptionData(),
                 encryptionManager);
         this.delegateColumnMap = delegateColumnMap;
 

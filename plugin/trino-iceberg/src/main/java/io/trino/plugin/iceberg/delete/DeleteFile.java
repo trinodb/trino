@@ -14,6 +14,7 @@
 package io.trino.plugin.iceberg.delete;
 
 import com.google.common.collect.ImmutableList;
+import io.trino.plugin.iceberg.IcebergSplit.ParquetFileDecryptionData;
 import org.apache.iceberg.FileContent;
 import org.apache.iceberg.FileFormat;
 import org.apache.iceberg.types.Conversions;
@@ -37,6 +38,7 @@ public record DeleteFile(
         long recordCount,
         long fileSizeInBytes,
         Optional<byte[]> encryptionKeyMetadata,
+        Optional<ParquetFileDecryptionData> parquetFileDecryptionData,
         List<Integer> equalityFieldIds,
         Optional<Long> rowPositionLowerBound,
         Optional<Long> rowPositionUpperBound,
@@ -47,6 +49,11 @@ public record DeleteFile(
     private static final long INSTANCE_SIZE = instanceSize(DeleteFile.class);
 
     public static DeleteFile fromIceberg(org.apache.iceberg.DeleteFile deleteFile)
+    {
+        return fromIceberg(deleteFile, Optional.empty());
+    }
+
+    public static DeleteFile fromIceberg(org.apache.iceberg.DeleteFile deleteFile, Optional<ParquetFileDecryptionData> parquetFileDecryptionData)
     {
         Optional<Long> rowPositionLowerBound = Optional.ofNullable(deleteFile.lowerBounds())
                 .map(bounds -> bounds.get(DELETE_FILE_POS.fieldId()))
@@ -67,10 +74,41 @@ public record DeleteFile(
                 deleteFile.recordCount(),
                 deleteFile.fileSizeInBytes(),
                 encryptionKeyMetadata,
+                parquetFileDecryptionData,
                 Optional.ofNullable(deleteFile.equalityFieldIds()).orElseGet(ImmutableList::of),
                 rowPositionLowerBound,
                 rowPositionUpperBound,
                 deleteFile.dataSequenceNumber(),
+                contentOffset,
+                contentSizeInBytes);
+    }
+
+    public DeleteFile(
+            FileContent content,
+            String path,
+            FileFormat format,
+            long recordCount,
+            long fileSizeInBytes,
+            Optional<byte[]> encryptionKeyMetadata,
+            List<Integer> equalityFieldIds,
+            Optional<Long> rowPositionLowerBound,
+            Optional<Long> rowPositionUpperBound,
+            long dataSequenceNumber,
+            Optional<Long> contentOffset,
+            Optional<Integer> contentSizeInBytes)
+    {
+        this(
+                content,
+                path,
+                format,
+                recordCount,
+                fileSizeInBytes,
+                encryptionKeyMetadata,
+                Optional.empty(),
+                equalityFieldIds,
+                rowPositionLowerBound,
+                rowPositionUpperBound,
+                dataSequenceNumber,
                 contentOffset,
                 contentSizeInBytes);
     }
@@ -81,6 +119,7 @@ public record DeleteFile(
         requireNonNull(path, "path is null");
         requireNonNull(format, "format is null");
         requireNonNull(encryptionKeyMetadata, "encryptionKeyMetadata is null");
+        requireNonNull(parquetFileDecryptionData, "parquetFileDecryptionData is null");
         equalityFieldIds = ImmutableList.copyOf(requireNonNull(equalityFieldIds, "equalityFieldIds is null"));
         requireNonNull(rowPositionLowerBound, "rowPositionLowerBound is null");
         requireNonNull(rowPositionUpperBound, "rowPositionUpperBound is null");
@@ -101,6 +140,7 @@ public record DeleteFile(
         return INSTANCE_SIZE
                 + estimatedSizeOf(path)
                 + encryptionKeyMetadata.map(value -> sizeOf(value)).orElse(0L)
+                + parquetFileDecryptionData.map(ParquetFileDecryptionData::getRetainedSizeInBytes).orElse(0L)
                 + estimatedSizeOf(equalityFieldIds, _ -> SIZE_OF_INT);
     }
 

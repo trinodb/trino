@@ -153,6 +153,7 @@ public class TestIcebergSplitSource
                 SESSION,
                 tableHandle,
                 nationTable,
+                Optional.empty(),
                 nationTable.newScan(),
                 Optional.empty(),
                 new DynamicFilter()
@@ -410,6 +411,7 @@ public class TestIcebergSplitSource
                 SESSION,
                 tableHandle,
                 nationTable,
+                Optional.empty(),
                 nationTable.newScan(),
                 Optional.empty(),
                 dynamicFilter,

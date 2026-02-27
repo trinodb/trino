@@ -19,6 +19,7 @@ import com.google.inject.Inject;
 import io.airlift.units.Duration;
 import io.trino.filesystem.cache.CachingHostAddressProvider;
 import io.trino.plugin.base.classloader.ClassLoaderSafeConnectorSplitSource;
+import io.trino.plugin.iceberg.encryption.IcebergEncryptionManagerFactory;
 import io.trino.plugin.iceberg.functions.tablechanges.TableChangesFunctionHandle;
 import io.trino.plugin.iceberg.functions.tablechanges.TableChangesSplitSource;
 import io.trino.spi.connector.ConnectorSession;
@@ -37,11 +38,15 @@ import org.apache.iceberg.FileScanTask;
 import org.apache.iceberg.Scan;
 import org.apache.iceberg.Snapshot;
 import org.apache.iceberg.Table;
+import org.apache.iceberg.encryption.EncryptionManager;
+import org.apache.iceberg.encryption.PlaintextEncryptionManager;
 import org.apache.iceberg.metrics.InMemoryMetricsReporter;
 import org.apache.iceberg.metrics.MetricsReporter;
 import org.apache.iceberg.util.SnapshotUtil;
 
 import java.util.concurrent.ExecutorService;
+import java.util.Map;
+import java.util.Optional;
 
 import static io.trino.plugin.iceberg.IcebergSessionProperties.getDynamicFilteringWaitTimeout;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.getMinimumAssignedSplitWeight;
@@ -56,6 +61,7 @@ public class IcebergSplitManager
     private final IcebergTransactionManager transactionManager;
     private final TypeManager typeManager;
     private final IcebergFileSystemFactory fileSystemFactory;
+    private final IcebergEncryptionManagerFactory encryptionManagerFactory;
     private final ListeningExecutorService splitSourceExecutor;
     private final ExecutorService icebergPlanningExecutor;
     private final CachingHostAddressProvider cachingHostAddressProvider;
@@ -65,6 +71,7 @@ public class IcebergSplitManager
             IcebergTransactionManager transactionManager,
             TypeManager typeManager,
             IcebergFileSystemFactory fileSystemFactory,
+            IcebergEncryptionManagerFactory encryptionManagerFactory,
             @ForIcebergSplitSource ListeningExecutorService splitSourceExecutor,
             @ForIcebergSplitManager ExecutorService icebergPlanningExecutor,
             CachingHostAddressProvider cachingHostAddressProvider)
@@ -72,6 +79,7 @@ public class IcebergSplitManager
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
+        this.encryptionManagerFactory = requireNonNull(encryptionManagerFactory, "encryptionManagerFactory is null");
         this.splitSourceExecutor = requireNonNull(splitSourceExecutor, "splitSourceExecutor is null");
         this.icebergPlanningExecutor = requireNonNull(icebergPlanningExecutor, "icebergPlanningExecutor is null");
         this.cachingHostAddressProvider = requireNonNull(cachingHostAddressProvider, "cachingHostAddressProvider is null");
@@ -100,12 +108,14 @@ public class IcebergSplitManager
 
         InMemoryMetricsReporter metricsReporter = new InMemoryMetricsReporter();
         Scan scan = getScan(icebergMetadata, icebergTable, table, metricsReporter, icebergPlanningExecutor);
+        Optional<EncryptionManager> encryptionManager = encryptionManager(table.getStorageProperties(), icebergTable);
 
         IcebergSplitSource splitSource = new IcebergSplitSource(
                 fileSystemFactory,
                 session,
                 table,
                 icebergTable,
+                encryptionManager,
                 scan,
                 table.getMaxScannedFileSize(),
                 dynamicFilter,
@@ -162,6 +172,7 @@ public class IcebergSplitManager
 
             TableChangesSplitSource tableChangesSplitSource = new TableChangesSplitSource(
                     icebergTable,
+                    encryptionManager(functionHandle.storageProperties(), icebergTable),
                     icebergTable.newIncrementalChangelogScan()
                             .fromSnapshotExclusive(functionHandle.startSnapshotId())
                             .toSnapshot(functionHandle.endSnapshotId()));
@@ -169,5 +180,19 @@ public class IcebergSplitManager
         }
 
         throw new IllegalStateException("Unknown table function: " + function);
+    }
+
+    private Optional<EncryptionManager> encryptionManager(Map<String, String> tableProperties, Table icebergTable)
+    {
+        EncryptionManager configuredEncryptionManager = encryptionManagerFactory.createEncryptionManager(tableProperties);
+        if (!(configuredEncryptionManager instanceof PlaintextEncryptionManager)) {
+            return Optional.of(configuredEncryptionManager);
+        }
+
+        EncryptionManager tableEncryptionManager = icebergTable.encryption();
+        if (tableEncryptionManager instanceof PlaintextEncryptionManager) {
+            return Optional.empty();
+        }
+        return Optional.of(tableEncryptionManager);
     }
 }

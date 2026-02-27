@@ -16,6 +16,7 @@ package io.trino.plugin.iceberg.functions.tablechanges;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.SizeOf;
 import io.trino.plugin.iceberg.IcebergFileFormat;
+import io.trino.plugin.iceberg.IcebergSplit.ParquetFileDecryptionData;
 import io.trino.spi.SplitWeight;
 import io.trino.spi.connector.ConnectorSplit;
 
@@ -38,6 +39,7 @@ public record TableChangesSplit(
         long fileRecordCount,
         IcebergFileFormat fileFormat,
         Optional<byte[]> encryptionKeyMetadata,
+        Optional<ParquetFileDecryptionData> parquetFileDecryptionData,
         String partitionSpecJson,
         String partitionDataJson,
         SplitWeight splitWeight,
@@ -45,12 +47,49 @@ public record TableChangesSplit(
 {
     private static final int INSTANCE_SIZE = SizeOf.instanceSize(TableChangesSplit.class);
 
+    public TableChangesSplit(
+            ChangeType changeType,
+            long snapshotId,
+            long snapshotTimestamp,
+            int changeOrdinal,
+            String path,
+            long start,
+            long length,
+            long fileSize,
+            long fileRecordCount,
+            IcebergFileFormat fileFormat,
+            Optional<byte[]> encryptionKeyMetadata,
+            String partitionSpecJson,
+            String partitionDataJson,
+            SplitWeight splitWeight,
+            Map<String, String> fileIoProperties)
+    {
+        this(
+                changeType,
+                snapshotId,
+                snapshotTimestamp,
+                changeOrdinal,
+                path,
+                start,
+                length,
+                fileSize,
+                fileRecordCount,
+                fileFormat,
+                encryptionKeyMetadata,
+                Optional.empty(),
+                partitionSpecJson,
+                partitionDataJson,
+                splitWeight,
+                fileIoProperties);
+    }
+
     public TableChangesSplit
     {
         requireNonNull(changeType, "changeType is null");
         requireNonNull(path, "path is null");
         requireNonNull(fileFormat, "fileFormat is null");
         requireNonNull(encryptionKeyMetadata, "encryptionKeyMetadata is null");
+        requireNonNull(parquetFileDecryptionData, "parquetFileDecryptionData is null");
         requireNonNull(partitionSpecJson, "partitionSpecJson is null");
         requireNonNull(partitionDataJson, "partitionDataJson is null");
         requireNonNull(splitWeight, "splitWeight is null");
@@ -71,6 +110,7 @@ public record TableChangesSplit(
                 + estimatedSizeOf(partitionSpecJson)
                 + estimatedSizeOf(partitionDataJson)
                 + encryptionKeyMetadata.map(SizeOf::sizeOf).orElse(0L)
+                + parquetFileDecryptionData.map(ParquetFileDecryptionData::getRetainedSizeInBytes).orElse(0L)
                 + splitWeight.getRetainedSizeInBytes()
                 + estimatedSizeOf(fileIoProperties, SizeOf::estimatedSizeOf, SizeOf::estimatedSizeOf);
     }

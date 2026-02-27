@@ -32,6 +32,7 @@ import io.trino.cache.NonEvictableCache;
 import io.trino.filesystem.cache.CachingHostAddressProvider;
 import io.trino.plugin.base.metrics.DurationTiming;
 import io.trino.plugin.base.metrics.LongCount;
+import io.trino.plugin.iceberg.IcebergSplit.ParquetFileDecryptionData;
 import io.trino.plugin.iceberg.delete.DeleteFile;
 import io.trino.plugin.iceberg.util.DataFileWithDeleteFiles;
 import io.trino.spi.SplitWeight;
@@ -61,9 +62,16 @@ import org.apache.iceberg.Scan;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.StructLike;
 import org.apache.iceberg.Table;
+import org.apache.iceberg.encryption.EncryptedFiles;
+import org.apache.iceberg.encryption.EncryptedInputFile;
+import org.apache.iceberg.encryption.EncryptionManager;
+import org.apache.iceberg.encryption.NativeEncryptionInputFile;
+import org.apache.iceberg.encryption.NativeEncryptionKeyMetadata;
 import org.apache.iceberg.expressions.Expression;
 import org.apache.iceberg.io.CloseableIterable;
 import org.apache.iceberg.io.CloseableIterator;
+import org.apache.iceberg.io.FileIO;
+import org.apache.iceberg.io.InputFile;
 import org.apache.iceberg.metrics.InMemoryMetricsReporter;
 import org.apache.iceberg.metrics.ScanMetricsResult;
 import org.apache.iceberg.metrics.ScanReport;
@@ -137,6 +145,8 @@ public class IcebergSplitSource
     private final ConnectorSession session;
     private final IcebergTableHandle tableHandle;
     private final Map<String, String> fileIoProperties;
+    private final FileIO fileIo;
+    private final Optional<EncryptionManager> encryptionManager;
     private final Scan<?, FileScanTask, CombinedScanTask> tableScan;
     private final Optional<Long> maxScannedFileSizeInBytes;
     private final Map<Integer, Type.PrimitiveType> fieldIdToType;
@@ -190,6 +200,7 @@ public class IcebergSplitSource
             ConnectorSession session,
             IcebergTableHandle tableHandle,
             Table icebergTable,
+            Optional<EncryptionManager> encryptionManager,
             Scan<?, FileScanTask, CombinedScanTask> tableScan,
             Optional<DataSize> maxScannedFileSize,
             DynamicFilter dynamicFilter,
@@ -206,6 +217,8 @@ public class IcebergSplitSource
         this.session = requireNonNull(session, "session is null");
         this.tableHandle = requireNonNull(tableHandle, "tableHandle is null");
         this.fileIoProperties = requireNonNull(IcebergUtil.getFileIoProperties(icebergTable), "fileIoProperties is null");
+        this.fileIo = requireNonNull(icebergTable.io(), "fileIo is null");
+        this.encryptionManager = requireNonNull(encryptionManager, "encryptionManager is null");
         this.tableScan = requireNonNull(tableScan, "tableScan is null");
         this.maxScannedFileSizeInBytes = maxScannedFileSize.map(DataSize::toBytes);
         this.fieldIdToType = primitiveFieldTypes(tableScan.schema());
@@ -728,18 +741,79 @@ public class IcebergSplitSource
                 task.file().recordCount(),
                 IcebergFileFormat.fromIceberg(task.file().format()),
                 Optional.ofNullable(task.file().keyMetadata()).map(ByteBuffers::toByteArray),
+                parquetFileDecryptionData(task),
                 partitionValues,
                 PartitionSpecParser.toJson(task.spec()),
                 PartitionData.toJson(task.file().partition()),
                 task.deletes().stream()
                         .peek(file -> verifyDeletionVectorReferencesDataFile(task, file))
-                        .map(DeleteFile::fromIceberg)
+                        .map(this::toDeleteFile)
                         .collect(toImmutableList()),
                 SplitWeight.fromProportion(clamp(getSplitWeight(task), minimumAssignedSplitWeight, 1.0)),
                 taskWithDomain.fileStatisticsDomain(),
                 fileIoProperties,
                 cachingHostAddressProvider.getHosts(getSplitKey(task.file().location(), task.start(), task.length()), ImmutableList.of()),
                 task.file().dataSequenceNumber());
+    }
+
+    private DeleteFile toDeleteFile(org.apache.iceberg.DeleteFile deleteFile)
+    {
+        if (deleteFile.format() != FileFormat.PARQUET || deleteFile.keyMetadata() == null || encryptionManager.isEmpty()) {
+            return DeleteFile.fromIceberg(deleteFile);
+        }
+
+        EncryptedInputFile encryptedInputFile = EncryptedFiles.encryptedInput(
+                fileIo.newInputFile(deleteFile.location()),
+                deleteFile.keyMetadata());
+        return DeleteFile.fromIceberg(deleteFile, parquetFileDecryptionData(encryptedInputFile, encryptionManager.orElseThrow()));
+    }
+
+    private Optional<ParquetFileDecryptionData> parquetFileDecryptionData(FileScanTask task)
+    {
+        if (task.file().format() != FileFormat.PARQUET || task.file().keyMetadata() == null || encryptionManager.isEmpty()) {
+            return Optional.empty();
+        }
+
+        EncryptedInputFile encryptedInputFile = EncryptedFiles.encryptedInput(
+                fileIo.newInputFile(task.file().location()),
+                task.file().keyMetadata());
+        return parquetFileDecryptionData(encryptedInputFile, encryptionManager.orElseThrow());
+    }
+
+    @VisibleForTesting
+    public static Optional<ParquetFileDecryptionData> parquetFileDecryptionData(
+            EncryptedInputFile encryptedInputFile,
+            EncryptionManager encryptionManager)
+    {
+        InputFile inputFile;
+        try {
+            inputFile = encryptionManager.decrypt(encryptedInputFile);
+        }
+        catch (RuntimeException e) {
+            return Optional.empty();
+        }
+
+        if (!(inputFile instanceof NativeEncryptionInputFile nativeEncryptionInputFile)) {
+            return Optional.empty();
+        }
+
+        NativeEncryptionKeyMetadata nativeKeyMetadata;
+        try {
+            nativeKeyMetadata = nativeEncryptionInputFile.keyMetadata();
+        }
+        catch (RuntimeException e) {
+            return Optional.empty();
+        }
+
+        ByteBuffer encryptionKey = nativeKeyMetadata.encryptionKey();
+        ByteBuffer aadPrefix = nativeKeyMetadata.aadPrefix();
+        if (encryptionKey == null || aadPrefix == null) {
+            return Optional.empty();
+        }
+
+        return Optional.of(new ParquetFileDecryptionData(
+                ByteBuffers.toByteArray(encryptionKey),
+                ByteBuffers.toByteArray(aadPrefix)));
     }
 
     private static void verifyDeletionVectorReferencesDataFile(FileScanTask task, org.apache.iceberg.DeleteFile deleteFile)

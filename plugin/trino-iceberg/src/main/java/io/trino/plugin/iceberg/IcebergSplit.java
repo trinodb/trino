@@ -47,6 +47,7 @@ public class IcebergSplit
     private final long fileRecordCount;
     private final IcebergFileFormat fileFormat;
     private final Optional<byte[]> encryptionKeyMetadata;
+    private final Optional<ParquetFileDecryptionData> parquetFileDecryptionData;
     private final Optional<List<Object>> partitionValues;
     private final String partitionSpecJson;
     private final String partitionDataJson;
@@ -65,6 +66,7 @@ public class IcebergSplit
             @JsonProperty("fileSize") long fileSize,
             @JsonProperty("fileRecordCount") long fileRecordCount,
             @JsonProperty("fileFormat") IcebergFileFormat fileFormat,
+            @JsonProperty("parquetFileDecryptionData") Optional<ParquetFileDecryptionData> parquetFileDecryptionData,
             @JsonProperty("encryptionKeyMetadata") Optional<byte[]> encryptionKeyMetadata,
             @JsonProperty("partitionSpecJson") String partitionSpecJson,
             @JsonProperty("partitionDataJson") String partitionDataJson,
@@ -82,6 +84,7 @@ public class IcebergSplit
                 fileRecordCount,
                 fileFormat,
                 Optional.ofNullable(encryptionKeyMetadata).orElse(Optional.empty()),
+                Optional.ofNullable(parquetFileDecryptionData).orElse(Optional.empty()),
                 Optional.empty(),
                 partitionSpecJson,
                 partitionDataJson,
@@ -100,7 +103,46 @@ public class IcebergSplit
             long fileSize,
             long fileRecordCount,
             IcebergFileFormat fileFormat,
+            Optional<ParquetFileDecryptionData> parquetFileDecryptionData,
+            Optional<List<Object>> partitionValues,
+            String partitionSpecJson,
+            String partitionDataJson,
+            List<DeleteFile> deletes,
+            SplitWeight splitWeight,
+            TupleDomain<IcebergColumnHandle> fileStatisticsDomain,
+            Map<String, String> fileIoProperties,
+            List<HostAddress> addresses,
+            long dataSequenceNumber)
+    {
+        this(
+                path,
+                start,
+                length,
+                fileSize,
+                fileRecordCount,
+                fileFormat,
+                Optional.empty(),
+                parquetFileDecryptionData,
+                partitionValues,
+                partitionSpecJson,
+                partitionDataJson,
+                deletes,
+                splitWeight,
+                fileStatisticsDomain,
+                fileIoProperties,
+                addresses,
+                dataSequenceNumber);
+    }
+
+    public IcebergSplit(
+            String path,
+            long start,
+            long length,
+            long fileSize,
+            long fileRecordCount,
+            IcebergFileFormat fileFormat,
             Optional<byte[]> encryptionKeyMetadata,
+            Optional<ParquetFileDecryptionData> parquetFileDecryptionData,
             Optional<List<Object>> partitionValues,
             String partitionSpecJson,
             String partitionDataJson,
@@ -118,6 +160,7 @@ public class IcebergSplit
         this.fileRecordCount = fileRecordCount;
         this.fileFormat = requireNonNull(fileFormat, "fileFormat is null");
         this.encryptionKeyMetadata = requireNonNull(encryptionKeyMetadata, "encryptionKeyMetadata is null");
+        this.parquetFileDecryptionData = requireNonNull(parquetFileDecryptionData, "parquetFileDecryptionData is null");
         this.partitionValues = requireNonNull(partitionValues, "partitionValues is null");
         this.partitionSpecJson = requireNonNull(partitionSpecJson, "partitionSpecJson is null");
         this.partitionDataJson = requireNonNull(partitionDataJson, "partitionDataJson is null");
@@ -176,6 +219,12 @@ public class IcebergSplit
     public Optional<byte[]> getEncryptionKeyMetadata()
     {
         return encryptionKeyMetadata;
+    }
+
+    @JsonProperty
+    public Optional<ParquetFileDecryptionData> getParquetFileDecryptionData()
+    {
+        return parquetFileDecryptionData;
     }
 
     @JsonProperty
@@ -239,6 +288,7 @@ public class IcebergSplit
                 + estimatedSizeOf(partitionSpecJson)
                 + estimatedSizeOf(partitionDataJson)
                 + encryptionKeyMetadata.map(SizeOf::sizeOf).orElse(0L)
+                + parquetFileDecryptionData.map(ParquetFileDecryptionData::getRetainedSizeInBytes).orElse(0L)
                 + estimatedSizeOf(deletes, DeleteFile::retainedSizeInBytes)
                 + splitWeight.getRetainedSizeInBytes()
                 + fileStatisticsDomain.getRetainedSizeInBytes(IcebergColumnHandle::getRetainedSizeInBytes)
@@ -260,5 +310,23 @@ public class IcebergSplit
                     .mapToLong(DeleteFile::recordCount).sum());
         }
         return helper.toString();
+    }
+
+    public record ParquetFileDecryptionData(byte[] fileEncryptionKey, byte[] fileAadPrefix)
+    {
+        private static final int INSTANCE_SIZE = instanceSize(ParquetFileDecryptionData.class);
+
+        public ParquetFileDecryptionData
+        {
+            requireNonNull(fileEncryptionKey, "fileEncryptionKey is null");
+            requireNonNull(fileAadPrefix, "fileAadPrefix is null");
+        }
+
+        public long getRetainedSizeInBytes()
+        {
+            return INSTANCE_SIZE
+                    + SizeOf.sizeOf(fileEncryptionKey)
+                    + SizeOf.sizeOf(fileAadPrefix);
+        }
     }
 }

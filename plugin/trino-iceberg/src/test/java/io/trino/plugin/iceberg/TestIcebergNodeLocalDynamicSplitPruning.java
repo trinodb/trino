@@ -146,6 +146,7 @@ public class TestIcebergNodeLocalDynamicSplitPruning
                     -1, // invalid; normally known
                     ORC,
                     Optional.empty(),
+                    Optional.empty(),
                     PartitionSpecParser.toJson(PartitionSpec.unpartitioned()),
                     PartitionData.toJson(new PartitionData(new Object[] {})),
                     ImmutableList.of(),
@@ -207,6 +208,7 @@ public class TestIcebergNodeLocalDynamicSplitPruning
                     inputFile.length(),
                     -1, // invalid; normally known
                     ORC,
+                    Optional.empty(),
                     Optional.empty(),
                     PartitionSpecParser.toJson(PartitionSpec.unpartitioned()),
                     PartitionData.toJson(new PartitionData(new Object[] {})),
@@ -317,6 +319,7 @@ public class TestIcebergNodeLocalDynamicSplitPruning
                     inputFile.length(),
                     -1, // invalid; normally known
                     ORC,
+                    Optional.empty(),
                     Optional.empty(),
                     PartitionSpecParser.toJson(partitionSpec),
                     PartitionData.toJson(new PartitionData(new Object[] {dateColumnValue})),
@@ -470,6 +473,7 @@ public class TestIcebergNodeLocalDynamicSplitPruning
                     inputFile.length(),
                     -1, // invalid; normally known
                     ORC,
+                    Optional.empty(),
                     Optional.empty(),
                     PartitionSpecParser.toJson(partitionSpec),
                     PartitionData.toJson(new PartitionData(new Object[] {yearColumnValue})),
