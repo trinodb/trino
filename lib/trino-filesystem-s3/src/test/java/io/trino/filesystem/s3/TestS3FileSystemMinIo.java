@@ -114,6 +114,15 @@ public class TestS3FileSystemMinIo
 
     @Test
     @Override
+    public void testListFilesStartingFrom()
+            throws IOException
+    {
+        // MinIO is not hierarchical but has hierarchical naming constraints. For example it's not possible to have two blobs "level0" and "level0/level1".
+        testListFilesStartingFrom(true);
+    }
+
+    @Test
+    @Override
     public void testDeleteDirectory()
             throws IOException
     {
