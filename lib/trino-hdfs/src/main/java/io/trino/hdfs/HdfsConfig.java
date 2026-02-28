@@ -52,6 +52,7 @@ public class HdfsConfig
     private HostAndPort socksProxy;
     private boolean wireEncryptionEnabled;
     private int fileSystemMaxCacheSize = 1000;
+    private Duration fileSystemCacheExpireAfterAccess = new Duration(10, TimeUnit.MINUTES);
     private Integer dfsReplication;
 
     @NotNull
@@ -220,6 +221,21 @@ public class HdfsConfig
     public HdfsConfig setFileSystemMaxCacheSize(int fileSystemMaxCacheSize)
     {
         this.fileSystemMaxCacheSize = fileSystemMaxCacheSize;
+        return this;
+    }
+
+    @NotNull
+    @MinDuration("1m")
+    public Duration getFileSystemCacheExpireAfterAccess()
+    {
+        return fileSystemCacheExpireAfterAccess;
+    }
+
+    @Config("hive.fs.cache.expire-after-access")
+    @ConfigDescription("Time after which an idle FileSystem is evicted from the cache")
+    public HdfsConfig setFileSystemCacheExpireAfterAccess(Duration fileSystemCacheExpireAfterAccess)
+    {
+        this.fileSystemCacheExpireAfterAccess = fileSystemCacheExpireAfterAccess;
         return this;
     }
 

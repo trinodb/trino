@@ -39,16 +39,19 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.URI;
+import java.time.Duration;
 import java.util.EnumSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
-import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static org.apache.hadoop.fs.FileSystem.getFileSystemClass;
@@ -59,6 +62,9 @@ public class TrinoFileSystemCache
     private static final Logger log = Logger.get(TrinoFileSystemCache.class);
 
     public static final String CACHE_KEY = "fs.cache.credentials";
+
+    private static final long DEFAULT_CACHE_EXPIRY_NANOS = TimeUnit.MINUTES.toNanos(10);
+    private static final long EVICTION_INTERVAL_SECONDS = 60;
 
     static final TrinoFileSystemCache INSTANCE = new TrinoFileSystemCache();
 
@@ -76,10 +82,19 @@ public class TrinoFileSystemCache
      */
     private final AtomicLong cacheSize = new AtomicLong();
 
+    private volatile long cacheExpiryNanos = DEFAULT_CACHE_EXPIRY_NANOS;
+    private final ScheduledExecutorService evictionExecutor;
+
     @VisibleForTesting
     TrinoFileSystemCache()
     {
         this.stats = new TrinoFileSystemCacheStats(cache::size);
+        this.evictionExecutor = Executors.newSingleThreadScheduledExecutor(runnable -> {
+            Thread thread = new Thread(runnable, "trino-fs-cache-eviction");
+            thread.setDaemon(true);
+            return thread;
+        });
+        evictionExecutor.scheduleAtFixedRate(this::evictExpiredEntries, EVICTION_INTERVAL_SECONDS, EVICTION_INTERVAL_SECONDS, TimeUnit.SECONDS);
     }
 
     @Override
@@ -123,8 +138,8 @@ public class TrinoFileSystemCache
                 if (currentFileSystemHolder == null) {
                     // ConcurrentHashMap.compute guarantees that remapping function is invoked at most once, so cacheSize remains eventually consistent with cache.size()
                     if (cacheSize.getAndUpdate(currentSize -> Math.min(currentSize + 1, maxSize)) >= maxSize) {
-                        throw new RuntimeException(
-                                new IOException(format("FileSystem max cache size has been reached: %s", maxSize)));
+                        // Graceful degradation: return null to signal cache-full instead of throwing
+                        return null;
                     }
                     return new FileSystemHolder(conf, privateCredentials);
                 }
@@ -132,8 +147,16 @@ public class TrinoFileSystemCache
                 if (currentFileSystemHolder.credentialsChanged(uri, conf, privateCredentials)) {
                     return new FileSystemHolder(conf, privateCredentials);
                 }
+                currentFileSystemHolder.touchLastAccess();
                 return currentFileSystemHolder;
             });
+
+            if (fileSystemHolder == null) {
+                // Cache is full - create an uncached FileSystem so the query can proceed
+                log.warn("FileSystem cache is full (max size: %s). Creating uncached FileSystem for %s", maxSize, uri);
+                stats.newCacheFullDegradation();
+                return createFileSystem(uri, conf);
+            }
 
             // Now create the filesystem object outside of cache's lock
             fileSystemHolder.createFileSystemOnce(uri, conf);
@@ -190,10 +213,45 @@ public class TrinoFileSystemCache
         });
     }
 
+    void setCacheExpiry(Duration expiry)
+    {
+        this.cacheExpiryNanos = expiry.toNanos();
+    }
+
+    @VisibleForTesting
+    void evictExpiredEntries()
+    {
+        long now = System.nanoTime();
+        long expiryNanos = cacheExpiryNanos;
+        cache.forEach((key, fileSystemHolder) -> {
+            // Only evict shared entries (unique == 0); unique entries are managed by callers via close()
+            if (key.unique() != 0) {
+                return;
+            }
+            if (now - fileSystemHolder.getLastAccessNanos() > expiryNanos) {
+                // Double-check under lock to avoid evicting recently-accessed entries
+                cache.compute(key, (k, currentHolder) -> {
+                    if (currentHolder != null && (now - currentHolder.getLastAccessNanos() > expiryNanos)) {
+                        cacheSize.decrementAndGet();
+                        stats.newEviction();
+                        // Do NOT close the FileSystem - let FileSystemFinalizerService (PhantomReference) handle it
+                        // when all references are GC'd. This prevents breaking in-flight queries.
+                        return null;
+                    }
+                    return currentHolder;
+                });
+            }
+        });
+    }
+
     @Override
     public void closeAll()
             throws IOException
     {
+        // Note: evictionExecutor is intentionally NOT shut down here.
+        // closeAll() is called in tests (via FileSystem.closeAll()) and the singleton
+        // INSTANCE must remain functional afterward. The executor is a daemon thread,
+        // so it won't prevent JVM exit, and iterating an empty cache is a no-op.
         try {
             cache.forEach((key, fileSystemHolder) -> {
                 try {
@@ -280,11 +338,13 @@ public class TrinoFileSystemCache
         private final Set<?> privateCredentials;
         private final String cacheCredentials;
         private volatile FileSystem fileSystem;
+        private volatile long lastAccessNanos;
 
         public FileSystemHolder(Configuration conf, Set<?> privateCredentials)
         {
             this.privateCredentials = ImmutableSet.copyOf(requireNonNull(privateCredentials, "privateCredentials is null"));
             this.cacheCredentials = conf.get(CACHE_KEY, "");
+            this.lastAccessNanos = System.nanoTime();
         }
 
         public void createFileSystemOnce(URI uri, Configuration conf)
@@ -311,6 +371,16 @@ public class TrinoFileSystemCache
             // - Extra credentials are used to authenticate with certain file systems.
             return (isHdfs(newUri) && !privateCredentials.equals(newPrivateCredentials))
                     || !cacheCredentials.equals(newConf.get(CACHE_KEY, ""));
+        }
+
+        public void touchLastAccess()
+        {
+            lastAccessNanos = System.nanoTime();
+        }
+
+        public long getLastAccessNanos()
+        {
+            return lastAccessNanos;
         }
 
         public FileSystem getFileSystem()

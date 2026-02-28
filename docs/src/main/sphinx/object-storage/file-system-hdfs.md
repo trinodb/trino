@@ -73,6 +73,10 @@ Use the following properties to configure general aspects of HDFS support:
 * - `hive.fs.cache.max-size`
   - Maximum number of cached file system objects in the HDFS cache. Defaults to
     `1000`.
+* - `hive.fs.cache.expire-after-access`
+  - [Duration](prop-type-duration) after which an idle file system is evicted
+    from the cache. Prevents the cache from filling up in multi-tenant
+    environments with user impersonation. Defaults to `10m`.
 * - `hive.dfs.replication`
   - Integer value to set the HDFS replication factor. By default, no value is
     set.
