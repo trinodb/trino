@@ -29,6 +29,7 @@ import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
 
 import java.io.IOException;
+import java.net.URI;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
@@ -117,7 +118,7 @@ public class TestFileSystemCache
         cache.setCacheExpiry(Duration.ofMillis(50));
 
         Configuration conf = new Configuration(false);
-        cache.get(new java.net.URI("file:///tmp/evict_test/"), conf);
+        cache.get(new URI("file:///tmp/evict_test/"), conf);
         assertThat(cache.getCacheSize()).isEqualTo(1);
 
         // Wait for the entry to expire
@@ -138,14 +139,14 @@ public class TestFileSystemCache
         cache.setCacheExpiry(Duration.ofMillis(200));
 
         Configuration conf = new Configuration(false);
-        cache.get(new java.net.URI("file:///tmp/evict_recent/"), conf);
+        cache.get(new URI("file:///tmp/evict_recent/"), conf);
         assertThat(cache.getCacheSize()).isEqualTo(1);
 
         // Wait some time but not enough for expiry
         Thread.sleep(100);
 
         // Access the entry to reset last access time
-        cache.get(new java.net.URI("file:///tmp/evict_recent/"), conf);
+        cache.get(new URI("file:///tmp/evict_recent/"), conf);
 
         // Wait some more (total from creation > 200ms, but from last access < 200ms)
         Thread.sleep(100);
@@ -167,7 +168,7 @@ public class TestFileSystemCache
 
         Configuration conf = new Configuration(false);
         // getUnique creates entries with unique != 0
-        FileSystem uniqueFs = cache.getUnique(new java.net.URI("file:///tmp/evict_unique/"), conf);
+        FileSystem uniqueFs = cache.getUnique(new URI("file:///tmp/evict_unique/"), conf);
         assertThat(cache.getCacheSize()).isEqualTo(1);
 
         Thread.sleep(100);
@@ -191,7 +192,7 @@ public class TestFileSystemCache
         cache.setCacheExpiry(Duration.ofMillis(50));
 
         Configuration conf = new Configuration(false);
-        java.net.URI uri = new java.net.URI("file:///tmp/evict_recache/");
+        java.net.URI uri = new URI("file:///tmp/evict_recache/");
         FileSystem fs1 = cache.get(uri, conf);
         assertThat(cache.getCacheSize()).isEqualTo(1);
 
@@ -219,11 +220,11 @@ public class TestFileSystemCache
         conf.setInt("fs.cache.max-size", 1);
 
         // Fill the cache with one entry
-        cache.get(new java.net.URI("file:///tmp/recovery/"), conf);
+        cache.get(new URI("file:///tmp/recovery/"), conf);
         assertThat(cache.getCacheSize()).isEqualTo(1);
 
         // Different authority produces a different cache key, triggering degradation
-        FileSystem uncachedFs = cache.get(new java.net.URI("file://otherhost/tmp/recovery/"), conf);
+        FileSystem uncachedFs = cache.get(new URI("file://otherhost/tmp/recovery/"), conf);
         assertThat(uncachedFs).isNotNull();
         assertThat(cache.getCacheSize()).isEqualTo(1);
         assertThat(cache.getStats().getCacheFullDegradations().getTotalCount()).isEqualTo(1);
@@ -234,7 +235,7 @@ public class TestFileSystemCache
         assertThat(cache.getCacheSize()).isEqualTo(0);
 
         // Now new entries should be cached again (recovered from degradation)
-        cache.get(new java.net.URI("file://otherhost/tmp/recovery/"), conf);
+        cache.get(new URI("file://otherhost/tmp/recovery/"), conf);
         assertThat(cache.getCacheSize()).isEqualTo(1);
         assertThat(cache.getStats().getCacheFullDegradations().getTotalCount()).isEqualTo(1); // no new degradations
 

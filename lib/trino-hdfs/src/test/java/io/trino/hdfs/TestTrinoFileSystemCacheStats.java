@@ -18,6 +18,7 @@ import org.apache.hadoop.fs.FileSystem;
 import org.junit.jupiter.api.Test;
 
 import java.net.URI;
+import java.time.Duration;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -86,7 +87,7 @@ public class TestTrinoFileSystemCacheStats
     {
         TrinoFileSystemCache trinoFileSystemCache = new TrinoFileSystemCache();
         TrinoFileSystemCacheStats trinoFileSystemCacheStats = trinoFileSystemCache.getStats();
-        trinoFileSystemCache.setCacheExpiry(java.time.Duration.ofMillis(50));
+        trinoFileSystemCache.setCacheExpiry(Duration.ofMillis(50));
 
         Configuration configuration = new Configuration(false);
         trinoFileSystemCache.get(new URI("file:///tmp/path/"), configuration);
