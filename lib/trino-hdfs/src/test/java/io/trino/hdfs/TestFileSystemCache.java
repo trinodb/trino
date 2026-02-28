@@ -216,17 +216,16 @@ public class TestFileSystemCache
         cache.setCacheExpiry(Duration.ofMillis(50));
 
         Configuration conf = new Configuration(false);
-        conf.setInt("fs.cache.max-size", 2);
+        conf.setInt("fs.cache.max-size", 1);
 
-        // Fill the cache
-        cache.get(new java.net.URI("file:///tmp/recovery1/"), conf);
-        cache.get(new java.net.URI("file:///tmp/recovery2/"), conf);
-        assertThat(cache.getCacheSize()).isEqualTo(2);
+        // Fill the cache with one entry
+        cache.get(new java.net.URI("file:///tmp/recovery/"), conf);
+        assertThat(cache.getCacheSize()).isEqualTo(1);
 
-        // This should trigger graceful degradation
-        FileSystem uncachedFs = cache.get(new java.net.URI("file:///tmp/recovery3/"), conf);
+        // Different authority produces a different cache key, triggering degradation
+        FileSystem uncachedFs = cache.get(new java.net.URI("file://otherhost/tmp/recovery/"), conf);
         assertThat(uncachedFs).isNotNull();
-        assertThat(cache.getCacheSize()).isEqualTo(2);
+        assertThat(cache.getCacheSize()).isEqualTo(1);
         assertThat(cache.getStats().getCacheFullDegradations().getTotalCount()).isEqualTo(1);
 
         // Wait for entries to expire and evict
@@ -235,7 +234,7 @@ public class TestFileSystemCache
         assertThat(cache.getCacheSize()).isEqualTo(0);
 
         // Now new entries should be cached again (recovered from degradation)
-        cache.get(new java.net.URI("file:///tmp/recovery3/"), conf);
+        cache.get(new java.net.URI("file://otherhost/tmp/recovery/"), conf);
         assertThat(cache.getCacheSize()).isEqualTo(1);
         assertThat(cache.getStats().getCacheFullDegradations().getTotalCount()).isEqualTo(1); // no new degradations
 
