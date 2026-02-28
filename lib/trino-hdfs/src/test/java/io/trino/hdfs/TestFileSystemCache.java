@@ -192,7 +192,7 @@ public class TestFileSystemCache
         cache.setCacheExpiry(Duration.ofMillis(50));
 
         Configuration conf = new Configuration(false);
-        java.net.URI uri = new URI("file:///tmp/evict_recache/");
+        URI uri = new URI("file:///tmp/evict_recache/");
         FileSystem fs1 = cache.get(uri, conf);
         assertThat(cache.getCacheSize()).isEqualTo(1);
 
