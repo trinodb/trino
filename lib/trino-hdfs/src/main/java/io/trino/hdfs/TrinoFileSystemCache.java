@@ -83,18 +83,12 @@ public class TrinoFileSystemCache
     private final AtomicLong cacheSize = new AtomicLong();
 
     private volatile long cacheExpiryNanos = DEFAULT_CACHE_EXPIRY_NANOS;
-    private final ScheduledExecutorService evictionExecutor;
+    private volatile ScheduledExecutorService evictionExecutor;
 
     @VisibleForTesting
     TrinoFileSystemCache()
     {
         this.stats = new TrinoFileSystemCacheStats(cache::size);
-        this.evictionExecutor = Executors.newSingleThreadScheduledExecutor(runnable -> {
-            Thread thread = new Thread(runnable, "trino-fs-cache-eviction");
-            thread.setDaemon(true);
-            return thread;
-        });
-        evictionExecutor.scheduleAtFixedRate(this::evictExpiredEntries, EVICTION_INTERVAL_SECONDS, EVICTION_INTERVAL_SECONDS, TimeUnit.SECONDS);
     }
 
     @Override
@@ -216,6 +210,34 @@ public class TrinoFileSystemCache
     void setCacheExpiry(Duration expiry)
     {
         this.cacheExpiryNanos = expiry.toNanos();
+        ensureEvictionScheduled();
+    }
+
+    private synchronized void ensureEvictionScheduled()
+    {
+        if (evictionExecutor == null || evictionExecutor.isShutdown()) {
+            ScheduledExecutorService executor = Executors.newSingleThreadScheduledExecutor(runnable -> {
+                Thread thread = new Thread(runnable, "trino-fs-cache-eviction");
+                thread.setDaemon(true);
+                return thread;
+            });
+            executor.scheduleAtFixedRate(() -> {
+                try {
+                    evictExpiredEntries();
+                }
+                catch (Throwable t) {
+                    log.error(t, "Error during cache eviction");
+                }
+            }, EVICTION_INTERVAL_SECONDS, EVICTION_INTERVAL_SECONDS, TimeUnit.SECONDS);
+            this.evictionExecutor = executor;
+        }
+    }
+
+    private synchronized void shutdownEviction()
+    {
+        if (evictionExecutor != null && !evictionExecutor.isShutdown()) {
+            evictionExecutor.shutdownNow();
+        }
     }
 
     @VisibleForTesting
@@ -248,10 +270,7 @@ public class TrinoFileSystemCache
     public void closeAll()
             throws IOException
     {
-        // Note: evictionExecutor is intentionally NOT shut down here.
-        // closeAll() is called in tests (via FileSystem.closeAll()) and the singleton
-        // INSTANCE must remain functional afterward. The executor is a daemon thread,
-        // so it won't prevent JVM exit, and iterating an empty cache is a no-op.
+        shutdownEviction();
         try {
             cache.forEach((key, fileSystemHolder) -> {
                 try {
