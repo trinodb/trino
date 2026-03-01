@@ -29,7 +29,6 @@ import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 final class S3SecurityMappingProvider
-        implements S3CredentialsMapper
 {
     private final Supplier<S3SecurityMappings> mappingsProvider;
     private final Optional<String> roleCredentialName;
@@ -61,7 +60,6 @@ final class S3SecurityMappingProvider
         this.colonReplacement = requireNonNull(colonReplacement, "colonReplacement is null");
     }
 
-    @Override
     public Optional<S3SecurityMappingResult> getMapping(ConnectorIdentity identity, Location location)
     {
         S3SecurityMapping mapping = mappingsProvider.get().getMapping(identity, new S3Location(location))
@@ -78,8 +76,7 @@ final class S3SecurityMappingProvider
                 selectKmsKeyId(mapping, identity),
                 getSseCustomerKey(mapping, identity),
                 mapping.endpoint(),
-                mapping.region(),
-                Optional.empty()));
+                mapping.region()));
     }
 
     private Optional<String> selectRole(S3SecurityMapping mapping, ConnectorIdentity identity)

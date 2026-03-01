@@ -19,9 +19,14 @@ import io.airlift.http.server.ServerFeature;
 import io.airlift.http.server.testing.TestingHttpServer;
 import io.airlift.node.NodeInfo;
 import org.apache.iceberg.catalog.Catalog;
+import org.apache.iceberg.rest.credentials.Credential;
+import org.apache.iceberg.rest.responses.LoadTableResponse;
 
 import java.io.Closeable;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
 
 import static java.util.Objects.requireNonNull;
 
@@ -81,6 +86,7 @@ public class DelegatingRestSessionCatalog
     public static class Builder
     {
         private Catalog delegate;
+        private final List<Credential> credentials = new ArrayList<>();
 
         public Builder delegate(Catalog delegate)
         {
@@ -88,11 +94,52 @@ public class DelegatingRestSessionCatalog
             return this;
         }
 
+        public Builder addAllCredentials(List<Credential> credentials)
+        {
+            this.credentials.addAll(credentials);
+            return this;
+        }
+
         public DelegatingRestSessionCatalog build()
         {
             requireNonNull(delegate, "Delegate must be set");
 
-            return new DelegatingRestSessionCatalog(new RESTCatalogAdapter(delegate), delegate);
+            RESTCatalogAdapter adapter = credentials.isEmpty()
+                    ? new RESTCatalogAdapter(delegate)
+                    : new CredentialInjectingAdapter(delegate, credentials);
+            return new DelegatingRestSessionCatalog(adapter, delegate);
+        }
+    }
+
+    private static class CredentialInjectingAdapter
+            extends RESTCatalogAdapter
+    {
+        private final List<Credential> credentials;
+
+        CredentialInjectingAdapter(Catalog catalog, List<Credential> credentials)
+        {
+            super(catalog);
+            this.credentials = List.copyOf(credentials);
+        }
+
+        @Override
+        public <T extends RESTResponse> T handleRequest(
+                RESTCatalogAdapter.Route route,
+                Map<String, String> vars,
+                Object body,
+                Class<T> responseType)
+        {
+            T response = super.handleRequest(route, vars, body, responseType);
+            if (response instanceof LoadTableResponse loadTableResponse) {
+                LoadTableResponse.Builder builder = LoadTableResponse.builder()
+                        .withTableMetadata(loadTableResponse.tableMetadata())
+                        .addAllConfig(loadTableResponse.config())
+                        .addAllCredentials(credentials);
+                @SuppressWarnings("unchecked")
+                T result = (T) builder.build();
+                return result;
+            }
+            return response;
         }
     }
 }
