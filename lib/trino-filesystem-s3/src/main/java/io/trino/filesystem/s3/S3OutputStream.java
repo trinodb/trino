@@ -14,6 +14,8 @@
 package io.trino.filesystem.s3;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.ImmutableList;
+import io.airlift.units.DataSize;
 import io.trino.filesystem.FileMayHaveAlreadyExistedException;
 import io.trino.filesystem.encryption.EncryptionKey;
 import io.trino.memory.context.AggregatedMemoryContext;
@@ -33,10 +35,13 @@ import software.amazon.awssdk.services.s3.model.StorageClass;
 import software.amazon.awssdk.services.s3.model.UploadPartRequest;
 import software.amazon.awssdk.services.s3.model.UploadPartResponse;
 
+import java.io.ByteArrayInputStream;
+import java.io.Closeable;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.InterruptedIOException;
 import java.io.OutputStream;
-import java.nio.ByteBuffer;
+import java.io.SequenceInputStream;
 import java.nio.file.FileAlreadyExistsException;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -46,19 +51,20 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Future;
 
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
+import static io.airlift.units.DataSize.Unit.KILOBYTE;
 import static io.trino.filesystem.s3.S3FileSystemConfig.ObjectCannedAcl.getCannedAcl;
 import static io.trino.filesystem.s3.S3FileSystemConfig.S3SseType.NONE;
 import static io.trino.filesystem.s3.S3FileSystemConfig.StorageClassType.toStorageClass;
 import static io.trino.filesystem.s3.S3SseCUtils.encoded;
 import static io.trino.filesystem.s3.S3SseCUtils.md5Checksum;
 import static io.trino.filesystem.s3.S3SseRequestConfigurator.setEncryptionSettings;
-import static java.lang.Math.clamp;
-import static java.lang.Math.max;
 import static java.lang.Math.min;
+import static java.lang.Math.toIntExact;
 import static java.lang.System.arraycopy;
 import static java.net.HttpURLConnection.HTTP_PRECON_FAILED;
-import static java.util.Objects.checkFromIndexSize;
+import static java.util.Collections.enumeration;
 import static java.util.Objects.requireNonNull;
 import static java.util.Objects.requireNonNullElse;
 import static java.util.concurrent.CompletableFuture.supplyAsync;
@@ -66,6 +72,8 @@ import static java.util.concurrent.CompletableFuture.supplyAsync;
 final class S3OutputStream
         extends OutputStream
 {
+    private static final int BUFFER_SIZE = toIntExact(DataSize.of(128, KILOBYTE).toBytes());
+
     private final List<CompletedPart> parts = new ArrayList<>();
     private final LocalMemoryContext memoryContext;
     private final Executor uploadExecutor;
@@ -77,11 +85,9 @@ final class S3OutputStream
     private final StorageClass storageClass;
     private final ObjectCannedACL cannedAcl;
     private final Optional<EncryptionKey> key;
+    private final LinkedBuffer buffer;
 
     private int currentPartNumber;
-    private byte[] buffer = new byte[0];
-    private int bufferSize;
-    private int initialBufferSize = 64;
 
     private boolean closed;
     private boolean failed;
@@ -105,7 +111,7 @@ final class S3OutputStream
         this.storageClass = toStorageClass(context.storageClass());
         this.cannedAcl = getCannedAcl(context.cannedAcl());
         this.key = requireNonNull(key, "key is null");
-
+        this.buffer = new LinkedBuffer(BUFFER_SIZE);
         verify(key.isEmpty() || context.s3SseContext().sseType() == NONE, "Encryption key cannot be used with SSE configuration");
     }
 
@@ -115,9 +121,8 @@ final class S3OutputStream
             throws IOException
     {
         ensureOpen();
-        ensureCapacity(1);
-        buffer[bufferSize] = (byte) b;
-        bufferSize++;
+        buffer.write(b);
+        memoryContext.setBytes(buffer.size());
         flushBuffer(false);
     }
 
@@ -126,18 +131,19 @@ final class S3OutputStream
             throws IOException
     {
         ensureOpen();
-
+        // make sure we don't exceed the part size
         while (length > 0) {
-            ensureCapacity(length);
-
-            int copied = min(buffer.length - bufferSize, length);
-            arraycopy(bytes, offset, buffer, bufferSize, copied);
-            bufferSize += copied;
-
+            int capacity = partSize - buffer.size();
+            if (capacity >= length) {
+                buffer.write(bytes, offset, length);
+                memoryContext.setBytes(buffer.size());
+                break;
+            }
+            buffer.write(bytes, offset, capacity);
+            memoryContext.setBytes(buffer.size());
             flushBuffer(false);
-
-            offset += copied;
-            length -= copied;
+            offset += capacity;
+            length -= capacity;
         }
     }
 
@@ -199,20 +205,6 @@ final class S3OutputStream
         }
     }
 
-    private void ensureCapacity(int extra)
-    {
-        int capacity = min(partSize, bufferSize + extra);
-        if (buffer.length < capacity) {
-            int target = max(buffer.length, initialBufferSize);
-            if (target < capacity) {
-                target += target / 2; // increase 50%
-                target = clamp(target, capacity, partSize);
-            }
-            buffer = Arrays.copyOf(buffer, target);
-            memoryContext.setBytes(buffer.length);
-        }
-    }
-
     private void flushBuffer(boolean finished)
             throws IOException
     {
@@ -225,9 +217,9 @@ final class S3OutputStream
                         location,
                         key,
                         false,
-                        buffer,
-                        0,
-                        bufferSize);
+                        buffer.takeInputStream(),
+                        buffer.size());
+                buffer.reset();
                 return;
             }
             catch (Throwable e) {
@@ -237,17 +229,15 @@ final class S3OutputStream
         }
 
         // the multipart upload API only allows the last part to be smaller than 5MB
-        if ((bufferSize == partSize) || (finished && (bufferSize > 0))) {
-            byte[] data = buffer;
-            int length = bufferSize;
-
+        if ((buffer.size() >= partSize) || (finished && (buffer.size() > 0))) {
+            int dataLength = buffer.size();
+            @SuppressWarnings("resource")
+            InputStream dataInputStream = buffer.takeInputStream();
             if (finished) {
-                this.buffer = null;
+                buffer.close();
             }
             else {
-                this.buffer = new byte[0];
-                this.initialBufferSize = partSize;
-                bufferSize = 0;
+                buffer.reset();
             }
             memoryContext.setBytes(0);
 
@@ -260,7 +250,7 @@ final class S3OutputStream
                 throw e;
             }
             multipartUploadStarted = true;
-            inProgressUploadFuture = supplyAsync(() -> uploadPage(data, length), uploadExecutor);
+            inProgressUploadFuture = supplyAsync(() -> uploadPage(dataInputStream, dataLength), uploadExecutor);
         }
     }
 
@@ -284,7 +274,7 @@ final class S3OutputStream
         }
     }
 
-    private CompletedPart uploadPage(byte[] data, int length)
+    private CompletedPart uploadPage(InputStream inputStream, int length)
     {
         if (uploadId.isEmpty()) {
             CreateMultipartUploadRequest request = CreateMultipartUploadRequest.builder()
@@ -324,9 +314,7 @@ final class S3OutputStream
                                 () -> setEncryptionSettings(builder, context.s3SseContext())))
                 .build();
 
-        ByteBuffer bytes = ByteBuffer.wrap(data, 0, length);
-
-        UploadPartResponse response = client.uploadPart(request, RequestBody.fromByteBuffer(bytes));
+        UploadPartResponse response = client.uploadPart(request, RequestBody.fromInputStream(inputStream, length));
 
         CompletedPart part = CompletedPart.builder()
                 .partNumber(currentPartNumber)
@@ -388,13 +376,10 @@ final class S3OutputStream
             S3Location location,
             Optional<EncryptionKey> key,
             boolean exclusiveCreate,
-            byte[] data,
-            int dataOffset,
+            InputStream inputStream,
             int dataLength)
             throws IOException
     {
-        checkFromIndexSize(dataOffset, dataLength, data.length);
-
         PutObjectRequest request = PutObjectRequest.builder()
                 .overrideConfiguration(context::applyCredentialProviderOverride)
                 .acl(getCannedAcl(context.cannedAcl()))
@@ -416,10 +401,8 @@ final class S3OutputStream
                 })
                 .build();
 
-        ByteBuffer bytes = ByteBuffer.wrap(data, dataOffset, dataLength);
-
         try {
-            client.putObject(request, RequestBody.fromByteBuffer(bytes));
+            client.putObject(request, RequestBody.fromInputStream(inputStream, dataLength));
         }
         catch (SdkException putObjectException) {
             // When `location` already exists, the operation will fail with `412 Precondition Failed`
@@ -437,6 +420,100 @@ final class S3OutputStream
                 throw new FileAlreadyExistsException(location.toString());
             }
             throw new IOException("Put failed for bucket [%s] key [%s]: %s".formatted(location.bucket(), location.key(), putObjectException), putObjectException);
+        }
+    }
+
+    @VisibleForTesting
+    static class LinkedBuffer
+            implements Closeable
+    {
+        private final int bufferSize;
+        private final List<InputStream> parts;
+        private byte[] currentBuffer;
+        private int currentOffset;
+
+        public LinkedBuffer(int bufferSize)
+        {
+            this.bufferSize = bufferSize;
+            this.parts = new ArrayList<>();
+            this.currentBuffer = new byte[bufferSize];
+            this.currentOffset = 0;
+        }
+
+        public void write(int b)
+        {
+            checkState(currentBuffer != null, "LinkedBuffer is closed");
+            if (remainingCapacity() == 0) {
+                parts.add(new ByteArrayInputStream(currentBuffer));
+                resetBuffer();
+            }
+            currentBuffer[currentOffset++] = (byte) b;
+        }
+
+        public void write(byte[] bytes, int offset, int length)
+        {
+            checkState(currentBuffer != null, "LinkedBuffer is closed");
+            while (length > 0) {
+                int bytesToWrite = min(length, remainingCapacity());
+
+                arraycopy(bytes, offset, currentBuffer, currentOffset, bytesToWrite);
+
+                currentOffset += bytesToWrite;
+                offset += bytesToWrite;
+                length -= bytesToWrite;
+
+                if (remainingCapacity() == 0) {
+                    parts.add(new ByteArrayInputStream(currentBuffer));
+                    resetBuffer();
+                }
+            }
+        }
+
+        public int size()
+        {
+            return parts.size() * bufferSize + currentOffset;
+        }
+
+        public int chunks()
+        {
+            return parts.size();
+        }
+
+        public InputStream takeInputStream()
+        {
+            if (currentOffset == 0) {
+                return new SequenceInputStream(enumeration(ImmutableList.copyOf(parts)));
+            }
+            return new SequenceInputStream(enumeration(ImmutableList.<InputStream>builder()
+                    .addAll(ImmutableList.copyOf(parts))
+                    .add(new ByteArrayInputStream(Arrays.copyOf(currentBuffer, currentOffset)))
+                    .build()));
+        }
+
+        public void reset()
+        {
+            currentBuffer = new byte[bufferSize];
+            currentOffset = 0;
+            parts.clear();
+        }
+
+        private int remainingCapacity()
+        {
+            return bufferSize - currentOffset;
+        }
+
+        private void resetBuffer()
+        {
+            currentBuffer = new byte[bufferSize];
+            currentOffset = 0;
+        }
+
+        @Override
+        public void close()
+        {
+            currentBuffer = null;
+            currentOffset = 0;
+            parts.clear();
         }
     }
 }
