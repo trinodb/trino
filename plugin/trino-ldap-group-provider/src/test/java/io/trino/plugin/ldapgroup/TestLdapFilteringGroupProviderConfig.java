@@ -30,7 +30,9 @@ final class TestLdapFilteringGroupProviderConfig
         assertRecordedDefaults(recordDefaults(LdapFilteringGroupProviderConfig.class)
                 .setLdapGroupBaseDN(null)
                 .setLdapGroupsSearchFilter(null)
-                .setLdapGroupsSearchMemberAttribute("member"));
+                .setLdapGroupsSearchMemberAttribute("member")
+                .setLdapGroupSearchEnableNestedGroups(false)
+                .setLdapGroupSearchUseMatchingRuleInChain(false));
     }
 
     @Test
@@ -39,12 +41,16 @@ final class TestLdapFilteringGroupProviderConfig
         Map<String, String> properties = ImmutableMap.of(
                 "ldap.group-base-dn", "ou=group,dc=trino,dc=io",
                 "ldap.group-search-filter", "(cn=dev*)",
-                "ldap.group-search-member-attribute", "memberUser");
+                "ldap.group-search-member-attribute", "memberUser",
+                "ldap.group-search-enable-nested-groups", "true",
+                "ldap.group-search-use-matching-rule-in-chain", "true");
 
         LdapFilteringGroupProviderConfig expected = new LdapFilteringGroupProviderConfig()
                 .setLdapGroupBaseDN("ou=group,dc=trino,dc=io")
                 .setLdapGroupsSearchFilter("(cn=dev*)")
-                .setLdapGroupsSearchMemberAttribute("memberUser");
+                .setLdapGroupsSearchMemberAttribute("memberUser")
+                .setLdapGroupSearchEnableNestedGroups(true)
+                .setLdapGroupSearchUseMatchingRuleInChain(true);
 
         assertFullMapping(properties, expected);
     }
