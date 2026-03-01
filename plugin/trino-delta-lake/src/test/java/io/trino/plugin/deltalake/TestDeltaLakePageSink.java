@@ -56,6 +56,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
+import static io.airlift.json.JsonCodec.jsonCodec;
 import static io.trino.plugin.deltalake.DeltaLakeColumnType.REGULAR;
 import static io.trino.plugin.deltalake.DeltaLakeMetadata.DEFAULT_READER_VERSION;
 import static io.trino.plugin.deltalake.DeltaLakeMetadata.DEFAULT_WRITER_VERSION;
@@ -188,8 +189,8 @@ public class TestDeltaLakePageSink
         DeltaLakePageSinkProvider provider = new DeltaLakePageSinkProvider(
                 new GroupByHashPageIndexerFactory(new FlatHashStrategyCompiler(new TypeOperators(), new NullSafeHashCompiler(new TypeOperators()))),
                 new DefaultDeltaLakeFileSystemFactory(new HdfsFileSystemFactory(HDFS_ENVIRONMENT, HDFS_FILE_SYSTEM_STATS), new NoOpVendedCredentialsProvider()),
-                JsonCodec.jsonCodec(DataFileInfo.class),
-                JsonCodec.jsonCodec(DeltaLakeMergeResult.class),
+                jsonCodec(DataFileInfo.class),
+                jsonCodec(DeltaLakeMergeResult.class),
                 stats,
                 new FileFormatDataSourceStats(),
                 deltaLakeConfig,

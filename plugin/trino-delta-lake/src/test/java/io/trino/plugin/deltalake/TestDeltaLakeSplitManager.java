@@ -15,7 +15,6 @@ package io.trino.plugin.deltalake;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.airlift.json.JsonCodec;
 import io.airlift.json.JsonCodecFactory;
 import io.airlift.units.DataSize;
 import io.trino.filesystem.Location;
@@ -66,6 +65,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static com.google.common.util.concurrent.MoreExecutors.newDirectExecutorService;
+import static io.airlift.json.JsonCodec.jsonCodec;
 import static io.trino.node.TestingInternalNodeManager.CURRENT_NODE;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_FILE_SYSTEM_FACTORY;
@@ -216,7 +216,7 @@ public class TestDeltaLakeSplitManager
                 new NodeVersion("test_version"),
                 transactionLogAccess,
                 new FileFormatDataSourceStats(),
-                JsonCodec.jsonCodec(LastCheckpoint.class),
+                jsonCodec(LastCheckpoint.class),
                 new DeltaLakeConfig(),
                 newDirectExecutorService());
 
@@ -228,8 +228,8 @@ public class TestDeltaLakeSplitManager
                 transactionLogAccess,
                 typeManager,
                 new DeltaLakeConfig(),
-                JsonCodec.jsonCodec(DataFileInfo.class),
-                JsonCodec.jsonCodec(DeltaLakeMergeResult.class),
+                jsonCodec(DataFileInfo.class),
+                jsonCodec(DeltaLakeMergeResult.class),
                 new FileSystemTransactionLogWriterFactory(new TransactionLogSynchronizerManager(ImmutableMap.of(), new NoIsolationSynchronizer(new DefaultDeltaLakeFileSystemFactory(hdfsFileSystemFactory, new NoOpVendedCredentialsProvider())))),
                 CURRENT_NODE,
                 checkpointWriterManager,

@@ -17,6 +17,7 @@ import io.airlift.json.JsonCodec;
 
 import java.util.Optional;
 
+import static io.airlift.json.JsonCodec.jsonCodec;
 import static java.util.Objects.requireNonNull;
 
 public record PartitionUpdateAndMergeResults(
@@ -26,7 +27,7 @@ public record PartitionUpdateAndMergeResults(
         long deleteRowCount,
         Optional<String> deleteDeltaDirectory)
 {
-    public static final JsonCodec<PartitionUpdateAndMergeResults> CODEC = JsonCodec.jsonCodec(PartitionUpdateAndMergeResults.class);
+    public static final JsonCodec<PartitionUpdateAndMergeResults> CODEC = jsonCodec(PartitionUpdateAndMergeResults.class);
 
     public PartitionUpdateAndMergeResults
     {

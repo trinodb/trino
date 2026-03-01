@@ -24,11 +24,14 @@ import java.sql.SQLException;
 import java.util.List;
 import java.util.Map;
 
+import static io.airlift.json.JsonCodec.listJsonCodec;
+import static io.airlift.json.JsonCodec.mapJsonCodec;
+
 public class QueryPairMapper
         implements RowMapper<QueryPair>
 {
-    private static final JsonCodec<Map<String, String>> propertiesJsonCodec = JsonCodec.mapJsonCodec(String.class, String.class);
-    private static final JsonCodec<List<String>> queriesJsonCodec = JsonCodec.listJsonCodec(String.class);
+    private static final JsonCodec<Map<String, String>> propertiesJsonCodec = mapJsonCodec(String.class, String.class);
+    private static final JsonCodec<List<String>> queriesJsonCodec = listJsonCodec(String.class);
 
     @Override
     public QueryPair map(ResultSet resultSet, StatementContext context)

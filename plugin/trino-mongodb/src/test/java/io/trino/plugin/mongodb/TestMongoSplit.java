@@ -17,11 +17,12 @@ import com.google.common.collect.ImmutableList;
 import io.airlift.json.JsonCodec;
 import org.junit.jupiter.api.Test;
 
+import static io.airlift.json.JsonCodec.jsonCodec;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestMongoSplit
 {
-    private final JsonCodec<MongoSplit> codec = JsonCodec.jsonCodec(MongoSplit.class);
+    private final JsonCodec<MongoSplit> codec = jsonCodec(MongoSplit.class);
 
     @Test
     public void testJsonRoundTrip()

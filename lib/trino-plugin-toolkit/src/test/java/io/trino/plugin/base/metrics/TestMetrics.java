@@ -25,6 +25,7 @@ import org.junit.jupiter.api.Test;
 import java.util.Arrays;
 import java.util.Map;
 
+import static io.airlift.json.JsonCodec.jsonCodec;
 import static io.trino.spi.metrics.Metrics.accumulator;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -85,7 +86,7 @@ public class TestMetrics
     @Test
     public void testHistogramJson()
     {
-        JsonCodec<TDigestHistogram> codec = JsonCodec.jsonCodec(TDigestHistogram.class);
+        JsonCodec<TDigestHistogram> codec = jsonCodec(TDigestHistogram.class);
 
         TDigest digest = new TDigest();
         digest.add(123);
@@ -98,7 +99,7 @@ public class TestMetrics
     @Test
     public void testDurationJson()
     {
-        JsonCodec<DurationTiming> codec = JsonCodec.jsonCodec(DurationTiming.class);
+        JsonCodec<DurationTiming> codec = jsonCodec(DurationTiming.class);
         DurationTiming duration = new DurationTiming(new Duration(123, NANOSECONDS));
         String json = codec.toJson(duration);
         DurationTiming result = codec.fromJson(json);

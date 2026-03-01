@@ -65,6 +65,7 @@ import java.util.stream.Stream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
+import static io.airlift.json.JsonCodec.jsonCodec;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.trino.hive.thrift.metastore.hive_metastoreConstants.FILE_INPUT_FORMAT;
@@ -466,7 +467,7 @@ public class TestHivePageSink
                 NO_ACID_TRANSACTION,
                 false,
                 false);
-        JsonCodec<PartitionUpdate> partitionUpdateCodec = JsonCodec.jsonCodec(PartitionUpdate.class);
+        JsonCodec<PartitionUpdate> partitionUpdateCodec = jsonCodec(PartitionUpdate.class);
         HivePageSinkProvider provider = new HivePageSinkProvider(
                 getDefaultHiveFileWriterFactories(config, fileSystemFactory),
                 HDFS_FILE_SYSTEM_FACTORY,

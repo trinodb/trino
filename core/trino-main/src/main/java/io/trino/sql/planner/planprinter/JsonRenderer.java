@@ -25,12 +25,13 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.airlift.json.JsonCodec.jsonCodec;
 import static java.util.Objects.requireNonNull;
 
 public class JsonRenderer
         implements Renderer<String>
 {
-    private static final JsonCodec<JsonRenderedNode> CODEC = JsonCodec.jsonCodec(JsonRenderedNode.class);
+    private static final JsonCodec<JsonRenderedNode> CODEC = jsonCodec(JsonRenderedNode.class);
 
     @Override
     public String render(PlanRepresentation plan)

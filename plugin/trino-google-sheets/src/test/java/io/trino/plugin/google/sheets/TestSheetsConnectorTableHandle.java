@@ -16,12 +16,13 @@ package io.trino.plugin.google.sheets;
 import io.airlift.json.JsonCodec;
 import org.junit.jupiter.api.Test;
 
+import static io.airlift.json.JsonCodec.jsonCodec;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestSheetsConnectorTableHandle
 {
-    private final JsonCodec<SheetsNamedTableHandle> namedCodec = JsonCodec.jsonCodec(SheetsNamedTableHandle.class);
-    private final JsonCodec<SheetsSheetTableHandle> sheetCodec = JsonCodec.jsonCodec(SheetsSheetTableHandle.class);
+    private final JsonCodec<SheetsNamedTableHandle> namedCodec = jsonCodec(SheetsNamedTableHandle.class);
+    private final JsonCodec<SheetsSheetTableHandle> sheetCodec = jsonCodec(SheetsSheetTableHandle.class);
 
     @Test
     public void testRoundTripWithNamedTable()
