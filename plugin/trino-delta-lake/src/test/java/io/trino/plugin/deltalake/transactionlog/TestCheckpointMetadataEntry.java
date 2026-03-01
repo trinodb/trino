@@ -20,12 +20,13 @@ import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 
+import static io.airlift.json.JsonCodec.jsonCodec;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 final class TestCheckpointMetadataEntry
 {
-    private final JsonCodec<CheckpointMetadataEntry> codec = JsonCodec.jsonCodec(CheckpointMetadataEntry.class);
+    private final JsonCodec<CheckpointMetadataEntry> codec = jsonCodec(CheckpointMetadataEntry.class);
 
     @Test
     void testCheckpointMetadataEntry()

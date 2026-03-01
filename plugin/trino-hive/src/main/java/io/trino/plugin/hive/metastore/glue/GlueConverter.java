@@ -80,6 +80,7 @@ import static com.google.common.base.Strings.emptyToNull;
 import static com.google.common.base.Strings.lenientFormat;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static io.airlift.json.JsonCodec.jsonCodec;
 import static io.trino.metastore.HiveColumnStatistics.createBinaryColumnStatistics;
 import static io.trino.metastore.HiveColumnStatistics.createBooleanColumnStatistics;
 import static io.trino.metastore.HiveColumnStatistics.createDateColumnStatistics;
@@ -118,7 +119,7 @@ public final class GlueConverter
     private static final Column FAKE_COLUMN = new Column("ignored", HiveType.HIVE_INT, Optional.empty(), ImmutableMap.of());
     private static final long SECONDS_PER_DAY = TimeUnit.DAYS.toSeconds(1);
 
-    private static final JsonCodec<LanguageFunction> LANGUAGE_FUNCTION_CODEC = JsonCodec.jsonCodec(LanguageFunction.class);
+    private static final JsonCodec<LanguageFunction> LANGUAGE_FUNCTION_CODEC = jsonCodec(LanguageFunction.class);
 
     private GlueConverter() {}
 
