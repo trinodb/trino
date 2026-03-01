@@ -40,6 +40,8 @@ import io.trino.filesystem.local.LocalFileSystemConfig;
 import io.trino.filesystem.local.LocalFileSystemFactory;
 import io.trino.filesystem.memory.MemoryFileSystemCache;
 import io.trino.filesystem.memory.MemoryFileSystemCacheModule;
+import io.trino.filesystem.oci.OciFileSystemFactory;
+import io.trino.filesystem.oci.OciFileSystemModule;
 import io.trino.filesystem.s3.FileSystemS3;
 import io.trino.filesystem.s3.S3FileSystemModule;
 import io.trino.filesystem.switching.SwitchingFileSystemFactory;
@@ -99,6 +101,11 @@ public class FileSystemModule
         if (config.isAlluxioEnabled()) {
             install(new AlluxioFileSystemModule());
             factories.addBinding("alluxio").to(AlluxioFileSystemFactory.class);
+        }
+
+        if (config.isNativeOciEnabled()) {
+            install(new OciFileSystemModule());
+            factories.addBinding("oci").to(OciFileSystemFactory.class);
         }
 
         if (config.isNativeAzureEnabled()) {

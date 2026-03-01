@@ -1111,7 +1111,11 @@
                 <version>${project.version}</version>
                 <type>test-jar</type>
             </dependency>
-
+            <dependency>
+                <groupId>io.trino</groupId>
+                <artifactId>trino-filesystem-oci</artifactId>
+                <version>${project.version}</version>
+            </dependency>
             <dependency>
                 <groupId>io.trino</groupId>
                 <artifactId>trino-hive-formats</artifactId>

@@ -55,6 +55,17 @@ public class FileSystemConfig
         return this;
     }
 
+    public boolean isNativeOciEnabled()
+   {
+        return nativeOciEnabled;
+   }
+    @Config("fs.native-oci.enabled")
+    public FileSystemConfig setNativeOciEnabled(boolean nativeOciEnabled)
+    {
+        this.nativeOciEnabled = nativeOciEnabled;
+        return this;
+    }
+
     public boolean isNativeAzureEnabled()
     {
         return nativeAzureEnabled;
