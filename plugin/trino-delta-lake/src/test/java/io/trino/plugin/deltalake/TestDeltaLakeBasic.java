@@ -1067,8 +1067,8 @@ public class TestDeltaLakeBasic
         assertThat(protocolEntry).isNotNull();
         assertThat(protocolEntry.minReaderVersion()).isEqualTo(3);
         assertThat(protocolEntry.minWriterVersion()).isEqualTo(7);
-        assertThat(protocolEntry.readerFeatures()).hasValue(ImmutableSet.of("timestampNtz"));
-        assertThat(protocolEntry.writerFeatures()).hasValue(ImmutableSet.of("timestampNtz"));
+        assertThat(protocolEntry.readerFeatures()).hasValue(ImmutableSet.of("timestampNtz", "columnMapping"));
+        assertThat(protocolEntry.writerFeatures()).hasValue(ImmutableSet.of("timestampNtz", "columnMapping"));
 
         // Insert rows and verify results
         assertUpdate(session,
@@ -1263,8 +1263,8 @@ public class TestDeltaLakeBasic
         List<DeltaLakeTransactionLogEntry> transactionLogsByCreateTable = getEntriesFromJson(0, tableLocation + "/_delta_log");
         ProtocolEntry protocolEntryByCreateTable = transactionLogsByCreateTable.get(1).getProtocol();
         assertThat(protocolEntryByCreateTable).isNotNull();
-        assertThat(protocolEntryByCreateTable.minReaderVersion()).isEqualTo(1);
-        assertThat(protocolEntryByCreateTable.minWriterVersion()).isEqualTo(2);
+        assertThat(protocolEntryByCreateTable.minReaderVersion()).isEqualTo(2);
+        assertThat(protocolEntryByCreateTable.minWriterVersion()).isEqualTo(5);
         assertThat(protocolEntryByCreateTable.readerFeatures()).isEmpty();
         assertThat(protocolEntryByCreateTable.writerFeatures()).isEmpty();
 
@@ -1273,8 +1273,8 @@ public class TestDeltaLakeBasic
         assertThat(protocolEntryByAddColumn).isNotNull();
         assertThat(protocolEntryByAddColumn.minReaderVersion()).isEqualTo(3);
         assertThat(protocolEntryByAddColumn.minWriterVersion()).isEqualTo(7);
-        assertThat(protocolEntryByAddColumn.readerFeatures()).hasValue(ImmutableSet.of("timestampNtz"));
-        assertThat(protocolEntryByAddColumn.writerFeatures()).hasValue(ImmutableSet.of("timestampNtz"));
+        assertThat(protocolEntryByAddColumn.readerFeatures()).hasValue(ImmutableSet.of("timestampNtz", "columnMapping"));
+        assertThat(protocolEntryByAddColumn.writerFeatures()).hasValue(ImmutableSet.of("timestampNtz", "columnMapping"));
 
         assertUpdate("DROP TABLE " + tableName);
     }
@@ -1398,7 +1398,7 @@ public class TestDeltaLakeBasic
             String tableLocation = getTableLocation(table.getName());
             List<DeltaLakeTransactionLogEntry> transactionLogs = getEntriesFromJson(0, tableLocation + "/_delta_log");
             assertThat(transactionLogs.get(1).getProtocol())
-                    .isEqualTo(new ProtocolEntry(3, 7, Optional.of(Set.of("deletionVectors")), Optional.of(Set.of("deletionVectors"))));
+                    .isEqualTo(new ProtocolEntry(3, 7, Optional.of(Set.of("deletionVectors", "columnMapping")), Optional.of(Set.of("deletionVectors", "columnMapping"))));
 
             assertUpdate("INSERT INTO " + table.getName() + " VALUES 2, 3", 2);
             assertUpdate("DELETE FROM " + table.getName() + " WHERE x = 2", 1);
@@ -1431,7 +1431,7 @@ public class TestDeltaLakeBasic
             String tableLocation = getTableLocation(table.getName());
             List<DeltaLakeTransactionLogEntry> transactionLogs = getEntriesFromJson(0, tableLocation + "/_delta_log");
             assertThat(transactionLogs.get(1).getProtocol())
-                    .isEqualTo(new ProtocolEntry(1, 2, Optional.empty(), Optional.empty()));
+                    .isEqualTo(new ProtocolEntry(2, 5, Optional.empty(), Optional.empty()));
 
             assertUpdate("INSERT INTO " + table.getName() + " VALUES 2, 3", 2);
             assertUpdate("DELETE FROM " + table.getName() + " WHERE x = 2", 1);
