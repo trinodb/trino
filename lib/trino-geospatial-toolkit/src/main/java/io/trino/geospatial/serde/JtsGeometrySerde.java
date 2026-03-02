@@ -18,6 +18,7 @@ import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;
+import org.locationtech.jts.algorithm.Orientation;
 import org.locationtech.jts.geom.Coordinate;
 import org.locationtech.jts.geom.Envelope;
 import org.locationtech.jts.geom.Geometry;
@@ -29,6 +30,7 @@ import org.locationtech.jts.geom.Point;
 import org.locationtech.jts.geom.Polygon;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 import static com.google.common.base.Verify.verify;
@@ -466,20 +468,12 @@ public final class JtsGeometrySerde
 
     private static boolean isClockwise(Coordinate[] coordinates)
     {
-        return isClockwise(coordinates, 0, coordinates.length);
+        return !Orientation.isCCW(coordinates);
     }
 
     private static boolean isClockwise(Coordinate[] coordinates, int start, int end)
     {
-        // Sum over the edges: (x2 − x1) * (y2 + y1).
-        // If the result is positive the curve is clockwise,
-        // if it's negative the curve is counter-clockwise.
-        double area = 0;
-        for (int i = start + 1; i < end; i++) {
-            area += (coordinates[i].x - coordinates[i - 1].x) * (coordinates[i].y + coordinates[i - 1].y);
-        }
-        area += (coordinates[start].x - coordinates[end - 1].x) * (coordinates[start].y + coordinates[end - 1].y);
-        return area > 0;
+        return isClockwise(Arrays.copyOfRange(coordinates, start, end));
     }
 
     private static void reverse(Coordinate[] coordinates, int start, int end)
