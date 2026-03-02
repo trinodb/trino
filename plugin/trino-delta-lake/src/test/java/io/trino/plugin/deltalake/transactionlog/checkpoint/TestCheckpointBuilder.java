@@ -45,7 +45,7 @@ public class TestCheckpointBuilder
         builder.addLogEntry(metadataEntry(metadata2));
 
         ProtocolEntry protocol1 = new ProtocolEntry(1, 2, Optional.empty(), Optional.empty());
-        ProtocolEntry protocol2 = new ProtocolEntry(3, 4, Optional.empty(), Optional.empty());
+        ProtocolEntry protocol2 = new ProtocolEntry(2, 4, Optional.empty(), Optional.empty());
         builder.addLogEntry(protocolEntry(protocol1));
         builder.addLogEntry(protocolEntry(protocol2));
 

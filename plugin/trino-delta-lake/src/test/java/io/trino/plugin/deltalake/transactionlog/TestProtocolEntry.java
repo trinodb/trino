@@ -48,6 +48,7 @@ public class TestProtocolEntry
                 .hasMessageContaining("Invalid JSON string")
                 .hasStackTraceContaining("readerFeatures must not exist when minReaderVersion is less than 3");
 
+        // this should fail because when minReaderVersion is 3, readerFeatures must exist in protocol, we allow reading such protocol for backward compatibility
         @Language("JSON")
         String invalidMinWriterVersion = "{\"minReaderVersion\":3,\"minWriterVersion\":6,\"writerFeatures\":[\"timestampNTZ\"]}";
         assertThatThrownBy(() -> codec.fromJson(invalidMinWriterVersion))
