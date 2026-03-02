@@ -281,7 +281,7 @@ public class BenchmarkJsonPathBinaryOperators
         new BenchmarkJsonPathBinaryOperators().benchmarkJsonValueFunctionMultipleVaryingTypes(data);
     }
 
-    public static void main(String[] args)
+    static void main()
             throws Exception
     {
         Benchmarks.benchmark(BenchmarkJsonPathBinaryOperators.class).run();

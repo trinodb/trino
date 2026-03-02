@@ -22,11 +22,18 @@ import java.util.stream.Stream;
 public final class IntegerType
         extends AbstractIntType
 {
+    public static final String NAME = "integer";
     public static final IntegerType INTEGER = new IntegerType();
 
     private IntegerType()
     {
-        super(new TypeSignature(StandardTypes.INTEGER));
+        super(new TypeSignature(NAME));
+    }
+
+    @Override
+    public String getDisplayName()
+    {
+        return NAME;
     }
 
     @Override

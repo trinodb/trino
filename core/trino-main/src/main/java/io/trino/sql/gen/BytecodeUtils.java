@@ -13,6 +13,7 @@
  */
 package io.trino.sql.gen;
 
+import com.google.common.base.CharMatcher;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Primitives;
@@ -67,6 +68,14 @@ import static java.lang.String.format;
 
 public final class BytecodeUtils
 {
+    private static final CharMatcher DISALLOWED_IDENTIFIER_CHARS = CharMatcher.inRange('a', 'z')
+            .or(CharMatcher.inRange('A', 'Z'))
+            .or(CharMatcher.inRange('0', '9'))
+            .or(CharMatcher.is('_'))
+            .or(CharMatcher.is('$'))
+            .negate()
+            .precomputed();
+
     private BytecodeUtils() {}
 
     public static BytecodeNode ifWasNullPopAndGoto(Scope scope, LabelNode label, Class<?> returnType, Class<?>... stackArgsToPop)
@@ -163,7 +172,7 @@ public final class BytecodeUtils
     {
         return generateInvocation(
                 scope,
-                resolvedFunction.signature().getName().getFunctionName(),
+                resolvedFunction.signature().getName().functionName(),
                 resolvedFunction.functionNullability(),
                 invocationConvention -> functionManager.getScalarFunctionImplementation(resolvedFunction, invocationConvention),
                 arguments,
@@ -211,7 +220,7 @@ public final class BytecodeUtils
     {
         return generateFullInvocation(
                 scope,
-                resolvedFunction.signature().getName().getFunctionName(),
+                resolvedFunction.signature().getName().functionName(),
                 resolvedFunction.functionNullability(),
                 resolvedFunction.signature().getArgumentTypes().stream()
                         .map(FunctionType.class::isInstance)
@@ -444,7 +453,7 @@ public final class BytecodeUtils
 
     public static BytecodeExpression invoke(Binding binding, BoundSignature signature)
     {
-        return invoke(binding, signature.getName().getFunctionName());
+        return invoke(binding, signature.getName().functionName());
     }
 
     /**
@@ -452,7 +461,7 @@ public final class BytecodeUtils
      */
     public static String sanitizeName(String name)
     {
-        return name.replaceAll("[^A-Za-z0-9_$]", "_");
+        return DISALLOWED_IDENTIFIER_CHARS.replaceFrom(name, '_');
     }
 
     public static BytecodeNode generateWrite(CallSiteBinder callSiteBinder, Scope scope, Variable wasNullVariable, Type type)

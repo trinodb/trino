@@ -43,7 +43,7 @@ import io.trino.sql.planner.plan.TableWriterNode.WriterTarget;
 
 import java.util.Collection;
 import java.util.List;
-import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Supplier;
@@ -57,7 +57,6 @@ import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.concurrent.MoreFutures.toListenableFuture;
 import static io.trino.SystemSessionProperties.getCloseIdleWritersTriggerDuration;
 import static io.trino.SystemSessionProperties.getIdleWriterMinDataSizeThreshold;
-import static io.trino.SystemSessionProperties.isStatisticsCpuTimerEnabled;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.sql.planner.plan.TableWriterNode.CreateTarget;
@@ -122,7 +121,7 @@ public class TableWriterOperator
             }
             OperatorContext context = driverContext.addOperatorContext(operatorId, planNodeId, TableWriterOperator.class.getSimpleName());
             Operator statisticsAggregationOperator = statisticsAggregationOperatorFactory.createOperator(driverContext);
-            boolean statisticsCpuTimerEnabled = !(statisticsAggregationOperator instanceof DevNullOperator) && isStatisticsCpuTimerEnabled(session);
+            boolean statisticsCpuTimerEnabled = !(statisticsAggregationOperator instanceof DevNullOperator);
             return new TableWriterOperator(
                     context,
                     createPageSink(driverContext),
@@ -395,8 +394,8 @@ public class TableWriterOperator
     private void tryClosingIdleWriters()
     {
         long physicalWrittenDataSize = getTaskContext().getPhysicalWrittenDataSize();
-        Optional<Integer> writerCount = getTaskContext().getMaxWriterCount();
-        if (writerCount.isEmpty() || physicalWrittenDataSize - lastPhysicalWrittenDataSize <= idleWriterMinDataSizeThreshold.toBytes() * writerCount.get()) {
+        OptionalInt writerCount = getTaskContext().getMaxWriterCount();
+        if (writerCount.isEmpty() || physicalWrittenDataSize - lastPhysicalWrittenDataSize <= idleWriterMinDataSizeThreshold.toBytes() * writerCount.getAsInt()) {
             return;
         }
         pageSink.closeIdleWriters();
@@ -414,7 +413,9 @@ public class TableWriterOperator
     {
         long pageSinkMemoryUsage = pageSink.getMemoryUsage();
         pageSinkMemoryContext.setBytes(pageSinkMemoryUsage);
-        pageSinkPeakMemoryUsage.accumulateAndGet(pageSinkMemoryUsage, Math::max);
+        if (pageSinkMemoryUsage > pageSinkPeakMemoryUsage.get()) {
+            pageSinkPeakMemoryUsage.accumulateAndGet(pageSinkMemoryUsage, Math::max);
+        }
     }
 
     @VisibleForTesting

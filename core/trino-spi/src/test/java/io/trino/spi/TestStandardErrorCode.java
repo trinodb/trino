@@ -25,7 +25,7 @@ import static io.trino.spi.StandardErrorCode.UNSUPPORTED_TABLE_TYPE;
 import static java.util.Arrays.asList;
 import static org.assertj.core.api.Assertions.assertThat;
 
-public class TestStandardErrorCode
+final class TestStandardErrorCode
 {
     private static final int EXTERNAL_ERROR_START = 0x0100_0000;
 

@@ -30,7 +30,7 @@ import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-public class TestPage
+final class TestPage
 {
     @Test
     public void testGetRegion()

@@ -18,7 +18,7 @@ import com.google.common.io.Resources;
 import freemarker.template.Template;
 import io.airlift.log.Logger;
 
-import java.io.StringReader;
+import java.io.Reader;
 import java.io.StringWriter;
 import java.nio.charset.Charset;
 import java.util.ArrayList;
@@ -81,7 +81,7 @@ public class IndexTaskBuilder
         try {
             String tmpFile = "ingestion-index.tpl";
             tplContent = Resources.toString(getResource(tmpFile), Charset.defaultCharset());
-            Template template = new Template("ingestion-task", new StringReader(tplContent));
+            Template template = new Template("ingestion-task", Reader.of(tplContent));
             StringWriter writer = new StringWriter();
             template.process(this, writer);
             return writer.toString();

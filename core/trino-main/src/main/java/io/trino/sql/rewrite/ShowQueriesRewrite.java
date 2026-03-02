@@ -40,6 +40,7 @@ import io.trino.metadata.ViewDefinition;
 import io.trino.metadata.ViewPropertyManager;
 import io.trino.security.AccessControl;
 import io.trino.spi.connector.CatalogSchemaName;
+import io.trino.spi.connector.ConnectorMaterializedViewDefinition;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.function.FunctionKind;
@@ -61,6 +62,7 @@ import io.trino.sql.tree.BooleanLiteral;
 import io.trino.sql.tree.Cast;
 import io.trino.sql.tree.ColumnDefinition;
 import io.trino.sql.tree.CreateMaterializedView;
+import io.trino.sql.tree.CreateMaterializedView.WhenStaleBehavior;
 import io.trino.sql.tree.CreateSchema;
 import io.trino.sql.tree.CreateTable;
 import io.trino.sql.tree.CreateView;
@@ -99,6 +101,7 @@ import io.trino.sql.tree.Statement;
 import io.trino.sql.tree.StringLiteral;
 import io.trino.sql.tree.TableElement;
 import io.trino.sql.tree.Values;
+import io.trino.util.DateTimeUtils;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -561,10 +564,20 @@ public final class ShowQueriesRewrite
                     query,
                     false,
                     false,
-                    Optional.empty(), // TODO support GRACE PERIOD
+                    viewDefinition.get().getGracePeriod()
+                            .map(DateTimeUtils::formatDayTimeInterval),
+                    Optional.of(toSqlWhenStaleBehavior(viewDefinition.get().getWhenStaleBehavior())),
                     propertyNodes,
                     viewDefinition.get().getComment())).trim();
             return singleValueQuery("Create Materialized View", sql);
+        }
+
+        private static WhenStaleBehavior toSqlWhenStaleBehavior(ConnectorMaterializedViewDefinition.WhenStaleBehavior whenStale)
+        {
+            return switch (whenStale) {
+                case INLINE -> WhenStaleBehavior.INLINE;
+                case FAIL -> WhenStaleBehavior.FAIL;
+            };
         }
 
         private Query showCreateView(ShowCreate node)
@@ -645,7 +658,7 @@ public final class ShowQueriesRewrite
                                 column.getDefaultValue().map(value -> parseDefaultColumnValueExpression(value, objectName, node)),
                                 column.isNullable(),
                                 propertyNodes,
-                                Optional.ofNullable(column.getComment()));
+                                column.getComment());
                     })
                     .collect(toImmutableList());
 

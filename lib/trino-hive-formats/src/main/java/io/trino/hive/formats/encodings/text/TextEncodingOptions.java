@@ -43,7 +43,7 @@ public class TextEncodingOptions
 
     private static final Slice DEFAULT_NULL_SEQUENCE = Slices.utf8Slice("\\N");
 
-    private static final byte[] DEFAULT_SEPARATORS = new byte[] {
+    private static final byte[] DEFAULT_SEPARATORS = {
             1,  // Start of Heading
             2,  // Start of text
             3,  // End of Text

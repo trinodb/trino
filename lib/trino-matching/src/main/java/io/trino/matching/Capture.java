@@ -15,29 +15,12 @@ package io.trino.matching;
 
 import java.util.concurrent.atomic.AtomicInteger;
 
-public class Capture<T>
+public record Capture<T>(int number)
 {
     private static final AtomicInteger sequenceCounter = new AtomicInteger();
 
-    private final String description;
-
     public static <T> Capture<T> newCapture()
     {
-        return newCapture("");
-    }
-
-    public static <T> Capture<T> newCapture(String description)
-    {
-        return new Capture<>(description + "@" + sequenceCounter.incrementAndGet());
-    }
-
-    private Capture(String description)
-    {
-        this.description = description;
-    }
-
-    public String description()
-    {
-        return description;
+        return new Capture<>(sequenceCounter.incrementAndGet());
     }
 }

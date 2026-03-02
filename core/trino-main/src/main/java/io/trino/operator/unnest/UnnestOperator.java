@@ -28,6 +28,7 @@ import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.sql.planner.plan.PlanNodeId;
 
+import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 
@@ -335,8 +336,8 @@ public class UnnestOperator
         if (nestedType instanceof ArrayType arrayType) {
             Type elementType = arrayType.getElementType();
 
-            if (elementType instanceof RowType) {
-                return new ArrayOfRowsUnnester(elementType.getTypeParameters().size());
+            if (elementType instanceof RowType rowType) {
+                return new ArrayOfRowsUnnester(rowType.getFields().size());
             }
             return new ArrayUnnester();
         }
@@ -356,7 +357,7 @@ public class UnnestOperator
         }
 
         if (forceReset) {
-            java.util.Arrays.fill(buffer, 0);
+            Arrays.fill(buffer, 0);
         }
 
         return buffer;
@@ -370,7 +371,7 @@ public class UnnestOperator
         }
 
         if (forceReset) {
-            java.util.Arrays.fill(buffer, false);
+            Arrays.fill(buffer, false);
         }
 
         return buffer;

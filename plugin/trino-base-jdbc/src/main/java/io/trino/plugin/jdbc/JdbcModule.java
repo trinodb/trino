@@ -14,6 +14,7 @@
 package io.trino.plugin.jdbc;
 
 import com.google.inject.Binder;
+import com.google.inject.Inject;
 import com.google.inject.Key;
 import com.google.inject.Provider;
 import com.google.inject.Scopes;
@@ -38,11 +39,11 @@ import java.util.concurrent.ExecutorService;
 
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
+import static io.airlift.bootstrap.ClosingBinder.closingBinder;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
-import static io.airlift.configuration.ConditionalModule.conditionalModule;
 import static io.airlift.configuration.ConfigBinder.configBinder;
-import static io.trino.plugin.base.ClosingBinder.closingBinder;
 import static java.lang.String.format;
+import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static org.weakref.jmx.guice.ExportBinder.newExporter;
 
@@ -99,11 +100,13 @@ public class JdbcModule
         newSetBinder(binder, ConnectorTableFunction.class);
 
         binder.bind(ConnectionFactory.class).annotatedWith(ForLazyConnectionFactory.class).to(Key.get(RetryingConnectionFactory.class)).in(Scopes.SINGLETON);
-        install(conditionalModule(
-                QueryConfig.class,
-                QueryConfig::isReuseConnection,
-                new ReusableConnectionFactoryModule(),
-                innerBinder -> innerBinder.bind(ConnectionFactory.class).to(LazyConnectionFactory.class).in(Scopes.SINGLETON)));
+
+        if (buildConfigObject(QueryConfig.class).isReuseConnection()) {
+            install(new ReusableConnectionFactoryModule());
+        }
+        else {
+            binder.bind(ConnectionFactory.class).to(LazyConnectionFactory.class).in(Scopes.SINGLETON);
+        }
 
         newOptionalBinder(binder, Key.get(int.class, MaxDomainCompactionThreshold.class));
 
@@ -111,7 +114,7 @@ public class JdbcModule
 
         newOptionalBinder(binder, Key.get(ExecutorService.class, ForJdbcClient.class))
                 .setDefault()
-                .toInstance(newCachedThreadPool(daemonThreadsNamed(format("%s-jdbc-client-%%d", catalogName))));
+                .toProvider(JdbcClientExecutorServiceProvider.class);
 
         closingBinder(binder)
                 .registerExecutor(Key.get(ExecutorService.class, ForJdbcClient.class));
@@ -145,5 +148,23 @@ public class JdbcModule
     public static void bindTablePropertiesProvider(Binder binder, Class<? extends TablePropertiesProvider> type)
     {
         tablePropertiesProviderBinder(binder).addBinding().to(type).in(Scopes.SINGLETON);
+    }
+
+    public static class JdbcClientExecutorServiceProvider
+            implements Provider<ExecutorService>
+    {
+        private final CatalogName catalogName;
+
+        @Inject
+        public JdbcClientExecutorServiceProvider(CatalogName catalogName)
+        {
+            this.catalogName = requireNonNull(catalogName, "catalogName is null");
+        }
+
+        @Override
+        public ExecutorService get()
+        {
+            return newCachedThreadPool(daemonThreadsNamed(format("%s-jdbc-client-%%d", catalogName)));
+        }
     }
 }

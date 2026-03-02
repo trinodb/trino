@@ -47,6 +47,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
@@ -147,7 +148,7 @@ class EventDrivenTaskSource
         Map<PlanFragmentId, PlanNodeId> remoteSourceNodeIds = new HashMap<>();
         remoteSources.forEach((planNodeId, planFragmentId) -> remoteSourceNodeIds.put(planFragmentId, planNodeId));
         ImmutableList.Builder<IdempotentSplitSource> splitSources = ImmutableList.builder();
-        for (Map.Entry<PlanFragmentId, Exchange> entry : sourceExchanges.entrySet()) {
+        for (Entry<PlanFragmentId, Exchange> entry : sourceExchanges.entrySet()) {
             PlanFragmentId sourceFragmentId = entry.getKey();
             PlanNodeId remoteSourceNodeId = remoteSourceNodeIds.get(sourceFragmentId);
             verify(remoteSourceNodeId != null, "remote source not found for fragment: %s", sourceFragmentId);
@@ -155,7 +156,7 @@ class EventDrivenTaskSource
             ExchangeSplitSource splitSource = closer.register(new ExchangeSplitSource(handleSource, targetExchangeSplitSizeInBytes));
             splitSources.add(closer.register(new IdempotentSplitSource(queryId, tableExecuteContextManager, remoteSourceNodeId, Optional.of(sourceFragmentId), splitSource, splitBatchSize, metricsRecorder)));
         }
-        for (Map.Entry<PlanNodeId, SplitSource> entry : splitSourceSupplier.get().entrySet()) {
+        for (Entry<PlanNodeId, SplitSource> entry : splitSourceSupplier.get().entrySet()) {
             splitSources.add(closer.register(new IdempotentSplitSource(queryId, tableExecuteContextManager, entry.getKey(), Optional.empty(), closer.register(entry.getValue()), splitBatchSize, metricsRecorder)));
         }
         this.splitSources = splitSources.build();

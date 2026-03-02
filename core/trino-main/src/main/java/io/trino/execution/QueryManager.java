@@ -13,39 +13,183 @@
  */
 package io.trino.execution;
 
+import com.google.common.collect.Ordering;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.errorprone.annotations.ThreadSafe;
+import com.google.inject.Inject;
+import io.airlift.concurrent.SetThreadName;
+import io.airlift.concurrent.ThreadPoolExecutorMBean;
+import io.airlift.log.Logger;
+import io.airlift.units.DataSize;
+import io.airlift.units.Duration;
+import io.opentelemetry.api.trace.Tracer;
+import io.opentelemetry.context.Context;
+import io.trino.ExceededCpuLimitException;
+import io.trino.ExceededScanLimitException;
+import io.trino.ExceededWriteLimitException;
 import io.trino.Session;
+import io.trino.execution.QueryExecution.QueryOutputInfo;
 import io.trino.execution.StateMachine.StateChangeListener;
+import io.trino.memory.ClusterMemoryManager;
 import io.trino.server.BasicQueryInfo;
 import io.trino.server.ResultQueryInfo;
 import io.trino.server.protocol.Slug;
 import io.trino.spi.QueryId;
+import io.trino.spi.TrinoException;
+import io.trino.sql.planner.Plan;
+import jakarta.annotation.PostConstruct;
+import jakarta.annotation.PreDestroy;
+import org.weakref.jmx.Managed;
+import org.weakref.jmx.Nested;
 
 import java.util.List;
 import java.util.NoSuchElementException;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 
-public interface QueryManager
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.util.concurrent.Futures.immediateFailedFuture;
+import static io.airlift.concurrent.Threads.threadsNamed;
+import static io.trino.SystemSessionProperties.getQueryMaxCpuTime;
+import static io.trino.SystemSessionProperties.getQueryMaxScanPhysicalBytes;
+import static io.trino.SystemSessionProperties.getQueryMaxWritePhysicalSize;
+import static io.trino.execution.QueryState.FINISHING;
+import static io.trino.execution.QueryState.RUNNING;
+import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
+import static io.trino.tracing.ScopedSpan.scopedSpan;
+import static java.lang.String.format;
+import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.Executors.newCachedThreadPool;
+import static java.util.concurrent.Executors.newScheduledThreadPool;
+
+@ThreadSafe
+public class QueryManager
 {
-    List<BasicQueryInfo> getQueries();
+    private static final Logger log = Logger.get(QueryManager.class);
+
+    private final ClusterMemoryManager memoryManager;
+    private final Tracer tracer;
+    private final QueryTracker<QueryExecution> queryTracker;
+
+    private final Duration maxQueryCpuTime;
+    private final Optional<DataSize> maxQueryScanPhysicalBytes;
+    private final Optional<DataSize> maxQueryWritePhysicalSize;
+
+    private final ExecutorService queryExecutor;
+    private final ThreadPoolExecutorMBean queryExecutorMBean;
+
+    private final ScheduledExecutorService queryManagementExecutor;
+    private final ThreadPoolExecutorMBean queryManagementExecutorMBean;
+
+    @Inject
+    public QueryManager(ClusterMemoryManager memoryManager, Tracer tracer, QueryManagerConfig queryManagerConfig)
+    {
+        this.memoryManager = requireNonNull(memoryManager, "memoryManager is null");
+        this.tracer = requireNonNull(tracer, "tracer is null");
+
+        this.maxQueryCpuTime = queryManagerConfig.getQueryMaxCpuTime();
+        this.maxQueryScanPhysicalBytes = queryManagerConfig.getQueryMaxScanPhysicalBytes();
+        this.maxQueryWritePhysicalSize = queryManagerConfig.getQueryMaxWritePhysicalSize();
+
+        this.queryExecutor = newCachedThreadPool(threadsNamed("query-scheduler-%s"));
+        this.queryExecutorMBean = new ThreadPoolExecutorMBean((ThreadPoolExecutor) queryExecutor);
+
+        this.queryManagementExecutor = newScheduledThreadPool(queryManagerConfig.getQueryManagerExecutorPoolSize(), threadsNamed("query-management-%s"));
+        this.queryManagementExecutorMBean = new ThreadPoolExecutorMBean((ThreadPoolExecutor) queryManagementExecutor);
+
+        this.queryTracker = new QueryTracker<>(queryManagerConfig, queryManagementExecutor);
+    }
+
+    @PostConstruct
+    public void start()
+    {
+        queryTracker.start();
+        queryManagementExecutor.scheduleWithFixedDelay(() -> {
+            try {
+                enforceMemoryLimits();
+            }
+            catch (Throwable e) {
+                log.error(e, "Error enforcing memory limits");
+            }
+
+            try {
+                enforceCpuLimits();
+            }
+            catch (Throwable e) {
+                log.error(e, "Error enforcing query CPU time limits");
+            }
+
+            try {
+                enforceScanLimits();
+            }
+            catch (Throwable e) {
+                log.error(e, "Error enforcing query scan bytes limits");
+            }
+
+            try {
+                enforceWriteLimits();
+            }
+            catch (Throwable e) {
+                log.error(e, "Error enforcing query write bytes limits");
+            }
+        }, 1, 1, TimeUnit.SECONDS);
+    }
+
+    @PreDestroy
+    public void stop()
+    {
+        queryTracker.stop();
+        queryManagementExecutor.shutdownNow();
+        queryExecutor.shutdownNow();
+    }
+
+    public List<BasicQueryInfo> getQueries()
+    {
+        return queryTracker.getAllQueries().stream()
+                .map(queryExecution -> {
+                    try {
+                        return queryExecution.getBasicQueryInfo();
+                    }
+                    catch (RuntimeException _) {
+                        return null;
+                    }
+                })
+                .filter(Objects::nonNull)
+                .collect(toImmutableList());
+    }
 
     /**
      * Add a listener that fires once the query output locations are known.
      *
      * @throws NoSuchElementException if query does not exist
      */
-    void setOutputInfoListener(QueryId queryId, Consumer<QueryExecution.QueryOutputInfo> listener)
-            throws NoSuchElementException;
+    public void setOutputInfoListener(QueryId queryId, Consumer<QueryOutputInfo> listener)
+    {
+        requireNonNull(listener, "listener is null");
+
+        queryTracker.getQuery(queryId).setOutputInfoListener(listener);
+    }
 
     /**
      * Notify that one of the output tasks failed for a given query
      */
-    void outputTaskFailed(TaskId taskId, Throwable failure);
+    public void outputTaskFailed(TaskId taskId, Throwable failure)
+    {
+        queryTracker.getQuery(taskId.queryId()).outputTaskFailed(taskId, failure);
+    }
 
     /**
      * Notify that the query results for a query have been fully consumed by the client
      */
-    void resultsConsumed(QueryId queryId);
+    public void resultsConsumed(QueryId queryId)
+    {
+        queryTracker.getQuery(queryId).resultsConsumed();
+    }
 
     /**
      * Add a listener that fires each time the query state changes.
@@ -55,78 +199,255 @@ public interface QueryManager
      *
      * @throws NoSuchElementException if query does not exist
      */
-    void addStateChangeListener(QueryId queryId, StateChangeListener<QueryState> listener)
-            throws NoSuchElementException;
+    public void addStateChangeListener(QueryId queryId, StateChangeListener<QueryState> listener)
+    {
+        requireNonNull(listener, "listener is null");
+
+        queryTracker.getQuery(queryId).addStateChangeListener(listener);
+    }
 
     /**
      * Gets a future that completes when the query changes from the specified current state
      * or immediately if the query is already in a final state.  If the query does not exist,
      * the future will contain a {@link NoSuchElementException}
      */
-    ListenableFuture<QueryState> getStateChange(QueryId queryId, QueryState currentState);
+    public ListenableFuture<QueryState> getStateChange(QueryId queryId, QueryState currentState)
+    {
+        return queryTracker.tryGetQuery(queryId)
+                .map(query -> query.getStateChange(currentState))
+                .orElseGet(() -> immediateFailedFuture(new NoSuchElementException()));
+    }
 
     /**
      * @throws NoSuchElementException if query does not exist
      */
-    BasicQueryInfo getQueryInfo(QueryId queryId)
-            throws NoSuchElementException;
+    public BasicQueryInfo getQueryInfo(QueryId queryId)
+    {
+        return queryTracker.getQuery(queryId).getBasicQueryInfo();
+    }
 
     /**
      * @throws NoSuchElementException if query does not exist
      */
-    QueryInfo getFullQueryInfo(QueryId queryId)
-            throws NoSuchElementException;
+    public QueryInfo getFullQueryInfo(QueryId queryId)
+            throws NoSuchElementException
+    {
+        return queryTracker.getQuery(queryId).getQueryInfo();
+    }
 
     /**
      * @throws NoSuchElementException if query does not exist
      */
-    ResultQueryInfo getResultQueryInfo(QueryId queryId)
-            throws NoSuchElementException;
+    public ResultQueryInfo getResultQueryInfo(QueryId queryId)
+            throws NoSuchElementException
+    {
+        return queryTracker.getQuery(queryId).getResultQueryInfo();
+    }
 
     /**
      * @throws NoSuchElementException if query does not exist
      */
-    Session getQuerySession(QueryId queryId);
+    public Session getQuerySession(QueryId queryId)
+            throws NoSuchElementException
+    {
+        return queryTracker.getQuery(queryId).getSession();
+    }
 
     /**
      * @throws NoSuchElementException if query does not exist
      */
-    Slug getQuerySlug(QueryId queryId);
+    public Slug getQuerySlug(QueryId queryId)
+    {
+        return queryTracker.getQuery(queryId).getSlug();
+    }
+
+    public Optional<Plan> getQueryPlan(QueryId queryId)
+    {
+        return queryTracker.getQuery(queryId).getQueryPlan();
+    }
+
+    public void addFinalQueryInfoListener(QueryId queryId, StateChangeListener<QueryInfo> stateChangeListener)
+    {
+        queryTracker.getQuery(queryId).addFinalQueryInfoListener(stateChangeListener);
+    }
 
     /**
      * @throws NoSuchElementException if query does not exist
      */
-    QueryState getQueryState(QueryId queryId)
-            throws NoSuchElementException;
+    public QueryState getQueryState(QueryId queryId)
+    {
+        return queryTracker.getQuery(queryId).getState();
+    }
 
-    boolean hasQuery(QueryId queryId);
+    public boolean hasQuery(QueryId queryId)
+    {
+        return queryTracker.hasQuery(queryId);
+    }
 
     /**
      * Updates the client heartbeat time, to prevent the query from be automatically purged.
      * If the query does not exist, the call is ignored.
      */
-    void recordHeartbeat(QueryId queryId);
+    public void recordHeartbeat(QueryId queryId)
+    {
+        queryTracker.tryGetQuery(queryId)
+                .ifPresent(QueryExecution::recordHeartbeat);
+    }
 
     /**
      * Creates a new query using the specified query execution.
      */
-    void createQuery(QueryExecution execution);
+    public void createQuery(QueryExecution queryExecution)
+    {
+        requireNonNull(queryExecution, "queryExecution is null");
+
+        if (!queryTracker.addQuery(queryExecution)) {
+            throw new TrinoException(GENERIC_INTERNAL_ERROR, format("Query %s already registered", queryExecution.getQueryId()));
+        }
+
+        queryExecution.addFinalQueryInfoListener(finalQueryInfo -> {
+            // execution MUST be added to the expiration queue or there will be a leak
+            queryTracker.expireQuery(queryExecution.getQueryId());
+        });
+
+        try (SetThreadName _ = new SetThreadName("Query-" + queryExecution.getQueryId())) {
+            try (var ignoredStartScope = scopedSpan(tracer.spanBuilder("query-start")
+                    .setParent(Context.current().with(queryExecution.getSession().getQuerySpan()))
+                    .startSpan())) {
+                queryExecution.start();
+            }
+        }
+    }
 
     /**
      * Attempts to fail the query for the specified reason.  If the query is already in a final
      * state, the call is ignored.  If the query does not exist, the call is ignored.
      */
-    void failQuery(QueryId queryId, Throwable cause);
+    public void failQuery(QueryId queryId, Throwable cause)
+    {
+        requireNonNull(cause, "cause is null");
+
+        queryTracker.tryGetQuery(queryId)
+                .ifPresent(query -> query.fail(cause));
+    }
 
     /**
      * Attempts to fail the query due to a user cancellation.  If the query is already in a final
      * state, the call is ignored.  If the query does not exist, the call is ignored.
      */
-    void cancelQuery(QueryId queryId);
+    public void cancelQuery(QueryId queryId)
+    {
+        log.debug("Cancel query %s", queryId);
+
+        queryTracker.tryGetQuery(queryId)
+                .ifPresent(QueryExecution::cancelQuery);
+    }
 
     /**
      * Attempts to cancel the stage and continue the query.  If the stage is already in a final
      * state, the call is ignored.  If the query does not exist, the call is ignored.
      */
-    void cancelStage(StageId stageId);
+    public void cancelStage(StageId stageId)
+    {
+        requireNonNull(stageId, "stageId is null");
+
+        log.debug("Cancel stage %s", stageId);
+
+        queryTracker.tryGetQuery(stageId.queryId())
+                .ifPresent(query -> query.cancelStage(stageId));
+    }
+
+    @Managed(description = "Query scheduler executor")
+    @Nested
+    public ThreadPoolExecutorMBean getExecutor()
+    {
+        return queryExecutorMBean;
+    }
+
+    @Managed(description = "Query query management executor")
+    @Nested
+    public ThreadPoolExecutorMBean getManagementExecutor()
+    {
+        return queryManagementExecutorMBean;
+    }
+
+    @Managed
+    @Nested
+    public QueryTracker<QueryExecution> getQueryTracker()
+    {
+        return queryTracker;
+    }
+
+    /**
+     * Enforce memory limits at the query level
+     */
+    private void enforceMemoryLimits()
+    {
+        List<QueryExecution> runningQueries = queryTracker.getAllQueries().stream()
+                .filter(query -> query.getState() == RUNNING)
+                .collect(toImmutableList());
+        memoryManager.process(runningQueries, this::getQueries);
+    }
+
+    /**
+     * Enforce query CPU time limits
+     */
+    private void enforceCpuLimits()
+    {
+        for (QueryExecution query : queryTracker.getAllQueries()) {
+            Duration cpuTime = query.getTotalCpuTime();
+            Duration sessionLimit = getQueryMaxCpuTime(query.getSession());
+            Duration limit = Ordering.natural().min(maxQueryCpuTime, sessionLimit);
+            if (cpuTime.compareTo(limit) > 0) {
+                query.fail(new ExceededCpuLimitException(limit));
+            }
+        }
+    }
+
+    /**
+     * Enforce query scan physical bytes limits
+     */
+    private void enforceScanLimits()
+    {
+        for (QueryExecution query : queryTracker.getAllQueries()) {
+            Optional<DataSize> limitOpt = getQueryMaxScanPhysicalBytes(query.getSession());
+            if (maxQueryScanPhysicalBytes.isPresent()) {
+                limitOpt = limitOpt
+                        .flatMap(sessionLimit -> maxQueryScanPhysicalBytes.map(serverLimit -> Ordering.natural().min(serverLimit, sessionLimit)))
+                        .or(() -> maxQueryScanPhysicalBytes);
+            }
+
+            limitOpt.ifPresent(limit -> {
+                DataSize scan = query.getBasicQueryInfo().getQueryStats().getPhysicalInputDataSize();
+                if (scan.compareTo(limit) > 0) {
+                    query.fail(new ExceededScanLimitException(limit));
+                }
+            });
+        }
+    }
+
+    /**
+     * Enforce query write physical bytes limits
+     */
+    private void enforceWriteLimits()
+    {
+        for (QueryExecution query : queryTracker.getAllQueries()) {
+            if (query.isDone() || query.getState() == FINISHING) {
+                continue;
+            }
+            Optional<DataSize> limitOpt = getQueryMaxWritePhysicalSize(query.getSession());
+            if (maxQueryWritePhysicalSize.isPresent()) {
+                limitOpt = limitOpt
+                        .flatMap(sessionLimit -> maxQueryWritePhysicalSize.map(serverLimit -> Ordering.natural().min(serverLimit, sessionLimit)))
+                        .or(() -> maxQueryWritePhysicalSize);
+            }
+
+            limitOpt.ifPresent(writeLimit -> {
+                DataSize queryWriteBytes = query.getQueryInfo().getQueryStats().getPhysicalWrittenDataSize();
+                if (queryWriteBytes.compareTo(writeLimit) > 0) {
+                    query.fail(new ExceededWriteLimitException(writeLimit));
+                }
+            });
+        }
+    }
 }

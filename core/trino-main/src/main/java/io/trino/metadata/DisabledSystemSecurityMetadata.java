@@ -16,6 +16,7 @@ package io.trino.metadata;
 import com.google.common.collect.ImmutableSet;
 import io.trino.Session;
 import io.trino.spi.TrinoException;
+import io.trino.spi.catalog.CatalogName;
 import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.EntityKindAndName;
@@ -197,6 +198,12 @@ public class DisabledSystemSecurityMetadata
     {
         return Optional.empty();
     }
+
+    @Override
+    public void catalogCreated(Session session, CatalogName catalog) {}
+
+    @Override
+    public void catalogDropped(Session session, CatalogName catalog) {}
 
     @Override
     public void functionCreated(Session session, CatalogSchemaFunctionName function) {}

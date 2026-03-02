@@ -203,7 +203,7 @@ public class BenchmarkDecimalAggregation
         new BenchmarkDecimalAggregation().benchmark(data);
     }
 
-    public static void main(String[] args)
+    static void main()
             throws Exception
     {
         // ensure the benchmarks are valid before running

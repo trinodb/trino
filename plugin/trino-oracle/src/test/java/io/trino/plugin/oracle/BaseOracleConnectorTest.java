@@ -48,8 +48,11 @@ public abstract class BaseOracleConnectorTest
         return switch (connectorBehavior) {
             case SUPPORTS_JOIN_PUSHDOWN -> true;
             case SUPPORTS_ADD_COLUMN_WITH_COMMENT,
+                 SUPPORTS_ADD_COLUMN_WITH_POSITION,
                  SUPPORTS_AGGREGATION_PUSHDOWN_CORRELATION,
                  SUPPORTS_AGGREGATION_PUSHDOWN_REGRESSION,
+                 SUPPORTS_PREDICATE_ARITHMETIC_EXPRESSION_PUSHDOWN,
+                 SUPPORTS_PREDICATE_EXPRESSION_PUSHDOWN_WITH_LIKE,
                  SUPPORTS_ARRAY,
                  SUPPORTS_CREATE_SCHEMA,
                  SUPPORTS_CREATE_TABLE_WITH_COLUMN_COMMENT,
@@ -59,7 +62,9 @@ public abstract class BaseOracleConnectorTest
                  SUPPORTS_RENAME_TABLE_ACROSS_SCHEMAS,
                  SUPPORTS_ROW_TYPE,
                  SUPPORTS_SET_COLUMN_TYPE,
-                 SUPPORTS_TOPN_PUSHDOWN -> false;
+                 SUPPORTS_TOPN_PUSHDOWN,
+                 SUPPORTS_MERGE,
+                 SUPPORTS_ROW_LEVEL_UPDATE -> false;
             default -> super.hasBehavior(connectorBehavior);
         };
     }
@@ -116,6 +121,32 @@ public abstract class BaseOracleConnectorTest
     }
 
     @Test
+    void testReadingFloatWithQueryTableFunction()
+    {
+        testReadingFloatWithQueryTableFunction("FLOAT");
+        testReadingFloatWithQueryTableFunction("FLOAT(23)");
+        testReadingFloatWithQueryTableFunction("FLOAT(24)");
+        testReadingFloatWithQueryTableFunction("FLOAT(53)");
+        testReadingFloatWithQueryTableFunction("FLOAT(126)");
+    }
+
+    private void testReadingFloatWithQueryTableFunction(String floatType)
+    {
+        try (TestTable table = new TestTable(onRemoteDatabase(), "test_float_" + randomNameSuffix(), "(x int, y %s)".formatted(floatType))) {
+            String tableName = table.getName();
+            assertUpdate("INSERT INTO " + tableName + " VALUES (1, 0.123), (2, 456.789), (3, NULL)", 3);
+
+            // test both query with and without through query table function, make sure the type and values are the same
+            // for the oracle FLOAT type
+            String expectedValues = "VALUES CAST(0.123 AS DOUBLE), CAST(456.789 AS DOUBLE), CAST(NULL as DOUBLE)";
+            assertThat(query("SELECT y FROM " + tableName))
+                    .matches(expectedValues);
+            assertThat(query("SELECT y FROM TABLE(system.query('SELECT * FROM " + tableName + "'))"))
+                    .matches(expectedValues);
+        }
+    }
+
+    @Test
     @Override
     public void testShowColumns()
     {
@@ -137,7 +168,7 @@ public abstract class BaseOracleConnectorTest
     @Override
     protected boolean isColumnNameRejected(Exception exception, String columnName, boolean delimited)
     {
-        if (columnName.equals("a\"quote") && exception.getMessage().contains("ORA-03001: unimplemented feature")) {
+        if (columnName.equals("a\"quote") && exception.getMessage().contains("ORA-25716: The identifier contains a double quotation mark (\") character")) {
             return true;
         }
 
@@ -376,6 +407,14 @@ public abstract class BaseOracleConnectorTest
     }
 
     @Test
+    @Override // Override because Oracle allows SELECT query in execute procedure
+    public void testExecuteProcedureWithInvalidQuery()
+    {
+        assertUpdate("CALL system.execute('SELECT 1')");
+        assertQueryFails("CALL system.execute('invalid')", "(?s)Failed to execute query.*");
+    }
+
+    @Test
     @Override
     public void testNativeQuerySimple()
     {
@@ -444,37 +483,37 @@ public abstract class BaseOracleConnectorTest
     @Override
     protected OptionalInt maxSchemaNameLength()
     {
-        return OptionalInt.of(30);
+        return OptionalInt.of(128);
     }
 
     @Override
     protected void verifySchemaNameLengthFailurePermissible(Throwable e)
     {
-        assertThat(e).hasMessageContaining("ORA-00972: identifier is too long");
+        assertThat(e).hasMessageContaining("ORA-00972");
     }
 
     @Override
     protected OptionalInt maxTableNameLength()
     {
-        return OptionalInt.of(30);
+        return OptionalInt.of(128);
     }
 
     @Override
     protected void verifyTableNameLengthFailurePermissible(Throwable e)
     {
-        assertThat(e).hasMessageContaining("ORA-00972: identifier is too long");
+        assertThat(e).hasMessageContaining("ORA-00972");
     }
 
     @Override
     protected OptionalInt maxColumnNameLength()
     {
-        return OptionalInt.of(30);
+        return OptionalInt.of(128);
     }
 
     @Override
     protected void verifyColumnNameLengthFailurePermissible(Throwable e)
     {
-        assertThat(e).hasMessageContaining("ORA-00972: identifier is too long");
+        assertThat(e).hasMessageContaining("ORA-00972");
     }
 
     @Override

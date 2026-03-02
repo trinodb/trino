@@ -14,9 +14,7 @@
 package io.trino.plugin.iceberg.catalog;
 
 import com.google.inject.Binder;
-import com.google.inject.Module;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
-import io.trino.plugin.iceberg.CatalogType;
 import io.trino.plugin.iceberg.IcebergConfig;
 import io.trino.plugin.iceberg.catalog.file.IcebergFileMetastoreCatalogModule;
 import io.trino.plugin.iceberg.catalog.glue.IcebergGlueCatalogModule;
@@ -26,35 +24,20 @@ import io.trino.plugin.iceberg.catalog.nessie.IcebergNessieCatalogModule;
 import io.trino.plugin.iceberg.catalog.rest.IcebergRestCatalogModule;
 import io.trino.plugin.iceberg.catalog.snowflake.IcebergSnowflakeCatalogModule;
 
-import static io.airlift.configuration.ConditionalModule.conditionalModule;
-import static io.trino.plugin.iceberg.CatalogType.GLUE;
-import static io.trino.plugin.iceberg.CatalogType.HIVE_METASTORE;
-import static io.trino.plugin.iceberg.CatalogType.JDBC;
-import static io.trino.plugin.iceberg.CatalogType.NESSIE;
-import static io.trino.plugin.iceberg.CatalogType.REST;
-import static io.trino.plugin.iceberg.CatalogType.SNOWFLAKE;
-import static io.trino.plugin.iceberg.CatalogType.TESTING_FILE_METASTORE;
-
 public class IcebergCatalogModule
         extends AbstractConfigurationAwareModule
 {
     @Override
     protected void setup(Binder binder)
     {
-        bindCatalogModule(HIVE_METASTORE, new IcebergHiveMetastoreCatalogModule());
-        bindCatalogModule(TESTING_FILE_METASTORE, new IcebergFileMetastoreCatalogModule());
-        bindCatalogModule(GLUE, new IcebergGlueCatalogModule());
-        bindCatalogModule(REST, new IcebergRestCatalogModule());
-        bindCatalogModule(JDBC, new IcebergJdbcCatalogModule());
-        bindCatalogModule(NESSIE, new IcebergNessieCatalogModule());
-        bindCatalogModule(SNOWFLAKE, new IcebergSnowflakeCatalogModule());
-    }
-
-    private void bindCatalogModule(CatalogType catalogType, Module module)
-    {
-        install(conditionalModule(
-                IcebergConfig.class,
-                config -> config.getCatalogType() == catalogType,
-                module));
+        switch (buildConfigObject(IcebergConfig.class).getCatalogType()) {
+            case HIVE_METASTORE -> install(new IcebergHiveMetastoreCatalogModule());
+            case TESTING_FILE_METASTORE -> install(new IcebergFileMetastoreCatalogModule());
+            case GLUE -> install(new IcebergGlueCatalogModule());
+            case REST -> install(new IcebergRestCatalogModule());
+            case JDBC -> install(new IcebergJdbcCatalogModule());
+            case NESSIE -> install(new IcebergNessieCatalogModule());
+            case SNOWFLAKE -> install(new IcebergSnowflakeCatalogModule());
+        }
     }
 }

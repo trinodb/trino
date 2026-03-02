@@ -55,15 +55,14 @@ public class TestIcebergConnectorSmokeTest
                 .setIcebergProperties(ImmutableMap.of(
                         "iceberg.file-format", format.name(),
                         "iceberg.register-table-procedure.enabled", "true",
-                        "iceberg.writer-sort-buffer-size", "1MB",
-                        "iceberg.allowed-extra-properties", "write.metadata.delete-after-commit.enabled,write.metadata.previous-versions-max"))
+                        "iceberg.writer-sort-buffer-size", "1MB"))
                 .build();
         metastore = getHiveMetastore(queryRunner);
         return queryRunner;
     }
 
     @Override
-    protected void dropTableFromMetastore(String tableName)
+    protected void dropTableFromCatalog(String tableName)
     {
         metastore.dropTable(getSession().getSchema().orElseThrow(), tableName, false);
         assertThat(metastore.getTable(getSession().getSchema().orElseThrow(), tableName)).as("Table in metastore should be dropped").isEmpty();

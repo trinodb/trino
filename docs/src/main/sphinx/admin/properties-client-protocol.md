@@ -75,8 +75,8 @@ segments.
 ### `protocol.spooling.encoding.compression.threshold`
 
 - **Type:** [](prop-type-data-size)
-- **Default value:** `8KB`
-- **Minimum value:** `1KB`
+- **Default value:** `8kB`
+- **Minimum value:** `1kB`
 - **Maximum value:** `4MB`
 
 Threshold for enabling compression with larger segments.
@@ -85,7 +85,7 @@ Threshold for enabling compression with larger segments.
 
 - **Type:** [](prop-type-data-size)
 - **Default value:** `8MB`
-- **Minimum value:** `1KB`
+- **Minimum value:** `1kB`
 - **Maximum value:** `128MB`
 - **Session property:** `spooling_initial_segment_size`
 
@@ -95,7 +95,7 @@ Initial size of the spooled segments.
 
 - **Type:** [](prop-type-data-size)
 - **Default value:** `16MB`
-- **Minimum value:** `1KB`
+- **Minimum value:** `1kB`
 - **Maximum value:** `128MB`
 - **Session property:** `spooling_max_segment_size`
 
@@ -124,7 +124,7 @@ Maximum number of rows to inline per worker.
 
 - **Type:** [](prop-type-data-size)
 - **Default value:** `128kB`
-- **Minimum value:** `1KB`
+- **Minimum value:** `1kB`
 - **Maximum value:** `1MB`
 - **Session property:** `spooling_inlining_max_size`
 

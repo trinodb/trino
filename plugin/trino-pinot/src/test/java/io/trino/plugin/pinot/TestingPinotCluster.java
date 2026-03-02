@@ -70,6 +70,8 @@ public class TestingPinotCluster
     private static final JsonCodec<PinotSuccessResponse> PINOT_SUCCESS_RESPONSE_JSON_CODEC = jsonCodec(PinotSuccessResponse.class);
     private static final FileUploadDownloadClient FILE_UPLOAD_DOWNLOAD_CLIENT = new FileUploadDownloadClient();
 
+    private static final int RETRIES = 20;
+
     public static final int ZOOKEEPER_PORT = 2181;
     public static final int CONTROLLER_PORT = 9000;
     public static final int BROKER_PORT = 8099;
@@ -185,7 +187,7 @@ public class TestingPinotCluster
                     .setBodyGenerator(StaticBodyGenerator.createStaticBodyGenerator(bytes))
                     .build();
 
-            PinotSuccessResponse response = doWithRetries(() -> httpClient.execute(request, createJsonResponseHandler(PINOT_SUCCESS_RESPONSE_JSON_CODEC)), 10);
+            PinotSuccessResponse response = doWithRetries(() -> httpClient.execute(request, createJsonResponseHandler(PINOT_SUCCESS_RESPONSE_JSON_CODEC)));
             checkState(response.getStatus().equals(format("%s successfully added", tableName)), "Unexpected response: '%s'", response.getStatus());
             verifySchema(tableName);
         }
@@ -207,7 +209,7 @@ public class TestingPinotCluster
             List<String> schemas = httpClient.execute(request, createJsonResponseHandler(LIST_JSON_CODEC));
             checkState(schemas.contains(tableName), "Schema for '%s' not found", tableName);
             return null;
-        }, 10);
+        });
     }
 
     public void addRealTimeTable(String resourceName, String tableName)
@@ -223,7 +225,7 @@ public class TestingPinotCluster
                     .setBodyGenerator(StaticBodyGenerator.createStaticBodyGenerator(bytes))
                     .build();
 
-            PinotSuccessResponse response = doWithRetries(() -> httpClient.execute(request, createJsonResponseHandler(PINOT_SUCCESS_RESPONSE_JSON_CODEC)), 10);
+            PinotSuccessResponse response = doWithRetries(() -> httpClient.execute(request, createJsonResponseHandler(PINOT_SUCCESS_RESPONSE_JSON_CODEC)));
             checkState(response.getStatus().startsWith(format("Table %s_REALTIME successfully added", tableName)), "Unexpected response: '%s'", response.getStatus());
         }
     }
@@ -241,7 +243,7 @@ public class TestingPinotCluster
                     .setBodyGenerator(StaticBodyGenerator.createStaticBodyGenerator(bytes))
                     .build();
 
-            PinotSuccessResponse response = doWithRetries(() -> httpClient.execute(request, createJsonResponseHandler(PINOT_SUCCESS_RESPONSE_JSON_CODEC)), 10);
+            PinotSuccessResponse response = doWithRetries(() -> httpClient.execute(request, createJsonResponseHandler(PINOT_SUCCESS_RESPONSE_JSON_CODEC)));
             checkState(response.getStatus().startsWith(format("Table %s_OFFLINE successfully added", tableName)), "Unexpected response: '%s'", response.getStatus());
         }
     }
@@ -290,11 +292,11 @@ public class TestingPinotCluster
         }
     }
 
-    private static <T> T doWithRetries(Supplier<T> supplier, int retries)
+    private static <T> T doWithRetries(Supplier<T> supplier)
             throws Exception
     {
         Exception exception = null;
-        for (int retry = 0; retry < retries; retry++) {
+        for (int retry = 0; retry < RETRIES; retry++) {
             try {
                 return supplier.get();
             }

@@ -25,10 +25,9 @@ import java.math.BigDecimal;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION_NOT_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.function.InvocationConvention.simpleConvention;
-import static java.lang.Math.signum;
 import static org.assertj.core.api.Assertions.assertThat;
 
-public class TestLongDecimalType
+final class TestLongDecimalType
 {
     private static final LongDecimalType TYPE = (LongDecimalType) LongDecimalType.createDecimalType(20, 10);
     private static final MethodHandle TYPE_COMPARISON = new TypeOperators().getComparisonUnorderedLastOperator(TYPE, simpleConvention(FAIL_ON_NULL, BLOCK_POSITION_NOT_NULL, BLOCK_POSITION_NOT_NULL));
@@ -60,9 +59,9 @@ public class TestLongDecimalType
     {
         try {
             long actual = (long) TYPE_COMPARISON.invokeExact(decimalAsBlock(decimalA), 0, decimalAsBlock(decimalB), 0);
-            assertThat((int) signum(actual))
+            assertThat(Long.signum(actual))
                     .describedAs("bad comparison result for " + decimalA + ", " + decimalB)
-                    .isEqualTo((int) signum(expected));
+                    .isEqualTo(Long.signum(expected));
         }
         catch (Throwable throwable) {
             Throwables.throwIfUnchecked(throwable);

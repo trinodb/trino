@@ -85,7 +85,7 @@ public class LeastWastedEffortTaskLowMemoryKiller
     {
         Stream<SimpleEntry<TaskId, Long>> stream = memoryPool.getTaskMemoryReservations().entrySet().stream()
                 .map(entry -> new SimpleEntry<>(TaskId.valueOf(entry.getKey()), entry.getValue()))
-                .filter(entry -> queriesWithTaskRetryPolicy.contains(entry.getKey().getQueryId()));
+                .filter(entry -> queriesWithTaskRetryPolicy.contains(entry.getKey().queryId()));
 
         if (onlySpeculative) {
             stream = stream.filter(entry -> {
@@ -93,7 +93,7 @@ public class LeastWastedEffortTaskLowMemoryKiller
                 if (taskInfo == null) {
                     return false;
                 }
-                return taskInfo.taskStatus().isSpeculative();
+                return taskInfo.taskStatus().speculative();
             });
         }
 
@@ -104,7 +104,7 @@ public class LeastWastedEffortTaskLowMemoryKiller
                     long wallTime = 0;
                     if (taskInfos.containsKey(taskId)) {
                         TaskStats stats = taskInfos.get(taskId).stats();
-                        wallTime = stats.getTotalScheduledTime().toMillis() + stats.getTotalBlockedTime().toMillis();
+                        wallTime = stats.totalScheduledTime().toMillis() + stats.totalBlockedTime().toMillis();
                     }
                     wallTime = Math.max(wallTime, MIN_WALL_TIME); // only look at memory consumption for fairly short-lived tasks
                     return (double) memoryUsed / wallTime;

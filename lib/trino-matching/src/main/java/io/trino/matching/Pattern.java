@@ -14,11 +14,6 @@
 package io.trino.matching;
 
 import com.google.common.collect.Iterables;
-import io.trino.matching.pattern.CapturePattern;
-import io.trino.matching.pattern.FilterPattern;
-import io.trino.matching.pattern.OrPattern;
-import io.trino.matching.pattern.TypeOfPattern;
-import io.trino.matching.pattern.WithPattern;
 
 import java.util.Arrays;
 import java.util.List;
@@ -32,7 +27,8 @@ import static com.google.common.base.Predicates.not;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
-public abstract class Pattern<T>
+public abstract sealed class Pattern<T>
+        permits CapturePattern, CustomPattern, EqualsPattern, FilterPattern, OrPattern, TypeOfPattern, WithPattern
 {
     private final Optional<Pattern<?>> previous;
 
@@ -105,8 +101,6 @@ public abstract class Pattern<T>
 
     public abstract <C> Stream<Match> accept(Object object, Captures captures, C context);
 
-    public abstract void accept(PatternVisitor patternVisitor);
-
     public <C> boolean matches(Object object, C context)
     {
         return match(object, context)
@@ -136,8 +130,8 @@ public abstract class Pattern<T>
     @Override
     public String toString()
     {
-        DefaultPrinter printer = new DefaultPrinter();
-        accept(printer);
+        PatternPrinter printer = new PatternPrinter();
+        printer.print(this);
         return printer.result();
     }
 }

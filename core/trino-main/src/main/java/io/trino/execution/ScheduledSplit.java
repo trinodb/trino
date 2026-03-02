@@ -13,48 +13,17 @@
  */
 package io.trino.execution;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.primitives.Longs;
 import io.trino.metadata.Split;
 import io.trino.sql.planner.plan.PlanNodeId;
 
-import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
-public class ScheduledSplit
+public record ScheduledSplit(long sequenceId, PlanNodeId planNodeId, Split split)
 {
-    private final long sequenceId;
-    private final PlanNodeId planNodeId;
-    private final Split split;
-
-    @JsonCreator
-    public ScheduledSplit(
-            @JsonProperty("sequenceId") long sequenceId,
-            @JsonProperty("planNodeId") PlanNodeId planNodeId,
-            @JsonProperty("split") Split split)
+    public ScheduledSplit
     {
-        this.sequenceId = sequenceId;
-        this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
-        this.split = requireNonNull(split, "split is null");
-    }
-
-    @JsonProperty
-    public long getSequenceId()
-    {
-        return sequenceId;
-    }
-
-    @JsonProperty
-    public PlanNodeId getPlanNodeId()
-    {
-        return planNodeId;
-    }
-
-    @JsonProperty
-    public Split getSplit()
-    {
-        return split;
+        requireNonNull(planNodeId, "planNodeId is null");
     }
 
     @Override
@@ -74,15 +43,5 @@ public class ScheduledSplit
         }
         ScheduledSplit other = (ScheduledSplit) obj;
         return this.sequenceId == other.sequenceId;
-    }
-
-    @Override
-    public String toString()
-    {
-        return toStringHelper(this)
-                .add("sequenceId", sequenceId)
-                .add("planNodeId", planNodeId)
-                .add("split", split)
-                .toString();
     }
 }

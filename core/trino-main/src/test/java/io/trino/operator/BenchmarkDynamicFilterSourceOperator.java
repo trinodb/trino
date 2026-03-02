@@ -208,7 +208,7 @@ public class BenchmarkDynamicFilterSourceOperator
         context.cleanup();
     }
 
-    public static void main(String[] args)
+    static void main()
             throws RunnerException
     {
         benchmark(BenchmarkDynamicFilterSourceOperator.class).run();

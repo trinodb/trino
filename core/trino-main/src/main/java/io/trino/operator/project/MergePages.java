@@ -21,10 +21,6 @@ import io.trino.operator.WorkProcessor.TransformationState;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.block.Block;
-import io.trino.spi.block.BlockBuilder;
-import io.trino.spi.block.DictionaryBlock;
-import io.trino.spi.block.RunLengthEncodedBlock;
-import io.trino.spi.block.ValueBlock;
 import io.trino.spi.type.Type;
 
 import java.util.List;
@@ -208,19 +204,8 @@ public final class MergePages
         {
             pageBuilder.declarePositions(page.getPositionCount());
             for (int channel = 0; channel < types.size(); channel++) {
-                appendRawBlock(
-                        page.getBlock(channel),
-                        pageBuilder.getBlockBuilder(channel));
-            }
-        }
-
-        private void appendRawBlock(Block rawBlock, BlockBuilder blockBuilder)
-        {
-            int length = rawBlock.getPositionCount();
-            switch (rawBlock) {
-                case RunLengthEncodedBlock rleBlock -> blockBuilder.appendRepeated(rleBlock.getValue(), 0, length);
-                case DictionaryBlock dictionaryBlock -> blockBuilder.appendPositions(dictionaryBlock.getDictionary(), dictionaryBlock.getRawIds(), dictionaryBlock.getRawIdsOffset(), length);
-                case ValueBlock valueBlock -> blockBuilder.appendRange(valueBlock, 0, length);
+                Block rawBlock = page.getBlock(channel);
+                pageBuilder.getBlockBuilder(channel).appendBlockRange(rawBlock, 0, rawBlock.getPositionCount());
             }
         }
 

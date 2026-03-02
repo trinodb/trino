@@ -216,7 +216,7 @@ public class BigQueryArrowToPageConverter
             type.writeSlice(output, wrappedBuffer(slice));
         }
         else {
-            throw new TrinoException(GENERIC_INTERNAL_ERROR, "Unhandled type for Slice: " + type.getTypeSignature());
+            throw new TrinoException(GENERIC_INTERNAL_ERROR, "Unhandled type for Slice: " + type.getDisplayName());
         }
     }
 
@@ -228,7 +228,7 @@ public class BigQueryArrowToPageConverter
             type.writeObject(output, Decimals.encodeScaledValue(decimal, decimalType.getScale()));
         }
         else {
-            throw new TrinoException(GENERIC_INTERNAL_ERROR, "Unhandled type for Object: " + type.getTypeSignature());
+            throw new TrinoException(GENERIC_INTERNAL_ERROR, "Unhandled type for Object: " + type.getDisplayName());
         }
     }
 

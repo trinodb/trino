@@ -27,6 +27,7 @@ import io.trino.plugin.hive.metastore.SemiTransactionalHiveMetastore;
 import io.trino.plugin.hive.security.AccessControlMetadataFactory;
 import io.trino.plugin.hive.security.UsingSystemSecurity;
 import io.trino.plugin.hive.statistics.MetastoreHiveStatisticsProvider;
+import io.trino.spi.NodeVersion;
 import io.trino.spi.catalog.CatalogName;
 import io.trino.spi.connector.MetadataProvider;
 import io.trino.spi.security.ConnectorIdentity;

@@ -70,7 +70,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestInt96Timestamp
 {
-    private static final LocalDateTime[] TIMESTAMPS = new LocalDateTime[] {
+    private static final LocalDateTime[] TIMESTAMPS = {
             LocalDateTime.of(-5000, 1, 1, 1, 1, 1),
             LocalDateTime.of(-1, 4, 2, 4, 2, 4, 2),
             LocalDateTime.of(1, 1, 1, 0, 0),
@@ -112,7 +112,7 @@ public class TestInt96Timestamp
         ParquetDataSource dataSource = new FileParquetDataSource(
                 new File(Resources.getResource("int96_timestamps_nanos_outside_day_range.parquet").toURI()),
                 ParquetReaderOptions.defaultOptions());
-        ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource);
+        ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource, Optional.empty());
         ParquetReader reader = createParquetReader(dataSource, parquetMetadata, newSimpleAggregatedMemoryContext(), types, columnNames);
 
         SourcePage page = reader.nextPage();
@@ -166,11 +166,12 @@ public class TestInt96Timestamp
                 slice.length(),
                 OptionalLong.empty(),
                 null,
-                false);
+                false,
+                0);
         // Read and assert
         ColumnReaderFactory columnReaderFactory = new ColumnReaderFactory(DateTimeZone.UTC, ParquetReaderOptions.defaultOptions());
         ColumnReader reader = columnReaderFactory.create(field, newSimpleAggregatedMemoryContext());
-        PageReader pageReader = new PageReader(new ParquetDataSourceId("test"), UNCOMPRESSED, List.of(dataPage).iterator(), false, false);
+        PageReader pageReader = new PageReader(new ParquetDataSourceId("test"), UNCOMPRESSED, List.of(dataPage).iterator(), false, false, Optional.empty(), -1, -1);
         reader.setPageReader(pageReader, Optional.empty());
         reader.prepareNextRead(valueCount);
         Block block = reader.readPrimitive().getBlock();

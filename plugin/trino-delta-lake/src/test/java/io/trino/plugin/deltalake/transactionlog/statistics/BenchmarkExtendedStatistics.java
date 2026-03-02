@@ -141,7 +141,7 @@ public class BenchmarkExtendedStatistics
         benchmark(benchmarkData);
     }
 
-    public static void main(String[] args)
+    static void main()
             throws Exception
     {
         Options options = new OptionsBuilder()

@@ -93,7 +93,6 @@ import java.util.Optional;
 import java.util.function.BiFunction;
 import java.util.stream.Stream;
 
-import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.emptyToNull;
@@ -157,6 +156,7 @@ import static java.lang.String.format;
 import static java.lang.String.join;
 import static java.util.Map.entry;
 import static java.util.Objects.requireNonNull;
+import static java.util.Objects.requireNonNullElse;
 import static java.util.stream.Collectors.joining;
 
 public class MariaDbClient
@@ -256,7 +256,7 @@ public class MariaDbClient
             ImmutableSet.Builder<String> schemaNames = ImmutableSet.builder();
             while (resultSet.next()) {
                 String schemaName = resultSet.getString("TABLE_CAT");
-                if (filterSchema(schemaName)) {
+                if (filterRemoteSchema(schemaName)) {
                     schemaNames.add(schemaName);
                 }
             }
@@ -268,14 +268,14 @@ public class MariaDbClient
     }
 
     @Override
-    protected boolean filterSchema(String schemaName)
+    protected boolean filterRemoteSchema(String schemaName)
     {
         // MariaDB has 'mysql' schema
         if (schemaName.equalsIgnoreCase("mysql")
                 || schemaName.equalsIgnoreCase("performance_schema")) {
             return false;
         }
-        return super.filterSchema(schemaName);
+        return super.filterRemoteSchema(schemaName);
     }
 
     @Override
@@ -326,7 +326,7 @@ public class MariaDbClient
     }
 
     @Override
-    protected String getTableSchemaName(ResultSet resultSet)
+    protected String getTableRemoteSchemaName(ResultSet resultSet)
             throws SQLException
     {
         // MariaDB uses catalogs instead of schemas
@@ -536,7 +536,7 @@ public class MariaDbClient
 
     private void addColumn(ConnectorSession session, RemoteTableName table, ColumnMetadata column, String position)
     {
-        if (column.getComment() != null) {
+        if (column.getComment().isPresent()) {
             throw new TrinoException(NOT_SUPPORTED, "This connector does not support adding columns with comments");
         }
 
@@ -775,7 +775,7 @@ public class MariaDbClient
                 // Table not found, or is a view, or has no usable statistics
                 return TableStatistics.empty();
             }
-            rowCount = max(firstNonNull(rowCount, 0L), firstNonNull(indexMaxCardinality, 0L));
+            rowCount = max(requireNonNullElse(rowCount, 0L), requireNonNullElse(indexMaxCardinality, 0L));
 
             TableStatistics.Builder tableStatistics = TableStatistics.builder();
             tableStatistics.setRowCount(Estimate.of(rowCount));

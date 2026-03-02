@@ -121,7 +121,7 @@ public final class BigQueryTypeUtils
         if (type instanceof RowType rowType) {
             SqlRow sqlRow = rowType.getObject(block, position);
 
-            List<Type> fieldTypes = rowType.getTypeParameters();
+            List<Type> fieldTypes = rowType.getFieldTypes();
             if (fieldTypes.size() != sqlRow.getFieldCount()) {
                 throw new TrinoException(GENERIC_INTERNAL_ERROR, "Expected row value field count does not match type field count");
             }

@@ -90,7 +90,7 @@ public final class DuckDbQueryRunner
         }
     }
 
-    public static void main(String[] args)
+    static void main()
             throws Exception
     {
         Logging.initialize();

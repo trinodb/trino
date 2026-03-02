@@ -34,7 +34,7 @@ public class TpcdsStatisticsRecorder
 {
     private static final List<String> SUPPORTED_SCHEMAS = ImmutableList.of("tiny", "sf1");
 
-    public static void main(String[] args)
+    static void main()
     {
         TpcdsStatisticsRecorder tool = new TpcdsStatisticsRecorder(new TableStatisticsRecorder(), new TableStatisticsDataRepository());
 

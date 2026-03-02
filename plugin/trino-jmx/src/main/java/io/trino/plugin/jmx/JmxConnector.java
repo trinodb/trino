@@ -14,7 +14,7 @@
 package io.trino.plugin.jmx;
 
 import com.google.inject.Inject;
-import io.airlift.log.Logger;
+import io.airlift.bootstrap.LifeCycleManager;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTransactionHandle;
@@ -27,24 +27,22 @@ import static java.util.Objects.requireNonNull;
 public class JmxConnector
         implements Connector
 {
-    private static final Logger log = Logger.get(JmxConnector.class);
-
+    private final LifeCycleManager lifeCycleManager;
     private final JmxMetadata jmxMetadata;
-    private final JmxPeriodicSampler jmxPeriodicSampler;
     private final JmxSplitManager jmxSplitManager;
     private final JmxRecordSetProvider jmxRecordSetProvider;
 
     @Inject
     public JmxConnector(
+            LifeCycleManager lifeCycleManager,
             JmxMetadata jmxMetadata,
             JmxSplitManager jmxSplitManager,
-            JmxRecordSetProvider jmxRecordSetProvider,
-            JmxPeriodicSampler jmxPeriodicSampler)
+            JmxRecordSetProvider jmxRecordSetProvider)
     {
+        this.lifeCycleManager = requireNonNull(lifeCycleManager, "lifeCycleManager is null");
         this.jmxMetadata = requireNonNull(jmxMetadata, "jmxMetadata is null");
         this.jmxSplitManager = requireNonNull(jmxSplitManager, "jmxSplitManager is null");
         this.jmxRecordSetProvider = requireNonNull(jmxRecordSetProvider, "jmxRecordSetProvider is null");
-        this.jmxPeriodicSampler = requireNonNull(jmxPeriodicSampler, "jmxPeriodicSampler is null");
     }
 
     @Override
@@ -75,11 +73,6 @@ public class JmxConnector
     @Override
     public void shutdown()
     {
-        try {
-            jmxPeriodicSampler.shutdown();
-        }
-        catch (Exception e) {
-            log.error(e, "Error shutting down connector");
-        }
+        lifeCycleManager.stop();
     }
 }

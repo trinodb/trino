@@ -19,10 +19,9 @@ import io.trino.spi.PageSorter;
 import io.trino.spi.connector.SortOrder;
 import io.trino.spi.type.Type;
 
+import java.util.Iterator;
 import java.util.List;
 
-import static io.trino.operator.SyntheticAddress.decodePosition;
-import static io.trino.operator.SyntheticAddress.decodeSliceIndex;
 import static java.util.Objects.requireNonNull;
 
 public class PagesIndexPageSorter
@@ -37,24 +36,12 @@ public class PagesIndexPageSorter
     }
 
     @Override
-    public long[] sort(List<Type> types, List<Page> pages, List<Integer> sortChannels, List<SortOrder> sortOrders, int expectedPositions)
+    public Iterator<Page> sort(List<Type> types, List<Page> pages, List<Integer> sortChannels, List<SortOrder> sortOrders, int expectedPositions)
     {
         PagesIndex pagesIndex = pagesIndexFactory.newPagesIndex(types, expectedPositions);
         pages.forEach(pagesIndex::addPage);
         pagesIndex.sort(sortChannels, sortOrders);
 
-        return pagesIndex.getValueAddresses().toLongArray();
-    }
-
-    @Override
-    public int decodePageIndex(long address)
-    {
-        return decodeSliceIndex(address);
-    }
-
-    @Override
-    public int decodePositionIndex(long address)
-    {
-        return decodePosition(address);
+        return pagesIndex.getSortedPages();
     }
 }

@@ -72,7 +72,6 @@ import java.net.HttpCookie;
 import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.security.Principal;
 import java.security.PrivateKey;
 import java.security.PublicKey;
@@ -89,7 +88,6 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
-import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.hash.Hashing.sha256;
 import static com.google.common.net.HttpHeaders.AUTHORIZATION;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
@@ -99,7 +97,7 @@ import static io.jsonwebtoken.Claims.AUDIENCE;
 import static io.jsonwebtoken.security.Keys.hmacShaKeyFor;
 import static io.trino.client.OkHttpUtil.setupSsl;
 import static io.trino.client.ProtocolHeaders.TRINO_HEADERS;
-import static io.trino.metadata.TestMetadataManager.createTestMetadataManager;
+import static io.trino.metadata.TestingMetadataManager.createTestingMetadataManager;
 import static io.trino.server.security.ResourceSecurity.AccessType.AUTHENTICATED_USER;
 import static io.trino.server.security.ResourceSecurity.AccessType.WEB_UI;
 import static io.trino.server.security.jwt.JwtUtil.newJwtBuilder;
@@ -121,6 +119,7 @@ import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.time.Instant.now;
 import static java.util.Objects.requireNonNull;
+import static java.util.Objects.requireNonNullElse;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
@@ -488,7 +487,7 @@ public class TestResourceSecurity
 
             assertAuthenticationDisabled(httpServerInfo.getHttpUri());
 
-            SecretKey hmac = hmacShaKeyFor(Base64.getDecoder().decode(Files.readString(Paths.get(HMAC_KEY)).trim()));
+            SecretKey hmac = hmacShaKeyFor(Base64.getDecoder().decode(Files.readString(Path.of(HMAC_KEY)).trim()));
             JwtBuilder tokenBuilder = newJwtBuilder()
                     .signWith(hmac)
                     .expiration(Date.from(ZonedDateTime.now().plusMinutes(5).toInstant()));
@@ -568,7 +567,7 @@ public class TestResourceSecurity
                 .build()) {
             HttpServerInfo httpServerInfo = server.getInstance(Key.get(HttpServerInfo.class));
 
-            SecretKey hmac = hmacShaKeyFor(Base64.getDecoder().decode(Files.readString(Paths.get(HMAC_KEY)).trim()));
+            SecretKey hmac = hmacShaKeyFor(Base64.getDecoder().decode(Files.readString(Path.of(HMAC_KEY)).trim()));
             JwtBuilder tokenBuilder = newJwtBuilder()
                     .signWith(hmac)
                     .expiration(Date.from(ZonedDateTime.now().plusMinutes(5).toInstant()))
@@ -604,7 +603,7 @@ public class TestResourceSecurity
 
             assertAuthenticationDisabled(httpServerInfo.getHttpUri());
 
-            SecretKey hmac = hmacShaKeyFor(Base64.getDecoder().decode(Files.readString(Paths.get(HMAC_KEY)).trim()));
+            SecretKey hmac = hmacShaKeyFor(Base64.getDecoder().decode(Files.readString(Path.of(HMAC_KEY)).trim()));
             JwtBuilder tokenBuilder = newJwtBuilder()
                     .signWith(hmac)
                     .expiration(Date.from(ZonedDateTime.now().plusMinutes(5).toInstant()))
@@ -1089,7 +1088,7 @@ public class TestResourceSecurity
                 }
 
                 @Override
-                public Optional<Map<String, Object>> getClaims(String accessToken)
+                public Optional<Map<String, Object>> getAccessTokenClaims(String accessToken)
                 {
                     return Optional.of(jwtParser.parseSignedClaims(accessToken).getPayload());
                 }
@@ -1186,7 +1185,7 @@ public class TestResourceSecurity
         {
             this.sessionContextFactory = new HttpRequestSessionContextFactory(
                     new PreparedStatementEncoder(new ProtocolConfig()),
-                    createTestMetadataManager(),
+                    createTestingMetadataManager(),
                     user -> ImmutableSet.of(),
                     accessControl,
                     new ProtocolConfig(),
@@ -1355,7 +1354,7 @@ public class TestResourceSecurity
             String password)
             throws IOException
     {
-        assertResponseCode(client, url, expectedCode, Headers.of("Authorization", Credentials.basic(firstNonNull(userName, ""), firstNonNull(password, ""))));
+        assertResponseCode(client, url, expectedCode, Headers.of("Authorization", Credentials.basic(requireNonNullElse(userName, ""), requireNonNullElse(password, ""))));
     }
 
     private static void assertResponseCode(OkHttpClient client,
@@ -1468,7 +1467,7 @@ public class TestResourceSecurity
         HttpServerConfig config = new HttpServerConfig().setHttpPort(0);
         HttpServerInfo httpServerInfo = new HttpServerInfo(config, nodeInfo);
 
-        return new TestingHttpServer(httpServerInfo, nodeInfo, config, new JwkServlet());
+        return new TestingHttpServer("testing-jwks-server", httpServerInfo, nodeInfo, config, new JwkServlet());
     }
 
     private static class JwkServlet

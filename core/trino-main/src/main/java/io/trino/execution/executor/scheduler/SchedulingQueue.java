@@ -19,6 +19,7 @@ import io.trino.annotation.NotThreadSafe;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -329,7 +330,7 @@ final class SchedulingQueue<G, T>
         builder.append("Baseline weight: %s\n".formatted(baselineWeight()));
         builder.append("Groups:\n");
 
-        for (Map.Entry<G, SchedulingGroup<T>> entry : groups.entrySet()) {
+        for (Entry<G, SchedulingGroup<T>> entry : groups.entrySet()) {
             G group = entry.getKey();
             SchedulingGroup<T> info = entry.getValue();
 

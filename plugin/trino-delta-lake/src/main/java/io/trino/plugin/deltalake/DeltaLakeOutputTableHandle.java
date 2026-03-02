@@ -42,9 +42,9 @@ public record DeltaLakeOutputTableHandle(
         ColumnMappingMode columnMappingMode,
         OptionalInt maxColumnId,
         boolean replace,
+        boolean isSchemaChanged,
         OptionalLong readVersion,
-        ProtocolEntry protocolEntry,
-        VendedCredentialsHandle credentialsHandle)
+        ProtocolEntry protocolEntry)
         implements ConnectorOutputTableHandle
 {
     public DeltaLakeOutputTableHandle
@@ -61,7 +61,6 @@ public record DeltaLakeOutputTableHandle(
         requireNonNull(maxColumnId, "maxColumnId is null");
         requireNonNull(readVersion, "readVersion is null");
         requireNonNull(protocolEntry, "protocolEntry is null");
-        requireNonNull(credentialsHandle, "credentialsHandle is null");
     }
 
     public List<String> partitionedBy()
@@ -70,5 +69,10 @@ public record DeltaLakeOutputTableHandle(
                 .filter(column -> column.columnType() == PARTITION_KEY)
                 .map(DeltaLakeColumnHandle::columnName)
                 .collect(toImmutableList());
+    }
+
+    public VendedCredentialsHandle toCredentialsHandle()
+    {
+        return VendedCredentialsHandle.empty(location);
     }
 }

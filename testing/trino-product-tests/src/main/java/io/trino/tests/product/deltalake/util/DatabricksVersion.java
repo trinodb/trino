@@ -23,18 +23,12 @@ public record DatabricksVersion(int majorVersion, int minorVersion)
 {
     public static final DatabricksVersion DATABRICKS_143_RUNTIME_VERSION = new DatabricksVersion(14, 3);
     public static final DatabricksVersion DATABRICKS_122_RUNTIME_VERSION = new DatabricksVersion(12, 2);
-    public static final DatabricksVersion DATABRICKS_113_RUNTIME_VERSION = new DatabricksVersion(11, 3);
 
     private static final Pattern DATABRICKS_VERSION_PATTERN = Pattern.compile("(\\d+)\\.(\\d+)");
 
     public boolean isAtLeast(DatabricksVersion version)
     {
         return compareTo(version) >= 0;
-    }
-
-    public boolean isOlderThan(DatabricksVersion version)
-    {
-        return compareTo(version) < 0;
     }
 
     @Override

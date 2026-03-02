@@ -15,6 +15,8 @@ package io.trino.sql.planner.sanity;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.errorprone.annotations.FormatMethod;
+import com.google.errorprone.annotations.FormatString;
 import io.trino.Session;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.sql.PlannerContext;
@@ -448,7 +450,7 @@ public final class ValidateDependenciesChecker
             source.accept(this, boundSymbols); // visit child
 
             Set<Symbol> inputs = createInputs(source, boundSymbols);
-            for (Expression expression : node.getAssignments().getExpressions()) {
+            for (Expression expression : node.getAssignments().expressions()) {
                 Set<Symbol> dependencies = extractUnique(expression);
                 checkDependencies(inputs, dependencies, "Invalid node. Expression dependencies (%s) not in source plan output (%s)", dependencies, inputs);
             }
@@ -894,7 +896,7 @@ public final class ValidateDependenciesChecker
                     .flatMap(assignment -> switch (assignment) {
                         case ApplyNode.In in -> Stream.of(in.value(), in.reference());
                         case ApplyNode.QuantifiedComparison comparison -> Stream.of(comparison.value(), comparison.reference());
-                        case ApplyNode.Exists unused -> Stream.empty();
+                        case ApplyNode.Exists _ -> Stream.empty();
                     })
                     .toList();
 
@@ -940,7 +942,8 @@ public final class ValidateDependenciesChecker
         }
     }
 
-    private static void checkDependencies(Collection<Symbol> inputs, Collection<Symbol> required, String message, Object... parameters)
+    @FormatMethod
+    private static void checkDependencies(Collection<Symbol> inputs, Collection<Symbol> required, @FormatString String message, Object... parameters)
     {
         checkArgument(ImmutableSet.copyOf(inputs).containsAll(required), message, parameters);
     }

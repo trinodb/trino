@@ -23,6 +23,7 @@ import io.trino.sql.planner.assertions.PlanMatchPattern.Ordering;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.function.Predicate;
 
@@ -46,7 +47,7 @@ final class Util
                 return false;
             }
 
-            for (Map.Entry<Predicate<ColumnHandle>, Domain> entry : expectedDomains.get().entrySet()) {
+            for (Entry<Predicate<ColumnHandle>, Domain> entry : expectedDomains.get().entrySet()) {
                 // There should be exactly one column matching the expected column matcher
                 ColumnHandle actualColumn = Iterables.getOnlyElement(actualDomains.get().keySet().stream()
                         .filter(x -> entry.getKey().test(x))

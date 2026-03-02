@@ -18,10 +18,9 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.io.Closer;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
+import com.google.common.util.concurrent.UncheckedExecutionException;
 import io.trino.spi.Page;
 import io.trino.spi.block.BlockBuilder;
-import io.trino.spi.block.BlockEncodingSerde;
-import io.trino.spi.block.TestingBlockEncodingSerde;
 import io.trino.spi.type.Type;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -43,6 +42,7 @@ import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static com.google.common.util.concurrent.Futures.getUnchecked;
 import static io.trino.execution.buffer.CompressionCodec.NONE;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
+import static io.trino.metadata.InternalBlockEncodingSerde.TESTING_BLOCK_ENCODING_SERDE;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spiller.FileSingleStreamSpillerFactory.SPILL_FILE_PREFIX;
 import static io.trino.spiller.FileSingleStreamSpillerFactory.SPILL_FILE_SUFFIX;
@@ -55,7 +55,6 @@ import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_METHOD;
 @TestInstance(PER_METHOD)
 public class TestFileSingleStreamSpillerFactory
 {
-    private final BlockEncodingSerde blockEncodingSerde = new TestingBlockEncodingSerde();
     private Closer closer;
     private ListeningExecutorService executor;
     private File spillPath1;
@@ -179,12 +178,12 @@ public class TestFileSingleStreamSpillerFactory
         spillPath1.mkdirs();
         spillPath2.mkdirs();
 
-        java.nio.file.Files.createTempFile(spillPath1.toPath(), SPILL_FILE_PREFIX, SPILL_FILE_SUFFIX);
-        java.nio.file.Files.createTempFile(spillPath1.toPath(), SPILL_FILE_PREFIX, SPILL_FILE_SUFFIX);
-        java.nio.file.Files.createTempFile(spillPath1.toPath(), SPILL_FILE_PREFIX, "blah");
-        java.nio.file.Files.createTempFile(spillPath2.toPath(), SPILL_FILE_PREFIX, SPILL_FILE_SUFFIX);
-        java.nio.file.Files.createTempFile(spillPath2.toPath(), "blah", SPILL_FILE_SUFFIX);
-        java.nio.file.Files.createTempFile(spillPath2.toPath(), "blah", "blah");
+        Files.createTempFile(spillPath1.toPath(), SPILL_FILE_PREFIX, SPILL_FILE_SUFFIX);
+        Files.createTempFile(spillPath1.toPath(), SPILL_FILE_PREFIX, SPILL_FILE_SUFFIX);
+        Files.createTempFile(spillPath1.toPath(), SPILL_FILE_PREFIX, "blah");
+        Files.createTempFile(spillPath2.toPath(), SPILL_FILE_PREFIX, SPILL_FILE_SUFFIX);
+        Files.createTempFile(spillPath2.toPath(), "blah", SPILL_FILE_SUFFIX);
+        Files.createTempFile(spillPath2.toPath(), "blah", "blah");
 
         assertThat(listFiles(spillPath1.toPath())).hasSize(3);
         assertThat(listFiles(spillPath2.toPath())).hasSize(3);
@@ -220,7 +219,7 @@ public class TestFileSingleStreamSpillerFactory
         setPosixFilePermissions(spillPath2.toPath(), ImmutableSet.of(PosixFilePermission.OWNER_READ));
 
         assertThatThrownBy(() -> getUnchecked(singleStreamSpiller2.spill(page)))
-                .isInstanceOf(com.google.common.util.concurrent.UncheckedExecutionException.class)
+                .isInstanceOf(UncheckedExecutionException.class)
                 .hasMessageContaining("Failed to spill pages");
         spillers.add(singleStreamSpiller2);
 
@@ -276,9 +275,10 @@ public class TestFileSingleStreamSpillerFactory
     {
         return new FileSingleStreamSpillerFactory(
                 executor, // executor won't be closed, because we don't call destroy() on the spiller factory
-                blockEncodingSerde,
+                TESTING_BLOCK_ENCODING_SERDE,
                 new SpillerStats(),
                 paths,
+                1,
                 maxUsedSpaceThreshold,
                 NONE,
                 false);

@@ -119,7 +119,7 @@ public class TestCheckpointWriter
                         "configOption1", "blah",
                         "configOption2", "plah"),
                 1000);
-        ProtocolEntry protocolEntry = new ProtocolEntry(10, 20, Optional.empty(), Optional.empty());
+        ProtocolEntry protocolEntry = new ProtocolEntry(10, 20, Optional.of(ImmutableSet.of()), Optional.of(ImmutableSet.of()));
         TransactionEntry transactionEntry = new TransactionEntry("appId", 1, 1001);
         AddFileEntry addFileEntryJsonStats = new AddFileEntry(
                 "addFilePathJson",
@@ -250,14 +250,14 @@ public class TestCheckpointWriter
                         "configOption1", "blah",
                         "configOption2", "plah"),
                 1000);
-        ProtocolEntry protocolEntry = new ProtocolEntry(10, 20, Optional.empty(), Optional.empty());
+        ProtocolEntry protocolEntry = new ProtocolEntry(10, 20, Optional.of(ImmutableSet.of()), Optional.of(ImmutableSet.of()));
         TransactionEntry transactionEntry = new TransactionEntry("appId", 1, 1001);
 
-        Block[] minMaxRowFieldBlocks = new Block[] {
+        Block[] minMaxRowFieldBlocks = {
                 nativeValueToBlock(IntegerType.INTEGER, 1L),
                 nativeValueToBlock(createUnboundedVarcharType(), utf8Slice("a"))
         };
-        Block[] nullCountRowFieldBlocks = new Block[] {
+        Block[] nullCountRowFieldBlocks = {
                 nativeValueToBlock(BigintType.BIGINT, 0L),
                 nativeValueToBlock(BigintType.BIGINT, 15L)
         };
@@ -381,12 +381,12 @@ public class TestCheckpointWriter
                 ImmutableList.of("part_key"),
                 ImmutableMap.of(),
                 1000);
-        ProtocolEntry protocolEntry = new ProtocolEntry(10, 20, Optional.empty(), Optional.empty());
-        Block[] minMaxRowFieldBlocks = new Block[] {
+        ProtocolEntry protocolEntry = new ProtocolEntry(10, 20, Optional.of(ImmutableSet.of()), Optional.of(ImmutableSet.of()));
+        Block[] minMaxRowFieldBlocks = {
                 nativeValueToBlock(IntegerType.INTEGER, 1L),
                 nativeValueToBlock(createUnboundedVarcharType(), utf8Slice("a"))
         };
-        Block[] nullCountRowFieldBlocks = new Block[] {
+        Block[] nullCountRowFieldBlocks = {
                 nativeValueToBlock(BigintType.BIGINT, 0L),
                 nativeValueToBlock(BigintType.BIGINT, 15L)
         };

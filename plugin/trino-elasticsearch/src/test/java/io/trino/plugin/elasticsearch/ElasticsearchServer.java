@@ -38,6 +38,7 @@ import java.nio.file.Path;
 import java.time.Duration;
 import java.util.Base64;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 
 import static com.google.common.io.MoreFiles.deleteRecursively;
@@ -54,7 +55,7 @@ import static org.testcontainers.utility.MountableFile.forHostPath;
 public class ElasticsearchServer
         implements Closeable
 {
-    public static final String ELASTICSEARCH_7_IMAGE = "elasticsearch:7.16.2";
+    public static final String ELASTICSEARCH_7_IMAGE = "elasticsearch:7.17.27";
     public static final String ELASTICSEARCH_8_IMAGE = "elasticsearch:8.11.3";
 
     private final Path configurationPath;
@@ -86,7 +87,7 @@ public class ElasticsearchServer
                 .put("server.key", loadResource("server.key"))
                 .buildOrThrow();
 
-        for (Map.Entry<String, String> entry : configurationFiles.entrySet()) {
+        for (Entry<String, String> entry : configurationFiles.entrySet()) {
             String name = entry.getKey();
             String contents = entry.getValue();
 

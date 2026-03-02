@@ -23,7 +23,7 @@ import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.plan.WindowNode;
 import io.trino.sql.planner.plan.WindowNode.Function;
 
-import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 
 import static io.trino.sql.planner.plan.Patterns.window;
@@ -51,7 +51,7 @@ public class PruneOrderByInWindowAggregation
     {
         boolean anyRewritten = false;
         ImmutableMap.Builder<Symbol, Function> rewritten = ImmutableMap.builder();
-        for (Map.Entry<Symbol, Function> entry : node.getWindowFunctions().entrySet()) {
+        for (Entry<Symbol, Function> entry : node.getWindowFunctions().entrySet()) {
             Function function = entry.getValue();
             // getAggregateFunctionImplementation can be expensive, so check it last.
             if (function.getOrderingScheme().isPresent() &&

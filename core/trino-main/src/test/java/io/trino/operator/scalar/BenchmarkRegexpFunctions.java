@@ -132,7 +132,7 @@ public class BenchmarkRegexpFunctions
         return new Re2JRegexp(Integer.MAX_VALUE, 5, pattern);
     }
 
-    public static void main(String[] args)
+    static void main()
             throws RunnerException
     {
         benchmark(BenchmarkRegexpFunctions.class).run();

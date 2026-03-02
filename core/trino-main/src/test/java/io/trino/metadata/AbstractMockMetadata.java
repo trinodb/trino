@@ -25,6 +25,7 @@ import io.trino.connector.CatalogHandle;
 import io.trino.connector.system.GlobalSystemConnector;
 import io.trino.spi.RefreshType;
 import io.trino.spi.TrinoException;
+import io.trino.spi.catalog.CatalogName;
 import io.trino.spi.connector.AggregateFunction;
 import io.trino.spi.connector.AggregationApplicationResult;
 import io.trino.spi.connector.BeginTableExecuteResult;
@@ -34,6 +35,7 @@ import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ColumnPosition;
 import io.trino.spi.connector.ConnectorCapabilities;
+import io.trino.spi.connector.ConnectorName;
 import io.trino.spi.connector.ConnectorOutputMetadata;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.Constraint;
@@ -71,6 +73,7 @@ import io.trino.spi.function.FunctionNullability;
 import io.trino.spi.function.LanguageFunction;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.function.Signature;
+import io.trino.spi.metrics.Metrics;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.security.FunctionAuthorization;
 import io.trino.spi.security.GrantInfo;
@@ -170,7 +173,7 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
-    public void executeTableExecute(Session session, TableExecuteHandle handle)
+    public Map<String, Long> executeTableExecute(Session session, TableExecuteHandle handle)
     {
         throw new UnsupportedOperationException();
     }
@@ -201,6 +204,12 @@ public abstract class AbstractMockMetadata
 
     @Override
     public Optional<Object> getInfo(Session session, TableHandle handle)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public Metrics getMetrics(Session session, String catalogName)
     {
         throw new UnsupportedOperationException();
     }
@@ -261,6 +270,18 @@ public abstract class AbstractMockMetadata
 
     @Override
     public List<RelationCommentMetadata> listRelationComments(Session session, String catalogName, Optional<String> schemaName, UnaryOperator<Set<SchemaTableName>> relationFilter)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void createCatalog(Session session, CatalogName catalog, ConnectorName connectorName, Map<String, String> properties, boolean notExists)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void dropCatalog(Session session, CatalogName catalog, boolean cascade)
     {
         throw new UnsupportedOperationException();
     }
@@ -362,6 +383,18 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
+    public void setDefaultValue(Session session, TableHandle tableHandle, ColumnHandle column, String defaultValue)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void dropDefaultValue(Session session, TableHandle tableHandle, ColumnHandle column)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public void setColumnType(Session session, TableHandle tableHandle, ColumnHandle column, Type type)
     {
         throw new UnsupportedOperationException();
@@ -422,7 +455,7 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
-    public TableStatisticsMetadata getStatisticsCollectionMetadataForWrite(Session session, CatalogHandle catalogHandle, ConnectorTableMetadata tableMetadata)
+    public TableStatisticsMetadata getStatisticsCollectionMetadataForWrite(Session session, CatalogHandle catalogHandle, ConnectorTableMetadata tableMetadata, boolean tableReplace)
     {
         throw new UnsupportedOperationException();
     }
@@ -561,7 +594,19 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
+    public Optional<CatalogInfo> getCatalogInfo(Session session, String catalogName)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public List<CatalogInfo> listCatalogs(Session session)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public List<CatalogInfo> listActiveCatalogs(Session session)
     {
         throw new UnsupportedOperationException();
     }
@@ -848,6 +893,7 @@ public abstract class AbstractMockMetadata
                     toFunctionId(name, boundSignature.toSignature()),
                     SCALAR,
                     true,
+                    false,
                     new FunctionNullability(false, ImmutableList.of()),
                     ImmutableMap.of(),
                     ImmutableSet.of());
@@ -885,7 +931,7 @@ public abstract class AbstractMockMetadata
                 BUILTIN_SCHEMA,
                 FunctionMetadata.scalarBuilder("random")
                         .signature(Signature.builder().returnType(DOUBLE).build())
-                        .alias(RAND_NAME.getFunctionName())
+                        .alias(RAND_NAME.functionName())
                         .nondeterministic()
                         .noDescription()
                         .build()));
@@ -1012,7 +1058,7 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
-    public MaterializedViewFreshness getMaterializedViewFreshness(Session session, QualifiedObjectName name)
+    public MaterializedViewFreshness getMaterializedViewFreshness(Session session, QualifiedObjectName name, boolean considerGracePeriod)
     {
         throw new UnsupportedOperationException();
     }

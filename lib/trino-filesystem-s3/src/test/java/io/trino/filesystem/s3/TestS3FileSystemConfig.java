@@ -75,7 +75,6 @@ public class TestS3FileSystemConfig
                 .setHttpProxyUsername(null)
                 .setHttpProxyPassword(null)
                 .setHttpProxyPreemptiveBasicProxyAuth(false)
-                .setSupportsExclusiveCreate(true)
                 .setCrossRegionAccessEnabled(false)
                 .setApplicationId("Trino"));
     }
@@ -117,7 +116,6 @@ public class TestS3FileSystemConfig
                 .put("s3.http-proxy.username", "test")
                 .put("s3.http-proxy.password", "test")
                 .put("s3.http-proxy.preemptive-basic-auth", "true")
-                .put("s3.exclusive-create", "false")
                 .put("s3.application-id", "application id")
                 .put("s3.cross-region-access", "true")
                 .buildOrThrow();
@@ -156,7 +154,6 @@ public class TestS3FileSystemConfig
                 .setHttpProxyUsername("test")
                 .setHttpProxyPassword("test")
                 .setHttpProxyPreemptiveBasicProxyAuth(true)
-                .setSupportsExclusiveCreate(false)
                 .setCrossRegionAccessEnabled(true)
                 .setApplicationId("application id");
 

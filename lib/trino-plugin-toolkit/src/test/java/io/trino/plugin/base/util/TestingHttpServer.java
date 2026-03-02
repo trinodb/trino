@@ -29,7 +29,9 @@ import java.io.Closeable;
 import java.io.IOException;
 import java.net.URI;
 import java.nio.file.Files;
-import java.nio.file.Paths;
+import java.nio.file.Path;
+
+import static java.util.Objects.requireNonNull;
 
 public class TestingHttpServer
         implements Closeable
@@ -37,17 +39,19 @@ public class TestingHttpServer
     private final LifeCycleManager lifeCycleManager;
     private final URI baseUri;
 
-    public TestingHttpServer()
+    public TestingHttpServer(String name)
     {
+        requireNonNull(name, "name is null");
         Bootstrap app = new Bootstrap(
                 new TestingNodeModule(),
-                new TestingHttpServerModule(),
+                new TestingHttpServerModule(name),
                 binder -> {
                     binder.bind(Servlet.class).toInstance(new TestingHttpServlet());
                 });
 
         Injector injector = app
                 .doNotInitializeLogging()
+                .disableSystemProperties()
                 .quiet()
                 .initialize();
 
@@ -75,7 +79,7 @@ public class TestingHttpServer
         protected void doGet(HttpServletRequest request, HttpServletResponse response)
                 throws IOException
         {
-            byte[] responseAsBytes = Files.readAllBytes(Paths.get(request.getPathInfo()));
+            byte[] responseAsBytes = Files.readAllBytes(Path.of(request.getPathInfo()));
             ByteSource.wrap(responseAsBytes).copyTo(response.getOutputStream());
         }
     }

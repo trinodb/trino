@@ -94,7 +94,7 @@ public class MemoryOrcDataSource
         ImmutableMap.Builder<K, OrcDataReader> slices = ImmutableMap.builder();
         for (Entry<K, DiskRange> entry : diskRanges.entrySet()) {
             DiskRange diskRange = entry.getValue();
-            Slice slice = readFully(diskRange.getOffset(), diskRange.getLength());
+            Slice slice = readFully(diskRange.offset(), diskRange.length());
             // retained memory is reported by this data source, so it should not be declared in the reader
             slices.put(entry.getKey(), new MemoryOrcDataReader(id, slice, 0));
         }

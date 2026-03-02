@@ -28,7 +28,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestMergeHashSort
 {
-    private final InterpretedHashGenerator hashGenerator = createPagePrefixHashGenerator(ImmutableList.of(BIGINT), new TypeOperators());
+    private final InterpretedHashGenerator hashGenerator = createPagePrefixHashGenerator(ImmutableList.of(BIGINT), new NullSafeHashCompiler(new TypeOperators()));
 
     @Test
     public void testBinaryMergeIteratorOverEmptyPage()

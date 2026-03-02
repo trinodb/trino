@@ -16,7 +16,7 @@ package io.trino.client.uri;
 import com.google.common.reflect.TypeToken;
 
 import java.io.File;
-import java.nio.file.Paths;
+import java.nio.file.Path;
 import java.util.Optional;
 import java.util.Properties;
 import java.util.function.Function;
@@ -212,7 +212,7 @@ abstract class AbstractConnectionProperty<V, T>
         @Override
         public File decode(String value)
         {
-            return Paths.get(value).toFile();
+            return Path.of(value).toFile();
         }
 
         @Override

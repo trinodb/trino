@@ -20,6 +20,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
 
+import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.function.OperatorType.ADD;
 import static io.trino.spi.function.OperatorType.DIVIDE;
@@ -31,6 +32,7 @@ import static io.trino.spi.function.OperatorType.MULTIPLY;
 import static io.trino.spi.function.OperatorType.NEGATION;
 import static io.trino.spi.function.OperatorType.SUBTRACT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
@@ -393,6 +395,16 @@ public class TestIntervalYearMonth
                 .binding("a", "INTERVAL '30' MONTH"))
                 .hasType(VARCHAR)
                 .isEqualTo("2-6");
+
+        assertThat(assertions.expression("CAST(a AS varchar(5))")
+                .binding("a", "INTERVAL '124' YEAR"))
+                .hasType(createVarcharType(5))
+                .isEqualTo("124-0");
+
+        assertTrinoExceptionThrownBy(assertions.expression("CAST(a AS varchar(4))")
+                .binding("a", "INTERVAL '124' YEAR")::evaluate)
+                .hasErrorCode(INVALID_CAST_ARGUMENT)
+                .hasMessage("Cannot cast '124-0' to varchar(4)");
     }
 
     @Test

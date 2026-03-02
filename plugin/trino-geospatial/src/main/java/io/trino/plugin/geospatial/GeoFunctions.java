@@ -78,6 +78,7 @@ import java.util.EnumSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.Set;
@@ -1480,7 +1481,7 @@ public final class GeoFunctions
         // overall extent of the tree to avoid missing right-most and top-most points.
         boolean point = (envelope.getWidth() == 0 && envelope.getHeight() == 0);
         if (point) {
-            for (Map.Entry<Integer, Rectangle> partition : partitions.entrySet()) {
+            for (Entry<Integer, Rectangle> partition : partitions.entrySet()) {
                 if (envelope.getXMin() < partition.getValue().getXMax() && envelope.getYMin() < partition.getValue().getYMax()) {
                     BlockBuilder blockBuilder = IntegerType.INTEGER.createFixedSizeBlockBuilder(1);
                     IntegerType.INTEGER.writeInt(blockBuilder, partition.getKey());

@@ -33,7 +33,6 @@ import java.io.UncheckedIOException;
 import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -251,7 +250,7 @@ final class TestIcebergRestCatalogCaseInsensitiveMapping
 
     private static void createDir(String absoluteDirPath)
     {
-        Path path = Paths.get(URI.create(absoluteDirPath).getPath());
+        Path path = Path.of(URI.create(absoluteDirPath).getPath());
         try {
             createDirectories(path);
         }

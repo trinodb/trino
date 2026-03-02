@@ -24,9 +24,7 @@ import io.trino.block.BlockJsonSerde;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.spi.block.Block;
-import io.trino.spi.block.TestingBlockEncodingSerde;
 import io.trino.spi.function.OperatorType;
-import io.trino.spi.type.TestingTypeManager;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignature;
 import io.trino.sql.ir.Call;
@@ -55,7 +53,8 @@ import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 
-import static io.trino.metadata.TestMetadataManager.createTestMetadataManager;
+import static io.trino.metadata.InternalBlockEncodingSerde.TESTING_BLOCK_ENCODING_SERDE;
+import static io.trino.metadata.TestingMetadataManager.createTestingMetadataManager;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.IntegerType.INTEGER;
@@ -68,6 +67,7 @@ import static io.trino.sql.planner.plan.FrameBoundType.UNBOUNDED_FOLLOWING;
 import static io.trino.sql.planner.plan.RowsPerMatch.WINDOW;
 import static io.trino.sql.planner.plan.SkipToPosition.LAST;
 import static io.trino.sql.planner.plan.WindowFrameType.ROWS;
+import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestPatternRecognitionNodeSerialization
@@ -86,15 +86,15 @@ public class TestPatternRecognitionNodeSerialization
         ObjectMapperProvider provider = new ObjectMapperProvider();
         provider.setKeyDeserializers(ImmutableMap.<Class<?>, KeyDeserializer>builder()
                 .put(TypeSignature.class, new TypeSignatureKeyDeserializer())
-                .put(Symbol.class, new SymbolKeyDeserializer(new TestingTypeManager()))
+                .put(Symbol.class, new SymbolKeyDeserializer(TESTING_TYPE_MANAGER))
                 .buildOrThrow());
 
         provider.setJsonDeserializers(ImmutableMap.of(
-                Type.class, new TypeDeserializer(new TestingTypeManager()),
-                Block.class, new BlockJsonSerde.Deserializer(new TestingBlockEncodingSerde())));
+                Type.class, new TypeDeserializer(TESTING_TYPE_MANAGER),
+                Block.class, new BlockJsonSerde.Deserializer(TESTING_BLOCK_ENCODING_SERDE)));
 
         provider.setJsonSerializers(ImmutableMap.of(
-                Block.class, new BlockJsonSerde.Serializer(new TestingBlockEncodingSerde())));
+                Block.class, new BlockJsonSerde.Serializer(TESTING_BLOCK_ENCODING_SERDE)));
 
         VALUE_POINTER_CODEC = new JsonCodecFactory(provider).jsonCodec(ValuePointer.class);
         EXPRESSION_AND_VALUE_POINTERS_CODEC = new JsonCodecFactory(provider).jsonCodec(ExpressionAndValuePointers.class);
@@ -117,7 +117,7 @@ public class TestPatternRecognitionNodeSerialization
     @Test
     public void testAggregationValuePointerRoundtrip()
     {
-        ResolvedFunction countFunction = createTestMetadataManager().resolveBuiltinFunction("count", ImmutableList.of());
+        ResolvedFunction countFunction = createTestingMetadataManager().resolveBuiltinFunction("count", ImmutableList.of());
         assertJsonRoundTrip(VALUE_POINTER_CODEC, new AggregationValuePointer(
                 countFunction,
                 new AggregatedSetDescriptor(ImmutableSet.of(), false),
@@ -125,7 +125,7 @@ public class TestPatternRecognitionNodeSerialization
                 Optional.of(new Symbol(VARCHAR, "classifier")),
                 Optional.of(new Symbol(BIGINT, "match_number"))));
 
-        ResolvedFunction maxFunction = createTestMetadataManager().resolveBuiltinFunction("max", fromTypes(BIGINT));
+        ResolvedFunction maxFunction = createTestingMetadataManager().resolveBuiltinFunction("max", fromTypes(BIGINT));
         assertJsonRoundTrip(VALUE_POINTER_CODEC, new AggregationValuePointer(
                 maxFunction,
                 new AggregatedSetDescriptor(ImmutableSet.of(new IrLabel("A"), new IrLabel("B")), true),
@@ -192,7 +192,7 @@ public class TestPatternRecognitionNodeSerialization
     @Test
     public void testPatternRecognitionNodeRoundtrip()
     {
-        ResolvedFunction rankFunction = createTestMetadataManager().resolveBuiltinFunction("rank", ImmutableList.of());
+        ResolvedFunction rankFunction = createTestingMetadataManager().resolveBuiltinFunction("rank", ImmutableList.of());
 
         // test remaining fields inside PatternRecognitionNode specific to pattern recognition:
         // windowFunctions, measures, commonBaseFrame, rowsPerMatch, skipToLabel, skipToPosition, initial, pattern, subsets, variableDefinitions

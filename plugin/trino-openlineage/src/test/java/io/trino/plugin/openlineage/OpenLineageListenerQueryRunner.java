@@ -17,7 +17,7 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import io.airlift.log.Logger;
 import io.trino.connector.MockConnectorFactory;
 import io.trino.connector.MockConnectorPlugin;
-import io.trino.plugin.base.evenlistener.TestingEventListenerContext;
+import io.trino.plugin.base.eventlistener.testing.TestingEventListenerContext;
 import io.trino.plugin.blackhole.BlackHolePlugin;
 import io.trino.plugin.memory.MemoryPlugin;
 import io.trino.plugin.tpcds.TpcdsPlugin;
@@ -110,7 +110,7 @@ public final class OpenLineageListenerQueryRunner
         }
     }
 
-    public static void main(String[] args)
+    static void main()
             throws Exception
     {
         MarquezServer server = new MarquezServer();

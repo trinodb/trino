@@ -65,7 +65,7 @@ public class BenchmarkParseDate
         }
     }
 
-    public static void main(String[] args)
+    static void main()
             throws RunnerException
     {
         benchmark(BenchmarkParseDate.class).run();

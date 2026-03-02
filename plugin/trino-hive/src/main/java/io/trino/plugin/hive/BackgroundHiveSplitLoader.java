@@ -52,6 +52,7 @@ import io.trino.plugin.hive.util.ValidWriteIdList;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.TypeManager;
@@ -148,6 +149,7 @@ public class BackgroundHiveSplitLoader
 
     private final Table table;
     private final TupleDomain<? extends ColumnHandle> compactEffectivePredicate;
+    private final Constraint constraint;
     private final DynamicFilter dynamicFilter;
     private final long dynamicFilteringWaitTimeoutMillis;
     private final TypeManager typeManager;
@@ -192,6 +194,7 @@ public class BackgroundHiveSplitLoader
             Table table,
             Iterator<HivePartitionMetadata> partitions,
             TupleDomain<? extends ColumnHandle> compactEffectivePredicate,
+            Constraint constraint,
             DynamicFilter dynamicFilter,
             Duration dynamicFilteringWaitTimeout,
             TypeManager typeManager,
@@ -209,6 +212,7 @@ public class BackgroundHiveSplitLoader
     {
         this.table = table;
         this.compactEffectivePredicate = compactEffectivePredicate;
+        this.constraint = constraint;
         this.dynamicFilter = dynamicFilter;
         this.dynamicFilteringWaitTimeoutMillis = dynamicFilteringWaitTimeout.toMillis();
         this.typeManager = typeManager;
@@ -423,6 +427,7 @@ public class BackgroundHiveSplitLoader
                     schema,
                     partitionKeys,
                     effectivePredicate,
+                    constraint,
                     partitionMatchSupplier,
                     partition.getHiveColumnCoercions(),
                     Optional.empty(),
@@ -475,6 +480,7 @@ public class BackgroundHiveSplitLoader
                 schema,
                 partitionKeys,
                 effectivePredicate,
+                constraint,
                 partitionMatchSupplier,
                 partition.getHiveColumnCoercions(),
                 bucketConversionRequiresWorkerParticipation ? bucketConversion : Optional.empty(),

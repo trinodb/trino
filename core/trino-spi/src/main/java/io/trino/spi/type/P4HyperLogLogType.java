@@ -23,12 +23,13 @@ import static io.trino.spi.type.HyperLogLogType.HYPER_LOG_LOG;
 public class P4HyperLogLogType
         extends AbstractVariableWidthType
 {
+    public static final String NAME = "P4HyperLogLog";
     public static final P4HyperLogLogType P4_HYPER_LOG_LOG = new P4HyperLogLogType();
 
     @JsonCreator
     public P4HyperLogLogType()
     {
-        super(new TypeSignature(StandardTypes.P4_HYPER_LOG_LOG), Slice.class);
+        super(new TypeSignature(NAME), Slice.class);
     }
 
     @Override
@@ -47,6 +48,12 @@ public class P4HyperLogLogType
     public void writeSlice(BlockBuilder blockBuilder, Slice value, int offset, int length)
     {
         HYPER_LOG_LOG.writeSlice(blockBuilder, value, offset, length);
+    }
+
+    @Override
+    public String getDisplayName()
+    {
+        return NAME;
     }
 
     @Override

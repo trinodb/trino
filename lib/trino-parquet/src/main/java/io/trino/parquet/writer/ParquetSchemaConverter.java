@@ -46,9 +46,6 @@ import static io.trino.spi.type.Decimals.MAX_PRECISION;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.SmallintType.SMALLINT;
-import static io.trino.spi.type.StandardTypes.ARRAY;
-import static io.trino.spi.type.StandardTypes.MAP;
-import static io.trino.spi.type.StandardTypes.ROW;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -119,16 +116,12 @@ public class ParquetSchemaConverter
             boolean useInt96TimestampEncoding,
             BiConsumer<List<String>, Type> primitiveTypesConsumer)
     {
-        if (ROW.equals(type.getTypeSignature().getBase())) {
-            return getRowType((RowType) type, name, parent, repetition, useLegacyDecimalEncoding, useInt96TimestampEncoding, primitiveTypesConsumer);
-        }
-        if (MAP.equals(type.getTypeSignature().getBase())) {
-            return getMapType((MapType) type, name, parent, repetition, useLegacyDecimalEncoding, useInt96TimestampEncoding, primitiveTypesConsumer);
-        }
-        if (ARRAY.equals(type.getTypeSignature().getBase())) {
-            return getArrayType((ArrayType) type, name, parent, repetition, useLegacyDecimalEncoding, useInt96TimestampEncoding, primitiveTypesConsumer);
-        }
-        return getPrimitiveType(type, name, parent, repetition, useLegacyDecimalEncoding, useInt96TimestampEncoding, primitiveTypesConsumer);
+        return switch (type) {
+            case RowType rowType -> getRowType(rowType, name, parent, repetition, useLegacyDecimalEncoding, useInt96TimestampEncoding, primitiveTypesConsumer);
+            case MapType mapType -> getMapType(mapType, name, parent, repetition, useLegacyDecimalEncoding, useInt96TimestampEncoding, primitiveTypesConsumer);
+            case ArrayType arrayType -> getArrayType(arrayType, name, parent, repetition, useLegacyDecimalEncoding, useInt96TimestampEncoding, primitiveTypesConsumer);
+            default -> getPrimitiveType(type, name, parent, repetition, useLegacyDecimalEncoding, useInt96TimestampEncoding, primitiveTypesConsumer);
+        };
     }
 
     private static org.apache.parquet.schema.Type getPrimitiveType(

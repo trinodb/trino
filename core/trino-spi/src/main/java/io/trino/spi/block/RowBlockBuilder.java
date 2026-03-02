@@ -113,6 +113,45 @@ public class RowBlockBuilder
         currentEntryOpened = false;
     }
 
+    public RowEntryBuilder buildEntry()
+    {
+        return new RowEntryBuilderImplementation();
+    }
+
+    private class RowEntryBuilderImplementation
+            implements RowEntryBuilder
+    {
+        private boolean entryBuilt;
+
+        public RowEntryBuilderImplementation()
+        {
+            if (currentEntryOpened) {
+                throw new IllegalStateException("Expected current entry to be closed but was opened");
+            }
+            currentEntryOpened = true;
+        }
+
+        @Override
+        public BlockBuilder getFieldBuilder(int fieldId)
+        {
+            if (entryBuilt || !currentEntryOpened) {
+                throw new IllegalStateException("Entry has already been built");
+            }
+            return fieldBlockBuilders[fieldId];
+        }
+
+        @Override
+        public void build()
+        {
+            if (entryBuilt || !currentEntryOpened) {
+                throw new IllegalStateException("Entry has already been built");
+            }
+            entryBuilt = true;
+            entryAdded(false);
+            currentEntryOpened = false;
+        }
+    }
+
     @Override
     public void append(ValueBlock block, int position)
     {
@@ -174,12 +213,15 @@ public class RowBlockBuilder
         boolean[] rawRowIsNull = rowBlock.getRawRowIsNull();
         if (rawRowIsNull != null) {
             for (int i = 0; i < length; i++) {
-                if (rawRowIsNull[startOffset + offset + i]) {
-                    rowIsNull[positionCount + i] = true;
-                    hasNullRow = true;
+                boolean isNull = rawRowIsNull[startOffset + offset + i];
+                hasNullRow |= isNull;
+                hasNonNullRow |= !isNull;
+                if (hasNullRow & hasNonNullRow) {
+                    System.arraycopy(rawRowIsNull, startOffset + offset + i, rowIsNull, positionCount + i, length - i);
+                    break;
                 }
                 else {
-                    hasNonNullRow = true;
+                    rowIsNull[positionCount + i] = isNull;
                 }
             }
         }
@@ -276,7 +318,7 @@ public class RowBlockBuilder
 
         if (startOffset == 0) {
             for (int fieldId = 0; fieldId < fieldBlockBuilders.length; fieldId++) {
-                appendPositionsToField(rawFieldBlocks[fieldId], positions, 0, length, fieldBlockBuilders[fieldId]);
+                appendPositionsToField(rawFieldBlocks[fieldId], positions, offset, length, fieldBlockBuilders[fieldId]);
             }
         }
         else {

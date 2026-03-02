@@ -167,8 +167,8 @@ public class MergeOperator
 
         TaskContext taskContext = operatorContext.getDriverContext().getPipelineContext().getTaskContext();
         DirectExchangeClient client = closer.register(directExchangeClientSupplier.get(
-                taskContext.getTaskId().getQueryId(),
-                new ExchangeId(format("direct-exchange-merge-%s-%s", taskContext.getTaskId().getStageId().getId(), sourceId)),
+                taskContext.getTaskId().queryId(),
+                new ExchangeId(format("direct-exchange-merge-%s-%s", taskContext.getTaskId().stageId().id(), sourceId)),
                 taskContext.getSession().getQuerySpan(),
                 operatorContext.localUserMemoryContext(),
                 taskContext::sourceTaskFailed,

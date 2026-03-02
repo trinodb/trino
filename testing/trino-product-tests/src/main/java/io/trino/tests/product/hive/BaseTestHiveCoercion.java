@@ -30,6 +30,7 @@ import io.trino.tempto.query.QueryExecutor;
 import io.trino.tempto.query.QueryResult;
 
 import java.math.BigDecimal;
+import java.sql.Date;
 import java.sql.JDBCType;
 import java.sql.SQLException;
 import java.sql.Timestamp;
@@ -744,11 +745,11 @@ public abstract class BaseTestHiveCoercion
                         "Tr",
                         "\uD83D\uDCB0 "))
                 .put("varchar_to_date", ImmutableList.of(
-                        java.sql.Date.valueOf("2023-09-28"),
-                        java.sql.Date.valueOf("2023-09-27")))
+                        Date.valueOf("2023-09-28"),
+                        Date.valueOf("2023-09-27")))
                 .put("varchar_to_distant_date", ImmutableList.of(
-                        java.sql.Date.valueOf("8000-04-13"),
-                        java.sql.Date.valueOf("1900-01-01")))
+                        Date.valueOf("8000-04-13"),
+                        Date.valueOf("1900-01-01")))
                 .put("varchar_to_float", ImmutableList.of(
                         1234.567f,
                         -12345.6789f))
@@ -795,14 +796,14 @@ public abstract class BaseTestHiveCoercion
                         "a",
                         "\uD83D\uDCB0"))
                 .put("timestamp_millis_to_date", ImmutableList.of(
-                        java.sql.Date.valueOf("2022-12-31"),
-                        java.sql.Date.valueOf("1970-01-01")))
+                        Date.valueOf("2022-12-31"),
+                        Date.valueOf("1970-01-01")))
                 .put("timestamp_micros_to_date", ImmutableList.of(
-                        java.sql.Date.valueOf("2023-12-31"),
-                        java.sql.Date.valueOf("1970-01-01")))
+                        Date.valueOf("2023-12-31"),
+                        Date.valueOf("1970-01-01")))
                 .put("timestamp_nanos_to_date", ImmutableList.of(
-                        java.sql.Date.valueOf("2024-12-31"),
-                        java.sql.Date.valueOf("1970-01-01")))
+                        Date.valueOf("2024-12-31"),
+                        Date.valueOf("1970-01-01")))
                 .put("timestamp_to_string", ImmutableList.of(
                         "2121-07-15 15:30:12.123",
                         "1970-01-01 00:00:00.123"))
@@ -861,9 +862,9 @@ public abstract class BaseTestHiveCoercion
             String timestampType = "timestamp(%d)".formatted(hiveTimestampPrecision.getPrecision());
             setHiveTimestampPrecision(hiveTimestampPrecision);
             assertThat(onTrino().executeQuery("SHOW COLUMNS FROM " + tableName).project(1, 2)).containsExactlyInOrder(
-                    row("timestamp_row_to_row", "row(keep %1$s, si2i integer, timestamp2string varchar, string2timestamp %1$s, timestamp2date date)".formatted(timestampType)),
-                    row("timestamp_list_to_list", "array(row(keep %1$s, si2i integer, timestamp2string varchar, string2timestamp %1$s, timestamp2date date))".formatted(timestampType)),
-                    row("timestamp_map_to_map", "map(integer, row(keep %1$s, si2i integer, timestamp2string varchar, string2timestamp %1$s, timestamp2date date))".formatted(timestampType)),
+                    row("timestamp_row_to_row", "row(\"keep\" %1$s, \"si2i\" integer, \"timestamp2string\" varchar, \"string2timestamp\" %1$s, \"timestamp2date\" date)".formatted(timestampType)),
+                    row("timestamp_list_to_list", "array(row(\"keep\" %1$s, \"si2i\" integer, \"timestamp2string\" varchar, \"string2timestamp\" %1$s, \"timestamp2date\" date))".formatted(timestampType)),
+                    row("timestamp_map_to_map", "map(integer, row(\"keep\" %1$s, \"si2i\" integer, \"timestamp2string\" varchar, \"string2timestamp\" %1$s, \"timestamp2date\" date))".formatted(timestampType)),
                     row("timestamp_to_string", "varchar"),
                     row("string_to_timestamp", timestampType),
                     row("timestamp_to_date", "date"),
@@ -929,7 +930,7 @@ public abstract class BaseTestHiveCoercion
                             .map(String.class::cast)
                             .map(Timestamp::valueOf)
                             .collect(toImmutableList()))
-                    .put("timestamp_to_date", nCopies(6, java.sql.Date.valueOf("2121-07-15")))
+                    .put("timestamp_to_date", nCopies(6, Date.valueOf("2121-07-15")))
                     .put("id", nCopies(6, 1))
                     .buildOrThrow();
         }
@@ -966,7 +967,7 @@ public abstract class BaseTestHiveCoercion
                         .addField("si2i", -1)
                         .addField("timestamp2string", timestampCoerced)
                         .addField("string2timestamp", timestamp)
-                        .addField("timestamp2date", java.sql.Date.valueOf("2121-07-15"))
+                        .addField("timestamp2date", Date.valueOf("2121-07-15"))
                         .build())
                 .collect(toImmutableList());
 
@@ -980,7 +981,7 @@ public abstract class BaseTestHiveCoercion
                         .collect(toImmutableList()))
                 .put("timestamp_to_string", timestampAsString)
                 .put("string_to_timestamp", timestampValue)
-                .put("timestamp_to_date", nCopies(6, java.sql.Date.valueOf("2121-07-15")))
+                .put("timestamp_to_date", nCopies(6, Date.valueOf("2121-07-15")))
                 .put("id", nCopies(6, 1))
                 .buildOrThrow();
     }
@@ -1139,9 +1140,9 @@ public abstract class BaseTestHiveCoercion
     {
         assertThat(onTrino().executeQuery("SHOW COLUMNS FROM " + tableName).project(1, 2)).containsExactlyInOrder(
                 // The field lower2uppercase in the row is recorded in upper case in hive, but Trino converts it to lower case
-                row("row_to_row", "row(keep varchar, ti2si smallint, si2int integer, int2bi bigint, bi2vc varchar, lower2uppercase bigint)"),
-                row("list_to_list", "array(row(ti2int integer, si2bi bigint, bi2vc varchar))"),
-                row("map_to_map", "map(integer, row(ti2bi bigint, int2bi bigint, float2double double, add tinyint))"),
+                row("row_to_row", "row(\"keep\" varchar, \"ti2si\" smallint, \"si2int\" integer, \"int2bi\" bigint, \"bi2vc\" varchar, \"lower2uppercase\" bigint)"),
+                row("list_to_list", "array(row(\"ti2int\" integer, \"si2bi\" bigint, \"bi2vc\" varchar))"),
+                row("map_to_map", "map(integer, row(\"ti2bi\" bigint, \"int2bi\" bigint, \"float2double\" double, \"add\" tinyint))"),
                 row("boolean_to_varchar", "varchar(5)"),
                 row("string_to_boolean", "boolean"),
                 row("special_string_to_boolean", "boolean"),

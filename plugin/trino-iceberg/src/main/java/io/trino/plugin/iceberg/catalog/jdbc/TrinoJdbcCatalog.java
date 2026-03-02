@@ -24,6 +24,7 @@ import io.trino.metastore.TableInfo;
 import io.trino.plugin.iceberg.IcebergUtil;
 import io.trino.plugin.iceberg.catalog.AbstractTrinoCatalog;
 import io.trino.plugin.iceberg.catalog.IcebergTableOperationsProvider;
+import io.trino.plugin.iceberg.catalog.jdbc.IcebergJdbcCatalogConfig.SchemaVersion;
 import io.trino.plugin.iceberg.fileio.ForwardingFileIoFactory;
 import io.trino.spi.TrinoException;
 import io.trino.spi.catalog.CatalogName;
@@ -69,6 +70,7 @@ import java.util.Set;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.function.UnaryOperator;
+import java.util.regex.Pattern;
 
 import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -93,12 +95,14 @@ public class TrinoJdbcCatalog
         extends AbstractTrinoCatalog
 {
     private static final Logger LOG = Logger.get(TrinoJdbcCatalog.class);
+    private static final Pattern METADATA_SUFFIX_PATTERN = Pattern.compile("/metadata/[^/]*$");
 
     private static final int PER_QUERY_CACHE_SIZE = 1000;
 
     private final JdbcCatalog jdbcCatalog;
     private final IcebergJdbcClient jdbcClient;
     private final String defaultWarehouseDir;
+    private final SchemaVersion schemaVersion;
 
     private final Cache<SchemaTableName, TableMetadata> tableMetadataCache = EvictableCacheBuilder.newBuilder()
             .maximumSize(PER_QUERY_CACHE_SIZE)
@@ -113,12 +117,14 @@ public class TrinoJdbcCatalog
             TrinoFileSystemFactory fileSystemFactory,
             ForwardingFileIoFactory fileIoFactory,
             boolean useUniqueTableLocation,
-            String defaultWarehouseDir)
+            String defaultWarehouseDir,
+            SchemaVersion schemaVersion)
     {
         super(catalogName, useUniqueTableLocation, typeManager, tableOperationsProvider, fileSystemFactory, fileIoFactory);
         this.jdbcCatalog = requireNonNull(jdbcCatalog, "jdbcCatalog is null");
         this.jdbcClient = requireNonNull(jdbcClient, "jdbcClient is null");
         this.defaultWarehouseDir = requireNonNull(defaultWarehouseDir, "defaultWarehouseDir is null");
+        this.schemaVersion = requireNonNull(schemaVersion, "schemaVersion is null");
     }
 
     @Override
@@ -362,7 +368,7 @@ public class TrinoJdbcCatalog
         if (metadataLocation.isEmpty()) {
             throw new TrinoException(ICEBERG_INVALID_METADATA, format("Could not find metadata_location for table %s", schemaTableName));
         }
-        String tableLocation = metadataLocation.get().replaceFirst("/metadata/[^/]*$", "");
+        String tableLocation = METADATA_SUFFIX_PATTERN.matcher(metadataLocation.get()).replaceFirst("");
         deleteTableDirectory(fileSystemFactory.create(session), schemaTableName, tableLocation);
         invalidateTableCache(schemaTableName);
     }
@@ -461,6 +467,10 @@ public class TrinoJdbcCatalog
     @Override
     public void createView(ConnectorSession session, SchemaTableName schemaViewName, ConnectorViewDefinition definition, boolean replace)
     {
+        if (schemaVersion == SchemaVersion.V0) {
+            throw new TrinoException(NOT_SUPPORTED, "Schema version V0 does not support views");
+        }
+
         ImmutableMap.Builder<String, String> properties = ImmutableMap.builder();
         definition.getOwner().ifPresent(owner -> properties.put(ICEBERG_VIEW_RUN_AS_OWNER, owner));
         definition.getComment().ifPresent(comment -> properties.put(COMMENT, comment));
@@ -525,6 +535,11 @@ public class TrinoJdbcCatalog
     @Override
     public Optional<ConnectorViewDefinition> getView(ConnectorSession session, SchemaTableName viewIdentifier)
     {
+        if (schemaVersion == SchemaVersion.V0) {
+            // V0 doesn't support views
+            return Optional.empty();
+        }
+
         if (!jdbcCatalog.viewExists(toIdentifier(viewIdentifier))) {
             return Optional.empty();
         }

@@ -78,6 +78,7 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Random;
@@ -86,7 +87,6 @@ import java.util.function.UnaryOperator;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
-import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
@@ -119,6 +119,7 @@ import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.TypeUtils.readNativeValue;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
+import static java.util.Objects.requireNonNullElse;
 
 public class FakerMetadata
         implements ConnectorMetadata
@@ -275,7 +276,7 @@ public class FakerMetadata
                     relationColumns.put(name, columns);
                 });
 
-        for (Map.Entry<SchemaTableName, ConnectorViewDefinition> entry : getViews(session, schemaName).entrySet()) {
+        for (Entry<SchemaTableName, ConnectorViewDefinition> entry : getViews(session, schemaName).entrySet()) {
             relationColumns.put(entry.getKey(), RelationColumnsMetadata.forView(entry.getKey(), entry.getValue().getColumns()));
         }
 
@@ -317,7 +318,7 @@ public class FakerMetadata
                         properties.entrySet().stream()
                                 .filter(entry -> entry.getValue().isPresent())
                                 .map(entry -> Map.entry(entry.getKey(), entry.getValue().get())))
-                .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
+                .collect(toImmutableMap(Entry::getKey, Entry::getValue));
         tables.put(tableName, oldInfo.withProperties(newProperties));
     }
 
@@ -524,7 +525,7 @@ public class FakerMetadata
                     .buildOrThrow());
         }
 
-        long finalRowCount = firstNonNull(rowCount, 1L);
+        long finalRowCount = requireNonNullElse(rowCount, 1L);
         SchemaInfo schema = getSchema(tableName.getSchemaName());
         boolean isSchemaSequenceDetectionEnabled = (boolean) schema.properties().getOrDefault(SchemaInfo.SEQUENCE_DETECTION_ENABLED, isSequenceDetectionEnabled);
         boolean isTableSequenceDetectionEnabled = (boolean) info.properties().getOrDefault(TableInfo.SEQUENCE_DETECTION_ENABLED, isSchemaSequenceDetectionEnabled);
@@ -621,7 +622,7 @@ public class FakerMetadata
     }
 
     @Override
-    public TableStatisticsMetadata getStatisticsCollectionMetadataForWrite(ConnectorSession session, ConnectorTableMetadata tableMetadata)
+    public TableStatisticsMetadata getStatisticsCollectionMetadataForWrite(ConnectorSession session, ConnectorTableMetadata tableMetadata, boolean tableReplace)
     {
         return new TableStatisticsMetadata(
                 tableMetadata.getColumns().stream()
@@ -772,7 +773,7 @@ public class FakerMetadata
     public Collection<FunctionMetadata> getFunctions(ConnectorSession session, SchemaFunctionName name)
     {
         return functionsProvider.functionsMetadata().stream()
-                .filter(function -> function.getCanonicalName().equals(name.getFunctionName()))
+                .filter(function -> function.getCanonicalName().equals(name.functionName()))
                 .collect(toImmutableList());
     }
 

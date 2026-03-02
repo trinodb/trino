@@ -587,11 +587,20 @@ public final class ConnectorExpressionTranslator
                 return Optional.empty();
             }
 
+            io.trino.spi.expression.Constant uselessArgument = switch (node.operator()) {
+                case AND -> io.trino.spi.expression.Constant.TRUE;
+                case OR -> io.trino.spi.expression.Constant.FALSE;
+            };
+
             ImmutableList.Builder<ConnectorExpression> arguments = ImmutableList.builderWithExpectedSize(node.terms().size());
             for (Expression argument : node.terms()) {
                 Optional<ConnectorExpression> translated = process(argument);
                 if (translated.isEmpty()) {
                     return Optional.empty();
+                }
+                // Skip useless components.
+                if (translated.get().equals(uselessArgument)) {
+                    continue;
                 }
                 arguments.add(translated.get());
             }
@@ -708,10 +717,10 @@ public final class ConnectorExpressionTranslator
                 return Optional.empty();
             }
             if (isBuiltinFunctionName(functionName)) {
-                name = new FunctionName(functionName.getFunctionName());
+                name = new FunctionName(functionName.functionName());
             }
             else {
-                name = new FunctionName(Optional.of(new CatalogSchemaName(functionName.getCatalogName(), functionName.getSchemaName())), functionName.getFunctionName());
+                name = new FunctionName(Optional.of(new CatalogSchemaName(functionName.catalogName(), functionName.schemaName())), functionName.functionName());
             }
             return Optional.of(new io.trino.spi.expression.Call(((Expression) node).type(), name, arguments.build()));
         }

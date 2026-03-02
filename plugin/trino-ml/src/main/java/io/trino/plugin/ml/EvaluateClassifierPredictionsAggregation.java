@@ -27,6 +27,7 @@ import io.trino.spi.type.StandardTypes;
 
 import java.util.Locale;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Set;
 
 import static com.google.common.collect.Sets.union;
@@ -85,7 +86,7 @@ public final class EvaluateClassifierPredictionsAggregation
     private static int mergeMaps(Map<String, Integer> map, Map<String, Integer> other)
     {
         int deltaSize = 0;
-        for (Map.Entry<String, Integer> entry : other.entrySet()) {
+        for (Entry<String, Integer> entry : other.entrySet()) {
             if (!map.containsKey(entry.getKey())) {
                 deltaSize += entry.getKey().getBytes(UTF_8).length + SIZE_OF_INT;
             }

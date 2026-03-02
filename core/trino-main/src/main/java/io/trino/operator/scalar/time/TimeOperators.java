@@ -39,6 +39,8 @@ import static io.trino.type.DateTimes.parseTime;
 import static io.trino.type.DateTimes.rescaleWithRounding;
 import static io.trino.type.DateTimes.round;
 import static io.trino.type.DateTimes.scaleFactor;
+import static java.lang.String.format;
+import static java.nio.charset.StandardCharsets.US_ASCII;
 
 public final class TimeOperators
 {
@@ -116,7 +118,7 @@ public final class TimeOperators
     @ScalarOperator(CAST)
     @LiteralParameters({"x", "p"})
     @SqlType("varchar(x)")
-    public static Slice castToVarchar(@LiteralParameter("p") long precision, @SqlType("time(p)") long value)
+    public static Slice castToVarchar(@LiteralParameter("x") long x, @LiteralParameter("p") long precision, @SqlType("time(p)") long value)
     {
         if (precision < 0 || precision > MAX_PRECISION) {
             throw new IllegalArgumentException("Invalid precision: " + precision);
@@ -149,7 +151,11 @@ public final class TimeOperators
             }
         }
 
-        return Slices.wrappedBuffer(bytes);
+        // bytes are all-ASCII, so length here returns actual code points count
+        if (bytes.length <= x) {
+            return Slices.wrappedBuffer(bytes);
+        }
+        throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to varchar(%s)", new String(bytes, US_ASCII), x));
     }
 
     private static void appendTwoDecimalDigits(int index, byte[] bytes, int value)

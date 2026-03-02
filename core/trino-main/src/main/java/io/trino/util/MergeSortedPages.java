@@ -121,7 +121,7 @@ public final class MergeSortedPages
                         Page page = pageBuilder.build();
                         pageBuilder.reset();
                         if (!finished) {
-                            pageWithPosition.appendTo(pageBuilder, outputChannels, outputTypes);
+                            pageWithPosition.appendTo(pageBuilder, outputChannels);
                         }
 
                         if (updateMemoryAfterEveryPosition) {
@@ -131,7 +131,7 @@ public final class MergeSortedPages
                         return TransformationState.ofResult(page, !finished);
                     }
 
-                    pageWithPosition.appendTo(pageBuilder, outputChannels, outputTypes);
+                    pageWithPosition.appendTo(pageBuilder, outputChannels);
 
                     if (updateMemoryAfterEveryPosition) {
                         memoryContext.setBytes(pageBuilder.getRetainedSizeInBytes());
@@ -186,13 +186,12 @@ public final class MergeSortedPages
             return position;
         }
 
-        public void appendTo(PageBuilder pageBuilder, List<Integer> outputChannels, List<Type> outputTypes)
+        public void appendTo(PageBuilder pageBuilder, List<Integer> outputChannels)
         {
             pageBuilder.declarePosition();
             for (int i = 0; i < outputChannels.size(); i++) {
-                Type type = outputTypes.get(i);
                 Block block = page.getBlock(outputChannels.get(i));
-                type.appendTo(block, position, pageBuilder.getBlockBuilder(i));
+                pageBuilder.getBlockBuilder(i).append(block.getUnderlyingValueBlock(), block.getUnderlyingValuePosition(position));
             }
         }
     }

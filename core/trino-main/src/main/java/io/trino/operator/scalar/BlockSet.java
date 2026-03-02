@@ -17,7 +17,6 @@ import io.airlift.units.DataSize;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
-import io.trino.spi.type.Type;
 import io.trino.type.BlockTypeOperators.BlockPositionHashCode;
 import io.trino.type.BlockTypeOperators.BlockPositionIsIdentical;
 
@@ -47,7 +46,6 @@ public class BlockSet
     private static final float FILL_RATIO = 0.75f;
     private static final int EMPTY_SLOT = -1;
 
-    private final Type elementType;
     private final BlockPositionIsIdentical elementIdenticalOperator;
     private final BlockPositionHashCode elementHashCodeOperator;
 
@@ -64,13 +62,11 @@ public class BlockSet
     private boolean containsNullElement;
 
     public BlockSet(
-            Type elementType,
             BlockPositionIsIdentical elementIdenticalOperator,
             BlockPositionHashCode elementHashCodeOperator,
             int maximumSize)
     {
         checkArgument(maximumSize >= 0, "maximumSize must not be negative");
-        this.elementType = requireNonNull(elementType, "elementType is null");
         this.elementIdenticalOperator = requireNonNull(elementIdenticalOperator, "elementIdenticalOperator is null");
         this.elementHashCodeOperator = requireNonNull(elementHashCodeOperator, "elementHashCodeOperator is null");
         this.maximumSize = maximumSize;
@@ -163,7 +159,7 @@ public class BlockSet
         long initialSize = blockBuilder.getSizeInBytes();
         long maxBlockMemoryInBytes = toIntExact(maxFunctionMemory.toBytes());
         for (int i = 0; i < size; i++) {
-            elementType.appendTo(elementBlocks[i], elementPositions[i], blockBuilder);
+            blockBuilder.append(elementBlocks[i].getUnderlyingValueBlock(), elementBlocks[i].getUnderlyingValuePosition(elementPositions[i]));
             if (blockBuilder.getSizeInBytes() - initialSize > maxBlockMemoryInBytes) {
                 throw new TrinoException(
                         EXCEEDED_FUNCTION_MEMORY_LIMIT,

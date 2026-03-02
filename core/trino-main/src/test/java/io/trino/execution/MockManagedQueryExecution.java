@@ -19,12 +19,12 @@ import com.google.common.collect.ImmutableSet;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.Session;
-import io.trino.client.NodeVersion;
 import io.trino.execution.StateMachine.StateChangeListener;
 import io.trino.operator.RetryPolicy;
 import io.trino.server.BasicQueryInfo;
 import io.trino.server.BasicQueryStats;
 import io.trino.spi.ErrorCode;
+import io.trino.spi.NodeVersion;
 import io.trino.spi.QueryId;
 
 import java.net.URI;
@@ -134,6 +134,7 @@ public class MockManagedQueryExecution
                         new Duration(3, NANOSECONDS),
                         new Duration(4, NANOSECONDS),
                         new Duration(5, NANOSECONDS),
+                        new Duration(6, NANOSECONDS),
                         99,
                         6,
                         7,
@@ -266,6 +267,8 @@ public class MockManagedQueryExecution
 
                         ImmutableList.of(),
                         DynamicFiltersStats.EMPTY,
+                        ImmutableMap.of(),
+                        ImmutableMap.of(),
                         ImmutableList.of(),
                         ImmutableList.of()),
                 Optional.empty(),
@@ -287,6 +290,7 @@ public class MockManagedQueryExecution
                 null,
                 ImmutableList.of(),
                 ImmutableSet.of(),
+                Optional.empty(),
                 Optional.empty(),
                 ImmutableList.of(),
                 ImmutableList.of(),

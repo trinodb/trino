@@ -41,6 +41,12 @@ public class TestHiveGcs
     }
 
     @Test(groups = {HIVE_GCS, PROFILE_SPECIFIC_TESTS})
+    public void testLocationContainsDiscouragedCharacter()
+    {
+        super.testLocationContainsDiscouragedCharacter(warehouseDirectory);
+    }
+
+    @Test(groups = {HIVE_GCS, PROFILE_SPECIFIC_TESTS})
     public void testSparkReadingTrinoData()
     {
         super.testSparkCompatibilityOnTrinoCreatedTable(warehouseDirectory);

@@ -99,13 +99,13 @@ public class CatalogProcedures
         if (type.equals(VARCHAR)) {
             return String.class;
         }
-        if (type instanceof ArrayType) {
-            getObjectType(type.getTypeParameters().get(0));
+        if (type instanceof ArrayType arrayType) {
+            getObjectType(arrayType.getElementType());
             return List.class;
         }
-        if (type instanceof MapType) {
-            getObjectType(type.getTypeParameters().get(0));
-            getObjectType(type.getTypeParameters().get(1));
+        if (type instanceof MapType mapType) {
+            getObjectType(mapType.getKeyType());
+            getObjectType(mapType.getValueType());
             return Map.class;
         }
         throw new IllegalArgumentException("Unsupported argument type: " + type.getDisplayName());

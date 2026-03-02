@@ -39,11 +39,11 @@ public class EvaluateBind
     @Override
     public Optional<Expression> apply(Expression expression, Session session, Map<Symbol, Expression> contextBindings)
     {
-        if (!(expression instanceof Bind bind)) {
+        if (!(expression instanceof Bind(List<Expression> values, Lambda function))) {
             return Optional.empty();
         }
 
-        if (bind.values().stream().noneMatch(Constant.class::isInstance)) {
+        if (values.stream().noneMatch(Constant.class::isInstance)) {
             return Optional.empty();
         }
 
@@ -51,9 +51,9 @@ public class EvaluateBind
 
         List<Symbol> newArguments = new ArrayList<>();
         List<Expression> newBindings = new ArrayList<>();
-        for (int i = 0; i < bind.values().size(); i++) {
-            Symbol argument = bind.function().arguments().get(i);
-            Expression value = bind.values().get(i);
+        for (int i = 0; i < values.size(); i++) {
+            Symbol argument = function.arguments().get(i);
+            Expression value = values.get(i);
 
             if (value instanceof Constant constant) {
                 bindings.put(argument.name(), constant);
@@ -63,11 +63,11 @@ public class EvaluateBind
                 newBindings.add(value);
             }
         }
-        for (int i = bind.values().size(); i < bind.function().arguments().size(); i++) {
-            newArguments.add(bind.function().arguments().get(i));
+        for (int i = values.size(); i < function.arguments().size(); i++) {
+            newArguments.add(function.arguments().get(i));
         }
 
-        Optional<Expression> body = substituteBindings(bind.function().body(), bindings);
+        Optional<Expression> body = substituteBindings(function.body(), bindings);
         if (body.isEmpty()) {
             return Optional.empty();
         }

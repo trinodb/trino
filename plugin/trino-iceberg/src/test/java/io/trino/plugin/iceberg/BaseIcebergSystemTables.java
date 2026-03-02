@@ -138,11 +138,11 @@ public abstract class BaseIcebergSystemTables
     {
         assertQuery("SELECT count(*) FROM test_schema.test_table", "VALUES 6");
         assertQuery("SHOW COLUMNS FROM test_schema.\"test_table$partitions\"",
-                "VALUES ('partition', 'row(_date date)', '', '')," +
+                "VALUES ('partition', 'row(\"_date\" date)', '', '')," +
                         "('record_count', 'bigint', '', '')," +
                         "('file_count', 'bigint', '', '')," +
                         "('total_size', 'bigint', '', '')," +
-                        "('data', 'row(_bigint row(min bigint, max bigint, null_count bigint, nan_count bigint))', '', '')");
+                        "('data', 'row(\"_bigint\" row(\"min\" bigint, \"max\" bigint, \"null_count\" bigint, \"nan_count\" bigint))', '', '')");
 
         MaterializedResult result = computeActual("SELECT * from test_schema.\"test_table$partitions\"");
         assertThat(result.getRowCount()).isEqualTo(3);
@@ -328,6 +328,7 @@ public abstract class BaseIcebergSystemTables
             assertThat(query("SHOW COLUMNS FROM \"" + table.getName() + "$all_manifests\""))
                     .skippingTypesCheck()
                     .matches("VALUES " +
+                            "('content', 'integer', '', '')," +
                             "('path', 'varchar', '', '')," +
                             "('length', 'bigint', '', '')," +
                             "('partition_spec_id', 'integer', '', '')," +
@@ -338,7 +339,7 @@ public abstract class BaseIcebergSystemTables
                             "('added_delete_files_count', 'integer', '', '')," +
                             "('existing_delete_files_count', 'integer', '', '')," +
                             "('deleted_delete_files_count', 'integer', '', '')," +
-                            "('partition_summaries', 'array(row(contains_null boolean, contains_nan boolean, lower_bound varchar, upper_bound varchar))', '', '')," +
+                            "('partition_summaries', 'array(row(\"contains_null\" boolean, \"contains_nan\" boolean, \"lower_bound\" varchar, \"upper_bound\" varchar))', '', '')," +
                             "('reference_snapshot_id', 'bigint', '', '')");
 
             assertThat((String) computeScalar("SELECT path FROM \"" + table.getName() + "$all_manifests\"")).endsWith("-m0.avro");
@@ -353,10 +354,15 @@ public abstract class BaseIcebergSystemTables
             assertThat((Integer) computeScalar("SELECT deleted_delete_files_count FROM \"" + table.getName() + "$all_manifests\"")).isZero();
             assertThat((List<?>) computeScalar("SELECT partition_summaries FROM \"" + table.getName() + "$all_manifests\"")).isEmpty();
             assertThat((Long) computeScalar("SELECT reference_snapshot_id FROM \"" + table.getName() + "$all_manifests\"")).isPositive();
+            // Verify initial manifest contains DATA files (content = 0)
+            assertThat((Integer) computeScalar("SELECT content FROM \"" + table.getName() + "$all_manifests\"")).isZero();
 
             assertUpdate("DELETE FROM " + table.getName() + " WHERE x = 1", 1);
             assertThat((Long) computeScalar("SELECT count(1) FROM \"" + table.getName() + "$all_manifests\"")).isEqualTo(3);
             assertThat((Long) computeScalar("SELECT count(1) FROM \"" + table.getName() + "$all_manifests\" WHERE added_delete_files_count > 0")).isEqualTo(1);
+            // Verify after DELETE we have both DATA manifests (content = 0) and DELETE manifests (content = 1)
+            assertThat((Long) computeScalar("SELECT count(1) FROM \"" + table.getName() + "$all_manifests\" WHERE content = 0")).isEqualTo(2);
+            assertThat((Long) computeScalar("SELECT count(1) FROM \"" + table.getName() + "$all_manifests\" WHERE content = 1")).isEqualTo(1);
         }
     }
 
@@ -373,7 +379,8 @@ public abstract class BaseIcebergSystemTables
     public void testManifestsTable()
     {
         assertQuery("SHOW COLUMNS FROM test_schema.\"test_table$manifests\"",
-                "VALUES ('path', 'varchar', '', '')," +
+                "VALUES ('content', 'integer', '', '')," +
+                        "('path', 'varchar', '', '')," +
                         "('length', 'bigint', '', '')," +
                         "('partition_spec_id', 'integer', '', '')," +
                         "('added_snapshot_id', 'bigint', '', '')," +
@@ -383,33 +390,34 @@ public abstract class BaseIcebergSystemTables
                         "('existing_rows_count', 'bigint', '', '')," +
                         "('deleted_data_files_count', 'integer', '', '')," +
                         "('deleted_rows_count', 'bigint', '', '')," +
-                        "('partition_summaries', 'array(row(contains_null boolean, contains_nan boolean, lower_bound varchar, upper_bound varchar))', '', '')");
+                        "('partition_summaries', 'array(row(\"contains_null\" boolean, \"contains_nan\" boolean, \"lower_bound\" varchar, \"upper_bound\" varchar))', '', '')");
         assertQuerySucceeds("SELECT * FROM test_schema.\"test_table$manifests\"");
-        assertThat(query("SELECT added_data_files_count, existing_rows_count, added_rows_count, deleted_data_files_count, deleted_rows_count, partition_summaries FROM test_schema.\"test_table$manifests\""))
+        assertThat(query("SELECT content, added_data_files_count, existing_rows_count, added_rows_count, deleted_data_files_count, deleted_rows_count, partition_summaries FROM test_schema.\"test_table$manifests\""))
                 .matches(
                         "VALUES " +
-                                "    (2, BIGINT '0', BIGINT '3', 0, BIGINT '0', CAST(ARRAY[ROW(false, false, '2019-09-08', '2019-09-09')] AS array(row(contains_null boolean, contains_nan boolean, lower_bound varchar, upper_bound varchar)))) , " +
-                                "    (2, BIGINT '0', BIGINT '3', 0, BIGINT '0', CAST(ARRAY[ROW(false, false, '2019-09-09', '2019-09-10')] AS array(row(contains_null boolean, contains_nan boolean, lower_bound varchar, upper_bound varchar))))");
+                                "    (0, 2, BIGINT '0', BIGINT '3', 0, BIGINT '0', CAST(ARRAY[ROW(false, false, '2019-09-08', '2019-09-09')] AS array(row(contains_null boolean, contains_nan boolean, lower_bound varchar, upper_bound varchar)))) , " +
+                                "    (0, 2, BIGINT '0', BIGINT '3', 0, BIGINT '0', CAST(ARRAY[ROW(false, false, '2019-09-09', '2019-09-10')] AS array(row(contains_null boolean, contains_nan boolean, lower_bound varchar, upper_bound varchar))))");
+        assertQuery("SELECT DISTINCT content FROM test_schema.\"test_table$manifests\"", "VALUES 0");
 
         assertQuerySucceeds("SELECT * FROM test_schema.\"test_table_multilevel_partitions$manifests\"");
-        assertThat(query("SELECT added_data_files_count, existing_rows_count, added_rows_count, deleted_data_files_count, deleted_rows_count, partition_summaries FROM test_schema.\"test_table_multilevel_partitions$manifests\""))
+        assertThat(query("SELECT content, added_data_files_count, existing_rows_count, added_rows_count, deleted_data_files_count, deleted_rows_count, partition_summaries FROM test_schema.\"test_table_multilevel_partitions$manifests\""))
                 .matches(
                         "VALUES " +
-                                "(3, BIGINT '0', BIGINT '3', 0, BIGINT '0', CAST(ARRAY[ROW(false, false, '0', '1'), ROW(false, false, '2019-09-08', '2019-09-09')] AS array(row(contains_null boolean, contains_nan boolean, lower_bound varchar, upper_bound varchar))))");
+                                "(0, 3, BIGINT '0', BIGINT '3', 0, BIGINT '0', CAST(ARRAY[ROW(false, false, '0', '1'), ROW(false, false, '2019-09-08', '2019-09-09')] AS array(row(contains_null boolean, contains_nan boolean, lower_bound varchar, upper_bound varchar))))");
 
         assertQuerySucceeds("SELECT * FROM test_schema.\"test_table_with_dml$manifests\"");
-        assertThat(query("SELECT added_data_files_count, existing_rows_count, added_rows_count, deleted_data_files_count, deleted_rows_count, partition_summaries FROM test_schema.\"test_table_with_dml$manifests\""))
+        assertThat(query("SELECT content, added_data_files_count, existing_rows_count, added_rows_count, deleted_data_files_count, deleted_rows_count, partition_summaries FROM test_schema.\"test_table_with_dml$manifests\""))
                 .matches(
                         "VALUES " +
                                 // INSERT on '2022-01-01', '2022-02-02', '2022-03-03' partitions
-                                "(3, BIGINT '0', BIGINT '6', 0, BIGINT '0', CAST(ARRAY[ROW(false, false, '2022-01-01', '2022-03-03')] AS array(row(contains_null boolean, contains_nan boolean, lower_bound varchar, upper_bound varchar)))), " +
+                                "(0, 3, BIGINT '0', BIGINT '6', 0, BIGINT '0', CAST(ARRAY[ROW(false, false, '2022-01-01', '2022-03-03')] AS array(row(contains_null boolean, contains_nan boolean, lower_bound varchar, upper_bound varchar)))), " +
                                 // UPDATE on '2022-01-01' partition
-                                "(1, BIGINT '0', BIGINT '1', 0, BIGINT '0', CAST(ARRAY[ROW(false, false, '2022-01-01', '2022-01-01')] AS array(row(contains_null boolean, contains_nan boolean, lower_bound varchar, upper_bound varchar)))), " +
-                                "(1, BIGINT '0', BIGINT '1', 0, BIGINT '0', CAST(ARRAY[ROW(false, false, '2022-01-01', '2022-01-01')] AS array(row(contains_null boolean, contains_nan boolean, lower_bound varchar, upper_bound varchar)))), " +
+                                "(1, 1, BIGINT '0', BIGINT '1', 0, BIGINT '0', CAST(ARRAY[ROW(false, false, '2022-01-01', '2022-01-01')] AS array(row(contains_null boolean, contains_nan boolean, lower_bound varchar, upper_bound varchar)))), " +
+                                "(0, 1, BIGINT '0', BIGINT '1', 0, BIGINT '0', CAST(ARRAY[ROW(false, false, '2022-01-01', '2022-01-01')] AS array(row(contains_null boolean, contains_nan boolean, lower_bound varchar, upper_bound varchar)))), " +
                                 // DELETE from '2022-02-02' partition
-                                "(1, BIGINT '0', BIGINT '1', 0, BIGINT '0', CAST(ARRAY[ROW(false, false, '2022-02-02', '2022-02-02')] AS array(row(contains_null boolean, contains_nan boolean, lower_bound varchar, upper_bound varchar)))), " +
+                                "(1, 1, BIGINT '0', BIGINT '1', 0, BIGINT '0', CAST(ARRAY[ROW(false, false, '2022-02-02', '2022-02-02')] AS array(row(contains_null boolean, contains_nan boolean, lower_bound varchar, upper_bound varchar)))), " +
                                 // INSERT on '2022-03-03', '2022-04-04' partitions
-                                "(2, BIGINT '0', BIGINT '2', 0, BIGINT '0', CAST(ARRAY[ROW(false, false, '2022-03-03', '2022-04-04')] AS array(row(contains_null boolean, contains_nan boolean, lower_bound varchar, upper_bound varchar))))");
+                                "(0, 2, BIGINT '0', BIGINT '2', 0, BIGINT '0', CAST(ARRAY[ROW(false, false, '2022-03-03', '2022-04-04')] AS array(row(contains_null boolean, contains_nan boolean, lower_bound varchar, upper_bound varchar))))");
     }
 
     @Test
@@ -431,7 +439,7 @@ public abstract class BaseIcebergSystemTables
                         "('file_path', 'varchar', '', '')," +
                         "('file_format', 'varchar', '', '')," +
                         "('spec_id', 'integer', '', '')," +
-                        "('partition', 'row(_date date)', '', '')," +
+                        "('partition', 'row(\"_date\" date)', '', '')," +
                         "('record_count', 'bigint', '', '')," +
                         "('file_size_in_bytes', 'bigint', '', '')," +
                         "('column_sizes', 'map(integer, bigint)', '', '')," +
@@ -614,10 +622,10 @@ public abstract class BaseIcebergSystemTables
                             "('snapshot_id', 'bigint', '', '')," +
                             "('sequence_number', 'bigint', '', '')," +
                             "('file_sequence_number', 'bigint', '', '')," +
-                            "('data_file', 'row(content integer, file_path varchar, file_format varchar, spec_id integer, record_count bigint, file_size_in_bytes bigint, " +
-                            "column_sizes map(integer, bigint), value_counts map(integer, bigint), null_value_counts map(integer, bigint), nan_value_counts map(integer, bigint), " +
-                            "lower_bounds map(integer, varchar), upper_bounds map(integer, varchar), key_metadata varbinary, split_offsets array(bigint), " +
-                            "equality_ids array(integer), sort_order_id integer)', '', '')," +
+                            "('data_file', 'row(\"content\" integer, \"file_path\" varchar, \"file_format\" varchar, \"spec_id\" integer, \"record_count\" bigint, \"file_size_in_bytes\" bigint, " +
+                            "\"column_sizes\" map(integer, bigint), \"value_counts\" map(integer, bigint), \"null_value_counts\" map(integer, bigint), \"nan_value_counts\" map(integer, bigint), " +
+                            "\"lower_bounds\" map(integer, varchar), \"upper_bounds\" map(integer, varchar), \"key_metadata\" varbinary, \"split_offsets\" array(bigint), " +
+                            "\"equality_ids\" array(integer), \"sort_order_id\" integer)', '', '')," +
                             "('readable_metrics', 'json', '', '')");
 
             Table icebergTable = loadTable(table.getName());
@@ -690,7 +698,7 @@ public abstract class BaseIcebergSystemTables
             assertThat(deleteFile.getField(4)).isEqualTo(1L); // record_count
             assertThat((long) deleteFile.getField(5)).isPositive(); // file_size_in_bytes
 
-            //noinspection unchecked
+            @SuppressWarnings("unchecked")
             Map<Integer, Long> columnSizes = (Map<Integer, Long>) deleteFile.getField(6);
             switch (format) {
                 case ORC -> assertThat(columnSizes).isNull();
@@ -706,7 +714,7 @@ public abstract class BaseIcebergSystemTables
             assertThat(deleteFile.getField(9)).isEqualTo(value(Map.of(), null)); // nan_value_counts
 
             // lower_bounds
-            //noinspection unchecked
+            @SuppressWarnings("unchecked")
             Map<Integer, String> lowerBounds = (Map<Integer, String>) deleteFile.getField(10);
             assertThat(lowerBounds)
                     .hasSize(2)
@@ -714,7 +722,7 @@ public abstract class BaseIcebergSystemTables
                     .satisfies(_ -> assertThat(lowerBounds.get(DELETE_FILE_PATH.fieldId())).contains(table.getName()));
 
             // upper_bounds
-            //noinspection unchecked
+            @SuppressWarnings("unchecked")
             Map<Integer, String> upperBounds = (Map<Integer, String>) deleteFile.getField(11);
             assertThat(upperBounds)
                     .hasSize(2)
@@ -824,10 +832,10 @@ public abstract class BaseIcebergSystemTables
                             "('snapshot_id', 'bigint', '', '')," +
                             "('sequence_number', 'bigint', '', '')," +
                             "('file_sequence_number', 'bigint', '', '')," +
-                            "('data_file', 'row(content integer, file_path varchar, file_format varchar, spec_id integer, partition row(dt date), record_count bigint, file_size_in_bytes bigint, " +
-                            "column_sizes map(integer, bigint), value_counts map(integer, bigint), null_value_counts map(integer, bigint), nan_value_counts map(integer, bigint), " +
-                            "lower_bounds map(integer, varchar), upper_bounds map(integer, varchar), key_metadata varbinary, split_offsets array(bigint), " +
-                            "equality_ids array(integer), sort_order_id integer)', '', '')," +
+                            "('data_file', 'row(\"content\" integer, \"file_path\" varchar, \"file_format\" varchar, \"spec_id\" integer, \"partition\" row(\"dt\" date), \"record_count\" bigint, \"file_size_in_bytes\" bigint, " +
+                            "\"column_sizes\" map(integer, bigint), \"value_counts\" map(integer, bigint), \"null_value_counts\" map(integer, bigint), \"nan_value_counts\" map(integer, bigint), " +
+                            "\"lower_bounds\" map(integer, varchar), \"upper_bounds\" map(integer, varchar), \"key_metadata\" varbinary, \"split_offsets\" array(bigint), " +
+                            "\"equality_ids\" array(integer), \"sort_order_id\" integer)', '', '')," +
                             "('readable_metrics', 'json', '', '')");
 
             assertThat(query("SELECT data_file.partition FROM \"" + table.getName() + "$entries\""))

@@ -97,9 +97,9 @@ import java.util.concurrent.Executor;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
 import java.util.function.UnaryOperator;
+import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
-import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
@@ -157,6 +157,7 @@ import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.Map.entry;
 import static java.util.Objects.requireNonNull;
+import static java.util.Objects.requireNonNullElse;
 import static org.apache.iceberg.BaseMetastoreTableOperations.METADATA_LOCATION_PROP;
 import static org.apache.iceberg.CatalogUtil.dropTableData;
 
@@ -166,6 +167,7 @@ public class TrinoGlueCatalog
     private static final Logger LOG = Logger.get(TrinoGlueCatalog.class);
 
     private static final int PER_QUERY_CACHES_SIZE = 1000;
+    private static final Pattern METADATA_PATTERN = Pattern.compile("/metadata/[^/]*$");
 
     private final String trinoVersion;
     private final boolean cacheTableMetadata;
@@ -289,9 +291,6 @@ public class TrinoGlueCatalog
             ImmutableMap.Builder<String, Object> metadata = ImmutableMap.builder();
             if (database.locationUri() != null) {
                 metadata.put(LOCATION_PROPERTY, database.locationUri());
-            }
-            if (database.parameters() != null) {
-                metadata.putAll(database.parameters());
             }
             return metadata.buildOrThrow();
         }
@@ -720,7 +719,7 @@ public class TrinoGlueCatalog
         if (metadataLocation == null) {
             throw new TrinoException(ICEBERG_INVALID_METADATA, format("Table %s is missing [%s] property", schemaTableName, METADATA_LOCATION_PROP));
         }
-        String tableLocation = metadataLocation.replaceFirst("/metadata/[^/]*$", "");
+        String tableLocation = METADATA_PATTERN.matcher(metadataLocation).replaceFirst("");
         deleteTableDirectory(fileSystemFactory.create(session), schemaTableName, tableLocation);
         invalidateTableCache(schemaTableName);
     }
@@ -820,7 +819,7 @@ public class TrinoGlueCatalog
             if (metadataLocation == null) {
                 throw new TrinoException(ICEBERG_INVALID_METADATA, format("Table %s is missing [%s] property", from, METADATA_LOCATION_PROP));
             }
-            TableMetadata metadata = TableMetadataParser.read(io, io.newInputFile(metadataLocation));
+            TableMetadata metadata = TableMetadataParser.read(io.newInputFile(metadataLocation));
             TableInput tableInput = getTableInput(
                     typeManager,
                     to.getTableName(),
@@ -1233,6 +1232,7 @@ public class TrinoGlueCatalog
                         .map(currentViewColumn -> Objects.equals(columnName, currentViewColumn.getName()) ? new ConnectorMaterializedViewDefinition.Column(currentViewColumn.getName(), currentViewColumn.getType(), comment) : currentViewColumn)
                         .collect(toImmutableList()),
                 definition.getGracePeriod(),
+                definition.getWhenStaleBehavior(),
                 definition.getComment(),
                 definition.getOwner(),
                 definition.getPath());
@@ -1286,7 +1286,7 @@ public class TrinoGlueCatalog
         }
         else {
             String storageMetadataLocation = parameters.get(METADATA_LOCATION_PROP);
-            checkState(storageMetadataLocation != null, "Storage location missing in definition of materialized view " + view.name());
+            checkState(storageMetadataLocation != null, "Storage location missing in definition of materialized view %s", view.name());
             try {
                 dropMaterializedViewStorage(session, fileSystemFactory.create(session), storageMetadataLocation);
             }
@@ -1371,7 +1371,7 @@ public class TrinoGlueCatalog
 
             // TODO getTableAndCacheMetadata saved the value in materializedViewCache, so we could just use that, except when conversion fails
             storageMetadataLocation = materializedView.parameters().get(METADATA_LOCATION_PROP);
-            checkState(storageMetadataLocation != null, "Storage location missing in definition of materialized view " + materializedView.name());
+            checkState(storageMetadataLocation != null, "Storage location missing in definition of materialized view %s", materializedView.name());
         }
         else {
             storageMetadataLocation = materializedViewData.storageMetadataLocation
@@ -1503,7 +1503,7 @@ public class TrinoGlueCatalog
         }
         catch (UncheckedExecutionException e) {
             throwIfInstanceOf(e.getCause(), TrinoException.class);
-            throw new TrinoException(GENERIC_INTERNAL_ERROR, "Get table request failed: " + firstNonNull(e.getMessage(), e), e.getCause());
+            throw new TrinoException(GENERIC_INTERNAL_ERROR, "Get table request failed: " + requireNonNullElse(e.getMessage(), e), e.getCause());
         }
     }
 

@@ -102,7 +102,7 @@ public final class JdbcTableHandle
         this.otherReferencedTables = otherReferencedTables.map(ImmutableSet::copyOf);
         this.nextSyntheticColumnId = nextSyntheticColumnId;
         this.authorization = requireNonNull(authorization, "authorization is null");
-        this.updateAssignments = requireNonNull(updateAssignments, "updateAssignments is null");
+        this.updateAssignments = ImmutableList.copyOf(updateAssignments);
     }
 
     public JdbcTableHandle intersectedWithConstraint(TupleDomain<ColumnHandle> newConstraint)

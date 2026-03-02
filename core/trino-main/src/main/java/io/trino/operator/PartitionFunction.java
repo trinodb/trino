@@ -15,6 +15,8 @@ package io.trino.operator;
 
 import io.trino.spi.Page;
 
+import static com.google.common.base.Preconditions.checkArgument;
+
 public interface PartitionFunction
 {
     int partitionCount();
@@ -23,4 +25,21 @@ public interface PartitionFunction
      * @param page the arguments to bucketing function in order (no extra columns)
      */
     int getPartition(Page page, int position);
+
+    /**
+     * @param page the arguments to bucketing function in order (no extra columns)
+     * @param partitions the array of length at least {@code length} to hold the partitioning result.
+     * Value at index {@code i} should hold the partition for position {@code positionOffset + i}.
+     */
+    default void getPartitions(Page page, int positionOffset, int length, int[] partitions)
+    {
+        checkArgument(positionOffset >= 0, "Invalid positionOffset: %s", positionOffset);
+        checkArgument(length >= 0, "Invalid length: %s", length);
+        checkArgument(positionOffset + length <= page.getPositionCount(), "End position exceeds page position count: %s > %s", positionOffset + length, page.getPositionCount());
+        checkArgument(length <= partitions.length, "Length exceeds partitions length: %s > %s", length, partitions.length);
+
+        for (int i = 0; i < length; i++) {
+            partitions[i] = getPartition(page, positionOffset + i);
+        }
+    }
 }

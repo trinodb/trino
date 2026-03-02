@@ -89,7 +89,7 @@ public class TestProxyServer
 
         Bootstrap app = new Bootstrap(
                 new TestingNodeModule("test"),
-                new TestingHttpServerModule(),
+                new TestingHttpServerModule("test-proxy-server"),
                 new JsonModule(),
                 new JaxrsModule(),
                 new TestingJmxModule(),

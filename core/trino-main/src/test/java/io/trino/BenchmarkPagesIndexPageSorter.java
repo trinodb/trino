@@ -33,6 +33,7 @@ import org.openjdk.jmh.annotations.Warmup;
 import org.openjdk.jmh.runner.RunnerException;
 
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
@@ -55,8 +56,13 @@ public class BenchmarkPagesIndexPageSorter
     public int runBenchmark(BenchmarkData data)
     {
         PageSorter pageSorter = new PagesIndexPageSorter(new PagesIndex.TestingFactory(false));
-        long[] addresses = pageSorter.sort(data.types, data.pages, data.sortChannels, nCopies(data.sortChannels.size(), ASC_NULLS_FIRST), 10_000);
-        return addresses.length;
+        Iterator<Page> outputPages = pageSorter.sort(data.types, data.pages, data.sortChannels, nCopies(data.sortChannels.size(), ASC_NULLS_FIRST), 10_000);
+        int totalPositions = 0;
+        while (outputPages.hasNext()) {
+            Page page = outputPages.next();
+            totalPositions += page.getPositionCount();
+        }
+        return totalPositions;
     }
 
     private static List<Page> createPages(int pageCount, int channelCount, Type type)
@@ -134,7 +140,7 @@ public class BenchmarkPagesIndexPageSorter
         }
     }
 
-    public static void main(String[] args)
+    static void main()
             throws RunnerException
     {
         benchmark(BenchmarkPagesIndexPageSorter.class).run();

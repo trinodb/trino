@@ -15,8 +15,11 @@ package io.trino.plugin.redshift;
 
 import io.trino.plugin.jdbc.BaseAutomaticJoinPushdownTest;
 import io.trino.testing.QueryRunner;
+import io.trino.testing.sql.TestTable;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
+
+import java.util.List;
 
 import static io.trino.plugin.redshift.TestingRedshiftServer.TEST_SCHEMA;
 import static io.trino.plugin.redshift.TestingRedshiftServer.executeInRedshift;
@@ -32,6 +35,12 @@ public class TestRedshiftAutomaticJoinPushdown
     {
         return RedshiftQueryRunner.builder()
                 .build();
+    }
+
+    @Override
+    protected TestTable newTrinoTable(String namePrefix, String tableDefinition, List<String> rowsToInsert)
+    {
+        return new TestTable(new TrinoSqlExecutorWithRetries(getQueryRunner()), namePrefix, tableDefinition, rowsToInsert);
     }
 
     @Test

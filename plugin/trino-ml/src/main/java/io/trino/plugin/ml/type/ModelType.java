@@ -63,6 +63,12 @@ public class ModelType
     }
 
     @Override
+    public String getDisplayName()
+    {
+        return "Model";
+    }
+
+    @Override
     public Object getObjectValue(Block block, int position)
     {
         if (block.isNull(position)) {

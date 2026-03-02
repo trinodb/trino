@@ -74,6 +74,11 @@ protocol.spooling.enabled=true
 protocol.spooling.shared-secret-key=jxTKysfCBuMZtFqUf8UJDQ1w9ez8rynEJsJqgJf66u0=
 ```
 
+:::{note}
+The `protocol.spooling.shared-secret-key` property requires a 256-bit,
+base64-encoded secret key.
+:::
+
 Refer to [](prop-protocol-spooling) for further optional configuration.
 
 Suitable object storage systems for spooling are S3 and compatible systems,

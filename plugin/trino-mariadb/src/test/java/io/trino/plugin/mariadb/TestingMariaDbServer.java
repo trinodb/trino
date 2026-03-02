@@ -13,7 +13,7 @@
  */
 package io.trino.plugin.mariadb;
 
-import org.testcontainers.containers.MariaDBContainer;
+import org.testcontainers.mariadb.MariaDBContainer;
 import org.testcontainers.utility.DockerImageName;
 
 import java.sql.Connection;
@@ -30,7 +30,7 @@ public class TestingMariaDbServer
     public static final String DEFAULT_VERSION = "10.10";
     private static final int MARIADB_PORT = 3306;
 
-    private final MariaDBContainer<?> container;
+    private final MariaDBContainer container;
 
     public TestingMariaDbServer()
     {
@@ -39,7 +39,7 @@ public class TestingMariaDbServer
 
     public TestingMariaDbServer(String tag)
     {
-        container = new MariaDBContainer<>(DockerImageName.parse("mariadb").withTag(tag))
+        container = new MariaDBContainer(DockerImageName.parse("mariadb").withTag(tag))
                 .withDatabaseName("tpch");
         // character-set-server：the default character set is latin1
         // explicit-defaults-for-timestamp: 1 is ON, the default set is 0 (OFF)

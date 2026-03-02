@@ -71,6 +71,15 @@ public interface ConnectorMergeSink
      */
     void storeMergedRows(Page page);
 
+    /**
+     * Gets the number of physical bytes written by this page sink so far.
+     * If size is not available, this method should return zero.
+     */
+    default long getCompletedBytes()
+    {
+        return 0;
+    }
+
     CompletableFuture<Collection<Slice>> finish();
 
     default void abort() {}

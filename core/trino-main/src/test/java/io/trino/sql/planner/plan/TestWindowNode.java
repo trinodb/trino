@@ -21,7 +21,6 @@ import io.airlift.json.ObjectMapperProvider;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.spi.connector.SortOrder;
-import io.trino.spi.type.TestingTypeManager;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignature;
 import io.trino.sql.planner.OrderingScheme;
@@ -42,6 +41,7 @@ import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.trino.sql.planner.plan.FrameBoundType.UNBOUNDED_FOLLOWING;
 import static io.trino.sql.planner.plan.FrameBoundType.UNBOUNDED_PRECEDING;
 import static io.trino.sql.planner.plan.WindowFrameType.RANGE;
+import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestWindowNode
@@ -56,11 +56,11 @@ public class TestWindowNode
         // dependencies copied from ServerMainModule.java to avoid depending on whole ServerMainModule here
         ObjectMapperProvider provider = new ObjectMapperProvider();
         provider.setKeyDeserializers(ImmutableMap.of(
-                Symbol.class, new SymbolKeyDeserializer(new TestingTypeManager()),
+                Symbol.class, new SymbolKeyDeserializer(TESTING_TYPE_MANAGER),
                 TypeSignature.class, new TypeSignatureKeyDeserializer()));
 
         provider.setJsonDeserializers(ImmutableMap.of(
-                Type.class, new TypeDeserializer(new TestingTypeManager()::getType)));
+                Type.class, new TypeDeserializer(TESTING_TYPE_MANAGER::getType)));
 
         objectMapper = provider.get();
     }

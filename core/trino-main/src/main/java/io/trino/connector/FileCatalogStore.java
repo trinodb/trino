@@ -42,7 +42,6 @@ import java.util.Properties;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
-import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -55,6 +54,7 @@ import static java.nio.file.Files.deleteIfExists;
 import static java.nio.file.StandardCopyOption.REPLACE_EXISTING;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
+import static java.util.Objects.requireNonNullElse;
 
 public final class FileCatalogStore
         implements CatalogStore
@@ -71,7 +71,7 @@ public final class FileCatalogStore
         requireNonNull(config, "config is null");
         readOnly = config.isReadOnly();
         catalogsDirectory = config.getCatalogConfigurationDir().getAbsoluteFile();
-        List<String> disabledCatalogs = firstNonNull(config.getDisabledCatalogs(), ImmutableList.of());
+        List<String> disabledCatalogs = requireNonNullElse(config.getDisabledCatalogs(), ImmutableList.of());
 
         for (File file : listCatalogFiles(catalogsDirectory)) {
             String catalogName = getNameWithoutExtension(file.getName()).toLowerCase(ENGLISH);

@@ -23,11 +23,11 @@ import io.trino.spi.type.VarcharType;
 import java.util.Arrays;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkPositionIndexes;
 import static io.trino.parquet.reader.decoders.DeltaBinaryPackedDecoders.DeltaBinaryPackedIntDecoder;
 import static io.trino.spi.type.Chars.byteCountWithoutTrailingSpace;
 import static io.trino.spi.type.Varchars.byteCount;
 import static java.lang.Math.max;
+import static java.util.Objects.checkFromToIndex;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -137,7 +137,7 @@ public class DeltaByteArrayDecoders
         @Override
         public void skip(int n)
         {
-            checkPositionIndexes(inputLengthsOffset, inputLengthsOffset + n, prefixLengths.length);
+            checkFromToIndex(inputLengthsOffset, inputLengthsOffset + n, prefixLengths.length);
             if (n == 0) {
                 return;
             }
@@ -180,7 +180,7 @@ public class DeltaByteArrayDecoders
 
         protected void readBounded(BinaryBuffer values, int offset, int length, int totalInputLength)
         {
-            checkPositionIndexes(inputLengthsOffset, inputLengthsOffset + length, prefixLengths.length);
+            checkFromToIndex(inputLengthsOffset, inputLengthsOffset + length, prefixLengths.length);
             if (length == 0) {
                 return;
             }
@@ -226,7 +226,7 @@ public class DeltaByteArrayDecoders
 
         protected void readUnbounded(BinaryBuffer values, int offset, int length, int totalInputLength)
         {
-            checkPositionIndexes(inputLengthsOffset, inputLengthsOffset + length, prefixLengths.length);
+            checkFromToIndex(inputLengthsOffset, inputLengthsOffset + length, prefixLengths.length);
             if (length == 0) {
                 return;
             }

@@ -31,6 +31,7 @@ import io.trino.sql.planner.OrderingScheme;
 import io.trino.sql.planner.Symbol;
 import io.trino.type.FunctionType;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -292,10 +293,10 @@ public class AggregationNode
 
     public static GroupingSetDescriptor globalAggregation()
     {
-        return singleGroupingSet(ImmutableList.of());
+        return singleGroupingSet(ImmutableSet.of());
     }
 
-    public static GroupingSetDescriptor singleGroupingSet(List<Symbol> groupingKeys)
+    public static GroupingSetDescriptor singleGroupingSet(Collection<Symbol> groupingKeys)
     {
         Set<Integer> globalGroupingSets;
         if (groupingKeys.isEmpty()) {
@@ -308,7 +309,7 @@ public class AggregationNode
         return new GroupingSetDescriptor(groupingKeys, 1, globalGroupingSets);
     }
 
-    public static GroupingSetDescriptor groupingSets(List<Symbol> groupingKeys, int groupingSetCount, Set<Integer> globalGroupingSets)
+    public static GroupingSetDescriptor groupingSets(Collection<Symbol> groupingKeys, int groupingSetCount, Set<Integer> globalGroupingSets)
     {
         return new GroupingSetDescriptor(groupingKeys, groupingSetCount, globalGroupingSets);
     }
@@ -321,7 +322,7 @@ public class AggregationNode
 
         @JsonCreator
         public GroupingSetDescriptor(
-                @JsonProperty("groupingKeys") List<Symbol> groupingKeys,
+                @JsonProperty("groupingKeys") Collection<Symbol> groupingKeys,
                 @JsonProperty("groupingSetCount") int groupingSetCount,
                 @JsonProperty("globalGroupingSets") Set<Integer> globalGroupingSets)
         {

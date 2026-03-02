@@ -13,10 +13,12 @@
  */
 package io.trino.plugin.iceberg;
 
+import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.json.JsonCodec;
 import io.airlift.slice.Slice;
 import io.trino.filesystem.TrinoFileSystem;
+import io.trino.plugin.iceberg.delete.DeletionVector;
 import io.trino.plugin.iceberg.delete.PositionDeleteWriter;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
@@ -26,13 +28,14 @@ import io.trino.spi.connector.ConnectorPageSink;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.MergePage;
 import io.trino.spi.type.VarcharType;
+import org.apache.iceberg.FileContent;
+import org.apache.iceberg.Metrics;
 import org.apache.iceberg.PartitionSpec;
+import org.apache.iceberg.PartitionSpecParser;
 import org.apache.iceberg.Schema;
+import org.apache.iceberg.SortOrder;
 import org.apache.iceberg.io.LocationProvider;
 import org.apache.iceberg.types.Type;
-import org.roaringbitmap.longlong.ImmutableLongBitmapDataProvider;
-import org.roaringbitmap.longlong.LongBitmapDataProvider;
-import org.roaringbitmap.longlong.Roaring64Bitmap;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -42,6 +45,8 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 
+import static com.google.common.base.Verify.verify;
+import static io.airlift.slice.Slices.wrappedBuffer;
 import static io.trino.plugin.base.util.Closables.closeAllSuppress;
 import static io.trino.spi.connector.MergePage.createDeleteAndInsertPages;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -52,6 +57,7 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 public class IcebergMergeSink
         implements ConnectorMergeSink
 {
+    private final int formatVersion;
     private final LocationProvider locationProvider;
     private final IcebergFileWriterFactory fileWriterFactory;
     private final TrinoFileSystem fileSystem;
@@ -64,8 +70,10 @@ public class IcebergMergeSink
     private final ConnectorPageSink insertPageSink;
     private final int columnCount;
     private final Map<Slice, FileDeletion> fileDeletions = new HashMap<>();
+    private long writtenBytes;
 
     public IcebergMergeSink(
+            int formatVersion,
             LocationProvider locationProvider,
             IcebergFileWriterFactory fileWriterFactory,
             TrinoFileSystem fileSystem,
@@ -78,6 +86,7 @@ public class IcebergMergeSink
             ConnectorPageSink insertPageSink,
             int columnCount)
     {
+        this.formatVersion = formatVersion;
         this.locationProvider = requireNonNull(locationProvider, "locationProvider is null");
         this.fileWriterFactory = requireNonNull(fileWriterFactory, "fileWriterFactory is null");
         this.fileSystem = requireNonNull(fileSystem, "fileSystem is null");
@@ -115,24 +124,60 @@ public class IcebergMergeSink
                     return new FileDeletion(partitionSpecId, partitionData);
                 });
 
-                deletion.rowsToDelete().addLong(rowPosition);
+                deletion.rowsToDelete().add(rowPosition);
             }
         });
+
+        writtenBytes = insertPageSink.getCompletedBytes();
+    }
+
+    @Override
+    public long getCompletedBytes()
+    {
+        return writtenBytes;
     }
 
     @Override
     public CompletableFuture<Collection<Slice>> finish()
     {
         List<Slice> fragments = new ArrayList<>(insertPageSink.finish().join());
+        writtenBytes = insertPageSink.getCompletedBytes();
 
-        fileDeletions.forEach((dataFilePath, deletion) -> {
-            PositionDeleteWriter writer = createPositionDeleteWriter(
-                    dataFilePath.toStringUtf8(),
-                    partitionsSpecs.get(deletion.partitionSpecId()),
-                    deletion.partitionDataJson());
-
-            fragments.addAll(writePositionDeletes(writer, deletion.rowsToDelete()));
-        });
+        if (formatVersion < 2) {
+            // position deletes are only supported in Iceberg format v2 and above
+            verify(fileDeletions.isEmpty(), "Position deletes are not supported in Iceberg format version %s", formatVersion);
+        }
+        else if (formatVersion == 2) {
+            fileDeletions.forEach((dataFilePath, deletion) -> deletion.rowsToDelete().build().ifPresent(deletionVector -> {
+                PositionDeleteWriter writer = createPositionDeleteWriter(
+                        dataFilePath.toStringUtf8(),
+                        partitionsSpecs.get(deletion.partitionSpecId()),
+                        deletion.partitionDataJson());
+                fragments.add(writePositionDeletes(writer, deletionVector));
+            }));
+        }
+        else if (formatVersion == 3) {
+            fileDeletions.forEach((dataFilePath, deletion) -> deletion.rowsToDelete().build().ifPresent(deletionVector -> {
+                PartitionSpec partitionSpec = partitionsSpecs.get(deletion.partitionSpecId());
+                Optional<PartitionData> partitionData = createPartitionData(partitionSpec, deletion.partitionDataJson());
+                CommitTaskData task = new CommitTaskData(
+                        "", // path of the v2 delete file
+                        fileFormat,
+                        0, // size of the v2 delete file
+                        new MetricsWrapper(new Metrics(deletionVector.cardinality())),
+                        PartitionSpecParser.toJson(partitionSpec),
+                        partitionData.map(PartitionData::toJson),
+                        FileContent.POSITION_DELETES,
+                        Optional.of(dataFilePath.toStringUtf8()),
+                        Optional.empty(), // unused for v3
+                        SortOrder.unsorted().orderId(),
+                        Optional.of(deletionVector.serialize().getBytes()));
+                fragments.add(wrappedBuffer(jsonCodec.toJsonBytes(task)));
+            }));
+        }
+        else {
+            throw new VerifyException("Unsupported Iceberg format version: " + formatVersion);
+        }
 
         return completedFuture(fragments);
     }
@@ -145,31 +190,24 @@ public class IcebergMergeSink
 
     private PositionDeleteWriter createPositionDeleteWriter(String dataFilePath, PartitionSpec partitionSpec, String partitionDataJson)
     {
-        Optional<PartitionData> partitionData = Optional.empty();
-        if (partitionSpec.isPartitioned()) {
-            Type[] columnTypes = partitionSpec.fields().stream()
-                    .map(field -> field.transform().getResultType(schema.findType(field.sourceId())))
-                    .toArray(Type[]::new);
-            partitionData = Optional.of(PartitionData.fromJson(partitionDataJson, columnTypes));
-        }
-
         return new PositionDeleteWriter(
                 dataFilePath,
                 partitionSpec,
-                partitionData,
+                createPartitionData(partitionSpec, partitionDataJson),
                 locationProvider,
                 fileWriterFactory,
                 fileSystem,
-                jsonCodec,
                 session,
                 fileFormat,
                 storageProperties);
     }
 
-    private static Collection<Slice> writePositionDeletes(PositionDeleteWriter writer, ImmutableLongBitmapDataProvider rowsToDelete)
+    private Slice writePositionDeletes(PositionDeleteWriter writer, DeletionVector rowsToDelete)
     {
         try {
-            return writer.write(rowsToDelete);
+            CommitTaskData task = writer.write(rowsToDelete);
+            writtenBytes += task.fileSizeInBytes();
+            return wrappedBuffer(jsonCodec.toJsonBytes(task));
         }
         catch (Throwable t) {
             closeAllSuppress(t, writer::abort);
@@ -177,11 +215,23 @@ public class IcebergMergeSink
         }
     }
 
+    private Optional<PartitionData> createPartitionData(PartitionSpec partitionSpec, String partitionDataAsJson)
+    {
+        if (!partitionSpec.isPartitioned()) {
+            return Optional.empty();
+        }
+
+        Type[] columnTypes = partitionSpec.fields().stream()
+                .map(field -> field.transform().getResultType(schema.findType(field.sourceId())))
+                .toArray(Type[]::new);
+        return Optional.of(PartitionData.fromJson(partitionDataAsJson, columnTypes));
+    }
+
     private static class FileDeletion
     {
         private final int partitionSpecId;
         private final String partitionDataJson;
-        private final LongBitmapDataProvider rowsToDelete = new Roaring64Bitmap();
+        private final DeletionVector.Builder rowsToDelete = DeletionVector.builder();
 
         public FileDeletion(int partitionSpecId, String partitionDataJson)
         {
@@ -199,7 +249,7 @@ public class IcebergMergeSink
             return partitionDataJson;
         }
 
-        public LongBitmapDataProvider rowsToDelete()
+        public DeletionVector.Builder rowsToDelete()
         {
             return rowsToDelete;
         }

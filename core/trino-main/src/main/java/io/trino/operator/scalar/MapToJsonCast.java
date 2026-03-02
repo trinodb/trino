@@ -33,6 +33,7 @@ import io.trino.spi.type.TypeSignature;
 import java.io.IOException;
 import java.lang.invoke.MethodHandle;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.TreeMap;
 
 import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
@@ -106,7 +107,7 @@ public class MapToJsonCast
             SliceOutput output = new DynamicSliceOutput(40);
             try (JsonGenerator jsonGenerator = createJsonGenerator(JSON_FACTORY, output)) {
                 jsonGenerator.writeStartObject();
-                for (Map.Entry<String, Integer> entry : orderedKeyToValuePosition.entrySet()) {
+                for (Entry<String, Integer> entry : orderedKeyToValuePosition.entrySet()) {
                     jsonGenerator.writeFieldName(entry.getKey());
                     writer.writeJsonValue(jsonGenerator, rawValueBlock, rawOffset + entry.getValue());
                 }

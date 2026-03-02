@@ -19,7 +19,6 @@ import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;
 import io.airlift.slice.Slices;
 import io.airlift.slice.XxHash64;
-import io.trino.execution.buffer.PageCodecMarker.MarkerSet;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockEncodingSerde;
@@ -35,8 +34,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static io.trino.block.BlockSerdeUtil.readBlock;
 import static io.trino.block.BlockSerdeUtil.writeBlock;
-import static io.trino.execution.buffer.PageCodecMarker.COMPRESSED;
-import static io.trino.execution.buffer.PageCodecMarker.ENCRYPTED;
 import static java.util.Arrays.asList;
 import static java.util.Objects.requireNonNull;
 
@@ -45,8 +42,7 @@ public final class PagesSerdeUtil
     private PagesSerdeUtil() {}
 
     static final int SERIALIZED_PAGE_POSITION_COUNT_OFFSET = 0;
-    static final int SERIALIZED_PAGE_CODEC_MARKERS_OFFSET = SERIALIZED_PAGE_POSITION_COUNT_OFFSET + Integer.BYTES;
-    static final int SERIALIZED_PAGE_UNCOMPRESSED_SIZE_OFFSET = SERIALIZED_PAGE_CODEC_MARKERS_OFFSET + Byte.BYTES;
+    static final int SERIALIZED_PAGE_UNCOMPRESSED_SIZE_OFFSET = SERIALIZED_PAGE_POSITION_COUNT_OFFSET + Integer.BYTES;
     static final int SERIALIZED_PAGE_COMPRESSED_SIZE_OFFSET = SERIALIZED_PAGE_UNCOMPRESSED_SIZE_OFFSET + Integer.BYTES;
     static final int SERIALIZED_PAGE_HEADER_SIZE = SERIALIZED_PAGE_COMPRESSED_SIZE_OFFSET + Integer.BYTES;
     static final String SERIALIZED_PAGE_CIPHER_NAME = "AES/CBC/PKCS5Padding";
@@ -122,21 +118,6 @@ public final class PagesSerdeUtil
     public static int getSerializedPageUncompressedSizeInBytes(Slice serializedPage)
     {
         return serializedPage.getInt(SERIALIZED_PAGE_UNCOMPRESSED_SIZE_OFFSET);
-    }
-
-    public static boolean isSerializedPageEncrypted(Slice serializedPage)
-    {
-        return getSerializedPageMarkerSet(serializedPage).contains(ENCRYPTED);
-    }
-
-    public static boolean isSerializedPageCompressed(Slice serializedPage)
-    {
-        return getSerializedPageMarkerSet(serializedPage).contains(COMPRESSED);
-    }
-
-    private static MarkerSet getSerializedPageMarkerSet(Slice serializedPage)
-    {
-        return MarkerSet.fromByteValue(serializedPage.getByte(Integer.BYTES));
     }
 
     private static class PageReader

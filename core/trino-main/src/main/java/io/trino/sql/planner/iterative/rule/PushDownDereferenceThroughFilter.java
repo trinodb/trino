@@ -75,7 +75,7 @@ public class PushDownDereferenceThroughFilter
 
         // Pushdown superset of dereference expressions from projections and filtering predicate
         List<Expression> expressions = ImmutableList.<Expression>builder()
-                .addAll(node.getAssignments().getExpressions())
+                .addAll(node.getAssignments().expressions())
                 .add(filterNode.getPredicate())
                 .build();
 
@@ -90,7 +90,7 @@ public class PushDownDereferenceThroughFilter
         Assignments dereferenceAssignments = Assignments.of(dereferences, context.getSymbolAllocator());
 
         // Rewrite project node assignments using new symbols for dereference expressions
-        Map<Expression, Reference> mappings = HashBiMap.create(dereferenceAssignments.getMap())
+        Map<Expression, Reference> mappings = HashBiMap.create(dereferenceAssignments.assignments())
                 .inverse()
                 .entrySet().stream()
                 .collect(toImmutableMap(Map.Entry::getKey, entry -> entry.getValue().toSymbolReference()));

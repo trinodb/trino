@@ -182,8 +182,7 @@ public class KafkaFilterManager
     {
         Map<TopicPartition, OffsetAndTimestamp> topicPartitionOffsetAndTimestamps = kafkaConsumer.offsetsForTimes(timestamps);
         return topicPartitionOffsetAndTimestamps.entrySet().stream()
-                .collect(toMap(Map.Entry::getKey, entry -> Optional.of(entry.getValue())
-                        .map(OffsetAndTimestamp::offset)));
+                .collect(toMap(Map.Entry::getKey, entry -> Optional.ofNullable(entry.getValue()).map(OffsetAndTimestamp::offset)));
     }
 
     private static Map<TopicPartition, Long> overridePartitionBeginOffsets(Map<TopicPartition, Long> partitionBeginOffsets,

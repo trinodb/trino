@@ -16,7 +16,6 @@ package io.trino.spi.connector;
 import io.airlift.slice.Slice;
 import io.trino.spi.RefreshType;
 import io.trino.spi.TrinoException;
-import io.trino.spi.expression.Call;
 import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.expression.Constant;
 import io.trino.spi.expression.Variable;
@@ -28,6 +27,7 @@ import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.LanguageFunction;
 import io.trino.spi.function.SchemaFunctionName;
 import io.trino.spi.function.table.ConnectorTableFunctionHandle;
+import io.trino.spi.metrics.Metrics;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.security.GrantInfo;
 import io.trino.spi.security.Privilege;
@@ -39,12 +39,12 @@ import io.trino.spi.statistics.TableStatisticsMetadata;
 import io.trino.spi.type.Type;
 import jakarta.annotation.Nullable;
 
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalInt;
@@ -59,7 +59,6 @@ import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.connector.SaveMode.REPLACE;
 import static io.trino.spi.expression.Constant.FALSE;
-import static io.trino.spi.expression.StandardFunctions.AND_FUNCTION_NAME;
 import static java.util.Collections.emptyList;
 import static java.util.Collections.emptyMap;
 import static java.util.Locale.ENGLISH;
@@ -112,7 +111,11 @@ public interface ConnectorMetadata
             Optional<ConnectorTableVersion> startVersion,
             Optional<ConnectorTableVersion> endVersion)
     {
-        throw new TrinoException(GENERIC_INTERNAL_ERROR, "ConnectorMetadata getTableHandle() is not implemented");
+        if (listTables(session, Optional.of(tableName.getSchemaName())).isEmpty()) {
+            // This is a correct default implementation meant primarily for connectors that do not have any tables.
+            return null;
+        }
+        throw new TrinoException(GENERIC_INTERNAL_ERROR, "ConnectorMetadata listTables() is implemented without getTableHandle()");
     }
 
     /**
@@ -160,9 +163,10 @@ public interface ConnectorMetadata
     }
 
     /**
-     * Execute a {@link TableProcedureExecutionMode#coordinatorOnly() coordinator-only} table procedure.
+     * Execute a {@link TableProcedureExecutionMode#coordinatorOnly() coordinator-only} table procedure
+     * and return procedure execution metrics that will be populated in the query output.
      */
-    default void executeTableExecute(ConnectorSession session, ConnectorTableExecuteHandle tableExecuteHandle)
+    default Map<String, Long> executeTableExecute(ConnectorSession session, ConnectorTableExecuteHandle tableExecuteHandle)
     {
         throw new TrinoException(GENERIC_INTERNAL_ERROR, "ConnectorMetadata executeTableExecute() is not implemented");
     }
@@ -246,6 +250,14 @@ public interface ConnectorMetadata
     default Optional<Object> getInfo(ConnectorSession session, ConnectorTableHandle table)
     {
         return Optional.empty();
+    }
+
+    /**
+     * Return connector-specific, metadata operations metrics for the given session.
+     */
+    default Metrics getMetrics(ConnectorSession session)
+    {
+        return Metrics.EMPTY;
     }
 
     /**
@@ -351,12 +363,12 @@ public interface ConnectorMetadata
                 });
 
         // Collect column metadata from views. if table and view names overlap, the view wins
-        for (Map.Entry<SchemaTableName, ConnectorViewDefinition> entry : getViews(session, schemaName).entrySet()) {
+        for (Entry<SchemaTableName, ConnectorViewDefinition> entry : getViews(session, schemaName).entrySet()) {
             relationColumns.put(entry.getKey(), RelationColumnsMetadata.forView(entry.getKey(), entry.getValue().getColumns()));
         }
 
         // if view and materialized view names overlap, the materialized view wins
-        for (Map.Entry<SchemaTableName, ConnectorMaterializedViewDefinition> entry : getMaterializedViews(session, schemaName).entrySet()) {
+        for (Entry<SchemaTableName, ConnectorMaterializedViewDefinition> entry : getMaterializedViews(session, schemaName).entrySet()) {
             relationColumns.put(entry.getKey(), RelationColumnsMetadata.forMaterializedView(entry.getKey(), entry.getValue().getColumns()));
         }
 
@@ -577,6 +589,22 @@ public interface ConnectorMetadata
     }
 
     /**
+     * Set the specified default value
+     */
+    default void setDefaultValue(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle column, String defaultValue)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support setting default values");
+    }
+
+    /**
+     * Drop a default value on the specified column
+     */
+    default void dropDefaultValue(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle columnHandle)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support dropping default values");
+    }
+
+    /**
      * Set the specified column type
      */
     default void setColumnType(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle column, Type type)
@@ -683,8 +711,10 @@ public interface ConnectorMetadata
 
     /**
      * Describes statistics that must be collected during a write.
+     *
+     * @param tableReplace indicates whether this is for table replace operation and statistics of an existing table (if any) should be ignored
      */
-    default TableStatisticsMetadata getStatisticsCollectionMetadataForWrite(ConnectorSession session, ConnectorTableMetadata tableMetadata)
+    default TableStatisticsMetadata getStatisticsCollectionMetadataForWrite(ConnectorSession session, ConnectorTableMetadata tableMetadata, boolean tableReplace)
     {
         return TableStatisticsMetadata.empty();
     }
@@ -723,7 +753,6 @@ public interface ConnectorMetadata
      */
     default ConnectorOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, Optional<ConnectorTableLayout> layout, RetryMode retryMode, boolean replace)
     {
-        // Redirect to deprecated SPI to not break existing connectors
         if (replace) {
             throw new TrinoException(NOT_SUPPORTED, "This connector does not support replacing tables");
         }
@@ -1604,50 +1633,6 @@ public interface ConnectorMetadata
             Map<String, ColumnHandle> rightAssignments,
             JoinStatistics statistics)
     {
-        List<JoinCondition> conditions;
-        if (joinCondition instanceof Call call && AND_FUNCTION_NAME.equals(call.getFunctionName())) {
-            conditions = new ArrayList<>(call.getArguments().size());
-            for (ConnectorExpression argument : call.getArguments()) {
-                if (Constant.TRUE.equals(argument)) {
-                    continue;
-                }
-                Optional<JoinCondition> condition = JoinCondition.from(argument, leftAssignments.keySet(), rightAssignments.keySet());
-                if (condition.isEmpty()) {
-                    // We would need to add a FilterNode on top of the result
-                    return Optional.empty();
-                }
-                conditions.add(condition.get());
-            }
-        }
-        else {
-            Optional<JoinCondition> condition = JoinCondition.from(joinCondition, leftAssignments.keySet(), rightAssignments.keySet());
-            if (condition.isEmpty()) {
-                return Optional.empty();
-            }
-            conditions = List.of(condition.get());
-        }
-        return applyJoin(
-                session,
-                joinType,
-                left,
-                right,
-                conditions,
-                leftAssignments,
-                rightAssignments,
-                statistics);
-    }
-
-    @Deprecated
-    default Optional<JoinApplicationResult<ConnectorTableHandle>> applyJoin(
-            ConnectorSession session,
-            JoinType joinType,
-            ConnectorTableHandle left,
-            ConnectorTableHandle right,
-            List<JoinCondition> joinConditions,
-            Map<String, ColumnHandle> leftAssignments,
-            Map<String, ColumnHandle> rightAssignments,
-            JoinStatistics statistics)
-    {
         return Optional.empty();
     }
 
@@ -1770,9 +1755,19 @@ public interface ConnectorMetadata
 
     /**
      * The method is used by the engine to determine if a materialized view is current with respect to the tables it depends on.
+     * <p>
+     * When {@code considerGracePeriod} is {@code true}, connectors may skip expensive freshness checks and return
+     * {@link MaterializedViewFreshness.Freshness#FRESH_WITHIN_GRACE_PERIOD} if the materialized view is within its
+     * configured grace period, evaluated relative to the session start time ({@link ConnectorSession#getStart()}).
      *
      * @throws MaterializedViewNotFoundException when materialized view is not found
      */
+    default MaterializedViewFreshness getMaterializedViewFreshness(ConnectorSession session, SchemaTableName name, boolean considerGracePeriod)
+    {
+        return getMaterializedViewFreshness(session, name);
+    }
+
+    @Deprecated(forRemoval = true)
     default MaterializedViewFreshness getMaterializedViewFreshness(ConnectorSession session, SchemaTableName name)
     {
         throw new TrinoException(GENERIC_INTERNAL_ERROR, "ConnectorMetadata getMaterializedView() is implemented without getMaterializedViewFreshness()");

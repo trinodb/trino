@@ -38,6 +38,7 @@ import io.trino.sql.planner.plan.WindowNode;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -137,7 +138,7 @@ public class SetOperationNodeTranslator
     {
         Assignments.Builder assignments = Assignments.builder();
         // add existing intersect symbols to projection
-        for (Map.Entry<Symbol, Reference> entry : projections.entrySet()) {
+        for (Entry<Symbol, Reference> entry : projections.entrySet()) {
             Symbol symbol = symbolAllocator.newSymbol(entry.getKey().name(), entry.getKey().type());
             assignments.put(symbol, entry.getValue());
         }

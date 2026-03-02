@@ -40,7 +40,7 @@ public class ExampleHttpServer
     {
         Bootstrap app = new Bootstrap(
                 new TestingNodeModule(),
-                new TestingHttpServerModule(),
+                new TestingHttpServerModule("example-http-server"),
                 new ExampleHttpServerModule());
 
         Injector injector = app

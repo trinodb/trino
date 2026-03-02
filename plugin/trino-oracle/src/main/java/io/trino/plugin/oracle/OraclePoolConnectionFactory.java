@@ -43,6 +43,7 @@ public class OraclePoolConnectionFactory
             int connectionPoolMinSize,
             int connectionPoolMaxSize,
             Duration inactiveConnectionTimeout,
+            Duration connectionPoolWaitDuration,
             OpenTelemetry openTelemetry)
             throws SQLException
     {
@@ -59,6 +60,7 @@ public class OraclePoolConnectionFactory
         dataSource.setValidateConnectionOnBorrow(true);
         dataSource.setConnectionProperties(connectionProperties);
         dataSource.setInactiveConnectionTimeout(toIntExact(inactiveConnectionTimeout.roundTo(SECONDS)));
+        dataSource.setConnectionWaitDuration(connectionPoolWaitDuration.toJavaTime());
         credentialProvider.getConnectionUser(Optional.empty())
                 .ifPresent(user -> {
                     try {

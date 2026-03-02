@@ -30,6 +30,7 @@ import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.util.Base64;
 import java.util.Locale;
+import java.util.regex.Pattern;
 
 import static com.google.common.base.CharMatcher.whitespace;
 import static com.google.common.net.HttpHeaders.AUTHORIZATION;
@@ -42,6 +43,8 @@ public class SpnegoHandler
         implements Interceptor, Authenticator
 {
     private static final String NEGOTIATE = "Negotiate";
+    private static final Pattern SERVICE_PATTERN = Pattern.compile("\\$\\{SERVICE}");
+    private static final Pattern HOST_PATTERN = Pattern.compile("\\$\\{HOST}");
     private final String servicePrincipalPattern;
     private final String remoteServiceName;
     private final boolean useCanonicalHostname;
@@ -132,7 +135,7 @@ public class SpnegoHandler
         if (useCanonicalHostname) {
             serviceHostName = canonicalizeServiceHostName(hostName);
         }
-        return servicePrincipalPattern.replaceAll("\\$\\{SERVICE}", serviceName).replaceAll("\\$\\{HOST}", serviceHostName.toLowerCase(Locale.US));
+        return SERVICE_PATTERN.matcher(HOST_PATTERN.matcher(servicePrincipalPattern).replaceAll(serviceHostName.toLowerCase(Locale.US))).replaceAll(serviceName);
     }
 
     private static String canonicalizeServiceHostName(String hostName)

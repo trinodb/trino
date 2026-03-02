@@ -57,7 +57,9 @@ final class TestDuckDbConnectorTest
         return switch (connectorBehavior) {
             case SUPPORTS_ADD_COLUMN_NOT_NULL_CONSTRAINT,
                  SUPPORTS_ADD_COLUMN_WITH_COMMENT,
+                 SUPPORTS_ADD_COLUMN_WITH_POSITION,
                  SUPPORTS_AGGREGATION_PUSHDOWN,
+                 SUPPORTS_PREDICATE_ARITHMETIC_EXPRESSION_PUSHDOWN,
                  SUPPORTS_ARRAY,
                  SUPPORTS_COMMENT_ON_COLUMN,
                  SUPPORTS_COMMENT_ON_TABLE,
@@ -69,7 +71,9 @@ final class TestDuckDbConnectorTest
                  SUPPORTS_RENAME_SCHEMA,
                  SUPPORTS_RENAME_TABLE_ACROSS_SCHEMAS,
                  SUPPORTS_TOPN_PUSHDOWN,
-                 SUPPORTS_ROW_TYPE -> false;
+                 SUPPORTS_ROW_TYPE,
+                 SUPPORTS_MERGE,
+                 SUPPORTS_ROW_LEVEL_UPDATE -> false;
 
             default -> super.hasBehavior(connectorBehavior);
         };

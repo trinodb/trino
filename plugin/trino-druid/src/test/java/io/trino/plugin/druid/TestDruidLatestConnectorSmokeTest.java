@@ -54,6 +54,7 @@ public class TestDruidLatestConnectorSmokeTest
                  SUPPORTS_RENAME_TABLE,
                  SUPPORTS_DELETE,
                  SUPPORTS_INSERT,
+                 SUPPORTS_MERGE,
                  SUPPORTS_UPDATE -> false;
             default -> super.hasBehavior(connectorBehavior);
         };

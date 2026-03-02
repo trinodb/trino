@@ -59,7 +59,7 @@ public class RemoveRedundantDateTrunc
         public Visitor(Session session, PlannerContext plannerContext)
         {
             this.session = requireNonNull(session, "session is null");
-            evaluator = new IrExpressionEvaluator(plannerContext);
+            evaluator = plannerContext.getExpressionEvaluator();
         }
 
         @Override

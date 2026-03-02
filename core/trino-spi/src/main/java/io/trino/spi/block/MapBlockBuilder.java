@@ -23,7 +23,6 @@ import java.util.Optional;
 
 import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
-import static io.trino.spi.block.BlockUtil.appendRawBlockRange;
 import static io.trino.spi.block.BlockUtil.calculateNewArraySize;
 import static io.trino.spi.block.MapBlock.createMapBlockInternal;
 import static io.trino.spi.block.MapHashTables.HASH_MULTIPLIER;
@@ -152,8 +151,8 @@ public class MapBlockBuilder
         int startOffset = offsets[offsetBase + position];
         int length = offsets[offsetBase + position + 1] - startOffset;
 
-        appendRawBlockRange(mapBlock.getRawKeyBlock(), startOffset, length, keyBlockBuilder);
-        appendRawBlockRange(mapBlock.getRawValueBlock(), startOffset, length, valueBlockBuilder);
+        keyBlockBuilder.appendBlockRange(mapBlock.getRawKeyBlock(), startOffset, length);
+        valueBlockBuilder.appendBlockRange(mapBlock.getRawValueBlock(), startOffset, length);
         entryAdded(false);
     }
 

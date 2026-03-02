@@ -15,7 +15,6 @@ package io.trino.plugin.iceberg;
 
 import com.google.inject.Module;
 import io.trino.operator.RetryPolicy;
-import io.trino.plugin.exchange.filesystem.FileSystemExchangePlugin;
 import io.trino.plugin.exchange.filesystem.containers.MinioStorage;
 import io.trino.testing.QueryRunner;
 import io.trino.tpch.TpchTable;
@@ -57,10 +56,7 @@ public class TestIcebergQueryFailureRecoveryTest
         return IcebergQueryRunner.builder()
                 .setCoordinatorProperties(coordinatorProperties)
                 .setExtraProperties(configProperties)
-                .setAdditionalSetup(runner -> {
-                    runner.installPlugin(new FileSystemExchangePlugin());
-                    runner.loadExchangeManager("filesystem", getExchangeManagerProperties(minioStorage));
-                })
+                .withExchange("filesystem", getExchangeManagerProperties(minioStorage))
                 .setAdditionalModule(failureInjectionModule)
                 .setInitialTables(requiredTpchTables)
                 .build();

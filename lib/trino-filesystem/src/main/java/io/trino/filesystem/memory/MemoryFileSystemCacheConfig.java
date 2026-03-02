@@ -19,6 +19,7 @@ import io.airlift.configuration.ConfigDescription;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.airlift.units.MaxDataSize;
+import io.trino.plugin.base.configuration.HeapSizeParser;
 import jakarta.validation.constraints.NotNull;
 
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
@@ -26,12 +27,8 @@ import static java.util.concurrent.TimeUnit.HOURS;
 
 public class MemoryFileSystemCacheConfig
 {
-    // Runtime.getRuntime().maxMemory() is not 100% stable and may return slightly different value over JVM lifetime. We use
-    // constant so default configuration for cache size is stable.
     @VisibleForTesting
-    static final DataSize DEFAULT_CACHE_SIZE = DataSize.succinctBytes(Math.min(
-            Math.floorDiv(Runtime.getRuntime().maxMemory(), 20L),
-            DataSize.of(200, MEGABYTE).toBytes()));
+    static final DataSize DEFAULT_CACHE_SIZE = HeapSizeParser.DEFAULT.parse("2%");
 
     private Duration ttl = new Duration(1, HOURS);
     private DataSize maxSize = DEFAULT_CACHE_SIZE;

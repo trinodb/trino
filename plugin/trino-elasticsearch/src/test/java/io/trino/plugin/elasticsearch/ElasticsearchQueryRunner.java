@@ -162,7 +162,7 @@ public final class ElasticsearchQueryRunner
         LOG.info("Imported %s in %s", table.getTableName(), nanosSince(start).convertToMostSuccinctTimeUnit());
     }
 
-    public static void main(String[] args)
+    static void main()
             throws Exception
     {
         QueryRunner queryRunner = builder(new ElasticsearchServer(ELASTICSEARCH_7_IMAGE))

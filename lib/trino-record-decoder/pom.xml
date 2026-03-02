@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>477-SNAPSHOT</version>
+        <version>480-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
@@ -15,6 +15,7 @@
 
     <properties>
         <air.compiler.fail-warnings>true</air.compiler.fail-warnings>
+        <dep.wire.version>5.5.0</dep.wire.version>
     </properties>
 
     <dependencies>
@@ -65,11 +66,13 @@
         <dependency>
             <groupId>com.squareup.wire</groupId>
             <artifactId>wire-runtime-jvm</artifactId>
+            <version>${dep.wire.version}</version>
         </dependency>
 
         <dependency>
             <groupId>com.squareup.wire</groupId>
             <artifactId>wire-schema-jvm</artifactId>
+            <version>${dep.wire.version}</version>
         </dependency>
 
         <dependency>

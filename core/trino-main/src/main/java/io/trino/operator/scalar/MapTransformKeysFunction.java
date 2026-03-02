@@ -36,6 +36,7 @@ import io.trino.spi.block.BufferedMapValueBuilder;
 import io.trino.spi.block.DuplicateMapKeyException;
 import io.trino.spi.block.MapValueBuilder;
 import io.trino.spi.block.SqlMap;
+import io.trino.spi.block.ValueBlock;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.function.BoundSignature;
 import io.trino.spi.function.FunctionMetadata;
@@ -243,7 +244,11 @@ public final class MapTransformKeysFunction
                             .ifTrue(throwNullKeyException)
                             .ifFalse(new BytecodeBlock()
                                     .append(constantType(binder, transformedKeyType).writeValue(keyBuilder, transformedKeyElement.cast(transformedKeyType.getJavaType())))
-                                    .append(valueSqlType.invoke("appendTo", void.class, rawValueBlock, add(index, rawOffset), valueBuilder))));
+                                    .append(valueBuilder.invoke(
+                                            "append",
+                                            void.class,
+                                            rawValueBlock.invoke("getUnderlyingValueBlock", ValueBlock.class),
+                                            rawValueBlock.invoke("getUnderlyingValuePosition", int.class, add(index, rawOffset))))));
         }
         else {
             // key cannot be unknown

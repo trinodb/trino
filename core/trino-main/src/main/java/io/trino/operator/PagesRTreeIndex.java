@@ -24,7 +24,6 @@ import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.VariableWidthBlock;
-import io.trino.spi.type.Type;
 import io.trino.sql.gen.JoinFilterFunctionCompiler.JoinFilterFunctionFactory;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
@@ -36,6 +35,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalDouble;
+import java.util.OptionalInt;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verifyNotNull;
@@ -54,7 +54,6 @@ public class PagesRTreeIndex
     private static final int[] EMPTY_ADDRESSES = new int[0];
 
     private final LongArrayList addresses;
-    private final List<Type> types;
     private final List<Integer> outputChannels;
     private final List<ObjectArrayList<Block>> channels;
     private final STRtree rtree;
@@ -103,18 +102,16 @@ public class PagesRTreeIndex
     public PagesRTreeIndex(
             Session session,
             LongArrayList addresses,
-            List<Type> types,
             List<Integer> outputChannels,
             List<ObjectArrayList<Block>> channels,
             STRtree rtree,
-            Optional<Integer> radiusChannel,
+            OptionalInt radiusChannel,
             OptionalDouble constantRadius,
             SpatialPredicate spatialRelationshipTest,
             Optional<JoinFilterFunctionFactory> filterFunctionFactory,
             Map<Integer, Rectangle> partitions)
     {
         this.addresses = requireNonNull(addresses, "addresses is null");
-        this.types = types;
         this.outputChannels = outputChannels;
         this.channels = requireNonNull(channels, "channels is null");
         this.rtree = requireNonNull(rtree, "rtree is null");
@@ -143,7 +140,7 @@ public class PagesRTreeIndex
      * for each of these addresses to apply additional join filters.
      */
     @Override
-    public int[] findJoinPositions(int position, Page probe, int probeGeometryChannel, Optional<Integer> probePartitionChannel)
+    public int[] findJoinPositions(int position, Page probe, int probeGeometryChannel, OptionalInt probePartitionChannel)
     {
         Block probeBlock = probe.getBlock(probeGeometryChannel);
         VariableWidthBlock probeGeometryBlock = (VariableWidthBlock) probeBlock.getUnderlyingValueBlock();
@@ -153,7 +150,7 @@ public class PagesRTreeIndex
             return EMPTY_ADDRESSES;
         }
 
-        int probePartition = probePartitionChannel.map(channel -> INTEGER.getInt(probe.getBlock(channel), position)).orElse(-1);
+        int probePartition = probePartitionChannel.isPresent() ? INTEGER.getInt(probe.getBlock(probePartitionChannel.getAsInt()), position) : -1;
 
         Slice slice = probeGeometryBlock.getSlice(probePosition);
         OGCGeometry probeGeometry = deserialize(slice);
@@ -229,10 +226,9 @@ public class PagesRTreeIndex
         int blockPosition = decodePosition(joinAddress);
 
         for (int outputIndex : outputChannels) {
-            Type type = types.get(outputIndex);
             List<Block> channel = channels.get(outputIndex);
             Block block = channel.get(blockIndex);
-            type.appendTo(block, blockPosition, pageBuilder.getBlockBuilder(outputChannelOffset));
+            pageBuilder.getBlockBuilder(outputChannelOffset).append(block.getUnderlyingValueBlock(), block.getUnderlyingValuePosition(blockPosition));
             outputChannelOffset++;
         }
     }

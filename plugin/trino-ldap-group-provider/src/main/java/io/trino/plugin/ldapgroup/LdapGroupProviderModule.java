@@ -18,7 +18,6 @@ import com.google.inject.Scopes;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.trino.spi.security.GroupProvider;
 
-import static io.airlift.configuration.ConditionalModule.conditionalModule;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 
 public class LdapGroupProviderModule
@@ -28,16 +27,14 @@ public class LdapGroupProviderModule
     protected void setup(Binder binder)
     {
         configBinder(binder).bindConfig(LdapGroupProviderConfig.class);
-        install(conditionalModule(
-                LdapGroupProviderConfig.class,
-                LdapGroupProviderConfig::getLdapUseGroupFilter,
-                innerBinder -> {
-                    configBinder(innerBinder).bindConfig(LdapFilteringGroupProviderConfig.class);
-                    innerBinder.bind(GroupProvider.class).to(LdapFilteringGroupProvider.class).in(Scopes.SINGLETON);
-                },
-                innerBinder -> {
-                    configBinder(binder).bindConfig(LdapSingleQueryGroupProviderConfig.class);
-                    innerBinder.bind(GroupProvider.class).to(LdapSingleQueryGroupProvider.class).in(Scopes.SINGLETON);
-                }));
+
+        if (buildConfigObject(LdapGroupProviderConfig.class).getLdapUseGroupFilter()) {
+            configBinder(binder).bindConfig(LdapFilteringGroupProviderConfig.class);
+            binder.bind(GroupProvider.class).to(LdapFilteringGroupProvider.class).in(Scopes.SINGLETON);
+        }
+        else {
+            configBinder(binder).bindConfig(LdapSingleQueryGroupProviderConfig.class);
+            binder.bind(GroupProvider.class).to(LdapSingleQueryGroupProvider.class).in(Scopes.SINGLETON);
+        }
     }
 }

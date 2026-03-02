@@ -47,7 +47,7 @@ public final class TypeImplementationDependency
     @Override
     public Object resolve(FunctionBinding functionBinding, FunctionDependencies functionDependencies)
     {
-        return functionDependencies.getType(applyBoundVariables(signature, functionBinding));
+        return functionDependencies.getType(applyBoundVariables(signature, functionBinding.variables()));
     }
 
     @Override

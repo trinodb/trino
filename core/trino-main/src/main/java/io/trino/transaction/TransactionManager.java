@@ -23,7 +23,6 @@ import io.trino.spi.transaction.IsolationLevel;
 
 import java.util.List;
 import java.util.Optional;
-import java.util.Set;
 
 import static io.trino.spi.StandardErrorCode.CATALOG_NOT_FOUND;
 
@@ -39,8 +38,6 @@ public interface TransactionManager
     Optional<TransactionInfo> getTransactionInfoIfExist(TransactionId transactionId);
 
     List<TransactionInfo> getAllTransactionInfos();
-
-    Set<TransactionId> getTransactionsUsingCatalog(CatalogHandle catalogHandle);
 
     TransactionId beginTransaction(boolean autoCommitContext);
 
@@ -59,6 +56,8 @@ public interface TransactionManager
     }
 
     Optional<CatalogMetadata> getOptionalCatalogMetadata(TransactionId transactionId, String catalogName);
+
+    Optional<CatalogInfo> getOptionalCatalogInfo(TransactionId requiredTransactionId, String catalogName);
 
     CatalogMetadata getCatalogMetadata(TransactionId transactionId, CatalogHandle catalogHandle);
 
@@ -79,8 +78,6 @@ public interface TransactionManager
     ListenableFuture<Void> asyncCommit(TransactionId transactionId);
 
     ListenableFuture<Void> asyncAbort(TransactionId transactionId);
-
-    void blockCommit(TransactionId transactionId, String reason);
 
     void fail(TransactionId transactionId);
 }

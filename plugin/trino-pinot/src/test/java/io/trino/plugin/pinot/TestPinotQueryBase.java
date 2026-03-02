@@ -16,7 +16,6 @@ package io.trino.plugin.pinot;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.plugin.pinot.client.PinotClient;
-import io.trino.spi.type.TestingTypeManager;
 import org.apache.pinot.spi.data.FieldSpec.DataType;
 import org.apache.pinot.spi.data.Schema;
 import org.apache.pinot.spi.data.Schema.SchemaBuilder;
@@ -27,11 +26,12 @@ import java.util.Map;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.concurrent.Threads.threadsNamed;
 import static io.trino.plugin.pinot.TestPinotTableHandle.newTableHandle;
+import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 
 public class TestPinotQueryBase
 {
-    protected static final PinotTypeConverter TESTING_TYPE_CONVERTER = new PinotTypeConverter(new TestingTypeManager());
+    protected static final PinotTypeConverter TESTING_TYPE_CONVERTER = new PinotTypeConverter(TESTING_TYPE_MANAGER);
 
     protected static PinotTableHandle realtimeOnlyTable = newTableHandle("schema", "realtimeOnly");
     protected static PinotTableHandle hybridTable = newTableHandle("schema", "hybrid");

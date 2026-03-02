@@ -57,8 +57,8 @@ public final class CastImplementationDependency
     @Override
     protected ScalarFunctionImplementation getImplementation(FunctionBinding functionBinding, FunctionDependencies functionDependencies, InvocationConvention invocationConvention)
     {
-        TypeSignature from = applyBoundVariables(fromType, functionBinding);
-        TypeSignature to = applyBoundVariables(toType, functionBinding);
+        TypeSignature from = applyBoundVariables(fromType, functionBinding.variables());
+        TypeSignature to = applyBoundVariables(toType, functionBinding.variables());
         return functionDependencies.getCastImplementationSignature(from, to, invocationConvention);
     }
 

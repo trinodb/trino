@@ -43,6 +43,7 @@ import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -447,7 +448,7 @@ public class TestHiveStorageFormats
                 nullFormat));
 
         // \N is the default null format
-        String[] values = new String[] {nullFormat, null, "non-null", "", "\\N"};
+        String[] values = {nullFormat, null, "non-null", "", "\\N"};
         Row[] storedValues = Arrays.stream(values).map(Row::row).toArray(Row[]::new);
         storedValues[0] = row((Object) null); // if you put in the null format, it saves as null
 
@@ -870,8 +871,8 @@ public class TestHiveStorageFormats
                     .containsOnly(row(
                             format("array(%s)", type),
                             format("map(%1$s, %1$s)", type),
-                            format("row(col %s)", type),
-                            format("array(map(%1$s, row(col array(%1$s))))", type))));
+                            format("row(\"col\" %s)", type),
+                            format("array(map(%1$s, row(\"col\" array(%1$s))))", type))));
 
             // Check the values as varchar
             softly.check(() -> assertThat(onTrino()
@@ -1012,7 +1013,7 @@ public class TestHiveStorageFormats
             setSessionProperty(connection, "task_min_writer_count", "4");
             setSessionProperty(connection, "task_scale_writers_enabled", "false");
             setSessionProperty(connection, "redistribute_writes", "false");
-            for (Map.Entry<String, String> sessionProperty : sessionProperties.entrySet()) {
+            for (Entry<String, String> sessionProperty : sessionProperties.entrySet()) {
                 setSessionProperty(connection, sessionProperty.getKey(), sessionProperty.getValue());
             }
         }

@@ -56,12 +56,12 @@ public class BasicStageInfo
 
     public BasicStageInfo(StageInfo fullStageInfo)
     {
-        this(fullStageInfo.getStageId(),
-                fullStageInfo.getState(),
-                fullStageInfo.isCoordinatorOnly(),
-                fullStageInfo.getStageStats().toBasicStageStats(fullStageInfo.getState()),
-                fullStageInfo.getSubStages(),
-                fullStageInfo.getTasks());
+        this(fullStageInfo.stageId(),
+                fullStageInfo.state(),
+                fullStageInfo.coordinatorOnly(),
+                fullStageInfo.stageStats().toBasicStageStats(fullStageInfo.state()),
+                fullStageInfo.subStages(),
+                fullStageInfo.tasks());
     }
 
     @JsonProperty
@@ -102,7 +102,7 @@ public class BasicStageInfo
 
     public boolean isFinalStageInfo()
     {
-        return state.isDone() && tasks.stream().allMatch(taskInfo -> taskInfo.taskStatus().getState().isDone());
+        return state.isDone() && tasks.stream().allMatch(taskInfo -> taskInfo.taskStatus().state().isDone());
     }
 
     @Override

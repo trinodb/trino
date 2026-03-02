@@ -128,7 +128,7 @@ public class BenchmarkGroupedTopNRowNumberBuilder
         return ImmutableList.copyOf(topNBuilder.buildResult());
     }
 
-    public static void main(String[] args)
+    static void main()
             throws RunnerException
     {
         BenchmarkData data = new BenchmarkData();

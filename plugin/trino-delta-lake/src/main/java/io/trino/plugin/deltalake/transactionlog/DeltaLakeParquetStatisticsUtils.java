@@ -49,6 +49,7 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.function.BiFunction;
 
@@ -153,7 +154,7 @@ public final class DeltaLakeParquetStatisticsUtils
         }
         if (type instanceof RowType rowType) {
             Map<?, ?> values = (Map<?, ?>) jsonValue;
-            List<Type> fieldTypes = rowType.getTypeParameters();
+            List<Type> fieldTypes = rowType.getFieldTypes();
             return buildRowValue(rowType, fields -> {
                 for (int i = 0; i < values.size(); ++i) {
                     Type fieldType = fieldTypes.get(i);
@@ -171,7 +172,7 @@ public final class DeltaLakeParquetStatisticsUtils
     public static Map<String, Object> toJsonValues(Map<String, Type> columnTypeMapping, Map<String, Object> values)
     {
         Map<String, Object> jsonValues = new HashMap<>();
-        for (Map.Entry<String, Object> value : values.entrySet()) {
+        for (Entry<String, Object> value : values.entrySet()) {
             Type type = columnTypeMapping.get(value.getKey());
             if (type instanceof ArrayType || type instanceof MapType) {
                 continue;
@@ -252,18 +253,18 @@ public final class DeltaLakeParquetStatisticsUtils
     private static Map<String, Object> jsonEncode(Map<String, Optional<Statistics<?>>> stats, Map<String, Type> typeForColumn, BiFunction<Type, Statistics<?>, Optional<Object>> accessor)
     {
         Map<String, Optional<Object>> allStats = stats.entrySet().stream()
-                .filter(entry -> entry.getValue() != null && entry.getValue().isPresent() && !entry.getValue().get().isEmpty())
-                .collect(toImmutableMap(Map.Entry::getKey, entry -> accessor.apply(typeForColumn.get(entry.getKey()), entry.getValue().get())));
+                .filter(entry -> entry.getValue() != null && entry.getValue().isPresent() && !entry.getValue().get().isEmpty() && typeForColumn.containsKey(entry.getKey()))
+                .collect(toImmutableMap(Entry::getKey, entry -> accessor.apply(typeForColumn.get(entry.getKey()), entry.getValue().get())));
 
         return allStats.entrySet().stream()
                 .filter(entry -> entry.getValue() != null && entry.getValue().isPresent())
-                .collect(toImmutableMap(Map.Entry::getKey, entry -> entry.getValue().get()));
+                .collect(toImmutableMap(Entry::getKey, entry -> entry.getValue().get()));
     }
 
     public static Map<String, Object> toNullCounts(Map<String, Type> columnTypeMapping, Map<String, Object> values)
     {
         ImmutableMap.Builder<String, Object> nullCounts = ImmutableMap.builderWithExpectedSize(values.size());
-        for (Map.Entry<String, Object> entry : values.entrySet()) {
+        for (Entry<String, Object> entry : values.entrySet()) {
             Type type = columnTypeMapping.get(entry.getKey());
             requireNonNull(type, "type is null");
             Object value = entry.getValue();

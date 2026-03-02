@@ -24,6 +24,7 @@ import io.trino.RowPagesBuilder;
 import io.trino.connector.CatalogServiceProvider;
 import io.trino.operator.DriverContext;
 import io.trino.operator.JoinOperatorType;
+import io.trino.operator.NullSafeHashCompiler;
 import io.trino.operator.Operator;
 import io.trino.operator.OperatorFactory;
 import io.trino.operator.TaskContext;
@@ -83,12 +84,12 @@ import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 @Execution(CONCURRENT)
 public class TestHashJoinOperator
 {
-    private static final TypeOperators TYPE_OPERATORS = new TypeOperators();
+    private static final NullSafeHashCompiler HASH_COMPILER = new NullSafeHashCompiler(new TypeOperators());
 
     private final ExecutorService executor = newCachedThreadPool(daemonThreadsNamed("test-executor-%s"));
     private final ScheduledExecutorService scheduledExecutor = newScheduledThreadPool(2, daemonThreadsNamed(getClass().getSimpleName() + "-scheduledExecutor-%s"));
     private final PartitionFunctionProvider partitionFunctionProvider = new PartitionFunctionProvider(
-            TYPE_OPERATORS,
+            HASH_COMPILER,
             CatalogServiceProvider.fail());
 
     @AfterAll

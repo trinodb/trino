@@ -59,7 +59,7 @@ public class TestBigQuerySplitManager
         BigQueryConnectorFactory connectorFactory = new BigQueryConnectorFactory();
         connector = connectorFactory.create(
                 "bigquery",
-                ImmutableMap.of("bigquery.views-enabled", "true", "bigquery.credentials-key", BIGQUERY_CREDENTIALS_KEY),
+                ImmutableMap.of("bigquery.views-enabled", "true", "bigquery.credentials-key", BIGQUERY_CREDENTIALS_KEY, "bigquery.view-expire-duration", "30m"),
                 new TestingConnectorContext());
         bigQueryExecutor = new BigQuerySqlExecutor();
     }

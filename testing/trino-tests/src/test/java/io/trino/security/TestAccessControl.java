@@ -38,6 +38,7 @@ import io.trino.spi.connector.ConnectorMaterializedViewDefinition;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorViewDefinition;
 import io.trino.spi.connector.EntityKindAndName;
+import io.trino.spi.connector.MaterializedViewFreshness;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SchemaTablePrefix;
 import io.trino.spi.function.BoundSignature;
@@ -82,6 +83,7 @@ import java.util.function.BiFunction;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.trino.SystemSessionProperties.QUERY_MAX_MEMORY;
+import static io.trino.spi.connector.MaterializedViewFreshness.Freshness.STALE;
 import static io.trino.spi.security.PrincipalType.USER;
 import static io.trino.spi.security.SelectedRole.Type.ROLE;
 import static io.trino.spi.session.PropertyMetadata.booleanProperty;
@@ -219,12 +221,19 @@ public class TestAccessControl
                                 Optional.empty(),
                                 ImmutableList.of(new ConnectorMaterializedViewDefinition.Column("test", BIGINT.getTypeId(), Optional.empty())),
                                 Optional.of(Duration.ZERO),
+                                Optional.empty(),
                                 Optional.of("comment"),
                                 Optional.of("owner"),
                                 ImmutableList.of());
                         return ImmutableMap.of(
                                 new SchemaTableName("default", "test_materialized_view"), materializedViewDefinition);
                     }
+                })
+                .withGetMaterializedViewsFreshness((_, materializedViewName) -> {
+                    if (materializedViewName.equals(new SchemaTableName("default", "test_materialized_view"))) {
+                        return new MaterializedViewFreshness(STALE, Optional.empty());
+                    }
+                    throw new UnsupportedOperationException("getMaterializedViewsFreshness not supported for " + materializedViewName);
                 })
                 .withListRoleGrants((connectorSession, roles, grantees, limit) -> ImmutableSet.of(new RoleGrant(new TrinoPrincipal(USER, "alice"), "alice_role", false)))
                 .withAnalyzeProperties(() -> ImmutableList.of(
@@ -1736,7 +1745,7 @@ public class TestAccessControl
         public Set<SchemaFunctionName> filterFunctions(SystemSecurityContext context, String catalogName, Set<SchemaFunctionName> functionNames)
         {
             return functionNames.stream()
-                    .filter(functionName -> !functionName.getFunctionName().startsWith("deny_"))
+                    .filter(functionName -> !functionName.functionName().startsWith("deny_"))
                     .collect(toImmutableSet());
         }
     }

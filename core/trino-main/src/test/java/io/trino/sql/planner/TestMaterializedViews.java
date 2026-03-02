@@ -24,9 +24,11 @@ import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.metadata.ViewColumn;
 import io.trino.spi.RefreshType;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.Connector;
+import io.trino.spi.connector.ConnectorMaterializedViewDefinition.WhenStaleBehavior;
 import io.trino.spi.connector.ConnectorMetadata;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableMetadata;
@@ -36,9 +38,7 @@ import io.trino.spi.function.OperatorType;
 import io.trino.spi.security.Identity;
 import io.trino.spi.security.ViewExpression;
 import io.trino.spi.transaction.IsolationLevel;
-import io.trino.spi.type.TestingTypeManager;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.TypeParameter;
 import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Cast;
@@ -50,6 +50,7 @@ import io.trino.testing.PlanTester;
 import io.trino.testing.TestingAccessControlManager;
 import io.trino.testing.TestingMetadata;
 import io.trino.type.DateTimes;
+import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 
 import java.time.Instant;
@@ -62,6 +63,7 @@ import static io.trino.execution.querystats.PlanOptimizersStatsCollector.createP
 import static io.trino.execution.warnings.WarningCollector.NOOP;
 import static io.trino.spi.RefreshType.FULL;
 import static io.trino.spi.RefreshType.INCREMENTAL;
+import static io.trino.spi.connector.ConnectorMaterializedViewDefinition.WhenStaleBehavior.INLINE;
 import static io.trino.spi.connector.SaveMode.FAIL;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.TimestampWithTimeZoneParametricType.TIMESTAMP_WITH_TIME_ZONE;
@@ -84,7 +86,9 @@ import static io.trino.sql.planner.plan.ExchangeNode.Scope.LOCAL;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_NAME;
 import static io.trino.testing.TestingMetadata.STALE_MV_STALENESS;
 import static io.trino.testing.TestingSession.testSessionBuilder;
+import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestMaterializedViews
         extends BasePlanTest
@@ -106,8 +110,6 @@ public class TestMaterializedViews
 
         PlanTester planTester = PlanTester.create(sessionBuilder.build());
         planTester.createCatalog(TEST_CATALOG_NAME, new StaticConnectorFactory("test", new TestMaterializedViewConnector(testingConnectorMetadata)), ImmutableMap.of());
-
-        TypeManager typeManager = new TestingTypeManager();
 
         Metadata metadata = planTester.getPlannerContext().getMetadata();
         SchemaTableName testTable = new SchemaTableName(SCHEMA, "test_table");
@@ -152,7 +154,7 @@ public class TestMaterializedViews
             return null;
         });
 
-        Type timestampWithTimezone3 = TIMESTAMP_WITH_TIME_ZONE.createType(typeManager, ImmutableList.of(TypeParameter.of(3)));
+        Type timestampWithTimezone3 = TIMESTAMP_WITH_TIME_ZONE.createType(TESTING_TYPE_MANAGER, ImmutableList.of(TypeParameter.numericParameter(3)));
         SchemaTableName timestampTest = new SchemaTableName(SCHEMA, "timestamp_test");
         planTester.inTransaction(session -> {
             metadata.createTable(
@@ -181,40 +183,8 @@ public class TestMaterializedViews
             return null;
         });
 
-        QualifiedObjectName freshMaterializedView = new QualifiedObjectName(TEST_CATALOG_NAME, SCHEMA, "fresh_materialized_view");
-        MaterializedViewDefinition materializedViewDefinition = new MaterializedViewDefinition(
-                "SELECT a, b FROM test_table",
-                Optional.of(TEST_CATALOG_NAME),
-                Optional.of(SCHEMA),
-                ImmutableList.of(new ViewColumn("a", BIGINT.getTypeId(), Optional.empty()), new ViewColumn("b", BIGINT.getTypeId(), Optional.empty())),
-                Optional.of(STALE_MV_STALENESS.plusHours(1)),
-                Optional.empty(),
-                Identity.ofUser("some user"),
-                ImmutableList.of(),
-                Optional.of(new CatalogSchemaTableName(TEST_CATALOG_NAME, SCHEMA, "storage_table")));
-        planTester.inTransaction(session -> {
-            metadata.createMaterializedView(
-                    session,
-                    freshMaterializedView,
-                    materializedViewDefinition,
-                    ImmutableMap.of(),
-                    false,
-                    false);
-            return null;
-        });
-        testingConnectorMetadata.markMaterializedViewIsFresh(freshMaterializedView.asSchemaTableName());
-
-        QualifiedObjectName notFreshMaterializedView = new QualifiedObjectName(TEST_CATALOG_NAME, SCHEMA, "not_fresh_materialized_view");
-        planTester.inTransaction(session -> {
-            metadata.createMaterializedView(
-                    session,
-                    notFreshMaterializedView,
-                    materializedViewDefinition,
-                    ImmutableMap.of(),
-                    false,
-                    false);
-            return null;
-        });
+        createFreshAndStaleMaterializedViews("fresh_materialized_view", planTester, metadata, INLINE);
+        createFreshAndStaleMaterializedViews("fresh_materialized_view_when_stale_fail", planTester, metadata, WhenStaleBehavior.FAIL);
 
         MaterializedViewDefinition materializedViewDefinitionWithCasts = new MaterializedViewDefinition(
                 "SELECT a, b FROM test_table",
@@ -222,6 +192,7 @@ public class TestMaterializedViews
                 Optional.of(SCHEMA),
                 ImmutableList.of(new ViewColumn("a", BIGINT.getTypeId(), Optional.empty()), new ViewColumn("b", BIGINT.getTypeId(), Optional.empty())),
                 Optional.empty(),
+                INLINE,
                 Optional.empty(),
                 Identity.ofUser("some user"),
                 ImmutableList.of(),
@@ -256,6 +227,7 @@ public class TestMaterializedViews
                 Optional.of(SCHEMA),
                 ImmutableList.of(new ViewColumn("id", BIGINT.getTypeId(), Optional.empty()), new ViewColumn("ts", timestampWithTimezone3.getTypeId(), Optional.empty())),
                 Optional.empty(),
+                INLINE,
                 Optional.empty(),
                 Identity.ofUser("some user"),
                 ImmutableList.of(),
@@ -277,6 +249,45 @@ public class TestMaterializedViews
         return planTester;
     }
 
+    private void createFreshAndStaleMaterializedViews(String name, PlanTester planTester, Metadata metadata, WhenStaleBehavior whenStaleBehavior)
+    {
+        QualifiedObjectName freshMaterializedView = new QualifiedObjectName(TEST_CATALOG_NAME, SCHEMA, name);
+        MaterializedViewDefinition materializedViewDefinition = new MaterializedViewDefinition(
+                "SELECT a, b FROM test_table",
+                Optional.of(TEST_CATALOG_NAME),
+                Optional.of(SCHEMA),
+                ImmutableList.of(new ViewColumn("a", BIGINT.getTypeId(), Optional.empty()), new ViewColumn("b", BIGINT.getTypeId(), Optional.empty())),
+                Optional.of(STALE_MV_STALENESS.plusHours(1)),
+                whenStaleBehavior,
+                Optional.empty(),
+                Identity.ofUser("some user"),
+                ImmutableList.of(),
+                Optional.of(new CatalogSchemaTableName(TEST_CATALOG_NAME, SCHEMA, "storage_table")));
+        planTester.inTransaction(session -> {
+            metadata.createMaterializedView(
+                    session,
+                    freshMaterializedView,
+                    materializedViewDefinition,
+                    ImmutableMap.of(),
+                    false,
+                    false);
+            return null;
+        });
+        testingConnectorMetadata.markMaterializedViewIsFresh(freshMaterializedView.asSchemaTableName());
+
+        QualifiedObjectName notFreshMaterializedView = new QualifiedObjectName(TEST_CATALOG_NAME, SCHEMA, "not_" + name);
+        planTester.inTransaction(session -> {
+            metadata.createMaterializedView(
+                    session,
+                    notFreshMaterializedView,
+                    materializedViewDefinition,
+                    ImmutableMap.of(),
+                    false,
+                    false);
+            return null;
+        });
+    }
+
     private void createMaterializedView(String materializedViewName, String query)
     {
         Metadata metadata = getPlanTester().getPlannerContext().getMetadata();
@@ -287,6 +298,7 @@ public class TestMaterializedViews
                 Optional.of(SCHEMA),
                 ImmutableList.of(new ViewColumn("a", BIGINT.getTypeId(), Optional.empty()), new ViewColumn("b", BIGINT.getTypeId(), Optional.empty())),
                 Optional.of(STALE_MV_STALENESS.plusHours(1)),
+                INLINE,
                 Optional.empty(),
                 Identity.ofUser("some user"),
                 ImmutableList.of(),
@@ -309,6 +321,9 @@ public class TestMaterializedViews
         assertPlan("SELECT * FROM fresh_materialized_view",
                 anyTree(
                         tableScan("storage_table")));
+        assertPlan("SELECT * FROM fresh_materialized_view_when_stale_fail",
+                anyTree(
+                        tableScan("storage_table")));
     }
 
     @Test
@@ -324,12 +339,35 @@ public class TestMaterializedViews
                 defaultSession,
                 anyTree(
                         tableScan("storage_table")));
+        assertPlan(
+                "SELECT * FROM not_fresh_materialized_view_when_stale_fail",
+                defaultSession,
+                anyTree(
+                        tableScan("storage_table")));
 
         assertPlan(
                 "SELECT * FROM not_fresh_materialized_view",
                 futureSession,
                 anyTree(
                         tableScan("test_table")));
+        assertThatThrownBy(() -> createPlan(futureSession, "SELECT * FROM not_fresh_materialized_view_when_stale_fail"))
+                .isInstanceOf(TrinoException.class)
+                .hasMessage("line 1:15: Materialized view 'test_catalog.tiny.not_fresh_materialized_view_when_stale_fail' is stale");
+    }
+
+    private void createPlan(Session futureSession, @Language("SQL") String sql)
+    {
+        PlanTester planTester = getPlanTester();
+        planTester.inTransaction(futureSession, transactionSession -> {
+            planTester.createPlan(
+                    transactionSession,
+                    sql,
+                    planTester.getPlanOptimizers(true),
+                    OPTIMIZED_AND_VALIDATED,
+                    NOOP,
+                    createPlanOptimizersStatsCollector());
+            return transactionSession.getQueryId().toString();
+        });
     }
 
     @Test
@@ -458,5 +496,8 @@ public class TestMaterializedViews
         {
             return metadata;
         }
+
+        @Override
+        public void shutdown() {}
     }
 }

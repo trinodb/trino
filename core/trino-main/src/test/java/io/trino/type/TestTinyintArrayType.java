@@ -16,14 +16,13 @@ package io.trino.type;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.ValueBlock;
+import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.Type;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
 
 import static io.trino.spi.type.TinyintType.TINYINT;
-import static io.trino.spi.type.TypeSignature.arrayType;
-import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static io.trino.util.StructuralTestUtil.arrayBlockOf;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -32,7 +31,7 @@ public class TestTinyintArrayType
 {
     public TestTinyintArrayType()
     {
-        super(TESTING_TYPE_MANAGER.getType(arrayType(TINYINT.getTypeSignature())), List.class, createTestBlock(TESTING_TYPE_MANAGER.getType(arrayType(TINYINT.getTypeSignature()))));
+        super(new ArrayType(TINYINT), List.class, createTestBlock(new ArrayType(TINYINT)));
     }
 
     public static ValueBlock createTestBlock(Type arrayType)
@@ -51,7 +50,7 @@ public class TestTinyintArrayType
         Block block = (Block) value;
         BlockBuilder blockBuilder = TINYINT.createFixedSizeBlockBuilder(block.getPositionCount() + 1);
         for (int i = 0; i < block.getPositionCount(); i++) {
-            TINYINT.appendTo(block, i, blockBuilder);
+            blockBuilder.append(block.getUnderlyingValueBlock(), block.getUnderlyingValuePosition(i));
         }
         TINYINT.writeLong(blockBuilder, 1L);
 

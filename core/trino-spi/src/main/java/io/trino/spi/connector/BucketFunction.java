@@ -22,4 +22,18 @@ public interface BucketFunction
      * Note the tuple values may be null.
      */
     int getBucket(Page page, int position);
+
+    /**
+     * Gets the buckets for all tuples within the specified position range.
+     * Note the tuple values may be null.
+     *
+     * @param buckets the array to hold the buckets of length at least {@code length}.
+     * Value at index {@code i} should hold the bucket for position {@code positionOffset + i}.
+     */
+    default void getBuckets(Page page, int positionOffset, int length, int[] buckets)
+    {
+        for (int i = 0; i < length; i++) {
+            buckets[i] = getBucket(page, positionOffset + i);
+        }
+    }
 }

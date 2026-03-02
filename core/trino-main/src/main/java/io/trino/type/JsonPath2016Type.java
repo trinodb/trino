@@ -46,6 +46,12 @@ public class JsonPath2016Type
     }
 
     @Override
+    public String getDisplayName()
+    {
+        return NAME;
+    }
+
+    @Override
     public Object getObjectValue(Block block, int position)
     {
         if (block.isNull(position)) {

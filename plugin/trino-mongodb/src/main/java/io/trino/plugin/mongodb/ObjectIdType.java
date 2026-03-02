@@ -43,6 +43,12 @@ public class ObjectIdType
     }
 
     @Override
+    public String getDisplayName()
+    {
+        return "ObjectId";
+    }
+
+    @Override
     public boolean isComparable()
     {
         return true;

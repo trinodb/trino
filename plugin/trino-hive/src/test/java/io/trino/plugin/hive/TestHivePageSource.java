@@ -97,7 +97,7 @@ public class TestHivePageSource
                 tableBucketNumber,
                 regularAndInterimColumnMappings);
 
-        Block[] blocks = new Block[] {
+        Block[] blocks = {
                 nativeValueToBlock(VARCHAR, utf8Slice("a")),
                 nativeValueToBlock(BIGINT, 1L)
         };

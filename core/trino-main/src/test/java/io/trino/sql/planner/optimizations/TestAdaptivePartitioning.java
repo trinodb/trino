@@ -28,7 +28,7 @@ import io.trino.sql.planner.plan.JoinNode;
 import io.trino.sql.planner.plan.PlanFragmentId;
 import org.junit.jupiter.api.Test;
 
-import java.util.Optional;
+import java.util.OptionalInt;
 
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.trino.SystemSessionProperties.FAULT_TOLERANT_EXECUTION_MAX_PARTITION_COUNT;
@@ -115,7 +115,7 @@ public class TestAdaptivePartitioning
                                                 .left(node(AdaptivePlanNode.class,
                                                         remoteSource(ImmutableList.of(new PlanFragmentId("4")))))
                                                 // validate no partitionCount in local exchange
-                                                .right(exchange(LOCAL, Optional.empty(),
+                                                .right(exchange(LOCAL, OptionalInt.empty(),
                                                         node(AdaptivePlanNode.class,
                                                                 remoteSource(ImmutableList.of(new PlanFragmentId("5"))))))))))
                 .children(

@@ -31,7 +31,7 @@ import io.trino.spi.connector.ConnectorTransactionHandle;
 
 import java.io.IOException;
 import java.nio.file.Files;
-import java.nio.file.Paths;
+import java.nio.file.Path;
 import java.util.List;
 import java.util.Optional;
 
@@ -109,7 +109,7 @@ public class KafkaPageSinkProvider
     {
         return dataSchemaLocation.map(location -> {
             try {
-                return Files.readString(Paths.get(location));
+                return Files.readString(Path.of(location));
             }
             catch (IOException e) {
                 throw new TrinoException(KAFKA_SCHEMA_ERROR, format("Unable to read data schema at '%s'", location), e);

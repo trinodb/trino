@@ -29,6 +29,7 @@ import io.trino.sql.tree.BooleanLiteral;
 import io.trino.sql.tree.Cast;
 import io.trino.sql.tree.CoalesceExpression;
 import io.trino.sql.tree.ComparisonExpression;
+import io.trino.sql.tree.CompositeIntervalQualifier;
 import io.trino.sql.tree.CurrentCatalog;
 import io.trino.sql.tree.CurrentDate;
 import io.trino.sql.tree.CurrentPath;
@@ -56,7 +57,8 @@ import io.trino.sql.tree.Identifier;
 import io.trino.sql.tree.IfExpression;
 import io.trino.sql.tree.InListExpression;
 import io.trino.sql.tree.InPredicate;
-import io.trino.sql.tree.IntervalDayTimeDataType;
+import io.trino.sql.tree.IntervalDataType;
+import io.trino.sql.tree.IntervalField;
 import io.trino.sql.tree.IntervalLiteral;
 import io.trino.sql.tree.IsNotNullPredicate;
 import io.trino.sql.tree.IsNullPredicate;
@@ -89,6 +91,7 @@ import io.trino.sql.tree.RowDataType;
 import io.trino.sql.tree.SearchedCaseExpression;
 import io.trino.sql.tree.SimpleCaseExpression;
 import io.trino.sql.tree.SimpleGroupBy;
+import io.trino.sql.tree.SimpleIntervalQualifier;
 import io.trino.sql.tree.SkipTo;
 import io.trino.sql.tree.SortItem;
 import io.trino.sql.tree.StringLiteral;
@@ -110,8 +113,10 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.function.Function;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.sql.ReservedIdentifiers.reserved;
@@ -153,9 +158,21 @@ public final class ExpressionFormatter
         @Override
         protected String visitRow(Row node, Void context)
         {
-            return node.getItems().stream()
+            return node.getFields().stream()
                     .map(child -> process(child, context))
-                    .collect(joining(", ", "ROW (", ")"));
+                    .collect(joining(", ", "ROW(", ")"));
+        }
+
+        @Override
+        protected String visitRowField(Row.Field node, Void context)
+        {
+            StringBuilder builder = new StringBuilder();
+            builder.append(process(node.getExpression(), context));
+            if (node.getName().isPresent()) {
+                builder.append(" AS ");
+                builder.append(process(node.getName().get(), context));
+            }
+            return builder.toString();
         }
 
         @Override
@@ -366,16 +383,37 @@ public final class ExpressionFormatter
                 return literalFormatter.get().apply(node);
             }
             String sign = (node.getSign() == IntervalLiteral.Sign.NEGATIVE) ? "-" : "";
-            StringBuilder builder = new StringBuilder()
-                    .append("INTERVAL ")
-                    .append(sign)
-                    .append("'").append(node.getValue()).append("' ")
-                    .append(node.getStartField());
+            return "INTERVAL " +
+                    sign +
+                    "'" + node.getValue() + "' " +
+                    process(node.qualifier(), context);
+        }
 
-            if (node.getEndField().isPresent()) {
-                builder.append(" TO ").append(node.getEndField().get());
+        @Override
+        protected String visitSimpleIntervalQualifier(SimpleIntervalQualifier node, Void context)
+        {
+            if (node.getField() instanceof IntervalField.Second(OptionalInt fractionalPrecision) && fractionalPrecision.isPresent()) {
+                checkArgument(node.getPrecision().isPresent(), "Leading precision is required when fractional precision is specified");
+                return "SECOND(" + node.getPrecision().getAsInt() + ", " + fractionalPrecision.getAsInt() + ")";
             }
-            return builder.toString();
+
+            return node.getField().name() + (node.getPrecision().isPresent() ? "(" + node.getPrecision().getAsInt() + ")" : "");
+        }
+
+        @Override
+        protected String visitCompositeIntervalQualifier(CompositeIntervalQualifier node, Void context)
+        {
+            StringBuilder result = new StringBuilder();
+            result.append(node.getFrom().name());
+            if (node.getPrecision().isPresent()) {
+                result.append("(").append(node.getPrecision().getAsInt()).append(")");
+            }
+            result.append(" TO ");
+            result.append(node.getTo().name());
+            if (node.getTo() instanceof IntervalField.Second(OptionalInt fractionalPrecision) && fractionalPrecision.isPresent()) {
+                result.append("(").append(fractionalPrecision.getAsInt()).append(")");
+            }
+            return result.toString();
         }
 
         @Override
@@ -560,8 +598,8 @@ public final class ExpressionFormatter
 
             return switch (node.getSign()) {
                 // Unary is ambiguous with respect to negative numbers. "-1" parses as a number, but "-(1)" parses as "unaryMinus(number)"
-                // The parentheses are needed to ensure the parsing roundtrips properly.
-                case MINUS -> "-(" + value + ")";
+                // When parentheses are not present, adding them is necessary to ensure the parsing round trips properly.
+                case MINUS -> value.startsWith("(") ? "-" + value : "-(" + value + ")";
                 case PLUS -> "+" + value;
             };
         }
@@ -712,7 +750,7 @@ public final class ExpressionFormatter
         }
 
         @Override
-        protected String visitRowField(RowDataType.Field node, Void context)
+        protected String visitRowDataTypeField(RowDataType.Field node, Void context)
         {
             StringBuilder result = new StringBuilder();
 
@@ -754,18 +792,9 @@ public final class ExpressionFormatter
         }
 
         @Override
-        protected String visitIntervalDataType(IntervalDayTimeDataType node, Void context)
+        protected String visitIntervalDataType(IntervalDataType node, Void context)
         {
-            StringBuilder builder = new StringBuilder();
-
-            builder.append("INTERVAL ");
-            builder.append(node.getFrom());
-            if (node.getFrom() != node.getTo()) {
-                builder.append(" TO ")
-                        .append(node.getTo());
-            }
-
-            return builder.toString();
+            return "INTERVAL " + process(node.qualifier(), context);
         }
 
         @Override

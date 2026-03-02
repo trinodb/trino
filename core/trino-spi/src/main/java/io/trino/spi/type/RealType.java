@@ -42,13 +42,14 @@ import static io.trino.spi.function.OperatorType.XX_HASH_64;
 import static io.trino.spi.type.TypeOperatorDeclaration.extractOperatorDeclaration;
 import static java.lang.Float.floatToIntBits;
 import static java.lang.Float.intBitsToFloat;
-import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.lang.invoke.MethodHandles.lookup;
+import static java.lang.runtime.ExactConversionsSupport.isLongToIntExact;
 
 public final class RealType
         extends AbstractIntType
 {
+    public static final String NAME = "real";
     private static final TypeOperatorDeclaration TYPE_OPERATOR_DECLARATION = extractOperatorDeclaration(RealType.class, lookup(), long.class);
     private static final VarHandle INT_HANDLE = MethodHandles.byteArrayViewVarHandle(int[].class, ByteOrder.LITTLE_ENDIAN);
 
@@ -57,6 +58,12 @@ public final class RealType
     private RealType()
     {
         super(new TypeSignature(StandardTypes.REAL));
+    }
+
+    @Override
+    public String getDisplayName()
+    {
+        return NAME;
     }
 
     @Override
@@ -82,14 +89,10 @@ public final class RealType
     @Override
     public void writeLong(BlockBuilder blockBuilder, long value)
     {
-        int floatValue;
-        try {
-            floatValue = toIntExact(value);
-        }
-        catch (ArithmeticException e) {
+        if (!isLongToIntExact(value)) {
             throw new TrinoException(GENERIC_INTERNAL_ERROR, format("Value (%sb) is not a valid single-precision float", Long.toBinaryString(value)));
         }
-        writeInt(blockBuilder, floatValue);
+        writeInt(blockBuilder, (int) value);
     }
 
     public void writeFloat(BlockBuilder blockBuilder, float value)
@@ -130,10 +133,10 @@ public final class RealType
     @ScalarOperator(READ_VALUE)
     private static void writeFlat(
             long value,
-            byte[] fixedSizeSlice,
-            int fixedSizeOffset,
-            byte[] unusedVariableSizeSlice,
-            int unusedVariableSizeOffset)
+            @FlatFixed byte[] fixedSizeSlice,
+            @FlatFixedOffset int fixedSizeOffset,
+            @FlatVariableWidth byte[] unusedVariableSizeSlice,
+            @FlatVariableOffset int unusedVariableSizeOffset)
     {
         INT_HANDLE.set(fixedSizeSlice, fixedSizeOffset, (int) value);
     }

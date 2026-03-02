@@ -13,31 +13,42 @@
  */
 package io.trino.plugin.lakehouse;
 
+import com.google.common.collect.ImmutableList;
 import io.trino.Session;
+import io.trino.connector.MockConnectorFactory;
+import io.trino.connector.MockConnectorPlugin;
 import io.trino.plugin.hive.containers.Hive3MinioDataLake;
+import io.trino.spi.metrics.Metrics;
+import io.trino.spi.statistics.TableStatistics;
 import io.trino.testing.BaseConnectorTest;
 import io.trino.testing.MaterializedResult;
+import io.trino.testing.QueryFailedException;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
+import io.trino.testing.TestingSession;
 import io.trino.testing.sql.TestTable;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 
+import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
 
+import static io.trino.SystemSessionProperties.ITERATIVE_OPTIMIZER_TIMEOUT;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.QueryAssertions.copyTpchTables;
 import static io.trino.testing.TestingNames.randomNameSuffix;
-import static io.trino.testing.containers.Minio.MINIO_ACCESS_KEY;
 import static io.trino.testing.containers.Minio.MINIO_REGION;
-import static io.trino.testing.containers.Minio.MINIO_SECRET_KEY;
+import static io.trino.testing.containers.Minio.MINIO_ROOT_PASSWORD;
+import static io.trino.testing.containers.Minio.MINIO_ROOT_USER;
+import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Fail.fail;
 import static org.junit.jupiter.api.Assumptions.abort;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
@@ -61,8 +72,8 @@ public class TestLakehouseConnectorTest
                 .addLakehouseProperty("hive.metastore.uri", hiveMinio.getHiveMetastoreEndpoint().toString())
                 .addLakehouseProperty("fs.hadoop.enabled", "true")
                 .addLakehouseProperty("fs.native-s3.enabled", "true")
-                .addLakehouseProperty("s3.aws-access-key", MINIO_ACCESS_KEY)
-                .addLakehouseProperty("s3.aws-secret-key", MINIO_SECRET_KEY)
+                .addLakehouseProperty("s3.aws-access-key", MINIO_ROOT_USER)
+                .addLakehouseProperty("s3.aws-secret-key", MINIO_ROOT_PASSWORD)
                 .addLakehouseProperty("s3.region", MINIO_REGION)
                 .addLakehouseProperty("s3.endpoint", hiveMinio.getMinio().getMinioAddress())
                 .addLakehouseProperty("s3.path-style-access", "true")
@@ -81,6 +92,29 @@ public class TestLakehouseConnectorTest
         copyTpchTables(getQueryRunner(), "tpch", TINY_SCHEMA_NAME, REQUIRED_TPCH_TABLES);
     }
 
+    @BeforeAll
+    public void initMockMetricsCatalog()
+    {
+        QueryRunner queryRunner = getQueryRunner();
+        String mockConnector = "mock_metrics";
+        queryRunner.installPlugin(new MockConnectorPlugin(MockConnectorFactory.builder()
+                .withName(mockConnector)
+                .withListSchemaNames(_ -> ImmutableList.of("default"))
+                .withGetTableStatistics(_ -> {
+                    try {
+                        Thread.sleep(110);
+                    }
+                    catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                        throw new RuntimeException(e);
+                    }
+                    return TableStatistics.empty();
+                })
+                .build()));
+
+        queryRunner.createCatalog("mock_metrics", mockConnector);
+    }
+
     @Override
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
@@ -90,6 +124,7 @@ public class TestLakehouseConnectorTest
                  SUPPORTS_REPORTING_WRITTEN_BYTES -> true;
             case SUPPORTS_ADD_COLUMN_NOT_NULL_CONSTRAINT,
                  SUPPORTS_DEFAULT_COLUMN_VALUE,
+                 SUPPORTS_LIMIT_PUSHDOWN,
                  SUPPORTS_REFRESH_VIEW,
                  SUPPORTS_RENAME_MATERIALIZED_VIEW_ACROSS_SCHEMAS,
                  SUPPORTS_TOPN_PUSHDOWN -> false;
@@ -170,7 +205,8 @@ public class TestLakehouseConnectorTest
     {
         assertThat(e).hasMessageMatching(".*(Failed to set column type: Cannot change (column type:|type from .* to )" +
                 "|Time(stamp)? precision \\(3\\) not supported for Iceberg. Use \"time(stamp)?\\(6\\)\" instead" +
-                "|Type not supported for Iceberg: smallint|char\\(20\\)).*");
+                "|Type not supported for Iceberg: (tinyint|smallint|char\\(20\\))" +
+                "|Cannot update map keys).*");
     }
 
     @Override
@@ -178,8 +214,8 @@ public class TestLakehouseConnectorTest
     {
         assertThat(e).hasMessageMatching(".*(Failed to set field type: Cannot change (column type:|type from .* to )" +
                 "|Time(stamp)? precision \\(3\\) not supported for Iceberg. Use \"time(stamp)?\\(6\\)\" instead" +
-                "|Type not supported for Iceberg: smallint|char\\(20\\)" +
-                "|Iceberg doesn't support changing field type (from|to) non-primitive types).*");
+                "|Type not supported for Iceberg: (tinyint|smallint|char\\(20\\))" +
+                "|Cannot update map keys).*");
     }
 
     @Override
@@ -210,15 +246,19 @@ public class TestLakehouseConnectorTest
             return Optional.of(setup.withNewValueLiteral("TIMESTAMP '2020-02-12 14:03:00.123000 +00:00'"));
         }
         switch ("%s -> %s".formatted(setup.sourceColumnType(), setup.newColumnType())) {
-            case "row(x integer) -> row(y integer)":
+            case "row(x integer) -> row(\"y\" integer)":
                 return Optional.of(setup.withNewValueLiteral("NULL"));
             case "tinyint -> smallint":
             case "bigint -> integer":
+            case "bigint -> smallint":
+            case "bigint -> tinyint":
             case "decimal(5,3) -> decimal(5,2)":
+            case "char(25) -> char(20)":
             case "varchar -> char(20)":
             case "time(6) -> time(3)":
             case "timestamp(6) -> timestamp(3)":
-            case "array(integer) -> array(bigint)":
+            // Iceberg cannot update map keys
+            case "map(integer, varchar) -> map(bigint, varchar)":
                 return Optional.of(setup.asUnsupported());
             case "varchar(100) -> varchar(50)":
                 return Optional.empty();
@@ -229,25 +269,24 @@ public class TestLakehouseConnectorTest
     @Override
     protected Optional<SetColumnTypeSetup> filterSetFieldTypesDataProvider(SetColumnTypeSetup setup)
     {
+        if (setup.sourceColumnType().equals("timestamp(3) with time zone")) {
+            // The connector returns UTC instead of the given time zone
+            return Optional.of(setup.withNewValueLiteral("TIMESTAMP '2020-02-12 14:03:00.123000 +00:00'"));
+        }
         switch ("%s -> %s".formatted(setup.sourceColumnType(), setup.newColumnType())) {
             case "tinyint -> smallint":
             case "bigint -> integer":
+            case "bigint -> smallint":
+            case "bigint -> tinyint":
             case "decimal(5,3) -> decimal(5,2)":
+            case "char(25) -> char(20)":
             case "varchar -> char(20)":
             case "time(6) -> time(3)":
             case "timestamp(6) -> timestamp(3)":
-            case "array(integer) -> array(bigint)":
-            case "row(x integer) -> row(x bigint)":
-            case "row(x integer) -> row(y integer)":
-            case "row(x integer, y integer) -> row(x integer, z integer)":
-            case "row(x integer) -> row(x integer, y integer)":
-            case "row(x integer, y integer) -> row(x integer)":
-            case "row(x integer, y integer) -> row(y integer, x integer)":
-            case "row(x integer, y integer) -> row(z integer, y integer, x integer)":
-            case "row(x row(nested integer)) -> row(x row(nested bigint))":
-            case "row(x row(a integer, b integer)) -> row(x row(b integer, a integer))":
+            case "map(integer, varchar) -> map(bigint, varchar)":
                 return Optional.of(setup.asUnsupported());
             case "varchar(100) -> varchar(50)":
+            case "row(x integer) -> row(\"y\" integer)":
                 return Optional.empty();
         }
         return Optional.of(setup);
@@ -364,5 +403,37 @@ public class TestLakehouseConnectorTest
                    location = \\E's3://test-bucket-.*/tpch/orders-.*'\\Q,
                    type = 'ICEBERG'
                 )\\E""");
+    }
+
+    @Test
+    public void testCatalogMetadataMetrics()
+    {
+        QueryRunner.MaterializedResultWithPlan result = getQueryRunner().executeWithPlan(
+                getSession(),
+                "SELECT count(*) FROM region r, nation n WHERE r.regionkey = n.regionkey");
+        Map<String, Metrics> metrics = getCatalogMetadataMetrics(result.queryId());
+        assertCountMetricExists(metrics, "lakehouse", "iceberg.metastore.all.time.total");
+        assertDistributionMetricExists(metrics, "lakehouse", "iceberg.metastore.all.time.distribution");
+        assertCountMetricExists(metrics, "lakehouse", "iceberg.metastore.getTable.time.total");
+        assertDistributionMetricExists(metrics, "lakehouse", "iceberg.metastore.getTable.time.distribution");
+    }
+
+    @Test
+    public void testCatalogMetadataMetricsWithOptimizerTimeoutExceeded()
+    {
+        String query = "SELECT count(*) FROM region r, nation n, mock_metrics.default.mock_table m WHERE r.regionkey = n.regionkey";
+        try {
+            Session smallOptimizerTimeout = TestingSession.testSessionBuilder(getSession())
+                    .setSystemProperty(ITERATIVE_OPTIMIZER_TIMEOUT, "100ms")
+                    .build();
+            QueryRunner.MaterializedResultWithPlan result = getQueryRunner().executeWithPlan(smallOptimizerTimeout, query);
+            fail(format("Expected query to fail: %s [QueryId: %s]", query, result.queryId()));
+        }
+        catch (QueryFailedException e) {
+            assertThat(e.getMessage()).contains("The optimizer exhausted the time limit");
+            Map<String, Metrics> metrics = getCatalogMetadataMetrics(e.getQueryId());
+            assertCountMetricExists(metrics, "lakehouse", "iceberg.metastore.all.time.total");
+            assertCountMetricExists(metrics, "lakehouse", "iceberg.metastore.getTable.time.total");
+        }
     }
 }

@@ -34,6 +34,7 @@ import io.trino.spi.type.RowType;
 import io.trino.spi.type.SmallintType;
 import io.trino.spi.type.SqlDate;
 import io.trino.spi.type.SqlDecimal;
+import io.trino.spi.type.SqlNumber;
 import io.trino.spi.type.SqlTime;
 import io.trino.spi.type.SqlTimeWithTimeZone;
 import io.trino.spi.type.SqlTimestamp;
@@ -108,7 +109,7 @@ public final class JsonEncodingUtils
             // TODO: add specialized Short/Long decimal encoders
             case ArrayType arrayType -> new ArrayEncoder(arrayType, createTypeEncoder(arrayType.getElementType(), supportsParametricDateTime));
             case MapType mapType -> new MapEncoder(mapType, createTypeEncoder(mapType.getValueType(), supportsParametricDateTime));
-            case RowType rowType -> new RowEncoder(rowType, rowType.getTypeParameters()
+            case RowType rowType -> new RowEncoder(rowType, rowType.getFieldTypes()
                     .stream()
                     .map(elementType -> createTypeEncoder(elementType, supportsParametricDateTime))
                     .toArray(TypeEncoder[]::new));
@@ -143,13 +144,13 @@ public final class JsonEncodingUtils
         }
     }
 
-    public interface TypeEncoder
+    public sealed interface TypeEncoder
     {
         void encode(JsonGenerator generator, Block block, int position)
                 throws IOException;
     }
 
-    private static class BigintEncoder
+    private static final class BigintEncoder
             implements TypeEncoder
     {
         @Override
@@ -164,7 +165,7 @@ public final class JsonEncodingUtils
         }
     }
 
-    private static class IntegerEncoder
+    private static final class IntegerEncoder
             implements TypeEncoder
     {
         @Override
@@ -179,7 +180,7 @@ public final class JsonEncodingUtils
         }
     }
 
-    private static class BooleanEncoder
+    private static final class BooleanEncoder
             implements TypeEncoder
     {
         @Override
@@ -194,7 +195,7 @@ public final class JsonEncodingUtils
         }
     }
 
-    private static class SmallintEncoder
+    private static final class SmallintEncoder
             implements TypeEncoder
     {
         @Override
@@ -209,7 +210,7 @@ public final class JsonEncodingUtils
         }
     }
 
-    private static class TinyintEncoder
+    private static final class TinyintEncoder
             implements TypeEncoder
     {
         @Override
@@ -224,7 +225,7 @@ public final class JsonEncodingUtils
         }
     }
 
-    private static class DoubleEncoder
+    private static final class DoubleEncoder
             implements TypeEncoder
     {
         @Override
@@ -239,7 +240,7 @@ public final class JsonEncodingUtils
         }
     }
 
-    private static class RealEncoder
+    private static final class RealEncoder
             implements TypeEncoder
     {
         @Override
@@ -254,7 +255,7 @@ public final class JsonEncodingUtils
         }
     }
 
-    private static class VarcharEncoder
+    private static final class VarcharEncoder
             implements TypeEncoder
     {
         @Override
@@ -270,7 +271,7 @@ public final class JsonEncodingUtils
         }
     }
 
-    private static class CharEncoder
+    private static final class CharEncoder
             implements TypeEncoder
     {
         private final int length;
@@ -293,7 +294,7 @@ public final class JsonEncodingUtils
         }
     }
 
-    private static class VarbinaryEncoder
+    private static final class VarbinaryEncoder
             implements TypeEncoder
     {
         @Override
@@ -311,7 +312,7 @@ public final class JsonEncodingUtils
         }
     }
 
-    private static class ArrayEncoder
+    private static final class ArrayEncoder
             implements TypeEncoder
     {
         private final ArrayType arrayType;
@@ -341,7 +342,7 @@ public final class JsonEncodingUtils
         }
     }
 
-    private static class MapEncoder
+    private static final class MapEncoder
             implements TypeEncoder
     {
         private final MapType mapType;
@@ -380,7 +381,7 @@ public final class JsonEncodingUtils
         }
     }
 
-    private static class RowEncoder
+    private static final class RowEncoder
             implements TypeEncoder
     {
         private final RowType rowType;
@@ -409,7 +410,7 @@ public final class JsonEncodingUtils
         }
     }
 
-    private static class TypeObjectValueEncoder
+    private static final class TypeObjectValueEncoder
             implements TypeEncoder
     {
         private final Type type;
@@ -436,6 +437,9 @@ public final class JsonEncodingUtils
                 case BigDecimal bigDecimalValue -> generator.writeNumber(bigDecimalValue);
                 case SqlDate dateValue -> generator.writeString(dateValue.toString());
                 case SqlDecimal decimalValue -> generator.writeString(decimalValue.toString());
+                // When client does not have NUMBER capability, NUMBER values are sent as varchar (strings).
+                // When it has the capability, they are also sent as strings.
+                case SqlNumber number -> generator.writeString(number.toString());
                 case SqlIntervalDayTime intervalValue -> generator.writeString(intervalValue.toString());
                 case SqlIntervalYearMonth intervalValue -> generator.writeString(intervalValue.toString());
                 case SqlTime timeValue -> generator.writeString(timeValue.toString());

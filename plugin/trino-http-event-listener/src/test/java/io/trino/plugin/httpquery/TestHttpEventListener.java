@@ -18,7 +18,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.json.JsonCodec;
 import io.trino.operator.RetryPolicy;
-import io.trino.plugin.base.evenlistener.TestingEventListenerContext;
+import io.trino.plugin.base.eventlistener.testing.TestingEventListenerContext;
 import io.trino.spi.eventlistener.EventListener;
 import io.trino.spi.eventlistener.EventListenerFactory;
 import io.trino.spi.eventlistener.QueryCompletedEvent;
@@ -153,6 +153,7 @@ final class TestHttpEventListener
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
+                Optional.empty(),
                 0L,
                 0L,
                 0L,
@@ -179,6 +180,8 @@ final class TestHttpEventListener
                 Collections.emptyList(),
                 Collections.emptyList(),
                 Collections.emptyList(),
+                ImmutableMap.of(),
+                ImmutableMap.of(),
                 Optional.empty());
 
         queryCreatedEvent = new QueryCreatedEvent(
@@ -191,6 +194,7 @@ final class TestHttpEventListener
                 queryStatistics,
                 queryContext,
                 queryIOMetadata,
+                Optional.empty(),
                 Optional.empty(),
                 Collections.emptyList(),
                 Instant.now(),

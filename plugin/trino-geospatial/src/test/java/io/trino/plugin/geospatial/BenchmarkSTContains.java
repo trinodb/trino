@@ -153,7 +153,7 @@ public class BenchmarkSTContains
         }
     }
 
-    public static void main(String[] args)
+    static void main()
             throws IOException, RunnerException
     {
         // assure the benchmarks are valid before running

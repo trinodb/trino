@@ -14,16 +14,22 @@
 package io.trino.plugin.iceberg;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.inject.Inject;
 import io.trino.spi.session.PropertyMetadata;
 
 import java.util.List;
+import java.util.Set;
 
 import static io.trino.spi.session.PropertyMetadata.stringProperty;
 
 public final class IcebergSchemaProperties
 {
     public static final String LOCATION_PROPERTY = "location";
+
+    public static final Set<String> SUPPORTED_SCHEMA_PROPERTIES = ImmutableSet.<String>builder()
+            .add(LOCATION_PROPERTY)
+            .build();
 
     public final List<PropertyMetadata<?>> schemaProperties;
 

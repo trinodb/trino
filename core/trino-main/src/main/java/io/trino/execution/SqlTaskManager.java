@@ -69,14 +69,12 @@ import java.time.Instant;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.Predicate;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -89,6 +87,7 @@ import static io.trino.SystemSessionProperties.getRetryPolicy;
 import static io.trino.SystemSessionProperties.resourceOvercommit;
 import static io.trino.cache.SafeCaches.buildNonEvictableCache;
 import static io.trino.connector.CatalogHandle.createRootCatalogHandle;
+import static io.trino.connector.ConnectorServicesProvider.PrunableState;
 import static io.trino.execution.SqlTask.createSqlTask;
 import static io.trino.execution.executor.timesharing.PrioritizedSplitRunner.SPLIT_RUN_QUANTA;
 import static io.trino.operator.RetryPolicy.TASK;
@@ -233,7 +232,7 @@ public class SqlTaskManager
                             taskId,
                             locationFactory.createLocalTaskLocation(taskId),
                             nodeInfo.getNodeId(),
-                            queryContexts.getUnchecked(taskId.getQueryId()),
+                            queryContexts.getUnchecked(taskId.queryId()),
                             tracer,
                             sqlTaskExecutionFactory,
                             taskNotificationExecutor,
@@ -464,25 +463,17 @@ public class SqlTaskManager
         return sqlTask.acknowledgeAndGetNewDynamicFilterDomains(currentDynamicFiltersVersion);
     }
 
-    private final ReentrantReadWriteLock catalogsLock = new ReentrantReadWriteLock();
-
     public void pruneCatalogs(Set<CatalogHandle> activeCatalogs)
     {
         Set<CatalogHandle> catalogsInUse = new HashSet<>(activeCatalogs);
-        ReentrantReadWriteLock.WriteLock pruneLock = catalogsLock.writeLock();
-        pruneLock.lock();
-        try {
-            for (SqlTask task : tasks.asMap().values()) {
-                // add all catalogs being used by a non-done task
-                if (!task.getTaskState().isDone()) {
-                    catalogsInUse.addAll(task.getCatalogs().orElse(ImmutableSet.of()));
-                }
+        PrunableState prunableState = connectorServicesProvider.getPrunableState();
+        for (SqlTask task : tasks.asMap().values()) {
+            // add all catalogs being used by a non-done task
+            if (!task.getTaskState().isDone()) {
+                catalogsInUse.addAll(task.getCatalogs().orElse(ImmutableSet.of()));
             }
-            connectorServicesProvider.pruneCatalogs(catalogsInUse);
         }
-        finally {
-            pruneLock.unlock();
-        }
+        connectorServicesProvider.pruneCatalogs(prunableState, catalogsInUse);
     }
 
     /**
@@ -552,15 +543,8 @@ public class SqlTaskManager
                             .collect(toImmutableSet());
                     sqlTask.setCatalogs(catalogHandles);
                     if (!sqlTask.catalogsLoaded()) {
-                        ReentrantReadWriteLock.ReadLock catalogInitLock = catalogsLock.readLock();
-                        catalogInitLock.lock();
-                        try {
-                            connectorServicesProvider.ensureCatalogsLoaded(session, activeCatalogs);
-                            sqlTask.setCatalogsLoaded();
-                        }
-                        finally {
-                            catalogInitLock.unlock();
-                        }
+                        connectorServicesProvider.ensureCatalogsLoaded(activeCatalogs);
+                        sqlTask.setCatalogsLoaded();
                     }
                 });
 
@@ -656,13 +640,11 @@ public class SqlTaskManager
     void removeOldTasks()
     {
         Instant oldestAllowedTask = Instant.now().minusMillis(infoCacheTime.toMillis());
-        tasks.asMap().values().stream()
-                .map(SqlTask::getTaskInfo)
-                .filter(Objects::nonNull)
-                .forEach(taskInfo -> {
-                    TaskId taskId = taskInfo.taskStatus().getTaskId();
+        tasks.asMap().values()
+                .forEach(sqlTask -> {
+                    TaskId taskId = sqlTask.getTaskId();
                     try {
-                        Instant endTime = taskInfo.stats().getEndTime();
+                        Instant endTime = sqlTask.getTaskEndTime();
                         if (endTime != null && endTime.isBefore(oldestAllowedTask)) {
                             // The removal here is concurrency safe with respect to any concurrent loads: the cache has no expiration,
                             // the taskId is in the cache, so there mustn't be an ongoing load.
@@ -680,20 +662,20 @@ public class SqlTaskManager
         Instant now = Instant.now();
         Instant oldestAllowedHeartbeat = now.minusMillis(clientTimeout.toMillis());
         for (SqlTask sqlTask : tasks.asMap().values()) {
+            TaskId taskId = sqlTask.getTaskId();
             try {
-                TaskInfo taskInfo = sqlTask.getTaskInfo();
-                TaskStatus taskStatus = taskInfo.taskStatus();
-                if (taskStatus.getState().isDone()) {
+                TaskState taskState = sqlTask.getTaskState();
+                if (taskState.isDone()) {
                     continue;
                 }
-                Instant lastHeartbeat = taskInfo.lastHeartbeat();
+                Instant lastHeartbeat = sqlTask.lastHeartbeat();
                 if (lastHeartbeat != null && lastHeartbeat.isBefore(oldestAllowedHeartbeat)) {
-                    log.info("Failing abandoned task %s", taskStatus.getTaskId());
-                    sqlTask.failed(new TrinoException(ABANDONED_TASK, format("Task %s has not been accessed since %s: currentTime %s", taskStatus.getTaskId(), lastHeartbeat, now)));
+                    log.info("Failing abandoned task %s", taskId);
+                    sqlTask.failed(new TrinoException(ABANDONED_TASK, format("Task %s has not been accessed since %s: currentTime %s", taskId, lastHeartbeat, now)));
                 }
             }
             catch (RuntimeException e) {
-                log.warn(e, "Error while inspecting age of task %s", sqlTask.getTaskId());
+                log.warn(e, "Error while inspecting age of task %s", taskId);
             }
         }
     }
@@ -793,7 +775,7 @@ public class SqlTaskManager
      * <li>We find long-running splits; we get A, B, C.</li>
      * <li>None of those is actually running JONI code.</li>
      * <li>just before when we investigate stack trace for A, the underlying thread already switched to some other unrelated split D; and D is actually running JONI</li>
-     * we get the stacktrace for what we believe is A, but it is for D, and we decide we should kill the task that A belongs to</li>
+     * <li>we get the stacktrace for what we believe is A, but it is for D, and we decide we should kill the task that A belongs to</li>
      * <li>(clash!!!) wrong decision is made</li>
      * </ol>
      * A proposed fix and more details of this issue are at: <a href="https://github.com/trinodb/trino/pull/13272">pull/13272</a>.
@@ -867,7 +849,7 @@ public class SqlTaskManager
             task.recordHeartbeat();
         }
 
-        public String getTaskInstanceId()
+        public long getTaskInstanceId()
         {
             return task.getTaskInstanceId();
         }

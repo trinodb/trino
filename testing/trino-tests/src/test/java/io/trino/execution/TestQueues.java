@@ -32,6 +32,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.parallel.Execution;
 
+import java.time.Duration;
 import java.util.Optional;
 import java.util.Set;
 
@@ -256,7 +257,7 @@ public class TestQueues
             assertResourceGroup(
                     queryRunner,
                     newSessionWithResourceEstimates(new ResourceEstimates(
-                            Optional.of(java.time.Duration.ofMinutes(4)),
+                            Optional.of(Duration.ofMinutes(4)),
                             Optional.empty(),
                             Optional.of(DataSize.of(400, MEGABYTE).toBytes()))),
                     LONG_LASTING_QUERY,
@@ -265,7 +266,7 @@ public class TestQueues
             assertResourceGroup(
                     queryRunner,
                     newSessionWithResourceEstimates(new ResourceEstimates(
-                            Optional.of(java.time.Duration.ofMinutes(4)),
+                            Optional.of(Duration.ofMinutes(4)),
                             Optional.empty(),
                             Optional.of(DataSize.of(600, MEGABYTE).toBytes()))),
                     LONG_LASTING_QUERY,
@@ -274,7 +275,7 @@ public class TestQueues
             assertResourceGroup(
                     queryRunner,
                     newSessionWithResourceEstimates(new ResourceEstimates(
-                            Optional.of(java.time.Duration.ofMinutes(4)),
+                            Optional.of(Duration.ofMinutes(4)),
                             Optional.empty(),
                             Optional.empty())),
                     LONG_LASTING_QUERY,
@@ -283,8 +284,8 @@ public class TestQueues
             assertResourceGroup(
                     queryRunner,
                     newSessionWithResourceEstimates(new ResourceEstimates(
-                            Optional.of(java.time.Duration.ofSeconds(1)),
-                            Optional.of(java.time.Duration.ofSeconds(1)),
+                            Optional.of(Duration.ofSeconds(1)),
+                            Optional.of(Duration.ofSeconds(1)),
                             Optional.of(DataSize.of(6, TERABYTE).toBytes()))),
                     LONG_LASTING_QUERY,
                     createResourceGroupId("global", "huge_memory"));
@@ -292,11 +293,25 @@ public class TestQueues
             assertResourceGroup(
                     queryRunner,
                     newSessionWithResourceEstimates(new ResourceEstimates(
-                            Optional.of(java.time.Duration.ofHours(100)),
+                            Optional.of(Duration.ofHours(100)),
                             Optional.empty(),
                             Optional.of(DataSize.of(4, TERABYTE).toBytes()))),
                     LONG_LASTING_QUERY,
                     createResourceGroupId("global", "other"));
+        }
+    }
+
+    @Test
+    @Timeout(240)
+    public void testQueryTextBasedSelection()
+            throws Exception
+    {
+        try (QueryRunner queryRunner = TpchQueryRunner.builder().build()) {
+            queryRunner.installPlugin(new ResourceGroupManagerPlugin());
+            queryRunner.getCoordinator().getResourceGroupManager().get()
+                    .setConfigurationManager("file", ImmutableMap.of("resource-groups.config-file", getResourceFilePath("resource_groups_query_text_based_config.json")));
+            assertResourceGroup(queryRunner, newAdhocSession(), "select 1", createResourceGroupId("global", "select_1"));
+            assertResourceGroup(queryRunner, newAdhocSession(), "select 2", createResourceGroupId("global", "select_2"));
         }
     }
 

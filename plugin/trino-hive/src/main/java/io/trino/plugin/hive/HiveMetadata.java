@@ -117,6 +117,7 @@ import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.expression.Variable;
 import io.trino.spi.function.LanguageFunction;
 import io.trino.spi.function.SchemaFunctionName;
+import io.trino.spi.metrics.Metrics;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.NullableValue;
 import io.trino.spi.predicate.TupleDomain;
@@ -142,6 +143,7 @@ import org.apache.avro.SchemaParseException;
 
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -165,7 +167,6 @@ import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
 import java.util.stream.Stream;
 
-import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -180,6 +181,7 @@ import static io.trino.metastore.Partitions.toPartitionValues;
 import static io.trino.metastore.PrincipalPrivileges.NO_PRIVILEGES;
 import static io.trino.metastore.PrincipalPrivileges.fromHivePrivilegeInfos;
 import static io.trino.metastore.StatisticsUpdateMode.MERGE_INCREMENTAL;
+import static io.trino.metastore.StatisticsUpdateMode.OVERWRITE_ALL;
 import static io.trino.metastore.StorageFormat.VIEW_STORAGE_FORMAT;
 import static io.trino.metastore.type.Category.PRIMITIVE;
 import static io.trino.parquet.writer.ParquetWriter.SUPPORTED_BLOOM_FILTER_TYPES;
@@ -350,6 +352,7 @@ import static java.lang.Boolean.parseBoolean;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
+import static java.util.Objects.requireNonNullElse;
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toMap;
@@ -394,8 +397,8 @@ public class HiveMetadata
     public static final String MODIFYING_NON_TRANSACTIONAL_TABLE_MESSAGE = "Modifying Hive table rows is only supported for transactional tables";
 
     private static final RetryPolicy<?> DELETE_RETRY_POLICY = RetryPolicy.builder()
-            .withDelay(java.time.Duration.ofSeconds(1))
-            .withMaxDuration(java.time.Duration.ofSeconds(30))
+            .withDelay(Duration.ofSeconds(1))
+            .withMaxDuration(Duration.ofSeconds(30))
             .withMaxAttempts(10)
             .build();
 
@@ -828,6 +831,13 @@ public class HiveMetadata
                 partitionIds,
                 !hiveTableHandle.getPartitionColumns().isEmpty(),
                 tableDefaultFileFormat));
+    }
+
+    @Override
+    public Metrics getMetrics(ConnectorSession session)
+    {
+        // HiveMetadata and metastore are created per session
+        return metastore.getMetrics();
     }
 
     @Override
@@ -1516,7 +1526,7 @@ public class HiveMetadata
         HiveTableHandle handle = (HiveTableHandle) tableHandle;
         failIfAvroSchemaIsSet(handle);
 
-        metastore.addColumn(handle.getSchemaName(), handle.getTableName(), column.getName(), toHiveType(column.getType()), column.getComment());
+        metastore.addColumn(handle.getSchemaName(), handle.getTableName(), column.getName(), toHiveType(column.getType()), column.getComment().orElse(null));
     }
 
     @Override
@@ -2352,7 +2362,8 @@ public class HiveMetadata
                                 partitionValues,
                                 partitionUpdate.getWritePath(),
                                 partitionUpdate.getFileNames(),
-                                partitionStatistics));
+                                partitionStatistics,
+                                MERGE_INCREMENTAL));
             }
             else if (partitionUpdate.getUpdateMode() == NEW || partitionUpdate.getUpdateMode() == OVERWRITE) {
                 // insert into new partition or overwrite existing partition
@@ -2377,6 +2388,13 @@ public class HiveMetadata
                             TrinoFileSystem fileSystem = fileSystemFactory.create(session);
                             cleanExtraOutputFiles(fileSystem, session.getQueryId(), partitionUpdate.getTargetPath(), ImmutableSet.copyOf(partitionUpdate.getFileNames()));
                         }
+                        partitionUpdateInfosBuilder.add(
+                                new PartitionUpdateInfo(
+                                        partitionValues,
+                                        partitionUpdate.getWritePath(),
+                                        partitionUpdate.getFileNames(),
+                                        partitionStatistics,
+                                        OVERWRITE_ALL));
                     }
                     else {
                         metastore.dropPartition(session, handle.getSchemaName(), handle.getTableName(), partition.getValues(), true);
@@ -2682,7 +2700,8 @@ public class HiveMetadata
                                 partitionValues,
                                 partitionUpdate.getWritePath(),
                                 partitionUpdate.getFileNames(),
-                                PartitionStatistics.empty()));
+                                PartitionStatistics.empty(),
+                                MERGE_INCREMENTAL));
             }
         }
 
@@ -3554,8 +3573,11 @@ public class HiveMetadata
     }
 
     @Override
-    public TableStatisticsMetadata getStatisticsCollectionMetadataForWrite(ConnectorSession session, ConnectorTableMetadata tableMetadata)
+    public TableStatisticsMetadata getStatisticsCollectionMetadataForWrite(ConnectorSession session, ConnectorTableMetadata tableMetadata, boolean tableReplace)
     {
+        if (tableReplace) {
+            throw new TrinoException(NOT_SUPPORTED, "This connector does not support replacing tables");
+        }
         if (!isCollectColumnStatisticsOnWrite(session)) {
             return TableStatisticsMetadata.empty();
         }
@@ -3566,7 +3588,7 @@ public class HiveMetadata
             // TODO(https://github.com/trinodb/trino/issues/1956) updating table statistics for transactional not supported right now.
             return TableStatisticsMetadata.empty();
         }
-        List<String> partitionedBy = firstNonNull(getPartitionedBy(tableMetadata.getProperties()), ImmutableList.of());
+        List<String> partitionedBy = requireNonNullElse(getPartitionedBy(tableMetadata.getProperties()), ImmutableList.of());
         return getStatisticsCollectionMetadata(tableMetadata.getColumns(), partitionedBy, Optional.empty(), false);
     }
 
@@ -3761,7 +3783,7 @@ public class HiveMetadata
         }
 
         List<Column> dataColumns = tableMetadata.getColumns().stream()
-                .map(columnMetadata -> new Column(columnMetadata.getName(), toHiveType(columnMetadata.getType()), Optional.ofNullable(columnMetadata.getComment()), ImmutableMap.of()))
+                .map(columnMetadata -> new Column(columnMetadata.getName(), toHiveType(columnMetadata.getType()), columnMetadata.getComment(), ImmutableMap.of()))
                 .collect(toImmutableList());
         if (!isSupportedBucketing(bucketInfo.get().bucketedBy(), dataColumns, tableMetadata.getTable().getTableName())) {
             throw new TrinoException(NOT_SUPPORTED, "Cannot create a table bucketed on an unsupported type");
@@ -3814,7 +3836,7 @@ public class HiveMetadata
                     toHiveType(column.getType()),
                     column.getType(),
                     columnType,
-                    Optional.ofNullable(column.getComment())));
+                    column.getComment()));
             ordinal++;
         }
 
@@ -3887,8 +3909,8 @@ public class HiveMetadata
             validateTimestampTypes(mapType.getKeyType(), precision, column);
             validateTimestampTypes(mapType.getValueType(), precision, column);
         }
-        else if (type instanceof RowType) {
-            for (Type fieldType : type.getTypeParameters()) {
+        else if (type instanceof RowType rowType) {
+            for (Type fieldType : rowType.getFieldTypes()) {
                 validateTimestampTypes(fieldType, precision, column);
             }
         }

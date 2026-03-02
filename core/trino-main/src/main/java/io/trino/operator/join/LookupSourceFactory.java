@@ -15,6 +15,7 @@ package io.trino.operator.join;
 
 import com.google.common.util.concurrent.ListenableFuture;
 import io.trino.operator.TaskContext;
+import io.trino.operator.join.spilling.PartitionedConsumption;
 import io.trino.spi.type.Type;
 
 import java.util.List;

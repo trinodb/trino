@@ -29,7 +29,11 @@ import static io.airlift.slice.SizeOf.SIZE_OF_INT;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 
-// This class is exactly the same as BlockEncodingManager. They are in SPI and don't have access to InternalBlockEncodingSerde.
+/**
+ * This class is only meant to be used within the trino-spi module. For all other modules, use InternalBlockEncodingSerde.TESTING_BLOCK_ENCODING_SERDE
+ * <p>
+ * This class is does a similar job to BlockEncodingManager and InternalBlockEncodingSerde, but the latter is not accessible from this module.
+ */
 public final class TestingBlockEncodingSerde
         implements BlockEncodingSerde
 {
@@ -46,17 +50,17 @@ public final class TestingBlockEncodingSerde
     {
         this.types = requireNonNull(types, "types is null");
         // add the built-in BlockEncodings
-        addBlockEncoding(new VariableWidthBlockEncoding());
-        addBlockEncoding(new ByteArrayBlockEncoding());
-        addBlockEncoding(new ShortArrayBlockEncoding());
-        addBlockEncoding(new IntArrayBlockEncoding());
-        addBlockEncoding(new LongArrayBlockEncoding());
-        addBlockEncoding(new Fixed12BlockEncoding());
-        addBlockEncoding(new Int128ArrayBlockEncoding());
+        addBlockEncoding(new VariableWidthBlockEncoding(true));
+        addBlockEncoding(new ByteArrayBlockEncoding(true, true, true));
+        addBlockEncoding(new ShortArrayBlockEncoding(true, true, true));
+        addBlockEncoding(new IntArrayBlockEncoding(true, true, true));
+        addBlockEncoding(new LongArrayBlockEncoding(true, true, true));
+        addBlockEncoding(new Fixed12BlockEncoding(true));
+        addBlockEncoding(new Int128ArrayBlockEncoding(true));
         addBlockEncoding(new DictionaryBlockEncoding());
-        addBlockEncoding(new ArrayBlockEncoding());
-        addBlockEncoding(new MapBlockEncoding());
-        addBlockEncoding(new RowBlockEncoding());
+        addBlockEncoding(new ArrayBlockEncoding(true));
+        addBlockEncoding(new MapBlockEncoding(true));
+        addBlockEncoding(new RowBlockEncoding(true));
         addBlockEncoding(new RunLengthBlockEncoding());
     }
 

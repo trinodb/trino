@@ -13,9 +13,6 @@
  */
 package io.trino.matching;
 
-import io.trino.matching.pattern.EqualsPattern;
-import io.trino.matching.pattern.FilterPattern;
-
 import java.util.Optional;
 import java.util.function.BiFunction;
 import java.util.function.BiPredicate;
@@ -24,14 +21,11 @@ import java.util.function.Predicate;
 
 import static java.util.Objects.requireNonNull;
 
-public class Property<F, C, T>
+public record Property<F, C, T>(String name, BiFunction<F, C, Optional<T>> function)
 {
-    private final String name;
-    private final BiFunction<F, C, Optional<T>> function;
-
     public static <F, C, T> Property<F, C, T> property(String name, Function<F, T> function)
     {
-        return property(name, (source, context) -> function.apply(source));
+        return property(name, (source, _) -> function.apply(source));
     }
 
     public static <F, C, T> Property<F, C, T> property(String name, BiFunction<F, C, T> function)
@@ -41,7 +35,7 @@ public class Property<F, C, T>
 
     public static <F, C, T> Property<F, C, T> optionalProperty(String name, Function<F, Optional<T>> function)
     {
-        return new Property<>(name, (source, context) -> function.apply(source));
+        return new Property<>(name, (source, _) -> function.apply(source));
     }
 
     public static <F, C, T> Property<F, C, T> optionalProperty(String name, BiFunction<F, C, Optional<T>> function)
@@ -49,15 +43,10 @@ public class Property<F, C, T>
         return new Property<>(name, function);
     }
 
-    public Property(String name, BiFunction<F, C, Optional<T>> function)
+    public Property
     {
-        this.name = requireNonNull(name, "name is null");
-        this.function = requireNonNull(function, "function is null");
-    }
-
-    public String getName()
-    {
-        return name;
+        requireNonNull(name, "name is null");
+        requireNonNull(function, "function is null");
     }
 
     public BiFunction<F, C, Optional<?>> getFunction()
@@ -84,7 +73,7 @@ public class Property<F, C, T>
 
     public PropertyPattern<F, C, T> matching(Predicate<? super T> predicate)
     {
-        return matching((t, context) -> predicate.test(t));
+        return matching((t, _) -> predicate.test(t));
     }
 
     public PropertyPattern<F, C, T> matching(BiPredicate<? super T, ?> predicate)

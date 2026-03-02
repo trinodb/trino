@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.hash.Hashing;
 import io.trino.Session;
 import io.trino.metadata.ResolvedFunction;
-import io.trino.spi.block.TestingBlockEncodingSerde;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.type.Type;
 import io.trino.sql.relational.InputReferenceExpression;
@@ -46,6 +45,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Supplier;
 
 import static com.google.common.collect.MoreCollectors.onlyElement;
+import static io.trino.metadata.InternalBlockEncodingSerde.TESTING_BLOCK_ENCODING_SERDE;
 import static io.trino.spi.function.OperatorType.ADD;
 import static io.trino.spi.function.OperatorType.LESS_THAN;
 import static io.trino.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
@@ -280,7 +280,7 @@ public class TestSqlRoutineCompiler
             throws Throwable
     {
         // verify routine hash does not fail
-        SqlRoutineHash.hash(routine, Hashing.sha256().newHasher(), new TestingBlockEncodingSerde());
+        SqlRoutineHash.hash(routine, Hashing.sha256().newHasher(), TESTING_BLOCK_ENCODING_SERDE);
 
         Class<?> clazz = compiler.compileClass(routine);
 

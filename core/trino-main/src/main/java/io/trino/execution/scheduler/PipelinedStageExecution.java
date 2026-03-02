@@ -46,6 +46,8 @@ import io.trino.sql.planner.plan.PlanFragmentId;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.sql.planner.plan.RemoteSourceNode;
 import io.trino.util.Failures;
+import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
+import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 
 import java.net.URI;
 import java.util.HashSet;
@@ -79,6 +81,7 @@ import static io.trino.execution.scheduler.StageExecution.State.SCHEDULING_SPLIT
 import static io.trino.operator.ExchangeOperator.REMOTE_CATALOG_HANDLE;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.StandardErrorCode.REMOTE_HOST_GONE;
+import static it.unimi.dsi.fastutil.ints.Int2ObjectMaps.synchronize;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -117,7 +120,7 @@ public class PipelinedStageExecution
     private final Map<PlanFragmentId, RemoteSourceNode> exchangeSources;
     private final int attempt;
 
-    private final Map<Integer, RemoteTask> tasks = new ConcurrentHashMap<>();
+    private final Int2ObjectMap<RemoteTask> tasks = synchronize(new Int2ObjectOpenHashMap<>(), this);
 
     // current stage task tracking
     @GuardedBy("this")
@@ -277,7 +280,7 @@ public class PipelinedStageExecution
     @Override
     public synchronized void failTask(TaskId taskId, Throwable failureCause)
     {
-        RemoteTask task = requireNonNull(tasks.get(taskId.getPartitionId()), () -> "task not found: " + taskId);
+        RemoteTask task = requireNonNull(tasks.get(taskId.partitionId()), () -> "task not found: " + taskId);
         task.failLocallyImmediately(failureCause);
         fail(failureCause);
     }
@@ -319,7 +322,7 @@ public class PipelinedStageExecution
         ImmutableMultimap.Builder<PlanNodeId, Split> exchangeSplits = ImmutableMultimap.builder();
         sourceTasks.forEach((sourceFragmentId, sourceTask) -> {
             TaskStatus status = sourceTask.getTaskStatus();
-            if (status.getState() != TaskState.FINISHED) {
+            if (status.state() != TaskState.FINISHED) {
                 PlanNodeId planNodeId = exchangeSources.get(sourceFragmentId).getId();
                 exchangeSplits.put(planNodeId, createExchangeSplit(sourceTask, task));
             }
@@ -337,7 +340,7 @@ public class PipelinedStageExecution
         taskLifecycleListener.taskCreated(stage.getFragment().getId(), task);
 
         // update output buffers
-        OutputBufferId outputBufferId = new OutputBufferId(task.getTaskId().getPartitionId());
+        OutputBufferId outputBufferId = new OutputBufferId(task.getTaskId().partitionId());
         updateSourceTasksOutputBuffers(outputBufferManager -> outputBufferManager.addOutputBuffer(outputBufferId));
 
         return Optional.of(task);
@@ -349,17 +352,17 @@ public class PipelinedStageExecution
             return;
         }
         boolean newFlushingOrFinishedTaskObserved = false;
-        TaskState taskState = taskStatus.getState();
+        TaskState taskState = taskStatus.state();
 
         switch (taskState) {
             case FAILING:
             case FAILED:
-                RuntimeException failure = taskStatus.getFailures().stream()
+                RuntimeException failure = taskStatus.failures().stream()
                         .findFirst()
                         .map(this::rewriteTransportFailure)
                         .map(ExecutionFailureInfo::toException)
                         // task is failed or failing, so we need to create a synthetic exception to fail the stage now
-                        .orElseGet(() -> new TrinoException(GENERIC_INTERNAL_ERROR, format("Task %s failed for an unknown reason", taskStatus.getTaskId())));
+                        .orElseGet(() -> new TrinoException(GENERIC_INTERNAL_ERROR, format("Task %s failed for an unknown reason", taskStatus.taskId())));
                 fail(failure);
                 break;
             case CANCELING:
@@ -367,13 +370,13 @@ public class PipelinedStageExecution
             case ABORTING:
             case ABORTED:
                 // A task should only be in the aborting, aborted, canceling, or canceled state if the STAGE is done (ABORTED or FAILED)
-                fail(new TrinoException(GENERIC_INTERNAL_ERROR, format("Task %s is in the %s state but stage %s is %s", taskStatus.getTaskId(), taskState, stateMachine.getStageId(), stateMachine.getState())));
+                fail(new TrinoException(GENERIC_INTERNAL_ERROR, format("Task %s is in the %s state but stage %s is %s", taskStatus.taskId(), taskState, stateMachine.getStageId(), stateMachine.getState())));
                 break;
             case FLUSHING:
-                newFlushingOrFinishedTaskObserved = addFlushingTask(taskStatus.getTaskId());
+                newFlushingOrFinishedTaskObserved = addFlushingTask(taskStatus.taskId());
                 break;
             case FINISHED:
-                newFlushingOrFinishedTaskObserved = addFinishedTask(taskStatus.getTaskId());
+                newFlushingOrFinishedTaskObserved = addFinishedTask(taskStatus.taskId());
                 break;
             default:
         }
@@ -442,19 +445,19 @@ public class PipelinedStageExecution
 
     private ExecutionFailureInfo rewriteTransportFailure(ExecutionFailureInfo executionFailureInfo)
     {
-        if (executionFailureInfo.getRemoteHost() == null || !nodeManager.isGone(executionFailureInfo.getRemoteHost())) {
+        if (executionFailureInfo.remoteHost() == null || !nodeManager.isGone(executionFailureInfo.remoteHost())) {
             return executionFailureInfo;
         }
 
         return new ExecutionFailureInfo(
-                executionFailureInfo.getType(),
-                executionFailureInfo.getMessage(),
-                executionFailureInfo.getCause(),
-                executionFailureInfo.getSuppressed(),
-                executionFailureInfo.getStack(),
-                executionFailureInfo.getErrorLocation(),
+                executionFailureInfo.type(),
+                executionFailureInfo.message(),
+                executionFailureInfo.cause(),
+                executionFailureInfo.suppressed(),
+                executionFailureInfo.stack(),
+                executionFailureInfo.errorLocation(),
                 REMOTE_HOST_GONE.toErrorCode(),
-                executionFailureInfo.getRemoteHost());
+                executionFailureInfo.remoteHost());
     }
 
     @Override
@@ -539,8 +542,8 @@ public class PipelinedStageExecution
     {
         return tasks.values().stream()
                 .map(RemoteTask::getTaskStatus)
-                .map(TaskStatus::getOutputBufferStatus)
-                .anyMatch(OutputBufferStatus::isOverutilized);
+                .map(TaskStatus::outputBufferStatus)
+                .anyMatch(OutputBufferStatus::overutilized);
     }
 
     @Override
@@ -588,8 +591,8 @@ public class PipelinedStageExecution
     private static Split createExchangeSplit(RemoteTask sourceTask, RemoteTask destinationTask)
     {
         // Fetch the results from the buffer assigned to the task based on id
-        URI exchangeLocation = sourceTask.getTaskStatus().getSelf();
-        URI splitLocation = uriBuilderFrom(exchangeLocation).appendPath("results").appendPath(String.valueOf(destinationTask.getTaskId().getPartitionId())).build();
+        URI exchangeLocation = sourceTask.getTaskStatus().self();
+        URI splitLocation = uriBuilderFrom(exchangeLocation).appendPath("results").appendPath(String.valueOf(destinationTask.getTaskId().partitionId())).build();
         return new Split(REMOTE_CATALOG_HANDLE, new RemoteSplit(new DirectExchangeInput(sourceTask.getTaskId(), splitLocation.toString())));
     }
 

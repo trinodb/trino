@@ -98,6 +98,9 @@ def build(matrix_file, impacted_file, output_file):
 def check_modules(modules, impacted):
     if isinstance(modules, str):
         modules = [modules]
+    # `impacted` can be empty when GIB detected no changes, but also when GIB was not run at all.
+    # The latter is the case on builds on master branch. For these builds we want to run all tests,
+    # so we don't filter out any modules.
     if impacted and not any(module in impacted for module in modules):
         return None
     # concatenate because matrix values should be primitives

@@ -13,11 +13,18 @@
  */
 package io.trino.server.ui;
 
+import com.fasterxml.jackson.annotation.JsonTypeInfo;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.cfg.ContextAttributes;
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Inject;
+import io.airlift.json.JsonCodec;
+import io.airlift.json.JsonCodecFactory;
 import io.trino.dispatcher.DispatchManager;
 import io.trino.execution.QueryInfo;
 import io.trino.execution.QueryState;
+import io.trino.operator.OperatorInfo;
+import io.trino.plugin.base.metrics.TDigestHistogram;
 import io.trino.security.AccessControl;
 import io.trino.server.BasicQueryInfo;
 import io.trino.server.DisableHttpCache;
@@ -26,6 +33,7 @@ import io.trino.server.HttpRequestSessionContextFactory;
 import io.trino.server.security.ResourceSecurity;
 import io.trino.spi.QueryId;
 import io.trino.spi.TrinoException;
+import io.trino.spi.metrics.Metric;
 import io.trino.spi.security.AccessDeniedException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.ws.rs.ForbiddenException;
@@ -44,12 +52,16 @@ import java.util.Locale;
 import java.util.NoSuchElementException;
 import java.util.Optional;
 
+import static com.fasterxml.jackson.annotation.JsonIgnoreProperties.Value.forIgnoredProperties;
 import static io.trino.connector.system.KillQueryProcedure.createKillQueryException;
 import static io.trino.connector.system.KillQueryProcedure.createPreemptQueryException;
+import static io.trino.plugin.base.metrics.TDigestHistogram.DIGEST_PROPERTY;
 import static io.trino.security.AccessControlUtil.checkCanKillQueryOwnedBy;
 import static io.trino.security.AccessControlUtil.checkCanViewQueryOwnedBy;
 import static io.trino.security.AccessControlUtil.filterQueries;
+import static io.trino.server.DataSizeSerializer.SUCCINCT_DATA_SIZE_ENABLED;
 import static io.trino.server.security.ResourceSecurity.AccessType.WEB_UI;
+import static jakarta.ws.rs.core.MediaType.APPLICATION_JSON_TYPE;
 import static java.util.Objects.requireNonNull;
 
 @Path("/ui/api/query")
@@ -57,13 +69,17 @@ import static java.util.Objects.requireNonNull;
 @DisableHttpCache
 public class UiQueryResource
 {
+    private final JsonCodec<QueryInfo> queryInfoCodec;
+    private final JsonCodec<QueryInfo> prettyQueryInfoCodec;
     private final DispatchManager dispatchManager;
     private final AccessControl accessControl;
     private final HttpRequestSessionContextFactory sessionContextFactory;
 
     @Inject
-    public UiQueryResource(DispatchManager dispatchManager, AccessControl accessControl, HttpRequestSessionContextFactory sessionContextFactory)
+    public UiQueryResource(ObjectMapper objectMapper, DispatchManager dispatchManager, AccessControl accessControl, HttpRequestSessionContextFactory sessionContextFactory)
     {
+        this.queryInfoCodec = buildQueryInfoCodec(objectMapper, false);
+        this.prettyQueryInfoCodec = buildQueryInfoCodec(objectMapper, true);
         this.dispatchManager = requireNonNull(dispatchManager, "dispatchManager is null");
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
         this.sessionContextFactory = requireNonNull(sessionContextFactory, "sessionContextFactory is null");
@@ -96,7 +112,13 @@ public class UiQueryResource
         if (queryInfo.isPresent()) {
             try {
                 checkCanViewQueryOwnedBy(sessionContextFactory.extractAuthorizedIdentity(servletRequest, httpHeaders), queryInfo.get().getSession().toIdentity(), accessControl);
-                return Response.ok(queryInfo.get().pruneDigests()).build();
+
+                String queryString = servletRequest.getQueryString();
+                if (queryString != null && queryString.contains("pretty")) {
+                    // Use pretty JSON codec that reduces noise
+                    return Response.ok(prettyQueryInfoCodec.toJson(queryInfo.get()), APPLICATION_JSON_TYPE).build();
+                }
+                return Response.ok(queryInfoCodec.toJson(queryInfo.get()), APPLICATION_JSON_TYPE).build();
             }
             catch (AccessDeniedException e) {
                 throw new ForbiddenException();
@@ -144,4 +166,36 @@ public class UiQueryResource
             throw new GoneException();
         }
     }
+
+    private JsonCodec<QueryInfo> buildQueryInfoCodec(ObjectMapper objectMapper, boolean pretty)
+    {
+        JsonCodecFactory jsonCodecFactory = new JsonCodecFactory(() -> {
+            // Enable succinct DataSize serialization for QueryInfo to make it more human friendly
+            ContextAttributes attrs = ContextAttributes.getEmpty();
+            if (pretty) {
+                attrs = attrs.withSharedAttribute(SUCCINCT_DATA_SIZE_ENABLED, Boolean.TRUE);
+            }
+
+            ObjectMapper mapper = objectMapper
+                    .copy()
+                    .setDefaultAttributes(attrs);
+            // Don't serialize TDigestHistogram.digest which isn't useful and human readable
+            mapper.configOverride(TDigestHistogram.class).setIgnorals(forIgnoredProperties(DIGEST_PROPERTY));
+
+            // Do not output @class property for metric types
+            mapper.addMixIn(Metric.class, DropTypeInfo.class);
+            // Do not output @type property for OperatorInfo
+            mapper.addMixIn(OperatorInfo.class, DropTypeInfo.class);
+            return mapper;
+        });
+
+        if (pretty) {
+            jsonCodecFactory = jsonCodecFactory.prettyPrint();
+        }
+
+        return jsonCodecFactory.jsonCodec(QueryInfo.class);
+    }
+
+    @JsonTypeInfo(use = JsonTypeInfo.Id.NONE)
+    public interface DropTypeInfo {}
 }

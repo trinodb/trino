@@ -19,7 +19,7 @@ import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.plan.ApplyNode;
 import io.trino.sql.planner.plan.PlanNode;
 
-import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Set;
 
@@ -91,7 +91,7 @@ public class PruneApplyColumns
         // extract referenced assignments
         ImmutableSet.Builder<Symbol> requiredAssignmentsSymbols = ImmutableSet.builder();
         ImmutableMap.Builder<Symbol, ApplyNode.SetExpression> newSubqueryAssignments = ImmutableMap.builder();
-        for (Map.Entry<Symbol, ApplyNode.SetExpression> entry : applyNode.getSubqueryAssignments().entrySet()) {
+        for (Entry<Symbol, ApplyNode.SetExpression> entry : applyNode.getSubqueryAssignments().entrySet()) {
             if (referencedOutputs.contains(entry.getKey())) {
                 requiredAssignmentsSymbols.addAll(entry.getValue().inputs());
                 newSubqueryAssignments.put(entry);

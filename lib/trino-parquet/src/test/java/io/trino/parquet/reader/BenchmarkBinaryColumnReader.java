@@ -179,7 +179,7 @@ public class BenchmarkBinaryColumnReader
         return data;
     }
 
-    public static void main(String[] args)
+    static void main()
             throws RunnerException
     {
         run(BenchmarkBinaryColumnReader.class);

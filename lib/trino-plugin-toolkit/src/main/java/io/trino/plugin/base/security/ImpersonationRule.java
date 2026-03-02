@@ -23,10 +23,10 @@ import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import static com.google.common.base.MoreObjects.firstNonNull;
 import static io.trino.spi.StandardErrorCode.CONFIGURATION_INVALID;
 import static java.lang.Boolean.TRUE;
 import static java.util.Objects.requireNonNull;
+import static java.util.Objects.requireNonNullElse;
 
 public class ImpersonationRule
 {
@@ -45,7 +45,7 @@ public class ImpersonationRule
         this.originalUserPattern = requireNonNull(originalUserPattern, "originalUserPattern is null");
         this.originalRolePattern = requireNonNull(originalRolePattern, "originalRolePattern is null");
         this.newUserPattern = requireNonNull(newUserPattern, "newUserPattern is null");
-        this.allow = firstNonNull(allow, TRUE);
+        this.allow = requireNonNullElse(allow, TRUE);
     }
 
     public Optional<Boolean> match(String originalUser, Set<String> originalRoles, String newUser)

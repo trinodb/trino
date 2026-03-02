@@ -104,6 +104,7 @@ public class MergeWriterOperator
     private ListenableFuture<Collection<Slice>> finishFuture;
     private ListenableFuture<Void> blockedFutureView;
     private long rowCount;
+    private long writtenBytes;
     private boolean closed;
 
     public MergeWriterOperator(OperatorContext operatorContext, ConnectorMergeSink mergeSink, Function<Page, Page> pagePreprocessor)
@@ -195,6 +196,7 @@ public class MergeWriterOperator
             state = State.FINISHING;
             finishFuture = toListenableFuture(mergeSink.finish());
             blockedFutureView = asVoid(finishFuture);
+            updateWrittenBytes();
         }
     }
 
@@ -210,6 +212,13 @@ public class MergeWriterOperator
             return NOT_BLOCKED;
         }
         return blockedFutureView;
+    }
+
+    private void updateWrittenBytes()
+    {
+        long current = mergeSink.getCompletedBytes();
+        operatorContext.recordPhysicalWrittenData(current - writtenBytes);
+        writtenBytes = current;
     }
 
     @Override

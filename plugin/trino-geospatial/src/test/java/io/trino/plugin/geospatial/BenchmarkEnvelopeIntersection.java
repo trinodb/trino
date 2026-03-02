@@ -85,7 +85,7 @@ public class BenchmarkEnvelopeIntersection
         assertThat(deserialize(benchmark.envelopes(data))).isEqualTo(deserialize(benchmark.geometries(data)));
     }
 
-    public static void main(String[] args)
+    static void main()
             throws RunnerException
     {
         benchmark(BenchmarkEnvelopeIntersection.class).run();

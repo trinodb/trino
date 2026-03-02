@@ -36,6 +36,7 @@ public class FileGroupProviderFactory
     public GroupProvider create(Map<String, String> config)
     {
         Bootstrap app = new Bootstrap(
+                "io.trino.bootstrap.groups." + getName(),
                 binder -> {
                     configBinder(binder).bindConfig(FileGroupConfig.class);
                     binder.bind(FileGroupProvider.class).in(Scopes.SINGLETON);
@@ -43,6 +44,7 @@ public class FileGroupProviderFactory
 
         Injector injector = app
                 .doNotInitializeLogging()
+                .disableSystemProperties()
                 .setRequiredConfigurationProperties(config)
                 .initialize();
 

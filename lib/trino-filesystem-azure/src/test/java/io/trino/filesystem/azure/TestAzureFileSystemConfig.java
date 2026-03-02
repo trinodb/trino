@@ -24,6 +24,7 @@ import java.util.Map;
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
+import static java.lang.Math.max;
 
 class TestAzureFileSystemConfig
 {
@@ -38,6 +39,7 @@ class TestAzureFileSystemConfig
                 .setMaxWriteConcurrency(8)
                 .setMaxSingleUploadSize(DataSize.of(4, Unit.MEGABYTE))
                 .setMaxHttpRequests(2 * Runtime.getRuntime().availableProcessors())
+                .setMaxHttpConnections(2 * max(8, Runtime.getRuntime().availableProcessors()))
                 .setApplicationId("Trino")
                 .setMultipartWriteEnabled(false));
     }
@@ -53,6 +55,7 @@ class TestAzureFileSystemConfig
                 .put("azure.max-write-concurrency", "7")
                 .put("azure.max-single-upload-size", "7MB")
                 .put("azure.max-http-requests", "128")
+                .put("azure.max-http-connections", "128")
                 .put("azure.application-id", "application id")
                 .put("azure.multipart-write-enabled", "true")
                 .buildOrThrow();
@@ -65,6 +68,7 @@ class TestAzureFileSystemConfig
                 .setMaxWriteConcurrency(7)
                 .setMaxSingleUploadSize(DataSize.of(7, Unit.MEGABYTE))
                 .setMaxHttpRequests(128)
+                .setMaxHttpConnections(128)
                 .setApplicationId("application id")
                 .setMultipartWriteEnabled(true);
 

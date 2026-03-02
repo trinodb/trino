@@ -16,7 +16,6 @@ package io.trino.faulttolerant;
 import com.google.common.collect.ImmutableMap;
 import io.trino.execution.AbstractTestCoordinatorDynamicFiltering;
 import io.trino.operator.RetryPolicy;
-import io.trino.plugin.exchange.filesystem.FileSystemExchangePlugin;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
@@ -29,7 +28,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.parallel.Execution;
 
-import java.util.Map;
 import java.util.Set;
 
 import static io.trino.operator.RetryPolicy.TASK;
@@ -49,20 +47,13 @@ public class TestFaultTolerantExecutionDynamicFiltering
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        Map<String, String> exchangeManagerProperties = ImmutableMap.<String, String>builder()
-                .put("exchange.base-directories", System.getProperty("java.io.tmpdir") + "/trino-local-file-system-exchange-manager")
-                .buildOrThrow();
-
         return DistributedQueryRunner.builder(getDefaultSession())
                 .setExtraProperties(FaultTolerantExecutionConnectorTestHelper.getExtraProperties())
                 // keep limits lower to test edge cases
-                .addExtraProperty("enable-large-dynamic-filters", "false")
-                .addExtraProperty("dynamic-filtering.small.max-distinct-values-per-driver", "10")
-                .addExtraProperty("dynamic-filtering.small.range-row-limit-per-driver", "100")
-                .setAdditionalSetup(runner -> {
-                    runner.installPlugin(new FileSystemExchangePlugin());
-                    runner.loadExchangeManager("filesystem", exchangeManagerProperties);
-                })
+                .addExtraProperty("dynamic-filtering.max-distinct-values-per-driver", "10")
+                .addExtraProperty("dynamic-filtering.range-row-limit-per-driver", "100")
+                .addExtraProperty("dynamic-filtering.partitioned.range-row-limit-per-driver", "500")
+                .withExchange("filesystem")
                 .build();
     }
 

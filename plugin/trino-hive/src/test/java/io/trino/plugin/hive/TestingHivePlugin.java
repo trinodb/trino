@@ -15,6 +15,7 @@ package io.trino.plugin.hive;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.metastore.HiveMetastore;
+import io.trino.parquet.crypto.DecryptionKeyRetriever;
 import io.trino.spi.Plugin;
 import io.trino.spi.connector.ConnectorFactory;
 
@@ -28,28 +29,36 @@ public class TestingHivePlugin
 {
     private final Path localFileSystemRootPath;
     private final Optional<HiveMetastore> metastore;
+    private final boolean metastoreImpersonationEnabled;
+    private final Optional<DecryptionKeyRetriever> decryptionKeyRetriever;
 
     public TestingHivePlugin(Path localFileSystemRootPath)
     {
-        this(localFileSystemRootPath, Optional.empty());
+        this(localFileSystemRootPath, Optional.empty(), false, Optional.empty());
     }
 
     @Deprecated
     public TestingHivePlugin(Path localFileSystemRootPath, HiveMetastore metastore)
     {
-        this(localFileSystemRootPath, Optional.of(metastore));
+        this(localFileSystemRootPath, Optional.of(metastore), false, Optional.empty());
     }
 
     @Deprecated
-    public TestingHivePlugin(Path localFileSystemRootPath, Optional<HiveMetastore> metastore)
+    public TestingHivePlugin(
+            Path localFileSystemRootPath,
+            Optional<HiveMetastore> metastore,
+            boolean metastoreImpersonationEnabled,
+            Optional<DecryptionKeyRetriever> decryptionKeyRetriever)
     {
         this.localFileSystemRootPath = requireNonNull(localFileSystemRootPath, "localFileSystemRootPath is null");
         this.metastore = requireNonNull(metastore, "metastore is null");
+        this.metastoreImpersonationEnabled = metastoreImpersonationEnabled;
+        this.decryptionKeyRetriever = requireNonNull(decryptionKeyRetriever, "decryptionKeyRetriever is null");
     }
 
     @Override
     public Iterable<ConnectorFactory> getConnectorFactories()
     {
-        return ImmutableList.of(new TestingHiveConnectorFactory(localFileSystemRootPath, metastore));
+        return ImmutableList.of(new TestingHiveConnectorFactory(localFileSystemRootPath, metastore, metastoreImpersonationEnabled, decryptionKeyRetriever));
     }
 }

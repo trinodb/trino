@@ -14,26 +14,36 @@
 
 package io.trino.plugin.iceberg.procedure;
 
-import com.google.common.collect.ImmutableMap;
+import io.trino.Session;
 import io.trino.plugin.hive.TestingHivePlugin;
 import io.trino.plugin.iceberg.IcebergFileFormat;
-import io.trino.plugin.iceberg.IcebergQueryRunner;
+import io.trino.plugin.iceberg.TestingIcebergPlugin;
 import io.trino.testing.AbstractTestQueryFramework;
+import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.parallel.Execution;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Map;
 import java.util.stream.Stream;
 
+import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.MoreCollectors.onlyElement;
 import static io.trino.plugin.iceberg.IcebergFileFormat.AVRO;
+import static io.trino.plugin.iceberg.IcebergFileFormat.ORC;
+import static io.trino.plugin.iceberg.IcebergFileFormat.PARQUET;
+import static io.trino.plugin.iceberg.IcebergQueryRunner.ICEBERG_CATALOG;
 import static io.trino.testing.TestingNames.randomNameSuffix;
+import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 
+@Execution(SAME_THREAD) // Uses file metastore sharing location between catalogs
 public class TestIcebergMigrateProcedure
         extends AbstractTestQueryFramework
 {
@@ -43,12 +53,32 @@ public class TestIcebergMigrateProcedure
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        dataDirectory = Files.createTempDirectory("_test_hidden");
-        QueryRunner queryRunner = IcebergQueryRunner.builder().setMetastoreDirectory(dataDirectory.toFile()).build();
-        queryRunner.installPlugin(new TestingHivePlugin(dataDirectory));
-        queryRunner.createCatalog("hive", "hive", ImmutableMap.<String, String>builder()
-                .put("hive.security", "allow-all")
-                .buildOrThrow());
+        Session icebergSession = testSessionBuilder()
+                .setCatalog(ICEBERG_CATALOG)
+                .setSchema("tpch")
+                .build();
+
+        QueryRunner queryRunner = DistributedQueryRunner.builder(icebergSession).build();
+
+        Path baseDataDir = queryRunner.getCoordinator().getBaseDataDir();
+        dataDirectory = baseDataDir.resolve("iceberg_data");
+        verify(dataDirectory.toFile().mkdirs());
+
+        queryRunner.installPlugin(new TestingIcebergPlugin(baseDataDir));
+        queryRunner.createCatalog(ICEBERG_CATALOG, "iceberg", Map.of(
+                "iceberg.catalog.type", "TESTING_FILE_METASTORE",
+                // Intentionally sharing the file metastore directory with Hive
+                "hive.metastore.catalog.dir", "local:///iceberg_data"));
+
+        queryRunner.installPlugin(new TestingHivePlugin(baseDataDir));
+        queryRunner.createCatalog("hive", "hive", Map.of(
+                "hive.security", "allow-all",
+                "hive.metastore", "file",
+                // Intentionally sharing the file metastore directory with Iceberg
+                "hive.metastore.catalog.dir", "local:///iceberg_data"));
+
+        queryRunner.execute("CREATE SCHEMA tpch");
+
         return queryRunner;
     }
 
@@ -290,11 +320,18 @@ public class TestIcebergMigrateProcedure
     @Test
     public void testMigratePartitionedTable()
     {
+        testMigratePartitionedTable(PARQUET);
+        testMigratePartitionedTable(ORC);
+        testMigratePartitionedTable(AVRO);
+    }
+
+    private void testMigratePartitionedTable(IcebergFileFormat format)
+    {
         String tableName = "test_migrate_partitioned_" + randomNameSuffix();
         String hiveTableName = "hive.tpch." + tableName;
         String icebergTableName = "iceberg.tpch." + tableName;
 
-        assertUpdate("CREATE TABLE " + hiveTableName + " WITH (partitioned_by = ARRAY['part_col']) AS SELECT 1 id, 'part1' part_col", 1);
+        assertUpdate("CREATE TABLE " + hiveTableName + " WITH (format = '" + format + "', partitioned_by = ARRAY['part_col']) AS SELECT 1 id, 'part1' part_col", 1);
         assertQueryFails("SELECT * FROM " + icebergTableName, "Not an Iceberg table: .*");
 
         assertUpdate("CALL iceberg.system.migrate('tpch', '" + tableName + "')");

@@ -14,13 +14,12 @@
 package io.trino.plugin.iceberg.system;
 
 import com.google.common.collect.ImmutableList;
-import io.trino.plugin.iceberg.util.PageListBuilder;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.type.MapType;
 import io.trino.spi.type.TimeZoneKey;
 import io.trino.spi.type.TypeManager;
-import io.trino.spi.type.TypeSignature;
 import org.apache.iceberg.Table;
 
 import java.util.Map;
@@ -64,21 +63,19 @@ public class SnapshotsTable
                         .add(new ColumnMetadata(PARENT_ID_COLUMN_NAME, BIGINT))
                         .add(new ColumnMetadata(OPERATION_COLUMN_NAME, VARCHAR))
                         .add(new ColumnMetadata(MANIFEST_LIST_COLUMN_NAME, VARCHAR))
-                        .add(new ColumnMetadata(SUMMARY_COLUMN_NAME, typeManager.getType(TypeSignature.mapType(VARCHAR.getTypeSignature(), VARCHAR.getTypeSignature()))))
+                        .add(new ColumnMetadata(SUMMARY_COLUMN_NAME, new MapType(VARCHAR, VARCHAR, typeManager.getTypeOperators())))
                         .build());
     }
 
     @Override
-    protected void addRow(PageListBuilder pagesBuilder, Row row, TimeZoneKey timeZoneKey)
+    protected void addRow(IcebergSystemTablePageSource pageSource, Row row, TimeZoneKey timeZoneKey)
     {
-        pagesBuilder.beginRow();
-        pagesBuilder.appendTimestampTzMillis(row.get(COMMITTED_AT_COLUMN_NAME, Long.class) / MICROSECONDS_PER_MILLISECOND, timeZoneKey);
-        pagesBuilder.appendBigint(row.get(SNAPSHOT_ID_COLUMN_NAME, Long.class));
-        pagesBuilder.appendBigint(row.get(PARENT_ID_COLUMN_NAME, Long.class));
-        pagesBuilder.appendVarchar(row.get(OPERATION_COLUMN_NAME, String.class));
-        pagesBuilder.appendVarchar(row.get(MANIFEST_LIST_COLUMN_NAME, String.class));
+        pageSource.appendTimestampTzMillis(row.get(COMMITTED_AT_COLUMN_NAME, Long.class) / MICROSECONDS_PER_MILLISECOND, timeZoneKey);
+        pageSource.appendBigint(row.get(SNAPSHOT_ID_COLUMN_NAME, Long.class));
+        pageSource.appendBigint(row.get(PARENT_ID_COLUMN_NAME, Long.class));
+        pageSource.appendVarchar(row.get(OPERATION_COLUMN_NAME, String.class));
+        pageSource.appendVarchar(row.get(MANIFEST_LIST_COLUMN_NAME, String.class));
         //noinspection unchecked
-        pagesBuilder.appendVarcharVarcharMap(row.get(SUMMARY_COLUMN_NAME, Map.class));
-        pagesBuilder.endRow();
+        pageSource.appendVarcharVarcharMap(row.get(SUMMARY_COLUMN_NAME, Map.class));
     }
 }

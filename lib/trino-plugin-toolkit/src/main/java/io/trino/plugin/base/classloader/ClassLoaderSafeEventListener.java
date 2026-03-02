@@ -18,7 +18,6 @@ import io.trino.spi.classloader.ThreadContextClassLoader;
 import io.trino.spi.eventlistener.EventListener;
 import io.trino.spi.eventlistener.QueryCompletedEvent;
 import io.trino.spi.eventlistener.QueryCreatedEvent;
-import io.trino.spi.eventlistener.SplitCompletedEvent;
 
 import static java.util.Objects.requireNonNull;
 
@@ -49,13 +48,6 @@ public class ClassLoaderSafeEventListener
         try (ThreadContextClassLoader _ = new ThreadContextClassLoader(classLoader)) {
             delegate.queryCompleted(queryCompletedEvent);
         }
-    }
-
-    @Override
-    public void splitCompleted(SplitCompletedEvent splitCompletedEvent)
-    {
-        // Implemented to satisfy TestClassLoaderSafeWrappers
-        throw new UnsupportedOperationException();
     }
 
     @Override

@@ -20,6 +20,7 @@ import io.airlift.units.DataSize.Unit;
 import io.airlift.units.Duration;
 import org.junit.jupiter.api.Test;
 
+import java.io.IOException;
 import java.nio.file.Path;
 import java.util.Map;
 import java.util.TimeZone;
@@ -74,7 +75,6 @@ public class TestHiveConfig
                 .setSortedWritingEnabled(true)
                 .setPropagateTableScanSortingProperties(false)
                 .setMaxPartitionsPerWriter(100)
-                .setWriteValidationThreads(16)
                 .setValidateBucketing(true)
                 .setParallelPartitionedBucketedWrites(true)
                 .setTextMaxLineLength(DataSize.of(100, Unit.MEGABYTE))
@@ -128,6 +128,7 @@ public class TestHiveConfig
 
     @Test
     public void testExplicitPropertyMappings()
+            throws IOException
     {
         Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("hive.single-statement-writes", "true")
@@ -157,7 +158,6 @@ public class TestHiveConfig
                 .put("hive.create-empty-bucket-files", "true")
                 .put("hive.delete-schema-locations-fallback", "true")
                 .put("hive.max-partitions-per-writers", "222")
-                .put("hive.write-validation-threads", "11")
                 .put("hive.validate-bucketing", "false")
                 .put("hive.parallel-partitioned-bucketed-writes", "false")
                 .put("hive.force-local-scheduling", "true")
@@ -249,7 +249,6 @@ public class TestHiveConfig
                 .setCreateEmptyBucketFiles(true)
                 .setDeleteSchemaLocationsFallback(true)
                 .setMaxPartitionsPerWriter(222)
-                .setWriteValidationThreads(11)
                 .setValidateBucketing(false)
                 .setParallelPartitionedBucketedWrites(false)
                 .setTextMaxLineLength(DataSize.of(13, Unit.MEGABYTE))

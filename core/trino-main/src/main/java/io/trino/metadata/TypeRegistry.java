@@ -30,9 +30,7 @@ import io.trino.spi.type.TypeId;
 import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.TypeNotFoundException;
 import io.trino.spi.type.TypeOperators;
-import io.trino.spi.type.TypeParameter;
 import io.trino.spi.type.TypeSignature;
-import io.trino.spi.type.TypeSignatureParameter;
 import io.trino.sql.parser.ParsingException;
 import io.trino.sql.parser.SqlParser;
 import io.trino.type.CharParametricType;
@@ -75,6 +73,7 @@ import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.HyperLogLogType.HYPER_LOG_LOG;
 import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.NumberType.NUMBER;
 import static io.trino.spi.type.P4HyperLogLogType.P4_HYPER_LOG_LOG;
 import static io.trino.spi.type.QuantileDigestParametricType.QDIGEST;
 import static io.trino.spi.type.RealType.REAL;
@@ -138,6 +137,7 @@ public final class TypeRegistry
         addType(TINYINT);
         addType(DOUBLE);
         addType(REAL);
+        addType(NUMBER);
         addType(VARBINARY);
         addType(DATE);
         addType(INTERVAL_YEAR_MONTH);
@@ -216,24 +216,17 @@ public final class TypeRegistry
 
     private Type instantiateParametricType(TypeSignature signature)
     {
-        List<TypeParameter> parameters = new ArrayList<>();
-
-        for (TypeSignatureParameter parameter : signature.getParameters()) {
-            TypeParameter typeParameter = TypeParameter.of(parameter, typeManager);
-            parameters.add(typeParameter);
-        }
-
         ParametricType parametricType = parametricTypes.get(signature.getBase().toLowerCase(Locale.ENGLISH));
         if (parametricType == null) {
-            throw new TypeNotFoundException(signature);
+            throw new TypeNotFoundException(signature.toString());
         }
 
         Type instantiatedType;
         try {
-            instantiatedType = parametricType.createType(typeManager, parameters);
+            instantiatedType = parametricType.createType(typeManager, signature.getParameters());
         }
         catch (IllegalArgumentException e) {
-            throw new TypeNotFoundException(signature, e);
+            throw new TypeNotFoundException(signature.toString(), e);
         }
 
         // TODO: reimplement this check? Currently "varchar(Integer.MAX_VALUE)" fails with "varchar"

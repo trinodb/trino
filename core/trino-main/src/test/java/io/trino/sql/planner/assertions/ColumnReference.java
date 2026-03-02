@@ -24,6 +24,7 @@ import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.TableScanNode;
 
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkState;
@@ -78,7 +79,7 @@ public class ColumnReference
     private Optional<Symbol> getAssignedSymbol(Map<Symbol, ColumnHandle> assignments, ColumnHandle columnHandle)
     {
         Optional<Symbol> result = Optional.empty();
-        for (Map.Entry<Symbol, ColumnHandle> entry : assignments.entrySet()) {
+        for (Entry<Symbol, ColumnHandle> entry : assignments.entrySet()) {
             if (entry.getValue().equals(columnHandle)) {
                 checkState(result.isEmpty(), "Multiple ColumnHandles found for %s:%s in table scan assignments", tableName, columnName);
                 result = Optional.of(entry.getKey());
@@ -92,7 +93,7 @@ public class ColumnReference
         return metadata.getColumnHandles(session, tableHandle).entrySet()
                 .stream()
                 .filter(entry -> columnName.equals(entry.getKey()))
-                .map(Map.Entry::getValue)
+                .map(Entry::getValue)
                 .findFirst();
     }
 

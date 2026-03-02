@@ -19,10 +19,10 @@ import {
     CircularProgress,
     Divider,
     FormControl,
-    Grid2 as Grid,
-    MenuItem,
+    Grid,
     InputLabel,
     ListItemText,
+    MenuItem,
     Select,
     Stack,
     Typography,
@@ -171,6 +171,7 @@ export const QueryList = () => {
                       query.resourceGroupId?.join('.'),
                       query.errorCode?.name,
                       ...(query.clientTags || []),
+                      query.traceToken,
                   ].some((value) => value?.toLowerCase().includes(term))
               })
     }

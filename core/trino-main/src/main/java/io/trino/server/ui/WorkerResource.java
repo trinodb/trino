@@ -107,7 +107,7 @@ public class WorkerResource
             @Context HttpServletRequest servletRequest,
             @Context HttpHeaders httpHeaders)
     {
-        QueryId queryId = task.getQueryId();
+        QueryId queryId = task.queryId();
         Optional<QueryInfo> queryInfo = dispatchManager.getFullQueryInfo(queryId);
         if (queryInfo.isPresent()) {
             try {

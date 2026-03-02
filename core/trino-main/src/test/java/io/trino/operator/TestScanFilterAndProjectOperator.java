@@ -77,6 +77,7 @@ import static io.trino.sql.relational.Expressions.field;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_HANDLE;
 import static io.trino.testing.TestingHandles.TEST_TABLE_HANDLE;
 import static io.trino.testing.TestingTaskContext.createTaskContext;
+import static java.util.Collections.nCopies;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -130,7 +131,7 @@ public class TestScanFilterAndProjectOperator
                 0,
                 new PlanNodeId("test"),
                 new PlanNodeId("0"),
-                (catalog) -> (session, split, table, columns, dynamicFilter) -> new FixedPageSource(ImmutableList.of(input)),
+                (_) -> (_, _, _, _, _) -> new FixedPageSource(ImmutableList.of(input)),
                 (_) -> pageProcessor.get(),
                 TEST_TABLE_HANDLE,
                 ImmutableList.of(),
@@ -170,7 +171,7 @@ public class TestScanFilterAndProjectOperator
                 0,
                 new PlanNodeId("test"),
                 new PlanNodeId("0"),
-                (catalog) -> (session, split, table, columns, dynamicFilter) -> new FixedPageSource(input),
+                (_) -> (_, _, _, _, dynamicFilter_) -> new FixedPageSource(input),
                 (_) -> pageProcessor.get(),
                 TEST_TABLE_HANDLE,
                 ImmutableList.of(),
@@ -210,7 +211,7 @@ public class TestScanFilterAndProjectOperator
                 0,
                 new PlanNodeId("test"),
                 new PlanNodeId("0"),
-                (catalog) -> (session, split, table, columns, dynamicFilter) -> new SinglePagePageSource(input),
+                (_) -> (_, _, _, _, _) -> new SinglePagePageSource(input),
                 (_) -> pageProcessor,
                 TEST_TABLE_HANDLE,
                 ImmutableList.of(),
@@ -242,7 +243,7 @@ public class TestScanFilterAndProjectOperator
                 0,
                 new PlanNodeId("test"),
                 new PlanNodeId("0"),
-                (catalog) -> (session, split, table, columns, dynamicFilter) -> new RecordPageSource(new PageRecordSet(ImmutableList.of(VARCHAR), input)),
+                (_) -> (_, _, _, _, _) -> new RecordPageSource(new PageRecordSet(ImmutableList.of(VARCHAR), input)),
                 (_) -> pageProcessor.get(),
                 TEST_TABLE_HANDLE,
                 ImmutableList.of(),
@@ -294,12 +295,12 @@ public class TestScanFilterAndProjectOperator
                 0,
                 new PlanNodeId("test"),
                 new PlanNodeId("0"),
-                (catalog) -> (session, split, table, columns, dynamicFilter) -> new FixedPageSource(ImmutableList.of(input)),
+                (_) -> (_, _, _, _, _) -> new FixedPageSource(ImmutableList.of(input)),
                 (_) -> pageProcessor.get(),
                 TEST_TABLE_HANDLE,
                 ImmutableList.of(),
                 DynamicFilter.EMPTY,
-                ImmutableList.of(BIGINT),
+                ImmutableList.copyOf(nCopies(totalColumns, BIGINT)),
                 DataSize.ofBytes(0),
                 0);
 

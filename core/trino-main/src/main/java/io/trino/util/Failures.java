@@ -13,9 +13,9 @@
  */
 package io.trino.util;
 
-import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
 import com.google.errorprone.annotations.FormatMethod;
+import com.google.errorprone.annotations.FormatString;
 import io.trino.client.ErrorLocation;
 import io.trino.execution.ExecutionFailureInfo;
 import io.trino.execution.Failure;
@@ -34,7 +34,6 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 
-import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Sets.newIdentityHashSet;
@@ -42,6 +41,7 @@ import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.StandardErrorCode.SYNTAX_ERROR;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
+import static java.util.Objects.requireNonNullElse;
 
 public final class Failures
 {
@@ -54,22 +54,117 @@ public final class Failures
 
     private Failures() {}
 
-    public static ExecutionFailureInfo toFailure(Throwable failure)
+    public static void checkCondition(boolean condition, ErrorCodeSupplier errorCode, String message)
     {
-        return toFailure(failure, newIdentityHashSet());
+        if (!condition) {
+            throw new TrinoException(errorCode, message);
+        }
     }
 
     @FormatMethod
-    public static void checkCondition(boolean condition, ErrorCodeSupplier errorCode, String formatString, Object... args)
-    {
-        checkCondition(condition, errorCode, () -> format(formatString, args));
-    }
-
-    public static void checkCondition(boolean condition, ErrorCodeSupplier errorCode, Supplier<String> errorMessage)
+    public static void checkCondition(boolean condition, ErrorCodeSupplier errorCode, @FormatString String formatString, Object argument)
     {
         if (!condition) {
-            throw new TrinoException(errorCode, errorMessage.get());
+            throw new TrinoException(errorCode, format(formatString, argument));
         }
+    }
+
+    @FormatMethod
+    public static void checkCondition(boolean condition, ErrorCodeSupplier errorCode, @FormatString String formatString, Object argumentOne, Object argumentTwo)
+    {
+        if (!condition) {
+            throw new TrinoException(errorCode, format(formatString, argumentOne, argumentTwo));
+        }
+    }
+
+    /**
+     * @deprecated This overload can result in performance issues due to the varargs array creation and primitive boxing, consider adding an overload that
+     * matches the specific argument types you're passing instead of using this method.
+     */
+    @Deprecated
+    @FormatMethod
+    public static void checkCondition(boolean condition, ErrorCodeSupplier errorCode, @FormatString String formatString, Object... args)
+    {
+        if (!condition) {
+            throw new TrinoException(errorCode, format(formatString, args));
+        }
+    }
+
+    @FormatMethod
+    public static void checkCondition(boolean condition, ErrorCodeSupplier errorCode, @FormatString String formatString, int argument)
+    {
+        if (!condition) {
+            throw new TrinoException(errorCode, format(formatString, argument));
+        }
+    }
+
+    @FormatMethod
+    public static void checkCondition(boolean condition, ErrorCodeSupplier errorCode, @FormatString String formatString, int argumentOne, int argumentTwo)
+    {
+        if (!condition) {
+            throw new TrinoException(errorCode, format(formatString, argumentOne, argumentTwo));
+        }
+    }
+
+    @FormatMethod
+    public static void checkCondition(boolean condition, ErrorCodeSupplier errorCode, @FormatString String formatString, long argument)
+    {
+        if (!condition) {
+            throw new TrinoException(errorCode, format(formatString, argument));
+        }
+    }
+
+    @FormatMethod
+    public static void checkCondition(boolean condition, ErrorCodeSupplier errorCode, @FormatString String formatString, long argumentOne, long argumentTwo)
+    {
+        if (!condition) {
+            throw new TrinoException(errorCode, format(formatString, argumentOne, argumentTwo));
+        }
+    }
+
+    @FormatMethod
+    public static void checkCondition(boolean condition, ErrorCodeSupplier errorCode, @FormatString String formatString, float argument)
+    {
+        if (!condition) {
+            throw new TrinoException(errorCode, format(formatString, argument));
+        }
+    }
+
+    @FormatMethod
+    public static void checkCondition(boolean condition, ErrorCodeSupplier errorCode, @FormatString String formatString, float argumentOne, float argumentTwo)
+    {
+        if (!condition) {
+            throw new TrinoException(errorCode, format(formatString, argumentOne, argumentTwo));
+        }
+    }
+
+    @FormatMethod
+    public static void checkCondition(boolean condition, ErrorCodeSupplier errorCode, @FormatString String formatString, double argument)
+    {
+        if (!condition) {
+            throw new TrinoException(errorCode, format(formatString, argument));
+        }
+    }
+
+    @FormatMethod
+    public static void checkCondition(boolean condition, ErrorCodeSupplier errorCode, @FormatString String formatString, double argumentOne, double argumentTwo)
+    {
+        if (!condition) {
+            throw new TrinoException(errorCode, format(formatString, argumentOne, argumentTwo));
+        }
+    }
+
+    @FormatMethod
+    public static void checkCondition(boolean condition, ErrorCodeSupplier errorCode, @FormatString String formatString, double argumentOne, double argumentTwo, double argumentThree)
+    {
+        if (!condition) {
+            throw new TrinoException(errorCode, format(formatString, argumentOne, argumentTwo, argumentThree));
+        }
+    }
+
+    public static ExecutionFailureInfo toFailure(Throwable failure)
+    {
+        return toFailure(failure, newIdentityHashSet());
     }
 
     public static List<ExecutionFailureInfo> toFailures(Collection<? extends Throwable> failures)
@@ -88,11 +183,11 @@ public final class Failures
         String type;
         HostAddress remoteHost = null;
         if (throwable instanceof Failure failure) {
-            type = failure.getFailureInfo().getType();
+            type = failure.getFailureInfo().type();
         }
         else {
             Class<?> clazz = throwable.getClass();
-            type = firstNonNull(clazz.getCanonicalName(), clazz.getName());
+            type = requireNonNullElse(clazz.getCanonicalName(), clazz.getName());
         }
         if (throwable instanceof TrinoTransportException trinoTransportException) {
             remoteHost = trinoTransportException.getRemoteHost();
@@ -118,7 +213,7 @@ public final class Failures
                 errorCode = GENERIC_INTERNAL_ERROR.toErrorCode();
             }
             else {
-                errorCode = cause.getErrorCode();
+                errorCode = cause.errorCode();
             }
         }
 
@@ -146,7 +241,7 @@ public final class Failures
         }
         if (throwable instanceof TrinoException trinoException) {
             return trinoException.getLocation()
-                    .map(location -> new ErrorLocation(location.getLineNumber(), location.getColumnNumber()))
+                    .map(location -> new ErrorLocation(location.lineNumber(), location.columnNumber()))
                     .orElse(null);
         }
         return null;
@@ -157,7 +252,7 @@ public final class Failures
     {
         return switch (requireNonNull(throwable)) {
             case TrinoException trinoException -> trinoException.getErrorCode();
-            case Failure failure -> failure.getFailureInfo().getErrorCode();
+            case Failure failure -> failure.getFailureInfo().errorCode();
             case ParsingException _ -> SYNTAX_ERROR.toErrorCode();
             default -> null;
         };

@@ -21,8 +21,6 @@ import io.airlift.slice.SliceOutput;
 import io.airlift.slice.Slices;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
-import io.trino.spi.block.BlockEncodingSerde;
-import io.trino.spi.block.TestingBlockEncodingSerde;
 import io.trino.spi.block.ValueBlock;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.LongTimestamp;
@@ -48,6 +46,7 @@ import java.util.stream.IntStream;
 
 import static com.google.common.base.Preconditions.checkState;
 import static io.trino.block.BlockSerdeUtil.writeBlock;
+import static io.trino.metadata.InternalBlockEncodingSerde.TESTING_BLOCK_ENCODING_SERDE;
 import static io.trino.operator.OperatorAssertion.toRow;
 import static io.trino.spi.connector.SortOrder.ASC_NULLS_FIRST;
 import static io.trino.spi.connector.SortOrder.ASC_NULLS_LAST;
@@ -74,8 +73,6 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public abstract class AbstractTestType
 {
-    private final BlockEncodingSerde blockEncodingSerde = new TestingBlockEncodingSerde();
-
     private final Class<?> objectValueType;
     private final ValueBlock testBlock;
     protected final Type type;
@@ -328,7 +325,7 @@ public abstract class AbstractTestType
         assertPositionValue(block.getRegion(position, block.getPositionCount() - position), 0, expectedStackValue, hash, expectedObjectValue);
 
         BlockBuilder blockBuilder = type.createBlockBuilder(null, 1);
-        type.appendTo(block, position, blockBuilder);
+        blockBuilder.append(block.getUnderlyingValueBlock(), block.getUnderlyingValuePosition(position));
         assertPositionValue(blockBuilder.buildValueBlock(), 0, expectedStackValue, hash, expectedObjectValue);
 
         if (expectedStackValue != null) {
@@ -474,9 +471,9 @@ public abstract class AbstractTestType
     private void assertBlockEquals(Block actualValue, Block expectedValue)
     {
         SliceOutput actualSliceOutput = new DynamicSliceOutput(100);
-        writeBlock(blockEncodingSerde, actualSliceOutput, actualValue);
+        writeBlock(TESTING_BLOCK_ENCODING_SERDE, actualSliceOutput, actualValue);
         SliceOutput expectedSliceOutput = new DynamicSliceOutput(actualSliceOutput.size());
-        writeBlock(blockEncodingSerde, expectedSliceOutput, expectedValue);
+        writeBlock(TESTING_BLOCK_ENCODING_SERDE, expectedSliceOutput, expectedValue);
         assertThat(actualSliceOutput.slice()).isEqualTo(expectedSliceOutput.slice());
     }
 
@@ -663,7 +660,7 @@ public abstract class AbstractTestType
                 return sqlMapOf(keyType, valueType, map);
             }
             case RowType rowType -> {
-                List<Type> elementTypes = rowType.getTypeParameters();
+                List<Type> elementTypes = rowType.getFieldTypes();
                 Object[] elementNonNullValues = elementTypes.stream().map(AbstractTestType::getNonNullValueForType).toArray(Object[]::new);
                 return toRow(elementTypes, elementNonNullValues);
             }

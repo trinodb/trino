@@ -54,6 +54,7 @@ import java.lang.reflect.Parameter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
@@ -153,8 +154,8 @@ public class ParametricScalarImplementation
     public Optional<SpecializedSqlScalarFunction> specialize(FunctionBinding functionBinding, FunctionDependencies functionDependencies)
     {
         List<ScalarImplementationChoice> implementationChoices = new ArrayList<>();
-        for (Map.Entry<String, Class<?>> entry : specializedTypeParameters.entrySet()) {
-            if (!entry.getValue().isAssignableFrom(functionBinding.getTypeVariable(entry.getKey()).getJavaType())) {
+        for (Entry<String, Class<?>> entry : specializedTypeParameters.entrySet()) {
+            if (!entry.getValue().isAssignableFrom(functionBinding.variables().getTypeVariable(entry.getKey()).getJavaType())) {
                 return Optional.empty();
             }
         }
@@ -403,16 +404,6 @@ public class ParametricScalarImplementation
         public List<Class<?>> getLambdaInterfaces()
         {
             return lambdaInterfaces;
-        }
-
-        public boolean checkDependencies()
-        {
-            for (int i = 1; i < getDependencies().size(); i++) {
-                if (!getDependencies().get(i).equals(getDependencies().get(0))) {
-                    return false;
-                }
-            }
-            return true;
         }
 
         @VisibleForTesting

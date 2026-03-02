@@ -26,12 +26,13 @@ import io.airlift.tracing.SpanSerialization.SpanSerializer;
 import io.airlift.units.Duration;
 import io.opentelemetry.api.OpenTelemetry;
 import io.opentelemetry.api.trace.Span;
-import io.trino.client.NodeVersion;
 import io.trino.operator.RetryPolicy;
+import io.trino.plugin.base.metrics.DistributionSnapshot;
 import io.trino.plugin.base.metrics.LongCount;
 import io.trino.plugin.base.metrics.TDigestHistogram;
 import io.trino.server.BasicQueryStats;
 import io.trino.server.ResultQueryInfo;
+import io.trino.spi.NodeVersion;
 import io.trino.spi.QueryId;
 import io.trino.spi.TrinoWarning;
 import io.trino.spi.WarningCode;
@@ -41,8 +42,6 @@ import io.trino.spi.metrics.Metrics;
 import io.trino.spi.resourcegroups.QueryType;
 import io.trino.spi.resourcegroups.ResourceGroupId;
 import io.trino.spi.security.SelectedRole;
-import io.trino.spi.type.TestingTypeManager;
-import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.TypeSignature;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolKeyDeserializer;
@@ -62,14 +61,13 @@ import static io.airlift.units.DataSize.succinctBytes;
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.execution.QueryState.FINISHED;
 import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestQueryInfo
 {
-    private static final TypeManager TYPE_MANAGER = new TestingTypeManager();
-
     @Test
     public void testQueryInfoRoundTrip()
     {
@@ -82,7 +80,7 @@ public class TestQueryInfo
                                 TypeSignature.class, new TypeSignatureDeserializer()))
                         .withKeyDeserializers(Map.of(
                                 TypeSignature.class, new TypeSignatureKeyDeserializer(),
-                                Symbol.class, new SymbolKeyDeserializer(TYPE_MANAGER))))
+                                Symbol.class, new SymbolKeyDeserializer(TESTING_TYPE_MANAGER))))
                 .jsonCodec(QueryInfo.class);
 
         QueryInfo expected = createQueryInfo(Optional.empty());
@@ -169,6 +167,7 @@ public class TestQueryInfo
         assertThat(queryStats.getCreateTime()).isEqualTo(basicQueryStats.getCreateTime());
         assertThat(queryStats.getEndTime()).isEqualTo(basicQueryStats.getEndTime());
         assertThat(queryStats.getQueuedTime()).isEqualTo(basicQueryStats.getQueuedTime());
+        assertThat(queryStats.getResourceWaitingTime()).isEqualTo(basicQueryStats.getResourceWaitingTime());
         assertThat(queryStats.getElapsedTime()).isEqualTo(basicQueryStats.getElapsedTime());
         assertThat(queryStats.getExecutionTime()).isEqualTo(basicQueryStats.getExecutionTime());
         assertThat(queryStats.getFailedTasks()).isEqualTo(basicQueryStats.getFailedTasks());
@@ -197,16 +196,16 @@ public class TestQueryInfo
         assertThat(queryStats.getProgressPercentage()).isEqualTo(basicQueryStats.getProgressPercentage());
         assertThat(queryStats.getRunningPercentage()).isEqualTo(basicQueryStats.getRunningPercentage());
 
-        assertThat(stageInfo.getStageId()).isEqualTo(basicStageInfo.getStageId());
-        assertThat(stageInfo.getState()).isEqualTo(basicStageInfo.getState());
-        assertThat(stageInfo.isCoordinatorOnly()).isEqualTo(basicStageInfo.isCoordinatorOnly());
-        assertThat(stageInfo.getTasks()).isEqualTo(basicStageInfo.getTasks());
-        assertThat(stageInfo.getStageStats().getFailedTasks()).isEqualTo(basicStageInfo.getStageStats().getFailedTasks());
-        assertThat(stageInfo.getStageStats().getTotalDrivers()).isEqualTo(basicStageInfo.getStageStats().getTotalDrivers());
-        assertThat(stageInfo.getStageStats().getQueuedDrivers()).isEqualTo(basicStageInfo.getStageStats().getQueuedDrivers());
+        assertThat(stageInfo.stageId()).isEqualTo(basicStageInfo.getStageId());
+        assertThat(stageInfo.state()).isEqualTo(basicStageInfo.getState());
+        assertThat(stageInfo.coordinatorOnly()).isEqualTo(basicStageInfo.isCoordinatorOnly());
+        assertThat(stageInfo.tasks()).isEqualTo(basicStageInfo.getTasks());
+        assertThat(stageInfo.stageStats().getFailedTasks()).isEqualTo(basicStageInfo.getStageStats().getFailedTasks());
+        assertThat(stageInfo.stageStats().getTotalDrivers()).isEqualTo(basicStageInfo.getStageStats().getTotalDrivers());
+        assertThat(stageInfo.stageStats().getQueuedDrivers()).isEqualTo(basicStageInfo.getStageStats().getQueuedDrivers());
 
-        assertThat(stageInfo.getStageStats().getBlockedDrivers()).isEqualTo(basicStageInfo.getStageStats().getBlockedDrivers());
-        assertThat(stageInfo.getStageStats().getPhysicalWrittenDataSize()).isEqualTo(basicStageInfo.getStageStats().getPhysicalWrittenDataSize());
+        assertThat(stageInfo.stageStats().getBlockedDrivers()).isEqualTo(basicStageInfo.getStageStats().getBlockedDrivers());
+        assertThat(stageInfo.stageStats().getPhysicalWrittenDataSize()).isEqualTo(basicStageInfo.getStageStats().getPhysicalWrittenDataSize());
     }
 
     private static QueryInfo createQueryInfo(Optional<StagesInfo> stagesInfo)
@@ -239,6 +238,7 @@ public class TestQueryInfo
                 null,
                 ImmutableList.of(new TrinoWarning(new WarningCode(1, "name"), "message")),
                 ImmutableSet.of(new Input(Optional.of("connectorName"), "catalog", new CatalogVersion("default"), "schema", "talble", Optional.empty(), ImmutableList.of(new Column("name", "type")), new PlanFragmentId("id"), new PlanNodeId("1"))),
+                Optional.empty(),
                 Optional.empty(),
                 ImmutableList.of(),
                 ImmutableList.of(),
@@ -318,7 +318,7 @@ public class TestQueryInfo
                 Duration.succinctDuration(value, SECONDS),
                 Duration.succinctDuration(value, SECONDS),
                 succinctBytes(value),
-                Optional.of(new DistributionSnapshot(new TDigestHistogram(new TDigest()))),
+                Optional.of(DistributionSnapshot.fromDistribution(new TDigestHistogram(new TDigest()))),
                 succinctBytes(value),
                 succinctBytes(value),
                 value,

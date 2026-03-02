@@ -29,7 +29,7 @@ import static io.trino.spi.function.OperatorType.CAST;
 import static java.util.Objects.requireNonNull;
 
 public record SpecialForm(
-        io.trino.sql.relational.SpecialForm.Form form,
+        Form form,
         Type type,
         List<RowExpression> arguments,
         List<ResolvedFunction> functionDependencies)
@@ -47,7 +47,7 @@ public record SpecialForm(
     {
         String mangleOperatorName = mangleOperatorName(operator);
         for (ResolvedFunction function : functionDependencies) {
-            if (function.signature().getName().getFunctionName().equalsIgnoreCase(mangleOperatorName)) {
+            if (function.signature().getName().functionName().equalsIgnoreCase(mangleOperatorName)) {
                 return function;
             }
         }

@@ -18,6 +18,7 @@ import io.airlift.units.DataSize;
 import io.trino.RowPagesBuilder;
 import io.trino.operator.Driver;
 import io.trino.operator.DriverContext;
+import io.trino.operator.NullSafeHashCompiler;
 import io.trino.operator.OperatorFactory;
 import io.trino.operator.PagesIndex;
 import io.trino.operator.PipelineContext;
@@ -42,6 +43,7 @@ import io.trino.sql.planner.plan.PlanNodeId;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 import java.util.function.Function;
@@ -60,7 +62,7 @@ import static java.util.Objects.requireNonNull;
 public final class JoinTestUtils
 {
     private static final int PARTITION_COUNT = 4;
-    private static final TypeOperators TYPE_OPERATORS = new TypeOperators();
+    private static final NullSafeHashCompiler HASH_COMPILER = new NullSafeHashCompiler(new TypeOperators());
 
     private JoinTestUtils() {}
 
@@ -140,11 +142,11 @@ public final class JoinTestUtils
                 taskContext.getSession(),
                 partitionCount,
                 FIXED_HASH_DISTRIBUTION,
-                Optional.empty(),
+                OptionalInt.empty(),
                 hashChannels,
                 hashChannelTypes,
                 DataSize.of(32, DataSize.Unit.MEGABYTE),
-                TYPE_OPERATORS,
+                HASH_COMPILER,
                 DataSize.of(32, DataSize.Unit.MEGABYTE),
                 () -> 0L);
 
@@ -175,7 +177,7 @@ public final class JoinTestUtils
                         .collect(toImmutableList()),
                 partitionCount,
                 false,
-                TYPE_OPERATORS);
+                HASH_COMPILER);
         JoinBridgeManager<PartitionedLookupSourceFactory> lookupSourceFactoryManager = new JoinBridgeManager<PartitionedLookupSourceFactory>(
                 false,
                 factory,
@@ -188,7 +190,7 @@ public final class JoinTestUtils
                 rangeList(buildPages.getTypes().size()),
                 hashChannels,
                 filterFunctionFactory,
-                Optional.empty(),
+                OptionalInt.empty(),
                 ImmutableList.of(),
                 100,
                 new PagesIndex.TestingFactory(false, enableSingleChannelBigintLookupSource),

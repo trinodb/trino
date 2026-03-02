@@ -22,11 +22,18 @@ import java.util.stream.Stream;
 public final class BigintType
         extends AbstractLongType
 {
+    public static final String NAME = "bigint";
     public static final BigintType BIGINT = new BigintType();
 
     private BigintType()
     {
-        super(new TypeSignature(StandardTypes.BIGINT));
+        super(new TypeSignature(NAME));
+    }
+
+    @Override
+    public String getDisplayName()
+    {
+        return NAME;
     }
 
     @Override

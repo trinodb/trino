@@ -20,7 +20,7 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.net.URI;
-import java.nio.file.Paths;
+import java.nio.file.Path;
 import java.util.List;
 import java.util.Optional;
 
@@ -78,7 +78,7 @@ public class SystemOpenRedirectHandler
     {
         List<String> paths = SPLITTER.splitToList(System.getenv("PATH"));
         for (String path : paths) {
-            File[] found = Paths.get(path)
+            File[] found = Path.of(path)
                     .toFile()
                     .listFiles((dir, name) -> LINUX_BROWSERS.contains(name));
 

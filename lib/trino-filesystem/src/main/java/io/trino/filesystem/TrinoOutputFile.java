@@ -48,6 +48,7 @@ public interface TrinoOutputFile
      * If an error occurs while writing, the file will not be created.
      *
      * @throws FileAlreadyExistsException if the file already exists
+     * @throws FileMayHaveAlreadyExistedException if the file exists and file system cannot determine whether the file was created by the call or already existed
      * @throws UnsupportedOperationException if the file system does not support this operation
      */
     default void createExclusive(byte[] data)
@@ -62,7 +63,7 @@ public interface TrinoOutputFile
      * <p>
      * If the file already exists, the method may fail or the file may be overwritten,
      * depending on the file system implementation.
-     * For example, S3 does not support creating files exclusively, and performing an
+     * For example, S3 used not to support creating files exclusively, and performing an
      * existence check before creating the file is both expensive and unnecessary for
      * locations that are expected to be unique.
      * <p>

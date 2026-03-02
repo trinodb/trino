@@ -35,9 +35,9 @@ import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.testing.QueryAssertions.copyTpchTables;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.TestingSession.testSessionBuilder;
-import static io.trino.testing.containers.Minio.MINIO_ACCESS_KEY;
 import static io.trino.testing.containers.Minio.MINIO_REGION;
-import static io.trino.testing.containers.Minio.MINIO_SECRET_KEY;
+import static io.trino.testing.containers.Minio.MINIO_ROOT_PASSWORD;
+import static io.trino.testing.containers.Minio.MINIO_ROOT_USER;
 import static java.lang.String.format;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
@@ -84,8 +84,8 @@ public class TestSharedHiveThriftMetastore
                         .put("hive.metastore.uri", hiveMinioDataLake.getHiveHadoop().getHiveMetastoreEndpoint().toString())
                         .put("hive.metastore.thrift.client.read-timeout", "1m") // read timed out sometimes happens with the default timeout
                         .put("fs.native-s3.enabled", "true")
-                        .put("s3.aws-access-key", MINIO_ACCESS_KEY)
-                        .put("s3.aws-secret-key", MINIO_SECRET_KEY)
+                        .put("s3.aws-access-key", MINIO_ROOT_USER)
+                        .put("s3.aws-secret-key", MINIO_ROOT_PASSWORD)
                         .put("s3.region", MINIO_REGION)
                         .put("s3.endpoint", hiveMinioDataLake.getMinio().getMinioAddress())
                         .put("s3.path-style-access", "true")
@@ -102,8 +102,8 @@ public class TestSharedHiveThriftMetastore
                         .put("hive.metastore.uri", hiveMinioDataLake.getHiveHadoop().getHiveMetastoreEndpoint().toString())
                         .put("hive.metastore.thrift.client.read-timeout", "1m") // read timed out sometimes happens with the default timeout
                         .put("fs.native-s3.enabled", "true")
-                        .put("s3.aws-access-key", MINIO_ACCESS_KEY)
-                        .put("s3.aws-secret-key", MINIO_SECRET_KEY)
+                        .put("s3.aws-access-key", MINIO_ROOT_USER)
+                        .put("s3.aws-secret-key", MINIO_ROOT_PASSWORD)
                         .put("s3.region", MINIO_REGION)
                         .put("s3.endpoint", hiveMinioDataLake.getMinio().getMinioAddress())
                         .put("s3.path-style-access", "true")
@@ -119,8 +119,8 @@ public class TestSharedHiveThriftMetastore
                 .put("hive.metastore", "thrift")
                 .put("hive.metastore.uri", hiveMinioDataLake.getHiveHadoop().getHiveMetastoreEndpoint().toString())
                 .put("fs.native-s3.enabled", "true")
-                .put("s3.aws-access-key", MINIO_ACCESS_KEY)
-                .put("s3.aws-secret-key", MINIO_SECRET_KEY)
+                .put("s3.aws-access-key", MINIO_ROOT_USER)
+                .put("s3.aws-secret-key", MINIO_ROOT_PASSWORD)
                 .put("s3.region", MINIO_REGION)
                 .put("s3.endpoint", hiveMinioDataLake.getMinio().getMinioAddress())
                 .put("s3.path-style-access", "true")

@@ -24,8 +24,8 @@ import io.airlift.http.client.HttpClient.HttpResponseFuture;
 import io.airlift.http.client.Request;
 import io.airlift.json.JsonCodec;
 import io.airlift.log.Logger;
-import io.trino.client.NodeVersion;
 import io.trino.server.ServerInfo;
+import io.trino.spi.NodeVersion;
 
 import java.net.ConnectException;
 import java.net.URI;

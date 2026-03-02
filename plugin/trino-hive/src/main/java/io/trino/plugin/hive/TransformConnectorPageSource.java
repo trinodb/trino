@@ -199,6 +199,13 @@ public final class TransformConnectorPageSource
             return this;
         }
 
+        @CanIgnoreReturnValue
+        public Builder forceTransforms()
+        {
+            requiresTransform = true;
+            return this;
+        }
+
         @CheckReturnValue
         public ConnectorPageSource build(ConnectorPageSource pageSource)
         {

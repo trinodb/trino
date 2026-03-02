@@ -143,6 +143,7 @@ public class FunctionResolver
                     resolvedFunctionId,
                     functionBinding.boundFunctionMetadata().getKind(),
                     functionBinding.boundFunctionMetadata().isDeterministic(),
+                    functionBinding.boundFunctionMetadata().isNeverFails(),
                     functionBinding.boundFunctionMetadata().getFunctionNullability(),
                     ImmutableMap.of(),
                     ImmutableSet.of());
@@ -208,7 +209,7 @@ public class FunctionResolver
             Function<CatalogFunctionBinding, ResolvedFunction> resolver)
     {
         Map<TypeSignature, Type> dependentTypes = dependencies.getTypeDependencies().stream()
-                .map(typeSignature -> applyBoundVariables(typeSignature, functionBinding))
+                .map(typeSignature -> applyBoundVariables(typeSignature, functionBinding.variables()))
                 .collect(toImmutableMap(Function.identity(), typeManager::getType, (left, right) -> left));
 
         ImmutableSet.Builder<ResolvedFunction> functions = ImmutableSet.builder();
@@ -216,7 +217,7 @@ public class FunctionResolver
             try {
                 CatalogSchemaFunctionName name = functionDependency.getName();
                 CatalogFunctionBinding catalogFunctionBinding = functionBinder.bindFunction(
-                        fromTypeSignatures(applyBoundVariables(functionDependency.getArgumentTypes(), functionBinding)),
+                        fromTypeSignatures(applyBoundVariables(functionDependency.getArgumentTypes(), functionBinding.variables())),
                         candidateLoader.apply(name),
                         name.toString());
                 functions.add(resolver.apply(catalogFunctionBinding));
@@ -229,7 +230,7 @@ public class FunctionResolver
         }
         for (OperatorDependency operatorDependency : dependencies.getOperatorDependencies()) {
             try {
-                List<Type> argumentTypes = applyBoundVariables(operatorDependency.getArgumentTypes(), functionBinding).stream()
+                List<Type> argumentTypes = applyBoundVariables(operatorDependency.getArgumentTypes(), functionBinding.variables()).stream()
                         .map(typeManager::getType)
                         .collect(toImmutableList());
                 functions.add(metadata.resolveOperator(operatorDependency.getOperatorType(), argumentTypes));
@@ -242,8 +243,8 @@ public class FunctionResolver
         }
         for (CastDependency castDependency : dependencies.getCastDependencies()) {
             try {
-                Type fromType = typeManager.getType(applyBoundVariables(castDependency.getFromType(), functionBinding));
-                Type toType = typeManager.getType(applyBoundVariables(castDependency.getToType(), functionBinding));
+                Type fromType = typeManager.getType(applyBoundVariables(castDependency.getFromType(), functionBinding.variables()));
+                Type toType = typeManager.getType(applyBoundVariables(castDependency.getToType(), functionBinding.variables()));
                 functions.add(metadata.getCoercion(fromType, toType));
             }
             catch (TrinoException e) {
@@ -259,6 +260,7 @@ public class FunctionResolver
                 functionBinding.getFunctionId(),
                 functionMetadata.getKind(),
                 functionMetadata.isDeterministic(),
+                functionMetadata.isNeverFails(),
                 functionMetadata.getFunctionNullability(),
                 dependentTypes,
                 functions.build());
@@ -297,6 +299,6 @@ public class FunctionResolver
         }
         return accessControl.canExecuteFunction(
                 SecurityContext.of(session),
-                new QualifiedObjectName(functionName.getCatalogName(), functionName.getSchemaName(), functionName.getFunctionName()));
+                new QualifiedObjectName(functionName.catalogName(), functionName.schemaName(), functionName.functionName()));
     }
 }

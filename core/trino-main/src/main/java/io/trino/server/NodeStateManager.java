@@ -13,6 +13,7 @@
  */
 package io.trino.server;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.inject.Inject;
 import io.airlift.bootstrap.LifeCycleManager;
 import io.airlift.log.Logger;
@@ -24,7 +25,6 @@ import io.trino.execution.TaskInfo;
 import io.trino.execution.TaskState;
 import io.trino.node.NodeState;
 import io.trino.server.NodeStateManager.CurrentNodeState.VersionedState;
-import org.assertj.core.util.VisibleForTesting;
 
 import java.util.List;
 import java.util.Objects;
@@ -200,7 +200,7 @@ public class NodeStateManager
 
     private void requestGracefulShutdown()
     {
-        log.info("Shutdown requested");
+        log.info("Shutdown requested, wait %s for the coordinator to notice the shutdown", gracePeriod);
 
         VersionedState expectedState = nodeState.getVersion();
         // wait for a grace period (so that shutting down state is observed by the coordinator) to start the shutdown sequence
@@ -263,16 +263,18 @@ public class NodeStateManager
         // Wait for all remaining tasks to finish.
         while (nodeState.getVersion() == expectedState) {
             List<TaskInfo> activeTasks = getActiveTasks();
-            log.info("Waiting for %s active tasks to finish", activeTasks.size());
             if (activeTasks.isEmpty()) {
                 break;
             }
 
+            log.info("Waiting for %s active tasks to finish", activeTasks.size());
             waitTasksToFinish(activeTasks, expectedState);
         }
+        log.info("All active tasks are finished");
 
         // wait for another grace period for all task states to be observed by the coordinator
         if (nodeState.getVersion() == expectedState) {
+            log.info("Waiting for a grace period of %s for all task states to be observed by the coordinator", gracePeriod);
             sleepUninterruptibly(gracePeriod.toMillis(), MILLISECONDS);
         }
     }
@@ -282,9 +284,9 @@ public class NodeStateManager
         final CountDownLatch countDownLatch = new CountDownLatch(activeTasks.size());
 
         for (TaskInfo taskInfo : activeTasks) {
-            sqlTasksObservable.addStateChangeListener(taskInfo.taskStatus().getTaskId(), newState -> {
+            sqlTasksObservable.addStateChangeListener(taskInfo.taskStatus().taskId(), newState -> {
                 if (newState.isDone()) {
-                    log.info("Task %s has finished", taskInfo.taskStatus().getTaskId());
+                    log.info("Task %s has finished", taskInfo.taskStatus().taskId());
                     countDownLatch.countDown();
                 }
             });
@@ -309,7 +311,7 @@ public class NodeStateManager
     {
         return taskInfoSupplier.get()
                 .stream()
-                .filter(taskInfo -> !taskInfo.taskStatus().getState().isDone())
+                .filter(taskInfo -> !taskInfo.taskStatus().state().isDone())
                 .collect(toImmutableList());
     }
 

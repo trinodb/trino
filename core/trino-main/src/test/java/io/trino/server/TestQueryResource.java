@@ -197,8 +197,8 @@ public class TestQueryResource
         assertThat(queryInfoPruned.getStages()).isPresent();
         assertThat(queryInfoNotPruned.getStages()).isPresent();
 
-        assertThat(queryInfoPruned.getStages().get().getOutputStage().getTasks()).isEmpty();
-        assertThat(queryInfoNotPruned.getStages().get().getOutputStage().getTasks()).isNotEmpty();
+        assertThat(queryInfoPruned.getStages().get().getOutputStage().tasks()).isEmpty();
+        assertThat(queryInfoNotPruned.getStages().get().getOutputStage().tasks()).isNotEmpty();
     }
 
     @Test
@@ -208,7 +208,7 @@ public class TestQueryResource
         QueryInfo info = getQueryInfo(queryId);
         assertThat(info.isScheduled()).isFalse();
         assertThat(info.getFailureInfo()).isNotNull();
-        assertThat(info.getFailureInfo().getErrorCode()).isEqualTo(SYNTAX_ERROR.toErrorCode());
+        assertThat(info.getFailureInfo().errorCode()).isEqualTo(SYNTAX_ERROR.toErrorCode());
 
         server.getAccessControl().deny(privilege("query", VIEW_QUERY));
         try {
@@ -228,7 +228,7 @@ public class TestQueryResource
         QueryInfo info = getQueryInfo(queryId);
         assertThat(info.isScheduled()).isTrue();
         assertThat(info.getFailureInfo()).isNotNull();
-        assertThat(info.getFailureInfo().getErrorCode()).isEqualTo(DIVISION_BY_ZERO.toErrorCode());
+        assertThat(info.getFailureInfo().errorCode()).isEqualTo(DIVISION_BY_ZERO.toErrorCode());
     }
 
     @Test

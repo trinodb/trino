@@ -14,10 +14,12 @@
 package io.trino.plugin.mongodb;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Supplier;
 import com.google.common.cache.Cache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Ordering;
 import com.google.common.collect.Streams;
 import com.google.common.primitives.Primitives;
@@ -51,24 +53,22 @@ import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.TupleDomain;
+import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Decimals;
 import io.trino.spi.type.Int128;
 import io.trino.spi.type.IntegerType;
-import io.trino.spi.type.NamedTypeSignature;
-import io.trino.spi.type.RowFieldName;
-import io.trino.spi.type.StandardTypes;
+import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
-import io.trino.spi.type.TypeSignature;
-import io.trino.spi.type.TypeSignatureParameter;
 import io.trino.spi.type.VarcharType;
 import org.bson.Document;
 import org.bson.types.Binary;
 import org.bson.types.Decimal128;
 import org.bson.types.ObjectId;
 
+import java.io.Closeable;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -80,10 +80,10 @@ import java.util.Comparator;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
-import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -130,6 +130,7 @@ import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
 
 public class MongoSession
+        implements Closeable
 {
     private static final Logger log = Logger.get(MongoSession.class);
     private static final Set<String> SYSTEM_DATABASES = Set.of("admin", "local", "config");
@@ -172,7 +173,7 @@ public class MongoSession
             .from(Comparator.comparingInt(columnHandle -> columnHandle.dereferenceNames().size()));
 
     private final TypeManager typeManager;
-    private final MongoClient client;
+    private final Supplier<MongoClient> client;
 
     private final String schemaCollection;
     private final boolean caseInsensitiveNameMatching;
@@ -181,7 +182,7 @@ public class MongoSession
     private final Cache<SchemaTableName, MongoTable> tableCache;
     private final String implicitPrefix;
 
-    public MongoSession(TypeManager typeManager, MongoClient client, MongoClientConfig config)
+    public MongoSession(TypeManager typeManager, Supplier<MongoClient> client, MongoClientConfig config)
     {
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.client = requireNonNull(client, "client is null");
@@ -195,14 +196,16 @@ public class MongoSession
                 .build();
     }
 
-    public void shutdown()
+    @Override
+    public void close()
     {
-        client.close();
+        // Close the shared MongoClient instance that was created lazily
+        getClient().close();
     }
 
     public List<HostAddress> getAddresses()
     {
-        return client.getClusterDescription().getServerDescriptions().stream()
+        return getClient().getClusterDescription().getServerDescriptions().stream()
                 .map(description -> fromParts(description.getAddress().getHost(), description.getAddress().getPort()))
                 .collect(toImmutableList());
     }
@@ -218,12 +221,12 @@ public class MongoSession
     public void createSchema(String schemaName)
     {
         // Put an empty schema collection because MongoDB doesn't support a database without collections
-        client.getDatabase(schemaName).createCollection(schemaCollection);
+        getClient().getDatabase(schemaName).createCollection(schemaCollection);
     }
 
     public void dropSchema(String schemaName, boolean cascade)
     {
-        MongoDatabase database = client.getDatabase(toRemoteSchemaName(schemaName));
+        MongoDatabase database = getClient().getDatabase(toRemoteSchemaName(schemaName));
         if (!cascade) {
             try (MongoCursor<String> collections = database.listCollectionNames().cursor()) {
                 while (collections.hasNext()) {
@@ -278,7 +281,7 @@ public class MongoSession
             throw new SchemaNotFoundException(name.databaseName());
         }
         createTableMetadata(name, columns, comment);
-        client.getDatabase(name.databaseName()).createCollection(name.collectionName());
+        getClient().getDatabase(name.databaseName()).createCollection(name.collectionName());
     }
 
     public void dropTable(RemoteTableName remoteTableName)
@@ -297,7 +300,7 @@ public class MongoSession
         Document metadata = getTableMetadata(remoteSchemaName, remoteTableName);
         metadata.append(COMMENT_KEY, comment.orElse(null));
 
-        client.getDatabase(remoteSchemaName).getCollection(schemaCollection)
+        getClient().getDatabase(remoteSchemaName).getCollection(schemaCollection)
                 .findOneAndReplace(new Document(TABLE_NAME_KEY, remoteTableName), metadata);
 
         tableCache.invalidate(table.schemaTableName());
@@ -320,7 +323,7 @@ public class MongoSession
 
         metadata.append(FIELDS_KEY, columns.build());
 
-        client.getDatabase(remoteSchemaName).getCollection(schemaCollection)
+        getClient().getDatabase(remoteSchemaName).getCollection(schemaCollection)
                 .findOneAndReplace(new Document(TABLE_NAME_KEY, remoteTableName), metadata);
 
         tableCache.invalidate(table.schemaTableName());
@@ -333,16 +336,16 @@ public class MongoSession
         String newSchemaName = toRemoteSchemaName(newName.getSchemaName());
 
         // Schema collection should always have the source table definition
-        MongoCollection<Document> oldSchema = client.getDatabase(oldSchemaName).getCollection(schemaCollection);
+        MongoCollection<Document> oldSchema = getClient().getDatabase(oldSchemaName).getCollection(schemaCollection);
         Document tableDefinition = oldSchema.findOneAndDelete(new Document(TABLE_NAME_KEY, oldTableName));
         requireNonNull(tableDefinition, "Table definition not found in schema collection: " + oldTableName);
 
-        MongoCollection<Document> newSchema = client.getDatabase(newSchemaName).getCollection(schemaCollection);
+        MongoCollection<Document> newSchema = getClient().getDatabase(newSchemaName).getCollection(schemaCollection);
         tableDefinition.append(TABLE_NAME_KEY, newName.getTableName());
         newSchema.insertOne(tableDefinition);
 
         // Need to check explicitly because the old collection may not exist when it doesn't have any data
-        if (collectionExists(client.getDatabase(oldSchemaName), oldTableName)) {
+        if (collectionExists(getClient().getDatabase(oldSchemaName), oldTableName)) {
             getCollection(table.remoteTableName()).renameCollection(new MongoNamespace(newSchemaName, newName.getTableName()));
         }
 
@@ -360,14 +363,15 @@ public class MongoSession
 
         Document newColumn = new Document();
         newColumn.append(FIELDS_NAME_KEY, columnMetadata.getName());
-        newColumn.append(FIELDS_TYPE_KEY, columnMetadata.getType().getTypeSignature().toString());
-        newColumn.append(COMMENT_KEY, columnMetadata.getComment());
+        newColumn.append(FIELDS_TYPE_KEY, columnMetadata.getType().getDisplayName());
+        columnMetadata.getComment()
+                .ifPresent(comment -> newColumn.append(COMMENT_KEY, comment));
         newColumn.append(FIELDS_HIDDEN_KEY, false);
         columns.add(newColumn);
 
         metadata.append(FIELDS_KEY, columns);
 
-        MongoDatabase db = client.getDatabase(remoteSchemaName);
+        MongoDatabase db = getClient().getDatabase(remoteSchemaName);
         MongoCollection<Document> schema = db.getCollection(schemaCollection);
         schema.findOneAndReplace(new Document(TABLE_NAME_KEY, remoteTableName), metadata);
 
@@ -392,7 +396,7 @@ public class MongoSession
 
         metadata.append(FIELDS_KEY, columns);
 
-        MongoDatabase database = client.getDatabase(remoteSchemaName);
+        MongoDatabase database = getClient().getDatabase(remoteSchemaName);
         MongoCollection<Document> schema = database.getCollection(schemaCollection);
         schema.findOneAndReplace(new Document(TABLE_NAME_KEY, remoteTableName), metadata);
 
@@ -415,7 +419,7 @@ public class MongoSession
 
         metadata.append(FIELDS_KEY, columns);
 
-        MongoDatabase database = client.getDatabase(remoteSchemaName);
+        MongoDatabase database = getClient().getDatabase(remoteSchemaName);
         MongoCollection<Document> schema = database.getCollection(schemaCollection);
         schema.findOneAndReplace(new Document(TABLE_NAME_KEY, remoteTableName), metadata);
 
@@ -435,7 +439,7 @@ public class MongoSession
         List<Document> columns = getColumnMetadata(metadata).stream()
                 .map(document -> {
                     if (document.getString(FIELDS_NAME_KEY).equals(columnName)) {
-                        document.put(FIELDS_TYPE_KEY, type.getTypeSignature().toString());
+                        document.put(FIELDS_TYPE_KEY, type.getDisplayName());
                         return document;
                     }
                     return document;
@@ -444,7 +448,7 @@ public class MongoSession
 
         metadata.replace(FIELDS_KEY, columns);
 
-        client.getDatabase(remoteSchemaName).getCollection(schemaCollection)
+        getClient().getDatabase(remoteSchemaName).getCollection(schemaCollection)
                 .findOneAndReplace(new Document(TABLE_NAME_KEY, remoteTableName), metadata);
 
         tableCache.invalidate(table.schemaTableName());
@@ -498,7 +502,7 @@ public class MongoSession
 
     public MongoCollection<Document> getCollection(RemoteTableName remoteTableName)
     {
-        return client.getDatabase(remoteTableName.databaseName()).getCollection(remoteTableName.collectionName());
+        return getClient().getDatabase(remoteTableName.databaseName()).getCollection(remoteTableName.collectionName());
     }
 
     public List<MongoIndex> getIndexes(String schemaName, String tableName)
@@ -506,7 +510,7 @@ public class MongoSession
         if (isView(schemaName, tableName)) {
             return ImmutableList.of();
         }
-        MongoCollection<Document> collection = client.getDatabase(schemaName).getCollection(tableName);
+        MongoCollection<Document> collection = getClient().getDatabase(schemaName).getCollection(tableName);
         return MongoIndex.parse(collection.listIndexes());
     }
 
@@ -609,7 +613,7 @@ public class MongoSession
     {
         ImmutableList.Builder<Document> queryBuilder = ImmutableList.builder();
         if (tupleDomain.getDomains().isPresent()) {
-            for (Map.Entry<ColumnHandle, Domain> entry : tupleDomain.getDomains().get().entrySet()) {
+            for (Entry<ColumnHandle, Domain> entry : tupleDomain.getDomains().get().entrySet()) {
                 MongoColumnHandle column = (MongoColumnHandle) entry.getKey();
                 Optional<Document> predicate = buildPredicate(column, entry.getValue());
                 predicate.ifPresent(queryBuilder::add);
@@ -798,7 +802,7 @@ public class MongoSession
     private Document getTableMetadata(String schemaName, String tableName)
             throws TableNotFoundException
     {
-        MongoDatabase db = client.getDatabase(schemaName);
+        MongoDatabase db = getClient().getDatabase(schemaName);
         MongoCollection<Document> schema = db.getCollection(schemaCollection);
 
         Document doc = schema
@@ -840,7 +844,7 @@ public class MongoSession
 
     private Set<String> getTableMetadataNames(String schemaName)
     {
-        try (MongoCursor<Document> cursor = client.getDatabase(schemaName).getCollection(schemaCollection)
+        try (MongoCursor<Document> cursor = getClient().getDatabase(schemaName).getCollection(schemaCollection)
                 .find().projection(new Document(TABLE_NAME_KEY, true)).iterator()) {
             return Streams.stream(cursor)
                     .map(document -> document.getString(TABLE_NAME_KEY))
@@ -853,7 +857,7 @@ public class MongoSession
         String remoteSchemaName = remoteSchemaTableName.databaseName();
         String remoteTableName = remoteSchemaTableName.collectionName();
 
-        MongoDatabase db = client.getDatabase(remoteSchemaName);
+        MongoDatabase db = getClient().getDatabase(remoteSchemaName);
         Document metadata = new Document(TABLE_NAME_KEY, remoteTableName);
 
         ArrayList<Document> fields = new ArrayList<>();
@@ -878,7 +882,7 @@ public class MongoSession
 
     private boolean deleteTableMetadata(RemoteTableName remoteTableName)
     {
-        MongoDatabase db = client.getDatabase(remoteTableName.databaseName());
+        MongoDatabase db = getClient().getDatabase(remoteTableName.databaseName());
         if (!collectionExists(db, remoteTableName.collectionName()) &&
                 db.getCollection(schemaCollection).find(new Document(TABLE_NAME_KEY, remoteTableName.collectionName())).first().isEmpty()) {
             return false;
@@ -892,7 +896,7 @@ public class MongoSession
 
     private List<Document> guessTableFields(String schemaName, String tableName)
     {
-        MongoDatabase db = client.getDatabase(schemaName);
+        MongoDatabase db = getClient().getDatabase(schemaName);
         Document doc = db.getCollection(tableName).find().first();
         if (doc == null || doc.isEmpty()) {
             // no records at the collection
@@ -903,13 +907,13 @@ public class MongoSession
 
         for (String key : doc.keySet()) {
             Object value = doc.get(key);
-            Optional<TypeSignature> fieldType = guessFieldType(value);
+            Optional<Type> fieldType = guessFieldType(value);
             if (fieldType.isPresent()) {
                 Document metadata = new Document();
                 metadata.append(FIELDS_NAME_KEY, key);
-                metadata.append(FIELDS_TYPE_KEY, fieldType.get().toString());
+                metadata.append(FIELDS_TYPE_KEY, fieldType.get().getDisplayName());
                 metadata.append(FIELDS_HIDDEN_KEY,
-                        key.equals("_id") && fieldType.get().equals(OBJECT_ID.getTypeSignature()));
+                        key.equals("_id") && fieldType.get().equals(OBJECT_ID));
 
                 builder.add(metadata);
             }
@@ -921,27 +925,27 @@ public class MongoSession
         return builder.build();
     }
 
-    private Optional<TypeSignature> guessFieldType(Object value)
+    private Optional<Type> guessFieldType(Object value)
     {
         if (value == null) {
             return Optional.empty();
         }
 
-        TypeSignature typeSignature = null;
+        Type type = null;
         if (value instanceof String) {
-            typeSignature = createUnboundedVarcharType().getTypeSignature();
+            type = createUnboundedVarcharType();
         }
         if (value instanceof Binary) {
-            typeSignature = VARBINARY.getTypeSignature();
+            type = VARBINARY;
         }
         else if (value instanceof Integer || value instanceof Long) {
-            typeSignature = BIGINT.getTypeSignature();
+            type = BIGINT;
         }
         else if (value instanceof Boolean) {
-            typeSignature = BOOLEAN.getTypeSignature();
+            type = BOOLEAN;
         }
         else if (value instanceof Float || value instanceof Double) {
-            typeSignature = DOUBLE.getTypeSignature();
+            type = DOUBLE;
         }
         else if (value instanceof Decimal128 decimal128) {
             BigDecimal decimal;
@@ -954,16 +958,16 @@ public class MongoSession
             // Java's BigDecimal.precision() returns precision for the unscaled value, so it skips leading zeros for values lower than 1.
             // Trino's (SQL) decimal precision must include leading zeros in values less than 1, and can never be lower than scale.
             int precision = Math.max(decimal.precision(), decimal.scale());
-            typeSignature = createDecimalType(precision, decimal.scale()).getTypeSignature();
+            type = createDecimalType(precision, decimal.scale());
         }
         else if (value instanceof Date) {
-            typeSignature = TIMESTAMP_MILLIS.getTypeSignature();
+            type = TIMESTAMP_MILLIS;
         }
         else if (value instanceof ObjectId) {
-            typeSignature = OBJECT_ID.getTypeSignature();
+            type = OBJECT_ID;
         }
         else if (value instanceof List) {
-            List<Optional<TypeSignature>> subTypes = ((List<?>) value).stream()
+            List<Optional<Type>> subTypes = ((List<?>) value).stream()
                     .map(this::guessFieldType)
                     .collect(toList());
 
@@ -971,48 +975,43 @@ public class MongoSession
                 return Optional.empty();
             }
 
-            Set<TypeSignature> signatures = subTypes.stream().map(Optional::get).collect(toSet());
-            if (signatures.size() == 1) {
-                typeSignature = new TypeSignature(StandardTypes.ARRAY, signatures.stream()
-                        .map(TypeSignatureParameter::typeParameter)
-                        .collect(Collectors.toList()));
+            Set<Type> types = subTypes.stream().map(Optional::get).collect(toSet());
+            if (types.size() == 1) {
+                type = new ArrayType(Iterables.getOnlyElement(types));
             }
             else {
                 // TODO: client doesn't handle empty field name row type yet
-                typeSignature = new TypeSignature(StandardTypes.ROW,
-                        IntStream.range(0, subTypes.size())
-                                .mapToObj(idx -> TypeSignatureParameter.namedTypeParameter(
-                                        new NamedTypeSignature(Optional.of(new RowFieldName(format("%s%d", implicitPrefix, idx + 1))), subTypes.get(idx).get())))
-                                .collect(toList()));
+                type = RowType.from(IntStream.range(0, subTypes.size())
+                        .mapToObj(idx -> RowType.field(
+                                format("%s%d", implicitPrefix, idx + 1),
+                                subTypes.get(idx).get()))
+                        .toList());
             }
         }
         else if (value instanceof Document document) {
-            List<TypeSignatureParameter> parameters = new ArrayList<>();
+            List<RowType.Field> fields = new ArrayList<>();
 
             for (String key : document.keySet()) {
-                Optional<TypeSignature> fieldType = guessFieldType(document.get(key));
+                Optional<Type> fieldType = guessFieldType(document.get(key));
                 if (fieldType.isPresent()) {
-                    parameters.add(TypeSignatureParameter.namedTypeParameter(new NamedTypeSignature(Optional.of(new RowFieldName(key)), fieldType.get())));
+                    fields.add(RowType.field(key, fieldType.get()));
                 }
             }
-            if (!parameters.isEmpty()) {
-                typeSignature = new TypeSignature(StandardTypes.ROW, parameters);
+            if (!fields.isEmpty()) {
+                type = RowType.from(fields);
             }
         }
         else if (value instanceof DBRef dbRef) {
-            List<TypeSignatureParameter> parameters = new ArrayList<>();
-
-            TypeSignature idFieldType = guessFieldType(dbRef.getId())
+            Type idFieldType = guessFieldType(dbRef.getId())
                     .orElseThrow(() -> new UnsupportedOperationException("Unable to guess $id field type of DBRef from: " + dbRef.getId()));
 
-            parameters.add(TypeSignatureParameter.namedTypeParameter(new NamedTypeSignature(Optional.of(new RowFieldName(DATABASE_NAME)), VARCHAR.getTypeSignature())));
-            parameters.add(TypeSignatureParameter.namedTypeParameter(new NamedTypeSignature(Optional.of(new RowFieldName(COLLECTION_NAME)), VARCHAR.getTypeSignature())));
-            parameters.add(TypeSignatureParameter.namedTypeParameter(new NamedTypeSignature(Optional.of(new RowFieldName(ID)), idFieldType)));
-
-            typeSignature = new TypeSignature(StandardTypes.ROW, parameters);
+            type = RowType.from(ImmutableList.of(
+                    RowType.field(DATABASE_NAME, VARCHAR),
+                    RowType.field(COLLECTION_NAME, VARCHAR),
+                    RowType.field(ID, idFieldType)));
         }
 
-        return Optional.ofNullable(typeSignature);
+        return Optional.ofNullable(type);
     }
 
     public RemoteTableName toRemoteSchemaTableName(SchemaTableName schemaTableName)
@@ -1041,7 +1040,7 @@ public class MongoSession
 
     private MongoIterable<String> listDatabaseNames()
     {
-        return client.listDatabases()
+        return getClient().listDatabases()
                 .nameOnly(true)
                 .authorizedDatabasesOnly(true)
                 .map(result -> result.getString("name"));
@@ -1063,7 +1062,7 @@ public class MongoSession
 
     private List<String> listCollectionNames(String databaseName)
     {
-        MongoDatabase database = client.getDatabase(databaseName);
+        MongoDatabase database = getClient().getDatabase(databaseName);
         Document cursor = database.runCommand(new Document(AUTHORIZED_LIST_COLLECTIONS_COMMAND)).get("cursor", Document.class);
 
         List<Document> firstBatch = cursor.get("firstBatch", List.class);
@@ -1080,12 +1079,17 @@ public class MongoSession
                 .put("nameOnly", true)
                 .put("authorizedCollections", true)
                 .buildOrThrow());
-        Document cursor = client.getDatabase(schemaName).runCommand(listCollectionsCommand).get("cursor", Document.class);
+        Document cursor = getClient().getDatabase(schemaName).runCommand(listCollectionsCommand).get("cursor", Document.class);
         List<Document> firstBatch = cursor.get("firstBatch", List.class);
         if (firstBatch.isEmpty()) {
             return false;
         }
         String type = firstBatch.get(0).getString("type");
         return "view".equals(type);
+    }
+
+    private MongoClient getClient()
+    {
+        return client.get();
     }
 }

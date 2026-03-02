@@ -13,7 +13,6 @@
  */
 package io.trino.type;
 
-import com.google.common.primitives.Shorts;
 import com.google.common.primitives.SignedBytes;
 import io.airlift.slice.Slice;
 import io.trino.spi.TrinoException;
@@ -22,6 +21,9 @@ import io.trino.spi.function.LiteralParameters;
 import io.trino.spi.function.ScalarOperator;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.type.StandardTypes;
+import io.trino.spi.type.TrinoNumber;
+
+import java.math.BigDecimal;
 
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.spi.StandardErrorCode.DIVISION_BY_ZERO;
@@ -37,6 +39,8 @@ import static io.trino.spi.function.OperatorType.SATURATED_FLOOR_CAST;
 import static io.trino.spi.function.OperatorType.SUBTRACT;
 import static java.lang.Float.floatToRawIntBits;
 import static java.lang.String.format;
+import static java.lang.runtime.ExactConversionsSupport.isLongToByteExact;
+import static java.lang.runtime.ExactConversionsSupport.isLongToShortExact;
 
 public final class SmallintOperators
 {
@@ -46,36 +50,33 @@ public final class SmallintOperators
     @SqlType(StandardTypes.SMALLINT)
     public static long add(@SqlType(StandardTypes.SMALLINT) long left, @SqlType(StandardTypes.SMALLINT) long right)
     {
-        try {
-            return Shorts.checkedCast(left + right);
+        long result = left + right;
+        if (!isLongToShortExact(result)) {
+            throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, format("smallint addition overflow: %s + %s", left, right));
         }
-        catch (IllegalArgumentException e) {
-            throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, format("smallint addition overflow: %s + %s", left, right), e);
-        }
+        return (short) result;
     }
 
     @ScalarOperator(SUBTRACT)
     @SqlType(StandardTypes.SMALLINT)
     public static long subtract(@SqlType(StandardTypes.SMALLINT) long left, @SqlType(StandardTypes.SMALLINT) long right)
     {
-        try {
-            return Shorts.checkedCast(left - right);
+        long result = left - right;
+        if (!isLongToShortExact(result)) {
+            throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, format("smallint subtraction overflow: %s - %s", left, right));
         }
-        catch (IllegalArgumentException e) {
-            throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, format("smallint subtraction overflow: %s - %s", left, right), e);
-        }
+        return (short) result;
     }
 
     @ScalarOperator(MULTIPLY)
     @SqlType(StandardTypes.SMALLINT)
     public static long multiply(@SqlType(StandardTypes.SMALLINT) long left, @SqlType(StandardTypes.SMALLINT) long right)
     {
-        try {
-            return Shorts.checkedCast(left * right);
+        long result = left * right;
+        if (!isLongToShortExact(result)) {
+            throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, format("smallint multiplication overflow: %s * %s", left, right));
         }
-        catch (IllegalArgumentException e) {
-            throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, format("smallint multiplication overflow: %s * %s", left, right), e);
-        }
+        return (short) result;
     }
 
     @ScalarOperator(DIVIDE)
@@ -106,12 +107,11 @@ public final class SmallintOperators
     @SqlType(StandardTypes.SMALLINT)
     public static long negate(@SqlType(StandardTypes.SMALLINT) long value)
     {
-        try {
-            return Shorts.checkedCast(-value);
+        long result = -value;
+        if (!isLongToShortExact(result)) {
+            throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, "smallint negation overflow: " + value);
         }
-        catch (IllegalArgumentException e) {
-            throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, "smallint negation overflow: " + value, e);
-        }
+        return (short) result;
     }
 
     @ScalarOperator(CAST)
@@ -132,12 +132,10 @@ public final class SmallintOperators
     @SqlType(StandardTypes.TINYINT)
     public static long castToTinyint(@SqlType(StandardTypes.SMALLINT) long value)
     {
-        try {
-            return SignedBytes.checkedCast(value);
+        if (!isLongToByteExact(value)) {
+            throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, "Out of range for tinyint: " + value);
         }
-        catch (IllegalArgumentException e) {
-            throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, "Out of range for tinyint: " + value, e);
-        }
+        return (byte) value;
     }
 
     @ScalarOperator(CAST)
@@ -159,6 +157,13 @@ public final class SmallintOperators
     public static long castToReal(@SqlType(StandardTypes.SMALLINT) long value)
     {
         return floatToRawIntBits((float) value);
+    }
+
+    @ScalarOperator(CAST)
+    @SqlType(StandardTypes.NUMBER)
+    public static TrinoNumber castToNumber(@SqlType(StandardTypes.SMALLINT) long value)
+    {
+        return TrinoNumber.from(new BigDecimal(value));
     }
 
     @ScalarOperator(CAST)

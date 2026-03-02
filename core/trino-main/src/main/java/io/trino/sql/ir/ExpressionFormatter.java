@@ -16,6 +16,7 @@ package io.trino.sql.ir;
 import com.google.common.base.CharMatcher;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
+import io.trino.spi.type.RowType;
 import io.trino.sql.planner.Symbol;
 
 import java.util.List;
@@ -67,9 +68,19 @@ public final class ExpressionFormatter
         @Override
         protected String visitRow(Row node, Void context)
         {
-            return node.items().stream()
-                    .map(child -> process(child, context))
-                    .collect(joining(", ", "ROW (", ")"));
+            List<RowType.Field> fieldTypes = ((RowType) node.type()).getFields();
+
+            StringBuilder builder = new StringBuilder();
+            builder.append("ROW (");
+            for (int i = 0; i < fieldTypes.size(); i++) {
+                if (i > 0) {
+                    builder.append(", ");
+                }
+                builder.append(node.items().get(i).accept(this, context));
+                fieldTypes.get(i).getName().ifPresent(name -> builder.append(" AS ").append(name));
+            }
+            builder.append(")");
+            return builder.toString();
         }
 
         @Override
@@ -103,7 +114,7 @@ public final class ExpressionFormatter
         protected String visitCall(Call node, Void context)
         {
             String name = isBuiltinFunctionName(node.function().name()) ?
-                    node.function().name().getFunctionName() :
+                    node.function().name().functionName() :
                     node.function().name().toString();
 
             return name + '(' + joinExpressions(node.arguments()) + ')';

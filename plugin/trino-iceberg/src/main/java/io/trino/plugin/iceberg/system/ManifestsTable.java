@@ -41,7 +41,7 @@ import org.apache.iceberg.types.Type;
 
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
+import java.util.OptionalLong;
 
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_INVALID_METADATA;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -56,15 +56,16 @@ public class ManifestsTable
 {
     private final ConnectorTableMetadata tableMetadata;
     private final Table icebergTable;
-    private final Optional<Long> snapshotId;
+    private final OptionalLong snapshotId;
 
-    public ManifestsTable(SchemaTableName tableName, Table icebergTable, Optional<Long> snapshotId)
+    public ManifestsTable(SchemaTableName tableName, Table icebergTable, OptionalLong snapshotId)
     {
         this.icebergTable = requireNonNull(icebergTable, "icebergTable is null");
 
         tableMetadata = new ConnectorTableMetadata(
                 tableName,
                 ImmutableList.<ColumnMetadata>builder()
+                        .add(new ColumnMetadata("content", INTEGER))
                         .add(new ColumnMetadata("path", VARCHAR))
                         .add(new ColumnMetadata("length", BIGINT))
                         .add(new ColumnMetadata("partition_spec_id", INTEGER))
@@ -102,7 +103,7 @@ public class ManifestsTable
         if (snapshotId.isEmpty()) {
             return new FixedPageSource(ImmutableList.of());
         }
-        return new FixedPageSource(buildPages(tableMetadata, icebergTable, snapshotId.get()));
+        return new FixedPageSource(buildPages(tableMetadata, icebergTable, snapshotId.getAsLong()));
     }
 
     private static List<Page> buildPages(ConnectorTableMetadata tableMetadata, Table icebergTable, long snapshotId)
@@ -118,6 +119,7 @@ public class ManifestsTable
 
         snapshot.allManifests(icebergTable.io()).forEach(file -> {
             pagesBuilder.beginRow();
+            pagesBuilder.appendInteger(file.content().id());
             pagesBuilder.appendVarchar(file.path());
             pagesBuilder.appendBigint(file.length());
             pagesBuilder.appendInteger(file.partitionSpecId());

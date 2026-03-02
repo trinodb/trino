@@ -55,6 +55,7 @@ import java.util.function.LongConsumer;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.toListenableFuture;
+import static io.trino.SystemSessionProperties.isSourcePagesValidationEnabled;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.operator.WorkProcessor.TransformationState.finished;
 import static io.trino.operator.WorkProcessor.TransformationState.ofResult;
@@ -65,6 +66,7 @@ import static java.util.concurrent.TimeUnit.NANOSECONDS;
 public class ScanFilterAndProjectOperator
         implements WorkProcessorSourceOperator
 {
+    private final PageSourceProvider pageSourceProvider;
     private final WorkProcessor<Page> pages;
     private final PageProcessorMetrics pageProcessorMetrics = new PageProcessorMetrics();
 
@@ -87,12 +89,13 @@ public class ScanFilterAndProjectOperator
             PageSourceProvider pageSourceProvider,
             PageProcessor pageProcessor,
             TableHandle table,
-            Iterable<ColumnHandle> columns,
+            List<ColumnHandle> columns,
             DynamicFilter dynamicFilter,
-            Iterable<Type> types,
+            List<Type> types,
             DataSize minOutputPageSize,
             int minOutputPageRowCount)
     {
+        this.pageSourceProvider = requireNonNull(pageSourceProvider, "pageSourceProvider is null");
         pages = split.flatTransform(
                 new SplitToPages(
                         session,
@@ -200,9 +203,9 @@ public class ScanFilterAndProjectOperator
                 PageSourceProvider pageSourceProvider,
                 PageProcessor pageProcessor,
                 TableHandle table,
-                Iterable<ColumnHandle> columns,
+                List<ColumnHandle> columns,
                 DynamicFilter dynamicFilter,
-                Iterable<Type> types,
+                List<Type> types,
                 AggregatedMemoryContext aggregatedMemoryContext,
                 DataSize minOutputPageSize,
                 int minOutputPageRowCount)
@@ -322,7 +325,7 @@ public class ScanFilterAndProjectOperator
             }
 
             SourcePage page = pageSource.getNextSourcePage();
-            pageSourceMemoryContext.setBytes(pageSource.getMemoryUsage());
+            pageSourceMemoryContext.setBytes(pageSource.getMemoryUsage() + pageSourceProvider.getMemoryUsage());
 
             // update operator stats
             processedPositions += page == null ? 0 : page.getPositionCount();
@@ -370,7 +373,7 @@ public class ScanFilterAndProjectOperator
                 PageSourceProviderFactory pageSourceProvider,
                 Function<DynamicFilter, PageProcessor> pageProcessor,
                 TableHandle table,
-                Iterable<ColumnHandle> columns,
+                List<ColumnHandle> columns,
                 DynamicFilter dynamicFilter,
                 List<Type> types,
                 DataSize minOutputPageSize,
@@ -418,7 +421,16 @@ public class ScanFilterAndProjectOperator
         {
             checkState(!closed, "Factory is already closed");
             OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, planNodeId, Optional.of(sourceId), getOperatorType());
-            return new WorkProcessorSourceOperatorAdapter(operatorContext, this);
+
+            WorkProcessorSourceOperatorAdapter operator = new WorkProcessorSourceOperatorAdapter(operatorContext, this);
+
+            if (isSourcePagesValidationEnabled(operatorContext.getSession())) {
+                return new OutputValidatingSourceOperator(
+                        operator,
+                        types,
+                        () -> "ScanFilterAndProjectOperator(%s); taskId=%s; operatorId=%s".formatted(table, operatorContext.getDriverContext().getTaskId(), operatorContext.getOperatorId()));
+            }
+            return operator;
         }
 
         @Override

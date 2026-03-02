@@ -14,6 +14,7 @@
 package io.trino.spi.exchange;
 
 import com.google.errorprone.annotations.ThreadSafe;
+import io.trino.spi.metrics.Metrics;
 
 import java.io.Closeable;
 import java.util.concurrent.CompletableFuture;
@@ -116,4 +117,33 @@ public interface Exchange
 
     @Override
     void close();
+
+    /**
+     * Returns a snapshot of the current exchange metrics.
+     * <p>
+     * This method can be called at any time during the exchange lifecycle, whether the exchange
+     * is open, actively processing data, or closed. It returns the current state of metrics
+     * at the time of invocation.
+     * <p>
+     * The metrics include exchange-specific measurements tied to interface implementation such as:
+     * <ul>
+     *   <li>Number of sinks and source handles created
+     *   <li>Data volume processed (bytes written/read)
+     *   <li>Number of files or chunks exchanged
+     * </ul>
+     * <p>
+     * <b>Implementation requirements:</b>
+     * Implementations must ensure this method executes with minimal overhead and completes quickly.
+     * Metrics should be maintained incrementally during exchange operations and this method should
+     * only return a snapshot of already-collected metrics. Implementations must not perform expensive
+     * operations such as I/O, network calls, or complex computations within this method.
+     * <p>
+     * The default implementation returns empty metrics.
+     *
+     * @return the current metrics snapshot, never null
+     */
+    default Metrics getMetrics()
+    {
+        return Metrics.EMPTY;
+    }
 }

@@ -45,6 +45,7 @@ import java.util.stream.LongStream;
 import static io.confluent.kafka.serializers.AbstractKafkaSchemaSerDeConfig.SCHEMA_REGISTRY_URL_CONFIG;
 import static io.confluent.kafka.serializers.AbstractKafkaSchemaSerDeConfig.VALUE_SUBJECT_NAME_STRATEGY;
 import static io.trino.testing.TestingNames.randomNameSuffix;
+import static io.trino.testing.assertions.Assert.assertEventually;
 import static java.lang.Math.multiplyExact;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
@@ -286,7 +287,8 @@ public class TestKafkaWithConfluentSchemaRegistryMinimalFunctionality
                 .build();
         assertCount(topicName, allMessages.size());
 
-        assertThat(query(evolvedQuery)).containsAll(getExpectedValues(messages, EVOLVED_SCHEMA, isKeyIncluded));
+        String expectedValues = getExpectedValues(messages, EVOLVED_SCHEMA, isKeyIncluded);
+        assertEventually(io.airlift.units.Duration.valueOf("5s"), () -> assertThat(query(evolvedQuery)).containsAll(expectedValues));
     }
 
     private static String getExpectedValues(List<ProducerRecord<Long, GenericRecord>> messages, Schema schema, boolean isKeyIncluded)

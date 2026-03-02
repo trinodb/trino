@@ -22,8 +22,8 @@ import java.sql.DriverPropertyInfo;
 import java.sql.SQLException;
 import java.util.Properties;
 
-import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Strings.isNullOrEmpty;
+import static java.util.Objects.requireNonNullElse;
 
 /**
  * Parses and extracts parameters from a Trino JDBC URL.
@@ -44,7 +44,7 @@ public final class TrinoDriverUri
             throws SQLException
     {
         try {
-            return new TrinoDriverUri(url, firstNonNull(properties, new Properties()));
+            return new TrinoDriverUri(url, requireNonNullElse(properties, new Properties()));
         }
         catch (RuntimeException e) {
             throw new SQLException(e.getMessage(), e.getCause());

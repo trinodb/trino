@@ -49,7 +49,7 @@ public class ProjectNode
     @Override
     public List<Symbol> getOutputSymbols()
     {
-        return assignments.getOutputs();
+        return ImmutableList.copyOf(assignments.outputs());
     }
 
     @JsonProperty

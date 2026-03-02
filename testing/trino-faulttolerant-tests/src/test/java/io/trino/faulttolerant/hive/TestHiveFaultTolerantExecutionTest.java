@@ -15,7 +15,6 @@ package io.trino.faulttolerant.hive;
 
 import io.trino.Session;
 import io.trino.faulttolerant.BaseFaultTolerantExecutionTest;
-import io.trino.plugin.exchange.filesystem.FileSystemExchangePlugin;
 import io.trino.plugin.exchange.filesystem.containers.MinioStorage;
 import io.trino.plugin.hive.HiveQueryRunner;
 import io.trino.testing.FaultTolerantExecutionConnectorTestHelper;
@@ -43,10 +42,7 @@ public class TestHiveFaultTolerantExecutionTest
 
         return HiveQueryRunner.builder()
                 .setExtraProperties(FaultTolerantExecutionConnectorTestHelper.getExtraProperties())
-                .setAdditionalSetup(runner -> {
-                    runner.installPlugin(new FileSystemExchangePlugin());
-                    runner.loadExchangeManager("filesystem", getExchangeManagerProperties(minioStorage));
-                })
+                .withExchange("filesystem", getExchangeManagerProperties(minioStorage))
                 .build();
     }
 

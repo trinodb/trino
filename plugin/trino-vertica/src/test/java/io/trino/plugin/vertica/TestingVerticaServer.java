@@ -35,7 +35,10 @@ import static java.util.Objects.requireNonNull;
 
 /**
  * @see <a href="https://www.microfocus.com/productlifecycle/?term=Vertica">Vertica product lifecycle</a>
+ *
+ * @deprecated because it actually does not work, see constructor comment for details
  */
+@Deprecated
 public class TestingVerticaServer
         extends JdbcDatabaseContainer<TestingVerticaServer>
 {
@@ -66,6 +69,7 @@ public class TestingVerticaServer
     public TestingVerticaServer(String version, String database, String user, String password)
     {
         super(DockerImageName.parse("vertica/vertica-ce").withTag(version));
+        // TODO this class is currently disabled
         Assumptions.abort("Disabled until Vertica image is fixed");
         this.database = requireNonNull(database, "database is null");
         this.user = requireNonNull(user, "user is null");

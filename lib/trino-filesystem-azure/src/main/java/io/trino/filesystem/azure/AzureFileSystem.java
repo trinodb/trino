@@ -26,6 +26,7 @@ import com.azure.storage.blob.models.ListBlobsOptions;
 import com.azure.storage.blob.models.UserDelegationKey;
 import com.azure.storage.blob.sas.BlobSasPermission;
 import com.azure.storage.blob.sas.BlobServiceSasSignatureValues;
+import com.azure.storage.blob.specialized.BlockBlobClient;
 import com.azure.storage.common.sas.SasProtocol;
 import com.azure.storage.file.datalake.DataLakeDirectoryClient;
 import com.azure.storage.file.datalake.DataLakeFileClient;
@@ -602,10 +603,10 @@ public class AzureFileSystem
             throws IOException
     {
         try {
-            return createBlobContainerClient(location, Optional.empty())
-                    .getServiceClient()
-                    .getAccountInfo()
-                    .isHierarchicalNamespaceEnabled();
+            BlockBlobClient blockBlobClient = createBlobContainerClient(location, Optional.empty())
+                    .getBlobClient("/")
+                    .getBlockBlobClient();
+            return blockBlobClient.exists();
         }
         catch (RuntimeException e) {
             throw new IOException("Checking whether hierarchical namespace is enabled for the location %s failed".formatted(location), e);

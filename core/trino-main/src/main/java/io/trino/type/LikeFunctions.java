@@ -37,7 +37,7 @@ public final class LikeFunctions
 
     private LikeFunctions() {}
 
-    @ScalarFunction(value = LIKE_FUNCTION_NAME, hidden = true)
+    @ScalarFunction(value = LIKE_FUNCTION_NAME, hidden = true, neverFails = true)
     @LiteralParameters("x")
     @SqlType(StandardTypes.BOOLEAN)
     public static boolean likeChar(@LiteralParameter("x") Long x, @SqlType("char(x)") Slice value, @SqlType(LikePatternType.NAME) LikePattern pattern)
@@ -46,7 +46,7 @@ public final class LikeFunctions
     }
 
     // TODO: this should not be callable from SQL
-    @ScalarFunction(value = LIKE_FUNCTION_NAME, hidden = true)
+    @ScalarFunction(value = LIKE_FUNCTION_NAME, hidden = true, neverFails = true)
     @LiteralParameters("x")
     @SqlType(StandardTypes.BOOLEAN)
     public static boolean likeVarchar(@SqlType("varchar(x)") Slice value, @SqlType(LikePatternType.NAME) LikePattern pattern)
@@ -151,6 +151,6 @@ public final class LikeFunctions
 
     private static void checkEscape(boolean condition)
     {
-        checkCondition(condition, INVALID_FUNCTION_ARGUMENT, "Escape character must be followed by '%%', '_' or the escape character itself");
+        checkCondition(condition, INVALID_FUNCTION_ARGUMENT, "Escape character must be followed by '%', '_' or the escape character itself");
     }
 }

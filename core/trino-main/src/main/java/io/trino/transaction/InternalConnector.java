@@ -27,4 +27,7 @@ public interface InternalConnector
     }
 
     ConnectorTransactionHandle beginTransaction(TransactionId transactionId, IsolationLevel isolationLevel, boolean readOnly);
+
+    @Override
+    default void shutdown() {}
 }

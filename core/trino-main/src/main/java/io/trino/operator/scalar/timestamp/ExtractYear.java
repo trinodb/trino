@@ -24,7 +24,7 @@ import org.joda.time.chrono.ISOChronology;
 import static io.trino.type.DateTimes.scaleEpochMicrosToMillis;
 
 @Description("Year of the given timestamp")
-@ScalarFunction("year")
+@ScalarFunction(value = "year", neverFails = true)
 public final class ExtractYear
 {
     private ExtractYear() {}

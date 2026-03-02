@@ -16,9 +16,7 @@ package io.trino.plugin.deltalake;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport;
-import io.trino.spi.type.TestingTypeManager;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeManager;
 import org.apache.parquet.schema.LogicalTypeAnnotation;
 import org.apache.parquet.schema.PrimitiveType;
 import org.apache.parquet.schema.Types;
@@ -30,14 +28,13 @@ import java.util.Map;
 
 import static io.trino.plugin.deltalake.DeltaLakeParquetSchemas.createParquetSchemaMapping;
 import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static org.apache.parquet.schema.Type.Repetition.OPTIONAL;
 import static org.apache.parquet.schema.Type.Repetition.REQUIRED;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestDeltaLakeParquetSchemas
 {
-    private final TypeManager typeManager = new TestingTypeManager();
-
     @Test
     public void testStringFieldColumnMappingNoneUnpartitioned()
     {
@@ -355,7 +352,7 @@ public class TestDeltaLakeParquetSchemas
             org.apache.parquet.schema.Type expectedMessageType,
             Map<List<String>, Type> expectedPrimitiveTypes)
     {
-        DeltaLakeParquetSchemaMapping parquetSchemaMapping = createParquetSchemaMapping(jsonSchema, typeManager, columnMappingMode, partitionColumnNames);
+        DeltaLakeParquetSchemaMapping parquetSchemaMapping = createParquetSchemaMapping(jsonSchema, TESTING_TYPE_MANAGER, columnMappingMode, partitionColumnNames);
         assertThat(parquetSchemaMapping.messageType()).isEqualTo(expectedMessageType);
         assertThat(parquetSchemaMapping.primitiveTypes()).isEqualTo(expectedPrimitiveTypes);
     }

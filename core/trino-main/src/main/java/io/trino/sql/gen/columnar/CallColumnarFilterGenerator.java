@@ -291,7 +291,7 @@ public class CallColumnarFilterGenerator
             BytecodeExpression position)
     {
         ResolvedFunction resolvedFunction = callExpression.resolvedFunction();
-        String functionName = resolvedFunction.signature().getName().getFunctionName();
+        String functionName = resolvedFunction.signature().getName().functionName();
         BytecodeBlock block = new BytecodeBlock()
                 .setDescription("invoke " + functionName);
 

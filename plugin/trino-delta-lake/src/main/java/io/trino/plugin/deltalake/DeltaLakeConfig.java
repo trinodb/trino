@@ -46,6 +46,9 @@ import static java.util.concurrent.TimeUnit.SECONDS;
         "delta.max-initial-splits",
         "delta.max-initial-split-size",
         "delta.metadata.cache-size",
+        "delta.metadata.live-files.cache-size",
+        "delta.metadata.live-files.cache-ttl",
+        "delta.checkpoint-filtering.enabled"
 })
 public class DeltaLakeConfig
 {
@@ -53,28 +56,22 @@ public class DeltaLakeConfig
     public static final String VACUUM_MIN_RETENTION = "delta.vacuum.min-retention";
     public static final DataSize DEFAULT_TRANSACTION_LOG_MAX_CACHED_SIZE = DataSize.of(16, MEGABYTE);
 
-    // Runtime.getRuntime().maxMemory() is not 100% stable and may return slightly different value over JVM lifetime. We use
-    // constant so default configuration for cache size is stable.
-    @VisibleForTesting
-    static final DataSize DEFAULT_DATA_FILE_CACHE_SIZE = DataSize.succinctBytes(Math.floorDiv(Runtime.getRuntime().maxMemory(), 10L));
     @VisibleForTesting
     static final DataSize DEFAULT_METADATA_CACHE_MAX_RETAINED_SIZE = DataSize.succinctBytes(Math.floorDiv(Runtime.getRuntime().maxMemory(), 20L));
 
     private Duration metadataCacheTtl = new Duration(30, TimeUnit.MINUTES);
     private DataSize metadataCacheMaxRetainedSize = DEFAULT_METADATA_CACHE_MAX_RETAINED_SIZE;
     private DataSize transactionLogMaxCachedFileSize = DEFAULT_TRANSACTION_LOG_MAX_CACHED_SIZE;
-    private DataSize dataFileCacheSize = DEFAULT_DATA_FILE_CACHE_SIZE;
-    private Duration dataFileCacheTtl = new Duration(30, TimeUnit.MINUTES);
     private int domainCompactionThreshold = 1000;
     private int maxOutstandingSplits = 1_000;
     private int maxSplitsPerSecond = Integer.MAX_VALUE;
     private DataSize maxSplitSize = DataSize.of(128, MEGABYTE);
     private double minimumAssignedSplitWeight = 0.05;
     private int maxPartitionsPerWriter = 100;
+    private boolean s3TransactionLogConditionalWritesEnabled = true;
     private boolean unsafeWritesEnabled;
     private boolean checkpointRowStatisticsWritingEnabled = true;
     private long defaultCheckpointWritingInterval = 10;
-    private boolean checkpointFilteringEnabled = true;
     private Duration vacuumMinRetention = new Duration(7, DAYS);
     private Optional<String> hiveCatalogName = Optional.empty();
     private Duration dynamicFilteringWaitTimeout = new Duration(0, SECONDS);
@@ -135,33 +132,6 @@ public class DeltaLakeConfig
     public DeltaLakeConfig setTransactionLogMaxCachedFileSize(DataSize transactionLogMaxCachedFileSize)
     {
         this.transactionLogMaxCachedFileSize = transactionLogMaxCachedFileSize;
-        return this;
-    }
-
-    public DataSize getDataFileCacheSize()
-    {
-        return dataFileCacheSize;
-    }
-
-    @Config("delta.metadata.live-files.cache-size")
-    @ConfigDescription("Maximum in memory cache size for Delta data file metadata (e.g. file path, statistics, partition values). Defaults to 10% of the available heap size.")
-    public DeltaLakeConfig setDataFileCacheSize(DataSize dataFileCacheSize)
-    {
-        this.dataFileCacheSize = dataFileCacheSize;
-        return this;
-    }
-
-    @NotNull
-    public Duration getDataFileCacheTtl()
-    {
-        return dataFileCacheTtl;
-    }
-
-    @Config("delta.metadata.live-files.cache-ttl")
-    @ConfigDescription("Caching duration for Delta data file metadata (e.g. table schema, partition info)")
-    public DeltaLakeConfig setDataFileCacheTtl(Duration dataFileCacheTtl)
-    {
-        this.dataFileCacheTtl = dataFileCacheTtl;
         return this;
     }
 
@@ -248,6 +218,20 @@ public class DeltaLakeConfig
         return this;
     }
 
+    public boolean isS3TransactionLogConditionalWritesEnabled()
+    {
+        return s3TransactionLogConditionalWritesEnabled;
+    }
+
+    @Config("delta.s3.transaction-log-conditional-writes.enabled")
+    @LegacyConfig("s3.exclusive-create")
+    @ConfigDescription("Whether to use conditional writes when writing Delta table transaction log files on S3. If false, lock-file based synchronization will be used.")
+    public DeltaLakeConfig setS3TransactionLogConditionalWritesEnabled(boolean s3TransactionLogConditionalWritesEnabled)
+    {
+        this.s3TransactionLogConditionalWritesEnabled = s3TransactionLogConditionalWritesEnabled;
+        return this;
+    }
+
     public boolean getUnsafeWritesEnabled()
     {
         return unsafeWritesEnabled;
@@ -272,18 +256,6 @@ public class DeltaLakeConfig
     public long getDefaultCheckpointWritingInterval()
     {
         return defaultCheckpointWritingInterval;
-    }
-
-    public boolean isCheckpointFilteringEnabled()
-    {
-        return checkpointFilteringEnabled;
-    }
-
-    @Config("delta.checkpoint-filtering.enabled")
-    public DeltaLakeConfig setCheckpointFilteringEnabled(boolean checkpointFilteringEnabled)
-    {
-        this.checkpointFilteringEnabled = checkpointFilteringEnabled;
-        return this;
     }
 
     @NotNull
@@ -503,7 +475,7 @@ public class DeltaLakeConfig
     }
 
     @Config("delta.idle-writer-min-file-size")
-    @ConfigDescription("Minimum data written by a single partition writer before it can be consider as 'idle' and could be closed by the engine")
+    @ConfigDescription("Minimum data written by a single partition writer before it can be considered as 'idle' and could be closed by the engine")
     public DeltaLakeConfig setIdleWriterMinFileSize(DataSize idleWriterMinFileSize)
     {
         this.idleWriterMinFileSize = idleWriterMinFileSize;

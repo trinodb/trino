@@ -30,6 +30,7 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Set;
 
@@ -65,10 +66,10 @@ public final class SplitsMapping
         // ensure we use Immutable* collections everywhere
         return new SplitsMapping(splits.entrySet().stream()
                 .collect(toImmutableMap(
-                        Map.Entry::getKey,
+                        Entry::getKey,
                         entry -> entry.getValue().entrySet().stream()
                                 .collect(toImmutableMap(
-                                        Map.Entry::getKey,
+                                        Entry::getKey,
                                         innerEntry -> ImmutableList.copyOf(innerEntry.getValue()))))));
     }
 
@@ -80,7 +81,7 @@ public final class SplitsMapping
     public ListMultimap<PlanNodeId, Split> getSplitsFlat()
     {
         ImmutableListMultimap.Builder<PlanNodeId, Split> splitsFlat = ImmutableListMultimap.builder();
-        for (Map.Entry<PlanNodeId, Map<Integer, List<Split>>> entry : splits.entrySet()) {
+        for (Entry<PlanNodeId, Map<Integer, List<Split>>> entry : splits.entrySet()) {
             // TODO can we do less copying?
             splitsFlat.putAll(entry.getKey(), entry.getValue().values().stream().flatMap(Collection::stream).collect(toImmutableList()));
         }
@@ -117,7 +118,7 @@ public final class SplitsMapping
         verify(!splits.isEmpty(), "expected not empty splits list %s", splits);
 
         ImmutableListMultimap.Builder<Integer, Split> result = ImmutableListMultimap.builder();
-        for (Map.Entry<Integer, List<Split>> entry : splits.entrySet()) {
+        for (Entry<Integer, List<Split>> entry : splits.entrySet()) {
             result.putAll(entry.getKey(), entry.getValue());
         }
         return result.build();
@@ -203,7 +204,7 @@ public final class SplitsMapping
 
         public Builder addMapping(SplitsMapping updatingMapping)
         {
-            for (Map.Entry<PlanNodeId, Map<Integer, List<Split>>> entry : updatingMapping.splits.entrySet()) {
+            for (Entry<PlanNodeId, Map<Integer, List<Split>>> entry : updatingMapping.splits.entrySet()) {
                 PlanNodeId planNodeId = entry.getKey();
                 entry.getValue().forEach((partitionId, partitionSplits) -> addSplits(planNodeId, partitionId, partitionSplits));
             }
@@ -302,10 +303,10 @@ public final class SplitsMapping
         {
             return new SplitsMapping(splitsBuilder.entrySet().stream()
                     .collect(toImmutableMap(
-                            Map.Entry::getKey,
+                            Entry::getKey,
                             planNodeMapping -> planNodeMapping.getValue().entrySet().stream()
                                     .collect(toImmutableMap(
-                                            Map.Entry::getKey,
+                                            Entry::getKey,
                                             sourcePartitionMapping -> sourcePartitionMapping.getValue().build())))));
         }
     }

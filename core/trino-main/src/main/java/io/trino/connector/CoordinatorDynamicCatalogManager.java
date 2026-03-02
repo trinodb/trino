@@ -14,12 +14,12 @@
 package io.trino.connector;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.errorprone.annotations.ThreadSafe;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
 import com.google.inject.Inject;
 import io.airlift.log.Logger;
-import io.trino.Session;
 import io.trino.connector.system.GlobalSystemConnector;
 import io.trino.metadata.Catalog;
 import io.trino.metadata.CatalogManager;
@@ -43,13 +43,12 @@ import java.util.concurrent.Callable;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.Executor;
-import java.util.concurrent.locks.Lock;
-import java.util.concurrent.locks.ReentrantLock;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.connector.CatalogHandle.createRootCatalogHandle;
 import static io.trino.metadata.Catalog.failedCatalog;
@@ -66,13 +65,16 @@ public class CoordinatorDynamicCatalogManager
 {
     private static final Logger log = Logger.get(CoordinatorDynamicCatalogManager.class);
 
-    private enum State { CREATED, INITIALIZED, STOPPED }
+    private enum State
+    {
+        CREATED, INITIALIZED, STOPPED
+    }
 
     private final CatalogStore catalogStore;
     private final CatalogFactory catalogFactory;
     private final Executor executor;
 
-    private final Lock catalogsUpdateLock = new ReentrantLock();
+    private final Object catalogsUpdateLock = new Object();
 
     /**
      * Active catalogs that have been created and not dropped.
@@ -82,7 +84,7 @@ public class CoordinatorDynamicCatalogManager
     /**
      * All catalogs including those that have been dropped.
      */
-    private final ConcurrentMap<CatalogHandle, CatalogConnector> allCatalogs = new ConcurrentHashMap<>();
+    private final ConcurrentMap<CatalogHandle, RegisteredCatalog> allCatalogs = new ConcurrentHashMap<>();
 
     @GuardedBy("catalogsUpdateLock")
     private State state = State.CREATED;
@@ -98,10 +100,9 @@ public class CoordinatorDynamicCatalogManager
     @PreDestroy
     public void stop()
     {
-        List<CatalogConnector> catalogs;
+        List<RegisteredCatalog> catalogs;
 
-        catalogsUpdateLock.lock();
-        try {
+        synchronized (catalogsUpdateLock) {
             if (state == State.STOPPED) {
                 return;
             }
@@ -111,20 +112,16 @@ public class CoordinatorDynamicCatalogManager
             allCatalogs.clear();
             activeCatalogs.clear();
         }
-        finally {
-            catalogsUpdateLock.unlock();
-        }
 
-        for (CatalogConnector connector : catalogs) {
-            connector.shutdown();
+        for (RegisteredCatalog connector : catalogs) {
+            connector.catalog().shutdown();
         }
     }
 
     @Override
     public void loadInitialCatalogs()
     {
-        catalogsUpdateLock.lock();
-        try {
+        synchronized (catalogsUpdateLock) {
             if (state == State.INITIALIZED) {
                 return;
             }
@@ -141,7 +138,7 @@ public class CoordinatorDynamicCatalogManager
                                     verify(catalog.name().equals(storedCatalog.name()), "Catalog name does not match catalog properties");
                                     CatalogConnector newCatalog = catalogFactory.createCatalog(catalog);
                                     activeCatalogs.put(storedCatalog.name(), newCatalog.getCatalog());
-                                    allCatalogs.put(newCatalog.getCatalogHandle(), newCatalog);
+                                    allCatalogs.put(newCatalog.getCatalogHandle(), new RegisteredCatalog(new RegistrationToken(), newCatalog));
                                     log.debug("-- Added catalog %s using connector %s --", storedCatalog.name(), catalog.connectorName());
                                 }
                                 catch (Throwable e) {
@@ -153,9 +150,6 @@ public class CoordinatorDynamicCatalogManager
                                 return null;
                             })
                             .collect(toImmutableList()));
-        }
-        finally {
-            catalogsUpdateLock.unlock();
         }
     }
 
@@ -172,7 +166,7 @@ public class CoordinatorDynamicCatalogManager
     }
 
     @Override
-    public Set<CatalogHandle> getActiveCatalogs()
+    public Set<CatalogHandle> getReachableDynamicCatalogs()
     {
         return activeCatalogs.values().stream()
                 .map(Catalog::getCatalogHandle)
@@ -180,7 +174,7 @@ public class CoordinatorDynamicCatalogManager
     }
 
     @Override
-    public void ensureCatalogsLoaded(Session session, List<CatalogProperties> catalogs)
+    public void ensureCatalogsLoaded(List<CatalogProperties> catalogs)
     {
         List<CatalogProperties> missingCatalogs = catalogs.stream()
                 .filter(catalog -> !allCatalogs.containsKey(createRootCatalogHandle(catalog.name(), catalog.version())))
@@ -192,32 +186,39 @@ public class CoordinatorDynamicCatalogManager
     }
 
     @Override
-    public void pruneCatalogs(Set<CatalogHandle> catalogsInUse)
+    public PrunableState getPrunableState()
     {
+        return new PrunableStateImpl(allCatalogs.entrySet().stream()
+                .collect(toImmutableMap(entry -> entry.getKey(), entry -> entry.getValue().registrationToken())));
+    }
+
+    @Override
+    public void pruneCatalogs(PrunableState opaquePrunableState, Set<CatalogHandle> catalogsInUse)
+    {
+        PrunableStateImpl prunableState = (PrunableStateImpl) opaquePrunableState;
         List<CatalogConnector> removedCatalogs = new ArrayList<>();
-        catalogsUpdateLock.lock();
-        try {
+        synchronized (catalogsUpdateLock) {
             if (state == State.STOPPED) {
                 return;
             }
-            Iterator<Entry<CatalogHandle, CatalogConnector>> iterator = allCatalogs.entrySet().iterator();
+            Iterator<Entry<CatalogHandle, RegisteredCatalog>> iterator = allCatalogs.entrySet().iterator();
             while (iterator.hasNext()) {
-                Entry<CatalogHandle, CatalogConnector> entry = iterator.next();
+                Entry<CatalogHandle, RegisteredCatalog> entry = iterator.next();
+                CatalogHandle catalogHandle = entry.getKey();
+                RegistrationToken registrationToken = entry.getValue().registrationToken();
 
-                Catalog activeCatalog = activeCatalogs.get(entry.getKey().getCatalogName());
-                if (activeCatalog != null && activeCatalog.getCatalogHandle().equals(entry.getKey())) {
+                Catalog activeCatalog = activeCatalogs.get(catalogHandle.getCatalogName());
+                if (activeCatalog != null && activeCatalog.getCatalogHandle().equals(catalogHandle)) {
                     // catalog is registered with a name, and therefor is available for new queries, and should not be removed
                     continue;
                 }
 
-                if (!catalogsInUse.contains(entry.getKey())) {
+                if (registrationToken.equals(prunableState.prunableCatalogs().get(catalogHandle))
+                        && !catalogsInUse.contains(catalogHandle)) {
                     iterator.remove();
-                    removedCatalogs.add(entry.getValue());
+                    removedCatalogs.add(entry.getValue().catalog());
                 }
             }
-        }
-        finally {
-            catalogsUpdateLock.unlock();
         }
 
         // todo do this in a background thread
@@ -240,15 +241,16 @@ public class CoordinatorDynamicCatalogManager
     public Optional<CatalogProperties> getCatalogProperties(CatalogHandle catalogHandle)
     {
         return Optional.ofNullable(allCatalogs.get(catalogHandle.getRootCatalogHandle()))
+                .map(RegisteredCatalog::catalog)
                 .flatMap(CatalogConnector::getCatalogProperties);
     }
 
     @Override
     public ConnectorServices getConnectorServices(CatalogHandle catalogHandle)
     {
-        CatalogConnector catalogConnector = allCatalogs.get(catalogHandle.getRootCatalogHandle());
-        checkArgument(catalogConnector != null, "No catalog '%s'", catalogHandle.getCatalogName());
-        return catalogConnector.getMaterializedConnector(catalogHandle.getType());
+        RegisteredCatalog registeredCatalog = allCatalogs.get(catalogHandle.getRootCatalogHandle());
+        checkArgument(registeredCatalog != null, "No catalog '%s'", catalogHandle.getCatalogName());
+        return registeredCatalog.catalog().getMaterializedConnector(catalogHandle.getType());
     }
 
     @Override
@@ -258,8 +260,7 @@ public class CoordinatorDynamicCatalogManager
         requireNonNull(connectorName, "connectorName is null");
         requireNonNull(properties, "properties is null");
 
-        catalogsUpdateLock.lock();
-        try {
+        synchronized (catalogsUpdateLock) {
             checkState(state != State.STOPPED, "ConnectorManager is stopped");
 
             if (activeCatalogs.containsKey(catalogName)) {
@@ -272,16 +273,14 @@ public class CoordinatorDynamicCatalogManager
             CatalogProperties catalogProperties = catalogStore.createCatalogProperties(catalogName, connectorName, properties);
 
             // get or create catalog for the handle
-            CatalogConnector catalog = allCatalogs.computeIfAbsent(
+            RegisteredCatalog registeredCatalog = allCatalogs.computeIfAbsent(
                     createRootCatalogHandle(catalogName, catalogProperties.version()),
-                    _ -> catalogFactory.createCatalog(catalogProperties));
+                    _ -> new RegisteredCatalog(new RegistrationToken(), catalogFactory.createCatalog(catalogProperties)));
+            CatalogConnector catalog = registeredCatalog.catalog();
             catalogStore.addOrReplaceCatalog(catalogProperties);
             activeCatalogs.put(catalogName, catalog.getCatalog());
 
             log.debug("Added catalog: %s", catalog.getCatalogHandle());
-        }
-        finally {
-            catalogsUpdateLock.unlock();
         }
     }
 
@@ -289,8 +288,7 @@ public class CoordinatorDynamicCatalogManager
     {
         requireNonNull(connector, "connector is null");
 
-        catalogsUpdateLock.lock();
-        try {
+        synchronized (catalogsUpdateLock) {
             if (state == State.STOPPED) {
                 return;
             }
@@ -299,10 +297,7 @@ public class CoordinatorDynamicCatalogManager
             if (activeCatalogs.putIfAbsent(new CatalogName(GlobalSystemConnector.NAME), catalog.getCatalog()) != null) {
                 throw new IllegalStateException("Global system catalog already registered");
             }
-            allCatalogs.put(GlobalSystemConnector.CATALOG_HANDLE, catalog);
-        }
-        finally {
-            catalogsUpdateLock.unlock();
+            allCatalogs.put(GlobalSystemConnector.CATALOG_HANDLE, new RegisteredCatalog(new RegistrationToken(), catalog));
         }
     }
 
@@ -312,15 +307,11 @@ public class CoordinatorDynamicCatalogManager
         requireNonNull(catalogName, "catalogName is null");
 
         boolean removed;
-        catalogsUpdateLock.lock();
-        try {
+        synchronized (catalogsUpdateLock) {
             checkState(state != State.STOPPED, "ConnectorManager is stopped");
 
             catalogStore.removeCatalog(catalogName);
             removed = activeCatalogs.remove(catalogName) != null;
-        }
-        finally {
-            catalogsUpdateLock.unlock();
         }
 
         if (!removed && !exists) {
@@ -328,5 +319,39 @@ public class CoordinatorDynamicCatalogManager
         }
         // Do not shut down the catalog, because there may still be running queries using this catalog.
         // Catalog shutdown logic will be added later.
+    }
+
+    record PrunableStateImpl(Map<CatalogHandle, RegistrationToken> prunableCatalogs)
+            implements PrunableState
+    {
+        public PrunableStateImpl
+        {
+            prunableCatalogs = ImmutableMap.copyOf(requireNonNull(prunableCatalogs, "prunableCatalogs is null"));
+        }
+    }
+
+    static class RegistrationToken
+    {
+        // identity-based equality
+        @Override
+        public boolean equals(Object obj)
+        {
+            return super.equals(obj);
+        }
+
+        @Override
+        public int hashCode()
+        {
+            return super.hashCode();
+        }
+    }
+
+    private record RegisteredCatalog(RegistrationToken registrationToken, CatalogConnector catalog)
+    {
+        RegisteredCatalog
+        {
+            requireNonNull(registrationToken, "registrationToken is null");
+            requireNonNull(catalog, "catalog is null");
+        }
     }
 }

@@ -25,7 +25,6 @@ import java.io.IOException;
 import java.io.PrintStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -199,7 +198,7 @@ public class Verifier
             QueryResult controlResult = validator.getControlResult();
             if (simplifiedControlQueriesGenerationEnabled && controlResult.getState() == SUCCESS) {
                 QueryPair queryPair = validator.getQueryPair();
-                Path path = Paths.get(format(
+                Path path = Path.of(format(
                         "%s/%s/%s/%s.sql",
                         simplifiedControlQueriesOutputDirectory,
                         runId,

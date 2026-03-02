@@ -27,7 +27,6 @@ import org.junit.jupiter.api.parallel.Execution;
 import java.io.File;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.List;
 import java.util.stream.Stream;
 
@@ -651,7 +650,7 @@ public class TestBingTileFunctions
         // Input polygon too complex
         String filePath = new File(getResource("too_large_polygon.txt").toURI()).getPath();
         String largeWkt;
-        try (Stream<String> lines = Files.lines(Paths.get(filePath))) {
+        try (Stream<String> lines = Files.lines(Path.of(filePath))) {
             largeWkt = lines.collect(onlyElement());
         }
         assertTrinoExceptionThrownBy(assertions.expression("geometry_to_bing_tiles(ST_GeometryFromText('" + largeWkt + "'), 16)")::evaluate)

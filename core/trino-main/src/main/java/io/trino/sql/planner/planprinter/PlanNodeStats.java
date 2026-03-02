@@ -23,6 +23,7 @@ import io.trino.sql.planner.plan.PlanNodeId;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -154,7 +155,7 @@ public class PlanNodeStats
     {
         return operatorStats.entrySet().stream()
                 .collect(toImmutableMap(
-                        Map.Entry::getKey,
+                        Entry::getKey,
                         entry -> (double) entry.getValue().getInputPositions() / operatorStats.get(entry.getKey()).getTotalDrivers()));
     }
 
@@ -162,7 +163,7 @@ public class PlanNodeStats
     {
         return operatorStats.entrySet().stream()
                 .collect(toImmutableMap(
-                        Map.Entry::getKey,
+                        Entry::getKey,
                         entry -> computedStdDev(
                                 entry.getValue().getSumSquaredInputPositions(),
                                 entry.getValue().getInputPositions(),
@@ -213,7 +214,7 @@ public class PlanNodeStats
         long planNodeBlockedTimeMillis = planNodeBlockedTime.toMillis();
         double planNodePhysicalInputReadNanos = planNodePhysicalInputReadTime.getValue(NANOSECONDS);
         ListMultimap<String, BasicOperatorStats> groupedOperatorStats = ArrayListMultimap.create();
-        for (Map.Entry<String, BasicOperatorStats> entry : this.operatorStats.entrySet()) {
+        for (Entry<String, BasicOperatorStats> entry : this.operatorStats.entrySet()) {
             groupedOperatorStats.put(entry.getKey(), entry.getValue());
         }
 
@@ -229,7 +230,7 @@ public class PlanNodeStats
             planNodeInputDataSizeBytes += other.planNodeInputDataSize.toBytes();
             planNodeOutputDataSizeBytes += other.planNodeOutputDataSize.toBytes();
             planNodeSpilledDataSizeBytes += other.planNodeSpilledDataSize.toBytes();
-            for (Map.Entry<String, BasicOperatorStats> entry : other.operatorStats.entrySet()) {
+            for (Entry<String, BasicOperatorStats> entry : other.operatorStats.entrySet()) {
                 groupedOperatorStats.put(entry.getKey(), entry.getValue());
             }
         }

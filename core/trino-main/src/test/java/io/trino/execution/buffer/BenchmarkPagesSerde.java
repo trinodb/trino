@@ -204,7 +204,7 @@ public class BenchmarkPagesSerde
         }
     }
 
-    public static void main(String[] args)
+    static void main()
             throws RunnerException
     {
         BenchmarkData data = new BenchmarkData();
@@ -215,7 +215,6 @@ public class BenchmarkPagesSerde
         System.out.println("Page Size Max: " + Arrays.stream(data.dataPages).mapToLong(Page::getSizeInBytes).max().getAsLong());
         System.out.println("Page Size Sum: " + Arrays.stream(data.dataPages).mapToLong(Page::getSizeInBytes).sum());
         System.out.println("Page count: " + data.dataPages.length);
-        System.out.println("Compressed: " + Arrays.stream(data.serializedPages).filter(PagesSerdeUtil::isSerializedPageCompressed).count());
 
         benchmark(BenchmarkPagesSerde.class)
                 .withOptions(optionsBuilder -> optionsBuilder.jvmArgs("-Xms4g", "-Xmx4g"))

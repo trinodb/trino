@@ -704,8 +704,8 @@ public class FileBasedAccessControl
     public Set<SchemaFunctionName> filterFunctions(ConnectorSecurityContext context, Set<SchemaFunctionName> functionNames)
     {
         return functionNames.stream()
-                .filter(name -> isSchemaOwner(context, name.getSchemaName()) ||
-                        checkAnyFunctionPermission(context, new SchemaRoutineName(name.getSchemaName(), name.getFunctionName()), FunctionAccessControlRule::canExecuteFunction))
+                .filter(name -> isSchemaOwner(context, name.schemaName()) ||
+                        checkAnyFunctionPermission(context, new SchemaRoutineName(name.schemaName(), name.functionName()), FunctionAccessControlRule::canExecuteFunction))
                 .collect(toImmutableSet());
     }
 

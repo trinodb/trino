@@ -30,7 +30,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 
 import static com.google.common.base.Suppliers.memoizeWithExpiration;
-import static io.airlift.configuration.ConditionalModule.conditionalModule;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.airlift.http.client.HttpClientBinder.httpClientBinder;
 import static io.trino.plugin.base.util.JsonUtils.parseJson;
@@ -45,11 +44,13 @@ public class FileBasedAccessControlModule
     public void setup(Binder binder)
     {
         configBinder(binder).bindConfig(FileBasedAccessControlConfig.class);
-        install(conditionalModule(
-                FileBasedAccessControlConfig.class,
-                FileBasedAccessControlConfig::isHttp,
-                new HttpAccessControlModule(),
-                new LocalAccessControlModule()));
+
+        if (buildConfigObject(FileBasedAccessControlConfig.class).isHttp()) {
+            install(new HttpAccessControlModule());
+        }
+        else {
+            install(new LocalAccessControlModule());
+        }
     }
 
     @Inject

@@ -15,7 +15,6 @@ package io.trino.plugin.iceberg.system;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.plugin.iceberg.IcebergUtil;
-import io.trino.plugin.iceberg.util.PageListBuilder;
 import io.trino.spi.block.ArrayBlockBuilder;
 import io.trino.spi.block.MapBlockBuilder;
 import io.trino.spi.block.RowBlockBuilder;
@@ -23,6 +22,7 @@ import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.type.ArrayType;
+import io.trino.spi.type.MapType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.TimeZoneKey;
 import io.trino.spi.type.TypeManager;
@@ -59,7 +59,6 @@ import static io.trino.plugin.iceberg.util.SystemTableUtil.readableMetricsToJson
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.StandardTypes.JSON;
-import static io.trino.spi.type.TypeSignature.mapType;
 import static io.trino.spi.type.TypeUtils.writeNativeValue;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -123,12 +122,12 @@ public class EntriesTable
         partitionColumnType.ifPresent(type -> fields.add(new RowType.Field(Optional.of("partition"), type.rowType())));
         fields.add(new RowType.Field(Optional.of("record_count"), BIGINT));
         fields.add(new RowType.Field(Optional.of("file_size_in_bytes"), BIGINT));
-        fields.add(new RowType.Field(Optional.of("column_sizes"), typeManager.getType(mapType(INTEGER.getTypeSignature(), BIGINT.getTypeSignature()))));
-        fields.add(new RowType.Field(Optional.of("value_counts"), typeManager.getType(mapType(INTEGER.getTypeSignature(), BIGINT.getTypeSignature()))));
-        fields.add(new RowType.Field(Optional.of("null_value_counts"), typeManager.getType(mapType(INTEGER.getTypeSignature(), BIGINT.getTypeSignature()))));
-        fields.add(new RowType.Field(Optional.of("nan_value_counts"), typeManager.getType(mapType(INTEGER.getTypeSignature(), BIGINT.getTypeSignature()))));
-        fields.add(new RowType.Field(Optional.of("lower_bounds"), typeManager.getType(mapType(INTEGER.getTypeSignature(), VARCHAR.getTypeSignature()))));
-        fields.add(new RowType.Field(Optional.of("upper_bounds"), typeManager.getType(mapType(INTEGER.getTypeSignature(), VARCHAR.getTypeSignature()))));
+        fields.add(new RowType.Field(Optional.of("column_sizes"), new MapType(INTEGER, BIGINT, typeManager.getTypeOperators())));
+        fields.add(new RowType.Field(Optional.of("value_counts"), new MapType(INTEGER, BIGINT, typeManager.getTypeOperators())));
+        fields.add(new RowType.Field(Optional.of("null_value_counts"), new MapType(INTEGER, BIGINT, typeManager.getTypeOperators())));
+        fields.add(new RowType.Field(Optional.of("nan_value_counts"), new MapType(INTEGER, BIGINT, typeManager.getTypeOperators())));
+        fields.add(new RowType.Field(Optional.of("lower_bounds"), new MapType(INTEGER, VARCHAR, typeManager.getTypeOperators())));
+        fields.add(new RowType.Field(Optional.of("upper_bounds"), new MapType(INTEGER, VARCHAR, typeManager.getTypeOperators())));
         fields.add(new RowType.Field(Optional.of("key_metadata"), VARBINARY));
         fields.add(new RowType.Field(Optional.of("split_offsets"), new ArrayType(BIGINT)));
         fields.add(new RowType.Field(Optional.of("equality_ids"), new ArrayType(INTEGER)));
@@ -137,19 +136,17 @@ public class EntriesTable
     }
 
     @Override
-    protected void addRow(PageListBuilder pagesBuilder, Row row, TimeZoneKey timeZoneKey)
+    protected void addRow(IcebergSystemTablePageSource pageSource, Row row, TimeZoneKey timeZoneKey)
     {
-        pagesBuilder.beginRow();
-        pagesBuilder.appendInteger(row.get("status", Integer.class));
-        pagesBuilder.appendBigint(row.get("snapshot_id", Long.class));
-        pagesBuilder.appendBigint(row.get("sequence_number", Long.class));
-        pagesBuilder.appendBigint(row.get("file_sequence_number", Long.class));
+        pageSource.appendInteger(row.get("status", Integer.class));
+        pageSource.appendBigint(row.get("snapshot_id", Long.class));
+        pageSource.appendBigint(row.get("sequence_number", Long.class));
+        pageSource.appendBigint(row.get("file_sequence_number", Long.class));
         StructProjection dataFile = row.get("data_file", StructProjection.class);
-        appendDataFile((RowBlockBuilder) pagesBuilder.nextColumn(), dataFile);
+        appendDataFile((RowBlockBuilder) pageSource.nextColumn(), dataFile);
         ReadableMetricsStruct readableMetrics = row.get("readable_metrics", ReadableMetricsStruct.class);
         String readableMetricsJson = readableMetricsToJson(readableMetrics, primitiveFields);
-        pagesBuilder.appendVarchar(readableMetricsJson);
-        pagesBuilder.endRow();
+        pageSource.appendVarchar(readableMetricsJson);
     }
 
     private void appendDataFile(RowBlockBuilder blockBuilder, StructProjection dataFile)
@@ -191,38 +188,38 @@ public class EntriesTable
             Long fileSizeInBytes = dataFile.get(++position, Long.class);
             BIGINT.writeLong(fieldBuilders.get(position), fileSizeInBytes);
 
-            //noinspection unchecked
+            @SuppressWarnings("unchecked")
             Map<Integer, Long> columnSizes = dataFile.get(++position, Map.class);
             appendIntegerBigintMap((MapBlockBuilder) fieldBuilders.get(position), columnSizes);
 
-            //noinspection unchecked
+            @SuppressWarnings("unchecked")
             Map<Integer, Long> valueCounts = dataFile.get(++position, Map.class);
             appendIntegerBigintMap((MapBlockBuilder) fieldBuilders.get(position), valueCounts);
 
-            //noinspection unchecked
+            @SuppressWarnings("unchecked")
             Map<Integer, Long> nullValueCounts = dataFile.get(++position, Map.class);
             appendIntegerBigintMap((MapBlockBuilder) fieldBuilders.get(position), nullValueCounts);
 
-            //noinspection unchecked
+            @SuppressWarnings("unchecked")
             Map<Integer, Long> nanValueCounts = dataFile.get(++position, Map.class);
             appendIntegerBigintMap((MapBlockBuilder) fieldBuilders.get(position), nanValueCounts);
 
             switch (ContentType.of(content)) {
                 case DATA, EQUALITY_DELETE -> {
-                    //noinspection unchecked
+                    @SuppressWarnings("unchecked")
                     Map<Integer, ByteBuffer> lowerBounds = dataFile.get(++position, Map.class);
                     appendIntegerVarcharMap((MapBlockBuilder) fieldBuilders.get(position), lowerBounds);
 
-                    //noinspection unchecked
+                    @SuppressWarnings("unchecked")
                     Map<Integer, ByteBuffer> upperBounds = dataFile.get(++position, Map.class);
                     appendIntegerVarcharMap((MapBlockBuilder) fieldBuilders.get(position), upperBounds);
                 }
                 case POSITION_DELETE -> {
-                    //noinspection unchecked
+                    @SuppressWarnings("unchecked")
                     Map<Integer, ByteBuffer> lowerBounds = dataFile.get(++position, Map.class);
                     appendBoundsForPositionDelete((MapBlockBuilder) fieldBuilders.get(position), lowerBounds);
 
-                    //noinspection unchecked
+                    @SuppressWarnings("unchecked")
                     Map<Integer, ByteBuffer> upperBounds = dataFile.get(++position, Map.class);
                     appendBoundsForPositionDelete((MapBlockBuilder) fieldBuilders.get(position), upperBounds);
                 }
@@ -236,7 +233,7 @@ public class EntriesTable
                 VARBINARY.writeSlice(fieldBuilders.get(position), wrappedHeapBuffer(keyMetadata));
             }
 
-            //noinspection unchecked
+            @SuppressWarnings("unchecked")
             List<Long> splitOffsets = dataFile.get(++position, List.class);
             appendBigintArray((ArrayBlockBuilder) fieldBuilders.get(position), splitOffsets);
 
@@ -256,7 +253,7 @@ public class EntriesTable
                     fieldBuilders.get(++position).appendNull();
                 }
                 case EQUALITY_DELETE -> {
-                    //noinspection unchecked
+                    @SuppressWarnings("unchecked")
                     List<Integer> equalityIds = dataFile.get(++position, List.class);
                     appendIntegerArray((ArrayBlockBuilder) fieldBuilders.get(position), equalityIds);
 

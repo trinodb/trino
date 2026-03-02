@@ -14,7 +14,7 @@
 package io.trino.plugin.iceberg;
 
 import com.google.inject.Inject;
-import io.trino.plugin.hive.NodeVersion;
+import io.trino.spi.NodeVersion;
 import org.apache.iceberg.EnvironmentContext;
 
 import static java.util.Objects.requireNonNull;

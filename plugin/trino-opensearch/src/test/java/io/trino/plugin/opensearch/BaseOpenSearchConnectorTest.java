@@ -19,7 +19,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.net.HostAndPort;
 import io.trino.Session;
 import io.trino.spi.type.VarcharType;
-import io.trino.sql.planner.plan.LimitNode;
 import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.testing.AbstractTestQueries;
 import io.trino.testing.BaseConnectorTest;
@@ -60,6 +59,7 @@ public abstract class BaseOpenSearchConnectorTest
         extends BaseConnectorTest
 {
     private final String image;
+    private String jmxBaseName;
     private OpenSearchServer opensearch;
     protected RestHighLevelClient client;
 
@@ -76,8 +76,11 @@ public abstract class BaseOpenSearchConnectorTest
         HostAndPort address = opensearch.getAddress();
         client = new RestHighLevelClient(RestClient.builder(new HttpHost(address.getHost(), address.getPort())));
 
+        jmxBaseName = randomNameSuffix();
+
         return OpenSearchQueryRunner.builder(opensearch.getAddress())
                 .setInitialTables(REQUIRED_TPCH_TABLES)
+                .addConnectorProperties(Map.of("jmx.base-name", jmxBaseName))
                 .build();
     }
 
@@ -140,8 +143,8 @@ public abstract class BaseOpenSearchConnectorTest
         String catalogName = getSession().getCatalog().orElseThrow();
         assertQuerySucceeds("SELECT * FROM orders");
         // Check that JMX stats show no sign of backpressure
-        assertQueryReturnsEmptyResult(format("SELECT 1 FROM jmx.current.\"trino.plugin.opensearch.client:*name=%s*\" WHERE \"backpressurestats.alltime.count\" > 0", catalogName));
-        assertQueryReturnsEmptyResult(format("SELECT 1 FROM jmx.current.\"trino.plugin.opensearch.client:*name=%s*\" WHERE \"backpressurestats.alltime.max\" > 0", catalogName));
+        assertQueryReturnsEmptyResult(format("SELECT 1 FROM jmx.current.\"%s.client:*name=%s*\" WHERE \"backpressurestats.alltime.count\" > 0", jmxBaseName, catalogName));
+        assertQueryReturnsEmptyResult(format("SELECT 1 FROM jmx.current.\"%s.client:*name=%s*\" WHERE \"backpressurestats.alltime.max\" > 0", jmxBaseName, catalogName));
     }
 
     @Test
@@ -1677,13 +1680,6 @@ public abstract class BaseOpenSearchConnectorTest
                 .matches("VALUES (VARCHAR 'Türkiye')");
         assertThat(query("SELECT text_column FROM filter_charset_pushdown WHERE text_column = 'Türkiye'"))
                 .matches("VALUES (VARCHAR 'Türkiye')");
-    }
-
-    @Test
-    public void testLimitPushdown()
-            throws IOException
-    {
-        assertThat(query("SELECT name FROM nation LIMIT 30")).isNotFullyPushedDown(LimitNode.class); // Use high limit for result determinism
     }
 
     @Test

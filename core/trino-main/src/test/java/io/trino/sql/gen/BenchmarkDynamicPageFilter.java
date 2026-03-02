@@ -16,13 +16,13 @@ package io.trino.sql.gen;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.FullConnectorSession;
+import io.trino.connector.TestingColumnHandle;
 import io.trino.operator.project.SelectedPositions;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.SourcePage;
-import io.trino.spi.connector.TestingColumnHandle;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.predicate.ValueSet;
@@ -226,7 +226,7 @@ public class BenchmarkDynamicPageFilter
         return value < chance;
     }
 
-    public static void main(String[] args)
+    static void main()
             throws Throwable
     {
         benchmark(BenchmarkDynamicPageFilter.class, WarmupMode.BULK)

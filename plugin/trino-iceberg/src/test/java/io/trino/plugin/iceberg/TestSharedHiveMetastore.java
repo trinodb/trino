@@ -16,7 +16,7 @@ package io.trino.plugin.iceberg;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
-import io.trino.plugin.hive.TestingHivePlugin;
+import io.trino.plugin.hive.HivePlugin;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
@@ -33,10 +33,10 @@ import static io.trino.testing.QueryAssertions.copyTpchTables;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
-import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
+import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 
 @TestInstance(PER_CLASS)
-@Execution(CONCURRENT)
+@Execution(SAME_THREAD) // Uses file metastore sharing location between catalogs
 public class TestSharedHiveMetastore
         extends BaseSharedMetastoreTest
 {
@@ -62,7 +62,6 @@ public class TestSharedHiveMetastore
         queryRunner.createCatalog("tpch", "tpch");
 
         this.dataDirectory = queryRunner.getCoordinator().getBaseDataDir().resolve("iceberg_data");
-        this.dataDirectory.toFile().deleteOnExit();
 
         queryRunner.installPlugin(new IcebergPlugin());
         queryRunner.createCatalog(
@@ -77,16 +76,29 @@ public class TestSharedHiveMetastore
                 "iceberg",
                 ImmutableMap.of(
                         "iceberg.catalog.type", "TESTING_FILE_METASTORE",
+                        // Intentionally sharing the file metastore directory with Hive
                         "hive.metastore.catalog.dir", dataDirectory.toString(),
                         "iceberg.hive-catalog-name", "hive",
                         "fs.hadoop.enabled", "true"));
 
-        queryRunner.installPlugin(new TestingHivePlugin(dataDirectory));
-        queryRunner.createCatalog(HIVE_CATALOG, "hive");
+        queryRunner.installPlugin(new HivePlugin());
+        queryRunner.createCatalog(
+                HIVE_CATALOG,
+                "hive",
+                ImmutableMap.of(
+                        "hive.metastore", "file",
+                        // Intentionally sharing the file metastore directory with Iceberg
+                        "hive.metastore.catalog.dir", dataDirectory.toString(),
+                        "fs.hadoop.enabled", "true"));
         queryRunner.createCatalog(
                 "hive_with_redirections",
                 "hive",
-                ImmutableMap.of("hive.iceberg-catalog-name", "iceberg"));
+                ImmutableMap.of(
+                        "hive.iceberg-catalog-name", "iceberg",
+                        "hive.metastore", "file",
+                        // Intentionally sharing the file metastore directory with Iceberg
+                        "hive.metastore.catalog.dir", dataDirectory.toString(),
+                        "fs.hadoop.enabled", "true"));
 
         queryRunner.execute("CREATE SCHEMA " + tpchSchema);
         copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, icebergSession, ImmutableList.of(TpchTable.NATION));
@@ -108,12 +120,11 @@ public class TestSharedHiveMetastore
     @Override
     protected String getExpectedHiveCreateSchema(String catalogName)
     {
-        return """
-               CREATE SCHEMA %s.%s
-               WITH (
-                  location = 'local:///%s'
-               )"""
-                .formatted(catalogName, tpchSchema, tpchSchema);
+        return format("""
+                CREATE SCHEMA %s.%s
+                WITH (
+                   location = '%s/%s'
+                )""", catalogName, tpchSchema, dataDirectory, tpchSchema);
     }
 
     @Override

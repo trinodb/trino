@@ -35,9 +35,9 @@ import io.trino.FeaturesConfig;
 import io.trino.SystemSessionProperties;
 import io.trino.SystemSessionPropertiesProvider;
 import io.trino.block.BlockJsonSerde;
-import io.trino.client.NodeVersion;
 import io.trino.connector.system.SystemConnectorModule;
 import io.trino.dispatcher.DispatchManager;
+import io.trino.exchange.ExchangeMetricsCollector;
 import io.trino.execution.DynamicFilterConfig;
 import io.trino.execution.ExplainAnalyzeContext;
 import io.trino.execution.FailureInjector;
@@ -86,6 +86,7 @@ import io.trino.operator.DirectExchangeClientSupplier;
 import io.trino.operator.FlatHashStrategyCompiler;
 import io.trino.operator.ForExchange;
 import io.trino.operator.GroupByHashPageIndexerFactory;
+import io.trino.operator.NullSafeHashCompiler;
 import io.trino.operator.PagesIndex;
 import io.trino.operator.PagesIndexPageSorter;
 import io.trino.operator.RetryPolicy;
@@ -100,6 +101,8 @@ import io.trino.server.SliceSerialization.SliceSerializer;
 import io.trino.server.protocol.PreparedStatementEncoder;
 import io.trino.server.protocol.spooling.SpoolingServerModule;
 import io.trino.server.remotetask.HttpLocationFactory;
+import io.trino.simd.BlockEncodingSimdSupport;
+import io.trino.spi.NodeVersion;
 import io.trino.spi.PageIndexerFactory;
 import io.trino.spi.PageSorter;
 import io.trino.spi.VersionEmbedder;
@@ -125,7 +128,6 @@ import io.trino.split.PageSourceProviderFactory;
 import io.trino.split.SplitManager;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.SqlEnvironmentConfig;
-import io.trino.sql.analyzer.SessionTimeProvider;
 import io.trino.sql.analyzer.StatementAnalyzerFactory;
 import io.trino.sql.gen.ExpressionCompiler;
 import io.trino.sql.gen.JoinCompiler;
@@ -161,18 +163,20 @@ import java.util.concurrent.ScheduledExecutorService;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
+import static io.airlift.bootstrap.ClosingBinder.closingBinder;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
+import static io.airlift.concurrent.Threads.virtualThreadsNamed;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.airlift.jaxrs.JaxrsBinder.jaxrsBinder;
 import static io.airlift.json.JsonBinder.jsonBinder;
 import static io.airlift.json.JsonCodecBinder.jsonCodecBinder;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.trino.operator.RetryPolicy.TASK;
-import static io.trino.plugin.base.ClosingBinder.closingBinder;
 import static io.trino.server.InternalCommunicationHttpClientModule.internalHttpClientModule;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
+import static java.util.concurrent.Executors.newThreadPerTaskExecutor;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.weakref.jmx.guice.ExportBinder.newExporter;
 
@@ -229,8 +233,6 @@ public class ServerMainModule
 
         newOptionalBinder(binder, ExplainAnalyzeContext.class);
         binder.bind(StatementAnalyzerFactory.class).in(Scopes.SINGLETON);
-        newOptionalBinder(binder, SessionTimeProvider.class)
-                .setDefault().toInstance(SessionTimeProvider.DEFAULT);
 
         // GC Monitor
         binder.bind(GcMonitor.class).to(JmxGcMonitor.class).in(Scopes.SINGLETON);
@@ -313,12 +315,14 @@ public class ServerMainModule
         newExporter(binder).export(FlatHashStrategyCompiler.class).withGeneratedName();
         binder.bind(OrderingCompiler.class).in(Scopes.SINGLETON);
         newExporter(binder).export(OrderingCompiler.class).withGeneratedName();
+        binder.bind(NullSafeHashCompiler.class).in(Scopes.SINGLETON);
         binder.bind(PagesIndex.Factory.class).to(PagesIndex.DefaultFactory.class);
         binder.bind(PagesInputStreamFactory.class);
         jaxrsBinder(binder).bind(IoExceptionSuppressingWriterInterceptor.class);
 
         // exchange client
         binder.bind(DirectExchangeClientSupplier.class).to(DirectExchangeClientFactory.class).in(Scopes.SINGLETON);
+        newOptionalBinder(binder, ExchangeMetricsCollector.class);
 
         InternalCommunicationConfig internalCommunicationConfig = buildConfigObject(InternalCommunicationConfig.class);
 
@@ -326,9 +330,12 @@ public class ServerMainModule
                 .withConfigDefaults(config -> {
                     config.setIdleTimeout(new Duration(30, SECONDS));
                     config.setRequestTimeout(new Duration(10, SECONDS));
-                    config.setMaxContentLength(DataSize.of(32, MEGABYTE));
+                    // Bumping the default limit to allow large rows to be transferred between nodes
+                    // 64MB is chosen based on real world experience of using this value in production clusters
+                    config.setMaxResponseContentLength(DataSize.of(64, MEGABYTE));
                     config.setMaxRequestsQueuedPerDestination(65536);
                     if (internalCommunicationConfig.isHttp2Enabled()) {
+                        // HTTP/2 requires fewer connections thanks to multiplexing
                         config.setMaxConnectionsPerServer(64);
                     }
                     else {
@@ -403,11 +410,14 @@ public class ServerMainModule
         binder.install(new HandleJsonModule());
 
         // system connector
-        binder.install(new SystemConnectorModule());
+        install(new SystemConnectorModule());
 
         // slice
         jsonBinder(binder).addSerializerBinding(Slice.class).to(SliceSerializer.class);
         jsonBinder(binder).addDeserializerBinding(Slice.class).to(SliceDeserializer.class);
+
+        // configurable DataSize serialization
+        jsonBinder(binder).addSerializerBinding(DataSize.class).to(DataSizeSerializer.class);
 
         // node version
         binder.bind(NodeVersion.class).toInstance(new NodeVersion(nodeVersion));
@@ -425,6 +435,9 @@ public class ServerMainModule
         newOptionalBinder(binder, PluginsProvider.class).setDefault()
                 .to(ServerPluginsProvider.class).in(Scopes.SINGLETON);
         configBinder(binder).bindConfig(ServerPluginsProviderConfig.class);
+
+        // SIMD support
+        binder.bind(BlockEncodingSimdSupport.class).in(Scopes.SINGLETON);
 
         // block encodings
         binder.bind(BlockEncodingManager.class).in(Scopes.SINGLETON);
@@ -540,9 +553,7 @@ public class ServerMainModule
         if (!config.isConcurrentStartup()) {
             return directExecutor();
         }
-        return new BoundedExecutor(
-                newCachedThreadPool(daemonThreadsNamed("startup-%s")),
-                Runtime.getRuntime().availableProcessors());
+        return newThreadPerTaskExecutor(virtualThreadsNamed("startup#v%s"));
     }
 
     @Provides

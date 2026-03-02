@@ -110,7 +110,7 @@ public class BenchmarkPageProcessor
                         SourcePage.create(inputPage)));
     }
 
-    public static void main(String[] args)
+    static void main()
             throws RunnerException
     {
         new BenchmarkPageProcessor().setup();

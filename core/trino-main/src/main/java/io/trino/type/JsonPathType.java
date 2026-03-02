@@ -35,6 +35,12 @@ public class JsonPathType
     }
 
     @Override
+    public String getDisplayName()
+    {
+        return NAME;
+    }
+
+    @Override
     public Object getObjectValue(Block block, int position)
     {
         return getObject(block, position);

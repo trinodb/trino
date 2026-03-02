@@ -74,7 +74,6 @@ public class PluginManager
             .add("io.trino.spi.")
             .add("com.fasterxml.jackson.annotation.")
             .add("io.airlift.slice.")
-            .add("org.openjdk.jol.")
             .add("io.opentelemetry.api.")
             .add("io.opentelemetry.context.")
             .build();
@@ -207,7 +206,7 @@ public class PluginManager
         }
 
         for (Type type : plugin.getTypes()) {
-            log.info("Registering type %s", type.getTypeSignature());
+            log.info("Registering type %s", type);
             typeRegistry.addType(type);
         }
 

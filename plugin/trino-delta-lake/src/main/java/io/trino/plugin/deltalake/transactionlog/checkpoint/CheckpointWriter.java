@@ -50,6 +50,7 @@ import org.joda.time.DateTimeZone;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.function.Consumer;
 
@@ -495,7 +496,7 @@ public class CheckpointWriter
 
                     return values.entrySet().stream()
                             .collect(toMap(
-                                    Map.Entry::getKey,
+                                    Entry::getKey,
                                     entry -> {
                                         Type type = fieldTypes.get(entry.getKey());
                                         Object value = entry.getValue();
@@ -522,7 +523,7 @@ public class CheckpointWriter
                 values ->
                         values.entrySet().stream()
                                 .collect(toMap(
-                                        Map.Entry::getKey,
+                                        Entry::getKey,
                                         entry -> {
                                             Object value = entry.getValue();
                                             if (value instanceof Integer) {
@@ -592,7 +593,7 @@ public class CheckpointWriter
         }
         MapType mapType = (MapType) field.getType();
         ((MapBlockBuilder) blockBuilder).buildEntry((keyBlockBuilder, valueBlockBuilder) -> {
-            for (Map.Entry<String, String> entry : values.entrySet()) {
+            for (Entry<String, String> entry : values.entrySet()) {
                 mapType.getKeyType().writeSlice(keyBlockBuilder, utf8Slice(entry.getKey()));
                 if (entry.getValue() == null) {
                     valueBlockBuilder.appendNull();

@@ -40,7 +40,6 @@ import io.trino.spi.predicate.NullableValue;
 import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.predicate.ValueSet;
-import io.trino.spi.type.TestingTypeManager;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorSession;
@@ -60,26 +59,22 @@ import org.apache.iceberg.parquet.Parquet;
 import org.apache.iceberg.types.Conversions;
 import org.apache.iceberg.types.Type;
 import org.apache.iceberg.types.Types;
-import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.Timeout;
 
 import java.io.Closeable;
-import java.io.File;
-import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.nio.file.Files;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.OptionalLong;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
-import static com.google.common.io.MoreFiles.deleteRecursively;
-import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
+import static com.google.common.collect.Maps.transformValues;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.google.common.util.concurrent.MoreExecutors.newDirectExecutorService;
 import static io.trino.metastore.cache.CachingHiveMetastore.createPerTransactionCache;
@@ -91,6 +86,7 @@ import static io.trino.plugin.iceberg.util.EqualityDeleteUtils.writeEqualityDele
 import static io.trino.spi.connector.Constraint.alwaysTrue;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.tpch.TpchTable.NATION;
+import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
@@ -109,7 +105,6 @@ public class TestIcebergSplitSource
                     .getSessionProperties())
             .build();
 
-    private File metastoreDir;
     private TrinoFileSystemFactory fileSystemFactory;
     private TrinoCatalog catalog;
 
@@ -117,12 +112,8 @@ public class TestIcebergSplitSource
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        File tempDir = Files.createTempDirectory("test_iceberg_split_source").toFile();
-        this.metastoreDir = new File(tempDir, "iceberg_data");
-
         QueryRunner queryRunner = IcebergQueryRunner.builder()
                 .setInitialTables(NATION)
-                .setMetastoreDirectory(metastoreDir)
                 .build();
 
         HiveMetastore metastore = getHiveMetastore(queryRunner);
@@ -135,7 +126,7 @@ public class TestIcebergSplitSource
                 new TrinoViewHiveMetastore(cachingHiveMetastore, false, "trino-version", "test"),
                 fileSystemFactory,
                 FILE_IO_FACTORY,
-                new TestingTypeManager(),
+                TESTING_TYPE_MANAGER,
                 new FileMetastoreTableOperationsProvider(fileSystemFactory, FILE_IO_FACTORY),
                 false,
                 false,
@@ -144,13 +135,6 @@ public class TestIcebergSplitSource
                 directExecutor());
 
         return queryRunner;
-    }
-
-    @AfterAll
-    public void tearDown()
-            throws IOException
-    {
-        deleteRecursively(metastoreDir.getParentFile().toPath(), ALLOW_INSECURE);
     }
 
     @Test
@@ -205,7 +189,7 @@ public class TestIcebergSplitSource
                 },
                 new Duration(2, SECONDS),
                 alwaysTrue(),
-                new TestingTypeManager(),
+                TESTING_TYPE_MANAGER,
                 false,
                 new IcebergConfig().getMinimumAssignedSplitWeight(),
                 new DefaultCachingHostAddressProvider(),
@@ -387,14 +371,14 @@ public class TestIcebergSplitSource
 
         // Write position delete file
         FileIO fileIo = FILE_IO_FACTORY.create(fileSystemFactory.create(SESSION));
-        PositionDeleteWriter<org.apache.iceberg.data.Record> writer = Parquet.writeDeletes(fileIo.newOutputFile("local:///delete_file_" + UUID.randomUUID()))
+        PositionDeleteWriter<Record> writer = Parquet.writeDeletes(fileIo.newOutputFile("local:///delete_file_" + UUID.randomUUID()))
                 .createWriterFunc(GenericParquetWriter::create)
                 .forTable(nationTable)
                 .overwrite()
                 .rowSchema(nationTable.schema())
                 .withSpec(PartitionSpec.unpartitioned())
                 .buildPositionWriter();
-        PositionDelete<org.apache.iceberg.data.Record> positionDelete = PositionDelete.create();
+        PositionDelete<Record> positionDelete = PositionDelete.create();
         PositionDelete<Record> record = positionDelete.set(dataFilePath, 0, GenericRecord.create(nationTable.schema()));
         try (Closeable ignored = writer) {
             writer.write(record);
@@ -431,7 +415,7 @@ public class TestIcebergSplitSource
                 dynamicFilter,
                 new Duration(0, SECONDS),
                 alwaysTrue(),
-                new TestingTypeManager(),
+                TESTING_TYPE_MANAGER,
                 false,
                 0,
                 new DefaultCachingHostAddressProvider(),
@@ -459,9 +443,10 @@ public class TestIcebergSplitSource
                 schemaTableName.getSchemaName(),
                 schemaTableName.getTableName(),
                 TableType.DATA,
-                Optional.empty(),
+                OptionalLong.empty(),
                 SchemaParser.toJson(nationTable.schema()),
-                Optional.of(PartitionSpecParser.toJson(nationTable.spec())),
+                nationTable.spec() == null ? OptionalInt.empty() : OptionalInt.of(nationTable.spec().specId()),
+                transformValues(nationTable.specs(), PartitionSpecParser::toJson),
                 1,
                 unenforcedPredicate,
                 TupleDomain.all(),

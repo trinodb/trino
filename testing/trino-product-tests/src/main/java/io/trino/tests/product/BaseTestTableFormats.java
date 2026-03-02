@@ -131,6 +131,30 @@ public abstract class BaseTestTableFormats
         }
     }
 
+    protected void testLocationContainsDiscouragedCharacter(String schemaLocation)
+    {
+        // According to https://docs.cloud.google.com/storage/docs/objects#recommendations some chars ([*]#?) are discouraged
+        // because they are specially treated in gcloud cli. But they are not directly prohibited.
+        // Chars used in schema location are not escaped like those in partition names
+        // so it allows to test whether whole stack works e2e with discouraged characters.
+        String schemaName = getCatalogName() + ".test";
+        String tableName = "%s.test_location_contains_discouraged_character_%s".formatted(schemaName, randomNameSuffix());
+        try {
+            String locationWithDiscouragedChars = schemaLocation + "/[*]#?";
+            onTrino().executeQuery("CREATE SCHEMA " + schemaName + " WITH (location = '" + locationWithDiscouragedChars + "')");
+            onTrino().executeQuery("CREATE TABLE " + tableName + " (id bigint, someValue varchar)");
+
+            onTrino().executeQuery("INSERT INTO " + tableName + " VALUES (1, 'someValue')");
+
+            assertThat(onTrino().executeQuery("SELECT * FROM " + tableName))
+                    .containsOnly(row(1, "someValue"));
+        }
+        finally {
+            onTrino().executeQuery("DROP TABLE IF EXISTS " + tableName);
+            onTrino().executeQuery("DROP SCHEMA IF EXISTS " + schemaName);
+        }
+    }
+
     protected void testSparkCompatibilityOnTrinoCreatedTable(String schemaLocation)
     {
         String baseTableName = "trino_created_table_using_parquet_" + randomNameSuffix();

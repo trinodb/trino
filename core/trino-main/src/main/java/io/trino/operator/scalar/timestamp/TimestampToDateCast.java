@@ -25,7 +25,7 @@ import static io.trino.type.DateTimes.MICROSECONDS_PER_DAY;
 import static java.lang.Math.floorDiv;
 
 @ScalarOperator(CAST)
-@ScalarFunction("date")
+@ScalarFunction(value = "date", neverFails = true)
 public final class TimestampToDateCast
 {
     private TimestampToDateCast() {}

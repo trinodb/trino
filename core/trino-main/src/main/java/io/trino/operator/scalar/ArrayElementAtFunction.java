@@ -22,7 +22,6 @@ import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.SqlNullable;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.function.TypeParameter;
-import io.trino.spi.type.Type;
 
 import java.lang.invoke.MethodHandle;
 
@@ -42,7 +41,6 @@ public final class ArrayElementAtFunction
     @SqlNullable
     @SqlType("E")
     public static Object elementAt(
-            @TypeParameter("E") Type elementType,
             @OperatorDependency(operator = READ_VALUE, argumentTypes = "E", convention = @Convention(arguments = BLOCK_POSITION_NOT_NULL, result = FAIL_ON_NULL)) MethodHandle readValue,
             @SqlType("array(E)") Block array,
             @SqlType("bigint") long index)

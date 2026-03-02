@@ -88,7 +88,7 @@ public final class FastutilSetHelper
         if (!type.getJavaType().isPrimitive()) {
             return new ObjectOpenCustomHashSet<>(set, 0.25f, new ObjectStrategy(hashCodeHandle, equalsHandle, type));
         }
-        throw new UnsupportedOperationException("Unsupported native type in set: " + type.getJavaType() + " with type " + type.getTypeSignature());
+        throw new UnsupportedOperationException("Unsupported native type in set: " + type.getJavaType() + " with type " + type.getDisplayName());
     }
 
     public static boolean in(boolean booleanValue, BooleanOpenHashSet set)

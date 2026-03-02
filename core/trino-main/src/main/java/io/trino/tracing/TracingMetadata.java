@@ -60,6 +60,7 @@ import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ColumnPosition;
 import io.trino.spi.connector.ConnectorCapabilities;
+import io.trino.spi.connector.ConnectorName;
 import io.trino.spi.connector.ConnectorOutputMetadata;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.Constraint;
@@ -96,6 +97,7 @@ import io.trino.spi.function.FunctionId;
 import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.LanguageFunction;
 import io.trino.spi.function.OperatorType;
+import io.trino.spi.metrics.Metrics;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.security.FunctionAuthorization;
 import io.trino.spi.security.GrantInfo;
@@ -236,11 +238,11 @@ public class TracingMetadata
     }
 
     @Override
-    public void executeTableExecute(Session session, TableExecuteHandle handle)
+    public Map<String, Long> executeTableExecute(Session session, TableExecuteHandle handle)
     {
         Span span = startSpan("executeTableExecute", handle);
         try (var _ = scopedSpan(span)) {
-            delegate.executeTableExecute(session, handle);
+            return delegate.executeTableExecute(session, handle);
         }
     }
 
@@ -281,6 +283,14 @@ public class TracingMetadata
         try (var _ = scopedSpan(span)) {
             return delegate.getInfo(session, handle);
         }
+    }
+
+    @Override
+    public Metrics getMetrics(Session session, String catalogName)
+    {
+        // Do not trace getMetrics as this is expected to be a quick local jvm call,
+        // and adding this span would only obfuscate the trace
+        return delegate.getMetrics(session, catalogName);
     }
 
     @Override
@@ -370,6 +380,24 @@ public class TracingMetadata
         Span span = startSpan("listRelationComments", new QualifiedTablePrefix(catalogName, schemaName, Optional.empty()));
         try (var _ = scopedSpan(span)) {
             return delegate.listRelationComments(session, catalogName, schemaName, relationFilter);
+        }
+    }
+
+    @Override
+    public void createCatalog(Session session, CatalogName catalog, ConnectorName connectorName, Map<String, String> properties, boolean notExists)
+    {
+        Span span = startSpan("createCatalog", catalog);
+        try (var _ = scopedSpan(span)) {
+            delegate.createCatalog(session, catalog, connectorName, properties, notExists);
+        }
+    }
+
+    @Override
+    public void dropCatalog(Session session, CatalogName catalog, boolean cascade)
+    {
+        Span span = startSpan("dropCatalog", catalog);
+        try (var _ = scopedSpan(span)) {
+            delegate.dropCatalog(session, catalog, cascade);
         }
     }
 
@@ -500,6 +528,24 @@ public class TracingMetadata
     }
 
     @Override
+    public void setDefaultValue(Session session, TableHandle tableHandle, ColumnHandle column, String defaultValue)
+    {
+        Span span = startSpan("setDefaultValue", tableHandle);
+        try (var _ = scopedSpan(span)) {
+            delegate.setDefaultValue(session, tableHandle, column, defaultValue);
+        }
+    }
+
+    @Override
+    public void dropDefaultValue(Session session, TableHandle tableHandle, ColumnHandle column)
+    {
+        Span span = startSpan("dropDefaultValue", tableHandle);
+        try (var _ = scopedSpan(span)) {
+            delegate.dropDefaultValue(session, tableHandle, column);
+        }
+    }
+
+    @Override
     public void setColumnType(Session session, TableHandle tableHandle, ColumnHandle column, Type type)
     {
         Span span = startSpan("setColumnType", tableHandle);
@@ -611,11 +657,11 @@ public class TracingMetadata
     }
 
     @Override
-    public TableStatisticsMetadata getStatisticsCollectionMetadataForWrite(Session session, CatalogHandle catalogHandle, ConnectorTableMetadata tableMetadata)
+    public TableStatisticsMetadata getStatisticsCollectionMetadataForWrite(Session session, CatalogHandle catalogHandle, ConnectorTableMetadata tableMetadata, boolean tableReplace)
     {
         Span span = startSpan("getStatisticsCollectionMetadataForWrite", catalogHandle.getCatalogName().toString(), tableMetadata);
         try (var _ = scopedSpan(span)) {
-            return delegate.getStatisticsCollectionMetadataForWrite(session, catalogHandle, tableMetadata);
+            return delegate.getStatisticsCollectionMetadataForWrite(session, catalogHandle, tableMetadata, tableReplace);
         }
     }
 
@@ -841,11 +887,29 @@ public class TracingMetadata
     }
 
     @Override
+    public Optional<CatalogInfo> getCatalogInfo(Session session, String catalogName)
+    {
+        Span span = startSpan("getCatalogInfo", catalogName);
+        try (var _ = scopedSpan(span)) {
+            return delegate.getCatalogInfo(session, catalogName);
+        }
+    }
+
+    @Override
     public List<CatalogInfo> listCatalogs(Session session)
     {
         Span span = startSpan("listCatalogs");
         try (var _ = scopedSpan(span)) {
             return delegate.listCatalogs(session);
+        }
+    }
+
+    @Override
+    public List<CatalogInfo> listActiveCatalogs(Session session)
+    {
+        Span span = startSpan("listActiveCatalogs");
+        try (var _ = scopedSpan(span)) {
+            return delegate.listActiveCatalogs(session);
         }
     }
 
@@ -1503,11 +1567,11 @@ public class TracingMetadata
     }
 
     @Override
-    public MaterializedViewFreshness getMaterializedViewFreshness(Session session, QualifiedObjectName name)
+    public MaterializedViewFreshness getMaterializedViewFreshness(Session session, QualifiedObjectName name, boolean considerGracePeriod)
     {
         Span span = startSpan("getMaterializedViewFreshness", name);
         try (var _ = scopedSpan(span)) {
-            return delegate.getMaterializedViewFreshness(session, name);
+            return delegate.getMaterializedViewFreshness(session, name, considerGracePeriod);
         }
     }
 
@@ -1745,9 +1809,9 @@ public class TracingMetadata
     private Span startSpan(String methodName, CatalogSchemaFunctionName table)
     {
         return startSpan(methodName)
-                .setAttribute(TrinoAttributes.CATALOG, table.getCatalogName())
-                .setAttribute(TrinoAttributes.SCHEMA, table.getSchemaName())
-                .setAttribute(TrinoAttributes.FUNCTION, table.getFunctionName());
+                .setAttribute(TrinoAttributes.CATALOG, table.catalogName())
+                .setAttribute(TrinoAttributes.SCHEMA, table.schemaName())
+                .setAttribute(TrinoAttributes.FUNCTION, table.functionName());
     }
 
     private Span startSpan(String methodName, EntityKindAndName entity, Set<EntityPrivilege> privileges, TrinoPrincipal grantee, boolean grantOption)

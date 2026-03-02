@@ -4,13 +4,40 @@ updates:
     directory: "/"
     schedule:
       interval: "weekly"
+    cooldown:
+      # Apply 7 day cooldown to avoid updating dependencies right away. This reduces the opportunity window
+      # when supply chain is compromised.
+      default-days: 7
+  - package-ecosystem: "maven"
+    directory: "/"
+    schedule:
+      interval: "daily"
+    open-pull-requests-limit: 10
     groups:
-      dependency-updates:
-        applies-to: version-updates
+      airlift:
+        patterns:
+          - "io.airlift:airbase"
+          - "io.airlift:bom"
+    cooldown:
+      # Apply 7 day cooldown to avoid updating dependencies right away. This reduces the opportunity window
+      # when supply chain is compromised. This doesn't apply to the dependencies that we own and release.
+      default-days: 7
+      exclude:
+        - io.airlift:*
+        - io.trino:*
+  - package-ecosystem: "npm"
+    directory: "/core/trino-web-ui/src/main/resources/webapp-preview"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 10
+    allow:
+      - dependency-type: "all"
+    ignore:
+      # Ignore major updates for all dependencies; allow only minor/patch updates.
+      - dependency-name: "*"
         update-types:
-        - major
-        - minor
-        - patch
-      security-updates:
-        applies-to: security-updates
-        dependency-type: production
+          - "version-update:semver-major"
+    cooldown:
+      # Apply 7 day cooldown to avoid updating dependencies right away. This reduces the opportunity window
+      # when supply chain is compromised.
+      default-days: 7

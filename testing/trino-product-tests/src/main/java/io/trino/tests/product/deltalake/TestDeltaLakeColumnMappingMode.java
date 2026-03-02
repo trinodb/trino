@@ -27,11 +27,10 @@ import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tempto.assertions.QueryAssert.assertQueryFailure;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.tests.product.TestGroups.DELTA_LAKE_DATABRICKS;
-import static io.trino.tests.product.TestGroups.DELTA_LAKE_DATABRICKS_122;
-import static io.trino.tests.product.TestGroups.DELTA_LAKE_DATABRICKS_133;
 import static io.trino.tests.product.TestGroups.DELTA_LAKE_DATABRICKS_143;
 import static io.trino.tests.product.TestGroups.DELTA_LAKE_DATABRICKS_154;
-import static io.trino.tests.product.TestGroups.DELTA_LAKE_EXCLUDE_164;
+import static io.trino.tests.product.TestGroups.DELTA_LAKE_DATABRICKS_164;
+import static io.trino.tests.product.TestGroups.DELTA_LAKE_EXCLUDE_173;
 import static io.trino.tests.product.TestGroups.DELTA_LAKE_OSS;
 import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
 import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.DATABRICKS_COMMUNICATION_FAILURE_ISSUE;
@@ -54,7 +53,7 @@ import static org.assertj.core.api.Assertions.entry;
 public class TestDeltaLakeColumnMappingMode
         extends BaseTestDeltaLakeS3Storage
 {
-    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_DATABRICKS_122, DELTA_LAKE_DATABRICKS_133, DELTA_LAKE_DATABRICKS_143, DELTA_LAKE_DATABRICKS_154, DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS})
+    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_DATABRICKS_143, DELTA_LAKE_DATABRICKS_154, DELTA_LAKE_DATABRICKS_164, DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS})
     @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
     public void testColumnMappingModeNone()
     {
@@ -227,7 +226,7 @@ public class TestDeltaLakeColumnMappingMode
         onTrino().executeQuery("DROP TABLE delta.default." + tableName);
     }
 
-    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_DATABRICKS_122, DELTA_LAKE_DATABRICKS_133, DELTA_LAKE_DATABRICKS_143, DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS}, dataProvider = "columnMappingDataProvider")
+    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_DATABRICKS_143, DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS}, dataProvider = "columnMappingDataProvider")
     @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
     public void testTrinoColumnMappingMode(String mode)
     {
@@ -241,9 +240,9 @@ public class TestDeltaLakeColumnMappingMode
                 ")"));
     }
 
-    // When setting the table property `delta.columnMapping.mode` on Databricks 16.4, it will enable the `delta.feature.generatedColumns`
+    // When setting the table property `delta.columnMapping.mode` on Databricks >= 16.x, it will enable the `delta.feature.generatedColumns`
     // feature, which is not supported by Trino.
-    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_EXCLUDE_164, DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS}, dataProvider = "columnMappingDataProvider")
+    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_EXCLUDE_173, DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS}, dataProvider = "columnMappingDataProvider")
     @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
     public void testDeltaColumnMappingMode(String mode)
     {
@@ -298,8 +297,8 @@ public class TestDeltaLakeColumnMappingMode
             assertThat(onTrino().executeQuery("DESCRIBE delta.default." + tableName))
                     .containsOnly(ImmutableList.of(
                             row("new_a_column", "integer", "", ""),
-                            row("array_col", "array(row(array_struct_element varchar))", "", ""),
-                            row("nested", "row(field2 varchar)", "", ""),
+                            row("array_col", "array(row(\"array_struct_element\" varchar))", "", ""),
+                            row("nested", "row(\"field2\" varchar)", "", ""),
                             row("a_string", "varchar", "", ""),
                             row("new_part", "varchar", "", "")));
 
@@ -510,7 +509,7 @@ public class TestDeltaLakeColumnMappingMode
                             row("another_varchar", "varchar", "", ""),
                             row("a_array", "array(integer)", "", ""),
                             row("a_map", "map(varchar, integer)", "", ""),
-                            row("a_row", "row(x integer)", "", ""));
+                            row("a_row", "row(\"x\" integer)", "", ""));
 
             onDelta().executeQuery("INSERT INTO default." + tableName + " VALUES (3, 'new column', array(3), map('key', 4), named_struct('x', 5))");
             expectedRows = ImmutableList.of(

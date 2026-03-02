@@ -13,10 +13,10 @@ jobs:
     timeout-minutes: 5
     steps:
       - name: 'Cancel Runs For Closed PRs'
-        uses: styfle/cancel-workflow-action@85880fa0301c86cca9da44039ee3bb12d3bedbfa # 0.12.1
+        uses: styfle/cancel-workflow-action@3155a141048f8f89c06b4cdae32e7853e97536bc # 0.13.0
         with:
           # Cancel workflow when PR closed. https://github.com/styfle/cancel-workflow-action#advanced-ignore-sha
           ignore_sha: true
           # Note: workflow_id can be a Workflow ID (number) or Workflow File Name (string) or a comma-separated list of those.
-          workflow_id: "ci.yml,docs.yml"
+          workflow_id: "ci.yml"
           access_token: ${{ github.token }}

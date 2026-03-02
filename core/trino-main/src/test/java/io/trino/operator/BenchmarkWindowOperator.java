@@ -330,7 +330,7 @@ public class BenchmarkWindowOperator
         context.cleanup();
     }
 
-    public static void main(String[] args)
+    static void main()
             throws RunnerException
     {
         Benchmarks.benchmark(BenchmarkWindowOperator.class).run();

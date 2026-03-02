@@ -53,6 +53,7 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.UUID;
 import java.util.stream.IntStream;
 
@@ -229,7 +230,7 @@ public final class IcebergAvroDataConversion
         if (type instanceof RowType rowType) {
             SqlRow sqlRow = rowType.getObject(block, position);
 
-            List<Type> fieldTypes = rowType.getTypeParameters();
+            List<Type> fieldTypes = rowType.getFieldTypes();
             checkArgument(fieldTypes.size() == sqlRow.getFieldCount(), "Expected row value field count does not match type field count");
             List<Types.NestedField> icebergFields = icebergType.asStructType().fields();
 
@@ -333,16 +334,16 @@ public final class IcebergAvroDataConversion
             org.apache.iceberg.types.Type keyIcebergType = icebergType.asMapType().keyType();
             org.apache.iceberg.types.Type valueIcebergType = icebergType.asMapType().valueType();
             ((MapBlockBuilder) builder).buildEntry((keyBuilder, valueBuilder) -> {
-                for (Map.Entry<?, ?> entry : map.entrySet()) {
+                for (Entry<?, ?> entry : map.entrySet()) {
                     serializeToTrinoBlock(keyType, keyIcebergType, keyBuilder, entry.getKey());
                     serializeToTrinoBlock(valueType, valueIcebergType, valueBuilder, entry.getValue());
                 }
             });
             return;
         }
-        if (type instanceof RowType) {
+        if (type instanceof RowType rowType) {
             Record record = (Record) object;
-            List<Type> typeParameters = type.getTypeParameters();
+            List<Type> typeParameters = rowType.getFieldTypes();
             List<Types.NestedField> icebergFields = icebergType.asStructType().fields();
             ((RowBlockBuilder) builder).buildEntry(fieldBuilders -> {
                 for (int i = 0; i < typeParameters.size(); i++) {

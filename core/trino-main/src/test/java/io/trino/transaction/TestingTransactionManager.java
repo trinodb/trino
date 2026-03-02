@@ -28,7 +28,6 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -81,12 +80,6 @@ public class TestingTransactionManager
     }
 
     @Override
-    public Set<TransactionId> getTransactionsUsingCatalog(CatalogHandle catalogHandle)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
     public TransactionId beginTransaction(boolean autoCommitContext)
     {
         TransactionId transaction = TransactionId.create();
@@ -120,6 +113,12 @@ public class TestingTransactionManager
 
     @Override
     public Optional<CatalogMetadata> getOptionalCatalogMetadata(TransactionId transactionId, String catalogName)
+    {
+        return Optional.empty();
+    }
+
+    @Override
+    public Optional<CatalogInfo> getOptionalCatalogInfo(TransactionId requiredTransactionId, String catalogName)
     {
         return Optional.empty();
     }
@@ -184,12 +183,6 @@ public class TestingTransactionManager
     {
         checkState(transactions.remove(transactionId) != null, "Transaction is already finished");
         return immediateVoidFuture();
-    }
-
-    @Override
-    public void blockCommit(TransactionId transactionId, String reason)
-    {
-        throw new UnsupportedOperationException();
     }
 
     @Override

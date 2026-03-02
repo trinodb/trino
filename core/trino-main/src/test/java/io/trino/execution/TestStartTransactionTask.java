@@ -20,12 +20,13 @@ import io.airlift.units.Duration;
 import io.opentelemetry.api.OpenTelemetry;
 import io.trino.Session;
 import io.trino.Session.SessionBuilder;
-import io.trino.client.NodeVersion;
+import io.trino.exchange.ExchangeMetricsCollector;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.Metadata;
 import io.trino.plugin.base.security.DefaultSystemAccessControl;
 import io.trino.security.AccessControlConfig;
 import io.trino.security.AccessControlManager;
+import io.trino.spi.NodeVersion;
 import io.trino.spi.resourcegroups.ResourceGroupId;
 import io.trino.spi.transaction.IsolationLevel;
 import io.trino.sql.tree.Isolation;
@@ -52,7 +53,7 @@ import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.trino.execution.querystats.PlanOptimizersStatsCollector.createPlanOptimizersStatsCollector;
 import static io.trino.metadata.CatalogManager.NO_CATALOGS;
-import static io.trino.metadata.TestMetadataManager.createTestMetadataManager;
+import static io.trino.metadata.TestingMetadataManager.createTestingMetadataManager;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.spi.StandardErrorCode.INCOMPATIBLE_CLIENT;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -73,7 +74,7 @@ import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 @Execution(CONCURRENT)
 public class TestStartTransactionTask
 {
-    private final Metadata metadata = createTestMetadataManager();
+    private final Metadata metadata = createTestingMetadataManager();
     private final ExecutorService executor = newCachedThreadPool(daemonThreadsNamed(getClass().getSimpleName() + "-%s"));
     private final ScheduledExecutorService scheduledExecutor = newSingleThreadScheduledExecutor(daemonThreadsNamed(getClass().getSimpleName() + "-scheduledExecutor-%s"));
 
@@ -266,6 +267,7 @@ public class TestStartTransactionTask
                 metadata,
                 WarningCollector.NOOP,
                 createPlanOptimizersStatsCollector(),
+                new ExchangeMetricsCollector(ImmutableList::of, java.time.Duration.ofMillis(1)),
                 Optional.empty(),
                 true,
                 Optional.empty(),

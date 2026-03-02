@@ -20,11 +20,12 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 
-public class TestMapBlockBuilder
+final class TestMapBlockBuilder
         extends AbstractTestBlockBuilder<Map<String, Integer>>
 {
     private static final TypeOperators TYPE_OPERATORS = new TypeOperators();
@@ -63,7 +64,7 @@ public class TestMapBlockBuilder
             }
             else {
                 blockBuilder.buildEntry((keyBuilder, valueBuilder) -> {
-                    for (Map.Entry<String, Integer> entry : map.entrySet()) {
+                    for (Entry<String, Integer> entry : map.entrySet()) {
                         VARCHAR.writeString(keyBuilder, entry.getKey());
                         INTEGER.writeLong(valueBuilder, entry.getValue());
                     }

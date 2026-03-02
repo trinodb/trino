@@ -15,10 +15,12 @@ package io.trino.server.protocol.spooling;
 
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
+import jakarta.validation.constraints.AssertTrue;
 
 public class SpoolingEnabledConfig
 {
     private boolean enabled;
+    private boolean unsupportedWarningEnabled;
 
     public boolean isEnabled()
     {
@@ -31,5 +33,24 @@ public class SpoolingEnabledConfig
     {
         this.enabled = enabled;
         return this;
+    }
+
+    public boolean isUnsupportedWarningEnabled()
+    {
+        return unsupportedWarningEnabled;
+    }
+
+    @Config("protocol.spooling.unsupported-warning.enabled")
+    @ConfigDescription("Generates a warning when a client lacks spooling support and connects to a spooling-enabled server")
+    public SpoolingEnabledConfig setUnsupportedWarningEnabled(boolean unsupportedWarningEnabled)
+    {
+        this.unsupportedWarningEnabled = unsupportedWarningEnabled;
+        return this;
+    }
+
+    @AssertTrue(message = "protocol.spooling.unsupported-warning.enabled can only be enabled when protocol.spooling.enabled is also enabled")
+    public boolean isConfigurationValid()
+    {
+        return !unsupportedWarningEnabled || enabled;
     }
 }

@@ -358,10 +358,10 @@ public class TimeSharingTaskExecutor
 
                 Span splitSpan = tracer.spanBuilder(intermediate ? "split (intermediate)" : "split (leaf)")
                         .setParent(Context.current().with(taskSplit.getPipelineSpan()))
-                        .setAttribute(TrinoAttributes.QUERY_ID, taskId.getQueryId().toString())
-                        .setAttribute(TrinoAttributes.STAGE_ID, taskId.getStageId().toString())
+                        .setAttribute(TrinoAttributes.QUERY_ID, taskId.queryId().toString())
+                        .setAttribute(TrinoAttributes.STAGE_ID, taskId.stageId().toString())
                         .setAttribute(TrinoAttributes.TASK_ID, taskId.toString())
-                        .setAttribute(TrinoAttributes.PIPELINE_ID, taskId.getStageId() + "-" + taskSplit.getPipelineId())
+                        .setAttribute(TrinoAttributes.PIPELINE_ID, taskId.stageId() + "-" + taskSplit.getPipelineId())
                         .setAttribute(TrinoAttributes.SPLIT_ID, taskId + "-" + splitId)
                         .startSpan();
 

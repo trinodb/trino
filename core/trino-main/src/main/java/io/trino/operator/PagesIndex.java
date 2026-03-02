@@ -50,6 +50,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalDouble;
+import java.util.OptionalInt;
 import java.util.function.Supplier;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
@@ -316,9 +317,8 @@ public class PagesIndex
             // append the row
             pageBuilder.declarePosition();
             for (int channel = 0; channel < channels.length; channel++) {
-                Type type = types.get(channel);
                 Block block = channels[channel].get(blockIndex);
-                type.appendTo(block, blockPosition, pageBuilder.getBlockBuilder(channel));
+                pageBuilder.getBlockBuilder(channel).append(block.getUnderlyingValueBlock(), block.getUnderlyingValuePosition(blockPosition));
             }
 
             position++;
@@ -331,10 +331,9 @@ public class PagesIndex
     {
         long pageAddress = valueAddresses.getLong(position);
 
-        Type type = types.get(channel);
         Block block = channels[channel].get(decodeSliceIndex(pageAddress));
         int blockPosition = decodePosition(pageAddress);
-        type.appendTo(block, blockPosition, output);
+        output.append(block.getUnderlyingValueBlock(), block.getUnderlyingValuePosition(blockPosition));
     }
 
     public boolean isNull(int channel, int position)
@@ -461,7 +460,7 @@ public class PagesIndex
 
     public Supplier<LookupSource> createLookupSourceSupplier(Session session, List<Integer> joinChannels)
     {
-        return createLookupSourceSupplier(session, joinChannels, Optional.empty(), Optional.empty(), ImmutableList.of());
+        return createLookupSourceSupplier(session, joinChannels, Optional.empty(), OptionalInt.empty(), ImmutableList.of());
     }
 
     public PagesHashStrategy createPagesHashStrategy(List<Integer> joinChannels)
@@ -499,7 +498,7 @@ public class PagesIndex
             Session session,
             List<Integer> joinChannels,
             Optional<JoinFilterFunctionFactory> filterFunctionFactory,
-            Optional<Integer> sortChannel,
+            OptionalInt sortChannel,
             List<JoinFilterFunctionFactory> searchFunctionFactories)
     {
         return createLookupSourceSupplier(session, joinChannels, filterFunctionFactory, sortChannel, searchFunctionFactories, Optional.empty(), defaultHashArraySizeSupplier());
@@ -508,9 +507,9 @@ public class PagesIndex
     public PagesSpatialIndexSupplier createPagesSpatialIndex(
             Session session,
             int geometryChannel,
-            Optional<Integer> radiusChannel,
+            OptionalInt radiusChannel,
             OptionalDouble constantRadius,
-            Optional<Integer> partitionChannel,
+            OptionalInt partitionChannel,
             SpatialPredicate spatialRelationshipTest,
             Optional<JoinFilterFunctionFactory> filterFunctionFactory,
             List<Integer> outputChannels,
@@ -518,14 +517,14 @@ public class PagesIndex
     {
         // TODO probably shouldn't copy to reduce memory and for memory accounting's sake
         List<ObjectArrayList<Block>> channels = ImmutableList.copyOf(this.channels);
-        return new PagesSpatialIndexSupplier(session, valueAddresses, types, outputChannels, channels, geometryChannel, radiusChannel, constantRadius, partitionChannel, spatialRelationshipTest, filterFunctionFactory, partitions);
+        return new PagesSpatialIndexSupplier(session, valueAddresses, outputChannels, channels, geometryChannel, radiusChannel, constantRadius, partitionChannel, spatialRelationshipTest, filterFunctionFactory, partitions);
     }
 
     public LookupSourceSupplier createLookupSourceSupplier(
             Session session,
             List<Integer> joinChannels,
             Optional<JoinFilterFunctionFactory> filterFunctionFactory,
-            Optional<Integer> sortChannel,
+            OptionalInt sortChannel,
             List<JoinFilterFunctionFactory> searchFunctionFactories,
             Optional<List<Integer>> outputChannels,
             HashArraySizeSupplier hashArraySizeSupplier)
@@ -633,7 +632,7 @@ public class PagesIndex
 
     public long getEstimatedMemoryRequiredToCreateLookupSource(
             HashArraySizeSupplier hashArraySizeSupplier,
-            Optional<Integer> sortChannel,
+            OptionalInt sortChannel,
             List<Integer> joinChannels)
     {
         // channels and valueAddresses are shared between PagesIndex and JoinHashSupplier and are accounted as part of lookupSourceEstimatedRetainedSizeInBytes

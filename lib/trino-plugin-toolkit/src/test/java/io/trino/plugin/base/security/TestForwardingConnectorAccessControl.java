@@ -16,8 +16,8 @@ package io.trino.plugin.base.security;
 import io.trino.spi.connector.ConnectorAccessControl;
 import org.junit.jupiter.api.Test;
 
-import static io.trino.spi.testing.InterfaceTestUtils.assertAllMethodsOverridden;
-import static io.trino.spi.testing.InterfaceTestUtils.assertProperForwardingMethodsAreCalled;
+import static io.trino.testing.InterfaceTestUtils.assertAllMethodsOverridden;
+import static io.trino.testing.InterfaceTestUtils.assertProperForwardingMethodsAreCalled;
 
 public class TestForwardingConnectorAccessControl
 {

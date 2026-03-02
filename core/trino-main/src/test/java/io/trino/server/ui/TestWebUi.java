@@ -74,7 +74,6 @@ import java.net.HttpCookie;
 import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.security.Principal;
 import java.security.PrivateKey;
 import java.security.SecureRandom;
@@ -99,7 +98,7 @@ import static io.airlift.jaxrs.JaxrsBinder.jaxrsBinder;
 import static io.jsonwebtoken.Claims.SUBJECT;
 import static io.jsonwebtoken.security.Keys.hmacShaKeyFor;
 import static io.trino.client.OkHttpUtil.setupSsl;
-import static io.trino.metadata.TestMetadataManager.createTestMetadataManager;
+import static io.trino.metadata.TestingMetadataManager.createTestingMetadataManager;
 import static io.trino.server.ServletSecurityUtils.authenticatedIdentity;
 import static io.trino.server.security.ResourceSecurity.AccessType.WEB_UI;
 import static io.trino.server.security.jwt.JwtUtil.newJwtBuilder;
@@ -422,7 +421,7 @@ public class TestWebUi
         {
             this.sessionContextFactory = new HttpRequestSessionContextFactory(
                     new PreparedStatementEncoder(new ProtocolConfig()),
-                    createTestMetadataManager(),
+                    createTestingMetadataManager(),
                     ImmutableSet::of,
                     accessControl,
                     new ProtocolConfig(),
@@ -601,7 +600,7 @@ public class TestWebUi
 
             testNeverAuthorized(httpServerInfo.getHttpsUri(), client);
 
-            SecretKey hmac = hmacShaKeyFor(Base64.getDecoder().decode(Files.readString(Paths.get(HMAC_KEY)).trim()));
+            SecretKey hmac = hmacShaKeyFor(Base64.getDecoder().decode(Files.readString(Path.of(HMAC_KEY)).trim()));
             String token = newJwtBuilder()
                     .signWith(hmac)
                     .subject("test-user")
@@ -1248,7 +1247,7 @@ public class TestWebUi
         HttpServerConfig config = new HttpServerConfig().setHttpPort(0);
         HttpServerInfo httpServerInfo = new HttpServerInfo(config, nodeInfo);
 
-        return new TestingHttpServer(httpServerInfo, nodeInfo, config, new JwkServlet());
+        return new TestingHttpServer("testing-jwk-server", httpServerInfo, nodeInfo, config, new JwkServlet());
     }
 
     private static class JwkServlet
@@ -1326,7 +1325,7 @@ public class TestWebUi
         }
 
         @Override
-        public Optional<Map<String, Object>> getClaims(String accessToken)
+        public Optional<Map<String, Object>> getAccessTokenClaims(String accessToken)
         {
             return Optional.of(claims);
         }

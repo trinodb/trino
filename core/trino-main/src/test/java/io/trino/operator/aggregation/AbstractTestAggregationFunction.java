@@ -198,14 +198,15 @@ public abstract class AbstractTestAggregationFunction
     {
         Block[] alternatingNullsBlocks = new Block[sequenceBlocks.length];
         for (int i = 0; i < sequenceBlocks.length; i++) {
-            int positionCount = sequenceBlocks[i].getPositionCount();
+            Block block = sequenceBlocks[i];
+            int positionCount = block.getPositionCount();
             Type type = types.get(i);
             BlockBuilder blockBuilder = type.createBlockBuilder(null, positionCount);
             for (int position = 0; position < positionCount; position++) {
                 // append null
                 blockBuilder.appendNull();
                 // append value
-                type.appendTo(sequenceBlocks[i], position, blockBuilder);
+                blockBuilder.append(block.getUnderlyingValueBlock(), block.getUnderlyingValuePosition(position));
             }
             alternatingNullsBlocks[i] = blockBuilder.build();
         }

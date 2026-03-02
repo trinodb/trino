@@ -43,7 +43,6 @@ final class MetricComparator
 
         ImmutableList.Builder<MetricComparison> metricComparisons = ImmutableList.builder();
         for (int i = 0; i < metrics.size(); ++i) {
-            //noinspection unchecked
             metricComparisons.add(new MetricComparison(
                     metrics.get(i),
                     estimatedValues.get(i),

@@ -25,6 +25,7 @@ import java.time.Instant;
 import java.util.Optional;
 import java.util.OptionalLong;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.filesystem.azure.AzureUtils.handleAzureException;
 import static java.util.Objects.requireNonNull;
@@ -99,6 +100,16 @@ class AzureInputFile
             loadProperties();
         }
         return length.orElseThrow();
+    }
+
+    @Override
+    public String toString()
+    {
+        return toStringHelper(this)
+                .add("location", location)
+                .add("length", length)
+                .add("lastModified", lastModified)
+                .toString();
     }
 
     private void loadProperties()

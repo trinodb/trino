@@ -13,61 +13,20 @@
  */
 package io.trino.spi.function;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
-
-import java.util.Objects;
-
 import static java.util.Locale.ROOT;
 
-public final class SchemaFunctionName
+public record SchemaFunctionName(String schemaName, String functionName)
 {
-    private final String schemaName;
-    private final String functionName;
-
-    @JsonCreator
-    public SchemaFunctionName(@JsonProperty("schemaName") String schemaName, @JsonProperty("functionName") String functionName)
+    public SchemaFunctionName
     {
-        this.schemaName = schemaName.toLowerCase(ROOT);
+        schemaName = schemaName.toLowerCase(ROOT);
         if (schemaName.isEmpty()) {
             throw new IllegalArgumentException("schemaName is empty");
         }
-        this.functionName = functionName.toLowerCase(ROOT);
+        functionName = functionName.toLowerCase(ROOT);
         if (functionName.isEmpty()) {
             throw new IllegalArgumentException("functionName is empty");
         }
-    }
-
-    @JsonProperty
-    public String getSchemaName()
-    {
-        return schemaName;
-    }
-
-    @JsonProperty
-    public String getFunctionName()
-    {
-        return functionName;
-    }
-
-    @Override
-    public int hashCode()
-    {
-        return Objects.hash(schemaName, functionName);
-    }
-
-    @Override
-    public boolean equals(Object obj)
-    {
-        if (this == obj) {
-            return true;
-        }
-        if (obj == null || getClass() != obj.getClass()) {
-            return false;
-        }
-        SchemaFunctionName other = (SchemaFunctionName) obj;
-        return Objects.equals(this.schemaName, other.schemaName) &&
-                Objects.equals(this.functionName, other.functionName);
     }
 
     @Override

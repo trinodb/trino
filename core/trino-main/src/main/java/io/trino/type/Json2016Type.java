@@ -24,7 +24,6 @@ import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.VariableWidthBlock;
 import io.trino.spi.block.VariableWidthBlockBuilder;
 import io.trino.spi.type.AbstractVariableWidthType;
-import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.TypeSignature;
 
 import static io.airlift.slice.Slices.utf8Slice;
@@ -33,12 +32,19 @@ import static io.trino.json.JsonInputErrorNode.JSON_ERROR;
 public class Json2016Type
         extends AbstractVariableWidthType
 {
+    public static final String NAME = "json2016";
     public static final Json2016Type JSON_2016 = new Json2016Type();
     private static final ObjectMapper MAPPER = new ObjectMapper();
 
     public Json2016Type()
     {
-        super(new TypeSignature(StandardTypes.JSON_2016), JsonNode.class);
+        super(new TypeSignature(NAME), JsonNode.class);
+    }
+
+    @Override
+    public String getDisplayName()
+    {
+        return NAME;
     }
 
     @Override

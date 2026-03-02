@@ -271,7 +271,7 @@ public class ClusterMemoryManager
                     log.debug("Low memory killer chose %s", tasks);
                     ImmutableSet.Builder<TaskId> killedTasksBuilder = ImmutableSet.builder();
                     for (TaskId task : tasks) {
-                        Optional<QueryExecution> runningQuery = findRunningQuery(runningQueries, task.getQueryId());
+                        Optional<QueryExecution> runningQuery = findRunningQuery(runningQueries, task.queryId());
                         if (runningQuery.isPresent()) {
                             runningQuery.get().failTask(task, new TrinoException(CLUSTER_OUT_OF_MEMORY, "Task killed because the cluster is out of memory."));
                             tasksKilledDueToOutOfMemory.incrementAndGet();
@@ -407,9 +407,9 @@ public class ClusterMemoryManager
         QueryInfo queryInfo = query.getQueryInfo();
 
         Map<TaskId, TaskInfo> taskInfos = queryInfo.getStages().map(stagesInfo ->
-                stagesInfo.getStages().stream().flatMap(stageInfo -> stageInfo.getTasks().stream())
+                stagesInfo.getStages().stream().flatMap(stageInfo -> stageInfo.tasks().stream())
                         .collect(toImmutableMap(
-                                taskInfo -> taskInfo.taskStatus().getTaskId(),
+                                taskInfo -> taskInfo.taskStatus().taskId(),
                                 identity())))
                 .orElse(ImmutableMap.of());
 

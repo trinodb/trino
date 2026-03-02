@@ -13,6 +13,7 @@
  */
 package io.trino.execution.scheduler.faulttolerant;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Stopwatch;
 import com.google.common.base.Ticker;
 import com.google.common.collect.HashMultimap;
@@ -46,7 +47,6 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.memory.MemoryPoolInfo;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
-import org.assertj.core.util.VisibleForTesting;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 
@@ -60,6 +60,7 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.Set;
@@ -114,7 +115,7 @@ public class BinPackingNodeAllocatorService
     private final DataSize eagerSpeculativeTasksNodeMemoryOvercommit;
     private final Ticker ticker;
 
-    private final ConcurrentNavigableMap<QueryId, Deque<PendingAcquire>> pendingAcquires = new ConcurrentSkipListMap<>(Ordering.natural().onResultOf(QueryId::getId));
+    private final ConcurrentNavigableMap<QueryId, Deque<PendingAcquire>> pendingAcquires = new ConcurrentSkipListMap<>(Ordering.natural().onResultOf(QueryId::id));
     private final Set<BinPackingNodeLease> fulfilledAcquires = newConcurrentHashSet();
     private final Duration allowedNoMatchingNodePeriod;
     private final Duration exhaustedNodeWaitPeriod;
@@ -226,7 +227,7 @@ public class BinPackingNodeAllocatorService
 
         Map<String, Optional<MemoryInfo>> workerMemoryInfos = workerMemoryInfoSupplier.get();
         long maxNodePoolSizeBytes = -1;
-        for (Map.Entry<String, Optional<MemoryInfo>> entry : workerMemoryInfos.entrySet()) {
+        for (Entry<String, Optional<MemoryInfo>> entry : workerMemoryInfos.entrySet()) {
             if (entry.getValue().isEmpty()) {
                 continue;
             }

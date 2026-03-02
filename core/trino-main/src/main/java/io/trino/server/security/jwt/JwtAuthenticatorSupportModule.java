@@ -26,7 +26,6 @@ import io.jsonwebtoken.Locator;
 import java.net.URI;
 import java.security.Key;
 
-import static io.airlift.configuration.ConditionalModule.conditionalModule;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.airlift.http.client.HttpClientBinder.httpClientBinder;
 
@@ -37,11 +36,13 @@ public class JwtAuthenticatorSupportModule
     protected void setup(Binder binder)
     {
         configBinder(binder).bindConfig(JwtAuthenticatorConfig.class);
-        install(conditionalModule(
-                JwtAuthenticatorConfig.class,
-                JwtAuthenticatorSupportModule::isHttp,
-                new JwkModule(),
-                jwkBinder -> jwkBinder.bind(new TypeLiteral<Locator<Key>>() {}).annotatedWith(ForJwt.class).to(FileSigningKeyLocator.class).in(Scopes.SINGLETON)));
+
+        if (isHttp(buildConfigObject(JwtAuthenticatorConfig.class))) {
+            install(new JwkModule());
+        }
+        else {
+            binder.bind(new TypeLiteral<Locator<Key>>() {}).annotatedWith(ForJwt.class).to(FileSigningKeyLocator.class).in(Scopes.SINGLETON);
+        }
     }
 
     private static boolean isHttp(JwtAuthenticatorConfig config)

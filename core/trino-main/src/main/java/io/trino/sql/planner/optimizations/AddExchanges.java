@@ -98,7 +98,9 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Stream;
@@ -747,7 +749,15 @@ public class AddExchanges
         {
             // Disable scale writers for partitioned data in case of Optimize since it can lead to small files and
             // not deterministic wrt to user provided min file size configuration.
-            boolean scaleWriters = node.getPartitioningScheme().isEmpty() && isScaleWriters(session);
+            boolean scaleWriters;
+            if (node.getPartitioningScheme().isPresent()) {
+                // Prefer partitioning by the execute node's partitioning scheme to attempt partitioning pushdown into the connector table scan
+                preferredProperties = PreferredProperties.partitioned(node.getPartitioningScheme().get().getPartitioning());
+                scaleWriters = false;
+            }
+            else {
+                scaleWriters = isScaleWriters(session);
+            }
             return visitTableWriter(node, node.getPartitioningScheme(), node.getSource(), preferredProperties, node.getTarget(), scaleWriters);
         }
 
@@ -789,14 +799,14 @@ public class AddExchanges
             if (partitioningScheme.isEmpty()) {
                 // use maxWritersTasks to set PartitioningScheme.partitionCount field to limit number of tasks that will take part in executing writing stage
                 int maxWriterTasks = writerTarget.getMaxWriterTasks(plannerContext.getMetadata(), session).orElse(getMaxWriterTaskCount(session));
-                Optional<Integer> maxWritersNodesCount = getRetryPolicy(session) != RetryPolicy.TASK
-                        ? Optional.of(Math.min(maxWriterTasks, getMaxWriterTaskCount(session)))
-                        : Optional.empty();
+                OptionalInt maxWritersNodesCount = getRetryPolicy(session) != RetryPolicy.TASK
+                        ? OptionalInt.of(Math.min(maxWriterTasks, getMaxWriterTaskCount(session)))
+                        : OptionalInt.empty();
                 if (scaleWriters && scalingOptions.isWriterTasksScalingEnabled()) {
-                    partitioningScheme = Optional.of(new PartitioningScheme(Partitioning.create(SCALED_WRITER_ROUND_ROBIN_DISTRIBUTION, ImmutableList.of()), newSource.getNode().getOutputSymbols(), false, Optional.empty(), Optional.empty(), maxWritersNodesCount));
+                    partitioningScheme = Optional.of(new PartitioningScheme(Partitioning.create(SCALED_WRITER_ROUND_ROBIN_DISTRIBUTION, ImmutableList.of()), newSource.getNode().getOutputSymbols(), false, Optional.empty(), OptionalInt.empty(), maxWritersNodesCount));
                 }
                 else if (redistributeWrites) {
-                    partitioningScheme = Optional.of(new PartitioningScheme(Partitioning.create(FIXED_ARBITRARY_DISTRIBUTION, ImmutableList.of()), newSource.getNode().getOutputSymbols(), false, Optional.empty(), Optional.empty(), maxWritersNodesCount));
+                    partitioningScheme = Optional.of(new PartitioningScheme(Partitioning.create(FIXED_ARBITRARY_DISTRIBUTION, ImmutableList.of()), newSource.getNode().getOutputSymbols(), false, Optional.empty(), OptionalInt.empty(), maxWritersNodesCount));
                 }
             }
             else if (scaleWriters
@@ -866,12 +876,8 @@ public class AddExchanges
         @Override
         public PlanWithProperties visitExplainAnalyze(ExplainAnalyzeNode node, PreferredProperties preferredProperties)
         {
-            PlanWithProperties child = planChild(node, PreferredProperties.any());
-
-            // if the child is already a gathering exchange, don't add another
-            if ((child.getNode() instanceof ExchangeNode) && ((ExchangeNode) child.getNode()).getType() == ExchangeNode.Type.GATHER) {
-                return rebaseAndDeriveProperties(node, child);
-            }
+            // Same PreferredProperties as OutputNode
+            PlanWithProperties child = planChild(node, PreferredProperties.undistributed());
 
             // Always add an exchange because ExplainAnalyze should be in its own stage
             child = withDerivedProperties(
@@ -1140,8 +1146,8 @@ public class AddExchanges
                                         filteringSource.getNode().getOutputSymbols(),
                                         true,
                                         Optional.empty(),
-                                        Optional.empty(),
-                                        Optional.empty())),
+                                        OptionalInt.empty(),
+                                        OptionalInt.empty())),
                                 filteringSource.getProperties());
                     }
                 }
@@ -1175,8 +1181,8 @@ public class AddExchanges
                                     filteringSource.getNode().getOutputSymbols(),
                                     true,
                                     Optional.empty(),
-                                    Optional.empty(),
-                                    Optional.empty())),
+                                    OptionalInt.empty(),
+                                    OptionalInt.empty())),
                             filteringSource.getProperties());
                 }
             }
@@ -1305,8 +1311,8 @@ public class AddExchanges
                                                 source.getNode().getOutputSymbols(),
                                                 nullsAndAnyReplicated,
                                                 Optional.empty(),
-                                                Optional.empty(),
-                                                Optional.empty())),
+                                                OptionalInt.empty(),
+                                                OptionalInt.empty())),
                                 source.getProperties());
                     }
                     partitionedSources.add(source.getNode());
@@ -1530,7 +1536,7 @@ public class AddExchanges
     private static Map<Symbol, Symbol> computeIdentityTranslations(Assignments assignments)
     {
         Map<Symbol, Symbol> outputToInput = new HashMap<>();
-        for (Map.Entry<Symbol, Expression> assignment : assignments.getMap().entrySet()) {
+        for (Entry<Symbol, Expression> assignment : assignments.assignments().entrySet()) {
             if (assignment.getValue() instanceof Reference) {
                 outputToInput.put(assignment.getKey(), Symbol.from(assignment.getValue()));
             }

@@ -49,7 +49,6 @@ import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.List;
 
-import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.trino.filesystem.alluxio.TestingCacheKeyProvider.testingCacheKeyForLocation;
@@ -64,6 +63,7 @@ import static io.trino.filesystem.tracing.FileSystemAttributes.FILE_READ_POSITIO
 import static io.trino.filesystem.tracing.FileSystemAttributes.FILE_READ_SIZE;
 import static io.trino.testing.MultisetAssertions.assertMultisetsEqual;
 import static java.util.Objects.requireNonNull;
+import static java.util.Objects.requireNonNullElse;
 import static java.util.stream.Collectors.toCollection;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -489,6 +489,6 @@ public class TestAlluxioCacheFileSystemAccessOperations
         if (span.getName().startsWith("Input.")) {
             return requireNonNull(span.getAttributes().get(FILE_LOCATION));
         }
-        return firstNonNull(span.getAttributes().get(CACHE_FILE_LOCATION), span.getAttributes().get(CACHE_KEY));
+        return requireNonNullElse(span.getAttributes().get(CACHE_FILE_LOCATION), span.getAttributes().get(CACHE_KEY));
     }
 }

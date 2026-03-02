@@ -23,12 +23,12 @@ import java.nio.charset.CharacterCodingException;
 import java.nio.charset.Charset;
 import java.nio.charset.CharsetDecoder;
 
-import static com.google.common.base.MoreObjects.firstNonNull;
 import static java.lang.Math.min;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.nio.charset.CodingErrorAction.IGNORE;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.Objects.requireNonNullElse;
 
 class MaterializingInputStream
         extends FilterInputStream
@@ -95,7 +95,7 @@ class MaterializingInputStream
             return "<empty>";
         }
 
-        CharsetDecoder charsetDecoder = firstNonNull(charset, UTF_8).newDecoder()
+        CharsetDecoder charsetDecoder = requireNonNullElse(charset, UTF_8).newDecoder()
                 .onMalformedInput(IGNORE)
                 .onUnmappableCharacter(IGNORE);
         try {

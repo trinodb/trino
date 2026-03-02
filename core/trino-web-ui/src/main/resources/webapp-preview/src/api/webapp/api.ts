@@ -13,6 +13,14 @@
  */
 import { api, ApiResponse } from '../base.ts'
 
+export interface Cluster {
+    nodeVersion: {
+        version: string
+    }
+    environment: string
+    uptime: string
+}
+
 export interface Stats {
     runningQueries: number
     blockedQueries: number
@@ -175,6 +183,7 @@ export interface QueryInfo extends QueryInfoBase {
     sessionSource: string
     sessionUser: string
     queryDataEncoding: string
+    traceToken: string
 }
 
 export interface Session {
@@ -282,6 +291,11 @@ export interface QueryStageStats {
     operatorSummaries: QueryStageOperatorSummary[]
 }
 
+export interface QueryPipeline {
+    pipelineId: number
+    operatorSummaries: QueryStageOperatorSummary[]
+}
+
 export interface QueryTask {
     lastHeartbeat: string
     needsPlan: boolean
@@ -303,6 +317,11 @@ export interface QueryTask {
         totalCpuTime: string
         totalScheduledTime: string
         userMemoryReservation: string
+        pipelines: QueryPipeline[]
+        firstStartTime: string
+        lastStartTime: string
+        lastEndTime: string
+        endTime: string
     }
     taskStatus: {
         nodeId: string
@@ -341,6 +360,10 @@ export interface QueryStatusInfo extends QueryInfoBase {
 
 export interface WorkerTaskInfo {
     dummy: string
+}
+
+export async function clusterApi(): Promise<ApiResponse<Cluster>> {
+    return await api.get<Cluster>('/ui/api/cluster')
 }
 
 export async function statsApi(): Promise<ApiResponse<Stats>> {

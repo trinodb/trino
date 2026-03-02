@@ -95,7 +95,7 @@ public class BenchmarkGetFileSystem
         data.executor.invokeAll(data.callableTasks).forEach(f -> data.blackhole.consume(getFutureValue(f)));
     }
 
-    public static void main(String[] args)
+    static void main()
             throws Exception
     {
         Benchmarks.benchmark(BenchmarkGetFileSystem.class).run();

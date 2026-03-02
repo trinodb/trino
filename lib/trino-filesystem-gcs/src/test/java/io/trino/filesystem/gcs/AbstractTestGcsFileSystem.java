@@ -13,14 +13,19 @@
  */
 package io.trino.filesystem.gcs;
 
+import com.google.cloud.storage.Blob;
 import com.google.cloud.storage.BlobId;
 import com.google.cloud.storage.BlobInfo;
+import com.google.cloud.storage.Bucket;
 import com.google.cloud.storage.BucketInfo;
 import com.google.cloud.storage.Storage;
 import com.google.cloud.storage.testing.RemoteStorageHelper;
 import io.trino.filesystem.AbstractTestTrinoFileSystem;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
+import io.trino.filesystem.TrinoInput;
+import io.trino.filesystem.TrinoInputFile;
+import io.trino.filesystem.TrinoOutputFile;
 import io.trino.filesystem.encryption.EncryptionEnforcingFileSystem;
 import io.trino.filesystem.encryption.EncryptionKey;
 import io.trino.spi.security.ConnectorIdentity;
@@ -55,8 +60,9 @@ public abstract class AbstractTestGcsFileSystem
         // create/get/list/delete blob
         // For gcp testing this corresponds to the Cluster Storage Admin and Cluster Storage Object Admin roles
         byte[] jsonKeyBytes = Base64.getDecoder().decode(gcpCredentialKey);
-        GcsFileSystemConfig config = new GcsFileSystemConfig().setJsonKey(new String(jsonKeyBytes, UTF_8));
-        GcsStorageFactory storageFactory = new GcsStorageFactory(config, new GcsDefaultAuth(config));
+        GcsFileSystemConfig config = new GcsFileSystemConfig();
+        GcsServiceAccountAuthConfig authConfig = new GcsServiceAccountAuthConfig().setJsonKey(new String(jsonKeyBytes, UTF_8));
+        GcsStorageFactory storageFactory = new GcsStorageFactory(config, new GcsServiceAccountAuth(authConfig));
         this.gcsFileSystemFactory = new GcsFileSystemFactory(config, storageFactory);
         this.storage = storageFactory.create(ConnectorIdentity.ofUser("test"));
         String bucket = RemoteStorageHelper.generateBucketName();
@@ -70,7 +76,11 @@ public abstract class AbstractTestGcsFileSystem
     void tearDown()
     {
         try {
-            storage.delete(rootLocation.host().get());
+            Bucket bucket = storage.get(new GcsLocation(rootLocation).bucket());
+            for (Blob blob : bucket.list().iterateAll()) {
+                storage.delete(blob.getBlobId());
+            }
+            bucket.delete();
         }
         finally {
             fileSystem = null;
@@ -157,6 +167,25 @@ public abstract class AbstractTestGcsFileSystem
         }
         finally {
             storage.delete(blobId);
+        }
+    }
+
+    @Test
+    void testRoundTripFileWithDiscouragedCharsName()
+            throws Exception
+    {
+        // According to https://docs.cloud.google.com/storage/docs/objects#recommendations some chars ([*]#?) are discouraged
+        // because they are specially treated in gcloud cli. But they are not directly prohibited.
+        byte[] buffer = new byte[8];
+        String stringToWrite = "test";
+        Location fileLocation = getRootLocation().appendPath("[*]#?");
+        TrinoOutputFile outputFile = getFileSystem().newOutputFile(fileLocation);
+        outputFile.createOrOverwrite(stringToWrite.getBytes(UTF_8));
+        TrinoInputFile inputFile = getFileSystem().newInputFile(fileLocation);
+        try (TrinoInput trinoInput = inputFile.newInput()) {
+            int readBytes = trinoInput.readTail(buffer, 0, 8);
+            String readString = new String(buffer, 0, readBytes, UTF_8);
+            assertThat(readString).isEqualTo(stringToWrite);
         }
     }
 }

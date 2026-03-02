@@ -21,7 +21,7 @@ import java.util.Optional;
 import static io.airlift.json.JsonCodec.jsonCodec;
 import static org.assertj.core.api.Assertions.assertThat;
 
-public class TestSelectedRole
+class TestSelectedRole
 {
     private static final JsonCodec<SelectedRole> SELECTED_ROLE_JSON_CODEC = jsonCodec(SelectedRole.class);
 

@@ -15,7 +15,6 @@ package io.trino.faulttolerant.delta;
 
 import io.trino.faulttolerant.BaseFaultTolerantExecutionTest;
 import io.trino.plugin.deltalake.DeltaLakeQueryRunner;
-import io.trino.plugin.exchange.filesystem.FileSystemExchangePlugin;
 import io.trino.plugin.exchange.filesystem.containers.MinioStorage;
 import io.trino.plugin.hive.containers.Hive3MinioDataLake;
 import io.trino.testing.FaultTolerantExecutionConnectorTestHelper;
@@ -45,10 +44,7 @@ public class TestDeltaFaultTolerantExecutionTest
 
         return DeltaLakeQueryRunner.builder()
                 .addExtraProperties(FaultTolerantExecutionConnectorTestHelper.getExtraProperties())
-                .setAdditionalSetup(instance -> {
-                    instance.installPlugin(new FileSystemExchangePlugin());
-                    instance.loadExchangeManager("filesystem", getExchangeManagerProperties(minioStorage));
-                })
+                .withExchange("filesystem", getExchangeManagerProperties(minioStorage))
                 .addMetastoreProperties(hiveMinioDataLake.getHiveHadoop())
                 .addS3Properties(hiveMinioDataLake.getMinio(), bucketName)
                 .addDeltaProperty("delta.enable-non-concurrent-writes", "true")

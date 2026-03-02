@@ -53,7 +53,7 @@ public class TestBlockSet
                     .hasMessage("maximumSize must not be negative");
         }
 
-        assertThatThrownBy(() -> new BlockSet(null, null, null, 1))
+        assertThatThrownBy(() -> new BlockSet(null, null, 1))
                 .isInstanceOfAny(NullPointerException.class, IllegalArgumentException.class);
     }
 
@@ -264,7 +264,6 @@ public class TestBlockSet
     private static BlockSet createBlockSet(Type type, int expectedSize)
     {
         return new BlockSet(
-                type,
                 BLOCK_TYPE_OPERATORS.getIdenticalOperator(type),
                 BLOCK_TYPE_OPERATORS.getHashCodeOperator(type),
                 expectedSize);

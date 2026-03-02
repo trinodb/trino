@@ -32,6 +32,7 @@ import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.BufferedMapValueBuilder;
 import io.trino.spi.block.MapValueBuilder;
 import io.trino.spi.block.SqlMap;
+import io.trino.spi.block.ValueBlock;
 import io.trino.spi.function.BoundSignature;
 import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.Signature;
@@ -206,8 +207,16 @@ public final class MapFilterFunction
                         .append(new IfStatement("if (keep != null && keep) ...")
                                 .condition(and(notEqual(keep, constantNull(Boolean.class)), keep.cast(boolean.class)))
                                 .ifTrue(new BytecodeBlock()
-                                        .append(keySqlType.invoke("appendTo", void.class, rawKeyBlock, add(index, rawOffset), keyBuilder))
-                                        .append(valueSqlType.invoke("appendTo", void.class, rawValueBlock, add(index, rawOffset), valueBuilder))))));
+                                        .append(keyBuilder.invoke(
+                                                "append",
+                                                void.class,
+                                                rawKeyBlock.invoke("getUnderlyingValueBlock", ValueBlock.class),
+                                                rawKeyBlock.invoke("getUnderlyingValuePosition", int.class, add(index, rawOffset))))
+                                        .append(valueBuilder.invoke(
+                                                "append",
+                                                void.class,
+                                                rawValueBlock.invoke("getUnderlyingValueBlock", ValueBlock.class),
+                                                rawValueBlock.invoke("getUnderlyingValuePosition", int.class, add(index, rawOffset))))))));
         body.ret();
 
         return method;

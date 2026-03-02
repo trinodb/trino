@@ -13,14 +13,15 @@
  */
 package io.trino.operator.project;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkPositionIndexes;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static java.lang.System.arraycopy;
 import static java.util.Objects.checkFromIndexSize;
+import static java.util.Objects.checkFromToIndex;
 import static java.util.Objects.requireNonNull;
 
 public class SelectedPositions
@@ -53,13 +54,24 @@ public class SelectedPositions
         checkArgument(offset >= 0, "offset is negative");
         checkArgument(size >= 0, "size is negative");
         if (isList) {
-            checkPositionIndexes(offset, offset + size, positions.length);
+            checkFromToIndex(offset, offset + size, positions.length);
         }
     }
 
     public long getRetainedSizeInBytes()
     {
         return INSTANCE_SIZE + sizeOf(positions);
+    }
+
+    @Override
+    public String toString()
+    {
+        return toStringHelper(this)
+                .add("isList", isList)
+                .add("positions", positions)
+                .add("offset", offset)
+                .add("size", size)
+                .toString();
     }
 
     public boolean isList()
@@ -90,7 +102,7 @@ public class SelectedPositions
 
     public SelectedPositions subRange(int start, int end)
     {
-        checkPositionIndexes(start, end, size);
+        checkFromToIndex(start, end, size);
 
         int newOffset = this.offset + start;
         int newLength = end - start;

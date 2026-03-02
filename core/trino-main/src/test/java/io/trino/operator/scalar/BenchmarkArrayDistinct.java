@@ -23,6 +23,7 @@ import io.trino.spi.Page;
 import io.trino.spi.block.ArrayBlockBuilder;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.ValueBlock;
 import io.trino.spi.connector.SourcePage;
 import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.SqlType;
@@ -158,7 +159,7 @@ public class BenchmarkArrayDistinct
         }
     }
 
-    public static void main(String[] args)
+    static void main()
             throws Exception
     {
         // assure the benchmarks are valid before running
@@ -177,11 +178,12 @@ public class BenchmarkArrayDistinct
             return array;
         }
 
-        BlockSet set = new BlockSet(VARCHAR, DISTINCT_FROM_OPERATOR, HASH_CODE_OPERATOR, array.getPositionCount());
+        BlockSet set = new BlockSet(DISTINCT_FROM_OPERATOR, HASH_CODE_OPERATOR, array.getPositionCount());
         BlockBuilder distinctElementBlockBuilder = VARCHAR.createBlockBuilder(null, array.getPositionCount());
+        ValueBlock valueBlock = array.getUnderlyingValueBlock();
         for (int i = 0; i < array.getPositionCount(); i++) {
             if (set.add(array, i)) {
-                VARCHAR.appendTo(array, i, distinctElementBlockBuilder);
+                distinctElementBlockBuilder.append(valueBlock, array.getUnderlyingValuePosition(i));
             }
         }
 

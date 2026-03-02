@@ -93,9 +93,9 @@ import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_SCHEMA;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.testing.assertions.Assert.assertEventually;
-import static io.trino.testing.containers.Minio.MINIO_ACCESS_KEY;
 import static io.trino.testing.containers.Minio.MINIO_REGION;
-import static io.trino.testing.containers.Minio.MINIO_SECRET_KEY;
+import static io.trino.testing.containers.Minio.MINIO_ROOT_PASSWORD;
+import static io.trino.testing.containers.Minio.MINIO_ROOT_USER;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -142,8 +142,8 @@ public class TestDeltaLakeConnectorTest
                     // required by the file metastore
                     .put("fs.hadoop.enabled", "true")
                     .put("fs.native-s3.enabled", "true")
-                    .put("s3.aws-access-key", MINIO_ACCESS_KEY)
-                    .put("s3.aws-secret-key", MINIO_SECRET_KEY)
+                    .put("s3.aws-access-key", MINIO_ROOT_USER)
+                    .put("s3.aws-secret-key", MINIO_ROOT_PASSWORD)
                     .put("s3.region", MINIO_REGION)
                     .put("s3.endpoint", minio.getMinioAddress())
                     .put("s3.path-style-access", "true")
@@ -282,6 +282,62 @@ public class TestDeltaLakeConnectorTest
                 .row("shippriority", "integer", "", "")
                 .row("comment", "varchar", "", "")
                 .build();
+    }
+
+    @Test
+    void testCreateReplaceReadingCheckpointWithDifferentSchema()
+    {
+        try (TestTable table = newTrinoTable("test_create_replace_reading_checkpoint_", "(x int, y varchar) with (checkpoint_interval = 2)")) {
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (1, 'aa')", 1);
+            // generate a checkpoint
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (2, 'bb')", 1);
+
+            assertUpdate("CREATE OR REPLACE TABLE " + table.getName() + " (x int, y int)");
+            assertQueryReturnsEmptyResult("TABLE " + table.getName());
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (3, 3)", 1);
+            assertThat(query("TABLE " + table.getName()))
+                    .matches("VALUES (3, 3)");
+
+            assertUpdate("CREATE OR REPLACE TABLE " + table.getName() + " (y int, x int)");
+            assertQueryReturnsEmptyResult("TABLE " + table.getName());
+
+            assertUpdate("CREATE OR REPLACE TABLE " + table.getName() + " (z varchar)");
+            assertQueryReturnsEmptyResult("TABLE " + table.getName());
+        }
+    }
+
+    @Test
+    void testCreateReplaceReadingCheckpointWithDifferentSchemaCTAS()
+    {
+        try (TestTable table = newTrinoTable("test_create_replace_reading_checkpoint_", "(x int, y varchar) with (checkpoint_interval = 2)")) {
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (1, 'aa')", 1);
+            // generate a checkpoint
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (2, 'bb')", 1);
+
+            assertUpdate("CREATE OR REPLACE TABLE " + table.getName() + " AS SELECT 3 AS x, 3 AS y", 1);
+            assertThat(query("TABLE " + table.getName()))
+                    .matches("VALUES (3, 3)");
+
+            assertUpdate("CREATE OR REPLACE TABLE " + table.getName() + " AS SELECT 'test' AS z", 1);
+            assertThat(query("TABLE " + table.getName()))
+                    .matches("VALUES VARCHAR 'test'");
+        }
+    }
+
+    @Test
+    void testReadingCreateOrReplaceOnPartitionChanged()
+    {
+        try (TestTable table = newTrinoTable("test_reading_create_or_replace_part_changed_", "(x int, part1 int, part2 int) WITH (checkpoint_interval = 2, partitioned_by = ARRAY['part1', 'part2'])")) {
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (1, 10, 100)", 1);
+            // generate checkpoint at version 2
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (2, 20, 200)", 1);
+
+            assertThat(query("TABLE " + table.getName()))
+                    .matches("VALUES (1, 10, 100), (2, 20, 200)");
+
+            assertUpdate("CREATE OR REPLACE TABLE " + table.getName() + " (x int, part1 int, part2 int) WITH (checkpoint_interval = 2, partitioned_by = ARRAY['part1'])");
+            assertQueryReturnsEmptyResult("TABLE " + table.getName());
+        }
     }
 
     @Test
@@ -815,6 +871,13 @@ public class TestDeltaLakeConnectorTest
                 .isFullyPushedDown()
                 .returnsEmptyResult();
 
+        assertThat(query("SELECT * FROM " + tableName + " WHERE year(part) IS DISTINCT FROM 2006"))
+                .isNotFullyPushedDown(FilterNode.class);
+
+        assertThat(query("SELECT * FROM " + tableName + " WHERE year(part) IS NOT DISTINCT FROM 2006"))
+                .isFullyPushedDown()
+                .returnsEmptyResult();
+
         assertUpdate("DROP TABLE " + tableName);
     }
 
@@ -977,19 +1040,19 @@ public class TestDeltaLakeConnectorTest
     public void testTargetMaxFileSize()
     {
         String tableName = "test_default_max_file_size" + randomNameSuffix();
-        @Language("SQL") String createTableSql = format("CREATE TABLE %s AS SELECT * FROM tpch.sf1.lineitem LIMIT 100000", tableName);
+        @Language("SQL") String createTableSql = format("CREATE TABLE %s AS SELECT * FROM tpch.sf1.lineitem LIMIT 200000", tableName);
 
         Session session = Session.builder(getSession())
                 .setSystemProperty("task_min_writer_count", "1")
                 // task scale writers should be disabled since we want to write with a single task writer
                 .setSystemProperty("task_scale_writers_enabled", "false")
                 .build();
-        assertUpdate(session, createTableSql, 100000);
+        assertUpdate(session, createTableSql, 200000);
         Set<String> initialFiles = getActiveFiles(tableName);
         assertThat(initialFiles.size()).isLessThanOrEqualTo(3);
         assertUpdate(format("DROP TABLE %s", tableName));
 
-        DataSize maxSize = DataSize.of(40, DataSize.Unit.KILOBYTE);
+        DataSize maxSize = DataSize.of(50, DataSize.Unit.KILOBYTE);
         session = Session.builder(getSession())
                 .setSystemProperty("task_min_writer_count", "1")
                 // task scale writers should be disabled since we want to write with a single task writer
@@ -997,8 +1060,8 @@ public class TestDeltaLakeConnectorTest
                 .setCatalogSessionProperty("delta", "target_max_file_size", maxSize.toString())
                 .build();
 
-        assertUpdate(session, createTableSql, 100000);
-        assertThat(query(format("SELECT count(*) FROM %s", tableName))).matches("VALUES BIGINT '100000'");
+        assertUpdate(session, createTableSql, 200000);
+        assertThat(query(format("SELECT count(*) FROM %s", tableName))).matches("VALUES BIGINT '200000'");
         Set<String> updatedFiles = getActiveFiles(tableName);
         assertThat(updatedFiles.size()).isGreaterThan(10);
 
@@ -3038,7 +3101,7 @@ public class TestDeltaLakeConnectorTest
                 "EXPLAIN SELECT root.f2 FROM " + tableName,
                 "ScanProject\\[table = (.*)]",
                 "expr := root.1",
-                "root := root:row\\(f1 bigint, f2 bigint\\):REGULAR");
+                "root := root:row\\(\"f1\" bigint, \"f2\" bigint\\):REGULAR");
 
         assertUpdate("DROP TABLE " + tableName);
     }
@@ -3057,7 +3120,7 @@ public class TestDeltaLakeConnectorTest
                 "expr(.*) := .*\\$subscript\\(.*, bigint '1'\\).0",
                 "id(.*) := id:bigint:REGULAR",
                 // _array:array\\(row\\(child bigint\\)\\) is a symbol name, not a dereference expression.
-                "(.*) := _array:array\\(row\\(child bigint\\)\\):REGULAR",
+                "(.*) := _array:array\\(row\\(\"child\" bigint\\)\\):REGULAR",
                 "(.*) := _map:map\\(bigint, bigint\\):REGULAR",
                 "(.*) := _row#child:bigint:REGULAR");
     }
@@ -4402,29 +4465,6 @@ public class TestDeltaLakeConnectorTest
     }
 
     @Test
-    public void testQueriesWithoutCheckpointFiltering()
-    {
-        Session session = Session.builder(getQueryRunner().getDefaultSession())
-                .setCatalogSessionProperty("delta", "checkpoint_filtering_enabled", "false")
-                .build();
-
-        String tableName = "test_without_checkpoint_filtering_" + randomNameSuffix();
-        assertUpdate("CREATE TABLE " + tableName + " (col INT) " +
-                "WITH (checkpoint_interval=3)");
-
-        assertUpdate(session, "INSERT INTO " + tableName + " VALUES 1", 1);
-        assertUpdate(session, "INSERT INTO " + tableName + " VALUES 2, 3", 2);
-        assertUpdate(session, "INSERT INTO " + tableName + " VALUES 4, 5", 2);
-
-        assertQuery(session, "SELECT * FROM " + tableName, "VALUES 1, 2, 3, 4, 5");
-        assertUpdate(session, "UPDATE " + tableName + " SET col = 44 WHERE col = 4", 1);
-        assertUpdate(session, "DELETE FROM " + tableName + " WHERE col = 3", 1);
-        assertQuery(session, "SELECT * FROM " + tableName, "VALUES 1, 2, 44, 5");
-
-        assertUpdate("DROP TABLE " + tableName);
-    }
-
-    @Test
     void testAddTimestampNtzColumnToCdfEnabledTable()
     {
         try (TestTable table = newTrinoTable("test_timestamp_ntz", "(x int) WITH (change_data_feed_enabled = true)")) {
@@ -4674,7 +4714,7 @@ public class TestDeltaLakeConnectorTest
         try (TestTable testTable = newTrinoTable(
                 "test_timestamp_coercion_on_create_table_as_with_row_type",
                 "AS SELECT CAST(row(%s) AS row(value timestamp(6))) ts".formatted(actualValue))) {
-            assertThat(getColumnType(testTable.getName(), "ts")).isEqualTo("row(value timestamp(6))");
+            assertThat(getColumnType(testTable.getName(), "ts")).isEqualTo("row(\"value\" timestamp(6))");
             assertThat(query("SELECT ts.value FROM " + testTable.getName()))
                     .skippingTypesCheck()
                     .matches("VALUES " + expectedValue);
@@ -4687,7 +4727,7 @@ public class TestDeltaLakeConnectorTest
         try (TestTable testTable = newTrinoTable(
                 "test_char_coercion_on_create_table_as_with_row_type",
                 "AS SELECT CAST(row(%s) AS row(value %s)) col".formatted(actualValue, actualTypeLiteral))) {
-            assertThat(getColumnType(testTable.getName(), "col")).isEqualTo("row(value varchar)");
+            assertThat(getColumnType(testTable.getName(), "col")).isEqualTo("row(\"value\" varchar)");
             assertThat(query("SELECT col.value FROM " + testTable.getName()))
                     .skippingTypesCheck()
                     .matches("VALUES " + expectedValue);
@@ -4840,7 +4880,7 @@ public class TestDeltaLakeConnectorTest
 
         testAddColumnWithTypeCoercion("array(char(10))", "array(varchar)");
         testAddColumnWithTypeCoercion("map(char(20), char(30))", "map(varchar, varchar)");
-        testAddColumnWithTypeCoercion("row(x char(40))", "row(x varchar)");
+        testAddColumnWithTypeCoercion("row(x char(40))", "row(\"x\" varchar)");
     }
 
     private void testAddColumnWithTypeCoercion(String columnType, String expectedColumnType)
@@ -5428,59 +5468,6 @@ public class TestDeltaLakeConnectorTest
             assertQuery("SELECT * FROM " + table.getName() + " FOR TIMESTAMP AS OF TIMESTAMP '" + timeAfterCreateTable + "'", "VALUES 1");
             assertQuery("SELECT * FROM " + table.getName(), "VALUES 1, 2");
         }
-    }
-
-    @Test
-    public void testReadVersionedTableWithoutCheckpointFiltering()
-    {
-        String tableName = "test_without_checkpoint_filtering_" + randomNameSuffix();
-
-        Session session = Session.builder(getQueryRunner().getDefaultSession())
-                .setCatalogSessionProperty("delta", "checkpoint_filtering_enabled", "false")
-                .build();
-
-        assertUpdate("CREATE TABLE " + tableName + "(col INT) WITH (checkpoint_interval = 3)");
-        assertUpdate(session, "INSERT INTO " + tableName + " VALUES 1", 1);
-        assertUpdate(session, "INSERT INTO " + tableName + " VALUES 2, 3", 2);
-        assertUpdate(session, "INSERT INTO " + tableName + " VALUES 4, 5", 2);
-
-        assertQueryReturnsEmptyResult(session, "SELECT * FROM " + tableName + " FOR VERSION AS OF 0");
-        assertQuery(session, "SELECT * FROM " + tableName + " FOR VERSION AS OF 1", "VALUES 1");
-        assertQuery(session, "SELECT * FROM " + tableName + " FOR VERSION AS OF 2", "VALUES 1, 2, 3");
-        assertQuery(session, "SELECT * FROM " + tableName + " FOR VERSION AS OF 3", "VALUES 1, 2, 3, 4, 5");
-
-        assertUpdate("DROP TABLE " + tableName);
-    }
-
-    @Test
-    public void testReadTemporalVersionedTableWithoutCheckpointFiltering()
-    {
-        String tableName = "test_without_checkpoint_filtering_temporal_" + randomNameSuffix();
-
-        Session session = Session.builder(getQueryRunner().getDefaultSession())
-                .setCatalogSessionProperty("delta", "checkpoint_filtering_enabled", "false")
-                .build();
-
-        DateTimeFormatter timestampWithTimeZoneFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS VV");
-
-        assertUpdate("CREATE TABLE " + tableName + "(col INT) WITH (checkpoint_interval = 3)");
-        String timeAfterCreateTable = ZonedDateTime.now().format(timestampWithTimeZoneFormatter);
-
-        assertUpdate(session, "INSERT INTO " + tableName + " VALUES 1", 1);
-        String timeAfterInsert1 = ZonedDateTime.now().format(timestampWithTimeZoneFormatter);
-
-        assertUpdate(session, "INSERT INTO " + tableName + " VALUES 2, 3", 2);
-        String timeAfterInsert2 = ZonedDateTime.now().format(timestampWithTimeZoneFormatter);
-
-        assertUpdate(session, "INSERT INTO " + tableName + " VALUES 4, 5", 2);
-        String timeAfterInsert3 = ZonedDateTime.now().format(timestampWithTimeZoneFormatter);
-
-        assertQueryReturnsEmptyResult(session, "SELECT * FROM " + tableName + " FOR TIMESTAMP AS OF TIMESTAMP '" + timeAfterCreateTable + "'");
-        assertQuery(session, "SELECT * FROM " + tableName + " FOR TIMESTAMP AS OF TIMESTAMP '" + timeAfterInsert1 + "'", "VALUES 1");
-        assertQuery(session, "SELECT * FROM " + tableName + " FOR TIMESTAMP AS OF TIMESTAMP '" + timeAfterInsert2 + "'", "VALUES 1, 2, 3");
-        assertQuery(session, "SELECT * FROM " + tableName + " FOR TIMESTAMP AS OF TIMESTAMP '" + timeAfterInsert3 + "'", "VALUES 1, 2, 3, 4, 5");
-
-        assertUpdate("DROP TABLE " + tableName);
     }
 
     @Test

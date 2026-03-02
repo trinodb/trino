@@ -14,11 +14,20 @@
 package io.trino.jdbc;
 
 import com.google.common.collect.ImmutableList;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import com.google.errorprone.annotations.CheckReturnValue;
+import io.trino.client.ClientStandardTypes;
 import io.trino.client.ClientTypeSignature;
 import io.trino.client.ClientTypeSignatureParameter;
 
+import java.math.BigDecimal;
+import java.sql.Array;
+import java.sql.Date;
+import java.sql.Time;
+import java.sql.Timestamp;
 import java.sql.Types;
 import java.util.List;
+import java.util.Map;
 
 import static java.util.Objects.requireNonNull;
 
@@ -33,6 +42,7 @@ class ColumnInfo
     private static final int DATE_MAX = "yyyy-MM-dd".length();
 
     private final int columnType;
+    private final String columnJavaClassName;
     private final List<Integer> columnParameterTypes;
     private final ClientTypeSignature columnTypeSignature;
     private final Nullable nullable;
@@ -54,6 +64,7 @@ class ColumnInfo
 
     public ColumnInfo(
             int columnType,
+            String columnJavaClassName,
             List<Integer> columnParameterTypes,
             ClientTypeSignature columnTypeSignature,
             Nullable nullable,
@@ -69,6 +80,7 @@ class ColumnInfo
             String catalogName)
     {
         this.columnType = columnType;
+        this.columnJavaClassName = requireNonNull(columnJavaClassName, "columnJavaClassName is null");
         this.columnParameterTypes = ImmutableList.copyOf(requireNonNull(columnParameterTypes, "columnParameterTypes is null"));
         this.columnTypeSignature = requireNonNull(columnTypeSignature, "columnTypeSignature is null");
         this.nullable = requireNonNull(nullable, "nullable is null");
@@ -86,10 +98,14 @@ class ColumnInfo
 
     public static void setTypeInfo(Builder builder, ClientTypeSignature type)
     {
-        builder.setColumnType(getType(type));
+        TypeInfo typeInfo = typeInfo(type);
+        builder.setColumnType(typeInfo.jdbcType);
+        builder.setColumnJavaClassName(typeInfo.jdbcJavaClass.getName());
         ImmutableList.Builder<Integer> parameterTypes = ImmutableList.builder();
-        for (ClientTypeSignatureParameter parameter : type.getArguments()) {
-            parameterTypes.add(getType(parameter));
+        if (!type.getArguments().isEmpty()) {
+            for (ClientTypeSignatureParameter parameter : type.getArguments()) {
+                parameterTypes.add(getType(parameter));
+            }
         }
         builder.setColumnParameterTypes(parameterTypes.build());
         switch (type.getRawType()) {
@@ -198,59 +214,84 @@ class ColumnInfo
     {
         switch (typeParameter.getKind()) {
             case TYPE:
-                return getType(typeParameter.getTypeSignature());
+                return typeInfo(typeParameter.getTypeSignature()).jdbcType;
             default:
                 return Types.JAVA_OBJECT;
         }
     }
 
-    private static int getType(ClientTypeSignature type)
+    private static TypeInfo typeInfo(ClientTypeSignature type)
     {
         switch (type.getRawType()) {
-            case "array":
-                return Types.ARRAY;
-            case "boolean":
-                return Types.BOOLEAN;
-            case "bigint":
-                return Types.BIGINT;
-            case "integer":
-                return Types.INTEGER;
-            case "smallint":
-                return Types.SMALLINT;
-            case "tinyint":
-                return Types.TINYINT;
-            case "real":
-                return Types.REAL;
-            case "double":
-                return Types.DOUBLE;
-            case "varchar":
-                return Types.VARCHAR;
-            case "char":
-                return Types.CHAR;
-            case "varbinary":
-                return Types.VARBINARY;
-            case "time":
-                return Types.TIME;
-            case "time with time zone":
-                return Types.TIME_WITH_TIMEZONE;
-            case "timestamp":
-                return Types.TIMESTAMP;
-            case "timestamp with time zone":
-                return Types.TIMESTAMP_WITH_TIMEZONE;
-            case "date":
-                return Types.DATE;
-            case "decimal":
-                return Types.DECIMAL;
-            case "unknown":
-                return Types.NULL;
+            case ClientStandardTypes.BOOLEAN:
+                return new TypeInfo(Types.BOOLEAN, Boolean.class);
+
+            case ClientStandardTypes.TINYINT:
+                return new TypeInfo(Types.TINYINT, Byte.class);
+            case ClientStandardTypes.SMALLINT:
+                return new TypeInfo(Types.SMALLINT, Short.class);
+            case ClientStandardTypes.INTEGER:
+                return new TypeInfo(Types.INTEGER, Integer.class);
+            case ClientStandardTypes.BIGINT:
+                return new TypeInfo(Types.BIGINT, Long.class);
+
+            case ClientStandardTypes.REAL:
+                return new TypeInfo(Types.REAL, Float.class);
+            case ClientStandardTypes.DOUBLE:
+                return new TypeInfo(Types.DOUBLE, Double.class);
+
+            case ClientStandardTypes.DECIMAL:
+                return new TypeInfo(Types.DECIMAL, BigDecimal.class);
+            case ClientStandardTypes.NUMBER:
+                // NUMERIC/DECIMAL type could suggest clients to use ResultSet.getBigDecimal, but this will fail for some values. OTHER feel safer.
+                return new TypeInfo(Types.OTHER, Number.class);
+
+            case ClientStandardTypes.VARCHAR:
+                return new TypeInfo(Types.VARCHAR, String.class);
+            case ClientStandardTypes.CHAR:
+                return new TypeInfo(Types.CHAR, String.class);
+            case ClientStandardTypes.VARBINARY:
+                return new TypeInfo(Types.VARBINARY, byte[].class);
+
+            case ClientStandardTypes.DATE:
+                return new TypeInfo(Types.DATE, Date.class);
+            case ClientStandardTypes.TIME:
+                return new TypeInfo(Types.TIME, Time.class);
+            case ClientStandardTypes.TIME_WITH_TIME_ZONE:
+                return new TypeInfo(Types.TIME_WITH_TIMEZONE, Time.class);
+            case ClientStandardTypes.TIMESTAMP:
+                return new TypeInfo(Types.TIMESTAMP, Timestamp.class);
+            case ClientStandardTypes.TIMESTAMP_WITH_TIME_ZONE:
+                return new TypeInfo(Types.TIMESTAMP_WITH_TIMEZONE, Timestamp.class);
+
+            case ClientStandardTypes.ARRAY:
+                return new TypeInfo(Types.ARRAY, Array.class);
+            case ClientStandardTypes.MAP:
+                return new TypeInfo(Types.JAVA_OBJECT, Map.class);
+            case ClientStandardTypes.ROW:
+                return new TypeInfo(Types.JAVA_OBJECT, Row.class);
+
+            case ClientStandardTypes.JSON:
+            case ClientStandardTypes.IPADDRESS:
+            case ClientStandardTypes.UUID:
+                return new TypeInfo(Types.JAVA_OBJECT, String.class);
+
+            case ClientStandardTypes.UNKNOWN:
+                return new TypeInfo(Types.NULL, Object.class);
+
             default:
-                return Types.JAVA_OBJECT;
+                return new TypeInfo(Types.JAVA_OBJECT, Object.class);
         }
     }
 
     public int getColumnType()
     {
         return columnType;
+    }
+
+    public String getColumnJavaClassName()
+    {
+        return columnJavaClassName;
     }
 
     public List<Integer> getColumnParameterTypes()
@@ -326,6 +367,7 @@ class ColumnInfo
     static class Builder
     {
         private int columnType;
+        private String columnJavaClassName;
         private List<Integer> columnParameterTypes;
         private ClientTypeSignature columnTypeSignature;
         private Nullable nullable;
@@ -340,93 +382,117 @@ class ColumnInfo
         private String schemaName;
         private String catalogName;
 
+        @CanIgnoreReturnValue
         public Builder setColumnType(int columnType)
         {
             this.columnType = columnType;
             return this;
         }
 
-        public void setColumnParameterTypes(List<Integer> columnParameterTypes)
+        @CanIgnoreReturnValue
+        public Builder setColumnJavaClassName(String columnJavaClassName)
         {
-            this.columnParameterTypes = ImmutableList.copyOf(requireNonNull(columnParameterTypes, "columnParameterTypes is null"));
+            this.columnJavaClassName = columnJavaClassName;
+            return this;
         }
 
+        @CanIgnoreReturnValue
+        public Builder setColumnParameterTypes(List<Integer> columnParameterTypes)
+        {
+            this.columnParameterTypes = ImmutableList.copyOf(requireNonNull(columnParameterTypes, "columnParameterTypes is null"));
+            return this;
+        }
+
+        @CanIgnoreReturnValue
         public Builder setColumnTypeSignature(ClientTypeSignature columnTypeSignature)
         {
             this.columnTypeSignature = columnTypeSignature;
             return this;
         }
 
+        @CanIgnoreReturnValue
         public Builder setNullable(Nullable nullable)
         {
             this.nullable = nullable;
             return this;
         }
 
+        @CanIgnoreReturnValue
         public Builder setCurrency(boolean currency)
         {
             this.currency = currency;
             return this;
         }
 
+        @CanIgnoreReturnValue
         public Builder setSigned(boolean signed)
         {
             this.signed = signed;
             return this;
         }
 
+        @CanIgnoreReturnValue
         public Builder setPrecision(int precision)
         {
             this.precision = precision;
             return this;
         }
 
+        @CanIgnoreReturnValue
         public Builder setScale(int scale)
         {
             this.scale = scale;
             return this;
         }
 
+        @CanIgnoreReturnValue
         public Builder setColumnDisplaySize(int columnDisplaySize)
         {
             this.columnDisplaySize = columnDisplaySize;
             return this;
         }
 
+        @CanIgnoreReturnValue
         public Builder setColumnLabel(String columnLabel)
         {
             this.columnLabel = columnLabel;
             return this;
         }
 
+        @CanIgnoreReturnValue
         public Builder setColumnName(String columnName)
         {
             this.columnName = columnName;
             return this;
         }
 
+        @CanIgnoreReturnValue
         public Builder setTableName(String tableName)
         {
             this.tableName = tableName;
             return this;
         }
 
+        @CanIgnoreReturnValue
         public Builder setSchemaName(String schemaName)
         {
             this.schemaName = schemaName;
             return this;
         }
 
+        @CanIgnoreReturnValue
         public Builder setCatalogName(String catalogName)
         {
             this.catalogName = catalogName;
             return this;
         }
 
+        @CheckReturnValue
         public ColumnInfo build()
         {
             return new ColumnInfo(
                     columnType,
+                    columnJavaClassName,
                     columnParameterTypes,
                     columnTypeSignature,
                     nullable,
@@ -440,6 +506,18 @@ class ColumnInfo
                     tableName,
                     schemaName,
                     catalogName);
+        }
+    }
+
+    private static class TypeInfo
+    {
+        private final int jdbcType;
+        private final Class<?> jdbcJavaClass;
+
+        public TypeInfo(int jdbcType, Class<?> jdbcJavaClass)
+        {
+            this.jdbcType = jdbcType;
+            this.jdbcJavaClass = requireNonNull(jdbcJavaClass, "jdbcJavaClass is null");
         }
     }
 }

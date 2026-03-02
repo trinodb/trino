@@ -27,7 +27,7 @@ import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.ProjectNode;
 
 import java.util.List;
-import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Set;
 
@@ -48,7 +48,7 @@ public final class PushProjectionThroughJoin
             Lookup lookup,
             PlanNodeIdAllocator planNodeIdAllocator)
     {
-        if (!projectNode.getAssignments().getExpressions().stream().allMatch(DeterminismEvaluator::isDeterministic)) {
+        if (!projectNode.getAssignments().expressions().stream().allMatch(DeterminismEvaluator::isDeterministic)) {
             return Optional.empty();
         }
 
@@ -66,7 +66,7 @@ public final class PushProjectionThroughJoin
 
         Assignments.Builder leftAssignmentsBuilder = Assignments.builder();
         Assignments.Builder rightAssignmentsBuilder = Assignments.builder();
-        for (Map.Entry<Symbol, Expression> assignment : projectNode.getAssignments().entrySet()) {
+        for (Entry<Symbol, Expression> assignment : projectNode.getAssignments().entrySet()) {
             Expression expression = assignment.getValue();
             Set<Symbol> symbols = extractUnique(expression);
             if (leftChild.getOutputSymbols().containsAll(symbols)) {
@@ -97,10 +97,10 @@ public final class PushProjectionThroughJoin
 
         Assignments leftAssignments = leftAssignmentsBuilder.build();
         Assignments rightAssignments = rightAssignmentsBuilder.build();
-        List<Symbol> leftOutputSymbols = leftAssignments.getOutputs().stream()
+        List<Symbol> leftOutputSymbols = leftAssignments.outputs().stream()
                 .filter(ImmutableSet.copyOf(projectNode.getOutputSymbols())::contains)
                 .collect(toImmutableList());
-        List<Symbol> rightOutputSymbols = rightAssignments.getOutputs().stream()
+        List<Symbol> rightOutputSymbols = rightAssignments.outputs().stream()
                 .filter(ImmutableSet.copyOf(projectNode.getOutputSymbols())::contains)
                 .collect(toImmutableList());
 

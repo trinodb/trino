@@ -27,6 +27,9 @@ import io.trino.orc.metadata.statistics.IntegerStatisticsBuilder;
 import io.trino.orc.metadata.statistics.StringStatisticsBuilder;
 import io.trino.orc.metadata.statistics.TimeMicrosStatisticsBuilder;
 import io.trino.orc.metadata.statistics.TimestampStatisticsBuilder;
+import io.trino.spi.type.ArrayType;
+import io.trino.spi.type.MapType;
+import io.trino.spi.type.RowType;
 import io.trino.spi.type.TimeType;
 import io.trino.spi.type.Type;
 
@@ -98,7 +101,7 @@ public final class ColumnWriters
 
             case LIST: {
                 OrcColumnId fieldColumnIndex = orcType.getFieldTypeIndex(0);
-                Type fieldType = type.getTypeParameters().get(0);
+                Type fieldType = ((ArrayType) type).getElementType();
                 ColumnWriter elementWriter = createColumnWriter(fieldColumnIndex, orcTypes, fieldType, compression, bufferSize, stringStatisticsLimit, bloomFilterBuilder, shouldCompactMinMax);
                 return new ListColumnWriter(columnId, compression, bufferSize, elementWriter);
             }
@@ -107,7 +110,7 @@ public final class ColumnWriters
                 ColumnWriter keyWriter = createColumnWriter(
                         orcType.getFieldTypeIndex(0),
                         orcTypes,
-                        type.getTypeParameters().get(0),
+                        ((MapType) type).getKeyType(),
                         compression,
                         bufferSize,
                         stringStatisticsLimit,
@@ -116,7 +119,7 @@ public final class ColumnWriters
                 ColumnWriter valueWriter = createColumnWriter(
                         orcType.getFieldTypeIndex(1),
                         orcTypes,
-                        type.getTypeParameters().get(1),
+                        ((MapType) type).getValueType(),
                         compression,
                         bufferSize,
                         stringStatisticsLimit,
@@ -129,7 +132,7 @@ public final class ColumnWriters
                 ImmutableList.Builder<ColumnWriter> fieldWriters = ImmutableList.builder();
                 for (int fieldId = 0; fieldId < orcType.getFieldCount(); fieldId++) {
                     OrcColumnId fieldColumnIndex = orcType.getFieldTypeIndex(fieldId);
-                    Type fieldType = type.getTypeParameters().get(fieldId);
+                    Type fieldType = ((RowType) type).getFields().get(fieldId).getType();
                     fieldWriters.add(createColumnWriter(fieldColumnIndex, orcTypes, fieldType, compression, bufferSize, stringStatisticsLimit, bloomFilterBuilder, shouldCompactMinMax));
                 }
                 return new StructColumnWriter(columnId, compression, bufferSize, fieldWriters.build());

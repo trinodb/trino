@@ -39,9 +39,21 @@ public class TerminalUtils
     private static Terminal createTerminal()
     {
         try {
-            return TerminalBuilder.builder()
-                    .name("Trino")
-                    .build();
+            try {
+                return TerminalBuilder.builder()
+                        .system(true)
+                        .dumb(false)
+                        .name("Trino")
+                        .build();
+            }
+            catch (IllegalStateException e) {
+                // Couldn't create a real terminal so we need to fallback to a dumb one
+                return TerminalBuilder.builder()
+                        .system(true)
+                        .dumb(true)
+                        .name("Trino")
+                        .build();
+            }
         }
         catch (IOException e) {
             throw new UncheckedIOException(e);

@@ -84,7 +84,7 @@ public class ExtractDereferencesFromFilterAboveScan
         }
 
         Assignments assignments = Assignments.of(dereferences, context.getSymbolAllocator());
-        Map<Expression, Reference> mappings = HashBiMap.create(assignments.getMap())
+        Map<Expression, Reference> mappings = HashBiMap.create(assignments.assignments())
                 .inverse()
                 .entrySet().stream()
                 .collect(toImmutableMap(Map.Entry::getKey, entry -> entry.getValue().toSymbolReference()));

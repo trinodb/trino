@@ -56,6 +56,7 @@ import static java.util.Arrays.asList;
 public class MapType
         extends AbstractType
 {
+    public static final String NAME = "map";
     private static final VarHandle INT_HANDLE = MethodHandles.byteArrayViewVarHandle(int[].class, ByteOrder.LITTLE_ENDIAN);
 
     private static final InvocationConvention READ_FLAT_CONVENTION = simpleConvention(FAIL_ON_NULL, FLAT);
@@ -115,9 +116,9 @@ public class MapType
     {
         super(
                 new TypeSignature(
-                        StandardTypes.MAP,
-                        TypeSignatureParameter.typeParameter(keyType.getTypeSignature()),
-                        TypeSignatureParameter.typeParameter(valueType.getTypeSignature())),
+                        NAME,
+                        TypeParameter.typeParameter(keyType.getTypeSignature()),
+                        TypeParameter.typeParameter(valueType.getTypeSignature())),
                 SqlMap.class,
                 MapBlock.class);
         if (!keyType.isComparable()) {
@@ -304,17 +305,6 @@ public class MapType
     }
 
     @Override
-    public void appendTo(Block block, int position, BlockBuilder blockBuilder)
-    {
-        if (block.isNull(position)) {
-            blockBuilder.appendNull();
-        }
-        else {
-            writeObject(blockBuilder, getObject(block, position));
-        }
-    }
-
-    @Override
     public SqlMap getObject(Block block, int position)
     {
         return read((MapBlock) block.getUnderlyingValueBlock(), block.getUnderlyingValuePosition(position));
@@ -332,10 +322,8 @@ public class MapType
         Block rawValueBlock = sqlMap.getRawValueBlock();
 
         ((MapBlockBuilder) blockBuilder).buildEntry((keyBuilder, valueBuilder) -> {
-            for (int i = 0; i < sqlMap.getSize(); i++) {
-                keyType.appendTo(rawKeyBlock, rawOffset + i, keyBuilder);
-                valueType.appendTo(rawValueBlock, rawOffset + i, valueBuilder);
-            }
+            keyBuilder.appendBlockRange(rawKeyBlock, rawOffset, sqlMap.getSize());
+            valueBuilder.appendBlockRange(rawValueBlock, rawOffset, sqlMap.getSize());
         });
     }
 
@@ -416,7 +404,7 @@ public class MapType
     @Override
     public String getDisplayName()
     {
-        return "map(" + keyType.getDisplayName() + ", " + valueType.getDisplayName() + ")";
+        return NAME + "(" + keyType.getDisplayName() + ", " + valueType.getDisplayName() + ")";
     }
 
     public MapBlock createBlockFromKeyValue(Optional<boolean[]> mapIsNull, int[] offsets, Block keyBlock, Block valueBlock)

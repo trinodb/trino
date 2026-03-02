@@ -16,6 +16,7 @@ package io.trino.node;
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Injector;
 import com.google.inject.Module;
+import com.google.inject.Scopes;
 import io.airlift.bootstrap.Bootstrap;
 import io.airlift.bootstrap.LifeCycleManager;
 import io.airlift.http.client.HttpClient;
@@ -25,8 +26,9 @@ import io.airlift.http.server.testing.TestingHttpServerModule;
 import io.airlift.jaxrs.JaxrsModule;
 import io.airlift.json.JsonModule;
 import io.airlift.node.testing.TestingNodeModule;
-import io.trino.client.NodeVersion;
+import io.trino.server.StartupStatus;
 import io.trino.server.security.SecurityConfig;
+import io.trino.spi.NodeVersion;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
@@ -161,17 +163,19 @@ class TestAnnounceNodeInventory
     {
         ImmutableList.Builder<Module> modules = ImmutableList.<Module>builder()
                 .add(new TestingNodeModule())
-                .add(new TestingHttpServerModule())
+                .add(new TestingHttpServerModule("test-announce-server"))
                 .add(new JsonModule())
                 .add(new JaxrsModule())
                 .add(new AnnounceNodeInventoryModule())
                 .add(binder -> {
                     configBinder(binder).bindConfig(SecurityConfig.class);
+                    binder.bind(NodeVersion.class).toInstance(new NodeVersion("test-version"));
                     binder.bind(InternalNode.class).toInstance(new InternalNode(
                             "test-node-id",
                             URI.create("https://example.com:1234"),
                             new NodeVersion("test-version"),
                             true));
+                    binder.bind(StartupStatus.class).in(Scopes.SINGLETON);
                 });
         Injector injector = new Bootstrap(modules.build())
                 .doNotInitializeLogging()
@@ -180,6 +184,8 @@ class TestAnnounceNodeInventory
 
         AnnounceNodeInventory nodeInventory = injector.getInstance(AnnounceNodeInventory.class);
         URI serverUri = injector.getInstance(HttpServerInfo.class).getHttpUri();
+        StartupStatus startupStatus = injector.getInstance(StartupStatus.class);
+        startupStatus.startupComplete();
         return new AnnouncementServer(
                 nodeInventory,
                 serverUri,

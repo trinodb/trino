@@ -34,7 +34,7 @@ import io.opentelemetry.api.OpenTelemetry;
 import io.opentelemetry.api.trace.Span;
 import io.trino.Session;
 import io.trino.block.BlockJsonSerde;
-import io.trino.client.NodeVersion;
+import io.trino.connector.TestingColumnHandle;
 import io.trino.execution.BaseTestSqlTaskManager;
 import io.trino.execution.DynamicFilterConfig;
 import io.trino.execution.DynamicFiltersCollector.VersionedDynamicFilterDomains;
@@ -61,13 +61,14 @@ import io.trino.server.DynamicFilterService;
 import io.trino.server.FailTaskRequest;
 import io.trino.server.HttpRemoteTaskFactory;
 import io.trino.server.TaskUpdateRequest;
+import io.trino.simd.BlockEncodingSimdSupport;
 import io.trino.spi.ErrorCode;
+import io.trino.spi.NodeVersion;
 import io.trino.spi.QueryId;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockEncodingSerde;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.DynamicFilter;
-import io.trino.spi.connector.TestingColumnHandle;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.Type;
@@ -132,7 +133,7 @@ import static io.trino.execution.DynamicFiltersCollector.INITIAL_DYNAMIC_FILTERS
 import static io.trino.execution.TaskState.FAILED;
 import static io.trino.execution.TaskTestUtils.TABLE_SCAN_NODE_ID;
 import static io.trino.execution.buffer.PipelinedOutputBuffers.BufferType.BROADCAST;
-import static io.trino.metadata.TestMetadataManager.createTestMetadataManager;
+import static io.trino.metadata.TestingMetadataManager.createTestingMetadataManager;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.server.InternalHeaders.TRINO_CURRENT_VERSION;
 import static io.trino.server.InternalHeaders.TRINO_MAX_WAIT;
@@ -213,8 +214,8 @@ public class TestHttpRemoteTask
         poll(() -> testingTaskResource.getTaskSplitAssignment(TABLE_SCAN_NODE_ID).isNoMoreSplits());
 
         remoteTask.cancel();
-        poll(() -> remoteTask.getTaskStatus().getState().isDone());
-        poll(() -> remoteTask.getTaskInfo().taskStatus().getState().isDone());
+        poll(() -> remoteTask.getTaskStatus().state().isDone());
+        poll(() -> remoteTask.getTaskInfo().taskStatus().state().isDone());
 
         httpRemoteTaskFactory.stop();
     }
@@ -271,7 +272,7 @@ public class TestHttpRemoteTask
         // make sure server failures while fetching dynamic filters cause task to fail
         testingTaskResource.setDynamicFilterFailure(new RuntimeException("DF fetch failed"), MAX_VALUE);
         testingTaskResource.setDynamicFilterDomains(new VersionedDynamicFilterDomains(2L, domain));
-        assertEventually(new Duration(30, SECONDS), () -> assertThat(remoteTask.getTaskStatus().getState()).isEqualTo(FAILED));
+        assertEventually(new Duration(30, SECONDS), () -> assertThat(remoteTask.getTaskStatus().state()).isEqualTo(FAILED));
         assertThat(remoteTask.getDynamicFiltersFetcher().isRunning()).isFalse();
 
         httpRemoteTaskFactory.stop();
@@ -320,7 +321,7 @@ public class TestHttpRemoteTask
 
         // make sure getting older DF version after newer version was observed causes task to fail
         remoteTask.getDynamicFiltersFetcher().updateDynamicFiltersVersionAndFetchIfNecessary(10L);
-        assertEventually(new Duration(30, SECONDS), () -> assertThat(remoteTask.getTaskStatus().getState()).isEqualTo(FAILED));
+        assertEventually(new Duration(30, SECONDS), () -> assertThat(remoteTask.getTaskStatus().state()).isEqualTo(FAILED));
         assertThat(remoteTask.getDynamicFiltersFetcher().isRunning()).isFalse();
 
         httpRemoteTaskFactory.stop();
@@ -448,7 +449,7 @@ public class TestHttpRemoteTask
         // make sure initial dynamic filter is collected
         CompletableFuture<?> future = dynamicFilter.isBlocked();
         dynamicFilterService.addTaskDynamicFilters(
-                new TaskId(new StageId(queryId.getId(), 1), 1, 0),
+                new TaskId(new StageId(queryId.id(), 1), 1, 0),
                 ImmutableMap.of(filterId1, Domain.singleValue(BIGINT, 1L)));
         future.get();
         assertThat(dynamicFilter.getCurrentPredicate()).isEqualTo(TupleDomain.withColumnDomains(ImmutableMap.of(
@@ -474,7 +475,7 @@ public class TestHttpRemoteTask
 
         future = dynamicFilter.isBlocked();
         dynamicFilterService.addTaskDynamicFilters(
-                new TaskId(new StageId(queryId.getId(), 1), 1, 0),
+                new TaskId(new StageId(queryId.id(), 1), 1, 0),
                 ImmutableMap.of(filterId2, Domain.singleValue(BIGINT, 2L)));
         future.get();
         assertThat(dynamicFilter.getCurrentPredicate()).isEqualTo(TupleDomain.withColumnDomains(ImmutableMap.of(
@@ -530,8 +531,8 @@ public class TestHttpRemoteTask
         poll(() -> testingTaskResource.getTaskSplitAssignment(TABLE_SCAN_NODE_ID).isNoMoreSplits());
 
         remoteTask.cancel();
-        poll(() -> remoteTask.getTaskStatus().getState().isDone());
-        poll(() -> remoteTask.getTaskInfo().taskStatus().getState().isDone());
+        poll(() -> remoteTask.getTaskStatus().state().isDone());
+        poll(() -> remoteTask.getTaskInfo().taskStatus().state().isDone());
 
         httpRemoteTaskFactory.stop();
     }
@@ -585,15 +586,15 @@ public class TestHttpRemoteTask
         waitUntilIdle(lastActivityNanos);
 
         httpRemoteTaskFactory.stop();
-        assertThat(remoteTask.getTaskStatus().getState().isDone())
+        assertThat(remoteTask.getTaskStatus().state().isDone())
                 .describedAs(format("TaskStatus is not in a done state: %s", remoteTask.getTaskStatus()))
                 .isTrue();
 
-        ErrorCode actualErrorCode = getOnlyElement(remoteTask.getTaskStatus().getFailures()).getErrorCode();
+        ErrorCode actualErrorCode = getOnlyElement(remoteTask.getTaskStatus().failures()).errorCode();
         switch (failureScenario) {
             case TASK_MISMATCH:
             case TASK_MISMATCH_WHEN_VERSION_IS_HIGH:
-                assertThat(remoteTask.getTaskInfo().taskStatus().getState().isDone())
+                assertThat(remoteTask.getTaskInfo().taskStatus().state().isDone())
                         .describedAs(format("TaskInfo is not in a done state: %s", remoteTask.getTaskInfo()))
                         .isTrue();
                 assertThat(actualErrorCode).isEqualTo(REMOTE_TASK_MISMATCH.toErrorCode());
@@ -627,7 +628,7 @@ public class TestHttpRemoteTask
                 session,
                 Span.getInvalid(),
                 new TaskId(new StageId("test", 1), 2, 0),
-                new InternalNode("node-id", URI.create("http://fake.invalid/"), new NodeVersion("version"), false),
+                new InternalNode("node-id", URI.create("http://fake.invalid/"), NodeVersion.UNKNOWN, false),
                 false,
                 TaskTestUtils.PLAN_FRAGMENT,
                 ImmutableMultimap.of(),
@@ -663,7 +664,7 @@ public class TestHttpRemoteTask
                     public void configure(Binder binder)
                     {
                         binder.bind(JsonMapper.class).in(SINGLETON);
-                        binder.bind(Metadata.class).toInstance(createTestMetadataManager());
+                        binder.bind(Metadata.class).toInstance(createTestingMetadataManager());
                         jsonBinder(binder).addDeserializerBinding(Type.class).to(TypeDeserializer.class);
                         jsonBinder(binder).addDeserializerBinding(TypeSignature.class).to(TypeSignatureDeserializer.class);
                         jsonBinder(binder).addKeyDeserializerBinding(TypeSignature.class).to(TypeSignatureKeyDeserializer.class);
@@ -676,6 +677,7 @@ public class TestHttpRemoteTask
                         jsonCodecBinder(binder).bindJsonCodec(TaskUpdateRequest.class);
                         jsonCodecBinder(binder).bindJsonCodec(FailTaskRequest.class);
 
+                        binder.bind(BlockEncodingSimdSupport.class).toInstance(new BlockEncodingSimdSupport(true));
                         binder.bind(TypeManager.class).toInstance(TESTING_TYPE_MANAGER);
                         binder.bind(BlockEncodingManager.class).in(SINGLETON);
                         binder.bind(BlockEncodingSerde.class).to(InternalBlockEncodingSerde.class).in(SINGLETON);
@@ -764,8 +766,8 @@ public class TestHttpRemoteTask
     @Path("/task/{nodeId}")
     public static class TestingTaskResource
     {
-        private static final String INITIAL_TASK_INSTANCE_ID = "task-instance-id";
-        private static final String NEW_TASK_INSTANCE_ID = "task-instance-id-x";
+        private static final long INITIAL_TASK_INSTANCE_ID = -1;
+        private static final long NEW_TASK_INSTANCE_ID = 1;
 
         private final AtomicLong lastActivityNanos;
         private final FailureScenario failureScenario;
@@ -779,7 +781,7 @@ public class TestHttpRemoteTask
         private OptionalInt dynamicFilterFailureCount = OptionalInt.empty();
         private long version;
         private TaskState taskState;
-        private String taskInstanceId = INITIAL_TASK_INSTANCE_ID;
+        private long taskInstanceId = INITIAL_TASK_INSTANCE_ID;
         private Map<DynamicFilterId, Domain> latestDynamicFilterFromCoordinator = ImmutableMap.of();
 
         private long statusFetchCounter;
@@ -905,8 +907,8 @@ public class TestHttpRemoteTask
         {
             this.initialTaskInfo = initialTaskInfo;
             this.initialTaskStatus = initialTaskInfo.taskStatus();
-            this.taskState = initialTaskStatus.getState();
-            this.version = initialTaskStatus.getVersion();
+            this.taskState = initialTaskStatus.state();
+            this.version = initialTaskStatus.version();
             switch (failureScenario) {
                 case TASK_MISMATCH_WHEN_VERSION_IS_HIGH:
                     // Make the initial version large enough.
@@ -1000,29 +1002,29 @@ public class TestHttpRemoteTask
             }
 
             return new TaskStatus(
-                    initialTaskStatus.getTaskId(),
+                    initialTaskStatus.taskId(),
                     taskInstanceId,
                     ++version,
                     taskState,
-                    initialTaskStatus.getSelf(),
+                    initialTaskStatus.self(),
                     "fake",
                     false,
-                    initialTaskStatus.getFailures(),
-                    initialTaskStatus.getQueuedPartitionedDrivers(),
-                    initialTaskStatus.getRunningPartitionedDrivers(),
-                    initialTaskStatus.getOutputBufferStatus(),
-                    initialTaskStatus.getOutputDataSize(),
-                    initialTaskStatus.getWriterInputDataSize(),
-                    initialTaskStatus.getPhysicalWrittenDataSize(),
-                    initialTaskStatus.getMaxWriterCount(),
-                    initialTaskStatus.getMemoryReservation(),
-                    initialTaskStatus.getPeakMemoryReservation(),
-                    initialTaskStatus.getRevocableMemoryReservation(),
-                    initialTaskStatus.getFullGcCount(),
-                    initialTaskStatus.getFullGcTime(),
+                    initialTaskStatus.failures(),
+                    initialTaskStatus.queuedPartitionedDrivers(),
+                    initialTaskStatus.runningPartitionedDrivers(),
+                    initialTaskStatus.outputBufferStatus(),
+                    initialTaskStatus.outputDataSize(),
+                    initialTaskStatus.writerInputDataSize(),
+                    initialTaskStatus.physicalWrittenDataSize(),
+                    initialTaskStatus.maxWriterCount(),
+                    initialTaskStatus.memoryReservation(),
+                    initialTaskStatus.peakMemoryReservation(),
+                    initialTaskStatus.revocableMemoryReservation(),
+                    initialTaskStatus.fullGcCount(),
+                    initialTaskStatus.fullGcTime(),
                     dynamicFilterDomains.map(VersionedDynamicFilterDomains::getVersion).orElse(INITIAL_DYNAMIC_FILTERS_VERSION),
-                    initialTaskStatus.getQueuedPartitionedSplitsWeight(),
-                    initialTaskStatus.getRunningPartitionedSplitsWeight());
+                    initialTaskStatus.queuedPartitionedSplitsWeight(),
+                    initialTaskStatus.runningPartitionedSplitsWeight());
         }
 
         private record DynamicFiltersFetchRequest(

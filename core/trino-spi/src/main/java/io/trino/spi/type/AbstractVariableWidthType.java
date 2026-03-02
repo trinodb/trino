@@ -89,22 +89,6 @@ public abstract class AbstractVariableWidthType
     }
 
     @Override
-    public void appendTo(Block block, int position, BlockBuilder blockBuilder)
-    {
-        if (block.isNull(position)) {
-            blockBuilder.appendNull();
-        }
-        else {
-            VariableWidthBlock variableWidthBlock = (VariableWidthBlock) block.getUnderlyingValueBlock();
-            position = block.getUnderlyingValuePosition(position);
-            Slice slice = variableWidthBlock.getRawSlice();
-            int offset = variableWidthBlock.getRawSliceOffset(position);
-            int length = variableWidthBlock.getSliceLength(position);
-            ((VariableWidthBlockBuilder) blockBuilder).writeEntry(slice, offset, length);
-        }
-    }
-
-    @Override
     public TypeOperatorDeclaration getTypeOperatorDeclaration(TypeOperators typeOperators)
     {
         return DEFAULT_READ_OPERATORS;
@@ -217,10 +201,10 @@ public abstract class AbstractVariableWidthType
         @ScalarOperator(READ_VALUE)
         private static void writeFlatFromStack(
                 Slice value,
-                byte[] fixedSizeSlice,
-                int fixedSizeOffset,
-                byte[] variableSizeSlice,
-                int variableSizeOffset)
+                @FlatFixed byte[] fixedSizeSlice,
+                @FlatFixedOffset int fixedSizeOffset,
+                @FlatVariableWidth byte[] variableSizeSlice,
+                @FlatVariableOffset int variableSizeOffset)
         {
             int length = value.length();
             writeFlatVariableLength(length, fixedSizeSlice, fixedSizeOffset);
@@ -241,10 +225,10 @@ public abstract class AbstractVariableWidthType
         private static void writeFlatFromBlock(
                 @BlockPosition VariableWidthBlock block,
                 @BlockIndex int position,
-                byte[] fixedSizeSlice,
-                int fixedSizeOffset,
-                byte[] variableSizeSlice,
-                int variableSizeOffset)
+                @FlatFixed byte[] fixedSizeSlice,
+                @FlatFixedOffset int fixedSizeOffset,
+                @FlatVariableWidth byte[] variableSizeSlice,
+                @FlatVariableOffset int variableSizeOffset)
         {
             Slice rawSlice = block.getRawSlice();
             int rawSliceOffset = block.getRawSliceOffset(position);

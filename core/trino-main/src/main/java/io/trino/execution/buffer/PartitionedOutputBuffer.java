@@ -27,7 +27,7 @@ import io.trino.plugin.base.metrics.TDigestHistogram;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.Executor;
-import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.LongAdder;
 import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -49,11 +49,11 @@ public class PartitionedOutputBuffer
 
     private final List<ClientBuffer> partitions;
 
-    private final AtomicLong totalPagesAdded = new AtomicLong();
-    private final AtomicLong totalRowsAdded = new AtomicLong();
+    private final LongAdder totalPagesAdded = new LongAdder();
+    private final LongAdder totalRowsAdded = new LongAdder();
 
     public PartitionedOutputBuffer(
-            String taskInstanceId,
+            long taskInstanceId,
             OutputBufferStateMachine stateMachine,
             PipelinedOutputBuffers outputBuffers,
             DataSize maxBufferSize,
@@ -118,7 +118,7 @@ public class PartitionedOutputBuffer
         for (ClientBuffer partition : partitions) {
             PipelinedBufferInfo bufferInfo = partition.getInfo();
             infos.add(bufferInfo);
-            totalBufferedPages += bufferInfo.getBufferedPages();
+            totalBufferedPages += bufferInfo.bufferedPages();
         }
 
         return new OutputBufferInfo(
@@ -128,8 +128,8 @@ public class PartitionedOutputBuffer
                 state.canAddPages(),
                 memoryManager.getBufferedBytes(),
                 totalBufferedPages,
-                totalRowsAdded.get(),
-                totalPagesAdded.get(),
+                totalRowsAdded.sum(),
+                totalPagesAdded.sum(),
                 Optional.of(infos.build()),
                 Optional.of(new TDigestHistogram(memoryManager.getUtilizationHistogram())),
                 Optional.empty(),
@@ -194,8 +194,8 @@ public class PartitionedOutputBuffer
         List<SerializedPageReference> serializedPageReferences = references.build();
 
         // update stats
-        totalRowsAdded.addAndGet(rowCount);
-        totalPagesAdded.addAndGet(serializedPageReferences.size());
+        totalRowsAdded.add(rowCount);
+        totalPagesAdded.add(serializedPageReferences.size());
 
         // reserve memory
         memoryManager.updateMemoryUsage(bytesAdded);
@@ -213,7 +213,7 @@ public class PartitionedOutputBuffer
         requireNonNull(outputBufferId, "outputBufferId is null");
         checkArgument(maxSize.toBytes() > 0, "maxSize must be at least 1 byte");
 
-        return partitions.get(outputBufferId.getId()).getPages(startingSequenceId, maxSize);
+        return partitions.get(outputBufferId.id()).getPages(startingSequenceId, maxSize);
     }
 
     @Override
@@ -221,7 +221,7 @@ public class PartitionedOutputBuffer
     {
         requireNonNull(outputBufferId, "outputBufferId is null");
 
-        partitions.get(outputBufferId.getId()).acknowledgePages(sequenceId);
+        partitions.get(outputBufferId.id()).acknowledgePages(sequenceId);
     }
 
     @Override
@@ -229,7 +229,7 @@ public class PartitionedOutputBuffer
     {
         requireNonNull(bufferId, "bufferId is null");
 
-        partitions.get(bufferId.getId()).destroy();
+        partitions.get(bufferId.id()).destroy();
 
         checkFlushComplete();
     }

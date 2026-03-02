@@ -35,6 +35,7 @@ import java.io.IOException;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Supplier;
@@ -158,7 +159,7 @@ public class ConfluentSchemaRegistryTableDescriptionSupplier
             }
         }
         ImmutableSetMultimap.Builder<String, TopicAndSubjects> topicSubjectsCacheBuilder = ImmutableSetMultimap.builder();
-        for (Map.Entry<String, Collection<String>> entry : topicToSubjectsBuilder.build().asMap().entrySet()) {
+        for (Entry<String, Collection<String>> entry : topicToSubjectsBuilder.build().asMap().entrySet()) {
             String topic = entry.getKey();
             TopicAndSubjects topicAndSubjects = new TopicAndSubjects(
                     topic,

@@ -33,11 +33,11 @@ import java.util.Map;
 import java.util.Set;
 import java.util.function.Supplier;
 
-import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static java.util.Arrays.asList;
 import static java.util.Objects.requireNonNull;
+import static java.util.Objects.requireNonNullElse;
 
 public class RedisTableDescriptionSupplier
         implements Supplier<Map<SchemaTableName, RedisTableDescription>>
@@ -69,7 +69,7 @@ public class RedisTableDescriptionSupplier
                 if (file.isFile() && file.getName().endsWith(".json")) {
                     try (InputStream stream = new FileInputStream(file)) {
                         RedisTableDescription table = tableDescriptionCodec.fromJson(stream);
-                        String schemaName = firstNonNull(table.schemaName(), defaultSchema);
+                        String schemaName = requireNonNullElse(table.schemaName(), defaultSchema);
                         log.debug("Redis table %s.%s: %s", schemaName, table.tableName(), table);
                         builder.put(new SchemaTableName(schemaName, table.tableName()), table);
                     }

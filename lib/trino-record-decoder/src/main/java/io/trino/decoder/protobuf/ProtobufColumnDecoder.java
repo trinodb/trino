@@ -117,19 +117,16 @@ public class ProtobufColumnDecoder
             return true;
         }
 
-        if (type instanceof ArrayType) {
-            checkArgument(type.getTypeParameters().size() == 1, "expecting exactly one type parameter for array");
-            return isSupportedType(type.getTypeParameters().get(0));
+        if (type instanceof ArrayType arrayType) {
+            return isSupportedType(arrayType.getElementType());
         }
 
-        if (type instanceof MapType) {
-            List<Type> typeParameters = type.getTypeParameters();
-            checkArgument(typeParameters.size() == 2, "expecting exactly two type parameters for map");
-            return isSupportedType(typeParameters.get(0)) && isSupportedType(type.getTypeParameters().get(1));
+        if (type instanceof MapType mapType) {
+            return isSupportedType(mapType.getKeyType()) && isSupportedType(mapType.getValueType());
         }
 
-        if (type instanceof RowType) {
-            for (Type fieldType : type.getTypeParameters()) {
+        if (type instanceof RowType rowType) {
+            for (Type fieldType : rowType.getFieldTypes()) {
                 if (!isSupportedType(fieldType)) {
                     return false;
                 }

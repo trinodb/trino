@@ -18,7 +18,7 @@ import org.junit.jupiter.api.Test;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static org.assertj.core.api.Assertions.assertThat;
 
-public class TestArrayType
+final class TestArrayType
 {
     @Test
     public void testDisplayName()

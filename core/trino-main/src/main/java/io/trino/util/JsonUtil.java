@@ -51,7 +51,6 @@ import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.TinyintType;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeSignatureParameter;
 import io.trino.spi.type.VarcharType;
 import io.trino.type.BigintOperators;
 import io.trino.type.BooleanOperators;
@@ -63,17 +62,19 @@ import io.trino.type.VarcharOperators;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
-import java.io.StringReader;
+import java.io.Reader;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.TreeMap;
 
 import static com.fasterxml.jackson.core.JsonFactory.Feature.CANONICALIZE_FIELD_NAMES;
+import static com.fasterxml.jackson.core.JsonFactory.Feature.INTERN_FIELD_NAMES;
 import static com.fasterxml.jackson.core.JsonToken.END_ARRAY;
 import static com.fasterxml.jackson.core.JsonToken.END_OBJECT;
 import static com.fasterxml.jackson.core.JsonToken.FIELD_NAME;
@@ -106,7 +107,7 @@ import static java.time.ZoneOffset.UTC;
 
 public final class JsonUtil
 {
-    // StringReader outperforms InputStreamReader for small inputs. Limit based on Jackson benchmarks {@link https://github.com/FasterXML/jackson-benchmarks/pull/9}
+    // java.io.Reader outperforms InputStreamReader for small inputs. Limit based on Jackson benchmarks {@link https://github.com/FasterXML/jackson-benchmarks/pull/9}
     private static final int STRING_READER_LENGTH_LIMIT = 8192;
 
     private JsonUtil() {}
@@ -121,19 +122,34 @@ public final class JsonUtil
     // Note: JsonFactory is mutable, instances cannot be shared openly.
     public static JsonFactory createJsonFactory()
     {
-        return jsonFactoryBuilder().disable(CANONICALIZE_FIELD_NAMES).build();
+        return jsonFactoryBuilder()
+                .disable(CANONICALIZE_FIELD_NAMES)
+                /*
+                 * When multiple threads deserialize JSON responses concurrently,
+                 * Jackson's default behavior of interning field names causes severe lock contention
+                 * on the JVM's global String pool. This manifests as threads blocked waiting at
+                 * {@code InternCache.intern()}.
+                 *
+                 * Disabling INTERN_FIELD_NAMES eliminates this contention with minimal performance
+                 * impact - field name deduplication becomes slightly less memory-efficient, but the
+                 * elimination of lock contention far outweighs this cost in high-concurrency scenarios.
+                 *
+                 * @see <a href="https://github.com/FasterXML/jackson-core/issues/332">Jackson issue on InternCache contention</a>
+                 */
+                .disable(INTERN_FIELD_NAMES)
+                .build();
     }
 
     public static JsonParser createJsonParser(JsonFactory factory, Slice json)
             throws IOException
     {
         // Jackson tries to detect the character encoding automatically when using InputStream
-        // so we pass StringReader or an InputStreamReader instead.
+        // so we pass java.io.Reader or an InputStreamReader instead.
         // Despite the https://github.com/FasterXML/jackson-core/pull/1081, the below performance optimization
         // is still valid for small inputs.
         if (json.length() < STRING_READER_LENGTH_LIMIT) {
-            // StringReader is more performant than InputStreamReader for small inputs
-            return factory.createParser(new StringReader(json.toStringUtf8()));
+            // java.io.Reader is more performant than InputStreamReader for small inputs
+            return factory.createParser(Reader.of(json.toStringUtf8()));
         }
 
         return factory.createParser(new InputStreamReader(json.getInput(), UTF_8));
@@ -178,8 +194,8 @@ public final class JsonUtil
                     isValidJsonObjectKeyType(mapType.getKeyType())) &&
                     canCastToJson(mapType.getValueType());
         }
-        if (type instanceof RowType) {
-            return type.getTypeParameters().stream().allMatch(JsonUtil::canCastToJson);
+        if (type instanceof RowType rowType) {
+            return rowType.getFieldTypes().stream().allMatch(JsonUtil::canCastToJson);
         }
         return false;
     }
@@ -204,8 +220,8 @@ public final class JsonUtil
         if (type instanceof MapType mapType) {
             return isValidJsonObjectKeyType(mapType.getKeyType()) && canCastFromJson(mapType.getValueType());
         }
-        if (type instanceof RowType) {
-            return type.getTypeParameters().stream().allMatch(JsonUtil::canCastFromJson);
+        if (type instanceof RowType rowType) {
+            return rowType.getFieldTypes().stream().allMatch(JsonUtil::canCastFromJson);
         }
         return false;
     }
@@ -324,7 +340,7 @@ public final class JsonUtil
                         createJsonGeneratorWriter(mapType.getValueType()));
             }
             if (type instanceof RowType rowType) {
-                List<Type> fieldTypes = type.getTypeParameters();
+                List<Type> fieldTypes = rowType.getFieldTypes();
                 List<JsonGeneratorWriter> fieldWriters = new ArrayList<>(fieldTypes.size());
                 for (int i = 0; i < fieldTypes.size(); i++) {
                     fieldWriters.add(createJsonGeneratorWriter(fieldTypes.get(i)));
@@ -631,7 +647,7 @@ public final class JsonUtil
                 }
 
                 jsonGenerator.writeStartObject();
-                for (Map.Entry<String, Integer> entry : orderedKeyToValuePosition.entrySet()) {
+                for (Entry<String, Integer> entry : orderedKeyToValuePosition.entrySet()) {
                     jsonGenerator.writeFieldName(entry.getKey());
                     valueWriter.writeJsonValue(jsonGenerator, rawValueBlock, rawOffset + entry.getValue());
                 }
@@ -663,10 +679,10 @@ public final class JsonUtil
                 SqlRow sqlRow = type.getObject(block, position);
                 int rawIndex = sqlRow.getRawIndex();
 
-                List<TypeSignatureParameter> typeSignatureParameters = type.getTypeSignature().getParameters();
+                List<Field> fields = type.getFields();
                 jsonGenerator.writeStartObject();
                 for (int i = 0; i < sqlRow.getFieldCount(); i++) {
-                    jsonGenerator.writeFieldName(typeSignatureParameters.get(i).getNamedTypeSignature().getName().orElse(""));
+                    jsonGenerator.writeFieldName(fields.get(i).getName().orElse(""));
                     fieldWriters.get(i).writeJsonValue(jsonGenerator, sqlRow.getRawFieldBlock(i), rawIndex);
                 }
                 jsonGenerator.writeEndObject();
@@ -686,8 +702,8 @@ public final class JsonUtil
             // An alternative is calling getLongValue and then BigintOperators.castToVarchar.
             // It doesn't work as well because it can result in overflow and underflow exceptions for large integral numbers.
             case VALUE_NUMBER_INT -> Slices.utf8Slice(parser.getText());
-            case VALUE_TRUE -> BooleanOperators.castToVarchar(true);
-            case VALUE_FALSE -> BooleanOperators.castToVarchar(false);
+            case VALUE_TRUE -> BooleanOperators.castToVarchar(UNBOUNDED_LENGTH, true);
+            case VALUE_FALSE -> BooleanOperators.castToVarchar(UNBOUNDED_LENGTH, false);
             default -> throw new JsonCastException(format("Unexpected token when cast to %s: %s", StandardTypes.VARCHAR, parser.getText()));
         };
     }

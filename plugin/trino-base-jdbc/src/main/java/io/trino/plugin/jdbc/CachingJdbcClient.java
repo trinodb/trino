@@ -66,13 +66,14 @@ import java.util.OptionalLong;
 import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
+import java.util.function.Consumer;
 
-import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.cache.CacheUtils.invalidateAllIf;
 import static java.util.Objects.requireNonNull;
+import static java.util.Objects.requireNonNullElse;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 public class CachingJdbcClient
@@ -424,10 +425,10 @@ public class CachingJdbcClient
             ConnectorSession session,
             JdbcTableHandle handle,
             Map<Integer, Collection<ColumnHandle>> updateColumnHandles,
-            List<Runnable> rollbackActions,
+            Consumer<Runnable> rollbackActionCollector,
             RetryMode retryMode)
     {
-        return delegate.beginMerge(session, handle, updateColumnHandles, rollbackActions, retryMode);
+        return delegate.beginMerge(session, handle, updateColumnHandles, rollbackActionCollector, retryMode);
     }
 
     @Override
@@ -599,9 +600,9 @@ public class CachingJdbcClient
     }
 
     @Override
-    public JdbcOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata)
+    public JdbcOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, Consumer<Runnable> rollbackActionCollector)
     {
-        return delegate.beginCreateTable(session, tableMetadata);
+        return delegate.beginCreateTable(session, tableMetadata, rollbackActionCollector);
     }
 
     @Override
@@ -717,7 +718,7 @@ public class CachingJdbcClient
 
     private static Object getSessionProperty(ConnectorSession session, PropertyMetadata<?> property)
     {
-        return firstNonNull(session.getProperty(property.getName(), property.getJavaType()), NULL_MARKER);
+        return requireNonNullElse(session.getProperty(property.getName(), property.getJavaType()), NULL_MARKER);
     }
 
     private void invalidateSchemasCache()

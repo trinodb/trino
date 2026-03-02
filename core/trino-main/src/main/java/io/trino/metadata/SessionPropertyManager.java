@@ -51,7 +51,6 @@ import java.util.TreeMap;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
-import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.spi.StandardErrorCode.INVALID_SESSION_PROPERTY;
@@ -59,6 +58,7 @@ import static io.trino.spi.type.TypeUtils.writeNativeValue;
 import static io.trino.sql.analyzer.ConstantEvaluator.evaluateConstant;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
+import static java.util.Objects.requireNonNullElse;
 
 public final class SessionPropertyManager
 {
@@ -131,7 +131,7 @@ public final class SessionPropertyManager
         ImmutableList.Builder<SessionPropertyValue> sessionPropertyValues = ImmutableList.builder();
         Map<String, String> systemProperties = session.getSystemProperties();
         for (PropertyMetadata<?> property : new TreeMap<>(systemSessionProperties).values()) {
-            String defaultValue = firstNonNull(property.getDefaultValue(), "").toString();
+            String defaultValue = requireNonNullElse(property.getDefaultValue(), "").toString();
             String value = systemProperties.getOrDefault(property.getName(), defaultValue);
             sessionPropertyValues.add(new SessionPropertyValue(
                     value,
@@ -150,7 +150,7 @@ public final class SessionPropertyManager
             Map<String, String> connectorProperties = session.getCatalogProperties(catalogName);
 
             for (PropertyMetadata<?> property : new TreeMap<>(connectorSessionProperties.getService(catalogHandle)).values()) {
-                String defaultValue = firstNonNull(property.getDefaultValue(), "").toString();
+                String defaultValue = requireNonNullElse(property.getDefaultValue(), "").toString();
                 String value = connectorProperties.getOrDefault(property.getName(), defaultValue);
 
                 sessionPropertyValues.add(new SessionPropertyValue(

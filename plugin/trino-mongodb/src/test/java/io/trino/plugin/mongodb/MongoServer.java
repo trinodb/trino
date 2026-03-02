@@ -14,7 +14,7 @@
 package io.trino.plugin.mongodb;
 
 import com.mongodb.ConnectionString;
-import org.testcontainers.containers.MongoDBContainer;
+import org.testcontainers.mongodb.MongoDBContainer;
 
 import java.io.Closeable;
 

@@ -18,7 +18,6 @@ import com.google.common.util.concurrent.Futures;
 import io.airlift.testing.TestingTicker;
 import io.airlift.units.DataSize;
 import io.trino.Session;
-import io.trino.client.NodeVersion;
 import io.trino.connector.CatalogHandle;
 import io.trino.execution.StageId;
 import io.trino.execution.TaskId;
@@ -26,6 +25,7 @@ import io.trino.memory.MemoryInfo;
 import io.trino.node.InternalNode;
 import io.trino.node.TestingInternalNodeManager;
 import io.trino.spi.HostAddress;
+import io.trino.spi.NodeVersion;
 import io.trino.spi.QueryId;
 import io.trino.spi.memory.MemoryPoolInfo;
 import io.trino.testing.assertions.Assert;
@@ -131,11 +131,11 @@ public class TestBinPackingNodeAllocator
     {
         return new MemoryInfo(
                 4,
+                0,
                 new MemoryPoolInfo(
                         DataSize.of(64, GIGABYTE).toBytes(),
                         usedMemory.toBytes(),
                         0,
-                        ImmutableMap.of(),
                         ImmutableMap.of(),
                         ImmutableMap.of(),
                         taskMemoryUsage.entrySet().stream()
@@ -982,7 +982,7 @@ public class TestBinPackingNodeAllocator
     }
 
     @Test
-    @Timeout(value = TEST_TIMEOUT + 3000, unit = MILLISECONDS)
+    @Timeout(value = TEST_TIMEOUT + 5000, unit = MILLISECONDS)
     public void testFailover()
     {
         TestingInternalNodeManager nodeManager = TestingInternalNodeManager.createDefault(NODE_1, NODE_2);

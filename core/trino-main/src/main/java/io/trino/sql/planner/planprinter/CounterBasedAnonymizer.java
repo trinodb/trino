@@ -153,8 +153,8 @@ public class CounterBasedAnonymizer
     public String anonymize(TableHandle tableHandle, TableInfo tableInfo)
     {
         ImmutableMap.Builder<String, String> result = ImmutableMap.<String, String>builder()
-                .put("table", anonymize(tableInfo.getTableName()));
-        tableInfo.getConnectorName().ifPresent(connector -> result.put("connector", connector));
+                .put("table", anonymize(tableInfo.tableName()));
+        tableInfo.connectorName().ifPresent(connector -> result.put("connector", connector));
         return formatMap(result.buildOrThrow());
     }
 

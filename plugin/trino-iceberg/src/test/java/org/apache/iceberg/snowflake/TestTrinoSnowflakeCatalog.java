@@ -21,7 +21,6 @@ import io.trino.filesystem.s3.S3FileSystemConfig;
 import io.trino.filesystem.s3.S3FileSystemFactory;
 import io.trino.filesystem.s3.S3FileSystemStats;
 import io.trino.metastore.TableInfo;
-import io.trino.plugin.hive.NodeVersion;
 import io.trino.plugin.iceberg.ColumnIdentity;
 import io.trino.plugin.iceberg.CommitTaskData;
 import io.trino.plugin.iceberg.IcebergMetadata;
@@ -33,6 +32,7 @@ import io.trino.plugin.iceberg.catalog.snowflake.IcebergSnowflakeCatalogConfig;
 import io.trino.plugin.iceberg.catalog.snowflake.SnowflakeIcebergTableOperationsProvider;
 import io.trino.plugin.iceberg.catalog.snowflake.TestingSnowflakeServer;
 import io.trino.plugin.iceberg.catalog.snowflake.TrinoSnowflakeCatalog;
+import io.trino.spi.NodeVersion;
 import io.trino.spi.catalog.CatalogName;
 import io.trino.spi.connector.ConnectorMetadata;
 import io.trino.spi.connector.ConnectorViewDefinition;
@@ -48,6 +48,7 @@ import org.apache.iceberg.Table;
 import org.apache.iceberg.expressions.Expressions;
 import org.apache.iceberg.jdbc.JdbcClientPool;
 import org.apache.iceberg.types.Types;
+import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
@@ -60,6 +61,7 @@ import java.util.Optional;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.google.common.util.concurrent.MoreExecutors.newDirectExecutorService;
 import static io.airlift.json.JsonCodec.jsonCodec;
+import static io.airlift.units.Duration.ZERO;
 import static io.trino.plugin.iceberg.IcebergTestUtils.FILE_IO_FACTORY;
 import static io.trino.plugin.iceberg.IcebergTestUtils.TABLE_STATISTICS_READER;
 import static io.trino.plugin.iceberg.catalog.snowflake.TestIcebergSnowflakeCatalogConnectorSmokeTest.S3_ACCESS_KEY;
@@ -73,6 +75,7 @@ import static io.trino.plugin.iceberg.catalog.snowflake.TestingSnowflakeServer.S
 import static io.trino.plugin.iceberg.catalog.snowflake.TestingSnowflakeServer.SNOWFLAKE_TEST_DATABASE;
 import static io.trino.plugin.iceberg.catalog.snowflake.TestingSnowflakeServer.SNOWFLAKE_USER;
 import static io.trino.plugin.iceberg.catalog.snowflake.TestingSnowflakeServer.TableType.ICEBERG;
+import static io.trino.plugin.iceberg.delete.DeletionVectorWriter.UNSUPPORTED_DELETION_VECTOR_WRITER;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
@@ -149,6 +152,12 @@ public class TestTrinoSnowflakeCatalog
     }
 
     @Override
+    protected void createNamespaceWithProperties(TrinoCatalog catalog, String namespace, Map<String, String> namespaceProperties)
+    {
+        Assumptions.abort("Snowflake catalog does not support creating namespaces");
+    }
+
+    @Override
     protected TrinoCatalog createTrinoCatalog(boolean useUniqueTableLocations)
     {
         Map<String, String> properties = getSnowflakeDriverProperties(
@@ -166,7 +175,8 @@ public class TestTrinoSnowflakeCatalog
                                 .setAwsAccessKey(S3_ACCESS_KEY)
                                 .setAwsSecretKey(S3_SECRET_KEY)
                                 .setRegion(S3_REGION)
-                                .setStreamingPartSize(DataSize.valueOf("5.5MB")), new S3FileSystemStats());
+                                .setStreamingPartSize(DataSize.valueOf("5.5MB")),
+                        new S3FileSystemStats());
 
         CatalogName catalogName = new CatalogName("snowflake_test_catalog");
         TrinoIcebergSnowflakeCatalogFileIOFactory catalogFileIOFactory = new TrinoIcebergSnowflakeCatalogFileIOFactory(s3FileSystemFactory, FILE_IO_FACTORY, ConnectorIdentity.ofUser("trino"));
@@ -224,13 +234,16 @@ public class TestTrinoSnowflakeCatalog
                 },
                 TABLE_STATISTICS_READER,
                 new TableStatisticsWriter(new NodeVersion("test-version")),
+                UNSUPPORTED_DELETION_VECTOR_WRITER,
                 Optional.empty(),
                 false,
                 _ -> false,
                 newDirectExecutorService(),
                 directExecutor(),
                 newDirectExecutorService(),
-                newDirectExecutorService());
+                newDirectExecutorService(),
+                0,
+                ZERO);
         assertThat(icebergMetadata.schemaExists(SESSION, namespace)).as("icebergMetadata.schemaExists(namespace)")
                 .isTrue();
         assertThat(icebergMetadata.schemaExists(SESSION, schema)).as("icebergMetadata.schemaExists(schema)")

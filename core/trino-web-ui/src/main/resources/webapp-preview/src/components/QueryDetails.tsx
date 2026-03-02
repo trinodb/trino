@@ -11,15 +11,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-import React, { ReactNode, useState } from 'react'
-import { useLocation, useParams } from 'react-router-dom'
-import { Alert, Box, Divider, Grid2 as Grid, Tabs, Tab, Typography } from '@mui/material'
+import React, { ReactNode } from 'react'
+import { useParams, useSearchParams } from 'react-router-dom'
+import { Box, Divider, Grid, Tab, Tabs, Typography } from '@mui/material'
 import { QueryJson } from './QueryJson'
 import { QueryReferences } from './QueryReferences'
 import { QueryLivePlan } from './QueryLivePlan'
 import { QueryOverview } from './QueryOverview'
 import { QueryStagePerformance } from './QueryStagePerformance'
-import { Texts } from '../constant.ts'
+import { QuerySplitsTimeline } from './QuerySplitsTimeline'
 
 const tabValues = ['overview', 'livePlan', 'stagePerformance', 'splits', 'json', 'references'] as const
 type TabValue = (typeof tabValues)[number]
@@ -27,21 +27,30 @@ const tabComponentMap: Record<TabValue, ReactNode> = {
     overview: <QueryOverview />,
     livePlan: <QueryLivePlan />,
     stagePerformance: <QueryStagePerformance />,
-    splits: <Alert severity="error">{Texts.Error.NotImplemented}</Alert>,
+    splits: <QuerySplitsTimeline />,
     json: <QueryJson />,
     references: <QueryReferences />,
 }
 export const QueryDetails = () => {
     const { queryId } = useParams()
-    const location = useLocation()
-    const queryParams = new URLSearchParams(location.search)
-    const requestedTab = queryParams.get('tab')
-    const [tabValue, setTabValue] = useState<TabValue>(
-        tabValues.includes(requestedTab as TabValue) ? (requestedTab as TabValue) : 'overview'
-    )
+    const [searchParams, setSearchParams] = useSearchParams()
+    const requestedTab = searchParams.get('tab')
+    const tabValue: TabValue = tabValues.includes(requestedTab as TabValue) ? (requestedTab as TabValue) : 'overview'
 
     const handleTabChange = (_: React.SyntheticEvent, newTab: TabValue) => {
-        setTabValue(newTab)
+        const nextParams = new URLSearchParams(searchParams)
+
+        if (newTab === 'overview') {
+            nextParams.delete('tab')
+        } else {
+            nextParams.set('tab', newTab)
+        }
+
+        if (nextParams.toString() === searchParams.toString()) {
+            return
+        }
+
+        setSearchParams(nextParams)
     }
 
     return (
@@ -61,7 +70,7 @@ export const QueryDetails = () => {
                                 <Tab value="overview" label="Overview" />
                                 <Tab value="livePlan" label="Live plan" />
                                 <Tab value="stagePerformance" label="Stage performance" />
-                                <Tab value="splits" label="Splits" disabled />
+                                <Tab value="splits" label="Splits" />
                                 <Tab value="json" label="JSON" />
                                 <Tab value="references" label="References" />
                             </Tabs>

@@ -70,8 +70,7 @@ public final class TestingDeltaLakeUtils
                 Optional.empty(),
                 Optional.empty(),
                 0,
-                false,
-                Optional.empty());
+                false);
     }
 
     public static DeltaLakeTableHandle createTable(MetadataEntry metadataEntry, ProtocolEntry protocolEntry)
@@ -91,8 +90,7 @@ public final class TestingDeltaLakeUtils
                 Optional.empty(),
                 Optional.empty(),
                 0,
-                false,
-                Optional.empty());
+                false);
     }
 
     public static List<AddFileEntry> getTableActiveFiles(TransactionLogAccess transactionLogAccess, TrinoFileSystemFactory fileSystemFactory, String tableLocation)

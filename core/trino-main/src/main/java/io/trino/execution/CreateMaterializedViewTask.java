@@ -27,6 +27,7 @@ import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.ViewColumn;
 import io.trino.security.AccessControl;
 import io.trino.spi.TrinoException;
+import io.trino.spi.connector.ConnectorMaterializedViewDefinition.WhenStaleBehavior;
 import io.trino.spi.type.Type;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.analyzer.Analysis;
@@ -50,11 +51,13 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static io.trino.execution.ParameterExtractor.bindParameters;
+import static io.trino.metadata.MaterializedViewDefinition.DEFAULT_WHEN_STALE_BEHAVIOR;
 import static io.trino.metadata.MetadataUtil.createQualifiedObjectName;
 import static io.trino.metadata.MetadataUtil.getRequiredCatalogHandle;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.TYPE_MISMATCH;
 import static io.trino.spi.connector.ConnectorCapabilities.MATERIALIZED_VIEW_GRACE_PERIOD;
+import static io.trino.spi.connector.ConnectorCapabilities.MATERIALIZED_VIEW_WHEN_STALE_BEHAVIOR;
 import static io.trino.sql.SqlFormatterUtil.getFormattedSql;
 import static io.trino.sql.analyzer.ConstantEvaluator.evaluateConstant;
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
@@ -156,12 +159,18 @@ public class CreateMaterializedViewTask
                     return Duration.ofMillis(milliseconds);
                 });
 
+        WhenStaleBehavior whenStale = toConnectorWhenStaleBehavior(statement.getWhenStaleBehavior());
+        if (!isWhenStaleBehaviorSupported(session, whenStale, catalogHandle)) {
+            throw semanticException(NOT_SUPPORTED, statement, "Catalog '%s' does not support WHEN STALE", catalogName);
+        }
+
         MaterializedViewDefinition definition = new MaterializedViewDefinition(
                 sql,
                 session.getCatalog(),
                 session.getSchema(),
                 columns,
                 gracePeriod,
+                whenStale,
                 statement.getComment(),
                 session.getIdentity(),
                 session.getPath().getPath().stream()
@@ -181,5 +190,22 @@ public class CreateMaterializedViewTask
         accessControl.checkCanCreateMaterializedView(session.toSecurityContext(), name, explicitlySetProperties);
         plannerContext.getMetadata().createMaterializedView(session, name, definition, properties, statement.isReplace(), statement.isNotExists());
         return analysis;
+    }
+
+    private boolean isWhenStaleBehaviorSupported(Session session, WhenStaleBehavior whenStale, CatalogHandle catalogHandle)
+    {
+        return whenStale == DEFAULT_WHEN_STALE_BEHAVIOR ||
+               plannerContext.getMetadata().getConnectorCapabilities(session, catalogHandle).contains(MATERIALIZED_VIEW_WHEN_STALE_BEHAVIOR);
+    }
+
+    private static WhenStaleBehavior toConnectorWhenStaleBehavior(Optional<CreateMaterializedView.WhenStaleBehavior> whenStale)
+    {
+        if (whenStale.isEmpty()) {
+            return DEFAULT_WHEN_STALE_BEHAVIOR;
+        }
+        return switch (whenStale.get()) {
+            case INLINE -> WhenStaleBehavior.INLINE;
+            case FAIL -> WhenStaleBehavior.FAIL;
+        };
     }
 }

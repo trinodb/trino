@@ -42,12 +42,12 @@ Docker image](https://hub.docker.com/r/trinodb/trino).
 
 ## Installing Trino
 
-Download the Trino server tarball, {maven_download}`server`, and unpack it. The
+Download the Trino server tarball, {download_gh}`server`, and unpack it. The
 tarball contains a single top-level directory, `trino-server-|trino_version|`,
 which we call the *installation* directory.
 
 The default tarball contains all plugins and must be configured for use. The
-minimal `server-core` tarball, {maven_download}`server-core`, contains a minimal
+minimal `server-core` tarball, {download_gh}`server-core`, contains a minimal
 set of essential plugins, and it is therefore mostly suitable as a base for
 custom tarball creation.
 
@@ -138,9 +138,6 @@ The following provides a good starting point for creating `etc/jvm.config`:
 -XX:PerBytecodeRecompilationCutoff=10000
 -Djdk.attach.allowAttachSelf=true
 -Djdk.nio.maxCachedBufferSize=2000000
--Dfile.encoding=UTF-8
-# Allow loading dynamic agent used by JOL
--XX:+EnableDynamicAgentLoading
 ```
 
 You must adjust the value for the memory used by Trino, specified with `-Xmx`

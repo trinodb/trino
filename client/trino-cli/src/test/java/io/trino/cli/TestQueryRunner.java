@@ -38,7 +38,6 @@ import java.util.OptionalDouble;
 import java.util.OptionalLong;
 import java.util.Properties;
 
-import static com.google.common.io.ByteStreams.nullOutputStream;
 import static com.google.common.net.HttpHeaders.CONTENT_TYPE;
 import static com.google.common.net.HttpHeaders.LOCATION;
 import static com.google.common.net.HttpHeaders.SET_COOKIE;
@@ -47,6 +46,7 @@ import static io.trino.cli.TerminalUtils.getTerminal;
 import static io.trino.client.ClientStandardTypes.BIGINT;
 import static io.trino.client.TrinoJsonCodec.jsonCodec;
 import static io.trino.client.auth.external.ExternalRedirectStrategy.PRINT;
+import static java.io.OutputStream.nullOutputStream;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_METHOD;

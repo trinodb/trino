@@ -24,6 +24,7 @@ import io.trino.spi.connector.SchemaTableName;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
 import org.apache.iceberg.BaseTable;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 
@@ -74,7 +75,6 @@ final class TestIcebergS3TablesConnectorSmokeTest
                 .addIcebergProperty("iceberg.rest-catalog.security", "sigv4")
                 .addIcebergProperty("iceberg.rest-catalog.signing-name", "glue")
                 .addIcebergProperty("iceberg.writer-sort-buffer-size", "1MB")
-                .addIcebergProperty("iceberg.allowed-extra-properties", "write.metadata.delete-after-commit.enabled,write.metadata.previous-versions-max")
                 .addIcebergProperty("fs.native-s3.enabled", "true")
                 .addIcebergProperty("s3.region", AWS_REGION)
                 .addIcebergProperty("s3.aws-access-key", AWS_ACCESS_KEY_ID)
@@ -117,9 +117,15 @@ final class TestIcebergS3TablesConnectorSmokeTest
     }
 
     @Override
-    protected void dropTableFromMetastore(String tableName)
+    protected void dropTableFromCatalog(String tableName)
     {
         throw new UnsupportedOperationException();
+    }
+
+    @Override
+    protected void verifyAnalyzeFailurePermissible(Exception e)
+    {
+        assertThat(e).hasMessageContaining("S3 Tables do not support analyze");
     }
 
     @Test
@@ -292,4 +298,14 @@ final class TestIcebergS3TablesConnectorSmokeTest
     @Test
     @Override // The procedure is unsupported in S3 Tables
     public void testUnregisterTableAccessControl() {}
+
+    @Test
+    @Override
+    @Disabled // TODO https://github.com/trinodb/trino/issues/25129 Fix flaky test
+    public void testSelectInformationSchemaTables() {}
+
+    @Test
+    @Override
+    @Disabled // TODO https://github.com/trinodb/trino/issues/25129 Fix flaky test
+    public void testIcebergTablesSystemTable() {}
 }

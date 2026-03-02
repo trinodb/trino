@@ -113,6 +113,7 @@ import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static java.lang.String.format;
+import static java.nio.file.StandardCopyOption.REPLACE_EXISTING;
 import static java.time.ZoneOffset.UTC;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -141,6 +142,8 @@ public class TestDeltaLakeBasic
             new ResourceTable("liquid_clustering", "deltalake/liquid_clustering"),
             new ResourceTable("region_91_lts", "databricks91/region"),
             new ResourceTable("region_104_lts", "databricks104/region"),
+            new ResourceTable("region_113_lts", "databricks113/region"),
+            new ResourceTable("region_122_lts", "databricks122/region"),
             new ResourceTable("timestamp_ntz", "databricks131/timestamp_ntz"),
             new ResourceTable("timestamp_ntz_partition", "databricks131/timestamp_ntz_partition"),
             new ResourceTable("uniform_hudi", "deltalake/uniform_hudi"),
@@ -208,8 +211,8 @@ public class TestDeltaLakeBasic
                             "('age', 'integer', '', ''), " +
                             "('married', 'boolean', '', ''), " +
                             "('gender', 'varchar', '', ''), " +
-                            "('phones', 'array(row(number varchar, label varchar))', '', ''), " +
-                            "('address', 'row(street varchar, city varchar, state varchar, zip varchar)', '', ''), " +
+                            "('phones', 'array(row(\"number\" varchar, \"label\" varchar))', '', ''), " +
+                            "('address', 'row(\"street\" varchar, \"city\" varchar, \"state\" varchar, \"zip\" varchar)', '', ''), " +
                             "('income', 'double', '', '')");
         }
     }
@@ -239,6 +242,22 @@ public class TestDeltaLakeBasic
     void testDatabricks104()
     {
         assertThat(query("SELECT * FROM region_104_lts"))
+                .skippingTypesCheck() // name and comment columns are unbounded varchar in Delta Lake and bounded varchar in TPCH
+                .matches("SELECT * FROM tpch.tiny.region");
+    }
+
+    @Test
+    void testDatabricks113()
+    {
+        assertThat(query("SELECT * FROM region_113_lts"))
+                .skippingTypesCheck() // name and comment columns are unbounded varchar in Delta Lake and bounded varchar in TPCH
+                .matches("SELECT * FROM tpch.tiny.region");
+    }
+
+    @Test
+    void testDatabricks122()
+    {
+        assertThat(query("SELECT * FROM region_122_lts"))
                 .skippingTypesCheck() // name and comment columns are unbounded varchar in Delta Lake and bounded varchar in TPCH
                 .matches("SELECT * FROM tpch.tiny.region");
     }
@@ -327,6 +346,175 @@ public class TestDeltaLakeBasic
                 .containsPattern("(delta\\.columnMapping\\.physicalName.*?){11}");
     }
 
+    /**
+     * @see databricks164.test_write_checkpoint_on_schema_change
+     */
+    @Test
+    void testDatabricksWriteCheckpointOnSchemaChange()
+            throws Exception
+    {
+        String tableName = "test_dbx_write_checkpoint_on_schema_change" + randomNameSuffix();
+        Path tableLocation = catalogDir.resolve(tableName);
+        copyDirectoryContents(new File(Resources.getResource("databricks164/test_write_checkpoint_on_schema_change").toURI()).toPath(), tableLocation);
+        assertUpdate("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')".formatted(tableName, tableLocation.toUri()));
+
+        Path tableLocationPath = Path.of(getTableLocation(tableName).replace("file://", ""));
+
+        // verify checkpoint at version 3 not exists
+        // alter table to add a new column not treated as schema change, thus no new checkpoint should be created
+        assertThat(Files.exists(tableLocationPath.resolve("_delta_log/00000000000000000003.checkpoint.parquet"))).isFalse();
+        assertThat(query("SELECT * FROM " + tableName + " FOR VERSION AS OF 4"))
+                .matches("VALUES (4, varchar 'version4')");
+
+        // verify checkpoint at version 5 exists
+        // alter table to drop a column treated as schema change, thus new checkpoint should be created
+        assertThat(Files.exists(tableLocationPath.resolve("_delta_log/00000000000000000005.checkpoint.parquet"))).isTrue();
+        assertThat(query("SELECT * FROM " + tableName + " FOR VERSION AS OF 6"))
+                .matches("VALUES varchar 'version6'");
+
+        // verify checkpoint at version 7 exists
+        // alter table to rename a column treated as schema change, thus new checkpoint should be created
+        assertThat(Files.exists(tableLocationPath.resolve("_delta_log/00000000000000000007.checkpoint.parquet"))).isTrue();
+        assertThat(query("SELECT * FROM " + tableName + " FOR VERSION AS OF 8"))
+                .matches("VALUES varchar 'version8'");
+
+        // verify checkpoint at version 9 exists
+        // alter table to change column type treated as schema change, thus new checkpoint should be created
+        assertThat(Files.exists(tableLocationPath.resolve("_delta_log/00000000000000000009.checkpoint.parquet"))).isTrue();
+        assertThat(query("SELECT * FROM " + tableName + " FOR VERSION AS OF 10"))
+                .matches("VALUES 10");
+
+        // verify checkpoint at version 11 exists
+        // alter table to change column type back treated as schema change, thus new checkpoint should be created
+        assertThat(Files.exists(tableLocationPath.resolve("_delta_log/00000000000000000011.checkpoint.parquet"))).isTrue();
+        assertThat(query("SELECT * FROM " + tableName + " FOR VERSION AS OF 12"))
+                .matches("VALUES varchar 'version12'");
+    }
+
+    @Test
+    void testWriteCheckpointOnSchemaChange()
+    {
+        try (TestTable table = newTrinoTable("test_write_checkpoint_on_schema_change", "(x int) WITH (checkpoint_interval = 2)")) {
+            Path tableLocation = Path.of(getTableLocation(table.getName()).replace("file://", ""));
+
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES 1", 1);
+            // generate checkpoint at version 2
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES 2", 1);
+            assertThat(query("TABLE " + table.getName()))
+                    .matches("VALUES 1, 2");
+            assertThat(Files.exists(tableLocation.resolve("_delta_log/00000000000000000002.checkpoint.parquet"))).isTrue();
+
+            // alter table to add a new column at version 3
+            assertUpdate("CREATE OR REPLACE TABLE " + table.getName() + " (x int, y varchar) WITH (checkpoint_interval = 20)");
+            // alter table to add a new column not treated as schema change, thus no new checkpoint should be created
+            assertThat(Files.exists(tableLocation.resolve("_delta_log/00000000000000000003.checkpoint.parquet"))).isFalse();
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (4, 'version4')", 1);
+            assertThat(query("TABLE " + table.getName()))
+                    .matches("VALUES (4, varchar 'version4')");
+
+            // alter table to drop a column at version 5
+            assertUpdate("CREATE OR REPLACE TABLE " + table.getName() + " (y varchar) WITH (checkpoint_interval = 20)");
+            // alter table to drop a column treated as schema change, thus new checkpoint should be created
+            assertThat(Files.exists(tableLocation.resolve("_delta_log/00000000000000000005.checkpoint.parquet"))).isTrue();
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES 'version6'", 1);
+            assertThat(query("TABLE " + table.getName()))
+                    .matches("VALUES varchar 'version6'");
+
+            // alter table to rename a column at version 7
+            assertUpdate("CREATE OR REPLACE TABLE " + table.getName() + " (z varchar) WITH (checkpoint_interval = 20)");
+            // alter table to rename a column treated as schema change, thus new checkpoint should be created
+            assertThat(Files.exists(tableLocation.resolve("_delta_log/00000000000000000007.checkpoint.parquet"))).isTrue();
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES 'version8'", 1);
+            assertThat(query("TABLE " + table.getName()))
+                    .matches("VALUES varchar 'version8'");
+
+            // alter table to change column type at version 9
+            assertUpdate("CREATE OR REPLACE TABLE " + table.getName() + " (z int) WITH (checkpoint_interval = 20)");
+            // alter table to change column type treated as schema change, thus new checkpoint should be created
+            assertThat(Files.exists(tableLocation.resolve("_delta_log/00000000000000000009.checkpoint.parquet"))).isTrue();
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES 10", 1);
+            assertThat(query("TABLE " + table.getName()))
+                    .matches("VALUES 10");
+
+            // alter table to change column type back at version 11, test change type again
+            assertUpdate("CREATE OR REPLACE TABLE " + table.getName() + " (z varchar) WITH (checkpoint_interval = 20)");
+            assertThat(Files.exists(tableLocation.resolve("_delta_log/00000000000000000011.checkpoint.parquet"))).isTrue();
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES 'version12'", 1);
+            assertThat(query("TABLE " + table.getName()))
+                    .matches("VALUES varchar 'version12'");
+        }
+    }
+
+    @Test
+    void testWriteCheckpointOnSchemaChangeCTAS()
+    {
+        try (TestTable table = newTrinoTable("test_write_checkpoint_on_schema_change", "(x int) WITH (checkpoint_interval = 2)")) {
+            Path tableLocation = Path.of(getTableLocation(table.getName()).replace("file://", ""));
+
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES 1", 1);
+            // generate checkpoint at version 2
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES 2", 1);
+            assertThat(query("TABLE " + table.getName()))
+                    .matches("VALUES 1, 2");
+            assertThat(Files.exists(tableLocation.resolve("_delta_log/00000000000000000002.checkpoint.parquet"))).isTrue();
+
+            // alter table to add a new column at version 3
+            assertUpdate("CREATE OR REPLACE TABLE " + table.getName() + " WITH (checkpoint_interval = 20) AS SELECT 3 x, CAST('version3' AS varchar) y", 1);
+            // alter table to add a new column not treated as schema change, thus no new checkpoint should be created
+            assertThat(Files.exists(tableLocation.resolve("_delta_log/00000000000000000003.checkpoint.parquet"))).isFalse();
+            assertThat(query("TABLE " + table.getName()))
+                    .matches("VALUES (3, varchar 'version3')");
+
+            // alter table to drop a column at version 4
+            assertUpdate("CREATE OR REPLACE TABLE " + table.getName() + " WITH (checkpoint_interval = 20) AS SELECT CAST('version4' AS varchar) y", 1);
+            // alter table to drop a column treated as schema change, thus new checkpoint should be created
+            assertThat(Files.exists(tableLocation.resolve("_delta_log/00000000000000000004.checkpoint.parquet"))).isTrue();
+            assertThat(query("TABLE " + table.getName()))
+                    .matches("VALUES varchar 'version4'");
+
+            // alter table to rename a column at version 5
+            assertUpdate("CREATE OR REPLACE TABLE " + table.getName() + " WITH (checkpoint_interval = 20) AS SELECT CAST('version5' AS varchar) z", 1);
+            // alter table to rename a column treated as schema change, thus new checkpoint should be created
+            assertThat(Files.exists(tableLocation.resolve("_delta_log/00000000000000000005.checkpoint.parquet"))).isTrue();
+            assertThat(query("TABLE " + table.getName()))
+                    .matches("VALUES varchar 'version5'");
+
+            // alter table to change column type at version 6
+            assertUpdate("CREATE OR REPLACE TABLE " + table.getName() + " WITH (checkpoint_interval = 20) AS SELECT 6 z", 1);
+            // alter table to change column type treated as schema change, thus new checkpoint should be created
+            assertThat(Files.exists(tableLocation.resolve("_delta_log/00000000000000000006.checkpoint.parquet"))).isTrue();
+            assertThat(query("TABLE " + table.getName()))
+                    .matches("VALUES 6");
+
+            // alter table to change column type back at version 7, test change type again
+            assertUpdate("CREATE OR REPLACE TABLE " + table.getName() + " WITH (checkpoint_interval = 20) AS SELECT CAST('version7' AS varchar) z", 1);
+            assertThat(Files.exists(tableLocation.resolve("_delta_log/00000000000000000007.checkpoint.parquet"))).isTrue();
+            assertThat(query("TABLE " + table.getName()))
+                    .matches("VALUES varchar 'version7'");
+        }
+    }
+
+    @Test
+    void testCreateOrReplacePreservesFeatures()
+            throws Exception
+    {
+        try (TestTable table = newTrinoTable("test_create_or_replace_preserves_features_", "(x int) WITH (deletion_vectors_enabled = true)")) {
+            assertThat((String) computeScalar("SHOW CREATE TABLE " + table.getName()))
+                    .contains("deletion_vectors_enabled = true");
+
+            assertUpdate("CREATE OR REPLACE TABLE " + table.getName() + " (x int)");
+            // verify deletion_vector_enabled is preserved after CREATE OR REPLACE TABLE
+            Path tableLocation = Path.of(getTableLocation(table.getName()).replace("file://", ""));
+            ProtocolEntry protocolEntry = loadProtocolEntry(1, tableLocation);
+            assertThat(protocolEntry.readerFeaturesContains("deletionVectors")).isTrue();
+            assertThat(protocolEntry.writerFeaturesContains("deletionVectors")).isTrue();
+
+            // deletion_vectors_enabled is not enabled, since we created the table without it
+            assertThat((String) computeScalar("SHOW CREATE TABLE " + table.getName()))
+                    .doesNotContain("deletion_vectors_enabled = true");
+        }
+    }
+
     @Test // regression test for https://github.com/trinodb/trino/issues/24121
     void testPartitionValuesParsedCheckpoint()
             throws Exception
@@ -405,7 +593,7 @@ public class TestDeltaLakeBasic
             assertThat(partitionValuesParsedType.getFields().stream().collect(onlyElement()).getName().orElseThrow()).isEqualTo(physicalColumnName);
 
             TrinoParquetDataSource dataSource = new TrinoParquetDataSource(new LocalInputFile(checkpoint.toFile()), ParquetReaderOptions.defaultOptions(), new FileFormatDataSourceStats());
-            ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource);
+            ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource, Optional.empty());
             try (ParquetReader reader = createParquetReader(dataSource, parquetMetadata, ImmutableList.of(addEntryType), List.of("add"))) {
                 List<Object> actual = new ArrayList<>();
                 SourcePage page = reader.nextPage();
@@ -483,7 +671,8 @@ public class TestDeltaLakeBasic
         // Verify optimized parquet file contains the expected physical id and name
         TrinoInputFile inputFile = new LocalInputFile(tableLocation.resolve(addFileEntry.getPath()).toFile());
         ParquetMetadata parquetMetadata = MetadataReader.readFooter(
-                new TrinoParquetDataSource(inputFile, ParquetReaderOptions.defaultOptions(), new FileFormatDataSourceStats()));
+                new TrinoParquetDataSource(inputFile, ParquetReaderOptions.defaultOptions(), new FileFormatDataSourceStats()),
+                Optional.empty());
         FileMetadata fileMetaData = parquetMetadata.getFileMetaData();
         PrimitiveType physicalType = getOnlyElement(fileMetaData.getSchema().getColumns().iterator()).getPrimitiveType();
         assertThat(physicalType.getName()).isEqualTo(physicalName);
@@ -1599,7 +1788,7 @@ public class TestDeltaLakeBasic
                         "('simple_variant', 'json')," +
                         "('array_variant', 'array(json)')," +
                         "('map_variant', 'map(varchar, json)')," +
-                        "('struct_variant', 'row(x json)')," +
+                        "('struct_variant', 'row(\"x\" json)')," +
                         "('col_string', 'varchar')");
 
         assertThat(query("SELECT col_int, simple_variant, array_variant[1], map_variant['key1'], struct_variant.x, col_string FROM variant"))
@@ -1613,6 +1802,9 @@ public class TestDeltaLakeBasic
         assertQueryFails("INSERT INTO variant VALUES (2, null, null, null, null, 'new data')", "Unsupported writer features: .*");
     }
 
+    /**
+     * @see databricks154.test_variant_null
+     */
     @Test
     public void testVariantReadNull()
             throws Exception
@@ -1626,11 +1818,22 @@ public class TestDeltaLakeBasic
                 .matches("VALUES 3");
 
         assertThat(query("SELECT * FROM " + tableName + " WHERE id = 3"))
-                .matches("VALUES (3, JSON 'null')");
+                .skippingTypesCheck()
+                .matches("VALUES (3, JSON 'null', NULL)");
         assertThat(query("SELECT * FROM " + tableName + " WHERE id = 4"))
-                .matches("VALUES (4, CAST(NULL AS JSON))");
+                .skippingTypesCheck()
+                .matches("VALUES (4, NULL, NULL)");
         assertThat(query("SELECT id FROM " + tableName + " WHERE x IS NULL"))
                 .matches("VALUES 4");
+
+        assertThat(query("TABLE " + tableName))
+                .skippingTypesCheck()
+                .matches("VALUES " +
+                         "(1, JSON '{\"a\":1}', MAP(ARRAY['key1'], ARRAY[NULL]))," +
+                         "(2, JSON '{\"a\":2}', MAP(ARRAY['key1'], ARRAY[JSON '{\"key\":\"value\"}']))," +
+                         "(3, JSON 'null', NULL)," +
+                         "(4, NULL, NULL)," +
+                         "(5, JSON '{\"a\":5}', NULL)");
     }
 
     /**
@@ -2027,10 +2230,6 @@ public class TestDeltaLakeBasic
         copyDirectoryContents(new File(Resources.getResource(resourceName).toURI()).toPath(), tableLocation);
         assertUpdate("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')".formatted(tableName, tableLocation.toUri()));
 
-        Session session = Session.builder(getQueryRunner().getDefaultSession())
-                .setCatalogSessionProperty("delta", "checkpoint_filtering_enabled", "false")
-                .build();
-
         assertThat(query("SELECT id FROM " + tableName + " WHERE int_part = 10 AND string_part = 'part1'"))
                 .matches("VALUES 1");
         assertThat(query("SELECT id FROM " + tableName + " WHERE int_part != 10"))
@@ -2041,14 +2240,14 @@ public class TestDeltaLakeBasic
                 .matches("VALUES 1, 2");
         assertThat(query("SELECT id FROM " + tableName + " WHERE int_part IN (10, 20)"))
                 .matches("VALUES 1, 2");
-        assertThat(query(session, "SELECT id FROM " + tableName + " WHERE int_part IS NULL AND string_part IS NULL"))
+        assertThat(query("SELECT id FROM " + tableName + " WHERE int_part IS NULL AND string_part IS NULL"))
                 .matches("VALUES 3");
-        assertThat(query(session, "SELECT id FROM " + tableName + " WHERE int_part IS NOT NULL AND string_part IS NOT NULL"))
+        assertThat(query("SELECT id FROM " + tableName + " WHERE int_part IS NOT NULL AND string_part IS NOT NULL"))
                 .matches("VALUES 1, 2");
 
-        assertThat(query(session, "SELECT id FROM " + tableName + " WHERE int_part = 10 AND string_part = 'unmatched partition condition'"))
+        assertThat(query("SELECT id FROM " + tableName + " WHERE int_part = 10 AND string_part = 'unmatched partition condition'"))
                 .returnsEmptyResult();
-        assertThat(query(session, "SELECT id FROM " + tableName + " WHERE int_part IS NULL AND string_part IS NOT NULL"))
+        assertThat(query("SELECT id FROM " + tableName + " WHERE int_part IS NULL AND string_part IS NOT NULL"))
                 .returnsEmptyResult();
     }
 
@@ -2243,10 +2442,7 @@ public class TestDeltaLakeBasic
         copyDirectoryContents(new File(Resources.getResource("databricks133/partition_values_parsed_case_sensitive").toURI()).toPath(), tableLocation);
         assertUpdate("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')".formatted(tableName, tableLocation.toUri()));
 
-        Session session = Session.builder(getQueryRunner().getDefaultSession())
-                .setCatalogSessionProperty("delta", "checkpoint_filtering_enabled", "false")
-                .build();
-        assertThat(query(session, "SELECT * FROM " + tableName))
+        assertThat(query("SELECT * FROM " + tableName))
                 .skippingTypesCheck()
                 .matches(
                         """
@@ -2258,7 +2454,7 @@ public class TestDeltaLakeBasic
 
         // Create a new checkpoint
         assertUpdate("INSERT INTO " + tableName + " VALUES (400, 4, 'kon')", 1);
-        assertThat(query(session, "SELECT * FROM " + tableName))
+        assertThat(query("SELECT * FROM " + tableName))
                 .skippingTypesCheck()
                 .matches(
                         """
@@ -2489,7 +2685,7 @@ public class TestDeltaLakeBasic
 
         assertThat(query("DESCRIBE " + tableName)).result().projected("Column", "Type")
                 .skippingTypesCheck()
-                .matches("VALUES ('s', 'row(field integer)'), ('m', 'map(integer, integer)'), ('a', 'array(integer)')");
+                .matches("VALUES ('s', 'row(\"field\" integer)'), ('m', 'map(integer, integer)'), ('a', 'array(integer)')");
         assertThat(query("SELECT * FROM " + tableName))
                 .matches("VALUES " +
                         "(CAST(ROW(127) AS ROW(field integer)), MAP(ARRAY[-128], ARRAY[127]), ARRAY[127])," +
@@ -2740,6 +2936,50 @@ public class TestDeltaLakeBasic
                 .filter(log -> log.getMetaData() != null)
                 .collect(onlyElement());
         return transactionLog.getMetaData();
+    }
+
+    @Test
+    public void testDeepClonedTableWithCheckpointVersionZero()
+            throws Exception
+    {
+        String resource = "databricks154/clone_checkpoint_version_zero/checkpoint_v2/deep_cloned_table";
+        String tableName = "test_deep_cloned_table" + randomNameSuffix();
+        Path tableLocation = catalogDir.resolve(tableName);
+        copyDirectoryContents(new File(Resources.getResource(resource).toURI()).toPath(), tableLocation);
+        assertUpdate("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')".formatted(tableName, tableLocation.toUri()));
+
+        assertThat(query("SELECT * FROM " + tableName))
+                .matches("""
+                        VALUES
+                        (1, VARCHAR 'Alice', 25),
+                        (2, VARCHAR 'Bob', 30),
+                        (3, VARCHAR 'Charlie', 28)
+                        """);
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testShallowClonedTableWithCheckpointVersionZero()
+            throws Exception
+    {
+        String resource = "databricks154/clone_checkpoint_version_zero/checkpoint_v2/shallow_cloned_table";
+        String dataFileResource = "databricks154/clone_checkpoint_version_zero/checkpoint_v2/clone_source/part-00000-d47cc824-9a87-40c6-9e6b-528d933a30f9-c000.snappy.parquet";
+        String tableName = "test_shallow_cloned_table" + randomNameSuffix();
+        Path tableLocation = catalogDir.resolve(tableName);
+        Path dataFilePath = new File(Resources.getResource(dataFileResource).toURI()).toPath();
+        Path targetFilePath = tableLocation.resolve("part-00000-d47cc824-9a87-40c6-9e6b-528d933a30f9-c000.snappy.parquet");
+        copyDirectoryContents(new File(Resources.getResource(resource).toURI()).toPath(), tableLocation);
+        Files.copy(dataFilePath, targetFilePath, REPLACE_EXISTING);
+        assertUpdate("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')".formatted(tableName, tableLocation.toUri()));
+
+        assertThat(query("SELECT * FROM " + tableName))
+                .matches("""
+                        VALUES
+                        (1, VARCHAR 'Alice', 25),
+                        (2, VARCHAR 'Bob', 30),
+                        (3, VARCHAR 'Charlie', 28)
+                        """);
+        assertUpdate("DROP TABLE " + tableName);
     }
 
     private static ProtocolEntry loadProtocolEntry(long entryNumber, Path tableLocation)

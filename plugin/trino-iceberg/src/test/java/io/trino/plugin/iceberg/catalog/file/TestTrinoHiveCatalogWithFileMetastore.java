@@ -19,6 +19,7 @@ import io.airlift.log.Logger;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.filesystem.local.LocalFileSystemFactory;
+import io.trino.metastore.Database;
 import io.trino.metastore.HiveMetastore;
 import io.trino.metastore.cache.CachingHiveMetastore;
 import io.trino.plugin.hive.TrinoViewHiveMetastore;
@@ -31,7 +32,6 @@ import io.trino.spi.connector.ConnectorMaterializedViewDefinition;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.security.PrincipalType;
 import io.trino.spi.security.TrinoPrincipal;
-import io.trino.spi.type.TestingTypeManager;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Disabled;
@@ -43,6 +43,7 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.io.MoreFiles.deleteRecursively;
@@ -56,6 +57,7 @@ import static io.trino.plugin.iceberg.IcebergTableProperties.FORMAT_VERSION_PROP
 import static io.trino.plugin.iceberg.IcebergTestUtils.FILE_IO_FACTORY;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.testing.TestingNames.randomNameSuffix;
+import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
@@ -90,6 +92,17 @@ public class TestTrinoHiveCatalogWithFileMetastore
     }
 
     @Override
+    protected void createNamespaceWithProperties(TrinoCatalog catalog, String namespace, Map<String, String> properties)
+    {
+        metastore.createDatabase(Database.builder()
+                .setDatabaseName(namespace)
+                .setOwnerName(Optional.of("test"))
+                .setOwnerType(Optional.of(PrincipalType.USER))
+                .setParameters(properties)
+                .build());
+    }
+
+    @Override
     protected TrinoCatalog createTrinoCatalog(boolean useUniqueTableLocations)
     {
         CachingHiveMetastore cachingHiveMetastore = createPerTransactionCache(metastore, 1000);
@@ -99,7 +112,7 @@ public class TestTrinoHiveCatalogWithFileMetastore
                 new TrinoViewHiveMetastore(cachingHiveMetastore, false, "trino-version", "test"),
                 fileSystemFactory,
                 FILE_IO_FACTORY,
-                new TestingTypeManager(),
+                TESTING_TYPE_MANAGER,
                 new FileMetastoreTableOperationsProvider(fileSystemFactory, FILE_IO_FACTORY),
                 useUniqueTableLocations,
                 false,
@@ -137,6 +150,7 @@ public class TestTrinoHiveCatalogWithFileMetastore
                             Optional.of("catalog_name"),
                             Optional.of("schema_name"),
                             ImmutableList.of(new ConnectorMaterializedViewDefinition.Column("col1", INTEGER.getTypeId(), Optional.empty())),
+                            Optional.empty(),
                             Optional.empty(),
                             Optional.empty(),
                             Optional.empty(),

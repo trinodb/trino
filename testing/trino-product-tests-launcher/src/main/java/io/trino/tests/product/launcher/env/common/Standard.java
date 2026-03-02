@@ -154,7 +154,7 @@ public final class Standard
 
     private DockerContainer createTracingCollector()
     {
-        DockerContainer container = new DockerContainer("jaegertracing/all-in-one:latest", OPENTRACING_COLLECTOR)
+        DockerContainer container = new DockerContainer("jaegertracing/all-in-one:1.75.0", OPENTRACING_COLLECTOR)
                 .withEnv(ImmutableMap.of(
                         "COLLECTOR_OTLP_ENABLED", "true",
                         "SPAN_STORAGE_TYPE", "badger",
@@ -287,8 +287,8 @@ public final class Standard
                     """
                     #!/bin/bash
                     echo 'tracing.enabled=true' >> '%1$s'
-                    echo 'tracing.exporter.protocol=http/protobuf' >> '%1$s'
-                    echo 'tracing.exporter.endpoint=http://opentracing-collector.docker.cluster:%2$d/v1/traces' >> '%1$s'
+                    echo 'otel.exporter.protocol=http/protobuf' >> '%1$s'
+                    echo 'otel.exporter.endpoint=http://opentracing-collector.docker.cluster:%2$d/v1/traces' >> '%1$s'
                     """.formatted(CONTAINER_TRINO_CONFIG_PROPERTIES, COLLECTOR_HTTP_PORT),
                     UTF_8);
             container.withCopyFileToContainer(forHostPath(script), "/docker/presto-init.d/enable-tracing.sh");

@@ -80,7 +80,7 @@ public class TestIcebergGlueTableOperationsInsertFailure
         Path dataDirectory = Files.createTempDirectory("iceberg_data");
         dataDirectory.toFile().deleteOnExit();
 
-        queryRunner.installPlugin(new TestingIcebergPlugin(dataDirectory, Optional.of(new TestingGlueCatalogModule())));
+        queryRunner.installPlugin(new TestingIcebergPlugin(dataDirectory, () -> Optional.of(new TestingGlueCatalogModule())));
         queryRunner.createCatalog(ICEBERG_CATALOG, "iceberg", ImmutableMap.<String, String>builder()
                 .put("iceberg.catalog.type", "glue")
                 .put("fs.hadoop.enabled", "true")
@@ -126,7 +126,7 @@ public class TestIcebergGlueTableOperationsInsertFailure
                     assertThat(throwable.getCause()).isInstanceOf(Failure.class);
                     Failure failure = (Failure) throwable.getCause();
                     assertThat(failure.getMessage()).contains("Test-simulated Glue timeout exception");
-                    assertThat(failure.getFailureInfo().getType()).isEqualTo("io.trino.spi.TrinoException");
+                    assertThat(failure.getFailureInfo().type()).isEqualTo("io.trino.spi.TrinoException");
                 });
         assertQuery("SELECT * FROM " + tableName, "VALUES 'Trino', 'rocks'");
     }

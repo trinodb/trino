@@ -113,6 +113,10 @@ export function getTaskIdSuffix(taskId: string): string {
     return taskId.slice(taskId.indexOf('.') + 1, taskId.length)
 }
 
+export function getTaskNumber(taskId: string): number {
+    return Number.parseInt(getTaskIdSuffix(getTaskIdSuffix(taskId)))
+}
+
 export function getHostname(url: string): string {
     let hostname = new URL(url).hostname
     if (hostname.charAt(0) === '[' && hostname.charAt(hostname.length - 1) === ']') {
@@ -145,7 +149,11 @@ export function precisionRound(n: number | null): string {
     return Math.round(n).toString()
 }
 
-export function formatDuration(duration: number): string {
+export function formatDuration(duration: number | null): string {
+    if (duration == null) {
+        return ''
+    }
+
     let unit = 'ms'
     if (duration > 1000) {
         duration /= 1000
@@ -311,9 +319,7 @@ export function parseDuration(value: string): number | null {
 }
 
 export function formatShortTime(date: Date): string {
-    const hours = date.getHours() % 12 || 12
-    const minutes = (date.getMinutes() < 10 ? '0' : '') + date.getMinutes()
-    return hours + ':' + minutes + (date.getHours() >= 12 ? 'pm' : 'am')
+    return date.toLocaleTimeString([], { timeStyle: 'short' })
 }
 
 export function formatShortDateTime(date: Date): string {

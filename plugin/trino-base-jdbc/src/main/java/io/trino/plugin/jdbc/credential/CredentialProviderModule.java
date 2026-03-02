@@ -29,7 +29,6 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.google.inject.Scopes.SINGLETON;
-import static io.airlift.configuration.ConditionalModule.conditionalModule;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.airlift.configuration.ConfigurationLoader.loadPropertiesFrom;
 import static io.trino.plugin.jdbc.credential.CredentialProviderType.FILE;
@@ -54,10 +53,9 @@ public class CredentialProviderModule
 
     private void bindCredentialProviderModule(CredentialProviderType name, Module module)
     {
-        install(conditionalModule(
-                CredentialProviderTypeConfig.class,
-                config -> name == config.getCredentialProviderType(),
-                module));
+        if (buildConfigObject(CredentialProviderTypeConfig.class).getCredentialProviderType() == name) {
+            install(module);
+        }
     }
 
     private static class InlineCredentialProviderModule

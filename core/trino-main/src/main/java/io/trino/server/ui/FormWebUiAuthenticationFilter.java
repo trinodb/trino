@@ -41,7 +41,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.function.Function;
 
-import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static io.jsonwebtoken.security.Keys.hmacShaKeyFor;
 import static io.trino.server.ServletSecurityUtils.sendWwwAuthenticate;
@@ -50,6 +49,7 @@ import static io.trino.server.security.jwt.JwtUtil.newJwtBuilder;
 import static io.trino.server.security.jwt.JwtUtil.newJwtParserBuilder;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
+import static java.util.Objects.requireNonNullElse;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
 public class FormWebUiAuthenticationFilter
@@ -219,7 +219,7 @@ public class FormWebUiAuthenticationFilter
             // authentication failed
             sendWwwAuthenticate(
                     request,
-                    firstNonNull(e.getMessage(), "Unauthorized"),
+                    requireNonNullElse(e.getMessage(), "Unauthorized"),
                     e.getAuthenticateHeader().map(ImmutableSet::of).orElse(ImmutableSet.of()));
             return;
         }

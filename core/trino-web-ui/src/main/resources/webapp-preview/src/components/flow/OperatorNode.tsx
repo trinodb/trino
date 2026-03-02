@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-import { Box, Card, CardContent, Grid2 as Grid, Tooltip, Typography } from '@mui/material'
+import { Box, Card, CardContent, Grid, Tooltip, Typography } from '@mui/material'
 import { Handle, Position } from '@xyflow/react'
 import { OPERATOR_NODE_WIDTH } from './layout'
 import { truncateString } from '../../utils/utils.ts'

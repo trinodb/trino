@@ -44,11 +44,6 @@ public class ForwardingFileIoFactory
         return create(fileSystem, useFileSizeFromMetadata, ImmutableMap.of());
     }
 
-    public FileIO create(TrinoFileSystem fileSystem, Map<String, String> properties)
-    {
-        return create(fileSystem, true, properties);
-    }
-
     public FileIO create(TrinoFileSystem fileSystem, boolean useFileSizeFromMetadata, Map<String, String> properties)
     {
         return new ForwardingFileIo(fileSystem, properties, useFileSizeFromMetadata, deleteExecutor);

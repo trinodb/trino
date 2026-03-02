@@ -13,6 +13,7 @@
  */
 package io.trino.execution;
 
+import com.google.common.collect.ImmutableSet;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.DefunctConfig;
@@ -22,12 +23,16 @@ import io.airlift.units.Duration;
 import io.airlift.units.MinDataSize;
 import io.airlift.units.MinDuration;
 import io.trino.operator.RetryPolicy;
+import io.trino.plugin.base.configuration.ThreadCountParser;
+import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
 
+import java.util.EnumSet;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -74,26 +79,26 @@ public class QueryManagerConfig
     private int minHashPartitionCount = 4;
     private int minHashPartitionCountForWrite = 50;
     private int maxWriterTaskCount = 100;
-    private Duration minQueryExpireAge = new Duration(15, TimeUnit.MINUTES);
+    private Duration minQueryExpireAge = new Duration(15, MINUTES);
     private int maxQueryHistory = 100;
     private int maxQueryLength = 1_000_000;
     private int maxStageCount = 150;
     private int stageCountWarningThreshold = 50;
 
-    private Duration clientTimeout = new Duration(5, TimeUnit.MINUTES);
+    private Duration clientTimeout = new Duration(5, MINUTES);
 
     private int queryManagerExecutorPoolSize = 5;
     private int queryExecutorPoolSize = 1000;
     private int maxStateMachineCallbackThreads = 5;
     private int maxSplitManagerCallbackThreads = 100;
 
-    private Duration remoteTaskMaxErrorDuration = new Duration(1, TimeUnit.MINUTES);
+    private Duration remoteTaskMaxErrorDuration = new Duration(1, MINUTES);
     private int remoteTaskMaxCallbackThreads = 1000;
 
     private String queryExecutionPolicy = "phased";
     private Duration queryMaxRunTime = new Duration(100, TimeUnit.DAYS);
     private Duration queryMaxExecutionTime = new Duration(100, TimeUnit.DAYS);
-    private Duration queryMaxPlanningTime = new Duration(10, TimeUnit.MINUTES);
+    private Duration queryMaxPlanningTime = new Duration(10, MINUTES);
     private Duration queryMaxCpuTime = new Duration(1_000_000_000, TimeUnit.DAYS);
     private Optional<DataSize> queryMaxScanPhysicalBytes = Optional.empty();
     private Optional<DataSize> queryMaxWritePhysicalSize = Optional.empty();
@@ -101,9 +106,11 @@ public class QueryManagerConfig
     private int dispatcherQueryPoolSize = DISPATCHER_THREADPOOL_MAX_SIZE;
 
     private int requiredWorkers = 1;
-    private Duration requiredWorkersMaxWait = new Duration(5, TimeUnit.MINUTES);
+    private Duration requiredWorkersMaxWait = new Duration(5, MINUTES);
 
     private RetryPolicy retryPolicy = RetryPolicy.NONE;
+    private Set<RetryPolicy> allowedRetryPolicies = EnumSet.allOf(RetryPolicy.class);
+
     private int queryRetryAttempts = 4;
     private int taskRetryAttemptsPerTask = 4;
     private Duration retryInitialDelay = new Duration(10, SECONDS);
@@ -165,6 +172,7 @@ public class QueryManagerConfig
     // above this threshold.
     // TODO: Consider the cost of restarting the stage as part of adaptive planning.
     private DataSize faultTolerantExecutionAdaptiveJoinReorderingMinSizeThreshold = DataSize.of(5, GIGABYTE);
+    private boolean sourcePagesValidationEnabled = true;
 
     @Min(1)
     public int getScheduleSplitBatchSize()
@@ -611,6 +619,25 @@ public class QueryManagerConfig
     {
         this.retryPolicy = retryPolicy;
         return this;
+    }
+
+    public Set<RetryPolicy> getAllowedRetryPolicies()
+    {
+        return allowedRetryPolicies;
+    }
+
+    @Config("retry-policy.allowed")
+    @ConfigDescription("Retry policies that are allowed to be used")
+    public QueryManagerConfig setAllowedRetryPolicies(Set<RetryPolicy> allowedRetryPolicies)
+    {
+        this.allowedRetryPolicies = ImmutableSet.copyOf(allowedRetryPolicies);
+        return this;
+    }
+
+    @AssertTrue(message = "Selected retry policy not present in retry-policy.allowed list")
+    public boolean isRetryPolicyAllowed()
+    {
+        return allowedRetryPolicies.contains(retryPolicy);
     }
 
     @Min(0)
@@ -1226,6 +1253,19 @@ public class QueryManagerConfig
     public QueryManagerConfig setFaultTolerantExecutionAdaptiveJoinReorderingMinSizeThreshold(DataSize faultTolerantExecutionAdaptiveJoinReorderingMinSizeThreshold)
     {
         this.faultTolerantExecutionAdaptiveJoinReorderingMinSizeThreshold = faultTolerantExecutionAdaptiveJoinReorderingMinSizeThreshold;
+        return this;
+    }
+
+    public boolean isSourcePagesValidationEnabled()
+    {
+        return sourcePagesValidationEnabled;
+    }
+
+    @Config("source-pages-validation-enabled")
+    @ConfigDescription("Runtime validation of blocks in source pages")
+    public QueryManagerConfig setSourcePagesValidationEnabled(boolean sourcePagesValidationEnabled)
+    {
+        this.sourcePagesValidationEnabled = sourcePagesValidationEnabled;
         return this;
     }
 }

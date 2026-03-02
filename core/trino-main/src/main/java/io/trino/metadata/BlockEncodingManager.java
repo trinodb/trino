@@ -13,6 +13,9 @@
  */
 package io.trino.metadata;
 
+import com.google.inject.Inject;
+import io.trino.simd.BlockEncodingSimdSupport;
+import io.trino.simd.BlockEncodingSimdSupport.SimdSupport;
 import io.trino.spi.block.ArrayBlockEncoding;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockEncoding;
@@ -41,20 +44,22 @@ public final class BlockEncodingManager
     // for serialization
     private final Map<Class<? extends Block>, BlockEncoding> blockEncodingNamesByClass = new ConcurrentHashMap<>();
 
-    public BlockEncodingManager()
+    @Inject
+    public BlockEncodingManager(BlockEncodingSimdSupport blockEncodingSimdSupport)
     {
         // add the built-in BlockEncodings
-        addBlockEncoding(new VariableWidthBlockEncoding());
-        addBlockEncoding(new ByteArrayBlockEncoding());
-        addBlockEncoding(new ShortArrayBlockEncoding());
-        addBlockEncoding(new IntArrayBlockEncoding());
-        addBlockEncoding(new LongArrayBlockEncoding());
-        addBlockEncoding(new Fixed12BlockEncoding());
-        addBlockEncoding(new Int128ArrayBlockEncoding());
+        SimdSupport simdSupport = blockEncodingSimdSupport.getSimdSupport();
+        addBlockEncoding(new VariableWidthBlockEncoding(simdSupport.vectorizeNullBitPacking()));
+        addBlockEncoding(new ByteArrayBlockEncoding(simdSupport.vectorizeNullBitPacking(), simdSupport.compressByte(), simdSupport.expandByte()));
+        addBlockEncoding(new ShortArrayBlockEncoding(simdSupport.vectorizeNullBitPacking(), simdSupport.compressShort(), simdSupport.expandShort()));
+        addBlockEncoding(new IntArrayBlockEncoding(simdSupport.vectorizeNullBitPacking(), simdSupport.compressInt(), simdSupport.expandInt()));
+        addBlockEncoding(new LongArrayBlockEncoding(simdSupport.vectorizeNullBitPacking(), simdSupport.compressLong(), simdSupport.expandLong()));
+        addBlockEncoding(new Fixed12BlockEncoding(simdSupport.vectorizeNullBitPacking()));
+        addBlockEncoding(new Int128ArrayBlockEncoding(simdSupport.vectorizeNullBitPacking()));
         addBlockEncoding(new DictionaryBlockEncoding());
-        addBlockEncoding(new ArrayBlockEncoding());
-        addBlockEncoding(new MapBlockEncoding());
-        addBlockEncoding(new RowBlockEncoding());
+        addBlockEncoding(new ArrayBlockEncoding(simdSupport.vectorizeNullBitPacking()));
+        addBlockEncoding(new MapBlockEncoding(simdSupport.vectorizeNullBitPacking()));
+        addBlockEncoding(new RowBlockEncoding(simdSupport.vectorizeNullBitPacking()));
         addBlockEncoding(new RunLengthBlockEncoding());
     }
 

@@ -162,6 +162,7 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.topN;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.topNRanking;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.unnest;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.valuesOf;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.windowFunction;
 import static io.trino.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
 import static io.trino.sql.planner.plan.AggregationNode.Step.FINAL;
@@ -1320,6 +1321,22 @@ public class TestLogicalPlanner
     }
 
     @Test
+    public void testRemoveEmptyUnionBranch()
+    {
+        assertThat(countOfMatchingNodes(
+                plan("""
+                    SELECT *
+                    FROM (
+                           SELECT n.name, CAST(null AS varchar) AS comment FROM nation n WHERE n.nationkey <= 3
+                           UNION ALL
+                           SELECT r.name, r.comment FROM region r
+                    )
+                    WHERE comment IN (SELECT r.comment FROM region r)
+                """),
+                ValuesNode.class::isInstance)).isEqualTo(0);
+    }
+
+    @Test
     public void testRemovesTrivialFilters()
     {
         assertPlan(
@@ -2237,6 +2254,25 @@ public class TestLogicalPlanner
                         node(ExplainAnalyzeNode.class,
                                 exchange(LOCAL, GATHER,
                                         strictTableScan("nation", ImmutableMap.of("regionkey", "regionkey"))))));
+
+        assertDistributedPlan("""
+                              EXPLAIN ANALYZE
+                              SELECT * FROM
+                                  (SELECT * from nation, region)
+                              UNION ALL
+                                  (SELECT * from nation, region)
+                              """,
+                output(
+                        node(ExplainAnalyzeNode.class,
+                                exchange(LOCAL, GATHER,
+                                        exchange(REMOTE, GATHER,
+                                                exchange(REMOTE, GATHER,
+                                                        join(INNER, builder -> builder
+                                                                .left(tableScan("nation", ImmutableMap.of("regionkey_0", "regionkey")))
+                                                                .right(anyTree(tableScan("region", ImmutableMap.of("regionkey_1", "regionkey"))))),
+                                                        join(INNER, builder -> builder
+                                                                .left(tableScan("nation", ImmutableMap.of("regionkey_2", "regionkey")))
+                                                                .right(anyTree(tableScan("region", ImmutableMap.of("regionkey_3", "regionkey")))))))))));
     }
 
     @Test
@@ -2255,11 +2291,15 @@ public class TestLogicalPlanner
         assertPlan("VALUES (TINYINT '1', REAL '1'), (DOUBLE '2', SMALLINT '2')",
                 CREATED,
                 anyTree(
-                        values(
+                        valuesOf(
                                 ImmutableList.of("field", "field0"),
                                 ImmutableList.of(
-                                        ImmutableList.of(new Cast(new Constant(TINYINT, 1L), DOUBLE), new Constant(REAL, Reals.toReal(1f))),
-                                        ImmutableList.of(new Constant(DOUBLE, 2.0), new Cast(new Constant(SMALLINT, 2L), REAL))))));
+                                        new Cast(
+                                                new Row(ImmutableList.of(new Constant(TINYINT, 1L), new Constant(REAL, Reals.toReal(1f)))),
+                                                RowType.anonymousRow(DOUBLE, REAL)),
+                                        new Cast(
+                                                new Row(ImmutableList.of(new Constant(DOUBLE, 2.0), new Constant(SMALLINT, 2L))),
+                                                RowType.anonymousRow(DOUBLE, REAL))))));
 
         // entry of type other than Row coerced as a whole
         assertPlan("VALUES DOUBLE '1', CAST(ROW(2) AS row(bigint))",

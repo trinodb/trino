@@ -34,6 +34,7 @@ import io.opentelemetry.api.trace.Span;
 import io.trino.annotation.NotThreadSafe;
 import io.trino.exchange.ExchangeContextInstance;
 import io.trino.exchange.ExchangeManagerRegistry;
+import io.trino.exchange.ExchangeMetricsCollector;
 import io.trino.execution.StageId;
 import io.trino.execution.TaskId;
 import io.trino.spi.QueryId;
@@ -55,6 +56,8 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
@@ -125,6 +128,7 @@ public class DeduplicatingDirectExchangeBuffer
             DataSize bufferCapacity,
             RetryPolicy retryPolicy,
             ExchangeManagerRegistry exchangeManagerRegistry,
+            Optional<ExchangeMetricsCollector> exchangeMetricsCollector,
             QueryId queryId,
             Span parentSpan,
             ExchangeId exchangeId)
@@ -133,6 +137,7 @@ public class DeduplicatingDirectExchangeBuffer
         checkArgument(retryPolicy == QUERY, "the class is used for query level retries only, got: %s", retryPolicy);
         this.pageBuffer = new PageBuffer(
                 exchangeManagerRegistry,
+                exchangeMetricsCollector,
                 queryId,
                 parentSpan,
                 exchangeId,
@@ -191,8 +196,8 @@ public class DeduplicatingDirectExchangeBuffer
         checkState(!noMoreTasks, "no more tasks expected");
         checkState(allTasks.add(taskId), "task already registered: %s", taskId);
 
-        if (taskId.getAttemptId() > maxAttemptId) {
-            maxAttemptId = taskId.getAttemptId();
+        if (taskId.attemptId() > maxAttemptId) {
+            maxAttemptId = taskId.attemptId();
 
             pageBuffer.removePagesForPreviousAttempts(maxAttemptId);
             updateMaxRetainedSize();
@@ -214,7 +219,7 @@ public class DeduplicatingDirectExchangeBuffer
         checkState(!successfulTasks.contains(taskId), "task is finished: %s", taskId);
         checkState(!failedTasks.containsKey(taskId), "task is failed: %s", taskId);
 
-        if (taskId.getAttemptId() < maxAttemptId) {
+        if (taskId.attemptId() < maxAttemptId) {
             return;
         }
 
@@ -281,7 +286,7 @@ public class DeduplicatingDirectExchangeBuffer
         }
 
         Set<TaskId> latestAttemptTasks = allTasks.stream()
-                .filter(taskId -> taskId.getAttemptId() == maxAttemptId)
+                .filter(taskId -> taskId.attemptId() == maxAttemptId)
                 .collect(toImmutableSet());
 
         if (successfulTasks.containsAll(latestAttemptTasks)) {
@@ -291,11 +296,11 @@ public class DeduplicatingDirectExchangeBuffer
         }
 
         Map<TaskId, Throwable> failures = failedTasks.entrySet().stream()
-                .filter(entry -> entry.getKey().getAttemptId() == maxAttemptId)
-                .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
+                .filter(entry -> entry.getKey().attemptId() == maxAttemptId)
+                .collect(toImmutableMap(Entry::getKey, Entry::getValue));
 
         Throwable failure = null;
-        for (Map.Entry<TaskId, Throwable> entry : failures.entrySet()) {
+        for (Entry<TaskId, Throwable> entry : failures.entrySet()) {
             TaskId taskId = entry.getKey();
             Throwable taskFailure = entry.getValue();
 
@@ -432,6 +437,7 @@ public class DeduplicatingDirectExchangeBuffer
             implements Closeable
     {
         private final ExchangeManagerRegistry exchangeManagerRegistry;
+        private final Optional<ExchangeMetricsCollector> exchangeMetricsCollector;
         private final QueryId queryId;
         private final Span parentSpan;
         private final ExchangeId exchangeId;
@@ -468,6 +474,7 @@ public class DeduplicatingDirectExchangeBuffer
 
         private PageBuffer(
                 ExchangeManagerRegistry exchangeManagerRegistry,
+                Optional<ExchangeMetricsCollector> exchangeMetricsCollector,
                 QueryId queryId,
                 Span parentSpan,
                 ExchangeId exchangeId,
@@ -475,6 +482,7 @@ public class DeduplicatingDirectExchangeBuffer
                 DataSize pageBufferCapacity)
         {
             this.exchangeManagerRegistry = requireNonNull(exchangeManagerRegistry, "exchangeManagerRegistry is null");
+            this.exchangeMetricsCollector = requireNonNull(exchangeMetricsCollector, "exchangeMetricsCollector is null");
             this.queryId = requireNonNull(queryId, "queryId is null");
             this.parentSpan = requireNonNull(parentSpan, "querySpan is null");
             this.exchangeId = requireNonNull(exchangeId, "exchangeId is null");
@@ -509,6 +517,7 @@ public class DeduplicatingDirectExchangeBuffer
 
                 exchangeManager = exchangeManagerRegistry.getExchangeManager();
                 exchange = exchangeManager.createExchange(new ExchangeContextInstance(queryId, exchangeId, parentSpan), 1, true);
+                exchangeMetricsCollector.ifPresent(registry -> registry.register(queryId, exchange));
 
                 sinkHandle = exchange.addSink(0);
                 exchange.noMoreSinks();
@@ -529,7 +538,7 @@ public class DeduplicatingDirectExchangeBuffer
             }
 
             if (!pageBuffer.isEmpty()) {
-                for (Map.Entry<TaskId, List<Slice>> entry : asMap(pageBuffer).entrySet()) {
+                for (Entry<TaskId, List<Slice>> entry : asMap(pageBuffer).entrySet()) {
                     writeToSink(entry.getKey(), entry.getValue());
                 }
                 pageBuffer.clear();
@@ -572,9 +581,9 @@ public class DeduplicatingDirectExchangeBuffer
                         updateSinkInstanceHandleIfNecessary();
                     }
                 }
-                writeBuffer.writeInt(taskId.getStageId().getId());
-                writeBuffer.writeInt(taskId.getPartitionId());
-                writeBuffer.writeInt(taskId.getAttemptId());
+                writeBuffer.writeInt(taskId.stageId().id());
+                writeBuffer.writeInt(taskId.partitionId());
+                writeBuffer.writeInt(taskId.attemptId());
                 writeBuffer.writeBytes(page);
                 exchangeSink.add(0, writeBuffer.slice().copy());
                 writeBuffer.reset();
@@ -618,11 +627,11 @@ public class DeduplicatingDirectExchangeBuffer
 
             long removedPagesRetainedSizeInBytes = 0;
             int removedPagesCount = 0;
-            Iterator<Map.Entry<TaskId, List<Slice>>> iterator = asMap(pageBuffer).entrySet().iterator();
+            Iterator<Entry<TaskId, List<Slice>>> iterator = asMap(pageBuffer).entrySet().iterator();
             while (iterator.hasNext()) {
-                Map.Entry<TaskId, List<Slice>> entry = iterator.next();
+                Entry<TaskId, List<Slice>> entry = iterator.next();
                 TaskId taskId = entry.getKey();
-                if (taskId.getAttemptId() < currentAttemptId) {
+                if (taskId.attemptId() < currentAttemptId) {
                     for (Slice page : entry.getValue()) {
                         removedPagesRetainedSizeInBytes += page.getRetainedSize();
                         removedPagesCount++;
@@ -642,7 +651,7 @@ public class DeduplicatingDirectExchangeBuffer
             if (exchangeSink == null) {
                 Iterator<Slice> iterator = pageBuffer.entries().stream()
                         .filter(entry -> selectedTasks.contains(entry.getKey()))
-                        .map(Map.Entry::getValue)
+                        .map(Entry::getValue)
                         .iterator();
                 return new InMemoryBufferOutputSource(iterator);
             }

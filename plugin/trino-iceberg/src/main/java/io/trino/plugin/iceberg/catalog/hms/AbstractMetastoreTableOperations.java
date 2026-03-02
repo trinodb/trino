@@ -127,7 +127,7 @@ public abstract class AbstractMetastoreTableOperations
         }
         catch (Exception e) {
             // clean up metadata file corresponding to the current transaction
-            fileIo.deleteFile(newMetadataLocation);
+            io().deleteFile(newMetadataLocation);
             // wrap exception in CleanableFailure to ensure that manifest list Avro files are also cleaned up
             throw new CreateTableException(e, getSchemaTableName());
         }

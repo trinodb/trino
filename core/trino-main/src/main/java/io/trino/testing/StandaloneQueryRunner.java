@@ -20,6 +20,7 @@ import io.opentelemetry.sdk.testing.exporter.InMemorySpanExporter;
 import io.opentelemetry.sdk.trace.data.SpanData;
 import io.opentelemetry.sdk.trace.export.SimpleSpanProcessor;
 import io.trino.Session;
+import io.trino.connector.ConnectorServicesProvider;
 import io.trino.cost.StatsCalculator;
 import io.trino.execution.FailureInjector.InjectedFailureType;
 import io.trino.execution.QueryManagerConfig;
@@ -88,6 +89,7 @@ public final class StandaloneQueryRunner
                         .buildOrThrow());
         serverProcessor.accept(builder);
         this.server = builder.build();
+        server.getInstance(Key.get(ConnectorServicesProvider.class)).loadInitialCatalogs();
 
         this.trinoClient = new TestingDirectTrinoClient(
                 server.getDispatchManager(),

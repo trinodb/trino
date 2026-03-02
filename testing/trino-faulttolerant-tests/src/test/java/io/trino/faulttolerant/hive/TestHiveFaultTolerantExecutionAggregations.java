@@ -13,7 +13,6 @@
  */
 package io.trino.faulttolerant.hive;
 
-import io.trino.plugin.exchange.filesystem.FileSystemExchangePlugin;
 import io.trino.plugin.exchange.filesystem.containers.MinioStorage;
 import io.trino.plugin.hive.HiveQueryRunner;
 import io.trino.testing.AbstractTestFaultTolerantExecutionAggregations;
@@ -42,10 +41,7 @@ public class TestHiveFaultTolerantExecutionAggregations
 
         return HiveQueryRunner.builder()
                 .setExtraProperties(extraProperties)
-                .setAdditionalSetup(runner -> {
-                    runner.installPlugin(new FileSystemExchangePlugin());
-                    runner.loadExchangeManager("filesystem", getExchangeManagerProperties(minioStorage));
-                })
+                .withExchange("filesystem", getExchangeManagerProperties(minioStorage))
                 .setInitialTables(REQUIRED_TPCH_TABLES)
                 .build();
     }

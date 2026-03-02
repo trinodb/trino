@@ -24,7 +24,6 @@ import io.airlift.log.Logger;
 import io.airlift.stats.CounterStat;
 import io.opentelemetry.api.OpenTelemetry;
 import io.opentelemetry.api.trace.Tracer;
-import io.trino.client.NodeVersion;
 import io.trino.connector.CatalogHandle.CatalogHandleType;
 import io.trino.connector.CatalogServiceProvider;
 import io.trino.eventlistener.EventListenerManager;
@@ -35,6 +34,7 @@ import io.trino.plugin.base.security.FileBasedSystemAccessControl;
 import io.trino.plugin.base.security.ForwardingSystemAccessControl;
 import io.trino.plugin.base.security.ReadOnlySystemAccessControl;
 import io.trino.plugin.base.util.AutoCloseableCloser;
+import io.trino.spi.NodeVersion;
 import io.trino.spi.QueryId;
 import io.trino.spi.TrinoException;
 import io.trino.spi.classloader.ThreadContextClassLoader;
@@ -251,7 +251,7 @@ public class AccessControlManager
         return new SystemAccessControlContext()
         {
             private final Tracer tracer = openTelemetry.getTracer("trino.system-access-control." + systemAccessControlName);
-            private final String version = nodeVersion.getVersion();
+            private final String version = nodeVersion.version();
 
             @Override
             public String getVersion()

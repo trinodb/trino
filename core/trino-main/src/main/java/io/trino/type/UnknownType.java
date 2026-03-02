@@ -83,6 +83,12 @@ public final class UnknownType
     }
 
     @Override
+    public String getDisplayName()
+    {
+        return NAME;
+    }
+
+    @Override
     public boolean isComparable()
     {
         return true;
@@ -106,12 +112,6 @@ public final class UnknownType
         // call is null in case position is out of bounds
         checkArgument(block.isNull(position), "Expected NULL value for UnknownType");
         return null;
-    }
-
-    @Override
-    public void appendTo(Block block, int position, BlockBuilder blockBuilder)
-    {
-        blockBuilder.appendNull();
     }
 
     @Override

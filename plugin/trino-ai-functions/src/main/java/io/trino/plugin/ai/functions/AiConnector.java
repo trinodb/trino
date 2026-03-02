@@ -14,6 +14,7 @@
 package io.trino.plugin.ai.functions;
 
 import com.google.inject.Inject;
+import io.airlift.bootstrap.LifeCycleManager;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorMetadata;
 import io.trino.spi.connector.ConnectorSession;
@@ -28,12 +29,14 @@ import static java.util.Objects.requireNonNull;
 public class AiConnector
         implements Connector
 {
+    private final LifeCycleManager lifeCycleManager;
     private final ConnectorMetadata metadata;
     private final FunctionProvider functionProvider;
 
     @Inject
-    public AiConnector(ConnectorMetadata metadata, FunctionProvider functionProvider)
+    public AiConnector(LifeCycleManager lifeCycleManager, ConnectorMetadata metadata, FunctionProvider functionProvider)
     {
+        this.lifeCycleManager = requireNonNull(lifeCycleManager, "lifeCycleManager is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.functionProvider = requireNonNull(functionProvider, "functionProvider is null");
     }
@@ -54,5 +57,11 @@ public class AiConnector
     public Optional<FunctionProvider> getFunctionProvider()
     {
         return Optional.of(functionProvider);
+    }
+
+    @Override
+    public void shutdown()
+    {
+        lifeCycleManager.stop();
     }
 }

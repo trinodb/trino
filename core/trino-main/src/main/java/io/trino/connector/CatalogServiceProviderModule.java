@@ -161,7 +161,7 @@ public class CatalogServiceProviderModule
     @Singleton
     public static BranchPropertyManager createBranchPropertyManager(ConnectorServicesProvider connectorServicesProvider)
     {
-        return new BranchPropertyManager(new ConnectorCatalogServiceProvider<>("branch properties", connectorServicesProvider, ConnectorServices::getAnalyzeProperties));
+        return new BranchPropertyManager(new ConnectorCatalogServiceProvider<>("branch properties", connectorServicesProvider, ConnectorServices::getBranchProperties));
     }
 
     @Provides

@@ -16,7 +16,8 @@ package io.trino.plugin.hudi.storage;
 import com.google.common.collect.ImmutableList;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.local.LocalFileSystemFactory;
-import io.trino.spi.block.TestingSession;
+import io.trino.filesystem.memory.MemoryFileSystem;
+import io.trino.testing.connector.TestingConnectorSession;
 import org.apache.hudi.common.util.Option;
 import org.apache.hudi.io.storage.TestHoodieStorageBase;
 import org.apache.hudi.io.util.IOUtils;
@@ -44,7 +45,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 final class TestTrinoHudiStorage
         extends TestHoodieStorageBase
 {
-    private static final byte[] EMPTY_BYTES = new byte[] {};
+    private static final byte[] EMPTY_BYTES = {};
 
     private static TrinoFileSystem fileSystem;
 
@@ -52,7 +53,7 @@ final class TestTrinoHudiStorage
     static void setUp()
     {
         fileSystem = new LocalFileSystemFactory(Path.of("/tmp"))
-                .create(TestingSession.SESSION);
+                .create(TestingConnectorSession.SESSION);
     }
 
     @Override
@@ -203,7 +204,7 @@ final class TestTrinoHudiStorage
         validatePathInfo(storage, path, EMPTY_BYTES, false);
         storage.deleteFile(path);
 
-        byte[] data = new byte[] {2, 42, 49, (byte) 158, (byte) 233, 66, 9};
+        byte[] data = {2, 42, 49, (byte) 158, (byte) 233, 66, 9};
 
         try (OutputStream stream = storage.create(path)) {
             stream.write(data);
@@ -291,6 +292,65 @@ final class TestTrinoHudiStorage
             }
             assertThat(sortedActual.get(i).getModificationTime()).isGreaterThan(0);
         }
+    }
+
+    @Test
+    void testListEmptyDirectoryOnHierarchicalFileSystem()
+            throws IOException
+    {
+        HoodieStorage storage = getStorage();
+
+        // Create an empty directory on hierarchical filesystem (LocalFileSystem)
+        StoragePath emptyDir = new StoragePath(getTempDir(), "empty_directory");
+        assertThat(storage.createDirectory(emptyDir)).isTrue();
+        assertThat(storage.exists(emptyDir)).isTrue();
+
+        // On hierarchical filesystem, listing empty directory should return empty list
+        List<StoragePathInfo> entries = storage.listDirectEntries(emptyDir);
+        assertThat(entries).isEmpty();
+
+        List<StoragePathInfo> files = storage.listFiles(emptyDir);
+        assertThat(files).isEmpty();
+    }
+
+    @Test
+    void testListEmptyDirectoryOnNonHierarchicalFileSystem()
+            throws IOException
+    {
+        // Test TrinoHudiStorage behavior on a non-hierarchical filesystem (like S3)
+        MemoryFileSystem memoryFileSystem = new MemoryFileSystem();
+        try (HoodieStorage storage = new TrinoHudiStorage(memoryFileSystem, new TrinoStorageConfiguration())) {
+            // On non-hierarchical filesystem, directories are virtual and only exist if they contain files.
+            // An "empty directory" doesn't exist, so listing should throw FileNotFoundException.
+            StoragePath emptyDir = new StoragePath("memory:///empty_directory");
+
+            assertThatThrownBy(() -> storage.listDirectEntries(emptyDir))
+                    .isInstanceOf(FileNotFoundException.class)
+                    .hasMessageContaining("does not exist");
+
+            assertThatThrownBy(() -> storage.listDirectEntries(emptyDir, _ -> true))
+                    .isInstanceOf(FileNotFoundException.class)
+                    .hasMessageContaining("does not exist");
+        }
+    }
+
+    @Test
+    void testListNonExistentDirectory()
+            throws IOException
+    {
+        HoodieStorage storage = getStorage();
+
+        // Try to list a non-existent directory - should throw FileNotFoundException
+        StoragePath nonExistentDir = new StoragePath(getTempDir(), "does_not_exist");
+        assertThat(storage.exists(nonExistentDir)).isFalse();
+
+        assertThatThrownBy(() -> storage.listDirectEntries(nonExistentDir))
+                .isInstanceOf(FileNotFoundException.class)
+                .hasMessageContaining("does not exist");
+
+        assertThatThrownBy(() -> storage.listDirectEntries(nonExistentDir, path -> true))
+                .isInstanceOf(FileNotFoundException.class)
+                .hasMessageContaining("does not exist");
     }
 
     private void prepareFilesOnStorage(HoodieStorage storage)

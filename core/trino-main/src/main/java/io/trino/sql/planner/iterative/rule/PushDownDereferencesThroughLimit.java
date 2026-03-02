@@ -75,7 +75,7 @@ public class PushDownDereferencesThroughLimit
         LimitNode limitNode = captures.get(CHILD);
 
         // Extract dereferences from project node assignments for pushdown
-        Set<FieldReference> dereferences = extractRowSubscripts(projectNode.getAssignments().getExpressions(), false);
+        Set<FieldReference> dereferences = extractRowSubscripts(projectNode.getAssignments().expressions(), false);
 
         // Exclude dereferences on symbols being used in tiesResolvingScheme and requiresPreSortedInputs
         Set<Symbol> excludedSymbols = ImmutableSet.<Symbol>builder()
@@ -96,7 +96,7 @@ public class PushDownDereferencesThroughLimit
         Assignments dereferenceAssignments = Assignments.of(dereferences, context.getSymbolAllocator());
 
         // Rewrite project node assignments using new symbols for dereference expressions
-        Map<Expression, Reference> mappings = HashBiMap.create(dereferenceAssignments.getMap())
+        Map<Expression, Reference> mappings = HashBiMap.create(dereferenceAssignments.assignments())
                 .inverse()
                 .entrySet().stream()
                 .collect(toImmutableMap(Map.Entry::getKey, entry -> entry.getValue().toSymbolReference()));

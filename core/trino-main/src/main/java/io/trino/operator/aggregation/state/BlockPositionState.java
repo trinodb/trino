@@ -14,10 +14,8 @@
 package io.trino.operator.aggregation.state;
 
 import io.trino.spi.block.Block;
-import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.function.AccumulatorState;
 import io.trino.spi.function.AccumulatorStateMetadata;
-import io.trino.spi.type.Type;
 
 @AccumulatorStateMetadata(stateSerializerClass = BlockPositionStateSerializer.class)
 public interface BlockPositionState
@@ -42,15 +40,5 @@ public interface BlockPositionState
     {
         setBlock(state.getBlock());
         setPosition(state.getPosition());
-    }
-
-    static void write(Type type, BlockPositionState state, BlockBuilder out)
-    {
-        if (state.getBlock() == null) {
-            out.appendNull();
-        }
-        else {
-            type.appendTo(state.getBlock(), state.getPosition(), out);
-        }
     }
 }

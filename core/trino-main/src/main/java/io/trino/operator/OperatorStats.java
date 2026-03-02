@@ -29,7 +29,6 @@ import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
-import static io.trino.execution.DistributionSnapshot.pruneMetrics;
 import static java.lang.Math.max;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
@@ -634,51 +633,6 @@ public class OperatorStats
             return null;
         }
         return (Mergeable<T>) base.mergeWith(others);
-    }
-
-    public OperatorStats pruneDigests()
-    {
-        return new OperatorStats(
-                stageId,
-                pipelineId,
-                operatorId,
-                planNodeId,
-                sourceId,
-                operatorType,
-                totalDrivers,
-                addInputCalls,
-                addInputWall,
-                addInputCpu,
-                physicalInputDataSize,
-                physicalInputPositions,
-                physicalInputReadTime,
-                internalNetworkInputDataSize,
-                internalNetworkInputPositions,
-                inputDataSize,
-                inputPositions,
-                sumSquaredInputPositions,
-                getOutputCalls,
-                getOutputWall,
-                getOutputCpu,
-                outputDataSize,
-                outputPositions,
-                dynamicFilterSplitsProcessed,
-                pruneMetrics(metrics),
-                pruneMetrics(connectorMetrics),
-                pruneMetrics(pipelineMetrics),
-                physicalWrittenDataSize,
-                blockedWall,
-                finishCalls,
-                finishWall,
-                finishCpu,
-                userMemoryReservation,
-                revocableMemoryReservation,
-                peakUserMemoryReservation,
-                peakRevocableMemoryReservation,
-                peakTotalMemoryReservation,
-                spilledDataSize,
-                blockedReason,
-                info);
     }
 
     public OperatorStats summarize()

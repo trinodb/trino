@@ -20,6 +20,7 @@ import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.plugin.hive.HiveCompressionOption;
 import jakarta.validation.constraints.AssertFalse;
+import jakarta.validation.constraints.AssertTrue;
 import org.junit.jupiter.api.Test;
 
 import java.util.Map;
@@ -48,13 +49,14 @@ public class TestIcebergConfig
                 .setFileFormat(PARQUET)
                 .setCompressionCodec(ZSTD)
                 .setMaxCommitRetry(null)
+                .setDeleteAfterCommitEnabled(null)
+                .setMaxPreviousVersions(null)
                 .setUseFileSizeFromMetadata(true)
                 .setMaxPartitionsPerWriter(100)
                 .setUniqueTableLocation(true)
                 .setCatalogType(HIVE_METASTORE)
                 .setDynamicFilteringWaitTimeout(new Duration(1, SECONDS))
                 .setTableStatisticsEnabled(true)
-                .setExtendedStatisticsEnabled(true)
                 .setCollectExtendedStatisticsOnWrite(true)
                 .setProjectionPushdownEnabled(true)
                 .setHiveCatalogName(null)
@@ -70,15 +72,18 @@ public class TestIcebergConfig
                 .setRegisterTableProcedureEnabled(false)
                 .setAddFilesProcedureEnabled(false)
                 .setSortedWritingEnabled(true)
+                .setSortedWritingLocalStagingPath(null)
                 .setQueryPartitionFilterRequired(false)
                 .setQueryPartitionFilterRequiredSchemas(ImmutableSet.of())
                 .setSplitManagerThreads(Integer.toString(Math.min(Runtime.getRuntime().availableProcessors() * 2, 32)))
-                .setPlanningThreads(Integer.toString(Math.min(Runtime.getRuntime().availableProcessors(), 16)))
+                .setPlanningThreads(Integer.toString(Runtime.getRuntime().availableProcessors() * 2))
                 .setFileDeleteThreads(Integer.toString(Runtime.getRuntime().availableProcessors() * 2))
                 .setAllowedExtraProperties(ImmutableList.of())
                 .setIncrementalRefreshEnabled(true)
                 .setMetadataCacheEnabled(true)
                 .setIncrementalRefreshEnabled(true)
+                .setMaterializedViewRefreshMaxSnapshotsToExpire(200)
+                .setMaterializedViewRefreshSnapshotRetentionPeriod(new Duration(4, HOURS))
                 .setObjectStoreLayoutEnabled(false)
                 .setMetadataParallelism(8)
                 .setBucketExecutionEnabled(true)
@@ -92,13 +97,14 @@ public class TestIcebergConfig
                 .put("iceberg.file-format", "ORC")
                 .put("iceberg.compression-codec", "NONE")
                 .put("iceberg.max-commit-retry", "100")
+                .put("iceberg.delete-after-commit-enabled", "true")
+                .put("iceberg.max-previous-versions", "10")
                 .put("iceberg.use-file-size-from-metadata", "false")
                 .put("iceberg.max-partitions-per-writer", "222")
                 .put("iceberg.unique-table-location", "false")
                 .put("iceberg.catalog.type", "GLUE")
                 .put("iceberg.dynamic-filtering.wait-timeout", "1h")
                 .put("iceberg.table-statistics-enabled", "false")
-                .put("iceberg.extended-statistics.enabled", "false")
                 .put("iceberg.extended-statistics.collect-on-write", "false")
                 .put("iceberg.projection-pushdown-enabled", "false")
                 .put("iceberg.hive-catalog-name", "hive")
@@ -114,6 +120,7 @@ public class TestIcebergConfig
                 .put("iceberg.register-table-procedure.enabled", "true")
                 .put("iceberg.add-files-procedure.enabled", "true")
                 .put("iceberg.sorted-writing-enabled", "false")
+                .put("iceberg.sorted-writing.local-staging-path", "/tmp/trino")
                 .put("iceberg.query-partition-filter-required", "true")
                 .put("iceberg.query-partition-filter-required-schemas", "bronze,silver")
                 .put("iceberg.split-manager-threads", "42")
@@ -121,6 +128,8 @@ public class TestIcebergConfig
                 .put("iceberg.file-delete-threads", "42")
                 .put("iceberg.allowed-extra-properties", "propX,propY")
                 .put("iceberg.incremental-refresh-enabled", "false")
+                .put("iceberg.materialized-views.refresh-max-snapshots-to-expire", "5")
+                .put("iceberg.materialized-views.refresh-snapshot-retention-period", "1h")
                 .put("iceberg.metadata-cache.enabled", "false")
                 .put("iceberg.object-store-layout.enabled", "true")
                 .put("iceberg.metadata.parallelism", "10")
@@ -132,13 +141,14 @@ public class TestIcebergConfig
                 .setFileFormat(ORC)
                 .setCompressionCodec(HiveCompressionOption.NONE)
                 .setMaxCommitRetry(100)
+                .setDeleteAfterCommitEnabled(true)
+                .setMaxPreviousVersions(10)
                 .setUseFileSizeFromMetadata(false)
                 .setMaxPartitionsPerWriter(222)
                 .setUniqueTableLocation(false)
                 .setCatalogType(GLUE)
                 .setDynamicFilteringWaitTimeout(Duration.valueOf("1h"))
                 .setTableStatisticsEnabled(false)
-                .setExtendedStatisticsEnabled(false)
                 .setCollectExtendedStatisticsOnWrite(false)
                 .setProjectionPushdownEnabled(false)
                 .setHiveCatalogName("hive")
@@ -154,6 +164,7 @@ public class TestIcebergConfig
                 .setRegisterTableProcedureEnabled(true)
                 .setAddFilesProcedureEnabled(true)
                 .setSortedWritingEnabled(false)
+                .setSortedWritingLocalStagingPath("/tmp/trino")
                 .setQueryPartitionFilterRequired(true)
                 .setQueryPartitionFilterRequiredSchemas(ImmutableSet.of("bronze", "silver"))
                 .setSplitManagerThreads("42")
@@ -163,6 +174,8 @@ public class TestIcebergConfig
                 .setIncrementalRefreshEnabled(false)
                 .setMetadataCacheEnabled(false)
                 .setIncrementalRefreshEnabled(false)
+                .setMaterializedViewRefreshMaxSnapshotsToExpire(5)
+                .setMaterializedViewRefreshSnapshotRetentionPeriod(new Duration(1, HOURS))
                 .setObjectStoreLayoutEnabled(true)
                 .setMetadataParallelism(10)
                 .setBucketExecutionEnabled(false)
@@ -181,5 +194,12 @@ public class TestIcebergConfig
                 "storageSchemaSetWhenHidingIsEnabled",
                 "iceberg.materialized-views.storage-schema may only be set when iceberg.materialized-views.hide-storage-table is set to false",
                 AssertFalse.class);
+
+        assertFailsValidation(
+                new IcebergConfig()
+                        .setSortedWritingLocalStagingPath("s3://bucket/path"),
+                "sortedWritingLocalStagingPathValid",
+                "iceberg.sorted-writing.local-staging-path must not use any prefix other than file:// or local://",
+                AssertTrue.class);
     }
 }

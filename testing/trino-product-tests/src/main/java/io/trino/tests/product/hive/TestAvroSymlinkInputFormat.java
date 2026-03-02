@@ -21,7 +21,7 @@ import org.testng.annotations.Test;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.nio.file.Paths;
+import java.nio.file.Path;
 
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tests.product.TestGroups.STORAGE_FORMATS;
@@ -148,7 +148,7 @@ public class TestAvroSymlinkInputFormat
             throws IOException
     {
         hdfsClient.delete(location);
-        try (InputStream inputStream = newInputStream(Paths.get("/docker/trino-product-tests", resource))) {
+        try (InputStream inputStream = newInputStream(Path.of("/docker/trino-product-tests", resource))) {
             hdfsClient.saveFile(location, inputStream);
         }
     }

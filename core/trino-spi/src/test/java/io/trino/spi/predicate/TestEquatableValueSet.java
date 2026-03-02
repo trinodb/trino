@@ -36,7 +36,7 @@ import static io.trino.spi.type.TestingIdType.ID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-public class TestEquatableValueSet
+class TestEquatableValueSet
 {
     @Test
     public void testEmptySet()

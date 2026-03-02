@@ -19,7 +19,7 @@ import static io.trino.spi.type.Timestamps.roundDiv;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-public class TestTimestamps
+final class TestTimestamps
 {
     @Test
     public void testRoundDiv()

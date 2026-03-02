@@ -36,6 +36,7 @@ import java.util.concurrent.TimeUnit;
 
 import static io.trino.operator.scalar.DateTimeFunctions.currentDate;
 import static io.trino.server.testing.TestingTrinoServer.SESSION_START_TIME_PROPERTY;
+import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.type.TimeZoneKey.getTimeZoneKey;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -518,6 +519,37 @@ public class TestDateTimeFunctions
 
         assertThat(assertions.function("date_add", "'year'", "3", "DATE '2001-08-22'"))
                 .matches("DATE '2004-08-22'");
+
+        // Test addition of a large value (exceeding max integer)
+        long value = Integer.MAX_VALUE + 1L;
+        assertThat(assertions.function("date_add", "'day'", String.valueOf(value), "DATE '0001-01-01'"))
+                .matches("DATE '5879611-07-13'");
+
+        assertTrinoExceptionThrownBy(assertions.function("date_add", "'week'", String.valueOf(value), "DATE '-5877641-06-23'")::evaluate)
+                .hasErrorCode(GENERIC_INTERNAL_ERROR)
+                .hasMessage("Value 12884901888 exceeds MAX_INT for type date");
+
+        assertTrinoExceptionThrownBy(assertions.function("date_add", "'month'", String.valueOf(value), "DATE '-5877641-06-23'")::evaluate)
+                .hasErrorCode(GENERIC_INTERNAL_ERROR)
+                .hasMessage("Value 63215207713 exceeds MAX_INT for type date");
+
+        assertTrinoExceptionThrownBy(assertions.function("date_add", "'quarter'", String.valueOf(value), "DATE '-5877641-06-23'")::evaluate)
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
+                .hasMessageMatching("Magnitude of add amount is too large: .*");
+
+        assertTrinoExceptionThrownBy(assertions.function("date_add", "'year'", String.valueOf(value), "DATE '-5877641-06-23'")::evaluate)
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
+                .hasMessageMatching("Value cannot fit in an int: .*");
+
+        // Test the min date - 1
+        assertTrinoExceptionThrownBy(assertions.function("date_add", "'day'", "-1", "DATE '-5877641-06-23'")::evaluate)
+                .hasErrorCode(GENERIC_INTERNAL_ERROR)
+                .hasMessage("Value -2147483649 is less than MIN_INT for type date");
+
+        // Test the max date + 1
+        assertTrinoExceptionThrownBy(assertions.function("date_add", "'day'", "1", "DATE '5881580-07-11'")::evaluate)
+                .hasErrorCode(GENERIC_INTERNAL_ERROR)
+                .hasMessage("Value 2147483648 exceeds MAX_INT for type date");
     }
 
     @Test

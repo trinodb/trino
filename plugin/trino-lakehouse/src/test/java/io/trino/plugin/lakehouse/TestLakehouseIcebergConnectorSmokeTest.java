@@ -15,6 +15,19 @@ package io.trino.plugin.lakehouse;
 
 import org.junit.jupiter.api.Test;
 
+import static io.trino.plugin.iceberg.TableType.ALL_ENTRIES;
+import static io.trino.plugin.iceberg.TableType.ALL_MANIFESTS;
+import static io.trino.plugin.iceberg.TableType.DATA;
+import static io.trino.plugin.iceberg.TableType.ENTRIES;
+import static io.trino.plugin.iceberg.TableType.FILES;
+import static io.trino.plugin.iceberg.TableType.HISTORY;
+import static io.trino.plugin.iceberg.TableType.MANIFESTS;
+import static io.trino.plugin.iceberg.TableType.MATERIALIZED_VIEW_STORAGE;
+import static io.trino.plugin.iceberg.TableType.METADATA_LOG_ENTRIES;
+import static io.trino.plugin.iceberg.TableType.PARTITIONS;
+import static io.trino.plugin.iceberg.TableType.PROPERTIES;
+import static io.trino.plugin.iceberg.TableType.REFS;
+import static io.trino.plugin.iceberg.TableType.SNAPSHOTS;
 import static io.trino.plugin.lakehouse.TableType.ICEBERG;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -43,5 +56,41 @@ public class TestLakehouseIcebergConnectorSmokeTest
                    location = \\E's3://test-bucket-.*/tpch/region-.*'\\Q,
                    type = 'ICEBERG'
                 )\\E""");
+    }
+
+    @Test
+    void testSelectMetadataTable()
+    {
+        assertThat(query("SELECT count(*) FROM lakehouse.tpch.\"region$history\"")).matches("VALUES (CAST(1 AS BIGINT))");
+        assertThat(query("SELECT count(*) FROM lakehouse.tpch.\"region$metadata_log_entries\"")).matches("VALUES (CAST(1 AS BIGINT))");
+        assertThat(query("SELECT count(*) FROM lakehouse.tpch.\"region$snapshots\"")).matches("VALUES (CAST(1 AS BIGINT))");
+        assertThat(query("SELECT count(*) FROM lakehouse.tpch.\"region$all_manifests\"")).matches("VALUES (CAST(1 AS BIGINT))");
+        assertThat(query("SELECT count(*) FROM lakehouse.tpch.\"region$manifests\"")).matches("VALUES (CAST(1 AS BIGINT))");
+        assertThat(query("SELECT count(*) FROM lakehouse.tpch.\"region$partitions\"")).matches("VALUES (CAST(1 AS BIGINT))");
+        assertThat(query("SELECT count(*) FROM lakehouse.tpch.\"region$files\"")).matches("VALUES (CAST(1 AS BIGINT))");
+        assertThat(query("SELECT count(*) FROM lakehouse.tpch.\"region$all_entries\"")).matches("VALUES (CAST(1 AS BIGINT))");
+        assertThat(query("SELECT count(*) FROM lakehouse.tpch.\"region$entries\"")).matches("VALUES (CAST(1 AS BIGINT))");
+        assertThat(query("SELECT count(*) FROM lakehouse.tpch.\"region$properties\"")).matches("VALUES (CAST(6 AS BIGINT))");
+        assertThat(query("SELECT count(*) FROM lakehouse.tpch.\"region$refs\"")).matches("VALUES (CAST(1 AS BIGINT))");
+
+        // This test should get updated if a new system table is added
+        assertThat(io.trino.plugin.iceberg.TableType.values())
+                .containsExactly(
+                        DATA,
+                        HISTORY,
+                        METADATA_LOG_ENTRIES,
+                        SNAPSHOTS,
+                        ALL_MANIFESTS,
+                        MANIFESTS,
+                        PARTITIONS,
+                        FILES,
+                        ALL_ENTRIES,
+                        ENTRIES,
+                        PROPERTIES,
+                        REFS,
+                        MATERIALIZED_VIEW_STORAGE);
+
+        assertThat(query("SELECT count(*) FROM lakehouse.tpch.\"region$timeline\""))
+                .failure().hasMessageMatching(".* Table .* does not exist");
     }
 }

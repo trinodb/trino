@@ -20,7 +20,6 @@ import com.google.common.collect.Multimap;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.opentelemetry.api.trace.Span;
-import io.trino.client.NodeVersion;
 import io.trino.cost.StatsAndCosts;
 import io.trino.execution.ExecutionFailureInfo;
 import io.trino.execution.NodeTaskMap;
@@ -34,6 +33,8 @@ import io.trino.execution.buffer.OutputBufferStatus;
 import io.trino.metadata.Split;
 import io.trino.node.InternalNode;
 import io.trino.node.TestingInternalNodeManager;
+import io.trino.spi.NodeVersion;
+import io.trino.spi.QueryId;
 import io.trino.spi.metrics.Metrics;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.sql.planner.Partitioning;
@@ -153,7 +154,7 @@ public class TestScaledWriterScheduler
     {
         TaskStatus taskStatus1 = buildTaskStatus(1, DataSize.of(32, DataSize.Unit.MEGABYTE));
         TaskStatus taskStatus2 = buildTaskStatus(2, DataSize.of(100, DataSize.Unit.MEGABYTE));
-        TaskStatus taskStatus3 = buildTaskStatus(true, 12345L, Optional.empty(), DataSize.of(0, DataSize.Unit.MEGABYTE));
+        TaskStatus taskStatus3 = buildTaskStatus(true, 12345L, OptionalInt.empty(), DataSize.of(0, DataSize.Unit.MEGABYTE));
 
         try (ScaledWriterScheduler scaledWriterScheduler = buildScaleWriterSchedulerWithInitialTasks(taskStatus1, taskStatus2, taskStatus3)) {
             // Scale up will not happen because one of the existing writer task isn't initialized yet with maxWriterCount.
@@ -218,19 +219,19 @@ public class TestScaledWriterScheduler
 
     private static TaskStatus buildTaskStatus(boolean isOutputBufferOverUtilized, long outputDataSize)
     {
-        return buildTaskStatus(isOutputBufferOverUtilized, outputDataSize, Optional.of(1), DataSize.of(32, DataSize.Unit.MEGABYTE));
+        return buildTaskStatus(isOutputBufferOverUtilized, outputDataSize, OptionalInt.of(1), DataSize.of(32, DataSize.Unit.MEGABYTE));
     }
 
     private static TaskStatus buildTaskStatus(int maxWriterCount, DataSize writerInputDataSize)
     {
-        return buildTaskStatus(true, 12345L, Optional.of(maxWriterCount), writerInputDataSize);
+        return buildTaskStatus(true, 12345L, OptionalInt.of(maxWriterCount), writerInputDataSize);
     }
 
-    private static TaskStatus buildTaskStatus(boolean isOutputBufferOverUtilized, long outputDataSize, Optional<Integer> maxWriterCount, DataSize writerInputDataSize)
+    private static TaskStatus buildTaskStatus(boolean isOutputBufferOverUtilized, long outputDataSize, OptionalInt maxWriterCount, DataSize writerInputDataSize)
     {
         return new TaskStatus(
-                TaskId.valueOf("taskId"),
-                "task-instance-id",
+                new TaskId(new StageId(new QueryId("query_id"), 0), 0, 0),
+                0,
                 0,
                 TaskState.RUNNING,
                 URI.create("fake://task/" + "taskId" + "/node/some_node"),
@@ -258,10 +259,12 @@ public class TestScaledWriterScheduler
             implements StageExecution
     {
         private final PlanFragment fragment;
+        private final StageId stageId;
 
         public TestingStageExecution(PlanFragment fragment)
         {
             this.fragment = requireNonNull(fragment, "fragment is null");
+            this.stageId = new StageId(new QueryId("query_id"), 0);
         }
 
         @Override
@@ -357,7 +360,7 @@ public class TestScaledWriterScheduler
         @Override
         public Optional<RemoteTask> scheduleTask(InternalNode node, int partition, Multimap<PlanNodeId, Split> initialSplits)
         {
-            return Optional.of(new TestingRemoteTask(TaskId.valueOf("taskId"), "nodeId", fragment));
+            return Optional.of(new TestingRemoteTask(new TaskId(stageId, partition, 0), "nodeId", fragment));
         }
 
         @Override
@@ -405,7 +408,7 @@ public class TestScaledWriterScheduler
                 tableScan,
                 ImmutableSet.of(symbol),
                 SOURCE_DISTRIBUTION,
-                Optional.empty(),
+                OptionalInt.empty(),
                 ImmutableList.of(TABLE_SCAN_NODE_ID),
                 new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), ImmutableList.of(symbol)),
                 OptionalInt.empty(),

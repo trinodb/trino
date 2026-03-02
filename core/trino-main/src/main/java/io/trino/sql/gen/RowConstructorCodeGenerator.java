@@ -51,7 +51,7 @@ import static java.util.Objects.requireNonNull;
 public class RowConstructorCodeGenerator
         implements BytecodeGenerator
 {
-    private final Type rowType;
+    private final RowType rowType;
     private final List<RowExpression> arguments;
     // Arbitrary value chosen to balance the code size vs performance trade off. Not perf tested.
     private static final int MEGAMORPHIC_FIELD_COUNT = 64;
@@ -62,7 +62,7 @@ public class RowConstructorCodeGenerator
     public RowConstructorCodeGenerator(SpecialForm specialForm)
     {
         requireNonNull(specialForm, "specialForm is null");
-        rowType = specialForm.type();
+        rowType = (RowType) specialForm.type();
         arguments = specialForm.arguments();
     }
 
@@ -76,7 +76,7 @@ public class RowConstructorCodeGenerator
         BytecodeBlock block = new BytecodeBlock().setDescription("Constructor for " + rowType);
         CallSiteBinder binder = context.getCallSiteBinder();
         Scope scope = context.getScope();
-        List<Type> types = rowType.getTypeParameters();
+        List<Type> types = rowType.getFieldTypes();
 
         Variable fieldBlocks = scope.getOrCreateTempVariable(Block[].class);
         block.append(fieldBlocks.set(newArray(type(Block[].class), arguments.size())));
@@ -163,7 +163,7 @@ public class RowConstructorCodeGenerator
 
         BytecodeGeneratorContext context = new BytecodeGeneratorContext(parentContext.getRowExpressionCompiler(), scope, binder, parentContext.getCachedInstanceBinder(), parentContext.getFunctionManager(), classDefinition, parentContext.getContextArguments());
         Variable blockBuilder = scope.getOrCreateTempVariable(BlockBuilder.class);
-        List<Type> types = rowType.getTypeParameters();
+        List<Type> types = rowType.getFieldTypes();
         for (int i = start; i < end; i++) {
             Type fieldType = types.get(i);
 
@@ -187,12 +187,12 @@ public class RowConstructorCodeGenerator
     }
 
     @UsedByGeneratedCode
-    public static BlockBuilder[] createFieldBlockBuildersForSingleRow(Type rowType)
+    public static BlockBuilder[] createFieldBlockBuildersForSingleRow(Type type)
     {
-        if (!(rowType instanceof RowType)) {
-            throw new IllegalArgumentException("Not a row type: " + rowType);
+        if (!(type instanceof RowType rowType)) {
+            throw new IllegalArgumentException("Not a row type: " + type);
         }
-        List<Type> fieldTypes = rowType.getTypeParameters();
+        List<Type> fieldTypes = rowType.getFieldTypes();
         BlockBuilder[] fieldBlockBuilders = new BlockBuilder[fieldTypes.size()];
         for (int i = 0; i < fieldTypes.size(); i++) {
             fieldBlockBuilders[i] = fieldTypes.get(i).createBlockBuilder(null, 1);

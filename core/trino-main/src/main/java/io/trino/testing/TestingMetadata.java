@@ -301,7 +301,7 @@ public class TestingMetadata
     }
 
     @Override
-    public MaterializedViewFreshness getMaterializedViewFreshness(ConnectorSession session, SchemaTableName name)
+    public MaterializedViewFreshness getMaterializedViewFreshness(ConnectorSession session, SchemaTableName name, boolean considerGracePeriod)
     {
         boolean fresh = freshMaterializedViews.contains(name);
         return new MaterializedViewFreshness(
@@ -369,6 +369,28 @@ public class TestingMetadata
         columns.addAll(tableMetadata.getColumns());
         columns.add(column);
         tables.put(tableName, new ConnectorTableMetadata(tableName, columns.build(), tableMetadata.getProperties(), tableMetadata.getComment()));
+    }
+
+    @Override
+    public void setDefaultValue(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle column, String defaultValue)
+    {
+        ConnectorTableMetadata tableMetadata = getTableMetadata(session, tableHandle);
+        SchemaTableName tableName = getTableName(tableHandle);
+        List<ColumnMetadata> columns = new ArrayList<>(tableMetadata.getColumns());
+        ColumnMetadata columnMetadata = getColumnMetadata(session, tableHandle, column);
+        columns.set(columns.indexOf(columnMetadata), ColumnMetadata.builderFrom(columnMetadata).setDefaultValue(Optional.of(defaultValue)).build());
+        tables.put(tableName, new ConnectorTableMetadata(tableName, ImmutableList.copyOf(columns), tableMetadata.getProperties(), tableMetadata.getComment()));
+    }
+
+    @Override
+    public void dropDefaultValue(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle columnHandle)
+    {
+        ConnectorTableMetadata tableMetadata = getTableMetadata(session, tableHandle);
+        SchemaTableName tableName = getTableName(tableHandle);
+        List<ColumnMetadata> columns = new ArrayList<>(tableMetadata.getColumns());
+        ColumnMetadata columnMetadata = getColumnMetadata(session, tableHandle, columnHandle);
+        columns.set(columns.indexOf(columnMetadata), ColumnMetadata.builderFrom(columnMetadata).setDefaultValue(Optional.empty()).build());
+        tables.put(tableName, new ConnectorTableMetadata(tableName, ImmutableList.copyOf(columns), tableMetadata.getProperties(), tableMetadata.getComment()));
     }
 
     @Override

@@ -29,7 +29,6 @@ import io.trino.spi.resourcegroups.ResourceGroupId;
 import io.trino.spi.security.Identity;
 import io.trino.spi.session.PropertyMetadata;
 import io.trino.spi.session.SessionPropertyConfigurationManagerFactory;
-import io.trino.spi.session.TestingSessionPropertyConfigurationManagerFactory;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;

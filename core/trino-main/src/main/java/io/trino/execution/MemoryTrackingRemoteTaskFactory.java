@@ -91,8 +91,8 @@ public class MemoryTrackingRemoteTaskFactory
         @Override
         public synchronized void stateChanged(TaskStatus newStatus)
         {
-            long currentUserMemory = newStatus.getMemoryReservation().toBytes();
-            long currentRevocableMemory = newStatus.getRevocableMemoryReservation().toBytes();
+            long currentUserMemory = newStatus.memoryReservation().toBytes();
+            long currentRevocableMemory = newStatus.revocableMemoryReservation().toBytes();
             long currentTotalMemory = currentUserMemory + currentRevocableMemory;
             long deltaUserMemoryInBytes = currentUserMemory - previousUserMemory;
             long deltaRevocableMemoryInBytes = currentRevocableMemory - previousRevocableMemory;

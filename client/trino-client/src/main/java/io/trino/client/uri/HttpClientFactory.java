@@ -14,6 +14,7 @@
 package io.trino.client.uri;
 
 import io.trino.client.ClientException;
+import io.trino.client.DisallowLocalRedirectInterceptor;
 import io.trino.client.DnsResolver;
 import io.trino.client.auth.external.CompositeRedirectHandler;
 import io.trino.client.auth.external.ExternalAuthenticator;
@@ -29,6 +30,7 @@ import java.util.concurrent.TimeUnit;
 
 import static io.trino.client.KerberosUtil.defaultCredentialCachePath;
 import static io.trino.client.OkHttpUtil.basicAuth;
+import static io.trino.client.OkHttpUtil.extraHeaders;
 import static io.trino.client.OkHttpUtil.setupAlternateHostnameVerification;
 import static io.trino.client.OkHttpUtil.setupCookieJar;
 import static io.trino.client.OkHttpUtil.setupHttpLogging;
@@ -86,6 +88,10 @@ public class HttpClientFactory
             builder.addNetworkInterceptor(tokenAuth(uri.getAccessToken().get()));
         }
 
+        if (!uri.getExtraHeaders().isEmpty()) {
+            builder.addNetworkInterceptor(extraHeaders(uri.getExtraHeaders()));
+        }
+
         if (uri.isExternalAuthenticationEnabled()) {
             if (!uri.isUseSecureConnection()) {
                 throw new RuntimeException("TLS/SSL required for authentication using external authorization");
@@ -124,6 +130,10 @@ public class HttpClientFactory
         setupHttpProxy(builder, uri.getHttpProxy());
         setupTimeouts(builder, toIntExact(uri.getTimeout().toMillis()), TimeUnit.MILLISECONDS);
         setupHttpLogging(builder, uri.getHttpLoggingLevel());
+
+        if (uri.isLocalRedirectDisallowed()) {
+            builder.addNetworkInterceptor(new DisallowLocalRedirectInterceptor());
+        }
 
         if (uri.isUseSecureConnection()) {
             ConnectionProperties.SslVerificationMode sslVerificationMode = uri.getSslVerification();

@@ -13,9 +13,9 @@
  */
 package io.trino.server;
 
-import jakarta.ws.rs.HeaderParam;
 import jakarta.ws.rs.container.ContainerRequestContext;
 import jakarta.ws.rs.core.Context;
+import jakarta.ws.rs.core.HttpHeaders;
 import jakarta.ws.rs.core.UriBuilder;
 import jakarta.ws.rs.core.UriBuilderException;
 import jakarta.ws.rs.core.UriInfo;
@@ -37,7 +37,12 @@ public class ExternalUriInfo
     private final UriInfo uriInfo;
     private final String forwardedPrefix;
 
-    public ExternalUriInfo(@Context UriInfo uriInfo, @HeaderParam(X_FORWARDED_PREFIX) String forwardedPrefix)
+    public ExternalUriInfo(@Context UriInfo uriInfo, @Context HttpHeaders httpHeaders)
+    {
+        this(uriInfo, requireNonNull(httpHeaders, "httpHeaders is null").getHeaderString(X_FORWARDED_PREFIX));
+    }
+
+    ExternalUriInfo(UriInfo uriInfo, String forwardedPrefix)
     {
         this.uriInfo = requireNonNull(uriInfo, "uriInfo is null");
         this.forwardedPrefix = requireNonNullElse(forwardedPrefix, "");

@@ -16,25 +16,15 @@ package io.trino.plugin.base;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeManager;
 
 import static io.airlift.json.JsonBinder.jsonBinder;
-import static java.util.Objects.requireNonNull;
 
 public class TypeDeserializerModule
         implements Module
 {
-    private final TypeManager typeManager;
-
-    public TypeDeserializerModule(TypeManager typeManager)
-    {
-        this.typeManager = requireNonNull(typeManager, "typeManager is null");
-    }
-
     @Override
     public void configure(Binder binder)
     {
-        binder.bind(TypeManager.class).toInstance(typeManager);
         jsonBinder(binder).addDeserializerBinding(Type.class).to(TypeDeserializer.class);
     }
 }

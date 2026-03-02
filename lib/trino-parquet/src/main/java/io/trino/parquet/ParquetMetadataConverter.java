@@ -264,8 +264,15 @@ public final class ParquetMetadataConverter
                     byte[] originalMax = stats.getMaxBytes();
                     min = truncateMin(truncator, truncateLength, originalMin);
                     max = truncateMax(truncator, truncateLength, originalMax);
-                    isMinValueExact = originalMin.length == min.length;
-                    isMaxValueExact = originalMax.length == max.length;
+                    // Omit statistics that exceed the size limit even after truncation
+                    if (min.length > truncateLength) {
+                        min = null;
+                    }
+                    if (max.length > truncateLength) {
+                        max = null;
+                    }
+                    isMinValueExact = min != null && originalMin.length == min.length;
+                    isMaxValueExact = max != null && originalMax.length == max.length;
                 }
                 else {
                     min = stats.getMinBytes();
@@ -275,15 +282,23 @@ public final class ParquetMetadataConverter
                 // signed so the logic of V1 and V2 stats are the same (which is
                 // trivially true for equal min-max values)
                 if (sortOrder(stats.type()) == SortOrder.SIGNED || Arrays.equals(min, max)) {
-                    formatStats.setMin(min);
-                    formatStats.setMax(max);
+                    if (min != null) {
+                        formatStats.setMin(min);
+                    }
+                    if (max != null) {
+                        formatStats.setMax(max);
+                    }
                 }
 
                 if (isMinMaxStatsSupported(stats.type()) || Arrays.equals(min, max)) {
-                    formatStats.setMin_value(min);
-                    formatStats.setMax_value(max);
-                    formatStats.setIs_min_value_exact(isMinValueExact);
-                    formatStats.setIs_max_value_exact(isMaxValueExact);
+                    if (min != null) {
+                        formatStats.setMin_value(min);
+                        formatStats.setIs_min_value_exact(isMinValueExact);
+                    }
+                    if (max != null) {
+                        formatStats.setMax_value(max);
+                        formatStats.setIs_max_value_exact(isMaxValueExact);
+                    }
                 }
             }
         }

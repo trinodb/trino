@@ -20,7 +20,6 @@ import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.filesystem.TrinoInputFile;
-import io.trino.filesystem.hdfs.HdfsFileSystemFactory;
 import io.trino.metastore.HiveMetastore;
 import io.trino.metastore.HiveMetastoreFactory;
 import io.trino.metastore.cache.CachingHiveMetastore;
@@ -32,10 +31,10 @@ import io.trino.orc.OrcReaderOptions;
 import io.trino.orc.OrcRecordReader;
 import io.trino.orc.metadata.OrcType;
 import io.trino.parquet.ParquetReaderOptions;
-import io.trino.parquet.metadata.BlockMetadata;
-import io.trino.parquet.metadata.ColumnChunkMetadata;
+import io.trino.parquet.ParquetTestUtils;
 import io.trino.parquet.metadata.ParquetMetadata;
 import io.trino.parquet.reader.MetadataReader;
+import io.trino.parquet.reader.ParquetReader;
 import io.trino.plugin.base.metrics.FileFormatDataSourceStats;
 import io.trino.plugin.hive.TrinoViewHiveMetastore;
 import io.trino.plugin.hive.orc.OrcReaderConfig;
@@ -54,13 +53,13 @@ import io.trino.spi.catalog.CatalogName;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SourcePage;
-import io.trino.spi.type.TestingTypeManager;
 import io.trino.spi.type.Type;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorSession;
 import org.apache.iceberg.BaseTable;
 import org.apache.iceberg.TableMetadata;
 import org.apache.iceberg.TableMetadataParser;
+import org.apache.parquet.format.SchemaElement;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -70,16 +69,12 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.function.Supplier;
 
-import static com.google.common.base.Verify.verify;
-import static com.google.common.collect.Iterators.getOnlyElement;
 import static com.google.common.collect.MoreCollectors.onlyElement;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.google.common.util.concurrent.MoreExecutors.newDirectExecutorService;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.metastore.cache.CachingHiveMetastore.createPerTransactionCache;
 import static io.trino.orc.OrcReader.INITIAL_BATCH_SIZE;
-import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
-import static io.trino.plugin.hive.HiveTestUtils.HDFS_FILE_SYSTEM_STATS;
 import static io.trino.plugin.iceberg.IcebergQueryRunner.ICEBERG_CATALOG;
 import static io.trino.plugin.iceberg.IcebergUtil.loadIcebergTable;
 import static io.trino.plugin.iceberg.util.FileOperationUtils.FileType.METADATA_JSON;
@@ -102,8 +97,7 @@ public final class IcebergTestUtils
 
     public static final TableStatisticsReader TABLE_STATISTICS_READER = new TableStatisticsReader(
             TESTING_TYPE_MANAGER,
-            newDirectExecutorService(),
-            new DefaultIcebergFileSystemFactory(new HdfsFileSystemFactory(HDFS_ENVIRONMENT, HDFS_FILE_SYSTEM_STATS)));
+            newDirectExecutorService());
 
     public static final ForwardingFileIoFactory FILE_IO_FACTORY = new ForwardingFileIoFactory(newDirectExecutorService());
 
@@ -175,32 +169,46 @@ public final class IcebergTestUtils
         };
     }
 
-    @SuppressWarnings({"unchecked", "rawtypes"})
+    @SuppressWarnings("unchecked")
     public static boolean checkParquetFileSorting(TrinoInputFile inputFile, String sortColumnName)
     {
-        ParquetMetadata parquetMetadata = getParquetFileMetadata(inputFile);
-        List<BlockMetadata> blocks;
-        try {
-            blocks = parquetMetadata.getBlocks();
+        try (TrinoParquetDataSource dataSource = new TrinoParquetDataSource(inputFile, ParquetReaderOptions.defaultOptions(), new FileFormatDataSourceStats())) {
+            ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource, Optional.empty());
+            SchemaElement sortColumn = parquetMetadata.getParquetMetadata().getSchema()
+                    .stream()
+                    .filter(column -> column.getName().equals(sortColumnName))
+                    .collect(onlyElement());
+            Type sortColumnType = getType(sortColumn.getType());
+            try (ParquetReader parquetReader = ParquetTestUtils.createParquetReader(
+                    dataSource,
+                    parquetMetadata,
+                    List.of(sortColumnType),
+                    List.of(sortColumnName))) {
+                Comparable<Object> previousMax = null;
+                for (SourcePage page = parquetReader.nextPage(); page != null; page = parquetReader.nextPage()) {
+                    Block block = page.getBlock(0);
+                    for (int position = 0; position < block.getPositionCount(); position++) {
+                        Comparable<Object> current = (Comparable<Object>) readNativeValue(sortColumnType, block, position);
+                        if (previousMax != null && previousMax.compareTo(current) > 0) {
+                            return false;
+                        }
+                        previousMax = current;
+                    }
+                }
+            }
+            return true;
         }
         catch (IOException e) {
             throw new UncheckedIOException(e);
         }
+    }
 
-        Comparable previousMax = null;
-        verify(blocks.size() > 1, "Test must produce at least two row groups");
-        for (BlockMetadata blockMetaData : blocks) {
-            ColumnChunkMetadata columnMetadata = blockMetaData.columns().stream()
-                    .filter(column -> getOnlyElement(column.getPath().iterator()).equalsIgnoreCase(sortColumnName))
-                    .collect(onlyElement());
-            if (previousMax != null) {
-                if (previousMax.compareTo(columnMetadata.getStatistics().genericGetMin()) > 0) {
-                    return false;
-                }
-            }
-            previousMax = columnMetadata.getStatistics().genericGetMax();
-        }
-        return true;
+    private static Type getType(org.apache.parquet.format.Type parquetType)
+    {
+        return switch (parquetType) {
+            case org.apache.parquet.format.Type.BYTE_ARRAY -> VARCHAR;
+            default -> throw new IllegalArgumentException("Unsupported parquet type: " + parquetType);
+        };
     }
 
     public static TrinoFileSystemFactory getFileSystemFactory(QueryRunner queryRunner)
@@ -240,7 +248,7 @@ public final class IcebergTestUtils
                 new TrinoViewHiveMetastore(cachingHiveMetastore, false, "trino-version", "test"),
                 fileSystemFactory,
                 FILE_IO_FACTORY,
-                new TestingTypeManager(),
+                TESTING_TYPE_MANAGER,
                 tableOperationsProvider,
                 false,
                 false,
@@ -257,7 +265,7 @@ public final class IcebergTestUtils
         while (fileIterator.hasNext()) {
             FileEntry entry = fileIterator.next();
             if (fromFilePath(entry.location().path()) == METADATA_JSON) {
-                TableMetadata tableMetadata = TableMetadataParser.read(null, new ForwardingInputFile(trinoFileSystem.newInputFile(entry.location())));
+                TableMetadata tableMetadata = TableMetadataParser.read(new ForwardingInputFile(trinoFileSystem.newInputFile(entry.location())));
                 metadataFiles.put(entry.location().path(), tableMetadata.lastUpdatedMillis());
             }
         }
@@ -267,7 +275,7 @@ public final class IcebergTestUtils
     public static ParquetMetadata getParquetFileMetadata(TrinoInputFile inputFile)
     {
         try (TrinoParquetDataSource dataSource = new TrinoParquetDataSource(inputFile, ParquetReaderOptions.defaultOptions(), new FileFormatDataSourceStats())) {
-            return MetadataReader.readFooter(dataSource);
+            return MetadataReader.readFooter(dataSource, Optional.empty());
         }
         catch (IOException e) {
             throw new UncheckedIOException(e);

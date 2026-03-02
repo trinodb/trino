@@ -16,7 +16,7 @@ package io.trino.plugin.eventlistener.mysql;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.reflect.TypeToken;
 import io.airlift.json.JsonCodecFactory;
-import io.trino.plugin.base.evenlistener.TestingEventListenerContext;
+import io.trino.plugin.base.eventlistener.testing.TestingEventListenerContext;
 import io.trino.spi.TrinoWarning;
 import io.trino.spi.connector.CatalogVersion;
 import io.trino.spi.connector.StandardWarningCode;
@@ -40,7 +40,7 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
-import org.testcontainers.containers.MySQLContainer;
+import org.testcontainers.mysql.MySQLContainer;
 
 import java.net.URI;
 import java.sql.Connection;
@@ -106,6 +106,7 @@ final class TestMysqlEventListener
             Optional.of(ofMillis(113)),
             Optional.of(ofMillis(114)),
             Optional.of(ofMillis(115)),
+            Optional.of(ofMillis(116)),
             115L,
             116L,
             117L,
@@ -140,6 +141,10 @@ final class TestMysqlEventListener
             List.of("{operator: \"operator1\"}", "{operator: \"operator2\"}"),
             // not stored
             Collections.emptyList(),
+            // not stored
+            ImmutableMap.of(),
+            // not stored
+            ImmutableMap.of(),
             // not stored
             Optional.empty());
 
@@ -229,6 +234,7 @@ final class TestMysqlEventListener
             FULL_QUERY_STATISTICS,
             FULL_QUERY_CONTEXT,
             FULL_QUERY_IO_METADATA,
+            Optional.empty(),
             Optional.of(FULL_FAILURE_INFO),
             List.of(new TrinoWarning(
                     StandardWarningCode.TOO_MANY_STAGES,
@@ -259,6 +265,7 @@ final class TestMysqlEventListener
             ofMillis(102),
             ofMillis(103),
             ofMillis(104),
+            Optional.empty(),
             Optional.empty(),
             Optional.empty(),
             Optional.empty(),
@@ -304,6 +311,8 @@ final class TestMysqlEventListener
             Collections.emptyList(),
             Collections.emptyList(),
             Collections.emptyList(),
+            ImmutableMap.of(),
+            ImmutableMap.of(),
             // not stored
             Optional.empty());
 
@@ -343,12 +352,13 @@ final class TestMysqlEventListener
             MINIMAL_QUERY_CONTEXT,
             MINIMAL_QUERY_IO_METADATA,
             Optional.empty(),
+            Optional.empty(),
             List.of(),
             Instant.now(),
             Instant.now(),
             Instant.now());
 
-    private MySQLContainer<?> mysqlContainer;
+    private MySQLContainer mysqlContainer;
     private String mysqlContainerUrl;
     private EventListener eventListener;
     private JsonCodecFactory jsonCodecFactory;
@@ -356,7 +366,7 @@ final class TestMysqlEventListener
     @BeforeAll
     void setup()
     {
-        mysqlContainer = new MySQLContainer<>("mysql:8.0.36");
+        mysqlContainer = new MySQLContainer("mysql:8.0.36");
         mysqlContainer.start();
         mysqlContainerUrl = getJdbcUrl(mysqlContainer);
         eventListener = new MysqlEventListenerFactory()
@@ -376,7 +386,7 @@ final class TestMysqlEventListener
         jsonCodecFactory = null;
     }
 
-    private static String getJdbcUrl(MySQLContainer<?> container)
+    private static String getJdbcUrl(MySQLContainer container)
     {
         return format("%s?user=%s&password=%s&useSSL=false&allowPublicKeyRetrieval=true",
                 container.getJdbcUrl(),

@@ -534,9 +534,17 @@ public abstract class DefaultTraversalVisitor<C>
     @Override
     protected Void visitRow(Row node, C context)
     {
-        for (Expression expression : node.getItems()) {
-            process(expression, context);
+        for (Row.Field field : node.getFields()) {
+            process(field, context);
         }
+        return null;
+    }
+
+    @Override
+    protected Void visitRowField(Row.Field node, C context)
+    {
+        node.getName().ifPresent(name -> process(name, context));
+        process(node.getExpression(), context);
         return null;
     }
 

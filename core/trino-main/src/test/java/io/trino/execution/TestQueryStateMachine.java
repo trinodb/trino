@@ -25,11 +25,12 @@ import io.airlift.units.Duration;
 import io.opentelemetry.api.OpenTelemetry;
 import io.trino.Session;
 import io.trino.client.FailureInfo;
-import io.trino.client.NodeVersion;
+import io.trino.exchange.ExchangeMetricsCollector;
 import io.trino.execution.warnings.DefaultWarningCollector;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.execution.warnings.WarningCollectorConfig;
 import io.trino.metadata.Metadata;
+import io.trino.metadata.TestingMetadataManager;
 import io.trino.plugin.base.security.AllowAllSystemAccessControl;
 import io.trino.plugin.base.security.DefaultSystemAccessControl;
 import io.trino.security.AccessControlConfig;
@@ -39,6 +40,7 @@ import io.trino.server.BasicQueryStats;
 import io.trino.server.ResultQueryInfo;
 import io.trino.spi.ErrorCode;
 import io.trino.spi.ErrorType;
+import io.trino.spi.NodeVersion;
 import io.trino.spi.TrinoException;
 import io.trino.spi.TrinoWarning;
 import io.trino.spi.WarningCode;
@@ -89,7 +91,6 @@ import static io.trino.execution.QueryState.RUNNING;
 import static io.trino.execution.QueryState.STARTING;
 import static io.trino.execution.QueryState.WAITING_FOR_RESOURCES;
 import static io.trino.execution.querystats.PlanOptimizersStatsCollector.createPlanOptimizersStatsCollector;
-import static io.trino.metadata.TestMetadataManager.createTestMetadataManager;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.StandardErrorCode.TYPE_MISMATCH;
 import static io.trino.spi.StandardErrorCode.USER_CANCELED;
@@ -442,15 +443,7 @@ public class TestQueryStateMachine
     {
         CountDownLatch cleanup = new CountDownLatch(1);
         QueryStateMachine queryStateMachine = queryStateMachine()
-                .withMetadata(new TracingMetadata(noopTracer(), createTestMetadataManager())
-                {
-                    @Override
-                    public void cleanupQuery(Session session)
-                    {
-                        cleanup.countDown();
-                        super.cleanupQuery(session);
-                    }
-                })
+                .beforeQueryCleanup(cleanup::countDown)
                 .build();
 
         Future<?> anotherThread = executor.submit(() -> {
@@ -466,8 +459,8 @@ public class TestQueryStateMachine
 
         ExecutionFailureInfo failureInfo = queryStateMachine.getFinalQueryInfo().orElseThrow().getFailureInfo();
         assertThat(failureInfo).isNotNull();
-        assertThat(failureInfo.getErrorCode()).isEqualTo(TYPE_MISMATCH.toErrorCode());
-        assertThat(failureInfo.getMessage()).isEqualTo("First exception");
+        assertThat(failureInfo.errorCode()).isEqualTo(TYPE_MISMATCH.toErrorCode());
+        assertThat(failureInfo.message()).isEqualTo("First exception");
 
         BasicQueryInfo basicQueryInfo = queryStateMachine.getBasicQueryInfo(Optional.empty());
         assertThat(basicQueryInfo.getErrorCode()).isEqualTo(TYPE_MISMATCH.toErrorCode());
@@ -479,15 +472,7 @@ public class TestQueryStateMachine
     {
         CountDownLatch cleanup = new CountDownLatch(1);
         QueryStateMachine queryStateMachine = queryStateMachine()
-                .withMetadata(new TracingMetadata(noopTracer(), createTestMetadataManager())
-                {
-                    @Override
-                    public void cleanupQuery(Session session)
-                    {
-                        cleanup.countDown();
-                        super.cleanupQuery(session);
-                    }
-                })
+                .beforeQueryCleanup(cleanup::countDown)
                 .build();
 
         Future<?> anotherThread = executor.submit(() -> {
@@ -501,8 +486,8 @@ public class TestQueryStateMachine
 
         ExecutionFailureInfo failureInfo = queryStateMachine.getFinalQueryInfo().orElseThrow().getFailureInfo();
         assertThat(failureInfo).isNotNull();
-        assertThat(failureInfo.getErrorCode()).isEqualTo(USER_CANCELED.toErrorCode());
-        assertThat(failureInfo.getMessage()).isEqualTo("Query was canceled");
+        assertThat(failureInfo.errorCode()).isEqualTo(USER_CANCELED.toErrorCode());
+        assertThat(failureInfo.message()).isEqualTo("Query was canceled");
 
         BasicQueryInfo basicQueryInfo = queryStateMachine.getBasicQueryInfo(Optional.empty());
         assertThat(basicQueryInfo.getErrorCode()).isEqualTo(USER_CANCELED.toErrorCode());
@@ -569,6 +554,7 @@ public class TestQueryStateMachine
         assertThat(stats.getCreateTime()).isNotNull();
         assertThat(stats.getEndTime()).isNull();
         assertThat(stats.getQueuedTime()).isNotNull();
+        assertThat(stats.getResourceWaitingTime()).isNotNull();
         assertThat(stats.getElapsedTime()).isNotNull();
         assertThat(stats.getExecutionTime()).isNotNull();
         assertThat(stats.getFailedTasks()).isEqualTo(expectedStatsValue);
@@ -761,7 +747,7 @@ public class TestQueryStateMachine
     private class QueryStateMachineBuilder
     {
         private Ticker ticker = Ticker.systemTicker();
-        private Metadata metadata;
+        private Optional<Runnable> beforeQueryCleanup = Optional.empty();
         private WarningCollector warningCollector = WarningCollector.NOOP;
         private String setCatalog;
         private String setPath;
@@ -780,9 +766,9 @@ public class TestQueryStateMachine
         }
 
         @CanIgnoreReturnValue
-        public QueryStateMachineBuilder withMetadata(Metadata metadata)
+        public QueryStateMachineBuilder beforeQueryCleanup(Runnable runnable)
         {
-            this.metadata = metadata;
+            this.beforeQueryCleanup = Optional.of(runnable);
             return this;
         }
 
@@ -842,10 +828,24 @@ public class TestQueryStateMachine
 
         public QueryStateMachine build()
         {
-            if (metadata == null) {
-                metadata = createTestMetadataManager();
-            }
             TransactionManager transactionManager = createTestTransactionManager();
+            Metadata metadata = TestingMetadataManager.builder()
+                    .withTransactionManager(transactionManager)
+                    .build();
+            if (beforeQueryCleanup.isPresent()) {
+                Runnable beforeQueryCleanupAction = beforeQueryCleanup.get();
+                // Using TracingMetadata in lieu of "Forwarding Metadata" which currently does not exist
+                metadata = new TracingMetadata(noopTracer(), metadata)
+                {
+                    @Override
+                    public void cleanupQuery(Session session)
+                    {
+                        beforeQueryCleanupAction.run();
+                        super.cleanupQuery(session);
+                    }
+                };
+            }
+
             AccessControlManager accessControl = new AccessControlManager(
                     NodeVersion.UNKNOWN,
                     transactionManager,
@@ -870,6 +870,7 @@ public class TestQueryStateMachine
                     metadata,
                     warningCollector,
                     createPlanOptimizersStatsCollector(),
+                    new ExchangeMetricsCollector(ImmutableList::of, java.time.Duration.ofMillis(1)),
                     QUERY_TYPE,
                     false,
                     Optional.empty(),

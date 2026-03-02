@@ -42,7 +42,7 @@ public class PrometheusHttpServer
     {
         Bootstrap app = new Bootstrap(
                 new TestingNodeModule(),
-                new TestingHttpServerModule(),
+                new TestingHttpServerModule("prometheus-http-server"),
                 new PrometheusHttpServerModule());
 
         Injector injector = app

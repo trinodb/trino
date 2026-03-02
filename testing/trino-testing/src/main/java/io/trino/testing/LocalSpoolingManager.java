@@ -35,7 +35,6 @@ import java.io.OutputStream;
 import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
@@ -221,7 +220,7 @@ public class LocalSpoolingManager
                 @JsonProperty("encoding") String encoding,
                 @JsonProperty("path") String path)
         {
-            return new LocalSpooledSegmentHandle(encoding, Paths.get(path));
+            return new LocalSpooledSegmentHandle(encoding, Path.of(path));
         }
     }
 }

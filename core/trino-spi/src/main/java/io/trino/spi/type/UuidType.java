@@ -55,6 +55,7 @@ public class UuidType
         extends AbstractType
         implements FixedWidthType
 {
+    public static final String NAME = "uuid";
     private static final TypeOperatorDeclaration TYPE_OPERATOR_DECLARATION = extractOperatorDeclaration(UuidType.class, lookup(), Slice.class);
     private static final VarHandle LONG_HANDLE = MethodHandles.byteArrayViewVarHandle(long[].class, ByteOrder.LITTLE_ENDIAN);
 
@@ -62,7 +63,7 @@ public class UuidType
 
     private UuidType()
     {
-        super(new TypeSignature(StandardTypes.UUID), Slice.class, Int128ArrayBlock.class);
+        super(new TypeSignature(NAME), Slice.class, Int128ArrayBlock.class);
     }
 
     @Override
@@ -90,6 +91,12 @@ public class UuidType
     public BlockBuilder createFixedSizeBlockBuilder(int positionCount)
     {
         return new Int128ArrayBlockBuilder(null, positionCount);
+    }
+
+    @Override
+    public String getDisplayName()
+    {
+        return NAME;
     }
 
     @Override
@@ -121,19 +128,6 @@ public class UuidType
         long high = reverseBytes(valueBlock.getInt128High(valuePosition));
         long low = reverseBytes(valueBlock.getInt128Low(valuePosition));
         return new UUID(high, low).toString();
-    }
-
-    @Override
-    public void appendTo(Block block, int position, BlockBuilder blockBuilder)
-    {
-        if (block.isNull(position)) {
-            blockBuilder.appendNull();
-        }
-        else {
-            Int128ArrayBlock valueBlock = (Int128ArrayBlock) block.getUnderlyingValueBlock();
-            int valuePosition = block.getUnderlyingValuePosition(position);
-            ((Int128ArrayBlockBuilder) blockBuilder).writeInt128(valueBlock.getInt128High(valuePosition), valueBlock.getInt128Low(valuePosition));
-        }
     }
 
     @Override
@@ -205,10 +199,10 @@ public class UuidType
     @ScalarOperator(READ_VALUE)
     private static void writeFlat(
             Slice sourceSlice,
-            byte[] fixedSizeSlice,
-            int fixedSizeOffset,
-            byte[] unusedVariableSizeSlice,
-            int unusedVariableSizeOffset)
+            @FlatFixed byte[] fixedSizeSlice,
+            @FlatFixedOffset int fixedSizeOffset,
+            @FlatVariableWidth byte[] unusedVariableSizeSlice,
+            @FlatVariableOffset int unusedVariableSizeOffset)
     {
         sourceSlice.getBytes(0, fixedSizeSlice, fixedSizeOffset, INT128_BYTES);
     }
@@ -246,6 +240,22 @@ public class UuidType
                 rightBlock.getInt128Low(rightPosition));
     }
 
+    @ScalarOperator(EQUAL)
+    private static boolean equalOperator(
+            @FlatFixed byte[] leftFixedSizeSlice,
+            @FlatFixedOffset int leftFixedSizeOffset,
+            @FlatVariableWidth byte[] unusedVariableSizeSlice,
+            @FlatVariableOffset int unusedVariableSizeOffset,
+            @BlockPosition Int128ArrayBlock rightBlock,
+            @BlockIndex int rightPosition)
+    {
+        return equal(
+                (long) LONG_HANDLE.get(leftFixedSizeSlice, leftFixedSizeOffset),
+                (long) LONG_HANDLE.get(leftFixedSizeSlice, leftFixedSizeOffset + SIZE_OF_LONG),
+                rightBlock.getInt128High(rightPosition),
+                rightBlock.getInt128Low(rightPosition));
+    }
+
     private static boolean equal(long leftLow, long leftHigh, long rightLow, long rightHigh)
     {
         return leftLow == rightLow && leftHigh == rightHigh;
@@ -261,6 +271,18 @@ public class UuidType
     private static long xxHash64Operator(@BlockPosition Int128ArrayBlock block, @BlockIndex int position)
     {
         return xxHash64(block.getInt128High(position), block.getInt128Low(position));
+    }
+
+    @ScalarOperator(XX_HASH_64)
+    private static long xxHash64Operator(
+            @FlatFixed byte[] fixedSizeSlice,
+            @FlatFixedOffset int fixedSizeOffset,
+            @FlatVariableWidth byte[] unusedVariableSizeSlice,
+            @FlatVariableOffset int unusedVariableSizeOffset)
+    {
+        return xxHash64(
+                (long) LONG_HANDLE.get(fixedSizeSlice, fixedSizeOffset),
+                (long) LONG_HANDLE.get(fixedSizeSlice, fixedSizeOffset + SIZE_OF_LONG));
     }
 
     private static long xxHash64(long low, long high)

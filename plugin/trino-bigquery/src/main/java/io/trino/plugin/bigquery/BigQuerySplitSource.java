@@ -155,7 +155,9 @@ public class BigQuerySplitSource
             String query = buildNativeQuery(bigQueryQueryRelationHandle.getQuery(), filter, limit);
 
             TableId destinationTable = bigQueryQueryRelationHandle.getDestinationTableName().toTableId();
-            TableInfo tableInfo = new ViewMaterializationCache.DestinationTableBuilder(bigQueryClientFactory.create(session), viewExpiration, query, destinationTable).get();
+            BigQueryClient bigQueryClient = bigQueryClientFactory.create(session);
+            Optional<TableInfo> bigQueryTable = bigQueryClient.getTable(destinationTable);
+            TableInfo tableInfo = bigQueryTable.orElseGet(() -> new ViewMaterializationCache.DestinationTableBuilder(bigQueryClient, viewExpiration, query, destinationTable).get());
 
             log.debug("Using Storage API for running query: %s", query);
             remoteTableId = tableInfo.getTableId();

@@ -234,7 +234,7 @@ public class LanguageFunctionManager
 
     public static boolean isInlineFunction(CatalogSchemaFunctionName functionName)
     {
-        return functionName.getCatalogName().equals(GlobalSystemConnector.NAME) && functionName.getSchemaName().equals(QUERY_LOCAL_SCHEMA);
+        return functionName.catalogName().equals(GlobalSystemConnector.NAME) && functionName.schemaName().equals(QUERY_LOCAL_SCHEMA);
     }
 
     public static boolean isTrinoSqlLanguageFunction(FunctionId functionId)
@@ -430,7 +430,7 @@ public class LanguageFunctionManager
                 Set<String> names = implementations.stream()
                         .map(function -> function.getFunctionMetadata().getCanonicalName())
                         .collect(toImmutableSet());
-                if (!names.isEmpty() && !names.equals(Set.of(name.getFunctionName()))) {
+                if (!names.isEmpty() && !names.equals(Set.of(name.functionName()))) {
                     throw new TrinoException(FUNCTION_IMPLEMENTATION_ERROR, "Catalog %s returned functions named %s when listing functions named %s".formatted(catalogHandle.getCatalogName(), names, name));
                 }
 

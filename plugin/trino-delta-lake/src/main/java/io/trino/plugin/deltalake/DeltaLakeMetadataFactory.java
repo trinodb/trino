@@ -20,17 +20,16 @@ import io.trino.metastore.HiveMetastoreFactory;
 import io.trino.metastore.cache.CachingHiveMetastore;
 import io.trino.plugin.deltalake.metastore.DeltaLakeTableMetadataScheduler;
 import io.trino.plugin.deltalake.metastore.HiveMetastoreBackedDeltaLakeMetastore;
-import io.trino.plugin.deltalake.metastore.VendedCredentialsProvider;
 import io.trino.plugin.deltalake.statistics.CachingExtendedStatisticsAccess;
 import io.trino.plugin.deltalake.statistics.FileBasedTableStatisticsProvider;
 import io.trino.plugin.deltalake.transactionlog.TransactionLogAccess;
 import io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointWriterManager;
 import io.trino.plugin.deltalake.transactionlog.reader.TransactionLogReaderFactory;
 import io.trino.plugin.deltalake.transactionlog.writer.TransactionLogWriterFactory;
-import io.trino.plugin.hive.NodeVersion;
 import io.trino.plugin.hive.TrinoViewHiveMetastore;
 import io.trino.plugin.hive.security.UsingSystemSecurity;
 import io.trino.spi.Node;
+import io.trino.spi.NodeVersion;
 import io.trino.spi.security.ConnectorIdentity;
 import io.trino.spi.type.TypeManager;
 
@@ -66,7 +65,6 @@ public class DeltaLakeMetadataFactory
     private final boolean usingSystemSecurity;
     private final String trinoVersion;
     private final TransactionLogReaderFactory transactionLogReaderFactory;
-    private final VendedCredentialsProvider vendedCredentialsProvider;
 
     @Inject
     public DeltaLakeMetadataFactory(
@@ -86,8 +84,7 @@ public class DeltaLakeMetadataFactory
             NodeVersion nodeVersion,
             DeltaLakeTableMetadataScheduler metadataScheduler,
             @ForDeltaLakeMetadata ExecutorService executorService,
-            TransactionLogReaderFactory transactionLogReaderFactory,
-            VendedCredentialsProvider vendedCredentialsProvider)
+            TransactionLogReaderFactory transactionLogReaderFactory)
     {
         this.hiveMetastoreFactory = requireNonNull(hiveMetastoreFactory, "hiveMetastore is null");
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
@@ -116,7 +113,6 @@ public class DeltaLakeMetadataFactory
             this.metadataFetchingExecutor = new BoundedExecutor(executorService, deltaLakeConfig.getMetadataParallelism());
         }
         this.transactionLogReaderFactory = requireNonNull(transactionLogReaderFactory, "transactionLogLoaderFactory is null");
-        this.vendedCredentialsProvider = requireNonNull(vendedCredentialsProvider, "vendedCredentialsProvider is null");
     }
 
     public DeltaLakeMetadata create(ConnectorIdentity identity)
@@ -155,7 +151,6 @@ public class DeltaLakeMetadataFactory
                 useUniqueTableLocation,
                 allowManagedTableRename,
                 metadataFetchingExecutor,
-                transactionLogReaderFactory,
-                vendedCredentialsProvider);
+                transactionLogReaderFactory);
     }
 }

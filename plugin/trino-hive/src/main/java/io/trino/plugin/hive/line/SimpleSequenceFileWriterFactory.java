@@ -17,7 +17,7 @@ import com.google.inject.Inject;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.hive.formats.line.sequence.SequenceFileWriterFactory;
 import io.trino.hive.formats.line.simple.SimpleSerializerFactory;
-import io.trino.plugin.hive.NodeVersion;
+import io.trino.spi.NodeVersion;
 import io.trino.spi.type.TypeManager;
 
 import static io.trino.hive.formats.line.sequence.ValueType.TEXT;

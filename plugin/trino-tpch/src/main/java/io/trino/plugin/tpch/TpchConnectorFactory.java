@@ -16,7 +16,7 @@ package io.trino.plugin.tpch;
 import com.google.inject.Injector;
 import io.airlift.bootstrap.Bootstrap;
 import io.airlift.json.JsonModule;
-import io.opentelemetry.api.OpenTelemetry;
+import io.trino.plugin.base.ConnectorContextModule;
 import io.trino.plugin.base.jmx.MBeanServerModule;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorContext;
@@ -61,13 +61,16 @@ public class TpchConnectorFactory
         checkStrictSpiVersionMatch(context, this);
 
         Bootstrap app = new Bootstrap(
-                binder -> binder.bind(OpenTelemetry.class).toInstance(context.getOpenTelemetry()),
+                "io.trino.bootstrap.catalog." + catalogName,
+                new ConnectorContextModule(catalogName, context),
                 new MBeanModule(),
                 new JsonModule(),
-                new TpchModule(context.getNodeManager(), defaultSplitsPerNode, predicatePushdownEnabled),
+                new TpchModule(defaultSplitsPerNode, predicatePushdownEnabled),
                 new MBeanServerModule());
 
-        Injector injector = app.doNotInitializeLogging()
+        Injector injector = app
+                .doNotInitializeLogging()
+                .disableSystemProperties()
                 .setRequiredConfigurationProperties(properties)
                 .initialize();
 

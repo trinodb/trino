@@ -12,7 +12,7 @@
  * limitations under the License.
  */
 import React from 'react'
-import { Box, Grid2 as Grid, Stack, Tooltip, Typography } from '@mui/material'
+import { Box, Grid, Stack, Tooltip, Typography } from '@mui/material'
 import AvTimerIcon from '@mui/icons-material/AvTimer'
 import BadgeIcon from '@mui/icons-material/Badge'
 import BrokenImageIcon from '@mui/icons-material/BrokenImage'
@@ -33,6 +33,7 @@ import { QueryInfo } from '../api/webapp/api.ts'
 import { formatDataSizeBytes, formatShortTime, parseAndFormatDataSize, truncateString } from '../utils/utils.ts'
 import { styled } from '@mui/material/styles'
 import { Link as RouterLink } from 'react-router-dom'
+import { SvgIconProps } from '@mui/material/SvgIcon'
 
 interface IQueryListItemProps {
     queryInfo: QueryInfo
@@ -91,11 +92,11 @@ export const QueryListItem = (props: IQueryListItemProps) => {
     }
 
     const renderTextWithIcon = (
-        icon: React.ReactElement,
+        icon: React.ReactElement<SvgIconProps>,
         title: string,
         tooltip: string,
         spacing: number = 0,
-        color: string = 'inherit'
+        color: SvgIconProps['color'] = 'inherit'
     ) => {
         const smallIcon = React.cloneElement(icon, { fontSize: 'small', color: color })
 

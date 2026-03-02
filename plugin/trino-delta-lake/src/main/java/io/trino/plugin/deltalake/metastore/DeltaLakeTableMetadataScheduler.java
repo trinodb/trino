@@ -38,6 +38,7 @@ import org.weakref.jmx.Managed;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ConcurrentHashMap;
@@ -147,10 +148,10 @@ public class DeltaLakeTableMetadataScheduler
             }
 
             Map<SchemaTableName, TableUpdateInfo> updateTables = updateInfos.entrySet().stream()
-                    .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue, maxBy(comparing(TableUpdateInfo::version))));
+                    .collect(toImmutableMap(Entry::getKey, Entry::getValue, maxBy(comparing(TableUpdateInfo::version))));
 
             log.debug("Processing %s table(s): %s", updateTables.size(), updateTables.keySet());
-            for (Map.Entry<SchemaTableName, TableUpdateInfo> entry : updateTables.entrySet()) {
+            for (Entry<SchemaTableName, TableUpdateInfo> entry : updateTables.entrySet()) {
                 tasks.add(() -> {
                     updateTable(entry.getKey(), entry.getValue());
                     return null;

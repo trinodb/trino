@@ -18,6 +18,7 @@ import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.MapType;
+import io.trino.spi.type.NumberType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.TimeType;
@@ -25,8 +26,8 @@ import io.trino.spi.type.TimeWithTimeZoneType;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeParameter;
 import io.trino.spi.type.TypeSignature;
-import io.trino.spi.type.TypeSignatureParameter;
 import io.trino.spi.type.VarcharType;
 
 import java.util.List;
@@ -294,7 +295,7 @@ public final class TypeCoercion
     private TypeCompatibility typeCompatibilityForCovariantParametrizedType(Type fromType, Type toType)
     {
         checkState(fromType.getClass().equals(toType.getClass()));
-        ImmutableList.Builder<TypeSignatureParameter> commonParameterTypes = ImmutableList.builder();
+        ImmutableList.Builder<TypeParameter> commonParameterTypes = ImmutableList.builder();
         List<Type> fromTypeParameters = fromType.getTypeParameters();
         List<Type> toTypeParameters = toType.getTypeParameters();
 
@@ -309,7 +310,7 @@ public final class TypeCoercion
                 return TypeCompatibility.incompatible();
             }
             coercible &= compatibility.isCoercible();
-            commonParameterTypes.add(TypeSignatureParameter.typeParameter(compatibility.getCommonSuperType().getTypeSignature()));
+            commonParameterTypes.add(TypeParameter.typeParameter(compatibility.getCommonSuperType().getTypeSignature()));
         }
         String typeBase = fromType.getBaseName();
         return TypeCompatibility.compatible(lookupType.apply(new TypeSignature(typeBase, commonParameterTypes.build())), coercible);
@@ -362,6 +363,7 @@ public final class TypeCoercion
                 case StandardTypes.REAL -> Optional.of(REAL);
                 case StandardTypes.DOUBLE -> Optional.of(DOUBLE);
                 case StandardTypes.DECIMAL -> Optional.of(createDecimalType(3, 0));
+                case StandardTypes.NUMBER -> Optional.of(NumberType.NUMBER);
                 default -> Optional.empty();
             };
             case StandardTypes.SMALLINT -> switch (resultTypeBase) {
@@ -370,6 +372,7 @@ public final class TypeCoercion
                 case StandardTypes.REAL -> Optional.of(REAL);
                 case StandardTypes.DOUBLE -> Optional.of(DOUBLE);
                 case StandardTypes.DECIMAL -> Optional.of(createDecimalType(5, 0));
+                case StandardTypes.NUMBER -> Optional.of(NumberType.NUMBER);
                 default -> Optional.empty();
             };
             case StandardTypes.INTEGER -> switch (resultTypeBase) {
@@ -377,17 +380,21 @@ public final class TypeCoercion
                 case StandardTypes.REAL -> Optional.of(REAL);
                 case StandardTypes.DOUBLE -> Optional.of(DOUBLE);
                 case StandardTypes.DECIMAL -> Optional.of(createDecimalType(10, 0));
+                case StandardTypes.NUMBER -> Optional.of(NumberType.NUMBER);
                 default -> Optional.empty();
             };
             case StandardTypes.BIGINT -> switch (resultTypeBase) {
                 case StandardTypes.REAL -> Optional.of(REAL);
                 case StandardTypes.DOUBLE -> Optional.of(DOUBLE);
                 case StandardTypes.DECIMAL -> Optional.of(createDecimalType(19, 0));
+                case StandardTypes.NUMBER -> Optional.of(NumberType.NUMBER);
                 default -> Optional.empty();
             };
             case StandardTypes.DECIMAL -> switch (resultTypeBase) {
                 case StandardTypes.REAL -> Optional.of(REAL);
                 case StandardTypes.DOUBLE -> Optional.of(DOUBLE);
+                // TODO there should be coercion from DECIMAL to NUMBER, however this currently breaks arithmetics between integer types and decimals
+                //case StandardTypes.NUMBER -> Optional.of(NumberType.NUMBER);
                 default -> Optional.empty();
             };
             case StandardTypes.REAL -> switch (resultTypeBase) {

@@ -31,6 +31,7 @@ import io.trino.sql.planner.plan.ProjectNode;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -118,9 +119,9 @@ public class PushProjectionThroughExchange
             Set<Symbol> partitioningHashAndOrderingOutputs = outputBuilder.build();
 
             Map<Symbol, Expression> translationMap = outputToInputMap.entrySet().stream()
-                    .collect(Collectors.toMap(Map.Entry::getKey, entry -> entry.getValue().toSymbolReference()));
+                    .collect(Collectors.toMap(Entry::getKey, entry -> entry.getValue().toSymbolReference()));
 
-            for (Map.Entry<Symbol, Expression> projection : project.getAssignments().entrySet()) {
+            for (Entry<Symbol, Expression> projection : project.getAssignments().entrySet()) {
                 // Skip identity projection if symbol is in outputs already
                 if (partitioningHashAndOrderingOutputs.contains(projection.getKey())) {
                     continue;
@@ -146,7 +147,7 @@ public class PushProjectionThroughExchange
 
         Set<Symbol> partitioningHashAndOrderingOutputs = ImmutableSet.copyOf(outputBuilder.build());
 
-        for (Map.Entry<Symbol, Expression> projection : project.getAssignments().entrySet()) {
+        for (Entry<Symbol, Expression> projection : project.getAssignments().entrySet()) {
             // Do not add output for identity projection if symbol is in outputs already
             if (partitioningHashAndOrderingOutputs.contains(projection.getKey())) {
                 continue;
@@ -178,7 +179,7 @@ public class PushProjectionThroughExchange
 
     private static boolean isSymbolToSymbolProjection(ProjectNode project)
     {
-        return project.getAssignments().getExpressions().stream().allMatch(Reference.class::isInstance);
+        return project.getAssignments().expressions().stream().allMatch(Reference.class::isInstance);
     }
 
     private static Map<Symbol, Symbol> mapExchangeOutputToInput(ExchangeNode exchange, int sourceIndex)

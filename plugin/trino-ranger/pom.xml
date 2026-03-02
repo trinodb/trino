@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>477-SNAPSHOT</version>
+        <version>480-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
@@ -15,9 +15,50 @@
     <description>Trino - Apache Ranger access control</description>
 
     <properties>
-        <dep.graalvm.version>25.0.0</dep.graalvm.version>
+        <dep.graalvm.version>25.0.2</dep.graalvm.version>
+        <!-- TODO: remove once Ranger upgrades to Jetty 12 -->
+        <dep.jetty11.version>11.0.26</dep.jetty11.version>
         <dep.ranger.version>2.7.0</dep.ranger.version>
+        <!-- TODO: update with ranger version which fixes elasticsearch CVEs -->
+        <dep.elasticsearch.version>7.17.29</dep.elasticsearch.version>
     </properties>
+
+    <dependencyManagement>
+        <dependencies>
+            <!-- Fix CVE-affected artifacts and resolve version conflicts -->
+            <dependency>
+                <groupId>org.elasticsearch</groupId>
+                <artifactId>elasticsearch</artifactId>
+                <version>${dep.elasticsearch.version}</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>org.lz4</groupId>
+                        <artifactId>lz4-java</artifactId>
+                    </exclusion>
+                </exclusions>
+            </dependency>
+            <dependency>
+                <groupId>org.elasticsearch</groupId>
+                <artifactId>elasticsearch-core</artifactId>
+                <version>${dep.elasticsearch.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.elasticsearch</groupId>
+                <artifactId>elasticsearch-secure-sm</artifactId>
+                <version>${dep.elasticsearch.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.elasticsearch</groupId>
+                <artifactId>elasticsearch-x-content</artifactId>
+                <version>${dep.elasticsearch.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.elasticsearch.client</groupId>
+                <artifactId>elasticsearch-rest-client</artifactId>
+                <version>${dep.elasticsearch.version}</version>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
 
     <dependencies>
         <dependency>
@@ -126,7 +167,7 @@
         <dependency>
             <groupId>org.apache.hadoop.thirdparty</groupId>
             <artifactId>hadoop-shaded-guava</artifactId>
-            <version>1.4.0</version>
+            <version>1.5.0</version>
             <scope>runtime</scope>
         </dependency>
 
@@ -203,12 +244,51 @@
                     <groupId>commons-logging</groupId>
                     <artifactId>commons-logging</artifactId>
                 </exclusion>
+                <exclusion>
+                    <groupId>org.eclipse.jetty</groupId>
+                    <artifactId>*</artifactId>
+                </exclusion>
             </exclusions>
         </dependency>
 
         <dependency>
             <groupId>org.apache.zookeeper</groupId>
             <artifactId>zookeeper</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.eclipse.jetty</groupId>
+            <artifactId>jetty-alpn-client</artifactId>
+            <version>${dep.jetty11.version}</version>
+            <scope>runtime</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.eclipse.jetty</groupId>
+            <artifactId>jetty-client</artifactId>
+            <version>${dep.jetty11.version}</version>
+            <scope>runtime</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.eclipse.jetty</groupId>
+            <artifactId>jetty-http</artifactId>
+            <version>${dep.jetty11.version}</version>
+            <scope>runtime</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.eclipse.jetty</groupId>
+            <artifactId>jetty-io</artifactId>
+            <version>${dep.jetty11.version}</version>
+            <scope>runtime</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.eclipse.jetty</groupId>
+            <artifactId>jetty-util</artifactId>
+            <version>${dep.jetty11.version}</version>
             <scope>runtime</scope>
         </dependency>
 
@@ -286,7 +366,6 @@
         <dependency>
             <groupId>io.trino</groupId>
             <artifactId>trino-plugin-toolkit</artifactId>
-            <type>test-jar</type>
             <scope>test</scope>
         </dependency>
 
@@ -308,4 +387,45 @@
             <scope>test</scope>
         </dependency>
     </dependencies>
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-enforcer-plugin</artifactId>
+                <configuration>
+                    <rules>
+                        <bannedDependencies>
+                            <includes combine.children="append">
+                                <!-- Ranger still relies on the deprecated S3 SDK v1 -->
+                                <include>com.amazonaws:*:*</include>
+                            </includes>
+                        </bannedDependencies>
+                    </rules>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.basepom.maven</groupId>
+                <artifactId>duplicate-finder-maven-plugin</artifactId>
+                <configuration>
+                    <exceptions combine.children="append">
+                        <exception>
+                            <conflictingDependencies>
+                                <dependency>
+                                    <groupId>org.jspecify</groupId>
+                                    <artifactId>jspecify</artifactId>
+                                </dependency>
+                                <dependency>
+                                    <groupId>org.apache.hadoop.thirdparty</groupId>
+                                    <artifactId>hadoop-shaded-guava</artifactId>
+                                </dependency>
+                            </conflictingDependencies>
+                            <packages>
+                                <package>org.jspecify.annotations</package>
+                            </packages>
+                        </exception>
+                    </exceptions>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
 </project>

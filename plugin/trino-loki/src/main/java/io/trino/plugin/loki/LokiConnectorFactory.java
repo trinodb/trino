@@ -16,6 +16,7 @@ package io.trino.plugin.loki;
 import com.google.inject.Injector;
 import io.airlift.bootstrap.Bootstrap;
 import io.airlift.json.JsonModule;
+import io.trino.plugin.base.ConnectorContextModule;
 import io.trino.plugin.base.TypeDeserializerModule;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorContext;
@@ -45,12 +46,15 @@ public class LokiConnectorFactory
         try {
             // A plugin is not required to use Guice; it is just very convenient
             Bootstrap app = new Bootstrap(
+                    "io.trino.bootstrap.catalog." + catalogName,
                     new JsonModule(),
-                    new TypeDeserializerModule(context.getTypeManager()),
+                    new TypeDeserializerModule(),
+                    new ConnectorContextModule(catalogName, context),
                     new LokiModule());
 
             Injector injector = app
                     .doNotInitializeLogging()
+                    .disableSystemProperties()
                     .setRequiredConfigurationProperties(requiredConfig)
                     .initialize();
 

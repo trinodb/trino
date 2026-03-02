@@ -139,7 +139,7 @@ public final class VerticaQueryRunner
         server.execute(sql, "dbadmin", null);
     }
 
-    public static void main(String[] args)
+    static void main()
             throws Exception
     {
         Logging.initialize();

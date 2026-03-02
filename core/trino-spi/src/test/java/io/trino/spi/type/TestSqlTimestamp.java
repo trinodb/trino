@@ -21,7 +21,7 @@ import static io.trino.spi.type.SqlTimestamp.fromMillis;
 import static io.trino.spi.type.SqlTimestamp.newInstance;
 import static org.assertj.core.api.Assertions.assertThat;
 
-public class TestSqlTimestamp
+final class TestSqlTimestamp
 {
     @Test
     public void testBaseline()

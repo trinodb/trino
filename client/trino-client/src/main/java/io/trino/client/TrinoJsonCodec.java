@@ -32,6 +32,7 @@ import java.io.UncheckedIOException;
 import java.lang.reflect.Type;
 import java.util.function.Supplier;
 
+import static com.fasterxml.jackson.core.JsonFactory.Feature.INTERN_FIELD_NAMES;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
@@ -40,6 +41,19 @@ public class TrinoJsonCodec<T>
     // copy of https://github.com/airlift/airlift/blob/master/json/src/main/java/io/airlift/json/ObjectMapperProvider.java
     static final Supplier<ObjectMapper> OBJECT_MAPPER_SUPPLIER = () -> {
         JsonFactory jsonFactory = JsonFactory.builder()
+                /*
+                 * When multiple threads deserialize JSON responses concurrently,
+                 * Jackson's default behavior of interning field names causes severe lock contention
+                 * on the JVM's global String pool. This manifests as threads blocked waiting at
+                 * {@code InternCache.intern()}.
+                 *
+                 * Disabling INTERN_FIELD_NAMES eliminates this contention with minimal performance
+                 * impact - field name deduplication becomes slightly less memory-efficient, but the
+                 * elimination of lock contention far outweighs this cost in high-concurrency scenarios.
+                 *
+                 * @see <a href="https://github.com/FasterXML/jackson-core/issues/332">Jackson issue on InternCache contention</a>
+                 */
+                .disable(INTERN_FIELD_NAMES)
                 .streamReadConstraints(StreamReadConstraints.builder()
                     .maxStringLength(Integer.MAX_VALUE)
                     .maxNestingDepth(Integer.MAX_VALUE)

@@ -530,9 +530,11 @@ public final class MapBlock
     @Override
     public boolean isNull(int position)
     {
+        if (!mayHaveNull()) {
+            return false;
+        }
         checkReadablePosition(this, position);
-        boolean[] mapIsNull = this.mapIsNull;
-        return mapIsNull != null && mapIsNull[position + startOffset];
+        return mapIsNull[position + startOffset];
     }
 
     @Override

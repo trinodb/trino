@@ -18,9 +18,11 @@ import com.google.common.collect.ImmutableSet;
 import com.google.inject.Inject;
 import io.airlift.concurrent.BoundedExecutor;
 import io.airlift.json.JsonCodec;
+import io.airlift.units.Duration;
 import io.trino.metastore.HiveMetastoreFactory;
 import io.trino.metastore.RawHiveMetastoreFactory;
 import io.trino.plugin.iceberg.catalog.TrinoCatalogFactory;
+import io.trino.plugin.iceberg.delete.DeletionVectorWriter;
 import io.trino.spi.security.ConnectorIdentity;
 import io.trino.spi.type.TypeManager;
 
@@ -47,6 +49,9 @@ public class IcebergMetadataFactory
     private final Executor metadataFetchingExecutor;
     private final ExecutorService icebergPlanningExecutor;
     private final ExecutorService icebergFileDeleteExecutor;
+    private final DeletionVectorWriter deletionVectorWriter;
+    private final int materializedViewRefreshMaxSnapshotsToExpire;
+    private final Duration materializedViewRefreshSnapshotRetentionPeriod;
 
     @Inject
     public IcebergMetadataFactory(
@@ -56,6 +61,7 @@ public class IcebergMetadataFactory
             IcebergFileSystemFactory fileSystemFactory,
             TableStatisticsReader tableStatisticsReader,
             TableStatisticsWriter tableStatisticsWriter,
+            DeletionVectorWriter deletionVectorWriter,
             @RawHiveMetastoreFactory Optional<HiveMetastoreFactory> metastoreFactory,
             @ForIcebergSplitManager ExecutorService icebergScanExecutor,
             @ForIcebergMetadata ExecutorService metadataExecutorService,
@@ -69,6 +75,7 @@ public class IcebergMetadataFactory
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
         this.tableStatisticsReader = requireNonNull(tableStatisticsReader, "tableStatisticsReader is null");
         this.tableStatisticsWriter = requireNonNull(tableStatisticsWriter, "tableStatisticsWriter is null");
+        this.deletionVectorWriter = requireNonNull(deletionVectorWriter, "deletionVectorWriter is null");
         this.metastoreFactory = requireNonNull(metastoreFactory, "metastoreFactory is null");
         this.icebergScanExecutor = requireNonNull(icebergScanExecutor, "icebergScanExecutor is null");
         this.addFilesProcedureEnabled = config.isAddFilesProcedureEnabled();
@@ -87,6 +94,8 @@ public class IcebergMetadataFactory
         }
         this.icebergPlanningExecutor = requireNonNull(icebergPlanningExecutor, "icebergPlanningExecutor is null");
         this.icebergFileDeleteExecutor = requireNonNull(icebergFileDeleteExecutor, "icebergFileDeleteExecutor is null");
+        this.materializedViewRefreshMaxSnapshotsToExpire = config.getMaterializedViewRefreshMaxSnapshotsToExpire();
+        this.materializedViewRefreshSnapshotRetentionPeriod = config.getMaterializedViewRefreshSnapshotRetentionPeriod();
     }
 
     public IcebergMetadata create(ConnectorIdentity identity)
@@ -98,12 +107,15 @@ public class IcebergMetadataFactory
                 fileSystemFactory,
                 tableStatisticsReader,
                 tableStatisticsWriter,
+                deletionVectorWriter,
                 metastoreFactory,
                 addFilesProcedureEnabled,
                 allowedExtraProperties,
                 icebergScanExecutor,
                 metadataFetchingExecutor,
                 icebergPlanningExecutor,
-                icebergFileDeleteExecutor);
+                icebergFileDeleteExecutor,
+                materializedViewRefreshMaxSnapshotsToExpire,
+                materializedViewRefreshSnapshotRetentionPeriod);
     }
 }

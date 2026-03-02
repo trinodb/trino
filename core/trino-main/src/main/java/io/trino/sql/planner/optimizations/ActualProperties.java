@@ -31,6 +31,7 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
@@ -185,7 +186,7 @@ public class ActualProperties
     private Map<Symbol, NullableValue> translateConstants(Function<Symbol, Optional<Symbol>> translator)
     {
         Map<Symbol, NullableValue> translatedConstants = new HashMap<>();
-        for (Map.Entry<Symbol, NullableValue> entry : constants.entrySet()) {
+        for (Entry<Symbol, NullableValue> entry : constants.entrySet()) {
             Optional<Symbol> translatedKey = translator.apply(entry.getKey());
             translatedKey.ifPresent(symbol -> translatedConstants.put(symbol, entry.getValue()));
         }

@@ -56,7 +56,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicLong;
 
-import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -81,6 +80,7 @@ import static java.lang.Math.floorMod;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
+import static java.util.Objects.requireNonNullElse;
 
 public class BigQueryStorageAvroPageSource
         implements ConnectorPageSource
@@ -133,7 +133,7 @@ public class BigQueryStorageAvroPageSource
             return new Schema.Parser().parse(schemaString);
         }
         catch (SchemaParseException e) {
-            throw new TrinoException(GENERIC_INTERNAL_ERROR, "Invalid Avro schema: " + firstNonNull(e.getMessage(), e), e);
+            throw new TrinoException(GENERIC_INTERNAL_ERROR, "Invalid Avro schema: " + requireNonNullElse(e.getMessage(), e), e);
         }
     }
 
@@ -290,7 +290,7 @@ public class BigQueryStorageAvroPageSource
             type.writeSlice(output, utf8Slice(((Utf8) value).toString()));
         }
         else {
-            throw new TrinoException(GENERIC_INTERNAL_ERROR, "Unhandled type for Slice: " + type.getTypeSignature());
+            throw new TrinoException(GENERIC_INTERNAL_ERROR, "Unhandled type for Slice: " + type.getDisplayName());
         }
     }
 
@@ -302,7 +302,7 @@ public class BigQueryStorageAvroPageSource
             type.writeObject(output, Decimals.encodeScaledValue(decimal, decimalType.getScale()));
         }
         else {
-            throw new TrinoException(GENERIC_INTERNAL_ERROR, "Unhandled type for Object: " + type.getTypeSignature());
+            throw new TrinoException(GENERIC_INTERNAL_ERROR, "Unhandled type for Object: " + type.getDisplayName());
         }
     }
 

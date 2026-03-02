@@ -29,7 +29,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.plugin.prometheus.PrometheusClient.TIMESTAMP_COLUMN_TYPE;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
-import static io.trino.spi.type.TypeSignature.mapType;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
@@ -42,7 +41,7 @@ public final class MetadataUtil
     public static final JsonCodec<PrometheusColumnHandle> COLUMN_CODEC;
     public static final JsonCodec<Map<String, Object>> METRIC_CODEC;
 
-    static final MapType varcharMapType = (MapType) TESTING_TYPE_MANAGER.getType(mapType(VARCHAR.getTypeSignature(), VARCHAR.getTypeSignature()));
+    static final MapType varcharMapType = new MapType(VARCHAR, VARCHAR, TESTING_TYPE_MANAGER.getTypeOperators());
 
     static {
         ObjectMapperProvider objectMapperProvider = new ObjectMapperProvider();

@@ -14,11 +14,11 @@
 package io.trino.filesystem.hdfs;
 
 import com.google.common.collect.ImmutableMap;
-import io.opentelemetry.api.OpenTelemetry;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.spi.security.ConnectorIdentity;
+import io.trino.testing.TestingConnectorContext;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
@@ -42,7 +42,7 @@ class TestHdfsFileSystemManager
                 true,
                 true,
                 "test",
-                OpenTelemetry.noop());
+                new TestingConnectorContext());
 
         assertThat(manager.configure().keySet()).containsExactly("hive.dfs.verify-checksum", "hive.s3.region");
 

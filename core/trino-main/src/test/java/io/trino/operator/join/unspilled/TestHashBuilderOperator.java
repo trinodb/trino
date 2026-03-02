@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
 import io.trino.operator.DriverContext;
+import io.trino.operator.NullSafeHashCompiler;
 import io.trino.operator.OperatorContext;
 import io.trino.operator.PagesIndex;
 import io.trino.operator.TaskContext;
@@ -34,6 +35,7 @@ import org.junit.jupiter.api.parallel.Execution;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 
@@ -100,7 +102,7 @@ public class TestHashBuilderOperator
                 ImmutableList.of(BIGINT),
                 1,
                 false,
-                new TypeOperators());
+                new NullSafeHashCompiler(new TypeOperators()));
         try (HashBuilderOperator operator = new HashBuilderOperator(
                 operatorContext,
                 lookupSourceFactory,
@@ -108,7 +110,7 @@ public class TestHashBuilderOperator
                 ImmutableList.of(0),
                 ImmutableList.of(1),
                 Optional.empty(),
-                Optional.empty(),
+                OptionalInt.empty(),
                 ImmutableList.of(),
                 10_000,
                 new PagesIndex.TestingFactory(false),

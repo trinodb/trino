@@ -73,7 +73,7 @@ public final class LokiQueryRunner
         }
     }
 
-    public static void main(String[] args)
+    static void main()
             throws Exception
     {
         Logging logger = Logging.initialize();

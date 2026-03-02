@@ -143,7 +143,7 @@ public class BenchmarkBoxedBoolean
         }
     }
 
-    public static void main(String[] args)
+    static void main()
             throws RunnerException
     {
         benchmark(BenchmarkBoxedBoolean.class)

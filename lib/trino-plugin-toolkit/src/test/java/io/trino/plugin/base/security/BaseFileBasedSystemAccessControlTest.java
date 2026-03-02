@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
+import io.trino.plugin.base.security.testing.TestingSystemAccessControlContext;
 import io.trino.spi.QueryId;
 import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.spi.connector.CatalogSchemaRoutineName;
@@ -42,7 +43,6 @@ import javax.security.auth.kerberos.KerberosPrincipal;
 import java.net.URISyntaxException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.time.Instant;
 import java.util.List;
 import java.util.Locale;
@@ -55,8 +55,8 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.spi.security.PrincipalType.ROLE;
 import static io.trino.spi.security.PrincipalType.USER;
 import static io.trino.spi.security.Privilege.UPDATE;
-import static io.trino.spi.testing.InterfaceTestUtils.assertAllMethodsOverridden;
 import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.testing.InterfaceTestUtils.assertAllMethodsOverridden;
 import static java.lang.String.format;
 import static java.lang.Thread.sleep;
 import static java.nio.file.StandardCopyOption.REPLACE_EXISTING;
@@ -976,7 +976,7 @@ public abstract class BaseFileBasedSystemAccessControlTest
     @Test
     public void testQueryDocsExample()
     {
-        Path rulesFile = Paths.get("../../docs/src/main/sphinx/security/query-access.json");
+        Path rulesFile = Path.of("../../docs/src/main/sphinx/security/query-access.json");
         SystemAccessControl accessControlManager = newFileBasedSystemAccessControl(rulesFile, ImmutableMap.of());
 
         accessControlManager.checkCanExecuteQuery(admin, queryId);
@@ -1066,7 +1066,7 @@ public abstract class BaseFileBasedSystemAccessControlTest
     @Test
     public void testSystemInformationDocsExample()
     {
-        Path rulesFile = Paths.get("../../docs/src/main/sphinx/security/system-information-access.json");
+        Path rulesFile = Path.of("../../docs/src/main/sphinx/security/system-information-access.json");
         SystemAccessControl accessControlManager = newFileBasedSystemAccessControl(rulesFile, ImmutableMap.of());
 
         accessControlManager.checkCanReadSystemInformation(admin);
@@ -1124,7 +1124,7 @@ public abstract class BaseFileBasedSystemAccessControlTest
     @Test
     public void testSessionPropertyDocsExample()
     {
-        Path rulesFile = Paths.get("../../docs/src/main/sphinx/security/session-property-access.json");
+        Path rulesFile = Path.of("../../docs/src/main/sphinx/security/session-property-access.json");
         SystemAccessControl accessControl = newFileBasedSystemAccessControl(rulesFile, ImmutableMap.of());
         Identity bannedUser = Identity.ofUser("banned_user");
         SystemSecurityContext bannedUserContext = new SystemSecurityContext(Identity.ofUser("banned_user"), queryId, queryStart);
@@ -1835,7 +1835,7 @@ public abstract class BaseFileBasedSystemAccessControlTest
     @Test
     public void testAuthorizationDocsExample()
     {
-        Path rulesFile = Paths.get("../../docs/src/main/sphinx/security/authorization.json");
+        Path rulesFile = Path.of("../../docs/src/main/sphinx/security/authorization.json");
         SystemAccessControl accessControlManager = newFileBasedSystemAccessControl(rulesFile, ImmutableMap.of());
         List<String> schema = List.of("catalog", "schema");
         List<String> tableOrView = List.of("catalog", "schema", "table_or_view");
@@ -1896,7 +1896,7 @@ public abstract class BaseFileBasedSystemAccessControlTest
     protected Path getResourcePath(String resourceName)
             throws URISyntaxException
     {
-        return Paths.get(requireNonNull(this.getClass().getClassLoader().getResource(resourceName), "Resource does not exist: " + resourceName).toURI());
+        return Path.of(requireNonNull(this.getClass().getClassLoader().getResource(resourceName), "Resource does not exist: " + resourceName).toURI());
     }
 
     private static void assertAccessDenied(ThrowingCallable callable, String expectedMessage)

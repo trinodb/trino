@@ -19,19 +19,22 @@ import io.airlift.units.DataSize;
 import io.trino.plugin.iceberg.IcebergColumnHandle;
 import io.trino.plugin.iceberg.IcebergFileFormat;
 import io.trino.plugin.iceberg.TrinoSortField;
+import org.apache.iceberg.SortOrder;
 
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
+import java.util.OptionalLong;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
 public record IcebergOptimizeHandle(
-        Optional<Long> snapshotId,
+        OptionalLong snapshotId,
         String schemaAsJson,
         String partitionSpecAsJson,
-        List<IcebergColumnHandle> tableColumns,
-        List<TrinoSortField> sortOrder,
+        List<IcebergColumnHandle> partitionColumns,
+        List<TrinoSortField> sortFields,
+        int sortOrderId,
         IcebergFileFormat fileFormat,
         Map<String, String> tableStorageProperties,
         DataSize maxScannedFileSize)
@@ -42,8 +45,9 @@ public record IcebergOptimizeHandle(
         requireNonNull(snapshotId, "snapshotId is null");
         requireNonNull(schemaAsJson, "schemaAsJson is null");
         requireNonNull(partitionSpecAsJson, "partitionSpecAsJson is null");
-        tableColumns = ImmutableList.copyOf(requireNonNull(tableColumns, "tableColumns is null"));
-        sortOrder = ImmutableList.copyOf(requireNonNull(sortOrder, "sortOrder is null"));
+        partitionColumns = ImmutableList.copyOf(requireNonNull(partitionColumns, "partitionColumns is null"));
+        sortFields = ImmutableList.copyOf(requireNonNull(sortFields, "sortOrder is null"));
+        checkArgument(sortOrderId == SortOrder.unsorted().orderId() || !sortFields.isEmpty(), "sorted order id can be present only when sortFields is not empty");
         requireNonNull(fileFormat, "fileFormat is null");
         tableStorageProperties = ImmutableMap.copyOf(requireNonNull(tableStorageProperties, "tableStorageProperties is null"));
         requireNonNull(maxScannedFileSize, "maxScannedFileSize is null");

@@ -14,7 +14,9 @@
 package io.trino.operator.join;
 
 import com.google.common.collect.ImmutableList;
-import io.trino.operator.join.JoinProbe.JoinProbeFactory;
+import io.trino.operator.join.spilling.JoinProbe;
+import io.trino.operator.join.spilling.JoinProbe.JoinProbeFactory;
+import io.trino.operator.join.spilling.LookupJoinPageBuilder;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.block.Block;
@@ -237,7 +239,8 @@ public class TestLookupJoinPageBuilder
         public void appendTo(long position, PageBuilder pageBuilder, int outputChannelOffset)
         {
             for (int i = 0; i < types.size(); i++) {
-                types.get(i).appendTo(page.getBlock(i), (int) position, pageBuilder.getBlockBuilder(i));
+                Block block = page.getBlock(i);
+                pageBuilder.getBlockBuilder(i).append(block.getUnderlyingValueBlock(), block.getUnderlyingValuePosition((int) position));
             }
         }
 

@@ -22,8 +22,8 @@ import java.util.Set;
 import static io.trino.plugin.hive.containers.Hive4HiveServer.HIVE_SERVER_PORT;
 import static io.trino.plugin.hive.containers.Hive4Metastore.HIVE4_IMAGE;
 import static io.trino.plugin.hive.containers.HiveMinioDataLake.State.STARTED;
-import static io.trino.testing.containers.Minio.MINIO_ACCESS_KEY;
-import static io.trino.testing.containers.Minio.MINIO_SECRET_KEY;
+import static io.trino.testing.containers.Minio.MINIO_ROOT_PASSWORD;
+import static io.trino.testing.containers.Minio.MINIO_ROOT_USER;
 import static io.trino.testing.containers.TestContainers.getPathFromClassPathResource;
 
 public class Hive4MinioDataLake
@@ -55,8 +55,8 @@ public class Hive4MinioDataLake
                         "HIVE_SERVER2_THRIFT_PORT", String.valueOf(HIVE_SERVER_PORT),
                         "SERVICE_OPTS", "-Xmx1G -Dhive.metastore.uris=%s".formatted(hiveMetastore.getInternalHiveMetastoreEndpoint()),
                         "IS_RESUME", "true",
-                        "AWS_ACCESS_KEY_ID", MINIO_ACCESS_KEY,
-                        "AWS_SECRET_KEY", MINIO_SECRET_KEY))
+                        "AWS_ACCESS_KEY_ID", MINIO_ROOT_USER,
+                        "AWS_SECRET_KEY", MINIO_ROOT_PASSWORD))
                 .withNetwork(network)
                 .withExposePorts(Set.of(HIVE_SERVER_PORT))
                 .withFilesToMount(hiveFilesToMount);

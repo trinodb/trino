@@ -88,6 +88,10 @@ statement
     | ALTER TABLE (IF EXISTS)? tableName=qualifiedName
         DROP COLUMN (IF EXISTS)? column=qualifiedName                  #dropColumn
     | ALTER TABLE (IF EXISTS)? tableName=qualifiedName
+        ALTER COLUMN columnName=qualifiedName SET DEFAULT literal      #setDefaultValue
+    | ALTER TABLE (IF EXISTS)? tableName=qualifiedName
+        ALTER COLUMN columnName=qualifiedName DROP DEFAULT             #dropDefaultValue
+    | ALTER TABLE (IF EXISTS)? tableName=qualifiedName
         ALTER COLUMN columnName=qualifiedName SET DATA TYPE type       #setColumnType
     | ALTER TABLE (IF EXISTS)? tableName=qualifiedName
         ALTER COLUMN columnName=identifier DROP NOT NULL               #dropNotNullConstraint
@@ -102,6 +106,7 @@ statement
     | CREATE (OR REPLACE)? MATERIALIZED VIEW
         (IF NOT EXISTS)? qualifiedName
         (GRACE PERIOD interval)?
+        (WHEN STALE (INLINE | FAIL))?
         (COMMENT string)?
         (WITH properties)? AS rootQuery                                #createMaterializedView
     | CREATE (OR REPLACE)? VIEW qualifiedName
@@ -586,7 +591,7 @@ primaryExpression
     | QUESTION_MARK                                                                       #parameter
     | POSITION '(' valueExpression IN valueExpression ')'                                 #position
     | '(' expression (',' expression)+ ')'                                                #rowConstructor
-    | ROW '(' expression (',' expression)* ')'                                            #rowConstructor
+    | ROW '(' fieldConstructor (',' fieldConstructor)* ')'                                #rowConstructor
     | name=LISTAGG '(' setQuantifier? expression (',' string)?
         (ON OVERFLOW listAggOverflowBehavior)? ')'
         (WITHIN GROUP '(' orderBy ')')
@@ -670,6 +675,10 @@ literal
     | NULL                                                                                #nullLiteral
     ;
 
+fieldConstructor
+    : expression (AS? identifier)?
+    ;
+
 jsonPathInvocation
     : jsonValueExpression ',' path=string
         (AS pathName=identifier)?
@@ -751,11 +760,7 @@ booleanValue
     ;
 
 interval
-    : INTERVAL sign=(PLUS | MINUS)? string from=intervalField (TO to=intervalField)?
-    ;
-
-intervalField
-    : YEAR | MONTH | DAY | HOUR | MINUTE | SECOND
+    : INTERVAL sign=(PLUS | MINUS)? string intervalQualifier
     ;
 
 normalForm
@@ -764,7 +769,7 @@ normalForm
 
 type
     : ROW '(' rowField (',' rowField)* ')'                                         #rowType
-    | INTERVAL from=intervalField (TO to=intervalField)?                           #intervalType
+    | INTERVAL intervalQualifier                                                   #intervalType
     | base=TIMESTAMP ('(' precision = typeParameter ')')? (WITHOUT TIME ZONE)?     #dateTimeType
     | base=TIMESTAMP ('(' precision = typeParameter ')')? WITH TIME ZONE           #dateTimeType
     | base=TIME ('(' precision = typeParameter ')')? (WITHOUT TIME ZONE)?          #dateTimeType
@@ -775,6 +780,18 @@ type
     | type ARRAY ('[' INTEGER_VALUE ']')?                                          #arrayType
     | identifier ('(' typeParameter (',' typeParameter)* ')')?                     #genericType
     ;
+
+intervalQualifier
+  : YEAR ('(' precision=INTEGER_VALUE ')')? TO MONTH                                              #compositeYearToMonthInterval
+  | field=(YEAR | MONTH) ('(' precision=INTEGER_VALUE ')')?                                       #simpleYearMonthInterval
+  | start=(DAY | HOUR | MINUTE) ('(' leadingPrecision=INTEGER_VALUE ')')?
+    TO (
+      end=HOUR |
+      end=MINUTE |
+      end=SECOND ('(' fractionalPrecision=INTEGER_VALUE ')')?)                                    #compositeDayTimeInterval
+  | field=(DAY | HOUR | MINUTE) ('(' precision=INTEGER_VALUE ')')?                                #simpleDayTimeInterval
+  | SECOND ('(' leadingPrecision=INTEGER_VALUE (',' fractionalPrecision=INTEGER_VALUE)? ')')?     #secondsDayTimeInterval
+  ;
 
 rowField
     : type
@@ -1027,10 +1044,10 @@ nonReserved
     | CALL | CALLED | CASCADE | CATALOG | CATALOGS | COLUMN | COLUMNS | COMMENT | COMMIT | COMMITTED | CONDITIONAL | COPARTITION | CORRESPONDING | COUNT | CURRENT
     | DATA | DATE | DAY | DECLARE | DEFAULT | DEFINE | DEFINER | DENY | DESC | DESCRIPTOR | DETERMINISTIC | DISTRIBUTED | DO | DOUBLE
     | ELSEIF | EMPTY | ENCODING | ERROR | EXCLUDING | EXECUTE | EXPLAIN
-    | FAST | FETCH | FILTER | FINAL | FIRST | FOLLOWING | FORMAT | FORWARD | FUNCTION | FUNCTIONS
+    | FAIL | FAST | FETCH | FILTER | FINAL | FIRST | FOLLOWING | FORMAT | FORWARD | FUNCTION | FUNCTIONS
     | GRACE | GRANT | GRANTED | GRANTS | GRAPHVIZ | GROUPS
     | HOUR
-    | IF | IGNORE | IMMEDIATE | INCLUDING | INITIAL | INPUT | INTERVAL | INVOKER | IO | ITERATE | ISOLATION
+    | IF | IGNORE | IMMEDIATE | INCLUDING | INITIAL | INLINE | INPUT | INTERVAL | INVOKER | IO | ITERATE | ISOLATION
     | JSON
     | KEEP | KEY | KEYS
     | LANGUAGE | LAST | LATERAL | LEADING | LEAVE | LEVEL | LIMIT | LOCAL | LOGICAL | LOOP
@@ -1041,7 +1058,7 @@ nonReserved
     | QUOTES
     | RANGE | READ | REFRESH | RENAME | REPEAT  | REPEATABLE | REPLACE | RESET | RESPECT | RESTRICT | RETURN | RETURNING | RETURNS | REVOKE | ROLE | ROLES | ROLLBACK | ROW | ROWS | RUNNING
     | SCALAR | SCHEMA | SCHEMAS | SECOND | SECURITY | SEEK | SERIALIZABLE | SESSION | SET | SETS
-    | SHOW | SOME | START | STATS | SUBSET | SUBSTRING | SYSTEM
+    | SHOW | SOME | STALE | START | STATS | SUBSET | SUBSTRING | SYSTEM
     | TABLES | TABLESAMPLE | TEXT | TEXT_STRING | TIES | TIME | TIMESTAMP | TO | TRAILING | TRANSACTION | TRUNCATE | TRY_CAST | TYPE
     | UNBOUNDED | UNCOMMITTED | UNCONDITIONAL | UNIQUE | UNKNOWN | UNMATCHED | UNTIL | UPDATE | USE | USER | UTF16 | UTF32 | UTF8
     | VALIDATE | VALUE | VERBOSE | VERSION | VIEW
@@ -1133,6 +1150,7 @@ EXECUTE: 'EXECUTE';
 EXISTS: 'EXISTS';
 EXPLAIN: 'EXPLAIN';
 EXTRACT: 'EXTRACT';
+FAIL: 'FAIL';
 FALSE: 'FALSE';
 FAST: 'FAST';
 FETCH: 'FETCH';
@@ -1163,6 +1181,7 @@ IMMEDIATE: 'IMMEDIATE';
 IN: 'IN';
 INCLUDING: 'INCLUDING';
 INITIAL: 'INITIAL';
+INLINE: 'INLINE';
 INNER: 'INNER';
 INPUT: 'INPUT';
 INSERT: 'INSERT';
@@ -1293,6 +1312,7 @@ SET: 'SET';
 SETS: 'SETS';
 SHOW: 'SHOW';
 SOME: 'SOME';
+STALE: 'STALE';
 START: 'START';
 STATS: 'STATS';
 SUBSET: 'SUBSET';

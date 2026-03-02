@@ -26,8 +26,8 @@ import org.junit.jupiter.api.TestInstance;
 import java.net.URI;
 
 import static io.trino.testing.TestingNames.randomNameSuffix;
-import static io.trino.testing.containers.Minio.MINIO_ACCESS_KEY;
-import static io.trino.testing.containers.Minio.MINIO_SECRET_KEY;
+import static io.trino.testing.containers.Minio.MINIO_ROOT_PASSWORD;
+import static io.trino.testing.containers.Minio.MINIO_ROOT_USER;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
@@ -72,8 +72,8 @@ public class TestTrinoS3FileSystemMinio
     {
         Configuration config = new Configuration(false);
         config.set("trino.s3.endpoint", minio.getMinioAddress());
-        config.set("trino.s3.access-key", MINIO_ACCESS_KEY);
-        config.set("trino.s3.secret-key", MINIO_SECRET_KEY);
+        config.set("trino.s3.access-key", MINIO_ROOT_USER);
+        config.set("trino.s3.secret-key", MINIO_ROOT_PASSWORD);
         config.set("trino.s3.path-style-access", "true");
 
         return config;

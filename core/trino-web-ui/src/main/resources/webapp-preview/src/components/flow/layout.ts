@@ -12,7 +12,7 @@
  * limitations under the License.
  */
 import Dagre from '@dagrejs/dagre'
-import { type Edge, type Node } from '@xyflow/react'
+import { type Edge, type Node, type Viewport } from '@xyflow/react'
 import { RemoteExchangeNode } from './RemoteExchangeNode.tsx'
 import { PlanFragmentNode } from './PlanFragmentNode.tsx'
 import { OperatorNode } from './OperatorNode.tsx'
@@ -182,5 +182,26 @@ export const getLayoutedStagePerformanceElements = (nodes: Node[], edges: Edge[]
     return {
         nodes: [...layoutedPipelineNodes, ...layoutedOperatorNodes],
         edges,
+    }
+}
+
+export const getViewportFocusedOnNode = (
+    nodes: Node[],
+    options?: { targetNodeId?: string; zoom?: number; padding?: number; containerWidth?: number }
+): Viewport | undefined => {
+    if (nodes.length === 0) {
+        return undefined
+    }
+    const { targetNodeId, zoom = 0.8, padding = 20, containerWidth = 0 } = options ?? {}
+    const targetNode = targetNodeId ? nodes.find((node) => node.id === targetNodeId) : undefined
+    const focusNode = targetNode ?? nodes[0]
+    const focusNodeWidth = focusNode.measured?.width ?? focusNode.width ?? 0
+    return {
+        // If width is known then center horizontally in container otherwise align to left
+        x: focusNodeWidth
+            ? containerWidth / 2 - (focusNode.position.x + focusNodeWidth / 2) * zoom
+            : -focusNode.position.x * zoom + padding,
+        y: -focusNode.position.y * zoom + padding,
+        zoom,
     }
 }

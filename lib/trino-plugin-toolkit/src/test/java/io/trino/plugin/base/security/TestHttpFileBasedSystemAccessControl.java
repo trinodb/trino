@@ -33,7 +33,7 @@ import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 public class TestHttpFileBasedSystemAccessControl
         extends BaseFileBasedSystemAccessControlTest
 {
-    private final TestingHttpServer testingHttpServer = new TestingHttpServer();
+    private final TestingHttpServer testingHttpServer = new TestingHttpServer("file-based-system-access-control");
 
     @AfterAll
     public void tearDown()

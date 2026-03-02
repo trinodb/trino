@@ -15,7 +15,7 @@ package io.trino.plugin.opa;
 
 import com.google.common.collect.ImmutableMap;
 import io.airlift.bootstrap.ApplicationConfigurationException;
-import io.trino.plugin.base.security.TestingSystemAccessControlContext;
+import io.trino.plugin.base.security.testing.TestingSystemAccessControlContext;
 import io.trino.spi.security.SystemAccessControl;
 import org.junit.jupiter.api.Test;
 

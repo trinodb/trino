@@ -75,6 +75,10 @@ public final class ConnectorExpressions
 
     public static ConnectorExpression and(List<ConnectorExpression> expressions)
     {
+        // Skip useless conjuncts.
+        expressions = expressions.stream()
+                .filter(expression -> !expression.equals(TRUE))
+                .collect(toImmutableList());
         if (expressions.size() > 1) {
             return new Call(BOOLEAN, AND_FUNCTION_NAME, expressions);
         }

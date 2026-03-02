@@ -27,8 +27,8 @@ import static io.trino.plugin.hive.containers.HiveMinioDataLake.State.INITIAL;
 import static io.trino.plugin.hive.containers.HiveMinioDataLake.State.STARTED;
 import static io.trino.plugin.hive.containers.HiveMinioDataLake.State.STARTING;
 import static io.trino.plugin.hive.containers.HiveMinioDataLake.State.STOPPED;
-import static io.trino.testing.containers.Minio.MINIO_ACCESS_KEY;
-import static io.trino.testing.containers.Minio.MINIO_SECRET_KEY;
+import static io.trino.testing.containers.Minio.MINIO_ROOT_PASSWORD;
+import static io.trino.testing.containers.Minio.MINIO_ROOT_USER;
 import static java.util.Objects.requireNonNull;
 import static org.testcontainers.containers.Network.newNetwork;
 
@@ -53,8 +53,8 @@ public abstract class HiveMinioDataLake
                 Minio.builder()
                         .withNetwork(network)
                         .withEnvVars(ImmutableMap.<String, String>builder()
-                                .put("MINIO_ACCESS_KEY", MINIO_ACCESS_KEY)
-                                .put("MINIO_SECRET_KEY", MINIO_SECRET_KEY)
+                                .put("MINIO_ROOT_USER", MINIO_ROOT_USER)
+                                .put("MINIO_ROOT_PASSWORD", MINIO_ROOT_PASSWORD)
                                 .put("MINIO_REGION", MINIO_DEFAULT_REGION)
                                 .buildOrThrow())
                         .build());

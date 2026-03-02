@@ -16,6 +16,7 @@ package io.trino.plugin.faker;
 
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Inject;
+import io.airlift.bootstrap.LifeCycleManager;
 import io.trino.spi.ErrorCodeSupplier;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.Connector;
@@ -54,6 +55,7 @@ import static java.util.Objects.requireNonNull;
 public class FakerConnector
         implements Connector
 {
+    private final LifeCycleManager lifeCycleManager;
     private final FakerMetadata metadata;
     private final FakerSplitManager splitManager;
     private final FakerPageSourceProvider pageSourceProvider;
@@ -62,12 +64,14 @@ public class FakerConnector
 
     @Inject
     public FakerConnector(
+            LifeCycleManager lifeCycleManager,
             FakerMetadata metadata,
             FakerSplitManager splitManager,
             FakerPageSourceProvider pageSourceProvider,
             FakerPageSinkProvider pageSinkProvider,
             FakerFunctionProvider functionProvider)
     {
+        this.lifeCycleManager = requireNonNull(lifeCycleManager, "lifeCycleManager is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.splitManager = requireNonNull(splitManager, "splitManager is null");
         this.pageSourceProvider = requireNonNull(pageSourceProvider, "pageSourceProvider is null");
@@ -237,5 +241,11 @@ public class FakerConnector
     public Optional<FunctionProvider> getFunctionProvider()
     {
         return Optional.of(functionProvider);
+    }
+
+    @Override
+    public void shutdown()
+    {
+        lifeCycleManager.stop();
     }
 }

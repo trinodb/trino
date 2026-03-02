@@ -161,7 +161,6 @@ import static io.trino.plugin.base.util.JsonTypeUtil.jsonParse;
 import static io.trino.plugin.base.util.JsonTypeUtil.toJsonValue;
 import static io.trino.plugin.geospatial.GeoFunctions.stAsBinary;
 import static io.trino.plugin.geospatial.GeoFunctions.stGeomFromBinary;
-import static io.trino.plugin.jdbc.DecimalConfig.DecimalMapping.ALLOW_OVERFLOW;
 import static io.trino.plugin.jdbc.DecimalSessionSessionProperties.getDecimalDefaultScale;
 import static io.trino.plugin.jdbc.DecimalSessionSessionProperties.getDecimalRounding;
 import static io.trino.plugin.jdbc.DecimalSessionSessionProperties.getDecimalRoundingMode;
@@ -234,17 +233,16 @@ import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_DAY;
 import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_NANOSECOND;
 import static io.trino.spi.type.Timestamps.round;
 import static io.trino.spi.type.TinyintType.TINYINT;
-import static io.trino.spi.type.TypeSignature.mapType;
 import static io.trino.spi.type.UuidType.javaUuidToTrinoUuid;
 import static io.trino.spi.type.UuidType.trinoUuidToJavaUuid;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.trino.spi.type.VarcharType.createVarcharType;
+import static java.lang.Math.clamp;
 import static java.lang.Math.floorDiv;
 import static java.lang.Math.floorMod;
 import static java.lang.Math.max;
-import static java.lang.Math.min;
 import static java.lang.String.format;
 import static java.lang.String.join;
 import static java.math.RoundingMode.UNNECESSARY;
@@ -264,7 +262,11 @@ public class PostgreSqlClient
     private static final int ARRAY_RESULT_SET_VALUE_COLUMN = 2;
     private static final String DUPLICATE_TABLE_SQLSTATE = "42P07";
     private static final int POSTGRESQL_MAX_SUPPORTED_TIMESTAMP_PRECISION = 6;
-    private static final int PRECISION_OF_UNSPECIFIED_DECIMAL = 0;
+    /**
+     * COLUMN_SIZE value for "unconstrained numeric" columns.
+     * Starting with PostgreSQL 15, unconstrained numeric columns can store up to 131072 digits before the decimal point and up to 16383 digits after the decimal point.
+     */
+    private static final int UNCONSTRAINED_NUMERIC_COLUMN_SIZE = 0;
 
     private static final DateTimeFormatter TIME_FORMATTER = DateTimeFormatter.ofPattern("HH:mm:ss.SSSSSS");
 
@@ -311,7 +313,7 @@ public class PostgreSqlClient
         super("\"", connectionFactory, queryBuilder, config.getJdbcTypesMappedToVarchar(), identifierMapping, queryModifier, true);
         this.jsonType = typeManager.getType(new TypeSignature(JSON));
         this.uuidType = typeManager.getType(new TypeSignature(StandardTypes.UUID));
-        this.varcharMapType = (MapType) typeManager.getType(mapType(VARCHAR.getTypeSignature(), VARCHAR.getTypeSignature()));
+        this.varcharMapType = new MapType(VARCHAR, VARCHAR, typeManager.getTypeOperators());
         this.geometryType = typeManager.getType(new TypeSignature(StandardTypes.GEOMETRY));
 
         ImmutableList.Builder<String> tableTypes = ImmutableList.builder();
@@ -623,24 +625,39 @@ public class PostgreSqlClient
 
             case Types.NUMERIC: {
                 int columnSize = typeHandle.requiredColumnSize();
-                int precision;
-                int decimalDigits = typeHandle.decimalDigits().orElse(0);
-                if (getDecimalRounding(session) == ALLOW_OVERFLOW) {
-                    if (columnSize == PRECISION_OF_UNSPECIFIED_DECIMAL) {
-                        // decimal type with unspecified scale - up to 131072 digits before the decimal point; up to 16383 digits after the decimal point)
-                        return Optional.of(decimalColumnMapping(createDecimalType(Decimals.MAX_PRECISION, getDecimalDefaultScale(session)), getDecimalRoundingMode(session)));
+                OptionalInt pgScale = getPostgreSqlDecimalScale(typeHandle);
+                if (columnSize != UNCONSTRAINED_NUMERIC_COLUMN_SIZE && pgScale.isEmpty()) {
+                    // This is impossible in current PostgreSQL. We don't fall back to "overflow" mode,
+                    // as that could mean anything (e.g. PostgreSQL changing how decimal metadata is reported)
+                    // and we don't want future fix to be backwards incompatible change for connector's users.
+                    break;
+                }
+                if (columnSize != UNCONSTRAINED_NUMERIC_COLUMN_SIZE) {
+                    int scale = pgScale.orElseThrow();
+                    // Map decimal(p, -s) (negative scale) to decimal(p+s, 0).
+                    // Map decimal(p, s) with s>p, to decimal(s, s).
+                    int precision = max(columnSize + max(-scale, 0), scale);
+                    scale = max(scale, 0);
+                    if (precision <= Decimals.MAX_PRECISION) {
+                        return Optional.of(decimalColumnMapping(createDecimalType(precision, scale), UNNECESSARY));
                     }
-                    precision = columnSize;
-                    if (precision > Decimals.MAX_PRECISION) {
-                        int scale = min(decimalDigits, getDecimalDefaultScale(session));
+                }
+                switch (getDecimalRounding(session)) {
+                    case STRICT -> {
+                        // skipped (unhandled type)
+                    }
+                    case ALLOW_OVERFLOW -> {
+                        int scale;
+                        if (columnSize == UNCONSTRAINED_NUMERIC_COLUMN_SIZE) {
+                            scale = getDecimalDefaultScale(session);
+                        }
+                        else {
+                            scale = clamp(pgScale.orElseThrow(), 0, getDecimalDefaultScale(session));
+                        }
                         return Optional.of(decimalColumnMapping(createDecimalType(Decimals.MAX_PRECISION, scale), getDecimalRoundingMode(session)));
                     }
                 }
-                precision = columnSize + max(-decimalDigits, 0); // Map decimal(p, -s) (negative scale) to decimal(p+s, 0).
-                if (columnSize == PRECISION_OF_UNSPECIFIED_DECIMAL || precision > Decimals.MAX_PRECISION) {
-                    break;
-                }
-                return Optional.of(decimalColumnMapping(createDecimalType(precision, max(decimalDigits, 0)), UNNECESSARY));
+                break;
             }
 
             case Types.CHAR:
@@ -682,6 +699,28 @@ public class PostgreSqlClient
         }
 
         return Optional.empty();
+    }
+
+    private static OptionalInt getPostgreSqlDecimalScale(JdbcTypeHandle typeHandle)
+    {
+        // This should be the case for "unconstrained numeric", i.e. PostgreSQL "NUMERIC" / "DECIMAL"
+        // with precision and scale unspecified, and therefore enjoying dynamic scale.
+        if (typeHandle.decimalDigits().isEmpty()) {
+            return OptionalInt.empty();
+        }
+        int decimalDigits = typeHandle.requiredDecimalDigits();
+
+        // PostgreSQL supports scales from -1000 to 1000.
+        // The nonnegative scale number N is represented in metadata as DECIMAL_DIGITS N (so values 0..1000)
+        // The negative scale number -N is represented in metadata as DECIMAL_DIGITS 2048-N (so values 1048..2047)
+        if (0 <= decimalDigits && decimalDigits <= 1000) {
+            return OptionalInt.of(decimalDigits);
+        }
+        if ((2048 - 1000) <= decimalDigits && decimalDigits < 2048) {
+            return OptionalInt.of(decimalDigits - 2048);
+        }
+        // This is impossible in current PostgreSQL.
+        return OptionalInt.empty();
     }
 
     private Optional<ColumnMapping> arrayToTrinoType(ConnectorSession session, Connection connection, JdbcTypeHandle typeHandle)

@@ -113,7 +113,7 @@ public class PushPredicateThroughProjectIntoWindow
         WindowNode window = captures.get(WINDOW);
 
         Symbol rankingSymbol = getOnlyElement(window.getWindowFunctions().keySet());
-        if (!project.getAssignments().getSymbols().contains(rankingSymbol)) {
+        if (!project.getAssignments().outputs().contains(rankingSymbol)) {
             return Result.empty();
         }
 

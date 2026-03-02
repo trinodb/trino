@@ -24,11 +24,14 @@ import io.airlift.log.Logger;
 import io.jsonwebtoken.impl.DefaultJwtBuilder;
 import io.jsonwebtoken.jackson.io.JacksonSerializer;
 import io.trino.cache.EvictableCacheBuilder;
+import io.trino.filesystem.Location;
+import io.trino.filesystem.TrinoFileSystem;
 import io.trino.metastore.TableInfo;
 import io.trino.plugin.iceberg.ColumnIdentity;
-import io.trino.plugin.iceberg.IcebergSchemaProperties;
+import io.trino.plugin.iceberg.IcebergFileSystemFactory;
 import io.trino.plugin.iceberg.IcebergUtil;
 import io.trino.plugin.iceberg.catalog.TrinoCatalog;
+import io.trino.plugin.iceberg.catalog.rest.IcebergRestCatalogConfig.Security;
 import io.trino.plugin.iceberg.catalog.rest.IcebergRestCatalogConfig.SessionType;
 import io.trino.spi.TrinoException;
 import io.trino.spi.catalog.CatalogName;
@@ -72,6 +75,7 @@ import org.apache.iceberg.view.ViewBuilder;
 import org.apache.iceberg.view.ViewRepresentation;
 import org.apache.iceberg.view.ViewVersion;
 
+import java.io.IOException;
 import java.util.Arrays;
 import java.util.Date;
 import java.util.Iterator;
@@ -85,11 +89,15 @@ import java.util.function.UnaryOperator;
 import java.util.stream.Stream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.cache.CacheUtils.uncheckedCacheGet;
 import static io.trino.filesystem.Locations.appendPath;
 import static io.trino.metastore.Table.TABLE_COMMENT;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_CATALOG_ERROR;
+import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_FILESYSTEM_ERROR;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_UNSUPPORTED_VIEW_DIALECT;
+import static io.trino.plugin.iceberg.IcebergSchemaProperties.LOCATION_PROPERTY;
+import static io.trino.plugin.iceberg.IcebergSchemaProperties.SUPPORTED_SCHEMA_PROPERTIES;
 import static io.trino.plugin.iceberg.IcebergUtil.quotedTableName;
 import static io.trino.plugin.iceberg.catalog.AbstractTrinoCatalog.ICEBERG_VIEW_RUN_AS_OWNER;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -97,6 +105,7 @@ import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.UUID.randomUUID;
+import static org.apache.iceberg.CatalogUtil.dropTableData;
 import static org.apache.iceberg.view.ViewProperties.COMMENT;
 
 public class TrinoRestCatalog
@@ -107,9 +116,11 @@ public class TrinoRestCatalog
     private static final int PER_QUERY_CACHE_SIZE = 1000;
     private static final String NAMESPACE_SEPARATOR = ".";
 
+    private final IcebergFileSystemFactory fileSystemFactory;
     private final RESTSessionCatalog restSessionCatalog;
     private final CatalogName catalogName;
     private final TypeManager typeManager;
+    private final Security security;
     private final SessionType sessionType;
     private final Map<String, String> credentials;
     private final boolean nestedNamespaceEnabled;
@@ -125,8 +136,10 @@ public class TrinoRestCatalog
             .build();
 
     public TrinoRestCatalog(
+            IcebergFileSystemFactory fileSystemFactory,
             RESTSessionCatalog restSessionCatalog,
             CatalogName catalogName,
+            Security security,
             SessionType sessionType,
             Map<String, String> credentials,
             boolean nestedNamespaceEnabled,
@@ -138,8 +151,10 @@ public class TrinoRestCatalog
             Cache<TableIdentifier, TableIdentifier> remoteTableMappingCache,
             boolean viewEndpointsEnabled)
     {
+        this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
         this.restSessionCatalog = requireNonNull(restSessionCatalog, "restSessionCatalog is null");
         this.catalogName = requireNonNull(catalogName, "catalogName is null");
+        this.security = requireNonNull(security, "security is null");
         this.sessionType = requireNonNull(sessionType, "sessionType is null");
         this.credentials = ImmutableMap.copyOf(requireNonNull(credentials, "credentials is null"));
         this.nestedNamespaceEnabled = nestedNamespaceEnabled;
@@ -221,7 +236,9 @@ public class TrinoRestCatalog
     {
         try {
             // Return immutable metadata as direct modifications will not be reflected on the namespace
-            return ImmutableMap.copyOf(restSessionCatalog.loadNamespaceMetadata(convert(session), toRemoteNamespace(session, toNamespace(namespace))));
+            return restSessionCatalog.loadNamespaceMetadata(convert(session), toRemoteNamespace(session, toNamespace(namespace))).entrySet().stream()
+                    .filter(property -> SUPPORTED_SCHEMA_PROPERTIES.contains(property.getKey()))
+                    .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
         }
         catch (NoSuchNamespaceException e) {
             throw new SchemaNotFoundException(namespace);
@@ -467,6 +484,44 @@ public class TrinoRestCatalog
     @Override
     public void dropTable(ConnectorSession session, SchemaTableName schemaTableName)
     {
+        if (security == Security.GOOGLE) {
+            purgeBigLakeTable(session, schemaTableName);
+        }
+        else {
+            purgeTable(session, schemaTableName);
+        }
+        invalidateTableCache(schemaTableName);
+        invalidateTableMappingCache(schemaTableName);
+    }
+
+    private void purgeBigLakeTable(ConnectorSession session, SchemaTableName schemaTableName)
+    {
+        BaseTable table = loadTable(session, schemaTableName);
+        unregisterTable(session, schemaTableName);
+        try {
+            // Explicitly remove data like TrinoGlueCatalog.dropTable since BigLake doesn't delete its data and metadata
+            dropTableData(table.io(), table.operations().current());
+        }
+        catch (RuntimeException e) {
+            // If the snapshot file is not found, an exception will be thrown by the dropTableData function.
+            // So log the exception and continue with deleting the table location
+            log.warn(e, "Failed to delete table data referenced by metadata");
+        }
+        deleteTableDirectory(fileSystemFactory.create(session.getIdentity(), table.io().properties()), schemaTableName, table.location());
+    }
+
+    private static void deleteTableDirectory(TrinoFileSystem fileSystem, SchemaTableName schemaTableName, String tableLocation)
+    {
+        try {
+            fileSystem.deleteDirectory(Location.of(tableLocation));
+        }
+        catch (IOException e) {
+            throw new TrinoException(ICEBERG_FILESYSTEM_ERROR, format("Failed to delete directory %s of the table %s", tableLocation, schemaTableName), e);
+        }
+    }
+
+    private void purgeTable(ConnectorSession session, SchemaTableName schemaTableName)
+    {
         try {
             if (!restSessionCatalog.purgeTable(convert(session), toRemoteTable(session, schemaTableName, true))) {
                 throw new TrinoException(ICEBERG_CATALOG_ERROR, "Failed to drop table '%s'".formatted(schemaTableName));
@@ -475,8 +530,6 @@ public class TrinoRestCatalog
         catch (RESTException e) {
             throw new TrinoException(ICEBERG_CATALOG_ERROR, "Failed to drop table '%s'".formatted(schemaTableName.getTableName()), e);
         }
-        invalidateTableCache(schemaTableName);
-        invalidateTableMappingCache(schemaTableName);
     }
 
     @Override
@@ -576,7 +629,7 @@ public class TrinoRestCatalog
         String tableName = createLocationForTable(schemaTableName.getTableName());
 
         Map<String, Object> properties = loadNamespaceMetadata(session, schemaTableName.getSchemaName());
-        String databaseLocation = (String) properties.get(IcebergSchemaProperties.LOCATION_PROPERTY);
+        String databaseLocation = (String) properties.get(LOCATION_PROPERTY);
         if (databaseLocation == null) {
             // Iceberg REST catalog doesn't require location property.
             // S3 Tables doesn't return the property.

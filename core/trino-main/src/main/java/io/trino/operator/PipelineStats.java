@@ -28,7 +28,6 @@ import java.util.List;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
@@ -494,52 +493,6 @@ public class PipelineStats
                 physicalWrittenDataSize,
                 summarizeOperatorStats(operatorSummaries),
                 ImmutableList.of());
-    }
-
-    public PipelineStats pruneDigests()
-    {
-        return new PipelineStats(
-                pipelineId,
-                firstStartTime,
-                lastStartTime,
-                lastEndTime,
-                inputPipeline,
-                outputPipeline,
-                totalDrivers,
-                queuedDrivers,
-                queuedPartitionedDrivers,
-                queuedPartitionedSplitsWeight,
-                runningDrivers,
-                runningPartitionedDrivers,
-                runningPartitionedSplitsWeight,
-                blockedDrivers,
-                completedDrivers,
-                userMemoryReservation,
-                revocableMemoryReservation,
-                spilledDataSize,
-                queuedTime,
-                elapsedTime,
-                totalScheduledTime,
-                totalCpuTime,
-                totalBlockedTime,
-                fullyBlocked,
-                blockedReasons,
-                physicalInputDataSize,
-                physicalInputPositions,
-                physicalInputReadTime,
-                internalNetworkInputDataSize,
-                internalNetworkInputPositions,
-                processedInputDataSize,
-                processedInputPositions,
-                inputBlockedTime,
-                outputDataSize,
-                outputPositions,
-                outputBlockedTime,
-                physicalWrittenDataSize,
-                operatorSummaries.stream()
-                        .map(OperatorStats::pruneDigests)
-                        .collect(toImmutableList()),
-                drivers);
     }
 
     private static List<OperatorStats> summarizeOperatorStats(List<OperatorStats> operatorSummaries)

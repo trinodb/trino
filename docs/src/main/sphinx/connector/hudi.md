@@ -188,6 +188,22 @@ table displays a support matrix of tables types and query types for the connecto
   - Read-optimized queries
 :::
 
+#### Table properties
+
+The following table properties are available for use:
+
+:::{list-table} Hudi table properties
+:widths: 40, 60
+:header-rows: 1
+
+* - Property name
+  - Description
+* - `location`
+  - File system location URI for the table.
+* - `partitioned_by`
+  - Partition columns for the table.
+:::
+
 (hudi-metadata-tables)=
 #### Metadata tables
 

@@ -126,7 +126,6 @@ public class TestDeltaLakePlugin
         factory.create("test",
                         ImmutableMap.of(
                                 "hive.metastore.uri", "thrift://foo:1234",
-                                "delta.metadata.live-files.cache-ttl", "0s",
                                 "bootstrap.quiet", "true"),
                         new TestingConnectorContext())
                 .shutdown();
@@ -197,6 +196,29 @@ public class TestDeltaLakePlugin
                 .shutdown();
 
         verify(tempFile.delete());
+    }
+
+    @Test
+    public void testConfigureS3LogWriting()
+    {
+        ConnectorFactory factory = getConnectorFactory();
+        factory.create(
+                        "test",
+                        ImmutableMap.of(
+                                "hive.metastore.uri", "thrift://foo:1234",
+                                "delta.s3.transaction-log-conditional-writes.enabled", "true",
+                                "bootstrap.quiet", "true"),
+                        new TestingConnectorContext())
+                .shutdown();
+
+        factory.create(
+                        "test",
+                        ImmutableMap.of(
+                                "hive.metastore.uri", "thrift://foo:1234",
+                                "s3.exclusive-create", "true", // legacy option name
+                                "bootstrap.quiet", "true"),
+                        new TestingConnectorContext())
+                .shutdown();
     }
 
     private static ConnectorFactory getConnectorFactory()

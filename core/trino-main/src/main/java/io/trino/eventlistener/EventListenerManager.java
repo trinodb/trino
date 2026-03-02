@@ -21,7 +21,7 @@ import io.airlift.log.Logger;
 import io.airlift.stats.TimeStat;
 import io.opentelemetry.api.OpenTelemetry;
 import io.opentelemetry.api.trace.Tracer;
-import io.trino.client.NodeVersion;
+import io.trino.spi.NodeVersion;
 import io.trino.spi.classloader.ThreadContextClassLoader;
 import io.trino.spi.eventlistener.EventListener;
 import io.trino.spi.eventlistener.EventListenerFactory;

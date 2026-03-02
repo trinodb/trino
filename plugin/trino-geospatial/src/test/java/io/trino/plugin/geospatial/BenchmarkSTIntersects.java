@@ -154,7 +154,7 @@ public class BenchmarkSTIntersects
         }
     }
 
-    public static void main(String[] args)
+    static void main()
             throws RunnerException
     {
         benchmark(BenchmarkSTIntersects.class).run();

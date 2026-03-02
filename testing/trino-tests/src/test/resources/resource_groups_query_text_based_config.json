@@ -1,0 +1,47 @@
+{
+  "rootGroups": [
+    {
+      "name": "global",
+      "softMemoryLimit": "1MB",
+      "hardConcurrencyLimit": 100,
+      "maxQueued": 1000,
+      "softCpuLimit": "1h",
+      "hardCpuLimit": "1d",
+      "subGroups": [
+        {
+          "name": "select_1",
+          "softMemoryLimit": "2MB",
+          "hardConcurrencyLimit": 3,
+          "maxQueued": 4
+        },
+        {
+          "name": "select_2",
+          "softMemoryLimit": "2MB",
+          "hardConcurrencyLimit": 3,
+          "maxQueued": 4
+        },
+        {
+          "name": "other",
+          "softMemoryLimit": "2MB",
+          "hardConcurrencyLimit": 3,
+          "maxQueued": 4
+        }
+      ]
+    }
+  ],
+  "selectors": [
+    {
+      "queryText" : "select 1",
+      "group": "global.select_1"
+    },
+    {
+      "queryText" : "(?i)SELECT \\d",
+      "group": "global.select_2"
+    },
+    {
+      "group": "global.other"
+    }
+  ],
+  "cpuQuotaPeriod": "1h"
+}
+

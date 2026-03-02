@@ -21,9 +21,9 @@ import io.airlift.configuration.AbstractConfigurationAwareModule;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 
+import static io.airlift.bootstrap.ClosingBinder.closingBinder;
 import static io.airlift.concurrent.Threads.threadsNamed;
 import static io.airlift.jaxrs.JaxrsBinder.jaxrsBinder;
-import static io.trino.plugin.base.ClosingBinder.closingBinder;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
 

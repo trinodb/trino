@@ -49,6 +49,7 @@ import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.OptionalLong;
 import java.util.Set;
+import java.util.function.Consumer;
 
 import static io.trino.plugin.jdbc.RetryingModule.retry;
 import static java.util.Objects.requireNonNull;
@@ -367,10 +368,10 @@ public class RetryingJdbcClient
     }
 
     @Override
-    public JdbcOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata)
+    public JdbcOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, Consumer<Runnable> rollbackActionCollector)
     {
         // no retrying as it could be not idempotent operation
-        return delegate.beginCreateTable(session, tableMetadata);
+        return delegate.beginCreateTable(session, tableMetadata, rollbackActionCollector);
     }
 
     @Override
@@ -399,11 +400,11 @@ public class RetryingJdbcClient
             ConnectorSession session,
             JdbcTableHandle handle,
             Map<Integer, Collection<ColumnHandle>> updateColumnHandles,
-            List<Runnable> rollbackActions,
+            Consumer<Runnable> rollbackActionCollector,
             RetryMode retryMode)
     {
         // no retrying as it could be not idempotent operation
-        return delegate.beginMerge(session, handle, updateColumnHandles, rollbackActions, retryMode);
+        return delegate.beginMerge(session, handle, updateColumnHandles, rollbackActionCollector, retryMode);
     }
 
     @Override

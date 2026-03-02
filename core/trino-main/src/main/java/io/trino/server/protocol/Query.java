@@ -77,7 +77,6 @@ import java.util.Set;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
 
-import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Throwables.getCausalChain;
 import static com.google.common.base.Verify.verify;
@@ -101,6 +100,7 @@ import static io.trino.spi.StandardErrorCode.SERIALIZATION_ERROR;
 import static io.trino.util.Failures.toFailure;
 import static io.trino.util.MoreLists.mappedCopy;
 import static java.util.Objects.requireNonNull;
+import static java.util.Objects.requireNonNullElse;
 
 @ThreadSafe
 class Query
@@ -130,6 +130,7 @@ class Query
     @GuardedBy("this")
     private PageDeserializer deserializer;
     private final boolean supportsParametricDateTime;
+    private final boolean supportsNumberType;
 
     @GuardedBy("this")
     private OptionalLong nextToken = OptionalLong.of(0);
@@ -257,6 +258,7 @@ class Query
         this.resultsProcessorExecutor = resultsProcessorExecutor;
         this.timeoutExecutor = timeoutExecutor;
         this.supportsParametricDateTime = session.getClientCapabilities().contains(ClientCapabilities.PARAMETRIC_DATETIME.toString());
+        this.supportsNumberType = session.getClientCapabilities().contains(ClientCapabilities.NUMBER.toString());
         deserializer = createExchangePagesSerdeFactory(blockEncodingSerde, session)
                 .createDeserializer(session.getExchangeEncryptionKey().map(Ciphers::deserializeAesEncryptionKey));
     }
@@ -523,7 +525,7 @@ class Query
 
         // first time through, self is null
         QueryResults queryResults = new QueryResults(
-                queryId.toString(),
+                queryId.id(),
                 getQueryInfoUri(queryInfoUrl, queryId, externalUriInfo),
                 partialCancelUri,
                 nextResultsUri,
@@ -689,7 +691,7 @@ class Query
 
             ImmutableList.Builder<Column> list = ImmutableList.builder();
             for (int i = 0; i < columnNames.size(); i++) {
-                list.add(createColumn(columnNames.get(i), columnTypes.get(i), supportsParametricDateTime));
+                list.add(createColumn(columnNames.get(i), columnTypes.get(i), supportsParametricDateTime, supportsNumberType));
             }
             columns = list.build();
             types = outputInfo.getColumnTypes();
@@ -714,7 +716,7 @@ class Query
     {
         return externalUriInfo.baseUriBuilder()
                 .path("/v1/statement/executing")
-                .path(queryId.toString())
+                .path(queryId.id())
                 .path(slug.makeSlug(EXECUTING_QUERY, nextToken))
                 .path(String.valueOf(nextToken))
                 .build();
@@ -724,7 +726,7 @@ class Query
     {
         return externalUriInfo.baseUriBuilder()
                 .path("/v1/statement/executing/partialCancel")
-                .path(queryId.toString())
+                .path(queryId.id())
                 .path(String.valueOf(stage))
                 .path(slug.makeSlug(EXECUTING_QUERY, nextToken))
                 .path(String.valueOf(nextToken))
@@ -760,7 +762,7 @@ class Query
         }
 
         // no matching sub stage, so return this stage
-        return Optional.of(stage.getStageId().getId());
+        return Optional.of(stage.getStageId().id());
     }
 
     private static QueryError toQueryError(ResultQueryInfo queryInfo, Optional<Throwable> exception)
@@ -769,7 +771,7 @@ class Query
             ErrorCode errorCode = SERIALIZATION_ERROR.toErrorCode();
             FailureInfo failure = toFailure(exception.get()).toFailureInfo();
             return new QueryError(
-                    firstNonNull(failure.getMessage(), "Internal error"),
+                    requireNonNullElse(failure.getMessage(), "Internal error"),
                     null,
                     errorCode.getCode(),
                     errorCode.getName(),

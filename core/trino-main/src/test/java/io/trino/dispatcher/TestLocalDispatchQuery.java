@@ -21,8 +21,6 @@ import io.airlift.configuration.secrets.SecretsResolver;
 import io.airlift.json.JsonCodec;
 import io.airlift.node.NodeInfo;
 import io.airlift.units.Duration;
-import io.trino.Session;
-import io.trino.client.NodeVersion;
 import io.trino.connector.CatalogHandle;
 import io.trino.connector.ConnectorCatalogServiceProvider;
 import io.trino.connector.ConnectorServices;
@@ -32,6 +30,7 @@ import io.trino.event.QueryMonitor;
 import io.trino.event.QueryMonitorConfig;
 import io.trino.eventlistener.EventListenerConfig;
 import io.trino.eventlistener.EventListenerManager;
+import io.trino.exchange.ExchangeMetricsCollector;
 import io.trino.execution.ClusterSizeMonitor;
 import io.trino.execution.DataDefinitionExecution;
 import io.trino.execution.DataDefinitionTask;
@@ -55,6 +54,7 @@ import io.trino.plugin.base.security.DefaultSystemAccessControl;
 import io.trino.security.AccessControlConfig;
 import io.trino.security.AccessControlManager;
 import io.trino.server.protocol.Slug;
+import io.trino.spi.NodeVersion;
 import io.trino.spi.catalog.CatalogProperties;
 import io.trino.spi.resourcegroups.QueryType;
 import io.trino.spi.resourcegroups.ResourceGroupId;
@@ -79,7 +79,7 @@ import static io.airlift.tracing.Tracing.noopTracer;
 import static io.opentelemetry.api.OpenTelemetry.noop;
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.execution.querystats.PlanOptimizersStatsCollector.createPlanOptimizersStatsCollector;
-import static io.trino.metadata.TestMetadataManager.createTestMetadataManager;
+import static io.trino.metadata.TestingMetadataManager.createTestingMetadataManager;
 import static io.trino.sql.tree.SaveMode.FAIL;
 import static io.trino.testing.TestingEventListenerManager.emptyEventListenerManager;
 import static io.trino.transaction.InMemoryTransactionManager.createTestTransactionManager;
@@ -96,7 +96,7 @@ public class TestLocalDispatchQuery
     {
         countDownLatch = new CountDownLatch(1);
         Executor executor = newCachedThreadPool(daemonThreadsNamed(getClass().getSimpleName() + "-%s"));
-        Metadata metadata = createTestMetadataManager();
+        Metadata metadata = createTestingMetadataManager();
         TransactionManager transactionManager = createTestTransactionManager();
         AccessControlManager accessControl = new AccessControlManager(
                 NodeVersion.UNKNOWN,
@@ -121,6 +121,7 @@ public class TestLocalDispatchQuery
                 metadata,
                 WarningCollector.NOOP,
                 createPlanOptimizersStatsCollector(),
+                new ExchangeMetricsCollector(ImmutableList::of, java.time.Duration.ofMillis(1)),
                 Optional.of(QueryType.DATA_DEFINITION),
                 true,
                 Optional.empty(),
@@ -177,10 +178,16 @@ public class TestLocalDispatchQuery
         public void loadInitialCatalogs() {}
 
         @Override
-        public void ensureCatalogsLoaded(Session session, List<CatalogProperties> catalogs) {}
+        public void ensureCatalogsLoaded(List<CatalogProperties> catalogs) {}
 
         @Override
-        public void pruneCatalogs(Set<CatalogHandle> catalogsInUse)
+        public PrunableState getPrunableState()
+        {
+            return PrunableState.empty();
+        }
+
+        @Override
+        public void pruneCatalogs(PrunableState prunableState, Set<CatalogHandle> catalogsInUse)
         {
             throw new UnsupportedOperationException();
         }

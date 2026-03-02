@@ -49,6 +49,7 @@ import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
@@ -495,7 +496,7 @@ public class Validator
         Duration queryCpuTime = null;
         try (Connection connection = DriverManager.getConnection(url, username, password)) {
             trySetConnectionProperties(query, connection);
-            for (Map.Entry<String, String> entry : sessionProperties.entrySet()) {
+            for (Entry<String, String> entry : sessionProperties.entrySet()) {
                 connection.unwrap(TrinoConnection.class).setSessionProperty(entry.getKey(), entry.getValue());
             }
 

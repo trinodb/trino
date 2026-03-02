@@ -102,6 +102,7 @@ public class TestMongoConnectorTest
         return switch (connectorBehavior) {
             case SUPPORTS_ADD_COLUMN_WITH_POSITION,
                  SUPPORTS_ADD_FIELD,
+                 SUPPORTS_AGGREGATION_PUSHDOWN,
                  SUPPORTS_CREATE_MATERIALIZED_VIEW,
                  SUPPORTS_CREATE_VIEW,
                  SUPPORTS_DEFAULT_COLUMN_VALUE,
@@ -111,6 +112,7 @@ public class TestMongoConnectorTest
                  SUPPORTS_RENAME_FIELD,
                  SUPPORTS_RENAME_SCHEMA,
                  SUPPORTS_SET_FIELD_TYPE,
+                 SUPPORTS_TOPN_PUSHDOWN,
                  SUPPORTS_TRUNCATE,
                  SUPPORTS_UPDATE -> false;
             default -> super.hasBehavior(connectorBehavior);
@@ -137,7 +139,7 @@ public class TestMongoConnectorTest
         assertThat(query("SHOW COLUMNS FROM " + table))
                 .skippingTypesCheck()
                 .matches("VALUES " +
-                         "('mixed_array_col', 'row(_pos1 bigint, _pos2 varchar, _pos3 double, _pos4 row(nested_arr array(bigint)))', '', '')");
+                         "('mixed_array_col', 'row(\"_pos1\" bigint, \"_pos2\" varchar, \"_pos3\" double, \"_pos4\" row(\"nested_arr\" array(bigint)))', '', '')");
 
         assertThat(query("SELECT mixed_array_col._pos1, mixed_array_col._pos2, mixed_array_col._pos3 FROM " + table))
                 .matches("VALUES (BIGINT '1', VARCHAR 'two', DOUBLE '3.0')");
@@ -625,7 +627,7 @@ public class TestMongoConnectorTest
         String unknownFieldTable = "test_unknown_field" + randomNameSuffix();
         Document document1 = new Document("col", Document.parse("{\"key1\": \"value1\", \"key2\": null}"));
         client.getDatabase("test").getCollection(unknownFieldTable).insertOne(document1);
-        assertQuery("SHOW COLUMNS FROM test." + unknownFieldTable, "SELECT 'col', 'row(key1 varchar)', '', ''");
+        assertQuery("SHOW COLUMNS FROM test." + unknownFieldTable, "SELECT 'col', 'row(\"key1\" varchar)', '', ''");
         assertQuery("SELECT col.key1 FROM test." + unknownFieldTable, "SELECT 'value1'");
         assertUpdate("DROP TABLE test." + unknownFieldTable);
 
@@ -716,7 +718,7 @@ public class TestMongoConnectorTest
                 .matches("SELECT varchar 'test', varchar 'creators', " + expectedValue);
         assertQuery(
                 "SELECT typeof(creator) FROM test." + tableName,
-                "SELECT 'row(databaseName varchar, collectionName varchar, id " + expectedType + ")'");
+                "SELECT 'row(\"databaseName\" varchar, \"collectionName\" varchar, \"id\" " + expectedType + ")'");
 
         assertUpdate("DROP TABLE test." + tableName);
     }
@@ -752,7 +754,7 @@ public class TestMongoConnectorTest
         client.getDatabase("test").getCollection(tableName).insertOne(document);
 
         assertThat(query("SELECT * FROM test." + tableName))
-                .failure().hasMessageContaining("DBRef should have 3 fields : row(databaseName varchar, collectionName varchar)");
+                .failure().hasMessageContaining("DBRef should have 3 fields : row(\"databaseName\" varchar, \"collectionName\" varchar)");
 
         assertUpdate("DROP TABLE test." + tableName);
     }
@@ -980,10 +982,8 @@ public class TestMongoConnectorTest
     }
 
     @Test
-    public void testLimitPushdown()
+    void testLimitWithLowerAndUpperBound()
     {
-        assertThat(query("SELECT name FROM nation LIMIT 30")).isFullyPushedDown(); // Use high limit for result determinism
-
         // Make sure LIMIT 0 returns empty result because cursor.limit(0) means no limit in MongoDB
         assertThat(query("SELECT name FROM nation LIMIT 0")).returnsEmptyResult();
 
@@ -1596,7 +1596,7 @@ public class TestMongoConnectorTest
                 .isNotFullyPushedDown(ProjectNode.class);
         assertQuery(
                 "SELECT typeof(creator) FROM test." + tableName,
-                "SELECT 'row(databaseName varchar, collectionName varchar, id " + expectedType + ")'");
+                "SELECT 'row(\"databaseName\" varchar, \"collectionName\" varchar, \"id\" " + expectedType + ")'");
 
         assertUpdate("DROP TABLE test." + tableName);
     }
@@ -1633,7 +1633,7 @@ public class TestMongoConnectorTest
                 .isNotFullyPushedDown(ProjectNode.class);
         assertQuery(
                 "SELECT typeof(parent.creator) FROM test." + tableName,
-                "SELECT 'row(databaseName varchar, collectionName varchar, id " + expectedType + ")'");
+                "SELECT 'row(\"databaseName\" varchar, \"collectionName\" varchar, \"id\" " + expectedType + ")'");
 
         assertUpdate("DROP TABLE test." + tableName);
     }
@@ -1669,7 +1669,7 @@ public class TestMongoConnectorTest
                 .isNotFullyPushedDown(ProjectNode.class);
         assertQuery(
                 "SELECT typeof(parent.id), typeof(parent.id.id) FROM test." + tableName,
-                "SELECT 'row(databaseName varchar, collectionName varchar, id %1$s)', '%1$s'".formatted(expectedType));
+                "SELECT 'row(\"databaseName\" varchar, \"collectionName\" varchar, \"id\" %1$s)', '%1$s'".formatted(expectedType));
 
         assertUpdate("DROP TABLE test." + tableName);
     }
@@ -1920,6 +1920,8 @@ public class TestMongoConnectorTest
     {
         switch ("%s -> %s".formatted(setup.sourceColumnType(), setup.newColumnType())) {
             case "bigint -> integer":
+            case "bigint -> smallint":
+            case "bigint -> tinyint":
             case "decimal(5,3) -> decimal(5,2)":
             case "time(3) -> time(6)":
             case "time(6) -> time(3)":
@@ -1927,6 +1929,9 @@ public class TestMongoConnectorTest
             case "timestamp(6) -> timestamp(3)":
             case "timestamp(3) with time zone -> timestamp(6) with time zone":
             case "timestamp(6) with time zone -> timestamp(3) with time zone":
+            case "map(integer, varchar) -> map(bigint, varchar)":
+            case "map(varchar, integer) -> map(varchar, bigint)":
+            case "map(integer, row(x integer)) -> map(integer, row(\"x\" bigint))":
                 return Optional.of(setup.asUnsupported());
         }
         return Optional.of(setup);

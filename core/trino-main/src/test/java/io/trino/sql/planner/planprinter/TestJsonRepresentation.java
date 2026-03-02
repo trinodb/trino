@@ -121,7 +121,7 @@ public class TestJsonRepresentation
                 .isEqualTo(DISTRIBUTED_PLAN_JSON_CODEC.toJson(ImmutableMap.of("0", expectedPlan)));
 
         assertThat(queryRunner.execute("EXPLAIN (TYPE LOGICAL, FORMAT JSON) " + query).getOnlyValue())
-                .isEqualTo(JSON_RENDERED_NODE_CODEC.toJson(expectedPlan));
+                .isEqualTo(DISTRIBUTED_PLAN_JSON_CODEC.toJson(ImmutableMap.of("0", expectedPlan)));
     }
 
     @Test

@@ -146,7 +146,7 @@ public class QueryTracker<T extends TrackedQuery>
             throws NoSuchElementException
     {
         return tryGetQuery(queryId)
-                .orElseThrow(() -> new NoSuchElementException(queryId.toString()));
+                .orElseThrow(() -> new NoSuchElementException(queryId.id()));
     }
 
     public boolean hasQuery(QueryId queryId)

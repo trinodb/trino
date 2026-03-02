@@ -231,7 +231,7 @@ public class BenchmarkCopyPositions
         new BenchmarkCopyPositions().testCopyPositions();
     }
 
-    public static void main(String[] args)
+    static void main()
             throws Exception
     {
         benchmark(BenchmarkCopyPositions.class)

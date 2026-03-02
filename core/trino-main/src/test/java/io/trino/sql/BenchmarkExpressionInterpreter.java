@@ -86,7 +86,7 @@ public class BenchmarkExpressionInterpreter
         assertThat(benchmark.optimize(data)).hasSize(data.expressions.size());
     }
 
-    public static void main(String[] args)
+    static void main()
             throws Exception
     {
         benchmark(BenchmarkExpressionInterpreter.class, WarmupMode.BULK).run();

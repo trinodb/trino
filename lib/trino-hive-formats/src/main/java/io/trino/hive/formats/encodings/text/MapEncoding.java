@@ -205,7 +205,7 @@ public class MapEncoding
                 throws FileCorruptionException
         {
             if (distinctKeys[entryPosition]) {
-                mapType.getKeyType().appendTo(keyBlock, entryPosition, keyBuilder);
+                keyBuilder.append(keyBlock.getUnderlyingValueBlock(), keyBlock.getUnderlyingValuePosition(entryPosition));
 
                 if (hasValue && !isNullSequence(slice, valueOffset, valueLength)) {
                     valueEncoding.decodeValueInto(valueBuilder, slice, valueOffset, valueLength);

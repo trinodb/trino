@@ -34,7 +34,7 @@ import io.trino.util.FastutilSetHelper;
 import java.lang.invoke.MethodHandle;
 import java.util.Collection;
 import java.util.List;
-import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -194,7 +194,7 @@ public class InCodeGenerator
                         .append(switchBuilder.build());
                 break;
             case HASH_SWITCH:
-                for (Map.Entry<Integer, Collection<BytecodeNode>> bucket : hashBuckets.asMap().entrySet()) {
+                for (Entry<Integer, Collection<BytecodeNode>> bucket : hashBuckets.asMap().entrySet()) {
                     Collection<BytecodeNode> testValues = bucket.getValue();
                     BytecodeBlock caseBlock = buildInCase(
                             generatorContext,

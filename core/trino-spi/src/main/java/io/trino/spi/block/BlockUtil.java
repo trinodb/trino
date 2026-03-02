@@ -319,15 +319,6 @@ final class BlockUtil
         return buffer;
     }
 
-    static void appendRawBlockRange(Block rawBlock, int offset, int length, BlockBuilder blockBuilder)
-    {
-        switch (rawBlock) {
-            case RunLengthEncodedBlock rleBlock -> blockBuilder.appendRepeated(rleBlock.getValue(), 0, length);
-            case DictionaryBlock dictionaryBlock -> blockBuilder.appendPositions(dictionaryBlock.getDictionary(), dictionaryBlock.getRawIds(), offset, length);
-            case ValueBlock valueBlock -> blockBuilder.appendRange(valueBlock, offset, length);
-        }
-    }
-
     /**
      * Ideally, the underlying nulls array in Block implementations should be a byte array instead of a boolean array.
      * This method is used to perform that conversion until the Block implementations are changed.

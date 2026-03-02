@@ -23,6 +23,7 @@ import it.unimi.dsi.fastutil.ints.IntArrays;
 import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
 import jakarta.annotation.Nullable;
 
+import java.util.Arrays;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -32,12 +33,13 @@ import static io.airlift.slice.SizeOf.sizeOf;
 import static io.trino.operator.output.PositionsAppenderUtil.calculateBlockResetSize;
 import static io.trino.operator.output.PositionsAppenderUtil.calculateNewArraySize;
 import static java.lang.Math.max;
+import static java.util.Objects.checkFromIndexSize;
 import static java.util.Objects.requireNonNull;
 
 /**
  * Dispatches the {@link #append} and {@link #appendRle} methods to the {@link #delegate} depending on the input {@link Block} class.
  */
-public class UnnestingPositionsAppender
+public final class UnnestingPositionsAppender
 {
     private static final int INSTANCE_SIZE = instanceSize(UnnestingPositionsAppender.class);
 
@@ -66,6 +68,50 @@ public class UnnestingPositionsAppender
         this.delegate = requireNonNull(delegate, "delegate is null");
         this.dictionaryIdsBuilder = new DictionaryIdsBuilder(1024);
         this.identicalOperator = identicalOperator.orElse(null);
+    }
+
+    public void appendRange(Block source, int offset, int length)
+    {
+        if (length == 0) {
+            return;
+        }
+
+        switch (source) {
+            case RunLengthEncodedBlock rleBlock -> {
+                appendRle(rleBlock.getValue(), length);
+            }
+            case DictionaryBlock dictionaryBlock -> {
+                ValueBlock dictionary = dictionaryBlock.getDictionary();
+                if (state == State.UNINITIALIZED) {
+                    state = State.DICTIONARY;
+                    this.dictionary = dictionary;
+                    dictionaryIdsBuilder.appendRange(dictionaryBlock, offset, length);
+                }
+                else if (state == State.DICTIONARY && this.dictionary == dictionary) {
+                    dictionaryIdsBuilder.appendRange(dictionaryBlock, offset, length);
+                }
+                else {
+                    transitionToDirect();
+
+                    int[] rawIds = dictionaryBlock.getRawIds();
+                    int rawOffset = dictionaryBlock.getRawIdsOffset();
+                    checkFromIndexSize(rawOffset + offset, length, rawIds.length);
+                    IntArrayList positionsList;
+                    if (rawOffset + offset == 0) {
+                        // Fast path, no copy necessary
+                        positionsList = IntArrayList.wrap(rawIds, length);
+                    }
+                    else {
+                        positionsList = IntArrayList.wrap(Arrays.copyOfRange(rawIds, rawOffset + offset, rawOffset + offset + length));
+                    }
+                    delegate.append(positionsList, dictionary);
+                }
+            }
+            case ValueBlock valueBlock -> {
+                transitionToDirect();
+                delegate.appendRange(valueBlock, offset, length);
+            }
+        }
     }
 
     public void append(IntArrayList positions, Block source)
@@ -235,7 +281,7 @@ public class UnnestingPositionsAppender
         return false;
     }
 
-    private static class DictionaryIdsBuilder
+    private static final class DictionaryIdsBuilder
     {
         private static final int INSTANCE_SIZE = instanceSize(DictionaryIdsBuilder.class);
 
@@ -273,6 +319,17 @@ public class UnnestingPositionsAppender
                 dictionaryIds[size + i] = block.getId(positions.getInt(i));
             }
             size += positions.size();
+        }
+
+        public void appendRange(DictionaryBlock block, int offset, int length)
+        {
+            checkArgument(length > 0, "block has no positions");
+            checkFromIndexSize(offset, length, block.getPositionCount());
+            ensureCapacity(size + length);
+            int[] rawIds = block.getRawIds();
+            int rawIdsOffset = block.getRawIdsOffset();
+            System.arraycopy(rawIds, rawIdsOffset + offset, dictionaryIds, size, length);
+            size += length;
         }
 
         public DictionaryIdsBuilder newBuilderLike()

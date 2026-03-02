@@ -25,6 +25,7 @@ import io.trino.parquet.ParquetReaderOptions;
 import io.trino.plugin.base.metrics.FileFormatDataSourceStats;
 import io.trino.plugin.deltalake.DefaultDeltaLakeFileSystemFactory;
 import io.trino.plugin.deltalake.DeltaLakeConfig;
+import io.trino.plugin.deltalake.metastore.NoOpVendedCredentialsProvider;
 import io.trino.plugin.deltalake.metastore.VendedCredentialsHandle;
 import io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointSchemaManager;
 import io.trino.plugin.deltalake.transactionlog.checkpoint.LastCheckpoint;
@@ -86,7 +87,7 @@ public class TestTableSnapshot
         checkpointSchemaManager = new CheckpointSchemaManager(TESTING_TYPE_MANAGER);
         tableLocation = getClass().getClassLoader().getResource("databricks73/person").toURI().toString();
 
-        tracingFileSystemFactory = new DefaultDeltaLakeFileSystemFactory(new TracingFileSystemFactory(testingTelemetry.getTracer(), new HdfsFileSystemFactory(HDFS_ENVIRONMENT, HDFS_FILE_SYSTEM_STATS)));
+        tracingFileSystemFactory = new DefaultDeltaLakeFileSystemFactory(new TracingFileSystemFactory(testingTelemetry.getTracer(), new HdfsFileSystemFactory(HDFS_ENVIRONMENT, HDFS_FILE_SYSTEM_STATS)), new NoOpVendedCredentialsProvider());
         credentialsHandle = VendedCredentialsHandle.empty(tableLocation);
         trackingFileSystem = tracingFileSystemFactory.create(SESSION, credentialsHandle);
     }

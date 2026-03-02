@@ -33,6 +33,11 @@ public class EnvSinglenodeDeltaLakeDatabricks154
     @Override
     String databricksTestJdbcUrl()
     {
-        return requireEnv("DATABRICKS_154_JDBC_URL");
+        // After upgrading the Databricks JDBC driver, the application
+        // must be configured with the required JVM options described in:
+        // https://docs.databricks.com/aws/en/integrations/jdbc-oss/#requirements
+        // To avoid requiring these additional runtime options, we explicitly disable
+        // Arrow support by setting `EnableArrow=0` in the JDBC URL.
+        return requireEnv("DATABRICKS_154_JDBC_URL") + ";EnableArrow=0";
     }
 }

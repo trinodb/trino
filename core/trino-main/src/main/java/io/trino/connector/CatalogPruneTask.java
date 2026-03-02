@@ -25,6 +25,7 @@ import io.airlift.http.client.ResponseHandler;
 import io.airlift.json.JsonCodec;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
+import io.trino.connector.ConnectorServicesProvider.PrunableState;
 import io.trino.metadata.CatalogManager;
 import io.trino.node.AllNodes;
 import io.trino.node.InternalNode;
@@ -100,7 +101,7 @@ public class CatalogPruneTask
         if (enabled && !started.getAndSet(true)) {
             executor.scheduleWithFixedDelay(() -> {
                 try {
-                    pruneWorkerCatalogs();
+                    pruneCatalogs();
                 }
                 catch (Throwable e) {
                     // ignore to avoid getting unscheduled
@@ -124,7 +125,7 @@ public class CatalogPruneTask
     }
 
     @VisibleForTesting
-    public void pruneWorkerCatalogs()
+    public void pruneCatalogs()
     {
         AllNodes allNodes = internalNodeManager.getAllNodes();
         Set<URI> online = Stream.of(allNodes.activeNodes(), allNodes.inactiveNodes(), allNodes.drainingNodes(), allNodes.drainedNodes(), allNodes.shuttingDownNodes())
@@ -133,22 +134,24 @@ public class CatalogPruneTask
                 .filter(uri -> !uri.equals(currentNode.getInternalUri()))
                 .collect(toImmutableSet());
 
+        PrunableState prunableState = connectorServicesProvider.getPrunableState();
+
         // send message to workers to trigger prune
-        List<CatalogHandle> activeCatalogs = getActiveCatalogs();
+        Set<CatalogHandle> activeCatalogs = getActiveCatalogs();
         pruneWorkerCatalogs(online, activeCatalogs);
 
-        // prune all inactive catalogs - we pass an empty set here because manager always retains active catalogs
-        connectorServicesProvider.pruneCatalogs(ImmutableSet.of());
+        // prune inactive catalogs locally
+        connectorServicesProvider.pruneCatalogs(prunableState, activeCatalogs);
     }
 
-    void pruneWorkerCatalogs(Set<URI> online, List<CatalogHandle> activeCatalogs)
+    void pruneWorkerCatalogs(Set<URI> online, Set<CatalogHandle> activeCatalogs)
     {
         for (URI uri : online) {
             uri = uriBuilderFrom(uri).appendPath("/v1/task/pruneCatalogs").build();
             Request request = preparePost()
                     .setUri(uri)
                     .addHeader(CONTENT_TYPE, JSON_UTF_8.toString())
-                    .setBodyGenerator(jsonBodyGenerator(CATALOG_HANDLES_CODEC, activeCatalogs))
+                    .setBodyGenerator(jsonBodyGenerator(CATALOG_HANDLES_CODEC, ImmutableList.copyOf(activeCatalogs)))
                     .build();
             httpClient.executeAsync(request, new ResponseHandler<>()
             {
@@ -169,13 +172,13 @@ public class CatalogPruneTask
         }
     }
 
-    private List<CatalogHandle> getActiveCatalogs()
+    private Set<CatalogHandle> getActiveCatalogs()
     {
         ImmutableSet.Builder<CatalogHandle> activeCatalogs = ImmutableSet.builder();
-        // all catalogs in an active transaction
-        transactionManager.getAllTransactionInfos().forEach(info -> activeCatalogs.addAll(info.getActiveCatalogs()));
         // all catalogs currently associated with a name
-        activeCatalogs.addAll(catalogManager.getActiveCatalogs());
-        return ImmutableList.copyOf(activeCatalogs.build());
+        activeCatalogs.addAll(catalogManager.getReachableDynamicCatalogs());
+        // all catalogs that still may be used by ongoing transactions
+        transactionManager.getAllTransactionInfos().forEach(info -> activeCatalogs.addAll(info.getRegisteredCatalogs()));
+        return activeCatalogs.build();
     }
 }

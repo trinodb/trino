@@ -12,7 +12,7 @@
  * limitations under the License.
  */
 import { Link as RouterLink } from 'react-router-dom'
-import { Card, CardActionArea, CardContent, Grid2 as Grid, Tooltip, Typography } from '@mui/material'
+import { Card, CardActionArea, CardContent, Grid, Tooltip, Typography } from '@mui/material'
 import { SparkLineChart } from '@mui/x-charts/SparkLineChart'
 import { styled } from '@mui/material/styles'
 

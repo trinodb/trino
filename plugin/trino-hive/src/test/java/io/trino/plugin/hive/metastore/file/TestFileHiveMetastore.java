@@ -20,8 +20,8 @@ import io.trino.metastore.Database;
 import io.trino.metastore.HiveMetastore;
 import io.trino.metastore.StorageFormat;
 import io.trino.metastore.Table;
-import io.trino.plugin.hive.NodeVersion;
 import io.trino.plugin.hive.metastore.AbstractTestHiveMetastore;
+import io.trino.spi.NodeVersion;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
 

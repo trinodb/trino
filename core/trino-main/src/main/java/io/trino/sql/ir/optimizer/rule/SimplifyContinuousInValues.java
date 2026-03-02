@@ -32,6 +32,7 @@ import io.trino.sql.ir.optimizer.IrOptimizerRule;
 import io.trino.sql.planner.Symbol;
 
 import java.math.BigInteger;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
@@ -49,15 +50,15 @@ public class SimplifyContinuousInValues
     @Override
     public Optional<Expression> apply(Expression expression, Session session, Map<Symbol, Expression> bindings)
     {
-        if (!(expression instanceof In in)) {
+        if (!(expression instanceof In(Expression value, List<Expression> values))) {
             return Optional.empty();
         }
 
-        if (in.valueList().size() < 2) {
+        if (values.size() < 2) {
             return Optional.empty();
         }
 
-        Type valueType = in.value().type();
+        Type valueType = value.type();
         if (!isDirectLongComparisonValidForContinuousValues(valueType)) {
             return Optional.empty();
         }
@@ -70,7 +71,7 @@ public class SimplifyContinuousInValues
         long nonNullsCount = 0;
         long min = Long.MAX_VALUE;
         long max = Long.MIN_VALUE;
-        for (Expression testExpression : in.valueList()) {
+        for (Expression testExpression : values) {
             if (!(testExpression instanceof Constant constant)) {
                 return Optional.empty();
             }
@@ -86,9 +87,9 @@ public class SimplifyContinuousInValues
 
         // If all values within a range are included, use a range filter
         if (nonNullsCount >= 2 && areAllValuesInRangeIncluded(max, min, nonNullsCount)) {
-            Between between = new Between(in.value(), new Constant(valueType, min), new Constant(valueType, max));
+            Between between = new Between(value, new Constant(valueType, min), new Constant(valueType, max));
             if (nullMatch) {
-                return Optional.of(or(new IsNull(in.value()), between));
+                return Optional.of(or(new IsNull(value), between));
             }
             return Optional.of(between);
         }

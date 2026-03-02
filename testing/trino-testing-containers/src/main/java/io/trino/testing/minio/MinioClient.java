@@ -24,6 +24,8 @@ import io.minio.BucketExistsArgs;
 import io.minio.CloseableIterator;
 import io.minio.CopyObjectArgs;
 import io.minio.CopySource;
+import io.minio.GetObjectArgs;
+import io.minio.GetObjectResponse;
 import io.minio.ListObjectsArgs;
 import io.minio.ListenBucketNotificationArgs;
 import io.minio.MakeBucketArgs;
@@ -63,8 +65,8 @@ public class MinioClient
     private final Logger logger = Logger.get(MinioClient.class);
 
     public static final String DEFAULT_MINIO_ENDPOINT = "http://minio:9080";
-    public static final String DEFAULT_MINIO_ACCESS_KEY = "minio-access-key";
-    public static final String DEFAULT_MINIO_SECRET_KEY = "minio-secret-key";
+    public static final String DEFAULT_MINIO_ROOT_USER = "minio-access-key";
+    public static final String DEFAULT_MINIO_ROOT_PASSWORD = "minio-secret-key";
 
     private static final Set<String> createdBuckets = Sets.newConcurrentHashSet();
 
@@ -72,7 +74,7 @@ public class MinioClient
     private final io.minio.MinioClient client;
     private final ListeningExecutorService executor = listeningDecorator(newFixedThreadPool(32, daemonThreadsNamed("minio-client-%s")));
 
-    private static final String[] ALL_MINIO_EVENTS = new String[] {
+    private static final String[] ALL_MINIO_EVENTS = {
             OBJECT_CREATED_ANY.toString(),
             OBJECT_REMOVED_ANY.toString(),
             OBJECT_ACCESSED_ANY.toString()
@@ -80,7 +82,7 @@ public class MinioClient
 
     public MinioClient()
     {
-        this(DEFAULT_MINIO_ENDPOINT, DEFAULT_MINIO_ACCESS_KEY, DEFAULT_MINIO_SECRET_KEY);
+        this(DEFAULT_MINIO_ENDPOINT, DEFAULT_MINIO_ROOT_USER, DEFAULT_MINIO_ROOT_PASSWORD);
     }
 
     public MinioClient(String endpoint, String accessKey, String secretKey)
@@ -121,6 +123,11 @@ public class MinioClient
         ensureBucketExists(bucket);
 
         putObject(bucket, ByteSource.wrap(contents), targetPath);
+    }
+
+    public byte[] getObjectContents(String bucket, String targetPath)
+    {
+        return doGetObjectContents(bucket, targetPath);
     }
 
     public void captureBucketNotifications(String bucket, Consumer<Event> consumer)
@@ -222,6 +229,21 @@ public class MinioClient
                                 .stream(inputStream, byteSource.size(), -1)
                                 .build());
             }
+        }
+        catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    private byte[] doGetObjectContents(String bucket, String targetPath)
+    {
+        try {
+            GetObjectResponse response = client.getObject(
+                    GetObjectArgs.builder()
+                            .bucket(bucket)
+                            .object(targetPath)
+                            .build());
+            return response.readAllBytes();
         }
         catch (Exception e) {
             throw new RuntimeException(e);

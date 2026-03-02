@@ -40,6 +40,7 @@ import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.SqlDecimal.decimal;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.testing.DateTimeTestingUtils.sqlTimestampOf;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static io.trino.type.JsonType.JSON;
@@ -928,6 +929,16 @@ public class TestJsonOperators
         assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as VARCHAR)")
                 .binding("a", "JSON '{ \"x\" : 123}'").evaluate())
                 .hasErrorCode(INVALID_CAST_ARGUMENT);
+
+        assertThat(assertions.expression("cast(a as varchar(5))")
+                .binding("a", "JSON '\"test \"'"))
+                .hasType(createVarcharType(5))
+                .isEqualTo("test ");
+
+        assertTrinoExceptionThrownBy(assertions.expression("cast(a as varchar(4))")
+                .binding("a", "JSON '\"test \"'")::evaluate)
+                .hasErrorCode(INVALID_CAST_ARGUMENT)
+                .hasMessage("Cannot cast '\"test \"' to varchar(4)");
     }
 
     @Test
@@ -1115,7 +1126,7 @@ public class TestJsonOperators
                 .binding("a", "'{\"a\": 1, \"b\": {}}'")
                 .evaluate())
                 .hasErrorCode(INVALID_CAST_ARGUMENT, INVALID_FUNCTION_ARGUMENT)
-                .hasMessage("Cannot cast to row(a integer, b array(integer)). Expected a json array, but got {\n{\"a\": 1, \"b\": {}}");
+                .hasMessage("Cannot cast to row(\"a\" integer, \"b\" array(integer)). Expected a json array, but got {\n{\"a\": 1, \"b\": {}}");
 
         assertTrinoExceptionThrownBy(() -> assertions.expression("CAST(json_parse(a) AS ROW(INTEGER, ARRAY(INTEGER)))")
                 .binding("a", "'[1, {}]'")

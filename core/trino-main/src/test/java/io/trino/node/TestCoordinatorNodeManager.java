@@ -22,8 +22,8 @@ import io.airlift.http.client.testing.TestingResponse;
 import io.airlift.json.JsonCodec;
 import io.airlift.testing.TestingTicker;
 import io.airlift.units.Duration;
-import io.trino.client.NodeVersion;
 import io.trino.server.ServerInfo;
+import io.trino.spi.NodeVersion;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 

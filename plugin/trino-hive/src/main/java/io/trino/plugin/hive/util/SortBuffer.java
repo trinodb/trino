@@ -24,12 +24,12 @@ import io.trino.spi.connector.SortOrder;
 import io.trino.spi.type.Type;
 
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
 import java.util.function.Consumer;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.base.Verify.verify;
 import static io.airlift.slice.SizeOf.instanceSize;
 import static java.lang.Math.addExact;
 import static java.util.Objects.requireNonNull;
@@ -44,7 +44,6 @@ public class SortBuffer
     private final List<SortOrder> sortOrders;
     private final PageSorter pageSorter;
     private final List<Page> pages = new ArrayList<>();
-    private final PageBuilder pageBuilder;
 
     private long usedMemoryBytes;
     private int rowCount;
@@ -62,7 +61,6 @@ public class SortBuffer
         this.sortFields = ImmutableList.copyOf(requireNonNull(sortFields, "sortFields is null"));
         this.sortOrders = ImmutableList.copyOf(requireNonNull(sortOrders, "sortOrders is null"));
         this.pageSorter = requireNonNull(pageSorter, "pageSorter is null");
-        this.pageBuilder = new PageBuilder(types);
     }
 
     public long getRetainedBytes()
@@ -103,32 +101,8 @@ public class SortBuffer
     {
         checkState(!pages.isEmpty(), "page buffer is empty");
 
-        long[] addresses = pageSorter.sort(types, pages, sortFields, sortOrders, rowCount);
-
-        int[] pageIndex = new int[addresses.length];
-        int[] positionIndex = new int[addresses.length];
-        for (int i = 0; i < addresses.length; i++) {
-            pageIndex[i] = pageSorter.decodePageIndex(addresses[i]);
-            positionIndex[i] = pageSorter.decodePositionIndex(addresses[i]);
-        }
-
-        verify(pageBuilder.isEmpty());
-
-        for (int i = 0; i < pageIndex.length; i++) {
-            Page page = pages.get(pageIndex[i]);
-            int position = positionIndex[i];
-            appendPositionTo(page, position, pageBuilder);
-
-            if (pageBuilder.isFull()) {
-                consumer.accept(pageBuilder.build());
-                pageBuilder.reset();
-            }
-        }
-
-        if (!pageBuilder.isEmpty()) {
-            consumer.accept(pageBuilder.build());
-            pageBuilder.reset();
-        }
+        Iterator<Page> sortedPages = pageSorter.sort(types, pages, sortFields, sortOrders, rowCount);
+        sortedPages.forEachRemaining(consumer);
 
         pages.clear();
         rowCount = 0;

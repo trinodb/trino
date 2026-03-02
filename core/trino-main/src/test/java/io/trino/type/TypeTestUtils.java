@@ -15,6 +15,7 @@ package io.trino.type;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.operator.HashGenerator;
+import io.trino.operator.NullSafeHashCompiler;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
@@ -29,14 +30,14 @@ import static io.trino.spi.type.BigintType.BIGINT;
 
 public final class TypeTestUtils
 {
-    private static final TypeOperators TYPE_OPERATORS = new TypeOperators();
+    private static final NullSafeHashCompiler HASH_COMPILER = new NullSafeHashCompiler(new TypeOperators());
 
     private TypeTestUtils() {}
 
     public static Block getHashBlock(List<? extends Type> hashTypes, Block... hashBlocks)
     {
         checkArgument(hashTypes.size() == hashBlocks.length);
-        HashGenerator hashGenerator = createPagePrefixHashGenerator(ImmutableList.copyOf(hashTypes), TYPE_OPERATORS);
+        HashGenerator hashGenerator = createPagePrefixHashGenerator(ImmutableList.copyOf(hashTypes), HASH_COMPILER);
         int positionCount = hashBlocks[0].getPositionCount();
         BlockBuilder builder = BIGINT.createFixedSizeBlockBuilder(positionCount);
         Page page = new Page(hashBlocks);

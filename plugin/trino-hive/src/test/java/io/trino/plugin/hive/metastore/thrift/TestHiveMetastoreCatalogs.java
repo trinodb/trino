@@ -32,9 +32,9 @@ import java.util.Optional;
 import static io.trino.plugin.hive.TestingHiveUtils.getConnectorService;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.TestingSession.testSessionBuilder;
-import static io.trino.testing.containers.Minio.MINIO_ACCESS_KEY;
 import static io.trino.testing.containers.Minio.MINIO_REGION;
-import static io.trino.testing.containers.Minio.MINIO_SECRET_KEY;
+import static io.trino.testing.containers.Minio.MINIO_ROOT_PASSWORD;
+import static io.trino.testing.containers.Minio.MINIO_ROOT_USER;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -84,8 +84,8 @@ public class TestHiveMetastoreCatalogs
                 .put("s3.path-style-access", "true")
                 .put("s3.region", MINIO_REGION)
                 .put("s3.endpoint", hiveMinioDataLake.getMinio().getMinioAddress())
-                .put("s3.aws-access-key", MINIO_ACCESS_KEY)
-                .put("s3.aws-secret-key", MINIO_SECRET_KEY)
+                .put("s3.aws-access-key", MINIO_ROOT_USER)
+                .put("s3.aws-secret-key", MINIO_ROOT_PASSWORD)
                 .buildOrThrow();
     }
 

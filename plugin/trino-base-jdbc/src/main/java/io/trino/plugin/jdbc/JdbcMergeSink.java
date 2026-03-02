@@ -39,6 +39,7 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -107,7 +108,7 @@ public class JdbcMergeSink
 
         ImmutableMap.Builder<Integer, Supplier<ConnectorPageSink>> updateSinksBuilder = ImmutableMap.builder();
         ImmutableMap.Builder<Integer, int[]> updateCaseChannelsBuilder = ImmutableMap.builder();
-        for (Map.Entry<Integer, Collection<ColumnHandle>> entry : updateCaseColumns.entrySet()) {
+        for (Entry<Integer, Collection<ColumnHandle>> entry : updateCaseColumns.entrySet()) {
             int caseNumber = entry.getKey();
             checkArgument(updateTableHandles.isEmpty() || updateTableHandles.containsKey(caseNumber), "Update handles should contain all case number or empty");
             Set<Integer> columnChannels = entry.getValue().stream()
@@ -315,7 +316,7 @@ public class JdbcMergeSink
             deleteSink.appendPage(new Page(deletePositionCount, extractRowIdBlocks(rowIdFields, deletePositionCount, deletePositions)));
         }
 
-        for (Map.Entry<Integer, Integer> entry : updatePositionCounts.entrySet()) {
+        for (Entry<Integer, Integer> entry : updatePositionCounts.entrySet()) {
             int caseNumber = entry.getKey();
             int updatePositionCount = entry.getValue();
             if (updatePositionCount > 0) {

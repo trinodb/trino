@@ -34,7 +34,7 @@ public class BufferedRowValueBuilder
     BufferedRowValueBuilder(RowType rowType, int bufferSize)
     {
         this.bufferSize = bufferSize;
-        this.fieldBuilders = rowType.getTypeParameters().stream()
+        this.fieldBuilders = rowType.getFieldTypes().stream()
                 .map(fieldType -> fieldType.createBlockBuilder(null, bufferSize))
                 .toList();
     }

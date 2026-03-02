@@ -23,6 +23,7 @@ import dev.failsafe.RetryPolicy;
 import io.airlift.log.Logger;
 import io.trino.testing.minio.MinioClient;
 import org.testcontainers.containers.Network;
+import org.testcontainers.utility.DockerImageName;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -41,15 +42,16 @@ public class Minio
 {
     private static final Logger log = Logger.get(Minio.class);
 
-    public static final String DEFAULT_IMAGE = "minio/minio:RELEASE.2024-12-18T13-15-44Z";
+    public static final String DEFAULT_IMAGE = DockerImageName.parse("cgr.dev/chainguard/minio@sha256:66bd82c8fe5e75868ae7d0b2e102d9a0dcf971b270a41bd060a9e6a643476ff8")
+            .asCanonicalNameString();
     public static final String DEFAULT_HOST_NAME = "minio";
 
     public static final int MINIO_API_PORT = 4566;
     public static final int MINIO_CONSOLE_PORT = 4567;
 
     // defaults
-    public static final String MINIO_ACCESS_KEY = "accesskey";
-    public static final String MINIO_SECRET_KEY = "secretkey";
+    public static final String MINIO_ROOT_USER = "accesskey";
+    public static final String MINIO_ROOT_PASSWORD = "secretkey";
     public static final String MINIO_REGION = "us-east-1";
 
     public static Builder builder()
@@ -80,6 +82,7 @@ public class Minio
     protected void setupContainer()
     {
         super.setupContainer();
+        withCreateContainerModifier(cmd -> cmd.withUser("root")); // Required to create buckets externally
         withRunCommand(
                 ImmutableList.of(
                         "server",
@@ -154,7 +157,7 @@ public class Minio
 
     public MinioClient createMinioClient()
     {
-        return new MinioClient(getMinioAddress(), MINIO_ACCESS_KEY, MINIO_SECRET_KEY);
+        return new MinioClient(getMinioAddress(), MINIO_ROOT_USER, MINIO_ROOT_PASSWORD);
     }
 
     public static class Builder
@@ -169,8 +172,8 @@ public class Minio
                             MINIO_API_PORT,
                             MINIO_CONSOLE_PORT);
             this.envVars = ImmutableMap.<String, String>builder()
-                    .put("MINIO_ACCESS_KEY", MINIO_ACCESS_KEY)
-                    .put("MINIO_SECRET_KEY", MINIO_SECRET_KEY)
+                    .put("MINIO_ROOT_USER", MINIO_ROOT_USER)
+                    .put("MINIO_ROOT_PASSWORD", MINIO_ROOT_PASSWORD)
                     .buildOrThrow();
         }
 

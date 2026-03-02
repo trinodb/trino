@@ -71,6 +71,11 @@ execution on a Trino cluster:
     fault-tolerant execution and typically only to deactivate with `NONE`, since
     switching between modes on a cluster is not tested.
   - `NONE`
+* - `retry-policy.allowed`
+  - List of retry policies that are allowed to be configured for a cluster.
+    This property is used to prevent a user from configuring a retry policy that
+    is not meant to be used on the given cluster.
+  - `NONE`, `QUERY`, `TASK` 
 * - `exchange.deduplication-buffer-size`
   - [Data size](prop-type-data-size) of the coordinator's in-memory buffer used
     by fault-tolerant execution to store output of query
@@ -382,7 +387,7 @@ fault-tolerant execution. You can configure a filesystem-based exchange manager
 that stores spooled data in a specified location, such as {ref}`AWS S3
 <fte-exchange-aws-s3>` and S3-compatible systems, {ref}`Azure Blob Storage
 <fte-exchange-azure-blob>`, {ref}`Google Cloud Storage <fte-exchange-gcs>`,
-or {ref}`HDFS <fte-exchange-hdfs>`.
+{ref}`Alluxio <fte-exchange-alluxio>`, or {ref}`HDFS <fte-exchange-hdfs>`.
 
 ### Configuration
 
@@ -391,6 +396,11 @@ To configure an exchange manager, create a new
 all worker nodes. In this file, set the `exchange-manager.name` configuration
 property to `filesystem` or `hdfs`, and set additional configuration properties as needed
 for your storage solution.
+
+You can also specify the location of the exchange manager configuration file
+in `config.properties` with the `exchange-manager.config-file` property.
+When this property is set, Trino loads the exchange manager configuration
+from the specified path instead of the default `etc/exchange-manager.properties`.
 
 The following table lists the available configuration properties for
 `exchange-manager.properties`, their default values, and which file systems
@@ -409,6 +419,11 @@ the property may be configured for:
     store spooling data.
   -
   - Any
+* - `exchange.max-page-storage-size`
+  - Max storage size of a page written to a sink, including the page itself
+    and its size.
+  - `16MB`
+  - Any
 * - `exchange.sink-buffer-pool-min-size`
   - The minimum buffer pool size for an exchange sink. The larger the buffer
     pool size, the larger the write parallelism and memory usage.
@@ -421,7 +436,7 @@ the property may be configured for:
   - Any
 * - `exchange.sink-max-file-size`
   - Max [data size](prop-type-data-size) of files written by exchange sinks.
-  - ``1GB``
+  - `1GB`
   - Any
 * - `exchange.source-concurrent-readers`
   - Number of concurrent readers to read from spooling storage. The larger the
@@ -503,6 +518,18 @@ the property may be configured for:
     retry a request.
   - `10`
   - Azure Blob Storage
+* - `exchange.alluxio.block-size`
+  - Block [data size](prop-type-data-size) for Alluxio storage.
+  - `4MB`
+  - Alluxio
+* - `exchange.alluxio.site-file-path`
+  - Path to the alluxio site file that contains your custom configuration,
+    for example `/etc/alluxio-site.properties`. The file must exist on all
+    nodes in the Trino cluster. Follow the [Alluxio client configuration
+    documentation](https://docs.alluxio.io/os/user/stable/en/operation/Configuration.html)
+    for more details.
+  -
+  - Alluxio
 * - `exchange.hdfs.block-size`
   - Block [data size](prop-type-data-size) for HDFS storage.
   - `4MB`
@@ -594,6 +621,18 @@ exchange.s3.aws-access-key=example-access-key
 exchange.s3.aws-secret-key=example-secret-key
 exchange.s3.endpoint=https://storage.googleapis.com
 exchange.gcs.json-key-file-path=/path/to/gcs_keyfile.json
+```
+
+(fte-exchange-alluxio)=
+#### Alluxio
+
+The following `exchange-manager.properties` configuration example specifies Alluxio
+as the spooling storage destination.
+
+```properties
+exchange-manager.name=filesystem
+exchange.base-directories=alluxio://alluxio-master:19998/exchange-spooling-directory
+exchange.alluxio.site-file-path=/path/to/alluxio-site.properties
 ```
 
 (fte-exchange-hdfs)=

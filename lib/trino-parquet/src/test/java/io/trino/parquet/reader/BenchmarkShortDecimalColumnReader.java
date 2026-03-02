@@ -90,7 +90,7 @@ public class BenchmarkShortDecimalColumnReader
         writer.writeBytes(binary);
     }
 
-    public static void main(String[] args)
+    static void main()
             throws Exception
     {
         run(BenchmarkShortDecimalColumnReader.class);

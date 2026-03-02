@@ -45,7 +45,6 @@ import static io.trino.spi.function.InvocationConvention.InvocationReturnConvent
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FLAT_RETURN;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
 import static io.trino.spi.function.InvocationConvention.simpleConvention;
-import static io.trino.spi.type.StandardTypes.ROW;
 import static io.trino.spi.type.TypeUtils.NULL_HASH_CODE;
 import static java.lang.Boolean.FALSE;
 import static java.lang.Boolean.TRUE;
@@ -66,6 +65,8 @@ import static java.util.Objects.requireNonNull;
 public class RowType
         extends AbstractType
 {
+    public static final String NAME = "row";
+
     private static final InvocationConvention READ_FLAT_CONVENTION = simpleConvention(FAIL_ON_NULL, FLAT);
     private static final InvocationConvention READ_FLAT_TO_BLOCK_CONVENTION = simpleConvention(BLOCK_BUILDER, FLAT);
     private static final InvocationConvention WRITE_FLAT_CONVENTION = simpleConvention(FLAT_RETURN, NEVER_NULL);
@@ -171,12 +172,6 @@ public class RowType
         return anonymous(Arrays.asList(types));
     }
 
-    // Only RowParametricType.createType should call this method
-    public static RowType createWithTypeSignature(TypeSignature typeSignature, List<Field> fields)
-    {
-        return new RowType(typeSignature, fields);
-    }
-
     public static Field field(String name, Type type)
     {
         return new Field(Optional.of(name), type);
@@ -189,24 +184,23 @@ public class RowType
 
     private static TypeSignature makeSignature(List<Field> fields)
     {
-        List<TypeSignatureParameter> parameters = fields.stream()
-                .map(field -> new NamedTypeSignature(field.getName().map(RowFieldName::new), field.getType().getTypeSignature()))
-                .map(TypeSignatureParameter::namedTypeParameter)
+        List<TypeParameter> parameters = fields.stream()
+                .map(field -> TypeParameter.typeParameter(field.getName(), field.getType().getTypeSignature()))
                 .toList();
 
-        return new TypeSignature(ROW, parameters);
+        return new TypeSignature(NAME, parameters);
     }
 
     @Override
     public RowBlockBuilder createBlockBuilder(BlockBuilderStatus blockBuilderStatus, int expectedEntries, int expectedBytesPerEntry)
     {
-        return new RowBlockBuilder(getTypeParameters(), blockBuilderStatus, expectedEntries);
+        return new RowBlockBuilder(fieldTypes, blockBuilderStatus, expectedEntries);
     }
 
     @Override
     public RowBlockBuilder createBlockBuilder(BlockBuilderStatus blockBuilderStatus, int expectedEntries)
     {
-        return new RowBlockBuilder(getTypeParameters(), blockBuilderStatus, expectedEntries);
+        return new RowBlockBuilder(fieldTypes, blockBuilderStatus, expectedEntries);
     }
 
     @Override
@@ -214,12 +208,14 @@ public class RowType
     {
         // Convert to standard sql name
         StringBuilder result = new StringBuilder();
-        result.append(ROW).append('(');
+        result.append(NAME).append('(');
         for (Field field : fields) {
             String typeDisplayName = field.getType().getDisplayName();
             if (field.getName().isPresent()) {
-                // TODO: names are already canonicalized, so they should be printed as delimited identifiers
-                result.append(field.getName().get()).append(' ').append(typeDisplayName);
+                result.append("\"")
+                        .append(field.getName().get().replace("\"", "\"\""))
+                        .append("\" ")
+                        .append(typeDisplayName);
             }
             else {
                 result.append(typeDisplayName);
@@ -250,17 +246,6 @@ public class RowType
     }
 
     @Override
-    public void appendTo(Block block, int position, BlockBuilder blockBuilder)
-    {
-        if (block.isNull(position)) {
-            blockBuilder.appendNull();
-        }
-        else {
-            writeObject(blockBuilder, getObject(block, position));
-        }
-    }
-
-    @Override
     public SqlRow getObject(Block block, int position)
     {
         return read((RowBlock) block.getUnderlyingValueBlock(), block.getUnderlyingValuePosition(position));
@@ -273,7 +258,8 @@ public class RowType
         int rawIndex = sqlRow.getRawIndex();
         ((RowBlockBuilder) blockBuilder).buildEntry(fieldBuilders -> {
             for (int i = 0; i < sqlRow.getFieldCount(); i++) {
-                fields.get(i).getType().appendTo(sqlRow.getRawFieldBlock(i), rawIndex, fieldBuilders.get(i));
+                Block block = sqlRow.getRawFieldBlock(i);
+                fieldBuilders.get(i).append(block.getUnderlyingValueBlock(), block.getUnderlyingValuePosition(rawIndex));
             }
         });
     }
@@ -333,6 +319,11 @@ public class RowType
     public List<Field> getFields()
     {
         return fields;
+    }
+
+    public List<Type> getFieldTypes()
+    {
+        return fieldTypes;
     }
 
     public static class Field
@@ -458,7 +449,7 @@ public class RowType
             List<BlockBuilder> fieldBuilders)
             throws Throwable
     {
-        List<Type> fieldTypes = rowType.getTypeParameters();
+        List<Type> fieldTypes = rowType.getFieldTypes();
         for (int fieldIndex = 0; fieldIndex < fieldTypes.size(); fieldIndex++) {
             Type fieldType = fieldTypes.get(fieldIndex);
             BlockBuilder fieldBuilder = fieldBuilders.get(fieldIndex);
@@ -488,7 +479,7 @@ public class RowType
             throws Throwable
     {
         int rawIndex = row.getRawIndex();
-        List<Type> fieldTypes = rowType.getTypeParameters();
+        List<Type> fieldTypes = rowType.getFieldTypes();
         for (int fieldIndex = 0; fieldIndex < fieldTypes.size(); fieldIndex++) {
             Type fieldType = fieldTypes.get(fieldIndex);
             Block fieldBlock = row.getRawFieldBlock(fieldIndex);

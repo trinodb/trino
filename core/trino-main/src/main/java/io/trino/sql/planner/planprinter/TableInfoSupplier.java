@@ -45,11 +45,9 @@ public class TableInfoSupplier
     {
         CatalogSchemaTableName tableName = metadata.getTableName(session, node.getTable());
         TableProperties tableProperties = metadata.getTableProperties(session, node.getTable());
-        Optional<String> connectorName = metadata.listCatalogs(session).stream()
-                .filter(catalogInfo -> catalogInfo.catalogName().equals(tableName.getCatalogName()))
+        Optional<String> connectorName = metadata.getCatalogInfo(session, tableName.getCatalogName())
                 .map(CatalogInfo::connectorName)
-                .map(ConnectorName::toString)
-                .findFirst();
+                .map(ConnectorName::toString);
         QualifiedObjectName objectName = new QualifiedObjectName(tableName.getCatalogName(), tableName.getSchemaTableName().getSchemaName(), tableName.getSchemaTableName().getTableName());
         return new TableInfo(connectorName, objectName, tableProperties.getPredicate());
     }

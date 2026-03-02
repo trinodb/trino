@@ -18,13 +18,13 @@ import com.google.common.collect.ImmutableSet;
 import com.google.inject.CreationException;
 import io.airlift.configuration.secrets.SecretsResolver;
 import io.opentelemetry.api.OpenTelemetry;
-import io.trino.client.NodeVersion;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
-import io.trino.metadata.TestMetadataManager;
+import io.trino.metadata.TestingMetadataManager;
 import io.trino.plugin.base.security.DefaultSystemAccessControl;
 import io.trino.plugin.base.security.FileBasedSystemAccessControl;
-import io.trino.plugin.base.security.TestingSystemAccessControlContext;
+import io.trino.plugin.base.security.testing.TestingSystemAccessControlContext;
+import io.trino.spi.NodeVersion;
 import io.trino.spi.QueryId;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.CatalogSchemaName;
@@ -42,7 +42,6 @@ import java.io.UncheckedIOException;
 import java.net.URISyntaxException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.time.Instant;
 import java.util.Map;
 import java.util.Optional;
@@ -154,7 +153,7 @@ public class TestFileBasedSystemAccessControl
                 DefaultSystemAccessControl.NAME);
         accessControlManager.loadSystemAccessControl(
                 FileBasedSystemAccessControl.NAME,
-                ImmutableMap.of("security.config-file", Paths.get("../../docs/src/main/sphinx/security/user-impersonation.json").toAbsolutePath().toString()));
+                ImmutableMap.of("security.config-file", Path.of("../../docs/src/main/sphinx/security/user-impersonation.json").toAbsolutePath().toString()));
 
         accessControlManager.checkCanImpersonateUser(admin, "charlie");
         assertThatThrownBy(() -> accessControlManager.checkCanImpersonateUser(admin, "bob"))
@@ -200,7 +199,7 @@ public class TestFileBasedSystemAccessControl
             throws Exception
     {
         TransactionManager transactionManager = createTestTransactionManager();
-        Metadata metadata = TestMetadataManager.builder().withTransactionManager(transactionManager).build();
+        Metadata metadata = TestingMetadataManager.builder().withTransactionManager(transactionManager).build();
         AccessControlManager accessControlManager = newAccessControlManager(transactionManager, "system_information.json");
 
         accessControlManager.checkCanReadSystemInformation(admin);
@@ -230,7 +229,7 @@ public class TestFileBasedSystemAccessControl
             throws Exception
     {
         TransactionManager transactionManager = createTestTransactionManager();
-        Metadata metadata = TestMetadataManager.builder().withTransactionManager(transactionManager).build();
+        Metadata metadata = TestingMetadataManager.builder().withTransactionManager(transactionManager).build();
         AccessControlManager accessControlManager = newAccessControlManager(transactionManager, "catalog.json");
 
         transaction(transactionManager, metadata, accessControlManager)
@@ -250,7 +249,7 @@ public class TestFileBasedSystemAccessControl
             throws Exception
     {
         TransactionManager transactionManager = createTestTransactionManager();
-        Metadata metadata = TestMetadataManager.builder().withTransactionManager(transactionManager).build();
+        Metadata metadata = TestingMetadataManager.builder().withTransactionManager(transactionManager).build();
         AccessControlManager accessControlManager = newAccessControlManager(transactionManager, "catalog_read_only.json");
 
         transaction(transactionManager, metadata, accessControlManager)
@@ -270,7 +269,7 @@ public class TestFileBasedSystemAccessControl
             throws Exception
     {
         TransactionManager transactionManager = createTestTransactionManager();
-        Metadata metadata = TestMetadataManager.builder().withTransactionManager(transactionManager).build();
+        Metadata metadata = TestingMetadataManager.builder().withTransactionManager(transactionManager).build();
         AccessControlManager accessControlManager = newAccessControlManager(transactionManager, "catalog.json");
 
         transaction(transactionManager, metadata, accessControlManager)
@@ -295,7 +294,7 @@ public class TestFileBasedSystemAccessControl
             throws Exception
     {
         TransactionManager transactionManager = createTestTransactionManager();
-        Metadata metadata = TestMetadataManager.builder().withTransactionManager(transactionManager).build();
+        Metadata metadata = TestingMetadataManager.builder().withTransactionManager(transactionManager).build();
         AccessControlManager accessControlManager = newAccessControlManager(transactionManager, "catalog_read_only.json");
 
         transaction(transactionManager, metadata, accessControlManager)
@@ -333,7 +332,7 @@ public class TestFileBasedSystemAccessControl
             throws Exception
     {
         TransactionManager transactionManager = createTestTransactionManager();
-        Metadata metadata = TestMetadataManager.builder().withTransactionManager(transactionManager).build();
+        Metadata metadata = TestingMetadataManager.builder().withTransactionManager(transactionManager).build();
         AccessControlManager accessControlManager = newAccessControlManager(transactionManager, "catalog.json");
 
         transaction(transactionManager, metadata, accessControlManager)
@@ -483,7 +482,7 @@ public class TestFileBasedSystemAccessControl
             throws Exception
     {
         TransactionManager transactionManager = createTestTransactionManager();
-        Metadata metadata = TestMetadataManager.builder().withTransactionManager(transactionManager).build();
+        Metadata metadata = TestingMetadataManager.builder().withTransactionManager(transactionManager).build();
         AccessControlManager accessControlManager = newAccessControlManager(transactionManager, "catalog_read_only.json");
 
         transaction(transactionManager, metadata, accessControlManager)
@@ -546,7 +545,7 @@ public class TestFileBasedSystemAccessControl
             throws Exception
     {
         TransactionManager transactionManager = createTestTransactionManager();
-        Metadata metadata = TestMetadataManager.builder().withTransactionManager(transactionManager).build();
+        Metadata metadata = TestingMetadataManager.builder().withTransactionManager(transactionManager).build();
         AccessControlManager accessControlManager = newAccessControlManager(transactionManager, "catalog.json");
 
         transaction(transactionManager, metadata, accessControlManager)
@@ -664,7 +663,7 @@ public class TestFileBasedSystemAccessControl
             throws Exception
     {
         TransactionManager transactionManager = createTestTransactionManager();
-        Metadata metadata = TestMetadataManager.builder().withTransactionManager(transactionManager).build();
+        Metadata metadata = TestingMetadataManager.builder().withTransactionManager(transactionManager).build();
         AccessControlManager accessControlManager = newAccessControlManager(transactionManager, "catalog_read_only.json");
 
         transaction(transactionManager, metadata, accessControlManager)
@@ -705,7 +704,7 @@ public class TestFileBasedSystemAccessControl
             throws Exception
     {
         TransactionManager transactionManager = createTestTransactionManager();
-        Metadata metadata = TestMetadataManager.builder().withTransactionManager(transactionManager).build();
+        Metadata metadata = TestingMetadataManager.builder().withTransactionManager(transactionManager).build();
         AccessControlManager accessControlManager = newAccessControlManager(transactionManager, "catalog.json");
 
         transaction(transactionManager, metadata, accessControlManager)
@@ -765,7 +764,7 @@ public class TestFileBasedSystemAccessControl
             throws Exception
     {
         TransactionManager transactionManager = createTestTransactionManager();
-        Metadata metadata = TestMetadataManager.builder().withTransactionManager(transactionManager).build();
+        Metadata metadata = TestingMetadataManager.builder().withTransactionManager(transactionManager).build();
         AccessControlManager accessControlManager = newAccessControlManager(transactionManager, "catalog_read_only.json");
 
         transaction(transactionManager, metadata, accessControlManager)
@@ -816,7 +815,7 @@ public class TestFileBasedSystemAccessControl
             throws Exception
     {
         TransactionManager transactionManager = createTestTransactionManager();
-        Metadata metadata = TestMetadataManager.builder().withTransactionManager(transactionManager).build();
+        Metadata metadata = TestingMetadataManager.builder().withTransactionManager(transactionManager).build();
         AccessControlManager accessControlManager = new AccessControlManager(
                 NodeVersion.UNKNOWN,
                 transactionManager,
@@ -901,7 +900,7 @@ public class TestFileBasedSystemAccessControl
     private Path getResourcePath(String resourceName)
             throws URISyntaxException
     {
-        return Paths.get(getResource(resourceName).toURI());
+        return Path.of(getResource(resourceName).toURI());
     }
 
     @Test

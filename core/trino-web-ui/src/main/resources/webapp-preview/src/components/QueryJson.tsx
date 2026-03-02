@@ -13,7 +13,7 @@
  */
 import { useParams } from 'react-router-dom'
 import { useEffect, useState } from 'react'
-import { Alert, Box, CircularProgress, Grid2 as Grid } from '@mui/material'
+import { Alert, Box, CircularProgress, Grid } from '@mui/material'
 import { Texts } from '../constant.ts'
 import { queryStatusApi, QueryStatusInfo } from '../api/webapp/api.ts'
 import { ApiResponse } from '../api/base.ts'
@@ -56,7 +56,17 @@ export const QueryJson = () => {
                 <Grid container spacing={0}>
                     <Grid size={{ xs: 12 }}>
                         <Box sx={{ pt: 2 }}>
-                            <CodeBlock language="json" code={queryJson} />
+                            <CodeBlock
+                                language="json"
+                                code={queryJson}
+                                monacoOptions={{
+                                    lineNumbers: 'on',
+                                    minimap: { enabled: true },
+                                    guides: { indentation: true },
+                                    folding: true,
+                                    stickyScroll: { enabled: true },
+                                }}
+                            />
                         </Box>
                     </Grid>
                 </Grid>

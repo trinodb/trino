@@ -21,15 +21,14 @@ import io.trino.tempto.BeforeMethodWithContext;
 import io.trino.tempto.assertions.QueryAssert.Row;
 import io.trino.tempto.query.QueryResult;
 import io.trino.testng.services.Flaky;
-import io.trino.tests.product.deltalake.util.DatabricksVersion;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.S3Object;
 
 import java.math.BigDecimal;
+import java.sql.Date;
 import java.util.List;
-import java.util.Optional;
 import java.util.function.Consumer;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -37,20 +36,17 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.tests.product.TestGroups.DELTA_LAKE_DATABRICKS;
-import static io.trino.tests.product.TestGroups.DELTA_LAKE_DATABRICKS_122;
-import static io.trino.tests.product.TestGroups.DELTA_LAKE_DATABRICKS_133;
 import static io.trino.tests.product.TestGroups.DELTA_LAKE_DATABRICKS_143;
 import static io.trino.tests.product.TestGroups.DELTA_LAKE_DATABRICKS_154;
+import static io.trino.tests.product.TestGroups.DELTA_LAKE_DATABRICKS_164;
 import static io.trino.tests.product.TestGroups.DELTA_LAKE_OSS;
 import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
 import static io.trino.tests.product.deltalake.S3ClientFactory.createS3Client;
 import static io.trino.tests.product.deltalake.TransactionLogAssertions.assertLastEntryIsCheckpointed;
 import static io.trino.tests.product.deltalake.TransactionLogAssertions.assertTransactionLogVersion;
-import static io.trino.tests.product.deltalake.util.DatabricksVersion.DATABRICKS_113_RUNTIME_VERSION;
 import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.DATABRICKS_COMMUNICATION_FAILURE_ISSUE;
 import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.DATABRICKS_COMMUNICATION_FAILURE_MATCH;
 import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.dropDeltaTableWithRetry;
-import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.getDatabricksRuntimeVersion;
 import static io.trino.tests.product.utils.QueryExecutors.onDelta;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.lang.String.format;
@@ -64,13 +60,11 @@ public class TestDeltaLakeCheckpointsCompatibility
     private String s3ServerType;
 
     private S3Client s3;
-    private Optional<DatabricksVersion> databricksRuntimeVersion;
 
     @BeforeMethodWithContext
     public void setup()
     {
         s3 = createS3Client(s3ServerType);
-        databricksRuntimeVersion = getDatabricksRuntimeVersion();
     }
 
     @AfterMethodWithContext
@@ -207,8 +201,8 @@ public class TestDeltaLakeCheckpointsCompatibility
             String selectValues = "SELECT " +
                     "data, part_boolean, part_tinyint, part_smallint, part_int, part_bigint, part_decimal_5_2, part_decimal_21_3, part_double , part_float, part_varchar, part_date " +
                     "FROM " + tableName;
-            Row firstRow = row(1, true, 1, 10, 100, 1000L, new BigDecimal("123.12"), new BigDecimal("123456789012345678.123"), 0d, 0f, "a", java.sql.Date.valueOf("2020-08-21"));
-            Row secondRow = row(2, true, 2, 20, 200, 2000L, new BigDecimal("223.12"), new BigDecimal("223456789012345678.123"), 0d, 0f, "b", java.sql.Date.valueOf("2020-08-22"));
+            Row firstRow = row(1, true, 1, 10, 100, 1000L, new BigDecimal("123.12"), new BigDecimal("123456789012345678.123"), 0d, 0f, "a", Date.valueOf("2020-08-21"));
+            Row secondRow = row(2, true, 2, 20, 200, 2000L, new BigDecimal("223.12"), new BigDecimal("223456789012345678.123"), 0d, 0f, "b", Date.valueOf("2020-08-22"));
             List<Row> expectedRows = ImmutableList.of(firstRow, secondRow);
             assertThat(onDelta().executeQuery(selectValues)).containsOnly(expectedRows);
             // Make sure that the checkpoint is being processed
@@ -283,7 +277,7 @@ public class TestDeltaLakeCheckpointsCompatibility
         }
     }
 
-    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_DATABRICKS_122, DELTA_LAKE_DATABRICKS_133, DELTA_LAKE_DATABRICKS_143, DELTA_LAKE_DATABRICKS_154, PROFILE_SPECIFIC_TESTS})
+    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_DATABRICKS_143, DELTA_LAKE_DATABRICKS_154, DELTA_LAKE_DATABRICKS_164, PROFILE_SPECIFIC_TESTS})
     @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
     public void testDatabricksUsesCheckpointInterval()
     {
@@ -375,7 +369,7 @@ public class TestDeltaLakeCheckpointsCompatibility
 
             // Assert min/max queries can be computed from just metadata
             String explainSelectMax = getOnlyElement(onDelta().executeQuery("EXPLAIN SELECT max(root.entry_one) FROM default." + tableName).column(1));
-            String column = databricksRuntimeVersion.orElseThrow().isAtLeast(DATABRICKS_113_RUNTIME_VERSION) ? "root.entry_one" : "root.entry_one AS `entry_one`";
+            String column = "root.entry_one";
             assertThat(explainSelectMax).matches("== Physical Plan ==\\s*LocalTableScan \\[max\\(" + column + "\\).*]\\s*");
 
             // check both engines can read both tables
@@ -441,7 +435,7 @@ public class TestDeltaLakeCheckpointsCompatibility
 
             // Assert counting non null entries can be computed from just metadata
             String explainCountNotNull = getOnlyElement(onDelta().executeQuery("EXPLAIN SELECT count(root.entry_two) FROM default." + tableName).column(1));
-            String column = databricksRuntimeVersion.orElseThrow().isAtLeast(DATABRICKS_113_RUNTIME_VERSION) ? "root.entry_two" : "root.entry_two AS `entry_two`";
+            String column = "root.entry_two";
             assertThat(explainCountNotNull).matches("== Physical Plan ==\\s*LocalTableScan \\[count\\(" + column + "\\).*]\\s*");
 
             // check both engines can read both tables

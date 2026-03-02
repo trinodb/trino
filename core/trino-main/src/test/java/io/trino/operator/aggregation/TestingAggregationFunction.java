@@ -15,6 +15,7 @@ package io.trino.operator.aggregation;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.operator.FlatHashStrategyCompiler;
+import io.trino.operator.NullSafeHashCompiler;
 import io.trino.spi.function.AggregationImplementation;
 import io.trino.spi.function.BoundSignature;
 import io.trino.spi.function.FunctionNullability;
@@ -55,7 +56,7 @@ public class TestingAggregationFunction
         distinctFactory = new DistinctAccumulatorFactory(
                 factory,
                 parameterTypes,
-                new FlatHashStrategyCompiler(TYPE_OPERATORS),
+                new FlatHashStrategyCompiler(TYPE_OPERATORS, new NullSafeHashCompiler(TYPE_OPERATORS)),
                 TEST_SESSION);
     }
 
@@ -69,7 +70,7 @@ public class TestingAggregationFunction
         distinctFactory = new DistinctAccumulatorFactory(
                 factory,
                 parameterTypes,
-                new FlatHashStrategyCompiler(TYPE_OPERATORS),
+                new FlatHashStrategyCompiler(TYPE_OPERATORS, new NullSafeHashCompiler(TYPE_OPERATORS)),
                 TEST_SESSION);
     }
 

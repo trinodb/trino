@@ -17,7 +17,7 @@ import java.util.Optional;
 
 public abstract sealed class DataType
         extends Expression
-        permits DateTimeDataType, GenericDataType, IntervalDayTimeDataType, RowDataType
+        permits DateTimeDataType, GenericDataType, IntervalDataType, RowDataType
 {
     protected DataType(Optional<NodeLocation> location)
     {

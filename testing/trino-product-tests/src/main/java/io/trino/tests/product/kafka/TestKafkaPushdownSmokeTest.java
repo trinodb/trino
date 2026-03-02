@@ -176,10 +176,12 @@ public class TestKafkaPushdownSmokeTest
         long startKey = 4;
         long endKey = 6;
         List<List<?>> rows = onTrino().executeQuery(format(
-                "SELECT CAST(_timestamp AS VARCHAR) FROM %s.%s.%s WHERE bigint_key IN (" + startKey + ", " + endKey + ") ORDER BY bigint_key",
+                "SELECT CAST(_timestamp AS VARCHAR) FROM %s.%s.%s WHERE bigint_key IN (%s, %s) ORDER BY bigint_key",
                 KAFKA_CATALOG,
                 SCHEMA_NAME,
-                PUSHDOWN_CREATE_TIME_TABLE_NAME))
+                PUSHDOWN_CREATE_TIME_TABLE_NAME,
+                startKey,
+                endKey))
                 .rows();
         String startTime = (String) rows.get(0).get(0);
         String endTime = (String) rows.get(1).get(0);

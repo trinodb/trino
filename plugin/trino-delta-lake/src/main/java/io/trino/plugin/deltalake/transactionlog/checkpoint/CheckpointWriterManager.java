@@ -29,7 +29,7 @@ import io.trino.plugin.deltalake.transactionlog.DeltaLakeTransactionLogEntry;
 import io.trino.plugin.deltalake.transactionlog.TableSnapshot;
 import io.trino.plugin.deltalake.transactionlog.TableSnapshot.MetadataAndProtocolEntry;
 import io.trino.plugin.deltalake.transactionlog.TransactionLogAccess;
-import io.trino.plugin.hive.NodeVersion;
+import io.trino.spi.NodeVersion;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SchemaTableName;
@@ -167,7 +167,7 @@ public class CheckpointWriterManager
             Location targetFile = transactionLogDir.appendPath("%020d.checkpoint.parquet".formatted(newCheckpointVersion));
             CheckpointWriter checkpointWriter = new CheckpointWriter(typeManager, checkpointSchemaManager, trinoVersion);
             CheckpointEntries checkpointEntries = checkpointBuilder.build();
-            TrinoOutputFile checkpointFile = fileSystemFactory.create(session, credentialsHandle).newOutputFile(targetFile);
+            TrinoOutputFile checkpointFile = fileSystem.newOutputFile(targetFile);
             checkpointWriter.write(checkpointEntries, checkpointFile);
 
             // update last checkpoint file

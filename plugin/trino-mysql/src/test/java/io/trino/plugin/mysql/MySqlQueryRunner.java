@@ -97,7 +97,7 @@ public final class MySqlQueryRunner
         }
     }
 
-    public static void main(String[] args)
+    static void main()
             throws Exception
     {
         QueryRunner queryRunner = builder(new TestingMySqlServer())

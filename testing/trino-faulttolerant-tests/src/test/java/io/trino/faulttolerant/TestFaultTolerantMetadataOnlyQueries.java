@@ -13,12 +13,10 @@
  */
 package io.trino.faulttolerant;
 
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.MoreCollectors;
 import io.trino.Session;
 import io.trino.execution.QueryState;
 import io.trino.plugin.blackhole.BlackHolePlugin;
-import io.trino.plugin.exchange.filesystem.FileSystemExchangePlugin;
 import io.trino.plugin.memory.MemoryQueryRunner;
 import io.trino.server.BasicQueryInfo;
 import io.trino.testing.AbstractTestQueryFramework;
@@ -29,7 +27,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 
@@ -47,16 +44,9 @@ public class TestFaultTolerantMetadataOnlyQueries
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        Map<String, String> exchangeManagerProperties = ImmutableMap.<String, String>builder()
-                .put("exchange.base-directories", System.getProperty("java.io.tmpdir") + "/trino-local-file-system-exchange-manager")
-                .buildOrThrow();
-
         DistributedQueryRunner queryRunner = MemoryQueryRunner.builder()
                 .setExtraProperties(FaultTolerantExecutionConnectorTestHelper.getExtraProperties())
-                .setAdditionalSetup(runner -> {
-                    runner.installPlugin(new FileSystemExchangePlugin());
-                    runner.loadExchangeManager("filesystem", exchangeManagerProperties);
-                })
+                .withExchange("filesystem")
                 .setInitialTables(List.of(NATION))
                 .build();
 

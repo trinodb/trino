@@ -61,7 +61,6 @@ import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneOffset;
@@ -451,7 +450,7 @@ public class TestPinotConnectorSmokeTest
                         .build()))
                 .build();
 
-        Path temporaryDirectory = Paths.get("/tmp/segments-" + randomUUID());
+        Path temporaryDirectory = Path.of("/tmp/segments-" + randomUUID());
         try {
             Files.createDirectory(temporaryDirectory);
             ImmutableList.Builder<GenericRow> offlineRowsBuilder = ImmutableList.builder();
@@ -615,7 +614,7 @@ public class TestPinotConnectorSmokeTest
             String tableName = TableNameBuilder.extractRawTableName(tableConfig.getTableName());
             String timeColumnName = tableConfig.getValidationConfig().getTimeColumnName();
             String segmentTempLocation = String.join(File.separator, outputDirectory, tableName, "segments");
-            Files.createDirectories(Paths.get(outputDirectory));
+            Files.createDirectories(Path.of(outputDirectory));
             SegmentGeneratorConfig segmentGeneratorConfig = new SegmentGeneratorConfig(tableConfig, pinotSchema);
             segmentGeneratorConfig.setTableName(tableName);
             segmentGeneratorConfig.setOutDir(segmentTempLocation);
@@ -652,7 +651,7 @@ public class TestPinotConnectorSmokeTest
             File segmentOutputDirectory = driver.getOutputDirectory();
             File tgzPath = new File(String.join(File.separator, outputDirectory, segmentOutputDirectory.getName() + ".tar.gz"));
             TarCompressionUtils.createCompressedTarFile(segmentOutputDirectory, tgzPath);
-            return Paths.get(tgzPath.getAbsolutePath());
+            return Path.of(tgzPath.getAbsolutePath());
         }
         catch (Exception e) {
             throw new RuntimeException(e);

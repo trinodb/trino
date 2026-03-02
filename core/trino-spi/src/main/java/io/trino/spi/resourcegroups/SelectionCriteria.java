@@ -31,6 +31,7 @@ public final class SelectionCriteria
     private final Optional<String> source;
     private final Set<String> clientTags;
     private final ResourceEstimates resourceEstimates;
+    private final String queryText;
     private final Optional<String> queryType;
 
     public SelectionCriteria(
@@ -42,6 +43,7 @@ public final class SelectionCriteria
             Optional<String> source,
             Set<String> clientTags,
             ResourceEstimates resourceEstimates,
+            String queryText,
             Optional<String> queryType)
     {
         this.authenticated = authenticated;
@@ -52,32 +54,8 @@ public final class SelectionCriteria
         this.source = requireNonNull(source, "source is null");
         this.clientTags = Set.copyOf(requireNonNull(clientTags, "clientTags is null"));
         this.resourceEstimates = requireNonNull(resourceEstimates, "resourceEstimates is null");
+        this.queryText = requireNonNull(queryText, "queryText is null");
         this.queryType = requireNonNull(queryType, "queryType is null");
-    }
-
-    /**
-     * @deprecated Use {@link #SelectionCriteria(boolean, String, Set, String, Optional, Optional, Set, ResourceEstimates, Optional)} instead.
-     */
-    @Deprecated(since = "474", forRemoval = true)
-    public SelectionCriteria(
-            boolean authenticated,
-            String user,
-            Set<String> userGroups,
-            Optional<String> source,
-            Set<String> clientTags,
-            ResourceEstimates resourceEstimates,
-            Optional<String> queryType)
-    {
-        this(
-                authenticated,
-                user,
-                userGroups,
-                user,
-                Optional.empty(),
-                source,
-                clientTags,
-                resourceEstimates,
-                queryType);
     }
 
     public boolean isAuthenticated()
@@ -120,6 +98,11 @@ public final class SelectionCriteria
         return resourceEstimates;
     }
 
+    public String getQueryText()
+    {
+        return queryText;
+    }
+
     public Optional<String> getQueryType()
     {
         return queryType;
@@ -137,6 +120,7 @@ public final class SelectionCriteria
                 .add("source=" + source)
                 .add("clientTags=" + clientTags)
                 .add("resourceEstimates=" + resourceEstimates)
+                .add("queryText=" + queryText)
                 .add("queryType=" + queryType)
                 .toString();
     }

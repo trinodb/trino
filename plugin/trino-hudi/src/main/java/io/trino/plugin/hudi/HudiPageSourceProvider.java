@@ -47,7 +47,7 @@ import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.Decimals;
-import io.trino.spi.type.TypeSignature;
+import io.trino.spi.type.Type;
 import org.apache.hudi.common.model.HoodieFileFormat;
 import org.apache.parquet.column.ColumnDescriptor;
 import org.apache.parquet.io.MessageColumnIO;
@@ -230,7 +230,7 @@ public class HudiPageSourceProvider
         try {
             AggregatedMemoryContext memoryContext = newSimpleAggregatedMemoryContext();
             dataSource = createDataSource(inputFile, OptionalLong.of(hudiSplit.fileSize()), options, memoryContext, dataSourceStats);
-            ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource, options.getMaxFooterReadSize());
+            ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource, options.getMaxFooterReadSize(), Optional.empty());
             FileMetadata fileMetaData = parquetMetadata.getFileMetaData();
             MessageType fileSchema = fileMetaData.getSchema();
 
@@ -271,7 +271,8 @@ public class HudiPageSourceProvider
                     options,
                     exception -> handleException(dataSourceId, exception),
                     Optional.of(parquetPredicate),
-                    Optional.empty());
+                    Optional.empty(),
+                    parquetMetadata.getDecryptionContext());
             return createParquetPageSource(columns, fileSchema, messageColumn, useColumnNames, parquetReaderProvider);
         }
         catch (IOException | RuntimeException e) {
@@ -317,13 +318,13 @@ public class HudiPageSourceProvider
                                 partitionToNativeValue(
                                         columnHandle.getName(),
                                         partitionKeys,
-                                        columnHandle.getType().getTypeSignature()).orElse(null))));
+                                        columnHandle.getType()).orElse(null))));
     }
 
     private static Optional<Object> partitionToNativeValue(
             String partitionColumnName,
             List<HivePartitionKey> partitionKeys,
-            TypeSignature partitionDataType)
+            Type partitionDataType)
     {
         HivePartitionKey partitionKey = partitionKeys.stream().filter(key -> key.name().equalsIgnoreCase(partitionColumnName)).findFirst().orElse(null);
         if (isNull(partitionKey)) {
@@ -331,7 +332,7 @@ public class HudiPageSourceProvider
         }
 
         String partitionValue = partitionKey.value();
-        String baseType = partitionDataType.getBase();
+        String baseType = partitionDataType.getBaseName();
         try {
             return switch (baseType) {
                 case TINYINT, SMALLINT, INTEGER, BIGINT -> Optional.of(parseLong(partitionValue));

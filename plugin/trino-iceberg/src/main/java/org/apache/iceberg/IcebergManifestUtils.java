@@ -13,6 +13,7 @@
  */
 package org.apache.iceberg;
 
+import org.apache.iceberg.io.CloseableIterable;
 import org.apache.iceberg.io.FileIO;
 
 import java.util.List;
@@ -27,5 +28,10 @@ public class IcebergManifestUtils
         // as each Snapshot instance internally caches `org.apache.iceberg.BaseSnapshot.allManifests`
         // and leads to high memory usage
         return ManifestLists.read(fileIO.newInputFile(manifestListLocation));
+    }
+
+    public static <F extends ContentFile<F>> CloseableIterable<ContentFile<F>> liveEntries(ManifestReader<F> manifestReader)
+    {
+        return CloseableIterable.transform(manifestReader.liveEntries(), ManifestEntry::file);
     }
 }

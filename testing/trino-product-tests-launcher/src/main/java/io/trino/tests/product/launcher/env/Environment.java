@@ -60,7 +60,6 @@ import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
 
-import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -81,6 +80,7 @@ import static java.lang.System.getenv;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.time.Duration.ofMinutes;
 import static java.util.Objects.requireNonNull;
+import static java.util.Objects.requireNonNullElse;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.function.UnaryOperator.identity;
 import static org.testcontainers.utility.MountableFile.forHostPath;
@@ -637,7 +637,7 @@ public final class Environment
                         .withCreateContainerCmdModifier(createContainerCmd -> {
                             Map<String, Bind> binds = new HashMap<>();
                             HostConfig hostConfig = createContainerCmd.getHostConfig();
-                            for (Bind bind : firstNonNull(hostConfig.getBinds(), new Bind[0])) {
+                            for (Bind bind : requireNonNullElse(hostConfig.getBinds(), new Bind[0])) {
                                 binds.put(bind.getVolume().getPath(), bind); // last bind wins
                             }
                             hostConfig.setBinds(binds.values().toArray(new Bind[0]));

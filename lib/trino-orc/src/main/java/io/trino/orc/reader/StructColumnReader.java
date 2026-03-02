@@ -156,10 +156,10 @@ public class StructColumnReader
                 blocks = getBlocks(nextBatchSize, nextBatchSize - nullValues, nullVector);
             }
             else {
-                List<Type> typeParameters = type.getTypeParameters();
-                blocks = new Block[typeParameters.size()];
-                for (int i = 0; i < typeParameters.size(); i++) {
-                    blocks[i] = RunLengthEncodedBlock.create(typeParameters.get(i).createBlockBuilder(null, 0).appendNull().build(), nextBatchSize);
+                List<Type> fieldTypes = type.getFieldTypes();
+                blocks = new Block[fieldTypes.size()];
+                for (int i = 0; i < fieldTypes.size(); i++) {
+                    blocks[i] = RunLengthEncodedBlock.create(fieldTypes.get(i).createBlockBuilder(null, 0).appendNull().build(), nextBatchSize);
                 }
             }
         }

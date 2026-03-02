@@ -35,7 +35,6 @@ import static io.airlift.slice.SizeOf.sizeOf;
 import static io.trino.operator.FlatHash.sumExact;
 import static java.lang.Math.min;
 import static java.lang.Math.multiplyExact;
-import static java.util.Objects.requireNonNull;
 
 // This implementation assumes arrays used in the hash are always a power of 2
 public class FlatGroupByHash
@@ -46,8 +45,8 @@ public class FlatGroupByHash
     // Max (page value count / cumulative dictionary size) to trigger the low cardinality case
     private static final double SMALL_DICTIONARIES_MAX_CARDINALITY_RATIO = 0.25;
 
-    private final GroupByHashMode hashMode;
     private final FlatHash flatHash;
+    private final InterpretedHashGenerator hashGenerator;
     private final int groupByChannelCount;
 
     private final boolean processDictionary;
@@ -64,14 +63,14 @@ public class FlatGroupByHash
 
     public FlatGroupByHash(
             List<Type> hashTypes,
-            GroupByHashMode hashMode,
+            boolean cacheHashValue,
             int expectedSize,
             boolean processDictionary,
             FlatHashStrategyCompiler hashStrategyCompiler,
             UpdateMemory checkMemoryReservation)
     {
-        this.hashMode = requireNonNull(hashMode, "hashMode is null");
-        this.flatHash = new FlatHash(hashStrategyCompiler.getFlatHashStrategy(hashTypes), hashMode, expectedSize, checkMemoryReservation);
+        this.flatHash = new FlatHash(hashStrategyCompiler.getFlatHashStrategy(hashTypes), cacheHashValue, expectedSize, checkMemoryReservation);
+        this.hashGenerator = hashStrategyCompiler.getInterpretedHashGenerator(hashTypes);
         this.groupByChannelCount = hashTypes.size();
 
         checkArgument(expectedSize > 0, "expectedSize must be greater than zero");
@@ -86,8 +85,8 @@ public class FlatGroupByHash
     public FlatGroupByHash(FlatGroupByHash other)
     {
         this.flatHash = other.flatHash.copy();
+        this.hashGenerator = other.hashGenerator;
         groupByChannelCount = other.groupByChannelCount;
-        hashMode = other.hashMode;
         processDictionary = other.processDictionary;
         dictionaryLookBack = other.dictionaryLookBack == null ? null : other.dictionaryLookBack.copy();
         currentPageSizeInBytes = other.currentPageSizeInBytes;
@@ -362,7 +361,7 @@ public class FlatGroupByHash
                     return false;
                 }
 
-                flatHash.computeHashes(blocks, hashes, lastPosition, batchSize);
+                hashGenerator.hashBlocksBatched(blocks, hashes, lastPosition, batchSize);
                 for (int i = 0; i < batchSize; i++) {
                     flatHash.putIfAbsent(blocks, lastPosition + i, hashes[i]);
                 }
@@ -528,7 +527,7 @@ public class FlatGroupByHash
                     return false;
                 }
 
-                flatHash.computeHashes(blocks, hashes, lastPosition, batchSize);
+                hashGenerator.hashBlocksBatched(blocks, hashes, lastPosition, batchSize);
                 for (int i = 0, position = lastPosition; i < batchSize; i++, position++) {
                     groupIds[position] = flatHash.putIfAbsent(blocks, position, hashes[i]);
                 }

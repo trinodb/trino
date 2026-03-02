@@ -56,8 +56,11 @@ For more details, see {doc}`array`
 - {func}`any_match`
 - {func}`array_distinct`
 - {func}`array_except`
+- {func}`array_first`
+- {func}`array_histogram`
 - {func}`array_intersect`
 - {func}`array_join`
+- {func}`array_last`
 - {func}`array_max`
 - {func}`array_min`
 - {func}`array_position`

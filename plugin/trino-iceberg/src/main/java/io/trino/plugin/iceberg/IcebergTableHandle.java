@@ -28,9 +28,11 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.OptionalLong;
 import java.util.Set;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
 
@@ -40,10 +42,12 @@ public class IcebergTableHandle
     private final String schemaName;
     private final String tableName;
     private final TableType tableType;
-    private final Optional<Long> snapshotId;
+    private final OptionalLong snapshotId;
     private final String tableSchemaJson;
     // Empty means the partitioning spec is not known (can be the case for certain time travel queries).
-    private final Optional<String> partitionSpecJson;
+    private final OptionalInt specId;
+    // Map of spec id to partition spec JSON for all specs in the table
+    private final Map<Integer, String> partitionSpecJsons;
     private final int formatVersion;
     private final String tableLocation;
     private final Map<String, String> storageProperties;
@@ -79,9 +83,10 @@ public class IcebergTableHandle
             @JsonProperty("schemaName") String schemaName,
             @JsonProperty("tableName") String tableName,
             @JsonProperty("tableType") TableType tableType,
-            @JsonProperty("snapshotId") Optional<Long> snapshotId,
+            @JsonProperty("snapshotId") OptionalLong snapshotId,
             @JsonProperty("tableSchemaJson") String tableSchemaJson,
-            @JsonProperty("partitionSpecJson") Optional<String> partitionSpecJson,
+            @JsonProperty("specId") OptionalInt specId,
+            @JsonProperty("partitionSpecJsons") Map<Integer, String> partitionSpecJsons,
             @JsonProperty("formatVersion") int formatVersion,
             @JsonProperty("unenforcedPredicate") TupleDomain<IcebergColumnHandle> unenforcedPredicate,
             @JsonProperty("enforcedPredicate") TupleDomain<IcebergColumnHandle> enforcedPredicate,
@@ -97,7 +102,8 @@ public class IcebergTableHandle
                 tableType,
                 snapshotId,
                 tableSchemaJson,
-                partitionSpecJson,
+                specId,
+                partitionSpecJsons,
                 formatVersion,
                 unenforcedPredicate,
                 enforcedPredicate,
@@ -117,9 +123,10 @@ public class IcebergTableHandle
             String schemaName,
             String tableName,
             TableType tableType,
-            Optional<Long> snapshotId,
+            OptionalLong snapshotId,
             String tableSchemaJson,
-            Optional<String> partitionSpecJson,
+            OptionalInt specId,
+            Map<Integer, String> partitionSpecJsons,
             int formatVersion,
             TupleDomain<IcebergColumnHandle> unenforcedPredicate,
             TupleDomain<IcebergColumnHandle> enforcedPredicate,
@@ -139,7 +146,12 @@ public class IcebergTableHandle
         this.tableType = requireNonNull(tableType, "tableType is null");
         this.snapshotId = requireNonNull(snapshotId, "snapshotId is null");
         this.tableSchemaJson = requireNonNull(tableSchemaJson, "schemaJson is null");
-        this.partitionSpecJson = requireNonNull(partitionSpecJson, "partitionSpecJson is null");
+        this.specId = requireNonNull(specId, "specId is null");
+        this.partitionSpecJsons = ImmutableMap.copyOf(requireNonNull(partitionSpecJsons, "partitionSpecJsons is null"));
+        checkArgument(
+                specId.isEmpty() || partitionSpecJsons.containsKey(specId.getAsInt()),
+                "specId %s is present but partitionSpecJsons does not contain this id",
+                specId);
         this.formatVersion = formatVersion;
         this.unenforcedPredicate = requireNonNull(unenforcedPredicate, "unenforcedPredicate is null");
         this.enforcedPredicate = requireNonNull(enforcedPredicate, "enforcedPredicate is null");
@@ -175,7 +187,7 @@ public class IcebergTableHandle
 
     // Empty only when reading from a table that has no snapshots yet.
     @JsonProperty
-    public Optional<Long> getSnapshotId()
+    public OptionalLong getSnapshotId()
     {
         return snapshotId;
     }
@@ -187,9 +199,15 @@ public class IcebergTableHandle
     }
 
     @JsonProperty
-    public Optional<String> getPartitionSpecJson()
+    public OptionalInt getSpecId()
     {
-        return partitionSpecJson;
+        return specId;
+    }
+
+    @JsonProperty
+    public Map<Integer, String> getPartitionSpecJsons()
+    {
+        return partitionSpecJsons;
     }
 
     @JsonProperty
@@ -291,7 +309,8 @@ public class IcebergTableHandle
                 tableType,
                 snapshotId,
                 tableSchemaJson,
-                partitionSpecJson,
+                specId,
+                partitionSpecJsons,
                 formatVersion,
                 unenforcedPredicate,
                 enforcedPredicate,
@@ -315,7 +334,8 @@ public class IcebergTableHandle
                 tableType,
                 snapshotId,
                 tableSchemaJson,
-                partitionSpecJson,
+                specId,
+                partitionSpecJsons,
                 formatVersion,
                 unenforcedPredicate,
                 enforcedPredicate,
@@ -339,7 +359,8 @@ public class IcebergTableHandle
                 tableType,
                 snapshotId,
                 tableSchemaJson,
-                partitionSpecJson,
+                specId,
+                partitionSpecJsons,
                 formatVersion,
                 unenforcedPredicate,
                 enforcedPredicate,
@@ -363,7 +384,8 @@ public class IcebergTableHandle
                 tableType,
                 snapshotId,
                 tableSchemaJson,
-                partitionSpecJson,
+                specId,
+                partitionSpecJsons,
                 formatVersion,
                 unenforcedPredicate,
                 enforcedPredicate,
@@ -396,7 +418,8 @@ public class IcebergTableHandle
                 tableType == that.tableType &&
                 Objects.equals(snapshotId, that.snapshotId) &&
                 Objects.equals(tableSchemaJson, that.tableSchemaJson) &&
-                Objects.equals(partitionSpecJson, that.partitionSpecJson) &&
+                Objects.equals(specId, that.specId) &&
+                Objects.equals(partitionSpecJsons, that.partitionSpecJsons) &&
                 formatVersion == that.formatVersion &&
                 Objects.equals(unenforcedPredicate, that.unenforcedPredicate) &&
                 Objects.equals(enforcedPredicate, that.enforcedPredicate) &&
@@ -419,7 +442,8 @@ public class IcebergTableHandle
                 tableType,
                 snapshotId,
                 tableSchemaJson,
-                partitionSpecJson,
+                specId,
+                partitionSpecJsons,
                 formatVersion,
                 unenforcedPredicate,
                 enforcedPredicate,

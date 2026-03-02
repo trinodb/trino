@@ -13,7 +13,6 @@
  */
 package io.trino.transaction;
 
-import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.errorprone.annotations.ThreadSafe;
@@ -38,7 +37,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
-import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.Executor;
@@ -57,6 +55,7 @@ import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static com.google.common.util.concurrent.Futures.nonCancellationPropagating;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.addExceptionCallback;
+import static io.airlift.units.Duration.succinctDuration;
 import static io.trino.metadata.CatalogManager.NO_CATALOGS;
 import static io.trino.spi.StandardErrorCode.ADMINISTRATIVELY_KILLED;
 import static io.trino.spi.StandardErrorCode.AUTOCOMMIT_WRITE_CONFLICT;
@@ -162,15 +161,6 @@ public class InMemoryTransactionManager
     }
 
     @Override
-    public Set<TransactionId> getTransactionsUsingCatalog(CatalogHandle catalogHandle)
-    {
-        return transactions.values().stream()
-                .filter(transactionMetadata -> transactionMetadata.isUsingCatalog(catalogHandle))
-                .map(TransactionMetadata::getTransactionId)
-                .collect(toImmutableSet());
-    }
-
-    @Override
     public TransactionId beginTransaction(boolean autoCommitContext)
     {
         return beginTransaction(DEFAULT_ISOLATION, DEFAULT_READ_ONLY, autoCommitContext);
@@ -210,6 +200,14 @@ public class InMemoryTransactionManager
         TransactionMetadata transactionMetadata = getTransactionMetadata(transactionId);
         return transactionMetadata.tryRegisterCatalog(new CatalogName(catalogName))
                 .map(transactionMetadata::getTransactionCatalogMetadata);
+    }
+
+    @Override
+    public Optional<CatalogInfo> getOptionalCatalogInfo(TransactionId transactionId, String catalogName)
+    {
+        TransactionMetadata transactionMetadata = getTransactionMetadata(transactionId);
+        return getCatalogHandle(transactionId, catalogName)
+                .flatMap(transactionMetadata::getActiveCatalog);
     }
 
     @Override
@@ -315,12 +313,6 @@ public class InMemoryTransactionManager
     }
 
     @Override
-    public void blockCommit(TransactionId transactionId, String reason)
-    {
-        getTransactionMetadata(transactionId).blockCommit(reason);
-    }
-
-    @Override
     public void fail(TransactionId transactionId)
     {
         // Mark the transaction as failed, but don't remove it.
@@ -370,11 +362,6 @@ public class InMemoryTransactionManager
             this.finishingExecutor = requireNonNull(finishingExecutor, "finishingExecutor is null");
         }
 
-        public TransactionId getTransactionId()
-        {
-            return transactionId;
-        }
-
         public void setActive()
         {
             idleStartTime.set(null);
@@ -391,11 +378,6 @@ public class InMemoryTransactionManager
             return idleStartTime != null && Duration.nanosSince(idleStartTime).compareTo(idleTimeout) > 0;
         }
 
-        public void blockCommit(String reason)
-        {
-            commitBlocked.set(requireNonNull(reason, "reason is null"));
-        }
-
         public void checkOpenTransaction()
         {
             Boolean completedStatus = this.completedSuccessfully.get();
@@ -408,14 +390,6 @@ public class InMemoryTransactionManager
             }
         }
 
-        public synchronized boolean isUsingCatalog(CatalogHandle catalogHandle)
-        {
-            return registeredCatalogs.values().stream()
-                    .flatMap(Optional::stream)
-                    .map(Catalog::getCatalogHandle)
-                    .anyMatch(catalogHandle::equals);
-        }
-
         private synchronized List<CatalogInfo> getActiveCatalogs()
         {
             return activeCatalogs.keySet().stream()
@@ -423,8 +397,16 @@ public class InMemoryTransactionManager
                     .distinct()
                     .map(key -> registeredCatalogs.getOrDefault(key, Optional.empty()))
                     .flatMap(Optional::stream)
-                    .map(catalog -> new CatalogInfo(catalog.getCatalogName().toString(), catalog.getCatalogHandle(), catalog.getConnectorName(), catalog.isLoaded()))
+                    .map(Catalog::toInfo)
                     .collect(toImmutableList());
+        }
+
+        private synchronized Optional<CatalogInfo> getActiveCatalog(CatalogHandle catalogHandle)
+        {
+            return Optional.ofNullable(activeCatalogs.get(catalogHandle))
+                    .map(CatalogMetadata::getCatalogName)
+                    .flatMap(key -> registeredCatalogs.getOrDefault(key, Optional.empty()))
+                    .map(Catalog::toInfo);
         }
 
         private synchronized List<CatalogInfo> listCatalogs()
@@ -436,7 +418,7 @@ public class InMemoryTransactionManager
             return registeredCatalogs.values().stream()
                     .filter(Optional::isPresent)
                     .map(Optional::get)
-                    .map(catalog -> new CatalogInfo(catalog.getCatalogName().toString(), catalog.getCatalogHandle(), catalog.getConnectorName(), catalog.isLoaded()))
+                    .map(Catalog::toInfo)
                     .collect(toImmutableList());
         }
 
@@ -561,7 +543,7 @@ public class InMemoryTransactionManager
         {
             Duration idleTime = Optional.ofNullable(idleStartTime.get())
                     .map(Duration::nanosSince)
-                    .orElse(new Duration(0, MILLISECONDS));
+                    .orElse(succinctDuration(0, MILLISECONDS));
 
             // dereferencing this field is safe because the field is atomic, and activeCatalogs is a concurrent map
             @SuppressWarnings("FieldAccessNotGuarded") Optional<String> writtenCatalogName = Optional.ofNullable(this.writtenCatalog.get())
@@ -583,7 +565,10 @@ public class InMemoryTransactionManager
                     idleTime,
                     catalogNames,
                     writtenCatalogName,
-                    ImmutableSet.copyOf(activeCatalogs.keySet()));
+                    registeredCatalogs.values().stream()
+                            .flatMap(Optional::stream)
+                            .map(Catalog::getCatalogHandle)
+                            .collect(toImmutableSet()));
         }
     }
 }

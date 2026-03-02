@@ -126,7 +126,7 @@ public class TestDropColumnTask
 
         assertTrinoExceptionThrownBy(() -> getFutureValue(executeDropColumn(asQualifiedName(tableName), QualifiedName.of("col", "a"), false, false)))
                 .hasErrorCode(COLUMN_NOT_FOUND)
-                .hasMessageContaining("Field path [a] within row(a bigint, a bigint) is ambiguous");
+                .hasMessageContaining("Field path [a] within row(\"a\" bigint, \"a\" bigint) is ambiguous");
     }
 
     @Test

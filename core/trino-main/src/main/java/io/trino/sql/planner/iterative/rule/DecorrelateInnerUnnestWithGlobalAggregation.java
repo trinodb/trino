@@ -41,7 +41,7 @@ import io.trino.sql.planner.plan.UnnestNode;
 import io.trino.sql.planner.plan.UnnestNode.Mapping;
 
 import java.util.List;
-import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Set;
 
@@ -261,7 +261,7 @@ public class DecorrelateInnerUnnestWithGlobalAggregation
         PlanNode unnestSource = lookup.resolve(unnestNode.getSource());
         Set<Symbol> correlationSymbols = ImmutableSet.copyOf(correlation);
         boolean basedOnCorrelation = correlationSymbols.containsAll(unnestSymbols) ||
-                unnestSource instanceof ProjectNode projectNode && correlationSymbols.containsAll(SymbolsExtractor.extractUnique(projectNode.getAssignments().getExpressions()));
+                unnestSource instanceof ProjectNode projectNode && correlationSymbols.containsAll(SymbolsExtractor.extractUnique(projectNode.getAssignments().expressions()));
 
         return isScalar(unnestNode.getSource(), lookup) &&
                 unnestNode.getReplicateSymbols().isEmpty() &&
@@ -317,7 +317,7 @@ public class DecorrelateInnerUnnestWithGlobalAggregation
         // already has a mask, it will be replaced with conjunction of the existing mask and mask_symbol.
         ImmutableMap.Builder<Symbol, Symbol> masks = ImmutableMap.builder();
         Assignments.Builder assignmentsBuilder = Assignments.builder();
-        for (Map.Entry<Symbol, AggregationNode.Aggregation> entry : aggregationNode.getAggregations().entrySet()) {
+        for (Entry<Symbol, AggregationNode.Aggregation> entry : aggregationNode.getAggregations().entrySet()) {
             AggregationNode.Aggregation aggregation = entry.getValue();
             if (aggregation.getMask().isPresent()) {
                 Symbol newMask = symbolAllocator.newSymbol("mask", BOOLEAN);

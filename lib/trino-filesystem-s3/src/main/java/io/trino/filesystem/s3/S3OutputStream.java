@@ -13,6 +13,8 @@
  */
 package io.trino.filesystem.s3;
 
+import com.google.common.annotations.VisibleForTesting;
+import io.trino.filesystem.FileMayHaveAlreadyExistedException;
 import io.trino.filesystem.encryption.EncryptionKey;
 import io.trino.memory.context.AggregatedMemoryContext;
 import io.trino.memory.context.LocalMemoryContext;
@@ -56,7 +58,9 @@ import static java.lang.Math.max;
 import static java.lang.Math.min;
 import static java.lang.System.arraycopy;
 import static java.net.HttpURLConnection.HTTP_PRECON_FAILED;
+import static java.util.Objects.checkFromIndexSize;
 import static java.util.Objects.requireNonNull;
+import static java.util.Objects.requireNonNullElse;
 import static java.util.concurrent.CompletableFuture.supplyAsync;
 
 final class S3OutputStream
@@ -72,7 +76,6 @@ final class S3OutputStream
     private final RequestPayer requestPayer;
     private final StorageClass storageClass;
     private final ObjectCannedACL cannedAcl;
-    private final boolean exclusiveCreate;
     private final Optional<EncryptionKey> key;
 
     private int currentPartNumber;
@@ -90,13 +93,12 @@ final class S3OutputStream
     // Visibility is ensured by calling get() on inProgressUploadFuture.
     private Optional<String> uploadId = Optional.empty();
 
-    public S3OutputStream(AggregatedMemoryContext memoryContext, Executor uploadExecutor, S3Client client, S3Context context, S3Location location, boolean exclusiveCreate, Optional<EncryptionKey> key)
+    public S3OutputStream(AggregatedMemoryContext memoryContext, Executor uploadExecutor, S3Client client, S3Context context, S3Location location, Optional<EncryptionKey> key)
     {
         this.memoryContext = memoryContext.newLocalMemoryContext(S3OutputStream.class.getSimpleName());
         this.uploadExecutor = requireNonNull(uploadExecutor, "uploadExecutor is null");
         this.client = requireNonNull(client, "client is null");
         this.location = requireNonNull(location, "location is null");
-        this.exclusiveCreate = exclusiveCreate;
         this.context = requireNonNull(context, "context is null");
         this.partSize = context.partSize();
         this.requestPayer = context.requestPayer();
@@ -181,6 +183,10 @@ final class S3OutputStream
         }
         catch (SdkException e) {
             abortUploadSuppressed(e);
+            // when `location` already exists, the operation will fail with `412 Precondition Failed`
+            if (e instanceof S3Exception s3Exception && s3Exception.statusCode() == HTTP_PRECON_FAILED) {
+                throw new FileAlreadyExistsException(location.toString());
+            }
             throw new IOException(e);
         }
     }
@@ -212,44 +218,21 @@ final class S3OutputStream
     {
         // skip multipart upload if there would only be one part
         if (finished && !multipartUploadStarted) {
-            PutObjectRequest request = PutObjectRequest.builder()
-                    .overrideConfiguration(context::applyCredentialProviderOverride)
-                    .acl(cannedAcl)
-                    .requestPayer(requestPayer)
-                    .bucket(location.bucket())
-                    .key(location.key())
-                    .storageClass(storageClass)
-                    .contentLength((long) bufferSize)
-                    .applyMutation(builder -> {
-                        if (exclusiveCreate) {
-                            builder.ifNoneMatch("*");
-                        }
-                        key.ifPresent(encryption -> {
-                            builder.sseCustomerKey(encoded(encryption));
-                            builder.sseCustomerAlgorithm(encryption.algorithm());
-                            builder.sseCustomerKeyMD5(md5Checksum(encryption));
-                        });
-                        setEncryptionSettings(builder, context.s3SseContext());
-                    })
-                    .build();
-
-            ByteBuffer bytes = ByteBuffer.wrap(buffer, 0, bufferSize);
-
             try {
-                client.putObject(request, RequestBody.fromByteBuffer(bytes));
+                putObject(
+                        client,
+                        context,
+                        location,
+                        key,
+                        false,
+                        buffer,
+                        0,
+                        bufferSize);
                 return;
             }
-            catch (S3Exception e) {
+            catch (Throwable e) {
                 failed = true;
-                // when `location` already exists, the operation will fail with `412 Precondition Failed`
-                if (e.statusCode() == HTTP_PRECON_FAILED) {
-                    throw new FileAlreadyExistsException(location.toString());
-                }
-                throw new IOException("Put failed for bucket [%s] key [%s]: %s".formatted(location.bucket(), location.key(), e), e);
-            }
-            catch (SdkException e) {
-                failed = true;
-                throw new IOException("Put failed for bucket [%s] key [%s]: %s".formatted(location.bucket(), location.key(), e), e);
+                throw e;
             }
         }
 
@@ -281,7 +264,8 @@ final class S3OutputStream
         }
     }
 
-    private void waitForPreviousUploadFinish()
+    @VisibleForTesting
+    void waitForPreviousUploadFinish()
             throws IOException
     {
         if (inProgressUploadFuture == null) {
@@ -311,11 +295,11 @@ final class S3OutputStream
                     .key(location.key())
                     .storageClass(storageClass)
                     .applyMutation(builder ->
-                        key.ifPresentOrElse(
-                                encryption ->
-                                    builder.sseCustomerKey(encoded(encryption))
-                                            .sseCustomerAlgorithm(encryption.algorithm())
-                                            .sseCustomerKeyMD5(md5Checksum(encryption)),
+                            key.ifPresentOrElse(
+                                    encryption ->
+                                            builder.sseCustomerKey(encoded(encryption))
+                                                    .sseCustomerAlgorithm(encryption.algorithm())
+                                                    .sseCustomerKeyMD5(md5Checksum(encryption)),
                                     () -> setEncryptionSettings(builder, context.s3SseContext())))
                     .build();
 
@@ -332,12 +316,12 @@ final class S3OutputStream
                 .uploadId(uploadId.get())
                 .partNumber(currentPartNumber)
                 .applyMutation(builder ->
-                    key.ifPresentOrElse(
-                            encryption ->
-                                builder.sseCustomerKey(encoded(encryption))
-                                        .sseCustomerAlgorithm(encryption.algorithm())
-                                        .sseCustomerKeyMD5(md5Checksum(encryption)),
-                            () -> setEncryptionSettings(builder, context.s3SseContext())))
+                        key.ifPresentOrElse(
+                                encryption ->
+                                        builder.sseCustomerKey(encoded(encryption))
+                                                .sseCustomerAlgorithm(encryption.algorithm())
+                                                .sseCustomerKeyMD5(md5Checksum(encryption)),
+                                () -> setEncryptionSettings(builder, context.s3SseContext())))
                 .build();
 
         ByteBuffer bytes = ByteBuffer.wrap(data, 0, length);
@@ -362,17 +346,12 @@ final class S3OutputStream
                 .key(location.key())
                 .uploadId(uploadId)
                 .multipartUpload(x -> x.parts(parts))
-                .applyMutation(builder -> {
-                    key.ifPresentOrElse(
-                            encryption ->
-                                    builder.sseCustomerKey(encoded(encryption))
-                                            .sseCustomerAlgorithm(encryption.algorithm())
-                                            .sseCustomerKeyMD5(md5Checksum(encryption)),
-                            () -> setEncryptionSettings(builder, context.s3SseContext()));
-                    if (exclusiveCreate) {
-                        builder.ifNoneMatch("*");
-                    }
-                })
+                .applyMutation(builder -> key.ifPresentOrElse(
+                        encryption ->
+                                builder.sseCustomerKey(encoded(encryption))
+                                        .sseCustomerAlgorithm(encryption.algorithm())
+                                        .sseCustomerKeyMD5(md5Checksum(encryption)),
+                        () -> setEncryptionSettings(builder, context.s3SseContext())))
                 .build();
 
         client.completeMultipartUpload(request);
@@ -400,6 +379,64 @@ final class S3OutputStream
             if (throwable != t) {
                 throwable.addSuppressed(t);
             }
+        }
+    }
+
+    static void putObject(
+            S3Client client,
+            S3Context context,
+            S3Location location,
+            Optional<EncryptionKey> key,
+            boolean exclusiveCreate,
+            byte[] data,
+            int dataOffset,
+            int dataLength)
+            throws IOException
+    {
+        checkFromIndexSize(dataOffset, dataLength, data.length);
+
+        PutObjectRequest request = PutObjectRequest.builder()
+                .overrideConfiguration(context::applyCredentialProviderOverride)
+                .acl(getCannedAcl(context.cannedAcl()))
+                .requestPayer(context.requestPayer())
+                .bucket(location.bucket())
+                .key(location.key())
+                .storageClass(toStorageClass(context.storageClass()))
+                .contentLength((long) dataLength)
+                .applyMutation(builder -> {
+                    if (exclusiveCreate) {
+                        builder.ifNoneMatch("*");
+                    }
+                    key.ifPresent(encryption -> {
+                        builder.sseCustomerKey(encoded(encryption));
+                        builder.sseCustomerAlgorithm(encryption.algorithm());
+                        builder.sseCustomerKeyMD5(md5Checksum(encryption));
+                    });
+                    setEncryptionSettings(builder, context.s3SseContext());
+                })
+                .build();
+
+        ByteBuffer bytes = ByteBuffer.wrap(data, dataOffset, dataLength);
+
+        try {
+            client.putObject(request, RequestBody.fromByteBuffer(bytes));
+        }
+        catch (SdkException putObjectException) {
+            // When `location` already exists, the operation will fail with `412 Precondition Failed`
+            // This is possible when
+            // - object already existed
+            // - object was created by us in a request, but then client side retry logic retried the request
+            boolean objectAlreadyExists = putObjectException instanceof S3Exception s3Exception &&
+                    s3Exception.statusCode() == HTTP_PRECON_FAILED;
+            if (objectAlreadyExists) {
+                if (exclusiveCreate && requireNonNullElse(putObjectException.numAttempts(), 0) > 1) {
+                    // The object might have been created by a previous attempt of AWS SDK's implicit retries
+                    // Signal the uncertainty to the caller.
+                    throw new FileMayHaveAlreadyExistedException("Put failed for bucket [%s] key [%s] but provenance could not be verified".formatted(location.bucket(), location.key()), putObjectException);
+                }
+                throw new FileAlreadyExistsException(location.toString());
+            }
+            throw new IOException("Put failed for bucket [%s] key [%s]: %s".formatted(location.bucket(), location.key(), putObjectException), putObjectException);
         }
     }
 }

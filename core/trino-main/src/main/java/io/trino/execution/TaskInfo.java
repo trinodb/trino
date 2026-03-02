@@ -53,7 +53,7 @@ public record TaskInfo(
 
     public TaskInfo summarize()
     {
-        if (taskStatus.getState().isDone()) {
+        if (taskStatus.state().isDone()) {
             return new TaskInfo(taskStatus, lastHeartbeat, outputBuffers.summarizeFinal(), noMoreSplits, stats.summarizeFinal(), estimatedMemory, needsPlan);
         }
         return new TaskInfo(taskStatus, lastHeartbeat, outputBuffers.summarize(), noMoreSplits, stats.summarize(), estimatedMemory, needsPlan);
@@ -64,17 +64,12 @@ public record TaskInfo(
         return new TaskInfo(taskStatus, lastHeartbeat, outputBuffers.pruneSpoolingOutputStats(), noMoreSplits, stats, estimatedMemory, needsPlan);
     }
 
-    public TaskInfo pruneDigests()
-    {
-        return new TaskInfo(taskStatus, lastHeartbeat, outputBuffers.pruneDigests(), noMoreSplits, stats.pruneDigests(), estimatedMemory, needsPlan);
-    }
-
     @Override
     public String toString()
     {
         return toStringHelper(this)
-                .add("taskId", taskStatus.getTaskId())
-                .add("state", taskStatus.getState())
+                .add("taskId", taskStatus.taskId())
+                .add("state", taskStatus.state())
                 .toString();
     }
 

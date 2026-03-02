@@ -148,7 +148,7 @@ public class BenchmarkGroupedTypedHistogram
         testSharedGroupWithLargeBlocksRunner(data);
     }
 
-    public static void main(String[] args)
+    static void main()
             throws RunnerException
     {
         benchmark(BenchmarkGroupedTypedHistogram.class)

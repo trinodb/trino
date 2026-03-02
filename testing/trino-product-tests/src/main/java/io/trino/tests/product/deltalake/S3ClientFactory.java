@@ -24,8 +24,8 @@ import software.amazon.awssdk.services.s3.S3Client;
 import java.net.URI;
 
 import static io.trino.testing.SystemEnvironmentUtils.requireEnv;
-import static io.trino.testing.minio.MinioClient.DEFAULT_MINIO_ACCESS_KEY;
-import static io.trino.testing.minio.MinioClient.DEFAULT_MINIO_SECRET_KEY;
+import static io.trino.testing.minio.MinioClient.DEFAULT_MINIO_ROOT_PASSWORD;
+import static io.trino.testing.minio.MinioClient.DEFAULT_MINIO_ROOT_USER;
 
 final class S3ClientFactory
 {
@@ -51,7 +51,7 @@ final class S3ClientFactory
 
     private static S3Client createMinioS3Client()
     {
-        AwsCredentials credentials = AwsBasicCredentials.create(DEFAULT_MINIO_ACCESS_KEY, DEFAULT_MINIO_SECRET_KEY);
+        AwsCredentials credentials = AwsBasicCredentials.create(DEFAULT_MINIO_ROOT_USER, DEFAULT_MINIO_ROOT_PASSWORD);
         AwsCredentialsProvider credentialsProvider = StaticCredentialsProvider.create(credentials);
 
         return S3Client.builder()

@@ -62,7 +62,6 @@ import static io.trino.sql.ir.IrUtils.extractPredicates;
 import static io.trino.sql.ir.IrUtils.logicalExpression;
 import static io.trino.sql.ir.Logical.Operator.AND;
 import static io.trino.sql.ir.Logical.Operator.OR;
-import static io.trino.sql.ir.optimizer.IrExpressionOptimizer.newOptimizer;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
 import static io.trino.sql.planner.iterative.rule.SimplifyExpressions.rewrite;
 import static java.util.stream.Collectors.toList;
@@ -530,7 +529,7 @@ public class TestSimplifyExpressions
 
     private static void assertSimplifies(Expression expression, Expression expected)
     {
-        Expression simplified = normalize(rewrite(expression, TEST_SESSION, newOptimizer(PLANNER_CONTEXT)));
+        Expression simplified = normalize(rewrite(expression, TEST_SESSION, PLANNER_CONTEXT.getExpressionOptimizer()));
         assertThat(simplified).isEqualTo(normalize(expected));
     }
 
@@ -645,8 +644,8 @@ public class TestSimplifyExpressions
                 not(new Comparison(GREATER_THAN, new Constant(DOUBLE, 1.0), new Reference(DOUBLE, "D2"))),
                 not(new Comparison(GREATER_THAN, new Constant(DOUBLE, 1.0), new Reference(DOUBLE, "D2"))));
         assertSimplifiesNumericTypes(
-                not(new Comparison(GREATER_THAN, new Reference(REAL, "R1"), new Constant(REAL, Reals.toReal(1L)))),
-                not(new Comparison(GREATER_THAN, new Reference(REAL, "R1"), new Constant(REAL, Reals.toReal(1L)))));
+                not(new Comparison(GREATER_THAN, new Reference(REAL, "R1"), new Constant(REAL, Reals.toReal(1.f)))),
+                not(new Comparison(GREATER_THAN, new Reference(REAL, "R1"), new Constant(REAL, Reals.toReal(1.f)))));
         assertSimplifiesNumericTypes(
                 not(new Comparison(GREATER_THAN, new Constant(REAL, Reals.toReal(1)), new Reference(REAL, "R2"))),
                 not(new Comparison(GREATER_THAN, new Constant(REAL, Reals.toReal(1)), new Reference(REAL, "R2"))));
@@ -654,7 +653,7 @@ public class TestSimplifyExpressions
 
     private static void assertSimplifiesNumericTypes(Expression expression, Expression expected)
     {
-        Expression rewritten = rewrite(expression, TEST_SESSION, newOptimizer(PLANNER_CONTEXT));
+        Expression rewritten = rewrite(expression, TEST_SESSION, PLANNER_CONTEXT.getExpressionOptimizer());
         assertThat(normalize(rewritten)).isEqualTo(normalize(expected));
     }
 

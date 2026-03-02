@@ -240,6 +240,7 @@ public class BenchmarkHashAndStreamingAggregationOperators
         {
             SpillerFactory spillerFactory = (types, localSpillContext, aggregatedMemoryContext) -> null;
 
+            NullSafeHashCompiler hashCompiler = new NullSafeHashCompiler(TYPE_OPERATORS);
             return new HashAggregationOperatorFactory(
                     0,
                     new PlanNodeId("test"),
@@ -251,14 +252,14 @@ public class BenchmarkHashAndStreamingAggregationOperators
                     ImmutableList.of(
                             COUNT.createAggregatorFactory(SINGLE, ImmutableList.of(0), OptionalInt.empty()),
                             LONG_SUM.createAggregatorFactory(SINGLE, ImmutableList.of(sumChannel), OptionalInt.empty())),
-                    Optional.empty(),
+                    OptionalInt.empty(),
                     100_000,
                     Optional.of(DataSize.of(16, MEGABYTE)),
                     false,
                     succinctBytes(8),
                     succinctBytes(Integer.MAX_VALUE),
                     spillerFactory,
-                    new FlatHashStrategyCompiler(TYPE_OPERATORS),
+                    new FlatHashStrategyCompiler(TYPE_OPERATORS, hashCompiler),
                     Optional.empty());
         }
 
@@ -365,7 +366,7 @@ public class BenchmarkHashAndStreamingAggregationOperators
         context.cleanup();
     }
 
-    public static void main(String[] args)
+    static void main()
             throws RunnerException
     {
         Benchmarks.benchmark(BenchmarkHashAndStreamingAggregationOperators.class).run();

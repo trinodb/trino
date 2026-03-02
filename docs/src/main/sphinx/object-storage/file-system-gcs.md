@@ -68,9 +68,18 @@ Cloud Storage:
 
 * - Property
   - Description
-* - `gcs.use-access-token`
-  - Flag to set usage of a client-provided OAuth 2.0 token to access Google
-    Cloud Storage. Defaults to `false`.
+* - `gcs.auth-type`
+  - Authentication type to use for Google Cloud Storage access. Default to `SERVICE_ACCOUNT`.
+  Supported values are:
+    * `SERVICE_ACCOUNT`: loads credentials from the environment. Either `gcs.json-key` or
+      `gcs.json-key-file-path` can be set in addition to override the default
+      credentials provider.
+    * `ACCESS_TOKEN`: usage of client-provided OAuth 2.0 token to access Google
+      Cloud Storage.
+    * `APPLICATION_DEFAULT`: Attempts to obtain Google Application Default
+      Credentials (ADC) from the environment. If no ADC is available, the
+      filesystem falls back to `NoCredentials.getInstance()` to explicitly
+      indicate unauthenticated GCS access.
 * - `gcs.json-key`
   - Your Google Cloud service account key in JSON format. Not to be set together
     with `gcs.json-key-file-path`.
@@ -103,7 +112,7 @@ Cloud Storage, make the following edits to your catalog configuration:
      - Native property
      - Notes
    * - `hive.gcs.use-access-token`
-     - `gcs.use-access-token`
+     - `gcs.auth-type`
      -
    * - `hive.gcs.json-key-file-path`
      - `gcs.json-key-file-path`

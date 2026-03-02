@@ -16,12 +16,12 @@ package io.trino.filesystem.gcs;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import io.trino.filesystem.gcs.GcsFileSystemConfig.AuthType;
 import jakarta.validation.constraints.AssertTrue;
 import org.junit.jupiter.api.Test;
 
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
@@ -43,9 +43,7 @@ public class TestGcsFileSystemConfig
                 .setBatchSize(100)
                 .setProjectId(null)
                 .setEndpoint(Optional.empty())
-                .setUseGcsAccessToken(false)
-                .setJsonKey(null)
-                .setJsonKeyFilePath(null)
+                .setAuthType(AuthType.SERVICE_ACCOUNT)
                 .setMaxRetries(20)
                 .setBackoffScaleFactor(3.0)
                 .setMaxRetryTime(new Duration(25, SECONDS))
@@ -64,7 +62,7 @@ public class TestGcsFileSystemConfig
                 .put("gcs.batch-size", "11")
                 .put("gcs.project-id", "project")
                 .put("gcs.endpoint", "http://custom.dns.org:8000")
-                .put("gcs.use-access-token", "true")
+                .put("gcs.auth-type", "access_token")
                 .put("gcs.client.max-retries", "10")
                 .put("gcs.client.backoff-scale-factor", "4.0")
                 .put("gcs.client.max-retry-time", "10s")
@@ -80,14 +78,14 @@ public class TestGcsFileSystemConfig
                 .setBatchSize(11)
                 .setProjectId("project")
                 .setEndpoint(Optional.of("http://custom.dns.org:8000"))
-                .setUseGcsAccessToken(true)
+                .setAuthType(AuthType.ACCESS_TOKEN)
                 .setMaxRetries(10)
                 .setBackoffScaleFactor(4.0)
                 .setMaxRetryTime(new Duration(10, SECONDS))
                 .setMinBackoffDelay(new Duration(20, MILLISECONDS))
                 .setMaxBackoffDelay(new Duration(20, MILLISECONDS))
                 .setApplicationId("application id");
-        assertFullMapping(properties, expected, Set.of("gcs.json-key", "gcs.json-key-file-path"));
+        assertFullMapping(properties, expected);
     }
 
     @Test
@@ -95,31 +93,6 @@ public class TestGcsFileSystemConfig
     {
         assertFailsValidation(
                 new GcsFileSystemConfig()
-                        .setUseGcsAccessToken(true)
-                        .setJsonKey("{}}"),
-                "authMethodValid",
-                "Either gcs.use-access-token or gcs.json-key or gcs.json-key-file-path must be set",
-                AssertTrue.class);
-
-        assertFailsValidation(
-                new GcsFileSystemConfig()
-                        .setUseGcsAccessToken(true)
-                        .setJsonKeyFilePath("/dev/null"),
-                "authMethodValid",
-                "Either gcs.use-access-token or gcs.json-key or gcs.json-key-file-path must be set",
-                AssertTrue.class);
-
-        assertFailsValidation(
-                new GcsFileSystemConfig()
-                        .setJsonKey("{}")
-                        .setJsonKeyFilePath("/dev/null"),
-                "authMethodValid",
-                "Either gcs.use-access-token or gcs.json-key or gcs.json-key-file-path must be set",
-                AssertTrue.class);
-
-        assertFailsValidation(
-                new GcsFileSystemConfig()
-                        .setJsonKey("{}")
                         .setMinBackoffDelay(new Duration(20, MILLISECONDS))
                         .setMaxBackoffDelay(new Duration(19, MILLISECONDS)),
                 "retryDelayValid",

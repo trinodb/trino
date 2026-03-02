@@ -107,7 +107,7 @@ public final class SqlServerQueryRunner
         }
     }
 
-    public static void main(String[] args)
+    static void main()
             throws Exception
     {
         TestingSqlServer testingSqlServer = new TestingSqlServer();

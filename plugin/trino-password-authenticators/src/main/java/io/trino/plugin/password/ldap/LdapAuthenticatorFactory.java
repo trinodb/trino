@@ -37,6 +37,7 @@ public class LdapAuthenticatorFactory
     public PasswordAuthenticator create(Map<String, String> config)
     {
         Bootstrap app = new Bootstrap(
+                "io.trino.bootstrap.auth." + getName(),
                 new LdapClientModule(),
                 binder -> {
                     configBinder(binder).bindConfig(LdapAuthenticatorConfig.class);
@@ -46,6 +47,7 @@ public class LdapAuthenticatorFactory
 
         Injector injector = app
                 .doNotInitializeLogging()
+                .disableSystemProperties()
                 .setRequiredConfigurationProperties(config)
                 .initialize();
 

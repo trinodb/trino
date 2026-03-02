@@ -24,6 +24,7 @@ import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SystemTable;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.ArrayType;
+import io.trino.spi.type.MapType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.TypeSignature;
@@ -38,6 +39,7 @@ import org.apache.iceberg.io.FileIO;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalLong;
 
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.plugin.iceberg.util.SystemTableUtil.getAllPartitionFields;
@@ -45,7 +47,6 @@ import static io.trino.plugin.iceberg.util.SystemTableUtil.getPartitionColumnTyp
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.StandardTypes.JSON;
-import static io.trino.spi.type.TypeSignature.mapType;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.util.Objects.requireNonNull;
@@ -94,10 +95,10 @@ public final class FilesTable
 
     private final ConnectorTableMetadata tableMetadata;
     private final Table icebergTable;
-    private final Optional<Long> snapshotId;
+    private final OptionalLong snapshotId;
     private final Optional<Type> partitionColumnType;
 
-    public FilesTable(SchemaTableName tableName, TypeManager typeManager, Table icebergTable, Optional<Long> snapshotId)
+    public FilesTable(SchemaTableName tableName, TypeManager typeManager, Table icebergTable, OptionalLong snapshotId)
     {
         this.icebergTable = requireNonNull(icebergTable, "icebergTable is null");
         this.snapshotId = requireNonNull(snapshotId, "snapshotId is null");
@@ -160,9 +161,9 @@ public final class FilesTable
             case COLUMN_SIZES_COLUMN_NAME,
                  NULL_VALUE_COUNTS_COLUMN_NAME,
                  VALUE_COUNTS_COLUMN_NAME,
-                 NAN_VALUE_COUNTS_COLUMN_NAME -> typeManager.getType(mapType(INTEGER.getTypeSignature(), BIGINT.getTypeSignature()));
+                 NAN_VALUE_COUNTS_COLUMN_NAME -> new MapType(INTEGER, BIGINT, typeManager.getTypeOperators());
             case LOWER_BOUNDS_COLUMN_NAME,
-                 UPPER_BOUNDS_COLUMN_NAME -> typeManager.getType(mapType(INTEGER.getTypeSignature(), VARCHAR.getTypeSignature()));
+                 UPPER_BOUNDS_COLUMN_NAME -> new MapType(INTEGER, VARCHAR, typeManager.getTypeOperators());
             case KEY_METADATA_COLUMN_NAME -> VARBINARY;
             case SPLIT_OFFSETS_COLUMN_NAME -> new ArrayType(BIGINT);
             case EQUALITY_IDS_COLUMN_NAME -> new ArrayType(INTEGER);

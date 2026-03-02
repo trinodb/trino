@@ -33,11 +33,11 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
+import static com.google.common.base.Preconditions.checkState;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogUtil.getTransactionLogDir;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogUtil.getTransactionLogJsonEntryPath;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
-import static org.apache.parquet.Preconditions.checkState;
 
 public class FileSystemTransactionLogWriter
         implements TransactionLogWriter
@@ -110,6 +110,12 @@ public class FileSystemTransactionLogWriter
 
         String transactionLogLocation = getTransactionLogDir(tableLocation);
         CommitInfoEntry commitInfo = requireNonNull(commitInfoEntry.get().getCommitInfo(), "commitInfoEntry.get().getCommitInfo() is null");
+        // This is necessary to ensure separate queries don't have the same commit info.
+        // This way we guarantee that transaction log contents are unique per writing query.
+        // This information may be used by a TransactionLogSynchronizer.
+        checkState(
+                commitInfo.operationParameters() != null && commitInfo.operationParameters().containsKey("queryId"),
+                "commitInfo lacks writing query identity");
         Location logEntry = getTransactionLogJsonEntryPath(transactionLogLocation, commitInfo.version());
         writeLog(logEntry);
     }

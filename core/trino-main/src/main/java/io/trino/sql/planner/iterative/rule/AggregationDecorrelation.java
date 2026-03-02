@@ -22,6 +22,7 @@ import io.trino.sql.planner.plan.PlanNode;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -41,7 +42,7 @@ final class AggregationDecorrelation
     public static Map<Symbol, Aggregation> rewriteWithMasks(Map<Symbol, Aggregation> aggregations, Map<Symbol, Symbol> masks)
     {
         ImmutableMap.Builder<Symbol, Aggregation> rewritten = ImmutableMap.builder();
-        for (Map.Entry<Symbol, Aggregation> entry : aggregations.entrySet()) {
+        for (Entry<Symbol, Aggregation> entry : aggregations.entrySet()) {
             Symbol symbol = entry.getKey();
             Aggregation aggregation = entry.getValue();
             rewritten.put(symbol, new Aggregation(

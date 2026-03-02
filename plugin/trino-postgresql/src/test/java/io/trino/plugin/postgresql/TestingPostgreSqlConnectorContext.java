@@ -22,6 +22,7 @@ import io.trino.metadata.TypeRegistry;
 import io.trino.node.TestingInternalNodeManager;
 import io.trino.operator.FlatHashStrategyCompiler;
 import io.trino.operator.GroupByHashPageIndexerFactory;
+import io.trino.operator.NullSafeHashCompiler;
 import io.trino.operator.PagesIndex;
 import io.trino.operator.PagesIndexPageSorter;
 import io.trino.plugin.geospatial.GeometryType;
@@ -50,7 +51,7 @@ public class TestingPostgreSqlConnectorContext
 
     public TestingPostgreSqlConnectorContext()
     {
-        pageIndexerFactory = new GroupByHashPageIndexerFactory(new FlatHashStrategyCompiler(new TypeOperators()));
+        pageIndexerFactory = new GroupByHashPageIndexerFactory(new FlatHashStrategyCompiler(new TypeOperators(), new NullSafeHashCompiler(new TypeOperators())));
         nodeManager = new DefaultNodeManager(CURRENT_NODE, TestingInternalNodeManager.createDefault(), true);
         TypeRegistry typeRegistry = new TypeRegistry(new TypeOperators(), new FeaturesConfig());
         typeRegistry.addType(GeometryType.GEOMETRY);

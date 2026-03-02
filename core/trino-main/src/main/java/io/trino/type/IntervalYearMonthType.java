@@ -15,17 +15,23 @@ package io.trino.type;
 
 import io.trino.spi.block.Block;
 import io.trino.spi.type.AbstractIntType;
-import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.TypeSignature;
 
 public final class IntervalYearMonthType
         extends AbstractIntType
 {
+    public static final String NAME = "interval year to month";
     public static final IntervalYearMonthType INTERVAL_YEAR_MONTH = new IntervalYearMonthType();
 
     private IntervalYearMonthType()
     {
-        super(new TypeSignature(StandardTypes.INTERVAL_YEAR_TO_MONTH));
+        super(new TypeSignature(NAME));
+    }
+
+    @Override
+    public String getDisplayName()
+    {
+        return NAME;
     }
 
     @Override

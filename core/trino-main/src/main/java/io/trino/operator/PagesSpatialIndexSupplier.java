@@ -26,7 +26,6 @@ import io.trino.operator.PagesRTreeIndex.GeometryWithPosition;
 import io.trino.operator.SpatialIndexBuilderOperator.SpatialPredicate;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.VariableWidthBlock;
-import io.trino.spi.type.Type;
 import io.trino.sql.gen.JoinFilterFunctionCompiler;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
@@ -39,6 +38,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalDouble;
+import java.util.OptionalInt;
 import java.util.function.Supplier;
 
 import static com.google.common.base.Verify.verifyNotNull;
@@ -60,10 +60,9 @@ public class PagesSpatialIndexSupplier
 
     private final Session session;
     private final LongArrayList addresses;
-    private final List<Type> types;
     private final List<Integer> outputChannels;
     private final List<ObjectArrayList<Block>> channels;
-    private final Optional<Integer> radiusChannel;
+    private final OptionalInt radiusChannel;
     private final OptionalDouble constantRadius;
     private final SpatialPredicate spatialRelationshipTest;
     private final Optional<JoinFilterFunctionCompiler.JoinFilterFunctionFactory> filterFunctionFactory;
@@ -74,20 +73,18 @@ public class PagesSpatialIndexSupplier
     public PagesSpatialIndexSupplier(
             Session session,
             LongArrayList addresses,
-            List<Type> types,
             List<Integer> outputChannels,
             List<ObjectArrayList<Block>> channels,
             int geometryChannel,
-            Optional<Integer> radiusChannel,
+            OptionalInt radiusChannel,
             OptionalDouble constantRadius,
-            Optional<Integer> partitionChannel,
+            OptionalInt partitionChannel,
             SpatialPredicate spatialRelationshipTest,
             Optional<JoinFilterFunctionCompiler.JoinFilterFunctionFactory> filterFunctionFactory,
             Map<Integer, Rectangle> partitions)
     {
         this.session = session;
         this.addresses = addresses;
-        this.types = types;
         this.outputChannels = outputChannels;
         this.channels = channels;
         this.spatialRelationshipTest = spatialRelationshipTest;
@@ -101,7 +98,7 @@ public class PagesSpatialIndexSupplier
                 (rtree.isEmpty() ? 0 : STRTREE_INSTANCE_SIZE + computeMemorySizeInBytes(rtree.getRoot()));
     }
 
-    private static STRtree buildRTree(LongArrayList addresses, List<ObjectArrayList<Block>> channels, int geometryChannel, Optional<Integer> radiusChannel, OptionalDouble constantRadius, Optional<Integer> partitionChannel)
+    private static STRtree buildRTree(LongArrayList addresses, List<ObjectArrayList<Block>> channels, int geometryChannel, OptionalInt radiusChannel, OptionalDouble constantRadius, OptionalInt partitionChannel)
     {
         STRtree rtree = new STRtree();
         Operator relateOperator = OperatorFactoryLocal.getInstance().getOperator(Operator.Type.Relate);
@@ -109,10 +106,10 @@ public class PagesSpatialIndexSupplier
         for (int position = 0; position < addresses.size(); position++) {
             long pageAddress = addresses.getLong(position);
             int blockIndex = decodeSliceIndex(pageAddress);
-            Block chennelBlock = channels.get(geometryChannel).get(blockIndex);
-            VariableWidthBlock block = (VariableWidthBlock) chennelBlock.getUnderlyingValueBlock();
+            Block channelBlock = channels.get(geometryChannel).get(blockIndex);
+            VariableWidthBlock block = (VariableWidthBlock) channelBlock.getUnderlyingValueBlock();
             int blockPosition = decodePosition(pageAddress);
-            int valueBlockPosition = chennelBlock.getUnderlyingValuePosition(blockPosition);
+            int valueBlockPosition = channelBlock.getUnderlyingValuePosition(blockPosition);
 
             // TODO Consider pushing is-null and is-empty checks into a filter below the join
             if (block.isNull(valueBlockPosition)) {
@@ -131,7 +128,7 @@ public class PagesSpatialIndexSupplier
                 radius = constantRadius.getAsDouble();
             }
             else if (radiusChannel.isPresent()) {
-                radius = DOUBLE.getDouble(channels.get(radiusChannel.get()).get(blockIndex), blockPosition);
+                radius = DOUBLE.getDouble(channels.get(radiusChannel.getAsInt()).get(blockIndex), blockPosition);
             }
 
             if (radius < 0) {
@@ -145,7 +142,7 @@ public class PagesSpatialIndexSupplier
 
             int partition = -1;
             if (partitionChannel.isPresent()) {
-                Block partitionBlock = channels.get(partitionChannel.get()).get(blockIndex);
+                Block partitionBlock = channels.get(partitionChannel.getAsInt()).get(blockIndex);
                 partition = INTEGER.getInt(partitionBlock, blockPosition);
             }
 
@@ -182,7 +179,7 @@ public class PagesSpatialIndexSupplier
         // Recurse into GeometryCollections
         GeometryCursor cursor = ogcGeometry.getEsriGeometryCursor();
         while (true) {
-            com.esri.core.geometry.Geometry esriGeometry = cursor.next();
+            Geometry esriGeometry = cursor.next();
             if (esriGeometry == null) {
                 break;
             }
@@ -202,6 +199,6 @@ public class PagesSpatialIndexSupplier
         if (rtree.isEmpty()) {
             return EMPTY_INDEX;
         }
-        return new PagesRTreeIndex(session, addresses, types, outputChannels, channels, rtree, radiusChannel, constantRadius, spatialRelationshipTest, filterFunctionFactory, partitions);
+        return new PagesRTreeIndex(session, addresses, outputChannels, channels, rtree, radiusChannel, constantRadius, spatialRelationshipTest, filterFunctionFactory, partitions);
     }
 }

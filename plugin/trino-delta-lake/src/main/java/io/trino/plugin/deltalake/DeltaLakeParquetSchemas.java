@@ -29,10 +29,10 @@ import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.TypeNotFoundException;
-import io.trino.spi.type.TypeSignature;
 import org.apache.parquet.schema.GroupType;
 import org.apache.parquet.schema.LogicalTypeAnnotation;
 import org.apache.parquet.schema.PrimitiveType;
+import org.apache.parquet.schema.Type.Repetition;
 import org.apache.parquet.schema.Types;
 
 import java.util.List;
@@ -178,7 +178,7 @@ public final class DeltaLakeParquetSchemas
     private static org.apache.parquet.schema.Type buildType(
             JsonNode typeNode,
             TypeManager typeManager,
-            org.apache.parquet.schema.Type.Repetition repetition,
+            Repetition repetition,
             String name,
             OptionalInt id,
             DeltaLakeSchemaSupport.ColumnMappingMode columnMappingMode,
@@ -196,7 +196,7 @@ public final class DeltaLakeParquetSchemas
     private static org.apache.parquet.schema.Type buildPrimitiveType(
             String primitiveType,
             TypeManager typeManager,
-            org.apache.parquet.schema.Type.Repetition repetition,
+            Repetition repetition,
             String name,
             OptionalInt id,
             List<String> parent,
@@ -292,7 +292,7 @@ public final class DeltaLakeParquetSchemas
     private static org.apache.parquet.schema.Type buildContainerType(
             JsonNode typeNode,
             TypeManager typeManager,
-            org.apache.parquet.schema.Type.Repetition repetition,
+            Repetition repetition,
             String name,
             OptionalInt id,
             DeltaLakeSchemaSupport.ColumnMappingMode columnMappingMode,
@@ -304,14 +304,14 @@ public final class DeltaLakeParquetSchemas
             case "array" -> buildArrayType(typeNode, typeManager, repetition, name, id, columnMappingMode, parent, primitiveTypesBuilder);
             case "map" -> buildMapType(typeNode, typeManager, repetition, name, id, columnMappingMode, parent, primitiveTypesBuilder);
             case "struct" -> buildRowType(typeNode, typeManager, repetition, name, id, columnMappingMode, parent, primitiveTypesBuilder);
-            default -> throw new TypeNotFoundException(new TypeSignature(containerType));
+            default -> throw new TypeNotFoundException(containerType);
         };
     }
 
     private static org.apache.parquet.schema.Type buildArrayType(
             JsonNode typeNode,
             TypeManager typeManager,
-            org.apache.parquet.schema.Type.Repetition repetition,
+            Repetition repetition,
             String name,
             OptionalInt id,
             DeltaLakeSchemaSupport.ColumnMappingMode columnMappingMode,
@@ -342,7 +342,7 @@ public final class DeltaLakeParquetSchemas
     private static org.apache.parquet.schema.Type buildMapType(
             JsonNode typeNode,
             TypeManager typeManager,
-            org.apache.parquet.schema.Type.Repetition repetition,
+            Repetition repetition,
             String name,
             OptionalInt id,
             DeltaLakeSchemaSupport.ColumnMappingMode columnMappingMode,
@@ -382,7 +382,7 @@ public final class DeltaLakeParquetSchemas
     private static org.apache.parquet.schema.Type buildRowType(
             JsonNode typeNode,
             TypeManager typeManager,
-            org.apache.parquet.schema.Type.Repetition repetition,
+            Repetition repetition,
             String name,
             OptionalInt id,
             DeltaLakeSchemaSupport.ColumnMappingMode columnMappingMode,

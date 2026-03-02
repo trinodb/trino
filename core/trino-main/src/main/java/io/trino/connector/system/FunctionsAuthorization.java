@@ -95,8 +95,8 @@ public class FunctionsAuthorization
             TrinoPrincipal trinoPrincipal = functionAuthorization.functionAuthorization().trinoPrincipal();
             table.addRow(
                     functionAuthorization.catalog(),
-                    schemaFunctionName.getSchemaName(),
-                    schemaFunctionName.getFunctionName(),
+                    schemaFunctionName.schemaName(),
+                    schemaFunctionName.functionName(),
                     trinoPrincipal.getType().toString(),
                     trinoPrincipal.getName());
         }

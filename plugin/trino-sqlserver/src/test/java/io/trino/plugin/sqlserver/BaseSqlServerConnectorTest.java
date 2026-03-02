@@ -49,11 +49,9 @@ public abstract class BaseSqlServerConnectorTest
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
         return switch (connectorBehavior) {
-            case SUPPORTS_JOIN_PUSHDOWN,
-                 SUPPORTS_JOIN_PUSHDOWN_WITH_VARCHAR_EQUALITY,
-                 SUPPORTS_PREDICATE_EXPRESSION_PUSHDOWN,
-                 SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_EQUALITY -> true;
+            case SUPPORTS_JOIN_PUSHDOWN -> true;
             case SUPPORTS_ADD_COLUMN_WITH_COMMENT,
+                 SUPPORTS_ADD_COLUMN_WITH_POSITION,
                  SUPPORTS_AGGREGATION_PUSHDOWN_CORRELATION,
                  SUPPORTS_AGGREGATION_PUSHDOWN_COUNT_DISTINCT,
                  SUPPORTS_AGGREGATION_PUSHDOWN_COVARIANCE,
@@ -72,7 +70,9 @@ public abstract class BaseSqlServerConnectorTest
                  SUPPORTS_RENAME_SCHEMA,
                  SUPPORTS_RENAME_TABLE_ACROSS_SCHEMAS,
                  SUPPORTS_ROW_TYPE,
-                 SUPPORTS_SET_COLUMN_TYPE -> false;
+                 SUPPORTS_SET_COLUMN_TYPE,
+                 SUPPORTS_MERGE,
+                 SUPPORTS_ROW_LEVEL_UPDATE -> false;
             default -> super.hasBehavior(connectorBehavior);
         };
     }
@@ -223,6 +223,15 @@ public abstract class BaseSqlServerConnectorTest
                 .returnsEmptyResult()
                 .isFullyPushedDown();
 
+        // varchar predicate over join
+        Session joinPushdownEnabled = joinPushdownEnabled(getSession());
+        assertThat(query(joinPushdownEnabled, "SELECT c.name, n.name FROM customer c JOIN nation n ON c.custkey = n.nationkey WHERE n.name = 'POLAND'"))
+                .isFullyPushedDown();
+
+        // join on varchar columns
+        assertThat(query(joinPushdownEnabled, "SELECT n.name, n2.regionkey FROM nation n JOIN nation n2 ON n.name = n2.name"))
+                .isFullyPushedDown();
+
         // bigint equality
         assertThat(query("SELECT regionkey, nationkey, name FROM nation WHERE nationkey = 19"))
                 .matches("VALUES (BIGINT '3', BIGINT '19', CAST('ROMANIA' AS varchar(25)))")
@@ -285,15 +294,6 @@ public abstract class BaseSqlServerConnectorTest
                     .isFullyPushedDown();
             assertThat(query("SELECT * FROM " + testTable.getName() + " WHERE long_decimal = 123456789.987654321"))
                     .matches("VALUES (CAST(123.321 AS decimal(9,3)), CAST(123456789.987654321 AS decimal(30, 10)))")
-                    .isFullyPushedDown();
-
-            // varchar predicate over join
-            Session joinPushdownEnabled = joinPushdownEnabled(getSession());
-            assertThat(query(joinPushdownEnabled, "SELECT c.name, n.name FROM customer c JOIN nation n ON c.custkey = n.nationkey WHERE n.name = 'POLAND'"))
-                    .isFullyPushedDown();
-
-            // join on varchar columns
-            assertThat(query(joinPushdownEnabled, "SELECT n.name, n2.regionkey FROM nation n JOIN nation n2 ON n.name = n2.name"))
                     .isFullyPushedDown();
         }
     }

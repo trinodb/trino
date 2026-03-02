@@ -24,6 +24,7 @@ import io.trino.spi.function.SqlType;
 import io.trino.spi.type.StandardTypes;
 
 import java.util.Map;
+import java.util.Map.Entry;
 
 import static io.trino.spi.type.RealType.REAL;
 import static java.lang.Float.floatToRawIntBits;
@@ -61,7 +62,7 @@ public final class RealHistogramAggregation
         else {
             Map<Double, Double> value = state.get().getBuckets();
             ((MapBlockBuilder) out).buildEntry((keyBuilder, valueBuilder) -> {
-                for (Map.Entry<Double, Double> entry : value.entrySet()) {
+                for (Entry<Double, Double> entry : value.entrySet()) {
                     REAL.writeLong(keyBuilder, floatToRawIntBits(entry.getKey().floatValue()));
                     REAL.writeLong(valueBuilder, floatToRawIntBits(entry.getValue().floatValue()));
                 }

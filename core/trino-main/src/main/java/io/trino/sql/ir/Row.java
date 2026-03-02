@@ -29,19 +29,13 @@ public record Row(List<Expression> items, Type type)
 {
     public Row(List<Expression> items)
     {
-        this(items, RowType.anonymous(items.stream().map(io.trino.sql.ir.Expression::type).collect(Collectors.toList())));
+        this(items, RowType.anonymous(items.stream().map(Expression::type).toList()));
     }
 
     public Row
     {
         requireNonNull(items, "items is null");
         items = ImmutableList.copyOf(items);
-    }
-
-    @Override
-    public Type type()
-    {
-        return type;
     }
 
     @Override

@@ -541,7 +541,7 @@ public final class Session
     public SessionRepresentation toSessionRepresentation()
     {
         return new SessionRepresentation(
-                queryId.toString(),
+                queryId.id(),
                 querySpan,
                 transactionId,
                 clientTransactionSupport,

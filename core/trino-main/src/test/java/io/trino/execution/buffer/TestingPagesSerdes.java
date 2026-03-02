@@ -13,17 +13,17 @@
  */
 package io.trino.execution.buffer;
 
-import io.trino.metadata.BlockEncodingManager;
 import io.trino.metadata.InternalBlockEncodingSerde;
 
 import static io.trino.execution.buffer.CompressionCodec.NONE;
+import static io.trino.testing.PlanTester.TESTING_BLOCK_ENCODING_MANAGER;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 
 public final class TestingPagesSerdes
 {
     private TestingPagesSerdes() {}
 
-    private static final InternalBlockEncodingSerde BLOCK_ENCODING_SERDE = new InternalBlockEncodingSerde(new BlockEncodingManager(), TESTING_TYPE_MANAGER);
+    private static final InternalBlockEncodingSerde BLOCK_ENCODING_SERDE = new InternalBlockEncodingSerde(TESTING_BLOCK_ENCODING_MANAGER, TESTING_TYPE_MANAGER);
 
     public static PagesSerdeFactory createTestingPagesSerdeFactory()
     {

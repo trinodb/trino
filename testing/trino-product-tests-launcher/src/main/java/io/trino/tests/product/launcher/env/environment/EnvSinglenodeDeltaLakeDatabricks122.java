@@ -33,6 +33,7 @@ public class EnvSinglenodeDeltaLakeDatabricks122
     @Override
     String databricksTestJdbcUrl()
     {
+        // we already put `EnableArrow=0` in ci variable to disable the arrow usage
         return requireEnv("DATABRICKS_122_JDBC_URL");
     }
 }

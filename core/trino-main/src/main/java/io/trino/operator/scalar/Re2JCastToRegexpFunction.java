@@ -22,7 +22,9 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.function.BoundSignature;
 import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.Signature;
+import io.trino.spi.type.CharType;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.VarcharType;
 import io.trino.type.Re2JRegexp;
 
 import java.lang.invoke.MethodHandle;
@@ -73,12 +75,18 @@ public class Re2JCastToRegexpFunction
     protected SpecializedSqlScalarFunction specialize(BoundSignature boundSignature)
     {
         Type inputType = boundSignature.getArgumentType(0);
-        Long typeLength = inputType.getTypeSignature().getParameters().get(0).getLongLiteral();
+
+        int length = switch (inputType) {
+            case CharType charType -> charType.getLength();
+            case VarcharType varcharType -> varcharType.getLength().orElse(VarcharType.MAX_LENGTH);
+            default -> throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Type %s is not supported for cast to regexp".formatted(inputType));
+        };
+
         return new ChoicesSpecializedSqlScalarFunction(
                 boundSignature,
                 FAIL_ON_NULL,
                 ImmutableList.of(NEVER_NULL),
-                insertArguments(METHOD_HANDLE, 0, dfaStatesLimit, dfaRetries, padSpaces, typeLength));
+                insertArguments(METHOD_HANDLE, 0, dfaStatesLimit, dfaRetries, padSpaces, length));
     }
 
     @UsedByGeneratedCode

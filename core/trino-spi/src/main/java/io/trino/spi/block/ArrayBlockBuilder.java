@@ -21,7 +21,6 @@ import java.util.Arrays;
 import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.trino.spi.block.ArrayBlock.createArrayBlockInternal;
-import static io.trino.spi.block.BlockUtil.appendRawBlockRange;
 import static io.trino.spi.block.BlockUtil.calculateNewArraySize;
 import static java.lang.Math.max;
 import static java.util.Objects.checkIndex;
@@ -120,6 +119,45 @@ public class ArrayBlockBuilder
         currentEntryOpened = false;
     }
 
+    public ArrayEntryBuilder buildEntry()
+    {
+        return new ArrayEntryBuilderImplementation();
+    }
+
+    private class ArrayEntryBuilderImplementation
+            implements ArrayEntryBuilder
+    {
+        private boolean entryBuilt;
+
+        public ArrayEntryBuilderImplementation()
+        {
+            if (currentEntryOpened) {
+                throw new IllegalStateException("Expected current entry to be closed but was opened");
+            }
+            currentEntryOpened = true;
+        }
+
+        @Override
+        public BlockBuilder getElementBuilder()
+        {
+            if (entryBuilt || !currentEntryOpened) {
+                throw new IllegalStateException("Entry has already been built");
+            }
+            return values;
+        }
+
+        @Override
+        public void build()
+        {
+            if (entryBuilt || !currentEntryOpened) {
+                throw new IllegalStateException("Entry has already been built");
+            }
+            entryBuilt = true;
+            entryAdded(false);
+            currentEntryOpened = false;
+        }
+    }
+
     @Override
     public void append(ValueBlock block, int position)
     {
@@ -138,7 +176,7 @@ public class ArrayBlockBuilder
         int startOffset = offsets[offsetBase + position];
         int length = offsets[offsetBase + position + 1] - startOffset;
 
-        appendRawBlockRange(arrayBlock.getRawElementBlock(), startOffset, length, values);
+        values.appendBlockRange(arrayBlock.getRawElementBlock(), startOffset, length);
         entryAdded(false);
     }
 
@@ -169,7 +207,7 @@ public class ArrayBlockBuilder
         int startOffset = rawOffsets[rawOffsetBase + offset];
         int endOffset = rawOffsets[rawOffsetBase + offset + length];
 
-        appendRawBlockRange(arrayBlock.getRawElementBlock(), startOffset, endOffset - startOffset, values);
+        values.appendBlockRange(arrayBlock.getRawElementBlock(), startOffset, endOffset - startOffset);
 
         // update offsets for copied data
         for (int i = 0; i < length; i++) {
@@ -180,12 +218,15 @@ public class ArrayBlockBuilder
         boolean[] rawValueIsNull = arrayBlock.getRawValueIsNull();
         if (rawValueIsNull != null) {
             for (int i = 0; i < length; i++) {
-                if (rawValueIsNull[rawOffsetBase + offset + i]) {
-                    valueIsNull[positionCount + i] = true;
-                    hasNullValue = true;
+                boolean isNull = rawValueIsNull[rawOffsetBase + offset + i];
+                hasNullValue |= isNull;
+                hasNonNullValue |= !isNull;
+                if (hasNullValue & hasNonNullValue) {
+                    System.arraycopy(rawValueIsNull, rawOffsetBase + offset + i, valueIsNull, positionCount + i, length - i);
+                    break;
                 }
                 else {
-                    hasNonNullValue = true;
+                    valueIsNull[positionCount + i] = isNull;
                 }
             }
         }

@@ -43,8 +43,9 @@ import org.junit.jupiter.params.provider.MethodSource;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.file.Path;
-import java.nio.file.Paths;
+import java.util.Arrays;
 import java.util.List;
+import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 import static com.google.common.base.Preconditions.checkState;
@@ -148,9 +149,32 @@ public abstract class BaseCostBasedPlanTest
         assertThat(generateQueryPlan(readQuery(queryResourcePath))).isEqualTo(read(getQueryPlanResourcePath(queryResourcePath)));
     }
 
+    protected void assertExplainAnalyzePlan(String queryResourcePath)
+    {
+        String query = readQuery(queryResourcePath);
+
+        String queryPlan = generateQueryPlan(query);
+        String explainAnalyzeQueryPlan = generateQueryPlan("EXPLAIN ANALYZE " + query);
+        String[] explainAnalyzeLines = explainAnalyzeQueryPlan.split("\n");
+
+        // for EXPLAIN ANALYZE, the first two lines reflect the additional root fragment containing the ExplainAnalyze operator
+        assertThat(String.join("\n", Arrays.copyOfRange(explainAnalyzeLines, 0, 2)) + "\n")
+                .isEqualTo("""
+                           local exchange (GATHER, SINGLE, [])
+                               remote exchange (GATHER, SINGLE, [])
+                           """);
+
+        // the remaining lines should match the original query plan, except for the indentation
+        explainAnalyzeQueryPlan = Arrays.stream(Arrays.copyOfRange(explainAnalyzeLines, 2, explainAnalyzeLines.length))
+                .map(line -> line.replaceFirst("^ {8}", ""))
+                .collect(Collectors.joining("\n")) + "\n";
+
+        assertThat(queryPlan).isEqualTo(explainAnalyzeQueryPlan);
+    }
+
     private String getQueryPlanResourcePath(String queryResourcePath)
     {
-        Path queryPath = Paths.get(queryResourcePath);
+        Path queryPath = Path.of(queryResourcePath);
         String connectorName = getPlanTester().getCatalogManager().getCatalog(new CatalogName(CATALOG_NAME)).orElseThrow().getConnectorName().toString();
         Path directory = queryPath.getParent();
         directory = directory.resolve(connectorName);
@@ -168,7 +192,7 @@ public abstract class BaseCostBasedPlanTest
                     .parallel()
                     .forEach(queryResourcePath -> {
                         try {
-                            Path queryPlanWritePath = Paths.get(
+                            Path queryPlanWritePath = Path.of(
                                     getSourcePath().toString(),
                                     "src/test/resources",
                                     getQueryPlanResourcePath(queryResourcePath));
@@ -225,7 +249,7 @@ public abstract class BaseCostBasedPlanTest
 
     private Path getSourcePath()
     {
-        Path workingDir = Paths.get(System.getProperty("user.dir"));
+        Path workingDir = Path.of(System.getProperty("user.dir"));
         verify(isDirectory(workingDir), "Working directory is not a directory");
         if (isDirectory(workingDir.resolve(".git"))) {
             // Top-level of the repo

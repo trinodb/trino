@@ -33,7 +33,7 @@ import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.parallel.Execution;
 
-import java.nio.file.Paths;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -337,7 +337,7 @@ public class TestMemoryManager
                     // The user memory enforcement is tested in testQueryTotalMemoryLimit().
                     // Total memory = user memory + revocable memory.
                     .put("spill-enabled", "true")
-                    .put("spiller-spill-path", Paths.get(System.getProperty("java.io.tmpdir"), "trino", "spills", randomUUID().toString()).toString())
+                    .put("spiller-spill-path", Path.of(System.getProperty("java.io.tmpdir"), "trino", "spills", randomUUID().toString()).toString())
                     .put("spiller-max-used-space-threshold", "1.0")
                     .buildOrThrow();
             try (QueryRunner queryRunner = createQueryRunner(SESSION, properties)) {

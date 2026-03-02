@@ -64,7 +64,6 @@ import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.getParquetWri
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.getParquetWriterPageValueCount;
 import static io.trino.plugin.deltalake.DeltaLakeTypes.toParquetType;
 import static io.trino.plugin.hive.HiveCompressionCodecs.toCompressionCodec;
-import static java.lang.Math.min;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.UUID.randomUUID;
@@ -74,8 +73,6 @@ public abstract class AbstractDeltaLakePageSink
         implements ConnectorPageSink
 {
     private static final Logger LOG = Logger.get(AbstractDeltaLakePageSink.class);
-
-    private static final int MAX_PAGE_POSITIONS = 4096;
 
     private final TypeOperators typeOperators;
     private final List<DeltaLakeColumnHandle> dataColumnHandles;
@@ -268,13 +265,7 @@ public abstract class AbstractDeltaLakePageSink
     @Override
     public CompletableFuture<?> appendPage(Page page)
     {
-        int writeOffset = 0;
-        while (writeOffset < page.getPositionCount()) {
-            Page chunk = page.getRegion(writeOffset, min(page.getPositionCount() - writeOffset, MAX_PAGE_POSITIONS));
-            writeOffset += chunk.getPositionCount();
-            writePage(chunk);
-        }
-
+        writePage(page);
         return NOT_BLOCKED;
     }
 

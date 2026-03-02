@@ -17,6 +17,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.inject.Injector;
 import com.google.inject.Key;
+import com.google.inject.Scopes;
 import io.airlift.bootstrap.Bootstrap;
 import io.airlift.discovery.client.ServiceSelector;
 import io.airlift.discovery.client.testing.TestingDiscoveryModule;
@@ -29,9 +30,9 @@ import io.airlift.node.testing.TestingNodeModule;
 import io.trino.execution.QueryManagerConfig;
 import io.trino.failuredetector.HeartbeatFailureDetector.Stats;
 import io.trino.server.InternalCommunicationConfig;
+import io.trino.server.StartupStatus;
 import io.trino.server.security.SecurityConfig;
-import jakarta.ws.rs.GET;
-import jakarta.ws.rs.Path;
+import io.trino.spi.NodeVersion;
 import org.junit.jupiter.api.Test;
 
 import java.net.SocketTimeoutException;
@@ -40,7 +41,6 @@ import java.net.URI;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.airlift.discovery.client.DiscoveryBinder.discoveryBinder;
 import static io.airlift.discovery.client.ServiceTypes.serviceType;
-import static io.airlift.jaxrs.JaxrsBinder.jaxrsBinder;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestHeartbeatFailureDetector
@@ -52,26 +52,27 @@ public class TestHeartbeatFailureDetector
                 new TestingNodeModule(),
                 new TestingJmxModule(),
                 new TestingDiscoveryModule(),
-                new TestingHttpServerModule(),
+                new TestingHttpServerModule("test-heartbeat-failure-detector"),
                 new JsonModule(),
                 new JaxrsModule(),
                 new FailureDetectorModule(),
                 binder -> {
+                    binder.bind(NodeVersion.class).toInstance(NodeVersion.UNKNOWN);
                     configBinder(binder).bindConfig(SecurityConfig.class);
                     configBinder(binder).bindConfig(InternalCommunicationConfig.class);
                     configBinder(binder).bindConfig(QueryManagerConfig.class);
                     discoveryBinder(binder).bindSelector("trino");
                     discoveryBinder(binder).bindHttpAnnouncement("trino");
-
-                    // Jersey with jetty 9 requires at least one resource
-                    // todo add a dummy resource to airlift jaxrs in this case
-                    jaxrsBinder(binder).bind(FooResource.class);
+                    binder.bind(StartupStatus.class).in(Scopes.SINGLETON);
                 });
 
         Injector injector = app
                 .doNotInitializeLogging()
                 .quiet()
                 .initialize();
+
+        StartupStatus startupStatus = injector.getInstance(StartupStatus.class);
+        startupStatus.startupComplete();
 
         ServiceSelector selector = injector.getInstance(Key.get(ServiceSelector.class, serviceType("trino")));
         assertThat(selector.selectAllServices()).hasSize(1);
@@ -100,15 +101,5 @@ public class TestHeartbeatFailureDetector
         deserialized = objectMapper.readTree(serialized);
         assertThat(deserialized.get("lastFailureInfo").isNull()).isFalse();
         assertThat(deserialized.get("lastFailureInfo").get("type").asText()).isEqualTo(SocketTimeoutException.class.getName());
-    }
-
-    @Path("/foo")
-    public static final class FooResource
-    {
-        @GET
-        public static String hello()
-        {
-            return "hello";
-        }
     }
 }

@@ -13,6 +13,9 @@
  */
 package io.trino.spi.block;
 
+import com.google.common.collect.ImmutableList;
+import io.trino.spi.PageBuilder;
+import io.trino.spi.type.ArrayType;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
@@ -26,7 +29,7 @@ import static java.lang.Long.BYTES;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-public class TestArrayBlockBuilder
+final class TestArrayBlockBuilder
         extends AbstractTestBlockBuilder<List<String>>
 {
     // ArrayBlockBuilder: isNull, offset, 3 * value (FixedWidthBlockBuilder: isNull, value)
@@ -36,14 +39,15 @@ public class TestArrayBlockBuilder
     @Test
     public void testArrayBlockIsFull()
     {
-        testIsFull(new PageBuilderStatus(THREE_INTS_ENTRY_SIZE * EXPECTED_ENTRY_COUNT));
+        testIsFull(PageBuilder.withMaxPageSize(THREE_INTS_ENTRY_SIZE * EXPECTED_ENTRY_COUNT, ImmutableList.of(new ArrayType(BIGINT))));
     }
 
-    private void testIsFull(PageBuilderStatus pageBuilderStatus)
+    private void testIsFull(PageBuilder pageBuilder)
     {
-        ArrayBlockBuilder blockBuilder = new ArrayBlockBuilder(BIGINT, pageBuilderStatus.createBlockBuilderStatus(), EXPECTED_ENTRY_COUNT);
-        assertThat(pageBuilderStatus.isEmpty()).isTrue();
-        while (!pageBuilderStatus.isFull()) {
+        ArrayBlockBuilder blockBuilder = (ArrayBlockBuilder) pageBuilder.getBlockBuilder(0);
+        assertThat(pageBuilder.isEmpty()).isTrue();
+        while (!pageBuilder.isFull()) {
+            pageBuilder.declarePosition();
             blockBuilder.buildEntry(elementBuilder -> {
                 BIGINT.writeLong(elementBuilder, 12);
                 elementBuilder.appendNull();
@@ -51,7 +55,7 @@ public class TestArrayBlockBuilder
             });
         }
         assertThat(blockBuilder.getPositionCount()).isEqualTo(EXPECTED_ENTRY_COUNT);
-        assertThat(pageBuilderStatus.isFull()).isEqualTo(true);
+        assertThat(pageBuilder.isFull()).isEqualTo(true);
     }
 
     //TODO we should systematically test Block::getRetainedSizeInBytes()
@@ -92,6 +96,56 @@ public class TestArrayBlockBuilder
 
         // multiple nulls
         assertIsAllNulls(blockBuilder().appendNull().appendNull().build(), 2);
+    }
+
+    @Test
+    void buildEntry()
+    {
+        List<List<String>> values = getTestValues();
+        assertThat(values)
+                .hasSize(5)
+                .doesNotHaveDuplicates()
+                .doesNotContainNull();
+
+        ArrayBlockBuilder blockBuilder = (ArrayBlockBuilder) createBlockBuilder();
+        for (List<String> array : values) {
+            blockBuilder.buildEntry(elementBuilder -> {
+                for (String element : array) {
+                    if (element == null) {
+                        elementBuilder.appendNull();
+                    }
+                    else {
+                        VARCHAR.writeString(elementBuilder, element);
+                    }
+                }
+            });
+        }
+        assertThat(blockToValues(blockBuilder.buildValueBlock())).isEqualTo(values);
+
+        blockBuilder = (ArrayBlockBuilder) createBlockBuilder();
+        for (List<String> array : values) {
+            ArrayEntryBuilder arrayEntryBuilder = blockBuilder.buildEntry();
+            for (String element : array) {
+                if (element == null) {
+                    arrayEntryBuilder.getElementBuilder().appendNull();
+                }
+                else {
+                    VARCHAR.writeString(arrayEntryBuilder.getElementBuilder(), element);
+                }
+            }
+            arrayEntryBuilder.build();
+        }
+        assertThat(blockToValues(blockBuilder.buildValueBlock())).isEqualTo(values);
+
+        blockBuilder = (ArrayBlockBuilder) createBlockBuilder();
+        blockBuilder.buildEntry();
+        assertThatThrownBy(blockBuilder::buildEntry).isInstanceOf(IllegalStateException.class);
+
+        blockBuilder = (ArrayBlockBuilder) createBlockBuilder();
+        ArrayEntryBuilder multipleEntryBuilder = blockBuilder.buildEntry();
+        multipleEntryBuilder.build();
+        assertThatThrownBy(multipleEntryBuilder::getElementBuilder).isInstanceOf(IllegalStateException.class);
+        assertThatThrownBy(multipleEntryBuilder::build).isInstanceOf(IllegalStateException.class);
     }
 
     private static BlockBuilder blockBuilder()

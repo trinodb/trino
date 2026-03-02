@@ -45,6 +45,7 @@ import java.lang.invoke.MethodHandle;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.function.Function;
@@ -172,7 +173,7 @@ public class DeltaLakePartitionsTable
             statisticsByPartition = getStatisticsByPartition(activeFiles);
         }
 
-        for (Map.Entry<Map<String, Optional<String>>, DeltaLakePartitionStatistics> partitionEntry : statisticsByPartition.entrySet()) {
+        for (Entry<Map<String, Optional<String>>, DeltaLakePartitionStatistics> partitionEntry : statisticsByPartition.entrySet()) {
             Map<String, Optional<String>> partitionValue = partitionEntry.getKey();
             DeltaLakePartitionStatistics deltaLakePartitionStatistics = partitionEntry.getValue();
 
@@ -224,7 +225,7 @@ public class DeltaLakePartitionsTable
         });
 
         return partitionValueStatistics.entrySet().stream()
-                .collect(toImmutableMap(Map.Entry::getKey, entry -> entry.getValue().build()));
+                .collect(toImmutableMap(Entry::getKey, entry -> entry.getValue().build()));
     }
 
     private List<DeltaLakeColumnHandle> getPartitionColumns()

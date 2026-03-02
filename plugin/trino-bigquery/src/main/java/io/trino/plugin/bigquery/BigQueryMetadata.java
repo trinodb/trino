@@ -103,6 +103,7 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Set;
@@ -377,8 +378,8 @@ public class BigQueryMetadata
             //BigLake tables are external with connectionId that don't have objectMetadata (ObjectTable discriminator) and their uri starts with gs:// (OMNI table discriminator)
             List<String> sourceUris = externalTableDefinition.getSourceUris();
             return !isNullOrEmpty(externalTableDefinition.getConnectionId()) &&
-                   isNullOrEmpty(externalTableDefinition.getObjectMetadata()) &&
-                   (sourceUris != null && sourceUris.stream().allMatch(uri -> uri.startsWith("gs://")));
+                    isNullOrEmpty(externalTableDefinition.getObjectMetadata()) &&
+                    (sourceUris != null && sourceUris.stream().allMatch(uri -> uri.startsWith("gs://")));
         }
         return false;
     }
@@ -724,7 +725,7 @@ public class BigQueryMetadata
                     targetTable.projectId(),
                     targetTable.datasetName(),
                     generateTemporaryTableName(session));
-            createTable(client, pageSinkTable.projectId(), pageSinkTable.datasetName(), pageSinkTable.tableName(), ImmutableList.of(typeManager.toField(pageSinkIdColumnName, TRINO_PAGE_SINK_ID_COLUMN_TYPE, null)), Optional.empty());
+            createTable(client, pageSinkTable.projectId(), pageSinkTable.datasetName(), pageSinkTable.tableName(), ImmutableList.of(typeManager.toField(pageSinkIdColumnName, TRINO_PAGE_SINK_ID_COLUMN_TYPE, Optional.empty())), Optional.empty());
             closer.register(() -> bigQueryClientFactory.create(session).dropTable(pageSinkTable.toTableId()));
 
             insertIntoSinkTable(session, pageSinkTable, pageSinkIdColumnName, fragments);
@@ -956,7 +957,7 @@ public class BigQueryMetadata
         ImmutableMap.Builder<ConnectorExpression, Variable> newVariablesBuilder = ImmutableMap.builder();
         ImmutableSet.Builder<BigQueryColumnHandle> projectedColumnsBuilder = ImmutableSet.builder();
 
-        for (Map.Entry<ConnectorExpression, ProjectedColumnRepresentation> entry : columnProjections.entrySet()) {
+        for (Entry<ConnectorExpression, ProjectedColumnRepresentation> entry : columnProjections.entrySet()) {
             ConnectorExpression expression = entry.getKey();
             ProjectedColumnRepresentation projectedColumn = entry.getValue();
 
@@ -1068,7 +1069,7 @@ public class BigQueryMetadata
             Map<ColumnHandle, Domain> supported = new HashMap<>();
             Map<ColumnHandle, Domain> unsupported = new HashMap<>();
 
-            for (Map.Entry<ColumnHandle, Domain> entry : domains.entrySet()) {
+            for (Entry<ColumnHandle, Domain> entry : domains.entrySet()) {
                 BigQueryColumnHandle columnHandle = (BigQueryColumnHandle) entry.getKey();
                 Domain domain = entry.getValue();
                 if (columnHandle.isPushdownSupported()) {

@@ -13,6 +13,7 @@
  */
 package io.trino.type;
 
+import io.trino.spi.type.SqlNumber;
 import io.trino.sql.query.QueryAssertions;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -422,6 +423,22 @@ public class TestIntegerOperators
     }
 
     @Test
+    public void testCastToNumber()
+    {
+        assertThat(assertions.expression("CAST(a AS number)")
+                .binding("a", "INTEGER '37'"))
+                .isEqualTo(new SqlNumber("37"));
+
+        assertThat(assertions.expression("CAST(a AS number)")
+                .binding("a", "INTEGER '-1000017'"))
+                .isEqualTo(new SqlNumber("-1000017"));
+
+        assertThat(assertions.expression("CAST(a AS number)")
+                .binding("a", "INTEGER '0'"))
+                .isEqualTo(new SqlNumber("0"));
+    }
+
+    @Test
     public void testCastToVarchar()
     {
         assertThat(assertions.expression("cast(a as varchar)")
@@ -464,7 +481,7 @@ public class TestIntegerOperators
     }
 
     @Test
-    public void testCastToFloat()
+    public void testCastToReal()
     {
         assertThat(assertions.expression("cast(a as real)")
                 .binding("a", "INTEGER '37'"))

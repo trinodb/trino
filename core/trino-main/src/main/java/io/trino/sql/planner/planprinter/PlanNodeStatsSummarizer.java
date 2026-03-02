@@ -46,7 +46,7 @@ public final class PlanNodeStatsSummarizer
     public static Map<PlanNodeId, PlanNodeStats> aggregateStageStats(List<StageInfo> stageInfos)
     {
         return aggregateTaskStats(stageInfos.stream()
-                .flatMap(s -> s.getTasks().stream())
+                .flatMap(s -> s.tasks().stream())
                 .collect(toList()));
     }
 
@@ -92,7 +92,7 @@ public final class PlanNodeStatsSummarizer
         Map<PlanNodeId, Map<String, BasicOperatorStats>> basicOperatorStats = new HashMap<>();
         Map<PlanNodeId, WindowOperatorStats> windowNodeStats = new HashMap<>();
 
-        for (PipelineStats pipelineStats : taskStats.getPipelines()) {
+        for (PipelineStats pipelineStats : taskStats.pipelines()) {
             // Due to eventual consistently collected stats, these could be empty
             if (pipelineStats.getOperatorSummaries().isEmpty()) {
                 continue;

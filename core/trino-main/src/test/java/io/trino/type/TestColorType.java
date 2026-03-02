@@ -35,7 +35,7 @@ public class TestColorType
     @Test
     public void testGetObjectValue()
     {
-        int[] valuesOfInterest = new int[] {0, 1, 15, 16, 127, 128, 255};
+        int[] valuesOfInterest = {0, 1, 15, 16, 127, 128, 255};
         BlockBuilder builder = COLOR.createFixedSizeBlockBuilder(valuesOfInterest.length * valuesOfInterest.length * valuesOfInterest.length);
         for (int r : valuesOfInterest) {
             for (int g : valuesOfInterest) {

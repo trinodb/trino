@@ -1,27 +1,33 @@
 # Development
 
+In this document you can find information about developing Trino.
+
+* [Trino organization](#trino-organization)
+* [Trino developer guide](#trino-developer-guide)
+* [Code style](#code-style)
+* [Additional IDE configuration](#additional-ide-configuration)
+* [Building docs](#building-docs)
+* [Building the Web UI](#building-the-web-ui)
+* [Releases](#releases)
+
+## Trino organization
+
 Learn about development for all Trino organization projects:
 
 * [Vision](https://trino.io/development/vision)
 * [Contribution process](https://trino.io/development/process#contribution-process)
-* [Pull request and commit guidelines](https://trino.io/development/process#pull-request-and-commit-guidelines-)
-* [Release note guidelines](https://trino.io/development/process#release-note-guidelines-)
+* [Pull request and commit guidelines](https://trino.io/development/process#pull-request-and-commit-guidelines)
+* [Release note guidelines](https://trino.io/development/process#release-note-guidelines)
 
 Further information in the [development section of the
 website](https://trino.io/development) includes different roles, like
 contributors, reviewers, and maintainers, related processes, and other aspects.
 
+## Trino developer guide
+
 See [the Trino developer guide](https://trino.io/docs/current/develop.html) for
-information about the SPI, implementing connectors and other plugins plugins,
+information about the SPI, implementing connectors and other plugins,
 the client protocol, writing tests and other lower level details.
-
-More information about writing and building the documentation can be found in
-the [docs module](../docs).
-
-* [Code style](#code-style)
-* [Additional IDE configuration](#additional-ide-configuration)
-* [Building the Web UI](#building-the-web-ui)
-* [CI pipeline](#ci-pipeline)
 
 ## Code Style
 
@@ -138,6 +144,35 @@ allows static code analysis tools (e.g. Error Prone's `MissingCasesInEnumSwitch`
 check) report a problem when the enum definition is updated but the code using
 it is not.
 
+### Vector API
+It's safe to assume that the JVM has the Vector API
+([JEP 508](https://openjdk.org/jeps/508)) enabled and available at runtime, but
+not safe to assume that the Vector API implementation will perform faster than
+equivalent scalar code on whatever hardware the engine happens to be running on.
+
+Different CPU hardware can exhibit dramatically different performance
+characteristics, so it's important to use hardware feature detection to
+determine under which scenarios a vectorized approach will be faster for
+each implementation. Vectorized code should be tested on AMD, ARM, and Intel
+CPUs to verify the benefits hold on each of those platforms before deciding
+to enable a given code path on each of those platforms. Also note that ARM CPUs
+can exhibit significant differences from between hardware generations as well
+as between Apple Silicon and datacenter class CPUs.
+
+When adding implementations that use the Vector API, prefer the following
+approach unless the specifics of the situation dictate otherwise:
+* Provide an equivalent scalar implementation in code, if one does not already
+exist.
+* Use configuration flags and hardware support detection to ensure that
+vectorized implementation is only selected when running on hardware where it is
+expected to perform better than its scalar equivalent.
+* Add tests that ensure the behavior of the vectorized and scalar
+implementations match.
+* Include micro-benchmarks that demonstrate the performance benefits of the
+vectorized implementation compared to the scalar equivalent logic. Ensure that
+the benefits hold for all CPU architectures on which the vectorized
+implementation is enabled.
+
 ## Keep pom.xml clean and sorted
 
 There are several plugins in place to keep pom.xml clean.
@@ -213,6 +248,11 @@ with `@Language`:
   statement (or any other language, like regular expressions),
 - Local variables which otherwise would not be properly recognized by IDE for
   language injection.
+
+## Building docs
+
+Information about writing and building the documentation can be found in
+the [docs module](../docs).
 
 ## Building the Web UI
 

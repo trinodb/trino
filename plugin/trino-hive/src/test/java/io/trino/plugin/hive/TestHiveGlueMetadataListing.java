@@ -28,7 +28,10 @@ import io.trino.tpch.TpchTable;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
 import software.amazon.awssdk.services.glue.GlueClient;
+import software.amazon.awssdk.services.glue.model.Column;
 import software.amazon.awssdk.services.glue.model.CreateTableRequest;
+import software.amazon.awssdk.services.glue.model.SerDeInfo;
+import software.amazon.awssdk.services.glue.model.StorageDescriptor;
 import software.amazon.awssdk.services.glue.model.TableInput;
 
 import java.nio.file.Path;
@@ -49,6 +52,8 @@ public class TestHiveGlueMetadataListing
 {
     public static final String FAILING_TABLE_WITH_NULL_STORAGE_DESCRIPTOR_NAME = "failing_table_with_null_storage_descriptor";
     public static final String FAILING_TABLE_WITH_NULL_TYPE = "failing_table_with_null_type";
+    public static final String FAILING_TABLE_WITH_BAD_HIVE_TYPE = "failing_table_with_bad_hive_type";
+    public static final String FAILING_TABLE_WITH_NULL_SERDE = "failing_table_with_null_serde";
     private static final Logger LOG = Logger.get(TestHiveGlueMetadataListing.class);
     private static final String HIVE_CATALOG = "hive";
     private final String tpchSchema = "test_tpch_schema_" + randomNameSuffix();
@@ -106,6 +111,8 @@ public class TestHiveGlueMetadataListing
                 .add(TpchTable.NATION.getTableName())
                 .add(FAILING_TABLE_WITH_NULL_STORAGE_DESCRIPTOR_NAME)
                 .add(FAILING_TABLE_WITH_NULL_TYPE)
+                .add(FAILING_TABLE_WITH_BAD_HIVE_TYPE)
+                .add(FAILING_TABLE_WITH_NULL_SERDE)
                 .build();
 
         assertThat(computeActual("SELECT table_name FROM hive.information_schema.tables").getOnlyColumnAsSet()).containsAll(expectedTables);
@@ -114,6 +121,8 @@ public class TestHiveGlueMetadataListing
                 .isEqualTo(TpchTable.REGION.getTableName());
         assertQueryReturnsEmptyResult(format("SELECT table_name FROM hive.information_schema.tables WHERE table_name = '%s' AND table_schema='%s'", FAILING_TABLE_WITH_NULL_STORAGE_DESCRIPTOR_NAME, tpchSchema));
         assertQueryReturnsEmptyResult(format("SELECT table_name FROM hive.information_schema.tables WHERE table_name = '%s' AND table_schema='%s'", FAILING_TABLE_WITH_NULL_TYPE, tpchSchema));
+        assertQueryReturnsEmptyResult(format("SELECT table_name FROM hive.information_schema.tables WHERE table_name = '%s' AND table_schema='%s'", FAILING_TABLE_WITH_BAD_HIVE_TYPE, tpchSchema));
+        assertQueryReturnsEmptyResult(format("SELECT table_name FROM hive.information_schema.tables WHERE table_name = '%s' AND table_schema='%s'", FAILING_TABLE_WITH_NULL_SERDE, tpchSchema));
 
         assertQuery("SELECT table_name, column_name from hive.information_schema.columns WHERE table_schema = '" + tpchSchema + "'",
                 "VALUES ('region', 'regionkey'), ('region', 'name'), ('region', 'comment'), ('nation', 'nationkey'), ('nation', 'name'), ('nation', 'regionkey'), ('nation', 'comment')");
@@ -121,6 +130,8 @@ public class TestHiveGlueMetadataListing
                 "VALUES ('region', 'regionkey'), ('region', 'name'), ('region', 'comment')");
         assertQueryReturnsEmptyResult(format("SELECT table_name FROM hive.information_schema.columns WHERE table_name = '%s' AND table_schema='%s'", FAILING_TABLE_WITH_NULL_STORAGE_DESCRIPTOR_NAME, tpchSchema));
         assertQueryReturnsEmptyResult(format("SELECT table_name FROM hive.information_schema.columns WHERE table_name = '%s' AND table_schema='%s'", FAILING_TABLE_WITH_NULL_TYPE, tpchSchema));
+        assertQueryReturnsEmptyResult(format("SELECT table_name FROM hive.information_schema.columns WHERE table_name = '%s' AND table_schema='%s'", FAILING_TABLE_WITH_BAD_HIVE_TYPE, tpchSchema));
+        assertQueryReturnsEmptyResult(format("SELECT table_name FROM hive.information_schema.columns WHERE table_name = '%s' AND table_schema='%s'", FAILING_TABLE_WITH_NULL_SERDE, tpchSchema));
 
         assertThat(computeActual("SHOW TABLES FROM hive." + tpchSchema).getOnlyColumnAsSet()).isEqualTo(expectedTables);
     }
@@ -134,7 +145,24 @@ public class TestHiveGlueMetadataListing
         TableInput nullTypeTable = TableInput.builder()
                 .name(FAILING_TABLE_WITH_NULL_TYPE)
                 .build();
-        createBrokenTable(List.of(nullStorageTable, nullTypeTable), dataDirectory);
+        TableInput badHiveTypeTable = TableInput.builder()
+                .name(FAILING_TABLE_WITH_BAD_HIVE_TYPE)
+                .tableType("HIVE")
+                .storageDescriptor(
+                        StorageDescriptor.builder()
+                                .columns(Column.builder().name("badhivetype").type("notarealtype").build())
+                                .serdeInfo(SerDeInfo.builder().serializationLibrary("org.openx.data.jsonserde.JsonSerDe").build())
+                                .build())
+                .build();
+        TableInput nullSerdeTable = TableInput.builder()
+                .name(FAILING_TABLE_WITH_NULL_SERDE)
+                .tableType("HIVE")
+                .storageDescriptor(
+                        StorageDescriptor.builder()
+                                .columns(Column.builder().name("goodhivetype").type("string").build())
+                                .build())
+                .build();
+        createBrokenTable(List.of(nullStorageTable, nullTypeTable, badHiveTypeTable, nullSerdeTable), dataDirectory);
     }
 
     private void createBrokenTable(List<TableInput> tablesInput, Path dataDirectory)

@@ -33,6 +33,10 @@ import static java.lang.String.format;
 public class TDigestHistogram
         implements Distribution<TDigestHistogram>
 {
+    // This is important so that we can instruct Jackson to ignore this property
+    // in certain places (e.g. UiQueryResource)
+    public static final String DIGEST_PROPERTY = "digest";
+
     private final TDigest digest;
 
     public static TDigestHistogram fromValue(double value)
@@ -57,7 +61,7 @@ public class TDigestHistogram
         return TDigest.copyOf(digest);
     }
 
-    @JsonProperty("digest")
+    @JsonProperty(DIGEST_PROPERTY)
     public synchronized byte[] serialize()
     {
         return digest.serialize().getBytes();
@@ -65,7 +69,7 @@ public class TDigestHistogram
 
     @JsonCreator
     @DoNotCall
-    public static TDigestHistogram deserialize(@JsonProperty("digest") byte[] digest)
+    public static TDigestHistogram deserialize(@JsonProperty(DIGEST_PROPERTY) byte[] digest)
     {
         return new TDigestHistogram(TDigest.deserialize(wrappedBuffer(digest)));
     }
@@ -175,9 +179,13 @@ public class TDigestHistogram
     }
 
     @Override
-    public synchronized double getPercentile(double percentile)
+    public synchronized double[] getPercentiles(double... percentiles)
     {
-        return digest.valueAt(percentile / 100.0);
+        double[] digestPercentiles = new double[percentiles.length];
+        for (int i = 0; i < percentiles.length; i++) {
+            digestPercentiles[i] = percentiles[i] / 100.0;
+        }
+        return digest.valuesAt(digestPercentiles);
     }
 
     @Override

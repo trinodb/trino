@@ -43,6 +43,7 @@ import static io.trino.spi.function.InvocationConvention.InvocationArgumentConve
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.FLAT;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NULL_FLAG;
+import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.VALUE_BLOCK_POSITION_NOT_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.BLOCK_BUILDER;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.function.InvocationConvention.simpleConvention;
@@ -231,7 +232,7 @@ public class TypeOperators
         private OperatorMethodHandle selectOperatorMethodHandleToAdapt(OperatorConvention operatorConvention)
         {
             List<OperatorMethodHandle> operatorMethodHandles = getOperatorMethodHandles(operatorConvention).stream()
-                    .sorted(Comparator.comparing(TypeOperators::getScore).reversed())
+                    .sorted(Comparator.comparingInt(TypeOperators::getScore).reversed())
                     .toList();
 
             // if a method handle exists for the exact convention, use it
@@ -496,7 +497,12 @@ public class TypeOperators
             SortOrder sortOrder = operatorConvention.sortOrder().orElseThrow(() -> new IllegalArgumentException("Operator convention does not contain a sort order"));
             OperatorType comparisonType = operatorConvention.operatorType();
             if (operatorConvention.callingConvention().getArgumentConventions().equals(List.of(BLOCK_POSITION, BLOCK_POSITION))) {
-                OperatorConvention comparisonOperator = new OperatorConvention(operatorConvention.type(), comparisonType, Optional.empty(), simpleConvention(FAIL_ON_NULL, BLOCK_POSITION, BLOCK_POSITION));
+                OperatorConvention comparisonOperator = new OperatorConvention(
+                        operatorConvention.type(),
+                        comparisonType,
+                        Optional.empty(),
+                        // null positions are handled separately in adaptBlockPositionComparisonToOrdering and not used in the comparison
+                        simpleConvention(FAIL_ON_NULL, BLOCK_POSITION_NOT_NULL, BLOCK_POSITION_NOT_NULL));
                 MethodHandle comparisonInvoker = adaptOperator(comparisonOperator);
                 return adaptBlockPositionComparisonToOrdering(sortOrder, comparisonInvoker);
             }
@@ -538,7 +544,7 @@ public class TypeOperators
             if (argument == NULL_FLAG || argument == FLAT) {
                 score += 100;
             }
-            else if (argument == BLOCK_POSITION) {
+            else if (argument == BLOCK_POSITION || argument == VALUE_BLOCK_POSITION_NOT_NULL) {
                 score += 1;
             }
         }

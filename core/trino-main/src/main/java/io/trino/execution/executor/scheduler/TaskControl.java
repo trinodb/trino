@@ -18,7 +18,7 @@ import com.google.errorprone.annotations.ThreadSafe;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
 
 import java.util.Objects;
-import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.LongAdder;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
@@ -53,10 +53,11 @@ final class TaskControl
     private State state;
 
     private volatile long periodStart;
-    private final AtomicLong startNanos = new AtomicLong();
-    private final AtomicLong scheduledNanos = new AtomicLong();
-    private final AtomicLong blockedNanos = new AtomicLong();
-    private final AtomicLong waitNanos = new AtomicLong();
+    private final LongAdder startNanos = new LongAdder();
+    private final LongAdder scheduledNanos = new LongAdder();
+    private final LongAdder blockedNanos = new LongAdder();
+    private final LongAdder waitNanos = new LongAdder();
+    private final int hashCode;
     private volatile Thread thread;
 
     public TaskControl(Group group, int id, Ticker ticker)
@@ -67,6 +68,7 @@ final class TaskControl
         this.state = State.NEW;
         this.ready = false;
         this.periodStart = ticker.read();
+        this.hashCode = Objects.hash(group, id);
     }
 
     public int id()
@@ -273,10 +275,10 @@ final class TaskControl
         long now = ticker.read();
         long elapsed = now - periodStart;
         switch (state) {
-            case RUNNING -> scheduledNanos.addAndGet(elapsed);
-            case BLOCKED -> blockedNanos.addAndGet(elapsed);
-            case NEW -> startNanos.addAndGet(elapsed);
-            case WAITING -> waitNanos.addAndGet(elapsed);
+            case RUNNING -> scheduledNanos.add(elapsed);
+            case BLOCKED -> blockedNanos.add(elapsed);
+            case NEW -> startNanos.add(elapsed);
+            case WAITING -> waitNanos.add(elapsed);
             case INTERRUPTED, FINISHED -> {}
         }
         periodStart = now;
@@ -305,22 +307,22 @@ final class TaskControl
 
     public long getStartNanos()
     {
-        return startNanos.get();
+        return startNanos.longValue();
     }
 
     public long getWaitNanos()
     {
-        return waitNanos.get();
+        return waitNanos.longValue();
     }
 
     public long getScheduledNanos()
     {
-        return scheduledNanos.get();
+        return scheduledNanos.longValue();
     }
 
     public long getBlockedNanos()
     {
-        return blockedNanos.get();
+        return blockedNanos.longValue();
     }
 
     @Override
@@ -339,7 +341,7 @@ final class TaskControl
     @Override
     public int hashCode()
     {
-        return Objects.hash(group, id);
+        return hashCode;
     }
 
     @Override

@@ -113,7 +113,7 @@ public final class TestLongValueDecoders
             public DataBuffer write(ValuesWriter valuesWriter, int dataSize)
             {
                 Random random = new Random(dataSize);
-                long[] constants = new long[] {Long.MIN_VALUE, -111222333444555L, -1412341234L, 0, 4123, 1412341234L, 111222333444555L, Long.MAX_VALUE};
+                long[] constants = {Long.MIN_VALUE, -111222333444555L, -1412341234L, 0, 4123, 1412341234L, 111222333444555L, Long.MAX_VALUE};
                 long[] values = new long[dataSize];
                 for (int i = 0; i < dataSize; i++) {
                     values[i] = constants[random.nextInt(constants.length)];

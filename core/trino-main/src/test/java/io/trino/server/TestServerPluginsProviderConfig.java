@@ -15,8 +15,10 @@ package io.trino.server;
 
 import com.google.common.collect.ImmutableMap;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
-import java.io.File;
+import java.nio.file.Path;
+import java.util.List;
 import java.util.Map;
 
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
@@ -29,16 +31,27 @@ public class TestServerPluginsProviderConfig
     public void testDefaults()
     {
         assertRecordedDefaults(recordDefaults(ServerPluginsProviderConfig.class)
-                .setInstalledPluginsDir(new File("plugin")));
+                .setInstalledPluginsDirs(List.of(Path.of("plugin"))));
     }
 
     @Test
-    public void testExplicitPropertyMappings()
+    public void testExplicitPropertyMappings(@TempDir Path tempDir)
     {
-        Map<String, String> properties = ImmutableMap.of("plugin.dir", "plugins-dir");
+        Map<String, String> properties = ImmutableMap.of("plugin.dir", tempDir.toString());
 
         ServerPluginsProviderConfig expected = new ServerPluginsProviderConfig()
-                .setInstalledPluginsDir(new File("plugins-dir"));
+                .setInstalledPluginsDirs(List.of(tempDir));
+
+        assertFullMapping(properties, expected);
+    }
+
+    @Test
+    public void testExplicitPropertyMappingMultiDir(@TempDir Path tempDir1, @TempDir Path tempDir2)
+    {
+        Map<String, String> properties = ImmutableMap.of("plugin.dir", tempDir1.toString() + "," + tempDir2.toString());
+
+        ServerPluginsProviderConfig expected = new ServerPluginsProviderConfig()
+                .setInstalledPluginsDirs(List.of(tempDir1, tempDir2));
 
         assertFullMapping(properties, expected);
     }

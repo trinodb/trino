@@ -370,7 +370,7 @@ public class PipelinedQueryScheduler
             if (state == DistributedStagesSchedulerState.FAILED) {
                 StageFailureInfo stageFailureInfo = distributedStagesScheduler.getFailureCause()
                         .orElseGet(() -> new StageFailureInfo(toFailure(new VerifyException("distributedStagesScheduler failed but failure cause is not present")), Optional.empty()));
-                ErrorCode errorCode = stageFailureInfo.getFailureInfo().getErrorCode();
+                ErrorCode errorCode = stageFailureInfo.getFailureInfo().errorCode();
                 if (shouldRetry(errorCode)) {
                     long delayInMillis = min(retryInitialDelay.toMillis() * ((long) pow(retryDelayScaleFactor, currentAttempt.get())), retryMaxDelay.toMillis());
                     currentAttempt.incrementAndGet();
@@ -506,7 +506,7 @@ public class PipelinedQueryScheduler
         @Override
         public void taskCreated(PlanFragmentId fragmentId, RemoteTask task)
         {
-            URI taskUri = uriBuilderFrom(task.getTaskStatus().getSelf())
+            URI taskUri = uriBuilderFrom(task.getTaskStatus().self())
                     .appendPath("results")
                     .appendPath("0").build();
             DirectExchangeInput input = new DirectExchangeInput(task.getTaskId(), taskUri.toString());
@@ -1341,7 +1341,7 @@ public class PipelinedQueryScheduler
                         // allow for schedule to resume scheduling (e.g. when some active stage completes
                         // and dependent stages can be started)
                         stagesScheduleResult.getRescheduleFuture().ifPresent(futures::add);
-                        try (TimeStat.BlockTimer timer = schedulerStats.getSleepTime().time()) {
+                        try (TimeStat.BlockTimer _ = schedulerStats.getSleepTime().time()) {
                             tryGetFutureValue(whenAnyComplete(futures.build()), 1, SECONDS);
                         }
                         for (ListenableFuture<Void> blockedStage : blockedStages) {
@@ -1361,17 +1361,12 @@ public class PipelinedQueryScheduler
                 fail(t, Optional.empty());
             }
             finally {
-                RuntimeException closeError = new RuntimeException();
                 for (StageScheduler scheduler : stageSchedulers.values()) {
                     try {
                         scheduler.close();
                     }
                     catch (Throwable t) {
                         fail(t, Optional.empty());
-                        // Self-suppression not permitted
-                        if (closeError != t) {
-                            closeError.addSuppressed(t);
-                        }
                     }
                 }
             }
@@ -1405,7 +1400,7 @@ public class PipelinedQueryScheduler
 
         public void reportTaskFailure(TaskId taskId, Throwable failureCause)
         {
-            StageExecution stageExecution = stageExecutions.get(taskId.getStageId());
+            StageExecution stageExecution = stageExecutions.get(taskId.stageId());
             if (stageExecution == null) {
                 return;
             }
@@ -1416,7 +1411,7 @@ public class PipelinedQueryScheduler
             }
 
             stageExecution.failTask(taskId, failureCause);
-            stateMachine.transitionToFailed(failureCause, Optional.of(taskId.getStageId()));
+            stateMachine.transitionToFailed(failureCause, Optional.of(taskId.stageId()));
             stageExecutions.values().forEach(StageExecution::abort);
         }
 

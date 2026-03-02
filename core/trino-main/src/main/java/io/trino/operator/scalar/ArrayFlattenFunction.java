@@ -75,9 +75,7 @@ public class ArrayFlattenFunction
         for (int i = 0; i < array.getPositionCount(); i++) {
             if (!array.isNull(i)) {
                 Block subArray = (Block) arrayType.getObject(array, i);
-                for (int j = 0; j < subArray.getPositionCount(); j++) {
-                    type.appendTo(subArray, j, builder);
-                }
+                builder.appendBlockRange(subArray, 0, subArray.getPositionCount());
             }
         }
         return builder.build();

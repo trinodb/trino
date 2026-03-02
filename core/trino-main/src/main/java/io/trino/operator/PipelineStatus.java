@@ -13,62 +13,13 @@
  */
 package io.trino.operator;
 
-import com.google.errorprone.annotations.Immutable;
-
-@Immutable
-public final class PipelineStatus
+public record PipelineStatus(
+        int queuedDrivers,
+        int runningDrivers,
+        int blockedDrivers,
+        int queuedPartitionedDrivers,
+        long queuedPartitionedSplitsWeight,
+        int runningPartitionedDrivers,
+        long runningPartitionedSplitsWeight)
 {
-    private final int queuedDrivers;
-    private final int runningDrivers;
-    private final int blockedDrivers;
-    private final int queuedPartitionedDrivers;
-    private final long queuedPartitionedSplitsWeight;
-    private final int runningPartitionedDrivers;
-    private final long runningPartitionedSplitsWeight;
-
-    public PipelineStatus(int queuedDrivers, int runningDrivers, int blockedDrivers, int queuedPartitionedDrivers, long queuedPartitionedSplitsWeight, int runningPartitionedDrivers, long runningPartitionedSplitsWeight)
-    {
-        this.queuedDrivers = queuedDrivers;
-        this.runningDrivers = runningDrivers;
-        this.blockedDrivers = blockedDrivers;
-        this.queuedPartitionedDrivers = queuedPartitionedDrivers;
-        this.queuedPartitionedSplitsWeight = queuedPartitionedSplitsWeight;
-        this.runningPartitionedDrivers = runningPartitionedDrivers;
-        this.runningPartitionedSplitsWeight = runningPartitionedSplitsWeight;
-    }
-
-    public int getQueuedDrivers()
-    {
-        return queuedDrivers;
-    }
-
-    public int getRunningDrivers()
-    {
-        return runningDrivers;
-    }
-
-    public int getBlockedDrivers()
-    {
-        return blockedDrivers;
-    }
-
-    public int getQueuedPartitionedDrivers()
-    {
-        return queuedPartitionedDrivers;
-    }
-
-    public long getQueuedPartitionedSplitsWeight()
-    {
-        return queuedPartitionedSplitsWeight;
-    }
-
-    public int getRunningPartitionedDrivers()
-    {
-        return runningPartitionedDrivers;
-    }
-
-    public long getRunningPartitionedSplitsWeight()
-    {
-        return runningPartitionedSplitsWeight;
-    }
 }

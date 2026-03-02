@@ -17,13 +17,14 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import io.trino.plugin.base.security.TestingSystemAccessControlContext;
+import io.trino.plugin.base.security.testing.TestingSystemAccessControlContext;
 import io.trino.plugin.opa.AccessControlMethodHelpers.MethodWrapper;
 import io.trino.plugin.opa.AccessControlMethodHelpers.ReturningMethodWrapper;
 import io.trino.plugin.opa.AccessControlMethodHelpers.ThrowingMethodWrapper;
 import io.trino.plugin.opa.HttpClientUtils.InstrumentedHttpClient;
 import io.trino.plugin.opa.HttpClientUtils.MockResponse;
 import io.trino.plugin.opa.schema.OpaViewExpression;
+import io.trino.spi.QueryId;
 import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.spi.connector.CatalogSchemaRoutineName;
 import io.trino.spi.connector.CatalogSchemaTableName;
@@ -35,8 +36,10 @@ import io.trino.spi.security.SystemSecurityContext;
 import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.security.ViewExpression;
 import io.trino.spi.type.VarcharType;
+import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -55,6 +58,7 @@ import static io.trino.plugin.opa.TestConstants.BAD_REQUEST_RESPONSE;
 import static io.trino.plugin.opa.TestConstants.MALFORMED_RESPONSE;
 import static io.trino.plugin.opa.TestConstants.NO_ACCESS_RESPONSE;
 import static io.trino.plugin.opa.TestConstants.OK_RESPONSE;
+import static io.trino.plugin.opa.TestConstants.OPA_ADDITIONAL_CONTEXT_FILE;
 import static io.trino.plugin.opa.TestConstants.OPA_COLUMN_MASKING_URI;
 import static io.trino.plugin.opa.TestConstants.OPA_ROW_FILTERING_URI;
 import static io.trino.plugin.opa.TestConstants.OPA_SERVER_URI;
@@ -680,10 +684,49 @@ final class TestOpaAccessControl
                         },
                         "softwareStack": {
                             "trinoVersion": "%s"
+                        },
+                        "properties" : {
                         }
                     }
                 }\
                 """.formatted(expectedTrinoVersion);
+        assertStringRequestsEqual(ImmutableSet.of(expectedRequest), mockClient.getRequests(), "/input");
+    }
+
+    @Test
+    void testRequestContextContentsForAdditionalContext()
+    {
+        InstrumentedHttpClient mockClient = createMockHttpClient(OPA_SERVER_URI, request -> OK_RESPONSE);
+        OpaAccessControl authorizer = (OpaAccessControl) OpaAccessControlFactory.create(
+                ImmutableMap.of("opa.policy.uri", OPA_SERVER_URI.toString(), "opa.context-file", OPA_ADDITIONAL_CONTEXT_FILE.toString()),
+                Optional.of(mockClient),
+                Optional.empty());
+        Identity sampleIdentityWithGroups = Identity.forUser("test_user").withGroups(ImmutableSet.of("some_group")).build();
+
+        authorizer.checkCanExecuteQuery(sampleIdentityWithGroups, TEST_QUERY_ID);
+
+        @Language("JSON")
+        String expectedRequest =
+                """
+                {
+                    "action": {
+                        "operation": "ExecuteQuery"
+                    },
+                    "context": {
+                        "identity": {
+                            "user": "test_user",
+                            "groups": ["some_group"]
+                        },
+                        "softwareStack": {
+                            "trinoVersion": "UNKNOWN"
+                        },
+                        "properties" : {
+                            "namespace" : "some-namespace",
+                            "cluster" : "some-cluster"
+                        }
+                    }
+                }
+                """;
         assertStringRequestsEqual(ImmutableSet.of(expectedRequest), mockClient.getRequests(), "/input");
     }
 
@@ -958,6 +1001,51 @@ final class TestOpaAccessControl
                 methodUnderTest,
                 OpaQueryException.class,
                 "Failed to deserialize");
+    }
+
+
+    @Test
+    public void testQueryIdPropagation()
+    {
+        QueryId queryId = new QueryId("20250718_081710_03427_trino");
+
+        SystemSecurityContext customSecurityContext = new SystemSecurityContext(TEST_IDENTITY, queryId, Instant.now());
+        CatalogSchemaTableName tableName = new CatalogSchemaTableName("my_catalog", "my_schema", "my_table");
+
+        ThrowingMethodWrapper wrappedMethod = new ThrowingMethodWrapper(accessControl ->
+                accessControl.checkCanShowCreateTable(customSecurityContext, tableName));
+
+        String expectedActionRequest =
+                """
+                {
+                    "operation": "ShowCreateTable",
+                    "resource": {
+                        "table": {
+                            "catalogName": "%s",
+                            "schemaName": "%s",
+                            "tableName": "%s"
+                        }
+                    }
+                }
+                """.formatted(
+                        tableName.getCatalogName(),
+                        tableName.getSchemaTableName().getSchemaName(),
+                        tableName.getSchemaTableName().getTableName());
+
+        InstrumentedHttpClient mockClient = createMockHttpClient(OPA_SERVER_URI, request -> {
+            JsonNode contextNode = request.path("input").path("context");
+
+            assertThat(contextNode.path("queryId").asText()).isEqualTo(queryId.id());
+            assertThat(contextNode.path("identity").path("user").asText()).isEqualTo(TEST_IDENTITY.getUser());
+            assertThat(contextNode.path("softwareStack").path("trinoVersion").asText()).isEqualTo("trino-version");
+
+            return OK_RESPONSE;
+        });
+
+        OpaAccessControl authorizer = createOpaAuthorizer(simpleOpaConfig(), mockClient);
+
+        assertThat(wrappedMethod.isAccessAllowed(authorizer)).isTrue();
+        assertStringRequestsEqual(ImmutableSet.of(expectedActionRequest), mockClient.getRequests(), "/input/action");
     }
 
     private void testGetColumnMasks(Map<ColumnSchema, String> columnResponseContent, Map<ColumnSchema, OpaViewExpression> expectedResult)

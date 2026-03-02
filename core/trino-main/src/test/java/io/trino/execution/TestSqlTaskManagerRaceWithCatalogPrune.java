@@ -25,7 +25,6 @@ import io.airlift.tracing.Tracing;
 import io.airlift.units.Duration;
 import io.opentelemetry.api.OpenTelemetry;
 import io.opentelemetry.api.trace.Span;
-import io.trino.Session;
 import io.trino.connector.CatalogConnector;
 import io.trino.connector.CatalogFactory;
 import io.trino.connector.CatalogHandle;
@@ -36,6 +35,7 @@ import io.trino.connector.ConnectorServicesProvider;
 import io.trino.connector.MockConnectorFactory;
 import io.trino.connector.TestingLocalCatalogPruneTask;
 import io.trino.connector.WorkerDynamicCatalogManager;
+import io.trino.exchange.ExchangeManagerConfig;
 import io.trino.exchange.ExchangeManagerRegistry;
 import io.trino.execution.buffer.PipelinedOutputBuffers;
 import io.trino.execution.executor.RunningSplitInfo;
@@ -101,10 +101,16 @@ public class TestSqlTaskManagerRaceWithCatalogPrune
         public void loadInitialCatalogs() {}
 
         @Override
-        public void ensureCatalogsLoaded(Session session, List<CatalogProperties> catalogs) {}
+        public void ensureCatalogsLoaded(List<CatalogProperties> catalogs) {}
 
         @Override
-        public void pruneCatalogs(Set<CatalogHandle> catalogsInUse) {}
+        public PrunableState getPrunableState()
+        {
+            return PrunableState.empty();
+        }
+
+        @Override
+        public void pruneCatalogs(PrunableState prunableState, Set<CatalogHandle> catalogsInUse) {}
 
         @Override
         public ConnectorServices getConnectorServices(CatalogHandle catalogHandle)
@@ -231,7 +237,7 @@ public class TestSqlTaskManagerRaceWithCatalogPrune
         Future<Void> pruneCatalogsFuture = Futures.submit(() ->
         {
             for (int i = 0; i < NUM_TASKS; i++) {
-                catalogPruneTask.pruneWorkerCatalogs();
+                catalogPruneTask.pruneCatalogs();
                 try {
                     Thread.sleep(0, ThreadLocalRandom.current().nextInt(25, 75));
                 }
@@ -270,7 +276,7 @@ public class TestSqlTaskManagerRaceWithCatalogPrune
                 new NodeSpillConfig(),
                 new TestingGcMonitor(),
                 noopTracer(),
-                new ExchangeManagerRegistry(OpenTelemetry.noop(), Tracing.noopTracer(), new SecretsResolver(ImmutableMap.of())),
+                new ExchangeManagerRegistry(OpenTelemetry.noop(), Tracing.noopTracer(), new SecretsResolver(ImmutableMap.of()), new ExchangeManagerConfig()),
                 ignore -> true);
     }
 

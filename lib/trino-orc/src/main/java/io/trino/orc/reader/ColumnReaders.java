@@ -19,6 +19,7 @@ import io.trino.orc.OrcCorruptionException;
 import io.trino.orc.OrcReader;
 import io.trino.orc.OrcReader.FieldMapperFactory;
 import io.trino.orc.metadata.OrcType;
+import io.trino.spi.type.RowType;
 import io.trino.spi.type.TimeType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.UuidType;
@@ -79,7 +80,7 @@ public final class ColumnReaders
             case STRUCT -> new StructColumnReader(type, column, projectedLayout, memoryContext, fieldMapperFactory);
             case MAP -> new MapColumnReader(type, column, memoryContext, fieldMapperFactory);
             case DECIMAL -> new DecimalColumnReader(type, column, memoryContext.newLocalMemoryContext(ColumnReaders.class.getSimpleName()));
-            case UNION -> new UnionColumnReader(type, column, memoryContext, fieldMapperFactory);
+            case UNION -> new UnionColumnReader((RowType) type, column, memoryContext, fieldMapperFactory);
         };
     }
 }

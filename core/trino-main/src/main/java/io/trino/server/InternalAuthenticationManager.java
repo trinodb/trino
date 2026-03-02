@@ -14,7 +14,6 @@
 package io.trino.server;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.hash.Hashing;
 import com.google.inject.Inject;
 import io.airlift.http.client.HttpRequestFilter;
 import io.airlift.http.client.Request;
@@ -28,8 +27,11 @@ import io.trino.spi.security.Identity;
 import jakarta.ws.rs.container.ContainerRequestContext;
 import jakarta.ws.rs.core.Response;
 
+import javax.crypto.KDF;
 import javax.crypto.SecretKey;
+import javax.crypto.spec.HKDFParameterSpec;
 
+import java.security.spec.AlgorithmParameterSpec;
 import java.time.Instant;
 import java.time.ZonedDateTime;
 import java.util.Date;
@@ -38,11 +40,11 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 
 import static io.airlift.http.client.Request.Builder.fromRequest;
-import static io.jsonwebtoken.security.Keys.hmacShaKeyFor;
 import static io.trino.server.ServletSecurityUtils.setAuthenticatedIdentity;
 import static io.trino.server.security.jwt.JwtUtil.newJwtBuilder;
 import static io.trino.server.security.jwt.JwtUtil.newJwtParserBuilder;
 import static jakarta.ws.rs.core.MediaType.TEXT_PLAIN_TYPE;
+import static jakarta.ws.rs.core.Response.Status.SERVICE_UNAVAILABLE;
 import static jakarta.ws.rs.core.Response.Status.UNAUTHORIZED;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.time.temporal.ChronoUnit.MINUTES;
@@ -62,11 +64,12 @@ public class InternalAuthenticationManager
     private final String nodeId;
     private final JwtParser jwtParser;
     private final AtomicReference<InternalToken> currentToken;
+    private final StartupStatus startupStatus;
 
     @Inject
-    public InternalAuthenticationManager(InternalCommunicationConfig internalCommunicationConfig, SecurityConfig securityConfig, NodeInfo nodeInfo)
+    public InternalAuthenticationManager(InternalCommunicationConfig internalCommunicationConfig, SecurityConfig securityConfig, NodeInfo nodeInfo, StartupStatus startupStatus)
     {
-        this(getSharedSecret(internalCommunicationConfig, nodeInfo, !securityConfig.getAuthenticationTypes().equals(ImmutableList.of("insecure"))), nodeInfo.getNodeId());
+        this(getSharedSecret(internalCommunicationConfig, nodeInfo, !securityConfig.getAuthenticationTypes().equals(ImmutableList.of("insecure"))), nodeInfo.getNodeId(), startupStatus);
     }
 
     private static String getSharedSecret(InternalCommunicationConfig internalCommunicationConfig, NodeInfo nodeInfo, boolean authenticationEnabled)
@@ -86,11 +89,12 @@ public class InternalAuthenticationManager
         return internalCommunicationConfig.getSharedSecret().orElseGet(nodeInfo::getEnvironment);
     }
 
-    public InternalAuthenticationManager(String sharedSecret, String nodeId)
+    public InternalAuthenticationManager(String sharedSecret, String nodeId, StartupStatus startupStatus)
     {
         requireNonNull(sharedSecret, "sharedSecret is null");
         requireNonNull(nodeId, "nodeId is null");
-        this.hmac = hmacShaKeyFor(Hashing.sha256().hashString(sharedSecret, UTF_8).asBytes());
+        this.startupStatus = requireNonNull(startupStatus, "startupStatus is null");
+        this.hmac = expandKey(sharedSecret);
         this.nodeId = nodeId;
         this.jwtParser = newJwtParserBuilder().verifyWith(hmac).build();
         this.currentToken = new AtomicReference<>(createJwt());
@@ -116,6 +120,14 @@ public class InternalAuthenticationManager
         }
         catch (RuntimeException e) {
             throw new RuntimeException("Authentication error", e);
+        }
+
+        if (!startupStatus.isStartupComplete()) {
+            request.abortWith(Response.status(SERVICE_UNAVAILABLE)
+                    .type(TEXT_PLAIN_TYPE.toString())
+                    .entity("Trino server is still initializing")
+                    .build());
+            return;
         }
 
         Identity identity = Identity.forUser("<internal>")
@@ -177,6 +189,23 @@ public class InternalAuthenticationManager
         public boolean isExpired()
         {
             return Instant.now().isAfter(expiration);
+        }
+    }
+
+    private static SecretKey expandKey(String sharedSecret)
+    {
+        try {
+            KDF hkdf = KDF.getInstance("HKDF-SHA256");
+
+            AlgorithmParameterSpec params =
+                    HKDFParameterSpec.ofExtract()
+                            .addIKM(sharedSecret.getBytes(UTF_8))
+                            .thenExpand("internal-communication".getBytes(UTF_8), 32);
+
+            return hkdf.deriveKey("HmacSHA256", params);
+        }
+        catch (Exception e) {
+            throw new RuntimeException("Could not expand internal communication shared key using HKDF-SHA256", e);
         }
     }
 }

@@ -20,15 +20,18 @@ import io.airlift.units.DataSize;
 import io.trino.RowPagesBuilder;
 import io.trino.Session;
 import io.trino.operator.DriverContext;
+import io.trino.operator.NullSafeHashCompiler;
 import io.trino.operator.Operator;
 import io.trino.operator.OperatorFactory;
 import io.trino.operator.PagesIndex;
 import io.trino.operator.PartitionFunction;
 import io.trino.operator.TaskContext;
 import io.trino.operator.exchange.LocalPartitionGenerator;
-import io.trino.operator.join.HashBuilderOperator.HashBuilderOperatorFactory;
+import io.trino.operator.join.spilling.HashBuilderOperator.HashBuilderOperatorFactory;
+import io.trino.operator.join.spilling.PartitionedLookupSourceFactory;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
+import io.trino.spi.block.Block;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
 import io.trino.spiller.SingleStreamSpillerFactory;
@@ -94,7 +97,7 @@ public class BenchmarkHashBuildAndJoinOperators
     private static final int HASH_BUILD_OPERATOR_ID = 1;
     private static final int HASH_JOIN_OPERATOR_ID = 2;
     private static final PlanNodeId TEST_PLAN_NODE_ID = new PlanNodeId("test");
-    private static final TypeOperators TYPE_OPERATORS = new TypeOperators();
+    private static final NullSafeHashCompiler HASH_COMPILER = new NullSafeHashCompiler(new TypeOperators());
 
     @State(Scope.Benchmark)
     public static class BuildContext
@@ -232,7 +235,7 @@ public class BenchmarkHashBuildAndJoinOperators
                     Optional.of(outputChannels),
                     OptionalInt.empty(),
                     unsupportedPartitioningSpillerFactory(),
-                    TYPE_OPERATORS);
+                    HASH_COMPILER);
             buildHash(this, lookupSourceFactory, outputChannels, partitionCount);
             initializeProbePages();
         }
@@ -316,7 +319,7 @@ public class BenchmarkHashBuildAndJoinOperators
                         .collect(toImmutableList()),
                 partitionCount,
                 false,
-                TYPE_OPERATORS));
+                HASH_COMPILER));
     }
 
     private static void buildHash(BuildContext buildContext, JoinBridgeManager<PartitionedLookupSourceFactory> lookupSourceFactoryManager, List<Integer> outputChannels, int partitionCount)
@@ -328,7 +331,7 @@ public class BenchmarkHashBuildAndJoinOperators
                 outputChannels,
                 buildContext.getHashChannels(),
                 Optional.empty(),
-                Optional.empty(),
+                OptionalInt.empty(),
                 ImmutableList.of(),
                 10_000,
                 new PagesIndex.TestingFactory(false),
@@ -355,7 +358,7 @@ public class BenchmarkHashBuildAndJoinOperators
                                     .map(channel -> buildContext.getTypes().get(channel))
                                     .collect(toImmutableList()),
                             Ints.toArray(buildContext.getHashChannels()),
-                            TYPE_OPERATORS),
+                            HASH_COMPILER),
                     partitionCount);
 
             for (Page page : buildContext.getBuildPages()) {
@@ -401,8 +404,8 @@ public class BenchmarkHashBuildAndJoinOperators
         pageBuilder.declarePosition();
 
         for (int channel = 0; channel < types.size(); channel++) {
-            Type type = types.get(channel);
-            type.appendTo(page.getBlock(channel), position, pageBuilder.getBlockBuilder(channel));
+            Block block = page.getBlock(channel);
+            pageBuilder.getBlockBuilder(channel).append(block.getUnderlyingValueBlock(), block.getUnderlyingValuePosition(position));
         }
     }
 
@@ -463,7 +466,7 @@ public class BenchmarkHashBuildAndJoinOperators
         benchmarkBuildHash(buildContext);
     }
 
-    public static void main(String[] args)
+    static void main()
             throws RunnerException
     {
         benchmark(BenchmarkHashBuildAndJoinOperators.class).run();

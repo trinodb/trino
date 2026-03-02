@@ -105,10 +105,10 @@ public class TestingScyllaServer
             refreshSizeEstimates();
             List<SizeEstimate> sizeEstimates = getSession().getSizeEstimates(keyspace, table);
             if (!sizeEstimates.isEmpty()) {
-                log.info("Size estimates for the table %s.%s have been refreshed successfully: %s", keyspace, table, sizeEstimates);
+                log.debug("Size estimates for the table %s.%s have been refreshed successfully: %s", keyspace, table, sizeEstimates);
                 return;
             }
-            log.info("Size estimates haven't been refreshed as expected. Retrying ...");
+            log.debug("Size estimates haven't been refreshed as expected. Retrying ...");
             SECONDS.sleep(1);
         }
         throw new TimeoutException(format("Attempting to refresh size estimates for table %s.%s has timed out after %s", keyspace, table, REFRESH_SIZE_ESTIMATES_TIMEOUT));

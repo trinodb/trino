@@ -69,9 +69,8 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.inject.Scopes.SINGLETON;
 import static com.google.inject.multibindings.MapBinder.newMapBinder;
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
-import static io.airlift.configuration.ConditionalModule.conditionalModule;
+import static io.airlift.bootstrap.ClosingBinder.closingBinder;
 import static io.airlift.configuration.ConfigBinder.configBinder;
-import static io.trino.plugin.base.ClosingBinder.closingBinder;
 import static io.trino.plugin.kafka.encoder.EncoderModule.encoderFactory;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.util.Objects.requireNonNull;
@@ -79,23 +78,17 @@ import static java.util.Objects.requireNonNull;
 public class ConfluentModule
         extends AbstractConfigurationAwareModule
 {
-    private final TypeManager typeManager;
-
-    public ConfluentModule(TypeManager typeManager)
-    {
-        this.typeManager = requireNonNull(typeManager, "typeManager is null");
-    }
-
     @Override
     protected void setup(Binder binder)
     {
-        binder.bind(TypeManager.class).toInstance(typeManager);
-
         configBinder(binder).bindConfig(ConfluentSchemaRegistryConfig.class);
         install(new ConfluentDecoderModule());
         install(new ConfluentEncoderModule());
         binder.bind(ContentSchemaProvider.class).to(ConfluentContentSchemaProvider.class).in(Scopes.SINGLETON);
-        newSetBinder(binder, SchemaRegistryClientPropertiesProvider.class);
+        newSetBinder(binder, SchemaRegistryClientPropertiesProvider.class)
+                .addBinding()
+                .to(SchemaRegistryClientTtlProvider.class)
+                .in(SINGLETON);
         newSetBinder(binder, SchemaProvider.class).addBinding().to(AvroSchemaProvider.class).in(Scopes.SINGLETON);
         // Each SchemaRegistry object should have a new instance of SchemaProvider
         newSetBinder(binder, SchemaProvider.class).addBinding().to(LazyLoadedProtobufSchemaProvider.class);
@@ -152,10 +145,13 @@ public class ConfluentModule
             binder.bind(DispatchingRowDecoderFactory.class).in(SINGLETON);
 
             configBinder(binder).bindConfig(ProtobufAnySupportConfig.class);
-            install(conditionalModule(ProtobufAnySupportConfig.class,
-                    ProtobufAnySupportConfig::isProtobufAnySupportEnabled,
-                    new ConfluentDesciptorProviderModule(),
-                    new DummyDescriptorProviderModule()));
+
+            if (buildConfigObject(ProtobufAnySupportConfig.class).isProtobufAnySupportEnabled()) {
+                install(new ConfluentDesciptorProviderModule());
+            }
+            else {
+                install(new DummyDescriptorProviderModule());
+            }
         }
     }
 

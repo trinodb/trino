@@ -26,6 +26,7 @@ import java.time.Instant;
 import java.util.Optional;
 import java.util.OptionalLong;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static io.trino.filesystem.gcs.GcsUtils.encodedKey;
 import static io.trino.filesystem.gcs.GcsUtils.getBlob;
 import static io.trino.filesystem.gcs.GcsUtils.getBlobOrThrow;
@@ -105,6 +106,17 @@ public class GcsInputFile
     public Location location()
     {
         return location.location();
+    }
+
+    @Override
+    public String toString()
+    {
+        return toStringHelper(this)
+                .add("location", location)
+                .add("predeclaredLength", predeclaredLength)
+                .add("length", length)
+                .add("lastModified", lastModified)
+                .toString();
     }
 
     private void loadProperties()

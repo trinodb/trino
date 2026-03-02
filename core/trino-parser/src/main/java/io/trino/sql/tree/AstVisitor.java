@@ -312,6 +312,21 @@ public abstract class AstVisitor<R, C>
         return visitLiteral(node, context);
     }
 
+    protected R visitIntervalQualifier(IntervalQualifier node, C context)
+    {
+        return visitNode(node, context);
+    }
+
+    protected R visitSimpleIntervalQualifier(SimpleIntervalQualifier node, C context)
+    {
+        return visitIntervalQualifier(node, context);
+    }
+
+    protected R visitCompositeIntervalQualifier(CompositeIntervalQualifier node, C context)
+    {
+        return visitIntervalQualifier(node, context);
+    }
+
     protected R visitInPredicate(InPredicate node, C context)
     {
         return visitExpression(node, context);
@@ -495,6 +510,11 @@ public abstract class AstVisitor<R, C>
     protected R visitRow(Row node, C context)
     {
         return visitExpression(node, context);
+    }
+
+    protected R visitRowField(Row.Field node, C context)
+    {
+        return visitNode(node, context);
     }
 
     protected R visitTableSubquery(TableSubquery node, C context)
@@ -688,6 +708,16 @@ public abstract class AstVisitor<R, C>
     }
 
     protected R visitAddColumn(AddColumn node, C context)
+    {
+        return visitStatement(node, context);
+    }
+
+    protected R visitSetDefaultValue(SetDefaultValue node, C context)
+    {
+        return visitStatement(node, context);
+    }
+
+    protected R visitDropDefaultValue(DropDefaultValue node, C context)
     {
         return visitStatement(node, context);
     }
@@ -952,7 +982,7 @@ public abstract class AstVisitor<R, C>
         return visitDataType(node, context);
     }
 
-    protected R visitRowField(RowDataType.Field node, C context)
+    protected R visitRowDataTypeField(RowDataType.Field node, C context)
     {
         return visitNode(node, context);
     }
@@ -972,7 +1002,7 @@ public abstract class AstVisitor<R, C>
         return visitDataTypeParameter(node, context);
     }
 
-    protected R visitIntervalDataType(IntervalDayTimeDataType node, C context)
+    protected R visitIntervalDataType(IntervalDataType node, C context)
     {
         return visitDataType(node, context);
     }

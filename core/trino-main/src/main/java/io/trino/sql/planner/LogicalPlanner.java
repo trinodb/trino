@@ -120,6 +120,7 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkState;
@@ -489,7 +490,7 @@ public class LogicalPlanner
                 .map(ColumnMetadata::getName)
                 .collect(toImmutableList());
 
-        TableStatisticsMetadata statisticsMetadata = metadata.getStatisticsCollectionMetadataForWrite(session, catalogHandle, tableMetadata);
+        TableStatisticsMetadata statisticsMetadata = metadata.getStatisticsCollectionMetadataForWrite(session, catalogHandle, tableMetadata, create.isReplace());
 
         return createTableWriterPlan(
                 analysis,
@@ -600,7 +601,7 @@ public class LogicalPlanner
                 .map(ColumnMetadata::getName)
                 .collect(toImmutableList());
 
-        TableStatisticsMetadata statisticsMetadata = metadata.getStatisticsCollectionMetadataForWrite(session, tableHandle.catalogHandle(), tableMetadata.metadata());
+        TableStatisticsMetadata statisticsMetadata = metadata.getStatisticsCollectionMetadataForWrite(session, tableHandle.catalogHandle(), tableMetadata.metadata(), false);
 
         if (materializedViewRefreshWriterTarget.isPresent()) {
             RefreshType refreshType = IncrementalRefreshVisitor.canIncrementallyRefresh(plan.getRoot());
@@ -708,9 +709,9 @@ public class LogicalPlanner
         Optional<PartitioningScheme> partitioningScheme = Optional.empty();
 
         int maxWriterTasks = target.getMaxWriterTasks(plannerContext.getMetadata(), session).orElse(getMaxWriterTaskCount(session));
-        Optional<Integer> maxWritersNodesCount = getRetryPolicy(session) != RetryPolicy.TASK
-                ? Optional.of(Math.min(maxWriterTasks, getMaxWriterTaskCount(session)))
-                : Optional.empty();
+        OptionalInt maxWritersNodesCount = getRetryPolicy(session) != RetryPolicy.TASK
+                ? OptionalInt.of(Math.min(maxWriterTasks, getMaxWriterTaskCount(session)))
+                : OptionalInt.empty();
 
         if (writeTableLayout.isPresent()) {
             List<Symbol> partitionFunctionArguments = new ArrayList<>();
@@ -735,7 +736,7 @@ public class LogicalPlanner
                         outputLayout,
                         false,
                         Optional.empty(),
-                        Optional.empty(),
+                        OptionalInt.empty(),
                         maxWritersNodesCount));
             }
         }
@@ -966,7 +967,9 @@ public class LogicalPlanner
         if (!analysis.isTableExecuteReadsData()) {
             SimpleTableExecuteNode node = new SimpleTableExecuteNode(
                     idAllocator.getNextId(),
-                    symbolAllocator.newSymbol("rows", BIGINT),
+                    ImmutableList.of(
+                            symbolAllocator.newSymbol("metricName", VARCHAR),
+                            symbolAllocator.newSymbol("metricValue", BIGINT)),
                     executeHandle);
             return new RelationPlan(node, analysis.getRootScope(), node.getOutputSymbols(), Optional.empty());
         }
@@ -1020,15 +1023,15 @@ public class LogicalPlanner
             else if (isUsePreferredWritePartitioning(session)) {
                 // empty connector partitioning handle means evenly partitioning on partitioning columns
                 int maxWriterTasks = tableExecuteTarget.getMaxWriterTasks(plannerContext.getMetadata(), session).orElse(getMaxWriterTaskCount(session));
-                Optional<Integer> maxWritersNodesCount = getRetryPolicy(session) != RetryPolicy.TASK
-                        ? Optional.of(Math.min(maxWriterTasks, getMaxWriterTaskCount(session)))
-                        : Optional.empty();
+                OptionalInt maxWritersNodesCount = getRetryPolicy(session) != RetryPolicy.TASK
+                        ? OptionalInt.of(Math.min(maxWriterTasks, getMaxWriterTaskCount(session)))
+                        : OptionalInt.empty();
                 partitioningScheme = Optional.of(new PartitioningScheme(
                         Partitioning.create(FIXED_HASH_DISTRIBUTION, partitionFunctionArguments),
                         outputLayout,
                         false,
                         Optional.empty(),
-                        Optional.empty(),
+                        OptionalInt.empty(),
                         maxWritersNodesCount));
             }
         }

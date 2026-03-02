@@ -49,7 +49,7 @@ final class TracingInputFile
             throws IOException
     {
         Span span = tracer.spanBuilder("InputFile.newInput")
-                .setAttribute(FileSystemAttributes.FILE_LOCATION, toString())
+                .setAttribute(FileSystemAttributes.FILE_LOCATION, location().toString())
                 .setAllAttributes(attribute(FileSystemAttributes.FILE_SIZE, length))
                 .startSpan();
         return withTracing(span, () -> new TracingInput(tracer, delegate.newInput(), location(), length));
@@ -60,7 +60,7 @@ final class TracingInputFile
             throws IOException
     {
         Span span = tracer.spanBuilder("InputFile.newStream")
-                .setAttribute(FileSystemAttributes.FILE_LOCATION, toString())
+                .setAttribute(FileSystemAttributes.FILE_LOCATION, location().toString())
                 .setAllAttributes(attribute(FileSystemAttributes.FILE_SIZE, length))
                 .startSpan();
         return withTracing(span, delegate::newStream);
@@ -76,7 +76,7 @@ final class TracingInputFile
         }
 
         Span span = tracer.spanBuilder("InputFile.length")
-                .setAttribute(FileSystemAttributes.FILE_LOCATION, toString())
+                .setAttribute(FileSystemAttributes.FILE_LOCATION, location().toString())
                 .startSpan();
         long fileLength = withTracing(span, delegate::length);
         length = Optional.of(fileLength);
@@ -93,7 +93,7 @@ final class TracingInputFile
         }
 
         Span span = tracer.spanBuilder("InputFile.lastModified")
-                .setAttribute(FileSystemAttributes.FILE_LOCATION, toString())
+                .setAttribute(FileSystemAttributes.FILE_LOCATION, location().toString())
                 .startSpan();
         Instant fileLastModified = withTracing(span, delegate::lastModified);
         isLastModifiedKnown = true;
@@ -105,7 +105,7 @@ final class TracingInputFile
             throws IOException
     {
         Span span = tracer.spanBuilder("InputFile.exists")
-                .setAttribute(FileSystemAttributes.FILE_LOCATION, toString())
+                .setAttribute(FileSystemAttributes.FILE_LOCATION, location().toString())
                 .startSpan();
         return withTracing(span, delegate::exists);
     }
@@ -119,6 +119,6 @@ final class TracingInputFile
     @Override
     public String toString()
     {
-        return location().toString();
+        return delegate.toString();
     }
 }

@@ -14,6 +14,7 @@
 package io.trino.server.protocol.spooling;
 
 import com.google.common.collect.ImmutableMap;
+import jakarta.validation.constraints.AssertTrue;
 import org.junit.jupiter.api.Test;
 
 import java.util.Map;
@@ -21,6 +22,7 @@ import java.util.Map;
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
+import static io.airlift.testing.ValidationAssertions.assertFailsValidation;
 
 class TestSpoolingEnabledConfig
 {
@@ -28,7 +30,8 @@ class TestSpoolingEnabledConfig
     public void testDefaults()
     {
         assertRecordedDefaults(recordDefaults(SpoolingEnabledConfig.class)
-                .setEnabled(false));
+                .setEnabled(false)
+                .setUnsupportedWarningEnabled(false));
     }
 
     @Test
@@ -36,11 +39,27 @@ class TestSpoolingEnabledConfig
     {
         Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("protocol.spooling.enabled", "true")
+                .put("protocol.spooling.unsupported-warning.enabled", "true")
                 .buildOrThrow();
 
         SpoolingEnabledConfig expected = new SpoolingEnabledConfig()
-                .setEnabled(true);
+                .setEnabled(true)
+                .setUnsupportedWarningEnabled(true);
 
         assertFullMapping(properties, expected);
+    }
+
+    @Test
+    public void testInvalidConfig()
+    {
+        SpoolingEnabledConfig config = new SpoolingEnabledConfig()
+                .setEnabled(false)
+                .setUnsupportedWarningEnabled(true);
+
+        assertFailsValidation(
+                config,
+                "configurationValid",
+                "protocol.spooling.unsupported-warning.enabled can only be enabled when protocol.spooling.enabled is also enabled",
+                AssertTrue.class);
     }
 }

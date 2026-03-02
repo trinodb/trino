@@ -17,12 +17,96 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.trino.client.ProtocolHeaders.Headers.REQUEST_CATALOG;
+import static io.trino.client.ProtocolHeaders.Headers.REQUEST_CLIENT_CAPABILITIES;
+import static io.trino.client.ProtocolHeaders.Headers.REQUEST_CLIENT_INFO;
+import static io.trino.client.ProtocolHeaders.Headers.REQUEST_CLIENT_TAGS;
+import static io.trino.client.ProtocolHeaders.Headers.REQUEST_EXTRA_CREDENTIAL;
+import static io.trino.client.ProtocolHeaders.Headers.REQUEST_LANGUAGE;
+import static io.trino.client.ProtocolHeaders.Headers.REQUEST_ORIGINAL_ROLES;
+import static io.trino.client.ProtocolHeaders.Headers.REQUEST_ORIGINAL_USER;
+import static io.trino.client.ProtocolHeaders.Headers.REQUEST_PATH;
+import static io.trino.client.ProtocolHeaders.Headers.REQUEST_PREPARED_STATEMENT;
+import static io.trino.client.ProtocolHeaders.Headers.REQUEST_QUERY_DATA_ENCODING;
+import static io.trino.client.ProtocolHeaders.Headers.REQUEST_RESOURCE_ESTIMATE;
+import static io.trino.client.ProtocolHeaders.Headers.REQUEST_ROLE;
+import static io.trino.client.ProtocolHeaders.Headers.REQUEST_SCHEMA;
+import static io.trino.client.ProtocolHeaders.Headers.REQUEST_SESSION;
+import static io.trino.client.ProtocolHeaders.Headers.REQUEST_SOURCE;
+import static io.trino.client.ProtocolHeaders.Headers.REQUEST_TIME_ZONE;
+import static io.trino.client.ProtocolHeaders.Headers.REQUEST_TRACE_TOKEN;
+import static io.trino.client.ProtocolHeaders.Headers.REQUEST_TRANSACTION_ID;
+import static io.trino.client.ProtocolHeaders.Headers.REQUEST_USER;
+import static io.trino.client.ProtocolHeaders.Headers.RESPONSE_ADDED_PREPARE;
+import static io.trino.client.ProtocolHeaders.Headers.RESPONSE_CLEAR_SESSION;
+import static io.trino.client.ProtocolHeaders.Headers.RESPONSE_CLEAR_TRANSACTION_ID;
+import static io.trino.client.ProtocolHeaders.Headers.RESPONSE_DEALLOCATED_PREPARE;
+import static io.trino.client.ProtocolHeaders.Headers.RESPONSE_QUERY_DATA_ENCODING;
+import static io.trino.client.ProtocolHeaders.Headers.RESPONSE_RESET_AUTHORIZATION_USER;
+import static io.trino.client.ProtocolHeaders.Headers.RESPONSE_SET_AUTHORIZATION_USER;
+import static io.trino.client.ProtocolHeaders.Headers.RESPONSE_SET_CATALOG;
+import static io.trino.client.ProtocolHeaders.Headers.RESPONSE_SET_ORIGINAL_ROLES;
+import static io.trino.client.ProtocolHeaders.Headers.RESPONSE_SET_PATH;
+import static io.trino.client.ProtocolHeaders.Headers.RESPONSE_SET_ROLE;
+import static io.trino.client.ProtocolHeaders.Headers.RESPONSE_SET_SCHEMA;
+import static io.trino.client.ProtocolHeaders.Headers.RESPONSE_SET_SESSION;
+import static io.trino.client.ProtocolHeaders.Headers.RESPONSE_STARTED_TRANSACTION_ID;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
 public final class ProtocolHeaders
 {
     public static final ProtocolHeaders TRINO_HEADERS = new ProtocolHeaders("Trino");
+
+    enum Headers
+    {
+        REQUEST_USER("User"),
+        REQUEST_ORIGINAL_USER("Original-User"),
+        REQUEST_ORIGINAL_ROLES("Original-Roles"),
+        REQUEST_SOURCE("Source"),
+        REQUEST_CATALOG("Catalog"),
+        REQUEST_SCHEMA("Schema"),
+        REQUEST_PATH("Path"),
+        REQUEST_TIME_ZONE("Time-Zone"),
+        REQUEST_LANGUAGE("Language"),
+        REQUEST_TRACE_TOKEN("Trace-Token"),
+        REQUEST_SESSION("Session"),
+        REQUEST_ROLE("Role"),
+        REQUEST_PREPARED_STATEMENT("Prepared-Statement"),
+        REQUEST_TRANSACTION_ID("Transaction-Id"),
+        REQUEST_CLIENT_INFO("Client-Info"),
+        REQUEST_CLIENT_TAGS("Client-Tags"),
+        REQUEST_CLIENT_CAPABILITIES("Client-Capabilities"),
+        REQUEST_RESOURCE_ESTIMATE("Resource-Estimate"),
+        REQUEST_EXTRA_CREDENTIAL("Extra-Credential"),
+        REQUEST_QUERY_DATA_ENCODING("Query-Data-Encoding"),
+        RESPONSE_SET_CATALOG("Set-Catalog"),
+        RESPONSE_SET_SCHEMA("Set-Schema"),
+        RESPONSE_SET_PATH("Set-Path"),
+        RESPONSE_SET_SESSION("Set-Session"),
+        RESPONSE_CLEAR_SESSION("Clear-Session"),
+        RESPONSE_SET_ROLE("Set-Role"),
+        RESPONSE_SET_ORIGINAL_ROLES("Set-Original-Roles"),
+        RESPONSE_QUERY_DATA_ENCODING("Query-Data-Encoding"),
+        RESPONSE_ADDED_PREPARE("Added-Prepare"),
+        RESPONSE_DEALLOCATED_PREPARE("Deallocated-Prepare"),
+        RESPONSE_STARTED_TRANSACTION_ID("Started-Transaction-Id"),
+        RESPONSE_CLEAR_TRANSACTION_ID("Clear-Transaction-Id"),
+        RESPONSE_SET_AUTHORIZATION_USER("Set-Authorization-User"),
+        RESPONSE_RESET_AUTHORIZATION_USER("Reset-Authorization-User");
+
+        private final String headerName;
+
+        Headers(final String headerName)
+        {
+            this.headerName = requireNonNull(headerName, "headerName is null");
+        }
+
+        public String withProtocolName(String protocolName)
+        {
+            return "X-" + protocolName + "-" + headerName;
+        }
+    }
 
     private final String name;
     private final String requestUser;
@@ -74,41 +158,50 @@ public final class ProtocolHeaders
         requireNonNull(name, "name is null");
         checkArgument(!name.isEmpty(), "name is empty");
         this.name = name;
-        String prefix = "X-" + name + "-";
-        requestUser = prefix + "User";
-        requestOriginalUser = prefix + "Original-User";
-        requestOriginalRole = prefix + "Original-Roles";
-        requestSource = prefix + "Source";
-        requestCatalog = prefix + "Catalog";
-        requestSchema = prefix + "Schema";
-        requestPath = prefix + "Path";
-        requestTimeZone = prefix + "Time-Zone";
-        requestLanguage = prefix + "Language";
-        requestTraceToken = prefix + "Trace-Token";
-        requestSession = prefix + "Session";
-        requestRole = prefix + "Role";
-        requestPreparedStatement = prefix + "Prepared-Statement";
-        requestTransactionId = prefix + "Transaction-Id";
-        requestClientInfo = prefix + "Client-Info";
-        requestClientTags = prefix + "Client-Tags";
-        requestClientCapabilities = prefix + "Client-Capabilities";
-        requestResourceEstimate = prefix + "Resource-Estimate";
-        requestExtraCredential = prefix + "Extra-Credential";
-        requestQueryDataEncoding = prefix + "Query-Data-Encoding";
-        responseSetCatalog = prefix + "Set-Catalog";
-        responseSetSchema = prefix + "Set-Schema";
-        responseSetPath = prefix + "Set-Path";
-        responseSetSession = prefix + "Set-Session";
-        responseClearSession = prefix + "Clear-Session";
-        responseSetRole = prefix + "Set-Role";
-        responseQueryDataEncoding = prefix + "Query-Data-Encoding";
-        responseAddedPrepare = prefix + "Added-Prepare";
-        responseDeallocatedPrepare = prefix + "Deallocated-Prepare";
-        responseStartedTransactionId = prefix + "Started-Transaction-Id";
-        responseClearTransactionId = prefix + "Clear-Transaction-Id";
-        responseSetAuthorizationUser = prefix + "Set-Authorization-User";
-        responseResetAuthorizationUser = prefix + "Reset-Authorization-User";
-        responseOriginalRole = prefix + "Set-Original-Roles";
+        requestUser = REQUEST_USER.withProtocolName(name);
+        requestOriginalUser = REQUEST_ORIGINAL_USER.withProtocolName(name);
+        requestOriginalRole = REQUEST_ORIGINAL_ROLES.withProtocolName(name);
+        requestSource = REQUEST_SOURCE.withProtocolName(name);
+        requestCatalog = REQUEST_CATALOG.withProtocolName(name);
+        requestSchema = REQUEST_SCHEMA.withProtocolName(name);
+        requestPath = REQUEST_PATH.withProtocolName(name);
+        requestTimeZone = REQUEST_TIME_ZONE.withProtocolName(name);
+        requestLanguage = REQUEST_LANGUAGE.withProtocolName(name);
+        requestTraceToken = REQUEST_TRACE_TOKEN.withProtocolName(name);
+        requestSession = REQUEST_SESSION.withProtocolName(name);
+        requestRole = REQUEST_ROLE.withProtocolName(name);
+        requestPreparedStatement = REQUEST_PREPARED_STATEMENT.withProtocolName(name);
+        requestTransactionId = REQUEST_TRANSACTION_ID.withProtocolName(name);
+        requestClientInfo = REQUEST_CLIENT_INFO.withProtocolName(name);
+        requestClientTags = REQUEST_CLIENT_TAGS.withProtocolName(name);
+        requestClientCapabilities = REQUEST_CLIENT_CAPABILITIES.withProtocolName(name);
+        requestResourceEstimate = REQUEST_RESOURCE_ESTIMATE.withProtocolName(name);
+        requestExtraCredential = REQUEST_EXTRA_CREDENTIAL.withProtocolName(name);
+        requestQueryDataEncoding = REQUEST_QUERY_DATA_ENCODING.withProtocolName(name);
+        responseSetCatalog = RESPONSE_SET_CATALOG.withProtocolName(name);
+        responseSetSchema = RESPONSE_SET_SCHEMA.withProtocolName(name);
+        responseSetPath = RESPONSE_SET_PATH.withProtocolName(name);
+        responseSetSession = RESPONSE_SET_SESSION.withProtocolName(name);
+        responseClearSession = RESPONSE_CLEAR_SESSION.withProtocolName(name);
+        responseSetRole = RESPONSE_SET_ROLE.withProtocolName(name);
+        responseQueryDataEncoding = RESPONSE_QUERY_DATA_ENCODING.withProtocolName(name);
+        responseAddedPrepare = RESPONSE_ADDED_PREPARE.withProtocolName(name);
+        responseDeallocatedPrepare = RESPONSE_DEALLOCATED_PREPARE.withProtocolName(name);
+        responseStartedTransactionId = RESPONSE_STARTED_TRANSACTION_ID.withProtocolName(name);
+        responseClearTransactionId = RESPONSE_CLEAR_TRANSACTION_ID.withProtocolName(name);
+        responseSetAuthorizationUser = RESPONSE_SET_AUTHORIZATION_USER.withProtocolName(name);
+        responseResetAuthorizationUser = RESPONSE_RESET_AUTHORIZATION_USER.withProtocolName(name);
+        responseOriginalRole = RESPONSE_SET_ORIGINAL_ROLES.withProtocolName(name);
+    }
+
+    public boolean isProtocolHeader(String headerName)
+    {
+        for (Headers header : Headers.values()) {
+            if (header.withProtocolName(name).equalsIgnoreCase(headerName)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     public String getProtocolName()

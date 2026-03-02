@@ -16,12 +16,12 @@ encouraged. Find collaborators and discussions in ongoing pull requests and the
 
 ## Activation
 
-The Preview Web UI is not available by default, and must be enabled in
+The Preview Web UI is available by default, but can be disabled in
 [](config-properties) with the following configuration:
 
 
 ```properties
-web-ui.preview.enabled=true
+web-ui.preview.enabled=false
 ```
 
 ## Access

@@ -109,7 +109,7 @@ public abstract class AbstractTestQueryFramework
     private io.trino.sql.query.QueryAssertions queryAssertions;
 
     @BeforeAll
-    public void init()
+    final void init()
             throws Exception
     {
         Logging logging = Logging.initialize();
@@ -125,7 +125,7 @@ public abstract class AbstractTestQueryFramework
             throws Exception;
 
     @AfterAll
-    public final void close()
+    final void close()
             throws Exception
     {
         try (AutoCloseable ignored = afterClassCloser) {
@@ -231,9 +231,9 @@ public abstract class AbstractTestQueryFramework
                         SqlTaskManager taskManager = server.getTaskManager();
                         List<TaskInfo> taskInfos = taskManager.getAllTaskInfo();
                         for (TaskInfo taskInfo : taskInfos) {
-                            TaskId taskId = taskInfo.taskStatus().getTaskId();
-                            QueryId queryId = taskId.getQueryId();
-                            TaskState taskState = taskInfo.taskStatus().getState();
+                            TaskId taskId = taskInfo.taskStatus().taskId();
+                            QueryId queryId = taskId.queryId();
+                            TaskState taskState = taskInfo.taskStatus().state();
                             if (!taskState.isDone()) {
                                 try {
                                     BasicQueryInfo basicQueryInfo = queryManager.getQueryInfo(queryId);
@@ -259,19 +259,19 @@ public abstract class AbstractTestQueryFramework
         else {
             return queryDetails + getAllStages(queryInfo.getStages()).stream()
                     .map(stageInfo -> {
-                        String stageDetail = format("Stage %s [%s]", stageInfo.getStageId(), stageInfo.getState());
-                        if (stageInfo.getTasks().isEmpty()) {
+                        String stageDetail = format("Stage %s [%s]", stageInfo.stageId(), stageInfo.state());
+                        if (stageInfo.tasks().isEmpty()) {
                             return stageDetail;
                         }
-                        return stageDetail + stageInfo.getTasks().stream()
+                        return stageDetail + stageInfo.tasks().stream()
                                 .map(TaskInfo::taskStatus)
                                 .map(task -> {
-                                    String taskDetail = format("Task %s [%s]", task.getTaskId(), task.getState());
-                                    if (task.getFailures().isEmpty()) {
+                                    String taskDetail = format("Task %s [%s]", task.taskId(), task.state());
+                                    if (task.failures().isEmpty()) {
                                         return taskDetail;
                                     }
-                                    return " -- Failures: " + task.getFailures().stream()
-                                            .map(failure -> format("%s %s: %s", failure.getErrorCode(), failure.getType(), failure.getMessage()))
+                                    return " -- Failures: " + task.failures().stream()
+                                            .map(failure -> format("%s %s: %s", failure.errorCode(), failure.type(), failure.message()))
                                             .collect(Collectors.joining(", ", "[", "]"));
                                 })
                                 .collect(Collectors.joining("\n\t\t", ":\n\t\t", ""));
@@ -413,7 +413,7 @@ public abstract class AbstractTestQueryFramework
 
     protected void assertUpdate(Session session, @Language("SQL") String sql)
     {
-        QueryAssertions.assertUpdate(queryRunner, session, sql, OptionalLong.empty(), Optional.empty());
+        QueryAssertions.assertUpdate(queryRunner, session, sql, OptionalLong.empty());
     }
 
     protected void assertUpdate(@Language("SQL") String sql, long count)
@@ -423,12 +423,17 @@ public abstract class AbstractTestQueryFramework
 
     protected void assertUpdate(Session session, @Language("SQL") String sql, long count)
     {
-        QueryAssertions.assertUpdate(queryRunner, session, sql, OptionalLong.of(count), Optional.empty());
+        QueryAssertions.assertUpdate(queryRunner, session, sql, OptionalLong.of(count));
     }
 
     protected void assertUpdate(Session session, @Language("SQL") String sql, long count, Consumer<Plan> planAssertion)
     {
         QueryAssertions.assertUpdate(queryRunner, session, sql, OptionalLong.of(count), Optional.of(planAssertion));
+    }
+
+    protected void assertUpdate(Session session, @Language("SQL") String sql, Consumer<Plan> planAssertion)
+    {
+        QueryAssertions.assertUpdate(queryRunner, session, sql, OptionalLong.empty(), Optional.of(planAssertion));
     }
 
     protected void assertQuerySucceeds(@Language("SQL") String sql)
@@ -648,6 +653,16 @@ public abstract class AbstractTestQueryFramework
                 });
     }
 
+    protected String getJsonExplainPlan(@Language("SQL") String query, ExplainType.Type planType)
+    {
+        QueryExplainer explainer = queryRunner.getQueryExplainer();
+        return newTransaction()
+                .singleStatement()
+                .execute(queryRunner.getDefaultSession(), session -> {
+                    return explainer.getJsonPlan(session, SQL_PARSER.createStatement(query), planType, emptyList(), WarningCollector.NOOP, createPlanOptimizersStatsCollector());
+                });
+    }
+
     protected final QueryRunner getQueryRunner()
     {
         checkState(queryRunner != null, "queryRunner not set");
@@ -669,7 +684,8 @@ public abstract class AbstractTestQueryFramework
         return Optional.empty();
     }
 
-    protected TestTable newTrinoTable(String namePrefix, @Language("SQL") String tableDefinition)
+    // final because it delegates to another (overridable) method
+    protected final TestTable newTrinoTable(String namePrefix, @Language("SQL") String tableDefinition)
     {
         return newTrinoTable(namePrefix, tableDefinition, ImmutableList.of());
     }

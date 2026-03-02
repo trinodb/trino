@@ -35,25 +35,27 @@ public interface HiveMetastoreFactory
      */
     HiveMetastore createMetastore(Optional<ConnectorIdentity> identity);
 
-    static HiveMetastoreFactory ofInstance(HiveMetastore metastore)
+    static HiveMetastoreFactory ofInstance(HiveMetastore metastore, boolean impersonationEnabled)
     {
-        return new StaticHiveMetastoreFactory(metastore);
+        return new StaticHiveMetastoreFactory(metastore, impersonationEnabled);
     }
 
     class StaticHiveMetastoreFactory
             implements HiveMetastoreFactory
     {
         private final HiveMetastore metastore;
+        private final boolean impersonationEnabled;
 
-        private StaticHiveMetastoreFactory(HiveMetastore metastore)
+        private StaticHiveMetastoreFactory(HiveMetastore metastore, boolean impersonationEnabled)
         {
             this.metastore = requireNonNull(metastore, "metastore is null");
+            this.impersonationEnabled = impersonationEnabled;
         }
 
         @Override
         public boolean isImpersonationEnabled()
         {
-            return false;
+            return impersonationEnabled;
         }
 
         @Override

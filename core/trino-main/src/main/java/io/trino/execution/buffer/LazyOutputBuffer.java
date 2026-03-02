@@ -49,7 +49,7 @@ public class LazyOutputBuffer
         implements OutputBuffer
 {
     private final OutputBufferStateMachine stateMachine;
-    private final String taskInstanceId;
+    private final long taskInstanceId;
     private final DataSize maxBufferSize;
     private final DataSize maxBroadcastBufferSize;
     private final Supplier<LocalMemoryContext> memoryContextSupplier;
@@ -69,7 +69,7 @@ public class LazyOutputBuffer
 
     public LazyOutputBuffer(
             TaskId taskId,
-            String taskInstanceId,
+            long taskInstanceId,
             Executor executor,
             DataSize maxBufferSize,
             DataSize maxBroadcastBufferSize,
@@ -77,7 +77,7 @@ public class LazyOutputBuffer
             Runnable notifyStatusChanged,
             ExchangeManagerRegistry exchangeManagerRegistry)
     {
-        this.taskInstanceId = requireNonNull(taskInstanceId, "taskInstanceId is null");
+        this.taskInstanceId = taskInstanceId;
         this.executor = requireNonNull(executor, "executor is null");
         stateMachine = new OutputBufferStateMachine(taskId, executor);
         this.maxBufferSize = requireNonNull(maxBufferSize, "maxBufferSize is null");

@@ -179,7 +179,7 @@ public final class DeltaLakeWriter
     {
         Location path = rootTableLocation.appendPath(relativeFilePath);
         FileMetaData fileMetaData = fileWriter.getFileMetadata();
-        ParquetMetadata parquetMetadata = new ParquetMetadata(fileMetaData, new ParquetDataSourceId(path.toString()));
+        ParquetMetadata parquetMetadata = new ParquetMetadata(fileMetaData, new ParquetDataSourceId(path.toString()), Optional.empty());
 
         return new DataFileInfo(
                 relativeFilePath,
@@ -335,7 +335,7 @@ public final class DeltaLakeWriter
 
         public RowCoercer(RowType rowType)
         {
-            fieldCoercers = rowType.getTypeParameters().stream()
+            fieldCoercers = rowType.getFieldTypes().stream()
                     .map(DeltaLakeWriter::createCoercer)
                     .collect(toImmutableList());
         }

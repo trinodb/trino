@@ -86,7 +86,7 @@ public record DeltaLakeTable(List<DeltaLakeColumn> columns, List<String> constra
                 columns.add(new DeltaLakeColumn(columnName,
                         columnTypes.get(columnName),
                         columnsNullability.getOrDefault(columnName, true),
-                        columnComments.get(columnName),
+                        Optional.ofNullable(columnComments.get(columnName)),
                         columnsMetadata.get(columnName),
                         Optional.ofNullable(columnGenerations.get(columnName))));
             }
@@ -97,7 +97,7 @@ public record DeltaLakeTable(List<DeltaLakeColumn> columns, List<String> constra
                     .build());
         }
 
-        public Builder addColumn(String name, Object type, boolean nullable, @Nullable String comment, @Nullable Map<String, Object> metadata)
+        public Builder addColumn(String name, Object type, boolean nullable, Optional<String> comment, @Nullable Map<String, Object> metadata)
         {
             columns.add(new DeltaLakeColumn(name, type, nullable, comment, metadata, Optional.empty()));
             return this;
@@ -127,7 +127,7 @@ public record DeltaLakeTable(List<DeltaLakeColumn> columns, List<String> constra
         public Builder setColumnComment(String name, @Nullable String comment)
         {
             DeltaLakeColumn oldColumn = findColumn(name);
-            DeltaLakeColumn newColumn = new DeltaLakeColumn(oldColumn.name, oldColumn.type, oldColumn.nullable, comment, oldColumn.metadata, oldColumn.generationExpression);
+            DeltaLakeColumn newColumn = new DeltaLakeColumn(oldColumn.name, oldColumn.type, oldColumn.nullable, Optional.ofNullable(comment), oldColumn.metadata, oldColumn.generationExpression);
             columns.set(columns.indexOf(oldColumn), newColumn);
             return this;
         }
@@ -153,12 +153,13 @@ public record DeltaLakeTable(List<DeltaLakeColumn> columns, List<String> constra
         }
     }
 
-    public record DeltaLakeColumn(String name, Object type, boolean nullable, @Nullable String comment, @Nullable Map<String, Object> metadata, Optional<String> generationExpression)
+    public record DeltaLakeColumn(String name, Object type, boolean nullable, Optional<String> comment, @Nullable Map<String, Object> metadata, Optional<String> generationExpression)
     {
         public DeltaLakeColumn
         {
             checkArgument(!name.isEmpty(), "name is empty");
             requireNonNull(type, "type is null");
+            requireNonNull(comment, "comment is null");
             requireNonNull(generationExpression, "generationExpression is null");
         }
     }

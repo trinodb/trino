@@ -173,7 +173,7 @@ public class BenchmarkAndColumnarFilterTpchData
                 ImmutableList.of());
     }
 
-    public static void main(String[] args)
+    static void main()
             throws RunnerException
     {
         benchmark(BenchmarkAndColumnarFilterTpchData.class).run();

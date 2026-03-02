@@ -22,7 +22,7 @@ import static io.trino.spi.block.BlockUtil.calculateNewArraySize;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-public class TestBlockUtil
+final class TestBlockUtil
 {
     @Test
     public void testCompactIsNull()

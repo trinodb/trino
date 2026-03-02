@@ -34,7 +34,7 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.FileSystemException;
 import java.nio.file.Files;
-import java.nio.file.Paths;
+import java.nio.file.Path;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
@@ -79,7 +79,7 @@ public class TestingDruidServer
             // Cannot use Files.createTempDirectory() because on Mac by default it uses
             // /var/folders/ which is not visible to Docker for Mac
             hostWorkingDirectory = Files.createDirectory(
-                    Paths.get("/tmp/docker-tests-files-" + randomUUID().toString()))
+                    Path.of("/tmp/docker-tests-files-" + randomUUID().toString()))
                     .toAbsolutePath().toString();
             File f = new File(hostWorkingDirectory);
             // Enable read/write/exec access for the services running in containers
@@ -189,7 +189,7 @@ public class TestingDruidServer
     public void close()
     {
         try (Closer closer = Closer.create()) {
-            closer.register(() -> MoreFiles.deleteRecursively(Paths.get(hostWorkingDirectory), ALLOW_INSECURE));
+            closer.register(() -> MoreFiles.deleteRecursively(Path.of(hostWorkingDirectory), ALLOW_INSECURE));
             closer.register(broker::stop);
             closer.register(historical::stop);
             closer.register(middleManager::stop);

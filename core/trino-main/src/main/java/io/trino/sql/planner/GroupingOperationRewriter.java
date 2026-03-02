@@ -62,8 +62,8 @@ public final class GroupingOperationRewriter
         // See SQL:2011:4.16.2 and SQL:2011:6.9.10.
         if (groupingSets.size() == 1) {
             return switch (type) {
-                case BigintType unused -> new Constant(BIGINT, 0L);
-                case IntegerType unused -> new Constant(INTEGER, 0L);
+                case BigintType _ -> new Constant(BIGINT, 0L);
+                case IntegerType _ -> new Constant(INTEGER, 0L);
                 default -> throw new IllegalArgumentException("Unexpected type for GROUPING operation: " + type);
             };
         }
@@ -82,8 +82,8 @@ public final class GroupingOperationRewriter
         List<Expression> groupingResults = groupingSets.stream()
                 .map(groupingSet -> calculateGrouping(groupingSet, columns))
                 .map(value -> switch (type) {
-                    case BigintType unused -> new Constant(BIGINT, value);
-                    case IntegerType unused -> new Constant(INTEGER, value);
+                    case BigintType _ -> new Constant(BIGINT, value);
+                    case IntegerType _ -> new Constant(INTEGER, value);
                     default -> throw new IllegalArgumentException("Unexpected type for GROUPING operation: " + type);
                 })
                 .collect(toImmutableList());

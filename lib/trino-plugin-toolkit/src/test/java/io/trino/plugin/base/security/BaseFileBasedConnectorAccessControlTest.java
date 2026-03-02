@@ -18,8 +18,8 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.inject.Injector;
 import io.airlift.bootstrap.Bootstrap;
-import io.trino.plugin.base.CatalogNameModule;
 import io.trino.spi.QueryId;
+import io.trino.spi.catalog.CatalogName;
 import io.trino.spi.connector.ConnectorAccessControl;
 import io.trino.spi.connector.ConnectorSecurityContext;
 import io.trino.spi.connector.ConnectorTransactionHandle;
@@ -37,7 +37,6 @@ import org.junit.jupiter.api.io.TempDir;
 import java.net.URISyntaxException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -46,8 +45,8 @@ import java.util.Set;
 import static io.trino.spi.security.PrincipalType.ROLE;
 import static io.trino.spi.security.PrincipalType.USER;
 import static io.trino.spi.security.Privilege.UPDATE;
-import static io.trino.spi.testing.InterfaceTestUtils.assertAllMethodsOverridden;
 import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.testing.InterfaceTestUtils.assertAllMethodsOverridden;
 import static java.lang.Thread.sleep;
 import static java.nio.file.StandardCopyOption.REPLACE_EXISTING;
 import static java.util.Objects.requireNonNull;
@@ -855,7 +854,7 @@ public abstract class BaseFileBasedConnectorAccessControlTest
 
     protected ConnectorAccessControl createAccessControl(Map<String, String> configProperties)
     {
-        Bootstrap bootstrap = new Bootstrap(new CatalogNameModule("test_catalog"), new FileBasedAccessControlModule());
+        Bootstrap bootstrap = new Bootstrap(binder -> binder.bind(CatalogName.class).toInstance(new CatalogName("test_catalog")), new FileBasedAccessControlModule());
 
         Injector injector = bootstrap
                 .doNotInitializeLogging()
@@ -876,7 +875,7 @@ public abstract class BaseFileBasedConnectorAccessControlTest
     private Path getResourcePath(String resourceName)
             throws URISyntaxException
     {
-        return Paths.get(requireNonNull(this.getClass().getClassLoader().getResource(resourceName), "Resource does not exist: " + resourceName).toURI());
+        return Path.of(requireNonNull(this.getClass().getClassLoader().getResource(resourceName), "Resource does not exist: " + resourceName).toURI());
     }
 
     private static ConnectorSecurityContext user(String user, String group)

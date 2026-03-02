@@ -38,6 +38,7 @@ import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Set;
 
@@ -135,7 +136,7 @@ public class PatternRecognitionMatcher
             return NO_MATCH;
         }
 
-        for (Map.Entry<IrLabel, ExpressionAndValuePointers> entry : variableDefinitions.entrySet()) {
+        for (Entry<IrLabel, ExpressionAndValuePointers> entry : variableDefinitions.entrySet()) {
             IrLabel name = entry.getKey();
             ExpressionAndValuePointers actual = patternRecognitionNode.getVariableDefinitions().get(name);
             if (actual == null) {

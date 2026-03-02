@@ -23,10 +23,8 @@ import io.trino.testing.datatype.CreateAndInsertDataSetup;
 import io.trino.testing.datatype.CreateAsSelectDataSetup;
 import io.trino.testing.datatype.DataSetup;
 import io.trino.testing.datatype.SqlDataTypeTest;
-import io.trino.testing.sql.JdbcSqlExecutor;
 import io.trino.testing.sql.SqlExecutor;
 import io.trino.testing.sql.TestTable;
-import io.trino.testing.sql.TrinoSqlExecutor;
 import org.junit.jupiter.api.Test;
 
 import java.sql.SQLException;
@@ -37,16 +35,12 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
-import java.util.Properties;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 
 import static com.google.common.base.Verify.verify;
 import static com.google.common.io.BaseEncoding.base16;
 import static io.trino.plugin.redshift.RedshiftClient.REDSHIFT_MAX_VARCHAR;
-import static io.trino.plugin.redshift.TestingRedshiftServer.JDBC_PASSWORD;
-import static io.trino.plugin.redshift.TestingRedshiftServer.JDBC_URL;
-import static io.trino.plugin.redshift.TestingRedshiftServer.JDBC_USER;
 import static io.trino.plugin.redshift.TestingRedshiftServer.TEST_SCHEMA;
 import static io.trino.plugin.redshift.TestingRedshiftServer.executeInRedshift;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -650,8 +644,8 @@ public class TestRedshiftTypeMapping
 
         // The max timestamp with time zone value in Redshift is larger than Trino
         try (TestTable table = new TestTable(getRedshiftExecutor(), TEST_SCHEMA + ".timestamp_tz_max", "(ts timestamptz)", ImmutableList.of("TIMESTAMP '294276-12-31 23:59:59' AT TIME ZONE 'UTC'"))) {
-            assertThat(query("SELECT * FROM " + table.getName()))
-                    .nonTrinoExceptionFailure().hasMessage("Millis overflow: 9224318015999000");
+            assertThatThrownBy(() -> computeActual("SELECT * FROM " + table.getName()))
+                    .hasStackTraceContaining("Millis overflow: 9224318015999000");
         }
     }
 
@@ -807,23 +801,18 @@ public class TestRedshiftTypeMapping
 
     private void runTestCases(String tableName, List<TestCase> testCases)
     {
-        // Must use CTAS instead of TestTable because if the table is created before the insert,
-        // the type mapping will treat it as TIME(6) no matter what it was created as.
-        getTrinoExecutor().execute(format(
-                "CREATE TABLE %s AS SELECT * FROM (VALUES %s) AS t (id, value)",
+        try (TestTable table = new TestTable(
+                getTrinoExecutor(),
                 tableName,
-                testCases.stream()
-                        .map(testCase -> format("(%d, %s)", testCase.id(), testCase.input()))
-                        .collect(joining("), (", "(", ")"))));
-        try {
+                format("AS SELECT * FROM (VALUES %s) AS t (id, value)",
+                        testCases.stream()
+                                .map(testCase -> format("(%d, %s)", testCase.id(), testCase.input()))
+                                .collect(joining("), (", "(", ")"))))) {
             assertQuery(
-                    format("SELECT value FROM %s ORDER BY id", tableName),
+                    format("SELECT value FROM %s ORDER BY id", table.getName()),
                     testCases.stream()
                             .map(TestCase::expected)
                             .collect(joining("), (", "VALUES (", ")")));
-        }
-        finally {
-            getTrinoExecutor().execute("DROP TABLE " + tableName);
         }
     }
 
@@ -901,7 +890,7 @@ public class TestRedshiftTypeMapping
 
     private DataSetup trinoCreateAsSelect(Session session, String tableNamePrefix)
     {
-        return new CreateAsSelectDataSetup(new TrinoSqlExecutor(getQueryRunner(), session), tableNamePrefix);
+        return new CreateAsSelectDataSetup(new TrinoSqlExecutorWithRetries(getQueryRunner(), session), tableNamePrefix);
     }
 
     private static DataSetup redshiftCreateAndInsert(String tableNamePrefix)
@@ -921,15 +910,12 @@ public class TestRedshiftTypeMapping
 
     private SqlExecutor getTrinoExecutor()
     {
-        return new TrinoSqlExecutor(getQueryRunner());
+        return new TrinoSqlExecutorWithRetries(getQueryRunner());
     }
 
     private static SqlExecutor getRedshiftExecutor()
     {
-        Properties properties = new Properties();
-        properties.setProperty("user", JDBC_USER);
-        properties.setProperty("password", JDBC_PASSWORD);
-        return new JdbcSqlExecutor(JDBC_URL, properties);
+        return TestingRedshiftServer::executeInRedshiftWithRetry;
     }
 
     private static void checkIsGap(ZoneId zone, LocalDateTime dateTime)

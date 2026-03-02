@@ -126,6 +126,17 @@ export class PageTitle extends React.Component<Props, State> {
                         </div>
                         <div id="navbar" className="navbar-collapse collapse">
                             <ul className="nav navbar-nav navbar-right">
+                                {info.previewUiEnabled && (
+                                    <li>
+                                        <span className="navbar-cluster-info">
+                                            <span className="text">
+                                                <a className="btn btn-info" href="/ui/preview">
+                                                    Preview UI
+                                                </a>
+                                            </span>
+                                        </span>
+                                    </li>
+                                )}
                                 <li>
                                     <span className="navbar-cluster-info">
                                         <span className="uppercase">Version</span>

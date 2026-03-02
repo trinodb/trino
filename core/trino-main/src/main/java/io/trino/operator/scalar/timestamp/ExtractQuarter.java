@@ -25,7 +25,7 @@ import static io.trino.operator.scalar.QuarterOfYearDateTimeField.QUARTER_OF_YEA
 import static io.trino.type.DateTimes.scaleEpochMicrosToMillis;
 
 @Description("Quarter of the year of the given timestamp")
-@ScalarFunction("quarter")
+@ScalarFunction(value = "quarter", neverFails = true)
 public final class ExtractQuarter
 {
     private ExtractQuarter() {}

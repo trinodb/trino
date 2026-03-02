@@ -28,4 +28,15 @@ public interface ConnectorPageSourceProvider
             ConnectorTableHandle table,
             List<ColumnHandle> columns,
             DynamicFilter dynamicFilter);
+
+    /**
+     * Get the total memory that needs to be reserved in the memory pool.
+     * This should include any memory used in the page source provider that is shared across all page sources created by this provider.
+     *
+     * @return the memory used so far in table read
+     */
+    default long getMemoryUsage()
+    {
+        return 0;
+    }
 }

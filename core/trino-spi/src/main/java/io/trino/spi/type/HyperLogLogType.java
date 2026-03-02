@@ -26,12 +26,13 @@ import io.trino.spi.block.VariableWidthBlockBuilder;
 public class HyperLogLogType
         extends AbstractVariableWidthType
 {
+    public static final String NAME = "HyperLogLog";
     public static final HyperLogLogType HYPER_LOG_LOG = new HyperLogLogType();
 
     @JsonCreator
     public HyperLogLogType()
     {
-        super(new TypeSignature(StandardTypes.HYPER_LOG_LOG), Slice.class);
+        super(new TypeSignature(NAME), Slice.class);
     }
 
     @Override
@@ -52,6 +53,12 @@ public class HyperLogLogType
     public void writeSlice(BlockBuilder blockBuilder, Slice value, int offset, int length)
     {
         ((VariableWidthBlockBuilder) blockBuilder).writeEntry(value, offset, length);
+    }
+
+    @Override
+    public String getDisplayName()
+    {
+        return NAME;
     }
 
     @Override

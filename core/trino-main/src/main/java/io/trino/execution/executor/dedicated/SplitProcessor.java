@@ -59,10 +59,10 @@ class SplitProcessor
     {
         Span splitSpan = tracer.spanBuilder("split")
                 .setParent(Context.current().with(split.getPipelineSpan()))
-                .setAttribute(TrinoAttributes.QUERY_ID, taskId.getQueryId().toString())
-                .setAttribute(TrinoAttributes.STAGE_ID, taskId.getStageId().toString())
+                .setAttribute(TrinoAttributes.QUERY_ID, taskId.queryId().toString())
+                .setAttribute(TrinoAttributes.STAGE_ID, taskId.stageId().toString())
                 .setAttribute(TrinoAttributes.TASK_ID, taskId.toString())
-                .setAttribute(TrinoAttributes.PIPELINE_ID, taskId.getStageId() + "-" + split.getPipelineId())
+                .setAttribute(TrinoAttributes.PIPELINE_ID, taskId.stageId() + "-" + split.getPipelineId())
                 .setAttribute(TrinoAttributes.SPLIT_ID, taskId + "-" + splitId)
                 .startSpan();
 

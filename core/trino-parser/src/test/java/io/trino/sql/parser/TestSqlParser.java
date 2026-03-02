@@ -39,10 +39,12 @@ import io.trino.sql.tree.ColumnPosition;
 import io.trino.sql.tree.Comment;
 import io.trino.sql.tree.Commit;
 import io.trino.sql.tree.ComparisonExpression;
+import io.trino.sql.tree.CompositeIntervalQualifier;
 import io.trino.sql.tree.Corresponding;
 import io.trino.sql.tree.CreateBranch;
 import io.trino.sql.tree.CreateCatalog;
 import io.trino.sql.tree.CreateMaterializedView;
+import io.trino.sql.tree.CreateMaterializedView.WhenStaleBehavior;
 import io.trino.sql.tree.CreateRole;
 import io.trino.sql.tree.CreateSchema;
 import io.trino.sql.tree.CreateTable;
@@ -63,6 +65,7 @@ import io.trino.sql.tree.DoubleLiteral;
 import io.trino.sql.tree.DropBranch;
 import io.trino.sql.tree.DropCatalog;
 import io.trino.sql.tree.DropColumn;
+import io.trino.sql.tree.DropDefaultValue;
 import io.trino.sql.tree.DropMaterializedView;
 import io.trino.sql.tree.DropNotNullConstraint;
 import io.trino.sql.tree.DropRole;
@@ -100,8 +103,8 @@ import io.trino.sql.tree.Identifier;
 import io.trino.sql.tree.IfExpression;
 import io.trino.sql.tree.Insert;
 import io.trino.sql.tree.Intersect;
+import io.trino.sql.tree.IntervalField;
 import io.trino.sql.tree.IntervalLiteral;
-import io.trino.sql.tree.IntervalLiteral.IntervalField;
 import io.trino.sql.tree.IntervalLiteral.Sign;
 import io.trino.sql.tree.IsNullPredicate;
 import io.trino.sql.tree.Isolation;
@@ -187,6 +190,7 @@ import io.trino.sql.tree.SelectItem;
 import io.trino.sql.tree.SessionProperty;
 import io.trino.sql.tree.SetAuthorizationStatement;
 import io.trino.sql.tree.SetColumnType;
+import io.trino.sql.tree.SetDefaultValue;
 import io.trino.sql.tree.SetPath;
 import io.trino.sql.tree.SetProperties;
 import io.trino.sql.tree.SetRole;
@@ -206,6 +210,7 @@ import io.trino.sql.tree.ShowStats;
 import io.trino.sql.tree.ShowTables;
 import io.trino.sql.tree.SimpleCaseExpression;
 import io.trino.sql.tree.SimpleGroupBy;
+import io.trino.sql.tree.SimpleIntervalQualifier;
 import io.trino.sql.tree.SingleColumn;
 import io.trino.sql.tree.SortItem;
 import io.trino.sql.tree.StartTransaction;
@@ -246,6 +251,7 @@ import org.junit.jupiter.api.Timeout;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalInt;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.sql.QueryUtil.aliased;
@@ -419,9 +425,9 @@ public class TestSqlParser
         assertThat(expression("TIMESTAMP 'abc'"))
                 .isEqualTo(new GenericLiteral(location, "TIMESTAMP", "abc"));
         assertThat(expression("INTERVAL '33' day"))
-                .isEqualTo(new IntervalLiteral(location, "33", Sign.POSITIVE, IntervalField.DAY, Optional.empty()));
+                .isEqualTo(new IntervalLiteral(location, "33", Sign.POSITIVE, new SimpleIntervalQualifier(new NodeLocation(1, 15), OptionalInt.empty(), new IntervalField.Day())));
         assertThat(expression("INTERVAL '33' day to second"))
-                .isEqualTo(new IntervalLiteral(location, "33", Sign.POSITIVE, IntervalField.DAY, Optional.of(IntervalField.SECOND)));
+                .isEqualTo(new IntervalLiteral(location, "33", Sign.POSITIVE, new CompositeIntervalQualifier(new NodeLocation(1, 15), OptionalInt.empty(), new IntervalField.Day(), new IntervalField.Second(OptionalInt.empty()))));
         assertThat(expression("CHAR 'abc'"))
                 .isEqualTo(new GenericLiteral(location, "CHAR", "abc"));
     }
@@ -615,9 +621,9 @@ public class TestSqlParser
                         new Row(
                                 location(1, 1),
                                 ImmutableList.of(
-                                        new LongLiteral(location(1, 6), "1"),
-                                        new StringLiteral(location(1, 9), "a"),
-                                        new BooleanLiteral(location(1, 14), "true"))),
+                                        new Row.Field(location(1, 6), Optional.empty(), new LongLiteral(location(1, 6), "1")),
+                                        new Row.Field(location(1, 9), Optional.empty(), new StringLiteral(location(1, 9), "a")),
+                                        new Row.Field(location(1, 14), Optional.empty(), new BooleanLiteral(location(1, 14), "true")))),
                         new LongLiteral(location(1, 20), "1")));
     }
 
@@ -650,7 +656,7 @@ public class TestSqlParser
                         ImmutableList.of(
                                 new AllColumns(
                                         Optional.empty(),
-                                        Optional.of(new Row(ImmutableList.of(new LongLiteral("1"), new StringLiteral("a"), new BooleanLiteral("true")))),
+                                        Optional.of(row(new LongLiteral("1"), new StringLiteral("a"), new BooleanLiteral("true"))),
                                         ImmutableList.of())))));
 
         assertStatement("SELECT ROW (1, 'a', true).* AS (f1, f2, f3)", simpleQuery(
@@ -659,7 +665,7 @@ public class TestSqlParser
                         ImmutableList.of(
                                 new AllColumns(
                                         Optional.empty(),
-                                        Optional.of(new Row(ImmutableList.of(new LongLiteral("1"), new StringLiteral("a"), new BooleanLiteral("true")))),
+                                        Optional.of(row(new LongLiteral("1"), new StringLiteral("a"), new BooleanLiteral("true"))),
                                         ImmutableList.of(new Identifier("f1"), new Identifier("f2"), new Identifier("f3")))))));
     }
 
@@ -1291,23 +1297,74 @@ public class TestSqlParser
     {
         NodeLocation location = new NodeLocation(1, 1);
         assertThat(expression("INTERVAL '123' YEAR"))
-                .isEqualTo(new IntervalLiteral(location, "123", Sign.POSITIVE, IntervalField.YEAR, Optional.empty()));
+                .isEqualTo(new IntervalLiteral(location, "123", Sign.POSITIVE, new SimpleIntervalQualifier(location(1, 16), OptionalInt.empty(), new IntervalField.Year())));
         assertThat(expression("INTERVAL '123-3' YEAR TO MONTH"))
-                .isEqualTo(new IntervalLiteral(location, "123-3", Sign.POSITIVE, IntervalField.YEAR, Optional.of(IntervalField.MONTH)));
+                .isEqualTo(new IntervalLiteral(location, "123-3", Sign.POSITIVE, new CompositeIntervalQualifier(location(1, 18), OptionalInt.empty(), new IntervalField.Year(), new IntervalField.Month())));
         assertThat(expression("INTERVAL '123' MONTH"))
-                .isEqualTo(new IntervalLiteral(location, "123", Sign.POSITIVE, IntervalField.MONTH, Optional.empty()));
+                .isEqualTo(new IntervalLiteral(location, "123", Sign.POSITIVE, new SimpleIntervalQualifier(location(1, 16), OptionalInt.empty(), new IntervalField.Month())));
         assertThat(expression("INTERVAL '123' DAY"))
-                .isEqualTo(new IntervalLiteral(location, "123", Sign.POSITIVE, IntervalField.DAY, Optional.empty()));
+                .isEqualTo(new IntervalLiteral(location, "123", Sign.POSITIVE, new SimpleIntervalQualifier(location(1, 16), OptionalInt.empty(), new IntervalField.Day())));
         assertThat(expression("INTERVAL '123 23:58:53.456' DAY TO SECOND"))
-                .isEqualTo(new IntervalLiteral(location, "123 23:58:53.456", Sign.POSITIVE, IntervalField.DAY, Optional.of(IntervalField.SECOND)));
+                .isEqualTo(new IntervalLiteral(location, "123 23:58:53.456", Sign.POSITIVE, new CompositeIntervalQualifier(location(1, 29), OptionalInt.empty(), new IntervalField.Day(), new IntervalField.Second(OptionalInt.empty()))));
         assertThat(expression("INTERVAL '123' HOUR"))
-                .isEqualTo(new IntervalLiteral(location, "123", Sign.POSITIVE, IntervalField.HOUR, Optional.empty()));
+                .isEqualTo(new IntervalLiteral(location, "123", Sign.POSITIVE, new SimpleIntervalQualifier(location(1, 16), OptionalInt.empty(), new IntervalField.Hour())));
         assertThat(expression("INTERVAL '23:59' HOUR TO MINUTE"))
-                .isEqualTo(new IntervalLiteral(location, "23:59", Sign.POSITIVE, IntervalField.HOUR, Optional.of(IntervalField.MINUTE)));
+                .isEqualTo(new IntervalLiteral(location, "23:59", Sign.POSITIVE, new CompositeIntervalQualifier(location(1, 18), OptionalInt.empty(), new IntervalField.Hour(), new IntervalField.Minute())));
         assertThat(expression("INTERVAL '123' MINUTE"))
-                .isEqualTo(new IntervalLiteral(location, "123", Sign.POSITIVE, IntervalField.MINUTE, Optional.empty()));
+                .isEqualTo(new IntervalLiteral(location, "123", Sign.POSITIVE, new SimpleIntervalQualifier(location(1, 16), OptionalInt.empty(), new IntervalField.Minute())));
         assertThat(expression("INTERVAL '123' SECOND"))
-                .isEqualTo(new IntervalLiteral(location, "123", Sign.POSITIVE, IntervalField.SECOND, Optional.empty()));
+                .isEqualTo(new IntervalLiteral(location, "123", Sign.POSITIVE, new SimpleIntervalQualifier(location(1, 16), OptionalInt.empty(), new IntervalField.Second(OptionalInt.empty()))));
+
+        assertThat(expression("INTERVAL '1' YEAR(1)"))
+                .isEqualTo(new IntervalLiteral(location, "1", Sign.POSITIVE, new SimpleIntervalQualifier(location(1, 14), OptionalInt.of(1), new IntervalField.Year())));
+
+        assertThat(expression("INTERVAL '1' YEAR(1) TO MONTH"))
+                .isEqualTo(new IntervalLiteral(location, "1", Sign.POSITIVE, new CompositeIntervalQualifier(location(1, 14), OptionalInt.of(1), new IntervalField.Year(), new IntervalField.Month())));
+
+        assertThat(expression("INTERVAL '1' MONTH(1)"))
+                .isEqualTo(new IntervalLiteral(location, "1", Sign.POSITIVE, new SimpleIntervalQualifier(location(1, 14), OptionalInt.of(1), new IntervalField.Month())));
+
+        assertThat(expression("INTERVAL '1' DAY(1)"))
+                .isEqualTo(new IntervalLiteral(location, "1", Sign.POSITIVE, new SimpleIntervalQualifier(location(1, 14), OptionalInt.of(1), new IntervalField.Day())));
+
+        assertThat(expression("INTERVAL '1' DAY(1) TO HOUR"))
+                .isEqualTo(new IntervalLiteral(location, "1", Sign.POSITIVE, new CompositeIntervalQualifier(location(1, 14), OptionalInt.of(1), new IntervalField.Day(), new IntervalField.Hour())));
+
+        assertThat(expression("INTERVAL '1' DAY(1) TO MINUTE"))
+                .isEqualTo(new IntervalLiteral(location, "1", Sign.POSITIVE, new CompositeIntervalQualifier(location(1, 14), OptionalInt.of(1), new IntervalField.Day(), new IntervalField.Minute())));
+
+        assertThat(expression("INTERVAL '1' DAY(1) TO SECOND"))
+                .isEqualTo(new IntervalLiteral(location, "1", Sign.POSITIVE, new CompositeIntervalQualifier(location(1, 14), OptionalInt.of(1), new IntervalField.Day(), new IntervalField.Second(OptionalInt.empty()))));
+
+        assertThat(expression("INTERVAL '1' DAY(1) TO SECOND(2)"))
+                .isEqualTo(new IntervalLiteral(location, "1", Sign.POSITIVE, new CompositeIntervalQualifier(location(1, 14), OptionalInt.of(1), new IntervalField.Day(), new IntervalField.Second(OptionalInt.of(2)))));
+
+        assertThat(expression("INTERVAL '1' HOUR(1)"))
+                .isEqualTo(new IntervalLiteral(location, "1", Sign.POSITIVE, new SimpleIntervalQualifier(location(1, 14), OptionalInt.of(1), new IntervalField.Hour())));
+
+        assertThat(expression("INTERVAL '1' HOUR(1) TO MINUTE"))
+                .isEqualTo(new IntervalLiteral(location, "1", Sign.POSITIVE, new CompositeIntervalQualifier(location(1, 14), OptionalInt.of(1), new IntervalField.Hour(), new IntervalField.Minute())));
+
+        assertThat(expression("INTERVAL '1' HOUR(1) TO SECOND"))
+                .isEqualTo(new IntervalLiteral(location, "1", Sign.POSITIVE, new CompositeIntervalQualifier(location(1, 14), OptionalInt.of(1), new IntervalField.Hour(), new IntervalField.Second(OptionalInt.empty()))));
+
+        assertThat(expression("INTERVAL '1' HOUR(1) TO SECOND(2)"))
+                .isEqualTo(new IntervalLiteral(location, "1", Sign.POSITIVE, new CompositeIntervalQualifier(location(1, 14), OptionalInt.of(1), new IntervalField.Hour(), new IntervalField.Second(OptionalInt.of(2)))));
+
+        assertThat(expression("INTERVAL '1' MINUTE(1)"))
+                .isEqualTo(new IntervalLiteral(location, "1", Sign.POSITIVE, new SimpleIntervalQualifier(location(1, 14), OptionalInt.of(1), new IntervalField.Minute())));
+
+        assertThat(expression("INTERVAL '1' MINUTE(1) TO SECOND"))
+                .isEqualTo(new IntervalLiteral(location, "1", Sign.POSITIVE, new CompositeIntervalQualifier(location(1, 14), OptionalInt.of(1), new IntervalField.Minute(), new IntervalField.Second(OptionalInt.empty()))));
+
+        assertThat(expression("INTERVAL '1' MINUTE(1) TO SECOND(2)"))
+                .isEqualTo(new IntervalLiteral(location, "1", Sign.POSITIVE, new CompositeIntervalQualifier(location(1, 14), OptionalInt.of(1), new IntervalField.Minute(), new IntervalField.Second(OptionalInt.of(2)))));
+
+        assertThat(expression("INTERVAL '1' SECOND(1)"))
+                .isEqualTo(new IntervalLiteral(location, "1", Sign.POSITIVE, new SimpleIntervalQualifier(location(1, 14), OptionalInt.of(1), new IntervalField.Second(OptionalInt.empty()))));
+
+        assertThat(expression("INTERVAL '1' SECOND(1, 2)"))
+                .isEqualTo(new IntervalLiteral(location, "1", Sign.POSITIVE, new SimpleIntervalQualifier(location(1, 14), OptionalInt.of(1), new IntervalField.Second(OptionalInt.of(2)))));
     }
 
     @Test
@@ -1820,7 +1877,7 @@ public class TestSqlParser
                         selectList(
                                 new DereferenceExpression(
                                         new Cast(
-                                                new Row(Lists.newArrayList(new LongLiteral("11"), new LongLiteral("12"))),
+                                                row(new LongLiteral("11"), new LongLiteral("12")),
                                                 rowType(location(1, 26),
                                                         field(location(1, 30), "COL0", simpleType(location(1, 35), "INTEGER")),
                                                         field(location(1, 44), "COL1", simpleType(location(1, 49), "INTEGER")))),
@@ -4180,6 +4237,52 @@ public class TestSqlParser
     }
 
     @Test
+    public void testAlterColumnSetDefault()
+    {
+        assertThat(statement("ALTER TABLE foo.t ALTER COLUMN a SET DEFAULT 123"))
+                .isEqualTo(new SetDefaultValue(
+                        location(1, 1),
+                        QualifiedName.of(ImmutableList.of(
+                                new Identifier(location(1, 13), "foo", false),
+                                new Identifier(location(1, 17), "t", false))),
+                        QualifiedName.of(ImmutableList.of(new Identifier(new NodeLocation(1, 32), "a", false))),
+                        new LongLiteral(location(1, 46), "123"),
+                        false));
+
+        assertThat(statement("ALTER TABLE IF EXISTS foo.t ALTER COLUMN b SET DEFAULT 123"))
+                .isEqualTo(new SetDefaultValue(
+                        location(1, 1),
+                        QualifiedName.of(ImmutableList.of(
+                                new Identifier(location(1, 23), "foo", false),
+                                new Identifier(location(1, 27), "t", false))),
+                        QualifiedName.of(ImmutableList.of(new Identifier(new NodeLocation(1, 42), "b", false))),
+                        new LongLiteral(location(1, 56), "123"),
+                        true));
+    }
+
+    @Test
+    public void testAlterColumnDropDefault()
+    {
+        assertThat(statement("ALTER TABLE foo.t ALTER COLUMN a DROP DEFAULT"))
+                .isEqualTo(new DropDefaultValue(
+                        location(1, 1),
+                        QualifiedName.of(ImmutableList.of(
+                                new Identifier(location(1, 13), "foo", false),
+                                new Identifier(location(1, 17), "t", false))),
+                        QualifiedName.of(ImmutableList.of(new Identifier(new NodeLocation(1, 32), "a", false))),
+                        false));
+
+        assertThat(statement("ALTER TABLE IF EXISTS foo.t ALTER COLUMN b DROP DEFAULT"))
+                .isEqualTo(new DropDefaultValue(
+                        location(1, 1),
+                        QualifiedName.of(ImmutableList.of(
+                                new Identifier(location(1, 23), "foo", false),
+                                new Identifier(location(1, 27), "t", false))),
+                        QualifiedName.of(ImmutableList.of(new Identifier(new NodeLocation(1, 42), "b", false))),
+                        true));
+    }
+
+    @Test
     public void testAlterColumnSetDataType()
     {
         assertThat(statement("ALTER TABLE foo.t ALTER COLUMN a SET DATA TYPE bigint"))
@@ -4675,13 +4778,13 @@ public class TestSqlParser
                                 location(1, 1),
                                 Optional.of(new IntervalLiteral(
                                         location(1, 15),
-                                        "10", Sign.POSITIVE, IntervalField.HOUR, Optional.empty()))));
+                                        "10", Sign.POSITIVE, new SimpleIntervalQualifier(location(1, 29), OptionalInt.empty(), new IntervalField.Hour())))));
         assertThat(statement("SET TIME ZONE INTERVAL -'08:00' HOUR TO MINUTE"))
                 .isEqualTo(
                         new SetTimeZone(
                                 location(1, 1),
                                 Optional.of(new IntervalLiteral(
-                                        location(1, 15), "08:00", Sign.NEGATIVE, IntervalField.HOUR, Optional.of(IntervalField.MINUTE)))));
+                                        location(1, 15), "08:00", Sign.NEGATIVE, new CompositeIntervalQualifier(location(1, 33), OptionalInt.empty(), new IntervalField.Hour(), new IntervalField.Minute())))));
     }
 
     @Test
@@ -5484,8 +5587,8 @@ public class TestSqlParser
                                 ImmutableList.of(),
                                 Optional.empty(),
                                 new Values(location(1, 13), ImmutableList.of(
-                                        new Row(location(1, 20), ImmutableList.of(new LongLiteral(location(1, 24), "1"))),
-                                        new Row(location(1, 28), ImmutableList.of(new LongLiteral(location(1, 32), "2"))))),
+                                        new Row(location(1, 20), ImmutableList.of(new Row.Field(location(1, 24), Optional.empty(), new LongLiteral(location(1, 24), "1")))),
+                                        new Row(location(1, 28), ImmutableList.of(new Row.Field(location(1, 32), Optional.empty(), new LongLiteral(location(1, 32), "2")))))),
                                 Optional.empty(),
                                 Optional.empty(),
                                 Optional.empty()))));
@@ -5845,6 +5948,7 @@ public class TestSqlParser
                         false,
                         false,
                         Optional.empty(),
+                        Optional.empty(),
                         ImmutableList.of(),
                         Optional.empty()));
 
@@ -5887,6 +5991,7 @@ public class TestSqlParser
                         true,
                         false,
                         Optional.empty(),
+                        Optional.empty(),
                         ImmutableList.of(),
                         Optional.of("A simple materialized view")));
 
@@ -5921,7 +6026,80 @@ public class TestSqlParser
                                 Optional.empty()),
                         false,
                         false,
-                        Optional.of(new IntervalLiteral(new NodeLocation(1, 41), "2", Sign.POSITIVE, IntervalField.DAY, Optional.empty())),
+                        Optional.of(new IntervalLiteral(new NodeLocation(1, 41), "2", Sign.POSITIVE, new SimpleIntervalQualifier(location(1, 54), OptionalInt.empty(), new IntervalField.Day()))),
+                        Optional.empty(),
+                        ImmutableList.of(),
+                        Optional.empty()));
+
+        // WHEN STALE FAIL
+        assertThat(statement("CREATE MATERIALIZED VIEW a WHEN STALE FAIL AS SELECT * FROM t"))
+                .isEqualTo(new CreateMaterializedView(
+                        new NodeLocation(1, 1),
+                        QualifiedName.of(ImmutableList.of(new Identifier(new NodeLocation(1, 26), "a", false))),
+                        new Query(
+                                new NodeLocation(1, 47),
+                                ImmutableList.of(),
+                                ImmutableList.of(),
+                                Optional.empty(),
+                                new QuerySpecification(
+                                        new NodeLocation(1, 47),
+                                        new Select(
+                                                new NodeLocation(1, 47),
+                                                false,
+                                                ImmutableList.of(new AllColumns(new NodeLocation(1, 54), Optional.empty(), ImmutableList.of()))),
+                                        Optional.of(new Table(
+                                                new NodeLocation(1, 61),
+                                                QualifiedName.of(ImmutableList.of(new Identifier(new NodeLocation(1, 61), "t", false))))),
+                                        Optional.empty(),
+                                        Optional.empty(),
+                                        Optional.empty(),
+                                        ImmutableList.of(),
+                                        Optional.empty(),
+                                        Optional.empty(),
+                                        Optional.empty()),
+                                Optional.empty(),
+                                Optional.empty(),
+                                Optional.empty()),
+                        false,
+                        false,
+                        Optional.empty(),
+                        Optional.of(WhenStaleBehavior.FAIL),
+                        ImmutableList.of(),
+                        Optional.empty()));
+
+        // WHEN STALE INLINE
+        assertThat(statement("CREATE MATERIALIZED VIEW a WHEN STALE INLINE AS SELECT * FROM t"))
+                .isEqualTo(new CreateMaterializedView(
+                        new NodeLocation(1, 1),
+                        QualifiedName.of(ImmutableList.of(new Identifier(new NodeLocation(1, 26), "a", false))),
+                        new Query(
+                                new NodeLocation(1, 49),
+                                ImmutableList.of(),
+                                ImmutableList.of(),
+                                Optional.empty(),
+                                new QuerySpecification(
+                                        new NodeLocation(1, 49),
+                                        new Select(
+                                                new NodeLocation(1, 49),
+                                                false,
+                                                ImmutableList.of(new AllColumns(new NodeLocation(1, 56), Optional.empty(), ImmutableList.of()))),
+                                        Optional.of(new Table(
+                                                new NodeLocation(1, 63),
+                                                QualifiedName.of(ImmutableList.of(new Identifier(new NodeLocation(1, 63), "t", false))))),
+                                        Optional.empty(),
+                                        Optional.empty(),
+                                        Optional.empty(),
+                                        ImmutableList.of(),
+                                        Optional.empty(),
+                                        Optional.empty(),
+                                        Optional.empty()),
+                                Optional.empty(),
+                                Optional.empty(),
+                                Optional.empty()),
+                        false,
+                        false,
+                        Optional.empty(),
+                        Optional.of(WhenStaleBehavior.INLINE),
                         ImmutableList.of(),
                         Optional.empty()));
 
@@ -5967,6 +6145,7 @@ public class TestSqlParser
                                 Optional.empty()),
                         true,
                         false,
+                        Optional.empty(),
                         Optional.empty(),
                         ImmutableList.of(new Property(
                                 new NodeLocation(2, 7),
@@ -6063,6 +6242,7 @@ public class TestSqlParser
                                 Optional.empty()),
                         true,
                         false,
+                        Optional.empty(),
                         Optional.empty(),
                         ImmutableList.of(new Property(
                                 new NodeLocation(2, 7),

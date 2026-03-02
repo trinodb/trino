@@ -13,18 +13,16 @@
  */
 package io.trino.connector;
 
-import com.google.common.collect.ImmutableSet;
 import io.airlift.http.client.testing.TestingHttpClient;
 import io.airlift.node.NodeInfo;
-import io.trino.client.NodeVersion;
 import io.trino.execution.SqlTaskManager;
 import io.trino.metadata.CatalogManager;
 import io.trino.node.InternalNode;
 import io.trino.node.TestingInternalNodeManager;
+import io.trino.spi.NodeVersion;
 import io.trino.transaction.TransactionManager;
 
 import java.net.URI;
-import java.util.List;
 import java.util.Set;
 
 import static java.util.Objects.requireNonNull;
@@ -56,8 +54,8 @@ public class TestingLocalCatalogPruneTask
     }
 
     @Override
-    void pruneWorkerCatalogs(Set<URI> online, List<CatalogHandle> activeCatalogs)
+    void pruneWorkerCatalogs(Set<URI> online, Set<CatalogHandle> activeCatalogs)
     {
-        sqlTaskManagerToPrune.pruneCatalogs(ImmutableSet.copyOf(activeCatalogs));
+        sqlTaskManagerToPrune.pruneCatalogs(activeCatalogs);
     }
 }

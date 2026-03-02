@@ -17,7 +17,7 @@ import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ListMultimap;
 import com.google.inject.Inject;
 import io.trino.matching.Pattern;
-import io.trino.matching.pattern.TypeOfPattern;
+import io.trino.matching.TypeOfPattern;
 import io.trino.sql.planner.plan.PlanNode;
 
 import java.lang.reflect.Modifier;

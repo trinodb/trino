@@ -16,12 +16,12 @@ package io.trino.server;
 import com.google.inject.Inject;
 import io.trino.server.PluginManager.PluginsProvider;
 
-import java.io.File;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.nio.file.DirectoryStream;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.concurrent.Callable;
@@ -36,13 +36,13 @@ import static java.util.Objects.requireNonNull;
 public class ServerPluginsProvider
         implements PluginsProvider
 {
-    private final File installedPluginsDir;
+    private final List<Path> installedPluginsDirs;
     private final Executor executor;
 
     @Inject
     public ServerPluginsProvider(ServerPluginsProviderConfig config, @ForStartup Executor executor)
     {
-        this.installedPluginsDir = config.getInstalledPluginsDir();
+        this.installedPluginsDirs = config.getInstalledPluginsDirs();
         this.executor = requireNonNull(executor, "executor is null");
     }
 
@@ -51,29 +51,30 @@ public class ServerPluginsProvider
     {
         executeUntilFailure(
                 executor,
-                listFiles(installedPluginsDir).stream()
-                        .filter(File::isDirectory)
-                        .map(file -> (Callable<?>) () -> {
-                            loader.load(file.getAbsolutePath(), () ->
-                                    createClassLoader.create(file.getName(), buildClassPath(file)));
+                installedPluginsDirs.stream()
+                        .flatMap(installedPluginsDir -> listFiles(installedPluginsDir).stream())
+                        .filter(Files::isDirectory)
+                        .map(Path::toAbsolutePath)
+                        .map(path -> (Callable<?>) () -> {
+                            String name = path.getFileName().toString();
+                            loader.load(name, () -> createClassLoader.create(name, buildClassPath(path)));
                             return null;
                         })
                         .collect(toImmutableList()));
     }
 
-    private static List<URL> buildClassPath(File path)
+    private static List<URL> buildClassPath(Path path)
     {
         return listFiles(path).stream()
                 .map(ServerPluginsProvider::fileToUrl)
                 .collect(toImmutableList());
     }
 
-    private static List<File> listFiles(File path)
+    private static List<Path> listFiles(Path path)
     {
         try {
-            try (DirectoryStream<Path> directoryStream = newDirectoryStream(path.toPath())) {
+            try (DirectoryStream<Path> directoryStream = newDirectoryStream(path)) {
                 return stream(directoryStream)
-                        .map(Path::toFile)
                         .sorted()
                         .collect(toImmutableList());
             }
@@ -83,10 +84,10 @@ public class ServerPluginsProvider
         }
     }
 
-    private static URL fileToUrl(File file)
+    private static URL fileToUrl(Path file)
     {
         try {
-            return file.toURI().toURL();
+            return file.toUri().toURL();
         }
         catch (MalformedURLException e) {
             throw new UncheckedIOException(e);

@@ -315,7 +315,7 @@ final class TestOpaAccessControlFiltering
                                          }
                                      }
                                  }\
-                                 """.formatted(function.getSchemaName(), function.getFunctionName()))
+                                 """.formatted(function.schemaName(), function.functionName()))
                 .collect(toImmutableSet());
         assertStringRequestsEqual(expectedRequests, mockClient.getRequests(), "/input/action");
     }

@@ -19,7 +19,6 @@ import io.airlift.log.Logger;
 import io.trino.metastore.TableInfo;
 import io.trino.metastore.TableInfo.ExtendedRelationType;
 import io.trino.plugin.base.util.AutoCloseableCloser;
-import io.trino.plugin.hive.NodeVersion;
 import io.trino.plugin.hive.orc.OrcReaderConfig;
 import io.trino.plugin.hive.orc.OrcWriterConfig;
 import io.trino.plugin.hive.parquet.ParquetReaderConfig;
@@ -30,6 +29,7 @@ import io.trino.plugin.iceberg.IcebergFileFormat;
 import io.trino.plugin.iceberg.IcebergMetadata;
 import io.trino.plugin.iceberg.IcebergSessionProperties;
 import io.trino.plugin.iceberg.TableStatisticsWriter;
+import io.trino.spi.NodeVersion;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorMaterializedViewDefinition;
 import io.trino.spi.connector.ConnectorMetadata;
@@ -61,6 +61,7 @@ import java.util.UUID;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.google.common.util.concurrent.MoreExecutors.newDirectExecutorService;
 import static io.airlift.json.JsonCodec.jsonCodec;
+import static io.airlift.units.Duration.ZERO;
 import static io.trino.metastore.TableInfo.ExtendedRelationType.TABLE;
 import static io.trino.metastore.TableInfo.ExtendedRelationType.TRINO_MATERIALIZED_VIEW;
 import static io.trino.metastore.TableInfo.ExtendedRelationType.TRINO_VIEW;
@@ -70,6 +71,7 @@ import static io.trino.plugin.iceberg.IcebergTableProperties.FILE_FORMAT_PROPERT
 import static io.trino.plugin.iceberg.IcebergTableProperties.FORMAT_VERSION_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergTestUtils.TABLE_STATISTICS_READER;
 import static io.trino.plugin.iceberg.IcebergUtil.quotedTableName;
+import static io.trino.plugin.iceberg.delete.DeletionVectorWriter.UNSUPPORTED_DELETION_VECTOR_WRITER;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
@@ -147,13 +149,16 @@ public abstract class BaseTrinoCatalogTest
                     },
                     TABLE_STATISTICS_READER,
                     new TableStatisticsWriter(new NodeVersion("test-version")),
+                    UNSUPPORTED_DELETION_VECTOR_WRITER,
                     Optional.empty(),
                     false,
                     _ -> false,
                     newDirectExecutorService(),
                     directExecutor(),
                     newDirectExecutorService(),
-                    newDirectExecutorService());
+                    newDirectExecutorService(),
+                    0,
+                    ZERO);
             assertThat(icebergMetadata.schemaExists(SESSION, namespace)).as("icebergMetadata.schemaExists(namespace)")
                     .isFalse();
             assertThat(icebergMetadata.schemaExists(SESSION, schema)).as("icebergMetadata.schemaExists(schema)")
@@ -161,6 +166,43 @@ public abstract class BaseTrinoCatalogTest
             assertThat(icebergMetadata.listSchemaNames(SESSION)).as("icebergMetadata.listSchemaNames")
                     .doesNotContain(namespace)
                     .contains(schema);
+        }
+        finally {
+            catalog.dropNamespace(SESSION, namespace);
+        }
+    }
+
+    @Test
+    public void testSchemaWithInvalidProperties()
+            throws Exception
+    {
+        String namespace = "test_schema_invalid_properties" + randomNameSuffix();
+
+        TrinoCatalog catalog = createTrinoCatalog(false);
+        createNamespaceWithProperties(catalog, namespace, ImmutableMap.of("invalid_property", "test-value"));
+        try {
+            ConnectorMetadata icebergMetadata = new IcebergMetadata(
+                    PLANNER_CONTEXT.getTypeManager(),
+                    jsonCodec(CommitTaskData.class),
+                    catalog,
+                    (_, _) -> {
+                        throw new UnsupportedOperationException();
+                    },
+                    TABLE_STATISTICS_READER,
+                    new TableStatisticsWriter(new NodeVersion("test-version")),
+                    UNSUPPORTED_DELETION_VECTOR_WRITER,
+                    Optional.empty(),
+                    false,
+                    _ -> false,
+                    newDirectExecutorService(),
+                    directExecutor(),
+                    newDirectExecutorService(),
+                    newDirectExecutorService(),
+                    0,
+                    ZERO);
+
+            assertThat(icebergMetadata.getSchemaProperties(SESSION, namespace))
+                    .doesNotContainKey("invalid_property");
         }
         finally {
             catalog.dropNamespace(SESSION, namespace);
@@ -536,6 +578,8 @@ public abstract class BaseTrinoCatalogTest
         }
     }
 
+    protected abstract void createNamespaceWithProperties(TrinoCatalog catalog, String namespace, Map<String, String> properties);
+
     protected void createMaterializedView(
             ConnectorSession session,
             TrinoCatalog catalog,
@@ -610,6 +654,7 @@ public abstract class BaseTrinoCatalogTest
                 Optional.empty(),
                 ImmutableList.of(new ConnectorMaterializedViewDefinition.Column("test", BIGINT.getTypeId(), Optional.empty())),
                 Optional.of(Duration.ZERO),
+                Optional.empty(),
                 Optional.empty(),
                 Optional.of("owner"),
                 ImmutableList.of());

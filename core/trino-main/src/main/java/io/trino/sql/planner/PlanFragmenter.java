@@ -414,10 +414,16 @@ public class PlanFragmenter
         @Override
         public PlanNode visitValues(ValuesNode node, RewriteContext<FragmentProperties> context)
         {
-            // An empty values node is compatible with any distribution, so
-            // don't attempt to overwrite one's already been chosen
-            if (node.getRowCount() != 0 || !context.get().hasDistribution()) {
+            if (node.getRowCount() != 0) {
+                // A non-empty values node requires single distribution
                 context.get().setSingleNodeDistribution();
+            }
+            else {
+                // An empty values node is compatible with any distribution, so
+                // do not overwrite a distribution if there is one already chosen,
+                // and delay setting the distribution in case the fragment contains
+                // another node with specific distribution requirements
+                context.get().setContainsEmptyValues();
             }
             return context.defaultRewrite(node, context.get());
         }
@@ -594,7 +600,8 @@ public class PlanFragmenter
         private final PartitioningScheme partitioningScheme;
 
         private Optional<PartitioningHandle> partitioningHandle = Optional.empty();
-        private Optional<Integer> partitionCount = Optional.empty();
+        private boolean containsEmptyValues;
+        private OptionalInt partitionCount = OptionalInt.empty();
         private final Set<PlanNodeId> partitionedSources = new HashSet<>();
 
         public FragmentProperties(PartitioningScheme partitioningScheme)
@@ -631,7 +638,7 @@ public class PlanFragmenter
 
         public FragmentProperties setDistribution(
                 PartitioningHandle distribution,
-                Optional<Integer> partitionCount,
+                OptionalInt partitionCount,
                 Metadata metadata,
                 Session session)
         {
@@ -762,6 +769,11 @@ public class PlanFragmenter
             return this;
         }
 
+        public void setContainsEmptyValues()
+        {
+            this.containsEmptyValues = true;
+        }
+
         public PartitioningScheme getPartitioningScheme()
         {
             return partitioningScheme;
@@ -769,10 +781,12 @@ public class PlanFragmenter
 
         public PartitioningHandle getPartitioningHandle()
         {
-            return partitioningHandle.get();
+            checkState(partitioningHandle.isPresent() || containsEmptyValues, "PartitioningHandle is not set for a fragment that does not contain empty values");
+
+            return partitioningHandle.orElse(SINGLE_DISTRIBUTION);
         }
 
-        public Optional<Integer> getPartitionCount()
+        public OptionalInt getPartitionCount()
         {
             return partitionCount;
         }

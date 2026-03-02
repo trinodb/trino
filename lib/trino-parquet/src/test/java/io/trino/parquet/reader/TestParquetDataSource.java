@@ -25,19 +25,22 @@ import io.trino.memory.context.AggregatedMemoryContext;
 import io.trino.parquet.ChunkReader;
 import io.trino.parquet.DiskRange;
 import io.trino.parquet.ParquetReaderOptions;
-import org.testng.annotations.DataProvider;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
 
 import java.io.IOException;
 import java.util.Map;
 import java.util.stream.IntStream;
+import java.util.stream.Stream;
 
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestParquetDataSource
 {
-    @Test(dataProvider = "testPlanReadOrderingProvider")
+    @ParameterizedTest
+    @MethodSource("testPlanReadOrderingProvider")
     public void testPlanReadOrdering(DataSize maxBufferSize)
             throws IOException
     {
@@ -59,13 +62,11 @@ public class TestParquetDataSource
                         testingInput.slice(700, 200)));
     }
 
-    @DataProvider
-    public Object[][] testPlanReadOrderingProvider()
+    public static Stream<DataSize> testPlanReadOrderingProvider()
     {
-        return new Object[][] {
-                {DataSize.ofBytes(200)}, // Mix of large and small ranges
-                {DataSize.ofBytes(100000000)}, // All small ranges
-        };
+        return Stream.of(
+                DataSize.ofBytes(200), // Mix of large and small ranges
+                DataSize.ofBytes(100000000)); // All small ranges
     }
 
     @Test

@@ -82,7 +82,7 @@ public class SuiteCompatibility
             int testVersion = currentVersion - 1; // always test last release version
             for (int i = 0; i < NUMBER_OF_TESTED_VERSIONS; i++) {
                 if (testVersion == 456) {
-                    // 456 release was skipped.
+                    // 456 is invalid - release process errors resulted in invalid artifacts.
                     testVersion--;
                 }
                 if (testVersion < FIRST_TRINO_VERSION) {

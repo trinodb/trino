@@ -12,7 +12,7 @@
  * limitations under the License.
  */
 import { MarkerType, type Edge, type Node } from '@xyflow/react'
-import { QueryStage, QueryStages, QueryStageNodeInfo, QueryStageOperatorSummary } from '../../api/webapp/api'
+import { QueryStage, QueryStages, QueryStageNodeInfo, QueryStageOperatorSummary, QueryTask } from '../../api/webapp/api'
 import { formatRows, parseAndFormatDataSize } from '../../utils/utils'
 import { IFlowElements, IPlanFragmentNodeInfo, IPlanNodeProps, LayoutDirectionType } from './types'
 
@@ -121,6 +121,7 @@ export const createStageOperatorNode = (
     pipelineId: string,
     key: string,
     operatorSummary: QueryStageOperatorSummary,
+    tasks: QueryTask[],
     index: number,
     layoutDirection: LayoutDirectionType
 ): Node => ({
@@ -131,6 +132,7 @@ export const createStageOperatorNode = (
         index,
         label: operatorSummary.operatorType,
         stats: operatorSummary,
+        tasks,
         layoutDirection,
     },
     parentId: pipelineId,
@@ -390,6 +392,7 @@ const countOperatorChainDepth = (stageOperatorSummary: QueryStageOperatorSummary
 const generateStageOperatorNodes = (
     pipelineId: string,
     stageOperatorSummary: QueryStageOperatorSummary,
+    tasks: QueryTask[],
     childIndex: number,
     layoutDirection: LayoutDirectionType
 ): Node[] => {
@@ -398,6 +401,7 @@ const generateStageOperatorNodes = (
             pipelineId,
             stageOperatorSummary.operatorId.toString(),
             stageOperatorSummary,
+            tasks,
             childIndex,
             layoutDirection
         ),
@@ -405,7 +409,13 @@ const generateStageOperatorNodes = (
 
     if (stageOperatorSummary.child) {
         nodes.push(
-            ...generateStageOperatorNodes(pipelineId, stageOperatorSummary.child, childIndex + 1, layoutDirection)
+            ...generateStageOperatorNodes(
+                pipelineId,
+                stageOperatorSummary.child,
+                tasks,
+                childIndex + 1,
+                layoutDirection
+            )
         )
     }
 
@@ -441,7 +451,13 @@ export const getStagePerformanceFlowElements = (
             key,
             layoutDirection
         )
-        const childNodes: Node[] = generateStageOperatorNodes(pipelineId, stageOperatorSummary, 0, layoutDirection)
+        const childNodes: Node[] = generateStageOperatorNodes(
+            pipelineId,
+            stageOperatorSummary,
+            stage.tasks,
+            0,
+            layoutDirection
+        )
 
         return [pipelineStageNode, ...childNodes]
     })

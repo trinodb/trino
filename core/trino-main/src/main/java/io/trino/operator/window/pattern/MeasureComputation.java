@@ -50,28 +50,19 @@ public class MeasureComputation
     // are not used)
     private final Block[] nulls;
 
-    // result type
-    private final Type type;
-
     // mapping from int representation to label name
     private final List<String> labelNames;
 
     private final ConnectorSession session;
 
-    public MeasureComputation(PageProjection projection, List<PhysicalValueAccessor> expectedLayout, List<MatchAggregation> aggregations, Type type, List<String> labelNames, ConnectorSession session)
+    public MeasureComputation(PageProjection projection, List<PhysicalValueAccessor> expectedLayout, List<MatchAggregation> aggregations, List<String> labelNames, ConnectorSession session)
     {
         this.projection = requireNonNull(projection, "projection is null");
         this.expectedLayout = requireNonNull(expectedLayout, "expectedLayout is null");
         this.aggregations = aggregations.toArray(new MatchAggregation[] {});
         this.nulls = precomputeNulls(expectedLayout);
-        this.type = requireNonNull(type, "type is null");
         this.labelNames = requireNonNull(labelNames, "labelNames is null");
         this.session = requireNonNull(session, "session is null");
-    }
-
-    public Type getType()
-    {
-        return type;
     }
 
     public Block compute(int currentRow, ArrayView matchedLabels, int partitionStart, int searchStart, int searchEnd, int patternStart, long matchNumber, ProjectingPagesWindowIndex windowIndex)
@@ -190,22 +181,20 @@ public class MeasureComputation
     {
         private final Supplier<PageProjection> projection;
         private final List<PhysicalValueAccessor> expectedLayout;
-        private final Type type;
         private final List<String> labelNames;
         private final ConnectorSession session;
 
-        public MeasureComputationSupplier(Supplier<PageProjection> projection, List<PhysicalValueAccessor> expectedLayout, Type type, List<String> labelNames, ConnectorSession session)
+        public MeasureComputationSupplier(Supplier<PageProjection> projection, List<PhysicalValueAccessor> expectedLayout, List<String> labelNames, ConnectorSession session)
         {
             this.projection = requireNonNull(projection, "projection is null");
             this.expectedLayout = requireNonNull(expectedLayout, "expectedLayout is null");
-            this.type = requireNonNull(type, "type is null");
             this.labelNames = requireNonNull(labelNames, "labelNames is null");
             this.session = requireNonNull(session, "session is null");
         }
 
         public MeasureComputation get(List<MatchAggregation> aggregations)
         {
-            return new MeasureComputation(projection.get(), expectedLayout, aggregations, type, labelNames, session);
+            return new MeasureComputation(projection.get(), expectedLayout, aggregations, labelNames, session);
         }
     }
 }

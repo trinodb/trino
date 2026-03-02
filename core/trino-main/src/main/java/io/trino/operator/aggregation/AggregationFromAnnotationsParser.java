@@ -34,14 +34,10 @@ import io.trino.spi.function.AggregationImplementation.AccumulatorStateDescripto
 import io.trino.spi.function.AggregationState;
 import io.trino.spi.function.CombineFunction;
 import io.trino.spi.function.FunctionDependencies;
-import io.trino.spi.function.FunctionDependency;
 import io.trino.spi.function.InOut;
 import io.trino.spi.function.InputFunction;
-import io.trino.spi.function.LiteralParameter;
-import io.trino.spi.function.OperatorDependency;
 import io.trino.spi.function.OutputFunction;
 import io.trino.spi.function.Signature;
-import io.trino.spi.function.TypeParameter;
 import io.trino.spi.function.WindowAccumulator;
 import io.trino.spi.type.TypeSignature;
 
@@ -115,7 +111,7 @@ public final class AggregationFromAnnotationsParser
                         stateDetails,
                         inputFunction,
                         outputFunction,
-                        combineFunction.filter(function -> header.decomposable()),
+                        combineFunction.filter(_ -> header.decomposable()),
                         header.windowAccumulator());
                 if (isGenericOrCalculated(implementation.getSignature())) {
                     exactImplementations.add(implementation);
@@ -165,7 +161,7 @@ public final class AggregationFromAnnotationsParser
 
     private static boolean isGenericOrCalculated(Signature signature)
     {
-        return signature.getTypeVariableConstraints().isEmpty()
+        return !signature.isGeneric()
                 && signature.getArgumentTypes().stream().noneMatch(TypeSignature::isCalculated)
                 && !signature.getReturnType().isCalculated();
     }
@@ -318,10 +314,7 @@ public final class AggregationFromAnnotationsParser
     {
         Annotation[][] parameterAnnotations = function.getParameterAnnotations();
         return IntStream.range(0, function.getParameterCount())
-                .filter(i -> Arrays.stream(parameterAnnotations[i]).noneMatch(TypeParameter.class::isInstance))
-                .filter(i -> Arrays.stream(parameterAnnotations[i]).noneMatch(LiteralParameter.class::isInstance))
-                .filter(i -> Arrays.stream(parameterAnnotations[i]).noneMatch(OperatorDependency.class::isInstance))
-                .filter(i -> Arrays.stream(parameterAnnotations[i]).noneMatch(FunctionDependency.class::isInstance));
+                .filter(i -> Arrays.stream(parameterAnnotations[i]).noneMatch(ImplementationDependency::isImplementationDependencyAnnotation));
     }
 
     private static List<Class<?>> getNonDependencyParameterTypes(Method function)
@@ -413,7 +406,7 @@ public final class AggregationFromAnnotationsParser
             allDependencies.addAll(dependencies);
         }
         else {
-            serializerGenerator = (functionBinding, functionDependencies) -> generateStateSerializer(stateClass);
+            serializerGenerator = (_, _) -> generateStateSerializer(stateClass);
         }
 
         TypeSignature serializedType;
@@ -427,7 +420,7 @@ public final class AggregationFromAnnotationsParser
             AccumulatorStateSerializer<T> serializer = serializerGenerator.apply(null, null);
             serializedType = serializer.getSerializedType().getTypeSignature();
             // since there are no dependencies, the same serializer can be used for all
-            serializerGenerator = (functionBinding, functionDependencies) -> serializer;
+            serializerGenerator = (_, _) -> serializer;
         }
 
         BiFunction<FunctionBinding, FunctionDependencies, AccumulatorStateFactory<T>> factoryGenerator;
@@ -438,7 +431,7 @@ public final class AggregationFromAnnotationsParser
             allDependencies.addAll(dependencies);
         }
         else {
-            factoryGenerator = (functionBinding, functionDependencies) -> generateStateFactory(stateClass);
+            factoryGenerator = (_, _) -> generateStateFactory(stateClass);
         }
 
         return new AccumulatorStateDetails<>(
@@ -464,9 +457,9 @@ public final class AggregationFromAnnotationsParser
                 InOut.class,
                 ImmutableList.of(typeVariable),
                 serializedType,
-                (functionBinding, functionDependencies) -> new InOutStateSerializer(functionBinding.getTypeVariable(typeVariable)),
-                (functionBinding, functionDependencies) -> generateInOutStateFactory(functionBinding.getTypeVariable(typeVariable)),
-                ImmutableList.of(new TypeImplementationDependency(parseTypeSignature(typeVariable, ImmutableSet.of()))));
+                (functionBinding, _) -> new InOutStateSerializer(functionBinding.variables().getTypeVariable(typeVariable)),
+                (functionBinding, _) -> generateInOutStateFactory(functionBinding.variables().getTypeVariable(typeVariable)),
+                        ImmutableList.of(new TypeImplementationDependency(parseTypeSignature(typeVariable, ImmutableSet.of()))));
     }
 
     private static TypeSignatureMapping getTypeParameterMapping(Class<?> stateClass, List<String> declaredTypeParameters, StateMetadata metadata)

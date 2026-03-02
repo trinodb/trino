@@ -71,7 +71,7 @@ public class BenchmarkSTXMin
         }
     }
 
-    public static void main(String[] args)
+    static void main()
             throws RunnerException
     {
         benchmark(BenchmarkSTXMin.class).run();

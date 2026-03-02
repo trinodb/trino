@@ -14,56 +14,68 @@
 package io.trino.parquet.reader;
 
 import io.airlift.slice.Slice;
+import io.airlift.slice.SliceInput;
 import io.airlift.slice.Slices;
 import io.airlift.units.DataSize;
 import io.trino.parquet.ParquetCorruptionException;
 import io.trino.parquet.ParquetDataSource;
 import io.trino.parquet.ParquetDataSourceId;
 import io.trino.parquet.ParquetWriteValidation;
+import io.trino.parquet.crypto.AesCipherUtils;
+import io.trino.parquet.crypto.AesGcmEncryptor;
+import io.trino.parquet.crypto.FileDecryptionContext;
+import io.trino.parquet.crypto.FileDecryptionProperties;
 import io.trino.parquet.metadata.FileMetadata;
 import io.trino.parquet.metadata.ParquetMetadata;
 import org.apache.parquet.CorruptStatistics;
 import org.apache.parquet.column.statistics.BinaryStatistics;
+import org.apache.parquet.format.BlockCipher.Decryptor;
+import org.apache.parquet.format.FileCryptoMetaData;
 import org.apache.parquet.format.FileMetaData;
 import org.apache.parquet.format.Statistics;
 import org.apache.parquet.schema.LogicalTypeAnnotation;
 import org.apache.parquet.schema.PrimitiveType;
 
 import java.io.IOException;
-import java.io.InputStream;
 import java.util.Arrays;
 import java.util.Optional;
 
 import static io.trino.parquet.ParquetMetadataConverter.fromParquetStatistics;
 import static io.trino.parquet.ParquetValidationUtils.validateParquet;
+import static io.trino.parquet.ParquetValidationUtils.validateParquetCrypto;
+import static io.trino.parquet.crypto.AesCipherUtils.GCM_TAG_LENGTH;
+import static io.trino.parquet.crypto.AesCipherUtils.NONCE_LENGTH;
 import static java.lang.Boolean.FALSE;
 import static java.lang.Boolean.TRUE;
 import static java.lang.Math.min;
 import static java.lang.Math.toIntExact;
+import static java.lang.System.arraycopy;
+import static org.apache.parquet.format.Util.readFileCryptoMetaData;
 import static org.apache.parquet.format.Util.readFileMetaData;
 
 public final class MetadataReader
 {
     private static final Slice MAGIC = Slices.utf8Slice("PAR1");
+    private static final Slice EMAGIC = Slices.utf8Slice("PARE");
     private static final int POST_SCRIPT_SIZE = Integer.BYTES + MAGIC.length();
     // Typical 1GB files produced by Trino were found to have footer size between 30-40KB
     private static final int EXPECTED_FOOTER_SIZE = 48 * 1024;
 
     private MetadataReader() {}
 
-    public static ParquetMetadata readFooter(ParquetDataSource dataSource)
+    public static ParquetMetadata readFooter(ParquetDataSource dataSource, Optional<FileDecryptionProperties> fileDecryptionProperties)
             throws IOException
     {
-        return readFooter(dataSource, Optional.empty(), Optional.empty());
+        return readFooter(dataSource, Optional.empty(), Optional.empty(), fileDecryptionProperties);
     }
 
-    public static ParquetMetadata readFooter(ParquetDataSource dataSource, DataSize maxFooterReadSize)
+    public static ParquetMetadata readFooter(ParquetDataSource dataSource, DataSize maxFooterReadSize, Optional<FileDecryptionProperties> fileDecryptionProperties)
             throws IOException
     {
-        return readFooter(dataSource, Optional.of(maxFooterReadSize), Optional.empty());
+        return readFooter(dataSource, Optional.of(maxFooterReadSize), Optional.empty(), fileDecryptionProperties);
     }
 
-    public static ParquetMetadata readFooter(ParquetDataSource dataSource, Optional<DataSize> maxFooterReadSize, Optional<ParquetWriteValidation> parquetWriteValidation)
+    public static ParquetMetadata readFooter(ParquetDataSource dataSource, Optional<DataSize> maxFooterReadSize, Optional<ParquetWriteValidation> parquetWriteValidation, Optional<FileDecryptionProperties> fileDecryptionProperties)
             throws IOException
     {
         // Parquet File Layout:
@@ -82,8 +94,9 @@ public final class MetadataReader
         Slice buffer = dataSource.readTail(toIntExact(expectedReadSize));
 
         Slice magic = buffer.slice(buffer.length() - MAGIC.length(), MAGIC.length());
-        validateParquet(MAGIC.equals(magic), dataSource.getId(), "Expected magic number: %s got: %s", MAGIC.toStringUtf8(), magic.toStringUtf8());
+        validateParquet(MAGIC.equals(magic) || EMAGIC.equals(magic), dataSource.getId(), "Expected magic number: %s or %s got: %s", MAGIC.toStringUtf8(), EMAGIC.toStringUtf8(), magic.toStringUtf8());
 
+        boolean encryptedFooterMode = EMAGIC.equals(magic);
         int metadataLength = buffer.getInt(buffer.length() - POST_SCRIPT_SIZE);
         long metadataIndex = estimatedFileSize - POST_SCRIPT_SIZE - metadataLength;
         validateParquet(
@@ -104,10 +117,32 @@ public final class MetadataReader
             // initial read was not large enough, so just read again with the correct size
             buffer = dataSource.readTail(completeFooterSize);
         }
-        InputStream metadataStream = buffer.slice(buffer.length() - completeFooterSize, metadataLength).getInput();
+        SliceInput metadataStream = buffer.slice(buffer.length() - completeFooterSize, metadataLength).getInput();
 
-        FileMetaData fileMetaData = readFileMetaData(metadataStream);
-        ParquetMetadata parquetMetadata = new ParquetMetadata(fileMetaData, dataSource.getId());
+        Optional<FileDecryptionContext> decryptionContext = Optional.empty();
+        Decryptor footerDecryptor = null;
+        byte[] aad = null;
+
+        if (encryptedFooterMode) {
+            validateParquetCrypto(fileDecryptionProperties.isPresent(), dataSource.getId(), "fileDecryptionProperties cannot be null when encryptedFooterMode is true");
+            FileCryptoMetaData fileCryptoMetaData = readFileCryptoMetaData(metadataStream);
+            validateParquetCrypto(fileCryptoMetaData != null, dataSource.getId(), "FileCryptoMetaData cannot be null when encryptedFooterMode is true");
+            decryptionContext = Optional.of(new FileDecryptionContext(dataSource.getId(), fileDecryptionProperties.get(), fileCryptoMetaData.getEncryption_algorithm(), Optional.ofNullable(fileCryptoMetaData.getKey_metadata())));
+            footerDecryptor = decryptionContext.get().getFooterDecryptor();
+            aad = AesCipherUtils.createFooterAAD(decryptionContext.get().getFileAad());
+        }
+
+        FileMetaData fileMetaData = readFileMetaData(metadataStream, footerDecryptor, aad);
+        if (!encryptedFooterMode && fileDecryptionProperties.isPresent() && fileMetaData.isSetEncryption_algorithm()) {
+            // footer is not encrypted, but some columns might be encrypted
+            decryptionContext = Optional.of(new FileDecryptionContext(dataSource.getId(), fileDecryptionProperties.get(), fileMetaData.getEncryption_algorithm(), Optional.ofNullable(fileMetaData.getFooter_signing_key_metadata())));
+            if (fileDecryptionProperties.get().isCheckFooterIntegrity()) {
+                // verify footer integrity
+                verifyFooterIntegrity(dataSource, metadataStream, decryptionContext.get(), metadataLength);
+            }
+        }
+
+        ParquetMetadata parquetMetadata = new ParquetMetadata(fileMetaData, dataSource.getId(), decryptionContext);
         validateFileMetadata(dataSource.getId(), parquetMetadata.getFileMetaData(), parquetWriteValidation);
         return parquetMetadata;
     }
@@ -218,5 +253,27 @@ public final class MetadataReader
                 dataSourceId,
                 Optional.ofNullable(fileMetaData.getKeyValueMetaData().get("writer.time.zone")));
         writeValidation.validateColumns(dataSourceId, fileMetaData.getSchema());
+    }
+
+    private static void verifyFooterIntegrity(ParquetDataSource dataSource, SliceInput metadataStream, FileDecryptionContext decryptionContext, int metadataLength)
+    {
+        byte[] nonce = new byte[NONCE_LENGTH];
+        metadataStream.read(nonce);
+
+        byte[] gcmTag = new byte[GCM_TAG_LENGTH];
+        metadataStream.read(gcmTag);
+
+        // read only the serialized footer without the tags
+        int footerSignatureLength = NONCE_LENGTH + GCM_TAG_LENGTH;
+        byte[] footer = new byte[metadataLength - footerSignatureLength];
+        metadataStream.setPosition(0);
+        metadataStream.read(footer, 0, footer.length);
+        byte[] signedFooterAAD = AesCipherUtils.createFooterAAD(decryptionContext.getFileAad());
+
+        AesGcmEncryptor footerSigner = decryptionContext.getFooterEncryptor();
+        byte[] encryptedFooterBytes = footerSigner.encrypt(false, footer, nonce, signedFooterAAD);
+        byte[] calculatedTag = new byte[GCM_TAG_LENGTH];
+        arraycopy(encryptedFooterBytes, encryptedFooterBytes.length - GCM_TAG_LENGTH, calculatedTag, 0, GCM_TAG_LENGTH);
+        validateParquetCrypto(Arrays.equals(gcmTag, calculatedTag), dataSource.getId(), "Signature mismatch in plaintext footer");
     }
 }

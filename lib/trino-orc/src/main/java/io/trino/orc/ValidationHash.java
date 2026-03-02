@@ -87,7 +87,7 @@ class ValidationHash
         }
 
         if (type instanceof RowType rowType) {
-            ValidationHash[] fieldHashes = type.getTypeParameters().stream()
+            ValidationHash[] fieldHashes = rowType.getFieldTypes().stream()
                     .map(ValidationHash::createValidationHash)
                     .toArray(ValidationHash[]::new);
             return new ValidationHash(ROW_HASH.bindTo(rowType).bindTo(fieldHashes));

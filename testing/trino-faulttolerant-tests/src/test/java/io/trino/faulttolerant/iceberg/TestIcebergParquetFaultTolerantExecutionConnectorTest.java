@@ -14,7 +14,6 @@
 package io.trino.faulttolerant.iceberg;
 
 import io.trino.filesystem.Location;
-import io.trino.plugin.exchange.filesystem.FileSystemExchangePlugin;
 import io.trino.plugin.exchange.filesystem.containers.MinioStorage;
 import io.trino.plugin.iceberg.IcebergQueryRunner;
 import io.trino.plugin.iceberg.TestIcebergParquetConnectorTest;
@@ -46,10 +45,7 @@ public class TestIcebergParquetFaultTolerantExecutionConnectorTest
 
         return super.createQueryRunnerBuilder()
                 .addExtraProperties(getExtraProperties())
-                .setAdditionalSetup(runner -> {
-                    runner.installPlugin(new FileSystemExchangePlugin());
-                    runner.loadExchangeManager("filesystem", getExchangeManagerProperties(minioStorage));
-                });
+                .withExchange("filesystem", getExchangeManagerProperties(minioStorage));
     }
 
     @Test

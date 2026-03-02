@@ -54,6 +54,11 @@ public final class QueryAssertions
 
     private QueryAssertions() {}
 
+    public static void assertUpdate(QueryRunner queryRunner, Session session, @Language("SQL") String sql, OptionalLong count)
+    {
+        assertUpdate(queryRunner, session, sql, count, Optional.empty());
+    }
+
     public static void assertUpdate(QueryRunner queryRunner, Session session, @Language("SQL") String sql, OptionalLong count, Optional<Consumer<Plan>> planAssertion)
     {
         if (queryRunner instanceof DistributedQueryRunner distributedQueryRunner) {
@@ -336,7 +341,7 @@ public final class QueryAssertions
         List<MaterializedRow> actualRows = actualResults.getMaterializedRows();
         List<MaterializedRow> expectedRows = expectedResults.getMaterializedRows();
 
-        if (compareUpdate) {
+        if (compareUpdate && !actualResults.getUpdateType().equals(Optional.of("ALTER TABLE EXECUTE"))) {
             if (actualResults.getUpdateType().isEmpty()) {
                 fail("update type not present for query " + queryId + ": \n" + actual);
             }
@@ -457,7 +462,7 @@ public final class QueryAssertions
         assertEventually(timeout, () -> assertQueryFails(queryRunner, session, sql, expectedMessageRegExp));
     }
 
-    protected static void assertQueryFails(QueryRunner queryRunner, Session session, @Language("SQL") String sql, @Language("RegExp") String expectedMessageRegExp)
+    public static void assertQueryFails(QueryRunner queryRunner, Session session, @Language("SQL") String sql, @Language("RegExp") String expectedMessageRegExp)
     {
         try {
             MaterializedResultWithPlan resultWithPlan = queryRunner.executeWithPlan(session, sql);
@@ -470,7 +475,7 @@ public final class QueryAssertions
         }
     }
 
-    protected static void assertQueryReturnsEmptyResult(QueryRunner queryRunner, Session session, @Language("SQL") String sql)
+    public static void assertQueryReturnsEmptyResult(QueryRunner queryRunner, Session session, @Language("SQL") String sql)
     {
         QueryId queryId = null;
         try {

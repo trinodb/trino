@@ -24,6 +24,7 @@ import io.trino.sql.planner.rowpattern.ExpressionAndValuePointers;
 import io.trino.sql.planner.rowpattern.ir.IrLabel;
 
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Set;
 
@@ -55,7 +56,7 @@ public class MeasureMatcher
 
         Measure expectedMeasure = new Measure(expression, type);
 
-        for (Map.Entry<Symbol, Measure> assignment : patternRecognitionNode.getMeasures().entrySet()) {
+        for (Entry<Symbol, Measure> assignment : patternRecognitionNode.getMeasures().entrySet()) {
             Measure actualMeasure = assignment.getValue();
             if (measuresEquivalent(actualMeasure, expectedMeasure, symbolAliases)) {
                 checkState(result.isEmpty(), "Ambiguous measures in %s", patternRecognitionNode);

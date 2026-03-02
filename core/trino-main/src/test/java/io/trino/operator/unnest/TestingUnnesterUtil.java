@@ -111,9 +111,8 @@ public final class TestingUnnesterUtil
 
             if (type instanceof ArrayType arrayType) {
                 Type elementType = arrayType.getElementType();
-                if (elementType instanceof RowType) {
-                    List<Type> rowTypes = elementType.getTypeParameters();
-                    Block[] blocks = buildExpectedUnnestedArrayOfRowBlock(inputBlock, rowTypes, maxCardinalities, totalEntries);
+                if (elementType instanceof RowType rowType) {
+                    Block[] blocks = buildExpectedUnnestedArrayOfRowBlock(inputBlock, rowType.getFieldTypes(), maxCardinalities, totalEntries);
                     for (Block block : blocks) {
                         outputBlocks[outputChannel++] = block;
                     }
@@ -146,9 +145,8 @@ public final class TestingUnnesterUtil
         for (Type unnestType : unnestTypes) {
             if (unnestType instanceof ArrayType arrayType) {
                 Type elementType = arrayType.getElementType();
-                if (elementType instanceof RowType) {
-                    List<Type> rowTypes = elementType.getTypeParameters();
-                    outputTypes.addAll(rowTypes);
+                if (elementType instanceof RowType rowType) {
+                    outputTypes.addAll(rowType.getFieldTypes());
                 }
                 else {
                     outputTypes.add(elementType);
@@ -182,7 +180,7 @@ public final class TestingUnnesterUtil
                         blockBuilder.appendNull();
                     }
                     else {
-                        types.get(i).appendTo(block, position, blockBuilder);
+                        blockBuilder.append(block.getUnderlyingValueBlock(), block.getUnderlyingValuePosition(position));
                     }
                 }
             }
@@ -199,7 +197,7 @@ public final class TestingUnnesterUtil
         for (int i = 0; i < positionCount; i++) {
             int cardinality = maxCardinalities[i];
             for (int j = 0; j < cardinality; j++) {
-                type.appendTo(block, i, blockBuilder);
+                blockBuilder.append(block.getUnderlyingValueBlock(), block.getUnderlyingValuePosition(i));
             }
         }
         return blockBuilder.build();
@@ -216,7 +214,7 @@ public final class TestingUnnesterUtil
         for (int i = 0; i < positionCount; i++) {
             int cardinality = columnarArray.getLength(i);
             for (int j = 0; j < cardinality; j++) {
-                type.appendTo(elementBlock, elementBlockPosition++, blockBuilder);
+                blockBuilder.append(elementBlock.getUnderlyingValueBlock(), elementBlock.getUnderlyingValuePosition(elementBlockPosition++));
             }
 
             int maxCardinality = maxCardinalities[i];
@@ -241,8 +239,8 @@ public final class TestingUnnesterUtil
         for (int i = 0; i < positionCount; i++) {
             int cardinality = columnarMap.getEntryCount(i);
             for (int j = 0; j < cardinality; j++) {
-                keyType.appendTo(keyBlock, blockPosition, keyBlockBuilder);
-                valueType.appendTo(valuesBlock, blockPosition, valueBlockBuilder);
+                keyBlockBuilder.append(keyBlock.getUnderlyingValueBlock(), keyBlock.getUnderlyingValuePosition(blockPosition));
+                valueBlockBuilder.append(valuesBlock.getUnderlyingValueBlock(), valuesBlock.getUnderlyingValuePosition(blockPosition));
                 blockPosition++;
             }
 
@@ -274,7 +272,8 @@ public final class TestingUnnesterUtil
                 int rowBlockIndex = columnarArray.getOffset(j);
                 int cardinality = columnarArray.getLength(j);
                 for (int k = 0; k < cardinality; k++) {
-                    rowTypes.get(i).appendTo(fields.get(i), rowBlockIndex + k, blockBuilder);
+                    Block rawBlock = fields.get(i);
+                    blockBuilder.append(rawBlock.getUnderlyingValueBlock(), rawBlock.getUnderlyingValuePosition(rowBlockIndex + k));
                 }
 
                 int maxCardinality = maxCardinalities[j];

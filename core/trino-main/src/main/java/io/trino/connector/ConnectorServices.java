@@ -87,6 +87,7 @@ public class ConnectorServices
     private final Map<String, PropertyMetadata<?>> schemaProperties;
     private final Map<String, PropertyMetadata<?>> columnProperties;
     private final Map<String, PropertyMetadata<?>> analyzeProperties;
+    private final Map<String, PropertyMetadata<?>> branchProperties;
     private final Set<ConnectorCapabilities> capabilities;
 
     private final AtomicBoolean shutdown = new AtomicBoolean();
@@ -181,7 +182,7 @@ public class ConnectorServices
         this.accessControl = Optional.ofNullable(accessControl);
 
         List<PropertyMetadata<?>> sessionProperties = connector.getSessionProperties();
-        requireNonNull(sessionProperties, format("Connector '%s' returned a null system properties set", catalogHandle));
+        requireNonNull(sessionProperties, format("Connector '%s' returned a null session properties set", catalogHandle));
         this.sessionProperties = Maps.uniqueIndex(sessionProperties, PropertyMetadata::getName);
 
         List<PropertyMetadata<?>> tableProperties = connector.getTableProperties();
@@ -207,6 +208,10 @@ public class ConnectorServices
         List<PropertyMetadata<?>> analyzeProperties = connector.getAnalyzeProperties();
         requireNonNull(analyzeProperties, format("Connector '%s' returned a null analyze properties set", catalogHandle));
         this.analyzeProperties = Maps.uniqueIndex(analyzeProperties, PropertyMetadata::getName);
+
+        List<PropertyMetadata<?>> branchProperties = connector.getBranchProperties();
+        requireNonNull(branchProperties, format("Connector '%s' returned a null branch properties set", catalogHandle));
+        this.branchProperties = Maps.uniqueIndex(branchProperties, PropertyMetadata::getName);
 
         Set<ConnectorCapabilities> capabilities = connector.getCapabilities();
         requireNonNull(capabilities, format("Connector '%s' returned a null capabilities set", catalogHandle));
@@ -322,6 +327,11 @@ public class ConnectorServices
     public Map<String, PropertyMetadata<?>> getAnalyzeProperties()
     {
         return analyzeProperties;
+    }
+
+    public Map<String, PropertyMetadata<?>> getBranchProperties()
+    {
+        return branchProperties;
     }
 
     public Set<ConnectorCapabilities> getCapabilities()

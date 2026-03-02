@@ -31,7 +31,7 @@ import static io.trino.spi.type.TypeUtils.writeNativeValue;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static org.assertj.core.api.Assertions.assertThat;
 
-public class TestBlockRetainedSizeBreakdown
+final class TestBlockRetainedSizeBreakdown
 {
     private static final int EXPECTED_ENTRIES = 100;
 

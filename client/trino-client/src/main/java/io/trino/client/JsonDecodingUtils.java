@@ -48,6 +48,7 @@ import static io.trino.client.ClientStandardTypes.IPADDRESS;
 import static io.trino.client.ClientStandardTypes.JSON;
 import static io.trino.client.ClientStandardTypes.KDB_TREE;
 import static io.trino.client.ClientStandardTypes.MAP;
+import static io.trino.client.ClientStandardTypes.NUMBER;
 import static io.trino.client.ClientStandardTypes.P4_HYPER_LOG_LOG;
 import static io.trino.client.ClientStandardTypes.QDIGEST;
 import static io.trino.client.ClientStandardTypes.REAL;
@@ -134,6 +135,7 @@ public final class JsonDecodingUtils
             case IPADDRESS:
             case UUID:
             case DECIMAL:
+            case NUMBER:
             case CHAR:
             case GEOMETRY:
             case SPHERICAL_GEOGRAPHY:
@@ -429,13 +431,8 @@ public final class JsonDecodingUtils
 
             int index = 0;
             for (ClientTypeSignatureParameter parameter : signature.getArguments()) {
-                checkArgument(
-                        parameter.getKind() == ClientTypeSignatureParameter.ParameterKind.NAMED_TYPE,
-                        "Unexpected parameter [%s] for row type",
-                        parameter);
-                NamedClientTypeSignature namedTypeSignature = parameter.getNamedTypeSignature();
-                fieldDecoders[index] = createTypeDecoder(namedTypeSignature.getTypeSignature());
-                fieldNames.add(namedTypeSignature.getName());
+                fieldDecoders[index] = createTypeDecoder(parameter.getTypeSignature());
+                fieldNames.add(parameter.getName());
                 index++;
             }
             this.fieldNames = fieldNames.build();

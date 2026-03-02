@@ -41,6 +41,7 @@ public class KafkaEventListenerFactory
     public EventListener create(Map<String, String> config, EventListenerContext context)
     {
         Bootstrap app = new Bootstrap(
+                "io.trino.bootstrap.listener." + getName(),
                 new MBeanModule(),
                 new MBeanServerModule(),
                 new KafkaProducerModule(),
@@ -53,6 +54,7 @@ public class KafkaEventListenerFactory
 
         Injector injector = app
                 .doNotInitializeLogging()
+                .disableSystemProperties()
                 .setRequiredConfigurationProperties(config)
                 .initialize();
 

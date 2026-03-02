@@ -23,7 +23,7 @@ import java.util.stream.Stream;
 
 import static io.trino.spi.block.BlockTestUtils.assertBlockEquals;
 
-public abstract class BaseBlockEncodingTest<T>
+abstract class BaseBlockEncodingTest<T>
 {
     private static final int[] RANDOM_BLOCK_SIZES = {2, 4, 8, 9, 16, 17, 32, 33, 64, 65, 1000, 1000000};
 

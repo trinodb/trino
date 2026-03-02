@@ -89,6 +89,7 @@ import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.OptionalDouble;
 import java.util.OptionalLong;
@@ -202,14 +203,14 @@ public final class ThriftMetastoreUtil
     private static PrincipalPrivilegeSet toMetastoreApiPrincipalPrivilegeSet(PrincipalPrivileges privileges)
     {
         ImmutableMap.Builder<String, List<PrivilegeGrantInfo>> userPrivileges = ImmutableMap.builder();
-        for (Map.Entry<String, Collection<HivePrivilegeInfo>> entry : privileges.getUserPrivileges().asMap().entrySet()) {
+        for (Entry<String, Collection<HivePrivilegeInfo>> entry : privileges.getUserPrivileges().asMap().entrySet()) {
             userPrivileges.put(entry.getKey(), entry.getValue().stream()
                     .map(ThriftMetastoreUtil::toMetastoreApiPrivilegeGrantInfo)
                     .collect(toImmutableList()));
         }
 
         ImmutableMap.Builder<String, List<PrivilegeGrantInfo>> rolePrivileges = ImmutableMap.builder();
-        for (Map.Entry<String, Collection<HivePrivilegeInfo>> entry : privileges.getRolePrivileges().asMap().entrySet()) {
+        for (Entry<String, Collection<HivePrivilegeInfo>> entry : privileges.getRolePrivileges().asMap().entrySet()) {
             rolePrivileges.put(entry.getKey(), entry.getValue().stream()
                     .map(ThriftMetastoreUtil::toMetastoreApiPrivilegeGrantInfo)
                     .collect(toImmutableList()));

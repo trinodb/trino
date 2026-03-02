@@ -26,7 +26,7 @@ import org.intellij.lang.annotations.Language;
 import org.testcontainers.containers.Container;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.Network;
-import org.testcontainers.containers.PostgreSQLContainer;
+import org.testcontainers.postgresql.PostgreSQLContainer;
 import org.testcontainers.utility.DockerImageName;
 import org.testcontainers.utility.MountableFile;
 
@@ -35,7 +35,6 @@ import java.io.IOException;
 import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
@@ -58,7 +57,7 @@ public class UnityCatalogContainer
 
     private final String catalogName;
     private final String schemaName;
-    private final PostgreSQLContainer<?> postgreSql;
+    private final PostgreSQLContainer postgreSql;
     private final GenericContainer<?> unityCatalog;
     private final QueryRunner queryRunner;
     private final AutoCloseableCloser closer = AutoCloseableCloser.create();
@@ -72,8 +71,7 @@ public class UnityCatalogContainer
         Network network = Network.newNetwork();
         closer.register(network);
 
-        //noinspection resource
-        postgreSql = new PostgreSQLContainer<>(DockerImageName.parse("postgres"))
+        postgreSql = new PostgreSQLContainer(DockerImageName.parse("postgres"))
                 .withNetwork(network)
                 .withNetworkAliases("postgres");
         postgreSql.start();
@@ -176,7 +174,7 @@ public class UnityCatalogContainer
                 "SET uniform_iceberg_metadata_location = '" + metadataFilePath + "'" +
                 "WHERE name = '" + tableName + "'");
 
-        Path absoluteMetadataFilePath = Paths.get(URI.create(metadataFilePath));
+        Path absoluteMetadataFilePath = Path.of(URI.create(metadataFilePath));
         Path metadataDirectory = absoluteMetadataFilePath.getParent();
         verify(metadataDirectory.endsWith("metadata"));
         File tableDirectory = metadataDirectory.getParent().toFile();

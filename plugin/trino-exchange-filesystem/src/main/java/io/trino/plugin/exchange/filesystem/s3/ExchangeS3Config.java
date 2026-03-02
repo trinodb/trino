@@ -310,6 +310,6 @@ public class ExchangeS3Config
     public boolean isSseConfigValid()
     {
         return sseType == KMS && getSseKmsKeyId().isPresent() ||
-               sseType != KMS && getSseKmsKeyId().isEmpty();
+                sseType != KMS && getSseKmsKeyId().isEmpty();
     }
 }

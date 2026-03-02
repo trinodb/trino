@@ -46,6 +46,7 @@ import software.amazon.awssdk.services.sts.model.AssumeRoleResponse;
 
 import java.io.IOException;
 import java.net.URI;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Optional;
 
@@ -53,9 +54,9 @@ import static io.trino.plugin.iceberg.IcebergTestUtils.checkOrcFileSorting;
 import static io.trino.plugin.iceberg.IcebergTestUtils.checkParquetFileSorting;
 import static io.trino.testing.TestingConnectorSession.SESSION;
 import static io.trino.testing.TestingNames.randomNameSuffix;
-import static io.trino.testing.containers.Minio.MINIO_ACCESS_KEY;
 import static io.trino.testing.containers.Minio.MINIO_REGION;
-import static io.trino.testing.containers.Minio.MINIO_SECRET_KEY;
+import static io.trino.testing.containers.Minio.MINIO_ROOT_PASSWORD;
+import static io.trino.testing.containers.Minio.MINIO_ROOT_USER;
 import static java.lang.String.format;
 import static org.apache.iceberg.FileFormat.PARQUET;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -97,7 +98,7 @@ public class TestIcebergVendingRestCatalogConnectorSmokeTest
 
         this.warehouseLocation = "s3://%s/default/".formatted(bucketName);
 
-        AwsCredentials credentials = AwsBasicCredentials.create(MINIO_ACCESS_KEY, MINIO_SECRET_KEY);
+        AwsCredentials credentials = AwsBasicCredentials.create(MINIO_ROOT_USER, MINIO_ROOT_PASSWORD);
         StsClient stsClient = StsClient.builder()
                 .endpointOverride(URI.create(minio.getMinioAddress()))
                 .credentialsProvider(StaticCredentialsProvider.create(credentials))
@@ -121,7 +122,6 @@ public class TestIcebergVendingRestCatalogConnectorSmokeTest
                                 .put("iceberg.rest-catalog.uri", "http://" + restCatalogBackendContainer.getRestCatalogEndpoint())
                                 .put("iceberg.rest-catalog.vended-credentials-enabled", "true")
                                 .put("iceberg.writer-sort-buffer-size", "1MB")
-                                .put("iceberg.allowed-extra-properties", "write.metadata.delete-after-commit.enabled,write.metadata.previous-versions-max")
                                 .put("fs.native-s3.enabled", "true")
                                 .put("s3.region", MINIO_REGION)
                                 .put("s3.endpoint", minio.getMinioAddress())
@@ -139,8 +139,8 @@ public class TestIcebergVendingRestCatalogConnectorSmokeTest
                 .setRegion(MINIO_REGION)
                 .setEndpoint(minio.getMinioAddress())
                 .setPathStyleAccess(true)
-                .setAwsAccessKey(MINIO_ACCESS_KEY)
-                .setAwsSecretKey(MINIO_SECRET_KEY), new S3FileSystemStats()
+                .setAwsAccessKey(MINIO_ROOT_USER)
+                .setAwsSecretKey(MINIO_ROOT_PASSWORD), new S3FileSystemStats()
         ).create(SESSION);
     }
 
@@ -161,7 +161,7 @@ public class TestIcebergVendingRestCatalogConnectorSmokeTest
     }
 
     @Override
-    protected void dropTableFromMetastore(String tableName)
+    protected void dropTableFromCatalog(String tableName)
     {
         // TODO: Get register table tests working
     }
@@ -193,7 +193,7 @@ public class TestIcebergVendingRestCatalogConnectorSmokeTest
     @Override
     protected boolean locationExists(String location)
     {
-        return java.nio.file.Files.exists(Path.of(location));
+        return Files.exists(Path.of(location));
     }
 
     @Test

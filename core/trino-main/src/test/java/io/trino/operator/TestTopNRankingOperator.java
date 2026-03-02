@@ -66,7 +66,7 @@ public class TestTopNRankingOperator
     private final ScheduledExecutorService scheduledExecutor = newScheduledThreadPool(2, daemonThreadsNamed(getClass().getSimpleName() + "-scheduledExecutor-%s"));
     private final TypeOperators typeOperators = new TypeOperators();
     private final OrderingCompiler orderingCompiler = new OrderingCompiler(typeOperators);
-    private final FlatHashStrategyCompiler hashStrategyCompiler = new FlatHashStrategyCompiler(typeOperators);
+    private final FlatHashStrategyCompiler hashStrategyCompiler = new FlatHashStrategyCompiler(typeOperators, new NullSafeHashCompiler(typeOperators));
     private final BlockTypeOperators blockTypeOperators = new BlockTypeOperators(typeOperators);
 
     @AfterAll

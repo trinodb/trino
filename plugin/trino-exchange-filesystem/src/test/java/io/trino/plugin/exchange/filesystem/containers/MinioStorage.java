@@ -61,14 +61,14 @@ public class MinioStorage
         Minio.Builder minioBuilder = Minio.builder()
                 .withNetwork(network)
                 .withEnvVars(ImmutableMap.<String, String>builder()
-                        .put("MINIO_ACCESS_KEY", ACCESS_KEY)
-                        .put("MINIO_SECRET_KEY", SECRET_KEY)
+                        .put("MINIO_ROOT_USER", ACCESS_KEY)
+                        .put("MINIO_ROOT_PASSWORD", SECRET_KEY)
                         .buildOrThrow());
 
         kms.ifPresent(aKms -> minioBuilder
                 .withEnvVars(ImmutableMap.<String, String>builder()
-                        .put("MINIO_ACCESS_KEY", ACCESS_KEY)
-                        .put("MINIO_SECRET_KEY", SECRET_KEY)
+                        .put("MINIO_ROOT_USER", ACCESS_KEY)
+                        .put("MINIO_ROOT_PASSWORD", SECRET_KEY)
                         .put("MINIO_KMS_KES_ENDPOINT", aKms.getMinioKesEndpointURL())
                         .put("MINIO_KMS_KES_CERT_FILE", "/kms_client.crt")
                         .put("MINIO_KMS_KES_KEY_FILE", "/kms_client.key")

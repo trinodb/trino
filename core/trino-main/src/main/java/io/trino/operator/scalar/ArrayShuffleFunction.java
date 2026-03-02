@@ -14,40 +14,25 @@
 package io.trino.operator.scalar;
 
 import io.trino.spi.block.Block;
-import io.trino.spi.block.BufferedArrayValueBuilder;
 import io.trino.spi.function.Description;
 import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.function.TypeParameter;
-import io.trino.spi.type.ArrayType;
-import io.trino.spi.type.Type;
 
 import java.util.concurrent.ThreadLocalRandom;
 
-@ScalarFunction(value = "shuffle", deterministic = false)
+@ScalarFunction(value = "shuffle", deterministic = false, neverFails = true)
 @Description("Generates a random permutation of the given array.")
 public final class ArrayShuffleFunction
 {
-    private final BufferedArrayValueBuilder arrayValueBuilder;
-    private static final int INITIAL_LENGTH = 128;
-    private int[] positions = new int[INITIAL_LENGTH];
-
-    @TypeParameter("E")
-    public ArrayShuffleFunction(@TypeParameter("E") Type elementType)
-    {
-        arrayValueBuilder = BufferedArrayValueBuilder.createBuffered(new ArrayType(elementType));
-    }
+    private ArrayShuffleFunction() {}
 
     @TypeParameter("E")
     @SqlType("array(E)")
-    public Block shuffle(
-            @TypeParameter("E") Type type,
-            @SqlType("array(E)") Block block)
+    public static Block shuffle(@SqlType("array(E)") Block block)
     {
         int length = block.getPositionCount();
-        if (positions.length < length) {
-            positions = new int[length];
-        }
+        int[] positions = new int[length];
         for (int i = 0; i < length; i++) {
             positions[i] = i;
         }
@@ -61,10 +46,6 @@ public final class ArrayShuffleFunction
             positions[index] = swap;
         }
 
-        return arrayValueBuilder.build(length, elementBuilder -> {
-            for (int i = 0; i < length; i++) {
-                type.appendTo(block, positions[i], elementBuilder);
-            }
-        });
+        return block.copyPositions(positions, 0, length);
     }
 }
