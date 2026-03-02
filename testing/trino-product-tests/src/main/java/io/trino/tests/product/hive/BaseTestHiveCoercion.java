@@ -833,23 +833,23 @@ public abstract class BaseTestHiveCoercion
         setHiveTimestampPrecision(NANOSECONDS);
         onTrino().executeQuery(
                 """
-                        INSERT INTO %s
-                            SELECT
-                                (CAST(ROW (timestamp_value, -1, timestamp_value, CAST(timestamp_value AS VARCHAR), timestamp_value) AS ROW(keep TIMESTAMP(9), si2i SMALLINT, timestamp2string TIMESTAMP(9), string2timestamp VARCHAR, timestamp2date TIMESTAMP(9)))),
-                                ARRAY [CAST(ROW (timestamp_value, -1, timestamp_value, CAST(timestamp_value AS VARCHAR), timestamp_value) AS ROW (keep TIMESTAMP(9), si2i SMALLINT, timestamp2string TIMESTAMP(9), string2timestamp VARCHAR, timestamp2date TIMESTAMP(9)))],
-                                MAP (ARRAY [2], ARRAY [CAST(ROW (timestamp_value, -1, timestamp_value, CAST(timestamp_value AS VARCHAR), timestamp_value) AS ROW (keep TIMESTAMP(9), si2i SMALLINT, timestamp2string TIMESTAMP(9), string2timestamp VARCHAR, timestamp2date TIMESTAMP(9)))]),
-                                timestamp_value,
-                                CAST(timestamp_value AS VARCHAR),
-                                timestamp_value,
-                                1
-                            FROM (VALUES
-                                (TIMESTAMP '2121-07-15 15:30:12.123499'),
-                                (TIMESTAMP '2121-07-15 15:30:12.123500'),
-                                (TIMESTAMP '2121-07-15 15:30:12.123501'),
-                                (TIMESTAMP '2121-07-15 15:30:12.123499999'),
-                                (TIMESTAMP '2121-07-15 15:30:12.123500000'),
-                                (TIMESTAMP '2121-07-15 15:30:12.123500001')) AS t (timestamp_value)
-                        """.formatted(tableName));
+                INSERT INTO %s
+                    SELECT
+                        (CAST(ROW (timestamp_value, -1, timestamp_value, CAST(timestamp_value AS VARCHAR), timestamp_value) AS ROW(keep TIMESTAMP(9), si2i SMALLINT, timestamp2string TIMESTAMP(9), string2timestamp VARCHAR, timestamp2date TIMESTAMP(9)))),
+                        ARRAY [CAST(ROW (timestamp_value, -1, timestamp_value, CAST(timestamp_value AS VARCHAR), timestamp_value) AS ROW (keep TIMESTAMP(9), si2i SMALLINT, timestamp2string TIMESTAMP(9), string2timestamp VARCHAR, timestamp2date TIMESTAMP(9)))],
+                        MAP (ARRAY [2], ARRAY [CAST(ROW (timestamp_value, -1, timestamp_value, CAST(timestamp_value AS VARCHAR), timestamp_value) AS ROW (keep TIMESTAMP(9), si2i SMALLINT, timestamp2string TIMESTAMP(9), string2timestamp VARCHAR, timestamp2date TIMESTAMP(9)))]),
+                        timestamp_value,
+                        CAST(timestamp_value AS VARCHAR),
+                        timestamp_value,
+                        1
+                    FROM (VALUES
+                        (TIMESTAMP '2121-07-15 15:30:12.123499'),
+                        (TIMESTAMP '2121-07-15 15:30:12.123500'),
+                        (TIMESTAMP '2121-07-15 15:30:12.123501'),
+                        (TIMESTAMP '2121-07-15 15:30:12.123499999'),
+                        (TIMESTAMP '2121-07-15 15:30:12.123500000'),
+                        (TIMESTAMP '2121-07-15 15:30:12.123500001')) AS t (timestamp_value)
+                """.formatted(tableName));
 
         onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN timestamp_row_to_row timestamp_row_to_row struct<keep:timestamp, si2i:int, timestamp2string:string, string2timestamp:timestamp, timestamp2date:date>", tableName));
         onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN timestamp_list_to_list timestamp_list_to_list array<struct<keep:timestamp, si2i:int, timestamp2string:string, string2timestamp:timestamp, timestamp2date:date>>", tableName));

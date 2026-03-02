@@ -29,6 +29,4 @@ import static java.lang.annotation.ElementType.TYPE;
  */
 @Keep
 @Target({TYPE, FIELD, METHOD, CONSTRUCTOR})
-public @interface UsedByGeneratedCode
-{
-}
+public @interface UsedByGeneratedCode {}

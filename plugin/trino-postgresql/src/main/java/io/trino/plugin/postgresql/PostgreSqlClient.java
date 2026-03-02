@@ -1040,11 +1040,12 @@ public class PostgreSqlClient
                 .map(this::quoted)
                 .collect(joining(", "));
 
-        String insertSql = """
-                INSERT INTO %s (%s)
-                SELECT %s FROM %s temp_table
-                WHERE EXISTS (SELECT 1 FROM %s page_sink_table WHERE page_sink_table.%s = temp_table.%s)
-                """
+        String insertSql =
+        """
+        INSERT INTO %s (%s)
+        SELECT %s FROM %s temp_table
+        WHERE EXISTS (SELECT 1 FROM %s page_sink_table WHERE page_sink_table.%s = temp_table.%s)
+        """
                 .formatted(
                         quoted(handle.getRemoteTableName()),
                         columns,
@@ -1092,13 +1093,14 @@ public class PostgreSqlClient
                 .map(column -> column + " = temp_table." + column)
                 .collect(joining(", "));
 
-        String updateSql = """
-                UPDATE %s SET %s FROM
-                  %s AS temp_table
-                    JOIN
-                  %s AS page_sink_table
-                    ON page_sink_table.%s = temp_table.%s
-                """
+        String updateSql =
+        """
+        UPDATE %s SET %s FROM
+          %s AS temp_table
+            JOIN
+          %s AS page_sink_table
+            ON page_sink_table.%s = temp_table.%s
+        """
                 .formatted(
                         targetTableName,
                         updateAssigns,
@@ -1136,10 +1138,11 @@ public class PostgreSqlClient
 
         String pageSinkIdName = handle.getPageSinkIdColumnName().orElseThrow();
 
-        String deleteSql = """
-                DELETE FROM %s USING %s AS temp_table
-                JOIN %s AS page_sink_table ON page_sink_table.%s = temp_table.%s
-                """
+        String deleteSql =
+        """
+        DELETE FROM %s USING %s AS temp_table
+        JOIN %s AS page_sink_table ON page_sink_table.%s = temp_table.%s
+        """
                 .formatted(
                         targetTableName,
                         sourceTableName,

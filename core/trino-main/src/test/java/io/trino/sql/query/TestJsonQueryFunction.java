@@ -434,7 +434,8 @@ public class TestJsonQueryFunction
                                 'lax $..c'
                                 WITH ARRAY WRAPPER)
                 """))
-                .matches("""
+                .matches(
+                        """
                         VALUES cast('[[true,{"c":{"c":null}}],{"c":null},null]'AS varchar)
                         """);
 

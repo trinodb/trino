@@ -318,14 +318,15 @@ public class TestDeltaLakeCloneTableCompatibility
                     .containsOnly(expectedRowsAfterUpdate);
 
             // merge on cloned table
-            String mergeSql = format("""
-                  MERGE INTO %s t
-                  USING (VALUES (3, 'yyy', TIMESTAMP '2025-01-01'), (4, 'zzz', TIMESTAMP '2025-02-02'), (5, 'kkk', TIMESTAMP '2025-03-03')) AS s(id, v, part)
-                  ON (t.id = s.id)
-                    WHEN MATCHED AND s.v = 'zzz' THEN DELETE
-                    WHEN MATCHED THEN UPDATE SET v = s.v
-                    WHEN NOT MATCHED THEN INSERT (id, v, part) VALUES(s.id, s.v, s.part)
-                    """, "delta.default." + clonedTable);
+            String mergeSql = format(
+                    """
+                    MERGE INTO %s t
+                    USING (VALUES (3, 'yyy', TIMESTAMP '2025-01-01'), (4, 'zzz', TIMESTAMP '2025-02-02'), (5, 'kkk', TIMESTAMP '2025-03-03')) AS s(id, v, part)
+                    ON (t.id = s.id)
+                      WHEN MATCHED AND s.v = 'zzz' THEN DELETE
+                      WHEN MATCHED THEN UPDATE SET v = s.v
+                      WHEN NOT MATCHED THEN INSERT (id, v, part) VALUES(s.id, s.v, s.part)
+                      """, "delta.default." + clonedTable);
             onTrino().executeQuery(mergeSql);
 
             List<Row> expectedRowsAfterMerge = ImmutableList.of(

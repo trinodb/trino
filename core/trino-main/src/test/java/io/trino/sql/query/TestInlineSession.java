@@ -92,7 +92,8 @@ public class TestInlineSession
     @Test
     public void testInlineSessionAndSqlFunctions()
     {
-        assertThat(assertions.query("""
+        assertThat(assertions.query(
+                """
                 WITH
                   SESSION time_zone_id = 'Europe/Warsaw'
                 WITH

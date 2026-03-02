@@ -13,7 +13,8 @@
  */
 package io.trino.plugin.pinot.auth;
 
-public enum PinotAuthenticationType {
+public enum PinotAuthenticationType
+{
     NONE,
     PASSWORD,
 }

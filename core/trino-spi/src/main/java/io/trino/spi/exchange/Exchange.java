@@ -23,7 +23,8 @@ import java.util.concurrent.CompletableFuture;
 public interface Exchange
         extends Closeable
 {
-    enum SourceHandlesDeliveryMode {
+    enum SourceHandlesDeliveryMode
+    {
         STANDARD,
         EAGER
     }

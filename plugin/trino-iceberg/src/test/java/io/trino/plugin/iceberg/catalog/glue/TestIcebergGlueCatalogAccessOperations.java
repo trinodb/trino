@@ -326,11 +326,11 @@ public class TestIcebergGlueCatalogAccessOperations
             // getting relations with their types, like some tools do
             assertGlueMetastoreApiInvocations(
                     """
-                            SELECT table_name, IF(mv.name IS NOT NULL, 'MATERIALIZED VIEW', table_type) AS table_type
-                            FROM information_schema.tables t
-                            JOIN system.metadata.materialized_views mv ON t.table_schema = mv.schema_name AND t.table_name = mv.name
-                            WHERE t.table_schema = CURRENT_SCHEMA AND mv.catalog_name = CURRENT_CATALOG
-                            """,
+                    SELECT table_name, IF(mv.name IS NOT NULL, 'MATERIALIZED VIEW', table_type) AS table_type
+                    FROM information_schema.tables t
+                    JOIN system.metadata.materialized_views mv ON t.table_schema = mv.schema_name AND t.table_name = mv.name
+                    WHERE t.table_schema = CURRENT_SCHEMA AND mv.catalog_name = CURRENT_CATALOG
+                    """,
                     ImmutableMultiset.<GlueMetastoreMethod>builder()
                             .addCopies(GET_TABLES, 2)
                             .build());

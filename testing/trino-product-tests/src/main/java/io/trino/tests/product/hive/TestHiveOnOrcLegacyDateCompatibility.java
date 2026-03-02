@@ -43,7 +43,8 @@ public class TestHiveOnOrcLegacyDateCompatibility
 
         try {
             onTrino().executeQuery("CREATE TABLE %s (date_col date, t timestamp) WITH (format = 'ORC')".formatted(trinoTableName));
-            onTrino().executeQuery("""
+            onTrino().executeQuery(
+                    """
                     INSERT INTO %s VALUES
                     (DATE '0002-01-01', TIMESTAMP '0002-01-01 00:00:00.123'),
                     (DATE '1500-01-01', TIMESTAMP '1500-01-01 00:00:00.123'),
@@ -74,7 +75,8 @@ public class TestHiveOnOrcLegacyDateCompatibility
 
         try {
             onHive().executeQuery("CREATE TABLE %s (date_col date, t timestamp) STORED AS ORC".formatted(hiveTableName));
-            onHive().executeQuery("""
+            onHive().executeQuery(
+                    """
                     INSERT INTO %s VALUES
                     ('0002-01-01', '0002-01-01 00:00:00.123'),
                     ('1500-01-01', '1500-01-01 00:00:00.123'),

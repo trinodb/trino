@@ -77,7 +77,8 @@ final class TestCheckpointMetadataEntry
                         "sidecarSizeInBytes", "20965",
                         "numOfAddFiles", "1",
                         "sidecarFileSchema", "")))))
-                .isEqualTo("""
+                .isEqualTo(
+                        """
                         {
                           "version" : 100,
                           "tags" : {

@@ -227,9 +227,7 @@ class TestResultRowsDecoder
         }
 
         @Override
-        public void close()
-        {
-        }
+        public void close() {}
     }
 
     private static List<List<Object>> eagerlyMaterialize(Iterable<List<Object>> values)
@@ -247,14 +245,10 @@ class TestResultRowsDecoder
             }
 
             @Override
-            public void acknowledge(SpooledSegment segment)
-            {
-            }
+            public void acknowledge(SpooledSegment segment) {}
 
             @Override
-            public void close()
-            {
-            }
+            public void close() {}
         };
     }
 

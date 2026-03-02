@@ -107,7 +107,5 @@ public class ReportPrivateMethods
 
     @Retention(RUNTIME)
     @Target(METHOD)
-    public @interface Suppress
-    {
-    }
+    public @interface Suppress {}
 }

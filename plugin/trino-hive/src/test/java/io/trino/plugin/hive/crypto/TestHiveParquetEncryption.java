@@ -106,7 +106,8 @@ public class TestHiveParquetEncryption
 
         // 2) create external table
         String location = Location.of(String.valueOf(dataDir.toUri())).toString();
-        assertUpdate("""
+        assertUpdate(
+                """
                 CREATE TABLE enc_age(age INT)
                 WITH (external_location = '%s', format = 'PARQUET')
                 """.formatted(location));
@@ -129,7 +130,8 @@ public class TestHiveParquetEncryption
 
         // 2) create external table with both columns
         String location = Location.of(String.valueOf(dataDir.toUri())).toString();
-        assertUpdate("""
+        assertUpdate(
+                """
                 CREATE TABLE enc_two(id INT, age INT)
                 WITH (external_location = '%s', format = 'PARQUET')
                 """.formatted(location));
@@ -159,7 +161,8 @@ public class TestHiveParquetEncryption
 
         // 2) create external table
         String location = Location.of(String.valueOf(dataDir.toUri())).toString();
-        assertUpdate("""
+        assertUpdate(
+                """
                 CREATE TABLE enc_dict2(id INT, age INT)
                 WITH (external_location = '%s', format = 'PARQUET')
                 """.formatted(location));

@@ -71,8 +71,7 @@ public final class FunctionsParserHelper
     private static final Set<OperatorType> COMPARABLE_TYPE_OPERATORS = ImmutableSet.of(EQUAL, HASH_CODE, XX_HASH_64, IDENTICAL, INDETERMINATE);
     private static final Set<OperatorType> ORDERABLE_TYPE_OPERATORS = ImmutableSet.of(COMPARISON_UNORDERED_LAST, COMPARISON_UNORDERED_FIRST, LESS_THAN, LESS_THAN_OR_EQUAL);
 
-    private FunctionsParserHelper()
-    {}
+    private FunctionsParserHelper() {}
 
     public static boolean containsAnnotation(Annotation[] annotations, Predicate<Annotation> predicate)
     {

@@ -199,19 +199,19 @@ public class ManageTestResources
                                     ManageTestResources.class,
                                     """
 
-                                            \tTest instance field has value that looks like a resource
-                                            \t    Test class: %s
-                                            \t    Instance: %s
-                                            \t    Field: %s
-                                            \t    Value: %s
-                                            \t    Test execution stage: %s
-                                            \t    Matching rule: %s
+                                    \tTest instance field has value that looks like a resource
+                                    \t    Test class: %s
+                                    \t    Instance: %s
+                                    \t    Field: %s
+                                    \t    Value: %s
+                                    \t    Test execution stage: %s
+                                    \t    Matching rule: %s
 
-                                            \tResources must not be allocated in a field initializer or a test constructor,
-                                            \tand must be freed when test class is completed.
-                                            \tDepending which rule has been violated, if the reported class holds on
-                                            \tto resources only conditionally, you can add @ResourcePresence to declare that.
-                                            """,
+                                    \tResources must not be allocated in a field initializer or a test constructor,
+                                    \tand must be freed when test class is completed.
+                                    \tDepending which rule has been violated, if the reported class holds on
+                                    \tto resources only conditionally, you can add @ResourcePresence to declare that.
+                                    """,
                                     testClass.getRealClass(),
                                     instance,
                                     field,

@@ -139,7 +139,8 @@ public abstract class BaseTestOpenLineageQueries
     {
         String outputTable = "test_create_table_with_join";
 
-        @Language("SQL") String createTableWithJoinQuery = format("""
+        @Language("SQL") String createTableWithJoinQuery = format(
+                """
                 CREATE TABLE %s AS
                 SELECT
                     n.name AS nation,
@@ -170,7 +171,8 @@ public abstract class BaseTestOpenLineageQueries
     {
         String outputTable = "monthly_store_rankings";
 
-        @Language("SQL") String createTableWithCTEQuery = format("""
+        @Language("SQL") String createTableWithCTEQuery = format(
+                """
                 CREATE TABLE %s AS
                 WITH
                   monthly_sales AS (
@@ -242,7 +244,8 @@ public abstract class BaseTestOpenLineageQueries
     {
         String outputTable = "active_suppliers";
 
-        @Language("SQL") String createTableWithSubqueryQuery = format("""
+        @Language("SQL") String createTableWithSubqueryQuery = format(
+                """
                 CREATE TABLE %s AS
                 SELECT
                   s.suppkey,
@@ -284,7 +287,8 @@ public abstract class BaseTestOpenLineageQueries
         for (String setOperator : ImmutableList.of("UNION", "UNION ALL", "INTERSECT", "INTERSECT ALL", "EXCEPT", "EXCEPT ALL")) {
             String outputTable = format("marquez.default.cross_dataset_analysis_%s", setOperator.toLowerCase(Locale.ENGLISH).replace(" ", "_"));
 
-            @Language("SQL") String createTableWithUnionQuery = format("""
+            @Language("SQL") String createTableWithUnionQuery = format(
+                    """
                     CREATE TABLE %s AS
                     SELECT
                       'TPC-H' AS dataset,
@@ -377,7 +381,8 @@ public abstract class BaseTestOpenLineageQueries
                 .queryId()
                 .toString();
 
-        @Language("SQL") String createTableQuery = format("""
+        @Language("SQL") String createTableQuery = format(
+                """
                 CREATE TABLE %s AS
                  SELECT
                      custkey,
@@ -392,7 +397,8 @@ public abstract class BaseTestOpenLineageQueries
                 .queryId()
                 .toString();
 
-        @Language("SQL") String deleteQuery = format("""
+        @Language("SQL") String deleteQuery = format(
+                """
                 DELETE FROM %s
                 WHERE custkey IN (
                     SELECT c.custkey
@@ -442,7 +448,8 @@ public abstract class BaseTestOpenLineageQueries
                 .queryId()
                 .toString();
 
-        @Language("SQL") String createTableQuery = format("""
+        @Language("SQL") String createTableQuery = format(
+                """
                 CREATE TABLE %s AS
                  SELECT
                      custkey,
@@ -457,7 +464,8 @@ public abstract class BaseTestOpenLineageQueries
                 .queryId()
                 .toString();
 
-        @Language("SQL") String mergeQuery = format("""
+        @Language("SQL") String mergeQuery = format(
+                """
                 MERGE INTO %s cb
                  USING (
                      SELECT custkey, name, mktsegment, nationkey

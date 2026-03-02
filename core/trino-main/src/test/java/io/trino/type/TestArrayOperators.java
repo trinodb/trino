@@ -2233,7 +2233,8 @@ public class TestArrayOperators
     @Test
     public void testArrayFirstMatch()
     {
-        assertThat(assertions.expression("""
+        assertThat(assertions.expression(
+                """
                 array_first(
                     CAST(
                         ARRAY[row('goodbye', 'mars'), row('hello', 'world')]
