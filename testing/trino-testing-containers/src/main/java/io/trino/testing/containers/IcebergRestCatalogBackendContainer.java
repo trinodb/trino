@@ -32,7 +32,7 @@ public class IcebergRestCatalogBackendContainer
             String minioSessionToken)
     {
         super(
-                "tabulario/iceberg-rest:1.6.0",
+                "apache/iceberg-rest-fixture:1.10.1",
                 "iceberg-rest",
                 ImmutableSet.of(8181),
                 ImmutableMap.of(),
