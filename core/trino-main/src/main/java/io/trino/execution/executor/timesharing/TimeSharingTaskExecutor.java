@@ -906,7 +906,6 @@ public class TimeSharingTaskExecutor
         // at ... (more line of stacktrace)
         StringBuilder stackTrace = new StringBuilder();
         int maxActiveSplitCount = 0;
-        String message = "%s splits have been continuously active for more than %s seconds\n";
         for (RunningSplitInfo splitInfo : runningSplitInfos) {
             Duration duration = Duration.succinctNanos(ticker.read() - splitInfo.getStartTime());
             if (duration.compareTo(stuckSplitsWarningThreshold) >= 0) {
@@ -919,7 +918,7 @@ public class TimeSharingTaskExecutor
             }
         }
 
-        return format(message, maxActiveSplitCount, stuckSplitsWarningThreshold).concat(stackTrace.toString());
+        return "%s splits have been continuously active for more than %s seconds\n".formatted(maxActiveSplitCount, stuckSplitsWarningThreshold) + stackTrace;
     }
 
     @Managed

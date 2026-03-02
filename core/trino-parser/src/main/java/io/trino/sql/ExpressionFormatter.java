@@ -1034,7 +1034,7 @@ public final class ExpressionFormatter
     public static String formatSortItems(List<SortItem> sortItems)
     {
         return sortItems.stream()
-                .map(sortItemFormatterFunction())
+                .map(ExpressionFormatter::formatSortItem)
                 .collect(joining(", "));
     }
 
@@ -1187,26 +1187,24 @@ public final class ExpressionFormatter
                 .collect(joining(", ", "(", ")"));
     }
 
-    private static Function<SortItem, String> sortItemFormatterFunction()
+    private static String formatSortItem(SortItem input)
     {
-        return input -> {
-            StringBuilder builder = new StringBuilder();
+        StringBuilder builder = new StringBuilder();
 
-            builder.append(formatExpression(input.getSortKey()));
+        builder.append(formatExpression(input.getSortKey()));
 
-            builder.append(switch (input.getOrdering()) {
-                case ASCENDING -> " ASC";
-                case DESCENDING -> " DESC";
-            });
+        builder.append(switch (input.getOrdering()) {
+            case ASCENDING -> " ASC";
+            case DESCENDING -> " DESC";
+        });
 
-            builder.append(switch (input.getNullOrdering()) {
-                case FIRST -> " NULLS FIRST";
-                case LAST -> " NULLS LAST";
-                case UNDEFINED -> "";
-            });
+        builder.append(switch (input.getNullOrdering()) {
+            case FIRST -> " NULLS FIRST";
+            case LAST -> " NULLS LAST";
+            case UNDEFINED -> "";
+        });
 
-            return builder.toString();
-        };
+        return builder.toString();
     }
 
     public static String formatJsonPathInvocation(JsonPathInvocation pathInvocation)

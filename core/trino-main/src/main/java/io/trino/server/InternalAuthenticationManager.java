@@ -36,8 +36,6 @@ import java.time.Instant;
 import java.time.ZonedDateTime;
 import java.util.Date;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.Function;
-import java.util.function.Supplier;
 
 import static io.airlift.http.client.Request.Builder.fromRequest;
 import static io.trino.server.ServletSecurityUtils.setAuthenticatedIdentity;
@@ -54,9 +52,6 @@ public class InternalAuthenticationManager
         implements HttpRequestFilter
 {
     private static final Logger log = Logger.get(InternalAuthenticationManager.class);
-    private static final Supplier<Instant> DEFAULT_EXPIRATION_SUPPLIER = () -> ZonedDateTime.now().plusMinutes(6).toInstant();
-    // Leave a 5 minute buffer to allow for clock skew and GC pauses
-    private static final Function<Instant, Instant> TOKEN_REUSE_THRESHOLD = instant -> instant.minus(5, MINUTES);
 
     private static final String TRINO_INTERNAL_BEARER = "X-Trino-Internal-Bearer";
 
@@ -162,7 +157,7 @@ public class InternalAuthenticationManager
 
     private InternalToken createJwt()
     {
-        Instant expiration = DEFAULT_EXPIRATION_SUPPLIER.get();
+        Instant expiration = newTokenExpiration();
         return new InternalToken(expiration, newJwtBuilder()
                 .signWith(hmac)
                 .subject(nodeId)
@@ -182,7 +177,7 @@ public class InternalAuthenticationManager
     {
         public InternalToken
         {
-            expiration = TOKEN_REUSE_THRESHOLD.apply(requireNonNull(expiration, "expiration is null"));
+            expiration = tokenReuseThreshold(requireNonNull(expiration, "expiration is null"));
             requireNonNull(token, "token is null");
         }
 
@@ -207,5 +202,16 @@ public class InternalAuthenticationManager
         catch (Exception e) {
             throw new RuntimeException("Could not expand internal communication shared key using HKDF-SHA256", e);
         }
+    }
+
+    private static Instant newTokenExpiration()
+    {
+        return ZonedDateTime.now().plusMinutes(6).toInstant();
+    }
+
+    private static Instant tokenReuseThreshold(Instant expiration)
+    {
+        // Leave a 5 minute buffer to allow for clock skew and GC pauses
+        return expiration.minus(5, MINUTES);
     }
 }

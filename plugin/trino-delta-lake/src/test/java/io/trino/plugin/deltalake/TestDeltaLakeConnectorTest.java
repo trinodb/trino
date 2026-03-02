@@ -5498,9 +5498,8 @@ public class TestDeltaLakeConnectorTest
         assertQueryFails("SELECT * FROM " + tableName + " FOR TIMESTAMP AS OF DATE '" + timeAfterInsert.minusSeconds(1).format(dateFormatter) + "'", "No temporal version history at or before .*");
 
         // precision 1-9
-        String pattern = "yyyy-MM-dd HH:mm:ss.%s VV";
         for (int precision = 1; precision <= 9; precision++) {
-            DateTimeFormatter formatter = DateTimeFormatter.ofPattern(pattern.formatted("S".repeat(precision)));
+            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.%s VV".formatted("S".repeat(precision)));
             assertQuery("SELECT * FROM " + tableName + " FOR TIMESTAMP AS OF TIMESTAMP '" + timeAfterInsert.plusSeconds(1).format(formatter) + "'", "VALUES (1, 'aa'), (2, 'bb'), (3, 'bb')");
         }
 

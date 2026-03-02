@@ -2943,6 +2943,7 @@
                                     -Xep:InconsistentCapitalization:ERROR \
                                     -Xep:InconsistentHashCode:ERROR \
                                     -Xep:InjectOnConstructorOfAbstractClass:ERROR \
+                                    -Xep:InlineFormatString:ERROR \
                                     -Xep:InvalidInlineTag:ERROR \
                                     -Xep:LongFloatConversion:ERROR \
                                     -Xep:MissingCasesInEnumSwitch:ERROR \
@@ -2976,6 +2977,7 @@
                                     -Xep:SuppressWarningsDeprecated:ERROR \
                                     -Xep:ThreeLetterTimeZoneID:ERROR \
                                     -Xep:TraditionalSwitchExpression:ERROR \
+                                    -Xep:TypeParameterUnusedInFormals:ERROR \
                                     -Xep:UnicodeEscape:ERROR \
                                     -Xep:UnnamedVariable:ERROR \
                                     -Xep:UnnecessarilyFullyQualified:ERROR \

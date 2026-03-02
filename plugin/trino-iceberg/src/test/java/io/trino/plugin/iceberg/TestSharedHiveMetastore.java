@@ -121,20 +121,20 @@ public class TestSharedHiveMetastore
     protected String getExpectedHiveCreateSchema(String catalogName)
     {
         return format("""
-                CREATE SCHEMA %s.%s
-                WITH (
-                   location = '%s/%s'
-                )""", catalogName, tpchSchema, dataDirectory, tpchSchema);
+                      CREATE SCHEMA %s.%s
+                      WITH (
+                         location = '%s/%s'
+                      )""", catalogName, tpchSchema, dataDirectory, tpchSchema);
     }
 
     @Override
     protected String getExpectedIcebergCreateSchema(String catalogName)
     {
-        String expectedIcebergCreateSchema = "CREATE SCHEMA %s.%s\n" +
-                "AUTHORIZATION USER user\n" +
-                "WITH (\n" +
-                "   location = '%s/%s'\n" +
-                ")";
-        return format(expectedIcebergCreateSchema, catalogName, tpchSchema, dataDirectory, tpchSchema);
+        return """
+               CREATE SCHEMA %s.%s
+               AUTHORIZATION USER user
+               WITH (
+                  location = '%s/%s'
+               )""".formatted(catalogName, tpchSchema, dataDirectory, tpchSchema);
     }
 }

@@ -28,6 +28,7 @@ import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.parallel.Execution;
 
+import java.util.Optional;
 import java.util.concurrent.CountDownLatch;
 
 import static io.trino.SystemSessionProperties.QUERY_MAX_PLANNING_TIME;
@@ -94,7 +95,7 @@ public class TestQueryTracker
         interrupted.await();
     }
 
-    private <T> T freeze()
+    private <T> Optional<T> freeze()
     {
         try {
             freeze.await();
@@ -104,6 +105,6 @@ public class TestQueryTracker
             throw new RuntimeException(e);
         }
 
-        return null;
+        return Optional.empty();
     }
 }

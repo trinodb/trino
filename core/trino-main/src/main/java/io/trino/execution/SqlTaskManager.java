@@ -111,8 +111,6 @@ public class SqlTaskManager
     private static final Set<String> JONI_REGEXP_FUNCTION_CLASS_NAMES = ImmutableSet.of(
             JoniRegexpFunctions.class.getName(),
             JoniRegexpReplaceLambdaFunction.class.getName());
-    private static final Predicate<List<StackTraceElement>> STUCK_SPLIT_STACK_TRACE_PREDICATE =
-            elements -> elements.stream().anyMatch(stackTraceElement -> JONI_REGEXP_FUNCTION_CLASS_NAMES.contains(stackTraceElement.getClassName()));
 
     private final VersionEmbedder versionEmbedder;
     private final ConnectorServicesProvider connectorServicesProvider;
@@ -174,7 +172,7 @@ public class SqlTaskManager
                 gcMonitor,
                 tracer,
                 exchangeManagerRegistry,
-                STUCK_SPLIT_STACK_TRACE_PREDICATE);
+                SqlTaskManager::isSplitStuck);
     }
 
     @VisibleForTesting
@@ -733,6 +731,11 @@ public class SqlTaskManager
 
     {
         return queryContexts.getUnchecked(queryId);
+    }
+
+    private static boolean isSplitStuck(List<StackTraceElement> stackTrace)
+    {
+        return stackTrace.stream().anyMatch(element -> JONI_REGEXP_FUNCTION_CLASS_NAMES.contains(element.getClassName()));
     }
 
     @VisibleForTesting

@@ -38,7 +38,6 @@ import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.testing.containers.Minio.MINIO_REGION;
 import static io.trino.testing.containers.Minio.MINIO_ROOT_PASSWORD;
 import static io.trino.testing.containers.Minio.MINIO_ROOT_USER;
-import static java.lang.String.format;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
@@ -168,11 +167,11 @@ public class TestSharedHiveThriftMetastore
     @Override
     protected String getExpectedIcebergCreateSchema(String catalogName)
     {
-        String expectedIcebergCreateSchema = "CREATE SCHEMA %s.%s\n" +
-                "AUTHORIZATION USER user\n" +
-                "WITH (\n" +
-                "   location = 's3://%s/%s'\n" +
-                ")";
-        return format(expectedIcebergCreateSchema, catalogName, tpchSchema, bucketName, tpchSchema);
+        return """
+               CREATE SCHEMA %s.%s
+               AUTHORIZATION USER user
+               WITH (
+                  location = 's3://%s/%s'
+               )""".formatted(catalogName, tpchSchema, bucketName, tpchSchema);
     }
 }

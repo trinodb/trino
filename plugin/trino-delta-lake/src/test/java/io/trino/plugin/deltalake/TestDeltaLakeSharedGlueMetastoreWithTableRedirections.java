@@ -37,7 +37,6 @@ import java.util.Map;
 
 import static io.trino.plugin.hive.metastore.glue.TestingGlueHiveMetastore.createTestingGlueHiveMetastore;
 import static io.trino.testing.TestingSession.testSessionBuilder;
-import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
@@ -103,22 +102,21 @@ public class TestDeltaLakeSharedGlueMetastoreWithTableRedirections
     @Override
     protected String getExpectedHiveCreateSchema(String catalogName)
     {
-        String expectedHiveCreateSchema = "CREATE SCHEMA %s.%s\n" +
-                "WITH (\n" +
-                "   location = '%s'\n" +
-                ")";
-
-        return format(expectedHiveCreateSchema, catalogName, schema, dataDirectory.toUri());
+        return """
+               CREATE SCHEMA %s.%s
+               WITH (
+                  location = '%s'
+               )""".formatted(catalogName, schema, dataDirectory.toUri());
     }
 
     @Override
     protected String getExpectedDeltaLakeCreateSchema(String catalogName)
     {
-        String expectedDeltaLakeCreateSchema = "CREATE SCHEMA %s.%s\n" +
-                "WITH (\n" +
-                "   location = '%s'\n" +
-                ")";
-        return format(expectedDeltaLakeCreateSchema, catalogName, schema, dataDirectory.toUri());
+        return """
+               CREATE SCHEMA %s.%s
+               WITH (
+                  location = '%s'
+               )""".formatted(catalogName, schema, dataDirectory.toUri());
     }
 
     @Test
@@ -169,14 +167,15 @@ public class TestDeltaLakeSharedGlueMetastoreWithTableRedirections
             glueClient.createTable(createTableRequest);
 
             String tableDefinition = (String) computeScalar("SHOW CREATE TABLE hive_with_redirections." + schema + "." + tableName);
-            String expected = """
-                    CREATE TABLE delta_with_redirections.%s.%s (
-                       a_varchar varchar
-                    )
-                    WITH (
-                       location = '%s'
-                    )""";
-            assertThat(tableDefinition).isEqualTo(expected.formatted(schema, tableName, location));
+            assertThat(tableDefinition)
+                    .isEqualTo(
+                            """
+                            CREATE TABLE delta_with_redirections.%s.%s (
+                               a_varchar varchar
+                            )
+                            WITH (
+                               location = '%s'
+                            )""".formatted(schema, tableName, location));
 
             glueClient.deleteTable(DeleteTableRequest.builder()
                     .databaseName(schema)

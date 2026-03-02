@@ -23,8 +23,6 @@ import static java.util.Objects.requireNonNull;
 public final class TemurinJdkProvider
         extends TarDownloadingJdkProvider
 {
-    private static final String TEMURIN_DOWNLOAD_URL = "https://api.adoptium.net/v3/binary/version/%s/linux/%s/jdk/hotspot/normal/eclipse?project=jdk";
-
     private final String releaseName;
 
     public TemurinJdkProvider(String releaseName, @Nullable Path downloadPath)
@@ -48,7 +46,9 @@ public final class TemurinJdkProvider
     @Override
     protected String getDownloadUri(TestContainers.DockerArchitecture architecture)
     {
-        return TEMURIN_DOWNLOAD_URL.formatted(releaseName, getTemurinArchitectureName(architecture));
+        return "https://api.adoptium.net/v3/binary/version/%s/linux/%s/jdk/hotspot/normal/eclipse?project=jdk".formatted(
+                releaseName,
+                getTemurinArchitectureName(architecture));
     }
 
     private static String getTemurinArchitectureName(TestContainers.DockerArchitecture architecture)

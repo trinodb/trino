@@ -219,7 +219,7 @@ public class ProxyResource
         Request request = requestBuilder.build();
         ListenableFuture<Response> future = executeHttp(request)
                 .transform(responseBuilder::apply, executor)
-                .catching(ProxyException.class, e -> handleProxyException(request, e), directExecutor());
+                .catching(ProxyException.class, e -> { throw mapProxyException(request, e); }, directExecutor());
 
         setupAsyncResponse(asyncResponse, future);
     }
@@ -318,10 +318,10 @@ public class ProxyResource
         requestBuilder.addHeader(AUTHORIZATION, "Bearer " + accessToken);
     }
 
-    private static <T> T handleProxyException(Request request, ProxyException e)
+    private static WebApplicationException mapProxyException(Request request, ProxyException e)
     {
         log.warn(e, "Proxy request failed: %s %s", request.method(), request.url());
-        throw badRequest(BAD_GATEWAY, e.getMessage());
+        return badRequest(BAD_GATEWAY, e.getMessage());
     }
 
     private static WebApplicationException badRequest(Status status, String message)

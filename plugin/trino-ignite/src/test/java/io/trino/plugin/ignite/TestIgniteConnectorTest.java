@@ -250,20 +250,21 @@ public class TestIgniteConnectorTest
                 "create_table_with_comma_column",
                 "(`a,b` bigint primary key, `c,d` bigint, `x` varchar(79))",
                 List.of("1, 1, 'a'", "2, 2, 'b'", "3, 3, null"))) {
-            String pattern = "CREATE TABLE %s.%s.%s (\n" +
-                    "   \"a,b\" bigint,\n" +
-                    "   \"c,d\" bigint,\n" +
-                    "   x varchar(79)\n" +
-                    ")\n" +
-                    "WITH (\n" +
-                    "   primary_key = ARRAY['a,b']\n" +
-                    ")";
             String tableName = testTable.getName();
             assertQuery("SELECT \"a,b\" FROM " + tableName + " where \"a,b\" < 2", "values (1)");
             assertQuery("SELECT \"a,b\" FROM " + tableName + " where \"a,b\" > 1", "values (2), (3)");
 
             assertThat((String) computeActual("SHOW CREATE TABLE " + tableName).getOnlyValue())
-                    .isEqualTo(format(pattern, catalog, schema, tableName));
+                    .isEqualTo(
+                            """
+                            CREATE TABLE %s.%s.%s (
+                               "a,b" bigint,
+                               "c,d" bigint,
+                               x varchar(79)
+                            )
+                            WITH (
+                               primary_key = ARRAY['a,b']
+                            )""".formatted(catalog, schema, tableName));
         }
     }
 

@@ -133,18 +133,15 @@ import static java.util.Objects.requireNonNull;
 public class TestingAccessControlManager
         extends AccessControlManager
 {
-    private static final BiPredicate<Identity, String> IDENTITY_TABLE_TRUE = (identity, table) -> true;
-    private static final BiPredicate<Identity, String> IDENTITY_FUNCTION_TRUE = (identity, function) -> true;
-
     private final Set<TestingPrivilege> denyPrivileges = new HashSet<>();
     private final Map<RowFilterKey, List<ViewExpression>> rowFilters = new HashMap<>();
     private final Map<ColumnMaskKey, ViewExpression> columnMasks = new HashMap<>();
     private Predicate<String> deniedCatalogs = s -> true;
     private Predicate<String> deniedSchemas = s -> true;
     private Predicate<SchemaTableName> deniedTables = s -> true;
-    private BiPredicate<Identity, String> denyIdentityTable = IDENTITY_TABLE_TRUE;
-    private BiPredicate<Identity, String> denyIdentityFunction = IDENTITY_FUNCTION_TRUE;
-    private BiPredicate<Identity, String> denyImpersonationFunction = IDENTITY_FUNCTION_TRUE;
+    private Optional<BiPredicate<Identity, String>> denyIdentityTable = Optional.empty();
+    private BiPredicate<Identity, String> denyIdentityFunction = (_, _) -> true;
+    private BiPredicate<Identity, String> denyImpersonationFunction = (_, _) -> true;
 
     @Inject
     public TestingAccessControlManager(
@@ -194,10 +191,10 @@ public class TestingAccessControlManager
         deniedCatalogs = s -> true;
         deniedSchemas = s -> true;
         deniedTables = s -> true;
-        denyIdentityTable = IDENTITY_TABLE_TRUE;
+        denyIdentityTable = Optional.empty();
+        denyImpersonationFunction = (_, _) -> true;
         rowFilters.clear();
         columnMasks.clear();
-        denyImpersonationFunction = IDENTITY_FUNCTION_TRUE;
     }
 
     public void denyCatalogs(Predicate<String> deniedCatalogs)
@@ -217,7 +214,7 @@ public class TestingAccessControlManager
 
     public void denyIdentityTable(BiPredicate<Identity, String> denyIdentityTable)
     {
-        this.denyIdentityTable = requireNonNull(denyIdentityTable, "denyIdentityTable is null");
+        this.denyIdentityTable = Optional.of(requireNonNull(denyIdentityTable, "denyIdentityTable is null"));
     }
 
     public void denyIdentityFunction(BiPredicate<Identity, String> denyIdentityFunction)
@@ -584,13 +581,13 @@ public class TestingAccessControlManager
     @Override
     public void checkCanCreateViewWithSelectFromColumns(SecurityContext context, QualifiedObjectName tableName, Set<String> columnNames)
     {
-        if (!denyIdentityTable.test(context.getIdentity(), tableName.objectName())) {
+        if (denyIdentityTable.isPresent() && !denyIdentityTable.get().test(context.getIdentity(), tableName.objectName())) {
             denyCreateViewWithSelect(tableName.toString(), context.getIdentity());
         }
         if (shouldDenyPrivilege(context.getIdentity().getUser(), tableName.objectName(), CREATE_VIEW_WITH_SELECT_COLUMNS)) {
             denyCreateViewWithSelect(tableName.toString(), context.getIdentity());
         }
-        if (denyPrivileges.isEmpty() && denyIdentityTable.equals(IDENTITY_TABLE_TRUE)) {
+        if (denyPrivileges.isEmpty() && denyIdentityTable.isEmpty()) {
             super.checkCanCreateViewWithSelectFromColumns(context, tableName, columnNames);
         }
     }
@@ -696,7 +693,7 @@ public class TestingAccessControlManager
     @Override
     public void checkCanSelectFromColumns(SecurityContext context, QualifiedObjectName tableName, Set<String> columns)
     {
-        if (!denyIdentityTable.test(context.getIdentity(), tableName.objectName())) {
+        if (denyIdentityTable.isPresent() && !denyIdentityTable.get().test(context.getIdentity(), tableName.objectName())) {
             denySelectColumns(tableName.toString(), columns);
         }
         if (shouldDenyPrivilege(context.getIdentity().getUser(), tableName.objectName(), SELECT_COLUMN)) {
@@ -707,7 +704,7 @@ public class TestingAccessControlManager
                 denySelectColumns(tableName.toString(), columns);
             }
         }
-        if (denyPrivileges.isEmpty() && denyIdentityTable.equals(IDENTITY_TABLE_TRUE)) {
+        if (denyPrivileges.isEmpty() && denyIdentityTable.isEmpty()) {
             super.checkCanSelectFromColumns(context, tableName, columns);
         }
     }

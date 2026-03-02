@@ -297,40 +297,40 @@ public class TestIcebergSparkCompatibility
                 "406caec7-68b9-4778-81b2-a12ece70c8b1");
         assertThat(onTrino().executeQuery(
                 """
-                 SELECT\s
-                   _string
-                 , _bigint
-                 , _integer
-                 , _real
-                 , _double
-                 , _short_decimal
-                 , _long_decimal
-                 , _boolean
-                 , CAST(_timestamp AS varchar)
-                 , CAST(_timestamptz AS varchar)
-                 , CAST(_date AS varchar)
-                 , _binary
-                 , _uuid
-                  FROM %s""".formatted(trinoTableName)))
+                SELECT\s
+                  _string
+                , _bigint
+                , _integer
+                , _real
+                , _double
+                , _short_decimal
+                , _long_decimal
+                , _boolean
+                , CAST(_timestamp AS varchar)
+                , CAST(_timestamptz AS varchar)
+                , CAST(_date AS varchar)
+                , _binary
+                , _uuid
+                 FROM %s""".formatted(trinoTableName)))
                 .containsOnly(row);
 
         assertThat(onSpark().executeQuery(
                 """
-                 SELECT\s
-                   _string
-                 , _bigint
-                 , _integer
-                 , _real
-                 , _double
-                 , _short_decimal
-                 , _long_decimal
-                 , _boolean
-                 , CAST(_timestamp AS string)
-                 , CAST(_timestamptz AS string) || ' UTC'
-                 , CAST(_date AS string)
-                 , _binary
-                 , _uuid
-                  FROM %s""".formatted(sparkTableName)))
+                SELECT\s
+                  _string
+                , _bigint
+                , _integer
+                , _real
+                , _double
+                , _short_decimal
+                , _long_decimal
+                , _boolean
+                , CAST(_timestamp AS string)
+                , CAST(_timestamptz AS string) || ' UTC'
+                , CAST(_date AS string)
+                , _binary
+                , _uuid
+                 FROM %s""".formatted(sparkTableName)))
                 .containsOnly(row);
 
         onTrino().executeQuery("DROP TABLE " + trinoTableName);
@@ -1336,10 +1336,10 @@ public class TestIcebergSparkCompatibility
 
         onTrino().executeQuery(format(
                 "CREATE TABLE %s (_string VARCHAR, _bigint BIGINT) WITH (" +
-                          "object_store_layout_enabled = true," +
-                          "data_location = '%s'," +
-                          "format = '%s'," +
-                          "format_version = %s)",
+                        "object_store_layout_enabled = true," +
+                        "data_location = '%s'," +
+                        "format = '%s'," +
+                        "format_version = %s)",
                 trinoTableName,
                 dataPath,
                 storageFormat,
@@ -1869,23 +1869,26 @@ public class TestIcebergSparkCompatibility
         String baseTableName = "test_trino_reading_migrated_nested_data_" + randomNameSuffix();
         String defaultCatalogTableName = sparkDefaultCatalogTableName(baseTableName);
 
-        String sparkTableDefinition = "" +
-                "CREATE TABLE %s (\n" +
-                "  doc_id STRING\n" +
-                ", nested_map MAP<STRING, ARRAY<STRUCT<sName: STRING, sNumber: INT>>>\n" +
-                ", nested_array ARRAY<MAP<STRING, ARRAY<STRUCT<mName: STRING, mNumber: INT>>>>\n" +
-                ", nested_struct STRUCT<id:INT, name:STRING, address:STRUCT<street_number:INT, street_name:STRING>>)\n" +
-                " USING %s";
-        onSpark().executeQuery(format(sparkTableDefinition, defaultCatalogTableName, storageFormat.name().toLowerCase(ENGLISH)));
+        onSpark().executeQuery(format(
+                """
+                CREATE TABLE %s (
+                  doc_id STRING
+                , nested_map MAP<STRING, ARRAY<STRUCT<sName: STRING, sNumber: INT>>>
+                , nested_array ARRAY<MAP<STRING, ARRAY<STRUCT<mName: STRING, mNumber: INT>>>>
+                , nested_struct STRUCT<id:INT, name:STRING, address:STRUCT<street_number:INT, street_name:STRING>>)
+                 USING %s""",
+                defaultCatalogTableName,
+                storageFormat.name().toLowerCase(ENGLISH)));
 
-        String insert = "" +
-                "INSERT INTO TABLE %s SELECT" +
-                "  'Doc213'" +
-                ", map('s1', array(named_struct('sName', 'ASName1', 'sNumber', 201), named_struct('sName', 'ASName2', 'sNumber', 202)))" +
-                ", array(map('m1', array(named_struct('mName', 'MAS1Name1', 'mNumber', 301), named_struct('mName', 'MAS1Name2', 'mNumber', 302)))" +
-                "       ,map('m2', array(named_struct('mName', 'MAS2Name1', 'mNumber', 401), named_struct('mName', 'MAS2Name2', 'mNumber', 402))))" +
-                ", named_struct('id', 1, 'name', 'P. Sherman', 'address', named_struct('street_number', 42, 'street_name', 'Wallaby Way'))";
-        onSpark().executeQuery(format(insert, defaultCatalogTableName));
+        onSpark().executeQuery(format(
+                """
+                INSERT INTO TABLE %s SELECT\
+                  'Doc213'\
+                , map('s1', array(named_struct('sName', 'ASName1', 'sNumber', 201), named_struct('sName', 'ASName2', 'sNumber', 202)))\
+                , array(map('m1', array(named_struct('mName', 'MAS1Name1', 'mNumber', 301), named_struct('mName', 'MAS1Name2', 'mNumber', 302)))\
+                       ,map('m2', array(named_struct('mName', 'MAS2Name1', 'mNumber', 401), named_struct('mName', 'MAS2Name2', 'mNumber', 402))))\
+                , named_struct('id', 1, 'name', 'P. Sherman', 'address', named_struct('street_number', 42, 'street_name', 'Wallaby Way'))""",
+                defaultCatalogTableName));
         try {
             onSpark().executeQuery(format("CALL system.migrate('%s')", defaultCatalogTableName));
         }
@@ -1941,18 +1944,21 @@ public class TestIcebergSparkCompatibility
         String baseTableName = "test_migrated_data_with_altered_schema_" + randomNameSuffix();
         String defaultCatalogTableName = sparkDefaultCatalogTableName(baseTableName);
 
-        String sparkTableDefinition = "" +
-                "CREATE TABLE %s (\n" +
-                "  doc_id STRING\n" +
-                ", nested_struct STRUCT<id:INT, name:STRING, address:STRUCT<a:INT, b:STRING>>)\n" +
-                " USING %s";
-        onSpark().executeQuery(format(sparkTableDefinition, defaultCatalogTableName, storageFormat));
+        onSpark().executeQuery(format(
+                """
+                CREATE TABLE %s (
+                  doc_id STRING
+                , nested_struct STRUCT<id:INT, name:STRING, address:STRUCT<a:INT, b:STRING>>)
+                 USING %s""",
+                defaultCatalogTableName,
+                storageFormat));
 
-        String insert = "" +
-                "INSERT INTO TABLE %s SELECT" +
-                "  'Doc213'" +
-                ", named_struct('id', 1, 'name', 'P. Sherman', 'address', named_struct('a', 42, 'b', 'Wallaby Way'))";
-        onSpark().executeQuery(format(insert, defaultCatalogTableName));
+        onSpark().executeQuery(format(
+                """
+                INSERT INTO TABLE %s SELECT\
+                  'Doc213'\
+                , named_struct('id', 1, 'name', 'P. Sherman', 'address', named_struct('a', 42, 'b', 'Wallaby Way'))""",
+                defaultCatalogTableName));
         try {
             onSpark().executeQuery(format("CALL system.migrate('%s')", defaultCatalogTableName));
         }
@@ -1992,8 +1998,7 @@ public class TestIcebergSparkCompatibility
         String sparkTableDefinition = "CREATE TABLE %s (a INT, b INT) USING " + storageFormat.name().toLowerCase(ENGLISH);
         onSpark().executeQuery(format(sparkTableDefinition, defaultCatalogTableName));
 
-        String insert = "INSERT INTO TABLE %s SELECT 1, 2";
-        onSpark().executeQuery(format(insert, defaultCatalogTableName));
+        onSpark().executeQuery(format("INSERT INTO TABLE %s SELECT 1, 2", defaultCatalogTableName));
         try {
             onSpark().executeQuery(format("CALL system.migrate('%s')", defaultCatalogTableName));
         }

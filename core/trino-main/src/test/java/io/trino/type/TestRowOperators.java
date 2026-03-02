@@ -587,8 +587,6 @@ public class TestRowOperators
                 .binding("a", "row(null,null,null)"))
                 .isNull(BIGINT);
 
-        // there are totally 7 field names
-        String longFieldNameCast = "CAST(a AS ROW(%s VARCHAR, %s ARRAY(ROW(%s VARCHAR, %s VARCHAR)), %s ROW(%s VARCHAR, %s VARCHAR)))[2][1][1]";
         int fieldCount = 7;
         char[] chars = new char[9333];
         String[] fields = new String[fieldCount];
@@ -596,7 +594,8 @@ public class TestRowOperators
             Arrays.fill(chars, (char) ('a' + i));
             fields[i] = new String(chars);
         }
-        assertThat(assertions.expression(format(longFieldNameCast, fields[0], fields[1], fields[2], fields[3], fields[4], fields[5], fields[6]))
+        assertThat(assertions.expression("CAST(a AS ROW(%s VARCHAR, %s ARRAY(ROW(%s VARCHAR, %s VARCHAR)), %s ROW(%s VARCHAR, %s VARCHAR)))[2][1][1]".formatted(
+                        fields[0], fields[1], fields[2], fields[3], fields[4], fields[5], fields[6]))
                 .binding("a", "row(1.2E0, ARRAY[row(233, 6.9E0)], row(1000, 6.3E0))"))
                 .hasType(VARCHAR)
                 .isEqualTo("233");

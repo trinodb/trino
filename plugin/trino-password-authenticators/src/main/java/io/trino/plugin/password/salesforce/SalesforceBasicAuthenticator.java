@@ -107,23 +107,6 @@ public class SalesforceBasicAuthenticator
         String password = credential.getPassword();
 
         // Login requests must be POSTs
-        String loginSoapMessage = "<?xml version=\"1.0\" encoding=\"utf-8\" ?>\n" +
-                "<env:Envelope xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\"\n" +
-                "xmlns:urn=\"urn:enterprise.soap.sforce.com\"\n" +
-                "   xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\"\n" +
-                "   xmlns:env=\"http://schemas.xmlsoap.org/soap/envelope/\">\n" +
-                " <env:Header>\n" +
-                "     <urn:CallOptions>\n" +
-                "       <urn:client>presto</urn:client>\n" +
-                "     </urn:CallOptions>\n" +
-                " </env:Header>\n" +
-                " <env:Body>\n" +
-                "   <n1:login xmlns:n1=\"urn:partner.soap.sforce.com\">\n" +
-                "     <n1:username>%s</n1:username>\n" +
-                "     <n1:password>%s</n1:password>\n" +
-                "   </n1:login>\n" +
-                " </env:Body>\n" +
-                "</env:Envelope>\n";
         String apiVersion = "46.0";
         String loginUrl = "https://login.salesforce.com/services/Soap/u/";
         Escaper escaper = xmlContentEscaper();
@@ -132,7 +115,27 @@ public class SalesforceBasicAuthenticator
                 .setHeader("Content-Type", "text/xml;charset=UTF-8")
                 .setHeader("SOAPAction", "login")
                 .setMethod("POST")
-                .setBodyGenerator(createStaticBodyGenerator(format(loginSoapMessage, escaper.escape(username), escaper.escape(password)), UTF_8))
+                .setBodyGenerator(createStaticBodyGenerator(
+                        """
+                        <?xml version="1.0" encoding="utf-8" ?>
+                        <env:Envelope xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+                        xmlns:urn="urn:enterprise.soap.sforce.com"
+                           xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                           xmlns:env="http://schemas.xmlsoap.org/soap/envelope/">
+                         <env:Header>
+                             <urn:CallOptions>
+                               <urn:client>presto</urn:client>
+                             </urn:CallOptions>
+                         </env:Header>
+                         <env:Body>
+                           <n1:login xmlns:n1="urn:partner.soap.sforce.com">
+                             <n1:username>%s</n1:username>
+                             <n1:password>%s</n1:password>
+                           </n1:login>
+                         </env:Body>
+                        </env:Envelope>
+                        """.formatted(escaper.escape(username), escaper.escape(password)),
+                        UTF_8))
                 .build();
 
         StringResponseHandler.StringResponse response = httpClient.execute(request, StringResponseHandler.createStringResponseHandler());

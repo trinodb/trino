@@ -87,23 +87,6 @@ import static java.util.Objects.requireNonNull;
  */
 public class EffectivePredicateExtractor
 {
-    private static final Predicate<Entry<Symbol, ? extends Expression>> SYMBOL_MATCHES_EXPRESSION =
-            entry -> entry.getValue().equals(entry.getKey().toSymbolReference());
-
-    private static final Function<Entry<Symbol, ? extends Expression>, Expression> ENTRY_TO_EQUALITY =
-            entry -> {
-                Reference reference = entry.getKey().toSymbolReference();
-                Expression expression = entry.getValue();
-
-                if (expression instanceof Constant constant && constant.value() == null) {
-                    return new IsNull(reference);
-                }
-
-                // TODO: this is not correct with respect to NULLs ('reference IS NULL' would be correct, rather than 'reference = NULL')
-                // TODO: switch this to 'IS NOT DISTINCT FROM' syntax when EqualityInference properly supports it
-                return new Comparison(EQUAL, reference, expression);
-            };
-
     private final PlannerContext plannerContext;
     private final boolean useTableProperties;
 
@@ -208,7 +191,7 @@ public class EffectivePredicateExtractor
             Expression underlyingPredicate = node.getSource().accept(this, context);
 
             List<Entry<Symbol, Expression>> nonIdentityAssignments = node.getAssignments().entrySet().stream()
-                    .filter(SYMBOL_MATCHES_EXPRESSION.negate())
+                    .filter(entry -> !trivialAssignment(entry.getKey(), entry.getValue()))
                     .collect(toImmutableList());
 
             Set<Symbol> newlyAssignedSymbols = nonIdentityAssignments.stream()
@@ -222,7 +205,7 @@ public class EffectivePredicateExtractor
             List<Expression> projectionEqualities = nonIdentityAssignments.stream()
                     .filter(assignment -> assignment.getKey().type().isComparable() || assignment.getKey().type().isOrderable())
                     .filter(assignment -> Sets.intersection(SymbolsExtractor.extractUnique(assignment.getValue()), newlyAssignedSymbols).isEmpty())
-                    .map(ENTRY_TO_EQUALITY)
+                    .map(entry -> constructPredicate(entry.getKey(), entry.getValue()))
                     .collect(toImmutableList());
 
             return pullExpressionThroughSymbols(combineConjuncts(
@@ -551,8 +534,8 @@ public class EffectivePredicateExtractor
                 Expression underlyingPredicate = node.getSources().get(i).accept(this, null);
 
                 List<Expression> equalities = mapping.apply(i).stream()
-                        .filter(SYMBOL_MATCHES_EXPRESSION.negate())
-                        .map(ENTRY_TO_EQUALITY)
+                        .filter(entry -> !trivialAssignment(entry.getKey(), entry.getValue()))
+                        .map(entry -> constructPredicate(entry.getKey(), entry.getValue()))
                         .collect(toImmutableList());
 
                 sourceOutputConjuncts.add(ImmutableSet.copyOf(extractConjuncts(pullExpressionThroughSymbols(combineConjuncts(
@@ -572,6 +555,23 @@ public class EffectivePredicateExtractor
             }
 
             return combineConjuncts(potentialOutputConjuncts);
+        }
+
+        private static boolean trivialAssignment(Symbol symbol, Expression assignment)
+        {
+            return assignment.equals(symbol.toSymbolReference());
+        }
+
+        private static Expression constructPredicate(Symbol symbol, Expression assignment)
+        {
+            Reference reference = symbol.toSymbolReference();
+            if (assignment instanceof Constant constant && constant.value() == null) {
+                return new IsNull(reference);
+            }
+
+            // TODO: this is not correct with respect to NULLs ('reference IS NULL' would be correct, rather than 'reference = NULL')
+            // TODO: switch this to 'IS NOT DISTINCT FROM' syntax when EqualityInference properly supports it
+            return new Comparison(EQUAL, reference, assignment);
         }
 
         private Expression pullExpressionThroughSymbols(Expression expression, Collection<Symbol> symbols)
