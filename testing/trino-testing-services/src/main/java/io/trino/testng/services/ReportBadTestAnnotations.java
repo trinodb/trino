@@ -218,7 +218,5 @@ public class ReportBadTestAnnotations
 
     @Retention(RUNTIME)
     @Target({TYPE, METHOD})
-    public @interface Suppress
-    {
-    }
+    public @interface Suppress {}
 }

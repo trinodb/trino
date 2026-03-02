@@ -208,9 +208,7 @@ public class MockAmazonS3
 
     @Override
     public void abortMultipartUpload(AbortMultipartUploadRequest request)
-            throws SdkClientException
-    {
-    }
+            throws SdkClientException {}
 
     @Override
     public void shutdown() {}

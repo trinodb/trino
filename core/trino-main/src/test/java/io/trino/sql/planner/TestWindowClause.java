@@ -205,7 +205,8 @@ public class TestWindowClause
     @Test
     public void testPreservationOfWindowFunctionOrder()
     {
-        @Language("SQL") String sql = """
+        @Language("SQL") String sql =
+        """
         WITH data AS (
             SELECT *
             FROM (VALUES

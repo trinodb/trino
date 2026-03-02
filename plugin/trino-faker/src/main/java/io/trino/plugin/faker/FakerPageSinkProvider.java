@@ -65,8 +65,6 @@ public class FakerPageSinkProvider
         }
 
         @Override
-        public void abort()
-        {
-        }
+        public void abort() {}
     }
 }

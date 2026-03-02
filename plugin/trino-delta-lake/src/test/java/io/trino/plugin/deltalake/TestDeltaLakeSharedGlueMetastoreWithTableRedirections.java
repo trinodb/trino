@@ -169,13 +169,14 @@ public class TestDeltaLakeSharedGlueMetastoreWithTableRedirections
             glueClient.createTable(createTableRequest);
 
             String tableDefinition = (String) computeScalar("SHOW CREATE TABLE hive_with_redirections." + schema + "." + tableName);
-            String expected = """
-                    CREATE TABLE delta_with_redirections.%s.%s (
-                       a_varchar varchar
-                    )
-                    WITH (
-                       location = '%s'
-                    )""";
+            String expected =
+            """
+            CREATE TABLE delta_with_redirections.%s.%s (
+               a_varchar varchar
+            )
+            WITH (
+               location = '%s'
+            )""";
             assertThat(tableDefinition).isEqualTo(expected.formatted(schema, tableName, location));
 
             glueClient.deleteTable(DeleteTableRequest.builder()

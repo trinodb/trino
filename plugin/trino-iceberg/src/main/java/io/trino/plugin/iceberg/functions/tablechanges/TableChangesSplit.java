@@ -82,7 +82,8 @@ public record TableChangesSplit(
                 .toString();
     }
 
-    public enum ChangeType {
+    public enum ChangeType
+    {
         ADDED_FILE("insert"),
         DELETED_FILE("delete"),
         POSITIONAL_DELETE("delete");

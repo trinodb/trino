@@ -59,11 +59,12 @@ import static java.util.Objects.requireNonNull;
 
 public class QueryExplainer
 {
-    public static final String DEPRECATED_TYPE_LOGICAL_WARNING = """
-                                                                 WARNING: EXPLAIN TYPE LOGICAL is no longer supported and will be removed in a future release.
-                                                                 Below is the output for EXPLAIN TYPE DISTRIBUTED. Please update your query.
+    public static final String DEPRECATED_TYPE_LOGICAL_WARNING =
+    """
+    WARNING: EXPLAIN TYPE LOGICAL is no longer supported and will be removed in a future release.
+    Below is the output for EXPLAIN TYPE DISTRIBUTED. Please update your query.
 
-                                                                 """;
+    """;
     private final List<PlanOptimizer> planOptimizers;
     private final PlanFragmenter planFragmenter;
     private final PlannerContext plannerContext;

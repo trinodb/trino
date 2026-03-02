@@ -30,7 +30,8 @@ public class MetastoreSupportsDateStatistics
 {
     private static final int MAX_SET_DATE_STATISTICS_ATTEMPTS = 100;
 
-    public enum DateStatisticsSupport {
+    public enum DateStatisticsSupport
+    {
         SUPPORTED, NOT_SUPPORTED, UNKNOWN
     }
 

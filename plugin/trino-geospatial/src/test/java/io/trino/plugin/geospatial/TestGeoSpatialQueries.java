@@ -50,10 +50,11 @@ public class TestGeoSpatialQueries
     @Test
     public void testDistinctGeometry()
     {
-        assertThat(query("""
-                         SELECT DISTINCT ST_GeometryFromText(point)
-                         FROM (VALUES 'POINT (-90 38.99)', 'POINT (-90 38.99)') t(point)
-                         """))
+        assertThat(query(
+                """
+                SELECT DISTINCT ST_GeometryFromText(point)
+                FROM (VALUES 'POINT (-90 38.99)', 'POINT (-90 38.99)') t(point)
+                """))
                 .result().matches(MaterializedResult.resultBuilder(getSession(), GEOMETRY)
                         .row("POINT (-90 38.99)")
                         .build());

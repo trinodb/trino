@@ -25,9 +25,7 @@ public interface QueryDataProducer
 {
     QueryData produce(ExternalUriInfo uriInfo, QueryResultRows rows, Consumer<TrinoException> throwableConsumer);
 
-    default void close()
-    {
-    }
+    default void close() {}
 
     QueryDataProducer THROWING = (uriInfo, rows, throwableConsumer) -> {
         if (!rows.isEmpty()) {

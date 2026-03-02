@@ -214,10 +214,10 @@ final class TestIcebergRestCatalogCaseInsensitiveMapping
         assertThat(computeActual("SHOW TABLES IN " + SCHEMA + " LIKE 'mixed_case_view%'").getOnlyColumnAsSet()).contains(lowercaseViewName1, lowercaseViewName2);
         assertQuery("SELECT * FROM information_schema.tables WHERE table_schema != 'information_schema' AND table_type = 'VIEW'",
                         """
-                         VALUES
-                         ('iceberg', '%1$s', '%2$s', 'VIEW'),
-                         ('iceberg', '%1$s', '%3$s', 'VIEW')
-                         """.formatted(LOWERCASE_SCHEMA, lowercaseViewName1, lowercaseViewName2));
+                        VALUES
+                        ('iceberg', '%1$s', '%2$s', 'VIEW'),
+                        ('iceberg', '%1$s', '%3$s', 'VIEW')
+                        """.formatted(LOWERCASE_SCHEMA, lowercaseViewName1, lowercaseViewName2));
 
         // Add view comment
         assertUpdate("COMMENT ON VIEW " + viewName1 + " IS 'test comment' ");

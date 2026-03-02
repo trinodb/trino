@@ -14,6 +14,4 @@
 package io.trino.plugin.deltalake.expression;
 
 public abstract class Literal
-        extends SparkExpression
-{
-}
+        extends SparkExpression {}

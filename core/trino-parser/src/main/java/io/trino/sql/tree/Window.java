@@ -13,6 +13,4 @@
  */
 package io.trino.sql.tree;
 
-public interface Window
-{
-}
+public interface Window {}

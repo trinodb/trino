@@ -159,10 +159,11 @@ public abstract class BaseCostBasedPlanTest
 
         // for EXPLAIN ANALYZE, the first two lines reflect the additional root fragment containing the ExplainAnalyze operator
         assertThat(String.join("\n", Arrays.copyOfRange(explainAnalyzeLines, 0, 2)) + "\n")
-                .isEqualTo("""
-                           local exchange (GATHER, SINGLE, [])
-                               remote exchange (GATHER, SINGLE, [])
-                           """);
+                .isEqualTo(
+                        """
+                        local exchange (GATHER, SINGLE, [])
+                            remote exchange (GATHER, SINGLE, [])
+                        """);
 
         // the remaining lines should match the original query plan, except for the indentation
         explainAnalyzeQueryPlan = Arrays.stream(Arrays.copyOfRange(explainAnalyzeLines, 2, explainAnalyzeLines.length))

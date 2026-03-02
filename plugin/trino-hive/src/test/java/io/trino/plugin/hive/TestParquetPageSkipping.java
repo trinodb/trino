@@ -77,21 +77,21 @@ public class TestParquetPageSkipping
         String tableName = "test_row_group_pruning_" + randomNameSuffix();
         assertUpdate(
                 """
-                        CREATE TABLE %s (
-                           orderkey bigint,
-                           custkey bigint,
-                           orderstatus varchar(1),
-                           totalprice double,
-                           orderdate date,
-                           orderpriority varchar(15),
-                           clerk varchar(15),
-                           shippriority integer,
-                           comment varchar(79),
-                           rvalues double array)
-                        WITH (
-                           format = 'PARQUET',
-                           external_location = '%s')
-                        """.formatted(tableName, dataFile.parentDirectory()));
+                CREATE TABLE %s (
+                   orderkey bigint,
+                   custkey bigint,
+                   orderstatus varchar(1),
+                   totalprice double,
+                   orderdate date,
+                   orderpriority varchar(15),
+                   clerk varchar(15),
+                   shippriority integer,
+                   comment varchar(79),
+                   rvalues double array)
+                WITH (
+                   format = 'PARQUET',
+                   external_location = '%s')
+                """.formatted(tableName, dataFile.parentDirectory()));
 
         int rowCount = assertColumnIndexResults("SELECT * FROM " + tableName + " WHERE totalprice BETWEEN 100000 AND 131280 AND clerk = 'Clerk#000000624'");
         assertThat(rowCount).isGreaterThan(0);

@@ -234,7 +234,8 @@ public class DefaultDeletionVectorWriter
             Multimap<String, DeleteFile> fileScopedDeletes,
             List<DeleteFile> partitionScopedDeletes) {}
 
-    /// Writes one Puffin file containing one DV blob per data file, and returns the corresponding DeleteFile entries.
+    /// Writes one Puffin file containing one DV blob per data file, and returns the
+    /// corresponding DeleteFile entries.
     private static List<DeleteFile> writeDeletionVectorsPuffin(
             ConnectorSession session,
             Table icebergTable,

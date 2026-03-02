@@ -297,40 +297,40 @@ public class TestIcebergSparkCompatibility
                 "406caec7-68b9-4778-81b2-a12ece70c8b1");
         assertThat(onTrino().executeQuery(
                 """
-                 SELECT\s
-                   _string
-                 , _bigint
-                 , _integer
-                 , _real
-                 , _double
-                 , _short_decimal
-                 , _long_decimal
-                 , _boolean
-                 , CAST(_timestamp AS varchar)
-                 , CAST(_timestamptz AS varchar)
-                 , CAST(_date AS varchar)
-                 , _binary
-                 , _uuid
-                  FROM %s""".formatted(trinoTableName)))
+                SELECT\s
+                  _string
+                , _bigint
+                , _integer
+                , _real
+                , _double
+                , _short_decimal
+                , _long_decimal
+                , _boolean
+                , CAST(_timestamp AS varchar)
+                , CAST(_timestamptz AS varchar)
+                , CAST(_date AS varchar)
+                , _binary
+                , _uuid
+                 FROM %s""".formatted(trinoTableName)))
                 .containsOnly(row);
 
         assertThat(onSpark().executeQuery(
                 """
-                 SELECT\s
-                   _string
-                 , _bigint
-                 , _integer
-                 , _real
-                 , _double
-                 , _short_decimal
-                 , _long_decimal
-                 , _boolean
-                 , CAST(_timestamp AS string)
-                 , CAST(_timestamptz AS string) || ' UTC'
-                 , CAST(_date AS string)
-                 , _binary
-                 , _uuid
-                  FROM %s""".formatted(sparkTableName)))
+                SELECT\s
+                  _string
+                , _bigint
+                , _integer
+                , _real
+                , _double
+                , _short_decimal
+                , _long_decimal
+                , _boolean
+                , CAST(_timestamp AS string)
+                , CAST(_timestamptz AS string) || ' UTC'
+                , CAST(_date AS string)
+                , _binary
+                , _uuid
+                 FROM %s""".formatted(sparkTableName)))
                 .containsOnly(row);
 
         onTrino().executeQuery("DROP TABLE " + trinoTableName);
@@ -1827,7 +1827,8 @@ public class TestIcebergSparkCompatibility
         };
     }
 
-    public enum CompressionCodec {
+    public enum CompressionCodec
+    {
         GZIP,
         ZSTD,
         SNAPPY,

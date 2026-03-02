@@ -16,6 +16,4 @@ package io.trino.spi.exchange;
 /*
  * Implementation is expected to be Jackson serializable
  */
-public interface ExchangeSinkHandle
-{
-}
+public interface ExchangeSinkHandle {}

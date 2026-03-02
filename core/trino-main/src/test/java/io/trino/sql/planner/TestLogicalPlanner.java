@@ -1324,15 +1324,16 @@ public class TestLogicalPlanner
     public void testRemoveEmptyUnionBranch()
     {
         assertThat(countOfMatchingNodes(
-                plan("""
-                    SELECT *
-                    FROM (
-                           SELECT n.name, CAST(null AS varchar) AS comment FROM nation n WHERE n.nationkey <= 3
-                           UNION ALL
-                           SELECT r.name, r.comment FROM region r
-                    )
-                    WHERE comment IN (SELECT r.comment FROM region r)
-                """),
+                plan(
+                        """
+                            SELECT *
+                            FROM (
+                                   SELECT n.name, CAST(null AS varchar) AS comment FROM nation n WHERE n.nationkey <= 3
+                                   UNION ALL
+                                   SELECT r.name, r.comment FROM region r
+                            )
+                            WHERE comment IN (SELECT r.comment FROM region r)
+                        """),
                 ValuesNode.class::isInstance)).isEqualTo(0);
     }
 
@@ -2255,13 +2256,14 @@ public class TestLogicalPlanner
                                 exchange(LOCAL, GATHER,
                                         strictTableScan("nation", ImmutableMap.of("regionkey", "regionkey"))))));
 
-        assertDistributedPlan("""
-                              EXPLAIN ANALYZE
-                              SELECT * FROM
-                                  (SELECT * from nation, region)
-                              UNION ALL
-                                  (SELECT * from nation, region)
-                              """,
+        assertDistributedPlan(
+                """
+                EXPLAIN ANALYZE
+                SELECT * FROM
+                    (SELECT * from nation, region)
+                UNION ALL
+                    (SELECT * from nation, region)
+                """,
                 output(
                         node(ExplainAnalyzeNode.class,
                                 exchange(LOCAL, GATHER,
@@ -2623,12 +2625,13 @@ public class TestLogicalPlanner
     @Test
     public void testRewriteExcludeColumnsFunctionToProjection()
     {
-        assertPlan("""
-                   SELECT *
-                   FROM TABLE(system.builtin.exclude_columns(
-                       INPUT => TABLE(orders),
-                       COLUMNS => DESCRIPTOR(comment)))
-                   """,
+        assertPlan(
+                """
+                SELECT *
+                FROM TABLE(system.builtin.exclude_columns(
+                    INPUT => TABLE(orders),
+                    COLUMNS => DESCRIPTOR(comment)))
+                """,
                 output(tableScan("orders")));
     }
 

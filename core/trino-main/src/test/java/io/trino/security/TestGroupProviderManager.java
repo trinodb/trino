@@ -55,9 +55,10 @@ public class TestGroupProviderManager
             throws IOException
     {
         try (TempFile tempFile = new TempFile()) {
-            Files.writeString(tempFile.path(), """
-                group-provider.name=testGroupProvider
-                """ + additional);
+            Files.writeString(tempFile.path(),
+                    """
+                    group-provider.name=testGroupProvider
+                    """ + additional);
 
             GroupProviderManager groupProviderManager = new GroupProviderManager(new SecretsResolver(ImmutableMap.of()));
             groupProviderManager.addGroupProviderFactory(TEST_GROUP_PROVIDER_FACTORY);
@@ -72,10 +73,11 @@ public class TestGroupProviderManager
     void setTestGroupProviderUpperCase() throws Exception
     {
         try (TempFile tempFile = new TempFile()) {
-            Files.writeString(tempFile.path(), """
-                group-provider.name=testGroupProvider
-                group-provider.group-case=upper
-                """);
+            Files.writeString(tempFile.path(),
+                    """
+                    group-provider.name=testGroupProvider
+                    group-provider.group-case=upper
+                    """);
 
             GroupProviderManager groupProviderManager = new GroupProviderManager(new SecretsResolver(ImmutableMap.of()));
             groupProviderManager.addGroupProviderFactory(TEST_GROUP_PROVIDER_FACTORY);
@@ -90,10 +92,11 @@ public class TestGroupProviderManager
     void setTestGroupProviderLowerCase() throws Exception
     {
         try (TempFile tempFile = new TempFile()) {
-            Files.writeString(tempFile.path(), """
-                group-provider.name=testGroupProvider
-                group-provider.group-case=lower
-                """);
+            Files.writeString(tempFile.path(),
+                    """
+                    group-provider.name=testGroupProvider
+                    group-provider.group-case=lower
+                    """);
 
             GroupProviderManager groupProviderManager = new GroupProviderManager(new SecretsResolver(ImmutableMap.of()));
             groupProviderManager.addGroupProviderFactory(TEST_GROUP_PROVIDER_FACTORY);
@@ -108,10 +111,11 @@ public class TestGroupProviderManager
     void setTestGroupProviderInvalidCase() throws Exception
     {
         try (TempFile tempFile = new TempFile()) {
-            Files.writeString(tempFile.path(), """
-                group-provider.name=testGroupProvider
-                group-provider.group-case=invalid
-                """);
+            Files.writeString(tempFile.path(),
+                    """
+                    group-provider.name=testGroupProvider
+                    group-provider.group-case=invalid
+                    """);
 
             GroupProviderManager groupProviderManager = new GroupProviderManager(new SecretsResolver(ImmutableMap.of()));
             groupProviderManager.addGroupProviderFactory(TEST_GROUP_PROVIDER_FACTORY);

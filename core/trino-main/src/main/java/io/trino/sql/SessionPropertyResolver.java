@@ -153,7 +153,5 @@ public class SessionPropertyResolver
 
     @FunctionalInterface
     public interface SessionPropertiesApplier
-            extends Function<Session, Session>
-    {
-    }
+            extends Function<Session, Session> {}
 }

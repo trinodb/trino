@@ -153,7 +153,8 @@ public class JoinHashSupplier
         return Page.getInstanceSizeInBytes(channels.size()) * pagesCount;
     }
 
-    public enum PagesHashType {
+    public enum PagesHashType
+    {
         BIGINT,
         DEFAULT
     }

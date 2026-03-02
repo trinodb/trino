@@ -66,8 +66,7 @@ import static java.util.Objects.requireNonNull;
 
 public final class ProtobufUtils
 {
-    private ProtobufUtils()
-    {}
+    private ProtobufUtils() {}
 
     public static FileDescriptor getFileDescriptor(String protoFile)
             throws DescriptorValidationException

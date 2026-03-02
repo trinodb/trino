@@ -142,7 +142,8 @@ final class TestDuckDbConnectorTest
     public void testShowCreateTable()
     {
         assertThat((String) computeScalar("SHOW CREATE TABLE orders"))
-                .isEqualTo("""
+                .isEqualTo(
+                        """
                         CREATE TABLE duckdb.tpch.orders (
                            orderkey bigint,
                            custkey bigint,

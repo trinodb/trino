@@ -19,6 +19,4 @@ import jakarta.ws.rs.container.ContainerRequestFilter;
 
 @Priority(Priorities.AUTHENTICATION)
 public interface WebUiAuthenticationFilter
-        extends ContainerRequestFilter
-{
-}
+        extends ContainerRequestFilter {}

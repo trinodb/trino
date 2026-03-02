@@ -68,8 +68,7 @@ import static java.util.stream.Collectors.joining;
 
 public final class ViewReaderUtil
 {
-    private ViewReaderUtil()
-    {}
+    private ViewReaderUtil() {}
 
     public interface ViewReader
     {

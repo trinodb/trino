@@ -113,8 +113,7 @@ public sealed class OpaAccessControl
     }
 
     @Override
-    public void checkCanSetUser(Optional<Principal> principal, String userName)
-    {}
+    public void checkCanSetUser(Optional<Principal> principal, String userName) {}
 
     @Override
     public void checkCanExecuteQuery(Identity identity, QueryId queryId)

@@ -29,9 +29,7 @@ final class TestEncoderUtil
     private static final int[] TEST_OFFSETS = {0, 2, 256};
     private static final long RANDOM_SEED = 42;
 
-    private TestEncoderUtil()
-    {
-    }
+    private TestEncoderUtil() {}
 
     static int[] getTestLengths()
     {

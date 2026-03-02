@@ -277,29 +277,29 @@ public class TestShowQueries
         assertThat(assertions.getQueryRunner().execute("SHOW CREATE TABLE mock.mockschema.default_column_value").getOnlyValue())
                 .isEqualTo(
                         """
-                                CREATE TABLE mock.mockschema.default_column_value (
-                                   col_null boolean DEFAULT null,
-                                   col_boolean boolean DEFAULT true,
-                                   col_tinyint tinyint DEFAULT 1,
-                                   col_smallint smallint DEFAULT 10,
-                                   col_int integer DEFAULT 100,
-                                   col_bigint bigint DEFAULT 1000,
-                                   col_real real DEFAULT REAL '1.1',
-                                   col_double double DEFAULT DOUBLE '2.2',
-                                   col_short_decimal decimal(3, 1) DEFAULT DECIMAL '32.1',
-                                   col_long_decimal decimal(38, 18) DEFAULT DECIMAL '12345678901234567890.123456789012345678',
-                                   col_char char(5) DEFAULT 'char',
-                                   col_varchar varchar(10) DEFAULT 'varchar',
-                                   col_unbounded_varchar varchar DEFAULT 'unbounded varchar',
-                                   col_varbinary varbinary DEFAULT X'123456',
-                                   col_time time(0) DEFAULT TIME '00:00:00',
-                                   col_long_time time(12) DEFAULT TIME '00:00:00.000000000000',
-                                   col_date date DEFAULT DATE '1970-01-01',
-                                   col_short_timestamp timestamp(0) DEFAULT TIMESTAMP '1970-01-01 00:00:00',
-                                   col_long_timestamp timestamp(12) DEFAULT TIMESTAMP '1970-01-01 00:00:00.000000999999',
-                                   col_short_timestamptz timestamp(0) with time zone DEFAULT TIMESTAMP '1970-01-01 00:00:00 UTC',
-                                   col_long_timestamptz timestamp(12) with time zone DEFAULT TIMESTAMP '1970-01-01 00:00:00.000000000000 UTC'
-                                )""");
+                        CREATE TABLE mock.mockschema.default_column_value (
+                           col_null boolean DEFAULT null,
+                           col_boolean boolean DEFAULT true,
+                           col_tinyint tinyint DEFAULT 1,
+                           col_smallint smallint DEFAULT 10,
+                           col_int integer DEFAULT 100,
+                           col_bigint bigint DEFAULT 1000,
+                           col_real real DEFAULT REAL '1.1',
+                           col_double double DEFAULT DOUBLE '2.2',
+                           col_short_decimal decimal(3, 1) DEFAULT DECIMAL '32.1',
+                           col_long_decimal decimal(38, 18) DEFAULT DECIMAL '12345678901234567890.123456789012345678',
+                           col_char char(5) DEFAULT 'char',
+                           col_varchar varchar(10) DEFAULT 'varchar',
+                           col_unbounded_varchar varchar DEFAULT 'unbounded varchar',
+                           col_varbinary varbinary DEFAULT X'123456',
+                           col_time time(0) DEFAULT TIME '00:00:00',
+                           col_long_time time(12) DEFAULT TIME '00:00:00.000000000000',
+                           col_date date DEFAULT DATE '1970-01-01',
+                           col_short_timestamp timestamp(0) DEFAULT TIMESTAMP '1970-01-01 00:00:00',
+                           col_long_timestamp timestamp(12) DEFAULT TIMESTAMP '1970-01-01 00:00:00.000000999999',
+                           col_short_timestamptz timestamp(0) with time zone DEFAULT TIMESTAMP '1970-01-01 00:00:00 UTC',
+                           col_long_timestamptz timestamp(12) with time zone DEFAULT TIMESTAMP '1970-01-01 00:00:00.000000000000 UTC'
+                        )""");
     }
 
     @Test

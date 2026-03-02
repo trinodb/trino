@@ -94,15 +94,15 @@ public class TestJsonTable
     {
         assertPlan(
                 """
-                        SELECT *
-                        FROM (SELECT '[1, 2, 3]', 4) t(json_col, int_col), JSON_TABLE(
-                            json_col,
-                            'lax $'  AS root_path PASSING int_col AS id, '[ala]' FORMAT JSON AS name
-                            COLUMNS(
-                                bigint_col BIGINT DEFAULT 5 ON EMPTY DEFAULT int_col ON ERROR,
-                                varchar_col VARCHAR FORMAT JSON ERROR ON ERROR)
-                            EMPTY ON ERROR)
-                            """,
+                SELECT *
+                FROM (SELECT '[1, 2, 3]', 4) t(json_col, int_col), JSON_TABLE(
+                    json_col,
+                    'lax $'  AS root_path PASSING int_col AS id, '[ala]' FORMAT JSON AS name
+                    COLUMNS(
+                        bigint_col BIGINT DEFAULT 5 ON EMPTY DEFAULT int_col ON ERROR,
+                        varchar_col VARCHAR FORMAT JSON ERROR ON ERROR)
+                    EMPTY ON ERROR)
+                    """,
                 CREATED,
                 strictOutput(// left-side columns first, json_table columns next
                         ImmutableList.of("json_col", "int_col", "bigint_col", "formatted_varchar_col"),
@@ -145,15 +145,15 @@ public class TestJsonTable
     {
         assertJsonTablePlan(
                 """
-                        SELECT *
-                        FROM (SELECT 1, 2, 3), JSON_TABLE(
-                            '[1, 2, 3]',
-                            'lax $' AS root_path
-                            COLUMNS(
-                                first_col BIGINT,
-                                "Second_Col" BIGINT,
-                                "_""_'_?_" BIGINT))
-                            """,
+                SELECT *
+                FROM (SELECT 1, 2, 3), JSON_TABLE(
+                    '[1, 2, 3]',
+                    'lax $' AS root_path
+                    COLUMNS(
+                        first_col BIGINT,
+                        "Second_Col" BIGINT,
+                        "_""_'_?_" BIGINT))
+                    """,
                 new JsonTablePlanLeaf(
                         new IrJsonPath(true, contextVariable()),
                         ImmutableList.of(
@@ -167,15 +167,15 @@ public class TestJsonTable
     {
         assertJsonTablePlan(
                 """
-                        SELECT *
-                        FROM (SELECT 1, 2, 3), JSON_TABLE(
-                            '[1, 2, 3]',
-                            'lax $' AS root_path
-                            COLUMNS(
-                                first_col BIGINT PATH 'lax $.a',
-                                "Second_Col" BIGINT PATH 'lax $.B',
-                                "_""_'_?_" BIGINT PATH 'lax false'))
-                            """,
+                SELECT *
+                FROM (SELECT 1, 2, 3), JSON_TABLE(
+                    '[1, 2, 3]',
+                    'lax $' AS root_path
+                    COLUMNS(
+                        first_col BIGINT PATH 'lax $.a',
+                        "Second_Col" BIGINT PATH 'lax $.B',
+                        "_""_'_?_" BIGINT PATH 'lax false'))
+                    """,
                 new JsonTablePlanLeaf(
                         new IrJsonPath(true, contextVariable()),
                         ImmutableList.of(
@@ -190,18 +190,18 @@ public class TestJsonTable
         // output indexes follow the declaration order: [a, b, c, d]
         assertJsonTablePlan(
                 """
-                        SELECT *
-                        FROM (SELECT 1, 2, 3), JSON_TABLE(
-                            '[1, 2, 3]',
-                            'lax $' AS root_path
-                            COLUMNS(
-                                a BIGINT,
-                                NESTED PATH 'lax $.x' COLUMNS(
-                                    b BIGINT,
-                                    NESTED PATH 'lax $.y' COLUMNS(
-                                        c BIGINT)),
-                                d BIGINT))
-                            """,
+                SELECT *
+                FROM (SELECT 1, 2, 3), JSON_TABLE(
+                    '[1, 2, 3]',
+                    'lax $' AS root_path
+                    COLUMNS(
+                        a BIGINT,
+                        NESTED PATH 'lax $.x' COLUMNS(
+                            b BIGINT,
+                            NESTED PATH 'lax $.y' COLUMNS(
+                                c BIGINT)),
+                        d BIGINT))
+                    """,
                 new JsonTablePlanSingle(
                         new IrJsonPath(true, contextVariable()),
                         ImmutableList.of(
@@ -222,18 +222,18 @@ public class TestJsonTable
     {
         assertJsonTablePlan(
                 """
-                        SELECT *
-                        FROM (SELECT 1, 2, 3), JSON_TABLE(
-                            '[1, 2, 3]',
-                            'lax $' AS root_path
-                            COLUMNS(
-                                a BIGINT,
-                                b BIGINT NULL ON EMPTY ERROR ON ERROR,
-                                c BIGINT DEFAULT 1 ON EMPTY DEFAULT 2 ON ERROR,
-                                d VARCHAR FORMAT JSON,
-                                e VARCHAR FORMAT JSON WITH CONDITIONAL ARRAY WRAPPER NULL ON EMPTY ERROR ON ERROR,
-                                f VARCHAR FORMAT JSON OMIT QUOTES EMPTY ARRAY ON EMPTY EMPTY OBJECT ON ERROR))
-                            """,
+                SELECT *
+                FROM (SELECT 1, 2, 3), JSON_TABLE(
+                    '[1, 2, 3]',
+                    'lax $' AS root_path
+                    COLUMNS(
+                        a BIGINT,
+                        b BIGINT NULL ON EMPTY ERROR ON ERROR,
+                        c BIGINT DEFAULT 1 ON EMPTY DEFAULT 2 ON ERROR,
+                        d VARCHAR FORMAT JSON,
+                        e VARCHAR FORMAT JSON WITH CONDITIONAL ARRAY WRAPPER NULL ON EMPTY ERROR ON ERROR,
+                        f VARCHAR FORMAT JSON OMIT QUOTES EMPTY ARRAY ON EMPTY EMPTY OBJECT ON ERROR))
+                    """,
                 new JsonTablePlanLeaf(
                         new IrJsonPath(true, contextVariable()),
                         ImmutableList.of(
@@ -284,13 +284,13 @@ public class TestJsonTable
         // the column has no explicit error behavior, and json_table has no explicit error behavior. The default behavior for column is NULL ON ERROR.
         assertJsonTablePlan(
                 """
-                        SELECT *
-                        FROM (SELECT 1, 2, 3), JSON_TABLE(
-                            '[1, 2, 3]',
-                            'lax $' AS root_path
-                            COLUMNS(
-                                a BIGINT))
-                            """,
+                SELECT *
+                FROM (SELECT 1, 2, 3), JSON_TABLE(
+                    '[1, 2, 3]',
+                    'lax $' AS root_path
+                    COLUMNS(
+                        a BIGINT))
+                    """,
                 new JsonTablePlanLeaf(
                         new IrJsonPath(true, contextVariable()),
                         ImmutableList.of(
@@ -305,14 +305,14 @@ public class TestJsonTable
         // the column has no explicit error behavior, and json_table has explicit ERROR ON ERROR. The default behavior for column is ERROR ON ERROR.
         assertJsonTablePlan(
                 """
-                        SELECT *
-                        FROM (SELECT 1, 2, 3), JSON_TABLE(
-                            '[1, 2, 3]',
-                            'lax $' AS root_path
-                            COLUMNS(
-                                a BIGINT)
-                            ERROR ON ERROR)
-                            """,
+                SELECT *
+                FROM (SELECT 1, 2, 3), JSON_TABLE(
+                    '[1, 2, 3]',
+                    'lax $' AS root_path
+                    COLUMNS(
+                        a BIGINT)
+                    ERROR ON ERROR)
+                    """,
                 new JsonTablePlanLeaf(
                         new IrJsonPath(true, contextVariable()),
                         ImmutableList.of(
@@ -327,14 +327,14 @@ public class TestJsonTable
         // the column has no explicit error behavior, and json_table has explicit EMPTY ON ERROR. The default behavior for column is NULL ON ERROR.
         assertJsonTablePlan(
                 """
-                        SELECT *
-                        FROM (SELECT 1, 2, 3), JSON_TABLE(
-                            '[1, 2, 3]',
-                            'lax $' AS root_path
-                            COLUMNS(
-                                a BIGINT)
-                            EMPTY ON ERROR)
-                            """,
+                SELECT *
+                FROM (SELECT 1, 2, 3), JSON_TABLE(
+                    '[1, 2, 3]',
+                    'lax $' AS root_path
+                    COLUMNS(
+                        a BIGINT)
+                    EMPTY ON ERROR)
+                    """,
                 new JsonTablePlanLeaf(
                         new IrJsonPath(true, contextVariable()),
                         ImmutableList.of(
@@ -349,14 +349,14 @@ public class TestJsonTable
         // the column has  explicit NULL ON ERROR behavior, and json_table has no explicit ERROR ON ERROR. The behavior for column is the one explicitly specified.
         assertJsonTablePlan(
                 """
-                        SELECT *
-                        FROM (SELECT 1, 2, 3), JSON_TABLE(
-                            '[1, 2, 3]',
-                            'lax $' AS root_path
-                            COLUMNS(
-                                a BIGINT NULL ON ERROR)
-                            ERROR ON ERROR)
-                            """,
+                SELECT *
+                FROM (SELECT 1, 2, 3), JSON_TABLE(
+                    '[1, 2, 3]',
+                    'lax $' AS root_path
+                    COLUMNS(
+                        a BIGINT NULL ON ERROR)
+                    ERROR ON ERROR)
+                    """,
                 new JsonTablePlanLeaf(
                         new IrJsonPath(true, contextVariable()),
                         ImmutableList.of(
@@ -375,17 +375,17 @@ public class TestJsonTable
         // implicit plan settings are OUTER, UNION
         assertJsonTablePlan(
                 """
-                        SELECT *
-                        FROM (SELECT 1, 2, 3), JSON_TABLE(
-                            '[1, 2, 3]',
-                            'lax $' AS root_path
-                            COLUMNS(
-                                NESTED PATH 'lax $.a' COLUMNS(col_1 BIGINT),
-                                NESTED PATH 'lax $.b' COLUMNS(
-                                    NESTED PATH 'lax $.c' COLUMNS(col_2 BIGINT),
-                                    NESTED PATH 'lax $.d' COLUMNS(col_3 BIGINT)),
-                                NESTED PATH 'lax $.e' COLUMNS(col_4 BIGINT)))
-                            """,
+                SELECT *
+                FROM (SELECT 1, 2, 3), JSON_TABLE(
+                    '[1, 2, 3]',
+                    'lax $' AS root_path
+                    COLUMNS(
+                        NESTED PATH 'lax $.a' COLUMNS(col_1 BIGINT),
+                        NESTED PATH 'lax $.b' COLUMNS(
+                            NESTED PATH 'lax $.c' COLUMNS(col_2 BIGINT),
+                            NESTED PATH 'lax $.d' COLUMNS(col_3 BIGINT)),
+                        NESTED PATH 'lax $.e' COLUMNS(col_4 BIGINT)))
+                    """,
                 new JsonTablePlanSingle(
                         new IrJsonPath(true, contextVariable()),
                         ImmutableList.of(),
@@ -415,18 +415,18 @@ public class TestJsonTable
     {
         assertJsonTablePlan(
                 """
-                        SELECT *
-                        FROM (SELECT 1, 2, 3), JSON_TABLE(
-                            '[1, 2, 3]',
-                            'lax $' AS root_path
-                            COLUMNS(
-                                NESTED PATH 'lax $.a' AS a COLUMNS(col_1 BIGINT),
-                                NESTED PATH 'lax $.b' AS b COLUMNS(
-                                    NESTED PATH 'lax $.c' AS c COLUMNS(col_2 BIGINT),
-                                    NESTED PATH 'lax $.d' AS d COLUMNS(col_3 BIGINT)),
-                                NESTED PATH 'lax $.e' AS e COLUMNS(col_4 BIGINT))
-                            PLAN DEFAULT (INNER, CROSS))
-                            """,
+                SELECT *
+                FROM (SELECT 1, 2, 3), JSON_TABLE(
+                    '[1, 2, 3]',
+                    'lax $' AS root_path
+                    COLUMNS(
+                        NESTED PATH 'lax $.a' AS a COLUMNS(col_1 BIGINT),
+                        NESTED PATH 'lax $.b' AS b COLUMNS(
+                            NESTED PATH 'lax $.c' AS c COLUMNS(col_2 BIGINT),
+                            NESTED PATH 'lax $.d' AS d COLUMNS(col_3 BIGINT)),
+                        NESTED PATH 'lax $.e' AS e COLUMNS(col_4 BIGINT))
+                    PLAN DEFAULT (INNER, CROSS))
+                    """,
                 new JsonTablePlanSingle(
                         new IrJsonPath(true, contextVariable()),
                         ImmutableList.of(),
@@ -452,18 +452,18 @@ public class TestJsonTable
 
         assertJsonTablePlan(
                 """
-                        SELECT *
-                        FROM (SELECT 1, 2, 3), JSON_TABLE(
-                            '[1, 2, 3]',
-                            'lax $' AS root_path
-                            COLUMNS(
-                                NESTED PATH 'lax $.a' AS a COLUMNS(col_1 BIGINT),
-                                NESTED PATH 'lax $.b' AS b COLUMNS(
-                                    NESTED PATH 'lax $.c' AS c COLUMNS(col_2 BIGINT),
-                                    NESTED PATH 'lax $.d' AS d COLUMNS(col_3 BIGINT)),
-                                NESTED PATH 'lax $.e' AS e COLUMNS(col_4 BIGINT))
-                            PLAN DEFAULT (CROSS))
-                            """,
+                SELECT *
+                FROM (SELECT 1, 2, 3), JSON_TABLE(
+                    '[1, 2, 3]',
+                    'lax $' AS root_path
+                    COLUMNS(
+                        NESTED PATH 'lax $.a' AS a COLUMNS(col_1 BIGINT),
+                        NESTED PATH 'lax $.b' AS b COLUMNS(
+                            NESTED PATH 'lax $.c' AS c COLUMNS(col_2 BIGINT),
+                            NESTED PATH 'lax $.d' AS d COLUMNS(col_3 BIGINT)),
+                        NESTED PATH 'lax $.e' AS e COLUMNS(col_4 BIGINT))
+                    PLAN DEFAULT (CROSS))
+                    """,
                 new JsonTablePlanSingle(
                         new IrJsonPath(true, contextVariable()),
                         ImmutableList.of(),
@@ -493,18 +493,18 @@ public class TestJsonTable
     {
         assertJsonTablePlan(
                 """
-                        SELECT *
-                        FROM (SELECT 1, 2, 3), JSON_TABLE(
-                            '[1, 2, 3]',
-                            'lax $' AS root_path
-                            COLUMNS(
-                                NESTED PATH 'lax $.a' AS a COLUMNS(col_1 BIGINT),
-                                NESTED PATH 'lax $.b' AS b COLUMNS(
-                                    NESTED PATH 'lax $.c' AS c COLUMNS(col_2 BIGINT),
-                                    NESTED PATH 'lax $.d' AS d COLUMNS(col_3 BIGINT)),
-                                NESTED PATH 'lax $.e' AS e COLUMNS(col_4 BIGINT))
-                            PLAN (ROOT_PATH INNER (((B OUTER (D CROSS C)) UNION E) CROSS A)))
-                            """,
+                SELECT *
+                FROM (SELECT 1, 2, 3), JSON_TABLE(
+                    '[1, 2, 3]',
+                    'lax $' AS root_path
+                    COLUMNS(
+                        NESTED PATH 'lax $.a' AS a COLUMNS(col_1 BIGINT),
+                        NESTED PATH 'lax $.b' AS b COLUMNS(
+                            NESTED PATH 'lax $.c' AS c COLUMNS(col_2 BIGINT),
+                            NESTED PATH 'lax $.d' AS d COLUMNS(col_3 BIGINT)),
+                        NESTED PATH 'lax $.e' AS e COLUMNS(col_4 BIGINT))
+                    PLAN (ROOT_PATH INNER (((B OUTER (D CROSS C)) UNION E) CROSS A)))
+                    """,
                 new JsonTablePlanSingle(
                         new IrJsonPath(true, contextVariable()),
                         ImmutableList.of(),

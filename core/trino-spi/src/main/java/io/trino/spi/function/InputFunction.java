@@ -24,6 +24,4 @@ import static java.lang.annotation.RetentionPolicy.RUNTIME;
 @Keep
 @Retention(RUNTIME)
 @Target(METHOD)
-public @interface InputFunction
-{
-}
+public @interface InputFunction {}

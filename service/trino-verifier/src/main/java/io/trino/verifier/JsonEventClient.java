@@ -42,7 +42,5 @@ public class JsonEventClient
     }
 
     @Override
-    public void close()
-    {
-    }
+    public void close() {}
 }

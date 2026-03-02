@@ -13,6 +13,4 @@
  */
 package io.trino.spi.connector;
 
-public interface ConnectorTransactionHandle
-{
-}
+public interface ConnectorTransactionHandle {}

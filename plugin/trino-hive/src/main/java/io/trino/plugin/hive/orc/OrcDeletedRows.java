@@ -75,7 +75,8 @@ public class OrcDeletedRows
     @Nullable
     private Set<RowId> deletedRows;
 
-    private enum State {
+    private enum State
+    {
         NOT_LOADED,
         LOADING,
         LOADED,

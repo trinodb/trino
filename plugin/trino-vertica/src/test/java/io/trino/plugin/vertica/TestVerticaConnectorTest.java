@@ -321,7 +321,8 @@ public class TestVerticaConnectorTest
         // JDBC INTEGER is not supported, only BIGINT
         // Overridden because shippriority's column type is BIGINT from Vertica
         assertThat(computeActual("SHOW CREATE TABLE orders").getOnlyValue())
-                .isEqualTo("""
+                .isEqualTo(
+                        """
                         CREATE TABLE vertica.tpch.orders (
                            orderkey bigint,
                            custkey bigint,

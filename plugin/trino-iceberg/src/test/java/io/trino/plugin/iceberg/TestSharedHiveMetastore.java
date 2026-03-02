@@ -120,7 +120,8 @@ public class TestSharedHiveMetastore
     @Override
     protected String getExpectedHiveCreateSchema(String catalogName)
     {
-        return format("""
+        return format(
+                """
                 CREATE SCHEMA %s.%s
                 WITH (
                    location = '%s/%s'

@@ -149,32 +149,36 @@ final class TestFakerQueries
             assertQuery("SELECT count(rnd_bigint) FROM (SELECT rnd_bigint FROM %s LIMIT 5) a".formatted(table.getName()),
                     "VALUES (5)");
 
-            assertQuery("""
-                        SELECT count(rnd_bigint)
-                        FROM (SELECT rnd_bigint FROM %s LIMIT %d) a""".formatted(table.getName(), 2 * MAX_ROWS_PER_SPLIT),
+            assertQuery(
+                    """
+                    SELECT count(rnd_bigint)
+                    FROM (SELECT rnd_bigint FROM %s LIMIT %d) a""".formatted(table.getName(), 2 * MAX_ROWS_PER_SPLIT),
                     "VALUES (%d)".formatted(2 * MAX_ROWS_PER_SPLIT));
 
             assertQuery("SELECT count(distinct rnd_bigint) FROM %s LIMIT 5".formatted(table.getName()),
                     "VALUES (1000)");
 
-            assertQuery("""
-                        SELECT count(rnd_bigint)
-                        FROM (SELECT rnd_bigint FROM %s LIMIT %d) a""".formatted(table.getName(), MAX_ROWS_PER_SPLIT),
+            assertQuery(
+                    """
+                    SELECT count(rnd_bigint)
+                    FROM (SELECT rnd_bigint FROM %s LIMIT %d) a""".formatted(table.getName(), MAX_ROWS_PER_SPLIT),
                     "VALUES (%d)".formatted(MAX_ROWS_PER_SPLIT));
 
             // generating data should be deterministic
-            String testQuery = """
-                               SELECT to_hex(checksum(rnd_bigint))
-                               FROM (SELECT rnd_bigint FROM %s LIMIT %d) a""".formatted(table.getName(), 3 * MAX_ROWS_PER_SPLIT);
+            String testQuery =
+            """
+            SELECT to_hex(checksum(rnd_bigint))
+            FROM (SELECT rnd_bigint FROM %s LIMIT %d) a""".formatted(table.getName(), 3 * MAX_ROWS_PER_SPLIT);
             assertQuery(testQuery, "VALUES ('1FB3289AC3A44EEA')");
             assertQuery(testQuery, "VALUES ('1FB3289AC3A44EEA')");
             assertQuery(testQuery, "VALUES ('1FB3289AC3A44EEA')");
 
             // there should be no overlap between data generated from different splits
-            assertQuery("""
-                        SELECT count(1)
-                        FROM (SELECT rnd_bigint FROM %s LIMIT %d) a
-                        JOIN (SELECT rnd_bigint FROM %s LIMIT %d) b ON a.rnd_bigint = b.rnd_bigint""".formatted(table.getName(), 2 * MAX_ROWS_PER_SPLIT, table.getName(), 5 * MAX_ROWS_PER_SPLIT),
+            assertQuery(
+                    """
+                    SELECT count(1)
+                    FROM (SELECT rnd_bigint FROM %s LIMIT %d) a
+                    JOIN (SELECT rnd_bigint FROM %s LIMIT %d) b ON a.rnd_bigint = b.rnd_bigint""".formatted(table.getName(), 2 * MAX_ROWS_PER_SPLIT, table.getName(), 5 * MAX_ROWS_PER_SPLIT),
                     "VALUES (%d)".formatted(2 * MAX_ROWS_PER_SPLIT));
         }
     }
@@ -567,14 +571,15 @@ final class TestFakerQueries
     @Test
     void testCreateTableAsSelectSequence()
     {
-        String source = """
-                        SELECT
-                          cast(greatest(least(sequential_number, 0x7f), -0x80) AS TINYINT) AS seq_tinyint,
-                          cast(sequential_number AS SMALLINT) AS seq_smallint,
-                          cast(sequential_number AS INTEGER) AS seq_integer,
-                          cast(sequential_number AS BIGINT) AS seq_bigint
-                        FROM TABLE(sequence(start => -500, stop => 500, step => 1))
-                        """;
+        String source =
+        """
+        SELECT
+          cast(greatest(least(sequential_number, 0x7f), -0x80) AS TINYINT) AS seq_tinyint,
+          cast(sequential_number AS SMALLINT) AS seq_smallint,
+          cast(sequential_number AS INTEGER) AS seq_integer,
+          cast(sequential_number AS BIGINT) AS seq_bigint
+        FROM TABLE(sequence(start => -500, stop => 500, step => 1))
+        """;
         try (TestTable sourceTable = new TestTable(getQueryRunner()::execute, "seq_src", "WITH (null_probability = 0, default_limit = 1000, dictionary_detection_enabled = false) AS " + source);
                 TestTable table = new TestTable(getQueryRunner()::execute, "seq", "WITH (null_probability = 0, default_limit = 1000, dictionary_detection_enabled = false) AS SELECT * FROM %s".formatted(sourceTable.getName()))) {
             String createTable = (String) computeScalar("SHOW CREATE TABLE " + table.getName());
@@ -588,11 +593,12 @@ final class TestFakerQueries
     @Test
     void testCreateTableAsSelectNulls()
     {
-        String source = """
-                        SELECT
-                          cast(NULL AS INTEGER) AS nullable
-                        FROM TABLE(sequence(start => 0, stop => 1000, step => 1))
-                        """;
+        String source =
+        """
+        SELECT
+          cast(NULL AS INTEGER) AS nullable
+        FROM TABLE(sequence(start => 0, stop => 1000, step => 1))
+        """;
         try (TestTable table = new TestTable(getQueryRunner()::execute, "only_nulls", "WITH (dictionary_detection_enabled = false) AS " + source)) {
             String createTable = (String) computeScalar("SHOW CREATE TABLE " + table.getName());
             assertThat(createTable).containsPattern("nullable integer WITH \\(null_probability = 1E0\\)");
@@ -602,9 +608,10 @@ final class TestFakerQueries
     @Test
     void testCreateTableAsSelectVarchar()
     {
-        String source = """
-                        SELECT * FROM tpch.tiny.orders
-                        """;
+        String source =
+        """
+        SELECT * FROM tpch.tiny.orders
+        """;
         try (TestTable table = new TestTable(getQueryRunner()::execute, "varchars", "AS " + source)) {
             String createTable = (String) computeScalar("SHOW CREATE TABLE " + table.getName());
             assertThat(createTable).containsPattern("orderkey bigint WITH \\(max = '60000', min = '1', null_probability = 0E0, step = '1'\\)");
@@ -622,12 +629,13 @@ final class TestFakerQueries
     @Test
     void testCreateTableAsSelectBoolean()
     {
-        String source = """
-                        SELECT
-                          sequential_number % 2 = 0 AS boolean,
-                          ARRAY[true, false, sequential_number % 2 = 0] AS boolean_array
-                        FROM TABLE(sequence(start => 0, stop => 1000, step => 1))
-                        """;
+        String source =
+        """
+        SELECT
+          sequential_number % 2 = 0 AS boolean,
+          ARRAY[true, false, sequential_number % 2 = 0] AS boolean_array
+        FROM TABLE(sequence(start => 0, stop => 1000, step => 1))
+        """;
         try (TestTable table = new TestTable(getQueryRunner()::execute, "booleans", "AS " + source)) {
             String createTable = (String) computeScalar("SHOW CREATE TABLE " + table.getName());
             assertThat(createTable).containsPattern("boolean boolean WITH \\(null_probability = 0E0\\)");

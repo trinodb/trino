@@ -39,8 +39,7 @@ public final class DeltaLakeAlluxioCacheTestUtils
 {
     private static final Pattern dataFilePattern = Pattern.compile(".*?/(?<partition>((\\w+)=[^/]*/)*)(?<queryId>\\d{8}_\\d{6}_\\d{5}_\\w{5})_(?<uuid>[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})");
 
-    private DeltaLakeAlluxioCacheTestUtils()
-    {}
+    private DeltaLakeAlluxioCacheTestUtils() {}
 
     public static Multiset<CacheOperation> getCacheOperations(QueryRunner queryRunner)
     {

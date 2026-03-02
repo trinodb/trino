@@ -26,6 +26,4 @@ import static java.lang.annotation.RetentionPolicy.RUNTIME;
 @Retention(RUNTIME)
 @Target({PARAMETER, METHOD, FIELD})
 @BindingAnnotation
-public @interface ForMetadataRefresh
-{
-}
+public @interface ForMetadataRefresh {}

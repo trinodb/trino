@@ -190,9 +190,9 @@ public class TestIcebergParquetConnectorTest
 
             assertQuery(
                     """
-                            SELECT orderkey, partkey, suppkey, _change_type, _change_version_id, to_iso8601(_change_timestamp), _change_ordinal
-                            FROM TABLE(system.table_changes(CURRENT_SCHEMA, '%s', %s, %s))
-                            """.formatted(table.getName(), initialSnapshot, snapshotAfterInsert),
+                    SELECT orderkey, partkey, suppkey, _change_type, _change_version_id, to_iso8601(_change_timestamp), _change_ordinal
+                    FROM TABLE(system.table_changes(CURRENT_SCHEMA, '%s', %s, %s))
+                    """.formatted(table.getName(), initialSnapshot, snapshotAfterInsert),
                     "SELECT orderkey, partkey, suppkey, 'insert', %s, '%s', 0 FROM lineitem".formatted(snapshotAfterInsert, snapshotAfterInsertTime));
         }
     }

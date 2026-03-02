@@ -19,7 +19,8 @@ package io.trino.spi;
  * The engine will make this determination during analysis/planning, but the connector may take the ultimate decision,
  * based on its level of incremental refresh support.
  */
-public enum RefreshType {
+public enum RefreshType
+{
     INCREMENTAL,
     FULL
 }

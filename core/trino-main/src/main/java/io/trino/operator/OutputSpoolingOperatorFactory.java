@@ -374,9 +374,7 @@ public class OutputSpoolingOperatorFactory
     {
         private final List<Page> buffer = new ArrayList<>();
 
-        private PageBuffer()
-        {
-        }
+        private PageBuffer() {}
 
         public static PageBuffer create()
         {

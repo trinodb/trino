@@ -318,9 +318,7 @@ public class TrinoHudiStorage
 
     @Override
     public void close()
-            throws IOException
-    {
-    }
+            throws IOException {}
 
     /**
      * @param path      input directory

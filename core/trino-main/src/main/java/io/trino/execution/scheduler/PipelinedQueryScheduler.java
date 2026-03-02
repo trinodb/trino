@@ -1593,8 +1593,7 @@ public class PipelinedQueryScheduler
     }
 
     private sealed interface BucketToPartitionKey
-            permits ConstantKey, PartitioningKey
-    {}
+            permits ConstantKey, PartitioningKey {}
 
     enum ConstantKey
             implements BucketToPartitionKey

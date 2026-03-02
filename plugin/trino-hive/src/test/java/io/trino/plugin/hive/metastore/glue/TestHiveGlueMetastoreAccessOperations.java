@@ -264,10 +264,10 @@ public class TestHiveGlueMetastoreAccessOperations
         try {
             assertUpdate(
                     """
-                            CREATE TABLE test_select_from_partitioned_where WITH (partitioned_by = ARRAY['regionkey']) AS
-                            SELECT nationkey, name, regionkey FROM tpch.tiny.nation
-                            UNION ALL SELECT nationkey, name, regionkey + 10 AS regionkey FROM tpch.tiny.nation
-                            """,
+                    CREATE TABLE test_select_from_partitioned_where WITH (partitioned_by = ARRAY['regionkey']) AS
+                    SELECT nationkey, name, regionkey FROM tpch.tiny.nation
+                    UNION ALL SELECT nationkey, name, regionkey + 10 AS regionkey FROM tpch.tiny.nation
+                    """,
                     50);
 
             assertInvocations("SELECT * FROM test_select_from_partitioned_where WHERE regionkey IN (2, 3)",
@@ -407,10 +407,10 @@ public class TestHiveGlueMetastoreAccessOperations
         try {
             assertUpdate(
                     """
-                            CREATE TABLE test_select_system_table WITH (partitioned_by = ARRAY['regionkey']) AS
-                            SELECT nationkey, name, regionkey FROM tpch.tiny.nation
-                            UNION ALL SELECT nationkey, name, regionkey + 10 AS regionkey FROM tpch.tiny.nation
-                            """,
+                    CREATE TABLE test_select_system_table WITH (partitioned_by = ARRAY['regionkey']) AS
+                    SELECT nationkey, name, regionkey FROM tpch.tiny.nation
+                    UNION ALL SELECT nationkey, name, regionkey + 10 AS regionkey FROM tpch.tiny.nation
+                    """,
                     50);
 
             // select from $partitions
