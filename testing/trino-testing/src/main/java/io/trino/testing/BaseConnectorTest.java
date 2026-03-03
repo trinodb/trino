@@ -433,6 +433,43 @@ public abstract class BaseConnectorTest
     }
 
     @Test
+    public void testSimplePredicatePushdown()
+    {
+        if (!hasBehavior(SUPPORTS_PREDICATE_PUSHDOWN)) {
+            assertThat(query("SELECT name FROM nation WHERE regionkey = 3"))
+                    .isNotFullyPushedDown(FilterNode.class);
+            return;
+        }
+
+        assertThat(query("SELECT name FROM nation WHERE regionkey = 3"))
+                .isFullyPushedDown();
+
+        assertThat(query("SELECT name FROM nation WHERE regionkey <> 3"))
+                .isFullyPushedDown();
+
+        assertThat(query("SELECT name FROM nation WHERE regionkey < 3"))
+                .isFullyPushedDown();
+
+        assertThat(query("SELECT name FROM nation WHERE regionkey <= 3"))
+                .isFullyPushedDown();
+
+        assertThat(query("SELECT name FROM nation WHERE regionkey > 3"))
+                .isFullyPushedDown();
+
+        assertThat(query("SELECT name FROM nation WHERE regionkey >= 3"))
+                .isFullyPushedDown();
+
+        assertThat(query("SELECT name FROM nation WHERE regionkey IN (1, 2, 3)"))
+                .isFullyPushedDown();
+
+        assertThat(query("SELECT * FROM nation WHERE name IS NOT NULL"))
+                .isFullyPushedDown();
+
+        assertThat(query("SELECT * FROM nation WHERE name IS NULL"))
+                .isFullyPushedDown();
+    }
+
+    @Test
     public void testLimitPushdown()
     {
         if (!hasBehavior(SUPPORTS_LIMIT_PUSHDOWN)) {
