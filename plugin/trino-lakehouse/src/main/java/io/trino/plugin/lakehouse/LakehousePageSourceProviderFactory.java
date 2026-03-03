@@ -23,10 +23,17 @@ import io.trino.plugin.hudi.HudiTableHandle;
 import io.trino.plugin.iceberg.IcebergPageSourceProviderFactory;
 import io.trino.plugin.iceberg.IcebergTableHandle;
 import io.trino.plugin.iceberg.system.files.FilesTableSplit;
+import io.trino.spi.connector.ColumnHandle;
+import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.ConnectorPageSourceProvider;
 import io.trino.spi.connector.ConnectorPageSourceProviderFactory;
+import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.connector.ConnectorTableHandle;
+import io.trino.spi.connector.ConnectorTransactionHandle;
+import io.trino.spi.connector.DynamicFilter;
+
+import java.util.List;
 
 import static java.util.Objects.requireNonNull;
 
@@ -54,8 +61,36 @@ public class LakehousePageSourceProviderFactory
     @Override
     public ConnectorPageSourceProvider createPageSourceProvider()
     {
-        return (transaction, session, split, table, columns, dynamicFilter) ->
-                forHandle(split, table).createPageSource(transaction, session, split, table, columns, dynamicFilter);
+        // createPageSourceProvider is called for each scan within a query
+        // we hold on to ConnectorPageSourceProvider instance to allow IcebergPageSourceProvider to reuse equality deletes between splits of the same scan
+        return new ConnectorPageSourceProvider()
+        {
+            private volatile ConnectorPageSourceProvider delegate;
+
+            @Override
+            public ConnectorPageSource createPageSource(ConnectorTransactionHandle transaction, ConnectorSession session, ConnectorSplit split, ConnectorTableHandle table, List<ColumnHandle> columns, DynamicFilter dynamicFilter)
+            {
+                if (delegate == null) {
+                    synchronized (this) {
+                        if (delegate == null) {
+                            delegate = forHandle(split, table);
+                        }
+                    }
+                }
+                return delegate.createPageSource(transaction, session, split, table, columns, dynamicFilter);
+            }
+
+            @Override
+            public long getMemoryUsage()
+            {
+                ConnectorPageSourceProvider provider = delegate;
+                if (provider == null) {
+                    // No page source was created, so no memory is used
+                    return 0;
+                }
+                return provider.getMemoryUsage();
+            }
+        };
     }
 
     private ConnectorPageSourceProvider forHandle(ConnectorSplit split, ConnectorTableHandle handle)
