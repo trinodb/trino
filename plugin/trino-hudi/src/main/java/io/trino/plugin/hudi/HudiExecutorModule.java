@@ -18,9 +18,14 @@ import com.google.inject.Key;
 import com.google.inject.Module;
 import com.google.inject.Provides;
 import com.google.inject.Singleton;
+import io.trino.metastore.HiveMetastore;
+import io.trino.plugin.hive.HiveTransactionHandle;
+import io.trino.plugin.hudi.stats.ForHudiTableStatistics;
+import io.trino.spi.security.ConnectorIdentity;
 
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.function.BiFunction;
 
 import static io.airlift.bootstrap.ClosingBinder.closingBinder;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
@@ -33,6 +38,7 @@ public class HudiExecutorModule
     @Override
     public void configure(Binder binder)
     {
+        closingBinder(binder).registerExecutor(Key.get(ExecutorService.class, ForHudiTableStatistics.class));
         closingBinder(binder).registerExecutor(Key.get(ExecutorService.class, ForHudiSplitManager.class));
         closingBinder(binder).registerExecutor(Key.get(ScheduledExecutorService.class, ForHudiSplitSource.class));
     }
@@ -53,5 +59,23 @@ public class HudiExecutorModule
         return newScheduledThreadPool(
                 hudiConfig.getSplitLoaderParallelism(),
                 daemonThreadsNamed("hudi-split-loader-%s"));
+    }
+
+    @Provides
+    @Singleton
+    @ForHudiTableStatistics
+    public ExecutorService createTableStatisticsExecutor(HudiConfig hudiConfig)
+    {
+        return newScheduledThreadPool(
+                hudiConfig.getTableStatisticsExecutorParallelism(),
+                daemonThreadsNamed("hudi-table-statistics-executor-%s"));
+    }
+
+    @Provides
+    @Singleton
+    public BiFunction<ConnectorIdentity, HiveTransactionHandle, HiveMetastore> createHiveMetastoreGetter(HudiTransactionManager transactionManager)
+    {
+        return (identity, transactionHandle) ->
+                transactionManager.get(transactionHandle, identity).getMetastore();
     }
 }
