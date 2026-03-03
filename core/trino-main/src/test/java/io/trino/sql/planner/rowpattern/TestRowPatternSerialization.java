@@ -15,7 +15,6 @@ package io.trino.sql.planner.rowpattern;
 
 import io.airlift.json.JsonCodec;
 import io.airlift.json.JsonCodecFactory;
-import io.airlift.json.ObjectMapperProvider;
 import io.trino.sql.planner.rowpattern.ir.IrQuantifier;
 import io.trino.sql.planner.rowpattern.ir.IrRowPattern;
 import org.junit.jupiter.api.Test;
@@ -45,7 +44,7 @@ public class TestRowPatternSerialization
     @Test
     public void testPatternQuantifierRoundtrip()
     {
-        JsonCodec<IrQuantifier> codec = new JsonCodecFactory(new ObjectMapperProvider()).jsonCodec(IrQuantifier.class);
+        JsonCodec<IrQuantifier> codec = new JsonCodecFactory().jsonCodec(IrQuantifier.class);
 
         assertJsonRoundTrip(codec, zeroOrMore(true));
         assertJsonRoundTrip(codec, zeroOrMore(false));
@@ -69,7 +68,7 @@ public class TestRowPatternSerialization
     @Test
     public void testRowPatternRoundtrip()
     {
-        JsonCodec<IrRowPattern> codec = new JsonCodecFactory(new ObjectMapperProvider()).jsonCodec(IrRowPattern.class);
+        JsonCodec<IrRowPattern> codec = new JsonCodecFactory().jsonCodec(IrRowPattern.class);
 
         assertJsonRoundTrip(codec, start());
         assertJsonRoundTrip(codec, end());

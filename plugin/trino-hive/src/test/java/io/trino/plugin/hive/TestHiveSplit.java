@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.hive;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.json.JsonCodec;
@@ -45,9 +46,10 @@ public class TestHiveSplit
     @Test
     public void testJsonRoundTrip()
     {
-        ObjectMapperProvider objectMapperProvider = new ObjectMapperProvider();
-        objectMapperProvider.setJsonDeserializers(ImmutableMap.of(Type.class, new TypeDeserializer(TESTING_TYPE_MANAGER)));
-        JsonCodec<HiveSplit> codec = new JsonCodecFactory(objectMapperProvider).jsonCodec(HiveSplit.class);
+        ObjectMapper objectMapper = new ObjectMapperProvider()
+                .withJsonDeserializers(ImmutableMap.of(Type.class, new TypeDeserializer(TESTING_TYPE_MANAGER)))
+                .get();
+        JsonCodec<HiveSplit> codec = new JsonCodecFactory(objectMapper).jsonCodec(HiveSplit.class);
 
         Map<String, String> schema = ImmutableMap.<String, String>builder()
                 .put("foo", "bar")

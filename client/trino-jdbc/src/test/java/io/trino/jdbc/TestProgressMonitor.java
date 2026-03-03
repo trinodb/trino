@@ -56,7 +56,8 @@ import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 public class TestProgressMonitor
 {
     private static final JsonCodec<QueryResults> QUERY_RESULTS_CODEC = new JsonCodecFactory(new ObjectMapperProvider()
-            .withModules(ImmutableSet.of(new ServerQueryDataJacksonModule())))
+            .withModules(ImmutableSet.of(new ServerQueryDataJacksonModule()))
+            .get())
             .jsonCodec(QueryResults.class);
 
     @StartStop

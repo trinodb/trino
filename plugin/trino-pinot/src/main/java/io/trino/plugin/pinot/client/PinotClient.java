@@ -152,7 +152,7 @@ public class PinotClient
         this.brokersForTableJsonCodec = requireNonNull(brokersForTableJsonCodec, "brokersForTableJsonCodec is null");
         this.timeBoundaryJsonCodec = requireNonNull(timeBoundaryJsonCodec, "timeBoundaryJsonCodec is null");
         this.tablesJsonCodec = requireNonNull(tablesJsonCodec, "tablesJsonCodec is null");
-        this.schemaJsonCodec = new JsonCodecFactory(() -> new ObjectMapper()
+        this.schemaJsonCodec = new JsonCodecFactory(new ObjectMapper()
                 .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)).jsonCodec(Schema.class);
         this.brokerResponseCodec = requireNonNull(brokerResponseCodec, "brokerResponseCodec is null");
         this.pinotHostMapper = requireNonNull(pinotHostMapper, "pinotHostMapper is null");

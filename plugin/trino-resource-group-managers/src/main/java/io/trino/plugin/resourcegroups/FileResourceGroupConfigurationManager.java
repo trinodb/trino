@@ -43,8 +43,7 @@ import static java.util.Objects.requireNonNull;
 public class FileResourceGroupConfigurationManager
         extends AbstractResourceConfigurationManager
 {
-    private static final JsonCodec<ManagerSpec> CODEC = new JsonCodecFactory(
-            () -> new ObjectMapperProvider().get().enable(FAIL_ON_UNKNOWN_PROPERTIES))
+    private static final JsonCodec<ManagerSpec> CODEC = new JsonCodecFactory(new ObjectMapperProvider().get().enable(FAIL_ON_UNKNOWN_PROPERTIES))
             .jsonCodec(ManagerSpec.class);
 
     private final Optional<LifeCycleManager> lifeCycleManager;

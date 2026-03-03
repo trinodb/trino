@@ -13,7 +13,7 @@
  */
 package io.trino.sql.planner;
 
-import com.fasterxml.jackson.databind.KeyDeserializer;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.reflect.TypeToken;
 import io.airlift.json.JsonCodec;
@@ -36,15 +36,11 @@ class TestSymbolSerializer
     private static final JsonCodecFactory CODEC_FACTORY;
 
     static {
-        ObjectMapperProvider provider = new ObjectMapperProvider();
-        provider.setKeyDeserializers(ImmutableMap.<Class<?>, KeyDeserializer>builder()
-                .put(Symbol.class, new SymbolKeyDeserializer(TESTING_TYPE_MANAGER))
-                .buildOrThrow());
-
-        provider.setJsonDeserializers(ImmutableMap.of(
-                Type.class, new TypeDeserializer(TESTING_TYPE_MANAGER)));
-
-        CODEC_FACTORY = new JsonCodecFactory(provider);
+        ObjectMapper objectMapper = new ObjectMapperProvider()
+                .withKeyDeserializers(ImmutableMap.of(Symbol.class, new SymbolKeyDeserializer(TESTING_TYPE_MANAGER)))
+                .withJsonDeserializers(ImmutableMap.of(Type.class, new TypeDeserializer(TESTING_TYPE_MANAGER)))
+                .get();
+        CODEC_FACTORY = new JsonCodecFactory(objectMapper);
     }
 
     private static final JsonCodec<Symbol> SYMBOL_CODEC = CODEC_FACTORY.jsonCodec(Symbol.class);

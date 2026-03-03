@@ -13,7 +13,7 @@
  */
 package io.trino.sql.planner.plan;
 
-import com.fasterxml.jackson.databind.KeyDeserializer;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -83,23 +83,23 @@ public class TestPatternRecognitionNodeSerialization
     private static final JsonCodec<PatternRecognitionNode> PATTERN_RECOGNITION_NODE_CODEC;
 
     static {
-        ObjectMapperProvider provider = new ObjectMapperProvider();
-        provider.setKeyDeserializers(ImmutableMap.<Class<?>, KeyDeserializer>builder()
-                .put(TypeSignature.class, new TypeSignatureKeyDeserializer())
-                .put(Symbol.class, new SymbolKeyDeserializer(TESTING_TYPE_MANAGER))
-                .buildOrThrow());
+        ObjectMapper objectMapper = new ObjectMapperProvider()
+                .withKeyDeserializers(ImmutableMap.of(
+                        TypeSignature.class, new TypeSignatureKeyDeserializer(),
+                        Symbol.class, new SymbolKeyDeserializer(TESTING_TYPE_MANAGER)))
+                .withJsonDeserializers(ImmutableMap.of(
+                        Type.class, new TypeDeserializer(TESTING_TYPE_MANAGER),
+                        Block.class, new BlockJsonSerde.Deserializer(TESTING_BLOCK_ENCODING_SERDE)))
+                .withJsonSerializers(ImmutableMap.of(
+                        Block.class, new BlockJsonSerde.Serializer(TESTING_BLOCK_ENCODING_SERDE)))
+                .get();
 
-        provider.setJsonDeserializers(ImmutableMap.of(
-                Type.class, new TypeDeserializer(TESTING_TYPE_MANAGER),
-                Block.class, new BlockJsonSerde.Deserializer(TESTING_BLOCK_ENCODING_SERDE)));
+        JsonCodecFactory factory = new JsonCodecFactory(objectMapper);
 
-        provider.setJsonSerializers(ImmutableMap.of(
-                Block.class, new BlockJsonSerde.Serializer(TESTING_BLOCK_ENCODING_SERDE)));
-
-        VALUE_POINTER_CODEC = new JsonCodecFactory(provider).jsonCodec(ValuePointer.class);
-        EXPRESSION_AND_VALUE_POINTERS_CODEC = new JsonCodecFactory(provider).jsonCodec(ExpressionAndValuePointers.class);
-        MEASURE_CODEC = new JsonCodecFactory(provider).jsonCodec(Measure.class);
-        PATTERN_RECOGNITION_NODE_CODEC = new JsonCodecFactory(provider).jsonCodec(PatternRecognitionNode.class);
+        VALUE_POINTER_CODEC = factory.jsonCodec(ValuePointer.class);
+        EXPRESSION_AND_VALUE_POINTERS_CODEC = factory.jsonCodec(ExpressionAndValuePointers.class);
+        MEASURE_CODEC = factory.jsonCodec(Measure.class);
+        PATTERN_RECOGNITION_NODE_CODEC = factory.jsonCodec(PatternRecognitionNode.class);
     }
 
     @Test

@@ -14,7 +14,6 @@
 package io.trino.spi.predicate;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.module.SimpleModule;
 import com.google.common.collect.ImmutableList;
 import io.airlift.json.ObjectMapperProvider;
 import io.airlift.slice.Slice;
@@ -30,6 +29,7 @@ import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.stream.IntStream;
 import java.util.stream.LongStream;
@@ -809,14 +809,13 @@ class TestSortedRangeSet
     public void testJsonSerialization()
             throws Exception
     {
-        TestingTypeManager typeManager = new TestingTypeManager();
-        TestingBlockEncodingSerde blockEncodingSerde = new TestingBlockEncodingSerde();
-
-        ObjectMapper mapper = new ObjectMapperProvider().get()
-                .registerModule(new SimpleModule()
-                        .addDeserializer(Type.class, new TestingTypeDeserializer(typeManager))
-                        .addSerializer(Block.class, new TestingBlockJsonSerde.Serializer(blockEncodingSerde))
-                        .addDeserializer(Block.class, new TestingBlockJsonSerde.Deserializer(blockEncodingSerde)));
+        ObjectMapper mapper = new ObjectMapperProvider()
+                .withJsonDeserializers(Map.of(
+                        Type.class, new TestingTypeDeserializer(new TestingTypeManager()),
+                        Block.class, new TestingBlockJsonSerde.Deserializer(new TestingBlockEncodingSerde())))
+                .withJsonSerializers(Map.of(
+                        Block.class, new TestingBlockJsonSerde.Serializer(new TestingBlockEncodingSerde())))
+                .get();
 
         SortedRangeSet set = SortedRangeSet.all(BIGINT);
         assertThat(set).isEqualTo(mapper.readValue(mapper.writeValueAsString(set), SortedRangeSet.class));

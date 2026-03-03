@@ -18,7 +18,6 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.DeserializationContext;
 import com.fasterxml.jackson.databind.JsonDeserializer;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.module.SimpleModule;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.json.ObjectMapperProvider;
@@ -665,23 +664,21 @@ class TestTupleDomain
     public void testJsonSerialization()
             throws Exception
     {
-        TestingTypeManager typeManager = new TestingTypeManager();
-        TestingBlockEncodingSerde blockEncodingSerde = new TestingBlockEncodingSerde();
-
-        ObjectMapper mapper = new ObjectMapperProvider().get()
-                .registerModule(new SimpleModule()
-                        .addDeserializer(ColumnHandle.class, new JsonDeserializer<>()
-                        {
+        ObjectMapper mapper = new ObjectMapperProvider()
+                .withJsonDeserializers(Map.of(
+                        Type.class, new TestingTypeDeserializer(new TestingTypeManager()),
+                        Block.class, new TestingBlockJsonSerde.Deserializer(new TestingBlockEncodingSerde()),
+                        ColumnHandle.class, new JsonDeserializer<ColumnHandle>() {
                             @Override
-                            public ColumnHandle deserialize(JsonParser jsonParser, DeserializationContext deserializationContext)
+                            public ColumnHandle deserialize(JsonParser parser, DeserializationContext ctxt)
                                     throws IOException
                             {
-                                return new ObjectMapperProvider().get().readValue(jsonParser, TestingColumnHandle.class);
+                                return parser.readValueAs(TestingColumnHandle.class);
                             }
-                        })
-                        .addDeserializer(Type.class, new TestingTypeDeserializer(typeManager))
-                        .addSerializer(Block.class, new TestingBlockJsonSerde.Serializer(blockEncodingSerde))
-                        .addDeserializer(Block.class, new TestingBlockJsonSerde.Deserializer(blockEncodingSerde)));
+                        }))
+                .withJsonSerializers(Map.of(
+                        Block.class, new TestingBlockJsonSerde.Serializer(new TestingBlockEncodingSerde())))
+                .get();
 
         TupleDomain<ColumnHandle> tupleDomain = TupleDomain.all();
         assertThat(tupleDomain).isEqualTo(mapper.readValue(mapper.writeValueAsString(tupleDomain), new TypeReference<TupleDomain<ColumnHandle>>() { }));
