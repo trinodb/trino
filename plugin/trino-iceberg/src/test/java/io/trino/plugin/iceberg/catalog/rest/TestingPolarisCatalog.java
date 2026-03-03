@@ -13,13 +13,13 @@
  */
 package io.trino.plugin.iceberg.catalog.rest;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.json.JsonMapper;
 import io.airlift.http.client.HttpClient;
 import io.airlift.http.client.Request;
 import io.airlift.http.client.StatusResponseHandler;
 import io.airlift.http.client.StringResponseHandler.StringResponse;
 import io.airlift.http.client.jetty.JettyHttpClient;
-import io.airlift.json.ObjectMapperProvider;
+import io.airlift.json.JsonMapperProvider;
 import org.intellij.lang.annotations.Language;
 import org.testcontainers.containers.BindMode;
 import org.testcontainers.containers.GenericContainer;
@@ -44,7 +44,7 @@ public final class TestingPolarisCatalog
     private static final int POLARIS_PORT = 8181;
     public static final String CREDENTIAL = "root:s3cr3t";
 
-    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapperProvider().get();
+    private static final JsonMapper JSON_MAPPER = new JsonMapperProvider().get();
     private static final HttpClient HTTP_CLIENT = new JettyHttpClient();
 
     private final GenericContainer<?> polarisCatalog;
@@ -85,7 +85,7 @@ public final class TestingPolarisCatalog
                 .build();
         StringResponse response = HTTP_CLIENT.execute(request, createStringResponseHandler());
         try {
-            return OBJECT_MAPPER.readTree(response.getBody()).get("access_token").asText();
+            return JSON_MAPPER.readTree(response.getBody()).get("access_token").asText();
         }
         catch (IOException e) {
             throw new UncheckedIOException(e);

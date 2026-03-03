@@ -13,7 +13,7 @@
  */
 package io.trino.testing;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -21,7 +21,7 @@ import com.google.common.io.Closer;
 import io.airlift.configuration.secrets.SecretsResolver;
 import io.airlift.json.JsonCodec;
 import io.airlift.json.JsonCodecFactory;
-import io.airlift.json.ObjectMapperProvider;
+import io.airlift.json.JsonMapperProvider;
 import io.airlift.node.NodeInfo;
 import io.airlift.units.Duration;
 import io.opentelemetry.api.trace.Span;
@@ -397,7 +397,7 @@ public class PlanTester
                 tableFunctionRegistry,
                 typeManager,
                 catalogManager);
-        ObjectMapper mapper = new ObjectMapperProvider()
+        JsonMapper mapper = new JsonMapperProvider()
                 .withJsonDeserializers(ImmutableMap.of(
                         Type.class, new TypeDeserializer(typeManager),
                         TypeSignature.class, new TypeSignatureDeserializer(),

@@ -13,12 +13,12 @@
  */
 package io.trino.tests.tpch;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.json.JsonCodec;
 import io.airlift.json.JsonCodecFactory;
-import io.airlift.json.ObjectMapperProvider;
+import io.airlift.json.JsonMapperProvider;
 import io.trino.Session;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.type.Type;
@@ -106,10 +106,10 @@ public class TestTpchConnectorTest
                                                                 new IoPlanPrinter.FormattedMarker(Optional.of("P"), EXACTLY))))))),
                 scanEstimate);
 
-        ObjectMapper objectMapper = new ObjectMapperProvider()
+        JsonMapper jsonMapper = new JsonMapperProvider()
                 .withJsonDeserializers(ImmutableMap.of(Type.class, new TypeDeserializer(getQueryRunner().getPlannerContext().getTypeManager())))
                 .get();
-        JsonCodec<IoPlanPrinter.IoPlan> codec = new JsonCodecFactory(objectMapper).jsonCodec(IoPlanPrinter.IoPlan.class);
+        JsonCodec<IoPlanPrinter.IoPlan> codec = new JsonCodecFactory(jsonMapper).jsonCodec(IoPlanPrinter.IoPlan.class);
 
         assertThat(codec.fromJson((String) getOnlyElement(result.getOnlyColumnAsSet()))).isEqualTo(new IoPlanPrinter.IoPlan(ImmutableSet.of(input), Optional.empty(), totalEstimate));
     }

@@ -16,7 +16,7 @@ package io.trino.plugin.eventlistener.kafka;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.plugin.base.eventlistener.testing.TestingEventListenerContext;
@@ -44,7 +44,7 @@ final class TestKafkaEventListenerPlugin
 {
     private static final String CREATED_TOPIC = "query_created";
     private static final String COMPLETED_TOPIC = "query_completed";
-    private static final ObjectMapper MAPPER = new ObjectMapper();
+    private static final JsonMapper MAPPER = new JsonMapper();
     private static TestingKafka testingKafka;
 
     @BeforeAll

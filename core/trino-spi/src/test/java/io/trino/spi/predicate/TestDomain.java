@@ -13,9 +13,9 @@
  */
 package io.trino.spi.predicate;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.collect.ImmutableList;
-import io.airlift.json.ObjectMapperProvider;
+import io.airlift.json.JsonMapperProvider;
 import io.airlift.slice.Slices;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.TestingBlockEncodingSerde;
@@ -524,7 +524,7 @@ class TestDomain
     public void testJsonSerialization()
             throws Exception
     {
-        ObjectMapper mapper = new ObjectMapperProvider()
+        JsonMapper mapper = new JsonMapperProvider()
                 .withJsonDeserializers(Map.of(
                         Type.class, new TestingTypeDeserializer(new TestingTypeManager()),
                         Block.class, new TestingBlockJsonSerde.Deserializer(new TestingBlockEncodingSerde())))

@@ -15,7 +15,7 @@ package io.trino.plugin.druid;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.google.common.io.Closer;
 import com.google.common.io.MoreFiles;
@@ -260,7 +260,7 @@ public class TestingDruidServer
 
     private String getReplacedIndexTask(String targetDataSource, Optional<String> fileName, String indexTask)
     {
-        ObjectMapper mapper = new ObjectMapper();
+        JsonMapper mapper = new JsonMapper();
         try {
             JsonNode jsonNode = mapper.readTree(indexTask);
             // get the nested node and modify it
@@ -292,7 +292,7 @@ public class TestingDruidServer
                     .get();
             Request datasourceAvailabilityRequest = requestBuilder.build();
             try (Response response = httpClient.newCall(datasourceAvailabilityRequest).execute()) {
-                ObjectMapper mapper = new ObjectMapper();
+                JsonMapper mapper = new JsonMapper();
                 datasourceAvailabilityDetails = mapper.readValue(response.body().string(), Map.class);
                 datasourceNotLoaded = datasourceAvailabilityDetails.get(datasource) == null || Double.compare(datasourceAvailabilityDetails.get(datasource), 100.0) < 0;
                 if (datasourceNotLoaded) {

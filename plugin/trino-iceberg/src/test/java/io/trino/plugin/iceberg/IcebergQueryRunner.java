@@ -17,7 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Resources;
 import io.airlift.http.server.testing.TestingHttpServer;
-import io.airlift.json.ObjectMapperProvider;
+import io.airlift.json.JsonMapperProvider;
 import io.airlift.log.Level;
 import io.airlift.log.Logger;
 import io.airlift.log.Logging;
@@ -235,7 +235,7 @@ public final class IcebergQueryRunner
             Path gcpCredentialsFile = Files.createTempFile("gcp-credentials", ".json");
             gcpCredentialsFile.toFile().deleteOnExit();
             Files.write(gcpCredentialsFile, jsonKeyBytes);
-            String projectId = new ObjectMapperProvider().get().readTree(jsonKeyBytes).get("project_id").asText();
+            String projectId = new JsonMapperProvider().get().readTree(jsonKeyBytes).get("project_id").asText();
 
             @SuppressWarnings("resource")
             DistributedQueryRunner queryRunner = IcebergQueryRunner.builder()

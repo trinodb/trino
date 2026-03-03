@@ -16,7 +16,7 @@ package io.trino.plugin.example;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.json.JsonCodec;
 import io.airlift.json.JsonCodecFactory;
-import io.airlift.json.ObjectMapperProvider;
+import io.airlift.json.JsonMapperProvider;
 import io.trino.spi.type.Type;
 import io.trino.type.TypeDeserializer;
 
@@ -35,7 +35,7 @@ public final class MetadataUtil
     public static final JsonCodec<ExampleColumnHandle> COLUMN_CODEC;
 
     static {
-        JsonCodecFactory codecFactory = new JsonCodecFactory(new ObjectMapperProvider()
+        JsonCodecFactory codecFactory = new JsonCodecFactory(new JsonMapperProvider()
                 .withJsonDeserializers(ImmutableMap.of(Type.class, new TypeDeserializer(TESTING_TYPE_MANAGER)))
                 .get());
         CATALOG_CODEC = codecFactory.mapJsonCodec(String.class, listJsonCodec(ExampleTable.class));

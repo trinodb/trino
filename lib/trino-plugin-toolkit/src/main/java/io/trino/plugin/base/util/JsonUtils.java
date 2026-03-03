@@ -21,11 +21,9 @@ import com.fasterxml.jackson.core.StreamReadConstraints;
 import com.fasterxml.jackson.core.StreamReadFeature;
 import com.fasterxml.jackson.core.StreamWriteFeature;
 import com.fasterxml.jackson.core.util.JsonRecyclerPools;
-import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.MapperFeature;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import io.airlift.json.ObjectMapperProvider;
+import com.fasterxml.jackson.databind.json.JsonMapper;
+import io.airlift.json.JsonMapperProvider;
 import org.gaul.modernizer_maven_annotations.SuppressModernizer;
 
 import java.io.IOException;
@@ -34,6 +32,8 @@ import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
+import static com.fasterxml.jackson.databind.DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES;
+import static com.fasterxml.jackson.databind.MapperFeature.ACCEPT_CASE_INSENSITIVE_ENUMS;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.String.format;
 import static java.nio.file.Files.exists;
@@ -42,9 +42,11 @@ import static java.util.Objects.requireNonNull;
 
 public final class JsonUtils
 {
-    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapperProvider().get()
-            .enable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
-            .enable(MapperFeature.ACCEPT_CASE_INSENSITIVE_ENUMS);
+    private static final JsonMapper JSON_MAPPER = new JsonMapperProvider().get()
+            .rebuild()
+            .enable(FAIL_ON_UNKNOWN_PROPERTIES)
+            .enable(ACCEPT_CASE_INSENSITIVE_ENUMS)
+            .build();
 
     private JsonUtils() {}
 
@@ -68,35 +70,35 @@ public final class JsonUtils
 
     public static <T> T parseJson(String json, Class<T> javaType)
     {
-        return parseJson(OBJECT_MAPPER, json, javaType);
+        return parseJson(JSON_MAPPER, json, javaType);
     }
 
-    public static <T> T parseJson(ObjectMapper mapper, String json, Class<T> javaType)
+    public static <T> T parseJson(JsonMapper mapper, String json, Class<T> javaType)
     {
-        return parseJson(mapper, ObjectMapper::createParser, json, javaType);
+        return parseJson(mapper, JsonMapper::createParser, json, javaType);
     }
 
     public static <T> T parseJson(byte[] jsonBytes, Class<T> javaType)
     {
-        return parseJson(OBJECT_MAPPER, jsonBytes, javaType);
+        return parseJson(JSON_MAPPER, jsonBytes, javaType);
     }
 
-    public static <T> T parseJson(ObjectMapper mapper, byte[] jsonBytes, Class<T> javaType)
+    public static <T> T parseJson(JsonMapper mapper, byte[] jsonBytes, Class<T> javaType)
     {
-        return parseJson(mapper, ObjectMapper::createParser, jsonBytes, javaType);
+        return parseJson(mapper, JsonMapper::createParser, jsonBytes, javaType);
     }
 
     public static <T> T parseJson(InputStream inputStream, Class<T> javaType)
     {
-        return parseJson(OBJECT_MAPPER, inputStream, javaType);
+        return parseJson(JSON_MAPPER, inputStream, javaType);
     }
 
-    public static <T> T parseJson(ObjectMapper mapper, InputStream inputStream, Class<T> javaType)
+    public static <T> T parseJson(JsonMapper mapper, InputStream inputStream, Class<T> javaType)
     {
-        return parseJson(mapper, ObjectMapper::createParser, inputStream, javaType);
+        return parseJson(mapper, JsonMapper::createParser, inputStream, javaType);
     }
 
-    private static <I, T> T parseJson(ObjectMapper mapper, ParserConstructor<I> parserConstructor, I input, Class<T> javaType)
+    private static <I, T> T parseJson(JsonMapper mapper, ParserConstructor<I> parserConstructor, I input, Class<T> javaType)
     {
         requireNonNull(mapper, "mapper is null");
         requireNonNull(parserConstructor, "parserConstructor is null");
@@ -115,7 +117,7 @@ public final class JsonUtils
     public static <T> T jsonTreeToValue(JsonNode treeNode, Class<T> javaType)
     {
         try {
-            return OBJECT_MAPPER.treeToValue(treeNode, javaType);
+            return JSON_MAPPER.treeToValue(treeNode, javaType);
         }
         catch (JsonProcessingException e) {
             throw new UncheckedIOException("Failed to convert JSON tree node", e);
@@ -165,7 +167,7 @@ public final class JsonUtils
 
     private interface ParserConstructor<I>
     {
-        JsonParser createParser(ObjectMapper mapper, I input)
+        JsonParser createParser(JsonMapper mapper, I input)
                 throws IOException;
     }
 }

@@ -13,13 +13,13 @@
  */
 package io.trino.sql.planner.plan;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.json.JsonCodec;
 import io.airlift.json.JsonCodecFactory;
-import io.airlift.json.ObjectMapperProvider;
+import io.airlift.json.JsonMapperProvider;
 import io.trino.block.BlockJsonSerde;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TestingFunctionResolution;
@@ -83,7 +83,7 @@ public class TestPatternRecognitionNodeSerialization
     private static final JsonCodec<PatternRecognitionNode> PATTERN_RECOGNITION_NODE_CODEC;
 
     static {
-        ObjectMapper objectMapper = new ObjectMapperProvider()
+        JsonMapper objectMapper = new JsonMapperProvider()
                 .withKeyDeserializers(ImmutableMap.of(
                         TypeSignature.class, new TypeSignatureKeyDeserializer(),
                         Symbol.class, new SymbolKeyDeserializer(TESTING_TYPE_MANAGER)))
@@ -93,7 +93,6 @@ public class TestPatternRecognitionNodeSerialization
                 .withJsonSerializers(ImmutableMap.of(
                         Block.class, new BlockJsonSerde.Serializer(TESTING_BLOCK_ENCODING_SERDE)))
                 .get();
-
         JsonCodecFactory factory = new JsonCodecFactory(objectMapper);
 
         VALUE_POINTER_CODEC = factory.jsonCodec(ValuePointer.class);

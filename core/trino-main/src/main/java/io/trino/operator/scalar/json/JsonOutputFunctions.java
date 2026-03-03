@@ -18,7 +18,7 @@ import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.util.ByteArrayBuilder;
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -60,7 +60,7 @@ public final class JsonOutputFunctions
     public static final String JSON_TO_VARBINARY_UTF16 = "$json_to_varbinary_utf16";
     public static final String JSON_TO_VARBINARY_UTF32 = "$json_to_varbinary_utf32";
 
-    private static final ObjectMapper MAPPER = new ObjectMapper();
+    private static final JsonMapper MAPPER = new JsonMapper();
     private static final EncodingSpecificConstants UTF_8 = new EncodingSpecificConstants(
             JsonEncoding.UTF8,
             StandardCharsets.UTF_8,

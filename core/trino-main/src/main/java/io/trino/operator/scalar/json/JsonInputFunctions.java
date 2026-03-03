@@ -15,7 +15,7 @@ package io.trino.operator.scalar.json;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.json.JsonMapper;
 import io.airlift.slice.Slice;
 import io.trino.spi.TrinoException;
 import io.trino.spi.function.ScalarFunction;
@@ -56,7 +56,7 @@ public final class JsonInputFunctions
     public static final String VARBINARY_UTF16_TO_JSON = "$varbinary_utf16_to_json";
     public static final String VARBINARY_UTF32_TO_JSON = "$varbinary_utf32_to_json";
 
-    private static final ObjectMapper MAPPER = new ObjectMapper();
+    private static final JsonMapper MAPPER = new JsonMapper();
     private static final Charset UTF_32LE = Charset.forName("UTF-32LE");
 
     private JsonInputFunctions() {}

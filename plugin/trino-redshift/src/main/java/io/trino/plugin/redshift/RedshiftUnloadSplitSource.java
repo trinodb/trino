@@ -16,10 +16,10 @@ package io.trino.plugin.redshift;
 import com.amazon.redshift.jdbc.RedshiftPreparedStatement;
 import com.amazon.redshift.util.RedshiftException;
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.airlift.json.ObjectMapperProvider;
+import io.airlift.json.JsonMapperProvider;
 import io.airlift.log.Logger;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
@@ -62,7 +62,7 @@ public class RedshiftUnloadSplitSource
         implements ConnectorSplitSource
 {
     private static final Logger log = Logger.get(RedshiftUnloadSplitSource.class);
-    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapperProvider().get();
+    private static final JsonMapper JSON_MAPPER = new JsonMapperProvider().get();
 
     private final JdbcClient jdbcClient;
     private final QueryBuilder queryBuilder;
@@ -190,7 +190,7 @@ public class RedshiftUnloadSplitSource
         JsonNode outputFileEntries;
         try (TrinoInputStream inputStream = inputFile.newStream()) {
             byte[] manifestContent = inputStream.readAllBytes();
-            outputFileEntries = OBJECT_MAPPER.readTree(manifestContent).path("entries");
+            outputFileEntries = JSON_MAPPER.readTree(manifestContent).path("entries");
         }
         // manifest is not generated if unload query doesn't produce any results.
         // Rely on the catching `FileNotFoundException` as opposed to calling `TrinoInputFile#exists` for determining absence of manifest file as `TrinoInputFile#exists` adds additional call to S3.

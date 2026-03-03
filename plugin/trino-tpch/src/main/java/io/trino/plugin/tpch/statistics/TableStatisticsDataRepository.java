@@ -13,7 +13,7 @@
  */
 package io.trino.plugin.tpch.statistics;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.io.Resources;
 import io.trino.tpch.TpchColumn;
 import io.trino.tpch.TpchTable;
@@ -37,11 +37,11 @@ import static java.nio.file.StandardOpenOption.WRITE;
 
 public class TableStatisticsDataRepository
 {
-    private final ObjectMapper objectMapper;
+    private final JsonMapper jsonMapper;
 
-    public TableStatisticsDataRepository(ObjectMapper objectMapper)
+    public TableStatisticsDataRepository(JsonMapper jsonMapper)
     {
-        this.objectMapper = objectMapper;
+        this.jsonMapper = jsonMapper;
     }
 
     public void save(
@@ -61,7 +61,7 @@ public class TableStatisticsDataRepository
         File file = path.toFile();
         file.getParentFile().mkdirs();
         try {
-            objectMapper
+            jsonMapper
                     .writerWithDefaultPrettyPrinter()
                     .writeValue(file, tableStatisticsData);
             try (Writer writer = Files.newBufferedWriter(path, UTF_8, CREATE, WRITE)) {
@@ -83,7 +83,7 @@ public class TableStatisticsDataRepository
         }
         try {
             try (InputStream inputStream = Resources.asByteSource(resource).openStream()) {
-                return Optional.of(parseJson(objectMapper, inputStream, TableStatisticsData.class));
+                return Optional.of(parseJson(jsonMapper, inputStream, TableStatisticsData.class));
             }
         }
         catch (Exception e) {

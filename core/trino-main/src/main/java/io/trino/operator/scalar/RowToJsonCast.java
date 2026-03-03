@@ -13,8 +13,8 @@
  */
 package io.trino.operator.scalar;
 
-import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonGenerator;
+import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
@@ -52,7 +52,7 @@ public class RowToJsonCast
 
     private static final MethodHandle METHOD_HANDLE = methodHandle(RowToJsonCast.class, "toJsonObject", List.class, List.class, SqlRow.class);
 
-    private static final JsonFactory JSON_FACTORY = createJsonFactory();
+    private static final JsonMapper JSON_MAPPER = new JsonMapper(createJsonFactory());
 
     private RowToJsonCast()
     {
@@ -99,7 +99,7 @@ public class RowToJsonCast
         try {
             int rawIndex = sqlRow.getRawIndex();
             SliceOutput output = new DynamicSliceOutput(40);
-            try (JsonGenerator jsonGenerator = createJsonGenerator(JSON_FACTORY, output)) {
+            try (JsonGenerator jsonGenerator = createJsonGenerator(JSON_MAPPER, output)) {
                 jsonGenerator.writeStartObject();
                 for (int i = 0; i < sqlRow.getFieldCount(); i++) {
                     jsonGenerator.writeFieldName(fieldNames.get(i));

@@ -13,12 +13,12 @@
  */
 package io.trino.plugin.opensearch;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.net.HostAndPort;
-import io.airlift.json.ObjectMapperProvider;
+import io.airlift.json.JsonMapperProvider;
 import io.trino.Session;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.ResolvedFunction;
@@ -83,7 +83,7 @@ final class TestOpenSearchProjectionPushdownPlans
 {
     private static final TestingFunctionResolution FUNCTIONS = new TestingFunctionResolution();
     private static final ResolvedFunction ADD_BIGINT = FUNCTIONS.resolveOperator(OperatorType.ADD, ImmutableList.of(BIGINT, BIGINT));
-    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapperProvider().get();
+    private static final JsonMapper JSON_MAPPER = new JsonMapperProvider().get();
     private static final String CATALOG = "opensearch";
     private static final String SCHEMA = "test";
 
@@ -308,7 +308,7 @@ final class TestOpenSearchProjectionPushdownPlans
     private void index(String index, Map<String, Object> document)
             throws IOException
     {
-        String json = OBJECT_MAPPER.writeValueAsString(document);
+        String json = JSON_MAPPER.writeValueAsString(document);
         String endpoint = format("%s?refresh", indexEndpoint(index, String.valueOf(System.nanoTime())));
 
         Request request = new Request("PUT", endpoint);

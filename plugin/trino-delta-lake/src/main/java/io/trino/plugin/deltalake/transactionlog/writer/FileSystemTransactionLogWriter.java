@@ -13,8 +13,8 @@
  */
 package io.trino.plugin.deltalake.transactionlog.writer;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import io.airlift.json.ObjectMapperProvider;
+import com.fasterxml.jackson.databind.json.JsonMapper;
+import io.airlift.json.JsonMapperProvider;
 import io.trino.filesystem.Location;
 import io.trino.plugin.deltalake.metastore.VendedCredentialsHandle;
 import io.trino.plugin.deltalake.transactionlog.AddFileEntry;
@@ -42,7 +42,7 @@ import static java.util.Objects.requireNonNull;
 public class FileSystemTransactionLogWriter
         implements TransactionLogWriter
 {
-    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapperProvider().get();
+    private static final JsonMapper JSON_MAPPER = new JsonMapperProvider().get();
 
     private Optional<DeltaLakeTransactionLogEntry> commitInfoEntry = Optional.empty();
     private final List<DeltaLakeTransactionLogEntry> entries = new ArrayList<>();
@@ -137,7 +137,7 @@ public class FileSystemTransactionLogWriter
     private static void writeEntry(OutputStream outputStream, DeltaLakeTransactionLogEntry deltaLakeTransactionLogEntry)
             throws IOException
     {
-        outputStream.write(OBJECT_MAPPER.writeValueAsString(deltaLakeTransactionLogEntry).getBytes(UTF_8));
+        outputStream.write(JSON_MAPPER.writeValueAsString(deltaLakeTransactionLogEntry).getBytes(UTF_8));
         outputStream.write("\n".getBytes(UTF_8));
     }
 }

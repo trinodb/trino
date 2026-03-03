@@ -19,7 +19,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectWriter;
 import com.fasterxml.jackson.databind.ser.FilterProvider;
 import com.fasterxml.jackson.databind.ser.impl.SimpleFilterProvider;
-import io.airlift.json.ObjectMapperProvider;
+import io.airlift.json.JsonMapperProvider;
 import io.trino.plugin.eventlistener.kafka.metadata.MetadataProvider;
 import io.trino.plugin.eventlistener.kafka.model.QueryCompletedEventWrapper;
 import io.trino.plugin.eventlistener.kafka.model.QueryCreatedEventWrapper;
@@ -46,7 +46,8 @@ public class KafkaRecordBuilder
         this.startedTopic = startedTopic;
         this.completedTopic = completedTopic;
         FilterProvider filter = new SimpleFilterProvider().addFilter("property-name-filter", serializeAllExcept(excludedFields));
-        this.writer = new ObjectMapperProvider().get()
+        this.writer = new JsonMapperProvider()
+                .get()
                 .addMixIn(Object.class, PropertyFilterMixIn.class)
                 .writer(filter);
         this.metadataProvider = metadataProvider;

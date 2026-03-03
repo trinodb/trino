@@ -13,11 +13,11 @@
  */
 package io.trino.plugin.redis.util;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.json.JsonCodec;
 import io.airlift.json.JsonCodecFactory;
-import io.airlift.json.ObjectMapperProvider;
+import io.airlift.json.JsonMapperProvider;
 import io.trino.plugin.base.TypeDeserializer;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
@@ -35,10 +35,10 @@ public final class CodecSupplier<T>
     public CodecSupplier(Class<T> clazz, TypeManager typeManager)
     {
         requireNonNull(typeManager, "typeManager is null");
-        ObjectMapper objectMapper = new ObjectMapperProvider()
+        JsonMapper jsonMapper = new JsonMapperProvider()
                 .withJsonDeserializers(ImmutableMap.of(Type.class, new TypeDeserializer(typeManager)))
                 .get();
-        this.codecFactory = new JsonCodecFactory(objectMapper);
+        this.codecFactory = new JsonCodecFactory(jsonMapper);
         this.clazz = requireNonNull(clazz, "clazz is null");
     }
 

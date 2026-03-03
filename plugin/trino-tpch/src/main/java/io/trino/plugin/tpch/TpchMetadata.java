@@ -13,14 +13,14 @@
  */
 package io.trino.plugin.tpch;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.inject.Inject;
-import io.airlift.json.ObjectMapperProvider;
+import io.airlift.json.JsonMapperProvider;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.trino.plugin.tpch.statistics.ColumnStatisticsData;
@@ -135,17 +135,17 @@ public class TpchMetadata
 
     public TpchMetadata()
     {
-        this(new ObjectMapperProvider().get(), ColumnNaming.SIMPLIFIED, DecimalTypeMapping.DOUBLE, true, true, Optional.empty(), Optional.empty());
+        this(new JsonMapperProvider().get(), ColumnNaming.SIMPLIFIED, DecimalTypeMapping.DOUBLE, true, true, Optional.empty(), Optional.empty());
     }
 
     @Inject
-    public TpchMetadata(TpchConfig config, ObjectMapper mapper)
+    public TpchMetadata(TpchConfig config, JsonMapper mapper)
     {
         this(mapper, config.getColumnNaming(), config.getDecimalTypeMapping(), config.isPredicatePushdownEnabled(), config.isPartitioningEnabled(), Optional.ofNullable(config.getTableScanRedirectionCatalog()), Optional.ofNullable(config.getTableScanRedirectionSchema()));
     }
 
     public TpchMetadata(
-            ObjectMapper objectMapper,
+            JsonMapper jsonMapper,
             ColumnNaming columnNaming,
             DecimalTypeMapping decimalTypeMapping,
             boolean predicatePushdownEnabled,
@@ -162,7 +162,7 @@ public class TpchMetadata
         this.decimalTypeMapping = decimalTypeMapping;
         this.predicatePushdownEnabled = predicatePushdownEnabled;
         this.partitioningEnabled = partitioningEnabled;
-        this.statisticsEstimator = createStatisticsEstimator(objectMapper);
+        this.statisticsEstimator = createStatisticsEstimator(jsonMapper);
         this.destinationCatalog = destinationCatalog;
         this.destinationSchema = destinationSchema;
 
@@ -177,9 +177,9 @@ public class TpchMetadata
                 .collect(toSet());
     }
 
-    private static StatisticsEstimator createStatisticsEstimator(ObjectMapper objectMapper)
+    private static StatisticsEstimator createStatisticsEstimator(JsonMapper jsonMapper)
     {
-        TableStatisticsDataRepository tableStatisticsDataRepository = new TableStatisticsDataRepository(objectMapper);
+        TableStatisticsDataRepository tableStatisticsDataRepository = new TableStatisticsDataRepository(jsonMapper);
         return new StatisticsEstimator(tableStatisticsDataRepository);
     }
 

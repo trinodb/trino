@@ -13,12 +13,12 @@
  */
 package io.trino.sql.routine;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.hash.Hashing;
 import io.airlift.json.JsonCodec;
 import io.airlift.json.JsonCodecFactory;
-import io.airlift.json.ObjectMapperProvider;
+import io.airlift.json.JsonMapperProvider;
 import io.airlift.slice.Slice;
 import io.trino.Session;
 import io.trino.block.BlockJsonSerde;
@@ -84,17 +84,17 @@ class TestSqlFunctions
     private static final JsonCodec<IrRoutine> IR_ROUTINE_CODEC;
 
     static {
-        ObjectMapper objectMapper = new ObjectMapperProvider()
+        JsonMapper mapper = new JsonMapperProvider()
                 .withKeyDeserializers(ImmutableMap.of(
-                        TypeSignature.class, new TypeSignatureKeyDeserializer(),
-                        Symbol.class, new SymbolKeyDeserializer(TESTING_TYPE_MANAGER)))
+                    TypeSignature.class, new TypeSignatureKeyDeserializer(),
+                    Symbol.class, new SymbolKeyDeserializer(TESTING_TYPE_MANAGER)))
                 .withJsonDeserializers(ImmutableMap.of(
                         Type.class, new TypeDeserializer(TESTING_TYPE_MANAGER),
                         Block.class, new BlockJsonSerde.Deserializer(TESTING_BLOCK_ENCODING_SERDE)))
                 .withJsonSerializers(ImmutableMap.of(
                         Block.class, new BlockJsonSerde.Serializer(TESTING_BLOCK_ENCODING_SERDE)))
                 .get();
-        IR_ROUTINE_CODEC = new JsonCodecFactory(objectMapper).jsonCodec(IrRoutine.class);
+        IR_ROUTINE_CODEC = new JsonCodecFactory(mapper).jsonCodec(IrRoutine.class);
     }
 
     @Test

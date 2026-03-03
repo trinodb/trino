@@ -18,7 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.json.JsonCodec;
 import io.airlift.json.JsonCodecFactory;
-import io.airlift.json.ObjectMapperProvider;
+import io.airlift.json.JsonMapperProvider;
 import io.airlift.stats.Distribution;
 import io.airlift.stats.TDigest;
 import io.airlift.tracing.SpanSerialization.SpanDeserializer;
@@ -72,7 +72,7 @@ public class TestQueryInfo
     public void testQueryInfoRoundTrip()
     {
         JsonCodec<QueryInfo> codec = new JsonCodecFactory(
-                new ObjectMapperProvider()
+                new JsonMapperProvider()
                         .withJsonSerializers(Map.of(
                                 Span.class, new SpanSerializer(OpenTelemetry.noop())))
                         .withJsonDeserializers(Map.of(

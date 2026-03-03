@@ -15,7 +15,7 @@
 package io.trino.plugin.eventlistener.kafka;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import io.trino.plugin.eventlistener.kafka.metadata.EnvMetadataProvider;
@@ -33,7 +33,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 final class TestKafkaRecordBuilder
 {
-    private static final ObjectMapper MAPPER = new ObjectMapper();
+    private static final JsonMapper MAPPER = new JsonMapper();
     private static final Set<String> EXCLUDED_FIELDS = ImmutableSet.of(
             "ioMetadata",
             "payload",
