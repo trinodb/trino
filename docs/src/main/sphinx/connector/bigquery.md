@@ -220,7 +220,7 @@ a few caveats:
   -
 * - `bigquery.job.label-format`
   - Value format for the label specified by `bigquery.job.label-name`. May
-    consist of letters, digits, underscores, commas, spaces, equal signs, and
+    consist of letters, digits, underscores, hyphens, commas, spaces, equal signs, and
     predefined values `$QUERY_ID`, `$SOURCE`, `$USER`, and `$TRACE_TOKEN`.
   -
 * - `bigquery.arrow-serialization.enabled`
