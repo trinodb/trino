@@ -13,6 +13,7 @@
  */
 package io.trino.tests;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Splitter;
 import com.google.common.collect.AbstractSequentialIterator;
 import com.google.common.collect.ImmutableList;
@@ -105,8 +106,11 @@ import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 @Execution(CONCURRENT)
 public class TestServer
 {
-    private static final JsonCodec<QueryResults> QUERY_RESULTS_CODEC = new JsonCodecFactory(new ObjectMapperProvider()
-            .withModules(Set.of(new QueryDataJacksonModule())))
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapperProvider()
+            .withModules(Set.of(new QueryDataJacksonModule()))
+            .get();
+
+    private static final JsonCodec<QueryResults> QUERY_RESULTS_CODEC = new JsonCodecFactory(OBJECT_MAPPER)
             .jsonCodec(QueryResults.class);
 
     private TestingTrinoServer server;

@@ -169,25 +169,24 @@ public class UiQueryResource
 
     private JsonCodec<QueryInfo> buildQueryInfoCodec(ObjectMapper objectMapper, boolean pretty)
     {
-        JsonCodecFactory jsonCodecFactory = new JsonCodecFactory(() -> {
-            // Enable succinct DataSize serialization for QueryInfo to make it more human friendly
-            ContextAttributes attrs = ContextAttributes.getEmpty();
-            if (pretty) {
-                attrs = attrs.withSharedAttribute(SUCCINCT_DATA_SIZE_ENABLED, Boolean.TRUE);
-            }
+        // Enable succinct DataSize serialization for QueryInfo to make it more human friendly
+        ContextAttributes attrs = ContextAttributes.getEmpty();
+        if (pretty) {
+            attrs = attrs.withSharedAttribute(SUCCINCT_DATA_SIZE_ENABLED, Boolean.TRUE);
+        }
 
-            ObjectMapper mapper = objectMapper
-                    .copy()
-                    .setDefaultAttributes(attrs);
-            // Don't serialize TDigestHistogram.digest which isn't useful and human readable
-            mapper.configOverride(TDigestHistogram.class).setIgnorals(forIgnoredProperties(DIGEST_PROPERTY));
+        ObjectMapper mapper = objectMapper
+                .copy()
+                .setDefaultAttributes(attrs);
 
-            // Do not output @class property for metric types
-            mapper.addMixIn(Metric.class, DropTypeInfo.class);
-            // Do not output @type property for OperatorInfo
-            mapper.addMixIn(OperatorInfo.class, DropTypeInfo.class);
-            return mapper;
-        });
+        // Don't serialize TDigestHistogram.digest which isn't useful and human readable
+        mapper.configOverride(TDigestHistogram.class).setIgnorals(forIgnoredProperties(DIGEST_PROPERTY));
+
+        // Do not output @class property for metric types
+        mapper.addMixIn(Metric.class, DropTypeInfo.class);
+        // Do not output @type property for OperatorInfo
+        mapper.addMixIn(OperatorInfo.class, DropTypeInfo.class);
+        JsonCodecFactory jsonCodecFactory = new JsonCodecFactory(mapper);
 
         if (pretty) {
             jsonCodecFactory = jsonCodecFactory.prettyPrint();

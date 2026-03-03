@@ -14,6 +14,7 @@
 package io.trino.server.protocol;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.json.JsonCodec;
@@ -55,11 +56,13 @@ import static org.assertj.core.api.Fail.fail;
 
 public class TestQueryDataSerialization
 {
+    private static final ObjectMapper SERVER_MAPPER = new ObjectMapperProvider()
+            .withModules(Set.of(new ServerQueryDataJacksonModule()))
+            .get();
+
     private static final List<Column> COLUMNS_LIST = ImmutableList.of(new Column("_col0", "bigint", new ClientTypeSignature("bigint")));
     private static final TrinoJsonCodec<QueryResults> CLIENT_CODEC = jsonCodec(QueryResults.class);
-    private static final JsonCodec<QueryResults> SERVER_CODEC = new JsonCodecFactory(new ObjectMapperProvider()
-            .withModules(Set.of(new ServerQueryDataJacksonModule())))
-            .jsonCodec(QueryResults.class);
+    private static final JsonCodec<QueryResults> SERVER_CODEC = new JsonCodecFactory(SERVER_MAPPER).jsonCodec(QueryResults.class);
 
     @Test
     public void testNullDataSerialization()

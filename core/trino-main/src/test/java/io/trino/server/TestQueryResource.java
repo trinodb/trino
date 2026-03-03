@@ -13,6 +13,7 @@
  */
 package io.trino.server;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.inject.Key;
 import io.airlift.http.client.HttpClient;
 import io.airlift.http.client.HttpUriBuilder;
@@ -74,16 +75,16 @@ import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_METHOD;
 @TestInstance(PER_METHOD)
 public class TestQueryResource
 {
-    static final JsonCodec<List<BasicQueryInfo>> BASIC_QUERY_INFO_CODEC = new JsonCodecFactory(
-            new ObjectMapperProvider()
-                    .withModules(Set.of(new QueryDataJacksonModule()))
-                    .withJsonSerializers(Map.of(Span.class, new SpanSerializer(OpenTelemetry.noop())))
-                    .withJsonDeserializers(Map.of(Span.class, new SpanDeserializer(OpenTelemetry.noop()))))
+    static final ObjectMapper OBJECT_MAPPER = new ObjectMapperProvider()
+            .withModules(Set.of(new QueryDataJacksonModule()))
+            .withJsonSerializers(Map.of(Span.class, new SpanSerializer(OpenTelemetry.noop())))
+            .withJsonDeserializers(Map.of(Span.class, new SpanDeserializer(OpenTelemetry.noop())))
+            .get();
+
+    static final JsonCodec<List<BasicQueryInfo>> BASIC_QUERY_INFO_CODEC = new JsonCodecFactory(OBJECT_MAPPER)
             .listJsonCodec(BasicQueryInfo.class);
 
-    static final JsonCodec<QueryResults> QUERY_RESULTS_JSON_CODEC = new JsonCodecFactory(
-            new ObjectMapperProvider()
-                    .withModules(Set.of(new QueryDataJacksonModule())))
+    static final JsonCodec<QueryResults> QUERY_RESULTS_JSON_CODEC = new JsonCodecFactory(OBJECT_MAPPER)
             .jsonCodec(QueryResults.class);
 
     private HttpClient client;

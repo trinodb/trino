@@ -54,15 +54,12 @@ public class TestWindowNode
         functionResolution = new TestingFunctionResolution();
 
         // dependencies copied from ServerMainModule.java to avoid depending on whole ServerMainModule here
-        ObjectMapperProvider provider = new ObjectMapperProvider();
-        provider.setKeyDeserializers(ImmutableMap.of(
-                Symbol.class, new SymbolKeyDeserializer(TESTING_TYPE_MANAGER),
-                TypeSignature.class, new TypeSignatureKeyDeserializer()));
-
-        provider.setJsonDeserializers(ImmutableMap.of(
-                Type.class, new TypeDeserializer(TESTING_TYPE_MANAGER::getType)));
-
-        objectMapper = provider.get();
+        objectMapper = new ObjectMapperProvider()
+                .withKeyDeserializers(ImmutableMap.of(
+                        TypeSignature.class, new TypeSignatureKeyDeserializer(),
+                        Symbol.class, new SymbolKeyDeserializer(TESTING_TYPE_MANAGER)))
+                .withJsonDeserializers(ImmutableMap.of(Type.class, new TypeDeserializer(TESTING_TYPE_MANAGER)))
+                .get();
     }
 
     @Test

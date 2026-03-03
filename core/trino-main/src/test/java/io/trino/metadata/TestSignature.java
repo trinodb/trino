@@ -13,6 +13,7 @@
  */
 package io.trino.metadata;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.json.JsonCodec;
 import io.airlift.json.JsonCodecFactory;
@@ -36,11 +37,12 @@ public class TestSignature
     @Test
     public void testSerializationRoundTrip()
     {
-        ObjectMapperProvider objectMapperProvider = new ObjectMapperProvider();
-        objectMapperProvider.setJsonDeserializers(ImmutableMap.of(
-                Type.class, new TypeDeserializer(TESTING_TYPE_MANAGER),
-                TypeSignature.class, new TypeSignatureDeserializer()));
-        JsonCodec<Signature> codec = new JsonCodecFactory(objectMapperProvider, true).jsonCodec(Signature.class);
+        ObjectMapper objectMapper = new ObjectMapperProvider()
+                .withJsonDeserializers(ImmutableMap.of(
+                        Type.class, new TypeDeserializer(TESTING_TYPE_MANAGER),
+                        TypeSignature.class, new TypeSignatureDeserializer()))
+                .get();
+        JsonCodec<Signature> codec = new JsonCodecFactory(objectMapper).prettyPrint().jsonCodec(Signature.class);
 
         Signature expected = Signature.builder()
                 .returnType(BIGINT)

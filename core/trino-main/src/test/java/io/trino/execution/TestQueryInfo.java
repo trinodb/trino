@@ -80,7 +80,8 @@ public class TestQueryInfo
                                 TypeSignature.class, new TypeSignatureDeserializer()))
                         .withKeyDeserializers(Map.of(
                                 TypeSignature.class, new TypeSignatureKeyDeserializer(),
-                                Symbol.class, new SymbolKeyDeserializer(TESTING_TYPE_MANAGER))))
+                                Symbol.class, new SymbolKeyDeserializer(TESTING_TYPE_MANAGER)))
+                        .get())
                 .jsonCodec(QueryInfo.class);
 
         QueryInfo expected = createQueryInfo(Optional.empty());

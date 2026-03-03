@@ -16,7 +16,6 @@ package io.trino.plugin.iceberg;
 import com.google.common.collect.ImmutableList;
 import io.airlift.json.JsonCodec;
 import io.airlift.json.JsonCodecFactory;
-import io.airlift.json.ObjectMapperProvider;
 import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.spi.connector.ConnectorMaterializedViewDefinition;
 import io.trino.spi.connector.ConnectorMaterializedViewDefinition.WhenStaleBehavior;
@@ -51,8 +50,8 @@ public record IcebergMaterializedViewDefinition(
     private static final String MATERIALIZED_VIEW_PREFIX = "/* Presto Materialized View: ";
     private static final String MATERIALIZED_VIEW_SUFFIX = " */";
 
-    private static final JsonCodec<IcebergMaterializedViewDefinition> materializedViewCodec =
-            new JsonCodecFactory(new ObjectMapperProvider()).jsonCodec(IcebergMaterializedViewDefinition.class);
+    private static final JsonCodec<IcebergMaterializedViewDefinition> materializedViewCodec = new JsonCodecFactory()
+            .jsonCodec(IcebergMaterializedViewDefinition.class);
 
     public static String encodeMaterializedViewData(IcebergMaterializedViewDefinition definition)
     {

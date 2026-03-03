@@ -35,8 +35,7 @@ import static java.lang.String.format;
 public class FileSessionPropertyManager
         extends AbstractSessionPropertyManager
 {
-    public static final JsonCodec<List<SessionMatchSpec>> CODEC = new JsonCodecFactory(
-            () -> new ObjectMapperProvider().get().enable(FAIL_ON_UNKNOWN_PROPERTIES))
+    public static final JsonCodec<List<SessionMatchSpec>> CODEC = new JsonCodecFactory(new ObjectMapperProvider().get().enable(FAIL_ON_UNKNOWN_PROPERTIES))
             .listJsonCodec(SessionMatchSpec.class);
 
     private final List<SessionMatchSpec> sessionMatchSpecs;

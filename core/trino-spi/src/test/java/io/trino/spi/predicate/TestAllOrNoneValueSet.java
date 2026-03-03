@@ -14,7 +14,6 @@
 package io.trino.spi.predicate;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.module.SimpleModule;
 import io.airlift.json.ObjectMapperProvider;
 import io.airlift.slice.Slices;
 import io.trino.spi.type.TestingTypeDeserializer;
@@ -23,6 +22,7 @@ import io.trino.spi.type.Type;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -141,10 +141,9 @@ class TestAllOrNoneValueSet
     public void testJsonSerialization()
             throws Exception
     {
-        TestingTypeManager typeManager = new TestingTypeManager();
-
-        ObjectMapper mapper = new ObjectMapperProvider().get()
-                .registerModule(new SimpleModule().addDeserializer(Type.class, new TestingTypeDeserializer(typeManager)));
+        ObjectMapper mapper = new ObjectMapperProvider()
+                .withJsonDeserializers(Map.of(Type.class, new TestingTypeDeserializer(new TestingTypeManager())))
+                .get();
 
         AllOrNoneValueSet all = AllOrNoneValueSet.all(HYPER_LOG_LOG);
         assertThat(all).isEqualTo(mapper.readValue(mapper.writeValueAsString(all), AllOrNoneValueSet.class));

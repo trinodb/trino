@@ -24,6 +24,7 @@ import io.airlift.concurrent.BoundedExecutor;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.airlift.http.server.HttpServerConfig;
 import io.airlift.http.server.HttpServerInfo;
+import io.airlift.json.JsonCodec;
 import io.airlift.node.NodeInfo;
 import io.airlift.slice.Slice;
 import io.airlift.stats.GcMonitor;
@@ -55,6 +56,7 @@ import io.trino.execution.executor.dedicated.ThreadPerDriverTaskExecutor;
 import io.trino.execution.executor.timesharing.MultilevelSplitQueue;
 import io.trino.execution.executor.timesharing.TimeSharingTaskExecutor;
 import io.trino.execution.scheduler.NodeSchedulerConfig;
+import io.trino.json.ir.IrJsonPath;
 import io.trino.memory.LocalMemoryManager;
 import io.trino.memory.LocalMemoryManagerExporter;
 import io.trino.memory.MemoryInfo;
@@ -395,6 +397,7 @@ public class ServerMainModule
         binder.bind(TypeRegistry.class).in(Scopes.SINGLETON);
         binder.bind(TypeManager.class).to(InternalTypeManager.class).in(Scopes.SINGLETON);
         newSetBinder(binder, Type.class);
+        jsonCodecBinder(binder).bindJsonCodec(IrJsonPath.class);
         binder.bind(RegisterJsonPath2016Type.class).asEagerSingleton();
 
         // split manager
@@ -532,9 +535,9 @@ public class ServerMainModule
     private static class RegisterJsonPath2016Type
     {
         @Inject
-        public RegisterJsonPath2016Type(BlockEncodingSerde blockEncodingSerde, TypeManager typeManager, TypeRegistry typeRegistry)
+        public RegisterJsonPath2016Type(TypeRegistry typeRegistry, JsonCodec<IrJsonPath> jsonCodec)
         {
-            typeRegistry.addType(new JsonPath2016Type(new TypeDeserializer(typeManager), blockEncodingSerde));
+            typeRegistry.addType(new JsonPath2016Type(jsonCodec));
         }
     }
 
