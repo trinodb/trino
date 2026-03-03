@@ -178,6 +178,7 @@ public class TestSqlServerConnectorTest
     public void testCreateAndDropTableWithSpecialCharacterName()
     {
         for (String tableName : testTableNameTestData()) {
+            tableName = addRandomNameSuffix(tableName);
             String tableNameInSql = "\"" + tableName.replace("\"", "\"\"") + "\"";
             // Until https://github.com/trinodb/trino/issues/17 the table name is effectively lowercase
             tableName = tableName.toLowerCase(ENGLISH);
@@ -215,6 +216,7 @@ public class TestSqlServerConnectorTest
     public void testRenameFromToTableWithSpecialCharacterName()
     {
         for (String tableName : testTableNameTestData()) {
+            tableName = addRandomNameSuffix(tableName);
             String tableNameInSql = "\"" + tableName.replace("\"", "\"\"") + "\"";
             String sourceTableName = "test_rename_source_" + randomNameSuffix();
             assertUpdate("CREATE TABLE " + sourceTableName + " AS SELECT 123 x", 1);
@@ -275,5 +277,17 @@ public class TestSqlServerConnectorTest
                 .add("open[bracket")
                 .add("close]bracket")
                 .build();
+    }
+
+    /**
+     * Returns a new name with a random suffix which maintains the shape of the name.
+     *
+     * <p>In particular, the suffix is added before any trailing spaces.
+     */
+    private static String addRandomNameSuffix(String name)
+    {
+        String trimmed = name.stripTrailing();
+        String trailingWhitespace = name.substring(trimmed.length());
+        return format("%s%s%s", trimmed, randomNameSuffix(), trailingWhitespace);
     }
 }
