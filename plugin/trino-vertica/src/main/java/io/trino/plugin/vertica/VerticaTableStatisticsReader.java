@@ -17,8 +17,6 @@ import com.fasterxml.jackson.annotation.JsonAlias;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.dataformat.xml.JacksonXmlModule;
 import com.fasterxml.jackson.dataformat.xml.XmlMapper;
 import com.fasterxml.jackson.dataformat.xml.annotation.JacksonXmlElementWrapper;
 import com.fasterxml.jackson.dataformat.xml.annotation.JacksonXmlProperty;
@@ -56,8 +54,9 @@ public final class VerticaTableStatisticsReader
 {
     private static final Logger log = Logger.get(VerticaTableStatisticsReader.class);
 
-    private static final ObjectMapper OBJECT_MAPPER = new XmlMapper(new JacksonXmlModule())
-            .disable(FAIL_ON_IGNORED_PROPERTIES, FAIL_ON_UNKNOWN_PROPERTIES);
+    private static final XmlMapper XML_MAPPER = (XmlMapper) new XmlMapper()
+            .disable(FAIL_ON_IGNORED_PROPERTIES)
+            .disable(FAIL_ON_UNKNOWN_PROPERTIES);
 
     // We don't know null fraction in case of nan and null rows, but having no null fraction will make CBO useless. Assume some arbitrary value.
     private static final Estimate UNKNOWN_NULL_FRACTION_REPLACEMENT = Estimate.of(0.1);
@@ -216,7 +215,7 @@ public final class VerticaTableStatisticsReader
                     .map((rs, ctx) -> {
                         try {
                             String exportStatistics = rs.getString("EXPORT_STATISTICS");
-                            return OBJECT_MAPPER.readValue(exportStatistics, Schema.class);
+                            return XML_MAPPER.readValue(exportStatistics, Schema.class);
                         }
                         catch (JsonProcessingException e) {
                             log.warn(e, "Failed to read statistics");
