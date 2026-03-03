@@ -2381,6 +2381,16 @@
         </dependencies>
     </dependencyManagement>
 
+    <repositories>
+        <repository>
+            <snapshots>
+                <enabled>true</enabled>
+            </snapshots>
+            <id>sonatype-snapshots</id>
+            <url>https://central.sonatype.com/repository/maven-snapshots</url>
+        </repository>
+    </repositories>
+
     <build>
         <pluginManagement>
             <plugins>
