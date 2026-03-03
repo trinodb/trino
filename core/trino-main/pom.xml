@@ -339,6 +339,11 @@
         </dependency>
 
         <dependency>
+            <groupId>net.minidev</groupId>
+            <artifactId>json-smart</artifactId>
+        </dependency>
+
+        <dependency>
             <groupId>org.antlr</groupId>
             <artifactId>antlr4-runtime</artifactId>
         </dependency>
