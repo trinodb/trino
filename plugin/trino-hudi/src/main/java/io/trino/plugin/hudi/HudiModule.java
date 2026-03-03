@@ -16,17 +16,20 @@ package io.trino.plugin.hudi;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Scopes;
+import io.trino.filesystem.cache.CacheKeyProvider;
 import io.trino.plugin.base.metrics.FileFormatDataSourceStats;
 import io.trino.plugin.base.session.SessionPropertiesProvider;
 import io.trino.plugin.hive.HideDeltaLakeTables;
 import io.trino.plugin.hive.HiveNodePartitioningProvider;
 import io.trino.plugin.hive.parquet.ParquetReaderConfig;
 import io.trino.plugin.hive.parquet.ParquetWriterConfig;
+import io.trino.plugin.hudi.cache.HudiCacheKeyProvider;
 import io.trino.spi.connector.ConnectorNodePartitioningProvider;
 import io.trino.spi.connector.ConnectorPageSourceProvider;
 import io.trino.spi.connector.ConnectorSplitManager;
 
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
+import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static org.weakref.jmx.guice.ExportBinder.newExporter;
 
@@ -56,6 +59,8 @@ public class HudiModule
 
         binder.bind(FileFormatDataSourceStats.class).in(Scopes.SINGLETON);
         newExporter(binder).export(FileFormatDataSourceStats.class).withGeneratedName();
+
+        newOptionalBinder(binder, CacheKeyProvider.class).setBinding().to(HudiCacheKeyProvider.class).in(Scopes.SINGLETON);
 
         binder.install(new HudiExecutorModule());
     }
