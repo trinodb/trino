@@ -24,6 +24,7 @@ import static io.trino.plugin.bigquery.BigQueryQueryRunner.BIGQUERY_CREDENTIALS_
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.TestingProperties.requiredNonEmptySystemProperty;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assumptions.abort;
 
 public class TestBigQueryWithDifferentProjectIdConnectorSmokeTest
         extends BaseConnectorSmokeTest
@@ -60,6 +61,30 @@ public class TestBigQueryWithDifferentProjectIdConnectorSmokeTest
                  SUPPORTS_UPDATE -> false;
             default -> super.hasBehavior(connectorBehavior);
         };
+    }
+
+    @Test
+    @Override
+    public void verifySupportsRowLevelDeleteDeclaration()
+    {
+        // This connector does not support modifying table rows
+        abort("skipped");
+    }
+
+    @Test
+    @Override
+    public void verifySupportsUpdateDeclaration()
+    {
+        // This connector does not support modifying table rows
+        abort("skipped");
+    }
+
+    @Test
+    @Override
+    public void verifySupportsRowLevelUpdateDeclaration()
+    {
+        // This connector does not support modifying table rows
+        abort("skipped");
     }
 
     @Test
