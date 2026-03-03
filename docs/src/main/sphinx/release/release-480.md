@@ -2,6 +2,7 @@
 
 ## General
 
+* Add `number` type. ({issue}`28319`)
 * Add coordinator and worker counts to `/metrics` endpoint. ({issue}`27408`)
 * Allow configuring the maximum amount of memory to use while writing tables
   through the `task.scale-writers.max-writer-memory-percentage` configuration
@@ -22,11 +23,19 @@
   drop operations. ({issue}`28017`)
 * Fix failure when executing {func}`date_add` function with a value greater than
   `Integer.MAX_VALUE`. ({issue}`27899`)
+- Fix incorrect query results when casting from `json`, `time`, `boolean` or 
+  `interval` to `varchar(n)` when produced value has more than `n` code points. ({issue}`552`)
 
 ## Web UI
 
 * Add cluster status info to the header in the preview UI. ({issue}`27712`)
 * Sort stages in the query details page numerically rather than alphabetically. ({issue}`27655`)
+
+## JDBC driver
+
+* Fix incorrect result of `ResultSetMetaData.getColumnClassName` for
+  `map`, `row`, `time with time zone`, `timestamp with time zone`, `varbinary`
+  and `null` values. ({issue}`28314`)
 
 ## ClickHouse connector
 
@@ -54,6 +63,7 @@
 * Fix potential table corruption when executing `CREATE OR REPLACE` with table definition
   changes. ({issue}`27805`)
 * Fix Azure Storage connectivity issues. ({issue}`28058`)
+* Fix failure when the file path contains `#` in GCS. ({issue}`28292`)
 
 ## DuckDB connector
 
@@ -89,6 +99,7 @@
 * {{breaking}} Remove the deprecated `gcs.use-access-token` configuration property. ({issue}`26941`)
 * {{breaking}} Remove the `hive.fs.new-file-inherit-ownership` configuration property. ({issue}`28029`)
 * Fix Azure Storage connectivity issues. ({issue}`28058`)
+* Fix failure when the file path contains `#` in GCS. ({issue}`28292`)
 
 ## Iceberg connector
 
@@ -112,6 +123,7 @@
   `extended_statistics_enabled` session property. ({issue}`27914`)
 * Improve the effectiveness of Bloom filters for high-cardinality columns in Parquet files. ({issue}`27656`)
 * Improve query performance when querying a fresh materialized view. ({issue}`27608`)
+* Improve `optimize` to clean up partition scoped equality delete files when a partition filter is used. ({issue}`28371`)
 * Enhance `optimize_manifests` to cluster manifests by partition, improving read
   performance for queries that apply partition filters. ({issue}`27358`)
 * Reduce planning time of queries on tables containing delete files. ({issue}`27955`)
@@ -125,6 +137,11 @@
 * Fix failures for queries with joins on metadata columns. ({issue}`27984`)
 * Fix Azure Storage connectivity issues. ({issue}`28058`)
 * Fix incorrect memory accounting for `INSERT` queries targeting bucketed and sorted tables. ({issue}`28315`)
+* Fix an issue where using `ALTER TABLE ... SET PROPERTIES` to set partition spec
+  unintentionally removed existing partition columns from the partition spec. ({issue}`26492`)
+* Fix failures when reading from tables with `write.parquet.compression-codec` property set to `LZ4`. ({issue}`28291`)
+* Fix value of `compression-codec` table property written by Trino to be compliant with Iceberg spec. ({issue}`28293`)
+* Fix failure when the file path contains `#` in GCS. ({issue}`28292`)
 
 ## Ignite connector
 
