@@ -15,7 +15,7 @@ package io.trino.client;
 
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonToken;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.collect.ImmutableList;
 
 import java.io.IOException;
@@ -467,13 +467,13 @@ public final class JsonDecodingUtils
     private static class ObjectDecoder
             implements TypeDecoder
     {
-        private final ObjectMapper objectMapper = new ObjectMapper();
+        private final JsonMapper jsonMapper = new JsonMapper();
 
         @Override
         public Object decode(JsonParser parser)
                 throws IOException
         {
-            return objectMapper.readValue(parser, Object.class);
+            return jsonMapper.readValue(parser, Object.class);
         }
     }
 

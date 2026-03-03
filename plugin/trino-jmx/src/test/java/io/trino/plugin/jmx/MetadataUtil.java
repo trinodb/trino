@@ -13,11 +13,11 @@
  */
 package io.trino.plugin.jmx;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.json.JsonCodec;
 import io.airlift.json.JsonCodecFactory;
-import io.airlift.json.ObjectMapperProvider;
+import io.airlift.json.JsonMapperProvider;
 import io.trino.spi.type.Type;
 import io.trino.type.TypeDeserializer;
 
@@ -32,10 +32,10 @@ public final class MetadataUtil
     public static final JsonCodec<JmxSplit> SPLIT_CODEC;
 
     static {
-        ObjectMapper objectMapper = new ObjectMapperProvider()
+        JsonMapper jsonMapper = new JsonMapperProvider()
                 .withJsonDeserializers(ImmutableMap.of(Type.class, new TypeDeserializer(TESTING_TYPE_MANAGER)))
                 .get();
-        JsonCodecFactory codecFactory = new JsonCodecFactory(objectMapper);
+        JsonCodecFactory codecFactory = new JsonCodecFactory(jsonMapper);
         TABLE_CODEC = codecFactory.jsonCodec(JmxTableHandle.class);
         COLUMN_CODEC = codecFactory.jsonCodec(JmxColumnHandle.class);
         SPLIT_CODEC = codecFactory.jsonCodec(JmxSplit.class);

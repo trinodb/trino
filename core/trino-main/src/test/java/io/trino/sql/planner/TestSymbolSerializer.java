@@ -13,12 +13,12 @@
  */
 package io.trino.sql.planner;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.reflect.TypeToken;
 import io.airlift.json.JsonCodec;
 import io.airlift.json.JsonCodecFactory;
-import io.airlift.json.ObjectMapperProvider;
+import io.airlift.json.JsonMapperProvider;
 import io.trino.spi.type.Type;
 import io.trino.type.TypeDeserializer;
 import org.junit.jupiter.api.Test;
@@ -36,11 +36,11 @@ class TestSymbolSerializer
     private static final JsonCodecFactory CODEC_FACTORY;
 
     static {
-        ObjectMapper objectMapper = new ObjectMapperProvider()
+        JsonMapper jsonMapper = new JsonMapperProvider()
                 .withKeyDeserializers(ImmutableMap.of(Symbol.class, new SymbolKeyDeserializer(TESTING_TYPE_MANAGER)))
                 .withJsonDeserializers(ImmutableMap.of(Type.class, new TypeDeserializer(TESTING_TYPE_MANAGER)))
                 .get();
-        CODEC_FACTORY = new JsonCodecFactory(objectMapper);
+        CODEC_FACTORY = new JsonCodecFactory(jsonMapper);
     }
 
     private static final JsonCodec<Symbol> SYMBOL_CODEC = CODEC_FACTORY.jsonCodec(Symbol.class);

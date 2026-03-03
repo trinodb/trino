@@ -25,7 +25,7 @@ import com.google.inject.Module;
 import com.google.inject.Provides;
 import io.airlift.bootstrap.Bootstrap;
 import io.airlift.http.client.testing.TestingHttpClient;
-import io.airlift.jaxrs.JsonMapper;
+import io.airlift.jaxrs.JaxRsJsonMapper;
 import io.airlift.jaxrs.testing.JaxrsTestingHttpProcessor;
 import io.airlift.json.JsonCodec;
 import io.airlift.json.JsonModule;
@@ -663,7 +663,7 @@ public class TestHttpRemoteTask
                     @Override
                     public void configure(Binder binder)
                     {
-                        binder.bind(JsonMapper.class).in(SINGLETON);
+                        binder.bind(JaxRsJsonMapper.class).in(SINGLETON);
                         binder.bind(Metadata.class).toInstance(createTestingMetadataManager());
                         jsonBinder(binder).addDeserializerBinding(Type.class).to(TypeDeserializer.class);
                         jsonBinder(binder).addDeserializerBinding(TypeSignature.class).to(TypeSignatureDeserializer.class);
@@ -689,7 +689,7 @@ public class TestHttpRemoteTask
 
                     @Provides
                     private HttpRemoteTaskFactory createHttpRemoteTaskFactory(
-                            JsonMapper jsonMapper,
+                            JaxRsJsonMapper jsonMapper,
                             JsonCodec<TaskStatus> taskStatusCodec,
                             JsonCodec<VersionedDynamicFilterDomains> dynamicFilterDomainsCodec,
                             JsonCodec<TaskInfo> taskInfoCodec,

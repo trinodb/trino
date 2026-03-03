@@ -14,7 +14,7 @@
 package io.trino.server.security.oauth2;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -92,7 +92,7 @@ public class TestingHydraIdentityProvider
             .withStartupCheckStrategy(new OneShotStartupCheckStrategy().withTimeout(Duration.ofMinutes(5)));
 
     private final AutoCloseableCloser closer = AutoCloseableCloser.create();
-    private final ObjectMapper mapper = new ObjectMapper();
+    private final JsonMapper mapper = new JsonMapper();
     private final Duration ttlAccessToken;
     private final boolean useJwt;
     private final boolean exposeFixedPorts;
@@ -238,7 +238,6 @@ public class TestingHydraIdentityProvider
     private class AcceptAllLoginsAndConsentsServlet
             extends HttpServlet
     {
-        private final ObjectMapper mapper = new ObjectMapper();
         private final OkHttpClient httpClient;
 
         public AcceptAllLoginsAndConsentsServlet()

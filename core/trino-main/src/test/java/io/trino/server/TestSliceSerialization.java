@@ -14,9 +14,9 @@
 package io.trino.server;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.collect.ImmutableMap;
-import io.airlift.json.ObjectMapperProvider;
+import io.airlift.json.JsonMapperProvider;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import org.junit.jupiter.api.BeforeAll;
@@ -35,12 +35,12 @@ import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 @Execution(CONCURRENT)
 public class TestSliceSerialization
 {
-    private ObjectMapper objectMapper;
+    private JsonMapper jsonMapper;
 
     @BeforeAll
     public void setup()
     {
-        objectMapper = new ObjectMapperProvider()
+        jsonMapper = new JsonMapperProvider()
                 .withJsonSerializers(ImmutableMap.of(Slice.class, new SliceSerialization.SliceSerializer()))
                 .withJsonDeserializers(ImmutableMap.of(Slice.class, new SliceSerialization.SliceDeserializer()))
                 .get();
@@ -77,8 +77,8 @@ public class TestSliceSerialization
             throws JsonProcessingException
     {
         Container expected = new Container(slice);
-        String json = objectMapper.writeValueAsString(expected);
-        Container actual = objectMapper.readValue(json, Container.class);
+        String json = jsonMapper.writeValueAsString(expected);
+        Container actual = jsonMapper.readValue(json, Container.class);
         assertThat(actual).isEqualTo(expected);
     }
 

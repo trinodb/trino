@@ -14,8 +14,8 @@
 package io.trino.server.ui;
 
 import com.fasterxml.jackson.annotation.JsonTypeInfo;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.cfg.ContextAttributes;
+import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Inject;
 import io.airlift.json.JsonCodec;
@@ -76,10 +76,10 @@ public class UiQueryResource
     private final HttpRequestSessionContextFactory sessionContextFactory;
 
     @Inject
-    public UiQueryResource(ObjectMapper objectMapper, DispatchManager dispatchManager, AccessControl accessControl, HttpRequestSessionContextFactory sessionContextFactory)
+    public UiQueryResource(JsonMapper jsonMapper, DispatchManager dispatchManager, AccessControl accessControl, HttpRequestSessionContextFactory sessionContextFactory)
     {
-        this.queryInfoCodec = buildQueryInfoCodec(objectMapper, false);
-        this.prettyQueryInfoCodec = buildQueryInfoCodec(objectMapper, true);
+        this.queryInfoCodec = buildQueryInfoCodec(jsonMapper, false);
+        this.prettyQueryInfoCodec = buildQueryInfoCodec(jsonMapper, true);
         this.dispatchManager = requireNonNull(dispatchManager, "dispatchManager is null");
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
         this.sessionContextFactory = requireNonNull(sessionContextFactory, "sessionContextFactory is null");
@@ -167,7 +167,7 @@ public class UiQueryResource
         }
     }
 
-    private JsonCodec<QueryInfo> buildQueryInfoCodec(ObjectMapper objectMapper, boolean pretty)
+    private JsonCodec<QueryInfo> buildQueryInfoCodec(JsonMapper jsonMapper, boolean pretty)
     {
         // Enable succinct DataSize serialization for QueryInfo to make it more human friendly
         ContextAttributes attrs = ContextAttributes.getEmpty();
@@ -175,9 +175,12 @@ public class UiQueryResource
             attrs = attrs.withSharedAttribute(SUCCINCT_DATA_SIZE_ENABLED, Boolean.TRUE);
         }
 
-        ObjectMapper mapper = objectMapper
-                .copy()
-                .setDefaultAttributes(attrs);
+        JsonMapper mapper = jsonMapper
+                .rebuild()
+                .defaultAttributes(attrs)
+                .build();
+        // Don't serialize TDigestHistogram.digest which isn't useful and human readable
+        mapper.configOverride(TDigestHistogram.class).setIgnorals(forIgnoredProperties(DIGEST_PROPERTY));
 
         // Don't serialize TDigestHistogram.digest which isn't useful and human readable
         mapper.configOverride(TDigestHistogram.class).setIgnorals(forIgnoredProperties(DIGEST_PROPERTY));

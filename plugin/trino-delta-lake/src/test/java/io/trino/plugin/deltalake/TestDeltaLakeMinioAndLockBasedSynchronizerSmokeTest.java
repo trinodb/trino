@@ -13,10 +13,10 @@
  */
 package io.trino.plugin.deltalake;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import io.airlift.json.ObjectMapperProvider;
+import io.airlift.json.JsonMapperProvider;
 import io.airlift.units.Duration;
 import io.trino.metastore.HiveMetastore;
 import io.trino.metastore.HiveMetastoreFactory;
@@ -62,7 +62,7 @@ public class TestDeltaLakeMinioAndLockBasedSynchronizerSmokeTest
     protected Minio minio;
     protected HiveMetastore metastore;
 
-    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapperProvider().get();
+    private static final JsonMapper JSON_MAPPER = new JsonMapperProvider().get();
 
     @Override
     protected QueryRunner createQueryRunner()
@@ -220,7 +220,7 @@ public class TestDeltaLakeMinioAndLockBasedSynchronizerSmokeTest
             throws Exception
     {
         String lockFilePath = format("%s/00000000000000000001.json.sb-lock_blah", getLockFileDirectory(tableName));
-        String lockFileContents = OBJECT_MAPPER.writeValueAsString(
+        String lockFileContents = JSON_MAPPER.writeValueAsString(
                 new S3LockBasedTransactionLogSynchronizer.LockFileContents("some_cluster", "some_query", Instant.now().plus(lockDuration).toEpochMilli()));
         minioClient.putObject(bucketName, lockFileContents.getBytes(UTF_8), lockFilePath);
         String lockUri = format("s3://%s/%s", bucketName, lockFilePath);

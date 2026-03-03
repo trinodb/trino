@@ -16,8 +16,8 @@ package io.trino.plugin.deltalake.transactionlog.statistics;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import io.airlift.json.ObjectMapperProvider;
+import com.fasterxml.jackson.databind.json.JsonMapper;
+import io.airlift.json.JsonMapperProvider;
 import io.airlift.log.Logger;
 import io.airlift.slice.SizeOf;
 import io.trino.plugin.deltalake.DeltaLakeColumnHandle;
@@ -61,7 +61,7 @@ public class DeltaLakeJsonFileStatistics
 {
     private static final Logger log = Logger.get(DeltaLakeJsonFileStatistics.class);
     private static final long INSTANCE_SIZE = instanceSize(DeltaLakeJsonFileStatistics.class);
-    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapperProvider().get();
+    private static final JsonMapper JSON_MAPPER = new JsonMapperProvider().get();
 
     private final Optional<Long> numRecords;
     private final Optional<Map<CanonicalColumnName, Object>> minValues;
@@ -71,7 +71,7 @@ public class DeltaLakeJsonFileStatistics
     public static DeltaLakeJsonFileStatistics create(String jsonStatistics)
             throws JsonProcessingException
     {
-        return parseJson(OBJECT_MAPPER, jsonStatistics, DeltaLakeJsonFileStatistics.class);
+        return parseJson(JSON_MAPPER, jsonStatistics, DeltaLakeJsonFileStatistics.class);
     }
 
     @JsonCreator

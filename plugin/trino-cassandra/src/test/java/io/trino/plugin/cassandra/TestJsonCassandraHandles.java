@@ -14,10 +14,10 @@
 package io.trino.plugin.cassandra;
 
 import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.airlift.json.ObjectMapperProvider;
+import io.airlift.json.JsonMapperProvider;
 import io.trino.plugin.base.TypeDeserializer;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.predicate.TupleDomain;
@@ -89,10 +89,10 @@ public class TestJsonCassandraHandles
                     TupleDomain.all(),
                     true)));
 
-    private static final ObjectMapper OBJECT_MAPPER;
+    private static final JsonMapper JSON_MAPPER;
 
     static {
-        OBJECT_MAPPER = new ObjectMapperProvider()
+        JSON_MAPPER = new JsonMapperProvider()
                 .withJsonDeserializers(ImmutableMap.of(Type.class, new TypeDeserializer(TESTING_TYPE_MANAGER)))
                 .get();
     }
@@ -102,7 +102,7 @@ public class TestJsonCassandraHandles
             throws Exception
     {
         CassandraTableHandle tableHandle = new CassandraTableHandle(new CassandraNamedRelationHandle("cassandra_schema", "cassandra_table"));
-        String json = OBJECT_MAPPER.writeValueAsString(tableHandle);
+        String json = JSON_MAPPER.writeValueAsString(tableHandle);
         testJsonEquals(json, TABLE_HANDLE_AS_MAP);
     }
 
@@ -111,7 +111,7 @@ public class TestJsonCassandraHandles
             throws Exception
     {
         CassandraTableHandle tableHandle = new CassandraTableHandle(new CassandraNamedRelationHandle("cassandra_schema", "cassandra_table", PARTITIONS, "clusteringKey1 = 33"));
-        String json = OBJECT_MAPPER.writeValueAsString(tableHandle);
+        String json = JSON_MAPPER.writeValueAsString(tableHandle);
         testJsonEquals(json, TABLE2_HANDLE_AS_MAP);
     }
 
@@ -119,9 +119,9 @@ public class TestJsonCassandraHandles
     public void testTableHandleDeserialize()
             throws Exception
     {
-        String json = OBJECT_MAPPER.writeValueAsString(TABLE_HANDLE_AS_MAP);
+        String json = JSON_MAPPER.writeValueAsString(TABLE_HANDLE_AS_MAP);
 
-        CassandraNamedRelationHandle tableHandle = OBJECT_MAPPER.readValue(json, CassandraTableHandle.class).getRequiredNamedRelation();
+        CassandraNamedRelationHandle tableHandle = JSON_MAPPER.readValue(json, CassandraTableHandle.class).getRequiredNamedRelation();
 
         assertThat(tableHandle.getSchemaName()).isEqualTo("cassandra_schema");
         assertThat(tableHandle.getTableName()).isEqualTo("cassandra_table");
@@ -133,9 +133,9 @@ public class TestJsonCassandraHandles
     public void testTable2HandleDeserialize()
             throws Exception
     {
-        String json = OBJECT_MAPPER.writeValueAsString(TABLE2_HANDLE_AS_MAP);
+        String json = JSON_MAPPER.writeValueAsString(TABLE2_HANDLE_AS_MAP);
 
-        CassandraNamedRelationHandle tableHandle = OBJECT_MAPPER.readValue(json, CassandraTableHandle.class).getRequiredNamedRelation();
+        CassandraNamedRelationHandle tableHandle = JSON_MAPPER.readValue(json, CassandraTableHandle.class).getRequiredNamedRelation();
 
         assertThat(tableHandle.getSchemaName()).isEqualTo("cassandra_schema");
         assertThat(tableHandle.getTableName()).isEqualTo("cassandra_table");
@@ -149,7 +149,7 @@ public class TestJsonCassandraHandles
             throws Exception
     {
         CassandraColumnHandle columnHandle = new CassandraColumnHandle("column", 42, CassandraTypes.BIGINT, false, true, false, false);
-        String json = OBJECT_MAPPER.writeValueAsString(columnHandle);
+        String json = JSON_MAPPER.writeValueAsString(columnHandle);
         testJsonEquals(json, COLUMN_HANDLE_AS_MAP);
     }
 
@@ -165,7 +165,7 @@ public class TestJsonCassandraHandles
                 false,
                 false,
                 false);
-        String json = OBJECT_MAPPER.writeValueAsString(columnHandle);
+        String json = JSON_MAPPER.writeValueAsString(columnHandle);
         testJsonEquals(json, COLUMN2_HANDLE_AS_MAP);
     }
 
@@ -173,9 +173,9 @@ public class TestJsonCassandraHandles
     public void testColumnHandleDeserialize()
             throws Exception
     {
-        String json = OBJECT_MAPPER.writeValueAsString(COLUMN_HANDLE_AS_MAP);
+        String json = JSON_MAPPER.writeValueAsString(COLUMN_HANDLE_AS_MAP);
 
-        CassandraColumnHandle columnHandle = OBJECT_MAPPER.readValue(json, CassandraColumnHandle.class);
+        CassandraColumnHandle columnHandle = JSON_MAPPER.readValue(json, CassandraColumnHandle.class);
 
         assertThat(columnHandle.name()).isEqualTo("column");
         assertThat(columnHandle.ordinalPosition()).isEqualTo(42);
@@ -188,9 +188,9 @@ public class TestJsonCassandraHandles
     public void testColumn2HandleDeserialize()
             throws Exception
     {
-        String json = OBJECT_MAPPER.writeValueAsString(COLUMN2_HANDLE_AS_MAP);
+        String json = JSON_MAPPER.writeValueAsString(COLUMN2_HANDLE_AS_MAP);
 
-        CassandraColumnHandle columnHandle = OBJECT_MAPPER.readValue(json, CassandraColumnHandle.class);
+        CassandraColumnHandle columnHandle = JSON_MAPPER.readValue(json, CassandraColumnHandle.class);
 
         assertThat(columnHandle.name()).isEqualTo("column2");
         assertThat(columnHandle.ordinalPosition()).isEqualTo(0);
@@ -202,7 +202,7 @@ public class TestJsonCassandraHandles
     private void testJsonEquals(String json, Map<String, Object> expectedMap)
             throws Exception
     {
-        Map<String, Object> jsonMap = OBJECT_MAPPER.readValue(json, new TypeReference<>() {});
+        Map<String, Object> jsonMap = JSON_MAPPER.readValue(json, new TypeReference<>() {});
         assertEqualsIgnoreOrder(jsonMap.entrySet(), expectedMap.entrySet());
     }
 }

@@ -15,11 +15,11 @@ package io.trino.plugin.deltalake.transactionlog;
 
 import com.fasterxml.jackson.core.JsonParseException;
 import com.fasterxml.jackson.databind.JsonMappingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.annotations.VisibleForTesting;
 import dev.failsafe.Failsafe;
 import dev.failsafe.RetryPolicy;
-import io.airlift.json.ObjectMapperProvider;
+import io.airlift.json.JsonMapperProvider;
 import io.airlift.log.Logger;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
@@ -102,7 +102,7 @@ public final class TransactionLogParser
 
     private TransactionLogParser() {}
 
-    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapperProvider().get();
+    private static final JsonMapper JSON_MAPPER = new JsonMapperProvider().get();
 
     // partition timestamp values are represented as yyyy-MM-dd HH:mm:ss.SSSSSSSSS, where the fractional seconds part can have 0-9 digits
     public static final DateTimeFormatter PARTITION_TIMESTAMP_FORMATTER = new DateTimeFormatterBuilder()
@@ -150,7 +150,7 @@ public final class TransactionLogParser
         if (json.endsWith("x")) {
             json = json.substring(0, json.length() - 1);
         }
-        return JsonUtils.parseJson(OBJECT_MAPPER, json, DeltaLakeTransactionLogEntry.class);
+        return JsonUtils.parseJson(JSON_MAPPER, json, DeltaLakeTransactionLogEntry.class);
     }
 
     private static Object parseDecimal(DecimalType type, String valueString)
@@ -277,7 +277,7 @@ public final class TransactionLogParser
         TrinoInputFile inputFile = fileSystem.newInputFile(checkpointPath);
         try (InputStream lastCheckpointInput = inputFile.newStream()) {
             // Note: there apparently is 8K buffering applied and _last_checkpoint should be much smaller.
-            return Optional.of(JsonUtils.parseJson(OBJECT_MAPPER, lastCheckpointInput, LastCheckpoint.class));
+            return Optional.of(JsonUtils.parseJson(JSON_MAPPER, lastCheckpointInput, LastCheckpoint.class));
         }
         catch (JsonParseException | JsonMappingException e) {
             // The _last_checkpoint file is malformed, it's probably in the middle of a rewrite (file rewrites on Azure are NOT atomic)

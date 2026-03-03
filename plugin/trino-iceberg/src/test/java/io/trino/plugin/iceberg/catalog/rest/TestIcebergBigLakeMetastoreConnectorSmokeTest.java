@@ -13,9 +13,9 @@
  */
 package io.trino.plugin.iceberg.catalog.rest;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.collect.ImmutableMap;
-import io.airlift.json.ObjectMapperProvider;
+import io.airlift.json.JsonMapperProvider;
 import io.trino.filesystem.Location;
 import io.trino.plugin.iceberg.BaseIcebergConnectorSmokeTest;
 import io.trino.plugin.iceberg.IcebergConfig;
@@ -51,7 +51,7 @@ final class TestIcebergBigLakeMetastoreConnectorSmokeTest
     private static final String SCHEMA = "test_iceberg_biglake_" + randomNameSuffix();
     private static final String GCP_STORAGE_BUCKET = requireEnv("GCP_STORAGE_BUCKET");
     private static final byte[] GCS_JSON_KEY_BYTES = Base64.getDecoder().decode(requireEnv("GCP_CREDENTIALS_KEY"));
-    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapperProvider().get();
+    private static final JsonMapper JSON_MAPPER = new JsonMapperProvider().get();
 
     public TestIcebergBigLakeMetastoreConnectorSmokeTest()
     {
@@ -77,7 +77,7 @@ final class TestIcebergBigLakeMetastoreConnectorSmokeTest
         Path gcpCredentialsFile = Files.createTempFile("gcp-credentials", ".json");
         gcpCredentialsFile.toFile().deleteOnExit();
         Files.write(gcpCredentialsFile, GCS_JSON_KEY_BYTES);
-        String projectId = OBJECT_MAPPER.readTree(GCS_JSON_KEY_BYTES).get("project_id").asText();
+        String projectId = JSON_MAPPER.readTree(GCS_JSON_KEY_BYTES).get("project_id").asText();
 
         return IcebergQueryRunner.builder(SCHEMA)
                 .addIcebergProperty("iceberg.file-format", format.name())

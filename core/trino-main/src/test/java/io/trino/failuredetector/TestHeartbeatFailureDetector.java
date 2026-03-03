@@ -14,7 +14,7 @@
 package io.trino.failuredetector;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.inject.Injector;
 import com.google.inject.Key;
 import com.google.inject.Scopes;
@@ -24,8 +24,8 @@ import io.airlift.discovery.client.testing.TestingDiscoveryModule;
 import io.airlift.http.server.testing.TestingHttpServerModule;
 import io.airlift.jaxrs.JaxrsModule;
 import io.airlift.jmx.testing.TestingJmxModule;
+import io.airlift.json.JsonMapperProvider;
 import io.airlift.json.JsonModule;
-import io.airlift.json.ObjectMapperProvider;
 import io.airlift.node.testing.TestingNodeModule;
 import io.trino.execution.QueryManagerConfig;
 import io.trino.failuredetector.HeartbeatFailureDetector.Stats;
@@ -90,15 +90,15 @@ public class TestHeartbeatFailureDetector
     public void testHeartbeatStatsSerialization()
             throws Exception
     {
-        ObjectMapper objectMapper = new ObjectMapperProvider().get();
+        JsonMapper jsonMapper = new JsonMapperProvider().get();
         Stats stats = new Stats(new URI("http://example.com"));
-        String serialized = objectMapper.writeValueAsString(stats);
-        JsonNode deserialized = objectMapper.readTree(serialized);
+        String serialized = jsonMapper.writeValueAsString(stats);
+        JsonNode deserialized = jsonMapper.readTree(serialized);
         assertThat(deserialized.has("lastFailureInfo")).isFalse();
 
         stats.recordFailure(new SocketTimeoutException("timeout"));
-        serialized = objectMapper.writeValueAsString(stats);
-        deserialized = objectMapper.readTree(serialized);
+        serialized = jsonMapper.writeValueAsString(stats);
+        deserialized = jsonMapper.readTree(serialized);
         assertThat(deserialized.get("lastFailureInfo").isNull()).isFalse();
         assertThat(deserialized.get("lastFailureInfo").get("type").asText()).isEqualTo(SocketTimeoutException.class.getName());
     }

@@ -17,11 +17,11 @@ import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.DeserializationContext;
 import com.fasterxml.jackson.databind.JsonDeserializer;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import io.airlift.json.ObjectMapperProvider;
+import io.airlift.json.JsonMapperProvider;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConstantProperty;
 import io.trino.spi.connector.GroupingProperty;
@@ -696,7 +696,7 @@ public class TestLocalProperties
     public void testJsonSerialization()
             throws Exception
     {
-        ObjectMapper mapper = new ObjectMapperProvider()
+        JsonMapper mapper = new JsonMapperProvider()
                 .withJsonDeserializers(ImmutableMap.of(
                         ColumnHandle.class, new JsonDeserializer<ColumnHandle>()
                         {

@@ -14,9 +14,9 @@
 package io.trino.plugin.deltalake;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.collect.ImmutableList;
-import io.airlift.json.ObjectMapperProvider;
+import io.airlift.json.JsonMapperProvider;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.hdfs.HdfsFileSystemFactory;
 import io.trino.plugin.deltalake.transactionlog.DeltaLakeTransactionLogEntry;
@@ -49,7 +49,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 public class TestDeltaLakeColumnMapping
         extends AbstractTestQueryFramework
 {
-    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapperProvider().get();
+    private static final JsonMapper JSON_MAPPER = new JsonMapperProvider().get();
     // The col-{uuid} pattern for delta.columnMapping.physicalName
     private static final Pattern PHYSICAL_COLUMN_NAME_PATTERN = Pattern.compile("^col-[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$");
 
@@ -108,7 +108,7 @@ public class TestDeltaLakeColumnMapping
 
         assertThat(metadata.getConfiguration()).containsEntry("delta.columnMapping.maxColumnId", "3"); // 3 comes from a_int + a_row + a_row.x
 
-        JsonNode schema = OBJECT_MAPPER.readTree(metadata.getSchemaString());
+        JsonNode schema = JSON_MAPPER.readTree(metadata.getSchemaString());
         List<JsonNode> fields = ImmutableList.copyOf(schema.get("fields").elements());
         assertThat(fields).hasSize(2);
         JsonNode intColumn = fields.get(0);

@@ -13,13 +13,13 @@
  */
 package io.trino.execution;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.json.JsonCodec;
 import io.airlift.json.JsonCodecFactory;
-import io.airlift.json.ObjectMapperProvider;
+import io.airlift.json.JsonMapperProvider;
 import io.trino.Session;
 import io.trino.connector.MockConnectorFactory;
 import io.trino.connector.MockConnectorTableHandle;
@@ -1507,7 +1507,7 @@ public class TestEventListenerBasic
         assertThat(event.getStatistics().getPlanNodeStatsAndCosts()).isPresent();
 
         TypeManager typeManager = getQueryRunner().getPlannerContext().getTypeManager();
-        ObjectMapper objectMapper = new ObjectMapperProvider()
+        JsonMapper jsonMapper = new JsonMapperProvider()
                 .withKeyDeserializers(ImmutableMap.of(
                     Symbol.class, new SymbolKeyDeserializer(typeManager),
                     TypeSignature.class, new TypeSignatureKeyDeserializer()))
@@ -1515,7 +1515,7 @@ public class TestEventListenerBasic
                     Type.class, new TypeDeserializer(typeManager)))
                 .get();
 
-        JsonCodec<StatsAndCosts> codec = new JsonCodecFactory(objectMapper).jsonCodec(StatsAndCosts.class);
+        JsonCodec<StatsAndCosts> codec = new JsonCodecFactory(jsonMapper).jsonCodec(StatsAndCosts.class);
 
         StatsAndCosts statsAndCosts = codec.fromJson(event.getStatistics().getPlanNodeStatsAndCosts().get());
         assertThat(statsAndCosts.getStats().values()).allMatch(stats -> stats.getOutputRowCount() == 25.0);

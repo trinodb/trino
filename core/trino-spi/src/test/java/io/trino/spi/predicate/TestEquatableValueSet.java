@@ -13,10 +13,10 @@
  */
 package io.trino.spi.predicate;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
-import io.airlift.json.ObjectMapperProvider;
+import io.airlift.json.JsonMapperProvider;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.TestingBlockEncodingSerde;
 import io.trino.spi.block.TestingBlockJsonSerde;
@@ -337,7 +337,7 @@ class TestEquatableValueSet
     public void testJsonSerialization()
             throws Exception
     {
-        ObjectMapper mapper = new ObjectMapperProvider()
+        JsonMapper mapper = new JsonMapperProvider()
                 .withJsonDeserializers(Map.of(
                         Type.class, new TestingTypeDeserializer(new TestingTypeManager()),
                         Block.class, new TestingBlockJsonSerde.Deserializer(new TestingBlockEncodingSerde())))

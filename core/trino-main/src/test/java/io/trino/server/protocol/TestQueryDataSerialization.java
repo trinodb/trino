@@ -14,12 +14,12 @@
 package io.trino.server.protocol;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.json.JsonCodec;
 import io.airlift.json.JsonCodecFactory;
-import io.airlift.json.ObjectMapperProvider;
+import io.airlift.json.JsonMapperProvider;
 import io.trino.client.ClientTypeSignature;
 import io.trino.client.Column;
 import io.trino.client.QueryData;
@@ -56,7 +56,7 @@ import static org.assertj.core.api.Fail.fail;
 
 public class TestQueryDataSerialization
 {
-    private static final ObjectMapper SERVER_MAPPER = new ObjectMapperProvider()
+    private static final JsonMapper SERVER_MAPPER = new JsonMapperProvider()
             .withModules(Set.of(new ServerQueryDataJacksonModule()))
             .get();
 

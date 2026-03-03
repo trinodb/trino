@@ -15,7 +15,7 @@ package io.trino.type;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.json.JsonMapper;
 import io.airlift.slice.Slice;
 import io.trino.operator.scalar.json.JsonInputConversionException;
 import io.trino.operator.scalar.json.JsonOutputConversionException;
@@ -34,7 +34,7 @@ public class Json2016Type
 {
     public static final String NAME = "json2016";
     public static final Json2016Type JSON_2016 = new Json2016Type();
-    private static final ObjectMapper MAPPER = new ObjectMapper();
+    private static final JsonMapper MAPPER = new JsonMapper();
 
     public Json2016Type()
     {

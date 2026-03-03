@@ -14,11 +14,11 @@
 package io.trino.plugin.pinot;
 
 import com.fasterxml.jackson.databind.JsonDeserializer;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.json.JsonCodec;
 import io.airlift.json.JsonCodecFactory;
-import io.airlift.json.ObjectMapperProvider;
+import io.airlift.json.JsonMapperProvider;
 import io.trino.plugin.pinot.client.PinotClient;
 import io.trino.spi.type.Type;
 import io.trino.type.TypeDeserializer;
@@ -39,14 +39,14 @@ public class MetadataUtil
     private MetadataUtil() {}
 
     static {
-        ObjectMapper objectMapper = new ObjectMapperProvider()
+        JsonMapper jsonMapper = new JsonMapperProvider()
                 .withJsonDeserializers(ImmutableMap.<Class<?>, JsonDeserializer<?>>builder()
                         .put(Type.class, new TypeDeserializer(TESTING_TYPE_MANAGER))
                         .put(DataSchema.class, new PinotModule.DataSchemaDeserializer())
                         .put(BrokerResponseNative.class, new PinotModule.BrokerResponseNativeDeserializer())
                         .buildOrThrow())
                 .get();
-        JsonCodecFactory codecFactory = new JsonCodecFactory(objectMapper);
+        JsonCodecFactory codecFactory = new JsonCodecFactory(jsonMapper);
         COLUMN_CODEC = codecFactory.jsonCodec(PinotColumnHandle.class);
         TABLES_JSON_CODEC = codecFactory.jsonCodec(PinotClient.GetTables.class);
         BROKERS_FOR_TABLE_JSON_CODEC = codecFactory.jsonCodec(PinotClient.BrokersForTable.class);

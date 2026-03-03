@@ -14,7 +14,7 @@
 package io.trino.decoder.json;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.fasterxml.jackson.databind.node.MissingNode;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableMap;
@@ -38,12 +38,12 @@ public class JsonRowDecoder
 {
     public static final String NAME = "json";
 
-    private final ObjectMapper objectMapper;
+    private final JsonMapper jsonMapper;
     private final Map<DecoderColumnHandle, JsonFieldDecoder> fieldDecoders;
 
-    JsonRowDecoder(ObjectMapper objectMapper, Map<DecoderColumnHandle, JsonFieldDecoder> fieldDecoders)
+    JsonRowDecoder(JsonMapper jsonMapper, Map<DecoderColumnHandle, JsonFieldDecoder> fieldDecoders)
     {
-        this.objectMapper = requireNonNull(objectMapper, "objectMapper is null");
+        this.jsonMapper = requireNonNull(jsonMapper, "jsonMapper is null");
         this.fieldDecoders = ImmutableMap.copyOf(fieldDecoders);
     }
 
@@ -52,7 +52,7 @@ public class JsonRowDecoder
     {
         JsonNode tree;
         try {
-            tree = objectMapper.readTree(data);
+            tree = jsonMapper.readTree(data);
         }
         catch (Exception e) {
             return Optional.empty();

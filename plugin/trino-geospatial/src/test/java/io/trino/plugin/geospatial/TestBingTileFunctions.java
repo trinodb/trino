@@ -13,7 +13,7 @@
  */
 package io.trino.plugin.geospatial;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.collect.ImmutableList;
 import io.trino.metadata.InternalFunctionBundle;
 import io.trino.spi.type.ArrayType;
@@ -70,11 +70,11 @@ public class TestBingTileFunctions
     public void testSerialization()
             throws Exception
     {
-        ObjectMapper objectMapper = new ObjectMapper();
+        JsonMapper jsonMapper = new JsonMapper();
         BingTile tile = fromCoordinates(1, 2, 3);
-        String json = objectMapper.writeValueAsString(tile);
+        String json = jsonMapper.writeValueAsString(tile);
         assertThat("{\"x\":1,\"y\":2,\"zoom\":3}").isEqualTo(json);
-        assertThat(tile).isEqualTo(objectMapper.readerFor(BingTile.class).readValue(json));
+        assertThat(tile).isEqualTo(jsonMapper.readerFor(BingTile.class).readValue(json));
     }
 
     @Test

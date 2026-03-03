@@ -16,7 +16,7 @@ package io.trino.client;
 import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonToken;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.base.VerifyException;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.io.Closer;
@@ -41,7 +41,7 @@ import static java.util.Objects.requireNonNull;
 
 public final class JsonIterators
 {
-    private static final JsonFactory JSON_FACTORY = createJsonFactory();
+    static final JsonMapper JSON_MAPPER = new JsonMapper(createJsonFactory());
 
     private JsonIterators() {}
 
@@ -81,7 +81,7 @@ public final class JsonIterators
         public JsonIterator(InputStream stream, TypeDecoder[] decoders)
                 throws IOException
         {
-            this(JSON_FACTORY.createParser(requireNonNull(stream, "stream is null")), decoders);
+            this(JSON_MAPPER.createParser(requireNonNull(stream, "stream is null")), decoders);
             closer.register(stream);
         }
 
@@ -154,7 +154,6 @@ public final class JsonIterators
     static JsonFactory createJsonFactory()
     {
         return new JsonFactory()
-                .setCodec(new ObjectMapper())
                 .enable(USE_FAST_DOUBLE_PARSER)
                 .enable(USE_FAST_BIG_NUMBER_PARSER)
                 .disable(AUTO_CLOSE_SOURCE); // We want to close source explicitly

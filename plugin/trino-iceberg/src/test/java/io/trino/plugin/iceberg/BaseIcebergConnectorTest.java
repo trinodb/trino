@@ -14,7 +14,7 @@
 package io.trino.plugin.iceberg;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.google.common.collect.ImmutableList;
@@ -8406,7 +8406,7 @@ public abstract class BaseIcebergConnectorTest
         String tableLocation = getTableLocation(tableName);
         String metadataFileLocation = getLatestMetadataLocation(fileSystem, tableLocation);
 
-        ObjectMapper mapper = JsonUtil.mapper();
+        JsonMapper mapper = new JsonMapper(JsonUtil.factory());
         JsonNode jsonNode = mapper.readValue(fileSystem.newInputFile(Location.of(metadataFileLocation)).newStream(), JsonNode.class);
         ArrayNode fieldsNode = (ArrayNode) jsonNode.get("schemas").get(0).get("fields");
         ObjectNode newFieldNode = fieldsNode.get(0).deepCopy();

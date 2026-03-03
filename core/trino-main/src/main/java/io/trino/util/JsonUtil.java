@@ -17,7 +17,7 @@ import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonToken;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.primitives.Shorts;
 import com.google.common.primitives.SignedBytes;
 import io.airlift.slice.Slice;
@@ -115,7 +115,7 @@ public final class JsonUtil
     // This object mapper is constructed without .configure(ORDER_MAP_ENTRIES_BY_KEYS, true) because
     // `OBJECT_MAPPER.writeValueAsString(parser.readValueAsTree());` preserves input order.
     // Be aware. Using it arbitrarily can produce invalid json (ordered by key is required in Trino).
-    private static final ObjectMapper OBJECT_MAPPED_UNORDERED = new ObjectMapper(createJsonFactory());
+    private static final JsonMapper JSON_MAPPED_UNORDERED = new JsonMapper(createJsonFactory());
 
     private static final int MAX_JSON_LENGTH_IN_ERROR_MESSAGE = 10_000;
 
@@ -140,7 +140,7 @@ public final class JsonUtil
                 .build();
     }
 
-    public static JsonParser createJsonParser(JsonFactory factory, Slice json)
+    public static JsonParser createJsonParser(JsonMapper mapper, Slice json)
             throws IOException
     {
         // Jackson tries to detect the character encoding automatically when using InputStream
@@ -149,16 +149,16 @@ public final class JsonUtil
         // is still valid for small inputs.
         if (json.length() < STRING_READER_LENGTH_LIMIT) {
             // java.io.Reader is more performant than InputStreamReader for small inputs
-            return factory.createParser(Reader.of(json.toStringUtf8()));
+            return mapper.createParser(Reader.of(json.toStringUtf8()));
         }
 
-        return factory.createParser(new InputStreamReader(json.getInput(), UTF_8));
+        return mapper.createParser(new InputStreamReader(json.getInput(), UTF_8));
     }
 
-    public static JsonGenerator createJsonGenerator(JsonFactory factory, SliceOutput output)
+    public static JsonGenerator createJsonGenerator(JsonMapper mapper, SliceOutput output)
             throws IOException
     {
-        return factory.createGenerator((OutputStream) output);
+        return mapper.createGenerator((OutputStream) output);
     }
 
     public static String truncateIfNecessaryForErrorMessage(Slice json)
@@ -906,7 +906,7 @@ public final class JsonUtil
             }
             if (type instanceof JsonType) {
                 return (parser, blockBuilder) -> {
-                    String json = OBJECT_MAPPED_UNORDERED.writeValueAsString(parser.readValueAsTree());
+                    String json = JSON_MAPPED_UNORDERED.writeValueAsString(parser.readValueAsTree());
                     JSON.writeSlice(blockBuilder, Slices.utf8Slice(json));
                 };
             }

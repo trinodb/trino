@@ -13,7 +13,7 @@
  */
 package io.trino.type;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.fasterxml.jackson.databind.node.BooleanNode;
 import com.fasterxml.jackson.databind.node.IntNode;
 import com.fasterxml.jackson.databind.node.NullNode;
@@ -21,7 +21,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.json.JsonCodec;
 import io.airlift.json.JsonCodecFactory;
-import io.airlift.json.ObjectMapperProvider;
+import io.airlift.json.JsonMapperProvider;
 import io.trino.block.BlockJsonSerde;
 import io.trino.json.ir.IrAbsMethod;
 import io.trino.json.ir.IrArithmeticBinary;
@@ -78,7 +78,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestJsonPath2016TypeSerialization
 {
-    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapperProvider()
+    private static final JsonMapper OBJECT_MAPPER = new JsonMapperProvider()
             .withJsonDeserializers(ImmutableMap.of(
                     Type.class, new TypeDeserializer(TESTING_TYPE_MANAGER),
                     TypeSignature.class, new TypeSignatureDeserializer(),

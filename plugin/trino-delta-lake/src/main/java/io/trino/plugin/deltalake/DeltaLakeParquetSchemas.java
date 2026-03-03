@@ -15,10 +15,10 @@ package io.trino.plugin.deltalake;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.airlift.json.ObjectMapperProvider;
+import io.airlift.json.JsonMapperProvider;
 import io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport;
 import io.trino.plugin.deltalake.transactionlog.MetadataEntry;
 import io.trino.plugin.deltalake.transactionlog.ProtocolEntry;
@@ -84,7 +84,7 @@ public final class DeltaLakeParquetSchemas
         }
     }
 
-    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapperProvider().get();
+    private static final JsonMapper JSON_MAPPER = new JsonMapperProvider().get();
 
     private DeltaLakeParquetSchemas() {}
 
@@ -126,7 +126,7 @@ public final class DeltaLakeParquetSchemas
         Types.MessageTypeBuilder builder = Types.buildMessage();
         ImmutableMap.Builder<List<String>, Type> primitiveTypesBuilder = ImmutableMap.builder();
         try {
-            stream(OBJECT_MAPPER.readTree(jsonSchema).get("fields").elements())
+            stream(JSON_MAPPER.readTree(jsonSchema).get("fields").elements())
                     .filter(fieldNode -> !partitionColumnNames.contains(fieldNode.get("name").asText()))
                     .map(fieldNode -> buildType(fieldNode, typeManager, columnMappingMode, ImmutableList.of(), primitiveTypesBuilder))
                     .forEach(builder::addField);

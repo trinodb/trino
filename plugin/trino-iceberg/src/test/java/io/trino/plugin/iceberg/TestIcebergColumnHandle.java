@@ -13,12 +13,12 @@
  */
 package io.trino.plugin.iceberg;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.json.JsonCodec;
 import io.airlift.json.JsonCodecFactory;
-import io.airlift.json.ObjectMapperProvider;
+import io.airlift.json.JsonMapperProvider;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
@@ -69,10 +69,10 @@ public class TestIcebergColumnHandle
 
     private void testRoundTrip(IcebergColumnHandle expected)
     {
-        ObjectMapper objectMapper = new ObjectMapperProvider()
+        JsonMapper jsonMapper = new JsonMapperProvider()
                 .withJsonDeserializers(ImmutableMap.of(Type.class, new TypeDeserializer(TESTING_TYPE_MANAGER)))
                 .get();
-        JsonCodec<IcebergColumnHandle> codec = new JsonCodecFactory(objectMapper)
+        JsonCodec<IcebergColumnHandle> codec = new JsonCodecFactory(jsonMapper)
                 .jsonCodec(IcebergColumnHandle.class);
 
         String json = codec.toJson(expected);

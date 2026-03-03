@@ -13,12 +13,12 @@
  */
 package io.trino.sql.planner;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.json.JsonCodec;
 import io.airlift.json.JsonCodecFactory;
-import io.airlift.json.ObjectMapperProvider;
+import io.airlift.json.JsonMapperProvider;
 import io.trino.FeaturesConfig;
 import io.trino.block.BlockJsonSerde;
 import io.trino.connector.CatalogServiceProvider;
@@ -162,7 +162,7 @@ public final class TestingPlannerContext
                     new JsonValueFunction(functionManager, metadata, typeManager),
                     new JsonQueryFunction(functionManager, metadata, typeManager)));
 
-            ObjectMapper objectMapper = new ObjectMapperProvider()
+            JsonMapper jsonMapper = new JsonMapperProvider()
                     .withJsonDeserializers(ImmutableMap.of(
                             Type.class, new TypeDeserializer(typeManager),
                             TypeSignature.class, new TypeSignatureDeserializer(),
@@ -171,7 +171,7 @@ public final class TestingPlannerContext
                             Block.class, new BlockJsonSerde.Serializer(blockEncodingSerde)))
                     .get();
 
-            JsonCodec<IrJsonPath> irJsonPathJsonCodec = new JsonCodecFactory(objectMapper).jsonCodec(IrJsonPath.class);
+            JsonCodec<IrJsonPath> irJsonPathJsonCodec = new JsonCodecFactory(jsonMapper).jsonCodec(IrJsonPath.class);
             typeRegistry.addType(new JsonPath2016Type(irJsonPathJsonCodec));
 
             return new PlannerContext(
