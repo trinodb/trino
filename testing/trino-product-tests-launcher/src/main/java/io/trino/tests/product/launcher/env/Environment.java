@@ -14,8 +14,7 @@
 package io.trino.tests.product.launcher.env;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
+import com.fasterxml.jackson.dataformat.yaml.YAMLMapper;
 import com.github.dockerjava.api.command.CreateContainerCmd;
 import com.github.dockerjava.api.command.InspectContainerResponse;
 import com.github.dockerjava.api.model.Bind;
@@ -692,11 +691,11 @@ public final class Environment
             DockerContainer testContainer = containers.get(TESTS);
             // write a custom tempto config with list of connectors the environment declares to have configured
             // since it's needed in TestConfiguredFeatures
-            ObjectMapper objectMapper = new ObjectMapper(new YAMLFactory());
+            YAMLMapper yamlMapper = new YAMLMapper();
             File tempFile;
             try {
                 tempFile = File.createTempFile("tempto-configured-features-", ".yaml");
-                objectMapper.writeValue(tempFile,
+                yamlMapper.writeValue(tempFile,
                         Map.of("databases",
                                 Map.of("trino",
                                         Map.of(
