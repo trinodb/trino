@@ -53,11 +53,20 @@ public class CassandraClusteringPredicatesExtractor
         return predicates.filter((columnHandle, domain) -> !clusteringPushDownResult.hasBeenFullyPushed(columnHandle));
     }
 
+    public boolean includesAllClusteringColumnsAndHasAllEqPredicates()
+    {
+        return clusteringPushDownResult.includesAllClusteringColumnsAndHasAllEqPredicates;
+    }
+
     private ClusteringPushDownResult getClusteringKeysSet(List<CassandraColumnHandle> clusteringColumns, TupleDomain<ColumnHandle> predicates)
     {
         ImmutableSet.Builder<ColumnHandle> fullyPushedColumnPredicates = ImmutableSet.builder();
         ImmutableList.Builder<String> clusteringColumnSql = ImmutableList.builder();
+        int eqPredicatesCount = 0;
         for (CassandraColumnHandle columnHandle : clusteringColumns) {
+            if (predicates.getDomains().isEmpty()) {
+                break;
+            }
             Domain domain = predicates.getDomains().get().get(columnHandle);
             if (domain == null) {
                 break;
@@ -109,10 +118,13 @@ public class CassandraClusteringPredicatesExtractor
             if (predicateString.contains(">") || predicateString.contains("<")) {
                 break;
             }
+            else {
+                eqPredicatesCount++;
+            }
         }
         List<String> clusteringColumnPredicates = clusteringColumnSql.build();
 
-        return new ClusteringPushDownResult(fullyPushedColumnPredicates.build(), Joiner.on(" AND ").join(clusteringColumnPredicates));
+        return new ClusteringPushDownResult(fullyPushedColumnPredicates.build(), Joiner.on(" AND ").join(clusteringColumnPredicates), eqPredicatesCount == clusteringColumns.size());
     }
 
     private String toCqlLiteral(CassandraColumnHandle columnHandle, Object value)
@@ -163,7 +175,7 @@ public class CassandraClusteringPredicatesExtractor
         return upperBoundPredicate;
     }
 
-    private record ClusteringPushDownResult(Set<ColumnHandle> fullyPushedColumnPredicates, String domainQuery)
+    private record ClusteringPushDownResult(Set<ColumnHandle> fullyPushedColumnPredicates, String domainQuery, boolean includesAllClusteringColumnsAndHasAllEqPredicates)
     {
         private ClusteringPushDownResult
         {

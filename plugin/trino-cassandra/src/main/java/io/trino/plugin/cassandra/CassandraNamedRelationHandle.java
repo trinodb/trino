@@ -34,10 +34,11 @@ public class CassandraNamedRelationHandle
     private final String tableName;
     private final Optional<List<CassandraPartition>> partitions;
     private final String clusteringKeyPredicates;
+    private final Boolean includesAllClusteringColumnsAndHasAllEqPredicates;
 
     public CassandraNamedRelationHandle(String schemaName, String tableName)
     {
-        this(schemaName, tableName, Optional.empty(), "");
+        this(schemaName, tableName, Optional.empty(), "", null);
     }
 
     @JsonCreator
@@ -45,12 +46,14 @@ public class CassandraNamedRelationHandle
             @JsonProperty("schemaName") String schemaName,
             @JsonProperty("tableName") String tableName,
             @JsonProperty("partitions") Optional<List<CassandraPartition>> partitions,
-            @JsonProperty("clusteringKeyPredicates") String clusteringKeyPredicates)
+            @JsonProperty("clusteringKeyPredicates") String clusteringKeyPredicates,
+            @JsonProperty("includesAllClusteringColumnsAndHasAllEqPredicates") Boolean includesAllClusteringColumnsAndHasAllEqPredicates)
     {
         this.schemaName = requireNonNull(schemaName, "schemaName is null");
         this.tableName = requireNonNull(tableName, "tableName is null");
         this.partitions = partitions.map(ImmutableList::copyOf);
         this.clusteringKeyPredicates = requireNonNull(clusteringKeyPredicates, "clusteringKeyPredicates is null");
+        this.includesAllClusteringColumnsAndHasAllEqPredicates = includesAllClusteringColumnsAndHasAllEqPredicates;
     }
 
     @JsonProperty
@@ -77,6 +80,12 @@ public class CassandraNamedRelationHandle
         return clusteringKeyPredicates;
     }
 
+    @JsonProperty
+    public Boolean getIncludesAllClusteringColumnsAndHasAllEqPredicates()
+    {
+        return includesAllClusteringColumnsAndHasAllEqPredicates;
+    }
+
     public SchemaTableName getSchemaTableName()
     {
         return new SchemaTableName(schemaName, tableName);
@@ -101,7 +110,8 @@ public class CassandraNamedRelationHandle
         return Objects.equals(this.schemaName, other.schemaName) &&
                 Objects.equals(this.tableName, other.tableName) &&
                 Objects.equals(this.partitions, other.partitions) &&
-                Objects.equals(this.clusteringKeyPredicates, other.clusteringKeyPredicates);
+                Objects.equals(this.clusteringKeyPredicates, other.clusteringKeyPredicates) &&
+                Objects.equals(this.includesAllClusteringColumnsAndHasAllEqPredicates, other.includesAllClusteringColumnsAndHasAllEqPredicates);
     }
 
     @Override
@@ -121,6 +131,9 @@ public class CassandraNamedRelationHandle
         }
         if (!clusteringKeyPredicates.isEmpty()) {
             result += format(" constraint(%s)", clusteringKeyPredicates);
+        }
+        if (includesAllClusteringColumnsAndHasAllEqPredicates != null) {
+            result += format(" includesAllClusteringColumnsAndHasAllEqPredicates(%s)", includesAllClusteringColumnsAndHasAllEqPredicates);
         }
         return result;
     }
