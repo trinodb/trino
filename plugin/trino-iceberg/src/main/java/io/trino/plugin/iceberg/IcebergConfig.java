@@ -517,7 +517,7 @@ public class IcebergConfig
     }
 
     @Config("iceberg.query-partition-filter-required-schemas")
-    @ConfigDescription("List of schemas for which filter on partition column is enforced")
+    @ConfigDescription("List of schemas (or regex patterns) for which filter on partition column is enforced")
     public IcebergConfig setQueryPartitionFilterRequiredSchemas(Set<String> queryPartitionFilterRequiredSchemas)
     {
         this.queryPartitionFilterRequiredSchemas = queryPartitionFilterRequiredSchemas.stream()

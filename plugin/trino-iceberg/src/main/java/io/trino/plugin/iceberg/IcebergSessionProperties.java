@@ -360,7 +360,7 @@ public final class IcebergSessionProperties
                         false))
                 .add(new PropertyMetadata<>(
                         QUERY_PARTITION_FILTER_REQUIRED_SCHEMAS,
-                        "List of schemas for which filter on partition column is enforced.",
+                        "List of schema names or regex patterns for which filter on partition column is enforced.",
                         new ArrayType(VARCHAR),
                         Set.class,
                         icebergConfig.getQueryPartitionFilterRequiredSchemas(),
