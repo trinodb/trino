@@ -71,6 +71,8 @@ import static com.google.common.io.Resources.getResource;
 import static com.google.common.math.LongMath.divide;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.units.DataSize.Unit.KILOBYTE;
+import static io.trino.hdfs.HdfsTestUtils.HDFS_ENVIRONMENT;
+import static io.trino.hdfs.HdfsTestUtils.HDFS_FILE_SYSTEM_STATS;
 import static io.trino.plugin.deltalake.DeltaLakeColumnType.REGULAR;
 import static io.trino.plugin.deltalake.DeltaTestingConnectorSession.SESSION;
 import static io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntryIterator.EntryType.ADD;
@@ -78,8 +80,6 @@ import static io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntr
 import static io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntryIterator.EntryType.PROTOCOL;
 import static io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntryIterator.EntryType.REMOVE;
 import static io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntryIterator.EntryType.TRANSACTION;
-import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
-import static io.trino.plugin.hive.HiveTestUtils.HDFS_FILE_SYSTEM_STATS;
 import static io.trino.spi.predicate.Domain.notNull;
 import static io.trino.spi.predicate.Domain.onlyNull;
 import static io.trino.spi.predicate.Domain.singleValue;

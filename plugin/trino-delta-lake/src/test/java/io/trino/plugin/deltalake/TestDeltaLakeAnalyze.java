@@ -15,7 +15,6 @@ package io.trino.plugin.deltalake;
 
 import io.trino.Session;
 import io.trino.filesystem.TrinoFileSystem;
-import io.trino.filesystem.hdfs.HdfsFileSystemFactory;
 import io.trino.plugin.deltalake.transactionlog.AddFileEntry;
 import io.trino.plugin.deltalake.transactionlog.DeltaLakeTransactionLogEntry;
 import io.trino.plugin.deltalake.transactionlog.statistics.DeltaLakeFileStatistics;
@@ -42,14 +41,13 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.airlift.testing.Closeables.closeAllSuppress;
+import static io.trino.hdfs.HdfsTestUtils.HDFS_FILE_SYSTEM_FACTORY;
 import static io.trino.plugin.deltalake.DeltaLakeConfig.DEFAULT_TRANSACTION_LOG_MAX_CACHED_SIZE;
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.EXTENDED_STATISTICS_COLLECT_ON_WRITE;
 import static io.trino.plugin.deltalake.DeltaTestingConnectorSession.SESSION;
 import static io.trino.plugin.deltalake.TestingDeltaLakeUtils.copyDirectoryContents;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogUtil.getTransactionLogJsonEntryPath;
 import static io.trino.plugin.deltalake.transactionlog.checkpoint.TransactionLogTail.getEntriesFromJson;
-import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
-import static io.trino.plugin.hive.HiveTestUtils.HDFS_FILE_SYSTEM_STATS;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.INSERT_TABLE;
 import static io.trino.testing.TestingAccessControlManager.privilege;
 import static io.trino.testing.TestingNames.randomNameSuffix;
@@ -61,7 +59,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 public class TestDeltaLakeAnalyze
         extends AbstractTestQueryFramework
 {
-    private static final TrinoFileSystem FILE_SYSTEM = new HdfsFileSystemFactory(HDFS_ENVIRONMENT, HDFS_FILE_SYSTEM_STATS).create(SESSION);
+    private static final TrinoFileSystem FILE_SYSTEM = HDFS_FILE_SYSTEM_FACTORY.create(SESSION);
 
     @Override
     protected QueryRunner createQueryRunner()

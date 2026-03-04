@@ -48,9 +48,9 @@ import java.util.List;
 import java.util.Optional;
 import java.util.OptionalLong;
 
+import static io.trino.hdfs.HdfsTestUtils.HDFS_ENVIRONMENT;
+import static io.trino.hdfs.HdfsTestUtils.HDFS_FILE_SYSTEM_STATS;
 import static io.trino.parquet.ParquetTestUtils.writeParquetFile;
-import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
-import static io.trino.plugin.hive.HiveTestUtils.HDFS_FILE_SYSTEM_STATS;
 import static io.trino.plugin.iceberg.ColumnIdentity.TypeCategory.PRIMITIVE;
 import static io.trino.plugin.iceberg.IcebergFileFormat.PARQUET;
 import static io.trino.plugin.iceberg.IcebergTestUtils.FILE_IO_FACTORY;
