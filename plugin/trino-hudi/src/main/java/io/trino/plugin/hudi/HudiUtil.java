@@ -28,22 +28,28 @@ import io.trino.metastore.HiveType;
 import io.trino.metastore.Table;
 import io.trino.plugin.hive.HiveColumnHandle;
 import io.trino.plugin.hive.HivePartitionKey;
-import io.trino.plugin.hive.HivePartitionManager;
 import io.trino.plugin.hive.HiveTimestampPrecision;
 import io.trino.plugin.hive.avro.AvroHiveFileUtils;
 import io.trino.plugin.hudi.storage.TrinoHudiStorage;
 import io.trino.plugin.hudi.storage.TrinoStorageConfiguration;
 import io.trino.spi.TrinoException;
+import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.NullableValue;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.TypeManager;
+import io.trino.spi.type.VarcharType;
 import org.apache.avro.Schema;
 import org.apache.avro.SchemaBuilder;
 import org.apache.hudi.common.config.RecordMergeMode;
 import org.apache.hudi.common.data.HoodiePairData;
+import org.apache.hudi.common.fs.FSUtils;
+import org.apache.hudi.common.model.FileSlice;
+import org.apache.hudi.common.model.HoodieBaseFile;
 import org.apache.hudi.common.model.HoodieFileFormat;
+import org.apache.hudi.common.model.HoodieFileGroupId;
+import org.apache.hudi.common.model.HoodieLogFile;
 import org.apache.hudi.common.table.HoodieTableMetaClient;
 import org.apache.hudi.common.table.TableSchemaResolver;
 import org.apache.hudi.common.table.view.HoodieTableFileSystemView;
@@ -53,16 +59,21 @@ import org.apache.hudi.common.util.Option;
 import org.apache.hudi.common.util.collection.Pair;
 import org.apache.hudi.exception.TableNotFoundException;
 import org.apache.hudi.metadata.HoodieTableMetadata;
+import org.apache.hudi.storage.StoragePath;
 import org.apache.hudi.util.Lazy;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
@@ -74,6 +85,7 @@ import static io.trino.plugin.hive.HiveErrorCode.HIVE_INVALID_METADATA;
 import static io.trino.plugin.hive.util.HiveTypeUtil.getType;
 import static io.trino.plugin.hive.util.HiveTypeUtil.typeSupported;
 import static io.trino.plugin.hive.util.HiveUtil.checkCondition;
+import static io.trino.plugin.hive.util.HiveUtil.parsePartitionValue;
 import static io.trino.plugin.hive.util.SerdeConstants.LIST_COLUMNS;
 import static io.trino.plugin.hive.util.SerdeConstants.LIST_COLUMN_TYPES;
 import static io.trino.plugin.hudi.HudiErrorCode.HUDI_BAD_DATA;
@@ -157,12 +169,33 @@ public final class HudiUtil
             SchemaTableName tableName,
             String hivePartitionName,
             List<HiveColumnHandle> partitionColumnHandles,
+            List<String> partitionValues,
             TupleDomain<HiveColumnHandle> constraintSummary)
     {
-        HivePartition partition = HivePartitionManager.parsePartition(
-                tableName, hivePartitionName, partitionColumnHandles);
+        HivePartition partition = parsePartition(
+                tableName, hivePartitionName, partitionColumnHandles, partitionValues);
 
         return partitionMatches(partitionColumnHandles, constraintSummary, partition);
+    }
+
+    /**
+     * Copied from {@link io.trino.plugin.hive.HivePartitionManager#parsePartition}
+     * to keep partition parsing logic self-contained within {@code trino-hudi}.
+     */
+    private static HivePartition parsePartition(
+            SchemaTableName tableName,
+            String partitionName,
+            List<HiveColumnHandle> partitionColumns,
+            List<String> partitionValues)
+    {
+        ImmutableMap.Builder<ColumnHandle, NullableValue> builder = ImmutableMap.builderWithExpectedSize(partitionColumns.size());
+        for (int i = 0; i < partitionColumns.size(); i++) {
+            HiveColumnHandle column = partitionColumns.get(i);
+            NullableValue parsedValue = parsePartitionValue(partitionName, partitionValues.get(i), column.getType());
+            builder.put(column, parsedValue);
+        }
+        Map<ColumnHandle, NullableValue> values = builder.buildOrThrow();
+        return new HivePartition(tableName, partitionName, values);
     }
 
     public static boolean partitionMatches(List<HiveColumnHandle> partitionColumns, TupleDomain<HiveColumnHandle> constraintSummary, HivePartition partition)
@@ -181,7 +214,7 @@ public final class HudiUtil
         return true;
     }
 
-    public static List<HivePartitionKey> buildPartitionKeys(List<Column> keys, List<String> values)
+    public static List<HivePartitionKey> buildPartitionKeys(List<HiveColumnHandle> keys, List<String> values)
     {
         checkCondition(keys.size() == values.size(), HIVE_INVALID_METADATA,
                 "Expected %s partition key values, but got %s. Keys: %s, Values: %s.",
@@ -311,6 +344,58 @@ public final class HudiUtil
 
         throw new TrinoException(HUDI_SCHEMA_ERROR,
                 "Failed to get column " + columnName + " from table schema");
+    }
+
+    public static List<HiveColumnHandle> prependHudiMetaAndOrderingColumns(HudiTableHandle tableHandle, List<HiveColumnHandle> dataColumns)
+    {
+        //For efficient lookup
+        Set<String> existingColumns = dataColumns.stream()
+                .map(HiveColumnHandle::getName)
+                .collect(Collectors.toCollection(HashSet::new));
+
+        List<HiveColumnHandle> columns = new ArrayList<>();
+
+        // Add missing Hudi meta columns first
+        for (int i = 0; i < HOODIE_META_COLUMNS.size(); i++) {
+            String metaColumn = HOODIE_META_COLUMNS.get(i);
+            if (existingColumns.add(metaColumn)) { // add() returns false if already present
+                columns.add(new HiveColumnHandle(
+                        metaColumn,
+                        i,
+                        HiveType.HIVE_STRING,
+                        VarcharType.VARCHAR,
+                        Optional.empty(),
+                        REGULAR,
+                        Optional.empty()));
+            }
+        }
+
+        // Add missing ordering columns next
+        tableHandle.getOrderingColumns().stream()
+                .filter(col -> existingColumns.add(col.getName()))
+                .forEach(columns::add);
+
+        // Add all the original data columns after the new meta columns
+        columns.addAll(dataColumns);
+
+        return columns;
+    }
+
+    public static FileSlice convertToFileSlice(HudiSplit split, String basePath)
+    {
+        String dataFilePath = split.getBaseFile().isPresent()
+                ? split.getBaseFile().get().getPath()
+                : split.getLogFiles().getFirst().getPath();
+        String fileId = FSUtils.getFileIdFromFileName(new StoragePath(dataFilePath).getName());
+        HoodieBaseFile baseFile = split.getBaseFile().isPresent()
+                ? new HoodieBaseFile(dataFilePath, fileId, split.getCommitTime(), null)
+                : null;
+
+        return new FileSlice(
+                new HoodieFileGroupId(FSUtils.getRelativePartitionPath(new StoragePath(basePath), new StoragePath(dataFilePath)), fileId),
+                split.getCommitTime(),
+                baseFile,
+                split.getLogFiles().stream().map(lf -> new HoodieLogFile(lf.getPath())).toList());
     }
 
     public static HoodieTableFileSystemView getFileSystemView(
