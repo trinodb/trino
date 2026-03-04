@@ -16,6 +16,7 @@ package io.trino.plugin.deltalake.transactionlog;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
+import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.DoubleType;
 import io.trino.spi.type.IntegerType;
 import org.apache.parquet.column.statistics.Statistics;
@@ -219,6 +220,21 @@ public class TestDeltaLakeParquetStatisticsUtils
     private static int millisToJulianDay(long timestamp)
     {
         return toIntExact(MILLISECONDS.toDays(timestamp) + JULIAN_EPOCH_OFFSET_DAYS);
+    }
+
+    @Test
+    public void testDecimalJsonValueToTrinoValueFromNumericType()
+    {
+        // Spark may serialize DECIMAL statistics as JSON Numbers instead of Strings (e.g., 36.17 vs "36.17")
+        DecimalType shortDecimal = DecimalType.createDecimalType(10, 2);
+        Object fromString = jsonValueToTrinoValue(shortDecimal, "36.17");
+        Object fromDouble = jsonValueToTrinoValue(shortDecimal, 36.17);
+        assertThat(fromDouble).isEqualTo(fromString);
+
+        // Integer JSON value (e.g., 100 instead of "100.00")
+        Object fromInteger = jsonValueToTrinoValue(shortDecimal, 100);
+        Object fromIntegerString = jsonValueToTrinoValue(shortDecimal, "100");
+        assertThat(fromInteger).isEqualTo(fromIntegerString);
     }
 
     static byte[] getIntByteArray(int i)

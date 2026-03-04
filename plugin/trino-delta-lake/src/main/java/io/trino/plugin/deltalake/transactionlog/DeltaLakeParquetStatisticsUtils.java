@@ -132,7 +132,8 @@ public final class DeltaLakeParquetStatisticsUtils
             return (double) jsonValue;
         }
         if (type instanceof DecimalType decimalType) {
-            BigDecimal decimal = new BigDecimal((String) jsonValue);
+            // Spark may serialize DECIMAL statistics as JSON Numbers instead of Strings
+            BigDecimal decimal = new BigDecimal(jsonValue instanceof String stringValue ? stringValue : String.valueOf(jsonValue));
 
             if (decimalType.isShort()) {
                 return Decimals.encodeShortScaledValue(decimal, decimalType.getScale());
