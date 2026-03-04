@@ -38,7 +38,6 @@ public class PageBufferClientStatus
     private final int requestsCompleted;
     private final int requestsFailed;
     private final int requestsSucceeded;
-    private final String httpRequestState;
 
     @JsonCreator
     public PageBufferClientStatus(@JsonProperty("uri") URI uri,
@@ -51,8 +50,7 @@ public class PageBufferClientStatus
             @JsonProperty("requestsScheduled") int requestsScheduled,
             @JsonProperty("requestsCompleted") int requestsCompleted,
             @JsonProperty("requestsFailed") int requestsFailed,
-            @JsonProperty("requestsSucceeded") int requestsSucceeded,
-            @JsonProperty("httpRequestState") String httpRequestState)
+            @JsonProperty("requestsSucceeded") int requestsSucceeded)
     {
         this.uri = uri;
         this.state = state;
@@ -65,7 +63,6 @@ public class PageBufferClientStatus
         this.requestsCompleted = requestsCompleted;
         this.requestsFailed = requestsFailed;
         this.requestsSucceeded = requestsSucceeded;
-        this.httpRequestState = httpRequestState;
     }
 
     @JsonProperty
@@ -134,12 +131,6 @@ public class PageBufferClientStatus
         return requestsSucceeded;
     }
 
-    @JsonProperty
-    public String getHttpRequestState()
-    {
-        return httpRequestState;
-    }
-
     @Override
     public String toString()
     {
@@ -149,7 +140,6 @@ public class PageBufferClientStatus
                 .add("lastUpdate", lastUpdate)
                 .add("rowsReceived", rowsReceived)
                 .add("pagesReceived", pagesReceived)
-                .add("httpRequestState", httpRequestState)
                 .toString();
     }
 }
