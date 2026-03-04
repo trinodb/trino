@@ -135,6 +135,10 @@ vertica:
   - changed-files:
     - any-glob-to-any-file: 'plugin/trino-vertica/**'
 
+weaviate:
+  - changed-files:
+    - any-glob-to-any-file: 'plugin/trino-weaviate/**'
+
 docs:
   - changed-files:
     - any-glob-to-any-file: 'docs/**'
