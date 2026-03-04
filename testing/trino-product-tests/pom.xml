@@ -424,22 +424,22 @@
     </repositories>
 
     <build>
-        <resources>
-            <resource>
+        <testResources>
+            <testResource>
                 <filtering>true</filtering>
-                <directory>src/main/resources</directory>
+                <directory>src/test/resources</directory>
                 <includes>
                     <include>trino-cli-version.txt</include>
                 </includes>
-            </resource>
-            <resource>
+            </testResource>
+            <testResource>
                 <filtering>false</filtering>
-                <directory>src/main/resources</directory>
+                <directory>src/test/resources</directory>
                 <excludes>
                     <exclude>trino-cli-version.txt</exclude>
                 </excludes>
-            </resource>
-        </resources>
+            </testResource>
+        </testResources>
 
         <plugins>
             <plugin>
