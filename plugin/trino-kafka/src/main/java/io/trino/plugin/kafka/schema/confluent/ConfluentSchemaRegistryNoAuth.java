@@ -11,23 +11,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.kafka;
+package io.trino.plugin.kafka.schema.confluent;
 
-import io.trino.testing.AbstractTestQueries;
-import io.trino.testing.QueryRunner;
-import io.trino.testing.kafka.TestingKafka;
+import com.google.common.collect.ImmutableMap;
 
-public class TestKafkaDistributed
-        extends AbstractTestQueries
+/* Empty Schema Registry Auth for registries without any authentication */
+public class ConfluentSchemaRegistryNoAuth
+        implements SchemaRegistryClientPropertiesProvider
 {
     @Override
-    protected QueryRunner createQueryRunner()
-            throws Exception
+    public ImmutableMap<String, Object> getSchemaRegistryClientProperties()
     {
-        TestingKafka testingKafka = closeAfterClass(TestingKafka.create());
-        testingKafka.start();
-        return KafkaQueryRunner.builder(testingKafka)
-                .setTables(REQUIRED_TPCH_TABLES)
-                .build();
+        return ImmutableMap.of();
     }
 }
