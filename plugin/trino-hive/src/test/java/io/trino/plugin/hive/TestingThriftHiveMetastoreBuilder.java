@@ -32,9 +32,10 @@ import java.util.concurrent.ExecutorService;
 import java.util.function.Consumer;
 
 import static com.google.common.base.Preconditions.checkState;
+import static io.trino.hdfs.HdfsTestUtils.HDFS_ENVIRONMENT;
+import static io.trino.hdfs.HdfsTestUtils.HDFS_FILE_SYSTEM_STATS;
+import static io.trino.hdfs.HdfsTestUtils.SOCKS_PROXY;
 import static io.trino.plugin.base.security.UserNameProvider.SIMPLE_USER_NAME_PROVIDER;
-import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
-import static io.trino.plugin.hive.HiveTestUtils.HDFS_FILE_SYSTEM_STATS;
 import static io.trino.plugin.hive.HiveTestUtils.SESSION;
 import static io.trino.plugin.hive.metastore.thrift.TestingTokenAwareMetastoreClientFactory.TIMEOUT;
 import static java.util.Objects.requireNonNull;
@@ -57,7 +58,7 @@ public final class TestingThriftHiveMetastoreBuilder
     {
         requireNonNull(metastoreUri, "metastoreUri is null");
         checkState(tokenAwareMetastoreClientFactory == null, "Metastore client already set");
-        tokenAwareMetastoreClientFactory = new TestingTokenAwareMetastoreClientFactory(HiveTestUtils.SOCKS_PROXY, metastoreUri);
+        tokenAwareMetastoreClientFactory = new TestingTokenAwareMetastoreClientFactory(SOCKS_PROXY, metastoreUri);
         return this;
     }
 
@@ -66,7 +67,7 @@ public final class TestingThriftHiveMetastoreBuilder
         requireNonNull(address, "address is null");
         requireNonNull(timeout, "timeout is null");
         checkState(tokenAwareMetastoreClientFactory == null, "Metastore client already set");
-        tokenAwareMetastoreClientFactory = new TestingTokenAwareMetastoreClientFactory(HiveTestUtils.SOCKS_PROXY, address, timeout);
+        tokenAwareMetastoreClientFactory = new TestingTokenAwareMetastoreClientFactory(SOCKS_PROXY, address, timeout);
         return this;
     }
 
@@ -74,7 +75,7 @@ public final class TestingThriftHiveMetastoreBuilder
     {
         requireNonNull(uri, "uri is null");
         checkState(tokenAwareMetastoreClientFactory == null, "Metastore client already set");
-        tokenAwareMetastoreClientFactory = new TestingTokenAwareMetastoreClientFactory(HiveTestUtils.SOCKS_PROXY, uri, TIMEOUT, metastoreClientAdapterProvider);
+        tokenAwareMetastoreClientFactory = new TestingTokenAwareMetastoreClientFactory(SOCKS_PROXY, uri, TIMEOUT, metastoreClientAdapterProvider);
         return this;
     }
 
