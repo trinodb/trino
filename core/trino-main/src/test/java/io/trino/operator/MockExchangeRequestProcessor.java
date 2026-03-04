@@ -31,6 +31,7 @@ import io.trino.execution.buffer.PageSerializer;
 import io.trino.execution.buffer.PagesSerdeFactory;
 import io.trino.spi.Page;
 
+import java.io.ByteArrayInputStream;
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.List;
@@ -138,7 +139,7 @@ public class MockExchangeRequestProcessor
                         .put(TRINO_BUFFER_COMPLETE_HEADER, String.valueOf(result.bufferComplete()))
                         .put(TRINO_TASK_FAILED_HEADER, "false")
                         .build(),
-                bytes);
+                new ByteArrayInputStream(bytes));
     }
 
     private static class RequestLocation
