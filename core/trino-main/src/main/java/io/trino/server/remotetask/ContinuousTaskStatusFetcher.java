@@ -17,8 +17,8 @@ import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
 import io.airlift.concurrent.SetThreadName;
-import io.airlift.http.client.FullJsonResponseHandler;
 import io.airlift.http.client.HttpClient;
+import io.airlift.http.client.JsonResponse;
 import io.airlift.http.client.Request;
 import io.airlift.json.JsonCodec;
 import io.airlift.log.Logger;
@@ -38,9 +38,9 @@ import java.util.function.Supplier;
 
 import static com.google.common.net.HttpHeaders.CONTENT_TYPE;
 import static com.google.common.net.MediaType.JSON_UTF_8;
-import static io.airlift.http.client.FullJsonResponseHandler.createFullJsonResponseHandler;
 import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 import static io.airlift.http.client.Request.Builder.prepareGet;
+import static io.airlift.http.client.StreamingJsonResponseHandler.streamingJsonResponseHandler;
 import static io.airlift.units.Duration.nanosSince;
 import static io.trino.server.InternalHeaders.TRINO_CURRENT_VERSION;
 import static io.trino.server.InternalHeaders.TRINO_MAX_WAIT;
@@ -70,7 +70,7 @@ class ContinuousTaskStatusFetcher
     private boolean running;
 
     @GuardedBy("this")
-    private ListenableFuture<FullJsonResponseHandler.JsonResponse<TaskStatus>> future;
+    private ListenableFuture<JsonResponse<TaskStatus>> future;
 
     public ContinuousTaskStatusFetcher(
             Consumer<Throwable> onFail,
@@ -153,7 +153,7 @@ class ContinuousTaskStatusFetcher
                 .build();
 
         errorTracker.startRequest();
-        future = httpClient.executeAsync(request, createFullJsonResponseHandler(taskStatusCodec));
+        future = httpClient.executeAsync(request, streamingJsonResponseHandler(taskStatusCodec));
         Futures.addCallback(future, new SimpleHttpResponseHandler<>(new TaskStatusResponseCallback(), request.getUri(), stats), executor);
     }
 

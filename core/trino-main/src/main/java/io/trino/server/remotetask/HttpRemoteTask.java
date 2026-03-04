@@ -26,9 +26,9 @@ import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
 import io.airlift.concurrent.SetThreadName;
-import io.airlift.http.client.FullJsonResponseHandler.JsonResponse;
 import io.airlift.http.client.HttpClient;
 import io.airlift.http.client.HttpUriBuilder;
+import io.airlift.http.client.JsonResponse;
 import io.airlift.http.client.Request;
 import io.airlift.json.JsonCodec;
 import io.airlift.log.Logger;
@@ -103,12 +103,12 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
-import static io.airlift.http.client.FullJsonResponseHandler.createFullJsonResponseHandler;
 import static io.airlift.http.client.HttpStatus.OK;
 import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 import static io.airlift.http.client.Request.Builder.prepareDelete;
 import static io.airlift.http.client.Request.Builder.preparePost;
 import static io.airlift.http.client.StaticBodyGenerator.createStaticBodyGenerator;
+import static io.airlift.http.client.StreamingJsonResponseHandler.streamingJsonResponseHandler;
 import static io.airlift.units.Duration.nanosSince;
 import static io.trino.SystemSessionProperties.getMaxRemoteTaskRequestSize;
 import static io.trino.SystemSessionProperties.getMaxUnacknowledgedSplitsPerTask;
@@ -797,7 +797,7 @@ public final class HttpRemoteTask
 
         updateErrorTracker.startRequest();
 
-        ListenableFuture<JsonResponse<TaskInfo>> future = httpClient.executeAsync(request, createFullJsonResponseHandler(taskInfoCodec));
+        ListenableFuture<JsonResponse<TaskInfo>> future = httpClient.executeAsync(request, streamingJsonResponseHandler(taskInfoCodec));
         checkState(currentRequest.getAndSet(future) == null, "There should be no previous request running");
 
         Futures.addCallback(
@@ -972,38 +972,44 @@ public final class HttpRemoteTask
 
     private void doScheduleAsyncCleanupRequest(Backoff cleanupBackoff, Request request, String action)
     {
-        Futures.addCallback(httpClient.executeAsync(request, createFullJsonResponseHandler(taskInfoCodec)), new FutureCallback<>()
+        Futures.addCallback(httpClient.executeAsync(request, streamingJsonResponseHandler(taskInfoCodec)), new FutureCallback<>()
         {
             @Override
             public void onSuccess(JsonResponse<TaskInfo> result)
             {
-                if (result.getStatusCode() != OK.code()) {
-                    onFailure(exceptionForErrorCode(result));
-                    return;
-                }
-
-                try {
-                    checkArgument(result.hasValue(), "TaskInfo result did not contain JSON payload; payload=%s", result.getResponseBody());
-                    updateTaskInfo(result.getValue());
-                }
-                catch (Throwable e) {
-                    log.error(e, "Error in async cleanup on %s for %s", action, request.getUri());
-                    throw e;
-                }
-                finally {
-                    // if cleanup operation has not at least started task termination, mark the task failed
-                    TaskState taskState = getTaskInfo().taskStatus().state();
-                    if (!taskState.isTerminatingOrDone()) {
-                        fatalAsyncCleanupFailure(new TrinoTransportException(REMOTE_TASK_ERROR, fromUri(request.getUri()), format("Unable to %s task at %s, last known state was: %s", action, request.getUri(), taskState)));
+                switch (result) {
+                    case JsonResponse.JsonValue<TaskInfo> jsonValue -> {
+                        if (jsonValue.statusCode() != OK.code()) {
+                            onFailure(new RuntimeException("Expected error code"));
+                            return;
+                        }
+                        try {
+                            updateTaskInfo(jsonValue.jsonValue());
+                        }
+                        catch (Throwable e) {
+                            log.error(e, "Error in async cleanup on %s for %s", action, request.getUri());
+                            throw e;
+                        }
+                        finally {
+                            // if cleanup operation has not at least started task termination, mark the task failed
+                            TaskState taskState = getTaskInfo().taskStatus().state();
+                            if (!taskState.isTerminatingOrDone()) {
+                                fatalAsyncCleanupFailure(new TrinoTransportException(REMOTE_TASK_ERROR, fromUri(request.getUri()), format("Unable to %s task at %s, last known state was: %s", action, request.getUri(), taskState)));
+                            }
+                        }
                     }
+                    case JsonResponse.Exception<TaskInfo> exception ->
+                            onFailure(exceptionForErrorCode(exception));
+                    case JsonResponse.NonJsonBytes<TaskInfo> bytes ->
+                            onFailure(new RuntimeException(bytes.stringValue()));
                 }
             }
 
-            private static RuntimeException exceptionForErrorCode(JsonResponse<TaskInfo> result)
+            private static RuntimeException exceptionForErrorCode(JsonResponse.Exception<TaskInfo> result)
             {
-                return switch (result.getStatusCode()) {
+                return switch (result.statusCode()) {
                     case HTTP_UNAVAILABLE -> new ServiceUnavailableException("Service Unavailable");
-                    default -> new RuntimeException("Unexpected http status code " + result.getStatusCode());
+                    default -> new RuntimeException("Could not execute request", result.throwable());
                 };
             }
 
