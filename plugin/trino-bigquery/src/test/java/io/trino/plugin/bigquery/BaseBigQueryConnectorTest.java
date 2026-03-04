@@ -17,6 +17,8 @@ import com.google.cloud.bigquery.FieldValue;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultiset;
 import com.google.common.collect.Multiset;
+import dev.failsafe.Failsafe;
+import dev.failsafe.RetryPolicy;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.opentelemetry.sdk.trace.data.SpanData;
@@ -143,6 +145,26 @@ public abstract class BaseBigQueryConnectorTest
                 .row("shippriority", "bigint", "", "")
                 .row("comment", "varchar", "", "")
                 .build();
+    }
+
+    @Test
+    @Override
+    public void testDeleteWithVarcharPredicate()
+    {
+        // there is a brief delay before newly written data becomes visible in the BigQuery connector
+        // https://github.com/trinodb/trino/issues/20894
+        Failsafe.with(RetryPolicy.builder().withMaxAttempts(3).build())
+                .run(super::testDeleteWithVarcharPredicate);
+    }
+
+    @Test
+    @Override
+    public void testDelete()
+    {
+        // there is a brief delay before newly written data becomes visible in the BigQuery connector
+        // https://github.com/trinodb/trino/issues/20894
+        Failsafe.with(RetryPolicy.builder().withMaxAttempts(3).build())
+                .run(super::testDelete);
     }
 
     @Test
