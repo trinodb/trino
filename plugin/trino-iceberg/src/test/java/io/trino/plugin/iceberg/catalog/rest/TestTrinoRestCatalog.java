@@ -13,7 +13,9 @@
  */
 package io.trino.plugin.iceberg.catalog.rest;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.airlift.log.Logger;
 import io.trino.cache.EvictableCacheBuilder;
 import io.trino.filesystem.hdfs.HdfsFileSystemFactory;
 import io.trino.metastore.TableInfo;
@@ -28,10 +30,14 @@ import io.trino.spi.NodeVersion;
 import io.trino.spi.TrinoException;
 import io.trino.spi.catalog.CatalogName;
 import io.trino.spi.connector.ConnectorMetadata;
+import io.trino.spi.connector.ConnectorViewDefinition;
+import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.security.PrincipalType;
 import io.trino.spi.security.TrinoPrincipal;
+import io.trino.spi.type.VarcharType;
 import org.apache.iceberg.rest.DelegatingRestSessionCatalog;
 import org.apache.iceberg.rest.RESTSessionCatalog;
+import org.apache.iceberg.view.View;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
@@ -63,11 +69,13 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 public class TestTrinoRestCatalog
         extends BaseTrinoCatalogTest
 {
+    private static final Logger LOG = Logger.get(TestTrinoRestCatalog.class);
+
     @Override
     protected TrinoCatalog createTrinoCatalog(boolean useUniqueTableLocations)
             throws IOException
     {
-        return createTrinoRestCatalog(useUniqueTableLocations, ImmutableMap.of());
+        return createTrinoRestCatalog(useUniqueTableLocations, ImmutableMap.of(), Files.createTempDirectory(null));
     }
 
     @Override
@@ -81,10 +89,9 @@ public class TestTrinoRestCatalog
                 new TrinoPrincipal(PrincipalType.USER, SESSION.getUser()));
     }
 
-    private static TrinoRestCatalog createTrinoRestCatalog(boolean useUniqueTableLocations, Map<String, String> properties)
+    private static TrinoRestCatalog createTrinoRestCatalog(boolean useUniqueTableLocations, Map<String, String> properties, Path warehouseLocation)
             throws IOException
     {
-        Path warehouseLocation = Files.createTempDirectory(null);
         warehouseLocation.toFile().deleteOnExit();
 
         String catalogName = "iceberg_rest";
@@ -170,7 +177,7 @@ public class TestTrinoRestCatalog
     public void testPrefix()
             throws Exception
     {
-        TrinoCatalog catalog = createTrinoRestCatalog(false, ImmutableMap.of("prefix", "dev"));
+        TrinoCatalog catalog = createTrinoRestCatalog(false, ImmutableMap.of("prefix", "dev"), Files.createTempDirectory(null));
 
         String namespace = "testPrefixNamespace" + randomNameSuffix();
 
@@ -191,5 +198,71 @@ public class TestTrinoRestCatalog
     protected TableInfo.ExtendedRelationType getViewType()
     {
         return OTHER_VIEW;
+    }
+
+    @Test
+    public void testCreateReplaceViewUniqueLocation()
+            throws IOException
+    {
+        Path warehouseLocation = Files.createTempDirectory("iceberg_catalog_test_create_view_");
+        TrinoRestCatalog catalog = createTrinoRestCatalog(true, ImmutableMap.of(), warehouseLocation);
+
+        String namespace = "test_create_view_" + randomNameSuffix();
+        String viewName = "viewName";
+        SchemaTableName schemaTableName = new SchemaTableName(namespace, viewName);
+        ConnectorViewDefinition viewDefinition = new ConnectorViewDefinition(
+                "SELECT name FROM local.tiny.nation",
+                Optional.empty(),
+                Optional.empty(),
+                ImmutableList.of(
+                        new ConnectorViewDefinition.ViewColumn("name", VarcharType.createUnboundedVarcharType().getTypeId(), Optional.empty())),
+                Optional.empty(),
+                Optional.of(SESSION.getUser()),
+                false,
+                ImmutableList.of());
+
+        try {
+            catalog.createNamespace(SESSION, namespace, defaultNamespaceProperties(namespace), new TrinoPrincipal(PrincipalType.USER, SESSION.getUser()));
+            catalog.createView(SESSION, schemaTableName, viewDefinition, false);
+
+            assertThat(catalog.listTables(SESSION, Optional.of(namespace)).stream()).contains(new TableInfo(schemaTableName, getViewType()));
+
+            Map<SchemaTableName, ConnectorViewDefinition> views = catalog.getViews(SESSION, Optional.of(schemaTableName.getSchemaName()));
+            assertThat(views).hasSize(1);
+            assertViewDefinition(views.get(schemaTableName), viewDefinition);
+            assertViewDefinition(catalog.getView(SESSION, schemaTableName).orElseThrow(), viewDefinition);
+
+            View initialViewLocation = catalog.getIcebergView(SESSION, schemaTableName, false).orElse(null);
+            assertThat(initialViewLocation).isNotNull();
+            assertThat(initialViewLocation.name()).isNotNull();
+            assertThat(initialViewLocation.name().toLowerCase(ENGLISH)).endsWith((namespace + "." + viewName).toLowerCase(ENGLISH));
+            assertThat(initialViewLocation.location()).isNotNull();
+
+            catalog.createView(SESSION, schemaTableName, viewDefinition, true);
+            assertThat(catalog.listTables(SESSION, Optional.of(namespace)).stream()).contains(new TableInfo(schemaTableName, getViewType()));
+            views = catalog.getViews(SESSION, Optional.of(schemaTableName.getSchemaName()));
+            assertThat(views).hasSize(1);
+            assertViewDefinition(views.get(schemaTableName), viewDefinition);
+            assertViewDefinition(catalog.getView(SESSION, schemaTableName).orElseThrow(), viewDefinition);
+
+            View finalViewLocation = catalog.getIcebergView(SESSION, schemaTableName, false).orElse(null);
+            assertThat(finalViewLocation).isNotNull();
+            assertThat(finalViewLocation.name()).isNotNull();
+            assertThat(finalViewLocation.name().toLowerCase(ENGLISH)).endsWith((namespace + "." + viewName).toLowerCase(ENGLISH));
+            assertThat(finalViewLocation.location()).isNotNull();
+            assertThat(finalViewLocation.location()).isEqualTo(initialViewLocation.location());
+
+            catalog.dropView(SESSION, schemaTableName);
+            assertThat(catalog.listTables(SESSION, Optional.empty()).stream().map(TableInfo::tableName).toList())
+                    .doesNotContain(schemaTableName);
+        }
+        finally {
+            try {
+                catalog.dropNamespace(SESSION, namespace);
+            }
+            catch (Exception e) {
+                LOG.warn("Failed to clean up namespace: %s", namespace);
+            }
+        }
     }
 }

@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.iceberg.catalog.rest;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.base.Splitter;
 import com.google.common.cache.Cache;
@@ -662,12 +663,19 @@ public class TrinoRestCatalog
         definition.getComment().ifPresent(comment -> properties.put(COMMENT, comment));
         Schema schema = IcebergUtil.schemaFromViewColumns(typeManager, definition.getColumns());
         ViewBuilder viewBuilder = restSessionCatalog.buildView(convert(session), toRemoteView(session, schemaViewName, true));
+        String tableLocation = defaultTableLocation(session, schemaViewName);
+        if (replace && useUniqueTableLocation) {
+            Optional<View> view = getIcebergView(session, schemaViewName, true);
+            if (view.isPresent()) {
+                tableLocation = view.get().location();
+            }
+        }
         viewBuilder = viewBuilder.withSchema(schema)
                 .withQuery("trino", definition.getOriginalSql())
                 .withDefaultNamespace(toRemoteNamespace(session, toNamespace(schemaViewName.getSchemaName())))
                 .withDefaultCatalog(definition.getCatalog().orElse(null))
                 .withProperties(properties.buildOrThrow())
-                .withLocation(defaultTableLocation(session, schemaViewName));
+                .withLocation(tableLocation);
         try {
             if (replace) {
                 viewBuilder.createOrReplace();
@@ -765,7 +773,8 @@ public class TrinoRestCatalog
         });
     }
 
-    private Optional<View> getIcebergView(ConnectorSession session, SchemaTableName viewName, boolean getCached)
+    @VisibleForTesting
+    Optional<View> getIcebergView(ConnectorSession session, SchemaTableName viewName, boolean getCached)
     {
         if (!viewEndpointsEnabled) {
             return Optional.empty();
