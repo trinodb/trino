@@ -704,7 +704,7 @@ public class TestLocalProperties
                             public ColumnHandle deserialize(JsonParser parser, DeserializationContext context)
                                     throws IOException
                             {
-                                return parser.readValueAs(TestingColumnHandle.class);
+                                return context.readValue(parser, TestingColumnHandle.class);
                             }
                         }))
                 .get();
