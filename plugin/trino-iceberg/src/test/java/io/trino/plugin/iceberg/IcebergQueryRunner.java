@@ -291,6 +291,39 @@ public final class IcebergQueryRunner
         }
     }
 
+    public static final class IcebergS3TablesQueryRunnerMain
+    {
+        private IcebergS3TablesQueryRunnerMain() {}
+
+        static void main()
+                throws Exception
+        {
+            Logging.initialize();
+
+            @SuppressWarnings("resource")
+            QueryRunner queryRunner = icebergQueryRunnerMainBuilder()
+                    .setIcebergProperties(ImmutableMap.<String, String>builder()
+                            .put("iceberg.security", "SYSTEM")
+                            .put("iceberg.catalog.type", "rest")
+                            .put("iceberg.rest-catalog.uri", "https://s3tables.%s.amazonaws.com/iceberg".formatted(requireEnv("AWS_REGION")))
+                            .put("iceberg.rest-catalog.warehouse", requireEnv("S3_TABLES_BUCKET_ARN"))
+                            .put("iceberg.rest-catalog.security", "SIGV4")
+                            .put("iceberg.rest-catalog.signing-name", "s3tables")
+                            .put("iceberg.rest-catalog.view-endpoints-enabled", "false")
+                            .put("fs.hadoop.enabled", "false")
+                            .put("fs.native-s3.enabled", "true")
+                            .put("s3.aws-access-key", requireEnv("S3_TABLES_ACCESS_KEY"))
+                            .put("s3.aws-secret-key", requireEnv("S3_TABLES_SECRET_KEY"))
+                            .put("s3.region", requireEnv("AWS_REGION"))
+                            .buildOrThrow())
+                    .build();
+
+            Logger log = Logger.get(IcebergS3TablesQueryRunnerMain.class);
+            log.info("======== SERVER STARTED ========");
+            log.info("\n====\n%s\n====", queryRunner.getCoordinator().getBaseUrl());
+        }
+    }
+
     public static final class IcebergDatabricksUnityS3QueryRunnerMain
     {
         private IcebergDatabricksUnityS3QueryRunnerMain() {}
