@@ -17,7 +17,6 @@ import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonToken;
 import com.fasterxml.jackson.core.Version;
-import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.DeserializationContext;
 import com.fasterxml.jackson.databind.JavaType;
 import com.fasterxml.jackson.databind.JsonMappingException;
@@ -44,8 +43,6 @@ import java.io.IOException;
 public class QueryDataJacksonModule
         extends SimpleModule
 {
-    private static final TypeReference<EncodedQueryData> ENCODED_FORMAT = new TypeReference<>() {};
-
     public QueryDataJacksonModule()
     {
         super(QueryDataJacksonModule.class.getSimpleName(), Version.unknownVersion());
@@ -68,9 +65,9 @@ public class QueryDataJacksonModule
         {
             // If this is not JSON_ARRAY we are dealing with direct data encoding
             if (jsonParser.currentToken().equals(JsonToken.START_ARRAY)) {
-                return new JsonQueryData(jsonParser.readValueAsTree());
+                return new JsonQueryData(deserializationContext.readTree(jsonParser));
             }
-            return jsonParser.readValueAs(ENCODED_FORMAT);
+            return deserializationContext.readValue(jsonParser, EncodedQueryData.class);
         }
     }
 

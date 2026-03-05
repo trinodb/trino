@@ -171,7 +171,7 @@ public class ClientTypeSignatureParameter
         public ClientTypeSignatureParameter deserialize(JsonParser jp, DeserializationContext ctxt)
                 throws IOException
         {
-            JsonNode node = jp.getCodec().readTree(jp);
+            JsonNode node = ctxt.readTree(jp);
             ParameterKind kind = MAPPER.readValue(MAPPER.treeAsTokens(node.get("kind")), ParameterKind.class);
             JsonParser jsonValue = MAPPER.treeAsTokens(node.get("value"));
             Object value;
