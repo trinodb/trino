@@ -22,8 +22,6 @@ import io.trino.spi.security.ConnectorIdentity;
 
 import java.util.Map;
 
-import static io.trino.filesystem.gcs.GcsFileSystemConstants.EXTRA_CREDENTIALS_GCS_DECRYPTION_KEY_PROPERTY;
-import static io.trino.filesystem.gcs.GcsFileSystemConstants.EXTRA_CREDENTIALS_GCS_ENCRYPTION_KEY_PROPERTY;
 import static io.trino.filesystem.gcs.GcsFileSystemConstants.EXTRA_CREDENTIALS_GCS_NO_AUTH_PROPERTY;
 import static io.trino.filesystem.gcs.GcsFileSystemConstants.EXTRA_CREDENTIALS_GCS_OAUTH_TOKEN_EXPIRES_AT_PROPERTY;
 import static io.trino.filesystem.gcs.GcsFileSystemConstants.EXTRA_CREDENTIALS_GCS_OAUTH_TOKEN_PROPERTY;
@@ -48,8 +46,6 @@ public class IcebergRestCatalogFileSystemFactory
     private static final String VENDED_GCS_SERVICE_HOST = "gcs.service.host";
     private static final String VENDED_GCS_NO_AUTH = "gcs.no-auth";
     private static final String VENDED_GCS_USER_PROJECT = "gcs.user-project";
-    private static final String VENDED_GCS_ENCRYPTION_KEY = "gcs.encryption-key";
-    private static final String VENDED_GCS_DECRYPTION_KEY = "gcs.decryption-key";
 
     private final TrinoFileSystemFactory fileSystemFactory;
     private final boolean vendedCredentialsEnabled;
@@ -92,9 +88,6 @@ public class IcebergRestCatalogFileSystemFactory
             addOptionalProperty(extraCredentialsBuilder, fileIoProperties, VENDED_GCS_SERVICE_HOST, EXTRA_CREDENTIALS_GCS_SERVICE_HOST_PROPERTY);
             addOptionalProperty(extraCredentialsBuilder, fileIoProperties, VENDED_GCS_NO_AUTH, EXTRA_CREDENTIALS_GCS_NO_AUTH_PROPERTY);
             addOptionalProperty(extraCredentialsBuilder, fileIoProperties, VENDED_GCS_USER_PROJECT, EXTRA_CREDENTIALS_GCS_USER_PROJECT_PROPERTY);
-            addOptionalProperty(extraCredentialsBuilder, fileIoProperties, VENDED_GCS_ENCRYPTION_KEY, EXTRA_CREDENTIALS_GCS_ENCRYPTION_KEY_PROPERTY);
-            addOptionalProperty(extraCredentialsBuilder, fileIoProperties, VENDED_GCS_DECRYPTION_KEY, EXTRA_CREDENTIALS_GCS_DECRYPTION_KEY_PROPERTY);
-
             ConnectorIdentity identityWithExtraCredentials = ConnectorIdentity.forUser(identity.getUser())
                     .withGroups(identity.getGroups())
                     .withPrincipal(identity.getPrincipal())
@@ -114,9 +107,7 @@ public class IcebergRestCatalogFileSystemFactory
                 fileIoProperties.containsKey(VENDED_GCS_NO_AUTH) ||
                 fileIoProperties.containsKey(VENDED_GCS_PROJECT_ID) ||
                 fileIoProperties.containsKey(VENDED_GCS_SERVICE_HOST) ||
-                fileIoProperties.containsKey(VENDED_GCS_USER_PROJECT) ||
-                fileIoProperties.containsKey(VENDED_GCS_ENCRYPTION_KEY) ||
-                fileIoProperties.containsKey(VENDED_GCS_DECRYPTION_KEY);
+                fileIoProperties.containsKey(VENDED_GCS_USER_PROJECT);
     }
 
     private static void addOptionalProperty(

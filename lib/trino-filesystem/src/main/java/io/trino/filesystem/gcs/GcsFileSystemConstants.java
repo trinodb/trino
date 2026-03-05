@@ -21,8 +21,6 @@ public final class GcsFileSystemConstants
     public static final String EXTRA_CREDENTIALS_GCS_SERVICE_HOST_PROPERTY = "internal$gcs_service_host";
     public static final String EXTRA_CREDENTIALS_GCS_NO_AUTH_PROPERTY = "internal$gcs_no_auth";
     public static final String EXTRA_CREDENTIALS_GCS_USER_PROJECT_PROPERTY = "internal$gcs_user_project";
-    public static final String EXTRA_CREDENTIALS_GCS_ENCRYPTION_KEY_PROPERTY = "internal$gcs_encryption_key";
-    public static final String EXTRA_CREDENTIALS_GCS_DECRYPTION_KEY_PROPERTY = "internal$gcs_decryption_key";
 
     private GcsFileSystemConstants() {}
 }

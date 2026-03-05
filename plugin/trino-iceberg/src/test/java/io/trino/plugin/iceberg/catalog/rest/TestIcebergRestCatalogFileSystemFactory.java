@@ -21,8 +21,6 @@ import org.junit.jupiter.api.Test;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
 
-import static io.trino.filesystem.gcs.GcsFileSystemConstants.EXTRA_CREDENTIALS_GCS_DECRYPTION_KEY_PROPERTY;
-import static io.trino.filesystem.gcs.GcsFileSystemConstants.EXTRA_CREDENTIALS_GCS_ENCRYPTION_KEY_PROPERTY;
 import static io.trino.filesystem.gcs.GcsFileSystemConstants.EXTRA_CREDENTIALS_GCS_NO_AUTH_PROPERTY;
 import static io.trino.filesystem.gcs.GcsFileSystemConstants.EXTRA_CREDENTIALS_GCS_OAUTH_TOKEN_EXPIRES_AT_PROPERTY;
 import static io.trino.filesystem.gcs.GcsFileSystemConstants.EXTRA_CREDENTIALS_GCS_OAUTH_TOKEN_PROPERTY;
@@ -113,8 +111,6 @@ final class TestIcebergRestCatalogFileSystemFactory
                 .put("gcs.project-id", "my-gcp-project")
                 .put("gcs.service.host", "https://custom-storage.googleapis.com")
                 .put("gcs.user-project", "billing-project")
-                .put("gcs.encryption-key", "dGVzdC1lbmNyeXB0aW9uLWtleS0xMjM0NTY3OA==")
-                .put("gcs.decryption-key", "dGVzdC1kZWNyeXB0aW9uLWtleS0xMjM0NTY3OA==")
                 .buildOrThrow();
 
         factory.create(ConnectorIdentity.ofUser("test"), fileIoProperties);
@@ -126,9 +122,7 @@ final class TestIcebergRestCatalogFileSystemFactory
                 .containsEntry(EXTRA_CREDENTIALS_GCS_OAUTH_TOKEN_EXPIRES_AT_PROPERTY, "1700000000000")
                 .containsEntry(EXTRA_CREDENTIALS_GCS_PROJECT_ID_PROPERTY, "my-gcp-project")
                 .containsEntry(EXTRA_CREDENTIALS_GCS_SERVICE_HOST_PROPERTY, "https://custom-storage.googleapis.com")
-                .containsEntry(EXTRA_CREDENTIALS_GCS_USER_PROJECT_PROPERTY, "billing-project")
-                .containsEntry(EXTRA_CREDENTIALS_GCS_ENCRYPTION_KEY_PROPERTY, "dGVzdC1lbmNyeXB0aW9uLWtleS0xMjM0NTY3OA==")
-                .containsEntry(EXTRA_CREDENTIALS_GCS_DECRYPTION_KEY_PROPERTY, "dGVzdC1kZWNyeXB0aW9uLWtleS0xMjM0NTY3OA==");
+                .containsEntry(EXTRA_CREDENTIALS_GCS_USER_PROJECT_PROPERTY, "billing-project");
     }
 
     @Test
@@ -157,33 +151,6 @@ final class TestIcebergRestCatalogFileSystemFactory
                 .containsEntry(EXTRA_CREDENTIALS_GCS_NO_AUTH_PROPERTY, "true")
                 .containsEntry(EXTRA_CREDENTIALS_GCS_PROJECT_ID_PROPERTY, "public-project")
                 .doesNotContainKey(EXTRA_CREDENTIALS_GCS_OAUTH_TOKEN_PROPERTY);
-    }
-
-    @Test
-    void testGcsVendedEncryptionKeys()
-    {
-        AtomicReference<ConnectorIdentity> capturedIdentity = new AtomicReference<>();
-        TrinoFileSystemFactory delegate = identity -> {
-            capturedIdentity.set(identity);
-            return null;
-        };
-
-        IcebergRestCatalogConfig config = new IcebergRestCatalogConfig()
-                .setBaseUri("http://localhost")
-                .setVendedCredentialsEnabled(true);
-        IcebergRestCatalogFileSystemFactory factory = new IcebergRestCatalogFileSystemFactory(delegate, config);
-
-        Map<String, String> fileIoProperties = ImmutableMap.of(
-                "gcs.encryption-key", "dGVzdC1lbmNyeXB0aW9uLWtleS0xMjM0NTY3OA==",
-                "gcs.decryption-key", "dGVzdC1kZWNyeXB0aW9uLWtleS0xMjM0NTY3OA==");
-
-        factory.create(ConnectorIdentity.ofUser("test"), fileIoProperties);
-
-        ConnectorIdentity identity = capturedIdentity.get();
-        assertThat(identity).isNotNull();
-        assertThat(identity.getExtraCredentials())
-                .containsEntry(EXTRA_CREDENTIALS_GCS_ENCRYPTION_KEY_PROPERTY, "dGVzdC1lbmNyeXB0aW9uLWtleS0xMjM0NTY3OA==")
-                .containsEntry(EXTRA_CREDENTIALS_GCS_DECRYPTION_KEY_PROPERTY, "dGVzdC1kZWNyeXB0aW9uLWtleS0xMjM0NTY3OA==");
     }
 
     @Test

@@ -17,17 +17,11 @@ import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.inject.Inject;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
-import io.trino.filesystem.encryption.EncryptionKey;
 import io.trino.spi.security.ConnectorIdentity;
 import jakarta.annotation.PreDestroy;
 
-import java.util.Base64;
-import java.util.Optional;
-
 import static com.google.common.util.concurrent.MoreExecutors.listeningDecorator;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
-import static io.trino.filesystem.gcs.GcsFileSystemConstants.EXTRA_CREDENTIALS_GCS_DECRYPTION_KEY_PROPERTY;
-import static io.trino.filesystem.gcs.GcsFileSystemConstants.EXTRA_CREDENTIALS_GCS_ENCRYPTION_KEY_PROPERTY;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
@@ -62,18 +56,6 @@ public class GcsFileSystemFactory
     @Override
     public TrinoFileSystem create(ConnectorIdentity identity)
     {
-        Optional<EncryptionKey> defaultEncryptionKey = extractEncryptionKey(identity, EXTRA_CREDENTIALS_GCS_ENCRYPTION_KEY_PROPERTY);
-        Optional<EncryptionKey> defaultDecryptionKey = extractEncryptionKey(identity, EXTRA_CREDENTIALS_GCS_DECRYPTION_KEY_PROPERTY);
-        return new GcsFileSystem(executorService, storageFactory.create(identity), readBlockSizeBytes, writeBlockSizeBytes, pageSize, batchSize, defaultEncryptionKey, defaultDecryptionKey);
-    }
-
-    private static Optional<EncryptionKey> extractEncryptionKey(ConnectorIdentity identity, String extraCredentialKey)
-    {
-        String base64Key = identity.getExtraCredentials().get(extraCredentialKey);
-        if (base64Key == null) {
-            return Optional.empty();
-        }
-        byte[] keyBytes = Base64.getDecoder().decode(base64Key);
-        return Optional.of(new EncryptionKey(keyBytes, "AES256"));
+        return new GcsFileSystem(executorService, storageFactory.create(identity), readBlockSizeBytes, writeBlockSizeBytes, pageSize, batchSize);
     }
 }
