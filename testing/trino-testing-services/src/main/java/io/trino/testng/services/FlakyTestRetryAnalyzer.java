@@ -23,11 +23,14 @@ import org.testng.ITestResult;
 
 import java.lang.reflect.Method;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.ServiceLoader;
 import java.util.regex.Pattern;
 
 import static com.google.common.base.Throwables.getStackTraceAsString;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.testing.SystemEnvironmentUtils.isEnvSet;
 import static java.lang.String.format;
 
@@ -45,6 +48,8 @@ public class FlakyTestRetryAnalyzer
 
     @GuardedBy("this")
     private final Map<String, Long> retryCounter = new HashMap<>();
+
+    private volatile List<Pattern> retryableFailurePatterns;
 
     @Override
     public boolean retry(ITestResult result)
@@ -70,18 +75,25 @@ public class FlakyTestRetryAnalyzer
             log.info("not retrying; cannot get java method");
             return false;
         }
-        Flaky annotation = javaMethod.getAnnotation(Flaky.class);
-        if (annotation == null) {
-            log.info("not retrying; @Flaky annotation not present");
-            return false;
-        }
         if (result.getThrowable() == null) {
             log.info("not retrying; throwable not present in result");
             return false;
         }
         String stackTrace = getStackTraceAsString(result.getThrowable());
-        if (!Pattern.compile(annotation.match()).matcher(stackTrace).find()) {
-            log.warn("not retrying; stacktrace does not match pattern '%s': [%s]", annotation.match(), stackTrace);
+        Flaky annotation = javaMethod.getAnnotation(Flaky.class);
+        if (annotation != null) {
+            log.info("@Flaky annotation present, checking stacktrace");
+            if (!Pattern.compile(annotation.match()).matcher(stackTrace).find()) {
+                log.warn("not retrying; stacktrace does not match pattern '%s': [%s]", annotation.match(), stackTrace);
+                return false;
+            }
+        }
+
+        boolean retryableFailurePatternFound = getRetryableFailurePatterns()
+                .stream()
+                .anyMatch(pattern -> pattern.matcher(stackTrace).find());
+        if (annotation == null && !retryableFailurePatternFound) {
+            log.warn("not retrying; stacktrace does not match any known retryable failure pattern '%s'", stackTrace);
             return false;
         }
 
@@ -103,6 +115,19 @@ public class FlakyTestRetryAnalyzer
                 method.getMethodName(),
                 retryCount);
         return true;
+    }
+
+    private List<Pattern> getRetryableFailurePatterns()
+    {
+        List<Pattern> patterns = retryableFailurePatterns;
+        if (patterns == null) {
+            patterns = ServiceLoader.load(RetryableFailurePattern.class).stream()
+                    .map(ServiceLoader.Provider::get)
+                    .map(provider -> Pattern.compile(provider.matchPattern()))
+                    .collect(toImmutableList());
+            retryableFailurePatterns = patterns;
+        }
+        return patterns;
     }
 
     private static String getName(ITestNGMethod method, Object[] parameters)

@@ -1,0 +1,2 @@
+io.trino.tests.product.utils.HadoopRetryableFailurePattern
+io.trino.tests.product.deltalake.util.DatabricksRetryableFailurePattern
