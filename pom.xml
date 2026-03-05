@@ -243,7 +243,7 @@
             <dependency>
                 <groupId>com.google.cloud</groupId>
                 <artifactId>libraries-bom</artifactId>
-                <version>26.76.0</version>
+                <version>26.77.0</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -307,7 +307,7 @@
             <dependency>
                 <groupId>software.amazon.awssdk</groupId>
                 <artifactId>bom</artifactId>
-                <version>2.42.1</version>
+                <version>2.42.2</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -317,7 +317,7 @@
                 <!-- https://github.com/ClickHouse/clickhouse-docs/pull/2408/files -->
                 <groupId>at.yawk.lz4</groupId>
                 <artifactId>lz4-java</artifactId>
-                <version>1.10.3</version>
+                <version>1.10.4</version>
             </dependency>
 
             <dependency>
@@ -2872,128 +2872,9 @@
                             <compilerArgs>
                                 <arg>-XDcompilePolicy=simple</arg>
                                 <arg>--should-stop=ifError=FLOW</arg>
-                                <arg>
-                                    -Xplugin:ErrorProne \
-                                    -Xep:AlmostJavadoc:ERROR \
-                                    -Xep:AmbiguousMethodReference:ERROR \
-                                    -Xep:AnnotateFormatMethod:ERROR \
-                                    -Xep:ArgumentSelectionDefectChecker:ERROR \
-                                    -Xep:ArrayAsKeyOfSetOrMap:ERROR \
-                                    -Xep:AssertEqualsArgumentOrderChecker:ERROR \
-                                    -Xep:AssertThrowsMultipleStatements:ERROR \
-                                    -Xep:AssertionFailureIgnored:ERROR \
-                                    -Xep:AttemptedNegativeZero:ERROR \
-                                    -Xep:BadComparable:ERROR \
-                                    -Xep:BadInstanceof:ERROR \
-                                    -Xep:BigDecimalEquals:ERROR \
-                                    -Xep:BoxedPrimitiveConstructor:ERROR \
-                                    -Xep:ByteBufferBackingArray:ERROR \
-                                    -Xep:CacheLoaderNull:ERROR \
-                                    -Xep:CanonicalDuration:ERROR \
-                                    -Xep:CatchAndPrintStackTrace:ERROR \
-                                    -Xep:CatchFail:ERROR \
-                                    -Xep:ClassCanBeStatic:ERROR \
-                                    -Xep:ClassInitializationDeadlock:ERROR \
-                                    -Xep:ClassName:ERROR \
-                                    -Xep:ClassNewInstance:ERROR \
-                                    -Xep:CollectionUndefinedEquality:ERROR \
-                                    -Xep:CollectorShouldNotUseState:ERROR \
-                                    -Xep:CompareToZero:ERROR \
-                                    -Xep:DateChecker:ERROR \
-                                    -Xep:DateFormatConstant:ERROR \
-                                    -Xep:DefaultCharset:ERROR \
-                                    -Xep:DepAnn:ERROR \
-                                    -Xep:DeprecatedVariable:ERROR \
-                                    -Xep:DistinctVarargsChecker:ERROR \
-                                    <!-- flags throwing exception factory methods and doesn't seem that useful -->
-                                    -Xep:DoNotCallSuggester:OFF \
-                                    -Xep:DoubleCheckedLocking:ERROR \
-                                    -Xep:EmptyBlockTag:ERROR \
-                                    -Xep:EmptySetMultibindingContributions:ERROR \
-                                    <!-- we would rather want the opposite check -->
-                                    -Xep:EqualsGetClass:OFF \
-                                    -Xep:EqualsIncompatibleType:ERROR \
-                                    -Xep:EqualsUnsafeCast:ERROR \
-                                    -Xep:EqualsUsingHashCode:ERROR \
-                                    -Xep:ErroneousBitwiseExpression:ERROR \
-                                    -Xep:ErroneousThreadPoolConstructorChecker:ERROR \
-                                    -Xep:EscapedEntity:ERROR \
-                                    -Xep:ExpensiveLenientFormatString:ERROR \
-                                    -Xep:ExtendingJUnitAssert:ERROR \
-                                    -Xep:ExtendsObject:ERROR \
-                                    -Xep:FallThrough:ERROR \
-                                    -Xep:Finalize:ERROR \
-                                    -Xep:FormatStringShouldUsePlaceholders:ERROR \
-                                    -Xep:GetClassOnEnum:ERROR \
-                                    <!-- TODO enable globally -->
-                                    -Xep:GuardedBy:${trino.error-prone.guarded-by} \
-                                    -Xep:HidingField:ERROR \
-                                    <!-- These methods are used in tests and other places where we want the
-                                         default time zone, and changing them simply to fix this warning would
-                                         make the code worse. -->
-                                    -Xep:JavaTimeDefaultTimeZone:OFF \
-                                    <!-- covered by Modernizer -->
-                                    -Xep:JdkObsolete:OFF \
-                                    <!-- This check requires list fields to be declared as ImmutableList, which is not in line with project's code style -->
-                                    -Xep:Immutable:OFF \
-                                    <!-- flags enums with List fields even if initialized with ImmutableList, and other false positives -->
-                                    -Xep:ImmutableEnumChecker:OFF \
-                                    -Xep:ImmutableSetForContains:ERROR \
-                                    <!-- fields/variables should not differ only in case -->
-                                    -Xep:InconsistentCapitalization:ERROR \
-                                    -Xep:InconsistentHashCode:ERROR \
-                                    -Xep:InjectOnConstructorOfAbstractClass:ERROR \
-                                    -Xep:InvalidInlineTag:ERROR \
-                                    -Xep:LongFloatConversion:ERROR \
-                                    -Xep:MissingCasesInEnumSwitch:ERROR \
-                                    -Xep:MissingOverride:ERROR \
-                                    <!-- Sometimes our javadoc contains just a @see directive -->
-                                    -Xep:MissingSummary:OFF \
-                                    -Xep:ModifiedButNotUsed:ERROR \
-                                    -Xep:MutablePublicArray:ERROR \
-                                    -Xep:NarrowCalculation:ERROR \
-                                    -Xep:NarrowingCompoundAssignment:ERROR \
-                                    -Xep:NullOptional:ERROR \
-                                    -Xep:NullableOptional:ERROR \
-                                    -Xep:NullablePrimitive:ERROR \
-                                    -Xep:ObjectEqualsForPrimitives:ERROR \
-                                    -Xep:ObjectToString:ERROR \
-                                    -Xep:OptionalNotPresent:ERROR \
-                                    -Xep:OrphanedFormatString:ERROR \
-                                    -Xep:Overrides:ERROR \
-                                    -Xep:PatternMatchingInstanceof:ERROR \
-                                    -Xep:PreconditionsExpensiveString:ERROR \
-                                    <!-- flags List fields even if initialized with ImmutableList -->
-                                    -Xep:PreferredInterfaceType:OFF \
-                                    -Xep:PrimitiveArrayPassedToVarargsMethod:ERROR \
-                                    -Xep:RedundantNullCheck:ERROR \
-                                    <!-- disabled likely because we disagree with the suggested fix -->
-                                    -Xep:RethrowReflectiveOperationExceptionAsLinkageError:OFF \
-                                    -Xep:StaticAssignmentOfThrowable:ERROR \
-                                    -Xep:StaticGuardedByInstance:ERROR \
-                                    -Xep:StreamResourceLeak:ERROR \
-                                    -Xep:StringCaseLocaleUsage:ERROR \
-                                    -Xep:SuppressWarningsDeprecated:ERROR \
-                                    -Xep:ThreeLetterTimeZoneID:ERROR \
-                                    -Xep:TraditionalSwitchExpression:ERROR \
-                                    -Xep:UnicodeEscape:ERROR \
-                                    -Xep:UnnamedVariable:ERROR \
-                                    -Xep:UnnecessarilyFullyQualified:ERROR \
-                                    -Xep:UnnecessaryCopy:ERROR \
-                                    -Xep:UnnecessaryLongToIntConversion:ERROR \
-                                    -Xep:UnnecessaryMethodReference:ERROR \
-                                    -Xep:UnnecessaryOptionalGet:ERROR \
-                                    -Xep:UnnecessaryParentheses:ERROR \
-                                    <!-- false positive from io.airlift.configuration.Config annotation -->
-                                    -Xep:UnnecessaryQualifier:OFF \
-                                    -Xep:UnnecessaryStringBuilder:ERROR \
-                                    <!-- this check does not understand static reflection. Enabling this
-                                         check will require many unnecessary suppressions -->
-                                    -Xep:UnusedMethod:OFF \
-                                    -Xep:UnusedVariable:ERROR \
-                                    -Xep:UseEnumSwitch:ERROR \
-                                    -XepExcludedPaths:.*/target/generated-(|test-)sources/.*
-                                </arg>
+                                <arg>-Xplugin:ErrorProne @${air.main.basedir}/.mvn/errorprone.config \
+                                    -Xep:GuardedBy:${trino.error-prone.guarded-by}
+                                    -XepExcludedPaths:.*/target/generated-(|test-)sources/.*</arg>
                             </compilerArgs>
                             <annotationProcessorPaths>
                                 <path>
