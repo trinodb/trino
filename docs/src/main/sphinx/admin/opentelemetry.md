@@ -49,7 +49,7 @@ exporting traces using protocol buffers with HTTP transport.
 
 ### Sampling
 
-Use the `tracing.sampling-ratio` property to control the ratio of traces
+Use the `otel.tracing.sampling-ratio` property to control the ratio of traces
 that are sampled and exported. The value must be between `0` and `1`, where `1`
 means all traces are sampled and `0` means no traces are sampled. The default
 value is `1`.
@@ -58,8 +58,8 @@ For example, to sample only 10% of traces:
 
 ```properties
 tracing.enabled=true
-tracing.exporter.endpoint=http://observe.example.com:4317
-tracing.sampling-ratio=0.1
+otel.exporter.endpoint=http://observe.example.com:4317
+otel.tracing.sampling-ratio=0.1
 ```
 
 This is useful for high-traffic deployments where exporting all traces creates
