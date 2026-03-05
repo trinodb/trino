@@ -58,6 +58,7 @@ import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.testing.containers.Minio.MINIO_REGION;
 import static io.trino.testing.containers.Minio.MINIO_ROOT_PASSWORD;
 import static io.trino.testing.containers.Minio.MINIO_ROOT_USER;
+import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.nio.file.Files.createTempDirectory;
 import static java.util.Objects.requireNonNull;
@@ -285,6 +286,33 @@ public final class IcebergQueryRunner
                     .build();
 
             Logger log = Logger.get(IcebergPolarisQueryRunnerMain.class);
+            log.info("======== SERVER STARTED ========");
+            log.info("\n====\n%s\n====", queryRunner.getCoordinator().getBaseUrl());
+        }
+    }
+
+    public static final class IcebergDatabricksUnityS3QueryRunnerMain
+    {
+        private IcebergDatabricksUnityS3QueryRunnerMain() {}
+
+        static void main()
+                throws Exception
+        {
+            @SuppressWarnings("resource")
+            QueryRunner queryRunner = IcebergQueryRunner.builder()
+                    .addCoordinatorProperty("http-server.http.port", "8080")
+                    .addIcebergProperty("iceberg.catalog.type", "rest")
+                    .addIcebergProperty("iceberg.rest-catalog.uri", format("https://%s/api/2.1/unity-catalog/iceberg-rest", requireEnv("DATABRICKS_WORKSPACE_HOST")))
+                    .addIcebergProperty("iceberg.rest-catalog.warehouse", "main")
+                    .addIcebergProperty("iceberg.rest-catalog.security", "OAUTH2")
+                    .addIcebergProperty("iceberg.rest-catalog.oauth2.token", requireEnv("DATABRICKS_TOKEN"))
+                    .addIcebergProperty("iceberg.rest-catalog.vended-credentials-enabled", "true")
+                    .addIcebergProperty("fs.native-s3.enabled", "true")
+                    .addIcebergProperty("s3.region", requireEnv("AWS_REGION"))
+                    .disableSchemaInitializer()
+                    .build();
+
+            Logger log = Logger.get(IcebergDatabricksUnityS3QueryRunnerMain.class);
             log.info("======== SERVER STARTED ========");
             log.info("\n====\n%s\n====", queryRunner.getCoordinator().getBaseUrl());
         }
