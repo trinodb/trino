@@ -78,6 +78,7 @@ public class IcebergConnectorFactory
                     new ConnectorContextModule(catalogName, context),
                     binder -> {
                         binder.bind(ClassLoader.class).toInstance(IcebergConnectorFactory.class.getClassLoader());
+                        CredentialsEncryptorHolder.initialize(new CredentialsEncryptor(context.getEncryptionKey()));
                     },
                     module);
 

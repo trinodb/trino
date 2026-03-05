@@ -16,6 +16,8 @@ package io.trino.plugin.iceberg;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
+import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import com.google.common.base.MoreObjects.ToStringHelper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -71,6 +73,8 @@ public class IcebergSplit
             @JsonProperty("deletes") List<DeleteFile> deletes,
             @JsonProperty("splitWeight") SplitWeight splitWeight,
             @JsonProperty("fileStatisticsDomain") TupleDomain<IcebergColumnHandle> fileStatisticsDomain,
+            @JsonSerialize(using = EncryptedMapSerializer.class)
+            @JsonDeserialize(using = EncryptedMapDeserializer.class)
             @JsonProperty("fileIoProperties") Map<String, String> fileIoProperties,
             @JsonProperty("dataSequenceNumber") long dataSequenceNumber)
     {
@@ -210,6 +214,8 @@ public class IcebergSplit
         return fileStatisticsDomain;
     }
 
+    @JsonSerialize(using = EncryptedMapSerializer.class)
+    @JsonDeserialize(using = EncryptedMapDeserializer.class)
     @JsonProperty
     public Map<String, String> getFileIoProperties()
     {

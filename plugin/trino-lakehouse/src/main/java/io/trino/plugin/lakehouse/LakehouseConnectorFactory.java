@@ -21,6 +21,8 @@ import io.trino.plugin.base.TypeDeserializerModule;
 import io.trino.plugin.base.jmx.ConnectorObjectNameGeneratorModule;
 import io.trino.plugin.base.jmx.MBeanServerModule;
 import io.trino.plugin.hive.security.HiveSecurityModule;
+import io.trino.plugin.iceberg.CredentialsEncryptor;
+import io.trino.plugin.iceberg.CredentialsEncryptorHolder;
 import io.trino.spi.classloader.ThreadContextClassLoader;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorContext;
@@ -59,7 +61,8 @@ public class LakehouseConnectorFactory
                     new LakehouseHudiModule(),
                     new HiveSecurityModule(),
                     new LakehouseFileSystemModule(catalogName, context),
-                    new ConnectorContextModule(catalogName, context));
+                    new ConnectorContextModule(catalogName, context),
+                    _ -> CredentialsEncryptorHolder.initialize(new CredentialsEncryptor(context.getEncryptionKey())));
 
             Injector injector = app
                     .doNotInitializeLogging()

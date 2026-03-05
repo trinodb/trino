@@ -32,8 +32,11 @@ import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.TypeOperators;
 import io.trino.util.EmbedVersion;
 
+import javax.crypto.SecretKey;
+
 import static io.trino.spi.connector.MetadataProvider.NOOP_METADATA_PROVIDER;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
+import static io.trino.util.Ciphers.createRandomAesEncryptionKey;
 import static java.util.Objects.requireNonNull;
 
 public final class TestingConnectorContext
@@ -43,6 +46,7 @@ public final class TestingConnectorContext
     private final VersionEmbedder versionEmbedder = new EmbedVersion(NodeVersion.UNKNOWN);
     private final PageSorter pageSorter = new PagesIndexPageSorter(new PagesIndex.TestingFactory(false));
     private final PageIndexerFactory pageIndexerFactory = new GroupByHashPageIndexerFactory(new FlatHashStrategyCompiler(new TypeOperators(), new NullSafeHashCompiler(new TypeOperators())));
+    private final SecretKey encryptionKey = createRandomAesEncryptionKey();
 
     public TestingConnectorContext()
     {
@@ -100,5 +104,11 @@ public final class TestingConnectorContext
     public PageIndexerFactory getPageIndexerFactory()
     {
         return pageIndexerFactory;
+    }
+
+    @Override
+    public SecretKey getEncryptionKey()
+    {
+        return encryptionKey;
     }
 }

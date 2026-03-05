@@ -13,7 +13,11 @@
  */
 package io.trino.plugin.iceberg.procedure;
 
+import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
+import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import com.google.common.collect.ImmutableMap;
+import io.trino.plugin.iceberg.EncryptedMapDeserializer;
+import io.trino.plugin.iceberg.EncryptedMapSerializer;
 import io.trino.spi.connector.ConnectorTableExecuteHandle;
 import io.trino.spi.connector.SchemaTableName;
 
@@ -26,6 +30,8 @@ public record IcebergTableExecuteHandle(
         IcebergTableProcedureId procedureId,
         IcebergProcedureHandle procedureHandle,
         String tableLocation,
+        @JsonSerialize(using = EncryptedMapSerializer.class)
+        @JsonDeserialize(using = EncryptedMapDeserializer.class)
         Map<String, String> fileIoProperties)
         implements ConnectorTableExecuteHandle
 {

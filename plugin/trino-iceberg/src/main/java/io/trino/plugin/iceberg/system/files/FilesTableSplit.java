@@ -13,7 +13,11 @@
  */
 package io.trino.plugin.iceberg.system.files;
 
+import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
+import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import io.airlift.slice.SizeOf;
+import io.trino.plugin.iceberg.EncryptedMapDeserializer;
+import io.trino.plugin.iceberg.EncryptedMapSerializer;
 import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.type.Type;
 
@@ -29,6 +33,8 @@ public record FilesTableSplit(
         String metadataTableJson,
         Map<Integer, String> partitionSpecsByIdJson,
         Optional<Type> partitionColumnType,
+        @JsonSerialize(using = EncryptedMapSerializer.class)
+        @JsonDeserialize(using = EncryptedMapDeserializer.class)
         Map<String, String> fileIoProperties)
         implements ConnectorSplit
 {

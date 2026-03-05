@@ -40,6 +40,8 @@ import io.trino.spi.type.TypeManager;
 import io.trino.sql.planner.OptimizerConfig;
 import io.trino.transaction.TransactionManager;
 
+import javax.crypto.SecretKey;
+
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
@@ -49,6 +51,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.connector.CatalogHandle.createInformationSchemaCatalogHandle;
 import static io.trino.connector.CatalogHandle.createRootCatalogHandle;
 import static io.trino.connector.CatalogHandle.createSystemTablesCatalogHandle;
+import static io.trino.util.Ciphers.createRandomAesEncryptionKey;
 import static java.util.Objects.requireNonNull;
 
 @ThreadSafe
@@ -72,6 +75,7 @@ public class DefaultCatalogFactory
 
     private final ConcurrentMap<ConnectorName, ConnectorFactory> connectorFactories = new ConcurrentHashMap<>();
     private final SecretsResolver secretsResolver;
+    private final SecretKey encryptionKey;
 
     @Inject
     public DefaultCatalogFactory(
@@ -102,6 +106,7 @@ public class DefaultCatalogFactory
         this.schedulerIncludeCoordinator = nodeSchedulerConfig.isIncludeCoordinator();
         this.maxPrefetchedInformationSchemaPrefixes = optimizerConfig.getMaxPrefetchedInformationSchemaPrefixes();
         this.secretsResolver = requireNonNull(secretsResolver, "secretsResolver is null");
+        this.encryptionKey = createRandomAesEncryptionKey();
     }
 
     @Override
@@ -192,7 +197,8 @@ public class DefaultCatalogFactory
                 typeManager,
                 new InternalMetadataProvider(metadata, typeManager),
                 pageSorter,
-                pageIndexerFactory);
+                pageIndexerFactory,
+                encryptionKey);
 
         try (ThreadContextClassLoader _ = new ThreadContextClassLoader(connectorFactory.getClass().getClassLoader())) {
             // TODO: connector factory should take CatalogName

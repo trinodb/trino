@@ -13,8 +13,12 @@
  */
 package io.trino.plugin.iceberg.functions.tablechanges;
 
+import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
+import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.SizeOf;
+import io.trino.plugin.iceberg.EncryptedMapDeserializer;
+import io.trino.plugin.iceberg.EncryptedMapSerializer;
 import io.trino.plugin.iceberg.IcebergFileFormat;
 import io.trino.spi.SplitWeight;
 import io.trino.spi.connector.ConnectorSplit;
@@ -39,6 +43,8 @@ public record TableChangesSplit(
         String partitionSpecJson,
         String partitionDataJson,
         SplitWeight splitWeight,
+        @JsonSerialize(using = EncryptedMapSerializer.class)
+        @JsonDeserialize(using = EncryptedMapDeserializer.class)
         Map<String, String> fileIoProperties) implements ConnectorSplit
 {
     private static final int INSTANCE_SIZE = SizeOf.instanceSize(TableChangesSplit.class);

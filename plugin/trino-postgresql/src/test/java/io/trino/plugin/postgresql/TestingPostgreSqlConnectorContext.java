@@ -37,8 +37,11 @@ import io.trino.spi.type.TypeOperators;
 import io.trino.type.InternalTypeManager;
 import io.trino.util.EmbedVersion;
 
+import javax.crypto.SecretKey;
+
 import static io.trino.node.TestingInternalNodeManager.CURRENT_NODE;
 import static io.trino.spi.connector.MetadataProvider.NOOP_METADATA_PROVIDER;
+import static io.trino.util.Ciphers.createRandomAesEncryptionKey;
 
 public class TestingPostgreSqlConnectorContext
         implements ConnectorContext
@@ -48,6 +51,7 @@ public class TestingPostgreSqlConnectorContext
     private final PageSorter pageSorter = new PagesIndexPageSorter(new PagesIndex.TestingFactory(false));
     private final PageIndexerFactory pageIndexerFactory;
     private final TypeManager typeManager;
+    private final SecretKey encryptionKey = createRandomAesEncryptionKey();
 
     public TestingPostgreSqlConnectorContext()
     {
@@ -104,5 +108,11 @@ public class TestingPostgreSqlConnectorContext
     public PageIndexerFactory getPageIndexerFactory()
     {
         return pageIndexerFactory;
+    }
+
+    @Override
+    public SecretKey getEncryptionKey()
+    {
+        return encryptionKey;
     }
 }

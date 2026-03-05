@@ -13,6 +13,8 @@
  */
 package io.trino.plugin.iceberg;
 
+import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
+import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.spi.connector.ConnectorInsertTableHandle;
@@ -37,6 +39,8 @@ public record IcebergWritableTableHandle(
         String outputPath,
         IcebergFileFormat fileFormat,
         Map<String, String> storageProperties,
+        @JsonSerialize(using = EncryptedMapSerializer.class)
+        @JsonDeserialize(using = EncryptedMapDeserializer.class)
         Map<String, String> fileIoProperties)
         implements ConnectorInsertTableHandle, ConnectorOutputTableHandle
 {

@@ -23,6 +23,8 @@ import io.trino.spi.connector.ConnectorContext;
 import io.trino.spi.connector.MetadataProvider;
 import io.trino.spi.type.TypeManager;
 
+import javax.crypto.SecretKey;
+
 import static java.util.Objects.requireNonNull;
 
 public class ConnectorContextInstance
@@ -36,6 +38,7 @@ public class ConnectorContextInstance
     private final MetadataProvider metadataProvider;
     private final PageSorter pageSorter;
     private final PageIndexerFactory pageIndexerFactory;
+    private final SecretKey encryptionKey;
 
     public ConnectorContextInstance(
             OpenTelemetry openTelemetry,
@@ -45,7 +48,8 @@ public class ConnectorContextInstance
             TypeManager typeManager,
             MetadataProvider metadataProvider,
             PageSorter pageSorter,
-            PageIndexerFactory pageIndexerFactory)
+            PageIndexerFactory pageIndexerFactory,
+            SecretKey encryptionKey)
     {
         this.openTelemetry = requireNonNull(openTelemetry, "openTelemetry is null");
         this.tracer = requireNonNull(tracer, "tracer is null");
@@ -55,6 +59,7 @@ public class ConnectorContextInstance
         this.metadataProvider = requireNonNull(metadataProvider, "metadataProvider is null");
         this.pageSorter = requireNonNull(pageSorter, "pageSorter is null");
         this.pageIndexerFactory = requireNonNull(pageIndexerFactory, "pageIndexerFactory is null");
+        this.encryptionKey = requireNonNull(encryptionKey, "encryptionKey is null");
     }
 
     @Override
@@ -103,5 +108,11 @@ public class ConnectorContextInstance
     public PageIndexerFactory getPageIndexerFactory()
     {
         return pageIndexerFactory;
+    }
+
+    @Override
+    public SecretKey getEncryptionKey()
+    {
+        return encryptionKey;
     }
 }

@@ -22,6 +22,8 @@ import io.trino.spi.PageSorter;
 import io.trino.spi.VersionEmbedder;
 import io.trino.spi.type.TypeManager;
 
+import javax.crypto.SecretKey;
+
 public interface ConnectorContext
 {
     default OpenTelemetry getOpenTelemetry()
@@ -78,6 +80,11 @@ public interface ConnectorContext
     }
 
     default PageIndexerFactory getPageIndexerFactory()
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    default SecretKey getEncryptionKey()
     {
         throw new UnsupportedOperationException();
     }

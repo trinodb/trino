@@ -28,6 +28,8 @@ import io.trino.spi.connector.ConnectorContext;
 import io.trino.spi.connector.MetadataProvider;
 import io.trino.spi.type.TypeManager;
 
+import javax.crypto.SecretKey;
+
 import static java.util.Objects.requireNonNull;
 
 public class ConnectorContextModule
@@ -57,5 +59,6 @@ public class ConnectorContextModule
         binder.bind(MetadataProvider.class).toInstance(context.getMetadataProvider());
         binder.bind(PageSorter.class).toInstance(context.getPageSorter());
         binder.bind(PageIndexerFactory.class).toInstance(context.getPageIndexerFactory());
+        binder.bind(SecretKey.class).toInstance(context.getEncryptionKey());
     }
 }
