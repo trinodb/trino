@@ -632,10 +632,8 @@ public final class HttpRemoteTask
         }
     }
 
-    private synchronized void processTaskUpdate(TaskInfo newValue, List<SplitAssignment> splitAssignments)
+    private synchronized void processTaskUpdate(List<SplitAssignment> splitAssignments)
     {
-        updateTaskInfo(newValue);
-
         // remove acknowledged splits, which frees memory
         for (SplitAssignment assignment : splitAssignments) {
             PlanNodeId planNodeId = assignment.getPlanNodeId();
@@ -669,10 +667,15 @@ public final class HttpRemoteTask
         updateSplitQueueSpace();
     }
 
+    // In case of failure, only update status without a TaskInfo from the worker
+    private void updateTaskInfoOnFailure(TaskStatus taskStatus)
+    {
+        taskInfoFetcher.updateTaskInfo(Optional.empty(), taskStatus);
+    }
+
     private void updateTaskInfo(TaskInfo taskInfo)
     {
-        taskStatusFetcher.updateTaskStatus(taskInfo.taskStatus());
-        taskInfoFetcher.updateTaskInfo(taskInfo);
+        taskInfoFetcher.updateTaskInfo(Optional.of(taskInfo), taskInfo.taskStatus());
     }
 
     private void scheduleUpdate()
@@ -1065,7 +1068,7 @@ public final class HttpRemoteTask
                                     .build();
                             taskStatus = failWith(taskStatus, FAILED, failures);
                         }
-                        updateTaskInfo(getTaskInfo().withTaskStatus(taskStatus));
+                        updateTaskInfoOnFailure(taskStatus);
                     }
                     catch (Throwable t) {
                         log.error(t, "Error marking task %s as failed due to %s", taskId, cause);
@@ -1102,7 +1105,7 @@ public final class HttpRemoteTask
                     // Since this TaskInfo is updated in the client without having received them from the
                     // worker, the stats may not reflect the actual final stats had we been able to reach the worker
                     // to get them.
-                    updateTaskInfo(getTaskInfo().withTaskStatus(taskStatus));
+                    updateTaskInfoOnFailure(taskStatus);
                 }
                 else {
                     // Let the status callbacks trigger the cleanup command remotely after switching states
@@ -1115,7 +1118,7 @@ public final class HttpRemoteTask
                 // down, but taskInfoFetcher still holds old state.
                 // Update taskInfo so task is not stuck in FTE execution mode which depends on final task info
                 // being delivered.
-                updateTaskInfo(getTaskInfo().withTaskStatus(taskStatus));
+                updateTaskInfoOnFailure(taskStatus);
             }
         }
     }
@@ -1216,7 +1219,8 @@ public final class HttpRemoteTask
                 currentRequest.set(null);
                 updateStats();
                 updateErrorTracker.requestSucceeded();
-                processTaskUpdate(value, splitAssignments);
+                updateTaskInfo(value);
+                processTaskUpdate(splitAssignments);
                 if (pendingRequestsCounter.addAndGet(-currentPendingRequestsCounter) > 0) {
                     // schedule an update because triggerUpdate was called in the meantime
                     scheduleUpdate();
