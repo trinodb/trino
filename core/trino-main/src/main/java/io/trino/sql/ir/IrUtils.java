@@ -21,6 +21,8 @@ import io.trino.spi.type.Type;
 import io.trino.sql.planner.DeterminismEvaluator;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolsExtractor;
+import io.trino.type.FunctionType;
+import io.trino.type.UnknownType;
 
 import java.util.Arrays;
 import java.util.Collection;
@@ -37,6 +39,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Streams.stream;
 import static io.trino.sql.ir.Booleans.FALSE;
 import static io.trino.sql.ir.Booleans.TRUE;
+import static io.trino.type.UnknownType.UNKNOWN;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 
@@ -46,7 +49,7 @@ public final class IrUtils
 
     static void validateType(Type expected, Expression expression)
     {
-        checkArgument(expected.equals(expression.type()), "Expected '%s' type but found '%s' for expression: %s", expected, expression.type(), expression);
+        checkArgument(expected.equals(expression.type()) || (expression.type() instanceof FunctionType f && f.getReturnType() == UNKNOWN), "Expected '%s' type but found '%s' for expression: %s", expected, expression.type(), expression);
     }
 
     public static List<Expression> extractConjuncts(Expression expression)

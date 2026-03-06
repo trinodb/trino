@@ -971,6 +971,10 @@ public class SignatureBinder
 
             TypeSignature constraintTypeSignature = applyBoundVariables(formalTypeSignature, bindings.build());
 
+            if (actualType == UNKNOWN) {
+                return SolverReturnStatus.UNCHANGED_SATISFIED;
+            }
+
             return satisfiesCoercion(relationshipType, actualType, constraintTypeSignature) ? SolverReturnStatus.UNCHANGED_SATISFIED : SolverReturnStatus.UNCHANGED_NOT_SATISFIED;
         }
     }
