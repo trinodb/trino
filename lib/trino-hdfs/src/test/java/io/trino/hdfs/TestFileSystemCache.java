@@ -29,6 +29,8 @@ import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
 
 import java.io.IOException;
+import java.net.URI;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.SplittableRandom;
@@ -40,7 +42,6 @@ import java.util.concurrent.Executors;
 import static io.trino.plugin.base.security.UserNameProvider.SIMPLE_USER_NAME_PROVIDER;
 import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 
@@ -83,7 +84,7 @@ public class TestFileSystemCache
     }
 
     @Test
-    public void testFileSystemCacheException()
+    public void testFileSystemCacheGracefulDegradation()
             throws IOException
     {
         HdfsEnvironment environment = new HdfsEnvironment(
@@ -97,9 +98,148 @@ public class TestFileSystemCache
             getFileSystem(environment, ConnectorIdentity.ofUser("user" + i));
         }
         assertThat(TrinoFileSystemCacheStats.instance().getCacheSize()).isEqualTo(maxCacheSize);
-        assertThatThrownBy(() -> getFileSystem(environment, ConnectorIdentity.ofUser("user" + maxCacheSize)))
-                .isInstanceOf(IOException.class)
-                .hasMessage("FileSystem max cache size has been reached: " + maxCacheSize);
+
+        long degradationsBefore = TrinoFileSystemCacheStats.instance().getCacheFullDegradations().getTotalCount();
+        // Should NOT throw - graceful degradation returns uncached FileSystem
+        FileSystem uncachedFs = getFileSystem(environment, ConnectorIdentity.ofUser("user" + maxCacheSize));
+        assertThat(uncachedFs).isNotNull();
+        // Cache size should remain at max (uncached FS is not added to cache)
+        assertThat(TrinoFileSystemCacheStats.instance().getCacheSize()).isEqualTo(maxCacheSize);
+        // Degradation counter should have incremented
+        assertThat(TrinoFileSystemCacheStats.instance().getCacheFullDegradations().getTotalCount())
+                .isEqualTo(degradationsBefore + 1);
+    }
+
+    @Test
+    public void testEviction()
+            throws Exception
+    {
+        TrinoFileSystemCache cache = new TrinoFileSystemCache();
+        cache.setCacheExpiry(Duration.ofMillis(50));
+
+        Configuration conf = new Configuration(false);
+        cache.get(new URI("file:///tmp/evict_test/"), conf);
+        assertThat(cache.getCacheSize()).isEqualTo(1);
+
+        // Wait for the entry to expire
+        Thread.sleep(100);
+
+        cache.evictExpiredEntries();
+        assertThat(cache.getCacheSize()).isEqualTo(0);
+        assertThat(cache.getStats().getEvictions().getTotalCount()).isEqualTo(1);
+
+        cache.closeAll();
+    }
+
+    @Test
+    public void testEvictionDoesNotEvictRecentlyAccessedEntries()
+            throws Exception
+    {
+        TrinoFileSystemCache cache = new TrinoFileSystemCache();
+        cache.setCacheExpiry(Duration.ofMillis(200));
+
+        Configuration conf = new Configuration(false);
+        cache.get(new URI("file:///tmp/evict_recent/"), conf);
+        assertThat(cache.getCacheSize()).isEqualTo(1);
+
+        // Wait some time but not enough for expiry
+        Thread.sleep(100);
+
+        // Access the entry to reset last access time
+        cache.get(new URI("file:///tmp/evict_recent/"), conf);
+
+        // Wait some more (total from creation > 200ms, but from last access < 200ms)
+        Thread.sleep(100);
+
+        cache.evictExpiredEntries();
+        // Entry should still be in cache because last access was recent
+        assertThat(cache.getCacheSize()).isEqualTo(1);
+        assertThat(cache.getStats().getEvictions().getTotalCount()).isEqualTo(0);
+
+        cache.closeAll();
+    }
+
+    @Test
+    public void testEvictionDoesNotEvictUniqueEntries()
+            throws Exception
+    {
+        TrinoFileSystemCache cache = new TrinoFileSystemCache();
+        cache.setCacheExpiry(Duration.ofMillis(50));
+
+        Configuration conf = new Configuration(false);
+        // getUnique creates entries with unique != 0
+        FileSystem uniqueFs = cache.getUnique(new URI("file:///tmp/evict_unique/"), conf);
+        assertThat(cache.getCacheSize()).isEqualTo(1);
+
+        Thread.sleep(100);
+
+        cache.evictExpiredEntries();
+        // Unique entries should NOT be evicted - they are managed by callers via close()
+        assertThat(cache.getCacheSize()).isEqualTo(1);
+        assertThat(cache.getStats().getEvictions().getTotalCount()).isEqualTo(0);
+
+        cache.remove(uniqueFs);
+        assertThat(cache.getCacheSize()).isEqualTo(0);
+
+        cache.closeAll();
+    }
+
+    @Test
+    public void testEvictionThenRecache()
+            throws Exception
+    {
+        TrinoFileSystemCache cache = new TrinoFileSystemCache();
+        cache.setCacheExpiry(Duration.ofMillis(50));
+
+        Configuration conf = new Configuration(false);
+        URI uri = new URI("file:///tmp/evict_recache/");
+        FileSystem fs1 = cache.get(uri, conf);
+        assertThat(cache.getCacheSize()).isEqualTo(1);
+
+        Thread.sleep(100);
+        cache.evictExpiredEntries();
+        assertThat(cache.getCacheSize()).isEqualTo(0);
+
+        // After eviction, a new FileSystem should be created and cached
+        FileSystem fs2 = cache.get(uri, conf);
+        assertThat(cache.getCacheSize()).isEqualTo(1);
+        // The new FileSystem should be a different instance since the old one was evicted
+        assertThat(fs2).isNotSameAs(fs1);
+
+        cache.closeAll();
+    }
+
+    @Test
+    public void testGracefulDegradationThenEvictionRecovery()
+            throws Exception
+    {
+        TrinoFileSystemCache cache = new TrinoFileSystemCache();
+        cache.setCacheExpiry(Duration.ofMillis(50));
+
+        Configuration conf = new Configuration(false);
+        conf.setInt("fs.cache.max-size", 1);
+
+        // Fill the cache with one entry
+        cache.get(new URI("file:///tmp/recovery/"), conf);
+        assertThat(cache.getCacheSize()).isEqualTo(1);
+
+        // Different authority produces a different cache key, triggering degradation
+        FileSystem uncachedFs = cache.get(new URI("file://otherhost/tmp/recovery/"), conf);
+        assertThat(uncachedFs).isNotNull();
+        assertThat(cache.getCacheSize()).isEqualTo(1);
+        assertThat(cache.getStats().getCacheFullDegradations().getTotalCount()).isEqualTo(1);
+
+        // Wait for entries to expire and evict
+        Thread.sleep(100);
+        cache.evictExpiredEntries();
+        assertThat(cache.getCacheSize()).isEqualTo(0);
+
+        // Now new entries should be cached again (recovered from degradation)
+        cache.get(new URI("file://otherhost/tmp/recovery/"), conf);
+        assertThat(cache.getCacheSize()).isEqualTo(1);
+        assertThat(cache.getStats().getCacheFullDegradations().getTotalCount()).isEqualTo(1); // no new degradations
+
+        cache.closeAll();
     }
 
     @Test
