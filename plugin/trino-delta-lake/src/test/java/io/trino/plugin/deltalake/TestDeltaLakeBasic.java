@@ -199,6 +199,23 @@ public class TestDeltaLakeBasic
         return getClass().getClassLoader().getResource(resourcePath);
     }
 
+    /**
+     * @see databricks173.parquet_column_index_with_non_stats_column
+     */
+    @Test
+    public void testLoadingParquetColumnIndexWithNonStatsColumn()
+            throws Exception
+    {
+        String tableName = "test_parquet_column_index_with_non_stats_column_" + randomNameSuffix();
+        Path tableLocation = catalogDir.resolve(tableName);
+        copyDirectoryContents(new File(Resources.getResource("databricks173/parquet_column_index_with_non_stats_column").toURI()).toPath(), tableLocation);
+
+        assertUpdate("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')".formatted(tableName, tableLocation.toUri()));
+
+        assertThat(query("SELECT * FROM " + tableName + " WHERE x > 1 and y IS NOT NULL"))
+                .matches("VALUES (3, TIMESTAMP '2026-01-01 10:10:10.000 UTC')");
+    }
+
     @Test
     public void testDescribeTable()
     {
