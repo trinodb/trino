@@ -31,6 +31,9 @@ import io.trino.spi.PageBuilder;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.DictionaryBlock;
+import io.trino.spi.block.RunLengthEncodedBlock;
+import io.trino.spi.block.ValueBlock;
 import io.trino.spi.connector.SortOrder;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
@@ -314,17 +317,50 @@ public class PagesIndex
             int blockIndex = decodeSliceIndex(pageAddress);
             int blockPosition = decodePosition(pageAddress);
 
-            // append the row
-            pageBuilder.declarePosition();
-            for (int channel = 0; channel < channels.length; channel++) {
-                Block block = channels[channel].get(blockIndex);
-                pageBuilder.getBlockBuilder(channel).append(block.getUnderlyingValueBlock(), block.getUnderlyingValuePosition(blockPosition));
+            // Detect contiguous run from same source block
+            int runLength = 1;
+            while (position + runLength < endPosition
+                    && !pageBuilder.isFull()
+                    && decodeSliceIndex(valueAddresses.getLong(position + runLength)) == blockIndex
+                    && decodePosition(valueAddresses.getLong(position + runLength)) == blockPosition + runLength) {
+                runLength++;
             }
 
-            position++;
+            if (runLength > 1 && isValueBlock(blockIndex)) {
+                pageBuilder.declarePositions(runLength);
+                for (int channel = 0; channel < channels.length; channel++) {
+                    ValueBlock block = (ValueBlock) channels[channel].get(blockIndex);
+                    pageBuilder.getBlockBuilder(channel).appendRange(block, blockPosition, runLength);
+                }
+            }
+            else {
+                for (int i = 0; i < runLength; i++) {
+                    long addr = valueAddresses.getLong(position + i);
+                    int bi = decodeSliceIndex(addr);
+                    int bp = decodePosition(addr);
+                    pageBuilder.declarePosition();
+                    for (int channel = 0; channel < channels.length; channel++) {
+                        Block block = channels[channel].get(bi);
+                        pageBuilder.getBlockBuilder(channel).append(
+                                block.getUnderlyingValueBlock(),
+                                block.getUnderlyingValuePosition(bp));
+                    }
+                }
+            }
+            position += runLength;
         }
-
         return position;
+    }
+
+    private boolean isValueBlock(int blockIndex)
+    {
+        for (int channel = 0; channel < channels.length; channel++) {
+            Block block = channels[channel].get(blockIndex);
+            if (block instanceof DictionaryBlock || block instanceof RunLengthEncodedBlock) {
+                return false;
+            }
+        }
+        return true;
     }
 
     public void appendTo(int channel, int position, BlockBuilder output)
