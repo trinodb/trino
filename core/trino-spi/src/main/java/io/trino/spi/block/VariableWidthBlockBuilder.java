@@ -396,6 +396,17 @@ public class VariableWidthBlockBuilder
         int newSize = calculateNewArraySize(capacity, initialEntryCount);
         valueIsNull = Arrays.copyOf(valueIsNull, newSize);
         offsets = Arrays.copyOf(offsets, newSize + 1);
+
+        // proactively grow bytes array based on observed average entry size
+        int currentBytes = offsets[positionCount];
+        if (positionCount > 0 && currentBytes > 0) {
+            int averageBytesPerEntry = currentBytes / positionCount;
+            long estimatedBytesNeeded = (long) newSize * averageBytesPerEntry;
+            if (estimatedBytesNeeded > bytes.length && estimatedBytesNeeded <= MAX_ARRAY_SIZE) {
+                int newBytesSize = calculateNewArraySize((int) estimatedBytesNeeded, initialSliceOutputSize);
+                bytes = Arrays.copyOf(bytes, newBytesSize);
+            }
+        }
         updateRetainedSize();
     }
 
