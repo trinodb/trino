@@ -15,7 +15,6 @@ package io.trino.sql.planner.iterative;
 
 import com.google.common.collect.HashMultiset;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multiset;
 import io.trino.cost.PlanCostEstimate;
 import io.trino.cost.PlanNodeStatsEstimate;
@@ -33,6 +32,7 @@ import java.util.stream.Stream;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static io.trino.sql.planner.iterative.Plans.resolveGroupReferences;
+import static it.unimi.dsi.fastutil.ints.IntOpenHashSet.toSetWithExpectedSize;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -196,14 +196,14 @@ public class Memo
 
     private Set<Integer> getAllReferences(PlanNode node)
     {
-        ImmutableSet.Builder<Integer> groupIds = ImmutableSet.builderWithExpectedSize(node.getSources().size());
-        for (PlanNode source : node.getSources()) {
-            if (!(source instanceof GroupReference groupReference)) {
-                throw new IllegalArgumentException("Expected %s to be a group reference".formatted(source));
-            }
-            groupIds.add(groupReference.getGroupId());
-        }
-        return groupIds.build();
+        return toSetWithExpectedSize(node.getSources()
+            .stream()
+            .mapToInt(source -> {
+                if (!(source instanceof GroupReference groupReference)) {
+                    throw new IllegalArgumentException("Expected %s to be a group reference".formatted(source));
+                }
+                return groupReference.getGroupId();
+            }), node.getSources().size());
     }
 
     private void deleteGroup(int group)
