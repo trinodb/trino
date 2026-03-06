@@ -22,7 +22,6 @@ import com.google.inject.multibindings.MapBinder;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.airlift.http.server.HttpServer.ClientCertificate;
 import io.airlift.http.server.HttpServerConfig;
-import io.airlift.jmx.MBeanResource;
 import io.airlift.openmetrics.MetricsResource;
 import io.trino.server.security.jwt.JwtAuthenticator;
 import io.trino.server.security.jwt.JwtAuthenticatorSupportModule;
@@ -56,7 +55,6 @@ public class ServerSecurityModule
         jaxrsBinder(binder).bind(ResourceSecurityDynamicFeature.class);
 
         resourceSecurityBinder(binder)
-                .managementReadResource(MBeanResource.class)
                 .managementReadResource(MetricsResource.class);
 
         newOptionalBinder(binder, PasswordAuthenticatorManager.class);
