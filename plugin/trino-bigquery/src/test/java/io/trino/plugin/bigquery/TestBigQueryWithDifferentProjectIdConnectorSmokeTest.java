@@ -13,6 +13,8 @@
  */
 package io.trino.plugin.bigquery;
 
+import dev.failsafe.Failsafe;
+import dev.failsafe.RetryPolicy;
 import io.trino.testing.BaseConnectorSmokeTest;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
@@ -31,6 +33,9 @@ public class TestBigQueryWithDifferentProjectIdConnectorSmokeTest
 {
     private static final String ALTERNATE_PROJECT_CATALOG = "bigquery";
     private static final String SERVICE_ACCOUNT_CATALOG = "service_account_bigquery";
+    // there is a brief delay before newly written data becomes visible in the BigQuery connector
+    // https://github.com/trinodb/trino/issues/20894
+    private static final RetryPolicy<?> DELETE_TEST_RETRY_POLICY = RetryPolicy.builder().withMaxAttempts(3).build();
 
     protected String alternateProjectId;
 
@@ -126,5 +131,21 @@ public class TestBigQueryWithDifferentProjectIdConnectorSmokeTest
         finally {
             assertUpdate("DROP TABLE IF EXISTS " + tableName);
         }
+    }
+
+    @Test
+    @Override
+    public void testDeleteAllDataFromTable()
+    {
+        Failsafe.with(DELETE_TEST_RETRY_POLICY)
+                .run(super::testDeleteAllDataFromTable);
+    }
+
+    @Test
+    @Override
+    public void testRowLevelDelete()
+    {
+        Failsafe.with(DELETE_TEST_RETRY_POLICY)
+                .run(super::testRowLevelDelete);
     }
 }
