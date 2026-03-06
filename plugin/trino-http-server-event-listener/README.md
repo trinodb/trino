@@ -5,5 +5,6 @@ in the default tarball and the default Docker image.
 
 Follow the [plugin installation instructions](https://trino.io/docs/current/installation/plugins.html)
 and optionally use the [trino-packages project](https://github.com/trinodb/trino-packages)
-or manually [download the plugin archive](https://central.sonatype.com/artifact/io.trino/trino-http-server-event-listener)
+or manually [download the plugin archive](https://trino.io/docs/current/installation/plugins.html#plugins-list)
+
 for your installation and version.
