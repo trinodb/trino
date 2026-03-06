@@ -24,6 +24,9 @@ import io.trino.filesystem.TrinoInputFile;
 import io.trino.filesystem.TrinoOutputFile;
 import io.trino.filesystem.hdfs.HdfsFileSystemFactory;
 import io.trino.parquet.ParquetReaderOptions;
+import io.trino.parquet.metadata.BlockMetadata;
+import io.trino.parquet.metadata.ParquetMetadata;
+import io.trino.parquet.reader.MetadataReader;
 import io.trino.parquet.writer.ParquetWriterOptions;
 import io.trino.plugin.base.metrics.FileFormatDataSourceStats;
 import io.trino.plugin.deltalake.DeltaLakeColumnHandle;
@@ -34,6 +37,7 @@ import io.trino.plugin.deltalake.transactionlog.MetadataEntry;
 import io.trino.plugin.deltalake.transactionlog.ProtocolEntry;
 import io.trino.plugin.deltalake.transactionlog.RemoveFileEntry;
 import io.trino.plugin.deltalake.transactionlog.statistics.DeltaLakeParquetFileStatistics;
+import io.trino.plugin.hive.parquet.TrinoParquetDataSource;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.predicate.ValueSet;
@@ -63,6 +67,7 @@ import java.util.UUID;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import java.util.stream.LongStream;
 
 import static com.google.common.base.Predicates.alwaysTrue;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
@@ -102,8 +107,10 @@ import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static java.lang.Float.floatToIntBits;
+import static java.lang.Math.toIntExact;
 import static java.math.RoundingMode.UNNECESSARY;
 import static java.time.ZoneOffset.UTC;
+import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
@@ -970,6 +977,152 @@ public class TestCheckpointEntryIterator
         assertThat(txnEntryIterator.getCompletedPositions().orElseThrow()).isEqualTo(0L);
     }
 
+    @Test
+    public void testReadEntriesFromCheckpointFileSplits()
+            throws IOException
+    {
+        MetadataEntry metadataEntry = new MetadataEntry(
+                "metadataId",
+                "metadataName",
+                "metadataDescription",
+                new MetadataEntry.Format(
+                        "metadataFormatProvider",
+                        ImmutableMap.of()),
+                "{\"type\":\"struct\",\"fields\":" +
+                        "[{\"name\":\"value\",\"type\":\"integer\",\"nullable\":true,\"metadata\":{}}]}",
+                ImmutableList.of(),
+                ImmutableMap.of(),
+                1000);
+        ProtocolEntry protocolEntry = new ProtocolEntry(1, 1, Optional.empty(), Optional.empty());
+
+        int numAddEntries = 1000;
+        Set<AddFileEntry> addFileEntries = IntStream.rangeClosed(1, numAddEntries)
+                .mapToObj(index -> new AddFileEntry(
+                        "part-%04d-%s.parquet".formatted(index, UUID.randomUUID().toString().repeat(32)),
+                        ImmutableMap.of(),
+                        1000 + index,
+                        10_000 + index,
+                        true,
+                        Optional.empty(),
+                        Optional.empty(),
+                        ImmutableMap.of(),
+                        Optional.empty()))
+                .collect(toImmutableSet());
+
+        CheckpointEntries entries = new CheckpointEntries(
+                metadataEntry,
+                protocolEntry,
+                ImmutableSet.of(),
+                addFileEntries,
+                ImmutableSet.of());
+
+        CheckpointWriter writer = new CheckpointWriter(
+                TESTING_TYPE_MANAGER,
+                checkpointSchemaManager,
+                "test",
+                ParquetWriterOptions.builder()
+                        .setMaxBlockSize(DataSize.of(4, KILOBYTE))
+                        .setMaxPageSize(DataSize.of(1, KILOBYTE))
+                        .build());
+
+        File targetFile = File.createTempFile("testReadEntriesFromCheckpointFileSplits-", ".checkpoint.parquet");
+        targetFile.deleteOnExit();
+
+        String targetPath = "file://" + targetFile.getAbsolutePath();
+        targetFile.delete(); // file must not exist when writer is called
+        writer.write(entries, createOutputFile(targetPath));
+
+        URI checkpointUri = URI.create(targetPath);
+        TrinoInputFile checkpointFile = createInputFile(checkpointUri);
+        long fileSize = checkpointFile.length();
+        List<BlockMetadata> rowGroups = readBlocks(checkpointFile);
+        assertThat(rowGroups.size()).isBetween(16, 64);
+
+        List<DeltaLakeTransactionLogEntry> wholeFileTransactionLogEntries = ImmutableList.copyOf(createCheckpointEntryIterator(
+                        checkpointFile,
+                        0,
+                        fileSize,
+                        fileSize,
+                        ImmutableSet.of(METADATA, PROTOCOL, ADD),
+                        Optional.of(metadataEntry),
+                        Optional.of(protocolEntry),
+                        TupleDomain.all(),
+                        Optional.of(alwaysTrue())));
+
+        assertThat(wholeFileTransactionLogEntries).hasSize(numAddEntries + 2);
+
+        List<Long> splitSizes = LongStream.of(3, 11, 29)
+                .map(divisor -> Math.max(1, fileSize / divisor))
+                .distinct()
+                .boxed()
+                .toList();
+
+        for (long splitSize : splitSizes) {
+            List<CheckpointFileSplit> splits = computeSplits(fileSize, splitSize);
+            List<ImmutableList<DeltaLakeTransactionLogEntry>> entriesBySplit = splits.stream()
+                    .map(split -> ImmutableList.copyOf(createCheckpointEntryIterator(
+                            checkpointFile,
+                            split.start(),
+                            split.length(),
+                            fileSize,
+                            ImmutableSet.of(METADATA, PROTOCOL, ADD),
+                            Optional.of(metadataEntry),
+                            Optional.of(protocolEntry),
+                            TupleDomain.all(),
+                            Optional.of(alwaysTrue()))))
+                    .toList();
+
+            for (int index = 0; index < splits.size(); index++) {
+                CheckpointFileSplit split = splits.get(index);
+                long splitEnd = split.start() + split.length();
+
+                // Each split may span zero, one, or many row groups. We expect that each iterator has the same number of
+                // entries as the sum of all row groups covered by the split
+                long expectedEntryCount = rowGroups.stream()
+                        .filter(block -> split.start() <= getRowGroupStart(block) && getRowGroupStart(block) < splitEnd)
+                        .mapToLong(BlockMetadata::rowCount)
+                        .sum();
+
+                assertThat(entriesBySplit.get(index))
+                        .hasSize(toIntExact(expectedEntryCount));
+            }
+
+            List<DeltaLakeTransactionLogEntry> entriesFromSplits = entriesBySplit.stream()
+                    .flatMap(List::stream)
+                    .toList();
+
+            assertThat(entriesFromSplits).containsExactlyElementsOf(wholeFileTransactionLogEntries);
+        }
+
+        List<CheckpointFileSplit> rowGroupSplits = computeRowGroupSplits(rowGroups, fileSize);
+        List<ImmutableList<DeltaLakeTransactionLogEntry>> entriesByRowGroupSplit = rowGroupSplits.stream()
+                .map(split -> ImmutableList.copyOf(createCheckpointEntryIterator(
+                        checkpointFile,
+                        split.start(),
+                        split.length(),
+                        fileSize,
+                        ImmutableSet.of(METADATA, PROTOCOL, ADD),
+                        Optional.of(metadataEntry),
+                        Optional.of(protocolEntry),
+                        TupleDomain.all(),
+                        Optional.of(alwaysTrue()))))
+                .toList();
+
+        // When splits align precisely with row group boundaries, we expect that each iterator has
+        // precisely the same number of entries as the corresponding row group in Parquet
+        for (int index = 0; index < rowGroupSplits.size(); index++) {
+            long expectedEntryCount = rowGroups.get(index).rowCount();
+            assertThat(entriesByRowGroupSplit.get(index))
+                    .hasSize(toIntExact(expectedEntryCount));
+        }
+
+        List<DeltaLakeTransactionLogEntry> entriesFromRowGroupSplits = entriesByRowGroupSplit.stream()
+                .flatMap(List::stream)
+                .toList();
+
+        assertThat(entriesFromRowGroupSplits).containsExactlyElementsOf(wholeFileTransactionLogEntries);
+    }
+
     private MetadataEntry readMetadataEntry(URI checkpointUri)
             throws IOException
     {
@@ -1005,13 +1158,40 @@ public class TestCheckpointEntryIterator
             Optional<Predicate<String>> addStatsMinMaxColumnFilter)
             throws IOException
     {
-        TrinoFileSystem fileSystem = new HdfsFileSystemFactory(HDFS_ENVIRONMENT, HDFS_FILE_SYSTEM_STATS).create(SESSION);
-        TrinoInputFile checkpointFile = fileSystem.newInputFile(Location.of(checkpointUri.toString()));
+        TrinoInputFile checkpointFile = createInputFile(checkpointUri);
+        long fileSize = checkpointFile.length();
+
+        return createCheckpointEntryIterator(
+                checkpointFile,
+                0,
+                fileSize,
+                fileSize,
+                entryTypes,
+                metadataEntry,
+                protocolEntry,
+                partitionConstraint,
+                addStatsMinMaxColumnFilter);
+    }
+
+    private CheckpointEntryIterator createCheckpointEntryIterator(
+            TrinoInputFile checkpointFile,
+            long start,
+            long length,
+            long fileSize,
+            Set<CheckpointEntryIterator.EntryType> entryTypes,
+            Optional<MetadataEntry> metadataEntry,
+            Optional<ProtocolEntry> protocolEntry,
+            TupleDomain<DeltaLakeColumnHandle> partitionConstraint,
+            Optional<Predicate<String>> addStatsMinMaxColumnFilter)
+    {
+        requireNonNull(checkpointFile, "checkpointFile is null");
 
         return new CheckpointEntryIterator(
                 checkpointFile,
                 SESSION,
-                checkpointFile.length(),
+                start,
+                length,
+                fileSize,
                 checkpointSchemaManager,
                 TESTING_TYPE_MANAGER,
                 entryTypes,
@@ -1028,8 +1208,66 @@ public class TestCheckpointEntryIterator
                 addStatsMinMaxColumnFilter);
     }
 
+    private static TrinoInputFile createInputFile(URI checkpointUri)
+    {
+        TrinoFileSystem fileSystem = new HdfsFileSystemFactory(HDFS_ENVIRONMENT, HDFS_FILE_SYSTEM_STATS).create(SESSION);
+        return fileSystem.newInputFile(Location.of(checkpointUri.toString()));
+    }
+
     private static TrinoOutputFile createOutputFile(String path)
     {
         return new HdfsFileSystemFactory(HDFS_ENVIRONMENT, HDFS_FILE_SYSTEM_STATS).create(SESSION).newOutputFile(Location.of(path));
+    }
+
+    private record CheckpointFileSplit(long start, long length) {}
+
+    private static List<CheckpointFileSplit> computeSplits(long fileSize, long splitSize)
+    {
+        long splitCount;
+        if (fileSize == 0) {
+            splitCount = 1;
+        }
+        else {
+            splitCount = (fileSize + splitSize - 1) / splitSize;
+        }
+
+        return LongStream.range(0, splitCount)
+                .mapToObj(index -> {
+                    long start = index * splitSize;
+                    long length = Math.min(splitSize, fileSize - start);
+                    return new CheckpointFileSplit(start, length);
+                })
+                .toList();
+    }
+
+    private static List<CheckpointFileSplit> computeRowGroupSplits(List<BlockMetadata> rowGroups, long fileSize)
+    {
+        List<Long> rowGroupOffsets = rowGroups.stream()
+                .map(TestCheckpointEntryIterator::getRowGroupStart)
+                .distinct()
+                .sorted()
+                .toList();
+
+        return IntStream.range(0, rowGroupOffsets.size())
+                .mapToObj(index -> {
+                    long start = rowGroupOffsets.get(index);
+                    long end = (index + 1 < rowGroupOffsets.size()) ? rowGroupOffsets.get(index + 1) : fileSize;
+                    return new CheckpointFileSplit(start, end - start);
+                })
+                .toList();
+    }
+
+    private static List<BlockMetadata> readBlocks(TrinoInputFile checkpointFile)
+            throws IOException
+    {
+        try (TrinoParquetDataSource dataSource = new TrinoParquetDataSource(checkpointFile, ParquetReaderOptions.defaultOptions(), new FileFormatDataSourceStats())) {
+            ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource, Optional.empty());
+            return parquetMetadata.getBlocks();
+        }
+    }
+
+    private static long getRowGroupStart(BlockMetadata block)
+    {
+        return block.columns().getFirst().getStartingPos();
     }
 }

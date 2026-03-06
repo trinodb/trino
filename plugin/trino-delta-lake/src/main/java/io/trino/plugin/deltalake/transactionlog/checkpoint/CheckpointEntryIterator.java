@@ -161,6 +161,8 @@ public class CheckpointEntryIterator
     public CheckpointEntryIterator(
             TrinoInputFile checkpoint,
             ConnectorSession session,
+            long start,
+            long length,
             long fileSize,
             CheckpointSchemaManager checkpointSchemaManager,
             TypeManager typeManager,
@@ -209,8 +211,8 @@ public class CheckpointEntryIterator
 
         this.pageSource = ParquetPageSourceFactory.createPageSource(
                 checkpoint,
-                0,
-                fileSize,
+                start,
+                length,
                 columns,
                 disjunctDomainsBuilder.build(), // OR-ed condition
                 true,

@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultiset;
 import com.google.common.collect.Multiset;
 import com.google.common.io.Resources;
+import io.airlift.units.DataSize;
 import io.opentelemetry.sdk.trace.data.SpanData;
 import io.trino.Session;
 import io.trino.SystemSessionProperties;
@@ -56,6 +57,7 @@ import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.trino.filesystem.tracing.FileSystemAttributes.FILE_LOCATION;
 import static io.trino.plugin.deltalake.TestDeltaLakeFileOperations.FileType.CDF_DATA;
 import static io.trino.plugin.deltalake.TestDeltaLakeFileOperations.FileType.CHECKPOINT;
+import static io.trino.plugin.deltalake.TestDeltaLakeFileOperations.FileType.CHECKSUM;
 import static io.trino.plugin.deltalake.TestDeltaLakeFileOperations.FileType.DATA;
 import static io.trino.plugin.deltalake.TestDeltaLakeFileOperations.FileType.DELETION_VECTOR;
 import static io.trino.plugin.deltalake.TestDeltaLakeFileOperations.FileType.LAST_CHECKPOINT;
@@ -79,6 +81,7 @@ public class TestDeltaLakeFileOperations
 {
     private static final int MAX_PREFIXES_COUNT = 10;
 
+    private Path catalogDir;
     private HiveMetastore metastore;
     // TODO: Consider waiting for scheduled task completion instead of manual triggering
     private DeltaLakeTableMetadataScheduler metadataScheduler;
@@ -87,7 +90,7 @@ public class TestDeltaLakeFileOperations
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        Path catalogDir = Files.createTempDirectory("catalog-dir");
+        catalogDir = Files.createTempDirectory("catalog-dir");
         closeAfterClass(() -> deleteRecursively(catalogDir, ALLOW_INSECURE));
 
         DistributedQueryRunner queryRunner = DeltaLakeQueryRunner.builder()
@@ -471,6 +474,7 @@ public class TestDeltaLakeFileOperations
                 ImmutableMultiset.<FileOperation>builder()
                         .add(new FileOperation(LAST_CHECKPOINT, "_last_checkpoint", "InputFile.newStream"))
                         .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000000.json", "InputFile.newStream"))
+                        .add(new FileOperation(CHECKSUM, "00000000000000000000.crc", "InputFile.newStream"))
                         .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000000.json", "InputFile.length"))
                         .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000000.json", "InputFile.exists"))
                         .build());
@@ -479,6 +483,7 @@ public class TestDeltaLakeFileOperations
                         .add(new FileOperation(LAST_CHECKPOINT, "_last_checkpoint", "InputFile.newStream"))
                         .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000000.json", "InputFile.newStream"))
                         .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000001.json", "InputFile.newStream"))
+                        .add(new FileOperation(CHECKSUM, "00000000000000000001.crc", "InputFile.newStream"))
                         .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000000.json", "InputFile.length"))
                         .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000001.json", "InputFile.length"))
                         .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000001.json", "InputFile.exists"))
@@ -490,6 +495,7 @@ public class TestDeltaLakeFileOperations
                         .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000000.json", "InputFile.newStream"))
                         .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000001.json", "InputFile.newStream"))
                         .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000002.json", "InputFile.newStream"))
+                        .add(new FileOperation(CHECKSUM, "00000000000000000002.crc", "InputFile.newStream"))
                         .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000000.json", "InputFile.length"))
                         .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000001.json", "InputFile.length"))
                         .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000002.json", "InputFile.length"))
@@ -508,6 +514,7 @@ public class TestDeltaLakeFileOperations
                         .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000006.json", "InputFile.newStream"))
                         .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000007.json", "InputFile.newStream"))
                         .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000008.json", "InputFile.newStream"))
+                        .add(new FileOperation(CHECKSUM, "00000000000000000008.crc", "InputFile.newStream"))
                         .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000000.json", "InputFile.length"))
                         .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000001.json", "InputFile.length"))
                         .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000002.json", "InputFile.length"))
@@ -528,6 +535,7 @@ public class TestDeltaLakeFileOperations
                         .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000011.json", "InputFile.newStream"))
                         .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000012.json", "InputFile.newStream"))
                         .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000013.json", "InputFile.newStream"))
+                        .add(new FileOperation(CHECKSUM, "00000000000000000013.crc", "InputFile.newStream"))
                         .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000011.json", "InputFile.length"))
                         .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000012.json", "InputFile.length"))
                         .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000013.json", "InputFile.length"))
@@ -537,6 +545,7 @@ public class TestDeltaLakeFileOperations
         assertFileSystemAccesses("SELECT * FROM " + tableName + " FOR VERSION AS OF 20",
                 ImmutableMultiset.<FileOperation>builder()
                         .add(new FileOperation(LAST_CHECKPOINT, "_last_checkpoint", "InputFile.newStream"))
+                        .add(new FileOperation(CHECKSUM, "00000000000000000020.crc", "InputFile.newStream"))
                         .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000020.json", "InputFile.exists"))
                         .addCopies(new FileOperation(CHECKPOINT, "00000000000000000020.checkpoint.parquet", "InputFile.length"), 2)
                         .addCopies(new FileOperation(CHECKPOINT, "00000000000000000020.checkpoint.parquet", "InputFile.newInput"), 2)
@@ -550,6 +559,7 @@ public class TestDeltaLakeFileOperations
                         .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000021.json", "InputFile.newStream"))
                         .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000022.json", "InputFile.newStream"))
                         .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000023.json", "InputFile.newStream"))
+                        .add(new FileOperation(CHECKSUM, "00000000000000000023.crc", "InputFile.newStream"))
                         .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000021.json", "InputFile.length"))
                         .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000022.json", "InputFile.length"))
                         .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000023.json", "InputFile.length"))
@@ -590,6 +600,7 @@ public class TestDeltaLakeFileOperations
                         .addAll(allInsertOperations.subList(0, 20 * 2 + 1))
                         .addCopies(new FileOperation(LAST_CHECKPOINT, "_last_checkpoint", "InputFile.newStream"), 2)
                         .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000000.json", "InputFile.newStream"))
+                        .add(new FileOperation(CHECKSUM, "00000000000000000000.crc", "InputFile.newStream"))
                         .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000000.json", "InputFile.length"))
                         .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000020.json", "InputFile.length"))
                         .build());
@@ -599,6 +610,7 @@ public class TestDeltaLakeFileOperations
                         .addAll(allInsertOperations.subList(0, 20 * 2 + 1))
                         .addCopies(new FileOperation(LAST_CHECKPOINT, "_last_checkpoint", "InputFile.newStream"), 2)
                         .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000002.json", "InputFile.newStream"))
+                        .add(new FileOperation(CHECKSUM, "00000000000000000002.crc", "InputFile.newStream"))
                         .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000002.json", "InputFile.length"))
                         .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000020.json", "InputFile.length"))
                         .addCopies(new FileOperation(DATA, "no partition", "InputFile.newInput"), 2)
@@ -609,6 +621,7 @@ public class TestDeltaLakeFileOperations
                         .addAll(allInsertOperations.subList(0, 20 * 2 + 1))
                         .addCopies(new FileOperation(LAST_CHECKPOINT, "_last_checkpoint", "InputFile.newStream"), 2)
                         .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000003.json", "InputFile.newStream"))
+                        .add(new FileOperation(CHECKSUM, "00000000000000000003.crc", "InputFile.newStream"))
                         .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000003.json", "InputFile.length"))
                         .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000020.json", "InputFile.length"))
                         .addCopies(new FileOperation(DATA, "no partition", "InputFile.newInput"), 3)
@@ -619,6 +632,7 @@ public class TestDeltaLakeFileOperations
                         .addAll(allInsertOperations.subList(0, 20 * 2 + 1))
                         .addCopies(new FileOperation(LAST_CHECKPOINT, "_last_checkpoint", "InputFile.newStream"), 2)
                         .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000009.json", "InputFile.newStream"))
+                        .add(new FileOperation(CHECKSUM, "00000000000000000009.crc", "InputFile.newStream"))
                         .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000009.json", "InputFile.length"))
                         .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000020.json", "InputFile.length"))
                         .addCopies(new FileOperation(DATA, "no partition", "InputFile.newInput"), 9)
@@ -629,6 +643,7 @@ public class TestDeltaLakeFileOperations
                         .addAll(allInsertOperations.subList(11 * 2, 20 * 2 + 1))
                         .addCopies(new FileOperation(LAST_CHECKPOINT, "_last_checkpoint", "InputFile.newStream"), 2)
                         .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000014.json", "InputFile.newStream"))
+                        .add(new FileOperation(CHECKSUM, "00000000000000000014.crc", "InputFile.newStream"))
                         .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000014.json", "InputFile.length"))
                         .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000020.json", "InputFile.length"))
                         .addCopies(new FileOperation(CHECKPOINT, "00000000000000000010.checkpoint.parquet", "InputFile.length"), 2)
@@ -641,6 +656,7 @@ public class TestDeltaLakeFileOperations
                         .addAll(allInsertOperations.subList(20 * 2, 22 * 2 + 1))
                         .addCopies(new FileOperation(LAST_CHECKPOINT, "_last_checkpoint", "InputFile.newStream"), 2)
                         .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000021.json", "InputFile.newStream"))
+                        .add(new FileOperation(CHECKSUM, "00000000000000000021.crc", "InputFile.newStream"))
                         .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000021.json", "InputFile.length"))
                         .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000022.json", "InputFile.length"))
                         .addCopies(new FileOperation(CHECKPOINT, "00000000000000000020.checkpoint.parquet", "InputFile.length"), 2)
@@ -659,6 +675,7 @@ public class TestDeltaLakeFileOperations
                         .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000023.json", "InputFile.newStream"))
                         .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000023.json", "InputFile.length"))
                         .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000024.json", "InputFile.newStream"))
+                        .add(new FileOperation(CHECKSUM, "00000000000000000024.crc", "InputFile.newStream"))
                         .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000024.json", "InputFile.length"))
                         .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000025.json", "InputFile.length"))
                         .addCopies(new FileOperation(CHECKPOINT, "00000000000000000020.checkpoint.parquet", "InputFile.length"), 2)
@@ -1164,6 +1181,471 @@ public class TestDeltaLakeFileOperations
                         .build());
     }
 
+    /**
+     * @see databricks73.person
+     */
+    @Test
+    public void testV1SinglePartCheckpointFileOperationsAcrossCheckpointProcessingModes()
+            throws Exception
+    {
+        ImmutableMultiset<FileOperation> serialAccesses = ImmutableMultiset.<FileOperation>builder()
+                .add(new FileOperation(CHECKSUM, "00000000000000000013.crc", "InputFile.newStream"))
+                .add(new FileOperation(LAST_CHECKPOINT, "_last_checkpoint", "InputFile.newStream"))
+                .addCopies(new FileOperation(CHECKPOINT, "00000000000000000010.checkpoint.parquet", "InputFile.length"), 2)
+                .addCopies(new FileOperation(CHECKPOINT, "00000000000000000010.checkpoint.parquet", "InputFile.newInput"), 2)
+                .addCopies(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000011.json", "InputFile.newStream"), 2)
+                .addCopies(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000012.json", "InputFile.newStream"), 2)
+                .addCopies(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000013.json", "InputFile.newStream"), 2)
+                .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000011.json", "InputFile.length"))
+                .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000012.json", "InputFile.length"))
+                .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000013.json", "InputFile.length"))
+                .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000014.json", "InputFile.length"))
+                .addCopies(new FileOperation(DATA, "no partition", "InputFile.newInput"), 12)
+                .build();
+        ImmutableMultiset<FileOperation> parallelAccesses = ImmutableMultiset.<FileOperation>builder()
+                .add(new FileOperation(CHECKSUM, "00000000000000000013.crc", "InputFile.newStream"))
+                .add(new FileOperation(LAST_CHECKPOINT, "_last_checkpoint", "InputFile.newStream"))
+                .addCopies(new FileOperation(CHECKPOINT, "00000000000000000010.checkpoint.parquet", "InputFile.length"), 2)
+                .addCopies(new FileOperation(CHECKPOINT, "00000000000000000010.checkpoint.parquet", "InputFile.newInput"), 44)
+                .addCopies(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000011.json", "InputFile.newStream"), 2)
+                .addCopies(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000012.json", "InputFile.newStream"), 2)
+                .addCopies(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000013.json", "InputFile.newStream"), 2)
+                .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000011.json", "InputFile.length"))
+                .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000012.json", "InputFile.length"))
+                .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000013.json", "InputFile.length"))
+                .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000014.json", "InputFile.length"))
+                .addCopies(new FileOperation(DATA, "no partition", "InputFile.newInput"), 12)
+                .build();
+
+        assertCheckpointQueryFileOperationsAcrossCheckpointProcessingModes(
+                "checkpoint_v1_single",
+                "databricks73/person",
+                "SELECT name, age FROM %s ORDER BY age, name",
+                serialAccesses,
+                serialAccesses,
+                serialAccesses,
+                parallelAccesses);
+    }
+
+    /**
+     * @see deltalake.multipart_checkpoint
+     */
+    @Test
+    public void testV1MultipartCheckpointFileOperationsAcrossCheckpointProcessingModes()
+            throws Exception
+    {
+        ImmutableMultiset<FileOperation> serialAccesses = ImmutableMultiset.<FileOperation>builder()
+                .add(new FileOperation(LAST_CHECKPOINT, "_last_checkpoint", "InputFile.newStream"))
+                .addCopies(new FileOperation(CHECKPOINT, "00000000000000000006.checkpoint.0000000001.0000000002.parquet", "InputFile.length"), 2)
+                .addCopies(new FileOperation(CHECKPOINT, "00000000000000000006.checkpoint.0000000001.0000000002.parquet", "InputFile.newInput"), 2)
+                .addCopies(new FileOperation(CHECKPOINT, "00000000000000000006.checkpoint.0000000002.0000000002.parquet", "InputFile.length"), 2)
+                .addCopies(new FileOperation(CHECKPOINT, "00000000000000000006.checkpoint.0000000002.0000000002.parquet", "InputFile.newInput"), 2)
+                .addCopies(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000007.json", "InputFile.newStream"), 2)
+                .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000007.json", "InputFile.length"))
+                .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000008.json", "InputFile.length"))
+                .addCopies(new FileOperation(DATA, "no partition", "InputFile.newInput"), 7)
+                .build();
+        ImmutableMultiset<FileOperation> parallelAccesses = ImmutableMultiset.<FileOperation>builder()
+                .add(new FileOperation(LAST_CHECKPOINT, "_last_checkpoint", "InputFile.newStream"))
+                .addCopies(new FileOperation(CHECKPOINT, "00000000000000000006.checkpoint.0000000001.0000000002.parquet", "InputFile.length"), 2)
+                .addCopies(new FileOperation(CHECKPOINT, "00000000000000000006.checkpoint.0000000001.0000000002.parquet", "InputFile.newInput"), 28)
+                .addCopies(new FileOperation(CHECKPOINT, "00000000000000000006.checkpoint.0000000002.0000000002.parquet", "InputFile.length"), 2)
+                .addCopies(new FileOperation(CHECKPOINT, "00000000000000000006.checkpoint.0000000002.0000000002.parquet", "InputFile.newInput"), 26)
+                .addCopies(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000007.json", "InputFile.newStream"), 2)
+                .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000007.json", "InputFile.length"))
+                .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000008.json", "InputFile.length"))
+                .addCopies(new FileOperation(DATA, "no partition", "InputFile.newInput"), 7)
+                .build();
+
+        assertCheckpointQueryFileOperationsAcrossCheckpointProcessingModes(
+                "checkpoint_v1_multipart",
+                "deltalake/multipart_checkpoint",
+                "SELECT c FROM %s ORDER BY c",
+                serialAccesses,
+                serialAccesses,
+                serialAccesses,
+                parallelAccesses);
+    }
+
+    /**
+     * @see deltalake.v2_checkpoint_json
+     */
+    @Test
+    public void testV2CheckpointJsonFileOperationsAcrossCheckpointProcessingModes()
+            throws Exception
+    {
+        ImmutableMultiset<FileOperation> serialAccesses = ImmutableMultiset.<FileOperation>builder()
+                .add(new FileOperation(LAST_CHECKPOINT, "_last_checkpoint", "InputFile.newStream"))
+                .addCopies(new FileOperation(CHECKPOINT, "00000000000000000001.checkpoint.73a4ddb8-2bfc-40d8-b09f-1b6a0abdfb04.json", "InputFile.length"), 2)
+                .addCopies(new FileOperation(CHECKPOINT, "00000000000000000001.checkpoint.73a4ddb8-2bfc-40d8-b09f-1b6a0abdfb04.json", "InputFile.newStream"), 2)
+                .add(new FileOperation(CHECKPOINT, "00000000000000000001.checkpoint.0000000001.0000000001.90cf4e21-dbaa-41d6-8ae5-6709cfbfbfe0.parquet", "InputFile.length"))
+                .add(new FileOperation(CHECKPOINT, "00000000000000000001.checkpoint.0000000001.0000000001.90cf4e21-dbaa-41d6-8ae5-6709cfbfbfe0.parquet", "InputFile.newInput"))
+                .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000002.json", "InputFile.length"))
+                .add(new FileOperation(DATA, "no partition", "InputFile.newInput"))
+                .build();
+        ImmutableMultiset<FileOperation> parallelAccesses = ImmutableMultiset.<FileOperation>builder()
+                .add(new FileOperation(LAST_CHECKPOINT, "_last_checkpoint", "InputFile.newStream"))
+                .addCopies(new FileOperation(CHECKPOINT, "00000000000000000001.checkpoint.73a4ddb8-2bfc-40d8-b09f-1b6a0abdfb04.json", "InputFile.length"), 2)
+                .addCopies(new FileOperation(CHECKPOINT, "00000000000000000001.checkpoint.73a4ddb8-2bfc-40d8-b09f-1b6a0abdfb04.json", "InputFile.newStream"), 2)
+                .add(new FileOperation(CHECKPOINT, "00000000000000000001.checkpoint.0000000001.0000000001.90cf4e21-dbaa-41d6-8ae5-6709cfbfbfe0.parquet", "InputFile.length"))
+                .addCopies(new FileOperation(CHECKPOINT, "00000000000000000001.checkpoint.0000000001.0000000001.90cf4e21-dbaa-41d6-8ae5-6709cfbfbfe0.parquet", "InputFile.newInput"), 9)
+                .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000002.json", "InputFile.length"))
+                .add(new FileOperation(DATA, "no partition", "InputFile.newInput"))
+                .build();
+
+        assertCheckpointQueryFileOperationsAcrossCheckpointProcessingModes(
+                "checkpoint_v2_json",
+                "deltalake/v2_checkpoint_json",
+                "SELECT a, b FROM %s ORDER BY a, b",
+                serialAccesses,
+                serialAccesses,
+                serialAccesses,
+                parallelAccesses);
+    }
+
+    /**
+     * @see deltalake.v2_checkpoint_parquet
+     */
+    @Test
+    public void testV2CheckpointParquetFileOperationsAcrossCheckpointProcessingModes()
+            throws Exception
+    {
+        ImmutableMultiset<FileOperation> serialAccesses = ImmutableMultiset.<FileOperation>builder()
+                .add(new FileOperation(LAST_CHECKPOINT, "_last_checkpoint", "InputFile.newStream"))
+                .add(new FileOperation(CHECKPOINT, "00000000000000000001.checkpoint.0000000001.0000000001.03288d7e-af16-44ed-829c-196064a71812.parquet", "InputFile.length"))
+                .add(new FileOperation(CHECKPOINT, "00000000000000000001.checkpoint.0000000001.0000000001.03288d7e-af16-44ed-829c-196064a71812.parquet", "InputFile.newInput"))
+                .addCopies(new FileOperation(CHECKPOINT, "00000000000000000001.checkpoint.156b3304-76b2-49c3-a9a1-626f07df27c9.parquet", "InputFile.length"), 2)
+                .addCopies(new FileOperation(CHECKPOINT, "00000000000000000001.checkpoint.156b3304-76b2-49c3-a9a1-626f07df27c9.parquet", "InputFile.newInput"), 2)
+                .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000002.json", "InputFile.length"))
+                .add(new FileOperation(DATA, "no partition", "InputFile.newInput"))
+                .build();
+        ImmutableMultiset<FileOperation> parallelAccesses = ImmutableMultiset.<FileOperation>builder()
+                .add(new FileOperation(LAST_CHECKPOINT, "_last_checkpoint", "InputFile.newStream"))
+                .add(new FileOperation(CHECKPOINT, "00000000000000000001.checkpoint.0000000001.0000000001.03288d7e-af16-44ed-829c-196064a71812.parquet", "InputFile.length"))
+                .addCopies(new FileOperation(CHECKPOINT, "00000000000000000001.checkpoint.0000000001.0000000001.03288d7e-af16-44ed-829c-196064a71812.parquet", "InputFile.newInput"), 10)
+                .addCopies(new FileOperation(CHECKPOINT, "00000000000000000001.checkpoint.156b3304-76b2-49c3-a9a1-626f07df27c9.parquet", "InputFile.length"), 2)
+                .addCopies(new FileOperation(CHECKPOINT, "00000000000000000001.checkpoint.156b3304-76b2-49c3-a9a1-626f07df27c9.parquet", "InputFile.newInput"), 38)
+                .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000002.json", "InputFile.length"))
+                .add(new FileOperation(DATA, "no partition", "InputFile.newInput"))
+                .build();
+
+        assertCheckpointQueryFileOperationsAcrossCheckpointProcessingModes(
+                "checkpoint_v2_parquet",
+                "deltalake/v2_checkpoint_parquet",
+                "SELECT a, b FROM %s ORDER BY a, b",
+                serialAccesses,
+                serialAccesses,
+                serialAccesses,
+                parallelAccesses);
+    }
+
+    /**
+     * @see deltalake.multipart_v2_checkpoint
+     */
+    @Test
+    public void testMultipartV2CheckpointFileOperationsAcrossCheckpointProcessingModes()
+            throws Exception
+    {
+        ImmutableMultiset<FileOperation> serialAccesses = ImmutableMultiset.<FileOperation>builder()
+                .add(new FileOperation(LAST_CHECKPOINT, "_last_checkpoint", "InputFile.newStream"))
+                .addCopies(new FileOperation(CHECKPOINT, "00000000000000000004.checkpoint.42f48375-5c72-4d2f-8dcc-7ce4d45e2d8c.json", "InputFile.length"), 2)
+                .addCopies(new FileOperation(CHECKPOINT, "00000000000000000004.checkpoint.42f48375-5c72-4d2f-8dcc-7ce4d45e2d8c.json", "InputFile.newStream"), 2)
+                .add(new FileOperation(CHECKPOINT, "00000000000000000004.checkpoint.0000000001.0000000004.9f573e40-495e-4fb5-9a86-638dbdf0909e.parquet", "InputFile.length"))
+                .add(new FileOperation(CHECKPOINT, "00000000000000000004.checkpoint.0000000001.0000000004.9f573e40-495e-4fb5-9a86-638dbdf0909e.parquet", "InputFile.newInput"))
+                .add(new FileOperation(CHECKPOINT, "00000000000000000004.checkpoint.0000000002.0000000004.72848a80-e6d1-40fd-b702-344ecbb4c2fa.parquet", "InputFile.length"))
+                .add(new FileOperation(CHECKPOINT, "00000000000000000004.checkpoint.0000000002.0000000004.72848a80-e6d1-40fd-b702-344ecbb4c2fa.parquet", "InputFile.newInput"))
+                .add(new FileOperation(CHECKPOINT, "00000000000000000004.checkpoint.0000000003.0000000004.93080a9b-6c0d-4a19-ac28-e3654e3096f9.parquet", "InputFile.length"))
+                .add(new FileOperation(CHECKPOINT, "00000000000000000004.checkpoint.0000000003.0000000004.93080a9b-6c0d-4a19-ac28-e3654e3096f9.parquet", "InputFile.newInput"))
+                .add(new FileOperation(CHECKPOINT, "00000000000000000004.checkpoint.0000000004.0000000004.994ab05a-4806-4f96-8e7b-5dcf653a8e48.parquet", "InputFile.length"))
+                .add(new FileOperation(CHECKPOINT, "00000000000000000004.checkpoint.0000000004.0000000004.994ab05a-4806-4f96-8e7b-5dcf653a8e48.parquet", "InputFile.newInput"))
+                .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000005.json", "InputFile.length"))
+                .addCopies(new FileOperation(DATA, "no partition", "InputFile.newInput"), 4)
+                .build();
+        ImmutableMultiset<FileOperation> parallelAccesses = ImmutableMultiset.<FileOperation>builder()
+                .add(new FileOperation(LAST_CHECKPOINT, "_last_checkpoint", "InputFile.newStream"))
+                .addCopies(new FileOperation(CHECKPOINT, "00000000000000000004.checkpoint.42f48375-5c72-4d2f-8dcc-7ce4d45e2d8c.json", "InputFile.length"), 2)
+                .addCopies(new FileOperation(CHECKPOINT, "00000000000000000004.checkpoint.42f48375-5c72-4d2f-8dcc-7ce4d45e2d8c.json", "InputFile.newStream"), 2)
+                .add(new FileOperation(CHECKPOINT, "00000000000000000004.checkpoint.0000000001.0000000004.9f573e40-495e-4fb5-9a86-638dbdf0909e.parquet", "InputFile.length"))
+                .addCopies(new FileOperation(CHECKPOINT, "00000000000000000004.checkpoint.0000000001.0000000004.9f573e40-495e-4fb5-9a86-638dbdf0909e.parquet", "InputFile.newInput"), 10)
+                .add(new FileOperation(CHECKPOINT, "00000000000000000004.checkpoint.0000000002.0000000004.72848a80-e6d1-40fd-b702-344ecbb4c2fa.parquet", "InputFile.length"))
+                .addCopies(new FileOperation(CHECKPOINT, "00000000000000000004.checkpoint.0000000002.0000000004.72848a80-e6d1-40fd-b702-344ecbb4c2fa.parquet", "InputFile.newInput"), 10)
+                .add(new FileOperation(CHECKPOINT, "00000000000000000004.checkpoint.0000000003.0000000004.93080a9b-6c0d-4a19-ac28-e3654e3096f9.parquet", "InputFile.length"))
+                .addCopies(new FileOperation(CHECKPOINT, "00000000000000000004.checkpoint.0000000003.0000000004.93080a9b-6c0d-4a19-ac28-e3654e3096f9.parquet", "InputFile.newInput"), 4)
+                .add(new FileOperation(CHECKPOINT, "00000000000000000004.checkpoint.0000000004.0000000004.994ab05a-4806-4f96-8e7b-5dcf653a8e48.parquet", "InputFile.length"))
+                .addCopies(new FileOperation(CHECKPOINT, "00000000000000000004.checkpoint.0000000004.0000000004.994ab05a-4806-4f96-8e7b-5dcf653a8e48.parquet", "InputFile.newInput"), 9)
+                .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000005.json", "InputFile.length"))
+                .addCopies(new FileOperation(DATA, "no partition", "InputFile.newInput"), 4)
+                .build();
+
+        assertCheckpointQueryFileOperationsAcrossCheckpointProcessingModes(
+                "checkpoint_v2_multipart",
+                "deltalake/multipart_v2_checkpoint",
+                "SELECT a, b FROM %s ORDER BY a, b",
+                serialAccesses,
+                serialAccesses,
+                serialAccesses,
+                parallelAccesses);
+    }
+
+    private void assertCheckpointQueryFileOperationsAcrossCheckpointProcessingModes(
+            String tableNamePrefix,
+            String resourcePath,
+            @Language("SQL") String queryTemplate,
+            Multiset<FileOperation> serialExpectedAccesses,
+            Multiset<FileOperation> intraFileOnlyExpectedAccesses,
+            Multiset<FileOperation> fileParallelExpectedAccesses,
+            Multiset<FileOperation> parallelExpectedAccesses)
+            throws Exception
+    {
+        String tableName = tableNamePrefix + "_" + randomNameSuffix();
+        String dataPath = getResourceLocation(resourcePath).toExternalForm();
+
+        Session serialSession = createCheckpointParallelProcessingSession(false, false, false);
+        Session intraFileOnlySession = createCheckpointParallelProcessingSession(false, false, true);
+        Session fileParallelSession = createCheckpointParallelProcessingSession(true, true, false);
+        Session parallelSession = createCheckpointParallelProcessingSession(true, true, true);
+
+        for (Session session : ImmutableList.of(serialSession, intraFileOnlySession, fileParallelSession, parallelSession)) {
+            assertUpdate(session, format("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')", tableName, dataPath));
+        }
+
+        String query = queryTemplate.formatted(tableName);
+
+        Multiset<FileOperation> serial = getFileSystemAccesses(serialSession, query);
+        Multiset<FileOperation> intraFileOnly = getFileSystemAccesses(intraFileOnlySession, query);
+        Multiset<FileOperation> fileParallel = getFileSystemAccesses(fileParallelSession, query);
+        Multiset<FileOperation> parallel = getFileSystemAccesses(parallelSession, query);
+
+        assertMultisetsEqual(serial, serialExpectedAccesses);
+        assertMultisetsEqual(intraFileOnly, intraFileOnlyExpectedAccesses);
+        assertMultisetsEqual(fileParallel, fileParallelExpectedAccesses);
+        assertMultisetsEqual(parallel, parallelExpectedAccesses);
+    }
+
+    private Session createCheckpointParallelProcessingSession(
+            boolean checkpointFileParallelProcessingEnabled,
+            boolean checkpointV2ParallelProcessingEnabled,
+            boolean checkpointIntraFileParallelProcessingEnabled)
+            throws Exception
+    {
+        String catalogName = "delta_checkpoint_processing_" + randomNameSuffix();
+        String schemaName = getSession().getSchema().orElseThrow();
+        Path metastoreDir = Files.createDirectories(catalogDir.resolve(catalogName));
+
+        getQueryRunner().createCatalog(
+                catalogName,
+                DeltaLakeConnectorFactory.CONNECTOR_NAME,
+                ImmutableMap.<String, String>builder()
+                        .put("hive.metastore", "file")
+                        .put("hive.metastore.catalog.dir", metastoreDir.toUri().toString())
+                        .put("fs.hadoop.enabled", "true")
+                        .put("delta.register-table-procedure.enabled", "true")
+                        .put("delta.enable-non-concurrent-writes", "true")
+                        .put("delta.transaction-log.max-cached-file-size", "0B")
+                        .put("delta.checkpoint-processing.parallelism", "4")
+                        .put("delta.checkpoint-processing.v1-parallel-processing.enabled", Boolean.toString(checkpointFileParallelProcessingEnabled))
+                        .put("delta.checkpoint-processing.v2-parallel-processing.enabled", Boolean.toString(checkpointV2ParallelProcessingEnabled))
+                        .put("delta.checkpoint-processing.intra-file-parallel-processing.enabled", Boolean.toString(checkpointIntraFileParallelProcessingEnabled))
+                        .put("delta.checkpoint-processing.intra-file-parallel-processing.split-size", DataSize.ofBytes(1_024).toString())
+                        .buildOrThrow());
+
+        getQueryRunner().execute("CREATE SCHEMA IF NOT EXISTS " + catalogName + "." + schemaName);
+
+        return Session.builder(getSession())
+                .setCatalog(catalogName)
+                .setSchema(schemaName)
+                .build();
+    }
+
+    /**
+     * @see deltalake.checksum
+     */
+    @Test
+    public void testDescribeWithLoadMetadataFromChecksumFileDoesNotReadTransactionLogOrCheckpoint()
+            throws Exception
+    {
+        String catalog = getSession().getCatalog().orElseThrow();
+        Session session = Session.builder(getSession())
+                .setCatalogSessionProperty(catalog, "load_metadata_from_checksum_file", "true")
+                .build();
+
+        String tableName = "test_describe_with_load_metadata_from_checksum_file_does_not_read_transaction_log_or_checkpoint_" + randomNameSuffix();
+        Path tableLocation = Files.createTempFile(tableName, null);
+        copyDirectoryContents(new File(Resources.getResource("deltalake/checksum").toURI()).toPath(), tableLocation);
+
+        assertUpdate(session, "CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')".formatted(tableName, tableLocation.toUri()));
+
+        assertFileSystemAccesses(session, "DESCRIBE " + tableName,
+                ImmutableMultiset.<FileOperation>builder()
+                        .addCopies(new FileOperation(CHECKSUM, "00000000000000000001.crc", "InputFile.newStream"), 2)
+                        .build());
+    }
+
+    /**
+     * @see deltalake.checksum
+     */
+    @Test
+    public void testDescribeWithLoadMetadataFromChecksumFileDisabledReadsTransactionLogAndCheckpoint()
+            throws Exception
+    {
+        String catalog = getSession().getCatalog().orElseThrow();
+        Session session = Session.builder(getSession())
+                .setCatalogSessionProperty(catalog, "load_metadata_from_checksum_file", "false")
+                .build();
+
+        String tableName = "test_describe_with_load_metadata_from_checksum_file_disabled_reads_transaction_log_and_checkpoint_" + randomNameSuffix();
+        Path tableLocation = Files.createTempFile(tableName, null);
+        copyDirectoryContents(new File(Resources.getResource("deltalake/checksum").toURI()).toPath(), tableLocation);
+
+        assertUpdate(session, "CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')".formatted(tableName, tableLocation.toUri()));
+
+        assertFileSystemAccesses(session, "DESCRIBE " + tableName,
+                ImmutableMultiset.<FileOperation>builder()
+                        .add(new FileOperation(LAST_CHECKPOINT, "_last_checkpoint", "InputFile.newStream"))
+                        .add(new FileOperation(CHECKPOINT, "00000000000000000001.checkpoint.parquet", "InputFile.length"))
+                        .add(new FileOperation(CHECKPOINT, "00000000000000000001.checkpoint.parquet", "InputFile.newInput"))
+                        .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000002.json", "InputFile.length"))
+                        .build());
+    }
+
+    /**
+     * @see deltalake.checksum_missing_latest
+     */
+    @Test
+    public void testDescribeWithLoadMetadataFromChecksumFileMissingChecksumFallsBackToTransactionLogAndCheckpoint()
+            throws Exception
+    {
+        String catalog = getSession().getCatalog().orElseThrow();
+        Session session = Session.builder(getSession())
+                .setCatalogSessionProperty(catalog, "load_metadata_from_checksum_file", "true")
+                .build();
+
+        String tableName = "test_describe_with_load_metadata_from_checksum_file_missing_checksum_falls_back_to_transaction_log_and_checkpoint_" + randomNameSuffix();
+        Path tableLocation = Files.createTempFile(tableName, null);
+        copyDirectoryContents(new File(Resources.getResource("deltalake/checksum_missing_latest").toURI()).toPath(), tableLocation);
+
+        assertUpdate(session, "CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')".formatted(tableName, tableLocation.toUri()));
+
+        assertFileSystemAccesses(session, "DESCRIBE " + tableName,
+                ImmutableMultiset.<FileOperation>builder()
+                        .add(new FileOperation(LAST_CHECKPOINT, "_last_checkpoint", "InputFile.newStream"))
+                        .add(new FileOperation(CHECKPOINT, "00000000000000000001.checkpoint.parquet", "InputFile.length"))
+                        .add(new FileOperation(CHECKPOINT, "00000000000000000001.checkpoint.parquet", "InputFile.newInput"))
+                        .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000002.json", "InputFile.length"))
+                        .build());
+    }
+
+    /**
+     * @see deltalake.checksum_without_metadata
+     */
+    @Test
+    public void testDescribeWithLoadMetadataFromChecksumFileWithoutMetadataFallsBackToTransactionLogAndCheckpoint()
+            throws Exception
+    {
+        String catalog = getSession().getCatalog().orElseThrow();
+        Session session = Session.builder(getSession())
+                .setCatalogSessionProperty(catalog, "load_metadata_from_checksum_file", "true")
+                .build();
+
+        String tableName = "test_describe_with_load_metadata_from_checksum_file_without_metadata_falls_back_to_transaction_log_and_checkpoint_" + randomNameSuffix();
+        Path tableLocation = Files.createTempFile(tableName, null);
+        copyDirectoryContents(new File(Resources.getResource("deltalake/checksum_without_metadata").toURI()).toPath(), tableLocation);
+
+        assertUpdate(session, "CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')".formatted(tableName, tableLocation.toUri()));
+
+        assertFileSystemAccesses(session, "DESCRIBE " + tableName,
+                ImmutableMultiset.<FileOperation>builder()
+                        .addCopies(new FileOperation(CHECKSUM, "00000000000000000001.crc", "InputFile.newStream"), 2)
+                        .add(new FileOperation(LAST_CHECKPOINT, "_last_checkpoint", "InputFile.newStream"))
+                        .add(new FileOperation(CHECKPOINT, "00000000000000000001.checkpoint.parquet", "InputFile.length"))
+                        .add(new FileOperation(CHECKPOINT, "00000000000000000001.checkpoint.parquet", "InputFile.newInput"))
+                        .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000002.json", "InputFile.length"))
+                        .build());
+    }
+
+    /**
+     * @see deltalake.checksum
+     */
+    @Test
+    public void testSelectFromNonLatestVersionedChecksumTable()
+    {
+        String catalog = getSession().getCatalog().orElseThrow();
+        Session session = Session.builder(getSession())
+                .setCatalogSessionProperty(catalog, "load_metadata_from_checksum_file", "true")
+                .build();
+
+        String tableName = "test_select_from_non_latest_versioned_checksum_table_" + randomNameSuffix();
+        registerTable(tableName, "deltalake/checksum");
+
+        assertFileSystemAccesses(
+                session,
+                "SELECT * FROM " + tableName + " FOR VERSION AS OF 0",
+                ImmutableMultiset.<FileOperation>builder()
+                        .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000000.json", "InputFile.exists"))
+                        .add(new FileOperation(LAST_CHECKPOINT, "_last_checkpoint", "InputFile.newStream"))
+                        .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000000.json", "InputFile.newStream"))
+                        .add(new FileOperation(CHECKSUM, "00000000000000000000.crc", "InputFile.newStream"))
+                        .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000000.json", "InputFile.length"))
+                        .build());
+
+        assertFileSystemAccesses(
+                session,
+                "SELECT * FROM " + tableName + " FOR VERSION AS OF 1",
+                ImmutableMultiset.<FileOperation>builder()
+                        .add(new FileOperation(LAST_CHECKPOINT, "_last_checkpoint", "InputFile.newStream"))
+                        .add(new FileOperation(CHECKSUM, "00000000000000000001.crc", "InputFile.newStream"))
+                        .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000001.json", "InputFile.exists"))
+                        .add(new FileOperation(CHECKPOINT, "00000000000000000001.checkpoint.parquet", "InputFile.newInput"))
+                        .add(new FileOperation(DATA, "no partition", "InputFile.newInput"))
+                        .add(new FileOperation(CHECKPOINT, "00000000000000000001.checkpoint.parquet", "InputFile.length"))
+                        .build());
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    /**
+     * @see deltalake.checksum
+     */
+    @Test
+    public void testSelectFromNonLatestTimestampVersionedChecksumTable()
+    {
+        String catalog = getSession().getCatalog().orElseThrow();
+        Session session = Session.builder(getSession())
+                .setCatalogSessionProperty(catalog, "load_metadata_from_checksum_file", "true")
+                .build();
+
+        String tableName = "test_select_from_non_latest_timestamp_versioned_checksum_table_" + randomNameSuffix();
+        registerTable(tableName, "deltalake/checksum");
+
+        assertFileSystemAccesses(
+                session,
+                "SELECT * FROM " + tableName + " FOR TIMESTAMP AS OF TIMESTAMP '2026-02-23 22:06:59.000 UTC'",
+                ImmutableMultiset.<FileOperation>builder()
+                        .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000001.json", "InputFile.newStream"))
+                        .addCopies(new FileOperation(LAST_CHECKPOINT, "_last_checkpoint", "InputFile.newStream"), 2)
+                        .addCopies(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000000.json", "InputFile.newStream"), 2)
+                        .addCopies(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000000.json", "InputFile.length"), 2)
+                        .add(new FileOperation(CHECKSUM, "00000000000000000000.crc", "InputFile.newStream"))
+                        .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000001.json", "InputFile.length"))
+                        .build());
+
+        assertFileSystemAccesses(
+                session,
+                "SELECT * FROM " + tableName + " FOR TIMESTAMP AS OF TIMESTAMP '2026-02-23 22:07:03.000 UTC'",
+                ImmutableMultiset.<FileOperation>builder()
+                        .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000002.json", "InputFile.length"))
+                        .addCopies(new FileOperation(LAST_CHECKPOINT, "_last_checkpoint", "InputFile.newStream"), 2)
+                        .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000001.json", "InputFile.length"))
+                        .add(new FileOperation(CHECKSUM, "00000000000000000001.crc", "InputFile.newStream"))
+                        .add(new FileOperation(CHECKPOINT, "00000000000000000001.checkpoint.parquet", "InputFile.newInput"))
+                        .add(new FileOperation(DATA, "no partition", "InputFile.newInput"))
+                        .add(new FileOperation(CHECKPOINT, "00000000000000000001.checkpoint.parquet", "InputFile.length"))
+                        .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000001.json", "InputFile.newStream"))
+                        .build());
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
     @Test
     public void testReadMultipartV2Checkpoint()
             throws Exception
@@ -1232,7 +1714,7 @@ public class TestDeltaLakeFileOperations
         assertFileSystemAccesses("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')".formatted(tableName, tableLocation.toUri()),
                 ImmutableMultiset.<FileOperation>builder()
                         .add(new FileOperation(LAST_CHECKPOINT, "_last_checkpoint", "InputFile.newStream"))
-                        .addCopies(new FileOperation(CHECKPOINT, "00000000000000000001.checkpoint.156b3304-76b2-49c3-a9a1-626f07df27c9.parquet", "InputFile.length"), 2)
+                        .add(new FileOperation(CHECKPOINT, "00000000000000000001.checkpoint.156b3304-76b2-49c3-a9a1-626f07df27c9.parquet", "InputFile.length"))
                         .add(new FileOperation(CHECKPOINT, "00000000000000000001.checkpoint.156b3304-76b2-49c3-a9a1-626f07df27c9.parquet", "InputFile.newInput"))
                         .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000002.json", "InputFile.length")) // TransactionLogTail.getEntriesFromJson access non-existing file as end of tail
                         .build());
@@ -1240,7 +1722,7 @@ public class TestDeltaLakeFileOperations
         assertFileSystemAccesses("SELECT * FROM " + tableName,
                 ImmutableMultiset.<FileOperation>builder()
                         .add(new FileOperation(LAST_CHECKPOINT, "_last_checkpoint", "InputFile.newStream"))
-                        .addCopies(new FileOperation(CHECKPOINT, "00000000000000000001.checkpoint.156b3304-76b2-49c3-a9a1-626f07df27c9.parquet", "InputFile.length"), 4) // TODO (https://github.com/trinodb/trino/issues/18916) should be checked once per query
+                        .addCopies(new FileOperation(CHECKPOINT, "00000000000000000001.checkpoint.156b3304-76b2-49c3-a9a1-626f07df27c9.parquet", "InputFile.length"), 2) // TODO (https://github.com/trinodb/trino/issues/18916) should be checked once per query
                         .addCopies(new FileOperation(CHECKPOINT, "00000000000000000001.checkpoint.156b3304-76b2-49c3-a9a1-626f07df27c9.parquet", "InputFile.newInput"), 2) // TODO (https://github.com/trinodb/trino/issues/18916) should be checked once per query
                         .add(new FileOperation(CHECKPOINT, "00000000000000000001.checkpoint.0000000001.0000000001.03288d7e-af16-44ed-829c-196064a71812.parquet", "InputFile.length"))
                         .add(new FileOperation(CHECKPOINT, "00000000000000000001.checkpoint.0000000001.0000000001.03288d7e-af16-44ed-829c-196064a71812.parquet", "InputFile.newInput"))
@@ -1351,6 +1833,92 @@ public class TestDeltaLakeFileOperations
         }
     }
 
+    @Test
+    public void testSelectFromVersionedTableWithChecksumFilesDisabled()
+    {
+        String catalog = getSession().getCatalog().orElseThrow();
+        Session session = Session.builder(getSession())
+                .setCatalogSessionProperty(catalog, "load_metadata_from_checksum_file", "false")
+                .build();
+
+        String tableName = "test_select_from_versioned_table_without_checksum_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + "(id int)");
+        for (int i = 0; i < 25; i++) {
+            assertUpdate("INSERT INTO " + tableName + " VALUES " + i, 1);
+        }
+
+        assertFileSystemAccesses(
+                session,
+                "SELECT * FROM " + tableName + " FOR VERSION AS OF 2",
+                ImmutableMultiset.<FileOperation>builder()
+                        .add(new FileOperation(LAST_CHECKPOINT, "_last_checkpoint", "InputFile.newStream"))
+                        .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000000.json", "InputFile.newStream"))
+                        .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000001.json", "InputFile.newStream"))
+                        .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000002.json", "InputFile.newStream"))
+                        .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000000.json", "InputFile.length"))
+                        .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000001.json", "InputFile.length"))
+                        .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000002.json", "InputFile.length"))
+                        .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000002.json", "InputFile.exists"))
+                        .addCopies(new FileOperation(DATA, "no partition", "InputFile.newInput"), 2)
+                        .build());
+
+        assertFileSystemAccesses(
+                session,
+                "SELECT * FROM " + tableName + " FOR VERSION AS OF 23",
+                ImmutableMultiset.<FileOperation>builder()
+                        .add(new FileOperation(LAST_CHECKPOINT, "_last_checkpoint", "InputFile.newStream"))
+                        .addCopies(new FileOperation(CHECKPOINT, "00000000000000000020.checkpoint.parquet", "InputFile.length"), 2)
+                        .addCopies(new FileOperation(CHECKPOINT, "00000000000000000020.checkpoint.parquet", "InputFile.newInput"), 2)
+                        .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000021.json", "InputFile.newStream"))
+                        .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000022.json", "InputFile.newStream"))
+                        .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000023.json", "InputFile.newStream"))
+                        .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000021.json", "InputFile.length"))
+                        .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000022.json", "InputFile.length"))
+                        .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000023.json", "InputFile.length"))
+                        .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000023.json", "InputFile.exists"))
+                        .addCopies(new FileOperation(DATA, "no partition", "InputFile.newInput"), 23)
+                        .build());
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testReadMetadataAndProtocolEntryWithChecksumFilesDisabled()
+    {
+        String catalog = getSession().getCatalog().orElseThrow();
+        Session session = Session.builder(getSession())
+                .setCatalogSessionProperty(catalog, "load_metadata_from_checksum_file", "false")
+                .build();
+
+        try (TestTable table = newTrinoTable("test_read_metadata_protocol_without_checksum", "(data int , part varchar) WITH (checkpoint_interval = 3)")) {
+            assertFileSystemAccesses(
+                    session,
+                    "SHOW CREATE TABLE " + table.getName(),
+                    ImmutableMultiset.<FileOperation>builder()
+                            .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000000.json", "InputFile.length"))
+                            .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000000.json", "InputFile.newStream"))
+                            .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000001.json", "InputFile.length"))
+                            .add(new FileOperation(LAST_CHECKPOINT, "_last_checkpoint", "InputFile.newStream"))
+                            .build());
+
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (1, 'aa')", 1);
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (2, 'bb')", 1);
+            assertFileSystemAccesses(
+                    session,
+                    "SHOW CREATE TABLE " + table.getName(),
+                    ImmutableMultiset.<FileOperation>builder()
+                            .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000000.json", "InputFile.length"))
+                            .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000000.json", "InputFile.newStream"))
+                            .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000001.json", "InputFile.length"))
+                            .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000001.json", "InputFile.newStream"))
+                            .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000002.json", "InputFile.length"))
+                            .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000002.json", "InputFile.newStream"))
+                            .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000003.json", "InputFile.length"))
+                            .add(new FileOperation(LAST_CHECKPOINT, "_last_checkpoint", "InputFile.newStream"))
+                            .build());
+        }
+    }
+
     private int countCdfFilesForKey(String partitionValue)
     {
         String path = (String) computeScalar("SELECT \"$path\" FROM table_changes_file_system_access WHERE key = '" + partitionValue + "'");
@@ -1367,11 +1935,16 @@ public class TestDeltaLakeFileOperations
 
     private void assertFileSystemAccesses(Session session, @Language("SQL") String query, Multiset<FileOperation> expectedAccesses)
     {
-        assertUpdate("CALL system.flush_metadata_cache()");
+        assertMultisetsEqual(getFileSystemAccesses(session, query), expectedAccesses);
+    }
+
+    private Multiset<FileOperation> getFileSystemAccesses(Session session, @Language("SQL") String query)
+    {
+        assertUpdate(session, "CALL system.flush_metadata_cache()");
 
         getDistributedQueryRunner().executeWithPlan(session, query);
         List<SpanData> spanData = getDistributedQueryRunner().getSpans();
-        assertMultisetsEqual(getOperations(spanData), expectedAccesses);
+        return getOperations(spanData);
     }
 
     private Multiset<FileOperation> getOperations(List<SpanData> spanData)
@@ -1399,6 +1972,9 @@ public class TestDeltaLakeFileOperations
             }
             if (path.matches(".*/_delta_log/\\d+\\.json")) {
                 return new FileOperation(TRANSACTION_LOG_JSON, fileName, operationType);
+            }
+            if (path.matches(".*/_delta_log/\\d+\\.crc")) {
+                return new FileOperation(CHECKSUM, fileName, operationType);
             }
             if (path.matches(".*/_delta_log/_trino_meta/extended_stats.json")) {
                 return new FileOperation(TRINO_EXTENDED_STATS_JSON, fileName, operationType);
@@ -1443,13 +2019,14 @@ public class TestDeltaLakeFileOperations
         DATA,
         CDF_DATA,
         DELETION_VECTOR,
+        CHECKSUM,
         /**/;
     }
 
     private void registerTable(String name, String resourcePath)
     {
         String dataPath = getResourceLocation(resourcePath).toExternalForm();
-        getQueryRunner().execute(format("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')", name, dataPath));
+        assertUpdate(format("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')", name, dataPath));
     }
 
     private URL getResourceLocation(String resourcePath)

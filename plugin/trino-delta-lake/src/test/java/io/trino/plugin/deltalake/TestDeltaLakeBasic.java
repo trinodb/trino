@@ -17,6 +17,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.io.Resources;
@@ -52,6 +53,7 @@ import io.trino.spi.type.SqlDate;
 import io.trino.spi.type.SqlTimestamp;
 import io.trino.spi.type.TimeZoneKey;
 import io.trino.testing.AbstractTestQueryFramework;
+import io.trino.testing.MaterializedResult;
 import io.trino.testing.MaterializedRow;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingSession;
@@ -1500,6 +1502,8 @@ public class TestDeltaLakeBasic
             CheckpointEntryIterator checkpointEntryIterator = new CheckpointEntryIterator(
                     checkpoint,
                     SESSION,
+                    0,
+                    checkpoint.length(),
                     checkpoint.length(),
                     new CheckpointSchemaManager(TESTING_TYPE_MANAGER),
                     TESTING_TYPE_MANAGER,
@@ -2030,6 +2034,85 @@ public class TestDeltaLakeBasic
     }
 
     /**
+     * @see deltalake.checksum
+     * @see deltalake.checksum_missing_latest
+     * @see deltalake.checksum_without_metadata
+     */
+    @Test
+    public void testLoadMetadataFromChecksumFileMatchesTransactionLog()
+            throws Exception
+    {
+        Session loadMetadataFromChecksumFileEnabledSession = loadMetadataFromChecksumFileSession(true);
+        Session loadMetadataFromChecksumFileDisabledSession = loadMetadataFromChecksumFileSession(false);
+
+        for (String fixture : ImmutableList.of(
+                "deltalake/checksum",
+                "deltalake/checksum_missing_latest",
+                "deltalake/checksum_without_metadata")) {
+            String tableName = "checksum_fixture_" + randomNameSuffix();
+            Path tableLocation = catalogDir.resolve(tableName);
+            copyDirectoryContents(Path.of(getResourceLocation(fixture).toURI()), tableLocation);
+            assertUpdate("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')".formatted(tableName, tableLocation.toUri()));
+            try {
+                assertMetadataAndProtocolQueriesMatch(tableName, loadMetadataFromChecksumFileEnabledSession, loadMetadataFromChecksumFileDisabledSession);
+            }
+            finally {
+                assertQuerySucceeds("DROP TABLE IF EXISTS " + tableName);
+            }
+        }
+    }
+
+    /**
+     * @see deltalake.checksum_invalid_json
+     * @see deltalake.checksum_trailing_json_content
+     * @see deltalake.checksum_invalid_json_mapping
+     */
+    @Test
+    public void testLoadMetadataFromChecksumFileFallsBackForMalformedChecksum()
+            throws Exception
+    {
+        Session loadMetadataFromChecksumFileEnabledSession = loadMetadataFromChecksumFileSession(true);
+        Session loadMetadataFromChecksumFileDisabledSession = loadMetadataFromChecksumFileSession(false);
+
+        for (String fixture : ImmutableList.of(
+                "deltalake/checksum_invalid_json",
+                "deltalake/checksum_trailing_json_content",
+                "deltalake/checksum_invalid_json_mapping")) {
+            String tableName = "checksum_fixture_" + randomNameSuffix();
+            Path tableLocation = catalogDir.resolve(tableName);
+            copyDirectoryContents(Path.of(getResourceLocation(fixture).toURI()), tableLocation);
+            assertUpdate("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')".formatted(tableName, tableLocation.toUri()));
+            try {
+                assertMetadataAndProtocolQueriesMatch(tableName, loadMetadataFromChecksumFileEnabledSession, loadMetadataFromChecksumFileDisabledSession);
+            }
+            finally {
+                assertQuerySucceeds("DROP TABLE IF EXISTS " + tableName);
+            }
+        }
+    }
+
+    private void assertMetadataAndProtocolQueriesMatch(String tableName, Session loadMetadataFromChecksumFileEnabledSession, Session loadMetadataFromChecksumFileDisabledSession)
+    {
+        MaterializedResult checksumEnabledDescribe = loadVisibleTableMetadata(tableName, loadMetadataFromChecksumFileEnabledSession, "DESCRIBE " + tableName);
+        MaterializedResult checksumDisabledDescribe = loadVisibleTableMetadata(tableName, loadMetadataFromChecksumFileDisabledSession, "DESCRIBE " + tableName);
+        assertThat(checksumEnabledDescribe).isEqualTo(checksumDisabledDescribe);
+
+        MaterializedResult checksumEnabledShowCreate = loadVisibleTableMetadata(tableName, loadMetadataFromChecksumFileEnabledSession, "SHOW CREATE TABLE " + tableName);
+        MaterializedResult checksumDisabledShowCreate = loadVisibleTableMetadata(tableName, loadMetadataFromChecksumFileDisabledSession, "SHOW CREATE TABLE " + tableName);
+        assertThat(checksumEnabledShowCreate).isEqualTo(checksumDisabledShowCreate);
+
+        MaterializedResult checksumEnabledProperties = loadVisibleTableMetadata(tableName, loadMetadataFromChecksumFileEnabledSession, "SELECT key, value FROM \"" + tableName + "$properties\" ORDER BY key");
+        MaterializedResult checksumDisabledProperties = loadVisibleTableMetadata(tableName, loadMetadataFromChecksumFileDisabledSession, "SELECT key, value FROM \"" + tableName + "$properties\" ORDER BY key");
+        assertThat(checksumEnabledProperties).isEqualTo(checksumDisabledProperties);
+    }
+
+    private MaterializedResult loadVisibleTableMetadata(String tableName, Session session, @Language("SQL") String sql)
+    {
+        assertUpdate("CALL system.flush_metadata_cache(schema_name => CURRENT_SCHEMA, table_name => '%s')".formatted(tableName));
+        return computeActual(session, sql);
+    }
+
+    /**
      * @see deltalake.stats_with_minmax_nulls
      */
     @Test
@@ -2070,6 +2153,43 @@ public class TestDeltaLakeBasic
         assertUpdate("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')".formatted(tableName, tableLocation.toUri()));
         assertThat(query("DESCRIBE " + tableName)).result().projected("Column", "Type").skippingTypesCheck().matches("VALUES ('c', 'integer')");
         assertThat(query("SELECT * FROM " + tableName)).matches("VALUES 1, 2, 3, 4, 5, 6, 7");
+    }
+
+    /**
+     * @see databricks73.person
+     * @see deltalake.multipart_checkpoint
+     * @see deltalake.v2_checkpoint_json
+     * @see deltalake.v2_checkpoint_parquet
+     * @see deltalake.multipart_v2_checkpoint
+     */
+    @Test
+    public void testCheckpointQueriesMatchAcrossCheckpointParallelProcessingModes()
+            throws Exception
+    {
+        Session serialSession = createCheckpointParallelProcessingProcessingCatalog(false, false);
+        Session parallelSession = createCheckpointParallelProcessingProcessingCatalog(true, false);
+        Session intraFileParallelSession = createCheckpointParallelProcessingProcessingCatalog(true, true);
+
+        List<Session> sessions = ImmutableList.of(serialSession, parallelSession, intraFileParallelSession);
+        List<CheckpointSmokeTestTable> checkpointTables = ImmutableList.of(
+                new CheckpointSmokeTestTable("checkpoint_v1_single_" + randomNameSuffix(), "databricks73/person", "SELECT name, age FROM %s ORDER BY age, name"),
+                new CheckpointSmokeTestTable("checkpoint_v1_multipart_" + randomNameSuffix(), "deltalake/multipart_checkpoint", "SELECT c FROM %s ORDER BY c"),
+                new CheckpointSmokeTestTable("checkpoint_v2_json_" + randomNameSuffix(), "deltalake/v2_checkpoint_json", "SELECT a, b FROM %s ORDER BY a, b"),
+                new CheckpointSmokeTestTable("checkpoint_v2_parquet_" + randomNameSuffix(), "deltalake/v2_checkpoint_parquet", "SELECT a, b FROM %s ORDER BY a, b"),
+                new CheckpointSmokeTestTable("checkpoint_v2_multipart_" + randomNameSuffix(), "deltalake/multipart_v2_checkpoint", "SELECT a, b FROM %s ORDER BY a, b"));
+
+        for (CheckpointSmokeTestTable checkpointTable : checkpointTables) {
+            for (Session session : sessions) {
+                registerResourceTable(session, new ResourceTable(checkpointTable.tableName(), checkpointTable.resourcePath()));
+            }
+
+            MaterializedResult serialResult = computeActual(serialSession, checkpointTable.query());
+            MaterializedResult parallelResult = computeActual(parallelSession, checkpointTable.query());
+            MaterializedResult intraFileParallelResult = computeActual(intraFileParallelSession, checkpointTable.query());
+
+            assertThat(parallelResult).isEqualTo(serialResult);
+            assertThat(intraFileParallelResult).isEqualTo(serialResult);
+        }
     }
 
     /**
@@ -2999,6 +3119,54 @@ public class TestDeltaLakeBasic
         return transactionLog.getProtocol();
     }
 
+    private Session loadMetadataFromChecksumFileSession(boolean enabled)
+    {
+        return Session.builder(getSession())
+                .setCatalogSessionProperty(getSession().getCatalog().orElseThrow(), "load_metadata_from_checksum_file", Boolean.toString(enabled))
+                .build();
+    }
+
+    private Session createCheckpointParallelProcessingProcessingCatalog(boolean checkpointParallelProcessingEnabled, boolean checkpointIntraFileParallelProcessingEnabled)
+            throws IOException
+    {
+        String catalogName = "delta_checkpoint_processing_" + randomNameSuffix();
+        String schemaName = getSession().getSchema().orElseThrow();
+        Path metastoreDir = Files.createDirectories(catalogDir.resolve(catalogName));
+
+        getQueryRunner().createCatalog(
+                catalogName,
+                DeltaLakeConnectorFactory.CONNECTOR_NAME,
+                ImmutableMap.<String, String>builder()
+                        .put("hive.metastore", "file")
+                        .put("hive.metastore.catalog.dir", metastoreDir.toUri().toString())
+                        .put("fs.hadoop.enabled", "true")
+                        .put("delta.register-table-procedure.enabled", "true")
+                        .put("delta.enable-non-concurrent-writes", "true")
+                        .put("delta.transaction-log.max-cached-file-size", "0B")
+                        .put("delta.checkpoint-processing.parallelism", checkpointParallelProcessingEnabled ? "4" : "1")
+                        .put("delta.checkpoint-processing.v1-parallel-processing.enabled", Boolean.toString(checkpointParallelProcessingEnabled))
+                        .put("delta.checkpoint-processing.v2-parallel-processing.enabled", Boolean.toString(checkpointParallelProcessingEnabled))
+                        .put("delta.checkpoint-processing.intra-file-parallel-processing.enabled", Boolean.toString(checkpointIntraFileParallelProcessingEnabled))
+                        .put("delta.checkpoint-processing.intra-file-parallel-processing.split-size", "1kB")
+                        .buildOrThrow());
+
+        getQueryRunner().execute("CREATE SCHEMA IF NOT EXISTS " + catalogName + "." + schemaName);
+
+        return Session.builder(getSession())
+                .setCatalog(catalogName)
+                .setSchema(schemaName)
+                .build();
+    }
+
+    private void registerResourceTable(Session session, ResourceTable resourceTable)
+    {
+        assertUpdate(
+                session,
+                "CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')".formatted(
+                        resourceTable.tableName(),
+                        getResourceLocation(resourceTable.resourcePath()).toExternalForm()));
+    }
+
     private String getTableLocation(String tableName)
     {
         Pattern locationPattern = Pattern.compile(".*location = '(.*?)'.*", Pattern.DOTALL);
@@ -3017,5 +3185,13 @@ public class TestDeltaLakeBasic
         return TransactionLogTail.getEntriesFromJson(entryNumber, FILE_SYSTEM.newInputFile(getTransactionLogJsonEntryPath(transactionLogDir, entryNumber)), DEFAULT_TRANSACTION_LOG_MAX_CACHED_SIZE)
                 .orElseThrow()
                 .getEntriesList(FILE_SYSTEM);
+    }
+
+    private record CheckpointSmokeTestTable(String tableName, String resourcePath, String queryTemplate)
+    {
+        private String query()
+        {
+            return queryTemplate.formatted(tableName);
+        }
     }
 }

@@ -22,6 +22,7 @@ import io.airlift.configuration.LegacyConfig;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.airlift.units.MaxDuration;
+import io.airlift.units.MinDataSize;
 import io.airlift.units.MinDuration;
 import io.airlift.units.ThreadCount;
 import io.trino.plugin.hive.HiveCompressionOption;
@@ -95,6 +96,11 @@ public class DeltaLakeConfig
     private boolean deltaLogFileSystemCacheDisabled;
     private int metadataParallelism = 8;
     private int checkpointProcessingParallelism = 4;
+    private boolean checkpointV1ParallelProcessingEnabled;
+    private boolean checkpointV2ParallelProcessingEnabled;
+    private boolean checkpointIntraFileParallelProcessingEnabled;
+    private DataSize checkpointIntraFileParallelProcessingSplitSize = DataSize.of(128, MEGABYTE);
+    private boolean loadMetadataFromChecksumFile = true;
 
     public Duration getMetadataCacheTtl()
     {
@@ -580,11 +586,78 @@ public class DeltaLakeConfig
         return checkpointProcessingParallelism;
     }
 
-    @ConfigDescription("Limits per table scan checkpoint files processing parallelism")
+    @ConfigDescription("Limits per table scan checkpoint file processing parallelism for checkpoint Parquet files")
     @Config("delta.checkpoint-processing.parallelism")
     public DeltaLakeConfig setCheckpointProcessingParallelism(int checkpointProcessingParallelism)
     {
         this.checkpointProcessingParallelism = checkpointProcessingParallelism;
+        return this;
+    }
+
+    public boolean isCheckpointV1ParallelProcessingEnabled()
+    {
+        return checkpointV1ParallelProcessingEnabled;
+    }
+
+    @Config("delta.checkpoint-processing.v1-parallel-processing.enabled")
+    @ConfigDescription("Enable parallel processing for v1 checkpoints")
+    public DeltaLakeConfig setCheckpointV1ParallelProcessingEnabled(boolean checkpointV1ParallelProcessingEnabled)
+    {
+        this.checkpointV1ParallelProcessingEnabled = checkpointV1ParallelProcessingEnabled;
+        return this;
+    }
+
+    public boolean isCheckpointV2ParallelProcessingEnabled()
+    {
+        return checkpointV2ParallelProcessingEnabled;
+    }
+
+    @Config("delta.checkpoint-processing.v2-parallel-processing.enabled")
+    @ConfigDescription("Enable fully parallel processing for v2 checkpoint sidecar files")
+    public DeltaLakeConfig setCheckpointV2ParallelProcessingEnabled(boolean checkpointV2ParallelProcessingEnabled)
+    {
+        this.checkpointV2ParallelProcessingEnabled = checkpointV2ParallelProcessingEnabled;
+        return this;
+    }
+
+    public boolean isCheckpointIntraFileParallelProcessingEnabled()
+    {
+        return checkpointIntraFileParallelProcessingEnabled;
+    }
+
+    @Config("delta.checkpoint-processing.intra-file-parallel-processing.enabled")
+    @ConfigDescription("Enable parallel processing of individual checkpoint Parquet files by subdividing them into splits")
+    public DeltaLakeConfig setCheckpointIntraFileParallelProcessingEnabled(boolean checkpointIntraFileParallelProcessingEnabled)
+    {
+        this.checkpointIntraFileParallelProcessingEnabled = checkpointIntraFileParallelProcessingEnabled;
+        return this;
+    }
+
+    @NotNull
+    @MinDataSize("1B")
+    public DataSize getCheckpointIntraFileParallelProcessingSplitSize()
+    {
+        return checkpointIntraFileParallelProcessingSplitSize;
+    }
+
+    @Config("delta.checkpoint-processing.intra-file-parallel-processing.split-size")
+    @ConfigDescription("Target split size for parallel processing of individual checkpoint Parquet files")
+    public DeltaLakeConfig setCheckpointIntraFileParallelProcessingSplitSize(DataSize checkpointIntraFileParallelProcessingSplitSize)
+    {
+        this.checkpointIntraFileParallelProcessingSplitSize = checkpointIntraFileParallelProcessingSplitSize;
+        return this;
+    }
+
+    public boolean isLoadMetadataFromChecksumFile()
+    {
+        return loadMetadataFromChecksumFile;
+    }
+
+    @Config("delta.load-metadata-from-checksum-file")
+    @ConfigDescription("Use checksum metadata file (if available) for metadata and protocol entry retrieval, rather than scanning the log")
+    public DeltaLakeConfig setLoadMetadataFromChecksumFile(boolean loadMetadataFromChecksumFile)
+    {
+        this.loadMetadataFromChecksumFile = loadMetadataFromChecksumFile;
         return this;
     }
 }

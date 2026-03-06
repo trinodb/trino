@@ -75,7 +75,12 @@ public class TestDeltaLakeConfig
                 .setDeletionVectorsEnabled(false)
                 .setDeltaLogFileSystemCacheDisabled(false)
                 .setMetadataParallelism(8)
-                .setCheckpointProcessingParallelism(4));
+                .setCheckpointProcessingParallelism(4)
+                .setCheckpointV1ParallelProcessingEnabled(false)
+                .setCheckpointV2ParallelProcessingEnabled(false)
+                .setCheckpointIntraFileParallelProcessingEnabled(false)
+                .setCheckpointIntraFileParallelProcessingSplitSize(DataSize.of(128, MEGABYTE))
+                .setLoadMetadataFromChecksumFile(true));
     }
 
     @Test
@@ -118,6 +123,11 @@ public class TestDeltaLakeConfig
                 .put("delta.fs.cache.disable-transaction-log-caching", "true")
                 .put("delta.metadata.parallelism", "10")
                 .put("delta.checkpoint-processing.parallelism", "8")
+                .put("delta.checkpoint-processing.v1-parallel-processing.enabled", "true")
+                .put("delta.checkpoint-processing.v2-parallel-processing.enabled", "true")
+                .put("delta.checkpoint-processing.intra-file-parallel-processing.enabled", "true")
+                .put("delta.checkpoint-processing.intra-file-parallel-processing.split-size", "256MB")
+                .put("delta.load-metadata-from-checksum-file", "false")
                 .buildOrThrow();
 
         DeltaLakeConfig expected = new DeltaLakeConfig()
@@ -156,7 +166,12 @@ public class TestDeltaLakeConfig
                 .setDeletionVectorsEnabled(true)
                 .setDeltaLogFileSystemCacheDisabled(true)
                 .setMetadataParallelism(10)
-                .setCheckpointProcessingParallelism(8);
+                .setCheckpointProcessingParallelism(8)
+                .setCheckpointV1ParallelProcessingEnabled(true)
+                .setCheckpointV2ParallelProcessingEnabled(true)
+                .setCheckpointIntraFileParallelProcessingEnabled(true)
+                .setCheckpointIntraFileParallelProcessingSplitSize(DataSize.of(256, MEGABYTE))
+                .setLoadMetadataFromChecksumFile(false);
 
         assertFullMapping(properties, expected);
     }

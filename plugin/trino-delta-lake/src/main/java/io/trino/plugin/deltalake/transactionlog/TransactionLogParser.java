@@ -17,10 +17,13 @@ import com.fasterxml.jackson.core.JsonParseException;
 import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Throwables;
 import dev.failsafe.Failsafe;
 import dev.failsafe.RetryPolicy;
 import io.airlift.json.JsonMapperProvider;
 import io.airlift.log.Logger;
+import io.trino.filesystem.FileEntry;
+import io.trino.filesystem.FileIterator;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoInputFile;
@@ -33,6 +36,7 @@ import io.trino.spi.type.Decimals;
 import io.trino.spi.type.Type;
 import jakarta.annotation.Nullable;
 
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.UncheckedIOException;
@@ -49,9 +53,12 @@ import java.time.format.DateTimeParseException;
 import java.time.format.ResolverStyle;
 import java.time.format.SignStyle;
 import java.time.temporal.ChronoField;
+import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.function.Function;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import static com.google.common.base.Verify.verify;
 import static com.google.common.math.LongMath.divide;
@@ -99,6 +106,9 @@ public final class TransactionLogParser
     public static final long START_OF_MODERN_ERA_EPOCH_MICROS = LocalDateTime.of(START_OF_MODERN_ERA_DATE, LocalTime.MIN).toEpochSecond(UTC) * MICROSECONDS_PER_SECOND;
 
     public static final String LAST_CHECKPOINT_FILENAME = "_last_checkpoint";
+
+    private static final Pattern COMMIT_FILE_PATTERN = Pattern.compile("^(\\d{20})\\.json$");
+    private static final Pattern CHECKSUM_FILE_PATTERN = Pattern.compile("^(\\d{20})\\.crc$");
 
     private TransactionLogParser() {}
 
@@ -303,6 +313,106 @@ public final class TransactionLogParser
                 return version;
             }
             version++;
+        }
+    }
+
+    public record CommitVersionChecksumFileInfo(long version, boolean hasVersionChecksumFile)
+    {
+    }
+
+    public static Optional<CommitVersionChecksumFileInfo> findLatestCommitVersionChecksumFileInfo(TrinoFileSystem fileSystem, String tableLocation, Optional<Long> startVersion, Optional<Long> endVersion)
+            throws IOException
+    {
+        // Find the latest commit in the table at the provided table location within the range specified by startVersion and
+        // endVersion, while simultaneously checking whether that commit has a version checksum file
+
+        long latestCommitVersion = -1;
+        long latestVersionChecksumFileVersion = -1;
+
+        FileIterator files = fileSystem.listFiles(Location.of(getTransactionLogDir(tableLocation)));
+        while (files.hasNext()) {
+            FileEntry file = files.next();
+            String fileName = file.location().fileName();
+
+            Optional<Long> maybeCommitVersion = extractCommitVersion(fileName);
+            if (maybeCommitVersion.isPresent()) {
+                long commitVersion = maybeCommitVersion.orElseThrow();
+                if (startVersion.isPresent() && commitVersion < startVersion.orElseThrow()) {
+                    continue;
+                }
+                if (endVersion.isPresent() && commitVersion > endVersion.orElseThrow()) {
+                    continue;
+                }
+
+                if (commitVersion > latestCommitVersion) {
+                    latestCommitVersion = commitVersion;
+                }
+            }
+            else {
+                Optional<Long> maybeChecksumVersion = extractVersionChecksumVersion(fileName);
+                if (maybeChecksumVersion.isPresent()) {
+                    long checksumVersion = maybeChecksumVersion.orElseThrow();
+                    if (endVersion.isPresent() && checksumVersion > endVersion.orElseThrow()) {
+                        continue;
+                    }
+                    if (checksumVersion > latestVersionChecksumFileVersion) {
+                        latestVersionChecksumFileVersion = checksumVersion;
+                    }
+                }
+            }
+        }
+
+        if (latestCommitVersion == -1) {
+            return Optional.empty();
+        }
+
+        boolean latestCommitHasVersionChecksumFile = latestVersionChecksumFileVersion == latestCommitVersion;
+        return Optional.of(new CommitVersionChecksumFileInfo(latestCommitVersion, latestCommitHasVersionChecksumFile));
+    }
+
+    private static Optional<Long> extractCommitVersion(String fileName)
+    {
+        Matcher matcher = COMMIT_FILE_PATTERN.matcher(fileName);
+        if (!matcher.matches()) {
+            return Optional.empty();
+        }
+
+        return Optional.of(parseLong(matcher.group(1)));
+    }
+
+    private static Optional<Long> extractVersionChecksumVersion(String fileName)
+    {
+        Matcher matcher = CHECKSUM_FILE_PATTERN.matcher(fileName);
+        if (!matcher.matches()) {
+            return Optional.empty();
+        }
+
+        return Optional.of(parseLong(matcher.group(1)));
+    }
+
+    public static Optional<DeltaLakeVersionChecksum> readVersionChecksumFile(TrinoFileSystem fileSystem, String tableLocation, long version)
+            throws IOException
+    {
+        Location checksumPath = Location.of(getTransactionLogDir(tableLocation)).appendPath("%020d.crc".formatted(version));
+        TrinoInputFile inputFile = fileSystem.newInputFile(checksumPath);
+        try (InputStream checksumInput = inputFile.newStream()) {
+            return Optional.of(JsonUtils.parseJson(OBJECT_MAPPER, checksumInput, DeltaLakeVersionChecksum.class));
+        }
+        catch (IllegalArgumentException e) {
+            return Optional.empty();
+        }
+        catch (IOException | UncheckedIOException e) {
+            List<Throwable> causalChain = Throwables.getCausalChain(e);
+
+            if (causalChain.stream().anyMatch(FileNotFoundException.class::isInstance)) {
+                return Optional.empty();
+            }
+
+            if (causalChain.stream().anyMatch(cause -> cause instanceof JsonParseException || cause instanceof JsonMappingException)) {
+                return Optional.empty();
+            }
+
+            throw e;
         }
     }
 }

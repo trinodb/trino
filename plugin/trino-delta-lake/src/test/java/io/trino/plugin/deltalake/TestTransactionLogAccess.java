@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultiset;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multiset;
+import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.opentelemetry.sdk.trace.data.SpanData;
 import io.trino.filesystem.TrinoFileSystem;
@@ -218,6 +219,78 @@ public class TestTransactionLogAccess
         assertThat(addFileEntry.getSize()).isEqualTo(2687);
         assertThat(addFileEntry.getModificationTime()).isEqualTo(1579190188000L);
         assertThat(addFileEntry.isDataChange()).isFalse();
+    }
+
+    /**
+     * @see databricks73.person
+     * @see deltalake.multipart_checkpoint
+     * @see deltalake.v2_checkpoint_json
+     * @see deltalake.v2_checkpoint_parquet
+     * @see deltalake.multipart_v2_checkpoint
+     */
+    @Test
+    public void testGetActiveAddEntriesMatrixByCheckpointShapeAndParallelism()
+            throws Exception
+    {
+        assertActiveEntriesEquivalentAcrossCheckpointProcessingModes("person", "databricks73/person");
+        assertActiveEntriesEquivalentAcrossCheckpointProcessingModes("multipart_checkpoint", "deltalake/multipart_checkpoint");
+        assertActiveEntriesEquivalentAcrossCheckpointProcessingModes("v2_checkpoint_json", "deltalake/v2_checkpoint_json");
+        assertActiveEntriesEquivalentAcrossCheckpointProcessingModes("v2_checkpoint_parquet", "deltalake/v2_checkpoint_parquet");
+        assertActiveEntriesEquivalentAcrossCheckpointProcessingModes("multipart_v2_checkpoint", "deltalake/multipart_v2_checkpoint");
+    }
+
+    private void assertActiveEntriesEquivalentAcrossCheckpointProcessingModes(String tableName, String resourcePath)
+            throws Exception
+    {
+        List<AddFileEntry> serialEntries = getActiveAddEntries(tableName, resourcePath, new DeltaLakeConfig());
+        List<AddFileEntry> intraFileOnlyEntries = getActiveAddEntries(
+                tableName,
+                resourcePath,
+                new DeltaLakeConfig()
+                        .setCheckpointProcessingParallelism(2)
+                        .setCheckpointIntraFileParallelProcessingEnabled(true)
+                        .setCheckpointIntraFileParallelProcessingSplitSize(DataSize.ofBytes(1_024)));
+        List<AddFileEntry> fileParallelEntries = getActiveAddEntries(
+                tableName,
+                resourcePath,
+                new DeltaLakeConfig()
+                        .setCheckpointProcessingParallelism(2)
+                        .setCheckpointV1ParallelProcessingEnabled(true)
+                        .setCheckpointV2ParallelProcessingEnabled(true));
+        List<AddFileEntry> parallelEntries = getActiveAddEntries(
+                tableName,
+                resourcePath,
+                new DeltaLakeConfig()
+                        .setCheckpointProcessingParallelism(2)
+                        .setCheckpointV1ParallelProcessingEnabled(true)
+                        .setCheckpointV2ParallelProcessingEnabled(true)
+                        .setCheckpointIntraFileParallelProcessingEnabled(true)
+                        .setCheckpointIntraFileParallelProcessingSplitSize(DataSize.ofBytes(1_024)));
+
+        assertThat(intraFileOnlyEntries).containsExactlyInAnyOrderElementsOf(serialEntries);
+        assertThat(fileParallelEntries).containsExactlyInAnyOrderElementsOf(serialEntries);
+        assertThat(parallelEntries).containsExactlyInAnyOrderElementsOf(serialEntries);
+        assertThat(serialEntries).isNotEmpty();
+    }
+
+    private List<AddFileEntry> getActiveAddEntries(
+            String tableName,
+            String resourcePath,
+            DeltaLakeConfig deltaLakeConfig)
+            throws Exception
+    {
+        setupTransactionLogAccess(
+                tableName,
+                getClass().getClassLoader().getResource(resourcePath).toString(),
+                deltaLakeConfig,
+                Optional.empty());
+
+        TrinoFileSystem fileSystem = tracingFileSystemFactory.create(SESSION, tableLocation);
+        MetadataEntry metadataEntry = transactionLogAccess.getMetadataEntry(SESSION, fileSystem, tableSnapshot);
+        ProtocolEntry protocolEntry = transactionLogAccess.getProtocolEntry(SESSION, fileSystem, tableSnapshot);
+        try (Stream<AddFileEntry> addFileEntries = transactionLogAccess.getActiveFiles(SESSION, createTable(metadataEntry, protocolEntry), tableSnapshot, TupleDomain.all(), alwaysTrue())) {
+            return addFileEntries.collect(toImmutableList());
+        }
     }
 
     @Test

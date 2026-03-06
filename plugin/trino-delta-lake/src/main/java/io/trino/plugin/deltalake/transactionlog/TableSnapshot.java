@@ -26,6 +26,7 @@ import io.trino.plugin.deltalake.DeltaLakeColumnHandle;
 import io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntryIterator;
 import io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointSchemaManager;
 import io.trino.plugin.deltalake.transactionlog.checkpoint.LastCheckpoint;
+import io.trino.plugin.deltalake.transactionlog.checkpoint.ParallelUnorderedIterator;
 import io.trino.plugin.deltalake.transactionlog.checkpoint.TransactionLogTail;
 import io.trino.plugin.deltalake.transactionlog.reader.TransactionLogReader;
 import io.trino.spi.TrinoException;
@@ -37,13 +38,19 @@ import io.trino.spi.type.TypeManager;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
+import java.util.function.Function;
 import java.util.function.Predicate;
+import java.util.function.Supplier;
+import java.util.stream.Collectors;
+import java.util.stream.LongStream;
 import java.util.stream.Stream;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -71,6 +78,7 @@ import static java.util.concurrent.CompletableFuture.supplyAsync;
 public class TableSnapshot
 {
     private static final int INSTANCE_SIZE = instanceSize(TableSnapshot.class);
+    private static final int CHECKPOINT_FILE_PROCESSING_QUEUE_SIZE = 32_678;
 
     private final Optional<LastCheckpoint> lastCheckpoint;
     private final SchemaTableName table;
@@ -225,6 +233,55 @@ public class TableSnapshot
                 + sizeOf(cachedProtocol, ProtocolEntry::getRetainedSizeInBytes);
     }
 
+    private record CheckpointFileSplit(
+            TrinoInputFile checkpointFile,
+            long start,
+            long length,
+            long fileSize)
+    {
+        private CheckpointFileSplit
+        {
+            requireNonNull(checkpointFile, "checkpointFile is null");
+            checkArgument(start >= 0, "start must be non-negative");
+            checkArgument(length >= 0, "length must be non-negative");
+            checkArgument(fileSize >= 0, "fileSize must be non-negative");
+            checkArgument(start <= fileSize, "start (%s) must be less than or equal to fileSize (%s)", start, fileSize);
+            checkArgument(length <= fileSize - start, "length (%s) with start (%s) must fit within fileSize (%s)", length, start, fileSize);
+        }
+    }
+
+    private Stream<CheckpointFileSplit> computeSplits(TrinoInputFile checkpointFile, long splitSize)
+    {
+        checkArgument(splitSize > 0, "splitSize must be positive");
+        return computeSplits(checkpointFile, getCheckpointFileSize(checkpointFile), splitSize);
+    }
+
+    private Stream<CheckpointFileSplit> computeSplits(TrinoInputFile checkpointFile, long fileSize, long splitSize)
+    {
+        checkArgument(splitSize > 0, "splitSize must be positive");
+
+        long splitCount;
+        if (fileSize == 0) {
+            splitCount = 1;
+        }
+        else {
+            splitCount = (fileSize + splitSize - 1) / splitSize;
+        }
+
+        return LongStream.range(0, splitCount)
+                .mapToObj(i -> {
+                    long start = i * splitSize;
+                    long length = Math.min(splitSize, fileSize - start);
+                    return new CheckpointFileSplit(checkpointFile, start, length, fileSize);
+                });
+    }
+
+    private CheckpointFileSplit computeSingletonSplit(TrinoInputFile checkpointFile)
+    {
+        long fileSize = getCheckpointFileSize(checkpointFile);
+        return new CheckpointFileSplit(checkpointFile, 0, fileSize, fileSize);
+    }
+
     public Stream<DeltaLakeTransactionLogEntry> getCheckpointTransactionLogEntries(
             ConnectorSession session,
             Set<CheckpointEntryIterator.EntryType> entryTypes,
@@ -235,7 +292,11 @@ public class TableSnapshot
             Optional<MetadataAndProtocolEntry> metadataAndProtocol,
             TupleDomain<DeltaLakeColumnHandle> partitionConstraint,
             Optional<Predicate<String>> addStatsMinMaxColumnFilter,
-            Executor executor)
+            Executor checkpointProcessingExecutor,
+            boolean checkpointV1ParallelProcessingEnabled,
+            boolean checkpointV2ParallelProcessingEnabled,
+            boolean checkpointIntraFileParallelProcessingEnabled,
+            long checkpointIntraFileParallelProcessingSplitSize)
             throws IOException
     {
         if (lastCheckpoint.isEmpty()) {
@@ -249,14 +310,38 @@ public class TableSnapshot
             checkState(metadataAndProtocol.isPresent(), "metadata and protocol information is needed to process the add log entries");
         }
 
-        return getCheckpointPartPaths(checkpoint).stream()
+        List<TrinoInputFile> checkpointFiles = getCheckpointPartPaths(checkpoint).stream()
                 .map(fileSystem::newInputFile)
-                .flatMap(checkpointFile -> getCheckpointTransactionLogEntries(
+                .collect(toImmutableList());
+
+        Optional<MetadataEntry> metadataEntry = metadataAndProtocol.map(MetadataAndProtocolEntry::metadataEntry);
+        Optional<ProtocolEntry> protocolEntry = metadataAndProtocol.map(MetadataAndProtocolEntry::protocolEntry);
+
+        if (checkpoint.v2Checkpoint().isEmpty()) {
+            return getV1CheckpointTransactionLogEntries(
+                    session,
+                    entryTypes,
+                    checkpointSchemaManager,
+                    typeManager,
+                    stats,
+                    metadataEntry,
+                    protocolEntry,
+                    partitionConstraint,
+                    addStatsMinMaxColumnFilter,
+                    checkpointFiles,
+                    checkpointProcessingExecutor,
+                    checkpointV1ParallelProcessingEnabled,
+                    checkpointIntraFileParallelProcessingEnabled,
+                    checkpointIntraFileParallelProcessingSplitSize);
+        }
+
+        return checkpointFiles
+                .stream()
+                .flatMap(checkpointFile -> getV2CheckpointTransactionLogEntriesFrom(
                         session,
-                        fileSystem,
                         entryTypes,
-                        metadataAndProtocol.map(MetadataAndProtocolEntry::metadataEntry),
-                        metadataAndProtocol.map(MetadataAndProtocolEntry::protocolEntry),
+                        metadataEntry,
+                        protocolEntry,
                         checkpointSchemaManager,
                         typeManager,
                         stats,
@@ -264,72 +349,80 @@ public class TableSnapshot
                         checkpointFile,
                         partitionConstraint,
                         addStatsMinMaxColumnFilter,
-                        executor));
+                        fileSystem,
+                        checkpointProcessingExecutor,
+                        checkpointV2ParallelProcessingEnabled,
+                        checkpointIntraFileParallelProcessingEnabled,
+                        checkpointIntraFileParallelProcessingSplitSize));
+    }
+
+    private Stream<DeltaLakeTransactionLogEntry> getV1CheckpointTransactionLogEntries(
+            ConnectorSession session,
+            Set<CheckpointEntryIterator.EntryType> entryTypes,
+            CheckpointSchemaManager checkpointSchemaManager,
+            TypeManager typeManager,
+            FileFormatDataSourceStats stats,
+            Optional<MetadataEntry> metadataEntry,
+            Optional<ProtocolEntry> protocolEntry,
+            TupleDomain<DeltaLakeColumnHandle> partitionConstraint,
+            Optional<Predicate<String>> addStatsMinMaxColumnFilter,
+            List<TrinoInputFile> checkpointFiles,
+            Executor checkpointProcessingExecutor,
+            boolean checkpointV1ParallelProcessingEnabled,
+            boolean checkpointIntraFileParallelProcessingEnabled,
+            long checkpointIntraFileParallelProcessingSplitSize)
+    {
+        Function<CheckpointFileSplit, Supplier<Stream<DeltaLakeTransactionLogEntry>>> checkpointFileSplitStreamBuilder =
+                checkpointFileSplit -> {
+                    return () -> buildCheckpointFileSplitStream(
+                            checkpointFileSplit,
+                            session,
+                            checkpointSchemaManager,
+                            typeManager,
+                            entryTypes,
+                            metadataEntry,
+                            protocolEntry,
+                            stats,
+                            partitionConstraint,
+                            addStatsMinMaxColumnFilter);
+                };
+
+        boolean parallelizable = checkpointV1ParallelProcessingEnabled && (checkpointFiles.size() > 1 || checkpointIntraFileParallelProcessingEnabled);
+
+        if (parallelizable) {
+            Function<TrinoInputFile, Supplier<Stream<CheckpointFileSplit>>> checkpointFileSplitSupplierBuilder =
+                    checkpointIntraFileParallelProcessingEnabled
+                            ? checkpointFile -> () -> computeSplits(
+                                    checkpointFile,
+                                    checkpointIntraFileParallelProcessingSplitSize)
+                            : checkpointFile -> () -> Stream.of(computeSingletonSplit(checkpointFile));
+
+            // Note: we plan the splits first before reading from any of the files. In principle
+            // we should be able to interleave planning and reading, but this would require a
+            // more sophisticated iterator. Moreover, split planning is still much cheaper than
+            // the actual checkpoint scan and decode, so we don't lose much by doing it first
+            List<CheckpointFileSplit> checkpointFileSplits = ParallelUnorderedIterator.stream(
+                    checkpointFiles.stream().map(checkpointFileSplitSupplierBuilder).collect(toImmutableList()),
+                    checkpointProcessingExecutor).collect(toImmutableList());
+
+            checkState(!checkpointFileSplits.isEmpty(), "Checkpoint file splits unexpectedly empty");
+
+            return ParallelUnorderedIterator.stream(
+                    checkpointFileSplits.stream().map(checkpointFileSplitStreamBuilder).collect(toImmutableList()),
+                    checkpointProcessingExecutor,
+                    CHECKPOINT_FILE_PROCESSING_QUEUE_SIZE);
+        }
+
+        Stream<CheckpointFileSplit> checkpointFileSplits =
+                checkpointFiles.stream().map(this::computeSingletonSplit);
+
+        return checkpointFileSplits
+                .flatMap(checkpointFileSplit -> checkpointFileSplitStreamBuilder.apply(checkpointFileSplit).get());
     }
 
     public Optional<Long> getLastCheckpointVersion()
     {
         return lastCheckpoint.map(LastCheckpoint::version);
-    }
-
-    private Stream<DeltaLakeTransactionLogEntry> getCheckpointTransactionLogEntries(
-            ConnectorSession session,
-            TrinoFileSystem fileSystem,
-            Set<CheckpointEntryIterator.EntryType> entryTypes,
-            Optional<MetadataEntry> metadataEntry,
-            Optional<ProtocolEntry> protocolEntry,
-            CheckpointSchemaManager checkpointSchemaManager,
-            TypeManager typeManager,
-            FileFormatDataSourceStats stats,
-            LastCheckpoint checkpoint,
-            TrinoInputFile checkpointFile,
-            TupleDomain<DeltaLakeColumnHandle> partitionConstraint,
-            Optional<Predicate<String>> addStatsMinMaxColumnFilter,
-            Executor executor)
-    {
-        long fileSize;
-        try {
-            fileSize = checkpointFile.length();
-        }
-        catch (FileNotFoundException e) {
-            throw new TrinoException(DELTA_LAKE_INVALID_SCHEMA, format("%s mentions a non-existent checkpoint file for table: %s", checkpoint, table));
-        }
-        catch (IOException e) {
-            throw new TrinoException(DELTA_LAKE_FILESYSTEM_ERROR, format("Unexpected IO exception occurred while retrieving the length of the file: %s for the table %s", checkpoint, table), e);
-        }
-        if (checkpoint.v2Checkpoint().isPresent()) {
-            return getV2CheckpointTransactionLogEntriesFrom(
-                    session,
-                    entryTypes,
-                    metadataEntry,
-                    protocolEntry,
-                    checkpointSchemaManager,
-                    typeManager,
-                    stats,
-                    checkpoint,
-                    checkpointFile,
-                    partitionConstraint,
-                    addStatsMinMaxColumnFilter,
-                    fileSystem,
-                    fileSize,
-                    executor);
-        }
-        CheckpointEntryIterator checkpointEntryIterator = new CheckpointEntryIterator(
-                checkpointFile,
-                session,
-                fileSize,
-                checkpointSchemaManager,
-                typeManager,
-                entryTypes,
-                metadataEntry,
-                protocolEntry,
-                stats,
-                parquetReaderOptions,
-                checkpointRowStatisticsWritingEnabled,
-                domainCompactionThreshold,
-                partitionConstraint,
-                addStatsMinMaxColumnFilter);
-        return stream(checkpointEntryIterator).onClose(checkpointEntryIterator::close);
     }
 
     private Stream<DeltaLakeTransactionLogEntry> getV2CheckpointTransactionLogEntriesFrom(
@@ -345,8 +438,10 @@ public class TableSnapshot
             TupleDomain<DeltaLakeColumnHandle> partitionConstraint,
             Optional<Predicate<String>> addStatsMinMaxColumnFilter,
             TrinoFileSystem fileSystem,
-            long fileSize,
-            Executor executor)
+            Executor checkpointProcessingExecutor,
+            boolean checkpointV2ParallelProcessingEnabled,
+            boolean checkpointIntraFileParallelProcessingEnabled,
+            long checkpointIntraFileParallelProcessingSplitSize)
     {
         // Sidecar files contain only ADD and REMOVE entry types. https://github.com/delta-io/delta/blob/master/PROTOCOL.md#v2-spec
         Set<CheckpointEntryIterator.EntryType> dataEntryTypes = Sets.intersection(entryTypes, Set.of(ADD, REMOVE));
@@ -363,9 +458,33 @@ public class TableSnapshot
                 partitionConstraint,
                 addStatsMinMaxColumnFilter,
                 fileSystem,
-                fileSize);
+                checkpointProcessingExecutor,
+                checkpointV2ParallelProcessingEnabled,
+                checkpointIntraFileParallelProcessingEnabled,
+                checkpointIntraFileParallelProcessingSplitSize);
         if (dataEntryTypes.isEmpty()) {
             return v2CheckpointEntries;
+        }
+
+        Location sidecarDirectoryPath = checkpointFile.location().sibling("_sidecars");
+
+        if (checkpointV2ParallelProcessingEnabled) {
+            return getV2CheckpointTransactionLogEntriesFromSidecarsInParallel(
+                    v2CheckpointEntries,
+                    sidecarDirectoryPath,
+                    session,
+                    entryTypes,
+                    metadataEntry,
+                    protocolEntry,
+                    checkpointSchemaManager,
+                    typeManager,
+                    stats,
+                    partitionConstraint,
+                    addStatsMinMaxColumnFilter,
+                    fileSystem,
+                    checkpointProcessingExecutor,
+                    checkpointIntraFileParallelProcessingEnabled,
+                    checkpointIntraFileParallelProcessingSplitSize);
         }
 
         List<CompletableFuture<Stream<DeltaLakeTransactionLogEntry>>> logEntryStreamFutures = v2CheckpointEntries
@@ -375,10 +494,12 @@ public class TableSnapshot
                     }
                     // Sidecar files are retrieved in parallel using a bounded executor
                     return supplyAsync(() -> {
-                        Location sidecar = checkpointFile.location().sibling("_sidecars").appendPath(v2checkpointEntry.getSidecar().path());
+                        Location sidecar = sidecarDirectoryPath.appendPath(v2checkpointEntry.getSidecar().path());
                         CheckpointEntryIterator iterator = new CheckpointEntryIterator(
                                 fileSystem.newInputFile(sidecar),
                                 session,
+                                0,
+                                v2checkpointEntry.getSidecar().sizeInBytes(),
                                 v2checkpointEntry.getSidecar().sizeInBytes(),
                                 checkpointSchemaManager,
                                 typeManager,
@@ -392,13 +513,81 @@ public class TableSnapshot
                                 partitionConstraint,
                                 addStatsMinMaxColumnFilter);
                         return stream(iterator).onClose(iterator::close);
-                    }, executor);
+                    }, checkpointProcessingExecutor);
                 })
                 .collect(toImmutableList());
         // Return the stream to retrieve the values of the futures lazily and allow streamlined split generation
         return logEntryStreamFutures.stream()
                 .mapMulti((logEntryStream, builder)
                         -> getFutureValue(logEntryStream, TrinoException.class).forEach(builder));
+    }
+
+    private Stream<DeltaLakeTransactionLogEntry> getV2CheckpointTransactionLogEntriesFromSidecarsInParallel(
+            Stream<DeltaLakeTransactionLogEntry> v2CheckpointEntries,
+            Location sidecarDirectoryPath,
+            ConnectorSession session,
+            Set<CheckpointEntryIterator.EntryType> entryTypes,
+            Optional<MetadataEntry> metadataEntry,
+            Optional<ProtocolEntry> protocolEntry,
+            CheckpointSchemaManager checkpointSchemaManager,
+            TypeManager typeManager,
+            FileFormatDataSourceStats stats,
+            TupleDomain<DeltaLakeColumnHandle> partitionConstraint,
+            Optional<Predicate<String>> addStatsMinMaxColumnFilter,
+            TrinoFileSystem fileSystem,
+            Executor checkpointProcessingExecutor,
+            boolean checkpointIntraFileParallelProcessingEnabled,
+            long checkpointIntraFileParallelProcessingSplitSize)
+    {
+        Function<CheckpointFileSplit, Supplier<Stream<DeltaLakeTransactionLogEntry>>> sidecarFileSplitStreamBuilder =
+                checkpointFileSplit -> {
+                    return () -> buildCheckpointFileSplitStream(
+                            checkpointFileSplit,
+                            session,
+                            checkpointSchemaManager,
+                            typeManager,
+                            entryTypes,
+                            metadataEntry,
+                            protocolEntry,
+                            stats,
+                            partitionConstraint,
+                            addStatsMinMaxColumnFilter);
+                };
+
+        Map<Boolean, List<DeltaLakeTransactionLogEntry>> partitionedV2CheckpointEntries =
+                v2CheckpointEntries.collect(Collectors.partitioningBy(v2checkpointEntry -> v2checkpointEntry.getSidecar() != null));
+
+        List<DeltaLakeTransactionLogEntry> sidecarEntries = partitionedV2CheckpointEntries.get(true);
+        List<DeltaLakeTransactionLogEntry> nonSidecarEntries = partitionedV2CheckpointEntries.get(false);
+
+        List<TrinoInputFile> sidecarFiles = sidecarEntries.stream()
+                .map(entry -> {
+                    SidecarEntry sidecarEntry = entry.getSidecar();
+                    Location sidecarPath = sidecarDirectoryPath.appendPath(sidecarEntry.path());
+                    return fileSystem.newInputFile(sidecarPath);
+                })
+                .collect(toImmutableList());
+
+        // Note: we could use sidecarEntry.sizeInBytes() to determine the sidecar file length, rather than checking the
+        // length directly from the file in computeSplits. This has the advantage of eliminating the need for I/O to check
+        // the length while planning. However, at this time, Trino will always fetch the length anyway in TrinoParquetDataSource,
+        // and the length is cached once fetched -- so, using sizeInBytes wouldn't save us any calls overall. Moreover,
+        // fetching the length at planning time allows us to write more precise and deterministic file system access tests
+        Function<TrinoInputFile, Supplier<Stream<CheckpointFileSplit>>> sidecarFileSplitSupplierBuilder =
+                checkpointIntraFileParallelProcessingEnabled
+                        ? sidecarFile -> () -> computeSplits(sidecarFile, checkpointIntraFileParallelProcessingSplitSize)
+                        : sidecarFile -> () -> Stream.of(computeSingletonSplit(sidecarFile));
+
+        List<CheckpointFileSplit> sidecarFileSplits = ParallelUnorderedIterator.stream(
+                    sidecarFiles.stream().map(sidecarFileSplitSupplierBuilder).collect(toImmutableList()),
+                    checkpointProcessingExecutor).collect(toImmutableList());
+
+        Stream<DeltaLakeTransactionLogEntry> sidecarFileEntries = ParallelUnorderedIterator.stream(
+                sidecarFileSplits.stream().map(sidecarFileSplitStreamBuilder).collect(toImmutableList()),
+                checkpointProcessingExecutor,
+                CHECKPOINT_FILE_PROCESSING_QUEUE_SIZE);
+
+        return Stream.concat(nonSidecarEntries.stream(), sidecarFileEntries);
     }
 
     private Stream<DeltaLakeTransactionLogEntry> getV2CheckpointEntries(
@@ -414,7 +603,10 @@ public class TableSnapshot
             TupleDomain<DeltaLakeColumnHandle> partitionConstraint,
             Optional<Predicate<String>> addStatsMinMaxColumnFilter,
             TrinoFileSystem fileSystem,
-            long fileSize)
+            Executor checkpointProcessingExecutor,
+            boolean checkpointV2ParallelProcessingEnabled,
+            boolean checkpointIntraFileParallelProcessingEnabled,
+            long checkpointIntraFileParallelProcessingSplitSize)
     {
         if (checkpointFile.location().fileName().endsWith(".json")) {
             try {
@@ -427,28 +619,90 @@ public class TableSnapshot
             }
         }
         if (checkpointFile.location().fileName().endsWith(".parquet")) {
-            CheckpointEntryIterator checkpointEntryIterator = new CheckpointEntryIterator(
-                    fileSystem.newInputFile(checkpointFile.location()),
-                    session,
-                    fileSize,
-                    checkpointSchemaManager,
-                    typeManager,
+            ImmutableSet<CheckpointEntryIterator.EntryType> entryTypesWithSidecar =
                     ImmutableSet.<CheckpointEntryIterator.EntryType>builder()
                             .addAll(entryTypes)
                             .add(SIDECAR)
-                            .build(),
-                    metadataEntry,
-                    protocolEntry,
-                    stats,
-                    parquetReaderOptions,
-                    checkpointRowStatisticsWritingEnabled,
-                    domainCompactionThreshold,
-                    partitionConstraint,
-                    addStatsMinMaxColumnFilter);
-            return stream(checkpointEntryIterator)
-                    .onClose(checkpointEntryIterator::close);
+                            .build();
+
+            Function<CheckpointFileSplit, Supplier<Stream<DeltaLakeTransactionLogEntry>>> checkpointFileSplitStreamBuilder =
+                    checkpointFileSplit -> {
+                        return () -> buildCheckpointFileSplitStream(
+                                checkpointFileSplit,
+                                session,
+                                checkpointSchemaManager,
+                                typeManager,
+                                entryTypesWithSidecar,
+                                metadataEntry,
+                                protocolEntry,
+                                stats,
+                                partitionConstraint,
+                                addStatsMinMaxColumnFilter);
+                    };
+
+            List<CheckpointFileSplit> checkpointFileSplits;
+            if (checkpointV2ParallelProcessingEnabled && checkpointIntraFileParallelProcessingEnabled) {
+                checkpointFileSplits = computeSplits(checkpointFile, checkpointIntraFileParallelProcessingSplitSize).collect(toImmutableList());
+            }
+            else {
+                checkpointFileSplits = ImmutableList.of(computeSingletonSplit(checkpointFile));
+            }
+
+            return ParallelUnorderedIterator.stream(
+                    checkpointFileSplits.stream().map(checkpointFileSplitStreamBuilder).collect(toImmutableList()),
+                    checkpointProcessingExecutor,
+                    CHECKPOINT_FILE_PROCESSING_QUEUE_SIZE);
         }
         throw new IllegalArgumentException("Unsupported v2 checkpoint file format: " + checkpointFile.location());
+    }
+
+    private Stream<DeltaLakeTransactionLogEntry> buildCheckpointFileSplitStream(
+            CheckpointFileSplit checkpointFileSplit,
+            ConnectorSession session,
+            CheckpointSchemaManager checkpointSchemaManager,
+            TypeManager typeManager,
+            Set<CheckpointEntryIterator.EntryType> entryTypes,
+            Optional<MetadataEntry> metadataEntry,
+            Optional<ProtocolEntry> protocolEntry,
+            FileFormatDataSourceStats stats,
+            TupleDomain<DeltaLakeColumnHandle> partitionConstraint,
+            Optional<Predicate<String>> addStatsMinMaxColumnFilter)
+    {
+        CheckpointEntryIterator checkpointEntryIterator = new CheckpointEntryIterator(
+                checkpointFileSplit.checkpointFile(),
+                session,
+                checkpointFileSplit.start(),
+                checkpointFileSplit.length(),
+                checkpointFileSplit.fileSize(),
+                checkpointSchemaManager,
+                typeManager,
+                entryTypes,
+                metadataEntry,
+                protocolEntry,
+                stats,
+                parquetReaderOptions,
+                checkpointRowStatisticsWritingEnabled,
+                domainCompactionThreshold,
+                partitionConstraint,
+                addStatsMinMaxColumnFilter);
+
+        return stream(checkpointEntryIterator)
+                .onClose(checkpointEntryIterator::close);
+    }
+
+    private long getCheckpointFileSize(TrinoInputFile checkpointFile)
+    {
+        try {
+            return checkpointFile.length();
+        }
+        catch (FileNotFoundException e) {
+            String lastCheckpointMemo = lastCheckpoint.map(LastCheckpoint::toString).orElse("<unknown>");
+            throw new TrinoException(DELTA_LAKE_INVALID_SCHEMA, format("%s mentions a non-existent checkpoint file for table: %s", lastCheckpointMemo, table), e);
+        }
+        catch (IOException e) {
+            String lastCheckpointMemo = lastCheckpoint.map(LastCheckpoint::toString).orElse("<unknown>");
+            throw new TrinoException(DELTA_LAKE_FILESYSTEM_ERROR, format("Unexpected IO exception occurred while retrieving the length of the file: %s for the table %s", lastCheckpointMemo, table), e);
+        }
     }
 
     public record MetadataAndProtocolEntry(MetadataEntry metadataEntry, ProtocolEntry protocolEntry)
