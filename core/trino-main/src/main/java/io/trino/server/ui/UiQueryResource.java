@@ -179,8 +179,6 @@ public class UiQueryResource
                 .rebuild()
                 .defaultAttributes(attrs)
                 .build();
-        // Don't serialize TDigestHistogram.digest which isn't useful and human readable
-        mapper.configOverride(TDigestHistogram.class).setIgnorals(forIgnoredProperties(DIGEST_PROPERTY));
 
         // Don't serialize TDigestHistogram.digest which isn't useful and human readable
         mapper.configOverride(TDigestHistogram.class).setIgnorals(forIgnoredProperties(DIGEST_PROPERTY));
