@@ -36,7 +36,7 @@ public class TimestampParametricType
             throw new IllegalArgumentException("Expected exactly one parameter for TIMESTAMP");
         }
 
-        TypeParameter parameter = parameters.get(0);
+        TypeParameter parameter = parameters.getFirst();
 
         if (!(parameter instanceof TypeParameter.Numeric(long precision))) {
             throw new IllegalArgumentException("TIMESTAMP precision must be a number");
@@ -47,5 +47,11 @@ public class TimestampParametricType
         }
 
         return TimestampType.createTimestampType((int) precision);
+    }
+
+    @Override
+    public boolean areAllTypesComparable()
+    {
+        return true;
     }
 }

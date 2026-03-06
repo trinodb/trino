@@ -33,7 +33,7 @@ public class QuantileDigestParametricType
             throw new IllegalArgumentException("QDIGEST type expects exactly one type as a parameter, got " + parameters);
         }
 
-        if (parameters.get(0) instanceof TypeParameter.Type(_, TypeSignature type)) {
+        if (parameters.getFirst() instanceof TypeParameter.Type(_, TypeSignature type)) {
             // Validation check on the acceptable type (bigint, real, double) intentionally omitted
             // because this is validated in each function and to allow for consistent error messaging
             return new QuantileDigestType(typeManager.getType(type));

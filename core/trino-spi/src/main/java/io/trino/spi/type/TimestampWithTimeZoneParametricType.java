@@ -36,7 +36,7 @@ public class TimestampWithTimeZoneParametricType
             throw new IllegalArgumentException("Expected exactly one parameter for TIMESTAMP WITH TIME ZONE");
         }
 
-        TypeParameter parameter = parameters.get(0);
+        TypeParameter parameter = parameters.getFirst();
 
         if (!(parameter instanceof TypeParameter.Numeric(long precision))) {
             throw new IllegalArgumentException("TIMESTAMP precision must be a number");
@@ -47,5 +47,11 @@ public class TimestampWithTimeZoneParametricType
         }
 
         return TimestampWithTimeZoneType.createTimestampWithTimeZoneType((int) precision);
+    }
+
+    @Override
+    public boolean areAllTypesComparable()
+    {
+        return true;
     }
 }

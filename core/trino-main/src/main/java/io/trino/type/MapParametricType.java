@@ -39,16 +39,20 @@ public final class MapParametricType
     public Type createType(TypeManager typeManager, List<TypeParameter> parameters)
     {
         checkArgument(parameters.size() == 2, "Expected two parameters, got %s", parameters);
-        TypeParameter firstParameter = parameters.get(0);
-        TypeParameter secondParameter = parameters.get(1);
-        checkArgument(
-                firstParameter instanceof TypeParameter.Type && secondParameter instanceof TypeParameter.Type,
-                "Expected key and type to be types, got %s",
-                parameters);
+        TypeParameter firstParameter = parameters.getFirst();
+        TypeParameter secondParameter = parameters.getLast();
+
+        if (!(firstParameter instanceof TypeParameter.Type firstType)) {
+            throw new IllegalArgumentException("Expected key to be type, got %s".formatted(firstParameter));
+        }
+
+        if (!(secondParameter instanceof TypeParameter.Type secondType)) {
+            throw new IllegalArgumentException("Expected type to be type, got %s".formatted(secondParameter));
+        }
 
         return new MapType(
-                typeManager.getType(((TypeParameter.Type) firstParameter).type()),
-                typeManager.getType(((TypeParameter.Type) secondParameter).type()),
+                typeManager.getType(firstType.type()),
+                typeManager.getType(secondType.type()),
                 typeManager.getTypeOperators());
     }
 }
