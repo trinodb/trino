@@ -363,13 +363,7 @@ public abstract class AbstractVariableWidthType
                 leftBytes = leftVariableSizeSlice;
                 leftOffset = leftVariableSizeOffset;
             }
-            return Arrays.equals(
-                    rightRawSlice.byteArray(),
-                    rightRawSlice.byteArrayOffset() + rightRawSliceOffset,
-                    rightRawSlice.byteArrayOffset() + rightRawSliceOffset + rightLength,
-                    leftBytes,
-                    leftOffset,
-                    leftOffset + leftLength);
+            return rightRawSlice.equals(rightRawSliceOffset, rightLength, leftBytes, leftOffset, leftLength);
         }
 
         @ScalarOperator(XX_HASH_64)
