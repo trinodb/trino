@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableSet;
 import io.airlift.units.DataSize;
 import io.trino.execution.MockManagedQueryExecution;
 import io.trino.execution.MockManagedQueryExecution.MockManagedQueryExecutionBuilder;
+import io.trino.execution.QueryState;
 import io.trino.server.QueryStateInfo;
 import io.trino.server.ResourceGroupInfo;
 import org.apache.commons.math3.distribution.BinomialDistribution;
@@ -50,6 +51,7 @@ import static io.trino.spi.resourcegroups.SchedulingPolicy.WEIGHTED;
 import static io.trino.spi.resourcegroups.SchedulingPolicy.WEIGHTED_FAIR;
 import static java.util.Collections.reverse;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestResourceGroups
 {
@@ -1914,7 +1916,14 @@ public class TestResourceGroups
                 Objects.equals(actual.memoryUsage(), expected.memoryUsage()) &&
                 Objects.equals(actual.cpuUsage(), expected.cpuUsage()) &&
                 Objects.equals(actual.hardPhysicalDataScanLimit(), expected.hardPhysicalDataScanLimit()) &&
-                Objects.equals(actual.physicalInputDataUsage(), expected.physicalInputDataUsage())).isTrue();
+                Objects.equals(actual.physicalInputDataUsage(), expected.physicalInputDataUsage()) &&
+                Objects.equals(actual.perQueryMemoryLimit(), expected.perQueryMemoryLimit()) &&
+                Objects.equals(actual.perQueryCpuLimit(), expected.perQueryCpuLimit()) &&
+                Objects.equals(actual.perQueryScanLimit(), expected.perQueryScanLimit()) &&
+                actual.hardTotalDriverLimit() == expected.hardTotalDriverLimit() &&
+                actual.hardPlanningConcurrencyLimit() == expected.hardPlanningConcurrencyLimit() &&
+                actual.activeDrivers() == expected.activeDrivers() &&
+                actual.planningQueries() == expected.planningQueries()).isTrue();
     }
 
     private static void assertExceedsCpuLimit(InternalResourceGroup group, long expectedMillis)
@@ -1963,5 +1972,363 @@ public class TestResourceGroups
         assertThat(actualBytes).isEqualTo(expectedBytes);
         assertThat(actualBytes).isLessThanOrEqualTo(group.getHardPhysicalDataScanLimitBytes());
         assertThat(group.getPhysicalInputDataUsageBytes()).isEqualTo(expectedBytes);
+    }
+
+    @Test
+    @Timeout(10)
+    public void testPerQueryMemoryLimit()
+    {
+        InternalResourceGroup root = new InternalResourceGroup("root", (group, export) -> {}, directExecutor());
+        root.setSoftMemoryLimitBytes(DataSize.of(1, GIGABYTE).toBytes());
+        root.setMaxQueuedQueries(4);
+        root.setHardConcurrencyLimit(4);
+        root.setPerQueryMemoryLimitBytes(DataSize.of(10, MEGABYTE).toBytes());
+
+        MockManagedQueryExecution query1 = new MockManagedQueryExecutionBuilder()
+                .withInitialMemoryUsage(DataSize.of(5, MEGABYTE))
+                .build();
+        root.run(query1);
+        assertThat(query1.getState()).isEqualTo(RUNNING);
+
+        root.updateGroupsAndProcessQueuedQueries();
+        assertThat(query1.getState()).isEqualTo(RUNNING);
+
+        query1.setMemoryUsage(DataSize.of(15, MEGABYTE));
+        root.updateGroupsAndProcessQueuedQueries();
+        assertThat(query1.getState()).isEqualTo(FAILED);
+        assertThat(query1.getThrowable().getMessage()).contains("per-query memory limit");
+    }
+
+    @Test
+    @Timeout(10)
+    public void testPerQueryCpuLimit()
+    {
+        InternalResourceGroup root = new InternalResourceGroup("root", (group, export) -> {}, directExecutor());
+        root.setSoftMemoryLimitBytes(DataSize.of(1, GIGABYTE).toBytes());
+        root.setMaxQueuedQueries(4);
+        root.setHardConcurrencyLimit(4);
+        root.setPerQueryCpuLimitMillis(1000);
+
+        MockManagedQueryExecution query1 = new MockManagedQueryExecutionBuilder().build();
+        root.run(query1);
+        assertThat(query1.getState()).isEqualTo(RUNNING);
+
+        query1.consumeCpuTimeMillis(500);
+        root.updateGroupsAndProcessQueuedQueries();
+        assertThat(query1.getState()).isEqualTo(RUNNING);
+
+        query1.consumeCpuTimeMillis(600);
+        root.updateGroupsAndProcessQueuedQueries();
+        assertThat(query1.getState()).isEqualTo(FAILED);
+        assertThat(query1.getThrowable().getMessage()).contains("per-query CPU limit");
+    }
+
+    @Test
+    @Timeout(10)
+    public void testPerQueryScanLimit()
+    {
+        InternalResourceGroup root = new InternalResourceGroup("root", (group, export) -> {}, directExecutor());
+        root.setSoftMemoryLimitBytes(DataSize.of(1, GIGABYTE).toBytes());
+        root.setMaxQueuedQueries(4);
+        root.setHardConcurrencyLimit(4);
+        root.setPerQueryScanLimitBytes(100);
+
+        MockManagedQueryExecution query1 = new MockManagedQueryExecutionBuilder().build();
+        root.run(query1);
+        assertThat(query1.getState()).isEqualTo(RUNNING);
+
+        query1.consumePhysicalInputDataBytes(50);
+        root.updateGroupsAndProcessQueuedQueries();
+        assertThat(query1.getState()).isEqualTo(RUNNING);
+
+        query1.consumePhysicalInputDataBytes(60);
+        root.updateGroupsAndProcessQueuedQueries();
+        assertThat(query1.getState()).isEqualTo(FAILED);
+        assertThat(query1.getThrowable().getMessage()).contains("per-query scan limit");
+    }
+
+    @Test
+    @Timeout(10)
+    public void testPerQueryLimitsDoNotAffectOtherQueries()
+    {
+        InternalResourceGroup root = new InternalResourceGroup("root", (group, export) -> {}, directExecutor());
+        root.setSoftMemoryLimitBytes(DataSize.of(1, GIGABYTE).toBytes());
+        root.setMaxQueuedQueries(4);
+        root.setHardConcurrencyLimit(4);
+        root.setPerQueryMemoryLimitBytes(DataSize.of(10, MEGABYTE).toBytes());
+
+        MockManagedQueryExecution query1 = new MockManagedQueryExecutionBuilder()
+                .withInitialMemoryUsage(DataSize.of(15, MEGABYTE))
+                .build();
+        MockManagedQueryExecution query2 = new MockManagedQueryExecutionBuilder()
+                .withInitialMemoryUsage(DataSize.of(5, MEGABYTE))
+                .build();
+        root.run(query1);
+        root.run(query2);
+        assertThat(query1.getState()).isEqualTo(RUNNING);
+        assertThat(query2.getState()).isEqualTo(RUNNING);
+
+        root.updateGroupsAndProcessQueuedQueries();
+        assertThat(query1.getState()).isEqualTo(FAILED);
+        assertThat(query2.getState()).isEqualTo(RUNNING);
+    }
+
+    @Test
+    @Timeout(10)
+    public void testHardTotalDriverLimit()
+    {
+        InternalResourceGroup root = new InternalResourceGroup("root", (group, export) -> {}, directExecutor());
+        root.setSoftMemoryLimitBytes(DataSize.of(1, GIGABYTE).toBytes());
+        root.setMaxQueuedQueries(4);
+        root.setHardConcurrencyLimit(4);
+        root.setHardTotalDriverLimit(20);
+
+        MockManagedQueryExecution query1 = new MockManagedQueryExecutionBuilder()
+                .withRunningDrivers(10)
+                .withBlockedDrivers(5)
+                .build();
+        root.run(query1);
+        assertThat(query1.getState()).isEqualTo(RUNNING);
+        root.updateGroupsAndProcessQueuedQueries();
+
+        MockManagedQueryExecution query2 = new MockManagedQueryExecutionBuilder()
+                .withRunningDrivers(3)
+                .withBlockedDrivers(2)
+                .build();
+        root.run(query2);
+        assertThat(query2.getState()).isEqualTo(RUNNING);
+        root.updateGroupsAndProcessQueuedQueries();
+
+        MockManagedQueryExecution query3 = new MockManagedQueryExecutionBuilder().build();
+        root.run(query3);
+        assertThat(query3.getState()).isEqualTo(QUEUED);
+
+        query1.complete();
+        root.updateGroupsAndProcessQueuedQueries();
+        assertThat(query3.getState()).isEqualTo(RUNNING);
+    }
+
+    @Test
+    @Timeout(10)
+    public void testHardTotalDriverLimitWithSubGroups()
+    {
+        InternalResourceGroup root = new InternalResourceGroup("root", (group, export) -> {}, directExecutor());
+        root.setSoftMemoryLimitBytes(DataSize.of(1, GIGABYTE).toBytes());
+        root.setMaxQueuedQueries(10);
+        root.setHardConcurrencyLimit(10);
+        root.setHardTotalDriverLimit(15);
+
+        InternalResourceGroup child = root.getOrCreateSubGroup("child");
+        child.setSoftMemoryLimitBytes(DataSize.of(1, GIGABYTE).toBytes());
+        child.setMaxQueuedQueries(10);
+        child.setHardConcurrencyLimit(10);
+
+        MockManagedQueryExecution query1 = new MockManagedQueryExecutionBuilder()
+                .withRunningDrivers(10)
+                .withBlockedDrivers(5)
+                .build();
+        child.run(query1);
+        assertThat(query1.getState()).isEqualTo(RUNNING);
+        root.updateGroupsAndProcessQueuedQueries();
+
+        MockManagedQueryExecution query2 = new MockManagedQueryExecutionBuilder().build();
+        child.run(query2);
+        assertThat(query2.getState()).isEqualTo(QUEUED);
+
+        query1.complete();
+        root.updateGroupsAndProcessQueuedQueries();
+        assertThat(query2.getState()).isEqualTo(RUNNING);
+    }
+
+    @Test
+    @Timeout(10)
+    public void testHardPlanningConcurrencyLimit()
+    {
+        InternalResourceGroup root = new InternalResourceGroup("root", (group, export) -> {}, directExecutor());
+        root.setSoftMemoryLimitBytes(DataSize.of(1, GIGABYTE).toBytes());
+        root.setMaxQueuedQueries(4);
+        root.setHardConcurrencyLimit(4);
+        root.setHardPlanningConcurrencyLimit(1);
+
+        MockManagedQueryExecution query1 = new MockManagedQueryExecutionBuilder().build();
+        root.run(query1);
+        assertThat(query1.getState()).isEqualTo(RUNNING);
+
+        query1.setState(QueryState.PLANNING);
+        root.updateGroupsAndProcessQueuedQueries();
+
+        MockManagedQueryExecution query2 = new MockManagedQueryExecutionBuilder().build();
+        root.run(query2);
+        assertThat(query2.getState()).isEqualTo(QUEUED);
+
+        query1.setState(RUNNING);
+        root.updateGroupsAndProcessQueuedQueries();
+        assertThat(query2.getState()).isEqualTo(RUNNING);
+    }
+
+    @Test
+    @Timeout(10)
+    public void testPerQueryMemoryLimitAtBoundary()
+    {
+        InternalResourceGroup root = new InternalResourceGroup("root", (group, export) -> {}, directExecutor());
+        root.setSoftMemoryLimitBytes(DataSize.of(1, GIGABYTE).toBytes());
+        root.setMaxQueuedQueries(4);
+        root.setHardConcurrencyLimit(4);
+        root.setPerQueryMemoryLimitBytes(DataSize.of(10, MEGABYTE).toBytes());
+
+        MockManagedQueryExecution query1 = new MockManagedQueryExecutionBuilder()
+                .withInitialMemoryUsage(DataSize.of(10, MEGABYTE))
+                .build();
+        root.run(query1);
+        root.updateGroupsAndProcessQueuedQueries();
+        assertThat(query1.getState()).isEqualTo(RUNNING);
+    }
+
+    @Test
+    @Timeout(10)
+    public void testHardTotalDriverLimitAtBoundary()
+    {
+        InternalResourceGroup root = new InternalResourceGroup("root", (group, export) -> {}, directExecutor());
+        root.setSoftMemoryLimitBytes(DataSize.of(1, GIGABYTE).toBytes());
+        root.setMaxQueuedQueries(4);
+        root.setHardConcurrencyLimit(4);
+        root.setHardTotalDriverLimit(10);
+
+        MockManagedQueryExecution query1 = new MockManagedQueryExecutionBuilder()
+                .withRunningDrivers(10)
+                .build();
+        root.run(query1);
+        root.updateGroupsAndProcessQueuedQueries();
+
+        MockManagedQueryExecution query2 = new MockManagedQueryExecutionBuilder().build();
+        root.run(query2);
+        assertThat(query2.getState()).isEqualTo(QUEUED);
+    }
+
+    @Test
+    @Timeout(10)
+    public void testHardTotalDriverLimitIncludesQueuedDrivers()
+    {
+        InternalResourceGroup root = new InternalResourceGroup("root", (group, export) -> {}, directExecutor());
+        root.setSoftMemoryLimitBytes(DataSize.of(1, GIGABYTE).toBytes());
+        root.setMaxQueuedQueries(4);
+        root.setHardConcurrencyLimit(4);
+        root.setHardTotalDriverLimit(20);
+
+        MockManagedQueryExecution query1 = new MockManagedQueryExecutionBuilder()
+                .withRunningDrivers(5)
+                .withQueuedDrivers(10)
+                .withBlockedDrivers(5)
+                .build();
+        root.run(query1);
+        root.updateGroupsAndProcessQueuedQueries();
+
+        MockManagedQueryExecution query2 = new MockManagedQueryExecutionBuilder().build();
+        root.run(query2);
+        assertThat(query2.getState()).isEqualTo(QUEUED);
+    }
+
+    @Test
+    @Timeout(10)
+    public void testKilledQueryDriversNotCounted()
+    {
+        InternalResourceGroup root = new InternalResourceGroup("root", (group, export) -> {}, directExecutor());
+        root.setSoftMemoryLimitBytes(DataSize.of(1, GIGABYTE).toBytes());
+        root.setMaxQueuedQueries(4);
+        root.setHardConcurrencyLimit(4);
+        root.setPerQueryMemoryLimitBytes(DataSize.of(10, MEGABYTE).toBytes());
+        root.setHardTotalDriverLimit(15);
+
+        MockManagedQueryExecution query1 = new MockManagedQueryExecutionBuilder()
+                .withInitialMemoryUsage(DataSize.of(15, MEGABYTE))
+                .withRunningDrivers(10)
+                .build();
+        MockManagedQueryExecution query2 = new MockManagedQueryExecutionBuilder()
+                .withRunningDrivers(3)
+                .build();
+        root.run(query1);
+        root.run(query2);
+        root.updateGroupsAndProcessQueuedQueries();
+
+        assertThat(query1.getState()).isEqualTo(FAILED);
+        assertThat(query2.getState()).isEqualTo(RUNNING);
+        assertThat(root.getActiveDrivers()).isEqualTo(3);
+    }
+
+    @Test
+    @Timeout(10)
+    public void testActiveDriversAndPlanningQueriesObservability()
+    {
+        InternalResourceGroup root = new InternalResourceGroup("root", (group, export) -> {}, directExecutor());
+        root.setSoftMemoryLimitBytes(DataSize.of(1, GIGABYTE).toBytes());
+        root.setMaxQueuedQueries(4);
+        root.setHardConcurrencyLimit(4);
+
+        MockManagedQueryExecution query1 = new MockManagedQueryExecutionBuilder()
+                .withRunningDrivers(5)
+                .withBlockedDrivers(3)
+                .build();
+        MockManagedQueryExecution query2 = new MockManagedQueryExecutionBuilder()
+                .withRunningDrivers(2)
+                .withQueuedDrivers(1)
+                .build();
+        root.run(query1);
+        root.run(query2);
+        root.updateGroupsAndProcessQueuedQueries();
+
+        assertThat(root.getActiveDrivers()).isEqualTo(11);
+        assertThat(root.getPlanningQueries()).isEqualTo(0);
+
+        query1.setState(QueryState.PLANNING);
+        root.updateGroupsAndProcessQueuedQueries();
+        assertThat(root.getPlanningQueries()).isEqualTo(1);
+
+        query1.setState(RUNNING);
+        root.updateGroupsAndProcessQueuedQueries();
+        assertThat(root.getPlanningQueries()).isEqualTo(0);
+    }
+
+    @Test
+    public void testNewLimitSetterValidation()
+    {
+        InternalResourceGroup root = new InternalResourceGroup("root", (group, export) -> {}, directExecutor());
+
+        assertThatThrownBy(() -> root.setPerQueryMemoryLimitBytes(0))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> root.setPerQueryMemoryLimitBytes(-1))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> root.setPerQueryCpuLimitMillis(0))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> root.setPerQueryScanLimitBytes(0))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> root.setHardTotalDriverLimit(0))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> root.setHardTotalDriverLimit(-1))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> root.setHardPlanningConcurrencyLimit(0))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    @Timeout(10)
+    public void testDefaultLimitsDoNotEnforce()
+    {
+        InternalResourceGroup root = new InternalResourceGroup("root", (group, export) -> {}, directExecutor());
+        root.setSoftMemoryLimitBytes(DataSize.of(1, GIGABYTE).toBytes());
+        root.setMaxQueuedQueries(4);
+        root.setHardConcurrencyLimit(4);
+
+        MockManagedQueryExecution query1 = new MockManagedQueryExecutionBuilder()
+                .withInitialMemoryUsage(DataSize.of(500, MEGABYTE))
+                .withRunningDrivers(1000)
+                .build();
+        root.run(query1);
+        root.updateGroupsAndProcessQueuedQueries();
+        assertThat(query1.getState()).isEqualTo(RUNNING);
+
+        query1.consumeCpuTimeMillis(100_000);
+        query1.consumePhysicalInputDataBytes(10_000_000_000L);
+        root.updateGroupsAndProcessQueuedQueries();
+        assertThat(query1.getState()).isEqualTo(RUNNING);
     }
 }
