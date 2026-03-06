@@ -35,6 +35,7 @@ import java.time.ZoneId;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static io.trino.plugin.exasol.TestingExasolServer.TEST_SCHEMA;
+import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.CharType.createCharType;
 import static io.trino.spi.type.DateType.DATE;
@@ -399,11 +400,234 @@ final class TestExasolTypeMapping
     }
 
     @Test
+    void testIntervalYearMonth()
+    {
+        SqlDataTypeTest.create()
+                .addRoundTrip("interval year to month", "NULL", BIGINT, "CAST(NULL AS bigint)")
+                .addRoundTrip("interval year to month", "'5-3'", BIGINT, "CAST(63 AS bigint)")
+                .addRoundTrip("interval year(4) to month", "'+0005-03'", BIGINT, "CAST(63 AS bigint)")
+                // minimum supported values
+                .addRoundTrip("interval year(9) to month", "'-178956970-07'", BIGINT, "CAST(-2147483647 AS bigint)")
+                .addRoundTrip("interval year to month", "'-99-11'", BIGINT, "CAST(-1199 AS bigint)")
+                .addRoundTrip("interval year(2) to month", "'-99-11'", BIGINT, "CAST(-1199 AS bigint)")
+                .addRoundTrip("interval year(3) to month", "'-999-11'", BIGINT, "CAST(-11999 AS bigint)")
+                // maximum supported values
+                .addRoundTrip("interval year(9) to month", "'178956970-07'", BIGINT, "CAST(2147483647 AS bigint)")
+                .addRoundTrip("interval year to month", "'99-11'", BIGINT, "CAST(1199 AS bigint)")
+                .addRoundTrip("interval year(2) to month", "'99-11'", BIGINT, "CAST(1199 AS bigint)")
+                .addRoundTrip("interval year(3) to month", "'999-11'", BIGINT, "CAST(11999 AS bigint)")
+                // different precisions
+                .addRoundTrip("interval year(3) to month", "'+006-03'", BIGINT, "CAST(75 AS bigint)")
+                .addRoundTrip("interval year(2) to month", "'+06-03'", BIGINT, "CAST(75 AS bigint)")
+                .addRoundTrip("interval year(4) to month", "'-0006-03'", BIGINT, "CAST(-75 AS bigint)")
+                .addRoundTrip("interval year(5) to month", "'-00007-03'", BIGINT, "CAST(-87 AS bigint)")
+                .addRoundTrip("interval year(9) to month", "'-00007-03'", BIGINT, "CAST(-87 AS bigint)")
+                .execute(getQueryRunner(), exasolCreateAndInsert(TEST_SCHEMA + "." + "test_interval_year_month"));
+    }
+
+    @Test
+    void testIntervalDaySecond()
+    {
+        SqlDataTypeTest.create()
+                .addRoundTrip("interval day to second", "NULL", BIGINT, "CAST(NULL AS bigint)")
+                .addRoundTrip("interval day to second", "'2 02:03:04.123'", BIGINT, "CAST(180184123 AS bigint)")
+                .addRoundTrip("interval day to second", "'+02 02:03:04.123456'", BIGINT, "CAST(180184123 AS bigint)")
+                .addRoundTrip("interval day to second(3)", "'2 2:03:04.123456'", BIGINT, "CAST(180184123 AS bigint)")
+                .addRoundTrip("interval day to second(6)", "'2 2:03:04.123456'", BIGINT, "CAST(180184123 AS bigint)")
+                .addRoundTrip("interval day to second(9)", "'2 2:03:04.123456789'", BIGINT, "CAST(180184123 AS bigint)")
+                .addRoundTrip("interval day to second(0)", "'2 2:03:04.123456789'", BIGINT, "CAST(180184000 AS bigint)")
+                .addRoundTrip("interval day to second(1)", "'2 2:03:04.1'", BIGINT, "CAST(180184100 AS bigint)")
+                .addRoundTrip("interval day to second(2)", "'2 2:03:04.12'", BIGINT, "CAST(180184120 AS bigint)")
+                .addRoundTrip("interval day to second(4)", "'2 2:03:04.1200'", BIGINT, "CAST(180184120 AS bigint)")
+                .addRoundTrip("interval day to second(3)", "'2 2:03:04.123456789'", BIGINT, "CAST(180184123 AS bigint)")
+                .addRoundTrip("interval day to second(4)", "'2 2:03:04.123999999'", BIGINT, "CAST(180184124 AS bigint)")
+                .addRoundTrip("interval day(3) to second(9)", "'2 2:03:04.123456789'", BIGINT, "CAST(180184123 AS bigint)")
+                .addRoundTrip("interval day(3) to second(3)", "'002 02:03:04.123456'", BIGINT, "CAST(180184123 AS bigint)")
+                .addRoundTrip("interval day(3) to second", "'+0002 02:03:04.123456789'", BIGINT, "CAST(180184123 AS bigint)")
+                .addRoundTrip("interval day(2) to second(6)", "'+02 02:03:04.123456'", BIGINT, "CAST(180184123 AS bigint)")
+                .addRoundTrip("interval day(2) to second", "'-2 02:03:04.123456'", BIGINT, "CAST(-180184123 AS bigint)")
+                .addRoundTrip("interval day(5) to second(9)", "'-02 02:03:04.123456'", BIGINT, "CAST(-180184123 AS bigint)")
+                .addRoundTrip("interval day(5) to second", "'-002 02:03:04.123456'", BIGINT, "CAST(-180184123 AS bigint)")
+                .addRoundTrip("interval day(5) to second(5)", "'-002 02:03:04.123456'", BIGINT, "CAST(-180184123 AS bigint)")
+                .addRoundTrip("interval day(5) to second(5)", "'-002 02:03:04.123999'", BIGINT, "CAST(-180184124 AS bigint)")
+                .addRoundTrip("interval day(5) to second(9)", "'-002 02:03:04.123456789'", BIGINT, "CAST(-180184123 AS bigint)")
+                .addRoundTrip("interval day(9) to second(9)", "'-002 02:03:04'", BIGINT, "CAST(-180184000 AS bigint)")
+                .addRoundTrip("interval day to second", "'-002 02:03:04'", BIGINT, "CAST(-180184000 AS bigint)")
+                .addRoundTrip("interval day to second", "'-002 02:03:04.999'", BIGINT, "CAST(-180184999 AS bigint)")
+                .addRoundTrip("interval day to second(3)", "'-002 02:03:04.099'", BIGINT, "CAST(-180184099 AS bigint)")
+                .addRoundTrip("interval day to second(3)", "'-002 02:03:04.990'", BIGINT, "CAST(-180184990 AS bigint)")
+                .addRoundTrip("interval day to second(4)", "'-002 02:03:04.9900'", BIGINT, "CAST(-180184990 AS bigint)")
+                .addRoundTrip("interval day to second(3)", "'-002 02:03:04.99'", BIGINT, "CAST(-180184990 AS bigint)")
+                // minimum supported values
+                .addRoundTrip("interval day(9) to second(9)", "'-999999999 23:59:59.999'", BIGINT, "CAST(-86399999999999999 AS bigint)")
+                .addRoundTrip("interval day(9) to second", "'-999999999 23:59:59.999'", BIGINT, "CAST(-86399999999999999 AS bigint)")
+                .addRoundTrip("interval day to second", "'-99 23:59:59.999'", BIGINT, "CAST(-8639999999 AS bigint)")
+                .addRoundTrip("interval day(2) to second", "'-99 23:59:59.999'", BIGINT, "CAST(-8639999999 AS bigint)")
+                .addRoundTrip("interval day(3) to second", "'-999 23:59:59.999'", BIGINT, "CAST(-86399999999 AS bigint)")
+                .addRoundTrip("interval day(3) to second(3)", "'-999 23:59:59.999'", BIGINT, "CAST(-86399999999 AS bigint)")
+                .addRoundTrip("interval day(3) to second(9)", "'-999 23:59:59.999'", BIGINT, "CAST(-86399999999 AS bigint)")
+                // maximum supported values
+                .addRoundTrip("interval day(9) to second(9)", "'999999999 23:59:59.999'", BIGINT, "CAST(86399999999999999 AS bigint)")
+                .addRoundTrip("interval day(9) to second", "'999999999 23:59:59.999'", BIGINT, "CAST(86399999999999999 AS bigint)")
+                .addRoundTrip("interval day to second", "'99 23:59:59.999'", BIGINT, "CAST(8639999999 AS bigint)")
+                .addRoundTrip("interval day(2) to second", "'99 23:59:59.999'", BIGINT, "CAST(8639999999 AS bigint)")
+                .addRoundTrip("interval day(3) to second", "'999 23:59:59.999'", BIGINT, "CAST(86399999999 AS bigint)")
+                .addRoundTrip("interval day(3) to second(3)", "'999 23:59:59.999'", BIGINT, "CAST(86399999999 AS bigint)")
+                .addRoundTrip("interval day(3) to second(9)", "'999 23:59:59.999'", BIGINT, "CAST(86399999999 AS bigint)")
+                .execute(getQueryRunner(), exasolCreateAndInsert(TEST_SCHEMA + "." + "test_interval_day_second"));
+    }
+
+    @Test
+    // See for more details: https://docs.exasol.com/saas/microcontent/Resources/MicroContent/general/interval-data-types.htm
+    void testUnsupportedIntervalYearMonthValues()
+    {
+       // Below minimum Exasol supported INTERVAL YEAR TO MONTH (>= -999999999-11)
+        testUnsupportedIntervalYearMonthValues(
+                "interval year to month",
+                "'-1000000000-01'",
+                "'-1000000000-01'",
+                "data exception - the leading precision of the interval is too small in write of column");
+
+        // Above maximum Exasol supported INTERVAL YEAR TO MONTH (<= 999999999-11)
+        testUnsupportedIntervalYearMonthValues(
+                "interval year to month",
+                "'1000000000-01'",
+                "'1000000000-01'",
+                "data exception - the leading precision of the interval is too small in write of column");
+
+        // Below minimum Trino supported INTERVAL YEAR TO MONTH (>= -178956970-07)
+        // '-178956970-07' corresponds to -2147483647 months, minimum Java int
+        testUnsupportedIntervalYearMonthValues(
+                "interval year(9) to month",
+                "'-178956970-08'",
+                "CAST(-2147483648 AS bigint)",
+                "java.lang.ArithmeticException: integer overflow");
+
+        // Above maximum Trino supported INTERVAL YEAR TO MONTH (<= 178956970-07)
+        // '178956970-07' corresponds to 2147483647 months, maximum Java int
+        testUnsupportedIntervalYearMonthValues(
+                "interval year(9) to month",
+                "'178956970-08'",
+                "CAST(2147483648 AS bigint)",
+                "java.lang.ArithmeticException: integer overflow");
+
+        // Exceeds maximum supported precision (9 digits)
+        testUnsupportedIntervalYearMonthValues(
+                "interval year(10) to month",
+                "'-999999999-11'",
+                "'-999999999-11'",
+                "data exception - interval precision out of range");
+
+        // Zero precision is not supported
+        testUnsupportedIntervalYearMonthValues(
+                "interval year(0) to month",
+                "'-999999999-11'",
+                "'-999999999-11'",
+                "data exception - interval precision out of range");
+
+        // Negative precisions are not supported
+        testUnsupportedIntervalYearMonthValues(
+                "interval year(-1) to month",
+                "'-999999999-11'",
+                "'-999999999-11'",
+                "syntax error, unexpected '-', expecting UNSIGNED_INTEGER_");
+    }
+
+    private void testUnsupportedIntervalYearMonthValues(
+            String exasolType,
+            String inputLiteral,
+            String expectedValue,
+            String expectedException)
+    {
+        assertThatThrownBy(() ->
+                SqlDataTypeTest.create()
+                    .addRoundTrip(exasolType, inputLiteral, BIGINT, expectedValue)
+                    .execute(getQueryRunner(),
+                            exasolCreateAndInsert(TEST_SCHEMA + "." + "test_unsupported_interval_year_month")))
+            .cause()
+                .hasMessageStartingWith(expectedException);
+    }
+
+    @Test
+    // See for more details: https://docs.exasol.com/saas/microcontent/Resources/MicroContent/general/interval-data-types.htm
+    void testUnsupportedIntervalDaySecondValues()
+    {
+        // Below minimum Exasol supported INTERVAL DAY TO SECOND (>= -999999999 23:59:59.999)
+        testUnsupportedIntervalDaySecondValues(
+                "interval day to second(9)",
+                "'-1000000000 00:00:00.000'",
+                "'-1000000000 00:00:00.000'",
+                "data exception - the leading precision of the interval is too small in write of column");
+
+        // Above maximum Exasol supported INTERVAL DAY TO SECOND (<= 999999999 23:59:59.999)
+        testUnsupportedIntervalDaySecondValues(
+                "interval day(9) to second(9)",
+                "'1000000000 00:00:00.000'",
+                "'1000000000 00:00:00.000'",
+                "data exception - the leading precision of the interval is too small in write of column");
+
+        // Above maximum Exasol supported INTERVAL DAY TO SECOND for day precision 5 (<= 99999 23:59:59.999)
+        testUnsupportedIntervalDaySecondValues(
+                "interval day(5) to second(9)",
+                "'100000 00:00:00.000'",
+                "'100000 00:00:00.000'",
+                "data exception - the leading precision of the interval is too small in write of column");
+
+        // Exceeds INTERVAL DAY TO SECOND maximum supported second precision (10 digits)
+        testUnsupportedIntervalDaySecondValues(
+                "interval day to second(10)",
+                "'-999999999 23:59:59.999'",
+                "'-999999999 23:59:59.999'",
+                "data exception - interval precision out of range");
+
+        // Exceeds INTERVAL DAY TO SECOND maximum supported day precision (10 digits)
+        testUnsupportedIntervalDaySecondValues(
+                "interval day(10) to second",
+                "'-999999999 23:59:59.999'",
+                "'-999999999 23:59:59.999'",
+                "data exception - interval precision out of range");
+
+        // Zero day precision is not supported
+        testUnsupportedIntervalDaySecondValues(
+                "interval day(0) to second",
+                "'-999999999 23:59:59.999'",
+                "'-999999999 23:59:59.999'",
+                "data exception - interval precision out of range");
+
+        // Negative day precision is not supported
+        testUnsupportedIntervalDaySecondValues(
+                "interval day(-1) to second",
+                "'-999999999 23:59:59.999'",
+                "'-999999999 23:59:59.999'",
+                "syntax error, unexpected '-', expecting UNSIGNED_INTEGER_");
+
+        // Negative second precision is not supported
+        testUnsupportedIntervalDaySecondValues(
+                "interval day to second(-1)",
+                "'-999999999 23:59:59.999'",
+                "'-999999999 23:59:59.999'",
+                "syntax error, unexpected '-', expecting UNSIGNED_INTEGER_");
+    }
+
+    private void testUnsupportedIntervalDaySecondValues(
+            String exasolType,
+            String inputLiteral,
+            String expectedValue,
+            String expectedException)
+    {
+        assertThatThrownBy(() ->
+                SqlDataTypeTest.create()
+                        .addRoundTrip(exasolType, inputLiteral, BIGINT, expectedValue)
+                        .execute(getQueryRunner(),
+                                exasolCreateAndInsert(TEST_SCHEMA + "." + "test_unsupported_interval_day_second")))
+                .cause()
+                .hasMessageStartingWith(expectedException);
+    }
+
+    @Test
     void testUnsupportedType()
     {
         testUnsupportedType("GEOMETRY", "'POINT(1 2)'");
-        testUnsupportedType("INTERVAL YEAR TO MONTH", "'5-3'");
-        testUnsupportedType("INTERVAL DAY TO SECOND", "'2 12:50:10.123'");
     }
 
     private void testUnsupportedType(String dataTypeName, String value)
