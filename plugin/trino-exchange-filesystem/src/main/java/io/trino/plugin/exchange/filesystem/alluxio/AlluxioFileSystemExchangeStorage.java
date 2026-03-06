@@ -35,6 +35,7 @@ import com.google.inject.Inject;
 import io.airlift.slice.InputStreamSliceInput;
 import io.airlift.slice.Slice;
 import io.trino.annotation.NotThreadSafe;
+import io.trino.plugin.exchange.filesystem.CommitManifest;
 import io.trino.plugin.exchange.filesystem.ExchangeSourceFile;
 import io.trino.plugin.exchange.filesystem.ExchangeStorageReader;
 import io.trino.plugin.exchange.filesystem.ExchangeStorageWriter;
@@ -45,9 +46,11 @@ import io.trino.spi.TrinoException;
 
 import java.io.FileInputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.UncheckedIOException;
 import java.net.URI;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayDeque;
 import java.util.List;
 import java.util.Optional;
@@ -139,6 +142,54 @@ public class AlluxioFileSystemExchangeStorage
             }
         }
         return immediateVoidFuture();
+    }
+
+    @Override
+    public ListenableFuture<Void> deleteFiles(List<URI> files)
+    {
+        return immediateVoidFuture();
+    }
+
+    @Override
+    public ListenableFuture<Void> writeMarkerFile(URI directory, CommitManifest markerFile)
+    {
+        try {
+            AlluxioURI locationUri = convertToAlluxioURI(directory.resolve(CommitManifest.FILE_NAME));
+            CreateFilePOptions options = CreateFilePOptions.newBuilder()
+                    .setOverwrite(true)
+                    .setRecursive(true)
+                    .build();
+            try (OutputStream out = fileSystem.createFile(locationUri, options)) {
+                out.write(markerFile.serialize().getBytes(StandardCharsets.UTF_8));
+            }
+        }
+        catch (Exception e) {
+            return immediateFailedFuture(e);
+        }
+        return immediateVoidFuture();
+    }
+
+    @Override
+    public ListenableFuture<CommitManifest> readMarkerFile(URI uri)
+    {
+        String path = uri.getPath();
+        String filename = path.substring(path.lastIndexOf('/') + 1);
+        AlluxioURI markerUri = filename.equals(CommitManifest.FILE_NAME)
+                ? convertToAlluxioURI(uri)
+                : new AlluxioURI(path + "/" + CommitManifest.FILE_NAME);
+        try {
+            byte[] data;
+            try (InputStream in = fileSystem.openFile(markerUri)) {
+                data = in.readAllBytes();
+            }
+            if (data.length == 0) {
+                return immediateFailedFuture(new IOException("Committed marker file is empty: " + markerUri));
+            }
+            return immediateFuture(CommitManifest.deserialize(data));
+        }
+        catch (Exception e) {
+            return immediateFailedFuture(e);
+        }
     }
 
     public void deleteDirectory(URI location)
@@ -317,10 +368,13 @@ public class AlluxioFileSystemExchangeStorage
             implements ExchangeStorageWriter
     {
         private static final int INSTANCE_SIZE = instanceSize(AlluxioExchangeStorageWriter.class);
+        private final URI file;
         private final OutputStream outputStream;
+        private long size;
 
         public AlluxioExchangeStorageWriter(FileSystem fileSystem, URI file)
         {
+            this.file = requireNonNull(file, "file is null");
             try {
                 CreateFilePOptions options = CreateFilePOptions.newBuilder()
                         .setOverwrite(true).setRecursive(true).build();
@@ -336,6 +390,7 @@ public class AlluxioFileSystemExchangeStorage
         {
             try {
                 outputStream.write(slice.getBytes());
+                size += slice.length();
             }
             catch (IOException | RuntimeException e) {
                 return immediateFailedFuture(e);
@@ -371,6 +426,12 @@ public class AlluxioFileSystemExchangeStorage
         public long getRetainedSize()
         {
             return INSTANCE_SIZE;
+        }
+
+        @Override
+        public FileStatus getFileStatus()
+        {
+            return new FileStatus(file.toString(), size);
         }
     }
 }
