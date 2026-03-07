@@ -18,6 +18,9 @@ public final class S3FileSystemConstants
     public static final String EXTRA_CREDENTIALS_ACCESS_KEY_PROPERTY = "internal$s3_aws_access_key";
     public static final String EXTRA_CREDENTIALS_SECRET_KEY_PROPERTY = "internal$s3_aws_secret_key";
     public static final String EXTRA_CREDENTIALS_SESSION_TOKEN_PROPERTY = "internal$s3_aws_session_token";
+    public static final String EXTRA_CREDENTIALS_REGION_PROPERTY = "internal$s3_region";
+    public static final String EXTRA_CREDENTIALS_ENDPOINT_PROPERTY = "internal$s3_endpoint";
+    public static final String EXTRA_CREDENTIALS_CROSS_REGION_ACCESS_ENABLED_PROPERTY = "internal$s3_cross_region_access_enabled";
 
     private S3FileSystemConstants() {}
 }
