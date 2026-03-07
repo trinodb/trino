@@ -13,9 +13,6 @@
  */
 package io.trino.sql.planner.assertions;
 
-import io.trino.Session;
-import io.trino.cost.StatsProvider;
-import io.trino.metadata.Metadata;
 import io.trino.sql.planner.assertions.PlanMatchPattern.Ordering;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.SortNode;
@@ -45,12 +42,12 @@ final class SortMatcher
     }
 
     @Override
-    public MatchResult detailMatches(PlanNode node, StatsProvider stats, Session session, Metadata metadata, SymbolAliases symbolAliases)
+    public MatchResult detailMatches(PlanNode node, MatchContext context)
     {
         checkState(shapeMatches(node), "Plan testing framework error: shapeMatches returned false in detailMatches in %s", this.getClass().getName());
         SortNode sortNode = (SortNode) node;
 
-        if (!orderingSchemeMatches(orderBy, sortNode.getOrderingScheme(), symbolAliases)) {
+        if (!orderingSchemeMatches(orderBy, sortNode.getOrderingScheme(), context.symbolAliases())) {
             return NO_MATCH;
         }
 

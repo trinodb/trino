@@ -13,37 +13,18 @@
  */
 package io.trino.sql.planner.assertions;
 
-import io.trino.sql.planner.plan.PlanNode;
+import static java.util.Objects.requireNonNull;
 
-import java.util.function.Predicate;
-
-import static io.trino.sql.planner.assertions.MatchResult.match;
-
-public class PredicateMatcher<T extends PlanNode>
-        implements Matcher
+public record DynamicFilterAlias(String alias)
 {
-    private final Predicate<T> predicate;
-
-    public PredicateMatcher(Predicate<T> predicate)
+    public DynamicFilterAlias
     {
-        this.predicate = predicate;
-    }
-
-    @Override
-    public boolean shapeMatches(PlanNode node)
-    {
-        return predicate.test((T) node);
-    }
-
-    @Override
-    public MatchResult detailMatches(PlanNode node, MatchContext context)
-    {
-        return match();
+        requireNonNull(alias, "alias is null");
     }
 
     @Override
     public String toString()
     {
-        return "(predicated)";
+        return alias;
     }
 }
