@@ -40,8 +40,20 @@ public final class TracingFileSystemFactory
     }
 
     @Override
+    public TrinoFileSystem create(ConnectorIdentity identity, boolean cachingEnabled)
+    {
+        return new TracingFileSystem(tracer, delegate.create(identity, cachingEnabled));
+    }
+
+    @Override
     public TrinoFileSystem create(ConnectorSession session)
     {
         return new TracingFileSystem(tracer, delegate.create(session));
+    }
+
+    @Override
+    public TrinoFileSystem create(ConnectorSession session, boolean cachingEnabled)
+    {
+        return new TracingFileSystem(tracer, delegate.create(session, cachingEnabled));
     }
 }

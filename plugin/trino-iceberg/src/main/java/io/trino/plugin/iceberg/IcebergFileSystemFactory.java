@@ -14,6 +14,7 @@
 package io.trino.plugin.iceberg;
 
 import io.trino.filesystem.TrinoFileSystem;
+import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.security.ConnectorIdentity;
 
 import java.util.Map;
@@ -21,4 +22,17 @@ import java.util.Map;
 public interface IcebergFileSystemFactory
 {
     TrinoFileSystem create(ConnectorIdentity identity, Map<String, String> fileIoProperties);
+
+    /**
+     * Create a file system with explicit caching control.
+     *
+     * @param session the connector session
+     * @param fileIoProperties file I/O properties
+     * @param cachingEnabled whether file system caching should be enabled
+     * @return a TrinoFileSystem instance
+     */
+    default TrinoFileSystem create(ConnectorSession session, Map<String, String> fileIoProperties, boolean cachingEnabled)
+    {
+        return create(session.getIdentity(), fileIoProperties);
+    }
 }
