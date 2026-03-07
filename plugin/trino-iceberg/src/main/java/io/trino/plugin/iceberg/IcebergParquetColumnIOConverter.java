@@ -24,6 +24,10 @@ import io.trino.spi.type.Type;
 import org.apache.parquet.io.ColumnIO;
 import org.apache.parquet.io.GroupColumnIO;
 import org.apache.parquet.io.PrimitiveColumnIO;
+import org.apache.parquet.schema.LogicalTypeAnnotation;
+import org.apache.parquet.schema.LogicalTypeAnnotation.DateLogicalTypeAnnotation;
+import org.apache.parquet.schema.LogicalTypeAnnotation.DecimalLogicalTypeAnnotation;
+import org.apache.parquet.schema.PrimitiveType;
 
 import java.util.List;
 import java.util.Optional;
@@ -33,6 +37,15 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.parquet.ParquetTypeUtils.getArrayElementColumn;
 import static io.trino.parquet.ParquetTypeUtils.getMapKeyValueColumn;
 import static io.trino.parquet.ParquetTypeUtils.lookupColumnById;
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.spi.type.DateType.DATE;
+import static io.trino.spi.type.DecimalType.createDecimalType;
+import static io.trino.spi.type.DoubleType.DOUBLE;
+import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.RealType.REAL;
+import static io.trino.spi.type.TimestampType.createTimestampType;
+import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static java.util.Objects.requireNonNull;
 import static org.apache.parquet.schema.Type.Repetition.OPTIONAL;
 
@@ -66,7 +79,9 @@ public final class IcebergParquetColumnIOConverter
             if (structHasParameters) {
                 return Optional.of(new GroupField(type, repetitionLevel, definitionLevel, required, fieldsBuilder.build()));
             }
-            return Optional.empty();
+
+            Optional<PrimitiveField> referenceField = Optional.of(getReferenceField(groupColumnIO));
+            return Optional.of(new GroupField(type, repetitionLevel, definitionLevel, required, fieldsBuilder.build(), referenceField));
         }
         if (type instanceof MapType mapType) {
             GroupColumnIO groupColumnIO = (GroupColumnIO) columnIO;
@@ -98,6 +113,40 @@ public final class IcebergParquetColumnIOConverter
         }
         PrimitiveColumnIO primitiveColumnIO = (PrimitiveColumnIO) columnIO;
         return Optional.of(new PrimitiveField(type, required, primitiveColumnIO.getColumnDescriptor(), primitiveColumnIO.getId()));
+    }
+
+    private static PrimitiveField getReferenceField(ColumnIO columnIO)
+    {
+        switch (columnIO) {
+            case GroupColumnIO groupColumnIO -> {
+                checkArgument(groupColumnIO.getChildrenCount() > 0, "GroupColumnIO has no children: %s", groupColumnIO);
+                return getReferenceField(groupColumnIO.getChild(0));
+            }
+            case PrimitiveColumnIO primitiveColumnIO -> {
+                Type compatibleType = getCompatibleTrinoType(primitiveColumnIO.getColumnDescriptor().getPrimitiveType());
+                boolean required = primitiveColumnIO.getType().getRepetition() != OPTIONAL;
+                return new PrimitiveField(compatibleType, required, primitiveColumnIO.getColumnDescriptor(), primitiveColumnIO.getId());
+            }
+            default -> throw new IllegalArgumentException("Invalid ColumnIO type: %s".formatted(columnIO));
+        }
+    }
+
+    private static Type getCompatibleTrinoType(PrimitiveType primitiveType)
+    {
+        LogicalTypeAnnotation annotation = primitiveType.getLogicalTypeAnnotation();
+        if (annotation instanceof DecimalLogicalTypeAnnotation decimalAnnotation) {
+            return createDecimalType(decimalAnnotation.getPrecision(), decimalAnnotation.getScale());
+        }
+
+        return switch (primitiveType.getPrimitiveTypeName()) {
+            case BOOLEAN -> BOOLEAN;
+            case INT32 -> annotation instanceof DateLogicalTypeAnnotation ? DATE : INTEGER;
+            case INT64 -> BIGINT;
+            case FLOAT -> REAL;
+            case DOUBLE -> DOUBLE;
+            case BINARY, FIXED_LEN_BYTE_ARRAY -> VARBINARY;
+            case INT96 -> createTimestampType(9);
+        };
     }
 
     public record FieldContext(Type type, ColumnIdentity columnIdentity)
