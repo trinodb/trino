@@ -21,10 +21,10 @@ import java.util.Optional;
 
 import static io.trino.testing.containers.Minio.MINIO_REGION;
 
-public class IcebergRestCatalogBackendContainer
+public class IcebergS3RestCatalogBackendContainer
         extends BaseTestContainer
 {
-    public IcebergRestCatalogBackendContainer(
+    public IcebergS3RestCatalogBackendContainer(
             Optional<Network> network,
             String warehouseLocation,
             String minioAccessKey,
