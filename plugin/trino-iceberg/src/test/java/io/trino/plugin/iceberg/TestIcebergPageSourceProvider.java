@@ -144,6 +144,7 @@ class TestIcebergPageSourceProvider
                 PARQUET,
                 ImmutableMap.of(),
                 0L, // dataSequenceNumber
+                OptionalLong.empty(),
                 Optional.empty())) {
             // Memory should still be 0 before reading any pages (lazy loading)
             assertThat(provider.getMemoryUsage()).isEqualTo(0);

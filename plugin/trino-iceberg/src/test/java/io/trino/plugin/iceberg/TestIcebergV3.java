@@ -27,6 +27,7 @@ import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
+import io.trino.testing.MaterializedResult;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.sql.TestTable;
 import org.apache.hadoop.conf.Configuration;
@@ -56,6 +57,7 @@ import org.junit.jupiter.api.Test;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -79,6 +81,8 @@ import static org.keycloak.util.JsonSerialization.mapper;
 public class TestIcebergV3
         extends AbstractTestQueryFramework
 {
+    private static final List<String> ALL_FILE_FORMATS = List.of("PARQUET", "ORC", "AVRO");
+
     private HiveMetastore metastore;
     private TrinoFileSystemFactory fileSystemFactory;
     private TrinoCatalog catalog;
@@ -211,41 +215,240 @@ public class TestIcebergV3
     @Test
     void testUpdateV3Table()
     {
-        try (TestTable table = newTrinoTable("test_update_v3", "(id integer, v varchar) WITH (format_version = 3)")) {
+        ALL_FILE_FORMATS.forEach(this::assertUpdateV3Table);
+    }
+
+    private void assertUpdateV3Table(String fileFormat)
+    {
+        try (TestTable table = newTrinoTable("test_update_v3", "(id integer, v varchar) WITH (format = '" + fileFormat + "', format_version = 3)")) {
             assertUpdate("INSERT INTO " + table.getName() + " VALUES (1, 'a'), (2, 'b')", 2);
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (3, 'c'), (4, 'd')", 2);
+
+            // Capture row lineage before update
+            long beforeUpdatedRowId = (Long) computeScalar("SELECT \"$row_id\" FROM " + table.getName() + " WHERE id = 2");
+            long beforeUnchangedRowId = (Long) computeScalar("SELECT \"$row_id\" FROM " + table.getName() + " WHERE id = 1");
+            long beforeUpdatedSequenceNumber = (Long) computeScalar("SELECT \"$last_updated_sequence_number\" FROM " + table.getName() + " WHERE id = 2");
+            long beforeUnchangedSequenceNumber = (Long) computeScalar("SELECT \"$last_updated_sequence_number\" FROM " + table.getName() + " WHERE id = 1");
+
+            // Keep version read checks in addition to direct before/after row lineage checks.
+            BaseTable baseTable = loadTable(table.getName());
+            baseTable.refresh();
+            long beforeUpdateSnapshotId = baseTable.currentSnapshot().snapshotId();
 
             assertUpdate("UPDATE " + table.getName() + " SET v = 'bb' WHERE id = 2", 1);
             assertThat(query("SELECT * FROM " + table.getName()))
-                    .matches("VALUES (INTEGER '1', VARCHAR 'a'), (INTEGER '2', VARCHAR 'bb')");
+                    .matches("VALUES (INTEGER '1', VARCHAR 'a'), (INTEGER '2', VARCHAR 'bb'), (INTEGER '3', VARCHAR 'c'), (INTEGER '4', VARCHAR 'd')");
+
+            long afterFirstUpdateRowId = (Long) computeScalar("SELECT \"$row_id\" FROM " + table.getName() + " WHERE id = 2");
+            assertThat(afterFirstUpdateRowId).isEqualTo(beforeUpdatedRowId);
+            assertThat((Long) computeScalar("SELECT \"$row_id\" FROM " + table.getName() + " WHERE id = 1")).isEqualTo(beforeUnchangedRowId);
+            assertThat((Long) computeScalar("SELECT \"$last_updated_sequence_number\" FROM " + table.getName() + " WHERE id = 2")).isGreaterThan(beforeUpdatedSequenceNumber);
+            assertThat((Long) computeScalar("SELECT \"$last_updated_sequence_number\" FROM " + table.getName() + " WHERE id = 1")).isEqualTo(beforeUnchangedSequenceNumber);
+            long afterFirstUpdateSequenceNumber = (Long) computeScalar("SELECT \"$last_updated_sequence_number\" FROM " + table.getName() + " WHERE id = 2");
+
+            // Verify row_id is preserved for the updated row
+            assertThat(query(
+                    """
+                    SELECT
+                      (SELECT "$row_id" FROM %s WHERE id = 2) =
+                      (SELECT "$row_id" FROM %s FOR VERSION AS OF %s WHERE id = 2)
+                    """.formatted(table.getName(), table.getName(), beforeUpdateSnapshotId)))
+                    .matches("VALUES (BOOLEAN 'true')");
+
+            // Verify non-updated row also preserved its row_id
+            assertThat(query(
+                    """
+                    SELECT
+                      (SELECT "$row_id" FROM %s WHERE id = 1) =
+                      (SELECT "$row_id" FROM %s FOR VERSION AS OF %s WHERE id = 1)
+                    """.formatted(table.getName(), table.getName(), beforeUpdateSnapshotId)))
+                    .matches("VALUES (BOOLEAN 'true')");
+
+            // Repeat update on the same row. This regresses if source row_id is not preserved.
+            assertUpdate("UPDATE " + table.getName() + " SET v = 'bbb' WHERE id = 2", 1);
+            assertThat(query("SELECT * FROM " + table.getName()))
+                    .matches("VALUES (INTEGER '1', VARCHAR 'a'), (INTEGER '2', VARCHAR 'bbb'), (INTEGER '3', VARCHAR 'c'), (INTEGER '4', VARCHAR 'd')");
+
+            long afterSecondUpdateRowId = (Long) computeScalar("SELECT \"$row_id\" FROM " + table.getName() + " WHERE id = 2");
+            assertThat(afterSecondUpdateRowId).isEqualTo(afterFirstUpdateRowId);
+            assertThat((Long) computeScalar("SELECT \"$row_id\" FROM " + table.getName() + " WHERE id = 1")).isEqualTo(beforeUnchangedRowId);
+            assertThat((Long) computeScalar("SELECT \"$last_updated_sequence_number\" FROM " + table.getName() + " WHERE id = 2")).isGreaterThan(afterFirstUpdateSequenceNumber);
+            assertThat((Long) computeScalar("SELECT \"$last_updated_sequence_number\" FROM " + table.getName() + " WHERE id = 1")).isEqualTo(beforeUnchangedSequenceNumber);
+        }
+    }
+
+    @Test
+    void testPartitionedUpdateV3TablePreservesRowId()
+    {
+        ALL_FILE_FORMATS.forEach(this::assertPartitionedUpdateV3TablePreservesRowId);
+    }
+
+    private void assertPartitionedUpdateV3TablePreservesRowId(String fileFormat)
+    {
+        try (TestTable table = newTrinoTable("test_partitioned_update_v3", "(name varchar, x bigint) WITH (format = '" + fileFormat + "', format_version = 3, partitioning = ARRAY['x'])")) {
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES ('alice', 1), ('bob', 2)", 2);
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES ('carol', 1), ('david', 2)", 2);
+
+            long beforeBobRowId = (Long) computeScalar("SELECT \"$row_id\" FROM " + table.getName() + " WHERE name = 'bob'");
+            long beforeAliceRowId = (Long) computeScalar("SELECT \"$row_id\" FROM " + table.getName() + " WHERE name = 'alice'");
+
+            assertUpdate("UPDATE " + table.getName() + " SET name = 'BOB' WHERE name = 'bob'", 1);
+
+            assertThat((Long) computeScalar("SELECT \"$row_id\" FROM " + table.getName() + " WHERE name = 'BOB'")).isEqualTo(beforeBobRowId);
+            assertThat((Long) computeScalar("SELECT \"$row_id\" FROM " + table.getName() + " WHERE name = 'alice'")).isEqualTo(beforeAliceRowId);
+
+            assertUpdate("UPDATE " + table.getName() + " SET name = 'BOB1' WHERE name = 'BOB'", 1);
+            assertThat((Long) computeScalar("SELECT \"$row_id\" FROM " + table.getName() + " WHERE name = 'BOB1'")).isEqualTo(beforeBobRowId);
         }
     }
 
     @Test
     void testMergeV3Table()
     {
-        try (TestTable table = newTrinoTable("test_merge_v3", "(id integer, v varchar) WITH (format_version = 3)")) {
+        ALL_FILE_FORMATS.forEach(this::assertMergeV3Table);
+    }
+
+    private void assertMergeV3Table(String fileFormat)
+    {
+        try (TestTable table = newTrinoTable("test_merge_v3", "(id integer, v varchar) WITH (format = '" + fileFormat + "', format_version = 3)")) {
             assertUpdate("INSERT INTO " + table.getName() + " VALUES (1, 'a'), (2, 'b')", 2);
+
+            // Capture row lineage before merge
+            long beforeMergedRowId = (Long) computeScalar("SELECT \"$row_id\" FROM " + table.getName() + " WHERE id = 2");
+            long beforeUnchangedRowId = (Long) computeScalar("SELECT \"$row_id\" FROM " + table.getName() + " WHERE id = 1");
+            long beforeMergedSequenceNumber = (Long) computeScalar("SELECT \"$last_updated_sequence_number\" FROM " + table.getName() + " WHERE id = 2");
+            long beforeUnchangedSequenceNumber = (Long) computeScalar("SELECT \"$last_updated_sequence_number\" FROM " + table.getName() + " WHERE id = 1");
+
+            // Keep version read checks in addition to direct before/after row lineage checks.
+            BaseTable baseTable = loadTable(table.getName());
+            baseTable.refresh();
+            long beforeMergeSnapshotId = baseTable.currentSnapshot().snapshotId();
 
             assertUpdate("MERGE INTO " + table.getName() + " t USING (VALUES (2, 'bb')) AS s(id, v) ON (t.id = s.id) WHEN MATCHED THEN UPDATE SET v = s.v", 1);
             assertThat(query("SELECT * FROM " + table.getName()))
                     .matches("VALUES (INTEGER '1', VARCHAR 'a'), (INTEGER '2', VARCHAR 'bb')");
+
+            assertThat((Long) computeScalar("SELECT \"$row_id\" FROM " + table.getName() + " WHERE id = 2")).isEqualTo(beforeMergedRowId);
+            assertThat((Long) computeScalar("SELECT \"$row_id\" FROM " + table.getName() + " WHERE id = 1")).isEqualTo(beforeUnchangedRowId);
+            assertThat((Long) computeScalar("SELECT \"$last_updated_sequence_number\" FROM " + table.getName() + " WHERE id = 2")).isGreaterThan(beforeMergedSequenceNumber);
+            assertThat((Long) computeScalar("SELECT \"$last_updated_sequence_number\" FROM " + table.getName() + " WHERE id = 1")).isEqualTo(beforeUnchangedSequenceNumber);
+
+            // Verify row_id is preserved for the merged (updated) row
+            assertThat(query(
+                    """
+                    SELECT
+                      (SELECT "$row_id" FROM %s WHERE id = 2) =
+                      (SELECT "$row_id" FROM %s FOR VERSION AS OF %s WHERE id = 2)
+                    """.formatted(table.getName(), table.getName(), beforeMergeSnapshotId)))
+                    .matches("VALUES (BOOLEAN 'true')");
+
+            // Verify non-merged row also preserved its row_id
+            assertThat(query(
+                    """
+                    SELECT
+                      (SELECT "$row_id" FROM %s WHERE id = 1) =
+                      (SELECT "$row_id" FROM %s FOR VERSION AS OF %s WHERE id = 1)
+                    """.formatted(table.getName(), table.getName(), beforeMergeSnapshotId)))
+                    .matches("VALUES (BOOLEAN 'true')");
         }
     }
 
     @Test
-    void testOptimizeV3TableFails()
+    void testOptimizePreservesRowLineage()
     {
-        String tableName = "test_optimize_v3_fails_" + randomNameSuffix();
+        String tableName = "test_optimize_preserves_row_lineage_" + randomNameSuffix();
 
-        // Small table, created through Trino
-        assertUpdate("CREATE TABLE " + tableName + " WITH (format_version = 3) AS " +
-                "SELECT nationkey, name FROM tpch.tiny.nation", 25);
+        assertUpdate("CREATE TABLE " + tableName + " (id INTEGER, v VARCHAR) WITH (format = 'PARQUET', format_version = 3)");
 
-        // OPTIMIZE must fail for v3
-        assertThat(query("ALTER TABLE " + tableName + " EXECUTE optimize"))
-                .failure()
-                .hasErrorCode(NOT_SUPPORTED)
-                .hasMessageContaining("OPTIMIZE is not supported for Iceberg table format version > 2");
+        // Two inserts to reliably create multiple files so OPTIMIZE actually rewrites something.
+        assertUpdate("INSERT INTO " + tableName + " VALUES (1, 'a'), (2, 'b'), (3, 'c')", 3);
+        assertUpdate("INSERT INTO " + tableName + " VALUES (4, 'd'), (5, 'e')", 2);
+
+        BaseTable table = loadTable(tableName);
+        table.refresh();
+        long beforeOptimizeSnapshotId = table.currentSnapshot().snapshotId();
+
+        // Before: row_id materialized (no nulls), unique, and we have > 1 data file.
+        assertThat(query(
+                """
+                SELECT
+                  count(*) AS row_count,
+                  count_if("$row_id" IS NULL) AS row_id_nulls,
+                  count(DISTINCT "$row_id") AS distinct_row_id,
+                  count(DISTINCT "$last_updated_sequence_number") AS distinct_last_updated_sequence_number,
+                  count(DISTINCT "$path") AS distinct_data_files
+                FROM %s FOR VERSION AS OF %s
+                """.formatted(tableName, beforeOptimizeSnapshotId)))
+                .matches("VALUES (BIGINT '5', BIGINT '0', BIGINT '5', BIGINT '2', BIGINT '2')");
+
+        MaterializedResult beforeOptimizeLineage = computeActual(
+                """
+                SELECT id, "$row_id", "$last_updated_sequence_number"
+                FROM %s FOR VERSION AS OF %s
+                ORDER BY id
+                """.formatted(tableName, beforeOptimizeSnapshotId));
+
+        // Run OPTIMIZE (threshold large so all our tiny files qualify).
+        assertUpdate("ALTER TABLE " + tableName + " EXECUTE optimize (file_size_threshold => '1GB')");
+
+        table.refresh();
+        long afterOptimizeSnapshotId = table.currentSnapshot().snapshotId();
+        assertThat(afterOptimizeSnapshotId).isNotEqualTo(beforeOptimizeSnapshotId);
+
+        MaterializedResult afterOptimizeLineage = computeActual(
+                """
+                SELECT id, "$row_id", "$last_updated_sequence_number"
+                FROM %s FOR VERSION AS OF %s
+                ORDER BY id
+                """.formatted(tableName, afterOptimizeSnapshotId));
+        assertThat(afterOptimizeLineage.getMaterializedRows()).isEqualTo(beforeOptimizeLineage.getMaterializedRows());
+
+        // After:
+        // still 5 rows
+        // row_id still unique
+        // row lineage preserved ($row_id and $last_updated_sequence_number match before/after)
+        assertThat(query(
+                """
+                SELECT
+                  count(*) AS rows,
+                  count(DISTINCT a."$row_id") AS distinct_row_id,
+                  count(DISTINCT a."$last_updated_sequence_number") AS distinct_last_updated_sequence_number,
+                  count_if(b."$path" <> a."$path") AS moved,
+                  count_if(b."$row_id" = a."$row_id" AND b."$last_updated_sequence_number" = a."$last_updated_sequence_number") AS lineage_ok
+                FROM %s FOR VERSION AS OF %s b
+                FULL OUTER JOIN %s FOR VERSION AS OF %s a USING (id)
+                """.formatted(tableName, beforeOptimizeSnapshotId, tableName, afterOptimizeSnapshotId)))
+                .matches("VALUES (BIGINT '5', BIGINT '5',  BIGINT '2', BIGINT '5', BIGINT '5')");
+
+        // Append again after optimize; existing row_ids should remain stable and new rows get new ids.
+        assertUpdate("INSERT INTO " + tableName + " VALUES (6, 'f'), (7, 'g')", 2);
+
+        table.refresh();
+        long afterAppendSnapshotId = table.currentSnapshot().snapshotId();
+
+        // Now 7 rows, no null row_ids, and still unique
+        assertThat(query(
+                """
+                SELECT
+                  count(*) AS row_count,
+                  count_if("$row_id" IS NULL) AS row_id_nulls,
+                  count(DISTINCT "$row_id") AS distinct_row_id,
+                  count(DISTINCT "$last_updated_sequence_number") AS distinct_last_updated_sequence_number
+                FROM %s FOR VERSION AS OF %s
+                """.formatted(tableName, afterAppendSnapshotId)))
+                .matches("VALUES (BIGINT '7', BIGINT '0', BIGINT '7', BIGINT '3')");
+
+        // Existing rows keep their row_id and LUSN across a pure append.
+        assertThat(query(
+                """
+                SELECT count(*) = count_if(
+                  o."$row_id" = n."$row_id" AND
+                  o."$last_updated_sequence_number" = n."$last_updated_sequence_number")
+                FROM %s FOR VERSION AS OF %s o
+                JOIN %s FOR VERSION AS OF %s n USING (id)
+                WHERE id <= 5
+                """.formatted(tableName, afterOptimizeSnapshotId, tableName, afterAppendSnapshotId)))
+                .matches("VALUES (BOOLEAN 'true')");
 
         assertUpdate("DROP TABLE " + tableName);
     }
@@ -604,11 +807,17 @@ public class TestIcebergV3
     @Test
     void testV3InsertProducesRowLineageMetadata()
     {
+        ALL_FILE_FORMATS.forEach(this::assertV3InsertProducesRowLineageMetadata);
+    }
+
+    private void assertV3InsertProducesRowLineageMetadata(String fileFormat)
+    {
         String tableName = "test_v3_insert_lineage_" + randomNameSuffix();
 
-        assertUpdate("CREATE TABLE " + tableName + " (id INTEGER, v VARCHAR) WITH (format = 'PARQUET', format_version = 3)");
+        assertUpdate("CREATE TABLE " + tableName + " (id INTEGER, v VARCHAR) WITH (format = '" + fileFormat + "', format_version = 3)");
         assertUpdate("INSERT INTO " + tableName + " VALUES (1, 'a'), (2, 'b'), (3, 'c')", 3);
 
+        // Validate metadata-level invariants (existing coverage)
         BaseTable table = loadTable(tableName);
         table.refresh();
 
@@ -621,18 +830,216 @@ public class TestIcebergV3
 
         int fileCount = 0;
         long totalRecords = 0;
+        Long expectedLastUpdatedSequenceNumber = null;
 
         for (DataFile file : snapshot.addedDataFiles(table.io())) {
             fileCount++;
             totalRecords += file.recordCount();
 
-            // These are the lineage “inputs” Iceberg uses to materialize _row_id and last_updated_sequence_number
+            // These are the lineage inputs Iceberg uses to materialize $row_id and $last_updated_sequence_number.
             assertThat(file.firstRowId()).as("data file firstRowId must be set in v3").isNotNull();
-            assertThat(file.dataSequenceNumber()).as("data file dataSequenceNumber must be set").isNotNull();
+            Long dataSequenceNumber = file.dataSequenceNumber();
+            assertThat(dataSequenceNumber).as("data file dataSequenceNumber must be set").isNotNull();
+            if (expectedLastUpdatedSequenceNumber == null) {
+                expectedLastUpdatedSequenceNumber = dataSequenceNumber;
+            }
+            else {
+                assertThat(dataSequenceNumber).as("all added data files should have same dataSequenceNumber").isEqualTo(expectedLastUpdatedSequenceNumber);
+            }
         }
 
         assertThat(fileCount).isGreaterThan(0);
         assertThat(totalRecords).isEqualTo(3);
+        assertThat(expectedLastUpdatedSequenceNumber).isNotNull();
+
+        assertThat(query("SELECT \"$row_id\" FROM " + tableName))
+                .matches("VALUES (BIGINT '0'), (BIGINT '1'), (BIGINT '2')");
+
+        assertQuery(
+                "SELECT id, \"$last_updated_sequence_number\" FROM " + tableName + " ORDER BY id",
+                "VALUES (1, %d), (2, %d), (3, %d)".formatted(
+                        expectedLastUpdatedSequenceNumber,
+                        expectedLastUpdatedSequenceNumber,
+                        expectedLastUpdatedSequenceNumber));
+
+        MaterializedResult showStats = computeActual("SHOW STATS FOR (SELECT \"$row_id\", \"$last_updated_sequence_number\" FROM " + tableName + ")");
+        assertThat(showStats.project("column_name").getOnlyColumnAsSet())
+                .contains("$row_id", "$last_updated_sequence_number");
+
+        assertQueryFails(
+                "ALTER TABLE " + tableName + " DROP COLUMN \"$row_id\"",
+                "line 1:1: Cannot drop hidden column");
+        assertQueryFails(
+                "ALTER TABLE " + tableName + " DROP COLUMN \"$last_updated_sequence_number\"",
+                "line 1:1: Cannot drop hidden column");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    void testMaterializedViewRetainsRowLineageColumns()
+    {
+        ALL_FILE_FORMATS.forEach(this::assertMaterializedViewRetainsRowLineageColumns);
+    }
+
+    private void assertMaterializedViewRetainsRowLineageColumns(String fileFormat)
+    {
+        String tableName = "test_v3_mv_lineage_" + randomNameSuffix();
+        String materializedViewName = "mv_v3_lineage_" + randomNameSuffix();
+
+        assertUpdate("CREATE TABLE " + tableName + " (id INTEGER, v VARCHAR) WITH (format = '" + fileFormat + "', format_version = 3)");
+        assertUpdate("INSERT INTO " + tableName + " VALUES (1, 'a'), (2, 'b'), (3, 'c')", 3);
+
+        assertUpdate(
+                """
+                CREATE MATERIALIZED VIEW %s AS
+                SELECT id, "$row_id" AS row_id, "$last_updated_sequence_number" AS last_updated_sequence_number
+                FROM %s
+                """.formatted(materializedViewName, tableName));
+        assertUpdate("REFRESH MATERIALIZED VIEW " + materializedViewName, 3);
+
+        assertThat(computeActual("SELECT id, row_id, last_updated_sequence_number FROM " + materializedViewName + " ORDER BY id"))
+                .isEqualTo(computeActual("SELECT id, \"$row_id\", \"$last_updated_sequence_number\" FROM " + tableName + " ORDER BY id"));
+
+        assertUpdate("UPDATE " + tableName + " SET v = 'bb' WHERE id = 2", 1);
+        assertUpdate("REFRESH MATERIALIZED VIEW " + materializedViewName, 3);
+
+        assertThat(computeActual("SELECT id, row_id, last_updated_sequence_number FROM " + materializedViewName + " ORDER BY id"))
+                .isEqualTo(computeActual("SELECT id, \"$row_id\", \"$last_updated_sequence_number\" FROM " + tableName + " ORDER BY id"));
+
+        assertUpdate("DROP MATERIALIZED VIEW " + materializedViewName);
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    void testRowLineageUpgradeBehavior()
+    {
+        ALL_FILE_FORMATS.forEach(this::assertRowLineageUpgradeBehavior);
+    }
+
+    private void assertRowLineageUpgradeBehavior(String fileFormat)
+    {
+        String tableName = "test_v2_to_v3_row_lineage_" + randomNameSuffix();
+
+        // Create a v2 table and write an initial snapshot. v2 snapshots do not have row IDs assigned.
+        assertUpdate("CREATE TABLE " + tableName + " (id INTEGER, v VARCHAR) WITH (format = '" + fileFormat + "', format_version = 2)");
+        assertUpdate("INSERT INTO " + tableName + " VALUES (1, 'a'), (2, 'b'), (3, 'c')", 3);
+
+        BaseTable table = loadTable(tableName);
+        table.refresh();
+        long v2SnapshotId = table.currentSnapshot().snapshotId();
+
+        // v2 tables should not expose row-lineage columns.
+        assertQueryFails(
+                "SELECT \"$row_id\" FROM " + tableName,
+                ".*Column '\\$row_id' cannot be resolved.*");
+        assertQueryFails(
+                "SELECT \"$last_updated_sequence_number\" FROM " + tableName,
+                ".*Column '\\$last_updated_sequence_number' cannot be resolved.*");
+
+        // Upgrade the table metadata to v3. This does not rewrite old snapshots,
+        // so existing rows still have NULL $row_id in old snapshots.
+        assertUpdate("ALTER TABLE " + tableName + " SET PROPERTIES format_version = 3");
+
+        table.refresh();
+        long postUpgradeSnapshotId = table.currentSnapshot().snapshotId();
+
+        // Immediately after upgrade (no new snapshot yet):
+        // - still reading the pre-upgrade data files, so $row_id remains NULL for all rows
+        // - Trino still synthesizes $last_updated_sequence_number, so it remains non-null
+        assertThat(query(
+                """
+                SELECT
+                  count(*) AS row_count,
+                  count_if("$row_id" IS NULL) AS row_id_nulls,
+                  count_if("$last_updated_sequence_number" IS NULL) AS lusn_nulls,
+                  count(DISTINCT "$row_id") AS distinct_row_id,
+                  count(DISTINCT "$last_updated_sequence_number") AS distinct_lusn_values_in_snapshot
+                FROM %s FOR VERSION AS OF %s
+                """.formatted(tableName, postUpgradeSnapshotId)))
+                .matches("VALUES (BIGINT '3', BIGINT '3', BIGINT '0', BIGINT '0', BIGINT '1')");
+
+        // Old snapshots are still queryable with row-lineage columns once the table format is v3.
+        assertThat(query(
+                """
+                SELECT
+                  count(*) AS row_count,
+                  count_if("$row_id" IS NULL) AS row_id_nulls,
+                  count_if("$last_updated_sequence_number" IS NULL) AS lusn_nulls,
+                  count(DISTINCT "$row_id") AS distinct_row_id,
+                  count(DISTINCT "$last_updated_sequence_number") AS distinct_lusn_values_in_snapshot
+                FROM %s FOR VERSION AS OF %s
+                """.formatted(tableName, v2SnapshotId)))
+                .matches("VALUES (BIGINT '3', BIGINT '3', BIGINT '0', BIGINT '0', BIGINT '1')");
+
+        // Create the first post-upgrade snapshot. This is when Iceberg assigns first-row-id ranges to manifests/files,
+        // and $row_id becomes materializable for all rows visible in the new snapshot.
+        assertUpdate("INSERT INTO " + tableName + " VALUES (4, 'd')", 1);
+
+        table.refresh();
+        long firstAssignedSnapshotId = table.currentSnapshot().snapshotId();
+
+        // After the first v3 snapshot:
+        // - all rows should have non-null $row_id and non-null $last_updated_sequence_number
+        // - $row_id should be unique across the 4 rows
+        // - distinct_lusn_values_in_snapshot is 2 because the snapshot contains rows written in two different commits
+        //   (the original v2 insert commit and this post-upgrade insert commit)
+        assertThat(query(
+                """
+                SELECT
+                  count(*) AS row_count,
+                  count_if("$row_id" IS NULL) AS row_id_nulls,
+                  count_if("$last_updated_sequence_number" IS NULL) AS lusn_nulls,
+                  count(DISTINCT "$row_id") AS distinct_row_id,
+                  count(DISTINCT "$last_updated_sequence_number") AS distinct_lusn_values_in_snapshot
+                FROM %s FOR VERSION AS OF %s
+                """.formatted(tableName, firstAssignedSnapshotId)))
+                .matches("VALUES (BIGINT '4', BIGINT '0', BIGINT '0', BIGINT '4', BIGINT '2')");
+
+        // Baseline snapshot for "before update" comparisons.
+        long beforeUpdateSnapshotId = firstAssignedSnapshotId;
+
+        // Update one row, producing a new snapshot.
+        assertUpdate("UPDATE " + tableName + " SET v = 'bb' WHERE id = 2", 1);
+
+        // Value updated.
+        assertThat(query("SELECT v FROM " + tableName + " WHERE id = 2"))
+                .matches("VALUES (VARCHAR 'bb')");
+
+        // UPDATE preserves $row_id (source row id is copied to the new row).
+        assertThat(query(
+                """
+                SELECT
+                  (SELECT "$row_id" FROM %s WHERE id = 2) =
+                  (SELECT "$row_id" FROM %s FOR VERSION AS OF %s WHERE id = 2)
+                """.formatted(tableName, tableName, beforeUpdateSnapshotId)))
+                .matches("VALUES (BOOLEAN 'true')");
+
+        // The updated row should have a higher last-updated sequence number than it did in the baseline snapshot.
+        assertThat(query(
+                """
+                SELECT
+                  (SELECT "$last_updated_sequence_number" FROM %s WHERE id = 2) >
+                  (SELECT "$last_updated_sequence_number" FROM %s FOR VERSION AS OF %s WHERE id = 2)
+                """.formatted(tableName, tableName, beforeUpdateSnapshotId)))
+                .matches("VALUES (BOOLEAN 'true')");
+
+        // After the update:
+        // - still no NULLs for $row_id or $last_updated_sequence_number
+        // - $row_id remains unique
+        // - distinct_lusn_values_in_snapshot is 3 because the table now contains rows written across three commits:
+        //   initial v2 insert, first post-upgrade insert, and this update commit.
+        assertThat(query(
+                """
+                SELECT
+                  count(*) AS row_count,
+                  count_if("$row_id" IS NULL) AS row_id_nulls,
+                  count_if("$last_updated_sequence_number" IS NULL) AS lusn_nulls,
+                  count(DISTINCT "$row_id") AS distinct_row_id,
+                  count(DISTINCT "$last_updated_sequence_number") AS distinct_lusn_values_in_snapshot
+                FROM %s
+                """.formatted(tableName)))
+                .matches("VALUES (BIGINT '4', BIGINT '0', BIGINT '0', BIGINT '4', BIGINT '3')");
 
         assertUpdate("DROP TABLE " + tableName);
     }

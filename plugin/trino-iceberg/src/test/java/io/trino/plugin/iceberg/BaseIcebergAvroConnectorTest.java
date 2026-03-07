@@ -18,12 +18,12 @@ import org.junit.jupiter.api.Test;
 import static io.trino.plugin.iceberg.IcebergFileFormat.AVRO;
 import static org.junit.jupiter.api.Assumptions.abort;
 
-public class TestIcebergAvroConnectorTest
+public abstract class BaseIcebergAvroConnectorTest
         extends BaseIcebergConnectorTest
 {
-    public TestIcebergAvroConnectorTest()
+    public BaseIcebergAvroConnectorTest(int formatVersion)
     {
-        super(AVRO);
+        super(AVRO, formatVersion);
     }
 
     @Override
