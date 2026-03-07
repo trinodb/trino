@@ -118,6 +118,7 @@ import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_ADD_FIELD;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_ADD_FIELD_IN_ARRAY;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_AGGREGATION_PUSHDOWN;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_ARRAY;
+import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_BRANCH;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_COMMENT_ON_COLUMN;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_COMMENT_ON_MATERIALIZED_VIEW_COLUMN;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_COMMENT_ON_TABLE;
@@ -7970,6 +7971,285 @@ public abstract class BaseConnectorTest
     protected String createSchemaSql(String schemaName)
     {
         return "CREATE SCHEMA " + schemaName;
+    }
+
+    protected String getDefaultBranchName()
+    {
+        return "main";
+    }
+
+    @Test
+    public void testCreateAndShowBranches()
+    {
+        if (!hasBehavior(SUPPORTS_BRANCH)) {
+            return;
+        }
+        String tableName = "test_create_show_branches_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " (id INTEGER, name VARCHAR)");
+        assertUpdate("INSERT INTO " + tableName + " VALUES (1, 'a')", 1);
+
+        String defaultBranch = getDefaultBranchName();
+        assertThat(query("SHOW BRANCHES IN TABLE " + tableName))
+                .skippingTypesCheck()
+                .matches("VALUES VARCHAR '" + defaultBranch + "'");
+
+        assertUpdate("CREATE BRANCH test_branch IN TABLE " + tableName);
+
+        assertThat(query("SHOW BRANCHES IN TABLE " + tableName))
+                .skippingTypesCheck()
+                .matches("VALUES VARCHAR '" + defaultBranch + "', VARCHAR 'test_branch'");
+
+        assertUpdate("CREATE BRANCH another_branch IN TABLE " + tableName);
+
+        assertThat(query("SHOW BRANCHES IN TABLE " + tableName))
+                .skippingTypesCheck()
+                .matches("VALUES VARCHAR '" + defaultBranch + "', VARCHAR 'test_branch', VARCHAR 'another_branch'");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testCreateBranchFromBranch()
+    {
+        if (!hasBehavior(SUPPORTS_BRANCH)) {
+            return;
+        }
+        String tableName = "test_create_branch_from_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " (id INTEGER, name VARCHAR)");
+        assertUpdate("INSERT INTO " + tableName + " VALUES (1, 'a')", 1);
+
+        assertUpdate("CREATE BRANCH branch_a IN TABLE " + tableName);
+        assertUpdate("CREATE BRANCH branch_b IN TABLE " + tableName + " FROM branch_a");
+
+        assertThat(query("SELECT * FROM " + tableName + " FOR VERSION AS OF 'branch_a'"))
+                .matches("VALUES (1, CAST('a' AS VARCHAR))");
+        assertThat(query("SELECT * FROM " + tableName + " FOR VERSION AS OF 'branch_b'"))
+                .matches("VALUES (1, CAST('a' AS VARCHAR))");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testCreateBranchIfNotExists()
+    {
+        if (!hasBehavior(SUPPORTS_BRANCH)) {
+            return;
+        }
+        String tableName = "test_branch_if_not_exists_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " (id INTEGER)");
+        assertUpdate("INSERT INTO " + tableName + " VALUES 1", 1);
+
+        assertUpdate("CREATE BRANCH test_branch IN TABLE " + tableName);
+        assertUpdate("CREATE BRANCH IF NOT EXISTS test_branch IN TABLE " + tableName);
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testCreateOrReplaceBranch()
+    {
+        if (!hasBehavior(SUPPORTS_BRANCH)) {
+            return;
+        }
+        String tableName = "test_branch_or_replace_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " (id INTEGER)");
+        assertUpdate("INSERT INTO " + tableName + " VALUES 1", 1);
+
+        assertUpdate("CREATE BRANCH test_branch IN TABLE " + tableName);
+        assertUpdate("INSERT INTO " + tableName + " VALUES 2", 1);
+        assertUpdate("CREATE OR REPLACE BRANCH test_branch IN TABLE " + tableName);
+
+        assertThat(query("SELECT * FROM " + tableName + " FOR VERSION AS OF 'test_branch'"))
+                .matches("VALUES 1, 2");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testDropBranch()
+    {
+        if (!hasBehavior(SUPPORTS_BRANCH)) {
+            return;
+        }
+        String defaultBranch = getDefaultBranchName();
+        String tableName = "test_drop_branch_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " (id INTEGER)");
+        assertUpdate("INSERT INTO " + tableName + " VALUES 1", 1);
+
+        assertUpdate("CREATE BRANCH test_branch IN TABLE " + tableName);
+        assertThat(query("SHOW BRANCHES IN TABLE " + tableName))
+                .skippingTypesCheck()
+                .matches("VALUES VARCHAR '" + defaultBranch + "', VARCHAR 'test_branch'");
+
+        assertUpdate("DROP BRANCH test_branch IN TABLE " + tableName);
+        assertThat(query("SHOW BRANCHES IN TABLE " + tableName))
+                .skippingTypesCheck()
+                .matches("VALUES VARCHAR '" + defaultBranch + "'");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testDropBranchIfExists()
+    {
+        if (!hasBehavior(SUPPORTS_BRANCH)) {
+            return;
+        }
+        String tableName = "test_drop_branch_if_exists_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " (id INTEGER)");
+        assertUpdate("INSERT INTO " + tableName + " VALUES 1", 1);
+
+        assertUpdate("DROP BRANCH IF EXISTS nonexistent IN TABLE " + tableName);
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testDropMainBranchFails()
+    {
+        if (!hasBehavior(SUPPORTS_BRANCH)) {
+            return;
+        }
+        String defaultBranch = getDefaultBranchName();
+        String tableName = "test_drop_main_branch_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " (id INTEGER)");
+        assertUpdate("INSERT INTO " + tableName + " VALUES 1", 1);
+
+        assertThat(query("DROP BRANCH " + defaultBranch + " IN TABLE " + tableName))
+                .failure().hasMessageContaining("Cannot drop the main branch");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testFastForwardBranch()
+    {
+        if (!hasBehavior(SUPPORTS_BRANCH)) {
+            return;
+        }
+        String defaultBranch = getDefaultBranchName();
+        String tableName = "test_fast_forward_branch_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " (id INTEGER)");
+        assertUpdate("INSERT INTO " + tableName + " VALUES 1", 1);
+
+        assertUpdate("CREATE BRANCH test_branch IN TABLE " + tableName);
+        assertUpdate("INSERT INTO " + tableName + " VALUES 2", 1);
+
+        assertThat(query("SELECT * FROM " + tableName + " FOR VERSION AS OF 'test_branch'"))
+                .matches("VALUES 1");
+
+        assertUpdate("ALTER BRANCH test_branch IN TABLE " + tableName + " FAST FORWARD TO " + defaultBranch);
+
+        assertThat(query("SELECT * FROM " + tableName + " FOR VERSION AS OF 'test_branch'"))
+                .matches("VALUES 1, 2");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testInsertIntoBranch()
+    {
+        if (!hasBehavior(SUPPORTS_BRANCH)) {
+            return;
+        }
+        String tableName = "test_insert_branch_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " (id INTEGER, name VARCHAR)");
+        assertUpdate("INSERT INTO " + tableName + " VALUES (1, 'a')", 1);
+
+        assertUpdate("CREATE BRANCH test_branch IN TABLE " + tableName);
+        assertUpdate("INSERT INTO " + tableName + "@test_branch VALUES (2, 'b')", 1);
+
+        assertThat(query("SELECT * FROM " + tableName))
+                .matches("VALUES (1, CAST('a' AS VARCHAR))");
+        assertThat(query("SELECT * FROM " + tableName + " FOR VERSION AS OF 'test_branch'"))
+                .matches("VALUES (1, CAST('a' AS VARCHAR)), (2, CAST('b' AS VARCHAR))");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testDeleteFromBranch()
+    {
+        if (!hasBehavior(SUPPORTS_BRANCH)) {
+            return;
+        }
+        String tableName = "test_delete_branch_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM (VALUES (1, 'a'), (2, 'b'), (3, 'c')) AS t(id, name)", 3);
+
+        assertUpdate("CREATE BRANCH test_branch IN TABLE " + tableName);
+        assertUpdate("DELETE FROM " + tableName + "@test_branch WHERE id = 2", 1);
+
+        assertThat(query("SELECT * FROM " + tableName))
+                .matches("VALUES (1, CAST('a' AS VARCHAR)), (2, CAST('b' AS VARCHAR)), (3, CAST('c' AS VARCHAR))");
+        assertThat(query("SELECT * FROM " + tableName + " FOR VERSION AS OF 'test_branch'"))
+                .matches("VALUES (1, CAST('a' AS VARCHAR)), (3, CAST('c' AS VARCHAR))");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testMetadataDeleteFromBranch()
+    {
+        if (!hasBehavior(SUPPORTS_BRANCH)) {
+            return;
+        }
+        String tableName = "test_metadata_delete_branch_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " (id INTEGER, name VARCHAR)");
+        assertUpdate("INSERT INTO " + tableName + " VALUES (1, 'a'), (2, 'b')", 2);
+
+        assertUpdate("CREATE BRANCH test_branch IN TABLE " + tableName);
+        assertUpdate("DELETE FROM " + tableName + "@test_branch", 2);
+
+        assertThat(query("SELECT * FROM " + tableName))
+                .matches("VALUES (1, CAST('a' AS VARCHAR)), (2, CAST('b' AS VARCHAR))");
+        assertThat(query("SELECT * FROM " + tableName + " FOR VERSION AS OF 'test_branch'"))
+                .returnsEmptyResult();
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testUpdateOnBranch()
+    {
+        if (!hasBehavior(SUPPORTS_BRANCH)) {
+            return;
+        }
+        String tableName = "test_update_branch_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM (VALUES (1, 'a'), (2, 'b')) AS t(id, name)", 2);
+
+        assertUpdate("CREATE BRANCH test_branch IN TABLE " + tableName);
+        assertUpdate("UPDATE " + tableName + "@test_branch SET name = 'updated' WHERE id = 1", 1);
+
+        assertThat(query("SELECT * FROM " + tableName))
+                .matches("VALUES (1, CAST('a' AS VARCHAR)), (2, CAST('b' AS VARCHAR))");
+        assertThat(query("SELECT * FROM " + tableName + " FOR VERSION AS OF 'test_branch'"))
+                .matches("VALUES (1, CAST('updated' AS VARCHAR)), (2, CAST('b' AS VARCHAR))");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testMergeIntoBranch()
+    {
+        if (!hasBehavior(SUPPORTS_BRANCH)) {
+            return;
+        }
+        String tableName = "test_merge_branch_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM (VALUES (1, 'a'), (2, 'b')) AS t(id, name)", 2);
+
+        assertUpdate("CREATE BRANCH test_branch IN TABLE " + tableName);
+        assertUpdate("MERGE INTO " + tableName + "@test_branch t " +
+                "USING (VALUES (1, 'merged'), (3, 'new')) AS s(id, name) " +
+                "ON t.id = s.id " +
+                "WHEN MATCHED THEN UPDATE SET name = s.name " +
+                "WHEN NOT MATCHED THEN INSERT VALUES (s.id, s.name)", 2);
+
+        assertThat(query("SELECT * FROM " + tableName))
+                .matches("VALUES (1, CAST('a' AS VARCHAR)), (2, CAST('b' AS VARCHAR))");
+        assertThat(query("SELECT * FROM " + tableName + " FOR VERSION AS OF 'test_branch'"))
+                .matches("VALUES (1, CAST('merged' AS VARCHAR)), (2, CAST('b' AS VARCHAR)), (3, CAST('new' AS VARCHAR))");
+
+        assertUpdate("DROP TABLE " + tableName);
     }
 
     protected boolean supportsPhysicalPushdown()

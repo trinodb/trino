@@ -955,6 +955,66 @@ public abstract class BaseIcebergConnectorSmokeTest
         return () -> {};
     }
 
+    @Test
+    public void testBranchOperations()
+    {
+        if (!hasBehavior(SUPPORTS_CREATE_TABLE)) {
+            return;
+        }
+        String tableName = "test_branch_operations_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " (id INTEGER, name VARCHAR)");
+        assertUpdate("INSERT INTO " + tableName + " VALUES (1, 'a')", 1);
+
+        assertThat(query("SHOW BRANCHES IN TABLE " + tableName))
+                .skippingTypesCheck()
+                .matches("VALUES VARCHAR 'main'");
+
+        assertUpdate("CREATE BRANCH test_branch IN TABLE " + tableName);
+
+        assertThat(query("SHOW BRANCHES IN TABLE " + tableName))
+                .skippingTypesCheck()
+                .matches("VALUES VARCHAR 'main', VARCHAR 'test_branch'");
+
+        assertUpdate("INSERT INTO " + tableName + "@test_branch VALUES (2, 'b')", 1);
+
+        assertThat(query("SELECT * FROM " + tableName))
+                .matches("VALUES (1, CAST('a' AS VARCHAR))");
+        assertThat(query("SELECT * FROM " + tableName + " FOR VERSION AS OF 'test_branch'"))
+                .matches("VALUES (1, CAST('a' AS VARCHAR)), (2, CAST('b' AS VARCHAR))");
+
+        assertUpdate("DROP BRANCH test_branch IN TABLE " + tableName);
+
+        assertThat(query("SHOW BRANCHES IN TABLE " + tableName))
+                .skippingTypesCheck()
+                .matches("VALUES VARCHAR 'main'");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testFastForwardBranch()
+    {
+        if (!hasBehavior(SUPPORTS_CREATE_TABLE)) {
+            return;
+        }
+        String tableName = "test_fast_forward_branch_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " (id INTEGER)");
+        assertUpdate("INSERT INTO " + tableName + " VALUES 1", 1);
+
+        assertUpdate("CREATE BRANCH test_branch IN TABLE " + tableName);
+        assertUpdate("INSERT INTO " + tableName + " VALUES 2", 1);
+
+        assertThat(query("SELECT * FROM " + tableName + " FOR VERSION AS OF 'test_branch'"))
+                .matches("VALUES 1");
+
+        assertUpdate("ALTER BRANCH test_branch IN TABLE " + tableName + " FAST FORWARD TO main");
+
+        assertThat(query("SELECT * FROM " + tableName + " FOR VERSION AS OF 'test_branch'"))
+                .matches("VALUES 1, 2");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
     private long getMostRecentSnapshotId(String tableName)
     {
         return (long) Iterables.getOnlyElement(getQueryRunner().execute(format("SELECT snapshot_id FROM \"%s$snapshots\" ORDER BY committed_at DESC LIMIT 1", tableName))
