@@ -17,6 +17,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.inject.Inject;
 import io.trino.Session;
 import io.trino.execution.warnings.WarningCollector;
+import io.trino.metadata.Canonicalizer;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.RedirectionAwareTableHandle;
@@ -73,7 +74,7 @@ public class DropColumnTask
             WarningCollector warningCollector)
     {
         Session session = stateMachine.getSession();
-        QualifiedObjectName tableName = createQualifiedObjectName(session, statement, statement.getTable());
+        QualifiedObjectName tableName = createQualifiedObjectName(session, statement, statement.getTable(), metadata);
         RedirectionAwareTableHandle redirectionAwareTableHandle = metadata.getRedirectionAwareTableHandle(session, tableName);
         if (redirectionAwareTableHandle.tableHandle().isEmpty()) {
             if (!statement.isTableExists()) {
@@ -84,7 +85,9 @@ public class DropColumnTask
         TableHandle tableHandle = redirectionAwareTableHandle.tableHandle().get();
 
         // Use getParts method because the column name should be lowercase
-        String column = statement.getField().getParts().get(0);
+        Identifier identifier = statement.getField().getOriginalParts().getFirst();
+        Canonicalizer canonicalizer = metadata.getCanonicalizer(session, tableName.catalogName());
+        String column = canonicalizer.canonicalize(identifier.getValue(), identifier.isDelimited());
 
         QualifiedObjectName qualifiedTableName = redirectionAwareTableHandle.redirectedTableName().orElse(tableName);
         accessControl.checkCanDropColumn(session.toSecurityContext(), qualifiedTableName);

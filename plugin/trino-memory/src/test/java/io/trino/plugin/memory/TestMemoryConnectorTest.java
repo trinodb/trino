@@ -39,6 +39,7 @@ import java.util.List;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.sql.planner.OptimizerConfig.JoinDistributionType;
 import static io.trino.sql.planner.OptimizerConfig.JoinDistributionType.BROADCAST;
+import static java.util.Locale.ENGLISH;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -618,5 +619,11 @@ public class TestMemoryConnectorTest
     protected void verifyAddNotNullColumnToNonEmptyTableFailurePermissible(Throwable e)
     {
         assertThat(e).hasMessageMatching("Unable to add NOT NULL column '.*' for non-empty table: .*");
+    }
+
+    @Override
+    protected String canonicalize(String value)
+    {
+        return value.toLowerCase(ENGLISH);
     }
 }

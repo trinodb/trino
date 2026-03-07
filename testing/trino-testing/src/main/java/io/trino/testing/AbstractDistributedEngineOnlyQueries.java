@@ -128,7 +128,7 @@ public abstract class AbstractDistributedEngineOnlyQueries
                 "line 1:49: Column name 'orderkey' specified more than once");
 
         assertQueryFails("CREATE TABLE test (a integer, A integer)",
-                "line 1:31: Column name 'A' specified more than once");
+                "line 1:31: Column name 'a' specified more than once");
         assertQueryFails("CREATE TABLE test (a integer, OrderKey integer, LIKE orders INCLUDING PROPERTIES)",
                 "line 1:49: Column name 'orderkey' specified more than once");
     }

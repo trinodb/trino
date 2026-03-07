@@ -99,7 +99,7 @@ public final class H2QueryRunner
     {
         try (Connection connection = DriverManager.getConnection(properties.get("connection-url"));
                 Statement statement = connection.createStatement()) {
-            statement.execute("CREATE SCHEMA " + schema);
+            statement.execute("CREATE SCHEMA \"%s\"".formatted(schema));
         }
     }
 

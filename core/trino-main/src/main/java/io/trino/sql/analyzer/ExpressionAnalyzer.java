@@ -787,7 +787,6 @@ public class ExpressionAnalyzer
                     return setExpressionType(node, field.getType());
                 }
             }
-
             if (field.getOriginTable().isPresent() && field.getOriginColumnName().isPresent()) {
                 tableColumnReferences.put(field.getOriginTable().get(), field.getOriginColumnName().get());
             }

@@ -79,7 +79,7 @@ public class UseTask
             denyCatalogAccess(catalog);
         }
 
-        String schema = statement.getSchema().getValue().toLowerCase(ENGLISH);
+        String schema = metadata.getCanonicalizer(session, catalog).canonicalize(statement.getSchema().getValue(), statement.getSchema().isDelimited());
 
         CatalogSchemaName name = new CatalogSchemaName(catalog, schema);
         if (!metadata.schemaExists(session, name)) {

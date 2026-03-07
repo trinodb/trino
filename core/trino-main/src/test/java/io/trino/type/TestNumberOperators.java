@@ -3242,52 +3242,52 @@ public class TestNumberOperators
         // number decimal
         assertTrinoExceptionThrownBy(assertions.operator(MULTIPLY, "NUMBER '12345678901234567'", "DECIMAL '12345678901234567'")::evaluate)
                 .hasErrorCode(FUNCTION_NOT_FOUND)
-                .hasMessageContaining("Unexpected parameters (number, decimal(17,0)) for function $operator$multiply");
+                .hasMessageContaining("Unexpected parameters (number, decimal(17,0)) for function $operator$MULTIPLY");
 
         assertTrinoExceptionThrownBy(assertions.operator(MULTIPLY, "NUMBER '-12345678901234567'", "DECIMAL '12345678901234567'")::evaluate)
                 .hasErrorCode(FUNCTION_NOT_FOUND)
-                .hasMessageContaining("Unexpected parameters (number, decimal(17,0)) for function $operator$multiply");
+                .hasMessageContaining("Unexpected parameters (number, decimal(17,0)) for function $operator$MULTIPLY");
 
         assertTrinoExceptionThrownBy(assertions.operator(MULTIPLY, "NUMBER '-12345678901234567'", "DECIMAL '-12345678901234567'")::evaluate)
                 .hasErrorCode(FUNCTION_NOT_FOUND)
-                .hasMessageContaining("Unexpected parameters (number, decimal(17,0)) for function $operator$multiply");
+                .hasMessageContaining("Unexpected parameters (number, decimal(17,0)) for function $operator$MULTIPLY");
 
         assertTrinoExceptionThrownBy(assertions.operator(MULTIPLY, "NUMBER '.1234567890'", "DECIMAL '3'")::evaluate)
                 .hasErrorCode(FUNCTION_NOT_FOUND)
-                .hasMessageContaining("Unexpected parameters (number, decimal(1,0)) for function $operator$multiply");
+                .hasMessageContaining("Unexpected parameters (number, decimal(1,0)) for function $operator$MULTIPLY");
 
         assertTrinoExceptionThrownBy(assertions.operator(MULTIPLY, "NUMBER '.1234567890'", "DECIMAL '0'")::evaluate)
                 .hasErrorCode(FUNCTION_NOT_FOUND)
-                .hasMessageContaining("Unexpected parameters (number, decimal(1,0)) for function $operator$multiply");
+                .hasMessageContaining("Unexpected parameters (number, decimal(1,0)) for function $operator$MULTIPLY");
 
         assertTrinoExceptionThrownBy(assertions.operator(MULTIPLY, "NUMBER '-.1234567890'", "DECIMAL '0'")::evaluate)
                 .hasErrorCode(FUNCTION_NOT_FOUND)
-                .hasMessageContaining("Unexpected parameters (number, decimal(1,0)) for function $operator$multiply");
+                .hasMessageContaining("Unexpected parameters (number, decimal(1,0)) for function $operator$MULTIPLY");
 
         // decimal number
         assertTrinoExceptionThrownBy(assertions.operator(MULTIPLY, "DECIMAL '12345678901234567'", "NUMBER '12345678901234567'")::evaluate)
                 .hasErrorCode(FUNCTION_NOT_FOUND)
-                .hasMessageContaining("Unexpected parameters (decimal(17,0), number) for function $operator$multiply");
+                .hasMessageContaining("Unexpected parameters (decimal(17,0), number) for function $operator$MULTIPLY");
 
         assertTrinoExceptionThrownBy(assertions.operator(MULTIPLY, "DECIMAL '12345678901234567'", "NUMBER '-12345678901234567'")::evaluate)
                 .hasErrorCode(FUNCTION_NOT_FOUND)
-                .hasMessageContaining("Unexpected parameters (decimal(17,0), number) for function $operator$multiply");
+                .hasMessageContaining("Unexpected parameters (decimal(17,0), number) for function $operator$MULTIPLY");
 
         assertTrinoExceptionThrownBy(assertions.operator(MULTIPLY, "DECIMAL '-12345678901234567'", "NUMBER '-12345678901234567'")::evaluate)
                 .hasErrorCode(FUNCTION_NOT_FOUND)
-                .hasMessageContaining("Unexpected parameters (decimal(17,0), number) for function $operator$multiply");
+                .hasMessageContaining("Unexpected parameters (decimal(17,0), number) for function $operator$MULTIPLY");
 
         assertTrinoExceptionThrownBy(assertions.operator(MULTIPLY, "DECIMAL '3'", "NUMBER '.1234567890'")::evaluate)
                 .hasErrorCode(FUNCTION_NOT_FOUND)
-                .hasMessageContaining("Unexpected parameters (decimal(1,0), number) for function $operator$multiply");
+                .hasMessageContaining("Unexpected parameters (decimal(1,0), number) for function $operator$MULTIPLY");
 
         assertTrinoExceptionThrownBy(assertions.operator(MULTIPLY, "DECIMAL '3'", "NUMBER '.0000000000'")::evaluate)
                 .hasErrorCode(FUNCTION_NOT_FOUND)
-                .hasMessageContaining("Unexpected parameters (decimal(1,0), number) for function $operator$multiply");
+                .hasMessageContaining("Unexpected parameters (decimal(1,0), number) for function $operator$MULTIPLY");
 
         assertTrinoExceptionThrownBy(assertions.operator(MULTIPLY, "DECIMAL '-3'", "NUMBER '.0000000000'")::evaluate)
                 .hasErrorCode(FUNCTION_NOT_FOUND)
-                .hasMessageContaining("Unexpected parameters (decimal(1,0), number) for function $operator$multiply");
+                .hasMessageContaining("Unexpected parameters (decimal(1,0), number) for function $operator$MULTIPLY");
     }
 
     @Test

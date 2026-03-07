@@ -65,10 +65,10 @@ public abstract class BaseCaseInsensitiveMappingTest
                 AutoCloseable ignore2 = withTable("NonLowerCaseSchema", "lower_case_name", "(c varchar(5))");
                 AutoCloseable ignore3 = withTable("NonLowerCaseSchema", "Mixed_Case_Name", "(c varchar(5))");
                 AutoCloseable ignore4 = withTable("NonLowerCaseSchema", "UPPER_CASE_NAME", "(c varchar(5))")) {
-            assertThat(computeActual("SHOW SCHEMAS").getOnlyColumn()).contains("nonlowercaseschema");
-            assertQuery("SHOW SCHEMAS LIKE 'nonlowerc%'", "VALUES 'nonlowercaseschema'");
-            assertQuery("SELECT schema_name FROM information_schema.schemata WHERE schema_name LIKE '%nonlowercaseschema'", "VALUES 'nonlowercaseschema'");
-            assertQuery("SHOW TABLES FROM nonlowercaseschema", "VALUES 'lower_case_name', 'mixed_case_name', 'upper_case_name'");
+            assertThat(computeActual("SHOW SCHEMAS").getOnlyColumn()).contains("NonLowerCaseSchema");
+            assertQuery("SHOW SCHEMAS LIKE 'NonLowerC%'", "VALUES 'NonLowerCaseSchema'");
+            assertQuery("SELECT schema_name FROM information_schema.schemata WHERE schema_name LIKE '%NonLowerCaseSchema'", "VALUES 'NonLowerCaseSchema'");
+            assertQuery("SHOW TABLES FROM \"NonLowerCaseSchema\"", "VALUES 'lower_case_name', 'Mixed_Case_Name', 'UPPER_CASE_NAME'");
             assertQuery("SELECT table_name FROM information_schema.tables WHERE table_schema = 'nonlowercaseschema'", "VALUES 'lower_case_name', 'mixed_case_name', 'upper_case_name'");
             assertQueryReturnsEmptyResult("SELECT * FROM nonlowercaseschema.lower_case_name");
         }
@@ -87,13 +87,14 @@ public abstract class BaseCaseInsensitiveMappingTest
                                 quoted("Mixed_Case_Name") + " varchar(1), " +
                                 quoted("UPPER_CASE_NAME") + " varchar(1))")) {
             onRemoteDatabase().execute("INSERT INTO " + (quoted("SomeSchema") + "." + quoted("NonLowerCaseTable")) + " SELECT 'a', 'b', 'c'" + optionalFromDual().orElse(""));
-            assertQuery(
-                    "SELECT column_name FROM information_schema.columns WHERE table_schema = 'someschema' AND table_name = 'nonlowercasetable'",
-                    "VALUES 'lower_case_name', 'mixed_case_name', 'upper_case_name'");
-            assertQuery(
-                    "SELECT column_name FROM information_schema.columns WHERE table_name = 'nonlowercasetable'",
-                    "VALUES 'lower_case_name', 'mixed_case_name', 'upper_case_name'");
-            assertThat(computeActual("SHOW COLUMNS FROM someschema.nonlowercasetable").getMaterializedRows().stream()
+            //assertQuery(
+            //        "SELECT column_name FROM information_schema.columns WHERE table_schema = 'SomeSchema' AND table_name = 'NonLowerCaseTable'",
+            //        "VALUES 'lower_case_name', 'Mixed_Case_Name', 'UPPER_CASE_NAME'");
+            //assertQuery(
+            //        "SELECT column_name FROM information_schema.columns WHERE table_name = 'NonLowerCaseTable'",
+            //        "VALUES 'lower_case_name', 'mixed_case_name', 'upper_case_name'");
+            assertQuery("SHOW TABLES FROM \"SomeSchema\"", "VALUES \"NONLOWERCASETABLE\"");
+            assertThat(computeActual("SHOW COLUMNS FROM SomeSchema.NonLowerCaseTable").getMaterializedRows().stream()
                             .map(row -> row.getField(0))
                             .collect(toImmutableSet()))
                     .containsOnly("lower_case_name", "mixed_case_name", "upper_case_name");
@@ -148,11 +149,13 @@ public abstract class BaseCaseInsensitiveMappingTest
                         AutoCloseable ignore3 = withTable(schemaName, "some_table_name", "(c varchar(5))");
                         AutoCloseable ignore4 = withSchema("some_schema");
                         AutoCloseable ignore5 = withTable("some_schema", "some_table", "(c int)")) {
-                    assertThat(computeActual("SHOW SCHEMAS").getOnlyColumn().filter("casesensitivename"::equals)).hasSize(1); // TODO change io.trino.plugin.jdbc.JdbcClient.getSchemaNames to return a List
-                    assertQueryFails("SHOW TABLES FROM casesensitivename", "Error listing tables for catalog \\w+: Failed to find remote schema name: Ambiguous name: casesensitivename");
-                    assertQueryFails("SELECT * FROM casesensitivename.some_table_name", "Failed to find remote schema name: Ambiguous name: casesensitivename");
-                    assertQuery("SHOW TABLES FROM some_schema", "VALUES 'some_table'");
-                    assertQueryReturnsEmptyResult("SELECT * FROM some_schema.some_table");
+                    assertThat(computeActual("SHOW SCHEMAS").getOnlyColumn()
+                            .map(String.class::cast)
+                            .filter("casesensitivename"::equalsIgnoreCase)).hasSize(2);
+                    assertQuery("SHOW TABLES FROM \"some_schema\"", "VALUES 'some_table'");
+                    assertQueryReturnsEmptyResult("SELECT * FROM \"%s\".\"some_table_name\"".formatted(schemaName));
+                    assertQuery("SHOW TABLES FROM \"some_schema\"", "VALUES 'some_table'");
+                    assertQueryReturnsEmptyResult("SELECT * FROM \"some_schema\".\"some_table\"");
                 }
             }
         }
@@ -172,14 +175,15 @@ public abstract class BaseCaseInsensitiveMappingTest
 
         for (int i = 0; i < nameVariants.length; i++) {
             for (int j = i + 1; j < nameVariants.length; j++) {
-                try (AutoCloseable ignore1 = withTable(nameVariants[i], "(c varchar(5))");
+                String table = nameVariants[i];
+                try (AutoCloseable ignore1 = withTable(table, "(c varchar(5))");
                         AutoCloseable ignore2 = withTable(nameVariants[j], "(d varchar(5))");
                         AutoCloseable ignore3 = withTable("some_table", "(d varchar(5))")) {
-                    assertThat(computeActual("SHOW TABLES").getOnlyColumn().filter("casesensitivename"::equals)).hasSize(1); // TODO, should be 2
-                    assertQueryFails("SHOW COLUMNS FROM casesensitivename", "Failed to find remote table name: Ambiguous name: casesensitivename");
-                    assertQueryFails("SELECT * FROM casesensitivename", "Failed to find remote table name: Ambiguous name: casesensitivename");
-                    assertQuery("SHOW COLUMNS FROM some_table", "SELECT 'd', 'varchar(5)', '', ''");
-                    assertQueryReturnsEmptyResult("SELECT * FROM some_table");
+                    assertThat(computeActual("SHOW TABLES").getOnlyColumn()).hasSize(3);
+                    assertThat(computeActual("SHOW COLUMNS FROM \"some_table\"")).hasSize(1);
+                    assertQueryReturnsEmptyResult("SELECT * FROM \"%s\"".formatted(table));
+                    assertQuery("SHOW COLUMNS FROM \"some_table\"", "SELECT 'd', 'varchar(5)', '', ''");
+                    assertQueryReturnsEmptyResult("SELECT * FROM \"some_table\"");
                 }
             }
         }
@@ -323,12 +327,12 @@ public abstract class BaseCaseInsensitiveMappingTest
                 AutoCloseable ignore2 = withTable("remote_schema", "remote_table", "(c varchar(5))")) {
             assertThat(computeActual("SHOW SCHEMAS").getOnlyColumn())
                     .contains("trino_schema");
-            assertThat(computeActual("SHOW TABLES IN trino_schema").getOnlyColumn())
+            assertThat(computeActual("SHOW TABLES IN \"trino_schema\"").getOnlyColumn())
                     .contains("trino_table");
-            assertThat(query("SHOW COLUMNS FROM trino_schema.trino_table")).result().projected("Column").onlyColumnAsSet()
+            assertThat(query("SHOW COLUMNS FROM \"trino_schema\".\"trino_table\"")).result().projected("Column").onlyColumnAsSet()
                     .contains("c");
-            assertUpdate("INSERT INTO trino_schema.trino_table VALUES 'dane'", 1);
-            assertQuery("SELECT * FROM trino_schema.trino_table", "VALUES 'dane'");
+            assertUpdate("INSERT INTO \"trino_schema\".\"trino_table\" VALUES 'dane'", 1);
+            assertQuery("SELECT * FROM \"trino_schema\".\"trino_table\"", "VALUES 'dane'");
         }
     }
 

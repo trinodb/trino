@@ -88,9 +88,9 @@ public class TestSqlServerJdbcConnectionAccesses
     @Test
     public void testJdbcConnectionCreations()
     {
-        assertJdbcConnections("SELECT * FROM nation LIMIT 1", 5, Optional.empty());
-        assertJdbcConnections("SELECT * FROM nation ORDER BY nationkey LIMIT 1", 5, Optional.empty());
-        assertJdbcConnections("SELECT * FROM nation WHERE nationkey = 1", 5, Optional.empty());
+        assertJdbcConnections("SELECT * FROM nation LIMIT 1", 3, Optional.empty());
+        assertJdbcConnections("SELECT * FROM nation ORDER BY nationkey LIMIT 1", 3, Optional.empty());
+        assertJdbcConnections("SELECT * FROM nation WHERE nationkey = 1", 3, Optional.empty());
         assertJdbcConnections("SELECT avg(nationkey) FROM nation", 4, Optional.empty());
         assertJdbcConnections("SELECT * FROM nation, region", 6, Optional.empty());
         assertJdbcConnections("SELECT * FROM nation n, region r WHERE n.regionkey = r.regionkey", 9, Optional.empty());

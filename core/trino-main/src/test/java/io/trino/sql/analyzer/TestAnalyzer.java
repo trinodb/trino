@@ -3451,7 +3451,7 @@ public class TestAnalyzer
                 .hasLocation(1, 19);
         assertFails("CREATE TABLE test(abc, AbC) AS SELECT 1, 2")
                 .hasErrorCode(DUPLICATE_COLUMN_NAME)
-                .hasMessage("line 1:24: Column name 'AbC' specified more than once")
+                .hasMessage("line 1:24: Column name 'abc' specified more than once")
                 .hasLocation(1, 24);
         assertFails("CREATE TABLE test(x) AS SELECT null")
                 .hasErrorCode(COLUMN_TYPE_UNKNOWN)
@@ -5444,27 +5444,27 @@ public class TestAnalyzer
         // test quoted pattern recognition function name
         assertFails(format(query, "true", "\"PREV\"(Price)"))
                 .hasErrorCode(FUNCTION_NOT_FOUND)
-                .hasMessage("line 1:313: Function 'prev' not registered");
+                .hasMessage("line 1:313: Function 'PREV' not registered");
 
         assertFails(format(query, "\"NEXT\"(Price) > 0", "true"))
                 .hasErrorCode(FUNCTION_NOT_FOUND)
-                .hasMessage("line 1:195: Function 'next' not registered");
+                .hasMessage("line 1:195: Function 'NEXT' not registered");
 
         assertFails(format(query, "true", "\"FIRST\"(Price)"))
                 .hasErrorCode(FUNCTION_NOT_FOUND)
-                .hasMessage("line 1:313: Function 'first' not registered");
+                .hasMessage("line 1:313: Function 'FIRST' not registered");
 
         assertFails(format(query, "\"LAST\"(Price) > 0", "true"))
                 .hasErrorCode(FUNCTION_NOT_FOUND)
-                .hasMessage("line 1:195: Function 'last' not registered");
+                .hasMessage("line 1:195: Function 'LAST' not registered");
 
         assertFails(format(query, "true", "\"CLASSIFIER\"()"))
                 .hasErrorCode(FUNCTION_NOT_FOUND)
-                .hasMessage("line 1:313: Function 'classifier' not registered");
+                .hasMessage("line 1:313: Function 'CLASSIFIER' not registered");
 
         assertFails(format(query, "\"MATCH_NUMBER\"() > 0", "true"))
                 .hasErrorCode(FUNCTION_NOT_FOUND)
-                .hasMessage("line 1:195: Function 'match_number' not registered");
+                .hasMessage("line 1:195: Function 'MATCH_NUMBER' not registered");
     }
 
     @Test
@@ -6959,12 +6959,12 @@ public class TestAnalyzer
 
         assertFails("SELECT * FROM TABLE(system.monomorphic_static_return_type_function()) table_alias(col, col)")
                 .hasErrorCode(DUPLICATE_COLUMN_NAME)
-                .hasMessage("line 1:21: Duplicate name of table function proper column: col");
+                .hasMessage("line 1:21: Duplicate name of table function proper column: COL");
 
         // case-insensitive name matching
         assertFails("SELECT * FROM TABLE(system.monomorphic_static_return_type_function()) table_alias(col, COL)")
                 .hasErrorCode(DUPLICATE_COLUMN_NAME)
-                .hasMessage("line 1:21: Duplicate name of table function proper column: col");
+                .hasMessage("line 1:21: Duplicate name of table function proper column: COL");
 
         // pass-through columns of an input table must not be aliased, and must be referenced by the original range variables of their corresponding table arguments
         // the function pass_through_function has one proper column ("x" : BOOLEAN), and one table argument with pass-through property

@@ -78,10 +78,9 @@ public class Identifier
 
     public String getCanonicalValue()
     {
-        if (isDelimited()) {
+        if (delimited) {
             return value;
         }
-
         return value.toUpperCase(ENGLISH);
     }
 
@@ -128,7 +127,7 @@ public class Identifier
         return Objects.equals(value, that.value) && delimited == that.delimited;
     }
 
-    private static boolean isValidIdentifier(String value)
+    public static boolean isValidIdentifier(String value)
     {
         verify(!Strings.isNullOrEmpty(value), "Identifier cannot be empty or null");
 

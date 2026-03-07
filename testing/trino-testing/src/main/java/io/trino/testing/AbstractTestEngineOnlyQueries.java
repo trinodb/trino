@@ -5149,7 +5149,9 @@ public abstract class AbstractTestEngineOnlyQueries
     @Test
     public void testQuotedIdentifiers()
     {
-        assertQuery("SELECT \"TOTALPRICE\" \"my price\" FROM \"ORDERS\"");
+        // FIXME: For AbstractTest, H2 works with DATABASE_TO_LOWER=true, which
+        // FIXME: indicates that non-quoted identifiers are converted to lowercase.
+        assertQuery("SELECT \"totalprice\" \"my price\" FROM \"orders\"");
     }
 
     @Test
