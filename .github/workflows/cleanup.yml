@@ -6,6 +6,9 @@ on:
     types:
       - closed
 
+permissions:
+  actions: write
+
 # NOTE: Do not check out/execute code from the PR since a read-write token is present due to pull_request_target
 jobs:
   cancel:
