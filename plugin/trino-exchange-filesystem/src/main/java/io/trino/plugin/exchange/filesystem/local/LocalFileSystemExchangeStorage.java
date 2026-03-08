@@ -22,6 +22,7 @@ import io.airlift.slice.InputStreamSliceInput;
 import io.airlift.slice.Slice;
 import io.airlift.units.DataSize;
 import io.trino.annotation.NotThreadSafe;
+import io.trino.plugin.exchange.filesystem.CommitManifest;
 import io.trino.plugin.exchange.filesystem.ExchangeSourceFile;
 import io.trino.plugin.exchange.filesystem.ExchangeStorageReader;
 import io.trino.plugin.exchange.filesystem.ExchangeStorageWriter;
@@ -36,6 +37,7 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.io.UncheckedIOException;
 import java.net.URI;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayDeque;
@@ -104,6 +106,52 @@ public class LocalFileSystemExchangeStorage
             }
         }
         return immediateVoidFuture();
+    }
+
+    @Override
+    public ListenableFuture<Void> deleteFiles(List<URI> files)
+    {
+        for (URI file : files) {
+            try {
+                Files.deleteIfExists(Path.of(file.getPath()));
+            }
+            catch (IOException | RuntimeException e) {
+                return immediateFailedFuture(e);
+            }
+        }
+        return immediateVoidFuture();
+    }
+
+    @Override
+    public ListenableFuture<Void> writeMarkerFile(URI directory, CommitManifest markerFile)
+    {
+        Path markerPath = Path.of(directory.getPath()).resolve(CommitManifest.FILE_NAME);
+        try {
+            Files.write(markerPath, markerFile.serialize().getBytes(StandardCharsets.UTF_8));
+        }
+        catch (IOException | RuntimeException e) {
+            return immediateFailedFuture(e);
+        }
+        return immediateVoidFuture();
+    }
+
+    @Override
+    public ListenableFuture<CommitManifest> readMarkerFile(URI uri)
+    {
+        Path markerPath = Path.of(uri.getPath());
+        if (!markerPath.getFileName().toString().equals(CommitManifest.FILE_NAME)) {
+            markerPath = markerPath.resolve(CommitManifest.FILE_NAME);
+        }
+        try {
+            byte[] data = Files.readAllBytes(markerPath);
+            if (data.length == 0) {
+                return immediateFailedFuture(new IOException("Committed marker file is empty: " + markerPath));
+            }
+            return immediateFuture(CommitManifest.deserialize(data));
+        }
+        catch (IOException | RuntimeException e) {
+            return immediateFailedFuture(e);
+        }
     }
 
     @Override
@@ -226,10 +274,13 @@ public class LocalFileSystemExchangeStorage
     {
         private static final int INSTANCE_SIZE = instanceSize(LocalExchangeStorageWriter.class);
 
+        private final URI file;
         private final OutputStream outputStream;
+        private long size;
 
         public LocalExchangeStorageWriter(URI file)
         {
+            this.file = requireNonNull(file, "file is null");
             try {
                 this.outputStream = new FileOutputStream(Path.of(file.getPath()).toFile());
             }
@@ -243,6 +294,7 @@ public class LocalFileSystemExchangeStorage
         {
             try {
                 outputStream.write(slice.getBytes());
+                size += slice.length();
             }
             catch (IOException | RuntimeException e) {
                 return immediateFailedFuture(e);
@@ -278,6 +330,12 @@ public class LocalFileSystemExchangeStorage
         public long getRetainedSize()
         {
             return INSTANCE_SIZE;
+        }
+
+        @Override
+        public FileStatus getFileStatus()
+        {
+            return new FileStatus(Path.of(file.getPath()).toUri().toString(), size);
         }
     }
 }

@@ -44,10 +44,9 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
@@ -63,7 +62,6 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.AsyncSemaphore.processAll;
 import static io.trino.plugin.exchange.filesystem.FileSystemExchangeManager.PATH_SEPARATOR;
-import static io.trino.plugin.exchange.filesystem.FileSystemExchangeSink.COMMITTED_MARKER_FILE_NAME;
 import static io.trino.plugin.exchange.filesystem.FileSystemExchangeSink.DATA_FILE_SUFFIX;
 import static java.lang.Integer.parseInt;
 import static java.lang.String.format;
@@ -85,13 +83,13 @@ public class FileSystemExchange
     private final int outputPartitionCount;
     private final boolean preserveOrderWithinPartition;
     private final int fileListingParallelism;
+    private final boolean commitManifestEnabled;
     private final long exchangeSourceHandleTargetDataSizeInBytes;
     private final ExecutorService executor;
 
     private final Map<Integer, URI> outputDirectories = new ConcurrentHashMap<>();
 
-    @GuardedBy("this")
-    private final Set<Integer> allSinks = new HashSet<>();
+    private final Map<CommittedTaskAttempt, Optional<CommitManifest>> allSinks = new ConcurrentHashMap<>();
     @GuardedBy("this")
     private final Map<Integer, Integer> finishedSinks = new HashMap<>();
     @GuardedBy("this")
@@ -119,6 +117,7 @@ public class FileSystemExchange
             ExchangeContext exchangeContext,
             int outputPartitionCount,
             boolean preserveOrderWithinPartition,
+            boolean commitManifestEnabled,
             int fileListingParallelism,
             long exchangeSourceHandleTargetDataSizeInBytes,
             ExecutorService executor)
@@ -138,6 +137,7 @@ public class FileSystemExchange
                 .startSpan();
         this.outputPartitionCount = outputPartitionCount;
         this.preserveOrderWithinPartition = preserveOrderWithinPartition;
+        this.commitManifestEnabled = commitManifestEnabled;
 
         this.fileListingParallelism = fileListingParallelism;
         this.exchangeSourceHandleTargetDataSizeInBytes = exchangeSourceHandleTargetDataSizeInBytes;
@@ -153,10 +153,8 @@ public class FileSystemExchange
     @Override
     public synchronized ExchangeSinkHandle addSink(int taskPartition)
     {
-        FileSystemExchangeSinkHandle sinkHandle = new FileSystemExchangeSinkHandle(taskPartition);
-        allSinks.add(taskPartition);
         sinkAddedMetric.increment();
-        return sinkHandle;
+        return new FileSystemExchangeSinkHandle(taskPartition);
     }
 
     @Override
@@ -172,7 +170,8 @@ public class FileSystemExchange
     {
         FileSystemExchangeSinkHandle fileSystemExchangeSinkHandle = (FileSystemExchangeSinkHandle) sinkHandle;
         int taskPartitionId = fileSystemExchangeSinkHandle.getPartitionId();
-        URI outputDirectory = getTaskOutputDirectory(taskPartitionId).resolve(taskAttemptId + PATH_SEPARATOR);
+        allSinks.put(new CommittedTaskAttempt(taskPartitionId, taskAttemptId), Optional.empty());
+        URI outputDirectory = getTaskOutputDirectory(taskPartitionId, taskAttemptId);
         try {
             exchangeStorage.createDirectories(outputDirectory);
         }
@@ -243,7 +242,7 @@ public class FileSystemExchange
         }
 
         return Futures.transform(
-                processAll(committedTaskAttempts, this::getCommittedPartitions, fileListingParallelism, executor),
+                processAll(committedTaskAttempts, commitManifestEnabled ? this::getCommittedPartitionsWithCommittedFile : this::getCommittedPartitions, fileListingParallelism, executor),
                 partitionsList -> {
                     Multimap<Integer, SourceFile> sourceFiles = ArrayListMultimap.create();
                     partitionsList.forEach(partitions -> partitions.forEach(sourceFiles::put));
@@ -288,15 +287,44 @@ public class FileSystemExchange
                 executor);
     }
 
+    private ListenableFuture<CommitManifest> readCommittedFile(CommittedTaskAttempt committedTaskAttempt)
+    {
+        URI commitFileUri = getTaskOutputDirectory(committedTaskAttempt.partitionId(), committedTaskAttempt.attemptId())
+                .resolve(CommitManifest.FILE_NAME);
+
+        return exchangeStorage.readMarkerFile(commitFileUri);
+    }
+
+    private ListenableFuture<Multimap<Integer, SourceFile>> getCommittedPartitionsWithCommittedFile(CommittedTaskAttempt committedTaskAttempt)
+    {
+        ListenableFuture<CommitManifest> fileStats = readCommittedFile(committedTaskAttempt);
+
+        return stats.getGetCommittedPartitions().record(Futures.transform(fileStats,
+                stats -> {
+                    allSinks.put(committedTaskAttempt, Optional.of(stats));
+                    ImmutableMultimap.Builder<Integer, SourceFile> result = ImmutableMultimap.builder();
+                    for (FileStatus partitionFile : stats.files()) {
+                        Matcher matcher = PARTITION_FILE_NAME_PATTERN.matcher(new File(partitionFile.getFilePath()).getName());
+                        checkState(matcher.matches(), "Unexpected partition file: %s", partitionFile);
+                        int partitionId = parseInt(matcher.group(1));
+                        result.put(partitionId, new SourceFile(partitionFile.getFilePath(), partitionFile.getFileSize(), committedTaskAttempt.partitionId(), committedTaskAttempt.attemptId()));
+                    }
+                    return result.build();
+                },
+                executor));
+    }
+
     private ListenableFuture<Multimap<Integer, SourceFile>> getCommittedPartitions(CommittedTaskAttempt committedTaskAttempt)
     {
+        // TODO include attempId on getTaskOutputDirectory call
         URI sinkOutputPath = getTaskOutputDirectory(committedTaskAttempt.partitionId());
+
         return stats.getGetCommittedPartitions().record(Futures.transform(
                 exchangeStorage.listFilesRecursively(sinkOutputPath),
                 sinkOutputFiles -> {
                     List<String> committedMarkerFilePaths = sinkOutputFiles.stream()
                             .map(FileStatus::getFilePath)
-                            .filter(filePath -> filePath.endsWith(COMMITTED_MARKER_FILE_NAME))
+                            .filter(filePath -> filePath.endsWith(CommitManifest.FILE_NAME))
                             .collect(toImmutableList());
 
                     if (committedMarkerFilePaths.isEmpty()) {
@@ -313,7 +341,7 @@ public class FileSystemExchange
                             continue;
                         }
                         int attemptIdOffset = committedMarkerFilePath.length() - stringCommittedAttemptId.length()
-                                - PATH_SEPARATOR.length() - COMMITTED_MARKER_FILE_NAME.length();
+                                - PATH_SEPARATOR.length() - CommitManifest.FILE_NAME.length();
 
                         // Data output file path format: {sinkOutputPath}/{attemptId}/{sourcePartitionId}_{splitId}.data
                         List<FileStatus> partitionFiles = sinkOutputFiles.stream()
@@ -347,6 +375,11 @@ public class FileSystemExchange
         });
     }
 
+    private URI getTaskOutputDirectory(int taskPartitionId, int attemptId)
+    {
+        return getTaskOutputDirectory(taskPartitionId).resolve(attemptId + PATH_SEPARATOR);
+    }
+
     @Override
     public ExchangeSourceHandleSource getSourceHandles()
     {
@@ -366,13 +399,34 @@ public class FileSystemExchange
     @Override
     public void close()
     {
-        List<URI> toDelete;
-        synchronized (this) {
-            toDelete = allSinks.stream()
-                    .map(this::getTaskOutputDirectory)
-                    .collect(toImmutableList());
+        ImmutableList.Builder<URI> filesBuilder = ImmutableList.builder();
+        ImmutableList.Builder<URI> dirsBuilder = ImmutableList.builder();
+
+        for (Map.Entry<CommittedTaskAttempt, Optional<CommitManifest>> entry : allSinks.entrySet()) {
+            CommittedTaskAttempt attempt = entry.getKey();
+            Optional<CommitManifest> markerFile = entry.getValue();
+            if (markerFile.isPresent()) {
+                // Add individual data files and the marker file
+                for (FileStatus file : markerFile.get().files()) {
+                    filesBuilder.add(URI.create(file.getFilePath()));
+                }
+                filesBuilder.add(getTaskOutputDirectory(attempt.partitionId(), attempt.attemptId())
+                        .resolve(CommitManifest.FILE_NAME));
+            }
+            else {
+                dirsBuilder.add(getTaskOutputDirectory(attempt.partitionId(), attempt.attemptId()));
+            }
         }
-        stats.getCloseExchange().record(exchangeStorage.deleteRecursively(toDelete));
+
+        List<URI> dirsToDelete = dirsBuilder.build();
+        List<URI> filesToDelete = filesBuilder.build();
+
+        if (!dirsToDelete.isEmpty()) {
+            stats.getCloseExchange().record(exchangeStorage.deleteRecursively(dirsToDelete));
+        }
+        if (!filesToDelete.isEmpty()) {
+            stats.getCloseExchange().record(exchangeStorage.deleteFiles(filesToDelete));
+        }
         exchangeSpan.end();
     }
 
