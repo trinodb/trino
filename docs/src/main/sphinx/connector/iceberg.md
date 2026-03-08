@@ -258,6 +258,11 @@ implementation is used:
   - Enable bucket-aware execution. This allows the engine to use physical
     bucketing information to optimize queries by reducing data exchanges.
   - `true`
+* - `iceberg.file-based-conflict-detection`
+  - Use partition information from actual written files as the source for the
+    conflict detection system. When enabled, concurrent write detection is more
+    precise, reducing unnecessary commit failures.
+  - `true`
 :::
 
 (iceberg-fte-support)=
