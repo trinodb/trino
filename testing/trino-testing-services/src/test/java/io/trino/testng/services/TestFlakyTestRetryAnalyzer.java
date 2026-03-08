@@ -17,6 +17,7 @@ import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import static io.trino.testng.services.FlakyTestRetryAnalyzer.ALLOWED_RETRIES_COUNT;
+import static io.trino.testng.services.TestRetryableFailurePattern.KNOWN_INFRASTRUCTURE_FAILURE_PATTERN;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Fail.fail;
 
@@ -26,6 +27,7 @@ public class TestFlakyTestRetryAnalyzer
 {
     private int testRetryingCount;
     private int testNoRetryingCount;
+    private int testRetryableFailureCount;
     private int[] testRetryingParametricTestCount = new int[2];
 
     @Flaky(issue = "intentionally flaky for @Flaky test purposes", match = "I am trying hard to fail!")
@@ -63,6 +65,16 @@ public class TestFlakyTestRetryAnalyzer
             fail("I am trying hard to fail!");
         }
         assertThat(testRetryingParametricTestCount[index]).isEqualTo(3);
+    }
+
+    @Test
+    public void testRetryingRetryableFailure()
+    {
+        testRetryableFailureCount++;
+        if (testRetryableFailureCount <= ALLOWED_RETRIES_COUNT) {
+            fail(KNOWN_INFRASTRUCTURE_FAILURE_PATTERN);
+        }
+        assertThat(testRetryableFailureCount).isEqualTo(3);
     }
 
     @DataProvider

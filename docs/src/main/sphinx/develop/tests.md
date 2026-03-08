@@ -178,6 +178,31 @@ removed.
 New tests with the `@Flaky` annotation can not be introduced, since new tests
 must use JUnit. Rewrite the test to be stable or avoid the test altogether.
 
+### Retryable infrastructure failure patterns
+
+Some test failures are caused by transient infrastructure issues rather than
+actual bugs, such as Databricks or Hadoop communication failures. These failures
+are handled automatically by `FlakyTestRetryAnalyzer`, which uses Java
+`ServiceLoader` to discover implementations of the `RetryableFailurePattern`
+interface.
+
+Each `RetryableFailurePattern` provides a regex pattern that is matched against
+the failure stacktrace. When a test fails and the stacktrace matches any
+registered pattern, the test is automatically retried up to two times. This
+applies to all TestNG tests regardless of whether they have the `@Flaky`
+annotation - tests annotated with `@Flaky` are retried when either their own
+pattern or a retryable failure pattern matches.
+
+To add a new retryable failure pattern:
+
+1. Create a class implementing `RetryableFailurePattern` in the appropriate
+   module.
+2. Register it in
+   `META-INF/services/io.trino.testng.services.RetryableFailurePattern`.
+
+See `HadoopRetryableFailurePattern` and `DatabricksRetryableFailurePattern` for
+examples.
+
 ### Avoid disabling tests
 
 Prefer to remove a test instead of disabling it. Test code is maintained and
