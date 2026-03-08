@@ -16,6 +16,7 @@ package io.trino.filesystem.s3;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.SetMultimap;
 import io.airlift.units.Duration;
+import io.trino.filesystem.EmulatedListFilesStartingFromIterator;
 import io.trino.filesystem.FileIterator;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
@@ -159,7 +160,7 @@ final class S3FileSystem
     public void deleteDirectory(Location location)
             throws IOException
     {
-        FileIterator iterator = listObjects(location, true);
+        FileIterator iterator = listObjects(location, true, Optional.empty());
         while (iterator.hasNext()) {
             List<Location> files = new ArrayList<>();
             while ((files.size() < 1000) && iterator.hasNext()) {
@@ -237,38 +238,76 @@ final class S3FileSystem
     public FileIterator listFiles(Location location)
             throws IOException
     {
-        return listObjects(location, false);
+        return listObjects(location, false, Optional.empty());
     }
 
-    private FileIterator listObjects(Location location, boolean includeDirectoryObjects)
+    @Override
+    public FileIterator listFilesStartingFrom(Location location, String startingFrom)
+            throws IOException
+    {
+        if (startingFrom.isEmpty()) {
+            return listFiles(location);
+        }
+
+        return listObjects(location, false, Optional.of(startingFrom));
+    }
+
+    private FileIterator listObjects(Location location, boolean includeDirectoryObjects, Optional<String> startingFrom)
             throws IOException
     {
         S3Location s3Location = new S3Location(location);
-
-        String key = s3Location.key();
-        if (!key.isEmpty() && !key.endsWith("/")) {
-            key += "/";
-        }
-
-        ListObjectsV2Request request = ListObjectsV2Request.builder()
-                .overrideConfiguration(context::applyCredentialProviderOverride)
-                // Restore status will not be added to the response without requested
-                .optionalObjectAttributes(OptionalObjectAttributes.RESTORE_STATUS)
-                .requestPayer(requestPayer)
-                .bucket(s3Location.bucket())
-                .prefix(key)
-                .build();
+        String keyPrefix = directoryKey(s3Location.key());
+        ListObjectsV2Request.Builder request = listObjectsRequest(s3Location, keyPrefix);
 
         try {
-            Stream<S3Object> s3ObjectStream = client.listObjectsV2Paginator(request).contents().stream();
+            if (startingFrom.isPresent()) {
+                // S3 startAfter is exclusive. Start slightly earlier and filter client-side to
+                // preserve the inclusive listFilesStartingFrom semantics.
+                String startingAfter = keyPrefix + truncateLastCodePoint(startingFrom.orElseThrow());
+                if (!startingAfter.isEmpty()) {
+                    request.startAfter(startingAfter);
+                }
+            }
+
+            Stream<S3Object> s3ObjectStream = client.listObjectsV2Paginator(request.build()).contents().stream();
             if (!includeDirectoryObjects) {
                 s3ObjectStream = s3ObjectStream.filter(object -> !object.key().endsWith("/"));
             }
-            return new S3FileIterator(s3Location, s3ObjectStream.iterator());
+
+            S3FileIterator iterator = new S3FileIterator(s3Location, s3ObjectStream.iterator());
+            if (startingFrom.isPresent()) {
+                return new EmulatedListFilesStartingFromIterator(iterator, s3Location.location(), startingFrom.orElseThrow());
+            }
+            return iterator;
         }
         catch (SdkException e) {
             throw new TrinoFileSystemException("Failed to list location: " + location, e);
         }
+    }
+
+    private ListObjectsV2Request.Builder listObjectsRequest(S3Location location, String keyPrefix)
+    {
+        return ListObjectsV2Request.builder()
+                .overrideConfiguration(context::applyCredentialProviderOverride)
+                // Restore status will not be added to the response without requested
+                .optionalObjectAttributes(OptionalObjectAttributes.RESTORE_STATUS)
+                .requestPayer(requestPayer)
+                .bucket(location.bucket())
+                .prefix(keyPrefix);
+    }
+
+    private static String directoryKey(String key)
+    {
+        if (!key.isEmpty() && !key.endsWith("/")) {
+            return key + "/";
+        }
+        return key;
+    }
+
+    private static String truncateLastCodePoint(String value)
+    {
+        verify(!value.isEmpty(), "value is empty");
+        return value.substring(0, value.offsetByCodePoints(value.length(), -1));
     }
 
     @Override
@@ -303,16 +342,7 @@ final class S3FileSystem
         S3Location s3Location = new S3Location(location);
         Location baseLocation = s3Location.baseLocation();
 
-        String key = s3Location.key();
-        if (!key.isEmpty() && !key.endsWith("/")) {
-            key += "/";
-        }
-
-        ListObjectsV2Request request = ListObjectsV2Request.builder()
-                .overrideConfiguration(context::applyCredentialProviderOverride)
-                .requestPayer(requestPayer)
-                .bucket(s3Location.bucket())
-                .prefix(key)
+        ListObjectsV2Request request = listObjectsRequest(s3Location, directoryKey(s3Location.key()))
                 .delimiter("/")
                 .build();
 
