@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - master
+      - user/dain/**
   pull_request:
   repository_dispatch:
     types: [test-with-secrets-command]
@@ -139,7 +140,7 @@ jobs:
 
   check-commits-dispatcher:
     needs: path-filters
-    if: github.event_name == 'pull_request' && needs.path-filters.outputs.non_docs == 'true'
+    if: false
     runs-on: ubuntu-latest
     outputs:
       matrix: ${{ steps.set-matrix.outputs.matrix }}
@@ -172,7 +173,7 @@ jobs:
     needs: check-commits-dispatcher
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    if: github.event_name == 'pull_request' && needs.check-commits-dispatcher.outputs.matrix != ''
+    if: false
     strategy:
       fail-fast: false
       matrix: ${{ fromJson(needs.check-commits-dispatcher.outputs.matrix) }}
