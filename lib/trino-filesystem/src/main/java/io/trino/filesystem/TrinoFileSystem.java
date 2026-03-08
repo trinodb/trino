@@ -218,7 +218,7 @@ public interface TrinoFileSystem
      * exact name of the prefix, it is not included in the results.
      * <p>
      * The returned FileEntry locations will start with the specified location exactly
-     * and are lexicographically sorted (except for local HDFS which has the system-dependant
+     * and are lexicographically sorted (except for local HDFS which has the system-dependent
      * ordering).
      *
      * @param location the directory to list
@@ -226,6 +226,35 @@ public interface TrinoFileSystem
      */
     FileIterator listFiles(Location location)
             throws IOException;
+
+    /**
+     * Lists files within the specified directory recursively, including only files where the
+     * remainder of the path after the location is lexicographically greater than or equal to
+     * {@code startingFrom}. The location can be empty, listing all files in the file system where the
+     * path is greater than or equal to {@code startingFrom}. The location is always interpreted as a
+     * directory, whether or not it ends with a slash. If the location does not exist, an empty
+     * iterator is returned. {@code startingFrom} may be empty, in which case the behavior is identical to
+     * {@link #listFiles(Location)}.
+     * <p>
+     * For hierarchical file systems, if the path is not a directory, an exception is
+     * raised.
+     * For hierarchical file systems, if the path does not reference an existing
+     * directory, an empty iterator is returned. For blob file systems, all blobs
+     * that start with the location are listed, subject to the startingFrom constraint.
+     * <p>
+     * The returned FileEntry locations will start with the specified location exactly
+     * and are lexicographically sorted (except for local HDFS which has the system-dependent
+     * ordering).
+     *
+     * @param location the directory to list
+     * @param startingFrom the inclusive lower bound for the path remainder after {@code location}
+     * @throws IllegalArgumentException if location is not valid for this file system
+     */
+    default FileIterator listFilesStartingFrom(Location location, String startingFrom)
+            throws IOException
+    {
+        return new EmulatedListFilesStartingFromIterator(listFiles(location), location, startingFrom);
+    }
 
     /**
      * Checks if a directory exists at the specified location. For all file system types,
