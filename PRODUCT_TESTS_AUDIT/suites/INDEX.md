@@ -1,0 +1,188 @@
+# Suite Index
+
+Current JUnit suite audit files.
+
+- [SuiteAllConnectorsSmoke](suite-all-connectors-smoke.md)
+    - Owning lane: `all-connectors-smoke`
+  - CI bucket: `connector-smoke`
+    - Parity status: `verified`
+- [SuiteAuthorization](suite-authorization.md)
+    - Owning lane: `hive`
+    - CI bucket: `hive-transactional`
+    - Parity status: `verified`
+- [SuiteAzure](suite-azure.md)
+    - Owning lane: `azure`
+    - CI bucket: `cloud-object-store`
+    - Parity status: `verified`
+- [SuiteBlackHole](suite-black-hole.md)
+    - Owning lane: `blackhole`
+    - CI bucket: `connector-smoke`
+    - Parity status: `verified`
+- [SuiteCassandra](suite-cassandra.md)
+    - Owning lane: `cassandra`
+    - CI bucket: `connector-smoke`
+    - Parity status: `verified`
+- [SuiteClickhouse](suite-clickhouse.md)
+    - Owning lane: `clickhouse`
+    - CI bucket: `connector-smoke`
+    - Parity status: `verified`
+- [SuiteClients](suite-clients.md)
+    - Owning lane: `jdbc`
+    - CI bucket: `auth-and-clients`
+    - Parity status: `verified`
+- [SuiteCompatibility](suite-compatibility.md)
+    - Owning lane: `compatibility`
+    - CI bucket: `delta-lake`
+    - Parity status: `verified`
+- [SuiteDeltaLakeDatabricks133](suite-delta-lake-databricks133.md)
+    - Owning lane: `databricks`
+  - CI bucket: `databricks-133`
+    - Parity status: `verified`
+- [SuiteDeltaLakeDatabricks143](suite-delta-lake-databricks143.md)
+    - Owning lane: `databricks`
+  - CI bucket: `databricks-143`
+    - Parity status: `verified`
+- [SuiteDeltaLakeDatabricks154](suite-delta-lake-databricks154.md)
+    - Owning lane: `databricks`
+  - CI bucket: `databricks-154`
+    - Parity status: `verified`
+- [SuiteDeltaLakeDatabricks164](suite-delta-lake-databricks164.md)
+    - Owning lane: `databricks`
+  - CI bucket: `databricks-164`
+    - Parity status: `verified`
+- [SuiteDeltaLakeDatabricks173](suite-delta-lake-databricks173.md)
+    - Owning lane: `databricks`
+  - CI bucket: `databricks-173`
+    - Parity status: `verified`
+- [SuiteDeltaLakeOss](suite-delta-lake-oss.md)
+    - Owning lane: `delta-lake`
+    - CI bucket: `delta-lake`
+    - Parity status: `verified`
+- [SuiteExasol](suite-exasol.md)
+    - Owning lane: `exasol`
+    - CI bucket: `jdbc-external`
+    - Parity status: `verified`
+- [SuiteFaultTolerant](suite-fault-tolerant.md)
+    - Owning lane: `fault-tolerant`
+    - CI bucket: `hive-transactional`
+    - Parity status: `verified`
+- [SuiteFunctions](suite-functions.md)
+    - Owning lane: `functions`
+    - CI bucket: `jdbc-core`
+    - Parity status: `verified`
+- [SuiteGcs](suite-gcs.md)
+    - Owning lane: `gcs`
+    - CI bucket: `cloud-object-store`
+    - Parity status: `verified`
+- [SuiteHdfsImpersonation](suite-hdfs-impersonation.md)
+    - Owning lane: `hive`
+  - CI bucket: `hive-kerberos`
+    - Parity status: `verified`
+- [SuiteHive4](suite-hive4.md)
+    - Owning lane: `hive4`
+    - CI bucket: `hive-kerberos`
+    - Parity status: `verified`
+- [SuiteHiveAlluxioCaching](suite-hive-alluxio-caching.md)
+    - Owning lane: `hive`
+  - CI bucket: `hive-storage`
+    - Parity status: `verified`
+- [SuiteHiveBasic](suite-hive-basic.md)
+    - Owning lane: `hive`
+    - CI bucket: `hive-basic`
+    - Parity status: `verified`
+- [SuiteHiveKerberos](suite-hive-kerberos.md)
+    - Owning lane: `hive`
+    - CI bucket: `hive-kerberos`
+    - Parity status: `verified`
+- [SuiteHiveSpark](suite-hive-spark.md)
+    - Owning lane: `hive`
+    - CI bucket: `hive-storage`
+    - Parity status: `verified`
+- [SuiteHiveStorageFormats](suite-hive-storage-formats.md)
+    - Owning lane: `hive`
+  - CI bucket: `hive-basic`
+    - Parity status: `verified`
+- [SuiteHiveTransactional](suite-hive-transactional.md)
+    - Owning lane: `hive`
+  - CI bucket: `hive-transactional`
+    - Parity status: `verified`
+- [SuiteHmsOnly](suite-hms-only.md)
+    - Owning lane: `hive`
+    - CI bucket: `hive-basic`
+    - Parity status: `verified`
+- [SuiteHudi](suite-hudi.md)
+    - Owning lane: `hudi`
+    - CI bucket: `hive-kerberos`
+    - Parity status: `verified`
+- [SuiteIceberg](suite-iceberg.md)
+    - Owning lane: `iceberg`
+    - CI bucket: `iceberg`
+    - Parity status: `verified`
+- [SuiteIgnite](suite-ignite.md)
+    - Owning lane: `ignite`
+    - CI bucket: `connector-smoke`
+    - Parity status: `verified`
+- [SuiteJdbcKerberos](suite-jdbc-kerberos.md)
+    - Owning lane: `jdbc-kerberos`
+    - CI bucket: `auth-and-clients`
+    - Parity status: `verified`
+- [SuiteKafka](suite-kafka.md)
+    - Owning lane: `kafka`
+    - CI bucket: `auth-and-clients`
+    - Parity status: `verified`
+- [SuiteLdap](suite-ldap.md)
+    - Owning lane: `ldap`
+    - CI bucket: `auth-and-clients`
+    - Parity status: `verified`
+- [SuiteLoki](suite-loki.md)
+    - Owning lane: `loki`
+    - CI bucket: `auth-and-clients`
+    - Parity status: `verified`
+- [SuiteMysql](suite-mysql.md)
+    - Owning lane: `mysql-mariadb`
+    - CI bucket: `jdbc-core`
+    - Parity status: `verified`
+- [SuiteOauth2](suite-oauth2.md)
+    - Owning lane: `jdbc-oauth2`
+    - CI bucket: `auth-and-clients`
+    - Parity status: `verified`
+- [SuiteParquet](suite-parquet.md)
+    - Owning lane: `parquet`
+    - CI bucket: `hive-storage`
+    - Parity status: `verified`
+- [SuitePostgresql](suite-postgresql.md)
+    - Owning lane: `postgresql`
+    - CI bucket: `jdbc-core`
+    - Parity status: `verified`
+- [SuiteRanger](suite-ranger.md)
+    - Owning lane: `ranger`
+    - CI bucket: `auth-and-clients`
+    - Parity status: `verified`
+- [SuiteSnowflake](suite-snowflake.md)
+    - Owning lane: `snowflake`
+    - CI bucket: `jdbc-external`
+    - Parity status: `verified`
+- [SuiteSqlServer](suite-sql-server.md)
+    - Owning lane: `sql-server`
+    - CI bucket: `jdbc-core`
+    - Parity status: `verified`
+- [SuiteStorageFormatsDetailed](suite-storage-formats-detailed.md)
+    - Owning lane: `hive`
+  - CI bucket: `hive-storage`
+    - Parity status: `verified`
+- [SuiteTls](suite-tls.md)
+    - Owning lane: `tls`
+    - CI bucket: `auth-and-clients`
+    - Parity status: `verified`
+- [SuiteTpcds](suite-tpcds.md)
+    - Owning lane: `tpcds`
+    - CI bucket: `jdbc-core`
+    - Parity status: `verified`
+- [SuiteTpch](suite-tpch.md)
+    - Owning lane: `tpch`
+    - CI bucket: `jdbc-core`
+    - Parity status: `verified`
+- [SuiteTwoHives](suite-two-hives.md)
+    - Owning lane: `hive`
+    - CI bucket: `hive-kerberos`
+    - Parity status: `verified`
