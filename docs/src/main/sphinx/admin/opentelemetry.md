@@ -44,8 +44,28 @@ example uses a observability platform deployment available by
 HTTP at the host `observe.example.com`, port `4317`.
 
 Use the `otel.exporter.protocol` property to configure the protocol for exporting traces.
-Defaults to the gRPC protocol with the `grpc` value. Set the value to `http/protobuf` for 
+Defaults to the gRPC protocol with the `grpc` value. Set the value to `http/protobuf` for
 exporting traces using protocol buffers with HTTP transport.
+
+### Sampling
+
+Use the `otel.tracing.sampling-ratio` property to control the ratio of traces
+that are sampled and exported. The value must be between `0` and `1`, where `1`
+means all traces are sampled and `0` means no traces are sampled. The default
+value is `1`.
+
+For example, to sample only 10% of traces:
+
+```properties
+tracing.enabled=true
+otel.exporter.endpoint=http://observe.example.com:4317
+otel.tracing.sampling-ratio=0.1
+```
+
+This is useful for high-traffic deployments where exporting all traces creates
+excessive load on the observability backend. The sampler uses a parent-based
+strategy with trace ID ratio-based sampling for root spans, which means that
+child spans inherit the sampling decision from their parent.
 
 ## Example use
 
