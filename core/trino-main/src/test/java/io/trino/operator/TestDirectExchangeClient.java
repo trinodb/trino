@@ -53,6 +53,7 @@ import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.parallel.Execution;
 
+import java.io.ByteArrayInputStream;
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.List;
@@ -893,11 +894,11 @@ public class TestDirectExchangeClient
                             .collect(toImmutableListMultimap(entry -> entry.getKey().toString(), Map.Entry::getValue));
                     byte[] bytes = response.getInputStream().readAllBytes();
                     checkState(bytes.length > 42, "too short");
-                    savedResponse = new TestingResponse(HttpStatus.OK, headers, bytes.clone());
+                    savedResponse = new TestingResponse(HttpStatus.OK, headers, new ByteArrayInputStream(bytes.clone()));
                     // corrupt
                     bytes[42]++;
                     completedRequests++;
-                    return new TestingResponse(HttpStatus.OK, headers, bytes);
+                    return new TestingResponse(HttpStatus.OK, headers, new ByteArrayInputStream(bytes));
                 }
 
                 if (completedRequests == 1) {
