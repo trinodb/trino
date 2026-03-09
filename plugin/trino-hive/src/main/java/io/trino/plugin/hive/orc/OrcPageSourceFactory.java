@@ -265,7 +265,7 @@ public class OrcPageSourceFactory
         try {
             Optional<OrcReader> optionalOrcReader = OrcReader.createOrcReader(orcDataSource, options);
             if (optionalOrcReader.isEmpty()) {
-                return new EmptyPageSource();
+                return EmptyPageSource.EMPTY;
             }
             OrcReader reader = optionalOrcReader.get();
             if (!originalFile && acidInfo.isPresent() && !acidInfo.get().orcAcidVersionValidated()) {

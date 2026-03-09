@@ -79,7 +79,7 @@ public class MongoPageSourceProvider
         }
 
         if (newTableHandle.constraint().isNone()) {
-            return new EmptyPageSource();
+            return EmptyPageSource.EMPTY;
         }
 
         return new MongoPageSource(mongoSession, newTableHandle, handles.build(), implicitPrefix);

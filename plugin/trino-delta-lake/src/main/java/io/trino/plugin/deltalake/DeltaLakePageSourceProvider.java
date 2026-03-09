@@ -196,13 +196,13 @@ public class DeltaLakePageSourceProvider
                 split.getStatisticsPredicate(),
                 dynamicFilter.getCurrentPredicate().transformKeys(DeltaLakeColumnHandle.class::cast)));
         if (filteredSplitPredicate.isNone()) {
-            return new EmptyPageSource();
+            return EmptyPageSource.EMPTY;
         }
         Map<DeltaLakeColumnHandle, Domain> partitionColumnDomains = filteredSplitPredicate.getDomains().orElseThrow().entrySet().stream()
                 .filter(entry -> entry.getKey().columnType() == DeltaLakeColumnType.PARTITION_KEY)
                 .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
         if (!partitionMatchesPredicate(split.getPartitionKeys(), partitionColumnDomains)) {
-            return new EmptyPageSource();
+            return EmptyPageSource.EMPTY;
         }
         // Skip reading the file if none of the actual file columns are being read
         if (filteredSplitPredicate.isAll() &&

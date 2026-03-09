@@ -114,7 +114,7 @@ public class HivePageSourceProvider
         HiveSplit hiveSplit = (HiveSplit) split;
 
         if (shouldSkipBucket(hiveTable, hiveSplit, dynamicFilter)) {
-            return new EmptyPageSource();
+            return EmptyPageSource.EMPTY;
         }
 
         List<HiveColumnHandle> hiveColumns = columns.stream()
@@ -137,7 +137,7 @@ public class HivePageSourceProvider
         // Perform dynamic partition pruning in case coordinator didn't prune split.
         // This can happen when dynamic filters are collected after partition splits were listed.
         if (shouldSkipSplit(columnMappings, dynamicFilter)) {
-            return new EmptyPageSource();
+            return EmptyPageSource.EMPTY;
         }
 
         Optional<ConnectorPageSource> pageSource = createHivePageSource(
@@ -192,7 +192,7 @@ public class HivePageSourceProvider
             List<ColumnMapping> columnMappings)
     {
         if (effectivePredicate.isNone()) {
-            return Optional.of(new EmptyPageSource());
+            return Optional.of(EmptyPageSource.EMPTY);
         }
 
         List<ColumnMapping> regularAndInterimColumnMappings = ColumnMapping.extractRegularAndInterimColumnMappings(columnMappings);

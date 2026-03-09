@@ -146,13 +146,13 @@ public abstract class LinePageSourceFactory
 
             // Skip empty inputs
             if (length <= 0) {
-                return new EmptyPageSource();
+                return EmptyPageSource.EMPTY;
             }
 
             LineReader lineReader = lineReaderFactory.createLineReader(inputFile, start, length, headerCount, footerCount);
             // Split may be empty after discovering the real file size and skipping headers
             if (lineReader.isClosed()) {
-                return new EmptyPageSource();
+                return EmptyPageSource.EMPTY;
             }
             return new LinePageSource(lineReader, lineDeserializer, lineReaderFactory.createLineBuffer(), path, smallFileReadTimeNanos);
         }

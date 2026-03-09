@@ -16,6 +16,12 @@ package io.trino.spi.connector;
 public class EmptyPageSource
         implements ConnectorPageSource
 {
+    public static final EmptyPageSource EMPTY = new EmptyPageSource();
+
+    private EmptyPageSource()
+    {
+    }
+
     @Override
     public long getCompletedBytes()
     {

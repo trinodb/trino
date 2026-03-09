@@ -128,7 +128,7 @@ public abstract class BaseTransactionsTable
         }
 
         if (startVersionExclusive.isPresent() && endVersionInclusive.isPresent() && startVersionExclusive.get() >= endVersionInclusive.get()) {
-            return new EmptyPageSource();
+            return EmptyPageSource.EMPTY;
         }
 
         if (endVersionInclusive.isEmpty()) {

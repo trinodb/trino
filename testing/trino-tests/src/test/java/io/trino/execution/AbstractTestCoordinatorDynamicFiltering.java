@@ -626,7 +626,7 @@ public abstract class AbstractTestCoordinatorDynamicFiltering
                             .describedAs("columns covered")
                             .isEqualTo(expectedDynamicFilterColumnsCovered);
 
-                    return new EmptyPageSource()
+                    return EmptyPageSource.EMPTY
                     {
                         @Override
                         public CompletableFuture<?> isBlocked()

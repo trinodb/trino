@@ -143,7 +143,7 @@ public class RcFilePageSourceFactory
 
         // Split may be empty now that the correct file size is known
         if (length <= 0) {
-            return new EmptyPageSource();
+            return EmptyPageSource.EMPTY;
         }
 
         try {

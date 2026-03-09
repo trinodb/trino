@@ -123,7 +123,7 @@ public class SystemPageSourceProvider
 
         TupleDomain<ColumnHandle> constraint = systemSplit.getConstraint();
         if (constraint.isNone()) {
-            return new EmptyPageSource();
+            return EmptyPageSource.EMPTY;
         }
         TupleDomain<Integer> newConstraint = systemSplit.getConstraint().transformKeys(columnHandle ->
                 columnsByName.get(((SystemColumnHandle) columnHandle).columnName()));

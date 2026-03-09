@@ -180,7 +180,7 @@ public class TableScanOperator
         blocked.set(null);
 
         if (split.getConnectorSplit() instanceof EmptySplit) {
-            source = new EmptyPageSource();
+            source = EmptyPageSource.EMPTY;
         }
     }
 

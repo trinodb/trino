@@ -204,7 +204,7 @@ public class TestBeginQuery
                         List<ColumnHandle> columns,
                         DynamicFilter dynamicFilter)
                 {
-                    return new EmptyPageSource();
+                    return EmptyPageSource.EMPTY;
                 }
             };
         }

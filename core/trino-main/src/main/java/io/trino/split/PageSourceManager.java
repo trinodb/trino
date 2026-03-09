@@ -72,7 +72,7 @@ public class PageSourceManager
 
             TupleDomain<ColumnHandle> constraint = dynamicFilter.getCurrentPredicate();
             if (constraint.isNone()) {
-                return new EmptyPageSource();
+                return EmptyPageSource.EMPTY;
             }
             if (!isAllowPushdownIntoConnectors(session)) {
                 dynamicFilter = DynamicFilter.EMPTY;

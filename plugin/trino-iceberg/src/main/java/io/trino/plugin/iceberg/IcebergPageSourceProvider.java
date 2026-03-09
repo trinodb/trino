@@ -323,7 +323,7 @@ public class IcebergPageSourceProvider
                 unenforcedPredicate,
                 fileStatisticsDomain);
         if (effectivePredicate.isNone()) {
-            return new EmptyPageSource();
+            return EmptyPageSource.EMPTY;
         }
 
         // exit early when only reading partition keys from a simple split

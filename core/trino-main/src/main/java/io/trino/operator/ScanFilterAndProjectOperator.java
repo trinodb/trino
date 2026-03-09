@@ -242,7 +242,7 @@ public class ScanFilterAndProjectOperator
 
             ConnectorPageSource source;
             if (split.getConnectorSplit() instanceof EmptySplit) {
-                source = new EmptyPageSource();
+                source = EmptyPageSource.EMPTY;
             }
             else {
                 source = pageSourceProvider.createPageSource(session, split, table, columns, dynamicFilter);

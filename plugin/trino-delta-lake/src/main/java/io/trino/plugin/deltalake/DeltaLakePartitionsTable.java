@@ -158,7 +158,7 @@ public class DeltaLakePartitionsTable
     public ConnectorPageSource pageSource(ConnectorTransactionHandle transactionHandle, ConnectorSession session, TupleDomain<Integer> constraint)
     {
         if (partitionColumns.isEmpty()) {
-            return new EmptyPageSource();
+            return EmptyPageSource.EMPTY;
         }
 
         return new FixedPageSource(buildPages(session));

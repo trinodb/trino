@@ -108,7 +108,7 @@ public class AvroPageSourceFactory
 
         // Split may be empty now that the correct file size is known
         if (actualSplitSize <= 0) {
-            return Optional.of(new EmptyPageSource());
+            return Optional.of(EmptyPageSource.EMPTY);
         }
 
         return Optional.of(projectColumnDereferences(columns, baseColumns -> createPageSource(session, trinoFileSystem, inputFile, start, actualSplitSize, schema, baseColumns)));

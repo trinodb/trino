@@ -82,7 +82,7 @@ public class EsriPageSourceFactory
 
         // Skip empty inputs
         if (length == 0) {
-            return Optional.of(new EmptyPageSource());
+            return Optional.of(EmptyPageSource.EMPTY);
         }
 
         if (start != 0) {
