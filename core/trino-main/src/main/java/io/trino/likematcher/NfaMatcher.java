@@ -86,7 +86,8 @@ final class NfaMatcher
     @Override
     public boolean match(Slice input, int offset, int length)
     {
-        boolean[] seen = new boolean[stateCount + 1];
+        int[] seenGeneration = new int[stateCount + 1];
+        int generation = 1;
         int[] currentStates = new int[stateCount];
         int[] nextStates = new int[stateCount];
         int currentStatesIndex = 0;
@@ -136,19 +137,19 @@ final class NfaMatcher
 
             accept = false;
             nextStatesIndex = 0;
-            Arrays.fill(seen, false);
+            generation++;
             for (int i = 0; i < currentStatesIndex; i++) {
                 int state = currentStates[i];
-                if (!seen[state] && loopback[state]) {
+                if (seenGeneration[state] != generation && loopback[state]) {
                     nextStates[nextStatesIndex++] = state;
                     accept |= state == acceptState;
-                    seen[state] = true;
+                    seenGeneration[state] = generation;
                 }
                 int next = state + 1;
-                if (!seen[next] && (match[state] == ANY || match[state] == codepoint)) {
+                if (seenGeneration[next] != generation && (match[state] == ANY || match[state] == codepoint)) {
                     nextStates[nextStatesIndex++] = next;
                     accept |= next == acceptState;
-                    seen[next] = true;
+                    seenGeneration[next] = generation;
                 }
             }
 
