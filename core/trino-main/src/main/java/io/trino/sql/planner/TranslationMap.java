@@ -1021,13 +1021,13 @@ public class TranslationMap
                 resolvedFunction.get().signature().getArgumentType(2),
                 failOnError);
 
-        IrJsonPath path = new JsonPathTranslator(session, plannerContext).rewriteToIr(analysis.getJsonPathAnalysis(node), orderedParameters.getParametersOrder());
+        IrJsonPath path = new JsonPathTranslator(session, plannerContext).rewriteToIr(analysis.getJsonPathAnalysis(node), orderedParameters.parametersOrder());
         io.trino.sql.ir.Expression pathExpression = new Constant(plannerContext.getTypeManager().getType(TypeId.of(JsonPath2016Type.NAME)), path);
 
         ImmutableList.Builder<io.trino.sql.ir.Expression> arguments = ImmutableList.<io.trino.sql.ir.Expression>builder()
                 .add(input)
                 .add(pathExpression)
-                .add(orderedParameters.getParametersRow())
+                .add(orderedParameters.parametersRow())
                 .add(new Constant(TINYINT, (long) node.getErrorBehavior().ordinal()));
 
         return new Call(resolvedFunction.get(), arguments.build());
@@ -1055,13 +1055,13 @@ public class TranslationMap
                 resolvedFunction.get().signature().getArgumentType(2),
                 failOnError);
 
-        IrJsonPath path = new JsonPathTranslator(session, plannerContext).rewriteToIr(analysis.getJsonPathAnalysis(node), orderedParameters.getParametersOrder());
+        IrJsonPath path = new JsonPathTranslator(session, plannerContext).rewriteToIr(analysis.getJsonPathAnalysis(node), orderedParameters.parametersOrder());
         io.trino.sql.ir.Expression pathExpression = new Constant(plannerContext.getTypeManager().getType(TypeId.of(JsonPath2016Type.NAME)), path);
 
         ImmutableList.Builder<io.trino.sql.ir.Expression> arguments = ImmutableList.<io.trino.sql.ir.Expression>builder()
                 .add(input)
                 .add(pathExpression)
-                .add(orderedParameters.getParametersRow())
+                .add(orderedParameters.parametersRow())
                 .add(new Constant(TINYINT, (long) node.getEmptyBehavior().ordinal()))
                 .add(node.getEmptyDefault()
                         .map(this::translateExpression)
@@ -1096,13 +1096,13 @@ public class TranslationMap
                 resolvedFunction.get().signature().getArgumentType(2),
                 failOnError);
 
-        IrJsonPath path = new JsonPathTranslator(session, plannerContext).rewriteToIr(analysis.getJsonPathAnalysis(node), orderedParameters.getParametersOrder());
+        IrJsonPath path = new JsonPathTranslator(session, plannerContext).rewriteToIr(analysis.getJsonPathAnalysis(node), orderedParameters.parametersOrder());
         io.trino.sql.ir.Expression pathExpression = new Constant(plannerContext.getTypeManager().getType(TypeId.of(JsonPath2016Type.NAME)), path);
 
         ImmutableList.Builder<io.trino.sql.ir.Expression> arguments = ImmutableList.<io.trino.sql.ir.Expression>builder()
                 .add(input)
                 .add(pathExpression)
-                .add(orderedParameters.getParametersRow())
+                .add(orderedParameters.parametersRow())
                 .add(new Constant(TINYINT, (long) node.getWrapperBehavior().ordinal()))
                 .add(new Constant(TINYINT, (long) node.getEmptyBehavior().ordinal()))
                 .add(new Constant(TINYINT, (long) node.getErrorBehavior().ordinal()));
@@ -1323,25 +1323,12 @@ public class TranslationMap
         return new ParametersRow(parametersRow, parametersOrder);
     }
 
-    public static class ParametersRow
+    public record ParametersRow(io.trino.sql.ir.Expression parametersRow, List<String> parametersOrder)
     {
-        private final io.trino.sql.ir.Expression parametersRow;
-        private final List<String> parametersOrder;
-
-        public ParametersRow(io.trino.sql.ir.Expression parametersRow, List<String> parametersOrder)
+        public ParametersRow
         {
-            this.parametersRow = requireNonNull(parametersRow, "parametersRow is null");
-            this.parametersOrder = requireNonNull(parametersOrder, "parametersOrder is null");
-        }
-
-        public io.trino.sql.ir.Expression getParametersRow()
-        {
-            return parametersRow;
-        }
-
-        public List<String> getParametersOrder()
-        {
-            return parametersOrder;
+            requireNonNull(parametersRow, "parametersRow is null");
+            requireNonNull(parametersOrder, "parametersOrder is null");
         }
     }
 }

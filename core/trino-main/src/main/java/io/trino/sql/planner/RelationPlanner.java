@@ -1375,7 +1375,7 @@ class RelationPlanner
         JsonTableAnalysis jsonTableAnalysis = analysis.getJsonTableAnalysis(jsonTable);
         RowType parametersType = jsonTableAnalysis.parametersType();
         ParametersRow orderedParameters = planBuilder.getTranslations().getParametersRow(pathParameters, coercedParameters, parametersType, failOnError);
-        Expression parametersRow = orderedParameters.getParametersRow();
+        Expression parametersRow = orderedParameters.parametersRow();
 
         // append projections for inputJson and parametersRow
         // cannot use the 'appendProjections()' method because the projected expressions include resolved input functions, so they are not pure AST expressions
@@ -1409,7 +1409,7 @@ class RelationPlanner
         }
 
         // rewrite the root JSON path to IR using parameters
-        IrJsonPath rootPath = new JsonPathTranslator(session, plannerContext).rewriteToIr(analysis.getJsonPathAnalysis(jsonTable), orderedParameters.getParametersOrder());
+        IrJsonPath rootPath = new JsonPathTranslator(session, plannerContext).rewriteToIr(analysis.getJsonPathAnalysis(jsonTable), orderedParameters.parametersOrder());
 
         // create json_table execution plan
         List<NodeRef<JsonTableColumnDefinition>> orderedColumns = jsonTableAnalysis.orderedOutputColumns();
