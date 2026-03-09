@@ -102,7 +102,7 @@ public class TestIcebergVendingRestCatalogConnectorSmokeTest
         StsClient stsClient = StsClient.builder()
                 .endpointOverride(URI.create(minio.getMinioAddress()))
                 .credentialsProvider(StaticCredentialsProvider.create(credentials))
-                .region(Region.US_EAST_1)
+                .region(Region.of(MINIO_REGION))
                 .build();
 
         AssumeRoleResponse assumeRoleResponse = stsClient.assumeRole(AssumeRoleRequest.builder().build());
