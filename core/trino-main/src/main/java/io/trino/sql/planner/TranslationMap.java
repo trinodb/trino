@@ -360,7 +360,7 @@ public class TranslationMap
                 case Row expression -> translate(expression);
                 case NotExpression expression -> translate(expression);
                 case LogicalExpression expression -> translate(expression);
-                case NullLiteral expression -> new Constant(UnknownType.UNKNOWN, null);
+                case NullLiteral _ -> new Constant(UnknownType.UNKNOWN, null);
                 case CoalesceExpression expression -> translate(expression);
                 case IsNullPredicate expression -> translate(expression);
                 case IsNotNullPredicate expression -> translate(expression);
