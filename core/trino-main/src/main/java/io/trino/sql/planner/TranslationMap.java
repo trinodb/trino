@@ -866,40 +866,29 @@ public class TranslationMap
         Type timeZoneType = analysis.getType(node.getTimeZone());
         io.trino.sql.ir.Expression timeZone = translateExpression(node.getTimeZone());
 
-        Call call;
-        if (valueType instanceof TimeType type) {
-            call = BuiltinFunctionCallBuilder.resolve(plannerContext.getMetadata())
+        return switch (valueType) {
+            case TimeType type -> BuiltinFunctionCallBuilder.resolve(plannerContext.getMetadata())
                     .setName("$at_timezone")
                     .addArgument(createTimeWithTimeZoneType(type.getPrecision()), new io.trino.sql.ir.Cast(value, createTimeWithTimeZoneType(type.getPrecision())))
                     .addArgument(timeZoneType, timeZone)
                     .build();
-        }
-        else if (valueType instanceof TimeWithTimeZoneType) {
-            call = BuiltinFunctionCallBuilder.resolve(plannerContext.getMetadata())
+            case TimeWithTimeZoneType _ -> BuiltinFunctionCallBuilder.resolve(plannerContext.getMetadata())
                     .setName("$at_timezone")
                     .addArgument(valueType, value)
                     .addArgument(timeZoneType, timeZone)
                     .build();
-        }
-        else if (valueType instanceof TimestampType type) {
-            call = BuiltinFunctionCallBuilder.resolve(plannerContext.getMetadata())
+            case TimestampType type -> BuiltinFunctionCallBuilder.resolve(plannerContext.getMetadata())
                     .setName("at_timezone")
                     .addArgument(createTimestampWithTimeZoneType(type.getPrecision()), new io.trino.sql.ir.Cast(value, createTimestampWithTimeZoneType(type.getPrecision())))
                     .addArgument(timeZoneType, timeZone)
                     .build();
-        }
-        else if (valueType instanceof TimestampWithTimeZoneType) {
-            call = BuiltinFunctionCallBuilder.resolve(plannerContext.getMetadata())
+            case TimestampWithTimeZoneType _ -> BuiltinFunctionCallBuilder.resolve(plannerContext.getMetadata())
                     .setName("at_timezone")
                     .addArgument(valueType, value)
                     .addArgument(timeZoneType, timeZone)
                     .build();
-        }
-        else {
-            throw new IllegalArgumentException("Unexpected type: " + valueType);
-        }
-
-        return call;
+            default -> throw new IllegalArgumentException("Unexpected type: " + valueType);
+        };
     }
 
     private io.trino.sql.ir.Expression translate(Format node)
