@@ -914,6 +914,12 @@
                                     <new>method io.trino.spi.function.FunctionMetadata io.trino.spi.function.FunctionMetadata::fromJson(io.trino.spi.function.FunctionId, io.trino.spi.function.Signature, java.lang.String, java.util.Set&lt;java.lang.String&gt;, io.trino.spi.function.FunctionNullability, boolean, boolean, boolean, java.lang.String, io.trino.spi.function.FunctionKind, boolean)</new>
                                     <justification>Function declares whether it never fails</justification>
                                 </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.class.externalClassExposedInAPI</code>
+                                    <new>interface io.opentelemetry.api.trace.TraceFlagsBuilder</new>
+                                    <justification>New OpenTelemetry API version</justification>
+                                </item>
                             </differences>
                         </revapi.differences>
                     </analysisConfiguration>
