@@ -14,6 +14,7 @@
 package io.trino.plugin.base.filter;
 
 import com.google.common.collect.ImmutableList;
+import io.trino.plugin.base.expression.ConnectorExpressions;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.Constraint;
 import io.trino.spi.expression.Call;
@@ -218,6 +219,103 @@ public class TestUtcConstraintExtractor
                 .isEqualTo(TupleDomain.withColumnDomains(Map.of(
                         columnHandle,
                         Domain.create(ValueSet.ofRanges(Range.range(columnType, startOfDateUtc, true, startOfNextDateUtc, false)), false))));
+    }
+
+    @Test
+    public void testExtractTimestampTzDateOrComparison()
+    {
+        String timestampTzColumnSymbol = "timestamp_tz_symbol";
+        TimestampWithTimeZoneType columnType = TIMESTAMP_TZ_MILLIS;
+        ColumnHandle columnHandle = new TestingColumnHandle(timestampTzColumnSymbol);
+
+        ConnectorExpression castOfColumn = new Call(DATE, CAST_FUNCTION_NAME, ImmutableList.of(new Variable(timestampTzColumnSymbol, columnType)));
+
+        // date(c2_ts) BETWEEN date'2025-07-01' AND date'2025-07-31' OR date(c2_ts) BETWEEN date'2025-10-01' AND date'2025-10-31'
+        LocalDate julyStart = LocalDate.of(2025, 7, 1);
+        LocalDate julyEnd = LocalDate.of(2025, 7, 31);
+        LocalDate octoberStart = LocalDate.of(2025, 10, 1);
+        LocalDate octoberEnd = LocalDate.of(2025, 10, 31);
+
+        long julyStartMillis = julyStart.atStartOfDay().toEpochSecond(UTC) * MILLISECONDS_PER_SECOND;
+        long julyEndNextDayMillis = julyEnd.plusDays(1).atStartOfDay().toEpochSecond(UTC) * MILLISECONDS_PER_SECOND;
+        long octoberStartMillis = octoberStart.atStartOfDay().toEpochSecond(UTC) * MILLISECONDS_PER_SECOND;
+        long octoberEndNextDayMillis = octoberEnd.plusDays(1).atStartOfDay().toEpochSecond(UTC) * MILLISECONDS_PER_SECOND;
+
+        // Build: date(c2_ts) >= date'2025-07-01' AND date(c2_ts) <= date'2025-07-31'
+        ConnectorExpression julyGe = new Call(BOOLEAN, GREATER_THAN_OR_EQUAL_OPERATOR_FUNCTION_NAME, ImmutableList.of(castOfColumn, new Constant(julyStart.toEpochDay(), DATE)));
+        ConnectorExpression julyLe = new Call(BOOLEAN, LESS_THAN_OR_EQUAL_OPERATOR_FUNCTION_NAME, ImmutableList.of(castOfColumn, new Constant(julyEnd.toEpochDay(), DATE)));
+        ConnectorExpression julyBetween = ConnectorExpressions.and(julyGe, julyLe);
+
+        // Build: date(c2_ts) >= date'2025-10-01' AND date(c2_ts) <= date'2025-10-31'
+        ConnectorExpression octoberGe = new Call(BOOLEAN, GREATER_THAN_OR_EQUAL_OPERATOR_FUNCTION_NAME, ImmutableList.of(castOfColumn, new Constant(octoberStart.toEpochDay(), DATE)));
+        ConnectorExpression octoberLe = new Call(BOOLEAN, LESS_THAN_OR_EQUAL_OPERATOR_FUNCTION_NAME, ImmutableList.of(castOfColumn, new Constant(octoberEnd.toEpochDay(), DATE)));
+        ConnectorExpression octoberBetween = ConnectorExpressions.and(octoberGe, octoberLe);
+
+        // Build: julyBetween OR octoberBetween
+        ConnectorExpression orExpression = ConnectorExpressions.or(julyBetween, octoberBetween);
+
+        assertThat(extract(
+                constraint(orExpression, Map.of(timestampTzColumnSymbol, columnHandle))))
+                .isEqualTo(TupleDomain.withColumnDomains(Map.of(
+                        columnHandle,
+                        domain(
+                                Range.range(columnType, timestampTzMillisFromEpochMillis(julyStartMillis), true, timestampTzMillisFromEpochMillis(julyEndNextDayMillis), false),
+                                Range.range(columnType, timestampTzMillisFromEpochMillis(octoberStartMillis), true, timestampTzMillisFromEpochMillis(octoberEndNextDayMillis), false)))));
+    }
+
+    @Test
+    public void testExtractTimestampTzDateOrWithUnconvertibleDisjunct()
+    {
+        String timestampTzColumnSymbol = "timestamp_tz_symbol";
+        TimestampWithTimeZoneType columnType = TIMESTAMP_TZ_MILLIS;
+        ColumnHandle columnHandle = new TestingColumnHandle(timestampTzColumnSymbol);
+
+        ConnectorExpression castOfColumn = new Call(DATE, CAST_FUNCTION_NAME, ImmutableList.of(new Variable(timestampTzColumnSymbol, columnType)));
+
+        LocalDate julyStart = LocalDate.of(2025, 7, 1);
+
+        ConnectorExpression julyGe = new Call(BOOLEAN, GREATER_THAN_OR_EQUAL_OPERATOR_FUNCTION_NAME, ImmutableList.of(castOfColumn, new Constant(julyStart.toEpochDay(), DATE)));
+        // The second disjunct is something that can't be converted
+        ConnectorExpression unknownExpression = new Variable("some_other", BOOLEAN);
+        ConnectorExpression orExpression = ConnectorExpressions.or(julyGe, unknownExpression);
+
+        // When one disjunct can't be converted, the entire OR should be a remaining expression
+        UtcConstraintExtractor.ExtractionResult result = extractTupleDomain(
+                constraint(orExpression, Map.of(timestampTzColumnSymbol, columnHandle)));
+        assertThat(result.tupleDomain())
+                .isEqualTo(TupleDomain.all());
+        assertThat(result.remainingExpression())
+                .isEqualTo(orExpression);
+    }
+
+    @Test
+    public void testExtractTimestampTzDateOrMultipleColumns()
+    {
+        // OR across different columns: (date(ts1) >= X) OR (date(ts2) >= Y)
+        // columnWiseUnion would be a superset of the strict union, so we must NOT convert this
+        String ts1Symbol = "ts1_symbol";
+        String ts2Symbol = "ts2_symbol";
+        TimestampWithTimeZoneType columnType = TIMESTAMP_TZ_MILLIS;
+        ColumnHandle ts1Handle = new TestingColumnHandle(ts1Symbol);
+        ColumnHandle ts2Handle = new TestingColumnHandle(ts2Symbol);
+
+        ConnectorExpression castTs1 = new Call(DATE, CAST_FUNCTION_NAME, ImmutableList.of(new Variable(ts1Symbol, columnType)));
+        ConnectorExpression castTs2 = new Call(DATE, CAST_FUNCTION_NAME, ImmutableList.of(new Variable(ts2Symbol, columnType)));
+
+        LocalDate someDate = LocalDate.of(2025, 7, 1);
+        ConnectorExpression someDateExpression = new Constant(someDate.toEpochDay(), DATE);
+
+        ConnectorExpression ts1Ge = new Call(BOOLEAN, GREATER_THAN_OR_EQUAL_OPERATOR_FUNCTION_NAME, ImmutableList.of(castTs1, someDateExpression));
+        ConnectorExpression ts2Ge = new Call(BOOLEAN, GREATER_THAN_OR_EQUAL_OPERATOR_FUNCTION_NAME, ImmutableList.of(castTs2, someDateExpression));
+        ConnectorExpression orExpression = ConnectorExpressions.or(ts1Ge, ts2Ge);
+
+        // Multi-column OR should remain as a remaining expression since columnWiseUnion is not exact
+        UtcConstraintExtractor.ExtractionResult result = extractTupleDomain(
+                constraint(orExpression, Map.of(ts1Symbol, ts1Handle, ts2Symbol, ts2Handle)));
+        assertThat(result.tupleDomain())
+                .isEqualTo(TupleDomain.all());
+        assertThat(result.remainingExpression())
+                .isEqualTo(orExpression);
     }
 
     /**

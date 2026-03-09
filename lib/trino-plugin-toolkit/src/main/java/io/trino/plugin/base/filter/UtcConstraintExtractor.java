@@ -36,6 +36,7 @@ import io.trino.spi.type.Type;
 import java.time.Instant;
 import java.time.LocalTime;
 import java.time.ZonedDateTime;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
@@ -44,6 +45,7 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.plugin.base.expression.ConnectorExpressions.and;
 import static io.trino.plugin.base.expression.ConnectorExpressions.extractConjuncts;
+import static io.trino.plugin.base.expression.ConnectorExpressions.extractDisjuncts;
 import static io.trino.spi.expression.StandardFunctions.CAST_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.EQUAL_OPERATOR_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.GREATER_THAN_OPERATOR_FUNCTION_NAME;
@@ -52,6 +54,7 @@ import static io.trino.spi.expression.StandardFunctions.IDENTICAL_OPERATOR_FUNCT
 import static io.trino.spi.expression.StandardFunctions.LESS_THAN_OPERATOR_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.LESS_THAN_OR_EQUAL_OPERATOR_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.NOT_EQUAL_OPERATOR_FUNCTION_NAME;
+import static io.trino.spi.expression.StandardFunctions.OR_FUNCTION_NAME;
 import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.trino.spi.type.DateTimeEncoding.unpackMillisUtc;
 import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
@@ -97,9 +100,45 @@ public final class UtcConstraintExtractor
     private static Optional<TupleDomain<ColumnHandle>> toTupleDomain(ConnectorExpression expression, Map<String, ColumnHandle> assignments)
     {
         if (expression instanceof Call call) {
+            if (OR_FUNCTION_NAME.equals(call.getFunctionName())) {
+                return disjunctsToTupleDomain(call, assignments);
+            }
             return toTupleDomain(call, assignments);
         }
         return Optional.empty();
+    }
+
+    private static Optional<TupleDomain<ColumnHandle>> disjunctsToTupleDomain(Call orCall, Map<String, ColumnHandle> assignments)
+    {
+        List<ConnectorExpression> disjuncts = extractDisjuncts(orCall);
+        ImmutableList.Builder<TupleDomain<ColumnHandle>> tupleDomains = ImmutableList.builder();
+        for (ConnectorExpression disjunct : disjuncts) {
+            Optional<TupleDomain<ColumnHandle>> converted = conjunctsToTupleDomain(disjunct, assignments);
+            if (converted.isEmpty()) {
+                // If any disjunct can't be fully converted, we can't handle the entire OR
+                return Optional.empty();
+            }
+            tupleDomains.add(converted.get());
+        }
+
+        return TupleDomain.strictUnion(tupleDomains.build());
+    }
+
+    private static Optional<TupleDomain<ColumnHandle>> conjunctsToTupleDomain(ConnectorExpression expression, Map<String, ColumnHandle> assignments)
+    {
+        List<ConnectorExpression> conjuncts = extractConjuncts(expression);
+        TupleDomain<ColumnHandle> result = TupleDomain.all();
+        for (ConnectorExpression conjunct : conjuncts) {
+            Optional<TupleDomain<ColumnHandle>> converted = toTupleDomain(conjunct, assignments);
+            if (converted.isEmpty()) {
+                return Optional.empty();
+            }
+            result = result.intersect(converted.get());
+            if (result.isNone()) {
+                return Optional.of(TupleDomain.none());
+            }
+        }
+        return Optional.of(result);
     }
 
     private static Optional<TupleDomain<ColumnHandle>> toTupleDomain(Call call, Map<String, ColumnHandle> assignments)
