@@ -1065,7 +1065,8 @@ jobs:
               {"bucket": "hive-storage", "suites": "SuiteHiveSpark SuiteHiveAlluxioCaching SuiteStorageFormatsDetailed"},
               {"bucket": "iceberg", "suites": "SuiteIceberg"},
               {"bucket": "delta-lake", "suites": "SuiteDeltaLakeOss SuiteCompatibility"},
-              {"bucket": "cloud-object-store", "suites": "SuiteGcs SuiteAzure"}
+              {"bucket": "cloud-object-store", "suites": "SuiteGcs SuiteAzure"},
+              {"bucket": "databricks-133", "suites": "SuiteDeltaLakeDatabricks133"}
             ]
           }
           EOF
