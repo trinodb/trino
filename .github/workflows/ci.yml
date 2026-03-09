@@ -1068,7 +1068,8 @@ jobs:
               {"bucket": "cloud-object-store", "suites": "SuiteGcs SuiteAzure"},
               {"bucket": "databricks-133", "suites": "SuiteDeltaLakeDatabricks133"},
               {"bucket": "databricks-143", "suites": "SuiteDeltaLakeDatabricks143"},
-              {"bucket": "databricks-154", "suites": "SuiteDeltaLakeDatabricks154"}
+              {"bucket": "databricks-154", "suites": "SuiteDeltaLakeDatabricks154"},
+              {"bucket": "databricks-164", "suites": "SuiteDeltaLakeDatabricks164"}
             ]
           }
           EOF
