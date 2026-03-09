@@ -14,11 +14,11 @@
 package io.trino.likematcher;
 
 import io.airlift.slice.Slice;
-import io.airlift.slice.SliceUtf8;
 
 import java.util.Arrays;
 import java.util.List;
 
+import static io.airlift.slice.SliceUtf8.getCodePointAt;
 import static io.airlift.slice.SliceUtf8.lengthOfCodePoint;
 import static io.airlift.slice.SliceUtf8.tryGetCodePointAt;
 
@@ -53,7 +53,7 @@ final class NfaMatcher
                 case Pattern.Literal(Slice value) -> {
                     int position = 0;
                     while (position < value.length()) {
-                        int character = SliceUtf8.getCodePointAt(value, position);
+                        int character = getCodePointAt(value, position);
                         match[state++] = character;
                         position += lengthOfCodePoint(character);
                     }
