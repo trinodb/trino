@@ -911,13 +911,11 @@ public class TranslationMap
                 .map(analysis::getType)
                 .collect(toImmutableList());
 
-        Call call = BuiltinFunctionCallBuilder.resolve(plannerContext.getMetadata())
+        return BuiltinFunctionCallBuilder.resolve(plannerContext.getMetadata())
                 .setName(FormatFunction.NAME)
                 .addArgument(VARCHAR, new io.trino.sql.ir.Cast(arguments.get(0), VARCHAR))
                 .addArgument(RowType.anonymous(argumentTypes.subList(1, arguments.size())), new io.trino.sql.ir.Row(arguments.subList(1, arguments.size())))
                 .build();
-
-        return call;
     }
 
     private io.trino.sql.ir.Expression translate(TryExpression node)
@@ -952,13 +950,11 @@ public class TranslationMap
                     .build();
         }
 
-        Call call = BuiltinFunctionCallBuilder.resolve(plannerContext.getMetadata())
+        return BuiltinFunctionCallBuilder.resolve(plannerContext.getMetadata())
                 .setName(LIKE_FUNCTION_NAME)
                 .addArgument(value.type(), value)
                 .addArgument(LIKE_PATTERN, patternCall)
                 .build();
-
-        return call;
     }
 
     private io.trino.sql.ir.Expression translate(Trim node)
