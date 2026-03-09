@@ -20,13 +20,13 @@ import java.util.Arrays;
 import java.util.List;
 
 import static io.airlift.slice.SliceUtf8.lengthOfCodePoint;
+import static io.airlift.slice.SliceUtf8.tryGetCodePointAt;
 
 final class NfaMatcher
         implements Matcher
 {
     private static final int ANY = -1;
     private static final int NONE = -2;
-    private static final int INVALID_CODEPOINT = -1;
 
     private final boolean exact;
 
@@ -99,41 +99,11 @@ final class NfaMatcher
         int current = offset;
         boolean accept = false;
         while (current < limit) {
-            int codepoint = INVALID_CODEPOINT;
-
-            // decode the next UTF-8 codepoint
-            int header = input.getByteUnchecked(current) & 0xFF;
-            if (header < 0x80) {
-                // normal ASCII
-                // 0xxx_xxxx
-                codepoint = header;
-                current++;
-            }
-            else if ((header & 0b1110_0000) == 0b1100_0000) {
-                // 110x_xxxx 10xx_xxxx
-                if (current + 1 < limit) {
-                    codepoint = ((header & 0b0001_1111) << 6) | (input.getByteUnchecked(current + 1) & 0b0011_1111);
-                    current += 2;
-                }
-            }
-            else if ((header & 0b1111_0000) == 0b1110_0000) {
-                // 1110_xxxx 10xx_xxxx 10xx_xxxx
-                if (current + 2 < limit) {
-                    codepoint = ((header & 0b0000_1111) << 12) | ((input.getByteUnchecked(current + 1) & 0b0011_1111) << 6) | (input.getByteUnchecked(current + 2) & 0b0011_1111);
-                    current += 3;
-                }
-            }
-            else if ((header & 0b1111_1000) == 0b1111_0000) {
-                // 1111_0xxx 10xx_xxxx 10xx_xxxx 10xx_xxxx
-                if (current + 3 < limit) {
-                    codepoint = ((header & 0b0000_0111) << 18) | ((input.getByteUnchecked(current + 1) & 0b0011_1111) << 12) | ((input.getByteUnchecked(current + 2) & 0b0011_1111) << 6) | (input.getByteUnchecked(current + 3) & 0b0011_1111);
-                    current += 4;
-                }
-            }
-
-            if (codepoint == INVALID_CODEPOINT) {
+            int codepoint = tryGetCodePointAt(input, current);
+            if (codepoint < 0) {
                 return false;
             }
+            current += lengthOfCodePoint(codepoint);
 
             accept = false;
             nextStatesIndex = 0;
