@@ -32,12 +32,22 @@ import io.trino.plugin.tpcds.TpcdsPlugin;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
+import io.trino.testing.containers.IcebergRestCatalogBackendContainer;
 import io.trino.testing.containers.Minio;
 import io.trino.tpch.TpchTable;
 import org.apache.iceberg.catalog.Catalog;
 import org.apache.iceberg.rest.DelegatingRestSessionCatalog;
+import org.testcontainers.containers.Network;
+import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
+import software.amazon.awssdk.auth.credentials.AwsCredentials;
+import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
+import software.amazon.awssdk.regions.Region;
+import software.amazon.awssdk.services.sts.StsClient;
+import software.amazon.awssdk.services.sts.model.AssumeRoleRequest;
+import software.amazon.awssdk.services.sts.model.AssumeRoleResponse;
 
 import java.io.File;
+import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.attribute.FileAttribute;
@@ -220,6 +230,63 @@ public final class IcebergQueryRunner
                     .build();
 
             Logger log = Logger.get(IcebergRestQueryRunnerMain.class);
+            log.info("======== SERVER STARTED ========");
+            log.info("\n====\n%s\n====", queryRunner.getCoordinator().getBaseUrl());
+        }
+    }
+
+    public static final class IcebergMinioRestVendingQueryRunnerMain
+    {
+        private IcebergMinioRestVendingQueryRunnerMain() {}
+
+        static void main()
+                throws Exception
+        {
+            String bucketName = "test-bucket";
+            Network network = Network.newNetwork();
+            @SuppressWarnings("resource")
+            Minio minio = Minio.builder().withNetwork(network).build();
+            minio.start();
+            minio.createBucket(bucketName);
+
+            String warehouseLocation = "s3://%s/default/".formatted(bucketName);
+
+            AwsCredentials credentials = AwsBasicCredentials.create(MINIO_ROOT_USER, MINIO_ROOT_PASSWORD);
+            @SuppressWarnings("resource")
+            StsClient stsClient = StsClient.builder()
+                    .endpointOverride(URI.create(minio.getMinioAddress()))
+                    .credentialsProvider(StaticCredentialsProvider.create(credentials))
+                    .region(Region.of(MINIO_REGION))
+                    .build();
+
+            AssumeRoleResponse assumeRoleResponse = stsClient.assumeRole(AssumeRoleRequest.builder().build());
+            @SuppressWarnings("resource")
+            IcebergRestCatalogBackendContainer restCatalogBackendContainer = new IcebergRestCatalogBackendContainer(
+                    Optional.of(network),
+                    warehouseLocation,
+                    assumeRoleResponse.credentials().accessKeyId(),
+                    assumeRoleResponse.credentials().secretAccessKey(),
+                    assumeRoleResponse.credentials().sessionToken());
+            restCatalogBackendContainer.start();
+
+            @SuppressWarnings("resource")
+            QueryRunner queryRunner = IcebergQueryRunner.builder()
+                    .addCoordinatorProperty("http-server.http.port", "8080")
+                    .setIcebergProperties(
+                            ImmutableMap.<String, String>builder()
+                                    .put("iceberg.catalog.type", "rest")
+                                    .put("iceberg.rest-catalog.uri", "http://" + restCatalogBackendContainer.getRestCatalogEndpoint())
+                                    .put("iceberg.rest-catalog.vended-credentials-enabled", "true")
+                                    .put("iceberg.writer-sort-buffer-size", "1MB")
+                                    .put("fs.native-s3.enabled", "true")
+                                    .put("s3.region", MINIO_REGION)
+                                    .put("s3.endpoint", minio.getMinioAddress())
+                                    .put("s3.path-style-access", "true")
+                                    .buildOrThrow())
+                    .setInitialTables(TpchTable.getTables())
+                    .build();
+
+            Logger log = Logger.get(IcebergMinioRestVendingQueryRunnerMain.class);
             log.info("======== SERVER STARTED ========");
             log.info("\n====\n%s\n====", queryRunner.getCoordinator().getBaseUrl());
         }
