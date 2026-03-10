@@ -34,6 +34,7 @@ import io.trino.plugin.base.logging.FormatInterpolator;
 import io.trino.plugin.openlineage.job.OpenLineageJobContext;
 import io.trino.plugin.openlineage.job.OpenLineageJobInterpolatedValues;
 import io.trino.spi.connector.CatalogSchemaName;
+import io.trino.spi.eventlistener.BaseViewReferenceInfo;
 import io.trino.spi.eventlistener.EventListener;
 import io.trino.spi.eventlistener.OutputColumnMetadata;
 import io.trino.spi.eventlistener.QueryCompletedEvent;
@@ -76,6 +77,7 @@ public class OpenLineageListener
     private final String jobNamespace;
     private final String datasetNamespace;
     private final Set<QueryType> includeQueryTypes;
+    private final boolean resolveViews;
     private final FormatInterpolator<OpenLineageJobContext> interpolator;
 
     @Inject
@@ -88,6 +90,7 @@ public class OpenLineageListener
         this.jobNamespace = listenerConfig.getNamespace().orElse(trinoURI.toString());
         this.datasetNamespace = trinoURI.toString();
         this.includeQueryTypes = ImmutableSet.copyOf(listenerConfig.getIncludeQueryTypes());
+        this.resolveViews = listenerConfig.isResolveViews();
         this.interpolator = new FormatInterpolator<>(listenerConfig.getJobNameFormat(), OpenLineageJobInterpolatedValues.values());
     }
 
@@ -296,10 +299,10 @@ public class OpenLineageListener
 
     private List<InputDataset> buildInputs(QueryMetadata queryMetadata)
     {
-        return queryMetadata
-                .getTables()
+        List<TableInfo> allTables = queryMetadata.getTables();
+        return allTables
                 .stream()
-                .filter(TableInfo::isDirectlyReferenced)
+                .filter(table -> resolveViews ? shouldIncludeWhenResolvingViews(table, allTables) : table.isDirectlyReferenced())
                 .map(table -> {
                     String datasetName = getDatasetName(table);
                     InputDatasetBuilder inputDatasetBuilder = openLineage
@@ -327,6 +330,21 @@ public class OpenLineageListener
                             .build();
                 })
                 .collect(toImmutableList());
+    }
+
+    private static boolean shouldIncludeWhenResolvingViews(TableInfo table, List<TableInfo> allTables)
+    {
+        if (table.getViewText().isEmpty()) {
+            return true;
+        }
+        boolean hasResolvedBaseTables = allTables.stream()
+                .filter(other -> other.getViewText().isEmpty())
+                .flatMap(other -> other.getReferenceChain().stream())
+                .anyMatch(ref -> ref instanceof BaseViewReferenceInfo viewRef &&
+                        viewRef.catalogName().equals(table.getCatalog()) &&
+                        viewRef.schemaName().equals(table.getSchema()) &&
+                        viewRef.viewName().equals(table.getTable()));
+        return !hasResolvedBaseTables;
     }
 
     private List<OutputDataset> buildOutputs(QueryIOMetadata ioMetadata)

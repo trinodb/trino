@@ -164,6 +164,13 @@ event-listener.config-files=etc/openlineage-event-listener.properties,...
       variables: `$QUERY_ID`, `$USER`, `$SOURCE`, `$CLIENT_IP`.
       For example: `As $USER from $CLIENT_IP via $SOURCE`.
     - `$QUERY_ID`.
+*
+    - openlineage-event-listener.resolve-views
+    - When set to `true`, input datasets report the underlying base tables
+      instead of the view name. This resolves views at any nesting depth,
+      including views over joins with multiple base tables. When `false`,
+      views are reported as input datasets directly.
+    - `false`
 
 :::
 

@@ -192,6 +192,352 @@ final class TestOpenLineageListener
                 .isEqualTo("queryId-user-some-trino-client-127.0.0.1-abc123");
     }
 
+    @Test
+    void testResolveViewsDisabled()
+    {
+        OpenLineageListener listener = (OpenLineageListener) createEventListener(Map.of(
+                "openlineage-event-listener.transport.type", "CONSOLE",
+                "openlineage-event-listener.trino.uri", "http://testhost"));
+
+        RunEvent result = listener.getCompletedEvent(TrinoEventData.queryCompleteEventWithView);
+
+        assertThat(result.getInputs())
+                .hasSize(1)
+                .satisfiesExactly(input -> {
+                    assertThat(input.getName()).isEqualTo("marquez.default.my_view");
+                    assertThat(input.getFacets().getSchema().getFields())
+                            .extracting(field -> field.getName())
+                            .containsExactly("nationkey", "name");
+                });
+    }
+
+    @Test
+    void testResolveViewsEnabled()
+    {
+        OpenLineageListener listener = (OpenLineageListener) createEventListener(Map.of(
+                "openlineage-event-listener.transport.type", "CONSOLE",
+                "openlineage-event-listener.trino.uri", "http://testhost",
+                "openlineage-event-listener.resolve-views", "true"));
+
+        RunEvent result = listener.getCompletedEvent(TrinoEventData.queryCompleteEventWithView);
+
+        assertThat(result.getInputs())
+                .hasSize(1)
+                .satisfiesExactly(input -> {
+                    assertThat(input.getName()).isEqualTo("marquez.default.base_table");
+                    assertThat(input.getFacets().getSchema().getFields())
+                            .extracting(field -> field.getName())
+                            .containsExactly("nationkey", "name");
+                });
+    }
+
+    @Test
+    void testResolveNestedViewsDisabled()
+    {
+        OpenLineageListener listener = (OpenLineageListener) createEventListener(Map.of(
+                "openlineage-event-listener.transport.type", "CONSOLE",
+                "openlineage-event-listener.trino.uri", "http://testhost"));
+
+        RunEvent result = listener.getCompletedEvent(TrinoEventData.queryCompleteEventWithNestedView);
+
+        assertThat(result.getInputs())
+                .hasSize(1)
+                .satisfiesExactly(input -> {
+                    assertThat(input.getName()).isEqualTo("marquez.default.v2");
+                    assertThat(input.getFacets().getSchema().getFields())
+                            .extracting(field -> field.getName())
+                            .containsExactly("nationkey", "name");
+                });
+    }
+
+    @Test
+    void testResolveNestedViewsEnabled()
+    {
+        OpenLineageListener listener = (OpenLineageListener) createEventListener(Map.of(
+                "openlineage-event-listener.transport.type", "CONSOLE",
+                "openlineage-event-listener.trino.uri", "http://testhost",
+                "openlineage-event-listener.resolve-views", "true"));
+
+        RunEvent result = listener.getCompletedEvent(TrinoEventData.queryCompleteEventWithNestedView);
+
+        assertThat(result.getInputs())
+                .hasSize(1)
+                .satisfiesExactly(input -> {
+                    assertThat(input.getName()).isEqualTo("marquez.default.base_table");
+                    assertThat(input.getFacets().getSchema().getFields())
+                            .extracting(field -> field.getName())
+                            .containsExactly("nationkey", "name");
+                });
+    }
+
+    @Test
+    void testDirectTableResolveViewsDisabled()
+    {
+        OpenLineageListener listener = (OpenLineageListener) createEventListener(Map.of(
+                "openlineage-event-listener.transport.type", "CONSOLE",
+                "openlineage-event-listener.trino.uri", "http://testhost"));
+
+        RunEvent result = listener.getCompletedEvent(TrinoEventData.queryCompleteEventWithDirectTable);
+
+        assertThat(result.getInputs())
+                .hasSize(1)
+                .satisfiesExactly(input -> {
+                    assertThat(input.getName()).isEqualTo("marquez.default.orders");
+                    assertThat(input.getFacets().getSchema().getFields())
+                            .extracting(field -> field.getName())
+                            .containsExactly("orderkey", "custkey");
+                });
+    }
+
+    @Test
+    void testDirectTableResolveViewsEnabled()
+    {
+        OpenLineageListener listener = (OpenLineageListener) createEventListener(Map.of(
+                "openlineage-event-listener.transport.type", "CONSOLE",
+                "openlineage-event-listener.trino.uri", "http://testhost",
+                "openlineage-event-listener.resolve-views", "true"));
+
+        RunEvent result = listener.getCompletedEvent(TrinoEventData.queryCompleteEventWithDirectTable);
+
+        assertThat(result.getInputs())
+                .hasSize(1)
+                .satisfiesExactly(input -> {
+                    assertThat(input.getName()).isEqualTo("marquez.default.orders");
+                    assertThat(input.getFacets().getSchema().getFields())
+                            .extracting(field -> field.getName())
+                            .containsExactly("orderkey", "custkey");
+                });
+    }
+
+    @Test
+    void testMixedInputsResolveViewsDisabled()
+    {
+        OpenLineageListener listener = (OpenLineageListener) createEventListener(Map.of(
+                "openlineage-event-listener.transport.type", "CONSOLE",
+                "openlineage-event-listener.trino.uri", "http://testhost"));
+
+        RunEvent result = listener.getCompletedEvent(TrinoEventData.queryCompleteEventWithMixedInputs);
+
+        assertThat(result.getInputs())
+                .hasSize(2)
+                .satisfiesExactlyInAnyOrder(
+                        input -> {
+                            assertThat(input.getName()).isEqualTo("marquez.default.orders");
+                            assertThat(input.getFacets().getSchema().getFields())
+                                    .extracting(field -> field.getName())
+                                    .containsExactly("orderkey");
+                        },
+                        input -> {
+                            assertThat(input.getName()).isEqualTo("marquez.default.my_view");
+                            assertThat(input.getFacets().getSchema().getFields())
+                                    .extracting(field -> field.getName())
+                                    .containsExactly("nationkey");
+                        });
+    }
+
+    @Test
+    void testMixedInputsResolveViewsEnabled()
+    {
+        OpenLineageListener listener = (OpenLineageListener) createEventListener(Map.of(
+                "openlineage-event-listener.transport.type", "CONSOLE",
+                "openlineage-event-listener.trino.uri", "http://testhost",
+                "openlineage-event-listener.resolve-views", "true"));
+
+        RunEvent result = listener.getCompletedEvent(TrinoEventData.queryCompleteEventWithMixedInputs);
+
+        assertThat(result.getInputs())
+                .hasSize(2)
+                .satisfiesExactlyInAnyOrder(
+                        input -> {
+                            assertThat(input.getName()).isEqualTo("marquez.default.orders");
+                            assertThat(input.getFacets().getSchema().getFields())
+                                    .extracting(field -> field.getName())
+                                    .containsExactly("orderkey");
+                        },
+                        input -> {
+                            assertThat(input.getName()).isEqualTo("marquez.default.nation");
+                            assertThat(input.getFacets().getSchema().getFields())
+                                    .extracting(field -> field.getName())
+                                    .containsExactly("nationkey");
+                        });
+    }
+
+    @Test
+    void testViewMultipleBaseTablesResolveViewsDisabled()
+    {
+        OpenLineageListener listener = (OpenLineageListener) createEventListener(Map.of(
+                "openlineage-event-listener.transport.type", "CONSOLE",
+                "openlineage-event-listener.trino.uri", "http://testhost"));
+
+        RunEvent result = listener.getCompletedEvent(TrinoEventData.queryCompleteEventWithViewMultipleBaseTables);
+
+        assertThat(result.getInputs())
+                .hasSize(1)
+                .satisfiesExactly(input -> {
+                    assertThat(input.getName()).isEqualTo("marquez.default.join_view");
+                    assertThat(input.getFacets().getSchema().getFields())
+                            .extracting(field -> field.getName())
+                            .containsExactly("col_a", "col_b");
+                });
+    }
+
+    @Test
+    void testViewMultipleBaseTablesResolveViewsEnabled()
+    {
+        OpenLineageListener listener = (OpenLineageListener) createEventListener(Map.of(
+                "openlineage-event-listener.transport.type", "CONSOLE",
+                "openlineage-event-listener.trino.uri", "http://testhost",
+                "openlineage-event-listener.resolve-views", "true"));
+
+        RunEvent result = listener.getCompletedEvent(TrinoEventData.queryCompleteEventWithViewMultipleBaseTables);
+
+        assertThat(result.getInputs())
+                .hasSize(2)
+                .satisfiesExactlyInAnyOrder(
+                        input -> {
+                            assertThat(input.getName()).isEqualTo("marquez.default.t1");
+                            assertThat(input.getFacets().getSchema().getFields())
+                                    .extracting(field -> field.getName())
+                                    .containsExactly("col_a");
+                        },
+                        input -> {
+                            assertThat(input.getName()).isEqualTo("marquez.default.t2");
+                            assertThat(input.getFacets().getSchema().getFields())
+                                    .extracting(field -> field.getName())
+                                    .containsExactly("col_b");
+                        });
+    }
+
+    @Test
+    void testNestedViewComplexJoinResolveViewsDisabled()
+    {
+        OpenLineageListener listener = (OpenLineageListener) createEventListener(Map.of(
+                "openlineage-event-listener.transport.type", "CONSOLE",
+                "openlineage-event-listener.trino.uri", "http://testhost"));
+
+        RunEvent result = listener.getCompletedEvent(TrinoEventData.queryCompleteEventWithNestedViewComplexJoin);
+
+        assertThat(result.getInputs())
+                .hasSize(1)
+                .satisfiesExactly(input -> {
+                    assertThat(input.getName()).isEqualTo("marquez.default.v_outer");
+                    assertThat(input.getFacets().getSchema().getFields())
+                            .extracting(field -> field.getName())
+                            .containsExactly("nationkey", "regionkey", "orderkey");
+                });
+    }
+
+    @Test
+    void testNestedViewComplexJoinResolveViewsEnabled()
+    {
+        OpenLineageListener listener = (OpenLineageListener) createEventListener(Map.of(
+                "openlineage-event-listener.transport.type", "CONSOLE",
+                "openlineage-event-listener.trino.uri", "http://testhost",
+                "openlineage-event-listener.resolve-views", "true"));
+
+        RunEvent result = listener.getCompletedEvent(TrinoEventData.queryCompleteEventWithNestedViewComplexJoin);
+
+        assertThat(result.getInputs())
+                .hasSize(3)
+                .satisfiesExactlyInAnyOrder(
+                        input -> {
+                            assertThat(input.getName()).isEqualTo("marquez.default.orders");
+                            assertThat(input.getFacets().getSchema().getFields())
+                                    .extracting(field -> field.getName())
+                                    .containsExactly("orderkey");
+                        },
+                        input -> {
+                            assertThat(input.getName()).isEqualTo("marquez.default.nation");
+                            assertThat(input.getFacets().getSchema().getFields())
+                                    .extracting(field -> field.getName())
+                                    .containsExactly("nationkey");
+                        },
+                        input -> {
+                            assertThat(input.getName()).isEqualTo("marquez.default.region");
+                            assertThat(input.getFacets().getSchema().getFields())
+                                    .extracting(field -> field.getName())
+                                    .containsExactly("regionkey");
+                        });
+    }
+
+    @Test
+    void testFreshMaterializedViewResolveViewsDisabled()
+    {
+        OpenLineageListener listener = (OpenLineageListener) createEventListener(Map.of(
+                "openlineage-event-listener.transport.type", "CONSOLE",
+                "openlineage-event-listener.trino.uri", "http://testhost"));
+
+        RunEvent result = listener.getCompletedEvent(TrinoEventData.queryCompleteEventWithFreshMaterializedView);
+
+        assertThat(result.getInputs())
+                .hasSize(1)
+                .satisfiesExactly(input -> {
+                    assertThat(input.getName()).isEqualTo("marquez.default.mv_fresh");
+                    assertThat(input.getFacets().getSchema().getFields())
+                            .extracting(field -> field.getName())
+                            .containsExactly("nationkey", "name");
+                });
+    }
+
+    @Test
+    void testFreshMaterializedViewResolveViewsEnabled()
+    {
+        OpenLineageListener listener = (OpenLineageListener) createEventListener(Map.of(
+                "openlineage-event-listener.transport.type", "CONSOLE",
+                "openlineage-event-listener.trino.uri", "http://testhost",
+                "openlineage-event-listener.resolve-views", "true"));
+
+        RunEvent result = listener.getCompletedEvent(TrinoEventData.queryCompleteEventWithFreshMaterializedView);
+
+        assertThat(result.getInputs())
+                .hasSize(1)
+                .satisfiesExactly(input -> {
+                    assertThat(input.getName()).isEqualTo("marquez.default.mv_fresh");
+                    assertThat(input.getFacets().getSchema().getFields())
+                            .extracting(field -> field.getName())
+                            .containsExactly("nationkey", "name");
+                });
+    }
+
+    @Test
+    void testStaleMaterializedViewResolveViewsDisabled()
+    {
+        OpenLineageListener listener = (OpenLineageListener) createEventListener(Map.of(
+                "openlineage-event-listener.transport.type", "CONSOLE",
+                "openlineage-event-listener.trino.uri", "http://testhost"));
+
+        RunEvent result = listener.getCompletedEvent(TrinoEventData.queryCompleteEventWithStaleMaterializedView);
+
+        assertThat(result.getInputs())
+                .hasSize(1)
+                .satisfiesExactly(input -> {
+                    assertThat(input.getName()).isEqualTo("marquez.default.mv_stale");
+                    assertThat(input.getFacets().getSchema().getFields())
+                            .extracting(field -> field.getName())
+                            .containsExactly("nationkey", "name");
+                });
+    }
+
+    @Test
+    void testStaleMaterializedViewResolveViewsEnabled()
+    {
+        OpenLineageListener listener = (OpenLineageListener) createEventListener(Map.of(
+                "openlineage-event-listener.transport.type", "CONSOLE",
+                "openlineage-event-listener.trino.uri", "http://testhost",
+                "openlineage-event-listener.resolve-views", "true"));
+
+        RunEvent result = listener.getCompletedEvent(TrinoEventData.queryCompleteEventWithStaleMaterializedView);
+
+        assertThat(result.getInputs())
+                .hasSize(1)
+                .satisfiesExactly(input -> {
+                    assertThat(input.getName()).isEqualTo("marquez.default.nation");
+                    assertThat(input.getFacets().getSchema().getFields())
+                            .extracting(field -> field.getName())
+                            .containsExactly("nationkey", "name");
+                });
+    }
+
     private static EventListener createEventListener(Map<String, String> config)
     {
         return new OpenLineageListenerFactory().create(ImmutableMap.copyOf(config), new TestingEventListenerContext());

@@ -46,6 +46,7 @@ final class TestOpenLineageListenerConfig
                 .setNamespace(null)
                 .setJobNameFormat("$QUERY_ID")
                 .setDisabledFacets(ImmutableSet.of())
+                .setResolveViews(false)
                 .setIncludeQueryTypes(ImmutableSet.of(
                         ALTER_TABLE_EXECUTE,
                         DELETE,
@@ -65,6 +66,7 @@ final class TestOpenLineageListenerConfig
                 .put("openlineage-event-listener.disabled-facets", "trino_metadata,trino_query_statistics")
                 .put("openlineage-event-listener.namespace", "testnamespace")
                 .put("openlineage-event-listener.job.name-format", "$QUERY_ID-$USER-$SOURCE-$CLIENT_IP-abc123")
+                .put("openlineage-event-listener.resolve-views", "true")
                 .buildOrThrow();
 
         OpenLineageListenerConfig expected = new OpenLineageListenerConfig()
@@ -72,6 +74,7 @@ final class TestOpenLineageListenerConfig
                 .setIncludeQueryTypes(ImmutableSet.of(SELECT, DELETE))
                 .setDisabledFacets(ImmutableSet.of(TRINO_METADATA, TRINO_QUERY_STATISTICS))
                 .setNamespace("testnamespace")
+                .setResolveViews(true)
                 .setJobNameFormat("$QUERY_ID-$USER-$SOURCE-$CLIENT_IP-abc123");
 
         assertFullMapping(properties, expected);

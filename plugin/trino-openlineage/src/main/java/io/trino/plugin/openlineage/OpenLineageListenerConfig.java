@@ -35,6 +35,8 @@ public class OpenLineageListenerConfig
     private Optional<String> namespace = Optional.empty();
     private String jobNameFormat = "$QUERY_ID";
 
+    private boolean resolveViews;
+
     private Set<QueryType> includeQueryTypes = ImmutableSet.<QueryType>builder()
             .add(QueryType.ALTER_TABLE_EXECUTE)
             .add(QueryType.DELETE)
@@ -82,6 +84,19 @@ public class OpenLineageListenerConfig
             throws RuntimeException
     {
         this.disabledFacets = ImmutableSet.copyOf(disabledFacets);
+        return this;
+    }
+
+    public boolean isResolveViews()
+    {
+        return resolveViews;
+    }
+
+    @Config("openlineage-event-listener.resolve-views")
+    @ConfigDescription("When enabled, report underlying base tables instead of views as input datasets")
+    public OpenLineageListenerConfig setResolveViews(boolean resolveViews)
+    {
+        this.resolveViews = resolveViews;
         return this;
     }
 
