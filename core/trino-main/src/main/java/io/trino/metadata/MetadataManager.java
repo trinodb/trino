@@ -86,6 +86,7 @@ import io.trino.spi.connector.SchemaTablePrefix;
 import io.trino.spi.connector.SortItem;
 import io.trino.spi.connector.SystemTable;
 import io.trino.spi.connector.TableColumnsMetadata;
+import io.trino.spi.connector.TableCredentials;
 import io.trino.spi.connector.TableFunctionApplicationResult;
 import io.trino.spi.connector.TableScanRedirectApplicationResult;
 import io.trino.spi.connector.TopNApplicationResult;
@@ -309,6 +310,13 @@ public final class MetadataManager
                             connectorTableHandle,
                             catalogMetadata.getTransactionHandleFor(catalogHandle)));
         });
+    }
+
+    @Override
+    public Optional<TableCredentials> getTableCredentials(Session session, CatalogHandle catalogHandle, ConnectorTableHandle tableHandle)
+    {
+        return getMetadata(session, catalogHandle)
+                .getTableCredentials(session.toConnectorSession(catalogHandle), tableHandle);
     }
 
     @Override

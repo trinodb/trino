@@ -27,6 +27,7 @@ import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.connector.ConnectorTableExecuteHandle;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTransactionHandle;
+import io.trino.spi.connector.TableCredentials;
 import io.trino.spi.exchange.ExchangeSinkInstanceHandle;
 import io.trino.spi.exchange.ExchangeSourceHandle;
 import io.trino.spi.function.table.ConnectorTableFunctionHandle;
@@ -116,5 +117,11 @@ public class HandleJsonModule
     public static com.fasterxml.jackson.databind.Module tableFunctionHandleModule(HandleResolver resolver)
     {
         return new AbstractTypedJacksonModule<>(ConnectorTableFunctionHandle.class, resolver::getId, resolver::getHandleClass) {};
+    }
+
+    @ProvidesIntoSet
+    public static com.fasterxml.jackson.databind.Module tableCredentialsModule(HandleResolver resolver)
+    {
+        return new AbstractTypedJacksonModule<>(TableCredentials.class, resolver::getId, resolver::getHandleClass) {};
     }
 }

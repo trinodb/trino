@@ -13,6 +13,7 @@
  */
 package io.trino.execution;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Multimap;
 import com.google.errorprone.annotations.ThreadSafe;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
@@ -24,16 +25,21 @@ import io.trino.Session;
 import io.trino.execution.StateMachine.StateChangeListener;
 import io.trino.execution.buffer.OutputBuffers;
 import io.trino.execution.scheduler.SplitSchedulerStats;
+import io.trino.metadata.Metadata;
 import io.trino.metadata.Split;
+import io.trino.metadata.TableHandle;
 import io.trino.node.InternalNode;
+import io.trino.spi.connector.TableCredentials;
 import io.trino.spi.metrics.Metrics;
 import io.trino.sql.planner.PartitioningHandle;
 import io.trino.sql.planner.PlanFragment;
+import io.trino.sql.planner.SimplePlanVisitor;
 import io.trino.sql.planner.plan.DynamicFilterId;
 import io.trino.sql.planner.plan.ExchangeNode;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.sql.planner.plan.SimplePlanRewriter;
+import io.trino.sql.planner.plan.TableScanNode;
 
 import java.util.HashSet;
 import java.util.List;
@@ -66,6 +72,7 @@ public final class SqlStage
 {
     private final Session session;
     private final StageStateMachine stateMachine;
+    private final Map<PlanNodeId, TableCredentials> tableCredentialsMap;
     private final RemoteTaskFactory remoteTaskFactory;
     private final NodeTaskMap nodeTaskMap;
     private final boolean summarizeTaskInfo;
@@ -82,6 +89,7 @@ public final class SqlStage
     private final Set<TaskId> tasksWithFinalInfo = new HashSet<>();
 
     public static SqlStage createSqlStage(
+            Metadata metadata,
             StageId stageId,
             PlanFragment fragment,
             Map<PlanNodeId, TableInfo> tables,
@@ -121,7 +129,8 @@ public final class SqlStage
                 remoteTaskFactory,
                 nodeTaskMap,
                 summarizeTaskInfo,
-                bucketCountProvider);
+                bucketCountProvider,
+                createTableCredentialsMap(session, metadata, fragment));
         sqlStage.initialize();
         return sqlStage;
     }
@@ -132,7 +141,8 @@ public final class SqlStage
             RemoteTaskFactory remoteTaskFactory,
             NodeTaskMap nodeTaskMap,
             boolean summarizeTaskInfo,
-            LocalExchangeBucketCountProvider bucketCountProvider)
+            LocalExchangeBucketCountProvider bucketCountProvider,
+            Map<PlanNodeId, TableCredentials> tableCredentialsMap)
     {
         this.session = requireNonNull(session, "session is null");
         this.stateMachine = stateMachine;
@@ -142,6 +152,15 @@ public final class SqlStage
         this.bucketCountProvider = requireNonNull(bucketCountProvider, "bucketCountProvider is null");
 
         this.outboundDynamicFilterIds = getOutboundDynamicFilters(stateMachine.getFragment());
+        this.tableCredentialsMap = ImmutableMap.copyOf(tableCredentialsMap);
+    }
+
+    private static Map<PlanNodeId, TableCredentials> createTableCredentialsMap(Session session, Metadata metadata, PlanFragment fragment)
+    {
+        ImmutableMap.Builder<PlanNodeId, TableCredentials> tableCredentialsBuilder = ImmutableMap.builder();
+        InternalCredentialsVisitor visitor = new InternalCredentialsVisitor(session, metadata, tableCredentialsBuilder);
+        fragment.getRoot().accept(visitor, null);
+        return tableCredentialsBuilder.buildOrThrow();
     }
 
     // this is a separate method to ensure that the `this` reference is not leaked during construction
@@ -284,6 +303,7 @@ public final class SqlStage
                 node,
                 speculative,
                 fragment,
+                tableCredentialsMap,
                 splits,
                 outputBuffers,
                 nodeTaskMap.createPartitionedSplitCountTracker(node, taskId),
@@ -422,6 +442,30 @@ public final class SqlStage
                     node.getSources(),
                     node.getInputs(),
                     node.getOrderingScheme());
+        }
+    }
+
+    private static final class InternalCredentialsVisitor
+            extends SimplePlanVisitor<Void>
+    {
+        private final Metadata metadata;
+        private final Session session;
+        private final ImmutableMap.Builder<PlanNodeId, TableCredentials> tableCredentialsBuilder;
+
+        public InternalCredentialsVisitor(Session session, Metadata metadata, ImmutableMap.Builder<PlanNodeId, TableCredentials> tableCredentialsBuilder)
+        {
+            this.session = requireNonNull(session, "session is null");
+            this.metadata = requireNonNull(metadata, "metadata is null");
+            this.tableCredentialsBuilder = requireNonNull(tableCredentialsBuilder, "tableCredentialsBuilder is null");
+        }
+
+        @Override
+        public Void visitTableScan(TableScanNode node, Void context)
+        {
+            TableHandle table = node.getTable();
+            Optional<TableCredentials> credentials = metadata.getTableCredentials(session, table.catalogHandle(), table.connectorHandle());
+            credentials.ifPresent(value -> tableCredentialsBuilder.put(node.getId(), value));
+            return null;
         }
     }
 }

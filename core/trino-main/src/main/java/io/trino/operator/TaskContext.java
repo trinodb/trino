@@ -15,6 +15,7 @@ package io.trino.operator;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.AtomicDouble;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -36,13 +37,16 @@ import io.trino.memory.QueryContextVisitor;
 import io.trino.memory.context.AggregatedMemoryContext;
 import io.trino.memory.context.LocalMemoryContext;
 import io.trino.memory.context.MemoryTrackingContext;
+import io.trino.spi.connector.TableCredentials;
 import io.trino.spi.predicate.Domain;
 import io.trino.sql.planner.LocalDynamicFiltersCollector;
 import io.trino.sql.planner.plan.DynamicFilterId;
+import io.trino.sql.planner.plan.PlanNodeId;
 
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Executor;
@@ -67,6 +71,7 @@ public class TaskContext
 {
     private final QueryContext queryContext;
     private final TaskStateMachine taskStateMachine;
+    private final Map<PlanNodeId, TableCredentials> tableCredentialsMap;
     private final GcMonitor gcMonitor;
     private final Executor notificationExecutor;
     private final ScheduledExecutorService yieldExecutor;
@@ -115,6 +120,7 @@ public class TaskContext
     public static TaskContext createTaskContext(
             QueryContext queryContext,
             TaskStateMachine taskStateMachine,
+            Map<PlanNodeId, TableCredentials> tableCredentialsMap,
             GcMonitor gcMonitor,
             Executor notificationExecutor,
             ScheduledExecutorService yieldExecutor,
@@ -128,6 +134,7 @@ public class TaskContext
         TaskContext taskContext = new TaskContext(
                 queryContext,
                 taskStateMachine,
+                tableCredentialsMap,
                 gcMonitor,
                 notificationExecutor,
                 yieldExecutor,
@@ -144,6 +151,7 @@ public class TaskContext
     private TaskContext(
             QueryContext queryContext,
             TaskStateMachine taskStateMachine,
+            Map<PlanNodeId, TableCredentials> tableCredentialsMap,
             GcMonitor gcMonitor,
             Executor notificationExecutor,
             ScheduledExecutorService yieldExecutor,
@@ -155,6 +163,7 @@ public class TaskContext
             boolean cpuTimerEnabled)
     {
         this.taskStateMachine = requireNonNull(taskStateMachine, "taskStateMachine is null");
+        this.tableCredentialsMap = ImmutableMap.copyOf(tableCredentialsMap);
         this.gcMonitor = requireNonNull(gcMonitor, "gcMonitor is null");
         this.queryContext = requireNonNull(queryContext, "queryContext is null");
         this.notificationExecutor = requireNonNull(notificationExecutor, "notificationExecutor is null");
@@ -182,6 +191,11 @@ public class TaskContext
     public TaskId getTaskId()
     {
         return taskStateMachine.getTaskId();
+    }
+
+    public Optional<TableCredentials> resolveTableCredentials(PlanNodeId planNodeId)
+    {
+        return Optional.ofNullable(tableCredentialsMap.get(planNodeId));
     }
 
     public PipelineContext addPipelineContext(int pipelineId, boolean inputPipeline, boolean outputPipeline, boolean partitioned)

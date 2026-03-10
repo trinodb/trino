@@ -26,6 +26,7 @@ import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.EmptyPageSource;
 import io.trino.spi.connector.SourcePage;
+import io.trino.spi.connector.TableCredentials;
 import io.trino.spi.type.Type;
 import io.trino.split.EmptySplit;
 import io.trino.split.PageSourceProvider;
@@ -56,6 +57,7 @@ public class TableScanOperator
         private final PlanNodeId sourceId;
         private final PageSourceProvider pageSourceProvider;
         private final TableHandle table;
+        private final Optional<TableCredentials> tableCredentials;
         private final List<ColumnHandle> columns;
         private final List<Type> columnTypes;
         private final DynamicFilter dynamicFilter;
@@ -67,6 +69,7 @@ public class TableScanOperator
                 PlanNodeId sourceId,
                 PageSourceProviderFactory pageSourceProvider,
                 TableHandle table,
+                Optional<TableCredentials> tableCredentials,
                 List<ColumnHandle> columns,
                 List<Type> columnTypes,
                 DynamicFilter dynamicFilter)
@@ -75,6 +78,7 @@ public class TableScanOperator
             this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
             this.sourceId = requireNonNull(sourceId, "sourceId is null");
             this.table = requireNonNull(table, "table is null");
+            this.tableCredentials = requireNonNull(tableCredentials, "tableCredentials is null");
             this.columns = ImmutableList.copyOf(requireNonNull(columns, "columns is null"));
             this.columnTypes = ImmutableList.copyOf(requireNonNull(columnTypes, "columnTypes is null"));
             this.dynamicFilter = requireNonNull(dynamicFilter, "dynamicFilter is null");
@@ -98,6 +102,7 @@ public class TableScanOperator
                     sourceId,
                     pageSourceProvider,
                     table,
+                    tableCredentials,
                     columns,
                     dynamicFilter);
 
@@ -121,6 +126,7 @@ public class TableScanOperator
     private final PlanNodeId sourceId;
     private final PageSourceProvider pageSourceProvider;
     private final TableHandle table;
+    private final Optional<TableCredentials> tableCredentials;
     private final List<ColumnHandle> columns;
     private final DynamicFilter dynamicFilter;
     private final LocalMemoryContext memoryContext;
@@ -142,6 +148,7 @@ public class TableScanOperator
             PlanNodeId sourceId,
             PageSourceProvider pageSourceProvider,
             TableHandle table,
+            Optional<TableCredentials> tableCredentials,
             List<ColumnHandle> columns,
             DynamicFilter dynamicFilter)
     {
@@ -149,6 +156,7 @@ public class TableScanOperator
         this.sourceId = requireNonNull(sourceId, "planNodeId is null");
         this.pageSourceProvider = requireNonNull(pageSourceProvider, "pageSourceProvider is null");
         this.table = requireNonNull(table, "table is null");
+        this.tableCredentials = requireNonNull(tableCredentials, "tableCredentials is null");
         this.columns = ImmutableList.copyOf(requireNonNull(columns, "columns is null"));
         this.dynamicFilter = requireNonNull(dynamicFilter, "dynamicFilter is null");
         this.memoryContext = operatorContext.newLocalUserMemoryContext(TableScanOperator.class.getSimpleName());
@@ -270,7 +278,7 @@ public class TableScanOperator
             if (!dynamicFilter.getCurrentPredicate().isAll()) {
                 operatorContext.recordDynamicFilterSplitProcessed(1L);
             }
-            source = pageSourceProvider.createPageSource(operatorContext.getSession(), split, table, columns, dynamicFilter);
+            source = pageSourceProvider.createPageSource(operatorContext.getSession(), split, table, tableCredentials, columns, dynamicFilter);
         }
 
         SourcePage sourcePage = source.getNextSourcePage();

@@ -13,21 +13,41 @@
  */
 package io.trino.spi.connector;
 
+import io.trino.spi.TrinoException;
+
 import java.util.List;
+import java.util.Optional;
+
+import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 
 public interface ConnectorPageSourceProvider
 {
+    default ConnectorPageSource createPageSource(
+            ConnectorTransactionHandle transaction,
+            ConnectorSession session,
+            ConnectorSplit split,
+            ConnectorTableHandle table,
+            Optional<TableCredentials> tableCredentials,
+            List<ColumnHandle> columns,
+            DynamicFilter dynamicFilter)
+    {
+        return createPageSource(transaction, session, split, table, columns, dynamicFilter);
+    }
+
     /**
      * @param columns columns that should show up in the output page, in this order
      * @param dynamicFilter optionally remove rows that don't satisfy this predicate
      */
-    ConnectorPageSource createPageSource(
+    default ConnectorPageSource createPageSource(
             ConnectorTransactionHandle transaction,
             ConnectorSession session,
             ConnectorSplit split,
             ConnectorTableHandle table,
             List<ColumnHandle> columns,
-            DynamicFilter dynamicFilter);
+            DynamicFilter dynamicFilter)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support reading tables");
+    }
 
     /**
      * Get the total memory that needs to be reserved in the memory pool.
