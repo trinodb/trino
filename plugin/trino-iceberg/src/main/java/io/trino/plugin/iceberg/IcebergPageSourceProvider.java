@@ -261,7 +261,7 @@ public class IcebergPageSourceProvider
         if (connectorSplit instanceof FilesTableSplit filesTableSplit) {
             return new FilesTablePageSource(
                     typeManager,
-                    fileSystemFactory.create(session.getIdentity(), filesTableSplit.fileIoProperties()),
+                    fileSystemFactory.create(session.getIdentity(), getFileIoProperties(connectorTableCredentials)),
                     fileIoFactory,
                     columns.stream().map(SystemColumnHandle.class::cast).map(SystemColumnHandle::columnName).collect(toImmutableList()),
                     filesTableSplit);

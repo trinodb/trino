@@ -21,15 +21,18 @@ import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorMetadata;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.ConnectorTableCredentials;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.ConnectorTableVersion;
+import io.trino.spi.connector.ConnectorWritableTableHandle;
 import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.ConstraintApplicationResult;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SchemaTablePrefix;
 import io.trino.spi.connector.SystemColumnHandle;
 import io.trino.spi.connector.SystemTable;
+import io.trino.spi.function.table.ConnectorTableFunctionHandle;
 import io.trino.spi.predicate.TupleDomain;
 
 import java.util.List;
@@ -174,6 +177,25 @@ public class SystemTablesMetadata
         }
         table = new SystemTableHandle(table.schemaName(), table.tableName(), newDomain);
         return Optional.of(new ConstraintApplicationResult<>(table, constraint.getSummary(), constraint.getExpression(), false));
+    }
+
+    @Override
+    public Optional<ConnectorTableCredentials> getTableCredentials(ConnectorSession session, ConnectorTableHandle tableHandle)
+    {
+        SystemTable systemTable = checkAndGetTable(session, tableHandle);
+        return systemTable.getTableCredentials(session);
+    }
+
+    @Override
+    public Optional<ConnectorTableCredentials> getTableCredentials(ConnectorSession session, ConnectorWritableTableHandle tableHandle)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support table credentials");
+    }
+
+    @Override
+    public Optional<ConnectorTableCredentials> getTableCredentials(ConnectorSession session, ConnectorTableFunctionHandle tableFunctionHandle)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support table credentials");
     }
 
     private Constraint effectiveConstraint(TupleDomain<ColumnHandle> oldDomain, Constraint newConstraint, TupleDomain<ColumnHandle> effectiveDomain)
