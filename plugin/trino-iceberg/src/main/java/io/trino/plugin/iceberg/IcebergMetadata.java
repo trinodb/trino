@@ -71,6 +71,7 @@ import io.trino.plugin.iceberg.system.AllManifestsTable;
 import io.trino.plugin.iceberg.system.EntriesTable;
 import io.trino.plugin.iceberg.system.FilesTable;
 import io.trino.plugin.iceberg.system.HistoryTable;
+import io.trino.plugin.iceberg.system.IcebergTablesSystemTable;
 import io.trino.plugin.iceberg.system.ManifestsTable;
 import io.trino.plugin.iceberg.system.MetadataLogEntriesTable;
 import io.trino.plugin.iceberg.system.PartitionsTable;
@@ -585,6 +586,20 @@ public class IcebergMetadata
     }
 
     @Override
+    public Optional<ConnectorTableCredentials> getSystemTableCredentials(ConnectorSession session, SchemaTableName tableName)
+    {
+        if (tableName.equals(IcebergTablesSystemTable.NAME)) {
+            // Escape hatch for the system.iceberg_tables because it does not apply to a specific iceberg table
+            return Optional.empty();
+        }
+        if (isIcebergTableName(tableName.getTableName())) {
+            SchemaTableName icebergTableName = new SchemaTableName(tableName.getSchemaName(), tableNameFrom(tableName.getTableName()));
+            return getOrLoadTableCredentials(session, icebergTableName);
+        }
+        return Optional.empty();
+    }
+
+    @Override
     public Optional<ConnectorTableCredentials> getTableCredentials(ConnectorSession session, ConnectorTableFunctionHandle tableFunctionHandle)
     {
         return getOrLoadTableCredentials(session, getSchemaTableName(tableFunctionHandle));
@@ -615,10 +630,10 @@ public class IcebergMetadata
 
     private static SchemaTableName getSchemaTableName(ConnectorTableHandle tableHandle)
     {
-        if (tableHandle instanceof IcebergTableHandle handle) {
-            return handle.getSchemaTableName();
-        }
-        throw new IllegalArgumentException("Unsupported ConnectorTableHandle type: " + tableHandle.getClass().getName());
+        return switch (tableHandle) {
+            case IcebergTableHandle handle -> handle.getSchemaTableName();
+            default -> throw new IllegalArgumentException("Unsupported ConnectorTableHandle type: " + tableHandle.getClass().getName());
+        };
     }
 
     private static SchemaTableName getSchemaTableName(ConnectorTableFunctionHandle tableFunctionHandle)

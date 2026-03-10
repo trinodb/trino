@@ -1524,6 +1524,15 @@ public class TracingConnectorMetadata
     }
 
     @Override
+    public Optional<ConnectorTableCredentials> getSystemTableCredentials(ConnectorSession session, SchemaTableName tableName)
+    {
+        Span span = startSpan("getTableCredentials", tableName);
+        try (var _ = scopedSpan(span)) {
+            return delegate.getSystemTableCredentials(session, tableName);
+        }
+    }
+
+    @Override
     public Optional<ConnectorTableCredentials> getTableCredentials(ConnectorSession session, ConnectorTableFunctionHandle tableFunctionHandle)
     {
         Span span = startSpan("getTableCredentials", tableFunctionHandle);

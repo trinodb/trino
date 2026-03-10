@@ -973,6 +973,12 @@ public class LakehouseMetadata
     }
 
     @Override
+    public Optional<ConnectorTableCredentials> getSystemTableCredentials(ConnectorSession session, SchemaTableName tableName)
+    {
+        return forHandle(session, tableName).getSystemTableCredentials(session, tableName);
+    }
+
+    @Override
     public Optional<ConnectorTableCredentials> getTableCredentials(ConnectorSession session, ConnectorTableFunctionHandle tableFunctionHandle)
     {
         return forHandle(tableFunctionHandle).getTableCredentials(session, tableFunctionHandle);
@@ -1019,6 +1025,23 @@ public class LakehouseMetadata
             return icebergMetadata;
         }
         throw new IllegalArgumentException("Unsupported ConnectorTableFunctionHandle type: " + tableFunctionHandle.getClass().getName());
+    }
+
+    private ConnectorMetadata forHandle(ConnectorSession session, SchemaTableName systemTableName)
+    {
+        if (hiveMetadata.getSystemTable(session, systemTableName).isPresent()) {
+            return hiveMetadata;
+        }
+        else if (icebergMetadata.getSystemTable(session, systemTableName).isPresent()) {
+            return icebergMetadata;
+        }
+        else if (deltaMetadata.getSystemTable(session, systemTableName).isPresent()) {
+            return deltaMetadata;
+        }
+        else if (hudiMetadata.getSystemTable(session, systemTableName).isPresent()) {
+            return hudiMetadata;
+        }
+        throw new IllegalStateException("Unknown system table name: " + systemTableName);
     }
 
     private ConnectorMetadata forHandle(ConnectorWritableTableHandle handle)

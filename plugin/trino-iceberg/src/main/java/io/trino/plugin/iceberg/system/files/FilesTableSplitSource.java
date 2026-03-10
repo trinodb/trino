@@ -41,7 +41,6 @@ public final class FilesTableSplitSource
     private final String metadataSchemaJson;
     private final Map<Integer, String> partitionSpecsByIdJson;
     private final Optional<Type> partitionColumnType;
-    private final Map<String, String> fileIoProperties;
     private boolean finished;
 
     public FilesTableSplitSource(
@@ -50,8 +49,7 @@ public final class FilesTableSplitSource
             String schemaJson,
             String metadataSchemaJson,
             Map<Integer, String> partitionSpecsByIdJson,
-            Optional<Type> partitionColumnType,
-            Map<String, String> fileIoProperties)
+            Optional<Type> partitionColumnType)
     {
         this.icebergTable = requireNonNull(icebergTable, "icebergTable is null");
         this.snapshotId = requireNonNull(snapshotId, "snapshotId is null");
@@ -59,7 +57,6 @@ public final class FilesTableSplitSource
         this.metadataSchemaJson = requireNonNull(metadataSchemaJson, "metadataSchemaJson is null");
         this.partitionSpecsByIdJson = ImmutableMap.copyOf(partitionSpecsByIdJson);
         this.partitionColumnType = requireNonNull(partitionColumnType, "partitionColumnType is null");
-        this.fileIoProperties = ImmutableMap.copyOf(fileIoProperties);
     }
 
     @Override
@@ -76,8 +73,7 @@ public final class FilesTableSplitSource
                         schemaJson,
                         metadataSchemaJson,
                         partitionSpecsByIdJson,
-                        partitionColumnType,
-                        fileIoProperties));
+                        partitionColumnType));
             }
         }
 

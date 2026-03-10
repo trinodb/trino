@@ -28,6 +28,7 @@ import io.airlift.slice.Slice;
 import io.trino.Session;
 import io.trino.connector.CatalogHandle;
 import io.trino.connector.system.GlobalSystemConnector;
+import io.trino.connector.system.SystemTableHandle;
 import io.trino.metadata.LanguageFunctionManager.RunAsIdentityLoader;
 import io.trino.security.AccessControl;
 import io.trino.security.InjectedConnectorAccessControl;
@@ -317,6 +318,12 @@ public final class MetadataManager
     @Override
     public Optional<ConnectorTableCredentials> getTableCredentials(Session session, CatalogHandle catalogHandle, ConnectorTableHandle tableHandle)
     {
+        if (tableHandle instanceof SystemTableHandle systemTableHandle) {
+            verify(catalogHandle.getType().isInternal());
+            return getMetadata(session, catalogHandle.getRootCatalogHandle())
+                    .getSystemTableCredentials(session.toConnectorSession(catalogHandle.getRootCatalogHandle()), systemTableHandle.schemaTableName());
+        }
+
         return getMetadata(session, catalogHandle).getTableCredentials(session.toConnectorSession(catalogHandle), tableHandle);
     }
 

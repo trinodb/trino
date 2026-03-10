@@ -44,7 +44,7 @@ import static java.util.Objects.requireNonNull;
 public class IcebergTablesSystemTable
         implements SystemTable
 {
-    private static final SchemaTableName NAME = new SchemaTableName("system", "iceberg_tables");
+    public static final SchemaTableName NAME = new SchemaTableName("system", "iceberg_tables");
 
     private static final ConnectorTableMetadata METADATA = new ConnectorTableMetadata(
             NAME,
