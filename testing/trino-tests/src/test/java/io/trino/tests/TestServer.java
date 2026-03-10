@@ -69,11 +69,12 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Throwables.getStackTraceAsString;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static com.google.common.net.HttpHeaders.CONTENT_TYPE;
-import static com.google.common.net.HttpHeaders.X_FORWARDED_HOST;
-import static com.google.common.net.HttpHeaders.X_FORWARDED_PORT;
-import static com.google.common.net.HttpHeaders.X_FORWARDED_PROTO;
 import static io.airlift.http.client.FullJsonResponseHandler.createFullJsonResponseHandler;
+import static io.airlift.http.client.HeaderNames.CONTENT_TYPE;
+import static io.airlift.http.client.HeaderNames.LOCATION;
+import static io.airlift.http.client.HeaderNames.X_FORWARDED_HOST;
+import static io.airlift.http.client.HeaderNames.X_FORWARDED_PORT;
+import static io.airlift.http.client.HeaderNames.X_FORWARDED_PROTO;
 import static io.airlift.http.client.Request.Builder.prepareGet;
 import static io.airlift.http.client.Request.Builder.prepareHead;
 import static io.airlift.http.client.Request.Builder.preparePost;
@@ -432,7 +433,7 @@ public class TestServer
                 .isEqualTo(OK.getStatusCode());
         assertThat(response.getHeader(CONTENT_TYPE))
                 .describedAs("Content Type")
-                .isEqualTo(APPLICATION_JSON);
+                .hasValue(APPLICATION_JSON);
     }
 
     @Test
@@ -446,9 +447,9 @@ public class TestServer
         assertThat(response.getStatusCode())
                 .describedAs("Status code")
                 .isEqualTo(SEE_OTHER.getStatusCode());
-        assertThat(response.getHeader("Location"))
+        assertThat(response.getHeader(LOCATION))
                 .describedAs("Location")
-                .isEqualTo(server.getBaseUrl() + "/ui/");
+                .hasValue(server.getBaseUrl() + "/ui/");
 
         // behind a proxy
         request = prepareGet()
@@ -462,9 +463,9 @@ public class TestServer
         assertThat(response.getStatusCode())
                 .describedAs("Status code")
                 .isEqualTo(SEE_OTHER.getStatusCode());
-        assertThat(response.getHeader("Location"))
+        assertThat(response.getHeader(LOCATION))
                 .describedAs("Location")
-                .isEqualTo("https://my-load-balancer.local/ui/");
+                .hasValue("https://my-load-balancer.local/ui/");
     }
 
     private Stream<JsonResponse<QueryResults>> postQuery(Function<Request.Builder, Request.Builder> requestConfigurer)

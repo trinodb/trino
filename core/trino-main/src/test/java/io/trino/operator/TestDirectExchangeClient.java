@@ -16,7 +16,6 @@ package io.trino.operator;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.ListMultimap;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.configuration.secrets.SecretsResolver;
@@ -68,7 +67,6 @@ import java.util.concurrent.TimeoutException;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
-import static com.google.common.collect.ImmutableListMultimap.toImmutableListMultimap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Maps.uniqueIndex;
 import static com.google.common.collect.Sets.newConcurrentHashSet;
@@ -889,15 +887,13 @@ public class TestDirectExchangeClient
                     verify(savedResponse == null);
                     TestingResponse response = (TestingResponse) delegate.handle(request);
                     checkState(response.getStatusCode() == HttpStatus.OK.code(), "Unexpected status code: %s", response.getStatusCode());
-                    ListMultimap<String, String> headers = response.getHeaders().entries().stream()
-                            .collect(toImmutableListMultimap(entry -> entry.getKey().toString(), Map.Entry::getValue));
                     byte[] bytes = response.getInputStream().readAllBytes();
                     checkState(bytes.length > 42, "too short");
-                    savedResponse = new TestingResponse(HttpStatus.OK, headers, bytes.clone());
+                    savedResponse = new TestingResponse(HttpStatus.OK, response.getHeaders(), bytes.clone());
                     // corrupt
                     bytes[42]++;
                     completedRequests++;
-                    return new TestingResponse(HttpStatus.OK, headers, bytes);
+                    return new TestingResponse(HttpStatus.OK, response.getHeaders(), bytes);
                 }
 
                 if (completedRequests == 1) {

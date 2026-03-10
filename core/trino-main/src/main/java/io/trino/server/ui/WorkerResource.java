@@ -50,7 +50,7 @@ import java.util.Locale;
 import java.util.Optional;
 import java.util.Set;
 
-import static com.google.common.net.HttpHeaders.CONTENT_TYPE;
+import static io.airlift.http.client.HeaderNames.CONTENT_TYPE;
 import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 import static io.airlift.http.client.Request.Builder.prepareGet;
 import static io.trino.node.NodeState.ACTIVE;
@@ -223,7 +223,7 @@ public class WorkerResource
         public byte[] handle(Request request, io.airlift.http.client.Response response)
         {
             try (InputStream stream = response.getInputStream()) {
-                if (!APPLICATION_JSON.equals(response.getHeader(CONTENT_TYPE))) {
+                if (!response.getHeader(CONTENT_TYPE).map(APPLICATION_JSON::equals).orElse(false)) {
                     throw new RuntimeException("Response received was not of type " + APPLICATION_JSON);
                 }
                 return stream.readAllBytes();
