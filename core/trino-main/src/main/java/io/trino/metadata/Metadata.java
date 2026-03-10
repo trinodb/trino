@@ -32,7 +32,10 @@ import io.trino.spi.connector.ColumnPosition;
 import io.trino.spi.connector.ConnectorCapabilities;
 import io.trino.spi.connector.ConnectorName;
 import io.trino.spi.connector.ConnectorOutputMetadata;
+import io.trino.spi.connector.ConnectorTableCredentials;
+import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTableMetadata;
+import io.trino.spi.connector.ConnectorWritableTableHandle;
 import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.ConstraintApplicationResult;
 import io.trino.spi.connector.EntityKindAndName;
@@ -936,4 +939,16 @@ public interface Metadata
      * Returns list of functions authorization info
      */
     Set<FunctionAuthorization> getFunctionsAuthorizationInfo(Session session, QualifiedObjectPrefix prefix);
+
+    /**
+     * Returns {@link ConnectorTableCredentials} for specified {@link CatalogHandle} and {@link ConnectorTableHandle}
+     * or {@link Optional#empty} if there are no credentials.
+     */
+    Optional<ConnectorTableCredentials> getTableCredentials(Session session, CatalogHandle catalogHandle, ConnectorTableHandle tableHandle);
+
+    /**
+     * Returns {@link ConnectorTableCredentials} for specified {@link CatalogHandle} and {@link ConnectorWritableTableHandle}
+     * or {@link Optional#empty} if there are no credentials.
+     */
+    Optional<ConnectorTableCredentials> getTableCredentials(Session session, CatalogHandle catalogHandle, ConnectorWritableTableHandle writableTableHandle);
 }

@@ -1828,4 +1828,14 @@ public interface ConnectorMetadata
     {
         return WriterScalingOptions.DISABLED;
     }
+
+    default Optional<ConnectorTableCredentials> getTableCredentials(ConnectorSession session, ConnectorTableHandle tableHandle)
+    {
+        return Optional.empty();
+    }
+
+    default Optional<ConnectorTableCredentials> getTableCredentials(ConnectorSession session, ConnectorWritableTableHandle tableHandle)
+    {
+        return Optional.empty();
+    }
 }

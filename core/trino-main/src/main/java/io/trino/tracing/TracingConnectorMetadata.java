@@ -35,6 +35,7 @@ import io.trino.spi.connector.ConnectorOutputTableHandle;
 import io.trino.spi.connector.ConnectorPartitioningHandle;
 import io.trino.spi.connector.ConnectorResolvedIndex;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.ConnectorTableCredentials;
 import io.trino.spi.connector.ConnectorTableExecuteHandle;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTableLayout;
@@ -43,6 +44,7 @@ import io.trino.spi.connector.ConnectorTableProperties;
 import io.trino.spi.connector.ConnectorTableSchema;
 import io.trino.spi.connector.ConnectorTableVersion;
 import io.trino.spi.connector.ConnectorViewDefinition;
+import io.trino.spi.connector.ConnectorWritableTableHandle;
 import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.ConstraintApplicationResult;
 import io.trino.spi.connector.JoinApplicationResult;
@@ -1503,6 +1505,24 @@ public class TracingConnectorMetadata
         }
     }
 
+    @Override
+    public Optional<ConnectorTableCredentials> getTableCredentials(ConnectorSession session, ConnectorTableHandle tableHandle)
+    {
+        Span span = startSpan("getTableCredentials", tableHandle);
+        try (var _ = scopedSpan(span)) {
+            return delegate.getTableCredentials(session, tableHandle);
+        }
+    }
+
+    @Override
+    public Optional<ConnectorTableCredentials> getTableCredentials(ConnectorSession session, ConnectorWritableTableHandle tableHandle)
+    {
+        Span span = startSpan("getTableCredentials", tableHandle);
+        try (var _ = scopedSpan(span)) {
+            return delegate.getTableCredentials(session, tableHandle);
+        }
+    }
+
     private Span startSpan(String methodName)
     {
         return tracer.spanBuilder("ConnectorMetadata." + methodName)
@@ -1534,6 +1554,15 @@ public class TracingConnectorMetadata
         return startSpan(methodName)
                 .setAttribute(TrinoAttributes.SCHEMA, prefix.getSchema().orElse(null))
                 .setAttribute(TrinoAttributes.TABLE, prefix.getTable().orElse(null));
+    }
+
+    private Span startSpan(String methodName, ConnectorWritableTableHandle handle)
+    {
+        Span span = startSpan(methodName);
+        if (span.isRecording()) {
+            span.setAttribute(TrinoAttributes.HANDLE, handle.toString());
+        }
+        return span;
     }
 
     private Span startSpan(String methodName, ConnectorTableHandle handle)

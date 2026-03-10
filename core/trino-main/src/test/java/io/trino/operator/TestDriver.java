@@ -43,6 +43,7 @@ import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.Timeout;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
@@ -170,10 +171,11 @@ public class TestDriver
         List<Type> types = ImmutableList.of(VARCHAR, BIGINT, BIGINT);
         TableScanOperator source = new TableScanOperator(driverContext.addOperatorContext(99, new PlanNodeId("test"), "values"),
                 sourceId,
-                (_, _, _, _, _) -> new FixedPageSource(rowPagesBuilder(types)
+                (_, _, _, _, _, _) -> new FixedPageSource(rowPagesBuilder(types)
                         .addSequencePage(10, 20, 30, 40)
                         .build()),
                 TEST_TABLE_HANDLE,
+                Optional.empty(),
                 ImmutableList.of(),
                 DynamicFilter.EMPTY);
 
@@ -250,7 +252,7 @@ public class TestDriver
         List<Type> types = ImmutableList.of(VARCHAR, BIGINT, BIGINT);
         TableScanOperator source = new AlwaysBlockedMemoryRevokingTableScanOperator(driverContext.addOperatorContext(99, new PlanNodeId("test"), "scan"),
                 new PlanNodeId("source"),
-                (_, _, _, _, _) -> new FixedPageSource(rowPagesBuilder(types)
+                (_, _, _, _, _, _) -> new FixedPageSource(rowPagesBuilder(types)
                         .addSequencePage(10, 20, 30, 40)
                         .build()),
                 TEST_TABLE_HANDLE,
@@ -270,7 +272,7 @@ public class TestDriver
         TableScanOperator source = new AlwaysBlockedTableScanOperator(
                 driverContext.addOperatorContext(99, new PlanNodeId("test"), "scan"),
                 new PlanNodeId("source"),
-                (_, _, _, _, _) -> new FixedPageSource(rowPagesBuilder(types)
+                (_, _, _, _, _, _) -> new FixedPageSource(rowPagesBuilder(types)
                         .addSequencePage(10, 20, 30, 40)
                         .build()),
                 TEST_TABLE_HANDLE,
@@ -340,7 +342,7 @@ public class TestDriver
         // create a table scan operator that does not block, which will cause the driver loop to busy wait
         TableScanOperator source = new NotBlockedTableScanOperator(driverContext.addOperatorContext(99, new PlanNodeId("test"), "values"),
                 sourceId,
-                (_, _, _, _, _) -> new FixedPageSource(rowPagesBuilder(types)
+                (_, _, _, _, _, _) -> new FixedPageSource(rowPagesBuilder(types)
                         .addSequencePage(10, 20, 30, 40)
                         .build()),
                 TEST_TABLE_HANDLE,
@@ -581,7 +583,7 @@ public class TestDriver
                 TableHandle table,
                 List<ColumnHandle> columns)
         {
-            super(operatorContext, planNodeId, pageSourceProvider, table, columns, DynamicFilter.EMPTY);
+            super(operatorContext, planNodeId, pageSourceProvider, table, Optional.empty(), columns, DynamicFilter.EMPTY);
         }
 
         @Override
@@ -601,7 +603,7 @@ public class TestDriver
                 TableHandle table,
                 List<ColumnHandle> columns)
         {
-            super(operatorContext, planNodeId, pageSourceProvider, table, columns, DynamicFilter.EMPTY);
+            super(operatorContext, planNodeId, pageSourceProvider, table, Optional.empty(), columns, DynamicFilter.EMPTY);
         }
 
         @Override
@@ -626,7 +628,7 @@ public class TestDriver
                 TableHandle table,
                 List<ColumnHandle> columns)
         {
-            super(operatorContext, planNodeId, pageSourceProvider, table, columns, DynamicFilter.EMPTY);
+            super(operatorContext, planNodeId, pageSourceProvider, table, Optional.empty(), columns, DynamicFilter.EMPTY);
         }
 
         @Override
