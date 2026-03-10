@@ -47,7 +47,8 @@ public final class SliceSerialization
         public Slice deserialize(JsonParser parser, DeserializationContext context)
                 throws IOException
         {
-            return Slices.wrappedBuffer(parser.getBinaryValue(Base64Variants.MIME_NO_LINEFEEDS));
+            byte[] decoded = Base64Variants.MIME_NO_LINEFEEDS.decode(context.readValue(parser, String.class));
+            return Slices.wrappedBuffer(decoded);
         }
     }
 }
