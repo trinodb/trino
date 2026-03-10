@@ -38,6 +38,7 @@ import io.trino.plugin.iceberg.IcebergMetadata;
 import io.trino.plugin.iceberg.IcebergPartitioningHandle;
 import io.trino.plugin.iceberg.IcebergTableHandle;
 import io.trino.plugin.iceberg.IcebergWritableTableHandle;
+import io.trino.plugin.iceberg.functions.tablechanges.TableChangesFunctionHandle;
 import io.trino.plugin.iceberg.procedure.IcebergTableExecuteHandle;
 import io.trino.spi.RefreshType;
 import io.trino.spi.connector.AggregateFunction;
@@ -90,6 +91,7 @@ import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.expression.Constant;
 import io.trino.spi.function.LanguageFunction;
 import io.trino.spi.function.SchemaFunctionName;
+import io.trino.spi.function.table.ConnectorTableFunctionHandle;
 import io.trino.spi.metrics.Metric;
 import io.trino.spi.metrics.Metrics;
 import io.trino.spi.security.GrantInfo;
@@ -971,6 +973,12 @@ public class LakehouseMetadata
     }
 
     @Override
+    public Optional<ConnectorTableCredentials> getTableCredentials(ConnectorSession session, ConnectorTableFunctionHandle tableFunctionHandle)
+    {
+        return forHandle(tableFunctionHandle).getTableCredentials(session, tableFunctionHandle);
+    }
+
+    @Override
     public Optional<ConnectorTableCredentials> getTableCredentials(ConnectorSession session, ConnectorWritableTableHandle tableHandle)
     {
         return forHandle(tableHandle).getTableCredentials(session, tableHandle);
@@ -1003,6 +1011,14 @@ public class LakehouseMetadata
             case HudiTableHandle _ -> hudiMetadata;
             default -> throw new IllegalArgumentException("Unsupported table handle: " + handle.getClass().getName());
         };
+    }
+
+    private ConnectorMetadata forHandle(ConnectorTableFunctionHandle tableFunctionHandle)
+    {
+        if (tableFunctionHandle instanceof TableChangesFunctionHandle _) {
+            return icebergMetadata;
+        }
+        throw new IllegalArgumentException("Unsupported ConnectorTableFunctionHandle type: " + tableFunctionHandle.getClass().getName());
     }
 
     private ConnectorMetadata forHandle(ConnectorWritableTableHandle handle)

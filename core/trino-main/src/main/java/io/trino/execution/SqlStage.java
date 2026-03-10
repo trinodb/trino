@@ -27,6 +27,7 @@ import io.trino.execution.buffer.OutputBuffers;
 import io.trino.execution.scheduler.SplitSchedulerStats;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.Split;
+import io.trino.metadata.TableFunctionHandle;
 import io.trino.metadata.TableHandle;
 import io.trino.node.InternalNode;
 import io.trino.spi.connector.ConnectorTableCredentials;
@@ -41,6 +42,7 @@ import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.sql.planner.plan.SimplePlanRewriter;
 import io.trino.sql.planner.plan.TableExecuteNode;
+import io.trino.sql.planner.plan.TableFunctionProcessorNode;
 import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.sql.planner.plan.TableWriterNode;
 
@@ -502,6 +504,14 @@ public final class SqlStage
         {
             TableHandle table = node.getTable();
             extract(builder, node, metadata.getTableCredentials(session, table.catalogHandle(), table.connectorHandle()));
+            return null;
+        }
+
+        @Override
+        public Void visitTableFunctionProcessor(TableFunctionProcessorNode node, Void context)
+        {
+            TableFunctionHandle handle = node.getHandle();
+            extract(builder, node, metadata.getTableCredentials(session, handle.catalogHandle(), handle.functionHandle()));
             return null;
         }
 

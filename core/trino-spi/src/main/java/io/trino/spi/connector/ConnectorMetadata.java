@@ -1858,6 +1858,11 @@ public interface ConnectorMetadata
         return Optional.empty();
     }
 
+    default Optional<ConnectorTableCredentials> getTableCredentials(ConnectorSession session, ConnectorTableFunctionHandle tableFunctionHandle)
+    {
+        return Optional.empty();
+    }
+
     default Optional<ConnectorTableCredentials> getTableCredentials(ConnectorSession session, ConnectorWritableTableHandle tableHandle)
     {
         return Optional.empty();
