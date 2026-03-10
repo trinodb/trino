@@ -631,6 +631,7 @@ public class TestHttpRemoteTask
                 new InternalNode("node-id", URI.create("http://fake.invalid/"), NodeVersion.UNKNOWN, false),
                 false,
                 TaskTestUtils.PLAN_FRAGMENT,
+                ImmutableMap.of(),
                 ImmutableMultimap.of(),
                 PipelinedOutputBuffers.createInitial(BROADCAST),
                 new NodeTaskMap.PartitionedSplitCountTracker(i -> {}),

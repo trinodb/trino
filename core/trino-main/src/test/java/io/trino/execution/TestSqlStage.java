@@ -61,6 +61,7 @@ import static io.airlift.tracing.Tracing.noopTracer;
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.execution.SqlStage.createSqlStage;
 import static io.trino.execution.buffer.PipelinedOutputBuffers.BufferType.ARBITRARY;
+import static io.trino.metadata.AbstractMockMetadata.dummyMetadata;
 import static io.trino.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.SOURCE_DISTRIBUTION;
 import static io.trino.sql.planner.plan.ExchangeNode.Type.REPARTITION;
@@ -116,6 +117,7 @@ public class TestSqlStage
 
         StageId stageId = new StageId(new QueryId("query"), 0);
         SqlStage stage = createSqlStage(
+                dummyMetadata(),
                 stageId,
                 createExchangePlanFragment(),
                 ImmutableMap.of(),
