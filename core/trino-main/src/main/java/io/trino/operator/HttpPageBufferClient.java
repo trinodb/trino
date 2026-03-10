@@ -61,7 +61,7 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.base.Strings.nullToEmpty;
-import static com.google.common.net.HttpHeaders.CONTENT_TYPE;
+import static io.airlift.http.client.HeaderNames.CONTENT_TYPE;
 import static io.airlift.http.client.HttpStatus.NO_CONTENT;
 import static io.airlift.http.client.HttpStatus.familyForStatusCode;
 import static io.airlift.http.client.Request.Builder.prepareDelete;
@@ -75,12 +75,12 @@ import static io.trino.execution.buffer.PagesSerdeUtil.calculateChecksum;
 import static io.trino.execution.buffer.PagesSerdeUtil.readSerializedPages;
 import static io.trino.operator.HttpPageBufferClient.PagesResponse.createEmptyPagesResponse;
 import static io.trino.operator.HttpPageBufferClient.PagesResponse.createPagesResponse;
-import static io.trino.server.InternalHeaders.TRINO_BUFFER_COMPLETE;
-import static io.trino.server.InternalHeaders.TRINO_MAX_SIZE;
-import static io.trino.server.InternalHeaders.TRINO_PAGE_NEXT_TOKEN;
-import static io.trino.server.InternalHeaders.TRINO_PAGE_TOKEN;
-import static io.trino.server.InternalHeaders.TRINO_TASK_FAILED;
-import static io.trino.server.InternalHeaders.TRINO_TASK_INSTANCE_ID;
+import static io.trino.server.InternalHeaders.TRINO_BUFFER_COMPLETE_HEADER;
+import static io.trino.server.InternalHeaders.TRINO_MAX_SIZE_HEADER;
+import static io.trino.server.InternalHeaders.TRINO_PAGE_NEXT_TOKEN_HEADER;
+import static io.trino.server.InternalHeaders.TRINO_PAGE_TOKEN_HEADER;
+import static io.trino.server.InternalHeaders.TRINO_TASK_FAILED_HEADER;
+import static io.trino.server.InternalHeaders.TRINO_TASK_INSTANCE_ID_HEADER;
 import static io.trino.server.PagesInputStreamFactory.SERIALIZED_PAGES_MAGIC;
 import static io.trino.spi.HostAddress.fromUri;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
@@ -359,7 +359,7 @@ public final class HttpPageBufferClient
         lastRequestStartNanos = ticker.read();
         HttpResponseFuture<PagesResponse> resultFuture = httpClient.executeAsync(
                 prepareGet()
-                        .setHeader(TRINO_MAX_SIZE, maxResponseSize.toString())
+                        .setHeader(TRINO_MAX_SIZE_HEADER, maxResponseSize.toString())
                         .setUri(uri).build(),
                 new PageResponseHandler(dataIntegrityVerification != DataIntegrityVerification.NONE));
 
@@ -752,45 +752,45 @@ public final class HttpPageBufferClient
 
         private static String getTaskInstanceId(Response response, URI uri)
         {
-            String taskInstanceId = response.getHeader(TRINO_TASK_INSTANCE_ID);
+            String taskInstanceId = response.getHeader(TRINO_TASK_INSTANCE_ID_HEADER);
             if (taskInstanceId == null) {
-                throw new PageTransportErrorException(fromUri(uri), format("Expected %s header", TRINO_TASK_INSTANCE_ID));
+                throw new PageTransportErrorException(fromUri(uri), format("Expected %s header", TRINO_TASK_INSTANCE_ID_HEADER));
             }
             return taskInstanceId;
         }
 
         private static long getToken(Response response, URI uri)
         {
-            String tokenHeader = response.getHeader(TRINO_PAGE_TOKEN);
+            String tokenHeader = response.getHeader(TRINO_PAGE_TOKEN_HEADER);
             if (tokenHeader == null) {
-                throw new PageTransportErrorException(fromUri(uri), format("Expected %s header", TRINO_PAGE_TOKEN));
+                throw new PageTransportErrorException(fromUri(uri), format("Expected %s header", TRINO_PAGE_TOKEN_HEADER));
             }
             return Long.parseLong(tokenHeader);
         }
 
         private static long getNextToken(Response response, URI uri)
         {
-            String nextTokenHeader = response.getHeader(TRINO_PAGE_NEXT_TOKEN);
+            String nextTokenHeader = response.getHeader(TRINO_PAGE_NEXT_TOKEN_HEADER);
             if (nextTokenHeader == null) {
-                throw new PageTransportErrorException(fromUri(uri), format("Expected %s header", TRINO_PAGE_NEXT_TOKEN));
+                throw new PageTransportErrorException(fromUri(uri), format("Expected %s header", TRINO_PAGE_NEXT_TOKEN_HEADER));
             }
             return Long.parseLong(nextTokenHeader);
         }
 
         private static boolean getComplete(Response response, URI uri)
         {
-            String bufferComplete = response.getHeader(TRINO_BUFFER_COMPLETE);
+            String bufferComplete = response.getHeader(TRINO_BUFFER_COMPLETE_HEADER);
             if (bufferComplete == null) {
-                throw new PageTransportErrorException(fromUri(uri), format("Expected %s header", TRINO_BUFFER_COMPLETE));
+                throw new PageTransportErrorException(fromUri(uri), format("Expected %s header", TRINO_BUFFER_COMPLETE_HEADER));
             }
             return Boolean.parseBoolean(bufferComplete);
         }
 
         private static boolean getTaskFailed(Response response, URI uri)
         {
-            String taskFailed = response.getHeader(TRINO_TASK_FAILED);
+            String taskFailed = response.getHeader(TRINO_TASK_FAILED_HEADER);
             if (taskFailed == null) {
-                throw new PageTransportErrorException(fromUri(uri), format("Expected %s header", TRINO_TASK_FAILED));
+                throw new PageTransportErrorException(fromUri(uri), format("Expected %s header", TRINO_TASK_FAILED_HEADER));
             }
             return Boolean.parseBoolean(taskFailed);
         }
