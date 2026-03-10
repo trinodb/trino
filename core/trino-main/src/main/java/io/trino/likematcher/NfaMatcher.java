@@ -13,15 +13,20 @@
  */
 package io.trino.likematcher;
 
+import io.airlift.slice.Slice;
+
 import java.util.Arrays;
 import java.util.List;
+
+import static io.airlift.slice.SliceUtf8.getCodePointAt;
+import static io.airlift.slice.SliceUtf8.lengthOfCodePoint;
+import static io.airlift.slice.SliceUtf8.tryGetCodePointAt;
 
 final class NfaMatcher
         implements Matcher
 {
     private static final int ANY = -1;
     private static final int NONE = -2;
-    private static final int INVALID_CODEPOINT = -1;
 
     private final boolean exact;
 
@@ -45,9 +50,12 @@ final class NfaMatcher
         for (int j = start; j <= end; j++) {
             Pattern element = pattern.get(j);
             switch (element) {
-                case Pattern.Literal literal -> {
-                    for (int i = 0; i < literal.value().length(); i++) {
-                        match[state++] = literal.value().charAt(i);
+                case Pattern.Literal(Slice value) -> {
+                    int position = 0;
+                    while (position < value.length()) {
+                        int character = getCodePointAt(value, position);
+                        match[state++] = character;
+                        position += lengthOfCodePoint(character);
                     }
                 }
                 case Pattern.Any any -> {
@@ -55,9 +63,7 @@ final class NfaMatcher
                         match[state++] = ANY;
                     }
                 }
-                case Pattern.ZeroOrMore zeroOrMore -> {
-                    loopback[state] = true;
-                }
+                case Pattern.ZeroOrMore _ -> loopback[state] = true;
             }
         }
     }
@@ -67,20 +73,21 @@ final class NfaMatcher
         int states = 1;
         for (int i = start; i <= end; i++) {
             Pattern element = pattern.get(i);
-            if (element instanceof Pattern.Literal literal) {
-                states += literal.value().length();
+            if (element instanceof Pattern.Literal(Slice value)) {
+                states += value.length();
             }
-            else if (element instanceof Pattern.Any any) {
-                states += any.length();
+            else if (element instanceof Pattern.Any(int length)) {
+                states += length;
             }
         }
         return states;
     }
 
     @Override
-    public boolean match(byte[] input, int offset, int length)
+    public boolean match(Slice input, int offset, int length)
     {
-        boolean[] seen = new boolean[stateCount + 1];
+        int[] seenGeneration = new int[stateCount + 1];
+        int generation = 1;
         int[] currentStates = new int[stateCount];
         int[] nextStates = new int[stateCount];
         int currentStatesIndex = 0;
@@ -92,57 +99,27 @@ final class NfaMatcher
         int current = offset;
         boolean accept = false;
         while (current < limit) {
-            int codepoint = INVALID_CODEPOINT;
-
-            // decode the next UTF-8 codepoint
-            int header = input[current] & 0xFF;
-            if (header < 0x80) {
-                // normal ASCII
-                // 0xxx_xxxx
-                codepoint = header;
-                current++;
-            }
-            else if ((header & 0b1110_0000) == 0b1100_0000) {
-                // 110x_xxxx 10xx_xxxx
-                if (current + 1 < limit) {
-                    codepoint = ((header & 0b0001_1111) << 6) | (input[current + 1] & 0b0011_1111);
-                    current += 2;
-                }
-            }
-            else if ((header & 0b1111_0000) == 0b1110_0000) {
-                // 1110_xxxx 10xx_xxxx 10xx_xxxx
-                if (current + 2 < limit) {
-                    codepoint = ((header & 0b0000_1111) << 12) | ((input[current + 1] & 0b0011_1111) << 6) | (input[current + 2] & 0b0011_1111);
-                    current += 3;
-                }
-            }
-            else if ((header & 0b1111_1000) == 0b1111_0000) {
-                // 1111_0xxx 10xx_xxxx 10xx_xxxx 10xx_xxxx
-                if (current + 3 < limit) {
-                    codepoint = ((header & 0b0000_0111) << 18) | ((input[current + 1] & 0b0011_1111) << 12) | ((input[current + 2] & 0b0011_1111) << 6) | (input[current + 3] & 0b0011_1111);
-                    current += 4;
-                }
-            }
-
-            if (codepoint == INVALID_CODEPOINT) {
+            int codepoint = tryGetCodePointAt(input, current);
+            if (codepoint < 0) {
                 return false;
             }
+            current += lengthOfCodePoint(codepoint);
 
             accept = false;
             nextStatesIndex = 0;
-            Arrays.fill(seen, false);
+            generation++;
             for (int i = 0; i < currentStatesIndex; i++) {
                 int state = currentStates[i];
-                if (!seen[state] && loopback[state]) {
+                if (seenGeneration[state] != generation && loopback[state]) {
                     nextStates[nextStatesIndex++] = state;
                     accept |= state == acceptState;
-                    seen[state] = true;
+                    seenGeneration[state] = generation;
                 }
                 int next = state + 1;
-                if (!seen[next] && (match[state] == ANY || match[state] == codepoint)) {
+                if (seenGeneration[next] != generation && (match[state] == ANY || match[state] == codepoint)) {
                     nextStates[nextStatesIndex++] = next;
                     accept |= next == acceptState;
-                    seen[next] = true;
+                    seenGeneration[next] = generation;
                 }
             }
 

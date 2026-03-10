@@ -13,11 +13,12 @@
  */
 package io.trino.likematcher;
 
+import io.airlift.slice.Slice;
+
 import java.util.Arrays;
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 
 class DenseDfaMatcher
@@ -41,7 +42,7 @@ class DenseDfaMatcher
     }
 
     @Override
-    public boolean match(byte[] input, int offset, int length)
+    public boolean match(Slice input, int offset, int length)
     {
         DenseDfa matcher = this.matcher;
         if (matcher == null) {
@@ -100,12 +101,14 @@ class DenseDfaMatcher
         /**
          * Returns a positive match when the final state after all input has been consumed is an accepting state
          */
-        public boolean exactMatch(byte[] input, int offset, int length)
+        public boolean exactMatch(Slice input, int offset, int length)
         {
+            byte[] inputBase = input.byteArray();
+            int inputOffset = input.byteArrayOffset();
+
             int state = start << 8;
             for (int i = offset; i < offset + length; i++) {
-                byte inputByte = input[i];
-                state = transitions[state | (inputByte & 0xFF)];
+                state = transitions[state | (inputBase[inputOffset + i] & 0xFF)];
 
                 if (state == FAIL_STATE) {
                     return false;
@@ -119,12 +122,14 @@ class DenseDfaMatcher
          * Returns a positive match as soon as the DFA reaches an accepting state, regardless of whether
          * the whole input has been consumed
          */
-        public boolean prefixMatch(byte[] input, int offset, int length)
+        public boolean prefixMatch(Slice input, int offset, int length)
         {
+            byte[] inputBase = input.byteArray();
+            int inputOffset = input.byteArrayOffset();
+
             int state = start << 8;
             for (int i = offset; i < offset + length; i++) {
-                byte inputByte = input[i];
-                state = transitions[state | (inputByte & 0xFF)];
+                state = transitions[state | (inputBase[inputOffset + i] & 0xFF)];
 
                 if (state == FAIL_STATE) {
                     return false;
@@ -149,9 +154,9 @@ class DenseDfaMatcher
             for (int e = start; e <= end; e++) {
                 Pattern item = pattern.get(e);
                 switch (item) {
-                    case Pattern.Literal literal -> {
-                        for (byte current : literal.value().getBytes(UTF_8)) {
-                            state = matchByte(builder, state, current);
+                    case Pattern.Literal(Slice value) -> {
+                        for (int i = 0; i < value.length(); i++) {
+                            state = matchByte(builder, state, value.getByteUnchecked(i));
                         }
                     }
                     case Pattern.Any any -> {
@@ -161,7 +166,7 @@ class DenseDfaMatcher
                             state = next;
                         }
                     }
-                    case Pattern.ZeroOrMore zeroOrMore -> matchSingleUtf8(builder, state, state);
+                    case Pattern.ZeroOrMore _ -> matchSingleUtf8(builder, state, state);
                     default -> throw new UnsupportedOperationException("Not supported: " + item.getClass().getName());
                 }
             }
