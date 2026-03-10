@@ -104,6 +104,7 @@ import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.ConnectorTableProperties;
 import io.trino.spi.connector.ConnectorTableVersion;
 import io.trino.spi.connector.ConnectorViewDefinition;
+import io.trino.spi.connector.ConnectorWritableTableHandle;
 import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.ConstraintApplicationResult;
 import io.trino.spi.connector.DiscretePredicates;
@@ -580,6 +581,22 @@ public class IcebergMetadata
             return handle.getSchemaTableName();
         }
         throw new IllegalArgumentException("Unsupported ConnectorTableHandle type: " + tableHandle.getClass().getName());
+    }
+
+    @Override
+    public Optional<TableCredentials> getTableCredentials(ConnectorSession session, ConnectorWritableTableHandle tableHandle)
+    {
+        SchemaTableName schemaTableName = getSchemaTableName(tableHandle);
+        return getOrLoadTableCredentials(session, schemaTableName);
+    }
+
+    private static SchemaTableName getSchemaTableName(ConnectorWritableTableHandle tableHandle)
+    {
+        return switch (tableHandle) {
+            case IcebergTableExecuteHandle handle -> handle.schemaTableName();
+            case IcebergWritableTableHandle handle -> handle.name();
+            default -> throw new IllegalArgumentException("Unsupported ConnectorWritableTableHandle type: " + tableHandle.getClass().getName());
+        };
     }
 
     private Optional<TableCredentials> getOrLoadTableCredentials(ConnectorSession session, SchemaTableName schemaTableName)
@@ -1582,8 +1599,7 @@ public class IcebergMetadata
                 getPartitionColumns(table, typeManager),
                 table.location(),
                 getFileFormat(table),
-                table.properties(),
-                table.io().properties());
+                table.properties());
     }
 
     private static SortFieldInfo getSupportedSortFields(Schema schema, SortOrder sortOrder)
@@ -1751,8 +1767,7 @@ public class IcebergMetadata
                         getFileFormat(tableHandle.getStorageProperties()),
                         tableHandle.getStorageProperties(),
                         maxScannedFileSize),
-                tableHandle.getTableLocation(),
-                icebergTable.io().properties()));
+                tableHandle.getTableLocation()));
     }
 
     private Optional<ConnectorTableExecuteHandle> getTableHandleForOptimizeManifests(ConnectorSession session, IcebergTableHandle tableHandle)
@@ -1763,8 +1778,7 @@ public class IcebergMetadata
                 tableHandle.getSchemaTableName(),
                 OPTIMIZE_MANIFESTS,
                 new IcebergOptimizeManifestsHandle(),
-                icebergTable.location(),
-                icebergTable.io().properties()));
+                icebergTable.location()));
     }
 
     private Optional<ConnectorTableExecuteHandle> getTableHandleForDropExtendedStats(ConnectorSession session, IcebergTableHandle tableHandle)
@@ -1775,8 +1789,7 @@ public class IcebergMetadata
                 tableHandle.getSchemaTableName(),
                 DROP_EXTENDED_STATS,
                 new IcebergDropExtendedStatsHandle(),
-                icebergTable.location(),
-                icebergTable.io().properties()));
+                icebergTable.location()));
     }
 
     private Optional<ConnectorTableExecuteHandle> getTableHandleForExpireSnapshots(ConnectorSession session, IcebergTableHandle tableHandle, Map<String, Object> executeProperties)
@@ -1792,8 +1805,7 @@ public class IcebergMetadata
                 tableHandle.getSchemaTableName(),
                 EXPIRE_SNAPSHOTS,
                 new IcebergExpireSnapshotsHandle(retentionThreshold, retainLast, cleanExpiredMetadata),
-                icebergTable.location(),
-                icebergTable.io().properties()));
+                icebergTable.location()));
     }
 
     private Optional<ConnectorTableExecuteHandle> getTableHandleForRemoveOrphanFiles(ConnectorSession session, IcebergTableHandle tableHandle, Map<String, Object> executeProperties)
@@ -1805,8 +1817,7 @@ public class IcebergMetadata
                 tableHandle.getSchemaTableName(),
                 REMOVE_ORPHAN_FILES,
                 new IcebergRemoveOrphanFilesHandle(retentionThreshold),
-                icebergTable.location(),
-                icebergTable.io().properties()));
+                icebergTable.location()));
     }
 
     private Optional<ConnectorTableExecuteHandle> getTableHandleForAddFiles(ConnectorSession session, ConnectorAccessControl accessControl, IcebergTableHandle tableHandle, Map<String, Object> executeProperties)
@@ -1829,8 +1840,7 @@ public class IcebergMetadata
                 tableHandle.getSchemaTableName(),
                 ADD_FILES,
                 new IcebergAddFilesHandle(location, format, recursiveDirectory),
-                icebergTable.location(),
-                icebergTable.io().properties()));
+                icebergTable.location()));
     }
 
     private static void verifyTableVersionForExecute(IcebergTableProcedureId icebergTableProcedureId, int maxVersion, Table icebergTable)
@@ -1919,8 +1929,7 @@ public class IcebergMetadata
                 tableHandle.getSchemaTableName(),
                 ADD_FILES_FROM_TABLE,
                 new IcebergAddFilesFromTableHandle(sourceTable, partitionFilter, recursiveDirectory),
-                icebergTable.location(),
-                icebergTable.io().properties()));
+                icebergTable.location()));
     }
 
     private Optional<ConnectorTableExecuteHandle> getTableHandleForRollbackToSnapshot(ConnectorSession session, IcebergTableHandle tableHandle, Map<String, Object> executeProperties)
@@ -1932,8 +1941,7 @@ public class IcebergMetadata
                 tableHandle.getSchemaTableName(),
                 ROLLBACK_TO_SNAPSHOT,
                 new IcebergRollbackToSnapshotHandle(snapshotId),
-                icebergTable.location(),
-                icebergTable.io().properties()));
+                icebergTable.location()));
     }
 
     private static Object requireProcedureArgument(Map<String, Object> properties, String name)

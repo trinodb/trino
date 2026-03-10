@@ -36,10 +36,13 @@ import io.trino.sql.planner.PlanFragment;
 import io.trino.sql.planner.SimplePlanVisitor;
 import io.trino.sql.planner.plan.DynamicFilterId;
 import io.trino.sql.planner.plan.ExchangeNode;
+import io.trino.sql.planner.plan.MergeWriterNode;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.sql.planner.plan.SimplePlanRewriter;
+import io.trino.sql.planner.plan.TableExecuteNode;
 import io.trino.sql.planner.plan.TableScanNode;
+import io.trino.sql.planner.plan.TableWriterNode;
 
 import java.util.HashSet;
 import java.util.List;
@@ -460,11 +463,51 @@ public final class SqlStage
         }
 
         @Override
+        public Void visitMergeWriter(MergeWriterNode node, Void context)
+        {
+            TableWriterNode.MergeTarget target = node.getTarget();
+            metadata.getTableCredentials(session, target.getHandle().catalogHandle(), target.getHandle().connectorHandle())
+                    .ifPresent(value -> tableCredentialsBuilder.put(node.getId(), value));
+            return null;
+        }
+
+        @Override
+        public Void visitTableExecute(TableExecuteNode node, Void context)
+        {
+            TableWriterNode.TableExecuteTarget target = node.getTarget();
+            metadata.getTableCredentials(session, target.getExecuteHandle().catalogHandle(), target.getExecuteHandle().connectorHandle())
+                    .ifPresent(value -> tableCredentialsBuilder.put(node.getId(), value));
+            return null;
+        }
+
+        @Override
+        public Void visitTableWriter(TableWriterNode node, Void context)
+        {
+            TableWriterNode.WriterTarget target = node.getTarget();
+            Optional<TableCredentials> credentials = switch (target) {
+                case TableWriterNode.MergeTarget mergeTarget ->
+                        metadata.getTableCredentials(session, mergeTarget.getHandle().catalogHandle(), mergeTarget.getHandle().connectorHandle());
+                case TableWriterNode.RefreshMaterializedViewTarget materializedViewTarget ->
+                        metadata.getTableCredentials(session, materializedViewTarget.getTableHandle().catalogHandle(), materializedViewTarget.getTableHandle().connectorHandle());
+                case TableWriterNode.TableExecuteTarget tableExecuteTarget ->
+                        metadata.getTableCredentials(session, tableExecuteTarget.getExecuteHandle().catalogHandle(), tableExecuteTarget.getExecuteHandle().connectorHandle());
+                case TableWriterNode.CreateTarget createTarget ->
+                        metadata.getTableCredentials(session, createTarget.getHandle().catalogHandle(), createTarget.getHandle().connectorHandle());
+                case TableWriterNode.InsertTarget insertTarget ->
+                        metadata.getTableCredentials(session, insertTarget.getHandle().catalogHandle(), insertTarget.getHandle().connectorHandle());
+                default -> throw new IllegalArgumentException("Unsupported target: " + target);
+            };
+            credentials.ifPresent(value -> tableCredentialsBuilder.put(node.getId(), value));
+
+            return null;
+        }
+
+        @Override
         public Void visitTableScan(TableScanNode node, Void context)
         {
             TableHandle table = node.getTable();
-            Optional<TableCredentials> credentials = metadata.getTableCredentials(session, table.catalogHandle(), table.connectorHandle());
-            credentials.ifPresent(value -> tableCredentialsBuilder.put(node.getId(), value));
+            metadata.getTableCredentials(session, table.catalogHandle(), table.connectorHandle())
+                    .ifPresent(value -> tableCredentialsBuilder.put(node.getId(), value));
             return null;
         }
     }

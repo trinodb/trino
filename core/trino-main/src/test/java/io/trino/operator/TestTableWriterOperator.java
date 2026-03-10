@@ -49,6 +49,7 @@ import org.junit.jupiter.api.parallel.Execution;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
@@ -303,6 +304,7 @@ public class TestTableWriterOperator
                         OptionalInt.empty(),
                         WriterScalingOptions.DISABLED,
                         false),
+                Optional.empty(),
                 ImmutableList.of(0),
                 session,
                 statisticsAggregation,

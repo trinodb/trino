@@ -15,17 +15,45 @@ package io.trino.spi.connector;
 
 import io.trino.spi.TrinoException;
 
+import java.util.Optional;
+
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 
 public interface ConnectorPageSinkProvider
 {
-    ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorOutputTableHandle outputTableHandle, ConnectorPageSinkId pageSinkId);
+    default ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorOutputTableHandle outputTableHandle, ConnectorPageSinkId pageSinkId)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support creating new tables");
+    }
 
-    ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorInsertTableHandle insertTableHandle, ConnectorPageSinkId pageSinkId);
+    default ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorOutputTableHandle outputTableHandle, Optional<TableCredentials> tableCredentials, ConnectorPageSinkId pageSinkId)
+    {
+        return createPageSink(transactionHandle, session, outputTableHandle, pageSinkId);
+    }
+
+    default ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorInsertTableHandle insertTableHandle, ConnectorPageSinkId pageSinkId)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support insert operations");
+    }
+
+    default ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorInsertTableHandle insertTableHandle, Optional<TableCredentials> tableCredentials, ConnectorPageSinkId pageSinkId)
+    {
+        return createPageSink(transactionHandle, session, insertTableHandle, pageSinkId);
+    }
+
+    default ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorTableExecuteHandle tableExecuteHandle, Optional<TableCredentials> tableCredentials, ConnectorPageSinkId pageSinkId)
+    {
+        return createPageSink(transactionHandle, session, tableExecuteHandle, pageSinkId);
+    }
 
     default ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorTableExecuteHandle tableExecuteHandle, ConnectorPageSinkId pageSinkId)
     {
         throw new IllegalArgumentException("createPageSink not supported for tableExecuteHandle");
+    }
+
+    default ConnectorMergeSink createMergeSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorMergeTableHandle mergeHandle, Optional<TableCredentials> tableCredentials, ConnectorPageSinkId pageSinkId)
+    {
+        return createMergeSink(transactionHandle, session, mergeHandle, pageSinkId);
     }
 
     default ConnectorMergeSink createMergeSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorMergeTableHandle mergeHandle, ConnectorPageSinkId pageSinkId)

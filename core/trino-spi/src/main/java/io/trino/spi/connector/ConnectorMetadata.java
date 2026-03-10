@@ -1833,4 +1833,9 @@ public interface ConnectorMetadata
     {
         return Optional.empty();
     }
+
+    default Optional<TableCredentials> getTableCredentials(ConnectorSession session, ConnectorWritableTableHandle tableHandle)
+    {
+        return Optional.empty();
+    }
 }

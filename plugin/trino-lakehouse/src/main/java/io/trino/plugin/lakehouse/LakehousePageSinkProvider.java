@@ -38,6 +38,9 @@ import io.trino.spi.connector.ConnectorPageSinkProvider;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableExecuteHandle;
 import io.trino.spi.connector.ConnectorTransactionHandle;
+import io.trino.spi.connector.TableCredentials;
+
+import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
@@ -60,27 +63,27 @@ public class LakehousePageSinkProvider
     }
 
     @Override
-    public ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorOutputTableHandle outputTableHandle, ConnectorPageSinkId pageSinkId)
+    public ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorOutputTableHandle outputTableHandle, Optional<TableCredentials> tableCredentials, ConnectorPageSinkId pageSinkId)
     {
-        return forHandle(outputTableHandle).createPageSink(transactionHandle, session, outputTableHandle, pageSinkId);
+        return forHandle(outputTableHandle).createPageSink(transactionHandle, session, outputTableHandle, tableCredentials, pageSinkId);
     }
 
     @Override
-    public ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorInsertTableHandle insertTableHandle, ConnectorPageSinkId pageSinkId)
+    public ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorInsertTableHandle insertTableHandle, Optional<TableCredentials> tableCredentials, ConnectorPageSinkId pageSinkId)
     {
-        return forHandle(insertTableHandle).createPageSink(transactionHandle, session, insertTableHandle, pageSinkId);
+        return forHandle(insertTableHandle).createPageSink(transactionHandle, session, insertTableHandle, tableCredentials, pageSinkId);
     }
 
     @Override
-    public ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorTableExecuteHandle tableExecuteHandle, ConnectorPageSinkId pageSinkId)
+    public ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorTableExecuteHandle tableExecuteHandle, Optional<TableCredentials> tableCredentials, ConnectorPageSinkId pageSinkId)
     {
-        return forHandle(tableExecuteHandle).createPageSink(transactionHandle, session, tableExecuteHandle, pageSinkId);
+        return forHandle(tableExecuteHandle).createPageSink(transactionHandle, session, tableExecuteHandle, tableCredentials, pageSinkId);
     }
 
     @Override
-    public ConnectorMergeSink createMergeSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorMergeTableHandle mergeHandle, ConnectorPageSinkId pageSinkId)
+    public ConnectorMergeSink createMergeSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorMergeTableHandle mergeHandle, Optional<TableCredentials> tableCredentials, ConnectorPageSinkId pageSinkId)
     {
-        return forHandle(mergeHandle).createMergeSink(transactionHandle, session, mergeHandle, pageSinkId);
+        return forHandle(mergeHandle).createMergeSink(transactionHandle, session, mergeHandle, tableCredentials, pageSinkId);
     }
 
     private ConnectorPageSinkProvider forHandle(ConnectorOutputTableHandle handle)

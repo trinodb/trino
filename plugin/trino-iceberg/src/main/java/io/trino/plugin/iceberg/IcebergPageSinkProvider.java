@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.iceberg;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.inject.Inject;
 import io.airlift.json.JsonCodec;
 import io.airlift.units.DataSize;
@@ -31,6 +32,7 @@ import io.trino.spi.connector.ConnectorPageSinkProvider;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableExecuteHandle;
 import io.trino.spi.connector.ConnectorTransactionHandle;
+import io.trino.spi.connector.TableCredentials;
 import io.trino.spi.type.TypeManager;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.PartitionSpecParser;
@@ -82,18 +84,20 @@ public class IcebergPageSinkProvider
     }
 
     @Override
-    public ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorOutputTableHandle outputTableHandle, ConnectorPageSinkId pageSinkId)
+    public ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorOutputTableHandle outputTableHandle, Optional<TableCredentials> tableCredentials, ConnectorPageSinkId pageSinkId)
     {
-        return createPageSink(session, (IcebergWritableTableHandle) outputTableHandle);
+        IcebergWritableTableHandle tableHandle = (IcebergWritableTableHandle) outputTableHandle;
+        return createPageSink(session, tableHandle, extractFileIoProperties(tableCredentials));
     }
 
     @Override
-    public ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorInsertTableHandle insertTableHandle, ConnectorPageSinkId pageSinkId)
+    public ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorInsertTableHandle insertTableHandle, Optional<TableCredentials> tableCredentials, ConnectorPageSinkId pageSinkId)
     {
-        return createPageSink(session, (IcebergWritableTableHandle) insertTableHandle);
+        IcebergWritableTableHandle tableHandle = (IcebergWritableTableHandle) insertTableHandle;
+        return createPageSink(session, tableHandle, extractFileIoProperties(tableCredentials));
     }
 
-    private ConnectorPageSink createPageSink(ConnectorSession session, IcebergWritableTableHandle tableHandle)
+    private ConnectorPageSink createPageSink(ConnectorSession session, IcebergWritableTableHandle tableHandle, Map<String, String> fileIoProperties)
     {
         Schema schema = SchemaParser.fromJson(tableHandle.schemaAsJson());
         String partitionSpecJson = tableHandle.partitionsSpecsAsJson().get(tableHandle.partitionSpecId());
@@ -105,7 +109,7 @@ public class IcebergPageSinkProvider
                 locationProvider,
                 fileWriterFactory,
                 pageIndexerFactory,
-                fileSystemFactory.create(session.getIdentity(), tableHandle.fileIoProperties()),
+                fileSystemFactory.create(session.getIdentity(), fileIoProperties),
                 tableHandle.partitionColumns(),
                 jsonCodec,
                 session,
@@ -122,7 +126,7 @@ public class IcebergPageSinkProvider
     }
 
     @Override
-    public ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorTableExecuteHandle tableExecuteHandle, ConnectorPageSinkId pageSinkId)
+    public ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorTableExecuteHandle tableExecuteHandle, Optional<TableCredentials> tableCredentials, ConnectorPageSinkId pageSinkId)
     {
         IcebergTableExecuteHandle executeHandle = (IcebergTableExecuteHandle) tableExecuteHandle;
         switch (executeHandle.procedureId()) {
@@ -138,7 +142,7 @@ public class IcebergPageSinkProvider
                         locationProvider,
                         fileWriterFactory,
                         pageIndexerFactory,
-                        fileSystemFactory.create(session.getIdentity(), executeHandle.fileIoProperties()),
+                        fileSystemFactory.create(session.getIdentity(), extractFileIoProperties(tableCredentials)),
                         optimizeHandle.partitionColumns(),
                         jsonCodec,
                         session,
@@ -164,21 +168,29 @@ public class IcebergPageSinkProvider
         throw new IllegalArgumentException("Unknown procedure: " + executeHandle.procedureId());
     }
 
+    private static Map<String, String> extractFileIoProperties(Optional<TableCredentials> tableCredentials)
+    {
+        return tableCredentials
+                .map(credentials -> ((IcebergTableCredentials) credentials).fileIoProperties())
+                .orElseGet(ImmutableMap::of);
+    }
+
     @Override
-    public ConnectorMergeSink createMergeSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorMergeTableHandle mergeHandle, ConnectorPageSinkId pageSinkId)
+    public ConnectorMergeSink createMergeSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorMergeTableHandle mergeHandle, Optional<TableCredentials> tableCredentials, ConnectorPageSinkId pageSinkId)
     {
         IcebergMergeTableHandle merge = (IcebergMergeTableHandle) mergeHandle;
         IcebergWritableTableHandle tableHandle = merge.getInsertTableHandle();
+        Map<String, String> fileIoProperties = extractFileIoProperties(tableCredentials);
         LocationProvider locationProvider = getLocationProvider(tableHandle.name(), tableHandle.outputPath(), tableHandle.storageProperties());
         Schema schema = SchemaParser.fromJson(tableHandle.schemaAsJson());
         Map<Integer, PartitionSpec> partitionsSpecs = transformValues(tableHandle.partitionsSpecsAsJson(), json -> PartitionSpecParser.fromJson(schema, json));
-        ConnectorPageSink pageSink = createPageSink(session, tableHandle);
+        ConnectorPageSink pageSink = createPageSink(session, tableHandle, fileIoProperties);
 
         return new IcebergMergeSink(
                 merge.getTableHandle().getFormatVersion(),
                 locationProvider,
                 fileWriterFactory,
-                fileSystemFactory.create(session.getIdentity(), tableHandle.fileIoProperties()),
+                fileSystemFactory.create(session.getIdentity(), fileIoProperties),
                 jsonCodec,
                 session,
                 tableHandle.fileFormat(),
