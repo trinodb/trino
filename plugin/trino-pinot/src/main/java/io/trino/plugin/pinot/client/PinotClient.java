@@ -29,6 +29,7 @@ import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.Multimap;
 import com.google.common.net.HostAndPort;
 import com.google.inject.Inject;
+import io.airlift.http.client.HeaderName;
 import io.airlift.http.client.HttpClient;
 import io.airlift.http.client.HttpUriBuilder;
 import io.airlift.http.client.JsonResponseHandler;
@@ -81,9 +82,9 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.cache.CacheLoader.asyncReloading;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static com.google.common.net.HttpHeaders.ACCEPT;
-import static com.google.common.net.HttpHeaders.AUTHORIZATION;
-import static com.google.common.net.HttpHeaders.CONTENT_TYPE;
+import static io.airlift.http.client.HeaderNames.ACCEPT;
+import static io.airlift.http.client.HeaderNames.AUTHORIZATION;
+import static io.airlift.http.client.HeaderNames.CONTENT_TYPE;
 import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 import static io.airlift.http.client.JsonResponseHandler.createJsonResponseHandler;
 import static io.airlift.json.JsonCodec.jsonCodec;
@@ -189,7 +190,7 @@ public class PinotClient
             Request.Builder requestBuilder,
             Optional<String> requestBody,
             JsonCodec<T> codec,
-            Multimap<String, String> additionalHeaders)
+            Multimap<HeaderName, String> additionalHeaders)
     {
         requestBuilder.addHeaders(additionalHeaders);
         requestBuilder.setHeader(ACCEPT, APPLICATION_JSON);
@@ -220,7 +221,7 @@ public class PinotClient
 
     private <T> T sendHttpGetToControllerJson(String path, JsonCodec<T> codec)
     {
-        ImmutableMultimap.Builder<String, String> additionalHeadersBuilder = ImmutableMultimap.builder();
+        ImmutableMultimap.Builder<HeaderName, String> additionalHeadersBuilder = ImmutableMultimap.builder();
         controllerAuthenticationProvider.getAuthenticationToken().ifPresent(token -> additionalHeadersBuilder.put(AUTHORIZATION, token));
         URI controllerPathUri = uriBuilderFrom(getControllerUrl()).appendPath(path).scheme(scheme).build();
         return doHttpActionWithHeadersJson(
@@ -232,7 +233,7 @@ public class PinotClient
 
     private <T> T sendHttpGetToBrokerJson(String table, String path, JsonCodec<T> codec)
     {
-        ImmutableMultimap.Builder<String, String> additionalHeadersBuilder = ImmutableMultimap.builder();
+        ImmutableMultimap.Builder<HeaderName, String> additionalHeadersBuilder = ImmutableMultimap.builder();
         brokerAuthenticationProvider.getAuthenticationToken().ifPresent(token -> additionalHeadersBuilder.put(AUTHORIZATION, token));
         HttpUriBuilder httpUriBuilder = getBrokerHttpUriBuilder(getBrokerHost(table));
         URI brokerPathUri = httpUriBuilder.scheme(scheme).appendPath(path).build();
@@ -555,7 +556,7 @@ public class PinotClient
             LOG.debug("Query '%s' on broker host '%s'", query.query(), queryPathUri);
             Request.Builder builder = Request.Builder.preparePost().setUri(queryPathUri);
 
-            ImmutableMultimap.Builder<String, String> additionalHeadersBuilder = ImmutableMultimap.builder();
+            ImmutableMultimap.Builder<HeaderName, String> additionalHeadersBuilder = ImmutableMultimap.builder();
             brokerAuthenticationProvider.getAuthenticationToken().ifPresent(token -> additionalHeadersBuilder.put(AUTHORIZATION, token));
             BrokerResponseNative response = doHttpActionWithHeadersJson(builder, Optional.of(queryRequest), brokerResponseCodec,
                     additionalHeadersBuilder.build());

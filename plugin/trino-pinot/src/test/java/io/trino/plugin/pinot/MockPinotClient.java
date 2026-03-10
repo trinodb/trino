@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Multimap;
+import io.airlift.http.client.HeaderName;
 import io.airlift.http.client.Request;
 import io.airlift.http.client.testing.TestingHttpClient;
 import io.airlift.json.JsonCodec;
@@ -86,7 +87,7 @@ public class MockPinotClient
             Request.Builder requestBuilder,
             Optional<String> requestBody,
             JsonCodec<T> codec,
-            Multimap<String, String> additionalHeaders)
+            Multimap<HeaderName, String> additionalHeaders)
     {
         return codec.fromJson(response);
     }

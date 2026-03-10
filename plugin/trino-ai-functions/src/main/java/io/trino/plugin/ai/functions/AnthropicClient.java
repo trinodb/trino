@@ -16,6 +16,7 @@ package io.trino.plugin.ai.functions;
 import com.fasterxml.jackson.databind.PropertyNamingStrategies.SnakeCaseStrategy;
 import com.fasterxml.jackson.databind.annotation.JsonNaming;
 import com.google.inject.Inject;
+import io.airlift.http.client.HeaderName;
 import io.airlift.http.client.HttpClient;
 import io.airlift.http.client.Request;
 import io.airlift.json.JsonCodec;
@@ -27,8 +28,8 @@ import io.trino.spi.TrinoException;
 import java.net.URI;
 import java.util.List;
 
-import static com.google.common.net.HttpHeaders.CONTENT_TYPE;
 import static com.google.common.net.MediaType.JSON_UTF_8;
+import static io.airlift.http.client.HeaderNames.CONTENT_TYPE;
 import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 import static io.airlift.http.client.JsonBodyGenerator.jsonBodyGenerator;
 import static io.airlift.http.client.JsonResponseHandler.createJsonResponseHandler;
@@ -50,6 +51,9 @@ import static java.util.Objects.requireNonNull;
 public class AnthropicClient
         extends AbstractAiClient
 {
+    private static final HeaderName X_API_KEY_HEADER = HeaderName.of("X-Api-Key");
+    private static final HeaderName ANTHROPIC_VERSION_HEADER = HeaderName.of("Anthropic-Version");
+
     private static final JsonCodec<MessageRequest> MESSAGE_REQUEST_CODEC = jsonCodec(MessageRequest.class);
     private static final JsonCodec<MessageResponse> MESSAGE_RESPONSE_CODEC = jsonCodec(MessageResponse.class);
 
@@ -80,8 +84,8 @@ public class AnthropicClient
 
         Request request = preparePost()
                 .setUri(uri)
-                .setHeader("X-Api-Key", apiKey)
-                .setHeader("Anthropic-Version", "2023-06-01")
+                .setHeader(X_API_KEY_HEADER, apiKey)
+                .setHeader(ANTHROPIC_VERSION_HEADER, "2023-06-01")
                 .setHeader(CONTENT_TYPE, JSON_UTF_8.toString())
                 .setBodyGenerator(jsonBodyGenerator(MESSAGE_REQUEST_CODEC, body))
                 .build();

@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.io.Closer;
 import com.google.common.net.HostAndPort;
 import com.google.common.net.HttpHeaders;
+import io.airlift.http.client.HeaderNames;
 import io.airlift.http.client.HttpClient;
 import io.airlift.http.client.Request;
 import io.airlift.http.client.StaticBodyGenerator;
@@ -181,9 +182,9 @@ public class TestingPinotCluster
             byte[] bytes = stream.readAllBytes();
             Request request = Request.Builder.preparePost()
                     .setUri(getControllerUri("schemas"))
-                    .setHeader(HttpHeaders.ACCEPT, APPLICATION_JSON)
-                    .setHeader(HttpHeaders.CONTENT_TYPE, APPLICATION_JSON)
-                    .addHeader(HttpHeaders.AUTHORIZATION, secured ? controllerAuthToken() : "")
+                    .setHeader(HeaderNames.ACCEPT, APPLICATION_JSON)
+                    .setHeader(HeaderNames.CONTENT_TYPE, APPLICATION_JSON)
+                    .addHeader(HeaderNames.AUTHORIZATION, secured ? controllerAuthToken() : "")
                     .setBodyGenerator(StaticBodyGenerator.createStaticBodyGenerator(bytes))
                     .build();
 
@@ -202,8 +203,8 @@ public class TestingPinotCluster
             throws Exception
     {
         Request request = Request.Builder.prepareGet().setUri(getControllerUri("schemas"))
-                .setHeader(HttpHeaders.ACCEPT, APPLICATION_JSON)
-                .addHeader(HttpHeaders.AUTHORIZATION, secured ? controllerAuthToken() : "")
+                .setHeader(HeaderNames.ACCEPT, APPLICATION_JSON)
+                .addHeader(HeaderNames.AUTHORIZATION, secured ? controllerAuthToken() : "")
                 .build();
         doWithRetries(() -> {
             List<String> schemas = httpClient.execute(request, createJsonResponseHandler(LIST_JSON_CODEC));
@@ -219,9 +220,9 @@ public class TestingPinotCluster
             byte[] bytes = stream.readAllBytes();
             Request request = Request.Builder.preparePost()
                     .setUri(getControllerUri("tables"))
-                    .setHeader(HttpHeaders.ACCEPT, APPLICATION_JSON)
-                    .setHeader(HttpHeaders.CONTENT_TYPE, APPLICATION_JSON)
-                    .addHeader(HttpHeaders.AUTHORIZATION, secured ? controllerAuthToken() : "")
+                    .setHeader(HeaderNames.ACCEPT, APPLICATION_JSON)
+                    .setHeader(HeaderNames.CONTENT_TYPE, APPLICATION_JSON)
+                    .addHeader(HeaderNames.AUTHORIZATION, secured ? controllerAuthToken() : "")
                     .setBodyGenerator(StaticBodyGenerator.createStaticBodyGenerator(bytes))
                     .build();
 
@@ -237,9 +238,9 @@ public class TestingPinotCluster
             byte[] bytes = stream.readAllBytes();
             Request request = Request.Builder.preparePost()
                     .setUri(getControllerUri("tables"))
-                    .setHeader(HttpHeaders.ACCEPT, APPLICATION_JSON)
-                    .setHeader(HttpHeaders.CONTENT_TYPE, APPLICATION_JSON)
-                    .addHeader(HttpHeaders.AUTHORIZATION, secured ? controllerAuthToken() : "")
+                    .setHeader(HeaderNames.ACCEPT, APPLICATION_JSON)
+                    .setHeader(HeaderNames.CONTENT_TYPE, APPLICATION_JSON)
+                    .addHeader(HeaderNames.AUTHORIZATION, secured ? controllerAuthToken() : "")
                     .setBodyGenerator(StaticBodyGenerator.createStaticBodyGenerator(bytes))
                     .build();
 
