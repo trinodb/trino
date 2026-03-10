@@ -42,8 +42,8 @@ import static io.airlift.http.client.FullJsonResponseHandler.createFullJsonRespo
 import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 import static io.airlift.http.client.Request.Builder.prepareGet;
 import static io.airlift.units.Duration.nanosSince;
-import static io.trino.server.InternalHeaders.TRINO_CURRENT_VERSION;
-import static io.trino.server.InternalHeaders.TRINO_MAX_WAIT;
+import static io.trino.server.InternalHeaders.TRINO_CURRENT_VERSION_HEADER;
+import static io.trino.server.InternalHeaders.TRINO_MAX_WAIT_HEADER;
 import static io.trino.spi.StandardErrorCode.REMOTE_TASK_MISMATCH;
 import static io.trino.util.Failures.REMOTE_TASK_MISMATCH_ERROR;
 import static java.lang.String.format;
@@ -147,8 +147,8 @@ class ContinuousTaskStatusFetcher
         Request request = prepareGet()
                 .setUri(uriBuilderFrom(taskStatus.self()).appendPath("status").build())
                 .setHeader(CONTENT_TYPE, JSON_UTF_8.toString())
-                .setHeader(TRINO_CURRENT_VERSION, Long.toString(taskStatus.version()))
-                .setHeader(TRINO_MAX_WAIT, refreshMaxWait.toString())
+                .setHeader(TRINO_CURRENT_VERSION_HEADER, Long.toString(taskStatus.version()))
+                .setHeader(TRINO_MAX_WAIT_HEADER, refreshMaxWait.toString())
                 .setSpanBuilder(spanBuilderFactory.get())
                 .build();
 

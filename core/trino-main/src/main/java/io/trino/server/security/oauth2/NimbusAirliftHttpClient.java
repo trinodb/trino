@@ -31,11 +31,11 @@ import java.io.IOException;
 import java.net.URISyntaxException;
 import java.net.URL;
 
-import static com.google.common.net.HttpHeaders.CONTENT_TYPE;
 import static com.nimbusds.oauth2.sdk.http.HTTPRequest.Method.DELETE;
 import static com.nimbusds.oauth2.sdk.http.HTTPRequest.Method.GET;
 import static com.nimbusds.oauth2.sdk.http.HTTPRequest.Method.POST;
 import static com.nimbusds.oauth2.sdk.http.HTTPRequest.Method.PUT;
+import static io.airlift.http.client.HeaderNames.CONTENT_TYPE;
 import static io.airlift.http.client.Request.Builder.prepareGet;
 import static io.airlift.http.client.StaticBodyGenerator.createStaticBodyGenerator;
 import static io.airlift.http.client.StringResponseHandler.createStringResponseHandler;

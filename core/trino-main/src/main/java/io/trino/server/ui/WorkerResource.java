@@ -49,7 +49,7 @@ import java.util.Locale;
 import java.util.Optional;
 import java.util.Set;
 
-import static com.google.common.net.HttpHeaders.CONTENT_TYPE;
+import static io.airlift.http.client.HeaderNames.CONTENT_TYPE;
 import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 import static io.airlift.http.client.Request.Builder.prepareGet;
 import static io.trino.node.NodeState.ACTIVE;

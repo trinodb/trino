@@ -37,7 +37,6 @@ import java.util.StringJoiner;
 
 import static com.fasterxml.jackson.core.JsonFactory.Feature.CANONICALIZE_FIELD_NAMES;
 import static com.fasterxml.jackson.databind.SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS;
-import static com.google.common.base.Preconditions.checkState;
 import static io.trino.plugin.base.util.JsonUtils.jsonFactoryBuilder;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static java.lang.String.format;
@@ -69,7 +68,6 @@ public final class JsonTypeUtil
             // - null, if the end of the input was reached
             // - token, if a correct JSON token is found (e.g. '{', 'null', '1')
             // - exception, if there are characters which do not form a valid JSON token (e.g. 'abc')
-            checkState(parser.nextToken() == null, "Found characters after the expected end of input");
             return output.slice();
         }
         catch (IOException | RuntimeException e) {
