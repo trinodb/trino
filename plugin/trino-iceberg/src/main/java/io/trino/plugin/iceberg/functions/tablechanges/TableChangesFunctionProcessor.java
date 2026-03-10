@@ -22,6 +22,7 @@ import io.trino.spi.block.Block;
 import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.ConnectorTableCredentials;
 import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.SourcePage;
 import io.trino.spi.function.table.TableFunctionProcessorState;
@@ -42,6 +43,7 @@ import static io.trino.plugin.iceberg.IcebergColumnHandle.DATA_CHANGE_ORDINAL_ID
 import static io.trino.plugin.iceberg.IcebergColumnHandle.DATA_CHANGE_TIMESTAMP_ID;
 import static io.trino.plugin.iceberg.IcebergColumnHandle.DATA_CHANGE_TYPE_ID;
 import static io.trino.plugin.iceberg.IcebergColumnHandle.DATA_CHANGE_VERSION_ID;
+import static io.trino.plugin.iceberg.IcebergUtil.getFileIoProperties;
 import static io.trino.spi.function.table.TableFunctionProcessorState.Finished.FINISHED;
 import static io.trino.spi.function.table.TableFunctionProcessorState.Processed.produced;
 import static io.trino.spi.predicate.Utils.nativeValueToBlock;
@@ -70,11 +72,13 @@ public class TableChangesFunctionProcessor
     public TableChangesFunctionProcessor(
             ConnectorSession session,
             TableChangesFunctionHandle functionHandle,
+            Optional<ConnectorTableCredentials> tableCredentials,
             TableChangesSplit split,
             IcebergPageSourceProvider icebergPageSourceProvider)
     {
         requireNonNull(session, "session is null");
         requireNonNull(functionHandle, "functionHandle is null");
+        requireNonNull(tableCredentials, "tableCredentials is null");
         requireNonNull(split, "split is null");
         requireNonNull(icebergPageSourceProvider, "icebergPageSourceProvider is null");
 
@@ -131,7 +135,7 @@ public class TableChangesFunctionProcessor
                 split.fileRecordCount(),
                 split.partitionDataJson(),
                 split.fileFormat(),
-                split.fileIoProperties(),
+                getFileIoProperties(tableCredentials),
                 0,
                 OptionalLong.empty(),
                 functionHandle.nameMappingJson().map(NameMappingParser::fromJson));

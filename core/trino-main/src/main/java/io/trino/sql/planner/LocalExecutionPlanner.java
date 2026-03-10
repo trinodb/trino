@@ -1744,6 +1744,7 @@ public class LocalExecutionPlanner
                         node.getHandle().catalogHandle(),
                         processorProvider,
                         node.getHandle().functionHandle(),
+                        context.getTaskContext().getTableCredentials(node.getId()),
                         outputTypes);
                 return new PhysicalOperation(operatorFactory, makeLayout(node));
             }

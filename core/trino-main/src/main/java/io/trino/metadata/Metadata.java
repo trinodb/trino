@@ -70,6 +70,7 @@ import io.trino.spi.function.FunctionId;
 import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.LanguageFunction;
 import io.trino.spi.function.OperatorType;
+import io.trino.spi.function.table.ConnectorTableFunctionHandle;
 import io.trino.spi.metrics.Metrics;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.security.FunctionAuthorization;
@@ -953,4 +954,10 @@ public interface Metadata
      * or {@link Optional#empty} if there are no credentials.
      */
     Optional<ConnectorTableCredentials> getTableCredentials(Session session, CatalogHandle catalogHandle, ConnectorWritableTableHandle writableTableHandle);
+
+    /**
+     * Returns {@link ConnectorTableCredentials} for specified {@link CatalogHandle} and {@link ConnectorTableFunctionHandle}
+     * or {@link Optional#empty} if there are no credentials.
+     */
+    Optional<ConnectorTableCredentials> getTableCredentials(Session session, CatalogHandle catalogHandle, ConnectorTableFunctionHandle tableHandle);
 }

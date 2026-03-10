@@ -100,6 +100,7 @@ import io.trino.spi.function.FunctionId;
 import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.LanguageFunction;
 import io.trino.spi.function.OperatorType;
+import io.trino.spi.function.table.ConnectorTableFunctionHandle;
 import io.trino.spi.metrics.Metrics;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.security.FunctionAuthorization;
@@ -1740,6 +1741,15 @@ public class TracingMetadata
         }
     }
 
+    @Override
+    public Optional<ConnectorTableCredentials> getTableCredentials(Session session, CatalogHandle catalogHandle, ConnectorTableFunctionHandle tableFunctionHandle)
+    {
+        Span span = startSpan("getTableCredentials", catalogHandle, tableFunctionHandle);
+        try (var _ = scopedSpan(span)) {
+            return delegate.getTableCredentials(session, catalogHandle, tableFunctionHandle);
+        }
+    }
+
     private Span startSpan(String methodName)
     {
         return tracer.spanBuilder("Metadata." + methodName)
@@ -1832,6 +1842,16 @@ public class TracingMetadata
         if (span.isRecording()) {
             span.setAttribute(TrinoAttributes.CATALOG, catalogHandle.getCatalogName().toString());
             span.setAttribute(TrinoAttributes.HANDLE, tableHandle.toString());
+        }
+        return span;
+    }
+
+    private Span startSpan(String methodName, CatalogHandle catalogHandle, ConnectorTableFunctionHandle tableFunctionHandle)
+    {
+        Span span = startSpan(methodName);
+        if (span.isRecording()) {
+            span.setAttribute(TrinoAttributes.CATALOG, catalogHandle.getCatalogName().toString());
+            span.setAttribute(TrinoAttributes.HANDLE, tableFunctionHandle.toString());
         }
         return span;
     }

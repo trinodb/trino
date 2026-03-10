@@ -1868,4 +1868,12 @@ public interface ConnectorMetadata
     {
         return Optional.empty();
     }
+
+    /**
+     * Returns {@link ConnectorTableCredentials} for specified {@link ConnectorTableFunctionHandle} or {@link Optional#empty} if there are no credentials.
+     */
+    default Optional<ConnectorTableCredentials> getTableCredentials(ConnectorSession session, ConnectorTableFunctionHandle tableFunctionHandle)
+    {
+        return Optional.empty();
+    }
 }
