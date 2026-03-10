@@ -60,14 +60,14 @@ public class QueryDataJacksonModule
         }
 
         @Override
-        public QueryData deserialize(JsonParser jsonParser, DeserializationContext deserializationContext)
+        public QueryData deserialize(JsonParser parser, DeserializationContext context)
                 throws IOException
         {
             // If this is not JSON_ARRAY we are dealing with direct data encoding
-            if (jsonParser.currentToken().equals(JsonToken.START_ARRAY)) {
-                return new JsonQueryData(deserializationContext.readTree(jsonParser));
+            if (parser.currentToken().equals(JsonToken.START_ARRAY)) {
+                return new JsonQueryData(context.readTree(parser));
             }
-            return deserializationContext.readValue(jsonParser, EncodedQueryData.class);
+            return context.readValue(parser, EncodedQueryData.class);
         }
     }
 

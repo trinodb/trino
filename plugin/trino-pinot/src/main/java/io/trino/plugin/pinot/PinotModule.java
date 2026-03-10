@@ -99,10 +99,10 @@ public class PinotModule
             extends JsonDeserializer<DataSchema>
     {
         @Override
-        public DataSchema deserialize(JsonParser p, DeserializationContext ctxt)
+        public DataSchema deserialize(JsonParser parser, DeserializationContext context)
                 throws IOException
         {
-            JsonNode jsonNode = ctxt.readTree(p);
+            JsonNode jsonNode = context.readTree(parser);
             ArrayNode columnDataTypes = (ArrayNode) jsonNode.get("columnDataTypes");
             DataSchema.ColumnDataType[] columnTypes = new DataSchema.ColumnDataType[columnDataTypes.size()];
             for (int i = 0; i < columnDataTypes.size(); i++) {
@@ -121,10 +121,10 @@ public class PinotModule
             extends JsonDeserializer<BrokerResponseNative>
     {
         @Override
-        public BrokerResponseNative deserialize(JsonParser p, DeserializationContext ctxt)
+        public BrokerResponseNative deserialize(JsonParser parser, DeserializationContext context)
                 throws IOException
         {
-            JsonNode jsonNode = ctxt.readTree(p);
+            JsonNode jsonNode = context.readTree(parser);
             String value = jsonNode.toString();
             return BrokerResponseNative.fromJsonString(value);
         }

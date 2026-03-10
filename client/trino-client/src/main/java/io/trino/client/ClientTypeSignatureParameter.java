@@ -168,10 +168,10 @@ public class ClientTypeSignatureParameter
         private static final JsonMapper MAPPER = TrinoJsonCodec.JSON_MAPPER_SUPPLIER.get();
 
         @Override
-        public ClientTypeSignatureParameter deserialize(JsonParser jp, DeserializationContext ctxt)
+        public ClientTypeSignatureParameter deserialize(JsonParser parser, DeserializationContext context)
                 throws IOException
         {
-            JsonNode node = ctxt.readTree(jp);
+            JsonNode node = context.readTree(parser);
             ParameterKind kind = MAPPER.readValue(MAPPER.treeAsTokens(node.get("kind")), ParameterKind.class);
             JsonParser jsonValue = MAPPER.treeAsTokens(node.get("value"));
             Object value;

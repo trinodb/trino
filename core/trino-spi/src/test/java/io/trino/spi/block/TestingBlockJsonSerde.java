@@ -65,10 +65,10 @@ public final class TestingBlockJsonSerde
         }
 
         @Override
-        public Block deserialize(JsonParser jsonParser, DeserializationContext deserializationContext)
+        public Block deserialize(JsonParser parser, DeserializationContext context)
                 throws IOException
         {
-            byte[] decoded = Base64.getDecoder().decode(jsonParser.readValueAs(String.class));
+            byte[] decoded = Base64.getDecoder().decode(context.readValue(parser, String.class));
             BasicSliceInput input = Slices.wrappedBuffer(decoded).getInput();
             return blockEncodingSerde.readBlock(input);
         }
