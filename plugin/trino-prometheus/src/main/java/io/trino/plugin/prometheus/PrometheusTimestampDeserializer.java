@@ -31,7 +31,7 @@ public class PrometheusTimestampDeserializer
     public Instant deserialize(JsonParser parser, DeserializationContext context)
             throws IOException
     {
-        String timestamp = parser.getText().trim();
+        String timestamp = context.readValue(parser, String.class).trim();
         try {
             return decimalEpochTimestampToSQLTimestamp(timestamp);
         }
