@@ -237,7 +237,6 @@ public final class StandardColumnMappings
             }
 
             @Override
-            @SuppressWarnings("unchecked")
             public void set(PreparedStatement statement, int index, Object value)
                     throws SQLException
             {
