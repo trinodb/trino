@@ -12,7 +12,15 @@
  * limitations under the License.
  */
 import { MarkerType, type Edge, type Node } from '@xyflow/react'
-import { QueryStage, QueryStages, QueryStageNodeInfo, QueryStageOperatorSummary, QueryTask } from '../../api/webapp/api'
+import {
+    JsonRenderedNode,
+    QueryPlanInfo,
+    QueryStage,
+    QueryStages,
+    QueryStageNodeInfo,
+    QueryStageOperatorSummary,
+    QueryTask,
+} from '../../api/webapp/api'
 import { formatRows, parseAndFormatDataSize } from '../../utils/utils'
 import { IFlowElements, IPlanFragmentNodeInfo, IPlanNodeProps, LayoutDirectionType } from './types'
 
@@ -141,7 +149,7 @@ export const createStageOperatorNode = (
 
 export const flattenNode = (
     rootNodeInfo: QueryStageNodeInfo,
-    node: IPlanNodeProps,
+    node: JsonRenderedNode,
     result: Map<string, IPlanNodeProps>
 ) => {
     result.set(node.id, {
@@ -149,24 +157,31 @@ export const flattenNode = (
         name: node.name,
         descriptor: node.descriptor,
         details: node.details,
-        sources: node.children.map((child: IPlanNodeProps) => child.id),
+        sources: node.children.map((child: JsonRenderedNode) => child.id),
         children: node.children,
     })
     if (node.children) {
-        node.children.forEach((child: IPlanNodeProps) => flattenNode(rootNodeInfo, child, result))
+        node.children.forEach((child: JsonRenderedNode) => flattenNode(rootNodeInfo, child, result))
     }
 }
 
-export const getPlanFragmentsNodeInfo = (queryStages: QueryStages): Map<string, IPlanFragmentNodeInfo> => {
+export const getPlanFragmentsNodeInfo = (
+    queryStages: QueryStages,
+    planInfo: QueryPlanInfo | null
+): Map<string, IPlanFragmentNodeInfo> => {
     const planFragments: Map<string, IPlanFragmentNodeInfo> = new Map()
 
     queryStages.stages.forEach((queryStage: QueryStage) => {
         const nodes: Map<string, IPlanNodeProps> = new Map()
-        flattenNode(queryStage.plan.root, JSON.parse(queryStage.plan.jsonRepresentation), nodes)
+        const fragmentId = queryStage.plan.id
+        const jsonPlan = planInfo ? planInfo[fragmentId] : null
+        if (jsonPlan) {
+            flattenNode(queryStage.plan.root, jsonPlan, nodes)
+        }
 
-        planFragments.set(queryStage.plan.id, {
+        planFragments.set(fragmentId, {
             stageId: queryStage.stageId,
-            id: queryStage.plan.id,
+            id: fragmentId,
             root: queryStage.plan.root.id,
             stageStats: queryStage.stageStats,
             state: queryStage.state,
@@ -177,8 +192,12 @@ export const getPlanFragmentsNodeInfo = (queryStages: QueryStages): Map<string, 
     return planFragments
 }
 
-export const getPlanFlowElements = (queryStages: QueryStages, layoutDirection: LayoutDirectionType): IFlowElements => {
-    const stages: Map<string, IPlanFragmentNodeInfo> = getPlanFragmentsNodeInfo(queryStages)
+export const getPlanFlowElements = (
+    queryStages: QueryStages,
+    planInfo: QueryPlanInfo | null,
+    layoutDirection: LayoutDirectionType
+): IFlowElements => {
+    const stages: Map<string, IPlanFragmentNodeInfo> = getPlanFragmentsNodeInfo(queryStages, planInfo)
 
     const nodes: Node[] = Array.from(stages).flatMap(([key, planFragmentNodeInfo]) => {
         const stageId: string = IdGenerator.stage(key)

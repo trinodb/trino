@@ -432,7 +432,7 @@ public class QueryMonitor
         return Optional.empty();
     }
 
-    private Optional<String> createJsonQueryPlan(QueryInfo queryInfo, Anonymizer anonymizer)
+    public Optional<String> createJsonQueryPlan(QueryInfo queryInfo, Anonymizer anonymizer)
     {
         try {
             if (queryInfo.getStages().isPresent()) {

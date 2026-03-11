@@ -16,7 +16,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Alert, Box, CircularProgress, Grid, Typography } from '@mui/material'
 import { ReactFlow, type Edge, type Node, useNodesState, useEdgesState, type Viewport } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
-import { queryStatusApi, QueryStatusInfo } from '../api/webapp/api.ts'
+import { queryStatusApi, queryPlanApi, QueryStatusInfo, QueryPlanInfo } from '../api/webapp/api.ts'
 import { QueryProgressBar } from './QueryProgressBar'
 import { nodeTypes, getLayoutedPlanFlowElements, getViewportFocusedOnNode } from './flow/layout'
 import { HelpMessage } from './flow/HelpMessage'
@@ -33,6 +33,7 @@ export const QueryLivePlan = () => {
     }
 
     const [queryStatus, setQueryStatus] = useState<IQueryStatus>(initialQueryStatus)
+    const [planInfo, setPlanInfo] = useState<QueryPlanInfo | null>(null)
     const [nodes, setNodes, onNodesChange] = useNodesState<Node>([])
     const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([])
     const [layoutDirection, setLayoutDirection] = useState<LayoutDirectionType>('BT')
@@ -49,7 +50,7 @@ export const QueryLivePlan = () => {
 
     useEffect(() => {
         if (queryStatus.info?.stages) {
-            const flowElements = getPlanFlowElements(queryStatus.info.stages, layoutDirection)
+            const flowElements = getPlanFlowElements(queryStatus.info.stages, planInfo, layoutDirection)
             const layoutedElements = getLayoutedPlanFlowElements(flowElements.nodes, flowElements.edges, {
                 direction: layoutDirection,
             })
@@ -58,7 +59,7 @@ export const QueryLivePlan = () => {
             setEdges(layoutedElements.edges)
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [queryStatus, layoutDirection])
+    }, [queryStatus, planInfo, layoutDirection])
 
     useEffect(() => {
         const runLoop = () => {
@@ -79,19 +80,21 @@ export const QueryLivePlan = () => {
 
     const getQueryStatus = () => {
         if (queryId) {
-            queryStatusApi(queryId).then((apiResponse: ApiResponse<QueryStatusInfo>) => {
-                setLoading(false)
-                if (apiResponse.status === 200 && apiResponse.data) {
-                    setQueryStatus({
-                        info: apiResponse.data,
-                        ended: apiResponse.data.finalQueryInfo,
-                    })
-
-                    setError(null)
-                } else {
-                    setError(`${Texts.Error.Communication} ${apiResponse.status}: ${apiResponse.message}`)
+            Promise.all([queryStatusApi(queryId), queryPlanApi(queryId)]).then(
+                ([apiResponse, planResponse]: [ApiResponse<QueryStatusInfo>, ApiResponse<QueryPlanInfo>]) => {
+                    setLoading(false)
+                    if (apiResponse.status === 200 && apiResponse.data) {
+                        setQueryStatus({
+                            info: apiResponse.data,
+                            ended: apiResponse.data.finalQueryInfo,
+                        })
+                        setPlanInfo(planResponse.status === 200 && planResponse.data ? planResponse.data : null)
+                        setError(null)
+                    } else {
+                        setError(`${Texts.Error.Communication} ${apiResponse.status}: ${apiResponse.message}`)
+                    }
                 }
-            })
+            )
         }
     }
 

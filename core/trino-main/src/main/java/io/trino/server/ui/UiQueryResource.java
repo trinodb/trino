@@ -21,6 +21,7 @@ import com.google.inject.Inject;
 import io.airlift.json.JsonCodec;
 import io.airlift.json.JsonCodecFactory;
 import io.trino.dispatcher.DispatchManager;
+import io.trino.event.QueryMonitor;
 import io.trino.execution.QueryInfo;
 import io.trino.execution.QueryState;
 import io.trino.operator.OperatorInfo;
@@ -35,9 +36,11 @@ import io.trino.spi.QueryId;
 import io.trino.spi.TrinoException;
 import io.trino.spi.metrics.Metric;
 import io.trino.spi.security.AccessDeniedException;
+import io.trino.sql.planner.planprinter.NoOpAnonymizer;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.ws.rs.ForbiddenException;
 import jakarta.ws.rs.GET;
+import jakarta.ws.rs.NotFoundException;
 import jakarta.ws.rs.PUT;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.PathParam;
@@ -71,15 +74,17 @@ public class UiQueryResource
 {
     private final JsonCodec<QueryInfo> queryInfoCodec;
     private final JsonCodec<QueryInfo> prettyQueryInfoCodec;
+    private final QueryMonitor queryMonitor;
     private final DispatchManager dispatchManager;
     private final AccessControl accessControl;
     private final HttpRequestSessionContextFactory sessionContextFactory;
 
     @Inject
-    public UiQueryResource(JsonMapper jsonMapper, DispatchManager dispatchManager, AccessControl accessControl, HttpRequestSessionContextFactory sessionContextFactory)
+    public UiQueryResource(JsonMapper jsonMapper, QueryMonitor queryMonitor, DispatchManager dispatchManager, AccessControl accessControl, HttpRequestSessionContextFactory sessionContextFactory)
     {
         this.queryInfoCodec = buildQueryInfoCodec(jsonMapper, false);
         this.prettyQueryInfoCodec = buildQueryInfoCodec(jsonMapper, true);
+        this.queryMonitor = requireNonNull(queryMonitor, "queryMonitor is null");
         this.dispatchManager = requireNonNull(dispatchManager, "dispatchManager is null");
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
         this.sessionContextFactory = requireNonNull(sessionContextFactory, "sessionContextFactory is null");
@@ -123,6 +128,25 @@ public class UiQueryResource
             catch (AccessDeniedException e) {
                 throw new ForbiddenException();
             }
+        }
+        throw new GoneException();
+    }
+
+    @GET
+    @Path("{queryId}/plan")
+    public Response getQueryPlan(@PathParam("queryId") QueryId queryId, @Context HttpServletRequest servletRequest, @Context HttpHeaders httpHeaders)
+    {
+        Optional<QueryInfo> queryInfo = dispatchManager.getFullQueryInfo(queryId);
+
+        if (queryInfo.isPresent()) {
+            checkCanViewQueryOwnedBy(sessionContextFactory.extractAuthorizedIdentity(servletRequest, httpHeaders), queryInfo.get().getSession().toIdentity(), accessControl);
+
+            Optional<String> jsonDistributedPlan = dispatchManager.getFullQueryInfo(queryId)
+                    .flatMap(info -> queryMonitor.createJsonQueryPlan(info, new NoOpAnonymizer()));
+
+            return Response.ok(jsonDistributedPlan.orElseThrow(NotFoundException::new))
+                    .type(APPLICATION_JSON_TYPE)
+                    .build();
         }
         throw new GoneException();
     }

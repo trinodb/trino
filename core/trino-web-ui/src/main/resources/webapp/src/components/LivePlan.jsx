@@ -43,14 +43,18 @@ type StageNodeInfo = {
 }
 
 class StageStatistics extends React.Component<StageStatisticsProps, StageStatisticsState> {
-    static getStages(queryInfo: any): Map<string, StageNodeInfo> {
+    static getStages(queryInfo: any, planInfo: any): Map<string, StageNodeInfo> {
         const stages: Map<string, StageNodeInfo> = new Map()
         queryInfo.stages.stages.forEach(function (stageInfo) {
             const nodes = new Map<any, PlanNodeProps>()
-            StageStatistics.flattenNode(stageInfo.plan.root, JSON.parse(stageInfo.plan.jsonRepresentation), nodes)
-            stages.set(stageInfo.plan.id, {
+            const fragmentId = stageInfo.plan.id
+            const jsonPlan = planInfo ? planInfo[fragmentId] : null
+            if (jsonPlan) {
+                StageStatistics.flattenNode(stageInfo.plan.root, jsonPlan, nodes)
+            }
+            stages.set(fragmentId, {
                 stageId: stageInfo.stageId,
-                id: stageInfo.plan.id,
+                id: fragmentId,
                 root: stageInfo.plan.root.id,
                 distribution: stageInfo.plan.distribution,
                 stageStats: stageInfo.stageStats,
@@ -161,6 +165,7 @@ type LivePlanState = {
     ended: boolean,
 
     query: ?any,
+    planInfo: ?any,
 
     graph: any,
     svg: any,
@@ -177,6 +182,7 @@ export class LivePlan extends React.Component<LivePlanProps, LivePlanState> {
             ended: false,
 
             query: null,
+            planInfo: null,
 
             graph: initializeGraph(),
             svg: null,
@@ -194,11 +200,23 @@ export class LivePlan extends React.Component<LivePlanProps, LivePlanState> {
 
     refreshLoop = () => {
         clearTimeout(this.timeoutId) // to stop multiple series of refreshLoop from going on simultaneously
-        fetch('/ui/api/query/' + this.props.queryId)
-            .then((response) => response.json())
-            .then((query) => {
+        const queryUrl = '/ui/api/query/' + this.props.queryId
+        const planUrl = '/ui/api/query/' + this.props.queryId + '/plan'
+        Promise.all([
+            fetch(queryUrl).then((response) => response.json()),
+            fetch(planUrl)
+                .then((response) => {
+                    if (response.ok) {
+                        return response.json()
+                    }
+                    return null
+                })
+                .catch(() => null),
+        ])
+            .then(([query, planInfo]) => {
                 this.setState({
                     query: query,
+                    planInfo: planInfo,
 
                     initialized: true,
                     ended: query.finalQueryInfo,
@@ -304,7 +322,7 @@ export class LivePlan extends React.Component<LivePlanProps, LivePlanState> {
         }
 
         const graph = this.state.graph
-        const stages = StageStatistics.getStages(this.state.query)
+        const stages = StageStatistics.getStages(this.state.query, this.state.planInfo)
         stages.forEach((stage) => {
             this.updateD3Stage(stage, graph, stages)
         })
