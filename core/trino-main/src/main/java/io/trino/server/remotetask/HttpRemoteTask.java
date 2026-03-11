@@ -101,6 +101,7 @@ import java.util.stream.Stream;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Throwables.getCausalChain;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static io.airlift.http.client.FullJsonResponseHandler.createFullJsonResponseHandler;
@@ -733,7 +734,11 @@ public final class HttpRemoteTask
             sendUpdateInternal();
         }
         catch (Throwable e) {
-            fatalUnacknowledgedFailure(new TrinoException(GENERIC_INTERNAL_ERROR, "unexpected error calling sendUpdate()", e));
+            Optional<Throwable> trinoException = getCausalChain(e)
+                    .stream()
+                    .filter(TrinoException.class::isInstance)
+                    .findFirst();
+            fatalUnacknowledgedFailure(trinoException.orElseGet(() -> new TrinoException(GENERIC_INTERNAL_ERROR, "unexpected error calling sendUpdate()", e)));
         }
     }
 
