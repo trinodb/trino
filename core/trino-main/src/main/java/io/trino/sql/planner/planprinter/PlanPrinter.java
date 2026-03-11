@@ -62,7 +62,6 @@ import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.ir.Row;
 import io.trino.sql.planner.OrderingScheme;
-import io.trino.sql.planner.Partitioning;
 import io.trino.sql.planner.PartitioningScheme;
 import io.trino.sql.planner.PlanFragment;
 import io.trino.sql.planner.SubPlan;
@@ -145,7 +144,6 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.OptionalInt;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Stream;
@@ -167,7 +165,6 @@ import static io.trino.spi.function.table.DescriptorArgument.NULL_DESCRIPTOR;
 import static io.trino.sql.DynamicFilters.extractDynamicFilters;
 import static io.trino.sql.ir.Booleans.TRUE;
 import static io.trino.sql.ir.IrUtils.combineConjunctsWithDuplicates;
-import static io.trino.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static io.trino.sql.planner.plan.JoinType.INNER;
 import static io.trino.sql.planner.plan.RowsPerMatch.WINDOW;
 import static io.trino.sql.planner.planprinter.JsonRenderer.JsonRenderedNode;
@@ -614,24 +611,6 @@ public class PlanPrinter
                 succinctBytes((long) digest.valueAt(0.95)),
                 succinctBytes((long) digest.valueAt(0.99)),
                 succinctBytes((long) digest.getMax()));
-    }
-
-    public static String graphvizLogicalPlan(PlanNode plan)
-    {
-        // TODO: This should move to something like GraphvizRenderer
-        PlanFragment fragment = new PlanFragment(
-                new PlanFragmentId("graphviz_plan"),
-                plan,
-                ImmutableSet.of(),
-                SINGLE_DISTRIBUTION,
-                OptionalInt.empty(),
-                ImmutableList.of(plan.getId()),
-                new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), plan.getOutputSymbols()),
-                OptionalInt.empty(),
-                StatsAndCosts.empty(),
-                ImmutableList.of(),
-                ImmutableMap.of());
-        return GraphvizPrinter.printLogical(ImmutableList.of(fragment));
     }
 
     public static String graphvizDistributedPlan(SubPlan plan)
