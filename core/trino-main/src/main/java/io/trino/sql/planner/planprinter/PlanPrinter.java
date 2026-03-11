@@ -263,45 +263,6 @@ public class PlanPrinter
         return new JsonRenderer().renderJson(representation, representation.getRoot(), false);
     }
 
-    public static String jsonFragmentPlan(PlanNode root, Metadata metadata, FunctionManager functionManager, Session session)
-    {
-        TableInfoSupplier tableInfoSupplier = new TableInfoSupplier(metadata, session);
-        ValuePrinter valuePrinter = new ValuePrinter(metadata, functionManager, session);
-        return new PlanPrinter(
-                root,
-                tableInfoSupplier,
-                ImmutableMap.of(),
-                valuePrinter,
-                StatsAndCosts.empty(),
-                Optional.empty(),
-                ImmutableMap.of(),
-                ImmutableMap.of(),
-                new NoOpAnonymizer())
-                .toJson();
-    }
-
-    public static String jsonLogicalPlan(
-            PlanNode plan,
-            Session session,
-            Metadata metadata,
-            FunctionManager functionManager,
-            StatsAndCosts estimatedStatsAndCosts)
-    {
-        TableInfoSupplier tableInfoSupplier = new TableInfoSupplier(metadata, session);
-        ValuePrinter valuePrinter = new ValuePrinter(metadata, functionManager, session);
-        return new PlanPrinter(
-                plan,
-                tableInfoSupplier,
-                ImmutableMap.of(),
-                valuePrinter,
-                estimatedStatsAndCosts,
-                Optional.empty(),
-                ImmutableMap.of(),
-                ImmutableMap.of(),
-                new NoOpAnonymizer())
-                .toJson();
-    }
-
     public static String jsonDistributedPlan(
             StagesInfo stages,
             Session session,
@@ -669,8 +630,7 @@ public class PlanPrinter
                 OptionalInt.empty(),
                 StatsAndCosts.empty(),
                 ImmutableList.of(),
-                ImmutableMap.of(),
-                Optional.empty());
+                ImmutableMap.of());
         return GraphvizPrinter.printLogical(ImmutableList.of(fragment));
     }
 

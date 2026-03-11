@@ -57,7 +57,6 @@ public class PlanFragment
     private final StatsAndCosts statsAndCosts;
     private final List<CatalogProperties> activeCatalogs;
     private final Map<FunctionId, LanguageFunctionData> languageFunctions;
-    private final Optional<String> jsonRepresentation;
     private final boolean containsTableScanNode;
 
     // Only for creating instances without the JSON representation embedded
@@ -91,7 +90,6 @@ public class PlanFragment
         this.statsAndCosts = requireNonNull(statsAndCosts, "statsAndCosts is null");
         this.activeCatalogs = requireNonNull(activeCatalogs, "activeCatalogs is null");
         this.languageFunctions = ImmutableMap.copyOf(languageFunctions);
-        this.jsonRepresentation = Optional.empty();
         this.containsTableScanNode = partitionedSourceNodes.stream().anyMatch(TableScanNode.class::isInstance);
     }
 
@@ -107,8 +105,7 @@ public class PlanFragment
             @JsonProperty("outputSkewedBucketCount") OptionalInt outputSkewedBucketCount,
             @JsonProperty("statsAndCosts") StatsAndCosts statsAndCosts,
             @JsonProperty("activeCatalogs") List<CatalogProperties> activeCatalogs,
-            @JsonProperty("languageFunctions") Map<FunctionId, LanguageFunctionData> languageFunctions,
-            @JsonProperty("jsonRepresentation") Optional<String> jsonRepresentation)
+            @JsonProperty("languageFunctions") Map<FunctionId, LanguageFunctionData> languageFunctions)
     {
         this.id = requireNonNull(id, "id is null");
         this.root = requireNonNull(root, "root is null");
@@ -121,7 +118,6 @@ public class PlanFragment
         this.statsAndCosts = requireNonNull(statsAndCosts, "statsAndCosts is null");
         this.activeCatalogs = requireNonNull(activeCatalogs, "activeCatalogs is null");
         this.languageFunctions = ImmutableMap.copyOf(languageFunctions);
-        this.jsonRepresentation = requireNonNull(jsonRepresentation, "jsonRepresentation is null");
 
         checkArgument(
                 partitionCount.isEmpty() || partitioning.getConnectorHandle() instanceof SystemPartitioningHandle,
@@ -212,36 +208,6 @@ public class PlanFragment
         return languageFunctions;
     }
 
-    @JsonProperty
-    public Optional<String> getJsonRepresentation()
-    {
-        // @reviewer: I believe this should be a json raw value, but that would make this class have a different deserialization constructor.
-        // workers don't need this, so that should be OK, but it's worth thinking about.
-        return jsonRepresentation;
-    }
-
-    public PlanFragment withoutEmbeddedJsonRepresentation()
-    {
-        if (jsonRepresentation.isEmpty()) {
-            return this;
-        }
-        return new PlanFragment(
-                this.id,
-                this.root,
-                this.symbols,
-                this.partitioning,
-                this.partitionCount,
-                this.partitionedSources,
-                this.partitionedSourcesSet,
-                this.partitionedSourceNodes,
-                this.remoteSourceNodes,
-                this.outputPartitioningScheme,
-                this.outputSkewedBucketCount,
-                this.statsAndCosts,
-                this.activeCatalogs,
-                this.languageFunctions);
-    }
-
     public List<Type> getTypes()
     {
         return outputPartitioningScheme.getOutputTypes();
@@ -323,8 +289,7 @@ public class PlanFragment
                 skewedBucketCount,
                 statsAndCosts,
                 activeCatalogs,
-                languageFunctions,
-                jsonRepresentation);
+                languageFunctions);
     }
 
     @Override
@@ -352,8 +317,7 @@ public class PlanFragment
                 this.outputSkewedBucketCount,
                 this.statsAndCosts,
                 activeCatalogs,
-                this.languageFunctions,
-                this.jsonRepresentation);
+                this.languageFunctions);
     }
 
     public boolean containsTableScanNode()

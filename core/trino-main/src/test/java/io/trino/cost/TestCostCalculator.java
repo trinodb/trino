@@ -111,7 +111,6 @@ public class TestCostCalculator
 
         planFragmenter = new PlanFragmenter(
                 plannerContext.getMetadata(),
-                plannerContext.getFunctionManager(),
                 planTester.getTransactionManager(),
                 planTester.getCatalogManager(),
                 plannerContext.getLanguageFunctionManager(),

@@ -108,8 +108,7 @@ public final class TaskTestUtils
             OptionalInt.empty(),
             StatsAndCosts.empty(),
             ImmutableList.of(),
-            ImmutableMap.of(),
-            Optional.empty());
+            ImmutableMap.of());
 
     public static final DynamicFilterId DYNAMIC_FILTER_SOURCE_ID = new DynamicFilterId("filter");
 
@@ -136,8 +135,7 @@ public final class TaskTestUtils
             OptionalInt.empty(),
             StatsAndCosts.empty(),
             ImmutableList.of(),
-            ImmutableMap.of(),
-            Optional.empty());
+            ImmutableMap.of());
 
     public static LocalExecutionPlanner createTestingPlanner()
     {

@@ -23,7 +23,6 @@ import io.trino.execution.QueryManagerConfig;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.CatalogInfo;
 import io.trino.metadata.CatalogManager;
-import io.trino.metadata.FunctionManager;
 import io.trino.metadata.LanguageFunctionManager;
 import io.trino.metadata.LanguageFunctionProvider.LanguageFunctionData;
 import io.trino.metadata.Metadata;
@@ -86,7 +85,6 @@ import static io.trino.sql.planner.SystemPartitioningHandle.SCALED_WRITER_HASH_D
 import static io.trino.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.SOURCE_DISTRIBUTION;
 import static io.trino.sql.planner.plan.ExchangeNode.Scope.REMOTE;
-import static io.trino.sql.planner.planprinter.PlanPrinter.jsonFragmentPlan;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -100,7 +98,6 @@ public class PlanFragmenter
             "If the query contains WITH clauses that are referenced more than once, please create temporary table(s) for the queries in those clauses.";
 
     private final Metadata metadata;
-    private final FunctionManager functionManager;
     private final TransactionManager transactionManager;
     private final CatalogManager catalogManager;
     private final LanguageFunctionManager languageFunctionManager;
@@ -109,14 +106,12 @@ public class PlanFragmenter
     @Inject
     public PlanFragmenter(
             Metadata metadata,
-            FunctionManager functionManager,
             TransactionManager transactionManager,
             CatalogManager catalogManager,
             LanguageFunctionManager languageFunctionManager,
             QueryManagerConfig queryManagerConfig)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
-        this.functionManager = requireNonNull(functionManager, "functionManager is null");
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
         this.catalogManager = requireNonNull(catalogManager, "catalogManager is null");
         this.stageCountWarningThreshold = requireNonNull(queryManagerConfig, "queryManagerConfig is null").getStageCountWarningThreshold();
@@ -151,7 +146,6 @@ public class PlanFragmenter
         Fragmenter fragmenter = new Fragmenter(
                 session,
                 metadata,
-                functionManager,
                 plan.getStatsAndCosts(),
                 activeCatalogs,
                 languageFunctionManager.serializeFunctionsForWorkers(session),
@@ -232,8 +226,7 @@ public class PlanFragmenter
                 OptionalInt.empty(),
                 fragment.getStatsAndCosts(),
                 fragment.getActiveCatalogs(),
-                fragment.getLanguageFunctions(),
-                fragment.getJsonRepresentation());
+                fragment.getLanguageFunctions());
 
         ImmutableList.Builder<SubPlan> childrenBuilder = ImmutableList.builder();
         for (SubPlan child : subPlan.getChildren()) {
@@ -247,7 +240,6 @@ public class PlanFragmenter
     {
         private final Session session;
         private final Metadata metadata;
-        private final FunctionManager functionManager;
         private final StatsAndCosts statsAndCosts;
         private final List<CatalogProperties> activeCatalogs;
         private final Map<FunctionId, LanguageFunctionData> languageFunctions;
@@ -258,7 +250,6 @@ public class PlanFragmenter
         public Fragmenter(
                 Session session,
                 Metadata metadata,
-                FunctionManager functionManager,
                 StatsAndCosts statsAndCosts,
                 List<CatalogProperties> activeCatalogs,
                 Map<FunctionId, LanguageFunctionData> languageFunctions,
@@ -267,7 +258,6 @@ public class PlanFragmenter
         {
             this.session = requireNonNull(session, "session is null");
             this.metadata = requireNonNull(metadata, "metadata is null");
-            this.functionManager = requireNonNull(functionManager, "functionManager is null");
             this.statsAndCosts = requireNonNull(statsAndCosts, "statsAndCosts is null");
             this.activeCatalogs = requireNonNull(activeCatalogs, "activeCatalogs is null");
             this.languageFunctions = ImmutableMap.copyOf(languageFunctions);
@@ -300,8 +290,7 @@ public class PlanFragmenter
                     OptionalInt.empty(),
                     statsAndCosts.getForSubplan(root),
                     activeCatalogs,
-                    languageFunctions,
-                    Optional.of(jsonFragmentPlan(root, metadata, functionManager, session)));
+                    languageFunctions);
 
             return new SubPlan(fragment, properties.getChildren());
         }

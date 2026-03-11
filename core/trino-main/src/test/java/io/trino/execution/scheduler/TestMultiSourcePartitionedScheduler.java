@@ -585,8 +585,7 @@ public class TestMultiSourcePartitionedScheduler
                 OptionalInt.empty(),
                 StatsAndCosts.empty(),
                 ImmutableList.of(),
-                ImmutableMap.of(),
-                Optional.empty());
+                ImmutableMap.of());
     }
 
     private static ConnectorSplitSource createFixedSplitSource(int splitCount)

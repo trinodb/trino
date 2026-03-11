@@ -64,7 +64,6 @@ public class TestPlanFragmentPartitionCount
 
         planFragmenter = new PlanFragmenter(
                 planTester.getPlannerContext().getMetadata(),
-                planTester.getPlannerContext().getFunctionManager(),
                 planTester.getTransactionManager(),
                 planTester.getCatalogManager(),
                 planTester.getPlannerContext().getLanguageFunctionManager(),

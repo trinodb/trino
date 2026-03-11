@@ -477,7 +477,7 @@ public class PlanTester
         this.costCalculator = new CostCalculatorUsingExchanges(taskCountEstimator);
         this.estimatedExchangesCostCalculator = new CostCalculatorWithEstimatedExchanges(costCalculator, taskCountEstimator);
 
-        this.planFragmenter = new PlanFragmenter(metadata, functionManager, transactionManager, catalogManager, languageFunctionManager, new QueryManagerConfig());
+        this.planFragmenter = new PlanFragmenter(metadata, transactionManager, catalogManager, languageFunctionManager, new QueryManagerConfig());
 
         GlobalSystemConnector globalSystemConnector = new GlobalSystemConnector(ImmutableSet.of(
                 new NodeSystemTable(nodeManager),

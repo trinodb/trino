@@ -717,8 +717,7 @@ public class TestSourcePartitionedScheduler
                 OptionalInt.empty(),
                 StatsAndCosts.empty(),
                 ImmutableList.of(),
-                ImmutableMap.of(),
-                Optional.empty());
+                ImmutableMap.of());
     }
 
     private static ConnectorSplitSource createBlockedSplitSource()
