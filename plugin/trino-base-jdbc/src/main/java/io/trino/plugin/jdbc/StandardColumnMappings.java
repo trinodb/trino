@@ -412,7 +412,8 @@ public final class StandardColumnMappings
 
     public static LongReadFunction dateReadFunctionUsingLocalDate()
     {
-        return new LongReadFunction() {
+        return new LongReadFunction()
+        {
             @Override
             public boolean isNull(ResultSet resultSet, int columnIndex)
                     throws SQLException
