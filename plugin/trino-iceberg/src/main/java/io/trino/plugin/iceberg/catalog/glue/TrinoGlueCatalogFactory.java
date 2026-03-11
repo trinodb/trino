@@ -16,6 +16,7 @@ package io.trino.plugin.iceberg.catalog.glue;
 import com.google.inject.Inject;
 import io.airlift.concurrent.BoundedExecutor;
 import io.trino.filesystem.TrinoFileSystemFactory;
+import io.trino.filesystem.s3.LakeFormationCredentialProvider;
 import io.trino.plugin.hive.metastore.glue.GlueHiveMetastoreConfig;
 import io.trino.plugin.hive.metastore.glue.GlueMetastoreStats;
 import io.trino.plugin.hive.security.UsingSystemSecurity;
@@ -57,6 +58,9 @@ public class TrinoGlueCatalogFactory
     private final GlueMetastoreStats stats;
     private final boolean isUsingSystemSecurity;
     private final Executor metadataFetchingExecutor;
+    private final Optional<LakeFormationCredentialProvider> lakeFormationCredentialProvider;
+    private final Optional<String> glueCatalogId;
+    private final Optional<String> glueRegion;
 
     @Inject
     public TrinoGlueCatalogFactory(
@@ -72,7 +76,8 @@ public class TrinoGlueCatalogFactory
             @UsingSystemSecurity boolean usingSystemSecurity,
             GlueMetastoreStats stats,
             GlueClient glueClient,
-            @ForIcebergMetadata ExecutorService metadataExecutorService)
+            @ForIcebergMetadata ExecutorService metadataExecutorService,
+            Optional<LakeFormationCredentialProvider> lakeFormationCredentialProvider)
     {
         this.catalogName = requireNonNull(catalogName, "catalogName is null");
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
@@ -87,6 +92,9 @@ public class TrinoGlueCatalogFactory
         this.hideMaterializedViewStorageTable = icebergConfig.isHideMaterializedViewStorageTable();
         this.stats = requireNonNull(stats, "stats is null");
         this.isUsingSystemSecurity = usingSystemSecurity;
+        this.lakeFormationCredentialProvider = requireNonNull(lakeFormationCredentialProvider, "lakeFormationCredentialProvider is null");
+        this.glueCatalogId = glueConfig.getCatalogId();
+        this.glueRegion = glueConfig.getGlueRegion();
         if (icebergConfig.getMetadataParallelism() == 1) {
             this.metadataFetchingExecutor = directExecutor();
         }
@@ -119,6 +127,9 @@ public class TrinoGlueCatalogFactory
                 defaultSchemaLocation,
                 isUniqueTableLocation,
                 hideMaterializedViewStorageTable,
-                metadataFetchingExecutor);
+                metadataFetchingExecutor,
+                lakeFormationCredentialProvider,
+                glueCatalogId,
+                glueRegion);
     }
 }
