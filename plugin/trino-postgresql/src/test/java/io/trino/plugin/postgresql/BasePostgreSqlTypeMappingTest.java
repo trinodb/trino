@@ -44,8 +44,6 @@ import org.testcontainers.utility.DockerImageName;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.sql.ResultSet;
-import java.sql.SQLException;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
@@ -54,7 +52,6 @@ import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkState;
@@ -472,16 +469,6 @@ public abstract class BasePostgreSqlTypeMappingTest
                 .addRoundTrip("numeric(9, -7)", "1234567890000000", createDecimalType(16, 0), "DECIMAL '1234567890000000'")
                 .addRoundTrip("numeric(27, -11)", "12345678901234567890123456700000000000", createDecimalType(38, 0), "DECIMAL '12345678901234567890123456700000000000'")
                 .execute(getQueryRunner(), postgresCreateAndInsert("test_postgresql_decimal_negative_scale"));
-    }
-
-    private static Optional<Integer> getInteger(ResultSet resultSet, String columnLabel)
-            throws SQLException
-    {
-        int value = resultSet.getInt(columnLabel);
-        if (resultSet.wasNull()) {
-            return Optional.empty();
-        }
-        return Optional.of(value);
     }
 
     @Test
