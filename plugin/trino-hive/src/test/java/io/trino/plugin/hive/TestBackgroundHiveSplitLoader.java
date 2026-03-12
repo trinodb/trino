@@ -623,7 +623,7 @@ public class TestBackgroundHiveSplitLoader
                 TupleDomain.all(),
                 Optional.empty(),
                 table,
-                Optional.empty(),
+                Optional.of(new HiveTablePartitioning(true, BUCKETING_V1, BUCKET_COUNT, BUCKET_COLUMN_HANDLES, false, List.of(), false)),
                 Optional.of(validWriteIdsList));
         HiveSplitSource hiveSplitSource = hiveSplitSource(backgroundHiveSplitLoader);
         backgroundHiveSplitLoader.start(hiveSplitSource);
@@ -664,7 +664,7 @@ public class TestBackgroundHiveSplitLoader
                 TupleDomain.all(),
                 Optional.empty(),
                 table,
-                Optional.empty(),
+                Optional.of(new HiveTablePartitioning(true, BUCKETING_V1, BUCKET_COUNT, BUCKET_COLUMN_HANDLES, false, List.of(), false)),
                 Optional.of(validWriteIdsList));
 
         HiveSplitSource hiveSplitSource = hiveSplitSource(backgroundHiveSplitLoader);
@@ -709,7 +709,7 @@ public class TestBackgroundHiveSplitLoader
                 TupleDomain.all(),
                 Optional.empty(),
                 table,
-                Optional.empty(),
+                Optional.of(new HiveTablePartitioning(true, BUCKETING_V1, BUCKET_COUNT, BUCKET_COLUMN_HANDLES, false, List.of(), false)),
                 Optional.of(validWriteIdsList));
 
         HiveSplitSource hiveSplitSource = hiveSplitSource(backgroundHiveSplitLoader);
@@ -753,7 +753,7 @@ public class TestBackgroundHiveSplitLoader
                 TupleDomain.all(),
                 Optional.empty(),
                 table,
-                Optional.empty(),
+                Optional.of(new HiveTablePartitioning(true, BUCKETING_V1, BUCKET_COUNT, BUCKET_COLUMN_HANDLES, false, List.of(), false)),
                 Optional.of(validWriteIdsList));
 
         HiveSplitSource hiveSplitSource = hiveSplitSource(backgroundHiveSplitLoader);
