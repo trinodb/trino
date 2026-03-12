@@ -26,6 +26,7 @@ import org.junit.jupiter.api.Test;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -104,6 +105,10 @@ public class TestIcebergCopyOnWriteOperations
         // Insert test data
         assertUpdate("INSERT INTO " + tableName + " VALUES (1, 'Alice'), (2, 'Bob'), (3, 'Charlie'), (4, 'Dave')", 4);
 
+        // Capture file paths before the delete
+        Set<String> filesBeforeDelete = getDataFilePaths(tableName);
+        assertThat(filesBeforeDelete).isNotEmpty();
+
         // Set write_delete_mode to copy-on-write
         assertUpdate("ALTER TABLE " + tableName + " SET PROPERTIES write_delete_mode = 'COPY_ON_WRITE'");
 
@@ -112,6 +117,16 @@ public class TestIcebergCopyOnWriteOperations
 
         // Verify the delete
         assertQuery("SELECT * FROM " + tableName, "VALUES (1, 'Alice'), (3, 'Charlie'), (4, 'Dave')");
+
+        // Verify file-level changes: CoW should rewrite data files, not create delete files
+        Set<String> filesAfterDelete = getDataFilePaths(tableName);
+        assertThat(filesAfterDelete)
+                .as("CoW DELETE should replace the original data file with a new rewritten file")
+                .doesNotContainAnyElementsOf(filesBeforeDelete);
+        assertThat(filesAfterDelete).isNotEmpty();
+
+        // Verify no delete files exist (CoW rewrites data files instead of creating delete files)
+        assertQuery("SELECT count(*) FROM \"" + tableName + "$files\" WHERE content != 0", "VALUES 0");
 
         assertUpdate("DROP TABLE " + tableName);
     }
@@ -128,6 +143,10 @@ public class TestIcebergCopyOnWriteOperations
         assertUpdate("CREATE TABLE " + sourceTable + " (id INT, name VARCHAR) WITH (format_version = 2)");
         assertUpdate("INSERT INTO " + sourceTable + " VALUES (2, 'Robert'), (3, 'Chuck'), (4, 'Dave')", 3);
 
+        // Capture file paths before the merge
+        Set<String> filesBeforeMerge = getDataFilePaths(tableName);
+        assertThat(filesBeforeMerge).isNotEmpty();
+
         // Set write_merge_mode to copy-on-write
         assertUpdate("ALTER TABLE " + tableName + " SET PROPERTIES write_merge_mode = 'COPY_ON_WRITE'");
 
@@ -142,6 +161,16 @@ public class TestIcebergCopyOnWriteOperations
         assertQuery(
                 "SELECT * FROM " + tableName + " ORDER BY id",
                 "VALUES (1, 'Alice'), (2, 'Robert'), (3, 'Chuck'), (4, 'Dave')");
+
+        // Verify file-level changes: CoW should rewrite data files, not create delete files
+        Set<String> filesAfterMerge = getDataFilePaths(tableName);
+        assertThat(filesAfterMerge)
+                .as("CoW MERGE should replace the original data file with new rewritten files")
+                .doesNotContainAnyElementsOf(filesBeforeMerge);
+        assertThat(filesAfterMerge).isNotEmpty();
+
+        // Verify no delete files exist
+        assertQuery("SELECT count(*) FROM \"" + tableName + "$files\" WHERE content != 0", "VALUES 0");
 
         assertUpdate("DROP TABLE " + tableName);
         assertUpdate("DROP TABLE " + sourceTable);
@@ -184,6 +213,17 @@ public class TestIcebergCopyOnWriteOperations
         // Verify results are still the same
         assertQuery("SELECT * FROM " + morTableName + " ORDER BY id", "VALUES (1, 'Alice'), (3, 'Charlie'), (4, 'Dave')");
         assertQuery("SELECT * FROM " + cowTableName + " ORDER BY id", "VALUES (1, 'Alice'), (3, 'Charlie'), (4, 'Dave')");
+
+        // Verify file-level differences between MoR and CoW modes:
+        // MoR should have delete files (position deletes), CoW should not
+        long morDeleteFileCount = (long) computeScalar("SELECT count(*) FROM \"" + morTableName + "$files\" WHERE content != 0");
+        long cowDeleteFileCount = (long) computeScalar("SELECT count(*) FROM \"" + cowTableName + "$files\" WHERE content != 0");
+        assertThat(morDeleteFileCount)
+                .as("MoR mode should create delete files")
+                .isGreaterThan(0);
+        assertThat(cowDeleteFileCount)
+                .as("CoW mode should not create delete files")
+                .isEqualTo(0);
 
         assertUpdate("DROP TABLE " + morTableName);
         assertUpdate("DROP TABLE " + cowTableName);
@@ -275,6 +315,9 @@ public class TestIcebergCopyOnWriteOperations
         // Verify that subsequent queries work correctly (no delete files should exist)
         assertQuery("SELECT COUNT(*) FROM " + tableName, "SELECT 5");
         assertQuery("SELECT SUM(value) FROM " + tableName, "SELECT 2750");
+
+        // Verify no delete files exist (CoW rewrites data files instead of creating delete files)
+        assertQuery("SELECT count(*) FROM \"" + tableName + "$files\" WHERE content != 0", "VALUES 0");
 
         assertUpdate("DROP TABLE " + tableName);
     }
@@ -941,6 +984,14 @@ public class TestIcebergCopyOnWriteOperations
             return Optional.of(relevantStats);
         }
         return Optional.empty();
+    }
+
+    private Set<String> getDataFilePaths(String tableName)
+    {
+        return computeActual("SELECT file_path FROM \"" + tableName + "$files\" WHERE content = 0")
+                .getOnlyColumnAsSet().stream()
+                .map(String.class::cast)
+                .collect(java.util.stream.Collectors.toSet());
     }
 
     private static String randomNameSuffix()
