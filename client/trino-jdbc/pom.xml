@@ -472,6 +472,10 @@
                                     <shadedPattern>${shadeBase}.client</shadedPattern>
                                 </relocation>
                                 <relocation>
+                                    <pattern>io.trino.client.DnsResolver</pattern>
+                                    <shadedPattern>io.trino.jdbc.DnsResolver</shadedPattern>
+                                </relocation>
+                                <relocation>
                                     <pattern>io.opentelemetry.instrumentation.okhttp.v3_0</pattern>
                                     <shadedPattern>${shadeBase}.opentelemetry.okhttp.v3_0</shadedPattern>
                                 </relocation>
