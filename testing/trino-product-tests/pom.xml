@@ -113,6 +113,11 @@
 
         <dependency>
             <groupId>io.trino</groupId>
+            <artifactId>trino-client</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>io.trino</groupId>
             <artifactId>trino-hive</artifactId>
         </dependency>
 
@@ -492,6 +497,20 @@
                         <ignoredNonTestScopedDependency>com.squareup.okhttp3:okhttp-tls</ignoredNonTestScopedDependency>
                         <!-- Used by ProductTestEnvironment for concurrent operations -->
                         <ignoredNonTestScopedDependency>io.airlift:concurrent</ignoredNonTestScopedDependency>
+                        <ignoredNonTestScopedDependency>io.airlift:log</ignoredNonTestScopedDependency>
+                        <ignoredNonTestScopedDependency>io.airlift:units</ignoredNonTestScopedDependency>
+                        <ignoredNonTestScopedDependency>io.confluent:kafka-schema-registry-client</ignoredNonTestScopedDependency>
+                        <ignoredNonTestScopedDependency>io.minio:minio</ignoredNonTestScopedDependency>
+                        <ignoredNonTestScopedDependency>io.trino:trino-client</ignoredNonTestScopedDependency>
+                        <ignoredNonTestScopedDependency>io.trino:trino-hive</ignoredNonTestScopedDependency>
+                        <ignoredNonTestScopedDependency>io.trino:trino-jdbc</ignoredNonTestScopedDependency>
+                        <ignoredNonTestScopedDependency>io.trino:trino-testing-containers</ignoredNonTestScopedDependency>
+                        <ignoredNonTestScopedDependency>io.trino:trino-testing-services</ignoredNonTestScopedDependency>
+                        <ignoredNonTestScopedDependency>org.apache.thrift:libthrift</ignoredNonTestScopedDependency>
+                        <ignoredNonTestScopedDependency>org.assertj:assertj-core</ignoredNonTestScopedDependency>
+                        <ignoredNonTestScopedDependency>org.jetbrains:annotations</ignoredNonTestScopedDependency>
+                        <!-- Required by SparkIcebergEnvironment metastore operations -->
+                        <ignoredNonTestScopedDependency>io.trino.hive:hive-thrift</ignoredNonTestScopedDependency>
                         <!-- Required by TestHiveStorageFormatsJunit -->
                         <ignoredNonTestScopedDependency>org.apache.parquet:parquet-column</ignoredNonTestScopedDependency>
                     </ignoredNonTestScopedDependencies>

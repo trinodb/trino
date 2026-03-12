@@ -31,6 +31,8 @@ public class JdbcDriverIT
     private static final Set<String> MANIFEST_FILES = ImmutableSet.of(
             "META-INF/MANIFEST.MF",
             "META-INF/services/java.sql.Driver");
+    private static final Set<String> PUBLIC_API_FILES = ImmutableSet.of(
+            "io/trino/client/DnsResolver.class");
 
     @Test
     public void testDependenciesRelocated()
@@ -75,6 +77,9 @@ public class JdbcDriverIT
 
     public static boolean isExpectedFile(String filename)
     {
-        return MANIFEST_FILES.contains(filename) || filename.startsWith("io/trino/jdbc") || filename.startsWith("aircompressor/");
+        return MANIFEST_FILES.contains(filename)
+                || PUBLIC_API_FILES.contains(filename)
+                || filename.startsWith("io/trino/jdbc")
+                || filename.startsWith("aircompressor/");
     }
 }

@@ -474,6 +474,9 @@
                                 <relocation>
                                     <pattern>io.trino.client</pattern>
                                     <shadedPattern>${shadeBase}.client</shadedPattern>
+                                    <excludes>
+                                        <exclude>io.trino.client.DnsResolver</exclude>
+                                    </excludes>
                                 </relocation>
                                 <relocation>
                                     <pattern>io.opentelemetry.instrumentation.okhttp.v3_0</pattern>
