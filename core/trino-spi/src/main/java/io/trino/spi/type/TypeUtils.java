@@ -45,6 +45,12 @@ public final class TypeUtils
         if (block.isNull(position)) {
             return null;
         }
+        if (type instanceof IntegerType integerType) {
+            return integerType.getInt(block, position);
+        }
+        if (type instanceof RealType realType) {
+            return realType.getFloat(block, position);
+        }
         if (javaType == long.class) {
             return type.getLong(block, position);
         }
@@ -79,10 +85,15 @@ public final class TypeUtils
             type.writeBoolean(blockBuilder, (Boolean) value);
         }
         else if (type.getJavaType() == double.class) {
-            type.writeDouble(blockBuilder, ((double) value));
+            type.writeDouble(blockBuilder, (double) value);
         }
-        else if (type.getJavaType() == long.class) {
-            type.writeLong(blockBuilder, ((long) value));
+        else if (type instanceof RealType realType) {
+            // Java type is long.class, but write as float
+            realType.writeFloat(blockBuilder, (float) value);
+        }
+        else if (type.getJavaType() == long.class && value instanceof Number number) {
+            // Works for Long and Integer
+            type.writeLong(blockBuilder, number.longValue());
         }
         else if (type.getJavaType() == Slice.class) {
             Slice slice;
