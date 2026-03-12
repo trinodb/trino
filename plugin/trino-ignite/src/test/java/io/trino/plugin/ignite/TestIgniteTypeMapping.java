@@ -259,6 +259,19 @@ public class TestIgniteTypeMapping
     }
 
     @Test
+    public void testDecimalNegativeScale()
+    {
+        // IgniteClient.toColumnMapping claims support for decimal(p, -s) mapping to decimal(p+s, 0)
+        // Verify whether Ignite actually supports creating and reading such columns
+        SqlDataTypeTest.create()
+                .addRoundTrip("decimal(5, -1)", "123450", createDecimalType(6, 0), "DECIMAL '123450'")
+                .addRoundTrip("decimal(5, -3)", "12345000", createDecimalType(8, 0), "DECIMAL '12345000'")
+                .addRoundTrip("decimal(9, -7)", "1234567890000000", createDecimalType(16, 0), "DECIMAL '1234567890000000'")
+                .addRoundTrip("decimal(27, -11)", "12345678901234567890123456700000000000", createDecimalType(38, 0), "DECIMAL '12345678901234567890123456700000000000'")
+                .execute(getQueryRunner(), igniteCreateAndInsert("test_decimal_negative_scale"));
+    }
+
+    @Test
     public void testBinary()
     {
         binaryTest("binary")
