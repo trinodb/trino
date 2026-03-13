@@ -75,6 +75,7 @@ public class HdfsEnvironment
         this.hdfsAuthentication = requireNonNull(hdfsAuthentication, "hdfsAuthentication is null");
         this.newDirectoryPermissions = config.getNewDirectoryFsPermissions();
         this.gcsStorageFactory = requireNonNull(gcsStorageFactory, "gcsStorageFactory is null");
+        TrinoFileSystemCache.INSTANCE.setCacheExpiry(config.getFileSystemCacheExpireAfterAccess().toJavaTime());
     }
 
     @PreDestroy
