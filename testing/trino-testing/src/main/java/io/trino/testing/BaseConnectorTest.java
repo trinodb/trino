@@ -154,6 +154,7 @@ import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_NEGATIVE_DATE;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_NOT_NULL_CONSTRAINT;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_PREDICATE_PUSHDOWN;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_INEQUALITY;
+import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_PRIMARY_KEY_CONSTRAINT;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_REFRESH_VIEW;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_RENAME_COLUMN;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_RENAME_FIELD;
@@ -4418,6 +4419,27 @@ public abstract class BaseConnectorTest
 
         assertUpdate("CREATE TABLE " + tableName + " (a bigint COMMENT 'test comment')");
         assertThat(getColumnComment(tableName, "a")).isEqualTo("test comment");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testCreateTableWithPrimaryKey()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE));
+
+        String tableName = "test_create_" + randomNameSuffix();
+
+        if (!hasBehavior(SUPPORTS_PRIMARY_KEY_CONSTRAINT)) {
+            assertQueryFails(
+                    "CREATE TABLE " + tableName + " (a bigint, b bigint, PRIMARY KEY(b))",
+                    ".*This connector does not support creating tables with a primary key constraint");
+            return;
+        }
+
+        assertUpdate("CREATE TABLE " + tableName + " (a bigint, b bigint, PRIMARY KEY(b))");
+        assertThat((String) computeScalar("SHOW CREATE TABLE " + tableName)).contains("PRIMARY KEY(b)");
+        // TODO Test DML behavior with primary key
 
         assertUpdate("DROP TABLE " + tableName);
     }
