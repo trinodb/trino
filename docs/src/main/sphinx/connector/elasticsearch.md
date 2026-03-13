@@ -43,6 +43,10 @@ The following table details all general configuration properties:
 * - `elasticsearch.port`
   - Port to use to connect to Elasticsearch.
   - `9200`
+* - `elasticsearch.path-prefix`
+  - The path prefix to use when connecting to Elasticsearch. This is typically used
+    when Elasticsearch is behind a reverse proxy.
+  -
 * - `elasticsearch.default-schema-name`
   - The schema that contains all tables defined without a qualifying schema
     name.
