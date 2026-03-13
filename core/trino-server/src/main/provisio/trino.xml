@@ -40,6 +40,12 @@
         </artifact>
     </artifactSet>
 
+    <artifactSet to="plugin/couchbase">
+        <artifact id="${project.groupId}:trino-couchbase:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
+
     <artifactSet to="plugin/delta-lake">
         <artifact id="${project.groupId}:trino-delta-lake:zip:${project.version}">
             <unpack />
