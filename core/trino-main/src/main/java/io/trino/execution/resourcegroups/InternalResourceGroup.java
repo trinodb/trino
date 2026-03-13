@@ -20,7 +20,9 @@ import com.google.errorprone.annotations.ThreadSafe;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
 import io.airlift.stats.CounterStat;
 import io.trino.execution.ManagedQueryExecution;
+import io.trino.execution.QueryState;
 import io.trino.execution.resourcegroups.WeightedFairQueue.Usage;
+import io.trino.server.BasicQueryStats;
 import io.trino.server.QueryStateInfo;
 import io.trino.server.ResourceGroupInfo;
 import io.trino.spi.TrinoException;
@@ -55,6 +57,9 @@ import static io.airlift.units.Duration.succinctDuration;
 import static io.trino.SystemSessionProperties.getQueryPriority;
 import static io.trino.execution.resourcegroups.ResourceUsage.ZERO;
 import static io.trino.server.QueryStateInfo.createQueryStateInfo;
+import static io.trino.spi.StandardErrorCode.EXCEEDED_CPU_LIMIT;
+import static io.trino.spi.StandardErrorCode.EXCEEDED_LOCAL_MEMORY_LIMIT;
+import static io.trino.spi.StandardErrorCode.EXCEEDED_SCAN_LIMIT;
 import static io.trino.spi.StandardErrorCode.INVALID_RESOURCE_GROUP;
 import static io.trino.spi.resourcegroups.ResourceGroupState.CAN_QUEUE;
 import static io.trino.spi.resourcegroups.ResourceGroupState.CAN_RUN;
@@ -115,6 +120,13 @@ public class InternalResourceGroup
     @GuardedBy("root")
     private boolean jmxExport;
     private volatile boolean disabled;
+    private volatile long perQueryMemoryLimitBytes = Long.MAX_VALUE;
+    private volatile long perQueryCpuLimitMillis = Long.MAX_VALUE;
+    private volatile long perQueryScanLimitBytes = Long.MAX_VALUE;
+    @GuardedBy("root")
+    private int hardTotalDriverLimit = Integer.MAX_VALUE;
+    @GuardedBy("root")
+    private int hardPlanningConcurrencyLimit = Integer.MAX_VALUE;
 
     // Live data structures
     // ====================
@@ -136,6 +148,13 @@ public class InternalResourceGroup
     // CPU, memory and physical data input usage is cached because it changes very rapidly while queries are running, and would be expensive to track continuously
     @GuardedBy("root")
     private ResourceUsage cachedResourceUsage = ZERO;
+    // Active driver and planning query counts are staged without lock and promoted with lock, similar to ResourceUsage
+    private volatile int stagedActiveDrivers;
+    private volatile int stagedPlanningQueries;
+    @GuardedBy("root")
+    private int cachedActiveDrivers;
+    @GuardedBy("root")
+    private int cachedPlanningQueries;
     @GuardedBy("root")
     private long lastStartNanos;
     private final CounterStat timeBetweenStartsSec = new CounterStat();
@@ -183,6 +202,13 @@ public class InternalResourceGroup
                     getQueuedQueries(),
                     getRunningQueries(),
                     eligibleSubGroups.size(),
+                    succinctBytes(perQueryMemoryLimitBytes),
+                    succinctDuration(perQueryCpuLimitMillis, MILLISECONDS),
+                    succinctBytes(perQueryScanLimitBytes),
+                    hardTotalDriverLimit,
+                    hardPlanningConcurrencyLimit,
+                    cachedActiveDrivers,
+                    cachedPlanningQueries,
                     Optional.of(subGroups.values().stream()
                             .filter(group -> group.getRunningQueries() + group.getQueuedQueries() > 0)
                             .map(InternalResourceGroup::getSummaryInfo)
@@ -210,6 +236,13 @@ public class InternalResourceGroup
                     getQueuedQueries(),
                     getRunningQueries(),
                     eligibleSubGroups.size(),
+                    succinctBytes(perQueryMemoryLimitBytes),
+                    succinctDuration(perQueryCpuLimitMillis, MILLISECONDS),
+                    succinctBytes(perQueryScanLimitBytes),
+                    hardTotalDriverLimit,
+                    hardPlanningConcurrencyLimit,
+                    cachedActiveDrivers,
+                    cachedPlanningQueries,
                     Optional.empty(),
                     Optional.empty());
         }
@@ -652,6 +685,108 @@ public class InternalResourceGroup
         }
     }
 
+    @Managed
+    @Override
+    public long getPerQueryMemoryLimitBytes()
+    {
+        return perQueryMemoryLimitBytes;
+    }
+
+    @Override
+    public void setPerQueryMemoryLimitBytes(long limit)
+    {
+        checkArgument(limit > 0, "perQueryMemoryLimitBytes must be positive");
+        this.perQueryMemoryLimitBytes = limit;
+    }
+
+    @Managed
+    @Override
+    public long getPerQueryCpuLimitMillis()
+    {
+        return perQueryCpuLimitMillis;
+    }
+
+    @Override
+    public void setPerQueryCpuLimitMillis(long limit)
+    {
+        checkArgument(limit > 0, "perQueryCpuLimitMillis must be positive");
+        this.perQueryCpuLimitMillis = limit;
+    }
+
+    @Managed
+    @Override
+    public long getPerQueryScanLimitBytes()
+    {
+        return perQueryScanLimitBytes;
+    }
+
+    @Override
+    public void setPerQueryScanLimitBytes(long limit)
+    {
+        checkArgument(limit > 0, "perQueryScanLimitBytes must be positive");
+        this.perQueryScanLimitBytes = limit;
+    }
+
+    @Managed
+    @Override
+    public int getHardTotalDriverLimit()
+    {
+        synchronized (root) {
+            return hardTotalDriverLimit;
+        }
+    }
+
+    @Override
+    public void setHardTotalDriverLimit(int limit)
+    {
+        checkArgument(limit > 0, "hardTotalDriverLimit must be positive");
+        synchronized (root) {
+            boolean oldCanRun = canRunMore();
+            this.hardTotalDriverLimit = limit;
+            if (canRunMore() != oldCanRun) {
+                updateEligibility();
+            }
+        }
+    }
+
+    @Managed
+    @Override
+    public int getHardPlanningConcurrencyLimit()
+    {
+        synchronized (root) {
+            return hardPlanningConcurrencyLimit;
+        }
+    }
+
+    @Override
+    public void setHardPlanningConcurrencyLimit(int limit)
+    {
+        checkArgument(limit > 0, "hardPlanningConcurrencyLimit must be positive");
+        synchronized (root) {
+            boolean oldCanRun = canRunMore();
+            this.hardPlanningConcurrencyLimit = limit;
+            if (canRunMore() != oldCanRun) {
+                updateEligibility();
+            }
+        }
+    }
+
+    @Managed
+    public int getActiveDrivers()
+    {
+        synchronized (root) {
+            return cachedActiveDrivers;
+        }
+    }
+
+    @Managed
+    public int getPlanningQueries()
+    {
+        synchronized (root) {
+            return cachedPlanningQueries;
+        }
+    }
+
     public InternalResourceGroup getOrCreateSubGroup(String name)
     {
         requireNonNull(name, "name is null");
@@ -793,23 +928,67 @@ public class InternalResourceGroup
 
     private void stageResourceUsage()
     {
+        long perQueryMemoryLimit = perQueryMemoryLimitBytes;
+        long perQueryCpuLimit = perQueryCpuLimitMillis;
+        long perQueryScanLimit = perQueryScanLimitBytes;
+        int activeDrivers = 0;
+        int planningQueries = 0;
+
         for (Entry<ManagedQueryExecution, StagedResourceUsage> entry : runningQueries.entrySet()) {
             ManagedQueryExecution query = entry.getKey();
             StagedResourceUsage resourceUsage = entry.getValue();
 
-            ResourceUsage newResourceUsage = new ResourceUsage(
-                    query.getTotalCpuTime().toMillis(),
-                    query.getTotalMemoryReservation().toBytes(),
-                    query.getBasicQueryInfo().getQueryStats().getPhysicalInputDataSize().toBytes());
+            BasicQueryStats queryStats = query.getBasicQueryInfo().getQueryStats();
+            long cpuMillis = query.getTotalCpuTime().toMillis();
+            long memoryBytes = query.getTotalMemoryReservation().toBytes();
+            long scanBytes = queryStats.getPhysicalInputDataSize().toBytes();
+
+            ResourceUsage newResourceUsage = new ResourceUsage(cpuMillis, memoryBytes, scanBytes);
             // Update resource usage only if the query is still running.
             // We cannot use entry.setValue(...) because we don’t want to restore the query
             // in case it was removed on completion.
             StagedResourceUsage staged = resourceUsage.stage(newResourceUsage);
             runningQueries.computeIfPresent(query, (_, _) -> staged);
+
+            enforcePerQueryLimits(query, memoryBytes, cpuMillis, scanBytes, perQueryMemoryLimit, perQueryCpuLimit, perQueryScanLimit);
+
+            if (!query.isDone()) {
+                activeDrivers += queryStats.getRunningDrivers() + queryStats.getQueuedDrivers() + queryStats.getBlockedDrivers();
+                QueryState state = query.getState();
+                if (state == QueryState.PLANNING || state == QueryState.STARTING) {
+                    planningQueries++;
+                }
+            }
         }
+
+        this.stagedActiveDrivers = activeDrivers;
+        this.stagedPlanningQueries = planningQueries;
 
         for (InternalResourceGroup subGroup : dirtySubGroups) {
             subGroup.stageResourceUsage();
+        }
+    }
+
+    private void enforcePerQueryLimits(
+            ManagedQueryExecution query,
+            long memoryBytes,
+            long cpuMillis,
+            long scanBytes,
+            long memoryLimit,
+            long cpuLimit,
+            long scanLimit)
+    {
+        if (memoryLimit < Long.MAX_VALUE && memoryBytes > memoryLimit) {
+            query.fail(new TrinoException(EXCEEDED_LOCAL_MEMORY_LIMIT,
+                    format("Query exceeded resource group per-query memory limit of %s in '%s'", succinctBytes(memoryLimit), id)));
+        }
+        else if (cpuLimit < Long.MAX_VALUE && cpuMillis > cpuLimit) {
+            query.fail(new TrinoException(EXCEEDED_CPU_LIMIT,
+                    format("Query exceeded resource group per-query CPU limit of %s in '%s'", succinctDuration(cpuLimit, MILLISECONDS), id)));
+        }
+        else if (scanLimit < Long.MAX_VALUE && scanBytes > scanLimit) {
+            query.fail(new TrinoException(EXCEEDED_SCAN_LIMIT,
+                    format("Query exceeded resource group per-query scan limit of %s in '%s'", succinctBytes(scanLimit), id)));
         }
     }
 
@@ -903,6 +1082,8 @@ public class InternalResourceGroup
         checkState(Thread.holdsLock(root), "Must hold lock to refresh stats");
         synchronized (root) {
             ResourceUsage groupUsageDelta = ZERO;
+            int activeDrivers = stagedActiveDrivers;
+            int planningQueriesCount = stagedPlanningQueries;
 
             for (Entry<ManagedQueryExecution, StagedResourceUsage> entry : runningQueries.entrySet()) {
                 StagedResourceUsage resourceUsage = entry.getValue();
@@ -921,11 +1102,16 @@ public class InternalResourceGroup
                 ResourceUsage subGroupUsageDelta = subGroup.updateResourceUsageAndGetDelta();
                 groupUsageDelta = groupUsageDelta.add(subGroupUsageDelta);
                 cachedResourceUsage = cachedResourceUsage.add(subGroupUsageDelta);
+                activeDrivers += subGroup.cachedActiveDrivers;
+                planningQueriesCount += subGroup.cachedPlanningQueries;
 
                 if (!subGroupUsageDelta.equals(ZERO)) {
                     subGroup.updateEligibility();
                 }
             }
+
+            cachedActiveDrivers = activeDrivers;
+            cachedPlanningQueries = planningQueriesCount;
 
             return groupUsageDelta;
         }
@@ -1092,7 +1278,16 @@ public class InternalResourceGroup
                 // Always allow at least one running query
                 hardConcurrencyLimit = Math.max(1, hardConcurrencyLimit);
             }
-            return runningQueries.size() + descendantRunningQueries < hardConcurrencyLimit;
+            if (runningQueries.size() + descendantRunningQueries >= hardConcurrencyLimit) {
+                return false;
+            }
+            if (cachedActiveDrivers >= hardTotalDriverLimit) {
+                return false;
+            }
+            if (cachedPlanningQueries >= hardPlanningConcurrencyLimit) {
+                return false;
+            }
+            return true;
         }
     }
 

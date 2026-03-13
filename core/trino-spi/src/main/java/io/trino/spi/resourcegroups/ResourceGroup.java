@@ -121,4 +121,59 @@ public interface ResourceGroup
      * unless it has other active subgroups.
      */
     void setDisabled(boolean disabled);
+
+    default long getPerQueryMemoryLimitBytes()
+    {
+        return Long.MAX_VALUE;
+    }
+
+    /**
+     * Maximum memory a single query in this group can use. Queries exceeding
+     * this limit are killed.
+     */
+    default void setPerQueryMemoryLimitBytes(long limit) {}
+
+    default long getPerQueryCpuLimitMillis()
+    {
+        return Long.MAX_VALUE;
+    }
+
+    /**
+     * Maximum CPU time a single query in this group can use. Queries exceeding
+     * this limit are killed.
+     */
+    default void setPerQueryCpuLimitMillis(long limit) {}
+
+    default long getPerQueryScanLimitBytes()
+    {
+        return Long.MAX_VALUE;
+    }
+
+    /**
+     * Maximum physical data scan a single query in this group can use. Queries
+     * exceeding this limit are killed.
+     */
+    default void setPerQueryScanLimitBytes(long limit) {}
+
+    default int getHardTotalDriverLimit()
+    {
+        return Integer.MAX_VALUE;
+    }
+
+    /**
+     * Maximum total active drivers (running + queued + blocked) across all queries
+     * in this group. When exceeded, new queries queue instead of starting.
+     */
+    default void setHardTotalDriverLimit(int limit) {}
+
+    default int getHardPlanningConcurrencyLimit()
+    {
+        return Integer.MAX_VALUE;
+    }
+
+    /**
+     * Maximum number of queries in PLANNING or STARTING state concurrently
+     * in this group. When exceeded, new queries queue instead of starting.
+     */
+    default void setHardPlanningConcurrencyLimit(int limit) {}
 }
