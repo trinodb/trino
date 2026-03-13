@@ -13,7 +13,6 @@
  */
 package io.trino.testng.services;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
 import io.airlift.log.Logger;
@@ -40,8 +39,7 @@ public class FlakyTestRetryAnalyzer
     // TODO replace pom.xml property with explicit invocation of a testng runner (test suite with a test) and amend the retryer behavior on that level
     private static final String ENABLED_SYSTEM_PROPERTY = "io.trino.testng.services.FlakyTestRetryAnalyzer.enabled";
 
-    @VisibleForTesting
-    static final int ALLOWED_RETRIES_COUNT = 2;
+    public static final int ALLOWED_RETRIES_COUNT = 2;
 
     @GuardedBy("this")
     private final Map<String, Long> retryCounter = new HashMap<>();
@@ -88,13 +86,13 @@ public class FlakyTestRetryAnalyzer
         long retryCount;
         ITestNGMethod method = result.getMethod();
         synchronized (this) {
-            String name = getName(method, result.getParameters());
-            retryCount = retryCounter.getOrDefault(name, 0L);
+            String testId = testId(method, result.getParameters());
+            retryCount = retryCounter.getOrDefault(testId, 0L);
             retryCount++;
             if (retryCount > ALLOWED_RETRIES_COUNT) {
                 return false;
             }
-            retryCounter.put(name, retryCount);
+            retryCounter.put(testId, retryCount);
         }
         log.warn(
                 result.getThrowable(),
@@ -105,7 +103,7 @@ public class FlakyTestRetryAnalyzer
         return true;
     }
 
-    private static String getName(ITestNGMethod method, Object[] parameters)
+    public static String testId(ITestNGMethod method, Object[] parameters)
     {
         String actualTestClass = method.getTestClass().getName();
         if (parameters.length != 0) {
