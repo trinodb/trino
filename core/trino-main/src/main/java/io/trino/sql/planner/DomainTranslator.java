@@ -379,54 +379,8 @@ public final class DomainTranslator
 
                     // We can only make inferences if the remaining expressions on all terms are equal and deterministic
                     if (Set.copyOf(residuals).size() == 1 && DeterminismEvaluator.isDeterministic(residuals.get(0))) {
-                        // NONE are no-op for the purpose of OR
-                        tupleDomains = tupleDomains.stream()
-                                .filter(domain -> !domain.isNone())
-                                .collect(toList());
-
-                        // The column-wise union is equivalent to the strict union if
-                        // 1) If all TupleDomains consist of the same exact single column (e.g. one TupleDomain => (a > 0), another TupleDomain => (a < 10))
-                        // 2) If one TupleDomain is a superset of the others (e.g. TupleDomain => (a > 0, b > 0 && b < 10) vs TupleDomain => (a > 5, b = 5))
-                        boolean matchingSingleSymbolDomains = tupleDomains.stream().allMatch(domain -> domain.getDomains().get().size() == 1);
-
-                        matchingSingleSymbolDomains = matchingSingleSymbolDomains && tupleDomains.stream()
-                                .map(tupleDomain -> tupleDomain.getDomains().get().keySet())
-                                .distinct()
-                                .count() == 1;
-
-                        boolean oneTermIsSuperSet = TupleDomain.maximal(tupleDomains).isPresent();
-
-                        if (oneTermIsSuperSet) {
+                        if (TupleDomain.strictUnion(tupleDomains).isPresent()) {
                             remainingExpression = residuals.get(0);
-                        }
-                        else if (matchingSingleSymbolDomains) {
-                            // Types REAL, DOUBLE and NUMBER require special handling because they include NaN value. In this case, we cannot rely on the union of domains.
-                            // That is because domains covering the value set partially might union up to a domain covering the whole value set.
-                            // While the component domains didn't include NaN, the resulting domain could be further translated to predicate "TRUE" or "a IS NOT NULL",
-                            // which is satisfied by NaN. So during domain union, NaN might be implicitly added.
-                            // Example: Let 'a' be a column of type DOUBLE.
-                            //          Let left TupleDomain => (a > 0) /false for NaN/, right TupleDomain => (a < 10) /false for NaN/.
-                            //          Unioned TupleDomain => "is not null" /true for NaN/
-                            // To guard against wrong results, the current node is returned as the remainingExpression.
-                            Type type = getOnlyElement(tupleDomains.get(0).getDomains().get().values()).getType();
-
-                            // A Domain of a floating point type contains NaN in the following cases:
-                            // 1. When it contains all the values of the type and null.
-                            //    In such case the domain is 'all', and if it is the only domain
-                            //    in the TupleDomain, the TupleDomain gets normalized to TupleDomain 'all'.
-                            // 2. When it contains all the values of the type and doesn't contain null.
-                            //    In such case no normalization on the level of TupleDomain takes place,
-                            //    and the check for NaN is done by inspecting the Domain's valueSet.
-                            //    NaN is included when the valueSet is 'all'.
-                            boolean unionedDomainContainsNaN = columnUnionedTupleDomain.isAll() ||
-                                    (columnUnionedTupleDomain.getDomains().isPresent() &&
-                                            getOnlyElement(columnUnionedTupleDomain.getDomains().get().values()).getValues().isAll());
-                            boolean implicitlyAddedNaN = typeHasNaN(type) &&
-                                    tupleDomains.stream().noneMatch(TupleDomain::isAll) &&
-                                    unionedDomainContainsNaN;
-                            if (!implicitlyAddedNaN) {
-                                remainingExpression = residuals.get(0);
-                            }
                         }
                     }
 
