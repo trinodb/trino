@@ -117,6 +117,7 @@
         <module>plugin/trino-thrift</module>
         <module>plugin/trino-thrift-api</module>
         <module>plugin/trino-thrift-testing-server</module>
+        <module>plugin/trino-tibero</module>
         <module>plugin/trino-tpcds</module>
         <module>plugin/trino-tpch</module>
         <module>plugin/trino-vertica</module>
