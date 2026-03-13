@@ -28,7 +28,9 @@ import jakarta.ws.rs.container.ContainerRequestContext;
 
 import java.security.Key;
 import java.util.Collection;
+import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 import static io.jsonwebtoken.Claims.AUDIENCE;
 import static io.trino.server.security.UserMapping.createUserMapping;
@@ -70,8 +72,16 @@ public class JwtAuthenticator
         if (principal.isEmpty()) {
             return Optional.empty();
         }
+
+        Map<String, String> claimsMap = claims.entrySet().stream()
+                .filter(entry -> entry.getValue() != null)
+                .collect(Collectors.toMap(
+                        Map.Entry::getKey,
+                        entry -> entry.getValue().toString()));
+
         return Optional.of(Identity.forUser(userMapping.mapUser(principal.get()))
                 .withPrincipal(new BasicPrincipal(principal.get()))
+                .withClaims(claimsMap)
                 .build());
     }
 
