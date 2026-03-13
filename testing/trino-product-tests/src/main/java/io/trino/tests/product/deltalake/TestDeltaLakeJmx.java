@@ -33,7 +33,7 @@ public class TestDeltaLakeJmx
     @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
     public void testJmxTablesExposedByDeltaLakeConnectorBackedByGlueMetastore()
     {
-        assertThat(onTrino().executeQuery("SHOW TABLES IN jmx.current LIKE '%name=delta%'")).containsOnly(
+        assertThat(onTrino().executeQuery("SHOW TABLES IN jmx.current LIKE '%catalog=delta%'")).containsOnly(
                 row("io.airlift.bootstrap:name=delta,type=lifecyclemanager"),
                 row("io.trino.filesystem.s3:name=delta,type=s3filesystemstats"),
                 row("io.trino.metastore.cache:name=delta,type=cachinghivemetastore"),
@@ -47,7 +47,7 @@ public class TestDeltaLakeJmx
     @Test(groups = {DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS})
     public void testJmxTablesExposedByDeltaLakeConnectorBackedByThriftMetastore()
     {
-        assertThat(onTrino().executeQuery("SHOW TABLES IN jmx.current LIKE '%name=delta%'")).containsOnly(
+        assertThat(onTrino().executeQuery("SHOW TABLES IN jmx.current LIKE '%catalog=delta%'")).containsOnly(
                 row("io.airlift.bootstrap:name=delta,type=lifecyclemanager"),
                 row("io.trino.filesystem.s3:name=delta,type=s3filesystemstats"),
                 row("io.trino.metastore.cache:name=delta,type=cachinghivemetastore"),

@@ -17,7 +17,6 @@ import com.google.inject.Injector;
 import io.airlift.bootstrap.Bootstrap;
 import io.airlift.json.JsonModule;
 import io.trino.plugin.base.ConnectorContextModule;
-import io.trino.plugin.base.jmx.ConnectorObjectNameGeneratorModule;
 import io.trino.plugin.base.jmx.MBeanServerModule;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorContext;
@@ -51,7 +50,6 @@ public class BigQueryConnectorFactory
                 new BigQueryConnectorModule(),
                 new MBeanServerModule(),
                 new MBeanModule(),
-                new ConnectorObjectNameGeneratorModule("io.trino.plugin.bigquery", "trino.plugin.bigquery"),
                 new ConnectorContextModule(catalogName, context));
 
         Injector injector = app
