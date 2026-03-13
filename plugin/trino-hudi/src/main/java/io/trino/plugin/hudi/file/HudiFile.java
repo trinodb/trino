@@ -11,17 +11,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.hudi.partition;
+package io.trino.plugin.hudi.file;
 
-import io.trino.plugin.hive.HivePartitionKey;
-
-import java.util.List;
-
-public interface HudiPartitionInfo
+public interface HudiFile
 {
-    String getRelativePartitionPath();
+    String getPath();
 
-    List<HivePartitionKey> getHivePartitionKeys();
+    String getFileName();
 
-    boolean doesMatchPredicates();
+    long getFileSize();
+
+    long getModificationTime();
+
+    long getStart();
+
+    long getLength();
 }

@@ -11,17 +11,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.hudi.partition;
+package io.trino.plugin.hudi.query.index;
 
-import io.trino.plugin.hive.HivePartitionKey;
+import io.trino.spi.predicate.TupleDomain;
+import org.apache.hudi.common.model.FileSlice;
 
-import java.util.List;
-
-public interface HudiPartitionInfo
+public interface HudiIndexSupport
 {
-    String getRelativePartitionPath();
+    boolean canApply(TupleDomain<String> tupleDomain);
 
-    List<HivePartitionKey> getHivePartitionKeys();
-
-    boolean doesMatchPredicates();
+    default boolean shouldSkipFileSlice(FileSlice slice)
+    {
+        return false;
+    }
 }
