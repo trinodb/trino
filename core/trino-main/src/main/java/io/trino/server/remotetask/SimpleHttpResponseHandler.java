@@ -14,18 +14,19 @@
 package io.trino.server.remotetask;
 
 import com.google.common.util.concurrent.FutureCallback;
-import io.airlift.http.client.FullJsonResponseHandler;
 import io.airlift.http.client.HttpStatus;
+import io.airlift.http.client.JsonResponse;
 import io.trino.spi.TrinoException;
 
 import java.net.URI;
+import java.util.concurrent.RejectedExecutionException;
 
 import static io.trino.spi.StandardErrorCode.REMOTE_TASK_ERROR;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class SimpleHttpResponseHandler<T>
-        implements FutureCallback<FullJsonResponseHandler.JsonResponse<T>>
+        implements FutureCallback<JsonResponse<T>>
 {
     private final SimpleHttpResponseCallback<T> callback;
 
@@ -40,41 +41,59 @@ public class SimpleHttpResponseHandler<T>
     }
 
     @Override
-    public void onSuccess(FullJsonResponseHandler.JsonResponse<T> response)
+    public void onSuccess(JsonResponse<T> response)
     {
-        stats.updateSuccess();
-        stats.responseSize(response.getResponseSize());
-        try {
-            if (response.getStatusCode() == HttpStatus.OK.code() && response.hasValue()) {
-                callback.success(response.getValue());
+        if (response.statusCode() == HttpStatus.SERVICE_UNAVAILABLE.code()) {
+            onFailure(new ServiceUnavailableException(uri));
+            return;
+        }
+
+        if (response.exception().isPresent() && response.exception().stream().anyMatch(RejectedExecutionException.class::isInstance)) {
+            callback.fatal(new TrinoException(REMOTE_TASK_ERROR, format("Unexpected response from %s", uri), response.exception().orElseThrow()));
+            return;
+        }
+
+        switch (response) {
+            case JsonResponse.JsonValue<T> jsonResponse -> {
+                try {
+                    if (jsonResponse.statusCode() == HttpStatus.OK.code()) {
+                        stats.updateSuccess();
+                        stats.responseSize(jsonResponse.bytesRead());
+                        callback.success(response.jsonValue());
+                    }
+                    else {
+                        callback.fatal(new TrinoException(REMOTE_TASK_ERROR, format("Unexpected response from %s", uri)));
+                    }
+                }
+                catch (Throwable t) {
+                    // this should never happen
+                    callback.fatal(t);
+                }
             }
-            else if (response.getStatusCode() == HttpStatus.SERVICE_UNAVAILABLE.code()) {
-                callback.failed(new ServiceUnavailableException(uri));
-            }
-            else {
+            case JsonResponse.Exception<T> exceptionResponse -> {
                 // Something is broken in the server or the client, so fail the task immediately (includes 500 errors)
-                Exception cause = response.getException();
+                Throwable cause = exceptionResponse.throwable();
                 if (cause == null) {
-                    if (response.getStatusCode() == HttpStatus.OK.code()) {
+                    if (exceptionResponse.statusCode() == HttpStatus.OK.code()) {
                         cause = new TrinoException(REMOTE_TASK_ERROR, format("Expected response from %s is empty", uri));
                     }
                     else {
-                        cause = new TrinoException(REMOTE_TASK_ERROR, format("Expected response code from %s to be %s, but was %s%n%s",
+                        cause = new TrinoException(REMOTE_TASK_ERROR, format("Expected response code from %s to be %s, but was %s%n",
                                 uri,
                                 HttpStatus.OK.code(),
-                                response.getStatusCode(),
-                                response.getResponseBody()));
+                                exceptionResponse.statusCode()));
                     }
                 }
                 else {
                     cause = new TrinoException(REMOTE_TASK_ERROR, format("Unexpected response from %s", uri), cause);
                 }
-                callback.fatal(cause);
+                callback.failed(cause);
             }
-        }
-        catch (Throwable t) {
-            // this should never happen
-            callback.fatal(t);
+            case JsonResponse.NonJsonBytes<T> nonJsonResponse -> callback.fatal(new TrinoException(REMOTE_TASK_ERROR, format("Expected response code from %s to be %s, but was %s%n%s",
+                    uri,
+                    HttpStatus.OK.code(),
+                    nonJsonResponse.statusCode(),
+                    nonJsonResponse.stringValue())));
         }
     }
 

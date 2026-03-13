@@ -17,8 +17,8 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
 import io.airlift.concurrent.SetThreadName;
-import io.airlift.http.client.FullJsonResponseHandler.JsonResponse;
 import io.airlift.http.client.HttpClient;
+import io.airlift.http.client.JsonResponse;
 import io.airlift.http.client.Request;
 import io.airlift.json.JsonCodec;
 import io.airlift.units.Duration;
@@ -37,9 +37,9 @@ import java.util.function.Supplier;
 import static com.google.common.net.HttpHeaders.CONTENT_TYPE;
 import static com.google.common.net.MediaType.JSON_UTF_8;
 import static com.google.common.util.concurrent.Futures.addCallback;
-import static io.airlift.http.client.FullJsonResponseHandler.createFullJsonResponseHandler;
 import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 import static io.airlift.http.client.Request.Builder.prepareGet;
+import static io.airlift.http.client.StreamingJsonResponseHandler.streamingJsonResponseHandler;
 import static io.airlift.units.Duration.nanosSince;
 import static io.trino.execution.DynamicFiltersCollector.INITIAL_DYNAMIC_FILTERS_VERSION;
 import static io.trino.server.InternalHeaders.TRINO_CURRENT_VERSION;
@@ -165,7 +165,7 @@ class DynamicFiltersFetcher
                 .build();
 
         errorTracker.startRequest();
-        future = httpClient.executeAsync(request, createFullJsonResponseHandler(dynamicFilterDomainsCodec));
+        future = httpClient.executeAsync(request, streamingJsonResponseHandler(dynamicFilterDomainsCodec));
         addCallback(future, new SimpleHttpResponseHandler<>(new DynamicFiltersResponseCallback(dynamicFiltersVersion), request.getUri(), stats), executor);
     }
 
