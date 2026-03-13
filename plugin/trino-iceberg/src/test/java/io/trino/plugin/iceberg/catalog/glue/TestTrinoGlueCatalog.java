@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.metastore.TableInfo;
+import io.trino.plugin.hive.metastore.glue.GlueHiveMetastoreConfig;
 import io.trino.plugin.hive.metastore.glue.GlueMetastoreStats;
 import io.trino.plugin.iceberg.CommitTaskData;
 import io.trino.plugin.iceberg.IcebergConfig;
@@ -99,8 +100,10 @@ public class TestTrinoGlueCatalog
                         FILE_IO_FACTORY,
                         TESTING_TYPE_MANAGER,
                         catalogConfig,
+                        new GlueHiveMetastoreConfig(),
                         new GlueMetastoreStats(),
-                        glueClient),
+                        glueClient,
+                        Optional.empty()),
                 "test",
                 glueClient,
                 new GlueMetastoreStats(),
@@ -108,7 +111,10 @@ public class TestTrinoGlueCatalog
                 Optional.empty(),
                 useUniqueTableLocations,
                 new IcebergConfig().isHideMaterializedViewStorageTable(),
-                directExecutor());
+                directExecutor(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty());
     }
 
     /**
@@ -244,8 +250,10 @@ public class TestTrinoGlueCatalog
                         FILE_IO_FACTORY,
                         TESTING_TYPE_MANAGER,
                         catalogConfig,
+                        new GlueHiveMetastoreConfig(),
                         new GlueMetastoreStats(),
-                        glueClient),
+                        glueClient,
+                        Optional.empty()),
                 "test",
                 glueClient,
                 new GlueMetastoreStats(),
@@ -253,7 +261,10 @@ public class TestTrinoGlueCatalog
                 Optional.of(tmpDirectory.toAbsolutePath().toString()),
                 false,
                 new IcebergConfig().isHideMaterializedViewStorageTable(),
-                directExecutor());
+                directExecutor(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty());
 
         String namespace = "test_default_location_" + randomNameSuffix();
         String table = "tableName";

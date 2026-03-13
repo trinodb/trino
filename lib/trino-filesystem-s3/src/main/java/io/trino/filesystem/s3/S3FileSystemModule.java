@@ -19,10 +19,12 @@ import com.google.inject.BindingAnnotation;
 import com.google.inject.Key;
 import com.google.inject.Provides;
 import com.google.inject.Singleton;
+import com.google.inject.multibindings.OptionalBinder;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.airlift.units.Duration;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.filesystem.switching.SwitchingFileSystemFactory;
+import io.trino.spi.TrinoException;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.Target;
@@ -31,6 +33,7 @@ import java.util.function.Supplier;
 import static com.google.inject.Scopes.SINGLETON;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.airlift.http.client.HttpClientBinder.httpClientBinder;
+import static io.trino.spi.StandardErrorCode.CONFIGURATION_INVALID;
 import static java.lang.annotation.ElementType.FIELD;
 import static java.lang.annotation.ElementType.METHOD;
 import static java.lang.annotation.ElementType.PARAMETER;
@@ -46,12 +49,26 @@ public class S3FileSystemModule
     {
         configBinder(binder).bindConfig(S3FileSystemConfig.class);
 
-        if (buildConfigObject(S3SecurityMappingEnabledConfig.class).isEnabled()) {
+        boolean securityMappingEnabled = buildConfigObject(S3SecurityMappingEnabledConfig.class).isEnabled();
+        boolean lakeFormationEnabled = buildConfigObject(S3FileSystemConfig.class).isLakeFormationEnabled();
+
+        if (securityMappingEnabled && lakeFormationEnabled) {
+            throw new TrinoException(CONFIGURATION_INVALID,
+                    "fs.s3.lake-formation.enabled and s3.security-mapping.enabled cannot both be enabled. " +
+                            "Lake Formation credential vending and S3 security mappings are mutually exclusive.");
+        }
+
+        if (securityMappingEnabled) {
             install(new S3SecurityMappingModule());
         }
         else {
             binder.bind(TrinoFileSystemFactory.class).annotatedWith(FileSystemS3.class)
                     .to(S3FileSystemFactory.class).in(SINGLETON);
+        }
+
+        OptionalBinder.newOptionalBinder(binder, LakeFormationCredentialProvider.class);
+        if (lakeFormationEnabled) {
+            binder.bind(LakeFormationCredentialProvider.class).in(SINGLETON);
         }
 
         binder.bind(S3FileSystemStats.class).in(SINGLETON);

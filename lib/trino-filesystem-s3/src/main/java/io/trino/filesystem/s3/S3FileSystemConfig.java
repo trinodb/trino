@@ -25,6 +25,7 @@ import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.airlift.units.MaxDataSize;
 import io.airlift.units.MinDataSize;
+import io.airlift.units.MinDuration;
 import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
@@ -39,6 +40,7 @@ import java.util.Set;
 
 import static com.google.common.base.Strings.nullToEmpty;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
+import static java.util.concurrent.TimeUnit.MINUTES;
 import static software.amazon.awssdk.awscore.retry.AwsRetryStrategy.adaptiveRetryStrategy;
 import static software.amazon.awssdk.awscore.retry.AwsRetryStrategy.legacyRetryStrategy;
 import static software.amazon.awssdk.awscore.retry.AwsRetryStrategy.standardRetryStrategy;
@@ -179,6 +181,10 @@ public class S3FileSystemConfig
     private int maxErrorRetries = 20;
     private boolean crossRegionAccessEnabled;
     private String applicationId = "Trino";
+    private boolean lakeFormationEnabled;
+    private String lakeFormationRegion;
+    private Duration lakeFormationCredentialDuration = new Duration(15, MINUTES);
+    private Duration lakeFormationCredentialCacheTtl = new Duration(10, MINUTES);
 
     public String getAwsAccessKey()
     {
@@ -639,5 +645,70 @@ public class S3FileSystemConfig
     {
         this.applicationId = applicationId;
         return this;
+    }
+
+    public boolean isLakeFormationEnabled()
+    {
+        return lakeFormationEnabled;
+    }
+
+    @Config("fs.s3.lake-formation.enabled")
+    @ConfigDescription("Enable AWS Lake Formation credential vending for S3 access")
+    public S3FileSystemConfig setLakeFormationEnabled(boolean lakeFormationEnabled)
+    {
+        this.lakeFormationEnabled = lakeFormationEnabled;
+        return this;
+    }
+
+    public String getLakeFormationRegion()
+    {
+        return lakeFormationRegion;
+    }
+
+    @Config("fs.s3.lake-formation.region")
+    @ConfigDescription("AWS region for Lake Formation API calls")
+    public S3FileSystemConfig setLakeFormationRegion(String lakeFormationRegion)
+    {
+        this.lakeFormationRegion = lakeFormationRegion;
+        return this;
+    }
+
+    @NotNull
+    @MinDuration("5m")
+    public Duration getLakeFormationCredentialDuration()
+    {
+        return lakeFormationCredentialDuration;
+    }
+
+    @Config("fs.s3.lake-formation.credential-duration")
+    @ConfigDescription("Requested lifetime of Lake Formation vended credentials")
+    public S3FileSystemConfig setLakeFormationCredentialDuration(Duration lakeFormationCredentialDuration)
+    {
+        this.lakeFormationCredentialDuration = lakeFormationCredentialDuration;
+        return this;
+    }
+
+    @NotNull
+    @MinDuration("1m")
+    public Duration getLakeFormationCredentialCacheTtl()
+    {
+        return lakeFormationCredentialCacheTtl;
+    }
+
+    @Config("fs.s3.lake-formation.credential-cache-ttl")
+    @ConfigDescription("TTL for cached Lake Formation credentials")
+    public S3FileSystemConfig setLakeFormationCredentialCacheTtl(Duration lakeFormationCredentialCacheTtl)
+    {
+        this.lakeFormationCredentialCacheTtl = lakeFormationCredentialCacheTtl;
+        return this;
+    }
+
+    @AssertTrue(message = "fs.s3.lake-formation.credential-cache-ttl must be less than fs.s3.lake-formation.credential-duration")
+    public boolean isLakeFormationCacheTtlValid()
+    {
+        if (!lakeFormationEnabled) {
+            return true;
+        }
+        return lakeFormationCredentialCacheTtl.compareTo(lakeFormationCredentialDuration) < 0;
     }
 }
