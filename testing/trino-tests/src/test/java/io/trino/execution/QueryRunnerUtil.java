@@ -27,6 +27,7 @@ import java.util.Set;
 
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.trino.execution.QueryState.RUNNING;
+import static java.lang.String.format;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 public final class QueryRunnerUtil
@@ -63,6 +64,16 @@ public final class QueryRunnerUtil
                 }
             }
             MILLISECONDS.sleep(100);
+            // Fail fast if query reached a terminal state we weren't expecting
+            QueryState currentState = dispatchManager.getQueryInfo(queryId).getState();
+            if (currentState.isDone() && !expectedQueryStates.contains(currentState)) {
+                throw new AssertionError(format(
+                        "Query %s reached unexpected terminal state %s (expected states: %s, error code: %s)",
+                        queryId,
+                        currentState,
+                        expectedQueryStates,
+                        dispatchManager.getQueryInfo(queryId).getErrorCode()));
+            }
         }
         while (!expectedQueryStates.contains(dispatchManager.getQueryInfo(queryId).getState()));
     }
