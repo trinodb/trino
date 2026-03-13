@@ -102,8 +102,11 @@ public record TaskInfo(
         return new TaskInfo(newTaskStatus, lastHeartbeat, outputBuffers, noMoreSplits, stats, estimatedMemory, needsPlan);
     }
 
-    public TaskInfo withEstimatedMemory(DataSize estimatedMemory)
+    public TaskInfo withEstimatedMemory(Optional<DataSize> estimatedMemory)
     {
-        return new TaskInfo(taskStatus, lastHeartbeat, outputBuffers, noMoreSplits, stats, Optional.of(estimatedMemory), needsPlan);
+        if (estimatedMemory.isPresent()) {
+            return new TaskInfo(taskStatus, lastHeartbeat, outputBuffers, noMoreSplits, stats, estimatedMemory, needsPlan);
+        }
+        return this;
     }
 }
