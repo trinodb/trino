@@ -9,6 +9,7 @@
   property. ({issue}`27874`)
 * Add variant of {func}`array_first` for finding the first element that matches
   a predicate. ({issue}`27706`)
+* Add support for casting `varbinary` to `json` with base64. ({issue}`28234`)
 * {{breaking}} Remove `enable-large-dynamic-filters` configuration property and the 
   corresponding system session property `enable_large_dynamic_filters`. ({issue}`27637`)
 * {{breaking}} Remove the `dynamic-filtering.small*` and `dynamic-filtering.large-broadcast*` 
@@ -23,8 +24,8 @@
   drop operations. ({issue}`28017`)
 * Fix failure when executing {func}`date_add` function with a value greater than
   `Integer.MAX_VALUE`. ({issue}`27899`)
-- Fix incorrect query results when casting from `json`, `time`, `boolean` or 
-  `interval` to `varchar(n)` when produced value has more than `n` code points. ({issue}`552`)
+* Fix incorrect results when the result of casting `json`, `time`, `boolean` or
+  `interval` values to `varchar(n)` doesn't fit in the target type. ({issue}`552`)
 
 ## Web UI
 
@@ -64,6 +65,7 @@
   changes. ({issue}`27805`)
 * Fix Azure Storage connectivity issues. ({issue}`28058`)
 * Fix failure when the file path contains `#` in GCS. ({issue}`28292`)
+* Fix NPE when loading parquet column index with non stats supported column. ({issue}`28560`)
 
 ## DuckDB connector
 
@@ -142,6 +144,8 @@
 * Fix failures when reading from tables with `write.parquet.compression-codec` property set to `LZ4`. ({issue}`28291`)
 * Fix value of `compression-codec` table property written by Trino to be compliant with Iceberg spec. ({issue}`28293`)
 * Fix failure when the file path contains `#` in GCS. ({issue}`28292`)
+* Fix failure when reading tables with `iceberg.jdbc-catalog.schema-version=V0`. ({issue}`28419`)
+* Avoid worker crashes when reading from tables with a larger number of equality deletes. ({issue}`28468`)
 
 ## Ignite connector
 
@@ -150,6 +154,7 @@
 
 ## Lakehouse connector
 
+* Improved performance and memory usage when [Equality Delete](https://iceberg.apache.org/spec/#equality-delete-files) files are used ({issue}`28507`)
 * Fix failure when reading Iceberg `$files` tables. ({issue}`26751`)
 
 ## MariaDB connector
