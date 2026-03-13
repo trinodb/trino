@@ -930,7 +930,6 @@ jobs:
             - suite-kafka
             - suite-cassandra
             - suite-clickhouse
-            - suite-mysql
             - suite-iceberg
             - suite-snowflake
             - suite-hudi
