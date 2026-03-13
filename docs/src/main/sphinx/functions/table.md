@@ -97,6 +97,98 @@ FROM TABLE(sequence(
 ORDER BY sequential_number;
 ```
 
+(allcolumnsearch-table-function)=
+### `allcolumnsearch` table function
+
+Use the `allcolumnsearch` table function to search for a pattern across all
+VARCHAR and CHAR columns in a table and return only rows where at least one
+string column matches the pattern:
+
+:::{function} allcolumnsearch(input => table, search_term => varchar, case_sensitive => boolean) -> table
+:noindex: true
+
+The argument `input` is a table or a query.
+
+The argument `search_term` is a string pattern to search for (supports regex patterns).
+
+The argument `case_sensitive` is an optional boolean. When `true`, performs case-sensitive matching.
+When `false` or omitted, performs case-insensitive matching. The default value is `false`.
+:::
+
+Example query using the nation table from the TPC-H dataset, provided by the
+[](/connector/tpch):
+
+```sql
+SELECT *
+FROM TABLE(allcolumnsearch(
+                input => TABLE(tpch.tiny.nation),
+                search_term => 'UNITED'));
+```
+
+```text
+ nationkey |      name       | regionkey |                   comment
+-----------+-----------------+-----------+--------------------------------------------
+        24 | UNITED STATES   |         1 | y final packages. slow foxes cajole quickly
+        23 | UNITED KINGDOM  |         3 | ously. final, express gifts cajole a
+```
+
+The search is case-insensitive by default, so `'united'`, `'UNITED'`, and
+`'United'` all match the same rows. Use `case_sensitive => true` for exact
+case matching:
+
+```sql
+SELECT name
+FROM TABLE(allcolumnsearch(
+                input => TABLE(tpch.tiny.nation),
+                search_term => 'united',
+                case_sensitive => true));
+-- Returns no rows because data is uppercase
+```
+
+The function supports regex patterns for sophisticated searches:
+
+```sql
+-- Find nations starting with 'UNITED'
+SELECT name
+FROM TABLE(allcolumnsearch(
+                input => TABLE(tpch.tiny.nation),
+                search_term => '^UNITED'));
+```
+
+The table function can be combined with other SQL clauses:
+
+```sql
+-- With WHERE clause
+SELECT *
+FROM TABLE(allcolumnsearch(
+                input => TABLE(tpch.tiny.nation),
+                search_term => 'A'))
+WHERE regionkey = 1;
+
+-- With JOINs
+SELECT n.name, r.name as region_name
+FROM TABLE(allcolumnsearch(
+                input => TABLE(tpch.tiny.nation),
+                search_term => 'UNITED')) n
+JOIN tpch.tiny.region r ON n.regionkey = r.regionkey;
+```
+
+The function performs the following:
+
+- Searches across all VARCHAR and CHAR columns automatically
+- Supports full regex pattern matching
+- Performs substring matching (pattern can match anywhere in the column)
+- NULL values in columns are skipped (do not match)
+- Returns complete rows where at least one string column matches
+- Works across all Trino connectors
+
+:::{note}
+This function is particularly useful for exploratory data analysis and ad-hoc
+queries where you want to find rows containing specific text without knowing
+which columns contain it. The function uses efficient page-level filtering
+with compiled regex patterns for performance.
+:::
+
 ## Table function invocation
 
 You invoke a table function in the `FROM` clause of a query. Table function
