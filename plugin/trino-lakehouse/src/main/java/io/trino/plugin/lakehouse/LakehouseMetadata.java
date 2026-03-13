@@ -86,6 +86,10 @@ import io.trino.spi.connector.TopNApplicationResult;
 import io.trino.spi.connector.WriterScalingOptions;
 import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.expression.Constant;
+import io.trino.spi.function.BoundSignature;
+import io.trino.spi.function.FunctionDependencyDeclaration;
+import io.trino.spi.function.FunctionId;
+import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.LanguageFunction;
 import io.trino.spi.function.SchemaFunctionName;
 import io.trino.spi.metrics.Metric;
@@ -174,6 +178,30 @@ public class LakehouseMetadata
             return hudiMetadata.getTableHandle(session, tableName, startVersion, endVersion);
         }
         return hiveMetadata.getTableHandle(session, tableName, startVersion, endVersion);
+    }
+
+    @Override
+    public Collection<FunctionMetadata> listFunctions(ConnectorSession session, String schemaName)
+    {
+        return icebergMetadata.listFunctions(session, schemaName);
+    }
+
+    @Override
+    public Collection<FunctionMetadata> getFunctions(ConnectorSession session, SchemaFunctionName name)
+    {
+        return icebergMetadata.getFunctions(session, name);
+    }
+
+    @Override
+    public FunctionMetadata getFunctionMetadata(ConnectorSession session, FunctionId functionId)
+    {
+        return icebergMetadata.getFunctionMetadata(session, functionId);
+    }
+
+    @Override
+    public FunctionDependencyDeclaration getFunctionDependencies(ConnectorSession session, FunctionId functionId, BoundSignature boundSignature)
+    {
+        return icebergMetadata.getFunctionDependencies(session, functionId, boundSignature);
     }
 
     @Override
