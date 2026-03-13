@@ -73,7 +73,7 @@ public class HudiSplitSource
             int maxOutstandingSplits,
             List<String> partitions)
     {
-        HoodieTableMetaClient metaClient = buildTableMetaClient(fileSystemFactory.create(session), tableHandle.getBasePath());
+        HoodieTableMetaClient metaClient = buildTableMetaClient(fileSystemFactory.create(session), tableHandle.getTableName(), tableHandle.getBasePath());
         List<HiveColumnHandle> partitionColumnHandles = table.getPartitionColumns().stream()
                 .map(column -> partitionColumnHandleMap.get(column.getName())).collect(toList());
 

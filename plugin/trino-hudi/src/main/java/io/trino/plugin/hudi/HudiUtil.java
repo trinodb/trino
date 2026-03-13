@@ -13,16 +13,21 @@
  */
 package io.trino.plugin.hudi;
 
+import com.google.common.cache.Cache;
+import com.google.common.cache.Weigher;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.trino.cache.EvictableCacheBuilder;
 import io.trino.filesystem.FileIterator;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.metastore.Column;
 import io.trino.metastore.HivePartition;
+import io.trino.metastore.HiveType;
 import io.trino.plugin.hive.HiveColumnHandle;
 import io.trino.plugin.hive.HivePartitionKey;
 import io.trino.plugin.hive.HivePartitionManager;
+import io.trino.plugin.hive.avro.AvroHiveFileUtils;
 import io.trino.plugin.hudi.storage.TrinoHudiStorage;
 import io.trino.plugin.hudi.storage.TrinoStorageConfiguration;
 import io.trino.spi.TrinoException;
@@ -30,17 +35,33 @@ import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.NullableValue;
 import io.trino.spi.predicate.TupleDomain;
+import org.apache.avro.Schema;
+import org.apache.avro.SchemaBuilder;
 import org.apache.hudi.common.model.HoodieFileFormat;
 import org.apache.hudi.common.table.HoodieTableMetaClient;
+import org.apache.hudi.exception.TableNotFoundException;
 
 import java.io.IOException;
+import java.io.UncheckedIOException;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
+import static io.airlift.slice.SizeOf.estimatedSizeOf;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_INVALID_METADATA;
 import static io.trino.plugin.hive.util.HiveUtil.checkCondition;
+import static io.trino.plugin.hive.util.SerdeConstants.LIST_COLUMNS;
+import static io.trino.plugin.hive.util.SerdeConstants.LIST_COLUMN_TYPES;
+import static io.trino.plugin.hudi.HudiErrorCode.HUDI_BAD_DATA;
 import static io.trino.plugin.hudi.HudiErrorCode.HUDI_FILESYSTEM_ERROR;
+import static io.trino.plugin.hudi.HudiErrorCode.HUDI_META_CLIENT_ERROR;
+import static io.trino.plugin.hudi.HudiErrorCode.HUDI_SCHEMA_ERROR;
 import static io.trino.plugin.hudi.HudiErrorCode.HUDI_UNSUPPORTED_FILE_FORMAT;
+import static java.lang.Math.toIntExact;
 import static org.apache.hudi.common.model.HoodieFileFormat.HFILE;
 import static org.apache.hudi.common.model.HoodieFileFormat.HOODIE_LOG;
 import static org.apache.hudi.common.model.HoodieFileFormat.ORC;
@@ -49,6 +70,23 @@ import static org.apache.hudi.common.table.HoodieTableMetaClient.METAFOLDER_NAME
 
 public final class HudiUtil
 {
+    private static final Cache<Schema, Map<String, Schema.Field>> SCHEMA_FIELD_CACHE =
+            EvictableCacheBuilder.newBuilder()
+                    .maximumWeight(10L * 1000L * 1024L) // 10MB
+                    .weigher((Weigher<Schema, Map<String, Schema.Field>>) (schema, fieldMap) -> {
+                        // approximate size estimation of schema size
+                        long schemaSize = estimatedSizeOf(schema.toString());
+
+                        long fieldsSize = fieldMap.entrySet().stream()
+                                .mapToLong(e -> estimatedSizeOf(e.getKey()) + estimatedSizeOf(e.getValue().name()))
+                                .sum();
+
+                        return toIntExact(schemaSize + fieldsSize);
+                    })
+                    .expireAfterWrite(5, TimeUnit.MINUTES)
+                    .shareNothingWhenDisabled()
+                    .build();
+
     private HudiUtil() {}
 
     public static HoodieFileFormat getHudiFileFormat(String path)
@@ -133,11 +171,121 @@ public final class HudiUtil
 
     public static HoodieTableMetaClient buildTableMetaClient(
             TrinoFileSystem fileSystem,
+            String tableName,
             String basePath)
     {
-        return HoodieTableMetaClient.builder()
-                .setStorage(new TrinoHudiStorage(fileSystem, new TrinoStorageConfiguration()))
-                .setBasePath(basePath)
-                .build();
+        try {
+            return HoodieTableMetaClient.builder()
+                    .setStorage(new TrinoHudiStorage(fileSystem, new TrinoStorageConfiguration()))
+                    .setBasePath(basePath)
+                    .build();
+        }
+        catch (TableNotFoundException e) {
+            throw new TrinoException(HUDI_BAD_DATA,
+                    "Location of table %s does not contain Hudi table metadata: %s".formatted(tableName, basePath),
+                    e);
+        }
+        catch (RuntimeException e) {
+            throw new TrinoException(HUDI_META_CLIENT_ERROR,
+                    "Unable to load Hudi meta client for table %s (%s)".formatted(tableName, basePath),
+                    e);
+        }
+    }
+
+    public static Schema constructSchema(List<String> columnNames, List<HiveType> columnTypes)
+    {
+        // Convert lists into the format expected by the utility class
+        String columnNamesString = String.join(",", columnNames);
+        String columnTypesString = columnTypes.stream()
+                .map(HiveType::getHiveTypeName)
+                .map(Object::toString)
+                .collect(Collectors.joining(":"));
+
+        // Create the properties map
+        Map<String, String> properties = new HashMap<>();
+        properties.put(LIST_COLUMNS, columnNamesString);
+        properties.put(LIST_COLUMN_TYPES, columnTypesString);
+
+        // Call the public static method to build the schema
+        try {
+            // Pass null for the file system as we are not reading from a URL
+            return AvroHiveFileUtils.determineSchemaOrThrowException(null, properties);
+        }
+        catch (IOException e) {
+            // The IOException is declared on the method, but this path shouldn't throw it
+            throw new UncheckedIOException("Failed to construct Avro schema", e);
+        }
+    }
+
+    public static Schema constructSchema(Schema dataSchema, List<String> columnNames)
+    {
+        SchemaBuilder.RecordBuilder<Schema> schemaBuilder = SchemaBuilder.record("baseRecord");
+        SchemaBuilder.FieldAssembler<Schema> fieldBuilder = schemaBuilder.fields();
+        for (String columnName : columnNames) {
+            Schema.Field field = getFieldFromSchema(columnName, dataSchema);
+            Schema originalFieldSchema = field.schema();
+
+            Schema typeForNewField;
+
+            // Check if the original field schema is already nullable (i.e., a UNION containing NULL)
+            if (originalFieldSchema.isNullable()) {
+                typeForNewField = originalFieldSchema;
+            }
+            else {
+                typeForNewField = Schema.createUnion(Schema.create(Schema.Type.NULL), originalFieldSchema);
+            }
+
+            fieldBuilder = fieldBuilder
+                    .name(field.name())
+                    .type(typeForNewField)
+                    .withDefault(null);
+        }
+        return fieldBuilder.endRecord();
+    }
+
+    private static Map<String, Schema.Field> buildFieldLookup(Schema schema)
+    {
+        return schema.getFields().stream()
+                .collect(Collectors.toMap(
+                        f -> f.name().toLowerCase(Locale.ROOT),
+                        f -> f));
+    }
+
+    /**
+     * Retrieves a field from the given Avro schema by column name.
+     * <p>
+     * The lookup proceeds in two steps:
+     * <ul>
+     *   <li>First, attempts an exact match on the column name.</li>
+     *   <li>If not found, falls back to a case-insensitive match using a cached lookup table</li>
+     * </ul>
+     * <p>
+     *
+     * @param columnName Column name to search for.
+     * @param schema Avro {@link Schema} in which to search.
+     * @return The matching {@link Schema.Field}, if found.
+     * @throws TrinoException if no field matches the given column name.
+     */
+    public static Schema.Field getFieldFromSchema(String columnName, Schema schema)
+    {
+        Schema.Field field = schema.getField(columnName);
+        if (field != null) {
+            return field;
+        }
+
+        try {
+            field = SCHEMA_FIELD_CACHE
+                    .get(schema, () -> buildFieldLookup(schema)).get(columnName.toLowerCase(Locale.ROOT));
+            if (field != null) {
+                return field;
+            }
+        }
+        catch (ExecutionException e) {
+            throw new TrinoException(HUDI_SCHEMA_ERROR,
+                    "Failed to build field lookup for schema", e);
+        }
+
+        throw new TrinoException(HUDI_SCHEMA_ERROR,
+                "Failed to get column " + columnName + " from table schema");
     }
 }

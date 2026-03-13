@@ -16,10 +16,18 @@
 
     <properties>
         <air.compiler.fail-warnings>true</air.compiler.fail-warnings>
+        <air.main.basedir>${project.parent.basedir}</air.main.basedir>
         <dep.hudi.version>1.1.1</dep.hudi.version>
     </properties>
 
     <dependencies>
+        <dependency>
+            <!--Used to test execution in task executor after de-serializing-->
+            <groupId>com.esotericsoftware</groupId>
+            <artifactId>kryo</artifactId>
+            <version>4.0.2</version>
+        </dependency>
+
         <dependency>
             <groupId>com.google.errorprone</groupId>
             <artifactId>error_prone_annotations</artifactId>
@@ -65,6 +73,11 @@
         <dependency>
             <groupId>io.airlift</groupId>
             <artifactId>units</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-cache</artifactId>
         </dependency>
 
         <dependency>
@@ -215,13 +228,6 @@
             <groupId>org.jetbrains</groupId>
             <artifactId>annotations</artifactId>
             <scope>runtime</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>com.esotericsoftware</groupId>
-            <artifactId>kryo-shaded</artifactId>
-            <version>4.0.3</version>
-            <scope>test</scope>
         </dependency>
 
         <dependency>
@@ -430,6 +436,18 @@
                     <ignoredClassPatterns>
                         <ignoredClassPattern>org.apache.parquet.conf.ParquetConfiguration</ignoredClassPattern>
                     </ignoredClassPatterns>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-dependency-plugin</artifactId>
+                <configuration>
+                    <ignoredUnusedDeclaredDependencies>
+                        <!-- Kryo is not directly used but required for compilation:
+                             HoodieRecord implements KryoSerializable, so the compiler
+                             needs Kryo to verify the class hierarchy -->
+                        <ignoredUnusedDeclaredDependency>com.esotericsoftware:kryo</ignoredUnusedDeclaredDependency>
+                    </ignoredUnusedDeclaredDependencies>
                 </configuration>
             </plugin>
         </plugins>
