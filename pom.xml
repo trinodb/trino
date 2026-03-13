@@ -120,6 +120,7 @@
         <module>plugin/trino-tpcds</module>
         <module>plugin/trino-tpch</module>
         <module>plugin/trino-vertica</module>
+        <module>plugin/trino-weaviate</module>
         <module>service/trino-proxy</module>
         <module>service/trino-verifier</module>
         <module>testing/trino-benchmark-queries</module>

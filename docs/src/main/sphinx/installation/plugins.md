@@ -368,4 +368,8 @@ with the listed coordinates.
   - [](/connector/vertica)
   - [io.trino:trino-vertica](https://central.sonatype.com/search?q=io.trino%3Atrino-vertica)
   - {download_gh}`vertica`
+* - weaviate
+  - [](/connector/weaviate)
+  - [io.trino:trino-weaviate](https://central.sonatype.com/search?q=io.trino%3Atrino-weaviate)
+  - {download_gh}`weaviate`
 :::
