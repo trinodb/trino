@@ -42,6 +42,7 @@ import io.trino.tpch.TpchTable;
 import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericData;
 import org.apache.avro.generic.GenericRecord;
+import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hudi.client.HoodieJavaWriteClient;
 import org.apache.hudi.client.WriteStatus;
@@ -60,7 +61,6 @@ import org.apache.hudi.config.HoodieArchivalConfig;
 import org.apache.hudi.config.HoodieIndexConfig;
 import org.apache.hudi.config.HoodieWriteConfig;
 import org.apache.hudi.index.HoodieIndex;
-import org.apache.hudi.storage.StorageConfiguration;
 import org.apache.hudi.storage.hadoop.HadoopStorageConfiguration;
 import org.intellij.lang.annotations.Language;
 
@@ -213,7 +213,7 @@ public class TpchHudiTablesInitializer
     private static HoodieJavaWriteClient<HoodieAvroPayload> createWriteClient(TpchTable<?> table, HdfsEnvironment hdfsEnvironment, Path tablePath)
     {
         Schema schema = createAvroSchema(table);
-        StorageConfiguration<?> conf = new HadoopStorageConfiguration(hdfsEnvironment.getConfiguration(CONTEXT, tablePath));
+        Configuration conf = hdfsEnvironment.getConfiguration(CONTEXT, tablePath);
 
         try {
             HoodieTableMetaClient.newTableBuilder()
@@ -223,7 +223,7 @@ public class TpchHudiTablesInitializer
                     .setBootstrapIndexClass(NoOpBootstrapIndex.class.getName())
                     .setPayloadClassName(HoodieAvroPayload.class.getName())
                     .setRecordKeyFields(FIELD_UUID)
-                    .initTable(conf, tablePath.toString());
+                    .initTable(new HadoopStorageConfiguration(conf), tablePath.toString());
         }
         catch (IOException e) {
             throw new RuntimeException("Could not init table " + table.getTableName(), e);
@@ -243,9 +243,10 @@ public class TpchHudiTablesInitializer
                 .withMarkersType(MarkerType.DIRECT.name())
                 // Disabling Hudi metadata table (MDT) in tests as the support of
                 // reading MDT is broken after removal of Hudi dependencies from compile time
+                // IMPORTANT: Writing to MDT requires hbase dependencies, which is not available in Trino runtime
                 .withMetadataConfig(HoodieMetadataConfig.newBuilder().enable(false).build())
                 .build();
-        return new HoodieJavaWriteClient<>(new HoodieJavaEngineContext(conf), cfg);
+        return new HoodieJavaWriteClient<>(new HoodieJavaEngineContext(new HadoopStorageConfiguration(conf)), cfg);
     }
 
     private static RecordConverter createRecordConverter(TpchTable<?> table)
