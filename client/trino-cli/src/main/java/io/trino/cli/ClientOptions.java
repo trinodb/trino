@@ -226,8 +226,8 @@ public class ClientOptions
     @Option(names = "--path", paramLabel = "<catalog.schema>", description = "Default SQL path", arity = "0..*")
     public List<String> path = ImmutableList.of();
 
-    @Option(names = {"-f", "--file"}, paramLabel = "<file>", description = "Execute statements from file and exit")
-    public String file;
+    @Option(names = {"-f", "--file"}, paramLabel = "<file>", description = "Execute statements from file and exit (can be used multiple times)")
+    public List<String> files = new ArrayList<>();
 
     @Option(names = DEBUG_OPTION_NAME, paramLabel = "<debug>", description = "Enable debug information")
     public boolean debug;
