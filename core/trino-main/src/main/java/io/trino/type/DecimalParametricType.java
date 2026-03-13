@@ -45,4 +45,10 @@ public class DecimalParametricType
             default -> throw new IllegalArgumentException("Expected 0, 1 or 2 parameters for DECIMAL type constructor.");
         };
     }
+
+    @Override
+    public boolean areAllTypesComparable()
+    {
+        return true;
+    }
 }

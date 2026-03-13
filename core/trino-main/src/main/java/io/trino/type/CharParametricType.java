@@ -46,7 +46,7 @@ public class CharParametricType
             throw new IllegalArgumentException("Expected at most one parameter for CHAR");
         }
 
-        TypeParameter parameter = parameters.get(0);
+        TypeParameter parameter = parameters.getFirst();
 
         if (!(parameter instanceof TypeParameter.Numeric(long value))) {
             throw new IllegalArgumentException("CHAR length must be a number");
@@ -57,5 +57,11 @@ public class CharParametricType
         }
 
         return createCharType(toIntExact(value));
+    }
+
+    @Override
+    public boolean areAllTypesComparable()
+    {
+        return true;
     }
 }

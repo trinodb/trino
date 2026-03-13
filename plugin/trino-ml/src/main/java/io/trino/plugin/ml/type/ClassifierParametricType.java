@@ -39,7 +39,7 @@ public class ClassifierParametricType
     {
         checkArgument(parameters.size() == 1, "Expected only one type, got %s", parameters);
 
-        if (parameters.get(0) instanceof TypeParameter.Type(_, TypeSignature type)) {
+        if (parameters.getFirst() instanceof TypeParameter.Type(_, TypeSignature type)) {
             return new ClassifierType(typeManager.getType(type));
         }
         throw new IllegalArgumentException("Expected type as a parameter, got " + parameters);
