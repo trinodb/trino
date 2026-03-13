@@ -62,6 +62,7 @@ import static io.trino.plugin.iceberg.IcebergTestUtils.getFileSystemFactory;
 import static io.trino.plugin.iceberg.IcebergTestUtils.getMetadataFileAndUpdatedMillis;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.DROP_TABLE;
 import static io.trino.testing.TestingAccessControlManager.privilege;
+import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_BRANCH;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_TABLE;
 import static io.trino.testing.TestingConnectorSession.SESSION;
 import static io.trino.testing.TestingNames.randomNameSuffix;
@@ -95,6 +96,7 @@ public abstract class BaseIcebergConnectorSmokeTest
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
         return switch (connectorBehavior) {
+            case SUPPORTS_BRANCH -> true;
             case SUPPORTS_TOPN_PUSHDOWN -> false;
             default -> super.hasBehavior(connectorBehavior);
         };
@@ -958,7 +960,7 @@ public abstract class BaseIcebergConnectorSmokeTest
     @Test
     public void testBranchOperations()
     {
-        if (!hasBehavior(SUPPORTS_CREATE_TABLE)) {
+        if (!hasBehavior(SUPPORTS_BRANCH)) {
             return;
         }
         String tableName = "test_branch_operations_" + randomNameSuffix();
@@ -994,7 +996,7 @@ public abstract class BaseIcebergConnectorSmokeTest
     @Test
     public void testFastForwardBranch()
     {
-        if (!hasBehavior(SUPPORTS_CREATE_TABLE)) {
+        if (!hasBehavior(SUPPORTS_BRANCH)) {
             return;
         }
         String tableName = "test_fast_forward_branch_" + randomNameSuffix();
