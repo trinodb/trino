@@ -19,15 +19,22 @@ import com.google.inject.Scopes;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.openlineage.client.OpenLineage;
 import io.openlineage.client.OpenLineageClient;
+import io.trino.plugin.kafka.KafkaSecurityConfig;
+import io.trino.plugin.kafka.security.KafkaSslConfig;
 import io.trino.plugin.openlineage.transport.OpenLineageTransportConfig;
 import io.trino.plugin.openlineage.transport.OpenLineageTransportCreator;
 import io.trino.plugin.openlineage.transport.console.OpenLineageConsoleTransport;
 import io.trino.plugin.openlineage.transport.http.OpenLineageHttpTransport;
 import io.trino.plugin.openlineage.transport.http.OpenLineageHttpTransportConfig;
+import io.trino.plugin.openlineage.transport.kafka.OpenLineageKafkaTransport;
+import io.trino.plugin.openlineage.transport.kafka.OpenLineageKafkaTransportConfig;
 import io.trino.spi.eventlistener.EventListener;
+import org.apache.kafka.common.security.auth.SecurityProtocol;
 
 import java.net.URI;
 
+import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
+import static io.airlift.configuration.ConditionalModule.conditionalModule;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 
 public class OpenLineageListenerModule
@@ -49,6 +56,7 @@ public class OpenLineageListenerModule
         install(switch (buildConfigObject(OpenLineageTransportConfig.class).getTransport()) {
             case CONSOLE -> new ConsoleTransportModule();
             case HTTP -> new HttpTransportModule();
+            case KAFKA -> new KafkaTransportModule();
         });
     }
 
@@ -70,6 +78,23 @@ public class OpenLineageListenerModule
         {
             configBinder(binder).bindConfig(OpenLineageHttpTransportConfig.class);
             binder.bind(OpenLineageTransportCreator.class).to(OpenLineageHttpTransport.class);
+        }
+    }
+
+    private class KafkaTransportModule
+            implements Module
+    {
+        @Override
+        public void configure(Binder binder)
+        {
+            configBinder(binder).bindConfig(OpenLineageKafkaTransportConfig.class);
+            configBinder(binder).bindConfig(KafkaSecurityConfig.class);
+            newOptionalBinder(binder, KafkaSslConfig.class);
+            install(conditionalModule(
+                    KafkaSecurityConfig.class,
+                    securityConfig -> securityConfig.getSecurityProtocol().orElse(SecurityProtocol.PLAINTEXT) == SecurityProtocol.SSL,
+                    sslBinder -> configBinder(sslBinder).bindConfig(KafkaSslConfig.class)));
+            binder.bind(OpenLineageTransportCreator.class).to(OpenLineageKafkaTransport.class);
         }
     }
 }
