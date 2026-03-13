@@ -67,6 +67,21 @@ The connector supports accessing the following file systems:
 
 You must enable and configure the specific file system access. 
 
+(lakehouse-sql-support)=
+## SQL support
+
+(lakehouse-schema-and-table-management)=
+### Schema and table management
+
+(lakehouse-alter-table-execute)=
+#### ALTER TABLE EXECUTE
+
+The connector supports the following commands for use with {ref}`ALTER TABLE
+EXECUTE <alter-table-execute>`:
+* for the {ref}`Iceberg connector <iceberg-alter-table-execute>`
+* for the {ref}`Delta Lake connector <delta-lake-alter-table-execute>`
+* for the {ref}`Hive connector <hive-alter-table-execute>`
+
 ## Examples
 
 Create an Iceberg table:
