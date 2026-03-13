@@ -13,9 +13,11 @@
  */
 package io.trino.operator.join;
 
-import io.airlift.slice.XxHash64;
+import io.airlift.compress.v3.xxhash.XxHash3Hasher;
+import io.airlift.compress.v3.xxhash.XxHash3Native;
 import io.trino.spi.Page;
 
+import java.lang.foreign.MemorySegment;
 import java.util.Arrays;
 import java.util.List;
 
@@ -63,11 +65,10 @@ public final class ArrayPositionLinks
                 @Override
                 public long checksum()
                 {
-                    long hash = 0;
-                    for (int positionLink : positionLinks) {
-                        hash = XxHash64.hash(hash, positionLink);
+                    try (XxHash3Hasher hasher = XxHash3Native.newHasher()) {
+                        hasher.update(MemorySegment.ofArray(positionLinks));
+                        return hasher.digest();
                     }
-                    return hash;
                 }
             };
         }
