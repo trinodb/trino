@@ -133,6 +133,10 @@ public class TestHivePageSink
                 // ESRI format is readonly
                 continue;
             }
+            if (format == HiveStorageFormat.ESRI_GEO_JSON) {
+                // ESRI_GEO_JSON format is readonly
+                continue;
+            }
             if (format == HiveStorageFormat.SEQUENCEFILE_PROTOBUF) {
                 // SEQUENCEFILE_PROTOBUF format is readonly
                 continue;

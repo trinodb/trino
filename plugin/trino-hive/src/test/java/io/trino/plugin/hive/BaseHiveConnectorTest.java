@@ -154,6 +154,7 @@ import static io.trino.plugin.hive.HiveQueryRunner.HIVE_CATALOG;
 import static io.trino.plugin.hive.HiveQueryRunner.TPCH_SCHEMA;
 import static io.trino.plugin.hive.HiveQueryRunner.createBucketedSession;
 import static io.trino.plugin.hive.HiveStorageFormat.ESRI;
+import static io.trino.plugin.hive.HiveStorageFormat.ESRI_GEO_JSON;
 import static io.trino.plugin.hive.HiveStorageFormat.ORC;
 import static io.trino.plugin.hive.HiveStorageFormat.PARQUET;
 import static io.trino.plugin.hive.HiveStorageFormat.REGEX;
@@ -5714,6 +5715,7 @@ public abstract class BaseHiveConnectorTest
             case CSV -> false;
             case REGEX -> false;
             case ESRI -> true;
+            case ESRI_GEO_JSON -> true;
         };
     }
 
@@ -9504,6 +9506,10 @@ public abstract class BaseHiveConnectorTest
             }
             if (hiveStorageFormat == ESRI) {
                 // ESRI format is read-only
+                continue;
+            }
+            if (hiveStorageFormat == ESRI_GEO_JSON) {
+                // ESRI_GEO_JSON format is read-only
                 continue;
             }
             if (hiveStorageFormat == SEQUENCEFILE_PROTOBUF) {

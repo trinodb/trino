@@ -13,8 +13,11 @@
  */
 package io.trino.hive.formats.esri;
 
-import com.esri.core.geometry.GeometryEngine;
+import com.esri.core.geometry.Geometry;
+import com.esri.core.geometry.JsonParserReader;
 import com.esri.core.geometry.MapGeometry;
+import com.esri.core.geometry.OperatorImportFromGeoJson;
+import com.esri.core.geometry.SpatialReference;
 import com.esri.core.geometry.ogc.OGCGeometry;
 import com.fasterxml.jackson.core.JsonParser;
 import io.trino.hive.formats.line.Column;
@@ -28,13 +31,14 @@ import java.util.Optional;
 import static com.fasterxml.jackson.core.JsonToken.START_OBJECT;
 import static com.fasterxml.jackson.core.JsonToken.VALUE_NULL;
 
-public final class EsriDeserializer
+public final class GeoJsonDeserializer
         extends AbstractDeserializer
 {
+    private static final SpatialReference SPATIAL_REFERENCE = SpatialReference.create(4326);
     private static final String GEOMETRY_FIELD_NAME = "geometry";
-    private static final String ATTRIBUTES_FIELD_NAME = "attributes";
+    private static final String PROPERTIES_FIELD_NAME = "properties";
 
-    public EsriDeserializer(List<Column> columns)
+    public GeoJsonDeserializer(List<Column> columns)
     {
         super(columns);
     }
@@ -55,8 +59,8 @@ public final class EsriDeserializer
             if (GEOMETRY_FIELD_NAME.equals(fieldName)) {
                 parseGeometry(parser).ifPresent(ogcGeometry -> writeGeometry(pageBuilder, ogcGeometry));
             }
-            else if (ATTRIBUTES_FIELD_NAME.equals(fieldName)) {
-                parseAttributes(parser, pageBuilder, ATTRIBUTES_FIELD_NAME);
+            else if (PROPERTIES_FIELD_NAME.equals(fieldName)) {
+                parseAttributes(parser, pageBuilder, PROPERTIES_FIELD_NAME); // TODO support rowtype?
             }
             else {
                 skipCurrentValue(parser);
@@ -85,7 +89,7 @@ public final class EsriDeserializer
             return Optional.empty();
         }
 
-        MapGeometry mapGeometry = GeometryEngine.jsonToGeometry(parser);
-        return Optional.of(OGCGeometry.createFromEsriGeometry(mapGeometry.getGeometry(), mapGeometry.getSpatialReference()));
+        MapGeometry mapGeometry = OperatorImportFromGeoJson.local().execute(0, Geometry.Type.Unknown, new JsonParserReader(parser), null);
+        return Optional.of(OGCGeometry.createFromEsriGeometry(mapGeometry.getGeometry(), SPATIAL_REFERENCE));
     }
 }

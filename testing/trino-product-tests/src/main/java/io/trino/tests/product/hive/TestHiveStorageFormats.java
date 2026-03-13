@@ -306,6 +306,8 @@ public class TestHiveStorageFormats
                 .filter(format -> !"REGEX".equals(format))
                 // ESRI is read-only
                 .filter(format -> !"ESRI".equals(format))
+                // ESRI_GEO_JSON is read-only
+                .filter(format -> !"ESRI_GEO_JSON".equals(format))
                 // SEQUENCEFILE_PROTOBUF is read-only
                 .filter(format -> !"SEQUENCEFILE_PROTOBUF".equals(format))
                 // TODO when using JSON serde Hive fails with ClassNotFoundException: org.apache.hive.hcatalog.data.JsonSerDe
