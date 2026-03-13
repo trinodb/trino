@@ -22,7 +22,9 @@ import java.sql.Statement;
 import java.util.Optional;
 import java.util.Properties;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.plugin.snowflake.SnowflakeClientModule.setOutputProperties;
+import static io.trino.testing.TestingProperties.optionalSystemProperty;
 import static io.trino.testing.TestingProperties.requiredNonEmptySystemProperty;
 
 public final class TestingSnowflakeServer
@@ -31,7 +33,8 @@ public final class TestingSnowflakeServer
 
     public static final String TEST_URL = requiredNonEmptySystemProperty("snowflake.test.server.url");
     public static final String TEST_USER = requiredNonEmptySystemProperty("snowflake.test.server.user");
-    public static final String TEST_PASSWORD = requiredNonEmptySystemProperty("snowflake.test.server.password");
+    public static final Optional<String> TEST_PASSWORD = optionalSystemProperty("snowflake.test.server.password");
+    public static final Optional<String> TEST_PRIVATE_KEY = optionalSystemProperty("snowflake.test.server.private-key");
     public static final String TEST_DATABASE = requiredNonEmptySystemProperty("snowflake.test.server.database");
     public static final String TEST_WAREHOUSE = requiredNonEmptySystemProperty("snowflake.test.server.warehouse");
     public static final Optional<String> TEST_ROLE = Optional.ofNullable(System.getProperty("snowflake.test.server.role"));
@@ -57,7 +60,11 @@ public final class TestingSnowflakeServer
     {
         Properties properties = new Properties();
         properties.setProperty("user", TEST_USER);
-        properties.setProperty("password", TEST_PASSWORD);
+        checkArgument(
+                TestingSnowflakeServer.TEST_PRIVATE_KEY.isPresent() ^ TestingSnowflakeServer.TEST_PASSWORD.isPresent(),
+                "Exactly one of PrivateKey or Password must be set");
+        TEST_PRIVATE_KEY.ifPresent(privateKeyString -> properties.put("privateKey", SnowflakeClientModule.parsePrivateKey(privateKeyString)));
+        TEST_PASSWORD.ifPresent(password -> properties.setProperty("password", password));
         properties.setProperty("db", TEST_DATABASE);
         properties.setProperty("schema", TEST_SCHEMA);
         properties.setProperty("warehouse", TEST_WAREHOUSE);
