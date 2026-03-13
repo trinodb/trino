@@ -102,6 +102,33 @@ public class TestCacheFileSystemAccessOperations
                         .build());
     }
 
+    @Test
+    void testCacheDisabled()
+            throws IOException
+    {
+        MemoryFileSystemCacheConfig configuration = new MemoryFileSystemCacheConfig()
+                .setCacheTtl(new Duration(24, HOURS));
+        CacheFileSystem cachingDisabledFileSystem = new CacheFileSystem(
+                tracingFileSystemFactory.create(TestingSession.SESSION),
+                new MemoryFileSystemCache(configuration),
+                new DefaultCacheKeyProvider(),
+                false);
+
+        Location location = getRootLocation().appendPath("cache-disabled");
+        byte[] content = "hello world".getBytes(StandardCharsets.UTF_8);
+        try (OutputStream output = cachingDisabledFileSystem.newOutputFile(location).create()) {
+            output.write(content);
+        }
+
+        Multiset<FileOperation> expectedOperations = ImmutableMultiset.<FileOperation>builder()
+                .add(new FileOperation(location, "InputFile.length"))
+                .add(new FileOperation(location, "InputFile.newInput"))
+                .build();
+
+        assertReadOperations(cachingDisabledFileSystem, location, content, expectedOperations);
+        assertReadOperations(cachingDisabledFileSystem, location, content, expectedOperations);
+    }
+
     private Location getRootLocation()
     {
         return Location.of("memory://");
@@ -110,8 +137,14 @@ public class TestCacheFileSystemAccessOperations
     private void assertReadOperations(Location location, byte[] content, Multiset<FileOperation> fileOperations)
             throws IOException
     {
+        assertReadOperations(fileSystem, location, content, fileOperations);
+    }
+
+    private void assertReadOperations(CacheFileSystem targetFileSystem, Location location, byte[] content, Multiset<FileOperation> fileOperations)
+            throws IOException
+    {
         List<SpanData> spans = telemetry.captureSpans(() -> {
-            TrinoInputFile file = fileSystem.newInputFile(location);
+            TrinoInputFile file = targetFileSystem.newInputFile(location);
             int length = (int) file.length();
             try (TrinoInput input = file.newInput()) {
                 assertThat(input.readFully(0, length)).isEqualTo(Slices.wrappedBuffer(content));

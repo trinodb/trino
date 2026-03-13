@@ -17,6 +17,7 @@ import io.opentelemetry.api.trace.Tracer;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.filesystem.tracing.TracingFileSystemCache;
+import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.security.ConnectorIdentity;
 
 import static java.util.Objects.requireNonNull;
@@ -41,5 +42,17 @@ public final class CacheFileSystemFactory
     public TrinoFileSystem create(ConnectorIdentity identity)
     {
         return new CacheFileSystem(delegate.create(identity), new TracingFileSystemCache(tracer, cache), keyProvider);
+    }
+
+    @Override
+    public TrinoFileSystem create(ConnectorSession session, boolean cachingEnabled)
+    {
+        return new CacheFileSystem(delegate.create(session), new TracingFileSystemCache(tracer, cache), keyProvider, cachingEnabled);
+    }
+
+    @Override
+    public TrinoFileSystem create(ConnectorIdentity identity, boolean cachingEnabled)
+    {
+        return new CacheFileSystem(delegate.create(identity), new TracingFileSystemCache(tracer, cache), keyProvider, cachingEnabled);
     }
 }

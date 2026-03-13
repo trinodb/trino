@@ -14,6 +14,7 @@
 package io.trino.plugin.iceberg;
 
 import com.google.inject.Inject;
+import io.trino.filesystem.manager.TableCachingPredicate;
 import io.trino.orc.OrcReaderOptions;
 import io.trino.parquet.ParquetReaderOptions;
 import io.trino.plugin.base.metrics.FileFormatDataSourceStats;
@@ -34,6 +35,7 @@ public class IcebergPageSourceProviderFactory
     private final OrcReaderOptions orcReaderOptions;
     private final ParquetReaderOptions parquetReaderOptions;
     private final TypeManager typeManager;
+    private final TableCachingPredicate tableCachingPredicate;
 
     @Inject
     public IcebergPageSourceProviderFactory(
@@ -42,7 +44,8 @@ public class IcebergPageSourceProviderFactory
             FileFormatDataSourceStats fileFormatDataSourceStats,
             OrcReaderConfig orcReaderConfig,
             ParquetReaderConfig parquetReaderConfig,
-            TypeManager typeManager)
+            TypeManager typeManager,
+            TableCachingPredicate tableCachingPredicate)
     {
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
         this.fileIoFactory = requireNonNull(fileIoFactory, "fileIoFactory is null");
@@ -50,11 +53,12 @@ public class IcebergPageSourceProviderFactory
         this.orcReaderOptions = orcReaderConfig.toOrcReaderOptions();
         this.parquetReaderOptions = parquetReaderConfig.toParquetReaderOptions();
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
+        this.tableCachingPredicate = requireNonNull(tableCachingPredicate, "tableCachingPredicate is null");
     }
 
     @Override
     public IcebergPageSourceProvider createPageSourceProvider()
     {
-        return new IcebergPageSourceProvider(fileSystemFactory, fileIoFactory, fileFormatDataSourceStats, orcReaderOptions, parquetReaderOptions, typeManager);
+        return new IcebergPageSourceProvider(fileSystemFactory, fileIoFactory, fileFormatDataSourceStats, orcReaderOptions, parquetReaderOptions, typeManager, tableCachingPredicate);
     }
 }
