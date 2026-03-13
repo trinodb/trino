@@ -17,7 +17,6 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
 
 import java.util.Objects;
-import java.util.regex.Pattern;
 
 import static io.airlift.slice.SizeOf.estimatedSizeOf;
 import static io.airlift.slice.SizeOf.instanceSize;
@@ -27,8 +26,6 @@ import static java.util.UUID.randomUUID;
 public class ExchangeId
 {
     private static final long INSTANCE_SIZE = instanceSize(ExchangeId.class);
-
-    private static final Pattern ID_PATTERN = Pattern.compile("[a-zA-Z0-9_-]+");
 
     private final String id;
 
@@ -41,7 +38,7 @@ public class ExchangeId
     public ExchangeId(String id)
     {
         requireNonNull(id, "id is null");
-        if (!ID_PATTERN.matcher(id).matches()) {
+        if (id.isBlank() || !isValidId(id)) {
             throw new IllegalArgumentException("Invalid id: " + id);
         }
         this.id = id;
@@ -81,5 +78,16 @@ public class ExchangeId
     public long getRetainedSizeInBytes()
     {
         return INSTANCE_SIZE + estimatedSizeOf(id);
+    }
+
+    private static boolean isValidId(String id)
+    {
+        for (int i = 0; i < id.length(); i++) {
+            char c = id.charAt(i);
+            if (!(c == '_' || c == '-' || c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z' || c >= '0' && c <= '9')) {
+                return false;
+            }
+        }
+        return true;
     }
 }

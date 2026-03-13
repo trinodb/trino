@@ -197,9 +197,9 @@ public class Identity
         private String user;
         private Set<String> groups = new HashSet<>();
         private Optional<Principal> principal = Optional.empty();
-        private Set<String> enabledRoles = new HashSet<>();
-        private Map<String, SelectedRole> connectorRoles = new HashMap<>();
-        private Map<String, String> extraCredentials = new HashMap<>();
+        private Set<String> enabledRoles = new HashSet<>(0);
+        private Map<String, SelectedRole> connectorRoles = new HashMap<>(0);
+        private Map<String, String> extraCredentials = new HashMap<>(0);
         private Optional<Runnable> onDestroy = Optional.empty();
 
         public Builder(String user)
