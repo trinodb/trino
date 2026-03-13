@@ -612,13 +612,13 @@ public class BackgroundHiveSplitLoader
             }
         }
 
-        for (FileEntry entry : acidState.originalFiles()) {
-            // Hive requires "original" files of transactional tables to conform to the bucketed tables naming pattern, to match them with delete deltas.
-            acidInfoBuilder.addOriginalFile(entry.location(), entry.length(), getRequiredBucketNumber(entry.location()));
-        }
-
         if (tableBucketInfo.isPresent()) {
             BucketSplitInfo bucketInfo = tableBucketInfo.get();
+
+            for (FileEntry entry : acidState.originalFiles()) {
+                // Hive requires "original" files of transactional tables to conform to the bucketed tables naming pattern, to match them with delete deltas.
+                acidInfoBuilder.addOriginalFile(entry.location(), entry.length(), getRequiredBucketNumber(entry.location()));
+            }
 
             for (FileEntry entry : acidState.originalFiles()) {
                 List<TrinoFileStatus> fileStatuses = ImmutableList.of(new TrinoFileStatus(entry));
