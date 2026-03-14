@@ -39,8 +39,6 @@ import static java.util.Objects.requireNonNull;
 public interface QueryExecution
         extends TrackedQuery
 {
-    QueryState getState();
-
     ListenableFuture<QueryState> getStateChange(QueryState currentState);
 
     void addStateChangeListener(StateChangeListener<QueryState> stateChangeListener);
