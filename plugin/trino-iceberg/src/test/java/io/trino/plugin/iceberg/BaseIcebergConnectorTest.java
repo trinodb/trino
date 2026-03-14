@@ -7628,6 +7628,26 @@ public abstract class BaseIcebergConnectorTest
     }
 
     @Test
+    public void testCreateOrReplaceTableChangeBucketCount()
+    {
+        try (TestTable table = newTrinoTable("test_create_or_replace_", " (a int, b varchar) WITH (partitioning = ARRAY['bucket(a, 10)'])")) {
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (1, 'v1')", 1);
+            long v1SnapshotId = getCurrentSnapshotId(table.getName());
+
+            assertUpdate("CREATE OR REPLACE TABLE " + table.getName() + " WITH (partitioning = ARRAY['bucket(a, 11)']) AS SELECT 2 a, 'v2' b", 1);
+            assertThat(query("SELECT a, b FROM " + table.getName()))
+                    .matches("VALUES (2, CAST('v2' AS VARCHAR))");
+
+            // Reading $files must not throw "Invalid schema: multiple fields for name partition.*_bucket"
+            assertThat(query("SELECT count(*) FROM \"" + table.getName() + "$files\""))
+                    .matches("VALUES BIGINT '1'");
+
+            assertThat(query("SELECT a, b FROM " + table.getName() + " FOR VERSION AS OF " + v1SnapshotId))
+                    .matches("VALUES (1, CAST('v1' AS VARCHAR))");
+        }
+    }
+
+    @Test
     public void testCreateOrReplaceTableChangePartitionedTableIntoUnpartitioned()
     {
         try (TestTable table = newTrinoTable("test_create_or_replace_", " WITH (partitioning=ARRAY['a']) AS SELECT BIGINT '42' a, 'some data' b UNION ALL SELECT BIGINT '43' a, 'another data' b")) {
