@@ -18,6 +18,7 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.errorprone.annotations.DoNotCall;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeUtils;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -434,6 +435,89 @@ public final class TupleDomain<T>
             result.put(entry.getKey(), Domain.union(entry.getValue()));
         }
         return withColumnDomains(result);
+    }
+
+    /**
+     * Returns the strict union of the given TupleDomains if it can be computed exactly,
+     * or {@code Optional.empty()} if the column-wise union would be a proper superset
+     * of the strict union.
+     * <p>
+     * In most cases, {@link #columnWiseUnion} is only a superset of the actual strict union
+     * (see {@link #columnWiseUnion(List)} for examples). However, there are a few cases where
+     * the column-wise union is actually equivalent to the strict union:
+     * <ul>
+     * <li>If one TupleDomain is a superset of the others
+     *     (e.g. TupleDomain {@code (a > 0, b > 0 && b < 10)} vs TupleDomain {@code (a > 5, b = 5)})
+     * <li>If all TupleDomains consist of the same exact single column
+     *     (e.g. one TupleDomain {@code (a > 0)}, another TupleDomain {@code (a < 10)})
+     *     and NaN is not implicitly added by the union
+     * </ul>
+     */
+    public static <T> Optional<TupleDomain<T>> strictUnion(List<TupleDomain<T>> domains)
+    {
+        if (domains.isEmpty()) {
+            return Optional.of(none());
+        }
+
+        // Filter out NONE domains as they are no-ops for the purpose of OR
+        List<TupleDomain<T>> nonNoneDomains = domains.stream()
+                .filter(domain -> !domain.isNone())
+                .collect(toList());
+
+        if (nonNoneDomains.isEmpty()) {
+            return Optional.of(none());
+        }
+
+        // If one TupleDomain is a superset of all others, it is the exact union
+        if (maximal(nonNoneDomains).isPresent()) {
+            return Optional.of(columnWiseUnion(domains));
+        }
+
+        // The column-wise union is equivalent to the strict union if all TupleDomains
+        // consist of the same exact single column
+        boolean allSingleMatchingColumn = nonNoneDomains.stream()
+                .allMatch(domain -> domain.getDomains().isPresent() && domain.getDomains().get().size() == 1)
+                && nonNoneDomains.stream()
+                        .map(domain -> domain.getDomains().get().keySet())
+                        .distinct()
+                        .count() == 1;
+
+        if (!allSingleMatchingColumn) {
+            // columnWiseUnion would be a superset of the strict union
+            return Optional.empty();
+        }
+
+        TupleDomain<T> union = columnWiseUnion(domains);
+
+        // Types REAL, DOUBLE, and NUMBER require special handling because they include NaN value.
+        // Domains covering the value set partially might union up to a domain covering the whole value set.
+        // While the component domains didn't include NaN, the resulting domain could be further translated
+        // to predicate "TRUE" or "a IS NOT NULL", which is satisfied by NaN.
+        // So during domain union, NaN might be implicitly added.
+        // Example: Let 'a' be a column of type DOUBLE.
+        //          Let left TupleDomain => (a > 0) /false for NaN/, right TupleDomain => (a < 10) /false for NaN/.
+        //          Unioned TupleDomain => "is not null" /true for NaN/
+        Type type = nonNoneDomains.get(0).getDomains().get().values().iterator().next().getType();
+        if (TypeUtils.typeHasNaN(type)) {
+            // A Domain of a floating point type contains NaN in the following cases:
+            // 1. When it contains all the values of the type and null.
+            //    In such case the domain is 'all', and if it is the only domain
+            //    in the TupleDomain, the TupleDomain gets normalized to TupleDomain 'all'.
+            // 2. When it contains all the values of the type and doesn't contain null.
+            //    In such case no normalization on the level of TupleDomain takes place,
+            //    and the check for NaN is done by inspecting the Domain's valueSet.
+            //    NaN is included when the valueSet is 'all'.
+            boolean unionContainsNaN = union.isAll() ||
+                    (union.getDomains().isPresent() &&
+                            union.getDomains().get().values().iterator().next().getValues().isAll());
+            boolean implicitlyAddedNaN = nonNoneDomains.stream().noneMatch(TupleDomain::isAll) &&
+                    unionContainsNaN;
+            if (implicitlyAddedNaN) {
+                return Optional.empty();
+            }
+        }
+
+        return Optional.of(union);
     }
 
     /**

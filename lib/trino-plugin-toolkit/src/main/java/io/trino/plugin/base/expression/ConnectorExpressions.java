@@ -27,8 +27,10 @@ import java.util.stream.Stream;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Streams.stream;
+import static io.trino.spi.expression.Constant.FALSE;
 import static io.trino.spi.expression.Constant.TRUE;
 import static io.trino.spi.expression.StandardFunctions.AND_FUNCTION_NAME;
+import static io.trino.spi.expression.StandardFunctions.OR_FUNCTION_NAME;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static java.util.Objects.requireNonNull;
 
@@ -68,6 +70,30 @@ public final class ConnectorExpressions
         resultBuilder.add(expression);
     }
 
+    public static List<ConnectorExpression> extractDisjuncts(ConnectorExpression expression)
+    {
+        ImmutableList.Builder<ConnectorExpression> resultBuilder = ImmutableList.builder();
+        extractDisjuncts(expression, resultBuilder);
+        return resultBuilder.build();
+    }
+
+    private static void extractDisjuncts(ConnectorExpression expression, ImmutableList.Builder<ConnectorExpression> resultBuilder)
+    {
+        if (expression.equals(FALSE)) {
+            // Skip useless disjuncts.
+            return;
+        }
+        if (expression instanceof Call call) {
+            if (OR_FUNCTION_NAME.equals(call.getFunctionName())) {
+                for (ConnectorExpression argument : call.getArguments()) {
+                    extractDisjuncts(argument, resultBuilder);
+                }
+                return;
+            }
+        }
+        resultBuilder.add(expression);
+    }
+
     public static ConnectorExpression and(ConnectorExpression... expressions)
     {
         return and(Arrays.asList(expressions));
@@ -84,6 +110,26 @@ public final class ConnectorExpressions
         }
         if (expressions.isEmpty()) {
             return TRUE;
+        }
+        return getOnlyElement(expressions);
+    }
+
+    public static ConnectorExpression or(ConnectorExpression... expressions)
+    {
+        return or(Arrays.asList(expressions));
+    }
+
+    public static ConnectorExpression or(List<ConnectorExpression> expressions)
+    {
+        // Skip useless disjuncts.
+        expressions = expressions.stream()
+                .filter(expression -> !expression.equals(FALSE))
+                .collect(toImmutableList());
+        if (expressions.size() > 1) {
+            return new Call(BOOLEAN, OR_FUNCTION_NAME, expressions);
+        }
+        if (expressions.isEmpty()) {
+            return FALSE;
         }
         return getOnlyElement(expressions);
     }
