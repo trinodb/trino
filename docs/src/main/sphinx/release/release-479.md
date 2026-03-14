@@ -110,7 +110,6 @@
 * {{breaking}} Remove support for unauthenticated access when GCS authentication type is set to `SERVICE_ACCOUNT`. ({issue}`26984`)
 * Reduce memory pressure when the table contains highly nested fields. ({issue}`25077`)
 * Fix failures when querying `$files` table after changes to table partitioning. ({issue}`26746`)
-* Fix failure when reading `$files` table after changing bucket count with `CREATE OR REPLACE TABLE`. ({issue}`25339`)
 * Fix incorrect results for queries involving `IS NOT DISTINCT FROM`. ({issue}`27213`)
 * Fix failure when checking Azure hierarchical namespaces. ({issue}`27278`)
 * Avoid worker crashes by failing queries attempting to read columns with huge values in parquet files. ({issue}`27148`)
