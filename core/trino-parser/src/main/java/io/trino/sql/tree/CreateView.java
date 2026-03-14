@@ -33,16 +33,18 @@ public class CreateView
     private final QualifiedName name;
     private final Query query;
     private final boolean replace;
+    private final boolean notExists;
     private final Optional<String> comment;
     private final Optional<Security> security;
     private final List<Property> properties;
 
-    public CreateView(NodeLocation location, QualifiedName name, Query query, boolean replace, Optional<String> comment, Optional<Security> security, List<Property> properties)
+    public CreateView(NodeLocation location, QualifiedName name, Query query, boolean replace, boolean notExists, Optional<String> comment, Optional<Security> security, List<Property> properties)
     {
         super(location);
         this.name = requireNonNull(name, "name is null");
         this.query = requireNonNull(query, "query is null");
         this.replace = replace;
+        this.notExists = notExists;
         this.comment = requireNonNull(comment, "comment is null");
         this.security = requireNonNull(security, "security is null");
         this.properties = ImmutableList.copyOf(properties);
@@ -61,6 +63,11 @@ public class CreateView
     public boolean isReplace()
     {
         return replace;
+    }
+
+    public boolean isNotExists()
+    {
+        return notExists;
     }
 
     public Optional<String> getComment()
@@ -96,7 +103,7 @@ public class CreateView
     @Override
     public int hashCode()
     {
-        return Objects.hash(name, query, replace, security, properties);
+        return Objects.hash(name, query, replace, notExists, security, properties);
     }
 
     @Override
@@ -111,7 +118,7 @@ public class CreateView
         CreateView o = (CreateView) obj;
         return Objects.equals(name, o.name)
                 && Objects.equals(query, o.query)
-                && replace == o.replace
+                && replace == o.replace && notExists == o.notExists
                 && Objects.equals(comment, o.comment)
                 && Objects.equals(security, o.security)
                 && Objects.equals(properties, o.properties);
@@ -124,6 +131,7 @@ public class CreateView
                 .add("name", name)
                 .add("query", query)
                 .add("replace", replace)
+                .add("notExists", notExists)
                 .add("comment", comment)
                 .add("security", security)
                 .add("properties", properties)
