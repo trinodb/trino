@@ -74,9 +74,56 @@ public class HiveMetastoreTableOperations
     protected void commitToExistingTable(TableMetadata base, TableMetadata metadata)
     {
         Table currentTable = getTable();
-        commitTableUpdate(currentTable, metadata, (table, newMetadataLocation) -> Table.builder(table)
-                .apply(builder -> updateMetastoreTable(builder, metadata, newMetadataLocation, Optional.of(currentMetadataLocation)))
-                .build());
+        if (isCreateOrReplace()) {
+            commitTableReplacement(currentTable, metadata);
+        }
+        else {
+            commitTableUpdate(currentTable, metadata, (table, newMetadataLocation) -> Table.builder(table)
+                    .apply(builder -> updateMetastoreTable(builder, metadata, newMetadataLocation, Optional.of(currentMetadataLocation)))
+                    .build());
+        }
+    }
+
+    private void commitTableReplacement(Table existingTable, TableMetadata metadata)
+    {
+        String newMetadataLocation = writeNewMetadata(metadata, version.orElseThrow() + 1);
+
+        boolean lockingEnabled = parseBoolean(existingTable.getParameters().getOrDefault(HIVE_LOCK_ENABLED, Boolean.toString(this.lockingEnabled)));
+        HiveLock hiveLock = lockingEnabled ? new ThriftMetastoreLock(existingTable) : new NoLock();
+        hiveLock.acquire();
+
+        try {
+            Table currentTable = fromMetastoreApiTable(thriftMetastore.getTable(database, existingTable.getTableName())
+                    .orElseThrow(() -> new TableNotFoundException(getSchemaTableName())));
+
+            checkState(currentMetadataLocation != null, "No current metadata location for existing table");
+            String metadataLocation = fixBrokenMetadataLocation(currentTable.getParameters().get(METADATA_LOCATION_PROP));
+            if (!currentMetadataLocation.equals(metadataLocation)) {
+                throw new CommitFailedException("Metadata location [%s] is not same as table metadata location [%s] for %s",
+                        currentMetadataLocation, metadataLocation, getSchemaTableName());
+            }
+
+            PrincipalPrivileges privileges = currentTable.getOwner().map(MetastoreUtil::buildInitialPrivilegeSet).orElse(NO_PRIVILEGES);
+            Table updatedTable = Table.builder(currentTable)
+                    .apply(builder -> updateMetastoreTable(builder, metadata, newMetadataLocation, Optional.of(currentMetadataLocation)))
+                    .build();
+
+            // Use drop + create instead of replaceTable to bypass HMS column type-compatibility
+            // checks that reject incompatible type changes in ALTER TABLE (e.g., INT -> ARRAY(INT)).
+            // For CREATE OR REPLACE TABLE, any schema change is valid.
+            metastore.dropTable(currentTable.getDatabaseName(), currentTable.getTableName(), false);
+            try {
+                metastore.createTable(updatedTable, privileges);
+            }
+            catch (RuntimeException e) {
+                throw new CommitStateUnknownException(e);
+            }
+        }
+        finally {
+            hiveLock.release();
+        }
+
+        shouldRefresh = true;
     }
 
     @Override
