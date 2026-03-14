@@ -20,4 +20,11 @@ public interface IcebergTableOperations
         extends TableOperations
 {
     void initializeFromMetadata(TableMetadata tableMetadata);
+
+    /**
+     * Marks this operations instance as being part of a CREATE OR REPLACE TABLE statement.
+     * Implementations may use this to bypass external catalog type-compatibility checks that
+     * are not appropriate for a full table replacement.
+     */
+    default void markAsCreateOrReplace() {}
 }

@@ -90,6 +90,7 @@ public abstract class AbstractIcebergTableOperations
     protected String currentMetadataLocation;
     protected boolean shouldRefresh = true;
     protected OptionalInt version = OptionalInt.empty();
+    private boolean createOrReplace;
 
     protected AbstractIcebergTableOperations(
             FileIO fileIo,
@@ -115,6 +116,17 @@ public abstract class AbstractIcebergTableOperations
         currentMetadataLocation = tableMetadata.metadataFileLocation();
         shouldRefresh = false;
         version = OptionalInt.of(parseVersion(Location.of(currentMetadataLocation).fileName()));
+    }
+
+    @Override
+    public void markAsCreateOrReplace()
+    {
+        this.createOrReplace = true;
+    }
+
+    protected boolean isCreateOrReplace()
+    {
+        return createOrReplace;
     }
 
     @Override

@@ -109,6 +109,8 @@
 * Add `APPLICATION_DEFAULT` authentication type for GCS. ({issue}`26984`)
 * {{breaking}} Remove support for unauthenticated access when GCS authentication type is set to `SERVICE_ACCOUNT`. ({issue}`26984`)
 * Reduce memory pressure when the table contains highly nested fields. ({issue}`25077`)
+* Fix `CREATE OR REPLACE TABLE` failure when changing a column to an incompatible
+  type with a Hive Metastore-backed catalog. ({issue}`25339`)
 * Fix failures when querying `$files` table after changes to table partitioning. ({issue}`26746`)
 * Fix incorrect results for queries involving `IS NOT DISTINCT FROM`. ({issue}`27213`)
 * Fix failure when checking Azure hierarchical namespaces. ({issue}`27278`)
