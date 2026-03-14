@@ -72,6 +72,9 @@ public class IcebergTableProperties
     public static final String OBJECT_STORE_LAYOUT_ENABLED_PROPERTY = "object_store_layout_enabled";
     public static final String DATA_LOCATION_PROPERTY = "data_location";
     public static final String EXTRA_PROPERTIES_PROPERTY = "extra_properties";
+    public static final String WRITE_DELETE_MODE = "write_delete_mode";
+    public static final String WRITE_UPDATE_MODE = "write_update_mode";
+    public static final String WRITE_MERGE_MODE = "write_merge_mode";
 
     public static final Set<String> SUPPORTED_PROPERTIES = ImmutableSet.<String>builder()
             .add(FILE_FORMAT_PROPERTY)
@@ -89,6 +92,9 @@ public class IcebergTableProperties
             .add(DATA_LOCATION_PROPERTY)
             .add(EXTRA_PROPERTIES_PROPERTY)
             .add(PARQUET_BLOOM_FILTER_COLUMNS_PROPERTY)
+            .add(WRITE_DELETE_MODE)
+            .add(WRITE_UPDATE_MODE)
+            .add(WRITE_MERGE_MODE)
             .build();
 
     // These properties are used by Trino or Iceberg internally and cannot be set directly by users through extra_properties
@@ -235,6 +241,24 @@ public class IcebergTableProperties
                         "File system location URI for the table's data files",
                         null,
                         false))
+                .add(enumProperty(
+                        WRITE_DELETE_MODE,
+                        "Write mode for DELETE operations (merge-on-read or copy-on-write)",
+                        UpdateMode.class,
+                        UpdateMode.MERGE_ON_READ,
+                        false))
+                .add(enumProperty(
+                        WRITE_UPDATE_MODE,
+                        "Write mode for UPDATE operations (merge-on-read or copy-on-write)",
+                        UpdateMode.class,
+                        UpdateMode.MERGE_ON_READ,
+                        false))
+                .add(enumProperty(
+                        WRITE_MERGE_MODE,
+                        "Write mode for MERGE operations (merge-on-read or copy-on-write)",
+                        UpdateMode.class,
+                        UpdateMode.MERGE_ON_READ,
+                        false))
                 .build();
 
         checkState(SUPPORTED_PROPERTIES.containsAll(tableProperties.stream()
@@ -361,5 +385,20 @@ public class IcebergTableProperties
     public static Optional<Map<String, String>> getExtraProperties(Map<String, Object> tableProperties)
     {
         return Optional.ofNullable((Map<String, String>) tableProperties.get(EXTRA_PROPERTIES_PROPERTY));
+    }
+
+    public static UpdateMode getWriteDeleteMode(Map<String, Object> tableProperties)
+    {
+        return (UpdateMode) tableProperties.get(WRITE_DELETE_MODE);
+    }
+
+    public static UpdateMode getWriteUpdateMode(Map<String, Object> tableProperties)
+    {
+        return (UpdateMode) tableProperties.get(WRITE_UPDATE_MODE);
+    }
+
+    public static UpdateMode getWriteMergeMode(Map<String, Object> tableProperties)
+    {
+        return (UpdateMode) tableProperties.get(WRITE_MERGE_MODE);
     }
 }
