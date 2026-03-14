@@ -67,6 +67,39 @@ final class TestIcebergHiveCatalogWithoutLock
     }
 
     @Test
+    void testCreateOrReplaceTableWithIncompatibleColumnType()
+    {
+        // Regression test for https://github.com/trinodb/trino/issues/25339
+        // HMS replaceTable() validates Hive column type compatibility and rejects incompatible
+        // changes like INT -> ARRAY(INT). CREATE OR REPLACE TABLE should allow any type change.
+        try (TestTable table = newTrinoTable("test_create_or_replace_type_", "(a int)")) {
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES 1", 1);
+
+            // CTAS form: Changing column type from INT to ARRAY(INT) must succeed
+            assertUpdate("CREATE OR REPLACE TABLE " + table.getName() + " AS SELECT ARRAY[2] a", 1);
+            assertThat(query("SELECT a FROM " + table.getName()))
+                    .matches("VALUES ARRAY[2]");
+        }
+    }
+
+    @Test
+    void testCreateOrReplaceTableWithIncompatibleColumnTypeDdlForm()
+    {
+        // Regression test for https://github.com/trinodb/trino/issues/25339 (DDL form)
+        // Verify that CREATE OR REPLACE TABLE with explicit column definitions also works
+        // when the new column type is incompatible with the existing Hive column type.
+        try (TestTable table = newTrinoTable("test_create_or_replace_ddl_", "(a int)")) {
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES 1", 1);
+
+            // DDL form: CREATE OR REPLACE TABLE with explicit incompatible column type must succeed
+            assertUpdate("CREATE OR REPLACE TABLE " + table.getName() + " (a array(int))");
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (ARRAY[2])", 1);
+            assertThat(query("SELECT a FROM " + table.getName()))
+                    .matches("VALUES ARRAY[2]");
+        }
+    }
+
+    @Test
     void testCommitWithoutLock()
     {
         try (TestTable table = newTrinoTable("test_lock", "(x int)", List.of("1", "2", "3"))) {
