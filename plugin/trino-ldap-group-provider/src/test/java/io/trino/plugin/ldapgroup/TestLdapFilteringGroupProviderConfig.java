@@ -31,8 +31,8 @@ final class TestLdapFilteringGroupProviderConfig
                 .setLdapGroupBaseDN(null)
                 .setLdapGroupsSearchFilter(null)
                 .setLdapGroupsSearchMemberAttribute("member")
-                .setLdapGroupSearchEnableNestedGroups(false)
-                .setLdapGroupSearchUseMatchingRuleInChain(false));
+                .setLdapGroupSearchNestedEnabled(false)
+                .setLdapGroupSearchNestedUseMatchingRuleInChain(false));
     }
 
     @Test
@@ -42,15 +42,15 @@ final class TestLdapFilteringGroupProviderConfig
                 "ldap.group-base-dn", "ou=group,dc=trino,dc=io",
                 "ldap.group-search-filter", "(cn=dev*)",
                 "ldap.group-search-member-attribute", "memberUser",
-                "ldap.group-search-enable-nested-groups", "true",
-                "ldap.group-search-use-matching-rule-in-chain", "true");
+                "ldap.group-search-nested-enabled", "true",
+                "ldap.group-search-nested-use-matching-rule-in-chain", "true");
 
         LdapFilteringGroupProviderConfig expected = new LdapFilteringGroupProviderConfig()
                 .setLdapGroupBaseDN("ou=group,dc=trino,dc=io")
                 .setLdapGroupsSearchFilter("(cn=dev*)")
                 .setLdapGroupsSearchMemberAttribute("memberUser")
-                .setLdapGroupSearchEnableNestedGroups(true)
-                .setLdapGroupSearchUseMatchingRuleInChain(true);
+                .setLdapGroupSearchNestedEnabled(true)
+                .setLdapGroupSearchNestedUseMatchingRuleInChain(true);
 
         assertFullMapping(properties, expected);
     }

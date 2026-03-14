@@ -67,8 +67,8 @@ public class LdapFilteringGroupProvider
         this.groupsNameAttribute = config.getLdapGroupsNameAttribute();
 
         String groupsSearchMemberAttribute = filteringConfig.getLdapGroupsSearchMemberAttribute();
-        this.enableNestedGroups = filteringConfig.isLdapGroupSearchEnableNestedGroups();
-        this.useMatchingRuleInChain = filteringConfig.isLdapGroupSearchUseMatchingRuleInChain();
+        this.enableNestedGroups = filteringConfig.isLdapGroupSearchNestedEnabled();
+        this.useMatchingRuleInChain = filteringConfig.isLdapGroupSearchNestedUseMatchingRuleInChain();
         String groupSearchMemberPredicate = useMatchingRuleInChain
                 ? String.format("%s:%s:={0}", groupsSearchMemberAttribute, LDAP_MATCHING_RULE_IN_CHAIN)
                 : String.format("%s={0}", groupsSearchMemberAttribute);
@@ -217,16 +217,21 @@ public class LdapFilteringGroupProvider
             throws NamingException
     {
         ImmutableSet.Builder<LdapGroup> groups = ImmutableSet.builder();
+        boolean missingConfiguredNameAttribute = false;
         while (search.hasMore()) {
             SearchResult groupResult = search.next();
             Attribute groupName = groupResult.getAttributes().get(groupsNameAttribute);
             if (groupName == null) {
-                log.warn("The group object [%s] does not have group name attribute [%s]. Falling back on object full name.", groupResult, groupsNameAttribute);
+                missingConfiguredNameAttribute = true;
+                log.debug("The group object [%s] does not have group name attribute [%s]. Falling back on object full name.", groupResult, groupsNameAttribute);
                 groups.add(new LdapGroup(groupResult.getNameInNamespace(), groupResult.getNameInNamespace()));
             }
             else {
                 groups.add(new LdapGroup(groupResult.getNameInNamespace(), groupName.get().toString()));
             }
+        }
+        if (missingConfiguredNameAttribute) {
+            log.warn("Some LDAP group objects do not have configured group name attribute [%s]. Falling back on object full name.", groupsNameAttribute);
         }
         return groups.build();
     }

@@ -60,7 +60,7 @@ public class TestLdapGroupProviderIntegration
     private static final ConfigBuilder WITH_GROUP_FILTER_NESTED = builder -> {
         builder.put("ldap.use-group-filter", "true");
         builder.put("ldap.group-base-dn", "ou=groups,dc=trino,dc=testldap,dc=com");
-        builder.put("ldap.group-search-enable-nested-groups", "true");
+        builder.put("ldap.group-search-nested-enabled", "true");
         return builder;
     };
 
@@ -164,7 +164,7 @@ public class TestLdapGroupProviderIntegration
                 .put("ldap.group-search-member-attribute", "member")
                 .put("ldap.group-name-attribute", "cn")
                 .put("ldap.group-base-dn", "ou=groups,dc=trino,dc=testldap,dc=com")
-                .put("ldap.group-search-enable-nested-groups", "true")
+                .put("ldap.group-search-nested-enabled", "true")
                 .put("ldap.group-search-filter", groupFilter)
                 .buildOrThrow();
         GroupProvider groupsProvider = factory.create(config);
@@ -201,7 +201,7 @@ public class TestLdapGroupProviderIntegration
                 .put("ldap.group-search-member-attribute", "some-attribute-that-does-not-exist")
                 .put("ldap.group-name-attribute", "cn")
                 .put("ldap.group-base-dn", "ou=groups,dc=trino,dc=testldap,dc=com")
-                .put("ldap.group-search-enable-nested-groups", "true")
+                .put("ldap.group-search-nested-enabled", "true")
                 .buildOrThrow();
         GroupProvider groupsProvider = factory.create(config);
 
