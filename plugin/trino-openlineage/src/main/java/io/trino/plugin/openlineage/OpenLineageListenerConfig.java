@@ -35,6 +35,8 @@ public class OpenLineageListenerConfig
     private Optional<String> namespace = Optional.empty();
     private String jobNameFormat = "$QUERY_ID";
 
+    private boolean includeTransitiveInputs;
+
     private Set<QueryType> includeQueryTypes = ImmutableSet.<QueryType>builder()
             .add(QueryType.ALTER_TABLE_EXECUTE)
             .add(QueryType.DELETE)
@@ -82,6 +84,19 @@ public class OpenLineageListenerConfig
             throws RuntimeException
     {
         this.disabledFacets = ImmutableSet.copyOf(disabledFacets);
+        return this;
+    }
+
+    public boolean isIncludeTransitiveInputs()
+    {
+        return includeTransitiveInputs;
+    }
+
+    @Config("openlineage-event-listener.include-transitive-inputs")
+    @ConfigDescription("When enabled, include transitively referenced datasets in addition to directly referenced input datasets")
+    public OpenLineageListenerConfig setIncludeTransitiveInputs(boolean includeTransitiveInputs)
+    {
+        this.includeTransitiveInputs = includeTransitiveInputs;
         return this;
     }
 

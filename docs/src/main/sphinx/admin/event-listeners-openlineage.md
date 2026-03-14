@@ -164,6 +164,14 @@ event-listener.config-files=etc/openlineage-event-listener.properties,...
       variables: `$QUERY_ID`, `$USER`, `$SOURCE`, `$CLIENT_IP`.
       For example: `As $USER from $CLIENT_IP via $SOURCE`.
     - `$QUERY_ID`.
+*
+    - openlineage-event-listener.include-transitive-inputs
+    - When set to `true`, transitively referenced datasets (views and their
+      underlying base tables) are included in addition to directly referenced
+      input datasets. This includes views at any nesting depth, including
+      views over joins with multiple base tables. When `false`, only directly
+      referenced datasets are reported.
+    - `false`
 
 :::
 
