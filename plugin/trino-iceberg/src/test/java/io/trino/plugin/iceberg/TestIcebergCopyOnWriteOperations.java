@@ -290,6 +290,10 @@ public class TestIcebergCopyOnWriteOperations
                 " (4, 'Dave', 400)," +
                 " (5, 'Eve', 500)", 5);
 
+        // Capture file paths before the update
+        Set<String> filesBeforeUpdate = getDataFilePaths(tableName);
+        assertThat(filesBeforeUpdate).isNotEmpty();
+
         // Set write_update_mode to copy-on-write
         assertUpdate("ALTER TABLE " + tableName + " SET PROPERTIES write_update_mode = 'COPY_ON_WRITE'");
 
@@ -315,6 +319,13 @@ public class TestIcebergCopyOnWriteOperations
         // Verify that subsequent queries work correctly (no delete files should exist)
         assertQuery("SELECT COUNT(*) FROM " + tableName, "SELECT 5");
         assertQuery("SELECT SUM(value) FROM " + tableName, "SELECT 2750");
+
+        // Verify file-level changes: CoW should rewrite data files, not create delete files
+        Set<String> filesAfterUpdate = getDataFilePaths(tableName);
+        assertThat(filesAfterUpdate)
+                .as("CoW UPDATE should replace the original data file with a new rewritten file")
+                .doesNotContainAnyElementsOf(filesBeforeUpdate);
+        assertThat(filesAfterUpdate).isNotEmpty();
 
         // Verify no delete files exist (CoW rewrites data files instead of creating delete files)
         assertQuery("SELECT count(*) FROM \"" + tableName + "$files\" WHERE content != 0", "VALUES 0");
