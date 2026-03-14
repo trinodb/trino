@@ -154,6 +154,12 @@ public class ProtobufValueProvider
         }
 
         if (type.equals(jsonType)) {
+            // Struct/Value/ListValue fields nested inside arrays, maps, or rows arrive
+            // here as raw DynamicMessage instances because only top-level fields are
+            // converted to JSON Slices in ProtobufColumnDecoder.locateField().
+            if (value instanceof DynamicMessage message) {
+                return ProtobufColumnDecoder.structToJsonSlice(message);
+            }
             return (Slice) value;
         }
 
@@ -174,7 +180,12 @@ public class ProtobufValueProvider
         }
 
         if (type.equals(jsonType)) {
-            return serializeJson(builder, value, type);
+            Object jsonValue = value;
+            // See comment in getSlice() above.
+            if (value instanceof DynamicMessage message) {
+                jsonValue = ProtobufColumnDecoder.structToJsonSlice(message);
+            }
+            return serializeJson(builder, jsonValue, type);
         }
 
         serializePrimitive(builder, value, type, columnName);
