@@ -32,6 +32,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
@@ -182,6 +183,17 @@ public class TestDruidTypeMapping
                 .addRoundTrip("col_2", "string", "text_a", createUnboundedVarcharType(), "CAST('text_a' AS varchar)")
                 .addRoundTrip("col_3", "string", "text_b", createUnboundedVarcharType(), "CAST('text_b' AS varchar)")
                 .execute(getQueryRunner(), druidCreateAndInsert("test_unbounded_varchar"));
+    }
+
+    @Test
+    public void testDecimalNegativeScale()
+    {
+        SqlDataTypeTest.create()
+                .addRoundTrip("__time", "timestamp", "2020-01-01 00:00:00.000", TIMESTAMP_MILLIS, "TIMESTAMP '2020-01-01 00:00:00.000'")
+                .addRoundTrip("col_0", "decimal(5, -1)", "123450", createDecimalType(6, 0), "DECIMAL '123450'")
+                .addRoundTrip("col_1", "decimal(5, -3)", "12345000", createDecimalType(8, 0), "DECIMAL '12345000'")
+                .addRoundTrip("col_2", "decimal(9, -7)", "1234567890000000", createDecimalType(16, 0), "DECIMAL '1234567890000000'")
+                .execute(getQueryRunner(), druidCreateAndInsert("test_decimal_negative_scale"));
     }
 
     @Test
