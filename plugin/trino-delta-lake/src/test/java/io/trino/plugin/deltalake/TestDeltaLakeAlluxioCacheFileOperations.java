@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultiset;
 import com.google.common.collect.Multiset;
 import com.google.common.io.Resources;
+import io.trino.Session;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
 import org.intellij.lang.annotations.Language;
@@ -651,11 +652,84 @@ public class TestDeltaLakeAlluxioCacheFileOperations
         assertUpdate("DROP TABLE test_create_or_replace_as_select");
     }
 
+    @Test
+    public void testCacheFileOperationsWithChecksumFilesEnabled()
+            throws Exception
+    {
+        String catalog = getSession().getCatalog().orElseThrow();
+        Session session = Session.builder(getSession())
+                .setCatalogSessionProperty(catalog, "load_metadata_from_checksum_file", "true")
+                .build();
+
+        String tableName = "test_cache_file_operations_with_checksum";
+        assertUpdate("DROP TABLE IF EXISTS " + tableName);
+        Path tableLocation = Files.createTempDirectory(tableName);
+        closeAfterClass(() -> deleteRecursively(tableLocation, ALLOW_INSECURE));
+        copyDirectoryContents(new File(Resources.getResource("deltalake/checksum").toURI()).toPath(), tableLocation);
+        getQueryRunner().execute("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')".formatted(tableName, tableLocation.toUri()));
+
+        assertFileSystemAccesses(
+                session,
+                "SELECT * FROM " + tableName,
+                ImmutableMultiset.<CacheOperation>builder()
+                        .add(new CacheOperation("Alluxio.readCached", "00000000000000000001.crc", 0, 825))
+                        .add(new CacheOperation("Alluxio.readExternalStream", "00000000000000000001.crc", 0, 825))
+                        .add(new CacheOperation("Alluxio.writeCache", "00000000000000000001.crc", 0, 825))
+                        .add(new CacheOperation("InputFile.newStream", "00000000000000000001.crc"))
+                        .add(new CacheOperation("InputFile.length", "00000000000000000001.crc"))
+                        .addCopies(new CacheOperation("InputFile.newStream", "_last_checkpoint"), 2)
+                        .add(new CacheOperation("Alluxio.readCached", "00000000000000000001.checkpoint.parquet", 0, 17389))
+                        .add(new CacheOperation("InputFile.length", "00000000000000000001.checkpoint.parquet"))
+                        .add(new CacheOperation("Alluxio.readCached", "data", 0, 475))
+                        .add(new CacheOperation("Input.readFully", "data", 0, 475))
+                        .add(new CacheOperation("Alluxio.writeCache", "data", 0, 475))
+                        .build());
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testCacheFileOperationsWithChecksumDisabled()
+            throws Exception
+    {
+        String catalog = getSession().getCatalog().orElseThrow();
+        Session session = Session.builder(getSession())
+                .setCatalogSessionProperty(catalog, "load_metadata_from_checksum_file", "false")
+                .build();
+
+        String tableName = "test_cache_file_operations_without_checksum";
+        assertUpdate("DROP TABLE IF EXISTS " + tableName);
+        Path tableLocation = Files.createTempDirectory(tableName);
+        closeAfterClass(() -> deleteRecursively(tableLocation, ALLOW_INSECURE));
+        copyDirectoryContents(new File(Resources.getResource("deltalake/checksum").toURI()).toPath(), tableLocation);
+        getQueryRunner().execute("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')".formatted(tableName, tableLocation.toUri()));
+
+        assertFileSystemAccesses(
+                session,
+                "SELECT * FROM " + tableName,
+                ImmutableMultiset.<CacheOperation>builder()
+                        .addCopies(new CacheOperation("Alluxio.readCached", "00000000000000000001.checkpoint.parquet", 0, 17389), 2)
+                        .addCopies(new CacheOperation("InputFile.length", "00000000000000000001.checkpoint.parquet"), 2)
+                        .add(new CacheOperation("InputFile.length", "00000000000000000002.json"))
+                        .add(new CacheOperation("InputFile.newStream", "_last_checkpoint"))
+                        .add(new CacheOperation("Alluxio.readCached", "data", 0, 475))
+                        .add(new CacheOperation("Input.readFully", "data", 0, 475))
+                        .add(new CacheOperation("Alluxio.writeCache", "data", 0, 475))
+                        .build());
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
     private void assertFileSystemAccesses(@Language("SQL") String query, Multiset<CacheOperation> expectedCacheAccesses)
+    {
+        assertFileSystemAccesses(getSession(), query, expectedCacheAccesses);
+    }
+
+    private void assertFileSystemAccesses(Session session, @Language("SQL") String query, Multiset<CacheOperation> expectedCacheAccesses)
     {
         assertUpdate("CALL system.flush_metadata_cache()");
         DistributedQueryRunner queryRunner = getDistributedQueryRunner();
-        queryRunner.executeWithPlan(queryRunner.getDefaultSession(), query);
+        queryRunner.executeWithPlan(session, query);
         assertMultisetsEqual(getCacheOperations(queryRunner), expectedCacheAccesses);
     }
 }

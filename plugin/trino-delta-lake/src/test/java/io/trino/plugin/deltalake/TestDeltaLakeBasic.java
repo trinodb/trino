@@ -51,6 +51,7 @@ import io.trino.spi.type.SqlDate;
 import io.trino.spi.type.SqlTimestamp;
 import io.trino.spi.type.TimeZoneKey;
 import io.trino.testing.AbstractTestQueryFramework;
+import io.trino.testing.MaterializedResult;
 import io.trino.testing.MaterializedRow;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingSession;
@@ -2045,6 +2046,83 @@ public class TestDeltaLakeBasic
     }
 
     /**
+     * @see deltalake.checksum
+     * @see deltalake.checksum_missing_latest
+     * @see deltalake.checksum_without_metadata
+     */
+    @Test
+    public void testLoadMetadataFromChecksumFileMatchesTransactionLog()
+            throws Exception
+    {
+        for (String fixture : ImmutableList.of(
+                "deltalake/checksum",
+                "deltalake/checksum_missing_latest",
+                "deltalake/checksum_without_metadata")) {
+            String tableName = "checksum_fixture_" + randomNameSuffix();
+            Path tableLocation = catalogDir.resolve(tableName);
+            copyDirectoryContents(Path.of(getResourceLocation(fixture).toURI()), tableLocation);
+            assertUpdate("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')".formatted(tableName, tableLocation.toUri()));
+
+            try {
+                ImmutableList<String> queries = ImmutableList.of(
+                        "DESCRIBE " + tableName,
+                        "SHOW CREATE TABLE " + tableName,
+                        "SELECT key, value FROM \"" + tableName + "$properties\" ORDER BY key");
+
+                for (String query : queries) {
+                    assertReadingMetadataAndProtocolFromChecksum(query);
+                }
+            }
+            finally {
+                assertQuerySucceeds("DROP TABLE " + tableName);
+            }
+        }
+    }
+
+    /**
+     * @see deltalake.checksum_invalid_json
+     * @see deltalake.checksum_trailing_json_content
+     * @see deltalake.checksum_invalid_json_mapping
+     */
+    @Test
+    public void testLoadMetadataFromChecksumFileFallsBackForMalformedChecksum()
+            throws Exception
+    {
+        ImmutableList<String> fixtures = ImmutableList.of(
+                "deltalake/checksum_invalid_json",
+                "deltalake/checksum_trailing_json_content",
+                "deltalake/checksum_invalid_json_mapping");
+
+        for (String fixture : fixtures) {
+            String tableName = "checksum_fixture_" + randomNameSuffix();
+            Path tableLocation = catalogDir.resolve(tableName);
+            copyDirectoryContents(Path.of(getResourceLocation(fixture).toURI()), tableLocation);
+            assertUpdate("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')".formatted(tableName, tableLocation.toUri()));
+
+            try {
+                ImmutableList<String> queries = ImmutableList.of(
+                        "DESCRIBE " + tableName,
+                        "SHOW CREATE TABLE " + tableName,
+                        "SELECT key, value FROM \"" + tableName + "$properties\" ORDER BY key");
+
+                for (String query : queries) {
+                    assertReadingMetadataAndProtocolFromChecksum(query);
+                }
+            }
+            finally {
+                assertQuerySucceeds("DROP TABLE " + tableName);
+            }
+        }
+    }
+
+    private void assertReadingMetadataAndProtocolFromChecksum(String sql)
+    {
+        MaterializedResult checksumEnabledResult = computeActual(loadMetadataFromChecksumFileSession(true), sql);
+        MaterializedResult checksumDisabledResult = computeActual(loadMetadataFromChecksumFileSession(false), sql);
+        assertThat(checksumEnabledResult).isEqualTo(checksumDisabledResult);
+    }
+
+    /**
      * @see deltalake.stats_with_minmax_nulls
      */
     @Test
@@ -3012,6 +3090,13 @@ public class TestDeltaLakeBasic
                 .filter(log -> log.getProtocol() != null)
                 .collect(onlyElement());
         return transactionLog.getProtocol();
+    }
+
+    private Session loadMetadataFromChecksumFileSession(boolean enabled)
+    {
+        return Session.builder(getSession())
+                .setCatalogSessionProperty(getSession().getCatalog().orElseThrow(), "load_metadata_from_checksum_file", Boolean.toString(enabled))
+                .build();
     }
 
     private String getTableLocation(String tableName)

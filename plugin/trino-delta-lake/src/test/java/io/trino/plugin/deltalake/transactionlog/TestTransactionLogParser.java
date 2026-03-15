@@ -17,10 +17,14 @@ package io.trino.plugin.deltalake.transactionlog;
 import io.trino.filesystem.TrinoFileSystem;
 import org.junit.jupiter.api.Test;
 
+import java.util.Optional;
+
 import static io.trino.hdfs.HdfsTestUtils.HDFS_FILE_SYSTEM_FACTORY;
 import static io.trino.plugin.deltalake.DeltaTestingConnectorSession.SESSION;
+import static io.trino.plugin.deltalake.transactionlog.TransactionLogParser.findLatestCommitVersionChecksumFileInfo;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogParser.getMandatoryCurrentVersion;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogParser.readPartitionTimestampWithZone;
+import static io.trino.plugin.deltalake.transactionlog.TransactionLogParser.readVersionChecksumFile;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestTransactionLogParser
@@ -59,5 +63,135 @@ public class TestTransactionLogParser
     {
         assertThat(readPartitionTimestampWithZone("1970-01-01T00:00:00.000000Z")).isEqualTo(0L);
         assertThat(readPartitionTimestampWithZone("1970-01-01T01:00:00.000000+01:00")).isEqualTo(0L);
+    }
+
+    /**
+     * @see deltalake.checksum
+     * @see deltalake.checksum_missing_latest
+     */
+    @Test
+    public void testFindLatestCommitVersionChecksumFileInfo()
+            throws Exception
+    {
+        TrinoFileSystem fileSystem = HDFS_FILE_SYSTEM_FACTORY.create(SESSION);
+
+        class ChecksumFileInfoAssertions
+        {
+            private final String tableLocation;
+
+            private ChecksumFileInfoAssertions(String tableLocation)
+            {
+                this.tableLocation = tableLocation;
+            }
+
+            private void assertResult(Optional<Long> startVersion, Optional<Long> endVersion, long expectedVersion, boolean expectedHasVersionChecksumFile)
+                    throws Exception
+            {
+                assertThat(findLatestCommitVersionChecksumFileInfo(fileSystem, tableLocation, startVersion, endVersion))
+                        .hasValue(new TransactionLogParser.CommitVersionChecksumFileInfo(expectedVersion, expectedHasVersionChecksumFile));
+            }
+
+            private void assertNoResult(Optional<Long> startVersion, Optional<Long> endVersion)
+                    throws Exception
+            {
+                assertThat(findLatestCommitVersionChecksumFileInfo(fileSystem, tableLocation, startVersion, endVersion)).isEmpty();
+            }
+        }
+
+        String checksumTableLocation = getClass().getClassLoader().getResource("deltalake/checksum").toURI().toString();
+        ChecksumFileInfoAssertions assertChecksumTable = new ChecksumFileInfoAssertions(checksumTableLocation);
+        assertChecksumTable.assertResult(Optional.empty(), Optional.empty(), 1L, true);
+        assertChecksumTable.assertNoResult(Optional.of(0L), Optional.of(0L));
+        assertChecksumTable.assertResult(Optional.of(0L), Optional.of(1L), 1L, true);
+        assertChecksumTable.assertNoResult(Optional.of(1L), Optional.of(1L));
+        assertChecksumTable.assertNoResult(Optional.of(1L), Optional.empty());
+        assertChecksumTable.assertResult(Optional.empty(), Optional.of(1L), 1L, true);
+        assertChecksumTable.assertNoResult(Optional.of(2L), Optional.empty());
+
+        String missingLatestChecksumTableLocation = getClass().getClassLoader().getResource("deltalake/checksum_missing_latest").toURI().toString();
+        ChecksumFileInfoAssertions assertMissingLatestChecksumTable = new ChecksumFileInfoAssertions(missingLatestChecksumTableLocation);
+        assertMissingLatestChecksumTable.assertResult(Optional.empty(), Optional.empty(), 1L, false);
+        assertMissingLatestChecksumTable.assertNoResult(Optional.of(0L), Optional.of(0L));
+        assertMissingLatestChecksumTable.assertResult(Optional.of(0L), Optional.of(1L), 1L, false);
+        assertMissingLatestChecksumTable.assertNoResult(Optional.of(1L), Optional.of(1L));
+        assertMissingLatestChecksumTable.assertNoResult(Optional.of(1L), Optional.empty());
+        assertMissingLatestChecksumTable.assertResult(Optional.empty(), Optional.of(0L), 0L, true);
+        assertMissingLatestChecksumTable.assertNoResult(Optional.of(2L), Optional.empty());
+    }
+
+    /**
+     * @see deltalake.checksum
+     */
+    @Test
+    public void testReadVersionChecksumFile()
+            throws Exception
+    {
+        TrinoFileSystem fileSystem = HDFS_FILE_SYSTEM_FACTORY.create(SESSION);
+        String tableLocation = getClass().getClassLoader().getResource("deltalake/checksum").toURI().toString();
+
+        DeltaLakeVersionChecksum checksum = readVersionChecksumFile(fileSystem, tableLocation, 1).orElseThrow();
+        assertThat(checksum.tableSizeBytes()).isEqualTo(475);
+        assertThat(checksum.numFiles()).isEqualTo(1);
+        assertThat(checksum.numMetadata()).isEqualTo(1);
+        assertThat(checksum.numProtocol()).isEqualTo(1);
+        assertThat(checksum.metadata()).isNotNull();
+        assertThat(checksum.metadata().getId()).isEqualTo("a953d1d0-a84e-4ca6-bb2a-ed181213a3f0");
+        assertThat(checksum.metadata().getLowercasePartitionColumns()).isEmpty();
+        assertThat(checksum.metadata().getConfiguration())
+                .containsEntry("delta.checkpointInterval", "1")
+                .hasSize(1);
+        assertThat(checksum.protocol()).isEqualTo(new ProtocolEntry(1, 2, Optional.empty(), Optional.empty()));
+    }
+
+    /**
+     * @see deltalake.checksum_missing_latest
+     */
+    @Test
+    public void testReadVersionChecksumFileMissingFile()
+            throws Exception
+    {
+        TrinoFileSystem fileSystem = HDFS_FILE_SYSTEM_FACTORY.create(SESSION);
+        String tableLocation = getClass().getClassLoader().getResource("deltalake/checksum_missing_latest").toURI().toString();
+
+        assertThat(readVersionChecksumFile(fileSystem, tableLocation, 1)).isEmpty();
+    }
+
+    /**
+     * @see deltalake.checksum_invalid_json
+     */
+    @Test
+    public void testReadVersionChecksumFileInvalidJson()
+            throws Exception
+    {
+        TrinoFileSystem fileSystem = HDFS_FILE_SYSTEM_FACTORY.create(SESSION);
+        String tableLocation = getClass().getClassLoader().getResource("deltalake/checksum_invalid_json").toURI().toString();
+
+        assertThat(readVersionChecksumFile(fileSystem, tableLocation, 1)).isEmpty();
+    }
+
+    /**
+     * @see deltalake.checksum_invalid_json_mapping
+     */
+    @Test
+    public void testReadVersionChecksumFileInvalidJsonMapping()
+            throws Exception
+    {
+        TrinoFileSystem fileSystem = HDFS_FILE_SYSTEM_FACTORY.create(SESSION);
+        String tableLocation = getClass().getClassLoader().getResource("deltalake/checksum_invalid_json_mapping").toURI().toString();
+
+        assertThat(readVersionChecksumFile(fileSystem, tableLocation, 1)).isEmpty();
+    }
+
+    /**
+     * @see deltalake.checksum_trailing_json_content
+     */
+    @Test
+    public void testReadVersionChecksumFileJsonWithTrailingContent()
+            throws Exception
+    {
+        TrinoFileSystem fileSystem = HDFS_FILE_SYSTEM_FACTORY.create(SESSION);
+        String tableLocation = getClass().getClassLoader().getResource("deltalake/checksum_trailing_json_content").toURI().toString();
+
+        assertThat(readVersionChecksumFile(fileSystem, tableLocation, 1)).isEmpty();
     }
 }
