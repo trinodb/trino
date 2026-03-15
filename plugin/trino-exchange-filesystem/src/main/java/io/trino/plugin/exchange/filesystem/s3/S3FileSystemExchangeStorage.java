@@ -42,6 +42,7 @@ import io.airlift.slice.Slices;
 import io.airlift.units.Duration;
 import io.trino.annotation.NotThreadSafe;
 import io.trino.cache.NonEvictableLoadingCache;
+import io.trino.plugin.exchange.filesystem.CommitManifest;
 import io.trino.plugin.exchange.filesystem.ExchangeSourceFile;
 import io.trino.plugin.exchange.filesystem.ExchangeStorageReader;
 import io.trino.plugin.exchange.filesystem.ExchangeStorageWriter;
@@ -57,7 +58,9 @@ import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
 import software.amazon.awssdk.auth.credentials.DefaultCredentialsProvider;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 import software.amazon.awssdk.awscore.endpoint.AwsClientEndpointProvider;
+import software.amazon.awssdk.core.BytesWrapper;
 import software.amazon.awssdk.core.async.AsyncRequestBody;
+import software.amazon.awssdk.core.async.AsyncResponseTransformer;
 import software.amazon.awssdk.core.checksums.RequestChecksumCalculation;
 import software.amazon.awssdk.core.checksums.ResponseChecksumValidation;
 import software.amazon.awssdk.core.client.config.ClientOverrideConfiguration;
@@ -96,6 +99,7 @@ import software.amazon.awssdk.services.sts.model.AssumeRoleRequest;
 import java.io.ByteArrayInputStream;
 import java.io.FileInputStream;
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
@@ -106,6 +110,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Queue;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.function.Function;
@@ -282,30 +287,39 @@ public class S3FileSystemExchangeStorage
     }
 
     @Override
+    public ListenableFuture<Void> writeMarkerFile(URI directory, CommitManifest markerFile)
+    {
+        URI markerFileUri = directory.resolve(CommitManifest.FILE_NAME);
+        String bucketName = getBucketName(markerFileUri);
+        String key = keyFromUri(markerFileUri);
+        byte[] data = markerFile.serialize().getBytes(StandardCharsets.UTF_8);
+
+        PutObjectRequest request = PutObjectRequest.builder()
+                .bucket(bucketName)
+                .key(key)
+                .contentLength((long) data.length)
+                .build();
+
+        return translateFailures(toListenableFuture(s3Clients.getUnchecked(bucketName).putObject(request, AsyncRequestBody.fromBytes(data))));
+    }
+
+    @Override
     public ListenableFuture<Void> deleteRecursively(List<URI> directories)
     {
         if (compatibilityMode == GCP) {
             return deleteRecursivelyGcp(directories);
         }
 
-        ImmutableMultimap.Builder<String, ListenableFuture<List<String>>> bucketToListObjectsFuturesBuilder = ImmutableMultimap.builder();
+        ImmutableMultimap.Builder<String, ListenableFuture<List<String>>> bucketToKeysFuturesBuilder = ImmutableMultimap.builder();
         for (URI dir : directories) {
-            ImmutableList.Builder<String> keys = ImmutableList.builder();
-            ListenableFuture<List<String>> listObjectsFuture = Futures.transform(
-                    toListenableFuture(listObjectsRecursively(dir)
-                            .subscribe(listObjectsV2Response -> listObjectsV2Response.contents().stream()
-                                    .map(S3Object::key)
-                                    .forEach(keys::add))),
-                    _ -> keys.build(),
-                    directExecutor());
-            bucketToListObjectsFuturesBuilder.put(getBucketName(dir), listObjectsFuture);
+            bucketToKeysFuturesBuilder.put(getBucketName(dir), listKeysRecursively(dir));
         }
-        Multimap<String, ListenableFuture<List<String>>> bucketToListObjectsFutures = bucketToListObjectsFuturesBuilder.build();
+        Multimap<String, ListenableFuture<List<String>>> bucketToKeysFutures = bucketToKeysFuturesBuilder.build();
 
         ImmutableList.Builder<ListenableFuture<List<DeleteObjectsResponse>>> deleteObjectsFutures = ImmutableList.builder();
-        for (String bucketName : bucketToListObjectsFutures.keySet()) {
+        for (String bucketName : bucketToKeysFutures.keySet()) {
             deleteObjectsFutures.add(Futures.transformAsync(
-                    Futures.allAsList(bucketToListObjectsFutures.get(bucketName)),
+                    Futures.allAsList(bucketToKeysFutures.get(bucketName)),
                     keys -> deleteObjects(
                             bucketName,
                             keys.stream()
@@ -314,6 +328,68 @@ public class S3FileSystemExchangeStorage
                     directExecutor()));
         }
         return translateFailures(Futures.allAsList(deleteObjectsFutures.build()));
+    }
+
+    @Override
+    public ListenableFuture<Void> deleteFiles(List<URI> files)
+    {
+        ImmutableMultimap.Builder<String, String> bucketToKeysBuilder = ImmutableMultimap.builder();
+        for (URI file : files) {
+            bucketToKeysBuilder.put(getBucketName(file), keyFromUri(file));
+        }
+        Multimap<String, String> bucketToKeys = bucketToKeysBuilder.build();
+
+        ImmutableList.Builder<ListenableFuture<List<DeleteObjectsResponse>>> deleteObjectsFutures = ImmutableList.builder();
+        for (String bucketName : bucketToKeys.keySet()) {
+            deleteObjectsFutures.add(deleteObjects(bucketName, ImmutableList.copyOf(bucketToKeys.get(bucketName))));
+        }
+        return translateFailures(Futures.allAsList(deleteObjectsFutures.build()));
+    }
+
+    private static String getCommittedMarkerKey(URI dir)
+    {
+        String dirKey = keyFromUri(dir);
+        if (dirKey.endsWith(CommitManifest.FILE_NAME)) {
+            return dirKey;
+        }
+        return dirKey + PATH_SEPARATOR + CommitManifest.FILE_NAME;
+    }
+
+    @Override
+    public ListenableFuture<CommitManifest> readMarkerFile(URI uri)
+    {
+        String bucketName = getBucketName(uri);
+        String committedMarkerKey = getCommittedMarkerKey(uri);
+        return Futures.transform(
+                toListenableFuture(s3Clients.getUnchecked(bucketName)
+                        .getObject(
+                                GetObjectRequest.builder().bucket(bucketName).key(committedMarkerKey).build(),
+                                AsyncResponseTransformer.toBytes())
+                        .thenApply(BytesWrapper::asByteArray)
+                        .exceptionally(throwable -> {
+                            // Unwrap CompletionException so that NoSuchKeyException can be caught by callers
+                            Throwable cause = throwable instanceof CompletionException ? throwable.getCause() : throwable;
+                            throw (cause instanceof RuntimeException runtimeException) ? runtimeException : new RuntimeException(cause);
+                        })),
+                data -> {
+                    if (data == null || data.length == 0) {
+                        throw new UncheckedIOException(new IOException("Committed marker file is empty or missing: " + committedMarkerKey));
+                    }
+                    return CommitManifest.deserialize(data);
+                },
+                directExecutor());
+    }
+
+    private ListenableFuture<List<String>> listKeysRecursively(URI dir)
+    {
+        ImmutableList.Builder<String> keys = ImmutableList.builder();
+        return Futures.transform(
+                toListenableFuture(listObjectsRecursively(dir)
+                        .subscribe(listObjectsV2Response -> listObjectsV2Response.contents().stream()
+                                .map(S3Object::key)
+                                .forEach(keys::add))),
+                _ -> keys.build(),
+                directExecutor());
     }
 
     private ListenableFuture<Void> deleteRecursivelyGcp(List<URI> directories)
@@ -658,6 +734,7 @@ public class S3FileSystemExchangeStorage
                 fileOffset = 0;
             }
 
+            checkArgument(currentFile.getFileSize() >= 0, "file size must not be negative: %s", currentFile.getFileUri());
             byte[] buffer = new byte[bufferSize];
             int bufferFill = 0;
             if (sliceInput != null) {
@@ -750,6 +827,7 @@ public class S3FileSystemExchangeStorage
         private final S3SseContext s3SseContext;
 
         private int currentPartNumber;
+        private long size;
         private ListenableFuture<Void> directUploadFuture;
         private ListenableFuture<String> multiPartUploadIdFuture;
         private final List<ListenableFuture<CompletedPart>> multiPartUploadFutures = new ArrayList<>();
@@ -782,6 +860,7 @@ public class S3FileSystemExchangeStorage
                 return immediateVoidFuture();
             }
 
+            size += slice.length();
             // Skip multipart upload if there would only be one part
             if (slice.length() < partSize && multiPartUploadIdFuture == null) {
                 PutObjectRequest putObjectRequest = PutObjectRequest.builder()
@@ -868,6 +947,12 @@ public class S3FileSystemExchangeStorage
         public long getRetainedSize()
         {
             return INSTANCE_SIZE;
+        }
+
+        @Override
+        public FileStatus getFileStatus()
+        {
+            return new FileStatus("s3://" + bucketName + PATH_SEPARATOR + key, size);
         }
 
         private ListenableFuture<CreateMultipartUploadResponse> createMultipartUpload()
