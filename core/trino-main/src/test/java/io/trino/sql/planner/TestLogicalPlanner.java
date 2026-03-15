@@ -802,9 +802,9 @@ public class TestLogicalPlanner
                         "SELECT " +
                                 "(SELECT 1 FROM orders WHERE orderkey = x) + " +
                                 "(SELECT 1 FROM orders WHERE orderkey = t.x) + " +
-                                "(SELECT 1 FROM orders WHERE orderkey = T.x) + " +
+                                "(SELECT 1 FROM orders WHERE orderkey = t.x) + " +
                                 "(SELECT 1 FROM orders WHERE orderkey = t.X) + " +
-                                "(SELECT 1 FROM orders WHERE orderkey = T.X)" +
+                                "(SELECT 1 FROM orders WHERE orderkey = t.X)" +
                                 "FROM (VALUES 1, 2) t(x)"),
                 JoinNode.class::isInstance)).isEqualTo(1);
     }

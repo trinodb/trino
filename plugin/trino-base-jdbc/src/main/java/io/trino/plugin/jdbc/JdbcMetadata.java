@@ -35,12 +35,16 @@ public interface JdbcMetadata
     static List<JdbcColumnHandle> getColumns(ConnectorSession session, JdbcClient jdbcClient, JdbcTableHandle tableHandle)
     {
         if (tableHandle.getColumns().isPresent()) {
+            System.out.println("JdbcMetadata.getColumns() 1 columns: " + tableHandle.getColumns().get().stream().map(JdbcColumnHandle::getColumnName).toList());
             return tableHandle.getColumns().get();
         }
+        System.out.println("JdbcMetadata.getColumns() 2");
         checkArgument(tableHandle.isNamedRelation(), "Cannot get columns for %s", tableHandle);
         verify(tableHandle.getAuthorization().isEmpty(), "Unexpected authorization is required for table: %s", tableHandle);
         SchemaTableName schemaTableName = tableHandle.getRequiredNamedRelation().getSchemaTableName();
         RemoteTableName remoteTableName = tableHandle.getRequiredNamedRelation().getRemoteTableName();
-        return jdbcClient.getColumns(session, schemaTableName, remoteTableName);
+        List<JdbcColumnHandle> columns = jdbcClient.getColumns(session, schemaTableName, remoteTableName);
+        System.out.println("JdbcMetadata.getColumns() 3 columns: " + columns.stream().map(JdbcColumnHandle::getColumnName).toList());
+        return columns;
     }
 }

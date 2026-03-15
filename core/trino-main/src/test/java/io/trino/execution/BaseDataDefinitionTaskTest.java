@@ -24,6 +24,7 @@ import io.trino.connector.TestingColumnHandle;
 import io.trino.exchange.ExchangeMetricsCollector;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.AbstractMockMetadata;
+import io.trino.metadata.Canonicalizer;
 import io.trino.metadata.ColumnPropertyManager;
 import io.trino.metadata.MaterializedViewDefinition;
 import io.trino.metadata.MaterializedViewPropertyManager;
@@ -760,6 +761,24 @@ public abstract class BaseDataDefinitionTaskTest
             MockConnectorTableMetadata table = tables.get(tableName.asSchemaTableName());
             requireNonNull(table, "table is null");
             return table.branches().contains(branch);
+        }
+
+        @Override
+        public Canonicalizer getCanonicalizer(Session session)
+        {
+            return Canonicalizer.LEGACY_CANONICALIZER;
+        }
+
+        @Override
+        public Canonicalizer getCanonicalizer(Session session, String catalogName)
+        {
+            return Canonicalizer.LOWERCASE_CANONICALIZER;
+        }
+
+        @Override
+        public Canonicalizer getCanonicalizer(Session session, Optional<String> catalogName)
+        {
+            return Canonicalizer.LOWERCASE_CANONICALIZER;
         }
 
         private static ColumnMetadata withComment(ColumnMetadata tableColumn, Optional<String> comment)

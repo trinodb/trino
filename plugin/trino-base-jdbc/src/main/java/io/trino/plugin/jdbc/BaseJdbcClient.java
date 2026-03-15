@@ -915,6 +915,7 @@ public abstract class BaseJdbcClient
         ImmutableList.Builder<String> columnList = ImmutableList.builderWithExpectedSize(columns.size() + (pageSinkIdColumn.isPresent() ? 1 : 0));
 
         for (ColumnMetadata column : columns) {
+            System.out.println("BaseJdbcClient.createTable() column: " + column.getName());
             String columnName = identifierMapping.toRemoteColumnName(remoteIdentifiers, column.getName());
             verifyColumnName(connection.getMetaData(), columnName);
             columnNames.add(columnName);
@@ -932,6 +933,7 @@ public abstract class BaseJdbcClient
 
         RemoteTableName remoteTableName = new RemoteTableName(Optional.ofNullable(catalog), Optional.ofNullable(remoteSchema), remoteTargetTableName);
         for (String sql : createTableSqls(remoteTableName, columnList.build(), tableMetadata)) {
+            System.out.println("BaseJdbcClient.createTable() sql: " + sql);
             execute(session, connection, sql);
         }
 
@@ -1568,7 +1570,9 @@ public abstract class BaseJdbcClient
     protected void createSchema(ConnectorSession session, Connection connection, String remoteSchemaName)
             throws SQLException
     {
-        execute(session, connection, "CREATE SCHEMA " + quoted(remoteSchemaName));
+        String sql = "CREATE SCHEMA " + quoted(remoteSchemaName);
+        System.out.println("BaseJdbcClient.createSchema() sql: " + sql);
+        execute(session, connection, sql);
     }
 
     @Override

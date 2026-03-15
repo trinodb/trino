@@ -67,7 +67,6 @@ import static io.trino.spi.type.TimestampWithTimeZoneType.createTimestampWithTim
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static java.util.Collections.emptyIterator;
 import static java.util.Comparator.comparing;
-import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 import static javax.management.ObjectName.WILDCARD;
@@ -135,9 +134,9 @@ public class JmxMetadata
     private JmxTableHandle getJmxTableHandle(SchemaTableName tableName)
     {
         try {
-            String objectNamePattern = toPattern(tableName.getTableName().toLowerCase(ENGLISH));
+            String objectNamePattern = toPattern(tableName.getTableName());
             List<ObjectName> objectNames = mbeanServer.queryNames(WILDCARD, null).stream()
-                    .filter(name -> name.getCanonicalName().toLowerCase(ENGLISH).matches(objectNamePattern))
+                    .filter(name -> name.getCanonicalName().matches(objectNamePattern))
                     .collect(toImmutableList());
             if (objectNames.isEmpty()) {
                 return null;
@@ -168,6 +167,8 @@ public class JmxMetadata
     public static String toPattern(String tableName)
     {
         try {
+            System.out.println("JmxMetadata.toPattern() table: " + tableName);
+            System.out.println("JmxMetadata.toPattern() CanonicalName: " + new ObjectName(tableName).getCanonicalName());
             if (!tableName.contains("*")) {
                 return Pattern.quote(new ObjectName(tableName).getCanonicalName());
             }
@@ -218,7 +219,7 @@ public class JmxMetadata
         ImmutableList.Builder<SchemaTableName> tableNames = ImmutableList.builder();
         for (ObjectName objectName : mbeanServer.queryNames(WILDCARD, null)) {
             // todo remove lower case when Trino supports mixed case names
-            tableNames.add(new SchemaTableName(JMX_SCHEMA_NAME, objectName.getCanonicalName().toLowerCase(ENGLISH)));
+            tableNames.add(new SchemaTableName(JMX_SCHEMA_NAME, objectName.getCanonicalName()));
         }
         return tableNames.build();
     }
@@ -227,7 +228,7 @@ public class JmxMetadata
     public Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         JmxTableHandle jmxTableHandle = (JmxTableHandle) tableHandle;
-        return ImmutableMap.copyOf(Maps.uniqueIndex(jmxTableHandle.columnHandles(), column -> column.columnName().toLowerCase(ENGLISH)));
+        return ImmutableMap.copyOf(Maps.uniqueIndex(jmxTableHandle.columnHandles(), column -> column.columnName()));
     }
 
     @Override

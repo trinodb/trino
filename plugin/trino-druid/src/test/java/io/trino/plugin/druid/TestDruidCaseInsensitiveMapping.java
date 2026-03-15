@@ -98,7 +98,7 @@ public class TestDruidCaseInsensitiveMapping
                 .row("shippriority", "bigint", "", "") // Druid doesn't support int type
                 .row("totalprice", "double", "", "")
                 .build();
-        MaterializedResult actualColumns = computeActual("DESCRIBE MiXeD_CaSe");
+        MaterializedResult actualColumns = computeActual("DESCRIBE \"MiXeD_CaSe\"");
         assertThat(actualColumns).isEqualTo(expectedColumns);
         assertQuery("SELECT COUNT(1) FROM druid.druid.mixed_case", "VALUES 10");
         assertQuery("SELECT COUNT(1) FROM druid.druid.MIXED_CASE", "VALUES 10");

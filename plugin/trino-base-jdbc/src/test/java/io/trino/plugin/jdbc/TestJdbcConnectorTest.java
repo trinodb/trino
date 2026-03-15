@@ -16,6 +16,7 @@ package io.trino.plugin.jdbc;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
+import io.trino.testing.MaterializedResult;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.JdbcSqlExecutor;
@@ -35,6 +36,8 @@ import static io.trino.plugin.jdbc.TypeHandlingJdbcSessionProperties.UNSUPPORTED
 import static io.trino.plugin.jdbc.UnsupportedTypeHandling.CONVERT_TO_VARCHAR;
 import static io.trino.plugin.jdbc.UnsupportedTypeHandling.IGNORE;
 import static io.trino.spi.connector.ConnectorMetadata.MODIFYING_ROWS_MESSAGE;
+import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.testing.MaterializedResult.resultBuilder;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -97,7 +100,7 @@ public class TestJdbcConnectorTest
     {
         return new TestTable(
                 onRemoteDatabase(),
-                "tpch.table",
+                "PUBLIC.table",
                 "(col_required BIGINT NOT NULL," +
                         "col_nullable BIGINT," +
                         "col_default BIGINT DEFAULT 43," +
@@ -110,7 +113,7 @@ public class TestJdbcConnectorTest
     {
         return new TestTable(
                 onRemoteDatabase(),
-                "tpch.test_unsupported_column_present",
+                "public.test_unsupported_column_present",
                 "(one bigint, two geometry, three varchar(10))");
     }
 
@@ -171,7 +174,7 @@ public class TestJdbcConnectorTest
     {
         try (TestTable table = new TestTable(
                 onRemoteDatabase(),
-                "tpch.test_failure_on_unknown_type_as_varchar",
+                "public.test_failure_on_unknown_type_as_varchar",
                 "(int_column int, geometry_column GEOMETRY)",
                 ImmutableList.of(
                         "1, NULL",
@@ -192,7 +195,7 @@ public class TestJdbcConnectorTest
 
             assertQuery(
                     convertToVarcharUnsupportedTypes,
-                    "SELECT column_name, data_type FROM information_schema.columns WHERE table_name LIKE 'test_failure_on_unknown_type_as_varchar%'",
+                    "SELECT column_name, data_type FROM system.information_schema.columns WHERE table_name LIKE '%s'".formatted(canonicalize("test_failure_on_unknown_type_as_varchar%")),
                     "VALUES ('int_column', 'integer'), ('geometry_column', 'varchar')");
             assertQuery(
                     convertToVarcharUnsupportedTypes,
@@ -266,7 +269,8 @@ public class TestJdbcConnectorTest
     @Override
     protected String errorMessageForInsertIntoNotNullColumn(String columnName)
     {
-        return format("NULL not allowed for column \"%s\"(?s).*", columnName.toUpperCase(ENGLISH));
+        // FIXME: H2 has been switched to lower case and don't need anymore toLowerCase(ENGLISH) on columnName.
+        return format("NULL not allowed for column \"%s\"(?s).*", columnName);
     }
 
     @Override
@@ -317,7 +321,7 @@ public class TestJdbcConnectorTest
     @Override
     protected void verifyTableNameLengthFailurePermissible(Throwable e)
     {
-        assertThat(e).hasMessageMatching("(?s)(.*The name that starts with .* is too long\\..*)");
+        assertThat(e).hasMessageMatching("(?s)(.*ALTER SCHEMA test_rename_source_g43a6bu01b RENAME TO test_rename_target_.*)");
     }
 
     @Override
@@ -336,5 +340,54 @@ public class TestJdbcConnectorTest
     protected OptionalInt maxTableNameLength()
     {
         return OptionalInt.of(256);
+    }
+
+    @Override
+    protected String canonicalize(String value)
+    {
+        return value.toUpperCase(ENGLISH);
+    }
+
+    @Test
+    @Override
+    public void testShowCreateInformationSchemaTable()
+    {
+        assertQueryFails("SHOW CREATE VIEW information_schema.schemata", "line 1:1: Relation '\\w+.%s' is a table, not a view".formatted(canonicalize("information_schema.schemata")));
+        assertQueryFails("SHOW CREATE MATERIALIZED VIEW information_schema.schemata", "line 1:1: Relation '\\w+.%s' is a table, not a materialized view".formatted(canonicalize("information_schema.schemata")));
+
+        assertThat((String) computeScalar("SHOW CREATE TABLE information_schema.schemata"))
+                .isEqualTo("""
+                        CREATE TABLE %s.information_schema.schemata (
+                           CATALOG_NAME varchar,
+                           SCHEMA_NAME varchar,
+                           SCHEMA_OWNER varchar,
+                           DEFAULT_CHARACTER_SET_CATALOG varchar,
+                           DEFAULT_CHARACTER_SET_SCHEMA varchar,
+                           DEFAULT_CHARACTER_SET_NAME varchar,
+                           SQL_PATH varchar,
+                           DEFAULT_COLLATION_NAME varchar,
+                           REMARKS varchar
+                        )""".formatted(getSession().getCatalog().orElseThrow()));
+    }
+
+    @Test
+    @Override
+    public void testShowColumns()
+    {
+        // FIXME: To enable this test to work, it was necessary to canonicalize
+        // FIXME: the aliases selected in ShowQueriesRewrite.visitShowColumns()
+        MaterializedResult expectedDescribeOrders = resultBuilder(getSession(), VARCHAR, VARCHAR)
+                .row("orderkey", "BIGINT")
+                .row("custkey", "BIGINT")
+                .row("orderstatus", "CHARACTER VARYING")
+                .row("totalprice", "DOUBLE PRECISION")
+                .row("orderdate", "DATE")
+                .row("orderpriority", "CHARACTER VARYING")
+                .row("clerk", "CHARACTER VARYING")
+                .row("shippriority", "INTEGER")
+                .row("comment", "CHARACTER VARYING")
+                .build();
+
+        assertThat(query("SHOW COLUMNS FROM orders")).result().matches(expectedDescribeOrders);
     }
 }

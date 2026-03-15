@@ -79,13 +79,13 @@ public class TestJdbcPageSourceProvider
     {
         database = new TestingDatabase();
         jdbcClient = database.getJdbcClient();
-        table = database.getTableHandle(SESSION, new SchemaTableName("example", "numbers"));
+        table = database.getTableHandle(SESSION, new SchemaTableName("EXAMPLE", "NUMBERS"));
         split = database.getSplit(SESSION, table);
 
         Map<String, JdbcColumnHandle> columns = database.getColumnHandles(SESSION, table);
-        textColumn = columns.get("text");
-        textShortColumn = columns.get("text_short");
-        valueColumn = columns.get("value");
+        textColumn = columns.get("TEXT");
+        textShortColumn = columns.get("TEXT_SHORT");
+        valueColumn = columns.get("VALUE");
 
         executor = newDirectExecutorService();
     }

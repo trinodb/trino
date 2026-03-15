@@ -2718,7 +2718,7 @@ public class TestAnalyzer
     {
         // WITH table name is referenced in the base relation of recursion
         assertFails("WITH RECURSIVE t(n) AS (" +
-                "          SELECT 1 FROM T" +
+                "          SELECT 1 FROM t" +
                 "          UNION ALL" +
                 "          SELECT n + 2 FROM t WHERE n < 6" +
                 "          )" +
@@ -2738,7 +2738,7 @@ public class TestAnalyzer
         assertFails("WITH RECURSIVE t(n) AS (" +
                 "          SELECT 1" +
                 "          UNION ALL" +
-                "          TABLE T" +
+                "          TABLE t" +
                 "          )" +
                 "          SELECT * from t")
                 .hasErrorCode(INVALID_RECURSIVE_REFERENCE);
@@ -3451,7 +3451,7 @@ public class TestAnalyzer
                 .hasLocation(1, 19);
         assertFails("CREATE TABLE test(abc, AbC) AS SELECT 1, 2")
                 .hasErrorCode(DUPLICATE_COLUMN_NAME)
-                .hasMessage("line 1:24: Column name 'AbC' specified more than once")
+                .hasMessage("line 1:24: Column name 'abc' specified more than once")
                 .hasLocation(1, 24);
         assertFails("CREATE TABLE test(x) AS SELECT null")
                 .hasErrorCode(COLUMN_TYPE_UNKNOWN)
@@ -4417,19 +4417,19 @@ public class TestAnalyzer
                 "                   PATTERN (A B+) " +
                 "                   DEFINE B AS true " +
                 "                 ) AS M";
-        assertFails(format(query, "x, X, y"))
+        assertFails(format(query, "X, X, y"))
                 .hasErrorCode(AMBIGUOUS_NAME)
                 .hasMessage("line 1:25: ambiguous column: X in row pattern input relation");
 
         // TODO This should not fail according to SQL identifier semantics.
         //  Fix column name resolution so that fields contain canonical name.
-        assertFails(format(query, "\"x\", \"X\", y"))
+        assertFails(format(query, "\"X\", \"X\", y"))
                 .hasErrorCode(AMBIGUOUS_NAME)
                 .hasMessage("line 1:25: ambiguous column: X in row pattern input relation");
 
-        assertFails(format(query, "x, \"X\", y"))
+        assertFails(format(query, "x, x, y"))
                 .hasErrorCode(AMBIGUOUS_NAME)
-                .hasMessage("line 1:25: ambiguous column: X in row pattern input relation");
+                .hasMessage("line 1:25: ambiguous column: x in row pattern input relation");
 
         // using original column names from input table
         analyze("SELECT a " +
@@ -4503,17 +4503,17 @@ public class TestAnalyzer
         // input table name is not visible in SELECT clause when output name is not specified
         assertFails(format(query, "Ticker.Measure", ""))
                 .hasErrorCode(COLUMN_NOT_FOUND)
-                .hasMessage("line 1:8: Column 'ticker.measure' cannot be resolved");
+                .hasMessage("line 1:8: Column 'Ticker.Measure' cannot be resolved");
         assertFails(format(query, "Ticker.*", ""))
                 .hasErrorCode(TABLE_NOT_FOUND)
-                .hasMessage("line 1:8: Unable to resolve reference ticker");
+                .hasMessage("line 1:8: Unable to resolve reference Ticker");
         assertFails(format(query, "Ticker.y", ""))
                 .hasErrorCode(COLUMN_NOT_FOUND)
-                .hasMessage("line 1:8: Column 'ticker.y' cannot be resolved");
+                .hasMessage("line 1:8: Column 'Ticker.y' cannot be resolved");
         // input table name is not visible in SELECT clause when output name is specified
         assertFails(format(query, "Ticker.Measure", "AS M"))
                 .hasErrorCode(COLUMN_NOT_FOUND)
-                .hasMessage("line 1:8: Column 'ticker.measure' cannot be resolved");
+                .hasMessage("line 1:8: Column 'Ticker.Measure' cannot be resolved");
 
         // input table name is visible in PARTITION BY and ORDER BY clauses
         analyze("SELECT * " +
@@ -4538,13 +4538,13 @@ public class TestAnalyzer
 
         assertFails(format(query, "A.Ticker.x AS Measure", "B AS true"))
                 .hasErrorCode(COLUMN_NOT_FOUND)
-                .hasMessage("line 1:164: Column ticker.x prefixed with label A cannot be resolved");
+                .hasMessage("line 1:164: Column Ticker.x prefixed with label A cannot be resolved");
         assertFails(format(query, "Ticker.A.x AS Measure", "B AS true"))
                 .hasErrorCode(COLUMN_NOT_FOUND)
-                .hasMessage("line 1:164: Column 'ticker.a.x' cannot be resolved");
+                .hasMessage("line 1:164: Column 'Ticker.A.x' cannot be resolved");
         assertFails(format(query, "1 AS Measure", "B AS Ticker.x > 0"))
                 .hasErrorCode(COLUMN_NOT_FOUND)
-                .hasMessage("line 1:242: Column 'ticker.x' cannot be resolved");
+                .hasMessage("line 1:242: Column 'Ticker.x' cannot be resolved");
 
         // for non-aliased input relation, the same rules apply to its original name
         analyze("SELECT * " +
@@ -4561,7 +4561,7 @@ public class TestAnalyzer
                 .hasMessage("line 1:164: Column t1.x prefixed with label A cannot be resolved");
         assertFails(format(query, "t1.A.x AS Measure", "B AS true"))
                 .hasErrorCode(COLUMN_NOT_FOUND)
-                .hasMessage("line 1:164: Column 't1.a.x' cannot be resolved");
+                .hasMessage("line 1:164: Column 't1.A.x' cannot be resolved");
         assertFails(format(query, "1 AS Measure", "B AS t1.x > 0"))
                 .hasErrorCode(COLUMN_NOT_FOUND)
                 .hasMessage("line 1:242: Column 't1.x' cannot be resolved");
@@ -4587,7 +4587,7 @@ public class TestAnalyzer
 
         assertFails(format(query, "M.Measure", "AS M (partition, renamed)"))
                 .hasErrorCode(COLUMN_NOT_FOUND)
-                .hasMessage("line 1:8: Column 'm.measure' cannot be resolved");
+                .hasMessage("line 1:8: Column 'M.Measure' cannot be resolved");
 
         analyze(format(query, "M.renamed", "AS M (partition, renamed)"));
     }
@@ -5187,7 +5187,7 @@ public class TestAnalyzer
                 "                   DEFINE B AS true " +
                 "                 ) ")
                 .hasErrorCode(COLUMN_NOT_FOUND)
-                .hasMessage("line 1:112: Column 'a.x' cannot be resolved");
+                .hasMessage("line 1:112: Column 'A.x' cannot be resolved");
 
         assertFails("SELECT * " +
                 "          FROM (VALUES 1) t(x) " +
@@ -5197,7 +5197,7 @@ public class TestAnalyzer
                 "                   DEFINE B AS (SELECT A.x > 5) " +
                 "                 ) ")
                 .hasErrorCode(COLUMN_NOT_FOUND)
-                .hasMessage("line 1:184: Column 'a.x' cannot be resolved");
+                .hasMessage("line 1:184: Column 'A.x' cannot be resolved");
 
         // subqueries must not use outer scope references (in this case, reference to row pattern input table)
         assertFails("SELECT * " +
@@ -5243,7 +5243,7 @@ public class TestAnalyzer
                 "                   DEFINE B AS LAST(x) in (SELECT 1)" +
                 "                 ) ")
                 .hasErrorCode(NOT_SUPPORTED)
-                .hasMessage("line 1:176: IN-PREDICATE with last function is not yet supported");
+                .hasMessage("line 1:176: IN-PREDICATE with LAST function is not yet supported");
 
         // value must not use CLASSIFIER()
         assertFails("SELECT * " +
@@ -5254,7 +5254,7 @@ public class TestAnalyzer
                 "                   DEFINE B AS CLASSIFIER() in (SELECT 1)" +
                 "                 ) ")
                 .hasErrorCode(NOT_SUPPORTED)
-                .hasMessage("line 1:176: IN-PREDICATE with classifier function is not yet supported");
+                .hasMessage("line 1:176: IN-PREDICATE with CLASSIFIER function is not yet supported");
 
         // value must not use MATCH_NUMBER()
         assertFails("SELECT * " +
@@ -5265,7 +5265,7 @@ public class TestAnalyzer
                 "                   DEFINE B AS MATCH_NUMBER() in (SELECT 1)" +
                 "                 ) ")
                 .hasErrorCode(NOT_SUPPORTED)
-                .hasMessage("line 1:176: IN-PREDICATE with match_number function is not yet supported");
+                .hasMessage("line 1:176: IN-PREDICATE with MATCH_NUMBER function is not yet supported");
     }
 
     @Test
@@ -5413,15 +5413,15 @@ public class TestAnalyzer
 
         assertFails(format(query, "LAST(Tradeday) FILTER (WHERE true)", define))
                 .hasErrorCode(INVALID_PATTERN_RECOGNITION_FUNCTION)
-                .hasMessage("line 1:195: Cannot use FILTER with last pattern recognition function");
+                .hasMessage("line 1:195: Cannot use FILTER with LAST pattern recognition function");
 
         assertFails(format(query, "LAST(Tradeday ORDER BY Tradeday)", define))
                 .hasErrorCode(INVALID_PATTERN_RECOGNITION_FUNCTION)
-                .hasMessage("line 1:195: Cannot use ORDER BY with last pattern recognition function");
+                .hasMessage("line 1:195: Cannot use ORDER BY with LAST pattern recognition function");
 
         assertFails(format(query, "LAST(DISTINCT Tradeday)", define))
                 .hasErrorCode(INVALID_PATTERN_RECOGNITION_FUNCTION)
-                .hasMessage("line 1:195: Cannot use DISTINCT with last pattern recognition function");
+                .hasMessage("line 1:195: Cannot use DISTINCT with LAST pattern recognition function");
 
         // test illegal clauses in DEFINE
         String measure = "true";
@@ -5431,40 +5431,40 @@ public class TestAnalyzer
 
         assertFails(format(query, measure, "CLASSIFIER(Tradeday) FILTER (WHERE true) > 0"))
                 .hasErrorCode(INVALID_PATTERN_RECOGNITION_FUNCTION)
-                .hasMessage("line 1:313: Cannot use FILTER with classifier pattern recognition function");
+                .hasMessage("line 1:313: Cannot use FILTER with CLASSIFIER pattern recognition function");
 
         assertFails(format(query, measure, "CLASSIFIER(Tradeday ORDER BY Tradeday) > 0"))
                 .hasErrorCode(INVALID_PATTERN_RECOGNITION_FUNCTION)
-                .hasMessage("line 1:313: Cannot use ORDER BY with classifier pattern recognition function");
+                .hasMessage("line 1:313: Cannot use ORDER BY with CLASSIFIER pattern recognition function");
 
         assertFails(format(query, measure, "CLASSIFIER(DISTINCT Tradeday) > 0"))
                 .hasErrorCode(INVALID_PATTERN_RECOGNITION_FUNCTION)
-                .hasMessage("line 1:313: Cannot use DISTINCT with classifier pattern recognition function");
+                .hasMessage("line 1:313: Cannot use DISTINCT with CLASSIFIER pattern recognition function");
 
         // test quoted pattern recognition function name
         assertFails(format(query, "true", "\"PREV\"(Price)"))
                 .hasErrorCode(FUNCTION_NOT_FOUND)
-                .hasMessage("line 1:313: Function 'prev' not registered");
+                .hasMessage("line 1:313: Function 'PREV' not registered");
 
         assertFails(format(query, "\"NEXT\"(Price) > 0", "true"))
                 .hasErrorCode(FUNCTION_NOT_FOUND)
-                .hasMessage("line 1:195: Function 'next' not registered");
+                .hasMessage("line 1:195: Function 'NEXT' not registered");
 
         assertFails(format(query, "true", "\"FIRST\"(Price)"))
                 .hasErrorCode(FUNCTION_NOT_FOUND)
-                .hasMessage("line 1:313: Function 'first' not registered");
+                .hasMessage("line 1:313: Function 'FIRST' not registered");
 
         assertFails(format(query, "\"LAST\"(Price) > 0", "true"))
                 .hasErrorCode(FUNCTION_NOT_FOUND)
-                .hasMessage("line 1:195: Function 'last' not registered");
+                .hasMessage("line 1:195: Function 'LAST' not registered");
 
         assertFails(format(query, "true", "\"CLASSIFIER\"()"))
                 .hasErrorCode(FUNCTION_NOT_FOUND)
-                .hasMessage("line 1:313: Function 'classifier' not registered");
+                .hasMessage("line 1:313: Function 'CLASSIFIER' not registered");
 
         assertFails(format(query, "\"MATCH_NUMBER\"() > 0", "true"))
                 .hasErrorCode(FUNCTION_NOT_FOUND)
-                .hasMessage("line 1:195: Function 'match_number' not registered");
+                .hasMessage("line 1:195: Function 'MATCH_NUMBER' not registered");
     }
 
     @Test
@@ -5487,19 +5487,19 @@ public class TestAnalyzer
 
         assertFails(format(query, "FINAL PREV(Tradeday)", define))
                 .hasErrorCode(INVALID_PROCESSING_MODE)
-                .hasMessage("line 1:195: FINAL semantics is not supported with prev pattern recognition function");
+                .hasMessage("line 1:195: FINAL semantics is not supported with PREV pattern recognition function");
 
         assertFails(format(query, "FINAL NEXT(Tradeday)", define))
                 .hasErrorCode(INVALID_PROCESSING_MODE)
-                .hasMessage("line 1:195: FINAL semantics is not supported with next pattern recognition function");
+                .hasMessage("line 1:195: FINAL semantics is not supported with NEXT pattern recognition function");
 
         assertFails(format(query, "FINAL CLASSIFIER(Tradeday)", define))
                 .hasErrorCode(INVALID_PROCESSING_MODE)
-                .hasMessage("line 1:195: FINAL semantics is not supported with classifier pattern recognition function");
+                .hasMessage("line 1:195: FINAL semantics is not supported with CLASSIFIER pattern recognition function");
 
         assertFails(format(query, "FINAL MATCH_NUMBER(Tradeday)", define))
                 .hasErrorCode(INVALID_PROCESSING_MODE)
-                .hasMessage("line 1:195: FINAL semantics is not supported with match_number pattern recognition function");
+                .hasMessage("line 1:195: FINAL semantics is not supported with MATCH_NUMBER pattern recognition function");
 
         // scalar function in pattern recognition context
         assertFails(format(query, "FINAL lower(Tradeday)", define))
@@ -5527,38 +5527,38 @@ public class TestAnalyzer
 
         assertFails(format(query, "PREV()"))
                 .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
-                .hasMessage("line 1:195: prev pattern recognition function requires 1 or 2 arguments");
+                .hasMessage("line 1:195: PREV pattern recognition function requires 1 or 2 arguments");
 
         assertFails(format(query, "PREV(Tradeday, 1, 'another')"))
                 .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
-                .hasMessage("line 1:195: prev pattern recognition function requires 1 or 2 arguments");
+                .hasMessage("line 1:195: PREV pattern recognition function requires 1 or 2 arguments");
 
         assertFails(format(query, "PREV(Tradeday, 'text')"))
                 .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
-                .hasMessage("line 1:195: prev pattern recognition navigation function requires a number as the second argument");
+                .hasMessage("line 1:195: PREV pattern recognition navigation function requires a number as the second argument");
 
         assertFails(format(query, "PREV(Tradeday, -5)"))
                 .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE)
-                .hasMessage("line 1:195: prev pattern recognition navigation function requires a non-negative number as the second argument (actual: -5)");
+                .hasMessage("line 1:195: PREV pattern recognition navigation function requires a non-negative number as the second argument (actual: -5)");
 
         assertFails(format(query, "PREV(Tradeday, 3000000000)"))
                 .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE)
-                .hasMessage("line 1:195: The second argument of prev pattern recognition navigation function must not exceed 2147483647 (actual: 3000000000)");
+                .hasMessage("line 1:195: The second argument of PREV pattern recognition navigation function must not exceed 2147483647 (actual: 3000000000)");
 
         // nested navigations
         assertFails(format(query, "LAST(NEXT(Tradeday, 2))"))
                 .hasErrorCode(INVALID_NAVIGATION_NESTING)
-                .hasMessage("line 1:200: Cannot nest next pattern navigation function inside last pattern navigation function");
+                .hasMessage("line 1:200: Cannot nest NEXT pattern navigation function inside LAST pattern navigation function");
 
         assertFails(format(query, "PREV(NEXT(Tradeday, 2))"))
                 .hasErrorCode(INVALID_NAVIGATION_NESTING)
-                .hasMessage("line 1:200: Cannot nest next pattern navigation function inside prev pattern navigation function");
+                .hasMessage("line 1:200: Cannot nest NEXT pattern navigation function inside PREV pattern navigation function");
 
         analyze(format(query, "PREV(LAST(Tradeday, 2), 3)"));
 
         assertFails(format(query, "PREV(LAST(Tradeday, 2) + LAST(Tradeday, 3))"))
                 .hasErrorCode(INVALID_NAVIGATION_NESTING)
-                .hasMessage("line 1:220: Cannot nest multiple pattern navigation functions inside prev pattern navigation function");
+                .hasMessage("line 1:220: Cannot nest multiple pattern navigation functions inside PREV pattern navigation function");
 
         assertFails(format(query, "PREV(LAST(Tradeday, 2) + 5)"))
                 .hasErrorCode(INVALID_NAVIGATION_NESTING)
@@ -5566,7 +5566,7 @@ public class TestAnalyzer
 
         assertFails(format(query, "PREV(avg(Price) + 5)"))
                 .hasErrorCode(NESTED_AGGREGATION)
-                .hasMessage("line 1:200: Cannot nest avg aggregate function inside prev function");
+                .hasMessage("line 1:200: Cannot nest avg aggregate function inside PREV function");
 
         // navigation function must column reference or CLASSIFIER()
         assertFails(format(query, "PREV(LAST('no_column'))"))
@@ -5584,31 +5584,31 @@ public class TestAnalyzer
 
         assertFails(format(query, "PREV(LAST(A.Tradeday + Price))"))
                 .hasErrorCode(INVALID_ARGUMENTS)
-                .hasMessage("line 1:200: All labels and classifiers inside the call to 'last' must match");
+                .hasMessage("line 1:200: All labels and classifiers inside the call to 'LAST' must match");
 
         assertFails(format(query, "PREV(LAST(A.Tradeday + B.Price))"))
                 .hasErrorCode(INVALID_ARGUMENTS)
-                .hasMessage("line 1:200: All labels and classifiers inside the call to 'last' must match");
+                .hasMessage("line 1:200: All labels and classifiers inside the call to 'LAST' must match");
 
         assertFails(format(query, "PREV(LAST(concat(CLASSIFIER(A), CLASSIFIER())))"))
                 .hasErrorCode(INVALID_ARGUMENTS)
-                .hasMessage("line 1:200: All labels and classifiers inside the call to 'last' must match");
+                .hasMessage("line 1:200: All labels and classifiers inside the call to 'LAST' must match");
 
         assertFails(format(query, "PREV(LAST(concat(CLASSIFIER(A), CLASSIFIER(B))))"))
                 .hasErrorCode(INVALID_ARGUMENTS)
-                .hasMessage("line 1:200: All labels and classifiers inside the call to 'last' must match");
+                .hasMessage("line 1:200: All labels and classifiers inside the call to 'LAST' must match");
 
         assertFails(format(query, "PREV(LAST(Tradeday + length(CLASSIFIER(B))))"))
                 .hasErrorCode(INVALID_ARGUMENTS)
-                .hasMessage("line 1:200: All labels and classifiers inside the call to 'last' must match");
+                .hasMessage("line 1:200: All labels and classifiers inside the call to 'LAST' must match");
 
         assertFails(format(query, "PREV(LAST(A.Tradeday + length(CLASSIFIER(B))))"))
                 .hasErrorCode(INVALID_ARGUMENTS)
-                .hasMessage("line 1:200: All labels and classifiers inside the call to 'last' must match");
+                .hasMessage("line 1:200: All labels and classifiers inside the call to 'LAST' must match");
 
         assertFails(format(query, "PREV(LAST(A.Tradeday + length(CLASSIFIER())))"))
                 .hasErrorCode(INVALID_ARGUMENTS)
-                .hasMessage("line 1:200: All labels and classifiers inside the call to 'last' must match");
+                .hasMessage("line 1:200: All labels and classifiers inside the call to 'LAST' must match");
     }
 
     @Test
@@ -5693,7 +5693,7 @@ public class TestAnalyzer
 
         assertFails(format(query, "LISTAGG(Price) WITHIN GROUP (ORDER BY Tradeday)", define))
                 .hasErrorCode(NOT_SUPPORTED)
-                .hasMessage("line 1:158: Cannot use ORDER BY with listagg aggregate function in pattern recognition context");
+                .hasMessage("line 1:158: Cannot use ORDER BY with LISTAGG aggregate function in pattern recognition context");
 
         assertFails(format(query, "max(DISTINCT Price)", define))
                 .hasErrorCode(NOT_SUPPORTED)
@@ -5715,7 +5715,7 @@ public class TestAnalyzer
 
         assertFails(format(query, measure, "LISTAGG(Price) WITHIN GROUP (ORDER BY Tradeday) IS NOT NULL"))
                 .hasErrorCode(NOT_SUPPORTED)
-                .hasMessage("line 1:276: Cannot use ORDER BY with listagg aggregate function in pattern recognition context");
+                .hasMessage("line 1:276: Cannot use ORDER BY with LISTAGG aggregate function in pattern recognition context");
 
         assertFails(format(query, measure, "max(DISTINCT Price) > 0"))
                 .hasErrorCode(NOT_SUPPORTED)
@@ -5739,7 +5739,7 @@ public class TestAnalyzer
                 .hasMessage("line 1:166: Cannot nest min aggregate function inside max function");
         assertFails(format(query, "max(1 + LAST(Price))"))
                 .hasErrorCode(INVALID_NAVIGATION_NESTING)
-                .hasMessage("line 1:166: Cannot nest last pattern navigation function inside max function");
+                .hasMessage("line 1:166: Cannot nest LAST pattern navigation function inside max function");
     }
 
     @Test
@@ -6670,7 +6670,7 @@ public class TestAnalyzer
 
         assertFails("SELECT * FROM TABLE(system.descriptor_argument_function(schema => DESCRIPTOR(1 + 2)))")
                 .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
-                .hasMessage("line 1:57: Invalid descriptor argument SCHEMA. Descriptors should be formatted as 'DESCRIPTOR(name [type], ...)'");
+                .hasMessage("line 1:57: Invalid argument SCHEMA. Expected descriptor, got expression");
 
         assertFails("SELECT * FROM TABLE(system.descriptor_argument_function(schema => 1))")
                 .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
@@ -6695,8 +6695,8 @@ public class TestAnalyzer
                 .hasMessage("line 1:64: Invalid argument NUMBER. Expected expression, got descriptor");
 
         assertFails("SELECT * FROM TABLE(system.two_arguments_function(text => 'a', number => DESCRIPTOR(1 + 2)))")
-                .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
-                .hasMessage("line 1:64: 'descriptor' function is not allowed as a table function argument");
+                .hasErrorCode(FUNCTION_NOT_FOUND)
+                .hasMessage("line 1:74: Function 'DESCRIPTOR' not registered");
 
         assertFails("SELECT * FROM TABLE(system.two_arguments_function(text => 'a', number => TABLE(t1)))")
                 .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
@@ -6959,12 +6959,12 @@ public class TestAnalyzer
 
         assertFails("SELECT * FROM TABLE(system.monomorphic_static_return_type_function()) table_alias(col, col)")
                 .hasErrorCode(DUPLICATE_COLUMN_NAME)
-                .hasMessage("line 1:21: Duplicate name of table function proper column: col");
+                .hasMessage("line 1:21: Duplicate name of table function proper column: COL");
 
         // case-insensitive name matching
         assertFails("SELECT * FROM TABLE(system.monomorphic_static_return_type_function()) table_alias(col, COL)")
                 .hasErrorCode(DUPLICATE_COLUMN_NAME)
-                .hasMessage("line 1:21: Duplicate name of table function proper column: col");
+                .hasMessage("line 1:21: Duplicate name of table function proper column: COL");
 
         // pass-through columns of an input table must not be aliased, and must be referenced by the original range variables of their corresponding table arguments
         // the function pass_through_function has one proper column ("x" : BOOLEAN), and one table argument with pass-through property

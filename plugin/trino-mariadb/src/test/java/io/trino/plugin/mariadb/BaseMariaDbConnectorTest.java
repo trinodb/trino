@@ -27,7 +27,10 @@ import static com.google.common.base.Strings.nullToEmpty;
 import static io.trino.spi.connector.ConnectorMetadata.MODIFYING_ROWS_MESSAGE;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.MaterializedResult.resultBuilder;
+import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_TABLE;
+import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_RENAME_COLUMN;
 import static java.lang.String.format;
+import static java.util.Locale.ENGLISH;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -320,6 +323,45 @@ public abstract class BaseMariaDbConnectorTest
         }
     }
 
+    @Test
+    @Override
+    public void testRenameColumn()
+    {
+        if (!hasBehavior(SUPPORTS_RENAME_COLUMN)) {
+            assertQueryFails("ALTER TABLE nation RENAME COLUMN nationkey TO test_rename_column", "This connector does not support renaming columns");
+            return;
+        }
+
+        skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE));
+
+        String tableName;
+        try (TestTable table = newTrinoTable("test_rename_column_", "AS SELECT 'some value' x")) {
+            tableName = table.getName();
+            assertUpdate("ALTER TABLE " + tableName + " RENAME COLUMN x TO before_y");
+            assertUpdate("ALTER TABLE " + tableName + " RENAME COLUMN IF EXISTS before_y TO y");
+            assertUpdate("ALTER TABLE " + tableName + " RENAME COLUMN IF EXISTS columnNotExists TO y");
+            assertQuery("SELECT y FROM " + tableName, "VALUES 'some value'");
+
+            assertUpdate("ALTER TABLE " + tableName + " RENAME COLUMN y TO Z"); // 'Z' is upper-case, not delimited
+            assertQuery(
+                    "SELECT z FROM " + tableName, // 'z' is lower-case, not delimited
+                    "VALUES 'some value'");
+
+            assertUpdate("ALTER TABLE " + tableName + " RENAME COLUMN IF EXISTS z TO a");
+            assertQuery(
+                    "SELECT a FROM " + tableName,
+                    "VALUES 'some value'");
+
+            // There should be exactly one column
+            assertQuery("SELECT * FROM " + tableName, "VALUES 'some value'");
+        }
+
+        assertThat(getQueryRunner().tableExists(getSession(), tableName)).isFalse();
+        assertUpdate("ALTER TABLE IF EXISTS " + tableName + " RENAME COLUMN columnNotExists TO y");
+        assertUpdate("ALTER TABLE IF EXISTS " + tableName + " RENAME COLUMN IF EXISTS columnNotExists TO y");
+        assertThat(getQueryRunner().tableExists(getSession(), tableName)).isFalse();
+    }
+
     @Override
     protected String errorMessageForCreateTableAsSelectNegativeDate(String date)
     {
@@ -372,5 +414,23 @@ public abstract class BaseMariaDbConnectorTest
     protected void verifyColumnNameLengthFailurePermissible(Throwable e)
     {
         assertThat(e).hasMessageMatching("(.*Identifier name '.*' is too long|.*Incorrect column name.*)");
+    }
+
+    @Override
+    protected String canonicalize(String value)
+    {
+        return value;
+    }
+
+    @Override
+    protected String canonicalizeColumn(String value)
+    {
+        return value;
+    }
+
+    @Override
+    protected String compareColumn(String value)
+    {
+        return value.toLowerCase(ENGLISH);
     }
 }

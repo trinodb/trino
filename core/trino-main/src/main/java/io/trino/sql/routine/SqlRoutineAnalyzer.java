@@ -598,14 +598,14 @@ public class SqlRoutineAnalyzer
             }
         }
 
-        private static void defineLabel(Context context, Identifier name)
+        private void defineLabel(Context context, Identifier name)
         {
             if (!context.labels().add(identifierValue(name))) {
                 throw semanticException(ALREADY_EXISTS, name, "Label already declared in this scope: %s", name);
             }
         }
 
-        private static void verifyLabelExists(Context context, Identifier name)
+        private void verifyLabelExists(Context context, Identifier name)
         {
             if (!context.labels().contains(identifierValue(name))) {
                 throw semanticException(NOT_FOUND, name, "Label not defined: %s", name);
@@ -633,6 +633,6 @@ public class SqlRoutineAnalyzer
         // stop-gap: lowercasing for now to match what is happening during analysis;
         // otherwise we do not support non-lowercase variables in functions.
         // Rework as part of https://github.com/trinodb/trino/pull/24829
-        return name.getValue().toLowerCase(ENGLISH);
+        return name.isDelimited() ? name.getValue() : name.getValue().toLowerCase(ENGLISH);
     }
 }

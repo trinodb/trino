@@ -17,6 +17,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.inject.Inject;
 import io.trino.Session;
 import io.trino.execution.warnings.WarningCollector;
+import io.trino.metadata.Canonicalizer;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.RedirectionAwareTableHandle;
@@ -30,8 +31,10 @@ import io.trino.spi.type.Type;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.RenameColumn;
 
+import java.util.AbstractMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getLast;
@@ -44,7 +47,6 @@ import static io.trino.spi.StandardErrorCode.COLUMN_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.TABLE_NOT_FOUND;
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
-import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
 public class RenameColumnTask
@@ -74,7 +76,7 @@ public class RenameColumnTask
             WarningCollector warningCollector)
     {
         Session session = stateMachine.getSession();
-        QualifiedObjectName originalTableName = createQualifiedObjectName(session, statement, statement.getTable());
+        QualifiedObjectName originalTableName = createQualifiedObjectName(session, statement, statement.getTable(), metadata);
         RedirectionAwareTableHandle redirectionAwareTableHandle = metadata.getRedirectionAwareTableHandle(session, originalTableName);
         if (redirectionAwareTableHandle.tableHandle().isEmpty()) {
             if (!statement.isTableExists()) {
@@ -84,16 +86,22 @@ public class RenameColumnTask
         }
         TableHandle tableHandle = redirectionAwareTableHandle.tableHandle().get();
 
-        String source = statement.getSource().getParts().get(0).toLowerCase(ENGLISH);
-        String target = statement.getTarget().getValue().toLowerCase(ENGLISH);
+        Canonicalizer canonicalizer = metadata.getCanonicalizer(session, originalTableName.catalogName());
+        System.out.println("RenameColumnTask.execute() catalog: " + originalTableName.catalogName());
+        String source = statement.getSource().canonicalizeColumn(canonicalizer::canonicalize, canonicalizer::canonicalizeColumn).getSuffix();
+        System.out.println("RenameColumnTask.execute() source: " + source);
+        String target = statement.getTarget().setCanonicalizer(canonicalizer::canonicalizeColumn).getCanonicalizedValue();
 
         QualifiedObjectName qualifiedTableName = redirectionAwareTableHandle.redirectedTableName().orElse(originalTableName);
 
-        Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(session, tableHandle);
-        ColumnHandle columnHandle = columnHandles.get(source);
+        Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(session, tableHandle).entrySet().stream()
+                .map(entry -> new AbstractMap.SimpleEntry<>(canonicalizer.compareColumn(entry.getKey()), entry.getValue()))
+                .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+        System.out.println("RenameColumnTask.execute() columnHandles: " + String.join(", ", columnHandles.keySet()));
+        ColumnHandle columnHandle = columnHandles.get(canonicalizer.compareColumn(source));
         if (columnHandle == null) {
             if (!statement.isColumnExists()) {
-                throw semanticException(COLUMN_NOT_FOUND, statement, "Column '%s' does not exist", source);
+                throw semanticException(COLUMN_NOT_FOUND, statement, "Column '%s' does not exist", canonicalizer.compareColumn(source));
             }
             return immediateVoidFuture();
         }
@@ -104,8 +112,8 @@ public class RenameColumnTask
         if (statement.getSource().getParts().size() == 1) {
             accessControl.checkCanRenameColumn(session.toSecurityContext(), qualifiedTableName);
 
-            if (columnHandles.containsKey(target)) {
-                throw semanticException(COLUMN_ALREADY_EXISTS, statement, "Column '%s' already exists", target);
+            if (columnHandles.containsKey(canonicalizer.compareColumn(target))) {
+                throw semanticException(COLUMN_ALREADY_EXISTS, statement, "Column '%s' already exists", canonicalizer.compareColumn(target));
             }
 
             metadata.renameColumn(session, tableHandle, qualifiedTableName.asCatalogSchemaTableName(), columnHandle, target);

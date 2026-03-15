@@ -61,9 +61,9 @@ public final class QueryUtil
         return new Identifier(name);
     }
 
-    public static Identifier quotedIdentifier(String name)
+    public static Identifier identifier(String name, boolean delimited)
     {
-        return new Identifier(name, true);
+        return new Identifier(name, delimited);
     }
 
     public static Expression nameReference(String first, String... rest)

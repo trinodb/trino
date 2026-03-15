@@ -18,6 +18,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.inject.Inject;
 import io.trino.Session;
 import io.trino.execution.warnings.WarningCollector;
+import io.trino.metadata.Canonicalizer;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.RedirectionAwareTableHandle;
@@ -33,6 +34,7 @@ import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.TypeNotFoundException;
 import io.trino.sql.tree.Expression;
+import io.trino.sql.tree.Identifier;
 import io.trino.sql.tree.SetColumnType;
 
 import java.util.List;
@@ -53,7 +55,6 @@ import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
 import static io.trino.sql.analyzer.TypeSignatureTranslator.toTypeSignature;
 import static io.trino.type.UnknownType.UNKNOWN;
 import static java.lang.String.format;
-import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
 public class SetColumnTypeTask
@@ -85,7 +86,8 @@ public class SetColumnTypeTask
             WarningCollector warningCollector)
     {
         Session session = stateMachine.getSession();
-        QualifiedObjectName qualifiedObjectName = createQualifiedObjectName(session, statement, statement.getTableName());
+        QualifiedObjectName qualifiedObjectName = createQualifiedObjectName(session, statement, statement.getTableName(), metadata);
+        System.out.println("SetColumnTypeTask.execute() qualifiedObjectName: " + qualifiedObjectName);
         RedirectionAwareTableHandle redirectionAwareTableHandle = metadata.getRedirectionAwareTableHandle(session, qualifiedObjectName);
         if (redirectionAwareTableHandle.tableHandle().isEmpty()) {
             String exceptionMessage = format("Table '%s' does not exist", qualifiedObjectName);
@@ -105,7 +107,11 @@ public class SetColumnTypeTask
 
         TableHandle tableHandle = redirectionAwareTableHandle.tableHandle().get();
         Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(session, tableHandle);
-        String columnName = statement.getColumnName().getParts().get(0).toLowerCase(ENGLISH);
+        Identifier identifier = statement.getColumnName().getOriginalParts().getFirst();
+        Canonicalizer canonicalizer = metadata.getCanonicalizer(session, qualifiedObjectName.catalogName());
+        String columnName = canonicalizer.canonicalize(identifier.getValue(), identifier.isDelimited());
+        System.out.println("SetColumnTypeTask.execute() columnName: " + columnName);
+        System.out.println("SetColumnTypeTask.execute() columnHandles: " + String.join(", ", columnHandles.keySet()));
         ColumnHandle column = columnHandles.get(columnName);
         if (column == null) {
             throw semanticException(COLUMN_NOT_FOUND, statement, "Column '%s' does not exist", statement.getColumnName());

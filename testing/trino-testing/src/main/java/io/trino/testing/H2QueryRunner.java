@@ -97,6 +97,7 @@ public class H2QueryRunner
 
     public H2QueryRunner()
     {
+        // FIXME: If we don't use a customised Canonicalizer with H2 then we must use DATABASE_TO_LOWER=true
         handle = Jdbi.open("jdbc:h2:mem:test" + System.nanoTime() + ThreadLocalRandom.current().nextLong() + ";NON_KEYWORDS=KEY,VALUE"); // key and value are reserved keywords in H2 2.x
         TpchMetadata tpchMetadata = new TpchMetadata();
 

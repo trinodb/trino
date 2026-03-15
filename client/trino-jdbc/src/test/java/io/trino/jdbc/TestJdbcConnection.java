@@ -670,8 +670,9 @@ public class TestJdbcConnection
     public void testMixedCaseSchema()
             throws SQLException
     {
+        // FIXME: With mixed case support this test must throw exception schema not found...
         try (Connection conn = createConnectionCatalogSchema("hive", "DeFaUlT")) {
-            assertThat(conn.createStatement().execute("select * from dummy")).isTrue();
+            assertThatThrownBy(() -> assertThat(conn.createStatement().execute("select * from dummy"))).hasMessageMatching("Query failed .* Schema 'DeFaUlT' does not exist");
         }
     }
 
@@ -827,7 +828,7 @@ public class TestJdbcConnection
         try (Statement statement = connection.createStatement();
                 ResultSet rs = statement.executeQuery("SHOW CURRENT ROLES IN hive")) {
             while (rs.next()) {
-                builder.add(rs.getString("role"));
+                builder.add(rs.getString("Role"));
             }
         }
         return builder.build();

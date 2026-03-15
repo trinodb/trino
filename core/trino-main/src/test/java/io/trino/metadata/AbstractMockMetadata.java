@@ -121,7 +121,7 @@ public abstract class AbstractMockMetadata
     @Override
     public Set<ConnectorCapabilities> getConnectorCapabilities(Session session, CatalogHandle catalogHandle)
     {
-        throw new UnsupportedOperationException();
+        return ImmutableSet.of();
     }
 
     @Override
@@ -1152,6 +1152,24 @@ public abstract class AbstractMockMetadata
 
     @Override
     public Set<FunctionAuthorization> getFunctionsAuthorizationInfo(Session session, QualifiedObjectPrefix prefix)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public Canonicalizer getCanonicalizer(Session session)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public Canonicalizer getCanonicalizer(Session session, String catalogName)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public Canonicalizer getCanonicalizer(Session session, Optional<String> catalogName)
     {
         throw new UnsupportedOperationException();
     }

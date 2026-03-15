@@ -4077,4 +4077,10 @@ public class HiveMetadata
         return isQueryPartitionFilterRequired(session) &&
                 (requiredSchemas.isEmpty() || requiredSchemas.contains(schemaTableName.getSchemaName()));
     }
+
+    @Override
+    public String canonicalize(String value, boolean delimited)
+    {
+        return value;
+    }
 }

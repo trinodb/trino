@@ -250,15 +250,17 @@ public abstract class AbstractTestQueries
     @Test
     public void testShowSchemas()
     {
+        System.out.println("AbstractTestQueries.testShowSchemas() catalog: " + getSession().getCatalog().get());
+
         MaterializedResult result = computeActual("SHOW SCHEMAS");
-        assertThat(result.getOnlyColumnAsSet()).contains(getSession().getSchema().get(), INFORMATION_SCHEMA);
+        assertThat(result.getOnlyColumnAsSet()).contains(getSession().getSchema().get(), canonicalize(INFORMATION_SCHEMA));
     }
 
     @Test
     public void testShowSchemasFrom()
     {
         MaterializedResult result = computeActual(format("SHOW SCHEMAS FROM %s", getSession().getCatalog().get()));
-        assertThat(result.getOnlyColumnAsSet()).contains(getSession().getSchema().get(), INFORMATION_SCHEMA);
+        assertThat(result.getOnlyColumnAsSet()).contains(getSession().getSchema().get(), canonicalize(INFORMATION_SCHEMA));
     }
 
     @Test
@@ -284,7 +286,7 @@ public abstract class AbstractTestQueries
             assertThat(result)
                     .isSubsetOf(allSchemas)
                     .isNotEqualTo(allSchemas);
-            assertThat(result).contains("information_schema").allMatch(schemaName -> ((String) schemaName).contains("_"));
+            assertThat(result).contains(canonicalize("information_schema")).allMatch(schemaName -> ((String) schemaName).contains("_"));
         });
     }
 
@@ -293,6 +295,7 @@ public abstract class AbstractTestQueries
     {
         Set<String> expectedTables = REQUIRED_TPCH_TABLES.stream()
                 .map(TpchTable::getTableName)
+                .map(this::canonicalize)
                 .collect(toImmutableSet());
 
         MaterializedResult result = computeActual("SHOW TABLES");
@@ -302,9 +305,9 @@ public abstract class AbstractTestQueries
     @Test
     public void testShowTablesLike()
     {
-        assertThat(computeActual("SHOW TABLES LIKE 'or%'").getOnlyColumnAsSet())
-                .contains("orders")
-                .allMatch(tableName -> ((String) tableName).startsWith("or"));
+        assertThat(computeActual("SHOW TABLES LIKE '%s'".formatted(canonicalize("or%"))).getOnlyColumnAsSet())
+                .contains(canonicalize("orders"))
+                .allMatch(tableName -> ((String) tableName).startsWith(canonicalize("or")));
     }
 
     @Test
@@ -346,11 +349,11 @@ public abstract class AbstractTestQueries
     public void testInformationSchemaFiltering()
     {
         assertQuery(
-                "SELECT table_name FROM information_schema.tables WHERE table_name = 'orders' LIMIT 1",
-                "SELECT 'orders' table_name");
+                "SELECT table_name FROM information_schema.tables WHERE table_name = '%s' LIMIT 1".formatted(canonicalize("orders")),
+                "SELECT '%s' table_name".formatted(canonicalize("orders")));
         assertQuery(
-                "SELECT table_name FROM information_schema.columns WHERE data_type = 'bigint' AND table_name = 'nation' and column_name = 'nationkey' LIMIT 1",
-                "SELECT 'nation' table_name");
+                "SELECT table_name FROM information_schema.columns WHERE table_name = '%s' and column_name = '%s' LIMIT 1".formatted(canonicalize("nation"), canonicalizeColumn("nationkey")),
+                "SELECT '%s' table_name".formatted(canonicalize("nation")));
     }
 
     @Test
@@ -362,9 +365,12 @@ public abstract class AbstractTestQueries
         assertQuery(
                 "SELECT table_name FROM information_schema.tables WHERE table_schema = 'TINY'",
                 "SELECT '' WHERE false");
+        boolean isPresent = canonicalize("orders").equals("orders");
         assertQuery(
-                "SELECT table_name FROM information_schema.tables WHERE table_name = 'ORDERS'",
-                "SELECT '' WHERE false");
+                "SELECT table_name FROM information_schema.tables WHERE table_name = 'orders'",
+                "SELECT '%s' WHERE %s".formatted(
+                        isPresent ? "orders" : "",
+                        isPresent ? "true" : "false"));
     }
 
     @Test

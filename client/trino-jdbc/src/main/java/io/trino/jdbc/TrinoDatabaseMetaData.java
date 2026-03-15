@@ -197,7 +197,7 @@ public class TrinoDatabaseMetaData
     public boolean supportsMixedCaseIdentifiers()
             throws SQLException
     {
-        return false;
+        return true;
     }
 
     @Override
@@ -211,14 +211,14 @@ public class TrinoDatabaseMetaData
     public boolean storesLowerCaseIdentifiers()
             throws SQLException
     {
-        return true;
+        return false;
     }
 
     @Override
     public boolean storesMixedCaseIdentifiers()
             throws SQLException
     {
-        return false;
+        return true;
     }
 
     @Override
@@ -226,7 +226,7 @@ public class TrinoDatabaseMetaData
             throws SQLException
     {
         // TODO: support quoted identifiers properly
-        return false;
+        return true;
     }
 
     @Override
@@ -241,7 +241,7 @@ public class TrinoDatabaseMetaData
             throws SQLException
     {
         // TODO: support quoted identifiers properly
-        return true;
+        return false;
     }
 
     @Override
@@ -249,7 +249,7 @@ public class TrinoDatabaseMetaData
             throws SQLException
     {
         // TODO: support quoted identifiers properly
-        return false;
+        return true;
     }
 
     @Override

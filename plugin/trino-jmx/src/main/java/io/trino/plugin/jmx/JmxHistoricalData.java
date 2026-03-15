@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.inject.Inject;
 
 import javax.management.MBeanServer;
+import javax.management.ObjectName;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -29,8 +30,6 @@ import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static io.trino.plugin.jmx.JmxMetadata.toPattern;
-import static java.util.Locale.ENGLISH;
 import static javax.management.ObjectName.WILDCARD;
 
 public class JmxHistoricalData
@@ -47,9 +46,9 @@ public class JmxHistoricalData
     public JmxHistoricalData(int maxEntries, Set<String> tableNames, MBeanServer mbeanServer)
     {
         tables = tableNames.stream()
-                .map(objectNamePattern -> toPattern(objectNamePattern.toLowerCase(ENGLISH)))
+                .map(JmxMetadata::toPattern)
                 .flatMap(objectNamePattern -> mbeanServer.queryNames(WILDCARD, null).stream()
-                        .map(objectName -> objectName.getCanonicalName().toLowerCase(ENGLISH))
+                        .map(ObjectName::getCanonicalName)
                         .filter(name -> name.matches(objectNamePattern)))
                 .collect(toImmutableSet());
 
