@@ -23,6 +23,8 @@ import io.trino.spi.function.ScalarOperator;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.type.StandardTypes;
 
+import java.util.UUID;
+
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.slice.Slices.wrappedBuffer;
 import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
@@ -41,7 +43,7 @@ public final class UuidOperators
     @SqlType(StandardTypes.UUID)
     public static Slice uuid()
     {
-        java.util.UUID uuid = randomUUID();
+        UUID uuid = randomUUID();
         return javaUuidToTrinoUuid(uuid);
     }
 
@@ -51,7 +53,7 @@ public final class UuidOperators
     public static Slice castFromVarcharToUuid(@SqlType("varchar(x)") Slice slice)
     {
         try {
-            java.util.UUID uuid = java.util.UUID.fromString(slice.toStringUtf8());
+            UUID uuid = UUID.fromString(slice.toStringUtf8());
             if (slice.length() == 36) {
                 return javaUuidToTrinoUuid(uuid);
             }

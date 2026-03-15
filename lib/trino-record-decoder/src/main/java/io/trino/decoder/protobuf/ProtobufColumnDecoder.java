@@ -14,7 +14,6 @@
 package io.trino.decoder.protobuf;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableSet;
@@ -68,7 +67,7 @@ import static java.util.Objects.requireNonNull;
 public class ProtobufColumnDecoder
 {
     // Trino JSON types are expected to be sorted by key
-    private static final ObjectMapper mapper = JsonMapper.builder().configure(ORDER_MAP_ENTRIES_BY_KEYS, true).build();
+    private static final JsonMapper mapper = JsonMapper.builder().configure(ORDER_MAP_ENTRIES_BY_KEYS, true).build();
     private static final String ANY_TYPE_NAME = "google.protobuf.Any";
     private static final Slice EMPTY_JSON = Slices.utf8Slice("{}");
 

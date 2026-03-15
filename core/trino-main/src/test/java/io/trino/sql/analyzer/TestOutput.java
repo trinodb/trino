@@ -24,11 +24,12 @@ import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 
+import static io.airlift.json.JsonCodec.jsonCodec;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestOutput
 {
-    private static final JsonCodec<Output> codec = JsonCodec.jsonCodec(Output.class);
+    private static final JsonCodec<Output> codec = jsonCodec(Output.class);
 
     @Test
     public void testRoundTrip()

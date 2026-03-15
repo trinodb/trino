@@ -270,7 +270,7 @@ public final class StringFunctions
         int index = string.length();
         do {
             // step backwards through string
-            index = string.toStringUtf8().lastIndexOf(substring.toStringUtf8(), index - 1);
+            index = string.lastIndexOf(substring, index - 1);
             if (index < 0) {
                 return 0;
             }
@@ -278,7 +278,7 @@ public final class StringFunctions
         }
         while (foundInstances < instance);
 
-        return index + 1;
+        return countCodePoints(string, 0, index + 1);
     }
 
     @Description("Suffix starting at given index")

@@ -13,28 +13,19 @@
  */
 package io.trino.plugin.pinot;
 
-import com.fasterxml.jackson.databind.DeserializationContext;
 import com.fasterxml.jackson.databind.JsonDeserializer;
-import com.fasterxml.jackson.databind.deser.std.FromStringDeserializer;
+import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.json.JsonCodec;
 import io.airlift.json.JsonCodecFactory;
-import io.airlift.json.ObjectMapperProvider;
+import io.airlift.json.JsonMapperProvider;
 import io.trino.plugin.pinot.client.PinotClient;
-import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.Type;
+import io.trino.type.TypeDeserializer;
 import org.apache.pinot.common.response.broker.BrokerResponseNative;
 import org.apache.pinot.common.utils.DataSchema;
 
-import java.util.Map;
-
-import static io.trino.spi.type.BigintType.BIGINT;
-import static io.trino.spi.type.BooleanType.BOOLEAN;
-import static io.trino.spi.type.DoubleType.DOUBLE;
-import static io.trino.spi.type.IntegerType.INTEGER;
-import static io.trino.spi.type.VarcharType.VARCHAR;
-import static java.util.Locale.ENGLISH;
-import static java.util.Objects.requireNonNull;
+import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 
 public class MetadataUtil
 {
@@ -47,37 +38,15 @@ public class MetadataUtil
 
     private MetadataUtil() {}
 
-    public static final class TestingTypeDeserializer
-            extends FromStringDeserializer<Type>
-    {
-        private final Map<String, Type> types = ImmutableMap.of(
-                StandardTypes.BOOLEAN, BOOLEAN,
-                StandardTypes.BIGINT, BIGINT,
-                StandardTypes.INTEGER, INTEGER,
-                StandardTypes.DOUBLE, DOUBLE,
-                StandardTypes.VARCHAR, VARCHAR);
-
-        public TestingTypeDeserializer()
-        {
-            super(Type.class);
-        }
-
-        @Override
-        protected Type _deserialize(String value, DeserializationContext context)
-        {
-            Type type = types.get(value.toLowerCase(ENGLISH));
-            return requireNonNull(type, "Unknown type " + value);
-        }
-    }
-
     static {
-        ObjectMapperProvider objectMapperProvider = new ObjectMapperProvider();
-        objectMapperProvider.setJsonDeserializers(ImmutableMap.<Class<?>, JsonDeserializer<?>>builder()
-                .put(Type.class, new TestingTypeDeserializer())
-                .put(DataSchema.class, new PinotModule.DataSchemaDeserializer())
-                .put(BrokerResponseNative.class, new PinotModule.BrokerResponseNativeDeserializer())
-                .buildOrThrow());
-        JsonCodecFactory codecFactory = new JsonCodecFactory(objectMapperProvider);
+        JsonMapper jsonMapper = new JsonMapperProvider()
+                .withJsonDeserializers(ImmutableMap.<Class<?>, JsonDeserializer<?>>builder()
+                        .put(Type.class, new TypeDeserializer(TESTING_TYPE_MANAGER))
+                        .put(DataSchema.class, new PinotModule.DataSchemaDeserializer())
+                        .put(BrokerResponseNative.class, new PinotModule.BrokerResponseNativeDeserializer())
+                        .buildOrThrow())
+                .get();
+        JsonCodecFactory codecFactory = new JsonCodecFactory(jsonMapper);
         COLUMN_CODEC = codecFactory.jsonCodec(PinotColumnHandle.class);
         TABLES_JSON_CODEC = codecFactory.jsonCodec(PinotClient.GetTables.class);
         BROKERS_FOR_TABLE_JSON_CODEC = codecFactory.jsonCodec(PinotClient.BrokersForTable.class);

@@ -882,7 +882,7 @@ jobs:
           echo "Impacted plugin features:"
           cat impacted-features.log
       - name: Product tests artifact
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: product tests and server tarball
           path: |
@@ -1057,7 +1057,7 @@ jobs:
           cache: 'false'
           cleanup-node: ${{ format('{0}', matrix.suite == 'suite-compatibility') }}
       - name: Product tests artifact
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8
         with:
           name: product tests and server tarball
       - name: Fix artifact permissions

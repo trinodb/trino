@@ -226,7 +226,7 @@ public class TestPushLimitThroughProject
                 })
                 .matches(
                         project(
-                                ImmutableMap.of("b", io.trino.sql.planner.assertions.PlanMatchPattern.expression(new FieldReference(new Reference(rowType, "a"), 0)), "c", expression(new Reference(rowType, "a"))),
+                                ImmutableMap.of("b", expression(new FieldReference(new Reference(rowType, "a"), 0)), "c", expression(new Reference(rowType, "a"))),
                                 limit(1,
                                         values("a"))));
     }

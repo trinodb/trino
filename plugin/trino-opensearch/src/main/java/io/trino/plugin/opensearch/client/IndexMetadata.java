@@ -83,7 +83,5 @@ public record IndexMetadata(ObjectType schema)
     }
 
     public record ScaledFloatType(double scale)
-            implements Type
-    {
-    }
+            implements Type {}
 }

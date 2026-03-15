@@ -13,13 +13,13 @@
  */
 package io.trino.sql.planner.plan;
 
-import com.fasterxml.jackson.databind.KeyDeserializer;
+import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.json.JsonCodec;
 import io.airlift.json.JsonCodecFactory;
-import io.airlift.json.ObjectMapperProvider;
+import io.airlift.json.JsonMapperProvider;
 import io.trino.block.BlockJsonSerde;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TestingFunctionResolution;
@@ -83,23 +83,22 @@ public class TestPatternRecognitionNodeSerialization
     private static final JsonCodec<PatternRecognitionNode> PATTERN_RECOGNITION_NODE_CODEC;
 
     static {
-        ObjectMapperProvider provider = new ObjectMapperProvider();
-        provider.setKeyDeserializers(ImmutableMap.<Class<?>, KeyDeserializer>builder()
-                .put(TypeSignature.class, new TypeSignatureKeyDeserializer())
-                .put(Symbol.class, new SymbolKeyDeserializer(TESTING_TYPE_MANAGER))
-                .buildOrThrow());
+        JsonMapper objectMapper = new JsonMapperProvider()
+                .withKeyDeserializers(ImmutableMap.of(
+                        TypeSignature.class, new TypeSignatureKeyDeserializer(),
+                        Symbol.class, new SymbolKeyDeserializer(TESTING_TYPE_MANAGER)))
+                .withJsonDeserializers(ImmutableMap.of(
+                        Type.class, new TypeDeserializer(TESTING_TYPE_MANAGER),
+                        Block.class, new BlockJsonSerde.Deserializer(TESTING_BLOCK_ENCODING_SERDE)))
+                .withJsonSerializers(ImmutableMap.of(
+                        Block.class, new BlockJsonSerde.Serializer(TESTING_BLOCK_ENCODING_SERDE)))
+                .get();
+        JsonCodecFactory factory = new JsonCodecFactory(objectMapper);
 
-        provider.setJsonDeserializers(ImmutableMap.of(
-                Type.class, new TypeDeserializer(TESTING_TYPE_MANAGER),
-                Block.class, new BlockJsonSerde.Deserializer(TESTING_BLOCK_ENCODING_SERDE)));
-
-        provider.setJsonSerializers(ImmutableMap.of(
-                Block.class, new BlockJsonSerde.Serializer(TESTING_BLOCK_ENCODING_SERDE)));
-
-        VALUE_POINTER_CODEC = new JsonCodecFactory(provider).jsonCodec(ValuePointer.class);
-        EXPRESSION_AND_VALUE_POINTERS_CODEC = new JsonCodecFactory(provider).jsonCodec(ExpressionAndValuePointers.class);
-        MEASURE_CODEC = new JsonCodecFactory(provider).jsonCodec(Measure.class);
-        PATTERN_RECOGNITION_NODE_CODEC = new JsonCodecFactory(provider).jsonCodec(PatternRecognitionNode.class);
+        VALUE_POINTER_CODEC = factory.jsonCodec(ValuePointer.class);
+        EXPRESSION_AND_VALUE_POINTERS_CODEC = factory.jsonCodec(ExpressionAndValuePointers.class);
+        MEASURE_CODEC = factory.jsonCodec(Measure.class);
+        PATTERN_RECOGNITION_NODE_CODEC = factory.jsonCodec(PatternRecognitionNode.class);
     }
 
     @Test

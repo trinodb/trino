@@ -29,7 +29,8 @@ public class QueryPeriod
     private final Optional<Expression> end;
     private final RangeType rangeType;
 
-    public enum RangeType {
+    public enum RangeType
+    {
         TIMESTAMP,
         VERSION
     }

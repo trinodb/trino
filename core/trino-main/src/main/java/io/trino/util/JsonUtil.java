@@ -17,7 +17,7 @@ import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonToken;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.primitives.Shorts;
 import com.google.common.primitives.SignedBytes;
 import io.airlift.slice.Slice;
@@ -51,6 +51,7 @@ import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.TinyintType;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.VarbinaryType;
 import io.trino.spi.type.VarcharType;
 import io.trino.type.BigintOperators;
 import io.trino.type.BooleanOperators;
@@ -81,6 +82,7 @@ import static com.fasterxml.jackson.core.JsonToken.FIELD_NAME;
 import static com.fasterxml.jackson.core.JsonToken.START_ARRAY;
 import static com.fasterxml.jackson.core.JsonToken.START_OBJECT;
 import static com.google.common.base.Verify.verify;
+import static io.trino.operator.scalar.VarbinaryFunctions.fromBase64Varchar;
 import static io.trino.plugin.base.util.JsonUtils.jsonFactoryBuilder;
 import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
@@ -92,6 +94,7 @@ import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TinyintType.TINYINT;
+import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.UNBOUNDED_LENGTH;
 import static io.trino.type.DateTimes.formatTimestamp;
 import static io.trino.type.JsonType.JSON;
@@ -115,7 +118,7 @@ public final class JsonUtil
     // This object mapper is constructed without .configure(ORDER_MAP_ENTRIES_BY_KEYS, true) because
     // `OBJECT_MAPPER.writeValueAsString(parser.readValueAsTree());` preserves input order.
     // Be aware. Using it arbitrarily can produce invalid json (ordered by key is required in Trino).
-    private static final ObjectMapper OBJECT_MAPPED_UNORDERED = new ObjectMapper(createJsonFactory());
+    private static final JsonMapper JSON_MAPPED_UNORDERED = new JsonMapper(createJsonFactory());
 
     private static final int MAX_JSON_LENGTH_IN_ERROR_MESSAGE = 10_000;
 
@@ -140,7 +143,7 @@ public final class JsonUtil
                 .build();
     }
 
-    public static JsonParser createJsonParser(JsonFactory factory, Slice json)
+    public static JsonParser createJsonParser(JsonMapper mapper, Slice json)
             throws IOException
     {
         // Jackson tries to detect the character encoding automatically when using InputStream
@@ -149,16 +152,16 @@ public final class JsonUtil
         // is still valid for small inputs.
         if (json.length() < STRING_READER_LENGTH_LIMIT) {
             // java.io.Reader is more performant than InputStreamReader for small inputs
-            return factory.createParser(Reader.of(json.toStringUtf8()));
+            return mapper.createParser(Reader.of(json.toStringUtf8()));
         }
 
-        return factory.createParser(new InputStreamReader(json.getInput(), UTF_8));
+        return mapper.createParser(new InputStreamReader(json.getInput(), UTF_8));
     }
 
-    public static JsonGenerator createJsonGenerator(JsonFactory factory, SliceOutput output)
+    public static JsonGenerator createJsonGenerator(JsonMapper mapper, SliceOutput output)
             throws IOException
     {
-        return factory.createGenerator((OutputStream) output);
+        return mapper.createGenerator((OutputStream) output);
     }
 
     public static String truncateIfNecessaryForErrorMessage(Slice json)
@@ -181,6 +184,7 @@ public final class JsonUtil
                 type instanceof DoubleType ||
                 type instanceof DecimalType ||
                 type instanceof VarcharType ||
+                type instanceof VarbinaryType ||
                 type instanceof JsonType ||
                 type instanceof TimestampType ||
                 type instanceof DateType) {
@@ -211,6 +215,7 @@ public final class JsonUtil
                 type instanceof DoubleType ||
                 type instanceof DecimalType ||
                 type instanceof VarcharType ||
+                type instanceof VarbinaryType ||
                 type instanceof JsonType) {
             return true;
         }
@@ -318,6 +323,9 @@ public final class JsonUtil
             }
             if (type instanceof VarcharType) {
                 return new VarcharJsonGeneratorWriter(type);
+            }
+            if (type instanceof VarbinaryType) {
+                return new VarbinaryJsonGeneratorWriter();
             }
             if (type instanceof JsonType) {
                 return new JsonJsonGeneratorWriter();
@@ -508,6 +516,23 @@ public final class JsonUtil
             else {
                 Slice value = type.getSlice(block, position);
                 jsonGenerator.writeString(value.toStringUtf8());
+            }
+        }
+    }
+
+    private static class VarbinaryJsonGeneratorWriter
+            implements JsonGeneratorWriter
+    {
+        @Override
+        public void writeJsonValue(JsonGenerator jsonGenerator, Block block, int position)
+                throws IOException
+        {
+            if (block.isNull(position)) {
+                jsonGenerator.writeNull();
+            }
+            else {
+                Slice value = VARBINARY.getSlice(block, position);
+                jsonGenerator.writeBinary(value.byteArray(), value.byteArrayOffset(), value.length());
             }
         }
     }
@@ -904,9 +929,12 @@ public final class JsonUtil
             if (type instanceof VarcharType) {
                 return new VarcharBlockBuilderAppender(type);
             }
+            if (type instanceof VarbinaryType) {
+                return new VarbinaryBlockBuilderAppender();
+            }
             if (type instanceof JsonType) {
                 return (parser, blockBuilder) -> {
-                    String json = OBJECT_MAPPED_UNORDERED.writeValueAsString(parser.readValueAsTree());
+                    String json = JSON_MAPPED_UNORDERED.writeValueAsString(parser.readValueAsTree());
                     JSON.writeSlice(blockBuilder, Slices.utf8Slice(json));
                 };
             }
@@ -1121,6 +1149,25 @@ public final class JsonUtil
             else {
                 type.writeSlice(blockBuilder, result);
             }
+        }
+    }
+
+    private static class VarbinaryBlockBuilderAppender
+            implements BlockBuilderAppender
+    {
+        @Override
+        public void append(JsonParser parser, BlockBuilder blockBuilder)
+                throws IOException
+        {
+            if (parser.getCurrentToken() == JsonToken.VALUE_NULL) {
+                blockBuilder.appendNull();
+                return;
+            }
+            if (parser.getCurrentToken() != JsonToken.VALUE_STRING) {
+                throw new JsonCastException(format("Expected a json string, but got %s", parser.getText()));
+            }
+            Slice varchar = currentTokenAsVarchar(parser);
+            VARBINARY.writeSlice(blockBuilder, fromBase64Varchar(varchar));
         }
     }
 

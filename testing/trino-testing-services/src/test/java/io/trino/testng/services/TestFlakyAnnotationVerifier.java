@@ -131,8 +131,7 @@ public class TestFlakyAnnotationVerifier
     }
 
     private static class TestChildNoDeclaration
-            extends TestParentJustTest
-    {}
+            extends TestParentJustTest {}
 
     private static class TestGrandChildChildJustTestChildNoDeclaration
             extends TestChildNoDeclaration
@@ -151,8 +150,7 @@ public class TestFlakyAnnotationVerifier
     }
 
     private static class TestChildNoDeclarationFlakyInParent
-            extends TestParentTestAndFlaky
-    {}
+            extends TestParentTestAndFlaky {}
 
     private static class TestFlakyInvalidPattern
     {

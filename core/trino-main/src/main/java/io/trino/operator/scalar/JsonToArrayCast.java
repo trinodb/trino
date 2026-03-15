@@ -13,10 +13,9 @@
  */
 package io.trino.operator.scalar;
 
-import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonToken;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.trino.annotation.UsedByGeneratedCode;
@@ -56,12 +55,7 @@ public class JsonToArrayCast
     public static final JsonToArrayCast JSON_TO_ARRAY = new JsonToArrayCast();
     private static final MethodHandle METHOD_HANDLE = methodHandle(JsonToArrayCast.class, "toArray", ArrayType.class, BlockBuilderAppender.class, ConnectorSession.class, Slice.class);
 
-    private static final JsonFactory JSON_FACTORY = createJsonFactory();
-
-    static {
-        // Changes factory. Necessary for JsonParser.readValueAsTree to work.
-        new ObjectMapper(JSON_FACTORY);
-    }
+    private static final JsonMapper JSON_MAPPER = new JsonMapper(createJsonFactory());
 
     private JsonToArrayCast()
     {
@@ -94,7 +88,7 @@ public class JsonToArrayCast
     @UsedByGeneratedCode
     public static Block toArray(ArrayType arrayType, BlockBuilderAppender arrayAppender, ConnectorSession connectorSession, Slice json)
     {
-        try (JsonParser jsonParser = createJsonParser(JSON_FACTORY, json)) {
+        try (JsonParser jsonParser = createJsonParser(JSON_MAPPER, json)) {
             jsonParser.nextToken();
             if (jsonParser.getCurrentToken() == JsonToken.VALUE_NULL) {
                 return null;

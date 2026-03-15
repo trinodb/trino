@@ -13,6 +13,7 @@
  */
 package io.trino.server;
 
+import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.inject.Key;
 import io.airlift.http.client.HttpClient;
 import io.airlift.http.client.HttpUriBuilder;
@@ -21,7 +22,7 @@ import io.airlift.http.client.UnexpectedResponseException;
 import io.airlift.http.client.jetty.JettyHttpClient;
 import io.airlift.json.JsonCodec;
 import io.airlift.json.JsonCodecFactory;
-import io.airlift.json.ObjectMapperProvider;
+import io.airlift.json.JsonMapperProvider;
 import io.opentelemetry.api.OpenTelemetry;
 import io.opentelemetry.api.trace.Span;
 import io.trino.client.Column;
@@ -74,16 +75,16 @@ import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_METHOD;
 @TestInstance(PER_METHOD)
 public class TestQueryResource
 {
-    static final JsonCodec<List<BasicQueryInfo>> BASIC_QUERY_INFO_CODEC = new JsonCodecFactory(
-            new ObjectMapperProvider()
-                    .withModules(Set.of(new QueryDataJacksonModule()))
-                    .withJsonSerializers(Map.of(Span.class, new SpanSerializer(OpenTelemetry.noop())))
-                    .withJsonDeserializers(Map.of(Span.class, new SpanDeserializer(OpenTelemetry.noop()))))
+    static final JsonMapper JSON_MAPPER = new JsonMapperProvider()
+            .withModules(Set.of(new QueryDataJacksonModule()))
+            .withJsonSerializers(Map.of(Span.class, new SpanSerializer(OpenTelemetry.noop())))
+            .withJsonDeserializers(Map.of(Span.class, new SpanDeserializer(OpenTelemetry.noop())))
+            .get();
+
+    static final JsonCodec<List<BasicQueryInfo>> BASIC_QUERY_INFO_CODEC = new JsonCodecFactory(JSON_MAPPER)
             .listJsonCodec(BasicQueryInfo.class);
 
-    static final JsonCodec<QueryResults> QUERY_RESULTS_JSON_CODEC = new JsonCodecFactory(
-            new ObjectMapperProvider()
-                    .withModules(Set.of(new QueryDataJacksonModule())))
+    static final JsonCodec<QueryResults> QUERY_RESULTS_JSON_CODEC = new JsonCodecFactory(JSON_MAPPER)
             .jsonCodec(QueryResults.class);
 
     private HttpClient client;

@@ -13,9 +13,16 @@
  */
 package io.trino.sql.planner;
 
+import com.fasterxml.jackson.databind.json.JsonMapper;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import io.airlift.json.JsonCodec;
+import io.airlift.json.JsonCodecFactory;
+import io.airlift.json.JsonMapperProvider;
 import io.trino.FeaturesConfig;
+import io.trino.block.BlockJsonSerde;
 import io.trino.connector.CatalogServiceProvider;
+import io.trino.json.ir.IrJsonPath;
 import io.trino.metadata.FunctionBundle;
 import io.trino.metadata.FunctionManager;
 import io.trino.metadata.GlobalFunctionCatalog;
@@ -31,11 +38,13 @@ import io.trino.metadata.TypeRegistry;
 import io.trino.operator.scalar.json.JsonExistsFunction;
 import io.trino.operator.scalar.json.JsonQueryFunction;
 import io.trino.operator.scalar.json.JsonValueFunction;
+import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockEncodingSerde;
 import io.trino.spi.type.ParametricType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.TypeOperators;
+import io.trino.spi.type.TypeSignature;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.parser.SqlParser;
 import io.trino.transaction.TransactionManager;
@@ -43,6 +52,7 @@ import io.trino.type.BlockTypeOperators;
 import io.trino.type.InternalTypeManager;
 import io.trino.type.JsonPath2016Type;
 import io.trino.type.TypeDeserializer;
+import io.trino.type.TypeSignatureDeserializer;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -151,7 +161,18 @@ public final class TestingPlannerContext
                     new JsonExistsFunction(functionManager, metadata, typeManager),
                     new JsonValueFunction(functionManager, metadata, typeManager),
                     new JsonQueryFunction(functionManager, metadata, typeManager)));
-            typeRegistry.addType(new JsonPath2016Type(new TypeDeserializer(typeManager), blockEncodingSerde));
+
+            JsonMapper jsonMapper = new JsonMapperProvider()
+                    .withJsonDeserializers(ImmutableMap.of(
+                            Type.class, new TypeDeserializer(typeManager),
+                            TypeSignature.class, new TypeSignatureDeserializer(),
+                            Block.class, new BlockJsonSerde.Deserializer(blockEncodingSerde)))
+                    .withJsonSerializers(ImmutableMap.of(
+                            Block.class, new BlockJsonSerde.Serializer(blockEncodingSerde)))
+                    .get();
+
+            JsonCodec<IrJsonPath> irJsonPathJsonCodec = new JsonCodecFactory(jsonMapper).jsonCodec(IrJsonPath.class);
+            typeRegistry.addType(new JsonPath2016Type(irJsonPathJsonCodec));
 
             return new PlannerContext(
                     metadata,

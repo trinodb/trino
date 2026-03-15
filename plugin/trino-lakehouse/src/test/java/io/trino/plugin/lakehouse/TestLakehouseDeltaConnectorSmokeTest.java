@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.lakehouse;
 
+import io.trino.plugin.deltalake.DeltaLakeTableType;
 import org.junit.jupiter.api.Test;
 
 import static io.trino.plugin.deltalake.DeltaLakeTableType.DATA;
@@ -74,7 +75,7 @@ public class TestLakehouseDeltaConnectorSmokeTest
         assertThat(query("SELECT count(*) FROM lakehouse.tpch.\"region$partitions\"")).matches("VALUES (CAST(0 AS BIGINT))");
 
         // This test should get updated if a new system table is added
-        assertThat(io.trino.plugin.deltalake.DeltaLakeTableType.values())
+        assertThat(DeltaLakeTableType.values())
                 .containsExactly(
                         DATA,
                         HISTORY,

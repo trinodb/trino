@@ -20,11 +20,12 @@ import org.junit.jupiter.api.Test;
 
 import java.util.List;
 
+import static io.airlift.json.JsonCodec.jsonCodec;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestCassandraSplit
 {
-    private final JsonCodec<CassandraSplit> codec = JsonCodec.jsonCodec(CassandraSplit.class);
+    private final JsonCodec<CassandraSplit> codec = jsonCodec(CassandraSplit.class);
 
     private final List<HostAddress> addresses = ImmutableList.of(
             HostAddress.fromParts("127.0.0.1", 44),

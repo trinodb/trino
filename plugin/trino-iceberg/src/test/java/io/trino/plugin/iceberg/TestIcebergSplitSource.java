@@ -371,14 +371,14 @@ public class TestIcebergSplitSource
 
         // Write position delete file
         FileIO fileIo = FILE_IO_FACTORY.create(fileSystemFactory.create(SESSION));
-        PositionDeleteWriter<org.apache.iceberg.data.Record> writer = Parquet.writeDeletes(fileIo.newOutputFile("local:///delete_file_" + UUID.randomUUID()))
+        PositionDeleteWriter<Record> writer = Parquet.writeDeletes(fileIo.newOutputFile("local:///delete_file_" + UUID.randomUUID()))
                 .createWriterFunc(GenericParquetWriter::create)
                 .forTable(nationTable)
                 .overwrite()
                 .rowSchema(nationTable.schema())
                 .withSpec(PartitionSpec.unpartitioned())
                 .buildPositionWriter();
-        PositionDelete<org.apache.iceberg.data.Record> positionDelete = PositionDelete.create();
+        PositionDelete<Record> positionDelete = PositionDelete.create();
         PositionDelete<Record> record = positionDelete.set(dataFilePath, 0, GenericRecord.create(nationTable.schema()));
         try (Closeable ignored = writer) {
             writer.write(record);

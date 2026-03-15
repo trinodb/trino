@@ -15,7 +15,6 @@ package io.trino.plugin.deltalake;
 
 import io.trino.Session;
 import io.trino.filesystem.TrinoFileSystem;
-import io.trino.filesystem.hdfs.HdfsFileSystemFactory;
 import io.trino.plugin.deltalake.transactionlog.AddFileEntry;
 import io.trino.plugin.deltalake.transactionlog.DeltaLakeTransactionLogEntry;
 import io.trino.plugin.deltalake.transactionlog.statistics.DeltaLakeFileStatistics;
@@ -42,14 +41,13 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.airlift.testing.Closeables.closeAllSuppress;
+import static io.trino.hdfs.HdfsTestUtils.HDFS_FILE_SYSTEM_FACTORY;
 import static io.trino.plugin.deltalake.DeltaLakeConfig.DEFAULT_TRANSACTION_LOG_MAX_CACHED_SIZE;
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.EXTENDED_STATISTICS_COLLECT_ON_WRITE;
 import static io.trino.plugin.deltalake.DeltaTestingConnectorSession.SESSION;
 import static io.trino.plugin.deltalake.TestingDeltaLakeUtils.copyDirectoryContents;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogUtil.getTransactionLogJsonEntryPath;
 import static io.trino.plugin.deltalake.transactionlog.checkpoint.TransactionLogTail.getEntriesFromJson;
-import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
-import static io.trino.plugin.hive.HiveTestUtils.HDFS_FILE_SYSTEM_STATS;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.INSERT_TABLE;
 import static io.trino.testing.TestingAccessControlManager.privilege;
 import static io.trino.testing.TestingNames.randomNameSuffix;
@@ -61,7 +59,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 public class TestDeltaLakeAnalyze
         extends AbstractTestQueryFramework
 {
-    private static final TrinoFileSystem FILE_SYSTEM = new HdfsFileSystemFactory(HDFS_ENVIRONMENT, HDFS_FILE_SYSTEM_STATS).create(SESSION);
+    private static final TrinoFileSystem FILE_SYSTEM = HDFS_FILE_SYSTEM_FACTORY.create(SESSION);
 
     @Override
     protected QueryRunner createQueryRunner()
@@ -795,13 +793,13 @@ public class TestDeltaLakeAnalyze
             assertQuery(
                     "SHOW STATS FOR " + tableName,
                     """
-                            VALUES
-                            ('col_int_1', null, 1.0, 0.0, null, 11, 13),
-                            ('col_varchar_1', 2.0, 1.0, 0.0, null, null, null),
-                            ('col_int_2', null, null, null, null, 21, 22),
-                            ('col_varchar_2', null, null, null, null, null, null),
-                            (null, null, null, null, 3.0, null, null)
-                            """);
+                    VALUES
+                    ('col_int_1', null, 1.0, 0.0, null, 11, 13),
+                    ('col_varchar_1', 2.0, 1.0, 0.0, null, null, null),
+                    ('col_int_2', null, null, null, null, 21, 22),
+                    ('col_varchar_2', null, null, null, null, null, null),
+                    (null, null, null, null, 3.0, null, null)
+                    """);
 
             assertUpdate("ANALYZE " + tableName);
         }
@@ -809,13 +807,13 @@ public class TestDeltaLakeAnalyze
         assertQuery(
                 "SHOW STATS FOR " + tableName,
                 """
-                        VALUES
-                        ('col_int_1', null, 3.0, 0.0, null, 11, 13),
-                        ('col_varchar_1', 6.0, 3.0, 0.0, null, null, null),
-                        ('col_int_2', null, 2.0, 0.1, null, 21, 22),
-                        ('col_varchar_2', 4.0, 2.0, 0.1, null, null, null),
-                        (null, null, null, null, 3.0, null, null)
-                        """);
+                VALUES
+                ('col_int_1', null, 3.0, 0.0, null, 11, 13),
+                ('col_varchar_1', 6.0, 3.0, 0.0, null, null, null),
+                ('col_int_2', null, 2.0, 0.1, null, 21, 22),
+                ('col_varchar_2', 4.0, 2.0, 0.1, null, null, null),
+                (null, null, null, null, 3.0, null, null)
+                """);
 
         assertUpdate("DROP TABLE " + tableName);
     }
@@ -946,21 +944,21 @@ public class TestDeltaLakeAnalyze
         assertQuery(
                 "SHOW STATS FOR " + tableName,
                 """
-                        VALUES
-                        ('c_int', null, null, null, null, null, null),
-                        ('c_str', null, null, null, null, null, null),
-                        (null, null, null, null, null, null, null)
-                        """);
+                VALUES
+                ('c_int', null, null, null, null, null, null),
+                ('c_str', null, null, null, null, null, null),
+                (null, null, null, null, null, null, null)
+                """);
 
         assertUpdate("ANALYZE " + tableName, 5);
         assertQuery(
                 "SHOW STATS FOR " + tableName,
                 """
-                        VALUES
-                        ('c_int', null, 3.0, 0.2, null, 12, 42),
-                        ('c_str', 10.0, 4.0, 0.2, null, null, null),
-                        (null, null, null, null, 5.0, null, null)
-                        """);
+                VALUES
+                ('c_int', null, 3.0, 0.2, null, 12, 42),
+                ('c_str', 10.0, 4.0, 0.2, null, null, null),
+                (null, null, null, null, 5.0, null, null)
+                """);
 
         // Ensure that ANALYZE does not change data
         assertQuery("SELECT * FROM " + tableName, expectedData);
@@ -979,11 +977,11 @@ public class TestDeltaLakeAnalyze
         assertQuery(
                 "SHOW STATS FOR " + tableName,
                 """
-                        VALUES
-                        ('c_int', null, 1.0, 0.0, null, 42, 42),
-                        ('c_str', 3.0, 1.0, 0.0, null, null, null),
-                        (null, null, null, null, 1.0, null, null)
-                        """);
+                VALUES
+                ('c_int', null, 1.0, 0.0, null, 42, 42),
+                ('c_str', 3.0, 1.0, 0.0, null, null, null),
+                (null, null, null, null, 1.0, null, null)
+                """);
 
         cleanExternalTable(tableName);
     }
@@ -1000,11 +998,11 @@ public class TestDeltaLakeAnalyze
         assertQuery(
                 "SHOW STATS FOR " + tableName,
                 """
-                        VALUES
-                        ('c_int', null, 2.0, 0.33333333, null, 2, 11),
-                        ('c_str', 2.0, 2.0, 0.33333333, null, null, null),
-                        (null, null, null, null, 3.0, null, null)
-                        """);
+                VALUES
+                ('c_int', null, 2.0, 0.33333333, null, 2, 11),
+                ('c_str', 2.0, 2.0, 0.33333333, null, null, null),
+                (null, null, null, null, 3.0, null, null)
+                """);
 
         // Version 3 should be created with recalculated statistics.
         List<DeltaLakeTransactionLogEntry> transactionLogAfterUpdate = getEntriesFromJson(3, FILE_SYSTEM.newInputFile(getTransactionLogJsonEntryPath(tableLocation + "/_delta_log", 3)), DEFAULT_TRANSACTION_LOG_MAX_CACHED_SIZE)
@@ -1037,11 +1035,11 @@ public class TestDeltaLakeAnalyze
         assertQuery(
                 "SHOW STATS FOR " + tableName,
                 """
-                        VALUES
-                        ('c_int', null, 4.0, 0.14285714285714285, null, 1, 42),
-                        ('c_str', 12.0, 6.0, 0.14285714285714285, null, null, null),
-                        (null, null, null, null, 7.0, null, null)
-                        """);
+                VALUES
+                ('c_int', null, 4.0, 0.14285714285714285, null, 1, 42),
+                ('c_str', 12.0, 6.0, 0.14285714285714285, null, null, null),
+                (null, null, null, null, 7.0, null, null)
+                """);
 
         cleanExternalTable(tableName);
     }
@@ -1053,24 +1051,24 @@ public class TestDeltaLakeAnalyze
         String tableName = copyResourcesAndRegisterTable("no_stats_partitions", "trino410/no_stats_partitions");
         assertQuery("SELECT * FROM " + tableName,
                 """
-                        VALUES
-                        ('p?p', 42, 'foo'),
-                        ('p?p', 12, 'ab'),
-                        (null, null, null),
-                        ('ppp', 15, 'cd'),
-                        ('ppp', 15, 'bar')
-                        """);
+                VALUES
+                ('p?p', 42, 'foo'),
+                ('p?p', 12, 'ab'),
+                (null, null, null),
+                ('ppp', 15, 'cd'),
+                ('ppp', 15, 'bar')
+                """);
 
         assertUpdate("ANALYZE " + tableName, 5);
         assertQuery(
                 "SHOW STATS FOR " + tableName,
                 """
-                        VALUES
-                        ('p_str', null, 2.0, 0.2, null, null, null),
-                        ('c_int', null, 3.0, 0.2, null, 12, 42),
-                        ('c_str', 10.0, 4.0, 0.2, null, null, null),
-                        (null, null, null, null, 5.0, null, null)
-                        """);
+                VALUES
+                ('p_str', null, 2.0, 0.2, null, null, null),
+                ('c_int', null, 3.0, 0.2, null, 12, 42),
+                ('c_str', 10.0, 4.0, 0.2, null, null, null),
+                (null, null, null, null, 5.0, null, null)
+                """);
 
         cleanExternalTable(tableName);
     }
@@ -1082,34 +1080,34 @@ public class TestDeltaLakeAnalyze
         String tableName = copyResourcesAndRegisterTable("no_stats_various_types", "trino410/no_stats_various_types");
         assertQuery("SELECT c_boolean, c_tinyint, c_smallint, c_integer, c_bigint, c_real, c_double, c_decimal1, c_decimal2, c_date1, CAST(c_timestamp AS TIMESTAMP), c_varchar1, c_varchar2, c_varbinary FROM " + tableName,
                 """
-                        VALUES
-                        (false, 37, 32123, 1274942432, 312739231274942432, 567.123, 1234567890123.123, 12.345, 123456789012.345, '1999-01-01', '2020-02-12 14:03:00', 'ab', 'de',  X'12ab3f'),
-                        (true, 127, 32767, 2147483647, 9223372036854775807, 999999.999, 9999999999999.999, 99.999, 999999999999.99, '2028-10-04', '2199-12-31 22:59:59.999', 'zzz', 'zzz',  X'ffffffffffffffffffff'),
-                        (null,null,null,null,null,null,null,null,null,null,null,null,null,null),
-                        (null,null,null,null,null,null,null,null,null,null,null,null,null,null)
-                        """);
+                VALUES
+                (false, 37, 32123, 1274942432, 312739231274942432, 567.123, 1234567890123.123, 12.345, 123456789012.345, '1999-01-01', '2020-02-12 14:03:00', 'ab', 'de',  X'12ab3f'),
+                (true, 127, 32767, 2147483647, 9223372036854775807, 999999.999, 9999999999999.999, 99.999, 999999999999.99, '2028-10-04', '2199-12-31 22:59:59.999', 'zzz', 'zzz',  X'ffffffffffffffffffff'),
+                (null,null,null,null,null,null,null,null,null,null,null,null,null,null),
+                (null,null,null,null,null,null,null,null,null,null,null,null,null,null)
+                """);
 
         assertUpdate("ANALYZE " + tableName, 4);
         assertQuery(
                 "SHOW STATS FOR " + tableName,
                 """
-                        VALUES
-                        ('c_boolean', null, 2.0, 0.5, null, null, null),
-                        ('c_tinyint', null, 2.0, 0.5, null, '37', '127'),
-                        ('c_smallint', null, 2.0, 0.5, null, '32123', '32767'),
-                        ('c_integer', null, 2.0, 0.5, null, '1274942432', '2147483647'),
-                        ('c_bigint', null, 2.0, 0.5, null, '312739231274942464', '9223372036854775807'),
-                        ('c_real', null, 2.0, 0.5, null, '567.123', '1000000.0'),
-                        ('c_double', null, 2.0, 0.5, null, '1.234567890123123E12', '9.999999999999998E12'),
-                        ('c_decimal1', null, 2.0, 0.5, null, '12.345', '99.999'),
-                        ('c_decimal2', null, 2.0, 0.5, null, '1.23456789012345E11', '9.9999999999999E11'),
-                        ('c_date1', null, 2.0, 0.5, null, '1999-01-01', '2028-10-04'),
-                        ('c_timestamp', null, 2.0, 0.5, null, '2020-02-12 14:03:00.000 UTC', '2199-12-31 22:59:59.999 UTC'),
-                        ('c_varchar1', 5.0, 2.0, 0.5, null, null, null),
-                        ('c_varchar2', 5.0, 2.0, 0.5, null, null, null),
-                        ('c_varbinary', 13.0, 2.0, 0.5, null, null, null),
-                        (null, null, null, null, 4.0, null, null)
-                        """);
+                VALUES
+                ('c_boolean', null, 2.0, 0.5, null, null, null),
+                ('c_tinyint', null, 2.0, 0.5, null, '37', '127'),
+                ('c_smallint', null, 2.0, 0.5, null, '32123', '32767'),
+                ('c_integer', null, 2.0, 0.5, null, '1274942432', '2147483647'),
+                ('c_bigint', null, 2.0, 0.5, null, '312739231274942464', '9223372036854775807'),
+                ('c_real', null, 2.0, 0.5, null, '567.123', '1000000.0'),
+                ('c_double', null, 2.0, 0.5, null, '1.234567890123123E12', '9.999999999999998E12'),
+                ('c_decimal1', null, 2.0, 0.5, null, '12.345', '99.999'),
+                ('c_decimal2', null, 2.0, 0.5, null, '1.23456789012345E11', '9.9999999999999E11'),
+                ('c_date1', null, 2.0, 0.5, null, '1999-01-01', '2028-10-04'),
+                ('c_timestamp', null, 2.0, 0.5, null, '2020-02-12 14:03:00.000 UTC', '2199-12-31 22:59:59.999 UTC'),
+                ('c_varchar1', 5.0, 2.0, 0.5, null, null, null),
+                ('c_varchar2', 5.0, 2.0, 0.5, null, null, null),
+                ('c_varbinary', 13.0, 2.0, 0.5, null, null, null),
+                (null, null, null, null, 4.0, null, null)
+                """);
 
         cleanExternalTable(tableName);
     }
@@ -1126,11 +1124,11 @@ public class TestDeltaLakeAnalyze
         assertQuery(
                 "SHOW STATS FOR " + tableName,
                 """
-                        VALUES
-                        ('c_int', null, 3.0, 0.25, null, 1, 42),
-                        ('c_str', 5.0, 3.0, 0.25, null, null, null),
-                        (null, null, null, null, 4.0, null, null)
-                        """);
+                VALUES
+                ('c_int', null, 3.0, 0.25, null, 1, 42),
+                ('c_str', 5.0, 3.0, 0.25, null, null, null),
+                (null, null, null, null, 4.0, null, null)
+                """);
 
         cleanExternalTable(tableName);
     }

@@ -34,7 +34,7 @@ import static java.time.format.DateTimeFormatter.ISO_LOCAL_DATE;
 
 public final class DateCoercer
 {
-    private static final long START_OF_MODERN_ERA_DAYS = java.time.LocalDate.of(1900, 1, 1).toEpochDay();
+    private static final long START_OF_MODERN_ERA_DAYS = LocalDate.of(1900, 1, 1).toEpochDay();
 
     private DateCoercer() {}
 

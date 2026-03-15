@@ -130,7 +130,7 @@ public class TestPushPredicateThroughProjectIntoRowNumber
                 .matches(filter(
                         new Logical(AND, ImmutableList.of(new Comparison(GREATER_THAN, new Reference(BIGINT, "row_number"), new Constant(BIGINT, 2L)), new Comparison(LESS_THAN, new Reference(BIGINT, "row_number"), new Constant(BIGINT, 5L)))),
                         project(
-                                ImmutableMap.of("row_number", io.trino.sql.planner.assertions.PlanMatchPattern.expression(new Reference(BIGINT, "row_number"))),
+                                ImmutableMap.of("row_number", expression(new Reference(BIGINT, "row_number"))),
                                 rowNumber(
                                         pattern -> pattern
                                                 .maxRowCountPerPartition(Optional.of(4)),
@@ -176,7 +176,7 @@ public class TestPushPredicateThroughProjectIntoRowNumber
                                             p.values(a))));
                 })
                 .matches(project(
-                        ImmutableMap.of("row_number", io.trino.sql.planner.assertions.PlanMatchPattern.expression(new Reference(BIGINT, "row_number"))),
+                        ImmutableMap.of("row_number", expression(new Reference(BIGINT, "row_number"))),
                         rowNumber(
                                 pattern -> pattern
                                         .maxRowCountPerPartition(Optional.of(3)),
@@ -198,7 +198,7 @@ public class TestPushPredicateThroughProjectIntoRowNumber
                                             p.values(a))));
                 })
                 .matches(project(
-                        ImmutableMap.of("row_number", io.trino.sql.planner.assertions.PlanMatchPattern.expression(new Reference(BIGINT, "row_number"))),
+                        ImmutableMap.of("row_number", expression(new Reference(BIGINT, "row_number"))),
                         rowNumber(
                                 pattern -> pattern
                                         .maxRowCountPerPartition(Optional.of(2)),
@@ -250,7 +250,7 @@ public class TestPushPredicateThroughProjectIntoRowNumber
                 .matches(filter(
                         new Comparison(EQUAL, new Call(MODULUS_INTEGER, ImmutableList.of(new Reference(INTEGER, "row_number"), new Constant(INTEGER, 2L))), new Constant(INTEGER, 0L)),
                         project(
-                                ImmutableMap.of("row_number", io.trino.sql.planner.assertions.PlanMatchPattern.expression(new Reference(BIGINT, "row_number"))),
+                                ImmutableMap.of("row_number", expression(new Reference(BIGINT, "row_number"))),
                                 rowNumber(
                                         pattern -> pattern
                                                 .maxRowCountPerPartition(Optional.of(3)),

@@ -24,8 +24,7 @@ public final class IntBigArrays
     private static final int SMALL = 7;
     private static final int MEDIUM = 40;
 
-    private IntBigArrays()
-    {}
+    private IntBigArrays() {}
 
     /**
      * Computes the segment associated with a given index.

@@ -356,24 +356,24 @@ public class TestAdaptivePlanner
 
         assertAdaptivePlan(
                     """
-                    SELECT
-                        sum(sales),
-                        sum(another_sales),
-                        sum(acctbal)
-                    FROM (
-                    SELECT
-                        CAST(0 AS DECIMAL(7,2)) "sales",
-                        CAST(0 AS DECIMAL(7,2)) "another_sales",
-                        cast("acctbal" as DECIMAL(7,2)) "acctbal"
-                    FROM customer
-                    UNION ALL
-                    SELECT
-                        cast("acctbal" as DECIMAL(7,2)) "sales",
-                        CAST(0 AS DECIMAL(7,2)) "another_sales",
-                        CAST(0 AS DECIMAL(7,2)) "acctbal"
-                    FROM customer
-                    ) test_table
-                """,
+                        SELECT
+                            sum(sales),
+                            sum(another_sales),
+                            sum(acctbal)
+                        FROM (
+                        SELECT
+                            CAST(0 AS DECIMAL(7,2)) "sales",
+                            CAST(0 AS DECIMAL(7,2)) "another_sales",
+                            cast("acctbal" as DECIMAL(7,2)) "acctbal"
+                        FROM customer
+                        UNION ALL
+                        SELECT
+                            cast("acctbal" as DECIMAL(7,2)) "sales",
+                            CAST(0 AS DECIMAL(7,2)) "another_sales",
+                            CAST(0 AS DECIMAL(7,2)) "acctbal"
+                        FROM customer
+                        ) test_table
+                    """,
                 session,
                 ImmutableList.of(new IterativeOptimizer(
                         getPlanTester().getPlannerContext(),

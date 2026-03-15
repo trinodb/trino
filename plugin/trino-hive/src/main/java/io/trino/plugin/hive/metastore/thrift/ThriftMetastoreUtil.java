@@ -105,6 +105,7 @@ import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.io.BaseEncoding.base64Url;
+import static io.airlift.json.JsonCodec.jsonCodec;
 import static io.trino.hive.thrift.metastore.ColumnStatisticsData.binaryStats;
 import static io.trino.hive.thrift.metastore.ColumnStatisticsData.booleanStats;
 import static io.trino.hive.thrift.metastore.ColumnStatisticsData.dateStats;
@@ -158,7 +159,7 @@ import static java.util.Objects.requireNonNull;
 
 public final class ThriftMetastoreUtil
 {
-    private static final JsonCodec<LanguageFunction> LANGUAGE_FUNCTION_CODEC = JsonCodec.jsonCodec(LanguageFunction.class);
+    private static final JsonCodec<LanguageFunction> LANGUAGE_FUNCTION_CODEC = jsonCodec(LanguageFunction.class);
     private static final String PUBLIC_ROLE_NAME = "public";
     private static final String ADMIN_ROLE_NAME = "admin";
 

@@ -18,6 +18,4 @@ import io.trino.spi.Mergeable;
 
 @JsonTypeInfo(use = JsonTypeInfo.Id.CLASS)
 public interface Metric<T>
-        extends Mergeable<T>
-{
-}
+        extends Mergeable<T> {}

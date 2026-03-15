@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.io.Closer;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
+import com.google.common.util.concurrent.UncheckedExecutionException;
 import io.trino.spi.Page;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.Type;
@@ -177,12 +178,12 @@ public class TestFileSingleStreamSpillerFactory
         spillPath1.mkdirs();
         spillPath2.mkdirs();
 
-        java.nio.file.Files.createTempFile(spillPath1.toPath(), SPILL_FILE_PREFIX, SPILL_FILE_SUFFIX);
-        java.nio.file.Files.createTempFile(spillPath1.toPath(), SPILL_FILE_PREFIX, SPILL_FILE_SUFFIX);
-        java.nio.file.Files.createTempFile(spillPath1.toPath(), SPILL_FILE_PREFIX, "blah");
-        java.nio.file.Files.createTempFile(spillPath2.toPath(), SPILL_FILE_PREFIX, SPILL_FILE_SUFFIX);
-        java.nio.file.Files.createTempFile(spillPath2.toPath(), "blah", SPILL_FILE_SUFFIX);
-        java.nio.file.Files.createTempFile(spillPath2.toPath(), "blah", "blah");
+        Files.createTempFile(spillPath1.toPath(), SPILL_FILE_PREFIX, SPILL_FILE_SUFFIX);
+        Files.createTempFile(spillPath1.toPath(), SPILL_FILE_PREFIX, SPILL_FILE_SUFFIX);
+        Files.createTempFile(spillPath1.toPath(), SPILL_FILE_PREFIX, "blah");
+        Files.createTempFile(spillPath2.toPath(), SPILL_FILE_PREFIX, SPILL_FILE_SUFFIX);
+        Files.createTempFile(spillPath2.toPath(), "blah", SPILL_FILE_SUFFIX);
+        Files.createTempFile(spillPath2.toPath(), "blah", "blah");
 
         assertThat(listFiles(spillPath1.toPath())).hasSize(3);
         assertThat(listFiles(spillPath2.toPath())).hasSize(3);
@@ -218,7 +219,7 @@ public class TestFileSingleStreamSpillerFactory
         setPosixFilePermissions(spillPath2.toPath(), ImmutableSet.of(PosixFilePermission.OWNER_READ));
 
         assertThatThrownBy(() -> getUnchecked(singleStreamSpiller2.spill(page)))
-                .isInstanceOf(com.google.common.util.concurrent.UncheckedExecutionException.class)
+                .isInstanceOf(UncheckedExecutionException.class)
                 .hasMessageContaining("Failed to spill pages");
         spillers.add(singleStreamSpiller2);
 

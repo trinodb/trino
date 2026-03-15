@@ -112,9 +112,7 @@ public class TestReportAfterMethodNotAlwaysRun
         };
     }
 
-    private static class NoAfterMethods
-    {
-    }
+    private static class NoAfterMethods {}
 
     private static class AllAlwaysRun
     {
@@ -231,14 +229,10 @@ public class TestReportAfterMethodNotAlwaysRun
     }
 
     private static class SubClassWithBaseAlwaysRunNoOverride
-            extends BaseClassAlwaysRun
-    {
-    }
+            extends BaseClassAlwaysRun {}
 
     private static class SubClassWithBaseNotAlwaysRunNoOverride
-            extends BaseClassNotAlwaysRun
-    {
-    }
+            extends BaseClassNotAlwaysRun {}
 
     private static class SubClassAlwaysRunWithBaseAlwaysRun
             extends BaseClassAlwaysRun

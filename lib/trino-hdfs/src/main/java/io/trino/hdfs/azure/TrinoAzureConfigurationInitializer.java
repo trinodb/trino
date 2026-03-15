@@ -85,9 +85,7 @@ public class TrinoAzureConfigurationInitializer
                 !(abfsAccessKey.isPresent() && abfsOAuthClientSecret.isPresent()),
                 "Multiple ABFS authentication methods configured: access key and OAuth2");
 
-        //noinspection UnnecessaryFullyQualifiedName
-        config.getAdlProxyHost().ifPresent(proxyHost ->
-                io.trino.hadoop.$internal.com.microsoft.azure.datalake.store.HttpTransport.setConnectionProxy(proxyForHost(proxyHost)));
+        config.getAdlProxyHost().ifPresent(proxyHost -> setConnectionProxy(proxyForHost(proxyHost)));
     }
 
     @Override
@@ -132,5 +130,11 @@ public class TrinoAzureConfigurationInitializer
     private static Proxy proxyForHost(HostAndPort address)
     {
         return new Proxy(Type.HTTP, new InetSocketAddress(address.getHost(), address.getPort()));
+    }
+
+    @SuppressWarnings({"UnnecessarilyFullyQualified", "UnnecessaryFullyQualifiedName"})
+    private static void setConnectionProxy(Proxy proxy)
+    {
+        io.trino.hadoop.$internal.com.microsoft.azure.datalake.store.HttpTransport.setConnectionProxy(proxy);
     }
 }

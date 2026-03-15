@@ -400,8 +400,8 @@ public class ClientOptions
         if (krb5RemoteServiceName.isPresent()) {
             krb5ConfigPath.ifPresent(builder::setKerberosConfigPath);
             krb5KeytabPath.ifPresent(builder::setKerberosKeytabPath);
+            krb5CredentialCachePath.ifPresent(builder::setKerberosCredentialCachePath);
         }
-        krb5CredentialCachePath.ifPresent(builder::setKerberosCredentialCachePath);
         krb5Principal.ifPresent(builder::setKerberosPrincipal);
         if (krb5DisableRemoteServiceHostnameCanonicalization) {
             builder.setKerberosUseCanonicalHostname(false);

@@ -238,7 +238,7 @@ public class NimbusOAuth2Client
         {
             checkArgument(nonce.isEmpty(), "Unexpected nonce provided");
             AccessTokenResponse tokenResponse = getTokenResponse(code, callbackUri, AccessTokenResponse::parse);
-            Tokens tokens = tokenResponse.toSuccessResponse().getTokens();
+            Tokens tokens = getTokens(tokenResponse);
             return toResponse(tokens, Optional.empty());
         }
 
@@ -248,7 +248,7 @@ public class NimbusOAuth2Client
         {
             requireNonNull(refreshToken, "refreshToken is null");
             AccessTokenResponse tokenResponse = getTokenResponse(refreshToken, AccessTokenResponse::parse);
-            return toResponse(tokenResponse.toSuccessResponse().getTokens(), Optional.of(refreshToken));
+            return toResponse(getTokens(tokenResponse), Optional.of(refreshToken));
         }
 
         private Response toResponse(Tokens tokens, Optional<String> existingRefreshToken)
@@ -264,6 +264,14 @@ public class NimbusOAuth2Client
                     Optional.ofNullable(refreshToken)
                             .map(RefreshToken::getValue)
                             .or(() -> existingRefreshToken));
+        }
+
+        private static Tokens getTokens(AccessTokenResponse tokenResponse)
+        {
+            if (tokenResponse.indicatesSuccess()) {
+                return tokenResponse.toSuccessResponse().getTokens();
+            }
+            throw new RuntimeException(tokenResponse.toErrorResponse().toJSONObject().toString());
         }
     }
 

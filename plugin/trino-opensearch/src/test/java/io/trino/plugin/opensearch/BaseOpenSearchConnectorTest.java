@@ -13,7 +13,7 @@
  */
 package io.trino.plugin.opensearch;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.net.HostAndPort;
@@ -2544,7 +2544,7 @@ public abstract class BaseOpenSearchConnectorTest
     private void index(String index, Map<String, Object> document)
             throws IOException
     {
-        String json = new ObjectMapper().writeValueAsString(document);
+        String json = new JsonMapper().writeValueAsString(document);
         String endpoint = format("%s?refresh", indexEndpoint(index, String.valueOf(System.nanoTime())));
 
         Request request = new Request("PUT", endpoint);

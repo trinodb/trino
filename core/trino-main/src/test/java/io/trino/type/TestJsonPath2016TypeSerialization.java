@@ -13,10 +13,16 @@
  */
 package io.trino.type;
 
+import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.fasterxml.jackson.databind.node.BooleanNode;
 import com.fasterxml.jackson.databind.node.IntNode;
 import com.fasterxml.jackson.databind.node.NullNode;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import io.airlift.json.JsonCodec;
+import io.airlift.json.JsonCodecFactory;
+import io.airlift.json.JsonMapperProvider;
+import io.trino.block.BlockJsonSerde;
 import io.trino.json.ir.IrAbsMethod;
 import io.trino.json.ir.IrArithmeticBinary;
 import io.trino.json.ir.IrArithmeticUnary;
@@ -40,6 +46,7 @@ import io.trino.json.ir.IrTypeMethod;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeSignature;
 import org.assertj.core.api.AssertProvider;
 import org.assertj.core.api.RecursiveComparisonAssert;
 import org.assertj.core.api.recursive.comparison.RecursiveComparisonConfiguration;
@@ -71,7 +78,16 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestJsonPath2016TypeSerialization
 {
-    public static final Type JSON_PATH_2016 = new JsonPath2016Type(new TypeDeserializer(TESTING_TYPE_MANAGER), TESTING_BLOCK_ENCODING_SERDE);
+    private static final JsonMapper OBJECT_MAPPER = new JsonMapperProvider()
+            .withJsonDeserializers(ImmutableMap.of(
+                    Type.class, new TypeDeserializer(TESTING_TYPE_MANAGER),
+                    TypeSignature.class, new TypeSignatureDeserializer(),
+                    Block.class, new BlockJsonSerde.Deserializer(TESTING_BLOCK_ENCODING_SERDE)))
+            .withJsonSerializers(ImmutableMap.of(
+                    Block.class, new BlockJsonSerde.Serializer(TESTING_BLOCK_ENCODING_SERDE)))
+            .get();
+    public static final JsonCodec<IrJsonPath> JSON_PATH_CODEC = new JsonCodecFactory(OBJECT_MAPPER).jsonCodec(IrJsonPath.class);
+    public static final Type JSON_PATH_2016 = new JsonPath2016Type(JSON_PATH_CODEC);
     private static final RecursiveComparisonConfiguration COMPARISON_CONFIGURATION = RecursiveComparisonConfiguration.builder().withStrictTypeChecking(true).build();
 
     @Test

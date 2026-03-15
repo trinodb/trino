@@ -13,13 +13,14 @@
  */
 package io.trino.plugin.kafka.util;
 
+import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.json.JsonCodec;
 import io.airlift.json.JsonCodecFactory;
-import io.airlift.json.ObjectMapperProvider;
-import io.trino.plugin.base.TypeDeserializer;
+import io.airlift.json.JsonMapperProvider;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
+import io.trino.type.TypeDeserializer;
 
 import java.util.function.Supplier;
 
@@ -34,9 +35,10 @@ public final class CodecSupplier<T>
     public CodecSupplier(Class<T> clazz, TypeManager typeManager)
     {
         requireNonNull(typeManager, "typeManager is null");
-        ObjectMapperProvider objectMapperProvider = new ObjectMapperProvider();
-        objectMapperProvider.setJsonDeserializers(ImmutableMap.of(Type.class, new TypeDeserializer(typeManager::getType)));
-        this.codecFactory = new JsonCodecFactory(objectMapperProvider);
+        JsonMapper jsonMapper = new JsonMapperProvider()
+                .withJsonDeserializers(ImmutableMap.of(Type.class, new TypeDeserializer(typeManager)))
+                .get();
+        this.codecFactory = new JsonCodecFactory(jsonMapper);
         this.clazz = requireNonNull(clazz, "clazz is null");
     }
 

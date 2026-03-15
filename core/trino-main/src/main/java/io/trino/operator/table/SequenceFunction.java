@@ -125,8 +125,7 @@ public class SequenceFunction
     }
 
     public record SequenceFunctionHandle(long start, long stop, long step)
-            implements ConnectorTableFunctionHandle
-    {}
+            implements ConnectorTableFunctionHandle {}
 
     public static ConnectorSplitSource getSequenceFunctionSplitSource(SequenceFunctionHandle handle)
     {

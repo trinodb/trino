@@ -27,6 +27,9 @@ import io.trino.metadata.TableMetadata;
 import io.trino.security.AccessControl;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnMetadata;
+import io.trino.spi.connector.ColumnPosition.After;
+import io.trino.spi.connector.ColumnPosition.First;
+import io.trino.spi.connector.ColumnPosition.Last;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
@@ -263,9 +266,9 @@ public class AddColumnTask
     private static io.trino.spi.connector.ColumnPosition toConnectorColumnPosition(ColumnPosition columnPosition)
     {
         return switch (columnPosition) {
-            case ColumnPosition.First _ -> new io.trino.spi.connector.ColumnPosition.First();
-            case ColumnPosition.After after -> new io.trino.spi.connector.ColumnPosition.After(after.column().getValue().toLowerCase(ENGLISH));
-            case ColumnPosition.Last _ -> new io.trino.spi.connector.ColumnPosition.Last();
+            case ColumnPosition.First _ -> new First();
+            case ColumnPosition.After after -> new After(after.column().getValue().toLowerCase(ENGLISH));
+            case ColumnPosition.Last _ -> new Last();
         };
     }
 }

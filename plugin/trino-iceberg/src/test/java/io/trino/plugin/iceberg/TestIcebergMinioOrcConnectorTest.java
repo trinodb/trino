@@ -157,10 +157,10 @@ public class TestIcebergMinioOrcConnectorTest
             assertQuery(
                     "SHOW STATS FOR " + table.getName(),
                     """
-                            VALUES
-                            ('col', null, 2.0, 0.33333333333, null, null, null),
-                            (null, null, null, null, 3, null, null)
-                            """);
+                    VALUES
+                    ('col', null, 2.0, 0.33333333333, null, null, null),
+                    (null, null, null, null, 3, null, null)
+                    """);
         }
     }
 

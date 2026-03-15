@@ -145,11 +145,6 @@
 
         <dependency>
             <groupId>io.airlift</groupId>
-            <artifactId>jmx-http</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>io.airlift</groupId>
             <artifactId>joni</artifactId>
         </dependency>
 
@@ -339,6 +334,11 @@
         </dependency>
 
         <dependency>
+            <groupId>net.minidev</groupId>
+            <artifactId>json-smart</artifactId>
+        </dependency>
+
+        <dependency>
             <groupId>org.antlr</groupId>
             <artifactId>antlr4-runtime</artifactId>
         </dependency>
@@ -351,7 +351,7 @@
         <dependency>
             <groupId>org.apache.lucene</groupId>
             <artifactId>lucene-analysis-common</artifactId>
-            <version>10.3.2</version>
+            <version>10.4.0</version>
         </dependency>
 
         <dependency>

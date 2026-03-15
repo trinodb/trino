@@ -29,7 +29,7 @@ import static io.trino.spi.function.OperatorType.CAST;
 import static java.util.Objects.requireNonNull;
 
 public record SpecialForm(
-        io.trino.sql.relational.SpecialForm.Form form,
+        Form form,
         Type type,
         List<RowExpression> arguments,
         List<ResolvedFunction> functionDependencies)

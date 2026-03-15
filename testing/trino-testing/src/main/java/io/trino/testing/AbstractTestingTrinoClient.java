@@ -192,7 +192,7 @@ public abstract class AbstractTestingTrinoClient<T>
         return builder.buildOrThrow();
     }
 
-    private static ClientSelectedRole toClientSelectedRole(io.trino.spi.security.SelectedRole value)
+    private static ClientSelectedRole toClientSelectedRole(SelectedRole value)
     {
         return new ClientSelectedRole(ClientSelectedRole.Type.valueOf(value.getType().toString()), value.getRole());
     }

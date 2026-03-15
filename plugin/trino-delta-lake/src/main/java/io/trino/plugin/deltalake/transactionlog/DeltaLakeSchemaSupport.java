@@ -16,13 +16,13 @@ package io.trino.plugin.deltalake.transactionlog;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.base.Enums;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Streams;
-import io.airlift.json.ObjectMapperProvider;
+import io.airlift.json.JsonMapperProvider;
 import io.airlift.log.Logger;
 import io.trino.plugin.deltalake.DeltaLakeColumnHandle;
 import io.trino.plugin.deltalake.DeltaLakeColumnMetadata;
@@ -153,7 +153,7 @@ public final class DeltaLakeSchemaSupport
             .put(DATE, "date")
             .buildOrThrow();
 
-    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapperProvider().get();
+    private static final JsonMapper JSON_MAPPER = new JsonMapperProvider().get();
 
     public static boolean isAppendOnly(MetadataEntry metadataEntry, ProtocolEntry protocolEntry)
     {
@@ -246,7 +246,7 @@ public final class DeltaLakeSchemaSupport
     public static String serializeSchemaAsJson(DeltaLakeTable deltaTable)
     {
         try {
-            return OBJECT_MAPPER.writeValueAsString(serializeStructType(deltaTable));
+            return JSON_MAPPER.writeValueAsString(serializeStructType(deltaTable));
         }
         catch (JsonProcessingException e) {
             throw new TrinoException(DELTA_LAKE_INVALID_SCHEMA, getLocation(e), "Failed to encode Delta Lake schema", e);
@@ -437,7 +437,7 @@ public final class DeltaLakeSchemaSupport
     public static String serializeStatsAsJson(DeltaLakeFileStatistics fileStatistics)
             throws JsonProcessingException
     {
-        return OBJECT_MAPPER.writeValueAsString(fileStatistics);
+        return JSON_MAPPER.writeValueAsString(fileStatistics);
     }
 
     public static List<ColumnMetadata> extractColumnMetadata(MetadataEntry metadataEntry, ProtocolEntry protocolEntry, TypeManager typeManager)
@@ -467,7 +467,7 @@ public final class DeltaLakeSchemaSupport
     {
         try {
             ImmutableList.Builder<DeltaLakeColumnMetadata> columns = ImmutableList.builder();
-            Iterator<JsonNode> nodes = OBJECT_MAPPER.readTree(json).get("fields").elements();
+            Iterator<JsonNode> nodes = JSON_MAPPER.readTree(json).get("fields").elements();
             while (nodes.hasNext()) {
                 try {
                     columns.add(mapColumn(typeManager, nodes.next(), mappingMode, partitionColumns));
@@ -581,7 +581,7 @@ public final class DeltaLakeSchemaSupport
 
     public static Map<String, Object> getColumnTypes(MetadataEntry metadataEntry)
     {
-        return getColumnProperties(metadataEntry, node -> OBJECT_MAPPER.convertValue(node.get("type"), new TypeReference<>(){}));
+        return getColumnProperties(metadataEntry, node -> JSON_MAPPER.convertValue(node.get("type"), new TypeReference<>(){}));
     }
 
     public static Map<String, String> getColumnComments(MetadataEntry metadataEntry)
@@ -643,7 +643,7 @@ public final class DeltaLakeSchemaSupport
     private static String extractInvariantsExpression(String invariants)
     {
         try {
-            return OBJECT_MAPPER.readTree(invariants).get("expression").get("expression").asText();
+            return JSON_MAPPER.readTree(invariants).get("expression").get("expression").asText();
         }
         catch (JsonProcessingException e) {
             throw new TrinoException(DELTA_LAKE_INVALID_SCHEMA, getLocation(e), "Failed to parse invariants expression: " + invariants, e);
@@ -686,7 +686,7 @@ public final class DeltaLakeSchemaSupport
 
     public static Map<String, Map<String, Object>> getColumnsMetadata(MetadataEntry metadataEntry)
     {
-        return getColumnProperties(metadataEntry, node -> OBJECT_MAPPER.convertValue(node.get("metadata"), new TypeReference<>(){}));
+        return getColumnProperties(metadataEntry, node -> JSON_MAPPER.convertValue(node.get("metadata"), new TypeReference<>(){}));
     }
 
     public static <T> Map<String, T> getColumnProperties(MetadataEntry metadataEntry, Function<JsonNode, T> extractor)
@@ -699,7 +699,7 @@ public final class DeltaLakeSchemaSupport
     private static <T> Map<String, T> getColumnProperty(String json, Function<JsonNode, T> extractor)
     {
         try {
-            return stream(OBJECT_MAPPER.readTree(json).get("fields").elements())
+            return stream(JSON_MAPPER.readTree(json).get("fields").elements())
                     .map(field -> new AbstractMap.SimpleEntry<>(field.get("name").asText(), extractor.apply(field)))
                     .filter(entry -> entry.getValue() != null)
                     .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
@@ -715,7 +715,7 @@ public final class DeltaLakeSchemaSupport
     public static List<String> getExactColumnNames(MetadataEntry metadataEntry)
     {
         try {
-            return stream(OBJECT_MAPPER.readTree(metadataEntry.getSchemaString()).get("fields").elements())
+            return stream(JSON_MAPPER.readTree(metadataEntry.getSchemaString()).get("fields").elements())
                     .map(field -> field.get("name").asText())
                     .collect(toImmutableList());
         }
@@ -728,8 +728,8 @@ public final class DeltaLakeSchemaSupport
             throws UnsupportedTypeException
     {
         try {
-            String json = OBJECT_MAPPER.writeValueAsString(type);
-            return buildType(typeManager, OBJECT_MAPPER.readTree(json), usePhysicalName);
+            String json = JSON_MAPPER.writeValueAsString(type);
+            return buildType(typeManager, JSON_MAPPER.readTree(json), usePhysicalName);
         }
         catch (JsonProcessingException e) {
             throw new TrinoException(DELTA_LAKE_INVALID_SCHEMA, "Failed to deserialize type: " + type);

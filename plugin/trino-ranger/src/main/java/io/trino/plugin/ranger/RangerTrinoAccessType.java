@@ -13,7 +13,8 @@
  */
 package io.trino.plugin.ranger;
 
-enum RangerTrinoAccessType {
+enum RangerTrinoAccessType
+{
     CREATE,
     DROP,
     SELECT,

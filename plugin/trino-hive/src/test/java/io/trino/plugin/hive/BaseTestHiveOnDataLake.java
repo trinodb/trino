@@ -445,14 +445,14 @@ abstract class BaseTestHiveOnDataLake
         assertQuery(
                 "SELECT * FROM " + fullyQualifiedTestTableName,
                 """
-                    VALUES
-                            ('Trino', 'rocks', 'hyphens', 'with-hyphen'),
-                            ('Trino', 'rocks', 'dots', 'with.dot'),
-                            ('Trino', 'rocks', 'colons', 'with:colon'),
-                            ('Trino', 'rocks', 'slashes', 'with/slash'),
-                            ('Trino', 'rocks', 'backslashes', 'with\\backslash'),
-                            ('Trino', 'rocks', 'percents', 'with%percent')
-                    """);
+                VALUES
+                        ('Trino', 'rocks', 'hyphens', 'with-hyphen'),
+                        ('Trino', 'rocks', 'dots', 'with.dot'),
+                        ('Trino', 'rocks', 'colons', 'with:colon'),
+                        ('Trino', 'rocks', 'slashes', 'with/slash'),
+                        ('Trino', 'rocks', 'backslashes', 'with\\backslash'),
+                        ('Trino', 'rocks', 'percents', 'with%percent')
+                """);
 
         assertUpdate("DROP TABLE " + fullyQualifiedTestTableName);
     }
@@ -2057,11 +2057,11 @@ abstract class BaseTestHiveOnDataLake
         assertUpdate("ANALYZE " + getFullyQualifiedTestTableName(externalTableName), 4);
         assertQuery("SHOW STATS FOR " + getFullyQualifiedTestTableName(externalTableName),
                 """
-                        VALUES
-                            ('a_varchar', 4.0, 2.0, 0.0, null, null, null),
-                            ('month', null, 3.0, 0.0, null, 1, 3),
-                            (null, null, null, null, 4.0, null, null)
-                        """);
+                VALUES
+                    ('a_varchar', 4.0, 2.0, 0.0, null, null, null),
+                    ('month', null, 3.0, 0.0, null, 1, 3),
+                    (null, null, null, null, 4.0, null, null)
+                """);
 
         assertUpdate("INSERT INTO " + getFullyQualifiedTestTableName(tableName) + " VALUES ('E', '04')", 1);
         addPartitions(
@@ -2074,11 +2074,11 @@ abstract class BaseTestHiveOnDataLake
         assertUpdate("ANALYZE " + getFullyQualifiedTestTableName(externalTableName) + " WITH (partitions = ARRAY[ARRAY['04']])", 1);
         assertQuery("SHOW STATS FOR " + getFullyQualifiedTestTableName(externalTableName),
                 """
-                        VALUES
-                            ('a_varchar', 5.0, 2.0, 0.0, null, null, null),
-                            ('month', null, 4.0, 0.0, null, 1, 4),
-                            (null, null, null, null, 5.0, null, null)
-                        """);
+                VALUES
+                    ('a_varchar', 5.0, 2.0, 0.0, null, null, null),
+                    ('month', null, 4.0, 0.0, null, 1, 4),
+                    (null, null, null, null, 5.0, null, null)
+                """);
         // TODO (https://github.com/trinodb/trino/issues/15998) fix selective ANALYZE for table with non-canonical partition values
         assertQueryFails("ANALYZE " + getFullyQualifiedTestTableName(externalTableName) + " WITH (partitions = ARRAY[ARRAY['4']])", "Partition month=4 no longer exists.*");
 
@@ -2270,23 +2270,23 @@ abstract class BaseTestHiveOnDataLake
 
         assertQuery("SHOW STATS FOR " + getFullyQualifiedTestTableName(tableName),
                 """
-                        VALUES
-                            ('data', null, 1.0, 0.0, null, 1, 12),
-                            ('p_varchar', 15.0, 2.0, 0.0, null, null, null),
-                            ('p_integer', null, 2.0, 0.0, null, 10, 20),
-                            (null, null, null, null, 3.0, null, null)
-                        """);
+                VALUES
+                    ('data', null, 1.0, 0.0, null, 1, 12),
+                    ('p_varchar', 15.0, 2.0, 0.0, null, null, null),
+                    ('p_integer', null, 2.0, 0.0, null, 10, 20),
+                    (null, null, null, null, 3.0, null, null)
+                """);
 
         assertUpdate(format("CALL system.drop_stats('%s', '%s', ARRAY[ARRAY['part1', '10']])", HIVE_TEST_SCHEMA, tableName));
 
         assertQuery("SHOW STATS FOR " + getFullyQualifiedTestTableName(tableName),
                 """
-                        VALUES
-                            ('data', null, 1.0, 0.0, null, 2, 12),
-                            ('p_varchar', 15.0, 2.0, 0.0, null, null, null),
-                            ('p_integer', null, 2.0, 0.0, null, 10, 20),
-                            (null, null, null, null, 3.0, null, null)
-                        """);
+                VALUES
+                    ('data', null, 1.0, 0.0, null, 2, 12),
+                    ('p_varchar', 15.0, 2.0, 0.0, null, null, null),
+                    ('p_integer', null, 2.0, 0.0, null, 10, 20),
+                    (null, null, null, null, 3.0, null, null)
+                """);
 
         assertUpdate("DELETE FROM " + getFullyQualifiedTestTableName(tableName) + " WHERE p_varchar ='part1' and p_integer = 10");
 
@@ -2296,12 +2296,12 @@ abstract class BaseTestHiveOnDataLake
 
         assertQuery("SHOW STATS FOR " + getFullyQualifiedTestTableName(tableName),
                 """
-                        VALUES
-                            ('data', null, 1.0, 0.0, null, 2, 12),
-                            ('p_varchar', 10.0, 1.0, 0.0, null, null, null),
-                            ('p_integer', null, 2.0, 0.0, null, 10, 20),
-                            (null, null, null, null, 2.0, null, null)
-                        """);
+                VALUES
+                    ('data', null, 1.0, 0.0, null, 2, 12),
+                    ('p_varchar', 10.0, 1.0, 0.0, null, null, null),
+                    ('p_integer', null, 2.0, 0.0, null, 10, 20),
+                    (null, null, null, null, 2.0, null, null)
+                """);
         assertUpdate("DROP TABLE " + getFullyQualifiedTestTableName(tableName));
     }
 

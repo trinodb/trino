@@ -73,10 +73,10 @@ public final class BlockJsonSerde
         }
 
         @Override
-        public Block deserialize(JsonParser jsonParser, DeserializationContext deserializationContext)
+        public Block deserialize(JsonParser parser, DeserializationContext context)
                 throws IOException
         {
-            byte[] decoded = jsonParser.getBinaryValue(Base64Variants.MIME_NO_LINEFEEDS);
+            byte[] decoded = Base64Variants.MIME_NO_LINEFEEDS.decode(context.readValue(parser, String.class));
             return readBlock(blockEncodingSerde, Slices.wrappedBuffer(decoded));
         }
     }

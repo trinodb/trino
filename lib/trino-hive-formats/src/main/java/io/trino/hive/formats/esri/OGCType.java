@@ -13,7 +13,8 @@
  */
 package io.trino.hive.formats.esri;
 
-public enum OGCType {
+public enum OGCType
+{
     UNKNOWN((byte) 0),
     ST_POINT((byte) 1),
     ST_LINESTRING((byte) 2),

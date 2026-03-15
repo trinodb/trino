@@ -17,7 +17,7 @@ import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.json.JsonMapper;
 import org.apache.iceberg.StructLike;
 import org.apache.iceberg.types.Type;
 import org.apache.iceberg.types.Types;
@@ -39,8 +39,10 @@ public class PartitionData
 {
     private static final String PARTITION_VALUES_FIELD = "partitionValues";
     private static final JsonFactory FACTORY = jsonFactory();
-    private static final ObjectMapper MAPPER = new ObjectMapper(FACTORY)
-            .configure(DeserializationFeature.USE_BIG_DECIMAL_FOR_FLOATS, true);
+    private static final JsonMapper MAPPER = new JsonMapper(FACTORY)
+            .rebuild()
+            .configure(DeserializationFeature.USE_BIG_DECIMAL_FOR_FLOATS, true)
+            .build();
 
     private final Object[] partitionValues;
 

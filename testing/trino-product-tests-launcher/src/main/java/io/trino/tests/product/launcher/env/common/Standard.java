@@ -357,15 +357,15 @@ public final class Standard
             Files.writeString(
                     script,
                         """
-                                #!/bin/bash
-                                printf '%%s\\n' '-Dcom.sun.management.jmxremote=true' >> '%2$s'
-                                printf '%%s\\n' '-Dcom.sun.management.jmxremote.port=%1$s' >> '%2$s'
-                                printf '%%s\\n' '-Dcom.sun.management.jmxremote.rmi.port=%1$s' >> '%2$s'
-                                printf '%%s\\n' '-Dcom.sun.management.jmxremote.authenticate=false' >> '%2$s'
-                                printf '%%s\\n' '-Djava.rmi.server.hostname=0.0.0.0' >> '%2$s'
-                                printf '%%s\\n' '-Dcom.sun.management.jmxremote.ssl=false' >> '%2$s'
-                                printf '%%s\\n' '-XX:FlightRecorderOptions=stackdepth=256' >> '%2$s'
-                                """.formatted(Integer.toString(jmxPort), CONTAINER_TRINO_JVM_CONFIG),
+                        #!/bin/bash
+                        printf '%%s\\n' '-Dcom.sun.management.jmxremote=true' >> '%2$s'
+                        printf '%%s\\n' '-Dcom.sun.management.jmxremote.port=%1$s' >> '%2$s'
+                        printf '%%s\\n' '-Dcom.sun.management.jmxremote.rmi.port=%1$s' >> '%2$s'
+                        printf '%%s\\n' '-Dcom.sun.management.jmxremote.authenticate=false' >> '%2$s'
+                        printf '%%s\\n' '-Djava.rmi.server.hostname=0.0.0.0' >> '%2$s'
+                        printf '%%s\\n' '-Dcom.sun.management.jmxremote.ssl=false' >> '%2$s'
+                        printf '%%s\\n' '-XX:FlightRecorderOptions=stackdepth=256' >> '%2$s'
+                        """.formatted(Integer.toString(jmxPort), CONTAINER_TRINO_JVM_CONFIG),
                     UTF_8);
             container.withCopyFileToContainer(forHostPath(script), "/docker/presto-init.d/enable-java-jmx-rmi.sh");
 

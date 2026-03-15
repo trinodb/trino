@@ -23,6 +23,8 @@ import org.testng.annotations.Test;
 
 import java.io.IOException;
 import java.math.BigDecimal;
+import java.sql.Date;
+import java.sql.Timestamp;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -144,11 +146,11 @@ public class TestHiveSparkCompatibility
                             new BigDecimal("1234567.8901"), // a_short_decimal
                             new BigDecimal("1234567890123456789.0123456"), // a_long_decimal
                             "some string", // a_string
-                            java.sql.Date.valueOf(LocalDate.of(2005, 9, 10)), // a_date
-                            java.sql.Timestamp.valueOf(LocalDateTime.of(2005, 9, 10, 13, 0, 0)), // a_timestamp_seconds
-                            java.sql.Timestamp.valueOf(LocalDateTime.of(2005, 9, 10, 13, 0, 0, 123_000_000)), // a_timestamp_millis
-                            java.sql.Timestamp.valueOf(LocalDateTime.of(2005, 9, 10, 13, 0, 0, 123_456_000)), // a_timestamp_micros
-                            java.sql.Timestamp.valueOf(LocalDateTime.of(2005, 9, 10, 13, 0, 0, 123_456_000)), // a_timestamp_nanos; note that Spark timestamp has microsecond precision
+                            Date.valueOf(LocalDate.of(2005, 9, 10)), // a_date
+                            Timestamp.valueOf(LocalDateTime.of(2005, 9, 10, 13, 0, 0)), // a_timestamp_seconds
+                            Timestamp.valueOf(LocalDateTime.of(2005, 9, 10, 13, 0, 0, 123_000_000)), // a_timestamp_millis
+                            Timestamp.valueOf(LocalDateTime.of(2005, 9, 10, 13, 0, 0, 123_456_000)), // a_timestamp_micros
+                            Timestamp.valueOf(LocalDateTime.of(2005, 9, 10, 13, 0, 0, 123_456_000)), // a_timestamp_nanos; note that Spark timestamp has microsecond precision
                             "dummy"),
                     row(
                             false, // a_bigint
@@ -161,11 +163,11 @@ public class TestHiveSparkCompatibility
                             new BigDecimal("-1234567.8901"), // a_short_decimal
                             new BigDecimal("-1234567890123456789.0123456"), // a_long_decimal
                             "", // a_string
-                            java.sql.Date.valueOf(LocalDate.of(1965, 9, 10)), // a_date
-                            java.sql.Timestamp.valueOf(LocalDateTime.of(1965, 9, 10, 13, 0, 0)), // a_timestamp_seconds
-                            java.sql.Timestamp.valueOf(LocalDateTime.of(1965, 9, 10, 13, 0, 0, 123_000_000)), // a_timestamp_millis
-                            java.sql.Timestamp.valueOf(LocalDateTime.of(1965, 9, 10, 13, 0, 0, 123_456_000)), // a_timestamp_micros
-                            java.sql.Timestamp.valueOf(LocalDateTime.of(1965, 9, 10, 13, 0, 0, 123_456_000)), // a_timestamp_nanos; note that Spark timestamp has microsecond precision
+                            Date.valueOf(LocalDate.of(1965, 9, 10)), // a_date
+                            Timestamp.valueOf(LocalDateTime.of(1965, 9, 10, 13, 0, 0)), // a_timestamp_seconds
+                            Timestamp.valueOf(LocalDateTime.of(1965, 9, 10, 13, 0, 0, 123_000_000)), // a_timestamp_millis
+                            Timestamp.valueOf(LocalDateTime.of(1965, 9, 10, 13, 0, 0, 123_456_000)), // a_timestamp_micros
+                            Timestamp.valueOf(LocalDateTime.of(1965, 9, 10, 13, 0, 0, 123_456_000)), // a_timestamp_nanos; note that Spark timestamp has microsecond precision
                             "dummy"));
             assertThat(onSpark().executeQuery("SELECT * FROM " + sparkTableName)).containsOnly(expected);
             onTrino().executeQuery("SET SESSION hive.timestamp_precision = 'NANOSECONDS'");
@@ -220,7 +222,7 @@ public class TestHiveSparkCompatibility
                 String trinoTimestampPrecision = HIVE_TIMESTAMP_PRECISIONS[i];
                 String expected = expectedValues[i];
                 onTrino().executeQuery("SET SESSION hive.timestamp_precision = '" + trinoTimestampPrecision + "'");
-                assertThat(onTrino().executeQuery("SELECT * FROM " + trinoTableName)).containsOnly(row(java.sql.Timestamp.valueOf(expected)));
+                assertThat(onTrino().executeQuery("SELECT * FROM " + trinoTableName)).containsOnly(row(Timestamp.valueOf(expected)));
                 assertThat(onTrino().executeQuery("SELECT count(*) FROM " + trinoTableName + " WHERE a_timestamp = TIMESTAMP '" + expected + "'")).containsOnly(row(1));
                 assertThat(onTrino().executeQuery("SELECT count(*) FROM " + trinoTableName + " WHERE a_timestamp != TIMESTAMP '" + expected + "'")).containsOnly(row(0));
             }
@@ -566,10 +568,10 @@ public class TestHiveSparkCompatibility
                             new BigDecimal("1234567.8901"), // a_short_decimal
                             new BigDecimal("1234567890123456789.0123456"), // a_long_decimal
                             "some string", // a_string
-                            java.sql.Date.valueOf(LocalDate.of(2005, 9, 10)), // a_date
-                            java.sql.Timestamp.valueOf(LocalDateTime.of(2005, 9, 10, 13, 0, 0)), // a_timestamp_seconds
-                            java.sql.Timestamp.valueOf(LocalDateTime.of(2005, 9, 10, 13, 0, 0, 123_000_000)), // a_timestamp_millis
-                            java.sql.Timestamp.valueOf(LocalDateTime.of(2005, 9, 10, 13, 0, 0, 123_456_000)), // a_timestamp_micros
+                            Date.valueOf(LocalDate.of(2005, 9, 10)), // a_date
+                            Timestamp.valueOf(LocalDateTime.of(2005, 9, 10, 13, 0, 0)), // a_timestamp_seconds
+                            Timestamp.valueOf(LocalDateTime.of(2005, 9, 10, 13, 0, 0, 123_000_000)), // a_timestamp_millis
+                            Timestamp.valueOf(LocalDateTime.of(2005, 9, 10, 13, 0, 0, 123_456_000)), // a_timestamp_micros
                             "dummy"),
                     row(
                             false, // a_bigint
@@ -582,10 +584,10 @@ public class TestHiveSparkCompatibility
                             new BigDecimal("-1234567.8901"), // a_short_decimal
                             new BigDecimal("-1234567890123456789.0123456"), // a_long_decimal
                             "", // a_string
-                            java.sql.Date.valueOf(LocalDate.of(1965, 9, 10)), // a_date
-                            java.sql.Timestamp.valueOf(LocalDateTime.of(1965, 9, 10, 13, 0, 0)), // a_timestamp_seconds
-                            java.sql.Timestamp.valueOf(LocalDateTime.of(1965, 9, 10, 13, 0, 0, 123_000_000)), // a_timestamp_millis
-                            java.sql.Timestamp.valueOf(LocalDateTime.of(1965, 9, 10, 13, 0, 0, 123_456_000)), // a_timestamp_micros
+                            Date.valueOf(LocalDate.of(1965, 9, 10)), // a_date
+                            Timestamp.valueOf(LocalDateTime.of(1965, 9, 10, 13, 0, 0)), // a_timestamp_seconds
+                            Timestamp.valueOf(LocalDateTime.of(1965, 9, 10, 13, 0, 0, 123_000_000)), // a_timestamp_millis
+                            Timestamp.valueOf(LocalDateTime.of(1965, 9, 10, 13, 0, 0, 123_456_000)), // a_timestamp_micros
                             "dummy"));
             assertThat(onSpark().executeQuery("SELECT * FROM " + sparkTableName)).containsOnly(expected);
             assertThat(onTrino().executeQuery("SELECT * FROM " + trinoTableName)).containsOnly(expected);
@@ -623,7 +625,7 @@ public class TestHiveSparkCompatibility
                             row(4, "dt=+12345-06-07"),
                             row(6, "dt=-0001-01-01")));
 
-            // Use date_format function to avoid exception due to java.sql.Date.valueOf() with 5 digit year
+            // Use date_format function to avoid exception due to Date.valueOf() with 5 digit year
             assertThat(onSpark().executeQuery("SELECT value, date_format(dt, 'yyyy-MM-dd') FROM " + sparkTableName))
                     .containsOnly(List.of(
                             row(1, "2022-04-13"),
@@ -632,7 +634,7 @@ public class TestHiveSparkCompatibility
                             row(4, "+12345-06-07"),
                             row(6, "-0001-01-01")));
 
-            // Use date_format function to avoid exception due to java.sql.Date.valueOf() with 5 digit year
+            // Use date_format function to avoid exception due to Date.valueOf() with 5 digit year
             assertThat(onHive().executeQuery("SELECT value, date_format(dt, 'yyyy-MM-dd') FROM " + sparkTableName))
                     .containsOnly(List.of(
                             row(1, "2022-04-13"),
@@ -686,7 +688,7 @@ public class TestHiveSparkCompatibility
     }
 
     @Test(groups = {HIVE_SPARK, PROFILE_SPECIFIC_TESTS}, dataProvider = "unsupportedPartitionDates")
-    public void testReadSparkInvalidDatePartitionName(String inputDate, java.sql.Date outputDate)
+    public void testReadSparkInvalidDatePartitionName(String inputDate, Date outputDate)
     {
         String sparkTableName = "test_trino_reading_spark_invalid_date_type_partitioned_" + randomNameSuffix();
         String trinoTableName = format("%s.default.%s", TRINO_CATALOG, sparkTableName);
@@ -722,12 +724,12 @@ public class TestHiveSparkCompatibility
     public static Object[][] unsupportedPartitionDates()
     {
         return new Object[][] {
-                {"1965-09-10 23:59:59.999999999", java.sql.Date.valueOf(LocalDate.of(1965, 9, 10))},
-                {"1965-09-10 23:59:59", java.sql.Date.valueOf(LocalDate.of(1965, 9, 10))},
-                {"1965-09-10 23:59", java.sql.Date.valueOf(LocalDate.of(1965, 9, 10))},
-                {"1965-09-10 00", java.sql.Date.valueOf(LocalDate.of(1965, 9, 10))},
-                {"2021-02-30", java.sql.Date.valueOf(LocalDate.of(2021, 3, 2))},
-                {"1965-09-10 invalid", java.sql.Date.valueOf(LocalDate.of(1965, 9, 10))},
+                {"1965-09-10 23:59:59.999999999", Date.valueOf(LocalDate.of(1965, 9, 10))},
+                {"1965-09-10 23:59:59", Date.valueOf(LocalDate.of(1965, 9, 10))},
+                {"1965-09-10 23:59", Date.valueOf(LocalDate.of(1965, 9, 10))},
+                {"1965-09-10 00", Date.valueOf(LocalDate.of(1965, 9, 10))},
+                {"2021-02-30", Date.valueOf(LocalDate.of(2021, 3, 2))},
+                {"1965-09-10 invalid", Date.valueOf(LocalDate.of(1965, 9, 10))},
                 {"invalid date", null},
         };
     }

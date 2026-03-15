@@ -179,7 +179,7 @@ public class PagesSpatialIndexSupplier
         // Recurse into GeometryCollections
         GeometryCursor cursor = ogcGeometry.getEsriGeometryCursor();
         while (true) {
-            com.esri.core.geometry.Geometry esriGeometry = cursor.next();
+            Geometry esriGeometry = cursor.next();
             if (esriGeometry == null) {
                 break;
             }

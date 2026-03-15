@@ -14,7 +14,7 @@
 package io.trino.decoder.protobuf;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -323,7 +323,7 @@ public class TestProtobufDecoder
 
         assertThat(decodedRow).hasSize(2);
 
-        final var obj = new ObjectMapper();
+        final var obj = new JsonMapper();
         final var expected = obj.writeValueAsString(setValue);
 
         assertThat(decodedRow.get(testColumnHandle).getSlice().toStringUtf8()).isEqualTo("value");
@@ -398,7 +398,7 @@ public class TestProtobufDecoder
                 .decodeRow(testAny.toByteArray())
                 .orElseThrow(AssertionError::new);
 
-        JsonNode actual = new ObjectMapper().readTree(decodedRow.get(testOneOfColumn).getSlice().toStringUtf8());
+        JsonNode actual = new JsonMapper().readTree(decodedRow.get(testOneOfColumn).getSlice().toStringUtf8());
         assertThat(actual.get("@type").textValue()).contains("schema");
         assertThat(actual.get("stringColumn").textValue()).isEqualTo(stringData);
         assertThat(actual.get("integerColumn").intValue()).isEqualTo(integerData);

@@ -36,6 +36,7 @@ import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.testing.TestingSession;
 import io.trino.testing.TestingSplit;
 import io.trino.util.FinalizerService;
+import org.assertj.guava.api.Assertions;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -321,7 +322,7 @@ public class TestUniformNodeSelector
         Multimap<InternalNode, Split> assignmentsNode1Alive = nodeSelector.computeAssignments(splits, ImmutableList.copyOf(taskMap.values())).getAssignments();
         ArrayListMultimap<InternalNode, Split> expected = ArrayListMultimap.create();
         expected.putAll(node1, splits);
-        org.assertj.guava.api.Assertions.assertThat(assignmentsNode1Alive).hasSameEntriesAs(expected);
+        Assertions.assertThat(assignmentsNode1Alive).hasSameEntriesAs(expected);
 
         nodeManager.removeNode(node1);
         // Now the flexible split can fail over to node2, while the rigid split cannot.
@@ -330,7 +331,7 @@ public class TestUniformNodeSelector
                 nodeSelector.computeAssignments(ImmutableSet.of(flexibleSplit), ImmutableList.copyOf(taskMap.values())).getAssignments();
         expected = ArrayListMultimap.create();
         expected.put(node2, flexibleSplit);
-        org.assertj.guava.api.Assertions.assertThat(assignmentsNode1Dead).hasSameEntriesAs(expected);
+        Assertions.assertThat(assignmentsNode1Dead).hasSameEntriesAs(expected);
     }
 
     private NodeMap createNodeMap()

@@ -16,6 +16,4 @@ package io.trino.spi.function.table;
 /**
  * An area to store all information necessary to execute the table function, gathered at analysis time
  */
-public interface ConnectorTableFunctionHandle
-{
-}
+public interface ConnectorTableFunctionHandle {}

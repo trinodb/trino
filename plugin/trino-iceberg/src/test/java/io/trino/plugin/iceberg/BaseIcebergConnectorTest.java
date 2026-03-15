@@ -14,7 +14,7 @@
 package io.trino.plugin.iceberg;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.google.common.collect.ImmutableList;
@@ -1532,11 +1532,11 @@ public abstract class BaseIcebergConnectorTest
         // Insert "large" number of rows, supposedly topping over iceberg.writer-sort-buffer-size so that temporary files are utilized by the sorting writer.
         assertUpdate(
                 """
-                        INSERT INTO %s
-                        SELECT v.*
-                        FROM (VALUES %s, %s, %s) v
-                        CROSS JOIN UNNEST (sequence(1, 10_000)) a(i)
-                        """.formatted(tableName, values, highValues, lowValues), 30000);
+                INSERT INTO %s
+                SELECT v.*
+                FROM (VALUES %s, %s, %s) v
+                CROSS JOIN UNNEST (sequence(1, 10_000)) a(i)
+                """.formatted(tableName, values, highValues, lowValues), 30000);
 
         computeActual("SELECT sort_order_id from \"" + tableName + "$files\"")
                 .getOnlyColumn()
@@ -2062,12 +2062,12 @@ public abstract class BaseIcebergConnectorTest
         assertUpdate(format("CREATE TABLE test_create_table_like_original (col1 INTEGER, aDate DATE) WITH(format = '%s', location = '%s', partitioning = ARRAY['aDate'])", format, tempDirPath));
         assertThat(getTablePropertiesString("test_create_table_like_original")).isEqualTo(format(
                 """
-                        WITH (
-                           format = '%s',
-                           format_version = 2,
-                           location = '%s',
-                           partitioning = ARRAY['adate']
-                        )""",
+                WITH (
+                   format = '%s',
+                   format_version = 2,
+                   location = '%s',
+                   partitioning = ARRAY['adate']
+                )""",
                 format,
                 tempDirPath));
 
@@ -2078,22 +2078,22 @@ public abstract class BaseIcebergConnectorTest
         assertUpdate("CREATE TABLE test_create_table_like_copy1 (LIKE test_create_table_like_original)");
         assertThat(getTablePropertiesString("test_create_table_like_copy1")).isEqualTo(format(
                 """
-                        WITH (
-                           format = '%s',
-                           format_version = 2,
-                           location = '%s'
-                        )""",
+                WITH (
+                   format = '%s',
+                   format_version = 2,
+                   location = '%s'
+                )""",
                 format,
                 getTableLocation("test_create_table_like_copy1")));
 
         assertUpdate("CREATE TABLE test_create_table_like_copy2 (LIKE test_create_table_like_original EXCLUDING PROPERTIES)");
         assertThat(getTablePropertiesString("test_create_table_like_copy2")).isEqualTo(format(
                 """
-                        WITH (
-                           format = '%s',
-                           format_version = 2,
-                           location = '%s'
-                        )""",
+                WITH (
+                   format = '%s',
+                   format_version = 2,
+                   location = '%s'
+                )""",
                 format,
                 getTableLocation("test_create_table_like_copy2")));
         assertUpdate("DROP TABLE test_create_table_like_copy2");
@@ -5417,7 +5417,8 @@ public abstract class BaseIcebergConnectorTest
                 .setSystemProperty(MAX_HASH_PARTITION_COUNT, Integer.toString(workerCount))
                 .build();
         QueryId id = getDistributedQueryRunner()
-                .executeWithPlan(session, """
+                .executeWithPlan(session,
+                        """
                         INSERT INTO test_max_writer_task_count_insert
                         SELECT * FROM TABLE(sequence(start => 0, stop => 100, step => 1))
                         """)
@@ -8405,7 +8406,7 @@ public abstract class BaseIcebergConnectorTest
         String tableLocation = getTableLocation(tableName);
         String metadataFileLocation = getLatestMetadataLocation(fileSystem, tableLocation);
 
-        ObjectMapper mapper = JsonUtil.mapper();
+        JsonMapper mapper = new JsonMapper(JsonUtil.factory());
         JsonNode jsonNode = mapper.readValue(fileSystem.newInputFile(Location.of(metadataFileLocation)).newStream(), JsonNode.class);
         ArrayNode fieldsNode = (ArrayNode) jsonNode.get("schemas").get(0).get("fields");
         ObjectNode newFieldNode = fieldsNode.get(0).deepCopy();
@@ -8829,35 +8830,35 @@ public abstract class BaseIcebergConnectorTest
                 TestTable dimensionTable = newTrinoTable("dimension_table", "(date date, following_holiday boolean, year int)")) {
             assertUpdate(
                     """
-                            INSERT INTO %s
-                            VALUES
-                                (DATE '2023-01-01' , false, 2023),
-                                (DATE '2023-01-02' , true, 2023),
-                                (DATE '2023-01-03' , false, 2023)""".formatted(dimensionTable.getName()), 3);
+                    INSERT INTO %s
+                    VALUES
+                        (DATE '2023-01-01' , false, 2023),
+                        (DATE '2023-01-02' , true, 2023),
+                        (DATE '2023-01-03' , false, 2023)""".formatted(dimensionTable.getName()), 3);
             assertUpdate(
                     """
-                            INSERT INTO %s
-                            VALUES
-                                (DATE '2023-01-02' , '#2023#1', DECIMAL '122.12'),
-                                (DATE '2023-01-02' , '#2023#2', DECIMAL '124.12'),
-                                (DATE '2023-01-02' , '#2023#3', DECIMAL '99.99'),
-                                (DATE '2023-01-02' , '#2023#4', DECIMAL '95.12'),
-                                (DATE '2023-01-03' , '#2023#5', DECIMAL '199.12'),
-                                (DATE '2023-01-04' , '#2023#6', DECIMAL '99.55'),
-                                (DATE '2023-01-05' , '#2023#7', DECIMAL '50.11'),
-                                (DATE '2023-01-05' , '#2023#8', DECIMAL '60.20'),
-                                (DATE '2023-01-05' , '#2023#9', DECIMAL '70.75'),
-                                (DATE '2023-01-05' , '#2023#10', DECIMAL '80.12')""".formatted(salesTable.getName()), 10);
+                    INSERT INTO %s
+                    VALUES
+                        (DATE '2023-01-02' , '#2023#1', DECIMAL '122.12'),
+                        (DATE '2023-01-02' , '#2023#2', DECIMAL '124.12'),
+                        (DATE '2023-01-02' , '#2023#3', DECIMAL '99.99'),
+                        (DATE '2023-01-02' , '#2023#4', DECIMAL '95.12'),
+                        (DATE '2023-01-03' , '#2023#5', DECIMAL '199.12'),
+                        (DATE '2023-01-04' , '#2023#6', DECIMAL '99.55'),
+                        (DATE '2023-01-05' , '#2023#7', DECIMAL '50.11'),
+                        (DATE '2023-01-05' , '#2023#8', DECIMAL '60.20'),
+                        (DATE '2023-01-05' , '#2023#9', DECIMAL '70.75'),
+                        (DATE '2023-01-05' , '#2023#10', DECIMAL '80.12')""".formatted(salesTable.getName()), 10);
 
             String selectQuery =
                     """
-                            SELECT receipt_id
-                            FROM %s s
-                            JOIN %s d
-                                ON  s.date = d.date
-                            WHERE
-                                d.following_holiday = true AND
-                                d.date BETWEEN DATE '2023-01-01' AND DATE '2024-01-01'""".formatted(salesTable.getName(), dimensionTable.getName());
+                    SELECT receipt_id
+                    FROM %s s
+                    JOIN %s d
+                        ON  s.date = d.date
+                    WHERE
+                        d.following_holiday = true AND
+                        d.date BETWEEN DATE '2023-01-01' AND DATE '2024-01-01'""".formatted(salesTable.getName(), dimensionTable.getName());
             MaterializedResultWithPlan result = getDistributedQueryRunner().executeWithPlan(
                     Session.builder(getSession())
                             .setCatalogSessionProperty(catalog, DYNAMIC_FILTERING_WAIT_TIMEOUT, "10s")

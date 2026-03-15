@@ -296,7 +296,7 @@ final class TestIcebergRestCatalogNestedNamespaceConnectorSmokeTest
     @Override
     protected boolean locationExists(String location)
     {
-        return java.nio.file.Files.exists(Path.of(location));
+        return Files.exists(Path.of(location));
     }
 
     private TableIdentifier toIdentifier(String tableName)

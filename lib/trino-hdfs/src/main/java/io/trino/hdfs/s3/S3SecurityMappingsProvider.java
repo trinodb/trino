@@ -16,6 +16,4 @@ package io.trino.hdfs.s3;
 import java.util.function.Supplier;
 
 public interface S3SecurityMappingsProvider
-        extends Supplier<S3SecurityMappings>
-{
-}
+        extends Supplier<S3SecurityMappings> {}

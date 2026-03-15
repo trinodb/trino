@@ -13,13 +13,14 @@
  */
 package io.trino.plugin.hive;
 
+import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.io.Resources;
 import io.airlift.json.JsonCodec;
 import io.airlift.json.JsonCodecFactory;
-import io.airlift.json.ObjectMapperProvider;
+import io.airlift.json.JsonMapperProvider;
 import io.airlift.units.DataSize;
 import io.trino.Session;
 import io.trino.connector.MockConnectorFactory;
@@ -82,6 +83,7 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.math.BigDecimal;
 import java.net.URL;
+import java.nio.file.Path;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -4538,7 +4540,7 @@ public abstract class BaseHiveConnectorTest
     public void testCreateExternalTableWithDataNotAllowed()
             throws IOException
     {
-        java.nio.file.Path tempDir = createTempDirectory(null);
+        Path tempDir = createTempDirectory(null);
 
         @Language("SQL") String createTableSql = format("" +
                         "CREATE TABLE test_create_external_with_data_not_allowed " +
@@ -9466,9 +9468,7 @@ public abstract class BaseHiveConnectorTest
     }
 
     private static class RollbackException
-            extends RuntimeException
-    {
-    }
+            extends RuntimeException {}
 
     protected void testWithAllStorageFormats(BiConsumer<Session, HiveStorageFormat> test)
     {
@@ -9518,9 +9518,10 @@ public abstract class BaseHiveConnectorTest
 
     private JsonCodec<IoPlan> getIoPlanCodec()
     {
-        ObjectMapperProvider objectMapperProvider = new ObjectMapperProvider();
-        objectMapperProvider.setJsonDeserializers(ImmutableMap.of(Type.class, new TypeDeserializer(getQueryRunner().getPlannerContext().getTypeManager())));
-        return new JsonCodecFactory(objectMapperProvider).jsonCodec(IoPlan.class);
+        JsonMapper jsonMapper = new JsonMapperProvider()
+                .withJsonDeserializers(ImmutableMap.of(Type.class, new TypeDeserializer(getQueryRunner().getPlannerContext().getTypeManager())))
+                .get();
+        return new JsonCodecFactory(jsonMapper).jsonCodec(IoPlan.class);
     }
 
     private record TestingHiveStorageFormat(Session session, HiveStorageFormat format)

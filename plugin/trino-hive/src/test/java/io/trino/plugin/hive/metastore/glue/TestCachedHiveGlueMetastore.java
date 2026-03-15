@@ -104,9 +104,9 @@ public class TestCachedHiveGlueMetastore
         try {
             assertUpdate(
                     """
-                            CREATE TABLE test_select_from_partitioned_where WITH (partitioned_by = ARRAY['regionkey']) AS
-                            SELECT nationkey, name, regionkey FROM tpch.tiny.nation
-                            """,
+                    CREATE TABLE test_select_from_partitioned_where WITH (partitioned_by = ARRAY['regionkey']) AS
+                    SELECT nationkey, name, regionkey FROM tpch.tiny.nation
+                    """,
                     25);
             String select = "SELECT * FROM test_select_from_partitioned_where WHERE regionkey IN (2, 3)";
             // populate cache and verify test scaffolding (sanity check that getting counts works)
@@ -130,9 +130,9 @@ public class TestCachedHiveGlueMetastore
         try {
             assertUpdate(
                     """
-                            CREATE TABLE test_flush_table WITH (partitioned_by = ARRAY['regionkey']) AS
-                            SELECT nationkey, name, regionkey FROM tpch.tiny.nation
-                            """,
+                    CREATE TABLE test_flush_table WITH (partitioned_by = ARRAY['regionkey']) AS
+                    SELECT nationkey, name, regionkey FROM tpch.tiny.nation
+                    """,
                     25);
             String select = "SELECT * FROM test_flush_table WHERE regionkey IN (2, 3)";
             // populate cache
@@ -167,9 +167,9 @@ public class TestCachedHiveGlueMetastore
         try {
             assertUpdate(
                     """
-                            CREATE TABLE test_flush_partition WITH (partitioned_by = ARRAY['regionkey']) AS
-                            SELECT nationkey, name, regionkey FROM tpch.tiny.nation
-                            """,
+                    CREATE TABLE test_flush_partition WITH (partitioned_by = ARRAY['regionkey']) AS
+                    SELECT nationkey, name, regionkey FROM tpch.tiny.nation
+                    """,
                     25);
             String select = "SELECT * FROM test_flush_partition WHERE regionkey IN (2, 3)";
             // populate cache

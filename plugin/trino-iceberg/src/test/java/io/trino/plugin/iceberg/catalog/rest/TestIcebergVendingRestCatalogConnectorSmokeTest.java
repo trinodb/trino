@@ -46,6 +46,7 @@ import software.amazon.awssdk.services.sts.model.AssumeRoleResponse;
 
 import java.io.IOException;
 import java.net.URI;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Optional;
 
@@ -101,7 +102,7 @@ public class TestIcebergVendingRestCatalogConnectorSmokeTest
         StsClient stsClient = StsClient.builder()
                 .endpointOverride(URI.create(minio.getMinioAddress()))
                 .credentialsProvider(StaticCredentialsProvider.create(credentials))
-                .region(Region.US_EAST_1)
+                .region(Region.of(MINIO_REGION))
                 .build();
 
         AssumeRoleResponse assumeRoleResponse = stsClient.assumeRole(AssumeRoleRequest.builder().build());
@@ -192,7 +193,7 @@ public class TestIcebergVendingRestCatalogConnectorSmokeTest
     @Override
     protected boolean locationExists(String location)
     {
-        return java.nio.file.Files.exists(Path.of(location));
+        return Files.exists(Path.of(location));
     }
 
     @Test

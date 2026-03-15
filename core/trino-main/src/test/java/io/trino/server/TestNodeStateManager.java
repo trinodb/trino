@@ -301,7 +301,7 @@ class TestNodeStateManager
     {
         ServerConfig serverConfig = new ServerConfig();
         serverConfig.setCoordinator(false);
-        serverConfig.setGracePeriod(new io.airlift.units.Duration(gracePeriodMillis, MILLISECONDS));
+        serverConfig.setGracePeriod(new Duration(gracePeriodMillis, MILLISECONDS));
 
         Supplier<List<TaskInfo>> taskInfoSupplier = () -> tasks.get();
         return new NodeStateManager(
@@ -402,9 +402,7 @@ class TestNodeStateManager
         }
 
         @Override
-        public void shutdown()
-        {
-        }
+        public void shutdown() {}
 
         @Override
         public List<Runnable> shutdownNow()
@@ -478,8 +476,6 @@ class TestNodeStateManager
         }
 
         @Override
-        public void execute(Runnable command)
-        {
-        }
+        public void execute(Runnable command) {}
     }
 }

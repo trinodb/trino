@@ -59,6 +59,7 @@ import io.trino.testing.TestingConnectorSession;
 import org.apache.iceberg.BaseTable;
 import org.apache.iceberg.TableMetadata;
 import org.apache.iceberg.TableMetadataParser;
+import org.apache.parquet.format.SchemaElement;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -173,7 +174,7 @@ public final class IcebergTestUtils
     {
         try (TrinoParquetDataSource dataSource = new TrinoParquetDataSource(inputFile, ParquetReaderOptions.defaultOptions(), new FileFormatDataSourceStats())) {
             ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource, Optional.empty());
-            org.apache.parquet.format.SchemaElement sortColumn = parquetMetadata.getParquetMetadata().getSchema()
+            SchemaElement sortColumn = parquetMetadata.getParquetMetadata().getSchema()
                     .stream()
                     .filter(column -> column.getName().equals(sortColumnName))
                     .collect(onlyElement());

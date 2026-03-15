@@ -1126,44 +1126,44 @@ public class TestIcebergV2
                         "equality_ids " +
                         "FROM \"" + tableName + "$files\"",
                 """
-                               VALUES
-                                       (0,
-                                        'PARQUET',
-                                        25L,
-                                        JSON '{"1":137,"2":216,"3":91,"4":801}',
-                                        JSON '{"1":25,"2":25,"3":25,"4":25}',
-                                        jSON '{"1":0,"2":0,"3":0,"4":0}',
-                                        jSON '{}',
-                                        JSON '{"1":"0","2":"ALGERIA","3":"0","4":" haggle. careful"}',
-                                        JSON '{"1":"24","2":"VIETNAM","3":"4","4":"y final packaget"}',
-                                        null,
-                                        ARRAY[4L],
-                                        null),
-                                       (0,
-                                        'ORC',
-                                        10L,
-                                        JSON '{"1":2,"2":3}',
-                                        JSON '{"1":5,"2":3,"3":2}',
-                                        JSON '{"1":0,"2":2}',
-                                        JSON '{"4":1}',
-                                        JSON '{"1":"0"}',
-                                        JSON '{"1":"4"}',
-                                        X'54 72 69 6e 6f',
-                                        ARRAY[4L],
-                                        null),
-                                        (2,
-                                        'PARQUET',
-                                        1L,
-                                        JSON '{"3":52}',
-                                        JSON '{"3":1}',
-                                        JSON '{"3":0}',
-                                        JSON '{}',
-                                        JSON '{"3":"1"}',
-                                        JSON '{"3":"1"}',
-                                        null,
-                                        ARRAY[4],
-                                        ARRAY[3])
-                        """);
+                       VALUES
+                               (0,
+                                'PARQUET',
+                                25L,
+                                JSON '{"1":137,"2":216,"3":91,"4":801}',
+                                JSON '{"1":25,"2":25,"3":25,"4":25}',
+                                jSON '{"1":0,"2":0,"3":0,"4":0}',
+                                jSON '{}',
+                                JSON '{"1":"0","2":"ALGERIA","3":"0","4":" haggle. careful"}',
+                                JSON '{"1":"24","2":"VIETNAM","3":"4","4":"y final packaget"}',
+                                null,
+                                ARRAY[4L],
+                                null),
+                               (0,
+                                'ORC',
+                                10L,
+                                JSON '{"1":2,"2":3}',
+                                JSON '{"1":5,"2":3,"3":2}',
+                                JSON '{"1":0,"2":2}',
+                                JSON '{"4":1}',
+                                JSON '{"1":"0"}',
+                                JSON '{"1":"4"}',
+                                X'54 72 69 6e 6f',
+                                ARRAY[4L],
+                                null),
+                                (2,
+                                'PARQUET',
+                                1L,
+                                JSON '{"3":52}',
+                                JSON '{"3":1}',
+                                JSON '{"3":0}',
+                                JSON '{}',
+                                JSON '{"3":"1"}',
+                                JSON '{"3":"1"}',
+                                null,
+                                ARRAY[4],
+                                ARRAY[3])
+                """);
     }
 
     @Test
@@ -1630,15 +1630,15 @@ public class TestIcebergV2
                         ImmutableMap.of())
                 .commitTransaction();
 
-        assertUpdate("INSERT INTO " + table + " VALUES NULL" , 1);
-        assertUpdate("UPDATE " + table + " SET row_col = NULL" , 1);
+        assertUpdate("INSERT INTO " + table + " VALUES NULL", 1);
+        assertUpdate("UPDATE " + table + " SET row_col = NULL", 1);
         assertUpdate("MERGE INTO " + table + " USING (VALUES 42) t(dummy) ON false WHEN NOT MATCHED THEN INSERT VALUES (NULL)", 1);
         assertUpdate("ALTER TABLE " + table + " EXECUTE optimize");
         assertThat(query("SELECT * FROM " + table))
                 .skippingTypesCheck()
                 .matches("VALUES NULL, NULL");
 
-        assertUpdate("DELETE FROM " + table , 2);
+        assertUpdate("DELETE FROM " + table, 2);
         assertQueryReturnsEmptyResult("SELECT * FROM " + table);
 
         assertUpdate("DROP TABLE " + table);
@@ -1734,11 +1734,12 @@ public class TestIcebergV2
                         ImmutableMap.of())
                 .commitTransaction();
 
-        String expectedStats = """
-                VALUES
-                ('x', 0e0, 0e0, 1e0, NULL, NULL, NULL),
-                (NULL, NULL, NULL, NULL, 0e0, NULL, NULL)
-                """;
+        String expectedStats =
+        """
+        VALUES
+        ('x', 0e0, 0e0, 1e0, NULL, NULL, NULL),
+        (NULL, NULL, NULL, NULL, 0e0, NULL, NULL)
+        """;
 
         assertThat(query("SHOW STATS FOR " + table))
                 .skippingTypesCheck()

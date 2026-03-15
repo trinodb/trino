@@ -14,7 +14,7 @@
 package io.trino.plugin.iceberg;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.google.common.collect.ImmutableMap;
@@ -74,6 +74,7 @@ import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.keycloak.util.JsonSerialization.mapper;
 
 public class TestIcebergV3
         extends AbstractTestQueryFramework
@@ -926,7 +927,7 @@ public class TestIcebergV3
 
             // Add equality delete for grp = 1
             Table icebergTable = loadTable(table.getName());
-            writeEqualityDeleteForTable(icebergTable, fileSystemFactory, java.util.Optional.empty(), java.util.Optional.empty(), ImmutableMap.of("grp", 1), java.util.Optional.empty());
+            writeEqualityDeleteForTable(icebergTable, fileSystemFactory, Optional.empty(), Optional.empty(), ImmutableMap.of("grp", 1), Optional.empty());
 
             // Verify equality delete applied
             assertThat(query("SELECT count(*), count_if(grp = 0), count_if(grp = 1) FROM " + table.getName()))
@@ -954,8 +955,8 @@ public class TestIcebergV3
     {
         Path metadataFile = Path.of(getLatestMetadataLocation(fileSystemFactory.create(SESSION), tableLocation.toString()));
 
-        ObjectMapper mapper = new ObjectMapper();
-        ObjectNode root = (ObjectNode) mapper.readTree(metadataFile.toFile());
+        JsonMapper jsonMapper = new JsonMapper();
+        ObjectNode root = (ObjectNode) jsonMapper.readTree(metadataFile.toFile());
 
         // Add "encryption-keys" - any valid base64 is fine for this test; we only care that Iceberg parses it.
         ObjectNode key = mapper.createObjectNode();

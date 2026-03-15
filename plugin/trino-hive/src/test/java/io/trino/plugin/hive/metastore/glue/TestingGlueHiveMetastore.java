@@ -25,7 +25,7 @@ import java.util.EnumSet;
 import java.util.function.Consumer;
 
 import static com.google.common.base.Verify.verify;
-import static io.trino.plugin.hive.HiveTestUtils.HDFS_FILE_SYSTEM_FACTORY;
+import static io.trino.hdfs.HdfsTestUtils.HDFS_FILE_SYSTEM_FACTORY;
 import static io.trino.plugin.hive.metastore.glue.GlueMetastoreModule.createGlueClient;
 import static java.nio.file.Files.createDirectories;
 import static java.nio.file.Files.exists;

@@ -22,6 +22,7 @@ import io.trino.parquet.DataPage;
 import io.trino.parquet.DataPageV1;
 import io.trino.parquet.DataPageV2;
 import io.trino.parquet.DictionaryPage;
+import io.trino.parquet.ParquetCorruptionException;
 import io.trino.parquet.ParquetDataSourceId;
 import io.trino.parquet.ParquetEncoding;
 import io.trino.parquet.ParquetTypeUtils;
@@ -123,7 +124,7 @@ public class TestPageReader
             pageReader.readPage();
         })
                 .isInstanceOf(RuntimeException.class)
-                .hasRootCauseInstanceOf(io.trino.parquet.ParquetCorruptionException.class)
+                .hasRootCauseInstanceOf(ParquetCorruptionException.class)
                 .hasMessageContaining("exceeds maximum allowed size");
     }
 
@@ -174,7 +175,7 @@ public class TestPageReader
             pageReader.readPage();
         })
                 .isInstanceOf(RuntimeException.class)
-                .hasRootCauseInstanceOf(io.trino.parquet.ParquetCorruptionException.class)
+                .hasRootCauseInstanceOf(ParquetCorruptionException.class)
                 .hasMessageContaining("exceeds maximum allowed size");
     }
 
@@ -239,7 +240,7 @@ public class TestPageReader
             limitedReader.readPage();
         })
                 .isInstanceOf(RuntimeException.class)
-                .hasRootCauseInstanceOf(io.trino.parquet.ParquetCorruptionException.class)
+                .hasRootCauseInstanceOf(ParquetCorruptionException.class)
                 .hasMessageContaining("exceeds maximum allowed size");
     }
 

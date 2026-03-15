@@ -32,11 +32,12 @@ import java.util.OptionalDouble;
 import java.util.OptionalLong;
 
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static io.airlift.json.JsonCodec.mapJsonCodec;
 import static org.assertj.core.api.Assertions.assertThat;
 
 class TestColumnStatistics
 {
-    private static final JsonCodec<Map<String, ColumnStatistics>> MAP_COLUMN_STATISTICS_CODEC = JsonCodec.mapJsonCodec(String.class, ColumnStatistics.class);
+    private static final JsonCodec<Map<String, ColumnStatistics>> MAP_COLUMN_STATISTICS_CODEC = mapJsonCodec(String.class, ColumnStatistics.class);
     private static final HiveBasicStatistics ROWS_100 = new HiveBasicStatistics(OptionalLong.empty(), OptionalLong.of(100), OptionalLong.empty(), OptionalLong.empty());
 
     @Test
