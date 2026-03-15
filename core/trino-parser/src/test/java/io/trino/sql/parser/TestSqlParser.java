@@ -1667,6 +1667,17 @@ public class TestSqlParser
                         QualifiedName.of(ImmutableList.of(new Identifier(location(1, 19), "a", false), new Identifier(location(1, 21), "b", false))),
                         Optional.of("%$_%"),
                         Optional.of("$")));
+        // SHOW COLUMNS FROM table.complex for nested ROW fields (4-part: catalog.schema.table.column)
+        assertThat(statement("SHOW COLUMNS FROM a.b.c.d"))
+                .isEqualTo(new ShowColumns(
+                        location(1, 1),
+                        QualifiedName.of(ImmutableList.of(
+                                new Identifier(location(1, 19), "a", false),
+                                new Identifier(location(1, 21), "b", false),
+                                new Identifier(location(1, 23), "c", false),
+                                new Identifier(location(1, 25), "d", false))),
+                        Optional.empty(),
+                        Optional.empty()));
 
         assertStatementIsInvalid("SHOW COLUMNS FROM a.b LIKE null")
                 .withMessage("line 1:28: mismatched input 'null'. Expecting: <string>");
