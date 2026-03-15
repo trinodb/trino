@@ -44,8 +44,6 @@ import org.testcontainers.utility.DockerImageName;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.sql.ResultSet;
-import java.sql.SQLException;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
@@ -54,7 +52,6 @@ import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkState;
@@ -78,6 +75,7 @@ import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.NumberType.NUMBER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TimeType.createTimeType;
@@ -386,10 +384,6 @@ public abstract class BasePostgreSqlTypeMappingTest
                 .execute(getQueryRunner(), postgresCreateAndInsert("tpch.test_decimal"))
                 .execute(getQueryRunner(), trinoCreateAsSelect("test_decimal"))
                 .execute(getQueryRunner(), trinoCreateAndInsert("test_decimal"));
-
-        SqlDataTypeTest.create()
-                .addRoundTrip("numeric", "1.1", createDecimalType(Decimals.MAX_PRECISION, 5), "CAST(1.1 AS DECIMAL(38, 5))")
-                .execute(getQueryRunner(), sessionWithDecimalMappingAllowOverflow(UNNECESSARY, 5), postgresCreateAndInsert("test_unspecified_decimal"));
     }
 
     @Test
@@ -408,16 +402,22 @@ public abstract class BasePostgreSqlTypeMappingTest
                 .execute(getQueryRunner(), postgresCreateAndInsert("test_postgresql_decimal_exuberant_scale"));
 
         // exceeding 38 precision on Trino side
-        testUnsupportedDataTypeAsIgnored("decimal(27, 39)", "0.000000000000123456789912345678991234567");
+        SqlDataTypeTest.create()
+                .addRoundTrip("decimal(27, 39)", "0.000000000000123456789912345678991234567", NUMBER, "NUMBER '123456789912345678991234567e-39'")
+                .execute(getQueryRunner(), postgresCreateAndInsert("test_postgresql_decimal_exuberant_scale"));
 
         // exceeding 38 precision on PostgreSQL side
-        testUnsupportedDataTypeAsIgnored("decimal(40, 80)", "0." + "0".repeat(40) + "1234567899".repeat(4));
+        SqlDataTypeTest.create()
+                .addRoundTrip("decimal(40, 80)", "0." + "0".repeat(40) + "1234567899".repeat(4), NUMBER, "NUMBER '1234567899123456789912345678991234567899e-80'")
+                .execute(getQueryRunner(), postgresCreateAndInsert("test_postgresql_decimal_exuberant_scale"));
 
         // Highest possible scale
         assertPostgreSqlQueryFails(
                 "CREATE TABLE verify_negative_scale_not_supported(a decimal(5, 1001))",
                 "ERROR: NUMERIC scale 1001 must be between -1000 and 1000");
-        testUnsupportedDataTypeAsIgnored("decimal(30, 1000)", "0." + "0".repeat(1000 - 30) + "1234567899".repeat(3));
+        SqlDataTypeTest.create()
+                .addRoundTrip("decimal(30, 1000)", "0." + "0".repeat(1000 - 30) + "1234567899".repeat(3), NUMBER, "NUMBER '123456789912345678991234567899e-1000'")
+                .execute(getQueryRunner(), postgresCreateAndInsert("test_postgresql_decimal_exuberant_scale"));
 
         // numeric as declared type
         SqlDataTypeTest.create()
@@ -444,7 +444,9 @@ public abstract class BasePostgreSqlTypeMappingTest
                 .execute(getQueryRunner(), postgresCreateAndInsert("test_postgresql_decimal_negative_scale"));
 
         // exceeding 38 precision on Trino side
-        testUnsupportedDataTypeAsIgnored("decimal(27, -12)", "123456789012345678901234567000000000000");
+        SqlDataTypeTest.create()
+                .addRoundTrip("decimal(27, -12)", "123456789012345678901234567000000000000", NUMBER, "NUMBER '123456789012345678901234567000000000000'")
+                .execute(getQueryRunner(), postgresCreateAndInsert("test_postgresql_decimal_negative_scale"));
 
         // exceeding 38 precision on Trino side, with ALLOW_OVERFLOW mapping
         SqlDataTypeTest.create()
@@ -452,7 +454,9 @@ public abstract class BasePostgreSqlTypeMappingTest
                 .execute(getQueryRunner(), sessionWithDecimalMappingAllowOverflow(UNNECESSARY, 5), postgresCreateAndInsert("test_postgresql_decimal_negative_scale"));
 
         // exceeding 38 precision on PostgreSQL side
-        testUnsupportedDataTypeAsIgnored("decimal(39, -1)", "12345678901234567890123456700000000000");
+        SqlDataTypeTest.create()
+                .addRoundTrip("decimal(39, -1)", "12345678901234567890123456700000000000", NUMBER, "NUMBER '12345678901234567890123456700000000000'")
+                .execute(getQueryRunner(), postgresCreateAndInsert("test_postgresql_decimal_negative_scale"));
 
         // exceeding 38 precision on PostgreSQL side, with ALLOW_OVERFLOW mapping
         SqlDataTypeTest.create()
@@ -463,7 +467,9 @@ public abstract class BasePostgreSqlTypeMappingTest
         assertPostgreSqlQueryFails(
                 "CREATE TABLE verify_negative_scale_not_supported(a decimal(5, -1001))",
                 "ERROR: NUMERIC scale -1001 must be between -1000 and 1000");
-        testUnsupportedDataTypeAsIgnored("decimal(30, -1000)", "123" + "0".repeat(1000));
+        SqlDataTypeTest.create()
+                .addRoundTrip("decimal(30, -1000)", "123" + "0".repeat(1000), NUMBER, "NUMBER '123e1000'")
+                .execute(getQueryRunner(), postgresCreateAndInsert("test_postgresql_decimal_negative_scale"));
 
         // numeric as declared type
         SqlDataTypeTest.create()
@@ -474,14 +480,37 @@ public abstract class BasePostgreSqlTypeMappingTest
                 .execute(getQueryRunner(), postgresCreateAndInsert("test_postgresql_decimal_negative_scale"));
     }
 
-    private static Optional<Integer> getInteger(ResultSet resultSet, String columnLabel)
-            throws SQLException
+    /**
+     * Test PostgreSQL “unconstrained numeric” (“unconstrained decimal”), i.e. decimal without precision and scale specified.
+     */
+    @Test
+    public void testPostgreSqlUnconstrainedDecimal()
     {
-        int value = resultSet.getInt(columnLabel);
-        if (resultSet.wasNull()) {
-            return Optional.empty();
-        }
-        return Optional.of(value);
+        SqlDataTypeTest.create()
+                .addRoundTrip("decimal", "1.1", createDecimalType(Decimals.MAX_PRECISION, 5), "CAST(1.1 AS DECIMAL(38, 5))")
+                .addRoundTrip("numeric", "1.1", createDecimalType(Decimals.MAX_PRECISION, 5), "CAST(1.1 AS DECIMAL(38, 5))")
+                .execute(getQueryRunner(), sessionWithDecimalMappingAllowOverflow(UNNECESSARY, 5), postgresCreateAndInsert("test_unconstrained_numeric"));
+
+        SqlDataTypeTest.create()
+                .addRoundTrip("decimal", "1.1", NUMBER, "NUMBER '1.1'")
+                .addRoundTrip("numeric", "1.1", NUMBER, "NUMBER '1.1'")
+                .addRoundTrip("numeric", "12345678901234567890123456700000000000", NUMBER, "NUMBER '12345678901234567890123456700000000000'")
+                .addRoundTrip("numeric", "123456789012345678901234567e1000", NUMBER, "NUMBER '123456789012345678901234567e1000'")
+                .addRoundTrip("numeric", "123456789012345678901234567e-1000", NUMBER, "NUMBER '123456789012345678901234567e-1000'")
+                .execute(getQueryRunner(), postgresCreateAndInsert("test_unconstrained_numeric"));
+    }
+
+    @Test
+    public void testTrinoNumber()
+    {
+        SqlDataTypeTest.create()
+                .addRoundTrip("number", "NUMBER '1.1'", NUMBER)
+                .addRoundTrip("number", "NUMBER '1.1'", NUMBER)
+                .addRoundTrip("number", "NUMBER '12345678901234567890123456700000000000'", NUMBER)
+                .addRoundTrip("number", "NUMBER '123456789012345678901234567e1000'", NUMBER)
+                .addRoundTrip("number", "NUMBER '123456789012345678901234567e-1000'", NUMBER)
+                .execute(getQueryRunner(), trinoCreateAsSelect("test_trino_number"))
+                .execute(getQueryRunner(), trinoCreateAndInsert("test_trino_number"));
     }
 
     @Test
@@ -616,20 +645,11 @@ public abstract class BasePostgreSqlTypeMappingTest
     }
 
     @Test
-    public void testDecimalExceedingPrecisionMaxIgnored()
+    public void testDecimalExceedingPrecisionMax()
     {
-        testUnsupportedDataTypeAsIgnored("decimal(50,0)", "12345678901234567890123456789012345678901234567890");
-    }
-
-    @Test
-    public void testDecimalExceedingPrecisionMaxConvertedToVarchar()
-    {
-        testUnsupportedDataTypeConvertedToVarchar(
-                getSession(),
-                "decimal(50,0)",
-                "numeric",
-                "12345678901234567890123456789012345678901234567890",
-                "'12345678901234567890123456789012345678901234567890'");
+        SqlDataTypeTest.create()
+                .addRoundTrip("decimal(50,0)", "12345678901234567890123456789012345678901234567890", NUMBER, "NUMBER '12345678901234567890123456789012345678901234567890'")
+                .execute(getQueryRunner(), postgresCreateAndInsert("test_decimal_exceeding_precision_max"));
     }
 
     @Test
@@ -1907,11 +1927,6 @@ public abstract class BasePostgreSqlTypeMappingTest
                 .addRoundTrip("money", "10.54", createUnboundedVarcharType(), "CAST('$10.54' AS VARCHAR)")
                 .addRoundTrip("money", "1.000000042E7", createUnboundedVarcharType(), "CAST('$10,000,000.42' AS VARCHAR)")
                 .execute(getQueryRunner(), postgresCreateAndInsert("trino_test_money"));
-    }
-
-    private void testUnsupportedDataTypeAsIgnored(String dataTypeName, String databaseValue)
-    {
-        testUnsupportedDataTypeAsIgnored(getSession(), dataTypeName, databaseValue);
     }
 
     private void testUnsupportedDataTypeAsIgnored(Session session, String dataTypeName, String databaseValue)

@@ -14,10 +14,6 @@
     <name>${project.artifactId}</name>
     <description>Trino - ClickHouse connector</description>
 
-    <properties>
-        <air.compiler.fail-warnings>true</air.compiler.fail-warnings>
-    </properties>
-
     <dependencies>
         <dependency>
             <groupId>com.clickhouse</groupId>
