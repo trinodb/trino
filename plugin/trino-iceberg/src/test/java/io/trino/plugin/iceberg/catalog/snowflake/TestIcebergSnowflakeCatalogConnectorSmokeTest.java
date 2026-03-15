@@ -154,7 +154,8 @@ public class TestIcebergSnowflakeCatalogConnectorSmokeTest
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
         return switch (connectorBehavior) {
-            case SUPPORTS_CREATE_TABLE,
+            case SUPPORTS_BRANCH,
+                 SUPPORTS_CREATE_TABLE,
                  SUPPORTS_DELETE,
                  SUPPORTS_INSERT,
                  SUPPORTS_CREATE_VIEW,
