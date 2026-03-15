@@ -242,7 +242,11 @@ public class FileSystemExchange
         }
 
         return Futures.transform(
-                processAll(committedTaskAttempts, commitManifestEnabled ? this::getCommittedPartitionsWithCommittedFile : this::getCommittedPartitions, fileListingParallelism, executor),
+                processAll(
+                        committedTaskAttempts,
+                        commitManifestEnabled ? this::getCommittedPartitionsWithCommittedFile : this::getCommittedPartitions,
+                        commitManifestEnabled ? Integer.MAX_VALUE : fileListingParallelism,
+                        executor),
                 partitionsList -> {
                     Multimap<Integer, SourceFile> sourceFiles = ArrayListMultimap.create();
                     partitionsList.forEach(partitions -> partitions.forEach(sourceFiles::put));
@@ -316,7 +320,7 @@ public class FileSystemExchange
 
     private ListenableFuture<Multimap<Integer, SourceFile>> getCommittedPartitions(CommittedTaskAttempt committedTaskAttempt)
     {
-        // TODO include attempId on getTaskOutputDirectory call
+        // TODO include attemptId on getTaskOutputDirectory call
         URI sinkOutputPath = getTaskOutputDirectory(committedTaskAttempt.partitionId());
 
         return stats.getGetCommittedPartitions().record(Futures.transform(
