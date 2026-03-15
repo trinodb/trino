@@ -243,7 +243,7 @@ final class TestIcebergBigLakeMetastoreConnectorSmokeTest
     }
 
     @Test
-    @Override // Override because BigLake metastore requires table location to start with the prefix with the table name without following spaces
+    @Override // Override because BigLake metastore doesn't allow changing a table location
     public void testCreateTableWithTrailingSpaceInLocation()
     {
         String tableName = "test_create_table_with_trailing_space_" + randomNameSuffix();
@@ -251,8 +251,8 @@ final class TestIcebergBigLakeMetastoreConnectorSmokeTest
         String tableLocationWithTrailingSpace = tableLocationWithoutTrailingSpace + " ";
 
         assertThat(query(format("CREATE TABLE %s WITH (location = '%s') AS SELECT 1 AS a, 'INDIA' AS b, true AS c", tableName, tableLocationWithTrailingSpace))).failure()
-                .hasMessage("Failed to create transaction")
-                .hasStackTraceContaining("Malformed request: The table `location` property must point to a location in the catalog.");
+                .hasMessageStartingWith("Failed to commit the transaction during insert")
+                .hasMessageContaining("Malformed request: Table location is immutable");
     }
 
     @Test
