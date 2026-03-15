@@ -7,7 +7,7 @@
 Apache Iceberg is an open table format for huge analytic datasets. The Iceberg
 connector allows querying data stored in files written in Iceberg format, as
 defined in the [Iceberg Table Spec](https://iceberg.apache.org/spec/). The
-connector supports Apache Iceberg table spec versions 1 and 2.
+connector supports Apache Iceberg table spec versions 1, 2, and 3 (experimental).
 
 The table state is maintained in metadata files. All changes to table
 state create a new metadata file and replace the old metadata with an atomic
@@ -327,8 +327,12 @@ the following table:
   - `TIME(6)`
 * - `TIMESTAMP`
   - `TIMESTAMP(6)`
+* - `TIMESTAMP_NANO`
+  - `TIMESTAMP(9)`
 * - `TIMESTAMPTZ`
   - `TIMESTAMP(6) WITH TIME ZONE`
+* - `TIMESTAMP_NANOTZ`
+  - `TIMESTAMP(9) WITH TIME ZONE`
 * - `STRING`
   - `VARCHAR`
 * - `UUID`
@@ -376,8 +380,12 @@ the following table:
   - `TIME`
 * - `TIMESTAMP(6)`
   - `TIMESTAMP`
+* - `TIMESTAMP(9)`
+  - `TIMESTAMP_NANO`
 * - `TIMESTAMP(6) WITH TIME ZONE`
   - `TIMESTAMPTZ`
+* - `TIMESTAMP(9) WITH TIME ZONE`
+  - `TIMESTAMP_NANOTZ`
 * - `VARCHAR`
   - `STRING`
 * - `UUID`
@@ -393,6 +401,16 @@ the following table:
 :::
 
 No other types are supported.
+
+:::{note}
+Timestamp precision support:
+- `TIMESTAMP(6)` and `TIMESTAMP(6) WITH TIME ZONE` are supported for all Iceberg
+  table format versions (v1, v2, v3).
+- `TIMESTAMP(9)` and `TIMESTAMP(9) WITH TIME ZONE` (nanosecond precision) are
+  supported for Iceberg v3 tables only. These map to the Iceberg `TIMESTAMP_NANO`
+  and `TIMESTAMP_NANOTZ` types respectively.
+- Other timestamp precisions are not supported.
+:::
 
 ## Security
 
@@ -1066,7 +1084,9 @@ connector using a {doc}`WITH </sql/create-table-as>` clause.
     for new tables; `1`, `2`, or `3`. Defaults to `2`. Version `2` is required
     for row level deletes. Version `3` support is experimental; row-level
     updates, deletes, and OPTIMIZE are not supported. Tables with v3 features
-    such as column default values and encryption are not supported.
+    such as column default values and encryption are not supported. Nanosecond
+    timestamp precision (`TIMESTAMP(9)` and `TIMESTAMP(9) WITH TIME ZONE`) is
+    supported in v3 tables.
 * - `max_commit_retry`
   - Number of times to retry a commit before failing. Defaults to the value of 
     the `iceberg.max-commit-retry` catalog configuration property, which 

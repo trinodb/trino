@@ -327,7 +327,7 @@ public final class ParquetUtil
         return switch (type.typeId()) {
             case BOOLEAN -> (Literal<T>) Literal.of((Boolean) value);
             case INTEGER, DATE -> (Literal<T>) Literal.of((Integer) value);
-            case LONG, TIME, TIMESTAMP -> (Literal<T>) Literal.of((Long) value);
+            case LONG, TIME, TIMESTAMP, TIMESTAMP_NANO -> (Literal<T>) Literal.of((Long) value);
             case FLOAT -> (Literal<T>) Literal.of((Float) value);
             case DOUBLE -> (Literal<T>) Literal.of((Double) value);
             case STRING -> {

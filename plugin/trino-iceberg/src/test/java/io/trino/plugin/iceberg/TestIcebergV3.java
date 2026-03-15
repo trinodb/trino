@@ -987,4 +987,45 @@ public class TestIcebergV3
         Path crc = metadataFile.resolveSibling("." + metadataFile.getFileName() + ".crc");
         Files.deleteIfExists(crc);
     }
+
+    @Test
+    public void testTimestampNanosTypeMapping()
+    {
+        // Test that timestamp(9) tables can be created successfully (no UnsupportedOperationException)
+        assertUpdate("CREATE TABLE test_timestamp_nanos (id bigint, ts timestamp(9)) WITH (format = 'PARQUET')");
+        assertUpdate("DROP TABLE test_timestamp_nanos");
+    }
+
+    @Test
+    public void testTimestampNanosWithTimeZoneTypeMapping()
+    {
+        // Test that timestamp(9) with time zone tables can be created successfully (no UnsupportedOperationException)
+        assertUpdate("CREATE TABLE test_timestamp_nanos_tz (id bigint, ts timestamp(9) with time zone) WITH (format = 'PARQUET')");
+        assertUpdate("DROP TABLE test_timestamp_nanos_tz");
+    }
+
+    @Test
+    public void testTimestampNanosPartitionTransforms()
+    {
+        // Test that partition transforms work with timestamp(9) - verify table creation succeeds
+        assertUpdate("CREATE TABLE test_timestamp_nanos_year (id bigint, ts timestamp(9)) WITH (format = 'PARQUET', partitioning = ARRAY['year(ts)'])");
+        assertUpdate("DROP TABLE test_timestamp_nanos_year");
+
+        assertUpdate("CREATE TABLE test_timestamp_nanos_month (id bigint, ts timestamp(9)) WITH (format = 'PARQUET', partitioning = ARRAY['month(ts)'])");
+        assertUpdate("DROP TABLE test_timestamp_nanos_month");
+
+        assertUpdate("CREATE TABLE test_timestamp_nanos_day (id bigint, ts timestamp(9)) WITH (format = 'PARQUET', partitioning = ARRAY['day(ts)'])");
+        assertUpdate("DROP TABLE test_timestamp_nanos_day");
+
+        assertUpdate("CREATE TABLE test_timestamp_nanos_hour (id bigint, ts timestamp(9)) WITH (format = 'PARQUET', partitioning = ARRAY['hour(ts)'])");
+        assertUpdate("DROP TABLE test_timestamp_nanos_hour");
+    }
+
+    @Test
+    public void testTimestampNanosOrcFormat()
+    {
+        // Test that timestamp(9) works with ORC format (no UnsupportedOperationException)
+        assertUpdate("CREATE TABLE test_timestamp_nanos_orc (id bigint, ts timestamp(9)) WITH (format = 'ORC')");
+        assertUpdate("DROP TABLE test_timestamp_nanos_orc");
+    }
 }

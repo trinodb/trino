@@ -51,7 +51,9 @@ import static io.trino.spi.type.Decimals.readBigDecimal;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.TimeType.TIME_MICROS;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MICROS;
+import static io.trino.spi.type.TimestampType.TIMESTAMP_NANOS;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MICROS;
+import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_NANOS;
 import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
 import static io.trino.spi.type.Timestamps.MILLISECONDS_PER_DAY;
 import static io.trino.spi.type.Timestamps.MILLISECONDS_PER_HOUR;
@@ -92,6 +94,12 @@ public final class PartitionTransforms
                 if (sourceType.equals(TIMESTAMP_TZ_MICROS)) {
                     return yearsFromTimestampWithTimeZone();
                 }
+                if (sourceType.equals(TIMESTAMP_NANOS)) {
+                    return yearsFromTimestampNanos();
+                }
+                if (sourceType.equals(TIMESTAMP_TZ_NANOS)) {
+                    return yearsFromTimestampWithTimeZoneNanos();
+                }
                 throw new UnsupportedOperationException("Unsupported type for 'year': " + field);
             case "month":
                 if (sourceType.equals(DATE)) {
@@ -102,6 +110,12 @@ public final class PartitionTransforms
                 }
                 if (sourceType.equals(TIMESTAMP_TZ_MICROS)) {
                     return monthsFromTimestampWithTimeZone();
+                }
+                if (sourceType.equals(TIMESTAMP_NANOS)) {
+                    return monthsFromTimestampNanos();
+                }
+                if (sourceType.equals(TIMESTAMP_TZ_NANOS)) {
+                    return monthsFromTimestampWithTimeZoneNanos();
                 }
                 throw new UnsupportedOperationException("Unsupported type for 'month': " + field);
             case "day":
@@ -114,6 +128,12 @@ public final class PartitionTransforms
                 if (sourceType.equals(TIMESTAMP_TZ_MICROS)) {
                     return daysFromTimestampWithTimeZone();
                 }
+                if (sourceType.equals(TIMESTAMP_NANOS)) {
+                    return daysFromTimestampNanos();
+                }
+                if (sourceType.equals(TIMESTAMP_TZ_NANOS)) {
+                    return daysFromTimestampWithTimeZoneNanos();
+                }
                 throw new UnsupportedOperationException("Unsupported type for 'day': " + field);
             case "hour":
                 if (sourceType.equals(TIMESTAMP_MICROS)) {
@@ -121,6 +141,12 @@ public final class PartitionTransforms
                 }
                 if (sourceType.equals(TIMESTAMP_TZ_MICROS)) {
                     return hoursFromTimestampWithTimeZone();
+                }
+                if (sourceType.equals(TIMESTAMP_NANOS)) {
+                    return hoursFromTimestampNanos();
+                }
+                if (sourceType.equals(TIMESTAMP_TZ_NANOS)) {
+                    return hoursFromTimestampWithTimeZoneNanos();
                 }
                 throw new UnsupportedOperationException("Unsupported type for 'hour': " + field);
             case "void":
@@ -175,6 +201,12 @@ public final class PartitionTransforms
                 if (type.equals(TIMESTAMP_TZ_MICROS)) {
                     yield yearsFromTimestampWithTimeZone();
                 }
+                if (type.equals(TIMESTAMP_NANOS)) {
+                    yield yearsFromTimestampNanos();
+                }
+                if (type.equals(TIMESTAMP_TZ_NANOS)) {
+                    yield yearsFromTimestampWithTimeZoneNanos();
+                }
                 throw new UnsupportedOperationException("Unsupported type for 'year': " + field);
             }
             case MONTH -> {
@@ -186,6 +218,12 @@ public final class PartitionTransforms
                 }
                 if (type.equals(TIMESTAMP_TZ_MICROS)) {
                     yield monthsFromTimestampWithTimeZone();
+                }
+                if (type.equals(TIMESTAMP_NANOS)) {
+                    yield monthsFromTimestampNanos();
+                }
+                if (type.equals(TIMESTAMP_TZ_NANOS)) {
+                    yield monthsFromTimestampWithTimeZoneNanos();
                 }
                 throw new UnsupportedOperationException("Unsupported type for 'month': " + field);
             }
@@ -199,6 +237,12 @@ public final class PartitionTransforms
                 if (type.equals(TIMESTAMP_TZ_MICROS)) {
                     yield daysFromTimestampWithTimeZone();
                 }
+                if (type.equals(TIMESTAMP_NANOS)) {
+                    yield daysFromTimestampNanos();
+                }
+                if (type.equals(TIMESTAMP_TZ_NANOS)) {
+                    yield daysFromTimestampWithTimeZoneNanos();
+                }
                 throw new UnsupportedOperationException("Unsupported type for 'day': " + field);
             }
             case HOUR -> {
@@ -207,6 +251,12 @@ public final class PartitionTransforms
                 }
                 if (type.equals(TIMESTAMP_TZ_MICROS)) {
                     yield hoursFromTimestampWithTimeZone();
+                }
+                if (type.equals(TIMESTAMP_NANOS)) {
+                    yield hoursFromTimestampNanos();
+                }
+                if (type.equals(TIMESTAMP_TZ_NANOS)) {
+                    yield hoursFromTimestampWithTimeZoneNanos();
                 }
                 throw new UnsupportedOperationException("Unsupported type for 'hour': " + field);
             }
@@ -430,6 +480,47 @@ public final class PartitionTransforms
                 true,
                 block -> extractTimestampWithTimeZone(block, transform),
                 ValueTransform.fromTimestampTzTransform(transform));
+    }
+
+    private static ColumnTransform yearsFromTimestampNanos()
+    {
+        // LongTimestamp contains epochMicros, so we can reuse the same logic as TIMESTAMP_MICROS
+        return yearsFromTimestamp();
+    }
+
+    private static ColumnTransform monthsFromTimestampNanos()
+    {
+        return monthsFromTimestamp();
+    }
+
+    private static ColumnTransform daysFromTimestampNanos()
+    {
+        return daysFromTimestamp();
+    }
+
+    private static ColumnTransform hoursFromTimestampNanos()
+    {
+        return hoursFromTimestamp();
+    }
+
+    private static ColumnTransform yearsFromTimestampWithTimeZoneNanos()
+    {
+        return yearsFromTimestampWithTimeZone();
+    }
+
+    private static ColumnTransform monthsFromTimestampWithTimeZoneNanos()
+    {
+        return monthsFromTimestampWithTimeZone();
+    }
+
+    private static ColumnTransform daysFromTimestampWithTimeZoneNanos()
+    {
+        return daysFromTimestampWithTimeZone();
+    }
+
+    private static ColumnTransform hoursFromTimestampWithTimeZoneNanos()
+    {
+        return hoursFromTimestampWithTimeZone();
     }
 
     private static Block extractTimestampWithTimeZone(Block block, ToLongFunction<LongTimestampWithTimeZone> function)
