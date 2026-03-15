@@ -23,7 +23,9 @@ import io.trino.plugin.cassandra.util.CassandraCqlUtils;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.Range;
+import io.trino.spi.predicate.Ranges;
 import io.trino.spi.predicate.TupleDomain;
+import io.trino.spi.type.Type;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -37,12 +39,24 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Predicates.in;
 import static com.google.common.base.Predicates.not;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static io.trino.plugin.cassandra.CassandraType.Kind.BIGINT;
+import static io.trino.plugin.cassandra.CassandraType.Kind.INT;
+import static io.trino.plugin.cassandra.CassandraType.Kind.SMALLINT;
+import static io.trino.plugin.cassandra.CassandraType.Kind.TINYINT;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 
 public class CassandraPartitionManager
 {
     private static final Logger log = Logger.get(CassandraPartitionManager.class);
+
+    /**
+     * Maximum number of partition key values to expand from a range predicate.
+     * Cassandra cannot use BETWEEN for INT/BIGINT partition keys, so we expand
+     * consecutive ranges (e.g. IN (1,2,3,4) simplified to BETWEEN 1 AND 4) to discrete
+     * values for partition pruning. Ranges exceeding this limit fall back to full scan.
+     */
+    private static final int MAX_PARTITION_KEY_RANGE_EXPANSION = 1000;
 
     private final CassandraSession cassandraSession;
     private final CassandraTypeManager cassandraTypeManager;
@@ -151,22 +165,7 @@ public class CassandraPartitionManager
             }
 
             Set<Object> values = domain.getValues().getValuesProcessor().transform(
-                    ranges -> {
-                        ImmutableSet.Builder<Object> columnValues = ImmutableSet.builder();
-                        for (Range range : ranges.getOrderedRanges()) {
-                            // if the range is not a single value, we cannot perform partition pruning
-                            if (!range.isSingleValue()) {
-                                return ImmutableSet.of();
-                            }
-                            Object value = range.getSingleValue();
-
-                            CassandraType valueType = columnHandle.cassandraType();
-                            if (valueType.kind().isSupportedPartitionKey()) {
-                                columnValues.add(value);
-                            }
-                        }
-                        return columnValues.build();
-                    },
+                    ranges -> extractPartitionKeyValues(columnHandle, ranges),
                     discreteValues -> {
                         if (discreteValues.isInclusive()) {
                             return ImmutableSet.copyOf(discreteValues.getValues());
@@ -177,5 +176,62 @@ public class CassandraPartitionManager
             partitionColumnValues.add(values);
         }
         return partitionColumnValues.build();
+    }
+
+    /**
+     * Extracts partition key values from a domain's ranges. For single-value ranges, the value is used directly.
+     * For multi-value ranges on INT/BIGINT/SMALLINT/TINYINT partition keys, the range is expanded to discrete
+     * values (since Cassandra cannot use BETWEEN for partition key filtering but supports IN).
+     */
+    private ImmutableSet<Object> extractPartitionKeyValues(CassandraColumnHandle columnHandle, Ranges ranges)
+    {
+        ImmutableSet.Builder<Object> columnValues = ImmutableSet.builder();
+        CassandraType valueType = columnHandle.cassandraType();
+
+        if (!valueType.kind().isSupportedPartitionKey()) {
+            return ImmutableSet.of();
+        }
+
+        for (Range range : ranges.getOrderedRanges()) {
+            if (range.isSingleValue()) {
+                columnValues.add(range.getSingleValue());
+                continue;
+            }
+
+            // For non-single-value ranges, Cassandra cannot use BETWEEN on partition keys.
+            // Expand to discrete values for integer types (INT, BIGINT, SMALLINT, TINYINT).
+            if (range.isLowUnbounded() || range.isHighUnbounded()) {
+                return ImmutableSet.of();
+            }
+
+            if (!isIntegerPartitionKeyType(valueType.kind())) {
+                return ImmutableSet.of();
+            }
+
+            Type trinoType = valueType.trinoType();
+            Optional<Stream<?>> discreteValuesOpt = trinoType.getDiscreteValues(
+                    new Type.Range(range.getLowBoundedValue(), range.getHighBoundedValue()));
+
+            if (discreteValuesOpt.isEmpty()) {
+                return ImmutableSet.of();
+            }
+
+            List<Object> expandedValues = discreteValuesOpt.get()
+                    .limit(MAX_PARTITION_KEY_RANGE_EXPANSION + 1)
+                    .map(Object.class::cast)
+                    .collect(toList());
+
+            if (expandedValues.size() > MAX_PARTITION_KEY_RANGE_EXPANSION) {
+                return ImmutableSet.of();
+            }
+
+            columnValues.addAll(expandedValues);
+        }
+        return columnValues.build();
+    }
+
+    private static boolean isIntegerPartitionKeyType(CassandraType.Kind kind)
+    {
+        return kind == INT || kind == BIGINT || kind == SMALLINT || kind == TINYINT;
     }
 }
