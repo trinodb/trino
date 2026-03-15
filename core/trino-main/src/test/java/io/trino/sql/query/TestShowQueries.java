@@ -41,6 +41,8 @@ import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
+import static io.trino.spi.type.RowType.field;
+import static io.trino.spi.type.RowType.rowType;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TimeType.createTimeType;
 import static io.trino.spi.type.TimestampType.createTimestampType;
@@ -93,6 +95,17 @@ public class TestShowQueries
                                 .add(columnMetadata("col_long_timestamptz", createTimestampWithTimeZoneType(12), "TIMESTAMP '1970-01-01 00:00:00.000000000000 UTC'"))
                                 .build();
                     }
+                    if (schemaTableName.getTableName().equals("tableWithRow")) {
+                        return ImmutableList.of(
+                                ColumnMetadata.builder()
+                                        .setName("id")
+                                        .setType(BIGINT)
+                                        .build(),
+                                ColumnMetadata.builder()
+                                        .setName("complex")
+                                        .setType(rowType(field("a", BIGINT), field("b", VARCHAR)))
+                                        .build());
+                    }
                     return ImmutableList.of(
                             ColumnMetadata.builder()
                                     .setName("colaa")
@@ -108,7 +121,7 @@ public class TestShowQueries
                                     .build());
                 })
                 .withListSchemaNames(session -> ImmutableList.of("mockschema"))
-                .withListTables((session, schemaName) -> ImmutableList.of("mockTable"))
+                .withListTables((session, schemaName) -> ImmutableList.of("mockTable", "tableWithRow"))
                 .withTableFunctions(ImmutableList.of(new SimpleTableFunction()))
                 .withGetTableHandle((session, schemaTableName) -> {
                     if (schemaTableName.getTableName().equals("mockview")) {
@@ -269,6 +282,17 @@ public class TestShowQueries
                 .failure().hasMessage("Escape string must be a single character");
         assertThat(assertions.query("SHOW COLUMNS FROM mock.mockSchema.mockTable LIKE 'cola$_' ESCAPE '$'"))
                 .matches("VALUES (VARCHAR 'cola_', VARCHAR 'bigint' , VARCHAR '', VARCHAR '')");
+    }
+
+    @Test
+    public void testShowColumnsFromNestedField()
+    {
+        assertThat(assertions.query("SHOW COLUMNS FROM mock.mockSchema.tableWithRow.complex"))
+                .matches("VALUES " +
+                        "(VARCHAR 'a', VARCHAR 'bigint', VARCHAR '', VARCHAR '')," +
+                        "(VARCHAR 'b', VARCHAR 'varchar', VARCHAR '', VARCHAR '')");
+        assertThat(assertions.query("SHOW COLUMNS FROM mock.mockSchema.tableWithRow.complex LIKE 'a'"))
+                .matches("VALUES (VARCHAR 'a', VARCHAR 'bigint', VARCHAR '', VARCHAR '')");
     }
 
     @Test

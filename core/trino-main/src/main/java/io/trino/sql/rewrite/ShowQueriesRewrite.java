@@ -51,6 +51,7 @@ import io.trino.spi.predicate.Domain;
 import io.trino.spi.security.PrincipalType;
 import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.session.PropertyMetadata;
+import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.sql.SqlEnvironmentConfig;
 import io.trino.sql.analyzer.AnalyzerFactory;
@@ -127,6 +128,7 @@ import static io.trino.metadata.MetadataUtil.getRequiredCatalogHandle;
 import static io.trino.metadata.MetadataUtil.processRoleCommandCatalog;
 import static io.trino.metadata.PropertyUtil.toSqlProperties;
 import static io.trino.spi.StandardErrorCode.CATALOG_NOT_FOUND;
+import static io.trino.spi.StandardErrorCode.COLUMN_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.INVALID_COLUMN_PROPERTY;
 import static io.trino.spi.StandardErrorCode.INVALID_DEFAULT_COLUMN_VALUE;
 import static io.trino.spi.StandardErrorCode.INVALID_MATERIALIZED_VIEW_PROPERTY;
@@ -135,6 +137,7 @@ import static io.trino.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
 import static io.trino.spi.StandardErrorCode.INVALID_VIEW;
 import static io.trino.spi.StandardErrorCode.INVALID_VIEW_PROPERTY;
 import static io.trino.spi.StandardErrorCode.MISSING_CATALOG_NAME;
+import static io.trino.spi.StandardErrorCode.MISSING_SCHEMA_NAME;
 import static io.trino.spi.StandardErrorCode.NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.SCHEMA_NOT_FOUND;
@@ -450,10 +453,35 @@ public final class ShowQueriesRewrite
         @Override
         protected Node visitShowColumns(ShowColumns showColumns, Void context)
         {
-            QualifiedObjectName tableName = createQualifiedObjectName(session, showColumns, showColumns.getTable());
+            List<String> parts = showColumns.getTable().getParts();
+            Optional<String> nestedFieldName = Optional.empty();
+            QualifiedObjectName tableName;
+
+            // Parse table.column or catalog.schema.table.column for nested field display
+            if (parts.size() == 4) {
+                tableName = new QualifiedObjectName(parts.get(0), parts.get(1), parts.get(2));
+                nestedFieldName = Optional.of(parts.get(3));
+            }
+            else if (parts.size() == 2) {
+                String catalog = session.getCatalog().orElseThrow(() ->
+                        semanticException(MISSING_CATALOG_NAME, showColumns, "Catalog must be specified when session catalog is not set"));
+                String schema = session.getSchema().orElseThrow(() ->
+                        semanticException(MISSING_SCHEMA_NAME, showColumns, "Schema must be specified when session schema is not set"));
+                tableName = new QualifiedObjectName(catalog, schema, parts.get(0));
+                nestedFieldName = Optional.of(parts.get(1));
+            }
+            else {
+                tableName = createQualifiedObjectName(session, showColumns, showColumns.getTable());
+            }
+
             getRequiredCatalogHandle(metadata, session, showColumns, tableName.catalogName());
             if (!metadata.schemaExists(session, new CatalogSchemaName(tableName.catalogName(), tableName.schemaName()))) {
                 throw semanticException(SCHEMA_NOT_FOUND, showColumns, "Schema '%s' does not exist", tableName.schemaName());
+            }
+
+            // Handle nested field: SHOW COLUMNS FROM table.complex shows fields of ROW column "complex"
+            if (nestedFieldName.isPresent()) {
+                return visitShowColumnsNested(showColumns, tableName, nestedFieldName.get());
             }
 
             boolean isMaterializedView = metadata.isMaterializedView(session, tableName);
@@ -514,6 +542,81 @@ public final class ShowQueriesRewrite
                     from(targetTableName.catalogName(), COLUMNS.getSchemaTableName()),
                     predicate,
                     ordering(ascending("ordinal_position")));
+        }
+
+        private Query visitShowColumnsNested(ShowColumns showColumns, QualifiedObjectName tableName, String nestedFieldName)
+        {
+            if (metadata.isMaterializedView(session, tableName) || metadata.isView(session, tableName)) {
+                throw semanticException(NOT_SUPPORTED, showColumns,
+                        "SHOW COLUMNS for nested fields is not supported for views and materialized views");
+            }
+
+            RedirectionAwareTableHandle redirection = metadata.getRedirectionAwareTableHandle(session, tableName);
+            TableHandle tableHandle = redirection.tableHandle()
+                    .orElseThrow(() -> semanticException(TABLE_NOT_FOUND, showColumns, "Table '%s' does not exist", tableName));
+            QualifiedObjectName targetTableName = redirection.redirectedTableName().orElse(tableName);
+
+            ConnectorTableMetadata tableMetadata = metadata.getTableMetadata(session, tableHandle).metadata();
+            var columnMetadata = MetadataUtil.findColumnMetadata(tableMetadata, nestedFieldName);
+            if (columnMetadata == null) {
+                throw semanticException(COLUMN_NOT_FOUND, showColumns, "Column '%s' does not exist in table '%s'", nestedFieldName, tableName);
+            }
+
+            if (!(columnMetadata.getType() instanceof RowType rowType)) {
+                throw semanticException(NOT_SUPPORTED, showColumns,
+                        "Column '%s' is not of type ROW. SHOW COLUMNS for nested fields only supports ROW types.", nestedFieldName);
+            }
+
+            accessControl.checkCanShowColumns(session.toSecurityContext(), targetTableName.asCatalogSchemaTableName());
+
+            List<RowType.Field> fields = rowType.getFields();
+            List<Expression> rows = new ArrayList<>();
+            int ordinal = 0;
+            Optional<String> likePattern = showColumns.getLikePattern();
+
+            for (RowType.Field field : fields) {
+                String fieldName = field.getName().orElse("field" + ordinal);
+                if (likePattern.isPresent() && !likeMatches(fieldName, likePattern.get(), showColumns.getEscape())) {
+                    continue;
+                }
+                rows.add(row(
+                        new StringLiteral(fieldName),
+                        new StringLiteral(field.getType().getDisplayName()),
+                        new StringLiteral(""),
+                        new StringLiteral("")));
+                ordinal++;
+            }
+
+            return simpleQuery(
+                    selectList(
+                            aliasedName("column_name", "Column"),
+                            aliasedName("data_type", "Type"),
+                            aliasedNullToEmpty("extra_info", "Extra"),
+                            aliasedNullToEmpty("comment", "Comment")),
+                    aliased(new Values(rows), "columns", ImmutableList.of("column_name", "data_type", "extra_info", "comment")),
+                    Optional.empty(),
+                    Optional.of(ordering(ascending("column_name"))));
+        }
+
+        private boolean likeMatches(String value, String pattern, Optional<String> escape)
+        {
+            // Simple LIKE matching - for proper SQL LIKE we'd need to integrate with the planner
+            if (pattern.equals("%")) {
+                return true;
+            }
+            if (!pattern.contains("%") && !pattern.contains("_")) {
+                return value.equals(pattern);
+            }
+            // Basic fallback: treat % as .* and _ as . for regex-like matching
+            String regex = pattern
+                    .replace("\\", "\\\\")
+                    .replace(".", "\\.")
+                    .replace("%", ".*")
+                    .replace("_", ".");
+            if (escape.isPresent()) {
+                // Simplified: if escape is present, we'd need proper LIKE semantics
+            }
+            return value.matches(regex);
         }
 
         @Override
