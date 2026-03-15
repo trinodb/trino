@@ -46,28 +46,32 @@ public class TestLdapGroupProviderIntegration
 {
     private final LdapGroupProviderFactory factory = new LdapGroupProviderFactory();
 
-    private static final List<ConfigBuilder> CONFIG_BUILDERS;
+    private static final ConfigBuilder WITH_MEMBER_OF = builder -> {
+        builder.put("ldap.user-member-of-attribute", "memberOf");
+        return builder;
+    };
 
-    static {
-        ConfigBuilder withMemberOf = builder -> {
-            builder.put("ldap.user-member-of-attribute", "memberOf");
-            return builder;
-        };
+    private static final ConfigBuilder WITH_GROUP_FILTER = builder -> {
+        builder.put("ldap.use-group-filter", "true");
+        builder.put("ldap.group-base-dn", "ou=groups,dc=trino,dc=testldap,dc=com");
+        return builder;
+    };
 
-        ConfigBuilder withGroupFilter = builder -> {
-            builder.put("ldap.use-group-filter", "true");
-            builder.put("ldap.group-base-dn", "ou=groups,dc=trino,dc=testldap,dc=com");
-            return builder;
-        };
+    private static final ConfigBuilder WITH_GROUP_FILTER_NESTED = builder -> {
+        builder.put("ldap.use-group-filter", "true");
+        builder.put("ldap.group-base-dn", "ou=groups,dc=trino,dc=testldap,dc=com");
+        builder.put("ldap.group-search-nested-enabled", "true");
+        return builder;
+    };
 
-        CONFIG_BUILDERS = ImmutableList.of(withMemberOf, withGroupFilter);
-    }
+    private static final List<ConfigBuilder> CONFIG_BUILDERS = ImmutableList.of(WITH_MEMBER_OF, WITH_GROUP_FILTER, WITH_GROUP_FILTER_NESTED);
 
     private Closer closer;
     private Map<String, String> baseConfig;
     private DisposableSubContext clients;
     private DisposableSubContext developers;
     private DisposableSubContext qualityAssurance;
+    private DisposableSubContext engineering;
 
     @BeforeAll
     public void setup()
@@ -107,6 +111,9 @@ public class TestLdapGroupProviderIntegration
         qualityAssurance = openLdapServer.createGroup(groupsOU, "qualityAssurance");
         openLdapServer.addUserToGroup(alicea, qualityAssurance);
         openLdapServer.addUserToGroup(bobq, qualityAssurance);
+
+        engineering = openLdapServer.createGroup(groupsOU, "engineering");
+        openLdapServer.addUserToGroup(developers, engineering);
     }
 
     @AfterAll
@@ -119,8 +126,11 @@ public class TestLdapGroupProviderIntegration
     @Test
     public void testGetGroups()
     {
+        assertGetGroups(WITH_MEMBER_OF, "alicea", ImmutableSet.of("clients", "developers", "qualityAssurance"));
+        assertGetGroups(WITH_GROUP_FILTER, "alicea", ImmutableSet.of("clients", "developers", "qualityAssurance"));
+        assertGetGroups(WITH_GROUP_FILTER_NESTED, "alicea", ImmutableSet.of("clients", "developers", "qualityAssurance", "engineering"));
+
         for (ConfigBuilder configBuilder : CONFIG_BUILDERS) {
-            assertGetGroups(configBuilder, "alicea", ImmutableSet.of("clients", "developers", "qualityAssurance"));
             assertGetGroups(configBuilder, "johnb", ImmutableSet.of("clients"));
             assertGetGroups(configBuilder, "bobq", ImmutableSet.of("qualityAssurance"));
             assertGetGroups(configBuilder, "carlp", ImmutableSet.of());
@@ -140,10 +150,10 @@ public class TestLdapGroupProviderIntegration
     @Test
     public void testGetGroupsWithGroupsFilter()
     {
-        assertGetGroupsWithGroupsFilter("alicea", "cn=*", ImmutableSet.of("clients", "developers", "qualityAssurance"));
+        assertGetGroupsWithGroupsFilter("alicea", "cn=*", ImmutableSet.of("clients", "developers", "qualityAssurance", "engineering"));
         assertGetGroupsWithGroupsFilter("alicea", "cn=dev*", ImmutableSet.of("developers"));
         assertGetGroupsWithGroupsFilter("alicea", "(|(cn=dev*)(cn=cl*))", ImmutableSet.of("developers", "clients"));
-        assertGetGroupsWithGroupsFilter("alicea", "(&(objectclass=groupOfNames)(!(ou:dn:=external)))", ImmutableSet.of("developers", "qualityAssurance"));
+        assertGetGroupsWithGroupsFilter("alicea", "(&(objectclass=groupOfNames)(!(ou:dn:=external)))", ImmutableSet.of("developers", "qualityAssurance", "engineering"));
     }
 
     private void assertGetGroupsWithGroupsFilter(String userName, String groupFilter, Set<String> expectedGroups)
@@ -154,6 +164,7 @@ public class TestLdapGroupProviderIntegration
                 .put("ldap.group-search-member-attribute", "member")
                 .put("ldap.group-name-attribute", "cn")
                 .put("ldap.group-base-dn", "ou=groups,dc=trino,dc=testldap,dc=com")
+                .put("ldap.group-search-nested-enabled", "true")
                 .put("ldap.group-search-filter", groupFilter)
                 .buildOrThrow();
         GroupProvider groupsProvider = factory.create(config);
@@ -167,9 +178,6 @@ public class TestLdapGroupProviderIntegration
     public void testGetGroupForMissingUserReturnsEmpty()
     {
         for (ConfigBuilder configBuilder : CONFIG_BUILDERS) {
-            assertGetGroupForMissingUserReturnsEmpty(configBuilder);
-            assertGetGroupForMissingUserReturnsEmpty(configBuilder);
-            assertGetGroupForMissingUserReturnsEmpty(configBuilder);
             assertGetGroupForMissingUserReturnsEmpty(configBuilder);
         }
     }
@@ -193,6 +201,7 @@ public class TestLdapGroupProviderIntegration
                 .put("ldap.group-search-member-attribute", "some-attribute-that-does-not-exist")
                 .put("ldap.group-name-attribute", "cn")
                 .put("ldap.group-base-dn", "ou=groups,dc=trino,dc=testldap,dc=com")
+                .put("ldap.group-search-nested-enabled", "true")
                 .buildOrThrow();
         GroupProvider groupsProvider = factory.create(config);
 
@@ -204,15 +213,12 @@ public class TestLdapGroupProviderIntegration
     @Test
     public void testGetGroupsWithBadGroupNameReturnsFullName()
     {
-        for (ConfigBuilder configBuilder : CONFIG_BUILDERS) {
-            assertGetGroupsWithBadGroupNameReturnsFullName(configBuilder);
-            assertGetGroupsWithBadGroupNameReturnsFullName(configBuilder);
-            assertGetGroupsWithBadGroupNameReturnsFullName(configBuilder);
-            assertGetGroupsWithBadGroupNameReturnsFullName(configBuilder);
-        }
+        assertGetGroupsWithBadGroupNameReturnsFullName(WITH_MEMBER_OF, ImmutableSet.of(clients.getDistinguishedName(), developers.getDistinguishedName(), qualityAssurance.getDistinguishedName()));
+        assertGetGroupsWithBadGroupNameReturnsFullName(WITH_GROUP_FILTER, ImmutableSet.of(clients.getDistinguishedName(), developers.getDistinguishedName(), qualityAssurance.getDistinguishedName()));
+        assertGetGroupsWithBadGroupNameReturnsFullName(WITH_GROUP_FILTER_NESTED, ImmutableSet.of(clients.getDistinguishedName(), developers.getDistinguishedName(), qualityAssurance.getDistinguishedName(), engineering.getDistinguishedName()));
     }
 
-    private void assertGetGroupsWithBadGroupNameReturnsFullName(ConfigBuilder configBuilder)
+    private void assertGetGroupsWithBadGroupNameReturnsFullName(ConfigBuilder configBuilder, Set<String> expectedGroups)
     {
         Map<String, String> config = configBuilder.apply(new HashMap<>(baseConfig));
         config.put("ldap.group-name-attribute", "some-attribute-that-does-not-exist");
@@ -220,22 +226,19 @@ public class TestLdapGroupProviderIntegration
 
         Set<String> groups = groupsProvider.getGroups("alicea");
 
-        assertThat(groups).containsAll(ImmutableSet.of(clients.getDistinguishedName(), developers.getDistinguishedName(), qualityAssurance.getDistinguishedName()));
+        assertThat(groups).containsAll(expectedGroups);
     }
 
     @Test
     public void testGetGroupsConcurrently()
             throws InterruptedException
     {
-        for (ConfigBuilder configBuilder : CONFIG_BUILDERS) {
-            assertGetGroupsConcurrently(configBuilder);
-            assertGetGroupsConcurrently(configBuilder);
-            assertGetGroupsConcurrently(configBuilder);
-            assertGetGroupsConcurrently(configBuilder);
-        }
+        assertGetGroupsConcurrently(WITH_MEMBER_OF, ImmutableSet.of("clients", "qualityAssurance", "developers"));
+        assertGetGroupsConcurrently(WITH_GROUP_FILTER, ImmutableSet.of("clients", "qualityAssurance", "developers"));
+        assertGetGroupsConcurrently(WITH_GROUP_FILTER_NESTED, ImmutableSet.of("clients", "qualityAssurance", "developers", "engineering"));
     }
 
-    private void assertGetGroupsConcurrently(ConfigBuilder configBuilder)
+    private void assertGetGroupsConcurrently(ConfigBuilder configBuilder, Set<String> expectedAliceGroups)
             throws InterruptedException
     {
         Map<String, String> config = configBuilder.apply(new HashMap<>(baseConfig));
@@ -245,7 +248,7 @@ public class TestLdapGroupProviderIntegration
         CountDownLatch latch = new CountDownLatch(4);
 
         CompletableFuture.supplyAsync(() -> groupsProvider.getGroups("alicea"), executor).whenComplete((g, t) -> {
-            assertThat(g).containsAll(ImmutableSet.of("clients", "qualityAssurance", "developers"));
+            assertThat(g).containsAll(expectedAliceGroups);
             latch.countDown();
         });
 

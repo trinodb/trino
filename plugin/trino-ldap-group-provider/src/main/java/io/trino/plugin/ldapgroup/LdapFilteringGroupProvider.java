@@ -20,19 +20,26 @@ import io.trino.plugin.base.ldap.LdapClient;
 import io.trino.plugin.base.ldap.LdapQuery;
 import io.trino.spi.security.GroupProvider;
 
+import javax.naming.NamingEnumeration;
 import javax.naming.NamingException;
 import javax.naming.directory.Attribute;
 import javax.naming.directory.SearchResult;
 
+import java.util.ArrayDeque;
+import java.util.HashSet;
 import java.util.Optional;
+import java.util.Queue;
 import java.util.Set;
 
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.util.Objects.requireNonNull;
 
 public class LdapFilteringGroupProvider
         implements GroupProvider
 {
     private static final Logger log = Logger.get(LdapFilteringGroupProvider.class);
+
+    private static final String LDAP_MATCHING_RULE_IN_CHAIN = "1.2.840.113556.1.4.1941";
 
     private final LdapClient ldapClient;
     private final String ldapAdminUser;
@@ -42,6 +49,8 @@ public class LdapFilteringGroupProvider
     private final String groupBaseDN;
     private final String groupsNameAttribute;
     private final String combinedGroupSearchFilter;
+    private final boolean enableNestedGroups;
+    private final boolean useMatchingRuleInChain;
 
     @Inject
     public LdapFilteringGroupProvider(
@@ -58,13 +67,19 @@ public class LdapFilteringGroupProvider
         this.groupsNameAttribute = config.getLdapGroupsNameAttribute();
 
         String groupsSearchMemberAttribute = filteringConfig.getLdapGroupsSearchMemberAttribute();
+        this.enableNestedGroups = filteringConfig.isLdapGroupSearchNestedEnabled();
+        this.useMatchingRuleInChain = filteringConfig.isLdapGroupSearchNestedUseMatchingRuleInChain();
+        String groupSearchMemberPredicate = useMatchingRuleInChain
+                ? String.format("%s:%s:={0}", groupsSearchMemberAttribute, LDAP_MATCHING_RULE_IN_CHAIN)
+                : String.format("%s={0}", groupsSearchMemberAttribute);
+
         combinedGroupSearchFilter = filteringConfig.getLdapGroupsSearchFilter()
-                .map(filter -> String.format("(&(%s)(%s={0}))", filter, groupsSearchMemberAttribute))
-                .orElse(String.format("(%s={0})", groupsSearchMemberAttribute));
+                .map(filter -> String.format("(&(%s)(%s))", filter, groupSearchMemberPredicate))
+                .orElse(String.format("(%s)", groupSearchMemberPredicate));
     }
 
     /**
-     * Perform an LDAP search for groups, fetching only the names, and returning the name of each group.
+     * Resolve direct and nested LDAP groups for the provided user.
      * Filters groups by user membership AND filter expression {@link LdapFilteringGroupProviderConfig#getLdapGroupsSearchFilter()}.
      * If {@link LdapGroupProviderConfig#getLdapGroupsNameAttribute()} is missing from group document, fallback on full name.
      * Swallows LDAP exceptions.
@@ -96,38 +111,130 @@ public class LdapFilteringGroupProvider
             return ImmutableSet.of();
         }
 
-        return userDistinguishedName.map(ldapUser -> {
+        return userDistinguishedName
+                .map(ldapUser -> {
+                    if (!enableNestedGroups) {
+                        return resolveDirectGroups(ldapUser);
+                    }
+                    return useMatchingRuleInChain ? resolveGroupsInSingleQuery(ldapUser) : resolveGroupsRecursively(ldapUser);
+                })
+                .orElse(ImmutableSet.of());
+    }
+
+    private Set<String> resolveDirectGroups(String memberDistinguishedName)
+    {
+        try {
+            return ldapClient.executeLdapQuery(ldapAdminUser, ldapAdminPassword,
+                    new LdapQuery.LdapQueryBuilder()
+                            .withSearchBase(groupBaseDN)
+                            .withAttributes(groupsNameAttribute)
+                            .withSearchFilter(combinedGroupSearchFilter)
+                            .withFilterArguments(memberDistinguishedName)
+                            .build(),
+                    search -> {
+                        if (!search.hasMore()) {
+                            log.debug("No groups found using search [pattern=%s, arguments={%s}]", combinedGroupSearchFilter, memberDistinguishedName);
+                        }
+                        return extractGroups(search).stream()
+                                .map(LdapGroup::name)
+                                .collect(toImmutableSet());
+                    });
+        }
+        catch (NamingException e) {
+            log.error(e, "LDAP group search for member [%s] failed", memberDistinguishedName);
+            return ImmutableSet.of();
+        }
+    }
+
+    private Set<String> resolveGroupsRecursively(String memberDistinguishedName)
+    {
+        Queue<String> membersToResolve = new ArrayDeque<>();
+        membersToResolve.add(memberDistinguishedName);
+        Set<String> visitedMembers = new HashSet<>();
+        Set<String> groups = new HashSet<>();
+
+        while (!membersToResolve.isEmpty()) {
+            String currentMember = membersToResolve.remove();
+            if (!visitedMembers.add(currentMember)) {
+                continue;
+            }
+
             try {
-                return ldapClient.executeLdapQuery(ldapAdminUser, ldapAdminPassword,
+                Set<LdapGroup> groupsForMember = ldapClient.executeLdapQuery(ldapAdminUser, ldapAdminPassword,
                         new LdapQuery.LdapQueryBuilder()
                                 .withSearchBase(groupBaseDN)
                                 .withAttributes(groupsNameAttribute)
                                 .withSearchFilter(combinedGroupSearchFilter)
-                                .withFilterArguments(ldapUser)
+                                .withFilterArguments(currentMember)
                                 .build(),
-                        search -> {
-                            if (!search.hasMore()) {
-                                log.debug("No groups found using search [pattern=%s, arguments={%s}]", combinedGroupSearchFilter, ldapUser);
-                            }
-                            ImmutableSet.Builder<String> groupsBuilder = ImmutableSet.builder();
-                            while (search.hasMore()) {
-                                SearchResult groupResult = search.next();
-                                Attribute groupName = groupResult.getAttributes().get(groupsNameAttribute);
-                                if (groupName == null) {
-                                    log.warn("The group object [%s] does not have group name attribute [%s]. Falling back on object full name.", groupResult, groupsNameAttribute);
-                                    groupsBuilder.add(groupResult.getNameInNamespace());
-                                }
-                                else {
-                                    groupsBuilder.add(groupName.get().toString());
-                                }
-                            }
-                            return groupsBuilder.build();
-                        });
+                                search -> {
+                                    if (!search.hasMore()) {
+                                        log.debug("No groups found using search [pattern=%s, arguments={%s}]", combinedGroupSearchFilter, currentMember);
+                                    }
+                                    return extractGroups(search);
+                                });
+
+                groupsForMember.forEach(group -> {
+                    groups.add(group.name());
+                    membersToResolve.add(group.distinguishedName());
+                });
             }
             catch (NamingException e) {
-                log.error(e, "LDAP search for user [%s] groups failed", user);
-                return ImmutableSet.<String>of();
+                log.error(e, "LDAP group search for member [%s] failed", currentMember);
+                return ImmutableSet.of();
             }
-        }).orElse(ImmutableSet.of());
+        }
+
+        return ImmutableSet.copyOf(groups);
     }
+
+    private Set<String> resolveGroupsInSingleQuery(String memberDistinguishedName)
+    {
+        try {
+            return ldapClient.executeLdapQuery(ldapAdminUser, ldapAdminPassword,
+                    new LdapQuery.LdapQueryBuilder()
+                            .withSearchBase(groupBaseDN)
+                            .withAttributes(groupsNameAttribute)
+                            .withSearchFilter(combinedGroupSearchFilter)
+                            .withFilterArguments(memberDistinguishedName)
+                            .build(),
+                    search -> {
+                        if (!search.hasMore()) {
+                            log.debug("No groups found using LDAP_MATCHING_RULE_IN_CHAIN search [pattern=%s, arguments={%s}]", combinedGroupSearchFilter, memberDistinguishedName);
+                        }
+                        return extractGroups(search).stream()
+                                .map(LdapGroup::name)
+                                .collect(toImmutableSet());
+                    });
+        }
+        catch (NamingException e) {
+            log.error(e, "LDAP group search for member [%s] failed", memberDistinguishedName);
+            return ImmutableSet.of();
+        }
+    }
+
+    private Set<LdapGroup> extractGroups(NamingEnumeration<SearchResult> search)
+            throws NamingException
+    {
+        ImmutableSet.Builder<LdapGroup> groups = ImmutableSet.builder();
+        boolean missingConfiguredNameAttribute = false;
+        while (search.hasMore()) {
+            SearchResult groupResult = search.next();
+            Attribute groupName = groupResult.getAttributes().get(groupsNameAttribute);
+            if (groupName == null) {
+                missingConfiguredNameAttribute = true;
+                log.debug("The group object [%s] does not have group name attribute [%s]. Falling back on object full name.", groupResult, groupsNameAttribute);
+                groups.add(new LdapGroup(groupResult.getNameInNamespace(), groupResult.getNameInNamespace()));
+            }
+            else {
+                groups.add(new LdapGroup(groupResult.getNameInNamespace(), groupName.get().toString()));
+            }
+        }
+        if (missingConfiguredNameAttribute) {
+            log.warn("Some LDAP group objects do not have configured group name attribute [%s]. Falling back on object full name.", groupsNameAttribute);
+        }
+        return groups.build();
+    }
+
+    private record LdapGroup(String distinguishedName, String name) {}
 }

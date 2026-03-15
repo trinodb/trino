@@ -24,6 +24,8 @@ public class LdapFilteringGroupProviderConfig
     private String ldapGroupBaseDN;
     private String ldapGroupsSearchFilter;
     private String ldapGroupsSearchMemberAttribute = "member";
+    private boolean ldapGroupSearchNestedEnabled;
+    private boolean ldapGroupSearchNestedUseMatchingRuleInChain;
 
     @NotNull
     public String getLdapGroupBaseDN()
@@ -64,6 +66,32 @@ public class LdapFilteringGroupProviderConfig
     public LdapFilteringGroupProviderConfig setLdapGroupsSearchMemberAttribute(String ldapGroupsSearchMemberAttribute)
     {
         this.ldapGroupsSearchMemberAttribute = ldapGroupsSearchMemberAttribute;
+        return this;
+    }
+
+    public boolean isLdapGroupSearchNestedEnabled()
+    {
+        return ldapGroupSearchNestedEnabled;
+    }
+
+    @Config("ldap.group-search-nested-enabled")
+    @ConfigDescription("Enable nested group resolution for search-based LDAP group provider")
+    public LdapFilteringGroupProviderConfig setLdapGroupSearchNestedEnabled(boolean ldapGroupSearchNestedEnabled)
+    {
+        this.ldapGroupSearchNestedEnabled = ldapGroupSearchNestedEnabled;
+        return this;
+    }
+
+    public boolean isLdapGroupSearchNestedUseMatchingRuleInChain()
+    {
+        return ldapGroupSearchNestedUseMatchingRuleInChain;
+    }
+
+    @Config("ldap.group-search-nested-use-matching-rule-in-chain")
+    @ConfigDescription("Enable Active Directory LDAP_MATCHING_RULE_IN_CHAIN (1.2.840.113556.1.4.1941) for nested group resolution")
+    public LdapFilteringGroupProviderConfig setLdapGroupSearchNestedUseMatchingRuleInChain(boolean ldapGroupSearchNestedUseMatchingRuleInChain)
+    {
+        this.ldapGroupSearchNestedUseMatchingRuleInChain = ldapGroupSearchNestedUseMatchingRuleInChain;
         return this;
     }
 }
