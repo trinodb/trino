@@ -444,6 +444,9 @@ public abstract class BaseJdbcClient
                     RemoteTableName nextTable = getRemoteTable(resultSet);
                     if (currentTable != null && !currentTable.equals(nextTable)) {
                         computedNext = finishCurrentTable().orElse(null);
+                        // Reset for new table - we must process the current row (first column of new table)
+                        // before returning, otherwise it would be skipped on the next computeNext() call
+                        currentTable = null;
                     }
 
                     try {
