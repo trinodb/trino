@@ -1227,6 +1227,7 @@ public class PlanBuilder
                         new TableExecuteHandle(
                                 TEST_CATALOG_HANDLE,
                                 TestingTransactionHandle.create(),
+                                new TestingTableHandle(),
                                 new TestingTableExecuteHandle()),
                         Optional.empty(),
                         new SchemaTableName("schemaName", "tableName"),
