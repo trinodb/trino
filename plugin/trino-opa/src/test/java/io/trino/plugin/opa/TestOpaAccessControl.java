@@ -561,7 +561,9 @@ final class TestOpaAccessControl
                         table.getSchemaTableName().getSchemaName(),
                         table.getSchemaTableName().getTableName(),
                         dummyColumnName);
-        assertAccessControlMethodBehaviour(wrappedMethod, ImmutableSet.of(expectedRequest));
+        // When access is denied, filterColumns is called to determine inaccessible columns for the error message,
+        // causing the restrictive client to make additional FilterColumns requests
+        assertAccessControlMethodBehaviour(wrappedMethod, ImmutableSet.of(expectedRequest), true);
     }
 
     @Test
@@ -1094,12 +1096,22 @@ final class TestOpaAccessControl
 
     private static void assertAccessControlMethodBehaviour(MethodWrapper method, Set<String> expectedRequests)
     {
+        assertAccessControlMethodBehaviour(method, expectedRequests, false);
+    }
+
+    private static void assertAccessControlMethodBehaviour(MethodWrapper method, Set<String> expectedRequests, boolean allowRestrictiveExtraRequests)
+    {
         InstrumentedHttpClient permissiveMockClient = createMockHttpClient(OPA_SERVER_URI, buildValidatingRequestHandler(TEST_IDENTITY, OK_RESPONSE));
         InstrumentedHttpClient restrictiveMockClient = createMockHttpClient(OPA_SERVER_URI, buildValidatingRequestHandler(TEST_IDENTITY, NO_ACCESS_RESPONSE));
 
         assertThat(method.isAccessAllowed(createOpaAuthorizer(simpleOpaConfig(), permissiveMockClient))).isTrue();
         assertThat(method.isAccessAllowed(createOpaAuthorizer(simpleOpaConfig(), restrictiveMockClient))).isFalse();
-        assertThat(permissiveMockClient.getRequests()).containsExactlyInAnyOrderElementsOf(restrictiveMockClient.getRequests());
+        if (allowRestrictiveExtraRequests) {
+            assertThat(restrictiveMockClient.getRequests()).containsAll(permissiveMockClient.getRequests());
+        }
+        else {
+            assertThat(permissiveMockClient.getRequests()).containsExactlyInAnyOrderElementsOf(restrictiveMockClient.getRequests());
+        }
         assertStringRequestsEqual(expectedRequests, permissiveMockClient.getRequests(), "/input/action");
         assertAccessControlMethodThrowsForIllegalResponses(method::isAccessAllowed, simpleOpaConfig(), OPA_SERVER_URI);
     }
