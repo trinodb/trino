@@ -531,10 +531,6 @@ public final class ThriftMetastoreUtil
             LongColumnStatsData longStatsData = columnStatistics.getStatsData().getLongStats();
             OptionalLong min = longStatsData.isSetLowValue() ? OptionalLong.of(longStatsData.getLowValue()) : OptionalLong.empty();
             OptionalLong max = longStatsData.isSetHighValue() ? OptionalLong.of(longStatsData.getHighValue()) : OptionalLong.empty();
-            if (min.isPresent() && max.isPresent() && columnStatistics.getColType().equals(TIMESTAMP)) {
-                min = OptionalLong.of(min.getAsLong() * MICROSECONDS_PER_SECOND);
-                max = OptionalLong.of(max.getAsLong() * MICROSECONDS_PER_SECOND);
-            }
             OptionalLong nullsCount = longStatsData.isSetNumNulls() ? fromMetastoreNullsCount(longStatsData.getNumNulls()) : OptionalLong.empty();
             OptionalLong distinctValuesWithNullCount = longStatsData.isSetNumDVs() ? OptionalLong.of(longStatsData.getNumDVs()) : OptionalLong.empty();
             return createIntegerColumnStatistics(min, max, nullsCount, distinctValuesWithNullCount);
