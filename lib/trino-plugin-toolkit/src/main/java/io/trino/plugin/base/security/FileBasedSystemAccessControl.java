@@ -476,7 +476,8 @@ public class FileBasedSystemAccessControl
     @Override
     public void checkCanShowCreateTable(SystemSecurityContext context, CatalogSchemaTableName table)
     {
-        if (!checkTablePermission(context, table, OWNERSHIP)) {
+        // SHOW CREATE TABLE is a read-only metadata operation - allow with SELECT privilege (READ_ONLY catalog access)
+        if (!checkTablePermission(context, table, SELECT)) {
             denyShowCreateTable(table.toString());
         }
     }

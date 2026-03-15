@@ -220,7 +220,8 @@ public class FileBasedAccessControl
     @Override
     public void checkCanShowCreateTable(ConnectorSecurityContext context, SchemaTableName tableName)
     {
-        if (!checkTablePermission(context, tableName, OWNERSHIP)) {
+        // SHOW CREATE TABLE is a read-only metadata operation - allow with SELECT privilege (READ_ONLY catalog access)
+        if (!checkTablePermission(context, tableName, SELECT)) {
             denyShowCreateTable(tableName.toString());
         }
     }
