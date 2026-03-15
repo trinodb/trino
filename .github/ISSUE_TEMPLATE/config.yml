@@ -1,0 +1,5 @@
+---
+contact_links:
+  - name: Q&A
+    url: https://github.com/trinodb/trino/discussions
+    about: Ask a question on Github Discussions

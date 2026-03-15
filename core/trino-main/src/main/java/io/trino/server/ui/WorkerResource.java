@@ -44,6 +44,7 @@ import jakarta.ws.rs.core.HttpHeaders;
 import jakarta.ws.rs.core.Response;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.util.HashSet;
 import java.util.Locale;
 import java.util.Optional;
@@ -221,11 +222,11 @@ public class WorkerResource
         @Override
         public byte[] handle(Request request, io.airlift.http.client.Response response)
         {
-            try {
+            try (InputStream stream = response.getInputStream()) {
                 if (!APPLICATION_JSON.equals(response.getHeader(CONTENT_TYPE))) {
                     throw new RuntimeException("Response received was not of type " + APPLICATION_JSON);
                 }
-                return response.getInputStream().readAllBytes();
+                return stream.readAllBytes();
             }
             catch (IOException e) {
                 throw new RuntimeException("Unable to read response from worker", e);
