@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Streams;
 import io.airlift.http.client.FullJsonResponseHandler.JsonResponse;
+import io.airlift.http.client.HeaderName;
 import io.airlift.http.client.HttpClient;
 import io.airlift.http.client.HttpUriBuilder;
 import io.airlift.http.client.Request;
@@ -147,10 +148,10 @@ public class TestServer
         String invalidTimeZone = "this_is_an_invalid_time_zone";
         QueryResults queryResults = postQuery(request -> request
                 .setBodyGenerator(createStaticBodyGenerator("show catalogs", UTF_8))
-                .setHeader(TRINO_HEADERS.requestCatalog(), "catalog")
-                .setHeader(TRINO_HEADERS.requestSchema(), "schema")
-                .setHeader(TRINO_HEADERS.requestPath(), "path")
-                .setHeader(TRINO_HEADERS.requestTimeZone(), invalidTimeZone))
+                .setHeader(HeaderName.of(TRINO_HEADERS.requestCatalog()), "catalog")
+                .setHeader(HeaderName.of(TRINO_HEADERS.requestSchema()), "schema")
+                .setHeader(HeaderName.of(TRINO_HEADERS.requestPath()), "path")
+                .setHeader(HeaderName.of(TRINO_HEADERS.requestTimeZone()), invalidTimeZone))
                 .map(JsonResponse::getValue)
                 .peek(result -> checkState((result.getError() == null) != (result.getNextUri() == null)))
                 .collect(last());
