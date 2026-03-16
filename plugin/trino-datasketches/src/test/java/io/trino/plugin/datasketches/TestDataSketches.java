@@ -33,6 +33,7 @@ import org.apache.datasketches.theta.ThetaUnion;
 import org.apache.datasketches.theta.UpdatableThetaSketch;
 import org.junit.jupiter.api.Test;
 
+import java.lang.foreign.MemorySegment;
 import java.util.Arrays;
 import java.util.Optional;
 
@@ -219,8 +220,8 @@ public class TestDataSketches
         return Slices.wrappedBuffer(sketch.compact().toByteArray());
     }
 
-    private static java.lang.foreign.MemorySegment toMemory(Slice slice)
+    private static MemorySegment toMemory(Slice slice)
     {
-        return java.lang.foreign.MemorySegment.ofArray(slice.getBytes());
+        return MemorySegment.ofArray(slice.getBytes());
     }
 }
