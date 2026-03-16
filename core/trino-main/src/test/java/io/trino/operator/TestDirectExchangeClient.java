@@ -1086,7 +1086,7 @@ public class TestDirectExchangeClient
                 pageBufferClientCallbackExecutor,
                 (taskId, failure) -> {});
         exchangeClient.getAllClients().putAll(Map.of(locationOne, pendingClient, locationTwo, clientToBeSkipped));
-        exchangeClient.getRunningClients().add(pendingClient);
+        exchangeClient.addRunningClient(pendingClient);
         exchangeClient.getQueuedClients().add(clientToBeSkipped);
 
         int clientCount = exchangeClient.scheduleRequestIfNecessary();
