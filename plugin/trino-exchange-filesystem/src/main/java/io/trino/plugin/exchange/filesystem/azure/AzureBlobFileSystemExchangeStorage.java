@@ -44,6 +44,7 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.Slices;
 import io.trino.annotation.NotThreadSafe;
+import io.trino.plugin.exchange.filesystem.CommitManifest;
 import io.trino.plugin.exchange.filesystem.ExchangeSourceFile;
 import io.trino.plugin.exchange.filesystem.ExchangeStorageReader;
 import io.trino.plugin.exchange.filesystem.ExchangeStorageWriter;
@@ -72,6 +73,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.util.concurrent.Futures.immediateFailedFuture;
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.asVoid;
@@ -185,6 +187,24 @@ public class AzureBlobFileSystemExchangeStorage
         }
 
         return translateFailures(Futures.allAsList(deleteObjectsFutures.build()));
+    }
+
+    @Override
+    public ListenableFuture<Void> deleteFiles(List<URI> files)
+    {
+        return immediateVoidFuture();
+    }
+
+    @Override
+    public ListenableFuture<Void> writeMarkerFile(URI directory, CommitManifest markerFile)
+    {
+        return createEmptyFile(directory.resolve(CommitManifest.FILE_NAME));
+    }
+
+    @Override
+    public ListenableFuture<CommitManifest> readMarkerFile(URI uri)
+    {
+        return immediateFailedFuture(new UnsupportedOperationException("readMarkerFile not supported for Azure"));
     }
 
     @Override
@@ -468,6 +488,7 @@ public class AzureBlobFileSystemExchangeStorage
 
         private final BlockBlobAsyncClient blockBlobAsyncClient;
         private final int blockSize;
+        private long size;
 
         private ListenableFuture<Void> directUploadFuture;
         private final List<ListenableFuture<Void>> multiPartUploadFutures = new ArrayList<>();
@@ -491,6 +512,7 @@ public class AzureBlobFileSystemExchangeStorage
                 return immediateVoidFuture();
             }
 
+            size += slice.length();
             // Skip multipart upload if there would only be one part
             if (slice.length() < blockSize && multiPartUploadFutures.isEmpty()) {
                 directUploadFuture = translateFailures(toListenableFuture(blockBlobAsyncClient.upload(Flux.just(slice.toByteBuffer()), slice.length()).toFuture()));
@@ -561,6 +583,12 @@ public class AzureBlobFileSystemExchangeStorage
         public long getRetainedSize()
         {
             return INSTANCE_SIZE + estimatedSizeOf(blockIds, SizeOf::estimatedSizeOf);
+        }
+
+        @Override
+        public FileStatus getFileStatus()
+        {
+            return new FileStatus(blockBlobAsyncClient.getBlobUrl(), size);
         }
     }
 }
