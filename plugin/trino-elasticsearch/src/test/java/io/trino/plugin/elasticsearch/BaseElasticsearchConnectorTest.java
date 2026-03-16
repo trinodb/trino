@@ -18,6 +18,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
 import io.trino.spi.type.VarcharType;
+import io.trino.sql.planner.plan.LimitNode;
+import io.trino.sql.planner.plan.TopNNode;
 import io.trino.testing.AbstractTestQueries;
 import io.trino.testing.BaseConnectorTest;
 import io.trino.testing.MaterializedResult;
@@ -57,6 +59,7 @@ public abstract class BaseElasticsearchConnectorTest
 {
     private ElasticsearchServer server;
     private RestHighLevelClient client;
+    protected final String jmxBaseName = randomNameSuffix();
 
     BaseElasticsearchConnectorTest(ElasticsearchServer server)
     {
@@ -70,6 +73,7 @@ public abstract class BaseElasticsearchConnectorTest
     {
         return ElasticsearchQueryRunner.builder(server)
                 .setInitialTables(REQUIRED_TPCH_TABLES)
+                .addConnectorProperties(Map.of("jmx.base-name", jmxBaseName))
                 .build();
     }
 
@@ -133,8 +137,8 @@ public abstract class BaseElasticsearchConnectorTest
         String catalogName = getSession().getCatalog().orElseThrow();
         assertQuerySucceeds("SELECT * FROM orders");
         // Check that JMX stats show no sign of backpressure
-        assertQueryReturnsEmptyResult(format("SELECT 1 FROM jmx.current.\"trino.plugin.elasticsearch.client:*name=%s*\" WHERE \"backpressurestats.alltime.count\" > 0", catalogName));
-        assertQueryReturnsEmptyResult(format("SELECT 1 FROM jmx.current.\"trino.plugin.elasticsearch.client:*name=%s*\" WHERE \"backpressurestats.alltime.max\" > 0", catalogName));
+        assertQueryReturnsEmptyResult(format("SELECT 1 FROM jmx.current.\"%s.client:*name=%s*\" WHERE \"backpressurestats.alltime.count\" > 0", jmxBaseName, catalogName));
+        assertQueryReturnsEmptyResult(format("SELECT 1 FROM jmx.current.\"%s.client:*name=%s*\" WHERE \"backpressurestats.alltime.max\" > 0", jmxBaseName, catalogName));
     }
 
     @Test
@@ -190,23 +194,34 @@ public abstract class BaseElasticsearchConnectorTest
     @Override
     public void testTopNPushdown()
     {
-        // Elasticsearch splits data by shard, so TopN on each shard needs to be merged by Trino
-        // This means TopN is pushed down to each shard, but Trino still needs TopN nodes to merge results
-        // Therefore we only verify that TopN info is passed to the connector, not that it's fully pushed down
+        assertThat(query("SELECT nationkey FROM nation ORDER BY nationkey DESC LIMIT 5"))
+                .ordered()
+                .matches("VALUES BIGINT '24', BIGINT '23', BIGINT '22', BIGINT '21', BIGINT '20'")
+                .isNotFullyPushedDown(TopNNode.class);
+        assertExplain(
+                "EXPLAIN SELECT nationkey FROM nation ORDER BY nationkey DESC LIMIT 5",
+                "TopNPartial\\[count = 5, orderBy = \\[nationkey DESC");
     }
 
     @Test
     @Override
     public void testLimitPushdown()
     {
-        // Elasticsearch splits data by shard, so limit on each shard needs to be merged by Trino
-        // This means limit is pushed down to each shard, but Trino still needs Limit nodes to merge results
-        // Therefore we only verify that limit info is passed to the connector, not that it's fully pushed down
+        assertQuery("SELECT count(*) FROM (SELECT nationkey FROM nation LIMIT 5)", "VALUES 5");
+        assertThat(query("SELECT nationkey FROM nation LIMIT 5"))
+                .isNotFullyPushedDown(LimitNode.class);
+        assertExplain(
+                "EXPLAIN SELECT nationkey FROM nation LIMIT 5",
+                "LimitPartial\\[count = 5");
     }
 
     @Test
     public void testCountStarPushdown()
     {
+        assertThat(query("SELECT COUNT(*) FROM nation"))
+                .matches("VALUES BIGINT '25'")
+                .isFullyPushedDown();
+
         // Simple COUNT(*)
         assertQuery("SELECT COUNT(*) FROM nation", "SELECT 25");
 

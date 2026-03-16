@@ -93,9 +93,6 @@ public class AggregateQueryPageSource
                 .map(type -> type.createBlockBuilder(null, 1))
                 .toArray(BlockBuilder[]::new);
         this.queryBuilder = buildSearchQuery(table.constraint().transformKeys(ElasticsearchColumnHandle.class::cast), table.query(), table.regexes());
-
-        long start = System.nanoTime();
-        readTimeNanos += System.nanoTime() - start;
     }
 
     @Override

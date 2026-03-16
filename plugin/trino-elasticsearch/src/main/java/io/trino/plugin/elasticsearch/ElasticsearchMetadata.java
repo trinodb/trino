@@ -119,6 +119,7 @@ import static io.trino.plugin.base.projection.ApplyProjectionUtil.replaceWithNew
 import static io.trino.plugin.elasticsearch.ElasticsearchTableHandle.Type.AGGREGATION;
 import static io.trino.plugin.elasticsearch.ElasticsearchTableHandle.Type.QUERY;
 import static io.trino.plugin.elasticsearch.ElasticsearchTableHandle.Type.SCAN;
+import static io.trino.plugin.elasticsearch.expression.TopN.TopNSortItem.DEFAULT_SORT_BY_DOC;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.expression.StandardFunctions.LIKE_FUNCTION_NAME;
@@ -521,7 +522,9 @@ public class ElasticsearchMetadata
             return Optional.empty();
         }
 
-        TopN topN = TopN.fromLimit(limit);
+        TopN topN = handle.query().isPresent()
+                ? TopN.fromLimit(limit)
+                : new TopN(limit, ImmutableList.of(DEFAULT_SORT_BY_DOC));
 
         handle = new ElasticsearchTableHandle(
                 handle.type(),
