@@ -333,6 +333,7 @@ public abstract class BaseJdbcClient
                         getInteger(resultSet, "DECIMAL_DIGITS"),
                         Optional.empty(),
                         Optional.ofNullable(caseSensitivityMapping.get(columnName)));
+                log.info("column '%s': %s", columnName, typeHandle);
                 Optional<ColumnMapping> columnMapping = toColumnMapping(session, connection, typeHandle);
                 log.debug("Mapping data type of '%s' column '%s': %s mapped to %s", schemaTableName, columnName, typeHandle, columnMapping);
                 boolean nullable = (resultSet.getInt("NULLABLE") != columnNoNulls);
@@ -552,8 +553,10 @@ public abstract class BaseJdbcClient
             throws SQLException
     {
         int value = resultSet.getInt(columnLabel);
+        System.out.println("value: " + value);
         if (resultSet.wasNull()) {
-            return Optional.empty();
+            System.out.println("resultSet.wasNull(): " + value);
+            return Optional.of(0);
         }
         return Optional.of(value);
     }

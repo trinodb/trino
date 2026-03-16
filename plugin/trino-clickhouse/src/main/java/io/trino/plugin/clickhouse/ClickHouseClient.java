@@ -98,7 +98,6 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZonedDateTime;
-import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -352,25 +351,25 @@ public class ClickHouseClient
         }
     }
 
-    @Override
-    public Collection<String> listSchemas(Connection connection)
-    {
-        // for Clickhouse, we need to list catalogs instead of schemas
-        try (ResultSet resultSet = connection.getMetaData().getCatalogs()) {
-            ImmutableSet.Builder<String> schemaNames = ImmutableSet.builder();
-            while (resultSet.next()) {
-                String schemaName = resultSet.getString("TABLE_CAT");
-                // skip internal schemas
-                if (filterRemoteSchema(schemaName)) {
-                    schemaNames.add(schemaName);
-                }
-            }
-            return schemaNames.build();
-        }
-        catch (SQLException e) {
-            throw new TrinoException(JDBC_ERROR, e);
-        }
-    }
+//    @Override
+//    public Collection<String> listSchemas(Connection connection)
+//    {
+//        // for Clickhouse, we need to list catalogs instead of schemas
+//        try (ResultSet resultSet = connection.getMetaData().getCatalogs()) {
+//            ImmutableSet.Builder<String> schemaNames = ImmutableSet.builder();
+//            while (resultSet.next()) {
+//                String schemaName = resultSet.getString("TABLE_CAT");
+//                // skip internal schemas
+//                if (filterRemoteSchema(schemaName)) {
+//                    schemaNames.add(schemaName);
+//                }
+//            }
+//            return schemaNames.build();
+//        }
+//        catch (SQLException e) {
+//            throw new TrinoException(JDBC_ERROR, e);
+//        }
+//    }
 
     @Override
     public Optional<String> getTableComment(ResultSet resultSet)
