@@ -22,7 +22,6 @@ import io.trino.plugin.datasketches.theta.Estimate;
 import io.trino.plugin.datasketches.theta.SketchFunctionsPlugin;
 import io.trino.plugin.datasketches.theta.Union;
 import io.trino.plugin.datasketches.theta.UnionWithParams;
-import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.MaterializedResult;
@@ -59,16 +58,12 @@ public class TestDataSketches
             throws Exception
     {
         Session session = testSessionBuilder()
-                .setCatalog("tpch")
-                .setSchema("tiny")
                 .setPath(buildPath("datasketches.theta", Optional.empty()))
                 .build();
 
         DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(session).build();
         queryRunner.installPlugin(new SketchFunctionsPlugin());
         queryRunner.createCatalog("datasketches", "datasketches");
-        queryRunner.installPlugin(new TpchPlugin());
-        queryRunner.createCatalog("tpch", "tpch");
         return queryRunner;
     }
 
