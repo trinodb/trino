@@ -70,8 +70,8 @@ public final class LambdaCaptureDesugaringRewriter
             // x -> f(x, captureSymbol)    will be rewritten into
             // "Bind"(captureSymbol, (extraSymbol, x) -> f(x, extraSymbol))
 
-            ImmutableMap.Builder<Symbol, Symbol> captureSymbolToExtraSymbol = ImmutableMap.builder();
-            ImmutableList.Builder<Symbol> newLambdaArguments = ImmutableList.builder();
+            ImmutableMap.Builder<Symbol, Symbol> captureSymbolToExtraSymbol = ImmutableMap.builderWithExpectedSize(captureSymbols.size());
+            ImmutableList.Builder<Symbol> newLambdaArguments = ImmutableList.builderWithExpectedSize(captureSymbols.size());
             for (Symbol captureSymbol : captureSymbols) {
                 Symbol extraSymbol = symbolAllocator.newSymbol(captureSymbol.name(), captureSymbol.type());
                 captureSymbolToExtraSymbol.put(captureSymbol, extraSymbol);
