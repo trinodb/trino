@@ -443,7 +443,7 @@
             <dependency>
                 <groupId>com.google.cloud.bigdataoss</groupId>
                 <artifactId>gcs-connector</artifactId>
-                <version>4.0.2</version>
+                <version>4.0.3</version>
                 <classifier>shaded</classifier>
                 <exclusions>
                     <exclusion>
