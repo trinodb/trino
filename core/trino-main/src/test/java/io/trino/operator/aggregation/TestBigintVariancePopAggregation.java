@@ -17,12 +17,13 @@ import com.google.common.collect.ImmutableList;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.Type;
+import org.apache.commons.math3.stat.descriptive.moment.Variance;
 
 import java.util.List;
 
 import static io.trino.spi.type.BigintType.BIGINT;
 
-public class TestLongMinAggregation
+public class TestBigintVariancePopAggregation
         extends AbstractTestAggregationFunction
 {
     @Override
@@ -41,13 +42,20 @@ public class TestLongMinAggregation
         if (length == 0) {
             return null;
         }
-        return (long) start;
+
+        double[] values = new double[length];
+        for (int i = 0; i < length; i++) {
+            values[i] = start + i;
+        }
+
+        Variance variance = new Variance(false);
+        return variance.evaluate(values);
     }
 
     @Override
     protected String getFunctionName()
     {
-        return "min";
+        return "var_pop";
     }
 
     @Override

@@ -20,17 +20,17 @@ import io.trino.spi.type.Type;
 
 import java.util.List;
 
-import static io.trino.spi.type.DoubleType.DOUBLE;
+import static io.trino.spi.type.BigintType.BIGINT;
 
-public class TestLongGeometricMeanAggregationFunction
+public class TestBigintMinAggregation
         extends AbstractTestAggregationFunction
 {
     @Override
     protected Block[] getSequenceBlocks(int start, int length)
     {
-        BlockBuilder blockBuilder = DOUBLE.createFixedSizeBlockBuilder(length);
+        BlockBuilder blockBuilder = BIGINT.createFixedSizeBlockBuilder(length);
         for (int i = start; i < start + length; i++) {
-            DOUBLE.writeDouble(blockBuilder, i);
+            BIGINT.writeLong(blockBuilder, i);
         }
         return new Block[] {blockBuilder.build()};
     }
@@ -41,23 +41,18 @@ public class TestLongGeometricMeanAggregationFunction
         if (length == 0) {
             return null;
         }
-
-        double product = 1.0d;
-        for (int i = start; i < start + length; i++) {
-            product *= i;
-        }
-        return Math.pow(product, 1.0d / length);
+        return (long) start;
     }
 
     @Override
     protected String getFunctionName()
     {
-        return "geometric_mean";
+        return "min";
     }
 
     @Override
     protected List<Type> getFunctionParameterTypes()
     {
-        return ImmutableList.of(DOUBLE);
+        return ImmutableList.of(BIGINT);
     }
 }

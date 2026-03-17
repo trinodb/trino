@@ -22,7 +22,7 @@ import java.util.List;
 
 import static io.trino.spi.type.BigintType.BIGINT;
 
-public class TestLongAverageAggregation
+public class TestBigintAverageAggregation
         extends AbstractTestAggregationFunction
 {
     @Override

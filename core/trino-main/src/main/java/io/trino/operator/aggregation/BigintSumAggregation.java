@@ -14,7 +14,7 @@
 package io.trino.operator.aggregation;
 
 import io.trino.annotation.UsedByGeneratedCode;
-import io.trino.operator.aggregation.state.LongAndDoubleState;
+import io.trino.operator.aggregation.state.NullableLongState;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.function.AggregationFunction;
 import io.trino.spi.function.AggregationState;
@@ -25,51 +25,49 @@ import io.trino.spi.function.SqlType;
 import io.trino.spi.function.WindowAccumulator;
 import io.trino.spi.function.WindowIndex;
 import io.trino.spi.type.StandardTypes;
+import io.trino.type.BigintOperators;
 
-import static io.trino.spi.type.DoubleType.DOUBLE;
+import static io.trino.spi.type.BigintType.BIGINT;
 
-@AggregationFunction("avg")
-public final class LongAverageAggregations
+@AggregationFunction(value = "sum", windowAccumulator = BigintSumAggregation.LongSumWindowAccumulator.class)
+public final class BigintSumAggregation
 {
-    private LongAverageAggregations() {}
+    private BigintSumAggregation() {}
 
     @InputFunction
-    public static void input(@AggregationState LongAndDoubleState state, @SqlType(StandardTypes.BIGINT) long value)
+    public static void sum(@AggregationState NullableLongState state, @SqlType(StandardTypes.BIGINT) long value)
     {
-        state.setLong(state.getLong() + 1);
-        state.setDouble(state.getDouble() + value);
+        state.setNull(false);
+        state.setValue(BigintOperators.add(state.getValue(), value));
     }
 
     @CombineFunction
-    public static void combine(@AggregationState LongAndDoubleState state, @AggregationState LongAndDoubleState otherState)
+    public static void combine(@AggregationState NullableLongState state, @AggregationState NullableLongState otherState)
     {
-        state.setLong(state.getLong() + otherState.getLong());
-        state.setDouble(state.getDouble() + otherState.getDouble());
+        if (state.isNull()) {
+            state.set(otherState);
+            return;
+        }
+
+        state.setValue(BigintOperators.add(state.getValue(), otherState.getValue()));
     }
 
-    @OutputFunction(StandardTypes.DOUBLE)
-    public static void output(@AggregationState LongAndDoubleState state, BlockBuilder out)
+    @OutputFunction(StandardTypes.BIGINT)
+    public static void output(@AggregationState NullableLongState state, BlockBuilder out)
     {
-        long count = state.getLong();
-        if (count == 0) {
-            out.appendNull();
-        }
-        else {
-            double value = state.getDouble();
-            DOUBLE.writeDouble(out, value / count);
-        }
+        NullableLongState.write(BIGINT, state, out);
     }
 
-    public static class LongAverageWindowAccumulator
+    public static class LongSumWindowAccumulator
             implements WindowAccumulator
     {
         private long count;
-        private double sum;
+        private long sum;
 
         @UsedByGeneratedCode
-        public LongAverageWindowAccumulator() {}
+        public LongSumWindowAccumulator() {}
 
-        private LongAverageWindowAccumulator(long count, double sum)
+        private LongSumWindowAccumulator(long count, long sum)
         {
             this.count = count;
             this.sum = sum;
@@ -78,13 +76,13 @@ public final class LongAverageAggregations
         @Override
         public long getEstimatedSize()
         {
-            return Long.BYTES + Double.BYTES;
+            return Long.BYTES + Long.BYTES;
         }
 
         @Override
         public WindowAccumulator copy()
         {
-            return new LongAverageWindowAccumulator(count, sum);
+            return new LongSumWindowAccumulator(count, sum);
         }
 
         @Override
@@ -101,11 +99,6 @@ public final class LongAverageAggregations
         @Override
         public boolean removeInput(WindowIndex index, int startPosition, int endPosition)
         {
-            // If sum is finite, all value to be removed are finite
-            if (!Double.isFinite(sum)) {
-                return false;
-            }
-
             for (int i = startPosition; i <= endPosition; i++) {
                 if (!index.isNull(0, i)) {
                     sum -= index.getLong(0, i);
@@ -122,7 +115,7 @@ public final class LongAverageAggregations
                 blockBuilder.appendNull();
             }
             else {
-                DOUBLE.writeDouble(blockBuilder, sum / count);
+                BIGINT.writeLong(blockBuilder, sum);
             }
         }
     }

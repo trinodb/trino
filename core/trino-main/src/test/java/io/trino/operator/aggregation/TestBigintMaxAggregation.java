@@ -17,13 +17,12 @@ import com.google.common.collect.ImmutableList;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.Type;
-import org.apache.commons.math3.stat.descriptive.moment.Kurtosis;
 
 import java.util.List;
 
 import static io.trino.spi.type.BigintType.BIGINT;
 
-public class TestLongKurtosisAggregation
+public class TestBigintMaxAggregation
         extends AbstractTestAggregationFunction
 {
     @Override
@@ -39,23 +38,16 @@ public class TestLongKurtosisAggregation
     @Override
     protected Number getExpectedValue(int start, int length)
     {
-        if (length < 4) {
+        if (length == 0) {
             return null;
         }
-
-        double[] values = new double[length];
-        for (int i = 0; i < length; i++) {
-            values[i] = start + i;
-        }
-
-        Kurtosis kurtosis = new Kurtosis();
-        return kurtosis.evaluate(values);
+        return (long) start + length - 1;
     }
 
     @Override
     protected String getFunctionName()
     {
-        return "kurtosis";
+        return "max";
     }
 
     @Override

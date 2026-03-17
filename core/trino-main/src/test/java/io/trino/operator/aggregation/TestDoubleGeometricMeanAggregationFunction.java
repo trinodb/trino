@@ -17,21 +17,20 @@ import com.google.common.collect.ImmutableList;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.Type;
-import org.apache.commons.math3.stat.descriptive.moment.StandardDeviation;
 
 import java.util.List;
 
-import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.DoubleType.DOUBLE;
 
-public class TestLongStdDevPopAggregation
+public class TestDoubleGeometricMeanAggregationFunction
         extends AbstractTestAggregationFunction
 {
     @Override
     protected Block[] getSequenceBlocks(int start, int length)
     {
-        BlockBuilder blockBuilder = BIGINT.createFixedSizeBlockBuilder(length);
+        BlockBuilder blockBuilder = DOUBLE.createFixedSizeBlockBuilder(length);
         for (int i = start; i < start + length; i++) {
-            BIGINT.writeLong(blockBuilder, i);
+            DOUBLE.writeDouble(blockBuilder, i);
         }
         return new Block[] {blockBuilder.build()};
     }
@@ -43,24 +42,22 @@ public class TestLongStdDevPopAggregation
             return null;
         }
 
-        double[] values = new double[length];
-        for (int i = 0; i < length; i++) {
-            values[i] = start + i;
+        double product = 1.0d;
+        for (int i = start; i < start + length; i++) {
+            product *= i;
         }
-
-        StandardDeviation stdDev = new StandardDeviation(false);
-        return stdDev.evaluate(values);
+        return Math.pow(product, 1.0d / length);
     }
 
     @Override
     protected String getFunctionName()
     {
-        return "stddev_pop";
+        return "geometric_mean";
     }
 
     @Override
     protected List<Type> getFunctionParameterTypes()
     {
-        return ImmutableList.of(BIGINT);
+        return ImmutableList.of(DOUBLE);
     }
 }
