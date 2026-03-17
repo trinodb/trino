@@ -261,9 +261,6 @@ listen_address: 127.0.0.1
 
 start_native_transport: true
 
-# Whether to start the thrift rpc server.
-start_rpc: false
-
 # Address to broadcast to other Cassandra nodes
 # Leaving this blank will set it to the same value as listen_address
 # broadcast_address: 1.2.3.4
@@ -275,8 +272,6 @@ start_rpc: false
 # Leaving this blank has the same effect it does for ListenAddress,
 # (i.e. it will be based on the configured hostname of the node).
 rpc_address: localhost
-# port for Thrift to listen for clients on
-rpc_port: 9160
 
 # RPC address to broadcast to drivers and other Cassandra nodes. This cannot
 # be set to 0.0.0.0. If left blank, this will be set to the value of
@@ -286,26 +281,6 @@ broadcast_rpc_address: localhost
 
 # enable or disable keepalive on rpc connections
 rpc_keepalive: true
-
-# Cassandra provides three options for the RPC Server:
-#
-# sync  -> One connection per thread in the rpc pool (see below).
-#          For a very large number of clients, memory will be your limiting
-#          factor; on a 64 bit JVM, 128KB is the minimum stack size per thread.
-#          Connection pooling is very, very strongly recommended.
-#
-# async -> Nonblocking server implementation with one thread to serve
-#          rpc connections.  This is not recommended for high throughput use
-#          cases. Async has been tested to be about 50% slower than sync
-#          or hsha and is deprecated: it will be removed in the next major release.
-#
-# hsha  -> Stands for "half synchronous, half asynchronous." The rpc thread pool
-#          (see below) is used to manage requests, but the threads are multiplexed
-#          across the different clients.
-#
-# The default is sync because on Windows hsha is about 30% slower.  On Linux,
-# sync/hsha performance is about the same, with hsha of course using less memory.
-rpc_server_type: sync
 
 # Uncomment rpc_min|max|thread to set request pool size.
 # You would primarily set max for the sync server to safeguard against
@@ -324,15 +299,6 @@ rpc_server_type: sync
 # uncomment to set socket buffer sizes on rpc connections
 # rpc_send_buff_size_in_bytes:
 # rpc_recv_buff_size_in_bytes:
-
-# Frame size for thrift (maximum field length).
-# 0 disables TFramedTransport in favor of TSocket. This option
-# is deprecated; we strongly recommend using Framed mode.
-thrift_framed_transport_size_in_mb: 15
-
-# The max length of a thrift message, including all fields and
-# internal thrift overhead.
-thrift_max_message_length_in_mb: 16
 
 # Set to true to have Cassandra create a hard link to each sstable
 # flushed or streamed locally in a backups/ subdirectory of the
@@ -489,19 +455,6 @@ dynamic_snitch_reset_interval_in_ms: 600000
 # until the pinned host was 20% worse than the fastest.
 dynamic_snitch_badness_threshold: 0.1
 
-# request_scheduler -- Set this to a class that implements
-# RequestScheduler, which will schedule incoming client requests
-# according to the specific policy. This is useful for multi-tenancy
-# with a single Cassandra cluster.
-# NOTE: This is specifically for requests from the client and does
-# not affect inter node communication.
-# org.apache.cassandra.scheduler.NoScheduler - No scheduling takes place
-# org.apache.cassandra.scheduler.RoundRobinScheduler - Round robin of
-# client requests to a node with a separate queue for each
-# request_scheduler_id. The scheduler is further customized by
-# request_scheduler_options as described below.
-request_scheduler: org.apache.cassandra.scheduler.NoScheduler
-
 # Scheduler Options vary based on the type of scheduler
 # NoScheduler - Has no options
 # RoundRobin
@@ -528,43 +481,5 @@ request_scheduler: org.apache.cassandra.scheduler.NoScheduler
 # request_scheduler_id -- An identifer based on which to perform
 # the request scheduling. Currently the only valid option is keyspace.
 # request_scheduler_id: keyspace
-
-# index_interval controls the sampling of entries from the primrary
-# row index in terms of space versus time.  The larger the interval,
-# the smaller and less effective the sampling will be.  In technicial
-# terms, the interval coresponds to the number of index entries that
-# are skipped between taking each sample.  All the sampled entries
-# must fit in memory.  Generally, a value between 128 and 512 here
-# coupled with a large key cache size on CFs results in the best trade
-# offs.  This value is not often changed, however if you have many
-# very small rows (many to an OS page), then increasing this will
-# often lower memory usage without a impact on performance.
-index_interval: 128
-
-# Enable or disable inter-node encryption
-# Default settings are TLS v1, RSA 1024-bit keys (it is imperative that
-# users generate their own keys) TLS_RSA_WITH_AES_128_CBC_SHA as the cipher
-# suite for authentication, key exchange and encryption of the actual data transfers.
-# NOTE: No custom encryption options are enabled at the moment
-# The available internode options are : all, none, dc, rack
-#
-# If set to dc cassandra will encrypt the traffic between the DCs
-# If set to rack cassandra will encrypt the traffic between the racks
-#
-# The passwords used in these options must match the passwords used when generating
-# the keystore and truststore.  For instructions on generating these files, see:
-# http://download.oracle.com/javase/6/docs/technotes/guides/security/jsse/JSSERefGuide.html#CreateKeystore
-#
-encryption_options:
-    internode_encryption: none
-    keystore: conf/.keystore
-    keystore_password: cassandra
-    truststore: conf/.truststore
-    truststore_password: cassandra
-    # More advanced defaults below:
-    # protocol: TLS
-    # algorithm: SunX509
-    # store_type: JKS
-    # cipher_suites: [TLS_RSA_WITH_AES_128_CBC_SHA,TLS_RSA_WITH_AES_256_CBC_SHA]
 
 batch_size_warn_threshold_in_kb: 100
