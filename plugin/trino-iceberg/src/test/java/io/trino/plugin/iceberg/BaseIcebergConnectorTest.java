@@ -7635,6 +7635,21 @@ public abstract class BaseIcebergConnectorTest
     }
 
     @Test
+    public void testPreparedStatementWithParameterizedVersionedTable()
+    {
+        Session session = Session.builder(getSession())
+                .addPreparedStatement("my_query", "SELECT * FROM region FOR VERSION AS OF ?")
+                .build();
+        long snapshotId = getCurrentSnapshotId("region");
+
+        assertThat(query(session, "EXECUTE my_query USING " + snapshotId))
+                .matches("TABLE region");
+
+        assertQueryFails(session, "EXECUTE my_query USING " + (snapshotId - 1), "Iceberg snapshot ID does not exists: .*");
+        assertQueryFails(session, "DESCRIBE OUTPUT my_query", ".* DESCRIBE is not supported if a versioned table uses parameters");
+    }
+
+    @Test
     public void testDeleteRetainsTableHistory()
     {
         String tableName = "test_delete_retains_table_history_" + randomNameSuffix();
