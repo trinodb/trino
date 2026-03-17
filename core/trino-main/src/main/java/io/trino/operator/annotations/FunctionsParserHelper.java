@@ -50,6 +50,7 @@ import java.util.function.Predicate;
 import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.ImmutableSortedSet.toImmutableSortedSet;
 import static io.trino.operator.annotations.ImplementationDependency.isImplementationDependencyAnnotation;
@@ -65,6 +66,7 @@ import static io.trino.spi.function.OperatorType.READ_VALUE;
 import static io.trino.spi.function.OperatorType.XX_HASH_64;
 import static io.trino.sql.analyzer.TypeSignatureTranslator.parseTypeSignature;
 import static java.lang.String.CASE_INSENSITIVE_ORDER;
+import static java.util.Comparator.comparing;
 
 public final class FunctionsParserHelper
 {
@@ -204,20 +206,27 @@ public final class FunctionsParserHelper
     }
 
     @SafeVarargs
-    public static Set<Method> findPublicMethodsWithAnnotation(Class<?> clazz, Class<? extends Annotation>... annotationClasses)
+    public static List<Method> findPublicMethodsWithAnnotation(Class<?> clazz, Class<? extends Annotation>... annotationClasses)
     {
-        ImmutableSet.Builder<Method> methods = ImmutableSet.builder();
-        for (Method method : clazz.getDeclaredMethods()) {
-            for (Annotation annotation : method.getAnnotations()) {
-                for (Class<?> annotationClass : annotationClasses) {
-                    if (annotationClass.isInstance(annotation)) {
-                        checkArgument(Modifier.isPublic(method.getModifiers()), "Method [%s] annotated with @%s must be public", method, annotationClass.getSimpleName());
-                        methods.add(method);
-                    }
-                }
+        return Stream.of(clazz.getDeclaredMethods())
+                // Make function loading deterministic
+                .sorted(comparing(Method::toString))
+                .flatMap(method -> firstAnnotationPresent(method, annotationClasses)
+                        .map(annotated -> {
+                            checkArgument(Modifier.isPublic(method.getModifiers()), "Method [%s] annotated with @%s must be public", method, annotated.getSimpleName());
+                            return method;
+                        }).stream())
+                .collect(toImmutableList());
+    }
+
+    private static Optional<Class<? extends Annotation>> firstAnnotationPresent(AnnotatedElement annotatedElement, Class<? extends Annotation>[] annotationClasses)
+    {
+        for (Class<? extends Annotation> annotationClass : annotationClasses) {
+            if (annotatedElement.isAnnotationPresent(annotationClass)) {
+                return Optional.of(annotationClass);
             }
         }
-        return methods.build();
+        return Optional.empty();
     }
 
     public static Optional<Constructor<?>> findConstructor(Class<?> clazz)
