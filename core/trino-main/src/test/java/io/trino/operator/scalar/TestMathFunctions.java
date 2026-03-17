@@ -1214,6 +1214,24 @@ public class TestMathFunctions
     @Test
     public void testIsInfinite()
     {
+        // precise numeric types
+        assertThat(assertions.function("is_infinite", "TINYINT '100'"))
+                .isEqualTo(false);
+        assertThat(assertions.function("is_infinite", "SMALLINT '1000'"))
+                .isEqualTo(false);
+        assertThat(assertions.function("is_infinite", "INTEGER '100000'"))
+                .isEqualTo(false);
+        assertThat(assertions.function("is_infinite", "BIGINT '100000'"))
+                .isEqualTo(false);
+        assertThat(assertions.function("is_infinite", "DECIMAL '100000'"))
+                .isEqualTo(false);
+        assertThat(assertions.function("is_infinite", "DECIMAL '10000000000000000000000000000000000000'"))
+                .isEqualTo(false);
+
+        // DOUBLE
+        assertThat(assertions.function("is_infinite", "100000.0"))
+                .isEqualTo(false);
+
         assertThat(assertions.function("is_infinite", "1.0E0 / 0.0E0"))
                 .isEqualTo(true);
 
@@ -1221,6 +1239,10 @@ public class TestMathFunctions
                 .isEqualTo(false);
 
         assertThat(assertions.function("is_infinite", "1.0E0 / 1.0E0"))
+                .isEqualTo(false);
+
+        // REAL
+        assertThat(assertions.function("is_infinite", "REAL '100000.0'"))
                 .isEqualTo(false);
 
         assertThat(assertions.function("is_infinite", "REAL '1.0' / REAL '0.0'"))
@@ -1239,12 +1261,28 @@ public class TestMathFunctions
     @Test
     public void testIsFinite()
     {
-        assertThat(assertions.function("is_finite", "100000"))
+        // precise numeric types
+        assertThat(assertions.function("is_finite", "TINYINT '100'"))
+                .isEqualTo(true);
+        assertThat(assertions.function("is_finite", "SMALLINT '1000'"))
+                .isEqualTo(true);
+        assertThat(assertions.function("is_finite", "INTEGER '100000'"))
+                .isEqualTo(true);
+        assertThat(assertions.function("is_finite", "BIGINT '100000'"))
+                .isEqualTo(true);
+        assertThat(assertions.function("is_finite", "DECIMAL '100000'"))
+                .isEqualTo(true);
+        assertThat(assertions.function("is_finite", "DECIMAL '10000000000000000000000000000000000000'"))
+                .isEqualTo(true);
+
+        // DOUBLE
+        assertThat(assertions.function("is_finite", "100000.0"))
                 .isEqualTo(true);
 
         assertThat(assertions.function("is_finite", "rand() / 0.0E0"))
                 .isEqualTo(false);
 
+        // REAL
         assertThat(assertions.function("is_finite", "REAL '754.2008E0'"))
                 .isEqualTo(true);
 
@@ -1258,6 +1296,24 @@ public class TestMathFunctions
     @Test
     public void testIsNaN()
     {
+        // precise numeric types
+        assertThat(assertions.function("is_nan", "TINYINT '100'"))
+                .isEqualTo(false);
+        assertThat(assertions.function("is_nan", "SMALLINT '1000'"))
+                .isEqualTo(false);
+        assertThat(assertions.function("is_nan", "INTEGER '100000'"))
+                .isEqualTo(false);
+        assertThat(assertions.function("is_nan", "BIGINT '100000'"))
+                .isEqualTo(false);
+        assertThat(assertions.function("is_nan", "DECIMAL '100000'"))
+                .isEqualTo(false);
+        assertThat(assertions.function("is_nan", "DECIMAL '10000000000000000000000000000000000000'"))
+                .isEqualTo(false);
+
+        // DOUBLE
+        assertThat(assertions.function("is_nan", "100000.0"))
+                .isEqualTo(false);
+
         assertThat(assertions.function("is_nan", "0.0E0 / 0.0E0"))
                 .isEqualTo(true);
 
@@ -1269,6 +1325,10 @@ public class TestMathFunctions
 
         assertThat(assertions.function("is_nan", "nan()"))
                 .isEqualTo(true);
+
+        // REAL
+        assertThat(assertions.function("is_nan", "REAL '100000.0'"))
+                .isEqualTo(false);
 
         assertThat(assertions.function("is_nan", "REAL 'NaN'"))
                 .isEqualTo(true);
