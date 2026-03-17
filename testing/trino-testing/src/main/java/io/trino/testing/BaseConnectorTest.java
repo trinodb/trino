@@ -8019,12 +8019,18 @@ public abstract class BaseConnectorTest
         assertUpdate("INSERT INTO " + tableName + " VALUES (1, 'a')", 1);
 
         assertUpdate("CREATE BRANCH branch_a IN TABLE " + tableName);
+        assertUpdate("INSERT INTO " + tableName + "@branch_a VALUES (2, 'b')", 1);
         assertUpdate("CREATE BRANCH branch_b IN TABLE " + tableName + " FROM branch_a");
 
+        // main has only the original row
+        assertThat(query("SELECT * FROM " + tableName))
+                .matches("VALUES (1, CAST('a' AS VARCHAR))");
+        // branch_a has the extra insert
         assertThat(query("SELECT * FROM " + tableName + " FOR VERSION AS OF 'branch_a'"))
-                .matches("VALUES (1, CAST('a' AS VARCHAR))");
+                .matches("VALUES (1, CAST('a' AS VARCHAR)), (2, CAST('b' AS VARCHAR))");
+        // branch_b was created from branch_a, so it has the same data
         assertThat(query("SELECT * FROM " + tableName + " FOR VERSION AS OF 'branch_b'"))
-                .matches("VALUES (1, CAST('a' AS VARCHAR))");
+                .matches("VALUES (1, CAST('a' AS VARCHAR)), (2, CAST('b' AS VARCHAR))");
 
         assertUpdate("DROP TABLE " + tableName);
     }
@@ -8086,6 +8092,10 @@ public abstract class BaseConnectorTest
                 .skippingTypesCheck()
                 .matches("VALUES VARCHAR '" + defaultBranch + "'");
 
+        // Dropping an already-dropped branch fails
+        assertThat(query("DROP BRANCH test_branch IN TABLE " + tableName))
+                .failure().hasMessageContaining("Branch 'test_branch' does not exist");
+
         assertUpdate("DROP TABLE " + tableName);
     }
 
@@ -8100,6 +8110,27 @@ public abstract class BaseConnectorTest
         assertUpdate("INSERT INTO " + tableName + " VALUES 1", 1);
 
         assertUpdate("DROP BRANCH IF EXISTS nonexistent IN TABLE " + tableName);
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testBranchNameCaseSensitivity()
+    {
+        if (!hasBehavior(SUPPORTS_BRANCH)) {
+            return;
+        }
+        String tableName = "test_branch_case_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " (id INTEGER)");
+        assertUpdate("INSERT INTO " + tableName + " VALUES 1", 1);
+
+        assertUpdate("CREATE BRANCH test_branch IN TABLE " + tableName);
+        assertUpdate("CREATE BRANCH TEST_BRANCH IN TABLE " + tableName);
+
+        String defaultBranch = getDefaultBranchName();
+        assertThat(query("SHOW BRANCHES IN TABLE " + tableName))
+                .skippingTypesCheck()
+                .matches("VALUES VARCHAR '" + defaultBranch + "', VARCHAR 'test_branch', VARCHAR 'TEST_BRANCH'");
 
         assertUpdate("DROP TABLE " + tableName);
     }
@@ -8147,6 +8178,30 @@ public abstract class BaseConnectorTest
     }
 
     @Test
+    public void testFastForwardBranchNonAncestorFails()
+    {
+        if (!hasBehavior(SUPPORTS_BRANCH)) {
+            return;
+        }
+        String tableName = "test_ff_non_ancestor_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " (id INTEGER)");
+        assertUpdate("INSERT INTO " + tableName + " VALUES 1", 1);
+
+        assertUpdate("CREATE BRANCH branch_a IN TABLE " + tableName);
+        assertUpdate("CREATE BRANCH branch_b IN TABLE " + tableName);
+
+        // Insert different data into each branch so they diverge
+        assertUpdate("INSERT INTO " + tableName + "@branch_a VALUES 2", 1);
+        assertUpdate("INSERT INTO " + tableName + "@branch_b VALUES 3", 1);
+
+        // Fast-forwarding diverged branches should fail
+        assertThat(query("ALTER BRANCH branch_a IN TABLE " + tableName + " FAST FORWARD TO branch_b"))
+                .failure().hasMessageContaining("is not an ancestor of");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
     public void testInsertIntoBranch()
     {
         if (!hasBehavior(SUPPORTS_BRANCH)) {
@@ -8163,6 +8218,10 @@ public abstract class BaseConnectorTest
                 .matches("VALUES (1, CAST('a' AS VARCHAR))");
         assertThat(query("SELECT * FROM " + tableName + " FOR VERSION AS OF 'test_branch'"))
                 .matches("VALUES (1, CAST('a' AS VARCHAR)), (2, CAST('b' AS VARCHAR))");
+
+        // Insert into non-existing branch fails
+        assertThat(query("INSERT INTO " + tableName + "@nonexistent VALUES (99, 'z')"))
+                .failure().hasMessageContaining("Branch 'nonexistent' does not exist");
 
         assertUpdate("DROP TABLE " + tableName);
     }
@@ -8183,27 +8242,6 @@ public abstract class BaseConnectorTest
                 .matches("VALUES (1, CAST('a' AS VARCHAR)), (2, CAST('b' AS VARCHAR)), (3, CAST('c' AS VARCHAR))");
         assertThat(query("SELECT * FROM " + tableName + " FOR VERSION AS OF 'test_branch'"))
                 .matches("VALUES (1, CAST('a' AS VARCHAR)), (3, CAST('c' AS VARCHAR))");
-
-        assertUpdate("DROP TABLE " + tableName);
-    }
-
-    @Test
-    public void testMetadataDeleteFromBranch()
-    {
-        if (!hasBehavior(SUPPORTS_BRANCH)) {
-            return;
-        }
-        String tableName = "test_metadata_delete_branch_" + randomNameSuffix();
-        assertUpdate("CREATE TABLE " + tableName + " (id INTEGER, name VARCHAR)");
-        assertUpdate("INSERT INTO " + tableName + " VALUES (1, 'a'), (2, 'b')", 2);
-
-        assertUpdate("CREATE BRANCH test_branch IN TABLE " + tableName);
-        assertUpdate("DELETE FROM " + tableName + "@test_branch", 2);
-
-        assertThat(query("SELECT * FROM " + tableName))
-                .matches("VALUES (1, CAST('a' AS VARCHAR)), (2, CAST('b' AS VARCHAR))");
-        assertThat(query("SELECT * FROM " + tableName + " FOR VERSION AS OF 'test_branch'"))
-                .returnsEmptyResult();
 
         assertUpdate("DROP TABLE " + tableName);
     }

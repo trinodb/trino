@@ -166,6 +166,7 @@ import org.apache.iceberg.FileMetadata;
 import org.apache.iceberg.FileScanTask;
 import org.apache.iceberg.IcebergManifestUtils;
 import org.apache.iceberg.IsolationLevel;
+import org.apache.iceberg.ManageSnapshots;
 import org.apache.iceberg.ManifestFile;
 import org.apache.iceberg.ManifestFiles;
 import org.apache.iceberg.ManifestReader;
@@ -392,6 +393,7 @@ import static io.trino.plugin.iceberg.procedure.IcebergTableProcedureId.ROLLBACK
 import static io.trino.plugin.iceberg.procedure.MigrationUtils.addFiles;
 import static io.trino.plugin.iceberg.procedure.MigrationUtils.addFilesFromTable;
 import static io.trino.plugin.iceberg.util.SystemTableUtil.getAllPartitionFields;
+import static io.trino.spi.StandardErrorCode.BRANCH_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.COLUMN_ALREADY_EXISTS;
 import static io.trino.spi.StandardErrorCode.COLUMN_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.INVALID_ANALYZE_PROPERTY;
@@ -1649,13 +1651,7 @@ public class IcebergMetadata
             log.debug("S3 Tables do not support statistics: %s", table.name());
         }
         else if (!computedStatistics.isEmpty()) {
-            long newSnapshotId = table.branch()
-                    .map(branch -> {
-                        SnapshotRef ref = icebergTable.refs().get(branch);
-                        verify(ref != null, "Branch ref not found after commit: %s", branch);
-                        return ref.snapshotId();
-                    })
-                    .orElseGet(() -> icebergTable.currentSnapshot().snapshotId());
+            long newSnapshotId = getLatestSnapshot(icebergTable, table.branch()).snapshotId();
 
             CollectedStatistics collectedStatistics = processComputedTableStatistics(icebergTable, computedStatistics);
             StatisticsFile statisticsFile = tableStatisticsWriter.writeStatisticsFile(
@@ -1671,13 +1667,7 @@ public class IcebergMetadata
         commitTransaction(transaction, "insert");
         transaction = null;
 
-        Snapshot resultSnapshot = table.branch()
-                .map(branch -> {
-                    SnapshotRef ref = icebergTable.refs().get(branch);
-                    verify(ref != null, "Branch ref not found after commit: %s", branch);
-                    return icebergTable.snapshot(ref.snapshotId());
-                })
-                .orElseGet(icebergTable::currentSnapshot);
+        Snapshot resultSnapshot = getLatestSnapshot(icebergTable, table.branch());
         Map<String, String> summary = resultSnapshot != null ? resultSnapshot.summary() : null;
         if (summary == null) {
             return Optional.empty();
@@ -2365,8 +2355,7 @@ public class IcebergMetadata
     @Override
     public boolean branchExists(ConnectorSession session, SchemaTableName tableName, String branch)
     {
-        BaseTable table = catalog.loadTable(session, tableName);
-        SnapshotRef ref = table.refs().get(branch);
+        SnapshotRef ref = catalog.loadTable(session, tableName).refs().get(branch);
         return ref != null && ref.isBranch();
     }
 
@@ -2389,24 +2378,24 @@ public class IcebergMetadata
             }
         }
 
-        long snapshotId;
-        if (fromBranch.isPresent()) {
-            SnapshotRef sourceRef = icebergTable.refs().get(fromBranch.get());
-            if (sourceRef == null || !sourceRef.isBranch()) {
-                throw new TrinoException(INVALID_ARGUMENTS, "Source branch does not exist: " + fromBranch.get());
-            }
-            snapshotId = sourceRef.snapshotId();
-        }
-        else if (icebergTable.currentSnapshot() != null) {
-            snapshotId = icebergTable.currentSnapshot().snapshotId();
+        ManageSnapshots manageSnapshots = icebergTable.manageSnapshots();
+        Optional<Long> snapshotId = fromBranch
+                .map(source -> {
+                    SnapshotRef sourceRef = icebergTable.refs().get(source);
+                    if (sourceRef == null || !sourceRef.isBranch()) {
+                        throw new TrinoException(INVALID_ARGUMENTS, "Source branch does not exist: " + source);
+                    }
+                    return sourceRef.snapshotId();
+                })
+                .or(() -> Optional.ofNullable(icebergTable.currentSnapshot()).map(Snapshot::snapshotId));
+
+        if (snapshotId.isPresent()) {
+            manageSnapshots.createBranch(branch, snapshotId.get());
         }
         else {
-            // Table has no snapshots yet
-            icebergTable.manageSnapshots().createBranch(branch).commit();
-            return;
+            manageSnapshots.createBranch(branch);
         }
-
-        icebergTable.manageSnapshots().createBranch(branch, snapshotId).commit();
+        manageSnapshots.commit();
     }
 
     @Override
@@ -2431,7 +2420,22 @@ public class IcebergMetadata
     {
         IcebergTableHandle table = checkValidTableHandle(tableHandle);
         BaseTable icebergTable = catalog.loadTable(session, table.getSchemaTableName());
-        icebergTable.manageSnapshots().fastForwardBranch(sourceBranch, targetBranch).commit();
+
+        SnapshotRef sourceRef = icebergTable.refs().get(sourceBranch);
+        if (sourceRef == null || !sourceRef.isBranch()) {
+            throw new TrinoException(BRANCH_NOT_FOUND, "Branch '%s' does not exist".formatted(sourceBranch));
+        }
+        SnapshotRef targetRef = icebergTable.refs().get(targetBranch);
+        if (targetRef == null || !targetRef.isBranch()) {
+            throw new TrinoException(BRANCH_NOT_FOUND, "Branch '%s' does not exist".formatted(targetBranch));
+        }
+
+        try {
+            icebergTable.manageSnapshots().fastForwardBranch(sourceBranch, targetBranch).commit();
+        }
+        catch (IllegalArgumentException e) {
+            throw new TrinoException(INVALID_ARGUMENTS, e.getMessage(), e);
+        }
     }
 
     private void executeExpireSnapshots(
@@ -3537,7 +3541,6 @@ public class IcebergMetadata
 
     private static void validateNotModifyingOldSnapshot(IcebergTableHandle table, Table icebergTable)
     {
-        // When writing to a branch, the snapshot in the handle is the branch head, not main's head
         if (table.getBranch().isPresent()) {
             return;
         }
@@ -3545,6 +3548,17 @@ public class IcebergMetadata
                 && (table.getSnapshotId().getAsLong() != icebergTable.currentSnapshot().snapshotId())) {
             throw new TrinoException(NOT_SUPPORTED, "Modifying old snapshot is not supported in Iceberg");
         }
+    }
+
+    private static Snapshot getLatestSnapshot(Table icebergTable, Optional<String> branch)
+    {
+        return branch
+                .map(branchName -> {
+                    SnapshotRef ref = icebergTable.refs().get(branchName);
+                    verify(ref != null, "Branch ref not found after commit: %s", branchName);
+                    return icebergTable.snapshot(ref.snapshotId());
+                })
+                .orElseGet(icebergTable::currentSnapshot);
     }
 
     private void finishWrite(ConnectorSession session, IcebergTableHandle table, Collection<Slice> fragments)
@@ -3791,13 +3805,7 @@ public class IcebergMetadata
         handle.getBranch().ifPresent(deleteFiles::toBranch);
         commitUpdate(deleteFiles, session, "delete");
 
-        Snapshot snapshot = handle.getBranch()
-                .map(branch -> {
-                    SnapshotRef ref = icebergTable.refs().get(branch);
-                    verify(ref != null, "Branch ref not found after commit: %s", branch);
-                    return icebergTable.snapshot(ref.snapshotId());
-                })
-                .orElseGet(icebergTable::currentSnapshot);
+        Snapshot snapshot = getLatestSnapshot(icebergTable, handle.getBranch());
         Map<String, String> summary = snapshot.summary();
         String deletedRowsStr = summary.get(DELETED_RECORDS_PROP);
         if (deletedRowsStr == null) {

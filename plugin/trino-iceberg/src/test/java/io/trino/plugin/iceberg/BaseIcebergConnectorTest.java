@@ -9517,6 +9517,26 @@ public abstract class BaseIcebergConnectorTest
         assertUpdate("DROP TABLE " + tableName);
     }
 
+    @Test
+    public void testMetadataDeleteFromBranch()
+    {
+        // Tests metadata delete (DELETE without WHERE), which uses a different
+        // code path (executeDelete/DeleteFiles) from row-level delete (RowDelta)
+        String tableName = "test_metadata_delete_branch_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " (id INTEGER, name VARCHAR)");
+        assertUpdate("INSERT INTO " + tableName + " VALUES (1, 'a'), (2, 'b')", 2);
+
+        assertUpdate("CREATE BRANCH test_branch IN TABLE " + tableName);
+        assertUpdate("DELETE FROM " + tableName + "@test_branch", 2);
+
+        assertThat(query("SELECT * FROM " + tableName))
+                .matches("VALUES (1, CAST('a' AS VARCHAR)), (2, CAST('b' AS VARCHAR))");
+        assertThat(query("SELECT * FROM " + tableName + " FOR VERSION AS OF 'test_branch'"))
+                .returnsEmptyResult();
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
     private Session withoutIgnoreStatsCalculatorFailures(Session session)
     {
         return Session.builder(session)
