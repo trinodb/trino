@@ -920,6 +920,12 @@
                                     <new>interface io.opentelemetry.api.trace.TraceFlagsBuilder</new>
                                     <justification>New OpenTelemetry API version</justification>
                                 </item>
+                                <item>
+                                    <code>java.method.numberOfParametersChanged</code>
+                                    <old>method java.util.Optional&lt;io.trino.spi.connector.ConnectorOutputMetadata&gt; io.trino.spi.connector.ConnectorMetadata::finishRefreshMaterializedView(io.trino.spi.connector.ConnectorSession, io.trino.spi.connector.ConnectorTableHandle, io.trino.spi.connector.ConnectorInsertTableHandle, java.util.Collection&lt;io.airlift.slice.Slice&gt;, java.util.Collection&lt;io.trino.spi.statistics.ComputedStatistics&gt;, java.util.List&lt;io.trino.spi.connector.ConnectorTableHandle&gt;, boolean, boolean)</old>
+                                    <new>method java.util.Optional&lt;io.trino.spi.connector.ConnectorOutputMetadata&gt; io.trino.spi.connector.ConnectorMetadata::finishRefreshMaterializedView(io.trino.spi.connector.ConnectorSession, io.trino.spi.connector.ConnectorTableHandle, io.trino.spi.connector.ConnectorInsertTableHandle, java.util.Collection&lt;io.airlift.slice.Slice&gt;, java.util.Collection&lt;io.trino.spi.statistics.ComputedStatistics&gt;, java.util.List&lt;io.trino.spi.connector.ConnectorTableHandle&gt;, boolean, boolean, boolean)</new>
+                                    <justification>Add hasNonDeterministicFunctions parameter to detect stale materialized views</justification>
+                                </item>
                             </differences>
                         </revapi.differences>
                     </analysisConfiguration>

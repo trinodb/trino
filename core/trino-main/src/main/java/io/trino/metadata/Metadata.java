@@ -437,7 +437,8 @@ public interface Metadata
             Collection<Slice> fragments,
             Collection<ComputedStatistics> computedStatistics,
             List<TableHandle> sourceTableHandles,
-            List<String> sourceTableFunctions);
+            List<String> sourceTableFunctions,
+            boolean hasNonDeterministicFunctions);
 
     /**
      * Push update into connector

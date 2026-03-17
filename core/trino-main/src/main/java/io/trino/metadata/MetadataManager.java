@@ -1287,7 +1287,8 @@ public final class MetadataManager
             Collection<Slice> fragments,
             Collection<ComputedStatistics> computedStatistics,
             List<TableHandle> sourceTableHandles,
-            List<String> sourceTableFunctions)
+            List<String> sourceTableFunctions,
+            boolean hasNonDeterministicFunctions)
     {
         CatalogHandle catalogHandle = insertHandle.catalogHandle();
         ConnectorMetadata metadata = getMetadata(session, catalogHandle);
@@ -1305,7 +1306,8 @@ public final class MetadataManager
                 computedStatistics,
                 sourceConnectorHandles,
                 sourceConnectorHandles.size() < sourceTableHandles.size(),
-                !sourceTableFunctions.isEmpty());
+                !sourceTableFunctions.isEmpty(),
+                hasNonDeterministicFunctions);
     }
 
     @Override

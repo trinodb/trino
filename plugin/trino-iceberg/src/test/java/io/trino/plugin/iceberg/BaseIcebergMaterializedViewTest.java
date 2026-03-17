@@ -51,7 +51,9 @@ import org.apache.iceberg.TableMetadataParser;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
+import java.time.Instant;
 import java.time.ZonedDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -66,6 +68,7 @@ import static io.airlift.slice.SizeOf.instanceSize;
 import static io.trino.plugin.iceberg.IcebergTestUtils.FILE_IO_FACTORY;
 import static io.trino.plugin.iceberg.IcebergTestUtils.getFileSystemFactory;
 import static io.trino.plugin.iceberg.IcebergTestUtils.withSmallRowGroups;
+import static io.trino.server.testing.TestingTrinoServer.SESSION_START_TIME_PROPERTY;
 import static io.trino.spi.function.table.ReturnTypeSpecification.GenericTable.GENERIC_TABLE;
 import static io.trino.spi.function.table.TableFunctionProcessorState.Finished.FINISHED;
 import static io.trino.spi.function.table.TableFunctionProcessorState.Processed.produced;
@@ -947,6 +950,105 @@ public abstract class BaseIcebergMaterializedViewTest
     }
 
     @Test
+    public void testMaterializedViewWithNonDeterministicFunction()
+    {
+        String sourceTableName = "source_table_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + sourceTableName + " (value INTEGER)");
+        assertUpdate("INSERT INTO " + sourceTableName + " VALUES 1", 1);
+
+        // Test with current_timestamp in SELECT list
+        String mvName = "mv_with_current_timestamp_" + randomNameSuffix();
+        assertUpdate("CREATE MATERIALIZED VIEW " + mvName + " AS SELECT *, current_timestamp AS ts FROM " + sourceTableName);
+
+        assertFreshness(mvName, "STALE");
+        assertThat(getLastFreshTime(mvName)).isNull();
+        assertUpdate("REFRESH MATERIALIZED VIEW " + mvName, 1);
+        // After refresh, MV should be UNKNOWN (not FRESH) because it uses current_timestamp
+        assertFreshness(mvName, "UNKNOWN");
+        assertThat(getLastFreshTime(mvName)).isNotNull();
+        // With no grace period clause (unlimited), UNKNOWN freshness still serves cached data
+        ZonedDateTime cachedTs1 = (ZonedDateTime) computeActual("SELECT ts FROM " + mvName).getOnlyValue();
+        ZonedDateTime cachedTs2 = (ZonedDateTime) computeActual("SELECT ts FROM " + mvName).getOnlyValue();
+        assertThat(cachedTs2).isEqualTo(cachedTs1);
+
+        // Test with current_timestamp in WHERE clause
+        String mvName2 = "mv_with_timestamp_in_where_" + randomNameSuffix();
+        assertUpdate("CREATE MATERIALIZED VIEW " + mvName2 + " AS SELECT * FROM " + sourceTableName
+                + " WHERE current_timestamp > TIMESTAMP '2000-01-01 00:00:00.000 UTC'");
+
+        assertFreshness(mvName2, "STALE");
+        assertUpdate("REFRESH MATERIALIZED VIEW " + mvName2, 1);
+        assertFreshness(mvName2, "UNKNOWN");
+
+        // Test with random() to verify detection via analysis.getResolvedFunctions() rather than AST node
+        String mvName3 = "mv_with_random_" + randomNameSuffix();
+        assertUpdate("CREATE MATERIALIZED VIEW " + mvName3 + " AS SELECT *, random() AS rand_val FROM " + sourceTableName);
+
+        assertFreshness(mvName3, "STALE");
+        assertUpdate("REFRESH MATERIALIZED VIEW " + mvName3, 1);
+        assertFreshness(mvName3, "UNKNOWN");
+
+        // Verify that a deterministic MV is still FRESH after refresh (backward compatibility)
+        String mvName4 = "mv_deterministic_" + randomNameSuffix();
+        assertUpdate("CREATE MATERIALIZED VIEW " + mvName4 + " AS SELECT * FROM " + sourceTableName);
+
+        assertFreshness(mvName4, "STALE");
+        assertUpdate("REFRESH MATERIALIZED VIEW " + mvName4, 1);
+        assertFreshness(mvName4, "FRESH");
+
+        assertUpdate("DROP MATERIALIZED VIEW " + mvName);
+        assertUpdate("DROP MATERIALIZED VIEW " + mvName2);
+        assertUpdate("DROP MATERIALIZED VIEW " + mvName3);
+        assertUpdate("DROP MATERIALIZED VIEW " + mvName4);
+        assertUpdate("DROP TABLE " + sourceTableName);
+    }
+
+    @Test
+    public void testMaterializedViewWithNonDeterministicFunctionAndGracePeriod()
+    {
+        String sourceTableName = "source_table_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + sourceTableName + " (value INTEGER)");
+        assertUpdate("INSERT INTO " + sourceTableName + " VALUES 1", 1);
+
+        String mvName = "mv_nondet_grace_" + randomNameSuffix();
+        assertUpdate("CREATE MATERIALIZED VIEW " + mvName + " GRACE PERIOD INTERVAL '1' HOUR" +
+                " AS SELECT CURRENT_TIMESTAMP AS ts FROM " + sourceTableName);
+
+        assertFreshness(mvName, "STALE");
+        assertThat(getLastFreshTime(mvName)).isNull();
+        ZonedDateTime ts1 = (ZonedDateTime) computeActual("SELECT * FROM " + mvName).getOnlyValue();
+        ZonedDateTime ts2 = (ZonedDateTime) computeActual("SELECT * FROM " + mvName).getOnlyValue();
+        // Each SELECT re-executes query since MV is STALE, so timestamps differ
+        assertThat(ts2).isNotEqualTo(ts1);
+
+        assertUpdate("REFRESH MATERIALIZED VIEW " + mvName, 1);
+        assertFreshness(mvName, "UNKNOWN");
+        ZonedDateTime lastFreshTime = getLastFreshTime(mvName);
+        assertThat(lastFreshTime).isNotNull();
+
+        // SELECT within grace period returns cached data
+        ZonedDateTime cachedTs = (ZonedDateTime) computeActual("SELECT * FROM " + mvName).getOnlyValue();
+        ZonedDateTime cachedTs2 = (ZonedDateTime) computeActual("SELECT * FROM " + mvName).getOnlyValue();
+        assertThat(cachedTs2).isEqualTo(cachedTs);
+
+        // SELECT with session start beyond grace period re-executes base query, gets fresh timestamp
+        Session afterGracePeriod = Session.builder(getSession())
+                .setSystemProperty(SESSION_START_TIME_PROPERTY, Instant.now().plus(1, ChronoUnit.DAYS).toString())
+                .build();
+        ZonedDateTime freshTs = (ZonedDateTime) computeActual(afterGracePeriod, "SELECT * FROM " + mvName).getOnlyValue();
+        assertThat(freshTs).isNotEqualTo(cachedTs);
+
+        // Refresh again and verify new cached data is served, with updated last_fresh_time
+        assertUpdate("REFRESH MATERIALIZED VIEW " + mvName, 1);
+        assertThat(getLastFreshTime(mvName)).isAfter(lastFreshTime);
+        ZonedDateTime newCachedTs = (ZonedDateTime) computeActual("SELECT * FROM " + mvName).getOnlyValue();
+        assertThat(newCachedTs).isNotEqualTo(cachedTs);
+
+        assertUpdate("DROP MATERIALIZED VIEW " + mvName);
+        assertUpdate("DROP TABLE " + sourceTableName);
+    }
+
+    @Test
     public void testIncrementalRefresh()
     {
         String sourceTableName = "source_table" + randomNameSuffix();
@@ -1152,6 +1254,11 @@ public abstract class BaseIcebergMaterializedViewTest
     private void assertFreshness(String viewName, String expected)
     {
         assertThat((String) computeScalar("SELECT freshness FROM system.metadata.materialized_views WHERE catalog_name = CURRENT_CATALOG AND schema_name = CURRENT_SCHEMA AND name = '" + viewName + "'")).isEqualTo(expected);
+    }
+
+    private ZonedDateTime getLastFreshTime(String viewName)
+    {
+        return (ZonedDateTime) computeActual("SELECT last_fresh_time FROM system.metadata.materialized_views WHERE catalog_name = CURRENT_CATALOG AND schema_name = CURRENT_SCHEMA AND name = '" + viewName + "'").getOnlyValue();
     }
 
     public static class SequenceTableFunction
