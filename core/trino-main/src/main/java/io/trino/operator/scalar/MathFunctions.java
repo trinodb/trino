@@ -535,11 +535,6 @@ public final class MathFunctions
         return num1 % num2;
     }
 
-    private static SqlScalarFunction decimalModFunction()
-    {
-        return modulusScalarFunction();
-    }
-
     @Description("Remainder of given quotient")
     @ScalarFunction(value = "mod", neverFails = true)
     @SqlType(StandardTypes.REAL)
