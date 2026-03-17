@@ -7,14 +7,14 @@ saved_caches_directory: /var/lib/cassandra/saved_caches
 
 commitlog_directory: /var/lib/cassandra/commitlog
 commitlog_sync: periodic
-commitlog_sync_period: 10000ms
-commitlog_segment_size: 1MiB
-commitlog_total_space: 1MiB
+commitlog_sync_period_in_ms: 10000
+commitlog_segment_size_in_mb: 1
+commitlog_total_space_in_mb: 1
 
 seed_provider:
     - class_name: org.apache.cassandra.locator.SimpleSeedProvider
       parameters:
-          - seeds: "127.0.0.1:7000"
+          - seeds: "127.0.0.1"
 
 concurrent_reads: 2
 concurrent_writes: 2
