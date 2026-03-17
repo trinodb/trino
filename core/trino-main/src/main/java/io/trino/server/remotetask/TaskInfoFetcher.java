@@ -17,9 +17,9 @@ import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
 import io.airlift.concurrent.SetThreadName;
-import io.airlift.http.client.FullJsonResponseHandler;
 import io.airlift.http.client.HttpClient;
 import io.airlift.http.client.HttpUriBuilder;
+import io.airlift.http.client.JsonResponse;
 import io.airlift.http.client.Request;
 import io.airlift.json.JsonCodec;
 import io.airlift.log.Logger;
@@ -49,10 +49,10 @@ import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.net.MediaType.JSON_UTF_8;
-import static io.airlift.http.client.FullJsonResponseHandler.createFullJsonResponseHandler;
 import static io.airlift.http.client.HeaderNames.CONTENT_TYPE;
 import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 import static io.airlift.http.client.Request.Builder.prepareGet;
+import static io.airlift.http.client.StreamingJsonResponseHandler.streamingJsonResponseHandler;
 import static io.airlift.units.Duration.nanosSince;
 import static io.trino.operator.RetryPolicy.TASK;
 import static java.util.Objects.requireNonNull;
@@ -95,7 +95,7 @@ public class TaskInfoFetcher
     private ScheduledFuture<?> scheduledFuture;
 
     @GuardedBy("this")
-    private ListenableFuture<FullJsonResponseHandler.JsonResponse<TaskInfo>> future;
+    private ListenableFuture<JsonResponse<TaskInfo>> future;
 
     public TaskInfoFetcher(
             Consumer<Throwable> onFail,
@@ -250,7 +250,7 @@ public class TaskInfoFetcher
                 .build();
 
         errorTracker.startRequest();
-        future = httpClient.executeAsync(request, createFullJsonResponseHandler(taskInfoCodec));
+        future = httpClient.executeAsync(request, streamingJsonResponseHandler(taskInfoCodec));
         Futures.addCallback(future, new SimpleHttpResponseHandler<>(new TaskInfoResponseCallback(), request.getUri(), stats), executor);
     }
 

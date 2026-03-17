@@ -52,6 +52,7 @@ import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.parallel.Execution;
 
+import java.io.ByteArrayInputStream;
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.List;
@@ -889,11 +890,11 @@ public class TestDirectExchangeClient
                     checkState(response.getStatusCode() == HttpStatus.OK.code(), "Unexpected status code: %s", response.getStatusCode());
                     byte[] bytes = response.getInputStream().readAllBytes();
                     checkState(bytes.length > 42, "too short");
-                    savedResponse = new TestingResponse(HttpStatus.OK, response.getHeaders(), bytes.clone());
+                    savedResponse = new TestingResponse(HttpStatus.OK, response.getHeaders(), new ByteArrayInputStream(bytes.clone()));
                     // corrupt
                     bytes[42]++;
                     completedRequests++;
-                    return new TestingResponse(HttpStatus.OK, response.getHeaders(), bytes);
+                    return new TestingResponse(HttpStatus.OK, response.getHeaders(), new ByteArrayInputStream(bytes));
                 }
 
                 if (completedRequests == 1) {
