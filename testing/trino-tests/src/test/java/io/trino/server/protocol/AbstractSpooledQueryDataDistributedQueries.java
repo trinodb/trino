@@ -71,7 +71,7 @@ public abstract class AbstractSpooledQueryDataDistributedQueries
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        localstack = closeAfterClass(new LocalStackContainer(DockerImageName.parse("localstack/localstack:s3-latest")));
+        localstack = closeAfterClass(new LocalStackContainer(DockerImageName.parse("localstack/localstack:4.14.0")));
         localstack.start();
 
         try (S3Client client = createS3Client(localstack)) {
