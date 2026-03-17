@@ -149,6 +149,14 @@ final class TestIcebergS3TablesConnectorSmokeTest
 
     @Test
     @Override
+    public void testUncommittedManifestCleanupAfterConcurrentWrites()
+    {
+        assertThatThrownBy(super::testUncommittedManifestCleanupAfterConcurrentWrites)
+                .hasMessageContaining("Failed to list location");
+    }
+
+    @Test
+    @Override
     public void testRenameSchema()
     {
         assertThatThrownBy(super::testRenameSchema)
