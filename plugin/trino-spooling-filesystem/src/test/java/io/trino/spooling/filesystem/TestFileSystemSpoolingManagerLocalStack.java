@@ -38,7 +38,7 @@ public class TestFileSystemSpoolingManagerLocalStack
     private static final String BUCKET_NAME = "test-bucket";
 
     @Container
-    private static final LocalStackContainer LOCALSTACK = new LocalStackContainer(DockerImageName.parse("localstack/localstack:3.7.0"))
+    private static final LocalStackContainer LOCALSTACK = new LocalStackContainer(DockerImageName.parse("localstack/localstack:4.14.0"))
             .withServices(S3);
 
     @BeforeAll
