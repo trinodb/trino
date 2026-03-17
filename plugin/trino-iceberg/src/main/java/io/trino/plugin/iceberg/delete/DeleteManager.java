@@ -21,6 +21,8 @@ import io.trino.plugin.iceberg.delete.EqualityDeleteFilter.EqualityDeleteFilterB
 import io.trino.spi.TrinoException;
 import io.trino.spi.type.TypeManager;
 import org.apache.iceberg.Schema;
+import org.roaringbitmap.longlong.ImmutableLongBitmapDataProvider;
+import org.roaringbitmap.longlong.Roaring64Bitmap;
 
 import java.util.ArrayList;
 import java.util.HashSet;
