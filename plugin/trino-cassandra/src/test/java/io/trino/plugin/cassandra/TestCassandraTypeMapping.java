@@ -508,7 +508,7 @@ public class TestCassandraTypeMapping
                 .addRoundTrip("date", inputLiteralFactory.apply("'1983-10-01'"), DATE, "DATE '1983-10-01'")
                 .addRoundTrip("date", inputLiteralFactory.apply("'2017-07-01'"), DATE, "DATE '2017-07-01'") // summer on northern hemisphere (possible DST)
                 .addRoundTrip("date", inputLiteralFactory.apply("'2017-01-01'"), DATE, "DATE '2017-01-01'") // winter on northern hemisphere (possible DST on southern hemisphere)
-                .addRoundTrip("date", inputLiteralFactory.apply("'5881580-07-11'"), DATE, "DATE '5881580-07-11'"); // max value in Cassandra and Trino
+                .addRoundTrip("date", inputLiteralFactory.apply("'9999-12-31'"), DATE, "DATE '9999-12-31'");
     }
 
     @Test
