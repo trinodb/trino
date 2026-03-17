@@ -103,4 +103,33 @@ public class TestNumberAggregations
         assertThat(query("SELECT max(CAST(custkey as number)) FROM orders"))
                 .matches("SELECT CAST(max(custkey) AS number) FROM orders");
     }
+
+    @Test
+    public void testAvg()
+    {
+        // global aggregation
+        assertThat(query("SELECT avg(CAST(custkey as number)) FROM orders"))
+                .matches("SELECT CAST(round(avg(custkey), 6) AS number) FROM orders");
+
+        // grouped aggregation
+        assertThat(query("SELECT avg(CAST(custkey as number)) FROM orders GROUP BY orderstatus"))
+                .matches("SELECT CAST(round(avg(custkey), 6) AS number) FROM orders GROUP BY orderstatus");
+
+        // global with empty input
+        assertThat(query("SELECT avg(CAST(custkey as number)) FROM orders WHERE false"))
+                .matches("VALUES CAST(NULL AS number)");
+    }
+
+    @Test
+    public void testAvgWindow()
+    {
+        assertThat(query("SELECT avg(CAST(custkey AS number)) OVER () FROM orders"))
+                .matches("SELECT CAST(round(avg(custkey) OVER (), 6) AS number) FROM orders");
+
+        assertThat(query("SELECT avg(CAST(custkey AS number)) OVER (ORDER BY orderkey ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) FROM orders"))
+                .matches("SELECT CAST(round(avg(custkey) OVER (ORDER BY orderkey ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW), 6) AS number) FROM orders");
+
+        assertThat(query("SELECT avg(CAST(custkey AS number)) OVER (ORDER BY orderkey ROWS BETWEEN 4 PRECEDING AND CURRENT ROW) FROM orders"))
+                .matches("SELECT CAST(round(avg(custkey) OVER (ORDER BY orderkey ROWS BETWEEN 4 PRECEDING AND CURRENT ROW), 6) AS number) FROM orders");
+    }
 }

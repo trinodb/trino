@@ -6225,7 +6225,7 @@ public abstract class AbstractTestEngineOnlyQueries
         assertThat(functions.containsKey("avg"))
                 .describedAs("Expected function names " + functions + " to contain 'avg'")
                 .isTrue();
-        assertThat(functions.get("avg").asList()).hasSize(6);
+        assertThat(functions.get("avg").asList()).hasSize(7);
         assertThat(functions.get("avg").asList().get(0).getField(1)).isEqualTo("decimal(p,s)");
         assertThat(functions.get("avg").asList().get(0).getField(2)).isEqualTo("decimal(p,s)");
         assertThat(functions.get("avg").asList().get(0).getField(3)).isEqualTo("aggregate");
@@ -6241,9 +6241,12 @@ public abstract class AbstractTestEngineOnlyQueries
         assertThat(functions.get("avg").asList().get(4).getField(1)).isEqualTo("interval year to month");
         assertThat(functions.get("avg").asList().get(4).getField(2)).isEqualTo("interval year to month");
         assertThat(functions.get("avg").asList().get(4).getField(3)).isEqualTo("aggregate");
-        assertThat(functions.get("avg").asList().get(5).getField(1)).isEqualTo("real");
-        assertThat(functions.get("avg").asList().get(5).getField(2)).isEqualTo("real");
+        assertThat(functions.get("avg").asList().get(5).getField(1)).isEqualTo("number");
+        assertThat(functions.get("avg").asList().get(5).getField(2)).isEqualTo("number");
         assertThat(functions.get("avg").asList().get(5).getField(3)).isEqualTo("aggregate");
+        assertThat(functions.get("avg").asList().get(6).getField(1)).isEqualTo("real");
+        assertThat(functions.get("avg").asList().get(6).getField(2)).isEqualTo("real");
+        assertThat(functions.get("avg").asList().get(6).getField(3)).isEqualTo("aggregate");
 
         assertThat(functions.containsKey("abs"))
                 .describedAs("Expected function names " + functions + " to contain 'abs'")
