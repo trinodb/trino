@@ -125,8 +125,8 @@ public class NumberType
     @Override
     public void writeObject(BlockBuilder blockBuilder, Object value)
     {
-        TrinoNumber decimal = (TrinoNumber) value;
-        ((VariableWidthBlockBuilder) blockBuilder).writeEntry(decimal.bytes());
+        TrinoNumber number = (TrinoNumber) value;
+        ((VariableWidthBlockBuilder) blockBuilder).writeEntry(number.bytes());
     }
 
     @Override
