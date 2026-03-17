@@ -91,6 +91,23 @@ runs:
           key: ${{ runner.os }}-node-${{ env.NODE_VERSION }}-npm-${{ hashFiles('**/package-lock.json') }}
           restore-keys: |
             ${{ runner.os }}-node-${{ env.NODE_VERSION }}-npm-
+      - name: Debug npm cache status
+        if: ${{ env.NODE_VERSION != '' }}
+        shell: bash
+        run: |
+          echo "::group::npm cache debug info"
+          echo "npm cache-hit (save mode): ${{ steps.cache-npm.outputs.cache-hit }}"
+          echo "npm cache-hit (restore mode): ${{ steps.cache_restore-npm.outputs.cache-hit }}"
+          if [ -d ~/.npm ]; then
+            echo "~/.npm exists"
+            echo "~/.npm size: $(du -sh ~/.npm | cut -f1)"
+            echo "~/.npm entry count: $(find ~/.npm -type f | wc -l)"
+            echo "~/.npm top-level contents:"
+            ls -la ~/.npm/
+          else
+            echo "~/.npm does not exist (cache miss or first run)"
+          fi
+          echo "::endgroup::"
       - name: Cache and Restore local Maven repo
         id: cache
         if: ${{ format('{0}', inputs.cache) == 'true' }}
