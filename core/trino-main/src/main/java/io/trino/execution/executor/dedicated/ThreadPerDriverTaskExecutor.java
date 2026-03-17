@@ -18,7 +18,6 @@ import com.google.common.base.Ticker;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.errorprone.annotations.ThreadSafe;
-import com.google.errorprone.annotations.concurrent.GuardedBy;
 import com.google.inject.Inject;
 import io.airlift.concurrent.ThreadPoolExecutorMBean;
 import io.airlift.log.Logger;
@@ -39,14 +38,14 @@ import org.weakref.jmx.Nested;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.OptionalInt;
 import java.util.Queue;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.DoubleSupplier;
 import java.util.function.Predicate;
 
@@ -70,14 +69,11 @@ public class ThreadPerDriverTaskExecutor
     private final int maxDriversPerTask;
     private final ScheduledThreadPoolExecutor backgroundTasks = new ScheduledThreadPoolExecutor(2, daemonThreadsNamed("task-executor-scheduler-%s"));
 
-    @GuardedBy("this")
-    private final Map<TaskId, TaskEntry> tasks = new HashMap<>();
+    private final ConcurrentHashMap<TaskId, TaskEntry> tasks = new ConcurrentHashMap<>();
 
-    @GuardedBy("this")
-    private boolean closed;
+    private volatile boolean closed;
 
-    @GuardedBy("this")
-    private int runningLeafDrivers;
+    private final AtomicInteger runningLeafDrivers = new AtomicInteger();
 
     // Do not inline this field to avoid creating lambdas that cannot be cached by JVM.
     private final Runnable leafSplitDoneCallback = this::leafSplitDone;
@@ -107,7 +103,7 @@ public class ThreadPerDriverTaskExecutor
 
     @PostConstruct
     @Override
-    public synchronized void start()
+    public void start()
     {
         scheduler.start();
         backgroundTasks.scheduleWithFixedDelay(this::scheduleMoreLeafSplits, 0, 100, TimeUnit.MILLISECONDS);
@@ -117,16 +113,17 @@ public class ThreadPerDriverTaskExecutor
 
     @PreDestroy
     @Override
-    public synchronized void stop()
+    public void stop()
     {
         closed = true;
         tasks.values().forEach(TaskEntry::destroy);
+        tasks.clear();
         backgroundTasks.shutdownNow();
         scheduler.close();
     }
 
     @Override
-    public synchronized TaskHandle addTask(
+    public TaskHandle addTask(
             TaskId taskId,
             DoubleSupplier utilizationSupplier,
             int initialSplitConcurrency,
@@ -149,16 +146,14 @@ public class ThreadPerDriverTaskExecutor
     public void removeTask(TaskHandle handle)
     {
         TaskEntry entry = (TaskEntry) handle;
-        synchronized (this) {
-            tasks.remove(entry.taskId());
-        }
+        tasks.remove(entry.taskId());
         if (!entry.isDestroyed()) {
             entry.destroy();
         }
     }
 
     @Override
-    public synchronized List<ListenableFuture<Void>> enqueueSplits(TaskHandle handle, boolean intermediate, List<? extends SplitRunner> splits)
+    public List<ListenableFuture<Void>> enqueueSplits(TaskHandle handle, boolean intermediate, List<? extends SplitRunner> splits)
     {
         checkArgument(!closed, "Executor is already closed");
 
@@ -182,19 +177,19 @@ public class ThreadPerDriverTaskExecutor
     {
         boolean scheduled = task.dequeueAndRunLeafSplit(leafSplitDoneCallback);
         if (scheduled) {
-            runningLeafDrivers++;
+            runningLeafDrivers.incrementAndGet();
         }
 
         return scheduled;
     }
 
-    private synchronized void leafSplitDone()
+    private void leafSplitDone()
     {
-        runningLeafDrivers--;
+        runningLeafDrivers.decrementAndGet();
         scheduleMoreLeafSplits();
     }
 
-    private synchronized void scheduleMoreLeafSplits()
+    private void scheduleMoreLeafSplits()
     {
         // schedule minimum guaranteed leaf drivers for each task
         for (TaskEntry task : tasks.values()) {
@@ -208,7 +203,7 @@ public class ThreadPerDriverTaskExecutor
 
         // schedule additional drivers up to the target global leaf drivers
         Queue<TaskEntry> queue = new ArrayDeque<>(tasks.values());
-        int target = targetGlobalLeafDrivers - runningLeafDrivers;
+        int target = targetGlobalLeafDrivers - runningLeafDrivers.get();
         for (int i = 0; i < target && !queue.isEmpty(); i++) {
             TaskEntry task = queue.poll();
             if (task.runningLeafSplits() < min(task.targetConcurrency(), maxDriversPerTask)) {
@@ -256,13 +251,13 @@ public class ThreadPerDriverTaskExecutor
     }
 
     @Managed
-    public synchronized int getTasks()
+    public int getTasks()
     {
         return tasks.size();
     }
 
     @Managed
-    public synchronized int getTotalRunningSplits()
+    public int getTotalRunningSplits()
     {
         return tasks.values().stream()
                 .mapToInt(TaskEntry::totalRunningSplits)
@@ -270,7 +265,7 @@ public class ThreadPerDriverTaskExecutor
     }
 
     @Managed
-    public synchronized int getTotalRunningLeafSplits()
+    public int getTotalRunningLeafSplits()
     {
         return tasks.values().stream()
                 .mapToInt(TaskEntry::runningLeafSplits)
@@ -278,7 +273,7 @@ public class ThreadPerDriverTaskExecutor
     }
 
     @Managed
-    public synchronized int getTotalPendingLeafSplits()
+    public int getTotalPendingLeafSplits()
     {
         return tasks.values().stream()
                 .mapToInt(TaskEntry::pendingLeafSplitCount)
