@@ -54,6 +54,7 @@ import io.trino.spi.function.GroupedAccumulatorState;
 import io.trino.spi.function.InOut;
 import io.trino.spi.function.InternalDataAccessor;
 import io.trino.spi.type.RowType;
+import io.trino.spi.type.TrinoNumber;
 import io.trino.spi.type.Type;
 import io.trino.sql.gen.CallSiteBinder;
 import io.trino.sql.gen.SqlTypeBytecodeExpression;
@@ -105,6 +106,7 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.NumberType.NUMBER;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.sql.gen.LambdaMetafactoryGenerator.generateMetafactory;
@@ -1204,6 +1206,9 @@ public final class StateCompiler
             }
             if (stackType == Slice.class) {
                 return Optional.of(VARBINARY);
+            }
+            if (stackType == TrinoNumber.class) {
+                return Optional.of(NUMBER);
             }
             return Optional.empty();
         }

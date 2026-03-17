@@ -23,6 +23,7 @@ import java.math.BigInteger;
 import java.util.Comparator;
 import java.util.HexFormat;
 
+import static io.airlift.slice.SizeOf.instanceSize;
 import static io.trino.spi.type.DecimalType.checkArgument;
 import static io.trino.spi.type.Verify.verify;
 import static java.math.RoundingMode.HALF_UP;
@@ -44,6 +45,8 @@ public class TrinoNumber
     public static final int MARKER_SCALE_INFINITY = 2;
 
     private static final byte[] EMPTY_BYTES = new byte[0];
+
+    private static final int INSTANCE_SIZE = instanceSize(TrinoNumber.class);
 
     // visible for testing
     static short header(boolean negated, int scale)
@@ -106,6 +109,11 @@ public class TrinoNumber
     Slice bytes()
     {
         return bytes;
+    }
+
+    public long getRetainedSizeInBytes()
+    {
+        return INSTANCE_SIZE + bytes.getRetainedSize();
     }
 
     @CheckReturnValue
