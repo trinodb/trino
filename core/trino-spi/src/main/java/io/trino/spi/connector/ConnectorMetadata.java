@@ -889,7 +889,8 @@ public interface ConnectorMetadata
             Collection<ComputedStatistics> computedStatistics,
             List<ConnectorTableHandle> sourceTableHandles,
             boolean hasForeignSourceTables,
-            boolean hasSourceTableFunctions)
+            boolean hasSourceTableFunctions,
+            boolean hasNonDeterministicFunctions)
     {
         throw new TrinoException(GENERIC_INTERNAL_ERROR, "ConnectorMetadata beginRefreshMaterializedView() is implemented without finishRefreshMaterializedView()");
     }
