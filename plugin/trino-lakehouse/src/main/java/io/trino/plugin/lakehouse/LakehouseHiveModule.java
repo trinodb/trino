@@ -58,6 +58,7 @@ import io.trino.plugin.hive.line.SimpleTextFilePageSourceFactory;
 import io.trino.plugin.hive.line.SimpleTextFileWriterFactory;
 import io.trino.plugin.hive.metastore.HiveMetastoreConfig;
 import io.trino.plugin.hive.metastore.HiveMetastoreModule;
+import io.trino.plugin.hive.metastore.glue.GlueCache;
 import io.trino.plugin.hive.orc.OrcFileWriterFactory;
 import io.trino.plugin.hive.orc.OrcPageSourceFactory;
 import io.trino.plugin.hive.parquet.ParquetFileWriterFactory;
@@ -67,6 +68,7 @@ import io.trino.plugin.hive.rcfile.RcFilePageSourceFactory;
 import java.util.Optional;
 
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
+import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.airlift.json.JsonCodecBinder.jsonCodecBinder;
 import static org.weakref.jmx.guice.ExportBinder.newExporter;
@@ -138,5 +140,8 @@ class LakehouseHiveModule
 
         binder.install(new HiveExecutorModule());
         install(new ParquetEncryptionModule());
+
+        newOptionalBinder(binder, GlueCache.class);
+        newOptionalBinder(binder, DirectoryLister.class);
     }
 }

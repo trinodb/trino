@@ -29,6 +29,8 @@ import static io.trino.plugin.iceberg.TableType.PROPERTIES;
 import static io.trino.plugin.iceberg.TableType.REFS;
 import static io.trino.plugin.iceberg.TableType.SNAPSHOTS;
 import static io.trino.plugin.lakehouse.TableType.ICEBERG;
+import static io.trino.testing.TestingNames.randomNameSuffix;
+import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestLakehouseIcebergConnectorSmokeTest
@@ -92,5 +94,22 @@ public class TestLakehouseIcebergConnectorSmokeTest
 
         assertThat(query("SELECT count(*) FROM lakehouse.tpch.\"region$timeline\""))
                 .failure().hasMessageMatching(".* Table .* does not exist");
+    }
+
+    @Test
+    void testProcedures()
+    {
+        String tableName = "table_for_procedures_" + randomNameSuffix();
+
+        assertUpdate(format("CREATE TABLE %s AS SELECT 2 AS age", tableName), 1);
+
+        assertThat(query(format("CALL lakehouse.system.rollback_to_snapshot(CURRENT_SCHEMA, '%s', 1234)", tableName)))
+                .failure().hasMessage("Cannot roll back to unknown snapshot id: 1234");
+
+        assertThat(query(format("CALL lakehouse.system.register_table('ICEBERG', CURRENT_SCHEMA, '%s', 's3://bucket/table')", tableName)))
+                .failure().hasMessage("Failed checking table location: s3://bucket/table");
+
+        assertThat(query(format("CALL lakehouse.system.unregister_table('ICEBERG', CURRENT_SCHEMA, '%s')", tableName)))
+                .succeeds().returnsEmptyResult();
     }
 }
