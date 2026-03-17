@@ -89,4 +89,18 @@ public class TestNumberAggregations
         assertThat(query("SELECT sum(CAST(custkey AS number)) OVER (ORDER BY orderkey ROWS BETWEEN 4 PRECEDING AND CURRENT ROW) FROM orders"))
                 .matches("SELECT CAST(sum(custkey) OVER (ORDER BY orderkey ROWS BETWEEN 4 PRECEDING AND CURRENT ROW) AS number) FROM orders");
     }
+
+    @Test
+    public void testMin()
+    {
+        assertThat(query("SELECT min(CAST(custkey as number)) FROM orders"))
+                .matches("SELECT CAST(min(custkey) AS number) FROM orders");
+    }
+
+    @Test
+    public void testMax()
+    {
+        assertThat(query("SELECT max(CAST(custkey as number)) FROM orders"))
+                .matches("SELECT CAST(max(custkey) AS number) FROM orders");
+    }
 }
