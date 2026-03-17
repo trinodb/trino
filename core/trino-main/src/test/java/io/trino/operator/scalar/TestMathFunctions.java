@@ -46,11 +46,11 @@ import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 @Execution(CONCURRENT)
 public class TestMathFunctions
 {
-    private static final double[] DOUBLE_VALUES = {123, -123, 123.45, -123.45, 0};
+    private static final double[] DOUBLE_VALUES = {123, -123, 123.45, -123.45, 0, Double.POSITIVE_INFINITY, Double.NEGATIVE_INFINITY, Double.NaN};
     private static final int[] intLefts = {9, 10, 11, -9, -10, -11, 0};
     private static final int[] intRights = {3, -3};
-    private static final double[] doubleLefts = {9, 10, 11, -9, -10, -11, 9.1, 10.1, 11.1, -9.1, -10.1, -11.1};
-    private static final double[] doubleRights = {3, -3, 3.1, -3.1};
+    private static final double[] doubleLefts = {9, 10, 11, -9, -10, -11, 9.1, 10.1, 11.1, -9.1, -10.1, -11.1, Double.POSITIVE_INFINITY, Double.NEGATIVE_INFINITY, Double.NaN};
+    private static final double[] doubleRights = {3, -3, 3.1, -3.1, Double.POSITIVE_INFINITY, Double.NEGATIVE_INFINITY, Double.NaN};
     private static final double GREATEST_DOUBLE_LESS_THAN_HALF = 0x1.fffffffffffffp-2;
 
     private QueryAssertions assertions;
@@ -169,7 +169,7 @@ public class TestMathFunctions
     public void testAcos()
     {
         for (double doubleValue : DOUBLE_VALUES) {
-            assertThat(assertions.function("acos", Double.toString(doubleValue)))
+            assertThat(assertions.function("acos", "DOUBLE '%s'".formatted(doubleValue)))
                     .isEqualTo(Math.acos(doubleValue));
 
             assertThat(assertions.function("acos", "REAL '%s'".formatted((float) doubleValue)))
@@ -184,7 +184,7 @@ public class TestMathFunctions
     public void testAsin()
     {
         for (double doubleValue : DOUBLE_VALUES) {
-            assertThat(assertions.function("asin", Double.toString(doubleValue)))
+            assertThat(assertions.function("asin", "DOUBLE '%s'".formatted(doubleValue)))
                     .isEqualTo(Math.asin(doubleValue));
 
             assertThat(assertions.function("asin", "REAL '%s'".formatted((float) doubleValue)))
@@ -199,7 +199,7 @@ public class TestMathFunctions
     public void testAtan()
     {
         for (double doubleValue : DOUBLE_VALUES) {
-            assertThat(assertions.function("atan", Double.toString(doubleValue)))
+            assertThat(assertions.function("atan", "DOUBLE '%s'".formatted(doubleValue)))
                     .isEqualTo(Math.atan(doubleValue));
 
             assertThat(assertions.function("atan", "REAL '%s'".formatted((float) doubleValue)))
@@ -214,7 +214,7 @@ public class TestMathFunctions
     public void testAtan2()
     {
         for (double doubleValue : DOUBLE_VALUES) {
-            assertThat(assertions.function("atan2", Double.toString(doubleValue), Double.toString(doubleValue)))
+            assertThat(assertions.function("atan2", "DOUBLE '%s'".formatted(doubleValue), "DOUBLE '%s'".formatted(doubleValue)))
                     .isEqualTo(Math.atan2(doubleValue, doubleValue));
 
             assertThat(assertions.function("atan2", "REAL '%s'".formatted((float) doubleValue), "REAL '%s'".formatted((float) doubleValue)))
@@ -235,7 +235,7 @@ public class TestMathFunctions
     public void testCbrt()
     {
         for (double doubleValue : DOUBLE_VALUES) {
-            assertThat(assertions.function("cbrt", Double.toString(doubleValue)))
+            assertThat(assertions.function("cbrt", "DOUBLE '%s'".formatted(doubleValue)))
                     .isEqualTo(Math.cbrt(doubleValue));
 
             assertThat(assertions.function("cbrt", "REAL '%s'".formatted((float) doubleValue)))
@@ -703,7 +703,7 @@ public class TestMathFunctions
     public void testCos()
     {
         for (double doubleValue : DOUBLE_VALUES) {
-            assertThat(assertions.function("cos", Double.toString(doubleValue)))
+            assertThat(assertions.function("cos", "DOUBLE '%s'".formatted(doubleValue)))
                     .isEqualTo(Math.cos(doubleValue));
 
             assertThat(assertions.function("cos", "REAL '%s'".formatted((float) doubleValue)))
@@ -718,7 +718,7 @@ public class TestMathFunctions
     public void testCosh()
     {
         for (double doubleValue : DOUBLE_VALUES) {
-            assertThat(assertions.function("cosh", Double.toString(doubleValue)))
+            assertThat(assertions.function("cosh", "DOUBLE '%s'".formatted(doubleValue)))
                     .isEqualTo(Math.cosh(doubleValue));
 
             assertThat(assertions.function("cosh", "REAL '%s'".formatted((float) doubleValue)))
@@ -733,7 +733,7 @@ public class TestMathFunctions
     public void testDegrees()
     {
         for (double doubleValue : DOUBLE_VALUES) {
-            assertThat(assertions.function("degrees", Double.toString(doubleValue)))
+            assertThat(assertions.function("degrees", "DOUBLE '%s'".formatted(doubleValue)))
                     .isEqualTo(Math.toDegrees(doubleValue));
 
             assertThat(assertions.function("degrees", "REAL '%s'".formatted((float) doubleValue)))
@@ -755,7 +755,7 @@ public class TestMathFunctions
     public void testExp()
     {
         for (double doubleValue : DOUBLE_VALUES) {
-            assertThat(assertions.function("exp", Double.toString(doubleValue)))
+            assertThat(assertions.function("exp", "DOUBLE '%s'".formatted(doubleValue)))
                     .isEqualTo(Math.exp(doubleValue));
 
             assertThat(assertions.function("exp", "REAL '%s'".formatted((float) doubleValue)))
@@ -1008,7 +1008,7 @@ public class TestMathFunctions
     public void testLn()
     {
         for (double doubleValue : DOUBLE_VALUES) {
-            assertThat(assertions.function("ln", Double.toString(doubleValue)))
+            assertThat(assertions.function("ln", "DOUBLE '%s'".formatted(doubleValue)))
                     .isEqualTo(Math.log(doubleValue));
         }
 
@@ -1020,7 +1020,7 @@ public class TestMathFunctions
     public void testLog2()
     {
         for (double doubleValue : DOUBLE_VALUES) {
-            assertThat(assertions.function("log2", Double.toString(doubleValue)))
+            assertThat(assertions.function("log2", "DOUBLE '%s'".formatted(doubleValue)))
                     .isEqualTo(Math.log(doubleValue) / Math.log(2));
         }
 
@@ -1032,7 +1032,7 @@ public class TestMathFunctions
     public void testLog10()
     {
         for (double doubleValue : DOUBLE_VALUES) {
-            assertThat(assertions.function("log10", Double.toString(doubleValue)))
+            assertThat(assertions.function("log10", "DOUBLE '%s'".formatted(doubleValue)))
                     .isEqualTo(Math.log10(doubleValue));
         }
 
@@ -1045,7 +1045,7 @@ public class TestMathFunctions
     {
         for (double doubleValue : DOUBLE_VALUES) {
             for (double base : DOUBLE_VALUES) {
-                assertThat(assertions.function("log", Double.toString(base), Double.toString(doubleValue)))
+                assertThat(assertions.function("log", "DOUBLE '%s'".formatted(base), "DOUBLE '%s'".formatted(doubleValue)))
                         .isEqualTo(Math.log(doubleValue) / Math.log(base));
 
                 assertThat(assertions.function("log", "REAL '%s'".formatted((float) base), "REAL '%s'".formatted((float) doubleValue)))
@@ -1375,7 +1375,7 @@ public class TestMathFunctions
 
         for (long left : intLefts) {
             for (double right : doubleRights) {
-                assertThat(assertions.function("power", Long.toString(left), Double.toString(right)))
+                assertThat(assertions.function("power", Long.toString(left), "DOUBLE '%s'".formatted(right)))
                         .isEqualTo(Math.pow(left, right));
 
                 assertThat(assertions.function("power", Long.toString(left), "REAL '%s'".formatted((float) right)))
@@ -1385,7 +1385,7 @@ public class TestMathFunctions
 
         for (double left : doubleLefts) {
             for (long right : intRights) {
-                assertThat(assertions.function("power", Double.toString(left), Long.toString(right)))
+                assertThat(assertions.function("power", "DOUBLE '%s'".formatted(left), Long.toString(right)))
                         .isEqualTo(Math.pow(left, right));
 
                 assertThat(assertions.function("power", "REAL '%s'".formatted((float) left), Long.toString(right)))
@@ -1395,7 +1395,7 @@ public class TestMathFunctions
 
         for (double left : doubleLefts) {
             for (double right : doubleRights) {
-                assertThat(assertions.function("power", Double.toString(left), Double.toString(right)))
+                assertThat(assertions.function("power", "DOUBLE '%s'".formatted(left), "DOUBLE '%s'".formatted(right)))
                         .isEqualTo(Math.pow(left, right));
 
                 assertThat(assertions.function("power", "REAL '%s'".formatted(left), "REAL '%s'".formatted(right)))
@@ -1421,7 +1421,7 @@ public class TestMathFunctions
     public void testRadians()
     {
         for (double doubleValue : DOUBLE_VALUES) {
-            assertThat(assertions.function("radians", Double.toString(doubleValue)))
+            assertThat(assertions.function("radians", "DOUBLE '%s'".formatted(doubleValue)))
                     .isEqualTo(Math.toRadians(doubleValue));
 
             assertThat(assertions.function("radians", "REAL '%s'".formatted((float) doubleValue)))
@@ -2569,7 +2569,7 @@ public class TestMathFunctions
     public void testSin()
     {
         for (double doubleValue : DOUBLE_VALUES) {
-            assertThat(assertions.function("sin", Double.toString(doubleValue)))
+            assertThat(assertions.function("sin", "DOUBLE '%s'".formatted(doubleValue)))
                     .isEqualTo(Math.sin(doubleValue));
 
             assertThat(assertions.function("sin", "REAL '%s'".formatted((float) doubleValue)))
@@ -2584,7 +2584,7 @@ public class TestMathFunctions
     public void testSinh()
     {
         for (double doubleValue : DOUBLE_VALUES) {
-            assertThat(assertions.function("sinh", Double.toString(doubleValue)))
+            assertThat(assertions.function("sinh", "DOUBLE '%s'".formatted(doubleValue)))
                     .isEqualTo(Math.sinh(doubleValue));
 
             assertThat(assertions.function("sinh", "REAL '%s'".formatted((float) doubleValue)))
@@ -2599,7 +2599,7 @@ public class TestMathFunctions
     public void testSqrt()
     {
         for (double doubleValue : DOUBLE_VALUES) {
-            assertThat(assertions.function("sqrt", Double.toString(doubleValue)))
+            assertThat(assertions.function("sqrt", "DOUBLE '%s'".formatted(doubleValue)))
                     .isEqualTo(Math.sqrt(doubleValue));
 
             assertThat(assertions.function("sqrt", "REAL '%s'".formatted((float) doubleValue)))
@@ -2614,7 +2614,7 @@ public class TestMathFunctions
     public void testTan()
     {
         for (double doubleValue : DOUBLE_VALUES) {
-            assertThat(assertions.function("tan", Double.toString(doubleValue)))
+            assertThat(assertions.function("tan", "DOUBLE '%s'".formatted(doubleValue)))
                     .isEqualTo(Math.tan(doubleValue));
 
             assertThat(assertions.function("tan", "REAL '%s'".formatted((float) doubleValue)))
@@ -2629,7 +2629,7 @@ public class TestMathFunctions
     public void testTanh()
     {
         for (double doubleValue : DOUBLE_VALUES) {
-            assertThat(assertions.function("tanh", Double.toString(doubleValue)))
+            assertThat(assertions.function("tanh", "DOUBLE '%s'".formatted(doubleValue)))
                     .isEqualTo(Math.tanh(doubleValue));
 
             assertThat(assertions.function("tanh", "REAL '%s'".formatted((float) doubleValue)))
