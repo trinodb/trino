@@ -99,6 +99,7 @@ public class TestCassandraConnectorTest
                  SUPPORTS_MAP_TYPE,
                  SUPPORTS_MERGE,
                  SUPPORTS_NOT_NULL_CONSTRAINT,
+                 SUPPORTS_PRIMARY_KEY_CONSTRAINT,
                  SUPPORTS_RENAME_COLUMN,
                  SUPPORTS_RENAME_TABLE,
                  SUPPORTS_ROW_TYPE,

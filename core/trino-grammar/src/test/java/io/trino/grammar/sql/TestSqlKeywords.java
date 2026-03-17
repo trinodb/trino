@@ -231,6 +231,7 @@ public class TestSqlKeywords
                         "PRECEDING",
                         "PRECISION",
                         "PREPARE",
+                        "PRIMARY",
                         "PRIVILEGES",
                         "PROPERTIES",
                         "PRUNE",

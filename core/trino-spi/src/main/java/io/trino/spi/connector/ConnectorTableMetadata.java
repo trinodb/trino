@@ -30,6 +30,7 @@ public class ConnectorTableMetadata
     private final List<ColumnMetadata> columns;
     private final Map<String, Object> properties;
     private final List<String> checkConstraints;
+    private final List<String> primaryKeys;
 
     public ConnectorTableMetadata(SchemaTableName table, List<ColumnMetadata> columns)
     {
@@ -38,15 +39,20 @@ public class ConnectorTableMetadata
 
     public ConnectorTableMetadata(SchemaTableName table, List<ColumnMetadata> columns, Map<String, Object> properties)
     {
-        this(table, columns, properties, Optional.empty(), List.of());
+        this(table, columns, properties, Optional.empty(), List.of(), List.of());
     }
 
     public ConnectorTableMetadata(SchemaTableName table, List<ColumnMetadata> columns, Map<String, Object> properties, Optional<String> comment)
     {
-        this(table, columns, properties, comment, List.of());
+        this(table, columns, properties, comment, List.of(), List.of());
     }
 
     public ConnectorTableMetadata(SchemaTableName table, List<ColumnMetadata> columns, Map<String, Object> properties, Optional<String> comment, List<String> checkConstraints)
+    {
+        this(table, columns, properties, comment, checkConstraints, List.of());
+    }
+
+    public ConnectorTableMetadata(SchemaTableName table, List<ColumnMetadata> columns, Map<String, Object> properties, Optional<String> comment, List<String> checkConstraints, List<String> primaryKeys)
     {
         requireNonNull(table, "table is null");
         requireNonNull(columns, "columns is null");
@@ -58,6 +64,7 @@ public class ConnectorTableMetadata
         this.properties = Collections.unmodifiableMap(new LinkedHashMap<>(properties));
         this.comment = comment;
         this.checkConstraints = List.copyOf(checkConstraints);
+        this.primaryKeys = List.copyOf(primaryKeys);
     }
 
     public SchemaTableName getTable()
@@ -92,6 +99,11 @@ public class ConnectorTableMetadata
         return checkConstraints;
     }
 
+    public List<String> getPrimaryKeys()
+    {
+        return primaryKeys;
+    }
+
     public ConnectorTableSchema getTableSchema()
     {
         return new ConnectorTableSchema(
@@ -111,6 +123,7 @@ public class ConnectorTableMetadata
         sb.append(", properties=").append(properties);
         comment.ifPresent(value -> sb.append(", comment='").append(value).append("'"));
         sb.append(", checkConstraints=").append(checkConstraints);
+        sb.append(", primaryKeys=").append(primaryKeys);
         sb.append('}');
         return sb.toString();
     }

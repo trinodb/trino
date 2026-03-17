@@ -39,6 +39,7 @@ import io.trino.sql.tree.Identifier;
 import io.trino.sql.tree.LikeClause;
 import io.trino.sql.tree.LongLiteral;
 import io.trino.sql.tree.NodeLocation;
+import io.trino.sql.tree.PrimaryKeyDefinition;
 import io.trino.sql.tree.Property;
 import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.Statement;
@@ -62,6 +63,7 @@ import java.util.concurrent.ThreadLocalRandom;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.trino.spi.StandardErrorCode.ALREADY_EXISTS;
 import static io.trino.spi.StandardErrorCode.INVALID_DEFAULT_COLUMN_VALUE;
+import static io.trino.spi.StandardErrorCode.INVALID_PRIMARY_KEY;
 import static io.trino.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.PERMISSION_DENIED;
@@ -120,7 +122,7 @@ class TestCreateTableTask
         queryRunner.installPlugin(new MockConnectorPlugin(MockConnectorFactory.builder()
                 .withMetadataWrapper(_ -> metadata)
                 .withTableProperties(() -> ImmutableList.of(stringProperty("baz", "test property", null, false)))
-                .withCapabilities(() -> ImmutableSet.of(ConnectorCapabilities.DEFAULT_COLUMN_VALUE, ConnectorCapabilities.NOT_NULL_COLUMN_CONSTRAINT))
+                .withCapabilities(() -> ImmutableSet.of(ConnectorCapabilities.DEFAULT_COLUMN_VALUE, ConnectorCapabilities.NOT_NULL_COLUMN_CONSTRAINT, ConnectorCapabilities.PRIMARY_KEY_COLUMN_CONSTRAINT))
                 .build()));
         queryRunner.installPlugin(new MockConnectorPlugin(MockConnectorFactory.builder()
                 .withMetadataWrapper(_ -> metadata)
@@ -377,7 +379,97 @@ class TestCreateTableTask
     }
 
     @Test
-    void testCreateWithUnsupportedConnectorThrowsWhenNotNull()
+    public void testCreateWithPrimaryKeyColumns()
+    {
+        List<TableElement> inputColumns = ImmutableList.of(
+                new ColumnDefinition(QualifiedName.of("pk"), toSqlType(VARCHAR), true, emptyList(), Optional.empty()),
+                new PrimaryKeyDefinition(new NodeLocation(1, 1), ImmutableList.of(new Identifier(new NodeLocation(1, 1), "pk", false))));
+        CreateTable statement = new CreateTable(new NodeLocation(1, 1), QualifiedName.of("test_table_primary_key"), inputColumns, IGNORE, ImmutableList.of(), Optional.empty());
+
+        queryRunner.inTransaction(transactionSession -> {
+            getFutureValue(createTableTask.internalExecute(statement, transactionSession, emptyList(), output -> {}, WarningCollector.NOOP));
+            assertThat(metadata.getCreateTableCallCount()).isEqualTo(1);
+            List<ConnectorTableMetadata> receivedTableMetadata = metadata.getReceivedTableMetadata();
+            assertThat(receivedTableMetadata).hasSize(1);
+            assertThat(receivedTableMetadata.getFirst().getPrimaryKeys()).containsExactly("pk");
+            return null;
+        });
+    }
+
+    @Test
+    public void testCreateWithInvalidEmptyPrimaryKey()
+    {
+        List<TableElement> inputColumns = ImmutableList.of(
+                new ColumnDefinition(QualifiedName.of("a"), toSqlType(VARBINARY), true, emptyList(), Optional.empty()),
+                new PrimaryKeyDefinition(new NodeLocation(1, 1), ImmutableList.of()));
+        CreateTable statement = new CreateTable(new NodeLocation(1, 1), QualifiedName.of("test_table_primary_key"), inputColumns, IGNORE, ImmutableList.of(), Optional.empty());
+
+        queryRunner.inTransaction(transactionSession -> {
+            assertTrinoExceptionThrownBy(() ->
+                    getFutureValue(createTableTask.internalExecute(statement, transactionSession, emptyList(), output -> {}, WarningCollector.NOOP)))
+                    .hasErrorCode(INVALID_PRIMARY_KEY)
+                    .hasMessage("line 1:1: PRIMARY KEY must contain at least one column");
+            return null;
+        });
+    }
+
+    @Test
+    public void testCreateWithDuplicatePrimaryKey()
+    {
+        List<TableElement> inputColumns = ImmutableList.of(
+                new ColumnDefinition(QualifiedName.of("a"), toSqlType(DATE), true, emptyList(), Optional.empty()),
+                new ColumnDefinition(QualifiedName.of("pk"), toSqlType(VARBINARY), true, emptyList(), Optional.empty()),
+                new PrimaryKeyDefinition(new NodeLocation(1, 1), ImmutableList.of(
+                        new Identifier(new NodeLocation(1, 1), "pk", false),
+                        new Identifier(new NodeLocation(1, 1), "pk", false))));
+        CreateTable statement = new CreateTable(new NodeLocation(1, 1), QualifiedName.of("test_table_primary_key"), inputColumns, IGNORE, ImmutableList.of(), Optional.empty());
+
+        queryRunner.inTransaction(transactionSession -> {
+            assertTrinoExceptionThrownBy(() ->
+                    getFutureValue(createTableTask.internalExecute(statement, transactionSession, emptyList(), output -> {}, WarningCollector.NOOP)))
+                    .hasErrorCode(INVALID_PRIMARY_KEY)
+                    .hasMessage("line 1:1: Column specified more than once in PRIMARY KEY");
+            return null;
+        });
+    }
+
+    @Test
+    public void testCreateWithMultiplePrimaryKey()
+    {
+        List<TableElement> inputColumns = ImmutableList.of(
+                new ColumnDefinition(QualifiedName.of("pk"), toSqlType(VARBINARY), true, emptyList(), Optional.empty()),
+                new PrimaryKeyDefinition(new NodeLocation(1, 1), ImmutableList.of(new Identifier(new NodeLocation(1, 1), "pk", false))),
+                new PrimaryKeyDefinition(new NodeLocation(1, 1), ImmutableList.of(new Identifier(new NodeLocation(1, 1), "pk", false))));
+        CreateTable statement = new CreateTable(new NodeLocation(1, 1), QualifiedName.of("test_table_primary_key"), inputColumns, IGNORE, ImmutableList.of(), Optional.empty());
+
+        queryRunner.inTransaction(transactionSession -> {
+            assertTrinoExceptionThrownBy(() ->
+                    getFutureValue(createTableTask.internalExecute(statement, transactionSession, emptyList(), output -> {}, WarningCollector.NOOP)))
+                    .hasErrorCode(INVALID_PRIMARY_KEY)
+                    .hasMessage("line 1:1: Multiple PRIMARY KEY constraints specified");
+            return null;
+        });
+    }
+
+    @Test
+    public void testCreateWithPrimaryKeyOnNonExistingColumn()
+    {
+        List<TableElement> inputColumns = ImmutableList.of(
+                new ColumnDefinition(QualifiedName.of("a"), toSqlType(VARBINARY), true, emptyList(), Optional.empty()),
+                new PrimaryKeyDefinition(new NodeLocation(1, 1), ImmutableList.of(new Identifier(new NodeLocation(1, 1), "non_existing", false))));
+        CreateTable statement = new CreateTable(new NodeLocation(1, 1), QualifiedName.of("test_table_primary_key"), inputColumns, IGNORE, ImmutableList.of(), Optional.empty());
+
+        queryRunner.inTransaction(transactionSession -> {
+            assertTrinoExceptionThrownBy(() ->
+                    getFutureValue(createTableTask.internalExecute(statement, transactionSession, emptyList(), output -> {}, WarningCollector.NOOP)))
+                    .hasErrorCode(INVALID_PRIMARY_KEY)
+                    .hasMessage("line 1:1: PRIMARY KEY contains columns that do not exist in table definition");
+            return null;
+        });
+    }
+
+    @Test
+    public void testCreateWithUnsupportedConnectorThrowsWhenNotNull()
     {
         List<TableElement> inputColumns = ImmutableList.of(
                 new ColumnDefinition(QualifiedName.of("a"), toSqlType(DATE), true, emptyList(), Optional.empty()),
