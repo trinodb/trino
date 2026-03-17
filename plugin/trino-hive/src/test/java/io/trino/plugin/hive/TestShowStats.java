@@ -431,7 +431,7 @@ public class TestShowStats
         assertQuery(
                 "SHOW STATS FOR (SELECT CONCAT('some', 'value') AS x FROM nation_partitioned)",
                 "VALUES " +
-                        "   ('x', null, 1, 0, null, null, null), " +
+                        "   ('x', 225.0, 1, 0, null, null, null), " +
                         "   (null, null, null, null, 25, null, null)");
     }
 

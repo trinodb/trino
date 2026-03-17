@@ -15,6 +15,7 @@ package io.trino.cost;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.inject.Inject;
+import io.airlift.slice.Slice;
 import io.trino.Session;
 import io.trino.spi.function.CatalogSchemaFunctionName;
 import io.trino.spi.type.BigintType;
@@ -108,6 +109,9 @@ public class ScalarStatsCalculator
                 estimate.setLowValue(doubleValue.getAsDouble());
                 estimate.setHighValue(doubleValue.getAsDouble());
             }
+
+            setConstantSizeEstimate(node.value(), estimate);
+
             return estimate.build();
         }
 
@@ -135,11 +139,14 @@ public class ScalarStatsCalculator
                 return nullStatsEstimate();
             }
 
-            if (value instanceof Constant) {
-                return SymbolStatsEstimate.builder()
+            if (value instanceof Constant constant) {
+                SymbolStatsEstimate.Builder builder = SymbolStatsEstimate.builder()
                         .setNullsFraction(0)
-                        .setDistinctValuesCount(1)
-                        .build();
+                        .setDistinctValuesCount(1);
+
+                setConstantSizeEstimate(constant.value(), builder);
+
+                return builder.build();
             }
 
             return SymbolStatsEstimate.unknown();
@@ -306,5 +313,12 @@ public class ScalarStatsCalculator
                 .setDistinctValuesCount(0)
                 .setNullsFraction(1)
                 .build();
+    }
+
+    private static void setConstantSizeEstimate(Object value, SymbolStatsEstimate.Builder statsEstimate)
+    {
+        if (value instanceof Slice slice) {
+            statsEstimate.setAverageRowSize(slice.length());
+        }
     }
 }
