@@ -15,6 +15,8 @@ package io.trino.operator.scalar;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.spi.type.ArrayType;
+import io.trino.spi.type.SqlNumber;
+import io.trino.spi.type.TrinoNumber;
 import io.trino.sql.query.QueryAssertions;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -22,6 +24,9 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
 
+import java.math.BigDecimal;
+
+import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.spi.StandardErrorCode.DIVISION_BY_ZERO;
 import static io.trino.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
 import static io.trino.spi.StandardErrorCode.TOO_MANY_ARGUMENTS;
@@ -30,6 +35,7 @@ import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.NumberType.NUMBER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.RowType.anonymousRow;
 import static io.trino.spi.type.SmallintType.SMALLINT;
@@ -163,6 +169,31 @@ public class TestMathFunctions
 
         assertThat(assertions.function("abs", "CAST(NULL AS DECIMAL(1,0))"))
                 .isNull(createDecimalType(1, 0));
+
+        // NUMBER
+        assertThat(assertions.function("abs", "NUMBER '123.45'"))
+                .isEqualTo(number("123.45"));
+
+        assertThat(assertions.function("abs", "NUMBER '-123.45'"))
+                .isEqualTo(number("123.45"));
+
+        assertThat(assertions.function("abs", "NUMBER '12345678901234567890.123456789'"))
+                .isEqualTo(number("12345678901234567890.123456789"));
+
+        assertThat(assertions.function("abs", "NUMBER '-12345678901234567890.123456789'"))
+                .isEqualTo(number("12345678901234567890.123456789"));
+
+        assertThat(assertions.function("abs", "NUMBER 'NaN'"))
+                .isEqualTo(number(Double.NaN));
+
+        assertThat(assertions.function("abs", "NUMBER '+Infinity'"))
+                .isEqualTo(number(Double.POSITIVE_INFINITY));
+
+        assertThat(assertions.function("abs", "NUMBER '-Infinity'"))
+                .isEqualTo(number(Double.POSITIVE_INFINITY));
+
+        assertThat(assertions.function("abs", "CAST(NULL AS NUMBER)"))
+                .isNull(NUMBER);
     }
 
     @Test
@@ -518,6 +549,25 @@ public class TestMathFunctions
 
         assertThat(assertions.function("ceiling", "CAST(NULL AS DECIMAL(25,5))"))
                 .isNull(createDecimalType(21));
+
+        // NUMBER
+        assertThat(assertions.function("ceiling", "NUMBER '123.45'"))
+                .isEqualTo(number("124"));
+
+        assertThat(assertions.function("ceiling", "NUMBER '-123.45'"))
+                .isEqualTo(number("-123"));
+
+        assertThat(assertions.function("ceiling", "NUMBER '123'"))
+                .isEqualTo(number("123"));
+
+        assertThat(assertions.function("ceiling", "NUMBER 'NaN'"))
+                .isEqualTo(number(Double.NaN));
+
+        assertThat(assertions.function("ceiling", "NUMBER '+Infinity'"))
+                .isEqualTo(number(Double.POSITIVE_INFINITY));
+
+        assertThat(assertions.function("ceiling", "NUMBER '-Infinity'"))
+                .isEqualTo(number(Double.NEGATIVE_INFINITY));
     }
 
     @Test
@@ -697,6 +747,19 @@ public class TestMathFunctions
 
         assertThat(assertions.function("truncate", "NULL", "NULL"))
                 .isNull(createDecimalType(1, 0));
+
+        // NUMBER
+        assertThat(assertions.function("truncate", "NUMBER '123.45'"))
+                .isEqualTo(number("123"));
+
+        assertThat(assertions.function("truncate", "NUMBER '-123.45'"))
+                .isEqualTo(number("-123"));
+
+        assertThat(assertions.function("truncate", "NUMBER 'NaN'"))
+                .isEqualTo(number(Double.NaN));
+
+        assertThat(assertions.function("truncate", "NUMBER '+Infinity'"))
+                .isEqualTo(number(Double.POSITIVE_INFINITY));
     }
 
     @Test
@@ -1002,6 +1065,25 @@ public class TestMathFunctions
 
         assertThat(assertions.function("floor", "CAST(NULL as DECIMAL(25,5))"))
                 .isNull(createDecimalType(21));
+
+        // NUMBER
+        assertThat(assertions.function("floor", "NUMBER '123.45'"))
+                .isEqualTo(number("123"));
+
+        assertThat(assertions.function("floor", "NUMBER '-123.45'"))
+                .isEqualTo(number("-124"));
+
+        assertThat(assertions.function("floor", "NUMBER '123'"))
+                .isEqualTo(number("123"));
+
+        assertThat(assertions.function("floor", "NUMBER 'NaN'"))
+                .isEqualTo(number(Double.NaN));
+
+        assertThat(assertions.function("floor", "NUMBER '+Infinity'"))
+                .isEqualTo(number(Double.POSITIVE_INFINITY));
+
+        assertThat(assertions.function("floor", "NUMBER '-Infinity'"))
+                .isEqualTo(number(Double.NEGATIVE_INFINITY));
     }
 
     @Test
@@ -1132,6 +1214,13 @@ public class TestMathFunctions
             }
         }
 
+        for (double left : doubleLefts) {
+            for (double right : doubleRights) {
+                assertThat(assertions.function("mod", "NUMBER '%s'".formatted(left), "NUMBER '%s'".formatted(right)))
+                        .isEqualTo(number(round(left % right, 6)));
+            }
+        }
+
         assertThat(assertions.function("mod", "5.0E0", "NULL"))
                 .isNull(DOUBLE);
 
@@ -1256,6 +1345,22 @@ public class TestMathFunctions
 
         assertThat(assertions.function("is_infinite", "NULL"))
                 .isNull(BOOLEAN);
+
+        // NUMBER
+        assertThat(assertions.function("is_infinite", "NUMBER '+Infinity'"))
+                .isEqualTo(true);
+
+        assertThat(assertions.function("is_infinite", "NUMBER '-Infinity'"))
+                .isEqualTo(true);
+
+        assertThat(assertions.function("is_infinite", "NUMBER 'NaN'"))
+                .isEqualTo(false);
+
+        assertThat(assertions.function("is_infinite", "NUMBER '123.45'"))
+                .isEqualTo(false);
+
+        assertThat(assertions.function("is_infinite", "CAST(NULL AS NUMBER)"))
+                .isNull(BOOLEAN);
     }
 
     @Test
@@ -1290,6 +1395,22 @@ public class TestMathFunctions
                 .isEqualTo(false);
 
         assertThat(assertions.function("is_finite", "NULL"))
+                .isNull(BOOLEAN);
+
+        // NUMBER
+        assertThat(assertions.function("is_finite", "NUMBER '123.45'"))
+                .isEqualTo(true);
+
+        assertThat(assertions.function("is_finite", "NUMBER 'NaN'"))
+                .isEqualTo(false);
+
+        assertThat(assertions.function("is_finite", "NUMBER '+Infinity'"))
+                .isEqualTo(false);
+
+        assertThat(assertions.function("is_finite", "NUMBER '-Infinity'"))
+                .isEqualTo(false);
+
+        assertThat(assertions.function("is_finite", "CAST(NULL AS NUMBER)"))
                 .isNull(BOOLEAN);
     }
 
@@ -1346,6 +1467,22 @@ public class TestMathFunctions
                 .isEqualTo(true);
 
         assertThat(assertions.function("is_nan", "NULL"))
+                .isNull(BOOLEAN);
+
+        // NUMBER
+        assertThat(assertions.function("is_nan", "NUMBER 'NaN'"))
+                .isEqualTo(true);
+
+        assertThat(assertions.function("is_nan", "NUMBER '123.45'"))
+                .isEqualTo(false);
+
+        assertThat(assertions.function("is_nan", "NUMBER '+Infinity'"))
+                .isEqualTo(false);
+
+        assertThat(assertions.function("is_nan", "NUMBER '-Infinity'"))
+                .isEqualTo(false);
+
+        assertThat(assertions.function("is_nan", "CAST(NULL AS NUMBER)"))
                 .isNull(BOOLEAN);
     }
 
@@ -2459,6 +2596,115 @@ public class TestMathFunctions
 
         assertThat(assertions.function("round", "-1.0E0 / 0", "2"))
                 .isEqualTo(Double.NEGATIVE_INFINITY);
+
+        // NUMBER
+        assertThat(assertions.function("round", "NUMBER '123.45'"))
+                .isEqualTo(number("123"));
+
+        assertThat(assertions.function("round", "NUMBER '123.5'"))
+                .isEqualTo(number("124"));
+
+        assertThat(assertions.function("round", "NUMBER '-123.5'"))
+                .isEqualTo(number("-124"));
+
+        assertThat(assertions.function("round", "NUMBER 'NaN'"))
+                .isEqualTo(number(Double.NaN));
+
+        // NUMBER with decimals parameter
+        assertThat(assertions.function("round", "NUMBER '123.456'", "0"))
+                .isEqualTo(number("123"));
+
+        assertThat(assertions.function("round", "NUMBER '123.456'", "1"))
+                .isEqualTo(number("123.5"));
+
+        assertThat(assertions.function("round", "NUMBER '123.456'", "2"))
+                .isEqualTo(number("123.46"));
+
+        assertThat(assertions.function("round", "NUMBER '123.456'", "3"))
+                .isEqualTo(number("123.456"));
+
+        assertThat(assertions.function("round", "NUMBER '123.456'", "4"))
+                .isEqualTo(number("123.456"));
+
+        assertThat(assertions.function("round", "NUMBER '-123.456'", "0"))
+                .isEqualTo(number("-123"));
+
+        assertThat(assertions.function("round", "NUMBER '-123.456'", "1"))
+                .isEqualTo(number("-123.5"));
+
+        assertThat(assertions.function("round", "NUMBER '-123.456'", "2"))
+                .isEqualTo(number("-123.46"));
+
+        assertThat(assertions.function("round", "NUMBER '123.5'", "0"))
+                .isEqualTo(number("124"));
+
+        assertThat(assertions.function("round", "NUMBER '-123.5'", "0"))
+                .isEqualTo(number("-124"));
+
+        assertThat(assertions.function("round", "NUMBER '999.999'", "2"))
+                .isEqualTo(number("1E+3"));
+
+        assertThat(assertions.function("round", "NUMBER '-999.999'", "2"))
+                .isEqualTo(number("-1E+3"));
+
+        // NUMBER with negative decimals (round to left of decimal point)
+        assertThat(assertions.function("round", "NUMBER '123.456'", "-1"))
+                .isEqualTo(number("12E+1"));
+
+        assertThat(assertions.function("round", "NUMBER '125.456'", "-1"))
+                .isEqualTo(number("13E+1"));
+
+        assertThat(assertions.function("round", "NUMBER '123.456'", "-2"))
+                .isEqualTo(number("1E+2"));
+
+        assertThat(assertions.function("round", "NUMBER '150'", "-2"))
+                .isEqualTo(number("2E+2"));
+
+        assertThat(assertions.function("round", "NUMBER '149'", "-2"))
+                .isEqualTo(number("1E+2"));
+
+        assertThat(assertions.function("round", "NUMBER '-123.456'", "-1"))
+                .isEqualTo(number("-12E+1"));
+
+        assertThat(assertions.function("round", "NUMBER '-125.456'", "-1"))
+                .isEqualTo(number("-13E+1"));
+
+        assertThat(assertions.function("round", "NUMBER '12345678901234567890.123456789'", "5"))
+                .isEqualTo(number("12345678901234567890.12346"));
+
+        assertThat(assertions.function("round", "NUMBER '12345678901234567890.123456789'", "-5"))
+                .isEqualTo(number("123456789012346E+5"));
+
+        // NUMBER with NaN and Infinity
+        assertThat(assertions.function("round", "NUMBER 'NaN'", "0"))
+                .isEqualTo(number(Double.NaN));
+
+        assertThat(assertions.function("round", "NUMBER 'NaN'", "5"))
+                .isEqualTo(number(Double.NaN));
+
+        assertThat(assertions.function("round", "NUMBER 'NaN'", "-5"))
+                .isEqualTo(number(Double.NaN));
+
+        assertThat(assertions.function("round", "NUMBER '+Infinity'", "0"))
+                .isEqualTo(number(Double.POSITIVE_INFINITY));
+
+        assertThat(assertions.function("round", "NUMBER '+Infinity'", "5"))
+                .isEqualTo(number(Double.POSITIVE_INFINITY));
+
+        assertThat(assertions.function("round", "NUMBER '+Infinity'", "-5"))
+                .isEqualTo(number(Double.POSITIVE_INFINITY));
+
+        assertThat(assertions.function("round", "NUMBER '-Infinity'", "0"))
+                .isEqualTo(number(Double.NEGATIVE_INFINITY));
+
+        assertThat(assertions.function("round", "NUMBER '-Infinity'", "5"))
+                .isEqualTo(number(Double.NEGATIVE_INFINITY));
+
+        assertThat(assertions.function("round", "NUMBER '-Infinity'", "-5"))
+                .isEqualTo(number(Double.NEGATIVE_INFINITY));
+
+        assertThat(assertions.function("round", "CAST(NULL AS NUMBER)", "5"))
+                .isNull(NUMBER);
     }
 
     @Test
@@ -2563,6 +2809,28 @@ public class TestMathFunctions
 
         assertThat(assertions.function("sign", "DECIMAL '-1230.000000000000000'"))
                 .isEqualTo(decimal("-1", createDecimalType(1)));
+
+        // NUMBER
+        assertThat(assertions.function("sign", "CAST(NULL AS NUMBER)"))
+                .isNull(NUMBER);
+
+        assertThat(assertions.function("sign", "NUMBER '0'"))
+                .isEqualTo(number("0"));
+
+        assertThat(assertions.function("sign", "NUMBER '123.45'"))
+                .isEqualTo(number("1"));
+
+        assertThat(assertions.function("sign", "NUMBER '-123.45'"))
+                .isEqualTo(number("-1"));
+
+        assertThat(assertions.function("sign", "NUMBER 'NaN'"))
+                .isEqualTo(number(Double.NaN));
+
+        assertThat(assertions.function("sign", "NUMBER '+Infinity'"))
+                .isEqualTo(number("1"));
+
+        assertThat(assertions.function("sign", "NUMBER '-Infinity'"))
+                .isEqualTo(number("-1"));
     }
 
     @Test
@@ -3713,5 +3981,33 @@ public class TestMathFunctions
 
         assertThat(assertions.function("wilson_interval_upper", "1250", "1310", "1.96e0"))
                 .isEqualTo(0.9642524717143908);
+    }
+
+    private static double round(double value, int decimalPlaces)
+    {
+        if (!Double.isFinite(value)) {
+            return value;
+        }
+        checkArgument(decimalPlaces >= 0);
+        double multiplier = Math.powExact(10, decimalPlaces);
+        return Math.round(value * multiplier) / multiplier;
+    }
+
+    private static SqlNumber number(String value)
+    {
+        return new SqlNumber(value);
+    }
+
+    private static SqlNumber number(double value)
+    {
+        if (Double.isNaN(value)) {
+            return new SqlNumber(new TrinoNumber.NotANumber());
+        }
+        if (Double.isInfinite(value)) {
+            return new SqlNumber(new TrinoNumber.Infinity(value == Double.NEGATIVE_INFINITY));
+        }
+        BigDecimal bigDecimal = new BigDecimal(Double.toString(value));
+        checkArgument(bigDecimal.doubleValue() == value, "Value %s cannot be represented as a BigDecimal losslessly", value);
+        return new SqlNumber(new TrinoNumber.BigDecimalValue(bigDecimal.stripTrailingZeros()));
     }
 }
