@@ -29,7 +29,7 @@ import static io.trino.block.BlockAssertions.createLongSequenceBlock;
 import static io.trino.block.BlockAssertions.createLongsBlock;
 import static io.trino.spi.type.BigintType.BIGINT;
 
-public class TestLongMaxNAggregation
+public class TestBigintMaxNAggregation
         extends AbstractTestAggregationFunction
 {
     @Override

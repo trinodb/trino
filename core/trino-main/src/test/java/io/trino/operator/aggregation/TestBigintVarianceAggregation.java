@@ -17,13 +17,13 @@ import com.google.common.collect.ImmutableList;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.Type;
-import org.apache.commons.math3.stat.descriptive.moment.Skewness;
+import org.apache.commons.math3.stat.descriptive.moment.Variance;
 
 import java.util.List;
 
 import static io.trino.spi.type.BigintType.BIGINT;
 
-public class TestLongSkewnessAggregation
+public class TestBigintVarianceAggregation
         extends AbstractTestAggregationFunction
 {
     @Override
@@ -39,7 +39,7 @@ public class TestLongSkewnessAggregation
     @Override
     protected Number getExpectedValue(int start, int length)
     {
-        if (length < 3) {
+        if (length < 2) {
             return null;
         }
 
@@ -48,14 +48,14 @@ public class TestLongSkewnessAggregation
             values[i] = start + i;
         }
 
-        Skewness skewness = new Skewness();
-        return skewness.evaluate(values);
+        Variance variance = new Variance();
+        return variance.evaluate(values);
     }
 
     @Override
     protected String getFunctionName()
     {
-        return "skewness";
+        return "variance";
     }
 
     @Override

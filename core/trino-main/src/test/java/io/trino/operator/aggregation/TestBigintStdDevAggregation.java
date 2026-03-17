@@ -17,12 +17,13 @@ import com.google.common.collect.ImmutableList;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.Type;
+import org.apache.commons.math3.stat.descriptive.moment.StandardDeviation;
 
 import java.util.List;
 
 import static io.trino.spi.type.BigintType.BIGINT;
 
-public class TestLongMaxAggregation
+public class TestBigintStdDevAggregation
         extends AbstractTestAggregationFunction
 {
     @Override
@@ -38,16 +39,23 @@ public class TestLongMaxAggregation
     @Override
     protected Number getExpectedValue(int start, int length)
     {
-        if (length == 0) {
+        if (length < 2) {
             return null;
         }
-        return (long) start + length - 1;
+
+        double[] values = new double[length];
+        for (int i = 0; i < length; i++) {
+            values[i] = start + i;
+        }
+
+        StandardDeviation stdDev = new StandardDeviation();
+        return stdDev.evaluate(values);
     }
 
     @Override
     protected String getFunctionName()
     {
-        return "max";
+        return "stddev_samp";
     }
 
     @Override

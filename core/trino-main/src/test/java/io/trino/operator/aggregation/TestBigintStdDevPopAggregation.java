@@ -17,13 +17,13 @@ import com.google.common.collect.ImmutableList;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.Type;
-import org.apache.commons.math3.stat.descriptive.moment.Variance;
+import org.apache.commons.math3.stat.descriptive.moment.StandardDeviation;
 
 import java.util.List;
 
 import static io.trino.spi.type.BigintType.BIGINT;
 
-public class TestLongVariancePopAggregation
+public class TestBigintStdDevPopAggregation
         extends AbstractTestAggregationFunction
 {
     @Override
@@ -48,14 +48,14 @@ public class TestLongVariancePopAggregation
             values[i] = start + i;
         }
 
-        Variance variance = new Variance(false);
-        return variance.evaluate(values);
+        StandardDeviation stdDev = new StandardDeviation(false);
+        return stdDev.evaluate(values);
     }
 
     @Override
     protected String getFunctionName()
     {
-        return "var_pop";
+        return "stddev_pop";
     }
 
     @Override

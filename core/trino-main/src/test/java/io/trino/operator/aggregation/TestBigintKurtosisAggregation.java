@@ -17,13 +17,13 @@ import com.google.common.collect.ImmutableList;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.Type;
-import org.apache.commons.math3.stat.descriptive.moment.StandardDeviation;
+import org.apache.commons.math3.stat.descriptive.moment.Kurtosis;
 
 import java.util.List;
 
 import static io.trino.spi.type.BigintType.BIGINT;
 
-public class TestLongStdDevAggregation
+public class TestBigintKurtosisAggregation
         extends AbstractTestAggregationFunction
 {
     @Override
@@ -39,7 +39,7 @@ public class TestLongStdDevAggregation
     @Override
     protected Number getExpectedValue(int start, int length)
     {
-        if (length < 2) {
+        if (length < 4) {
             return null;
         }
 
@@ -48,14 +48,14 @@ public class TestLongStdDevAggregation
             values[i] = start + i;
         }
 
-        StandardDeviation stdDev = new StandardDeviation();
-        return stdDev.evaluate(values);
+        Kurtosis kurtosis = new Kurtosis();
+        return kurtosis.evaluate(values);
     }
 
     @Override
     protected String getFunctionName()
     {
-        return "stddev_samp";
+        return "kurtosis";
     }
 
     @Override
