@@ -30,4 +30,4 @@ endpoint_snitch: SimpleSnitch
 hinted_handoff_enabled: false
 auto_snapshot: false
 
-materialized_views_enabled: true
+enable_materialized_views: true
