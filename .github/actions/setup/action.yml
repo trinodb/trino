@@ -54,7 +54,7 @@ runs:
       - name: Cache and Restore local NodeJS
         id: cache-nodejs
         if: ${{ format('{0}', inputs.cache) == 'true' && env.NODE_VERSION != '' }}
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           # Note: must be same set of paths as for cache:restore mode
           path: .node
@@ -74,7 +74,7 @@ runs:
       - name: Cache and Restore local Maven repo
         id: cache
         if: ${{ format('{0}', inputs.cache) == 'true' }}
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           # Note: must be same set of paths as for cache:restore mode
           path: ~/.m2/repository
