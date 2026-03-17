@@ -99,8 +99,8 @@ import static io.trino.operator.scalar.MathFunctions.abs;
 import static io.trino.operator.scalar.MathFunctions.absInteger;
 import static io.trino.operator.scalar.MathFunctions.absSmallint;
 import static io.trino.operator.scalar.MathFunctions.absTinyint;
-import static io.trino.operator.scalar.MathFunctions.ceilingFloat;
-import static io.trino.operator.scalar.MathFunctions.floorFloat;
+import static io.trino.operator.scalar.MathFunctions.ceilingReal;
+import static io.trino.operator.scalar.MathFunctions.floorReal;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DateType.DATE;
@@ -605,7 +605,7 @@ class PathEvaluationVisitor
             return new TypedValue(type, Math.ceil(typedValue.getDoubleValue()));
         }
         if (type.equals(REAL)) {
-            return new TypedValue(type, ceilingFloat(typedValue.getLongValue()));
+            return new TypedValue(type, ceilingReal(typedValue.getLongValue()));
         }
         if (type instanceof DecimalType decimalType) {
             int scale = decimalType.getScale();
@@ -798,7 +798,7 @@ class PathEvaluationVisitor
             return new TypedValue(type, Math.floor(typedValue.getDoubleValue()));
         }
         if (type.equals(REAL)) {
-            return new TypedValue(type, floorFloat(typedValue.getLongValue()));
+            return new TypedValue(type, floorReal(typedValue.getLongValue()));
         }
         if (type instanceof DecimalType decimalType) {
             int scale = decimalType.getScale();

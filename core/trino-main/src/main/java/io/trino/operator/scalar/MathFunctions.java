@@ -169,7 +169,7 @@ public final class MathFunctions
     @Description("Absolute value")
     @ScalarFunction(value = "abs", neverFails = true)
     @SqlType(StandardTypes.REAL)
-    public static long absFloat(@SqlType(StandardTypes.REAL) long num)
+    public static long absReal(@SqlType(StandardTypes.REAL) long num)
     {
         return floatToRawIntBits(Math.abs(intBitsToFloat((int) num)));
     }
@@ -257,7 +257,7 @@ public final class MathFunctions
     @Description("Round up to nearest integer")
     @ScalarFunction(value = "ceiling", alias = "ceil", neverFails = true)
     @SqlType(StandardTypes.REAL)
-    public static long ceilingFloat(@SqlType(StandardTypes.REAL) long num)
+    public static long ceilingReal(@SqlType(StandardTypes.REAL) long num)
     {
         return floatToRawIntBits((float) ceiling(intBitsToFloat((int) num)));
     }
@@ -458,7 +458,7 @@ public final class MathFunctions
     @Description("Round down to nearest integer")
     @ScalarFunction(value = "floor", neverFails = true)
     @SqlType(StandardTypes.REAL)
-    public static long floorFloat(@SqlType(StandardTypes.REAL) long num)
+    public static long floorReal(@SqlType(StandardTypes.REAL) long num)
     {
         return floatToRawIntBits((float) floor(intBitsToFloat((int) num)));
     }
@@ -538,7 +538,7 @@ public final class MathFunctions
     @Description("Remainder of given quotient")
     @ScalarFunction(value = "mod", neverFails = true)
     @SqlType(StandardTypes.REAL)
-    public static long modFloat(@SqlType(StandardTypes.REAL) long num1, @SqlType(StandardTypes.REAL) long num2)
+    public static long modReal(@SqlType(StandardTypes.REAL) long num1, @SqlType(StandardTypes.REAL) long num2)
     {
         return floatToRawIntBits(intBitsToFloat((int) num1) % intBitsToFloat((int) num2));
     }
@@ -1168,7 +1168,7 @@ public final class MathFunctions
     @Description("Signum")
     @ScalarFunction(value = "sign", neverFails = true)
     @SqlType(StandardTypes.REAL)
-    public static long signFloat(@SqlType(StandardTypes.REAL) long num)
+    public static long signReal(@SqlType(StandardTypes.REAL) long num)
     {
         return floatToRawIntBits(Math.signum(intBitsToFloat((int) num)));
     }
