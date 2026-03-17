@@ -67,6 +67,7 @@ import io.trino.operator.aggregation.MergeQuantileDigestFunction;
 import io.trino.operator.aggregation.MergeTDigestAggregation;
 import io.trino.operator.aggregation.MinAggregationFunction;
 import io.trino.operator.aggregation.MinByAggregationFunction;
+import io.trino.operator.aggregation.NumberSumAggregation;
 import io.trino.operator.aggregation.QuantileDigestAggregationFunction.BigintQuantileDigestAggregationFunction;
 import io.trino.operator.aggregation.QuantileDigestAggregationFunction.DoubleQuantileDigestAggregationFunction;
 import io.trino.operator.aggregation.QuantileDigestAggregationFunction.RealQuantileDigestAggregationFunction;
@@ -402,6 +403,7 @@ public final class SystemFunctionBundle
                 .aggregates(DoubleSumAggregation.class)
                 .aggregates(RealSumAggregation.class)
                 .aggregates(BigintSumAggregation.class)
+                .aggregates(NumberSumAggregation.class)
                 .aggregates(IntervalDayToSecondSumAggregation.class)
                 .aggregates(IntervalYearToMonthSumAggregation.class)
                 .aggregates(BigintAverageAggregations.class)
