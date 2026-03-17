@@ -14,6 +14,7 @@
 package io.trino.plugin.google.sheets;
 
 import com.google.api.client.googleapis.auth.oauth2.GoogleCredential;
+import com.google.api.client.http.HttpRequestInitializer;
 import com.google.api.client.json.jackson2.JacksonFactory;
 import com.google.api.services.sheets.v4.Sheets;
 import com.google.api.services.sheets.v4.SheetsScopes;
@@ -309,7 +310,7 @@ public class TestGoogleSheets
     {
         return new Sheets.Builder(newTrustedTransport(),
                 JacksonFactory.getDefaultInstance(),
-                getCredentials())
+                setTimeout(getCredentials()))
                 .setApplicationName(APPLICATION_NAME)
                 .build();
     }
@@ -320,5 +321,14 @@ public class TestGoogleSheets
         String credentialsPath = getTestCredentialsPath();
         return GoogleCredential.fromStream(new FileInputStream(credentialsPath))
                 .createScoped(ImmutableList.of(SheetsScopes.SPREADSHEETS, SheetsScopes.DRIVE));
+    }
+
+    private static HttpRequestInitializer setTimeout(HttpRequestInitializer requestInitializer)
+    {
+        return httpRequest -> {
+            requestInitializer.initialize(httpRequest);
+            httpRequest.setConnectTimeout(toIntExact(TimeUnit.MINUTES.toMillis(1)));
+            httpRequest.setReadTimeout(toIntExact(TimeUnit.MINUTES.toMillis(1)));
+        };
     }
 }
