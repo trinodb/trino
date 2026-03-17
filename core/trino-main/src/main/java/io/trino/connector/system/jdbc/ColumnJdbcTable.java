@@ -39,14 +39,38 @@ import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.NullableValue;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.ArrayType;
+import io.trino.spi.type.BigintType;
+import io.trino.spi.type.BooleanType;
 import io.trino.spi.type.CharType;
+import io.trino.spi.type.DateType;
 import io.trino.spi.type.DecimalType;
+import io.trino.spi.type.DoubleType;
+import io.trino.spi.type.IntegerType;
+import io.trino.spi.type.NumberType;
+import io.trino.spi.type.ParametricType;
+import io.trino.spi.type.QuantileDigestParametricType;
+import io.trino.spi.type.RealType;
+import io.trino.spi.type.SmallintType;
+import io.trino.spi.type.TimeParametricType;
 import io.trino.spi.type.TimeType;
+import io.trino.spi.type.TimeWithTimeZoneParametricType;
 import io.trino.spi.type.TimeWithTimeZoneType;
+import io.trino.spi.type.TimestampParametricType;
 import io.trino.spi.type.TimestampType;
+import io.trino.spi.type.TimestampWithTimeZoneParametricType;
 import io.trino.spi.type.TimestampWithTimeZoneType;
+import io.trino.spi.type.TinyintType;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.VarbinaryType;
 import io.trino.spi.type.VarcharType;
+import io.trino.type.ArrayParametricType;
+import io.trino.type.CharParametricType;
+import io.trino.type.DecimalParametricType;
+import io.trino.type.FunctionParametricType;
+import io.trino.type.MapParametricType;
+import io.trino.type.RowParametricType;
+import io.trino.type.UnknownType;
+import io.trino.type.VarcharParametricType;
 
 import java.sql.DatabaseMetaData;
 import java.sql.Types;
@@ -73,7 +97,6 @@ import static io.trino.metadata.MetadataListing.listTableColumns;
 import static io.trino.metadata.MetadataListing.listTables;
 import static io.trino.metadata.MetadataUtil.TableMetadataBuilder.tableMetadataBuilder;
 import static io.trino.spi.type.BigintType.BIGINT;
-import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
@@ -360,58 +383,45 @@ public class ColumnJdbcTable
 
     static int jdbcDataType(Type type)
     {
-        if (type.equals(BOOLEAN)) {
-            return Types.BOOLEAN;
-        }
-        if (type.equals(BIGINT)) {
-            return Types.BIGINT;
-        }
-        if (type.equals(INTEGER)) {
-            return Types.INTEGER;
-        }
-        if (type.equals(SMALLINT)) {
-            return Types.SMALLINT;
-        }
-        if (type.equals(TINYINT)) {
-            return Types.TINYINT;
-        }
-        if (type.equals(REAL)) {
-            return Types.REAL;
-        }
-        if (type.equals(DOUBLE)) {
-            return Types.DOUBLE;
-        }
-        if (type instanceof DecimalType) {
-            return Types.DECIMAL;
-        }
-        if (type instanceof VarcharType) {
-            return Types.VARCHAR;
-        }
-        if (type instanceof CharType) {
-            return Types.CHAR;
-        }
-        if (type.equals(VARBINARY)) {
-            return Types.VARBINARY;
-        }
-        if (type.equals(DATE)) {
-            return Types.DATE;
-        }
-        if (type instanceof TimeType) {
-            return Types.TIME;
-        }
-        if (type instanceof TimeWithTimeZoneType) {
-            return Types.TIME_WITH_TIMEZONE;
-        }
-        if (type instanceof TimestampType) {
-            return Types.TIMESTAMP;
-        }
-        if (type instanceof TimestampWithTimeZoneType) {
-            return Types.TIMESTAMP_WITH_TIMEZONE;
-        }
-        if (type instanceof ArrayType) {
-            return Types.ARRAY;
-        }
-        return Types.JAVA_OBJECT;
+        return switch (type) {
+            case ArrayType _ -> Types.ARRAY;
+            case BigintType _ -> Types.BIGINT;
+            case BooleanType _ -> Types.BOOLEAN;
+            case CharType _ -> Types.CHAR;
+            case DateType _ -> Types.DATE;
+            case DecimalType _ -> Types.DECIMAL;
+            case DoubleType _ -> Types.DOUBLE;
+            case IntegerType _ -> Types.INTEGER;
+            case NumberType _ -> Types.NUMERIC;
+            case RealType _ -> Types.REAL;
+            case SmallintType _ -> Types.SMALLINT;
+            case TimeType _ -> Types.TIME;
+            case TimeWithTimeZoneType _ -> Types.TIME_WITH_TIMEZONE;
+            case TimestampType _ -> Types.TIMESTAMP;
+            case TimestampWithTimeZoneType _ -> Types.TIMESTAMP_WITH_TIMEZONE;
+            case TinyintType _ -> Types.TINYINT;
+            case UnknownType _ -> Types.NULL;
+            case VarbinaryType _ -> Types.VARBINARY;
+            case VarcharType _ -> Types.VARCHAR;
+            default -> Types.JAVA_OBJECT;
+        };
+    }
+
+    static int jdbcDataType(ParametricType type)
+    {
+        return switch (type) {
+            case VarcharParametricType _ -> Types.VARCHAR;
+            case CharParametricType _ -> Types.CHAR;
+            case RowParametricType _, MapParametricType _ -> Types.JAVA_OBJECT;
+            case ArrayParametricType _ -> Types.ARRAY;
+            case DecimalParametricType _ -> Types.DECIMAL;
+            case TimeParametricType _ -> Types.TIME;
+            case TimeWithTimeZoneParametricType _ -> Types.TIME_WITH_TIMEZONE;
+            case TimestampParametricType _ -> Types.TIMESTAMP;
+            case TimestampWithTimeZoneParametricType _ -> Types.TIMESTAMP_WITH_TIMEZONE;
+            case QuantileDigestParametricType _, FunctionParametricType _ -> Types.JAVA_OBJECT;
+            default -> throw new IllegalArgumentException("Unmapped parametric type " + type);
+        };
     }
 
     static Integer columnSize(Type type)
