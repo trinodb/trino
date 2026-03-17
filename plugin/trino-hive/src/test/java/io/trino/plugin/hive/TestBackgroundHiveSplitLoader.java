@@ -68,7 +68,6 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.OptionalInt;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
@@ -413,27 +412,27 @@ public class TestBackgroundHiveSplitLoader
     public void testGetBucketNumber()
     {
         // legacy Presto naming pattern
-        assertThat(getBucketNumber("20190526_072952_00009_fn7s5_bucket-00234")).isEqualTo(OptionalInt.of(234));
-        assertThat(getBucketNumber("20190526_072952_00009_fn7s5_bucket-00234.txt")).isEqualTo(OptionalInt.of(234));
-        assertThat(getBucketNumber("20190526_235847_87654_fn7s5_bucket-56789")).isEqualTo(OptionalInt.of(56789));
+        assertThat(getBucketNumber("20190526_072952_00009_fn7s5_bucket-00234")).isEqualTo(Optional.of(234));
+        assertThat(getBucketNumber("20190526_072952_00009_fn7s5_bucket-00234.txt")).isEqualTo(Optional.of(234));
+        assertThat(getBucketNumber("20190526_235847_87654_fn7s5_bucket-56789")).isEqualTo(Optional.of(56789));
 
         // Hive
-        assertThat(getBucketNumber("0234_0")).isEqualTo(OptionalInt.of(234));
-        assertThat(getBucketNumber("000234_0")).isEqualTo(OptionalInt.of(234));
-        assertThat(getBucketNumber("0234_99")).isEqualTo(OptionalInt.of(234));
-        assertThat(getBucketNumber("0234_0.txt")).isEqualTo(OptionalInt.of(234));
-        assertThat(getBucketNumber("0234_0_copy_1")).isEqualTo(OptionalInt.of(234));
+        assertThat(getBucketNumber("0234_0")).isEqualTo(Optional.of(234));
+        assertThat(getBucketNumber("000234_0")).isEqualTo(Optional.of(234));
+        assertThat(getBucketNumber("0234_99")).isEqualTo(Optional.of(234));
+        assertThat(getBucketNumber("0234_0.txt")).isEqualTo(Optional.of(234));
+        assertThat(getBucketNumber("0234_0_copy_1")).isEqualTo(Optional.of(234));
         // starts with non-zero
-        assertThat(getBucketNumber("234_99")).isEqualTo(OptionalInt.of(234));
-        assertThat(getBucketNumber("1234_0_copy_1")).isEqualTo(OptionalInt.of(1234));
+        assertThat(getBucketNumber("234_99")).isEqualTo(Optional.of(234));
+        assertThat(getBucketNumber("1234_0_copy_1")).isEqualTo(Optional.of(1234));
 
         // Hive ACID
-        assertThat(getBucketNumber("bucket_1234")).isEqualTo(OptionalInt.of(1234));
-        assertThat(getBucketNumber("bucket_01234")).isEqualTo(OptionalInt.of(1234));
+        assertThat(getBucketNumber("bucket_1234")).isEqualTo(Optional.of(1234));
+        assertThat(getBucketNumber("bucket_01234")).isEqualTo(Optional.of(1234));
 
         // not matching
-        assertThat(getBucketNumber("0234.txt")).isEqualTo(OptionalInt.empty());
-        assertThat(getBucketNumber("0234.txt")).isEqualTo(OptionalInt.empty());
+        assertThat(getBucketNumber("0234.txt")).isEqualTo(Optional.empty());
+        assertThat(getBucketNumber("0234.txt")).isEqualTo(Optional.empty());
     }
 
     @Test
@@ -630,6 +629,42 @@ public class TestBackgroundHiveSplitLoader
         List<String> splits = drain(hiveSplitSource);
         assertThat(splits).contains(originalFile.toString());
         assertThat(splits).contains(fileLocations.get(1).toString());
+    }
+
+    @Test
+    public void testFullAcidTableWithOriginalFilesWithoutBuckets()
+            throws Exception
+    {
+        TrinoFileSystemFactory fileSystemFactory = new MemoryFileSystemFactory();
+        TrinoFileSystem fileSystem = fileSystemFactory.create(ConnectorIdentity.ofUser("test"));
+        Location tableLocation = Location.of("memory:///my_table");
+
+        Table table = table(
+                tableLocation.toString(),
+                List.of(),
+                Optional.empty(),
+                Map.of(TRANSACTIONAL, "true", "transaction_properties", "insert_only"));
+
+        Location originalFile = tableLocation.appendPath("data.csv");
+        try (OutputStream outputStream = fileSystem.newOutputFile(originalFile).create()) {
+            outputStream.write("test".getBytes(UTF_8));
+        }
+
+        // ValidWriteIdsList is of format <currentTxn>$<schema>.<table>:<highWatermark>:<minOpenWriteId>::<AbortedTxns>
+        // This writeId list has high watermark transaction=3
+        ValidWriteIdList validWriteIdsList = new ValidWriteIdList(format("4$%s.%s:3:9223372036854775807::", table.getDatabaseName(), table.getTableName()));
+
+        BackgroundHiveSplitLoader backgroundHiveSplitLoader = backgroundHiveSplitLoader(
+                fileSystemFactory,
+                TupleDomain.all(),
+                Optional.empty(),
+                table,
+                Optional.empty(),
+                Optional.of(validWriteIdsList));
+        HiveSplitSource hiveSplitSource = hiveSplitSource(backgroundHiveSplitLoader);
+        backgroundHiveSplitLoader.start(hiveSplitSource);
+        List<String> splits = drain(hiveSplitSource);
+        assertThat(splits).contains(originalFile.toString());
     }
 
     @Test
