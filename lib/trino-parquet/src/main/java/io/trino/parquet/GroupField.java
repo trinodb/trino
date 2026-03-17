@@ -31,8 +31,14 @@ public class GroupField
         extends Field
 {
     private final List<Optional<Field>> children;
+    private final Optional<PrimitiveField> referenceField;
 
     public GroupField(Type type, int repetitionLevel, int definitionLevel, boolean required, List<Optional<Field>> children)
+    {
+        this(type, repetitionLevel, definitionLevel, required, children, Optional.empty());
+    }
+
+    public GroupField(Type type, int repetitionLevel, int definitionLevel, boolean required, List<Optional<Field>> children, Optional<PrimitiveField> referenceField)
     {
         super(type, repetitionLevel, definitionLevel, required);
 
@@ -44,11 +50,17 @@ public class GroupField
         }
 
         this.children = ImmutableList.copyOf(requireNonNull(children, "children is null"));
+        this.referenceField = requireNonNull(referenceField, "referenceField is null");
     }
 
     public List<Optional<Field>> getChildren()
     {
         return children;
+    }
+
+    public Optional<PrimitiveField> getReferenceField()
+    {
+        return referenceField;
     }
 
     @Override

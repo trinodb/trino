@@ -3513,6 +3513,9 @@ public abstract class BaseConnectorTest
                 .add(new SetColumnTypeSetup("map(integer, varchar)", "map(array[1], array['a'])", "map(bigint, varchar)")) // update a map key
                 .add(new SetColumnTypeSetup("map(varchar, integer)", "map(array['a'], array[1])", "map(varchar, bigint)")) // update a map value
                 .add(new SetColumnTypeSetup("map(integer, row(x integer))", "map(array[1], array[row(2)])", "map(integer, row(\"x\" bigint))")) // update a nested map value
+                .add(new SetColumnTypeSetup("map(integer, row(x integer))", "map(array[1], array[row(2)])", "map(integer, row(\"y\" integer))", "cast(map(array[1], array[row(null)]) as map(integer, row(y integer)))")) // replace a nested map value
+                .add(new SetColumnTypeSetup("array(row(x integer))", "array[row(1)]", "array(row(\"y\" integer))", "cast(array[row(null)] as array(row(y integer)))")) // replace a nested list element
+                .add(new SetColumnTypeSetup("map(integer, array(row(x integer)))", "map(array[1], array[array[row(2)]])", "map(integer, array(row(\"y\" integer)))", "cast(map(array[1], array[array[row(null)]]) as map(integer, array(row(y integer))))")) // replace a nested field in a list and a map
                 .build();
     }
 
