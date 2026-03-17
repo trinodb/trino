@@ -605,7 +605,9 @@ public class LogicalPlanner
         TableStatisticsMetadata statisticsMetadata = metadata.getStatisticsCollectionMetadataForWrite(session, tableHandle.catalogHandle(), tableMetadata.metadata(), false);
 
         if (materializedViewRefreshWriterTarget.isPresent()) {
-            RefreshType refreshType = IncrementalRefreshVisitor.canIncrementallyRefresh(plan.getRoot());
+            RefreshType refreshType = materializedViewRefreshWriterTarget.get().hasNonDeterministicFunctions()
+                    ? RefreshType.FULL
+                    : IncrementalRefreshVisitor.canIncrementallyRefresh(plan.getRoot());
             WriterTarget writerTarget = materializedViewRefreshWriterTarget.get().withRefreshType(refreshType);
             return createTableWriterPlan(
                     analysis,

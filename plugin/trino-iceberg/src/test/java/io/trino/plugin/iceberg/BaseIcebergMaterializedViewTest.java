@@ -1090,6 +1090,44 @@ public abstract class BaseIcebergMaterializedViewTest
     }
 
     @Test
+    public void testFullRefreshForNonDeterministicFunction()
+    {
+        String sourceTableName = "source_table" + randomNameSuffix();
+        String materializedViewName = "test_materialized_view_" + randomNameSuffix();
+
+        assertUpdate("CREATE TABLE %s (a int, b varchar)".formatted(sourceTableName));
+        assertUpdate("INSERT INTO %s VALUES (1, 'abc'), (2, 'def')".formatted(sourceTableName), 2);
+
+        // non-deterministic function in SELECT
+        String mvInSelect = materializedViewName + "_select";
+        assertUpdate("CREATE MATERIALIZED VIEW %s AS SELECT a, b, current_timestamp AS ts FROM %s WHERE a < 3 OR a > 5".formatted(mvInSelect, sourceTableName));
+
+        // non-deterministic function in WHERE
+        String mvInWhere = materializedViewName + "_where";
+        assertUpdate("CREATE MATERIALIZED VIEW %s AS SELECT a, b FROM %s WHERE (a < 3 OR a > 5) AND current_timestamp > timestamp '2000-01-01'".formatted(mvInWhere, sourceTableName));
+
+        // first refresh is always full, should contain 2 rows
+        assertUpdate("REFRESH MATERIALIZED VIEW %s".formatted(mvInSelect), 2);
+        assertUpdate("REFRESH MATERIALIZED VIEW %s".formatted(mvInWhere), 2);
+
+        // add new rows to source
+        assertUpdate("INSERT INTO %s VALUES (3, 'ghi'), (4, 'jkl'), (5, 'mno'), (6, 'pqr')".formatted(sourceTableName), 4);
+
+        // second refresh should be full too because of non-deterministic function
+        // full refresh should return rows matching filter: (1, 'abc'), (2, 'def'), (6, 'pqr') = 3 rows
+        // incremental would only return the new matching row: (6, 'pqr') = 1 row
+        assertUpdate("REFRESH MATERIALIZED VIEW %s".formatted(mvInSelect), 3);
+        assertUpdate("REFRESH MATERIALIZED VIEW %s".formatted(mvInWhere), 3);
+        assertThat(query("SELECT a, b FROM %s".formatted(mvInSelect))).matches("VALUES (1, VARCHAR 'abc'), (2, VARCHAR 'def'), (6, VARCHAR 'pqr')");
+        assertThat(query("SELECT a, b FROM %s".formatted(mvInWhere))).matches("VALUES (1, VARCHAR 'abc'), (2, VARCHAR 'def'), (6, VARCHAR 'pqr')");
+
+        // cleanup
+        assertUpdate("DROP MATERIALIZED VIEW %s".formatted(mvInSelect));
+        assertUpdate("DROP MATERIALIZED VIEW %s".formatted(mvInWhere));
+        assertUpdate("DROP TABLE %s".formatted(sourceTableName));
+    }
+
+    @Test
     public void testFullRefreshForUnion()
     {
         String sourceTableName = "source_table" + randomNameSuffix();
