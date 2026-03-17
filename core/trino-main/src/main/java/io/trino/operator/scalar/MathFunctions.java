@@ -33,12 +33,15 @@ import io.trino.spi.function.SqlType;
 import io.trino.spi.type.Decimals;
 import io.trino.spi.type.Int128;
 import io.trino.spi.type.StandardTypes;
+import io.trino.spi.type.TrinoNumber;
 import io.trino.type.BlockTypeOperators.BlockPositionHashCode;
 import io.trino.type.BlockTypeOperators.BlockPositionIsIdentical;
+import io.trino.type.NumberOperators;
 import org.apache.commons.math3.distribution.BetaDistribution;
 import org.apache.commons.math3.distribution.TDistribution;
 import org.apache.commons.math3.special.Erf;
 
+import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.math.RoundingMode;
 import java.util.concurrent.ThreadLocalRandom;
@@ -59,6 +62,9 @@ import static io.trino.spi.type.Int128Math.negate;
 import static io.trino.spi.type.Int128Math.rescale;
 import static io.trino.spi.type.Int128Math.rescaleTruncate;
 import static io.trino.spi.type.Int128Math.subtract;
+import static io.trino.spi.type.TrinoNumber.BigDecimalValue;
+import static io.trino.spi.type.TrinoNumber.Infinity;
+import static io.trino.spi.type.TrinoNumber.NotANumber;
 import static io.trino.type.DecimalOperators.modulusScalarFunction;
 import static io.trino.util.Failures.checkCondition;
 import static java.lang.Character.MAX_RADIX;
@@ -140,6 +146,18 @@ public final class MathFunctions
     public static double abs(@SqlType(StandardTypes.DOUBLE) double num)
     {
         return Math.abs(num);
+    }
+
+    @Description("Absolute value")
+    @ScalarFunction(value = "abs", neverFails = true)
+    @SqlType(StandardTypes.NUMBER)
+    public static TrinoNumber abs(@SqlType(StandardTypes.NUMBER) TrinoNumber num)
+    {
+        return switch (num.toBigDecimal()) {
+            case NotANumber() -> num;
+            case Infinity(boolean _) -> TrinoNumber.from(new Infinity(false));
+            case BigDecimalValue(BigDecimal value) -> TrinoNumber.from(value.abs());
+        };
     }
 
     @ScalarFunction(value = "abs", neverFails = true)
@@ -262,6 +280,17 @@ public final class MathFunctions
         return floatToRawIntBits((float) ceiling(intBitsToFloat((int) num)));
     }
 
+    @Description("Round up to nearest integer")
+    @ScalarFunction(alias = "ceil", neverFails = true)
+    @SqlType(StandardTypes.NUMBER)
+    public static TrinoNumber ceiling(@SqlType(StandardTypes.NUMBER) TrinoNumber num)
+    {
+        return switch (num.toBigDecimal()) {
+            case NotANumber(), Infinity(_) -> num;
+            case BigDecimalValue(BigDecimal value) -> TrinoNumber.from(value.setScale(0, RoundingMode.CEILING));
+        };
+    }
+
     @ScalarFunction(value = "ceiling", alias = "ceil", neverFails = true)
     @Description("Round up to nearest integer")
     public static final class Ceiling
@@ -325,6 +354,17 @@ public final class MathFunctions
     {
         float numInFloat = intBitsToFloat((int) num);
         return floatToRawIntBits((float) (Math.signum(numInFloat) * Math.floor(Math.abs(numInFloat))));
+    }
+
+    @Description("Round to integer by dropping digits after decimal point")
+    @ScalarFunction(neverFails = true)
+    @SqlType(StandardTypes.NUMBER)
+    public static TrinoNumber truncate(@SqlType(StandardTypes.NUMBER) TrinoNumber num)
+    {
+        return switch (num.toBigDecimal()) {
+            case NotANumber(), Infinity(boolean _) -> num;
+            case BigDecimalValue(BigDecimal value) -> TrinoNumber.from(value.setScale(0, RoundingMode.DOWN));
+        };
     }
 
     @Description("Cosine")
@@ -405,6 +445,17 @@ public final class MathFunctions
     public static double floor(@SqlType(StandardTypes.DOUBLE) double num)
     {
         return Math.floor(num);
+    }
+
+    @Description("Round down to nearest integer")
+    @ScalarFunction(neverFails = true)
+    @SqlType(StandardTypes.NUMBER)
+    public static TrinoNumber floor(@SqlType(StandardTypes.NUMBER) TrinoNumber num)
+    {
+        return switch (num.toBigDecimal()) {
+            case NotANumber(), Infinity(boolean _) -> num;
+            case BigDecimalValue(BigDecimal value) -> TrinoNumber.from(value.setScale(0, RoundingMode.FLOOR));
+        };
     }
 
     @ScalarFunction(value = "floor", neverFails = true)
@@ -541,6 +592,14 @@ public final class MathFunctions
     public static long modReal(@SqlType(StandardTypes.REAL) long num1, @SqlType(StandardTypes.REAL) long num2)
     {
         return floatToRawIntBits(intBitsToFloat((int) num1) % intBitsToFloat((int) num2));
+    }
+
+    @Description("Remainder of given quotient")
+    @ScalarFunction(neverFails = true)
+    @SqlType(StandardTypes.NUMBER)
+    public static TrinoNumber mod(@SqlType(StandardTypes.NUMBER) TrinoNumber num1, @SqlType(StandardTypes.NUMBER) TrinoNumber num2)
+    {
+        return NumberOperators.modulus(num1, num2);
     }
 
     @Description("The constant Pi")
@@ -888,6 +947,25 @@ public final class MathFunctions
         return floatToRawIntBits(resultAsFloat);
     }
 
+    @Description("Round to nearest integer")
+    @ScalarFunction(neverFails = true)
+    @SqlType(StandardTypes.NUMBER)
+    public static TrinoNumber round(@SqlType(StandardTypes.NUMBER) TrinoNumber num)
+    {
+        return round(num, 0);
+    }
+
+    @Description("Round to given number of decimal places")
+    @ScalarFunction(neverFails = true)
+    @SqlType(StandardTypes.NUMBER)
+    public static TrinoNumber round(@SqlType(StandardTypes.NUMBER) TrinoNumber num, @SqlType(StandardTypes.INTEGER) long decimals)
+    {
+        return switch (num.toBigDecimal()) {
+            case NotANumber(), Infinity(_) -> num;
+            case BigDecimalValue(BigDecimal value) -> TrinoNumber.from(value.setScale(toIntExact(decimals), RoundingMode.HALF_UP));
+        };
+    }
+
     @ScalarFunction(value = "round", neverFails = true)
     @Description("Round to nearest integer")
     public static final class Round
@@ -1173,6 +1251,18 @@ public final class MathFunctions
         return floatToRawIntBits(Math.signum(intBitsToFloat((int) num)));
     }
 
+    @Description("Signum")
+    @ScalarFunction(neverFails = true)
+    @SqlType(StandardTypes.NUMBER)
+    public static TrinoNumber sign(@SqlType(StandardTypes.NUMBER) TrinoNumber num)
+    {
+        return switch (num.toBigDecimal()) {
+            case NotANumber() -> num;
+            case Infinity(boolean negative) -> TrinoNumber.from(negative ? BigDecimal.ONE.negate() : BigDecimal.ONE);
+            case BigDecimalValue(BigDecimal value) -> TrinoNumber.from(BigDecimal.valueOf(value.signum()));
+        };
+    }
+
     @Description("Sine")
     @ScalarFunction(neverFails = true)
     @SqlType(StandardTypes.DOUBLE)
@@ -1213,6 +1303,13 @@ public final class MathFunctions
         return Math.tanh(num);
     }
 
+    @ScalarFunction(value = "is_nan", neverFails = true, hidden = true)
+    @SqlType(StandardTypes.BOOLEAN)
+    public static boolean isNaN(@SqlType(StandardTypes.BIGINT) long num)
+    {
+        return false;
+    }
+
     @Description("Test if value is not-a-number")
     @ScalarFunction(value = "is_nan", neverFails = true)
     @SqlType(StandardTypes.BOOLEAN)
@@ -1230,6 +1327,33 @@ public final class MathFunctions
         return Float.isNaN(floatValue);
     }
 
+    @Description("Test if value is not-a-number")
+    @ScalarFunction(value = "is_nan", neverFails = true)
+    @SqlType(StandardTypes.BOOLEAN)
+    public static boolean isNaN(@SqlType(StandardTypes.NUMBER) TrinoNumber num)
+    {
+        return switch (num.toBigDecimal()) {
+            case NotANumber() -> true;
+            case Infinity(boolean _) -> false;
+            case BigDecimalValue(BigDecimal _) -> false;
+        };
+    }
+
+    @ScalarFunction(value = "is_finite", neverFails = true, hidden = true)
+    @SqlType(StandardTypes.BOOLEAN)
+    public static boolean isFiniteBigint(@SqlType(StandardTypes.BIGINT) long num)
+    {
+        return true;
+    }
+
+    @Description("Test if value is finite")
+    @ScalarFunction(neverFails = true)
+    @SqlType(StandardTypes.BOOLEAN)
+    public static boolean isFinite(@SqlType(StandardTypes.REAL) long num)
+    {
+        return Float.isFinite(intBitsToFloat((int) num));
+    }
+
     @Description("Test if value is finite")
     @ScalarFunction(neverFails = true)
     @SqlType(StandardTypes.BOOLEAN)
@@ -1238,12 +1362,43 @@ public final class MathFunctions
         return Doubles.isFinite(num);
     }
 
+    @Description("Test if value is finite")
+    @ScalarFunction(neverFails = true)
+    @SqlType(StandardTypes.BOOLEAN)
+    public static boolean isFinite(@SqlType(StandardTypes.NUMBER) TrinoNumber num)
+    {
+        return switch (num.toBigDecimal()) {
+            case NotANumber() -> false;
+            case Infinity(boolean _) -> false;
+            case BigDecimalValue(BigDecimal _) -> true;
+        };
+    }
+
+    @ScalarFunction(neverFails = true, hidden = true)
+    @SqlType(StandardTypes.BOOLEAN)
+    public static boolean isInfinite(@SqlType(StandardTypes.BIGINT) long num)
+    {
+        return false;
+    }
+
     @Description("Test if value is infinite")
     @ScalarFunction(neverFails = true)
     @SqlType(StandardTypes.BOOLEAN)
     public static boolean isInfinite(@SqlType(StandardTypes.DOUBLE) double num)
     {
         return Double.isInfinite(num);
+    }
+
+    @Description("Test if value is infinite")
+    @ScalarFunction(neverFails = true)
+    @SqlType(StandardTypes.BOOLEAN)
+    public static boolean isInfinite(@SqlType(StandardTypes.NUMBER) TrinoNumber num)
+    {
+        return switch (num.toBigDecimal()) {
+            case NotANumber() -> false;
+            case Infinity(boolean _) -> true;
+            case BigDecimalValue(BigDecimal _) -> false;
+        };
     }
 
     @Description("Constant representing not-a-number")
