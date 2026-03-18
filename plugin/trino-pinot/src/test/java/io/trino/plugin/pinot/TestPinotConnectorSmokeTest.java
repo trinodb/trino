@@ -1274,6 +1274,7 @@ public class TestPinotConnectorSmokeTest
     @Test
     public void testStringPredicateWithSingleQuote()
     {
+        // Regression test for https://github.com/trinodb/trino/issues/21681
         assertQuery("SELECT true FROM " + STRING_TYPE_TABLE + " WHERE string_col = 'a''quote'", "VALUES true");
         assertQueryReturnsEmptyResult("SELECT true FROM " + STRING_TYPE_TABLE + " WHERE string_col = 'a''empty'");
     }
