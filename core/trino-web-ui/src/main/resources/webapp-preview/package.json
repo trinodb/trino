@@ -25,7 +25,7 @@
     "@mui/icons-material": "^7.3.8",
     "@mui/material": "^7.3.8",
     "@mui/x-charts": "^8.27.0",
-    "@xyflow/react": "^12.10.0",
+    "@xyflow/react": "^12.10.1",
     "axios": "^1.13.6",
     "lodash": "^4.17.23",
     "react": "^19.1.4",
