@@ -200,8 +200,6 @@ public class CassandraPartitionManager
                 continue;
             }
 
-            // For non-single-value ranges, Cassandra cannot use BETWEEN on partition keys.
-            // Expand to discrete values for integer types (INT, BIGINT, SMALLINT, TINYINT).
             if (range.isLowUnbounded() || range.isHighUnbounded()) {
                 return ImmutableSet.of();
             }
