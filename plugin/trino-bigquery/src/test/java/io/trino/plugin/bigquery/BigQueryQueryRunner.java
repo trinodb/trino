@@ -143,7 +143,12 @@ public final class BigQueryQueryRunner
 
         public BigQuerySqlExecutor()
         {
-            this.bigQuery = createBigQueryClient();
+            this(BIGQUERY_CREDENTIALS_KEY);
+        }
+
+        public BigQuerySqlExecutor(String credentialsKey)
+        {
+            this.bigQuery = createBigQueryClient(credentialsKey);
         }
 
         @Override
@@ -190,10 +195,10 @@ public final class BigQueryQueryRunner
             return bigQuery;
         }
 
-        private static BigQuery createBigQueryClient()
+        private static BigQuery createBigQueryClient(String credentialsKey)
         {
             try {
-                InputStream jsonKey = new ByteArrayInputStream(Base64.getDecoder().decode(BIGQUERY_CREDENTIALS_KEY));
+                InputStream jsonKey = new ByteArrayInputStream(Base64.getDecoder().decode(credentialsKey));
                 return BigQueryOptions.newBuilder()
                         .setCredentials(ServiceAccountCredentials.fromStream(jsonKey))
                         .setRetrySettings(new RetryOptionsConfigurer(new BigQueryRpcConfig()
