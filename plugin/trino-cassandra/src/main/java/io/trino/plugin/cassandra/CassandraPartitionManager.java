@@ -50,12 +50,6 @@ public class CassandraPartitionManager
 {
     private static final Logger log = Logger.get(CassandraPartitionManager.class);
 
-    /**
-     * Maximum number of partition key values to expand from a range predicate.
-     * Cassandra cannot use BETWEEN for INT/BIGINT partition keys, so we expand
-     * consecutive ranges (e.g. IN (1,2,3,4) simplified to BETWEEN 1 AND 4) to discrete
-     * values for partition pruning. Ranges exceeding this limit fall back to full scan.
-     */
     private static final int MAX_PARTITION_KEY_RANGE_EXPANSION = 1000;
 
     private static final Set<CassandraType.Kind> INTEGER_PARTITION_KEY_TYPES = ImmutableSet.of(INT, BIGINT, SMALLINT, TINYINT);
@@ -180,11 +174,6 @@ public class CassandraPartitionManager
         return partitionColumnValues.build();
     }
 
-    /**
-     * Extracts partition key values from a domain's ranges. For single-value ranges, the value is used directly.
-     * For multi-value ranges on INT/BIGINT/SMALLINT/TINYINT partition keys, the range is expanded to discrete
-     * values (since Cassandra cannot use BETWEEN for partition key filtering but supports IN).
-     */
     private ImmutableSet<Object> extractPartitionKeyValues(CassandraColumnHandle columnHandle, Ranges ranges)
     {
         ImmutableSet.Builder<Object> columnValues = ImmutableSet.builder();
