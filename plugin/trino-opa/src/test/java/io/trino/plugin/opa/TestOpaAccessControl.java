@@ -561,8 +561,6 @@ final class TestOpaAccessControl
                         table.getSchemaTableName().getSchemaName(),
                         table.getSchemaTableName().getTableName(),
                         dummyColumnName);
-        // When access is denied, filterColumns is called to determine inaccessible columns for the error message,
-        // causing the restrictive client to make additional FilterColumns requests
         assertAccessControlMethodBehaviour(wrappedMethod, ImmutableSet.of(expectedRequest), true);
     }
 
