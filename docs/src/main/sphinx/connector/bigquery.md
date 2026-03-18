@@ -189,6 +189,9 @@ a few caveats:
   - Duration for which metadata retrieved from BigQuery is cached and reused.
     Set to `0ms` to disable the cache.
   - `0ms`
+* - `bigquery.metadata-page-size`
+  - The number of metadata entries retrieved per API request.
+  - `1000`
 * - `bigquery.max-read-rows-retries`
   - The number of retries in case of retryable server issues.
   - `3`
@@ -208,6 +211,13 @@ a few caveats:
 * - `bigquery.query-results-cache.enabled`
   - Enable [query results cache](https://cloud.google.com/bigquery/docs/cached-results).
   - `false`
+* - `bigquery.job.label-name`
+  - Adds a label with the given name to the BigQuery job.
+  -
+* - `bigquery.job.label-format`
+  - Adds `bigquery.job.label-name` to the BigQuery job with a value format that
+    supports `$QUERY_ID`, `$SOURCE`, `$USER`, and `$TRACE_TOKEN`.
+  -
 * - `bigquery.arrow-serialization.enabled`
   - Enable using Apache Arrow serialization when reading data from BigQuery.
     Read this [section](bigquery-arrow-serialization-support) before using this feature.
@@ -219,6 +229,12 @@ a few caveats:
   - The max number of partitions to split the data into. Reduce this number if
     the default parallelism (number of workers x 3) is too high.
   -
+* - `bigquery.metadata.parallelism`
+  - Limits metadata enumeration calls parallelism.
+  - `min(available CPUs, 32)`
+* - `bigquery.projection-pushdown-enabled`
+  - Enable dereference push down for `ROW` type.
+  - `true`
 * - `bigquery.channel-pool.initial-size`
   - The initial size of the connection pool, also known as a channel pool,
     used for gRPC communication.
