@@ -1327,6 +1327,26 @@ public final class MathFunctions
         return Float.isNaN(floatValue);
     }
 
+    @ScalarFunction(value = "is_nan", neverFails = true, hidden = true)
+    public static final class IsNan
+    {
+        private IsNan() {}
+
+        @LiteralParameters({"p", "s"})
+        @SqlType(StandardTypes.BOOLEAN)
+        public static boolean isNaNShortDecimal(@SqlType("decimal(p, s)") long num)
+        {
+            return false;
+        }
+
+        @LiteralParameters({"p", "s"})
+        @SqlType(StandardTypes.BOOLEAN)
+        public static boolean isNaNLongDecimal(@SqlType("decimal(p, s)") Int128 num)
+        {
+            return false;
+        }
+    }
+
     @Description("Test if value is not-a-number")
     @ScalarFunction(value = "is_nan", neverFails = true)
     @SqlType(StandardTypes.BOOLEAN)
@@ -1362,6 +1382,26 @@ public final class MathFunctions
         return Doubles.isFinite(num);
     }
 
+    @ScalarFunction(value = "is_finite", neverFails = true, hidden = true)
+    public static final class IsFinite
+    {
+        private IsFinite() {}
+
+        @LiteralParameters({"p", "s"})
+        @SqlType(StandardTypes.BOOLEAN)
+        public static boolean isFiniteShortDecimal(@SqlType("decimal(p, s)") long num)
+        {
+            return true;
+        }
+
+        @LiteralParameters({"p", "s"})
+        @SqlType(StandardTypes.BOOLEAN)
+        public static boolean isFiniteLongDecimal(@SqlType("decimal(p, s)") Int128 num)
+        {
+            return true;
+        }
+    }
+
     @Description("Test if value is finite")
     @ScalarFunction(neverFails = true)
     @SqlType(StandardTypes.BOOLEAN)
@@ -1387,6 +1427,26 @@ public final class MathFunctions
     public static boolean isInfinite(@SqlType(StandardTypes.DOUBLE) double num)
     {
         return Double.isInfinite(num);
+    }
+
+    @ScalarFunction(value = "is_infinite", neverFails = true, hidden = true)
+    public static final class IsInfinite
+    {
+        private IsInfinite() {}
+
+        @LiteralParameters({"p", "s"})
+        @SqlType(StandardTypes.BOOLEAN)
+        public static boolean isInfiniteShortDecimal(@SqlType("decimal(p, s)") long num)
+        {
+            return false;
+        }
+
+        @LiteralParameters({"p", "s"})
+        @SqlType(StandardTypes.BOOLEAN)
+        public static boolean isInfiniteLongDecimal(@SqlType("decimal(p, s)") Int128 num)
+        {
+            return false;
+        }
     }
 
     @Description("Test if value is infinite")

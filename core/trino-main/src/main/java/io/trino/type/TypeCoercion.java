@@ -393,8 +393,7 @@ public final class TypeCoercion
             case StandardTypes.DECIMAL -> switch (resultTypeBase) {
                 case StandardTypes.REAL -> Optional.of(REAL);
                 case StandardTypes.DOUBLE -> Optional.of(DOUBLE);
-                // TODO there should be coercion from DECIMAL to NUMBER, however this currently breaks arithmetics between integer types and decimals
-                //case StandardTypes.NUMBER -> Optional.of(NumberType.NUMBER);
+                case StandardTypes.NUMBER -> Optional.of(NumberType.NUMBER);
                 default -> Optional.empty();
             };
             case StandardTypes.REAL -> switch (resultTypeBase) {
