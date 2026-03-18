@@ -89,6 +89,13 @@ public class LazyOutputBuffer
     }
 
     @Override
+    public boolean usesExternalStorage()
+    {
+        OutputBuffer outputBuffer = getDelegateOutputBufferOrFail();
+        return outputBuffer.usesExternalStorage();
+    }
+
+    @Override
     public void addStateChangeListener(StateChangeListener<BufferState> stateChangeListener)
     {
         stateMachine.addStateChangeListener(stateChangeListener);

@@ -120,6 +120,12 @@ public class ArbitraryOutputBuffer
     }
 
     @Override
+    public boolean usesExternalStorage()
+    {
+        return false;
+    }
+
+    @Override
     public OutputBufferInfo getInfo()
     {
         //

@@ -213,6 +213,12 @@ public class TestPagePartitionerPool
     {
         Map<Integer, Integer> partitionBufferPages = new HashMap<>();
 
+        @Override
+        public boolean usesExternalStorage()
+        {
+            return false;
+        }
+
         public int totalEnqueuedPageCount()
         {
             return partitionBufferPages.values().stream().mapToInt(Integer::intValue).sum();

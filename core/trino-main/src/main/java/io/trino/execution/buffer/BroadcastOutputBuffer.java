@@ -121,6 +121,12 @@ public class BroadcastOutputBuffer
     }
 
     @Override
+    public boolean usesExternalStorage()
+    {
+        return false;
+    }
+
+    @Override
     public OutputBufferInfo getInfo()
     {
         //
