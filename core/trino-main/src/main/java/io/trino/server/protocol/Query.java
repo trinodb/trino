@@ -33,6 +33,7 @@ import io.trino.client.QueryData;
 import io.trino.client.QueryError;
 import io.trino.client.QueryResults;
 import io.trino.exchange.ExchangeDataSource;
+import io.trino.exchange.ExchangeEncryptionKey;
 import io.trino.exchange.ExchangeManagerRegistry;
 import io.trino.exchange.LazyExchangeDataSource;
 import io.trino.execution.BasicStageInfo;
@@ -43,6 +44,7 @@ import io.trino.execution.QueryManager;
 import io.trino.execution.QueryState;
 import io.trino.execution.StageId;
 import io.trino.execution.buffer.PageDeserializer;
+import io.trino.execution.buffer.PagesSerdeFactory;
 import io.trino.memory.context.SimpleLocalMemoryContext;
 import io.trino.operator.DirectExchangeClientSupplier;
 import io.trino.server.ExternalUriInfo;
@@ -127,8 +129,12 @@ class Query
     private final Executor resultsProcessorExecutor;
     private final ScheduledExecutorService timeoutExecutor;
 
+    private final PagesSerdeFactory serdeFactory;
+
     @GuardedBy("this")
     private PageDeserializer deserializer;
+    @GuardedBy("this")
+    private boolean exchangeFinished;
     private final boolean supportsParametricDateTime;
     private final boolean supportsNumberType;
 
@@ -259,8 +265,7 @@ class Query
         this.timeoutExecutor = timeoutExecutor;
         this.supportsParametricDateTime = session.getClientCapabilities().contains(ClientCapabilities.PARAMETRIC_DATETIME.toString());
         this.supportsNumberType = session.getClientCapabilities().contains(ClientCapabilities.NUMBER.toString());
-        deserializer = createExchangePagesSerdeFactory(blockEncodingSerde, session)
-                .createDeserializer(session.getExchangeEncryptionKey().map(Ciphers::deserializeAesEncryptionKey));
+        this.serdeFactory = createExchangePagesSerdeFactory(blockEncodingSerde, session);
     }
 
     public void cancel()
@@ -452,7 +457,7 @@ class Query
         }
 
         QueryData queryData = queryDataProducer.produce(externalUriInfo, resultRows, this::handleSerializationException);
-        if (deserializer == null) {
+        if (exchangeFinished) {
             queryDataProducer.close(); // Close when there are no more pages
         }
 
@@ -591,6 +596,11 @@ class Query
                     break;
                 }
 
+                if (deserializer == null) {
+                    Optional<Slice> effectiveKey = ExchangeEncryptionKey.keyFor(session, exchangeDataSource);
+                    deserializer = serdeFactory.createDeserializer(effectiveKey.map(Ciphers::deserializeAesEncryptionKey));
+                }
+
                 Page page = deserializer.deserialize(serializedPage);
                 bytes += estimateJsonSize(page);
                 resultBuilder.addPage(page);
@@ -598,6 +608,7 @@ class Query
             if (exchangeDataSource.isFinished()) {
                 exchangeDataSource.close();
                 deserializer = null; // null to reclaim memory of PagesSerde which does not expose explicit lifecycle
+                exchangeFinished = true;
             }
         }
         catch (Throwable cause) {
