@@ -17,8 +17,11 @@ import com.google.common.collect.ImmutableList;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.connector.ConnectorSplitSource;
+import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.NullableValue;
+import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.TupleDomain;
+import io.trino.spi.predicate.ValueSet;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -32,6 +35,7 @@ import java.util.Optional;
 import static io.airlift.testing.Closeables.closeAll;
 import static io.trino.plugin.cassandra.CassandraTestingUtils.CASSANDRA_TYPE_MANAGER;
 import static io.trino.plugin.cassandra.CassandraTestingUtils.createKeyspace;
+import static io.trino.spi.type.IntegerType.INTEGER;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
@@ -101,6 +105,51 @@ final class TestCassandraSplitManager
             assertThat(((CassandraSplit) splits.get(0)).partitionId()).isEqualTo("\"partition_key\" in (0,1)");
             assertThat(((CassandraSplit) splits.get(1)).partitionId()).isEqualTo("\"partition_key\" in (2)");
         }
+
+        session.execute(format("DROP TABLE %s.%s", KEYSPACE, tableName));
+    }
+
+    @Test
+    void testIntPartitionKeyRangeExpansionForConsecutiveValues()
+            throws Exception
+    {
+        String tableName = "int_partition_key_range_table";
+
+        session.execute(format(
+                """
+                CREATE TABLE %s.%s (
+                      partition_key int,
+                      data text,
+                      PRIMARY KEY(partition_key))
+                """,
+                KEYSPACE,
+                tableName));
+
+        for (int i = 1; i <= 5; i++) {
+            session.execute(format("INSERT INTO %s.%s (partition_key, data) VALUES (%d, 'value_%d')", KEYSPACE, tableName, i, i));
+        }
+
+        CassandraColumnHandle columnHandle = new CassandraColumnHandle("partition_key", 0, CassandraTypes.INT, true, false, false, false);
+        // Simulate planner producing a range (e.g. IN (1,2,3,4,5) simplified to BETWEEN 1 AND 5)
+        TupleDomain<ColumnHandle> tupleDomain = TupleDomain.withColumnDomains(
+                Map.of(columnHandle,
+                        Domain.create(ValueSet.ofRanges(Range.range(INTEGER, 1L, true, 5L, true)), false)));
+
+        CassandraPartitionManager partitionManager = new CassandraPartitionManager(session, CASSANDRA_TYPE_MANAGER);
+        CassandraNamedRelationHandle tableHandle = new CassandraNamedRelationHandle(KEYSPACE, tableName);
+        CassandraPartitionResult result = partitionManager.getPartitions(tableHandle, tupleDomain);
+
+        // Range should be expanded to discrete values [1,2,3,4,5] for partition pruning
+        assertThat(result.partitions()).hasSize(5);
+        assertThat(result.partitions().stream()
+                .map(p -> p.getPartitionId())
+                .toList())
+                .containsExactlyInAnyOrder(
+                        "\"partition_key\" = 1",
+                        "\"partition_key\" = 2",
+                        "\"partition_key\" = 3",
+                        "\"partition_key\" = 4",
+                        "\"partition_key\" = 5");
 
         session.execute(format("DROP TABLE %s.%s", KEYSPACE, tableName));
     }

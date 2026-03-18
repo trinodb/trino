@@ -58,6 +58,8 @@ public class CassandraPartitionManager
      */
     private static final int MAX_PARTITION_KEY_RANGE_EXPANSION = 1000;
 
+    private static final Set<CassandraType.Kind> INTEGER_PARTITION_KEY_TYPES = ImmutableSet.of(INT, BIGINT, SMALLINT, TINYINT);
+
     private final CassandraSession cassandraSession;
     private final CassandraTypeManager cassandraTypeManager;
 
@@ -232,6 +234,6 @@ public class CassandraPartitionManager
 
     private static boolean isIntegerPartitionKeyType(CassandraType.Kind kind)
     {
-        return kind == INT || kind == BIGINT || kind == SMALLINT || kind == TINYINT;
+        return INTEGER_PARTITION_KEY_TYPES.contains(kind);
     }
 }
