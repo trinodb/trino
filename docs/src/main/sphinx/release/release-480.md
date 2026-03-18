@@ -1,4 +1,4 @@
-# Release 480 (xxx Feb 2026)
+# Release 480 (xxx Mar 2026)
 
 ## General
 
@@ -10,10 +10,13 @@
 * Add variant of {func}`array_first` for finding the first element that matches
   a predicate. ({issue}`27706`)
 * Add support for casting `varbinary` to `json` with base64. ({issue}`28234`)
+* Add {doc}`/functions/datasketches`. ({issue}`27563`)
 * {{breaking}} Remove `enable-large-dynamic-filters` configuration property and the 
   corresponding system session property `enable_large_dynamic_filters`. ({issue}`27637`)
 * {{breaking}} Remove the `dynamic-filtering.small*` and `dynamic-filtering.large-broadcast*` 
   configuration properties. ({issue}`27637`)
+* {{breaking}} Remove `deprecated.http-server.authentication.oauth2.groups-field`
+  configuration property. ({issue}`28646`)
 * Improve performance for remote data exchanges on newer CPU architectures and Graviton
   4 CPUs. ({issue}`27586`)
 * Improve performance of queries with remote data exchanges or aggregations. ({issue}`27657`)
