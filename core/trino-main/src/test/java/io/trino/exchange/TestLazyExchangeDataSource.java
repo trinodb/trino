@@ -27,9 +27,20 @@ import org.junit.jupiter.api.Test;
 
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestLazyExchangeDataSource
 {
+    @Test
+    public void testUsesExternalStorageBeforeResolution()
+    {
+        try (LazyExchangeDataSource source = createUnresolvedSource()) {
+            assertThatThrownBy(source::usesExternalStorage)
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessage("Exchange data source not initialized yet");
+        }
+    }
+
     @Test
     public void testIsBlockedCancellationIsolationInInitializationPhase()
     {

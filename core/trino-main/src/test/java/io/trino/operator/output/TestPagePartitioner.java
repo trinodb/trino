@@ -987,6 +987,12 @@ public class TestPagePartitioner
         private final Multimap<Integer, Slice> enqueued = ArrayListMultimap.create();
         private RuntimeException throwOnEnqueue;
 
+        @Override
+        public boolean usesExternalStorage()
+        {
+            return false;
+        }
+
         public Stream<Page> getEnqueuedDeserialized()
         {
             return getEnqueued().stream().map(PAGE_DESERIALIZER::deserialize);

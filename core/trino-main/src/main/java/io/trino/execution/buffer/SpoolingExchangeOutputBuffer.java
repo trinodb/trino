@@ -74,6 +74,12 @@ public class SpoolingExchangeOutputBuffer
     }
 
     @Override
+    public boolean usesExternalStorage()
+    {
+        return true;
+    }
+
+    @Override
     public OutputBufferInfo getInfo()
     {
         BufferState state = stateMachine.getState();
