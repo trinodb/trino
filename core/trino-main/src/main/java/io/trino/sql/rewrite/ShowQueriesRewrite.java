@@ -456,7 +456,6 @@ public final class ShowQueriesRewrite
             Optional<String> nestedFieldName = Optional.empty();
             QualifiedObjectName tableName;
 
-            // Parse table.column or catalog.schema.table.column for nested field display
             if (parts.size() == 4) {
                 tableName = new QualifiedObjectName(parts.get(0), parts.get(1), parts.get(2));
                 nestedFieldName = Optional.of(parts.get(3));
@@ -486,7 +485,6 @@ public final class ShowQueriesRewrite
                 throw semanticException(SCHEMA_NOT_FOUND, showColumns, "Schema '%s' does not exist", tableName.schemaName());
             }
 
-            // Handle nested field: SHOW COLUMNS FROM table.complex shows fields of ROW column "complex"
             if (nestedFieldName.isPresent()) {
                 return visitShowColumnsNested(showColumns, tableName, nestedFieldName.get());
             }
@@ -551,6 +549,9 @@ public final class ShowQueriesRewrite
                     ordering(ascending("ordinal_position")));
         }
 
+        /**
+         * Handles SHOW COLUMNS for nested ROW field: SHOW COLUMNS FROM table.complex shows fields of ROW column "complex".
+         */
         private Query visitShowColumnsNested(ShowColumns showColumns, QualifiedObjectName tableName, String nestedFieldName)
         {
             if (metadata.isMaterializedView(session, tableName) || metadata.isView(session, tableName)) {
