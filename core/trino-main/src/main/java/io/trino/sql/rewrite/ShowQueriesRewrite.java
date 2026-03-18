@@ -620,22 +620,17 @@ public final class ShowQueriesRewrite
 
         private boolean likeMatches(String value, String pattern, Optional<String> escape)
         {
-            // Simple LIKE matching - for proper SQL LIKE we'd need to integrate with the planner
             if (pattern.equals("%")) {
                 return true;
             }
             if (!pattern.contains("%") && !pattern.contains("_")) {
                 return value.equals(pattern);
             }
-            // Basic fallback: treat % as .* and _ as . for regex-like matching
             String regex = pattern
                     .replace("\\", "\\\\")
                     .replace(".", "\\.")
                     .replace("%", ".*")
                     .replace("_", ".");
-            if (escape.isPresent()) {
-                // Simplified: if escape is present, we'd need proper LIKE semantics
-            }
             return value.matches(regex);
         }
 

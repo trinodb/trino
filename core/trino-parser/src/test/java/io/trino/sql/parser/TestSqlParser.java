@@ -1667,7 +1667,6 @@ public class TestSqlParser
                         QualifiedName.of(ImmutableList.of(new Identifier(location(1, 19), "a", false), new Identifier(location(1, 21), "b", false))),
                         Optional.of("%$_%"),
                         Optional.of("$")));
-        // SHOW COLUMNS FROM table.complex for nested ROW fields (4-part: catalog.schema.table.column)
         assertThat(statement("SHOW COLUMNS FROM a.b.c.d"))
                 .isEqualTo(new ShowColumns(
                         location(1, 1),
