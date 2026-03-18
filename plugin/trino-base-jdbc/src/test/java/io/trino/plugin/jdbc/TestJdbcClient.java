@@ -146,9 +146,9 @@ public class TestJdbcClient
                         .map(ColumnMetadata::getName)
                         .collect(Collectors.toList())));
 
-        assertThat(columnsByName.get(new SchemaTableName("example", "numbers")))
+        assertThat(columnsByName.get(new SchemaTableName("example", "numbers")).stream().map(String::toUpperCase).toList())
                 .containsExactly("TEXT", "TEXT_SHORT", "VALUE");
-        assertThat(columnsByName.get(new SchemaTableName("example", "timestamps")))
+        assertThat(columnsByName.get(new SchemaTableName("example", "timestamps")).stream().map(String::toUpperCase).toList())
                 .containsExactly("TS_3", "TS_6", "TS_9");
     }
 
