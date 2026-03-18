@@ -549,9 +549,6 @@ public final class ShowQueriesRewrite
                     ordering(ascending("ordinal_position")));
         }
 
-        /**
-         * Handles SHOW COLUMNS for nested ROW field: SHOW COLUMNS FROM table.complex shows fields of ROW column "complex".
-         */
         private Query visitShowColumnsNested(ShowColumns showColumns, QualifiedObjectName tableName, String nestedFieldName)
         {
             if (metadata.isMaterializedView(session, tableName) || metadata.isView(session, tableName)) {
