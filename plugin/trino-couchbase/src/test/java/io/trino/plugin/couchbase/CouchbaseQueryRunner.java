@@ -1,35 +1,38 @@
 package io.trino.plugin.couchbase;
 
-import com.couchbase.client.core.api.query.CoreQueryResult;
+import com.couchbase.client.core.deps.org.xbill.DNS.Zone;
 import com.couchbase.client.java.Bucket;
 import com.couchbase.client.java.Cluster;
 import com.couchbase.client.java.Collection;
 import com.couchbase.client.java.Scope;
-import com.couchbase.client.java.json.JsonArray;
 import com.couchbase.client.java.json.JsonObject;
-import com.couchbase.client.java.query.QueryResult;
 import com.google.common.collect.ImmutableList;
+import com.sun.jna.platform.mac.SystemB;
 import io.airlift.log.Logger;
+import io.airlift.log.Logging;
 import io.trino.Session;
 import io.trino.client.ClientCapabilities;
 import io.trino.execution.QueryIdGenerator;
 import io.trino.metadata.SessionPropertyManager;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.spi.security.Identity;
+import io.trino.spi.type.*;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.MaterializedRow;
+import io.trino.testing.TestingSession;
 import io.trino.tpch.TpchTable;
-import io.trino.spi.type.Type;
-import org.json.simple.JSONObject;
+import org.junit.jupiter.api.TestInstance;
 
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
-import java.lang.reflect.Field;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.LocalDate;
+import java.time.ZoneOffset;
+import java.time.temporal.ChronoUnit;
+import java.time.temporal.TemporalField;
 import java.util.*;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
@@ -38,6 +41,7 @@ import static io.trino.plugin.couchbase.TestCouchbaseConnector.CBBUCKET;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DateType.DATE;
+import static io.trino.testing.QueryAssertions.copyTpchTables;
 import static io.trino.testing.TestingSession.DEFAULT_TIME_ZONE_KEY;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
@@ -61,29 +65,10 @@ public class CouchbaseQueryRunner {
         return new Builder(server)
                 .addConnectorProperty("couchbase.cluster", server.getConnectionString())
                 .addConnectorProperty("couchbase.bucket", "trino-test")
+                .addConnectorProperty("couchbase.scope", "tpch")
                 .addConnectorProperty("couchbase.username", server.getUsername())
                 .addConnectorProperty("couchbase.password", server.getPassword())
                 .addConnectorProperty("couchbase.schema-folder", SCHEMA_DIR.toString());
-    }
-
-    private static Session.SessionBuilder testSessionBuilder() {
-        return testSessionBuilder(new SessionPropertyManager());
-    }
-
-    private static Session.SessionBuilder testSessionBuilder(SessionPropertyManager sessionPropertyManager) {
-        return Session.builder(sessionPropertyManager)
-                .setQueryId(queryIdGenerator.createNextQueryId())
-                .setIdentity(Identity.ofUser("user"))
-                .setOriginalIdentity(Identity.ofUser("user"))
-                .setSource("test")
-                .setCatalog("catalog")
-                .setSchema("schema")
-                .setTimeZoneKey(DEFAULT_TIME_ZONE_KEY)
-                .setLocale(ENGLISH)
-                .setClientCapabilities(Arrays.stream(ClientCapabilities.values()).map(Enum::name)
-                        .collect(toImmutableSet()))
-                .setRemoteUserAddress("address")
-                .setUserAgent("agent");
     }
 
     public static final class Builder
@@ -95,7 +80,7 @@ public class CouchbaseQueryRunner {
 
         public Builder(CouchbaseServer server) {
             super(
-                    testSessionBuilder()
+                    TestingSession.testSessionBuilder()
                             .setCatalog("couchbase")
                             .setSchema(TEST_SCHEMA)
                             .build()
@@ -133,11 +118,11 @@ public class CouchbaseQueryRunner {
                         String tpchTableName = table.getTableName();
                         MaterializedResult rows = queryRunner.execute(format("SELECT * FROM tpch.%s.%s", TINY_SCHEMA_NAME, tpchTableName));
                         copyAndIngestTpchData(cluster, rows, server, table.getTableName(), connectorProperties);
-                        generateInferFiles(cluster, table.getTableName());
+                        generateTypeMappingFile(table.getTableName(), rows);
                         log.info("Imported %s rows for %s", rows.getRowCount(), table.getTableName());
                     }
                 }
-                log.info("Loading from couchbase.%s complete", TEST_SCHEMA);
+                log.info("Loading into couchbase.%s complete", TEST_SCHEMA);
                 return queryRunner;
             }
             catch (Throwable e) {
@@ -147,36 +132,22 @@ public class CouchbaseQueryRunner {
         }
     }
 
-    private static void generateInferFiles(Cluster cluster, String tableName) {
-        QueryResult qr = cluster.query(String.format("INFER `%s`.`%s`.`%s`", CBBUCKET, TEST_SCHEMA, tableName));
-        try {
-            qr.rowsAsObject();
-            throw new IllegalStateException("Infer didn't throw an Exception, this indicates that a bug in the SDK has been fixed");
-        } catch (Exception ex) {
-            if (ex.getMessage().startsWith("Deserialization of content into target class com.couchbase.client.java.json.JsonObject failed")) {
-                try {
-                    Field field = QueryResult.class.getDeclaredField("internal");
-                    field.setAccessible(true);
-                    CoreQueryResult internal = (CoreQueryResult) field.get(qr);
-                    List<JsonObject> objList = new ArrayList<>();
-                    internal.rows().forEach(e -> {
-                                JsonObject obj = JsonObject.create();
-                                obj.put("content", JsonArray.fromJson(e.data()));
-                                objList.add(obj);
-                            }
-                    );
-                    JsonObject r = objList.get(0);
-                    try (FileWriter fw = new FileWriter(new File(SCHEMA_DIR.toFile(), String.format("%s.%s.%s.json", CBBUCKET, TEST_SCHEMA, tableName)))) {
-                        fw.write(r.toString());
-                    } catch (IOException e) {
-                        throw new RuntimeException("Failed to generate INFER file", e);
-                    }
-                } catch (NoSuchFieldException | IllegalAccessException e) {
-                    throw new RuntimeException("Failed to obtain INFER result", e);
-                }
-            } else {
-                throw ex;
+    private static void generateTypeMappingFile(String tableName, MaterializedResult rows) {
+        try (FileWriter fw = new FileWriter(new File(SCHEMA_DIR.toFile(), String.format("%s.%s.%s.json", CBBUCKET, TEST_SCHEMA, tableName)))) {
+            HashMap<String, Object> mappings = new HashMap<>();
+            for (int i = 0; i < rows.getColumnNames().size(); i++) {
+                JsonObject mapping = JsonObject.create();
+                mapping.put("type", rows.getTypes().get(i).getTypeSignature().jsonValue());
+                mapping.put("order", i);
+                mappings.put(rows.getColumnNames().get(i), mapping);
             }
+            JsonObject infer = JsonObject.from(mappings);
+            JsonObject propHolder = JsonObject.create();
+            propHolder.put("properties", infer);
+            fw.write(propHolder.toString());
+            log.info("Inferred JSON file for colume %s", propHolder);
+        } catch (Exception ex) {
+            throw new RuntimeException("Failed to generate INFER file", ex);
         }
     }
 
@@ -216,11 +187,21 @@ public class CouchbaseQueryRunner {
     }
 
     private static Object convertType(Object value, Type type) {
-        if (type == BOOLEAN) {
+        if (value == null) {
+            return null;
+        }
+
+        if (type == BOOLEAN
+                || type instanceof VarcharType
+                || type == IntegerType.INTEGER
+                || type == BigintType.BIGINT
+                || type == DoubleType.DOUBLE) {
             return value;
         } else if (type == DATE) {
-            return ((LocalDate) value).toString();
+            return ChronoUnit.DAYS.between(LocalDate.ofEpochDay(0), (LocalDate) value);
+        } else {
+            throw new RuntimeException(String.format("Unsupported type: %s -- class: %s", type,  value.getClass()));
         }
-        return value;
+
     }
 }
