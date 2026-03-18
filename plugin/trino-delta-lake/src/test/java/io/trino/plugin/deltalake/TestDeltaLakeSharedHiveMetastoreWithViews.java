@@ -66,7 +66,6 @@ public class TestDeltaLakeSharedHiveMetastoreWithViews
 
             schema = queryRunner.getDefaultSession().getSchema().orElseThrow();
             queryRunner.execute("CREATE TABLE hive." + schema + ".hive_table (a_integer integer)");
-            // HiveServer2 may need a moment to be ready after container startup; retry on transient failures
             runOnHiveWithRetry("CREATE VIEW " + schema + ".hive_view AS SELECT *  FROM " + schema + ".hive_table");
             queryRunner.execute("CREATE TABLE delta." + schema + ".delta_table (a_varchar varchar)");
 
