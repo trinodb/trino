@@ -102,6 +102,14 @@ public class TestMariaDbTypeMapping
     }
 
     @Test
+    public void testBit()
+    {
+        testUnsupportedDataType("bit");
+        testUnsupportedDataType("bit(1)");
+        testUnsupportedDataType("bit(10)");
+    }
+
+    @Test
     public void testBoolean()
     {
         SqlDataTypeTest.create()

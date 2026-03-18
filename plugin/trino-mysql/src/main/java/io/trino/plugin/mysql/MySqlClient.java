@@ -566,7 +566,10 @@ public class MySqlClient
 
         switch (typeHandle.jdbcType()) {
             case Types.BIT:
-                return Optional.of(booleanColumnMapping());
+                if (typeHandle.requiredColumnSize() == 1) {
+                    return Optional.of(booleanColumnMapping());
+                }
+                break;
 
             case Types.TINYINT:
                 return Optional.of(tinyintColumnMapping());
