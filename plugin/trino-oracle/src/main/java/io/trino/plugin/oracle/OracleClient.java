@@ -404,7 +404,7 @@ public class OracleClient
     {
         ImmutableList.Builder<JdbcColumnHandle> columns = ImmutableList.builder();
         for (int column = 1; column <= metadata.getColumnCount(); column++) {
-            JdbcTypeHandle jdbcTypeHandle = getJdbcTypeHandle(session, metadata, column);
+            JdbcTypeHandle jdbcTypeHandle = getJdbcTypeHandle(metadata, column);
 
             // Use getColumnLabel method because query pass-through table function may contain column aliases
             String name = metadata.getColumnLabel(column);
@@ -416,7 +416,7 @@ public class OracleClient
         return columns.build();
     }
 
-    private static JdbcTypeHandle getJdbcTypeHandle(ConnectorSession session, ResultSetMetaData metadata, int column)
+    private static JdbcTypeHandle getJdbcTypeHandle(ResultSetMetaData metadata, int column)
             throws SQLException
     {
         int columnType = metadata.getColumnType(column);
@@ -430,12 +430,8 @@ public class OracleClient
             // when the column class name is "java.lang.Double" it means it's actual a FLOAT type in Oracle side
             // and the scale is expected to be -127
             if ("java.lang.Double".equals(columnClassName)) {
-                int precision = columnSize + max(-scale, 0);
                 verify(scale == -127, "FLOAT scale is expected to be -127 but got %s", scale);
-                // we just handle the precision here is not able to handle by `toColumnMapping` method
-                if (!isAllowedNumber(session, precision, scale, columnSize)) {
-                    return new JdbcTypeHandle(FLOAT, Optional.of("FLOAT"), Optional.of(columnSize), Optional.of(scale), Optional.empty(), Optional.of(caseSensitive));
-                }
+                return new JdbcTypeHandle(FLOAT, Optional.of("FLOAT"), Optional.of(columnSize), Optional.of(scale), Optional.empty(), Optional.of(caseSensitive));
             }
         }
 
@@ -446,25 +442,6 @@ public class OracleClient
                 Optional.of(scale),
                 Optional.empty(), // TODO support arrays
                 Optional.of(caseSensitive));
-    }
-
-    private static boolean isAllowedNumber(ConnectorSession session, int precision, int scale, int columnSize)
-    {
-        Optional<Integer> numberDefaultScale = getNumberDefaultScale(session);
-        RoundingMode roundingMode = getNumberRoundingMode(session);
-        if (precision < scale) {
-            if (roundingMode == RoundingMode.UNNECESSARY) {
-                return false;
-            }
-        }
-        else if (numberDefaultScale.isPresent() && precision == PRECISION_OF_UNSPECIFIED_NUMBER) {
-            return true;
-        }
-        else if (precision > Decimals.MAX_PRECISION || columnSize <= 0) {
-            return false;
-        }
-
-        return true;
     }
 
     // Iterates over filtered schemas to fetch column details per schema, preventing unnecessary columns for Oracle's internal schemas
