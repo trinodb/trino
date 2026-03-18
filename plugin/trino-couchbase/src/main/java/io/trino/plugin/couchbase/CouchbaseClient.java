@@ -29,6 +29,7 @@ import java.util.stream.Stream;
 public class CouchbaseClient {
     private final CouchbaseConfig config;
     private final Cluster cluster;
+
     @Inject
     public CouchbaseClient(CouchbaseConfig config)
     {
