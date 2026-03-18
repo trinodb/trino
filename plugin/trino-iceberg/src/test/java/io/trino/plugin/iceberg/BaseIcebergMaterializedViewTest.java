@@ -41,6 +41,7 @@ import io.trino.spi.function.table.TableFunctionProcessorProvider;
 import io.trino.spi.function.table.TableFunctionProcessorState;
 import io.trino.spi.function.table.TableFunctionSplitProcessor;
 import io.trino.spi.security.ConnectorIdentity;
+import io.trino.spi.security.Identity;
 import io.trino.sql.tree.ExplainType;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.MaterializedRow;
@@ -1000,6 +1001,47 @@ public abstract class BaseIcebergMaterializedViewTest
         assertUpdate("DROP MATERIALIZED VIEW " + mvName2);
         assertUpdate("DROP MATERIALIZED VIEW " + mvName3);
         assertUpdate("DROP MATERIALIZED VIEW " + mvName4);
+        assertUpdate("DROP TABLE " + sourceTableName);
+    }
+
+    @Test
+    public void testMaterializedViewWithSessionScopedExpressions()
+    {
+        String sourceTableName = "source_table_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + sourceTableName + " (value INTEGER)");
+        assertUpdate("INSERT INTO " + sourceTableName + " VALUES 1", 1);
+
+        // Session-scoped expressions (current_user, current_catalog, current_schema, current_path)
+        // are constants for materialized views (fixed at creation time), so the MV should be FRESH after refresh
+        String mvName = "mv_session_scoped_" + randomNameSuffix();
+        assertUpdate("CREATE MATERIALIZED VIEW " + mvName + " AS SELECT *, current_user AS created_by FROM " + sourceTableName);
+
+        assertFreshness(mvName, "STALE");
+        assertUpdate("REFRESH MATERIALIZED VIEW " + mvName, 1);
+        assertFreshness(mvName, "FRESH");
+        assertQuery("SELECT created_by FROM " + mvName, "VALUES 'user'");
+
+        // A different user querying the MV still sees the original creator's name
+        // because the MV is FRESH and returns cached data
+        Session otherUserSession = Session.builder(getSession())
+                .setIdentity(Identity.ofUser("other_user"))
+                .build();
+        assertQuery(otherUserSession, "SELECT created_by FROM " + mvName, "VALUES 'user'");
+
+        assertUpdate("INSERT INTO " + sourceTableName + " VALUES 2", 1);
+        assertFreshness(mvName, "STALE");
+        // Stale MV still serves cached data from storage
+        assertQuery(otherUserSession, "SELECT created_by FROM " + mvName, "VALUES 'user'");
+        // Refresh by a different user picks up the new row
+        assertUpdate(otherUserSession, "REFRESH MATERIALIZED VIEW " + mvName, 1);
+        assertFreshness(mvName, "FRESH");
+        // TODO https://github.com/trinodb/trino/issues/28738 session-scoped expressions should resolve using
+        // the MV owner's identity during refresh (like the stale inline path does via analyzeView), but currently
+        // the refresh path resolves them from the refreshing user's session.
+        // When fixed, this should be: VALUES ('user'), ('user')
+        assertQuery("SELECT created_by FROM " + mvName, "VALUES ('user'), ('other_user')");
+
+        assertUpdate("DROP MATERIALIZED VIEW " + mvName);
         assertUpdate("DROP TABLE " + sourceTableName);
     }
 
