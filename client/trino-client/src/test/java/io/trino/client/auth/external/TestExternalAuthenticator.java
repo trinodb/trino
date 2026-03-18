@@ -25,10 +25,12 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.Timeout;
+import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.api.parallel.Execution;
 
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.nio.file.Path;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
@@ -193,7 +195,21 @@ public class TestExternalAuthenticator
 
     @Test
     @Timeout(2)
-    public void testAuthenticationFromMultipleThreadsWithCachedToken()
+    public void testAuthenticationFromMultipleThreadsWithMemoryCachedToken()
+    {
+        KnownToken knownToken = KnownToken.memoryCached();
+        testAuthenticationFromMultipleThreadsWithCachedToken(knownToken);
+    }
+
+    @Test
+    @Timeout(2)
+    public void testAuthenticationFromMultipleThreadsWithSystemCachedToken(@TempDir Path tempDir)
+    {
+        KnownToken knownToken = new SystemCachedKnownToken(tempDir);
+        testAuthenticationFromMultipleThreadsWithCachedToken(knownToken);
+    }
+
+    private static void testAuthenticationFromMultipleThreadsWithCachedToken(KnownToken knownToken)
     {
         MockTokenPoller tokenPoller = new MockTokenPoller()
                 .withResult(URI.create("http://token.uri"), successful(new Token("valid-token")));
@@ -202,7 +218,7 @@ public class TestExternalAuthenticator
 
         List<Future<Request>> requests = times(
                 2,
-                () -> new ExternalAuthenticator(redirectHandler, tokenPoller, KnownToken.memoryCached(), Duration.ofSeconds(1))
+                () -> new ExternalAuthenticator(redirectHandler, tokenPoller, knownToken, Duration.ofSeconds(1))
                         .authenticate(null, getUnauthorizedResponse("Bearer x_token_server=\"http://token.uri\", x_redirect_server=\"http://redirect.uri\"")))
                 .map(executor::submit)
                 .collect(toImmutableList());
