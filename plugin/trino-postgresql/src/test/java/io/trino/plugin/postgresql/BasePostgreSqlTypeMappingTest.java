@@ -505,7 +505,7 @@ public abstract class BasePostgreSqlTypeMappingTest
     {
         SqlDataTypeTest.create()
                 .addRoundTrip("number", "NUMBER '1.1'", NUMBER)
-                .addRoundTrip("number", "NUMBER '1.1'", NUMBER)
+                .addRoundTrip("number", "NUMBER '-1.1'", NUMBER)
                 .addRoundTrip("number", "NUMBER '12345678901234567890123456700000000000'", NUMBER)
                 .addRoundTrip("number", "NUMBER '123456789012345678901234567e1000'", NUMBER)
                 .addRoundTrip("number", "NUMBER '123456789012345678901234567e-1000'", NUMBER)
