@@ -706,14 +706,14 @@ public abstract class AbstractTestOracleTypeMapping
                     format("INSERT INTO %s VALUES (DATE '-4713-12-31')", table.getName()),
                     """
                     \\QFailed to insert data: ORA-01841: (full) year must be between -4713 and +9999, and not be 0
-
+                    \n\
                     https://docs.oracle.com/error-help/db/ora-01841/\\E\
                     """);
             assertQueryFails(
                     format("INSERT INTO %s VALUES (DATE '0000-01-01')", table.getName()),
                     """
                     \\QFailed to insert data: ORA-01841: (full) year must be between -4713 and +9999, and not be 0
-
+                    \n\
                     https://docs.oracle.com/error-help/db/ora-01841/\\E\
                     """);
             // The error message sounds invalid date format in the connector, but it's no problem as the max year is 9999 in Oracle
@@ -721,7 +721,7 @@ public abstract class AbstractTestOracleTypeMapping
                     format("INSERT INTO %s VALUES (DATE '10000-01-01')", table.getName()),
                     """
                     \\QFailed to insert data: ORA-01861: literal does not match format string
-
+                    \n\
                     https://docs.oracle.com/error-help/db/ora-01861/\\E\
                     """);
         }
@@ -859,7 +859,7 @@ public abstract class AbstractTestOracleTypeMapping
                 .addRoundTrip("TIMESTAMP '2018-03-25 03:17:17.0000000'", "TIMESTAMP '2018-03-25 03:17:17.0000000'")
                 .addRoundTrip("TIMESTAMP '1986-01-01 00:13:07.0000000'", "TIMESTAMP '1986-01-01 00:13:07.0000000'")
 
-                 // test arbitrary time for all supported precisions
+                // test arbitrary time for all supported precisions
                 .addRoundTrip("TIMESTAMP '1970-01-01 00:00:00'", "TIMESTAMP '1970-01-01 00:00:00'")
                 .addRoundTrip("TIMESTAMP '1970-01-01 00:00:00.1'", "TIMESTAMP '1970-01-01 00:00:00.1'")
                 .addRoundTrip("TIMESTAMP '1970-01-01 00:00:00.12'", "TIMESTAMP '1970-01-01 00:00:00.12'")
@@ -898,7 +898,7 @@ public abstract class AbstractTestOracleTypeMapping
                 // max precision
                 .addRoundTrip("TIMESTAMP '1970-01-01 00:00:00.111222333444'", "TIMESTAMP '1970-01-01 00:00:00.111222333'")
 
-                 // round up to next second
+                // round up to next second
                 .addRoundTrip("TIMESTAMP '1970-01-01 00:00:00.9999999995'", "TIMESTAMP '1970-01-01 00:00:01.000000000'")
 
                 // round up to next day
@@ -974,21 +974,21 @@ public abstract class AbstractTestOracleTypeMapping
                     format("INSERT INTO %s VALUES (TIMESTAMP '-4713-12-31 00:00:00.000')", table.getName()),
                     """
                     \\QFailed to insert data: ORA-01841: (full) year must be between -4713 and +9999, and not be 0
-
+                    \n\
                     https://docs.oracle.com/error-help/db/ora-01841/\\E\
                     """);
             assertQueryFails(
                     format("INSERT INTO %s VALUES (TIMESTAMP '0000-01-01 00:00:00.000')", table.getName()),
                     """
                     \\QFailed to insert data: ORA-01841: (full) year must be between -4713 and +9999, and not be 0
-
+                    \n\
                     https://docs.oracle.com/error-help/db/ora-01841/\\E\
                     """);
             assertQueryFails(
                     format("INSERT INTO %s VALUES (TIMESTAMP '10000-01-01 00:00:00.000')", table.getName()),
                     """
                     \\QFailed to insert data: ORA-01862: the numeric value does not match the length of the format item
-
+                    \n\
                     https://docs.oracle.com/error-help/db/ora-01862/\\E\
                     """);
         }
