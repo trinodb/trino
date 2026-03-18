@@ -140,8 +140,6 @@ public class TestJdbcClient
     @Test
     public void testGetAllTableColumnsReturnsAllColumnsForMultipleTables()
     {
-        // Regression test for fix-show-columns-first-column-only: when iterating over getColumns()
-        // results for multiple tables, the first column of each new table must not be skipped.
         Map<SchemaTableName, List<String>> columnsByName = stream(jdbcClient.getAllTableColumns(session, Optional.of("example")))
                 .filter(relation -> relation.tableColumns().isPresent())
                 .collect(Collectors.toMap(RelationColumnsMetadata::name, relation -> relation.tableColumns().get().stream()
