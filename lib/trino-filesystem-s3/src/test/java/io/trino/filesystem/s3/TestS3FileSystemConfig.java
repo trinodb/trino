@@ -76,7 +76,11 @@ public class TestS3FileSystemConfig
                 .setHttpProxyPassword(null)
                 .setHttpProxyPreemptiveBasicProxyAuth(false)
                 .setCrossRegionAccessEnabled(false)
-                .setApplicationId("Trino"));
+                .setApplicationId("Trino")
+                .setLakeFormationEnabled(false)
+                .setLakeFormationRegion(null)
+                .setLakeFormationCredentialDuration(new Duration(15, MINUTES))
+                .setLakeFormationCredentialCacheTtl(new Duration(10, MINUTES)));
     }
 
     @Test
@@ -118,6 +122,10 @@ public class TestS3FileSystemConfig
                 .put("s3.http-proxy.preemptive-basic-auth", "true")
                 .put("s3.application-id", "application id")
                 .put("s3.cross-region-access", "true")
+                .put("fs.s3.lake-formation.enabled", "true")
+                .put("fs.s3.lake-formation.region", "us-west-2")
+                .put("fs.s3.lake-formation.credential-duration", "20m")
+                .put("fs.s3.lake-formation.credential-cache-ttl", "8m")
                 .buildOrThrow();
 
         S3FileSystemConfig expected = new S3FileSystemConfig()
@@ -155,7 +163,11 @@ public class TestS3FileSystemConfig
                 .setHttpProxyPassword("test")
                 .setHttpProxyPreemptiveBasicProxyAuth(true)
                 .setCrossRegionAccessEnabled(true)
-                .setApplicationId("application id");
+                .setApplicationId("application id")
+                .setLakeFormationEnabled(true)
+                .setLakeFormationRegion("us-west-2")
+                .setLakeFormationCredentialDuration(new Duration(20, MINUTES))
+                .setLakeFormationCredentialCacheTtl(new Duration(8, MINUTES));
 
         assertFullMapping(properties, expected);
     }
@@ -167,6 +179,18 @@ public class TestS3FileSystemConfig
                         .setSseType(S3SseType.CUSTOMER),
                 "sseWithCustomerKeyConfigValid",
                 "s3.sse.customer-key has to be set for server-side encryption with customer-provided key",
+                AssertTrue.class);
+    }
+
+    @Test
+    public void testLakeFormationCacheTtlValidation()
+    {
+        assertFailsValidation(new S3FileSystemConfig()
+                        .setLakeFormationEnabled(true)
+                        .setLakeFormationCredentialDuration(new Duration(10, MINUTES))
+                        .setLakeFormationCredentialCacheTtl(new Duration(15, MINUTES)),
+                "lakeFormationCacheTtlValid",
+                "fs.s3.lake-formation.credential-cache-ttl must be less than fs.s3.lake-formation.credential-duration",
                 AssertTrue.class);
     }
 }

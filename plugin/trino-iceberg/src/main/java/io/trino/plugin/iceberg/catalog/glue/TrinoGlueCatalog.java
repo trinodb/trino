@@ -25,6 +25,7 @@ import io.trino.cache.EvictableCacheBuilder;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
+import io.trino.filesystem.s3.LakeFormationCredentialProvider;
 import io.trino.metastore.SchemaAlreadyExistsException;
 import io.trino.metastore.TableInfo;
 import io.trino.plugin.hive.TrinoViewUtil;
@@ -52,6 +53,7 @@ import io.trino.spi.connector.SchemaNotFoundException;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.connector.ViewNotFoundException;
+import io.trino.spi.security.ConnectorIdentity;
 import io.trino.spi.security.PrincipalType;
 import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.type.Type;
@@ -67,6 +69,8 @@ import org.apache.iceberg.TableOperations;
 import org.apache.iceberg.Transaction;
 import org.apache.iceberg.exceptions.NotFoundException;
 import org.apache.iceberg.io.FileIO;
+import software.amazon.awssdk.auth.credentials.AwsCredentials;
+import software.amazon.awssdk.auth.credentials.AwsSessionCredentials;
 import software.amazon.awssdk.core.exception.SdkException;
 import software.amazon.awssdk.services.glue.GlueClient;
 import software.amazon.awssdk.services.glue.model.AccessDeniedException;
@@ -110,6 +114,9 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Streams.stream;
 import static io.trino.cache.CacheUtils.uncheckedCacheGet;
 import static io.trino.filesystem.Locations.appendPath;
+import static io.trino.filesystem.s3.S3FileSystemConstants.EXTRA_CREDENTIALS_ACCESS_KEY_PROPERTY;
+import static io.trino.filesystem.s3.S3FileSystemConstants.EXTRA_CREDENTIALS_SECRET_KEY_PROPERTY;
+import static io.trino.filesystem.s3.S3FileSystemConstants.EXTRA_CREDENTIALS_SESSION_TOKEN_PROPERTY;
 import static io.trino.metastore.Table.TABLE_COMMENT;
 import static io.trino.plugin.base.util.ExecutorUtil.processWithAdditionalThreads;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_DATABASE_LOCATION_ERROR;
@@ -177,6 +184,9 @@ public class TrinoGlueCatalog
     private final boolean hideMaterializedViewStorageTable;
     private final boolean isUsingSystemSecurity;
     private final Executor metadataFetchingExecutor;
+    private final Optional<LakeFormationCredentialProvider> lakeFormationCredentialProvider;
+    private final Optional<String> glueCatalogId;
+    private final Optional<String> glueRegion;
 
     private final Cache<SchemaTableName, Table> glueTableCache = EvictableCacheBuilder.newBuilder()
             // Even though this is query-scoped, this still needs to be bounded. information_schema queries can access large number of tables.
@@ -207,7 +217,10 @@ public class TrinoGlueCatalog
             Optional<String> defaultSchemaLocation,
             boolean useUniqueTableLocation,
             boolean hideMaterializedViewStorageTable,
-            Executor metadataFetchingExecutor)
+            Executor metadataFetchingExecutor,
+            Optional<LakeFormationCredentialProvider> lakeFormationCredentialProvider,
+            Optional<String> glueCatalogId,
+            Optional<String> glueRegion)
     {
         super(catalogName, useUniqueTableLocation, typeManager, tableOperationsProvider, fileSystemFactory, fileIoFactory);
         this.trinoVersion = requireNonNull(trinoVersion, "trinoVersion is null");
@@ -218,6 +231,40 @@ public class TrinoGlueCatalog
         this.defaultSchemaLocation = requireNonNull(defaultSchemaLocation, "defaultSchemaLocation is null");
         this.hideMaterializedViewStorageTable = hideMaterializedViewStorageTable;
         this.metadataFetchingExecutor = requireNonNull(metadataFetchingExecutor, "metadataFetchingExecutor is null");
+        this.lakeFormationCredentialProvider = requireNonNull(lakeFormationCredentialProvider, "lakeFormationCredentialProvider is null");
+        this.glueCatalogId = requireNonNull(glueCatalogId, "glueCatalogId is null");
+        this.glueRegion = requireNonNull(glueRegion, "glueRegion is null");
+    }
+
+    private ConnectorIdentity enrichIdentityWithLakeFormationCredentials(ConnectorIdentity identity, String database, String table)
+    {
+        if (lakeFormationCredentialProvider.isEmpty() || glueCatalogId.isEmpty()) {
+            return identity;
+        }
+
+        String region = glueRegion.orElse("us-east-1");
+        String tableArn = "arn:aws:glue:" + region + ":" + glueCatalogId.get() + ":table/" + database + "/" + table;
+
+        AwsCredentials credentials = lakeFormationCredentialProvider.get()
+                .getCredentialsProvider(tableArn)
+                .resolveCredentials();
+
+        if (!(credentials instanceof AwsSessionCredentials sessionCredentials)) {
+            return identity;
+        }
+
+        return ConnectorIdentity.forUser(identity.getUser())
+                .withGroups(identity.getGroups())
+                .withPrincipal(identity.getPrincipal())
+                .withEnabledSystemRoles(identity.getEnabledSystemRoles())
+                .withConnectorRole(identity.getConnectorRole())
+                .withExtraCredentials(ImmutableMap.<String, String>builder()
+                        .putAll(identity.getExtraCredentials())
+                        .put(EXTRA_CREDENTIALS_ACCESS_KEY_PROPERTY, sessionCredentials.accessKeyId())
+                        .put(EXTRA_CREDENTIALS_SECRET_KEY_PROPERTY, sessionCredentials.secretAccessKey())
+                        .put(EXTRA_CREDENTIALS_SESSION_TOKEN_PROPERTY, sessionCredentials.sessionToken())
+                        .buildOrThrow())
+                .build();
     }
 
     @Override
@@ -707,7 +754,7 @@ public class TrinoGlueCatalog
             // So log the exception and continue with deleting the table location
             LOG.warn(e, "Failed to delete table data referenced by metadata");
         }
-        deleteTableDirectory(fileSystemFactory.create(session), schemaTableName, table.location());
+        deleteTableDirectory(fileSystemFactory.create(enrichIdentityWithLakeFormationCredentials(session.getIdentity(), schemaTableName.getSchemaName(), schemaTableName.getTableName())), schemaTableName, table.location());
         invalidateTableCache(schemaTableName);
     }
 
@@ -720,7 +767,7 @@ public class TrinoGlueCatalog
             throw new TrinoException(ICEBERG_INVALID_METADATA, format("Table %s is missing [%s] property", schemaTableName, METADATA_LOCATION_PROP));
         }
         String tableLocation = METADATA_PATTERN.matcher(metadataLocation).replaceFirst("");
-        deleteTableDirectory(fileSystemFactory.create(session), schemaTableName, tableLocation);
+        deleteTableDirectory(fileSystemFactory.create(enrichIdentityWithLakeFormationCredentials(session.getIdentity(), schemaTableName.getSchemaName(), schemaTableName.getTableName())), schemaTableName, tableLocation);
         invalidateTableCache(schemaTableName);
     }
 
@@ -870,7 +917,7 @@ public class TrinoGlueCatalog
             try {
                 // Cache the TableMetadata while we have the Table retrieved anyway
                 // Note: this is racy from cache invalidation perspective, but it should not matter here
-                uncheckedCacheGet(tableMetadataCache, schemaTableName, () -> TableMetadataParser.read(fileIoFactory.create(fileSystemFactory.create(session), isUseFileSizeFromMetadata(session)), metadataLocation));
+                uncheckedCacheGet(tableMetadataCache, schemaTableName, () -> TableMetadataParser.read(fileIoFactory.create(fileSystemFactory.create(enrichIdentityWithLakeFormationCredentials(session.getIdentity(), schemaTableName.getSchemaName(), schemaTableName.getTableName())), isUseFileSizeFromMetadata(session)), metadataLocation));
             }
             catch (RuntimeException e) {
                 LOG.warn(e, "Failed to cache table metadata from table at %s", metadataLocation);
@@ -1161,7 +1208,7 @@ public class TrinoGlueCatalog
             }
             catch (RuntimeException e) {
                 try {
-                    dropMaterializedViewStorage(session, fileSystemFactory.create(session), storageMetadataLocation.toString());
+                    dropMaterializedViewStorage(session, fileSystemFactory.create(enrichIdentityWithLakeFormationCredentials(session.getIdentity(), viewName.getSchemaName(), viewName.getTableName())), storageMetadataLocation.toString());
                 }
                 catch (Exception suppressed) {
                     LOG.warn(suppressed, "Failed to clean up metadata '%s' for materialized view '%s'", storageMetadataLocation, viewName);
@@ -1288,7 +1335,7 @@ public class TrinoGlueCatalog
             String storageMetadataLocation = parameters.get(METADATA_LOCATION_PROP);
             checkState(storageMetadataLocation != null, "Storage location missing in definition of materialized view %s", view.name());
             try {
-                dropMaterializedViewStorage(session, fileSystemFactory.create(session), storageMetadataLocation);
+                dropMaterializedViewStorage(session, fileSystemFactory.create(enrichIdentityWithLakeFormationCredentials(session.getIdentity(), view.databaseName(), view.name())), storageMetadataLocation);
             }
             catch (IOException e) {
                 LOG.warn(e, "Failed to delete storage table metadata '%s' for materialized view '%s'", storageMetadataLocation, view.name());
@@ -1406,7 +1453,7 @@ public class TrinoGlueCatalog
         requireNonNull(storageTableName, "storageTableName is null");
         requireNonNull(storageMetadataLocation, "storageMetadataLocation is null");
         return uncheckedCacheGet(tableMetadataCache, storageTableName, () -> {
-            TrinoFileSystem fileSystem = fileSystemFactory.create(session);
+            TrinoFileSystem fileSystem = fileSystemFactory.create(enrichIdentityWithLakeFormationCredentials(session.getIdentity(), storageTableName.getSchemaName(), storageTableName.getTableName()));
             return TableMetadataParser.read(fileIoFactory.create(fileSystem, isUseFileSizeFromMetadata(session)), storageMetadataLocation);
         });
     }

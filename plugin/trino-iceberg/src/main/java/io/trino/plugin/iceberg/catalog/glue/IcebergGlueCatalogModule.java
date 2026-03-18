@@ -15,7 +15,9 @@ package io.trino.plugin.iceberg.catalog.glue;
 
 import com.google.inject.Binder;
 import com.google.inject.Scopes;
+import com.google.inject.multibindings.OptionalBinder;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
+import io.trino.filesystem.s3.LakeFormationCredentialProvider;
 import io.trino.plugin.hive.metastore.glue.GlueHiveMetastoreConfig;
 import io.trino.plugin.hive.metastore.glue.GlueMetastoreModule;
 import io.trino.plugin.iceberg.catalog.IcebergHiveMetastoreModule;
@@ -36,6 +38,8 @@ public class IcebergGlueCatalogModule
         binder.bind(IcebergTableOperationsProvider.class).to(GlueIcebergTableOperationsProvider.class).in(Scopes.SINGLETON);
         binder.bind(TrinoCatalogFactory.class).to(TrinoGlueCatalogFactory.class).in(Scopes.SINGLETON);
         newExporter(binder).export(TrinoCatalogFactory.class).withGeneratedName();
+
+        OptionalBinder.newOptionalBinder(binder, LakeFormationCredentialProvider.class);
 
         install(new IcebergHiveMetastoreModule());
         install(new GlueMetastoreModule());
