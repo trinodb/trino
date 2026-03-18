@@ -581,7 +581,7 @@ public final class ShowQueriesRewrite
 
             for (RowType.Field field : fields) {
                 String fieldName = field.getName().orElse("field" + ordinal);
-                if (likePattern.isPresent() && !likeMatches(fieldName, likePattern.get(), showColumns.getEscape())) {
+                if (likePattern.isPresent() && !likeMatches(fieldName, likePattern.get())) {
                     continue;
                 }
                 rows.add(row(
@@ -618,7 +618,7 @@ public final class ShowQueriesRewrite
             }
         }
 
-        private boolean likeMatches(String value, String pattern, Optional<String> escape)
+        private boolean likeMatches(String value, String pattern)
         {
             if (pattern.equals("%")) {
                 return true;
