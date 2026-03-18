@@ -85,10 +85,6 @@ public final class CompressedOrcChunkLoader
         return lastCheckpoint;
     }
 
-    /**
-     * Seeks to the given checkpoint. A checkpoint may legitimately point to stream EOF when there
-     * is no payload in this stream for a row group (for example, all values are null or empty strings).
-     */
     @Override
     public void seekToCheckpoint(long checkpoint)
             throws IOException
