@@ -85,6 +85,10 @@ public final class CompressedOrcChunkLoader
         return lastCheckpoint;
     }
 
+    /**
+     * Seeks to the given checkpoint. A checkpoint may legitimately point to stream EOF when there
+     * is no payload in this stream for a row group (for example, all values are null or empty strings).
+     */
     @Override
     public void seekToCheckpoint(long checkpoint)
             throws IOException
@@ -92,8 +96,6 @@ public final class CompressedOrcChunkLoader
         int compressedOffset = decodeCompressedBlockOffset(checkpoint);
         int decompressedOffset = decodeDecompressedOffset(checkpoint);
 
-        // A checkpoint may legitimately point to stream EOF when there is no payload in this stream
-        // for a row group (for example, all values are null or empty strings).
         if (compressedOffset > dataReader.getSize() || (compressedOffset == dataReader.getSize() && decompressedOffset != 0)) {
             throw new OrcCorruptionException(dataReader.getOrcDataSourceId(), "Seek past end of stream");
         }
