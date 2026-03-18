@@ -610,12 +610,27 @@ public class PinotClient
                 .boxed()
                 // Pinot lower cases column names which use aggregate functions, ex. min(my_Col) becomes min(my_col)
                 .collect(toImmutableMap(i -> columnNames[i].toLowerCase(ENGLISH), identity()));
-        int[] indices = new int[columnNames.length];
+        int[] indices = new int[columnHandles.size()];
         int[] inverseIndices = new int[columnNames.length];
+        boolean isEmptyResultSet = resultTable.getRows().isEmpty();
         for (int i = 0; i < columnHandles.size(); i++) {
             String columnName = columnHandles.get(i).getColumnName().toLowerCase(ENGLISH);
-            indices[i] = requireNonNull(columnIndices.get(columnName), format("column index for '%s' was not found", columnName));
-            inverseIndices[indices[i]] = i;
+            Integer columnIndex = columnIndices.get(columnName);
+            if (columnIndex == null) {
+                if (isEmptyResultSet) {
+                    indices[i] = 0;
+                }
+                else {
+                    throw new PinotException(
+                            PINOT_EXCEPTION,
+                            Optional.empty(),
+                            format("column index for '%s' was not found", columnName));
+                }
+            }
+            else {
+                indices[i] = columnIndex;
+                inverseIndices[columnIndex] = i;
+            }
         }
         List<Object[]> rows = resultTable.getRows();
         // If returning from a global aggregation (no grouping columns) over an empty table, NULL-out all aggregation function results except for `count()`

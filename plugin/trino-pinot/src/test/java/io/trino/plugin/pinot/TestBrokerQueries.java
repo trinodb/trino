@@ -172,4 +172,25 @@ public class TestBrokerQueries
                 .isThrownBy(pageSource::getNextSourcePage)
                 .withMessage("Broker query returned '3' rows, maximum allowed is '2' rows. with query \"SELECT col_1, col_2, col_3 FROM test_table\"");
     }
+
+    @Test
+    public void testEmptyResultSetWithAliases()
+    {
+        DataSchema emptyDataSchema = new DataSchema(
+                new String[] {"user"},
+                new ColumnDataType[] {STRING});
+        ResultTable emptyResultTable = new ResultTable(emptyDataSchema, ImmutableList.of());
+        BrokerResponseNative emptyResponse = new BrokerResponseNative();
+        emptyResponse.setResultTable(emptyResultTable);
+        emptyResponse.setNumServersQueried(1);
+        emptyResponse.setNumServersResponded(1);
+        emptyResponse.setNumDocsScanned(0);
+
+        List<PinotColumnHandle> columnHandles = ImmutableList.of(
+                new PinotColumnHandle("user", VARCHAR),
+                new PinotColumnHandle("no. of msg", BIGINT));
+
+        ResultsIterator iterator = fromResultTable(emptyResponse, columnHandles, 1);
+        assertThat(iterator.hasNext()).isFalse();
+    }
 }
