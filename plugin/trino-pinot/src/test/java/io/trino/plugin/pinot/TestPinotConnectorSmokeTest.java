@@ -1274,9 +1274,16 @@ public class TestPinotConnectorSmokeTest
     @Test
     public void testStringPredicateWithSingleQuote()
     {
-        // Regression test for https://github.com/trinodb/trino/issues/21681
         assertQuery("SELECT true FROM " + STRING_TYPE_TABLE + " WHERE string_col = 'a''quote'", "VALUES true");
         assertQueryReturnsEmptyResult("SELECT true FROM " + STRING_TYPE_TABLE + " WHERE string_col = 'a''empty'");
+    }
+
+    @Test
+    public void testPassthroughQueryWithAliasesReturningEmptyResult()
+    {
+        assertQueryReturnsEmptyResult("SELECT * FROM \"SELECT string_col AS user, COUNT(*) AS 'No. of msg' FROM " + ALL_TYPES_TABLE + " WHERE string_col = 'nonexistent_value' GROUP BY string_col\"");
+        assertQueryReturnsEmptyResult("SELECT \"user\", \"No. of msg\" FROM \"SELECT string_col AS user, COUNT(*) AS 'No. of msg' FROM " + ALL_TYPES_TABLE + " WHERE long_col > 9999999999 GROUP BY string_col\"");
+        assertQueryReturnsEmptyResult("SELECT * FROM \"SELECT int_col, SUM(long_col) AS total FROM " + ALL_TYPES_TABLE + " WHERE int_col = -999999 GROUP BY int_col\"");
     }
 
     @Test
