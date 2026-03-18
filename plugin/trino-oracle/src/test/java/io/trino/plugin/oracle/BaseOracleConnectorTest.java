@@ -117,7 +117,7 @@ public abstract class BaseOracleConnectorTest
         return new TestTable(
                 onRemoteDatabase(),
                 "test_unsupported_col",
-                "(one NUMBER(19), two NUMBER, three VARCHAR2(10 CHAR))");
+                "(one NUMBER(19), two BFILE, three VARCHAR2(10 CHAR))");
     }
 
     @Test
