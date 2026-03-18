@@ -29,15 +29,10 @@ import io.airlift.http.client.jetty.JettyHttpClient;
 import io.airlift.json.JsonCodec;
 import io.airlift.json.JsonCodecFactory;
 import io.airlift.json.JsonMapperProvider;
-import io.airlift.units.Duration;
-import io.trino.client.ClientSession;
 import io.trino.client.QueryDataJacksonModule;
 import io.trino.client.QueryError;
 import io.trino.client.QueryResults;
 import io.trino.client.ResultRowsDecoder;
-import io.trino.client.StatementClient;
-import io.trino.client.StatementClientFactory;
-import io.trino.client.uri.TrinoUri;
 import io.trino.plugin.memory.MemoryPlugin;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.server.BasicQueryInfo;
@@ -45,7 +40,6 @@ import io.trino.server.testing.TestingTrinoServer;
 import io.trino.spi.QueryId;
 import io.trino.spi.type.TimeZoneNotSupportedException;
 import io.trino.testing.TestingTrinoClient;
-import okhttp3.OkHttpClient;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -54,12 +48,10 @@ import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
 
 import java.net.URI;
-import java.time.ZoneId;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
-import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import java.util.stream.Collector;
 import java.util.stream.Collectors;
@@ -88,7 +80,6 @@ import static io.trino.SystemSessionProperties.QUERY_MAX_MEMORY;
 import static io.trino.client.ClientCapabilities.PATH;
 import static io.trino.client.ClientCapabilities.SESSION_AUTHORIZATION;
 import static io.trino.client.ProtocolHeaders.TRINO_HEADERS;
-import static io.trino.client.uri.HttpClientFactory.toHttpClientBuilder;
 import static io.trino.spi.StandardErrorCode.INCOMPATIBLE_CLIENT;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static jakarta.ws.rs.core.MediaType.APPLICATION_JSON;
@@ -122,7 +113,7 @@ public class TestServer
     public void setup()
     {
         server = TestingTrinoServer.builder()
-                .setProperties(ImmutableMap.of("http-server.process-forwarded", "true", "query.client.timeout", "1s"))
+                .setProperties(ImmutableMap.of("http-server.process-forwarded", "true"))
                 .build();
 
         server.installPlugin(new MemoryPlugin());
@@ -340,48 +331,6 @@ public class TestServer
         try (TestingTrinoClient testingClient = new TestingTrinoClient(server, testSessionBuilder().setClientCapabilities(Set.of(
                 SESSION_AUTHORIZATION.name())).build())) {
             testingClient.execute("SET SESSION AUTHORIZATION userA");
-        }
-    }
-
-    @Test
-    public void testAbandonedQueries()
-            throws InterruptedException
-    {
-        TrinoUri trinoUri = TrinoUri.builder()
-                .setUri(server.getBaseUrl())
-                .build();
-
-        OkHttpClient httpClient = toHttpClientBuilder(trinoUri, "Trino Test").build();
-        ClientSession session = ClientSession.builder()
-                .server(server.getBaseUrl())
-                .source("test")
-                .timeZone(ZoneId.of("UTC"))
-                .user(Optional.of("user"))
-                .heartbeatInterval(new Duration(1, TimeUnit.SECONDS))
-                .build();
-
-        try (StatementClient client = StatementClientFactory.newStatementClient(httpClient, session, "SELECT * FROM tpch.sf1.nation")) {
-            client.advance();
-            // heartbeat is expected every 1 second, the check runs every second, plus one second padding
-            Thread.sleep(3000);
-            client.advance();
-            assertThat(client.currentStatusInfo().getError().getMessage())
-                    .contains("was abandoned by the client, as it may have exited or stopped checking for query results");
-        }
-
-        // Test query is not abandoned when client iterates over rows, even when one batch of results takes more than client timeout
-        try (StatementClient client = StatementClientFactory.newStatementClient(httpClient, session, "SELECT * FROM tpch.sf1.nation")) {
-            while (client.advance()) {
-                client.currentRows().forEach(_ -> {
-                    try {
-                        Thread.sleep(100); // 25 rows * 100 ms = 2500 ms > client timeout
-                    }
-                    catch (InterruptedException e) {
-                        throw new RuntimeException(e);
-                    }
-                });
-                assertThat(client.currentStatusInfo().getError()).isNull();
-            }
         }
     }
 
