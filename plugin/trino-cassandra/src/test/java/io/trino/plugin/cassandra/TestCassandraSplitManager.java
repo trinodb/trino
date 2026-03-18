@@ -130,7 +130,6 @@ final class TestCassandraSplitManager
         }
 
         CassandraColumnHandle columnHandle = new CassandraColumnHandle("partition_key", 0, CassandraTypes.INT, true, false, false, false);
-        // Simulate planner producing a range (e.g. IN (1,2,3,4,5) simplified to BETWEEN 1 AND 5)
         TupleDomain<ColumnHandle> tupleDomain = TupleDomain.withColumnDomains(
                 Map.of(columnHandle,
                         Domain.create(ValueSet.ofRanges(Range.range(INTEGER, 1L, true, 5L, true)), false)));
@@ -139,7 +138,6 @@ final class TestCassandraSplitManager
         CassandraNamedRelationHandle tableHandle = new CassandraNamedRelationHandle(KEYSPACE, tableName);
         CassandraPartitionResult result = partitionManager.getPartitions(tableHandle, tupleDomain);
 
-        // Range should be expanded to discrete values [1,2,3,4,5] for partition pruning
         assertThat(result.partitions()).hasSize(5);
         assertThat(result.partitions().stream()
                 .map(p -> p.getPartitionId())
