@@ -176,7 +176,15 @@ public class TestGlobalFunctionCatalog
                         functionSignature("decimal(p,s)", "double"),
                         functionSignature("double", "decimal(p,s)"))
                 .forParameters(BIGINT, BIGINT)
-                .failsWithMessage("Could not choose a best candidate operator. Explicit type casts must be added.");
+                .failsWithMessage("""
+                        Could not choose a best candidate operator. Explicit type casts must be added.
+                        Call site parameter types are:
+                        \t * bigint
+                        \t * bigint
+                        Candidates are:
+                        \t * (decimal(19,0),double):boolean
+                        \t * (double,decimal(19,0)):boolean
+                        """);
     }
 
     @Test
@@ -266,7 +274,14 @@ public class TestGlobalFunctionCatalog
                         functionSignature(ImmutableList.of("JoniRegExp"), "JoniRegExp"),
                         functionSignature(ImmutableList.of("integer"), "integer"))
                 .forParameters(UnknownType.UNKNOWN)
-                .failsWithMessage("Could not choose a best candidate operator. Explicit type casts must be added.");
+                .failsWithMessage("""
+                        Could not choose a best candidate operator. Explicit type casts must be added.
+                        Call site parameter types are:
+                        \t * unknown
+                        Candidates are:
+                        \t * (joniregexp):joniregexp
+                        \t * (integer):integer
+                        """);
     }
 
     private static List<FunctionMetadata> listOperators(TestingFunctionResolution functionResolution)

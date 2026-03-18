@@ -167,6 +167,12 @@ class FunctionBinder
 
         StringBuilder errorMessageBuilder = new StringBuilder();
         errorMessageBuilder.append("Could not choose a best candidate operator. Explicit type casts must be added.\n");
+        errorMessageBuilder.append("Call site parameter types are:\n");
+        for (TypeSignatureProvider parameter : parameters) {
+            errorMessageBuilder.append("\t * ");
+            errorMessageBuilder.append(parameter);
+            errorMessageBuilder.append("\n");
+        }
         errorMessageBuilder.append("Candidates are:\n");
         for (ApplicableFunction function : applicableFunctions) {
             errorMessageBuilder.append("\t * ");
