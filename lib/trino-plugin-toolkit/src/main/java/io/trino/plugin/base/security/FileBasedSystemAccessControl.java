@@ -473,10 +473,12 @@ public class FileBasedSystemAccessControl
                 .collect(toImmutableSet());
     }
 
+    /**
+     * SHOW CREATE TABLE is a read-only metadata operation; allowed with SELECT privilege (READ_ONLY catalog access).
+     */
     @Override
     public void checkCanShowCreateTable(SystemSecurityContext context, CatalogSchemaTableName table)
     {
-        // SHOW CREATE TABLE is a read-only metadata operation - allow with SELECT privilege (READ_ONLY catalog access)
         if (!checkTablePermission(context, table, SELECT)) {
             denyShowCreateTable(table.toString());
         }

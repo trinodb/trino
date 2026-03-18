@@ -748,10 +748,8 @@ public abstract class BaseFileBasedSystemAccessControlTest
     {
         SystemAccessControl accessControl = newFileBasedSystemAccessControl("file-based-system-access-table.json");
 
-        // SHOW CREATE TABLE is a read-only operation - allowed with SELECT privilege (READ_ONLY catalog access)
         accessControl.checkCanShowCreateTable(ADMIN, new CatalogSchemaTableName("some-catalog", "bobschema", "bobtable"));
         accessControl.checkCanShowCreateTable(BOB, new CatalogSchemaTableName("some-catalog", "bobschema", "bobtable"));
-        // Users without SELECT on the table are denied
         assertAccessDenied(() -> accessControl.checkCanShowCreateTable(BOB, new CatalogSchemaTableName("secret", "secret", "secret")), CREATE_TABLE_ACCESS_DENIED_MESSAGE);
     }
 
