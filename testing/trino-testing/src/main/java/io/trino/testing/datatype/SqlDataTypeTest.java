@@ -19,6 +19,7 @@ import io.trino.sql.query.QueryAssertions;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.sql.TemporaryRelation;
+import org.intellij.lang.annotations.Language;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -44,35 +45,35 @@ public final class SqlDataTypeTest
 
     private SqlDataTypeTest() {}
 
-    public SqlDataTypeTest addRoundTrip(String literal)
+    public SqlDataTypeTest addRoundTrip(@Language("SQL") String literal)
     {
         return addRoundTrip(literal, literal);
     }
 
-    public SqlDataTypeTest addRoundTrip(String inputLiteral, String expectedLiteral)
+    public SqlDataTypeTest addRoundTrip(@Language("SQL") String inputLiteral, @Language("SQL") String expectedLiteral)
     {
         testCases.add(new TestCase(Optional.empty(), Optional.empty(), inputLiteral, Optional.empty(), expectedLiteral));
         return this;
     }
 
-    public SqlDataTypeTest addRoundTrip(String inputType, String literal, Type expectedType)
+    public SqlDataTypeTest addRoundTrip(@Language("SQL") String inputType, @Language("SQL") String literal, Type expectedType)
     {
         return addRoundTrip(inputType, literal, expectedType, literal);
     }
 
-    public SqlDataTypeTest addRoundTrip(String inputType, String inputLiteral, Type expectedType, String expectedLiteral)
+    public SqlDataTypeTest addRoundTrip(@Language("SQL") String inputType, @Language("SQL") String inputLiteral, Type expectedType, @Language("SQL") String expectedLiteral)
     {
         addRoundTrip(Optional.empty(), inputType, inputLiteral, expectedType, expectedLiteral);
         return this;
     }
 
-    public SqlDataTypeTest addRoundTrip(String columnName, String inputType, String inputLiteral, Type expectedType, String expectedLiteral)
+    public SqlDataTypeTest addRoundTrip(String columnName, @Language("SQL") String inputType, @Language("SQL") String inputLiteral, Type expectedType, @Language("SQL") String expectedLiteral)
     {
         addRoundTrip(Optional.of(columnName), inputType, inputLiteral, expectedType, expectedLiteral);
         return this;
     }
 
-    public SqlDataTypeTest addRoundTrip(Optional<String> columnName, String inputType, String inputLiteral, Type expectedType, String expectedLiteral)
+    public SqlDataTypeTest addRoundTrip(Optional<String> columnName, @Language("SQL") String inputType, @Language("SQL") String inputLiteral, Type expectedType, @Language("SQL") String expectedLiteral)
     {
         testCases.add(new TestCase(columnName, Optional.of(inputType), inputLiteral, Optional.of(expectedType), expectedLiteral));
         return this;
