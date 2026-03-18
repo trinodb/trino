@@ -677,6 +677,41 @@ public class TestSqlFormatter
     }
 
     @Test
+    void testMerge()
+    {
+        assertThat(formatSql(new Merge(
+                new NodeLocation(1, 1),
+                new Table(new NodeLocation(1, 1), QualifiedName.of("t")),
+                table(QualifiedName.of("changes")),
+                new BooleanLiteral(new NodeLocation(1, 1), "true"),
+                ImmutableList.of(new MergeDelete(new NodeLocation(1, 1), Optional.empty())))))
+                .isEqualTo(
+                        """
+                        MERGE INTO t
+                           USING changes
+                           ON true
+                        WHEN MATCHED
+                           THEN DELETE\
+                        """);
+
+        // with alias for the source table
+        assertThat(formatSql(new Merge(
+                new NodeLocation(1, 1),
+                new Table(new NodeLocation(1, 1), QualifiedName.of("t")),
+                aliased(table(QualifiedName.of("changes")), "s"),
+                new BooleanLiteral(new NodeLocation(1, 1), "true"),
+                ImmutableList.of(new MergeDelete(new NodeLocation(1, 1), Optional.empty())))))
+                .isEqualTo(
+                        """
+                        MERGE INTO t
+                           USING changes s
+                           ON true
+                        WHEN MATCHED
+                           THEN DELETE\
+                        """);
+    }
+
+    @Test
     void testInsertWithBranch()
     {
         assertThat(formatSql(new Insert(
