@@ -167,6 +167,9 @@ class FunctionBinder
 
         StringBuilder errorMessageBuilder = new StringBuilder();
         errorMessageBuilder.append("Could not choose a best candidate operator. Explicit type casts must be added.\n");
+        errorMessageBuilder.append("Actual types: (");
+        Joiner.on(", ").appendTo(errorMessageBuilder, parameters);
+        errorMessageBuilder.append(")\n");
         errorMessageBuilder.append("Candidates are:\n");
         for (ApplicableFunction function : applicableFunctions) {
             errorMessageBuilder.append("\t * ");
