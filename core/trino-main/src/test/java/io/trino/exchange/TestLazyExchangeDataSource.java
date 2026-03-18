@@ -33,19 +33,7 @@ public class TestLazyExchangeDataSource
     @Test
     public void testIsBlockedCancellationIsolationInInitializationPhase()
     {
-        try (LazyExchangeDataSource source = new LazyExchangeDataSource(
-                new QueryId("query"),
-                new ExchangeId("exchange"),
-                Span.getInvalid(),
-                (queryId, exchangeId, span, memoryContext, taskFailureListener, retryPolicy) -> {
-                    throw new UnsupportedOperationException();
-                },
-                new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), TestLazyExchangeDataSource.class.getSimpleName()),
-                (taskId, failure) -> {
-                    throw new UnsupportedOperationException();
-                },
-                RetryPolicy.NONE,
-                new ExchangeManagerRegistry(OpenTelemetry.noop(), Tracing.noopTracer(), new SecretsResolver(ImmutableMap.of()), new ExchangeManagerConfig()))) {
+        try (LazyExchangeDataSource source = createUnresolvedSource()) {
             ListenableFuture<Void> first = source.isBlocked();
             ListenableFuture<Void> second = source.isBlocked();
             assertThat(first)
@@ -68,5 +56,22 @@ public class TestLazyExchangeDataSource
                     .isNotDone()
                     .isNotCancelled();
         }
+    }
+
+    private static LazyExchangeDataSource createUnresolvedSource()
+    {
+        return new LazyExchangeDataSource(
+                new QueryId("query"),
+                new ExchangeId("exchange"),
+                Span.getInvalid(),
+                (queryId, exchangeId, span, memoryContext, taskFailureListener, retryPolicy) -> {
+                    throw new UnsupportedOperationException();
+                },
+                new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), TestLazyExchangeDataSource.class.getSimpleName()),
+                (taskId, failure) -> {
+                    throw new UnsupportedOperationException();
+                },
+                RetryPolicy.NONE,
+                new ExchangeManagerRegistry(OpenTelemetry.noop(), Tracing.noopTracer(), new SecretsResolver(ImmutableMap.of()), new ExchangeManagerConfig()));
     }
 }
