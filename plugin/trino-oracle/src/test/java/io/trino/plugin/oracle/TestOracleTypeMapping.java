@@ -30,7 +30,6 @@ public class TestOracleTypeMapping
         return OracleQueryRunner.builder(oracleServer)
                 .addConnectorProperties(ImmutableMap.<String, String>builder()
                         .put("oracle.connection-pool.enabled", "false")
-                        .put("oracle.remarks-reporting.enabled", "false")
                         .buildOrThrow())
                 .build();
     }
