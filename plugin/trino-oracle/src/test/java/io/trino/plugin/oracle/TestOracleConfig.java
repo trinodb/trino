@@ -38,7 +38,7 @@ public class TestOracleConfig
                 .setSynonymsEnabled(false)
                 .setRemarksReportingEnabled(false)
                 .setDefaultNumberScale(null)
-                .setNumberRoundingMode(RoundingMode.UNNECESSARY)
+                .setNumberRoundingMode(null)
                 .setConnectionPoolEnabled(true)
                 .setConnectionPoolMinSize(1)
                 .setConnectionPoolMaxSize(30)

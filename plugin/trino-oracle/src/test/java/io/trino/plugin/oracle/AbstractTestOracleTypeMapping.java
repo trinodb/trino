@@ -50,6 +50,7 @@ import static io.trino.plugin.oracle.OracleSessionProperties.NUMBER_ROUNDING_MOD
 import static io.trino.spi.type.CharType.createCharType;
 import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.DoubleType.DOUBLE;
+import static io.trino.spi.type.NumberType.NUMBER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.TimeZoneKey.getTimeZoneKey;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
@@ -419,6 +420,9 @@ public abstract class AbstractTestOracleTypeMapping
                 .execute(getQueryRunner(), trinoCreateAndInsert("integers"));
     }
 
+    /**
+     * Test Oracle's {@code NUMBER} ({@code DECIMAL}) with precision and scale specified, i.e. fixed-point.
+     */
     @Test
     public void testNumberDecimalReadMapping()
     {
@@ -442,6 +446,8 @@ public abstract class AbstractTestOracleTypeMapping
                 .addRoundTrip("number(38, 38)", ".10000200003000040000500006000070000888", createDecimalType(38, 38), "CAST(.10000200003000040000500006000070000888 AS DECIMAL(38, 38))")
                 .addRoundTrip("number(38, 38)", "-.27182818284590452353602874713526624977", createDecimalType(38, 38), "CAST(-.27182818284590452353602874713526624977 AS DECIMAL(38, 38))")
                 .addRoundTrip("number(10, 3)", "NULL", createDecimalType(10, 3), "CAST(NULL AS DECIMAL(10, 3))")
+                // scale > precision
+                .addRoundTrip("number(3, 10)", "0.0000000123", createDecimalType(10, 10), "DECIMAL '0.0000000123'")
                 .execute(getQueryRunner(), oracleCreateAndInsert("read_number"));
 
         // decimal is alias to number
@@ -449,6 +455,8 @@ public abstract class AbstractTestOracleTypeMapping
                 .addRoundTrip("decimal(3, 0)", "193", createDecimalType(3, 0), "CAST(193 AS DECIMAL(3, 0))")
                 .addRoundTrip("decimal(24, 2)", "2.3", createDecimalType(24, 2), "CAST(2.3 AS DECIMAL(24, 2))")
                 .addRoundTrip("decimal(38, 38)", "-.27182818284590452353602874713526624977", createDecimalType(38, 38), "CAST(-.27182818284590452353602874713526624977 AS DECIMAL(38, 38))")
+                // scale > precision
+                .addRoundTrip("decimal(3, 10)", "0.0000000123", createDecimalType(10, 10), "DECIMAL '0.0000000123'")
                 .execute(getQueryRunner(), oracleCreateAndInsert("read_number"));
     }
 
@@ -463,15 +471,48 @@ public abstract class AbstractTestOracleTypeMapping
                 .execute(getQueryRunner(), oracleCreateAndInsert("number_without_scale"));
     }
 
+    /**
+     * Test Oracle's {@code NUMBER} without precision and scale specified, which is a floating-point decimal type.
+     */
     @Test
     public void testNumberWithoutPrecisionAndScaleReadMapping()
     {
+        SqlDataTypeTest.create()
+                .addRoundTrip("number", "1", NUMBER, "NUMBER '1'")
+                .addRoundTrip("number", "99", NUMBER, "NUMBER '99'")
+                .addRoundTrip("number", "9999999999999999999999999999.999999999", NUMBER, "NUMBER '9999999999999999999999999999.999999999'") // max
+                .addRoundTrip("number", "-9999999999999999999999999999.999999999", NUMBER, "NUMBER '-9999999999999999999999999999.999999999'") // min
+                // Oracle stores 40 decimal digits
+                .addRoundTrip("number", "12345678901234567890123456789012345678911234567890", NUMBER, "NUMBER '12345678901234567890123456789012345678910000000000'")
+                .addRoundTrip("number", "-12345678901234567890123456789012345678911234567890", NUMBER, "NUMBER '-12345678901234567890123456789012345678910000000000'")
+                .addRoundTrip("number", "123456789012345678901234567890.123456789112345678901234567890", NUMBER, "NUMBER '123456789012345678901234567890.1234567891'")
+                .addRoundTrip("number", "-123456789012345678901234567890.123456789112345678901234567890", NUMBER, "NUMBER '-123456789012345678901234567890.1234567891'")
+                .addRoundTrip("number", "0.00000000000000000000000000000000000001", NUMBER, "NUMBER '0.00000000000000000000000000000000000001'")
+                .addRoundTrip("number", "0.00000000000000000000000000000000000000000000000000000000000000000000000000000000001", NUMBER, "NUMBER '0.00000000000000000000000000000000000000000000000000000000000000000000000000000000001'")
+                .addRoundTrip("number", "999999999999999999999999999999999999999999999999", NUMBER, "NUMBER '1e+48'")
+                .addRoundTrip("number", "CAST(NULL AS NUMBER)", NUMBER, "CAST(NULL AS NUMBER)")
+                .execute(getQueryRunner(), oracleCreateAndInsert("no_prec_and_scale"));
+
+        // legacy mode
         SqlDataTypeTest.create()
                 .addRoundTrip("number", "1", createDecimalType(38, 9), "CAST(1 AS DECIMAL(38, 9))")
                 .addRoundTrip("number", "99", createDecimalType(38, 9), "CAST(99 AS DECIMAL(38, 9))")
                 .addRoundTrip("number", "9999999999999999999999999999.999999999", createDecimalType(38, 9), "CAST('9999999999999999999999999999.999999999' AS DECIMAL(38, 9))") // max
                 .addRoundTrip("number", "-9999999999999999999999999999.999999999", createDecimalType(38, 9), "CAST('-9999999999999999999999999999.999999999' AS DECIMAL(38, 9))") // min
                 .execute(getQueryRunner(), number(9), oracleCreateAndInsert("no_prec_and_scale"));
+    }
+
+    @Test
+    public void testTrinoNumber()
+    {
+        SqlDataTypeTest.create()
+                .addRoundTrip("number", "NUMBER '1.1'", NUMBER)
+                .addRoundTrip("number", "NUMBER '-1.1'", NUMBER)
+                .addRoundTrip("number", "NUMBER '12345678901234567890123456700000000000'", NUMBER)
+                .addRoundTrip("number", "NUMBER '123456789012345678901234e100'", NUMBER)
+                .addRoundTrip("number", "NUMBER '123456789012345678901234e-100'", NUMBER)
+                .execute(getQueryRunner(), trinoCreateAsSelect("test_trino_number"))
+                .execute(getQueryRunner(), trinoCreateAndInsert("test_trino_number"));
     }
 
     @Test
@@ -1114,25 +1155,11 @@ public abstract class AbstractTestOracleTypeMapping
                 .execute(getQueryRunner(), oracleCreateAndInsert("timestamp_tz"));
     }
 
-    /* Unsupported type tests */
-
     @Test
     public void testUnsupportedBasicType()
     {
         testUnsupportedOracleType("BFILE"); // Never in mapping
     }
-
-    @Test
-    public void testUnsupportedNumberScale()
-    {
-        // Difference between precision and negative scale greater than 38
-        testUnsupportedOracleType("number(20, -20)");
-        testUnsupportedOracleType("number(38, -84)");
-        // Scale larger than precision.
-        testUnsupportedOracleType("NUMBER(2, 4)"); // Explicitly removed from mapping
-    }
-
-    /* Testing utilities */
 
     /**
      * Check that unsupported data types are ignored
