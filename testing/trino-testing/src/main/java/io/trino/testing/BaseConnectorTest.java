@@ -1457,6 +1457,8 @@ public abstract class BaseConnectorTest
                     DOUBLE '12345.678901234' a_double,
                     CAST('1234567.8901' AS decimal(11, 4)) a_short_decimal,
                     CAST('1234567890123456789.0123456' AS decimal(26, 7)) a_long_decimal,
+                    NUMBER '1234567890123456789012345678901234567890.123456789012345678901234567890123456789' a_number,
+                    NUMBER '+Infinity' an_infinite_number,
                     CHAR 'few chars  ' a_char,
                     CAST('some string' AS varchar(33)) a_bounded_varchar,
                     CAST('some longer string' AS varchar) an_unbounded_varchar,
