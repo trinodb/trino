@@ -772,14 +772,16 @@ public sealed class OpaAccessControl
                 OpaQueryInputResource.builder().table(new TrinoTable(table).withProperties(properties)).build());
     }
 
+    /**
+     * When access is denied, reports only the inaccessible columns (not all columns)
+     * by using filterColumns to determine which columns the user can access.
+     */
     private void checkTableAndColumnsOperation(SystemSecurityContext context, String actionName, CatalogSchemaTableName table, Set<String> columns, BiConsumer<String, Set<String>> deny)
     {
         opaHighLevelClient.queryAndEnforce(
                 buildQueryContext(context),
                 actionName,
                 () -> {
-                    // When access is denied, report only the inaccessible columns (not all columns)
-                    // by using filterColumns to determine which columns the user can access
                     Set<String> allowedColumns = filterColumns(context, table.getCatalogName(),
                             ImmutableMap.of(table.getSchemaTableName(), columns))
                             .getOrDefault(table.getSchemaTableName(), ImmutableSet.of());
