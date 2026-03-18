@@ -24,6 +24,7 @@ import java.util.stream.Stream;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.testing.TestingNames.randomNameSuffix;
+import static io.trino.testing.TestingProperties.requiredNonEmptySystemProperty;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -34,7 +35,9 @@ public abstract class BaseBigQueryCaseInsensitiveMapping
         // TODO extends BaseCaseInsensitiveMappingTest - https://github.com/trinodb/trino/issues/7864
         extends AbstractTestQueryFramework
 {
-    private final BigQuerySqlExecutor bigQuerySqlExecutor = new BigQuerySqlExecutor();
+    public static final String BIGQUERY_CASE_INSENSITIVE_CREDENTIALS_KEY = requiredNonEmptySystemProperty("testing.bigquery-case-insensitive.credentials-key");
+
+    private final BigQuerySqlExecutor bigQuerySqlExecutor = new BigQuerySqlExecutor(BIGQUERY_CASE_INSENSITIVE_CREDENTIALS_KEY);
 
     @Test
     public void testNonLowerCaseSchemaName()

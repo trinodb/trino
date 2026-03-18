@@ -69,21 +69,28 @@ public final class BigQueryQueryRunner
 
     public static Builder builder()
     {
-        return new Builder();
+        return new Builder(BIGQUERY_CREDENTIALS_KEY);
+    }
+
+    public static Builder builder(String credentialsKey)
+    {
+        return new Builder(credentialsKey);
     }
 
     public static final class Builder
             extends DistributedQueryRunner.Builder<Builder>
     {
+        private String credentialsKey;
         private Map<String, String> connectorProperties = ImmutableMap.of();
         private List<TpchTable<?>> initialTables = ImmutableList.of();
 
-        private Builder()
+        private Builder(String credentialsKey)
         {
             super(testSessionBuilder()
                     .setCatalog("bigquery")
                     .setSchema(TPCH_SCHEMA)
                     .build());
+            this.credentialsKey = requireNonNull(credentialsKey, "credentialsKey is null");
         }
 
         @CanIgnoreReturnValue
@@ -111,7 +118,7 @@ public final class BigQueryQueryRunner
 
                 // note: additional copy via ImmutableList so that if fails on nulls
                 Map<String, String> connectorProperties = new HashMap<>(ImmutableMap.copyOf(this.connectorProperties));
-                connectorProperties.putIfAbsent("bigquery.credentials-key", BIGQUERY_CREDENTIALS_KEY);
+                connectorProperties.putIfAbsent("bigquery.credentials-key", credentialsKey);
                 connectorProperties.putIfAbsent("bigquery.views-enabled", "true");
                 connectorProperties.putIfAbsent("bigquery.view-expire-duration", "30m");
                 connectorProperties.putIfAbsent("bigquery.rpc-retries", "10");
@@ -143,7 +150,12 @@ public final class BigQueryQueryRunner
 
         public BigQuerySqlExecutor()
         {
-            this.bigQuery = createBigQueryClient();
+            this(BIGQUERY_CREDENTIALS_KEY);
+        }
+
+        public BigQuerySqlExecutor(String credentialsKey)
+        {
+            this.bigQuery = createBigQueryClient(credentialsKey);
         }
 
         @Override
@@ -190,10 +202,10 @@ public final class BigQueryQueryRunner
             return bigQuery;
         }
 
-        private static BigQuery createBigQueryClient()
+        private static BigQuery createBigQueryClient(String credentialsKey)
         {
             try {
-                InputStream jsonKey = new ByteArrayInputStream(Base64.getDecoder().decode(BIGQUERY_CREDENTIALS_KEY));
+                InputStream jsonKey = new ByteArrayInputStream(Base64.getDecoder().decode(credentialsKey));
                 return BigQueryOptions.newBuilder()
                         .setCredentials(ServiceAccountCredentials.fromStream(jsonKey))
                         .setRetrySettings(new RetryOptionsConfigurer(new BigQueryRpcConfig()

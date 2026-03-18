@@ -57,7 +57,7 @@ public class TestBigQueryInstanceCleaner
     // see https://cloud.google.com/bigquery/docs/information-schema-tables#tables_view for possible values
     public static final Collection<String> tableTypesToDrop = ImmutableList.of("BASE TABLE", "VIEW", "MATERIALIZED VIEW", "SNAPSHOT");
 
-    private BigQuerySqlExecutor bigQuerySqlExecutor;
+    protected BigQuerySqlExecutor bigQuerySqlExecutor;
 
     @BeforeAll
     public void setUp()
