@@ -217,9 +217,6 @@ public class FileBasedAccessControl
         }
     }
 
-    /**
-     * SHOW CREATE TABLE is a read-only metadata operation; allowed with SELECT privilege (READ_ONLY catalog access).
-     */
     @Override
     public void checkCanShowCreateTable(ConnectorSecurityContext context, SchemaTableName tableName)
     {
