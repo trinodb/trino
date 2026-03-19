@@ -56,7 +56,7 @@ final class ShortTimestampWithTimeZoneType
     private static final TypeOperatorDeclaration TYPE_OPERATOR_DECLARATION = extractOperatorDeclaration(ShortTimestampWithTimeZoneType.class, lookup(), long.class);
     private static final VarHandle LONG_HANDLE = MethodHandles.byteArrayViewVarHandle(long[].class, ByteOrder.LITTLE_ENDIAN);
 
-    public ShortTimestampWithTimeZoneType(int precision)
+    ShortTimestampWithTimeZoneType(int precision)
     {
         super(precision, long.class, LongArrayBlock.class);
 

@@ -45,6 +45,7 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.Set;
@@ -177,7 +178,7 @@ public class TaskDescriptorStorage
                 return true;
             }
 
-            for (Map.Entry<QueryId, TaskDescriptors> entry : storages.entrySet()) {
+            for (Entry<QueryId, TaskDescriptors> entry : storages.entrySet()) {
                 if (limit <= 0) {
                     return false;
                 }
@@ -324,7 +325,7 @@ public class TaskDescriptorStorage
             // drop a query that uses the most storage
             QueryId killCandidate = storages.entrySet().stream()
                     .max(Comparator.comparingLong(entry -> entry.getValue().getReservedBytes()))
-                    .map(Map.Entry::getKey)
+                    .map(Entry::getKey)
                     .orElseThrow(() -> new VerifyException(format("storage is empty but reservedBytes (%s + %s) is still greater than maxMemoryInBytes (%s)", reservedUncompressedDelta, reservedCompressedDelta, maxMemoryInBytes)));
             TaskDescriptors storage = storages.get(killCandidate);
 
@@ -572,12 +573,12 @@ public class TaskDescriptorStorage
 
             Map<StageId, String> debugInfoByStageId = descriptorsByStageId.asMap().entrySet().stream()
                     .collect(toImmutableMap(
-                            Map.Entry::getKey,
+                            Entry::getKey,
                             entry -> getDebugInfo(entry.getValue())));
 
             List<String> biggestSplits = descriptorsByStageId.entries().stream()
                     .flatMap(entry -> entry.getValue().getTaskDescriptor().getSplits().getSplitsFlat().entries().stream().map(splitEntry -> Map.entry("%s/%s".formatted(entry.getKey(), splitEntry.getKey()), splitEntry.getValue())))
-                    .sorted(Comparator.<Map.Entry<String, Split>>comparingLong(entry -> entry.getValue().getRetainedSizeInBytes()).reversed())
+                    .sorted(Comparator.<Entry<String, Split>>comparingLong(entry -> entry.getValue().getRetainedSizeInBytes()).reversed())
                     .limit(3)
                     .map(entry -> "{nodeId=%s, size=%s, split=%s}".formatted(entry.getKey(), entry.getValue().getRetainedSizeInBytes(), splitJsonCodec.toJson(entry.getValue())))
                     .toList();

@@ -35,7 +35,7 @@ import static io.trino.spi.function.OperatorType.HASH_CODE;
 import static io.trino.spi.function.OperatorType.IDENTICAL;
 import static io.trino.spi.type.BigintType.BIGINT;
 
-@ScalarFunction("array_distinct")
+@ScalarFunction(value = "array_distinct", neverFails = true)
 @Description("Remove duplicate values from the given array")
 public final class ArrayDistinctFunction
 {

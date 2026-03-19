@@ -22,6 +22,7 @@ import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
 import io.trino.tpch.TpchTable;
+import org.testcontainers.utility.DockerImageName;
 
 import java.util.HashMap;
 import java.util.List;
@@ -111,7 +112,8 @@ public final class PostgreSqlQueryRunner
     static void main()
             throws Exception
     {
-        QueryRunner queryRunner = builder(new TestingPostgreSqlServer(System.getProperty("testing.postgresql-image-name", DEFAULT_IMAGE_NAME), true))
+        DockerImageName postgreSqlImageName = DockerImageName.parse(System.getProperty("testing.postgresql-image-name", DEFAULT_IMAGE_NAME.asCanonicalNameString()));
+        QueryRunner queryRunner = builder(new TestingPostgreSqlServer(postgreSqlImageName, true))
                 .addCoordinatorProperty("http-server.http.port", "8080")
                 .setInitialTables(TpchTable.getTables())
                 .build();

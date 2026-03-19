@@ -65,6 +65,7 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalLong;
@@ -166,12 +167,12 @@ public final class MetastoreUtil
             schema.put(BUCKET_COUNT, "0");
         }
 
-        for (Map.Entry<String, String> param : sd.getSerdeParameters().entrySet()) {
+        for (Entry<String, String> param : sd.getSerdeParameters().entrySet()) {
             schema.put(param.getKey(), (param.getValue() != null) ? param.getValue() : "");
         }
 
         if (sd.getStorageFormat().getSerde().equals(AVRO_SERDE_CLASS) && tableSd.isPresent()) {
-            for (Map.Entry<String, String> param : tableSd.get().getSerdeParameters().entrySet()) {
+            for (Entry<String, String> param : tableSd.get().getSerdeParameters().entrySet()) {
                 schema.put(param.getKey(), nullToEmpty(param.getValue()));
             }
         }
@@ -219,7 +220,7 @@ public final class MetastoreUtil
         }
 
         if (parameters != null) {
-            for (Map.Entry<String, String> entry : parameters.entrySet()) {
+            for (Entry<String, String> entry : parameters.entrySet()) {
                 // add non-null parameters to the schema
                 if (entry.getValue() != null) {
                     schema.put(entry.getKey(), entry.getValue());

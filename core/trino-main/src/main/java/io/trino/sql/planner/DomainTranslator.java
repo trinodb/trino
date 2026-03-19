@@ -34,8 +34,6 @@ import io.trino.spi.predicate.Ranges;
 import io.trino.spi.predicate.SortedRangeSet;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.predicate.ValueSet;
-import io.trino.spi.type.DoubleType;
-import io.trino.spi.type.RealType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
 import io.trino.sql.InterpretedFunctionInvoker;
@@ -87,6 +85,7 @@ import static io.trino.spi.function.OperatorType.SATURATED_FLOOR_CAST;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.TypeUtils.isFloatingPointNaN;
+import static io.trino.spi.type.TypeUtils.typeHasNaN;
 import static io.trino.sql.ir.Booleans.FALSE;
 import static io.trino.sql.ir.Booleans.TRUE;
 import static io.trino.sql.ir.Comparison.Operator.EQUAL;
@@ -226,7 +225,7 @@ public final class DomainTranslator
         That result would be further translated to expression "xxx <> 1.0", which is satisfied by NaN.
         To avoid error, in such case the ranges are not optimised.
          */
-        if (type instanceof RealType || type instanceof DoubleType) {
+        if (typeHasNaN(type)) {
             boolean originalRangeIsAll = orderedRanges.stream().anyMatch(Range::isAll);
             boolean coalescedRangeIsAll = originalUnionSingleValues.stream().anyMatch(Range::isAll);
             if (!originalRangeIsAll && coalescedRangeIsAll) {
@@ -401,7 +400,7 @@ public final class DomainTranslator
                             remainingExpression = residuals.get(0);
                         }
                         else if (matchingSingleSymbolDomains) {
-                            // Types REAL and DOUBLE require special handling because they include NaN value. In this case, we cannot rely on the union of domains.
+                            // Types REAL, DOUBLE and NUMBER require special handling because they include NaN value. In this case, we cannot rely on the union of domains.
                             // That is because domains covering the value set partially might union up to a domain covering the whole value set.
                             // While the component domains didn't include NaN, the resulting domain could be further translated to predicate "TRUE" or "a IS NOT NULL",
                             // which is satisfied by NaN. So during domain union, NaN might be implicitly added.
@@ -422,7 +421,7 @@ public final class DomainTranslator
                             boolean unionedDomainContainsNaN = columnUnionedTupleDomain.isAll() ||
                                     (columnUnionedTupleDomain.getDomains().isPresent() &&
                                             getOnlyElement(columnUnionedTupleDomain.getDomains().get().values()).getValues().isAll());
-                            boolean implicitlyAddedNaN = (type instanceof RealType || type instanceof DoubleType) &&
+                            boolean implicitlyAddedNaN = typeHasNaN(type) &&
                                     tupleDomains.stream().noneMatch(TupleDomain::isAll) &&
                                     unionedDomainContainsNaN;
                             if (!implicitlyAddedNaN) {
@@ -677,7 +676,7 @@ public final class DomainTranslator
             checkArgument(value != null);
 
             // Handle orderable types which do not have NaN.
-            if (!(type instanceof DoubleType) && !(type instanceof RealType)) {
+            if (!typeHasNaN(type)) {
                 return switch (comparisonOperator) {
                     case EQUAL -> Optional.of(Domain.create(complementIfNecessary(ValueSet.ofRanges(Range.equal(type, value)), complement), false));
                     case IDENTICAL -> Optional.of(Domain.create(complementIfNecessary(ValueSet.ofRanges(Range.equal(type, value)), complement), complement));
@@ -911,7 +910,7 @@ public final class DomainTranslator
                         // in case of IN, NULL on the right results with NULL comparison result (effectively false in predicate context), so can be ignored, as the
                         // comparison results are OR-ed
                     }
-                    else if (type instanceof RealType || type instanceof DoubleType) {
+                    else if (typeHasNaN(type)) {
                         // NaN can be ignored: it always compares to false, as if it was not among IN's values
                         if (!isFloatingPointNaN(type, constant.value())) {
                             if (complement) {

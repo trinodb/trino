@@ -31,6 +31,7 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalLong;
 import java.util.function.BiConsumer;
 import java.util.function.LongConsumer;
 
@@ -51,8 +52,8 @@ public final class PositionDeleteReader
     public static Optional<DeletionVector> readPositionDeletes(
             String dataFilePath,
             List<DeleteFile> positionDeleteFiles,
-            Optional<Long> startRowPosition,
-            Optional<Long> endRowPosition,
+            OptionalLong startRowPosition,
+            OptionalLong endRowPosition,
             DeletePageSourceProvider deletePageSourceProvider,
             TypeManager typeManager)
     {
@@ -68,7 +69,7 @@ public final class PositionDeleteReader
         List<IcebergColumnHandle> deleteColumns = ImmutableList.of(deleteFilePath, deleteFilePos);
         TupleDomain<IcebergColumnHandle> deleteDomain = TupleDomain.fromFixedValues(ImmutableMap.of(deleteFilePath, NullableValue.of(VARCHAR, targetPath)));
         if (startRowPosition.isPresent()) {
-            Range positionRange = Range.range(deleteFilePos.getType(), startRowPosition.get(), true, endRowPosition.get(), true);
+            Range positionRange = Range.range(deleteFilePos.getType(), startRowPosition.getAsLong(), true, endRowPosition.getAsLong(), true);
             TupleDomain<IcebergColumnHandle> positionDomain = TupleDomain.withColumnDomains(ImmutableMap.of(deleteFilePos, Domain.create(ValueSet.ofRanges(positionRange), false)));
             deleteDomain = deleteDomain.intersect(positionDomain);
         }
@@ -88,16 +89,16 @@ public final class PositionDeleteReader
         return deletionVector.build();
     }
 
-    private static boolean shouldLoadPositionDeleteFile(DeleteFile deleteFile, Optional<Long> startRowPosition, Optional<Long> endRowPosition)
+    private static boolean shouldLoadPositionDeleteFile(DeleteFile deleteFile, OptionalLong startRowPosition, OptionalLong endRowPosition)
     {
         if (startRowPosition.isEmpty()) {
             return true;
         }
 
-        Optional<Long> positionLowerBound = deleteFile.rowPositionLowerBound();
-        Optional<Long> positionUpperBound = deleteFile.rowPositionUpperBound();
-        return (positionLowerBound.isEmpty() || positionLowerBound.get() <= endRowPosition.orElseThrow()) &&
-                (positionUpperBound.isEmpty() || positionUpperBound.get() >= startRowPosition.get());
+        OptionalLong positionLowerBound = deleteFile.rowPositionLowerBound();
+        OptionalLong positionUpperBound = deleteFile.rowPositionUpperBound();
+        return (positionLowerBound.isEmpty() || positionLowerBound.getAsLong() <= endRowPosition.orElseThrow()) &&
+                (positionUpperBound.isEmpty() || positionUpperBound.getAsLong() >= startRowPosition.getAsLong());
     }
 
     public static void readSingleFilePositionDeletes(ConnectorPageSource pageSource, LongConsumer filePositionConsumer)

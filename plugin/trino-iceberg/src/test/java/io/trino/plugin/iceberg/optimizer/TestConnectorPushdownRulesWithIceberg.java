@@ -60,6 +60,7 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.OptionalLong;
 
 import static com.google.common.io.MoreFiles.deleteRecursively;
@@ -160,9 +161,10 @@ public class TestConnectorPushdownRulesWithIceberg
                 SCHEMA_NAME,
                 tableName,
                 DATA,
-                Optional.of(1L),
+                OptionalLong.of(1),
                 "",
-                Optional.of(""),
+                OptionalInt.empty(),
+                ImmutableMap.of(),
                 1,
                 TupleDomain.all(),
                 TupleDomain.all(),
@@ -244,9 +246,10 @@ public class TestConnectorPushdownRulesWithIceberg
                 SCHEMA_NAME,
                 tableName,
                 DATA,
-                Optional.of(snapshotId),
+                OptionalLong.of(snapshotId),
                 "",
-                Optional.of(""),
+                OptionalInt.empty(),
+                ImmutableMap.of(),
                 1,
                 TupleDomain.all(),
                 TupleDomain.all(),
@@ -295,9 +298,10 @@ public class TestConnectorPushdownRulesWithIceberg
                 SCHEMA_NAME,
                 tableName,
                 DATA,
-                Optional.empty(),
+                OptionalLong.empty(),
                 "",
-                Optional.of(""),
+                OptionalInt.empty(),
+                ImmutableMap.of(),
                 1,
                 TupleDomain.all(),
                 TupleDomain.all(),
@@ -356,9 +360,10 @@ public class TestConnectorPushdownRulesWithIceberg
                 SCHEMA_NAME,
                 tableName,
                 DATA,
-                Optional.of(1L),
+                OptionalLong.of(1),
                 "",
-                Optional.of(""),
+                OptionalInt.empty(),
+                ImmutableMap.of(),
                 1,
                 TupleDomain.all(),
                 TupleDomain.all(),

@@ -183,7 +183,7 @@ public final class Failures
         String type;
         HostAddress remoteHost = null;
         if (throwable instanceof Failure failure) {
-            type = failure.getFailureInfo().getType();
+            type = failure.getFailureInfo().type();
         }
         else {
             Class<?> clazz = throwable.getClass();
@@ -213,7 +213,7 @@ public final class Failures
                 errorCode = GENERIC_INTERNAL_ERROR.toErrorCode();
             }
             else {
-                errorCode = cause.getErrorCode();
+                errorCode = cause.errorCode();
             }
         }
 
@@ -241,7 +241,7 @@ public final class Failures
         }
         if (throwable instanceof TrinoException trinoException) {
             return trinoException.getLocation()
-                    .map(location -> new ErrorLocation(location.getLineNumber(), location.getColumnNumber()))
+                    .map(location -> new ErrorLocation(location.lineNumber(), location.columnNumber()))
                     .orElse(null);
         }
         return null;
@@ -252,7 +252,7 @@ public final class Failures
     {
         return switch (requireNonNull(throwable)) {
             case TrinoException trinoException -> trinoException.getErrorCode();
-            case Failure failure -> failure.getFailureInfo().getErrorCode();
+            case Failure failure -> failure.getFailureInfo().errorCode();
             case ParsingException _ -> SYNTAX_ERROR.toErrorCode();
             default -> null;
         };

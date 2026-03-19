@@ -41,7 +41,6 @@ import java.util.function.Supplier;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.sql.gen.columnar.FilterEvaluator.createColumnarFilterEvaluator;
-import static io.trino.sql.ir.optimizer.IrExpressionOptimizer.newOptimizer;
 import static io.trino.sql.relational.SqlToRowExpressionTranslator.translate;
 import static java.util.Objects.requireNonNull;
 
@@ -76,7 +75,7 @@ public final class DynamicPageFilter
         this.metadata = requireNonNull(plannerContext.getMetadata(), "metadata is null");
         this.typeManager = requireNonNull(plannerContext.getTypeManager(), "typeManager is null");
         this.session = requireNonNull(session, "session is null");
-        this.irExpressionOptimizer = newOptimizer(plannerContext);
+        this.irExpressionOptimizer = plannerContext.getExpressionOptimizer();
         this.domainTranslator = new DomainTranslator(plannerContext.getMetadata());
         this.columnHandles = columnHandles.entrySet()
                 .stream()

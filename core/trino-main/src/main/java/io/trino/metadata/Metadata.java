@@ -495,6 +495,11 @@ public interface Metadata
     Optional<CatalogHandle> getCatalogHandle(Session session, String catalogName);
 
     /**
+     * Returns a catalog info for the specified catalog name.
+     */
+    Optional<CatalogInfo> getCatalogInfo(Session session, String catalogName);
+
+    /**
      * Gets all the catalogs
      */
     List<CatalogInfo> listCatalogs(Session session);

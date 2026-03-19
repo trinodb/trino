@@ -48,6 +48,7 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.concurrent.Callable;
 
@@ -280,7 +281,7 @@ public final class TestRun
             }, toList())));
             // see PluginReader. printPluginFeatures() for all possible feature prefixes
             Map<String, List<String>> environmentFeaturesByName = environment.getConfiguredFeatures();
-            for (Map.Entry<String, List<String>> entry : featuresByName.entrySet()) {
+            for (Entry<String, List<String>> entry : featuresByName.entrySet()) {
                 String name = entry.getKey();
                 List<String> features = entry.getValue();
                 if (!environmentFeaturesByName.containsKey(name)) {

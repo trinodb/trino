@@ -40,7 +40,7 @@ must be taken:
 
 - Copy the `kafka-protobuf-provider` and `kafka-protobuf-types` JAR files
   from [Confluent](https://packages.confluent.io/maven/io/confluent/) for
-  Confluent version 7.9.0 to the Kafka connector plugin directory (`<install
+  Confluent version 8.1.1 to the Kafka connector plugin directory (`<install
   directory>/plugin/kafka`) on all nodes in the cluster.
   The plugin directory depends on the {doc}`/installation` method.
 - By copying those JARs and using them, you agree to the terms of the [Confluent

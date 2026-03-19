@@ -25,7 +25,7 @@ import io.trino.type.DateTimes;
 
 import java.time.LocalDateTime;
 
-@ScalarFunction(value = "$localtimestamp", hidden = true)
+@ScalarFunction(value = "$localtimestamp", hidden = true, neverFails = true)
 public final class LocalTimestamp
 {
     private LocalTimestamp() {}

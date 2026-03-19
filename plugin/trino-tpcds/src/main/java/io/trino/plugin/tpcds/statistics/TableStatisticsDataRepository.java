@@ -14,9 +14,9 @@
 
 package io.trino.plugin.tpcds.statistics;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.datatype.jdk8.Jdk8Module;
+import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.io.Resources;
+import io.airlift.json.JsonMapperProvider;
 import io.trino.tpcds.Table;
 
 import java.io.File;
@@ -36,8 +36,7 @@ import static java.nio.file.StandardOpenOption.WRITE;
 
 public class TableStatisticsDataRepository
 {
-    private final ObjectMapper objectMapper = new ObjectMapper()
-            .registerModule(new Jdk8Module());
+    private final JsonMapper jsonMapper = new JsonMapperProvider().get();
 
     public void save(
             String schemaName,
@@ -61,7 +60,7 @@ public class TableStatisticsDataRepository
         File file = path.toFile();
         file.getParentFile().mkdirs();
         try {
-            objectMapper
+            jsonMapper
                     .writerWithDefaultPrettyPrinter()
                     .writeValue(file, tableStatisticsData);
             try (Writer writer = Files.newBufferedWriter(path, UTF_8, CREATE, WRITE)) {
@@ -89,7 +88,7 @@ public class TableStatisticsDataRepository
         }
         try {
             try (InputStream inputStream = Resources.asByteSource(resource).openStream()) {
-                return Optional.of(parseJson(objectMapper, inputStream, TableStatisticsData.class));
+                return Optional.of(parseJson(jsonMapper, inputStream, TableStatisticsData.class));
             }
         }
         catch (Exception e) {

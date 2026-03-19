@@ -33,6 +33,10 @@
                 </exclusion>
                 <exclusion>
                     <groupId>net.java.dev.jna</groupId>
+                    <artifactId>jna</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>net.java.dev.jna</groupId>
                     <artifactId>jna-platform</artifactId>
                 </exclusion>
                 <exclusion>
@@ -352,9 +356,9 @@
         </dependency>
 
         <dependency>
-            <groupId>org.openjdk.jol</groupId>
-            <artifactId>jol-core</artifactId>
-            <scope>provided</scope>
+            <groupId>io.airlift</groupId>
+            <artifactId>tracing</artifactId>
+            <scope>runtime</scope>
         </dependency>
 
         <dependency>
@@ -372,12 +376,6 @@
         <dependency>
             <groupId>io.airlift</groupId>
             <artifactId>testing</artifactId>
-            <scope>test</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>io.airlift</groupId>
-            <artifactId>tracing</artifactId>
             <scope>test</scope>
         </dependency>
 

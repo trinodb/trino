@@ -39,6 +39,7 @@ import io.trino.sql.planner.plan.ProjectNode;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Set;
 
@@ -245,7 +246,7 @@ public class TransformCorrelatedGlobalAggregationWithProjection
             // It applies to the following aggregate functions: count(*), checksum(), array_agg().
             ImmutableMap.Builder<Symbol, Symbol> masksBuilder = ImmutableMap.builder();
             Assignments.Builder assignmentsBuilder = Assignments.builder();
-            for (Map.Entry<Symbol, Aggregation> entry : globalAggregation.getAggregations().entrySet()) {
+            for (Entry<Symbol, Aggregation> entry : globalAggregation.getAggregations().entrySet()) {
                 Aggregation aggregation = entry.getValue();
                 if (aggregation.getMask().isPresent()) {
                     Symbol newMask = context.getSymbolAllocator().newSymbol("mask", BOOLEAN);

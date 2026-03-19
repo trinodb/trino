@@ -46,7 +46,7 @@ public class EvaluateCall
 
     public EvaluateCall(PlannerContext context)
     {
-        evaluator = new IrExpressionEvaluator(context);
+        evaluator = context.getExpressionEvaluator();
     }
 
     @Override

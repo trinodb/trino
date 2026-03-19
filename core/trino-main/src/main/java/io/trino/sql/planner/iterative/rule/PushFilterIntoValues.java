@@ -45,7 +45,6 @@ import static io.trino.spi.type.TypeUtils.readNativeValue;
 import static io.trino.sql.ir.Booleans.FALSE;
 import static io.trino.sql.ir.Booleans.NULL_BOOLEAN;
 import static io.trino.sql.ir.Booleans.TRUE;
-import static io.trino.sql.ir.optimizer.IrExpressionOptimizer.newOptimizer;
 import static io.trino.sql.planner.DeterminismEvaluator.isDeterministic;
 import static io.trino.sql.planner.ExpressionSymbolInliner.inlineSymbols;
 import static io.trino.sql.planner.SymbolsExtractor.extractUnique;
@@ -128,7 +127,7 @@ public class PushFilterIntoValues
             };
 
             Expression rewrittenPredicate = inlineSymbols(mapping, predicate);
-            Optional<Expression> optimizedPredicate = newOptimizer(plannerContext).process(rewrittenPredicate, context.getSession(), ImmutableMap.of());
+            Optional<Expression> optimizedPredicate = plannerContext.getExpressionOptimizer().process(rewrittenPredicate, context.getSession(), ImmutableMap.of());
 
             if (optimizedPredicate.isPresent() && optimizedPredicate.get().equals(TRUE)) {
                 filteredRows.add(expression);

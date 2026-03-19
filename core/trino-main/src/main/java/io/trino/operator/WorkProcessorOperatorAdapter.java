@@ -17,7 +17,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.trino.memory.context.MemoryTrackingContext;
 import io.trino.operator.join.JoinOperatorFactory;
-import io.trino.operator.join.LookupJoinOperatorFactory;
+import io.trino.operator.join.spilling.LookupJoinOperatorFactory;
 import io.trino.spi.Page;
 
 import java.util.Optional;

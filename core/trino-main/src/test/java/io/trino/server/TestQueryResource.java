@@ -13,7 +13,9 @@
  */
 package io.trino.server;
 
+import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.inject.Key;
+import io.airlift.http.client.HeaderName;
 import io.airlift.http.client.HttpClient;
 import io.airlift.http.client.HttpUriBuilder;
 import io.airlift.http.client.Request;
@@ -21,7 +23,7 @@ import io.airlift.http.client.UnexpectedResponseException;
 import io.airlift.http.client.jetty.JettyHttpClient;
 import io.airlift.json.JsonCodec;
 import io.airlift.json.JsonCodecFactory;
-import io.airlift.json.ObjectMapperProvider;
+import io.airlift.json.JsonMapperProvider;
 import io.opentelemetry.api.OpenTelemetry;
 import io.opentelemetry.api.trace.Span;
 import io.trino.client.Column;
@@ -74,16 +76,18 @@ import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_METHOD;
 @TestInstance(PER_METHOD)
 public class TestQueryResource
 {
-    static final JsonCodec<List<BasicQueryInfo>> BASIC_QUERY_INFO_CODEC = new JsonCodecFactory(
-            new ObjectMapperProvider()
-                    .withModules(Set.of(new QueryDataJacksonModule()))
-                    .withJsonSerializers(Map.of(Span.class, new SpanSerializer(OpenTelemetry.noop())))
-                    .withJsonDeserializers(Map.of(Span.class, new SpanDeserializer(OpenTelemetry.noop()))))
+    static final HeaderName REQUEST_USER_HEADER = HeaderName.of(TRINO_HEADERS.requestUser());
+
+    static final JsonMapper JSON_MAPPER = new JsonMapperProvider()
+            .withModules(Set.of(new QueryDataJacksonModule()))
+            .withJsonSerializers(Map.of(Span.class, new SpanSerializer(OpenTelemetry.noop())))
+            .withJsonDeserializers(Map.of(Span.class, new SpanDeserializer(OpenTelemetry.noop())))
+            .get();
+
+    static final JsonCodec<List<BasicQueryInfo>> BASIC_QUERY_INFO_CODEC = new JsonCodecFactory(JSON_MAPPER)
             .listJsonCodec(BasicQueryInfo.class);
 
-    static final JsonCodec<QueryResults> QUERY_RESULTS_JSON_CODEC = new JsonCodecFactory(
-            new ObjectMapperProvider()
-                    .withModules(Set.of(new QueryDataJacksonModule())))
+    static final JsonCodec<QueryResults> QUERY_RESULTS_JSON_CODEC = new JsonCodecFactory(JSON_MAPPER)
             .jsonCodec(QueryResults.class);
 
     private HttpClient client;
@@ -113,7 +117,7 @@ public class TestQueryResource
         String sql = "SELECT * FROM tpch.tiny.lineitem";
 
         Request request = preparePost()
-                .setHeader(TRINO_HEADERS.requestUser(), "user")
+                .setHeader(REQUEST_USER_HEADER, "user")
                 .setUri(uriBuilderFrom(server.getBaseUrl().resolve("/v1/statement")).build())
                 .setBodyGenerator(createStaticBodyGenerator(sql, UTF_8))
                 .build();
@@ -123,14 +127,14 @@ public class TestQueryResource
         while (uri != null) {
             QueryResults attempt1 = client.execute(
                     prepareGet()
-                            .setHeader(TRINO_HEADERS.requestUser(), "user")
+                            .setHeader(REQUEST_USER_HEADER, "user")
                             .setUri(uri)
                             .build(),
                     createJsonResponseHandler(QUERY_RESULTS_JSON_CODEC));
 
             QueryResults attempt2 = client.execute(
                     prepareGet()
-                            .setHeader(TRINO_HEADERS.requestUser(), "user")
+                            .setHeader(REQUEST_USER_HEADER, "user")
                             .setUri(uri)
                             .build(),
                     createJsonResponseHandler(QUERY_RESULTS_JSON_CODEC));
@@ -197,8 +201,8 @@ public class TestQueryResource
         assertThat(queryInfoPruned.getStages()).isPresent();
         assertThat(queryInfoNotPruned.getStages()).isPresent();
 
-        assertThat(queryInfoPruned.getStages().get().getOutputStage().getTasks()).isEmpty();
-        assertThat(queryInfoNotPruned.getStages().get().getOutputStage().getTasks()).isNotEmpty();
+        assertThat(queryInfoPruned.getStages().get().getOutputStage().tasks()).isEmpty();
+        assertThat(queryInfoNotPruned.getStages().get().getOutputStage().tasks()).isNotEmpty();
     }
 
     @Test
@@ -208,7 +212,7 @@ public class TestQueryResource
         QueryInfo info = getQueryInfo(queryId);
         assertThat(info.isScheduled()).isFalse();
         assertThat(info.getFailureInfo()).isNotNull();
-        assertThat(info.getFailureInfo().getErrorCode()).isEqualTo(SYNTAX_ERROR.toErrorCode());
+        assertThat(info.getFailureInfo().errorCode()).isEqualTo(SYNTAX_ERROR.toErrorCode());
 
         server.getAccessControl().deny(privilege("query", VIEW_QUERY));
         try {
@@ -228,7 +232,7 @@ public class TestQueryResource
         QueryInfo info = getQueryInfo(queryId);
         assertThat(info.isScheduled()).isTrue();
         assertThat(info.getFailureInfo()).isNotNull();
-        assertThat(info.getFailureInfo().getErrorCode()).isEqualTo(DIVISION_BY_ZERO.toErrorCode());
+        assertThat(info.getFailureInfo().errorCode()).isEqualTo(DIVISION_BY_ZERO.toErrorCode());
     }
 
     @Test
@@ -307,14 +311,14 @@ public class TestQueryResource
     {
         URI uri = uriBuilderFrom(server.getBaseUrl().resolve("/v1/statement")).build();
         Request request = preparePost()
-                .setHeader(TRINO_HEADERS.requestUser(), "user")
+                .setHeader(REQUEST_USER_HEADER, "user")
                 .setUri(uri)
                 .setBodyGenerator(createStaticBodyGenerator(sql, UTF_8))
                 .build();
         QueryResults queryResults = client.execute(request, createJsonResponseHandler(QUERY_RESULTS_JSON_CODEC));
         while (queryResults.getNextUri() != null) {
             request = prepareGet()
-                    .setHeader(TRINO_HEADERS.requestUser(), "user")
+                    .setHeader(REQUEST_USER_HEADER, "user")
                     .setUri(queryResults.getNextUri())
                     .build();
             queryResults = client.execute(request, createJsonResponseHandler(QUERY_RESULTS_JSON_CODEC));
@@ -328,12 +332,12 @@ public class TestQueryResource
         Request request = preparePost()
                 .setUri(uri)
                 .setBodyGenerator(createStaticBodyGenerator(sql, UTF_8))
-                .setHeader(TRINO_HEADERS.requestUser(), "user")
+                .setHeader(REQUEST_USER_HEADER, "user")
                 .build();
         QueryResults queryResults = client.execute(request, createJsonResponseHandler(QUERY_RESULTS_JSON_CODEC));
         while (queryResults.getNextUri() != null && !queryResults.getStats().getState().equals(RUNNING.toString())) {
             request = prepareGet()
-                    .setHeader(TRINO_HEADERS.requestUser(), "user")
+                    .setHeader(REQUEST_USER_HEADER, "user")
                     .setUri(queryResults.getNextUri())
                     .build();
             queryResults = client.execute(request, createJsonResponseHandler(QUERY_RESULTS_JSON_CODEC));
@@ -345,7 +349,7 @@ public class TestQueryResource
     {
         Request request = prepareGet()
                 .setUri(server.resolve(path))
-                .setHeader(TRINO_HEADERS.requestUser(), "unknown")
+                .setHeader(REQUEST_USER_HEADER, "unknown")
                 .build();
         return client.execute(request, createJsonResponseHandler(BASIC_QUERY_INFO_CODEC));
     }
@@ -394,7 +398,7 @@ public class TestQueryResource
         URI uri = builder.build();
         Request request = prepareGet()
                 .setUri(uri)
-                .setHeader(TRINO_HEADERS.requestUser(), "unknown")
+                .setHeader(REQUEST_USER_HEADER, "unknown")
                 .build();
         JsonCodec<QueryInfo> codec = server.getInstance(Key.get(JsonCodecFactory.class)).jsonCodec(QueryInfo.class);
         return client.execute(request, createJsonResponseHandler(codec));
@@ -408,7 +412,7 @@ public class TestQueryResource
                 .build();
         Request request = prepareDelete()
                 .setUri(uri)
-                .setHeader(TRINO_HEADERS.requestUser(), "unknown")
+                .setHeader(REQUEST_USER_HEADER, "unknown")
                 .build();
         return client.execute(request, createStatusResponseHandler()).getStatusCode();
     }
@@ -422,7 +426,7 @@ public class TestQueryResource
                 .build();
         Request request = preparePut()
                 .setUri(uri)
-                .setHeader(TRINO_HEADERS.requestUser(), "unknown")
+                .setHeader(REQUEST_USER_HEADER, "unknown")
                 .build();
         return client.execute(request, createStatusResponseHandler()).getStatusCode();
     }

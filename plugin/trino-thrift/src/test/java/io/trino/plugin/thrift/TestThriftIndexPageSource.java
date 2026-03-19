@@ -41,6 +41,7 @@ import org.junit.jupiter.api.Test;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.stream.IntStream;
@@ -319,7 +320,7 @@ public class TestThriftIndexPageSource
 
     private static ThriftColumnHandle column(String name, Type type)
     {
-        return new ThriftColumnHandle(name, type, null, false);
+        return new ThriftColumnHandle(name, type, Optional.empty(), false);
     }
 
     private static List<List<Integer>> generateKeys(int beginInclusive, int endExclusive)

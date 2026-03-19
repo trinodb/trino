@@ -16,7 +16,7 @@ package io.trino.operator.join;
 import org.junit.jupiter.api.Test;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.trino.operator.join.LookupJoinOperatorFactory.JoinType.INNER;
+import static io.trino.operator.join.JoinType.INNER;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestJoinStatisticsCounter

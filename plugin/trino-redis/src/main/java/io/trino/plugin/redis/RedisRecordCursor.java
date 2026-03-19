@@ -43,6 +43,7 @@ import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Queue;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -373,7 +374,7 @@ public class RedisRecordCursor
         TupleDomain<ColumnHandle> constraint = split.getConstraint();
         Map<ColumnHandle, Domain> domains = constraint.getDomains().orElseThrow();
 
-        for (Map.Entry<ColumnHandle, Domain> entry : domains.entrySet()) {
+        for (Entry<ColumnHandle, Domain> entry : domains.entrySet()) {
             if (((RedisColumnHandle) entry.getKey()).isKeyDecoder()) {
                 Domain domain = entry.getValue();
                 if (domain.isSingleValue()) {

@@ -23,6 +23,7 @@ import static java.lang.String.format;
  * @see ShortTimestampWithTimeZoneType
  * @see LongTimestampWithTimeZoneType
  */
+@SuppressWarnings("ClassInitializationDeadlock") // ShortTimestampWithTimeZoneType and LongTimestampWithTimeZoneType classes only ever access from TimestampWithTimeZoneType class
 public abstract sealed class TimestampWithTimeZoneType
         extends AbstractType
         implements FixedWidthType
@@ -38,7 +39,9 @@ public abstract sealed class TimestampWithTimeZoneType
 
     static {
         for (int precision = 0; precision <= MAX_PRECISION; precision++) {
-            TYPES[precision] = (precision <= MAX_SHORT_PRECISION) ? new ShortTimestampWithTimeZoneType(precision) : new LongTimestampWithTimeZoneType(precision);
+            @SuppressWarnings("StaticInitializerReferencesSubClass")
+            TimestampWithTimeZoneType type = (precision <= MAX_SHORT_PRECISION) ? new ShortTimestampWithTimeZoneType(precision) : new LongTimestampWithTimeZoneType(precision);
+            TYPES[precision] = type;
         }
     }
 

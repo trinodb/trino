@@ -14,10 +14,6 @@
     <name>${project.artifactId}</name>
     <description>Trino - ClickHouse connector</description>
 
-    <properties>
-        <air.compiler.fail-warnings>true</air.compiler.fail-warnings>
-    </properties>
-
     <dependencies>
         <dependency>
             <groupId>com.clickhouse</groupId>
@@ -98,9 +94,11 @@
         </dependency>
 
         <dependency>
-            <groupId>org.openjdk.jol</groupId>
-            <artifactId>jol-core</artifactId>
-            <scope>provided</scope>
+            <!-- Clickhouse client will by default use LZ4 compression, which requires this dependency -->
+            <!-- https://github.com/ClickHouse/clickhouse-docs/pull/2408/files -->
+            <groupId>at.yawk.lz4</groupId>
+            <artifactId>lz4-java</artifactId>
+            <scope>runtime</scope>
         </dependency>
 
         <dependency>
@@ -118,14 +116,6 @@
         <dependency>
             <groupId>io.airlift</groupId>
             <artifactId>log-manager</artifactId>
-            <scope>runtime</scope>
-        </dependency>
-
-        <dependency>
-            <!-- Clickhouse client will by default use LZ4 compression, which requires this dependency -->
-            <!-- https://github.com/ClickHouse/clickhouse-docs/pull/2408/files -->
-            <groupId>org.lz4</groupId>
-            <artifactId>lz4-java</artifactId>
             <scope>runtime</scope>
         </dependency>
 

@@ -30,7 +30,6 @@ import java.util.stream.Collectors;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Sets.intersection;
-import static io.trino.sql.ir.optimizer.IrExpressionOptimizer.newPartialEvaluator;
 import static java.util.Objects.requireNonNull;
 
 public class LayoutConstraintEvaluator
@@ -45,7 +44,7 @@ public class LayoutConstraintEvaluator
     {
         this.session = requireNonNull(session, "session is null");
         this.assignments = ImmutableMap.copyOf(requireNonNull(assignments, "assignments is null"));
-        evaluator = newPartialEvaluator(plannerContext);
+        evaluator = plannerContext.getPartialEvaluator();
         this.expression = requireNonNull(expression, "expression is null");
         arguments = SymbolsExtractor.extractUnique(expression).stream()
                 .map(assignments::get)

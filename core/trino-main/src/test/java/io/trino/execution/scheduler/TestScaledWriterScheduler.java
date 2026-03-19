@@ -231,7 +231,7 @@ public class TestScaledWriterScheduler
     {
         return new TaskStatus(
                 new TaskId(new StageId(new QueryId("query_id"), 0), 0, 0),
-                "task-instance-id",
+                0,
                 0,
                 TaskState.RUNNING,
                 URI.create("fake://task/" + "taskId" + "/node/some_node"),

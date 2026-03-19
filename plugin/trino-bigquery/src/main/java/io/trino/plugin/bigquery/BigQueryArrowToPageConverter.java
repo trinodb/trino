@@ -280,7 +280,5 @@ public class BigQueryArrowToPageConverter
     }
 
     @Override
-    public void close()
-    {
-    }
+    public void close() {}
 }

@@ -225,7 +225,7 @@ public class TestTotalReservationOnBlockedNodesTaskLowMemoryKiller
         return new TaskInfo(
                 new TaskStatus(
                         taskId,
-                        "task-instance-id",
+                        0,
                         0,
                         TaskState.RUNNING,
                         URI.create("fake://task/" + taskId + "/node/some_node"),

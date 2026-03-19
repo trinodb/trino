@@ -376,7 +376,7 @@ public class CassandraMetadata
             if (column.getName().getBytes(UTF_8).length > COLUMN_NAME_BYTES_LIMIT) {
                 throw new TrinoException(NOT_SUPPORTED, "Column name is too long. The maximum supported length is %s bytes: %s".formatted(COLUMN_NAME_BYTES_LIMIT, column.getName()));
             }
-            if (column.getComment() != null) {
+            if (column.getComment().isPresent()) {
                 throw new TrinoException(NOT_SUPPORTED, "This connector does not support creating tables with column comment");
             }
             columnNames.add(column.getName());

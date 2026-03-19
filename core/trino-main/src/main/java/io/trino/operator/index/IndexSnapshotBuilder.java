@@ -28,6 +28,7 @@ import io.trino.spi.type.Type;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalInt;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -126,7 +127,7 @@ public class IndexSnapshotBuilder
         }
         pages.clear();
 
-        LookupSource lookupSource = outputPagesIndex.createLookupSourceSupplier(session, keyOutputChannels, Optional.empty(), Optional.empty(), ImmutableList.of()).get();
+        LookupSource lookupSource = outputPagesIndex.createLookupSourceSupplier(session, keyOutputChannels, Optional.empty(), OptionalInt.empty(), ImmutableList.of()).get();
 
         // Build a page containing the keys that produced no output rows, so in future requests can skip these keys
         verify(missingKeysPageBuilder.isEmpty());

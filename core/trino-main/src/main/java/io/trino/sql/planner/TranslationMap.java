@@ -54,6 +54,7 @@ import io.trino.sql.ir.Logical;
 import io.trino.sql.ir.NullIf;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.ir.Switch;
+import io.trino.sql.ir.WhenClause;
 import io.trino.sql.tree.ArithmeticBinaryExpression;
 import io.trino.sql.tree.ArithmeticUnaryExpression;
 import io.trino.sql.tree.Array;
@@ -64,6 +65,7 @@ import io.trino.sql.tree.BooleanLiteral;
 import io.trino.sql.tree.Cast;
 import io.trino.sql.tree.CoalesceExpression;
 import io.trino.sql.tree.ComparisonExpression;
+import io.trino.sql.tree.CompositeIntervalQualifier;
 import io.trino.sql.tree.CurrentCatalog;
 import io.trino.sql.tree.CurrentDate;
 import io.trino.sql.tree.CurrentPath;
@@ -83,6 +85,7 @@ import io.trino.sql.tree.Identifier;
 import io.trino.sql.tree.IfExpression;
 import io.trino.sql.tree.InListExpression;
 import io.trino.sql.tree.InPredicate;
+import io.trino.sql.tree.IntervalField;
 import io.trino.sql.tree.IntervalLiteral;
 import io.trino.sql.tree.IsNotNullPredicate;
 import io.trino.sql.tree.IsNullPredicate;
@@ -109,6 +112,7 @@ import io.trino.sql.tree.Parameter;
 import io.trino.sql.tree.Row;
 import io.trino.sql.tree.SearchedCaseExpression;
 import io.trino.sql.tree.SimpleCaseExpression;
+import io.trino.sql.tree.SimpleIntervalQualifier;
 import io.trino.sql.tree.StringLiteral;
 import io.trino.sql.tree.SubscriptExpression;
 import io.trino.sql.tree.Trim;
@@ -356,7 +360,7 @@ public class TranslationMap
                 case Row expression -> translate(expression);
                 case NotExpression expression -> translate(expression);
                 case LogicalExpression expression -> translate(expression);
-                case NullLiteral expression -> new Constant(UnknownType.UNKNOWN, null);
+                case NullLiteral _ -> new Constant(UnknownType.UNKNOWN, null);
                 case CoalesceExpression expression -> translate(expression);
                 case IsNullPredicate expression -> translate(expression);
                 case IsNotNullPredicate expression -> translate(expression);
@@ -386,7 +390,7 @@ public class TranslationMap
     {
         return switch (expression.getSign()) {
             case PLUS -> translateExpression(expression.getValue());
-            case MINUS -> new io.trino.sql.ir.Call(
+            case MINUS -> new Call(
                     plannerContext.getMetadata().resolveOperator(OperatorType.NEGATION, ImmutableList.of(analysis.getType(expression.getValue()))),
                     ImmutableList.of(translateExpression(expression.getValue())));
         };
@@ -396,12 +400,26 @@ public class TranslationMap
     {
         Type type = analysis.getType(expression);
 
+        // TODO: the value should be interpreted according to the analyzed type. However, currently the analyzed type
+        //       is hard-coded to either INTERVAL DAY TO SECOND or INTERVAL YEAR TO MONTH, as arbitrary precision
+        //       invervals are not yet supported in the underlying type system.
+
+        IntervalField start = switch (expression.qualifier()) {
+            case SimpleIntervalQualifier simple -> simple.getField();
+            case CompositeIntervalQualifier composite -> composite.getFrom();
+        };
+
+        Optional<IntervalField> end = switch (expression.qualifier()) {
+            case SimpleIntervalQualifier _ -> Optional.empty();
+            case CompositeIntervalQualifier composite -> Optional.of(composite.getTo());
+        };
+
         return new Constant(
                 type,
                 switch (type) {
-                    case IntervalYearMonthType t -> expression.getSign().multiplier() * parseYearMonthInterval(expression.getValue(), expression.getStartField(), expression.getEndField());
-                    case IntervalDayTimeType t -> expression.getSign().multiplier() * parseDayTimeInterval(expression.getValue(), expression.getStartField(), expression.getEndField());
-                    default -> throw new IllegalArgumentException("Unexpected type for IntervalLiteral: %s" + type);
+                    case IntervalDayTimeType _ -> expression.getSign().multiplier() * parseDayTimeInterval(expression.getValue(), start, end);
+                    case IntervalYearMonthType _ -> expression.getSign().multiplier() * parseYearMonthInterval(expression.getValue(), start, end);
+                    default -> throw new UnsupportedOperationException("Unhandled interval type: " + type);
                 });
     }
 
@@ -409,7 +427,7 @@ public class TranslationMap
     {
         return new Case(
                 expression.getWhenClauses().stream()
-                        .map(clause -> new io.trino.sql.ir.WhenClause(
+                        .map(clause -> new WhenClause(
                                 translateExpression(clause.getOperand()),
                                 translateExpression(clause.getResult())))
                         .collect(toImmutableList()),
@@ -423,7 +441,7 @@ public class TranslationMap
         return new Switch(
                 translateExpression(expression.getOperand()),
                 expression.getWhenClauses().stream()
-                        .map(clause -> new io.trino.sql.ir.WhenClause(
+                        .map(clause -> new WhenClause(
                                 translateExpression(clause.getOperand()),
                                 translateExpression(clause.getResult())))
                         .collect(toImmutableList()),
@@ -848,40 +866,29 @@ public class TranslationMap
         Type timeZoneType = analysis.getType(node.getTimeZone());
         io.trino.sql.ir.Expression timeZone = translateExpression(node.getTimeZone());
 
-        Call call;
-        if (valueType instanceof TimeType type) {
-            call = BuiltinFunctionCallBuilder.resolve(plannerContext.getMetadata())
+        return switch (valueType) {
+            case TimeType type -> BuiltinFunctionCallBuilder.resolve(plannerContext.getMetadata())
                     .setName("$at_timezone")
                     .addArgument(createTimeWithTimeZoneType(type.getPrecision()), new io.trino.sql.ir.Cast(value, createTimeWithTimeZoneType(type.getPrecision())))
                     .addArgument(timeZoneType, timeZone)
                     .build();
-        }
-        else if (valueType instanceof TimeWithTimeZoneType) {
-            call = BuiltinFunctionCallBuilder.resolve(plannerContext.getMetadata())
+            case TimeWithTimeZoneType _ -> BuiltinFunctionCallBuilder.resolve(plannerContext.getMetadata())
                     .setName("$at_timezone")
                     .addArgument(valueType, value)
                     .addArgument(timeZoneType, timeZone)
                     .build();
-        }
-        else if (valueType instanceof TimestampType type) {
-            call = BuiltinFunctionCallBuilder.resolve(plannerContext.getMetadata())
+            case TimestampType type -> BuiltinFunctionCallBuilder.resolve(plannerContext.getMetadata())
                     .setName("at_timezone")
                     .addArgument(createTimestampWithTimeZoneType(type.getPrecision()), new io.trino.sql.ir.Cast(value, createTimestampWithTimeZoneType(type.getPrecision())))
                     .addArgument(timeZoneType, timeZone)
                     .build();
-        }
-        else if (valueType instanceof TimestampWithTimeZoneType) {
-            call = BuiltinFunctionCallBuilder.resolve(plannerContext.getMetadata())
+            case TimestampWithTimeZoneType _ -> BuiltinFunctionCallBuilder.resolve(plannerContext.getMetadata())
                     .setName("at_timezone")
                     .addArgument(valueType, value)
                     .addArgument(timeZoneType, timeZone)
                     .build();
-        }
-        else {
-            throw new IllegalArgumentException("Unexpected type: " + valueType);
-        }
-
-        return call;
+            default -> throw new IllegalArgumentException("Unexpected type: " + valueType);
+        };
     }
 
     private io.trino.sql.ir.Expression translate(Format node)
@@ -893,13 +900,11 @@ public class TranslationMap
                 .map(analysis::getType)
                 .collect(toImmutableList());
 
-        Call call = BuiltinFunctionCallBuilder.resolve(plannerContext.getMetadata())
+        return BuiltinFunctionCallBuilder.resolve(plannerContext.getMetadata())
                 .setName(FormatFunction.NAME)
                 .addArgument(VARCHAR, new io.trino.sql.ir.Cast(arguments.get(0), VARCHAR))
                 .addArgument(RowType.anonymous(argumentTypes.subList(1, arguments.size())), new io.trino.sql.ir.Row(arguments.subList(1, arguments.size())))
                 .build();
-
-        return call;
     }
 
     private io.trino.sql.ir.Expression translate(TryExpression node)
@@ -934,13 +939,11 @@ public class TranslationMap
                     .build();
         }
 
-        Call call = BuiltinFunctionCallBuilder.resolve(plannerContext.getMetadata())
+        return BuiltinFunctionCallBuilder.resolve(plannerContext.getMetadata())
                 .setName(LIKE_FUNCTION_NAME)
                 .addArgument(value.type(), value)
                 .addArgument(LIKE_PATTERN, patternCall)
                 .build();
-
-        return call;
     }
 
     private io.trino.sql.ir.Expression translate(Trim node)
@@ -1018,13 +1021,13 @@ public class TranslationMap
                 resolvedFunction.get().signature().getArgumentType(2),
                 failOnError);
 
-        IrJsonPath path = new JsonPathTranslator(session, plannerContext).rewriteToIr(analysis.getJsonPathAnalysis(node), orderedParameters.getParametersOrder());
+        IrJsonPath path = new JsonPathTranslator(session, plannerContext).rewriteToIr(analysis.getJsonPathAnalysis(node), orderedParameters.parametersOrder());
         io.trino.sql.ir.Expression pathExpression = new Constant(plannerContext.getTypeManager().getType(TypeId.of(JsonPath2016Type.NAME)), path);
 
         ImmutableList.Builder<io.trino.sql.ir.Expression> arguments = ImmutableList.<io.trino.sql.ir.Expression>builder()
                 .add(input)
                 .add(pathExpression)
-                .add(orderedParameters.getParametersRow())
+                .add(orderedParameters.parametersRow())
                 .add(new Constant(TINYINT, (long) node.getErrorBehavior().ordinal()));
 
         return new Call(resolvedFunction.get(), arguments.build());
@@ -1052,13 +1055,13 @@ public class TranslationMap
                 resolvedFunction.get().signature().getArgumentType(2),
                 failOnError);
 
-        IrJsonPath path = new JsonPathTranslator(session, plannerContext).rewriteToIr(analysis.getJsonPathAnalysis(node), orderedParameters.getParametersOrder());
+        IrJsonPath path = new JsonPathTranslator(session, plannerContext).rewriteToIr(analysis.getJsonPathAnalysis(node), orderedParameters.parametersOrder());
         io.trino.sql.ir.Expression pathExpression = new Constant(plannerContext.getTypeManager().getType(TypeId.of(JsonPath2016Type.NAME)), path);
 
         ImmutableList.Builder<io.trino.sql.ir.Expression> arguments = ImmutableList.<io.trino.sql.ir.Expression>builder()
                 .add(input)
                 .add(pathExpression)
-                .add(orderedParameters.getParametersRow())
+                .add(orderedParameters.parametersRow())
                 .add(new Constant(TINYINT, (long) node.getEmptyBehavior().ordinal()))
                 .add(node.getEmptyDefault()
                         .map(this::translateExpression)
@@ -1093,13 +1096,13 @@ public class TranslationMap
                 resolvedFunction.get().signature().getArgumentType(2),
                 failOnError);
 
-        IrJsonPath path = new JsonPathTranslator(session, plannerContext).rewriteToIr(analysis.getJsonPathAnalysis(node), orderedParameters.getParametersOrder());
+        IrJsonPath path = new JsonPathTranslator(session, plannerContext).rewriteToIr(analysis.getJsonPathAnalysis(node), orderedParameters.parametersOrder());
         io.trino.sql.ir.Expression pathExpression = new Constant(plannerContext.getTypeManager().getType(TypeId.of(JsonPath2016Type.NAME)), path);
 
         ImmutableList.Builder<io.trino.sql.ir.Expression> arguments = ImmutableList.<io.trino.sql.ir.Expression>builder()
                 .add(input)
                 .add(pathExpression)
-                .add(orderedParameters.getParametersRow())
+                .add(orderedParameters.parametersRow())
                 .add(new Constant(TINYINT, (long) node.getWrapperBehavior().ordinal()))
                 .add(new Constant(TINYINT, (long) node.getEmptyBehavior().ordinal()))
                 .add(new Constant(TINYINT, (long) node.getErrorBehavior().ordinal()));
@@ -1320,25 +1323,12 @@ public class TranslationMap
         return new ParametersRow(parametersRow, parametersOrder);
     }
 
-    public static class ParametersRow
+    public record ParametersRow(io.trino.sql.ir.Expression parametersRow, List<String> parametersOrder)
     {
-        private final io.trino.sql.ir.Expression parametersRow;
-        private final List<String> parametersOrder;
-
-        public ParametersRow(io.trino.sql.ir.Expression parametersRow, List<String> parametersOrder)
+        public ParametersRow
         {
-            this.parametersRow = requireNonNull(parametersRow, "parametersRow is null");
-            this.parametersOrder = requireNonNull(parametersOrder, "parametersOrder is null");
-        }
-
-        public io.trino.sql.ir.Expression getParametersRow()
-        {
-            return parametersRow;
-        }
-
-        public List<String> getParametersOrder()
-        {
-            return parametersOrder;
+            requireNonNull(parametersRow, "parametersRow is null");
+            requireNonNull(parametersOrder, "parametersOrder is null");
         }
     }
 }

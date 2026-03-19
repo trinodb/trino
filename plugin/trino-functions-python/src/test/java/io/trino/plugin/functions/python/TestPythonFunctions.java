@@ -1501,9 +1501,10 @@ public class TestPythonFunctions
                 $$
                 SELECT update_json(json '{"foo": 123, "bar": 456}')
                 """))
-                .matches("""
-                         VALUES json '{"abc": "xyz", "bar": 456, "foo": 123}'
-                         """);
+                .matches(
+                        """
+                        VALUES json '{"abc": "xyz", "bar": 456, "foo": 123}'
+                        """);
 
         assertThat(assertions.query(
                 """
@@ -1556,10 +1557,11 @@ public class TestPythonFunctions
                        uuid_to_str(uuid 'dfa7eaf8-6a26-5749-8d36-336025df74e8')
                 """))
                 .skippingTypesCheck()
-                .matches("""
-                         VALUES ('6b5f5b65-67e4-43b0-8ee3-586cd49f58a1',
-                                 'dfa7eaf8-6a26-5749-8d36-336025df74e8')
-                         """);
+                .matches(
+                        """
+                        VALUES ('6b5f5b65-67e4-43b0-8ee3-586cd49f58a1',
+                                'dfa7eaf8-6a26-5749-8d36-336025df74e8')
+                        """);
 
         assertThat(assertions.query(
                 """
@@ -1575,10 +1577,11 @@ public class TestPythonFunctions
                 SELECT str_to_uuid('6b5f5b65-67e4-43b0-8ee3-586cd49f58a1'),
                        str_to_uuid('dfa7eaf8-6a26-5749-8d36-336025df74e8')
                 """))
-                .matches("""
-                         VALUES (uuid '6b5f5b65-67e4-43b0-8ee3-586cd49f58a1',
-                                 uuid 'dfa7eaf8-6a26-5749-8d36-336025df74e8')
-                         """);
+                .matches(
+                        """
+                        VALUES (uuid '6b5f5b65-67e4-43b0-8ee3-586cd49f58a1',
+                                uuid 'dfa7eaf8-6a26-5749-8d36-336025df74e8')
+                        """);
 
         assertThat(assertions.query(
                 """
@@ -1618,13 +1621,14 @@ public class TestPythonFunctions
                        ip_to_str(ipaddress '::ffff:1.2.3.4')
                 """))
                 .skippingTypesCheck()
-                .matches("""
-                         VALUES ('IPv4Address:192.168.1.5',
-                                 'IPv4Address:12.34.56.78',
-                                 'IPv6Address:2001:db8::ff00:42:8329',
-                                 'IPv6Address:2001:db8::1:0:0:1',
-                                 'IPv4Address:1.2.3.4')
-                         """);
+                .matches(
+                        """
+                        VALUES ('IPv4Address:192.168.1.5',
+                                'IPv4Address:12.34.56.78',
+                                'IPv6Address:2001:db8::ff00:42:8329',
+                                'IPv6Address:2001:db8::1:0:0:1',
+                                'IPv4Address:1.2.3.4')
+                        """);
 
         assertThat(assertions.query(
                 """
@@ -1643,13 +1647,14 @@ public class TestPythonFunctions
                        str_to_ip('2001:db8:0:0:1::1'),
                        str_to_ip('::ffff:1.2.3.4')
                 """))
-                .matches("""
-                         VALUES (ipaddress '192.168.1.5',
-                                 ipaddress '12.34.56.78',
-                                 ipaddress '2001:db8::ff00:42:8329',
-                                 ipaddress '2001:db8::1:0:0:1',
-                                 ipaddress '1.2.3.4')
-                         """);
+                .matches(
+                        """
+                        VALUES (ipaddress '192.168.1.5',
+                                ipaddress '12.34.56.78',
+                                ipaddress '2001:db8::ff00:42:8329',
+                                ipaddress '2001:db8::1:0:0:1',
+                                ipaddress '1.2.3.4')
+                        """);
 
         assertThat(assertions.query(
                 """
@@ -1949,33 +1954,34 @@ public class TestPythonFunctions
                     uuid '6b5f5b65-67e4-43b0-8ee3-586cd49f58a1',
                     ipaddress '12.34.56.78'))
                 """))
-                .matches("""
-                         SELECT row(
-                             cast(null AS boolean),
-                             true,
-                             1234567890123456789,
-                             1234567890,
-                             smallint '12345',
-                             tinyint '123',
-                             double '8381.0205',
-                             real '123.5',
-                             cast(123.456 AS decimal(18, 5)),
-                             cast(12345678901234567890.1234 AS decimal(25, 5)),
-                             varchar 'hello',
-                             varbinary 'world',
-                             date '2024-06-27',
-                             time '03:23:56.12346',
-                             time '03:23:56.12346+02:35',
-                             time '03:23:56.123457+02:35',
-                             timestamp '2024-05-06 11:42:54.123',
-                             timestamp '2024-05-06 11:42:54.12346',
-                             timestamp '2024-05-06 11:42:54.123-07:00',
-                             timestamp '2024-05-06 11:42:54.12346-07:00',
-                             interval '5-7' year to month,
-                             interval '5 09:23:56.123' day to second,
-                             json '{"bar": 456, "foo": 123}',
-                             uuid '6b5f5b65-67e4-43b0-8ee3-586cd49f58a1',
-                             ipaddress '12.34.56.78')
-                         """);
+                .matches(
+                        """
+                        SELECT row(
+                            cast(null AS boolean),
+                            true,
+                            1234567890123456789,
+                            1234567890,
+                            smallint '12345',
+                            tinyint '123',
+                            double '8381.0205',
+                            real '123.5',
+                            cast(123.456 AS decimal(18, 5)),
+                            cast(12345678901234567890.1234 AS decimal(25, 5)),
+                            varchar 'hello',
+                            varbinary 'world',
+                            date '2024-06-27',
+                            time '03:23:56.12346',
+                            time '03:23:56.12346+02:35',
+                            time '03:23:56.123457+02:35',
+                            timestamp '2024-05-06 11:42:54.123',
+                            timestamp '2024-05-06 11:42:54.12346',
+                            timestamp '2024-05-06 11:42:54.123-07:00',
+                            timestamp '2024-05-06 11:42:54.12346-07:00',
+                            interval '5-7' year to month,
+                            interval '5 09:23:56.123' day to second,
+                            json '{"bar": 456, "foo": 123}',
+                            uuid '6b5f5b65-67e4-43b0-8ee3-586cd49f58a1',
+                            ipaddress '12.34.56.78')
+                        """);
     }
 }

@@ -28,6 +28,7 @@ import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Queue;
 import java.util.function.BiFunction;
 
@@ -77,7 +78,7 @@ public final class ExpressionConverter
         }
         Map<IcebergColumnHandle, Domain> domainMap = tupleDomain.getDomains().get();
         List<Expression> conjuncts = new ArrayList<>();
-        for (Map.Entry<IcebergColumnHandle, Domain> entry : domainMap.entrySet()) {
+        for (Entry<IcebergColumnHandle, Domain> entry : domainMap.entrySet()) {
             IcebergColumnHandle columnHandle = entry.getKey();
             checkArgument(!isMetadataColumnId(columnHandle.getId()), "Constraint on an unexpected column %s", columnHandle);
             Domain domain = entry.getValue();

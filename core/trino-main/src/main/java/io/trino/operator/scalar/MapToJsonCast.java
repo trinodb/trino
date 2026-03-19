@@ -13,8 +13,8 @@
  */
 package io.trino.operator.scalar;
 
-import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonGenerator;
+import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
@@ -33,6 +33,7 @@ import io.trino.spi.type.TypeSignature;
 import java.io.IOException;
 import java.lang.invoke.MethodHandle;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.TreeMap;
 
 import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
@@ -56,7 +57,7 @@ public class MapToJsonCast
     public static final MapToJsonCast MAP_TO_JSON = new MapToJsonCast();
     private static final MethodHandle METHOD_HANDLE = methodHandle(MapToJsonCast.class, "toJson", ObjectKeyProvider.class, JsonGeneratorWriter.class, SqlMap.class);
 
-    private static final JsonFactory JSON_FACTORY = createJsonFactory();
+    private static final JsonMapper JSON_MAPPER = new JsonMapper(createJsonFactory());
 
     private MapToJsonCast()
     {
@@ -104,9 +105,9 @@ public class MapToJsonCast
             }
 
             SliceOutput output = new DynamicSliceOutput(40);
-            try (JsonGenerator jsonGenerator = createJsonGenerator(JSON_FACTORY, output)) {
+            try (JsonGenerator jsonGenerator = createJsonGenerator(JSON_MAPPER, output)) {
                 jsonGenerator.writeStartObject();
-                for (Map.Entry<String, Integer> entry : orderedKeyToValuePosition.entrySet()) {
+                for (Entry<String, Integer> entry : orderedKeyToValuePosition.entrySet()) {
                     jsonGenerator.writeFieldName(entry.getKey());
                     writer.writeJsonValue(jsonGenerator, rawValueBlock, rawOffset + entry.getValue());
                 }

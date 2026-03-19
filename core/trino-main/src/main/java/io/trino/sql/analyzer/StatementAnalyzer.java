@@ -291,6 +291,7 @@ import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Set;
@@ -1865,10 +1866,10 @@ class StatementAnalyzer
         {
             boolean unauthorized = false;
             for (CatalogSchemaFunctionName name : toPath(session, node.getName(), accessControl)) {
-                CatalogHandle catalogHandle = getRequiredCatalogHandle(metadata, session, node, name.getCatalogName());
-                Optional<ConnectorTableFunction> resolved = tableFunctionRegistry.resolve(catalogHandle, name.getSchemaFunctionName());
+                CatalogHandle catalogHandle = getRequiredCatalogHandle(metadata, session, node, name.catalogName());
+                Optional<ConnectorTableFunction> resolved = tableFunctionRegistry.resolve(catalogHandle, name.schemaFunctionName());
                 if (resolved.isPresent()) {
-                    if (isBuiltinFunctionName(name) || accessControl.canExecuteFunction(SecurityContext.of(session), new QualifiedObjectName(name.getCatalogName(), name.getSchemaName(), name.getFunctionName()))) {
+                    if (isBuiltinFunctionName(name) || accessControl.canExecuteFunction(SecurityContext.of(session), new QualifiedObjectName(name.catalogName(), name.schemaName(), name.functionName()))) {
                         return Optional.of(new TableFunctionMetadata(catalogHandle, resolved.get()));
                     }
                     unauthorized = true;
@@ -1921,7 +1922,7 @@ class StatementAnalyzer
                     argumentAnalysis.getTableArgumentAnalysis().ifPresent(tableArgumentAnalyses::add);
                 }
                 // apply defaults for not specified arguments
-                for (Map.Entry<String, ArgumentSpecification> entry : argumentSpecificationsByName.entrySet()) {
+                for (Entry<String, ArgumentSpecification> entry : argumentSpecificationsByName.entrySet()) {
                     ArgumentSpecification argumentSpecification = entry.getValue();
                     passedArguments.put(argumentSpecification.getName(), analyzeDefault(argumentSpecification, errorLocation));
                 }
@@ -6073,6 +6074,9 @@ class StatementAnalyzer
             if (version.isEmpty()) {
                 return tableVersion;
             }
+            if (analysis.isDescribe()) {
+                throw semanticException(NOT_SUPPORTED, table, "DESCRIBE is not supported if a versioned table uses parameters");
+            }
             ExpressionAnalysis expressionAnalysis = analyzeExpression(version.get(), scope.get());
             analysis.recordSubqueries(table, expressionAnalysis);
 
@@ -6082,7 +6086,7 @@ class StatementAnalyzer
             if (versionType == UNKNOWN) {
                 throw semanticException(INVALID_ARGUMENTS, table.getQueryPeriod().get(), "Pointer value cannot be NULL");
             }
-            Object evaluatedVersion = evaluateConstant(version.get(), versionType, plannerContext, session, accessControl);
+            Object evaluatedVersion = evaluateConstant(version.get(), versionType, analysis.getParameters(), plannerContext, session, accessControl);
             TableVersion extractedVersion = new TableVersion(pointerType, versionType, evaluatedVersion);
             validateVersionPointer(table.getQueryPeriod().get(), extractedVersion);
             return Optional.of(extractedVersion);

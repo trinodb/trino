@@ -30,6 +30,7 @@ import io.trino.sql.planner.plan.UnionNode;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 
 import static io.trino.matching.Capture.newCapture;
 import static io.trino.sql.planner.ExpressionSymbolInliner.inlineSymbols;
@@ -74,7 +75,7 @@ public class PushProjectionThroughUnion
             Map<Symbol, Symbol> projectSymbolMapping = new HashMap<>();
 
             // Translate the assignments in the ProjectNode using symbols of the source of the UnionNode
-            for (Map.Entry<Symbol, Expression> entry : parent.getAssignments().entrySet()) {
+            for (Entry<Symbol, Expression> entry : parent.getAssignments().entrySet()) {
                 Expression translatedExpression = inlineSymbols(outputToInput, entry.getValue());
                 Symbol symbol = context.getSymbolAllocator().newSymbol(translatedExpression);
                 assignments.put(symbol, translatedExpression);

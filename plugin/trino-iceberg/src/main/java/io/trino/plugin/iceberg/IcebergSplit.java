@@ -31,6 +31,8 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static io.airlift.slice.SizeOf.SIZE_OF_INT;
+import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 import static io.airlift.slice.SizeOf.estimatedSizeOf;
 import static io.airlift.slice.SizeOf.instanceSize;
 import static java.util.Objects.requireNonNull;
@@ -47,7 +49,7 @@ public class IcebergSplit
     private final long fileRecordCount;
     private final IcebergFileFormat fileFormat;
     private final Optional<List<Object>> partitionValues;
-    private final String partitionSpecJson;
+    private final int specId;
     private final String partitionDataJson;
     private final List<DeleteFile> deletes;
     private final SplitWeight splitWeight;
@@ -64,7 +66,7 @@ public class IcebergSplit
             @JsonProperty("fileSize") long fileSize,
             @JsonProperty("fileRecordCount") long fileRecordCount,
             @JsonProperty("fileFormat") IcebergFileFormat fileFormat,
-            @JsonProperty("partitionSpecJson") String partitionSpecJson,
+            @JsonProperty("specId") int specId,
             @JsonProperty("partitionDataJson") String partitionDataJson,
             @JsonProperty("deletes") List<DeleteFile> deletes,
             @JsonProperty("splitWeight") SplitWeight splitWeight,
@@ -80,7 +82,7 @@ public class IcebergSplit
                 fileRecordCount,
                 fileFormat,
                 Optional.empty(),
-                partitionSpecJson,
+                specId,
                 partitionDataJson,
                 deletes,
                 splitWeight,
@@ -98,7 +100,7 @@ public class IcebergSplit
             long fileRecordCount,
             IcebergFileFormat fileFormat,
             Optional<List<Object>> partitionValues,
-            String partitionSpecJson,
+            int specId,
             String partitionDataJson,
             List<DeleteFile> deletes,
             SplitWeight splitWeight,
@@ -114,7 +116,7 @@ public class IcebergSplit
         this.fileRecordCount = fileRecordCount;
         this.fileFormat = requireNonNull(fileFormat, "fileFormat is null");
         this.partitionValues = requireNonNull(partitionValues, "partitionValues is null");
-        this.partitionSpecJson = requireNonNull(partitionSpecJson, "partitionSpecJson is null");
+        this.specId = specId;
         this.partitionDataJson = requireNonNull(partitionDataJson, "partitionDataJson is null");
         this.deletes = ImmutableList.copyOf(requireNonNull(deletes, "deletes is null"));
         this.splitWeight = requireNonNull(splitWeight, "splitWeight is null");
@@ -168,9 +170,9 @@ public class IcebergSplit
     }
 
     @JsonProperty
-    public String getPartitionSpecJson()
+    public int getSpecId()
     {
-        return partitionSpecJson;
+        return specId;
     }
 
     /**
@@ -225,12 +227,14 @@ public class IcebergSplit
     {
         return INSTANCE_SIZE
                 + estimatedSizeOf(path)
-                + estimatedSizeOf(partitionSpecJson)
+                + SIZE_OF_LONG * 4 // start, length, fileSize, fileRecordCount
+                + SIZE_OF_INT // specId
                 + estimatedSizeOf(partitionDataJson)
                 + estimatedSizeOf(deletes, DeleteFile::retainedSizeInBytes)
                 + splitWeight.getRetainedSizeInBytes()
                 + fileStatisticsDomain.getRetainedSizeInBytes(IcebergColumnHandle::getRetainedSizeInBytes)
                 + estimatedSizeOf(fileIoProperties, SizeOf::estimatedSizeOf, SizeOf::estimatedSizeOf)
+                + SIZE_OF_LONG // dataSequenceNumber
                 + estimatedSizeOf(addresses, HostAddress::getRetainedSizeInBytes);
     }
 

@@ -29,6 +29,7 @@ import io.trino.spi.connector.ConnectorSession;
 import org.apache.iceberg.FileContent;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.PartitionSpecParser;
+import org.apache.iceberg.SortOrder;
 import org.apache.iceberg.io.LocationProvider;
 
 import java.util.Map;
@@ -91,6 +92,7 @@ public class PositionDeleteWriter
                 FileContent.POSITION_DELETES,
                 Optional.of(dataFilePath),
                 writer.getFileMetrics().splitOffsets(),
+                SortOrder.unsorted().orderId(),
                 Optional.empty());
     }
 

@@ -33,6 +33,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.OptionalDouble;
 
+import static io.airlift.json.JsonCodec.jsonCodec;
 import static io.airlift.units.DataSize.succinctBytes;
 import static io.trino.server.DynamicFilterService.DynamicFiltersStats;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
@@ -279,7 +280,7 @@ public class TestQueryStats
     @Test
     public void testJson()
     {
-        JsonCodec<QueryStats> codec = JsonCodec.jsonCodec(QueryStats.class);
+        JsonCodec<QueryStats> codec = jsonCodec(QueryStats.class);
 
         String json = codec.toJson(EXPECTED);
         QueryStats actual = codec.fromJson(json);

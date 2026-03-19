@@ -31,8 +31,8 @@ class TestColumnMetadata
                 INTEGER,
                 Optional.of("1"),
                 false,
-                "test_comment",
-                "test_extra_info",
+                Optional.of("test_comment"),
+                Optional.of("test_extra_info"),
                 false,
                 ImmutableMap.of("test_key", "test_value"));
 

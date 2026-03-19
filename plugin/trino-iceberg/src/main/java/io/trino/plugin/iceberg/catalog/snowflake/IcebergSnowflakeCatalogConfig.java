@@ -18,7 +18,7 @@ import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.ConfigSecuritySensitive;
 import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.NotNull;
-import net.snowflake.client.jdbc.SnowflakeDriver;
+import net.snowflake.client.api.driver.SnowflakeDriver;
 
 import java.net.URI;
 import java.sql.Driver;

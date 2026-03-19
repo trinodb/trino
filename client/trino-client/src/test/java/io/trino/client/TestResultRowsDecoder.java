@@ -36,7 +36,7 @@ import java.util.OptionalLong;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.IntStream;
 
-import static io.trino.client.JsonIterators.createJsonFactory;
+import static io.trino.client.JsonIterators.JSON_MAPPER;
 import static io.trino.client.spooling.Segment.inlined;
 import static io.trino.client.spooling.Segment.spooled;
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -69,7 +69,7 @@ class TestResultRowsDecoder
     public void testJsonNodeMaterialization()
             throws Exception
     {
-        try (ResultRowsDecoder decoder = new ResultRowsDecoder(); JsonParser parser = createJsonFactory().createParser("[[2137], [1337]]")) {
+        try (ResultRowsDecoder decoder = new ResultRowsDecoder(); JsonParser parser = JSON_MAPPER.createParser("[[2137], [1337]]")) {
             assertThat(eagerlyMaterialize(decoder.toRows(fromQueryData(new JsonQueryData(parser.readValueAsTree())))))
                     .containsExactly(ImmutableList.of(2137), ImmutableList.of(1337));
         }
@@ -90,7 +90,7 @@ class TestResultRowsDecoder
             throws Exception
     {
         CountingInputStream stream = new CountingInputStream(new ByteArrayInputStream("[[2137], [1337]]".getBytes(UTF_8)));
-        try (ResultRowsDecoder decoder = new ResultRowsDecoder(); JsonParser parser = createJsonFactory().createParser(stream)) {
+        try (ResultRowsDecoder decoder = new ResultRowsDecoder(); JsonParser parser = JSON_MAPPER.createParser(stream)) {
             Iterator<List<Object>> iterator = decoder.toRows(fromQueryData(new JsonQueryData(parser.readValueAsTree()))).iterator();
             assertThat(stream.getCount()).isEqualTo(16);
             iterator.next();
@@ -103,7 +103,7 @@ class TestResultRowsDecoder
             throws Exception
     {
         CountingInputStream stream = new CountingInputStream(new ByteArrayInputStream("[[2137], [1337]]".getBytes(UTF_8)));
-        try (ResultRowsDecoder decoder = new ResultRowsDecoder(); JsonParser parser = createJsonFactory().createParser(stream)) {
+        try (ResultRowsDecoder decoder = new ResultRowsDecoder(); JsonParser parser = JSON_MAPPER.createParser(stream)) {
             Iterator<List<Object>> iterator = decoder.toRows(fromQueryData(new JsonQueryData(parser.readValueAsTree()))).iterator();
             assertThat(stream.getCount()).isEqualTo(16);
             iterator.next();
@@ -227,9 +227,7 @@ class TestResultRowsDecoder
         }
 
         @Override
-        public void close()
-        {
-        }
+        public void close() {}
     }
 
     private static List<List<Object>> eagerlyMaterialize(Iterable<List<Object>> values)
@@ -247,14 +245,10 @@ class TestResultRowsDecoder
             }
 
             @Override
-            public void acknowledge(SpooledSegment segment)
-            {
-            }
+            public void acknowledge(SpooledSegment segment) {}
 
             @Override
-            public void close()
-            {
-            }
+            public void close() {}
         };
     }
 

@@ -15,14 +15,18 @@ package io.trino.type;
 
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
+import io.trino.spi.TrinoException;
+import io.trino.spi.function.LiteralParameter;
 import io.trino.spi.function.LiteralParameters;
 import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.ScalarOperator;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.type.StandardTypes;
 
+import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static io.trino.spi.function.OperatorType.CAST;
 import static java.lang.Float.floatToRawIntBits;
+import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.US_ASCII;
 
 public final class BooleanOperators
@@ -77,13 +81,18 @@ public final class BooleanOperators
     @ScalarOperator(CAST)
     @LiteralParameters("x")
     @SqlType("varchar(x)")
-    public static Slice castToVarchar(@SqlType(StandardTypes.BOOLEAN) boolean value)
+    public static Slice castToVarchar(@LiteralParameter("x") long x, @SqlType(StandardTypes.BOOLEAN) boolean value)
     {
-        return value ? TRUE : FALSE;
+        Slice slice = value ? TRUE : FALSE;
+        // slice is all-ASCII, so slice.length() here returns actual code points count
+        if (slice.length() <= x) {
+            return slice;
+        }
+        throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to varchar(%s)", value, x));
     }
 
     @SqlType(StandardTypes.BOOLEAN)
-    @ScalarFunction(value = "$not", hidden = true) // TODO: this should not be callable from SQL
+    @ScalarFunction(value = "$not", hidden = true, neverFails = true) // TODO: this should not be callable from SQL
     public static boolean not(@SqlType(StandardTypes.BOOLEAN) boolean value)
     {
         return !value;

@@ -206,7 +206,6 @@ public class TestDeltaLakeLocalConcurrentWritesTest
     }
 
     @Test
-    @Disabled // TODO https://github.com/trinodb/trino/issues/21725 Fix flaky test
     public void testConcurrentInsertsSelectingFromTheSameVersionedTable()
             throws Exception
     {
@@ -263,7 +262,6 @@ public class TestDeltaLakeLocalConcurrentWritesTest
     }
 
     @Test
-    @Disabled // TODO https://github.com/trinodb/trino/issues/21725 Fix flaky test
     void testConcurrentInsertsSelectingFromTheSameTemporalVersionedTable()
             throws Exception
     {
@@ -1658,13 +1656,13 @@ public class TestDeltaLakeLocalConcurrentWritesTest
             assertQuery(
                     "SELECT operation, isolation_level, is_blind_append FROM \"" + tableName + "$history\"",
                     """
-                            VALUES
-                                ('CREATE TABLE AS SELECT', 'WriteSerializable', true),
-                                ('WRITE', 'WriteSerializable', true),
-                                ('OPTIMIZE', 'WriteSerializable', false),
-                                ('OPTIMIZE', 'WriteSerializable', false),
-                                ('OPTIMIZE', 'WriteSerializable', false)
-                            """);
+                    VALUES
+                        ('CREATE TABLE AS SELECT', 'WriteSerializable', true),
+                        ('WRITE', 'WriteSerializable', true),
+                        ('OPTIMIZE', 'WriteSerializable', false),
+                        ('OPTIMIZE', 'WriteSerializable', false),
+                        ('OPTIMIZE', 'WriteSerializable', false)
+                    """);
         }
         finally {
             assertUpdate("DROP TABLE " + tableName);
@@ -1771,13 +1769,13 @@ public class TestDeltaLakeLocalConcurrentWritesTest
             assertQuery(
                     "SELECT operation, isolation_level FROM \"" + tableName + "$history\"",
                     """
-                            VALUES
-                                ('CREATE TABLE AS SELECT', 'WriteSerializable'),
-                                ('OPTIMIZE', 'WriteSerializable'),
-                                ('WRITE', 'WriteSerializable'),
-                                ('WRITE', 'WriteSerializable'),
-                                ('WRITE', 'WriteSerializable')
-                            """);
+                    VALUES
+                        ('CREATE TABLE AS SELECT', 'WriteSerializable'),
+                        ('OPTIMIZE', 'WriteSerializable'),
+                        ('WRITE', 'WriteSerializable'),
+                        ('WRITE', 'WriteSerializable'),
+                        ('WRITE', 'WriteSerializable')
+                    """);
         }
         finally {
             assertUpdate("DROP TABLE " + tableName);
@@ -1833,13 +1831,13 @@ public class TestDeltaLakeLocalConcurrentWritesTest
             assertQuery(
                     "SELECT operation, isolation_level, is_blind_append FROM \"" + tableName + "$history\"",
                     """
-                            VALUES
-                                ('CREATE TABLE AS SELECT', 'WriteSerializable', true),
-                                ('WRITE', 'WriteSerializable', true),
-                                ('OPTIMIZE', 'WriteSerializable', false),
-                                ('MERGE', 'WriteSerializable', false),
-                                ('WRITE', 'WriteSerializable', false)
-                            """);
+                    VALUES
+                        ('CREATE TABLE AS SELECT', 'WriteSerializable', true),
+                        ('WRITE', 'WriteSerializable', true),
+                        ('OPTIMIZE', 'WriteSerializable', false),
+                        ('MERGE', 'WriteSerializable', false),
+                        ('WRITE', 'WriteSerializable', false)
+                    """);
         }
         finally {
             assertUpdate("DROP TABLE " + tableName);

@@ -14,9 +14,9 @@
 package io.trino.operator;
 
 import io.trino.operator.join.JoinBridgeManager;
-import io.trino.operator.join.JoinProbe.JoinProbeFactory;
-import io.trino.operator.join.LookupJoinOperatorFactory;
 import io.trino.operator.join.LookupSourceFactory;
+import io.trino.operator.join.spilling.JoinProbe.JoinProbeFactory;
+import io.trino.operator.join.spilling.LookupJoinOperatorFactory;
 import io.trino.operator.join.unspilled.JoinProbe;
 import io.trino.operator.join.unspilled.PartitionedLookupSourceFactory;
 import io.trino.spi.type.Type;

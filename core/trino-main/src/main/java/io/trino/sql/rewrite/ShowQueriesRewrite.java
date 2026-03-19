@@ -658,7 +658,7 @@ public final class ShowQueriesRewrite
                                 column.getDefaultValue().map(value -> parseDefaultColumnValueExpression(value, objectName, node)),
                                 column.isNullable(),
                                 propertyNodes,
-                                Optional.ofNullable(column.getComment()));
+                                column.getComment());
                     })
                     .collect(toImmutableList());
 

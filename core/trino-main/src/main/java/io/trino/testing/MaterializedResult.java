@@ -27,12 +27,15 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SourcePage;
 import io.trino.spi.type.SqlDate;
 import io.trino.spi.type.SqlDecimal;
+import io.trino.spi.type.SqlNumber;
 import io.trino.spi.type.SqlTime;
 import io.trino.spi.type.SqlTimeWithTimeZone;
 import io.trino.spi.type.SqlTimestamp;
 import io.trino.spi.type.SqlTimestampWithTimeZone;
+import io.trino.spi.type.TrinoNumber;
 import io.trino.spi.type.Type;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.OffsetTime;
@@ -322,6 +325,11 @@ public class MaterializedResult
                 case SqlTimestamp sqlTimestamp -> sqlTimestamp.toLocalDateTime();
                 case SqlTimestampWithTimeZone sqlTimestampWithTimeZone -> sqlTimestampWithTimeZone.toZonedDateTime();
                 case SqlDecimal sqlDecimal -> sqlDecimal.toBigDecimal();
+                case SqlNumber number -> switch (number.value()) {
+                    case TrinoNumber.NotANumber() -> Double.NaN;
+                    case TrinoNumber.Infinity(boolean negative) -> negative ? Double.NEGATIVE_INFINITY : Double.POSITIVE_INFINITY;
+                    case TrinoNumber.BigDecimalValue(BigDecimal bigDecimal) -> bigDecimal;
+                };
                 default -> trinoValue;
             };
             convertedValues.add(convertedValue);

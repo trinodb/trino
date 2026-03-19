@@ -96,7 +96,7 @@ public class StatsAndCosts
         ImmutableMap.Builder<PlanNodeId, PlanCostEstimate> planNodeCosts = ImmutableMap.builder();
 
         stages.getStages().stream().forEach(stage -> {
-            PlanFragment planFragment = stage.getPlan();
+            PlanFragment planFragment = stage.plan();
             if (planFragment != null) {
                 planNodeStats.putAll(planFragment.getStatsAndCosts().getStats());
                 planNodeCosts.putAll(planFragment.getStatsAndCosts().getCosts());

@@ -53,6 +53,7 @@ import java.util.Collection;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.concurrent.TimeUnit;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -325,7 +326,7 @@ public class MongoPageSource
             }
             if (value instanceof Map<?, ?> document) {
                 ((MapBlockBuilder) output).buildEntry((keyBuilder, valueBuilder) -> {
-                    for (Map.Entry<?, ?> entry : document.entrySet()) {
+                    for (Entry<?, ?> entry : document.entrySet()) {
                         appendTo(mapType.getKeyType(), entry.getKey(), keyBuilder);
                         appendTo(mapType.getValueType(), entry.getValue(), valueBuilder);
                     }

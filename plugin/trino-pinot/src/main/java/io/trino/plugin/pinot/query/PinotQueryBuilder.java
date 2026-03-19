@@ -34,6 +34,7 @@ import java.util.ArrayList;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.OptionalLong;
 
@@ -105,7 +106,7 @@ public final class PinotQueryBuilder
         checkState((forHavingClause && timePredicate.isEmpty()) || !forHavingClause, "Unexpected time predicate with having clause");
         timePredicate.ifPresent(conjunctsBuilder::add);
         Map<ColumnHandle, Domain> domains = tupleDomain.getDomains().orElseThrow();
-        for (Map.Entry<ColumnHandle, Domain> entry : domains.entrySet()) {
+        for (Entry<ColumnHandle, Domain> entry : domains.entrySet()) {
             PinotColumnHandle pinotColumnHandle = (PinotColumnHandle) entry.getKey();
             // If this is for a having clause, only include aggregate columns.
             // If this is for a where clause, only include non-aggregate columns.

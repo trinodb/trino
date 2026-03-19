@@ -44,12 +44,12 @@ public class StagesInfo
         requireNonNull(stages, "stages is null");
         checkArgument(!stages.isEmpty(), "stages cannot be empty");
         this.stages = ImmutableList.copyOf(stages);
-        this.stagesById = Maps.uniqueIndex(stages, StageInfo::getStageId);
+        this.stagesById = Maps.uniqueIndex(stages, StageInfo::stageId);
         checkArgument(stagesById.containsKey(outputStageId), "output stage not found in list of stages");
         this.outputStageId = outputStageId;
 
-        Set<StageId> stageIdsFromSubStages = stages.stream().flatMap(stageInfo -> stageInfo.getSubStages().stream()).collect(toImmutableSet());
-        Set<StageId> stageIdsFromStageInfos = stages.stream().map(StageInfo::getStageId).collect(toImmutableSet());
+        Set<StageId> stageIdsFromSubStages = stages.stream().flatMap(stageInfo -> stageInfo.subStages().stream()).collect(toImmutableSet());
+        Set<StageId> stageIdsFromStageInfos = stages.stream().map(StageInfo::stageId).collect(toImmutableSet());
         checkArgument(stageIdsFromStageInfos.size() == stages.size(), "found non-uniq stage ids");
         checkArgument(stageIdsFromStageInfos.containsAll(stageIdsFromSubStages), "unknown stage ids referenced in substages");
     }
@@ -80,7 +80,7 @@ public class StagesInfo
     {
         StageInfo stageInfo = stagesById.get(stageId);
         checkArgument(stageInfo != null, "Stage %s not found", stageId);
-        return stageInfo.getSubStages().stream()
+        return stageInfo.subStages().stream()
                 .map(stagesById::get)
                 .collect(toImmutableList());
     }
@@ -108,7 +108,7 @@ public class StagesInfo
 
     private void collectSubStageIdsPreOrder(StageInfo stageInfo, ImmutableSet.Builder<StageId> collector)
     {
-        stageInfo.getSubStages().stream().forEach(subStageId -> {
+        stageInfo.subStages().stream().forEach(subStageId -> {
             collector.add(subStageId);
             StageInfo subStage = stagesById.get(subStageId);
             collectSubStageIdsPreOrder(subStage, collector);
@@ -132,7 +132,7 @@ public class StagesInfo
 
         StageInfo stageInfo = stagesById.get(stageId);
 
-        for (StageId childId : stageInfo.getSubStages().reversed()) {
+        for (StageId childId : stageInfo.subStages().reversed()) {
             getSubStagesDeepTopologicalInner(childId, builder, visitedFragments, true);
         }
         if (includeRoot) {

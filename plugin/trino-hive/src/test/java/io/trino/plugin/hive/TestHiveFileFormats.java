@@ -126,6 +126,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Properties;
@@ -1509,7 +1510,7 @@ public final class TestHiveFileFormats
             Type valueType = mapType.getValueType();
             Map<?, ?> map = (Map<?, ?>) object;
             ((MapBlockBuilder) builder).buildEntry((keyBuilder, valueBuilder) -> {
-                for (Map.Entry<?, ?> entry : map.entrySet()) {
+                for (Entry<?, ?> entry : map.entrySet()) {
                     // Hive skips map entries with null keys
                     if (entry.getKey() != null) {
                         writeValue(keyType, keyBuilder, entry.getKey());

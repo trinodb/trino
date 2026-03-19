@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.configuration.secrets.SecretsResolver;
-import io.airlift.json.JsonCodec;
 import io.airlift.node.NodeInfo;
 import io.airlift.units.Duration;
 import io.trino.connector.CatalogHandle;
@@ -75,6 +74,7 @@ import java.util.concurrent.Executor;
 
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
+import static io.airlift.json.JsonCodec.jsonCodec;
 import static io.airlift.tracing.Tracing.noopTracer;
 import static io.opentelemetry.api.OpenTelemetry.noop;
 import static io.trino.SessionTestUtils.TEST_SESSION;
@@ -127,10 +127,10 @@ public class TestLocalDispatchQuery
                 Optional.empty(),
                 new NodeVersion("test"));
         QueryMonitor queryMonitor = new QueryMonitor(
-                JsonCodec.jsonCodec(StagesInfo.class),
-                JsonCodec.jsonCodec(OperatorStats.class),
-                JsonCodec.jsonCodec(ExecutionFailureInfo.class),
-                JsonCodec.jsonCodec(StatsAndCosts.class),
+                jsonCodec(StagesInfo.class),
+                jsonCodec(OperatorStats.class),
+                jsonCodec(ExecutionFailureInfo.class),
+                jsonCodec(StatsAndCosts.class),
                 new EventListenerManager(new EventListenerConfig(), new SecretsResolver(ImmutableMap.of()), noop(), noopTracer(), new NodeVersion("test")),
                 new NodeInfo("node"),
                 new NodeVersion("version"),

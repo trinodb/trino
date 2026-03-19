@@ -20,11 +20,12 @@ import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 
+import static io.airlift.json.JsonCodec.jsonCodec;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestHiveTableHandle
 {
-    private final JsonCodec<HiveTableHandle> codec = JsonCodec.jsonCodec(HiveTableHandle.class);
+    private final JsonCodec<HiveTableHandle> codec = jsonCodec(HiveTableHandle.class);
 
     @Test
     public void testRoundTrip()

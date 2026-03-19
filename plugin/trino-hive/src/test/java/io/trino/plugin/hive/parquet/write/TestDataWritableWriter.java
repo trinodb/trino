@@ -49,6 +49,7 @@ import org.joda.time.DateTimeZone;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 
 import static java.util.Objects.requireNonNull;
 
@@ -292,7 +293,7 @@ public class TestDataWritableWriter
             String valueName = valuetype.getName();
             ObjectInspector valueInspector = inspector.getMapValueObjectInspector();
 
-            for (Map.Entry<?, ?> keyValue : mapValues.entrySet()) {
+            for (Entry<?, ?> keyValue : mapValues.entrySet()) {
                 recordConsumer.startGroup();
                 if (keyValue != null) {
                     // write key element

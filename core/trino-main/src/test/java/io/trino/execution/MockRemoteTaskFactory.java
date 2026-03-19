@@ -65,7 +65,7 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalInt;
@@ -97,7 +97,7 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 public class MockRemoteTaskFactory
         implements RemoteTaskFactory
 {
-    private static final String TASK_INSTANCE_ID = "task-instance-id";
+    private static final long TASK_INSTANCE_ID = 0x1337;
     private final Executor executor;
     private final ScheduledExecutorService scheduledExecutor;
 
@@ -294,13 +294,13 @@ public class MockRemoteTaskFactory
                     queuedSplitsInfo.getCount(),
                     combinedSplitsInfo.getCount() - queuedSplitsInfo.getCount(),
                     outputBuffer.getStatus(),
-                    stats.getOutputDataSize(),
-                    stats.getWriterInputDataSize(),
-                    stats.getPhysicalWrittenDataSize(),
-                    stats.getMaxWriterCount(),
-                    stats.getUserMemoryReservation(),
-                    stats.getPeakUserMemoryReservation(),
-                    stats.getRevocableMemoryReservation(),
+                    stats.outputDataSize(),
+                    stats.writerInputDataSize(),
+                    stats.physicalWrittenDataSize(),
+                    stats.maxWriterCount(),
+                    stats.userMemoryReservation(),
+                    stats.peakUserMemoryReservation(),
+                    stats.revocableMemoryReservation(),
                     0,
                     new Duration(0, MILLISECONDS),
                     INITIAL_DYNAMIC_FILTERS_VERSION,
@@ -327,12 +327,12 @@ public class MockRemoteTaskFactory
 
         public synchronized void finishSplits(int splits)
         {
-            List<Map.Entry<PlanNodeId, Split>> toRemove = new ArrayList<>();
-            Iterator<Map.Entry<PlanNodeId, Split>> iterator = this.splits.entries().iterator();
+            List<Entry<PlanNodeId, Split>> toRemove = new ArrayList<>();
+            Iterator<Entry<PlanNodeId, Split>> iterator = this.splits.entries().iterator();
             while (toRemove.size() < splits && iterator.hasNext()) {
                 toRemove.add(iterator.next());
             }
-            for (Map.Entry<PlanNodeId, Split> entry : toRemove) {
+            for (Entry<PlanNodeId, Split> entry : toRemove) {
                 this.splits.remove(entry.getKey(), entry.getValue());
             }
             updateSplitQueueSpace();

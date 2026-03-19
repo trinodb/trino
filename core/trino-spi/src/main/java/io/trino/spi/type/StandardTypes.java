@@ -23,6 +23,7 @@ public final class StandardTypes
     public static final String BOOLEAN = BooleanType.NAME;
     public static final String DATE = DateType.NAME;
     public static final String DECIMAL = DecimalType.NAME;
+    public static final String NUMBER = NumberType.NAME;
     public static final String REAL = RealType.NAME;
     public static final String DOUBLE = DoubleType.NAME;
     public static final String HYPER_LOG_LOG = HyperLogLogType.NAME;

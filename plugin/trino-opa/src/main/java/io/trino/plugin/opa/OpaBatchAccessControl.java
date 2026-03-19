@@ -130,7 +130,7 @@ public final class OpaBatchAccessControl
                 "FilterFunctions",
                 functionNames,
                 function -> OpaQueryInputResource.builder()
-                        .function(new TrinoFunction(new TrinoSchema(catalogName, function.getSchemaName()), function.getFunctionName()))
+                        .function(new TrinoFunction(new TrinoSchema(catalogName, function.schemaName()), function.functionName()))
                         .build());
     }
 

@@ -23,6 +23,7 @@ import jakarta.annotation.Nullable;
 
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.type.DoubleType.DOUBLE;
+import static io.trino.spi.type.NumberType.NUMBER;
 import static io.trino.spi.type.RealType.REAL;
 import static java.lang.Float.intBitsToFloat;
 import static java.lang.Math.toIntExact;
@@ -101,16 +102,24 @@ public final class TypeUtils
         }
     }
 
+    public static boolean typeHasNaN(Type type)
+    {
+        return type == REAL || type == DOUBLE;
+    }
+
     public static boolean isFloatingPointNaN(Type type, Object value)
     {
         requireNonNull(type, "type is null");
         requireNonNull(value, "value is null");
 
+        if (type == REAL) {
+            return Float.isNaN(intBitsToFloat(toIntExact((long) value)));
+        }
         if (type == DOUBLE) {
             return Double.isNaN((double) value);
         }
-        if (type == REAL) {
-            return Float.isNaN(intBitsToFloat(toIntExact((long) value)));
+        if (type == NUMBER) {
+            return ((TrinoNumber) value).isNaN();
         }
         return false;
     }

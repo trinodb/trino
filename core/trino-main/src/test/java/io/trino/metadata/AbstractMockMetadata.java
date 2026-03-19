@@ -594,6 +594,12 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
+    public Optional<CatalogInfo> getCatalogInfo(Session session, String catalogName)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public List<CatalogInfo> listCatalogs(Session session)
     {
         throw new UnsupportedOperationException();
@@ -887,6 +893,7 @@ public abstract class AbstractMockMetadata
                     toFunctionId(name, boundSignature.toSignature()),
                     SCALAR,
                     true,
+                    false,
                     new FunctionNullability(false, ImmutableList.of()),
                     ImmutableMap.of(),
                     ImmutableSet.of());
@@ -924,7 +931,7 @@ public abstract class AbstractMockMetadata
                 BUILTIN_SCHEMA,
                 FunctionMetadata.scalarBuilder("random")
                         .signature(Signature.builder().returnType(DOUBLE).build())
-                        .alias(RAND_NAME.getFunctionName())
+                        .alias(RAND_NAME.functionName())
                         .nondeterministic()
                         .noDescription()
                         .build()));

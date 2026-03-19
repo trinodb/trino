@@ -1745,7 +1745,7 @@ public class TestAccessControl
         public Set<SchemaFunctionName> filterFunctions(SystemSecurityContext context, String catalogName, Set<SchemaFunctionName> functionNames)
         {
             return functionNames.stream()
-                    .filter(functionName -> !functionName.getFunctionName().startsWith("deny_"))
+                    .filter(functionName -> !functionName.functionName().startsWith("deny_"))
                     .collect(toImmutableSet());
         }
     }

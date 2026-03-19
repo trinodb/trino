@@ -57,7 +57,6 @@ import static io.airlift.slice.Slices.wrappedBuffer;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_TOO_MANY_OPEN_PARTITIONS;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_WRITER_CLOSE_ERROR;
 import static io.trino.spi.type.IntegerType.INTEGER;
-import static java.lang.Math.min;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
@@ -66,7 +65,6 @@ public class HivePageSink
         implements ConnectorPageSink, ConnectorMergeSink
 {
     private static final Logger LOG = Logger.get(HivePageSink.class);
-    private static final int MAX_PAGE_POSITIONS = 4096;
 
     private final HiveWriterFactory writerFactory;
 
@@ -248,12 +246,7 @@ public class HivePageSink
     @Override
     public CompletableFuture<?> appendPage(Page page)
     {
-        int writeOffset = 0;
-        while (writeOffset < page.getPositionCount()) {
-            Page chunk = page.getRegion(writeOffset, min(page.getPositionCount() - writeOffset, MAX_PAGE_POSITIONS));
-            writeOffset += chunk.getPositionCount();
-            writePage(chunk);
-        }
+        writePage(page);
         return NOT_BLOCKED;
     }
 

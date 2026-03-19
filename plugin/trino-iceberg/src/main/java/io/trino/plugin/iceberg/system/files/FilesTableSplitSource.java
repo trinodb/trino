@@ -26,6 +26,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalLong;
 import java.util.concurrent.CompletableFuture;
 
 import static java.util.Objects.requireNonNull;
@@ -35,7 +36,7 @@ public final class FilesTableSplitSource
         implements ConnectorSplitSource
 {
     private final Table icebergTable;
-    private final Optional<Long> snapshotId;
+    private final OptionalLong snapshotId;
     private final String schemaJson;
     private final String metadataSchemaJson;
     private final Map<Integer, String> partitionSpecsByIdJson;
@@ -45,7 +46,7 @@ public final class FilesTableSplitSource
 
     public FilesTableSplitSource(
             Table icebergTable,
-            Optional<Long> snapshotId,
+            OptionalLong snapshotId,
             String schemaJson,
             String metadataSchemaJson,
             Map<Integer, String> partitionSpecsByIdJson,

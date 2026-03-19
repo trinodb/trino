@@ -30,6 +30,7 @@ import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Queue;
 
@@ -145,7 +146,7 @@ public abstract class AbstractResourceConfigurationManager
         memoryPoolManager.addChangeListener(poolInfo -> {
             Map<ResourceGroup, DataSize> memoryLimits = new HashMap<>();
             synchronized (memoryPoolFraction) {
-                for (Map.Entry<ResourceGroup, Double> entry : memoryPoolFraction.entrySet()) {
+                for (Entry<ResourceGroup, Double> entry : memoryPoolFraction.entrySet()) {
                     long bytes = Math.round(poolInfo.getMaxBytes() * entry.getValue());
                     // setSoftMemoryLimit() acquires a lock on the root group of its tree, which could cause a deadlock if done while holding the "memoryPoolFraction" lock
                     memoryLimits.put(entry.getKey(), DataSize.ofBytes(bytes));
@@ -207,7 +208,7 @@ public abstract class AbstractResourceConfigurationManager
         }
         else {
             synchronized (memoryPoolFraction) {
-                double fraction = match.getSoftMemoryLimitFraction().get();
+                double fraction = match.getSoftMemoryLimitFraction().getAsDouble();
                 memoryPoolFraction.put(group, fraction);
                 group.setSoftMemoryLimitBytes((long) (memoryPoolBytes * fraction));
             }

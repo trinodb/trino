@@ -190,7 +190,7 @@ public final class JoinTestUtils
                 rangeList(buildPages.getTypes().size()),
                 hashChannels,
                 filterFunctionFactory,
-                Optional.empty(),
+                OptionalInt.empty(),
                 ImmutableList.of(),
                 100,
                 new PagesIndex.TestingFactory(false, enableSingleChannelBigintLookupSource),

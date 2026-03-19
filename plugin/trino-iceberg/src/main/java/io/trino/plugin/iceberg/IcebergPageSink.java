@@ -84,7 +84,6 @@ import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_MICROSECOND;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.UuidType.UUID;
 import static io.trino.spi.type.UuidType.trinoUuidToJavaUuid;
-import static java.lang.Math.min;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.UUID.randomUUID;
@@ -95,8 +94,6 @@ public class IcebergPageSink
         implements ConnectorPageSink
 {
     private static final Logger LOG = Logger.get(IcebergPageSink.class);
-
-    private static final int MAX_PAGE_POSITIONS = 4096;
 
     private final int maxOpenWriters;
     private final Schema outputSchema;
@@ -112,7 +109,8 @@ public class IcebergPageSink
     private final long targetMaxFileSize;
     private final long idleWriterMinFileSize;
     private final Map<String, String> storageProperties;
-    private final List<TrinoSortField> sortOrder;
+    private final List<TrinoSortField> sortFields;
+    private final int sortOrderId;
     private final boolean sortedWritingEnabled;
     private final DataSize sortingFileWriterBufferSize;
     private final Integer sortingFileWriterMaxOpenFiles;
@@ -146,7 +144,8 @@ public class IcebergPageSink
             IcebergFileFormat fileFormat,
             Map<String, String> storageProperties,
             int maxOpenWriters,
-            List<TrinoSortField> sortOrder,
+            List<TrinoSortField> sortFields,
+            int sortOrderId,
             DataSize sortingFileWriterBufferSize,
             int sortingFileWriterMaxOpenFiles,
             Optional<String> sortedWritingLocalStagingPath,
@@ -168,7 +167,7 @@ public class IcebergPageSink
         this.targetMaxFileSize = IcebergSessionProperties.getTargetMaxFileSize(session);
         this.idleWriterMinFileSize = IcebergSessionProperties.getIdleWriterMinFileSize(session);
         this.storageProperties = requireNonNull(storageProperties, "storageProperties is null");
-        this.sortOrder = requireNonNull(sortOrder, "sortOrder is null");
+        this.sortFields = requireNonNull(sortFields, "sortFields is null");
         this.sortedWritingEnabled = isSortedWritingEnabled(session);
         this.sortingFileWriterBufferSize = requireNonNull(sortingFileWriterBufferSize, "sortingFileWriterBufferSize is null");
         this.sortingFileWriterMaxOpenFiles = sortingFileWriterMaxOpenFiles;
@@ -186,7 +185,7 @@ public class IcebergPageSink
         if (sortedWritingEnabled) {
             ImmutableList.Builder<Integer> sortColumnIndexes = ImmutableList.builder();
             ImmutableList.Builder<SortOrder> sortOrders = ImmutableList.builder();
-            for (TrinoSortField sortField : sortOrder) {
+            for (TrinoSortField sortField : sortFields) {
                 Types.NestedField column = outputSchema.findField(sortField.sourceColumnId());
                 if (column == null) {
                     throw new TrinoException(ICEBERG_INVALID_METADATA, "Unable to find sort field source column in the table schema: " + sortField);
@@ -196,10 +195,12 @@ public class IcebergPageSink
             }
             this.sortColumnIndexes = sortColumnIndexes.build();
             this.sortOrders = sortOrders.build();
+            this.sortOrderId = sortOrderId;
         }
         else {
             this.sortColumnIndexes = ImmutableList.of();
             this.sortOrders = ImmutableList.of();
+            this.sortOrderId = org.apache.iceberg.SortOrder.unsorted().orderId();
         }
     }
 
@@ -224,7 +225,7 @@ public class IcebergPageSink
     @Override
     public CompletableFuture<?> appendPage(Page page)
     {
-        doAppend(page);
+        writePage(page);
         return NOT_BLOCKED;
     }
 
@@ -262,16 +263,6 @@ public class IcebergPageSink
         }
         if (error != null) {
             throw error;
-        }
-    }
-
-    private void doAppend(Page page)
-    {
-        int writeOffset = 0;
-        while (writeOffset < page.getPositionCount()) {
-            Page chunk = page.getRegion(writeOffset, min(page.getPositionCount() - writeOffset, MAX_PAGE_POSITIONS));
-            writeOffset += chunk.getPositionCount();
-            writePage(chunk);
         }
     }
 
@@ -359,7 +350,7 @@ public class IcebergPageSink
                     .map(partition -> locationProvider.newDataLocation(partitionSpec, partition, fileName))
                     .orElseGet(() -> locationProvider.newDataLocation(fileName));
 
-            if (!sortOrder.isEmpty() && sortedWritingEnabled) {
+            if (!sortFields.isEmpty() && sortedWritingEnabled) {
                 String tempName = "sorting-file-writer-%s-%s".formatted(session.getQueryId(), randomUUID());
                 Location tempFilePrefix = tempDirectory.appendPath(tempName);
                 WriteContext writerContext = createWriter(outputPath, partitionData);
@@ -437,6 +428,7 @@ public class IcebergPageSink
                 DATA,
                 Optional.empty(),
                 writer.getFileMetrics().splitOffsets(),
+                sortOrderId,
                 Optional.empty());
 
         commitTasks.add(wrappedBuffer(jsonCodec.toJsonBytes(task)));

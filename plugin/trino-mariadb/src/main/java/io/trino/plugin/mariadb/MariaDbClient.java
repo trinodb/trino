@@ -536,7 +536,7 @@ public class MariaDbClient
 
     private void addColumn(ConnectorSession session, RemoteTableName table, ColumnMetadata column, String position)
     {
-        if (column.getComment() != null) {
+        if (column.getComment().isPresent()) {
             throw new TrinoException(NOT_SUPPORTED, "This connector does not support adding columns with comments");
         }
 

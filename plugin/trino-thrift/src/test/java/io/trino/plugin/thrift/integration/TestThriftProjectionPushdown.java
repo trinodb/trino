@@ -129,7 +129,7 @@ public class TestThriftProjectionPushdown
                 new ScalarStatsCalculator(tester().getPlannerContext()));
 
         String columnName = "orderstatus";
-        ColumnHandle columnHandle = new ThriftColumnHandle(columnName, VARCHAR, "", false);
+        ColumnHandle columnHandle = new ThriftColumnHandle(columnName, VARCHAR, Optional.of(""), false);
 
         ConnectorTableHandle tableWithColumns = new ThriftTableHandle(
                 TINY_SCHEMA,
@@ -164,7 +164,7 @@ public class TestThriftProjectionPushdown
 
         String columnName = "orderstatus";
 
-        ColumnHandle columnHandle = new ThriftColumnHandle(columnName, VARCHAR, "", false);
+        ColumnHandle columnHandle = new ThriftColumnHandle(columnName, VARCHAR, Optional.of(""), false);
 
         ConnectorTableHandle projectedThriftHandle = new ThriftTableHandle(
                 TINY_SCHEMA,
@@ -198,8 +198,8 @@ public class TestThriftProjectionPushdown
     {
         PruneTableScanColumns rule = new PruneTableScanColumns(tester().getMetadata());
 
-        ThriftColumnHandle nationKeyColumn = new ThriftColumnHandle("nationKey", VARCHAR, "", false);
-        ThriftColumnHandle nameColumn = new ThriftColumnHandle("name", VARCHAR, "", false);
+        ThriftColumnHandle nationKeyColumn = new ThriftColumnHandle("nationKey", VARCHAR, Optional.of(""), false);
+        ThriftColumnHandle nameColumn = new ThriftColumnHandle("name", VARCHAR, Optional.of(""), false);
 
         tester().assertThat(rule)
                 .withSession(SESSION)

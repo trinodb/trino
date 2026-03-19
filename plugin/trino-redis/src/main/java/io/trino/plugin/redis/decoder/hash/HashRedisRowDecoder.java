@@ -21,6 +21,7 @@ import io.trino.plugin.redis.decoder.RedisRowDecoder;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkState;
@@ -49,7 +50,7 @@ public class HashRedisRowDecoder
         }
 
         Map<DecoderColumnHandle, FieldValueProvider> decodedRow = new HashMap<>();
-        for (Map.Entry<DecoderColumnHandle, RedisFieldDecoder<String>> entry : fieldDecoders.entrySet()) {
+        for (Entry<DecoderColumnHandle, RedisFieldDecoder<String>> entry : fieldDecoders.entrySet()) {
             DecoderColumnHandle columnHandle = entry.getKey();
 
             String mapping = columnHandle.getMapping();

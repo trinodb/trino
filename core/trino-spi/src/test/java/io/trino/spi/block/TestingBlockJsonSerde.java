@@ -13,6 +13,7 @@
  */
 package io.trino.spi.block;
 
+import com.fasterxml.jackson.core.Base64Variants;
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.databind.DeserializationContext;
@@ -25,7 +26,6 @@ import io.airlift.slice.SliceOutput;
 import io.airlift.slice.Slices;
 
 import java.io.IOException;
-import java.util.Base64;
 
 import static java.util.Objects.requireNonNull;
 
@@ -49,7 +49,7 @@ public final class TestingBlockJsonSerde
         {
             SliceOutput output = new DynamicSliceOutput(64);
             blockEncodingSerde.writeBlock(output, block);
-            String encoded = Base64.getEncoder().encodeToString(output.slice().getBytes());
+            String encoded = Base64Variants.MIME_NO_LINEFEEDS.encode(output.slice().getBytes());
             jsonGenerator.writeString(encoded);
         }
     }
@@ -65,10 +65,10 @@ public final class TestingBlockJsonSerde
         }
 
         @Override
-        public Block deserialize(JsonParser jsonParser, DeserializationContext deserializationContext)
+        public Block deserialize(JsonParser parser, DeserializationContext context)
                 throws IOException
         {
-            byte[] decoded = Base64.getDecoder().decode(jsonParser.readValueAs(String.class));
+            byte[] decoded = Base64Variants.MIME_NO_LINEFEEDS.decode(context.readValue(parser, String.class));
             BasicSliceInput input = Slices.wrappedBuffer(decoded).getInput();
             return blockEncodingSerde.readBlock(input);
         }

@@ -138,8 +138,6 @@ The following provides a good starting point for creating `etc/jvm.config`:
 -XX:PerBytecodeRecompilationCutoff=10000
 -Djdk.attach.allowAttachSelf=true
 -Djdk.nio.maxCachedBufferSize=2000000
-# Allow loading dynamic agent used by JOL
--XX:+EnableDynamicAgentLoading
 ```
 
 You must adjust the value for the memory used by Trino, specified with `-Xmx`

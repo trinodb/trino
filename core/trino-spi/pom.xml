@@ -66,12 +66,6 @@
         </dependency>
 
         <dependency>
-            <groupId>org.openjdk.jol</groupId>
-            <artifactId>jol-core</artifactId>
-            <scope>runtime</scope>
-        </dependency>
-
-        <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-core</artifactId>
             <scope>test</scope>
@@ -777,6 +771,154 @@
                                     <old>method void io.trino.spi.eventlistener.QueryStatistics::&lt;init&gt;(java.time.Duration, java.time.Duration, java.time.Duration, java.time.Duration, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, long, long, long, long, long, long, long, long, long, long, long, long, long, long, double, double, java.util.List&lt;io.trino.spi.eventlistener.StageGcStatistics&gt;, int, boolean, java.util.List&lt;io.trino.spi.eventlistener.StageCpuDistribution&gt;, java.util.List&lt;io.trino.spi.eventlistener.StageOutputBufferUtilization&gt;, java.util.List&lt;io.trino.spi.eventlistener.StageOutputBufferMetrics&gt;, java.util.List&lt;io.trino.spi.eventlistener.StageTaskStatistics&gt;, java.util.List&lt;io.trino.spi.eventlistener.DynamicFilterDomainStatistics&gt;, java.util.function.Supplier&lt;java.util.List&lt;java.lang.String&gt;&gt;, java.util.List&lt;io.trino.spi.eventlistener.QueryPlanOptimizerStatistics&gt;, java.util.Map&lt;java.lang.String, io.trino.spi.metrics.Metrics&gt;, java.util.Optional&lt;java.lang.String&gt;)</old>
                                     <new>method void io.trino.spi.eventlistener.QueryStatistics::&lt;init&gt;(java.time.Duration, java.time.Duration, java.time.Duration, java.time.Duration, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, long, long, long, long, long, long, long, long, long, long, long, long, long, long, double, double, java.util.List&lt;io.trino.spi.eventlistener.StageGcStatistics&gt;, int, boolean, java.util.List&lt;io.trino.spi.eventlistener.StageCpuDistribution&gt;, java.util.List&lt;io.trino.spi.eventlistener.StageOutputBufferUtilization&gt;, java.util.List&lt;io.trino.spi.eventlistener.StageOutputBufferMetrics&gt;, java.util.List&lt;io.trino.spi.eventlistener.StageTaskStatistics&gt;, java.util.List&lt;io.trino.spi.eventlistener.DynamicFilterDomainStatistics&gt;, java.util.function.Supplier&lt;java.util.List&lt;java.lang.String&gt;&gt;, java.util.List&lt;io.trino.spi.eventlistener.QueryPlanOptimizerStatistics&gt;, java.util.Map&lt;java.lang.String, io.trino.spi.metrics.Metrics&gt;, java.util.Map&lt;java.lang.String, io.trino.spi.metrics.Metrics&gt;, java.util.Optional&lt;java.lang.String&gt;)</new>
                                     <justification>Expose exchange performance metrics via event listener SPI</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.returnTypeChanged</code>
+                                    <old>method java.lang.String io.trino.spi.connector.ColumnMetadata::getComment()</old>
+                                    <new>method java.util.Optional&lt;java.lang.String&gt; io.trino.spi.connector.ColumnMetadata::getComment()</new>
+                                    <justification>Make field optional</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.annotation.removed</code>
+                                    <old>method java.lang.String io.trino.spi.connector.ColumnMetadata::getComment()</old>
+                                    <new>method java.util.Optional&lt;java.lang.String&gt; io.trino.spi.connector.ColumnMetadata::getComment()</new>
+                                    <annotation>@jakarta.annotation.Nullable</annotation>
+                                    <justification>Make field optional</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.returnTypeChanged</code>
+                                    <old>method java.lang.String io.trino.spi.connector.ColumnMetadata::getExtraInfo()</old>
+                                    <new>method java.util.Optional&lt;java.lang.String&gt; io.trino.spi.connector.ColumnMetadata::getExtraInfo()</new>
+                                    <justification>Make field optional</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.annotation.removed</code>
+                                    <old>method java.lang.String io.trino.spi.connector.ColumnMetadata::getExtraInfo()</old>
+                                    <new>method java.util.Optional&lt;java.lang.String&gt; io.trino.spi.connector.ColumnMetadata::getExtraInfo()</new>
+                                    <annotation>@jakarta.annotation.Nullable</annotation>
+                                    <justification>Make field optional</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.class.externalClassExposedInAPI</code>
+                                    <new>class io.opentelemetry.api.common.Empty</new>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.removed</code>
+                                    <old>method java.lang.String io.trino.spi.function.CatalogSchemaFunctionName::getCatalogName()</old>
+                                    <justification>Class converted to a record</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.removed</code>
+                                    <old>method io.trino.spi.function.SchemaFunctionName io.trino.spi.function.CatalogSchemaFunctionName::getSchemaFunctionName()</old>
+                                    <justification>Class converted to a record</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.class.kindChanged</code>
+                                    <old>class io.trino.spi.function.CatalogSchemaFunctionName</old>
+                                    <new>class io.trino.spi.function.CatalogSchemaFunctionName</new>
+                                    <justification>Class converted to a record</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.annotation.removed</code>
+                                    <old>parameter void io.trino.spi.function.SchemaFunctionName::&lt;init&gt;(===java.lang.String===, java.lang.String)</old>
+                                    <new>parameter void io.trino.spi.function.SchemaFunctionName::&lt;init&gt;(===java.lang.String===, java.lang.String)</new>
+                                    <annotation>@com.fasterxml.jackson.annotation.JsonProperty("schemaName")</annotation>
+                                    <justification>Class converted to a record</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.annotation.removed</code>
+                                    <old>parameter void io.trino.spi.function.SchemaFunctionName::&lt;init&gt;(java.lang.String, ===java.lang.String===)</old>
+                                    <new>parameter void io.trino.spi.function.SchemaFunctionName::&lt;init&gt;(java.lang.String, ===java.lang.String===)</new>
+                                    <annotation>@com.fasterxml.jackson.annotation.JsonProperty("functionName")</annotation>
+                                    <justification>Class converted to a record</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.annotation.removed</code>
+                                    <old>method void io.trino.spi.function.SchemaFunctionName::&lt;init&gt;(java.lang.String, java.lang.String)</old>
+                                    <new>method void io.trino.spi.function.SchemaFunctionName::&lt;init&gt;(java.lang.String, java.lang.String)</new>
+                                    <annotation>@com.fasterxml.jackson.annotation.JsonCreator</annotation>
+                                    <justification>Class converted to a record</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.removed</code>
+                                    <old>method java.lang.String io.trino.spi.function.SchemaFunctionName::getFunctionName()</old>
+                                    <justification>Class converted to a record</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.removed</code>
+                                    <old>method java.lang.String io.trino.spi.function.SchemaFunctionName::getSchemaName()</old>
+                                    <justification>Class converted to a record</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.class.kindChanged</code>
+                                    <old>class io.trino.spi.function.SchemaFunctionName</old>
+                                    <new>class io.trino.spi.function.SchemaFunctionName</new>
+                                    <justification>Class converted to a record</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.removed</code>
+                                    <old>method java.lang.String io.trino.spi.function.CatalogSchemaFunctionName::getFunctionName()</old>
+                                    <justification>Class converted to a record</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.removed</code>
+                                    <old>method java.lang.String io.trino.spi.function.CatalogSchemaFunctionName::getSchemaName()</old>
+                                    <justification>Class converted to a record</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.removed</code>
+                                    <old>method int io.trino.spi.Location::getColumnNumber()</old>
+                                    <justification>Location converted to a record class</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.removed</code>
+                                    <old>method int io.trino.spi.Location::getLineNumber()</old>
+                                    <justification>Location converted to a record class</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.class.kindChanged</code>
+                                    <old>class io.trino.spi.Location</old>
+                                    <new>class io.trino.spi.Location</new>
+                                    <justification>Location converted to a record class</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.annotation.removed</code>
+                                    <old>class io.trino.spi.Location</old>
+                                    <new>class io.trino.spi.Location</new>
+                                    <annotation>@com.google.errorprone.annotations.Immutable</annotation>
+                                    <justification>Location converted to a record class</justification>
+                                </item>
+                                <item>
+                                    <code>java.method.numberOfParametersChanged</code>
+                                    <old>method io.trino.spi.function.FunctionMetadata io.trino.spi.function.FunctionMetadata::fromJson(io.trino.spi.function.FunctionId, io.trino.spi.function.Signature, java.lang.String, java.util.Set&lt;java.lang.String&gt;, io.trino.spi.function.FunctionNullability, boolean, boolean, java.lang.String, io.trino.spi.function.FunctionKind, boolean)</old>
+                                    <new>method io.trino.spi.function.FunctionMetadata io.trino.spi.function.FunctionMetadata::fromJson(io.trino.spi.function.FunctionId, io.trino.spi.function.Signature, java.lang.String, java.util.Set&lt;java.lang.String&gt;, io.trino.spi.function.FunctionNullability, boolean, boolean, boolean, java.lang.String, io.trino.spi.function.FunctionKind, boolean)</new>
+                                    <justification>Function declares whether it never fails</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.class.externalClassExposedInAPI</code>
+                                    <new>interface io.opentelemetry.api.trace.TraceFlagsBuilder</new>
+                                    <justification>New OpenTelemetry API version</justification>
                                 </item>
                             </differences>
                         </revapi.differences>

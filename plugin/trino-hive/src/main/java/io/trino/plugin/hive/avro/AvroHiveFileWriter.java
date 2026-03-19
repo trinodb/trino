@@ -36,6 +36,7 @@ import java.io.OutputStream;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -88,7 +89,7 @@ public final class AvroHiveFileWriter
             outputColumnNames.add(field.name().toLowerCase(Locale.ENGLISH));
         }
         ImmutableList.Builder<Block> blocks = ImmutableList.builder();
-        for (Map.Entry<String, Field> entry : fields.entrySet()) {
+        for (Entry<String, Field> entry : fields.entrySet()) {
             outputColumnNames.add(entry.getKey().toLowerCase(Locale.ENGLISH));
             Type type = avroTypeBlockHandler.typeFor(entry.getValue().schema());
             outputColumnTypes.add(type);

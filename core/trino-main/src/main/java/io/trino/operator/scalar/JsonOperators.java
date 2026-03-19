@@ -13,13 +13,14 @@
  */
 package io.trino.operator.scalar;
 
-import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.core.JsonParser;
+import com.fasterxml.jackson.databind.json.JsonMapper;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
 import io.trino.spi.TrinoException;
+import io.trino.spi.function.LiteralParameter;
 import io.trino.spi.function.LiteralParameters;
 import io.trino.spi.function.ScalarOperator;
 import io.trino.spi.function.SqlNullable;
@@ -28,6 +29,7 @@ import io.trino.util.JsonCastException;
 
 import java.io.IOException;
 
+import static io.airlift.slice.SliceUtf8.countCodePoints;
 import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static io.trino.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
 import static io.trino.spi.function.OperatorType.CAST;
@@ -40,7 +42,6 @@ import static io.trino.spi.type.StandardTypes.JSON;
 import static io.trino.spi.type.StandardTypes.REAL;
 import static io.trino.spi.type.StandardTypes.SMALLINT;
 import static io.trino.spi.type.StandardTypes.TINYINT;
-import static io.trino.spi.type.StandardTypes.VARCHAR;
 import static io.trino.util.DateTimeUtils.printDate;
 import static io.trino.util.Failures.checkCondition;
 import static io.trino.util.JsonUtil.createJsonFactory;
@@ -59,7 +60,7 @@ import static java.lang.String.format;
 
 public final class JsonOperators
 {
-    private static final JsonFactory JSON_FACTORY = createJsonFactory();
+    private static final JsonMapper JSON_MAPPER = new JsonMapper(createJsonFactory());
 
     private JsonOperators() {}
 
@@ -67,17 +68,20 @@ public final class JsonOperators
     @SqlNullable
     @LiteralParameters("x")
     @SqlType("varchar(x)")
-    public static Slice castToVarchar(@SqlType(JSON) Slice json)
+    public static Slice castToVarchar(@LiteralParameter("x") long x, @SqlType(JSON) Slice json)
     {
-        try (JsonParser parser = createJsonParser(JSON_FACTORY, json)) {
+        try (JsonParser parser = createJsonParser(JSON_MAPPER, json)) {
             parser.nextToken();
             Slice result = currentTokenAsVarchar(parser);
             checkCondition(parser.nextToken() == null, INVALID_CAST_ARGUMENT, "Cannot cast input json to VARCHAR"); // check no trailing token
-            return result;
+            if (result == null || countCodePoints(result) <= x) {
+                return result;
+            }
         }
         catch (IOException | JsonCastException e) {
-            throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to %s", json.toStringUtf8(), VARCHAR), e);
+            throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to varchar(%s)", json.toStringUtf8(), x), e);
         }
+        throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to varchar(%s)", json.toStringUtf8(), x));
     }
 
     @ScalarOperator(CAST)
@@ -85,7 +89,7 @@ public final class JsonOperators
     @SqlType(BIGINT)
     public static Long castToBigint(@SqlType(JSON) Slice json)
     {
-        try (JsonParser parser = createJsonParser(JSON_FACTORY, json)) {
+        try (JsonParser parser = createJsonParser(JSON_MAPPER, json)) {
             parser.nextToken();
             Long result = currentTokenAsBigint(parser);
             checkCondition(parser.nextToken() == null, INVALID_CAST_ARGUMENT, "Cannot cast input json to BIGINT"); // check no trailing token
@@ -101,7 +105,7 @@ public final class JsonOperators
     @SqlType(INTEGER)
     public static Long castToInteger(@SqlType(JSON) Slice json)
     {
-        try (JsonParser parser = createJsonParser(JSON_FACTORY, json)) {
+        try (JsonParser parser = createJsonParser(JSON_MAPPER, json)) {
             parser.nextToken();
             Long result = currentTokenAsInteger(parser);
             checkCondition(parser.nextToken() == null, INVALID_CAST_ARGUMENT, "Cannot cast input json to INTEGER"); // check no trailing token
@@ -123,7 +127,7 @@ public final class JsonOperators
     @SqlType(SMALLINT)
     public static Long castToSmallint(@SqlType(JSON) Slice json)
     {
-        try (JsonParser parser = createJsonParser(JSON_FACTORY, json)) {
+        try (JsonParser parser = createJsonParser(JSON_MAPPER, json)) {
             parser.nextToken();
             Long result = currentTokenAsSmallint(parser);
             checkCondition(parser.nextToken() == null, INVALID_CAST_ARGUMENT, "Cannot cast input json to SMALLINT"); // check no trailing token
@@ -145,7 +149,7 @@ public final class JsonOperators
     @SqlType(TINYINT)
     public static Long castToTinyint(@SqlType(JSON) Slice json)
     {
-        try (JsonParser parser = createJsonParser(JSON_FACTORY, json)) {
+        try (JsonParser parser = createJsonParser(JSON_MAPPER, json)) {
             parser.nextToken();
             Long result = currentTokenAsTinyint(parser);
             checkCondition(parser.nextToken() == null, INVALID_CAST_ARGUMENT, "Cannot cast input json to TINYINT"); // check no trailing token
@@ -167,7 +171,7 @@ public final class JsonOperators
     @SqlType(DOUBLE)
     public static Double castToDouble(@SqlType(JSON) Slice json)
     {
-        try (JsonParser parser = createJsonParser(JSON_FACTORY, json)) {
+        try (JsonParser parser = createJsonParser(JSON_MAPPER, json)) {
             parser.nextToken();
             Double result = currentTokenAsDouble(parser);
             checkCondition(parser.nextToken() == null, INVALID_CAST_ARGUMENT, "Cannot cast input json to DOUBLE"); // check no trailing token
@@ -183,7 +187,7 @@ public final class JsonOperators
     @SqlType(REAL)
     public static Long castToReal(@SqlType(JSON) Slice json)
     {
-        try (JsonParser parser = createJsonParser(JSON_FACTORY, json)) {
+        try (JsonParser parser = createJsonParser(JSON_MAPPER, json)) {
             parser.nextToken();
             Long result = currentTokenAsReal(parser);
             checkCondition(parser.nextToken() == null, INVALID_CAST_ARGUMENT, "Cannot cast input json to REAL"); // check no trailing token
@@ -199,7 +203,7 @@ public final class JsonOperators
     @SqlType(BOOLEAN)
     public static Boolean castToBoolean(@SqlType(JSON) Slice json)
     {
-        try (JsonParser parser = createJsonParser(JSON_FACTORY, json)) {
+        try (JsonParser parser = createJsonParser(JSON_MAPPER, json)) {
             parser.nextToken();
             Boolean result = currentTokenAsBoolean(parser);
             checkCondition(parser.nextToken() == null, INVALID_CAST_ARGUMENT, "Cannot cast input json to BOOLEAN"); // check no trailing token
@@ -217,7 +221,7 @@ public final class JsonOperators
     {
         try {
             SliceOutput output = new DynamicSliceOutput(value.length() + 2);
-            try (JsonGenerator jsonGenerator = createJsonGenerator(JSON_FACTORY, output)) {
+            try (JsonGenerator jsonGenerator = createJsonGenerator(JSON_MAPPER, output)) {
                 jsonGenerator.writeString(value.toStringUtf8());
             }
             return output.slice();
@@ -259,7 +263,7 @@ public final class JsonOperators
     {
         try {
             SliceOutput output = new DynamicSliceOutput(estimatedSize);
-            try (JsonGenerator jsonGenerator = createJsonGenerator(JSON_FACTORY, output)) {
+            try (JsonGenerator jsonGenerator = createJsonGenerator(JSON_MAPPER, output)) {
                 jsonGenerator.writeNumber(value);
             }
             return output.slice();
@@ -275,7 +279,7 @@ public final class JsonOperators
     {
         try {
             SliceOutput output = new DynamicSliceOutput(32);
-            try (JsonGenerator jsonGenerator = createJsonGenerator(JSON_FACTORY, output)) {
+            try (JsonGenerator jsonGenerator = createJsonGenerator(JSON_MAPPER, output)) {
                 jsonGenerator.writeNumber(value);
             }
             return output.slice();
@@ -291,7 +295,7 @@ public final class JsonOperators
     {
         try {
             SliceOutput output = new DynamicSliceOutput(32);
-            try (JsonGenerator jsonGenerator = createJsonGenerator(JSON_FACTORY, output)) {
+            try (JsonGenerator jsonGenerator = createJsonGenerator(JSON_MAPPER, output)) {
                 jsonGenerator.writeNumber(intBitsToFloat((int) value));
             }
             return output.slice();
@@ -307,7 +311,7 @@ public final class JsonOperators
     {
         try {
             SliceOutput output = new DynamicSliceOutput(5);
-            try (JsonGenerator jsonGenerator = createJsonGenerator(JSON_FACTORY, output)) {
+            try (JsonGenerator jsonGenerator = createJsonGenerator(JSON_MAPPER, output)) {
                 jsonGenerator.writeBoolean(value);
             }
             return output.slice();
@@ -323,7 +327,7 @@ public final class JsonOperators
     {
         try {
             SliceOutput output = new DynamicSliceOutput(12);
-            try (JsonGenerator jsonGenerator = createJsonGenerator(JSON_FACTORY, output)) {
+            try (JsonGenerator jsonGenerator = createJsonGenerator(JSON_MAPPER, output)) {
                 jsonGenerator.writeString(printDate((int) value));
             }
             return output.slice();

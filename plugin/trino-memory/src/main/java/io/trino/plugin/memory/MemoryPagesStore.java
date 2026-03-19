@@ -28,6 +28,7 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.OptionalDouble;
 import java.util.OptionalLong;
 import java.util.Set;
@@ -154,8 +155,8 @@ public class MemoryPagesStore
         }
         long latestTableId = Collections.max(activeTableIds);
 
-        for (Iterator<Map.Entry<Long, TableData>> tableDataIterator = tables.entrySet().iterator(); tableDataIterator.hasNext(); ) {
-            Map.Entry<Long, TableData> tablePagesEntry = tableDataIterator.next();
+        for (Iterator<Entry<Long, TableData>> tableDataIterator = tables.entrySet().iterator(); tableDataIterator.hasNext(); ) {
+            Entry<Long, TableData> tablePagesEntry = tableDataIterator.next();
             Long tableId = tablePagesEntry.getKey();
             if (tableId < latestTableId && !activeTableIds.contains(tableId)) {
                 for (Page removedPage : tablePagesEntry.getValue().getPages()) {

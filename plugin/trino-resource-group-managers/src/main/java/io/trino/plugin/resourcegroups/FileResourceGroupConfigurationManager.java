@@ -21,7 +21,7 @@ import com.google.inject.Inject;
 import io.airlift.bootstrap.LifeCycleManager;
 import io.airlift.json.JsonCodec;
 import io.airlift.json.JsonCodecFactory;
-import io.airlift.json.ObjectMapperProvider;
+import io.airlift.json.JsonMapperProvider;
 import io.airlift.units.Duration;
 import io.trino.spi.memory.ClusterMemoryPoolManager;
 import io.trino.spi.resourcegroups.ResourceGroup;
@@ -43,8 +43,10 @@ import static java.util.Objects.requireNonNull;
 public class FileResourceGroupConfigurationManager
         extends AbstractResourceConfigurationManager
 {
-    private static final JsonCodec<ManagerSpec> CODEC = new JsonCodecFactory(
-            () -> new ObjectMapperProvider().get().enable(FAIL_ON_UNKNOWN_PROPERTIES))
+    private static final JsonCodec<ManagerSpec> CODEC = new JsonCodecFactory(new JsonMapperProvider().get()
+            .rebuild()
+            .enable(FAIL_ON_UNKNOWN_PROPERTIES)
+            .build())
             .jsonCodec(ManagerSpec.class);
 
     private final Optional<LifeCycleManager> lifeCycleManager;

@@ -48,6 +48,7 @@ import org.apache.avro.generic.GenericRecord;
 import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -336,7 +337,7 @@ public class AvroColumnDecoder
 
     private static void buildMap(String columnName, Map<?, ?> map, Type keyType, Type valueType, BlockBuilder keyBuilder, BlockBuilder valueBuilder)
     {
-        for (Map.Entry<?, ?> entry : map.entrySet()) {
+        for (Entry<?, ?> entry : map.entrySet()) {
             if (entry.getKey() != null) {
                 keyType.writeSlice(keyBuilder, truncateToLength(utf8Slice(entry.getKey().toString()), keyType));
                 serializeObject(valueBuilder, entry.getValue(), valueType, columnName);

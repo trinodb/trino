@@ -30,6 +30,7 @@ public record TaskId(StageId stageId, int partitionId, int attemptId)
     private static final int INSTANCE_SIZE = instanceSize(TaskId.class);
 
     @JsonCreator
+    // this is also needed by JAX-RS, see: org.glassfish.jersey.internal.util.ReflectionHelper
     public static TaskId valueOf(String fullId)
     {
         List<String> parts = parseDottedId(fullId, 4, "taskId");

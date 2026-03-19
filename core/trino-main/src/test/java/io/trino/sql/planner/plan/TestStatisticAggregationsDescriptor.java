@@ -13,12 +13,13 @@
  */
 package io.trino.sql.planner.plan;
 
+import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.reflect.TypeToken;
 import io.airlift.json.JsonCodec;
 import io.airlift.json.JsonCodecFactory;
-import io.airlift.json.ObjectMapperProvider;
+import io.airlift.json.JsonMapperProvider;
 import io.trino.spi.expression.FunctionName;
 import io.trino.spi.statistics.ColumnStatisticMetadata;
 import io.trino.spi.statistics.ColumnStatisticType;
@@ -45,15 +46,15 @@ public class TestStatisticAggregationsDescriptor
     @Test
     public void testSerializationRoundTrip()
     {
-        ObjectMapperProvider provider = new ObjectMapperProvider();
-        provider.setKeyDeserializers(ImmutableMap.of(
-                Symbol.class, new SymbolKeyDeserializer(TESTING_TYPE_MANAGER),
-                TypeSignature.class, new TypeSignatureKeyDeserializer()));
+        JsonMapper jsonMapper = new JsonMapperProvider()
+                .withKeyDeserializers(ImmutableMap.of(
+                        TypeSignature.class, new TypeSignatureKeyDeserializer(),
+                        Symbol.class, new SymbolKeyDeserializer(TESTING_TYPE_MANAGER)))
+                .withJsonDeserializers(ImmutableMap.of(Type.class, new TypeDeserializer(TESTING_TYPE_MANAGER)))
+                .get();
 
-        provider.setJsonDeserializers(ImmutableMap.of(
-                Type.class, new TypeDeserializer(TESTING_TYPE_MANAGER::getType)));
-
-        JsonCodec<StatisticAggregationsDescriptor<Symbol>> codec = new JsonCodecFactory(provider).jsonCodec(new TypeToken<>() {});
+        JsonCodecFactory factory = new JsonCodecFactory(jsonMapper);
+        JsonCodec<StatisticAggregationsDescriptor<Symbol>> codec = factory.jsonCodec(new TypeToken<>() {});
         assertSerializationRoundTrip(codec, StatisticAggregationsDescriptor.<Symbol>builder().build());
         assertSerializationRoundTrip(codec, createTestDescriptor());
     }

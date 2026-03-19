@@ -18,7 +18,6 @@ import com.datastax.oss.driver.api.core.CqlSessionBuilder;
 import com.datastax.oss.driver.api.core.ProtocolVersion;
 import com.datastax.oss.driver.api.core.config.DriverConfigLoader;
 import com.datastax.oss.driver.api.core.config.ProgrammaticDriverConfigLoaderBuilder;
-import io.airlift.json.JsonCodec;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 import org.testcontainers.containers.GenericContainer;
@@ -32,6 +31,7 @@ import static com.datastax.oss.driver.api.core.config.DefaultDriverOption.CONTRO
 import static com.datastax.oss.driver.api.core.config.DefaultDriverOption.METADATA_SCHEMA_REFRESHED_KEYSPACES;
 import static com.datastax.oss.driver.api.core.config.DefaultDriverOption.PROTOCOL_VERSION;
 import static com.datastax.oss.driver.api.core.config.DefaultDriverOption.REQUEST_TIMEOUT;
+import static io.airlift.json.JsonCodec.listJsonCodec;
 import static io.trino.plugin.cassandra.CassandraTestingUtils.CASSANDRA_TYPE_MANAGER;
 import static java.lang.String.format;
 import static java.util.concurrent.TimeUnit.MINUTES;
@@ -76,7 +76,7 @@ public class TestingScyllaServer
 
         session = new CassandraSession(
                 CASSANDRA_TYPE_MANAGER,
-                JsonCodec.listJsonCodec(ExtraColumnMetadata.class),
+                listJsonCodec(ExtraColumnMetadata.class),
                 cqlSessionBuilder::build,
                 new Duration(1, MINUTES));
     }
@@ -105,10 +105,10 @@ public class TestingScyllaServer
             refreshSizeEstimates();
             List<SizeEstimate> sizeEstimates = getSession().getSizeEstimates(keyspace, table);
             if (!sizeEstimates.isEmpty()) {
-                log.info("Size estimates for the table %s.%s have been refreshed successfully: %s", keyspace, table, sizeEstimates);
+                log.debug("Size estimates for the table %s.%s have been refreshed successfully: %s", keyspace, table, sizeEstimates);
                 return;
             }
-            log.info("Size estimates haven't been refreshed as expected. Retrying ...");
+            log.debug("Size estimates haven't been refreshed as expected. Retrying ...");
             SECONDS.sleep(1);
         }
         throw new TimeoutException(format("Attempting to refresh size estimates for table %s.%s has timed out after %s", keyspace, table, REFRESH_SIZE_ESTIMATES_TIMEOUT));

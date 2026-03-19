@@ -50,6 +50,7 @@ import java.security.Principal;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.BiConsumer;
@@ -112,8 +113,7 @@ public sealed class OpaAccessControl
     }
 
     @Override
-    public void checkCanSetUser(Optional<Principal> principal, String userName)
-    {}
+    public void checkCanSetUser(Optional<Principal> principal, String userName) {}
 
     @Override
     public void checkCanExecuteQuery(Identity identity, QueryId queryId)
@@ -373,7 +373,7 @@ public sealed class OpaAccessControl
     public Map<SchemaTableName, Set<String>> filterColumns(SystemSecurityContext context, String catalogName, Map<SchemaTableName, Set<String>> tableColumns)
     {
         ImmutableSet.Builder<TrinoTable> allColumnsBuilder = ImmutableSet.builder();
-        for (Map.Entry<SchemaTableName, Set<String>> entry : tableColumns.entrySet()) {
+        for (Entry<SchemaTableName, Set<String>> entry : tableColumns.entrySet()) {
             SchemaTableName schemaTableName = entry.getKey();
             TrinoTable trinoTable = new TrinoTable(catalogName, schemaTableName.getSchemaName(), schemaTableName.getTableName());
             for (String columnName : entry.getValue()) {
@@ -655,8 +655,8 @@ public sealed class OpaAccessControl
                         OpaQueryInputResource.builder()
                                 .function(
                                         new TrinoFunction(
-                                                new TrinoSchema(catalogName, function.getSchemaName()),
-                                                function.getFunctionName()))
+                                                new TrinoSchema(catalogName, function.schemaName()),
+                                                function.functionName()))
                                 .build()));
     }
 
@@ -743,7 +743,7 @@ public sealed class OpaAccessControl
         return opaHighLevelClient.getColumnMasksFromOpa(buildQueryContext(context), tableName, columns)
                 .entrySet().stream()
                 .map(entry -> Map.entry(entry.getKey(), entry.getValue().toTrinoViewExpression(tableName.getCatalogName(), tableName.getSchemaTableName().getSchemaName())))
-                .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
+                .collect(toImmutableMap(Entry::getKey, Entry::getValue));
     }
 
     @Override
@@ -797,7 +797,7 @@ public sealed class OpaAccessControl
     {
         return properties.entrySet().stream()
                 .map(propertiesEntry -> Map.entry(propertiesEntry.getKey(), Optional.ofNullable(propertiesEntry.getValue())))
-                .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
+                .collect(toImmutableMap(Entry::getKey, Entry::getValue));
     }
 
     OpaQueryContext buildQueryContext(Identity trinoIdentity)

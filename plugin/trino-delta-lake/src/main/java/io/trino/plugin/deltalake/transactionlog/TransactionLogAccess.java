@@ -642,25 +642,6 @@ public class TransactionLogAccess
         return result.build();
     }
 
-    private List<DeltaLakeTransactionLogEntry> getJsonEntries(
-            ConnectorSession session,
-            TransactionLogReader transactionLogReader,
-            long startVersion,
-            long endVersion,
-            TableSnapshot tableSnapshot,
-            TrinoFileSystem fileSystem)
-            throws IOException
-    {
-        Optional<Long> lastCheckpointVersion = tableSnapshot.getLastCheckpointVersion();
-        if (lastCheckpointVersion.isPresent() && startVersion < lastCheckpointVersion.get()) {
-            return ImmutableList.<DeltaLakeTransactionLogEntry>builder()
-                    .addAll(transactionLogReader.loadNewTail(session, Optional.of(startVersion), lastCheckpointVersion, transactionLogMaxCachedFileSize).getFileEntries(fileSystem))
-                    .addAll(tableSnapshot.getJsonTransactionLogEntries(fileSystem))
-                    .build();
-        }
-        return transactionLogReader.loadNewTail(session, Optional.of(startVersion), Optional.of(endVersion), transactionLogMaxCachedFileSize).getFileEntries(fileSystem);
-    }
-
     public static String canonicalizeColumnName(String columnName)
     {
         return columnName.toLowerCase(Locale.ENGLISH);
@@ -702,22 +683,6 @@ public class TransactionLogAccess
             return INSTANCE_SIZE +
                     tableName.getRetainedSizeInBytes() +
                     estimatedSizeOf(location);
-        }
-    }
-
-    private record TableVersion(TableLocation tableLocation, long version)
-    {
-        private static final int INSTANCE_SIZE = instanceSize(TableVersion.class);
-
-        TableVersion
-        {
-            requireNonNull(tableLocation, "tableLocation is null");
-        }
-
-        long getRetainedSizeInBytes()
-        {
-            return INSTANCE_SIZE +
-                    tableLocation.getRetainedSizeInBytes();
         }
     }
 }

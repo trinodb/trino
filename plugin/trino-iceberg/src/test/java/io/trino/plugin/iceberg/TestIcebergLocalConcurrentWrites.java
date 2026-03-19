@@ -838,10 +838,10 @@ final class TestIcebergLocalConcurrentWrites
                                 try {
                                     getQueryRunner().execute(
                                             """
-                                                    MERGE INTO %s t USING (VALUES (11, 20), (8, 10), (21, 30)) AS s(a, part)
-                                                      ON (t.a = s.a AND t.part = s.part)
-                                                        WHEN MATCHED THEN DELETE
-                                                    """.formatted(tableName));
+                                            MERGE INTO %s t USING (VALUES (11, 20), (8, 10), (21, 30)) AS s(a, part)
+                                              ON (t.a = s.a AND t.part = s.part)
+                                                WHEN MATCHED THEN DELETE
+                                            """.formatted(tableName));
                                     return true;
                                 }
                                 catch (Exception e) {

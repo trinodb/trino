@@ -31,7 +31,9 @@ import io.trino.operator.ValuesOperator;
 import io.trino.operator.exchange.LocalExchange;
 import io.trino.operator.exchange.LocalExchangeSinkOperator;
 import io.trino.operator.exchange.LocalExchangeSourceOperator.LocalExchangeSourceOperatorFactory;
-import io.trino.operator.join.HashBuilderOperator.HashBuilderOperatorFactory;
+import io.trino.operator.join.spilling.HashBuilderOperator;
+import io.trino.operator.join.spilling.HashBuilderOperator.HashBuilderOperatorFactory;
+import io.trino.operator.join.spilling.PartitionedLookupSourceFactory;
 import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
 import io.trino.spi.type.Type;
@@ -187,7 +189,7 @@ public final class JoinTestUtils
                 rangeList(buildPages.getTypes().size()),
                 hashChannels,
                 filterFunctionFactory,
-                Optional.empty(),
+                OptionalInt.empty(),
                 ImmutableList.of(),
                 100,
                 new PagesIndex.TestingFactory(false),

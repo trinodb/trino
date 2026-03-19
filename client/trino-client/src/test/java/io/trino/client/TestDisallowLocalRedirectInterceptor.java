@@ -13,6 +13,8 @@
  */
 package io.trino.client;
 
+import okhttp3.Call;
+import okhttp3.Connection;
 import okhttp3.Interceptor;
 import okhttp3.Protocol;
 import okhttp3.Request;
@@ -20,6 +22,7 @@ import okhttp3.Response;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
+import java.util.concurrent.TimeUnit;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -115,7 +118,7 @@ public class TestDisallowLocalRedirectInterceptor
         }
 
         @Override
-        public Interceptor.Chain withConnectTimeout(int timeout, java.util.concurrent.TimeUnit unit)
+        public Interceptor.Chain withConnectTimeout(int timeout, TimeUnit unit)
         {
             throw new UnsupportedOperationException();
         }
@@ -127,7 +130,7 @@ public class TestDisallowLocalRedirectInterceptor
         }
 
         @Override
-        public Interceptor.Chain withReadTimeout(int timeout, java.util.concurrent.TimeUnit unit)
+        public Interceptor.Chain withReadTimeout(int timeout, TimeUnit unit)
         {
             throw new UnsupportedOperationException();
         }
@@ -139,19 +142,19 @@ public class TestDisallowLocalRedirectInterceptor
         }
 
         @Override
-        public Interceptor.Chain withWriteTimeout(int timeout, java.util.concurrent.TimeUnit unit)
+        public Interceptor.Chain withWriteTimeout(int timeout, TimeUnit unit)
         {
             throw new UnsupportedOperationException();
         }
 
         @Override
-        public okhttp3.Connection connection()
+        public Connection connection()
         {
             throw new UnsupportedOperationException();
         }
 
         @Override
-        public okhttp3.Call call()
+        public Call call()
         {
             throw new UnsupportedOperationException();
         }

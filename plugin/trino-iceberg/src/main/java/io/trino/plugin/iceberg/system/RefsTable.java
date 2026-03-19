@@ -14,7 +14,6 @@
 package io.trino.plugin.iceberg.system;
 
 import com.google.common.collect.ImmutableList;
-import io.trino.plugin.iceberg.util.PageListBuilder;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.SchemaTableName;
@@ -52,15 +51,13 @@ public class RefsTable
     }
 
     @Override
-    protected void addRow(PageListBuilder pagesBuilder, Row row, TimeZoneKey timeZoneKey)
+    protected void addRow(IcebergSystemTablePageSource pageSource, Row row, TimeZoneKey timeZoneKey)
     {
-        pagesBuilder.beginRow();
-        pagesBuilder.appendVarchar(row.get("name", String.class));
-        pagesBuilder.appendVarchar(row.get("type", String.class));
-        pagesBuilder.appendBigint(row.get("snapshot_id", Long.class));
-        pagesBuilder.appendBigint(row.get("max_reference_age_in_ms", Long.class));
-        pagesBuilder.appendInteger(row.get("min_snapshots_to_keep", Integer.class));
-        pagesBuilder.appendBigint(row.get("max_snapshot_age_in_ms", Long.class));
-        pagesBuilder.endRow();
+        pageSource.appendVarchar(row.get("name", String.class));
+        pageSource.appendVarchar(row.get("type", String.class));
+        pageSource.appendBigint(row.get("snapshot_id", Long.class));
+        pageSource.appendBigint(row.get("max_reference_age_in_ms", Long.class));
+        pageSource.appendInteger(row.get("min_snapshots_to_keep", Integer.class));
+        pageSource.appendBigint(row.get("max_snapshot_age_in_ms", Long.class));
     }
 }

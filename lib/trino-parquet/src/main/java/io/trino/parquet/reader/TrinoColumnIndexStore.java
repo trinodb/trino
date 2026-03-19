@@ -51,6 +51,7 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.parquet.ParquetMetadataConverter.fromParquetColumnIndex;
 import static io.trino.parquet.ParquetMetadataConverter.fromParquetOffsetIndex;
+import static io.trino.parquet.ParquetMetadataConverter.isMinMaxStatsSupported;
 import static io.trino.parquet.crypto.AesCipherUtils.createModuleAAD;
 import static java.util.Objects.requireNonNull;
 
@@ -94,7 +95,7 @@ public class TrinoColumnIndexStore
         ImmutableList.Builder<ColumnIndexMetadata> offsetIndexBuilder = ImmutableList.builderWithExpectedSize(columnsRead.size());
         for (ColumnChunkMetadata column : block.columns()) {
             ColumnPath path = column.getPath();
-            if (column.getColumnIndexReference() != null && columnsFiltered.contains(path)) {
+            if (column.getColumnIndexReference() != null && columnsFiltered.contains(path) && isMinMaxStatsSupported(column.getPrimitiveType())) {
                 columnIndexBuilder.add(new ColumnIndexMetadata(
                         column.getColumnIndexReference(),
                         path,

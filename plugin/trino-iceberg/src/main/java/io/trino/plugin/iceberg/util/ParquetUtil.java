@@ -50,6 +50,7 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Set;
 import java.util.UUID;
 import java.util.function.Function;
@@ -312,7 +313,7 @@ public final class ParquetUtil
     private static Map<Integer, ByteBuffer> toBufferMap(Schema schema, Map<Integer, Literal<?>> map)
     {
         Map<Integer, ByteBuffer> bufferMap = new HashMap<>();
-        for (Map.Entry<Integer, Literal<?>> entry : map.entrySet()) {
+        for (Entry<Integer, Literal<?>> entry : map.entrySet()) {
             bufferMap.put(
                     entry.getKey(),
                     Conversions.toByteBuffer(schema.findType(entry.getKey()), entry.getValue().value()));

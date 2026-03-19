@@ -31,7 +31,7 @@ import static io.trino.spi.function.OperatorType.HASH_CODE;
 import static io.trino.spi.function.OperatorType.IDENTICAL;
 import static java.lang.Math.min;
 
-@ScalarFunction("array_except")
+@ScalarFunction(value = "array_except", neverFails = true)
 @Description("Returns an array of elements that are in the first array but not the second, without duplicates.")
 public final class ArrayExceptFunction
 {

@@ -24,7 +24,7 @@ import org.weakref.jmx.MBeanExporter;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
+import java.util.Map.Entry;
 
 import static java.util.Objects.requireNonNull;
 
@@ -38,7 +38,7 @@ public final class NodeSchedulerExporter
     {
         requireNonNull(nodeSelectorFactory, "nodeSelectorFactory is null");
         requireNonNull(exporter, "exporter is null");
-        for (Map.Entry<String, CounterStat> entry : nodeSelectorFactory.getPlacementCountersByName().entrySet()) {
+        for (Entry<String, CounterStat> entry : nodeSelectorFactory.getPlacementCountersByName().entrySet()) {
             try {
                 mbeanExports.add(exporter.exportWithGeneratedName(entry.getValue(), NodeScheduler.class, ImmutableMap.of("segment", entry.getKey())));
             }

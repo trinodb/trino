@@ -27,6 +27,7 @@ public record QueryId(String id)
     private static final int INSTANCE_SIZE = instanceSize(QueryId.class);
 
     @JsonCreator
+    // this is also needed by JAX-RS, see: org.glassfish.jersey.internal.util.ReflectionHelper
     public static QueryId valueOf(String queryId)
     {
         // ID is verified in the constructor

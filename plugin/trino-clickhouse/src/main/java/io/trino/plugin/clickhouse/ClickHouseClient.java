@@ -486,9 +486,7 @@ public class ClickHouseClient
             // By default, the clickhouse column is not allowed to be null
             sb.append(toWriteMapping(session, column.getType()).getDataType());
         }
-        if (column.getComment() != null) {
-            sb.append(format(" COMMENT %s", clickhouseVarcharLiteral(column.getComment())));
-        }
+        column.getComment().ifPresent(comment -> sb.append(format(" COMMENT %s", clickhouseVarcharLiteral(comment))));
         return sb.toString();
     }
 

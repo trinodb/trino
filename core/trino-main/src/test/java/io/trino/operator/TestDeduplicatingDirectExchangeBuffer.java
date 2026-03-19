@@ -44,6 +44,7 @@ import java.time.Duration;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Set;
 
@@ -382,13 +383,13 @@ public class TestDeduplicatingDirectExchangeBuffer
     {
         Set<TaskId> addedTasks = new HashSet<>();
         try (DirectExchangeBuffer buffer = createDeduplicatingDirectExchangeBuffer(bufferCapacity, retryPolicy)) {
-            for (Map.Entry<TaskId, Slice> page : pages.entries()) {
+            for (Entry<TaskId, Slice> page : pages.entries()) {
                 if (addedTasks.add(page.getKey())) {
                     buffer.addTask(page.getKey());
                 }
                 buffer.addPages(page.getKey(), ImmutableList.of(page.getValue()));
             }
-            for (Map.Entry<TaskId, RuntimeException> failure : failures.entrySet()) {
+            for (Entry<TaskId, RuntimeException> failure : failures.entrySet()) {
                 if (addedTasks.add(failure.getKey())) {
                     buffer.addTask(failure.getKey());
                 }

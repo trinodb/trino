@@ -62,6 +62,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Random;
+import java.util.UUID;
 import java.util.stream.LongStream;
 import java.util.stream.Stream;
 
@@ -323,10 +324,10 @@ public class TestParquetWriter
                 types,
                 columnNames,
                 CompressionCodec.SNAPPY);
-        List<io.trino.spi.Page> inputPages = generateInputPages(types, 1000, 100);
+        List<Page> inputPages = generateInputPages(types, 1000, 100);
 
         long previousRetainedBytes = 0;
-        for (io.trino.spi.Page inputPage : inputPages) {
+        for (Page inputPage : inputPages) {
             checkArgument(types.size() == inputPage.getChannelCount());
             writer.write(inputPage);
             long currentRetainedBytes = writer.getRetainedBytes();
@@ -513,7 +514,7 @@ public class TestParquetWriter
                                 .build(),
                         types,
                         columnNames,
-                        ImmutableList.<io.trino.spi.Page>builder()
+                        ImmutableList.<Page>builder()
                                 .addAll(generateInputPages(types, 10, 10))
                                 // Max size of dictionary page is 1024 * 1024
                                 .addAll(generateInputPages(types, 200, shuffle(new Random(42), (1024 * 1025) / Long.BYTES)))
@@ -541,7 +542,7 @@ public class TestParquetWriter
                 Arguments.of(VARBINARY, shuffle(random, size).stream().map(i -> Slices.utf8Slice(i.toString())).toList()),
                 Arguments.of(VARCHAR, shuffle(random, size).stream().map(i -> Slices.utf8Slice(i.toString())).toList()),
                 // This should be UUID, but we can only read, not write UUID natively
-                Arguments.of(VARBINARY, shuffle(random, size).stream().map(i -> javaUuidToTrinoUuid(new java.util.UUID(i, i))).toList()));
+                Arguments.of(VARBINARY, shuffle(random, size).stream().map(i -> javaUuidToTrinoUuid(new UUID(i, i))).toList()));
     }
 
     private static List<Long> shuffle(Random random, int size)

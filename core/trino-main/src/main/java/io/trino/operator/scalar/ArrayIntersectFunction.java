@@ -32,7 +32,7 @@ import static io.trino.spi.function.InvocationConvention.InvocationReturnConvent
 import static io.trino.spi.function.OperatorType.HASH_CODE;
 import static io.trino.spi.function.OperatorType.IDENTICAL;
 
-@ScalarFunction("array_intersect")
+@ScalarFunction(value = "array_intersect", neverFails = true)
 @Description("Intersects elements of the two given arrays")
 public final class ArrayIntersectFunction
 {

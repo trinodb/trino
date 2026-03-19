@@ -63,7 +63,7 @@ final class LongTimestampWithTimeZoneType
     private static final VarHandle INT_HANDLE = MethodHandles.byteArrayViewVarHandle(int[].class, ByteOrder.LITTLE_ENDIAN);
     private static final VarHandle LONG_HANDLE = MethodHandles.byteArrayViewVarHandle(long[].class, ByteOrder.LITTLE_ENDIAN);
 
-    public LongTimestampWithTimeZoneType(int precision)
+    LongTimestampWithTimeZoneType(int precision)
     {
         super(precision, LongTimestampWithTimeZone.class, Fixed12Block.class);
 

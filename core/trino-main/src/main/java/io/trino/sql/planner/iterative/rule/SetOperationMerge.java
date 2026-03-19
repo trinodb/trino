@@ -27,7 +27,7 @@ import io.trino.sql.planner.plan.UnionNode;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
-import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkState;
@@ -179,7 +179,7 @@ class SetOperationMerge
     private void addMergedMappings(SetOperationNode child, int childIndex, ImmutableListMultimap.Builder<Symbol, Symbol> newMappingsBuilder)
     {
         newSources.addAll(child.getSources());
-        for (Map.Entry<Symbol, Collection<Symbol>> mapping : node.getSymbolMapping().asMap().entrySet()) {
+        for (Entry<Symbol, Collection<Symbol>> mapping : node.getSymbolMapping().asMap().entrySet()) {
             Symbol input = Iterables.get(mapping.getValue(), childIndex);
             newMappingsBuilder.putAll(mapping.getKey(), child.getSymbolMapping().get(input));
         }
@@ -188,7 +188,7 @@ class SetOperationMerge
     private void addOriginalMappings(PlanNode child, int childIndex, ImmutableListMultimap.Builder<Symbol, Symbol> newMappingsBuilder)
     {
         newSources.add(child);
-        for (Map.Entry<Symbol, Collection<Symbol>> mapping : node.getSymbolMapping().asMap().entrySet()) {
+        for (Entry<Symbol, Collection<Symbol>> mapping : node.getSymbolMapping().asMap().entrySet()) {
             newMappingsBuilder.put(mapping.getKey(), Iterables.get(mapping.getValue(), childIndex));
         }
     }

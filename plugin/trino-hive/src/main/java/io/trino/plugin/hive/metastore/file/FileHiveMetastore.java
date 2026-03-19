@@ -89,6 +89,8 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.hash.Hashing.sha256;
+import static io.airlift.json.JsonCodec.jsonCodec;
+import static io.airlift.json.JsonCodec.listJsonCodec;
 import static io.trino.metastore.HivePrivilegeInfo.HivePrivilege.OWNERSHIP;
 import static io.trino.metastore.Partitions.escapePathName;
 import static io.trino.metastore.Partitions.toPartitionValues;
@@ -153,13 +155,13 @@ public class FileHiveMetastore
     private final boolean disableLocationChecks;
     private final boolean hideDeltaLakeTables;
 
-    private final JsonCodec<DatabaseMetadata> databaseCodec = JsonCodec.jsonCodec(DatabaseMetadata.class);
-    private final JsonCodec<TableMetadata> tableCodec = JsonCodec.jsonCodec(TableMetadata.class);
-    private final JsonCodec<PartitionMetadata> partitionCodec = JsonCodec.jsonCodec(PartitionMetadata.class);
-    private final JsonCodec<List<PermissionMetadata>> permissionsCodec = JsonCodec.listJsonCodec(PermissionMetadata.class);
-    private final JsonCodec<LanguageFunction> functionCodec = JsonCodec.jsonCodec(LanguageFunction.class);
-    private final JsonCodec<List<String>> rolesCodec = JsonCodec.listJsonCodec(String.class);
-    private final JsonCodec<List<RoleGrant>> roleGrantsCodec = JsonCodec.listJsonCodec(RoleGrant.class);
+    private final JsonCodec<DatabaseMetadata> databaseCodec = jsonCodec(DatabaseMetadata.class);
+    private final JsonCodec<TableMetadata> tableCodec = jsonCodec(TableMetadata.class);
+    private final JsonCodec<PartitionMetadata> partitionCodec = jsonCodec(PartitionMetadata.class);
+    private final JsonCodec<List<PermissionMetadata>> permissionsCodec = listJsonCodec(PermissionMetadata.class);
+    private final JsonCodec<LanguageFunction> functionCodec = jsonCodec(LanguageFunction.class);
+    private final JsonCodec<List<String>> rolesCodec = listJsonCodec(String.class);
+    private final JsonCodec<List<RoleGrant>> roleGrantsCodec = listJsonCodec(RoleGrant.class);
 
     public FileHiveMetastore(NodeVersion nodeVersion, TrinoFileSystemFactory fileSystemFactory, boolean hideDeltaLakeTables, FileHiveMetastoreConfig config)
     {

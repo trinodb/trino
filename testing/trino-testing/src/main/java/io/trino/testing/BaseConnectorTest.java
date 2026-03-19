@@ -3509,6 +3509,10 @@ public abstract class BaseConnectorTest
                 .add(new SetColumnTypeSetup("row(x integer, y integer)", "row(1, 2)", "row(\"z\" integer, \"y\" integer, \"x\" integer)", "cast(row(null, 2, 1) as row(z integer, y integer, x integer))")) // reorder fields with a new field
                 .add(new SetColumnTypeSetup("row(x row(nested integer))", "row(row(1))", "row(\"x\" row(\"nested\" bigint))", "cast(row(row(1)) as row(x row(nested bigint)))")) // update a nested field
                 .add(new SetColumnTypeSetup("row(x row(a integer, b integer))", "row(row(1, 2))", "row(\"x\" row(\"b\" integer, \"a\" integer))", "cast(row(row(2, 1)) as row(x row(b integer, a integer)))")) // reorder a nested field
+                .add(new SetColumnTypeSetup("array(array(integer))", "array[array[1, 2]]", "array(array(bigint))")) // update a nested array
+                .add(new SetColumnTypeSetup("map(integer, varchar)", "map(array[1], array['a'])", "map(bigint, varchar)")) // update a map key
+                .add(new SetColumnTypeSetup("map(varchar, integer)", "map(array['a'], array[1])", "map(varchar, bigint)")) // update a map value
+                .add(new SetColumnTypeSetup("map(integer, row(x integer))", "map(array[1], array[row(2)])", "map(integer, row(\"x\" bigint))")) // update a nested map value
                 .build();
     }
 
@@ -6204,7 +6208,7 @@ public abstract class BaseConnectorTest
     protected void testColumnName(String columnName, boolean delimited)
     {
         String nameInSql = toColumnNameInSql(columnName, delimited);
-        String tableName = "tcn_" + nameInSql.toLowerCase(ENGLISH).replaceAll("[^a-z0-9]", "") + randomNameSuffix();
+        String tableName = "test_column_" + nameInSql.toLowerCase(ENGLISH).replaceAll("[^a-z0-9]", "") + randomNameSuffix();
 
         try {
             // TODO test with both CTAS *and* CREATE TABLE + INSERT, since they use different connector API methods.
@@ -6248,7 +6252,7 @@ public abstract class BaseConnectorTest
     protected void testAddAndDropColumnName(String columnName, boolean delimited)
     {
         String nameInSql = toColumnNameInSql(columnName, delimited);
-        String tableName = "tcn_" + nameInSql.toLowerCase(ENGLISH).replaceAll("[^a-z0-9]", "") + randomNameSuffix();
+        String tableName = "test_add_drop_column_" + nameInSql.toLowerCase(ENGLISH).replaceAll("[^a-z0-9]", "") + randomNameSuffix();
 
         try {
             assertUpdate(createTableSqlForAddingAndDroppingColumn(tableName, nameInSql));
@@ -6292,7 +6296,7 @@ public abstract class BaseConnectorTest
     protected void testRenameColumnName(String columnName, boolean delimited)
     {
         String nameInSql = toColumnNameInSql(columnName, delimited);
-        String tableName = "tcn_" + nameInSql.replaceAll("[^a-z0-9]", "") + randomNameSuffix();
+        String tableName = "test_rename_column_" + nameInSql.replaceAll("[^a-z0-9]", "") + randomNameSuffix();
         // Use complex identifier to test a source column name when renaming columns
         String sourceColumnName = "a;b$c";
 
@@ -7478,7 +7482,7 @@ public abstract class BaseConnectorTest
         if (delimited) {
             nameInSql = "\"" + columnName.replace("\"", "\"\"") + "\"";
         }
-        String viewName = "tcn_" + nameInSql.toLowerCase(ENGLISH).replaceAll("[^a-z0-9]", "_") + "_" + randomNameSuffix();
+        String viewName = "test_mv_column_" + nameInSql.toLowerCase(ENGLISH).replaceAll("[^a-z0-9]", "_") + "_" + randomNameSuffix();
 
         try {
             assertUpdate("CREATE MATERIALIZED VIEW " + viewName + " AS SELECT 'sample value' key, 'abc' " + nameInSql);

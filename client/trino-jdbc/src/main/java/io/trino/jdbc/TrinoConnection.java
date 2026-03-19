@@ -62,6 +62,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Properties;
 import java.util.Set;
@@ -703,7 +704,7 @@ public class TrinoConnection
     public void setClientInfo(Properties properties)
             throws SQLClientInfoException
     {
-        for (Map.Entry<String, String> entry : fromProperties(properties).entrySet()) {
+        for (Entry<String, String> entry : fromProperties(properties).entrySet()) {
             setClientInfo(entry.getKey(), entry.getValue());
         }
     }
@@ -723,7 +724,7 @@ public class TrinoConnection
             throws SQLException
     {
         Properties properties = new Properties();
-        for (Map.Entry<ClientInfoProperty, String> entry : clientInfo.entrySet()) {
+        for (Entry<ClientInfoProperty, String> entry : clientInfo.entrySet()) {
             properties.setProperty(entry.getKey().getPropertyName(), entry.getValue());
         }
         return properties;

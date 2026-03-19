@@ -98,6 +98,11 @@ public class Catalog
         return catalogStatus;
     }
 
+    public CatalogInfo toInfo()
+    {
+        return new CatalogInfo(catalogName.toString(), catalogHandle, connectorName, catalogStatus);
+    }
+
     public boolean isFailed()
     {
         return catalogConnector == null;

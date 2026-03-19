@@ -13,6 +13,7 @@
  */
 package io.trino.type;
 
+import io.trino.spi.type.SqlNumber;
 import io.trino.sql.query.QueryAssertions;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -1317,6 +1318,316 @@ public class TestDecimalCasts
         assertThat(assertions.expression("cast(a as REAL)")
                 .binding("a", "DECIMAL '99999999999999999999999999999999999999'"))
                 .isEqualTo(1.0E38f);
+    }
+
+    @Test
+    public void testNumberToShortDecimalCasts()
+    {
+        assertThat(assertions.expression("cast(a as DECIMAL(4,1))")
+                .binding("a", "NUMBER '234.0'"))
+                .isEqualTo(decimal("234.0", createDecimalType(4, 1)));
+
+        assertThat(assertions.expression("cast(a as DECIMAL(3,3))")
+                .binding("a", "NUMBER '.01'"))
+                .isEqualTo(decimal(".010", createDecimalType(3, 3)));
+
+        assertThat(assertions.expression("cast(a as DECIMAL(3,3))")
+                .binding("a", "NUMBER '.0'"))
+                .isEqualTo(decimal(".000", createDecimalType(3, 3)));
+
+        assertThat(assertions.expression("cast(a as DECIMAL(1,0))")
+                .binding("a", "NUMBER '0.0'"))
+                .isEqualTo(decimal("0", createDecimalType(1)));
+
+        assertThat(assertions.expression("cast(a as DECIMAL(4,0))")
+                .binding("a", "NUMBER '0.0'"))
+                .isEqualTo(decimal("0000", createDecimalType(4, 0)));
+
+        assertThat(assertions.expression("cast(a as DECIMAL(4,0))")
+                .binding("a", "NUMBER '1000.0'"))
+                .isEqualTo(decimal("1000", createDecimalType(4, 0)));
+
+        assertThat(assertions.expression("cast(a as DECIMAL(7,2))")
+                .binding("a", "NUMBER '1000.01'"))
+                .isEqualTo(decimal("01000.01", createDecimalType(7, 2)));
+
+        assertThat(assertions.expression("cast(a as DECIMAL(3,0))")
+                .binding("a", "NUMBER '-234.0'"))
+                .isEqualTo(decimal("-234", createDecimalType(3)));
+
+        assertThat(assertions.expression("cast(a as DECIMAL(16,0))")
+                .binding("a", "NUMBER '1234567890123456.0'"))
+                .isEqualTo(decimal("1234567890123456", createDecimalType(16)));
+
+        assertThat(assertions.expression("cast(a as DECIMAL(16,0))")
+                .binding("a", "NUMBER '-1234567890123456.0'"))
+                .isEqualTo(decimal("-1234567890123456", createDecimalType(16)));
+
+        assertThat(assertions.expression("cast(a as DECIMAL(17,0))")
+                .binding("a", "NUMBER '1234567890123456.0'"))
+                .isEqualTo(decimal("01234567890123456", createDecimalType(17)));
+
+        assertThat(assertions.expression("cast(a as DECIMAL(17,0))")
+                .binding("a", "NUMBER '-1234567890123456.0'"))
+                .isEqualTo(decimal("-01234567890123456", createDecimalType(17)));
+
+        assertThat(assertions.expression("cast(a as DECIMAL(20,10))")
+                .binding("a", "NUMBER '1234567890.0'"))
+                .isEqualTo(decimal("1234567890.0000000000", createDecimalType(20, 10)));
+
+        assertThat(assertions.expression("cast(a as DECIMAL(20,10))")
+                .binding("a", "NUMBER '-1234567890.0'"))
+                .isEqualTo(decimal("-1234567890.0000000000", createDecimalType(20, 10)));
+
+        assertThat(assertions.expression("cast(a as DECIMAL(30,20))")
+                .binding("a", "NUMBER '1234567890.0'"))
+                .isEqualTo(decimal("1234567890.00000000000000000000", createDecimalType(30, 20)));
+
+        assertThat(assertions.expression("cast(a as DECIMAL(30,20))")
+                .binding("a", "NUMBER '-1234567890.0'"))
+                .isEqualTo(decimal("-1234567890.00000000000000000000", createDecimalType(30, 20)));
+
+        assertThat(assertions.expression("cast(a as DECIMAL(18,0))")
+                .binding("a", "NUMBER '123456789123456784'"))
+                .isEqualTo(decimal("123456789123456784", createDecimalType(18)));
+
+        assertThat(assertions.expression("cast(a as DECIMAL(18,9))")
+                .binding("a", "NUMBER '123456789.123456790'"))
+                .isEqualTo(decimal("123456789.123456790", createDecimalType(18, 9)));
+
+        // test rounding
+        assertThat(assertions.expression("cast(a as DECIMAL(16,0))")
+                .binding("a", "NUMBER '1234567890.49'"))
+                .isEqualTo(decimal("0000001234567890", createDecimalType(16)));
+
+        assertThat(assertions.expression("cast(a as DECIMAL(16,0))")
+                .binding("a", "NUMBER '1234567890.51'"))
+                .isEqualTo(decimal("0000001234567891", createDecimalType(16)));
+
+        assertThat(assertions.expression("cast(a as DECIMAL(16,0))")
+                .binding("a", "NUMBER '-1234567890.49'"))
+                .isEqualTo(decimal("-0000001234567890", createDecimalType(16)));
+
+        assertThat(assertions.expression("cast(a as DECIMAL(16,0))")
+                .binding("a", "NUMBER '-1234567890.51'"))
+                .isEqualTo(decimal("-0000001234567891", createDecimalType(16)));
+
+        assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as DECIMAL(17,16))")
+                .binding("a", "NUMBER '100.02'").evaluate())
+                .hasMessage("Cannot cast NUMBER '100.02' to DECIMAL(17, 16)")
+                .hasErrorCode(INVALID_CAST_ARGUMENT);
+
+        assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as DECIMAL(2,0))")
+                .binding("a", "NUMBER '234.0'").evaluate())
+                .hasMessage("Cannot cast NUMBER '234' to DECIMAL(2, 0)")
+                .hasErrorCode(INVALID_CAST_ARGUMENT);
+
+        assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as DECIMAL(5,2))")
+                .binding("a", "NUMBER '1000.01'").evaluate())
+                .hasMessage("Cannot cast NUMBER '1000.01' to DECIMAL(5, 2)")
+                .hasErrorCode(INVALID_CAST_ARGUMENT);
+
+        assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as DECIMAL(2,0))")
+                .binding("a", "NUMBER '-234.0'").evaluate())
+                .hasMessage("Cannot cast NUMBER '-234' to DECIMAL(2, 0)")
+                .hasErrorCode(INVALID_CAST_ARGUMENT);
+    }
+
+    @Test
+    public void testNumberToLongDecimalCasts()
+    {
+        assertThat(assertions.expression("cast(a as DECIMAL(20,1))")
+                .binding("a", "NUMBER '234.0'"))
+                .isEqualTo(decimal("0000000000000000234.0", createDecimalType(20, 1)));
+
+        assertThat(assertions.expression("cast(a as DECIMAL(20,5))")
+                .binding("a", "NUMBER '.25'"))
+                .isEqualTo(decimal("000000000000000.25000", createDecimalType(20, 5)));
+
+        assertThat(assertions.expression("cast(a as DECIMAL(20,3))")
+                .binding("a", "NUMBER '.01'"))
+                .isEqualTo(decimal("00000000000000000.010", createDecimalType(20, 3)));
+
+        assertThat(assertions.expression("cast(a as DECIMAL(20,3))")
+                .binding("a", "NUMBER '.0'"))
+                .isEqualTo(decimal("00000000000000000.000", createDecimalType(20, 3)));
+
+        assertThat(assertions.expression("cast(a as DECIMAL(20,0))")
+                .binding("a", "NUMBER '0.0'"))
+                .isEqualTo(decimal("00000000000000000000", createDecimalType(20)));
+
+        assertThat(assertions.expression("cast(a as DECIMAL(20,2))")
+                .binding("a", "NUMBER '1000.01'"))
+                .isEqualTo(decimal("000000000000001000.01", createDecimalType(20, 2)));
+
+        assertThat(assertions.expression("cast(a as DECIMAL(20,0))")
+                .binding("a", "NUMBER '-234.0'"))
+                .isEqualTo(decimal("-00000000000000000234", createDecimalType(20)));
+
+        assertThat(assertions.expression("cast(a as DECIMAL(20,0))")
+                .binding("a", "NUMBER '12345678901234567.0'"))
+                .isEqualTo(decimal("00012345678901234567", createDecimalType(20)));
+
+        assertThat(assertions.expression("cast(a as DECIMAL(20,0))")
+                .binding("a", "NUMBER '-12345678901234567.0'"))
+                .isEqualTo(decimal("-00012345678901234567", createDecimalType(20)));
+
+        assertThat(assertions.expression("cast(a as DECIMAL(20,10))")
+                .binding("a", "NUMBER '1234567890.0'"))
+                .isEqualTo(decimal("1234567890.0000000000", createDecimalType(20, 10)));
+
+        assertThat(assertions.expression("cast(a as DECIMAL(20,10))")
+                .binding("a", "NUMBER '-1234567890.0'"))
+                .isEqualTo(decimal("-1234567890.0000000000", createDecimalType(20, 10)));
+
+        assertThat(assertions.expression("cast(a as DECIMAL(16,0))")
+                .binding("a", "NUMBER '1234567890123456.9'"))
+                .isEqualTo(decimal("1234567890123457", createDecimalType(16)));
+
+        assertThat(assertions.expression("cast(a as DECIMAL(16,0))")
+                .binding("a", "NUMBER '-1234567890123456.9'"))
+                .isEqualTo(decimal("-1234567890123457", createDecimalType(16)));
+
+        assertThat(assertions.expression("cast(a as DECIMAL(30,5))")
+                .binding("a", "NUMBER '1234567890123456789012345'"))
+                .isEqualTo(decimal("1234567890123456789012345.00000", createDecimalType(30, 5)));
+
+        assertThat(assertions.expression("cast(a as DECIMAL(30,5))")
+                .binding("a", "NUMBER '-1234567890123456789012345'"))
+                .isEqualTo(decimal("-1234567890123456789012345.00000", createDecimalType(30, 5)));
+
+        assertThat(assertions.expression("cast(a as DECIMAL(30,5))")
+                .binding("a", "NUMBER '1.2345678901234568E24'"))
+                .isEqualTo(decimal("1234567890123456800000000.00000", createDecimalType(30, 5)));
+
+        assertThat(assertions.expression("cast(a as DECIMAL(30,5))")
+                .binding("a", "NUMBER '-1.2345678901234568E24'"))
+                .isEqualTo(decimal("-1234567890123456800000000.00000", createDecimalType(30, 5)));
+
+        assertThat(assertions.expression("cast(a as DECIMAL(30,30))")
+                .binding("a", "NUMBER '.1234567890123456789012345'"))
+                .isEqualTo(decimal(".123456789012345678901234500000", createDecimalType(30, 30)));
+
+        assertThat(assertions.expression("cast(a as DECIMAL(30,30))")
+                .binding("a", "NUMBER '-.1234567890123456789012345'"))
+                .isEqualTo(decimal("-.123456789012345678901234500000", createDecimalType(30, 30)));
+
+        // test roundtrip
+        assertThat(assertions.expression("CAST(CAST(NUMBER '1234567890123456789012345' AS DECIMAL(30,5)) AS number) = NUMBER '1234567890123456789012345'"))
+                .isEqualTo(true);
+
+        assertThat(assertions.expression("CAST(CAST(NUMBER '1.2345678901234568E24' AS DECIMAL(30,5)) AS number) = NUMBER '1.2345678901234568E24'"))
+                .isEqualTo(true);
+
+        // test rounding
+        assertThat(assertions.expression("cast(a as DECIMAL(20,0))")
+                .binding("a", "NUMBER '1234567890.49'"))
+                .isEqualTo(decimal("00000000001234567890", createDecimalType(20)));
+
+        assertThat(assertions.expression("cast(a as DECIMAL(20,0))")
+                .binding("a", "NUMBER '1234567890.51'"))
+                .isEqualTo(decimal("00000000001234567891", createDecimalType(20)));
+
+        assertThat(assertions.expression("cast(a as DECIMAL(20,0))")
+                .binding("a", "NUMBER '-1234567890.49'"))
+                .isEqualTo(decimal("-00000000001234567890", createDecimalType(20)));
+
+        assertThat(assertions.expression("cast(a as DECIMAL(20,0))")
+                .binding("a", "NUMBER '-1234567890.51'"))
+                .isEqualTo(decimal("-00000000001234567891", createDecimalType(20)));
+
+        assertThat(assertions.expression("cast(a as DECIMAL(10,0))")
+                .binding("a", "NUMBER '1234567890.49'"))
+                .isEqualTo(decimal("1234567890", createDecimalType(10)));
+
+        assertThat(assertions.expression("cast(a as DECIMAL(10,0))")
+                .binding("a", "NUMBER '1234567890.51'"))
+                .isEqualTo(decimal("1234567891", createDecimalType(10)));
+
+        assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as DECIMAL(38,37))")
+                .binding("a", "NUMBER '100.02'").evaluate())
+                .hasMessage("Cannot cast NUMBER '100.02' to DECIMAL(38, 37)")
+                .hasErrorCode(INVALID_CAST_ARGUMENT);
+
+        assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as DECIMAL(20,0))")
+                .binding("a", "NUMBER '234000000000000000000.0'").evaluate())
+                .hasMessage("Cannot cast NUMBER '2.34E+20' to DECIMAL(20, 0)")
+                .hasErrorCode(INVALID_CAST_ARGUMENT);
+
+        assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as DECIMAL(20,2))")
+                .binding("a", "NUMBER '1000000000000000000.01'").evaluate())
+                .hasMessage("Cannot cast NUMBER '1000000000000000000.01' to DECIMAL(20, 2)")
+                .hasErrorCode(INVALID_CAST_ARGUMENT);
+
+        assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as DECIMAL(20,0))")
+                .binding("a", "NUMBER '-234000000000000000000.0'").evaluate())
+                .hasMessage("Cannot cast NUMBER '-2.34E+20' to DECIMAL(20, 0)")
+                .hasErrorCode(INVALID_CAST_ARGUMENT);
+
+        assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as DECIMAL(20, 10))")
+                .binding("a", "NUMBER '12345678901.1'").evaluate())
+                .hasMessage("Cannot cast NUMBER '12345678901.1' to DECIMAL(20, 10)")
+                .hasErrorCode(INVALID_CAST_ARGUMENT);
+    }
+
+    @Test
+    public void testDecimalToNumberCasts()
+    {
+        assertThat(assertions.expression("cast(a AS number)")
+                .binding("a", "DECIMAL '2.34'"))
+                .isEqualTo(new SqlNumber("2.34"));
+
+        assertThat(assertions.expression("cast(a AS number)")
+                .binding("a", "DECIMAL '0'"))
+                .isEqualTo(new SqlNumber("0"));
+
+        assertThat(assertions.expression("cast(a AS number)")
+                .binding("a", "DECIMAL '1'"))
+                .isEqualTo(new SqlNumber("1"));
+
+        assertThat(assertions.expression("cast(a AS number)")
+                .binding("a", "DECIMAL '-2.49'"))
+                .isEqualTo(new SqlNumber("-2.49"));
+
+        assertThat(assertions.expression("cast(a AS number)")
+                .binding("a", "DECIMAL '123456789123456784'"))
+                .isEqualTo(new SqlNumber("123456789123456784"));
+
+        assertThat(assertions.expression("cast(a AS number)")
+                .binding("a", "DECIMAL '123456789.123456791'"))
+                .isEqualTo(new SqlNumber("123456789.123456791"));
+
+        assertThat(assertions.expression("cast(a AS number)")
+                .binding("a", "CAST(DECIMAL '0' as DECIMAL(20, 2))"))
+                .isEqualTo(new SqlNumber("0"));
+
+        assertThat(assertions.expression("cast(a AS number)")
+                .binding("a", "CAST(DECIMAL '12.12' as DECIMAL(20, 2))"))
+                .isEqualTo(new SqlNumber("12.12"));
+
+        assertThat(assertions.expression("cast(a AS number)")
+                .binding("a", "DECIMAL '1234567890.1234567890'"))
+                .isEqualTo(new SqlNumber("1234567890.123456789"));
+
+        assertThat(assertions.expression("cast(a AS number)")
+                .binding("a", "DECIMAL '-1234567890.1234567890'"))
+                .isEqualTo(new SqlNumber("-1234567890.123456789"));
+
+        assertThat(assertions.expression("cast(a AS number)")
+                .binding("a", "DECIMAL '1234567890.12345678900000000000'"))
+                .isEqualTo(new SqlNumber("1234567890.123456789"));
+
+        assertThat(assertions.expression("cast(a AS number)")
+                .binding("a", "DECIMAL '-1234567890.12345678900000000000'"))
+                .isEqualTo(new SqlNumber("-1234567890.123456789"));
+
+        assertThat(assertions.expression("cast(a AS number)")
+                .binding("a", "DECIMAL '-1234567890123456789012345678'"))
+                .isEqualTo(new SqlNumber("-1234567890123456789012345678"));
+
+        assertThat(assertions.expression("cast(a AS number)")
+                .binding("a", "DECIMAL '99999999999999999999999999999999999999'"))
+                .isEqualTo(new SqlNumber("99999999999999999999999999999999999999"));
     }
 
     @Test

@@ -124,7 +124,8 @@ public final class BlockEncodingSimdSupport
 
     private static SimdSupport detectX86SimdSupport(int preferredVectorBitWidth, Set<String> flags)
     {
-        enum X86SimdInstructionSet {
+        enum X86SimdInstructionSet
+        {
             avx512f,
             avx512vbmi2
         }
@@ -165,7 +166,8 @@ public final class BlockEncodingSimdSupport
 
     private static SimdSupport detectArmSimdSupport(int preferredVectorBitWidth, Set<String> flags)
     {
-        enum ArmSimdInstructionSet {
+        enum ArmSimdInstructionSet
+        {
             sve,
             sve2
         }

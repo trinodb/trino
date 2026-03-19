@@ -21,7 +21,7 @@ import com.google.inject.Key;
 import com.google.inject.Singleton;
 import com.google.inject.TypeLiteral;
 import io.airlift.bootstrap.Bootstrap;
-import io.airlift.jaxrs.JsonMapper;
+import io.airlift.jaxrs.JaxRsJsonMapper;
 import io.airlift.json.JsonCodec;
 import io.airlift.json.JsonModule;
 import io.airlift.units.DataSize;
@@ -358,7 +358,7 @@ public class TestTaskDescriptorStorage
                 new JsonModule(),
                 new HandleJsonModule(),
                 binder -> {
-                    binder.bind(JsonMapper.class).in(Singleton.class);
+                    binder.bind(JaxRsJsonMapper.class).in(Singleton.class);
                     jsonCodecBinder(binder).bindJsonCodec(TaskDescriptor.class);
                     jsonCodecBinder(binder).bindJsonCodec(Split.class);
                 });

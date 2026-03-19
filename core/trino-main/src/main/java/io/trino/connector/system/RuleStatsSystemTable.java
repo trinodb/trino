@@ -34,6 +34,7 @@ import io.trino.sql.planner.RuleStatsRecorder;
 import io.trino.sql.planner.iterative.RuleStats;
 
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkState;
@@ -90,7 +91,7 @@ public class RuleStatsSystemTable
         Map<String, BlockBuilder> blockBuilders = ruleStatsTable.getColumns().stream()
                 .collect(toImmutableMap(ColumnMetadata::getName, column -> column.getType().createBlockBuilder(null, positionCount)));
 
-        for (Map.Entry<Class<?>, RuleStats> entry : ruleStats.entrySet()) {
+        for (Entry<Class<?>, RuleStats> entry : ruleStats.entrySet()) {
             RuleStats stats = entry.getValue();
 
             VARCHAR.writeString(blockBuilders.get("rule_name"), entry.getKey().getSimpleName());

@@ -33,6 +33,7 @@ import jakarta.annotation.Nullable;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalInt;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -41,7 +42,7 @@ import static io.trino.memory.context.CoarseGrainLocalMemoryContext.DEFAULT_GRAN
 import static java.util.Objects.requireNonNull;
 
 /**
- * Like {@link io.trino.operator.join.HashBuilderOperator} but simplified,
+ * Like {@link io.trino.operator.join.spilling.HashBuilderOperator} but simplified,
  * without spill support.
  */
 @ThreadSafe
@@ -57,7 +58,7 @@ public class HashBuilderOperator
         private final List<Integer> outputChannels;
         private final List<Integer> hashChannels;
         private final Optional<JoinFilterFunctionFactory> filterFunctionFactory;
-        private final Optional<Integer> sortChannel;
+        private final OptionalInt sortChannel;
         private final List<JoinFilterFunctionFactory> searchFunctionFactories;
         private final PagesIndex.Factory pagesIndexFactory;
 
@@ -75,7 +76,7 @@ public class HashBuilderOperator
                 List<Integer> outputChannels,
                 List<Integer> hashChannels,
                 Optional<JoinFilterFunctionFactory> filterFunctionFactory,
-                Optional<Integer> sortChannel,
+                OptionalInt sortChannel,
                 List<JoinFilterFunctionFactory> searchFunctionFactories,
                 int expectedPositions,
                 PagesIndex.Factory pagesIndexFactory,
@@ -163,7 +164,7 @@ public class HashBuilderOperator
     private final List<Integer> outputChannels;
     private final List<Integer> hashChannels;
     private final Optional<JoinFilterFunctionFactory> filterFunctionFactory;
-    private final Optional<Integer> sortChannel;
+    private final OptionalInt sortChannel;
     private final List<JoinFilterFunctionFactory> searchFunctionFactories;
     private final HashArraySizeSupplier hashArraySizeSupplier;
 
@@ -181,7 +182,7 @@ public class HashBuilderOperator
             List<Integer> outputChannels,
             List<Integer> hashChannels,
             Optional<JoinFilterFunctionFactory> filterFunctionFactory,
-            Optional<Integer> sortChannel,
+            OptionalInt sortChannel,
             List<JoinFilterFunctionFactory> searchFunctionFactories,
             int expectedPositions,
             PagesIndex.Factory pagesIndexFactory,
@@ -198,7 +199,7 @@ public class HashBuilderOperator
             List<Integer> outputChannels,
             List<Integer> hashChannels,
             Optional<JoinFilterFunctionFactory> filterFunctionFactory,
-            Optional<Integer> sortChannel,
+            OptionalInt sortChannel,
             List<JoinFilterFunctionFactory> searchFunctionFactories,
             int expectedPositions,
             PagesIndex.Factory pagesIndexFactory,

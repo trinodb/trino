@@ -54,7 +54,5 @@ public interface OrcDataSource
 
     @Override
     default void close()
-            throws IOException
-    {
-    }
+            throws IOException {}
 }

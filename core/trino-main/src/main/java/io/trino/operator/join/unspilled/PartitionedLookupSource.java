@@ -42,7 +42,7 @@ import static java.lang.Integer.numberOfTrailingZeros;
 import static java.lang.Math.toIntExact;
 
 /**
- * Like {@link io.trino.operator.join.PartitionedLookupSource} but simplified,
+ * Like {@link io.trino.operator.join.spilling.PartitionedLookupSource} but simplified,
  * without spill support.
  */
 @NotThreadSafe

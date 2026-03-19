@@ -88,7 +88,7 @@ public class RedshiftTableStatisticsReader
                                     // For example, -1 indicates a unique column in which the number of distinct values is the same as the number of rows."
                                     // https://www.postgresql.org/docs/9.3/view-pg-stats.html
                                     if (distinctValuesIndicator < 0.0) {
-                                        return Math.min(-distinctValuesIndicator * rowCount, rowCount);
+                                        return Math.min(-distinctValuesIndicator * rowCount, (float) rowCount);
                                     }
                                     return distinctValuesIndicator;
                                 })

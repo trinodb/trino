@@ -29,7 +29,7 @@ import static io.trino.spi.function.InvocationConvention.InvocationReturnConvent
 import static io.trino.spi.function.OperatorType.HASH_CODE;
 import static io.trino.spi.function.OperatorType.IDENTICAL;
 
-@ScalarFunction("arrays_overlap")
+@ScalarFunction(value = "arrays_overlap", neverFails = true)
 @Description("Returns true if arrays have common elements")
 public final class ArraysOverlapFunction
 {

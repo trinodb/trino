@@ -43,6 +43,9 @@ import io.trino.operator.index.PageBufferOperator.PageBufferOperatorFactory;
 import io.trino.operator.join.JoinTestUtils.BuildSideSetup;
 import io.trino.operator.join.JoinTestUtils.DummySpillerFactory;
 import io.trino.operator.join.JoinTestUtils.TestInternalJoinFilterFunction;
+import io.trino.operator.join.spilling.HashBuilderOperator;
+import io.trino.operator.join.spilling.PartitionedConsumption;
+import io.trino.operator.join.spilling.PartitionedLookupSourceFactory;
 import io.trino.plugin.base.metrics.TDigestHistogram;
 import io.trino.spi.Page;
 import io.trino.spi.block.RunLengthEncodedBlock;
@@ -1218,7 +1221,7 @@ public class TestHashJoinOperator
                 ImmutableList.of(0),
                 ImmutableList.of(1),
                 Optional.empty(),
-                Optional.empty(),
+                OptionalInt.empty(),
                 ImmutableList.of(),
                 10_000,
                 new PagesIndex.TestingFactory(false),
@@ -1294,7 +1297,7 @@ public class TestHashJoinOperator
                 ImmutableList.of(0),
                 ImmutableList.of(0),
                 Optional.empty(),
-                Optional.empty(),
+                OptionalInt.empty(),
                 ImmutableList.of(),
                 10_000,
                 new PagesIndex.TestingFactory(false),
@@ -1365,7 +1368,7 @@ public class TestHashJoinOperator
                 ImmutableList.of(0),
                 ImmutableList.of(0),
                 Optional.empty(),
-                Optional.empty(),
+                OptionalInt.empty(),
                 ImmutableList.of(),
                 10_000,
                 new PagesIndex.TestingFactory(false),

@@ -849,7 +849,7 @@ public class SqlTaskManager
             task.recordHeartbeat();
         }
 
-        public String getTaskInstanceId()
+        public long getTaskInstanceId()
         {
             return task.getTaskInstanceId();
         }

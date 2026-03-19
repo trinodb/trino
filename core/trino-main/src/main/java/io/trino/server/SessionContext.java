@@ -23,6 +23,7 @@ import io.trino.spi.security.SelectedRole;
 import io.trino.spi.session.ResourceEstimates;
 import io.trino.transaction.TransactionId;
 
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
@@ -236,6 +237,37 @@ public class SessionContext
     public Optional<String> getQueryDataEncoding()
     {
         return queryDataEncoding;
+    }
+
+    public SessionContext withSystemProperty(String key, String value)
+    {
+        Map<String, String> modified = new HashMap<>(systemProperties);
+        modified.put(key, value);
+        return new SessionContext(
+                protocolHeaders,
+                catalog,
+                schema,
+                path,
+                authenticatedIdentity,
+                identity,
+                originalIdentity,
+                selectedRole,
+                source,
+                traceToken,
+                userAgent,
+                remoteUserAddress,
+                timeZoneId,
+                language,
+                clientTags,
+                clientCapabilities,
+                resourceEstimates,
+                ImmutableMap.copyOf(modified),
+                catalogSessionProperties,
+                preparedStatements,
+                transactionId,
+                clientTransactionSupport,
+                clientInfo,
+                queryDataEncoding);
     }
 
     @VisibleForTesting

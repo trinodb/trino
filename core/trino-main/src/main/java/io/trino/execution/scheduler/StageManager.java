@@ -262,7 +262,7 @@ class StageManager
                 rootStageId,
                 stages.values().stream().map(sqlStage -> {
                     StageInfo stageInfo = sqlStage.getStageInfo();
-                    List<StageId> childStages = ImmutableList.copyOf(children.get(stageInfo.getStageId()));
+                    List<StageId> childStages = ImmutableList.copyOf(children.get(stageInfo.stageId()));
                     if (childStages.isEmpty()) {
                         return stageInfo;
                     }

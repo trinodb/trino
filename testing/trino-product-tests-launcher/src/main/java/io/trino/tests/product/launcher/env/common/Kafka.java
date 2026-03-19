@@ -24,6 +24,7 @@ import org.testcontainers.containers.startupcheck.IsRunningStartupCheckStrategy;
 import org.testcontainers.utility.MountableFile;
 
 import java.time.Duration;
+import java.util.UUID;
 
 import static io.trino.tests.product.launcher.docker.ContainerUtil.forSelectedPorts;
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.isTrinoContainer;
@@ -35,11 +36,10 @@ import static org.testcontainers.utility.MountableFile.forHostPath;
 public class Kafka
         implements EnvironmentExtender
 {
-    private static final String CONFLUENT_VERSION = "7.9.0";
+    private static final String CONFLUENT_VERSION = "8.1.1";
     private static final int SCHEMA_REGISTRY_PORT = 8081;
     static final String KAFKA = "kafka";
     static final String SCHEMA_REGISTRY = "schema-registry";
-    static final String ZOOKEEPER = "zookeeper";
 
     private final ResourceProvider configDir;
 
@@ -56,8 +56,7 @@ public class Kafka
     @Override
     public void extendEnvironment(Environment.Builder builder)
     {
-        builder.addContainers(createZookeeper(), createKafka(), createSchemaRegistry())
-                .containerDependsOn(KAFKA, ZOOKEEPER)
+        builder.addContainers(createKafka(), createSchemaRegistry())
                 .containerDependsOn(SCHEMA_REGISTRY, KAFKA);
 
         builder.configureContainers(container -> {
@@ -82,31 +81,21 @@ public class Kafka
     }
 
     @SuppressWarnings("resource")
-    private DockerContainer createZookeeper()
-    {
-        DockerContainer container = new DockerContainer("confluentinc/cp-zookeeper:" + CONFLUENT_VERSION, ZOOKEEPER)
-                .withEnv("ZOOKEEPER_CLIENT_PORT", "2181")
-                .withEnv("ZOOKEEPER_TICK_TIME", "2000")
-                .withStartupCheckStrategy(new IsRunningStartupCheckStrategy())
-                .waitingFor(forSelectedPorts(2181))
-                .withStartupTimeout(Duration.ofMinutes(5));
-
-        portBinder.exposePort(container, 2181);
-
-        return container;
-    }
-
-    @SuppressWarnings("resource")
     private DockerContainer createKafka()
     {
         DockerContainer container = new DockerContainer("confluentinc/cp-kafka:" + CONFLUENT_VERSION, KAFKA)
+                .withEnv("CLUSTER_ID", "test-cluster-" + UUID.randomUUID().toString().replaceAll("-", ""))
                 .withEnv("KAFKA_BROKER_ID", "1")
-                .withEnv("KAFKA_ZOOKEEPER_CONNECT", "zookeeper:2181")
-                .withEnv("KAFKA_ADVERTISED_LISTENERS", "PLAINTEXT://kafka:9092")
+                .withEnv("KAFKA_PROCESS_ROLES", "broker,controller")
+                .withEnv("KAFKA_LISTENERS", "PLAINTEXT://kafka:9093,BROKER://kafka:9092,CONTROLLER://kafka:9094")
+                .withEnv("KAFKA_ADVERTISED_LISTENERS", "PLAINTEXT://kafka:9093,BROKER://kafka:9092,CONTROLLER://kafka:9094")
+                .withEnv("KAFKA_CONTROLLER_LISTENER_NAMES", "CONTROLLER")
                 .withEnv("KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR", "1")
                 .withEnv("KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS", "0")
+                .withEnv("KAFKA_CONTROLLER_QUORUM_VOTERS", "1@kafka:9094")
+                .withEnv("KAFKA_LISTENER_SECURITY_PROTOCOL_MAP", "PLAINTEXT:PLAINTEXT,BROKER:PLAINTEXT,CONTROLLER:PLAINTEXT")
                 .withStartupCheckStrategy(new IsRunningStartupCheckStrategy())
-                .waitingForAll(forSelectedPorts(9092), forLogMessage(".*started \\(kafka.server.KafkaServer\\).*", 1))
+                .waitingForAll(forSelectedPorts(9092), forLogMessage(".*Kafka Server started.*", 1))
                 .withStartupTimeout(Duration.ofMinutes(5));
 
         portBinder.exposePort(container, 9092);

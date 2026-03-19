@@ -21,11 +21,13 @@ import io.trino.security.AccessControl;
 import io.trino.spi.type.Type;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.ir.Cast;
-import io.trino.sql.ir.optimizer.IrExpressionEvaluator;
 import io.trino.sql.planner.TranslationMap;
 import io.trino.sql.tree.Expression;
+import io.trino.sql.tree.NodeRef;
+import io.trino.sql.tree.Parameter;
 import io.trino.type.TypeCoercion;
 
+import java.util.Map;
 import java.util.Optional;
 
 import static io.trino.spi.StandardErrorCode.EXPRESSION_NOT_CONSTANT;
@@ -36,6 +38,10 @@ public final class ConstantEvaluator
 {
     private ConstantEvaluator() {}
 
+    /**
+     * @deprecated Use {@link #evaluateConstant(Expression, Type, Map, PlannerContext, Session, AccessControl)} instead to pass parameters explicitly.
+     */
+    @Deprecated // TODO https://github.com/trinodb/trino/issues/28708 Remove after all calls are updated to pass parameters explicitly
     public static Object evaluateConstant(
             Expression expression,
             Type expectedType,
@@ -43,7 +49,24 @@ public final class ConstantEvaluator
             Session session,
             AccessControl accessControl)
     {
-        Analysis analysis = new Analysis(null, ImmutableMap.of(), QueryType.OTHERS);
+        return evaluateConstant(
+                expression,
+                expectedType,
+                ImmutableMap.of(),
+                plannerContext,
+                session,
+                accessControl);
+    }
+
+    public static Object evaluateConstant(
+            Expression expression,
+            Type expectedType,
+            Map<NodeRef<Parameter>, Expression> parameters,
+            PlannerContext plannerContext,
+            Session session,
+            AccessControl accessControl)
+    {
+        Analysis analysis = new Analysis(null, parameters, QueryType.OTHERS);
         Scope scope = Scope.create();
         ExpressionAnalyzer.analyzeExpressionWithoutSubqueries(
                 session,
@@ -69,6 +92,6 @@ public final class ConstantEvaluator
             rewritten = new Cast(rewritten, expectedType);
         }
 
-        return new IrExpressionEvaluator(plannerContext).evaluate(rewritten, session, ImmutableMap.of());
+        return plannerContext.getExpressionEvaluator().evaluate(rewritten, session, ImmutableMap.of());
     }
 }

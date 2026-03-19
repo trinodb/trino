@@ -75,13 +75,13 @@ public class ParquetTestUtils
 
     private ParquetTestUtils() {}
 
-    public static Slice writeParquetFile(ParquetWriterOptions writerOptions, List<Type> types, List<String> columnNames, List<io.trino.spi.Page> inputPages)
+    public static Slice writeParquetFile(ParquetWriterOptions writerOptions, List<Type> types, List<String> columnNames, List<Page> inputPages)
             throws IOException
     {
         ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
         ParquetWriter writer = createParquetWriter(outputStream, writerOptions, types, columnNames, CompressionCodec.SNAPPY);
 
-        for (io.trino.spi.Page inputPage : inputPages) {
+        for (Page inputPage : inputPages) {
             checkArgument(types.size() == inputPage.getChannelCount());
             writer.write(inputPage);
         }
@@ -180,9 +180,9 @@ public class ParquetTestUtils
                 Optional.empty());
     }
 
-    public static List<io.trino.spi.Page> generateInputPages(List<Type> types, int positionsPerPage, int pageCount)
+    public static List<Page> generateInputPages(List<Type> types, int positionsPerPage, int pageCount)
     {
-        ImmutableList.Builder<io.trino.spi.Page> pagesBuilder = ImmutableList.builder();
+        ImmutableList.Builder<Page> pagesBuilder = ImmutableList.builder();
         for (int i = 0; i < pageCount; i++) {
             List<Block> blocks = types.stream()
                     .map(type -> generateBlock(type, positionsPerPage))
@@ -192,9 +192,9 @@ public class ParquetTestUtils
         return pagesBuilder.build();
     }
 
-    public static List<io.trino.spi.Page> generateInputPages(List<Type> types, int positionsPerPage, List<?> data)
+    public static List<Page> generateInputPages(List<Type> types, int positionsPerPage, List<?> data)
     {
-        ImmutableList.Builder<io.trino.spi.Page> pagesBuilder = ImmutableList.builder();
+        ImmutableList.Builder<Page> pagesBuilder = ImmutableList.builder();
         for (int i = 0; i < data.size(); i += positionsPerPage) {
             int index = i;
             List<Block> blocks = types.stream()

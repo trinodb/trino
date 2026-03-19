@@ -33,6 +33,7 @@ import org.apache.iceberg.Metrics;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.PartitionSpecParser;
 import org.apache.iceberg.Schema;
+import org.apache.iceberg.SortOrder;
 import org.apache.iceberg.io.LocationProvider;
 import org.apache.iceberg.types.Type;
 
@@ -169,6 +170,7 @@ public class IcebergMergeSink
                         FileContent.POSITION_DELETES,
                         Optional.of(dataFilePath.toStringUtf8()),
                         Optional.empty(), // unused for v3
+                        SortOrder.unsorted().orderId(),
                         Optional.of(deletionVector.serialize().getBytes()));
                 fragments.add(wrappedBuffer(jsonCodec.toJsonBytes(task)));
             }));

@@ -25,13 +25,7 @@ import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.MediaType;
 
-import java.net.URLDecoder;
-import java.util.Arrays;
-
-import static com.google.common.base.Strings.isNullOrEmpty;
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.server.security.ResourceSecurity.AccessType.MANAGEMENT_READ;
-import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 
 @Path("/v1/resourceGroupState")
@@ -50,21 +44,13 @@ public class ResourceGroupStateInfoResource
     @Produces(MediaType.APPLICATION_JSON)
     @Encoded
     @Path("{resourceGroupId: .+}")
-    public ResourceGroupInfo getQueryStateInfos(@PathParam("resourceGroupId") String resourceGroupIdString)
+    public ResourceGroupInfo getQueryStateInfos(@PathParam("resourceGroupId") ResourceGroupId resourceGroupId)
     {
-        if (!isNullOrEmpty(resourceGroupIdString)) {
-            return resourceGroupInfoProvider.tryGetResourceGroupInfo(
-                    new ResourceGroupId(
-                            Arrays.stream(resourceGroupIdString.split("/"))
-                                    .map(ResourceGroupStateInfoResource::urlDecode)
-                                    .collect(toImmutableList())))
-                    .orElseThrow(NotFoundException::new);
+        if (resourceGroupId == null) {
+            throw new NotFoundException();
         }
-        throw new NotFoundException();
-    }
 
-    private static String urlDecode(String value)
-    {
-        return URLDecoder.decode(value, UTF_8);
+        return resourceGroupInfoProvider.tryGetResourceGroupInfo(resourceGroupId)
+                .orElseThrow(NotFoundException::new);
     }
 }

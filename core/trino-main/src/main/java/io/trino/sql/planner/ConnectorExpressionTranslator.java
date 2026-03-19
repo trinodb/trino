@@ -717,10 +717,10 @@ public final class ConnectorExpressionTranslator
                 return Optional.empty();
             }
             if (isBuiltinFunctionName(functionName)) {
-                name = new FunctionName(functionName.getFunctionName());
+                name = new FunctionName(functionName.functionName());
             }
             else {
-                name = new FunctionName(Optional.of(new CatalogSchemaName(functionName.getCatalogName(), functionName.getSchemaName())), functionName.getFunctionName());
+                name = new FunctionName(Optional.of(new CatalogSchemaName(functionName.catalogName(), functionName.schemaName())), functionName.functionName());
             }
             return Optional.of(new io.trino.spi.expression.Call(((Expression) node).type(), name, arguments.build()));
         }

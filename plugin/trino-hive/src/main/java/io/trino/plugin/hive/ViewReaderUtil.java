@@ -19,7 +19,6 @@ import com.linkedin.coral.hive.hive2rel.HiveToRelConverter;
 import com.linkedin.coral.trino.rel2trino.RelToTrinoConverter;
 import io.airlift.json.JsonCodec;
 import io.airlift.json.JsonCodecFactory;
-import io.airlift.json.ObjectMapperProvider;
 import io.trino.metastore.Column;
 import io.trino.metastore.Table;
 import io.trino.metastore.TableInfo;
@@ -68,8 +67,7 @@ import static java.util.stream.Collectors.joining;
 
 public final class ViewReaderUtil
 {
-    private ViewReaderUtil()
-    {}
+    private ViewReaderUtil() {}
 
     public interface ViewReader
     {
@@ -130,8 +128,7 @@ public final class ViewReaderUtil
     public static final String PRESTO_VIEW_FLAG = "presto_view";
     static final String VIEW_PREFIX = "/* Presto View: ";
     static final String VIEW_SUFFIX = " */";
-    private static final JsonCodec<ConnectorViewDefinition> VIEW_CODEC =
-            new JsonCodecFactory(new ObjectMapperProvider()).jsonCodec(ConnectorViewDefinition.class);
+    private static final JsonCodec<ConnectorViewDefinition> VIEW_CODEC = new JsonCodecFactory().jsonCodec(ConnectorViewDefinition.class);
 
     /**
      * Returns true if table represents a Hive view, Trino/Presto view, materialized view or anything

@@ -44,13 +44,12 @@ public class JsonQueryDataEncoder
         implements QueryDataEncoder
 {
     private boolean closed;
-
-    private static final JsonFactory JSON_FACTORY = jsonFactory();
     private static final String ENCODING = "json";
     private TypeEncoder[] typeEncoders;
     private int[] sourcePageChannels;
+    private final JsonFactory factory;
 
-    public JsonQueryDataEncoder(Session session, List<OutputColumn> columns)
+    public JsonQueryDataEncoder(Session session, List<OutputColumn> columns, JsonFactory factory)
     {
         this.typeEncoders = createTypeEncoders(session, requireNonNull(columns, "columns is null")
                 .stream()
@@ -59,6 +58,7 @@ public class JsonQueryDataEncoder
         this.sourcePageChannels = requireNonNull(columns, "columns is null").stream()
             .mapToInt(OutputColumn::sourcePageChannel)
             .toArray();
+        this.factory = requireNonNull(factory, "factory is null");
     }
 
     @Override
@@ -66,7 +66,7 @@ public class JsonQueryDataEncoder
             throws IOException
     {
         verify(!closed, "JsonQueryDataEncoder is already closed");
-        try (CountingOutputStream wrapper = new CountingOutputStream(output); JsonGenerator generator = JSON_FACTORY.createGenerator(wrapper)) {
+        try (CountingOutputStream wrapper = new CountingOutputStream(output); JsonGenerator generator = factory.createGenerator(wrapper)) {
             writePagesToJsonGenerator(e -> { throw e; }, generator, typeEncoders, sourcePageChannels, pages);
             return DataAttributes.builder()
                     .set(SEGMENT_SIZE, toIntExact(wrapper.getCount()))
@@ -100,7 +100,6 @@ public class JsonQueryDataEncoder
     {
         protected final JsonFactory factory;
 
-        @Inject
         public Factory()
         {
             this.factory = jsonFactory();
@@ -109,7 +108,7 @@ public class JsonQueryDataEncoder
         @Override
         public QueryDataEncoder create(Session session, List<OutputColumn> columns)
         {
-            return new JsonQueryDataEncoder(session, columns);
+            return new JsonQueryDataEncoder(session, columns, factory);
         }
 
         @Override

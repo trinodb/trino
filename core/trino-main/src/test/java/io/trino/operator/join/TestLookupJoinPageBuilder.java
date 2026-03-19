@@ -14,7 +14,9 @@
 package io.trino.operator.join;
 
 import com.google.common.collect.ImmutableList;
-import io.trino.operator.join.JoinProbe.JoinProbeFactory;
+import io.trino.operator.join.spilling.JoinProbe;
+import io.trino.operator.join.spilling.JoinProbe.JoinProbeFactory;
+import io.trino.operator.join.spilling.LookupJoinPageBuilder;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.block.Block;

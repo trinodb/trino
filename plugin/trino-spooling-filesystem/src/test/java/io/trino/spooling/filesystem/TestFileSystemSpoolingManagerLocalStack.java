@@ -19,9 +19,9 @@ import io.trino.filesystem.s3.S3FileSystemFactory;
 import io.trino.filesystem.s3.S3FileSystemStats;
 import io.trino.spi.spool.SpoolingManager;
 import org.junit.jupiter.api.BeforeAll;
-import org.testcontainers.containers.localstack.LocalStackContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
+import org.testcontainers.localstack.LocalStackContainer;
 import org.testcontainers.utility.DockerImageName;
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
@@ -29,7 +29,6 @@ import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3Client;
 
 import static io.opentelemetry.api.OpenTelemetry.noop;
-import static org.testcontainers.containers.localstack.LocalStackContainer.Service.S3;
 
 @Testcontainers
 public class TestFileSystemSpoolingManagerLocalStack
@@ -38,8 +37,7 @@ public class TestFileSystemSpoolingManagerLocalStack
     private static final String BUCKET_NAME = "test-bucket";
 
     @Container
-    private static final LocalStackContainer LOCALSTACK = new LocalStackContainer(DockerImageName.parse("localstack/localstack:3.7.0"))
-            .withServices(S3);
+    private static final LocalStackContainer LOCALSTACK = new LocalStackContainer(DockerImageName.parse("localstack/localstack:4.14.0"));
 
     @BeforeAll
     public void setup()
@@ -57,7 +55,7 @@ public class TestFileSystemSpoolingManagerLocalStack
         spoolingConfig.setLocation("s3://%s/".formatted(BUCKET_NAME));
         spoolingConfig.setEncryptionEnabled(true); // Localstack supports SSE-C so we can test it
         S3FileSystemConfig filesystemConfig = new S3FileSystemConfig()
-                .setEndpoint(LOCALSTACK.getEndpointOverride(LocalStackContainer.Service.S3).toString())
+                .setEndpoint(LOCALSTACK.getEndpoint().toString())
                 .setRegion(LOCALSTACK.getRegion())
                 .setAwsAccessKey(LOCALSTACK.getAccessKey())
                 .setAwsSecretKey(LOCALSTACK.getSecretKey())
@@ -68,7 +66,7 @@ public class TestFileSystemSpoolingManagerLocalStack
     protected S3Client createS3Client()
     {
         return S3Client.builder()
-                .endpointOverride(LOCALSTACK.getEndpointOverride(LocalStackContainer.Service.S3))
+                .endpointOverride(LOCALSTACK.getEndpoint())
                 .region(Region.of(LOCALSTACK.getRegion()))
                 .credentialsProvider(StaticCredentialsProvider.create(
                         AwsBasicCredentials.create(LOCALSTACK.getAccessKey(), LOCALSTACK.getSecretKey())))

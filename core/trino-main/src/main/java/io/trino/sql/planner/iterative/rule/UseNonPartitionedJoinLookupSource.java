@@ -20,7 +20,7 @@ import io.trino.cost.StatsProvider;
 import io.trino.matching.Capture;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
-import io.trino.operator.join.LookupJoinOperator;
+import io.trino.operator.join.spilling.LookupJoinOperator;
 import io.trino.sql.planner.Partitioning;
 import io.trino.sql.planner.PartitioningScheme;
 import io.trino.sql.planner.iterative.Lookup;

@@ -26,6 +26,4 @@ import com.fasterxml.jackson.annotation.JsonTypeInfo;
 })
 
 public sealed interface JsonTableColumn
-        permits JsonTableOrdinalityColumn, JsonTableQueryColumn, JsonTableValueColumn
-{
-}
+        permits JsonTableOrdinalityColumn, JsonTableQueryColumn, JsonTableValueColumn {}

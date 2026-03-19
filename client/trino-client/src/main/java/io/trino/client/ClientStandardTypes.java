@@ -16,6 +16,8 @@ package io.trino.client;
 // Should have the same types as in the StandardTypes
 public final class ClientStandardTypes
 {
+    // a NULL value without any explicit type
+    public static final String UNKNOWN = "unknown";
     public static final String BIGINT = "bigint";
     public static final String INTEGER = "integer";
     public static final String SMALLINT = "smallint";
@@ -25,6 +27,7 @@ public final class ClientStandardTypes
     public static final String DECIMAL = "decimal";
     public static final String REAL = "real";
     public static final String DOUBLE = "double";
+    public static final String NUMBER = "number";
     public static final String HYPER_LOG_LOG = "HyperLogLog";
     public static final String QDIGEST = "qdigest";
     public static final String TDIGEST = "tdigest";

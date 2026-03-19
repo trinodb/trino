@@ -63,7 +63,7 @@
         <dependency>
             <groupId>io.openlineage</groupId>
             <artifactId>openlineage-java</artifactId>
-            <version>1.43.0</version>
+            <version>1.45.0</version>
             <!-- the reason for exclusion is issue while building plugin manifesting -->
             <!-- in following error: -->
             <!-- Found duplicate and different classes in -->
@@ -113,12 +113,6 @@
         <dependency>
             <groupId>io.trino</groupId>
             <artifactId>trino-spi</artifactId>
-            <scope>provided</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>org.openjdk.jol</groupId>
-            <artifactId>jol-core</artifactId>
             <scope>provided</scope>
         </dependency>
 

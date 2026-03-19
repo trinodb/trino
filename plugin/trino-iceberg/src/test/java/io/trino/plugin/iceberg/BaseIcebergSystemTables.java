@@ -735,7 +735,8 @@ public abstract class BaseIcebergSystemTables
             assertThat(deleteFile.getField(15)).isNull(); // sort_order_id
 
             assertThat(computeScalar("SELECT readable_metrics FROM \"" + table.getName() + "$entries\"" + " WHERE snapshot_id = " + snapshotId))
-                    .isEqualTo("""
+                    .isEqualTo(
+                            """
                             {\
                             "dt":{"column_size":null,"value_count":null,"null_value_count":null,"nan_value_count":null,"lower_bound":null,"upper_bound":null},\
                             "id":{"column_size":null,"value_count":null,"null_value_count":null,"nan_value_count":null,"lower_bound":null,"upper_bound":null}\
@@ -784,7 +785,8 @@ public abstract class BaseIcebergSystemTables
             assertThat(dataFile.getField(15)).isEqualTo(0); // sort_order_id
 
             assertThat(computeScalar("SELECT readable_metrics FROM \"" + table.getName() + "$entries\"" + " WHERE snapshot_id = " + snapshotId))
-                    .isEqualTo("""
+                    .isEqualTo(
+                            """
                             {\
                             "dt":{"column_size":null,"value_count":null,"null_value_count":null,"nan_value_count":null,"lower_bound":null,"upper_bound":null},\
                             "id":{"column_size":51,"value_count":1,"null_value_count":0,"nan_value_count":null,"lower_bound":1,"upper_bound":1}\
@@ -795,7 +797,8 @@ public abstract class BaseIcebergSystemTables
     @Test
     public void testPartitionsColumns()
     {
-        try (TestTable testTable = newTrinoTable("test_partition_columns", """
+        try (TestTable testTable = newTrinoTable("test_partition_columns",
+                """
                 WITH (partitioning = ARRAY[
                     '"r1.f1"',
                     'bucket(b1, 4)'
@@ -807,7 +810,8 @@ public abstract class BaseIcebergSystemTables
                     .matches("SELECT CAST(ROW(1, 3) AS ROW(\"r1.f1\" INTEGER, b1_bucket INTEGER))");
         }
 
-        try (TestTable testTable = newTrinoTable("test_partition_columns", """
+        try (TestTable testTable = newTrinoTable("test_partition_columns",
+                """
                 WITH (partitioning = ARRAY[
                     '"r1.f2"',
                     'bucket(b1, 4)',

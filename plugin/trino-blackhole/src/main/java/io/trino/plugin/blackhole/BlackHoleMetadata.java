@@ -59,6 +59,7 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
@@ -208,7 +209,7 @@ public class BlackHoleMetadata
                     relationColumns.put(name, RelationColumnsMetadata.forTable(name, columnsMetadata.getColumns()));
                 });
 
-        for (Map.Entry<SchemaTableName, ConnectorViewDefinition> entry : getViews(session, schemaName).entrySet()) {
+        for (Entry<SchemaTableName, ConnectorViewDefinition> entry : getViews(session, schemaName).entrySet()) {
             relationColumns.put(entry.getKey(), RelationColumnsMetadata.forView(entry.getKey(), entry.getValue().getColumns()));
         }
 
@@ -475,7 +476,7 @@ public class BlackHoleMetadata
     {
         return schemaName.map(schema -> views.entrySet().stream()
                         .filter(view -> view.getKey().getSchemaName().equals(schema))
-                        .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue)))
+                        .collect(toImmutableMap(Entry::getKey, Entry::getValue)))
                 .orElseGet(() -> ImmutableMap.copyOf(views));
     }
 

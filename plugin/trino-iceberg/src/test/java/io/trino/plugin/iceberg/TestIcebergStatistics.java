@@ -340,46 +340,50 @@ public class TestIcebergStatistics
         assertQuery(
                 "SHOW STATS FOR " + tableName,
                 collectOnStatsOnCreateTable
-                        ? """
-                          VALUES
-                            ('nationkey', null, 7, 0, null, '0', '9'),
-                            ('regionkey', null, 3, 0, null, '0', '2'),
-                            ('comment', %s, 7, 0, null, null, null),
-                            ('name', %s, 7, 0, null, null, null),
-                            (null, null, null, null, 7, null, null)
-                          """
+                        ?
+                        """
+                        VALUES
+                          ('nationkey', null, 7, 0, null, '0', '9'),
+                          ('regionkey', null, 3, 0, null, '0', '2'),
+                          ('comment', %s, 7, 0, null, null, null),
+                          ('name', %s, 7, 0, null, null, null),
+                          (null, null, null, null, 7, null, null)
+                        """
                         .formatted(partitioned ? "1301.0" : "936.0", partitioned ? "469.0" : "270.0")
-                        : """
-                          VALUES
-                            ('nationkey', null, null, 0, null, '0', '9'),
-                            ('regionkey', null, null, 0, null, '0', '2'),
-                            ('comment', %s, null, 0, null, null, null),
-                            ('name', %s, null, 0, null, null, null),
-                            (null, null, null, null, 7, null, null)
-                          """
+                        :
+                        """
+                        VALUES
+                          ('nationkey', null, null, 0, null, '0', '9'),
+                          ('regionkey', null, null, 0, null, '0', '2'),
+                          ('comment', %s, null, 0, null, null, null),
+                          ('name', %s, null, 0, null, null, null),
+                          (null, null, null, null, 7, null, null)
+                        """
                         .formatted(partitioned ? "1301.0" : "936.0", partitioned ? "469.0" : "270.0"));
 
         assertUpdate(withStatsOnWrite(getSession(), true), "INSERT INTO " + tableName + " SELECT * FROM tpch.sf1.nation WHERE nationkey >= 12 OR regionkey >= 3", 18);
         assertQuery(
                 "SHOW STATS FOR " + tableName,
                 collectOnStatsOnCreateTable
-                        ? """
-                          VALUES
-                            ('nationkey', null, 25, 0, null, '0', '24'),
-                            ('regionkey', null, 5, 0, null, '0', '4'),
-                            ('comment', %s, 25, 0, null, null, null),
-                            ('name', %s, 25, 0, null, null, null),
-                            (null, null, null, null, 25, null, null)
-                          """
+                        ?
+                        """
+                        VALUES
+                          ('nationkey', null, 25, 0, null, '0', '24'),
+                          ('regionkey', null, 5, 0, null, '0', '4'),
+                          ('comment', %s, 25, 0, null, null, null),
+                          ('name', %s, 25, 0, null, null, null),
+                          (null, null, null, null, 25, null, null)
+                        """
                         .formatted(partitioned ? "4058.0" : "2627.0", partitioned ? "1447.0" : "726.0")
-                        : """
-                          VALUES
-                            ('nationkey', null, null, 0, null, '0', '24'),
-                            ('regionkey', null, null, 0, null, '0', '4'),
-                            ('comment', %s, null, 0, null, null, null),
-                            ('name', %s, null, 0, null, null, null),
-                            (null, null, null, null, 25, null, null)
-                          """
+                        :
+                        """
+                        VALUES
+                          ('nationkey', null, null, 0, null, '0', '24'),
+                          ('regionkey', null, null, 0, null, '0', '4'),
+                          ('comment', %s, null, 0, null, null, null),
+                          ('name', %s, null, 0, null, null, null),
+                          (null, null, null, null, 25, null, null)
+                        """
                         .formatted(partitioned ? "4058.0" : "2627.0", partitioned ? "1447.0" : "726.0"));
 
         assertUpdate("DROP TABLE " + tableName);
@@ -481,12 +485,13 @@ public class TestIcebergStatistics
         assertQuery(
                 "SHOW STATS FOR " + tableName,
                 withOptimize
-                        ? """
-                          VALUES
-                            ('nationkey', null, 15, 0, null, '0', '24'),
-                            ('regionkey', null, 4, 0, null, '0', '3'), -- not updated yet
-                            (null, null, null, null, 15, null, null)
-                          """
+                        ?
+                        """
+                        VALUES
+                          ('nationkey', null, 15, 0, null, '0', '24'),
+                          ('regionkey', null, 4, 0, null, '0', '3'), -- not updated yet
+                          (null, null, null, null, 15, null, null)
+                        """
                         :
                         // TODO row count and min/max values are incorrect as they are taken from manifest file list
                         """
@@ -501,12 +506,13 @@ public class TestIcebergStatistics
         assertQuery(
                 "SHOW STATS FOR " + tableName,
                 withOptimize
-                        ? """
-                          VALUES
-                            ('nationkey', null, 15, 0, null, '0', '24'),
-                            ('regionkey', null, 3, 0, null, '0', '3'),
-                            (null, null, null, null, 15, null, null)
-                          """
+                        ?
+                        """
+                        VALUES
+                          ('nationkey', null, 15, 0, null, '0', '24'),
+                          ('regionkey', null, 3, 0, null, '0', '3'),
+                          (null, null, null, null, 15, null, null)
+                        """
                         :
                         // TODO row count and min/max values are incorrect as they are taken from manifest file list
                         """
@@ -979,22 +985,24 @@ public class TestIcebergStatistics
         try (TestTable table = newTrinoTable("show_stats_after_replace_table_", "AS SELECT 1 a, 2 b")) {
             assertThat(query("SHOW STATS FOR " + table.getName()))
                     .skippingTypesCheck()
-                    .matches("""
-                        VALUES
-                        ('a', null, 1e0, 0e0, NULL, '1', '1'),
-                        ('b', null, 1e0, 0e0, NULL, '2', '2'),
-                        (NULL, NULL, NULL, NULL, 1e0, NULL, NULL)
-                        """);
+                    .matches(
+                            """
+                            VALUES
+                            ('a', null, 1e0, 0e0, NULL, '1', '1'),
+                            ('b', null, 1e0, 0e0, NULL, '2', '2'),
+                            (NULL, NULL, NULL, NULL, 1e0, NULL, NULL)
+                            """);
 
             assertUpdate("CREATE OR REPLACE TABLE " + table.getName() + " AS SELECT 3 x, 4 y", 1);
             assertThat(query("SHOW STATS FOR " + table.getName()))
                     .skippingTypesCheck()
-                    .matches("""
-                        VALUES
-                        ('x', null, 1e0, 0e0, NULL, '3', '3'),
-                        ('y', null, 1e0, 0e0, NULL, '4', '4'),
-                        (NULL, NULL, NULL, NULL, 1e0, NULL, NULL)
-                        """);
+                    .matches(
+                            """
+                            VALUES
+                            ('x', null, 1e0, 0e0, NULL, '3', '3'),
+                            ('y', null, 1e0, 0e0, NULL, '4', '4'),
+                            (NULL, NULL, NULL, NULL, 1e0, NULL, NULL)
+                            """);
         }
     }
 

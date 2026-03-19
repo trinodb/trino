@@ -57,6 +57,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
+import java.util.OptionalLong;
 import java.util.function.Function;
 import java.util.function.ObjLongConsumer;
 import java.util.function.Predicate;
@@ -134,8 +135,8 @@ public class OrcRecordReader
     private final Optional<StatisticsValidation> stripeStatisticsValidation;
     private final Optional<StatisticsValidation> fileStatisticsValidation;
 
-    private final Optional<Long> startRowPosition;
-    private final Optional<Long> endRowPosition;
+    private final OptionalLong startRowPosition;
+    private final OptionalLong endRowPosition;
 
     public OrcRecordReader(
             List<OrcColumn> readColumns,
@@ -209,8 +210,8 @@ public class OrcRecordReader
         long totalRowCount = 0;
         long fileRowCount = 0;
         long totalDataLength = 0;
-        Optional<Long> startRowPosition = Optional.empty();
-        Optional<Long> endRowPosition = Optional.empty();
+        OptionalLong startRowPosition = OptionalLong.empty();
+        OptionalLong endRowPosition = OptionalLong.empty();
         ImmutableList.Builder<StripeInformation> stripes = ImmutableList.builder();
         ImmutableList.Builder<Long> stripeFilePositions = ImmutableList.builder();
         if (fileStats.isEmpty() || predicate.matches(numberOfRows, fileStats.get())) {
@@ -224,9 +225,9 @@ public class OrcRecordReader
                     totalDataLength += stripe.getDataLength();
 
                     if (startRowPosition.isEmpty()) {
-                        startRowPosition = Optional.of(fileRowCount);
+                        startRowPosition = OptionalLong.of(fileRowCount);
                     }
-                    endRowPosition = Optional.of(fileRowCount + stripe.getNumberOfRows());
+                    endRowPosition = OptionalLong.of(fileRowCount + stripe.getNumberOfRows());
                 }
                 fileRowCount += stripe.getNumberOfRows();
             }
@@ -379,12 +380,12 @@ public class OrcRecordReader
         return orcTypes;
     }
 
-    public Optional<Long> getStartRowPosition()
+    public OptionalLong getStartRowPosition()
     {
         return startRowPosition;
     }
 
-    public Optional<Long> getEndRowPosition()
+    public OptionalLong getEndRowPosition()
     {
         return endRowPosition;
     }

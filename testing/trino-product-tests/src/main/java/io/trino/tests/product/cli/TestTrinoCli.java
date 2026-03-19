@@ -91,8 +91,7 @@ public class TestTrinoCli
     private String jdbcUser;
 
     public TestTrinoCli()
-            throws IOException
-    {}
+            throws IOException {}
 
     @AfterMethodWithContext
     @Override

@@ -53,6 +53,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Consumer;
@@ -332,7 +333,7 @@ public class CreateTableTask
     private static Map<String, Object> combineProperties(Set<String> specifiedPropertyKeys, Map<String, Object> defaultProperties, Map<String, Object> inheritedProperties)
     {
         Map<String, Object> finalProperties = new HashMap<>(inheritedProperties);
-        for (Map.Entry<String, Object> entry : defaultProperties.entrySet()) {
+        for (Entry<String, Object> entry : defaultProperties.entrySet()) {
             if (specifiedPropertyKeys.contains(entry.getKey()) || !finalProperties.containsKey(entry.getKey())) {
                 finalProperties.put(entry.getKey(), entry.getValue());
             }

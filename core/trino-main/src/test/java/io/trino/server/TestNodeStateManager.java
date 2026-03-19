@@ -186,7 +186,7 @@ class TestNodeStateManager
 
         // simulate task completion after some time
         tasks.set(Collections.emptyList());
-        sqlTasksObservable.getTasks().get(task.taskStatus().getTaskId())
+        sqlTasksObservable.getTasks().get(task.taskStatus().taskId())
                 .stateChanged(TaskState.FINISHED);
 
         // when NodeStateManager sees task finished - it will drain after another drain period
@@ -223,7 +223,7 @@ class TestNodeStateManager
 
         // simulate task completion after some time
         tasks.set(Collections.emptyList());
-        sqlTasksObservable.getTasks().get(task.taskStatus().getTaskId())
+        sqlTasksObservable.getTasks().get(task.taskStatus().taskId())
                 .stateChanged(TaskState.FINISHED);
 
         // when NodeStateManager sees task finished - it will drain after another drain period
@@ -271,7 +271,7 @@ class TestNodeStateManager
 
         // simulate task completion after some time
         tasks.set(Collections.emptyList());
-        sqlTasksObservable.getTasks().get(task.taskStatus().getTaskId())
+        sqlTasksObservable.getTasks().get(task.taskStatus().taskId())
                 .stateChanged(TaskState.FINISHED);
 
         // this is ugly, but we need to be in the sleep in waitActiveTasksToFinish just after
@@ -301,7 +301,7 @@ class TestNodeStateManager
     {
         ServerConfig serverConfig = new ServerConfig();
         serverConfig.setCoordinator(false);
-        serverConfig.setGracePeriod(new io.airlift.units.Duration(gracePeriodMillis, MILLISECONDS));
+        serverConfig.setGracePeriod(new Duration(gracePeriodMillis, MILLISECONDS));
 
         Supplier<List<TaskInfo>> taskInfoSupplier = () -> tasks.get();
         return new NodeStateManager(
@@ -402,9 +402,7 @@ class TestNodeStateManager
         }
 
         @Override
-        public void shutdown()
-        {
-        }
+        public void shutdown() {}
 
         @Override
         public List<Runnable> shutdownNow()
@@ -478,8 +476,6 @@ class TestNodeStateManager
         }
 
         @Override
-        public void execute(Runnable command)
-        {
-        }
+        public void execute(Runnable command) {}
     }
 }

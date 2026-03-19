@@ -21,7 +21,7 @@ import jakarta.annotation.PreDestroy;
 import redis.clients.jedis.DefaultJedisClientConfig;
 import redis.clients.jedis.RedisClient;
 
-import java.util.Map;
+import java.util.Map.Entry;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
@@ -63,7 +63,7 @@ public class RedisClientManager
     @PreDestroy
     public void tearDown()
     {
-        for (Map.Entry<HostAddress, RedisClient> entry : clientCache.entrySet()) {
+        for (Entry<HostAddress, RedisClient> entry : clientCache.entrySet()) {
             try {
                 entry.getValue().close();
             }

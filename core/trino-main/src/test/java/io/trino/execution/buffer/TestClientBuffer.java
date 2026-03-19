@@ -51,7 +51,7 @@ import static org.assertj.core.api.Fail.fail;
 
 public class TestClientBuffer
 {
-    private static final String TASK_INSTANCE_ID = "task-instance-id";
+    private static final long TASK_INSTANCE_ID = 0x1337;
     private static final List<BigintType> TYPES = ImmutableList.of(BIGINT);
     private static final OutputBufferId BUFFER_ID = new OutputBufferId(33);
     private static final String INVALID_SEQUENCE_ID = "Invalid sequence id";
@@ -460,9 +460,9 @@ public class TestClientBuffer
     private static void assertBufferDestroyed(ClientBuffer buffer, int pagesSent)
     {
         PipelinedBufferInfo bufferInfo = buffer.getInfo();
-        assertThat(bufferInfo.getBufferedPages()).isEqualTo(0);
-        assertThat(bufferInfo.getPagesSent()).isEqualTo(pagesSent);
-        assertThat(bufferInfo.isFinished()).isTrue();
+        assertThat(bufferInfo.bufferedPages()).isEqualTo(0);
+        assertThat(bufferInfo.pagesSent()).isEqualTo(pagesSent);
+        assertThat(bufferInfo.finished()).isTrue();
         assertThat(buffer.isDestroyed()).isTrue();
     }
 

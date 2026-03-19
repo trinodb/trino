@@ -60,7 +60,7 @@ final class LongTimestampType
     private static final VarHandle LONG_HANDLE = MethodHandles.byteArrayViewVarHandle(long[].class, ByteOrder.LITTLE_ENDIAN);
     private final Range range;
 
-    public LongTimestampType(int precision)
+    LongTimestampType(int precision)
     {
         super(precision, LongTimestamp.class, Fixed12Block.class);
 

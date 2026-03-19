@@ -24,6 +24,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.OptionalDouble;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -39,7 +40,7 @@ public class ResourceGroupSpec
 
     private final ResourceGroupNameTemplate name;
     private final Optional<DataSize> softMemoryLimit;
-    private final Optional<Double> softMemoryLimitFraction;
+    private final OptionalDouble softMemoryLimitFraction;
     private final int maxQueued;
     private final Optional<Integer> softConcurrencyLimit;
     private final int hardConcurrencyLimit;
@@ -88,18 +89,18 @@ public class ResourceGroupSpec
         requireNonNull(softMemoryLimit, "softMemoryLimit is null");
         if (softMemoryLimit.isEmpty()) {
             this.softMemoryLimit = Optional.empty();
-            this.softMemoryLimitFraction = Optional.of(1.0);
+            this.softMemoryLimitFraction = OptionalDouble.of(1.0);
         }
         else {
             Matcher matcher = PERCENT_PATTERN.matcher(softMemoryLimit.get());
             if (matcher.matches()) {
                 this.softMemoryLimit = Optional.empty();
-                this.softMemoryLimitFraction = Optional.of(Double.parseDouble(matcher.group(1)) / 100.0);
-                checkArgument(softMemoryLimitFraction.get() <= 1.0, "softMemoryLimit percentage is over 100%");
+                this.softMemoryLimitFraction = OptionalDouble.of(Double.parseDouble(matcher.group(1)) / 100.0);
+                checkArgument(softMemoryLimitFraction.getAsDouble() <= 1.0, "softMemoryLimit percentage is over 100%");
             }
             else {
                 this.softMemoryLimit = Optional.of(DataSize.valueOf(softMemoryLimit.get()));
-                this.softMemoryLimitFraction = Optional.empty();
+                this.softMemoryLimitFraction = OptionalDouble.empty();
             }
         }
 
@@ -115,7 +116,7 @@ public class ResourceGroupSpec
         return softMemoryLimit;
     }
 
-    public Optional<Double> getSoftMemoryLimitFraction()
+    public OptionalDouble getSoftMemoryLimitFraction()
     {
         return softMemoryLimitFraction;
     }

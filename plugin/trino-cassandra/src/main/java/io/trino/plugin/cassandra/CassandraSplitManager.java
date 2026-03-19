@@ -40,6 +40,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Set;
 
@@ -218,7 +219,7 @@ public class CassandraSplitManager
             }
         }
         if (singlePartitionKeyColumn) {
-            for (Map.Entry<Set<String>, Set<String>> entry : hostsToPartitionKeys.entrySet()) {
+            for (Entry<Set<String>, Set<String>> entry : hostsToPartitionKeys.entrySet()) {
                 StringBuilder sb = new StringBuilder(partitionSizeForBatchSelect);
                 int size = 0;
                 for (String value : entry.getValue()) {

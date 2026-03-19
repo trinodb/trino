@@ -39,6 +39,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Set;
@@ -734,7 +735,7 @@ public class TestHashDistributionSplitAssigner
                 tester.update(assigner.assign(batch.getPlanNodeId(), batch.getSplits(), batch.isNoMoreSplits()));
                 boolean replicated = replicatedSources.contains(batch.getPlanNodeId());
                 tester.checkContainsSplits(batch.getPlanNodeId(), batch.getSplits(), replicated);
-                for (Map.Entry<Integer, Split> entry : batch.getSplits().entries()) {
+                for (Entry<Integer, Split> entry : batch.getSplits().entries()) {
                     int splitId = getSplitId(entry.getValue());
                     if (replicated) {
                         assertThat(replicatedSplitIds.containsValue(splitId)).isFalse();
@@ -782,7 +783,7 @@ public class TestHashDistributionSplitAssigner
                     for (TaskDescriptor descriptor : descriptors) {
                         Multimap<Integer, Integer> taskDescriptorSplitIds = descriptor.getSplits().getSplits(source).entries().stream()
                                 .collect(toImmutableListMultimap(
-                                        Map.Entry::getKey,
+                                        Entry::getKey,
                                         entry -> getSplitId(entry.getValue())));
 
                         if (taskDescriptorSplitIds.get(partitionId).contains(splitId) && splittableSources.contains(source)) {
@@ -890,7 +891,7 @@ public class TestHashDistributionSplitAssigner
         private static Set<PartitionMapping> extractMappings(Map<Integer, TaskPartition> sourcePartitionToTaskPartition)
         {
             SetMultimap<TaskPartition, Integer> grouped = sourcePartitionToTaskPartition.entrySet().stream()
-                    .collect(toImmutableSetMultimap(Map.Entry::getValue, Map.Entry::getKey));
+                    .collect(toImmutableSetMultimap(Entry::getValue, Entry::getKey));
             return Multimaps.asMap(grouped).entrySet().stream()
                     .map(entry -> new PartitionMapping(entry.getValue(), entry.getKey().getSubPartitions().size()))
                     .collect(toImmutableSet());

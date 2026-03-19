@@ -13,48 +13,20 @@
  */
 package io.trino.execution.buffer;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
-
 import java.util.OptionalLong;
 
 import static java.util.Objects.requireNonNull;
 
-public class OutputBufferStatus
+public record OutputBufferStatus(
+        OptionalLong outputBuffersVersion,
+        boolean overutilized,
+        boolean exchangeSinkInstanceHandleUpdateRequired)
 {
     private static final OutputBufferStatus INITIAL = new OutputBufferStatus(OptionalLong.empty(), false, false);
 
-    private final OptionalLong outputBuffersVersion;
-    private final boolean overutilized;
-    private final boolean exchangeSinkInstanceHandleUpdateRequired;
-
-    @JsonCreator
-    public OutputBufferStatus(
-            @JsonProperty("outputBuffersVersion") OptionalLong outputBuffersVersion,
-            @JsonProperty("overutilized") boolean overutilized,
-            @JsonProperty("exchangeSinkInstanceHandleUpdateRequired") boolean exchangeSinkInstanceHandleUpdateRequired)
+    public OutputBufferStatus
     {
-        this.outputBuffersVersion = requireNonNull(outputBuffersVersion, "outputBuffersVersion is null");
-        this.overutilized = overutilized;
-        this.exchangeSinkInstanceHandleUpdateRequired = exchangeSinkInstanceHandleUpdateRequired;
-    }
-
-    @JsonProperty
-    public OptionalLong getOutputBuffersVersion()
-    {
-        return outputBuffersVersion;
-    }
-
-    @JsonProperty
-    public boolean isOverutilized()
-    {
-        return overutilized;
-    }
-
-    @JsonProperty
-    public boolean isExchangeSinkInstanceHandleUpdateRequired()
-    {
-        return exchangeSinkInstanceHandleUpdateRequired;
+        requireNonNull(outputBuffersVersion, "outputBuffersVersion is null");
     }
 
     public static OutputBufferStatus initial()

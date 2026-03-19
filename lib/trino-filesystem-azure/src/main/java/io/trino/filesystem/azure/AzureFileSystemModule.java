@@ -18,12 +18,17 @@ import com.google.inject.Module;
 import com.google.inject.Scopes;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 
+import java.util.Optional;
+
 public class AzureFileSystemModule
         extends AbstractConfigurationAwareModule
 {
     @Override
     protected void setup(Binder binder)
     {
+        ioUringClass().ifPresent(clazz ->
+                binder.addError(new IllegalStateException("%s is present on a classpath but shouldn't".formatted(clazz))));
+
         binder.bind(AzureFileSystemFactory.class).in(Scopes.SINGLETON);
         Module module = switch (buildConfigObject(AzureFileSystemConfig.class).getAuthType()) {
             case ACCESS_KEY -> new AzureAuthAccessKeyModule();
@@ -31,5 +36,15 @@ public class AzureFileSystemModule
             case DEFAULT -> new AzureAuthDefaultModule();
         };
         install(module);
+    }
+
+    private Optional<Class<?>> ioUringClass()
+    {
+        try {
+            return Optional.of(Class.forName("io.netty.channel.uring.IoUring"));
+        }
+        catch (ClassNotFoundException e) {
+            return Optional.empty();
+        }
     }
 }

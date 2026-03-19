@@ -123,7 +123,7 @@ public class TestCommentTask
         getFutureValue(setComment(COLUMN, columnName, Optional.of("new test column comment")));
         TableHandle tableHandle = metadata.getTableHandle(testSession, tableName).get();
         ConnectorTableMetadata connectorTableMetadata = metadata.getTableMetadata(testSession, tableHandle).metadata();
-        assertThat(Optional.ofNullable(connectorTableMetadata.getColumns().stream().filter(column -> "test".equals(column.getName())).collect(onlyElement()).getComment()))
+        assertThat(connectorTableMetadata.getColumns().stream().filter(column -> "test".equals(column.getName())).collect(onlyElement()).getComment())
                 .isEqualTo(Optional.of("new test column comment"));
     }
 

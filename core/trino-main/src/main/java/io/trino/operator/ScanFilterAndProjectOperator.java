@@ -66,6 +66,7 @@ import static java.util.concurrent.TimeUnit.NANOSECONDS;
 public class ScanFilterAndProjectOperator
         implements WorkProcessorSourceOperator
 {
+    private final PageSourceProvider pageSourceProvider;
     private final WorkProcessor<Page> pages;
     private final PageProcessorMetrics pageProcessorMetrics = new PageProcessorMetrics();
 
@@ -94,6 +95,7 @@ public class ScanFilterAndProjectOperator
             DataSize minOutputPageSize,
             int minOutputPageRowCount)
     {
+        this.pageSourceProvider = requireNonNull(pageSourceProvider, "pageSourceProvider is null");
         pages = split.flatTransform(
                 new SplitToPages(
                         session,
@@ -323,7 +325,7 @@ public class ScanFilterAndProjectOperator
             }
 
             SourcePage page = pageSource.getNextSourcePage();
-            pageSourceMemoryContext.setBytes(pageSource.getMemoryUsage());
+            pageSourceMemoryContext.setBytes(pageSource.getMemoryUsage() + pageSourceProvider.getMemoryUsage());
 
             // update operator stats
             processedPositions += page == null ? 0 : page.getPositionCount();

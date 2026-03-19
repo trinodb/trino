@@ -15,6 +15,7 @@ package io.trino.server;
 
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Inject;
+import io.airlift.http.client.HeaderName;
 import io.airlift.http.client.HttpRequestFilter;
 import io.airlift.http.client.Request;
 import io.airlift.log.Logger;
@@ -58,7 +59,7 @@ public class InternalAuthenticationManager
     // Leave a 5 minute buffer to allow for clock skew and GC pauses
     private static final Function<Instant, Instant> TOKEN_REUSE_THRESHOLD = instant -> instant.minus(5, MINUTES);
 
-    private static final String TRINO_INTERNAL_BEARER = "X-Trino-Internal-Bearer";
+    private static final HeaderName TRINO_INTERNAL_BEARER = HeaderName.of("X-Trino-Internal-Bearer");
 
     private final SecretKey hmac;
     private final String nodeId;
@@ -102,14 +103,14 @@ public class InternalAuthenticationManager
 
     public static boolean isInternalRequest(ContainerRequestContext request)
     {
-        return request.getHeaders().getFirst(TRINO_INTERNAL_BEARER) != null;
+        return request.getHeaders().getFirst(TRINO_INTERNAL_BEARER.toString()) != null;
     }
 
     public void handleInternalRequest(ContainerRequestContext request)
     {
         String subject;
         try {
-            subject = parseJwt(request.getHeaders().getFirst(TRINO_INTERNAL_BEARER));
+            subject = parseJwt(request.getHeaders().getFirst(TRINO_INTERNAL_BEARER.toString()));
         }
         catch (JwtException e) {
             log.error(e, "Internal authentication failed");
@@ -127,6 +128,7 @@ public class InternalAuthenticationManager
                     .type(TEXT_PLAIN_TYPE.toString())
                     .entity("Trino server is still initializing")
                     .build());
+            return;
         }
 
         Identity identity = Identity.forUser("<internal>")

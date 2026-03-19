@@ -56,7 +56,6 @@ import org.apache.iceberg.FileFormat;
 import org.apache.iceberg.FileScanTask;
 import org.apache.iceberg.PartitionField;
 import org.apache.iceberg.PartitionSpec;
-import org.apache.iceberg.PartitionSpecParser;
 import org.apache.iceberg.Scan;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.StructLike;
@@ -137,7 +136,7 @@ public class IcebergSplitSource
     private final IcebergTableHandle tableHandle;
     private final Map<String, String> fileIoProperties;
     private final Scan<?, FileScanTask, CombinedScanTask> tableScan;
-    private final Optional<Long> maxScannedFileSizeInBytes;
+    private final OptionalLong maxScannedFileSizeInBytes;
     private final Map<Integer, Type.PrimitiveType> fieldIdToType;
     private final DynamicFilter dynamicFilter;
     private final long dynamicFilteringWaitTimeoutMillis;
@@ -172,6 +171,7 @@ public class IcebergSplitSource
     private Iterator<FileScanTaskWithDomain> fileTasksIterator = emptyIterator();
 
     private final boolean recordScannedFiles;
+    private final Map<Integer, PartitionSpec> specsById;
     private final int currentSpecId;
     @GuardedBy("this")
     private final ImmutableSet.Builder<DataFileWithDeleteFiles> scannedFiles = ImmutableSet.builder();
@@ -206,7 +206,7 @@ public class IcebergSplitSource
         this.tableHandle = requireNonNull(tableHandle, "tableHandle is null");
         this.fileIoProperties = requireNonNull(icebergTable.io().properties(), "fileIoProperties is null");
         this.tableScan = requireNonNull(tableScan, "tableScan is null");
-        this.maxScannedFileSizeInBytes = maxScannedFileSize.map(DataSize::toBytes);
+        this.maxScannedFileSizeInBytes = maxScannedFileSize.isPresent() ? OptionalLong.of(maxScannedFileSize.orElseThrow().toBytes()) : OptionalLong.empty();
         this.fieldIdToType = primitiveFieldTypes(tableScan.schema());
         this.dynamicFilter = requireNonNull(dynamicFilter, "dynamicFilter is null");
         this.dynamicFilteringWaitTimeoutMillis = dynamicFilteringWaitTimeout.toMillis();
@@ -214,6 +214,7 @@ public class IcebergSplitSource
         this.partitionConstraintMatcher = new PartitionConstraintMatcher(constraint);
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.recordScannedFiles = recordScannedFiles;
+        this.specsById = icebergTable.specs();
         this.currentSpecId = icebergTable.spec().specId();
         this.minimumAssignedSplitWeight = minimumAssignedSplitWeight;
         this.projectedBaseColumns = tableHandle.getProjectedColumns().stream()
@@ -343,14 +344,21 @@ public class IcebergSplitSource
         for (FileScanTaskWithDomain fileScanTaskWithDomain : fileScanTasks) {
             FileScanTask wholeFileTask = fileScanTaskWithDomain.fileScanTask();
             if (recordScannedFiles) {
-                // Equality deletes can only be cleaned up if the whole table has been optimized.
+                // Equality deletes can be either global (written with an unpartitioned spec) or partition-scoped
+                // (written with a partitioned spec). Global equality deletes apply across all partitions and can only
+                // be cleaned up when the whole table is optimized.
                 // Equality and position deletes may apply to many files, however position deletes are always local to a partition
                 // https://github.com/apache/iceberg/blob/70c506ebad2dfc6d61b99c05efd59e884282bfa6/core/src/main/java/org/apache/iceberg/deletes/DeleteGranularity.java#L61
-                // OPTIMIZE supports only enforced predicates which select whole partitions, so if there is no path or fileModifiedTime predicate, then we can clean up position deletes
+                // OPTIMIZE supports only enforced predicates which select whole partitions, so if there is no path or fileModifiedTime predicate, then we can clean up deletes
                 List<org.apache.iceberg.DeleteFile> fullyAppliedDeletes = wholeFileTask.deletes().stream()
                         .filter(deleteFile -> switch (deleteFile.content()) {
-                            case POSITION_DELETES -> pathDomain.isAll() && fileModifiedTimeDomain.isAll();
-                            case EQUALITY_DELETES -> tableHandle.getEnforcedPredicate().isAll();
+                            case POSITION_DELETES -> isUnconstrainedPathAndTimeDomain();
+                            case EQUALITY_DELETES -> {
+                                if (specsById.get(deleteFile.specId()).isUnpartitioned()) {
+                                    yield tableHandle.getEnforcedPredicate().isAll();
+                                }
+                                yield isUnconstrainedPathAndTimeDomain();
+                            }
                             case DATA -> throw new IllegalStateException("Unexpected delete file: " + deleteFile);
                         })
                         .collect(toImmutableList());
@@ -371,6 +379,11 @@ public class IcebergSplitSource
             }
         }
         return scanTaskBuilder.build().iterator();
+    }
+
+    private boolean isUnconstrainedPathAndTimeDomain()
+    {
+        return pathDomain.isAll() && fileModifiedTimeDomain.isAll();
     }
 
     private synchronized List<FileScanTaskWithDomain> processFileScanTask(TupleDomain<IcebergColumnHandle> dynamicFilterPredicate)
@@ -421,7 +434,7 @@ public class IcebergSplitSource
         BaseFileScanTask fileScanTask = (BaseFileScanTask) fileScanTaskWithDomain.fileScanTask();
         if (fileHasNoDeletions &&
                 maxScannedFileSizeInBytes.isPresent() &&
-                fileScanTask.file().fileSizeInBytes() > maxScannedFileSizeInBytes.get()) {
+                fileScanTask.file().fileSizeInBytes() > maxScannedFileSizeInBytes.getAsLong()) {
             return true;
         }
 
@@ -727,7 +740,7 @@ public class IcebergSplitSource
                 task.file().recordCount(),
                 IcebergFileFormat.fromIceberg(task.file().format()),
                 partitionValues,
-                PartitionSpecParser.toJson(task.spec()),
+                task.spec().specId(),
                 PartitionData.toJson(task.file().partition()),
                 task.deletes().stream()
                         .peek(file -> verifyDeletionVectorReferencesDataFile(task, file))

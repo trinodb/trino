@@ -231,9 +231,9 @@ public abstract class AbstractTestQueryFramework
                         SqlTaskManager taskManager = server.getTaskManager();
                         List<TaskInfo> taskInfos = taskManager.getAllTaskInfo();
                         for (TaskInfo taskInfo : taskInfos) {
-                            TaskId taskId = taskInfo.taskStatus().getTaskId();
+                            TaskId taskId = taskInfo.taskStatus().taskId();
                             QueryId queryId = taskId.queryId();
-                            TaskState taskState = taskInfo.taskStatus().getState();
+                            TaskState taskState = taskInfo.taskStatus().state();
                             if (!taskState.isDone()) {
                                 try {
                                     BasicQueryInfo basicQueryInfo = queryManager.getQueryInfo(queryId);
@@ -259,19 +259,19 @@ public abstract class AbstractTestQueryFramework
         else {
             return queryDetails + getAllStages(queryInfo.getStages()).stream()
                     .map(stageInfo -> {
-                        String stageDetail = format("Stage %s [%s]", stageInfo.getStageId(), stageInfo.getState());
-                        if (stageInfo.getTasks().isEmpty()) {
+                        String stageDetail = format("Stage %s [%s]", stageInfo.stageId(), stageInfo.state());
+                        if (stageInfo.tasks().isEmpty()) {
                             return stageDetail;
                         }
-                        return stageDetail + stageInfo.getTasks().stream()
+                        return stageDetail + stageInfo.tasks().stream()
                                 .map(TaskInfo::taskStatus)
                                 .map(task -> {
-                                    String taskDetail = format("Task %s [%s]", task.getTaskId(), task.getState());
-                                    if (task.getFailures().isEmpty()) {
+                                    String taskDetail = format("Task %s [%s]", task.taskId(), task.state());
+                                    if (task.failures().isEmpty()) {
                                         return taskDetail;
                                     }
-                                    return " -- Failures: " + task.getFailures().stream()
-                                            .map(failure -> format("%s %s: %s", failure.getErrorCode(), failure.getType(), failure.getMessage()))
+                                    return " -- Failures: " + task.failures().stream()
+                                            .map(failure -> format("%s %s: %s", failure.errorCode(), failure.type(), failure.message()))
                                             .collect(Collectors.joining(", ", "[", "]"));
                                 })
                                 .collect(Collectors.joining("\n\t\t", ":\n\t\t", ""));

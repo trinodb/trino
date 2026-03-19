@@ -251,7 +251,8 @@ implementation is used:
     is parallelized.
   - `8`
 * - `iceberg.file-delete-threads`
-  - Number of threads to use for deleting files when running `expire_snapshots` procedure.
+  - Number of threads to use for deleting files when running the `expire_snapshots`
+    or `remove_orphan_files` procedure, or when executing `DROP TABLE` queries.
   - Double the number of processors on the coordinator node.
 * - `iceberg.bucket-execution`
   - Enable bucket-aware execution. This allows the engine to use physical
@@ -892,6 +893,15 @@ the maximum size of manifest files produced by this procedure.
 
 ```sql
 ALTER TABLE test_table EXECUTE optimize_manifests;
+```
+
+```text
+metric_name                      | metric_value
+---------------------------------+--------------
+rewritten_manifests_count        |            2
+added_manifests_count            |            1
+kept_manifests_count             |            1
+processed_manifest_entries_count |            2
 ```
 
 (iceberg-expire-snapshots)=

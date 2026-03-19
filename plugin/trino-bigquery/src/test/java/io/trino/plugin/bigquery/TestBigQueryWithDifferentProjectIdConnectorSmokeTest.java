@@ -13,6 +13,8 @@
  */
 package io.trino.plugin.bigquery;
 
+import dev.failsafe.Failsafe;
+import dev.failsafe.RetryPolicy;
 import io.trino.testing.BaseConnectorSmokeTest;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
@@ -24,12 +26,16 @@ import static io.trino.plugin.bigquery.BigQueryQueryRunner.BIGQUERY_CREDENTIALS_
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.TestingProperties.requiredNonEmptySystemProperty;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assumptions.abort;
 
 public class TestBigQueryWithDifferentProjectIdConnectorSmokeTest
         extends BaseConnectorSmokeTest
 {
     private static final String ALTERNATE_PROJECT_CATALOG = "bigquery";
     private static final String SERVICE_ACCOUNT_CATALOG = "service_account_bigquery";
+    // there is a brief delay before newly written data becomes visible in the BigQuery connector
+    // https://github.com/trinodb/trino/issues/20894
+    private static final RetryPolicy<?> DELETE_TEST_RETRY_POLICY = RetryPolicy.builder().withMaxAttempts(3).build();
 
     protected String alternateProjectId;
 
@@ -60,6 +66,30 @@ public class TestBigQueryWithDifferentProjectIdConnectorSmokeTest
                  SUPPORTS_UPDATE -> false;
             default -> super.hasBehavior(connectorBehavior);
         };
+    }
+
+    @Test
+    @Override
+    public void verifySupportsRowLevelDeleteDeclaration()
+    {
+        // This connector does not support modifying table rows
+        abort("skipped");
+    }
+
+    @Test
+    @Override
+    public void verifySupportsUpdateDeclaration()
+    {
+        // This connector does not support modifying table rows
+        abort("skipped");
+    }
+
+    @Test
+    @Override
+    public void verifySupportsRowLevelUpdateDeclaration()
+    {
+        // This connector does not support modifying table rows
+        abort("skipped");
     }
 
     @Test
@@ -101,5 +131,21 @@ public class TestBigQueryWithDifferentProjectIdConnectorSmokeTest
         finally {
             assertUpdate("DROP TABLE IF EXISTS " + tableName);
         }
+    }
+
+    @Test
+    @Override
+    public void testDeleteAllDataFromTable()
+    {
+        Failsafe.with(DELETE_TEST_RETRY_POLICY)
+                .run(super::testDeleteAllDataFromTable);
+    }
+
+    @Test
+    @Override
+    public void testRowLevelDelete()
+    {
+        Failsafe.with(DELETE_TEST_RETRY_POLICY)
+                .run(super::testRowLevelDelete);
     }
 }

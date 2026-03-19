@@ -41,7 +41,7 @@ public class SplitAssignment
         this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
         // Sort the splits to make sure that the order of scheduling splits is deterministic
         this.splits = requireNonNull(splits, "splits is null").stream()
-                .collect(toImmutableSortedSet(comparingLong(ScheduledSplit::getSequenceId)));
+                .collect(toImmutableSortedSet(comparingLong(ScheduledSplit::sequenceId)));
         this.noMoreSplits = noMoreSplits;
     }
 
@@ -72,7 +72,7 @@ public class SplitAssignment
             // we know that either the new assignment one has new splits and/or it is marking the assignment as closed
             checkArgument(!noMoreSplits || splits.containsAll(assignment.getSplits()), "Assignment %s has new splits, but no more splits already set", planNodeId);
 
-            Set<ScheduledSplit> newSplits = ImmutableSet.<ScheduledSplit>builder()
+            Set<ScheduledSplit> newSplits = ImmutableSet.<ScheduledSplit>builderWithExpectedSize(splits.size() + assignment.getSplits().size())
                     .addAll(splits)
                     .addAll(assignment.getSplits())
                     .build();

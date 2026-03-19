@@ -20,7 +20,7 @@ import io.trino.operator.ProcessorContext;
 import io.trino.operator.WorkProcessor;
 import io.trino.operator.WorkProcessorOperator;
 import io.trino.operator.join.JoinStatisticsCounter;
-import io.trino.operator.join.LookupJoinOperatorFactory.JoinType;
+import io.trino.operator.join.JoinType;
 import io.trino.operator.join.LookupSource;
 import io.trino.operator.join.unspilled.JoinProbe.JoinProbeFactory;
 import io.trino.spi.Page;
@@ -35,7 +35,7 @@ import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static java.util.Objects.requireNonNull;
 
 /**
- * Like {@link io.trino.operator.join.LookupJoinOperator} but simplified,
+ * Like {@link io.trino.operator.join.spilling.LookupJoinOperator} but simplified,
  * without spill support.
  */
 public class LookupJoinOperator

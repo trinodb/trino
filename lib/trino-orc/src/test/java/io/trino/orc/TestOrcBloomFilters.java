@@ -43,6 +43,7 @@ import java.sql.Timestamp;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.concurrent.ThreadLocalRandom;
 
 import static io.airlift.slice.Slices.wrappedBuffer;
@@ -168,7 +169,7 @@ public class TestOrcBloomFilters
     {
         BloomFilter bloomFilter = new BloomFilter(TEST_VALUES.size() * 10L, 0.01);
 
-        for (Map.Entry<Object, Type> testValue : TEST_VALUES.entrySet()) {
+        for (Entry<Object, Type> testValue : TEST_VALUES.entrySet()) {
             Object o = testValue.getKey();
             if (o instanceof Long longValue) {
                 if (testValue.getValue() instanceof RealType) {
@@ -201,7 +202,7 @@ public class TestOrcBloomFilters
             }
         }
 
-        for (Map.Entry<Object, Type> testValue : TEST_VALUES.entrySet()) {
+        for (Entry<Object, Type> testValue : TEST_VALUES.entrySet()) {
             boolean matched = checkInBloomFilter(bloomFilter, testValue.getKey(), testValue.getValue());
             assertThat(matched)
                     .describedAs("type " + testValue.getClass())
@@ -214,7 +215,7 @@ public class TestOrcBloomFilters
     {
         BloomFilter bloomFilter = new BloomFilter(TEST_VALUES.size() * 10L, 0.01);
 
-        for (Map.Entry<Object, Type> testValue : TEST_VALUES.entrySet()) {
+        for (Entry<Object, Type> testValue : TEST_VALUES.entrySet()) {
             boolean matched = checkInBloomFilter(bloomFilter, testValue.getKey(), testValue.getValue());
             assertThat(matched)
                     .describedAs("type " + testValue.getKey().getClass())

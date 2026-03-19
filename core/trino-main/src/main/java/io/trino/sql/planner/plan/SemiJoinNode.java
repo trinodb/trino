@@ -58,6 +58,7 @@ public class SemiJoinNode
 
         checkArgument(source.getOutputSymbols().contains(sourceJoinSymbol), "Source does not contain join symbol");
         checkArgument(filteringSource.getOutputSymbols().contains(filteringSourceJoinSymbol), "Filtering source does not contain filtering join symbol");
+        checkArgument(sourceJoinSymbol.type().equals(filteringSourceJoinSymbol.type()), "Type mismatch between source and filtering source join symbols");
     }
 
     public enum DistributionType

@@ -13,12 +13,12 @@
  */
 package io.trino.plugin.openlineage;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.inject.Inject;
-import io.airlift.json.ObjectMapperProvider;
+import io.airlift.json.JsonMapperProvider;
 import io.airlift.log.Logger;
 import io.openlineage.client.OpenLineage;
 import io.openlineage.client.OpenLineage.DatasetFacetsBuilder;
@@ -68,7 +68,7 @@ public class OpenLineageListener
         implements EventListener
 {
     private static final Logger logger = Logger.get(OpenLineageListener.class);
-    private static final ObjectMapper QUERY_STATISTICS_MAPPER = new ObjectMapperProvider().get();
+    private static final JsonMapper QUERY_STATISTICS_MAPPER = new JsonMapperProvider().get();
 
     private final OpenLineage openLineage;
     private final OpenLineageClient client;

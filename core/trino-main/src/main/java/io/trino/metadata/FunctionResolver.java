@@ -143,6 +143,7 @@ public class FunctionResolver
                     resolvedFunctionId,
                     functionBinding.boundFunctionMetadata().getKind(),
                     functionBinding.boundFunctionMetadata().isDeterministic(),
+                    functionBinding.boundFunctionMetadata().isNeverFails(),
                     functionBinding.boundFunctionMetadata().getFunctionNullability(),
                     ImmutableMap.of(),
                     ImmutableSet.of());
@@ -259,6 +260,7 @@ public class FunctionResolver
                 functionBinding.getFunctionId(),
                 functionMetadata.getKind(),
                 functionMetadata.isDeterministic(),
+                functionMetadata.isNeverFails(),
                 functionMetadata.getFunctionNullability(),
                 dependentTypes,
                 functions.build());
@@ -297,6 +299,6 @@ public class FunctionResolver
         }
         return accessControl.canExecuteFunction(
                 SecurityContext.of(session),
-                new QualifiedObjectName(functionName.getCatalogName(), functionName.getSchemaName(), functionName.getFunctionName()));
+                new QualifiedObjectName(functionName.catalogName(), functionName.schemaName(), functionName.functionName()));
     }
 }

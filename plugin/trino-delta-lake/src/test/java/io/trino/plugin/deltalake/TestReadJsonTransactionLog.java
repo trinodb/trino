@@ -14,8 +14,8 @@
 package io.trino.plugin.deltalake;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import io.airlift.json.ObjectMapperProvider;
+import com.fasterxml.jackson.databind.json.JsonMapper;
+import io.airlift.json.JsonMapperProvider;
 import io.trino.plugin.deltalake.transactionlog.AddFileEntry;
 import io.trino.plugin.deltalake.transactionlog.DeltaLakeTransactionLogEntry;
 import io.trino.plugin.deltalake.transactionlog.RemoveFileEntry;
@@ -37,7 +37,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestReadJsonTransactionLog
 {
-    private final ObjectMapper objectMapper = new ObjectMapperProvider().get();
+    private final JsonMapper jsonMapper = new JsonMapperProvider().get();
 
     @Test
     public void testAdd()
@@ -83,7 +83,7 @@ public class TestReadJsonTransactionLog
     public void testReadLastCheckpointFile()
             throws JsonProcessingException
     {
-        LastCheckpoint lastCheckpoint = objectMapper.readValue("{\"version\":10,\"size\":17}", LastCheckpoint.class);
+        LastCheckpoint lastCheckpoint = jsonMapper.readValue("{\"version\":10,\"size\":17}", LastCheckpoint.class);
         assertThat(lastCheckpoint.version()).isEqualTo(10L);
         assertThat(lastCheckpoint.size()).isEqualTo(17);
         assertThat(lastCheckpoint.parts()).isEmpty();
@@ -93,7 +93,7 @@ public class TestReadJsonTransactionLog
     public void testReadLastCheckpointFileForMultipart()
             throws JsonProcessingException
     {
-        LastCheckpoint lastCheckpoint = objectMapper.readValue("{\"version\":237580,\"size\":658573,\"parts\":2}", LastCheckpoint.class);
+        LastCheckpoint lastCheckpoint = jsonMapper.readValue("{\"version\":237580,\"size\":658573,\"parts\":2}", LastCheckpoint.class);
         assertThat(lastCheckpoint.version()).isEqualTo(237580L);
         assertThat(lastCheckpoint.size()).isEqualTo(658573L);
         assertThat(lastCheckpoint.parts()).hasValue(2);
@@ -126,7 +126,7 @@ public class TestReadJsonTransactionLog
     private DeltaLakeTransactionLogEntry deserialize(String json)
     {
         try {
-            return objectMapper.readValue(json, DeltaLakeTransactionLogEntry.class);
+            return jsonMapper.readValue(json, DeltaLakeTransactionLogEntry.class);
         }
         catch (JsonProcessingException e) {
             throw new RuntimeException("Failed to parse " + json, e);

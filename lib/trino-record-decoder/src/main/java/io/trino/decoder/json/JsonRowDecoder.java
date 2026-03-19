@@ -14,7 +14,7 @@
 package io.trino.decoder.json;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.fasterxml.jackson.databind.node.MissingNode;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableMap;
@@ -24,6 +24,7 @@ import io.trino.decoder.RowDecoder;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkState;
@@ -37,12 +38,12 @@ public class JsonRowDecoder
 {
     public static final String NAME = "json";
 
-    private final ObjectMapper objectMapper;
+    private final JsonMapper jsonMapper;
     private final Map<DecoderColumnHandle, JsonFieldDecoder> fieldDecoders;
 
-    JsonRowDecoder(ObjectMapper objectMapper, Map<DecoderColumnHandle, JsonFieldDecoder> fieldDecoders)
+    JsonRowDecoder(JsonMapper jsonMapper, Map<DecoderColumnHandle, JsonFieldDecoder> fieldDecoders)
     {
-        this.objectMapper = requireNonNull(objectMapper, "objectMapper is null");
+        this.jsonMapper = requireNonNull(jsonMapper, "jsonMapper is null");
         this.fieldDecoders = ImmutableMap.copyOf(fieldDecoders);
     }
 
@@ -51,7 +52,7 @@ public class JsonRowDecoder
     {
         JsonNode tree;
         try {
-            tree = objectMapper.readTree(data);
+            tree = jsonMapper.readTree(data);
         }
         catch (Exception e) {
             return Optional.empty();
@@ -59,7 +60,7 @@ public class JsonRowDecoder
 
         Map<DecoderColumnHandle, FieldValueProvider> decodedRow = new HashMap<>();
 
-        for (Map.Entry<DecoderColumnHandle, JsonFieldDecoder> entry : fieldDecoders.entrySet()) {
+        for (Entry<DecoderColumnHandle, JsonFieldDecoder> entry : fieldDecoders.entrySet()) {
             DecoderColumnHandle columnHandle = entry.getKey();
             JsonFieldDecoder decoder = entry.getValue();
             JsonNode node = locateNode(tree, columnHandle);

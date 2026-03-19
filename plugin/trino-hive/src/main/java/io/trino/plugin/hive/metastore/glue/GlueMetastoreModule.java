@@ -245,7 +245,7 @@ public final class GlueMetastoreModule
                     .setCaptureExperimentalSpanAttributes(true)
                     .setRecordIndividualHttpError(true)
                     .build()
-                    .newExecutionInterceptor();
+                    .createExecutionInterceptor();
         }
     }
 }

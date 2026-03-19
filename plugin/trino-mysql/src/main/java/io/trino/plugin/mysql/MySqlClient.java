@@ -106,6 +106,7 @@ import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.sql.SQLSyntaxErrorException;
+import java.sql.Statement;
 import java.sql.Timestamp;
 import java.sql.Types;
 import java.time.Instant;
@@ -117,6 +118,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalDouble;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.function.BiFunction;
@@ -518,7 +520,7 @@ public class MySqlClient
     @Override
     protected String getColumnDefinitionSql(ConnectorSession session, ColumnMetadata column, String columnName)
     {
-        if (column.getComment() != null) {
+        if (column.getComment().isPresent()) {
             throw new TrinoException(NOT_SUPPORTED, "This connector does not support creating tables with column comment");
         }
 
@@ -960,7 +962,7 @@ public class MySqlClient
 
     private void addColumn(ConnectorSession session, RemoteTableName table, ColumnMetadata column, String position)
     {
-        if (column.getComment() != null) {
+        if (column.getComment().isPresent()) {
             throw new TrinoException(NOT_SUPPORTED, "This connector does not support adding columns with comments");
         }
 
@@ -1361,7 +1363,7 @@ public class MySqlClient
 
     private static boolean isGtidMode(Connection connection)
     {
-        try (java.sql.Statement statement = connection.createStatement();
+        try (Statement statement = connection.createStatement();
                 ResultSet resultSet = statement.executeQuery("SHOW VARIABLES LIKE 'gtid_mode'")) {
             if (resultSet.next()) {
                 return !resultSet.getString("Value").equalsIgnoreCase("OFF");
@@ -1468,13 +1470,13 @@ public class MySqlClient
     // See https://dev.mysql.com/doc/refman/8.0/en/optimizer-statistics.html
     public static class ColumnHistogram
     {
-        private final Optional<Double> nullFraction;
+        private final OptionalDouble nullFraction;
         private final Optional<String> histogramType;
         private final Optional<List<List<Object>>> buckets;
 
         @JsonCreator
         public ColumnHistogram(
-                @JsonProperty("null-values") Optional<Double> nullFraction,
+                @JsonProperty("null-values") OptionalDouble nullFraction,
                 @JsonProperty("histogram-type") Optional<String> histogramType,
                 @JsonProperty("buckets") Optional<List<List<Object>>> buckets)
         {
@@ -1485,7 +1487,7 @@ public class MySqlClient
 
         public void updateColumnStatistics(ColumnStatistics.Builder columnStatistics)
         {
-            nullFraction.map(Estimate::of).ifPresent(columnStatistics::setNullsFraction);
+            nullFraction.ifPresent(value -> columnStatistics.setNullsFraction(Estimate.of(value)));
             getDistinctValuesCount().map(Estimate::of).ifPresent(columnStatistics::setDistinctValuesCount);
         }
 

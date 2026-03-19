@@ -46,7 +46,7 @@ public class RemoveRedundantLogicalTerms
     @Override
     public Optional<Expression> apply(Expression expression, Session session, Map<Symbol, Expression> bindings)
     {
-        if (!(expression instanceof Logical logical)) {
+        if (!(expression instanceof Logical(Logical.Operator operator, List<Expression> expressions))) {
             return Optional.empty();
         }
 
@@ -54,8 +54,8 @@ public class RemoveRedundantLogicalTerms
 
         boolean removed = false;
         Set<Expression> seen = new HashSet<>();
-        for (Expression term : logical.terms()) {
-            if (logical.operator() == AND && term.equals(TRUE) || logical.operator() == OR && term.equals(FALSE) || seen.contains(term)) {
+        for (Expression term : expressions) {
+            if (operator == AND && term.equals(TRUE) || operator == OR && term.equals(FALSE) || seen.contains(term)) {
                 removed = true;
             }
             else {
@@ -76,6 +76,6 @@ public class RemoveRedundantLogicalTerms
             return Optional.of(newTerms.getFirst());
         }
 
-        return Optional.of(new Logical(logical.operator(), newTerms));
+        return Optional.of(new Logical(operator, newTerms));
     }
 }

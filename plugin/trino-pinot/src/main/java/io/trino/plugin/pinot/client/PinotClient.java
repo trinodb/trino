@@ -16,7 +16,7 @@ package io.trino.plugin.pinot.client;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.DeserializationFeature;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
@@ -29,6 +29,7 @@ import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.Multimap;
 import com.google.common.net.HostAndPort;
 import com.google.inject.Inject;
+import io.airlift.http.client.HeaderName;
 import io.airlift.http.client.HttpClient;
 import io.airlift.http.client.HttpUriBuilder;
 import io.airlift.http.client.JsonResponseHandler;
@@ -65,6 +66,7 @@ import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
@@ -80,9 +82,9 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.cache.CacheLoader.asyncReloading;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static com.google.common.net.HttpHeaders.ACCEPT;
-import static com.google.common.net.HttpHeaders.AUTHORIZATION;
-import static com.google.common.net.HttpHeaders.CONTENT_TYPE;
+import static io.airlift.http.client.HeaderNames.ACCEPT;
+import static io.airlift.http.client.HeaderNames.AUTHORIZATION;
+import static io.airlift.http.client.HeaderNames.CONTENT_TYPE;
 import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 import static io.airlift.http.client.JsonResponseHandler.createJsonResponseHandler;
 import static io.airlift.json.JsonCodec.jsonCodec;
@@ -151,8 +153,10 @@ public class PinotClient
         this.brokersForTableJsonCodec = requireNonNull(brokersForTableJsonCodec, "brokersForTableJsonCodec is null");
         this.timeBoundaryJsonCodec = requireNonNull(timeBoundaryJsonCodec, "timeBoundaryJsonCodec is null");
         this.tablesJsonCodec = requireNonNull(tablesJsonCodec, "tablesJsonCodec is null");
-        this.schemaJsonCodec = new JsonCodecFactory(() -> new ObjectMapper()
-                .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)).jsonCodec(Schema.class);
+        this.schemaJsonCodec = new JsonCodecFactory(JsonMapper.builder()
+                .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
+                .build())
+                .jsonCodec(Schema.class);
         this.brokerResponseCodec = requireNonNull(brokerResponseCodec, "brokerResponseCodec is null");
         this.pinotHostMapper = requireNonNull(pinotHostMapper, "pinotHostMapper is null");
         this.scheme = config.isTlsEnabled() ? "https" : "http";
@@ -186,7 +190,7 @@ public class PinotClient
             Request.Builder requestBuilder,
             Optional<String> requestBody,
             JsonCodec<T> codec,
-            Multimap<String, String> additionalHeaders)
+            Multimap<HeaderName, String> additionalHeaders)
     {
         requestBuilder.addHeaders(additionalHeaders);
         requestBuilder.setHeader(ACCEPT, APPLICATION_JSON);
@@ -217,7 +221,7 @@ public class PinotClient
 
     private <T> T sendHttpGetToControllerJson(String path, JsonCodec<T> codec)
     {
-        ImmutableMultimap.Builder<String, String> additionalHeadersBuilder = ImmutableMultimap.builder();
+        ImmutableMultimap.Builder<HeaderName, String> additionalHeadersBuilder = ImmutableMultimap.builder();
         controllerAuthenticationProvider.getAuthenticationToken().ifPresent(token -> additionalHeadersBuilder.put(AUTHORIZATION, token));
         URI controllerPathUri = uriBuilderFrom(getControllerUrl()).appendPath(path).scheme(scheme).build();
         return doHttpActionWithHeadersJson(
@@ -229,7 +233,7 @@ public class PinotClient
 
     private <T> T sendHttpGetToBrokerJson(String table, String path, JsonCodec<T> codec)
     {
-        ImmutableMultimap.Builder<String, String> additionalHeadersBuilder = ImmutableMultimap.builder();
+        ImmutableMultimap.Builder<HeaderName, String> additionalHeadersBuilder = ImmutableMultimap.builder();
         brokerAuthenticationProvider.getAuthenticationToken().ifPresent(token -> additionalHeadersBuilder.put(AUTHORIZATION, token));
         HttpUriBuilder httpUriBuilder = getBrokerHttpUriBuilder(getBrokerHost(table));
         URI brokerPathUri = httpUriBuilder.scheme(scheme).appendPath(path).build();
@@ -407,11 +411,11 @@ public class PinotClient
     {
         Map<String, Map<String, List<String>>> routingTable = sendHttpGetToBrokerJson(tableName, format(ROUTING_TABLE_API_TEMPLATE, tableName), ROUTING_TABLE_CODEC);
         ImmutableMap.Builder<String, Map<String, List<String>>> routingTableMap = ImmutableMap.builder();
-        for (Map.Entry<String, Map<String, List<String>>> entry : routingTable.entrySet()) {
+        for (Entry<String, Map<String, List<String>>> entry : routingTable.entrySet()) {
             String tableNameWithType = entry.getKey();
             if (!entry.getValue().isEmpty() && tableName.equals(extractRawTableName(tableNameWithType))) {
                 ImmutableMap.Builder<String, List<String>> segmentBuilder = ImmutableMap.builder();
-                for (Map.Entry<String, List<String>> segmentEntry : entry.getValue().entrySet()) {
+                for (Entry<String, List<String>> segmentEntry : entry.getValue().entrySet()) {
                     if (!segmentEntry.getValue().isEmpty()) {
                         segmentBuilder.put(segmentEntry.getKey(), segmentEntry.getValue());
                     }
@@ -552,7 +556,7 @@ public class PinotClient
             LOG.debug("Query '%s' on broker host '%s'", query.query(), queryPathUri);
             Request.Builder builder = Request.Builder.preparePost().setUri(queryPathUri);
 
-            ImmutableMultimap.Builder<String, String> additionalHeadersBuilder = ImmutableMultimap.builder();
+            ImmutableMultimap.Builder<HeaderName, String> additionalHeadersBuilder = ImmutableMultimap.builder();
             brokerAuthenticationProvider.getAuthenticationToken().ifPresent(token -> additionalHeadersBuilder.put(AUTHORIZATION, token));
             BrokerResponseNative response = doHttpActionWithHeadersJson(builder, Optional.of(queryRequest), brokerResponseCodec,
                     additionalHeadersBuilder.build());

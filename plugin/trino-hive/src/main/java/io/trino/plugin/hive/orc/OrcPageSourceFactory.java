@@ -63,6 +63,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.function.Function;
@@ -337,7 +338,7 @@ public class OrcPageSourceFactory
                             projectedLayout = createProjectedLayout(orcBaseColumn, projectionsByBaseColumnKey.get(columnName));
                             columnDomains = effectivePredicateDomains.entrySet().stream()
                                     .filter(columnDomain -> columnDomain.getKey().getBaseColumnName().toLowerCase(ENGLISH).equals(columnName))
-                                    .collect(toImmutableMap(columnDomain -> columnDomain.getKey().getHiveColumnProjectionInfo(), Map.Entry::getValue));
+                                    .collect(toImmutableMap(columnDomain -> columnDomain.getKey().getHiveColumnProjectionInfo(), Entry::getValue));
                         }
                     }
                     else if (baseColumn.getBaseHiveColumnIndex() < fileColumns.size()) {
@@ -346,7 +347,7 @@ public class OrcPageSourceFactory
                             projectedLayout = createProjectedLayout(orcBaseColumn, projectionsByBaseColumnKey.get(baseColumn.getBaseHiveColumnIndex()));
                             columnDomains = effectivePredicateDomains.entrySet().stream()
                                     .filter(columnDomain -> columnDomain.getKey().getBaseHiveColumnIndex() == baseColumn.getBaseHiveColumnIndex())
-                                    .collect(toImmutableMap(columnDomain -> columnDomain.getKey().getHiveColumnProjectionInfo(), Map.Entry::getValue));
+                                    .collect(toImmutableMap(columnDomain -> columnDomain.getKey().getHiveColumnProjectionInfo(), Entry::getValue));
                         }
                     }
 
@@ -365,7 +366,7 @@ public class OrcPageSourceFactory
                             .orElse(baseColumn.getType()));
 
                     // Add predicates on top-level and nested columns
-                    for (Map.Entry<Optional<HiveColumnProjectionInfo>, Domain> columnDomain : columnDomains.entrySet()) {
+                    for (Entry<Optional<HiveColumnProjectionInfo>, Domain> columnDomain : columnDomains.entrySet()) {
                         OrcColumn nestedColumn = getNestedColumn(orcBaseColumn, columnDomain.getKey());
                         if (nestedColumn != null) {
                             predicateBuilder.addColumn(nestedColumn.getColumnId(), columnDomain.getValue());

@@ -17,12 +17,13 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalLong;
 
 import static java.util.Objects.requireNonNull;
 
 public record IcebergInputInfo(
         int formatVersion,
-        Optional<Long> snapshotId,
+        OptionalLong snapshotId,
         List<String> partitionFields,
         String tableDefaultFileFormat,
         Optional<String> totalRecords,

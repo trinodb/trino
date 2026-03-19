@@ -44,7 +44,7 @@ public final class TimeFunctions
     private TimeFunctions() {}
 
     @Description("Millisecond of the second of the given time")
-    @ScalarFunction("millisecond")
+    @ScalarFunction(value = "millisecond", neverFails = true)
     @LiteralParameters("p")
     @SqlType(StandardTypes.BIGINT)
     public static long millisecond(@SqlType("time(p)") long time)
@@ -53,7 +53,7 @@ public final class TimeFunctions
     }
 
     @Description("Second of the minute of the given time")
-    @ScalarFunction("second")
+    @ScalarFunction(value = "second", neverFails = true)
     @LiteralParameters("p")
     @SqlType(StandardTypes.BIGINT)
     public static long second(@SqlType("time(p)") long time)
@@ -62,7 +62,7 @@ public final class TimeFunctions
     }
 
     @Description("Minute of the hour of the given time")
-    @ScalarFunction("minute")
+    @ScalarFunction(value = "minute", neverFails = true)
     @LiteralParameters("p")
     @SqlType(StandardTypes.BIGINT)
     public static long minute(@SqlType("time(p)") long time)
@@ -71,7 +71,7 @@ public final class TimeFunctions
     }
 
     @Description("Hour of the day of the given time")
-    @ScalarFunction("hour")
+    @ScalarFunction(value = "hour", neverFails = true)
     @LiteralParameters("p")
     @SqlType(StandardTypes.BIGINT)
     public static long hour(@SqlType("time(p)") long time)

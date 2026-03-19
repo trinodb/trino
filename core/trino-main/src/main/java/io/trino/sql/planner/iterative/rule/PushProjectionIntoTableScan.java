@@ -28,6 +28,7 @@ import io.trino.spi.connector.Assignment;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ProjectionApplicationResult;
 import io.trino.spi.expression.ConnectorExpression;
+import io.trino.spi.expression.Constant;
 import io.trino.spi.expression.Variable;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.sql.PlannerContext;
@@ -53,7 +54,6 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.SystemSessionProperties.isAllowPushdownIntoConnectors;
 import static io.trino.matching.Capture.newCapture;
-import static io.trino.sql.ir.optimizer.IrExpressionOptimizer.newOptimizer;
 import static io.trino.sql.planner.PartialTranslator.extractPartialTranslations;
 import static io.trino.sql.planner.ReferenceAwareExpressionNodeInliner.replaceExpression;
 import static io.trino.sql.planner.plan.Patterns.project;
@@ -106,7 +106,7 @@ public class PushProjectionIntoTableScan
                                 session
                         ).entrySet().stream())
                 // Filter out constant expressions. Constant expressions should not be pushed to the connector.
-                .filter(entry -> !(entry.getValue() instanceof io.trino.spi.expression.Constant))
+                .filter(entry -> !(entry.getValue() instanceof Constant))
                 // Avoid duplicates
                 .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue, (first, ignore) -> first));
 
@@ -147,7 +147,7 @@ public class PushProjectionIntoTableScan
                     Expression translated = ConnectorExpressionTranslator.translate(session, expression, plannerContext, variableMappings);
                     // ConnectorExpressionTranslator may or may not preserve optimized form of expressions during round-trip. Avoid potential optimizer loop
                     // by ensuring expression is optimized.
-                    return newOptimizer(plannerContext).process(translated, session, ImmutableMap.of()).orElse(translated);
+                    return plannerContext.getExpressionOptimizer().process(translated, session, ImmutableMap.of()).orElse(translated);
                 })
                 .collect(toImmutableList());
 

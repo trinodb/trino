@@ -46,6 +46,12 @@ public class TestDeltaLakeGcs
         super.testPathContainsSpecialCharacter(warehouseDirectory, "partitioned_by");
     }
 
+    @Test(groups = {DELTA_LAKE_GCS, PROFILE_SPECIFIC_TESTS})
+    public void testLocationContainsDiscouragedCharacter()
+    {
+        super.testLocationContainsDiscouragedCharacter(warehouseDirectory);
+    }
+
     @Override
     protected String getCatalogName()
     {

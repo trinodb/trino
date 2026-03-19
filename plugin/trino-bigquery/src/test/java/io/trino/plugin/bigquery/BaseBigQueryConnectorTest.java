@@ -17,6 +17,8 @@ import com.google.cloud.bigquery.FieldValue;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultiset;
 import com.google.common.collect.Multiset;
+import dev.failsafe.Failsafe;
+import dev.failsafe.RetryPolicy;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.opentelemetry.sdk.trace.data.SpanData;
@@ -145,6 +147,26 @@ public abstract class BaseBigQueryConnectorTest
                 .row("shippriority", "bigint", "", "")
                 .row("comment", "varchar", "", "")
                 .build();
+    }
+
+    @Test
+    @Override
+    public void testDeleteWithVarcharPredicate()
+    {
+        // there is a brief delay before newly written data becomes visible in the BigQuery connector
+        // https://github.com/trinodb/trino/issues/20894
+        Failsafe.with(RetryPolicy.builder().withMaxAttempts(3).build())
+                .run(super::testDeleteWithVarcharPredicate);
+    }
+
+    @Test
+    @Override
+    public void testDelete()
+    {
+        // there is a brief delay before newly written data becomes visible in the BigQuery connector
+        // https://github.com/trinodb/trino/issues/20894
+        Failsafe.with(RetryPolicy.builder().withMaxAttempts(3).build())
+                .run(super::testDelete);
     }
 
     @Test
@@ -636,7 +658,8 @@ public abstract class BaseBigQueryConnectorTest
     public void testShowCreateTable()
     {
         assertThat((String) computeActual("SHOW CREATE TABLE orders").getOnlyValue())
-                .isEqualTo("""
+                .isEqualTo(
+                        """
                         CREATE TABLE bigquery.tpch.orders (
                            orderkey bigint NOT NULL,
                            custkey bigint NOT NULL,
@@ -842,11 +865,12 @@ public abstract class BaseBigQueryConnectorTest
 
     private long getTableReferenceCountInJob(String tableName)
     {
-        return bigQuerySqlExecutor.executeQuery("""
-                         SELECT count(*) FROM region-us.INFORMATION_SCHEMA.JOBS WHERE EXISTS(
-                             SELECT * FROM UNNEST(referenced_tables) AS referenced_table
-                                 WHERE referenced_table.table_id = '%s')
-                        """.formatted(tableName)).streamValues()
+        return bigQuerySqlExecutor.executeQuery(
+                """
+                 SELECT count(*) FROM region-us.INFORMATION_SCHEMA.JOBS WHERE EXISTS(
+                     SELECT * FROM UNNEST(referenced_tables) AS referenced_table
+                         WHERE referenced_table.table_id = '%s')
+                """.formatted(tableName)).streamValues()
                 .map(List::getFirst)
                 .map(FieldValue::getLongValue)
                 .collect(onlyElement());

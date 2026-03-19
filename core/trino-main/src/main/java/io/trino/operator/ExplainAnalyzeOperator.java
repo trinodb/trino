@@ -153,7 +153,7 @@ public class ExplainAnalyzeOperator
         QueryInfo queryInfo = queryPerformanceFetcher.getQueryInfo(operatorContext.getDriverContext().getTaskId().queryId());
         checkState(queryInfo.getStages().isPresent(), "Stages informations is missing");
         StagesInfo stagesInfo = queryInfo.getStages().get();
-        checkState(stagesInfo.getOutputStage().getSubStages().size() == 1, "Expected one sub stage of explain node");
+        checkState(stagesInfo.getOutputStage().subStages().size() == 1, "Expected one sub stage of explain node");
 
         if (!hasFinalStageInfo(stagesInfo)) {
             return null;

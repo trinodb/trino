@@ -30,6 +30,7 @@ import io.trino.orc.metadata.Stream.StreamKind;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Set;
 
 import static io.trino.orc.checkpoint.InputStreamCheckpoint.createInputStreamCheckpoint;
@@ -65,7 +66,7 @@ public final class Checkpoints
         SetMultimap<OrcColumnId, StreamKind> streamKinds = streamKindsBuilder.build();
 
         ImmutableMap.Builder<StreamId, StreamCheckpoint> checkpoints = ImmutableMap.builder();
-        for (Map.Entry<StreamId, List<RowGroupIndex>> entry : columnIndexes.entrySet()) {
+        for (Entry<StreamId, List<RowGroupIndex>> entry : columnIndexes.entrySet()) {
             OrcColumnId columnId = entry.getKey().getColumnId();
 
             if (!columns.contains(columnId)) {

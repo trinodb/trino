@@ -682,13 +682,7 @@ public class TestingTrinoServer
         return coordinator;
     }
 
-    public void registerServer(InternalNode server)
-    {
-        checkState(coordinator, "Current server is not a coordinator");
-        nodeManager.refreshNodes(true);
-    }
-
-    public void unregisterServer(InternalNode worker)
+    public void refreshNodes()
     {
         checkState(coordinator, "Current server is not a coordinator");
         nodeManager.refreshNodes(true);

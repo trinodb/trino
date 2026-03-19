@@ -18,6 +18,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.trino.operator.ReferenceCount;
+import io.trino.operator.join.spilling.PartitionedLookupSourceFactory;
 import io.trino.spi.type.Type;
 
 import java.util.List;

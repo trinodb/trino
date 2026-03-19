@@ -172,7 +172,7 @@ public final class BytecodeUtils
     {
         return generateInvocation(
                 scope,
-                resolvedFunction.signature().getName().getFunctionName(),
+                resolvedFunction.signature().getName().functionName(),
                 resolvedFunction.functionNullability(),
                 invocationConvention -> functionManager.getScalarFunctionImplementation(resolvedFunction, invocationConvention),
                 arguments,
@@ -220,7 +220,7 @@ public final class BytecodeUtils
     {
         return generateFullInvocation(
                 scope,
-                resolvedFunction.signature().getName().getFunctionName(),
+                resolvedFunction.signature().getName().functionName(),
                 resolvedFunction.functionNullability(),
                 resolvedFunction.signature().getArgumentTypes().stream()
                         .map(FunctionType.class::isInstance)
@@ -453,7 +453,7 @@ public final class BytecodeUtils
 
     public static BytecodeExpression invoke(Binding binding, BoundSignature signature)
     {
-        return invoke(binding, signature.getName().getFunctionName());
+        return invoke(binding, signature.getName().functionName());
     }
 
     /**

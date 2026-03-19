@@ -21,10 +21,7 @@ import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.predicate.ValueSet;
-import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Decimals;
-import io.trino.spi.type.DoubleType;
-import io.trino.spi.type.RealType;
 import io.trino.spi.type.Type;
 import io.trino.sql.ir.Between;
 import io.trino.sql.ir.Call;
@@ -90,7 +87,6 @@ import static io.trino.type.Reals.toReal;
 import static java.lang.String.format;
 import static java.math.BigDecimal.ONE;
 import static java.math.BigDecimal.TWO;
-import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Fail.fail;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
@@ -1526,13 +1522,6 @@ public class TestDomainTranslator
         assertThat(result.getRemainingExpression()).isEqualTo(remainingExpression);
     }
 
-    private void assertNoFullPushdown(Expression expression)
-    {
-        ExtractionResult result = fromPredicate(expression);
-        assertThat(result.getRemainingExpression())
-                .isNotEqualTo(TRUE);
-    }
-
     private ExtractionResult fromPredicate(Expression originalPredicate)
     {
         return DomainTranslator.getExtractionResult(functionResolution.getPlannerContext(), TEST_SESSION, originalPredicate);
@@ -1765,7 +1754,7 @@ public class TestDomainTranslator
         TupleDomain<Symbol> actual = result.getTupleDomain();
         TupleDomain<Symbol> expected = tupleDomain(symbol, expectedDomain);
         if (!actual.equals(expected)) {
-            fail(format("for comparison [%s] expected [%s] but found [%s]", expression.toString(), expected.toString(), actual.toString()));
+            fail(format("for comparison [%s] expected [%s] but found [%s]", expression, expected, actual));
         }
     }
 
@@ -1782,79 +1771,5 @@ public class TestDomainTranslator
     private static <T> TupleDomain<T> tupleDomain(Map<T, Domain> domains)
     {
         return TupleDomain.withColumnDomains(domains);
-    }
-
-    private static class NumericValues<T>
-    {
-        private final Symbol column;
-        private final Type type;
-        private final T min;
-        private final T integerNegative;
-        private final T fractionalNegative;
-        private final T integerPositive;
-        private final T fractionalPositive;
-        private final T max;
-
-        private NumericValues(Symbol column, T min, T integerNegative, T fractionalNegative, T integerPositive, T fractionalPositive, T max)
-        {
-            this.column = requireNonNull(column, "column is null");
-            this.type = requireNonNull(column.type(), "type for column not found: " + column);
-            this.min = requireNonNull(min, "min is null");
-            this.integerNegative = requireNonNull(integerNegative, "integerNegative is null");
-            this.fractionalNegative = requireNonNull(fractionalNegative, "fractionalNegative is null");
-            this.integerPositive = requireNonNull(integerPositive, "integerPositive is null");
-            this.fractionalPositive = requireNonNull(fractionalPositive, "fractionalPositive is null");
-            this.max = requireNonNull(max, "max is null");
-        }
-
-        public Symbol getColumn()
-        {
-            return column;
-        }
-
-        public Type getType()
-        {
-            return type;
-        }
-
-        public T getMin()
-        {
-            return min;
-        }
-
-        public T getIntegerNegative()
-        {
-            return integerNegative;
-        }
-
-        public T getFractionalNegative()
-        {
-            return fractionalNegative;
-        }
-
-        public T getIntegerPositive()
-        {
-            return integerPositive;
-        }
-
-        public T getFractionalPositive()
-        {
-            return fractionalPositive;
-        }
-
-        public T getMax()
-        {
-            return max;
-        }
-
-        public boolean isFractional()
-        {
-            return type == DOUBLE || type == REAL || (type instanceof DecimalType decimalType && decimalType.getScale() > 0);
-        }
-
-        public boolean isTypeWithNaN()
-        {
-            return type instanceof DoubleType || type instanceof RealType;
-        }
     }
 }

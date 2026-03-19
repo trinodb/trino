@@ -16,6 +16,11 @@ package io.trino.jdbc;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.math.IntMath;
+import com.google.errorprone.annotations.CheckReturnValue;
+import org.assertj.core.api.AbstractThrowableAssert;
+import org.assertj.core.api.Assertions;
+import org.assertj.core.api.ThrowableAssert;
+import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 
 import java.math.BigDecimal;
@@ -51,7 +56,6 @@ import static java.util.Collections.unmodifiableMap;
 import static java.util.concurrent.TimeUnit.DAYS;
 import static java.util.concurrent.TimeUnit.HOURS;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public abstract class BaseTestJdbcResultSet
 {
@@ -78,72 +82,311 @@ public abstract class BaseTestJdbcResultSet
     }
 
     @Test
-    public void testPrimitiveTypes()
+    public void testNullUnknown()
             throws Exception
     {
         try (ConnectedStatement connectedStatement = newStatement()) {
-            checkRepresentation(connectedStatement.getStatement(), "123", Types.INTEGER, 123);
-            checkRepresentation(connectedStatement.getStatement(), "12300000000", Types.BIGINT, 12300000000L);
-            checkRepresentation(connectedStatement.getStatement(), "REAL '123.45'", Types.REAL, 123.45f);
-            checkRepresentation(connectedStatement.getStatement(), "1e-1", Types.DOUBLE, 0.1);
-            checkRepresentation(connectedStatement.getStatement(), "1.0E0 / 0.0E0", Types.DOUBLE, Double.POSITIVE_INFINITY);
-            checkRepresentation(connectedStatement.getStatement(), "0.0E0 / 0.0E0", Types.DOUBLE, Double.NaN);
-            checkRepresentation(connectedStatement.getStatement(), "true", Types.BOOLEAN, true);
-            checkRepresentation(connectedStatement.getStatement(), "'hello'", Types.VARCHAR, (rs, column) -> {
-                assertThat(rs.getObject(column)).isEqualTo("hello");
-                assertThat(rs.getAsciiStream(column)).hasBinaryContent("hello".getBytes(StandardCharsets.US_ASCII));
-                assertThatThrownBy(() -> rs.getBinaryStream(column))
-                        .isInstanceOf(SQLException.class)
-                        .hasMessage("Value is not a byte array: hello");
-            });
-            checkRepresentation(connectedStatement.getStatement(), "CAST(NULL AS VARCHAR)", Types.VARCHAR, (rs, column) -> {
+            checkRepresentation(connectedStatement.getStatement(), "NULL", Types.NULL, (rs, column) -> {
+                assertThat(rs.getObject(column)).isNull();
+                assertThat(rs.wasNull()).isTrue();
+                assertThat(rs.getBoolean(column)).isEqualTo(false);
+                assertThat(rs.wasNull()).isTrue();
+                assertThat(rs.getByte(column)).isEqualTo((byte) 0);
+                assertThat(rs.wasNull()).isTrue();
+                assertThat(rs.getShort(column)).isEqualTo((short) 0);
+                assertThat(rs.wasNull()).isTrue();
+                assertThat(rs.getInt(column)).isEqualTo(0);
+                assertThat(rs.wasNull()).isTrue();
+                assertThat(rs.getLong(column)).isEqualTo(0);
+                assertThat(rs.wasNull()).isTrue();
+                assertThat(rs.getBigDecimal(column)).isNull();
+                assertThat(rs.wasNull()).isTrue();
+                assertThat(rs.getFloat(column)).isEqualTo(0f);
+                assertThat(rs.wasNull()).isTrue();
+                assertThat(rs.getDouble(column)).isEqualTo(0.0);
+                assertThat(rs.wasNull()).isTrue();
+                assertThat(rs.getDate(column)).isNull();
+                assertThat(rs.wasNull()).isTrue();
+                assertThat(rs.getTime(column)).isNull();
+                assertThat(rs.wasNull()).isTrue();
+                assertThat(rs.getTimestamp(column)).isNull();
+                assertThat(rs.wasNull()).isTrue();
+                assertThat(rs.getString(column)).isNull();
+                assertThat(rs.wasNull()).isTrue();
                 assertThat(rs.getAsciiStream(column)).isNull();
-                assertThat(rs.getBinaryStream(column)).isNull();
+                assertThat(rs.wasNull()).isTrue();
+                assertThat(rs.getBytes(column)).isNull();
+                assertThat(rs.wasNull()).isTrue();
+
+                ResultSetMetaData metaData = rs.getMetaData();
+                assertThat(metaData.getColumnTypeName(column)).isEqualTo("unknown");
+                assertThat(metaData.getColumnDisplaySize(column)).isEqualTo(0);
+                assertThat(metaData.getColumnClassName(column)).isEqualTo("java.lang.Object");
             });
-            checkRepresentation(connectedStatement.getStatement(), "cast('foo' as char(5))", Types.CHAR, (rs, column) -> {
-                assertThat(rs.getObject(column)).isEqualTo("foo  ");
-                assertThat(rs.getAsciiStream(column)).hasBinaryContent("foo  ".getBytes(StandardCharsets.US_ASCII));
+        }
+    }
+
+    @Test
+    public void testBoolean()
+            throws Exception
+    {
+        try (ConnectedStatement connectedStatement = newStatement()) {
+            checkRepresentation(connectedStatement.getStatement(), "false", Types.BOOLEAN, (rs, column) -> {
+                assertThat(rs.getObject(column)).isEqualTo(false);
+                assertThat(rs.getByte(column)).isEqualTo((byte) 0);
+                assertThat(rs.getShort(column)).isEqualTo((short) 0);
+                assertThat(rs.getInt(column)).isEqualTo(0);
+                assertThat(rs.getLong(column)).isEqualTo(0L);
+                assertSqlExceptionThrownBy(() -> rs.getBigDecimal(column)).hasMessage("Value is not a number: false");
+                assertThat(rs.getFloat(column)).isEqualTo(0f);
+                assertThat(rs.getDouble(column)).isEqualTo(0.0);
+                assertThat(rs.getString(column)).isEqualTo("false");
+                assertSqlExceptionThrownBy(() -> rs.getBytes(column)).hasMessage("Value is not a byte array: false");
+
+                ResultSetMetaData metaData = rs.getMetaData();
+                assertThat(metaData.getColumnTypeName(column)).isEqualTo("boolean");
+                assertThat(metaData.getColumnDisplaySize(column)).isEqualTo(5);
+                assertThat(metaData.getColumnClassName(column)).isEqualTo("java.lang.Boolean");
             });
-            checkRepresentation(connectedStatement.getStatement(), "VARCHAR '123'", Types.VARCHAR,
-                    (rs, column) -> assertThat(rs.getLong(column)).isEqualTo(123L));
-
-            checkRepresentation(connectedStatement.getStatement(), "VARCHAR ''", Types.VARCHAR, (rs, column) -> {
-                assertThatThrownBy(() -> rs.getLong(column))
-                        .isInstanceOf(SQLException.class)
-                        .hasMessage("Value is not a number: ");
-
-                assertThatThrownBy(() -> rs.getDouble(column))
-                        .isInstanceOf(SQLException.class)
-                        .hasMessage("Value is not a number: ");
-
-                assertThatThrownBy(() -> rs.getBoolean(column))
-                        .isInstanceOf(SQLException.class)
-                        .hasMessage("Value is not a boolean: ");
-
-                assertThat(rs.getAsciiStream(column)).isEmpty();
+            checkRepresentation(connectedStatement.getStatement(), "true", Types.BOOLEAN, (rs, column) -> {
+                assertThat(rs.getObject(column)).isEqualTo(true);
+                assertThat(rs.getByte(column)).isEqualTo((byte) 1);
+                assertThat(rs.getShort(column)).isEqualTo((short) 1);
+                assertThat(rs.getInt(column)).isEqualTo(1);
+                assertThat(rs.getLong(column)).isEqualTo(1L);
+                assertSqlExceptionThrownBy(() -> rs.getBigDecimal(column)).hasMessage("Value is not a number: true");
+                assertThat(rs.getFloat(column)).isEqualTo(1f);
+                assertThat(rs.getDouble(column)).isEqualTo(1.0);
+                assertThat(rs.getString(column)).isEqualTo("true");
+                assertSqlExceptionThrownBy(() -> rs.getBytes(column)).hasMessage("Value is not a byte array: true");
             });
+        }
+    }
 
-            checkRepresentation(connectedStatement.getStatement(), "VARCHAR '123e-1'", Types.VARCHAR, (rs, column) -> {
-                assertThat(rs.getDouble(column)).isEqualTo(12.3);
-                assertThat(rs.getLong(column)).isEqualTo(12);
-                assertThat(rs.getFloat(column)).isEqualTo(12.3f);
-                assertThat(rs.getAsciiStream(column)).hasBinaryContent("123e-1".getBytes(StandardCharsets.US_ASCII));
-            });
-
-            checkRepresentation(connectedStatement.getStatement(), "DOUBLE '123.456'", Types.DOUBLE, (rs, column) -> {
-                assertThat(rs.getDouble(column)).isEqualTo(123.456);
-                assertThat(rs.getLong(column)).isEqualTo(123);
-                assertThat(rs.getFloat(column)).isEqualTo(123.456f);
-                assertThatThrownBy(() -> rs.getAsciiStream(column))
-                        .isInstanceOf(SQLException.class)
-                        .hasMessage("Value is not a string: 123.456");
-            });
-
-            checkRepresentation(connectedStatement.getStatement(), "VARCHAR '123'", Types.VARCHAR, (rs, column) -> {
-                assertThat(rs.getDouble(column)).isEqualTo(123.0);
-                assertThat(rs.getLong(column)).isEqualTo(123);
+    @Test
+    public void testTinyint()
+            throws Exception
+    {
+        try (ConnectedStatement connectedStatement = newStatement()) {
+            checkRepresentation(connectedStatement.getStatement(), "TINYINT '123'", Types.TINYINT, (rs, column) -> {
+                assertThat(rs.getObject(column)).isEqualTo((byte) 123);
+                assertThat(rs.getByte(column)).isEqualTo((byte) 123);
+                assertThat(rs.getShort(column)).isEqualTo((short) 123);
+                assertThat(rs.getInt(column)).isEqualTo(123);
+                assertThat(rs.getLong(column)).isEqualTo(123L);
+                assertThat(rs.getBigDecimal(column)).isEqualTo(new BigDecimal("123"));
                 assertThat(rs.getFloat(column)).isEqualTo(123f);
-                assertThat(rs.getAsciiStream(column)).hasBinaryContent("123".getBytes(StandardCharsets.US_ASCII));
+                assertThat(rs.getDouble(column)).isEqualTo(123.0);
+                assertThat(rs.getString(column)).isEqualTo("123");
+                assertSqlExceptionThrownBy(() -> rs.getBytes(column)).hasMessage("Value is not a byte array: 123");
+
+                ResultSetMetaData metaData = rs.getMetaData();
+                assertThat(metaData.getColumnTypeName(column)).isEqualTo("tinyint");
+                assertThat(metaData.getColumnDisplaySize(column)).isEqualTo(4);
+                assertThat(metaData.getColumnClassName(column)).isEqualTo("java.lang.Byte");
+            });
+        }
+    }
+
+    @Test
+    public void testSmallint()
+            throws Exception
+    {
+        try (ConnectedStatement connectedStatement = newStatement()) {
+            checkRepresentation(connectedStatement.getStatement(), "SMALLINT '12345'", Types.SMALLINT, (rs, column) -> {
+                assertThat(rs.getObject(column)).isEqualTo((short) 12345);
+                assertThat(rs.getByte(column)).isEqualTo((byte) 57); // TODO (https://github.com/trinodb/trino/issues/28146) silent numeric truncation
+                assertThat(rs.getShort(column)).isEqualTo((short) 12345);
+                assertThat(rs.getInt(column)).isEqualTo(12345);
+                assertThat(rs.getLong(column)).isEqualTo(12345L);
+                assertThat(rs.getBigDecimal(column)).isEqualTo(new BigDecimal("12345"));
+                assertThat(rs.getFloat(column)).isEqualTo(12345f);
+                assertThat(rs.getDouble(column)).isEqualTo(12345.0);
+                assertThat(rs.getString(column)).isEqualTo("12345");
+                assertSqlExceptionThrownBy(() -> rs.getBytes(column)).hasMessage("Value is not a byte array: 12345");
+
+                ResultSetMetaData metaData = rs.getMetaData();
+                assertThat(metaData.getColumnTypeName(column)).isEqualTo("smallint");
+                assertThat(metaData.getColumnDisplaySize(column)).isEqualTo(6);
+                assertThat(metaData.getColumnClassName(column)).isEqualTo("java.lang.Short");
+            });
+        }
+    }
+
+    @Test
+    public void testInteger()
+            throws Exception
+    {
+        try (ConnectedStatement connectedStatement = newStatement()) {
+            checkRepresentation(connectedStatement.getStatement(), "1234567890", Types.INTEGER, (rs, column) -> {
+                assertThat(rs.getObject(column)).isEqualTo(1234567890);
+                assertThat(rs.getByte(column)).isEqualTo((byte) -46); // TODO (https://github.com/trinodb/trino/issues/28146) silent numeric truncation
+                assertThat(rs.getShort(column)).isEqualTo((short) 722); // TODO (https://github.com/trinodb/trino/issues/28146) silent numeric truncation
+                assertThat(rs.getInt(column)).isEqualTo(1234567890);
+                assertThat(rs.getLong(column)).isEqualTo(1234567890L);
+                assertThat(rs.getBigDecimal(column)).isEqualTo(new BigDecimal("1234567890"));
+                assertThat(rs.getFloat(column)).isEqualTo(1234567890f);
+                assertThat(rs.getDouble(column)).isEqualTo(1234567890.0);
+                assertThat(rs.getString(column)).isEqualTo("1234567890");
+                assertSqlExceptionThrownBy(() -> rs.getBytes(column)).hasMessage("Value is not a byte array: 1234567890");
+
+                ResultSetMetaData metaData = rs.getMetaData();
+                assertThat(metaData.getColumnTypeName(column)).isEqualTo("integer");
+                assertThat(metaData.getColumnDisplaySize(column)).isEqualTo(11);
+                assertThat(metaData.getColumnClassName(column)).isEqualTo("java.lang.Integer");
+            });
+        }
+    }
+
+    @Test
+    public void testBigint()
+            throws Exception
+    {
+        try (ConnectedStatement connectedStatement = newStatement()) {
+            checkRepresentation(connectedStatement.getStatement(), "1234567890123456789", Types.BIGINT, (rs, column) -> {
+                assertThat(rs.getObject(column)).isEqualTo(1234567890123456789L);
+                assertThat(rs.getByte(column)).isEqualTo((byte) 21); // TODO (https://github.com/trinodb/trino/issues/28146) silent numeric truncation
+                assertThat(rs.getShort(column)).isEqualTo((short) -32491); // TODO (https://github.com/trinodb/trino/issues/28146) silent numeric truncation
+                assertThat(rs.getInt(column)).isEqualTo(2112454933); // TODO (https://github.com/trinodb/trino/issues/28146) silent numeric truncation
+                assertThat(rs.getLong(column)).isEqualTo(1234567890123456789L);
+                assertThat(rs.getBigDecimal(column)).isEqualTo(new BigDecimal("1234567890123456789"));
+                assertThat(rs.getFloat(column)).isEqualTo(1234567890123456789f);
+                assertThat(rs.getDouble(column)).isEqualTo(1234567890123456789.0);
+                assertThat(rs.getString(column)).isEqualTo("1234567890123456789");
+                assertSqlExceptionThrownBy(() -> rs.getBytes(column)).hasMessage("Value is not a byte array: 1234567890123456789");
+
+                ResultSetMetaData metaData = rs.getMetaData();
+                assertThat(metaData.getColumnTypeName(column)).isEqualTo("bigint");
+                assertThat(metaData.getColumnDisplaySize(column)).isEqualTo(20);
+                assertThat(metaData.getColumnClassName(column)).isEqualTo("java.lang.Long");
+            });
+        }
+    }
+
+    @Test
+    public void testReal()
+            throws Exception
+    {
+        try (ConnectedStatement connectedStatement = newStatement()) {
+            checkRepresentation(connectedStatement.getStatement(), "REAL '123.45'", Types.REAL, (rs, column) -> {
+                assertThat(rs.getObject(column)).isEqualTo(123.45f);
+                assertThat(rs.getByte(column)).isEqualTo((byte) 123);
+                assertThat(rs.getShort(column)).isEqualTo((short) 123);
+                assertThat(rs.getInt(column)).isEqualTo(123);
+                assertThat(rs.getLong(column)).isEqualTo(123L);
+                assertThat(rs.getBigDecimal(column)).isEqualTo(new BigDecimal("123.45"));
+                assertThat(rs.getFloat(column)).isEqualTo(123.45f);
+                assertThat(rs.getDouble(column)).isEqualTo(123.44999694824219);
+                assertThat(rs.getString(column)).isEqualTo("123.45");
+                assertSqlExceptionThrownBy(() -> rs.getBytes(column)).hasMessage("Value is not a byte array: 123.45");
+
+                ResultSetMetaData metaData = rs.getMetaData();
+                assertThat(metaData.getColumnTypeName(column)).isEqualTo("real");
+                assertThat(metaData.getColumnDisplaySize(column)).isEqualTo(16);
+                assertThat(metaData.getColumnClassName(column)).isEqualTo("java.lang.Float");
+            });
+
+            checkRepresentation(connectedStatement.getStatement(), "REAL '12345e21'", Types.REAL, (rs, column) -> {
+                assertThat(rs.getObject(column)).isEqualTo(1.2345e25f);
+                assertThat(rs.getByte(column)).isEqualTo((byte) -1); // TODO (https://github.com/trinodb/trino/issues/28146) silent numeric truncation
+                assertThat(rs.getShort(column)).isEqualTo((short) -1); // TODO (https://github.com/trinodb/trino/issues/28146) silent numeric truncation
+                assertThat(rs.getInt(column)).isEqualTo(Integer.MAX_VALUE);
+                assertThat(rs.getLong(column)).isEqualTo(Long.MAX_VALUE);
+                assertThat(rs.getBigDecimal(column)).isEqualTo(new BigDecimal("1.2345E+25"));
+                assertThat(rs.getFloat(column)).isEqualTo(1.2345e25f);
+                assertThat(rs.getDouble(column)).isEqualTo(1.2345000397219687E25);
+                assertThat(rs.getString(column)).isEqualTo("1.2345E25");
+                assertSqlExceptionThrownBy(() -> rs.getBytes(column)).hasMessage("Value is not a byte array: 1.2345E25");
+            });
+
+            checkRepresentation(connectedStatement.getStatement(), "REAL 'NaN'", Types.REAL, (rs, column) -> {
+                assertThat(rs.getObject(column)).isEqualTo(Float.NaN);
+                assertThat(rs.getByte(column)).isEqualTo((byte) 0); // TODO (https://github.com/trinodb/trino/issues/28146) silent numeric conversion, NaN != 0
+                assertThat(rs.getShort(column)).isEqualTo((short) 0); // TODO (https://github.com/trinodb/trino/issues/28146) silent numeric conversion, NaN != 0
+                assertThat(rs.getInt(column)).isEqualTo(0); // TODO (https://github.com/trinodb/trino/issues/28146) silent numeric conversion, NaN != 0
+                assertThat(rs.getLong(column)).isEqualTo(0L); // TODO (https://github.com/trinodb/trino/issues/28146) silent numeric conversion, NaN != 0
+                assertSqlExceptionThrownBy(() -> rs.getBigDecimal(column)).hasMessage("Value is not a number: NaN");
+                assertThat(rs.getFloat(column)).isNaN();
+                assertThat(rs.getDouble(column)).isNaN();
+                assertThat(rs.getString(column)).isEqualTo("NaN");
+                assertSqlExceptionThrownBy(() -> rs.getBytes(column)).hasMessage("Value is not a byte array: NaN");
+            });
+
+            checkRepresentation(connectedStatement.getStatement(), "REAL '-Infinity'", Types.REAL, (rs, column) -> {
+                assertThat(rs.getObject(column)).isEqualTo(Float.NEGATIVE_INFINITY);
+                assertThat(rs.getByte(column)).isEqualTo((byte) 0); // TODO (https://github.com/trinodb/trino/issues/28146) silent numeric conversion, -Infinity != 0
+                assertThat(rs.getShort(column)).isEqualTo((short) 0); // TODO (https://github.com/trinodb/trino/issues/28146) silent numeric conversion, -Infinity != 0
+                assertThat(rs.getInt(column)).isEqualTo(Integer.MIN_VALUE);
+                assertThat(rs.getLong(column)).isEqualTo(Long.MIN_VALUE);
+                assertSqlExceptionThrownBy(() -> rs.getBigDecimal(column)).hasMessage("Value is not a number: -Infinity");
+                assertThat(rs.getFloat(column)).isEqualTo(Float.NEGATIVE_INFINITY);
+                assertThat(rs.getDouble(column)).isEqualTo(Double.NEGATIVE_INFINITY);
+                assertThat(rs.getString(column)).isEqualTo("-Infinity");
+                assertSqlExceptionThrownBy(() -> rs.getBytes(column)).hasMessage("Value is not a byte array: -Infinity");
+            });
+        }
+    }
+
+    @Test
+    public void testDouble()
+            throws Exception
+    {
+        try (ConnectedStatement connectedStatement = newStatement()) {
+            checkRepresentation(connectedStatement.getStatement(), "DOUBLE '123.45'", Types.DOUBLE, (rs, column) -> {
+                assertThat(rs.getObject(column)).isEqualTo(123.45);
+                assertThat(rs.getByte(column)).isEqualTo((byte) 123);
+                assertThat(rs.getShort(column)).isEqualTo((short) 123);
+                assertThat(rs.getInt(column)).isEqualTo(123);
+                assertThat(rs.getLong(column)).isEqualTo(123L);
+                assertThat(rs.getBigDecimal(column)).isEqualTo(new BigDecimal("123.45"));
+                assertThat(rs.getFloat(column)).isEqualTo(123.45f);
+                assertThat(rs.getDouble(column)).isEqualTo(123.45);
+                assertThat(rs.getString(column)).isEqualTo("123.45");
+                assertSqlExceptionThrownBy(() -> rs.getBytes(column)).hasMessage("Value is not a byte array: 123.45");
+
+                ResultSetMetaData metaData = rs.getMetaData();
+                assertThat(metaData.getColumnTypeName(column)).isEqualTo("double");
+                assertThat(metaData.getColumnDisplaySize(column)).isEqualTo(24);
+                assertThat(metaData.getColumnClassName(column)).isEqualTo("java.lang.Double");
+            });
+
+            checkRepresentation(connectedStatement.getStatement(), "DOUBLE '12345e21'", Types.DOUBLE, (rs, column) -> {
+                assertThat(rs.getObject(column)).isEqualTo(1.2345e25);
+                assertThat(rs.getByte(column)).isEqualTo((byte) -1); // TODO (https://github.com/trinodb/trino/issues/28146) silent numeric truncation
+                assertThat(rs.getShort(column)).isEqualTo((short) -1); // TODO (https://github.com/trinodb/trino/issues/28146) silent numeric truncation
+                assertThat(rs.getInt(column)).isEqualTo(Integer.MAX_VALUE);
+                assertThat(rs.getLong(column)).isEqualTo(Long.MAX_VALUE);
+                assertThat(rs.getBigDecimal(column)).isEqualTo(new BigDecimal("1.2345E+25"));
+                assertThat(rs.getFloat(column)).isEqualTo(1.2345e25f);
+                assertThat(rs.getDouble(column)).isEqualTo(1.2345e25);
+                assertThat(rs.getString(column)).isEqualTo("1.2345E25");
+                assertSqlExceptionThrownBy(() -> rs.getBytes(column)).hasMessage("Value is not a byte array: 1.2345E25");
+            });
+
+            checkRepresentation(connectedStatement.getStatement(), "DOUBLE 'NaN'", Types.DOUBLE, (rs, column) -> {
+                assertThat(rs.getObject(column)).isEqualTo(Double.NaN);
+                assertThat(rs.getByte(column)).isEqualTo((byte) 0); // TODO (https://github.com/trinodb/trino/issues/28146) silent numeric conversion, NaN != 0
+                assertThat(rs.getShort(column)).isEqualTo((short) 0); // TODO (https://github.com/trinodb/trino/issues/28146) silent numeric conversion, NaN != 0
+                assertThat(rs.getInt(column)).isEqualTo(0); // TODO (https://github.com/trinodb/trino/issues/28146) silent numeric conversion, NaN != 0
+                assertThat(rs.getLong(column)).isEqualTo(0L); // TODO (https://github.com/trinodb/trino/issues/28146) silent numeric conversion, NaN != 0
+                assertSqlExceptionThrownBy(() -> rs.getBigDecimal(column)).hasMessage("Value is not a number: NaN");
+                assertThat(rs.getFloat(column)).isNaN();
+                assertThat(rs.getDouble(column)).isNaN();
+                assertThat(rs.getString(column)).isEqualTo("NaN");
+                assertSqlExceptionThrownBy(() -> rs.getBytes(column)).hasMessage("Value is not a byte array: NaN");
+            });
+
+            checkRepresentation(connectedStatement.getStatement(), "DOUBLE '-Infinity'", Types.DOUBLE, (rs, column) -> {
+                assertThat(rs.getObject(column)).isEqualTo(Double.NEGATIVE_INFINITY);
+                assertThat(rs.getByte(column)).isEqualTo((byte) 0); // TODO (https://github.com/trinodb/trino/issues/28146) silent numeric conversion, -Infinity != 0
+                assertThat(rs.getShort(column)).isEqualTo((short) 0); // TODO (https://github.com/trinodb/trino/issues/28146) silent numeric conversion, -Infinity != 0
+                assertThat(rs.getInt(column)).isEqualTo(Integer.MIN_VALUE);
+                assertThat(rs.getLong(column)).isEqualTo(Long.MIN_VALUE);
+                assertSqlExceptionThrownBy(() -> rs.getBigDecimal(column)).hasMessage("Value is not a number: -Infinity");
+                assertThat(rs.getFloat(column)).isEqualTo(Float.NEGATIVE_INFINITY);
+                assertThat(rs.getDouble(column)).isEqualTo(Double.NEGATIVE_INFINITY);
+                assertThat(rs.getString(column)).isEqualTo("-Infinity");
+                assertSqlExceptionThrownBy(() -> rs.getBytes(column)).hasMessage("Value is not a byte array: -Infinity");
             });
         }
     }
@@ -155,39 +398,248 @@ public abstract class BaseTestJdbcResultSet
         try (ConnectedStatement connectedStatement = newStatement()) {
             checkRepresentation(connectedStatement.getStatement(), "0.1", Types.DECIMAL, new BigDecimal("0.1"));
             checkRepresentation(connectedStatement.getStatement(), "DECIMAL '0.12'", Types.DECIMAL, (rs, column) -> {
+                assertThat(rs.getObject(column)).isEqualTo(new BigDecimal("0.12"));
                 assertThat(rs.getBigDecimal(column)).isEqualTo(new BigDecimal("0.12"));
                 assertThat(rs.getDouble(column)).isEqualTo(0.12);
                 assertThat(rs.getLong(column)).isEqualTo(0);
                 assertThat(rs.getFloat(column)).isEqualTo(0.12f);
+                assertThat(rs.getString(column)).isEqualTo("0.12");
             });
 
             long outsideOfDoubleExactRange = 9223372036854775774L;
             //noinspection ConstantConditions
             verify((long) (double) outsideOfDoubleExactRange - outsideOfDoubleExactRange != 0, "outsideOfDoubleExactRange should not be exact-representable as a double");
-            checkRepresentation(connectedStatement.getStatement(), format("DECIMAL '%s'",
-                    outsideOfDoubleExactRange), Types.DECIMAL,
-                    (rs, column) -> {
-                        assertThat(rs.getObject(column)).isEqualTo(new BigDecimal("9223372036854775774"));
-                        assertThat(rs.getBigDecimal(column)).isEqualTo(new BigDecimal("9223372036854775774"));
-                        assertThat(rs.getLong(column)).isEqualTo(9223372036854775774L);
-                        assertThat(rs.getDouble(column)).isEqualTo(9.223372036854776E18);
-                        assertThat(rs.getString(column)).isEqualTo("9223372036854775774");
-                    });
+            checkRepresentation(connectedStatement.getStatement(), format("DECIMAL '%s'", outsideOfDoubleExactRange), Types.DECIMAL, (rs, column) -> {
+                assertThat(rs.getObject(column)).isEqualTo(new BigDecimal("9223372036854775774"));
+                assertThat(rs.getBigDecimal(column)).isEqualTo(new BigDecimal("9223372036854775774"));
+                assertThat(rs.getLong(column)).isEqualTo(9223372036854775774L);
+                assertThat(rs.getDouble(column)).isEqualTo(9.223372036854776E18);
+                assertThat(rs.getString(column)).isEqualTo("9223372036854775774");
+            });
+        }
+    }
 
-            checkRepresentation(connectedStatement.getStatement(), "VARCHAR ''", Types.VARCHAR, (rs, column) -> {
-                assertThatThrownBy(() -> rs.getBigDecimal(column))
-                        .isInstanceOf(SQLException.class)
-                        .hasMessage("Value is not a number: ");
+    @Test
+    public void testNumber()
+            throws Exception
+    {
+        try (ConnectedStatement connectedStatement = newStatement()) {
+            checkRepresentation(connectedStatement.getStatement(), "CAST(NULL AS number)", Types.OTHER, (rs, column) -> {
+                assertThat(rs.getObject(column)).isNull();
+                assertThat(rs.wasNull()).isTrue();
+                assertThat(rs.getByte(column)).isEqualTo((byte) 0);
+                assertThat(rs.wasNull()).isTrue();
+                assertThat(rs.getShort(column)).isEqualTo((short) 0);
+                assertThat(rs.wasNull()).isTrue();
+                assertThat(rs.getInt(column)).isEqualTo(0);
+                assertThat(rs.wasNull()).isTrue();
+                assertThat(rs.getLong(column)).isEqualTo(0);
+                assertThat(rs.wasNull()).isTrue();
+                assertThat(rs.getBigDecimal(column)).isNull();
+                assertThat(rs.wasNull()).isTrue();
+                assertThat(rs.getFloat(column)).isEqualTo(0);
+                assertThat(rs.wasNull()).isTrue();
+                assertThat(rs.getDouble(column)).isEqualTo(0);
+                assertThat(rs.wasNull()).isTrue();
+                assertThat(rs.getString(column)).isNull();
+                assertThat(rs.wasNull()).isTrue();
+                assertThat(rs.getBytes(column)).isNull();
+                assertThat(rs.wasNull()).isTrue();
+            });
+
+            checkRepresentation(connectedStatement.getStatement(), "NUMBER '0.1'", Types.OTHER, new BigDecimal("0.1"));
+            checkRepresentation(connectedStatement.getStatement(), "NUMBER '0.100'", Types.OTHER, new BigDecimal("0.1"));
+            checkRepresentation(connectedStatement.getStatement(), "NUMBER '100'", Types.OTHER, new BigDecimal("1e2"));
+            checkRepresentation(connectedStatement.getStatement(), "NUMBER '20050910133100123'", Types.OTHER, new BigDecimal("20050910133100123"));
+
+            checkRepresentation(connectedStatement.getStatement(), "NUMBER '1'", Types.OTHER, (rs, column) -> {
+                assertThat(rs.getObject(column)).isEqualTo(new BigDecimal("1"));
+                assertThat(rs.getByte(column)).isEqualTo((byte) 1);
+                assertThat(rs.getShort(column)).isEqualTo((short) 1);
+                assertThat(rs.getInt(column)).isEqualTo(1);
+                assertThat(rs.getLong(column)).isEqualTo(1);
+                assertThat(rs.getBigDecimal(column)).isEqualTo(new BigDecimal("1"));
+                assertThat(rs.getFloat(column)).isEqualTo(1f);
+                assertThat(rs.getDouble(column)).isEqualTo(1.0);
+                assertThat(rs.getString(column)).isEqualTo("1");
+                assertSqlExceptionThrownBy(() -> rs.getBytes(column)).hasMessage("Value is not a byte array: 1");
+
+                ResultSetMetaData metaData = rs.getMetaData();
+                assertThat(metaData.getColumnTypeName(column)).isEqualTo("number");
+                assertThat(metaData.getColumnDisplaySize(column)).isEqualTo(0);
+                assertThat(metaData.getColumnClassName(column)).isEqualTo("java.lang.Number");
+            });
+
+            checkRepresentation(connectedStatement.getStatement(), "NUMBER '0.12'", Types.OTHER, (rs, column) -> {
+                assertThat(rs.getObject(column)).isEqualTo(new BigDecimal("0.12"));
+                assertThat(rs.getByte(column)).isEqualTo((byte) 0);
+                assertThat(rs.getShort(column)).isEqualTo((short) 0);
+                assertThat(rs.getInt(column)).isEqualTo(0);
+                assertThat(rs.getLong(column)).isEqualTo(0);
+                assertThat(rs.getBigDecimal(column)).isEqualTo(new BigDecimal("0.12"));
+                assertThat(rs.getFloat(column)).isEqualTo(0.12f);
+                assertThat(rs.getDouble(column)).isEqualTo(0.12);
+                assertThat(rs.getString(column)).isEqualTo("0.12");
+                assertSqlExceptionThrownBy(() -> rs.getBytes(column)).hasMessage("Value is not a byte array: 0.12");
+
+                ResultSetMetaData metaData = rs.getMetaData();
+                assertThat(metaData.getColumnTypeName(column)).isEqualTo("number");
+                assertThat(metaData.getColumnDisplaySize(column)).isEqualTo(0);
+                assertThat(metaData.getColumnClassName(column)).isEqualTo("java.lang.Number");
+            });
+
+            long outsideOfDoubleExactRange = 9223372036854775774L;
+            //noinspection ConstantConditions
+            verify((long) (double) outsideOfDoubleExactRange - outsideOfDoubleExactRange != 0, "outsideOfDoubleExactRange should not be exact-representable as a double");
+            checkRepresentation(connectedStatement.getStatement(), format("NUMBER '%s'", outsideOfDoubleExactRange), Types.OTHER, (rs, column) -> {
+                assertThat(rs.getObject(column)).isEqualTo(new BigDecimal("9223372036854775774"));
+                // TODO (https://github.com/trinodb/trino/issues/28146) silent numeric truncation
+                assertThat(rs.getByte(column)).isEqualTo((byte) -34);
+                assertThat(rs.getShort(column)).isEqualTo((short) -34);
+                assertThat(rs.getInt(column)).isEqualTo(-34);
+                assertThat(rs.getLong(column)).isEqualTo(9223372036854775774L);
+                assertThat(rs.getBigDecimal(column)).isEqualTo(new BigDecimal("9223372036854775774"));
+                assertThat(rs.getFloat(column)).isEqualTo(9.223372E18f);
+                assertThat(rs.getDouble(column)).isEqualTo(9.223372036854776E18);
+                assertThat(rs.getString(column)).isEqualTo("9223372036854775774");
+                assertSqlExceptionThrownBy(() -> rs.getBytes(column)).hasMessage("Value is not a byte array: 9223372036854775774");
+
+                ResultSetMetaData metaData = rs.getMetaData();
+                assertThat(metaData.getColumnTypeName(column)).isEqualTo("number");
+                assertThat(metaData.getColumnDisplaySize(column)).isEqualTo(0);
+                assertThat(metaData.getColumnClassName(column)).isEqualTo("java.lang.Number");
+            });
+
+            checkRepresentation(connectedStatement.getStatement(), "NUMBER '3.141592653589793238462643383279502884197169399375105820974944592307'", Types.OTHER, (rs, column) -> {
+                assertThat(rs.getObject(column)).isEqualTo(new BigDecimal("3.141592653589793238462643383279502884197169399375105820974944592307"));
+                assertThat(rs.getByte(column)).isEqualTo((byte) 3);
+                assertThat(rs.getShort(column)).isEqualTo((short) 3);
+                assertThat(rs.getInt(column)).isEqualTo(3);
+                assertThat(rs.getLong(column)).isEqualTo(3);
+                assertThat(rs.getBigDecimal(column)).isEqualTo(new BigDecimal("3.141592653589793238462643383279502884197169399375105820974944592307"));
+                assertThat(rs.getFloat(column)).isEqualTo(3.1415927f);
+                assertThat(rs.getDouble(column)).isEqualTo(3.141592653589793);
+                assertThat(rs.getString(column)).isEqualTo("3.141592653589793238462643383279502884197169399375105820974944592307");
+                assertSqlExceptionThrownBy(() -> rs.getBytes(column)).hasMessage("Value is not a byte array: 3.141592653589793238462643383279502884197169399375105820974944592307");
+
+                ResultSetMetaData metaData = rs.getMetaData();
+                assertThat(metaData.getColumnTypeName(column)).isEqualTo("number");
+                assertThat(metaData.getColumnDisplaySize(column)).isEqualTo(0);
+                assertThat(metaData.getColumnClassName(column)).isEqualTo("java.lang.Number");
+            });
+
+            checkRepresentation(connectedStatement.getStatement(), "NUMBER 'NaN'", Types.OTHER, (rs, column) -> {
+                assertThat(rs.getObject(column)).isEqualTo(Double.NaN);
+                assertSqlExceptionThrownBy(() -> rs.getBoolean(column)).hasMessage("Value is not a boolean: NaN");
+                assertThat(rs.getByte(column)).isEqualTo((byte) 0); // TODO (https://github.com/trinodb/trino/issues/28146) silent numeric conversion, NaN != 0
+                assertThat(rs.getShort(column)).isEqualTo((short) 0); // TODO (https://github.com/trinodb/trino/issues/28146) silent numeric conversion, NaN != 0
+                assertThat(rs.getInt(column)).isEqualTo(0); // TODO (https://github.com/trinodb/trino/issues/28146) silent numeric conversion, NaN != 0
+                assertThat(rs.getLong(column)).isEqualTo(0L); // TODO (https://github.com/trinodb/trino/issues/28146) silent numeric conversion, NaN != 0
+                assertSqlExceptionThrownBy(() -> rs.getBigDecimal(column)).hasMessage("Value is not a number: NaN");
+                assertThat(rs.getFloat(column)).isNaN();
+                assertThat(rs.getDouble(column)).isNaN();
+                assertThat(rs.getString(column)).isEqualTo("NaN");
+                assertSqlExceptionThrownBy(() -> rs.getBytes(column)).hasMessage("Value is not a byte array: NaN");
+            });
+
+            checkRepresentation(connectedStatement.getStatement(), "NUMBER '+Infinity'", Types.OTHER, (rs, column) -> {
+                assertThat(rs.getObject(column)).isEqualTo(Double.POSITIVE_INFINITY);
+                assertThat(rs.getByte(column)).isEqualTo((byte) -1); // TODO (https://github.com/trinodb/trino/issues/28146) silent numeric conversion, Infinity != -1
+                assertThat(rs.getShort(column)).isEqualTo((short) -1); // TODO (https://github.com/trinodb/trino/issues/28146) silent numeric conversion, Infinity != -1
+                assertThat(rs.getInt(column)).isEqualTo(Integer.MAX_VALUE);
+                assertThat(rs.getLong(column)).isEqualTo(Long.MAX_VALUE);
+                assertSqlExceptionThrownBy(() -> rs.getBigDecimal(column)).hasMessage("Value is not a number: +Infinity");
+                assertThat(rs.getFloat(column)).isEqualTo(Float.POSITIVE_INFINITY);
+                assertThat(rs.getDouble(column)).isEqualTo(Double.POSITIVE_INFINITY);
+                assertThat(rs.getString(column)).isEqualTo("+Infinity");
+                assertSqlExceptionThrownBy(() -> rs.getBytes(column)).hasMessage("Value is not a byte array: +Infinity");
+            });
+
+            checkRepresentation(connectedStatement.getStatement(), "NUMBER '-Infinity'", Types.OTHER, (rs, column) -> {
+                assertThat(rs.getObject(column)).isEqualTo(Double.NEGATIVE_INFINITY);
+                assertThat(rs.getByte(column)).isEqualTo((byte) 0); // TODO (https://github.com/trinodb/trino/issues/28146) silent numeric conversion, -Infinity != 0
+                assertThat(rs.getShort(column)).isEqualTo((short) 0); // TODO (https://github.com/trinodb/trino/issues/28146) silent numeric conversion, -Infinity != 0
+                assertThat(rs.getInt(column)).isEqualTo(Integer.MIN_VALUE);
+                assertThat(rs.getLong(column)).isEqualTo(Long.MIN_VALUE);
+                assertSqlExceptionThrownBy(() -> rs.getBigDecimal(column)).hasMessage("Value is not a number: -Infinity");
+                assertThat(rs.getFloat(column)).isEqualTo(Float.NEGATIVE_INFINITY);
+                assertThat(rs.getDouble(column)).isEqualTo(Double.NEGATIVE_INFINITY);
+                assertThat(rs.getString(column)).isEqualTo("-Infinity");
+                assertSqlExceptionThrownBy(() -> rs.getBytes(column)).hasMessage("Value is not a byte array: -Infinity");
+            });
+        }
+    }
+
+    @Test
+    public void testChar()
+            throws Exception
+    {
+        try (ConnectedStatement connectedStatement = newStatement()) {
+            checkRepresentation(connectedStatement.getStatement(), "cast('foo' as char(5))", Types.CHAR, (rs, column) -> {
+                assertThat(rs.getObject(column)).isEqualTo("foo  ");
+                assertThat(rs.getAsciiStream(column)).hasBinaryContent("foo  ".getBytes(StandardCharsets.US_ASCII));
+            });
+        }
+    }
+
+    @Test
+    public void testVarchar()
+            throws Exception
+    {
+        try (ConnectedStatement connectedStatement = newStatement()) {
+            checkRepresentation(connectedStatement.getStatement(), "'hello'", Types.VARCHAR, (rs, column) -> {
+                assertThat(rs.getObject(column)).isEqualTo("hello");
+                assertThat(rs.getAsciiStream(column)).hasBinaryContent("hello".getBytes(StandardCharsets.US_ASCII));
+                assertSqlExceptionThrownBy(() -> rs.getBinaryStream(column)).hasMessage("Value is not a byte array: hello");
+            });
+            checkRepresentation(connectedStatement.getStatement(), "CAST(NULL AS VARCHAR)", Types.VARCHAR, (rs, column) -> {
+                assertThat(rs.getAsciiStream(column)).isNull();
+                assertThat(rs.getBinaryStream(column)).isNull();
+            });
+
+            checkRepresentation(connectedStatement.getStatement(), "VARCHAR '123'", Types.VARCHAR, (rs, column) -> {
+                assertSqlExceptionThrownBy(() -> rs.getBoolean(column)).hasMessage("Value is not a boolean: 123");
+                assertThat(rs.getByte(column)).isEqualTo((byte) 123);
+                assertThat(rs.getShort(column)).isEqualTo((short) 123);
+                assertThat(rs.getInt(column)).isEqualTo(123);
+                assertThat(rs.getLong(column)).isEqualTo(123L);
+                assertThat(rs.getBigDecimal(column)).isEqualTo(new BigDecimal("123"));
+                assertThat(rs.getFloat(column)).isEqualTo(123f);
+                assertThat(rs.getDouble(column)).isEqualTo(123.0);
+                assertThat(rs.getAsciiStream(column)).hasBinaryContent("123".getBytes(StandardCharsets.US_ASCII));
             });
 
             checkRepresentation(connectedStatement.getStatement(), "VARCHAR '123a'", Types.VARCHAR, (rs, column) -> {
-                assertThatThrownBy(() -> rs.getBigDecimal(column))
-                        .isInstanceOf(SQLException.class)
-                        .hasMessage("Value is not a number: 123a");
+                assertSqlExceptionThrownBy(() -> rs.getBoolean(column)).hasMessage("Value is not a boolean: 123a");
+                assertSqlExceptionThrownBy(() -> rs.getByte(column)).hasMessage("Value is not a number: 123a");
+                assertSqlExceptionThrownBy(() -> rs.getShort(column)).hasMessage("Value is not a number: 123a");
+                assertSqlExceptionThrownBy(() -> rs.getInt(column)).hasMessage("Value is not a number: 123a");
+                assertSqlExceptionThrownBy(() -> rs.getLong(column)).hasMessage("Value is not a number: 123a");
+                assertSqlExceptionThrownBy(() -> rs.getBigDecimal(column)).hasMessage("Value is not a number: 123a");
+                assertSqlExceptionThrownBy(() -> rs.getFloat(column)).hasMessage("Value is not a number: 123a");
+                assertSqlExceptionThrownBy(() -> rs.getDouble(column)).hasMessage("Value is not a number: 123a");
+                assertThat(rs.getAsciiStream(column)).hasBinaryContent("123a".getBytes(StandardCharsets.US_ASCII));
             });
 
-            checkRepresentation(connectedStatement.getStatement(), "VARCHAR '123e-1'", Types.VARCHAR,
-                    (rs, column) -> assertThat(rs.getBigDecimal(column)).isEqualTo(new BigDecimal("12.3")));
+            checkRepresentation(connectedStatement.getStatement(), "VARCHAR ''", Types.VARCHAR, (rs, column) -> {
+                assertSqlExceptionThrownBy(() -> rs.getBoolean(column)).hasMessage("Value is not a boolean: ");
+                assertSqlExceptionThrownBy(() -> rs.getLong(column)).hasMessage("Value is not a number: ");
+                assertSqlExceptionThrownBy(() -> rs.getDouble(column)).hasMessage("Value is not a number: ");
+                assertSqlExceptionThrownBy(() -> rs.getBigDecimal(column)).hasMessage("Value is not a number: ");
+                assertThat(rs.getAsciiStream(column)).isEmpty();
+            });
+
+            checkRepresentation(connectedStatement.getStatement(), "VARCHAR '123e-1'", Types.VARCHAR, (rs, column) -> {
+                assertSqlExceptionThrownBy(() -> rs.getBoolean(column)).hasMessage("Value is not a boolean: 123e-1");
+                assertThat(rs.getByte(column)).isEqualTo((byte) 12);
+                assertThat(rs.getShort(column)).isEqualTo((short) 12);
+                assertThat(rs.getInt(column)).isEqualTo(12);
+                assertThat(rs.getLong(column)).isEqualTo(12L);
+                assertThat(rs.getBigDecimal(column)).isEqualTo(new BigDecimal("12.3"));
+                assertThat(rs.getFloat(column)).isEqualTo(12.3f);
+                assertThat(rs.getDouble(column)).isEqualTo(12.3);
+                assertThat(rs.getAsciiStream(column)).hasBinaryContent("123e-1".getBytes(StandardCharsets.US_ASCII));
+            });
         }
     }
 
@@ -202,18 +654,12 @@ public abstract class BaseTestJdbcResultSet
                 assertThat(rs.getObject(column, byte[].class)).isEqualTo(bytes);
                 assertThat(rs.getBytes(column)).isEqualTo(bytes);
 
-                assertThatThrownBy(() -> rs.getLong(column))
-                        .isInstanceOf(SQLException.class)
-                        .hasMessageStartingWith("Value is not a number: [B@");
-                assertThatThrownBy(() -> rs.getBigDecimal(column))
-                        .isInstanceOf(SQLException.class)
-                        .hasMessageStartingWith("Value is not a number: [B@");
+                assertSqlExceptionThrownBy(() -> rs.getLong(column)).hasMessageStartingWith("Value is not a number: [B@");
+                assertSqlExceptionThrownBy(() -> rs.getBigDecimal(column)).hasMessageStartingWith("Value is not a number: [B@");
 
                 assertThat(rs.getString(column)).isEqualTo("0x12345678");
                 assertThat(rs.getBinaryStream(column)).hasBinaryContent(bytes);
-                assertThatThrownBy(() -> rs.getAsciiStream(column))
-                        .isInstanceOf(SQLException.class)
-                        .hasMessageStartingWith("Value is not a string: [B@");
+                assertSqlExceptionThrownBy(() -> rs.getAsciiStream(column)).hasMessageStartingWith("Value is not a string: [B@");
             });
             checkRepresentation(connectedStatement.getStatement(), "CAST(NULL AS VARBINARY)", Types.VARBINARY, (rs, column) -> {
                 assertThat(rs.getAsciiStream(column)).isNull();
@@ -222,9 +668,7 @@ public abstract class BaseTestJdbcResultSet
 
             checkRepresentation(connectedStatement.getStatement(), "X''", Types.VARBINARY, (rs, column) -> {
                 assertThat(rs.getBinaryStream(column)).isEmpty();
-                assertThatThrownBy(() -> rs.getAsciiStream(column))
-                        .isInstanceOf(SQLException.class)
-                        .hasMessageStartingWith("Value is not a string: [B@");
+                assertSqlExceptionThrownBy(() -> rs.getAsciiStream(column)).hasMessageStartingWith("Value is not a string: [B@");
             });
         }
     }
@@ -243,11 +687,11 @@ public abstract class BaseTestJdbcResultSet
                 assertThat(rs.getObject(column, LocalDate.class)).isEqualTo(localDate);
 
                 assertThat(rs.getDate(column)).isEqualTo(sqlDate);
-                assertThatThrownBy(() -> rs.getTime(column))
-                        .isInstanceOf(IllegalArgumentException.class)
+                assertWrongExceptionThrownBy(() -> rs.getTime(column))
+                        .isInstanceOf(IllegalArgumentException.class) // TODO should be SQLException
                         .hasMessage("Expected column to be a time type but is date");
-                assertThatThrownBy(() -> rs.getTimestamp(column))
-                        .isInstanceOf(IllegalArgumentException.class)
+                assertWrongExceptionThrownBy(() -> rs.getTimestamp(column))
+                        .isInstanceOf(IllegalArgumentException.class) // TODO should be SQLException
                         .hasMessage("Expected column to be a timestamp type but is date");
 
                 assertThat(rs.getString(column)).isEqualTo(localDate.toString());
@@ -263,11 +707,11 @@ public abstract class BaseTestJdbcResultSet
                 assertThat(rs.getObject(column, LocalDate.class)).isEqualTo(localDate);
 
                 assertThat(rs.getDate(column)).isEqualTo(sqlDate);
-                assertThatThrownBy(() -> rs.getTime(column))
-                        .isInstanceOf(IllegalArgumentException.class)
+                assertWrongExceptionThrownBy(() -> rs.getTime(column))
+                        .isInstanceOf(IllegalArgumentException.class) // TODO should be SQLException
                         .hasMessage("Expected column to be a time type but is date");
-                assertThatThrownBy(() -> rs.getTimestamp(column))
-                        .isInstanceOf(IllegalArgumentException.class)
+                assertWrongExceptionThrownBy(() -> rs.getTimestamp(column))
+                        .isInstanceOf(IllegalArgumentException.class) // TODO should be SQLException
                         .hasMessage("Expected column to be a timestamp type but is date");
 
                 assertThat(rs.getString(column)).isEqualTo(localDate.toString());
@@ -283,11 +727,11 @@ public abstract class BaseTestJdbcResultSet
                 assertThat(rs.getObject(column, LocalDate.class)).isEqualTo(localDate);
 
                 assertThat(rs.getDate(column)).isEqualTo(sqlDate);
-                assertThatThrownBy(() -> rs.getTime(column))
-                        .isInstanceOf(IllegalArgumentException.class)
+                assertWrongExceptionThrownBy(() -> rs.getTime(column))
+                        .isInstanceOf(IllegalArgumentException.class) // TODO should be SQLException
                         .hasMessage("Expected column to be a time type but is date");
-                assertThatThrownBy(() -> rs.getTimestamp(column))
-                        .isInstanceOf(IllegalArgumentException.class)
+                assertWrongExceptionThrownBy(() -> rs.getTimestamp(column))
+                        .isInstanceOf(IllegalArgumentException.class) // TODO should be SQLException
                         .hasMessage("Expected column to be a timestamp type but is date");
 
                 assertThat(rs.getString(column)).isEqualTo(localDate.toString());
@@ -305,11 +749,11 @@ public abstract class BaseTestJdbcResultSet
                 assertThat(rs.getObject(column, LocalDate.class)).isEqualTo(LocalDate.of(1582, 10, 20));
 
                 assertThat(rs.getDate(column)).isEqualTo(sqlDate);
-                assertThatThrownBy(() -> rs.getTime(column))
-                        .isInstanceOf(IllegalArgumentException.class)
+                assertWrongExceptionThrownBy(() -> rs.getTime(column))
+                        .isInstanceOf(IllegalArgumentException.class) // TODO should be SQLException
                         .hasMessage("Expected column to be a time type but is date");
-                assertThatThrownBy(() -> rs.getTimestamp(column))
-                        .isInstanceOf(IllegalArgumentException.class)
+                assertWrongExceptionThrownBy(() -> rs.getTimestamp(column))
+                        .isInstanceOf(IllegalArgumentException.class) // TODO should be SQLException
                         .hasMessage("Expected column to be a timestamp type but is date");
 
                 assertThat(rs.getString(column)).isEqualTo(localDate.toString());
@@ -325,11 +769,11 @@ public abstract class BaseTestJdbcResultSet
                 assertThat(rs.getObject(column, LocalDate.class)).isEqualTo(localDate);
 
                 assertThat(rs.getDate(column)).isEqualTo(sqlDate);
-                assertThatThrownBy(() -> rs.getTime(column))
-                        .isInstanceOf(IllegalArgumentException.class)
+                assertWrongExceptionThrownBy(() -> rs.getTime(column))
+                        .isInstanceOf(IllegalArgumentException.class) // TODO should be SQLException
                         .hasMessage("Expected column to be a time type but is date");
-                assertThatThrownBy(() -> rs.getTimestamp(column))
-                        .isInstanceOf(IllegalArgumentException.class)
+                assertWrongExceptionThrownBy(() -> rs.getTimestamp(column))
+                        .isInstanceOf(IllegalArgumentException.class) // TODO should be SQLException
                         .hasMessage("Expected column to be a timestamp type but is date");
 
                 assertThat(rs.getString(column)).isEqualTo(localDate.toString());
@@ -345,11 +789,9 @@ public abstract class BaseTestJdbcResultSet
             checkRepresentation(connectedStatement.getStatement(), "TIME '09:39:05.000'", Types.TIME, (rs, column) -> {
                 assertThat(rs.getObject(column)).isEqualTo(toSqlTime(LocalTime.of(9, 39, 5)));
                 assertThat(rs.getObject(column, Time.class)).isEqualTo(toSqlTime(LocalTime.of(9, 39, 5)));
-                assertThatThrownBy(() -> rs.getDate(column))
-                        .isInstanceOf(SQLException.class)
-                        .hasMessage("Expected value to be a date but is: 09:39:05.000");
+                assertSqlExceptionThrownBy(() -> rs.getDate(column)).hasMessage("Expected value to be a date but is: 09:39:05.000");
                 assertThat(rs.getTime(column)).isEqualTo(Time.valueOf(LocalTime.of(9, 39, 5)));
-                assertThatThrownBy(() -> rs.getTimestamp(column))
+                assertWrongExceptionThrownBy(() -> rs.getTimestamp(column))
                         .isInstanceOf(IllegalArgumentException.class) // TODO (https://github.com/trinodb/trino/issues/5315) SQLException
                         .hasMessage("Expected column to be a timestamp type but is time(3)");
             });
@@ -357,11 +799,9 @@ public abstract class BaseTestJdbcResultSet
             checkRepresentation(connectedStatement.getStatement(), "TIME '00:39:05'", Types.TIME, (rs, column) -> {
                 assertThat(rs.getObject(column)).isEqualTo(toSqlTime(LocalTime.of(0, 39, 5)));
                 assertThat(rs.getObject(column, Time.class)).isEqualTo(toSqlTime(LocalTime.of(0, 39, 5)));
-                assertThatThrownBy(() -> rs.getDate(column))
-                        .isInstanceOf(SQLException.class)
-                        .hasMessage("Expected value to be a date but is: 00:39:05");
+                assertSqlExceptionThrownBy(() -> rs.getDate(column)).hasMessage("Expected value to be a date but is: 00:39:05");
                 assertThat(rs.getTime(column)).isEqualTo(Time.valueOf(LocalTime.of(0, 39, 5)));
-                assertThatThrownBy(() -> rs.getTimestamp(column))
+                assertWrongExceptionThrownBy(() -> rs.getTimestamp(column))
                         .isInstanceOf(IllegalArgumentException.class) // TODO (https://github.com/trinodb/trino/issues/5315) SQLException
                         .hasMessage("Expected column to be a timestamp type but is time(0)");
             });
@@ -370,11 +810,9 @@ public abstract class BaseTestJdbcResultSet
             checkRepresentation(connectedStatement.getStatement(), "TIME '10:11:12.1235'", Types.TIME, (rs, column) -> {
                 // TODO (https://github.com/trinodb/trino/issues/6205) maybe should round to 124 ms instead
                 assertThat(rs.getObject(column)).isEqualTo(toSqlTime(LocalTime.of(10, 11, 12, 123_000_000)));
-                assertThatThrownBy(() -> rs.getDate(column))
-                        .isInstanceOf(SQLException.class)
-                        .hasMessage("Expected value to be a date but is: 10:11:12.1235");
+                assertSqlExceptionThrownBy(() -> rs.getDate(column)).hasMessage("Expected value to be a date but is: 10:11:12.1235");
                 assertThat(rs.getTime(column)).isEqualTo(toSqlTime(LocalTime.of(10, 11, 12, 123_000_000)));
-                assertThatThrownBy(() -> rs.getTimestamp(column))
+                assertWrongExceptionThrownBy(() -> rs.getTimestamp(column))
                         .isInstanceOf(IllegalArgumentException.class) // TODO (https://github.com/trinodb/trino/issues/5315) SQLException
                         .hasMessage("Expected column to be a timestamp type but is time(4)");
             });
@@ -383,12 +821,10 @@ public abstract class BaseTestJdbcResultSet
             checkRepresentation(connectedStatement.getStatement(), "TIME '10:59:59.999999999999'", Types.TIME, (rs, column) -> {
                 // TODO (https://github.com/trinodb/trino/issues/6205) maybe result should be 11:00:00
                 assertThat(rs.getObject(column)).isEqualTo(toSqlTime(LocalTime.of(10, 59, 59, 999_000_000)));
-                assertThatThrownBy(() -> rs.getDate(column))
-                        .isInstanceOf(SQLException.class)
-                        .hasMessage("Expected value to be a date but is: 10:59:59.999999999999");
+                assertSqlExceptionThrownBy(() -> rs.getDate(column)).hasMessage("Expected value to be a date but is: 10:59:59.999999999999");
                 // TODO (https://github.com/trinodb/trino/issues/6205) maybe result should be 11:00:00
                 assertThat(rs.getTime(column)).isEqualTo(toSqlTime(LocalTime.of(10, 59, 59, 999_000_000)));
-                assertThatThrownBy(() -> rs.getTimestamp(column))
+                assertWrongExceptionThrownBy(() -> rs.getTimestamp(column))
                         .isInstanceOf(IllegalArgumentException.class) // TODO (https://github.com/trinodb/trino/issues/5315) SQLException
                         .hasMessage("Expected column to be a timestamp type but is time(12)");
             });
@@ -397,12 +833,10 @@ public abstract class BaseTestJdbcResultSet
             checkRepresentation(connectedStatement.getStatement(), "TIME '23:59:59.999999999999'", Types.TIME, (rs, column) -> {
                 // TODO (https://github.com/trinodb/trino/issues/6205) maybe result should be 01:00:00 (shifted from 00:00:00 as test JVM has gap in 1970-01-01)
                 assertThat(rs.getObject(column)).isEqualTo(toSqlTime(LocalTime.of(23, 59, 59, 999_000_000)));
-                assertThatThrownBy(() -> rs.getDate(column))
-                        .isInstanceOf(SQLException.class)
-                        .hasMessage("Expected value to be a date but is: 23:59:59.999999999999");
+                assertSqlExceptionThrownBy(() -> rs.getDate(column)).hasMessage("Expected value to be a date but is: 23:59:59.999999999999");
                 // TODO (https://github.com/trinodb/trino/issues/6205) maybe result should be 01:00:00 (shifted from 00:00:00 as test JVM has gap in 1970-01-01)
                 assertThat(rs.getTime(column)).isEqualTo(toSqlTime(LocalTime.of(23, 59, 59, 999_000_000)));
-                assertThatThrownBy(() -> rs.getTimestamp(column))
+                assertWrongExceptionThrownBy(() -> rs.getTimestamp(column))
                         .isInstanceOf(IllegalArgumentException.class) // TODO (https://github.com/trinodb/trino/issues/5315) SQLException
                         .hasMessage("Expected column to be a timestamp type but is time(12)");
             });
@@ -416,11 +850,9 @@ public abstract class BaseTestJdbcResultSet
         try (ConnectedStatement connectedStatement = newStatement()) {
             checkRepresentation(connectedStatement.getStatement(), "TIME '09:39:07 +01:00'", Types.TIME_WITH_TIMEZONE, (rs, column) -> {
                 assertThat(rs.getObject(column)).isEqualTo(Time.valueOf(LocalTime.of(1, 39, 7))); // TODO this should represent TIME '09:39:07 +01:00'
-                assertThatThrownBy(() -> rs.getDate(column))
-                        .isInstanceOf(SQLException.class)
-                        .hasMessage("Expected value to be a date but is: 09:39:07+01:00");
+                assertSqlExceptionThrownBy(() -> rs.getDate(column)).hasMessage("Expected value to be a date but is: 09:39:07+01:00");
                 assertThat(rs.getTime(column)).isEqualTo(Time.valueOf(LocalTime.of(1, 39, 7))); // TODO this should fail, or represent TIME '09:39:07'
-                assertThatThrownBy(() -> rs.getTimestamp(column))
+                assertWrongExceptionThrownBy(() -> rs.getTimestamp(column))
                         .isInstanceOf(IllegalArgumentException.class) // TODO (https://github.com/trinodb/trino/issues/5315) SQLException
                         .hasMessage("Expected column to be a timestamp type but is time(0) with time zone");
             });
@@ -432,11 +864,9 @@ public abstract class BaseTestJdbcResultSet
                                 - DAYS.toMillis(1) /* because we use currently 'shifted' representation, not possible to create just using LocalTime */
                                 + HOURS.toMillis(1) /* because there was offset shift on 1970-01-01 in America/Bahia_Banderas */);
                 assertThat(rs.getObject(column)).isEqualTo(someBogusValue); // TODO this should represent TIME '01:39:07 +01:00'
-                assertThatThrownBy(() -> rs.getDate(column))
-                        .isInstanceOf(SQLException.class)
-                        .hasMessage("Expected value to be a date but is: 01:39:07+01:00");
+                assertSqlExceptionThrownBy(() -> rs.getDate(column)).hasMessage("Expected value to be a date but is: 01:39:07+01:00");
                 assertThat(rs.getTime(column)).isEqualTo(someBogusValue); // TODO this should fail, or represent TIME '01:39:07'
-                assertThatThrownBy(() -> rs.getTimestamp(column))
+                assertWrongExceptionThrownBy(() -> rs.getTimestamp(column))
                         .isInstanceOf(IllegalArgumentException.class) // TODO (https://github.com/trinodb/trino/issues/5315) SQLException
                         .hasMessage("Expected column to be a timestamp type but is time(0) with time zone");
             });
@@ -448,11 +878,9 @@ public abstract class BaseTestJdbcResultSet
                                 - DAYS.toMillis(1) /* because we use currently 'shifted' representation, not possible to create just using LocalTime */
                                 + HOURS.toMillis(1) /* because there was offset shift on 1970-01-01 in America/Bahia_Banderas */);
                 assertThat(rs.getObject(column)).isEqualTo(someBogusValue); // TODO this should represent TIME '00:39:07 +01:00'
-                assertThatThrownBy(() -> rs.getDate(column))
-                        .isInstanceOf(SQLException.class)
-                        .hasMessage("Expected value to be a date but is: 00:39:07+01:00");
+                assertSqlExceptionThrownBy(() -> rs.getDate(column)).hasMessage("Expected value to be a date but is: 00:39:07+01:00");
                 assertThat(rs.getTime(column)).isEqualTo(someBogusValue); // TODO this should fail, as there no java.sql.Time representation for TIME '00:39:07' in America/Bahia_Banderas
-                assertThatThrownBy(() -> rs.getTimestamp(column))
+                assertWrongExceptionThrownBy(() -> rs.getTimestamp(column))
                         .isInstanceOf(IllegalArgumentException.class) // TODO (https://github.com/trinodb/trino/issues/5315) SQLException
                         .hasMessage("Expected column to be a timestamp type but is time(0) with time zone");
             });
@@ -467,10 +895,8 @@ public abstract class BaseTestJdbcResultSet
             checkRepresentation(connectedStatement.getStatement(), "TIMESTAMP '2018-02-13 13:14:15.123'", Types.TIMESTAMP, (rs, column) -> {
                 assertThat(rs.getObject(column)).isEqualTo(Timestamp.valueOf(LocalDateTime.of(2018, 2, 13, 13, 14, 15, 123_000_000)));
                 assertThat(rs.getObject(column, Timestamp.class)).isEqualTo(Timestamp.valueOf(LocalDateTime.of(2018, 2, 13, 13, 14, 15, 123_000_000)));
-                assertThatThrownBy(() -> rs.getDate(column))
-                        .isInstanceOf(SQLException.class)
-                        .hasMessage("Expected value to be a date but is: 2018-02-13 13:14:15.123");
-                assertThatThrownBy(() -> rs.getTime(column))
+                assertSqlExceptionThrownBy(() -> rs.getDate(column)).hasMessage("Expected value to be a date but is: 2018-02-13 13:14:15.123");
+                assertWrongExceptionThrownBy(() -> rs.getTime(column))
                         .isInstanceOf(IllegalArgumentException.class) // TODO (https://github.com/trinodb/trino/issues/5315) SQLException
                         .hasMessage("Expected column to be a time type but is timestamp(3)");
                 assertThat(rs.getTimestamp(column)).isEqualTo(Timestamp.valueOf(LocalDateTime.of(2018, 2, 13, 13, 14, 15, 123_000_000)));
@@ -478,10 +904,8 @@ public abstract class BaseTestJdbcResultSet
 
             checkRepresentation(connectedStatement.getStatement(), "TIMESTAMP '2018-02-13 13:14:15.111111111111'", Types.TIMESTAMP, (rs, column) -> {
                 assertThat(rs.getObject(column)).isEqualTo(Timestamp.valueOf(LocalDateTime.of(2018, 2, 13, 13, 14, 15, 111_111_111)));
-                assertThatThrownBy(() -> rs.getDate(column))
-                        .isInstanceOf(SQLException.class)
-                        .hasMessage("Expected value to be a date but is: 2018-02-13 13:14:15.111111111111");
-                assertThatThrownBy(() -> rs.getTime(column))
+                assertSqlExceptionThrownBy(() -> rs.getDate(column)).hasMessage("Expected value to be a date but is: 2018-02-13 13:14:15.111111111111");
+                assertWrongExceptionThrownBy(() -> rs.getTime(column))
                         .isInstanceOf(IllegalArgumentException.class) // TODO (https://github.com/trinodb/trino/issues/5315) SQLException
                         .hasMessage("Expected column to be a time type but is timestamp(12)");
                 assertThat(rs.getTimestamp(column)).isEqualTo(Timestamp.valueOf(LocalDateTime.of(2018, 2, 13, 13, 14, 15, 111_111_111)));
@@ -489,10 +913,8 @@ public abstract class BaseTestJdbcResultSet
 
             checkRepresentation(connectedStatement.getStatement(), "TIMESTAMP '2018-02-13 13:14:15.555555555555'", Types.TIMESTAMP, (rs, column) -> {
                 assertThat(rs.getObject(column)).isEqualTo(Timestamp.valueOf(LocalDateTime.of(2018, 2, 13, 13, 14, 15, 555_555_556)));
-                assertThatThrownBy(() -> rs.getDate(column))
-                        .isInstanceOf(SQLException.class)
-                        .hasMessage("Expected value to be a date but is: 2018-02-13 13:14:15.555555555555");
-                assertThatThrownBy(() -> rs.getTime(column))
+                assertSqlExceptionThrownBy(() -> rs.getDate(column)).hasMessage("Expected value to be a date but is: 2018-02-13 13:14:15.555555555555");
+                assertWrongExceptionThrownBy(() -> rs.getTime(column))
                         .isInstanceOf(IllegalArgumentException.class) // TODO (https://github.com/trinodb/trino/issues/5315) SQLException
                         .hasMessage("Expected column to be a time type but is timestamp(12)");
                 assertThat(rs.getTimestamp(column)).isEqualTo(Timestamp.valueOf(LocalDateTime.of(2018, 2, 13, 13, 14, 15, 555_555_556)));
@@ -501,10 +923,8 @@ public abstract class BaseTestJdbcResultSet
             // second fraction in nanoseconds overflowing to next second, minute, hour, day, month, year
             checkRepresentation(connectedStatement.getStatement(), "TIMESTAMP '2019-12-31 23:59:59.999999999999'", Types.TIMESTAMP, (rs, column) -> {
                 assertThat(rs.getObject(column)).isEqualTo(Timestamp.valueOf(LocalDateTime.of(2020, 1, 1, 0, 0, 0, 0)));
-                assertThatThrownBy(() -> rs.getDate(column))
-                        .isInstanceOf(SQLException.class)
-                        .hasMessage("Expected value to be a date but is: 2019-12-31 23:59:59.999999999999");
-                assertThatThrownBy(() -> rs.getTime(column))
+                assertSqlExceptionThrownBy(() -> rs.getDate(column)).hasMessage("Expected value to be a date but is: 2019-12-31 23:59:59.999999999999");
+                assertWrongExceptionThrownBy(() -> rs.getTime(column))
                         .isInstanceOf(IllegalArgumentException.class) // TODO (https://github.com/trinodb/trino/issues/5315) SQLException
                         .hasMessage("Expected column to be a time type but is timestamp(12)");
                 assertThat(rs.getTimestamp(column)).isEqualTo(Timestamp.valueOf(LocalDateTime.of(2020, 1, 1, 0, 0, 0, 0)));
@@ -513,10 +933,8 @@ public abstract class BaseTestJdbcResultSet
             // second fraction in nanoseconds overflowing to next second, minute, hour, day, month, year; before epoch
             checkRepresentation(connectedStatement.getStatement(), "TIMESTAMP '1957-12-31 23:59:59.999999999999'", Types.TIMESTAMP, (rs, column) -> {
                 assertThat(rs.getObject(column)).isEqualTo(Timestamp.valueOf(LocalDateTime.of(1958, 1, 1, 0, 0, 0, 0)));
-                assertThatThrownBy(() -> rs.getDate(column))
-                        .isInstanceOf(SQLException.class)
-                        .hasMessage("Expected value to be a date but is: 1957-12-31 23:59:59.999999999999");
-                assertThatThrownBy(() -> rs.getTime(column))
+                assertSqlExceptionThrownBy(() -> rs.getDate(column)).hasMessage("Expected value to be a date but is: 1957-12-31 23:59:59.999999999999");
+                assertWrongExceptionThrownBy(() -> rs.getTime(column))
                         .isInstanceOf(IllegalArgumentException.class) // TODO (https://github.com/trinodb/trino/issues/5315) SQLException
                         .hasMessage("Expected column to be a time type but is timestamp(12)");
                 assertThat(rs.getTimestamp(column)).isEqualTo(Timestamp.valueOf(LocalDateTime.of(1958, 1, 1, 0, 0, 0, 0)));
@@ -525,10 +943,8 @@ public abstract class BaseTestJdbcResultSet
             // distant past, but apparently not an uncommon value in practice
             checkRepresentation(connectedStatement.getStatement(), "TIMESTAMP '0001-01-01 00:00:00'", Types.TIMESTAMP, (rs, column) -> {
                 assertThat(rs.getObject(column)).isEqualTo(Timestamp.valueOf(LocalDateTime.of(1, 1, 1, 0, 0, 0)));
-                assertThatThrownBy(() -> rs.getDate(column))
-                        .isInstanceOf(SQLException.class)
-                        .hasMessage("Expected value to be a date but is: 0001-01-01 00:00:00");
-                assertThatThrownBy(() -> rs.getTime(column))
+                assertSqlExceptionThrownBy(() -> rs.getDate(column)).hasMessage("Expected value to be a date but is: 0001-01-01 00:00:00");
+                assertWrongExceptionThrownBy(() -> rs.getTime(column))
                         .isInstanceOf(IllegalArgumentException.class) // TODO (https://github.com/trinodb/trino/issues/5315) SQLException
                         .hasMessage("Expected column to be a time type but is timestamp(0)");
                 assertThat(rs.getTimestamp(column)).isEqualTo(Timestamp.valueOf(LocalDateTime.of(1, 1, 1, 0, 0, 0)));
@@ -537,10 +953,8 @@ public abstract class BaseTestJdbcResultSet
             // the Julian-Gregorian calendar "default cut-over"
             checkRepresentation(connectedStatement.getStatement(), "TIMESTAMP '1582-10-04 00:00:00'", Types.TIMESTAMP, (rs, column) -> {
                 assertThat(rs.getObject(column)).isEqualTo(Timestamp.valueOf(LocalDateTime.of(1582, 10, 4, 0, 0, 0)));
-                assertThatThrownBy(() -> rs.getDate(column))
-                        .isInstanceOf(SQLException.class)
-                        .hasMessage("Expected value to be a date but is: 1582-10-04 00:00:00");
-                assertThatThrownBy(() -> rs.getTime(column))
+                assertSqlExceptionThrownBy(() -> rs.getDate(column)).hasMessage("Expected value to be a date but is: 1582-10-04 00:00:00");
+                assertWrongExceptionThrownBy(() -> rs.getTime(column))
                         .isInstanceOf(IllegalArgumentException.class) // TODO (https://github.com/trinodb/trino/issues/5315) SQLException
                         .hasMessage("Expected column to be a time type but is timestamp(0)");
                 assertThat(rs.getTimestamp(column)).isEqualTo(Timestamp.valueOf(LocalDateTime.of(1582, 10, 4, 0, 0, 0)));
@@ -549,10 +963,8 @@ public abstract class BaseTestJdbcResultSet
             // after the Julian-Gregorian calendar "default cut-over", but before the Gregorian calendar start
             checkRepresentation(connectedStatement.getStatement(), "TIMESTAMP '1582-10-10 00:00:00'", Types.TIMESTAMP, (rs, column) -> {
                 assertThat(rs.getObject(column)).isEqualTo(Timestamp.valueOf(LocalDateTime.of(1582, 10, 10, 0, 0, 0)));
-                assertThatThrownBy(() -> rs.getDate(column))
-                        .isInstanceOf(SQLException.class)
-                        .hasMessage("Expected value to be a date but is: 1582-10-10 00:00:00");
-                assertThatThrownBy(() -> rs.getTime(column))
+                assertSqlExceptionThrownBy(() -> rs.getDate(column)).hasMessage("Expected value to be a date but is: 1582-10-10 00:00:00");
+                assertWrongExceptionThrownBy(() -> rs.getTime(column))
                         .isInstanceOf(IllegalArgumentException.class) // TODO (https://github.com/trinodb/trino/issues/5315) SQLException
                         .hasMessage("Expected column to be a time type but is timestamp(0)");
                 assertThat(rs.getTimestamp(column)).isEqualTo(Timestamp.valueOf(LocalDateTime.of(1582, 10, 10, 0, 0, 0)));
@@ -561,10 +973,8 @@ public abstract class BaseTestJdbcResultSet
             // the Gregorian calendar start
             checkRepresentation(connectedStatement.getStatement(), "TIMESTAMP '1582-10-15 00:00:00'", Types.TIMESTAMP, (rs, column) -> {
                 assertThat(rs.getObject(column)).isEqualTo(Timestamp.valueOf(LocalDateTime.of(1582, 10, 15, 0, 0, 0)));
-                assertThatThrownBy(() -> rs.getDate(column))
-                        .isInstanceOf(SQLException.class)
-                        .hasMessage("Expected value to be a date but is: 1582-10-15 00:00:00");
-                assertThatThrownBy(() -> rs.getTime(column))
+                assertSqlExceptionThrownBy(() -> rs.getDate(column)).hasMessage("Expected value to be a date but is: 1582-10-15 00:00:00");
+                assertWrongExceptionThrownBy(() -> rs.getTime(column))
                         .isInstanceOf(IllegalArgumentException.class) // TODO (https://github.com/trinodb/trino/issues/5315) SQLException
                         .hasMessage("Expected column to be a time type but is timestamp(0)");
                 assertThat(rs.getTimestamp(column)).isEqualTo(Timestamp.valueOf(LocalDateTime.of(1582, 10, 15, 0, 0, 0)));
@@ -572,10 +982,8 @@ public abstract class BaseTestJdbcResultSet
 
             checkRepresentation(connectedStatement.getStatement(), "TIMESTAMP '1583-01-01 00:00:00'", Types.TIMESTAMP, (rs, column) -> {
                 assertThat(rs.getObject(column)).isEqualTo(Timestamp.valueOf(LocalDateTime.of(1583, 1, 1, 0, 0, 0)));
-                assertThatThrownBy(() -> rs.getDate(column))
-                        .isInstanceOf(SQLException.class)
-                        .hasMessage("Expected value to be a date but is: 1583-01-01 00:00:00");
-                assertThatThrownBy(() -> rs.getTime(column))
+                assertSqlExceptionThrownBy(() -> rs.getDate(column)).hasMessage("Expected value to be a date but is: 1583-01-01 00:00:00");
+                assertWrongExceptionThrownBy(() -> rs.getTime(column))
                         .isInstanceOf(IllegalArgumentException.class) // TODO (https://github.com/trinodb/trino/issues/5315) SQLException
                         .hasMessage("Expected column to be a time type but is timestamp(0)");
                 assertThat(rs.getTimestamp(column)).isEqualTo(Timestamp.valueOf(LocalDateTime.of(1583, 1, 1, 0, 0, 0)));
@@ -583,10 +991,8 @@ public abstract class BaseTestJdbcResultSet
 
             checkRepresentation(connectedStatement.getStatement(), "TIMESTAMP '1970-01-01 00:14:15.123'", Types.TIMESTAMP, (rs, column) -> {
                 assertThat(rs.getObject(column)).isEqualTo(Timestamp.valueOf(LocalDateTime.of(1970, 1, 1, 0, 14, 15, 123_000_000)));
-                assertThatThrownBy(() -> rs.getDate(column))
-                        .isInstanceOf(SQLException.class)
-                        .hasMessage("Expected value to be a date but is: 1970-01-01 00:14:15.123");
-                assertThatThrownBy(() -> rs.getTime(column))
+                assertSqlExceptionThrownBy(() -> rs.getDate(column)).hasMessage("Expected value to be a date but is: 1970-01-01 00:14:15.123");
+                assertWrongExceptionThrownBy(() -> rs.getTime(column))
                         .isInstanceOf(IllegalArgumentException.class) // TODO (https://github.com/trinodb/trino/issues/5315) SQLException
                         .hasMessage("Expected column to be a time type but is timestamp(3)");
                 assertThat(rs.getTimestamp(column)).isEqualTo(Timestamp.valueOf(LocalDateTime.of(1970, 1, 1, 0, 14, 15, 123_000_000)));
@@ -594,10 +1000,8 @@ public abstract class BaseTestJdbcResultSet
 
             checkRepresentation(connectedStatement.getStatement(), "TIMESTAMP '123456-01-23 01:23:45.123456789'", Types.TIMESTAMP, (rs, column) -> {
                 assertThat(rs.getObject(column)).isEqualTo(Timestamp.valueOf(LocalDateTime.of(123456, 1, 23, 1, 23, 45, 123_456_789)));
-                assertThatThrownBy(() -> rs.getDate(column))
-                        .isInstanceOf(SQLException.class)
-                        .hasMessage("Expected value to be a date but is: +123456-01-23 01:23:45.123456789");
-                assertThatThrownBy(() -> rs.getTime(column))
+                assertSqlExceptionThrownBy(() -> rs.getDate(column)).hasMessage("Expected value to be a date but is: +123456-01-23 01:23:45.123456789");
+                assertWrongExceptionThrownBy(() -> rs.getTime(column))
                         .isInstanceOf(IllegalArgumentException.class) // TODO (https://github.com/trinodb/trino/issues/5315) SQLException
                         .hasMessage("Expected column to be a time type but is timestamp(9)");
                 assertThat(rs.getTimestamp(column)).isEqualTo(Timestamp.valueOf(LocalDateTime.of(123456, 1, 23, 1, 23, 45, 123_456_789)));
@@ -615,10 +1019,8 @@ public abstract class BaseTestJdbcResultSet
                 Timestamp timestampForPointInTime = Timestamp.from(Instant.EPOCH);
                 assertThat(rs.getObject(column)).isEqualTo(timestampForPointInTime);
                 assertThat(rs.getObject(column, ZonedDateTime.class)).isEqualTo(ZonedDateTime.ofInstant(Instant.EPOCH, ZoneId.of("UTC")));
-                assertThatThrownBy(() -> rs.getDate(column))
-                        .isInstanceOf(SQLException.class)
-                        .hasMessage("Expected value to be a date but is: 1970-01-01 00:00:00.000 UTC");
-                assertThatThrownBy(() -> rs.getTime(column))
+                assertSqlExceptionThrownBy(() -> rs.getDate(column)).hasMessage("Expected value to be a date but is: 1970-01-01 00:00:00.000 UTC");
+                assertWrongExceptionThrownBy(() -> rs.getTime(column))
                         .isInstanceOf(IllegalArgumentException.class) // TODO (https://github.com/trinodb/trino/issues/5315) SQLException
                         .hasMessage("Expected column to be a time type but is timestamp(3) with time zone");
                 assertThat(rs.getTimestamp(column)).isEqualTo(timestampForPointInTime);
@@ -629,10 +1031,8 @@ public abstract class BaseTestJdbcResultSet
                 Timestamp timestampForPointInTime = Timestamp.from(zonedDateTime.toInstant());
                 assertThat(rs.getObject(column)).isEqualTo(timestampForPointInTime); // TODO this should represent TIMESTAMP '2018-02-13 13:14:15.227 Europe/Warsaw'
                 assertThat(rs.getObject(column, ZonedDateTime.class)).isEqualTo(zonedDateTime);
-                assertThatThrownBy(() -> rs.getDate(column))
-                        .isInstanceOf(SQLException.class)
-                        .hasMessage("Expected value to be a date but is: 2018-02-13 13:14:15.227 Europe/Warsaw");
-                assertThatThrownBy(() -> rs.getTime(column))
+                assertSqlExceptionThrownBy(() -> rs.getDate(column)).hasMessage("Expected value to be a date but is: 2018-02-13 13:14:15.227 Europe/Warsaw");
+                assertWrongExceptionThrownBy(() -> rs.getTime(column))
                         .isInstanceOf(IllegalArgumentException.class) // TODO (https://github.com/trinodb/trino/issues/5315) SQLException
                         .hasMessage("Expected column to be a time type but is timestamp(3) with time zone");
                 assertThat(rs.getTimestamp(column)).isEqualTo(timestampForPointInTime);
@@ -644,10 +1044,8 @@ public abstract class BaseTestJdbcResultSet
                 Timestamp timestampForPointInTime = Timestamp.from(zonedDateTime.toInstant());
                 assertThat(rs.getObject(column)).isEqualTo(timestampForPointInTime);  // TODO this should represent TIMESTAMP '2019-12-31 23:59:59.999999999999 Europe/Warsaw'
                 assertThat(rs.getObject(column, ZonedDateTime.class)).isEqualTo(zonedDateTime);
-                assertThatThrownBy(() -> rs.getDate(column))
-                        .isInstanceOf(SQLException.class)
-                        .hasMessage("Expected value to be a date but is: 2019-12-31 23:59:59.999999999999 Europe/Warsaw");
-                assertThatThrownBy(() -> rs.getTime(column))
+                assertSqlExceptionThrownBy(() -> rs.getDate(column)).hasMessage("Expected value to be a date but is: 2019-12-31 23:59:59.999999999999 Europe/Warsaw");
+                assertWrongExceptionThrownBy(() -> rs.getTime(column))
                         .isInstanceOf(IllegalArgumentException.class) // TODO (https://github.com/trinodb/trino/issues/5315) SQLException
                         .hasMessage("Expected column to be a time type but is timestamp(12) with time zone");
                 assertThat(rs.getTimestamp(column)).isEqualTo(timestampForPointInTime);
@@ -663,10 +1061,8 @@ public abstract class BaseTestJdbcResultSet
                         Timestamp timestampForPointInTime = Timestamp.from(zonedDateTime.toInstant());
                         assertThat(rs.getObject(column)).isEqualTo(timestampForPointInTime);  // TODO this should represent TIMESTAMP '2019-12-31 23:59:59.999999999999 JVM ZONE'
                         assertThat(rs.getObject(column, ZonedDateTime.class)).isEqualTo(zonedDateTime);
-                        assertThatThrownBy(() -> rs.getDate(column))
-                                .isInstanceOf(SQLException.class)
-                                .hasMessage("Expected value to be a date but is: 2019-12-31 23:59:59.999999999999 America/Bahia_Banderas");
-                        assertThatThrownBy(() -> rs.getTime(column))
+                        assertSqlExceptionThrownBy(() -> rs.getDate(column)).hasMessage("Expected value to be a date but is: 2019-12-31 23:59:59.999999999999 America/Bahia_Banderas");
+                        assertWrongExceptionThrownBy(() -> rs.getTime(column))
                                 .isInstanceOf(IllegalArgumentException.class) // TODO (https://github.com/trinodb/trino/issues/5315) SQLException
                                 .hasMessage("Expected column to be a time type but is timestamp(12) with time zone");
                         assertThat(rs.getTimestamp(column)).isEqualTo(timestampForPointInTime);
@@ -677,10 +1073,8 @@ public abstract class BaseTestJdbcResultSet
                 ZonedDateTime zonedDateTime = ZonedDateTime.of(1958, 1, 1, 0, 0, 0, 0, ZoneId.of("Europe/Warsaw"));
                 Timestamp timestampForPointInTime = Timestamp.from(zonedDateTime.toInstant());
                 assertThat(rs.getObject(column)).isEqualTo(timestampForPointInTime);  // TODO this should represent TIMESTAMP '2019-12-31 23:59:59.999999999999 Europe/Warsaw'
-                assertThatThrownBy(() -> rs.getDate(column))
-                        .isInstanceOf(SQLException.class)
-                        .hasMessage("Expected value to be a date but is: 1957-12-31 23:59:59.999999999999 Europe/Warsaw");
-                assertThatThrownBy(() -> rs.getTime(column))
+                assertSqlExceptionThrownBy(() -> rs.getDate(column)).hasMessage("Expected value to be a date but is: 1957-12-31 23:59:59.999999999999 Europe/Warsaw");
+                assertWrongExceptionThrownBy(() -> rs.getTime(column))
                         .isInstanceOf(IllegalArgumentException.class) // TODO (https://github.com/trinodb/trino/issues/5315) SQLException
                         .hasMessage("Expected column to be a time type but is timestamp(12) with time zone");
                 assertThat(rs.getTimestamp(column)).isEqualTo(timestampForPointInTime);
@@ -691,10 +1085,8 @@ public abstract class BaseTestJdbcResultSet
                 Timestamp timestampForPointInTime = Timestamp.from(zonedDateTime.toInstant());
                 assertThat(rs.getObject(column)).isEqualTo(timestampForPointInTime); // TODO this should represent TIMESTAMP '1970-01-01 09:14:15.227 Europe/Warsaw'
                 assertThat(rs.getObject(column, ZonedDateTime.class)).isEqualTo(zonedDateTime);
-                assertThatThrownBy(() -> rs.getDate(column))
-                        .isInstanceOf(SQLException.class)
-                        .hasMessage("Expected value to be a date but is: 1970-01-01 09:14:15.227 Europe/Warsaw");
-                assertThatThrownBy(() -> rs.getTime(column))
+                assertSqlExceptionThrownBy(() -> rs.getDate(column)).hasMessage("Expected value to be a date but is: 1970-01-01 09:14:15.227 Europe/Warsaw");
+                assertWrongExceptionThrownBy(() -> rs.getTime(column))
                         .isInstanceOf(IllegalArgumentException.class) // TODO (https://github.com/trinodb/trino/issues/5315) SQLException
                         .hasMessage("Expected column to be a time type but is timestamp(3) with time zone");
                 assertThat(rs.getTimestamp(column)).isEqualTo(timestampForPointInTime);
@@ -705,10 +1097,8 @@ public abstract class BaseTestJdbcResultSet
                 Timestamp timestampForPointInTime = Timestamp.from(zonedDateTime.toInstant());
                 assertThat(rs.getObject(column)).isEqualTo(timestampForPointInTime); // TODO this should represent TIMESTAMP '1970-01-01 00:14:15.227 Europe/Warsaw'
                 assertThat(rs.getObject(column, ZonedDateTime.class)).isEqualTo(zonedDateTime);
-                assertThatThrownBy(() -> rs.getDate(column))
-                        .isInstanceOf(SQLException.class)
-                        .hasMessage("Expected value to be a date but is: 1970-01-01 00:14:15.227 Europe/Warsaw");
-                assertThatThrownBy(() -> rs.getTime(column))
+                assertSqlExceptionThrownBy(() -> rs.getDate(column)).hasMessage("Expected value to be a date but is: 1970-01-01 00:14:15.227 Europe/Warsaw");
+                assertWrongExceptionThrownBy(() -> rs.getTime(column))
                         .isInstanceOf(IllegalArgumentException.class) // TODO (https://github.com/trinodb/trino/issues/5315) SQLException
                         .hasMessage("Expected column to be a time type but is timestamp(3) with time zone");
                 assertThat(rs.getTimestamp(column)).isEqualTo(timestampForPointInTime);
@@ -724,10 +1114,8 @@ public abstract class BaseTestJdbcResultSet
                 Timestamp timestampForPointInTime = Timestamp.from(zonedDateTime.toInstant());
                 assertThat(rs.getObject(column)).isEqualTo(timestampForPointInTime); // TODO this should contain the zone
                 assertThat(rs.getObject(column, ZonedDateTime.class)).isEqualTo(zonedDateTime);
-                assertThatThrownBy(() -> rs.getDate(column))
-                        .isInstanceOf(SQLException.class)
-                        .hasMessage("Expected value to be a date but is: +12345-01-23 01:23:45.123456789 Europe/Warsaw");
-                assertThatThrownBy(() -> rs.getTime(column))
+                assertSqlExceptionThrownBy(() -> rs.getDate(column)).hasMessage("Expected value to be a date but is: +12345-01-23 01:23:45.123456789 Europe/Warsaw");
+                assertWrongExceptionThrownBy(() -> rs.getTime(column))
                         .isInstanceOf(IllegalArgumentException.class) // TODO (https://github.com/trinodb/trino/issues/5315) SQLException
                         .hasMessage("Expected column to be a time type but is timestamp(9) with time zone");
                 assertThat(rs.getTimestamp(column)).isEqualTo(timestampForPointInTime);
@@ -928,9 +1316,7 @@ public abstract class BaseTestJdbcResultSet
                         .addField("field1", 42)
                         .addUnnamedField("Trino")
                         .build());
-                assertThatThrownBy(() -> rs.getObject(column, Map.class))
-                        .isInstanceOf(SQLException.class)
-                        .hasMessageMatching("Duplicate field name: field1");
+                assertSqlExceptionThrownBy(() -> rs.getObject(column, Map.class)).hasMessageMatching("Duplicate field name: field1");
             });
 
             // name collision with NULL value
@@ -939,9 +1325,7 @@ public abstract class BaseTestJdbcResultSet
                         .addField("field1", null)
                         .addUnnamedField(null)
                         .build());
-                assertThatThrownBy(() -> rs.getObject(column, Map.class))
-                        .isInstanceOf(SQLException.class)
-                        .hasMessageMatching("Duplicate field name: field1");
+                assertSqlExceptionThrownBy(() -> rs.getObject(column, Map.class)).hasMessageMatching("Duplicate field name: field1");
             });
 
             // row of row or row
@@ -982,7 +1366,7 @@ public abstract class BaseTestJdbcResultSet
         }
     }
 
-    private void checkRepresentation(Statement statement, String expression, int expectedSqlType, Object expectedRepresentation)
+    private void checkRepresentation(Statement statement, @Language("SQL") String expression, int expectedSqlType, Object expectedRepresentation)
             throws SQLException
     {
         checkRepresentation(statement, expression, expectedSqlType, (rs, column) -> {
@@ -991,7 +1375,7 @@ public abstract class BaseTestJdbcResultSet
         });
     }
 
-    private void checkRepresentation(Statement statement, String expression, int expectedSqlType, ResultAssertion assertion)
+    private void checkRepresentation(Statement statement, @Language("SQL") String expression, int expectedSqlType, ResultAssertion assertion)
             throws SQLException
     {
         try (ResultSet rs = statement.executeQuery("SELECT " + expression)) {
@@ -1000,11 +1384,26 @@ public abstract class BaseTestJdbcResultSet
             assertThat(metadata.getColumnType(1)).isEqualTo(expectedSqlType);
             assertThat(rs.next()).isTrue();
             assertion.accept(rs, 1);
+            Class<?> objectClass;
+            try {
+                objectClass = Class.forName(metadata.getColumnClassName(1));
+            }
+            catch (ClassNotFoundException e) {
+                throw new RuntimeException(e);
+            }
+            Object object = rs.getObject(1);
+            if (object != null) {
+                // general contract for metadata.getColumnTypeName
+                assertThat(object).isInstanceOf(objectClass);
+                // for any non-NULL (not UNKNOWN) type, we should know better than Object.class
+                assertThat(objectClass).as("getColumnTypeName for value of type %s [%s] returning %s", metadata.getColumnType(1), expression, object.getClass())
+                        .isNotEqualTo(Object.class);
+            }
             assertThat(rs.next()).isFalse();
         }
     }
 
-    private Object getObjectRepresentation(Connection connection, String expression)
+    private Object getObjectRepresentation(Connection connection, @Language("SQL") String expression)
             throws SQLException
     {
         try (Statement statement = connection.createStatement();
@@ -1136,9 +1535,7 @@ public abstract class BaseTestJdbcResultSet
     {
         try (ConnectedStatement connectedStatement = newStatement()) {
             connectedStatement.getStatement().setLargeMaxRows(Integer.MAX_VALUE * 10L);
-            assertThatThrownBy(connectedStatement.getStatement()::getMaxRows)
-                    .isInstanceOf(SQLException.class)
-                    .hasMessage("Max rows exceeds limit of 2147483647");
+            assertSqlExceptionThrownBy(connectedStatement.getStatement()::getMaxRows).hasMessage("Max rows exceeds limit of 2147483647");
         }
     }
 
@@ -1177,9 +1574,7 @@ public abstract class BaseTestJdbcResultSet
         try (ConnectedStatement connectedStatement = newStatement()) {
             ResultSet rs = connectedStatement.getStatement().executeQuery("SELECT * FROM (VALUES (1), (2), (3))");
             rs.close();
-            assertThatThrownBy(rs::getRow)
-                    .isInstanceOf(SQLException.class)
-                    .hasMessage("ResultSet is closed");
+            assertSqlExceptionThrownBy(rs::getRow).hasMessage("ResultSet is closed");
         }
     }
 
@@ -1243,4 +1638,31 @@ public abstract class BaseTestJdbcResultSet
         // Also, java.sql.Time has millisecond precision.
         return new Time(Time.valueOf(localTime).getTime() + IntMath.divide(localTime.getNano(), NANOSECONDS_PER_MILLISECOND, UNNECESSARY));
     }
+
+    @CheckReturnValue
+    private static AbstractThrowableAssert<?, ? extends Throwable> assertSqlExceptionThrownBy(ThrowableAssert.ThrowingCallable shouldRaiseThrowable)
+    {
+        return Assertions.assertThatThrownBy(shouldRaiseThrowable)
+                .isInstanceOf(SQLException.class);
+    }
+
+    /**
+     * @deprecated Make sure code throws {@link SQLException} and use {@link #assertSqlExceptionThrownBy} instead.
+     */
+    @Deprecated
+    @CheckReturnValue
+    private static AbstractThrowableAssert<?, ? extends Throwable> assertWrongExceptionThrownBy(ThrowableAssert.ThrowingCallable shouldRaiseThrowable)
+    {
+        return Assertions.assertThatThrownBy(shouldRaiseThrowable)
+                .isNotInstanceOf(SQLException.class);
+    }
+
+    /**
+     * @deprecated Use {@link #assertSqlExceptionThrownBy} to verify exception is of SQLException type (and verify message).
+     * When exception (incorrectly) is not of SQLException type, use {@link #assertWrongExceptionThrownBy} with a to-do comment.
+     */
+    @Deprecated
+    // Prevent accidental usage of Assertions.assertThatThrownBy in new code.
+    @SuppressWarnings("unused")
+    private static void assertThatThrownBy() {}
 }

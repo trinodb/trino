@@ -180,9 +180,7 @@ public class IgniteMetadata
             ConnectorMergeTableHandle tableHandle,
             List<ConnectorTableHandle> sourceTableHandles,
             Collection<Slice> fragments,
-            Collection<ComputedStatistics> computedStatistics)
-    {
-    }
+            Collection<ComputedStatistics> computedStatistics) {}
 
     @Override
     public ConnectorTableMetadata getTableMetadata(ConnectorSession session, ConnectorTableHandle table)
@@ -220,6 +218,7 @@ public class IgniteMetadata
         if (saveMode == REPLACE) {
             throw new TrinoException(NOT_SUPPORTED, "This connector does not support replacing tables");
         }
+        // No rollback action is needed when creating an empty table
         igniteClient.beginCreateTable(session, tableMetadata, _ -> {});
     }
 

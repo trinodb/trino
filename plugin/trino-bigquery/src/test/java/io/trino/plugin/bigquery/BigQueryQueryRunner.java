@@ -16,7 +16,6 @@ package io.trino.plugin.bigquery;
 import com.google.auth.oauth2.ServiceAccountCredentials;
 import com.google.cloud.bigquery.BigQuery;
 import com.google.cloud.bigquery.BigQueryOptions;
-import com.google.cloud.bigquery.Dataset;
 import com.google.cloud.bigquery.DatasetId;
 import com.google.cloud.bigquery.DatasetInfo;
 import com.google.cloud.bigquery.QueryJobConfiguration;
@@ -30,6 +29,7 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import io.airlift.log.Level;
 import io.airlift.log.Logger;
 import io.airlift.log.Logging;
+import io.airlift.units.Duration;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
@@ -47,13 +47,11 @@ import java.util.List;
 import java.util.Map;
 
 import static com.google.cloud.bigquery.BigQuery.DatasetDeleteOption.deleteContents;
-import static com.google.cloud.bigquery.BigQuery.DatasetListOption.labelFilter;
 import static io.airlift.testing.Closeables.closeAllSuppress;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.testing.QueryAssertions.copyTpchTables;
 import static io.trino.testing.TestingProperties.requiredNonEmptySystemProperty;
 import static io.trino.testing.TestingSession.testSessionBuilder;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public final class BigQueryQueryRunner
@@ -178,18 +176,6 @@ public final class BigQueryQueryRunner
             bigQuery.delete(dataset, deleteContents());
         }
 
-        public List<String> getSelfCreatedDatasets()
-        {
-            ImmutableList.Builder<String> datasetNames = ImmutableList.builder();
-            for (Dataset dataset : bigQuery.listDatasets(
-                    labelFilter(format("labels.%s:%s",
-                            BIG_QUERY_SQL_EXECUTOR_LABEL.getKey(),
-                            BIG_QUERY_SQL_EXECUTOR_LABEL.getValue()))).iterateAll()) {
-                datasetNames.add(dataset.getDatasetId().getDataset());
-            }
-            return datasetNames.build();
-        }
-
         public List<String> getTableNames(String dataset)
         {
             ImmutableList.Builder<String> tableNames = ImmutableList.builder();
@@ -210,6 +196,12 @@ public final class BigQueryQueryRunner
                 InputStream jsonKey = new ByteArrayInputStream(Base64.getDecoder().decode(BIGQUERY_CREDENTIALS_KEY));
                 return BigQueryOptions.newBuilder()
                         .setCredentials(ServiceAccountCredentials.fromStream(jsonKey))
+                        .setRetrySettings(new RetryOptionsConfigurer(new BigQueryRpcConfig()
+                                .setRetries(10)
+                                .setRetryDelay(Duration.valueOf("200ms"))
+                                .setRetryMultiplier(1.5)
+                                .setTimeout(Duration.valueOf("30s")))
+                                .retrySettings())
                         .build()
                         .getService();
             }

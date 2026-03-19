@@ -24,6 +24,7 @@ import org.junit.jupiter.api.Test;
 
 import java.time.Instant;
 
+import static io.airlift.json.JsonCodec.jsonCodec;
 import static io.trino.operator.TestDriverStats.assertExpectedDriverStats;
 import static io.trino.operator.TestOperatorStats.assertExpectedOperatorStats;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
@@ -90,7 +91,7 @@ public class TestPipelineStats
     @Test
     public void testJson()
     {
-        JsonCodec<PipelineStats> codec = JsonCodec.jsonCodec(PipelineStats.class);
+        JsonCodec<PipelineStats> codec = jsonCodec(PipelineStats.class);
 
         String json = codec.toJson(EXPECTED);
         PipelineStats actual = codec.fromJson(json);

@@ -26,6 +26,7 @@ import io.trino.sql.analyzer.Field;
 import io.trino.sql.analyzer.RelationId;
 import io.trino.sql.analyzer.RelationType;
 import io.trino.sql.analyzer.Scope;
+import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.ir.optimizer.IrExpressionOptimizer;
 import io.trino.sql.planner.Symbol;
@@ -80,7 +81,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.sql.ir.Comparison.Operator.EQUAL;
-import static io.trino.sql.ir.optimizer.IrExpressionOptimizer.newOptimizer;
 import static io.trino.sql.planner.LogicalPlanner.buildLambdaDeclarationToSymbolMap;
 import static io.trino.sql.relational.Expressions.call;
 import static io.trino.sql.relational.Expressions.constantNull;
@@ -96,7 +96,7 @@ public final class SqlRoutinePlanner
     public SqlRoutinePlanner(PlannerContext plannerContext)
     {
         this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
-        this.optimizer = newOptimizer(plannerContext);
+        this.optimizer = plannerContext.getExpressionOptimizer();
     }
 
     public IrRoutine planSqlFunction(Session session, SqlRoutineAnalysis analysis)
@@ -343,7 +343,7 @@ public final class SqlRoutinePlanner
             if (coercion == null) {
                 return rewritten;
             }
-            return new io.trino.sql.ir.Cast(rewritten, coercion);
+            return new Cast(rewritten, coercion);
         }
 
         private List<IrStatement> statements(List<ControlStatement> statements, Context context)

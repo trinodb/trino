@@ -55,9 +55,10 @@ export const Login = (props: ILoginProps) => {
         }
     }, [error, showSnackbar])
 
-    const handleSubmit = (event: React.FormEvent<LoginFormElement>) => {
+    const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
         event.preventDefault()
-        const { usernameInput, passwordInput } = event.currentTarget.elements
+        const target = event.currentTarget as LoginFormElement
+        const { usernameInput, passwordInput } = target.elements
 
         if (usernameInput.value.length == 0) {
             setUsernameError(true)

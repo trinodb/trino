@@ -30,6 +30,7 @@ import java.net.URI;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Set;
 
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
@@ -47,11 +48,11 @@ public final class LowMemoryKillerTestingUtils
     {
         Map<InternalNode, NodeReservation> nodeReservations = new HashMap<>();
 
-        for (Map.Entry<String, Map<String, Long>> entry : queries.entrySet()) {
+        for (Entry<String, Map<String, Long>> entry : queries.entrySet()) {
             QueryId queryId = new QueryId(entry.getKey());
             Map<String, Long> reservationByNode = entry.getValue();
 
-            for (Map.Entry<String, Long> nodeEntry : reservationByNode.entrySet()) {
+            for (Entry<String, Long> nodeEntry : reservationByNode.entrySet()) {
                 InternalNode node = new InternalNode(nodeEntry.getKey(), URI.create("http://localhost"), new NodeVersion("version"), false);
                 long bytes = nodeEntry.getValue();
                 if (bytes == 0) {
@@ -62,7 +63,7 @@ public final class LowMemoryKillerTestingUtils
         }
 
         ImmutableList.Builder<MemoryInfo> result = ImmutableList.builder();
-        for (Map.Entry<InternalNode, NodeReservation> entry : nodeReservations.entrySet()) {
+        for (Entry<InternalNode, NodeReservation> entry : nodeReservations.entrySet()) {
             NodeReservation nodeReservation = entry.getValue();
             MemoryPoolInfo memoryPoolInfo = new MemoryPoolInfo(
                     memoryPoolMaxBytes,
@@ -80,13 +81,13 @@ public final class LowMemoryKillerTestingUtils
     private static Map<String, Long> tasksMemoryInfoForNode(String nodeIdentifier, Map<String, Map<String, Map<Integer, Long>>> tasks)
     {
         ImmutableMap.Builder<String, Long> result = ImmutableMap.builder();
-        for (Map.Entry<String, Map<String, Map<Integer, Long>>> queryNodesEntry : tasks.entrySet()) {
-            for (Map.Entry<String, Map<Integer, Long>> nodeTasksEntry : queryNodesEntry.getValue().entrySet()) {
+        for (Entry<String, Map<String, Map<Integer, Long>>> queryNodesEntry : tasks.entrySet()) {
+            for (Entry<String, Map<Integer, Long>> nodeTasksEntry : queryNodesEntry.getValue().entrySet()) {
                 if (!nodeIdentifier.equals(nodeTasksEntry.getKey())) {
                     continue;
                 }
 
-                for (Map.Entry<Integer, Long> partitionReservationEntry : nodeTasksEntry.getValue().entrySet()) {
+                for (Entry<Integer, Long> partitionReservationEntry : nodeTasksEntry.getValue().entrySet()) {
                     result.put(taskId(queryNodesEntry.getKey(), partitionReservationEntry.getKey()).toString(), partitionReservationEntry.getValue());
                 }
             }
@@ -112,7 +113,7 @@ public final class LowMemoryKillerTestingUtils
     static List<LowMemoryKiller.RunningQueryInfo> toRunningQueryInfoList(Map<String, Map<String, Long>> queries, Set<String> queriesWithTaskLevelRetries, Map<String, Map<Integer, TaskInfo>> taskInfos)
     {
         ImmutableList.Builder<LowMemoryKiller.RunningQueryInfo> result = ImmutableList.builder();
-        for (Map.Entry<String, Map<String, Long>> entry : queries.entrySet()) {
+        for (Entry<String, Map<String, Long>> entry : queries.entrySet()) {
             String queryId = entry.getKey();
             long totalReservation = entry.getValue().values().stream()
                     .mapToLong(x -> x)
@@ -121,7 +122,7 @@ public final class LowMemoryKillerTestingUtils
             Map<TaskId, TaskInfo> queryTaskInfos = taskInfos.getOrDefault(queryId, ImmutableMap.of()).entrySet().stream()
                     .collect(toImmutableMap(
                             taskEntry -> taskId(queryId, taskEntry.getKey()),
-                            Map.Entry::getValue));
+                            Entry::getValue));
 
             result.add(new LowMemoryKiller.RunningQueryInfo(
                     new QueryId(queryId),

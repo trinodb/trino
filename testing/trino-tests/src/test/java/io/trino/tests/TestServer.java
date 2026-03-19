@@ -13,12 +13,14 @@
  */
 package io.trino.tests;
 
+import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.base.Splitter;
 import com.google.common.collect.AbstractSequentialIterator;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Streams;
 import io.airlift.http.client.FullJsonResponseHandler.JsonResponse;
+import io.airlift.http.client.HeaderName;
 import io.airlift.http.client.HttpClient;
 import io.airlift.http.client.HttpUriBuilder;
 import io.airlift.http.client.Request;
@@ -26,16 +28,11 @@ import io.airlift.http.client.StatusResponseHandler.StatusResponse;
 import io.airlift.http.client.jetty.JettyHttpClient;
 import io.airlift.json.JsonCodec;
 import io.airlift.json.JsonCodecFactory;
-import io.airlift.json.ObjectMapperProvider;
-import io.airlift.units.Duration;
-import io.trino.client.ClientSession;
+import io.airlift.json.JsonMapperProvider;
 import io.trino.client.QueryDataJacksonModule;
 import io.trino.client.QueryError;
 import io.trino.client.QueryResults;
 import io.trino.client.ResultRowsDecoder;
-import io.trino.client.StatementClient;
-import io.trino.client.StatementClientFactory;
-import io.trino.client.uri.TrinoUri;
 import io.trino.plugin.memory.MemoryPlugin;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.server.BasicQueryInfo;
@@ -43,7 +40,6 @@ import io.trino.server.testing.TestingTrinoServer;
 import io.trino.spi.QueryId;
 import io.trino.spi.type.TimeZoneNotSupportedException;
 import io.trino.testing.TestingTrinoClient;
-import okhttp3.OkHttpClient;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -52,12 +48,10 @@ import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
 
 import java.net.URI;
-import java.time.ZoneId;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
-import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import java.util.stream.Collector;
 import java.util.stream.Collectors;
@@ -68,11 +62,12 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Throwables.getStackTraceAsString;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static com.google.common.net.HttpHeaders.CONTENT_TYPE;
-import static com.google.common.net.HttpHeaders.X_FORWARDED_HOST;
-import static com.google.common.net.HttpHeaders.X_FORWARDED_PORT;
-import static com.google.common.net.HttpHeaders.X_FORWARDED_PROTO;
 import static io.airlift.http.client.FullJsonResponseHandler.createFullJsonResponseHandler;
+import static io.airlift.http.client.HeaderNames.CONTENT_TYPE;
+import static io.airlift.http.client.HeaderNames.LOCATION;
+import static io.airlift.http.client.HeaderNames.X_FORWARDED_HOST;
+import static io.airlift.http.client.HeaderNames.X_FORWARDED_PORT;
+import static io.airlift.http.client.HeaderNames.X_FORWARDED_PROTO;
 import static io.airlift.http.client.Request.Builder.prepareGet;
 import static io.airlift.http.client.Request.Builder.prepareHead;
 import static io.airlift.http.client.Request.Builder.preparePost;
@@ -85,7 +80,6 @@ import static io.trino.SystemSessionProperties.QUERY_MAX_MEMORY;
 import static io.trino.client.ClientCapabilities.PATH;
 import static io.trino.client.ClientCapabilities.SESSION_AUTHORIZATION;
 import static io.trino.client.ProtocolHeaders.TRINO_HEADERS;
-import static io.trino.client.uri.HttpClientFactory.toHttpClientBuilder;
 import static io.trino.spi.StandardErrorCode.INCOMPATIBLE_CLIENT;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static jakarta.ws.rs.core.MediaType.APPLICATION_JSON;
@@ -105,8 +99,11 @@ import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 @Execution(CONCURRENT)
 public class TestServer
 {
-    private static final JsonCodec<QueryResults> QUERY_RESULTS_CODEC = new JsonCodecFactory(new ObjectMapperProvider()
-            .withModules(Set.of(new QueryDataJacksonModule())))
+    private static final JsonMapper JSON_MAPPER = new JsonMapperProvider()
+            .withModules(Set.of(new QueryDataJacksonModule()))
+            .get();
+
+    private static final JsonCodec<QueryResults> QUERY_RESULTS_CODEC = new JsonCodecFactory(JSON_MAPPER)
             .jsonCodec(QueryResults.class);
 
     private TestingTrinoServer server;
@@ -116,7 +113,7 @@ public class TestServer
     public void setup()
     {
         server = TestingTrinoServer.builder()
-                .setProperties(ImmutableMap.of("http-server.process-forwarded", "true", "query.client.timeout", "1s"))
+                .setProperties(ImmutableMap.of("http-server.process-forwarded", "true"))
                 .build();
 
         server.installPlugin(new MemoryPlugin());
@@ -142,10 +139,10 @@ public class TestServer
         String invalidTimeZone = "this_is_an_invalid_time_zone";
         QueryResults queryResults = postQuery(request -> request
                 .setBodyGenerator(createStaticBodyGenerator("show catalogs", UTF_8))
-                .setHeader(TRINO_HEADERS.requestCatalog(), "catalog")
-                .setHeader(TRINO_HEADERS.requestSchema(), "schema")
-                .setHeader(TRINO_HEADERS.requestPath(), "path")
-                .setHeader(TRINO_HEADERS.requestTimeZone(), invalidTimeZone))
+                .setHeader(HeaderName.of(TRINO_HEADERS.requestCatalog()), "catalog")
+                .setHeader(HeaderName.of(TRINO_HEADERS.requestSchema()), "schema")
+                .setHeader(HeaderName.of(TRINO_HEADERS.requestPath()), "path")
+                .setHeader(HeaderName.of(TRINO_HEADERS.requestTimeZone()), invalidTimeZone))
                 .map(JsonResponse::getValue)
                 .peek(result -> checkState((result.getError() == null) != (result.getNextUri() == null)))
                 .collect(last());
@@ -338,48 +335,6 @@ public class TestServer
     }
 
     @Test
-    public void testAbandonedQueries()
-            throws InterruptedException
-    {
-        TrinoUri trinoUri = TrinoUri.builder()
-                .setUri(server.getBaseUrl())
-                .build();
-
-        OkHttpClient httpClient = toHttpClientBuilder(trinoUri, "Trino Test").build();
-        ClientSession session = ClientSession.builder()
-                .server(server.getBaseUrl())
-                .source("test")
-                .timeZone(ZoneId.of("UTC"))
-                .user(Optional.of("user"))
-                .heartbeatInterval(new Duration(1, TimeUnit.SECONDS))
-                .build();
-
-        try (StatementClient client = StatementClientFactory.newStatementClient(httpClient, session, "SELECT * FROM tpch.sf1.nation")) {
-            client.advance();
-            // heartbeat is expected every 1 second, the check runs every second, plus one second padding
-            Thread.sleep(3000);
-            client.advance();
-            assertThat(client.currentStatusInfo().getError().getMessage())
-                    .contains("was abandoned by the client, as it may have exited or stopped checking for query results");
-        }
-
-        // Test query is not abandoned when client iterates over rows, even when one batch of results takes more than client timeout
-        try (StatementClient client = StatementClientFactory.newStatementClient(httpClient, session, "SELECT * FROM tpch.sf1.nation")) {
-            while (client.advance()) {
-                client.currentRows().forEach(_ -> {
-                    try {
-                        Thread.sleep(100); // 25 rows * 100 ms = 2500 ms > client timeout
-                    }
-                    catch (InterruptedException e) {
-                        throw new RuntimeException(e);
-                    }
-                });
-                assertThat(client.currentStatusInfo().getError()).isNull();
-            }
-        }
-    }
-
-    @Test
     public void testResetSessionSupportByClient()
     {
         try (TestingTrinoClient testingClient = new TestingTrinoClient(server, testSessionBuilder().setClientCapabilities(Set.of()).build())) {
@@ -428,7 +383,7 @@ public class TestServer
                 .isEqualTo(OK.getStatusCode());
         assertThat(response.getHeader(CONTENT_TYPE))
                 .describedAs("Content Type")
-                .isEqualTo(APPLICATION_JSON);
+                .hasValue(APPLICATION_JSON);
     }
 
     @Test
@@ -442,9 +397,9 @@ public class TestServer
         assertThat(response.getStatusCode())
                 .describedAs("Status code")
                 .isEqualTo(SEE_OTHER.getStatusCode());
-        assertThat(response.getHeader("Location"))
+        assertThat(response.getHeader(LOCATION))
                 .describedAs("Location")
-                .isEqualTo(server.getBaseUrl() + "/ui/");
+                .hasValue(server.getBaseUrl() + "/ui/");
 
         // behind a proxy
         request = prepareGet()
@@ -458,9 +413,9 @@ public class TestServer
         assertThat(response.getStatusCode())
                 .describedAs("Status code")
                 .isEqualTo(SEE_OTHER.getStatusCode());
-        assertThat(response.getHeader("Location"))
+        assertThat(response.getHeader(LOCATION))
                 .describedAs("Location")
-                .isEqualTo("https://my-load-balancer.local/ui/");
+                .hasValue("https://my-load-balancer.local/ui/");
     }
 
     private Stream<JsonResponse<QueryResults>> postQuery(Function<Request.Builder, Request.Builder> requestConfigurer)

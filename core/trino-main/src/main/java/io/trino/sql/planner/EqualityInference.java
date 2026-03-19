@@ -34,6 +34,7 @@ import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Predicate;
@@ -122,7 +123,7 @@ public class EqualityInference
         Multimap<Expression, Expression> equalitySets = makeEqualitySets(equalities, canonicalComparator);
 
         ImmutableMap.Builder<Expression, Expression> canonicalMappings = ImmutableMap.builder();
-        for (Map.Entry<Expression, Expression> entry : equalitySets.entries()) {
+        for (Entry<Expression, Expression> entry : equalitySets.entries()) {
             Expression canonical = entry.getKey();
             Expression expression = entry.getValue();
             canonicalMappings.put(expression, canonical);

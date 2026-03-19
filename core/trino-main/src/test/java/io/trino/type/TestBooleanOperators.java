@@ -20,12 +20,15 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
 
+import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static io.trino.spi.function.OperatorType.EQUAL;
 import static io.trino.spi.function.OperatorType.IDENTICAL;
 import static io.trino.spi.function.OperatorType.INDETERMINATE;
 import static io.trino.spi.function.OperatorType.LESS_THAN;
 import static io.trino.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
 import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.spi.type.VarcharType.createVarcharType;
+import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
@@ -265,6 +268,36 @@ public class TestBooleanOperators
                 .binding("a", "false"))
                 .hasType(VARCHAR)
                 .isEqualTo("false");
+
+        assertThat(assertions.expression("cast(a as varchar(5))")
+                .binding("a", "true"))
+                .hasType(createVarcharType(5))
+                .isEqualTo("true");
+
+        assertThat(assertions.expression("cast(a as varchar(5))")
+                .binding("a", "false"))
+                .hasType(createVarcharType(5))
+                .isEqualTo("false");
+
+        assertThat(assertions.expression("cast(a as varchar(4))")
+                .binding("a", "true"))
+                .hasType(createVarcharType(4))
+                .isEqualTo("true");
+
+        assertTrinoExceptionThrownBy(assertions.expression("cast(a as varchar(4))")
+                .binding("a", "false")::evaluate)
+                .hasErrorCode(INVALID_CAST_ARGUMENT)
+                .hasMessage("Cannot cast 'false' to varchar(4)");
+
+        assertTrinoExceptionThrownBy(assertions.expression("cast(a as varchar(3))")
+                .binding("a", "true")::evaluate)
+                .hasErrorCode(INVALID_CAST_ARGUMENT)
+                .hasMessage("Cannot cast 'true' to varchar(3)");
+
+        assertTrinoExceptionThrownBy(assertions.expression("cast(a as varchar(3))")
+                .binding("a", "false")::evaluate)
+                .hasErrorCode(INVALID_CAST_ARGUMENT)
+                .hasMessage("Cannot cast 'false' to varchar(3)");
     }
 
     @Test

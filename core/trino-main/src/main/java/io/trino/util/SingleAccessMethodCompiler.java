@@ -16,6 +16,7 @@ package io.trino.util;
 import com.google.common.collect.ImmutableList;
 import io.airlift.bytecode.ClassDefinition;
 import io.airlift.bytecode.MethodDefinition;
+import io.airlift.bytecode.Parameter;
 import io.airlift.bytecode.expression.BytecodeExpression;
 import io.trino.sql.gen.CallSiteBinder;
 
@@ -58,7 +59,7 @@ public final class SingleAccessMethodCompiler
         Class<?>[] parameterTypes = method.getParameterTypes();
         MethodHandle adaptedMethodHandle = methodHandle.asType(methodType(method.getReturnType(), parameterTypes));
 
-        List<io.airlift.bytecode.Parameter> parameters = new ArrayList<>();
+        List<Parameter> parameters = new ArrayList<>();
         for (int i = 0; i < parameterTypes.length; i++) {
             parameters.add(arg("arg" + i, parameterTypes[i]));
         }

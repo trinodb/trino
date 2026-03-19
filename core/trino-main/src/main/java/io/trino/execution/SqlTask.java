@@ -56,7 +56,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Set;
-import java.util.UUID;
+import java.util.SplittableRandom;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -86,8 +86,17 @@ public class SqlTask
 {
     private static final Logger log = Logger.get(SqlTask.class);
 
+    // Root PRNG used only to derive independent per-thread generators.
+    // Splitting creates statistically independent streams without contention.
+    private static final SplittableRandom RANDOM = new SplittableRandom();
+
+    // Each thread gets its own SplittableRandom instance derived from the root.
+    // This avoids synchronization, eliminates false sharing, and ensures
+    // high-throughput, thread-safe random number generation on hot paths.
+    private static final ThreadLocal<SplittableRandom> RANDOM_THREAD_LOCAL = ThreadLocal.withInitial(RANDOM::split);
+
     private final TaskId taskId;
-    private final String taskInstanceId;
+    private final long taskInstanceId;
     private final URI location;
     private final String nodeId;
     private final AtomicBoolean speculative = new AtomicBoolean(false);
@@ -144,7 +153,7 @@ public class SqlTask
             ExchangeManagerRegistry exchangeManagerRegistry)
     {
         this.taskId = requireNonNull(taskId, "taskId is null");
-        this.taskInstanceId = UUID.randomUUID().toString();
+        this.taskInstanceId = RANDOM_THREAD_LOCAL.get().nextLong();
         this.location = requireNonNull(location, "location is null");
         this.nodeId = requireNonNull(nodeId, "nodeId is null");
         this.queryContext = requireNonNull(queryContext, "queryContext is null");
@@ -265,7 +274,7 @@ public class SqlTask
         return taskStateMachine.getTaskId();
     }
 
-    public String getTaskInstanceId()
+    public long getTaskInstanceId()
     {
         return taskInstanceId;
     }
@@ -356,19 +365,19 @@ public class SqlTask
         if (taskHolder.getFinalTaskInfo() != null) {
             TaskInfo taskInfo = taskHolder.getFinalTaskInfo();
             TaskStats taskStats = taskInfo.stats();
-            queuedPartitionedDrivers = taskStats.getQueuedPartitionedDrivers();
-            queuedPartitionedSplitsWeight = taskStats.getQueuedPartitionedSplitsWeight();
-            runningPartitionedDrivers = taskStats.getRunningPartitionedDrivers();
-            runningPartitionedSplitsWeight = taskStats.getRunningPartitionedSplitsWeight();
-            writerInputDataSize = taskStats.getWriterInputDataSize();
-            physicalWrittenDataSize = taskStats.getPhysicalWrittenDataSize();
-            writerCount = taskStats.getMaxWriterCount();
-            userMemoryReservation = taskStats.getUserMemoryReservation();
-            peakUserMemoryReservation = taskStats.getPeakUserMemoryReservation();
-            revocableMemoryReservation = taskStats.getRevocableMemoryReservation();
-            outputDataSize = taskStats.getOutputDataSize();
-            fullGcCount = taskStats.getFullGcCount();
-            fullGcTime = taskStats.getFullGcTime();
+            queuedPartitionedDrivers = taskStats.queuedPartitionedDrivers();
+            queuedPartitionedSplitsWeight = taskStats.queuedPartitionedSplitsWeight();
+            runningPartitionedDrivers = taskStats.runningPartitionedDrivers();
+            runningPartitionedSplitsWeight = taskStats.runningPartitionedSplitsWeight();
+            writerInputDataSize = taskStats.writerInputDataSize();
+            physicalWrittenDataSize = taskStats.physicalWrittenDataSize();
+            writerCount = taskStats.maxWriterCount();
+            userMemoryReservation = taskStats.userMemoryReservation();
+            peakUserMemoryReservation = taskStats.peakUserMemoryReservation();
+            revocableMemoryReservation = taskStats.revocableMemoryReservation();
+            outputDataSize = taskStats.outputDataSize();
+            fullGcCount = taskStats.fullGcCount();
+            fullGcTime = taskStats.fullGcTime();
             dynamicFiltersVersion = taskHolder.getDynamicFiltersVersion();
         }
         else if (taskHolder.getTaskExecution() != null) {

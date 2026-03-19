@@ -13,6 +13,7 @@
  */
 package io.trino.type;
 
+import io.trino.spi.type.SqlNumber;
 import io.trino.spi.type.Type;
 import io.trino.sql.query.QueryAssertions;
 import org.junit.jupiter.api.AfterAll;
@@ -466,7 +467,7 @@ public class TestSmallintOperators
     }
 
     @Test
-    public void testCastToFloat()
+    public void testCastToReal()
     {
         assertThat(assertions.expression("cast(a as real)")
                 .binding("a", "SMALLINT '37'"))
@@ -479,6 +480,22 @@ public class TestSmallintOperators
         assertThat(assertions.expression("cast(a as real)")
                 .binding("a", "SMALLINT '0'"))
                 .isEqualTo(0.0f);
+    }
+
+    @Test
+    public void testCastToNumber()
+    {
+        assertThat(assertions.expression("CAST(a AS number)")
+                .binding("a", "SMALLINT '37'"))
+                .isEqualTo(new SqlNumber("37"));
+
+        assertThat(assertions.expression("CAST(a AS number)")
+                .binding("a", "SMALLINT '-10017'"))
+                .isEqualTo(new SqlNumber("-10017"));
+
+        assertThat(assertions.expression("CAST(a AS number)")
+                .binding("a", "SMALLINT '0'"))
+                .isEqualTo(new SqlNumber("0"));
     }
 
     @Test

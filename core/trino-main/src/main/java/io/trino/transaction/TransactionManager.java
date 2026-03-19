@@ -57,6 +57,8 @@ public interface TransactionManager
 
     Optional<CatalogMetadata> getOptionalCatalogMetadata(TransactionId transactionId, String catalogName);
 
+    Optional<CatalogInfo> getOptionalCatalogInfo(TransactionId requiredTransactionId, String catalogName);
+
     CatalogMetadata getCatalogMetadata(TransactionId transactionId, CatalogHandle catalogHandle);
 
     CatalogMetadata getCatalogMetadataForWrite(TransactionId transactionId, CatalogHandle catalogHandle);

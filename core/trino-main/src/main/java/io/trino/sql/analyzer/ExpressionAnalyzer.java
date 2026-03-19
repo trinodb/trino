@@ -67,7 +67,7 @@ import io.trino.sql.analyzer.PatternRecognitionAnalysis.Navigation;
 import io.trino.sql.analyzer.PatternRecognitionAnalysis.NavigationMode;
 import io.trino.sql.analyzer.PatternRecognitionAnalysis.PatternInputAnalysis;
 import io.trino.sql.analyzer.PatternRecognitionAnalysis.ScalarInputDescriptor;
-import io.trino.sql.ir.optimizer.IrExpressionEvaluator;
+import io.trino.sql.ir.Constant;
 import io.trino.sql.tree.ArithmeticBinaryExpression;
 import io.trino.sql.tree.ArithmeticUnaryExpression;
 import io.trino.sql.tree.Array;
@@ -79,6 +79,7 @@ import io.trino.sql.tree.BooleanLiteral;
 import io.trino.sql.tree.Cast;
 import io.trino.sql.tree.CoalesceExpression;
 import io.trino.sql.tree.ComparisonExpression;
+import io.trino.sql.tree.CompositeIntervalQualifier;
 import io.trino.sql.tree.CurrentCatalog;
 import io.trino.sql.tree.CurrentDate;
 import io.trino.sql.tree.CurrentPath;
@@ -103,7 +104,9 @@ import io.trino.sql.tree.Identifier;
 import io.trino.sql.tree.IfExpression;
 import io.trino.sql.tree.InListExpression;
 import io.trino.sql.tree.InPredicate;
+import io.trino.sql.tree.IntervalField;
 import io.trino.sql.tree.IntervalLiteral;
+import io.trino.sql.tree.IntervalQualifier;
 import io.trino.sql.tree.IsNotNullPredicate;
 import io.trino.sql.tree.IsNullPredicate;
 import io.trino.sql.tree.JsonArray;
@@ -142,6 +145,7 @@ import io.trino.sql.tree.Row;
 import io.trino.sql.tree.RowPattern;
 import io.trino.sql.tree.SearchedCaseExpression;
 import io.trino.sql.tree.SimpleCaseExpression;
+import io.trino.sql.tree.SimpleIntervalQualifier;
 import io.trino.sql.tree.SkipTo;
 import io.trino.sql.tree.SortItem;
 import io.trino.sql.tree.SortItem.Ordering;
@@ -172,6 +176,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.Set;
 import java.util.function.BiFunction;
 import java.util.function.Function;
@@ -225,6 +230,7 @@ import static io.trino.spi.StandardErrorCode.NESTED_WINDOW;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
 import static io.trino.spi.StandardErrorCode.OPERATOR_NOT_FOUND;
+import static io.trino.spi.StandardErrorCode.SYNTAX_ERROR;
 import static io.trino.spi.StandardErrorCode.TOO_MANY_ARGUMENTS;
 import static io.trino.spi.StandardErrorCode.TYPE_MISMATCH;
 import static io.trino.spi.StandardErrorCode.TYPE_NOT_FOUND;
@@ -1188,7 +1194,7 @@ public class ExpressionAnalyzer
                                     resolvedType = plannerContext.getTypeManager().fromSqlType(node.getType());
                                 }
                                 catch (TypeNotFoundException e) {
-                                    throw semanticException(TYPE_NOT_FOUND, node, "Unknown resolvedType: %s", node.getType());
+                                    throw semanticException(TYPE_NOT_FOUND, node, "Unknown type: %s", node.getType());
                                 }
 
                                 if (!JSON.equals(resolvedType)) {
@@ -1196,7 +1202,7 @@ public class ExpressionAnalyzer
                                         plannerContext.getMetadata().getCoercion(VARCHAR, resolvedType);
                                     }
                                     catch (IllegalArgumentException e) {
-                                        throw semanticException(INVALID_LITERAL, node, "No literal form for resolvedType %s", resolvedType);
+                                        throw semanticException(INVALID_LITERAL, node, "No literal form for type %s", resolvedType);
                                     }
                                 }
                                 return resolvedType;
@@ -1266,13 +1272,18 @@ public class ExpressionAnalyzer
         @Override
         protected Type visitIntervalLiteral(IntervalLiteral node, Context context)
         {
-            Type type;
-            if (node.isYearToMonth()) {
-                type = INTERVAL_YEAR_MONTH;
-            }
-            else {
-                type = INTERVAL_DAY_TIME;
-            }
+            validateIntervalQualifier(node.qualifier());
+
+            IntervalField field = switch (node.qualifier()) {
+                case SimpleIntervalQualifier simple -> simple.getField();
+                case CompositeIntervalQualifier composite -> composite.getTo(); // we only need to check one. The other one is validated in validateIntervalQualifier
+            };
+
+            Type type = switch (field) {
+                case IntervalField.Year(), IntervalField.Month() -> INTERVAL_YEAR_MONTH;
+                case IntervalField.Day(), IntervalField.Hour(), IntervalField.Minute(), IntervalField.Second(OptionalInt _) -> INTERVAL_DAY_TIME;
+            };
+
             try {
                 literalInterpreter.evaluate(node, type);
             }
@@ -1403,7 +1414,7 @@ public class ExpressionAnalyzer
             }
 
             if (node.getArguments().size() > 127) {
-                throw semanticException(TOO_MANY_ARGUMENTS, node, "Too many arguments for function call %s()", function.signature().getName().getFunctionName());
+                throw semanticException(TOO_MANY_ARGUMENTS, node, "Too many arguments for function call %s()", function.signature().getName().functionName());
             }
 
             if (node.getOrderBy().isPresent()) {
@@ -1469,6 +1480,11 @@ public class ExpressionAnalyzer
                     Type type = getExpressionType(expression);
                     if (!type.isComparable()) {
                         throw semanticException(TYPE_MISMATCH, expression, "%s is not comparable, and therefore cannot be used in window function PARTITION BY", type);
+                    }
+                    if (!type.isOrderable()) {
+                        // TODO this is not a hard requirement, just the implication of how we do partitioning right now, using PagesIndex and iterating over ordered values
+                        // to find partition boundaries.
+                        throw semanticException(TYPE_MISMATCH, expression, "%s is not orderable, and therefore cannot be used in window function PARTITION BY", type);
                     }
                 }
             }
@@ -3428,6 +3444,37 @@ public class ExpressionAnalyzer
         }
     }
 
+    private static void validateIntervalQualifier(IntervalQualifier qualifier)
+    {
+        if (qualifier instanceof CompositeIntervalQualifier composite) {
+            boolean valid = (composite.getFrom() instanceof IntervalField.Year() && composite.getTo() instanceof IntervalField.Month()) ||
+                    (composite.getFrom() instanceof IntervalField.Day() && (
+                            composite.getTo() instanceof IntervalField.Hour() ||
+                            composite.getTo() instanceof IntervalField.Minute() ||
+                            composite.getTo() instanceof IntervalField.Second(OptionalInt _))) ||
+                    (composite.getFrom() instanceof IntervalField.Hour() && (
+                            composite.getTo() instanceof IntervalField.Minute() ||
+                            composite.getTo() instanceof IntervalField.Second(OptionalInt _))) ||
+                    (composite.getFrom() instanceof IntervalField.Minute() && composite.getTo() instanceof IntervalField.Second(OptionalInt _));
+
+            if (!valid) {
+                throw semanticException(SYNTAX_ERROR, qualifier, "Invalid INTERVAL qualifier");
+            }
+        }
+
+        if (qualifier instanceof SimpleIntervalQualifier simple && (
+                simple.getPrecision().isPresent() ||
+                        (simple.getField() instanceof IntervalField.Second(OptionalInt fractionalPrecision) && fractionalPrecision.isPresent()))) {
+            throw semanticException(NOT_SUPPORTED, qualifier, "Only INTERVAL literals with default precision are supported");
+        }
+
+        if (qualifier instanceof CompositeIntervalQualifier composite && (
+                composite.getPrecision().isPresent() ||
+                        (composite.getTo() instanceof IntervalField.Second(OptionalInt fractionalPrecision) && fractionalPrecision.isPresent()))) {
+            throw semanticException(NOT_SUPPORTED, qualifier, "Only INTERVAL literals with default precision are supported");
+        }
+    }
+
     private static class Context
     {
         private final Scope scope;
@@ -3979,9 +4026,8 @@ public class ExpressionAnalyzer
             }
         }
 
-        IrExpressionEvaluator expressionEvaluator = new IrExpressionEvaluator(plannerContext);
-        expressionEvaluator.evaluate(
-                new io.trino.sql.ir.Cast(new io.trino.sql.ir.Constant(literalType, value), type),
+        plannerContext.getExpressionEvaluator().evaluate(
+                new io.trino.sql.ir.Cast(new Constant(literalType, value), type),
                 session,
                 ImmutableMap.of());
     }

@@ -15,7 +15,6 @@ package io.trino.plugin.iceberg.system;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.plugin.iceberg.IcebergUtil;
-import io.trino.plugin.iceberg.util.PageListBuilder;
 import io.trino.spi.block.ArrayBlockBuilder;
 import io.trino.spi.block.MapBlockBuilder;
 import io.trino.spi.block.RowBlockBuilder;
@@ -137,19 +136,17 @@ public class EntriesTable
     }
 
     @Override
-    protected void addRow(PageListBuilder pagesBuilder, Row row, TimeZoneKey timeZoneKey)
+    protected void addRow(IcebergSystemTablePageSource pageSource, Row row, TimeZoneKey timeZoneKey)
     {
-        pagesBuilder.beginRow();
-        pagesBuilder.appendInteger(row.get("status", Integer.class));
-        pagesBuilder.appendBigint(row.get("snapshot_id", Long.class));
-        pagesBuilder.appendBigint(row.get("sequence_number", Long.class));
-        pagesBuilder.appendBigint(row.get("file_sequence_number", Long.class));
+        pageSource.appendInteger(row.get("status", Integer.class));
+        pageSource.appendBigint(row.get("snapshot_id", Long.class));
+        pageSource.appendBigint(row.get("sequence_number", Long.class));
+        pageSource.appendBigint(row.get("file_sequence_number", Long.class));
         StructProjection dataFile = row.get("data_file", StructProjection.class);
-        appendDataFile((RowBlockBuilder) pagesBuilder.nextColumn(), dataFile);
+        appendDataFile((RowBlockBuilder) pageSource.nextColumn(), dataFile);
         ReadableMetricsStruct readableMetrics = row.get("readable_metrics", ReadableMetricsStruct.class);
         String readableMetricsJson = readableMetricsToJson(readableMetrics, primitiveFields);
-        pagesBuilder.appendVarchar(readableMetricsJson);
-        pagesBuilder.endRow();
+        pageSource.appendVarchar(readableMetricsJson);
     }
 
     private void appendDataFile(RowBlockBuilder blockBuilder, StructProjection dataFile)

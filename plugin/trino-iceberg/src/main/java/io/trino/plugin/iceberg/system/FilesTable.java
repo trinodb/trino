@@ -39,6 +39,7 @@ import org.apache.iceberg.io.FileIO;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalLong;
 
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.plugin.iceberg.util.SystemTableUtil.getAllPartitionFields;
@@ -94,10 +95,10 @@ public final class FilesTable
 
     private final ConnectorTableMetadata tableMetadata;
     private final Table icebergTable;
-    private final Optional<Long> snapshotId;
+    private final OptionalLong snapshotId;
     private final Optional<Type> partitionColumnType;
 
-    public FilesTable(SchemaTableName tableName, TypeManager typeManager, Table icebergTable, Optional<Long> snapshotId)
+    public FilesTable(SchemaTableName tableName, TypeManager typeManager, Table icebergTable, OptionalLong snapshotId)
     {
         this.icebergTable = requireNonNull(icebergTable, "icebergTable is null");
         this.snapshotId = requireNonNull(snapshotId, "snapshotId is null");

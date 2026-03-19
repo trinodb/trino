@@ -24,8 +24,7 @@ import static io.trino.testing.TestingSession.testSessionBuilder;
 
 public class WebUiPreviewQueryRunner
 {
-    private WebUiPreviewQueryRunner()
-    {}
+    private WebUiPreviewQueryRunner() {}
 
     public static Builder builder()
     {

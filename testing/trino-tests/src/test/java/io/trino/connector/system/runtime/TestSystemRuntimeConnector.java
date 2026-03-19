@@ -75,11 +75,13 @@ public class TestSystemRuntimeConnector
                 .setSchema("default")
                 .build();
 
-        QueryRunner queryRunner = DistributedQueryRunner
+        DistributedQueryRunner queryRunner = DistributedQueryRunner
                 .builder(defaultSession)
-                .enableBackupCoordinator()
                 .setWorkerCount(1)
                 .build();
+
+        queryRunner.addCoordinator();
+
         queryRunner.installPlugin(new Plugin()
         {
             @Override

@@ -13,7 +13,7 @@
  */
 package io.trino.plugin.opensearch;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Resources;
 import com.google.common.net.HostAndPort;
@@ -121,7 +121,7 @@ public class TestPasswordAuthentication
     public void test()
             throws IOException
     {
-        String json = new ObjectMapper().writeValueAsString(ImmutableMap.of("value", 42L));
+        String json = new JsonMapper().writeValueAsString(ImmutableMap.of("value", 42L));
 
         Request request = new Request("POST", "/test/_doc?refresh");
         request.setJsonEntity(json);

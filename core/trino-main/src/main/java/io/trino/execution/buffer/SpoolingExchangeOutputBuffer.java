@@ -26,6 +26,7 @@ import io.trino.spi.metrics.Metrics;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.LongAdder;
 import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkState;
@@ -50,8 +51,8 @@ public class SpoolingExchangeOutputBuffer
     private final Supplier<LocalMemoryContext> memoryContextSupplier;
 
     private final AtomicLong peakMemoryUsage = new AtomicLong();
-    private final AtomicLong totalPagesAdded = new AtomicLong();
-    private final AtomicLong totalRowsAdded = new AtomicLong();
+    private final LongAdder totalPagesAdded = new LongAdder();
+    private final LongAdder totalRowsAdded = new LongAdder();
 
     private final SpoolingOutputStats outputStats;
 
@@ -83,9 +84,9 @@ public class SpoolingExchangeOutputBuffer
                 false,
                 state.canAddPages(),
                 memoryContext == null ? 0 : memoryContext.getBytes(),
-                totalPagesAdded.get(),
-                totalRowsAdded.get(),
-                totalPagesAdded.get(),
+                totalPagesAdded.sum(),
+                totalRowsAdded.sum(),
+                totalPagesAdded.sum(),
                 Optional.empty(),
                 Optional.empty(),
                 outputStats.getFinalSnapshot(),
@@ -199,8 +200,8 @@ public class SpoolingExchangeOutputBuffer
             addedPositions += getSerializedPagePositionCount(page);
             sink.add(partition, page);
         }
-        totalPagesAdded.addAndGet(pages.size());
-        totalRowsAdded.addAndGet(addedPositions);
+        totalPagesAdded.add(pages.size());
+        totalRowsAdded.add(addedPositions);
         outputStats.updateRowCount(addedPositions);
         outputStats.updatePartitionDataSize(partition, dataSizeInBytes);
         updateMemoryUsage(sink.getMemoryUsage());

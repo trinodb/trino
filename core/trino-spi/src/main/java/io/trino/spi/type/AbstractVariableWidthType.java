@@ -363,7 +363,7 @@ public abstract class AbstractVariableWidthType
                 leftBytes = leftVariableSizeSlice;
                 leftOffset = leftVariableSizeOffset;
             }
-            return rightRawSlice.equals(rightRawSliceOffset, rightLength, wrappedBuffer(leftBytes, leftOffset, leftLength), 0, leftLength);
+            return rightRawSlice.equals(rightRawSliceOffset, rightLength, leftBytes, leftOffset, leftLength);
         }
 
         @ScalarOperator(XX_HASH_64)
@@ -396,7 +396,7 @@ public abstract class AbstractVariableWidthType
                 bytes = variableSizeSlice;
                 offset = variableSizeOffset;
             }
-            return XxHash64.hash(wrappedBuffer(bytes, offset, length));
+            return XxHash64.hash(bytes, offset, length);
         }
     }
 

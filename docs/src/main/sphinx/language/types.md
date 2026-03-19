@@ -100,6 +100,56 @@ IEEE Standard 754 for Binary Floating-Point Arithmetic.
 
 Example literals: `DOUBLE '10.3'`, `DOUBLE '1.03e1'`, `10.3e0`, `1.03e1`
 
+### `NUMBER`
+
+A floating point, decimal number of unspecified precision of at least 50 decimal digits.
+The type supports positive values as small as `1e-100` or smaller, and
+values as large as `1e100` or larger.
+
+```sql
+SELECT NUMBER '3.1415926535897932384626433832795028841971693993751'
+-- 3.1415926535897932384626433832795028841971693993751 without loss of precision
+
+SELECT NUMBER '12345678901234567890123456789012345678901234567890e30'
+-- 1.234567890123456789012345678901234567890123456789E+79 without loss of precision
+```
+
+The `NUMBER` type supports the special values `Infinity`, `-Infinity`, and `NaN`,
+following similar semantics to floating-point types:
+
+```sql
+SELECT NUMBER 'Infinity';
+-- Infinity
+
+SELECT NUMBER '-Infinity';
+-- -Infinity
+
+SELECT NUMBER 'NaN';
+-- NaN
+```
+
+Division by zero returns `Infinity`, `-Infinity` or `NaN` instead of raising an error:
+
+```sql
+SELECT NUMBER '1' / NUMBER '0';
+-- Infinity
+
+SELECT NUMBER '0' / NUMBER '0';
+-- NaN
+```
+
+`NaN` is not equal to any value, including itself:
+
+```
+SELECT NUMBER 'NaN' = NUMBER 'NaN';
+-- false
+```
+
+Ordering follows the convention: `-Infinity` < all finite values < `Infinity` < `NaN`.
+
+Example literals: `NUMBER '10.3'`, `NUMBER '1234567890'`,
+`NUMBER '1e3'`, `NUMBER 'Infinity'`, `NUMBER 'NaN'`
+
 (exact-numeric-data-types)=
 ## Exact numeric
 

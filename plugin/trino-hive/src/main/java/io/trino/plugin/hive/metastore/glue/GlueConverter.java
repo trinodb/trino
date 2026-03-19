@@ -45,6 +45,7 @@ import org.gaul.modernizer_maven_annotations.SuppressModernizer;
 import software.amazon.awssdk.core.SdkBytes;
 import software.amazon.awssdk.services.glue.model.BinaryColumnStatisticsData;
 import software.amazon.awssdk.services.glue.model.BooleanColumnStatisticsData;
+import software.amazon.awssdk.services.glue.model.ColumnStatistics;
 import software.amazon.awssdk.services.glue.model.ColumnStatisticsData;
 import software.amazon.awssdk.services.glue.model.ColumnStatisticsType;
 import software.amazon.awssdk.services.glue.model.DatabaseInput;
@@ -79,6 +80,7 @@ import static com.google.common.base.Strings.emptyToNull;
 import static com.google.common.base.Strings.lenientFormat;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static io.airlift.json.JsonCodec.jsonCodec;
 import static io.trino.metastore.HiveColumnStatistics.createBinaryColumnStatistics;
 import static io.trino.metastore.HiveColumnStatistics.createBooleanColumnStatistics;
 import static io.trino.metastore.HiveColumnStatistics.createDateColumnStatistics;
@@ -117,7 +119,7 @@ public final class GlueConverter
     private static final Column FAKE_COLUMN = new Column("ignored", HiveType.HIVE_INT, Optional.empty(), ImmutableMap.of());
     private static final long SECONDS_PER_DAY = TimeUnit.DAYS.toSeconds(1);
 
-    private static final JsonCodec<LanguageFunction> LANGUAGE_FUNCTION_CODEC = JsonCodec.jsonCodec(LanguageFunction.class);
+    private static final JsonCodec<LanguageFunction> LANGUAGE_FUNCTION_CODEC = jsonCodec(LanguageFunction.class);
 
     private GlueConverter() {}
 
@@ -399,7 +401,7 @@ public final class GlueConverter
                 .build();
     }
 
-    public static Map<String, HiveColumnStatistics> fromGlueStatistics(List<List<software.amazon.awssdk.services.glue.model.ColumnStatistics>> glueColumnStatistics)
+    public static Map<String, HiveColumnStatistics> fromGlueStatistics(List<List<ColumnStatistics>> glueColumnStatistics)
     {
         ImmutableMap.Builder<String, HiveColumnStatistics> columnStatistics = ImmutableMap.builder();
         for (var columns : glueColumnStatistics) {
@@ -472,7 +474,7 @@ public final class GlueConverter
         };
     }
 
-    public static List<software.amazon.awssdk.services.glue.model.ColumnStatistics> toGlueColumnStatistics(Map<Column, HiveColumnStatistics> columnStatistics)
+    public static List<ColumnStatistics> toGlueColumnStatistics(Map<Column, HiveColumnStatistics> columnStatistics)
     {
         return columnStatistics.entrySet().stream()
                 .map(e -> toGlueColumnStatistics(e.getKey(), e.getValue()))
@@ -480,10 +482,10 @@ public final class GlueConverter
                 .collect(toImmutableList());
     }
 
-    private static Optional<software.amazon.awssdk.services.glue.model.ColumnStatistics> toGlueColumnStatistics(Column column, HiveColumnStatistics statistics)
+    private static Optional<ColumnStatistics> toGlueColumnStatistics(Column column, HiveColumnStatistics statistics)
     {
         return toGlueColumnStatisticsData(statistics, column.getType())
-                .map(columnStatisticsData -> software.amazon.awssdk.services.glue.model.ColumnStatistics.builder()
+                .map(columnStatisticsData -> ColumnStatistics.builder()
                         .columnName(column.getName())
                         .columnType(column.getType().toString())
                         .statisticsData(columnStatisticsData)

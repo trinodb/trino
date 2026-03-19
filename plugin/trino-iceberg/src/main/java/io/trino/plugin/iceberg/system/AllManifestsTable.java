@@ -14,7 +14,6 @@
 package io.trino.plugin.iceberg.system;
 
 import com.google.common.collect.ImmutableList;
-import io.trino.plugin.iceberg.util.PageListBuilder;
 import io.trino.spi.block.ArrayBlockBuilder;
 import io.trino.spi.block.RowBlockBuilder;
 import io.trino.spi.connector.ColumnMetadata;
@@ -66,24 +65,22 @@ public class AllManifestsTable
     }
 
     @Override
-    protected void addRow(PageListBuilder pagesBuilder, Row row, TimeZoneKey timeZoneKey)
+    protected void addRow(IcebergSystemTablePageSource pageSource, Row row, TimeZoneKey timeZoneKey)
     {
-        pagesBuilder.beginRow();
-        pagesBuilder.appendInteger(row.get("content", Integer.class));
-        pagesBuilder.appendVarchar(row.get("path", String.class));
-        pagesBuilder.appendBigint(row.get("length", Long.class));
-        pagesBuilder.appendInteger(row.get("partition_spec_id", Integer.class));
-        pagesBuilder.appendBigint(row.get("added_snapshot_id", Long.class));
-        pagesBuilder.appendInteger(row.get("added_data_files_count", Integer.class));
-        pagesBuilder.appendInteger(row.get("existing_data_files_count", Integer.class));
-        pagesBuilder.appendInteger(row.get("deleted_data_files_count", Integer.class));
-        pagesBuilder.appendInteger(row.get("added_delete_files_count", Integer.class));
-        pagesBuilder.appendInteger(row.get("existing_delete_files_count", Integer.class));
-        pagesBuilder.appendInteger(row.get("deleted_delete_files_count", Integer.class));
+        pageSource.appendInteger(row.get("content", Integer.class));
+        pageSource.appendVarchar(row.get("path", String.class));
+        pageSource.appendBigint(row.get("length", Long.class));
+        pageSource.appendInteger(row.get("partition_spec_id", Integer.class));
+        pageSource.appendBigint(row.get("added_snapshot_id", Long.class));
+        pageSource.appendInteger(row.get("added_data_files_count", Integer.class));
+        pageSource.appendInteger(row.get("existing_data_files_count", Integer.class));
+        pageSource.appendInteger(row.get("deleted_data_files_count", Integer.class));
+        pageSource.appendInteger(row.get("added_delete_files_count", Integer.class));
+        pageSource.appendInteger(row.get("existing_delete_files_count", Integer.class));
+        pageSource.appendInteger(row.get("deleted_delete_files_count", Integer.class));
         //noinspection unchecked
-        appendPartitionSummaries((ArrayBlockBuilder) pagesBuilder.nextColumn(), row.get("partition_summaries", List.class));
-        pagesBuilder.appendBigint(row.get("reference_snapshot_id", Long.class));
-        pagesBuilder.endRow();
+        appendPartitionSummaries((ArrayBlockBuilder) pageSource.nextColumn(), row.get("partition_summaries", List.class));
+        pageSource.appendBigint(row.get("reference_snapshot_id", Long.class));
     }
 
     private static void appendPartitionSummaries(ArrayBlockBuilder arrayBuilder, List<StructLike> partitionSummaries)

@@ -59,6 +59,7 @@ import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Queue;
@@ -316,7 +317,7 @@ public class TestEventDrivenTaskSource
                 new TableExecuteContextManager(),
                 exchanges,
                 remoteSources.entrySet().stream()
-                        .collect(toImmutableSetMultimap(Map.Entry::getValue, Map.Entry::getKey)),
+                        .collect(toImmutableSetMultimap(Entry::getValue, Entry::getKey)),
                 () -> splitSources,
                 testingSplitAssigner,
                 executor,
@@ -350,12 +351,12 @@ public class TestEventDrivenTaskSource
 
         Map<Integer, SetMultimap<PlanNodeId, TestingExchangeSourceHandle>> expectedHandles = new HashMap<>();
         Map<Integer, SetMultimap<PlanNodeId, TestingConnectorSplit>> expectedSplits = new HashMap<>();
-        for (Map.Entry<PlanFragmentId, ExchangeSourceHandle> entry : sourceHandles.entries()) {
+        for (Entry<PlanFragmentId, ExchangeSourceHandle> entry : sourceHandles.entries()) {
             TestingExchangeSourceHandle handle = (TestingExchangeSourceHandle) entry.getValue();
             PlanNodeId planNodeId = remoteSources.get(entry.getKey());
             expectedHandles.computeIfAbsent(handle.getPartitionId(), key -> HashMultimap.create()).put(planNodeId, handle);
         }
-        for (Map.Entry<PlanNodeId, ConnectorSplit> entry : splits.entries()) {
+        for (Entry<PlanNodeId, ConnectorSplit> entry : splits.entries()) {
             TestingConnectorSplit split = (TestingConnectorSplit) entry.getValue();
             expectedSplits.computeIfAbsent(split.getBucket().orElseThrow(), key -> HashMultimap.create()).put(entry.getKey(), split);
         }
@@ -364,7 +365,7 @@ public class TestEventDrivenTaskSource
         Map<Integer, SetMultimap<PlanNodeId, TestingConnectorSplit>> actualSplits = new HashMap<>();
         for (TaskDescriptor taskDescriptor : taskDescriptors) {
             int partitionId = taskDescriptor.getPartitionId();
-            for (Map.Entry<PlanNodeId, Split> entry : taskDescriptor.getSplits().getSplitsFlat().entries()) {
+            for (Entry<PlanNodeId, Split> entry : taskDescriptor.getSplits().getSplitsFlat().entries()) {
                 if (entry.getValue().getCatalogHandle().equals(REMOTE_CATALOG_HANDLE)) {
                     RemoteSplit remoteSplit = (RemoteSplit) entry.getValue().getConnectorSplit();
                     SpoolingExchangeInput input = (SpoolingExchangeInput) remoteSplit.getExchangeInput();

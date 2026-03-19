@@ -18,7 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.json.JsonCodec;
 import io.airlift.json.JsonCodecFactory;
-import io.airlift.json.ObjectMapperProvider;
+import io.airlift.json.JsonMapperProvider;
 import io.airlift.stats.Distribution;
 import io.airlift.stats.TDigest;
 import io.airlift.tracing.SpanSerialization.SpanDeserializer;
@@ -72,7 +72,7 @@ public class TestQueryInfo
     public void testQueryInfoRoundTrip()
     {
         JsonCodec<QueryInfo> codec = new JsonCodecFactory(
-                new ObjectMapperProvider()
+                new JsonMapperProvider()
                         .withJsonSerializers(Map.of(
                                 Span.class, new SpanSerializer(OpenTelemetry.noop())))
                         .withJsonDeserializers(Map.of(
@@ -80,7 +80,8 @@ public class TestQueryInfo
                                 TypeSignature.class, new TypeSignatureDeserializer()))
                         .withKeyDeserializers(Map.of(
                                 TypeSignature.class, new TypeSignatureKeyDeserializer(),
-                                Symbol.class, new SymbolKeyDeserializer(TESTING_TYPE_MANAGER))))
+                                Symbol.class, new SymbolKeyDeserializer(TESTING_TYPE_MANAGER)))
+                        .get())
                 .jsonCodec(QueryInfo.class);
 
         QueryInfo expected = createQueryInfo(Optional.empty());
@@ -196,16 +197,16 @@ public class TestQueryInfo
         assertThat(queryStats.getProgressPercentage()).isEqualTo(basicQueryStats.getProgressPercentage());
         assertThat(queryStats.getRunningPercentage()).isEqualTo(basicQueryStats.getRunningPercentage());
 
-        assertThat(stageInfo.getStageId()).isEqualTo(basicStageInfo.getStageId());
-        assertThat(stageInfo.getState()).isEqualTo(basicStageInfo.getState());
-        assertThat(stageInfo.isCoordinatorOnly()).isEqualTo(basicStageInfo.isCoordinatorOnly());
-        assertThat(stageInfo.getTasks()).isEqualTo(basicStageInfo.getTasks());
-        assertThat(stageInfo.getStageStats().getFailedTasks()).isEqualTo(basicStageInfo.getStageStats().getFailedTasks());
-        assertThat(stageInfo.getStageStats().getTotalDrivers()).isEqualTo(basicStageInfo.getStageStats().getTotalDrivers());
-        assertThat(stageInfo.getStageStats().getQueuedDrivers()).isEqualTo(basicStageInfo.getStageStats().getQueuedDrivers());
+        assertThat(stageInfo.stageId()).isEqualTo(basicStageInfo.getStageId());
+        assertThat(stageInfo.state()).isEqualTo(basicStageInfo.getState());
+        assertThat(stageInfo.coordinatorOnly()).isEqualTo(basicStageInfo.isCoordinatorOnly());
+        assertThat(stageInfo.tasks()).isEqualTo(basicStageInfo.getTasks());
+        assertThat(stageInfo.stageStats().getFailedTasks()).isEqualTo(basicStageInfo.getStageStats().getFailedTasks());
+        assertThat(stageInfo.stageStats().getTotalDrivers()).isEqualTo(basicStageInfo.getStageStats().getTotalDrivers());
+        assertThat(stageInfo.stageStats().getQueuedDrivers()).isEqualTo(basicStageInfo.getStageStats().getQueuedDrivers());
 
-        assertThat(stageInfo.getStageStats().getBlockedDrivers()).isEqualTo(basicStageInfo.getStageStats().getBlockedDrivers());
-        assertThat(stageInfo.getStageStats().getPhysicalWrittenDataSize()).isEqualTo(basicStageInfo.getStageStats().getPhysicalWrittenDataSize());
+        assertThat(stageInfo.stageStats().getBlockedDrivers()).isEqualTo(basicStageInfo.getStageStats().getBlockedDrivers());
+        assertThat(stageInfo.stageStats().getPhysicalWrittenDataSize()).isEqualTo(basicStageInfo.getStageStats().getPhysicalWrittenDataSize());
     }
 
     private static QueryInfo createQueryInfo(Optional<StagesInfo> stagesInfo)

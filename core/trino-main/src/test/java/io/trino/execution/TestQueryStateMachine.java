@@ -459,8 +459,8 @@ public class TestQueryStateMachine
 
         ExecutionFailureInfo failureInfo = queryStateMachine.getFinalQueryInfo().orElseThrow().getFailureInfo();
         assertThat(failureInfo).isNotNull();
-        assertThat(failureInfo.getErrorCode()).isEqualTo(TYPE_MISMATCH.toErrorCode());
-        assertThat(failureInfo.getMessage()).isEqualTo("First exception");
+        assertThat(failureInfo.errorCode()).isEqualTo(TYPE_MISMATCH.toErrorCode());
+        assertThat(failureInfo.message()).isEqualTo("First exception");
 
         BasicQueryInfo basicQueryInfo = queryStateMachine.getBasicQueryInfo(Optional.empty());
         assertThat(basicQueryInfo.getErrorCode()).isEqualTo(TYPE_MISMATCH.toErrorCode());
@@ -486,8 +486,8 @@ public class TestQueryStateMachine
 
         ExecutionFailureInfo failureInfo = queryStateMachine.getFinalQueryInfo().orElseThrow().getFailureInfo();
         assertThat(failureInfo).isNotNull();
-        assertThat(failureInfo.getErrorCode()).isEqualTo(USER_CANCELED.toErrorCode());
-        assertThat(failureInfo.getMessage()).isEqualTo("Query was canceled");
+        assertThat(failureInfo.errorCode()).isEqualTo(USER_CANCELED.toErrorCode());
+        assertThat(failureInfo.message()).isEqualTo("Query was canceled");
 
         BasicQueryInfo basicQueryInfo = queryStateMachine.getBasicQueryInfo(Optional.empty());
         assertThat(basicQueryInfo.getErrorCode()).isEqualTo(USER_CANCELED.toErrorCode());

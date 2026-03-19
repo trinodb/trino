@@ -25,7 +25,7 @@ import io.trino.sql.planner.plan.SpatialJoinNode;
 import jakarta.annotation.Nullable;
 
 import java.util.List;
-import java.util.Optional;
+import java.util.OptionalInt;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -50,7 +50,7 @@ public class SpatialJoinOperator
         private final List<Type> probeTypes;
         private final List<Integer> probeOutputChannels;
         private final int probeGeometryChannel;
-        private final Optional<Integer> partitionChannel;
+        private final OptionalInt partitionChannel;
         private final PagesSpatialIndexFactory pagesSpatialIndexFactory;
         private final ReferenceCount referenceCount;
 
@@ -63,7 +63,7 @@ public class SpatialJoinOperator
                 List<Type> probeTypes,
                 List<Integer> probeOutputChannels,
                 int probeGeometryChannel,
-                Optional<Integer> partitionChannel,
+                OptionalInt partitionChannel,
                 PagesSpatialIndexFactory pagesSpatialIndexFactory)
         {
             checkArgument(joinType == INNER || joinType == LEFT, "unsupported join type: %s", joinType);
@@ -138,7 +138,7 @@ public class SpatialJoinOperator
     private final SpatialJoinNode.Type joinType;
     private final List<Integer> probeOutputChannels;
     private final int probeGeometryChannel;
-    private final Optional<Integer> partitionChannel;
+    private final OptionalInt partitionChannel;
     private final PagesSpatialIndexFactory pagesSpatialIndexFactory;
     private final Runnable onClose;
 
@@ -165,7 +165,7 @@ public class SpatialJoinOperator
             List<Type> probeTypes,
             List<Integer> probeOutputChannels,
             int probeGeometryChannel,
-            Optional<Integer> partitionChannel,
+            OptionalInt partitionChannel,
             PagesSpatialIndexFactory pagesSpatialIndexFactory,
             Runnable onClose)
     {

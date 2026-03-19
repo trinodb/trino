@@ -377,6 +377,9 @@ class FunctionBinder
         if (!functionMetadata.isDeterministic()) {
             newMetadata.nondeterministic();
         }
+        if (functionMetadata.isNeverFails()) {
+            newMetadata.neverFails();
+        }
         if (functionMetadata.isDeprecated()) {
             newMetadata.deprecated();
         }

@@ -42,6 +42,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Set;
 
@@ -211,7 +212,7 @@ public class OptimizeMixedDistinctAggregations
         // for de-duplication of group id filters
         Map<Integer, Symbol> groupIdFilterSymbolByGroupId = new HashMap<>();
         // prepare outer aggregations and filter expression, symbol for distinct aggregations
-        for (Map.Entry<Symbol, Aggregation> entry : node.getAggregations().entrySet()) {
+        for (Entry<Symbol, Aggregation> entry : node.getAggregations().entrySet()) {
             Aggregation originalAggregation = entry.getValue();
             if (originalAggregation.isDistinct()) {
                 // for the outer aggregation node, replace distinct aggregation with non-distinct aggregation with FILTER (WHERE group_id=X)
@@ -244,7 +245,7 @@ public class OptimizeMixedDistinctAggregations
         Map<Symbol, Symbol> duplicatedGroupIdInputToOutput = new HashMap<>();
         if (hasNonDistinctAggregation) {
             // prepare inner and outer aggregations for the non-distinct aggregation
-            for (Map.Entry<Symbol, Aggregation> entry : node.getAggregations().entrySet()) {
+            for (Entry<Symbol, Aggregation> entry : node.getAggregations().entrySet()) {
                 Aggregation originalAggregation = entry.getValue();
                 if (!originalAggregation.isDistinct()) {
                     // non-distinct aggregation, we need both inner aggregation that does the actual aggregation,

@@ -14,6 +14,7 @@
 package io.trino.sql.ir.optimizer.rule;
 
 import io.trino.Session;
+import io.trino.spi.type.Type;
 import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.optimizer.IrOptimizerRule;
@@ -34,8 +35,8 @@ public class SimplifyRedundantCast
     @Override
     public Optional<Expression> apply(Expression expression, Session session, Map<Symbol, Expression> bindings)
     {
-        if (expression instanceof Cast cast && cast.type().equals(cast.expression().type())) {
-            return Optional.of(cast.expression());
+        if (expression instanceof Cast(Expression value, Type type) && type.equals(value.type())) {
+            return Optional.of(value);
         }
 
         return Optional.empty();

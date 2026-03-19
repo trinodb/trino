@@ -35,7 +35,7 @@ public class TestS3FileSystemLocalStack
     private static final String BUCKET = "test-bucket";
 
     @Container
-    private static final LocalStackContainer LOCALSTACK = new LocalStackContainer(DockerImageName.parse("localstack/localstack:4.0.3"))
+    private static final LocalStackContainer LOCALSTACK = new LocalStackContainer(DockerImageName.parse("localstack/localstack:4.14.0"))
             .withServices("s3");
 
     @Override

@@ -26,6 +26,7 @@ import org.junit.jupiter.api.parallel.Execution;
 
 import java.time.Duration;
 
+import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.function.OperatorType.ADD;
 import static io.trino.spi.function.OperatorType.DIVIDE;
@@ -37,6 +38,7 @@ import static io.trino.spi.function.OperatorType.MULTIPLY;
 import static io.trino.spi.function.OperatorType.NEGATION;
 import static io.trino.spi.function.OperatorType.SUBTRACT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static io.trino.util.DateTimeUtils.formatDayTimeInterval;
 import static java.util.concurrent.TimeUnit.DAYS;
@@ -519,6 +521,16 @@ public class TestIntervalDayTime
                 .binding("a", "INTERVAL '32' SECOND"))
                 .hasType(VARCHAR)
                 .isEqualTo("0 00:00:32.000");
+
+        assertThat(assertions.expression("CAST(a AS varchar(14))")
+                .binding("a", "INTERVAL '32' SECOND"))
+                .hasType(createVarcharType(14))
+                .isEqualTo("0 00:00:32.000");
+
+        assertTrinoExceptionThrownBy(assertions.expression("CAST(a AS varchar(13))")
+                .binding("a", "INTERVAL '32' SECOND")::evaluate)
+                .hasErrorCode(INVALID_CAST_ARGUMENT)
+                .hasMessage("Cannot cast '0 00:00:32.000' to varchar(13)");
     }
 
     @Test

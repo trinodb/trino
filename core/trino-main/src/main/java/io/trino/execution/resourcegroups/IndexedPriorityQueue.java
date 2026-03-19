@@ -32,7 +32,8 @@ import static java.util.Objects.requireNonNull;
 public final class IndexedPriorityQueue<E>
         implements UpdateablePriorityQueue<E>
 {
-    public enum PriorityOrdering {
+    public enum PriorityOrdering
+    {
         LOW_TO_HIGH,
         HIGH_TO_LOW
     }

@@ -29,7 +29,7 @@ public interface OAuth2Client
     Response getOAuth2Response(String code, URI callbackUri, Optional<String> nonce)
             throws ChallengeFailedException;
 
-    Optional<Map<String, Object>> getClaims(String accessToken);
+    Optional<Map<String, Object>> getAccessTokenClaims(String accessToken);
 
     Response refreshTokens(String refreshToken)
             throws ChallengeFailedException;

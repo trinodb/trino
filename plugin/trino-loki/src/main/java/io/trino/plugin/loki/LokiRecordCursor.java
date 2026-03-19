@@ -137,9 +137,7 @@ public class LokiRecordCursor
     }
 
     @Override
-    public void close()
-    {
-    }
+    public void close() {}
 
     private void checkFieldType(int field, Type expected)
     {

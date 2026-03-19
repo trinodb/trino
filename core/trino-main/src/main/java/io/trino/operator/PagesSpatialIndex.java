@@ -16,11 +16,11 @@ package io.trino.operator;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 
-import java.util.Optional;
+import java.util.OptionalInt;
 
 public interface PagesSpatialIndex
 {
-    int[] findJoinPositions(int probePosition, Page probe, int probeGeometryChannel, Optional<Integer> probePartitionChannel);
+    int[] findJoinPositions(int probePosition, Page probe, int probeGeometryChannel, OptionalInt probePartitionChannel);
 
     boolean isJoinPositionEligible(int joinPosition, int probePosition, Page probe);
 
@@ -31,7 +31,7 @@ public interface PagesSpatialIndex
         private final int[] emptyAddresses = new int[0];
 
         @Override
-        public int[] findJoinPositions(int probePosition, Page probe, int probeGeometryChannel, Optional<Integer> probePartitionChannel)
+        public int[] findJoinPositions(int probePosition, Page probe, int probeGeometryChannel, OptionalInt probePartitionChannel)
         {
             return emptyAddresses;
         }

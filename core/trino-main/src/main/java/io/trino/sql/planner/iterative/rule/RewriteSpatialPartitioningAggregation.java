@@ -33,7 +33,7 @@ import io.trino.sql.planner.plan.AggregationNode.Aggregation;
 import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.planner.plan.ProjectNode;
 
-import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
@@ -91,13 +91,13 @@ public class RewriteSpatialPartitioningAggregation
     @Override
     public Result apply(AggregationNode node, Captures captures, Context context)
     {
-        ResolvedFunction spatialPartitioningFunction = plannerContext.getMetadata().resolveBuiltinFunction(NAME.getFunctionName(), fromTypeSignatures(GEOMETRY_TYPE_SIGNATURE, INTEGER.getTypeSignature()));
+        ResolvedFunction spatialPartitioningFunction = plannerContext.getMetadata().resolveBuiltinFunction(NAME.functionName(), fromTypeSignatures(GEOMETRY_TYPE_SIGNATURE, INTEGER.getTypeSignature()));
         ResolvedFunction stEnvelopeFunction = plannerContext.getMetadata().resolveBuiltinFunction("ST_Envelope", fromTypeSignatures(GEOMETRY_TYPE_SIGNATURE));
 
         ImmutableMap.Builder<Symbol, Aggregation> aggregations = ImmutableMap.builder();
         Symbol partitionCountSymbol = context.getSymbolAllocator().newSymbol("partition_count", INTEGER);
         ImmutableMap.Builder<Symbol, Expression> envelopeAssignments = ImmutableMap.builder();
-        for (Map.Entry<Symbol, Aggregation> entry : node.getAggregations().entrySet()) {
+        for (Entry<Symbol, Aggregation> entry : node.getAggregations().entrySet()) {
             Aggregation aggregation = entry.getValue();
             CatalogSchemaFunctionName name = aggregation.getResolvedFunction().signature().getName();
             if (name.equals(NAME) && aggregation.getArguments().size() == 1) {

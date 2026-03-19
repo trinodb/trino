@@ -370,7 +370,7 @@ public class PipelinedQueryScheduler
             if (state == DistributedStagesSchedulerState.FAILED) {
                 StageFailureInfo stageFailureInfo = distributedStagesScheduler.getFailureCause()
                         .orElseGet(() -> new StageFailureInfo(toFailure(new VerifyException("distributedStagesScheduler failed but failure cause is not present")), Optional.empty()));
-                ErrorCode errorCode = stageFailureInfo.getFailureInfo().getErrorCode();
+                ErrorCode errorCode = stageFailureInfo.getFailureInfo().errorCode();
                 if (shouldRetry(errorCode)) {
                     long delayInMillis = min(retryInitialDelay.toMillis() * ((long) pow(retryDelayScaleFactor, currentAttempt.get())), retryMaxDelay.toMillis());
                     currentAttempt.incrementAndGet();
@@ -506,7 +506,7 @@ public class PipelinedQueryScheduler
         @Override
         public void taskCreated(PlanFragmentId fragmentId, RemoteTask task)
         {
-            URI taskUri = uriBuilderFrom(task.getTaskStatus().getSelf())
+            URI taskUri = uriBuilderFrom(task.getTaskStatus().self())
                     .appendPath("results")
                     .appendPath("0").build();
             DirectExchangeInput input = new DirectExchangeInput(task.getTaskId(), taskUri.toString());
@@ -1593,8 +1593,7 @@ public class PipelinedQueryScheduler
     }
 
     private sealed interface BucketToPartitionKey
-            permits ConstantKey, PartitioningKey
-    {}
+            permits ConstantKey, PartitioningKey {}
 
     enum ConstantKey
             implements BucketToPartitionKey

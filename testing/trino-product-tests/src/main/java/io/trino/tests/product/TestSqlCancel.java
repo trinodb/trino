@@ -17,6 +17,7 @@ import com.google.common.base.Stopwatch;
 import com.google.common.io.Closer;
 import com.google.inject.Inject;
 import com.google.inject.name.Named;
+import io.airlift.http.client.HeaderName;
 import io.airlift.http.client.HttpClient;
 import io.airlift.http.client.HttpClientConfig;
 import io.airlift.http.client.HttpStatus;
@@ -171,7 +172,7 @@ public class TestSqlCancel
             requireNonNull(queryId, "queryId is null");
             URI cancelUri = uriBuilderFrom(uri).appendPath("/v1/query").appendPath(queryId).build();
             Request request = prepareDelete()
-                    .setHeader("X-Trino-User", "anyUser")
+                    .setHeader(HeaderName.of("X-Trino-User"), "anyUser")
                     .setUri(cancelUri)
                     .build();
             return httpClient.execute(request, new ResponseHandler<>()

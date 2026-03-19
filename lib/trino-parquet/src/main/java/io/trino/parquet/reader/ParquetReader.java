@@ -75,6 +75,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.function.ObjLongConsumer;
+import java.util.function.Predicate;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -831,7 +832,7 @@ public class ParquetReader
 
     @SuppressWarnings("FormatStringAnnotation")
     @FormatMethod
-    private void validateWrite(java.util.function.Predicate<ParquetWriteValidation> test, String messageFormat, Object... args)
+    private void validateWrite(Predicate<ParquetWriteValidation> test, String messageFormat, Object... args)
             throws ParquetCorruptionException
     {
         if (writeValidation.isPresent() && !test.test(writeValidation.get())) {

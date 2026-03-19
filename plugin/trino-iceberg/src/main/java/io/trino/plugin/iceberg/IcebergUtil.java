@@ -115,6 +115,11 @@ import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.metastore.Table.TABLE_COMMENT;
 import static io.trino.parquet.writer.ParquetWriter.SUPPORTED_BLOOM_FILTER_TYPES;
 import static io.trino.plugin.base.io.ByteBuffers.getWrappedBytes;
+import static io.trino.plugin.hive.HiveCompressionCodec.GZIP;
+import static io.trino.plugin.hive.HiveCompressionCodec.LZ4;
+import static io.trino.plugin.hive.HiveCompressionCodec.NONE;
+import static io.trino.plugin.hive.HiveCompressionCodec.SNAPPY;
+import static io.trino.plugin.hive.HiveCompressionCodec.ZSTD;
 import static io.trino.plugin.iceberg.ColumnIdentity.createColumnIdentity;
 import static io.trino.plugin.iceberg.IcebergColumnHandle.fileModifiedTimeColumnHandle;
 import static io.trino.plugin.iceberg.IcebergColumnHandle.fileModifiedTimeColumnMetadata;
@@ -206,6 +211,7 @@ import static org.apache.iceberg.TableProperties.PARQUET_COMPRESSION;
 import static org.apache.iceberg.TableProperties.WRITE_DATA_LOCATION;
 import static org.apache.iceberg.TableProperties.WRITE_LOCATION_PROVIDER_IMPL;
 import static org.apache.iceberg.TableUtil.formatVersion;
+import static org.apache.iceberg.expressions.Expressions.lit;
 import static org.apache.iceberg.types.Type.TypeID.BINARY;
 import static org.apache.iceberg.types.Type.TypeID.FIXED;
 import static org.apache.iceberg.util.LocationUtil.stripTrailingSlash;
@@ -303,7 +309,7 @@ public final class IcebergUtil
         List<Integer> path = requireNonNull(indexPaths.get(fieldId));
         if (!path.isEmpty()) {
             baseField = indexById.get(path.getFirst());
-            path = ImmutableList.<Integer>builder()
+            path = ImmutableList.<Integer>builderWithExpectedSize(path.size())
                     .addAll(path.subList(1, path.size())) // Base column id shouldn't exist in IcebergColumnHandle.path
                     .add(fieldId) // Append the leaf field id
                     .build();
@@ -332,8 +338,6 @@ public final class IcebergUtil
         }
 
         Optional<HiveCompressionCodec> compressionCodec = getHiveCompressionCodec(fileFormat, icebergTable.properties());
-
-        validateCompression(fileFormat, compressionCodec);
 
         compressionCodec.ifPresent(hiveCompressionCodec -> properties.put(COMPRESSION_CODEC, HiveCompressionOption.valueOf(hiveCompressionCodec.name())));
 
@@ -432,18 +436,16 @@ public final class IcebergUtil
     public static List<ColumnMetadata> getColumnMetadatas(Schema schema, TypeManager typeManager)
     {
         List<NestedField> icebergColumns = schema.columns();
-        ImmutableList.Builder<ColumnMetadata> columns = builderWithExpectedSize(icebergColumns.size() + 2);
-
-        icebergColumns.stream()
-                .map(column ->
-                        ColumnMetadata.builder()
-                                .setName(column.name())
-                                .setType(toTrinoType(column.type(), typeManager))
-                                .setNullable(column.isOptional())
-                                .setComment(Optional.ofNullable(column.doc()))
-                                .setDefaultValue(formatIcebergDefaultAsSql(column.writeDefault(), column.type()))
-                                .build())
-                .forEach(columns::add);
+        ImmutableList.Builder<ColumnMetadata> columns = builderWithExpectedSize(icebergColumns.size() + 3);
+        for (NestedField column : icebergColumns) {
+            columns.add(ColumnMetadata.builder()
+                    .setName(column.name())
+                    .setType(toTrinoType(column.type(), typeManager))
+                    .setNullable(column.isOptional())
+                    .setComment(Optional.ofNullable(column.doc()))
+                    .setDefaultValue(formatIcebergDefaultAsSql(column.writeDefault(), column.type()))
+                    .build());
+        }
         columns.add(partitionColumnMetadata());
         columns.add(pathColumnMetadata());
         columns.add(fileModifiedTimeColumnMetadata());
@@ -819,7 +821,7 @@ public final class IcebergUtil
             Set<IcebergColumnHandle> identityPartitionColumns,
             Map<Integer, Optional<String>> partitionKeys)
     {
-        ImmutableMap.Builder<ColumnHandle, NullableValue> bindings = ImmutableMap.builder();
+        ImmutableMap.Builder<ColumnHandle, NullableValue> bindings = ImmutableMap.builderWithExpectedSize(identityPartitionColumns.size());
         for (IcebergColumnHandle partitionColumn : identityPartitionColumns) {
             Object partitionValue = deserializePartitionValue(
                     partitionColumn.getType(),
@@ -859,15 +861,15 @@ public final class IcebergUtil
                         .isOptional(column.isNullable())
                         .withName(column.getName())
                         .ofType(type)
-                        .withDoc(column.getComment());
+                        .withDoc(column.getComment().orElse(null));
 
                 // Set initial-default and write-default if present
                 // Note: DEFAULT NULL results in icebergDefault=null, which we skip since null is already the implicit default
                 column.getDefaultValue().ifPresent(defaultValue -> {
                     Object icebergDefault = parseDefaultValue(defaultValue, column.getType(), type);
                     if (icebergDefault != null) {
-                        fieldBuilder.withInitialDefault(icebergDefault);
-                        fieldBuilder.withWriteDefault(icebergDefault);
+                        fieldBuilder.withInitialDefault(lit(icebergDefault));
+                        fieldBuilder.withWriteDefault(lit(icebergDefault));
                     }
                 });
 
@@ -1026,16 +1028,43 @@ public final class IcebergUtil
     public static Optional<HiveCompressionCodec> getHiveCompressionCodec(IcebergFileFormat icebergFileFormat, Map<String, String> storageProperties)
     {
         String compressionProperty = getCompressionPropertyName(icebergFileFormat);
-
         return Optional.ofNullable(storageProperties.get(compressionProperty))
                 .filter(value -> !value.isEmpty())
                 .map(value -> {
+                    String upperCaseValue = value.toUpperCase(ENGLISH);
+                    // https://github.com/trinodb/trino/issues/28293
+                    // Not iceberg specification valid,
+                    // but Trino made these so we must read for backwards compatibility.
                     try {
-                        return HiveCompressionCodec.valueOf(value.toUpperCase(ENGLISH));
+                        return HiveCompressionCodec.valueOf(upperCaseValue);
                     }
-                    catch (IllegalArgumentException e) {
-                        throw new TrinoException(INVALID_TABLE_PROPERTY,
-                                format("Compression codec %s is unsupported.", value));
+                    catch (IllegalArgumentException _) {
+                        return switch (icebergFileFormat) {
+                            // Based on https://iceberg.apache.org/docs/1.10.1/docs/configuration/#write-properties.
+                            case PARQUET -> switch (upperCaseValue) {
+                                case "UNCOMPRESSED" -> NONE;
+                                case "SNAPPY" -> SNAPPY;
+                                case "ZSTD" -> ZSTD;
+                                case "LZ4" -> LZ4;
+                                case "GZIP" -> GZIP;
+                                default -> throw new TrinoException(INVALID_TABLE_PROPERTY, format("Unsupported compression codec: %s", upperCaseValue));
+                            };
+                            case AVRO -> switch (upperCaseValue) {
+                                case "UNCOMPRESSED" -> NONE;
+                                case "SNAPPY" -> SNAPPY;
+                                case "ZSTD" -> ZSTD;
+                                case "GZIP" -> GZIP;
+                                default -> throw new TrinoException(INVALID_TABLE_PROPERTY, format("Unsupported compression codec: %s", upperCaseValue));
+                            };
+                            case ORC -> switch (upperCaseValue) {
+                                case "ZLIB" -> GZIP;
+                                case "ZSTD" -> ZSTD;
+                                case "LZ4" -> LZ4;
+                                case "SNAPPY" -> SNAPPY;
+                                case "NONE" -> NONE;
+                                default -> throw new TrinoException(INVALID_TABLE_PROPERTY, format("Unsupported compression codec: %s", upperCaseValue));
+                            };
+                        };
                     }
                 });
     }

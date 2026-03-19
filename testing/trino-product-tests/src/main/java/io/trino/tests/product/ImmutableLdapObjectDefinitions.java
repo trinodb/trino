@@ -34,8 +34,7 @@ public final class ImmutableLdapObjectDefinitions
     private static final String LDAP_PASSWORD = "LDAPPass123";
     private static final String MEMBER = "member";
 
-    private ImmutableLdapObjectDefinitions()
-    {}
+    private ImmutableLdapObjectDefinitions() {}
 
     public static final LdapObjectDefinition AMERICA_ORG = buildLdapOrganizationObject("America", AMERICA_DISTINGUISHED_NAME, "America");
 

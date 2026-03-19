@@ -28,7 +28,9 @@ import io.opentelemetry.api.trace.Span;
 import io.trino.Session;
 import io.trino.SystemSessionProperties;
 import io.trino.spi.session.PropertyMetadata;
+import io.trino.spi.type.NumberType;
 import io.trino.spi.type.TimeZoneKey;
+import io.trino.spi.type.TrinoNumber;
 import io.trino.tests.QueryTemplate;
 import io.trino.tpch.TpchTable;
 import io.trino.type.SqlIntervalDayTime;
@@ -36,6 +38,8 @@ import io.trino.type.SqlIntervalYearMonth;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 
+import java.lang.reflect.Field;
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -792,6 +796,61 @@ public abstract class AbstractTestEngineOnlyQueries
                 "    UNION ALL" +
                 "    SELECT 'yy' AS c" +
                 ")");
+    }
+
+    /**
+     * Supplements {@link #testCoercions}
+     */
+    @Test
+    public void testNumericCoercions()
+    {
+        String[] numericTypes = new String[] {
+                "tinyint",
+                "smallint",
+                "integer",
+                "bigint",
+                "real",
+                "double",
+                "decimal(10,5)",
+                "decimal(24,11)",
+                "number",
+        };
+
+        for (String left : numericTypes) {
+            for (String right : numericTypes) {
+                try {
+                    String add = "SELECT CAST(CAST('3' AS " + left + ") + CAST('4' AS " + right + ") AS varchar)";
+                    String subtract = "SELECT CAST(CAST('3' AS " + left + ") - CAST('4' AS " + right + ") AS varchar)";
+                    String multiply = "SELECT CAST(CAST('3' AS " + left + ") * CAST('4' AS " + right + ") AS varchar)";
+                    String divide = "SELECT CAST(CAST('12' AS " + left + ") / CAST('4' AS " + right + ") AS varchar)";
+                    String modulus = "SELECT CAST(CAST('12' AS " + left + ") % CAST('7' AS " + right + ") AS varchar)";
+                    List<String> both = List.of(left, right);
+                    // There currently is no coercion between number and real/double/decimal
+                    boolean unsupported =
+                            both.contains("number") &&
+                            (both.contains("real") || both.contains("double") || both.contains("decimal(10,5)") || both.contains("decimal(24,11)"));
+                    if (unsupported) {
+                        assertThat(query(add)).failure().hasMessageMatching("line 1:\\d+: Cannot apply operator: .* \\+ .*");
+                        assertThat(query(subtract)).failure().hasMessageMatching("line 1:\\d+: Cannot apply operator: .* - .*");
+                        assertThat(query(multiply)).failure().hasMessageMatching("line 1:\\d+: Cannot apply operator: .* \\* .*");
+                        assertThat(query(divide)).failure().hasMessageMatching("line 1:\\d+: Cannot apply operator: .* / .*");
+                        assertThat(query(modulus)).failure().hasMessageMatching("line 1:\\d+: Cannot apply operator: .* % .*");
+                    }
+                    else {
+                        assertThat((String) computeActual(add).getOnlyValue()).matches("7(\\.0E0|\\.0+)?");
+                        assertThat((String) computeActual(subtract).getOnlyValue()).matches("-1(\\.0E0|\\.0+)?");
+                        assertThat((String) computeActual(multiply).getOnlyValue()).matches("12(\\.0+)?|1.2E1");
+                        assertThat((String) computeActual(divide).getOnlyValue()).matches("3(\\.0E0|\\.0+)?");
+                        assertThat((String) computeActual(modulus).getOnlyValue()).matches("5(\\.0E0|\\.0+)?");
+                    }
+                }
+                catch (Throwable e) {
+                    e.addSuppressed(new Exception("left = " + left));
+                    e.addSuppressed(new Exception("right = " + right));
+                    throw e;
+                }
+            }
+        }
     }
 
     @Test
@@ -6612,6 +6671,66 @@ public abstract class AbstractTestEngineOnlyQueries
 
         assertQueryFails("CREATE FUNCTION a.b.c() RETURNS varchar RETURN 8",
                 "line 1:48: Value of RETURN must evaluate to varchar \\(actual: integer\\)");
+    }
+
+    @Test
+    public void testNumber()
+    {
+        assertThat(query("SELECT NUMBER '3' + NUMBER '.14159265358979'"))
+                .matches("VALUES NUMBER '3.14159265358979'");
+        assertThat(computeActual("SELECT NUMBER '3' + NUMBER '.14159265358979'").getOnlyValue())
+                .isEqualTo(new BigDecimal("3.14159265358979"));
+
+        String maxValue = "9".repeat(getNumberMaxDecimalPrecision()) + "e" + -getNumberScaleMinValue();
+        assertThat(computeActual("SELECT NUMBER '" + maxValue + "'").getOnlyValue())
+                .isEqualTo(new BigDecimal(maxValue));
+
+        String minPositiveValue = "1e" + -getNumberScaleMaxValue();
+        assertThat(computeActual("SELECT NUMBER '" + minPositiveValue + "'").getOnlyValue())
+                .isEqualTo(new BigDecimal(minPositiveValue));
+
+        assertThat(computeActual("SELECT NUMBER '+Infinity'").getOnlyValue())
+                .isEqualTo(Double.POSITIVE_INFINITY);
+        assertThat(computeActual("SELECT NUMBER '-Infinity'").getOnlyValue())
+                .isEqualTo(Double.NEGATIVE_INFINITY);
+        assertThat(computeActual("SELECT NUMBER 'NaN'").getOnlyValue())
+                .isEqualTo(Double.NaN);
+    }
+
+    private static int getNumberMaxDecimalPrecision()
+    {
+        try {
+            Field field = NumberType.class.getDeclaredField("MAX_DECIMAL_PRECISION");
+            field.setAccessible(true);
+            return (int) field.get(null);
+        }
+        catch (ReflectiveOperationException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    private static int getNumberScaleMaxValue()
+    {
+        try {
+            Field field = TrinoNumber.class.getDeclaredField("MAX_SCALE");
+            field.setAccessible(true);
+            return (int) field.get(null);
+        }
+        catch (ReflectiveOperationException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    private static int getNumberScaleMinValue()
+    {
+        try {
+            Field field = TrinoNumber.class.getDeclaredField("MIN_SCALE");
+            field.setAccessible(true);
+            return (int) field.get(null);
+        }
+        catch (ReflectiveOperationException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     private static ZonedDateTime zonedDateTime(String value)

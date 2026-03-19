@@ -34,6 +34,7 @@ import io.trino.spi.type.RowType;
 import io.trino.spi.type.SmallintType;
 import io.trino.spi.type.SqlDate;
 import io.trino.spi.type.SqlDecimal;
+import io.trino.spi.type.SqlNumber;
 import io.trino.spi.type.SqlTime;
 import io.trino.spi.type.SqlTimeWithTimeZone;
 import io.trino.spi.type.SqlTimestamp;
@@ -436,6 +437,9 @@ public final class JsonEncodingUtils
                 case BigDecimal bigDecimalValue -> generator.writeNumber(bigDecimalValue);
                 case SqlDate dateValue -> generator.writeString(dateValue.toString());
                 case SqlDecimal decimalValue -> generator.writeString(decimalValue.toString());
+                // When client does not have NUMBER capability, NUMBER values are sent as varchar (strings).
+                // When it has the capability, they are also sent as strings.
+                case SqlNumber number -> generator.writeString(number.toString());
                 case SqlIntervalDayTime intervalValue -> generator.writeString(intervalValue.toString());
                 case SqlIntervalYearMonth intervalValue -> generator.writeString(intervalValue.toString());
                 case SqlTime timeValue -> generator.writeString(timeValue.toString());
