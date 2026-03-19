@@ -3,6 +3,9 @@ package io.trino.plugin.couchbase;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.ConfigSecuritySensitive;
+import io.trino.spi.function.Description;
+
+import java.time.Duration;
 
 public class CouchbaseConfig
 {
@@ -15,6 +18,8 @@ public class CouchbaseConfig
     private String schemaFolder = "couchbase-schema";
     private String bucket = "default";
     private String scope = "_default";
+    private Duration timeouts = Duration.ofSeconds(60);
+    private Long pageSize = 5000L;
 
     @Config("couchbase.cluster")
     @ConfigDescription("Couchbase cluster connection string")
@@ -128,5 +133,26 @@ public class CouchbaseConfig
 
     public String getScope() {
         return scope;
+    }
+
+    @Config("couchbase.timeouts")
+    @ConfigDescription("Operations timeout in seconds")
+    public CouchbaseConfig setTimeouts(String timeout) {
+        this.timeouts = Duration.ofSeconds(Long.parseLong(timeout));
+        return this;
+    }
+    public Duration getTimeouts() {
+        return timeouts;
+    }
+
+    @Config("couchbase.page-size")
+    @Description("Maximum number of rows to be fetched in a single query")
+    public CouchbaseConfig setPageSize(String value) {
+        this.pageSize = Long.valueOf(value);
+        return this;
+    }
+
+    public Long getPageSize() {
+        return pageSize;
     }
 }

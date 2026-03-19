@@ -9,9 +9,11 @@ import java.util.stream.Collectors;
 public class CouchbasePageSourceProvider
         implements ConnectorPageSourceProvider {
     private final CouchbaseClient client;
+    private final CouchbaseConfig config;
 
     @Inject
-    public CouchbasePageSourceProvider(CouchbaseClient client) {
+    public CouchbasePageSourceProvider(CouchbaseConfig config, CouchbaseClient client) {
+        this.config = config;
         this.client = client;
     }
 
@@ -24,7 +26,8 @@ public class CouchbasePageSourceProvider
                 (CouchbaseSplit) split,
                 (CouchbaseTableHandle) table,
                 columns.stream().map(CouchbaseColumnHandle.class::cast).toList(),
-                dynamicFilter
+                dynamicFilter,
+                config.getPageSize()
         );
     }
 }

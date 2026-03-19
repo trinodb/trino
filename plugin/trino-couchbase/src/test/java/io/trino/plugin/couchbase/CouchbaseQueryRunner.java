@@ -1,28 +1,20 @@
 package io.trino.plugin.couchbase;
 
-import com.couchbase.client.core.deps.org.xbill.DNS.Zone;
 import com.couchbase.client.java.Bucket;
 import com.couchbase.client.java.Cluster;
 import com.couchbase.client.java.Collection;
 import com.couchbase.client.java.Scope;
 import com.couchbase.client.java.json.JsonObject;
 import com.google.common.collect.ImmutableList;
-import com.sun.jna.platform.mac.SystemB;
 import io.airlift.log.Logger;
-import io.airlift.log.Logging;
-import io.trino.Session;
-import io.trino.client.ClientCapabilities;
 import io.trino.execution.QueryIdGenerator;
-import io.trino.metadata.SessionPropertyManager;
 import io.trino.plugin.tpch.TpchPlugin;
-import io.trino.spi.security.Identity;
 import io.trino.spi.type.*;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.MaterializedRow;
 import io.trino.testing.TestingSession;
 import io.trino.tpch.TpchTable;
-import org.junit.jupiter.api.TestInstance;
 
 import java.io.File;
 import java.io.FileWriter;
@@ -30,21 +22,16 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.LocalDate;
-import java.time.ZoneOffset;
 import java.time.temporal.ChronoUnit;
-import java.time.temporal.TemporalField;
 import java.util.*;
 
-import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.airlift.testing.Closeables.closeAllSuppress;
-import static io.trino.plugin.couchbase.TestCouchbaseConnector.CBBUCKET;
+import static io.trino.plugin.couchbase.CouchbaseConnectorTest.CBBUCKET;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DateType.DATE;
 import static io.trino.testing.QueryAssertions.copyTpchTables;
-import static io.trino.testing.TestingSession.DEFAULT_TIME_ZONE_KEY;
 import static java.lang.String.format;
-import static java.util.Locale.ENGLISH;
 
 public class CouchbaseQueryRunner {
     private static final Logger log = Logger.get(CouchbaseQueryRunner.class);

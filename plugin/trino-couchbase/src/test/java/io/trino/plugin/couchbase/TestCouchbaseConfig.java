@@ -25,7 +25,9 @@ public class TestCouchbaseConfig {
                         .setTlsCertificate(null)
                         .setTlsKeyPassword(null)
                         .setTlsKey(null)
+                        .setTimeouts("60")
                         .setSchemaFolder("couchbase-schema")
+                        .setPageSize("10000")
         );
     }
 
@@ -43,9 +45,11 @@ public class TestCouchbaseConfig {
                 .put("couchbase.bucket", "some-bucket")
                 .put("couchbase.scope", "some-scope")
                 .put("couchbase.tls-certificate", tls.toString())
-                .put("couchbase.tls-keystore", keystoreFile.toString())
-                .put("couchbase.tls-keystore-password", "some-keystore-password")
+                .put("couchbase.tls-key", keystoreFile.toString())
+                .put("couchbase.tls-key-password", "some-keystore-password")
                 .put("couchbase.schema-folder", "some-folder")
+                .put("couchbase.timeouts", "10")
+                .put("couchbase.page-size", "1")
                 .build();
 
         CouchbaseConfig expected = new CouchbaseConfig()
@@ -57,7 +61,9 @@ public class TestCouchbaseConfig {
                 .setTlsCertificate(tls.toString())
                 .setTlsKey(keystoreFile.toString())
                 .setTlsKeyPassword("some-keystore-password")
-                .setSchemaFolder("some-folder");
+                .setSchemaFolder("some-folder")
+                .setTimeouts("10")
+                .setPageSize("1");
 
         assertFullMapping(properties, expected);
     }

@@ -3,6 +3,7 @@ package io.trino.plugin.couchbase;
 import com.couchbase.client.java.json.JsonArray;
 import com.couchbase.client.java.json.JsonObject;
 import com.couchbase.client.java.query.QueryOptions;
+import com.couchbase.client.java.query.QueryResult;
 import com.google.common.primitives.Shorts;
 import com.google.common.primitives.SignedBytes;
 import io.airlift.slice.Slice;
@@ -20,64 +21,47 @@ import java.io.IOException;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.util.*;
-import java.util.concurrent.TimeUnit;
-import java.util.stream.Collectors;
 
 import static com.google.common.base.Verify.verify;
-import static io.trino.spi.type.Decimals.encodeShortScaledValue;
 
 public final class CouchbasePageSource implements ConnectorPageSource {
-    private static final int PAGE_SIZE = 1024;
     private static final Logger LOG = LoggerFactory.getLogger(CouchbasePageSource.class);
     private final ConnectorTransactionHandle transaction;
     private final ConnectorSession session;
     private final ConnectorSplit split;
     private final CouchbaseTableHandle table;
-    private final List<CouchbaseColumnHandle> columns;
-    private final DynamicFilter dynamicFilter;
     private final PageBuilder pageBuilder;
     private final CouchbaseClient client;
     private final String queryString;
-    private final JsonArray queryArgs = JsonArray.create();
+    private final Long pageSize;
     private long offset = 0;
     private boolean finished = false;
 
     public CouchbasePageSource(CouchbaseClient client, CouchbaseTransactionHandle transaction, ConnectorSession session,
                                CouchbaseSplit split, CouchbaseTableHandle table, List<CouchbaseColumnHandle> columns,
-                               DynamicFilter dynamicFilter) {
+                               DynamicFilter dynamicFilter, Long pageSize) {
         this.client = client;
         this.transaction = transaction;
         this.session = session;
         this.split = split;
-        this.table = table;
-        this.columns = columns;
-        this.dynamicFilter = dynamicFilter;
+        this.pageSize = pageSize;
 
-        this.pageBuilder = new PageBuilder(columns.stream().map(CouchbaseColumnHandle::type).toList());
+        if (columns != null && !columns.isEmpty()) {
+            table.addColumns(columns);
+            table = table.wrap();
+            table.addColumns(columns);
+        }
+
+        this.table = table;
 
         TupleDomain<ColumnHandle> predicate = dynamicFilter.getCurrentPredicate();
-        String whereClause = null;
 
         if (!predicate.isAll()) {
-            // todo: support dynamic predicate
+            table.addPredicate(predicate);
         }
 
         queryString = table.toSql();
-    }
-
-    private String toOrderByClause(CouchbaseTableHandle table, SortItem sortItem) {
-        return String.format("%s %s", sortItem.getName(), sortItem.getSortOrder().toString());
-    }
-
-    private String toSelectClauseExpression(CouchbaseTableHandle table, Assignment assignment, String name) {
-        CouchbaseColumnHandle column = (CouchbaseColumnHandle) assignment.getColumn();
-        Type type = assignment.getType();
-        String source = String.format("%s.%s", table.name(), column.name());
-        if (column.type() != type) {
-            // todo: type transrormation by wrapping source into appropriate type function call
-        }
-
-        return String.format("%s %s", source, name);
+        this.pageBuilder = new PageBuilder(table.selectTypes().stream().toList());
     }
 
 
@@ -87,24 +71,30 @@ public final class CouchbasePageSource implements ConnectorPageSource {
             return null;
         }
         verify(pageBuilder.isEmpty());
+        JsonArray queryArgs = JsonArray.create();
+        table.getParameters().forEach(queryArgs::add);
         QueryOptions options = QueryOptions.queryOptions()
                 .parameters(queryArgs);
 
-        final String query = String.format("SELECT `data`.* FROM (%s) data OFFSET %d LIMIT %d", queryString, offset, PAGE_SIZE);
-        List<JsonObject> rows = client.getScope().query(query, options).rowsAsObject();
-        LOG.info("Couchbase query ({} result rows): {}", rows.size(), query);
+        final String query = String.format("SELECT data.* FROM (%s) data OFFSET %d LIMIT %d", queryString, offset, pageSize);
+        QueryResult result = client.getScope().query(query, options);
+        List<JsonObject> rows = result.rowsAsObject();
+        LOG.info("Couchbase query ({} result rows): {}; arguments: {}", rows.size(), query, queryArgs);
+        final List<Type> types = table.selectTypes();
+        final List<String> names = table.selectNames();
+
         for (int j = 0; j < rows.size(); j++) {
             JsonObject row = rows.get(j);
             pageBuilder.declarePosition();
-            for (int i = 0; i < columns.size(); i++) {
+            for (int i = 0; i < table.selectClauses().size(); i++) {
+                Type type = types.get(i);
                 BlockBuilder output = pageBuilder.getBlockBuilder(i);
-                CouchbaseColumnHandle column = columns.get(i);
-                appendValue(output, column, row.get(column.name()));
+                appendValue(output, type, row.get(names.get(i)));
             }
         }
-        offset += PAGE_SIZE;
+        offset += pageSize;
 
-        if (rows.size() != PAGE_SIZE) {
+        if (rows.size() != pageSize) {
             finished = true;
         } else if (rows.isEmpty()) {
             finished = true;
@@ -116,13 +106,12 @@ public final class CouchbasePageSource implements ConnectorPageSource {
         return SourcePage.create(page);
     }
 
-    private void appendValue(BlockBuilder output, CouchbaseColumnHandle column, Object value) {
+    private void appendValue(BlockBuilder output, Type type, Object value) {
         if (value == null) {
             output.appendNull();
             return;
         }
 
-        Type type = column.type();
         Class<?> javaType = type.getJavaType();
 
         try {
@@ -236,14 +225,6 @@ public final class CouchbasePageSource implements ConnectorPageSource {
         return table;
     }
 
-    public List<CouchbaseColumnHandle> columns() {
-        return columns;
-    }
-
-    public DynamicFilter dynamicFilter() {
-        return dynamicFilter;
-    }
-
     @Override
     public boolean equals(Object obj) {
         if (obj == this) return true;
@@ -252,14 +233,12 @@ public final class CouchbasePageSource implements ConnectorPageSource {
         return Objects.equals(this.transaction, that.transaction) &&
                 Objects.equals(this.session, that.session) &&
                 Objects.equals(this.split, that.split) &&
-                Objects.equals(this.table, that.table) &&
-                Objects.equals(this.columns, that.columns) &&
-                Objects.equals(this.dynamicFilter, that.dynamicFilter);
+                Objects.equals(this.table, that.table);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(transaction, session, split, table, columns, dynamicFilter);
+        return Objects.hash(transaction, session, split, table);
     }
 
     @Override
@@ -268,9 +247,7 @@ public final class CouchbasePageSource implements ConnectorPageSource {
                 "transaction=" + transaction + ", " +
                 "session=" + session + ", " +
                 "split=" + split + ", " +
-                "table=" + table + ", " +
-                "columns=" + columns + ", " +
-                "dynamicFilter=" + dynamicFilter + ']';
+                "table=" + table + ']';
     }
 
 }
