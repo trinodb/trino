@@ -1,3 +1,16 @@
+/*
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package io.trino.plugin.couchbase;
 
 import com.couchbase.client.java.json.JsonArray;
@@ -8,22 +21,63 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.trino.plugin.base.projection.ApplyProjectionUtil;
 import io.trino.spi.TrinoException;
-import io.trino.spi.connector.*;
+import io.trino.spi.connector.AggregateFunction;
+import io.trino.spi.connector.AggregationApplicationResult;
+import io.trino.spi.connector.Assignment;
+import io.trino.spi.connector.ColumnHandle;
+import io.trino.spi.connector.ColumnMetadata;
+import io.trino.spi.connector.ConnectorMetadata;
+import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.ConnectorTableHandle;
+import io.trino.spi.connector.ConnectorTableMetadata;
+import io.trino.spi.connector.ConnectorTableVersion;
+import io.trino.spi.connector.Constraint;
+import io.trino.spi.connector.ConstraintApplicationResult;
+import io.trino.spi.connector.JoinApplicationResult;
+import io.trino.spi.connector.JoinStatistics;
+import io.trino.spi.connector.JoinType;
+import io.trino.spi.connector.LimitApplicationResult;
+import io.trino.spi.connector.ProjectionApplicationResult;
+import io.trino.spi.connector.SampleApplicationResult;
+import io.trino.spi.connector.SampleType;
+import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.connector.SortItem;
+import io.trino.spi.connector.TableFunctionApplicationResult;
+import io.trino.spi.connector.TableScanRedirectApplicationResult;
+import io.trino.spi.connector.TopNApplicationResult;
 import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.expression.Variable;
 import io.trino.spi.function.table.ConnectorTableFunctionHandle;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
-import io.trino.spi.type.*;
+import io.trino.spi.type.ArrayType;
+import io.trino.spi.type.BigintType;
+import io.trino.spi.type.BooleanType;
+import io.trino.spi.type.DateType;
+import io.trino.spi.type.DecimalType;
+import io.trino.spi.type.DoubleType;
+import io.trino.spi.type.IntegerType;
+import io.trino.spi.type.RowType;
+import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeManager;
+import io.trino.spi.type.VarcharType;
 import jakarta.annotation.Nullable;
 import jakarta.inject.Inject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.File;
-import java.io.FileReader;
+import java.io.Reader;
 import java.nio.file.Files;
-import java.util.*;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
@@ -39,8 +93,8 @@ import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
 
 public class CouchbaseMetadata
-                implements ConnectorMetadata {
-
+        implements ConnectorMetadata
+{
     private static final Logger LOG = LoggerFactory.getLogger(CouchbaseMetadata.class);
     private final TypeManager typeManager;
     private final CouchbaseClient client;
@@ -55,8 +109,10 @@ public class CouchbaseMetadata
         this.client = client;
         this.config = config;
     }
+
     @Override
-    public boolean schemaExists(ConnectorSession session, String schemaName) {
+    public boolean schemaExists(ConnectorSession session, String schemaName)
+    {
         return client.getBucket().collections().getAllScopes().stream()
                 .filter(scope -> scope.name().equals(schemaName))
                 .findAny().isPresent();
@@ -64,7 +120,8 @@ public class CouchbaseMetadata
 
     @Nullable
     @Override
-    public ConnectorTableHandle getTableHandle(ConnectorSession session, SchemaTableName tableName, Optional<ConnectorTableVersion> startVersion, Optional<ConnectorTableVersion> endVersion) {
+    public ConnectorTableHandle getTableHandle(ConnectorSession session, SchemaTableName tableName, Optional<ConnectorTableVersion> startVersion, Optional<ConnectorTableVersion> endVersion)
+    {
         if (startVersion.isPresent() || endVersion.isPresent()) {
             throw new TrinoException(NOT_SUPPORTED, "This connector does not support versioned tables");
         }
@@ -79,7 +136,8 @@ public class CouchbaseMetadata
     }
 
     @Override
-    public ConnectorTableMetadata getTableMetadata(ConnectorSession session, ConnectorTableHandle table) {
+    public ConnectorTableMetadata getTableMetadata(ConnectorSession session, ConnectorTableHandle table)
+    {
         requireNonNull(config.getSchemaFolder(), "Couchbase schema folder is not set");
         if (!(table instanceof CouchbaseTableHandle)) {
             throw new RuntimeException("Couchbase table handle is not an instance of CouchbaseTableHandle");
@@ -94,7 +152,7 @@ public class CouchbaseMetadata
                 throw new RuntimeException(String.format("Couchbase schema file '%s' does not exist", schemaFile.getAbsolutePath()));
             }
             List<ColumnMetadata> columns = new LinkedList<>();
-            try (FileReader schemaReader = new FileReader(schemaFile)) {
+            try (Reader schemaReader = Files.newBufferedReader(Path.of(schemaFile.toURI()))) {
                 JsonObject schema = JsonObject.fromJson(schemaReader.readAllAsString());
                 JsonObject properties = schema.getObject("properties");
 
@@ -114,12 +172,15 @@ public class CouchbaseMetadata
                             }
                             int order = property.getInt("order");
                             orderedColumns[order] = new ColumnMetadata(propertyName, deductType(property));
-                        } else {
-                            if (ordered)
-                            unordered = true;
+                        }
+                        else {
+                            if (ordered) {
+                                unordered = true;
+                            }
                             columns.add(new ColumnMetadata(propertyName, deductType(property)));
                         }
-                    } catch (Exception e) {
+                    }
+                    catch (Exception e) {
                         throw new RuntimeException(String.format("Failed to read schema for column '%s'", propertyName), e);
                     }
                 }
@@ -131,7 +192,8 @@ public class CouchbaseMetadata
                 ConnectorTableMetadata result = new ConnectorTableMetadata(new SchemaTableName(handle.schema(), handle.name()), columns);
                 mtimeCache.put(tablePath, Files.getLastModifiedTime(schemaFile.toPath()).toMillis());
                 metaCache.put(tablePath, result);
-            } catch (Exception e) {
+            }
+            catch (Exception e) {
                 throw new RuntimeException(String.format("Failed to read schema for collection '%s.%s'", ((CouchbaseTableHandle) table).schema(), ((CouchbaseTableHandle) table).name()), e);
             }
         }
@@ -140,7 +202,8 @@ public class CouchbaseMetadata
     }
 
     @Override
-    public Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle) {
+    public Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle)
+    {
         CouchbaseTableHandle handle = (CouchbaseTableHandle) tableHandle;
         ConnectorTableMetadata tableMetadata = getTableMetadata(session, tableHandle);
         return tableMetadata.getColumns().stream()
@@ -148,24 +211,26 @@ public class CouchbaseMetadata
                         column -> new CouchbaseColumnHandle(
                                 Arrays.asList(handle.schema(), handle.name(), column.getName()),
                                 new ArrayList<>(),
-                                column.getType()
-                        )));
+                                column.getType())));
     }
 
     @Override
-    public ColumnMetadata getColumnMetadata(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle columnHandle) {
-        ConnectorTableMetadata tableMeta =  getTableMetadata(session, tableHandle);
+    public ColumnMetadata getColumnMetadata(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle columnHandle)
+    {
+        ConnectorTableMetadata tableMeta = getTableMetadata(session, tableHandle);
         return tableMeta.getColumns().stream()
                 .filter(column -> column.getName().equals(((CouchbaseColumnHandle) columnHandle).name()))
                 .findFirst()
                 .orElse(null);
     }
 
-    private File getSchemaFile(CouchbaseTableHandle handle) {
+    private File getSchemaFile(CouchbaseTableHandle handle)
+    {
         return new File(new File(config.getSchemaFolder()), String.format("%s.%s.%s.json", client.getBucket().name(), handle.schema(), handle.name()));
     }
 
-    private void checkMtime(CouchbaseTableHandle handle) {
+    private void checkMtime(CouchbaseTableHandle handle)
+    {
         final String path = handle.path();
         try {
             long cached = mtimeCache.getOrDefault(path, 0L);
@@ -173,13 +238,15 @@ public class CouchbaseMetadata
             if (actual - cached > 1000) {
                 metaCache.remove(path);
             }
-        } catch (Exception e) {
+        }
+        catch (Exception e) {
             metaCache.remove(path);
         }
     }
 
     @Override
-    public Optional<ConstraintApplicationResult<ConnectorTableHandle>> applyFilter(ConnectorSession session, ConnectorTableHandle handle, Constraint constraint) {
+    public Optional<ConstraintApplicationResult<ConnectorTableHandle>> applyFilter(ConnectorSession session, ConnectorTableHandle handle, Constraint constraint)
+    {
         if (!takeOrReject(constraint.getAssignments())) {
             LOG.info("rejecting constraint {} for table {}: unsupported assignments", constraint, handle);
             return Optional.empty();
@@ -194,7 +261,8 @@ public class CouchbaseMetadata
             TupleDomain<ColumnHandle> remainingFilter;
             if (newDomain.isNone()) {
                 remainingFilter = TupleDomain.all();
-            } else {
+            }
+            else {
                 Map<ColumnHandle, Domain> domains = newDomain.getDomains().orElseThrow();
 
                 Map<ColumnHandle, Domain> supported = new HashMap<>();
@@ -206,7 +274,8 @@ public class CouchbaseMetadata
                     Type columnType = columnHandle.type();
                     if (isPushdownSupportedType(columnType)) {
                         supported.put(entry.getKey(), entry.getValue());
-                    } else {
+                    }
+                    else {
                         unsupported.put(columnHandle, domain);
                     }
                 }
@@ -217,14 +286,16 @@ public class CouchbaseMetadata
                 return Optional.empty();
             }
 
-            handle = cbHandle = cbHandle.withConstraint(newDomain);
+            cbHandle = cbHandle.withConstraint(newDomain);
+            handle = cbHandle;
 
             return Optional.of(new ConstraintApplicationResult<>(handle, remainingFilter, constraint.getExpression(), false));
         }
         return ConnectorMetadata.super.applyFilter(session, handle, constraint);
     }
 
-    private Type deductType(JsonObject property) {
+    private Type deductType(JsonObject property)
+    {
         Object type = property.get("type");
         if (type instanceof String) {
             type = JsonArray.from(type);
@@ -236,34 +307,45 @@ public class CouchbaseMetadata
             String cbType = types.getString(i);
             if (cbType.equals("null")) {
                 continue;
-            } else if (cbType.equals("string")) {
+            }
+            else if (cbType.equals("string")) {
                 deductedTypes.add(VarcharType.VARCHAR);
-            } else if (cbType.startsWith("varchar(")) {
+            }
+            else if (cbType.startsWith("varchar(")) {
                 int size = Integer.valueOf(cbType.replace("varchar(", "").replace(")", ""));
                 deductedTypes.add(VarcharType.createVarcharType(size));
-            } else if (cbType.equals("boolean")) {
+            }
+            else if (cbType.equals("boolean")) {
                 deductedTypes.add(BooleanType.BOOLEAN);
-            } else if (cbType.equals("number")) {
+            }
+            else if (cbType.equals("number")) {
                 deductedTypes.add(DecimalType.createDecimalType());
-            } else if (cbType.equals("integer")) {
+            }
+            else if (cbType.equals("integer")) {
                 deductedTypes.add(IntegerType.INTEGER);
-            } else if (cbType.equals("date")) {
+            }
+            else if (cbType.equals("date")) {
                 deductedTypes.add(DateType.DATE);
-            } else if (cbType.equals("bigint")) {
+            }
+            else if (cbType.equals("bigint")) {
                 deductedTypes.add(BigintType.BIGINT);
-            } else if (cbType.equals("double")) {
+            }
+            else if (cbType.equals("double")) {
                 deductedTypes.add(DoubleType.DOUBLE);
-            } else if (cbType.equals("array")) {
+            }
+            else if (cbType.equals("array")) {
                 deductedTypes.add(new ArrayType(deductType(property.getObject("items"))));
-            } else if (cbType.equals("object")) {
+            }
+            else if (cbType.equals("object")) {
                 List<RowType.Field> fields = new ArrayList<>();
                 JsonObject properties = property.getObject("properties");
-                for (String propertyName: properties.getNames()) {
+                for (String propertyName : properties.getNames()) {
                     JsonObject subProperty = properties.getObject(propertyName);
                     fields.add(new RowType.Field(Optional.of(propertyName), deductType(subProperty)));
                 }
                 deductedTypes.add(RowType.from(fields));
-            } else {
+            }
+            else {
                 throw new RuntimeException("Unsupported couchbase type: " + cbType);
             }
         }
@@ -274,7 +356,8 @@ public class CouchbaseMetadata
     }
 
     @Override
-    public List<SchemaTableName> listTables(ConnectorSession session, Optional<String> schemaName) {
+    public List<SchemaTableName> listTables(ConnectorSession session, Optional<String> schemaName)
+    {
         CollectionManager cm = client.getBucket().collections();
         return cm.getAllScopes().stream()
                 .filter(scopeSpec -> scopeSpec.name().equals(client.getScope().name()))
@@ -284,30 +367,34 @@ public class CouchbaseMetadata
     }
 
     @Override
-    public List<String> listSchemaNames(ConnectorSession session) {
+    public List<String> listSchemaNames(ConnectorSession session)
+    {
         return Arrays.asList(client.getScope().name());
     }
 
     @Override
-    public Optional<TopNApplicationResult<ConnectorTableHandle>> applyTopN(ConnectorSession session, ConnectorTableHandle handle, long topNCount, List<SortItem> sortItems, Map<String, ColumnHandle> assignments) {
+    public Optional<TopNApplicationResult<ConnectorTableHandle>> applyTopN(ConnectorSession session, ConnectorTableHandle handle, long topNCount, List<SortItem> sortItems, Map<String, ColumnHandle> assignments)
+    {
         if (!takeOrReject(assignments)) {
             LOG.info("Rejecting topN assignments: {}", assignments);
             return Optional.empty();
         }
 
         if (handle instanceof CouchbaseTableHandle cbHandle) {
-            if (cbHandle.topNCount().longValue() != -1 || !cbHandle.orderClauses().isEmpty()){
+            if (cbHandle.topNCount().longValue() != -1 || !cbHandle.orderClauses().isEmpty()) {
                 if (cbHandle.topNCount().longValue() == topNCount && cbHandle.compareSortItems(sortItems, assignments)) {
                     LOG.info("Rejecting topN: no effect");
                     return Optional.empty();
                 }
                 LOG.info("Wrapping table handle: already got topN or non-matching order");
-                handle = cbHandle = cbHandle.wrap();
+                cbHandle = cbHandle.wrap();
+                handle = cbHandle;
             }
 
             cbHandle.setTopNCount(topNCount);
             cbHandle.addSortItems(sortItems, assignments);
-        } else {
+        }
+        else {
             LOG.warn("Rejecting topN assignments: handle is not couchbase");
             return Optional.empty();
         }
@@ -316,21 +403,24 @@ public class CouchbaseMetadata
         return Optional.of(new TopNApplicationResult<ConnectorTableHandle>(handle, true, true));
     }
 
-    private boolean takeOrReject(Map<String, ColumnHandle> assignments) {
+    private boolean takeOrReject(Map<String, ColumnHandle> assignments)
+    {
         return assignments.keySet().stream()
                 .allMatch(key -> assignments.get(key) instanceof CouchbaseColumnHandle);
     }
 
     @Override
-    public Optional<LimitApplicationResult<ConnectorTableHandle>> applyLimit(ConnectorSession session, ConnectorTableHandle handle, long limit) {
+    public Optional<LimitApplicationResult<ConnectorTableHandle>> applyLimit(ConnectorSession session, ConnectorTableHandle handle, long limit)
+    {
         if (handle instanceof CouchbaseTableHandle cbHandle) {
-            if (cbHandle.topNCount().longValue() != -1){
+            if (cbHandle.topNCount().longValue() != -1) {
                 if (cbHandle.topNCount().longValue() <= limit) {
                     return Optional.empty();
                 }
             }
             cbHandle.setTopNCount(limit);
-        } else {
+        }
+        else {
             return Optional.empty();
         }
 
@@ -338,21 +428,27 @@ public class CouchbaseMetadata
     }
 
     @Override
-    public Optional<ProjectionApplicationResult<ConnectorTableHandle>> applyProjection(ConnectorSession session, ConnectorTableHandle handle, List<ConnectorExpression> projections, Map<String, ColumnHandle> assignments) {
-
-        if (!(handle instanceof  CouchbaseTableHandle)) {
+    public Optional<ProjectionApplicationResult<ConnectorTableHandle>> applyProjection(ConnectorSession session, ConnectorTableHandle handle, List<ConnectorExpression> projections, Map<String, ColumnHandle> assignments)
+    {
+        if (!(handle instanceof CouchbaseTableHandle)) {
             return Optional.empty();
         }
 
         CouchbaseTableHandle cbTable = (CouchbaseTableHandle) handle;
 
-        if (cbTable.containsProjections(projections, assignments)) {
+        try {
+            if (cbTable.containsProjections(projections, assignments)) {
+                return Optional.empty();
+            }
+        }
+        catch (IllegalArgumentException e) {
+            LOG.warn(String.format("Exception while applying projections to couchbase table: %s", cbTable), e);
             return Optional.empty();
         }
 
         Set<ConnectorExpression> projectedExpressions = projections.stream()
                 .flatMap(expression -> extractSupportedProjectedColumns(expression, ex -> true).stream())
-                .collect(ImmutableSet.toImmutableSet());
+                .collect(toImmutableSet());
 
         Map<ConnectorExpression, ApplyProjectionUtil.ProjectedColumnRepresentation> columnProjections = projectedExpressions.stream()
                 .collect(toImmutableMap(identity(), ApplyProjectionUtil::createProjectedColumnRepresentation));
@@ -402,7 +498,6 @@ public class CouchbaseMetadata
                 false));
     }
 
-
     private static CouchbaseColumnHandle projectColumn(CouchbaseColumnHandle baseColumn, List<Integer> indices, Type projectedColumnType)
     {
         if (indices.isEmpty()) {
@@ -423,33 +518,36 @@ public class CouchbaseMetadata
         return new CouchbaseColumnHandle(
                 baseColumn.path(),
                 dereferenceNamesBuilder.build(),
-                projectedColumnType
-        );
+                projectedColumnType);
     }
 
-
     @Override
-    public Optional<SampleApplicationResult<ConnectorTableHandle>> applySample(ConnectorSession session, ConnectorTableHandle handle, SampleType sampleType, double sampleRatio) {
+    public Optional<SampleApplicationResult<ConnectorTableHandle>> applySample(ConnectorSession session, ConnectorTableHandle handle, SampleType sampleType, double sampleRatio)
+    {
         return ConnectorMetadata.super.applySample(session, handle, sampleType, sampleRatio);
     }
 
     @Override
-    public Optional<AggregationApplicationResult<ConnectorTableHandle>> applyAggregation(ConnectorSession session, ConnectorTableHandle handle, List<AggregateFunction> aggregates, Map<String, ColumnHandle> assignments, List<List<ColumnHandle>> groupingSets) {
-        return ConnectorMetadata.super.applyAggregation(session, handle, aggregates, assignments, groupingSets);
+    public Optional<AggregationApplicationResult<ConnectorTableHandle>> applyAggregation(ConnectorSession session, ConnectorTableHandle handle, List<AggregateFunction> aggregates, Map<String, ColumnHandle> assignments, List<List<ColumnHandle>> groupingSets)
+    {
+        return Optional.empty();
     }
 
     @Override
-    public Optional<JoinApplicationResult<ConnectorTableHandle>> applyJoin(ConnectorSession session, JoinType joinType, ConnectorTableHandle left, ConnectorTableHandle right, ConnectorExpression joinCondition, Map<String, ColumnHandle> leftAssignments, Map<String, ColumnHandle> rightAssignments, JoinStatistics statistics) {
+    public Optional<JoinApplicationResult<ConnectorTableHandle>> applyJoin(ConnectorSession session, JoinType joinType, ConnectorTableHandle left, ConnectorTableHandle right, ConnectorExpression joinCondition, Map<String, ColumnHandle> leftAssignments, Map<String, ColumnHandle> rightAssignments, JoinStatistics statistics)
+    {
         return ConnectorMetadata.super.applyJoin(session, joinType, left, right, joinCondition, leftAssignments, rightAssignments, statistics);
     }
 
     @Override
-    public Optional<TableFunctionApplicationResult<ConnectorTableHandle>> applyTableFunction(ConnectorSession session, ConnectorTableFunctionHandle handle) {
+    public Optional<TableFunctionApplicationResult<ConnectorTableHandle>> applyTableFunction(ConnectorSession session, ConnectorTableFunctionHandle handle)
+    {
         return ConnectorMetadata.super.applyTableFunction(session, handle);
     }
 
     @Override
-    public Optional<TableScanRedirectApplicationResult> applyTableScanRedirect(ConnectorSession session, ConnectorTableHandle tableHandle) {
+    public Optional<TableScanRedirectApplicationResult> applyTableScanRedirect(ConnectorSession session, ConnectorTableHandle tableHandle)
+    {
         return ConnectorMetadata.super.applyTableScanRedirect(session, tableHandle);
     }
 }

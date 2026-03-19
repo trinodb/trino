@@ -1,3 +1,16 @@
+/*
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package io.trino.plugin.couchbase;
 
 import io.airlift.configuration.Config;
@@ -85,7 +98,7 @@ public class CouchbaseConfig
 
     public String getTlsKeyPassword()
     {
-    return tlsKeyPassword;
+        return tlsKeyPassword;
     }
 
     @Config("couchbase.tls-certificate")
@@ -103,7 +116,8 @@ public class CouchbaseConfig
 
     @Config("couchbase.schema-folder")
     @ConfigDescription("Path for folder with json files containing Trino schema mappings")
-    public CouchbaseConfig setSchemaFolder(String schemaFolder) {
+    public CouchbaseConfig setSchemaFolder(String schemaFolder)
+    {
         this.schemaFolder = schemaFolder;
         return this;
     }
@@ -115,44 +129,53 @@ public class CouchbaseConfig
 
     @Config("couchbase.bucket")
     @ConfigDescription("Bucket to connect to")
-    public CouchbaseConfig setBucket(String bucket) {
+    public CouchbaseConfig setBucket(String bucket)
+    {
         this.bucket = bucket;
         return this;
     }
 
-    public String getBucket() {
+    public String getBucket()
+    {
         return bucket;
     }
 
     @Config("couchbase.scope")
     @ConfigDescription("Scope to connect to")
-    public CouchbaseConfig setScope(String scope) {
+    public CouchbaseConfig setScope(String scope)
+    {
         this.scope = scope;
         return this;
     }
 
-    public String getScope() {
+    public String getScope()
+    {
         return scope;
     }
 
     @Config("couchbase.timeouts")
     @ConfigDescription("Operations timeout in seconds")
-    public CouchbaseConfig setTimeouts(String timeout) {
+    public CouchbaseConfig setTimeouts(String timeout)
+    {
         this.timeouts = Duration.ofSeconds(Long.parseLong(timeout));
         return this;
     }
-    public Duration getTimeouts() {
+
+    public Duration getTimeouts()
+    {
         return timeouts;
     }
 
     @Config("couchbase.page-size")
     @Description("Maximum number of rows to be fetched in a single query")
-    public CouchbaseConfig setPageSize(String value) {
+    public CouchbaseConfig setPageSize(String value)
+    {
         this.pageSize = Long.valueOf(value);
         return this;
     }
 
-    public Long getPageSize() {
+    public Long getPageSize()
+    {
         return pageSize;
     }
 }

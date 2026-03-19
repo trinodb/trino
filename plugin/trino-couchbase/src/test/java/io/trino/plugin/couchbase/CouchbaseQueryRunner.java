@@ -1,3 +1,16 @@
+/*
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package io.trino.plugin.couchbase;
 
 import com.couchbase.client.java.Bucket;
@@ -6,49 +19,71 @@ import com.couchbase.client.java.Collection;
 import com.couchbase.client.java.Scope;
 import com.couchbase.client.java.json.JsonObject;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import io.airlift.log.Logger;
+import io.airlift.log.Logging;
 import io.trino.execution.QueryIdGenerator;
 import io.trino.plugin.tpch.TpchPlugin;
-import io.trino.spi.type.*;
+import io.trino.spi.type.BigintType;
+import io.trino.spi.type.DoubleType;
+import io.trino.spi.type.IntegerType;
+import io.trino.spi.type.Type;
+import io.trino.spi.type.VarcharType;
+import io.trino.testing.AbstractTestQueries;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.MaterializedRow;
+import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingSession;
 import io.trino.tpch.TpchTable;
 
 import java.io.File;
-import java.io.FileWriter;
 import java.io.IOException;
+import java.io.Writer;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
-import java.util.*;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
 
 import static io.airlift.testing.Closeables.closeAllSuppress;
 import static io.trino.plugin.couchbase.CouchbaseConnectorTest.CBBUCKET;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DateType.DATE;
-import static io.trino.testing.QueryAssertions.copyTpchTables;
+import static io.trino.tpch.TpchTable.CUSTOMER;
+import static io.trino.tpch.TpchTable.NATION;
+import static io.trino.tpch.TpchTable.ORDERS;
+import static io.trino.tpch.TpchTable.REGION;
 import static java.lang.String.format;
 
-public class CouchbaseQueryRunner {
+public class CouchbaseQueryRunner
+{
     private static final Logger log = Logger.get(CouchbaseQueryRunner.class);
     private static final QueryIdGenerator queryIdGenerator = new QueryIdGenerator();
     public static final String TEST_SCHEMA = "tpch";
     private static final Path SCHEMA_DIR;
+    protected static final List<TpchTable<?>> TPCH_TABLES = ImmutableList.of(NATION, ORDERS, REGION, CUSTOMER, TpchTable.LINE_ITEM, TpchTable.PART, TpchTable.PART_SUPPLIER, TpchTable.SUPPLIER);
 
     static {
         try {
             SCHEMA_DIR = Files.createTempDirectory("cbtestschema-");
-        } catch (IOException e) {
+        }
+        catch (IOException e) {
             throw new RuntimeException(e);
         }
     }
 
-    public static Builder builder(CouchbaseServer server) {
+    private CouchbaseQueryRunner()
+    {
+    }
 
+    public static Builder builder(CouchbaseServer server)
+    {
         return new Builder(server)
                 .addConnectorProperty("couchbase.cluster", server.getConnectionString())
                 .addConnectorProperty("couchbase.bucket", "trino-test")
@@ -65,26 +100,27 @@ public class CouchbaseQueryRunner {
         private List<TpchTable<?>> initialTables = ImmutableList.of();
         private CouchbaseServer server;
 
-        public Builder(CouchbaseServer server) {
+        public Builder(CouchbaseServer server)
+        {
             super(
                     TestingSession.testSessionBuilder()
                             .setCatalog("couchbase")
                             .setSchema(TEST_SCHEMA)
-                            .build()
-            );
+                            .build());
             this.server = server;
         }
 
-        public Builder addConnectorProperty(String key, String value) {
+        public Builder addConnectorProperty(String key, String value)
+        {
             connectorProperties.put(key, value);
             return this;
         }
 
-        public Builder addInitialTables(List<TpchTable<?>> initialTables) {
+        public Builder addInitialTables(List<TpchTable<?>> initialTables)
+        {
             this.initialTables = initialTables;
             return this;
         }
-
 
         @Override
         public DistributedQueryRunner build()
@@ -119,8 +155,11 @@ public class CouchbaseQueryRunner {
         }
     }
 
-    private static void generateTypeMappingFile(String tableName, MaterializedResult rows) {
-        try (FileWriter fw = new FileWriter(new File(SCHEMA_DIR.toFile(), String.format("%s.%s.%s.json", CBBUCKET, TEST_SCHEMA, tableName)))) {
+    private static void generateTypeMappingFile(String tableName, MaterializedResult rows)
+    {
+        try (Writer fw = Files.newBufferedWriter(Path.of(new File(SCHEMA_DIR.toFile(), String.format("%s.%s.%s.json",
+                CBBUCKET,
+                TEST_SCHEMA, tableName)).toURI()))) {
             HashMap<String, Object> mappings = new HashMap<>();
             for (int i = 0; i < rows.getColumnNames().size(); i++) {
                 JsonObject mapping = JsonObject.create();
@@ -133,7 +172,8 @@ public class CouchbaseQueryRunner {
             propHolder.put("properties", infer);
             fw.write(propHolder.toString());
             log.info("Inferred JSON file for colume %s", propHolder);
-        } catch (Exception ex) {
+        }
+        catch (Exception ex) {
             throw new RuntimeException("Failed to generate INFER file", ex);
         }
     }
@@ -146,7 +186,8 @@ public class CouchbaseQueryRunner {
         Bucket bucket = cluster.bucket(bucketName);
         try {
             bucket.collections().createScope(scopeName);
-        } catch (Exception _) {
+        }
+        catch (Exception _) {
             // noop
         }
         Scope scope = bucket.scope(scopeName);
@@ -168,12 +209,14 @@ public class CouchbaseQueryRunner {
         // let the dust settle
         try {
             Thread.sleep(1000L);
-        } catch (InterruptedException e) {
+        }
+        catch (InterruptedException e) {
             throw new RuntimeException(e);
         }
     }
 
-    private static Object convertType(Object value, Type type) {
+    private static Object convertType(Object value, Type type)
+    {
         if (value == null) {
             return null;
         }
@@ -184,11 +227,30 @@ public class CouchbaseQueryRunner {
                 || type == BigintType.BIGINT
                 || type == DoubleType.DOUBLE) {
             return value;
-        } else if (type == DATE) {
-            return ChronoUnit.DAYS.between(LocalDate.ofEpochDay(0), (LocalDate) value);
-        } else {
-            throw new RuntimeException(String.format("Unsupported type: %s -- class: %s", type,  value.getClass()));
         }
+        else if (type == DATE) {
+            return ChronoUnit.DAYS.between(LocalDate.ofEpochDay(0), (LocalDate) value);
+        }
+        else {
+            throw new RuntimeException(String.format("Unsupported type: %s -- class: %s", type, value.getClass()));
+        }
+    }
 
+    static void main()
+            throws Exception
+    {
+        Logging.initialize();
+        QueryRunner queryRunner = builder(new CouchbaseServer("trino-test"))
+                .addInitialTables(TPCH_TABLES)
+                .addCoordinatorProperty("http-server.http.port", "8080")
+                .setExtraProperties(ImmutableMap.<String, String>builder()
+                        .put("sql.default-catalog", "tpch")
+                        .put("sql.default-schema", "tiny")
+                        .buildOrThrow())
+                .withProtocolSpooling("json+zstd")
+                .build();
+        Logger log = Logger.get(CouchbaseQueryRunner.class);
+        log.info("======== SERVER STARTED ========");
+        log.info("\n====\n%s\n====", queryRunner.getCoordinator().getBaseUrl());
     }
 }

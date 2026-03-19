@@ -66,7 +66,6 @@
         <module>plugin/trino-cassandra</module>
         <module>plugin/trino-clickhouse</module>
         <module>plugin/trino-couchbase</module>
-        <module>plugin/trino-couchbase</module>
         <module>plugin/trino-datasketches</module>
         <module>plugin/trino-delta-lake</module>
         <module>plugin/trino-druid</module>

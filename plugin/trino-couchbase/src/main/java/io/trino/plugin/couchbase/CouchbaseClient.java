@@ -1,3 +1,16 @@
+/*
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package io.trino.plugin.couchbase;
 
 import com.couchbase.client.core.env.Authenticator;
@@ -9,24 +22,19 @@ import com.couchbase.client.java.Scope;
 import io.airlift.security.pem.PemReader;
 import jakarta.inject.Inject;
 
-import javax.net.ssl.KeyManagerFactory;
 import java.io.File;
-import java.io.FileReader;
-import java.io.IOException;
-import java.nio.file.Paths;
-import java.security.KeyFactory;
+import java.nio.file.Path;
 import java.security.KeyStore;
 import java.security.KeyStoreException;
 import java.security.PrivateKey;
 import java.security.cert.Certificate;
 import java.security.cert.X509Certificate;
-import java.security.interfaces.RSAPrivateKey;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
-import java.util.stream.Stream;
 
-public class CouchbaseClient {
+public class CouchbaseClient
+{
     private final CouchbaseConfig config;
     private final Cluster cluster;
 
@@ -42,7 +50,8 @@ public class CouchbaseClient {
                 if (new File(config.getTlsKey()).exists()) {
                     // load from file
                     key = PemReader.loadPrivateKey(new File(config.getTlsKey()), password);
-                } else {
+                }
+                else {
                     // try loading from string
                     key = PemReader.loadPrivateKey(config.getTlsKey(), password);
                 }
@@ -55,43 +64,45 @@ public class CouchbaseClient {
                                     keyCertChain.add((X509Certificate) cert);
                                 }
                             }
-                        } catch (KeyStoreException e) {
+                        }
+                        catch (KeyStoreException e) {
                             throw new RuntimeException("Failed to load TLS certificates", e);
                         }
                     });
                 }
                 Authenticator authenticator = CertificateAuthenticator.fromKey(
-                        key, password.orElse(""), keyCertChain
-                );
+                        key, password.orElse(""), keyCertChain);
                 cluster = Cluster.connect(
                         config.getCluster(),
                         ClusterOptions.clusterOptions(authenticator)
                                 .environment(env -> {
                                     env.securityConfig(security -> {
-                                                if (config.getTlsCertificate() != null) {
-                                                    security.trustCertificate(Paths.get(config.getTlsCertificate()));
-                                                }
-                                            }
-                                    );
+                                        if (config.getTlsCertificate() != null) {
+                                            security.trustCertificate(Path.of(config.getTlsCertificate()));
+                                        }
+                                    });
                                     env.timeoutConfig(timeout -> {
                                         timeout.kvTimeout(config.getTimeouts());
                                         timeout.queryTimeout(config.getTimeouts());
                                     });
-                                })
-                );
-            } else {
+                                }));
+            }
+            else {
                 cluster = Cluster.connect(config.getCluster(), config.getUsername(), config.getPassword());
             }
-        } catch (Exception e) {
+        }
+        catch (Exception e) {
             throw new RuntimeException("Failed to instantiate Couchbase client", e);
         }
     }
 
-    public Bucket getBucket() {
+    public Bucket getBucket()
+    {
         return cluster.bucket(config.getBucket());
     }
 
-    public Scope getScope() {
+    public Scope getScope()
+    {
         return getBucket().scope(config.getScope());
     }
 }

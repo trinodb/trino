@@ -1,9 +1,27 @@
+/*
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package io.trino.plugin.couchbase.translations;
 
 import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
-import io.trino.spi.type.*;
-import it.unimi.dsi.fastutil.doubles.DoubleAVLTreeSet;
+import io.trino.spi.type.BigintType;
+import io.trino.spi.type.CharType;
+import io.trino.spi.type.DateType;
+import io.trino.spi.type.DecimalType;
+import io.trino.spi.type.DoubleType;
+import io.trino.spi.type.Type;
+import io.trino.spi.type.VarcharType;
 import jakarta.annotation.Nullable;
 
 import java.util.Optional;
@@ -21,7 +39,11 @@ import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
 import static io.trino.spi.type.TinyintType.TINYINT;
 
-public final class TrinoToCbType {
+public final class TrinoToCbType
+{
+    private TrinoToCbType()
+    {
+    }
 
     private static final Set<Type> PUSHDOWN_SUPPORTED_PRIMITIVE_TYPES = ImmutableSet.of(
             BOOLEAN,
@@ -37,7 +59,8 @@ public final class TrinoToCbType {
             TIMESTAMP_TZ_MILLIS);
 
     @Nullable
-    public static Object serialize(Type type, Object value) {
+    public static Object serialize(Type type, Object value)
+    {
         if (value instanceof Optional optional) {
             value = optional.orElse(null);
         }
@@ -46,10 +69,12 @@ public final class TrinoToCbType {
         }
         if (type == DateType.DATE || type.equals(BigintType.BIGINT) || type.equals(DoubleType.DOUBLE)) {
             return value;
-        } else if (type instanceof VarcharType) {
+        }
+        else if (type instanceof VarcharType) {
             Slice slice = (Slice) value;
             return slice.toStringUtf8();
-        } else {
+        }
+        else {
             throw new RuntimeException("Unsupported domain value type: " + type);
         }
     }

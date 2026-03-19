@@ -1,3 +1,16 @@
+/*
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package io.trino.plugin.couchbase;
 
 import com.google.common.collect.ImmutableMap;
@@ -8,10 +21,12 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Map;
 
-import static io.airlift.configuration.testing.ConfigAssertions.*;
+import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
+import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
+import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
 
-public class TestCouchbaseConfig {
-
+public class TestCouchbaseConfig
+{
     @Test
     void testDefaults()
     {
@@ -27,8 +42,7 @@ public class TestCouchbaseConfig {
                         .setTlsKey(null)
                         .setTimeouts("60")
                         .setSchemaFolder("couchbase-schema")
-                        .setPageSize("10000")
-        );
+                        .setPageSize("10000"));
     }
 
     @Test
@@ -50,7 +64,7 @@ public class TestCouchbaseConfig {
                 .put("couchbase.schema-folder", "some-folder")
                 .put("couchbase.timeouts", "10")
                 .put("couchbase.page-size", "1")
-                .build();
+                .buildOrThrow();
 
         CouchbaseConfig expected = new CouchbaseConfig()
                 .setCluster("remote-host")
