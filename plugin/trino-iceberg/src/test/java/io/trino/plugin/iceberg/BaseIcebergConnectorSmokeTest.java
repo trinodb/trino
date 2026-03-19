@@ -62,6 +62,7 @@ import static io.trino.plugin.iceberg.IcebergTestUtils.getFileSystemFactory;
 import static io.trino.plugin.iceberg.IcebergTestUtils.getMetadataFileAndUpdatedMillis;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.DROP_TABLE;
 import static io.trino.testing.TestingAccessControlManager.privilege;
+import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_BRANCH;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_TABLE;
 import static io.trino.testing.TestingConnectorSession.SESSION;
 import static io.trino.testing.TestingNames.randomNameSuffix;
@@ -95,6 +96,7 @@ public abstract class BaseIcebergConnectorSmokeTest
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
         return switch (connectorBehavior) {
+            case SUPPORTS_BRANCH -> true;
             case SUPPORTS_TOPN_PUSHDOWN -> false;
             default -> super.hasBehavior(connectorBehavior);
         };
@@ -953,6 +955,66 @@ public abstract class BaseIcebergConnectorSmokeTest
     protected AutoCloseable createSparkIcebergTable(String schema)
     {
         return () -> {};
+    }
+
+    @Test
+    public void testBranchOperations()
+    {
+        if (!hasBehavior(SUPPORTS_BRANCH)) {
+            return;
+        }
+        String tableName = "test_branch_operations_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " (id INTEGER, name VARCHAR)");
+        assertUpdate("INSERT INTO " + tableName + " VALUES (1, 'a')", 1);
+
+        assertThat(query("SHOW BRANCHES IN TABLE " + tableName))
+                .skippingTypesCheck()
+                .matches("VALUES VARCHAR 'main'");
+
+        assertUpdate("CREATE BRANCH test_branch IN TABLE " + tableName);
+
+        assertThat(query("SHOW BRANCHES IN TABLE " + tableName))
+                .skippingTypesCheck()
+                .matches("VALUES VARCHAR 'main', VARCHAR 'test_branch'");
+
+        assertUpdate("INSERT INTO " + tableName + "@test_branch VALUES (2, 'b')", 1);
+
+        assertThat(query("SELECT * FROM " + tableName))
+                .matches("VALUES (1, CAST('a' AS VARCHAR))");
+        assertThat(query("SELECT * FROM " + tableName + " FOR VERSION AS OF 'test_branch'"))
+                .matches("VALUES (1, CAST('a' AS VARCHAR)), (2, CAST('b' AS VARCHAR))");
+
+        assertUpdate("DROP BRANCH test_branch IN TABLE " + tableName);
+
+        assertThat(query("SHOW BRANCHES IN TABLE " + tableName))
+                .skippingTypesCheck()
+                .matches("VALUES VARCHAR 'main'");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testFastForwardBranch()
+    {
+        if (!hasBehavior(SUPPORTS_BRANCH)) {
+            return;
+        }
+        String tableName = "test_fast_forward_branch_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " (id INTEGER)");
+        assertUpdate("INSERT INTO " + tableName + " VALUES 1", 1);
+
+        assertUpdate("CREATE BRANCH test_branch IN TABLE " + tableName);
+        assertUpdate("INSERT INTO " + tableName + " VALUES 2", 1);
+
+        assertThat(query("SELECT * FROM " + tableName + " FOR VERSION AS OF 'test_branch'"))
+                .matches("VALUES 1");
+
+        assertUpdate("ALTER BRANCH test_branch IN TABLE " + tableName + " FAST FORWARD TO main");
+
+        assertThat(query("SELECT * FROM " + tableName + " FOR VERSION AS OF 'test_branch'"))
+                .matches("VALUES 1, 2");
+
+        assertUpdate("DROP TABLE " + tableName);
     }
 
     private long getMostRecentSnapshotId(String tableName)

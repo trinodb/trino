@@ -274,7 +274,8 @@ public abstract class BaseIcebergConnectorTest
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
         return switch (connectorBehavior) {
-            case SUPPORTS_CREATE_OR_REPLACE_TABLE,
+            case SUPPORTS_BRANCH,
+                 SUPPORTS_CREATE_OR_REPLACE_TABLE,
                  SUPPORTS_REPORTING_WRITTEN_BYTES -> true;
             case SUPPORTS_ADD_COLUMN_NOT_NULL_CONSTRAINT,
                  SUPPORTS_DEFAULT_COLUMN_VALUE,
@@ -9514,6 +9515,42 @@ public abstract class BaseIcebergConnectorTest
                 .setCatalogSessionProperty(getSession().getCatalog().orElseThrow(), "parquet_small_file_threshold", "0B")
                 .setCatalogSessionProperty(getSession().getCatalog().orElseThrow(), "orc_tiny_stripe_threshold", "0B")
                 .build();
+    }
+
+    @Test
+    public void testBranchVisibleInRefsTable()
+    {
+        String tableName = "test_branch_refs_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " (id INTEGER)");
+        assertUpdate("INSERT INTO " + tableName + " VALUES 1", 1);
+
+        assertUpdate("CREATE BRANCH test_branch IN TABLE " + tableName);
+
+        assertThat(query("SELECT name, type FROM \"" + tableName + "$refs\" WHERE type = 'BRANCH'"))
+                .skippingTypesCheck()
+                .matches("VALUES (VARCHAR 'main', VARCHAR 'BRANCH'), (VARCHAR 'test_branch', VARCHAR 'BRANCH')");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testMetadataDeleteFromBranch()
+    {
+        // Tests metadata delete (DELETE without WHERE), which uses a different
+        // code path (executeDelete/DeleteFiles) from row-level delete (RowDelta)
+        String tableName = "test_metadata_delete_branch_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " (id INTEGER, name VARCHAR)");
+        assertUpdate("INSERT INTO " + tableName + " VALUES (1, 'a'), (2, 'b')", 2);
+
+        assertUpdate("CREATE BRANCH test_branch IN TABLE " + tableName);
+        assertUpdate("DELETE FROM " + tableName + "@test_branch", 2);
+
+        assertThat(query("SELECT * FROM " + tableName))
+                .matches("VALUES (1, CAST('a' AS VARCHAR)), (2, CAST('b' AS VARCHAR))");
+        assertThat(query("SELECT * FROM " + tableName + " FOR VERSION AS OF 'test_branch'"))
+                .returnsEmptyResult();
+
+        assertUpdate("DROP TABLE " + tableName);
     }
 
     private Session withoutIgnoreStatsCalculatorFailures(Session session)

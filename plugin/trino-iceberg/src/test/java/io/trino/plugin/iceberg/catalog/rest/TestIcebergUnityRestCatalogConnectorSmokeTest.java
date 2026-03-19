@@ -55,7 +55,8 @@ final class TestIcebergUnityRestCatalogConnectorSmokeTest
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
         return switch (connectorBehavior) {
-            case SUPPORTS_CREATE_MATERIALIZED_VIEW,
+            case SUPPORTS_BRANCH,
+                 SUPPORTS_CREATE_MATERIALIZED_VIEW,
                  SUPPORTS_RENAME_MATERIALIZED_VIEW,
                  SUPPORTS_RENAME_SCHEMA -> false;
             default -> super.hasBehavior(connectorBehavior);
