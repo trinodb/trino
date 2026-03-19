@@ -127,7 +127,10 @@ public abstract class BaseSingleStoreTypeMapping
                 .addRoundTrip("bit", "b'1'", BOOLEAN, "true")
                 .addRoundTrip("bit", "b'0'", BOOLEAN, "false")
                 .addRoundTrip("bit", "NULL", BOOLEAN, "CAST(NULL AS BOOLEAN)")
+                .addRoundTrip("bit(1)", "b'1'", BOOLEAN, "true")
                 .execute(getQueryRunner(), singleStoreCreateAndInsert("tpch.test_bit"));
+
+        testUnsupportedDataType("bit(10)");
     }
 
     @Test

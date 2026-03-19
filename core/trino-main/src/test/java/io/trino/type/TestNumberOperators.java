@@ -33,7 +33,6 @@ import java.util.function.BiPredicate;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.nullToEmpty;
 import static io.trino.spi.StandardErrorCode.DIVISION_BY_ZERO;
-import static io.trino.spi.StandardErrorCode.FUNCTION_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
 import static io.trino.spi.function.OperatorType.ADD;
 import static io.trino.spi.function.OperatorType.DIVIDE;
@@ -3237,57 +3236,43 @@ public class TestNumberOperators
     @Test
     void testMultiplyNumberDecimal()
     {
-        // TODO All These fail because currently there is no coercion between DECIMAL and NUMBER
+        // number * decimal
+        assertThat(assertions.operator(MULTIPLY, "NUMBER '12345678901234567'", "DECIMAL '12345678901234567'"))
+                .isEqualTo(number("152415787532388345526596755677489"));
 
-        // number decimal
-        assertTrinoExceptionThrownBy(assertions.operator(MULTIPLY, "NUMBER '12345678901234567'", "DECIMAL '12345678901234567'")::evaluate)
-                .hasErrorCode(FUNCTION_NOT_FOUND)
-                .hasMessageContaining("Unexpected parameters (number, decimal(17,0)) for function $operator$multiply");
+        assertThat(assertions.operator(MULTIPLY, "NUMBER '-12345678901234567'", "DECIMAL '12345678901234567'"))
+                .isEqualTo(number("-152415787532388345526596755677489"));
 
-        assertTrinoExceptionThrownBy(assertions.operator(MULTIPLY, "NUMBER '-12345678901234567'", "DECIMAL '12345678901234567'")::evaluate)
-                .hasErrorCode(FUNCTION_NOT_FOUND)
-                .hasMessageContaining("Unexpected parameters (number, decimal(17,0)) for function $operator$multiply");
+        assertThat(assertions.operator(MULTIPLY, "NUMBER '-12345678901234567'", "DECIMAL '-12345678901234567'"))
+                .isEqualTo(number("152415787532388345526596755677489"));
 
-        assertTrinoExceptionThrownBy(assertions.operator(MULTIPLY, "NUMBER '-12345678901234567'", "DECIMAL '-12345678901234567'")::evaluate)
-                .hasErrorCode(FUNCTION_NOT_FOUND)
-                .hasMessageContaining("Unexpected parameters (number, decimal(17,0)) for function $operator$multiply");
+        assertThat(assertions.operator(MULTIPLY, "NUMBER '.1234567890'", "DECIMAL '3'"))
+                .isEqualTo(number("0.370370367"));
 
-        assertTrinoExceptionThrownBy(assertions.operator(MULTIPLY, "NUMBER '.1234567890'", "DECIMAL '3'")::evaluate)
-                .hasErrorCode(FUNCTION_NOT_FOUND)
-                .hasMessageContaining("Unexpected parameters (number, decimal(1,0)) for function $operator$multiply");
+        assertThat(assertions.operator(MULTIPLY, "NUMBER '.1234567890'", "DECIMAL '0'"))
+                .isEqualTo(number("0"));
 
-        assertTrinoExceptionThrownBy(assertions.operator(MULTIPLY, "NUMBER '.1234567890'", "DECIMAL '0'")::evaluate)
-                .hasErrorCode(FUNCTION_NOT_FOUND)
-                .hasMessageContaining("Unexpected parameters (number, decimal(1,0)) for function $operator$multiply");
+        assertThat(assertions.operator(MULTIPLY, "NUMBER '-.1234567890'", "DECIMAL '0'"))
+                .isEqualTo(number("0"));
 
-        assertTrinoExceptionThrownBy(assertions.operator(MULTIPLY, "NUMBER '-.1234567890'", "DECIMAL '0'")::evaluate)
-                .hasErrorCode(FUNCTION_NOT_FOUND)
-                .hasMessageContaining("Unexpected parameters (number, decimal(1,0)) for function $operator$multiply");
+        // decimal * number
+        assertThat(assertions.operator(MULTIPLY, "DECIMAL '12345678901234567'", "NUMBER '12345678901234567'"))
+                .isEqualTo(number("152415787532388345526596755677489"));
 
-        // decimal number
-        assertTrinoExceptionThrownBy(assertions.operator(MULTIPLY, "DECIMAL '12345678901234567'", "NUMBER '12345678901234567'")::evaluate)
-                .hasErrorCode(FUNCTION_NOT_FOUND)
-                .hasMessageContaining("Unexpected parameters (decimal(17,0), number) for function $operator$multiply");
+        assertThat(assertions.operator(MULTIPLY, "DECIMAL '12345678901234567'", "NUMBER '-12345678901234567'"))
+                .isEqualTo(number("-152415787532388345526596755677489"));
 
-        assertTrinoExceptionThrownBy(assertions.operator(MULTIPLY, "DECIMAL '12345678901234567'", "NUMBER '-12345678901234567'")::evaluate)
-                .hasErrorCode(FUNCTION_NOT_FOUND)
-                .hasMessageContaining("Unexpected parameters (decimal(17,0), number) for function $operator$multiply");
+        assertThat(assertions.operator(MULTIPLY, "DECIMAL '-12345678901234567'", "NUMBER '-12345678901234567'"))
+                .isEqualTo(number("152415787532388345526596755677489"));
 
-        assertTrinoExceptionThrownBy(assertions.operator(MULTIPLY, "DECIMAL '-12345678901234567'", "NUMBER '-12345678901234567'")::evaluate)
-                .hasErrorCode(FUNCTION_NOT_FOUND)
-                .hasMessageContaining("Unexpected parameters (decimal(17,0), number) for function $operator$multiply");
+        assertThat(assertions.operator(MULTIPLY, "DECIMAL '3'", "NUMBER '.1234567890'"))
+                .isEqualTo(number("0.370370367"));
 
-        assertTrinoExceptionThrownBy(assertions.operator(MULTIPLY, "DECIMAL '3'", "NUMBER '.1234567890'")::evaluate)
-                .hasErrorCode(FUNCTION_NOT_FOUND)
-                .hasMessageContaining("Unexpected parameters (decimal(1,0), number) for function $operator$multiply");
+        assertThat(assertions.operator(MULTIPLY, "DECIMAL '3'", "NUMBER '.0000000000'"))
+                .isEqualTo(number("0"));
 
-        assertTrinoExceptionThrownBy(assertions.operator(MULTIPLY, "DECIMAL '3'", "NUMBER '.0000000000'")::evaluate)
-                .hasErrorCode(FUNCTION_NOT_FOUND)
-                .hasMessageContaining("Unexpected parameters (decimal(1,0), number) for function $operator$multiply");
-
-        assertTrinoExceptionThrownBy(assertions.operator(MULTIPLY, "DECIMAL '-3'", "NUMBER '.0000000000'")::evaluate)
-                .hasErrorCode(FUNCTION_NOT_FOUND)
-                .hasMessageContaining("Unexpected parameters (decimal(1,0), number) for function $operator$multiply");
+        assertThat(assertions.operator(MULTIPLY, "DECIMAL '-3'", "NUMBER '.0000000000'"))
+                .isEqualTo(number("0"));
     }
 
     @Test
