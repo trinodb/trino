@@ -177,7 +177,7 @@ this table:
   -
 * - `DECIMAL(p, s)`
   - `DECIMAL(p, s)`
-  - See [Singlestore DECIMAL type handling](singlestore-decimal-handling)
+  -
 * - `CHAR(n)`
   - `CHAR(n)`
   -
@@ -256,7 +256,7 @@ this table:
   -
 * - `DECIMAL(p, s)`
   - `DECIMAL(p, s)`
-  - See [Singlestore DECIMAL type handling](singlestore-decimal-handling)
+  -
 * - `CHAR(n)`
   - `CHAR(n)`
   -
@@ -296,10 +296,6 @@ this table:
 :::
 
 No other types are supported.
-
-(singlestore-decimal-handling)=
-```{include} decimal-type-handling.fragment
-```
 
 ```{include} jdbc-type-mapping.fragment
 ```
