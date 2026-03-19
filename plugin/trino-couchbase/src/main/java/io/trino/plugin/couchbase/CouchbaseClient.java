@@ -66,12 +66,18 @@ public class CouchbaseClient {
                 cluster = Cluster.connect(
                         config.getCluster(),
                         ClusterOptions.clusterOptions(authenticator)
-                                .environment(env -> env.securityConfig(security -> {
-                                            if (config.getTlsCertificate() != null) {
-                                                security.trustCertificate(Paths.get(config.getTlsCertificate()));
+                                .environment(env -> {
+                                    env.securityConfig(security -> {
+                                                if (config.getTlsCertificate() != null) {
+                                                    security.trustCertificate(Paths.get(config.getTlsCertificate()));
+                                                }
                                             }
-                                        }
-                                ))
+                                    );
+                                    env.timeoutConfig(timeout -> {
+                                        timeout.kvTimeout(config.getTimeouts());
+                                        timeout.queryTimeout(config.getTimeouts());
+                                    });
+                                })
                 );
             } else {
                 cluster = Cluster.connect(config.getCluster(), config.getUsername(), config.getPassword());

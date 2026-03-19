@@ -203,5 +203,9 @@
             <version>2.0.1</version>
             <scope>test</scope>
         </dependency>
+        <dependency>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-main</artifactId>
+        </dependency>
     </dependencies>
 </project>

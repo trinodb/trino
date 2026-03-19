@@ -7,7 +7,7 @@ import io.trino.spi.type.Type;
 
 import java.util.List;
 
-public record CouchbaseColumnHandle(List<String> path, Type type)
+public record CouchbaseColumnHandle(List<String> path, List<String> dereferenceNames, Type type)
         implements ColumnHandle
 {
     public CouchbaseColumnHandle {

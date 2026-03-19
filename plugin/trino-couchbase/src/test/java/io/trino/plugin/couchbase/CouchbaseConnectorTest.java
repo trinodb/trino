@@ -1,25 +1,26 @@
 package io.trino.plugin.couchbase;
 
 import io.trino.testing.BaseConnectorTest;
-import io.trino.testing.QueryAssertions;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
-import io.trino.testing.assertions.Assert;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 
+import java.util.List;
+
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
 
-public class TestCouchbaseConnector
+@TestInstance(PER_CLASS)
+public class CouchbaseConnectorTest
     extends BaseConnectorTest {
 
     public static final String CBBUCKET = "trino-test";
 
     private CouchbaseServer server;
 
-    public TestCouchbaseConnector()
+    public CouchbaseConnectorTest()
     {
         this.server = new CouchbaseServer(CBBUCKET);
     }
@@ -59,9 +60,9 @@ public class TestCouchbaseConnector
         };
     }
 
-//    @Test
-//    @Override
-    public void testTopNPushdownLimited() {
+    @Test
+    @Override
+    public void testTopNPushdown() {
         // TopN over limit with filter
         assertThat(query("" +
                 "SELECT orderkey, totalprice " +
@@ -69,5 +70,10 @@ public class TestCouchbaseConnector
                 "ORDER BY totalprice ASC LIMIT 5"))
                 .ordered()
                 .isFullyPushedDown();
+    }
+
+    @Override
+    protected List<Integer> largeInValuesCountData() {
+        return List.of(20, 50, 100);
     }
 }
