@@ -34,6 +34,7 @@ import static io.trino.testing.containers.Minio.MINIO_REGION;
 import static io.trino.testing.containers.Minio.MINIO_ROOT_PASSWORD;
 import static io.trino.testing.containers.Minio.MINIO_ROOT_USER;
 import static java.lang.String.format;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
@@ -73,12 +74,14 @@ public class TestIcebergParquetWithBloomFiltersMixedCase
     @Override
     protected CatalogSchemaTableName createParquetTableWithBloomFilter(String columnName, List<Integer> testValues)
     {
-        minio.copyResources("iceberg/mixed_case_bloom_filter", BUCKET_NAME, "mixed_case_bloom_filter");
-        String tableName = "test_iceberg_write_mixed_case_bloom_filter" + randomNameSuffix();
+        String tableLocation = "mixed_case_bloom_filter_" + randomNameSuffix();
+        String s3Location = "s3://%s/%s".formatted(BUCKET_NAME, tableLocation);
+        minio.processAndCopyResources("iceberg/mixed_case_bloom_filter", rewriteMetadataJson(s3Location), BUCKET_NAME, tableLocation);
+        String tableName = "test_iceberg_write_mixed_case_bloom_filter_" + randomNameSuffix();
         assertUpdate(format(
                 "CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')",
                 tableName,
-                format("s3://%s/mixed_case_bloom_filter", BUCKET_NAME)));
+                s3Location));
 
         CatalogSchemaTableName catalogSchemaTableName = new CatalogSchemaTableName("iceberg", new SchemaTableName("tpch", tableName));
         assertUpdate(format("INSERT INTO %s SELECT * FROM (VALUES %s) t(%s)", catalogSchemaTableName, Joiner.on(", ").join(testValues), columnName), testValues.size());
@@ -106,5 +109,18 @@ public class TestIcebergParquetWithBloomFiltersMixedCase
             throws Exception
     {
         minio = null; // closed by closeAfterClass
+    }
+
+    public Minio.ResourcePreProcessor rewriteMetadataJson(String newLocation)
+    {
+        return (fileName, data) -> {
+            if (!fileName.endsWith(".metadata.json")) {
+                return data;
+            }
+
+            return new String(data, UTF_8)
+                    .replaceAll("s3://test-bucket-mixed-case/mixed_case_bloom_filter", newLocation)
+                    .getBytes(UTF_8);
+        };
     }
 }
