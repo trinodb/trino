@@ -283,7 +283,7 @@ public class AggregateQueryPageSource
         }
     }
 
-    private Double extractSumFromStatsValue(Stats statsValue)
+    static Double extractSumFromStatsValue(Stats statsValue)
     {
         double sumValue = statsValue.getSum();
         // Check min(not avg) result to see if the sum result is valid.
@@ -296,7 +296,7 @@ public class AggregateQueryPageSource
         return sumValue;
     }
 
-    private Double extractSingleValue(NumericMetricsAggregation.SingleValue singleValue)
+    static Double extractSingleValue(NumericMetricsAggregation.SingleValue singleValue)
     {
         // null will be decoded as Double.POSITIVE_INFINITY or Double.NEGATIVE_INFINITY
         if (Double.isInfinite(singleValue.value())) {

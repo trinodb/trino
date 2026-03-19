@@ -37,7 +37,7 @@ import org.elasticsearch.search.aggregations.bucket.composite.TermsValuesSourceB
 import org.elasticsearch.search.aggregations.metrics.AvgAggregationBuilder;
 import org.elasticsearch.search.aggregations.metrics.MaxAggregationBuilder;
 import org.elasticsearch.search.aggregations.metrics.MinAggregationBuilder;
-import org.elasticsearch.search.aggregations.metrics.SumAggregationBuilder;
+import org.elasticsearch.search.aggregations.metrics.StatsAggregationBuilder;
 import org.elasticsearch.search.aggregations.metrics.ValueCountAggregationBuilder;
 
 import java.time.Instant;
@@ -73,7 +73,7 @@ public final class ElasticsearchQueryBuilder
     private static final Map<String, BiFunction<String, String, AggregationBuilder>> CONVERTERS =
             ImmutableMap.of(MetricAggregation.MAX, (alias, field) -> new MaxAggregationBuilder(alias).field(field),
                     MetricAggregation.MIN, (alias, field) -> new MinAggregationBuilder(alias).field(field),
-                    MetricAggregation.SUM, (alias, field) -> new SumAggregationBuilder(alias).field(field),
+                    MetricAggregation.SUM, (alias, field) -> new StatsAggregationBuilder(alias).field(field),
                     MetricAggregation.AVG, (alias, field) -> new AvgAggregationBuilder(alias).field(field),
                     MetricAggregation.COUNT, (alias, field) -> new ValueCountAggregationBuilder(alias).field(field));
 

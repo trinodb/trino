@@ -41,9 +41,11 @@ import java.util.Map;
 import java.util.stream.Stream;
 
 import static io.trino.spi.StandardErrorCode.INVALID_COLUMN_REFERENCE;
+import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.MaterializedResult.resultBuilder;
+import static io.trino.testing.QueryAssertions.assertEqualsIgnoreOrder;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static java.lang.String.format;
@@ -221,6 +223,11 @@ public abstract class BaseElasticsearchConnectorTest
         assertThat(query("SELECT COUNT(*) FROM nation"))
                 .matches("VALUES BIGINT '25'")
                 .isFullyPushedDown();
+        assertThat(query("SELECT COUNT(*), SUM(nationkey) FROM nation"))
+                .matches("VALUES (BIGINT '25', BIGINT '300')")
+                .isFullyPushedDown();
+        assertThat(query("SELECT regionkey, COUNT(*) FROM nation GROUP BY regionkey"))
+                .isFullyPushedDown();
 
         // Simple COUNT(*)
         assertQuery("SELECT COUNT(*) FROM nation", "SELECT 25");
@@ -254,6 +261,29 @@ public abstract class BaseElasticsearchConnectorTest
     }
 
     @Test
+    public void testAggregationPaginationWithSmallPageSize()
+            throws Exception
+    {
+        try (QueryRunner queryRunner = createAdHocQueryRunner(Map.of("elasticsearch.aggregation-page-size", "2"))) {
+            MaterializedResult actual = queryRunner.execute("SELECT regionkey, nationkey % 2 AS parity, COUNT(*) FROM nation GROUP BY regionkey, nationkey % 2");
+            MaterializedResult expected = resultBuilder(queryRunner.getDefaultSession(), BIGINT, BIGINT, BIGINT)
+                    .row(0L, 0L, 3L)
+                    .row(0L, 1L, 2L)
+                    .row(1L, 0L, 2L)
+                    .row(1L, 1L, 3L)
+                    .row(2L, 0L, 3L)
+                    .row(2L, 1L, 2L)
+                    .row(3L, 0L, 2L)
+                    .row(3L, 1L, 3L)
+                    .row(4L, 0L, 3L)
+                    .row(4L, 1L, 2L)
+                    .build();
+
+            assertEqualsIgnoreOrder(actual, expected);
+        }
+    }
+
+    @Test
     public void testCountStarWithMultipleGroupingColumns()
     {
         // COUNT(*) with multiple GROUP BY columns
@@ -279,6 +309,10 @@ public abstract class BaseElasticsearchConnectorTest
     @Test
     public void testAggregationOnKeywordFields()
     {
+        assertThat(query("SELECT MIN(name), MAX(name) FROM nation"))
+                .matches("VALUES ('ALGERIA', 'VIETNAM')")
+                .isFullyPushedDown();
+
         // COUNT on keyword field
         assertQuery("SELECT COUNT(name) FROM nation", "VALUES (25)");
 
@@ -291,6 +325,60 @@ public abstract class BaseElasticsearchConnectorTest
         assertQuery(
                 "SELECT regionkey, COUNT(*), COUNT(name) FROM nation GROUP BY regionkey ORDER BY regionkey LIMIT 2",
                 "VALUES (0, 5, 5), (1, 5, 5)");
+    }
+
+    @Test
+    public void testMixedAggregationsWithEmptyInput()
+    {
+        assertThat(query("SELECT COUNT(*), COUNT(nationkey), SUM(nationkey), AVG(nationkey), MIN(nationkey), MAX(nationkey) FROM nation WHERE nationkey < 0"))
+                .matches("VALUES (BIGINT '0', BIGINT '0', CAST(NULL AS bigint), CAST(NULL AS double), CAST(NULL AS bigint), CAST(NULL AS bigint))")
+                .isFullyPushedDown();
+    }
+
+    @Test
+    public void testMixedAggregationsWithMissingValues()
+            throws IOException
+    {
+        String tableName = "test_aggregation_missing_values_" + randomNameSuffix();
+        @Language("JSON")
+        String properties =
+                """
+                        {
+                            "properties": {
+                                "kind": {
+                                    "type": "keyword"
+                                },
+                                "value": {
+                                    "type": "long"
+                                }
+                            }
+                        }
+                        """;
+
+        createIndex(tableName, properties);
+        try {
+            index(tableName, ImmutableMap.<String, Object>builder()
+                    .put("kind", "with_value")
+                    .put("value", 10)
+                    .buildOrThrow());
+            index(tableName, ImmutableMap.<String, Object>builder()
+                    .put("kind", "with_value")
+                    .put("value", 20)
+                    .buildOrThrow());
+            index(tableName, ImmutableMap.<String, Object>builder()
+                    .put("kind", "without_value")
+                    .buildOrThrow());
+            index(tableName, ImmutableMap.<String, Object>builder()
+                    .put("kind", "without_value")
+                    .buildOrThrow());
+
+            assertThat(query("SELECT COUNT(*), COUNT(value), SUM(value), AVG(value), MIN(value), MAX(value) FROM " + tableName + " WHERE kind = 'without_value'"))
+                    .matches("VALUES (BIGINT '2', BIGINT '0', CAST(NULL AS bigint), CAST(NULL AS double), CAST(NULL AS bigint), CAST(NULL AS bigint))")
+                    .isFullyPushedDown();
+        }
+        finally {
+            deleteIndex(tableName);
+        }
     }
 
     @Test
@@ -317,6 +405,17 @@ public abstract class BaseElasticsearchConnectorTest
     public void testShowColumns()
     {
         assertThat(query("SHOW COLUMNS FROM orders")).result().matches(getDescribeOrdersResult());
+    }
+
+    private QueryRunner createAdHocQueryRunner(Map<String, String> connectorProperties)
+            throws Exception
+    {
+        return ElasticsearchQueryRunner.builder(server)
+                .addConnectorProperties(ImmutableMap.<String, String>builder()
+                        .put("jmx.base-name", randomNameSuffix())
+                        .putAll(connectorProperties)
+                        .buildOrThrow())
+                .build();
     }
 
     @Test
