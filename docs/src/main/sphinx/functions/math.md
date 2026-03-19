@@ -117,7 +117,7 @@ Returns `x` rounded to integer by dropping digits after decimal point.
 :::{function} truncate(x, d) -> [same as input]
 :noindex: true
 
-Returns `x` rounded to `d` decimal places by dropping digits after decimal point.
+Returns `x` truncated to `d` decimal places.
 :::
 
 :::{function} width_bucket(x, bound1, bound2, n) -> bigint
