@@ -265,7 +265,7 @@ public class QueryStateMachine
             PlanOptimizersStatsCollector queryStatsCollector,
             ExchangeMetricsCollector exchangeMetricsCollector,
             Optional<QueryType> queryType,
-            boolean faultTolerantExecutionExchangeEncryptionEnabled,
+            boolean externalExchangeEncryptionEnabled,
             Optional<SessionPropertiesApplier> sessionPropertiesApplier,
             NodeVersion version)
     {
@@ -286,7 +286,7 @@ public class QueryStateMachine
                 queryStatsCollector,
                 exchangeMetricsCollector,
                 queryType,
-                faultTolerantExecutionExchangeEncryptionEnabled,
+                externalExchangeEncryptionEnabled,
                 sessionPropertiesApplier,
                 version);
     }
@@ -308,7 +308,7 @@ public class QueryStateMachine
             PlanOptimizersStatsCollector queryStatsCollector,
             ExchangeMetricsCollector exchangeMetricsCollector,
             Optional<QueryType> queryType,
-            boolean faultTolerantExecutionExchangeEncryptionEnabled,
+            boolean externalExchangeEncryptionEnabled,
             Optional<SessionPropertiesApplier> sessionPropertiesApplier,
             NodeVersion version)
     {
@@ -331,7 +331,7 @@ public class QueryStateMachine
             session = session.beginTransactionId(transactionId, transactionManager, accessControl);
         }
 
-        if (getRetryPolicy(session) == TASK && faultTolerantExecutionExchangeEncryptionEnabled) {
+        if (getRetryPolicy(session) == TASK && externalExchangeEncryptionEnabled) {
             // encryption is mandatory for fault tolerant execution as it relies on an external storage to store intermediate data generated during an exchange
             session = session.withExchangeEncryption(serializeAesEncryptionKey(createRandomAesEncryptionKey()));
         }
