@@ -197,8 +197,8 @@ this table:
   - `REAL`
   -
 * - `DECIMAL(p, s)`
-  - `DECIMAL(p, s)`
-  - See [MySQL DECIMAL type handling](mysql-decimal-handling)
+  - `DECIMAL(p, s)` or `NUMBER`
+  - Maps to Trino `DECIMAL` when `p ≤ 38`. Otherwise, maps to `NUMBER`.
 * - `CHAR(n)`
   - `CHAR(n)`
   -
@@ -277,7 +277,7 @@ this table:
   -
 * - `DECIMAL(p, s)`
   - `DECIMAL(p, s)`
-  - [MySQL DECIMAL type handling](mysql-decimal-handling)
+  -
 * - `CHAR(n)`
   - `CHAR(n)`
   -
@@ -317,10 +317,6 @@ com.mysql.cj.exceptions.CJException: Unknown or incorrect time zone: 'UTC'
 
 To avoid the errors, you must use a time zone that is known on both systems,
 or [install the missing time zone on the MySQL server](https://dev.mysql.com/doc/refman/8.0/en/time-zone-support.html#time-zone-installation).
-
-(mysql-decimal-handling)=
-```{include} decimal-type-handling.fragment
-```
 
 ```{include} jdbc-type-mapping.fragment
 ```
