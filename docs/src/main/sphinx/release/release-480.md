@@ -180,6 +180,8 @@
 
 ## PostgreSQL connector
 
+* Add support for reading PostgreSQL `NUMERIC(p, s)` columns which cannot be mapped to Trino `decimal`.
+  These columns are mapped to Trino `number` type. ({issue}`28141`)
 * Fix failure when creating a table if a prior `CREATE TABLE ... AS SELECT`
   operation for the same table failed. ({issue}`27702`)
 
