@@ -203,7 +203,7 @@
         <dep.jsonwebtoken.version>0.13.0</dep.jsonwebtoken.version>
         <dep.jts.version>1.20.0</dep.jts.version>
         <dep.okhttp.version>5.3.2</dep.okhttp.version>
-        <dep.okio.version>3.16.4</dep.okio.version>
+        <dep.okio.version>3.17.0</dep.okio.version>
         <dep.netty.version>4.2.10.Final</dep.netty.version>
         <dep.parquet.version>1.17.0</dep.parquet.version>
         <dep.protobuf.version>4.33.2</dep.protobuf.version>
