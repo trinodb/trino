@@ -13,17 +13,14 @@
  */
 package io.trino.plugin.hudi.query;
 
-import io.trino.plugin.hudi.HudiFileStatus;
 import io.trino.plugin.hudi.partition.HudiPartitionInfo;
+import org.apache.hudi.common.model.FileSlice;
 
 import java.io.Closeable;
-import java.util.List;
-import java.util.Optional;
+import java.util.stream.Stream;
 
 public interface HudiDirectoryLister
         extends Closeable
 {
-    List<HudiFileStatus> listStatus(HudiPartitionInfo partitionInfo);
-
-    Optional<HudiPartitionInfo> getPartitionInfo(String partition);
+    Stream<FileSlice> listStatus(HudiPartitionInfo partitionInfo, boolean useIndex);
 }
