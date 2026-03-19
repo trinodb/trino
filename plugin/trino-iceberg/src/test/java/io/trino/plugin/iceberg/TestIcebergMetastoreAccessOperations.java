@@ -594,6 +594,69 @@ public class TestIcebergMetastoreAccessOperations
                         .build());
     }
 
+    @Test
+    public void testInsert()
+    {
+        assertUpdate("CREATE TABLE test_insert (data integer, part integer)");
+
+        assertMetastoreInvocations("INSERT INTO test_insert VALUES (1, 10), (2, 10), (11, 20), (12, 20), (23, 30)",
+                ImmutableMultiset.<MetastoreMethod>builder()
+                        .addCopies(GET_TABLE, 4)
+                        .add(REPLACE_TABLE)
+                        .build());
+    }
+
+    @Test
+    public void testDelete()
+    {
+        assertUpdate("CREATE TABLE test_delete AS SELECT * FROM tpch.tiny.region", 5);
+
+        assertMetastoreInvocations("DELETE FROM test_delete WHERE regionkey < 2",
+                ImmutableMultiset.<MetastoreMethod>builder()
+                        .addCopies(GET_TABLE, 4)
+                        .add(REPLACE_TABLE)
+                        .build());
+    }
+
+    @Test
+    public void testUpdate()
+    {
+        assertUpdate("CREATE TABLE test_update (data integer, part integer)");
+        assertUpdate("INSERT INTO test_update VALUES (1, 10), (2, 10), (11, 20), (12, 20), (23, 30)", 5);
+
+        assertMetastoreInvocations("UPDATE test_update SET data = data + 1",
+                ImmutableMultiset.<MetastoreMethod>builder()
+                        .addCopies(GET_TABLE, 4)
+                        .add(REPLACE_TABLE)
+                        .build());
+    }
+
+    @Test
+    public void testMerge()
+    {
+        assertUpdate("CREATE TABLE test_merge (data integer)");
+
+        assertMetastoreInvocations("MERGE INTO test_merge USING (VALUES 42) t(dummy) ON false WHEN NOT MATCHED THEN INSERT VALUES (1)",
+                ImmutableMultiset.<MetastoreMethod>builder()
+                        .addCopies(GET_TABLE, 4)
+                        .add(REPLACE_TABLE)
+                        .build());
+    }
+
+    @Test
+    public void testOptimize()
+    {
+        assertUpdate("CREATE TABLE test_optimize (data integer, part integer)");
+        assertUpdate("INSERT INTO test_optimize VALUES (1, 10)", 1);
+        assertUpdate("INSERT INTO test_optimize VALUES (2, 20)", 1);
+
+        assertMetastoreInvocations("ALTER TABLE test_optimize EXECUTE optimize",
+                ImmutableMultiset.<MetastoreMethod>builder()
+                        .addCopies(GET_TABLE, 4)
+                        .add(REPLACE_TABLE)
+                        .build());
+    }
+
     private void assertMetastoreInvocations(@Language("SQL") String query, Multiset<MetastoreMethod> expectedInvocations)
     {
         assertMetastoreInvocations(getSession(), query, expectedInvocations);
