@@ -107,6 +107,7 @@ public final class TestGroups
     public static final String PARQUET = "parquet";
     public static final String IGNITE = "ignite";
     public static final String FAULT_TOLERANT = "fault-tolerant";
+    public static final String TERADATA = "teradata";
 
     private TestGroups() {}
 
