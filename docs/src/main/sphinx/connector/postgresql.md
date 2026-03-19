@@ -161,10 +161,16 @@ this table:
 * - `DOUBLE`
   - `DOUBLE`
   -
-* - `NUMERIC(p, s)`
-  - `DECIMAL(p, s)`
-  - `DECIMAL(p, s)` is an alias of `NUMERIC(p, s)`. See
-    [](postgresql-decimal-type-handling) for more information.
+* - `NUMERIC(p, s)` \
+    `DECIMAL(p, s)`
+  - `DECIMAL(pʹ, sʹ)` or `NUMBER`
+  - Maps to Trino `DECIMAL` when input data can be represented as Trino `DECIMAL` losslessly.
+    When `1 ≤ p ≤ 38` and `0 ≤ s ≤ p`, then `pʹ = p` and `sʹ = s`, otherwise, a wider type is used. \
+    When input cannot be represented as Trino `DECIMAL` losslessly, maps to `NUMBER`.
+* - `NUMERIC` \
+    `DECIMAL`
+  - `NUMBER`
+  -
 * - `CHAR(n)`
   - `CHAR(n)`
   -
@@ -249,8 +255,10 @@ this table:
   -
 * - `DECIMAL(p, s)`
   - `NUMERIC(p, s)`
-  - `DECIMAL(p, s)` is an alias of  `NUMERIC(p, s)`. See
-    [](postgresql-decimal-type-handling) for more information.
+  -
+* - `NUMBER`
+  - `NUMERIC`
+  -
 * - `CHAR(n)`
   - `CHAR(n)`
   -
@@ -287,10 +295,6 @@ this table:
 ::::
 
 No other types are supported.
-
-(postgresql-decimal-type-handling)=
-```{include} decimal-type-handling.fragment
-```
 
 (postgresql-array-type-handling)=
 ### Array type handling
