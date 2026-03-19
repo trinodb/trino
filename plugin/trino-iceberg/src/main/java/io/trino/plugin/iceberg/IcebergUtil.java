@@ -1318,8 +1318,8 @@ public final class IcebergUtil
 
     public static Map<String, String> getFileIoProperties(Optional<ConnectorTableCredentials> tableCredentials)
     {
-        if (tableCredentials.isPresent() && tableCredentials.get() instanceof IcebergTableCredentials(Map<String, String> properties)) {
-            return properties;
+        if (tableCredentials.isPresent()) {
+            return ((IcebergTableCredentials) tableCredentials.get()).fileIoProperties();
         }
         return ImmutableMap.of();
     }
