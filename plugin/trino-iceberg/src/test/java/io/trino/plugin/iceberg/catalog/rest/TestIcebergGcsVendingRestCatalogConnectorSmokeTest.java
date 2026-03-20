@@ -13,67 +13,66 @@
  */
 package io.trino.plugin.iceberg.catalog.rest;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.json.JsonMapper;
+import com.google.auth.oauth2.AccessToken;
+import com.google.auth.oauth2.GoogleCredentials;
 import com.google.common.collect.ImmutableMap;
-import io.opentelemetry.api.OpenTelemetry;
+import io.airlift.log.Logger;
 import io.trino.filesystem.Location;
-import io.trino.filesystem.s3.S3FileSystemConfig;
-import io.trino.filesystem.s3.S3FileSystemFactory;
-import io.trino.filesystem.s3.S3FileSystemStats;
+import io.trino.filesystem.gcs.GcsFileSystemConfig;
+import io.trino.filesystem.gcs.GcsFileSystemFactory;
+import io.trino.filesystem.gcs.GcsServiceAccountAuth;
+import io.trino.filesystem.gcs.GcsServiceAccountAuthConfig;
+import io.trino.filesystem.gcs.GcsStorageFactory;
 import io.trino.plugin.iceberg.BaseIcebergConnectorSmokeTest;
 import io.trino.plugin.iceberg.IcebergConfig;
 import io.trino.plugin.iceberg.IcebergQueryRunner;
 import io.trino.testing.QueryFailedException;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
-import io.trino.testing.containers.IcebergRestCatalogBackendContainer;
-import io.trino.testing.containers.Minio;
-import io.trino.testing.minio.MinioClient;
+import io.trino.testing.containers.IcebergGcsRestCatalogBackendContainer;
 import org.apache.iceberg.BaseTable;
 import org.apache.iceberg.CatalogProperties;
 import org.apache.iceberg.catalog.SessionCatalog;
 import org.apache.iceberg.catalog.TableIdentifier;
 import org.apache.iceberg.rest.RESTSessionCatalog;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
-import org.testcontainers.containers.Network;
-import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
-import software.amazon.awssdk.auth.credentials.AwsCredentials;
-import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
-import software.amazon.awssdk.regions.Region;
-import software.amazon.awssdk.services.sts.StsClient;
-import software.amazon.awssdk.services.sts.model.AssumeRoleRequest;
-import software.amazon.awssdk.services.sts.model.AssumeRoleResponse;
 
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
-import java.net.URI;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.util.Optional;
+import java.io.UncheckedIOException;
+import java.util.Base64;
 
 import static io.trino.plugin.iceberg.IcebergTestUtils.checkOrcFileSorting;
 import static io.trino.plugin.iceberg.IcebergTestUtils.checkParquetFileSorting;
 import static io.trino.testing.TestingConnectorSession.SESSION;
 import static io.trino.testing.TestingNames.randomNameSuffix;
-import static io.trino.testing.containers.Minio.MINIO_REGION;
-import static io.trino.testing.containers.Minio.MINIO_ROOT_PASSWORD;
-import static io.trino.testing.containers.Minio.MINIO_ROOT_USER;
+import static io.trino.testing.TestingProperties.requiredNonEmptySystemProperty;
 import static java.lang.String.format;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.apache.iceberg.FileFormat.PARQUET;
-import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-public class TestIcebergVendingRestCatalogConnectorSmokeTest
+final class TestIcebergGcsVendingRestCatalogConnectorSmokeTest
         extends BaseIcebergConnectorSmokeTest
 {
-    private final String bucketName;
-    private String warehouseLocation;
-    private IcebergRestCatalogBackendContainer restCatalogBackendContainer;
-    private Minio minio;
+    private static final Logger LOG = Logger.get(TestIcebergGcsVendingRestCatalogConnectorSmokeTest.class);
 
-    public TestIcebergVendingRestCatalogConnectorSmokeTest()
+    private final String gcpCredentialKey;
+    private final String warehouseLocation;
+
+    private IcebergGcsRestCatalogBackendContainer restCatalog;
+
+    public TestIcebergGcsVendingRestCatalogConnectorSmokeTest()
     {
         super(new IcebergConfig().getFileFormat().toIceberg());
-        this.bucketName = "test-iceberg-vending-rest-connector-smoke-test-" + randomNameSuffix();
+        gcpCredentialKey = requiredNonEmptySystemProperty("testing.gcp-credentials-key");
+        String gcpStorageBucket = requiredNonEmptySystemProperty("testing.gcp-storage-bucket");
+        warehouseLocation = "gs://%s/gcs-vending-rest-test-%s/".formatted(gcpStorageBucket, randomNameSuffix());
     }
 
     @Override
@@ -81,8 +80,8 @@ public class TestIcebergVendingRestCatalogConnectorSmokeTest
     {
         return switch (connectorBehavior) {
             case SUPPORTS_CREATE_MATERIALIZED_VIEW,
-                    SUPPORTS_RENAME_MATERIALIZED_VIEW,
-                    SUPPORTS_RENAME_SCHEMA -> false;
+                 SUPPORTS_RENAME_MATERIALIZED_VIEW,
+                 SUPPORTS_RENAME_SCHEMA -> false;
             default -> super.hasBehavior(connectorBehavior);
         };
     }
@@ -91,41 +90,34 @@ public class TestIcebergVendingRestCatalogConnectorSmokeTest
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        Network network = Network.newNetwork();
-        minio = closeAfterClass(Minio.builder().withNetwork(network).build());
-        minio.start();
-        minio.createBucket(bucketName);
+        byte[] jsonKeyBytes = Base64.getDecoder().decode(gcpCredentialKey);
+        String gcpCredentials = new String(jsonKeyBytes, UTF_8);
 
-        this.warehouseLocation = "s3://%s/default/".formatted(bucketName);
+        GoogleCredentials credentials = GoogleCredentials.fromStream(new ByteArrayInputStream(jsonKeyBytes))
+                .createScoped("https://www.googleapis.com/auth/cloud-platform");
+        AccessToken accessToken = credentials.refreshAccessToken();
 
-        AwsCredentials credentials = AwsBasicCredentials.create(MINIO_ROOT_USER, MINIO_ROOT_PASSWORD);
-        StsClient stsClient = StsClient.builder()
-                .endpointOverride(URI.create(minio.getMinioAddress()))
-                .credentialsProvider(StaticCredentialsProvider.create(credentials))
-                .region(Region.of(MINIO_REGION))
-                .build();
+        JsonMapper mapper = new JsonMapper();
+        JsonNode jsonKey = mapper.readTree(gcpCredentials);
+        String gcpProjectId = jsonKey.get("project_id").asText();
 
-        AssumeRoleResponse assumeRoleResponse = stsClient.assumeRole(AssumeRoleRequest.builder().build());
-        restCatalogBackendContainer = closeAfterClass(new IcebergRestCatalogBackendContainer(
-                Optional.of(network),
+        restCatalog = closeAfterClass(new IcebergGcsRestCatalogBackendContainer(
                 warehouseLocation,
-                assumeRoleResponse.credentials().accessKeyId(),
-                assumeRoleResponse.credentials().secretAccessKey(),
-                assumeRoleResponse.credentials().sessionToken()));
-        restCatalogBackendContainer.start();
+                gcpProjectId,
+                accessToken.getTokenValue(),
+                accessToken.getExpirationTime().getTime()));
+        restCatalog.start();
 
         return IcebergQueryRunner.builder()
                 .setIcebergProperties(
                         ImmutableMap.<String, String>builder()
                                 .put("iceberg.file-format", format.name())
                                 .put("iceberg.catalog.type", "rest")
-                                .put("iceberg.rest-catalog.uri", "http://" + restCatalogBackendContainer.getRestCatalogEndpoint())
+                                .put("iceberg.rest-catalog.uri", restCatalog.catalogUri())
                                 .put("iceberg.rest-catalog.vended-credentials-enabled", "true")
                                 .put("iceberg.writer-sort-buffer-size", "1MB")
-                                .put("fs.native-s3.enabled", "true")
-                                .put("s3.region", MINIO_REGION)
-                                .put("s3.endpoint", minio.getMinioAddress())
-                                .put("s3.path-style-access", "true")
+                                .put("fs.native-gcs.enabled", "true")
+                                .put("gcs.auth-type", "APPLICATION_DEFAULT")
                                 .buildOrThrow())
                 .setInitialTables(REQUIRED_TPCH_TABLES)
                 .build();
@@ -135,13 +127,32 @@ public class TestIcebergVendingRestCatalogConnectorSmokeTest
     @BeforeAll
     public void initFileSystem()
     {
-        this.fileSystem = new S3FileSystemFactory(OpenTelemetry.noop(), new S3FileSystemConfig()
-                .setRegion(MINIO_REGION)
-                .setEndpoint(minio.getMinioAddress())
-                .setPathStyleAccess(true)
-                .setAwsAccessKey(MINIO_ROOT_USER)
-                .setAwsSecretKey(MINIO_ROOT_PASSWORD), new S3FileSystemStats()
-        ).create(SESSION);
+        byte[] jsonKeyBytes = Base64.getDecoder().decode(gcpCredentialKey);
+        GcsFileSystemConfig config = new GcsFileSystemConfig();
+        GcsServiceAccountAuthConfig authConfig = new GcsServiceAccountAuthConfig().setJsonKey(new String(jsonKeyBytes, UTF_8));
+        GcsStorageFactory storageFactory;
+        try {
+            storageFactory = new GcsStorageFactory(config, new GcsServiceAccountAuth(authConfig));
+        }
+        catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+        fileSystem = new GcsFileSystemFactory(config, storageFactory).create(SESSION);
+    }
+
+    @AfterAll
+    public void removeTestData()
+    {
+        if (fileSystem == null) {
+            return;
+        }
+        try {
+            fileSystem.deleteDirectory(Location.of(warehouseLocation));
+        }
+        catch (IOException e) {
+            // The GCS bucket should be configured to expire objects automatically. Clean up issues do not need to fail the test.
+            LOG.warn(e, "Failed to clean up GCS test directory: %s", warehouseLocation);
+        }
     }
 
     @Test
@@ -170,14 +181,15 @@ public class TestIcebergVendingRestCatalogConnectorSmokeTest
     protected String getMetadataLocation(String tableName)
     {
         try (RESTSessionCatalog catalog = new RESTSessionCatalog()) {
-            catalog.initialize("rest-catalog", ImmutableMap.of(CatalogProperties.URI, "http://" + restCatalogBackendContainer.getRestCatalogEndpoint()));
+            catalog.initialize("rest-catalog", ImmutableMap.of(CatalogProperties.URI, restCatalog.catalogUri()));
             SessionCatalog.SessionContext context = new SessionCatalog.SessionContext(
                     "user-default",
                     "user",
                     ImmutableMap.of(),
                     ImmutableMap.of(),
                     SESSION.getIdentity());
-            return ((BaseTable) catalog.loadTable(context, toIdentifier(tableName))).operations().current().metadataFileLocation();
+            TableIdentifier identifier = TableIdentifier.of(getSession().getSchema().orElseThrow(), tableName);
+            return ((BaseTable) catalog.loadTable(context, identifier)).operations().current().metadataFileLocation();
         }
         catch (IOException e) {
             throw new RuntimeException(e);
@@ -193,7 +205,12 @@ public class TestIcebergVendingRestCatalogConnectorSmokeTest
     @Override
     protected boolean locationExists(String location)
     {
-        return Files.exists(Path.of(location));
+        try {
+            return fileSystem.newInputFile(Location.of(location)).exists();
+        }
+        catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
     }
 
     @Test
@@ -297,6 +314,11 @@ public class TestIcebergVendingRestCatalogConnectorSmokeTest
 
     @Test
     @Override
+    @Disabled("TODO: Re-enable once https://github.com/apache/iceberg/pull/15734 is merged and bumped in Trino")
+    public void testDropTableWithMissingDataFile() {}
+
+    @Test
+    @Override
     public void testDropTableWithMissingManifestListFile()
     {
         assertThatThrownBy(super::testDropTableWithMissingManifestListFile)
@@ -323,19 +345,11 @@ public class TestIcebergVendingRestCatalogConnectorSmokeTest
     @Override
     protected void deleteDirectory(String location)
     {
-        try (MinioClient minioClient = minio.createMinioClient()) {
-            String prefix = "s3://" + bucketName + "/";
-            String key = location.substring(prefix.length());
-
-            for (String file : minioClient.listObjects(bucketName, key)) {
-                minioClient.removeObject(bucketName, file);
-            }
-            assertThat(minioClient.listObjects(bucketName, key)).isEmpty();
+        try {
+            fileSystem.deleteDirectory(Location.of(location));
         }
-    }
-
-    private TableIdentifier toIdentifier(String tableName)
-    {
-        return TableIdentifier.of(getSession().getSchema().orElseThrow(), tableName);
+        catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
     }
 }

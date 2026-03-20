@@ -32,7 +32,7 @@ import io.trino.plugin.tpcds.TpcdsPlugin;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
-import io.trino.testing.containers.IcebergRestCatalogBackendContainer;
+import io.trino.testing.containers.IcebergS3RestCatalogBackendContainer;
 import io.trino.testing.containers.Minio;
 import io.trino.tpch.TpchTable;
 import org.apache.iceberg.catalog.Catalog;
@@ -261,7 +261,7 @@ public final class IcebergQueryRunner
 
             AssumeRoleResponse assumeRoleResponse = stsClient.assumeRole(AssumeRoleRequest.builder().build());
             @SuppressWarnings("resource")
-            IcebergRestCatalogBackendContainer restCatalogBackendContainer = new IcebergRestCatalogBackendContainer(
+            IcebergS3RestCatalogBackendContainer restCatalogBackendContainer = new IcebergS3RestCatalogBackendContainer(
                     Optional.of(network),
                     warehouseLocation,
                     assumeRoleResponse.credentials().accessKeyId(),
