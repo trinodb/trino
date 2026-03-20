@@ -11,21 +11,24 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.vertica;
+package io.trino.plugin.iceberg;
 
-import io.trino.testing.QueryRunner;
+import com.google.common.collect.ImmutableMap;
+import io.trino.spi.connector.ConnectorTableCredentials;
+import org.apache.iceberg.io.FileIO;
 
-import static io.trino.plugin.vertica.TestingVerticaServer.DEFAULT_VERSION;
+import java.util.Map;
 
-public class TestVerticaConnectorSmokeTest
-        extends BaseVerticaConnectorSmokeTest
+public record IcebergTableCredentials(Map<String, String> fileIoProperties)
+        implements ConnectorTableCredentials
 {
-    @Override
-    protected QueryRunner createQueryRunner()
-            throws Exception
+    public IcebergTableCredentials
     {
-        return VerticaQueryRunner.builder(closeAfterClass(new TestingVerticaServer(DEFAULT_VERSION)))
-                .setTables(REQUIRED_TPCH_TABLES)
-                .build();
+        fileIoProperties = ImmutableMap.copyOf(fileIoProperties);
+    }
+
+    public static IcebergTableCredentials forFileIO(FileIO io)
+    {
+        return new IcebergTableCredentials(io.properties());
     }
 }

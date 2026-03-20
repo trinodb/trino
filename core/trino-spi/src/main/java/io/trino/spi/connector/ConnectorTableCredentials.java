@@ -13,6 +13,9 @@
  */
 package io.trino.spi.connector;
 
-@SuppressWarnings("MarkerInterface")
-public interface ConnectorOutputTableHandle
-        extends ConnectorWritableTableHandle {}
+/**
+ * Credentials required for accessing data represented by {@link ConnectorTableHandle}.
+ */
+public interface ConnectorTableCredentials
+{
+}

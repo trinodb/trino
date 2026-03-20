@@ -11,8 +11,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.spi.connector;
+package io.trino.plugin.iceberg;
 
-@SuppressWarnings("MarkerInterface")
-public interface ConnectorOutputTableHandle
-        extends ConnectorWritableTableHandle {}
+class TestIcebergV3AvroConnectorTest
+        extends BaseIcebergAvroConnectorTest
+{
+    TestIcebergV3AvroConnectorTest()
+    {
+        super(3);
+    }
+}

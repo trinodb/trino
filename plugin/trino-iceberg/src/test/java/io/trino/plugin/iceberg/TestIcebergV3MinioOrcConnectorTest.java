@@ -11,21 +11,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.vertica;
+package io.trino.plugin.iceberg;
 
-import io.trino.testing.QueryRunner;
-
-import static io.trino.plugin.vertica.TestingVerticaServer.LATEST_VERSION;
-
-public class TestVerticaLatestConnectorSmokeTest
-        extends BaseVerticaConnectorSmokeTest
+class TestIcebergV3MinioOrcConnectorTest
+        extends BaseIcebergMinioOrcConnectorTest
 {
-    @Override
-    protected QueryRunner createQueryRunner()
-            throws Exception
+    TestIcebergV3MinioOrcConnectorTest()
     {
-        return VerticaQueryRunner.builder(closeAfterClass(new TestingVerticaServer(LATEST_VERSION)))
-                .setTables(REQUIRED_TPCH_TABLES)
-                .build();
+        super(3);
     }
 }

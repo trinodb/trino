@@ -11,15 +11,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.vertica;
+package io.trino.plugin.iceberg;
 
-import io.trino.plugin.jdbc.JdbcPlugin;
-
-public class VerticaPlugin
-        extends JdbcPlugin
+class TestIcebergV2AvroConnectorTest
+        extends BaseIcebergAvroConnectorTest
 {
-    public VerticaPlugin()
+    TestIcebergV2AvroConnectorTest()
     {
-        super("vertica", VerticaClientModule::new);
+        super(2);
     }
 }

@@ -34,7 +34,7 @@ public class OracleConfig
     private boolean synonymsEnabled;
     private boolean remarksReportingEnabled;
     private Integer defaultNumberScale;
-    private RoundingMode numberRoundingMode = RoundingMode.UNNECESSARY;
+    private Optional<RoundingMode> numberRoundingMode = Optional.empty();
     private boolean connectionPoolEnabled = true;
     private int connectionPoolMinSize = 1;
     private int connectionPoolMaxSize = 30;
@@ -66,11 +66,13 @@ public class OracleConfig
         return this;
     }
 
+    @Deprecated
     public Optional<@Min(0) @Max(38) Integer> getDefaultNumberScale()
     {
         return Optional.ofNullable(defaultNumberScale);
     }
 
+    @Deprecated
     @Config("oracle.number.default-scale")
     @ConfigDescription("Default Trino DECIMAL scale for Oracle NUMBER data type")
     public OracleConfig setDefaultNumberScale(Integer defaultNumberScale)
@@ -79,16 +81,18 @@ public class OracleConfig
         return this;
     }
 
+    @Deprecated
     @NotNull
-    public RoundingMode getNumberRoundingMode()
+    public Optional<RoundingMode> getNumberRoundingMode()
     {
         return numberRoundingMode;
     }
 
+    @Deprecated
     @Config("oracle.number.rounding-mode")
     public OracleConfig setNumberRoundingMode(RoundingMode numberRoundingMode)
     {
-        this.numberRoundingMode = numberRoundingMode;
+        this.numberRoundingMode = Optional.ofNullable(numberRoundingMode);
         return this;
     }
 

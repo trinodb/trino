@@ -11,9 +11,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.operator.aggregation.state;
+package io.trino.plugin.iceberg;
 
-public interface NullableState
+class TestIcebergV2MinioOrcConnectorTest
+        extends BaseIcebergMinioOrcConnectorTest
 {
-    boolean isNull();
+    TestIcebergV2MinioOrcConnectorTest()
+    {
+        super(2);
+    }
 }

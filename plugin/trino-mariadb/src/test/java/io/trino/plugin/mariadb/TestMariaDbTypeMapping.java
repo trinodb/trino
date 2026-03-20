@@ -50,6 +50,7 @@ import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.NumberType.NUMBER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TimeType.createTimeType;
@@ -98,6 +99,14 @@ public class TestMariaDbTypeMapping
     {
         server = closeAfterClass(new TestingMariaDbServer());
         return MariaDbQueryRunner.builder(server).build();
+    }
+
+    @Test
+    public void testBit()
+    {
+        testUnsupportedDataType("bit");
+        testUnsupportedDataType("bit(1)");
+        testUnsupportedDataType("bit(10)");
     }
 
     @Test
@@ -264,7 +273,38 @@ public class TestMariaDbTypeMapping
     @Test
     public void testDecimalExceedingPrecisionMax()
     {
-        testUnsupportedDataType("decimal(50,0)");
+        // Test that DECIMAL types with precision > 38 map to NUMBER type
+        // MariaDB supports DECIMAL up to precision 65 with scale up to 30
+
+        // Test precision 50, scale 0
+        SqlDataTypeTest.create()
+                .addRoundTrip("decimal(50,0)", "12345678901234567890123456789012345678901234567890", NUMBER, "NUMBER '12345678901234567890123456789012345678901234567890'")
+                .addRoundTrip("decimal(50,0)", "-12345678901234567890123456789012345678901234567890", NUMBER, "NUMBER '-12345678901234567890123456789012345678901234567890'")
+                .addRoundTrip("decimal(50,0)", "NULL", NUMBER, "CAST(NULL AS NUMBER)")
+                .execute(getQueryRunner(), mariaDbCreateAndInsert("test_decimal_exceeding_precision_max_p50"));
+
+        // Test precision 60, scale 10
+        SqlDataTypeTest.create()
+                .addRoundTrip("decimal(60,10)", "12345678901234567890123456789012345678901234567890.1234567890", NUMBER, "NUMBER '12345678901234567890123456789012345678901234567890.1234567890'")
+                .addRoundTrip("decimal(60,10)", "-12345678901234567890123456789012345678901234567890.1234567890", NUMBER, "NUMBER '-12345678901234567890123456789012345678901234567890.1234567890'")
+                .addRoundTrip("decimal(60,10)", "NULL", NUMBER, "CAST(NULL AS NUMBER)")
+                .execute(getQueryRunner(), mariaDbCreateAndInsert("test_decimal_exceeding_precision_max_p60"));
+
+        // Test precision 65 (MariaDB's max), scale 30
+        SqlDataTypeTest.create()
+                .addRoundTrip("decimal(65,30)", "12345678901234567890123456789012345.123456789012345678901234567890", NUMBER, "NUMBER '12345678901234567890123456789012345.123456789012345678901234567890'")
+                .addRoundTrip("decimal(65,30)", "-12345678901234567890123456789012345.123456789012345678901234567890", NUMBER, "NUMBER '-12345678901234567890123456789012345.123456789012345678901234567890'")
+                .addRoundTrip("decimal(65,30)", "NULL", NUMBER, "CAST(NULL AS NUMBER)")
+                .execute(getQueryRunner(), mariaDbCreateAndInsert("test_decimal_exceeding_precision_max_p65"));
+
+        // Test precision 40, scale 5 (just above the 38 threshold)
+        SqlDataTypeTest.create()
+                .addRoundTrip("decimal(40,5)", "12345678901234567890123456789012345.12345", NUMBER, "NUMBER '12345678901234567890123456789012345.12345'")
+                .addRoundTrip("decimal(40,5)", "-12345678901234567890123456789012345.12345", NUMBER, "NUMBER '-12345678901234567890123456789012345.12345'")
+                .addRoundTrip("decimal(40,5)", "123.45", NUMBER, "NUMBER '123.45'")
+                .addRoundTrip("decimal(40,5)", "-123.45", NUMBER, "NUMBER '-123.45'")
+                .addRoundTrip("decimal(40,5)", "NULL", NUMBER, "CAST(NULL AS NUMBER)")
+                .execute(getQueryRunner(), mariaDbCreateAndInsert("test_decimal_exceeding_precision_max_p40"));
     }
 
     @Test

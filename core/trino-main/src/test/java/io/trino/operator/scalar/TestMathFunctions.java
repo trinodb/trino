@@ -15,6 +15,8 @@ package io.trino.operator.scalar;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.spi.type.ArrayType;
+import io.trino.spi.type.SqlNumber;
+import io.trino.spi.type.TrinoNumber;
 import io.trino.sql.query.QueryAssertions;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -22,6 +24,9 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
 
+import java.math.BigDecimal;
+
+import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.spi.StandardErrorCode.DIVISION_BY_ZERO;
 import static io.trino.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
 import static io.trino.spi.StandardErrorCode.TOO_MANY_ARGUMENTS;
@@ -30,6 +35,7 @@ import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.NumberType.NUMBER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.RowType.anonymousRow;
 import static io.trino.spi.type.SmallintType.SMALLINT;
@@ -46,11 +52,11 @@ import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 @Execution(CONCURRENT)
 public class TestMathFunctions
 {
-    private static final double[] DOUBLE_VALUES = {123, -123, 123.45, -123.45, 0};
+    private static final double[] DOUBLE_VALUES = {123, -123, 123.45, -123.45, 0, Double.POSITIVE_INFINITY, Double.NEGATIVE_INFINITY, Double.NaN};
     private static final int[] intLefts = {9, 10, 11, -9, -10, -11, 0};
     private static final int[] intRights = {3, -3};
-    private static final double[] doubleLefts = {9, 10, 11, -9, -10, -11, 9.1, 10.1, 11.1, -9.1, -10.1, -11.1};
-    private static final double[] doubleRights = {3, -3, 3.1, -3.1};
+    private static final double[] doubleLefts = {9, 10, 11, -9, -10, -11, 9.1, 10.1, 11.1, -9.1, -10.1, -11.1, Double.POSITIVE_INFINITY, Double.NEGATIVE_INFINITY, Double.NaN};
+    private static final double[] doubleRights = {3, -3, 3.1, -3.1, Double.POSITIVE_INFINITY, Double.NEGATIVE_INFINITY, Double.NaN};
     private static final double GREATEST_DOUBLE_LESS_THAN_HALF = 0x1.fffffffffffffp-2;
 
     private QueryAssertions assertions;
@@ -163,13 +169,38 @@ public class TestMathFunctions
 
         assertThat(assertions.function("abs", "CAST(NULL AS DECIMAL(1,0))"))
                 .isNull(createDecimalType(1, 0));
+
+        // NUMBER
+        assertThat(assertions.function("abs", "NUMBER '123.45'"))
+                .isEqualTo(number("123.45"));
+
+        assertThat(assertions.function("abs", "NUMBER '-123.45'"))
+                .isEqualTo(number("123.45"));
+
+        assertThat(assertions.function("abs", "NUMBER '12345678901234567890.123456789'"))
+                .isEqualTo(number("12345678901234567890.123456789"));
+
+        assertThat(assertions.function("abs", "NUMBER '-12345678901234567890.123456789'"))
+                .isEqualTo(number("12345678901234567890.123456789"));
+
+        assertThat(assertions.function("abs", "NUMBER 'NaN'"))
+                .isEqualTo(number(Double.NaN));
+
+        assertThat(assertions.function("abs", "NUMBER '+Infinity'"))
+                .isEqualTo(number(Double.POSITIVE_INFINITY));
+
+        assertThat(assertions.function("abs", "NUMBER '-Infinity'"))
+                .isEqualTo(number(Double.POSITIVE_INFINITY));
+
+        assertThat(assertions.function("abs", "CAST(NULL AS NUMBER)"))
+                .isNull(NUMBER);
     }
 
     @Test
     public void testAcos()
     {
         for (double doubleValue : DOUBLE_VALUES) {
-            assertThat(assertions.function("acos", Double.toString(doubleValue)))
+            assertThat(assertions.function("acos", "DOUBLE '%s'".formatted(doubleValue)))
                     .isEqualTo(Math.acos(doubleValue));
 
             assertThat(assertions.function("acos", "REAL '%s'".formatted((float) doubleValue)))
@@ -184,7 +215,7 @@ public class TestMathFunctions
     public void testAsin()
     {
         for (double doubleValue : DOUBLE_VALUES) {
-            assertThat(assertions.function("asin", Double.toString(doubleValue)))
+            assertThat(assertions.function("asin", "DOUBLE '%s'".formatted(doubleValue)))
                     .isEqualTo(Math.asin(doubleValue));
 
             assertThat(assertions.function("asin", "REAL '%s'".formatted((float) doubleValue)))
@@ -199,7 +230,7 @@ public class TestMathFunctions
     public void testAtan()
     {
         for (double doubleValue : DOUBLE_VALUES) {
-            assertThat(assertions.function("atan", Double.toString(doubleValue)))
+            assertThat(assertions.function("atan", "DOUBLE '%s'".formatted(doubleValue)))
                     .isEqualTo(Math.atan(doubleValue));
 
             assertThat(assertions.function("atan", "REAL '%s'".formatted((float) doubleValue)))
@@ -214,7 +245,7 @@ public class TestMathFunctions
     public void testAtan2()
     {
         for (double doubleValue : DOUBLE_VALUES) {
-            assertThat(assertions.function("atan2", Double.toString(doubleValue), Double.toString(doubleValue)))
+            assertThat(assertions.function("atan2", "DOUBLE '%s'".formatted(doubleValue), "DOUBLE '%s'".formatted(doubleValue)))
                     .isEqualTo(Math.atan2(doubleValue, doubleValue));
 
             assertThat(assertions.function("atan2", "REAL '%s'".formatted((float) doubleValue), "REAL '%s'".formatted((float) doubleValue)))
@@ -235,7 +266,7 @@ public class TestMathFunctions
     public void testCbrt()
     {
         for (double doubleValue : DOUBLE_VALUES) {
-            assertThat(assertions.function("cbrt", Double.toString(doubleValue)))
+            assertThat(assertions.function("cbrt", "DOUBLE '%s'".formatted(doubleValue)))
                     .isEqualTo(Math.cbrt(doubleValue));
 
             assertThat(assertions.function("cbrt", "REAL '%s'".formatted((float) doubleValue)))
@@ -518,6 +549,25 @@ public class TestMathFunctions
 
         assertThat(assertions.function("ceiling", "CAST(NULL AS DECIMAL(25,5))"))
                 .isNull(createDecimalType(21));
+
+        // NUMBER
+        assertThat(assertions.function("ceiling", "NUMBER '123.45'"))
+                .isEqualTo(number("124"));
+
+        assertThat(assertions.function("ceiling", "NUMBER '-123.45'"))
+                .isEqualTo(number("-123"));
+
+        assertThat(assertions.function("ceiling", "NUMBER '123'"))
+                .isEqualTo(number("123"));
+
+        assertThat(assertions.function("ceiling", "NUMBER 'NaN'"))
+                .isEqualTo(number(Double.NaN));
+
+        assertThat(assertions.function("ceiling", "NUMBER '+Infinity'"))
+                .isEqualTo(number(Double.POSITIVE_INFINITY));
+
+        assertThat(assertions.function("ceiling", "NUMBER '-Infinity'"))
+                .isEqualTo(number(Double.NEGATIVE_INFINITY));
     }
 
     @Test
@@ -697,13 +747,26 @@ public class TestMathFunctions
 
         assertThat(assertions.function("truncate", "NULL", "NULL"))
                 .isNull(createDecimalType(1, 0));
+
+        // NUMBER
+        assertThat(assertions.function("truncate", "NUMBER '123.45'"))
+                .isEqualTo(number("123"));
+
+        assertThat(assertions.function("truncate", "NUMBER '-123.45'"))
+                .isEqualTo(number("-123"));
+
+        assertThat(assertions.function("truncate", "NUMBER 'NaN'"))
+                .isEqualTo(number(Double.NaN));
+
+        assertThat(assertions.function("truncate", "NUMBER '+Infinity'"))
+                .isEqualTo(number(Double.POSITIVE_INFINITY));
     }
 
     @Test
     public void testCos()
     {
         for (double doubleValue : DOUBLE_VALUES) {
-            assertThat(assertions.function("cos", Double.toString(doubleValue)))
+            assertThat(assertions.function("cos", "DOUBLE '%s'".formatted(doubleValue)))
                     .isEqualTo(Math.cos(doubleValue));
 
             assertThat(assertions.function("cos", "REAL '%s'".formatted((float) doubleValue)))
@@ -718,7 +781,7 @@ public class TestMathFunctions
     public void testCosh()
     {
         for (double doubleValue : DOUBLE_VALUES) {
-            assertThat(assertions.function("cosh", Double.toString(doubleValue)))
+            assertThat(assertions.function("cosh", "DOUBLE '%s'".formatted(doubleValue)))
                     .isEqualTo(Math.cosh(doubleValue));
 
             assertThat(assertions.function("cosh", "REAL '%s'".formatted((float) doubleValue)))
@@ -733,7 +796,7 @@ public class TestMathFunctions
     public void testDegrees()
     {
         for (double doubleValue : DOUBLE_VALUES) {
-            assertThat(assertions.function("degrees", Double.toString(doubleValue)))
+            assertThat(assertions.function("degrees", "DOUBLE '%s'".formatted(doubleValue)))
                     .isEqualTo(Math.toDegrees(doubleValue));
 
             assertThat(assertions.function("degrees", "REAL '%s'".formatted((float) doubleValue)))
@@ -755,7 +818,7 @@ public class TestMathFunctions
     public void testExp()
     {
         for (double doubleValue : DOUBLE_VALUES) {
-            assertThat(assertions.function("exp", Double.toString(doubleValue)))
+            assertThat(assertions.function("exp", "DOUBLE '%s'".formatted(doubleValue)))
                     .isEqualTo(Math.exp(doubleValue));
 
             assertThat(assertions.function("exp", "REAL '%s'".formatted((float) doubleValue)))
@@ -1002,13 +1065,32 @@ public class TestMathFunctions
 
         assertThat(assertions.function("floor", "CAST(NULL as DECIMAL(25,5))"))
                 .isNull(createDecimalType(21));
+
+        // NUMBER
+        assertThat(assertions.function("floor", "NUMBER '123.45'"))
+                .isEqualTo(number("123"));
+
+        assertThat(assertions.function("floor", "NUMBER '-123.45'"))
+                .isEqualTo(number("-124"));
+
+        assertThat(assertions.function("floor", "NUMBER '123'"))
+                .isEqualTo(number("123"));
+
+        assertThat(assertions.function("floor", "NUMBER 'NaN'"))
+                .isEqualTo(number(Double.NaN));
+
+        assertThat(assertions.function("floor", "NUMBER '+Infinity'"))
+                .isEqualTo(number(Double.POSITIVE_INFINITY));
+
+        assertThat(assertions.function("floor", "NUMBER '-Infinity'"))
+                .isEqualTo(number(Double.NEGATIVE_INFINITY));
     }
 
     @Test
     public void testLn()
     {
         for (double doubleValue : DOUBLE_VALUES) {
-            assertThat(assertions.function("ln", Double.toString(doubleValue)))
+            assertThat(assertions.function("ln", "DOUBLE '%s'".formatted(doubleValue)))
                     .isEqualTo(Math.log(doubleValue));
         }
 
@@ -1020,7 +1102,7 @@ public class TestMathFunctions
     public void testLog2()
     {
         for (double doubleValue : DOUBLE_VALUES) {
-            assertThat(assertions.function("log2", Double.toString(doubleValue)))
+            assertThat(assertions.function("log2", "DOUBLE '%s'".formatted(doubleValue)))
                     .isEqualTo(Math.log(doubleValue) / Math.log(2));
         }
 
@@ -1032,7 +1114,7 @@ public class TestMathFunctions
     public void testLog10()
     {
         for (double doubleValue : DOUBLE_VALUES) {
-            assertThat(assertions.function("log10", Double.toString(doubleValue)))
+            assertThat(assertions.function("log10", "DOUBLE '%s'".formatted(doubleValue)))
                     .isEqualTo(Math.log10(doubleValue));
         }
 
@@ -1045,7 +1127,7 @@ public class TestMathFunctions
     {
         for (double doubleValue : DOUBLE_VALUES) {
             for (double base : DOUBLE_VALUES) {
-                assertThat(assertions.function("log", Double.toString(base), Double.toString(doubleValue)))
+                assertThat(assertions.function("log", "DOUBLE '%s'".formatted(base), "DOUBLE '%s'".formatted(doubleValue)))
                         .isEqualTo(Math.log(doubleValue) / Math.log(base));
 
                 assertThat(assertions.function("log", "REAL '%s'".formatted((float) base), "REAL '%s'".formatted((float) doubleValue)))
@@ -1132,6 +1214,13 @@ public class TestMathFunctions
             }
         }
 
+        for (double left : doubleLefts) {
+            for (double right : doubleRights) {
+                assertThat(assertions.function("mod", "NUMBER '%s'".formatted(left), "NUMBER '%s'".formatted(right)))
+                        .isEqualTo(number(round(left % right, 6)));
+            }
+        }
+
         assertThat(assertions.function("mod", "5.0E0", "NULL"))
                 .isNull(DOUBLE);
 
@@ -1214,6 +1303,24 @@ public class TestMathFunctions
     @Test
     public void testIsInfinite()
     {
+        // precise numeric types
+        assertThat(assertions.function("is_infinite", "TINYINT '100'"))
+                .isEqualTo(false);
+        assertThat(assertions.function("is_infinite", "SMALLINT '1000'"))
+                .isEqualTo(false);
+        assertThat(assertions.function("is_infinite", "INTEGER '100000'"))
+                .isEqualTo(false);
+        assertThat(assertions.function("is_infinite", "BIGINT '100000'"))
+                .isEqualTo(false);
+        assertThat(assertions.function("is_infinite", "DECIMAL '100000'"))
+                .isEqualTo(false);
+        assertThat(assertions.function("is_infinite", "DECIMAL '10000000000000000000000000000000000000'"))
+                .isEqualTo(false);
+
+        // DOUBLE
+        assertThat(assertions.function("is_infinite", "100000.0"))
+                .isEqualTo(false);
+
         assertThat(assertions.function("is_infinite", "1.0E0 / 0.0E0"))
                 .isEqualTo(true);
 
@@ -1221,6 +1328,10 @@ public class TestMathFunctions
                 .isEqualTo(false);
 
         assertThat(assertions.function("is_infinite", "1.0E0 / 1.0E0"))
+                .isEqualTo(false);
+
+        // REAL
+        assertThat(assertions.function("is_infinite", "REAL '100000.0'"))
                 .isEqualTo(false);
 
         assertThat(assertions.function("is_infinite", "REAL '1.0' / REAL '0.0'"))
@@ -1234,17 +1345,49 @@ public class TestMathFunctions
 
         assertThat(assertions.function("is_infinite", "NULL"))
                 .isNull(BOOLEAN);
+
+        // NUMBER
+        assertThat(assertions.function("is_infinite", "NUMBER '+Infinity'"))
+                .isEqualTo(true);
+
+        assertThat(assertions.function("is_infinite", "NUMBER '-Infinity'"))
+                .isEqualTo(true);
+
+        assertThat(assertions.function("is_infinite", "NUMBER 'NaN'"))
+                .isEqualTo(false);
+
+        assertThat(assertions.function("is_infinite", "NUMBER '123.45'"))
+                .isEqualTo(false);
+
+        assertThat(assertions.function("is_infinite", "CAST(NULL AS NUMBER)"))
+                .isNull(BOOLEAN);
     }
 
     @Test
     public void testIsFinite()
     {
-        assertThat(assertions.function("is_finite", "100000"))
+        // precise numeric types
+        assertThat(assertions.function("is_finite", "TINYINT '100'"))
+                .isEqualTo(true);
+        assertThat(assertions.function("is_finite", "SMALLINT '1000'"))
+                .isEqualTo(true);
+        assertThat(assertions.function("is_finite", "INTEGER '100000'"))
+                .isEqualTo(true);
+        assertThat(assertions.function("is_finite", "BIGINT '100000'"))
+                .isEqualTo(true);
+        assertThat(assertions.function("is_finite", "DECIMAL '100000'"))
+                .isEqualTo(true);
+        assertThat(assertions.function("is_finite", "DECIMAL '10000000000000000000000000000000000000'"))
+                .isEqualTo(true);
+
+        // DOUBLE
+        assertThat(assertions.function("is_finite", "100000.0"))
                 .isEqualTo(true);
 
         assertThat(assertions.function("is_finite", "rand() / 0.0E0"))
                 .isEqualTo(false);
 
+        // REAL
         assertThat(assertions.function("is_finite", "REAL '754.2008E0'"))
                 .isEqualTo(true);
 
@@ -1253,11 +1396,45 @@ public class TestMathFunctions
 
         assertThat(assertions.function("is_finite", "NULL"))
                 .isNull(BOOLEAN);
+
+        // NUMBER
+        assertThat(assertions.function("is_finite", "NUMBER '123.45'"))
+                .isEqualTo(true);
+
+        assertThat(assertions.function("is_finite", "NUMBER 'NaN'"))
+                .isEqualTo(false);
+
+        assertThat(assertions.function("is_finite", "NUMBER '+Infinity'"))
+                .isEqualTo(false);
+
+        assertThat(assertions.function("is_finite", "NUMBER '-Infinity'"))
+                .isEqualTo(false);
+
+        assertThat(assertions.function("is_finite", "CAST(NULL AS NUMBER)"))
+                .isNull(BOOLEAN);
     }
 
     @Test
     public void testIsNaN()
     {
+        // precise numeric types
+        assertThat(assertions.function("is_nan", "TINYINT '100'"))
+                .isEqualTo(false);
+        assertThat(assertions.function("is_nan", "SMALLINT '1000'"))
+                .isEqualTo(false);
+        assertThat(assertions.function("is_nan", "INTEGER '100000'"))
+                .isEqualTo(false);
+        assertThat(assertions.function("is_nan", "BIGINT '100000'"))
+                .isEqualTo(false);
+        assertThat(assertions.function("is_nan", "DECIMAL '100000'"))
+                .isEqualTo(false);
+        assertThat(assertions.function("is_nan", "DECIMAL '10000000000000000000000000000000000000'"))
+                .isEqualTo(false);
+
+        // DOUBLE
+        assertThat(assertions.function("is_nan", "100000.0"))
+                .isEqualTo(false);
+
         assertThat(assertions.function("is_nan", "0.0E0 / 0.0E0"))
                 .isEqualTo(true);
 
@@ -1269,6 +1446,10 @@ public class TestMathFunctions
 
         assertThat(assertions.function("is_nan", "nan()"))
                 .isEqualTo(true);
+
+        // REAL
+        assertThat(assertions.function("is_nan", "REAL '100000.0'"))
+                .isEqualTo(false);
 
         assertThat(assertions.function("is_nan", "REAL 'NaN'"))
                 .isEqualTo(true);
@@ -1286,6 +1467,22 @@ public class TestMathFunctions
                 .isEqualTo(true);
 
         assertThat(assertions.function("is_nan", "NULL"))
+                .isNull(BOOLEAN);
+
+        // NUMBER
+        assertThat(assertions.function("is_nan", "NUMBER 'NaN'"))
+                .isEqualTo(true);
+
+        assertThat(assertions.function("is_nan", "NUMBER '123.45'"))
+                .isEqualTo(false);
+
+        assertThat(assertions.function("is_nan", "NUMBER '+Infinity'"))
+                .isEqualTo(false);
+
+        assertThat(assertions.function("is_nan", "NUMBER '-Infinity'"))
+                .isEqualTo(false);
+
+        assertThat(assertions.function("is_nan", "CAST(NULL AS NUMBER)"))
                 .isNull(BOOLEAN);
     }
 
@@ -1315,7 +1512,7 @@ public class TestMathFunctions
 
         for (long left : intLefts) {
             for (double right : doubleRights) {
-                assertThat(assertions.function("power", Long.toString(left), Double.toString(right)))
+                assertThat(assertions.function("power", Long.toString(left), "DOUBLE '%s'".formatted(right)))
                         .isEqualTo(Math.pow(left, right));
 
                 assertThat(assertions.function("power", Long.toString(left), "REAL '%s'".formatted((float) right)))
@@ -1325,7 +1522,7 @@ public class TestMathFunctions
 
         for (double left : doubleLefts) {
             for (long right : intRights) {
-                assertThat(assertions.function("power", Double.toString(left), Long.toString(right)))
+                assertThat(assertions.function("power", "DOUBLE '%s'".formatted(left), Long.toString(right)))
                         .isEqualTo(Math.pow(left, right));
 
                 assertThat(assertions.function("power", "REAL '%s'".formatted((float) left), Long.toString(right)))
@@ -1335,7 +1532,7 @@ public class TestMathFunctions
 
         for (double left : doubleLefts) {
             for (double right : doubleRights) {
-                assertThat(assertions.function("power", Double.toString(left), Double.toString(right)))
+                assertThat(assertions.function("power", "DOUBLE '%s'".formatted(left), "DOUBLE '%s'".formatted(right)))
                         .isEqualTo(Math.pow(left, right));
 
                 assertThat(assertions.function("power", "REAL '%s'".formatted(left), "REAL '%s'".formatted(right)))
@@ -1361,7 +1558,7 @@ public class TestMathFunctions
     public void testRadians()
     {
         for (double doubleValue : DOUBLE_VALUES) {
-            assertThat(assertions.function("radians", Double.toString(doubleValue)))
+            assertThat(assertions.function("radians", "DOUBLE '%s'".formatted(doubleValue)))
                     .isEqualTo(Math.toRadians(doubleValue));
 
             assertThat(assertions.function("radians", "REAL '%s'".formatted((float) doubleValue)))
@@ -2399,6 +2596,115 @@ public class TestMathFunctions
 
         assertThat(assertions.function("round", "-1.0E0 / 0", "2"))
                 .isEqualTo(Double.NEGATIVE_INFINITY);
+
+        // NUMBER
+        assertThat(assertions.function("round", "NUMBER '123.45'"))
+                .isEqualTo(number("123"));
+
+        assertThat(assertions.function("round", "NUMBER '123.5'"))
+                .isEqualTo(number("124"));
+
+        assertThat(assertions.function("round", "NUMBER '-123.5'"))
+                .isEqualTo(number("-124"));
+
+        assertThat(assertions.function("round", "NUMBER 'NaN'"))
+                .isEqualTo(number(Double.NaN));
+
+        // NUMBER with decimals parameter
+        assertThat(assertions.function("round", "NUMBER '123.456'", "0"))
+                .isEqualTo(number("123"));
+
+        assertThat(assertions.function("round", "NUMBER '123.456'", "1"))
+                .isEqualTo(number("123.5"));
+
+        assertThat(assertions.function("round", "NUMBER '123.456'", "2"))
+                .isEqualTo(number("123.46"));
+
+        assertThat(assertions.function("round", "NUMBER '123.456'", "3"))
+                .isEqualTo(number("123.456"));
+
+        assertThat(assertions.function("round", "NUMBER '123.456'", "4"))
+                .isEqualTo(number("123.456"));
+
+        assertThat(assertions.function("round", "NUMBER '-123.456'", "0"))
+                .isEqualTo(number("-123"));
+
+        assertThat(assertions.function("round", "NUMBER '-123.456'", "1"))
+                .isEqualTo(number("-123.5"));
+
+        assertThat(assertions.function("round", "NUMBER '-123.456'", "2"))
+                .isEqualTo(number("-123.46"));
+
+        assertThat(assertions.function("round", "NUMBER '123.5'", "0"))
+                .isEqualTo(number("124"));
+
+        assertThat(assertions.function("round", "NUMBER '-123.5'", "0"))
+                .isEqualTo(number("-124"));
+
+        assertThat(assertions.function("round", "NUMBER '999.999'", "2"))
+                .isEqualTo(number("1E+3"));
+
+        assertThat(assertions.function("round", "NUMBER '-999.999'", "2"))
+                .isEqualTo(number("-1E+3"));
+
+        // NUMBER with negative decimals (round to left of decimal point)
+        assertThat(assertions.function("round", "NUMBER '123.456'", "-1"))
+                .isEqualTo(number("12E+1"));
+
+        assertThat(assertions.function("round", "NUMBER '125.456'", "-1"))
+                .isEqualTo(number("13E+1"));
+
+        assertThat(assertions.function("round", "NUMBER '123.456'", "-2"))
+                .isEqualTo(number("1E+2"));
+
+        assertThat(assertions.function("round", "NUMBER '150'", "-2"))
+                .isEqualTo(number("2E+2"));
+
+        assertThat(assertions.function("round", "NUMBER '149'", "-2"))
+                .isEqualTo(number("1E+2"));
+
+        assertThat(assertions.function("round", "NUMBER '-123.456'", "-1"))
+                .isEqualTo(number("-12E+1"));
+
+        assertThat(assertions.function("round", "NUMBER '-125.456'", "-1"))
+                .isEqualTo(number("-13E+1"));
+
+        assertThat(assertions.function("round", "NUMBER '12345678901234567890.123456789'", "5"))
+                .isEqualTo(number("12345678901234567890.12346"));
+
+        assertThat(assertions.function("round", "NUMBER '12345678901234567890.123456789'", "-5"))
+                .isEqualTo(number("123456789012346E+5"));
+
+        // NUMBER with NaN and Infinity
+        assertThat(assertions.function("round", "NUMBER 'NaN'", "0"))
+                .isEqualTo(number(Double.NaN));
+
+        assertThat(assertions.function("round", "NUMBER 'NaN'", "5"))
+                .isEqualTo(number(Double.NaN));
+
+        assertThat(assertions.function("round", "NUMBER 'NaN'", "-5"))
+                .isEqualTo(number(Double.NaN));
+
+        assertThat(assertions.function("round", "NUMBER '+Infinity'", "0"))
+                .isEqualTo(number(Double.POSITIVE_INFINITY));
+
+        assertThat(assertions.function("round", "NUMBER '+Infinity'", "5"))
+                .isEqualTo(number(Double.POSITIVE_INFINITY));
+
+        assertThat(assertions.function("round", "NUMBER '+Infinity'", "-5"))
+                .isEqualTo(number(Double.POSITIVE_INFINITY));
+
+        assertThat(assertions.function("round", "NUMBER '-Infinity'", "0"))
+                .isEqualTo(number(Double.NEGATIVE_INFINITY));
+
+        assertThat(assertions.function("round", "NUMBER '-Infinity'", "5"))
+                .isEqualTo(number(Double.NEGATIVE_INFINITY));
+
+        assertThat(assertions.function("round", "NUMBER '-Infinity'", "-5"))
+                .isEqualTo(number(Double.NEGATIVE_INFINITY));
+
+        assertThat(assertions.function("round", "CAST(NULL AS NUMBER)", "5"))
+                .isNull(NUMBER);
     }
 
     @Test
@@ -2503,13 +2809,35 @@ public class TestMathFunctions
 
         assertThat(assertions.function("sign", "DECIMAL '-1230.000000000000000'"))
                 .isEqualTo(decimal("-1", createDecimalType(1)));
+
+        // NUMBER
+        assertThat(assertions.function("sign", "CAST(NULL AS NUMBER)"))
+                .isNull(NUMBER);
+
+        assertThat(assertions.function("sign", "NUMBER '0'"))
+                .isEqualTo(number("0"));
+
+        assertThat(assertions.function("sign", "NUMBER '123.45'"))
+                .isEqualTo(number("1"));
+
+        assertThat(assertions.function("sign", "NUMBER '-123.45'"))
+                .isEqualTo(number("-1"));
+
+        assertThat(assertions.function("sign", "NUMBER 'NaN'"))
+                .isEqualTo(number(Double.NaN));
+
+        assertThat(assertions.function("sign", "NUMBER '+Infinity'"))
+                .isEqualTo(number("1"));
+
+        assertThat(assertions.function("sign", "NUMBER '-Infinity'"))
+                .isEqualTo(number("-1"));
     }
 
     @Test
     public void testSin()
     {
         for (double doubleValue : DOUBLE_VALUES) {
-            assertThat(assertions.function("sin", Double.toString(doubleValue)))
+            assertThat(assertions.function("sin", "DOUBLE '%s'".formatted(doubleValue)))
                     .isEqualTo(Math.sin(doubleValue));
 
             assertThat(assertions.function("sin", "REAL '%s'".formatted((float) doubleValue)))
@@ -2524,7 +2852,7 @@ public class TestMathFunctions
     public void testSinh()
     {
         for (double doubleValue : DOUBLE_VALUES) {
-            assertThat(assertions.function("sinh", Double.toString(doubleValue)))
+            assertThat(assertions.function("sinh", "DOUBLE '%s'".formatted(doubleValue)))
                     .isEqualTo(Math.sinh(doubleValue));
 
             assertThat(assertions.function("sinh", "REAL '%s'".formatted((float) doubleValue)))
@@ -2539,7 +2867,7 @@ public class TestMathFunctions
     public void testSqrt()
     {
         for (double doubleValue : DOUBLE_VALUES) {
-            assertThat(assertions.function("sqrt", Double.toString(doubleValue)))
+            assertThat(assertions.function("sqrt", "DOUBLE '%s'".formatted(doubleValue)))
                     .isEqualTo(Math.sqrt(doubleValue));
 
             assertThat(assertions.function("sqrt", "REAL '%s'".formatted((float) doubleValue)))
@@ -2554,7 +2882,7 @@ public class TestMathFunctions
     public void testTan()
     {
         for (double doubleValue : DOUBLE_VALUES) {
-            assertThat(assertions.function("tan", Double.toString(doubleValue)))
+            assertThat(assertions.function("tan", "DOUBLE '%s'".formatted(doubleValue)))
                     .isEqualTo(Math.tan(doubleValue));
 
             assertThat(assertions.function("tan", "REAL '%s'".formatted((float) doubleValue)))
@@ -2569,7 +2897,7 @@ public class TestMathFunctions
     public void testTanh()
     {
         for (double doubleValue : DOUBLE_VALUES) {
-            assertThat(assertions.function("tanh", Double.toString(doubleValue)))
+            assertThat(assertions.function("tanh", "DOUBLE '%s'".formatted(doubleValue)))
                     .isEqualTo(Math.tanh(doubleValue));
 
             assertThat(assertions.function("tanh", "REAL '%s'".formatted((float) doubleValue)))
@@ -3653,5 +3981,33 @@ public class TestMathFunctions
 
         assertThat(assertions.function("wilson_interval_upper", "1250", "1310", "1.96e0"))
                 .isEqualTo(0.9642524717143908);
+    }
+
+    private static double round(double value, int decimalPlaces)
+    {
+        if (!Double.isFinite(value)) {
+            return value;
+        }
+        checkArgument(decimalPlaces >= 0);
+        double multiplier = Math.powExact(10, decimalPlaces);
+        return Math.round(value * multiplier) / multiplier;
+    }
+
+    private static SqlNumber number(String value)
+    {
+        return new SqlNumber(value);
+    }
+
+    private static SqlNumber number(double value)
+    {
+        if (Double.isNaN(value)) {
+            return new SqlNumber(new TrinoNumber.NotANumber());
+        }
+        if (Double.isInfinite(value)) {
+            return new SqlNumber(new TrinoNumber.Infinity(value == Double.NEGATIVE_INFINITY));
+        }
+        BigDecimal bigDecimal = new BigDecimal(Double.toString(value));
+        checkArgument(bigDecimal.doubleValue() == value, "Value %s cannot be represented as a BigDecimal losslessly", value);
+        return new SqlNumber(new TrinoNumber.BigDecimalValue(bigDecimal.stripTrailingZeros()));
     }
 }

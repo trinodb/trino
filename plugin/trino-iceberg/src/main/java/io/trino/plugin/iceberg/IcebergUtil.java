@@ -39,6 +39,7 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.ConnectorTableCredentials;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.function.InvocationConvention;
@@ -123,10 +124,12 @@ import static io.trino.plugin.hive.HiveCompressionCodec.ZSTD;
 import static io.trino.plugin.iceberg.ColumnIdentity.createColumnIdentity;
 import static io.trino.plugin.iceberg.IcebergColumnHandle.fileModifiedTimeColumnHandle;
 import static io.trino.plugin.iceberg.IcebergColumnHandle.fileModifiedTimeColumnMetadata;
+import static io.trino.plugin.iceberg.IcebergColumnHandle.lastUpdatedSequenceNumberColumnMetadata;
 import static io.trino.plugin.iceberg.IcebergColumnHandle.partitionColumnHandle;
 import static io.trino.plugin.iceberg.IcebergColumnHandle.partitionColumnMetadata;
 import static io.trino.plugin.iceberg.IcebergColumnHandle.pathColumnHandle;
 import static io.trino.plugin.iceberg.IcebergColumnHandle.pathColumnMetadata;
+import static io.trino.plugin.iceberg.IcebergColumnHandle.rowIdColumnMetadata;
 import static io.trino.plugin.iceberg.IcebergDefaultValues.formatIcebergDefaultAsSql;
 import static io.trino.plugin.iceberg.IcebergDefaultValues.parseDefaultValue;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_FILESYSTEM_ERROR;
@@ -433,10 +436,10 @@ public final class IcebergUtil
                 .collect(toImmutableList());
     }
 
-    public static List<ColumnMetadata> getColumnMetadatas(Schema schema, TypeManager typeManager)
+    public static List<ColumnMetadata> getColumnMetadatas(Schema schema, TypeManager typeManager, int formatVersion)
     {
         List<NestedField> icebergColumns = schema.columns();
-        ImmutableList.Builder<ColumnMetadata> columns = builderWithExpectedSize(icebergColumns.size() + 3);
+        ImmutableList.Builder<ColumnMetadata> columns = builderWithExpectedSize(icebergColumns.size() + 5);
         for (NestedField column : icebergColumns) {
             columns.add(ColumnMetadata.builder()
                     .setName(column.name())
@@ -448,6 +451,10 @@ public final class IcebergUtil
         }
         columns.add(partitionColumnMetadata());
         columns.add(pathColumnMetadata());
+        if (formatVersion >= 3) {
+            columns.add(rowIdColumnMetadata());
+            columns.add(lastUpdatedSequenceNumberColumnMetadata());
+        }
         columns.add(fileModifiedTimeColumnMetadata());
         return columns.build();
     }
@@ -1313,5 +1320,13 @@ public final class IcebergUtil
             case DATA -> ManifestFiles.read(manifest, fileIO);
             case DELETES -> ManifestFiles.readDeleteManifest(manifest, fileIO, specsById);
         };
+    }
+
+    public static Map<String, String> getFileIoProperties(Optional<ConnectorTableCredentials> tableCredentials)
+    {
+        if (tableCredentials.isPresent() && tableCredentials.get() instanceof IcebergTableCredentials(Map<String, String> properties)) {
+            return properties;
+        }
+        return ImmutableMap.of();
     }
 }

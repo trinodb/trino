@@ -430,7 +430,7 @@ public final class DeltaLakeSchemaSupport
     {
         if (serializeSupportedPrimitiveType(type).isEmpty() ||
                 (type instanceof TimestampType timestampType && timestampType.getPrecision() != 6) ||
-                (type instanceof TimestampWithTimeZoneType timestampWithTimeZoneType && timestampWithTimeZoneType.getPrecision() != 6)) {  // was != 3
+                (type instanceof TimestampWithTimeZoneType timestampWithTimeZoneType && timestampWithTimeZoneType.getPrecision() != 6)) {
             throw new TrinoException(DELTA_LAKE_INVALID_SCHEMA, "Unsupported type: " + type);
         }
     }

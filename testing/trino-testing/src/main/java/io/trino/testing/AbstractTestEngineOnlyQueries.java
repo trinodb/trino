@@ -721,7 +721,7 @@ public abstract class AbstractTestEngineOnlyQueries
                 computeActual("SELECT ARRAY[CAST(282 AS DECIMAL(22,1)), CAST(282 AS DECIMAL(10,1))] || CAST(292 AS BIGINT)"),
                 computeActual("SELECT ARRAY[CAST(282 AS DECIMAL(22,1)), CAST(282 AS DECIMAL(10,1)), CAST(292 AS DECIMAL(19,0))]"));
 
-        // DECIMAL - DECIMAL
+        // DECIMAL - DOUBLE
         assertQuery("SELECT CAST(1.1 AS DECIMAL(38,1)) + CAST(1.1 AS DOUBLE)");
         assertQuery("SELECT CAST(1.1 AS DECIMAL(38,1)) = CAST(1.1 AS DOUBLE)");
         assertQuery("SELECT SIN(CAST(1.1 AS DECIMAL(38,1)))");
@@ -743,6 +743,13 @@ public abstract class AbstractTestEngineOnlyQueries
         // SMALLINT - DECIMAL
         assertQuery("SELECT CAST(1.1 AS DECIMAL(38,1)) + CAST(CAST(121 AS DECIMAL(30,1)) AS SMALLINT)");
         assertQuery("SELECT CAST(292 AS DECIMAL(38,1)) = CAST(CAST(121 AS DECIMAL(30,1)) AS SMALLINT)");
+
+        // DECIMAL - NUMBER
+        assertThat(query("SELECT CAST(1.1 AS DECIMAL(38,1)) + CAST(1.1 AS NUMBER)")).matches("VALUES NUMBER '2.2'");
+        assertThat(query("SELECT CAST(1.1 AS DECIMAL(7,1)) = CAST(1.1 AS NUMBER)")).matches("VALUES true");
+        assertThat(query("SELECT CAST(1.1 AS DECIMAL(38,1)) = CAST(1.1 AS NUMBER)")).matches("VALUES true");
+        assertThat(query("SELECT ARRAY[CAST(282.1 AS NUMBER), CAST(283.2 AS NUMBER)] || CAST(101.3 AS DECIMAL(5,1))"))
+                .matches("SELECT ARRAY[CAST(282.1 AS NUMBER), CAST(283.2 AS NUMBER), CAST(101.3 AS NUMBER)]");
 
         // Complex coercions across joins
         assertQuery("SELECT * FROM (" +
@@ -828,7 +835,7 @@ public abstract class AbstractTestEngineOnlyQueries
                     // There currently is no coercion between number and real/double/decimal
                     boolean unsupported =
                             both.contains("number") &&
-                            (both.contains("real") || both.contains("double") || both.contains("decimal(10,5)") || both.contains("decimal(24,11)"));
+                            (both.contains("real") || both.contains("double"));
                     if (unsupported) {
                         assertThat(query(add)).failure().hasMessageMatching("line 1:\\d+: Cannot apply operator: .* \\+ .*");
                         assertThat(query(subtract)).failure().hasMessageMatching("line 1:\\d+: Cannot apply operator: .* - .*");
