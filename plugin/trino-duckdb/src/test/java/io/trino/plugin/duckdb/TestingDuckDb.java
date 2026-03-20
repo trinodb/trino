@@ -27,6 +27,8 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.Properties;
 
+import static org.duckdb.DuckDBDriver.DUCKDB_USER_AGENT_PROPERTY;
+
 public class TestingDuckDb
         implements Closeable
 {
@@ -49,7 +51,9 @@ public class TestingDuckDb
 
     public void execute(@Language("SQL") String sql)
     {
-        try (Connection connection = DriverManager.getConnection(getJdbcUrl(), new Properties());
+        Properties properties = new Properties();
+        properties.put(DUCKDB_USER_AGENT_PROPERTY, "trino/testversion");
+        try (Connection connection = DriverManager.getConnection(getJdbcUrl(), properties);
                 Statement statement = connection.createStatement()) {
             statement.execute(sql);
         }
