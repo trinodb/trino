@@ -26,9 +26,20 @@ import io.trino.server.SessionContext;
 import io.trino.server.protocol.Slug;
 import io.trino.spi.Plugin;
 import io.trino.spi.QueryId;
+import io.trino.spi.TrinoException;
+import io.trino.spi.connector.ColumnHandle;
+import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorFactory;
+import io.trino.spi.connector.ConnectorMetadata;
+import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.ConnectorTableHandle;
+import io.trino.spi.connector.ConnectorTableMetadata;
+import io.trino.spi.connector.ConnectorTableVersion;
 import io.trino.spi.connector.ConnectorViewDefinition;
+import io.trino.spi.connector.RelationColumnsMetadata;
 import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.connector.SchemaTablePrefix;
+import io.trino.spi.connector.TableColumnsMetadata;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TransactionBuilder;
 import io.trino.tests.tpch.TpchQueryRunner;
@@ -42,19 +53,24 @@ import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
 
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.CompletionService;
 import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.ExecutorCompletionService;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.UnaryOperator;
 
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.execution.QueryState.FAILED;
 import static io.trino.execution.QueryState.RUNNING;
+import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -73,6 +89,7 @@ import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 @Execution(SAME_THREAD) // metadataManager.getActiveQueryIds() is shared mutable state that affects the test outcome
 public class TestMetadataManager
 {
+    private final AtomicBoolean failMetadataCall = new AtomicBoolean();
     private QueryRunner queryRunner;
     private MetadataManager metadataManager;
 
@@ -89,6 +106,23 @@ public class TestMetadataManager
                 SchemaTableName viewTableName = new SchemaTableName("UPPER_CASE_SCHEMA", "test_view");
 
                 MockConnectorFactory connectorFactory = MockConnectorFactory.builder()
+                        .withMetadataWrapper(delegate -> new ForwardingConnectorMetadata()
+                        {
+                            @Override
+                            protected ConnectorMetadata delegate()
+                            {
+                                return delegate;
+                            }
+
+                            @Override
+                            public void beginQuery(ConnectorSession session)
+                            {
+                                if (failMetadataCall.get()) {
+                                    throw new TrinoException(GENERIC_INTERNAL_ERROR, new IllegalStateException("Failed to get connector metadata"));
+                                }
+                                delegate().beginQuery(session);
+                            }
+                        })
                         .withListSchemaNames(session -> ImmutableList.of("UPPER_CASE_SCHEMA"))
                         .withGetTableHandle((session, schemaTableName) -> {
                             if (schemaTableName.equals(viewTableName)) {
@@ -223,6 +257,35 @@ public class TestMetadataManager
                 .isEmpty();
     }
 
+    @Test
+    public void testCreateCatalogFailure()
+    {
+        failMetadataCall.set(true);
+        try {
+            queryRunner.execute("CREATE CATALOG mock1 USING mock");
+            assertThat(queryRunner.execute("SHOW CATALOGS").getOnlyColumnAsSet()).contains("mock1");
+        }
+        finally {
+            failMetadataCall.set(false);
+        }
+    }
+
+    @Test
+    public void testDropCatalogFailure()
+    {
+        try {
+            queryRunner.execute("CREATE CATALOG mock2 USING mock");
+            assertThat(queryRunner.execute("SHOW CATALOGS").getOnlyColumnAsSet()).contains("mock2");
+            failMetadataCall.set(true);
+            assertThatThrownBy(() -> queryRunner.execute("DROP CATALOG mock2"))
+                    .hasMessageContaining("Failed to get connector metadata");
+            assertThat(queryRunner.execute("SHOW CATALOGS").getOnlyColumnAsSet()).doesNotContain("mock2");
+        }
+        finally {
+            failMetadataCall.set(false);
+        }
+    }
+
     // Probabilistic partial regression test for https://github.com/trinodb/trino/issues/28017
     @RepeatedTest(4)
     public void testMetadataWithDynamicCatalogs()
@@ -299,5 +362,77 @@ public class TestMetadataManager
                 Optional.of("test_owner"),
                 false,
                 ImmutableList.of());
+    }
+
+    private abstract static class ForwardingConnectorMetadata
+            implements ConnectorMetadata
+    {
+        protected abstract ConnectorMetadata delegate();
+
+        @Override
+        public List<String> listSchemaNames(ConnectorSession session)
+        {
+            return delegate().listSchemaNames(session);
+        }
+
+        @Override
+        public ConnectorTableHandle getTableHandle(ConnectorSession session, SchemaTableName tableName, Optional<ConnectorTableVersion> startVersion, Optional<ConnectorTableVersion> endVersion)
+        {
+            return delegate().getTableHandle(session, tableName, startVersion, endVersion);
+        }
+
+        @Override
+        public ConnectorTableMetadata getTableMetadata(ConnectorSession session, ConnectorTableHandle tableHandle)
+        {
+            return delegate().getTableMetadata(session, tableHandle);
+        }
+
+        @Override
+        public Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle)
+        {
+            return delegate().getColumnHandles(session, tableHandle);
+        }
+
+        @Override
+        public ColumnMetadata getColumnMetadata(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle columnHandle)
+        {
+            return delegate().getColumnMetadata(session, tableHandle, columnHandle);
+        }
+
+        @Override
+        public List<SchemaTableName> listTables(ConnectorSession session, Optional<String> schemaName)
+        {
+            return delegate().listTables(session, schemaName);
+        }
+
+        @Override
+        public Iterator<TableColumnsMetadata> streamTableColumns(ConnectorSession session, SchemaTablePrefix prefix)
+        {
+            return delegate().streamTableColumns(session, prefix);
+        }
+
+        @Override
+        public Iterator<RelationColumnsMetadata> streamRelationColumns(ConnectorSession session, Optional<String> schemaName, UnaryOperator<Set<SchemaTableName>> relationFilter)
+        {
+            return delegate().streamRelationColumns(session, schemaName, relationFilter);
+        }
+
+        @Override
+        public Map<SchemaTableName, ConnectorViewDefinition> getViews(ConnectorSession session, Optional<String> schemaName)
+        {
+            return delegate().getViews(session, schemaName);
+        }
+
+        @Override
+        public Optional<ConnectorViewDefinition> getView(ConnectorSession session, SchemaTableName viewName)
+        {
+            return delegate().getView(session, viewName);
+        }
+
+        @Override
+        public void cleanupQuery(ConnectorSession session)
+        {
+            delegate().cleanupQuery(session);
+        }
     }
 }
