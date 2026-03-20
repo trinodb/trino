@@ -36,6 +36,7 @@ public class Identity
     private final Map<String, SelectedRole> catalogRoles;
     private final Map<String, String> extraCredentials;
     private final Optional<Runnable> onDestroy;
+    private final Map<String, String> claims;
 
     private Identity(
             String user,
@@ -44,6 +45,7 @@ public class Identity
             Set<String> enabledRoles,
             Map<String, SelectedRole> catalogRoles,
             Map<String, String> extraCredentials,
+            Map<String, String> claims,
             Optional<Runnable> onDestroy)
     {
         this.user = requireNonNull(user, "user is null");
@@ -52,6 +54,7 @@ public class Identity
         this.enabledRoles = Set.copyOf(requireNonNull(enabledRoles, "enabledRoles is null"));
         this.catalogRoles = Map.copyOf(requireNonNull(catalogRoles, "catalogRoles is null"));
         this.extraCredentials = Map.copyOf(requireNonNull(extraCredentials, "extraCredentials is null"));
+        this.claims = Map.copyOf(requireNonNull(claims, "claims is null"));
         this.onDestroy = requireNonNull(onDestroy, "onDestroy is null");
     }
 
@@ -92,6 +95,11 @@ public class Identity
     public Map<String, String> getExtraCredentials()
     {
         return extraCredentials;
+    }
+
+    public Map<String, String> getClaims()
+    {
+        return claims;
     }
 
     public ConnectorIdentity toConnectorIdentity()
@@ -201,6 +209,7 @@ public class Identity
         private Map<String, SelectedRole> connectorRoles = new HashMap<>();
         private Map<String, String> extraCredentials = new HashMap<>();
         private Optional<Runnable> onDestroy = Optional.empty();
+        private Map<String, String> claims = new HashMap<>();
 
         public Builder(String user)
         {
@@ -312,9 +321,21 @@ public class Identity
             return this;
         }
 
+        public Builder withClaims(Map<String, String> claims)
+        {
+            this.claims = new HashMap<>(requireNonNull(claims, "claims is null"));
+            return this;
+        }
+
+        public Builder withAdditionalClaims(Map<String, String> claims)
+        {
+            this.claims.putAll(requireNonNull(claims, "claims is null"));
+            return this;
+        }
+
         public Identity build()
         {
-            return new Identity(user, groups, principal, enabledRoles, connectorRoles, extraCredentials, onDestroy);
+            return new Identity(user, groups, principal, enabledRoles, connectorRoles, extraCredentials, claims, onDestroy);
         }
     }
 
