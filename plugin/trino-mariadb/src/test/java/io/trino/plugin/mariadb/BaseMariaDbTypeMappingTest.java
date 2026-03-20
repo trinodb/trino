@@ -17,7 +17,6 @@ import io.trino.Session;
 import io.trino.plugin.jdbc.UnsupportedTypeHandling;
 import io.trino.spi.type.TimeZoneKey;
 import io.trino.testing.AbstractTestQueryFramework;
-import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingSession;
 import io.trino.testing.datatype.CreateAndInsertDataSetup;
 import io.trino.testing.datatype.CreateAsSelectDataSetup;
@@ -73,7 +72,7 @@ import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
  */
 @TestInstance(PER_CLASS)
 @Execution(CONCURRENT)
-public class BaseMariaDbTypeMappingTest
+public abstract class BaseMariaDbTypeMappingTest
         extends AbstractTestQueryFramework
 {
     protected TestingMariaDbServer server;
@@ -91,14 +90,6 @@ public class BaseMariaDbTypeMappingTest
         checkIsGap(jvmZone, LocalDate.of(1932, 4, 1));
         checkIsGap(vilnius, LocalDate.of(1983, 4, 1));
         verify(vilnius.getRules().getValidOffsets(LocalDate.of(1983, 10, 1).atStartOfDay().minusMinutes(1)).size() == 2);
-    }
-
-    @Override
-    protected QueryRunner createQueryRunner()
-            throws Exception
-    {
-        server = closeAfterClass(new TestingMariaDbServer());
-        return MariaDbQueryRunner.builder(server).build();
     }
 
     @Test
@@ -819,7 +810,7 @@ public class BaseMariaDbTypeMappingTest
     {
         try (TestTable table = newTrinoTable("test_incorrect_timestamp", "(dt TIMESTAMP)")) {
             assertQueryFails(format("INSERT INTO %s VALUES (TIMESTAMP '1970-01-01 00:00:00.000')", table.getName()), ".*Failed to insert data.*");
-            assertQueryFails(format("INSERT INTO %s VALUES (TIMESTAMP '2038-01-19 03:14:08.000')", table.getName()), ".*Failed to insert data.*");
+            assertQueryFails(format("INSERT INTO %s VALUES (TIMESTAMP '2106-02-07 06:28:16.000')", table.getName()), ".*Failed to insert data.*");
         }
     }
 
