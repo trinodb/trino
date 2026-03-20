@@ -81,7 +81,7 @@ import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
 @TestInstance(PER_CLASS)
 @Execution(CONCURRENT)
-public class TestMySqlTypeMapping
+public class BaseMySqlTypeMappingTest
         extends AbstractTestQueryFramework
 {
     private TestingMySqlServer mySqlServer;
