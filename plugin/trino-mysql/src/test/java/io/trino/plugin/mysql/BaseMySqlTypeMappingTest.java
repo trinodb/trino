@@ -81,10 +81,10 @@ import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
 @TestInstance(PER_CLASS)
 @Execution(CONCURRENT)
-public class BaseMySqlTypeMappingTest
+public abstract class BaseMySqlTypeMappingTest
         extends AbstractTestQueryFramework
 {
-    private TestingMySqlServer mySqlServer;
+    protected TestingMySqlServer mySqlServer;
 
     private final ZoneId jvmZone = ZoneId.systemDefault();
     // no DST in 1970, but has DST in later years (e.g. 2018)
@@ -101,15 +101,6 @@ public class BaseMySqlTypeMappingTest
         verify(vilnius.getRules().getValidOffsets(dateOfLocalTimeChangeForwardAtMidnightInSomeZone.atStartOfDay()).isEmpty());
         LocalDate dateOfLocalTimeChangeBackwardAtMidnightInSomeZone = LocalDate.of(1983, 10, 1);
         verify(vilnius.getRules().getValidOffsets(dateOfLocalTimeChangeBackwardAtMidnightInSomeZone.atStartOfDay().minusMinutes(1)).size() == 2);
-    }
-
-    @Override
-    protected QueryRunner createQueryRunner()
-            throws Exception
-    {
-        mySqlServer = closeAfterClass(new TestingMySqlServer());
-        return MySqlQueryRunner.builder(mySqlServer)
-                .build();
     }
 
     @Test
