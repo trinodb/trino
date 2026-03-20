@@ -73,7 +73,7 @@ import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
  */
 @TestInstance(PER_CLASS)
 @Execution(CONCURRENT)
-public class TestMariaDbTypeMapping
+public class BaseMariaDbTypeMappingTest
         extends AbstractTestQueryFramework
 {
     protected TestingMariaDbServer server;
