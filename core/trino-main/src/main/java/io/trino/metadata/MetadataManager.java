@@ -839,9 +839,14 @@ public final class MetadataManager
     public void createCatalog(Session session, CatalogName catalog, ConnectorName connectorName, Map<String, String> properties, boolean notExists)
     {
         catalogManager.createCatalog(catalog, connectorName, properties, notExists);
-        CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, catalog.toString());
-        if (catalogMetadata.getSecurityManagement() == SYSTEM) {
-            systemSecurityMetadata.catalogCreated(session, catalog);
+        try {
+            CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, catalog.toString());
+            if (catalogMetadata.getSecurityManagement() == SYSTEM) {
+                systemSecurityMetadata.catalogCreated(session, catalog);
+            }
+        }
+        catch (TrinoException e) {
+            log.warn(e, "Exception occurred, during obtaining catalog metadata");
         }
     }
 
@@ -849,12 +854,19 @@ public final class MetadataManager
     public void dropCatalog(Session session, CatalogName catalog, boolean cascade)
     {
         Optional<CatalogMetadata> catalogMetadata = Optional.empty();
-        // there is a potential race condition here, TODO: https://github.com/trinodb/trino/issues/26927
-        Optional<Catalog> optionalCatalog = catalogManager.getCatalog(catalog);
-        if (optionalCatalog.isPresent() && optionalCatalog.get().getCatalogStatus() == OPERATIONAL) {
-            catalogMetadata = Optional.of(getCatalogMetadataForWrite(session, catalog.toString()));
+        try {
+            // there is a potential race condition here, TODO: https://github.com/trinodb/trino/issues/26927
+            Optional<Catalog> optionalCatalog = catalogManager.getCatalog(catalog);
+            if (optionalCatalog.isPresent() && optionalCatalog.get().getCatalogStatus() == OPERATIONAL) {
+                catalogMetadata = Optional.of(getCatalogMetadataForWrite(session, catalog.toString()));
+            }
         }
-        catalogManager.dropCatalog(catalog, cascade);
+        finally {
+            // During getCatalogMetadataForWrite - we could actually load metadata from the connector (and interact with datasource),
+            // and this operation could fail, but we still want to drop the catalog,
+            // because catalogMetadata needed only for post-drop action
+            catalogManager.dropCatalog(catalog, cascade);
+        }
         if (catalogMetadata.isPresent() && catalogMetadata.get().getSecurityManagement() == SYSTEM) {
             systemSecurityMetadata.catalogDropped(session, catalog);
         }
