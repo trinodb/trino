@@ -547,6 +547,7 @@
                                 <exclude>**/TestBigQueryInstanceCleaner.java</exclude>
                                 <exclude>**/TestBigQueryCaseInsensitiveMapping.java</exclude>
                                 <exclude>**/TestBigQueryCaseInsensitiveMappingWithCache.java</exclude>
+                                <exclude>**/TestBigQueryCaseInsensitiveMappingInstanceCleaner.java</exclude>
                                 <exclude>**/TestBigQuery*FailureRecoveryTest.java</exclude>
                                 <exclude>**/TestBigQueryWithProxyTest.java</exclude>
                                 <exclude>**/TestBigQueryParentProjectId.java</exclude>
@@ -573,30 +574,9 @@
                                 <include>**/TestBigQueryAvroConnectorTest.java</include>
                                 <include>**/TestBigQueryParentProjectId.java</include>
                                 <include>**/TestBigQueryWithBothProjectIdsSet.java</include>
-                            </includes>
-                        </configuration>
-                    </plugin>
-                </plugins>
-            </build>
-        </profile>
-
-        <!-- Separate profile for TestBigQueryCaseInsensitiveMapping until we can fully isolate it -->
-        <profile>
-            <id>cloud-tests-case-insensitive-mapping</id>
-            <activation>
-                <activeByDefault>false</activeByDefault>
-            </activation>
-            <build>
-                <plugins>
-                    <plugin>
-                        <groupId>org.apache.maven.plugins</groupId>
-                        <artifactId>maven-surefire-plugin</artifactId>
-                        <configuration>
-                            <includes>
                                 <include>**/TestBigQueryCaseInsensitiveMapping.java</include>
                                 <include>**/TestBigQueryCaseInsensitiveMappingWithCache.java</include>
-                                <!-- Also included here to make sure the case-insesitive project also gets cleaned up -->
-                                <include>**/TestBigQueryInstanceCleaner.java</include>
+                                <include>**/TestBigQueryCaseInsensitiveMappingInstanceCleaner.java</include>
                             </includes>
                         </configuration>
                     </plugin>
