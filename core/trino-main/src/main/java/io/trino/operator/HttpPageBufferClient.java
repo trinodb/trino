@@ -21,6 +21,7 @@ import com.google.common.io.LittleEndianDataInputStream;
 import com.google.common.net.MediaType;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
 import com.google.errorprone.annotations.ThreadSafe;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
 import io.airlift.http.client.HttpClient;
@@ -62,6 +63,7 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.base.Strings.nullToEmpty;
+import static com.google.common.util.concurrent.Futures.nonCancellationPropagating;
 import static io.airlift.http.client.HeaderNames.CONTENT_TYPE;
 import static io.airlift.http.client.HttpStatus.NO_CONTENT;
 import static io.airlift.http.client.HttpStatus.familyForStatusCode;
@@ -135,7 +137,7 @@ public final class HttpPageBufferClient
     @GuardedBy("this")
     private boolean closed;
     @GuardedBy("this")
-    private HttpResponseFuture<?> future;
+    private ListenableFuture<?> future;
     @GuardedBy("this")
     private Instant lastUpdate = Instant.now();
     @GuardedBy("this")
@@ -242,8 +244,8 @@ public final class HttpPageBufferClient
             state = "queued";
         }
         String httpRequestState = "not scheduled";
-        if (future != null) {
-            httpRequestState = future.getState();
+        if (future != null && future instanceof HttpResponseFuture<?> responseFuture) {
+            httpRequestState = responseFuture.getState();
         }
 
         long rejectedRows = rowsRejected.get();
@@ -520,7 +522,8 @@ public final class HttpPageBufferClient
     private synchronized void destroyTaskResults()
     {
         HttpResponseFuture<StatusResponse> resultFuture = httpClient.executeAsync(prepareDelete().setUri(location).build(), createStatusResponseHandler());
-        future = resultFuture;
+        // Always destroy results
+        future = nonCancellationPropagating(resultFuture);
         Futures.addCallback(resultFuture, new FutureCallback<>()
         {
             @Override
