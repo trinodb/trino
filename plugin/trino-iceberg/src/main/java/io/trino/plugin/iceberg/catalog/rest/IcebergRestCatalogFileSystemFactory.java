@@ -19,6 +19,7 @@ import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.plugin.iceberg.IcebergFileSystemFactory;
 import io.trino.spi.security.ConnectorIdentity;
+import org.apache.iceberg.aws.s3.S3FileIOProperties;
 
 import java.util.Map;
 
@@ -30,10 +31,6 @@ import static java.util.Objects.requireNonNull;
 public class IcebergRestCatalogFileSystemFactory
         implements IcebergFileSystemFactory
 {
-    private static final String VENDED_S3_ACCESS_KEY = "s3.access-key-id";
-    private static final String VENDED_S3_SECRET_KEY = "s3.secret-access-key";
-    private static final String VENDED_S3_SESSION_TOKEN = "s3.session-token";
-
     private final TrinoFileSystemFactory fileSystemFactory;
     private final boolean vendedCredentialsEnabled;
 
@@ -48,9 +45,9 @@ public class IcebergRestCatalogFileSystemFactory
     public TrinoFileSystem create(ConnectorIdentity identity, Map<String, String> fileIoProperties)
     {
         if (vendedCredentialsEnabled &&
-                fileIoProperties.containsKey(VENDED_S3_ACCESS_KEY) &&
-                fileIoProperties.containsKey(VENDED_S3_SECRET_KEY) &&
-                fileIoProperties.containsKey(VENDED_S3_SESSION_TOKEN)) {
+                fileIoProperties.containsKey(S3FileIOProperties.ACCESS_KEY_ID) &&
+                fileIoProperties.containsKey(S3FileIOProperties.SECRET_ACCESS_KEY) &&
+                fileIoProperties.containsKey(S3FileIOProperties.SESSION_TOKEN)) {
             // Do not include original credentials as they should not be used in vended mode
             ConnectorIdentity identityWithExtraCredentials = ConnectorIdentity.forUser(identity.getUser())
                     .withGroups(identity.getGroups())
@@ -58,9 +55,9 @@ public class IcebergRestCatalogFileSystemFactory
                     .withEnabledSystemRoles(identity.getEnabledSystemRoles())
                     .withConnectorRole(identity.getConnectorRole())
                     .withExtraCredentials(ImmutableMap.<String, String>builder()
-                            .put(EXTRA_CREDENTIALS_ACCESS_KEY_PROPERTY, fileIoProperties.get(VENDED_S3_ACCESS_KEY))
-                            .put(EXTRA_CREDENTIALS_SECRET_KEY_PROPERTY, fileIoProperties.get(VENDED_S3_SECRET_KEY))
-                            .put(EXTRA_CREDENTIALS_SESSION_TOKEN_PROPERTY, fileIoProperties.get(VENDED_S3_SESSION_TOKEN))
+                            .put(EXTRA_CREDENTIALS_ACCESS_KEY_PROPERTY, fileIoProperties.get(S3FileIOProperties.ACCESS_KEY_ID))
+                            .put(EXTRA_CREDENTIALS_SECRET_KEY_PROPERTY, fileIoProperties.get(S3FileIOProperties.SECRET_ACCESS_KEY))
+                            .put(EXTRA_CREDENTIALS_SESSION_TOKEN_PROPERTY, fileIoProperties.get(S3FileIOProperties.SESSION_TOKEN))
                             .buildOrThrow())
                     .build();
             return fileSystemFactory.create(identityWithExtraCredentials);
