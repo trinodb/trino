@@ -20,9 +20,13 @@ import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.plugin.iceberg.IcebergFileSystemFactory;
 import io.trino.spi.security.ConnectorIdentity;
 import org.apache.iceberg.aws.s3.S3FileIOProperties;
+import org.apache.iceberg.gcp.GCPProperties;
 
 import java.util.Map;
 
+import static io.trino.filesystem.gcs.GcsFileSystemConstants.EXTRA_CREDENTIALS_GCS_OAUTH_TOKEN_EXPIRES_AT_PROPERTY;
+import static io.trino.filesystem.gcs.GcsFileSystemConstants.EXTRA_CREDENTIALS_GCS_OAUTH_TOKEN_PROPERTY;
+import static io.trino.filesystem.gcs.GcsFileSystemConstants.EXTRA_CREDENTIALS_GCS_PROJECT_ID_PROPERTY;
 import static io.trino.filesystem.s3.S3FileSystemConstants.EXTRA_CREDENTIALS_ACCESS_KEY_PROPERTY;
 import static io.trino.filesystem.s3.S3FileSystemConstants.EXTRA_CREDENTIALS_SECRET_KEY_PROPERTY;
 import static io.trino.filesystem.s3.S3FileSystemConstants.EXTRA_CREDENTIALS_SESSION_TOKEN_PROPERTY;
@@ -44,25 +48,51 @@ public class IcebergRestCatalogFileSystemFactory
     @Override
     public TrinoFileSystem create(ConnectorIdentity identity, Map<String, String> fileIoProperties)
     {
-        if (vendedCredentialsEnabled &&
-                fileIoProperties.containsKey(S3FileIOProperties.ACCESS_KEY_ID) &&
-                fileIoProperties.containsKey(S3FileIOProperties.SECRET_ACCESS_KEY) &&
-                fileIoProperties.containsKey(S3FileIOProperties.SESSION_TOKEN)) {
-            // Do not include original credentials as they should not be used in vended mode
-            ConnectorIdentity identityWithExtraCredentials = ConnectorIdentity.forUser(identity.getUser())
-                    .withGroups(identity.getGroups())
-                    .withPrincipal(identity.getPrincipal())
-                    .withEnabledSystemRoles(identity.getEnabledSystemRoles())
-                    .withConnectorRole(identity.getConnectorRole())
-                    .withExtraCredentials(ImmutableMap.<String, String>builder()
-                            .put(EXTRA_CREDENTIALS_ACCESS_KEY_PROPERTY, fileIoProperties.get(S3FileIOProperties.ACCESS_KEY_ID))
-                            .put(EXTRA_CREDENTIALS_SECRET_KEY_PROPERTY, fileIoProperties.get(S3FileIOProperties.SECRET_ACCESS_KEY))
-                            .put(EXTRA_CREDENTIALS_SESSION_TOKEN_PROPERTY, fileIoProperties.get(S3FileIOProperties.SESSION_TOKEN))
-                            .buildOrThrow())
-                    .build();
-            return fileSystemFactory.create(identityWithExtraCredentials);
+        if (vendedCredentialsEnabled) {
+            ImmutableMap.Builder<String, String> extraCredentialsBuilder = ImmutableMap.builder();
+
+            // handle s3
+            if (fileIoProperties.containsKey(S3FileIOProperties.ACCESS_KEY_ID) &&
+                    fileIoProperties.containsKey(S3FileIOProperties.SECRET_ACCESS_KEY) &&
+                    fileIoProperties.containsKey(S3FileIOProperties.SESSION_TOKEN)) {
+                extraCredentialsBuilder
+                        .put(EXTRA_CREDENTIALS_ACCESS_KEY_PROPERTY, fileIoProperties.get(S3FileIOProperties.ACCESS_KEY_ID))
+                        .put(EXTRA_CREDENTIALS_SECRET_KEY_PROPERTY, fileIoProperties.get(S3FileIOProperties.SECRET_ACCESS_KEY))
+                        .put(EXTRA_CREDENTIALS_SESSION_TOKEN_PROPERTY, fileIoProperties.get(S3FileIOProperties.SESSION_TOKEN));
+            }
+
+            // handle gcs
+            if (fileIoProperties.containsKey(GCPProperties.GCS_OAUTH2_TOKEN)) {
+                extraCredentialsBuilder.put(EXTRA_CREDENTIALS_GCS_OAUTH_TOKEN_PROPERTY, fileIoProperties.get(GCPProperties.GCS_OAUTH2_TOKEN));
+                addOptionalProperty(extraCredentialsBuilder, fileIoProperties, GCPProperties.GCS_OAUTH2_TOKEN_EXPIRES_AT, EXTRA_CREDENTIALS_GCS_OAUTH_TOKEN_EXPIRES_AT_PROPERTY);
+                addOptionalProperty(extraCredentialsBuilder, fileIoProperties, GCPProperties.GCS_PROJECT_ID, EXTRA_CREDENTIALS_GCS_PROJECT_ID_PROPERTY);
+            }
+
+            Map<String, String> extraCredentials = extraCredentialsBuilder.buildOrThrow();
+            if (!extraCredentials.isEmpty()) {
+                ConnectorIdentity identityWithExtraCredentials = ConnectorIdentity.forUser(identity.getUser())
+                        .withGroups(identity.getGroups())
+                        .withPrincipal(identity.getPrincipal())
+                        .withEnabledSystemRoles(identity.getEnabledSystemRoles())
+                        .withConnectorRole(identity.getConnectorRole())
+                        .withExtraCredentials(extraCredentials)
+                        .build();
+                return fileSystemFactory.create(identityWithExtraCredentials);
+            }
         }
 
         return fileSystemFactory.create(identity);
+    }
+
+    private static void addOptionalProperty(
+            ImmutableMap.Builder<String, String> builder,
+            Map<String, String> fileIoProperties,
+            String vendedKey,
+            String extraCredentialKey)
+    {
+        String value = fileIoProperties.get(vendedKey);
+        if (value != null) {
+            builder.put(extraCredentialKey, value);
+        }
     }
 }
