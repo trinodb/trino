@@ -33,7 +33,7 @@ import static io.trino.plugin.deltalake.transactionlog.DeltaLakeParquetStatistic
 import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MICROS;
-import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
+import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MICROS;
 import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
 import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_SECOND;
 import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_MICROSECOND;
@@ -185,23 +185,23 @@ public class TestDeltaLakeParquetStatisticsUtils
                 .withNumNulls(2)
                 .build();
 
-        assertThat(DeltaLakeParquetStatisticsUtils.jsonEncodeMin(ImmutableMap.of(columnName, Optional.of(stats)), ImmutableMap.of(columnName, TIMESTAMP_TZ_MILLIS))).isEqualTo(ImmutableMap.of(columnName, "2020-08-26T01:02:03.123Z"));
-        assertThat(DeltaLakeParquetStatisticsUtils.jsonEncodeMax(ImmutableMap.of(columnName, Optional.of(stats)), ImmutableMap.of(columnName, TIMESTAMP_TZ_MILLIS))).isEqualTo(ImmutableMap.of(columnName, "2020-08-26T01:02:03.124Z"));
+        assertThat(DeltaLakeParquetStatisticsUtils.jsonEncodeMin(ImmutableMap.of(columnName, Optional.of(stats)), ImmutableMap.of(columnName, TIMESTAMP_TZ_MICROS))).isEqualTo(ImmutableMap.of(columnName, "2020-08-26T01:02:03.123456Z"));
+        assertThat(DeltaLakeParquetStatisticsUtils.jsonEncodeMax(ImmutableMap.of(columnName, Optional.of(stats)), ImmutableMap.of(columnName, TIMESTAMP_TZ_MICROS))).isEqualTo(ImmutableMap.of(columnName, "2020-08-26T01:02:03.124356Z"));
     }
 
     @Test
-    public void testTimestampWithTimeZoneStatisticsMillisPrecision()
+    public void testTimestampWithTimeZoneStatisticsMicrosPrecision()
     {
         String columnName = "t_timestamp";
         PrimitiveType type = new PrimitiveType(Type.Repetition.REQUIRED, PrimitiveType.PrimitiveTypeName.INT96, columnName);
         Statistics<?> stats = Statistics.getBuilderForReading(type)
-                .withMin(toParquetEncoding(LocalDateTime.parse("2020-08-26T01:02:03.123")))
-                .withMax(toParquetEncoding(LocalDateTime.parse("2020-08-26T01:02:03.123")))
+                .withMin(toParquetEncoding(LocalDateTime.parse("2020-08-26T01:02:03.123456")))
+                .withMax(toParquetEncoding(LocalDateTime.parse("2020-08-26T01:02:03.123456")))
                 .withNumNulls(2)
                 .build();
 
-        assertThat(DeltaLakeParquetStatisticsUtils.jsonEncodeMin(ImmutableMap.of(columnName, Optional.of(stats)), ImmutableMap.of(columnName, TIMESTAMP_TZ_MILLIS))).isEqualTo(ImmutableMap.of(columnName, "2020-08-26T01:02:03.123Z"));
-        assertThat(DeltaLakeParquetStatisticsUtils.jsonEncodeMax(ImmutableMap.of(columnName, Optional.of(stats)), ImmutableMap.of(columnName, TIMESTAMP_TZ_MILLIS))).isEqualTo(ImmutableMap.of(columnName, "2020-08-26T01:02:03.123Z"));
+        assertThat(DeltaLakeParquetStatisticsUtils.jsonEncodeMin(ImmutableMap.of(columnName, Optional.of(stats)), ImmutableMap.of(columnName, TIMESTAMP_TZ_MICROS))).isEqualTo(ImmutableMap.of(columnName, "2020-08-26T01:02:03.123456Z"));
+        assertThat(DeltaLakeParquetStatisticsUtils.jsonEncodeMax(ImmutableMap.of(columnName, Optional.of(stats)), ImmutableMap.of(columnName, TIMESTAMP_TZ_MICROS))).isEqualTo(ImmutableMap.of(columnName, "2020-08-26T01:02:03.123456Z"));
     }
 
     private static byte[] toParquetEncoding(LocalDateTime time)

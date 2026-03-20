@@ -3033,4 +3033,47 @@ public class TestDeltaLakeBasic
                 .orElseThrow()
                 .getEntriesList(FILE_SYSTEM);
     }
+    @Test
+    public void testTimestampWithTimeZoneMicrosecondPrecision()
+    {
+        String tableName = "test_timestamp_micros_" + randomNameSuffix();
+        assertUpdate(
+                "CREATE TABLE " + tableName + " (id INT, ts TIMESTAMP(6) WITH TIME ZONE) " +
+                        "WITH (location = '" + tempDirPath() + "')");
+        try {
+            // Insert values with full microsecond precision
+            assertUpdate("INSERT INTO " + tableName + " VALUES " +
+                    "(1, TIMESTAMP '2020-10-21 01:00:00.123456 UTC'), " +
+                    "(2, TIMESTAMP '1970-01-01 00:00:00.000001 UTC'), " +
+                    "(3, TIMESTAMP '9999-12-31 23:59:59.999999 UTC')", 3);
+
+            // Verify microseconds are preserved end-to-end
+            assertQuery(
+                    "SELECT * FROM " + tableName + " ORDER BY id",
+                    "VALUES " +
+                            "(1, TIMESTAMP '2020-10-21 01:00:00.123456 UTC'), " +
+                            "(2, TIMESTAMP '1970-01-01 00:00:00.000001 UTC'), " +
+                            "(3, TIMESTAMP '9999-12-31 23:59:59.999999 UTC')");
+
+            // Verify the column type is reported as precision 6
+            assertThat(getColumnType(tableName, "ts"))
+                    .isEqualTo("timestamp(6) with time zone");
+        }
+        finally {
+            assertUpdate("DROP TABLE " + tableName);
+        }
+    }
+    @Test
+    public void testTimestampWithTimeZoneLegacyMillisPrecision()
+    {
+        // Table written by an older Trino version using TIMESTAMP(MILLIS) parquet encoding
+        // Microsecond digits should be zero but no exception should be thrown
+        assertQuery(
+                "SELECT ts FROM delta.testdb.legacy_millis_timestamp LIMIT 1",
+                "VALUES TIMESTAMP '2024-01-12 09:30:47.405000 UTC'");
+
+        assertThat(getColumnType("delta.testdb.legacy_millis_timestamp", "ts"))
+                .isEqualTo("timestamp(6) with time zone");
+    }
 }
+

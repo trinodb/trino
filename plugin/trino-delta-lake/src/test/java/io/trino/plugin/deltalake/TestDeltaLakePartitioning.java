@@ -61,7 +61,7 @@ public class TestDeltaLakePartitioning
                         "('p_float', 'real', '', ''), " +
                         "('p_double', 'double', '', ''), " +
                         "('p_date', 'date', '', ''), " +
-                        "('p_timestamp', 'timestamp(3) with time zone', '', ''), " +
+                        "('p_timestamp', 'timestamp(6) with time zone', '', ''), " +
                         "('t_string', 'varchar', '', ''), " +
                         "('t_byte', 'tinyint', '', ''), " +
                         "('t_short', 'smallint', '', ''), " +
@@ -72,7 +72,7 @@ public class TestDeltaLakePartitioning
                         "('t_float', 'real', '', ''), " +
                         "('t_double', 'double', '', ''), " +
                         "('t_date', 'date', '', ''), " +
-                        "('t_timestamp', 'timestamp(3) with time zone', '', ''), " +
+                        "('t_timestamp', 'timestamp(6) with time zone', '', ''), " +
                         "('t_phones', 'array(row(\"number\" varchar, \"label\" varchar))', '', ''), " +
                         "('t_address', 'row(\"street\" varchar, \"city\" varchar, \"state\" varchar, \"zip\" varchar)', '', '')");
     }

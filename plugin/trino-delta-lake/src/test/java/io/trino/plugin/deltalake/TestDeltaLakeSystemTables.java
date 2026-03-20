@@ -65,7 +65,7 @@ public class TestDeltaLakeSystemTables
                     """
                     VALUES
                     ('version', 'bigint', '', ''),
-                    ('timestamp', 'timestamp(3) with time zone', '', ''),
+                    ('timestamp', 'timestamp(6) with time zone', '', ''),
                     ('user_id', 'varchar', '', ''),
                     ('user_name', 'varchar', '', ''),
                     ('operation', 'varchar', '', ''),
@@ -470,7 +470,7 @@ public class TestDeltaLakeSystemTables
                 ROW(ROW(TIMESTAMP '2001-05-06 12:34:56.123000', TIMESTAMP '2001-05-06 12:34:56.568000', BIGINT '0')),
                 ROW(ROW(TIMESTAMP '2001-05-06 12:34:56.123000', TIMESTAMP '2001-05-06 12:34:56.124000', BIGINT '0'))
                 """);
-        testPartitionsTableColumnTypes("TIMESTAMP(3) WITH TIME ZONE", "VALUES (TIMESTAMP '2001-05-06 12:34:56.123 UTC', 'a'), (TIMESTAMP '2001-05-06 12:34:56.234 -08:30', 'a'), (TIMESTAMP '2001-05-06 12:34:56.567 GMT-08:30', 'b'), (TIMESTAMP '2001-05-06 12:34:56.789 America/New_York', 'b')", 4,
+        testPartitionsTableColumnTypes("TIMESTAMP(6) WITH TIME ZONE", "VALUES (TIMESTAMP '2001-05-06 12:34:56.123 UTC', 'a'), (TIMESTAMP '2001-05-06 12:34:56.234 -08:30', 'a'), (TIMESTAMP '2001-05-06 12:34:56.567 GMT-08:30', 'b'), (TIMESTAMP '2001-05-06 12:34:56.789 America/New_York', 'b')", 4,
                 """
                 VALUES
                 ROW(ROW(TIMESTAMP '2001-05-06 12:34:56.123 UTC', TIMESTAMP '2001-05-06 21:04:56.234 UTC', BIGINT '0')),
