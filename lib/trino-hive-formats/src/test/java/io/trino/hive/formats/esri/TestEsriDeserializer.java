@@ -33,6 +33,7 @@ import java.io.IOException;
 import java.util.List;
 
 import static com.fasterxml.jackson.core.JsonToken.START_OBJECT;
+import static io.trino.hive.formats.esri.EsriDeserializer.Format.ESRI;
 import static io.trino.plugin.base.util.JsonUtils.jsonFactory;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
@@ -812,7 +813,7 @@ public class TestEsriDeserializer
         JsonParser jsonParser = JSON_FACTORY.createParser(json);
         assertThat(jsonParser.nextToken()).isEqualTo(START_OBJECT);
 
-        EsriDeserializer deserializer = new EsriDeserializer(columns);
+        EsriDeserializer deserializer = new EsriDeserializer(columns, ESRI);
         PageBuilder pageBuilder = new PageBuilder(deserializer.getTypes());
         deserializer.deserialize(pageBuilder, jsonParser);
         Page page = pageBuilder.build();
@@ -820,12 +821,12 @@ public class TestEsriDeserializer
         return page;
     }
 
-    private static void assertGeometry(Page page, String expectedWkt)
+    static void assertGeometry(Page page, String expectedWkt)
     {
         assertGeometry(page, expectedWkt, 0);
     }
 
-    private static void assertGeometry(Page page, String expectedWkt, int expectedSrid)
+    static void assertGeometry(Page page, String expectedWkt, int expectedSrid)
     {
         if (expectedWkt == null) {
             assertThat(page.getBlock(6).isNull(0)).isTrue();
