@@ -242,6 +242,7 @@ import io.trino.operator.scalar.timetz.TimeWithTimeZoneToTimeWithTimeZoneCast;
 import io.trino.operator.scalar.timetz.TimeWithTimeZoneToTimestampWithTimeZoneCast;
 import io.trino.operator.scalar.timetz.TimeWithTimeZoneToVarcharCast;
 import io.trino.operator.scalar.timetz.VarcharToTimeWithTimeZoneCast;
+import io.trino.operator.scalar.xpath.XPathFunctions;
 import io.trino.operator.window.CumulativeDistributionFunction;
 import io.trino.operator.window.DenseRankFunction;
 import io.trino.operator.window.FirstValueFunction;
@@ -444,6 +445,7 @@ public final class SystemFunctionBundle
                 .scalar(SplitToMultimapFunction.class)
                 .scalars(VarbinaryFunctions.class)
                 .scalars(UrlFunctions.class)
+                .scalars(XPathFunctions.class)
                 .scalars(MathFunctions.class)
                 .scalar(MathFunctions.Abs.class)
                 .scalar(MathFunctions.Sign.class)
