@@ -15,6 +15,7 @@ package io.trino.plugin.elasticsearch;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.trino.plugin.elasticsearch.aggregation.MetricAggregation;
 import io.trino.plugin.elasticsearch.client.IndexMetadata;
 import io.trino.plugin.elasticsearch.decoders.DoubleDecoder;
 import io.trino.plugin.elasticsearch.decoders.IntegerDecoder;
@@ -29,12 +30,17 @@ import org.elasticsearch.index.query.MatchAllQueryBuilder;
 import org.elasticsearch.index.query.QueryBuilder;
 import org.elasticsearch.index.query.RangeQueryBuilder;
 import org.elasticsearch.index.query.TermQueryBuilder;
+import org.elasticsearch.search.aggregations.AggregationBuilder;
+import org.elasticsearch.search.aggregations.metrics.StatsAggregationBuilder;
 import org.junit.jupiter.api.Test;
 
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalInt;
 
+import static io.trino.plugin.elasticsearch.ElasticsearchQueryBuilder.buildAggregationQuery;
 import static io.trino.plugin.elasticsearch.ElasticsearchQueryBuilder.buildSearchQuery;
+import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -129,6 +135,19 @@ public class TestElasticsearchQueryBuilder
                 new BoolQueryBuilder()
                         .filter(new TermQueryBuilder(AGE.name(), 10L))
                         .mustNot(new ExistsQueryBuilder(SCORE.name())));
+    }
+
+    @Test
+    public void testSumUsesStatsAggregationBuilder()
+    {
+        AggregationBuilder aggregation = buildAggregationQuery(
+                ImmutableList.of(),
+                ImmutableList.of(new MetricAggregation(MetricAggregation.SUM, BIGINT, Optional.of(AGE), "sum_age")),
+                OptionalInt.empty(),
+                Optional.empty())
+                .getFirst();
+
+        assertThat(aggregation).isInstanceOf(StatsAggregationBuilder.class);
     }
 
     private static void assertQueryBuilder(Map<ElasticsearchColumnHandle, Domain> domains, QueryBuilder expected)
