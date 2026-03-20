@@ -19,6 +19,8 @@ import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.plugin.iceberg.IcebergFileSystemFactory;
 import io.trino.spi.security.ConnectorIdentity;
+import org.apache.iceberg.aws.AwsClientProperties;
+import org.apache.iceberg.aws.s3.S3FileIOProperties;
 
 import java.util.Map;
 
@@ -33,13 +35,6 @@ import static java.util.Objects.requireNonNull;
 public class IcebergRestCatalogFileSystemFactory
         implements IcebergFileSystemFactory
 {
-    private static final String VENDED_S3_ACCESS_KEY = "s3.access-key-id";
-    private static final String VENDED_S3_SECRET_KEY = "s3.secret-access-key";
-    private static final String VENDED_S3_SESSION_TOKEN = "s3.session-token";
-    private static final String VENDED_CLIENT_REGION = "client.region";
-    private static final String VENDED_S3_ENDPOINT = "s3.endpoint";
-    private static final String VENDED_S3_CROSS_REGION_ACCESS_ENABLED = "s3.cross-region-access-enabled";
-
     private final TrinoFileSystemFactory fileSystemFactory;
     private final boolean vendedCredentialsEnabled;
 
@@ -57,9 +52,9 @@ public class IcebergRestCatalogFileSystemFactory
             return fileSystemFactory.create(identity);
         }
 
-        String accessKey = fileIoProperties.get(VENDED_S3_ACCESS_KEY);
-        String secretKey = fileIoProperties.get(VENDED_S3_SECRET_KEY);
-        String sessionToken = fileIoProperties.get(VENDED_S3_SESSION_TOKEN);
+        String accessKey = fileIoProperties.get(S3FileIOProperties.ACCESS_KEY_ID);
+        String secretKey = fileIoProperties.get(S3FileIOProperties.SECRET_ACCESS_KEY);
+        String sessionToken = fileIoProperties.get(S3FileIOProperties.SESSION_TOKEN);
 
         if (accessKey == null || secretKey == null || sessionToken == null) {
             return fileSystemFactory.create(identity);
@@ -70,17 +65,17 @@ public class IcebergRestCatalogFileSystemFactory
                 .put(EXTRA_CREDENTIALS_SECRET_KEY_PROPERTY, secretKey)
                 .put(EXTRA_CREDENTIALS_SESSION_TOKEN_PROPERTY, sessionToken);
 
-        String region = fileIoProperties.get(VENDED_CLIENT_REGION);
+        String region = fileIoProperties.get(AwsClientProperties.CLIENT_REGION);
         if (region != null) {
             extraCredentialsBuilder.put(EXTRA_CREDENTIALS_REGION_PROPERTY, region);
         }
 
-        String endpoint = fileIoProperties.get(VENDED_S3_ENDPOINT);
+        String endpoint = fileIoProperties.get(S3FileIOProperties.ENDPOINT);
         if (endpoint != null) {
             extraCredentialsBuilder.put(EXTRA_CREDENTIALS_ENDPOINT_PROPERTY, endpoint);
         }
 
-        String crossRegionAccessEnabled = fileIoProperties.get(VENDED_S3_CROSS_REGION_ACCESS_ENABLED);
+        String crossRegionAccessEnabled = fileIoProperties.get(S3FileIOProperties.CROSS_REGION_ACCESS_ENABLED);
         if (crossRegionAccessEnabled != null) {
             extraCredentialsBuilder.put(EXTRA_CREDENTIALS_CROSS_REGION_ACCESS_ENABLED_PROPERTY, crossRegionAccessEnabled);
         }
