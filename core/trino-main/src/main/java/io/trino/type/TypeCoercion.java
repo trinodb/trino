@@ -396,6 +396,10 @@ public final class TypeCoercion
                 case StandardTypes.NUMBER -> Optional.of(NumberType.NUMBER);
                 default -> Optional.empty();
             };
+            case StandardTypes.NUMBER -> switch (resultTypeBase) {
+                case StandardTypes.REAL, StandardTypes.DOUBLE -> Optional.of(DOUBLE);
+                default -> Optional.empty();
+            };
             case StandardTypes.REAL -> switch (resultTypeBase) {
                 case StandardTypes.DOUBLE -> Optional.of(DOUBLE);
                 default -> Optional.empty();
