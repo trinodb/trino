@@ -17,6 +17,7 @@ import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Ordering;
 import io.trino.connector.CatalogHandle;
+import io.trino.metadata.FunctionSpecificityComparator.Specificity;
 import io.trino.spi.TrinoException;
 import io.trino.spi.function.BoundSignature;
 import io.trino.spi.function.CatalogSchemaFunctionName;
@@ -27,7 +28,6 @@ import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import io.trino.sql.analyzer.TypeSignatureProvider;
 
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
@@ -57,11 +57,13 @@ class FunctionBinder
 {
     private final Metadata metadata;
     private final TypeManager typeManager;
+    private final FunctionSpecificityComparator functionSpecificityComparator;
 
     public FunctionBinder(Metadata metadata, TypeManager typeManager)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
+        this.functionSpecificityComparator = new FunctionSpecificityComparator(metadata, typeManager);
     }
 
     CatalogFunctionBinding bindFunction(List<TypeSignatureProvider> parameterTypes, Collection<CatalogFunctionMetadata> candidates, String displayName)
@@ -233,25 +235,55 @@ class FunctionBinder
 
     private List<ApplicableFunction> selectMostSpecificFunctions(List<ApplicableFunction> candidates)
     {
-        // Provided `isMoreSpecificThan` is a partial order relation, this finds all the minimum values among candidates.
-        // TODO Warning: `isMoreSpecificThan` compares bound signature of the left with declared signature of the right (asymmetric) and it is *not* proper partial order relation.
-        //  the result depends on candidates order, and order in which `isMoreSpecificThan` is applied.
-
-        List<ApplicableFunction> representatives = new ArrayList<>();
-
-        for (ApplicableFunction current : candidates) {
-            if (representatives.removeIf(representative -> isMoreSpecificThan(current, representative))) {
-                representatives.add(current);
-                continue;
+        SpecificityComparisonCache comparisonCache = new SpecificityComparisonCache(candidates);
+        ImmutableList.Builder<ApplicableFunction> mostSpecificFunctions = ImmutableList.builder();
+        for (int currentIndex = 0; currentIndex < candidates.size(); currentIndex++) {
+            boolean lessSpecificThanAnother = false;
+            for (int otherIndex = 0; otherIndex < candidates.size(); otherIndex++) {
+                if (currentIndex == otherIndex) {
+                    continue;
+                }
+                if (comparisonCache.isMoreSpecific(otherIndex, currentIndex)) {
+                    lessSpecificThanAnother = true;
+                    break;
+                }
             }
-            if (representatives.stream().anyMatch(representative -> isMoreSpecificThan(representative, current))) {
-                // Current is less specific than one of the retained representatives.
-                continue;
+            if (!lessSpecificThanAnother) {
+                mostSpecificFunctions.add(candidates.get(currentIndex));
             }
-            representatives.add(current);
+        }
+        return mostSpecificFunctions.build();
+    }
+
+    private final class SpecificityComparisonCache
+    {
+        private final List<ApplicableFunction> candidates;
+        private final Specificity[][] cache;
+
+        private SpecificityComparisonCache(List<ApplicableFunction> candidates)
+        {
+            this.candidates = requireNonNull(candidates, "candidates is null");
+            this.cache = new Specificity[candidates.size()][candidates.size()];
         }
 
-        return representatives;
+        private boolean isMoreSpecific(int leftIndex, int rightIndex)
+        {
+            Specificity cachedSpecificity = cache[leftIndex][rightIndex];
+            if (cachedSpecificity != null) {
+                return cachedSpecificity == Specificity.MORE_SPECIFIC;
+            }
+
+            ApplicableFunction left = candidates.get(leftIndex);
+            ApplicableFunction right = candidates.get(rightIndex);
+            Specificity specificity = functionSpecificityComparator.compareSpecificity(
+                    left.boundSignature(),
+                    left.declaredSignature(),
+                    right.boundSignature(),
+                    right.declaredSignature());
+            cache[leftIndex][rightIndex] = specificity;
+            cache[rightIndex][leftIndex] = specificity.reverse();
+            return specificity == Specificity.MORE_SPECIFIC;
+        }
     }
 
     private static boolean someParameterIsUnknown(List<Type> parameters)
@@ -322,16 +354,6 @@ class FunctionBinder
             resultBuilder.add(typeManager.getType(typeSignatureProvider.getTypeSignature()));
         }
         return Optional.of(resultBuilder.build());
-    }
-
-    /**
-     * One method is more specific than another if invocation handled by the first method could be passed on to the other one
-     */
-    private boolean isMoreSpecificThan(ApplicableFunction left, ApplicableFunction right)
-    {
-        List<TypeSignatureProvider> resolvedTypes = fromTypeSignatures(left.boundSignature().getArgumentTypes());
-        return new SignatureBinder(metadata, typeManager, right.declaredSignature(), true)
-                .canBind(resolvedTypes);
     }
 
     private CatalogFunctionBinding toFunctionBinding(CatalogFunctionMetadata functionMetadata, Signature signature)
