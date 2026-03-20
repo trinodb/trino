@@ -22,6 +22,7 @@ import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.util.List;
 
+import static io.trino.hive.formats.esri.EsriDeserializer.Format.ESRI;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -112,7 +113,7 @@ public class TestEsriReader
         }
         """;
 
-        assertThatThrownBy(() -> new EsriReader(new ByteArrayInputStream(json.getBytes(UTF_8)), new EsriDeserializer(TEST_COLUMNS)))
+        assertThatThrownBy(() -> new EsriReader(new ByteArrayInputStream(json.getBytes(UTF_8)), new EsriDeserializer(TEST_COLUMNS, ESRI)))
                 .isInstanceOf(IOException.class)
                 .hasMessage("Invalid JSON: Features field must be an array");
     }
@@ -127,7 +128,7 @@ public class TestEsriReader
         }
         """;
 
-        assertThatThrownBy(() -> new EsriReader(new ByteArrayInputStream(json.getBytes(UTF_8)), new EsriDeserializer(TEST_COLUMNS)))
+        assertThatThrownBy(() -> new EsriReader(new ByteArrayInputStream(json.getBytes(UTF_8)), new EsriDeserializer(TEST_COLUMNS, ESRI)))
                 .isInstanceOf(IOException.class)
                 .hasMessage("Invalid JSON: Features field must be an array");
     }
@@ -173,7 +174,7 @@ public class TestEsriReader
         }
         jsonBuilder.append("]}");
 
-        EsriDeserializer deserializer = new EsriDeserializer(TEST_COLUMNS);
+        EsriDeserializer deserializer = new EsriDeserializer(TEST_COLUMNS, ESRI);
         PageBuilder pageBuilder = new PageBuilder(deserializer.getTypes());
 
         try (EsriReader reader = new EsriReader(new ByteArrayInputStream(jsonBuilder.toString().getBytes(UTF_8)), deserializer)) {
@@ -268,7 +269,7 @@ public class TestEsriReader
     private static Page readAll(String json)
             throws IOException
     {
-        EsriDeserializer deserializer = new EsriDeserializer(TEST_COLUMNS);
+        EsriDeserializer deserializer = new EsriDeserializer(TEST_COLUMNS, ESRI);
         EsriReader reader = new EsriReader(new ByteArrayInputStream(json.getBytes(UTF_8)), deserializer);
         PageBuilder pageBuilder = new PageBuilder(deserializer.getTypes());
         try {

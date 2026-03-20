@@ -48,6 +48,8 @@ public final class HiveClassNames
     public static final String ESRI_SERDE_CLASS = "com.esri.hadoop.hive.serde.EsriJsonSerDe";
     public static final String ESRI_INPUT_FORMAT_CLASS = "com.esri.json.hadoop.EnclosedEsriJsonInputFormat";
     public static final String TWITTER_ELEPHANTBIRD_PROTOBUF_SERDE_CLASS = "com.twitter.elephantbird.hive.serde.ProtobufDeserializer";
+    public static final String ESRI_GEO_JSON_SERDE_CLASS = "com.esri.hadoop.hive.serde.GeoJsonSerDe";
+    public static final String ESRI_GEO_JSON_INPUT_FORMAT_CLASS = "com.esri.json.hadoop.EnclosedGeoJsonInputFormat";
 
     private HiveClassNames() {}
 }
