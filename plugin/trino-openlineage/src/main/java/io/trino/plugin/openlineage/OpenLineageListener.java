@@ -76,6 +76,7 @@ public class OpenLineageListener
     private final String jobNamespace;
     private final String datasetNamespace;
     private final Set<QueryType> includeQueryTypes;
+    private final boolean includeTransitiveInputs;
     private final FormatInterpolator<OpenLineageJobContext> interpolator;
 
     @Inject
@@ -88,6 +89,7 @@ public class OpenLineageListener
         this.jobNamespace = listenerConfig.getNamespace().orElse(trinoURI.toString());
         this.datasetNamespace = trinoURI.toString();
         this.includeQueryTypes = ImmutableSet.copyOf(listenerConfig.getIncludeQueryTypes());
+        this.includeTransitiveInputs = listenerConfig.isIncludeTransitiveInputs();
         this.interpolator = new FormatInterpolator<>(listenerConfig.getJobNameFormat(), OpenLineageJobInterpolatedValues.values());
     }
 
@@ -296,10 +298,10 @@ public class OpenLineageListener
 
     private List<InputDataset> buildInputs(QueryMetadata queryMetadata)
     {
-        return queryMetadata
-                .getTables()
+        List<TableInfo> allTables = queryMetadata.getTables();
+        return allTables
                 .stream()
-                .filter(TableInfo::isDirectlyReferenced)
+                .filter(table -> includeTransitiveInputs || table.isDirectlyReferenced())
                 .map(table -> {
                     String datasetName = getDatasetName(table);
                     InputDatasetBuilder inputDatasetBuilder = openLineage
