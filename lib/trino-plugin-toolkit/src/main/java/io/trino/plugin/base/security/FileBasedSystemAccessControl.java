@@ -476,7 +476,7 @@ public class FileBasedSystemAccessControl
     @Override
     public void checkCanShowCreateTable(SystemSecurityContext context, CatalogSchemaTableName table)
     {
-        if (!checkTablePermission(context, table, OWNERSHIP)) {
+        if (!checkTablePermission(context, table, SELECT)) {
             denyShowCreateTable(table.toString());
         }
     }
