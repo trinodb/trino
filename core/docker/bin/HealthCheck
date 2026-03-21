@@ -1,0 +1,96 @@
+#!/usr/bin/env -S java --source 25
+/*
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+import java.io.InputStream;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.nio.file.Files;
+import java.nio.file.Paths;
+import java.security.cert.X509Certificate;
+import java.util.Properties;
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.TrustManager;
+import javax.net.ssl.X509TrustManager;
+
+import static java.lang.System.exit;
+
+void main()
+        throws Exception
+{
+    Properties config = new Properties();
+    try (InputStream stream = Files.newInputStream(Paths.get("/etc/trino/config.properties"))) {
+        config.load(stream);
+    }
+
+    String scheme = "http";
+    int port;
+
+    if ("false".equals(config.getProperty("http-server.http.enabled"))) {
+        scheme = "https";
+        port = Integer.parseInt(config.getProperty("http-server.https.port", "8443"));
+    }
+    else {
+        port = Integer.parseInt(config.getProperty("http-server.http.port", "8080"));
+    }
+
+    // Trust self-signed certificates, matching the previous curl --insecure behavior
+    TrustManager[] trustAll = new TrustManager[] {
+        new X509TrustManager()
+        {
+            public X509Certificate[] getAcceptedIssuers()
+            {
+                return null;
+            }
+
+            public void checkClientTrusted(X509Certificate[] cert, String authType)
+            {
+            }
+
+            public void checkServerTrusted(X509Certificate[] cert, String authType)
+            {
+            }
+        }
+    };
+
+    SSLContext sslContext = SSLContext.getInstance("TLS");
+    sslContext.init(null, trustAll, null);
+
+    URI serverUri = URI.create(scheme + "://localhost:" + port + "/v1/info");
+    HttpRequest request = HttpRequest.newBuilder()
+            .uri(serverUri)
+            .build();
+
+    try (HttpClient client = HttpClient.newBuilder().sslContext(sslContext).build()) {
+        HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+        if (response.statusCode() != 200) {
+            IO.println("%s responsed with status code: %d".formatted(serverUri, response.statusCode()));
+            exit(1);
+        }
+
+        String body = response.body();
+        if (!body.matches(".*\"starting\":\s*false.*")) {
+            IO.println("%s is still starting: %s".formatted(serverUri, body));
+            exit(1);
+        }
+
+        IO.println("%s is started: %s".formatted(serverUri, body));
+        exit(0);
+    }
+    catch (Exception e) {
+        IO.println("%s is not responding to requests: %s".formatted(serverUri, e));
+        exit(1);
+    }
+}

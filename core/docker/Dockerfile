@@ -41,7 +41,6 @@ RUN \
     dnf install --installroot /tmp/overlay --setopt install_weak_deps=false --nodocs -y \
       less \
       libstdc++ `# required by snappy and duckdb` \
-      curl-minimal grep `# required by health-check` \
       zlib `#required by java` \
       shadow-utils `# required by useradd` \
       tar `# required to support kubectl cp` && \
@@ -73,5 +72,6 @@ COPY --chown=trino:trino --from=jvmkill /libjvmkill.so /usr/lib/trino/bin
 EXPOSE 8080
 USER trino:trino
 CMD ["/usr/lib/trino/bin/run-trino"]
-HEALTHCHECK --interval=10s --timeout=5s --start-period=10s \
-  CMD /usr/lib/trino/bin/health-check
+# Timeouts needs to be liberal as running in emulation can be slow
+HEALTHCHECK --interval=15s --start-period=5s \
+  CMD /usr/lib/trino/bin/HealthCheck
