@@ -49,6 +49,7 @@ public class TestHdfsConfig
                 .setSocksProxy(null)
                 .setWireEncryptionEnabled(false)
                 .setFileSystemMaxCacheSize(1000)
+                .setFileSystemCacheExpireAfterAccess(new Duration(10, TimeUnit.MINUTES))
                 .setDfsReplication(null));
     }
 
@@ -72,6 +73,7 @@ public class TestHdfsConfig
                 .put("hive.hdfs.socks-proxy", "localhost:4567")
                 .put("hive.hdfs.wire-encryption.enabled", "true")
                 .put("hive.fs.cache.max-size", "1010")
+                .put("hive.fs.cache.expire-after-access", "30m")
                 .put("hive.dfs.replication", "1")
                 .buildOrThrow();
 
@@ -88,6 +90,7 @@ public class TestHdfsConfig
                 .setSocksProxy(HostAndPort.fromParts("localhost", 4567))
                 .setWireEncryptionEnabled(true)
                 .setFileSystemMaxCacheSize(1010)
+                .setFileSystemCacheExpireAfterAccess(new Duration(30, TimeUnit.MINUTES))
                 .setDfsReplication(1);
 
         assertFullMapping(properties, expected);

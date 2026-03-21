@@ -18,9 +18,9 @@ import org.apache.hadoop.fs.FileSystem;
 import org.junit.jupiter.api.Test;
 
 import java.net.URI;
+import java.time.Duration;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestTrinoFileSystemCacheStats
 {
@@ -62,17 +62,44 @@ public class TestTrinoFileSystemCacheStats
     }
 
     @Test
-    public void testFailedCallsCountIsCorrect()
+    public void testGracefulDegradationCountIsCorrect()
+            throws Exception
     {
         TrinoFileSystemCache trinoFileSystemCache = new TrinoFileSystemCache();
         TrinoFileSystemCacheStats trinoFileSystemCacheStats = trinoFileSystemCache.getStats();
         Configuration configuration = new Configuration(false);
         configuration.setInt("fs.cache.max-size", 0);
-        assertThatThrownBy(() -> trinoFileSystemCache.get(new URI("file:///tmp/path/"), configuration))
-                .hasMessageMatching("FileSystem max cache size has been reached: 0");
-        assertThat(trinoFileSystemCacheStats.getGetCallsFailed().getTotalCount()).isEqualTo(1);
+        // Should NOT throw - graceful degradation returns uncached FileSystem
+        FileSystem fs = trinoFileSystemCache.get(new URI("file:///tmp/path/"), configuration);
+        assertThat(fs).isNotNull();
+        assertThat(trinoFileSystemCacheStats.getCacheFullDegradations().getTotalCount()).isEqualTo(1);
+        assertThat(trinoFileSystemCacheStats.getGetCallsFailed().getTotalCount()).isEqualTo(0);
         assertThat(trinoFileSystemCacheStats.getGetCalls().getTotalCount()).isEqualTo(1);
         assertThat(trinoFileSystemCacheStats.getCacheSize()).isEqualTo(0);
         assertThat(trinoFileSystemCache.getCacheSize()).isEqualTo(0);
+
+        trinoFileSystemCache.closeAll();
+    }
+
+    @Test
+    public void testEvictionCountIsCorrect()
+            throws Exception
+    {
+        TrinoFileSystemCache trinoFileSystemCache = new TrinoFileSystemCache();
+        TrinoFileSystemCacheStats trinoFileSystemCacheStats = trinoFileSystemCache.getStats();
+        trinoFileSystemCache.setCacheExpiry(Duration.ofMillis(50));
+
+        Configuration configuration = new Configuration(false);
+        trinoFileSystemCache.get(new URI("file:///tmp/path/"), configuration);
+        assertThat(trinoFileSystemCacheStats.getEvictions().getTotalCount()).isEqualTo(0);
+        assertThat(trinoFileSystemCacheStats.getCacheSize()).isEqualTo(1);
+
+        Thread.sleep(100);
+        trinoFileSystemCache.evictExpiredEntries();
+
+        assertThat(trinoFileSystemCacheStats.getEvictions().getTotalCount()).isEqualTo(1);
+        assertThat(trinoFileSystemCacheStats.getCacheSize()).isEqualTo(0);
+
+        trinoFileSystemCache.closeAll();
     }
 }

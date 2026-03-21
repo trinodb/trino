@@ -27,6 +27,8 @@ public class TrinoFileSystemCacheStats
     private final CounterStat getUniqueCalls = new CounterStat();
     private final CounterStat getCallsFailed = new CounterStat();
     private final CounterStat removeCalls = new CounterStat();
+    private final CounterStat evictions = new CounterStat();
+    private final CounterStat cacheFullDegradations = new CounterStat();
     private final LongSupplier cacheSize;
 
     TrinoFileSystemCacheStats(LongSupplier cacheSize)
@@ -86,6 +88,30 @@ public class TrinoFileSystemCacheStats
     public void newRemoveCall()
     {
         removeCalls.update(1);
+    }
+
+    @Managed
+    @Nested
+    public CounterStat getEvictions()
+    {
+        return evictions;
+    }
+
+    @Managed
+    @Nested
+    public CounterStat getCacheFullDegradations()
+    {
+        return cacheFullDegradations;
+    }
+
+    public void newEviction()
+    {
+        evictions.update(1);
+    }
+
+    public void newCacheFullDegradation()
+    {
+        cacheFullDegradations.update(1);
     }
 
     public static TrinoFileSystemCacheStats instance()
