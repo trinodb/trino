@@ -19,6 +19,7 @@ import io.trino.spi.connector.ConnectorTableCredentials;
 import io.trino.spi.connector.SchemaTableName;
 import org.junit.jupiter.api.Test;
 
+import java.time.Duration;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -56,7 +57,7 @@ class TestIcebergVendedCredentialRefresh
     private static Cache<SchemaTableName, IcebergTableCredentials> newCache()
     {
         return EvictableCacheBuilder.newBuilder()
-                .expireAfterWrite(java.time.Duration.ofMinutes(5))
+                .expireAfterWrite(Duration.ofMinutes(5))
                 .shareNothingWhenDisabled()
                 .build();
     }

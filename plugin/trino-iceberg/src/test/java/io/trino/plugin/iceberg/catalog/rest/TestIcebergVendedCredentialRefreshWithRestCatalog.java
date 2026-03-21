@@ -41,10 +41,12 @@ import software.amazon.awssdk.services.sts.model.AssumeRoleRequest;
 import software.amazon.awssdk.services.sts.model.AssumeRoleResponse;
 
 import java.net.URI;
+import java.time.Duration;
 import java.util.Optional;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static io.trino.plugin.iceberg.IcebergUtil.CREDENTIAL_CACHE_TTL;
@@ -201,7 +203,7 @@ public class TestIcebergVendedCredentialRefreshWithRestCatalog
         ready.await();
         start.countDown();
         pool.shutdown();
-        pool.awaitTermination(30, java.util.concurrent.TimeUnit.SECONDS);
+        pool.awaitTermination(30, TimeUnit.SECONDS);
 
         assertThat(catalogCallCount.get())
                 .as("REST catalog should be called only once despite %d concurrent threads", threads)
@@ -233,7 +235,7 @@ public class TestIcebergVendedCredentialRefreshWithRestCatalog
     {
         Cache<SchemaTableName, IcebergTableCredentials> shortLivedCache = EvictableCacheBuilder.newBuilder()
                 .maximumSize(1_000)
-                .expireAfterWrite(java.time.Duration.ofMillis(100))
+                .expireAfterWrite(Duration.ofMillis(100))
                 .shareNothingWhenDisabled()
                 .build();
         AtomicInteger callCount = new AtomicInteger();
