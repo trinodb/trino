@@ -595,13 +595,13 @@ public class LakehouseMetadata
     }
 
     @Override
-    public Optional<ConnectorOutputMetadata> finishRefreshMaterializedView(ConnectorSession session, ConnectorTableHandle tableHandle, ConnectorInsertTableHandle insertHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics, List<ConnectorTableHandle> sourceTableHandles, boolean hasForeignSourceTables, boolean hasSourceTableFunctions)
+    public Optional<ConnectorOutputMetadata> finishRefreshMaterializedView(ConnectorSession session, ConnectorTableHandle tableHandle, ConnectorInsertTableHandle insertHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics, List<ConnectorTableHandle> sourceTableHandles, boolean hasForeignSourceTables, boolean hasSourceTableFunctions, boolean hasNonDeterministicFunctions)
     {
         List<ConnectorTableHandle> icebergSourceHandles = sourceTableHandles.stream()
                 .filter(IcebergTableHandle.class::isInstance)
                 .toList();
         hasForeignSourceTables |= icebergSourceHandles.size() < sourceTableHandles.size();
-        return icebergMetadata.finishRefreshMaterializedView(session, tableHandle, insertHandle, fragments, computedStatistics, icebergSourceHandles, hasForeignSourceTables, hasSourceTableFunctions);
+        return icebergMetadata.finishRefreshMaterializedView(session, tableHandle, insertHandle, fragments, computedStatistics, icebergSourceHandles, hasForeignSourceTables, hasSourceTableFunctions, hasNonDeterministicFunctions);
     }
 
     @Override

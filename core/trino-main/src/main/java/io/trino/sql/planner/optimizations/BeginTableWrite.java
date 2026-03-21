@@ -264,6 +264,7 @@ public class BeginTableWrite
                         metadata.getTableName(session, refreshMV.getStorageTableHandle()).getSchemaTableName(),
                         refreshMV.getSourceTableHandles(),
                         refreshMV.getSourceTableFunctions(),
+                        refreshMV.hasNonDeterministicFunctions(),
                         refreshMV.getWriterScalingOptions(metadata, session));
             }
             if (target instanceof TableExecuteTarget tableExecute) {
