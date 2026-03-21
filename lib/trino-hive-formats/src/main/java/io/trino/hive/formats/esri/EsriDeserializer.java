@@ -15,6 +15,7 @@ package io.trino.hive.formats.esri;
 
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonToken;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slices;
@@ -22,6 +23,7 @@ import io.trino.geospatial.serde.JtsGeometrySerde;
 import io.trino.hive.formats.line.Column;
 import io.trino.plugin.base.type.DecodedTimestamp;
 import io.trino.spi.PageBuilder;
+import io.trino.spi.TrinoException;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.DecimalConversions;
@@ -32,6 +34,8 @@ import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
 import org.joda.time.DateTimeZone;
 import org.locationtech.jts.geom.Geometry;
+import org.locationtech.jts.io.ParseException;
+import org.locationtech.jts.io.geojson.GeoJsonReader;
 
 import java.io.IOException;
 import java.math.BigDecimal;
@@ -53,7 +57,9 @@ import static com.fasterxml.jackson.core.JsonToken.START_OBJECT;
 import static com.fasterxml.jackson.core.JsonToken.VALUE_NULL;
 import static com.fasterxml.jackson.core.JsonToken.VALUE_NUMBER_INT;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.hive.formats.esri.EsriDeserializer.Format.GEO_JSON;
 import static io.trino.plugin.base.type.TrinoTimestampEncoderFactory.createTimestampEncoder;
+import static io.trino.spi.StandardErrorCode.JSON_INPUT_CONVERSION_ERROR;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.Chars.truncateToLengthAndTrimSpaces;
@@ -82,6 +88,7 @@ public final class EsriDeserializer
 {
     private static final String GEOMETRY_FIELD_NAME = "geometry";
     private static final String ATTRIBUTES_FIELD_NAME = "attributes";
+    private static final String PROPERTIES_FIELD_NAME = "properties";
     private static final DateTimeFormatter DATE_FORMATTER =
             DateTimeFormatter.ofPattern("yyyy-M-d").withZone(UTC);
     private static final List<DateTimeFormatter> TIMESTAMP_FORMATTERS = List.of(
@@ -95,14 +102,28 @@ public final class EsriDeserializer
     private final Map<String, Integer> columnIndex;
     private final List<Type> types;
     private final boolean[] fieldWritten;
+    private final Format format;
+    private GeoJsonReader reader;
+    private ObjectMapper mapper;
 
-    public EsriDeserializer(List<Column> columns)
+    public enum Format {
+        ESRI,
+        GEO_JSON
+    }
+
+    public EsriDeserializer(List<Column> columns, Format format)
     {
         this.columns = ImmutableList.copyOf(requireNonNull(columns, "columns is null"));
         this.types = columns.stream()
                 .map(Column::type)
                 .collect(toImmutableList());
         this.fieldWritten = new boolean[columns.size()];
+        this.format = format;
+
+        if (format == GEO_JSON) {
+            reader = new GeoJsonReader();
+            mapper = new ObjectMapper();
+        }
 
         for (Column column : columns) {
             validateSupportedType(column.type(), column.name());
@@ -138,6 +159,11 @@ public final class EsriDeserializer
             throw invalidJson("start of object expected");
         }
 
+        String attributesFieldName = switch (format) {
+            case ESRI -> ATTRIBUTES_FIELD_NAME;
+            case GEO_JSON -> PROPERTIES_FIELD_NAME;
+        };
+
         Arrays.fill(fieldWritten, false);
         while (nextObjectField(parser)) {
             String fieldName = parser.currentName();
@@ -147,7 +173,7 @@ public final class EsriDeserializer
             if (GEOMETRY_FIELD_NAME.equals(fieldName)) {
                 parseGeometry(parser, pageBuilder);
             }
-            else if (ATTRIBUTES_FIELD_NAME.equals(fieldName)) {
+            else if (attributesFieldName.equals(fieldName)) {
                 parseAttributes(parser, pageBuilder);
             }
             else {
@@ -188,7 +214,19 @@ public final class EsriDeserializer
             return;
         }
 
-        Geometry geometry = EsriJsonParser.parseGeometry(parser);
+        Geometry geometry = switch (format) {
+            case ESRI -> EsriJsonParser.parseGeometry(parser);
+            case GEO_JSON -> {
+                String json = mapper.writeValueAsString(mapper.readTree(parser));
+                try {
+                    yield reader.read(json);
+                }
+                catch (ParseException e) {
+                    throw new TrinoException(JSON_INPUT_CONVERSION_ERROR, e);
+                }
+            }
+        };
+
         if (geometry == null) {
             throw new IllegalArgumentException("Could not parse geometry");
         }
