@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.opa;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Multimaps;
@@ -58,6 +59,7 @@ import java.util.function.Consumer;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.plugin.opa.OpaHighLevelClient.buildQueryInputForSimpleResource;
 import static io.trino.spi.security.AccessDeniedException.denyCreateCatalog;
@@ -775,7 +777,15 @@ public sealed class OpaAccessControl
         opaHighLevelClient.queryAndEnforce(
                 buildQueryContext(context),
                 actionName,
-                () -> deny.accept(table.toString(), columns),
+                () -> {
+                    Set<String> allowedColumns = filterColumns(context, table.getCatalogName(),
+                            ImmutableMap.of(table.getSchemaTableName(), columns))
+                            .getOrDefault(table.getSchemaTableName(), ImmutableSet.of());
+                    Set<String> inaccessibleColumns = columns.stream()
+                            .filter(column -> !allowedColumns.contains(column))
+                            .collect(toImmutableSet());
+                    deny.accept(table.toString(), inaccessibleColumns.isEmpty() ? columns : inaccessibleColumns);
+                },
                 OpaQueryInputResource.builder().table(new TrinoTable(table).withColumns(columns)).build());
     }
 
