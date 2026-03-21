@@ -20,17 +20,19 @@ import com.google.errorprone.annotations.concurrent.GuardedBy;
 import com.google.inject.Inject;
 import io.airlift.units.Duration;
 import io.trino.cache.EvictableCacheBuilder;
+import io.trino.plugin.iceberg.ForIcebergFileDelete;
 import io.trino.plugin.iceberg.IcebergConfig;
 import io.trino.plugin.iceberg.IcebergFileSystemFactory;
 import io.trino.plugin.iceberg.catalog.TrinoCatalog;
 import io.trino.plugin.iceberg.catalog.TrinoCatalogFactory;
 import io.trino.plugin.iceberg.catalog.rest.IcebergRestCatalogConfig.Security;
 import io.trino.plugin.iceberg.catalog.rest.IcebergRestCatalogConfig.SessionType;
-import io.trino.plugin.iceberg.fileio.ForwardingFileIoFactory;
+import io.trino.plugin.iceberg.fileio.ForwardingFileIo;
 import io.trino.spi.NodeVersion;
 import io.trino.spi.catalog.CatalogName;
 import io.trino.spi.security.ConnectorIdentity;
 import io.trino.spi.type.TypeManager;
+import jakarta.annotation.PreDestroy;
 import org.apache.iceberg.CatalogProperties;
 import org.apache.iceberg.catalog.Namespace;
 import org.apache.iceberg.catalog.TableIdentifier;
@@ -42,10 +44,12 @@ import java.net.URI;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.ExecutorService;
 
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.apache.iceberg.CatalogProperties.AUTH_SESSION_TIMEOUT_MS;
+import static org.apache.iceberg.CatalogProperties.FILE_IO_IMPL;
 import static org.apache.iceberg.rest.auth.OAuth2Properties.CREDENTIAL;
 import static org.apache.iceberg.rest.auth.OAuth2Properties.TOKEN;
 
@@ -53,7 +57,7 @@ public class TrinoIcebergRestCatalogFactory
         implements TrinoCatalogFactory
 {
     private final IcebergFileSystemFactory fileSystemFactory;
-    private final ForwardingFileIoFactory fileIoFactory;
+    private final ExecutorService deleteExecutor;
     private final CatalogName catalogName;
     private final String trinoVersion;
     private final URI serverUri;
@@ -78,7 +82,7 @@ public class TrinoIcebergRestCatalogFactory
     @Inject
     public TrinoIcebergRestCatalogFactory(
             IcebergFileSystemFactory fileSystemFactory,
-            ForwardingFileIoFactory fileIoFactory,
+            @ForIcebergFileDelete ExecutorService deleteExecutor,
             CatalogName catalogName,
             IcebergRestCatalogConfig restConfig,
             SecurityProperties securityProperties,
@@ -87,7 +91,7 @@ public class TrinoIcebergRestCatalogFactory
             NodeVersion nodeVersion)
     {
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
-        this.fileIoFactory = requireNonNull(fileIoFactory, "fileIoFactory is null");
+        this.deleteExecutor = requireNonNull(deleteExecutor, "deleteExecutor is null");
         this.catalogName = requireNonNull(catalogName, "catalogName is null");
         this.trinoVersion = requireNonNull(nodeVersion, "nodeVersion is null").toString();
         requireNonNull(restConfig, "restConfig is null");
@@ -115,6 +119,12 @@ public class TrinoIcebergRestCatalogFactory
                 .build();
     }
 
+    @PreDestroy
+    public void shutdown()
+    {
+        ForwardingFileIo.deregisterContext(catalogName.toString());
+    }
+
     @Override
     public synchronized TrinoCatalog create(ConnectorIdentity identity)
     {
@@ -134,17 +144,19 @@ public class TrinoIcebergRestCatalogFactory
                 properties.put("header.X-Iceberg-Access-Delegation", "vended-credentials");
             }
 
+            properties.put(FILE_IO_IMPL, ForwardingFileIo.class.getName());
+            properties.put(ForwardingFileIo.TRINO_CATALOG_NAME, catalogName.toString());
+            ForwardingFileIo.registerContext(catalogName.toString(), fileSystemFactory, deleteExecutor);
+
+            // ioBuilder is null so RESTSessionCatalog creates FileIO via reflection,
+            // which allows SupportsStorageCredentials.setCredentials() to be called
+            // with vended credentials before FileIO.initialize()
             RESTSessionCatalog icebergCatalogInstance = new RESTSessionCatalog(
                     config -> HTTPClient.builder(config)
                             .uri(config.get(CatalogProperties.URI))
                             .withHeaders(RESTUtil.configHeaders(config))
                             .build(),
-                    (context, config) -> {
-                        ConnectorIdentity currentIdentity = (context.wrappedIdentity() != null)
-                                ? ((ConnectorIdentity) context.wrappedIdentity())
-                                : ConnectorIdentity.ofUser("fake");
-                        return fileIoFactory.create(fileSystemFactory.create(currentIdentity, config), true, config);
-                    });
+                    null);
             icebergCatalogInstance.initialize(catalogName.toString(), properties.buildOrThrow());
 
             icebergCatalog = icebergCatalogInstance;
