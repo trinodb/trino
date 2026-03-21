@@ -596,6 +596,10 @@ class Query
                     break;
                 }
 
+                // Lazy initialization is required because the encryption key depends on whether
+                // the exchange uses external storage (spooling) or direct exchange. This is determined
+                // by LazyExchangeDataSource, which resolves the concrete exchange type only after
+                // the first input is delivered — which happens after Query is created.
                 if (deserializer == null) {
                     Optional<Slice> effectiveKey = ExchangeEncryptionKey.keyFor(session, exchangeDataSource);
                     deserializer = serdeFactory.createDeserializer(effectiveKey.map(Ciphers::deserializeAesEncryptionKey));

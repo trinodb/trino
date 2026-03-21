@@ -252,6 +252,10 @@ public class ExchangeOperator
             return null;
         }
 
+        // Lazy initialization is required because the encryption key depends on whether
+        // the exchange uses external storage (spooling) or direct exchange. This is determined
+        // by LazyExchangeDataSource, which resolves the concrete exchange type only after
+        // the first split is delivered — which happens after the operator is created.
         if (deserializer == null) {
             Optional<Slice> effectiveKey = ExchangeEncryptionKey.keyFor(operatorContext.getSession(), exchangeDataSource);
             deserializer = serdeFactory.createDeserializer(effectiveKey.map(Ciphers::deserializeAesEncryptionKey));
