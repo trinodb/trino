@@ -33,12 +33,14 @@ import org.junit.jupiter.api.Test;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.function.Function;
 import java.util.function.Predicate;
 
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.spi.predicate.TupleDomain.all;
 import static io.trino.spi.predicate.TupleDomain.columnWiseUnion;
+import static io.trino.spi.predicate.TupleDomain.strictUnion;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DoubleType.DOUBLE;
@@ -820,6 +822,124 @@ class TestTupleDomain
                         B, doubleOne,
                         C, doubleZero),
                 true);
+    }
+
+    @Test
+    public void testStrictUnionEmptyList()
+    {
+        assertThat(strictUnion(List.of())).isEqualTo(Optional.of(TupleDomain.none()));
+    }
+
+    @Test
+    public void testStrictUnionAllNone()
+    {
+        assertThat(strictUnion(List.of(TupleDomain.none(), TupleDomain.none())))
+                .isEqualTo(Optional.of(TupleDomain.none()));
+    }
+
+    @Test
+    public void testStrictUnionOneIsSuperSet()
+    {
+        TupleDomain<ColumnHandle> narrow = TupleDomain.withColumnDomains(
+                ImmutableMap.of(A, Domain.singleValue(BIGINT, 1L)));
+        TupleDomain<ColumnHandle> wide = TupleDomain.withColumnDomains(
+                ImmutableMap.of(A, Domain.create(ValueSet.ofRanges(Range.range(BIGINT, 0L, true, 10L, true)), false)));
+
+        assertThat(strictUnion(List.of(narrow, wide)))
+                .isEqualTo(Optional.of(columnWiseUnion(narrow, wide)));
+    }
+
+    @Test
+    public void testStrictUnionSingleMatchingColumn()
+    {
+        TupleDomain<ColumnHandle> domain1 = TupleDomain.withColumnDomains(
+                ImmutableMap.of(A, Domain.singleValue(BIGINT, 1L)));
+        TupleDomain<ColumnHandle> domain2 = TupleDomain.withColumnDomains(
+                ImmutableMap.of(A, Domain.singleValue(BIGINT, 2L)));
+
+        Optional<TupleDomain<ColumnHandle>> result = strictUnion(List.of(domain1, domain2));
+        assertThat(result).isPresent();
+        assertThat(result.get()).isEqualTo(columnWiseUnion(domain1, domain2));
+    }
+
+    @Test
+    public void testStrictUnionMultipleColumnsNotExact()
+    {
+        TupleDomain<ColumnHandle> domain1 = TupleDomain.withColumnDomains(
+                ImmutableMap.of(
+                        A, Domain.singleValue(BIGINT, 1L),
+                        B, Domain.singleValue(BIGINT, 2L)));
+        TupleDomain<ColumnHandle> domain2 = TupleDomain.withColumnDomains(
+                ImmutableMap.of(
+                        A, Domain.singleValue(BIGINT, 2L),
+                        B, Domain.singleValue(BIGINT, 3L)));
+
+        assertThat(strictUnion(List.of(domain1, domain2))).isEmpty();
+    }
+
+    @Test
+    public void testStrictUnionDifferentSingleColumns()
+    {
+        TupleDomain<ColumnHandle> domain1 = TupleDomain.withColumnDomains(
+                ImmutableMap.of(A, Domain.singleValue(BIGINT, 1L)));
+        TupleDomain<ColumnHandle> domain2 = TupleDomain.withColumnDomains(
+                ImmutableMap.of(B, Domain.singleValue(BIGINT, 2L)));
+
+        assertThat(strictUnion(List.of(domain1, domain2))).isEmpty();
+    }
+
+    @Test
+    public void testStrictUnionWithNoneAmongOthers()
+    {
+        TupleDomain<ColumnHandle> domain1 = TupleDomain.withColumnDomains(
+                ImmutableMap.of(A, Domain.singleValue(BIGINT, 1L)));
+        TupleDomain<ColumnHandle> domain2 = TupleDomain.withColumnDomains(
+                ImmutableMap.of(A, Domain.singleValue(BIGINT, 2L)));
+
+        Optional<TupleDomain<ColumnHandle>> result = strictUnion(List.of(domain1, TupleDomain.none(), domain2));
+        assertThat(result).isPresent();
+        assertThat(result.get()).isEqualTo(columnWiseUnion(domain1, domain2));
+    }
+
+    @Test
+    public void testStrictUnionDoubleNaNImplicitlyAdded()
+    {
+        // Two non-overlapping double ranges that union to cover the entire value set,
+        // implicitly including NaN
+        TupleDomain<ColumnHandle> domain1 = TupleDomain.withColumnDomains(
+                ImmutableMap.of(A, Domain.create(ValueSet.ofRanges(Range.greaterThan(DOUBLE, 0.0)), false)));
+        TupleDomain<ColumnHandle> domain2 = TupleDomain.withColumnDomains(
+                ImmutableMap.of(A, Domain.create(ValueSet.ofRanges(Range.lessThanOrEqual(DOUBLE, 0.0)), false)));
+
+        assertThat(strictUnion(List.of(domain1, domain2))).isEmpty();
+    }
+
+    @Test
+    public void testStrictUnionDoubleNoNaNIssue()
+    {
+        // Two double ranges that don't union to cover the entire value set
+        TupleDomain<ColumnHandle> domain1 = TupleDomain.withColumnDomains(
+                ImmutableMap.of(A, Domain.create(ValueSet.ofRanges(Range.greaterThan(DOUBLE, 5.0)), false)));
+        TupleDomain<ColumnHandle> domain2 = TupleDomain.withColumnDomains(
+                ImmutableMap.of(A, Domain.create(ValueSet.ofRanges(Range.lessThan(DOUBLE, 0.0)), false)));
+
+        Optional<TupleDomain<ColumnHandle>> result = strictUnion(List.of(domain1, domain2));
+        assertThat(result).isPresent();
+        assertThat(result.get()).isEqualTo(columnWiseUnion(domain1, domain2));
+    }
+
+    @Test
+    public void testStrictUnionDoubleInputAlreadyContainsNaN()
+    {
+        // One input's value set is ALL (includes NaN), so NaN in the union is not implicitly added
+        TupleDomain<ColumnHandle> domain1 = TupleDomain.withColumnDomains(
+                ImmutableMap.of(A, Domain.notNull(DOUBLE)));
+        TupleDomain<ColumnHandle> domain2 = TupleDomain.withColumnDomains(
+                ImmutableMap.of(A, Domain.create(ValueSet.ofRanges(Range.lessThan(DOUBLE, 0.0)), false)));
+
+        Optional<TupleDomain<ColumnHandle>> result = strictUnion(List.of(domain1, domain2));
+        assertThat(result).isPresent();
+        assertThat(result.get()).isEqualTo(columnWiseUnion(domain1, domain2));
     }
 
     private void testAsPredicate(TupleDomain<ColumnHandle> tupleDomain, Map<ColumnHandle, NullableValue> bindings, boolean expected)

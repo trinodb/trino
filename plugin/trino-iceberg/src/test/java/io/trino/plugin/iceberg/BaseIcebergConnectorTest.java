@@ -5634,6 +5634,36 @@ public abstract class BaseIcebergConnectorTest
     }
 
     @Test
+    public void testSelectWithDisjunctTimestampFilter()
+    {
+        // https://github.com/trinodb/trino/issues/27136
+        String tableName = "test_select_disjunct_ts_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " (c1 integer, c2_ts timestamp(6) with time zone, c3 double) " +
+                "WITH (format = 'PARQUET', partitioning = ARRAY['month(c2_ts)'])");
+
+        assertUpdate("INSERT INTO " + tableName + " VALUES " +
+                "(1, TIMESTAMP '2025-07-13 00:00:00.000000 UTC', 0.1), " +
+                "(2, TIMESTAMP '2025-10-10 00:00:00.000000 UTC', 0.0)", 2);
+
+        // Verify OR predicate pushdown with direct timestamp comparisons
+        assertThat(query("SELECT * FROM " + tableName + " WHERE c2_ts >= TIMESTAMP '2025-07-01 00:00:00.000000 UTC' AND c2_ts < TIMESTAMP '2025-08-01 00:00:00.000000 UTC' " +
+                "OR c2_ts >= TIMESTAMP '2025-10-01 00:00:00.000000 UTC' AND c2_ts < TIMESTAMP '2025-11-01 00:00:00.000000 UTC'"))
+                .isFullyPushedDown();
+
+        // Verify OR predicate pushdown with date() cast
+        assertThat(query("SELECT * FROM " + tableName + " WHERE date(c2_ts) BETWEEN DATE '2025-07-01' AND DATE '2025-07-31' " +
+                "OR date(c2_ts) BETWEEN DATE '2025-10-01' AND DATE '2025-10-31'"))
+                .isFullyPushedDown();
+
+        // Verify that OPTIMIZE with the same disjunctive date() predicate succeeds
+        computeActual("ALTER TABLE " + tableName + " EXECUTE OPTIMIZE WHERE " +
+                "date(c2_ts) BETWEEN DATE '2025-07-01' AND DATE '2025-07-31' " +
+                "OR date(c2_ts) BETWEEN DATE '2025-10-01' AND DATE '2025-10-31'");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
     public void testOptimizeTableAfterDeleteWithFormatVersion2()
     {
         String tableName = "test_optimize_" + randomNameSuffix();
