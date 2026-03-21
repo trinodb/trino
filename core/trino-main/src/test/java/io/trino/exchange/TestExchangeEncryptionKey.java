@@ -71,7 +71,7 @@ public class TestExchangeEncryptionKey
     {
         Session session = createSessionWithEncryption();
         Optional<Slice> key = ExchangeEncryptionKey.keyFor(session, spoolingDataSource());
-        assertThat(key).isPresent();
+        assertThat(key).hasValue(ENCRYPTION_KEY);
     }
 
     @Test
