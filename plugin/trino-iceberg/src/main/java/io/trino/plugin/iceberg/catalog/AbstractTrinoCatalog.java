@@ -266,6 +266,7 @@ public abstract class AbstractTrinoCatalog
         TableMetadata newMetaData;
         if (metadata.isPresent()) {
             operations.initializeFromMetadata(metadata.get());
+            operations.markAsCreateOrReplace();
             newMetaData = operations.current()
                     // don't inherit table properties from earlier snapshots
                     .replaceProperties(properties)
