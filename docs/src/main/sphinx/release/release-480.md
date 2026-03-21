@@ -10,6 +10,12 @@
 * Add variant of {func}`array_first` for finding the first element that matches
   a predicate. ({issue}`27706`)
 * Add {doc}`/functions/datasketches`. ({issue}`27563`)
+* Support {func}`sum` and {func}`avg` aggregations over `number` values. ({issue}`28396`)
+* Support {func}`truncate`, {func}`round`, {func}`ceiling`, {func}`floor`, {func}`sign`,
+  {func}`abs`, {func}`mod`, {func}`is_nan`, {func}`is_infinite`, {func}`is_finite`
+  with `number` values. ({issue}`28398`)
+* Support mathematical operators involving `decimal` and `number` values
+  without need for explicit casts. ({issue}`28403`)
 * {{breaking}} Remove `enable-large-dynamic-filters` configuration property and the 
   corresponding system session property `enable_large_dynamic_filters`. ({issue}`27637`)
 * {{breaking}} Remove the `dynamic-filtering.small*` and `dynamic-filtering.large-broadcast*` 
@@ -28,6 +34,7 @@
   `Integer.MAX_VALUE`. ({issue}`27899`)
 * Fix incorrect results when the result of casting `json`, `time`, `boolean` or
   `interval` values to `varchar(n)` doesn't fit in the target type. ({issue}`552`)
+* Allow prepared statement parameters for versioned tables. ({issue}`28681`)
 
 ## Web UI
 
@@ -114,6 +121,7 @@
 * Add support for creating, writing to or deleting from Iceberg v3 tables. ({issue}`27786`, {issue}`27788`)
 * Add `content` column to `$manifests` and `$all_manifests` metadata tables. ({issue}`27975`)
 * Add support for changing `map` and `array` nested types through `ALTER ... SET DATA TYPE`. ({issue}`27998`)
+* Add support for creation of materialized views with `number` column type. ({issue}`28399`)
 * Clean up unused files from materialized views when they are refreshed. ({issue}`28008`)
 * {{breaking}} Remove the `hive.write-validation-threads` configuration property. ({issue}`27729`)
 * {{breaking}} Remove the `parquet.optimized-writer.validation-percentage` configuration
@@ -162,11 +170,14 @@
 
 ## MariaDB connector
 
+* Add support for reading MariaDB `DECIMAL(p, s)` columns when `p > 38`. ({issue}`28744`)
 * Fix failure when creating a table if a prior `CREATE TABLE ... AS SELECT`
   operation for the same table failed. ({issue}`27702`)
 
 ## MySQL connector
 
+* Add support for reading MySQL `DECIMAL(p, s)` columns when `p > 38`. ({issue}`28744`)
+* Remove incorrect support for reading MySQL `BIT(n)` columns when `n > 1`. ({issue}`28744`)
 * Fix failure when creating a table if a prior `CREATE TABLE ... AS SELECT`
   operation for the same table failed. ({issue}`27702`)
 
@@ -174,6 +185,9 @@
 
 * Add support for configuring the connection wait timeout through the 
   `oracle.connection-pool.wait-timeout` catalog property. ({issue}`27744`)
+* Add support for reading Oracle `NUMBER(p, s)` columns when `s > p`. ({issue}`28747`)
+* Add support for reading Oracle `NUMBER(p, s)` columns which cannot be mapped
+  to Trino `decimal`. These columns are mapped to Trino `number` type. ({issue}`28401`)
 * Fix failure when creating a table if a prior `CREATE TABLE ... AS SELECT`
   operation for the same table failed. ({issue}`27702`)
 * Fix failure when reading `float` type in `query` table function. ({issue}`27880`)
@@ -192,6 +206,7 @@
 
 ## SingleStore connector
 
+* Remove incorrect support for reading SingleStore `BIT(n)` columns when `n > 1`. ({issue}`28744`)
 * Fix failure when creating a table if a prior `CREATE TABLE ... AS SELECT`
   operation for the same table failed. ({issue}`27702`)
 
