@@ -18,8 +18,8 @@ import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.filesystem.TrinoInputFile;
-import io.trino.hive.formats.esri.EsriDeserializer;
-import io.trino.hive.formats.esri.EsriReader;
+import io.trino.hive.formats.esri.GeoJsonDeserializer;
+import io.trino.hive.formats.esri.GeoJsonReader;
 import io.trino.hive.formats.line.Column;
 import io.trino.plugin.hive.AcidInfo;
 import io.trino.plugin.hive.HiveColumnHandle;
@@ -40,20 +40,20 @@ import java.util.OptionalInt;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.trino.hive.formats.HiveClassNames.ESRI_INPUT_FORMAT_CLASS;
-import static io.trino.hive.formats.HiveClassNames.ESRI_SERDE_CLASS;
+import static io.trino.hive.formats.HiveClassNames.ESRI_GEO_JSON_INPUT_FORMAT_CLASS;
+import static io.trino.hive.formats.HiveClassNames.ESRI_GEO_JSON_SERDE_CLASS;
 import static io.trino.hive.thrift.metastore.hive_metastoreConstants.FILE_INPUT_FORMAT;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_CANNOT_OPEN_SPLIT;
 import static io.trino.plugin.hive.util.HiveUtil.splitError;
 import static java.util.Objects.requireNonNull;
 
-public class EsriPageSourceFactory
+public class GeoJsonPageSourceFactory
         implements HivePageSourceFactory
 {
     private final TrinoFileSystemFactory trinoFileSystemFactory;
 
     @Inject
-    public EsriPageSourceFactory(TrinoFileSystemFactory trinoFileSystemFactory)
+    public GeoJsonPageSourceFactory(TrinoFileSystemFactory trinoFileSystemFactory)
     {
         this.trinoFileSystemFactory = requireNonNull(trinoFileSystemFactory, "trinoFileSystemFactory is null");
     }
@@ -74,12 +74,12 @@ public class EsriPageSourceFactory
             boolean originalFile,
             AcidTransaction transaction)
     {
-        if (!ESRI_SERDE_CLASS.equals(schema.serializationLibraryName())
-                || !ESRI_INPUT_FORMAT_CLASS.equals(schema.serdeProperties().get(FILE_INPUT_FORMAT))) {
+        if (!ESRI_GEO_JSON_SERDE_CLASS.equals(schema.serializationLibraryName())
+                || !ESRI_GEO_JSON_INPUT_FORMAT_CLASS.equals(schema.serdeProperties().get(FILE_INPUT_FORMAT))) {
             return Optional.empty();
         }
 
-        checkArgument(acidInfo.isEmpty(), "Acid is not supported for Esri files");
+        checkArgument(acidInfo.isEmpty(), "Acid is not supported for GeoJson files");
 
         // Skip empty inputs
         if (length == 0) {
@@ -87,13 +87,12 @@ public class EsriPageSourceFactory
         }
 
         if (start != 0) {
-            throw new TrinoException(HIVE_CANNOT_OPEN_SPLIT, "Split start must be 0 for Esri files");
+            throw new TrinoException(HIVE_CANNOT_OPEN_SPLIT, "Split start must be 0 for GeoJson files");
         }
 
         TrinoFileSystem trinoFileSystem = trinoFileSystemFactory.create(session);
         TrinoInputFile inputFile = trinoFileSystem.newInputFile(path);
 
-        // TODO: optimization for small files that should just be read into memory. Consider it later.
         InputStream inputStream = null;
         try {
             inputStream = inputFile.newStream();
@@ -102,9 +101,9 @@ public class EsriPageSourceFactory
                     .map(hc -> new Column(hc.getName(), hc.getType(), hc.getBaseHiveColumnIndex()))
                     .collect(toImmutableList());
 
-            EsriDeserializer esriDeserializer = new EsriDeserializer(decoderColumns);
-            EsriReader esriReader = new EsriReader(inputStream, esriDeserializer);
-            EsriPageSource pageSource = new EsriPageSource(esriReader, columns, path);
+            GeoJsonDeserializer geoJsonDeserializer = new GeoJsonDeserializer(decoderColumns);
+            GeoJsonReader geoJsonReader = new GeoJsonReader(inputStream, geoJsonDeserializer);
+            GeoJsonPageSource pageSource = new GeoJsonPageSource(geoJsonReader, columns, path);
 
             return Optional.of(pageSource);
         }
