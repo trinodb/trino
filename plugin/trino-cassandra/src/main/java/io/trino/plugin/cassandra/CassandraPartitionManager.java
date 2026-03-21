@@ -23,7 +23,9 @@ import io.trino.plugin.cassandra.util.CassandraCqlUtils;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.Range;
+import io.trino.spi.predicate.Ranges;
 import io.trino.spi.predicate.TupleDomain;
+import io.trino.spi.type.Type;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -37,12 +39,20 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Predicates.in;
 import static com.google.common.base.Predicates.not;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static io.trino.plugin.cassandra.CassandraType.Kind.BIGINT;
+import static io.trino.plugin.cassandra.CassandraType.Kind.INT;
+import static io.trino.plugin.cassandra.CassandraType.Kind.SMALLINT;
+import static io.trino.plugin.cassandra.CassandraType.Kind.TINYINT;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 
 public class CassandraPartitionManager
 {
     private static final Logger log = Logger.get(CassandraPartitionManager.class);
+
+    private static final int MAX_PARTITION_KEY_RANGE_EXPANSION = 1000;
+
+    private static final Set<CassandraType.Kind> INTEGER_PARTITION_KEY_TYPES = ImmutableSet.of(INT, BIGINT, SMALLINT, TINYINT);
 
     private final CassandraSession cassandraSession;
     private final CassandraTypeManager cassandraTypeManager;
@@ -151,22 +161,7 @@ public class CassandraPartitionManager
             }
 
             Set<Object> values = domain.getValues().getValuesProcessor().transform(
-                    ranges -> {
-                        ImmutableSet.Builder<Object> columnValues = ImmutableSet.builder();
-                        for (Range range : ranges.getOrderedRanges()) {
-                            // if the range is not a single value, we cannot perform partition pruning
-                            if (!range.isSingleValue()) {
-                                return ImmutableSet.of();
-                            }
-                            Object value = range.getSingleValue();
-
-                            CassandraType valueType = columnHandle.cassandraType();
-                            if (valueType.kind().isSupportedPartitionKey()) {
-                                columnValues.add(value);
-                            }
-                        }
-                        return columnValues.build();
-                    },
+                    ranges -> extractPartitionKeyValues(columnHandle, ranges),
                     discreteValues -> {
                         if (discreteValues.isInclusive()) {
                             return ImmutableSet.copyOf(discreteValues.getValues());
@@ -177,5 +172,55 @@ public class CassandraPartitionManager
             partitionColumnValues.add(values);
         }
         return partitionColumnValues.build();
+    }
+
+    private ImmutableSet<Object> extractPartitionKeyValues(CassandraColumnHandle columnHandle, Ranges ranges)
+    {
+        ImmutableSet.Builder<Object> columnValues = ImmutableSet.builder();
+        CassandraType valueType = columnHandle.cassandraType();
+
+        if (!valueType.kind().isSupportedPartitionKey()) {
+            return ImmutableSet.of();
+        }
+
+        for (Range range : ranges.getOrderedRanges()) {
+            if (range.isSingleValue()) {
+                columnValues.add(range.getSingleValue());
+                continue;
+            }
+
+            if (range.isLowUnbounded() || range.isHighUnbounded()) {
+                return ImmutableSet.of();
+            }
+
+            if (!isIntegerPartitionKeyType(valueType.kind())) {
+                return ImmutableSet.of();
+            }
+
+            Type trinoType = valueType.trinoType();
+            Optional<Stream<?>> discreteValuesOpt = trinoType.getDiscreteValues(
+                    new Type.Range(range.getLowBoundedValue(), range.getHighBoundedValue()));
+
+            if (discreteValuesOpt.isEmpty()) {
+                return ImmutableSet.of();
+            }
+
+            List<Object> expandedValues = discreteValuesOpt.get()
+                    .limit(MAX_PARTITION_KEY_RANGE_EXPANSION + 1)
+                    .map(Object.class::cast)
+                    .collect(toList());
+
+            if (expandedValues.size() > MAX_PARTITION_KEY_RANGE_EXPANSION) {
+                return ImmutableSet.of();
+            }
+
+            columnValues.addAll(expandedValues);
+        }
+        return columnValues.build();
+    }
+
+    private static boolean isIntegerPartitionKeyType(CassandraType.Kind kind)
+    {
+        return INTEGER_PARTITION_KEY_TYPES.contains(kind);
     }
 }
