@@ -13,10 +13,13 @@
  */
 package io.trino.server;
 
+import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.errorprone.annotations.ThreadSafe;
 import com.google.inject.Inject;
 import io.airlift.log.Logger;
+import io.airlift.log.TerminalColors;
+import io.airlift.units.Duration;
 import io.trino.connector.CatalogFactory;
 import io.trino.connector.CatalogStoreManager;
 import io.trino.eventlistener.EventListenerManager;
@@ -63,6 +66,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkState;
+import static io.airlift.log.TerminalColors.Color.PURPLE;
 import static java.util.Arrays.asList;
 import static java.util.Objects.requireNonNull;
 
@@ -70,6 +74,8 @@ import static java.util.Objects.requireNonNull;
 public class PluginManager
         implements PluginInstaller
 {
+    private static final TerminalColors COLORS = new TerminalColors(true);
+
     private static final List<String> SPI_PACKAGES = ImmutableList.<String>builder()
             .add("io.trino.spi.")
             .add("com.fasterxml.jackson.annotation.")
@@ -149,149 +155,166 @@ public class PluginManager
         }
 
         pluginsProvider.loadPlugins(this::loadPlugin, PluginManager::createClassLoader);
-
         typeRegistry.verifyTypes();
     }
 
     private void loadPlugin(String plugin, Supplier<PluginClassLoader> createClassLoader)
     {
-        log.info("-- Loading plugin %s --", plugin);
-
         PluginClassLoader pluginClassLoader = createClassLoader.get();
-
-        log.debug("Classpath for plugin:");
-        for (URL url : pluginClassLoader.getURLs()) {
-            log.debug("    %s", url.getPath());
-        }
-
         handleResolver.registerClassLoader(pluginClassLoader);
         try (ThreadContextClassLoader _ = new ThreadContextClassLoader(pluginClassLoader)) {
-            loadPlugin(plugin, pluginClassLoader);
+            for (InstalledFeatures features : loadPlugin(plugin, pluginClassLoader)) {
+                if (!features.isEmpty()) {
+                    log.info("Loaded plugin %s (%s) with features:", COLORS.colored(features.pluginClass().getSimpleName(), PURPLE), features.loadingTime().convertToMostSuccinctTimeUnit());
+                    for (Feature feature : Feature.values()) {
+                        List<String> names = features.names(feature);
+                        if (!names.isEmpty()) {
+                            log.info("  %s: %s", feature.getDescription(), Joiner.on(", ").join(names));
+                        }
+                    }
+                }
+            }
         }
-
-        log.info("-- Finished loading plugin %s --", plugin);
     }
 
-    private void loadPlugin(String pluginPath, PluginClassLoader pluginClassLoader)
+    private List<InstalledFeatures> loadPlugin(String pluginPath, PluginClassLoader pluginClassLoader)
     {
         ServiceLoader<Plugin> serviceLoader = ServiceLoader.load(Plugin.class, pluginClassLoader);
         List<Plugin> plugins = ImmutableList.copyOf(serviceLoader);
         checkState(!plugins.isEmpty(), "%s - No service providers of type %s in the classpath: %s", pluginPath, Plugin.class.getName(), asList(pluginClassLoader.getURLs()));
 
+        ImmutableList.Builder<InstalledFeatures> features = ImmutableList.builderWithExpectedSize(plugins.size());
         for (Plugin plugin : plugins) {
-            log.info("Installing %s", plugin.getClass().getName());
-            installPlugin(plugin);
+            features.add(installPlugin(plugin));
         }
+        return features.build();
     }
 
     @Override
-    public void installPlugin(Plugin plugin)
+    public InstalledFeatures installPlugin(Plugin plugin)
     {
-        installPluginInternal(plugin);
-        typeRegistry.verifyTypes();
+        return installPluginInternal(plugin);
     }
 
-    private void installPluginInternal(Plugin plugin)
+    private InstalledFeatures installPluginInternal(Plugin plugin)
     {
+        InstalledFeatures.Builder builder = InstalledFeatures.builder(plugin.getClass());
+        long startTime = System.nanoTime();
         catalogStoreManager.ifPresent(catalogStoreManager -> {
             for (CatalogStoreFactory catalogStoreFactory : plugin.getCatalogStoreFactories()) {
-                log.info("Registering catalog store %s", catalogStoreFactory.getName());
+                builder.withFeature(Feature.CATALOG_STORE, catalogStoreFactory.getName());
                 catalogStoreManager.addCatalogStoreFactory(catalogStoreFactory);
             }
         });
 
         for (BlockEncoding blockEncoding : plugin.getBlockEncodings()) {
-            log.info("Registering block encoding %s", blockEncoding.getName());
+            builder.withFeature(Feature.BLOCK_ENCODING, blockEncoding.getName());
             blockEncodingManager.addBlockEncoding(blockEncoding);
         }
 
         for (Type type : plugin.getTypes()) {
-            log.info("Registering type %s", type);
+            builder.withFeature(Feature.TYPE, type.getDisplayName());
             typeRegistry.addType(type);
         }
 
         for (ParametricType parametricType : plugin.getParametricTypes()) {
-            log.info("Registering parametric type %s", parametricType.getName());
+            builder.withFeature(Feature.PARAMETRIC_TYPE, parametricType.getName());
             typeRegistry.addParametricType(parametricType);
         }
 
         for (ConnectorFactory connectorFactory : plugin.getConnectorFactories()) {
-            log.info("Registering connector %s", connectorFactory.getName());
+            builder.withFeature(Feature.CONNECTOR, connectorFactory.getName());
             this.connectorFactory.addConnectorFactory(connectorFactory);
         }
 
         Set<Class<?>> functions = plugin.getFunctions();
         if (!functions.isEmpty()) {
-            log.info("Registering functions from %s", plugin.getClass().getSimpleName());
-            InternalFunctionBundleBuilder builder = InternalFunctionBundle.builder();
-            functions.forEach(builder::functions);
-            globalFunctionCatalog.addFunctions(builder.build());
+            InternalFunctionBundleBuilder functionsBuilder = InternalFunctionBundle.builder();
+            functions.forEach(functionsBuilder::functions);
+            InternalFunctionBundle bundle = functionsBuilder.build();
+            bundle.getFunctions()
+                    .stream()
+                    .filter(function -> !function.isHidden())
+                    .forEach(metadata -> builder.withFeature(Feature.FUNCTION, metadata.getCanonicalName()));
+            globalFunctionCatalog.addFunctions(bundle);
         }
 
         for (LanguageFunctionEngine languageFunctionEngine : plugin.getLanguageFunctionEngines()) {
-            log.info("Registering language function engine %s", languageFunctionEngine.getLanguage());
+            builder.withFeature(Feature.LANGUAGE_FUNCTION, languageFunctionEngine.getLanguage());
             languageFunctionEngineManager.addLanguageFunctionEngine(languageFunctionEngine);
         }
 
         for (SessionPropertyConfigurationManagerFactory sessionConfigFactory : plugin.getSessionPropertyConfigurationManagerFactories()) {
-            log.info("Registering session property configuration manager %s", sessionConfigFactory.getName());
+            builder.withFeature(Feature.SESSION_PROPERTY_CONFIGURATION_MANAGER, sessionConfigFactory.getName());
             sessionPropertyDefaults.addConfigurationManagerFactory(sessionConfigFactory);
         }
 
         for (ResourceGroupConfigurationManagerFactory configurationManagerFactory : plugin.getResourceGroupConfigurationManagerFactories()) {
-            log.info("Registering resource group configuration manager %s", configurationManagerFactory.getName());
+            builder.withFeature(Feature.RESOURCE_GROUP_CONFIGURATION_MANAGER, configurationManagerFactory.getName());
             resourceGroupManager.addConfigurationManagerFactory(configurationManagerFactory);
         }
 
         for (SystemAccessControlFactory accessControlFactory : plugin.getSystemAccessControlFactories()) {
-            log.info("Registering system access control %s", accessControlFactory.getName());
+            builder.withFeature(Feature.ACCESS_CONTROL, accessControlFactory.getName());
             accessControlManager.addSystemAccessControlFactory(accessControlFactory);
         }
 
         passwordAuthenticatorManager.ifPresent(authenticationManager -> {
             for (PasswordAuthenticatorFactory authenticatorFactory : plugin.getPasswordAuthenticatorFactories()) {
-                log.info("Registering password authenticator %s", authenticatorFactory.getName());
+                builder.withFeature(Feature.PASSWORD_AUTHENTICATOR, authenticatorFactory.getName());
                 authenticationManager.addPasswordAuthenticatorFactory(authenticatorFactory);
             }
         });
 
         for (CertificateAuthenticatorFactory authenticatorFactory : plugin.getCertificateAuthenticatorFactories()) {
-            log.info("Registering certificate authenticator %s", authenticatorFactory.getName());
+            builder.withFeature(Feature.CERTIFICATE_AUTHENTICATOR, authenticatorFactory.getName());
             certificateAuthenticatorManager.addCertificateAuthenticatorFactory(authenticatorFactory);
         }
 
         headerAuthenticatorManager.ifPresent(authenticationManager -> {
             for (HeaderAuthenticatorFactory authenticatorFactory : plugin.getHeaderAuthenticatorFactories()) {
-                log.info("Registering header authenticator %s", authenticatorFactory.getName());
+                builder.withFeature(Feature.HEADER_AUTHENTICATOR, authenticatorFactory.getName());
                 authenticationManager.addHeaderAuthenticatorFactory(authenticatorFactory);
             }
         });
 
         for (EventListenerFactory eventListenerFactory : plugin.getEventListenerFactories()) {
-            log.info("Registering event listener %s", eventListenerFactory.getName());
+            builder.withFeature(Feature.EVENT_LISTENER, eventListenerFactory.getName());
             eventListenerManager.addEventListenerFactory(eventListenerFactory);
         }
 
         for (GroupProviderFactory groupProviderFactory : plugin.getGroupProviderFactories()) {
-            log.info("Registering group provider %s", groupProviderFactory.getName());
+            builder.withFeature(Feature.GROUP_PROVIDER, groupProviderFactory.getName());
             groupProviderManager.addGroupProviderFactory(groupProviderFactory);
         }
 
         for (ExchangeManagerFactory exchangeManagerFactory : plugin.getExchangeManagerFactories()) {
-            log.info("Registering exchange manager %s", exchangeManagerFactory.getName());
+            builder.withFeature(Feature.EXCHANGE_MANAGER, exchangeManagerFactory.getName());
             exchangeManagerRegistry.addExchangeManagerFactory(exchangeManagerFactory);
         }
 
         for (SpoolingManagerFactory spoolingManagerFactory : plugin.getSpoolingManagerFactories()) {
-            log.info("Registering spooling manager %s", spoolingManagerFactory.getName());
+            builder.withFeature(Feature.SPOOLING_MANAGER, spoolingManagerFactory.getName());
             spoolingManagerRegistry.addSpoolingManagerFactory(spoolingManagerFactory);
         }
+
+        return builder
+                .withLoadingTime(Duration.nanosSince(startTime))
+                .build();
     }
 
     public static PluginClassLoader createClassLoader(String pluginName, List<URL> urls)
     {
         ClassLoader parent = PluginManager.class.getClassLoader();
-        return new PluginClassLoader(pluginName, urls, parent, SPI_PACKAGES);
+        PluginClassLoader classLoader = new PluginClassLoader(pluginName, urls, parent, SPI_PACKAGES);
+
+        if (log.isDebugEnabled()) {
+            log.debug("Classpath for plugin %s: ", pluginName);
+            for (URL url : classLoader.getURLs()) {
+                log.debug("    %s", url.getPath());
+            }
+        }
+        return classLoader;
     }
 
     public interface PluginsProvider
