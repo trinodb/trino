@@ -696,7 +696,7 @@ public class SqlServerClient
         return ColumnMapping.sliceMapping(
                 jsonType,
                 (resultSet, columnIndex) -> jsonParse(utf8Slice(resultSet.getString(columnIndex))),
-                varcharWriteFunction(),
+                jsonWriteFunction(),
                 DISABLE_PUSHDOWN);
     }
 
@@ -754,6 +754,10 @@ public class SqlServerClient
                 dataType = "nchar(" + charType.getLength() + ")";
             }
             return WriteMapping.sliceMapping(dataType, charWriteFunction());
+        }
+
+        if (type == jsonType) {
+            return WriteMapping.sliceMapping("json", jsonWriteFunction());
         }
 
         if (type instanceof VarbinaryType) {
@@ -1351,6 +1355,25 @@ public class SqlServerClient
     private static SliceWriteFunction nvarcharWriteFunction()
     {
         return (statement, index, value) -> statement.setNString(index, value.toStringUtf8());
+    }
+
+    private static SliceWriteFunction jsonWriteFunction()
+    {
+        return new SliceWriteFunction()
+        {
+            @Override
+            public String getBindExpression()
+            {
+                return "CAST(? AS JSON)"; // SQL Server 2025 implicitly converts varchar -> json
+            }
+
+            @Override
+            public void set(PreparedStatement statement, int index, Slice value)
+                    throws SQLException
+            {
+                statement.setNString(index, value.toStringUtf8());
+            }
+        };
     }
 
     private static Optional<DataCompression> getTableDataCompression(Handle handle, JdbcTableHandle table)
