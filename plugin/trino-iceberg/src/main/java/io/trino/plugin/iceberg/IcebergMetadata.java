@@ -360,6 +360,7 @@ import static io.trino.plugin.iceberg.IcebergTableProperties.getFormatVersion;
 import static io.trino.plugin.iceberg.IcebergTableProperties.getPartitioning;
 import static io.trino.plugin.iceberg.IcebergTableProperties.getTableLocation;
 import static io.trino.plugin.iceberg.IcebergTableProperties.validateCompression;
+import static io.trino.plugin.iceberg.IcebergUtil.CREDENTIAL_CACHE_TTL;
 import static io.trino.plugin.iceberg.IcebergUtil.buildPath;
 import static io.trino.plugin.iceberg.IcebergUtil.canEnforceColumnConstraintInSpecs;
 import static io.trino.plugin.iceberg.IcebergUtil.checkFormatForProperty;
@@ -516,7 +517,6 @@ public class IcebergMetadata
     private static final String DEPENDS_ON_TABLE_FUNCTIONS = "dependsOnTableFunctions";
     // Value should be ISO-8601 formatted time instant
     private static final String TRINO_QUERY_START_TIME = "trino-query-start-time";
-
     private final TypeManager typeManager;
     private final JsonCodec<CommitTaskData> commitTaskCodec;
     private final TrinoCatalog catalog;
@@ -573,7 +573,12 @@ public class IcebergMetadata
         this.deletionVectorWriter = requireNonNull(deletionVectorWriter, "deletionVectorWriter is null");
         this.materializedViewRefreshMaxSnapshotsToExpire = materializedViewRefreshMaxSnapshotsToExpire;
         this.materializedViewRefreshSnapshotRetentionPeriod = materializedViewRefreshSnapshotRetentionPeriod;
-        this.tableCredentialsCache = buildNonEvictableCache(CacheBuilder.newBuilder());
+        // Credentials are cached with a TTL so that the coordinator will re-fetch fresh credentials
+        // when getTableCredentials() is called for new tasks in long-running queries.
+        // NonEvictableCache is used because newWritableTableHandle/beginCreateTable call cache.put()
+        // directly; EvictableCache does not support put(). TTL-based expiry is still applied via the
+        // CacheBuilder configuration; explicit invalidation is not needed here.
+        this.tableCredentialsCache = buildNonEvictableCache(CacheBuilder.newBuilder().expireAfterWrite(CREDENTIAL_CACHE_TTL));
     }
 
     @Override
@@ -596,7 +601,7 @@ public class IcebergMetadata
                 schemaTableName,
                 () -> {
                     BaseTable baseTable = catalog.loadTable(session, schemaTableName);
-                    return new IcebergTableCredentials(baseTable.io().properties());
+                    return IcebergTableCredentials.forFileIO(baseTable.io());
                 }));
         }
         catch (UncheckedExecutionException e) {

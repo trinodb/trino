@@ -19,9 +19,13 @@ import org.apache.iceberg.io.FileIO;
 
 import java.util.Map;
 
-public record IcebergTableCredentials(Map<String, String> fileIoProperties)
+public record IcebergTableCredentials(Map<String, String> fileIoProperties, long credentialsFetchedAtMs)
         implements ConnectorTableCredentials
 {
+    // The presence of this key in fileIoProperties signals that the REST catalog vended
+    // short-lived S3 credentials that must be periodically refreshed.
+    private static final String VENDED_S3_ACCESS_KEY = "s3.access-key-id";
+
     public IcebergTableCredentials
     {
         fileIoProperties = ImmutableMap.copyOf(fileIoProperties);
@@ -29,6 +33,11 @@ public record IcebergTableCredentials(Map<String, String> fileIoProperties)
 
     public static IcebergTableCredentials forFileIO(FileIO io)
     {
-        return new IcebergTableCredentials(io.properties());
+        Map<String, String> properties = io.properties();
+        // Set credentialsFetchedAtMs only when actual vended S3 credentials are present.
+        // A zero timestamp disables the worker-side refresh path (see IcebergUtil.maybeRefreshVendedCredentials),
+        // so catalogs that do not vend credentials are unaffected even if getTableCredentials() is called.
+        long fetchedAt = properties.containsKey(VENDED_S3_ACCESS_KEY) ? System.currentTimeMillis() : 0L;
+        return new IcebergTableCredentials(properties, fetchedAt);
     }
 }
