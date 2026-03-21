@@ -13,7 +13,10 @@
  */
 package io.trino.filesystem.manager;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import jakarta.validation.constraints.AssertTrue;
+import jakarta.validation.constraints.NotEmpty;
 import org.junit.jupiter.api.Test;
 
 import java.util.Map;
@@ -21,6 +24,7 @@ import java.util.Map;
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
+import static io.airlift.testing.ValidationAssertions.assertFailsValidation;
 import static java.lang.System.getenv;
 
 public class TestFileSystemConfig
@@ -38,6 +42,7 @@ public class TestFileSystemConfig
                 .setNativeGcsEnabled(false)
                 .setNativeLocalEnabled(false)
                 .setCacheEnabled(false)
+                .setCacheIncludeTables(ImmutableList.of("*"))
                 .setTrackingEnabled(RUNNING_IN_CI));
     }
 
@@ -52,6 +57,7 @@ public class TestFileSystemConfig
                 .put("fs.native-gcs.enabled", "true")
                 .put("fs.native-local.enabled", "true")
                 .put("fs.cache.enabled", "true")
+                .put("fs.cache.include-tables", "schema1.table1,schema2.*,*")
                 .put("fs.tracking.enabled", Boolean.toString(!RUNNING_IN_CI))
                 .buildOrThrow();
 
@@ -63,8 +69,31 @@ public class TestFileSystemConfig
                 .setNativeGcsEnabled(true)
                 .setNativeLocalEnabled(true)
                 .setCacheEnabled(true)
+                .setCacheIncludeTables(ImmutableList.of("schema1.table1", "schema2.*", "*"))
                 .setTrackingEnabled(!RUNNING_IN_CI);
 
         assertFullMapping(properties, expected);
+    }
+
+    @Test
+    public void testValidation()
+    {
+        assertFailsValidation(
+                new FileSystemConfig()
+                        .setCacheIncludeTables(ImmutableList.of()),
+                "cacheIncludeTables",
+                "must not be empty",
+                NotEmpty.class);
+    }
+
+    @Test
+    public void testCacheIncludeTablesRequiresCacheEnabled()
+    {
+        assertFailsValidation(
+                new FileSystemConfig()
+                        .setCacheIncludeTables(ImmutableList.of("schema1.table1")),
+                "cacheIncludeTablesConfigValid",
+                "fs.cache.enabled must be true when fs.cache.include-tables is explicitly configured",
+                AssertTrue.class);
     }
 }

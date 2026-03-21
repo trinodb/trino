@@ -13,8 +13,13 @@
  */
 package io.trino.filesystem.manager;
 
+import com.google.common.collect.ImmutableList;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
+import jakarta.validation.constraints.AssertTrue;
+import jakarta.validation.constraints.NotEmpty;
+
+import java.util.List;
 
 import static java.lang.System.getenv;
 
@@ -27,6 +32,7 @@ public class FileSystemConfig
     private boolean nativeGcsEnabled;
     private boolean nativeLocalEnabled;
     private boolean cacheEnabled;
+    private List<String> cacheIncludeTables = ImmutableList.of("*");
 
     // Enable leak detection if configured or if running in a CI environment
     private boolean trackingEnabled = getenv("CONTINUOUS_INTEGRATION") != null;
@@ -113,6 +119,26 @@ public class FileSystemConfig
     {
         this.cacheEnabled = enabled;
         return this;
+    }
+
+    @NotEmpty
+    public List<String> getCacheIncludeTables()
+    {
+        return cacheIncludeTables;
+    }
+
+    @Config("fs.cache.include-tables")
+    @ConfigDescription("List of tables to include in file system cache, use * to cache all tables in all schemas")
+    public FileSystemConfig setCacheIncludeTables(List<String> tables)
+    {
+        this.cacheIncludeTables = ImmutableList.copyOf(tables);
+        return this;
+    }
+
+    @AssertTrue(message = "fs.cache.enabled must be true when fs.cache.include-tables is explicitly configured")
+    public boolean isCacheIncludeTablesConfigValid()
+    {
+        return cacheEnabled || cacheIncludeTables.equals(ImmutableList.of("*"));
     }
 
     public boolean isTrackingEnabled()

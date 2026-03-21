@@ -18,6 +18,7 @@ import com.google.inject.Inject;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.plugin.iceberg.IcebergFileSystemFactory;
+import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.security.ConnectorIdentity;
 
 import java.util.Map;
@@ -47,12 +48,25 @@ public class IcebergRestCatalogFileSystemFactory
     @Override
     public TrinoFileSystem create(ConnectorIdentity identity, Map<String, String> fileIoProperties)
     {
+        ConnectorIdentity effectiveIdentity = getEffectiveIdentity(identity, fileIoProperties);
+        return fileSystemFactory.create(effectiveIdentity);
+    }
+
+    @Override
+    public TrinoFileSystem create(ConnectorSession session, Map<String, String> fileIoProperties, boolean cachingEnabled)
+    {
+        ConnectorIdentity effectiveIdentity = getEffectiveIdentity(session.getIdentity(), fileIoProperties);
+        return fileSystemFactory.create(effectiveIdentity, cachingEnabled);
+    }
+
+    private ConnectorIdentity getEffectiveIdentity(ConnectorIdentity identity, Map<String, String> fileIoProperties)
+    {
         if (vendedCredentialsEnabled &&
                 fileIoProperties.containsKey(VENDED_S3_ACCESS_KEY) &&
                 fileIoProperties.containsKey(VENDED_S3_SECRET_KEY) &&
                 fileIoProperties.containsKey(VENDED_S3_SESSION_TOKEN)) {
             // Do not include original credentials as they should not be used in vended mode
-            ConnectorIdentity identityWithExtraCredentials = ConnectorIdentity.forUser(identity.getUser())
+            return ConnectorIdentity.forUser(identity.getUser())
                     .withGroups(identity.getGroups())
                     .withPrincipal(identity.getPrincipal())
                     .withEnabledSystemRoles(identity.getEnabledSystemRoles())
@@ -63,9 +77,8 @@ public class IcebergRestCatalogFileSystemFactory
                             .put(EXTRA_CREDENTIALS_SESSION_TOKEN_PROPERTY, fileIoProperties.get(VENDED_S3_SESSION_TOKEN))
                             .buildOrThrow())
                     .build();
-            return fileSystemFactory.create(identityWithExtraCredentials);
         }
 
-        return fileSystemFactory.create(identity);
+        return identity;
     }
 }

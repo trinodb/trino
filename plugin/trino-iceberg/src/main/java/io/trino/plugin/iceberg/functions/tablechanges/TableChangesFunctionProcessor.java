@@ -116,6 +116,7 @@ public class TableChangesFunctionProcessor
 
         this.pageSource = icebergPageSourceProvider.createPageSource(
                 session,
+                functionHandle.schemaTableName(),
                 functionHandle.columns(),
                 tableSchema,
                 partitionSpec,
