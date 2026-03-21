@@ -17,14 +17,19 @@ import com.google.common.collect.ImmutableList;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableMetadata;
+import io.trino.spi.connector.RelationColumnsMetadata;
 import io.trino.spi.connector.SchemaTableName;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 
+import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
+import static com.google.common.collect.Streams.stream;
 import static io.trino.plugin.jdbc.TestingJdbcTypeHandle.JDBC_BIGINT;
 import static io.trino.plugin.jdbc.TestingJdbcTypeHandle.JDBC_DOUBLE;
 import static io.trino.plugin.jdbc.TestingJdbcTypeHandle.JDBC_REAL;
@@ -130,6 +135,21 @@ public class TestJdbcClient
                 new JdbcColumnHandle("TS_3", JDBC_TIMESTAMP, TIMESTAMP_MILLIS),
                 new JdbcColumnHandle("TS_6", JDBC_TIMESTAMP, TIMESTAMP_MICROS),
                 new JdbcColumnHandle("TS_9", JDBC_TIMESTAMP, TIMESTAMP_NANOS));
+    }
+
+    @Test
+    public void testGetAllTableColumnsReturnsAllColumnsForMultipleTables()
+    {
+        Map<SchemaTableName, List<String>> columnsByName = stream(jdbcClient.getAllTableColumns(session, Optional.of("example")))
+                .filter(relation -> relation.tableColumns().isPresent())
+                .collect(Collectors.toMap(RelationColumnsMetadata::name, relation -> relation.tableColumns().get().stream()
+                        .map(ColumnMetadata::getName)
+                        .collect(Collectors.toList())));
+
+        assertThat(columnsByName.get(new SchemaTableName("example", "numbers")).stream().map(String::toUpperCase).toList())
+                .containsExactly("TEXT", "TEXT_SHORT", "VALUE");
+        assertThat(columnsByName.get(new SchemaTableName("example", "timestamps")).stream().map(String::toUpperCase).toList())
+                .containsExactly("TS_3", "TS_6", "TS_9");
     }
 
     @Test
