@@ -33,6 +33,7 @@ MongoDB         <connector/mongodb>
 MySQL           <connector/mysql>
 OpenSearch      <connector/opensearch>
 Oracle          <connector/oracle>
+Paimon          <connector/paimon>
 Pinot           <connector/pinot>
 PostgreSQL      <connector/postgresql>
 Prometheus      <connector/prometheus>
