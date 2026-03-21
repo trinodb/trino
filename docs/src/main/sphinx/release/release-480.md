@@ -9,7 +9,6 @@
   property. ({issue}`27874`)
 * Add variant of {func}`array_first` for finding the first element that matches
   a predicate. ({issue}`27706`)
-* Add support for casting `varbinary` to `json` with base64. ({issue}`28234`)
 * Add {doc}`/functions/datasketches`. ({issue}`27563`)
 * {{breaking}} Remove `enable-large-dynamic-filters` configuration property and the 
   corresponding system session property `enable_large_dynamic_filters`. ({issue}`27637`)
@@ -66,7 +65,8 @@
   writing to Delta Lake tables on S3. ({issue}`27701`)
 * Fix potential table corruption when executing `CREATE OR REPLACE` with table definition
   changes. ({issue}`27805`)
-* Fix Azure Storage connectivity issues. ({issue}`28058`)
+* Fix an issue causing Azure exchange manager and Azure filesystem connections to 
+  time out and fail tasks. ({issue}`28058`)
 * Fix failure when the file path contains `#` in GCS. ({issue}`28292`)
 * Fix NPE when loading parquet column index with non stats supported column. ({issue}`28560`)
 
