@@ -232,6 +232,27 @@ public class TestThriftMetastoreUtil
     }
 
     @Test
+    public void testUnbucketedTableUsesHiveSentinelBucketCount()
+    {
+        Table bucketed = ThriftMetastoreUtil.fromMetastoreApiTable(TEST_TABLE, TEST_SCHEMA);
+        Table.Builder builder = Table.builder(bucketed);
+        builder.getStorageBuilder().setBucketProperty(Optional.empty());
+        Table unbucketed = builder.build();
+
+        io.trino.hive.thrift.metastore.Table metastoreApiTable = ThriftMetastoreUtil.toMetastoreApiTable(unbucketed, NO_PRIVILEGES);
+        assertThat(metastoreApiTable.getSd().getNumBuckets()).isEqualTo(-1);
+    }
+
+    @Test
+    public void testBucketedTablePreservesBucketCount()
+    {
+        Table table = ThriftMetastoreUtil.fromMetastoreApiTable(TEST_TABLE, TEST_SCHEMA);
+
+        io.trino.hive.thrift.metastore.Table metastoreApiTable = ThriftMetastoreUtil.toMetastoreApiTable(table, NO_PRIVILEGES);
+        assertThat(metastoreApiTable.getSd().getNumBuckets()).isEqualTo(TEST_TABLE.getSd().getNumBuckets());
+    }
+
+    @Test
     public void testHiveSchemaTable()
     {
         Map<String, String> actual = MetastoreUtil.getHiveSchema(ThriftMetastoreUtil.fromMetastoreApiTable(TEST_TABLE_WITH_UNSUPPORTED_FIELDS, TEST_SCHEMA));
