@@ -200,6 +200,11 @@ values. Typical usage does not require you to configure them.
   - Number of threads used for retrieving checkpoint files of each table. Currently, only 
     retrievals of V2 Checkpoint's sidecar files are parallelized.
   - `4`
+* - `delta.load-metadata-from-checksum-file`
+  - Use the Delta checksum metadata file (if available) to retrieve table
+    metadata and protocol entries instead of scanning the transaction log. The
+    equivalent catalog session property is `load_metadata_from_checksum_file`.
+  - `false`
 :::
 
 ### Catalog session properties
@@ -233,6 +238,10 @@ The following table describes {ref}`catalog session properties
   - Read only projected fields from row columns while performing `SELECT`
     queries.
   - `true`
+* - `load_metadata_from_checksum_file`
+  - Use the Delta checksum metadata file (if available) to retrieve table
+    metadata and protocol entries instead of scanning the transaction log.
+  - `false`
 :::
 
 (delta-lake-fte-support)=

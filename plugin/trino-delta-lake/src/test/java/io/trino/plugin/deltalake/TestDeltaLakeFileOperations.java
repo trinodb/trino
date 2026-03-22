@@ -56,6 +56,7 @@ import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.trino.filesystem.tracing.FileSystemAttributes.FILE_LOCATION;
 import static io.trino.plugin.deltalake.TestDeltaLakeFileOperations.FileType.CDF_DATA;
 import static io.trino.plugin.deltalake.TestDeltaLakeFileOperations.FileType.CHECKPOINT;
+import static io.trino.plugin.deltalake.TestDeltaLakeFileOperations.FileType.CHECKSUM;
 import static io.trino.plugin.deltalake.TestDeltaLakeFileOperations.FileType.DATA;
 import static io.trino.plugin.deltalake.TestDeltaLakeFileOperations.FileType.DELETION_VECTOR;
 import static io.trino.plugin.deltalake.TestDeltaLakeFileOperations.FileType.LAST_CHECKPOINT;
@@ -1164,6 +1165,211 @@ public class TestDeltaLakeFileOperations
                         .build());
     }
 
+    /**
+     * @see deltalake.checksum
+     */
+    @Test
+    public void testLoadMetadataFromChecksumFileForDescribe()
+            throws Exception
+    {
+        Session session = loadMetadataFromChecksumFileSession(true);
+
+        String tableName = "test_load_metadata_from_checksum_file_for_describe_" + randomNameSuffix();
+        Path tableLocation = Files.createTempFile(tableName, null);
+        copyDirectoryContents(new File(Resources.getResource("deltalake/checksum").toURI()).toPath(), tableLocation);
+
+        assertUpdate(session, "CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')".formatted(tableName, tableLocation.toUri()));
+
+        assertFileSystemAccesses(session, "DESCRIBE " + tableName,
+                ImmutableMultiset.<FileOperation>builder()
+                        .addCopies(new FileOperation(LAST_CHECKPOINT, "_last_checkpoint", "InputFile.newStream"), 2)
+                        .addCopies(new FileOperation(CHECKSUM, "00000000000000000001.crc", "InputFile.newStream"), 2)
+                        .build());
+
+        assertUpdate(session, "DROP TABLE " + tableName);
+    }
+
+    /**
+     * @see deltalake.checksum
+     */
+    @Test
+    public void testLoadMetadataWithFromChecksumFileDisabledForDescribe()
+            throws Exception
+    {
+        Session session = loadMetadataFromChecksumFileSession(false);
+
+        String tableName = "test_load_metadata_with_from_checksum_file_disabled_for_describe_" + randomNameSuffix();
+        Path tableLocation = Files.createTempFile(tableName, null);
+        copyDirectoryContents(new File(Resources.getResource("deltalake/checksum").toURI()).toPath(), tableLocation);
+
+        assertUpdate(session, "CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')".formatted(tableName, tableLocation.toUri()));
+
+        assertFileSystemAccesses(session, "DESCRIBE " + tableName,
+                ImmutableMultiset.<FileOperation>builder()
+                        .add(new FileOperation(LAST_CHECKPOINT, "_last_checkpoint", "InputFile.newStream"))
+                        .add(new FileOperation(CHECKPOINT, "00000000000000000001.checkpoint.parquet", "InputFile.length"))
+                        .add(new FileOperation(CHECKPOINT, "00000000000000000001.checkpoint.parquet", "InputFile.newInput"))
+                        .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000002.json", "InputFile.length"))
+                        .build());
+
+        assertUpdate(session, "DROP TABLE " + tableName);
+    }
+
+    /**
+     * @see deltalake.checksum_missing_latest
+     */
+    @Test
+    public void testLoadMetadataFromMissingLatestChecksumFileForDescribe()
+            throws Exception
+    {
+        Session session = loadMetadataFromChecksumFileSession(true);
+
+        String tableName = "test_load_metadata_from_missing_latest_checksum_file_for_describe_" + randomNameSuffix();
+        Path tableLocation = Files.createTempFile(tableName, null);
+        copyDirectoryContents(new File(Resources.getResource("deltalake/checksum_missing_latest").toURI()).toPath(), tableLocation);
+
+        assertUpdate(session, "CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')".formatted(tableName, tableLocation.toUri()));
+
+        assertFileSystemAccesses(session, "DESCRIBE " + tableName,
+                ImmutableMultiset.<FileOperation>builder()
+                        .addCopies(new FileOperation(LAST_CHECKPOINT, "_last_checkpoint", "InputFile.newStream"), 3)
+                        .add(new FileOperation(CHECKPOINT, "00000000000000000001.checkpoint.parquet", "InputFile.length"))
+                        .add(new FileOperation(CHECKPOINT, "00000000000000000001.checkpoint.parquet", "InputFile.newInput"))
+                        .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000002.json", "InputFile.length"))
+                        .build());
+
+        assertUpdate(session, "DROP TABLE " + tableName);
+    }
+
+    /**
+     * @see deltalake.checksum_without_metadata
+     */
+    @Test
+    public void testLoadMetadataFromChecksumFileMissingMetadataForDescribe()
+            throws Exception
+    {
+        Session session = loadMetadataFromChecksumFileSession(true);
+
+        String tableName = "test_load_metadata_from_latest_checksum_file_missing_metadata_for_describe_" + randomNameSuffix();
+        Path tableLocation = Files.createTempFile(tableName, null);
+        copyDirectoryContents(new File(Resources.getResource("deltalake/checksum_without_metadata").toURI()).toPath(), tableLocation);
+
+        assertUpdate(session, "CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')".formatted(tableName, tableLocation.toUri()));
+
+        assertFileSystemAccesses(session, "DESCRIBE " + tableName,
+                ImmutableMultiset.<FileOperation>builder()
+                        .addCopies(new FileOperation(CHECKSUM, "00000000000000000001.crc", "InputFile.newStream"), 2)
+                        .addCopies(new FileOperation(LAST_CHECKPOINT, "_last_checkpoint", "InputFile.newStream"), 3)
+                        .add(new FileOperation(CHECKPOINT, "00000000000000000001.checkpoint.parquet", "InputFile.length"))
+                        .add(new FileOperation(CHECKPOINT, "00000000000000000001.checkpoint.parquet", "InputFile.newInput"))
+                        .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000002.json", "InputFile.length"))
+                        .build());
+
+        assertUpdate(session, "DROP TABLE " + tableName);
+    }
+
+    /**
+     * @see deltalake.checksum
+     */
+    @Test
+    public void testSelectFromChecksumTableVersionTimeTravel()
+    {
+        Session session = loadMetadataFromChecksumFileSession(true);
+
+        String tableName = "test_select_from_non_latest_versioned_checksum_table_" + randomNameSuffix();
+        registerTable(tableName, "deltalake/checksum");
+
+        assertFileSystemAccesses(
+                session,
+                "SELECT * FROM " + tableName + " FOR VERSION AS OF 0",
+                ImmutableMultiset.<FileOperation>builder()
+                        .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000000.json", "InputFile.exists"))
+                        .add(new FileOperation(LAST_CHECKPOINT, "_last_checkpoint", "InputFile.newStream"))
+                        .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000000.json", "InputFile.newStream"))
+                        .add(new FileOperation(CHECKSUM, "00000000000000000000.crc", "InputFile.newStream"))
+                        .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000000.json", "InputFile.length"))
+                        .build());
+
+        assertFileSystemAccesses(
+                session,
+                "SELECT * FROM " + tableName + " FOR VERSION AS OF 1",
+                ImmutableMultiset.<FileOperation>builder()
+                        .add(new FileOperation(LAST_CHECKPOINT, "_last_checkpoint", "InputFile.newStream"))
+                        .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000001.json", "InputFile.exists"))
+                        .add(new FileOperation(CHECKSUM, "00000000000000000001.crc", "InputFile.newStream"))
+                        .add(new FileOperation(CHECKPOINT, "00000000000000000001.checkpoint.parquet", "InputFile.newInput"))
+                        .add(new FileOperation(DATA, "no partition", "InputFile.newInput"))
+                        .add(new FileOperation(CHECKPOINT, "00000000000000000001.checkpoint.parquet", "InputFile.length"))
+                        .build());
+
+        assertUpdate(session, "DROP TABLE " + tableName);
+    }
+
+    /**
+     * @see deltalake.checksum
+     */
+    @Test
+    public void testSelectFromChecksumTable()
+    {
+        Session session = loadMetadataFromChecksumFileSession(true);
+
+        String tableName = "test_select_from_checksum_table_" + randomNameSuffix();
+        registerTable(tableName, "deltalake/checksum");
+
+        assertFileSystemAccesses(
+                session,
+                "SELECT * FROM " + tableName,
+                ImmutableMultiset.<FileOperation>builder()
+                        .add(new FileOperation(CHECKSUM, "00000000000000000001.crc", "InputFile.newStream"))
+                        .addCopies(new FileOperation(LAST_CHECKPOINT, "_last_checkpoint", "InputFile.newStream"), 2)
+                        .add(new FileOperation(CHECKPOINT, "00000000000000000001.checkpoint.parquet", "InputFile.length"))
+                        .add(new FileOperation(CHECKPOINT, "00000000000000000001.checkpoint.parquet", "InputFile.newInput"))
+                        .add(new FileOperation(DATA, "no partition", "InputFile.newInput"))
+                        .build());
+
+        assertUpdate(session, "DROP TABLE " + tableName);
+    }
+
+    /**
+     * @see deltalake.checksum
+     */
+    @Test
+    public void testSelectFromChecksumTableTimestampTimeTravel()
+    {
+        Session session = loadMetadataFromChecksumFileSession(true);
+
+        String tableName = "test_select_from_non_latest_timestamp_versioned_checksum_table_" + randomNameSuffix();
+        registerTable(tableName, "deltalake/checksum");
+
+        assertFileSystemAccesses(
+                session,
+                "SELECT * FROM " + tableName + " FOR TIMESTAMP AS OF TIMESTAMP '2026-02-23 22:06:59.000 UTC'",
+                ImmutableMultiset.<FileOperation>builder()
+                        .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000001.json", "InputFile.newStream"))
+                        .addCopies(new FileOperation(LAST_CHECKPOINT, "_last_checkpoint", "InputFile.newStream"), 2)
+                        .addCopies(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000000.json", "InputFile.newStream"), 2)
+                        .addCopies(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000000.json", "InputFile.length"), 2)
+                        .add(new FileOperation(CHECKSUM, "00000000000000000000.crc", "InputFile.newStream"))
+                        .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000001.json", "InputFile.length"))
+                        .build());
+
+        assertFileSystemAccesses(
+                session,
+                "SELECT * FROM " + tableName + " FOR TIMESTAMP AS OF TIMESTAMP '2026-02-23 22:07:03.000 UTC'",
+                ImmutableMultiset.<FileOperation>builder()
+                        .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000002.json", "InputFile.length"))
+                        .addCopies(new FileOperation(LAST_CHECKPOINT, "_last_checkpoint", "InputFile.newStream"), 2)
+                        .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000001.json", "InputFile.length"))
+                        .add(new FileOperation(CHECKSUM, "00000000000000000001.crc", "InputFile.newStream"))
+                        .add(new FileOperation(CHECKPOINT, "00000000000000000001.checkpoint.parquet", "InputFile.newInput"))
+                        .add(new FileOperation(DATA, "no partition", "InputFile.newInput"))
+                        .add(new FileOperation(CHECKPOINT, "00000000000000000001.checkpoint.parquet", "InputFile.length"))
+                        .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000001.json", "InputFile.newStream"))
+                        .build());
+
+        assertUpdate(session, "DROP TABLE " + tableName);
+    }
+
     @Test
     public void testReadMultipartV2Checkpoint()
             throws Exception
@@ -1374,6 +1580,14 @@ public class TestDeltaLakeFileOperations
         assertMultisetsEqual(getOperations(spanData), expectedAccesses);
     }
 
+    private Session loadMetadataFromChecksumFileSession(boolean loadMetadataFromChecksumFile)
+    {
+        String catalog = getSession().getCatalog().orElseThrow();
+        return Session.builder(getSession())
+                .setCatalogSessionProperty(catalog, "load_metadata_from_checksum_file", Boolean.toString(loadMetadataFromChecksumFile))
+                .build();
+    }
+
     private Multiset<FileOperation> getOperations(List<SpanData> spanData)
     {
         return spanData.stream()
@@ -1399,6 +1613,9 @@ public class TestDeltaLakeFileOperations
             }
             if (path.matches(".*/_delta_log/\\d+\\.json")) {
                 return new FileOperation(TRANSACTION_LOG_JSON, fileName, operationType);
+            }
+            if (path.matches(".*/_delta_log/\\d+\\.crc")) {
+                return new FileOperation(CHECKSUM, fileName, operationType);
             }
             if (path.matches(".*/_delta_log/_trino_meta/extended_stats.json")) {
                 return new FileOperation(TRINO_EXTENDED_STATS_JSON, fileName, operationType);
@@ -1443,6 +1660,7 @@ public class TestDeltaLakeFileOperations
         DATA,
         CDF_DATA,
         DELETION_VECTOR,
+        CHECKSUM,
         /**/;
     }
 

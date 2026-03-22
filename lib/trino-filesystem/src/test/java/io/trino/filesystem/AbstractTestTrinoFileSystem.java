@@ -1037,6 +1037,13 @@ public abstract class AbstractTestTrinoFileSystem
     }
 
     @Test
+    public void testListFilesStartingFrom()
+            throws IOException
+    {
+        testListFilesStartingFrom(isHierarchical());
+    }
+
+    @Test
     public void testPreSignedUris()
             throws IOException
     {
@@ -1147,6 +1154,142 @@ public abstract class AbstractTestTrinoFileSystem
             if (!hierarchicalNamingConstraints && !normalizesListFilesResult()) {
                 // this lists a path in a directory with an empty name
                 assertThat(listPath("/")).isEmpty();
+            }
+        }
+    }
+
+    protected void testListFilesStartingFrom(boolean hierarchicalNamingConstraints)
+            throws IOException
+    {
+        try (Closer closer = Closer.create()) {
+            createTestDirectoryStructure(closer, hierarchicalNamingConstraints);
+
+            ImmutableList.Builder<Location> rootAll = ImmutableList.<Location>builder()
+                    .add(
+                            createLocation("level0-file0"),
+                            createLocation("level0-file1"),
+                            createLocation("level0-file2"),
+                            createLocation("level0/level1-file0"),
+                            createLocation("level0/level1-file1"),
+                            createLocation("level0/level1-file2"),
+                            createLocation("level0/level1/level2-file0"),
+                            createLocation("level0/level1/level2-file1"),
+                            createLocation("level0/level1/level2-file2"));
+            if (!hierarchicalNamingConstraints) {
+                rootAll.add(
+                        createLocation("level0"),
+                        createLocation("level0/level1"),
+                        createLocation("level0/level1/level2"));
+            }
+
+            ImmutableList.Builder<Location> rootStartingFromLevel1File1 = ImmutableList.<Location>builder()
+                    .add(
+                            createLocation("level0/level1-file1"),
+                            createLocation("level0/level1-file2"),
+                            createLocation("level0/level1/level2-file0"),
+                            createLocation("level0/level1/level2-file1"),
+                            createLocation("level0/level1/level2-file2"));
+            if (!hierarchicalNamingConstraints) {
+                rootStartingFromLevel1File1.add(createLocation("level0/level1/level2"));
+            }
+
+            ImmutableList.Builder<Location> level0All = ImmutableList.<Location>builder()
+                    .add(
+                            createLocation("level0/level1-file0"),
+                            createLocation("level0/level1-file1"),
+                            createLocation("level0/level1-file2"),
+                            createLocation("level0/level1/level2-file0"),
+                            createLocation("level0/level1/level2-file1"),
+                            createLocation("level0/level1/level2-file2"));
+            if (!hierarchicalNamingConstraints) {
+                level0All.add(
+                        createLocation("level0/level1"),
+                        createLocation("level0/level1/level2"));
+            }
+
+            ImmutableList.Builder<Location> level0StartingFromLevel1File0z = ImmutableList.<Location>builder()
+                    .add(
+                            createLocation("level0/level1-file1"),
+                            createLocation("level0/level1-file2"),
+                            createLocation("level0/level1/level2-file0"),
+                            createLocation("level0/level1/level2-file1"),
+                            createLocation("level0/level1/level2-file2"));
+            if (!hierarchicalNamingConstraints) {
+                level0StartingFromLevel1File0z.add(createLocation("level0/level1/level2"));
+            }
+
+            ImmutableList.Builder<Location> level1All = ImmutableList.<Location>builder()
+                    .add(
+                            createLocation("level0/level1/level2-file0"),
+                            createLocation("level0/level1/level2-file1"),
+                            createLocation("level0/level1/level2-file2"));
+            if (!hierarchicalNamingConstraints) {
+                level1All.add(createLocation("level0/level1/level2"));
+            }
+
+            ImmutableList.Builder<Location> level1StartingFromLevel2 = ImmutableList.<Location>builder()
+                    .add(
+                            createLocation("level0/level1/level2-file0"),
+                            createLocation("level0/level1/level2-file1"),
+                            createLocation("level0/level1/level2-file2"));
+            if (!hierarchicalNamingConstraints) {
+                level1StartingFromLevel2.add(createLocation("level0/level1/level2"));
+            }
+
+            assertThat(listPathStartingFrom("", ""))
+                    .containsExactlyInAnyOrderElementsOf(rootAll.build());
+            assertThat(listPathStartingFrom("", "level0/level1-file1"))
+                    .containsExactlyInAnyOrderElementsOf(rootStartingFromLevel1File1.build());
+            assertThat(listPathStartingFrom("", "zzz")).isEmpty();
+
+            assertThat(listPathStartingFrom("level0", ""))
+                    .containsExactlyInAnyOrderElementsOf(level0All.build());
+            assertThat(listPathStartingFrom("level0/", ""))
+                    .containsExactlyInAnyOrderElementsOf(level0All.build());
+            assertThat(listPathStartingFrom("level0", "level1"))
+                    .containsExactlyInAnyOrderElementsOf(level0All.build());
+            assertThat(listPathStartingFrom("level0", "level1-file0z"))
+                    .containsExactlyInAnyOrderElementsOf(level0StartingFromLevel1File0z.build());
+            assertThat(listPathStartingFrom("level0", "level1/level2-file1"))
+                    .containsExactlyInAnyOrder(
+                            createLocation("level0/level1/level2-file1"),
+                            createLocation("level0/level1/level2-file2"));
+            assertThat(listPathStartingFrom("level0/", "level1-file0z"))
+                    .containsExactlyInAnyOrderElementsOf(level0StartingFromLevel1File0z.build());
+            assertThat(listPathStartingFrom("level0", "zzz")).isEmpty();
+
+            assertThat(listPathStartingFrom("level0/level1/", ""))
+                    .containsExactlyInAnyOrderElementsOf(level1All.build());
+            assertThat(listPathStartingFrom("level0/level1", ""))
+                    .containsExactlyInAnyOrderElementsOf(level1All.build());
+            assertThat(listPathStartingFrom("level0/level1", "level2"))
+                    .containsExactlyInAnyOrderElementsOf(level1StartingFromLevel2.build());
+            assertThat(listPathStartingFrom("level0/level1", "level2-file1"))
+                    .containsExactlyInAnyOrder(
+                            createLocation("level0/level1/level2-file1"),
+                            createLocation("level0/level1/level2-file2"));
+            assertThat(listPathStartingFrom("level0/level1", "zzz")).isEmpty();
+
+            assertThat(listPathStartingFrom("level0/level1/level2/", "")).isEmpty();
+            assertThat(listPathStartingFrom("level0/level1/level2", "")).isEmpty();
+            assertThat(listPathStartingFrom("level0/level1/level2", "zzz")).isEmpty();
+
+            assertThat(listPathStartingFrom("level0/level1/level2/level3", "")).isEmpty();
+            assertThat(listPathStartingFrom("level0/level1/level2/level3/", "")).isEmpty();
+
+            assertThat(listPathStartingFrom("unknown/", "")).isEmpty();
+
+            if (isHierarchical()) {
+                assertThatThrownBy(() -> listPathStartingFrom("level0-file0", ""))
+                        .isInstanceOf(IOException.class)
+                        .hasMessageContaining(createLocation("level0-file0").toString());
+            }
+            else {
+                assertThat(listPathStartingFrom("level0-file0", "")).isEmpty();
+            }
+
+            if (!hierarchicalNamingConstraints && !normalizesListFilesResult()) {
+                assertThat(listPathStartingFrom("/", "")).isEmpty();
             }
         }
     }
@@ -1404,6 +1547,20 @@ public abstract class AbstractTestTrinoFileSystem
     {
         List<Location> locations = new ArrayList<>();
         FileIterator fileIterator = getFileSystem().listFiles(createListingLocation(path));
+        while (fileIterator.hasNext()) {
+            FileEntry fileEntry = fileIterator.next();
+            Location location = fileEntry.location();
+            assertThat(fileEntry.length()).isEqualTo(TEST_BLOB_CONTENT_PREFIX.length() + location.toString().length());
+            locations.add(location);
+        }
+        return locations;
+    }
+
+    private List<Location> listPathStartingFrom(String path, String startingFrom)
+            throws IOException
+    {
+        List<Location> locations = new ArrayList<>();
+        FileIterator fileIterator = getFileSystem().listFilesStartingFrom(createListingLocation(path), startingFrom);
         while (fileIterator.hasNext()) {
             FileEntry fileEntry = fileIterator.next();
             Location location = fileEntry.location();

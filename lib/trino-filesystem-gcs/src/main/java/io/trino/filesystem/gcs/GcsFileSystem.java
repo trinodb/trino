@@ -54,6 +54,7 @@ import java.util.Set;
 import static com.google.cloud.storage.Storage.BlobListOption.currentDirectory;
 import static com.google.cloud.storage.Storage.BlobListOption.matchGlob;
 import static com.google.cloud.storage.Storage.BlobListOption.pageSize;
+import static com.google.cloud.storage.Storage.BlobListOption.startOffset;
 import static com.google.cloud.storage.Storage.SignUrlOption.withExtHeaders;
 import static com.google.cloud.storage.Storage.SignUrlOption.withV4Signature;
 import static com.google.common.base.Preconditions.checkState;
@@ -217,6 +218,24 @@ public class GcsFileSystem
         GcsLocation gcsLocation = new GcsLocation(normalizeToDirectory(location));
         try {
             return new GcsFileIterator(gcsLocation, getPage(gcsLocation));
+        }
+        catch (RuntimeException e) {
+            throw handleGcsException(e, "listing files", gcsLocation);
+        }
+    }
+
+    @Override
+    public FileIterator listFilesStartingFrom(Location location, String startingFrom)
+            throws IOException
+    {
+        if (startingFrom.isEmpty()) {
+            return listFiles(location);
+        }
+
+        GcsLocation gcsLocation = new GcsLocation(normalizeToDirectory(location));
+
+        try {
+            return new GcsFileIterator(gcsLocation, getPage(gcsLocation, startOffset(gcsLocation.path() + startingFrom)));
         }
         catch (RuntimeException e) {
             throw handleGcsException(e, "listing files", gcsLocation);
