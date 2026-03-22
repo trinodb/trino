@@ -700,6 +700,9 @@ public final class ThriftMetastoreUtil
         sd.setOutputFormat(storage.getStorageFormat().getOutputFormatNullable());
         sd.setSkewedInfoIsSet(storage.isSkewed());
         sd.setParameters(ImmutableMap.of());
+        // Hive uses -1 as the sentinel value for "not bucketed". Leaving the Thrift default (0)
+        // can lead to divergent behavior for unbucketed tables created by Trino.
+        sd.setNumBuckets(-1);
 
         Optional<HiveBucketProperty> bucketProperty = storage.getBucketProperty();
         if (bucketProperty.isPresent()) {
