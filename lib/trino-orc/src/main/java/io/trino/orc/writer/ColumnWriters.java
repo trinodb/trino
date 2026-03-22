@@ -32,12 +32,16 @@ import io.trino.spi.type.MapType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.TimeType;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.VarbinaryType;
+import io.trino.spi.type.VariantType;
 
 import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.orc.metadata.OrcType.OrcTypeKind.LONG;
+import static io.trino.orc.metadata.OrcType.OrcTypeKind.STRUCT;
 import static io.trino.orc.reader.ColumnReaders.ICEBERG_LONG_TYPE;
+import static io.trino.orc.reader.ColumnReaders.ICEBERG_VARIANT_TYPE_KIND;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
@@ -62,6 +66,16 @@ public final class ColumnWriters
             checkArgument(orcType.getOrcTypeKind() == LONG, "wrong ORC type %s for type %s", orcType, type);
             checkArgument("TIME".equals(orcType.getAttributes().get(ICEBERG_LONG_TYPE)), "wrong attributes %s for type %s", orcType.getAttributes(), type);
             return new TimeColumnWriter(columnId, type, compression, bufferSize, () -> new TimeMicrosStatisticsBuilder(bloomFilterBuilder.get()));
+        }
+        if (type instanceof VariantType) {
+            checkArgument(orcType.getOrcTypeKind() == STRUCT, "wrong ORC type %s for type %s", orcType, type);
+            checkArgument("true".equals(orcType.getAttributes().get(ICEBERG_VARIANT_TYPE_KIND)), "wrong attributes %s for type %s", orcType.getAttributes(), type);
+            checkArgument(orcType.getFieldCount() == 2, "Variant ORC struct must have 2 fields (metadata, value), but found %s", orcType.getFieldCount());
+
+            // Fields are ordered: metadata, value
+            ColumnWriter metadataWriter = createColumnWriter(orcType.getFieldTypeIndex(0), orcTypes, VarbinaryType.VARBINARY, compression, bufferSize, stringStatisticsLimit, bloomFilterBuilder, shouldCompactMinMax);
+            ColumnWriter valueWriter = createColumnWriter(orcType.getFieldTypeIndex(1), orcTypes, VarbinaryType.VARBINARY, compression, bufferSize, stringStatisticsLimit, bloomFilterBuilder, shouldCompactMinMax);
+            return new VariantColumnWriter(columnId, compression, bufferSize, metadataWriter, valueWriter);
         }
         switch (orcType.getOrcTypeKind()) {
             case BOOLEAN:

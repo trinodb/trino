@@ -69,7 +69,6 @@ public final class VarcharToTimestampCast
         }
     }
 
-    @VisibleForTesting
     public static long castToShortTimestamp(int precision, String value)
     {
         checkArgument(precision <= MAX_SHORT_PRECISION, "precision must be less than max short timestamp precision");
