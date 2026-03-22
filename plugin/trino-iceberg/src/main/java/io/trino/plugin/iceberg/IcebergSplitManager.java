@@ -35,18 +35,24 @@ import org.apache.iceberg.CombinedScanTask;
 import org.apache.iceberg.DataOperations;
 import org.apache.iceberg.FileScanTask;
 import org.apache.iceberg.Scan;
+import org.apache.iceberg.Schema;
 import org.apache.iceberg.Snapshot;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.metrics.InMemoryMetricsReporter;
 import org.apache.iceberg.metrics.MetricsReporter;
+import org.apache.iceberg.types.Types;
 import org.apache.iceberg.util.SnapshotUtil;
 
+import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.ExecutorService;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.getDynamicFilteringWaitTimeout;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.getMinimumAssignedSplitWeight;
 import static io.trino.spi.connector.FixedSplitSource.emptySplitSource;
 import static java.util.Objects.requireNonNull;
+import static org.apache.iceberg.util.SnapshotUtil.schemaFor;
 
 public class IcebergSplitManager
         implements ConnectorSplitManager
@@ -145,8 +151,17 @@ public class IcebergSplitManager
             // (deletes or overwrites), so we cannot perform incremental refresh. Falling back to full refresh.
             icebergMetadata.disableIncrementalRefresh();
         }
+
+        Schema schema = schemaFor(icebergTable, table.getSnapshotId().getAsLong());
+        List<String> names = table.getProjectedColumns().stream()
+                .map(column -> schema.findField(column.getId()))
+                .filter(Objects::nonNull) // Newly added column may not be found in current snapshot schema until new files are added
+                .map(Types.NestedField::name)
+                .collect(toImmutableList());
+
         return icebergTable.newScan()
                 .useSnapshot(table.getSnapshotId().getAsLong())
+                .project(schema.select(names))
                 .planWith(executor)
                 .metricsReporter(metricsReporter);
     }

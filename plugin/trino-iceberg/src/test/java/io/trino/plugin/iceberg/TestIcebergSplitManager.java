@@ -90,7 +90,7 @@ final class TestIcebergSplitManager
         getFutureValue(splitSource.getNextBatch(1000));
 
         assertThat(splitSource.getMetrics().getMetrics())
-                .contains(entry("projectedFields", new LongCount(3)));
+                .contains(entry("projectedFields", new LongCount(1)));
     }
 
     private IcebergTableHandle tableHandle(SchemaTableName schemaTableName, String projectedColumn)
