@@ -23,7 +23,14 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
+import io.trino.spi.TrinoException;
+import io.trino.spi.block.ArrayBlockBuilder;
+import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.MapBlockBuilder;
+import io.trino.spi.block.RowBlockBuilder;
+import io.trino.spi.block.SqlMap;
+import io.trino.spi.block.SqlRow;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.ConnectorSession;
@@ -33,6 +40,7 @@ import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.SourcePage;
 import io.trino.spi.predicate.TupleDomain;
+import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.BigintType;
 import io.trino.spi.type.BooleanType;
 import io.trino.spi.type.DateType;
@@ -40,7 +48,9 @@ import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Decimals;
 import io.trino.spi.type.Int128;
 import io.trino.spi.type.IntegerType;
+import io.trino.spi.type.MapType;
 import io.trino.spi.type.RealType;
+import io.trino.spi.type.RowType;
 import io.trino.spi.type.SmallintType;
 import io.trino.spi.type.TinyintType;
 import io.trino.spi.type.Type;
@@ -52,9 +62,12 @@ import java.io.IOException;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 
+import static com.couchbase.client.core.cnc.tracing.TracingAttribute.COLLECTION_NAME;
 import static com.google.common.base.Verify.verify;
+import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 
 public final class CouchbasePageSource
         implements ConnectorPageSource
@@ -230,6 +243,9 @@ public final class CouchbasePageSource
             else if (javaType == Double.class || javaType == double.class) {
                 type.writeDouble(output, ((Number) value).doubleValue());
             }
+            else if (javaType == Block.class || javaType == SqlMap.class || javaType == SqlRow.class) {
+                writeBlock(output, type, value);
+            }
             else {
                 throw new RuntimeException("Unsupported type " + javaType);
             }
@@ -238,6 +254,88 @@ public final class CouchbasePageSource
         catch (Exception e) {
             throw new RuntimeException(String.format("Failed to append value '%s' of type %s from object type %s", String.valueOf(value), type, value.getClass()), e);
         }
+    }
+
+    private void writeBlock(BlockBuilder output, Type type, Object valueArg)
+    {
+        final Object value;
+        if (valueArg instanceof JsonObject document) {
+            value = document.toMap();
+        }
+        else if (valueArg instanceof JsonArray arr) {
+            value = arr.toList();
+        } else {
+            value = valueArg;
+        }
+        if (type instanceof ArrayType arrayType) {
+            if (value instanceof List<?> list) {
+                ((ArrayBlockBuilder) output).buildEntry(elementBuilder -> list.forEach(element -> appendTo(arrayType.getElementType(), element, elementBuilder)));
+                return;
+            }
+        }
+        else if (type instanceof MapType mapType) {
+            if (value instanceof List<?>) {
+                ((MapBlockBuilder) output).buildEntry((keyBuilder, valueBuilder) -> {
+                    for (Object element : (List<?>) value) {
+                        if (!(element instanceof Map<?, ?> document)) {
+                            continue;
+                        }
+
+                        if (document.containsKey("key") && document.containsKey("value")) {
+                            appendTo(mapType.getKeyType(), document.get("key"), keyBuilder);
+                            appendTo(mapType.getValueType(), document.get("value"), valueBuilder);
+                        }
+                    }
+                });
+                return;
+            }
+            if (value instanceof Map<?, ?> document) {
+                ((MapBlockBuilder) output).buildEntry((keyBuilder, valueBuilder) -> {
+                    for (Map.Entry<?, ?> entry : document.entrySet()) {
+                        appendTo(mapType.getKeyType(), entry.getKey(), keyBuilder);
+                        appendTo(mapType.getValueType(), entry.getValue(), valueBuilder);
+                    }
+                });
+                return;
+            }
+        }
+        else if (type instanceof RowType rowType) {
+            List<RowType.Field> fields = rowType.getFields();
+            if (value instanceof Map<?, ?> mapValue) {
+                ((RowBlockBuilder) output).buildEntry(fieldBuilders -> {
+                    for (int i = 0; i < fields.size(); i++) {
+                        RowType.Field field = fields.get(i);
+                        String fieldName = field.getName().orElse("field" + i);
+                        appendTo(field.getType(), mapValue.get(fieldName), fieldBuilders.get(i));
+                    }
+                });
+                return;
+            }
+            if (value instanceof List<?> listValue) {
+                ((RowBlockBuilder) output).buildEntry(fieldBuilders -> {
+                    for (int index = 0; index < fields.size(); index++) {
+                        if (index < listValue.size()) {
+                            appendTo(fields.get(index).getType(), listValue.get(index), fieldBuilders.get(index));
+                        }
+                        else {
+                            fieldBuilders.get(index).appendNull();
+                        }
+                    }
+                });
+                return;
+            }
+        }
+        else {
+            throw new TrinoException(GENERIC_INTERNAL_ERROR, "Unhandled type for Block: " + type.getDisplayName());
+        }
+
+        // not a convertible value
+        output.appendNull();
+    }
+
+    private void appendTo(Type elementType, Object element, BlockBuilder elementBuilder)
+    {
+        appendValue(elementBuilder, elementType, element);
     }
 
     @Override

@@ -175,13 +175,15 @@ public class CouchbaseMetadata
                         }
                         else {
                             if (ordered) {
-                                unordered = true;
+                                throw new RuntimeException(String.format("unable to mix ordered and unordered properties: %s", tablePath));
                             }
+                            unordered = true;
                             columns.add(new ColumnMetadata(propertyName, deductType(property)));
                         }
                     }
                     catch (Exception e) {
-                        throw new RuntimeException(String.format("Failed to read schema for column '%s'", propertyName), e);
+                        throw new RuntimeException(String.format("Failed to read schema for column '%s': %s",
+                                propertyName, e.getMessage()), e);
                     }
                 }
 
@@ -189,12 +191,15 @@ public class CouchbaseMetadata
                     columns = Arrays.asList(orderedColumns);
                 }
 
+                LOG.debug("Loaded schema for table '{}': {}", tablePath, columns);
                 ConnectorTableMetadata result = new ConnectorTableMetadata(new SchemaTableName(handle.schema(), handle.name()), columns);
                 mtimeCache.put(tablePath, Files.getLastModifiedTime(schemaFile.toPath()).toMillis());
                 metaCache.put(tablePath, result);
             }
             catch (Exception e) {
-                throw new RuntimeException(String.format("Failed to read schema for collection '%s.%s'", ((CouchbaseTableHandle) table).schema(), ((CouchbaseTableHandle) table).name()), e);
+                LOG.error(String.format("Failed to read schema for table '%s'", tablePath), e);
+                throw new RuntimeException(String.format("Failed to read schema for collection '%s.%s': %s",
+                        ((CouchbaseTableHandle) table).schema(), ((CouchbaseTableHandle) table).name(), e.getMessage()), e);
             }
         }
 
