@@ -31,6 +31,7 @@ import io.airlift.units.Duration;
 import io.trino.cache.NonEvictableCache;
 import io.trino.filesystem.cache.CachingHostAddressProvider;
 import io.trino.plugin.base.metrics.DurationTiming;
+import io.trino.plugin.base.metrics.IntList;
 import io.trino.plugin.base.metrics.LongCount;
 import io.trino.plugin.iceberg.delete.DeleteFile;
 import io.trino.plugin.iceberg.util.DataFileWithDeleteFiles;
@@ -537,6 +538,7 @@ public class IcebergSplitSource
         ScanMetricsResult scanMetrics = scanReport.scanMetrics();
         return new Metrics(ImmutableMap.<String, Metric<?>>builder()
                 .put("scanPlanningDuration", new DurationTiming(Duration.succinctDuration(scanMetrics.totalPlanningDuration().totalDuration().toMillis(), MILLISECONDS)))
+                .put("projectedFieldIds", new IntList(scanReport.projectedFieldIds()))
                 .put("dataFiles", new LongCount(scanMetrics.resultDataFiles().value()))
                 .put("dataFileSizeBytes", new LongCount(scanMetrics.totalFileSizeInBytes().value()))
                 .put("deleteFileSizeBytes", new LongCount(scanMetrics.totalDeleteFileSizeInBytes().value()))

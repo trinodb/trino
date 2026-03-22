@@ -38,6 +38,7 @@ import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.TableHandle;
 import io.trino.operator.OperatorStats;
 import io.trino.operator.TableFinishInfo;
+import io.trino.plugin.base.metrics.IntList;
 import io.trino.plugin.hive.HiveCompressionCodec;
 import io.trino.server.DynamicFilterService;
 import io.trino.spi.QueryId;
@@ -176,6 +177,7 @@ import static java.time.ZoneOffset.UTC;
 import static java.time.format.DateTimeFormatter.ISO_OFFSET_DATE_TIME;
 import static java.util.Collections.nCopies;
 import static java.util.Locale.ENGLISH;
+import static java.util.Map.entry;
 import static java.util.Objects.requireNonNull;
 import static java.util.UUID.randomUUID;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -9604,6 +9606,14 @@ public abstract class BaseIcebergConnectorTest
         assertExplainAnalyze(
                 "EXPLAIN ANALYZE VERBOSE SELECT * FROM nation a",
                 "splits generation metrics");
+    }
+
+    @Test
+    void testScanMetrics()
+    {
+        MaterializedResultWithPlan result = getDistributedQueryRunner().executeWithPlan(getSession(), "SELECT name FROM region");
+        assertThat(getOperatorStats(result.queryId()).getConnectorMetrics().getMetrics())
+                .contains(entry("projectedFieldIds", new IntList(ImmutableList.of(1, 2, 3))));
     }
 
     @Test
