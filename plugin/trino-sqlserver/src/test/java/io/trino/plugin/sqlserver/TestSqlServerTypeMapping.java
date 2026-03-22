@@ -18,11 +18,13 @@ import io.trino.testing.QueryRunner;
 public class TestSqlServerTypeMapping
         extends BaseSqlServerTypeMapping
 {
+    private static final String SQL_SERVER_2025_VERSION = "2025-latest";
+
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        sqlServer = closeAfterClass(new TestingSqlServer());
+        sqlServer = closeAfterClass(new TestingSqlServer(SQL_SERVER_2025_VERSION));
         return SqlServerQueryRunner.builder(sqlServer)
                 .build();
     }

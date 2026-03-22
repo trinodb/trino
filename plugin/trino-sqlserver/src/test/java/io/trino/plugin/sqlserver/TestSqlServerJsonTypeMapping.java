@@ -18,7 +18,6 @@ import io.trino.testing.QueryRunner;
 public class TestSqlServerJsonTypeMapping
         extends BaseSqlServerTypeMapping
 {
-    // 2025-latest has AVX issues with Rosetta: https://github.com/microsoft/mssql-docker/issues/940
     private static final String SQL_SERVER_2025_VERSION = "2025-latest";
 
     @Override
