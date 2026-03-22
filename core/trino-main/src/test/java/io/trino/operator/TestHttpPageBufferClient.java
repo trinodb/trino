@@ -232,7 +232,7 @@ public class TestHttpPageBufferClient
 
         client.close();
         beforeRequest.await(10, TimeUnit.SECONDS);
-        assertStatus(client, location, "closed", 0, 1, 1, 1, "PROCESSING_REQUEST");
+        assertStatus(client, location, "closed", 0, 1, 1, 1, "not scheduled");
         afterRequest.await(10, TimeUnit.SECONDS);
         requestComplete.await(10, TimeUnit.SECONDS);
         assertStatus(client, location, "closed", 0, 1, 2, 1, "not scheduled");
