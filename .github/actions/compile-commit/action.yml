@@ -47,6 +47,15 @@ runs:
           ${MAVEN_COMPILE_COMMITS} `# defaults, kept in sync with ci.yml` \
           -Dair.check.skip-all=false -Dair.check.skip-basic=true -Dair.check.skip-extended=true -Dair.check.skip-checkstyle=false \
           ${MAVEN_GIB}
+    - name: Print hint for common web UI build failures
+      if: failure() && steps.check-compile-commit-success.outputs.cache-hit != 'true'
+      shell: bash
+      run: |
+        echo "Compilation failed."
+        echo "If the error mentions 'trino-web-ui', 'frontend-maven-plugin', or 'npm run check:clean',"
+        echo "the failure may come from the web UI preview build in core/trino-web-ui/src/main/resources/webapp-preview."
+        echo "To reproduce locally, run:"
+        echo "./mvnw -pl core/trino-web-ui -DskipTests install"
     - name: Mark this workspace as successfully compiled
       if: steps.check-compile-commit-success.outputs.cache-hit != 'true'
       shell: bash
