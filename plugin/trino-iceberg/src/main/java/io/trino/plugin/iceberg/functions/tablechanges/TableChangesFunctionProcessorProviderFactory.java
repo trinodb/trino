@@ -19,10 +19,13 @@ import io.trino.plugin.iceberg.IcebergPageSourceProvider;
 import io.trino.plugin.iceberg.IcebergPageSourceProviderFactory;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplit;
+import io.trino.spi.connector.ConnectorTableCredentials;
 import io.trino.spi.function.table.ConnectorTableFunctionHandle;
 import io.trino.spi.function.table.TableFunctionProcessorProvider;
 import io.trino.spi.function.table.TableFunctionProcessorProviderFactory;
 import io.trino.spi.function.table.TableFunctionSplitProcessor;
+
+import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
@@ -48,12 +51,13 @@ public class TableChangesFunctionProcessorProviderFactory
             implements TableFunctionProcessorProvider
     {
         @Override
-        public TableFunctionSplitProcessor getSplitProcessor(ConnectorSession session, ConnectorTableFunctionHandle handle, ConnectorSplit split)
+        public TableFunctionSplitProcessor getSplitProcessor(ConnectorSession session, ConnectorTableFunctionHandle handle, Optional<ConnectorTableCredentials> tableCredentials, ConnectorSplit split)
         {
             return new ClassLoaderSafeTableFunctionSplitProcessor(
                     new TableChangesFunctionProcessor(
                             session,
                             (TableChangesFunctionHandle) handle,
+                            tableCredentials,
                             (TableChangesSplit) split,
                             icebergPageSourceProvider),
                     getClass().getClassLoader());

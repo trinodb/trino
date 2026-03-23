@@ -55,6 +55,7 @@ import io.trino.plugin.iceberg.catalog.TrinoCatalog;
 import io.trino.plugin.iceberg.delete.DeletionVectorWriter;
 import io.trino.plugin.iceberg.delete.DeletionVectorWriter.DeletionVectorInfo;
 import io.trino.plugin.iceberg.functions.IcebergFunctionProvider;
+import io.trino.plugin.iceberg.functions.tablechanges.TableChangesFunctionHandle;
 import io.trino.plugin.iceberg.procedure.IcebergAddFilesFromTableHandle;
 import io.trino.plugin.iceberg.procedure.IcebergAddFilesHandle;
 import io.trino.plugin.iceberg.procedure.IcebergDropExtendedStatsHandle;
@@ -70,6 +71,7 @@ import io.trino.plugin.iceberg.system.AllManifestsTable;
 import io.trino.plugin.iceberg.system.EntriesTable;
 import io.trino.plugin.iceberg.system.FilesTable;
 import io.trino.plugin.iceberg.system.HistoryTable;
+import io.trino.plugin.iceberg.system.IcebergTablesSystemTable;
 import io.trino.plugin.iceberg.system.ManifestsTable;
 import io.trino.plugin.iceberg.system.MetadataLogEntriesTable;
 import io.trino.plugin.iceberg.system.PartitionsTable;
@@ -133,6 +135,7 @@ import io.trino.spi.function.FunctionDependencyDeclaration;
 import io.trino.spi.function.FunctionId;
 import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.SchemaFunctionName;
+import io.trino.spi.function.table.ConnectorTableFunctionHandle;
 import io.trino.spi.metrics.Metrics;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.NullableValue;
@@ -583,6 +586,26 @@ public class IcebergMetadata
     }
 
     @Override
+    public Optional<ConnectorTableCredentials> getSystemTableCredentials(ConnectorSession session, SchemaTableName tableName)
+    {
+        if (tableName.equals(IcebergTablesSystemTable.NAME)) {
+            // Escape hatch for the system.iceberg_tables because it does not apply to a specific iceberg table
+            return Optional.empty();
+        }
+        if (isIcebergTableName(tableName.getTableName())) {
+            SchemaTableName icebergTableName = new SchemaTableName(tableName.getSchemaName(), tableNameFrom(tableName.getTableName()));
+            return getOrLoadTableCredentials(session, icebergTableName);
+        }
+        return Optional.empty();
+    }
+
+    @Override
+    public Optional<ConnectorTableCredentials> getTableCredentials(ConnectorSession session, ConnectorTableFunctionHandle tableFunctionHandle)
+    {
+        return getOrLoadTableCredentials(session, getSchemaTableName(tableFunctionHandle));
+    }
+
+    @Override
     public Optional<ConnectorTableCredentials> getTableCredentials(ConnectorSession session, ConnectorWritableTableHandle tableHandle)
     {
         return getOrLoadTableCredentials(session, getSchemaTableName(tableHandle));
@@ -607,10 +630,18 @@ public class IcebergMetadata
 
     private static SchemaTableName getSchemaTableName(ConnectorTableHandle tableHandle)
     {
-        if (tableHandle instanceof IcebergTableHandle handle) {
-            return handle.getSchemaTableName();
+        return switch (tableHandle) {
+            case IcebergTableHandle handle -> handle.getSchemaTableName();
+            default -> throw new IllegalArgumentException("Unsupported ConnectorTableHandle type: " + tableHandle.getClass().getName());
+        };
+    }
+
+    private static SchemaTableName getSchemaTableName(ConnectorTableFunctionHandle tableFunctionHandle)
+    {
+        if (tableFunctionHandle instanceof TableChangesFunctionHandle handle) {
+            return handle.schemaTableName();
         }
-        throw new IllegalArgumentException("Unsupported ConnectorTableHandle type: " + tableHandle.getClass().getName());
+        throw new IllegalArgumentException("Unsupported ConnectorTableFunctionHandle type: " + tableFunctionHandle.getClass().getName());
     }
 
     private static SchemaTableName getSchemaTableName(ConnectorWritableTableHandle tableHandle)

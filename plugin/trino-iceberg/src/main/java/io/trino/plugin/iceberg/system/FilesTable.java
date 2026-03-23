@@ -34,7 +34,6 @@ import org.apache.iceberg.PartitionField;
 import org.apache.iceberg.PartitionSpecParser;
 import org.apache.iceberg.SchemaParser;
 import org.apache.iceberg.Table;
-import org.apache.iceberg.io.FileIO;
 
 import java.util.List;
 import java.util.Map;
@@ -134,18 +133,15 @@ public final class FilesTable
     @Override
     public Optional<ConnectorSplitSource> splitSource(ConnectorSession connectorSession, TupleDomain<ColumnHandle> constraint)
     {
-        try (FileIO fileIO = icebergTable.io()) {
-            return Optional.of(new FilesTableSplitSource(
-                    icebergTable,
-                    snapshotId,
-                    SchemaParser.toJson(icebergTable.schema()),
-                    SchemaParser.toJson(MetadataTableUtils.createMetadataTableInstance(icebergTable, MetadataTableType.FILES).schema()),
-                    icebergTable.specs().entrySet().stream().collect(toImmutableMap(
-                            Map.Entry::getKey,
-                            partitionSpec -> PartitionSpecParser.toJson(partitionSpec.getValue()))),
-                    partitionColumnType,
-                    fileIO.properties()));
-        }
+        return Optional.of(new FilesTableSplitSource(
+                icebergTable,
+                snapshotId,
+                SchemaParser.toJson(icebergTable.schema()),
+                SchemaParser.toJson(MetadataTableUtils.createMetadataTableInstance(icebergTable, MetadataTableType.FILES).schema()),
+                icebergTable.specs().entrySet().stream().collect(toImmutableMap(
+                        Map.Entry::getKey,
+                        partitionSpec -> PartitionSpecParser.toJson(partitionSpec.getValue()))),
+                partitionColumnType));
     }
 
     public static Type getColumnType(String columnName, TypeManager typeManager)

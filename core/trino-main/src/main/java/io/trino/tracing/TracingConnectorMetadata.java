@@ -1524,6 +1524,24 @@ public class TracingConnectorMetadata
     }
 
     @Override
+    public Optional<ConnectorTableCredentials> getSystemTableCredentials(ConnectorSession session, SchemaTableName tableName)
+    {
+        Span span = startSpan("getTableCredentials", tableName);
+        try (var _ = scopedSpan(span)) {
+            return delegate.getSystemTableCredentials(session, tableName);
+        }
+    }
+
+    @Override
+    public Optional<ConnectorTableCredentials> getTableCredentials(ConnectorSession session, ConnectorTableFunctionHandle tableFunctionHandle)
+    {
+        Span span = startSpan("getTableCredentials", tableFunctionHandle);
+        try (var _ = scopedSpan(span)) {
+            return delegate.getTableCredentials(session, tableFunctionHandle);
+        }
+    }
+
+    @Override
     public Optional<ConnectorTableCredentials> getTableCredentials(ConnectorSession session, ConnectorWritableTableHandle tableHandle)
     {
         Span span = startSpan("getTableCredentials", tableHandle);
@@ -1575,6 +1593,15 @@ public class TracingConnectorMetadata
     }
 
     private Span startSpan(String methodName, ConnectorTableHandle handle)
+    {
+        Span span = startSpan(methodName);
+        if (span.isRecording()) {
+            span.setAttribute(TrinoAttributes.HANDLE, handle.toString());
+        }
+        return span;
+    }
+
+    private Span startSpan(String methodName, ConnectorTableFunctionHandle handle)
     {
         Span span = startSpan(methodName);
         if (span.isRecording()) {

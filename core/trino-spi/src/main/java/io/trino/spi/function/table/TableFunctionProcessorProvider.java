@@ -13,8 +13,14 @@
  */
 package io.trino.spi.function.table;
 
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplit;
+import io.trino.spi.connector.ConnectorTableCredentials;
+
+import java.util.Optional;
+
+import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 
 public interface TableFunctionProcessorProvider
 {
@@ -25,6 +31,22 @@ public interface TableFunctionProcessorProvider
     default TableFunctionDataProcessor getDataProcessor(ConnectorSession session, ConnectorTableFunctionHandle handle)
     {
         throw new UnsupportedOperationException("this table function does not process input data");
+    }
+
+    /**
+     * This method returns a {@code TableFunctionSplitProcessor}. All the necessary information collected during analysis is available
+     * in the form of {@link ConnectorTableFunctionHandle}. It is called once per each split processed by the table function.
+     */
+    default TableFunctionSplitProcessor getSplitProcessor(
+            ConnectorSession session,
+            ConnectorTableFunctionHandle handle,
+            Optional<ConnectorTableCredentials> tableCredentials,
+            ConnectorSplit split)
+    {
+        if (tableCredentials.isPresent()) {
+            throw new TrinoException(NOT_SUPPORTED, "This table function does not support table credentials");
+        }
+        return getSplitProcessor(session, handle, split);
     }
 
     /**

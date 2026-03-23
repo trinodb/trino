@@ -13,13 +13,10 @@
  */
 package io.trino.plugin.iceberg.functions.tablechanges;
 
-import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.SizeOf;
 import io.trino.plugin.iceberg.IcebergFileFormat;
 import io.trino.spi.SplitWeight;
 import io.trino.spi.connector.ConnectorSplit;
-
-import java.util.Map;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static io.airlift.slice.SizeOf.estimatedSizeOf;
@@ -38,8 +35,7 @@ public record TableChangesSplit(
         IcebergFileFormat fileFormat,
         String partitionSpecJson,
         String partitionDataJson,
-        SplitWeight splitWeight,
-        Map<String, String> fileIoProperties) implements ConnectorSplit
+        SplitWeight splitWeight) implements ConnectorSplit
 {
     private static final int INSTANCE_SIZE = SizeOf.instanceSize(TableChangesSplit.class);
 
@@ -51,7 +47,6 @@ public record TableChangesSplit(
         requireNonNull(partitionSpecJson, "partitionSpecJson is null");
         requireNonNull(partitionDataJson, "partitionDataJson is null");
         requireNonNull(splitWeight, "splitWeight is null");
-        fileIoProperties = ImmutableMap.copyOf(requireNonNull(fileIoProperties, "fileIoProperties is null"));
     }
 
     @Override
@@ -67,8 +62,7 @@ public record TableChangesSplit(
                 + estimatedSizeOf(path)
                 + estimatedSizeOf(partitionSpecJson)
                 + estimatedSizeOf(partitionDataJson)
-                + splitWeight.getRetainedSizeInBytes()
-                + estimatedSizeOf(fileIoProperties, SizeOf::estimatedSizeOf, SizeOf::estimatedSizeOf);
+                + splitWeight.getRetainedSizeInBytes();
     }
 
     @Override
