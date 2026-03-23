@@ -41,6 +41,8 @@ public interface ExchangeDataSource
         return Optional.empty();
     }
 
+    boolean usesExternalStorage();
+
     @Override
     void close();
 }

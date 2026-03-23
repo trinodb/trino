@@ -32,6 +32,7 @@ import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static com.google.common.util.concurrent.Futures.nonCancellationPropagating;
 import static java.util.Objects.requireNonNull;
@@ -70,6 +71,14 @@ public class LazyExchangeDataSource
         this.taskFailureListener = requireNonNull(taskFailureListener, "taskFailureListener is null");
         this.retryPolicy = requireNonNull(retryPolicy, "retryPolicy is null");
         this.exchangeManagerRegistry = requireNonNull(exchangeManagerRegistry, "exchangeManagerRegistry is null");
+    }
+
+    @Override
+    public boolean usesExternalStorage()
+    {
+        ExchangeDataSource dataSource = delegate.get();
+        checkState(dataSource != null, "Exchange data source not initialized yet");
+        return dataSource.usesExternalStorage();
     }
 
     @Override

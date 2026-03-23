@@ -67,7 +67,7 @@ public class TestFeaturesConfig
                 .setForceSpillingJoin(false)
                 .setColumnarFilterEvaluationEnabled(true)
                 .setLegacyArithmeticDecimalOperators(false)
-                .setFaultTolerantExecutionExchangeEncryptionEnabled(true));
+                .setExternalExchangeEncryptionEnabled(true));
     }
 
     @Test
@@ -102,7 +102,7 @@ public class TestFeaturesConfig
                 .put("force-spilling-join-operator", "true")
                 .put("experimental.columnar-filter-evaluation.enabled", "false")
                 .put("deprecated.legacy-arithmetic-decimal-operators", "true")
-                .put("fault-tolerant-execution-exchange-encryption-enabled", "false")
+                .put("external-exchange-encryption-enabled", "false")
                 .buildOrThrow();
 
         FeaturesConfig expected = new FeaturesConfig()
@@ -134,7 +134,7 @@ public class TestFeaturesConfig
                 .setForceSpillingJoin(true)
                 .setColumnarFilterEvaluationEnabled(false)
                 .setLegacyArithmeticDecimalOperators(true)
-                .setFaultTolerantExecutionExchangeEncryptionEnabled(false);
+                .setExternalExchangeEncryptionEnabled(false);
         assertFullMapping(properties, expected);
     }
 }

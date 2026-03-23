@@ -16,7 +16,9 @@ package io.trino.operator;
 import com.google.common.io.Closer;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
+import io.airlift.slice.Slice;
 import io.trino.exchange.DirectExchangeInput;
+import io.trino.exchange.ExchangeEncryptionKey;
 import io.trino.execution.buffer.PageDeserializer;
 import io.trino.execution.buffer.PagesSerdeFactory;
 import io.trino.memory.context.LocalMemoryContext;
@@ -35,6 +37,7 @@ import java.io.UncheckedIOException;
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -96,11 +99,12 @@ public class MergeOperator
         {
             checkState(!closed, "Factory is already closed");
             OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, sourceId, MergeOperator.class.getSimpleName());
+            Optional<Slice> effectiveKey = ExchangeEncryptionKey.keyForDirectExchange(driverContext.getSession());
             return new MergeOperator(
                     operatorContext,
                     sourceId,
                     directExchangeClientSupplier,
-                    serdeFactory.createDeserializer(driverContext.getSession().getExchangeEncryptionKey().map(Ciphers::deserializeAesEncryptionKey)),
+                    serdeFactory.createDeserializer(effectiveKey.map(Ciphers::deserializeAesEncryptionKey)),
                     orderingCompiler.compilePageWithPositionComparator(sortTypes, sortChannels, sortOrder),
                     outputChannels,
                     outputTypes);

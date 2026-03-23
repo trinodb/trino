@@ -73,7 +73,7 @@ public class LocalDispatchQueryFactory
     private final ListeningExecutorService executor;
     private final int maxStateMachineThreadsPerQuery;
     private final int queryReportedRuleStatsLimit;
-    private final boolean faultTolerantExecutionExchangeEncryptionEnabled;
+    private final boolean externalExchangeEncryptionEnabled;
     private final NodeVersion version;
 
     @Inject
@@ -108,7 +108,7 @@ public class LocalDispatchQueryFactory
         this.executor = dispatchExecutor.getExecutor();
         this.maxStateMachineThreadsPerQuery = queryManagerConfig.getMaxStateMachineCallbackThreads();
         this.queryReportedRuleStatsLimit = queryManagerConfig.getQueryReportedRuleStatsLimit();
-        this.faultTolerantExecutionExchangeEncryptionEnabled = requireNonNull(featuresConfig, "featuresConfig is null").isFaultTolerantExecutionExchangeEncryptionEnabled();
+        this.externalExchangeEncryptionEnabled = requireNonNull(featuresConfig, "featuresConfig is null").isExternalExchangeEncryptionEnabled();
         this.version = requireNonNull(version, "version is null");
     }
 
@@ -140,7 +140,7 @@ public class LocalDispatchQueryFactory
                 planOptimizersStatsCollector,
                 exchangeMetricsCollector,
                 getQueryType(preparedQuery.getStatement()),
-                faultTolerantExecutionExchangeEncryptionEnabled,
+                externalExchangeEncryptionEnabled,
                 Optional.of(sessionPropertyResolver.getSessionPropertiesApplier(preparedQuery)),
                 version);
 
