@@ -276,10 +276,27 @@
                         <ignoredResourcePattern>mozilla/public-suffix-list.txt</ignoredResourcePattern>
                         <ignoredResourcePattern>mime.types</ignoredResourcePattern>
                         <ignoredResourcePattern>org/conscrypt/conscrypt.properties</ignoredResourcePattern>
+                        <!-- about.html is an Eclipse license file bundled by both org.eclipse.jetty and org.glassfish.jersey artifacts -->
+                        <ignoredResourcePattern>about.html</ignoredResourcePattern>
                     </ignoredResourcePatterns>
                     <ignoredClassPatterns>
                         <ignoredClassPattern>org.conscrypt.*</ignoredClassPattern>
                     </ignoredClassPatterns>
+                    <ignoredDependencies>
+                        <!-- hudi-io:shaded is an uber-jar that physically bundles protobuf .proto resources
+                             inside the jar itself; these cannot be excluded as transitive dependencies -->
+                        <dependency>
+                            <groupId>org.apache.hudi</groupId>
+                            <artifactId>hudi-io</artifactId>
+                            <classifier>shaded</classifier>
+                        </dependency>
+                        <!-- at.yawk.lz4:lz4-java (from trino-hive-formats) and org.lz4:lz4-java (from hudi-common)
+                             are different group IDs providing the same net.jpountz.* package -->
+                        <dependency>
+                            <groupId>at.yawk.lz4</groupId>
+                            <artifactId>lz4-java</artifactId>
+                        </dependency>
+                    </ignoredDependencies>
                 </configuration>
             </plugin>
         </plugins>
