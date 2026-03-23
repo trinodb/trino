@@ -467,39 +467,42 @@ public class ParquetReader
     private boolean advanceToNextRowGroup()
             throws IOException
     {
-        currentRowGroupMemoryContext.close();
-        currentRowGroupMemoryContext = memoryContext.newAggregatedMemoryContext();
-        freeCurrentRowGroupBuffers();
+        while (currentRowGroup < rowGroups.size()) {
+            currentRowGroupMemoryContext.close();
+            currentRowGroupMemoryContext = memoryContext.newAggregatedMemoryContext();
+            freeCurrentRowGroupBuffers();
 
-        if (currentRowGroup >= 0 && rowGroupStatisticsValidation.isPresent()) {
-            StatisticsValidation statisticsValidation = rowGroupStatisticsValidation.get();
-            writeValidation.orElseThrow().validateRowGroupStatistics(dataSource.getId(), currentBlockMetadata, statisticsValidation.build());
-            statisticsValidation.reset();
-        }
-
-        currentRowGroup++;
-        if (currentRowGroup == rowGroups.size()) {
-            return false;
-        }
-        RowGroupInfo rowGroupInfo = rowGroups.get(currentRowGroup);
-        currentBlockMetadata = rowGroupInfo.prunedBlockMetadata();
-        firstRowIndexInGroup = rowGroupInfo.fileRowOffset();
-        currentGroupRowCount = currentBlockMetadata.getRowCount();
-        FilteredRowRanges currentGroupRowRanges = blockRowRanges[currentRowGroup];
-        log.debug("advanceToNextRowGroup dataSource %s, currentRowGroup %d, rowRanges %s, currentBlockMetadata %s", dataSource.getId(), currentRowGroup, currentGroupRowRanges, currentBlockMetadata);
-        if (currentGroupRowRanges != null) {
-            long rowCount = currentGroupRowRanges.getRowCount();
-            columnIndexRowsFiltered += currentGroupRowCount - rowCount;
-            if (rowCount == 0) {
-                // Filters on multiple columns with page indexes may yield non-overlapping row ranges and eliminate the entire row group.
-                // Advance to next row group to ensure that we don't return a null Page and close the page source before all row groups are processed
-                return advanceToNextRowGroup();
+            if (currentRowGroup >= 0 && rowGroupStatisticsValidation.isPresent()) {
+                StatisticsValidation statisticsValidation = rowGroupStatisticsValidation.get();
+                writeValidation.orElseThrow().validateRowGroupStatistics(dataSource.getId(), currentBlockMetadata, statisticsValidation.build());
+                statisticsValidation.reset();
             }
-            currentGroupRowCount = rowCount;
+
+            currentRowGroup++;
+            if (currentRowGroup == rowGroups.size()) {
+                return false;
+            }
+            RowGroupInfo rowGroupInfo = rowGroups.get(currentRowGroup);
+            currentBlockMetadata = rowGroupInfo.prunedBlockMetadata();
+            firstRowIndexInGroup = rowGroupInfo.fileRowOffset();
+            currentGroupRowCount = currentBlockMetadata.getRowCount();
+            FilteredRowRanges currentGroupRowRanges = blockRowRanges[currentRowGroup];
+            log.debug("advanceToNextRowGroup dataSource %s, currentRowGroup %d, rowRanges %s, currentBlockMetadata %s", dataSource.getId(), currentRowGroup, currentGroupRowRanges, currentBlockMetadata);
+            if (currentGroupRowRanges != null) {
+                long rowCount = currentGroupRowRanges.getRowCount();
+                columnIndexRowsFiltered += currentGroupRowCount - rowCount;
+                if (rowCount == 0) {
+                    // Filters on multiple columns with page indexes may yield non-overlapping row ranges and eliminate the entire row group.
+                    // Advance to next row group to ensure that we don't return a null Page and close the page source before all row groups are processed
+                    continue;
+                }
+                currentGroupRowCount = rowCount;
+            }
+            nextRowInGroup = 0L;
+            initializeColumnReaders();
+            return true;
         }
-        nextRowInGroup = 0L;
-        initializeColumnReaders();
-        return true;
+        return false;
     }
 
     private void freeCurrentRowGroupBuffers()
