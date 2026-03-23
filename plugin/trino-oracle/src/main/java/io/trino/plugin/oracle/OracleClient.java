@@ -567,7 +567,7 @@ public class OracleClient
                 }
                 Optional<Integer> numberDefaultScale = getNumberDefaultScale(session);
                 Optional<RoundingMode> configuredRoundingMode = getNumberRoundingMode(session);
-                if (configuredRoundingMode.isPresent()) {
+                if (configuredRoundingMode.isPresent() || numberDefaultScale.isPresent()) {
                     // TODO remove legacy mode along with associated config and session properties.
                     // Legacy mode. It's unclear why it does things they way it does:
                     //  - it does not support precision < scale: e.g. Oracle number(5, 10) could map to Trino decimal(10, 10). This is now handled above.
@@ -578,7 +578,7 @@ public class OracleClient
                     int precision = actualPrecision + max(-decimalDigits, 0);
                     int scale = max(decimalDigits, 0);
 
-                    RoundingMode roundingMode = configuredRoundingMode.get();
+                    RoundingMode roundingMode = configuredRoundingMode.orElse(UNNECESSARY);
                     if (precision < scale) {
                         if (roundingMode == RoundingMode.UNNECESSARY) {
                             break;
