@@ -24,13 +24,14 @@ fi
 
 endpoint="$scheme://localhost:$port/v1/info"
 
-# add --insecure to disable certificate verification in curl, in case a self-signed certificate is being used
-if ! info=$(curl --fail --silent --show-error --insecure "$endpoint"); then
+# add --no-check-certificate to disable certificate verification in wget
+# in case a self-signed certificate is being used
+if ! info=$(wget -q --no-check-certificate -O- "$endpoint"); then
     echo >&2 "Server is not responding to requests"
     exit 1
 fi
 
-if ! grep -q '"starting":\s*false' <<<"$info" >/dev/null; then
+if ! [[ "$info" =~ '"starting":false' || "$info" =~ '"starting": false' ]]; then
     echo >&2 "Server is starting"
     exit 1
 fi
