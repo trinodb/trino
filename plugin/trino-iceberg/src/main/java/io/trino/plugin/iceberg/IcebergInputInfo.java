@@ -29,7 +29,9 @@ public record IcebergInputInfo(
         Optional<String> totalRecords,
         Optional<String> deletedRecords,
         Optional<String> totalDataFiles,
-        Optional<String> totalDeleteFiles)
+        Optional<String> totalDeleteFiles,
+        Optional<String> totalPositionDeletes,
+        Optional<String> totalEqualityDeletes)
 {
     public IcebergInputInfo
     {
@@ -40,5 +42,7 @@ public record IcebergInputInfo(
         requireNonNull(deletedRecords, "deletedRecords is null");
         requireNonNull(totalDataFiles, "totalDataFiles is null");
         requireNonNull(totalDeleteFiles, "totalDeleteFiles is null");
+        requireNonNull(totalPositionDeletes, "totalPositionDeletes is null");
+        requireNonNull(totalEqualityDeletes, "totalEqualityDeletes is null");
     }
 }
