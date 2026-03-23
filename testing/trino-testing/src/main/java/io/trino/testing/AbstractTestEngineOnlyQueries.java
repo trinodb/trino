@@ -721,6 +721,13 @@ public abstract class AbstractTestEngineOnlyQueries
                 computeActual("SELECT ARRAY[CAST(282 AS DECIMAL(22,1)), CAST(282 AS DECIMAL(10,1))] || CAST(292 AS BIGINT)"),
                 computeActual("SELECT ARRAY[CAST(282 AS DECIMAL(22,1)), CAST(282 AS DECIMAL(10,1)), CAST(292 AS DECIMAL(19,0))]"));
 
+        // REAL - DOUBLE
+        assertThat(query("SELECT REAL '1.1' + DOUBLE '1.1'")).matches("VALUES DOUBLE '2.2'");
+        assertThat(query("SELECT REAL '1.1' = DOUBLE '1.1'")).matches("VALUES false");
+        assertThat(query("SELECT REAL '1.25' = DOUBLE '1.25'")).matches("VALUES true");
+        assertThat(query("SELECT ARRAY[REAL '282.1', REAL '283.2'] || DOUBLE '101.3'"))
+                .matches("SELECT ARRAY[DOUBLE '282.1', DOUBLE '283.2', DOUBLE '101.3']");
+
         // DECIMAL - DOUBLE
         assertQuery("SELECT CAST(1.1 AS DECIMAL(38,1)) + CAST(1.1 AS DOUBLE)");
         assertQuery("SELECT CAST(1.1 AS DECIMAL(38,1)) = CAST(1.1 AS DOUBLE)");
@@ -750,6 +757,20 @@ public abstract class AbstractTestEngineOnlyQueries
         assertThat(query("SELECT CAST(1.1 AS DECIMAL(38,1)) = CAST(1.1 AS NUMBER)")).matches("VALUES true");
         assertThat(query("SELECT ARRAY[CAST(282.1 AS NUMBER), CAST(283.2 AS NUMBER)] || CAST(101.3 AS DECIMAL(5,1))"))
                 .matches("SELECT ARRAY[CAST(282.1 AS NUMBER), CAST(283.2 AS NUMBER), CAST(101.3 AS NUMBER)]");
+
+        // NUMBER - REAL
+        assertThat(query("SELECT NUMBER '1.1' + REAL '1.1'")).matches("VALUES DOUBLE '2.2'");
+        assertThat(query("SELECT NUMBER '1.1' = REAL '1.1'")).matches("VALUES false");
+        assertThat(query("SELECT NUMBER '1.25' = REAL '1.25'")).matches("VALUES true");
+        assertThat(query("SELECT ARRAY[REAL '282.1', REAL '283.2'] || NUMBER '101.3'"))
+                .matches("SELECT ARRAY[DOUBLE '282.1', DOUBLE '283.2', DOUBLE '101.3']");
+
+        // NUMBER - DOUBLE
+        assertThat(query("SELECT NUMBER '1.1' + DOUBLE '1.1'")).matches("VALUES DOUBLE '2.2'");
+        assertThat(query("SELECT NUMBER '1.1' = DOUBLE '1.1'")).matches("VALUES true");
+        assertThat(query("SELECT sin(NUMBER '1.1')")).matches("VALUES sin(DOUBLE '1.1')");
+        assertThat(query("SELECT ARRAY[DOUBLE '282.1', DOUBLE '283.2'] || NUMBER '101.3'"))
+                .matches("SELECT ARRAY[DOUBLE '282.1', DOUBLE '283.2', DOUBLE '101.3']");
 
         // Complex coercions across joins
         assertQuery("SELECT * FROM (" +
@@ -831,25 +852,11 @@ public abstract class AbstractTestEngineOnlyQueries
                     String multiply = "SELECT CAST(CAST('3' AS " + left + ") * CAST('4' AS " + right + ") AS varchar)";
                     String divide = "SELECT CAST(CAST('12' AS " + left + ") / CAST('4' AS " + right + ") AS varchar)";
                     String modulus = "SELECT CAST(CAST('12' AS " + left + ") % CAST('7' AS " + right + ") AS varchar)";
-                    List<String> both = List.of(left, right);
-                    // There currently is no coercion between number and real/double/decimal
-                    boolean unsupported =
-                            both.contains("number") &&
-                            (both.contains("real") || both.contains("double"));
-                    if (unsupported) {
-                        assertThat(query(add)).failure().hasMessageMatching("line 1:\\d+: Cannot apply operator: .* \\+ .*");
-                        assertThat(query(subtract)).failure().hasMessageMatching("line 1:\\d+: Cannot apply operator: .* - .*");
-                        assertThat(query(multiply)).failure().hasMessageMatching("line 1:\\d+: Cannot apply operator: .* \\* .*");
-                        assertThat(query(divide)).failure().hasMessageMatching("line 1:\\d+: Cannot apply operator: .* / .*");
-                        assertThat(query(modulus)).failure().hasMessageMatching("line 1:\\d+: Cannot apply operator: .* % .*");
-                    }
-                    else {
-                        assertThat((String) computeActual(add).getOnlyValue()).matches("7(\\.0E0|\\.0+)?");
-                        assertThat((String) computeActual(subtract).getOnlyValue()).matches("-1(\\.0E0|\\.0+)?");
-                        assertThat((String) computeActual(multiply).getOnlyValue()).matches("12(\\.0+)?|1.2E1");
-                        assertThat((String) computeActual(divide).getOnlyValue()).matches("3(\\.0E0|\\.0+)?");
-                        assertThat((String) computeActual(modulus).getOnlyValue()).matches("5(\\.0E0|\\.0+)?");
-                    }
+                    assertThat((String) computeActual(add).getOnlyValue()).matches("7(\\.0E0|\\.0+)?");
+                    assertThat((String) computeActual(subtract).getOnlyValue()).matches("-1(\\.0E0|\\.0+)?");
+                    assertThat((String) computeActual(multiply).getOnlyValue()).matches("12(\\.0+)?|1.2E1");
+                    assertThat((String) computeActual(divide).getOnlyValue()).matches("3(\\.0E0|\\.0+)?");
+                    assertThat((String) computeActual(modulus).getOnlyValue()).matches("5(\\.0E0|\\.0+)?");
                 }
                 catch (Throwable e) {
                     e.addSuppressed(new Exception("left = " + left));
