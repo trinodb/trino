@@ -1390,7 +1390,7 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
         testCheckpointWriteStatsAsStruct("varchar", "'test'", "'ŻŻŻŻŻŻŻŻŻŻ'", "0.0", "null", "null");
         testCheckpointWriteStatsAsStruct("varbinary", "X'65683F'", "X'ffffffffffffffffffff'", "0.0", "null", "null");
         testCheckpointWriteStatsAsStruct("date", "date '2021-02-03'", "date '9999-12-31'", "0.0", "'2021-02-03'", "'9999-12-31'");
-        testCheckpointWriteStatsAsStruct("timestamp(3) with time zone", "timestamp '2001-08-22 03:04:05.321 -08:00'", "timestamp '9999-12-31 23:59:59.999 +12:00'", "0.0", "'2001-08-22 11:04:05.321 UTC'", "'9999-12-31 11:59:59.999 UTC'");
+        testCheckpointWriteStatsAsStruct("timestamp(6) with time zone", "timestamp '2001-08-22 03:04:05.321 -08:00'", "timestamp '9999-12-31 23:59:59.999 +12:00'", "0.0", "'2001-08-22 11:04:05.321 UTC'", "'9999-12-31 11:59:59.999 UTC'");
         testCheckpointWriteStatsAsStruct("array(int)", "array[1]", "array[2147483647]", "null", "null", "null");
         testCheckpointWriteStatsAsStruct("map(varchar,int)", "map(array['foo', 'bar'], array[1, 2])", "map(array['foo', 'bar'], array[-2147483648, 2147483647])", "null", "null", "null");
         testCheckpointWriteStatsAsStruct("row(x bigint)", "cast(row(1) as row(x bigint))", "cast(row(9223372036854775807) as row(x bigint))", "null", "null", "null");
