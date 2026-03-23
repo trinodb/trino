@@ -105,7 +105,7 @@ export const QueryList = () => {
     const [error, setError] = useState<string | null>(null)
 
     useEffect(() => {
-        let timeoutId: number
+        let timeoutId: ReturnType<typeof setTimeout>
         const runLoop = () => {
             getQueryListStatus()
             timeoutId = setTimeout(runLoop, 1000)
