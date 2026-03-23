@@ -108,6 +108,7 @@ abstract class BaseTestHiveOnDataLake
                 .setHiveProperties(
                         ImmutableMap.<String, String>builder()
                                 .put("hive.insert-existing-partitions-behavior", "OVERWRITE")
+                                .put("hive.allow-register-partition-procedure", "true")
                                 .put("hive.non-managed-table-writes-enabled", "true")
                                 // Below are required to enable caching on metastore
                                 .put("hive.metastore-cache-ttl", "1d")
@@ -2621,5 +2622,63 @@ abstract class BaseTestHiveOnDataLake
         assertInsertFailure(
                 testTable,
                 "Overwriting existing partition in transactional tables doesn't support DIRECT_TO_TARGET_EXISTING_DIRECTORY write mode");
+    }
+
+    @Test
+    public void testInsertOverwriteWithCustomPartitionLocation()
+    {
+        String tableName = "test_insert_overwrite_custom_partition_" + randomNameSuffix();
+        String fullyQualifiedTestTableName = getFullyQualifiedTestTableName(tableName);
+        String tableLocation = format("s3://%s/%s/%s/", bucketName, HIVE_TEST_SCHEMA, tableName);
+
+        // Create external partitioned table
+        assertUpdate(format(
+                "CREATE TABLE %s (v integer, k varchar) WITH (" +
+                        "partitioned_by = ARRAY['k']," +
+                        "external_location = '%s')",
+                fullyQualifiedTestTableName,
+                tableLocation));
+
+        // Create custom partition directory (register_partition requires the directory to exist)
+        String customPartitionPath = HIVE_TEST_SCHEMA + "/" + tableName + "/k=k1_plus";
+        hiveMinioDataLake.getMinioClient().putObject(bucketName, "".getBytes(UTF_8), customPartitionPath + "/.keep");
+
+        // Register partition k=k1 with custom location k=k1_plus
+        String customPartitionLocation = format("s3://%s/%s/", bucketName, customPartitionPath);
+        assertUpdate(format(
+                "CALL system.register_partition('%s', '%s', ARRAY['k'], ARRAY['k1'], '%s')",
+                HIVE_TEST_SCHEMA, tableName, customPartitionLocation));
+
+        // First insert: add data to custom partition (k1) and normal partition (k2)
+        Session appendSession = Session.builder(getQueryRunner().getDefaultSession())
+                .setCatalogSessionProperty("hive", "insert_existing_partitions_behavior", "APPEND")
+                .build();
+        assertUpdate(appendSession, format("INSERT INTO %s VALUES (1, 'k1'), (2, 'k2')", fullyQualifiedTestTableName), 2);
+        assertQuery("SELECT v, k FROM " + fullyQualifiedTestTableName + " ORDER BY v", "VALUES (1, 'k1'), (2, 'k2')");
+        // Paths before overwrite: k1 in custom location, k2 in default location
+        assertQuery(
+                format("SELECT \"$path\" LIKE '%%k=k1_plus%%' FROM %s WHERE k='k1' LIMIT 1", fullyQualifiedTestTableName),
+                "VALUES true");
+        assertQuery(
+                format("SELECT \"$path\" LIKE '%%k=k2%%' FROM %s WHERE k='k2' LIMIT 1", fullyQualifiedTestTableName),
+                "VALUES true");
+
+        // Set session to OVERWRITE and insert again with different data
+        Session overwriteSession = Session.builder(getQueryRunner().getDefaultSession())
+                .setCatalogSessionProperty("hive", "insert_existing_partitions_behavior", "OVERWRITE")
+                .build();
+        assertUpdate(overwriteSession, format("INSERT INTO %s VALUES (10, 'k1'), (20, 'k2')", fullyQualifiedTestTableName), 2);
+
+        // After overwrite: only new data should exist, previous data is lost
+        assertQuery("SELECT v, k FROM " + fullyQualifiedTestTableName + " ORDER BY v", "VALUES (10, 'k1'), (20, 'k2')");
+        // Paths after overwrite: k1 still in custom location, k2 in default location
+        assertQuery(
+                format("SELECT \"$path\" LIKE '%%k=k1_plus%%' FROM %s WHERE k='k1' LIMIT 1", fullyQualifiedTestTableName),
+                "VALUES true");
+        assertQuery(
+                format("SELECT \"$path\" LIKE '%%k=k2%%' FROM %s WHERE k='k2' LIMIT 1", fullyQualifiedTestTableName),
+                "VALUES true");
+
+        assertUpdate("DROP TABLE " + fullyQualifiedTestTableName);
     }
 }
