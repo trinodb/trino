@@ -64,7 +64,9 @@ public class TestingDuckDb
 
     public JdbcSqlExecutor getSqlExecutor()
     {
-        return new JdbcSqlExecutor(getJdbcUrl(), new Properties());
+        Properties properties = new Properties();
+        properties.put(DUCKDB_USER_AGENT_PROPERTY, "trino/testversion");
+        return new JdbcSqlExecutor(getJdbcUrl(), properties);
     }
 
     @Override

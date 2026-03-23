@@ -59,12 +59,12 @@ public final class DuckDbClientModule
     {
         Properties connectionProperties = new Properties();
         connectionProperties.setProperty(DUCKDB_USER_AGENT_PROPERTY, "trino/" + nodeVersion.toString());
-        return DriverConnectionFactory.builder(
+        return new DuplicatingConnectionFactory(credentialProvider, DriverConnectionFactory.builder(
                         new DuckDBDriver(),
                         config.getConnectionUrl(),
                         credentialProvider)
                 .setConnectionProperties(connectionProperties)
                 .setOpenTelemetry(openTelemetry)
-                .build();
+                .build());
     }
 }
