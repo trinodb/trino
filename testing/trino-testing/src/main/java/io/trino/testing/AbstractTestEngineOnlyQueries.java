@@ -1449,50 +1449,41 @@ public abstract class AbstractTestEngineOnlyQueries
     @Test
     public void testDescribeOutput()
     {
-        Session session = Session.builder(getSession())
-                .addPreparedStatement("my_query", "SELECT * FROM nation")
-                .build();
-
-        MaterializedResult actual = computeActual(session, "DESCRIBE OUTPUT my_query");
+        Session session = getSession();
+        String sql = "SELECT * FROM nation";
         MaterializedResult expected = resultBuilder(session, VARCHAR, VARCHAR, VARCHAR, VARCHAR, VARCHAR, BIGINT, BOOLEAN)
                 .row("nationkey", session.getCatalog().get(), session.getSchema().get(), "nation", "bigint", 8, false)
                 .row("name", session.getCatalog().get(), session.getSchema().get(), "nation", "varchar(25)", 0, false)
                 .row("regionkey", session.getCatalog().get(), session.getSchema().get(), "nation", "bigint", 8, false)
                 .row("comment", session.getCatalog().get(), session.getSchema().get(), "nation", "varchar(152)", 0, false)
                 .build();
-        assertEqualsIgnoreOrder(actual, expected);
+        assertDescribeOutputWithBothSyntax(session, sql, expected);
     }
 
     @Test
     public void testDescribeOutputDateTimeTypes()
     {
-        Session session = Session.builder(getSession())
-                .addPreparedStatement("my_query", "SELECT localtimestamp a, current_timestamp b, localtime c")
-                .build();
-
-        MaterializedResult actual = computeActual(session, "DESCRIBE OUTPUT my_query");
+        Session session = getSession();
+        String sql = "SELECT localtimestamp a, current_timestamp b, localtime c";
         MaterializedResult expected = resultBuilder(session, VARCHAR, VARCHAR, VARCHAR, VARCHAR, VARCHAR, BIGINT, BOOLEAN)
                 .row("a", "", "", "", "timestamp(3)", 8, true)
                 .row("b", "", "", "", "timestamp(3) with time zone", 8, true)
                 .row("c", "", "", "", "time(3)", 8, true)
                 .build();
-        assertEqualsIgnoreOrder(actual, expected);
+        assertDescribeOutputWithBothSyntax(session, sql, expected);
     }
 
     @Test
     public void testDescribeOutputNamedAndUnnamed()
     {
-        Session session = Session.builder(getSession())
-                .addPreparedStatement("my_query", "SELECT 1, name, regionkey AS my_alias FROM nation")
-                .build();
-
-        MaterializedResult actual = computeActual(session, "DESCRIBE OUTPUT my_query");
+        Session session = getSession();
+        String sql = "SELECT 1, name, regionkey AS my_alias FROM nation";
         MaterializedResult expected = resultBuilder(session, VARCHAR, VARCHAR, VARCHAR, VARCHAR, VARCHAR, BIGINT, BOOLEAN)
                 .row("_col0", "", "", "", "integer", 4, false)
                 .row("name", session.getCatalog().get(), session.getSchema().get(), "nation", "varchar(25)", 0, false)
                 .row("my_alias", session.getCatalog().get(), session.getSchema().get(), "nation", "bigint", 8, true)
                 .build();
-        assertEqualsIgnoreOrder(actual, expected);
+        assertDescribeOutputWithBothSyntax(session, sql, expected);
     }
 
     @Test
@@ -1571,16 +1562,27 @@ public abstract class AbstractTestEngineOnlyQueries
     @Test
     public void testDescribeOutputOnAliasedColumnsAndExpressions()
     {
-        Session session = Session.builder(getSession())
-                .addPreparedStatement("my_query", "SELECT count(*) AS this_is_aliased, 1 + 2 FROM nation")
-                .build();
-
-        MaterializedResult actual = computeActual(session, "DESCRIBE OUTPUT my_query");
+        Session session = getSession();
+        String sql = "SELECT count(*) AS this_is_aliased, 1 + 2 FROM nation";
         MaterializedResult expected = resultBuilder(session, VARCHAR, VARCHAR, VARCHAR, VARCHAR, VARCHAR, BIGINT, BOOLEAN)
                 .row("this_is_aliased", "", "", "", "bigint", 8, true)
                 .row("_col1", "", "", "", "integer", 4, false)
                 .build();
-        assertEqualsIgnoreOrder(actual, expected);
+        assertDescribeOutputWithBothSyntax(session, sql, expected);
+    }
+
+    private void assertDescribeOutputWithBothSyntax(Session session, @Language("SQL") String sql, MaterializedResult expected)
+    {
+        // Test prepared statement syntax
+        Session sessionWithStatement = Session.builder(session)
+                .addPreparedStatement("my_query", sql)
+                .build();
+        MaterializedResult preparedResult = computeActual(sessionWithStatement, "DESCRIBE OUTPUT my_query");
+        assertEqualsIgnoreOrder(preparedResult, expected);
+
+        // Test inline query syntax
+        MaterializedResult inlineResult = computeActual(session, format("DESCRIBE OUTPUT (%s)", sql));
+        assertEqualsIgnoreOrder(inlineResult, expected);
     }
 
     @Test

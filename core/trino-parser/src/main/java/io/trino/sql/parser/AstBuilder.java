@@ -1186,6 +1186,14 @@ class AstBuilder
     }
 
     @Override
+    public Node visitDescribeQueryOutput(SqlBaseParser.DescribeQueryOutputContext context)
+    {
+        return new DescribeOutput(
+                getLocation(context),
+                (Query) visit(context.rootQuery()));
+    }
+
+    @Override
     public Node visitDescribeInput(SqlBaseParser.DescribeInputContext context)
     {
         return new DescribeInput(

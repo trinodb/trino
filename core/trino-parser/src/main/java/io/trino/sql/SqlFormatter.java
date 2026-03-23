@@ -635,7 +635,12 @@ public final class SqlFormatter
         protected Void visitDescribeOutput(DescribeOutput node, Integer indent)
         {
             append(indent, "DESCRIBE OUTPUT ");
-            builder.append(formatName(node.getName()));
+
+            builder.append(switch (node.getTarget()) {
+                case DescribeOutput.Target.PreparedStatement(Identifier name) -> formatName(name);
+                case DescribeOutput.Target.InlineQuery(Query query) -> '(' + formatSql(query) + ')';
+            });
+
             return null;
         }
 
