@@ -68,6 +68,9 @@ import static io.trino.orc.metadata.OrcColumnId.ROOT_COLUMN;
 import static io.trino.plugin.iceberg.util.OrcIcebergIds.fileColumnsByIcebergId;
 import static io.trino.plugin.iceberg.util.OrcTypeConverter.ORC_ICEBERG_ID_KEY;
 import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
+import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_MILLISECOND;
+import static java.lang.Math.addExact;
+import static java.lang.Math.multiplyExact;
 import static java.lang.Math.toIntExact;
 import static java.math.RoundingMode.UNNECESSARY;
 import static java.util.function.Function.identity;
@@ -299,10 +302,27 @@ public final class OrcMetrics
                 return Optional.empty();
             }
             // Since ORC timestamp statistics are truncated to millisecond precision, this can cause some column values to fall outside the stats range.
-            // We are appending 999 microseconds to account for the fact that Trino ORC writer truncates timestamps.
-            return Optional.of(new IcebergMinMax(icebergType, min * MICROSECONDS_PER_MILLISECOND, (max * MICROSECONDS_PER_MILLISECOND) + (MICROSECONDS_PER_MILLISECOND - 1), metricsModes));
+            // We are appending the max sub-millisecond value to account for the fact that ORC writer truncates timestamps.
+            if (icebergType.typeId() == TypeID.TIMESTAMP_NANO) {
+                return timestampMinMax(icebergType, metricsModes, min, max, NANOSECONDS_PER_MILLISECOND);
+            }
+            return timestampMinMax(icebergType, metricsModes, min, max, MICROSECONDS_PER_MILLISECOND);
         }
         return Optional.empty();
+    }
+
+    private static Optional<IcebergMinMax> timestampMinMax(Type icebergType, MetricsModes.MetricsMode metricsMode, long min, long max, long unit)
+    {
+        try {
+            long scaledMin = multiplyExact(min, unit);
+            long scaledMax = addExact(multiplyExact(max, unit), unit - 1);
+            return Optional.of(new IcebergMinMax(icebergType, scaledMin, scaledMax, metricsMode));
+        }
+        catch (ArithmeticException _) {
+            // ORC timestamp stats are millisecond-granularity hints. If widening them to Iceberg units overflows,
+            // drop the bounds entirely rather than emitting wrapped values.
+            return Optional.empty();
+        }
     }
 
     private static class IcebergMinMax
