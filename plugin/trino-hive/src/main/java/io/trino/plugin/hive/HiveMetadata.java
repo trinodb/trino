@@ -368,6 +368,7 @@ public class HiveMetadata
     private static final String BUCKETING_VERSION = "bucketing_version";
     public static final String STORAGE_TABLE = "storage_table";
     public static final String TRANSACTIONAL = "transactional";
+    public static final String TRANSLATED_TO_EXTERNAL = "TRANSLATED_TO_EXTERNAL";
     public static final String PRESTO_VIEW_EXPANDED_TEXT_MARKER = "/* Presto View */";
 
     public static final String ORC_BLOOM_FILTER_COLUMNS_KEY = "orc.bloom.filter.columns";
@@ -697,7 +698,11 @@ public class HiveMetadata
         // External location property
         ImmutableMap.Builder<String, Object> properties = ImmutableMap.builder();
         if (table.getTableType().equals(EXTERNAL_TABLE.name())) {
-            properties.put(EXTERNAL_LOCATION_PROPERTY, table.getStorage().getLocation());
+            boolean isHive3ConvertedManagedTable = "true".equalsIgnoreCase(
+                    table.getParameters().get(TRANSLATED_TO_EXTERNAL));
+            if (!isHive3ConvertedManagedTable) {
+                properties.put(EXTERNAL_LOCATION_PROPERTY, table.getStorage().getLocation());
+            }
         }
 
         // Storage format property

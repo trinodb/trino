@@ -2622,4 +2622,43 @@ abstract class BaseTestHiveOnDataLake
                 testTable,
                 "Overwriting existing partition in transactional tables doesn't support DIRECT_TO_TARGET_EXISTING_DIRECTORY write mode");
     }
+
+    @Test
+    public void testShowCreateTableForManagedTable()
+    {
+        String tableName = "test_hive_managed_" + randomNameSuffix();
+        String qualifiedTableName = getFullyQualifiedTestTableName(tableName);
+
+        assertUpdate(format("CREATE TABLE %s (id bigint, name varchar)", qualifiedTableName));
+        try {
+            assertThat((String) computeScalar(format("SHOW CREATE TABLE %s", qualifiedTableName)))
+                    .doesNotContain("external_location")
+                    .doesNotContain("location")
+                    .contains("format = 'ORC'");
+        }
+        finally {
+            assertUpdate(format("DROP TABLE %s", qualifiedTableName));
+        }
+    }
+
+    @Test
+    public void testShowCreateTableForExternalTable()
+    {
+        String tableName = "test_explicit_external_" + randomNameSuffix();
+        String qualifiedTableName = getFullyQualifiedTestTableName(tableName);
+        String tableLocation = format("s3a://%s/%s/%s", bucketName, HIVE_TEST_SCHEMA, tableName);
+
+        assertUpdate(format(
+                "CREATE TABLE %s (id bigint, name varchar) WITH (external_location = '%s')",
+                qualifiedTableName,
+                tableLocation));
+        try {
+            assertThat((String) computeScalar(format("SHOW CREATE TABLE %s", qualifiedTableName)))
+                    .contains("external_location = '" + tableLocation + "'")
+                    .contains("format = 'ORC'");
+        }
+        finally {
+            assertUpdate(format("DROP TABLE %s", qualifiedTableName));
+        }
+    }
 }
