@@ -22,7 +22,11 @@ import com.google.common.io.Resources;
 import com.google.protobuf.Any;
 import com.google.protobuf.Descriptors.Descriptor;
 import com.google.protobuf.DynamicMessage;
+import com.google.protobuf.ListValue;
+import com.google.protobuf.NullValue;
+import com.google.protobuf.Struct;
 import com.google.protobuf.Timestamp;
+import com.google.protobuf.Value;
 import io.airlift.slice.Slices;
 import io.confluent.kafka.schemaregistry.protobuf.ProtobufSchema;
 import io.confluent.kafka.schemaregistry.protobuf.ProtobufSchemaProvider;
@@ -645,6 +649,137 @@ public class TestProtobufDecoder
         checkValue(decodedRow, numberColumn, enumData);
         checkValue(decodedRow, timestampColumn, sqlTimestamp.getEpochMicros());
         checkValue(decodedRow, bytesColumn, Slices.wrappedBuffer(bytesData));
+    }
+
+    @Test
+    public void testStructType()
+            throws Exception
+    {
+        Struct metadata = Struct.newBuilder()
+                .putFields("name", Value.newBuilder().setStringValue("Trino").build())
+                .putFields("version", Value.newBuilder().setNumberValue(42.0).build())
+                .putFields("active", Value.newBuilder().setBoolValue(true).build())
+                .putFields("empty", Value.newBuilder().setNullValue(NullValue.NULL_VALUE).build())
+                .putFields("nested", Value.newBuilder()
+                        .setStructValue(Struct.newBuilder()
+                                .putFields("inner", Value.newBuilder().setStringValue("value").build())
+                                .build())
+                        .build())
+                .putFields("list", Value.newBuilder()
+                        .setListValue(ListValue.newBuilder()
+                                .addValues(Value.newBuilder().setStringValue("a").build())
+                                .addValues(Value.newBuilder().setNumberValue(1.0).build())
+                                .build())
+                        .build())
+                .build();
+
+        Value anyValue = Value.newBuilder().setStringValue("hello").build();
+
+        ListValue tags = ListValue.newBuilder()
+                .addValues(Value.newBuilder().setStringValue("tag1").build())
+                .addValues(Value.newBuilder().setStringValue("tag2").build())
+                .build();
+
+        // Use the Confluent schema parser since the Wire-based ProtobufUtils parser
+        // does not handle forward type references within google/protobuf/struct.proto
+        Descriptor descriptor = ((ProtobufSchema) new ProtobufSchemaProvider()
+                .parseSchema(Resources.toString(getResource("decoder/protobuf/test_struct.proto"), UTF_8), List.of(), true)
+                .get())
+                .toDescriptor();
+
+        DynamicMessage metadataDynamic = DynamicMessage.parseFrom(
+                descriptor.findFieldByName("metadata").getMessageType(),
+                metadata.toByteArray());
+        DynamicMessage anyValueDynamic = DynamicMessage.parseFrom(
+                descriptor.findFieldByName("any_value").getMessageType(),
+                anyValue.toByteArray());
+        DynamicMessage tagsDynamic = DynamicMessage.parseFrom(
+                descriptor.findFieldByName("tags").getMessageType(),
+                tags.toByteArray());
+
+        DynamicMessage message = DynamicMessage.newBuilder(descriptor)
+                .setField(descriptor.findFieldByName("id"), 1)
+                .setField(descriptor.findFieldByName("metadata"), metadataDynamic)
+                .setField(descriptor.findFieldByName("any_value"), anyValueDynamic)
+                .setField(descriptor.findFieldByName("tags"), tagsDynamic)
+                .build();
+
+        DecoderTestColumnHandle metadataColumn = new DecoderTestColumnHandle(
+                0, "metadata", JsonType.JSON, "metadata", null, null, false, false, false);
+        DecoderTestColumnHandle anyValueColumn = new DecoderTestColumnHandle(
+                1, "any_value", JsonType.JSON, "any_value", null, null, false, false, false);
+        DecoderTestColumnHandle tagsColumn = new DecoderTestColumnHandle(
+                2, "tags", JsonType.JSON, "tags", null, null, false, false, false);
+
+        ProtobufRowDecoder decoder = new ProtobufRowDecoder(
+                new FixedSchemaDynamicMessageProvider(descriptor),
+                ImmutableSet.of(metadataColumn, anyValueColumn, tagsColumn),
+                TESTING_TYPE_MANAGER,
+                new FileDescriptorProvider());
+
+        Map<DecoderColumnHandle, FieldValueProvider> decodedRow = decoder
+                .decodeRow(message.toByteArray())
+                .orElseThrow(AssertionError::new);
+
+        assertThat(decodedRow).hasSize(3);
+
+        // Verify metadata (Struct) - JSON output with sorted keys
+        JsonNode metadataJson = new ObjectMapper().readTree(
+                decodedRow.get(metadataColumn).getSlice().toStringUtf8());
+        assertThat(metadataJson.get("active").booleanValue()).isTrue();
+        assertThat(metadataJson.get("empty").isNull()).isTrue();
+        assertThat(metadataJson.get("list").isArray()).isTrue();
+        assertThat(metadataJson.get("list").get(0).textValue()).isEqualTo("a");
+        assertThat(metadataJson.get("list").get(1).doubleValue()).isEqualTo(1.0);
+        assertThat(metadataJson.get("name").textValue()).isEqualTo("Trino");
+        assertThat(metadataJson.get("nested").get("inner").textValue()).isEqualTo("value");
+        assertThat(metadataJson.get("version").doubleValue()).isEqualTo(42.0);
+
+        // Verify any_value (Value) - single string value
+        assertThat(decodedRow.get(anyValueColumn).getSlice().toStringUtf8())
+                .isEqualTo("\"hello\"");
+
+        // Verify tags (ListValue) - JSON array
+        assertThat(decodedRow.get(tagsColumn).getSlice().toStringUtf8())
+                .isEqualTo("[\"tag1\",\"tag2\"]");
+    }
+
+    @Test
+    public void testEmptyStruct()
+            throws Exception
+    {
+        Struct emptyStruct = Struct.getDefaultInstance();
+
+        Descriptor descriptor = ((ProtobufSchema) new ProtobufSchemaProvider()
+                .parseSchema(Resources.toString(getResource("decoder/protobuf/test_struct.proto"), UTF_8), List.of(), true)
+                .get())
+                .toDescriptor();
+
+        DynamicMessage metadataDynamic = DynamicMessage.parseFrom(
+                descriptor.findFieldByName("metadata").getMessageType(),
+                emptyStruct.toByteArray());
+
+        DynamicMessage message = DynamicMessage.newBuilder(descriptor)
+                .setField(descriptor.findFieldByName("id"), 1)
+                .setField(descriptor.findFieldByName("metadata"), metadataDynamic)
+                .build();
+
+        DecoderTestColumnHandle metadataColumn = new DecoderTestColumnHandle(
+                0, "metadata", JsonType.JSON, "metadata", null, null, false, false, false);
+
+        ProtobufRowDecoder decoder = new ProtobufRowDecoder(
+                new FixedSchemaDynamicMessageProvider(descriptor),
+                ImmutableSet.of(metadataColumn),
+                TESTING_TYPE_MANAGER,
+                new FileDescriptorProvider());
+
+        Map<DecoderColumnHandle, FieldValueProvider> decodedRow = decoder
+                .decodeRow(message.toByteArray())
+                .orElseThrow(AssertionError::new);
+
+        assertThat(decodedRow).hasSize(1);
+        assertThat(decodedRow.get(metadataColumn).getSlice().toStringUtf8())
+                .isEqualTo("{}");
     }
 
     private Timestamp getTimestamp(SqlTimestamp sqlTimestamp)

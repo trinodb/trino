@@ -20,7 +20,10 @@ import com.google.protobuf.Any;
 import com.google.protobuf.Descriptors.Descriptor;
 import com.google.protobuf.Descriptors.FieldDescriptor;
 import com.google.protobuf.DynamicMessage;
+import com.google.protobuf.ListValue;
+import com.google.protobuf.Struct;
 import com.google.protobuf.Timestamp;
+import com.google.protobuf.Value;
 import dev.failsafe.Failsafe;
 import dev.failsafe.RetryPolicy;
 import io.confluent.kafka.schemaregistry.protobuf.ProtobufSchema;
@@ -328,6 +331,62 @@ public class TestKafkaProtobufWithSchemaRegistryMinimalFunctionality
                         """
                         VALUES (1, JSON '{"@type":"%s","list":["Search"],"map":{"Key1":"Value1"},"row":{"booleanColumn":true,"bytesColumn":"VHJpbm8=","doubleColumn":3.141592653589793,"floatColumn":3.14,"integerColumn":1,"longColumn":"493857959588286460","numberColumn":"ONE","stringColumn":"Trino","timestampColumn":"2020-12-12T15:35:45.923Z"}}')
                         """.formatted(anySchemaFile));
+    }
+
+    @Test
+    public void testStruct()
+            throws Exception
+    {
+        String topic = "topic-schema-with-struct";
+        assertNotExists(topic);
+
+        ProtobufSchema schema = (ProtobufSchema) new ProtobufSchemaProvider()
+                .parseSchema(Resources.toString(
+                        getResource("protobuf/test_struct.proto"), UTF_8),
+                        List.of(), true)
+                .get();
+
+        Descriptor descriptor = schema.toDescriptor();
+
+        Struct metadata = Struct.newBuilder()
+                .putFields("name", Value.newBuilder().setStringValue("Trino").build())
+                .putFields("count", Value.newBuilder().setNumberValue(42.0).build())
+                .build();
+
+        Value anyValue = Value.newBuilder().setStringValue("hello").build();
+
+        ListValue tags = ListValue.newBuilder()
+                .addValues(Value.newBuilder().setStringValue("tag1").build())
+                .addValues(Value.newBuilder().setStringValue("tag2").build())
+                .build();
+
+        DynamicMessage metadataDynamic = DynamicMessage.parseFrom(
+                descriptor.findFieldByName("metadata").getMessageType(),
+                metadata.toByteArray());
+        DynamicMessage anyValueDynamic = DynamicMessage.parseFrom(
+                descriptor.findFieldByName("any_value").getMessageType(),
+                anyValue.toByteArray());
+        DynamicMessage tagsDynamic = DynamicMessage.parseFrom(
+                descriptor.findFieldByName("tags").getMessageType(),
+                tags.toByteArray());
+
+        DynamicMessage message = DynamicMessage.newBuilder(descriptor)
+                .setField(descriptor.findFieldByName("id"), 1)
+                .setField(descriptor.findFieldByName("metadata"), metadataDynamic)
+                .setField(descriptor.findFieldByName("any_value"), anyValueDynamic)
+                .setField(descriptor.findFieldByName("tags"), tagsDynamic)
+                .build();
+
+        ImmutableList.Builder<ProducerRecord<DynamicMessage, DynamicMessage>> producerRecordBuilder = ImmutableList.builder();
+        producerRecordBuilder.add(new ProducerRecord<>(topic, createKeySchema(0, getKeySchema()), message));
+        testingKafka.sendMessages(producerRecordBuilder.build().stream(), producerProperties());
+        waitUntilTableExists(topic);
+
+        assertThat(query(format("SELECT id, metadata, any_value, tags FROM %s", toDoubleQuoted(topic))))
+                .matches(
+                        """
+                        VALUES (1, JSON '{"count":42.0,"name":"Trino"}', JSON '"hello"', JSON '["tag1","tag2"]')
+                        """);
     }
 
     private DynamicMessage buildDynamicMessage(Descriptor descriptor, Map<String, Object> data)
