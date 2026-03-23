@@ -67,7 +67,7 @@ public class FileSystemFinalizerService
         }
         finalizerThread = new Thread(this::processFinalizerQueue, "FileSystemFinalizerService");
         finalizerThread.setDaemon(true);
-        finalizerThread.setUncaughtExceptionHandler((thread, e) -> log.error(e, "Uncaught exception in finalizer thread"));
+        finalizerThread.setUncaughtExceptionHandler((_, e) -> log.error(e, "Uncaught exception in finalizer thread"));
         finalizerThread.start();
     }
 
