@@ -403,7 +403,7 @@ public class HiveWriterFactory
                     compressionCodec = selectCompressionCodec(session, partitionStorageFormat);
                     schema.putAll(getHiveSchema(table));
 
-                    writeInfo = locationService.getPartitionWriteInfo(locationHandle, Optional.empty(), partitionName.get());
+                    writeInfo = locationService.getPartitionWriteInfo(locationHandle, partition, partitionName.get());
                     break;
                 case ERROR:
                     throw new TrinoException(HIVE_PARTITION_READ_ONLY, "Cannot insert into an existing partition of Hive table: " + partitionName.get());
