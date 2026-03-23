@@ -128,14 +128,11 @@ SELECT NUMBER 'NaN';
 -- NaN
 ```
 
-Division by zero returns `Infinity`, `-Infinity` or `NaN` instead of raising an error:
+Division by zero raises a "Division by zero" error:
 
 ```sql
 SELECT NUMBER '1' / NUMBER '0';
--- Infinity
-
-SELECT NUMBER '0' / NUMBER '0';
--- NaN
+-- ERROR: Division by zero
 ```
 
 `NaN` is not equal to any value, including itself:
