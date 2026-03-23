@@ -56,6 +56,7 @@ import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.tableScan;
 import static io.trino.testing.TestingNames.randomNameSuffix;
+import static io.trino.type.JsonType.JSON;
 import static java.lang.String.format;
 import static java.time.ZoneOffset.UTC;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -996,6 +997,28 @@ public abstract class BaseSqlServerTypeMapping
                             """)
                     .isNotFullyPushedDown(tableScan(table.getName()));
         }
+    }
+
+    @Test
+    public void testSqlServerJson()
+    {
+        // sqlServerCreateAndInsert sends literals directly to SQL Server,
+        // which expects plain string literals for json columns
+        SqlDataTypeTest.create()
+                .addRoundTrip("json", "'{\"key\": \"value\"}'", JSON, "JSON '{\"key\":\"value\"}'")
+                .addRoundTrip("json", "'{\"name\": \"test\"}'", JSON, "JSON '{\"name\":\"test\"}'")
+                .addRoundTrip("json", "'[]'", JSON, "JSON '[]'")
+                .addRoundTrip("json", "'{}'", JSON, "JSON '{}'")
+                .execute(getQueryRunner(), sqlServerCreateAndInsert("test_json"));
+    
+        // Trino paths use JSON literal syntax to avoid varchar-cast-to-json wrapping
+        SqlDataTypeTest.create()
+                .addRoundTrip("json", "JSON '{\"key\": \"value\"}'", JSON, "JSON '{\"key\":\"value\"}'")
+                .addRoundTrip("json", "JSON '{\"name\": \"test\"}'", JSON, "JSON '{\"name\":\"test\"}'")
+                .addRoundTrip("json", "JSON '[]'", JSON, "JSON '[]'")
+                .addRoundTrip("json", "JSON '{}'", JSON, "JSON '{}'")
+                .execute(getQueryRunner(), trinoCreateAsSelect("test_json"))
+                .execute(getQueryRunner(), trinoCreateAndInsert("test_json"));
     }
 
     protected DataSetup trinoCreateAsSelect(String tableNamePrefix)

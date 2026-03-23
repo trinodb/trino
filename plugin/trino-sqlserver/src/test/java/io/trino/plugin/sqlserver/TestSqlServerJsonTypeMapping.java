@@ -15,7 +15,7 @@ package io.trino.plugin.sqlserver;
 
 import io.trino.testing.QueryRunner;
 
-public class TestSqlServerTypeMapping
+public class TestSqlServerJsonTypeMapping
         extends BaseSqlServerTypeMapping
 {
     private static final String SQL_SERVER_2025_VERSION = "2025-latest";
