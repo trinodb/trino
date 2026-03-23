@@ -96,6 +96,14 @@ here is `--add-modules jdk.incubator.vector` but various `*QueryRunner` classes
 might require additional options (if necessary, check the `air.test.jvm.additional-arguments` 
 property in the `pom.xml` file of the module from which the runner comes).
 
+### Running tests from the IDE
+
+When running individual test classes directly from IntelliJ
+you also need to add `--add-modules=jdk.incubator.vector` to the JUnit run
+configuration template. Go to Run/Debug Configurations > Edit Configuration
+Templates > JUnit > VM options and add `--add-modules=jdk.incubator.vector`.
+This ensures all future JUnit test runs include the required vector module.
+
 ### Running the full server
 
 Trino comes with sample configuration that should work out-of-the-box for
