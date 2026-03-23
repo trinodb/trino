@@ -27,6 +27,7 @@ import io.trino.spi.function.Signature;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.function.TypeVariableConstraint;
 import io.trino.spi.type.ArrayType;
+import io.trino.spi.type.DoubleType;
 import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
@@ -50,8 +51,10 @@ import static io.trino.spi.function.InvocationConvention.InvocationReturnConvent
 import static io.trino.spi.function.OperatorType.CAST;
 import static io.trino.spi.function.TypeVariableConstraint.typeVariable;
 import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.HyperLogLogType.HYPER_LOG_LOG;
+import static io.trino.spi.type.RealType.REAL;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypeSignatures;
 import static io.trino.sql.analyzer.TypeSignatureTranslator.parseTypeSignature;
 import static java.util.Collections.nCopies;
@@ -177,6 +180,81 @@ public class TestGlobalFunctionCatalog
                         functionSignature("double", "decimal(p,s)"))
                 .forParameters(BIGINT, BIGINT)
                 .failsWithMessage("Could not choose a best candidate operator. Explicit type casts must be added.");
+    }
+
+    @Test
+    public void testResolveFunctionDoesNotDependOnCandidateOrderWhenSpecificityWasPreviouslyMutual()
+    {
+        // Both candidates are only reachable via coercion for (boolean, real). The exact declaration
+        // is narrower than the generic declaration, so candidate order must not affect the result.
+        Signature.Builder exactCandidate = functionSignature(ImmutableList.of("boolean", "double"), "boolean");
+        Signature.Builder genericCandidate = functionSignature(ImmutableList.of("T", "double"), "bigint", ImmutableList.of(typeVariable("T")));
+
+        assertThatResolveFunction()
+                .among(exactCandidate, genericCandidate)
+                .forParameters(BOOLEAN, REAL)
+                .returns(functionSignature(ImmutableList.of("boolean", "double"), "boolean"));
+
+        assertThatResolveFunction()
+                .among(genericCandidate, exactCandidate)
+                .forParameters(BOOLEAN, REAL)
+                .returns(functionSignature(ImmutableList.of("boolean", "double"), "boolean"));
+
+        // The same issue also exists for variable arity signatures. The fixed-arity declaration is
+        // narrower than the variable-arity declaration, so it must win regardless of candidate order.
+        Signature.Builder exactVarargsPeer = functionSignature(ImmutableList.of("boolean", "double", "double"), "boolean");
+        Signature.Builder varargsCandidate = functionSignature(ImmutableList.of("boolean", "double"), "bigint")
+                .variableArity();
+
+        assertThatResolveFunction()
+                .among(exactVarargsPeer, varargsCandidate)
+                .forParameters(BOOLEAN, REAL, REAL)
+                .returns(functionSignature(ImmutableList.of("boolean", "double", "double"), "boolean"));
+
+        assertThatResolveFunction()
+                .among(varargsCandidate, exactVarargsPeer)
+                .forParameters(BOOLEAN, REAL, REAL)
+                .returns(functionSignature(ImmutableList.of("boolean", "double", "double"), "boolean"));
+
+        // The same issue also exists for calculated signatures. The concrete decimal declaration is
+        // narrower than the calculated declaration, so it must win regardless of candidate order.
+        Signature.Builder exactDecimalCandidate = functionSignature(ImmutableList.of("decimal(3,1)", "double"), "boolean");
+        Signature.Builder calculatedCandidate = functionSignature(ImmutableList.of("decimal(p,s)", "double"), "bigint");
+
+        assertThatResolveFunction()
+                .among(exactDecimalCandidate, calculatedCandidate)
+                .forParameters(createDecimalType(3, 1), REAL)
+                .returns(functionSignature(ImmutableList.of("decimal(3,1)", "double"), "boolean"));
+
+        assertThatResolveFunction()
+                .among(calculatedCandidate, exactDecimalCandidate)
+                .forParameters(createDecimalType(3, 1), REAL)
+                .returns(functionSignature(ImmutableList.of("decimal(3,1)", "double"), "boolean"));
+    }
+
+    @Test
+    public void testResolveFunctionPrefersRepeatedTypeVariables()
+    {
+        assertThatResolveFunction()
+                .among(
+                        functionSignature(ImmutableList.of("decimal(p,s)", "decimal(p,s)"), "boolean"),
+                        functionSignature(ImmutableList.of("decimal(p1,s1)", "decimal(p2,s2)"), "boolean"))
+                .forParameters(BIGINT, BIGINT)
+                .returns(functionSignature("decimal(19,0)", "decimal(19,0)"));
+    }
+
+    @Test
+    public void testApproxDistinctPrefersSpecializedBooleanOverload()
+    {
+        BoundSignature resolvedFunction = new TestingFunctionResolution()
+                .resolveFunction("approx_distinct", fromTypeSignatures(BOOLEAN.getTypeSignature(), REAL.getTypeSignature()))
+                .signature();
+
+        assertThat(resolvedFunction.toSignature()).isEqualTo(Signature.builder()
+                .returnType(BIGINT.getTypeSignature())
+                .argumentType(BOOLEAN.getTypeSignature())
+                .argumentType(DoubleType.DOUBLE.getTypeSignature())
+                .build());
     }
 
     @Test
