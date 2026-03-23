@@ -113,7 +113,7 @@ public class RedshiftPageSourceProvider
         long nextStart = 0;
         ImmutableList.Builder<RowGroupInfo> rowGroupInfoBuilder = ImmutableList.builder();
         for (BlockMetadata block : parquetMetadata.getBlocks()) {
-            rowGroupInfoBuilder.add(new RowGroupInfo(createPrunedColumnsMetadata(block, dataSource.getId(), descriptorsByPath), nextStart, Optional.empty()));
+            rowGroupInfoBuilder.add(new RowGroupInfo(createPrunedColumnsMetadata(block, dataSource.getId(), descriptorsByPath), nextStart, Optional.empty(), Optional.empty(), Optional.empty()));
             nextStart += block.rowCount();
         }
         return new ParquetReader(

@@ -109,6 +109,7 @@ public class ParquetReader
     private static final int BATCH_SIZE_GROWTH_FACTOR = 2;
     public static final String PARQUET_CODEC_METRIC_PREFIX = "ParquetReaderCompressionFormat_";
     public static final String COLUMN_INDEX_ROWS_FILTERED = "ParquetColumnIndexRowsFiltered";
+    public static final String PARQUET_READER_DICTIONARY_FILTERED_ROWGROUPS = "ParquetReaderDictionaryFilteredRowGroups";
 
     private final Optional<String> fileCreatedBy;
     private final List<RowGroupInfo> rowGroups;
@@ -151,6 +152,7 @@ public class ParquetReader
     private int currentPageId;
 
     private long columnIndexRowsFiltered = -1;
+    private long dictionaryFilteredRowGroups;
     private final Optional<FileDecryptionContext> decryptionContext;
 
     public ParquetReader(
@@ -500,9 +502,31 @@ public class ParquetReader
             }
             nextRowInGroup = 0L;
             initializeColumnReaders();
+
+            // check dictionary predicate matches, or skip row group
+            if (!dictionaryPredicateMatch(rowGroupInfo)) {
+                dictionaryFilteredRowGroups++;
+                continue;
+            }
             return true;
         }
         return false;
+    }
+
+    private boolean dictionaryPredicateMatch(RowGroupInfo rowGroupInfo)
+            throws ParquetCorruptionException
+    {
+        for (PrimitiveField field : primitiveFields) {
+            // check presence of indexPredicate and don't eagerly initializePageReader if it's not present
+            if (rowGroupInfo.indexPredicate().isPresent()) {
+                initializePageReader(field);
+                boolean match = columnReaders.get(field.getId()).dictionaryPredicateMatch(rowGroupInfo);
+                if (!match) {
+                    return false;
+                }
+            }
+        }
+        return true;
     }
 
     private void freeCurrentRowGroupBuffers()
@@ -659,29 +683,10 @@ public class ParquetReader
     private ColumnChunk readPrimitive(PrimitiveField field)
             throws IOException
     {
-        ColumnDescriptor columnDescriptor = field.getDescriptor();
         int fieldId = field.getId();
         ColumnReader columnReader = columnReaders.get(fieldId);
         if (!columnReader.hasPageReader()) {
-            validateParquet(currentBlockMetadata.getRowCount() > 0, dataSource.getId(), "Row group has 0 rows");
-            ColumnChunkMetadata metadata = currentBlockMetadata.getColumnChunkMetaData(columnDescriptor);
-            FilteredRowRanges rowRanges = blockRowRanges[currentRowGroup];
-            OffsetIndex offsetIndex = null;
-            if (rowRanges != null) {
-                offsetIndex = getFilteredOffsetIndex(rowRanges, currentRowGroup, currentBlockMetadata.getRowCount(), metadata.getPath());
-            }
-            ChunkedInputStream columnChunkInputStream = chunkReaders.get(new ChunkKey(fieldId, currentRowGroup));
-            columnReader.setPageReader(
-                    createPageReader(
-                            dataSource.getId(),
-                            columnChunkInputStream,
-                            metadata,
-                            columnDescriptor,
-                            offsetIndex,
-                            fileCreatedBy,
-                            decryptionContext,
-                            options.getMaxPageReadSize().toBytes()),
-                    Optional.ofNullable(rowRanges));
+            initializePageReader(field);
         }
         ColumnChunk columnChunk = columnReader.readPrimitive();
 
@@ -697,6 +702,34 @@ public class ParquetReader
         return columnChunk;
     }
 
+    private void initializePageReader(PrimitiveField field)
+            throws ParquetCorruptionException
+    {
+        ColumnDescriptor columnDescriptor = field.getDescriptor();
+        int fieldId = field.getId();
+        ColumnReader columnReader = columnReaders.get(fieldId);
+        checkState(!columnReader.hasPageReader(), "Page reader already initialized");
+        validateParquet(currentBlockMetadata.getRowCount() > 0, dataSource.getId(), "Row group has 0 rows");
+        ColumnChunkMetadata metadata = currentBlockMetadata.getColumnChunkMetaData(columnDescriptor);
+        FilteredRowRanges rowRanges = blockRowRanges[currentRowGroup];
+        OffsetIndex offsetIndex = null;
+        if (rowRanges != null) {
+            offsetIndex = getFilteredOffsetIndex(rowRanges, currentRowGroup, currentBlockMetadata.getRowCount(), metadata.getPath());
+        }
+        ChunkedInputStream columnChunkInputStream = chunkReaders.get(new ChunkKey(fieldId, currentRowGroup));
+        columnReader.setPageReader(
+                createPageReader(
+                        dataSource.getId(),
+                        columnChunkInputStream,
+                        metadata,
+                        columnDescriptor,
+                        offsetIndex,
+                        fileCreatedBy,
+                        decryptionContext,
+                        options.getMaxPageReadSize().toBytes()),
+                Optional.ofNullable(rowRanges));
+    }
+
     public List<Column> getColumnFields()
     {
         return columnFields;
@@ -709,6 +742,7 @@ public class ParquetReader
         if (columnIndexRowsFiltered >= 0) {
             metrics.put(COLUMN_INDEX_ROWS_FILTERED, new LongCount(columnIndexRowsFiltered));
         }
+        metrics.put(PARQUET_READER_DICTIONARY_FILTERED_ROWGROUPS, new LongCount(dictionaryFilteredRowGroups));
         metrics.putAll(dataSource.getMetrics().getMetrics());
 
         return new Metrics(metrics.buildOrThrow());
