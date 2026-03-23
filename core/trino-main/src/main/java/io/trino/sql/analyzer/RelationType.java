@@ -129,6 +129,7 @@ public class RelationType
      */
     public List<Field> resolveFields(QualifiedName name)
     {
+        System.out.println("RelationType.resolveFields() allFields: " + String.join(", ", allFields.stream().filter(e -> e.getName().isPresent()).map(e -> e.getName().get()).collect(toImmutableList())));
         return allFields.stream()
                 .filter(input -> input.canResolve(name))
                 .collect(toImmutableList());

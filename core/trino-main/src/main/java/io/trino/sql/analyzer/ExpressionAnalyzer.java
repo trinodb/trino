@@ -700,6 +700,7 @@ public class ExpressionAnalyzer
         @Override
         protected Type visitRow(Row node, Context context)
         {
+            // FIXME: cannot resole column with fields
             List<RowType.Field> fields = node.getFields().stream()
                     .map(field -> new RowType.Field(
                             field.getName().map(Identifier::getCanonicalValue),
@@ -759,6 +760,9 @@ public class ExpressionAnalyzer
         @Override
         protected Type visitIdentifier(Identifier node, Context context)
         {
+            System.out.println("ExpressionAnalyzer.visitIdentifier() identifier: " + node.getValue());
+            System.out.println("ExpressionAnalyzer.visitIdentifier() isDedlimited: " + node.isDelimited());
+            System.out.println("ExpressionAnalyzer.visitIdentifier() canonicalizeCount: " + node.getCanonicalizeCount());
             ResolvedField resolvedField = context.getScope().resolveField(node, QualifiedName.of(node.getValue()));
 
             if (context.isPatternRecognition()) {
@@ -787,7 +791,6 @@ public class ExpressionAnalyzer
                     return setExpressionType(node, field.getType());
                 }
             }
-
             if (field.getOriginTable().isPresent() && field.getOriginColumnName().isPresent()) {
                 tableColumnReferences.put(field.getOriginTable().get(), field.getOriginColumnName().get());
             }

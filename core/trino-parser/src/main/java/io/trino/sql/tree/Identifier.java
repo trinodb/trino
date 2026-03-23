@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableList;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
@@ -40,6 +41,13 @@ public class Identifier
 
     private final String value;
     private final boolean delimited;
+    private Function<Identifier, String> canonicalizer = Canonicalizer.NONE_CANONICALIZER::canonicalize;
+    private int canonicalizeCount;
+
+    public Identifier(Identifier identifier, boolean delimited)
+    {
+        this(identifier.getLocation(), identifier.getValue(), delimited);
+    }
 
     public Identifier(NodeLocation location, String value, boolean delimited)
     {
@@ -76,12 +84,28 @@ public class Identifier
         return delimited;
     }
 
+    public Identifier setCanonicalizer(Function<Identifier, String> canonicalizer)
+    {
+        this.canonicalizer = canonicalizer;
+        this.canonicalizeCount++;
+        return this;
+    }
+
+    public int getCanonicalizeCount()
+    {
+        return canonicalizeCount;
+    }
+
+    public String getCanonicalizedValue()
+    {
+        return canonicalizer.apply(this);
+    }
+
     public String getCanonicalValue()
     {
-        if (isDelimited()) {
+        if (delimited) {
             return value;
         }
-
         return value.toUpperCase(ENGLISH);
     }
 
@@ -128,7 +152,7 @@ public class Identifier
         return Objects.equals(value, that.value) && delimited == that.delimited;
     }
 
-    private static boolean isValidIdentifier(String value)
+    public static boolean isValidIdentifier(String value)
     {
         verify(!Strings.isNullOrEmpty(value), "Identifier cannot be empty or null");
 

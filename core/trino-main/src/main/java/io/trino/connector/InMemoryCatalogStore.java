@@ -24,6 +24,8 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
+import static io.trino.connector.CatalogUtil.getMetadataMapping;
+import static io.trino.connector.CatalogUtil.getPropertyMapping;
 import static io.trino.connector.FileCatalogStore.computeCatalogVersion;
 import static java.util.Objects.requireNonNull;
 
@@ -45,7 +47,8 @@ public class InMemoryCatalogStore
                 catalogName,
                 computeCatalogVersion(catalogName, connectorName, properties),
                 connectorName,
-                properties);
+                getMetadataMapping(properties),
+                getPropertyMapping(properties));
     }
 
     @Override

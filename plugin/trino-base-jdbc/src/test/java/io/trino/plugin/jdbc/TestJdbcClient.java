@@ -162,4 +162,9 @@ public class TestJdbcClient
                 .doesNotContain(newTable);
         assertThat(jdbcClient.getSchemaNames(session)).doesNotContain(schemaName);
     }
+
+    protected String canonicalize(String value)
+    {
+        return value.toUpperCase(ENGLISH);
+    }
 }

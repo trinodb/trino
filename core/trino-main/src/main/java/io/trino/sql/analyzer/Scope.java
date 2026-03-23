@@ -243,7 +243,9 @@ public class Scope
 
     private Optional<ResolvedField> resolveField(Expression node, QualifiedName name, boolean local)
     {
+        System.out.println("Scope.resolveField() 1 name: " + name);
         List<Field> matches = relation.resolveFields(name);
+        System.out.println("Scope.resolveField() 2 matches.size: " + matches.size());
         if (matches.size() > 1) {
             throw ambiguousAttributeException(node, name);
         }
@@ -253,7 +255,9 @@ public class Scope
                     .orElse(0);
 
             Field field = getOnlyElement(matches);
-            return Optional.of(asResolvedField(field, parentFieldCount, local));
+            Optional<ResolvedField> resolvedField = Optional.of(asResolvedField(field, parentFieldCount, local));
+            System.out.println("Scope.resolveField() 3: resolvedField" + resolvedField.isPresent());
+            return resolvedField;
         }
         if (isColumnReference(name, relation)) {
             return Optional.empty();

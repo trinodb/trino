@@ -491,8 +491,8 @@ public abstract class BaseSqlServerConnectorTest
                     ") ON " + partitionScheme + "(SalesDate) WITH (DATA_COMPRESSION = PAGE)");
             assertThat((String) computeActual("SHOW CREATE TABLE " + tableName).getOnlyValue())
                     .matches("CREATE TABLE \\w+\\.\\w+\\." + tableName + " \\Q(\n" +
-                            "   salesdate date,\n" +
-                            "   quantity integer\n" +
+                            "   SalesDate date,\n" +
+                            "   Quantity integer\n" +
                             ")");
         }
         finally {
@@ -927,5 +927,11 @@ public abstract class BaseSqlServerConnectorTest
                 // strategy is AUTOMATIC by default and would not work for certain test cases (even if statistics are collected)
                 .setCatalogSessionProperty(session.getCatalog().orElseThrow(), "join_pushdown_strategy", "EAGER")
                 .build();
+    }
+
+    @Override
+    protected String canonicalize(String value)
+    {
+        return value;
     }
 }

@@ -270,4 +270,10 @@ public class IgniteMetadata
             }
         }
     }
+
+    @Override
+    public String canonicalize(String value, boolean delimited)
+    {
+        return value;
+    }
 }

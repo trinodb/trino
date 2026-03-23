@@ -71,7 +71,7 @@ public class TestJdbcConnectionAccesses
         assertJdbcConnections("SELECT * FROM information_schema.columns", 5, Optional.empty());
         assertJdbcConnections("SELECT * FROM nation", 3, Optional.empty());
         assertJdbcConnections("CREATE TABLE copy_of_nation AS SELECT * FROM nation", 11, Optional.empty());
-        assertJdbcConnections("INSERT INTO copy_of_nation SELECT * FROM nation", 12, Optional.empty());
+        assertJdbcConnections("INSERT INTO copy_of_nation SELECT * FROM nation", 11, Optional.empty());
         assertJdbcConnections("DELETE FROM copy_of_nation WHERE nationkey = 3", 3, Optional.empty());
         assertJdbcConnections("UPDATE copy_of_nation SET name = 'POLAND' WHERE nationkey = 1", 3, Optional.empty());
         assertJdbcConnections("MERGE INTO copy_of_nation n USING region r ON r.regionkey= n.regionkey WHEN MATCHED THEN DELETE", 4, Optional.of(MODIFYING_ROWS_MESSAGE));

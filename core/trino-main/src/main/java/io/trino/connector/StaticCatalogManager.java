@@ -14,7 +14,6 @@
 package io.trino.connector;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.io.Files;
 import com.google.errorprone.annotations.ThreadSafe;
@@ -50,6 +49,8 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.configuration.ConfigurationLoader.loadPropertiesFrom;
+import static io.trino.connector.CatalogUtil.getMetadataMapping;
+import static io.trino.connector.CatalogUtil.getPropertyMapping;
 import static io.trino.spi.StandardErrorCode.CATALOG_NOT_AVAILABLE;
 import static io.trino.spi.StandardErrorCode.CATALOG_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -109,7 +110,8 @@ public class StaticCatalogManager
                     new CatalogName(catalogName),
                     new CatalogVersion("default"),
                     new ConnectorName(connectorName),
-                    ImmutableMap.copyOf(properties)));
+                    getMetadataMapping(properties),
+                    getPropertyMapping(properties)));
         }
         this.catalogProperties = catalogProperties.build();
         this.executor = requireNonNull(executor, "executor is null");
@@ -174,6 +176,7 @@ public class StaticCatalogManager
     @Override
     public Optional<Catalog> getCatalog(CatalogName catalogName)
     {
+        System.out.println("StaticCatalogManager.getCatalog() catalog: " + catalogName.toString());
         return Optional.ofNullable(catalogs.get(catalogName))
                 .map(CatalogConnector::getCatalog);
     }

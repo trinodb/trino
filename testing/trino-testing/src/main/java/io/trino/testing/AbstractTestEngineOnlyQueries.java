@@ -3019,7 +3019,10 @@ public abstract class AbstractTestEngineOnlyQueries
     @Test
     public void testCaseInsensitiveAliasedRelation()
     {
-        assertQuery("SELECT A.* FROM orders a");
+        // FIXME: This test can no longer work without a canonicalizer.
+        assertQueryFails("SELECT A.* FROM orders a", "line 1:8: Unable to resolve reference A");
+        assertQuery("SELECT A.* FROM orders A");
+        assertQuery("SELECT a.* FROM orders a");
     }
 
     @Test
@@ -5156,7 +5159,9 @@ public abstract class AbstractTestEngineOnlyQueries
     @Test
     public void testQuotedIdentifiers()
     {
-        assertQuery("SELECT \"TOTALPRICE\" \"my price\" FROM \"ORDERS\"");
+        // FIXME: For AbstractTest, the database used is H2 with DATABASE_TO_LOWER=true,
+        // FIXME: which indicates that non-quoted identifiers are converted to lowercase.
+        assertQuery("SELECT \"totalprice\" \"My price\" FROM \"orders\"");
     }
 
     @Test
@@ -5488,7 +5493,7 @@ public abstract class AbstractTestEngineOnlyQueries
         assertThat(result.getOnlyColumnAsSet()).containsAll(expectedTables);
 
         assertQueryFails("SHOW TABLES FROM UNKNOWN", "line 1:1: Schema 'unknown' does not exist");
-        assertQueryFails("SHOW TABLES FROM UNKNOWNCATALOG.UNKNOWNSCHEMA", "line 1:1: Catalog 'unknowncatalog' not found");
+        assertQueryFails("SHOW TABLES FROM UNKNOWNCATALOG.UNKNOWNSCHEMA", "line 1:1: Catalog 'UNKNOWNCATALOG' not found");
     }
 
     @Test

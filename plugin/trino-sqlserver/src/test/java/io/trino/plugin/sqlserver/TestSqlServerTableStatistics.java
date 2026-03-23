@@ -300,12 +300,12 @@ public class TestSqlServerTableStatistics
             assertQuery(
                     "SHOW STATS FOR " + tableName,
                     "VALUES " +
-                            "('case_unquoted_upper', null, 15000, 0, null, null, null)," +
+                            "('CASE_UNQUOTED_UPPER', null, 15000, 0, null, null, null)," +
                             "('case_unquoted_lower', null, 1000, 0, null, null, null)," +
-                            "('case_unquoted_mixed', 30000, 3, 0, null, null, null)," +
-                            "('case_quoted_upper', null, 14996, 0, null, null, null)," +
+                            "('cASe_uNQuoTeD_miXED', 30000, 3, 0, null, null, null)," +
+                            "('CASE_QUOTED_UPPER', null, 14996, 0, null, null, null)," +
                             "('case_quoted_lower', null, 2401, 0, null, null, null)," +
-                            "('case_quoted_mixed', 252376, 5, 0, null, null, null)," +
+                            "('CasE_QuoTeD_miXED', 252376, 5, 0, null, null, null)," +
                             "(null, null, null, null, 15000, null, null)");
         }
         finally {

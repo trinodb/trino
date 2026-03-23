@@ -78,7 +78,7 @@ public class TestHudiSmokeTest
     public void testShowCreateTable()
     {
         assertThat((String) computeActual("SHOW CREATE TABLE " + STOCK_TICKS_COW).getOnlyValue())
-                .matches("CREATE TABLE \\w+\\.\\w+\\.stock_ticks_cow \\Q(\n" +
+                .matches("CREATE TABLE \\w+\\.\\w+\\.STOCK_TICKS_COW \\Q(\n" +
                         "   _hoodie_commit_time varchar,\n" +
                         "   _hoodie_commit_seqno varchar,\n" +
                         "   _hoodie_record_key varchar,\n" +

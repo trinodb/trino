@@ -23,6 +23,7 @@ import io.trino.Session;
 import io.trino.connector.CatalogHandle;
 import io.trino.execution.querystats.PlanOptimizersStatsCollector;
 import io.trino.execution.warnings.WarningCollector;
+import io.trino.metadata.Canonicalizer;
 import io.trino.metadata.CatalogInfo;
 import io.trino.metadata.ColumnPropertyManager;
 import io.trino.metadata.MaterializedViewDefinition;
@@ -123,7 +124,10 @@ import static io.trino.metadata.MetadataListing.listCatalogs;
 import static io.trino.metadata.MetadataListing.listSchemas;
 import static io.trino.metadata.MetadataUtil.createCatalogSchemaName;
 import static io.trino.metadata.MetadataUtil.createQualifiedObjectName;
+import static io.trino.metadata.MetadataUtil.getCatalogSchemaIdentifiers;
+import static io.trino.metadata.MetadataUtil.getQualifiedObjectIdentifiers;
 import static io.trino.metadata.MetadataUtil.getRequiredCatalogHandle;
+import static io.trino.metadata.MetadataUtil.getSessionCatalog;
 import static io.trino.metadata.MetadataUtil.processRoleCommandCatalog;
 import static io.trino.metadata.PropertyUtil.toSqlProperties;
 import static io.trino.spi.StandardErrorCode.CATALOG_NOT_FOUND;
@@ -143,8 +147,11 @@ import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.QueryUtil.aliased;
 import static io.trino.sql.QueryUtil.aliasedName;
-import static io.trino.sql.QueryUtil.aliasedNullToEmpty;
 import static io.trino.sql.QueryUtil.ascending;
+import static io.trino.sql.QueryUtil.delimitedAliasedName;
+import static io.trino.sql.QueryUtil.delimitedAliasedNullToEmpty;
+import static io.trino.sql.QueryUtil.delimitedAscending;
+import static io.trino.sql.QueryUtil.delimitedIdentifier;
 import static io.trino.sql.QueryUtil.equal;
 import static io.trino.sql.QueryUtil.functionCall;
 import static io.trino.sql.QueryUtil.identifier;
@@ -166,7 +173,6 @@ import static io.trino.sql.tree.CreateView.Security.DEFINER;
 import static io.trino.sql.tree.CreateView.Security.INVOKER;
 import static io.trino.sql.tree.LogicalExpression.and;
 import static io.trino.sql.tree.SaveMode.FAIL;
-import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 
@@ -249,7 +255,8 @@ public final class ShowQueriesRewrite
         @Override
         protected Node visitShowTables(ShowTables showTables, Void context)
         {
-            CatalogSchemaName schema = createCatalogSchemaName(session, showTables, showTables.getSchema());
+            System.out.println("ShowQueriesRewrite.visitShowTables() 1");
+            CatalogSchemaName schema = createCatalogSchemaName(session, showTables, showTables.getSchema(), metadata);
 
             accessControl.checkCanShowTables(session.toSecurityContext(), schema);
 
@@ -260,23 +267,22 @@ public final class ShowQueriesRewrite
             if (!metadata.schemaExists(session, schema)) {
                 throw semanticException(SCHEMA_NOT_FOUND, showTables, "Schema '%s' does not exist", schema.getSchemaName());
             }
-
-            Expression predicate = equal(identifier("table_schema"), new StringLiteral(schema.getSchemaName()));
+            Expression predicate = equal(delimitedIdentifier("table_schema"), new StringLiteral(schema.getSchemaName()));
 
             Optional<String> likePattern = showTables.getLikePattern();
             if (likePattern.isPresent()) {
                 Expression likePredicate = new LikePredicate(
-                        identifier("table_name"),
+                        delimitedIdentifier("table_name"),
                         new StringLiteral(likePattern.get()),
                         showTables.getEscape().map(StringLiteral::new));
                 predicate = logicalAnd(predicate, likePredicate);
             }
 
             return simpleQuery(
-                    selectList(aliasedName("table_name", "Table")),
+                    selectList(delimitedAliasedName("table_name", "Table")),
                     from(schema.getCatalogName(), TABLES.getSchemaTableName()),
                     predicate,
-                    ordering(ascending("table_name")));
+                    ordering(delimitedAscending("table_name")));
         }
 
         @Override
@@ -288,7 +294,7 @@ public final class ShowQueriesRewrite
             // TODO: Should this handle any entityKind?
             Optional<QualifiedName> tableName = showGrants.getGrantObject().map(GrantObject::getName);
             if (tableName.isPresent()) {
-                QualifiedObjectName qualifiedTableName = createQualifiedObjectName(session, showGrants, tableName.get());
+                QualifiedObjectName qualifiedTableName = createQualifiedObjectName(session, showGrants, tableName.get(), metadata);
                 if (!metadata.isView(session, qualifiedTableName)) {
                     RedirectionAwareTableHandle redirection = metadata.getRedirectionAwareTableHandle(session, qualifiedTableName);
                     if (redirection.tableHandle().isEmpty()) {
@@ -307,8 +313,8 @@ public final class ShowQueriesRewrite
                         new CatalogSchemaName(catalogName, qualifiedTableName.schemaName()));
 
                 predicate = Optional.of(and(
-                        equal(identifier("table_schema"), new StringLiteral(qualifiedTableName.schemaName())),
-                        equal(identifier("table_name"), new StringLiteral(qualifiedTableName.objectName()))));
+                        equal(delimitedIdentifier("table_schema"), new StringLiteral(qualifiedTableName.schemaName())),
+                        equal(delimitedIdentifier("table_name"), new StringLiteral(qualifiedTableName.objectName()))));
             }
             else {
                 if (catalogName == null) {
@@ -323,16 +329,16 @@ public final class ShowQueriesRewrite
 
             return simpleQuery(
                     selectList(
-                            aliasedName("grantor", "Grantor"),
-                            aliasedName("grantor_type", "Grantor Type"),
-                            aliasedName("grantee", "Grantee"),
-                            aliasedName("grantee_type", "Grantee Type"),
-                            aliasedName("table_catalog", "Catalog"),
-                            aliasedName("table_schema", "Schema"),
-                            aliasedName("table_name", "Table"),
-                            aliasedName("privilege_type", "Privilege"),
-                            aliasedName("is_grantable", "Grantable"),
-                            aliasedName("with_hierarchy", "With Hierarchy")),
+                            delimitedAliasedName("grantor", "Grantor"),
+                            delimitedAliasedName("grantor_type", "Grantor Type"),
+                            delimitedAliasedName("grantee", "Grantee"),
+                            delimitedAliasedName("grantee_type", "Grantee Type"),
+                            delimitedAliasedName("table_catalog", "Catalog"),
+                            delimitedAliasedName("table_schema", "Schema"),
+                            delimitedAliasedName("table_name", "Table"),
+                            delimitedAliasedName("privilege_type", "Privilege"),
+                            delimitedAliasedName("is_grantable", "Grantable"),
+                            delimitedAliasedName("with_hierarchy", "With Hierarchy")),
                     from(catalogName, TABLE_PRIVILEGES.getSchemaTableName()),
                     predicate,
                     Optional.empty());
@@ -345,8 +351,7 @@ public final class ShowQueriesRewrite
                     metadata,
                     session,
                     node,
-                    node.getCatalog()
-                            .map(c -> c.getValue().toLowerCase(ENGLISH)));
+                    node.getCatalog().map(Canonicalizer.LEGACY_CANONICALIZER::canonicalize));
 
             if (node.isCurrent()) {
                 accessControl.checkCanShowCurrentRoles(session.toSecurityContext(), catalog);
@@ -371,8 +376,7 @@ public final class ShowQueriesRewrite
                     metadata,
                     session,
                     node,
-                    node.getCatalog()
-                            .map(c -> c.getValue().toLowerCase(ENGLISH)));
+                    node.getCatalog().map(Canonicalizer.LEGACY_CANONICALIZER::canonicalize));
             TrinoPrincipal principal = new TrinoPrincipal(PrincipalType.USER, session.getUser());
 
             accessControl.checkCanShowRoleGrants(session.toSecurityContext(), catalog);
@@ -402,23 +406,23 @@ public final class ShowQueriesRewrite
                 throw semanticException(MISSING_CATALOG_NAME, node, "Catalog must be specified when session catalog is not set");
             }
 
-            String catalog = node.getCatalog().map(Identifier::getValue).orElseGet(() -> session.getCatalog().orElseThrow());
+            String catalog = node.getCatalog().map(Identifier::getCanonicalizedValue).orElseGet(() -> getSessionCatalog(session, node));
             accessControl.checkCanShowSchemas(session.toSecurityContext(), catalog);
 
             Optional<Expression> predicate = Optional.empty();
             Optional<String> likePattern = node.getLikePattern();
             if (likePattern.isPresent()) {
                 predicate = Optional.of(new LikePredicate(
-                        identifier("schema_name"),
+                        delimitedIdentifier("schema_name"),
                         new StringLiteral(likePattern.get()),
                         node.getEscape().map(StringLiteral::new)));
             }
 
             return simpleQuery(
-                    selectList(aliasedName("schema_name", "Schema")),
+                    selectList(delimitedAliasedName("schema_name", "Schema")),
                     from(catalog, SCHEMATA.getSchemaTableName()),
                     predicate,
-                    Optional.of(ordering(ascending("schema_name"))));
+                    Optional.of(ordering(delimitedAscending("schema_name"))));
         }
 
         @Override
@@ -435,7 +439,7 @@ public final class ShowQueriesRewrite
             }
             else if (node.getLikePattern().isPresent()) {
                 predicate = Optional.of(new LikePredicate(
-                        identifier("catalog"),
+                        delimitedIdentifier("catalog"),
                         new StringLiteral(node.getLikePattern().get()),
                         node.getEscape().map(StringLiteral::new)));
             }
@@ -444,18 +448,21 @@ public final class ShowQueriesRewrite
                     selectList(new AllColumns()),
                     aliased(new Values(rows), "catalogs", ImmutableList.of("Catalog")),
                     predicate,
-                    Optional.of(ordering(ascending("Catalog"))));
+                    Optional.of(ordering(delimitedAscending("Catalog"))));
         }
 
         @Override
         protected Node visitShowColumns(ShowColumns showColumns, Void context)
         {
-            QualifiedObjectName tableName = createQualifiedObjectName(session, showColumns, showColumns.getTable());
+            System.out.println("ShowQueriesRewrite.visitShowColumns() 1");
+            QualifiedObjectName tableName = createQualifiedObjectName(session, showColumns, showColumns.getTable(), metadata);
+            System.out.println("ShowQueriesRewrite.visitShowColumns() 2");
             getRequiredCatalogHandle(metadata, session, showColumns, tableName.catalogName());
             if (!metadata.schemaExists(session, new CatalogSchemaName(tableName.catalogName(), tableName.schemaName()))) {
                 throw semanticException(SCHEMA_NOT_FOUND, showColumns, "Schema '%s' does not exist", tableName.schemaName());
             }
 
+            System.out.println("ShowQueriesRewrite.visitShowColumns() 3");
             boolean isMaterializedView = metadata.isMaterializedView(session, tableName);
             boolean isView = false;
             QualifiedObjectName targetTableName = tableName;
@@ -465,11 +472,14 @@ public final class ShowQueriesRewrite
                 isView = metadata.isView(session, tableName);
                 // Check for table if view is not present
                 if (!isView) {
+                    System.out.println("ShowQueriesRewrite.visitShowColumns() 4");
                     RedirectionAwareTableHandle redirection = metadata.getRedirectionAwareTableHandle(session, tableName);
+                    System.out.println("ShowQueriesRewrite.visitShowColumns() 5");
                     tableHandle = redirection.tableHandle();
                     if (tableHandle.isEmpty()) {
                         throw semanticException(TABLE_NOT_FOUND, showColumns, "Table '%s' does not exist", tableName);
                     }
+                    System.out.println("ShowQueriesRewrite.visitShowColumns() redirectedTableName: " + redirection.redirectedTableName().isPresent());
                     targetTableName = redirection.redirectedTableName().orElse(tableName);
                 }
             }
@@ -494,26 +504,28 @@ public final class ShowQueriesRewrite
             accessControl.checkCanShowColumns(session.toSecurityContext(), targetTableName.asCatalogSchemaTableName());
 
             Expression predicate = logicalAnd(
-                    equal(identifier("table_schema"), new StringLiteral(targetTableName.schemaName())),
-                    equal(identifier("table_name"), new StringLiteral(targetTableName.objectName())));
+                    equal(delimitedIdentifier("table_schema"), new StringLiteral(targetTableName.schemaName())),
+                    equal(delimitedIdentifier("table_name"), new StringLiteral(targetTableName.objectName())));
             Optional<String> likePattern = showColumns.getLikePattern();
             if (likePattern.isPresent()) {
                 Expression likePredicate = new LikePredicate(
-                        identifier("column_name"),
+                        delimitedIdentifier("column_name"),
                         new StringLiteral(likePattern.get()),
                         showColumns.getEscape().map(StringLiteral::new));
                 predicate = logicalAnd(predicate, likePredicate);
             }
 
-            return simpleQuery(
+            Query query = simpleQuery(
                     selectList(
-                            aliasedName("column_name", "Column"),
-                            aliasedName("data_type", "Type"),
-                            aliasedNullToEmpty("extra_info", "Extra"),
-                            aliasedNullToEmpty("comment", "Comment")),
+                            delimitedAliasedName("column_name", "Column"),
+                            delimitedAliasedName("data_type", "Type"),
+                            delimitedAliasedNullToEmpty("extra_info", "Extra"),
+                            delimitedAliasedNullToEmpty("comment", "Comment")),
                     from(targetTableName.catalogName(), COLUMNS.getSchemaTableName()),
                     predicate,
-                    ordering(ascending("ordinal_position")));
+                    ordering(delimitedAscending("ordinal_position")));
+            System.out.println("ShowQueriesRewrite.visitShowColumns() query: " + query);
+            return query;
         }
 
         @Override
@@ -530,7 +542,8 @@ public final class ShowQueriesRewrite
 
         private Query showCreateMaterializedView(ShowCreate node)
         {
-            QualifiedObjectName objectName = createQualifiedObjectName(session, node, node.getName());
+            List<Identifier> identifiers = getQualifiedObjectIdentifiers(session, node, node.getName(), metadata);
+            QualifiedObjectName objectName = createQualifiedObjectName(identifiers);
             Optional<MaterializedViewDefinition> viewDefinition = metadata.getMaterializedView(session, objectName);
 
             if (viewDefinition.isEmpty()) {
@@ -546,21 +559,16 @@ public final class ShowQueriesRewrite
             }
 
             Query query = parseView(viewDefinition.get().getOriginalSql(), objectName, node);
-            List<Identifier> parts = node.getName().getOriginalParts().reversed();
-            Identifier tableName = parts.get(0);
-            Identifier schemaName = (parts.size() > 1) ? parts.get(1) : new Identifier(objectName.schemaName());
-            Identifier catalogName = (parts.size() > 2) ? parts.get(2) : new Identifier(objectName.catalogName());
-
-            accessControl.checkCanShowCreateTable(session.toSecurityContext(), new QualifiedObjectName(catalogName.getValue(), schemaName.getValue(), tableName.getValue()));
+            accessControl.checkCanShowCreateTable(session.toSecurityContext(), objectName);
 
             Map<String, Object> properties = metadata.getMaterializedViewProperties(session, objectName, viewDefinition.get());
-            CatalogHandle catalogHandle = getRequiredCatalogHandle(metadata, session, node, catalogName.getValue());
+            CatalogHandle catalogHandle = getRequiredCatalogHandle(metadata, session, node, objectName.catalogName());
             Collection<PropertyMetadata<?>> allMaterializedViewProperties = materializedViewPropertyManager.getAllProperties(catalogHandle);
             List<Property> propertyNodes = toSqlProperties("materialized view " + objectName, INVALID_MATERIALIZED_VIEW_PROPERTY, properties, allMaterializedViewProperties);
 
             String sql = formatSql(new CreateMaterializedView(
                     node.getLocation().orElseThrow(),
-                    QualifiedName.of(ImmutableList.of(catalogName, schemaName, tableName)),
+                    QualifiedName.of(identifiers),
                     query,
                     false,
                     false,
@@ -582,7 +590,8 @@ public final class ShowQueriesRewrite
 
         private Query showCreateView(ShowCreate node)
         {
-            QualifiedObjectName objectName = createQualifiedObjectName(session, node, node.getName());
+            List<Identifier> identifiers = getQualifiedObjectIdentifiers(session, node, node.getName(), metadata);
+            QualifiedObjectName objectName = createQualifiedObjectName(identifiers);
 
             if (metadata.isMaterializedView(session, objectName)) {
                 throw semanticException(NOT_SUPPORTED, node, "Relation '%s' is a materialized view, not a view", objectName);
@@ -598,21 +607,17 @@ public final class ShowQueriesRewrite
             }
 
             Query query = parseView(viewDefinition.get().getOriginalSql(), objectName, node);
-            List<Identifier> parts = node.getName().getOriginalParts().reversed();
-            Identifier tableName = parts.get(0);
-            Identifier schemaName = (parts.size() > 1) ? parts.get(1) : new Identifier(objectName.schemaName());
-            Identifier catalogName = (parts.size() > 2) ? parts.get(2) : new Identifier(objectName.catalogName());
-
-            accessControl.checkCanShowCreateTable(session.toSecurityContext(), new QualifiedObjectName(catalogName.getValue(), schemaName.getValue(), tableName.getValue()));
+            accessControl.checkCanShowCreateTable(session.toSecurityContext(), objectName);
 
             Map<String, Object> properties = metadata.getViewProperties(session, objectName);
-            CatalogHandle catalogHandle = getRequiredCatalogHandle(metadata, session, node, catalogName.getValue());
+            CatalogHandle catalogHandle = getRequiredCatalogHandle(metadata, session, node, objectName.catalogName());
             Collection<PropertyMetadata<?>> allViewProperties = viewPropertyManager.getAllProperties(catalogHandle);
             List<Property> propertyNodes = toSqlProperties("view " + objectName, INVALID_VIEW_PROPERTY, properties, allViewProperties);
             CreateView.Security security = viewDefinition.get().isRunAsInvoker() ? INVOKER : DEFINER;
+
             String sql = formatSql(new CreateView(
                     node.getLocation().orElseThrow(),
-                    QualifiedName.of(ImmutableList.of(catalogName, schemaName, tableName)),
+                    QualifiedName.of(identifiers),
                     query,
                     false,
                     viewDefinition.get().getComment(),
@@ -624,7 +629,8 @@ public final class ShowQueriesRewrite
 
         private Query showCreateTable(ShowCreate node)
         {
-            QualifiedObjectName objectName = createQualifiedObjectName(session, node, node.getName());
+            List<Identifier> identifiers = getQualifiedObjectIdentifiers(session, node, node.getName(), metadata);
+            QualifiedObjectName objectName = createQualifiedObjectName(identifiers);
 
             if (metadata.isMaterializedView(session, objectName)) {
                 throw semanticException(NOT_SUPPORTED, node, "Relation '%s' is a materialized view, not a table", objectName);
@@ -638,12 +644,20 @@ public final class ShowQueriesRewrite
             TableHandle tableHandle = redirection.tableHandle()
                     .orElseThrow(() -> semanticException(TABLE_NOT_FOUND, node, "Table '%s' does not exist", objectName));
 
-            QualifiedObjectName targetTableName = redirection.redirectedTableName().orElse(objectName);
+            Optional<QualifiedName> targetTable = Optional.empty();
+            QualifiedObjectName targetTableName = objectName;
+            if (redirection.redirectedTableName().isPresent()) {
+                // FIXME: Here we lost all delimiter on Identifier
+                targetTableName = redirection.redirectedTableName().get();
+                targetTable = Optional.of(QualifiedName.of(targetTableName.catalogName(), targetTableName.schemaName(), targetTableName.objectName()));
+            }
+
             accessControl.checkCanShowCreateTable(session.toSecurityContext(), targetTableName);
             ConnectorTableMetadata connectorTableMetadata = metadata.getTableMetadata(session, tableHandle).metadata();
 
             Collection<PropertyMetadata<?>> allColumnProperties = columnPropertyManager.getAllProperties(tableHandle.catalogHandle());
 
+            Canonicalizer canonicalizer = metadata.getCanonicalizer(session, targetTableName.catalogName());
             List<TableElement> columns = connectorTableMetadata.getColumns().stream()
                     .filter(column -> !column.isHidden())
                     .map(column -> {
@@ -653,7 +667,7 @@ public final class ShowQueriesRewrite
                                 column.getProperties(),
                                 allColumnProperties);
                         return new ColumnDefinition(
-                                QualifiedName.of(column.getName()),
+                                QualifiedName.of(identifier(column.getName(), canonicalizer.requiresDelimiter(column.getName())).setCanonicalizer(canonicalizer::canonicalizeColumn)),
                                 toSqlType(column.getType()),
                                 column.getDefaultValue().map(value -> parseDefaultColumnValueExpression(value, objectName, node)),
                                 column.isNullable(),
@@ -668,7 +682,7 @@ public final class ShowQueriesRewrite
 
             CreateTable createTable = new CreateTable(
                     node.getLocation().orElseThrow(),
-                    QualifiedName.of(targetTableName.catalogName(), targetTableName.schemaName(), targetTableName.objectName()),
+                    targetTable.orElse(QualifiedName.of(identifiers)),
                     columns,
                     FAIL,
                     propertyNodes,
@@ -688,7 +702,8 @@ public final class ShowQueriesRewrite
 
         private Query showCreateSchema(ShowCreate node)
         {
-            CatalogSchemaName schemaName = createCatalogSchemaName(session, node, Optional.of(node.getName()));
+            List<Identifier> identifiers = getCatalogSchemaIdentifiers(session, node, Optional.of(node.getName()), metadata);
+            CatalogSchemaName schemaName = createCatalogSchemaName(identifiers);
 
             if (!metadata.schemaExists(session, schemaName)) {
                 throw semanticException(SCHEMA_NOT_FOUND, node, "Schema '%s' does not exist", schemaName);
@@ -699,7 +714,7 @@ public final class ShowQueriesRewrite
             Map<String, Object> properties = metadata.getSchemaProperties(session, schemaName);
             CatalogHandle catalogHandle = getRequiredCatalogHandle(metadata, session, node, schemaName.getCatalogName());
             Collection<PropertyMetadata<?>> allTableProperties = schemaPropertyManager.getAllProperties(catalogHandle);
-            QualifiedName qualifiedSchemaName = QualifiedName.of(schemaName.getCatalogName(), schemaName.getSchemaName());
+            QualifiedName qualifiedSchemaName = QualifiedName.of(identifiers);
             List<Property> propertyNodes = toSqlProperties("schema " + qualifiedSchemaName, INVALID_SCHEMA_PROPERTY, properties, allTableProperties);
 
             Optional<PrincipalSpecification> owner = metadata.getSchemaOwner(session, schemaName).map(MetadataUtil::createPrincipal);
@@ -738,7 +753,7 @@ public final class ShowQueriesRewrite
         {
             Collection<FunctionMetadata> functions;
             if (node.getSchema().isPresent()) {
-                CatalogSchemaName schema = createCatalogSchemaName(session, node, node.getSchema());
+                CatalogSchemaName schema = createCatalogSchemaName(session, node, node.getSchema(), metadata);
                 accessControl.checkCanShowFunctions(session.toSecurityContext(), schema);
                 functions = listFunctions(schema);
             }
@@ -836,7 +851,7 @@ public final class ShowQueriesRewrite
         @Override
         protected Node visitShowBranches(ShowBranches showBranches, Void context)
         {
-            QualifiedObjectName tableName = createQualifiedObjectName(session, showBranches, showBranches.getTableName());
+            QualifiedObjectName tableName = createQualifiedObjectName(session, showBranches, showBranches.getTableName(), metadata);
             accessControl.checkCanShowBranches(session.toSecurityContext(), tableName);
             getRequiredCatalogHandle(metadata, session, showBranches, tableName.catalogName());
             if (!metadata.schemaExists(session, new CatalogSchemaName(tableName.catalogName(), tableName.schemaName()))) {
@@ -933,7 +948,7 @@ public final class ShowQueriesRewrite
 
         private static Relation from(String catalog, SchemaTableName table)
         {
-            return table(QualifiedName.of(catalog, table.getSchemaName(), table.getTableName()));
+            return table(QualifiedName.of(true, catalog, table.getSchemaName(), table.getTableName()));
         }
 
         @Override

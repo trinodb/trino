@@ -317,4 +317,10 @@ public class KafkaMetadata
         // TODO: support transactional inserts https://github.com/trinodb/trino/issues/4303
         return Optional.empty();
     }
+
+    @Override
+    public String canonicalize(String value, boolean delimited)
+    {
+        return value;
+    }
 }

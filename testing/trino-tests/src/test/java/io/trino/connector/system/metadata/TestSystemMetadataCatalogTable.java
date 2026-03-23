@@ -47,6 +47,7 @@ public class TestSystemMetadataCatalogTable
                         new CatalogName(BROKEN_CATALOG),
                         new CatalogVersion("abc123"),
                         new ConnectorName("memory"),
+                        ImmutableMap.of(),
                         properties))))
                 .setCoordinatorProperties(ImmutableMap.of("catalog.store", "prepopulated_memory"))
                 .setWorkerCount(0)

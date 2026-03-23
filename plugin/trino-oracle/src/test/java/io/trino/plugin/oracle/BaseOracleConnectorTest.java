@@ -567,6 +567,24 @@ public abstract class BaseOracleConnectorTest
         }
     }
 
+    @Override
+    protected String canonicalize(String value)
+    {
+        return value.toUpperCase(ENGLISH);
+    }
+
+    @Override
+    protected String canonicalizeColumn(String value)
+    {
+        return canonicalize(value);
+    }
+
+    @Override
+    protected String compareColumn(String value)
+    {
+        return value;
+    }
+
     protected String getUser()
     {
         return TEST_USER;

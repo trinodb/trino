@@ -59,7 +59,7 @@ public class FastForwardBranchTask
     {
         Session session = stateMachine.getSession();
 
-        QualifiedObjectName table = createQualifiedObjectName(session, statement, statement.geTableName());
+        QualifiedObjectName table = createQualifiedObjectName(session, statement, statement.geTableName(), metadata);
         String sourceBranch = statement.getSourceBranchName().getValue();
         String targetBranch = statement.getTargetBranchName().getValue();
 

@@ -197,6 +197,7 @@ public class InMemoryTransactionManager
     @Override
     public Optional<CatalogMetadata> getOptionalCatalogMetadata(TransactionId transactionId, String catalogName)
     {
+        //System.out.println("InMemoryTransactionManager.getOptionalCatalogMetadata() 1");
         TransactionMetadata transactionMetadata = getTransactionMetadata(transactionId);
         return transactionMetadata.tryRegisterCatalog(new CatalogName(catalogName))
                 .map(transactionMetadata::getTransactionCatalogMetadata);
@@ -424,6 +425,7 @@ public class InMemoryTransactionManager
 
         private synchronized Optional<CatalogHandle> tryRegisterCatalog(CatalogName catalogName)
         {
+            System.out.println("InMemoryTransactionManager.tryRegisterCatalog() 1 catalogName: " + catalogName + " - is present: " + registeredCatalogs.containsKey(catalogName));
             Optional<Catalog> catalog = registeredCatalogs.computeIfAbsent(catalogName, catalogManager::getCatalog);
             catalog.ifPresent(Catalog::verify);
             return catalog.map(Catalog::getCatalogHandle);

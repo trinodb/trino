@@ -81,10 +81,10 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.jdbc.ColumnInfo.setTypeInfo;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
+import static java.lang.String.join;
 import static java.math.RoundingMode.HALF_UP;
 import static java.util.Collections.unmodifiableList;
 import static java.util.Collections.unmodifiableMap;
-import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static org.joda.time.DateTimeConstants.SECONDS_PER_DAY;
 
@@ -1930,9 +1930,9 @@ abstract class AbstractTrinoResultSet
         if (label == null) {
             throw new SQLException("Column label is null");
         }
-        Integer index = fieldMap.get(label.toLowerCase(ENGLISH));
+        Integer index = fieldMap.get(label);
         if (index == null) {
-            throw new SQLException("Invalid column label: " + label);
+            throw new SQLException("Invalid column label: " + label + " the available labels are: " + join(", ", fieldMap.keySet()));
         }
         return index;
     }
@@ -1980,7 +1980,7 @@ abstract class AbstractTrinoResultSet
     {
         Map<String, Integer> map = Maps.newHashMapWithExpectedSize(columns.size());
         for (int i = 0; i < columns.size(); i++) {
-            String name = columns.get(i).getName().toLowerCase(ENGLISH);
+            String name = columns.get(i).getName();
             if (!map.containsKey(name)) {
                 map.put(name, i + 1);
             }

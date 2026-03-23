@@ -14,7 +14,6 @@
 package io.trino.connector;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.hash.Hasher;
 import com.google.common.hash.Hashing;
@@ -47,6 +46,8 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.io.Files.getNameWithoutExtension;
 import static io.airlift.configuration.ConfigurationLoader.loadPropertiesFrom;
+import static io.trino.connector.CatalogUtil.getMetadataMapping;
+import static io.trino.connector.CatalogUtil.getPropertyMapping;
 import static io.trino.spi.StandardErrorCode.CATALOG_STORE_ERROR;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.nio.file.Files.createDirectories;
@@ -98,7 +99,8 @@ public final class FileCatalogStore
                 catalogName,
                 computeCatalogVersion(catalogName, connectorName, properties),
                 connectorName,
-                ImmutableMap.copyOf(properties));
+                getMetadataMapping(properties),
+                getPropertyMapping(properties));
     }
 
     @Override
@@ -215,6 +217,7 @@ public final class FileCatalogStore
         @Override
         public CatalogProperties loadProperties()
         {
+            System.out.println("FileCatalogStore.loadProperties() 1");
             Map<String, String> properties;
             try {
                 properties = new HashMap<>(loadPropertiesFrom(file.getPath()));
@@ -232,7 +235,7 @@ public final class FileCatalogStore
             }
             ConnectorName connectorName = new ConnectorName(connectorNameValue);
 
-            return new CatalogProperties(name, computeCatalogVersion(name, connectorName, properties), connectorName, ImmutableMap.copyOf(properties));
+            return new CatalogProperties(name, computeCatalogVersion(name, connectorName, properties), connectorName, getMetadataMapping(properties), getPropertyMapping(properties));
         }
     }
 }
