@@ -621,7 +621,9 @@ public class TrinoHiveCatalog
                 throw e;
             }
 
-            existing.ifPresent(existingView -> dropMaterializedViewStorage(session, existingView));
+            if (!replace) {
+                existing.ifPresent(existingView -> dropMaterializedViewStorage(session, existingView));
+            }
         }
         else {
             createMaterializedViewWithStorageTable(session, viewName, definition, materializedViewProperties, existing);
@@ -723,9 +725,7 @@ public class TrinoHiveCatalog
         if (!isTrinoMaterializedView(view.getTableType(), view.getParameters())) {
             throw new TrinoException(UNSUPPORTED_TABLE_TYPE, "Not a Materialized View: " + viewName);
         }
-
         dropMaterializedViewStorage(session, view);
-        metastore.dropTable(viewName.getSchemaName(), viewName.getTableName(), true);
     }
 
     private void dropMaterializedViewStorage(ConnectorSession session, Table view)
@@ -747,11 +747,15 @@ public class TrinoHiveCatalog
             checkState(storageMetadataLocation != null, "Storage location missing in definition of materialized view %s", viewName);
             try {
                 dropMaterializedViewStorage(session, fileSystemFactory.create(session), storageMetadataLocation);
+                invalidateTableCache(viewName);
             }
             catch (IOException e) {
                 log.warn(e, "Failed to delete storage table metadata '%s' for materialized view '%s'", storageMetadataLocation, viewName);
             }
         }
+        metastore.invalidateTable(viewName.getSchemaName(), viewName.getTableName());
+        metastore.getTable(viewName.getSchemaName(), viewName.getTableName())
+                .ifPresent(table -> metastore.dropTable(viewName.getSchemaName(), viewName.getTableName(), true));
     }
 
     @Override
