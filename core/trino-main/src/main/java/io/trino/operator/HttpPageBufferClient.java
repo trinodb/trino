@@ -641,7 +641,9 @@ public final class HttpPageBufferClient
     {
         if (Throwables.getCausalChain(t).stream()
                 .anyMatch(e -> nullToEmpty(e.getMessage()).contains("exceeded maximum length"))) {
-            return new PageTooLargeException();
+            PageTooLargeException pageTooLargeException = new PageTooLargeException();
+            pageTooLargeException.addSuppressed(t);
+            return pageTooLargeException;
         }
         return t;
     }
