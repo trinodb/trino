@@ -234,7 +234,7 @@
             <dependency>
                 <groupId>com.github.docker-java</groupId>
                 <artifactId>docker-java-bom</artifactId>
-                <version>3.7.0</version>
+                <version>3.7.1</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -298,7 +298,7 @@
             <dependency>
                 <groupId>org.testcontainers</groupId>
                 <artifactId>testcontainers-bom</artifactId>
-                <version>2.0.3</version>
+                <version>2.0.4</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
