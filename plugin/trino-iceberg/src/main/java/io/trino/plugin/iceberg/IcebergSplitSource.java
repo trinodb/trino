@@ -537,6 +537,7 @@ public class IcebergSplitSource
         ScanMetricsResult scanMetrics = scanReport.scanMetrics();
         return new Metrics(ImmutableMap.<String, Metric<?>>builder()
                 .put("scanPlanningDuration", new DurationTiming(Duration.succinctDuration(scanMetrics.totalPlanningDuration().totalDuration().toMillis(), MILLISECONDS)))
+                .put("projectedFields", new LongCount(scanReport.projectedFieldNames().size()))
                 .put("dataFiles", new LongCount(scanMetrics.resultDataFiles().value()))
                 .put("dataFileSizeBytes", new LongCount(scanMetrics.totalFileSizeInBytes().value()))
                 .put("deleteFileSizeBytes", new LongCount(scanMetrics.totalDeleteFileSizeInBytes().value()))
