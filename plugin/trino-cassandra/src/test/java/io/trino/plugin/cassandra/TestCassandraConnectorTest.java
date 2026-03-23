@@ -1746,7 +1746,7 @@ public class TestCassandraConnectorTest
         assertThat(query("SELECT * FROM TABLE(cassandra.system.query(query => 'INSERT INTO tpch." + tableName + "(col) VALUES (1)'))"))
                 .failure()
                 .hasMessage("Cannot get column definition")
-                .hasStackTraceContaining("unconfigured table");
+                .hasStackTraceContaining("does not exist");
     }
 
     @Test
