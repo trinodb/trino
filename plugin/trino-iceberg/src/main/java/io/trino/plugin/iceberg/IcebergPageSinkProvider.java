@@ -13,10 +13,14 @@
  */
 package io.trino.plugin.iceberg;
 
+import com.google.common.cache.Cache;
 import com.google.inject.Inject;
 import io.airlift.json.JsonCodec;
 import io.airlift.units.DataSize;
+import io.trino.cache.EvictableCacheBuilder;
 import io.trino.plugin.hive.SortingFileWriterConfig;
+import io.trino.plugin.iceberg.catalog.TrinoCatalog;
+import io.trino.plugin.iceberg.catalog.TrinoCatalogFactory;
 import io.trino.plugin.iceberg.procedure.IcebergOptimizeHandle;
 import io.trino.plugin.iceberg.procedure.IcebergTableExecuteHandle;
 import io.trino.spi.PageIndexerFactory;
@@ -32,7 +36,9 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableCredentials;
 import io.trino.spi.connector.ConnectorTableExecuteHandle;
 import io.trino.spi.connector.ConnectorTransactionHandle;
+import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.type.TypeManager;
+import org.apache.iceberg.BaseTable;
 import org.apache.iceberg.MetadataColumns;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.PartitionSpecParser;
@@ -48,8 +54,10 @@ import java.util.Optional;
 
 import static com.google.common.collect.Maps.transformValues;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.maxPartitionsPerWriter;
+import static io.trino.plugin.iceberg.IcebergUtil.WORKER_CREDENTIAL_CACHE_TTL;
 import static io.trino.plugin.iceberg.IcebergUtil.getFileIoProperties;
 import static io.trino.plugin.iceberg.IcebergUtil.getLocationProvider;
+import static io.trino.plugin.iceberg.IcebergUtil.maybeRefreshVendedCredentials;
 import static java.util.Objects.requireNonNull;
 
 public class IcebergPageSinkProvider
@@ -64,6 +72,13 @@ public class IcebergPageSinkProvider
     private final Optional<String> sortingFileWriterLocalStagingPath;
     private final TypeManager typeManager;
     private final PageSorter pageSorter;
+    private final TrinoCatalogFactory catalogFactory;
+    private final Cache<SchemaTableName, IcebergTableCredentials> refreshedCredentialCache =
+            EvictableCacheBuilder.newBuilder()
+                    .maximumSize(1_000)
+                    .expireAfterWrite(WORKER_CREDENTIAL_CACHE_TTL)
+                    .shareNothingWhenDisabled()
+                    .build();
 
     @Inject
     public IcebergPageSinkProvider(
@@ -74,7 +89,8 @@ public class IcebergPageSinkProvider
             SortingFileWriterConfig sortingFileWriterConfig,
             IcebergConfig icebergConfig,
             TypeManager typeManager,
-            PageSorter pageSorter)
+            PageSorter pageSorter,
+            TrinoCatalogFactory catalogFactory)
     {
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
         this.jsonCodec = requireNonNull(jsonCodec, "jsonCodec is null");
@@ -85,20 +101,21 @@ public class IcebergPageSinkProvider
         this.sortingFileWriterLocalStagingPath = icebergConfig.getSortedWritingLocalStagingPath();
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.pageSorter = requireNonNull(pageSorter, "pageSorter is null");
+        this.catalogFactory = requireNonNull(catalogFactory, "catalogFactory is null");
     }
 
     @Override
     public ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorOutputTableHandle outputTableHandle, Optional<ConnectorTableCredentials> tableCredentials, ConnectorPageSinkId pageSinkId)
     {
         IcebergWritableTableHandle tableHandle = (IcebergWritableTableHandle) outputTableHandle;
-        return createPageSink(session, tableHandle, getFileIoProperties(tableCredentials));
+        return createPageSink(session, tableHandle, getFileIoProperties(maybeRefreshCredentials(session, tableHandle.name(), tableCredentials)));
     }
 
     @Override
     public ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorInsertTableHandle insertTableHandle, Optional<ConnectorTableCredentials> tableCredentials, ConnectorPageSinkId pageSinkId)
     {
         IcebergWritableTableHandle tableHandle = (IcebergWritableTableHandle) insertTableHandle;
-        return createPageSink(session, tableHandle, getFileIoProperties(tableCredentials));
+        return createPageSink(session, tableHandle, getFileIoProperties(maybeRefreshCredentials(session, tableHandle.name(), tableCredentials)));
     }
 
     private ConnectorPageSink createPageSink(ConnectorSession session, IcebergWritableTableHandle tableHandle, Map<String, String> fileIoProperties)
@@ -151,7 +168,7 @@ public class IcebergPageSinkProvider
                         locationProvider,
                         fileWriterFactory,
                         pageIndexerFactory,
-                        fileSystemFactory.create(session.getIdentity(), getFileIoProperties(tableCredentials)),
+                        fileSystemFactory.create(session.getIdentity(), getFileIoProperties(maybeRefreshCredentials(session, executeHandle.schemaTableName(), tableCredentials))),
                         optimizeHandle.partitionColumns(),
                         jsonCodec,
                         session,
@@ -182,7 +199,7 @@ public class IcebergPageSinkProvider
     {
         IcebergMergeTableHandle merge = (IcebergMergeTableHandle) mergeHandle;
         IcebergWritableTableHandle tableHandle = merge.getInsertTableHandle();
-        Map<String, String> fileIoProperties = getFileIoProperties(tableCredentials);
+        Map<String, String> fileIoProperties = getFileIoProperties(maybeRefreshCredentials(session, tableHandle.name(), tableCredentials));
         LocationProvider locationProvider = getLocationProvider(tableHandle.name(), tableHandle.outputPath(), tableHandle.storageProperties());
         Schema schema = SchemaParser.fromJson(tableHandle.schemaAsJson());
         Map<Integer, PartitionSpec> partitionsSpecs = transformValues(tableHandle.partitionsSpecsAsJson(), json -> PartitionSpecParser.fromJson(schema, json));
@@ -214,5 +231,21 @@ public class IcebergPageSinkProvider
                 partitionsSpecs,
                 pageSink,
                 schema.columns().size());
+    }
+
+    private Optional<ConnectorTableCredentials> maybeRefreshCredentials(
+            ConnectorSession session,
+            SchemaTableName schemaTableName,
+            Optional<ConnectorTableCredentials> tableCredentials)
+    {
+        return maybeRefreshVendedCredentials(
+                refreshedCredentialCache,
+                schemaTableName,
+                tableCredentials,
+                () -> {
+                    TrinoCatalog catalog = catalogFactory.create(session.getIdentity());
+                    BaseTable freshTable = catalog.loadTable(session, schemaTableName);
+                    return IcebergTableCredentials.forFileIO(freshTable.io());
+                });
     }
 }

@@ -13,9 +13,11 @@
  */
 package io.trino.plugin.iceberg;
 
+import com.google.common.cache.Cache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
+import io.trino.cache.EvictableCacheBuilder;
 import io.trino.filesystem.hdfs.HdfsFileSystemFactory;
 import io.trino.filesystem.local.LocalInputFile;
 import io.trino.parquet.writer.ParquetWriterOptions;
@@ -24,12 +26,14 @@ import io.trino.plugin.hive.orc.OrcReaderConfig;
 import io.trino.plugin.hive.orc.OrcWriterConfig;
 import io.trino.plugin.hive.parquet.ParquetReaderConfig;
 import io.trino.plugin.hive.parquet.ParquetWriterConfig;
+import io.trino.plugin.iceberg.catalog.TrinoCatalogFactory;
 import io.trino.plugin.iceberg.delete.DeleteFile;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.DynamicFilter;
+import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.Type;
 import io.trino.testing.TestingConnectorSession;
@@ -54,6 +58,7 @@ import static io.trino.parquet.ParquetTestUtils.writeParquetFile;
 import static io.trino.plugin.iceberg.ColumnIdentity.TypeCategory.PRIMITIVE;
 import static io.trino.plugin.iceberg.IcebergFileFormat.PARQUET;
 import static io.trino.plugin.iceberg.IcebergTestUtils.FILE_IO_FACTORY;
+import static io.trino.plugin.iceberg.IcebergUtil.WORKER_CREDENTIAL_CACHE_TTL;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
@@ -186,12 +191,21 @@ class TestIcebergPageSourceProvider
 
     private static IcebergPageSourceProvider createPageSourceProvider()
     {
+        TrinoCatalogFactory noOpCatalogFactory = identity -> {
+            throw new UnsupportedOperationException("Catalog factory should not be called in unit tests");
+        };
+        Cache<SchemaTableName, IcebergTableCredentials> noOpCache = EvictableCacheBuilder.newBuilder()
+                .expireAfterWrite(WORKER_CREDENTIAL_CACHE_TTL)
+                .shareNothingWhenDisabled()
+                .build();
         return new IcebergPageSourceProvider(
                 new DefaultIcebergFileSystemFactory(new HdfsFileSystemFactory(HDFS_ENVIRONMENT, HDFS_FILE_SYSTEM_STATS)),
                 FILE_IO_FACTORY,
                 new FileFormatDataSourceStats(),
                 ORC_READER_CONFIG.toOrcReaderOptions(),
                 PARQUET_READER_CONFIG.toParquetReaderOptions(),
-                TESTING_TYPE_MANAGER);
+                TESTING_TYPE_MANAGER,
+                noOpCatalogFactory,
+                noOpCache);
     }
 }

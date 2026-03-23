@@ -14,6 +14,7 @@
 package io.trino.plugin.iceberg;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.cache.Cache;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.BiMap;
 import com.google.common.collect.ImmutableBiMap;
@@ -52,6 +53,8 @@ import io.trino.plugin.hive.TransformConnectorPageSource;
 import io.trino.plugin.hive.orc.OrcPageSource;
 import io.trino.plugin.hive.parquet.ParquetPageSource;
 import io.trino.plugin.iceberg.IcebergParquetColumnIOConverter.FieldContext;
+import io.trino.plugin.iceberg.catalog.TrinoCatalog;
+import io.trino.plugin.iceberg.catalog.TrinoCatalogFactory;
 import io.trino.plugin.iceberg.delete.DeleteFile;
 import io.trino.plugin.iceberg.delete.DeleteManager;
 import io.trino.plugin.iceberg.delete.DeletionVector;
@@ -79,6 +82,7 @@ import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.EmptyPageSource;
 import io.trino.spi.connector.FixedPageSource;
+import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SourcePage;
 import io.trino.spi.connector.SystemColumnHandle;
 import io.trino.spi.predicate.Domain;
@@ -92,6 +96,7 @@ import io.trino.spi.type.TypeManager;
 import jakarta.annotation.Nullable;
 import org.apache.avro.file.DataFileStream;
 import org.apache.avro.generic.GenericDatumReader;
+import org.apache.iceberg.BaseTable;
 import org.apache.iceberg.MetadataColumns;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.PartitionSpecParser;
@@ -184,6 +189,7 @@ import static io.trino.plugin.iceberg.IcebergUtil.getColumnHandle;
 import static io.trino.plugin.iceberg.IcebergUtil.getFileIoProperties;
 import static io.trino.plugin.iceberg.IcebergUtil.getPartitionKeys;
 import static io.trino.plugin.iceberg.IcebergUtil.getPartitionValues;
+import static io.trino.plugin.iceberg.IcebergUtil.maybeRefreshVendedCredentials;
 import static io.trino.plugin.iceberg.IcebergUtil.schemaFromHandles;
 import static io.trino.plugin.iceberg.util.OrcIcebergIds.fileColumnsByIcebergId;
 import static io.trino.plugin.iceberg.util.OrcTypeConverter.ORC_ICEBERG_ID_KEY;
@@ -227,6 +233,11 @@ public class IcebergPageSourceProvider
     private final OrcReaderOptions orcReaderOptions;
     private final ParquetReaderOptions parquetReaderOptions;
     private final TypeManager typeManager;
+    private final TrinoCatalogFactory catalogFactory;
+    // Shared cache of recently refreshed credentials, keyed by table name.
+    // Owned by the factory so it is shared across all providers created on this worker,
+    // preventing many concurrent tasks from all calling the REST catalog simultaneously.
+    private final Cache<SchemaTableName, IcebergTableCredentials> refreshedCredentialCache;
     private final DeleteManager unpartitionedTableDeleteManager;
     private final Map<Integer, Function<PartitionData, PartitionKey>> partitionKeyFactories = new ConcurrentHashMap<>();
     private final Map<PartitionKey, DeleteManager> partitionedDeleteManagers = new ConcurrentHashMap<>();
@@ -237,7 +248,9 @@ public class IcebergPageSourceProvider
             FileFormatDataSourceStats fileFormatDataSourceStats,
             OrcReaderOptions orcReaderOptions,
             ParquetReaderOptions parquetReaderOptions,
-            TypeManager typeManager)
+            TypeManager typeManager,
+            TrinoCatalogFactory catalogFactory,
+            Cache<SchemaTableName, IcebergTableCredentials> refreshedCredentialCache)
     {
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
         this.fileIoFactory = requireNonNull(fileIoFactory, "fileIoFactory is null");
@@ -245,6 +258,8 @@ public class IcebergPageSourceProvider
         this.orcReaderOptions = requireNonNull(orcReaderOptions, "orcReaderOptions is null");
         this.parquetReaderOptions = requireNonNull(parquetReaderOptions, "parquetReaderOptions is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
+        this.catalogFactory = requireNonNull(catalogFactory, "catalogFactory is null");
+        this.refreshedCredentialCache = requireNonNull(refreshedCredentialCache, "refreshedCredentialCache is null");
         this.unpartitionedTableDeleteManager = new DeleteManager(typeManager);
     }
 
@@ -279,6 +294,7 @@ public class IcebergPageSourceProvider
                 .map(field -> field.transform().getResultType(schema.findType(field.sourceId())))
                 .toArray(org.apache.iceberg.types.Type[]::new);
 
+        Optional<ConnectorTableCredentials> effectiveCredentials = maybeRefreshCredentials(session, tableHandle, connectorTableCredentials);
         return createPageSource(
                 session,
                 icebergColumns,
@@ -296,10 +312,27 @@ public class IcebergPageSourceProvider
                 split.getFileRecordCount(),
                 split.getPartitionDataJson(),
                 split.getFileFormat(),
-                getFileIoProperties(connectorTableCredentials),
+                getFileIoProperties(effectiveCredentials),
                 split.getDataSequenceNumber(),
                 split.getFileFirstRowId(),
                 tableHandle.getNameMappingJson().map(NameMappingParser::fromJson));
+    }
+
+    private Optional<ConnectorTableCredentials> maybeRefreshCredentials(
+            ConnectorSession session,
+            IcebergTableHandle tableHandle,
+            Optional<ConnectorTableCredentials> tableCredentials)
+    {
+        SchemaTableName schemaTableName = tableHandle.getSchemaTableName();
+        return maybeRefreshVendedCredentials(
+                refreshedCredentialCache,
+                schemaTableName,
+                tableCredentials,
+                () -> {
+                    TrinoCatalog catalog = catalogFactory.create(session.getIdentity());
+                    BaseTable freshTable = catalog.loadTable(session, schemaTableName);
+                    return IcebergTableCredentials.forFileIO(freshTable.io());
+                });
     }
 
     public ConnectorPageSource createPageSource(

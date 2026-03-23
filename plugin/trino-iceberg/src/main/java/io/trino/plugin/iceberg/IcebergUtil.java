@@ -15,6 +15,7 @@ package io.trino.plugin.iceberg;
 
 import com.google.common.base.Joiner;
 import com.google.common.base.Splitter;
+import com.google.common.cache.Cache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -89,6 +90,7 @@ import java.lang.invoke.MethodHandle;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.nio.ByteBuffer;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Base64;
@@ -101,6 +103,7 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Predicate;
+import java.util.function.Supplier;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
@@ -113,6 +116,7 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.slice.Slices.utf8Slice;
+import static io.trino.cache.CacheUtils.uncheckedCacheGet;
 import static io.trino.metastore.Table.TABLE_COMMENT;
 import static io.trino.parquet.writer.ParquetWriter.SUPPORTED_BLOOM_FILTER_TYPES;
 import static io.trino.plugin.base.io.ByteBuffers.getWrappedBytes;
@@ -222,6 +226,16 @@ import static org.apache.iceberg.util.PropertyUtil.propertyAsBoolean;
 
 public final class IcebergUtil
 {
+    // How long vended credentials are considered valid. After this TTL:
+    //  - the coordinator evicts its cache so new tasks receive fresh credentials, and
+    //  - workers proactively re-fetch from the catalog before using stale credentials.
+    // The value must be shorter than the minimum STS token lifetime (30 min in common
+    // enterprise configurations), leaving a safety buffer for clock skew and latency.
+    public static final Duration CREDENTIAL_CACHE_TTL = Duration.ofMinutes(25);
+    // How long a worker caches newly-fetched credentials to coalesce concurrent refresh
+    // requests from many splits of the same table. Much shorter than CREDENTIAL_CACHE_TTL.
+    public static final Duration WORKER_CREDENTIAL_CACHE_TTL = Duration.ofMinutes(5);
+
     public static final String TRINO_TABLE_METADATA_INFO_VALID_FOR = "trino_table_metadata_info_valid_for";
     public static final String TRINO_TABLE_COMMENT_CACHE_PREVENTED = "trino_table_comment_cache_prevented";
     public static final String COLUMN_TRINO_NOT_NULL_PROPERTY = "trino_not_null";
@@ -1328,5 +1342,32 @@ public final class IcebergUtil
             return ((IcebergTableCredentials) tableCredentials.get()).fileIoProperties();
         }
         return ImmutableMap.of();
+    }
+
+    public static Optional<ConnectorTableCredentials> maybeRefreshVendedCredentials(
+            Cache<SchemaTableName, IcebergTableCredentials> credentialCache,
+            SchemaTableName schemaTableName,
+            Optional<ConnectorTableCredentials> tableCredentials,
+            Supplier<IcebergTableCredentials> credentialRefresher)
+    {
+        if (tableCredentials.isEmpty()) {
+            return tableCredentials;
+        }
+        if (!(tableCredentials.get() instanceof IcebergTableCredentials icebergCredentials)) {
+            return tableCredentials;
+        }
+        // credentialsFetchedAtMs == 0 means credentials were recorded without a timestamp
+        // (e.g. non-REST catalog implementations that do not use vended STS tokens).
+        if (icebergCredentials.credentialsFetchedAtMs() == 0) {
+            return tableCredentials;
+        }
+        long credentialAgeMs = System.currentTimeMillis() - icebergCredentials.credentialsFetchedAtMs();
+        if (credentialAgeMs <= CREDENTIAL_CACHE_TTL.toMillis()) {
+            return tableCredentials;
+        }
+        // Credentials are stale. Fetch fresh ones via credentialRefresher, coalesced through the cache
+        // so that many concurrent splits do not all hammer the REST catalog simultaneously.
+        IcebergTableCredentials freshCredentials = uncheckedCacheGet(credentialCache, schemaTableName, credentialRefresher);
+        return Optional.of(freshCredentials);
     }
 }

@@ -34,6 +34,7 @@ import io.trino.plugin.hive.orc.OrcReaderConfig;
 import io.trino.plugin.hive.orc.OrcWriterConfig;
 import io.trino.plugin.hive.parquet.ParquetReaderConfig;
 import io.trino.plugin.hive.parquet.ParquetWriterConfig;
+import io.trino.plugin.iceberg.catalog.TrinoCatalogFactory;
 import io.trino.spi.Page;
 import io.trino.spi.SplitWeight;
 import io.trino.spi.block.BlockBuilder;
@@ -576,13 +577,17 @@ public class TestIcebergNodeLocalDynamicSplitPruning
             DynamicFilter dynamicFilter)
     {
         FileFormatDataSourceStats stats = new FileFormatDataSourceStats();
+        TrinoCatalogFactory noOpCatalogFactory = identity -> {
+            throw new UnsupportedOperationException("Catalog factory should not be called in unit tests");
+        };
         IcebergPageSourceProviderFactory factory = new IcebergPageSourceProviderFactory(
                 new DefaultIcebergFileSystemFactory(new HdfsFileSystemFactory(HDFS_ENVIRONMENT, HDFS_FILE_SYSTEM_STATS)),
                 FILE_IO_FACTORY,
                 stats,
                 ORC_READER_CONFIG,
                 PARQUET_READER_CONFIG,
-                TESTING_TYPE_MANAGER);
+                TESTING_TYPE_MANAGER,
+                noOpCatalogFactory);
         return factory.createPageSourceProvider().createPageSource(
                 transaction,
                 getSession(icebergConfig),
