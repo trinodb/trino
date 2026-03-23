@@ -908,11 +908,18 @@ public final class IcebergUtil
                 .toList();
     }
 
-    public static Transaction newCreateTableTransaction(TrinoCatalog catalog, ConnectorTableMetadata tableMetadata, ConnectorSession session, boolean replace, String tableLocation, Predicate<String> allowedExtraProperties)
+    public static Transaction newCreateTableTransaction(
+            TrinoCatalog catalog,
+            ConnectorTableMetadata tableMetadata,
+            ConnectorSession session,
+            boolean replace,
+            String tableLocation,
+            Predicate<String> allowedExtraProperties,
+            List<PartitionField> existingPartitionFields)
     {
         SchemaTableName schemaTableName = tableMetadata.getTable();
         Schema schema = schemaFromMetadata(tableMetadata.getColumns());
-        PartitionSpec partitionSpec = parsePartitionFields(schema, getPartitioning(tableMetadata.getProperties()));
+        PartitionSpec partitionSpec = parsePartitionFields(schema, getPartitioning(tableMetadata.getProperties()), existingPartitionFields);
         SortOrder sortOrder = parseSortFields(schema, getSortOrder(tableMetadata.getProperties()));
 
         Transaction transaction;
