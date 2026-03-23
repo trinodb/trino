@@ -590,26 +590,42 @@ public class FileHiveMetastore
     @Override
     public synchronized void replaceTable(String databaseName, String tableName, Table newTable, PrincipalPrivileges principalPrivileges, Map<String, String> environmentContext)
     {
-        Table table = getRequiredTable(databaseName, tableName);
-        if (!table.getDatabaseName().equals(databaseName) || !table.getTableName().equals(tableName)) {
-            throw new TrinoException(HIVE_METASTORE_ERROR, "Replacement table must have same name");
+        // Table metadata may not be found at the expected location when the data directory
+        // (which for FileHiveMetastore also contains metadata) was renamed during ALTER operations
+        // in SemiTransactionalHiveMetastore (e.g., CREATE OR REPLACE TABLE, INSERT OVERWRITE).
+        // The table's existence was already verified in prepareAlterTable before the directory rename.
+        Optional<Table> existingTable = getTable(databaseName, tableName);
+
+        if (existingTable.isPresent()) {
+            Table table = existingTable.get();
+            if (!table.getDatabaseName().equals(databaseName) || !table.getTableName().equals(tableName)) {
+                throw new TrinoException(HIVE_METASTORE_ERROR, "Replacement table must have same name");
+            }
+            if (isIcebergTable(table) && !Objects.equals(table.getParameters().get("metadata_location"), newTable.getParameters().get("previous_metadata_location"))) {
+                throw new TrinoException(HIVE_CONCURRENT_MODIFICATION_DETECTED, "Cannot update Iceberg table: supplied previous location does not match current location");
+            }
+            deleteTablePrivileges(table);
         }
 
-        if (isIcebergTable(table) && !Objects.equals(table.getParameters().get("metadata_location"), newTable.getParameters().get("previous_metadata_location"))) {
-            throw new TrinoException(HIVE_CONCURRENT_MODIFICATION_DETECTED, "Cannot update Iceberg table: supplied previous location does not match current location");
+        Location tableMetadataDirectory = getTableMetadataDirectory(databaseName, tableName);
+
+        // Ensure the metadata directory exists (it may not if the data directory was renamed)
+        try {
+            if (!fileSystem.directoryExists(tableMetadataDirectory).orElse(false)) {
+                fileSystem.createDirectory(tableMetadataDirectory);
+            }
+        }
+        catch (IOException e) {
+            throw new TrinoException(HIVE_METASTORE_ERROR, "Could not create table metadata directory", e);
         }
 
-        Location tableMetadataDirectory = getTableMetadataDirectory(table);
-        writeSchemaFile(TABLE, tableMetadataDirectory, tableCodec, new TableMetadata(currentVersion, newTable), true);
-
-        // replace existing permissions
-        deleteTablePrivileges(table);
+        writeSchemaFile(TABLE, tableMetadataDirectory, tableCodec, new TableMetadata(currentVersion, newTable), existingTable.isPresent());
 
         for (Entry<String, Collection<HivePrivilegeInfo>> entry : principalPrivileges.getUserPrivileges().asMap().entrySet()) {
-            setTablePrivileges(new HivePrincipal(USER, entry.getKey()), table.getDatabaseName(), table.getTableName(), entry.getValue());
+            setTablePrivileges(new HivePrincipal(USER, entry.getKey()), databaseName, tableName, entry.getValue());
         }
         for (Entry<String, Collection<HivePrivilegeInfo>> entry : principalPrivileges.getRolePrivileges().asMap().entrySet()) {
-            setTablePrivileges(new HivePrincipal(ROLE, entry.getKey()), table.getDatabaseName(), table.getTableName(), entry.getValue());
+            setTablePrivileges(new HivePrincipal(ROLE, entry.getKey()), databaseName, tableName, entry.getValue());
         }
     }
 
