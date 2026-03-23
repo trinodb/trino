@@ -31,4 +31,9 @@ public interface KnownToken
     {
         return MemoryCachedKnownToken.INSTANCE;
     }
+
+    static KnownToken systemCached()
+    {
+        return SystemCachedKnownToken.INSTANCE;
+    }
 }
