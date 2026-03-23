@@ -192,6 +192,7 @@ import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.SELECT_COLUMN;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.SHOW_COLUMNS;
 import static io.trino.testing.TestingAccessControlManager.privilege;
+import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_OR_REPLACE_TABLE;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_MERGE;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_ROW_LEVEL_UPDATE;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_UPDATE;
@@ -280,7 +281,8 @@ public abstract class BaseHiveConnectorTest
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
         return switch (connectorBehavior) {
-            case SUPPORTS_MULTI_STATEMENT_WRITES,
+            case SUPPORTS_CREATE_OR_REPLACE_TABLE,
+                 SUPPORTS_MULTI_STATEMENT_WRITES,
                  SUPPORTS_REPORTING_WRITTEN_BYTES -> true; // FIXME: Fails because only allowed with transactional tables
             case SUPPORTS_ADD_COLUMN_WITH_POSITION,
                  SUPPORTS_ADD_FIELD,
@@ -300,6 +302,17 @@ public abstract class BaseHiveConnectorTest
             case SUPPORTS_CREATE_FUNCTION -> true;
             default -> super.hasBehavior(connectorBehavior);
         };
+    }
+
+    @Test
+    @Override
+    public void testCreateOrReplaceTableConcurrently()
+    {
+        // FileHiveMetastore stores metadata inside the table data directory.
+        // During replace, the data directory is temporarily renamed, making the table
+        // invisible to concurrent readers. This is a test environment limitation
+        // that does not affect real Hive metastore (Thrift/HMS) deployments.
+        abort("Concurrent CREATE OR REPLACE is not supported with FileHiveMetastore");
     }
 
     @Test
