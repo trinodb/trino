@@ -545,7 +545,7 @@ public class OrcRecordReader
                         // todo use selected positions to improve read performance
                         block = columnReaders[channel].readBlock();
                     }
-                    catch (IOException e) {
+                    catch (IOException | RuntimeException e) {
                         throw exceptionTransform.apply(e);
                     }
                     blockLoaded(channel, block);
