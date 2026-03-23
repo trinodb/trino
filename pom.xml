@@ -65,6 +65,7 @@
         <module>plugin/trino-blackhole</module>
         <module>plugin/trino-cassandra</module>
         <module>plugin/trino-clickhouse</module>
+        <module>plugin/trino-databricks</module>
         <module>plugin/trino-datasketches</module>
         <module>plugin/trino-delta-lake</module>
         <module>plugin/trino-druid</module>
@@ -396,6 +397,12 @@
                 <artifactId>clickhouse-jdbc</artifactId>
                 <version>0.7.1-patch1</version>
                 <classifier>all</classifier>
+            </dependency>
+
+            <dependency>
+                <groupId>com.databricks</groupId>
+                <artifactId>databricks-jdbc</artifactId>
+                <version>3.3.1</version>
             </dependency>
 
             <dependency>
@@ -989,6 +996,12 @@
             <dependency>
                 <groupId>io.trino</groupId>
                 <artifactId>trino-client</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.trino</groupId>
+                <artifactId>trino-databricks</artifactId>
                 <version>${project.version}</version>
             </dependency>
 
