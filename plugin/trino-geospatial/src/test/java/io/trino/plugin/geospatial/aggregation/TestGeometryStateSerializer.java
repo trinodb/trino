@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.geospatial.aggregation;
 
-import com.esri.core.geometry.ogc.OGCGeometry;
 import io.trino.operator.aggregation.state.StateCompiler;
 import io.trino.plugin.geospatial.GeometryType;
 import io.trino.spi.block.Block;
@@ -21,20 +20,25 @@ import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.function.AccumulatorStateFactory;
 import io.trino.spi.function.AccumulatorStateSerializer;
 import org.junit.jupiter.api.Test;
+import org.locationtech.jts.io.ParseException;
+import org.locationtech.jts.io.WKTReader;
 
 import static io.trino.plugin.geospatial.aggregation.GeometryStateFactory.GroupedGeometryState;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestGeometryStateSerializer
 {
+    private static final WKTReader WKT_READER = new WKTReader();
+
     @Test
     public void testSerializeDeserialize()
+            throws ParseException
     {
         AccumulatorStateFactory<GeometryState> factory = StateCompiler.generateStateFactory(GeometryState.class);
         AccumulatorStateSerializer<GeometryState> serializer = StateCompiler.generateStateSerializer(GeometryState.class);
         GeometryState state = factory.createSingleState();
 
-        state.setGeometry(OGCGeometry.fromText("POINT (1 2)"));
+        state.setGeometry(WKT_READER.read("POINT (1 2)"));
 
         BlockBuilder builder = GeometryType.GEOMETRY.createBlockBuilder(null, 1);
         serializer.serialize(state, builder);
@@ -45,11 +49,12 @@ public class TestGeometryStateSerializer
         state.setGeometry(null);
         serializer.deserialize(block, 0, state);
 
-        assertThat(state.getGeometry().asText()).isEqualTo("POINT (1 2)");
+        assertThat(state.getGeometry().toText()).isEqualTo("POINT (1 2)");
     }
 
     @Test
     public void testSerializeDeserializeGrouped()
+            throws ParseException
     {
         AccumulatorStateFactory<GeometryState> factory = StateCompiler.generateStateFactory(GeometryState.class);
         AccumulatorStateSerializer<GeometryState> serializer = StateCompiler.generateStateSerializer(GeometryState.class);
@@ -57,10 +62,10 @@ public class TestGeometryStateSerializer
 
         // Add state to group 1
         state.setGroupId(1);
-        state.setGeometry(OGCGeometry.fromText("POINT (1 2)"));
+        state.setGeometry(WKT_READER.read("POINT (1 2)"));
         // Add another state to group 2, to show that this doesn't affect the group under test (group 1)
         state.setGroupId(2);
-        state.setGeometry(OGCGeometry.fromText("POINT (2 3)"));
+        state.setGeometry(WKT_READER.read("POINT (2 3)"));
         // Return to group 1
         state.setGroupId(1);
 
@@ -74,10 +79,10 @@ public class TestGeometryStateSerializer
         serializer.deserialize(block, 0, state);
 
         // Assert the state of group 1
-        assertThat(state.getGeometry().asText()).isEqualTo("POINT (1 2)");
+        assertThat(state.getGeometry().toText()).isEqualTo("POINT (1 2)");
         // Verify nothing changed in group 2
         state.setGroupId(2);
-        assertThat(state.getGeometry().asText()).isEqualTo("POINT (2 3)");
+        assertThat(state.getGeometry().toText()).isEqualTo("POINT (2 3)");
         // Groups we did not touch are null
         state.setGroupId(3);
         assertThat(state.getGeometry()).isNull();

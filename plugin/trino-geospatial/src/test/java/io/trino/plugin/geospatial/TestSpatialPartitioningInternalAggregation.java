@@ -13,10 +13,6 @@
  */
 package io.trino.plugin.geospatial;
 
-import com.esri.core.geometry.Envelope;
-import com.esri.core.geometry.Point;
-import com.esri.core.geometry.ogc.OGCGeometry;
-import com.esri.core.geometry.ogc.OGCPoint;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
 import io.airlift.slice.Slice;
@@ -36,13 +32,18 @@ import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.StandaloneQueryRunner;
 import org.junit.jupiter.api.Test;
+import org.locationtech.jts.geom.Coordinate;
+import org.locationtech.jts.geom.Envelope;
+import org.locationtech.jts.geom.Geometry;
+import org.locationtech.jts.geom.GeometryFactory;
+import org.locationtech.jts.geom.Point;
 
 import java.util.List;
 import java.util.OptionalInt;
 
 import static com.google.common.math.DoubleMath.roundToInt;
 import static io.trino.geospatial.KdbTree.buildKdbTree;
-import static io.trino.geospatial.serde.GeometrySerde.serialize;
+import static io.trino.geospatial.serde.JtsGeometrySerde.serialize;
 import static io.trino.operator.aggregation.AggregationTestUtils.createGroupByIdBlock;
 import static io.trino.operator.aggregation.AggregationTestUtils.getFinalBlock;
 import static io.trino.operator.aggregation.AggregationTestUtils.getGroupValue;
@@ -56,6 +57,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestSpatialPartitioningInternalAggregation
 {
+    private static final GeometryFactory GEOMETRY_FACTORY = new GeometryFactory();
+
     @Test
     public void test()
     {
@@ -71,7 +74,7 @@ public class TestSpatialPartitioningInternalAggregation
         TestingAggregationFunction function = new TestingFunctionResolution(runner)
                 .getAggregateFunction("spatial_partitioning", fromTypes(GEOMETRY, INTEGER));
 
-        List<OGCGeometry> geometries = makeGeometries();
+        List<Point> geometries = makeGeometries();
         Block geometryBlock = makeGeometryBlock(geometries);
 
         BlockBuilder blockBuilder = INTEGER.createFixedSizeBlockBuilder(1);
@@ -95,52 +98,51 @@ public class TestSpatialPartitioningInternalAggregation
         assertThat(groupValue).isEqualTo(expectedValue.toStringUtf8());
     }
 
-    private List<OGCGeometry> makeGeometries()
+    private List<Point> makeGeometries()
     {
-        ImmutableList.Builder<OGCGeometry> geometries = ImmutableList.builder();
+        ImmutableList.Builder<Point> geometries = ImmutableList.builder();
         for (int i = 0; i < 10; i++) {
             for (int j = 0; j < 10; j++) {
-                geometries.add(new OGCPoint(new Point(-10 + i, -10 + j), null));
+                geometries.add(GEOMETRY_FACTORY.createPoint(new Coordinate(-10 + i, -10 + j)));
             }
         }
 
         for (int i = 0; i < 5; i++) {
             for (int j = 0; j < 5; j++) {
-                geometries.add(new OGCPoint(new Point(-10 + 2 * i, 2 * j), null));
+                geometries.add(GEOMETRY_FACTORY.createPoint(new Coordinate(-10 + 2 * i, 2 * j)));
             }
         }
 
         for (int i = 0; i < 4; i++) {
             for (int j = 0; j < 4; j++) {
-                geometries.add(new OGCPoint(new Point(2.5 * i, -10 + 2.5 * j), null));
+                geometries.add(GEOMETRY_FACTORY.createPoint(new Coordinate(2.5 * i, -10 + 2.5 * j)));
             }
         }
 
         for (int i = 0; i < 3; i++) {
             for (int j = 0; j < 3; j++) {
-                geometries.add(new OGCPoint(new Point(5 * i, 5 * j), null));
+                geometries.add(GEOMETRY_FACTORY.createPoint(new Coordinate(5 * i, 5 * j)));
             }
         }
 
         return geometries.build();
     }
 
-    private Block makeGeometryBlock(List<OGCGeometry> geometries)
+    private Block makeGeometryBlock(List<Point> geometries)
     {
         BlockBuilder builder = GEOMETRY.createBlockBuilder(null, geometries.size());
-        for (OGCGeometry geometry : geometries) {
+        for (Geometry geometry : geometries) {
             GEOMETRY.writeSlice(builder, serialize(geometry));
         }
         return builder.build();
     }
 
-    private Slice getSpatialPartitioning(Rectangle extent, List<OGCGeometry> geometries, int partitionCount)
+    private Slice getSpatialPartitioning(Rectangle extent, List<Point> geometries, int partitionCount)
     {
         ImmutableList.Builder<Rectangle> rectangles = ImmutableList.builder();
-        for (OGCGeometry geometry : geometries) {
-            Envelope envelope = new Envelope();
-            geometry.getEsriGeometry().queryEnvelope(envelope);
-            rectangles.add(new Rectangle(envelope.getXMin(), envelope.getYMin(), envelope.getXMax(), envelope.getYMax()));
+        for (Point geometry : geometries) {
+            Envelope envelope = geometry.getEnvelopeInternal();
+            rectangles.add(new Rectangle(envelope.getMinX(), envelope.getMinY(), envelope.getMaxX(), envelope.getMaxY()));
         }
 
         return KdbTreeUtils.toJson(buildKdbTree(roundToInt(geometries.size() * 1.0 / partitionCount, CEILING), extent, rectangles.build()));

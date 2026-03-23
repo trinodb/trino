@@ -13,12 +13,6 @@
  */
 package io.trino.plugin.geospatial.aggregation;
 
-import com.esri.core.geometry.ogc.OGCGeometry;
-import com.google.common.base.Joiner;
-import io.airlift.slice.Slice;
-import io.trino.geospatial.GeometryType;
-import io.trino.geospatial.serde.GeometrySerde;
-import io.trino.spi.TrinoException;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.function.AggregationFunction;
 import io.trino.spi.function.AggregationState;
@@ -28,12 +22,11 @@ import io.trino.spi.function.InputFunction;
 import io.trino.spi.function.OutputFunction;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.type.StandardTypes;
+import org.locationtech.jts.geom.Geometry;
 
-import java.util.Set;
-
+import static io.trino.geospatial.GeometryUtils.safeUnion;
+import static io.trino.geospatial.serde.JtsGeometrySerde.validateAndGetSrid;
 import static io.trino.plugin.geospatial.GeometryType.GEOMETRY;
-import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
-import static java.lang.String.format;
 
 /**
  * Aggregate form of ST_ConvexHull, which takes a set of geometries and computes the convex hull
@@ -43,20 +36,27 @@ import static java.lang.String.format;
 @AggregationFunction("convex_hull_agg")
 public final class ConvexHullAggregation
 {
-    private static final Joiner OR_JOINER = Joiner.on(" or ");
-
     private ConvexHullAggregation() {}
 
     @InputFunction
     public static void input(@AggregationState GeometryState state,
-            @SqlType(StandardTypes.GEOMETRY) Slice input)
+            @SqlType(StandardTypes.GEOMETRY) Geometry geometry)
     {
-        OGCGeometry geometry = GeometrySerde.deserialize(input);
         if (state.getGeometry() == null) {
-            state.setGeometry(geometry.convexHull());
+            Geometry result = geometry.convexHull();
+            result.setSRID(geometry.getSRID());
+            state.setGeometry(result);
         }
-        else if (!geometry.isEmpty()) {
-            state.setGeometry(state.getGeometry().union(geometry).convexHull());
+        else {
+            int srid = validateAndGetSrid(state.getGeometry(), geometry);
+            if (!geometry.isEmpty()) {
+                Geometry result = safeUnion(state.getGeometry(), geometry).convexHull();
+                result.setSRID(srid);
+                state.setGeometry(result);
+            }
+            else {
+                updateGeometrySrid(state, srid);
+            }
         }
     }
 
@@ -67,9 +67,29 @@ public final class ConvexHullAggregation
         if (state.getGeometry() == null) {
             state.setGeometry(otherState.getGeometry());
         }
-        else if (otherState.getGeometry() != null && !otherState.getGeometry().isEmpty()) {
-            state.setGeometry(state.getGeometry().union(otherState.getGeometry()).convexHull());
+        else if (otherState.getGeometry() != null) {
+            int srid = validateAndGetSrid(state.getGeometry(), otherState.getGeometry());
+            if (!otherState.getGeometry().isEmpty()) {
+                Geometry result = safeUnion(state.getGeometry(), otherState.getGeometry()).convexHull();
+                result.setSRID(srid);
+                state.setGeometry(result);
+            }
+            else {
+                updateGeometrySrid(state, srid);
+            }
         }
+    }
+
+    private static void updateGeometrySrid(GeometryState state, int srid)
+    {
+        Geometry geometry = state.getGeometry();
+        if (geometry.getSRID() == srid) {
+            return;
+        }
+
+        Geometry result = geometry.copy();
+        result.setSRID(srid);
+        state.setGeometry(result);
     }
 
     @OutputFunction(StandardTypes.GEOMETRY)
@@ -79,15 +99,7 @@ public final class ConvexHullAggregation
             out.appendNull();
         }
         else {
-            GEOMETRY.writeSlice(out, GeometrySerde.serialize(state.getGeometry()));
-        }
-    }
-
-    private static void validateType(String function, OGCGeometry geometry, Set<GeometryType> validTypes)
-    {
-        GeometryType type = GeometryType.getForEsriGeometryType(geometry.geometryType());
-        if (!validTypes.contains(type)) {
-            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, format("%s only applies to %s. Input type is: %s", function, OR_JOINER.join(validTypes), type));
+            GEOMETRY.writeObject(out, state.getGeometry());
         }
     }
 }

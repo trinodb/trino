@@ -67,6 +67,30 @@ final class TestPostgreSqlGeometryType
     }
 
     @Test
+    void testGeometryWriteWithSrid()
+    {
+        try (TestTable table = new TestTable(postgreSqlServer::execute, "test_geometry_write", "(geom geometry)")) {
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (ST_SetSRID(ST_Point(1, 1), 4326))", 1);
+            assertThat(query("SELECT ST_SRID(geom) FROM " + table.getName()))
+                    .matches("VALUES 4326");
+            assertThat(query("SELECT * FROM " + table.getName()))
+                    .matches("VALUES ST_Point(1, 1)");
+        }
+    }
+
+    @Test
+    void testGeometryWriteWithSridIntoConstrainedColumn()
+    {
+        try (TestTable table = new TestTable(postgreSqlServer::execute, "test_geometry_write", "(geom geometry(point, 4326))")) {
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (ST_SetSRID(ST_Point(1, 1), 4326))", 1);
+            assertThat(query("SELECT ST_SRID(geom) FROM " + table.getName()))
+                    .matches("VALUES 4326");
+            assertThat(query("SELECT * FROM " + table.getName()))
+                    .matches("VALUES ST_Point(1, 1)");
+        }
+    }
+
+    @Test
     void testGeometryNullRead()
     {
         try (TestTable table = new TestTable(postgreSqlServer::execute, "test_geometry_null_read", "(id int, geom geometry)")) {
