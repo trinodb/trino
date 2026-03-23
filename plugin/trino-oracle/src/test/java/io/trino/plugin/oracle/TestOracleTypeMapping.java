@@ -18,7 +18,7 @@ import io.trino.testing.QueryRunner;
 import io.trino.testing.sql.SqlExecutor;
 
 public class TestOracleTypeMapping
-        extends AbstractTestOracleTypeMapping
+        extends BaseTestOracleTypeMapping
 {
     private TestingOracleServer oracleServer;
 

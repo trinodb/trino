@@ -73,7 +73,7 @@ import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
 @TestInstance(PER_CLASS)
 @Execution(CONCURRENT)
-public abstract class AbstractTestOracleTypeMapping
+public abstract class BaseTestOracleTypeMapping
         extends AbstractTestQueryFramework
 {
     protected static final int MAX_CHAR_ON_READ = 2000;
