@@ -158,7 +158,24 @@ include the user DN. This requires the following properties:
 * - `ldap.group-search-member-attribute`
   - Attribute from group documents used for filtering by member. For example,
     `cn`.
+* - `ldap.group-search-nested-enabled`
+  - Enable nested group resolution for search-based mode. Defaults to `false`.
+* - `ldap.group-search-nested-use-matching-rule-in-chain`
+  - Use the Active Directory `LDAP_MATCHING_RULE_IN_CHAIN` matching rule
+    (`1.2.840.113556.1.4.1941`) for nested group resolution. Defaults to
+    `false`.
 :::
+
+By default, search-based group resolution returns only direct groups.
+
+If `ldap.group-search-nested-enabled=true`, Trino recursively resolves
+nested group memberships (for example user → group A → group B) by repeatedly
+searching groups that contain the previously resolved group DN as a member.
+
+For Active Directory deployments, you can additionally enable
+`ldap.group-search-nested-use-matching-rule-in-chain=true` to delegate nested group
+resolution to LDAP itself (this is only relevant when nested group resolution
+is enabled).
 
 In case of attribute-based group resolution, Trino reads the group list
 directly from a user attribute. This requires the following property:
