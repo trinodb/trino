@@ -23,6 +23,7 @@ import com.google.common.io.ByteStreams;
 import com.google.common.primitives.Shorts;
 import io.airlift.compress.v3.zstd.ZstdDecompressor;
 import io.airlift.json.JsonCodec;
+import io.airlift.log.Logger;
 import io.trino.hive.thrift.metastore.BinaryColumnStatsData;
 import io.trino.hive.thrift.metastore.BooleanColumnStatsData;
 import io.trino.hive.thrift.metastore.ColumnStatisticsObj;
@@ -165,6 +166,8 @@ import static java.util.Objects.requireNonNull;
 
 public final class ThriftMetastoreUtil
 {
+    private static final Logger log = Logger.get(ThriftMetastoreUtil.class);
+
     private static final JsonCodec<LanguageFunction> LANGUAGE_FUNCTION_CODEC = jsonCodec(LanguageFunction.class);
     private static final String PUBLIC_ROLE_NAME = "public";
     private static final String ADMIN_ROLE_NAME = "admin";
@@ -533,7 +536,7 @@ public final class ThriftMetastoreUtil
      * Both formats store values as seconds since epoch in HMS, which we convert to microseconds
      * for Trino's internal representation.
      */
-    public static HiveColumnStatistics fromMetastoreApiColumnStatistics(ColumnStatisticsObj columnStatistics)
+    public static HiveColumnStatistics fromMetastoreApiColumnStatistics(String databaseName, String tableName, ColumnStatisticsObj columnStatistics)
     {
         if (columnStatistics.getStatsData().isSetLongStats()) {
             LongColumnStatsData longStatsData = columnStatistics.getStatsData().getLongStats();
@@ -623,7 +626,17 @@ public final class ThriftMetastoreUtil
             OptionalLong distinctValuesWithNullCount = timestampStatsData.isSetNumDVs() ? OptionalLong.of(timestampStatsData.getNumDVs()) : OptionalLong.empty();
             return createIntegerColumnStatistics(min, max, nullsCount, distinctValuesWithNullCount);
         }
-        throw new TrinoException(HIVE_INVALID_METADATA, "Invalid column statistics data: " + columnStatistics);
+        log.warn("Unsupported column statistics data in table %s.%s: %s", databaseName, tableName, columnStatistics);
+        return new HiveColumnStatistics(
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                OptionalLong.empty(),
+                OptionalDouble.empty(),
+                OptionalLong.empty(),
+                OptionalLong.empty());
     }
 
     private static Optional<LocalDate> fromMetastoreDate(Date date)

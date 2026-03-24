@@ -275,7 +275,7 @@ public class TestThriftMetastoreUtil
         longColumnStatsData.setNumNulls(1);
         longColumnStatsData.setNumDVs(20);
         ColumnStatisticsObj columnStatisticsObj = new ColumnStatisticsObj("my_col", BIGINT_TYPE_NAME, longStats(longColumnStatsData));
-        HiveColumnStatistics actual = fromMetastoreApiColumnStatistics(columnStatisticsObj);
+        HiveColumnStatistics actual = fromMetastoreApiColumnStatistics("fake_db", "fake_tbl", columnStatisticsObj);
 
         assertThat(actual).isEqualTo(HiveColumnStatistics.builder()
                 .setIntegerStatistics(new IntegerStatistics(OptionalLong.of(0), OptionalLong.of(100)))
@@ -289,7 +289,7 @@ public class TestThriftMetastoreUtil
     {
         LongColumnStatsData emptyLongColumnStatsData = new LongColumnStatsData();
         ColumnStatisticsObj columnStatisticsObj = new ColumnStatisticsObj("my_col", BIGINT_TYPE_NAME, longStats(emptyLongColumnStatsData));
-        HiveColumnStatistics actual = fromMetastoreApiColumnStatistics(columnStatisticsObj);
+        HiveColumnStatistics actual = fromMetastoreApiColumnStatistics("fake_db", "fake_tbl", columnStatisticsObj);
 
         assertThat(actual).isEqualTo(HiveColumnStatistics.builder()
                 .setIntegerStatistics(new IntegerStatistics(OptionalLong.empty(), OptionalLong.empty()))
@@ -305,7 +305,7 @@ public class TestThriftMetastoreUtil
         doubleColumnStatsData.setNumNulls(1);
         doubleColumnStatsData.setNumDVs(20);
         ColumnStatisticsObj columnStatisticsObj = new ColumnStatisticsObj("my_col", DOUBLE_TYPE_NAME, doubleStats(doubleColumnStatsData));
-        HiveColumnStatistics actual = fromMetastoreApiColumnStatistics(columnStatisticsObj);
+        HiveColumnStatistics actual = fromMetastoreApiColumnStatistics("fake_db", "fake_tbl", columnStatisticsObj);
 
         assertThat(actual).isEqualTo(HiveColumnStatistics.builder()
                 .setDoubleStatistics(new DoubleStatistics(OptionalDouble.of(0), OptionalDouble.of(100)))
@@ -319,7 +319,7 @@ public class TestThriftMetastoreUtil
     {
         DoubleColumnStatsData emptyDoubleColumnStatsData = new DoubleColumnStatsData();
         ColumnStatisticsObj columnStatisticsObj = new ColumnStatisticsObj("my_col", DOUBLE_TYPE_NAME, doubleStats(emptyDoubleColumnStatsData));
-        HiveColumnStatistics actual = fromMetastoreApiColumnStatistics(columnStatisticsObj);
+        HiveColumnStatistics actual = fromMetastoreApiColumnStatistics("fake_db", "fake_tbl", columnStatisticsObj);
 
         assertThat(actual).isEqualTo(HiveColumnStatistics.builder()
                 .setDoubleStatistics(new DoubleStatistics(OptionalDouble.empty(), OptionalDouble.empty()))
@@ -337,7 +337,7 @@ public class TestThriftMetastoreUtil
         decimalColumnStatsData.setNumNulls(1);
         decimalColumnStatsData.setNumDVs(20);
         ColumnStatisticsObj columnStatisticsObj = new ColumnStatisticsObj("my_col", DECIMAL_TYPE_NAME, decimalStats(decimalColumnStatsData));
-        HiveColumnStatistics actual = fromMetastoreApiColumnStatistics(columnStatisticsObj);
+        HiveColumnStatistics actual = fromMetastoreApiColumnStatistics("fake_db", "fake_tbl", columnStatisticsObj);
 
         assertThat(actual).isEqualTo(HiveColumnStatistics.builder()
                 .setDecimalStatistics(new DecimalStatistics(Optional.of(low), Optional.of(high)))
@@ -351,7 +351,7 @@ public class TestThriftMetastoreUtil
     {
         DecimalColumnStatsData emptyDecimalColumnStatsData = new DecimalColumnStatsData();
         ColumnStatisticsObj columnStatisticsObj = new ColumnStatisticsObj("my_col", DECIMAL_TYPE_NAME, decimalStats(emptyDecimalColumnStatsData));
-        HiveColumnStatistics actual = fromMetastoreApiColumnStatistics(columnStatisticsObj);
+        HiveColumnStatistics actual = fromMetastoreApiColumnStatistics("fake_db", "fake_tbl", columnStatisticsObj);
 
         assertThat(actual).isEqualTo(HiveColumnStatistics.builder()
                 .setDecimalStatistics(new DecimalStatistics(Optional.empty(), Optional.empty()))
@@ -366,7 +366,7 @@ public class TestThriftMetastoreUtil
         booleanColumnStatsData.setNumFalses(10);
         booleanColumnStatsData.setNumNulls(0);
         ColumnStatisticsObj columnStatisticsObj = new ColumnStatisticsObj("my_col", BOOLEAN_TYPE_NAME, booleanStats(booleanColumnStatsData));
-        HiveColumnStatistics actual = fromMetastoreApiColumnStatistics(columnStatisticsObj);
+        HiveColumnStatistics actual = fromMetastoreApiColumnStatistics("fake_db", "fake_tbl", columnStatisticsObj);
 
         assertThat(actual).isEqualTo(HiveColumnStatistics.builder()
                 .setBooleanStatistics(new BooleanStatistics(OptionalLong.of(100), OptionalLong.of(10)))
@@ -379,7 +379,7 @@ public class TestThriftMetastoreUtil
     {
         BooleanColumnStatsData statsData = new BooleanColumnStatsData(1L, -1L, 2L);
         ColumnStatisticsObj columnStatisticsObj = new ColumnStatisticsObj("my_col", BOOLEAN_TYPE_NAME, booleanStats(statsData));
-        HiveColumnStatistics actual = fromMetastoreApiColumnStatistics(columnStatisticsObj);
+        HiveColumnStatistics actual = fromMetastoreApiColumnStatistics("fake_db", "fake_tbl", columnStatisticsObj);
 
         assertThat(actual).isEqualTo(HiveColumnStatistics.builder()
                 .setBooleanStatistics(new BooleanStatistics(OptionalLong.empty(), OptionalLong.empty()))
@@ -392,7 +392,7 @@ public class TestThriftMetastoreUtil
     {
         BooleanColumnStatsData emptyBooleanColumnStatsData = new BooleanColumnStatsData();
         ColumnStatisticsObj columnStatisticsObj = new ColumnStatisticsObj("my_col", BOOLEAN_TYPE_NAME, booleanStats(emptyBooleanColumnStatsData));
-        HiveColumnStatistics actual = fromMetastoreApiColumnStatistics(columnStatisticsObj);
+        HiveColumnStatistics actual = fromMetastoreApiColumnStatistics("fake_db", "fake_tbl", columnStatisticsObj);
 
         assertThat(actual).isEqualTo(HiveColumnStatistics.builder()
                 .setBooleanStatistics(new BooleanStatistics(OptionalLong.empty(), OptionalLong.empty()))
@@ -408,7 +408,7 @@ public class TestThriftMetastoreUtil
         dateColumnStatsData.setNumNulls(1);
         dateColumnStatsData.setNumDVs(20);
         ColumnStatisticsObj columnStatisticsObj = new ColumnStatisticsObj("my_col", DATE_TYPE_NAME, dateStats(dateColumnStatsData));
-        HiveColumnStatistics actual = fromMetastoreApiColumnStatistics(columnStatisticsObj);
+        HiveColumnStatistics actual = fromMetastoreApiColumnStatistics("fake_db", "fake_tbl", columnStatisticsObj);
 
         assertThat(actual).isEqualTo(HiveColumnStatistics.builder()
                 .setDateStatistics(new DateStatistics(Optional.of(LocalDate.ofEpochDay(1000)), Optional.of(LocalDate.ofEpochDay(2000))))
@@ -422,7 +422,7 @@ public class TestThriftMetastoreUtil
     {
         DateColumnStatsData emptyDateColumnStatsData = new DateColumnStatsData();
         ColumnStatisticsObj columnStatisticsObj = new ColumnStatisticsObj("my_col", DATE_TYPE_NAME, dateStats(emptyDateColumnStatsData));
-        HiveColumnStatistics actual = fromMetastoreApiColumnStatistics(columnStatisticsObj);
+        HiveColumnStatistics actual = fromMetastoreApiColumnStatistics("fake_db", "fake_tbl", columnStatisticsObj);
 
         assertThat(actual).isEqualTo(HiveColumnStatistics.builder()
                 .setDateStatistics(new DateStatistics(Optional.empty(), Optional.empty()))
@@ -438,7 +438,7 @@ public class TestThriftMetastoreUtil
         stringColumnStatsData.setNumNulls(1);
         stringColumnStatsData.setNumDVs(20);
         ColumnStatisticsObj columnStatisticsObj = new ColumnStatisticsObj("my_col", STRING_TYPE_NAME, stringStats(stringColumnStatsData));
-        HiveColumnStatistics actual = fromMetastoreApiColumnStatistics(columnStatisticsObj);
+        HiveColumnStatistics actual = fromMetastoreApiColumnStatistics("fake_db", "fake_tbl", columnStatisticsObj);
 
         assertThat(actual).isEqualTo(HiveColumnStatistics.builder()
                 .setMaxValueSizeInBytes(100)
@@ -453,7 +453,7 @@ public class TestThriftMetastoreUtil
     {
         StringColumnStatsData emptyStringColumnStatsData = new StringColumnStatsData();
         ColumnStatisticsObj columnStatisticsObj = new ColumnStatisticsObj("my_col", STRING_TYPE_NAME, stringStats(emptyStringColumnStatsData));
-        HiveColumnStatistics actual = fromMetastoreApiColumnStatistics(columnStatisticsObj);
+        HiveColumnStatistics actual = fromMetastoreApiColumnStatistics("fake_db", "fake_tbl", columnStatisticsObj);
 
         assertThat(actual).isEqualTo(HiveColumnStatistics.builder().build());
     }
@@ -466,7 +466,7 @@ public class TestThriftMetastoreUtil
         binaryColumnStatsData.setAvgColLen(22.2);
         binaryColumnStatsData.setNumNulls(2);
         ColumnStatisticsObj columnStatisticsObj = new ColumnStatisticsObj("my_col", BINARY_TYPE_NAME, binaryStats(binaryColumnStatsData));
-        HiveColumnStatistics actual = fromMetastoreApiColumnStatistics(columnStatisticsObj);
+        HiveColumnStatistics actual = fromMetastoreApiColumnStatistics("fake_db", "fake_tbl", columnStatisticsObj);
 
         assertThat(actual).isEqualTo(HiveColumnStatistics.builder()
                 .setMaxValueSizeInBytes(100)
@@ -480,7 +480,7 @@ public class TestThriftMetastoreUtil
     {
         BinaryColumnStatsData emptyBinaryColumnStatsData = new BinaryColumnStatsData();
         ColumnStatisticsObj columnStatisticsObj = new ColumnStatisticsObj("my_col", BINARY_TYPE_NAME, binaryStats(emptyBinaryColumnStatsData));
-        HiveColumnStatistics actual = fromMetastoreApiColumnStatistics(columnStatisticsObj);
+        HiveColumnStatistics actual = fromMetastoreApiColumnStatistics("fake_db", "fake_tbl", columnStatisticsObj);
 
         assertThat(actual).isEqualTo(HiveColumnStatistics.builder().build());
     }
@@ -492,7 +492,7 @@ public class TestThriftMetastoreUtil
         doubleColumnStatsData.setNumNulls(10);
         doubleColumnStatsData.setNumDVs(1);
         ColumnStatisticsObj columnStatisticsObj = new ColumnStatisticsObj("my_col", DOUBLE_TYPE_NAME, doubleStats(doubleColumnStatsData));
-        HiveColumnStatistics actual = fromMetastoreApiColumnStatistics(columnStatisticsObj);
+        HiveColumnStatistics actual = fromMetastoreApiColumnStatistics("fake_db", "fake_tbl", columnStatisticsObj);
 
         assertThat(actual.getNullsCount()).isEqualTo(OptionalLong.of(10));
         assertThat(actual.getDistinctValuesWithNullCount()).isEqualTo(OptionalLong.of(1));
@@ -501,7 +501,7 @@ public class TestThriftMetastoreUtil
         doubleColumnStatsData.setNumNulls(10);
         doubleColumnStatsData.setNumDVs(1);
         columnStatisticsObj = new ColumnStatisticsObj("my_col", DOUBLE_TYPE_NAME, doubleStats(doubleColumnStatsData));
-        actual = fromMetastoreApiColumnStatistics(columnStatisticsObj);
+        actual = fromMetastoreApiColumnStatistics("fake_db", "fake_tbl", columnStatisticsObj);
 
         assertThat(actual.getNullsCount()).isEqualTo(OptionalLong.of(10));
         assertThat(actual.getDistinctValuesWithNullCount()).isEqualTo(OptionalLong.of(1));
