@@ -336,6 +336,7 @@ public class TestDeltaLakeNodeLocalDynamicSplitPruning
                 getSession(deltaLakeConfig),
                 split,
                 tableHandle.connectorHandle(),
+                Optional.empty(),
                 columns,
                 dynamicFilter);
     }

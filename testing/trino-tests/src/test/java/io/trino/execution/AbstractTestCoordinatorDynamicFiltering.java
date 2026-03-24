@@ -33,6 +33,7 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.connector.ConnectorSplitManager;
 import io.trino.spi.connector.ConnectorSplitSource;
+import io.trino.spi.connector.ConnectorTableCredentials;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.Constraint;
@@ -56,6 +57,7 @@ import org.junit.jupiter.api.parallel.Execution;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -619,6 +621,7 @@ public abstract class AbstractTestCoordinatorDynamicFiltering
                         ConnectorSession session,
                         ConnectorSplit split,
                         ConnectorTableHandle table,
+                        Optional<ConnectorTableCredentials> tableCredentials,
                         List<ColumnHandle> columns,
                         DynamicFilter dynamicFilter)
                 {

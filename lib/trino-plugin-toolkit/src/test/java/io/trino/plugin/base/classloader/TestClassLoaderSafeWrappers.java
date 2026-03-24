@@ -27,10 +27,13 @@ import io.trino.spi.connector.ConnectorPageSinkProvider;
 import io.trino.spi.connector.ConnectorPageSourceProvider;
 import io.trino.spi.connector.ConnectorRecordSetProvider;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.connector.ConnectorSplitManager;
 import io.trino.spi.connector.ConnectorSplitSource;
 import io.trino.spi.connector.ConnectorTableExecuteHandle;
+import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTransactionHandle;
+import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.RecordSet;
 import io.trino.spi.connector.SystemTable;
 import io.trino.spi.eventlistener.EventListener;
@@ -42,6 +45,7 @@ import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Method;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Set;
 import java.util.stream.Stream;
 
@@ -64,7 +68,8 @@ public class TestClassLoaderSafeWrappers
                 ClassLoaderSafeConnectorPageSinkProvider.class.getMethod("createPageSink", ConnectorTransactionHandle.class, ConnectorSession.class, ConnectorInsertTableHandle.class, ConnectorPageSinkId.class),
                 ClassLoaderSafeConnectorPageSinkProvider.class.getMethod("createPageSink", ConnectorTransactionHandle.class, ConnectorSession.class, ConnectorTableExecuteHandle.class, ConnectorPageSinkId.class),
                 ClassLoaderSafeConnectorPageSinkProvider.class.getMethod("createMergeSink", ConnectorTransactionHandle.class, ConnectorSession.class, ConnectorMergeTableHandle.class, ConnectorPageSinkId.class)));
-        testClassLoaderSafe(ConnectorPageSourceProvider.class, ClassLoaderSafeConnectorPageSourceProvider.class);
+        testClassLoaderSafe(ConnectorPageSourceProvider.class, ClassLoaderSafeConnectorPageSourceProvider.class, ImmutableSet.of(
+                ClassLoaderSafeConnectorPageSourceProvider.class.getMethod("createPageSource", ConnectorTransactionHandle.class, ConnectorSession.class, ConnectorSplit.class, ConnectorTableHandle.class, List.class, DynamicFilter.class)));
         testClassLoaderSafe(ConnectorSplitManager.class, ClassLoaderSafeConnectorSplitManager.class);
         testClassLoaderSafe(ConnectorNodePartitioningProvider.class, ClassLoaderSafeNodePartitioningProvider.class);
         testClassLoaderSafe(ConnectorSplitSource.class, ClassLoaderSafeConnectorSplitSource.class);
