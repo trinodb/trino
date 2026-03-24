@@ -35,12 +35,17 @@ import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.security.PrincipalType;
 import io.trino.spi.security.TrinoPrincipal;
 import org.junit.jupiter.api.Test;
+import software.amazon.awssdk.retries.api.BackoffStrategy;
 import software.amazon.awssdk.services.glue.GlueClient;
+import software.amazon.awssdk.services.glue.GlueClientBuilder;
+import software.amazon.awssdk.services.glue.model.ConcurrentModificationException;
+import software.amazon.awssdk.services.glue.model.ThrottlingException;
 
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -86,7 +91,7 @@ public class TestTrinoGlueCatalog
 
     private TrinoCatalog createGlueTrinoCatalog(boolean useUniqueTableLocations, boolean useSystemSecurity)
     {
-        GlueClient glueClient = GlueClient.create();
+        GlueClient glueClient = createGlueClient();
         IcebergGlueCatalogConfig catalogConfig = new IcebergGlueCatalogConfig();
         return new TrinoGlueCatalog(
                 new CatalogName("catalog_name"),
@@ -108,6 +113,18 @@ public class TestTrinoGlueCatalog
                 useUniqueTableLocations,
                 new IcebergConfig().isHideMaterializedViewStorageTable(),
                 directExecutor());
+    }
+
+    private static GlueClient createGlueClient()
+    {
+        GlueClientBuilder glue = GlueClient.builder();
+
+        glue.overrideConfiguration(builder -> builder
+                .retryStrategy(retryBuilder -> retryBuilder
+                        .retryOnException(throwable -> throwable instanceof ConcurrentModificationException || throwable instanceof ThrottlingException)
+                        .backoffStrategy(BackoffStrategy.exponentialDelay(Duration.ofMillis(20), Duration.ofMillis(1500)))
+                        .maxAttempts(10)));
+        return glue.build();
     }
 
     /**
