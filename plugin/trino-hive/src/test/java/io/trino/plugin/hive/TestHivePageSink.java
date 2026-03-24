@@ -480,7 +480,7 @@ public class TestHivePageSink
                 new HiveLocationService(HDFS_FILE_SYSTEM_FACTORY, config),
                 partitionUpdateCodec,
                 stats);
-        return provider.createPageSink(transaction, getHiveSession(config), handle, TESTING_PAGE_SINK_ID);
+        return provider.createPageSink(transaction, getHiveSession(config), handle, Optional.empty(), TESTING_PAGE_SINK_ID);
     }
 
     private static List<HiveColumnHandle> getColumnHandles()

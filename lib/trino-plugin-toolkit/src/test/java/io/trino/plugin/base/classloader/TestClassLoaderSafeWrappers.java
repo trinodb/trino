@@ -13,16 +13,24 @@
  */
 package io.trino.plugin.base.classloader;
 
+import com.google.common.collect.ImmutableSet;
 import io.trino.spi.connector.ConnectorAccessControl;
+import io.trino.spi.connector.ConnectorInsertTableHandle;
 import io.trino.spi.connector.ConnectorMergeSink;
+import io.trino.spi.connector.ConnectorMergeTableHandle;
 import io.trino.spi.connector.ConnectorMetadata;
 import io.trino.spi.connector.ConnectorNodePartitioningProvider;
+import io.trino.spi.connector.ConnectorOutputTableHandle;
 import io.trino.spi.connector.ConnectorPageSink;
+import io.trino.spi.connector.ConnectorPageSinkId;
 import io.trino.spi.connector.ConnectorPageSinkProvider;
 import io.trino.spi.connector.ConnectorPageSourceProvider;
 import io.trino.spi.connector.ConnectorRecordSetProvider;
+import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplitManager;
 import io.trino.spi.connector.ConnectorSplitSource;
+import io.trino.spi.connector.ConnectorTableExecuteHandle;
+import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.RecordSet;
 import io.trino.spi.connector.SystemTable;
 import io.trino.spi.eventlistener.EventListener;
@@ -51,7 +59,11 @@ public class TestClassLoaderSafeWrappers
         testClassLoaderSafe(ConnectorMetadata.class, ClassLoaderSafeConnectorMetadata.class);
         testClassLoaderSafe(ConnectorMergeSink.class, ClassLoaderSafeConnectorMergeSink.class);
         testClassLoaderSafe(ConnectorPageSink.class, ClassLoaderSafeConnectorPageSink.class);
-        testClassLoaderSafe(ConnectorPageSinkProvider.class, ClassLoaderSafeConnectorPageSinkProvider.class);
+        testClassLoaderSafe(ConnectorPageSinkProvider.class, ClassLoaderSafeConnectorPageSinkProvider.class, ImmutableSet.of(
+                ClassLoaderSafeConnectorPageSinkProvider.class.getMethod("createPageSink", ConnectorTransactionHandle.class, ConnectorSession.class, ConnectorOutputTableHandle.class, ConnectorPageSinkId.class),
+                ClassLoaderSafeConnectorPageSinkProvider.class.getMethod("createPageSink", ConnectorTransactionHandle.class, ConnectorSession.class, ConnectorInsertTableHandle.class, ConnectorPageSinkId.class),
+                ClassLoaderSafeConnectorPageSinkProvider.class.getMethod("createPageSink", ConnectorTransactionHandle.class, ConnectorSession.class, ConnectorTableExecuteHandle.class, ConnectorPageSinkId.class),
+                ClassLoaderSafeConnectorPageSinkProvider.class.getMethod("createMergeSink", ConnectorTransactionHandle.class, ConnectorSession.class, ConnectorMergeTableHandle.class, ConnectorPageSinkId.class)));
         testClassLoaderSafe(ConnectorPageSourceProvider.class, ClassLoaderSafeConnectorPageSourceProvider.class);
         testClassLoaderSafe(ConnectorSplitManager.class, ClassLoaderSafeConnectorSplitManager.class);
         testClassLoaderSafe(ConnectorNodePartitioningProvider.class, ClassLoaderSafeNodePartitioningProvider.class);

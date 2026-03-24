@@ -33,6 +33,7 @@ import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.OptionalDouble;
 import java.util.OptionalLong;
 
@@ -181,6 +182,7 @@ public class TestMemoryPagesStore
                 MemoryTransactionHandle.INSTANCE,
                 SESSION,
                 createMemoryInsertTableHandle(tableId, activeTableIds),
+                Optional.empty(),
                 TESTING_PAGE_SINK_ID);
         pageSink.appendPage(page);
         pageSink.finish();
@@ -192,6 +194,7 @@ public class TestMemoryPagesStore
                 MemoryTransactionHandle.INSTANCE,
                 SESSION,
                 createMemoryOutputTableHandle(tableId, activeTableIds),
+                Optional.empty(),
                 TESTING_PAGE_SINK_ID);
         pageSink.finish();
     }
@@ -202,6 +205,7 @@ public class TestMemoryPagesStore
                 MemoryTransactionHandle.INSTANCE,
                 SESSION,
                 createOverwriteMemoryInsertTableHandle(tableId, activeTableIds),
+                Optional.empty(),
                 TESTING_PAGE_SINK_ID);
         pageSink.finish();
     }
