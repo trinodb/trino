@@ -22,6 +22,17 @@ import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 
 public interface ConnectorPageSourceProvider
 {
+    /**
+     * Creates a {@link ConnectorPageSource} for reading data from the specified split.
+     *
+     * @param transaction the transaction handle for this operation
+     * @param session the session in which the read is being performed
+     * @param split the split to read data from
+     * @param table the table handle identifying the table being read
+     * @param tableCredentials credentials for accessing the table data
+     * @param columns columns that should show up in the output page, in this order
+     * @param dynamicFilter optionally remove rows that don't satisfy this predicate
+     */
     default ConnectorPageSource createPageSource(
             ConnectorTransactionHandle transaction,
             ConnectorSession session,
