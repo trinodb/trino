@@ -516,13 +516,14 @@ public class ParquetReader
     private boolean dictionaryPredicateMatch(RowGroupInfo rowGroupInfo)
             throws ParquetCorruptionException
     {
-        for (PrimitiveField field : primitiveFields) {
-            // check presence of indexPredicate and don't eagerly initializePageReader if it's not present
-            if (rowGroupInfo.indexPredicate().isPresent()) {
-                initializePageReader(field);
-                boolean match = columnReaders.get(field.getId()).dictionaryPredicateMatch(rowGroupInfo);
-                if (!match) {
-                    return false;
+        Set<ColumnDescriptor> columnDescriptors = rowGroupInfo.candidateColumnsForDictionaryMatching();
+        if (rowGroupInfo.deferredPredicate().isPresent() && !columnDescriptors.isEmpty()) {
+            for (PrimitiveField field : primitiveFields) {
+                if (columnDescriptors.contains(field.getDescriptor())) {
+                    initializePageReader(field);
+                    if (!columnReaders.get(field.getId()).dictionaryPredicateMatch(rowGroupInfo)) {
+                        return false;
+                    }
                 }
             }
         }

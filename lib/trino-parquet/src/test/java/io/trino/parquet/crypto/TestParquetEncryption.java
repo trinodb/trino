@@ -480,7 +480,9 @@ public final class TestParquetEncryption
             Map<String, List<Integer>> data = readTwoColumnFile(file, new TestingKeyRetriever(Optional.of(KEY_FOOT), Optional.of(KEY_AGE), Optional.of(KEY_ID)), domainAge, predicateAge);
 
             // Should be filtered by dictionary filtering in reader
-            assertThat(data).containsValues(List.of(), List.of());
+            assertThat(data)
+                    .containsEntry("age", List.of())
+                    .containsEntry("id", List.of());
 
             // ——— Predicate on inaccessible column (id = missingId) → should fail (no column key) ———
             TupleDomain<ColumnDescriptor> domainId = TupleDomain.withColumnDomains(ImmutableMap.of(id, singleValue(INTEGER, (long) missingId)));

@@ -105,16 +105,16 @@ public abstract class AbstractColumnReader<BufferType>
             throws ParquetCorruptionException
     {
         checkState(hasPageReader(), "Don't have a pageReader yet, invoke setPageReader() first");
-        Optional<TupleDomainParquetPredicate> indexPredicate = rowGroupInfo.indexPredicate();
-        Optional<Set<ColumnDescriptor>> candidateColumnsForDictionaryMatching = rowGroupInfo.candidateColumnsForDictionaryMatching();
-        if (indexPredicate.isPresent() && candidateColumnsForDictionaryMatching.isPresent()) {
+        Optional<TupleDomainParquetPredicate> deferredPredicate = rowGroupInfo.deferredPredicate();
+        Set<ColumnDescriptor> candidateColumnsForDictionaryMatching = rowGroupInfo.candidateColumnsForDictionaryMatching();
+        if (deferredPredicate.isPresent()) {
             ColumnDescriptor descriptor = field.getDescriptor();
             PrunedBlockMetadata prunedBlockMetadata = rowGroupInfo.prunedBlockMetadata();
             ColumnChunkMetadata columnMetaData = prunedBlockMetadata.getColumnChunkMetaData(descriptor);
-            if (candidateColumnsForDictionaryMatching.get().contains(descriptor) && isOnlyDictionaryEncodingPages(columnMetaData)) {
+            if (candidateColumnsForDictionaryMatching.contains(descriptor) && isOnlyDictionaryEncodingPages(columnMetaData)) {
                 Statistics<?> columnStatistics = columnMetaData.getStatistics();
                 boolean nullAllowed = columnStatistics == null || columnStatistics.getNumNulls() != 0;
-                return indexPredicate.get().matches(new DictionaryDescriptor(
+                return deferredPredicate.get().matches(new DictionaryDescriptor(
                         descriptor,
                         nullAllowed,
                         Optional.ofNullable(dictionaryPage)));

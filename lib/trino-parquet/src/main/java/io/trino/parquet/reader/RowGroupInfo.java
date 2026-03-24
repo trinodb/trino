@@ -24,6 +24,7 @@ import java.util.Set;
 public record RowGroupInfo(PrunedBlockMetadata prunedBlockMetadata,
                            long fileRowOffset,
                            Optional<ColumnIndexStore> columnIndexStore,
-                           Optional<TupleDomainParquetPredicate> indexPredicate,
-                           Optional<Set<ColumnDescriptor>> candidateColumnsForDictionaryMatching)
+                           // Predicate that could not be fully evaluated during row group filtering and is deferred to the reader
+                           Optional<TupleDomainParquetPredicate> deferredPredicate,
+                           Set<ColumnDescriptor> candidateColumnsForDictionaryMatching)
 {}

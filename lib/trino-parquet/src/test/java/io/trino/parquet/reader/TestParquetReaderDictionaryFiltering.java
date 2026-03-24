@@ -88,11 +88,11 @@ public class TestParquetReaderDictionaryFiltering
                             "int_col", Domain.multipleValues(INTEGER, ImmutableList.of(6L))));
             assertDictionaryFiltered(dataSource, parquetMetadata, types, columnNames, predicateDomain, 0, totalRowGroups);
 
-            // 1 < int_col < 5, overlapping range with dictionary values --> All rows read, no rowgroups filtered out
+            // 5 < int_col < 10, overlaps with min/max stats but no dictionary values in range --> No rows read, all rowgroups filtered out
             predicateDomain = TupleDomain.withColumnDomains(
                     ImmutableMap.of(
-                            "int_col", Domain.create(ValueSet.ofRanges(Range.greaterThan(INTEGER, 1L), Range.lessThan(INTEGER, 5L)), false)));
-            assertDictionaryFiltered(dataSource, parquetMetadata, types, columnNames, predicateDomain, totalRows, 0);
+                            "int_col", Domain.create(ValueSet.ofRanges(Range.range(INTEGER, 5L, false, 10L, false)), false)));
+            assertDictionaryFiltered(dataSource, parquetMetadata, types, columnNames, predicateDomain, 0, totalRowGroups);
 
             // varchar_col="varchar-11", not present in dictionary --> No rows read, all rowgroups filtered out
             predicateDomain = TupleDomain.withColumnDomains(

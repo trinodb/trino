@@ -146,7 +146,7 @@ public final class PredicateUtils
             return PredicateMatchResult.FALSE_WITH_DICT_MATCHING_NOT_NEEDED;
         }
 
-        return new PredicateMatchResult(true, Optional.of(indexPredicate), Optional.of(ImmutableSet.copyOf(candidateColumns.get())));
+        return new PredicateMatchResult(true, Optional.of(indexPredicate), ImmutableSet.copyOf(candidateColumns.get()));
     }
 
     public static List<RowGroupInfo> getFilteredRowGroups(
@@ -181,7 +181,7 @@ public final class PredicateUtils
                         timeZone,
                         domainCompactionThreshold);
                 if (predicateMatchResult.matchesWithoutDictionary()) {
-                    rowGroupInfoBuilder.add(new RowGroupInfo(columnsMetadata, block.fileRowCountOffset(), columnIndex, predicateMatchResult.indexPredicate(), predicateMatchResult.candidateColumnsForDictionaryMatching()));
+                    rowGroupInfoBuilder.add(new RowGroupInfo(columnsMetadata, block.fileRowCountOffset(), columnIndex, predicateMatchResult.deferredPredicate(), predicateMatchResult.candidateColumnsForDictionaryMatching()));
                     break;
                 }
             }
@@ -214,9 +214,9 @@ public final class PredicateUtils
         return columnValueCounts.buildOrThrow();
     }
 
-    private record PredicateMatchResult(boolean matchesWithoutDictionary, Optional<TupleDomainParquetPredicate> indexPredicate, Optional<Set<ColumnDescriptor>> candidateColumnsForDictionaryMatching)
+    private record PredicateMatchResult(boolean matchesWithoutDictionary, Optional<TupleDomainParquetPredicate> deferredPredicate, Set<ColumnDescriptor> candidateColumnsForDictionaryMatching)
     {
-        private static final PredicateMatchResult FALSE_WITH_DICT_MATCHING_NOT_NEEDED = new PredicateMatchResult(false, Optional.empty(), Optional.empty());
-        private static final PredicateMatchResult TRUE_WITH_DICT_MATCHING_NOT_NEEDED = new PredicateMatchResult(true, Optional.empty(), Optional.empty());
+        private static final PredicateMatchResult FALSE_WITH_DICT_MATCHING_NOT_NEEDED = new PredicateMatchResult(false, Optional.empty(), ImmutableSet.of());
+        private static final PredicateMatchResult TRUE_WITH_DICT_MATCHING_NOT_NEEDED = new PredicateMatchResult(true, Optional.empty(), ImmutableSet.of());
     }
 }
