@@ -17,12 +17,14 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.spi.security.ConnectorIdentity;
 import org.apache.iceberg.aws.s3.S3FileIOProperties;
+import org.apache.iceberg.azure.AzureProperties;
 import org.apache.iceberg.gcp.GCPProperties;
 import org.junit.jupiter.api.Test;
 
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
 
+import static io.trino.filesystem.azure.AzureFileSystemConstants.EXTRA_CREDENTIALS_AZURE_SAS_TOKEN_PREFIX;
 import static io.trino.filesystem.gcs.GcsFileSystemConstants.EXTRA_CREDENTIALS_GCS_OAUTH_TOKEN_EXPIRES_AT_PROPERTY;
 import static io.trino.filesystem.gcs.GcsFileSystemConstants.EXTRA_CREDENTIALS_GCS_OAUTH_TOKEN_PROPERTY;
 import static io.trino.filesystem.gcs.GcsFileSystemConstants.EXTRA_CREDENTIALS_GCS_PROJECT_ID_PROPERTY;
@@ -164,5 +166,106 @@ final class TestIcebergRestCatalogFileSystemFactory
 
         ConnectorIdentity identity = capturedIdentity.get();
         assertThat(identity).isSameAs(originalIdentity);
+    }
+
+    @Test
+    void testAzureVendedCredentialsWithSingleAccount()
+    {
+        AtomicReference<ConnectorIdentity> capturedIdentity = new AtomicReference<>();
+        TrinoFileSystemFactory delegate = identity -> {
+            capturedIdentity.set(identity);
+            return null;
+        };
+
+        IcebergRestCatalogConfig config = new IcebergRestCatalogConfig()
+                .setBaseUri("http://localhost")
+                .setVendedCredentialsEnabled(true);
+        IcebergRestCatalogFileSystemFactory factory = new IcebergRestCatalogFileSystemFactory(delegate, config);
+
+        Map<String, String> fileIoProperties = ImmutableMap.of(
+                AzureProperties.ADLS_SAS_TOKEN_PREFIX + "mystorageaccount", "sv=2022-test-sas-token");
+
+        factory.create(ConnectorIdentity.ofUser("test"), fileIoProperties);
+
+        ConnectorIdentity identity = capturedIdentity.get();
+        assertThat(identity).isNotNull();
+        assertThat(identity.getExtraCredentials())
+                .containsEntry(EXTRA_CREDENTIALS_AZURE_SAS_TOKEN_PREFIX + "mystorageaccount", "sv=2022-test-sas-token");
+    }
+
+    @Test
+    void testAzureVendedCredentialsWithMultipleAccounts()
+    {
+        AtomicReference<ConnectorIdentity> capturedIdentity = new AtomicReference<>();
+        TrinoFileSystemFactory delegate = identity -> {
+            capturedIdentity.set(identity);
+            return null;
+        };
+
+        IcebergRestCatalogConfig config = new IcebergRestCatalogConfig()
+                .setBaseUri("http://localhost")
+                .setVendedCredentialsEnabled(true);
+        IcebergRestCatalogFileSystemFactory factory = new IcebergRestCatalogFileSystemFactory(delegate, config);
+
+        Map<String, String> fileIoProperties = ImmutableMap.of(
+                AzureProperties.ADLS_SAS_TOKEN_PREFIX + "account1", "sas-token-1",
+                AzureProperties.ADLS_SAS_TOKEN_PREFIX + "account2", "sas-token-2");
+
+        factory.create(ConnectorIdentity.ofUser("test"), fileIoProperties);
+
+        ConnectorIdentity identity = capturedIdentity.get();
+        assertThat(identity).isNotNull();
+        assertThat(identity.getExtraCredentials())
+                .containsEntry(EXTRA_CREDENTIALS_AZURE_SAS_TOKEN_PREFIX + "account1", "sas-token-1")
+                .containsEntry(EXTRA_CREDENTIALS_AZURE_SAS_TOKEN_PREFIX + "account2", "sas-token-2");
+    }
+
+    @Test
+    void testAzureVendedCredentialsWithExpiration()
+    {
+        AtomicReference<ConnectorIdentity> capturedIdentity = new AtomicReference<>();
+        TrinoFileSystemFactory delegate = identity -> {
+            capturedIdentity.set(identity);
+            return null;
+        };
+
+        IcebergRestCatalogConfig config = new IcebergRestCatalogConfig()
+                .setBaseUri("http://localhost")
+                .setVendedCredentialsEnabled(true);
+        IcebergRestCatalogFileSystemFactory factory = new IcebergRestCatalogFileSystemFactory(delegate, config);
+
+        Map<String, String> fileIoProperties = ImmutableMap.of(AzureProperties.ADLS_SAS_TOKEN_PREFIX + "mystorageaccount", "sv=2022-test-sas-token");
+
+        factory.create(ConnectorIdentity.ofUser("test"), fileIoProperties);
+
+        ConnectorIdentity identity = capturedIdentity.get();
+        assertThat(identity).isNotNull();
+        assertThat(identity.getExtraCredentials())
+                .containsEntry(EXTRA_CREDENTIALS_AZURE_SAS_TOKEN_PREFIX + "mystorageaccount", "sv=2022-test-sas-token");
+    }
+
+    @Test
+    void testAzureVendedCredentialsDisabled()
+    {
+        AtomicReference<ConnectorIdentity> capturedIdentity = new AtomicReference<>();
+        TrinoFileSystemFactory delegate = identity -> {
+            capturedIdentity.set(identity);
+            return null;
+        };
+
+        IcebergRestCatalogConfig config = new IcebergRestCatalogConfig()
+                .setBaseUri("http://localhost")
+                .setVendedCredentialsEnabled(false);
+        IcebergRestCatalogFileSystemFactory factory = new IcebergRestCatalogFileSystemFactory(delegate, config);
+
+        Map<String, String> fileIoProperties = ImmutableMap.of(
+                AzureProperties.ADLS_SAS_TOKEN_PREFIX + "mystorageaccount", "sv=2022-test-sas-token");
+
+        ConnectorIdentity originalIdentity = ConnectorIdentity.ofUser("test");
+        factory.create(originalIdentity, fileIoProperties);
+
+        ConnectorIdentity identity = capturedIdentity.get();
+        assertThat(identity).isNotNull();
+        assertThat(identity.getExtraCredentials()).isEmpty();
     }
 }

@@ -14,12 +14,20 @@
 package io.trino.filesystem.azure;
 
 import com.azure.storage.blob.BlobContainerClientBuilder;
-import com.azure.storage.file.datalake.DataLakeServiceClientBuilder;
+import com.google.common.collect.ImmutableMap;
+import org.junit.jupiter.api.Test;
 
-public sealed interface AzureAuth
-        permits AzureAuthAccessKey, AzureAuthDefault, AzureAuthOauth, AzureAuthSasToken
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+
+final class TestAzureAuthSasToken
 {
-    void setAuth(String storageAccount, BlobContainerClientBuilder builder);
+    @Test
+    void testMissingSasTokenThrowsException()
+    {
+        AzureAuthSasToken auth = new AzureAuthSasToken(ImmutableMap.of("account1", "sas-token-1"));
 
-    void setAuth(String storageAccount, DataLakeServiceClientBuilder builder);
+        assertThatThrownBy(() -> auth.setAuth("nonexistent", new BlobContainerClientBuilder()))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("No SAS token provided for storage account: nonexistent");
+    }
 }

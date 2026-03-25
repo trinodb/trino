@@ -20,10 +20,13 @@ import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.plugin.iceberg.IcebergFileSystemFactory;
 import io.trino.spi.security.ConnectorIdentity;
 import org.apache.iceberg.aws.s3.S3FileIOProperties;
+import org.apache.iceberg.azure.AzureProperties;
 import org.apache.iceberg.gcp.GCPProperties;
 
 import java.util.Map;
+import java.util.Map.Entry;
 
+import static io.trino.filesystem.azure.AzureFileSystemConstants.EXTRA_CREDENTIALS_AZURE_SAS_TOKEN_PREFIX;
 import static io.trino.filesystem.gcs.GcsFileSystemConstants.EXTRA_CREDENTIALS_GCS_OAUTH_TOKEN_EXPIRES_AT_PROPERTY;
 import static io.trino.filesystem.gcs.GcsFileSystemConstants.EXTRA_CREDENTIALS_GCS_OAUTH_TOKEN_PROPERTY;
 import static io.trino.filesystem.gcs.GcsFileSystemConstants.EXTRA_CREDENTIALS_GCS_PROJECT_ID_PROPERTY;
@@ -66,6 +69,14 @@ public class IcebergRestCatalogFileSystemFactory
                 extraCredentialsBuilder.put(EXTRA_CREDENTIALS_GCS_OAUTH_TOKEN_PROPERTY, fileIoProperties.get(GCPProperties.GCS_OAUTH2_TOKEN));
                 addOptionalProperty(extraCredentialsBuilder, fileIoProperties, GCPProperties.GCS_OAUTH2_TOKEN_EXPIRES_AT, EXTRA_CREDENTIALS_GCS_OAUTH_TOKEN_EXPIRES_AT_PROPERTY);
                 addOptionalProperty(extraCredentialsBuilder, fileIoProperties, GCPProperties.GCS_PROJECT_ID, EXTRA_CREDENTIALS_GCS_PROJECT_ID_PROPERTY);
+            }
+
+            // handle azure
+            for (Entry<String, String> entry : fileIoProperties.entrySet()) {
+                if (entry.getKey().startsWith(AzureProperties.ADLS_SAS_TOKEN_PREFIX)) {
+                    String account = entry.getKey().substring(AzureProperties.ADLS_SAS_TOKEN_PREFIX.length());
+                    extraCredentialsBuilder.put(EXTRA_CREDENTIALS_AZURE_SAS_TOKEN_PREFIX + account, entry.getValue());
+                }
             }
 
             Map<String, String> extraCredentials = extraCredentialsBuilder.buildOrThrow();
