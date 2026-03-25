@@ -292,7 +292,7 @@ public class TestArrayOperators
     }
 
     @Test
-    public void testArrayToJson()
+    public void testArrayToJsonSmoke()
     {
         assertThat(assertions.expression("CAST(a AS JSON)")
                 .binding("a", "CAST(null as ARRAY(BIGINT))"))
@@ -400,7 +400,7 @@ public class TestArrayOperators
     }
 
     @Test
-    public void testJsonToArray()
+    public void testJsonToArraySmoke()
     {
         // special values
         assertThat(assertions.expression("CAST(a AS array(BIGINT))")
@@ -617,6 +617,943 @@ public class TestArrayOperators
         assertTrinoExceptionThrownBy(() -> assertions.expression("CAST(a AS array(DECIMAL(6,2)))")
                 .binding("a", "CAST(ARRAY[12345.12345] as JSON)").evaluate())
                 .hasErrorCode(INVALID_CAST_ARGUMENT);
+    }
+
+    @Test
+    public void testCastJsonToArrayBoolean()
+    {
+        // null JSON -> null array
+        assertThat(assertions.expression("cast(a as ARRAY(BOOLEAN))")
+                .binding("a", "JSON 'null'"))
+                .isNull(new ArrayType(BOOLEAN));
+
+        // empty array
+        assertThat(assertions.expression("cast(a as ARRAY(BOOLEAN))")
+                .binding("a", "JSON '[]'"))
+                .hasType(new ArrayType(BOOLEAN))
+                .matches("CAST(ARRAY[] AS ARRAY(BOOLEAN))");
+
+        // array with boolean elements
+        assertThat(assertions.expression("cast(a as ARRAY(BOOLEAN))")
+                .binding("a", "JSON '[true, false, true]'"))
+                .hasType(new ArrayType(BOOLEAN))
+                .matches("ARRAY[true, false, true]");
+
+        // array with null element
+        assertThat(assertions.expression("cast(a as ARRAY(BOOLEAN))")
+                .binding("a", "JSON '[true, null, false]'"))
+                .hasType(new ArrayType(BOOLEAN))
+                .matches("ARRAY[true, null, false]");
+
+        // array with number elements (0 -> false, non-zero -> true)
+        assertThat(assertions.expression("cast(a as ARRAY(BOOLEAN))")
+                .binding("a", "JSON '[0, 1, 128, -5]'"))
+                .hasType(new ArrayType(BOOLEAN))
+                .matches("ARRAY[false, true, true, true]");
+
+        // array with string elements
+        assertThat(assertions.expression("cast(a as ARRAY(BOOLEAN))")
+                .binding("a", "JSON '[\"true\", \"false\", \"True\"]'"))
+                .hasType(new ArrayType(BOOLEAN))
+                .matches("ARRAY[true, false, true]");
+
+        // non-array JSON should fail
+        assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as ARRAY(BOOLEAN))")
+                .binding("a", "JSON 'true'").evaluate())
+                .hasErrorCode(INVALID_CAST_ARGUMENT);
+
+        // array with invalid string
+        assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as ARRAY(BOOLEAN))")
+                .binding("a", "JSON '[\"abc\"]'").evaluate())
+                .hasErrorCode(INVALID_CAST_ARGUMENT);
+    }
+
+    @Test
+    public void testCastJsonToArrayTinyint()
+    {
+        // null JSON -> null array
+        assertThat(assertions.expression("cast(a as ARRAY(TINYINT))")
+                .binding("a", "JSON 'null'"))
+                .isNull(new ArrayType(TINYINT));
+
+        // empty array
+        assertThat(assertions.expression("cast(a as ARRAY(TINYINT))")
+                .binding("a", "JSON '[]'"))
+                .hasType(new ArrayType(TINYINT))
+                .matches("CAST(ARRAY[] AS ARRAY(TINYINT))");
+
+        // array with elements
+        assertThat(assertions.expression("cast(a as ARRAY(TINYINT))")
+                .binding("a", "JSON '[12, 34, 56]'"))
+                .hasType(new ArrayType(TINYINT))
+                .matches("ARRAY[TINYINT '12', TINYINT '34', TINYINT '56']");
+
+        // array with null element
+        assertThat(assertions.expression("cast(a as ARRAY(TINYINT))")
+                .binding("a", "JSON '[1, null, 3]'"))
+                .hasType(new ArrayType(TINYINT))
+                .matches("ARRAY[TINYINT '1', null, TINYINT '3']");
+
+        // array with decimal numbers (should round)
+        assertThat(assertions.expression("cast(a as ARRAY(TINYINT))")
+                .binding("a", "JSON '[12.9, 42.1]'"))
+                .hasType(new ArrayType(TINYINT))
+                .matches("ARRAY[TINYINT '13', TINYINT '42']");
+
+        // array with extreme values
+        assertThat(assertions.expression("cast(a as ARRAY(TINYINT))")
+                .binding("a", "JSON '[127, -128]'"))
+                .hasType(new ArrayType(TINYINT))
+                .matches("ARRAY[TINYINT '127', TINYINT '-128']");
+
+        // array with boolean values
+        assertThat(assertions.expression("cast(a as ARRAY(TINYINT))")
+                .binding("a", "JSON '[true, false]'"))
+                .hasType(new ArrayType(TINYINT))
+                .matches("ARRAY[TINYINT '1', TINYINT '0']");
+
+        // array with string numbers
+        assertThat(assertions.expression("cast(a as ARRAY(TINYINT))")
+                .binding("a", "JSON '[\"12\", \"34\"]'"))
+                .hasType(new ArrayType(TINYINT))
+                .matches("ARRAY[TINYINT '12', TINYINT '34']");
+
+        // non-array JSON should fail
+        assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as ARRAY(TINYINT))")
+                .binding("a", "JSON '12'").evaluate())
+                .hasErrorCode(INVALID_CAST_ARGUMENT);
+
+        // array with number overflow
+        assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as ARRAY(TINYINT))")
+                .binding("a", "JSON '[1234]'").evaluate())
+                .hasErrorCode(INVALID_CAST_ARGUMENT);
+    }
+
+    @Test
+    public void testCastJsonToArraySmallint()
+    {
+        // null JSON -> null array
+        assertThat(assertions.expression("cast(a as ARRAY(SMALLINT))")
+                .binding("a", "JSON 'null'"))
+                .isNull(new ArrayType(SMALLINT));
+
+        // empty array
+        assertThat(assertions.expression("cast(a as ARRAY(SMALLINT))")
+                .binding("a", "JSON '[]'"))
+                .hasType(new ArrayType(SMALLINT))
+                .matches("CAST(ARRAY[] AS ARRAY(SMALLINT))");
+
+        // array with elements
+        assertThat(assertions.expression("cast(a as ARRAY(SMALLINT))")
+                .binding("a", "JSON '[128, 256, 512]'"))
+                .hasType(new ArrayType(SMALLINT))
+                .matches("ARRAY[SMALLINT '128', SMALLINT '256', SMALLINT '512']");
+
+        // array with null element
+        assertThat(assertions.expression("cast(a as ARRAY(SMALLINT))")
+                .binding("a", "JSON '[1, null, 3]'"))
+                .hasType(new ArrayType(SMALLINT))
+                .matches("ARRAY[SMALLINT '1', null, SMALLINT '3']");
+
+        // array with decimal numbers (should round)
+        assertThat(assertions.expression("cast(a as ARRAY(SMALLINT))")
+                .binding("a", "JSON '[128.9, 42.1]'"))
+                .hasType(new ArrayType(SMALLINT))
+                .matches("ARRAY[SMALLINT '129', SMALLINT '42']");
+
+        // array with extreme values
+        assertThat(assertions.expression("cast(a as ARRAY(SMALLINT))")
+                .binding("a", "JSON '[32767, -32768]'"))
+                .hasType(new ArrayType(SMALLINT))
+                .matches("ARRAY[SMALLINT '32767', SMALLINT '-32768']");
+
+        // array with boolean values
+        assertThat(assertions.expression("cast(a as ARRAY(SMALLINT))")
+                .binding("a", "JSON '[true, false]'"))
+                .hasType(new ArrayType(SMALLINT))
+                .matches("ARRAY[SMALLINT '1', SMALLINT '0']");
+
+        // array with string numbers
+        assertThat(assertions.expression("cast(a as ARRAY(SMALLINT))")
+                .binding("a", "JSON '[\"12345\", \"-12345\"]'"))
+                .hasType(new ArrayType(SMALLINT))
+                .matches("ARRAY[SMALLINT '12345', SMALLINT '-12345']");
+
+        // non-array JSON should fail
+        assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as ARRAY(SMALLINT))")
+                .binding("a", "JSON '128'").evaluate())
+                .hasErrorCode(INVALID_CAST_ARGUMENT);
+
+        // array with number overflow
+        assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as ARRAY(SMALLINT))")
+                .binding("a", "JSON '[123456]'").evaluate())
+                .hasErrorCode(INVALID_CAST_ARGUMENT);
+    }
+
+    @Test
+    public void testCastJsonToArrayInteger()
+    {
+        // null JSON -> null array
+        assertThat(assertions.expression("cast(a as ARRAY(INTEGER))")
+                .binding("a", "JSON 'null'"))
+                .isNull(new ArrayType(INTEGER));
+
+        // empty array
+        assertThat(assertions.expression("cast(a as ARRAY(INTEGER))")
+                .binding("a", "JSON '[]'"))
+                .hasType(new ArrayType(INTEGER))
+                .matches("CAST(ARRAY[] AS ARRAY(INTEGER))");
+
+        // array with elements
+        assertThat(assertions.expression("cast(a as ARRAY(INTEGER))")
+                .binding("a", "JSON '[128, 256, 512]'"))
+                .hasType(new ArrayType(INTEGER))
+                .matches("ARRAY[128, 256, 512]");
+
+        // array with null element
+        assertThat(assertions.expression("cast(a as ARRAY(INTEGER))")
+                .binding("a", "JSON '[1, null, 3]'"))
+                .hasType(new ArrayType(INTEGER))
+                .matches("ARRAY[1, null, 3]");
+
+        // array with decimal numbers (should round)
+        assertThat(assertions.expression("cast(a as ARRAY(INTEGER))")
+                .binding("a", "JSON '[128.9, 42.1]'"))
+                .hasType(new ArrayType(INTEGER))
+                .matches("ARRAY[129, 42]");
+
+        // array with extreme values
+        assertThat(assertions.expression("cast(a as ARRAY(INTEGER))")
+                .binding("a", "JSON '[2147483647, -2147483648]'"))
+                .hasType(new ArrayType(INTEGER))
+                .matches("ARRAY[2147483647, -2147483648]");
+
+        // array with boolean values
+        assertThat(assertions.expression("cast(a as ARRAY(INTEGER))")
+                .binding("a", "JSON '[true, false]'"))
+                .hasType(new ArrayType(INTEGER))
+                .matches("ARRAY[1, 0]");
+
+        // array with string numbers
+        assertThat(assertions.expression("cast(a as ARRAY(INTEGER))")
+                .binding("a", "JSON '[\"12345678\", \"-12345678\"]'"))
+                .hasType(new ArrayType(INTEGER))
+                .matches("ARRAY[12345678, -12345678]");
+
+        // non-array JSON should fail
+        assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as ARRAY(INTEGER))")
+                .binding("a", "JSON '128'").evaluate())
+                .hasErrorCode(INVALID_CAST_ARGUMENT);
+
+        // array with number overflow
+        assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as ARRAY(INTEGER))")
+                .binding("a", "JSON '[12345678901]'").evaluate())
+                .hasErrorCode(INVALID_CAST_ARGUMENT);
+    }
+
+    @Test
+    public void testCastJsonToArrayBigint()
+    {
+        // null JSON -> null array
+        assertThat(assertions.expression("cast(a as ARRAY(BIGINT))")
+                .binding("a", "JSON 'null'"))
+                .isNull(new ArrayType(BIGINT));
+
+        // empty array
+        assertThat(assertions.expression("cast(a as ARRAY(BIGINT))")
+                .binding("a", "JSON '[]'"))
+                .hasType(new ArrayType(BIGINT))
+                .matches("CAST(ARRAY[] AS ARRAY(BIGINT))");
+
+        // array with single element
+        assertThat(assertions.expression("cast(a as ARRAY(BIGINT))")
+                .binding("a", "JSON '[128]'"))
+                .hasType(new ArrayType(BIGINT))
+                .matches("ARRAY[BIGINT '128']");
+
+        // array with multiple elements
+        assertThat(assertions.expression("cast(a as ARRAY(BIGINT))")
+                .binding("a", "JSON '[1, 2, 3, 4, 5]'"))
+                .hasType(new ArrayType(BIGINT))
+                .matches("ARRAY[BIGINT '1', BIGINT '2', BIGINT '3', BIGINT '4', BIGINT '5']");
+
+        // array with null element
+        assertThat(assertions.expression("cast(a as ARRAY(BIGINT))")
+                .binding("a", "JSON '[1, null, 3]'"))
+                .hasType(new ArrayType(BIGINT))
+                .matches("ARRAY[BIGINT '1', null, BIGINT '3']");
+
+        // array with decimal numbers (should round)
+        assertThat(assertions.expression("cast(a as ARRAY(BIGINT))")
+                .binding("a", "JSON '[128.9, 42.1]'"))
+                .hasType(new ArrayType(BIGINT))
+                .matches("ARRAY[BIGINT '129', BIGINT '42']");
+
+        // array with extreme values
+        assertThat(assertions.expression("cast(a as ARRAY(BIGINT))")
+                .binding("a", "JSON '[9223372036854775807, -9223372036854775808]'"))
+                .hasType(new ArrayType(BIGINT))
+                .matches("ARRAY[BIGINT '9223372036854775807', BIGINT '-9223372036854775808']");
+
+        // array with boolean values
+        assertThat(assertions.expression("cast(a as ARRAY(BIGINT))")
+                .binding("a", "JSON '[true, false, true]'"))
+                .hasType(new ArrayType(BIGINT))
+                .matches("ARRAY[BIGINT '1', BIGINT '0', BIGINT '1']");
+
+        // array with string numbers
+        assertThat(assertions.expression("cast(a as ARRAY(BIGINT))")
+                .binding("a", "JSON '[\"1234567891234567\", \"-9999999999\"]'"))
+                .hasType(new ArrayType(BIGINT))
+                .matches("ARRAY[BIGINT '1234567891234567', BIGINT '-9999999999']");
+
+        // non-array JSON should fail
+        assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as ARRAY(BIGINT))")
+                .binding("a", "JSON '128'").evaluate())
+                .hasErrorCode(INVALID_CAST_ARGUMENT);
+
+        assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as ARRAY(BIGINT))")
+                .binding("a", "JSON '{\"a\": 1}'").evaluate())
+                .hasErrorCode(INVALID_CAST_ARGUMENT);
+
+        // array with string that cannot be cast to bigint
+        assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as ARRAY(BIGINT))")
+                .binding("a", "JSON '[\"abc\"]'").evaluate())
+                .hasErrorCode(INVALID_CAST_ARGUMENT);
+
+        // array with number overflow
+        assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as ARRAY(BIGINT))")
+                .binding("a", "JSON '[12345678901234567890]'").evaluate())
+                .hasErrorCode(INVALID_CAST_ARGUMENT);
+    }
+
+    @Test
+    public void testCastJsonToArrayReal()
+    {
+        // null JSON -> null array
+        assertThat(assertions.expression("cast(a as ARRAY(REAL))")
+                .binding("a", "JSON 'null'"))
+                .isNull(new ArrayType(REAL));
+
+        // empty array
+        assertThat(assertions.expression("cast(a as ARRAY(REAL))")
+                .binding("a", "JSON '[]'"))
+                .hasType(new ArrayType(REAL))
+                .matches("CAST(ARRAY[] AS ARRAY(REAL))");
+
+        // array with elements
+        assertThat(assertions.expression("cast(a as ARRAY(REAL))")
+                .binding("a", "JSON '[128.9, 42.1, -3.14]'"))
+                .hasType(new ArrayType(REAL))
+                .matches("ARRAY[REAL '128.9', REAL '42.1', REAL '-3.14']");
+
+        // array with null element
+        assertThat(assertions.expression("cast(a as ARRAY(REAL))")
+                .binding("a", "JSON '[1.5, null, 3.7]'"))
+                .hasType(new ArrayType(REAL))
+                .matches("ARRAY[REAL '1.5', null, REAL '3.7']");
+
+        // array with boolean values
+        assertThat(assertions.expression("cast(a as ARRAY(REAL))")
+                .binding("a", "JSON '[true, false]'"))
+                .hasType(new ArrayType(REAL))
+                .matches("ARRAY[REAL '1.0', REAL '0.0']");
+
+        // array with string elements
+        assertThat(assertions.expression("cast(a as ARRAY(REAL))")
+                .binding("a", "JSON '[\"128.9\", \"NaN\", \"Infinity\", \"-Infinity\"]'"))
+                .hasType(new ArrayType(REAL))
+                .matches("ARRAY[REAL '128.9', CAST(nan() AS REAL), CAST(infinity() AS REAL), CAST(-infinity() AS REAL)]");
+
+        // non-array JSON should fail
+        assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as ARRAY(REAL))")
+                .binding("a", "JSON '128.9'").evaluate())
+                .hasErrorCode(INVALID_CAST_ARGUMENT);
+    }
+
+    @Test
+    public void testCastJsonToArrayDouble()
+    {
+        // null JSON -> null array
+        assertThat(assertions.expression("cast(a as ARRAY(DOUBLE))")
+                .binding("a", "JSON 'null'"))
+                .isNull(new ArrayType(DOUBLE));
+
+        // empty array
+        assertThat(assertions.expression("cast(a as ARRAY(DOUBLE))")
+                .binding("a", "JSON '[]'"))
+                .hasType(new ArrayType(DOUBLE))
+                .matches("CAST(ARRAY[] AS ARRAY(DOUBLE))");
+
+        // array with elements
+        assertThat(assertions.expression("cast(a as ARRAY(DOUBLE))")
+                .binding("a", "JSON '[128.9, 42.1, -3.14]'"))
+                .hasType(new ArrayType(DOUBLE))
+                .matches("ARRAY[DOUBLE '128.9', DOUBLE '42.1', DOUBLE '-3.14']");
+
+        // array with null element
+        assertThat(assertions.expression("cast(a as ARRAY(DOUBLE))")
+                .binding("a", "JSON '[1.5, null, 3.7]'"))
+                .hasType(new ArrayType(DOUBLE))
+                .matches("ARRAY[DOUBLE '1.5', null, DOUBLE '3.7']");
+
+        // array with boolean values
+        assertThat(assertions.expression("cast(a as ARRAY(DOUBLE))")
+                .binding("a", "JSON '[true, false]'"))
+                .hasType(new ArrayType(DOUBLE))
+                .matches("ARRAY[DOUBLE '1.0', DOUBLE '0.0']");
+
+        // array with large numbers
+        assertThat(assertions.expression("cast(a as ARRAY(DOUBLE))")
+                .binding("a", "JSON '[12345678901234567890]'"))
+                .hasType(new ArrayType(DOUBLE))
+                .matches("ARRAY[DOUBLE '1.2345678901234567e19']");
+
+        // array with string elements
+        assertThat(assertions.expression("cast(a as ARRAY(DOUBLE))")
+                .binding("a", "JSON '[\"128.9\", \"NaN\", \"Infinity\", \"-Infinity\"]'"))
+                .hasType(new ArrayType(DOUBLE))
+                .matches("ARRAY[DOUBLE '128.9', nan(), infinity(), -infinity()]");
+
+        // non-array JSON should fail
+        assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as ARRAY(DOUBLE))")
+                .binding("a", "JSON '128.9'").evaluate())
+                .hasErrorCode(INVALID_CAST_ARGUMENT);
+    }
+
+    @Test
+    public void testCastJsonToArrayDecimal()
+    {
+        // null JSON -> null array
+        assertThat(assertions.expression("cast(a as ARRAY(DECIMAL(10,3)))")
+                .binding("a", "JSON 'null'"))
+                .isNull(new ArrayType(createDecimalType(10, 3)));
+
+        // empty array
+        assertThat(assertions.expression("cast(a as ARRAY(DECIMAL(10,3)))")
+                .binding("a", "JSON '[]'"))
+                .hasType(new ArrayType(createDecimalType(10, 3)))
+                .matches("CAST(ARRAY[] AS ARRAY(DECIMAL(10,3)))");
+
+        // array with single element
+        assertThat(assertions.expression("cast(a as ARRAY(DECIMAL(10,3)))")
+                .binding("a", "JSON '[128]'"))
+                .hasType(new ArrayType(createDecimalType(10, 3)))
+                .matches("CAST(ARRAY[DECIMAL '128.000'] AS ARRAY(DECIMAL(10,3)))");
+
+        // array with multiple elements
+        assertThat(assertions.expression("cast(a as ARRAY(DECIMAL(10,5)))")
+                .binding("a", "JSON '[123.456, 789.012, 345.678]'"))
+                .hasType(new ArrayType(createDecimalType(10, 5)))
+                .matches("CAST(ARRAY[DECIMAL '123.45600', DECIMAL '789.01200', DECIMAL '345.67800'] AS ARRAY(DECIMAL(10,5)))");
+
+        // array with null element
+        assertThat(assertions.expression("cast(a as ARRAY(DECIMAL(10,3)))")
+                .binding("a", "JSON '[1.5, null, 3.7]'"))
+                .hasType(new ArrayType(createDecimalType(10, 3)))
+                .matches("CAST(ARRAY[DECIMAL '1.500', null, DECIMAL '3.700'] AS ARRAY(DECIMAL(10,3)))");
+
+        // array with boolean values
+        assertThat(assertions.expression("cast(a as ARRAY(DECIMAL(10,5)))")
+                .binding("a", "JSON '[true, false]'"))
+                .hasType(new ArrayType(createDecimalType(10, 5)))
+                .matches("CAST(ARRAY[DECIMAL '1.00000', DECIMAL '0.00000'] AS ARRAY(DECIMAL(10,5)))");
+
+        // array with string numbers
+        assertThat(assertions.expression("cast(a as ARRAY(DECIMAL(10,5)))")
+                .binding("a", "JSON '[\"3.14\", \"123.456\"]'"))
+                .hasType(new ArrayType(createDecimalType(10, 5)))
+                .matches("CAST(ARRAY[DECIMAL '3.14000', DECIMAL '123.45600'] AS ARRAY(DECIMAL(10,5)))");
+
+        // round-trip through JSON cast
+        assertThat(assertions.expression("cast(a as ARRAY(DECIMAL(10,5)))")
+                .binding("a", "CAST(ARRAY[1, 2.0, 3] as JSON)"))
+                .hasType(new ArrayType(createDecimalType(10, 5)))
+                .matches("CAST(ARRAY[DECIMAL '1.00000', DECIMAL '2.00000', DECIMAL '3.00000'] AS ARRAY(DECIMAL(10,5)))");
+
+        assertThat(assertions.expression("cast(a as ARRAY(DECIMAL(38,8)))")
+                .binding("a", "CAST(ARRAY[123456789012345678901234567890.12345678, 1.2] as JSON)"))
+                .hasType(new ArrayType(createDecimalType(38, 8)))
+                .matches("CAST(ARRAY[DECIMAL '123456789012345678901234567890.12345678', DECIMAL '1.20000000'] AS ARRAY(DECIMAL(38,8)))");
+
+        assertThat(assertions.expression("cast(a as ARRAY(DECIMAL(7,2)))")
+                .binding("a", "CAST(ARRAY[12345.87654] as JSON)"))
+                .hasType(new ArrayType(createDecimalType(7, 2)))
+                .matches("CAST(ARRAY[DECIMAL '12345.88'] AS ARRAY(DECIMAL(7,2)))");
+
+        // array with large decimal
+        // TODO precision loss!
+        assertThat(assertions.expression("cast(a as ARRAY(DECIMAL(38,8)))")
+                .binding("a", "JSON '[123456789012345678901234567890.12345678]'"))
+                .hasType(new ArrayType(createDecimalType(38, 8)))
+                .matches("CAST(ARRAY[DECIMAL '123456789012345680000000000000.00000000'] AS ARRAY(DECIMAL(38,8)))");
+
+        // non-array JSON should fail
+        assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as ARRAY(DECIMAL(10,3)))")
+                .binding("a", "JSON '128.9'").evaluate())
+                .hasErrorCode(INVALID_CAST_ARGUMENT);
+
+        assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as ARRAY(DECIMAL(10,3)))")
+                .binding("a", "JSON '{\"a\": 1.5}'").evaluate())
+                .hasErrorCode(INVALID_CAST_ARGUMENT);
+
+        // array with string that cannot be cast to decimal
+        assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as ARRAY(DECIMAL(10,3)))")
+                .binding("a", "JSON '[\"abc\"]'").evaluate())
+                .hasErrorCode(INVALID_CAST_ARGUMENT);
+
+        // array with number overflow
+        assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as ARRAY(DECIMAL(10,3)))")
+                .binding("a", "JSON '[1234567890123456]'").evaluate())
+                .hasErrorCode(INVALID_CAST_ARGUMENT);
+
+        // round-trip with insufficient precision
+        assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as ARRAY(DECIMAL(6,2)))")
+                .binding("a", "CAST(ARRAY[12345.12345] as JSON)").evaluate())
+                .hasErrorCode(INVALID_CAST_ARGUMENT);
+    }
+
+    @Test
+    public void testCastJsonToArrayVarchar()
+    {
+        // null JSON -> null array
+        assertThat(assertions.expression("cast(a as ARRAY(VARCHAR))")
+                .binding("a", "JSON 'null'"))
+                .isNull(new ArrayType(VARCHAR));
+
+        // empty array
+        assertThat(assertions.expression("cast(a as ARRAY(VARCHAR))")
+                .binding("a", "JSON '[]'"))
+                .hasType(new ArrayType(VARCHAR))
+                .matches("CAST(ARRAY[] AS ARRAY(VARCHAR))");
+
+        // array with string elements
+        assertThat(assertions.expression("cast(a as ARRAY(VARCHAR))")
+                .binding("a", "JSON '[\"hello\", \"world\", \"test\"]'"))
+                .hasType(new ArrayType(VARCHAR))
+                .matches("CAST(ARRAY['hello', 'world', 'test'] AS ARRAY(VARCHAR))");
+
+        // array with null element
+        assertThat(assertions.expression("cast(a as ARRAY(VARCHAR))")
+                .binding("a", "JSON '[\"foo\", null, \"bar\"]'"))
+                .hasType(new ArrayType(VARCHAR))
+                .matches("CAST(ARRAY['foo', null, 'bar'] AS ARRAY(VARCHAR))");
+
+        // array with number elements (converted to string)
+        assertThat(assertions.expression("cast(a as ARRAY(VARCHAR))")
+                .binding("a", "JSON '[128, 12345678901234567890]'"))
+                .hasType(new ArrayType(VARCHAR))
+                .matches("CAST(ARRAY['128', '12345678901234567890'] AS ARRAY(VARCHAR))");
+
+        // array with boolean elements
+        assertThat(assertions.expression("cast(a as ARRAY(VARCHAR))")
+                .binding("a", "JSON '[true, false]'"))
+                .hasType(new ArrayType(VARCHAR))
+                .matches("CAST(ARRAY['true', 'false'] AS ARRAY(VARCHAR))");
+
+        // array with empty string
+        assertThat(assertions.expression("cast(a as ARRAY(VARCHAR))")
+                .binding("a", "JSON '[\"test\", \"\", \"data\"]'"))
+                .hasType(new ArrayType(VARCHAR))
+                .matches("CAST(ARRAY['test', '', 'data'] AS ARRAY(VARCHAR))");
+
+        // array with various types including scientific notation and string "null"
+        assertThat(assertions.expression("cast(a as ARRAY(VARCHAR))")
+                .binding("a", "JSON '[true, false, 12, 12.3, 1.23E1, \"puppies\", \"kittens\", \"null\", null]'"))
+                .hasType(new ArrayType(VARCHAR))
+                .matches("CAST(ARRAY['true', 'false', '12', '1.23E1', '1.23E1', 'puppies', 'kittens', 'null', null] AS ARRAY(VARCHAR))");
+
+        // non-array JSON should fail
+        assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as ARRAY(VARCHAR))")
+                .binding("a", "JSON '\"test\"'").evaluate())
+                .hasErrorCode(INVALID_CAST_ARGUMENT);
+
+        assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as ARRAY(VARCHAR))")
+                .binding("a", "JSON '{\"a\": \"test\"}'").evaluate())
+                .hasErrorCode(INVALID_CAST_ARGUMENT);
+    }
+
+    @Test
+    public void testCastJsonToArrayJson()
+    {
+        // null JSON -> null array
+        assertThat(assertions.expression("cast(a as ARRAY(JSON))")
+                .binding("a", "JSON 'null'"))
+                .isNull(new ArrayType(JSON));
+
+        // empty array
+        assertThat(assertions.expression("cast(a as ARRAY(JSON))")
+                .binding("a", "JSON '[]'"))
+                .hasType(new ArrayType(JSON))
+                .matches("CAST(ARRAY[] AS ARRAY(JSON))");
+
+        // array with various JSON elements
+        assertThat(assertions.expression("cast(a as ARRAY(JSON))")
+                .binding("a", "JSON '[5, 3.14, [1, 2, 3], \"e\", {\"a\": \"b\"}, null, \"null\", [null]]'"))
+                .hasType(new ArrayType(JSON))
+                .matches("ARRAY[JSON '5', JSON '3.14', JSON '[1,2,3]', JSON '\"e\"', JSON '{\"a\":\"b\"}', JSON 'null', JSON '\"null\"', JSON '[null]']");
+
+        // non-array JSON should fail
+        assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as ARRAY(JSON))")
+                .binding("a", "JSON '\"test\"'").evaluate())
+                .hasErrorCode(INVALID_CAST_ARGUMENT);
+    }
+
+    @Test
+    public void testCastArrayBooleanToJson()
+    {
+        // null array -> null JSON
+        assertThat(assertions.expression("cast(a as JSON)")
+                .binding("a", "cast(null as ARRAY(BOOLEAN))"))
+                .isNull(JSON);
+
+        // empty array
+        assertThat(assertions.expression("cast(a as JSON)")
+                .binding("a", "CAST(ARRAY[] AS ARRAY(BOOLEAN))"))
+                .hasType(JSON)
+                .isEqualTo("[]");
+
+        // array with elements
+        assertThat(assertions.expression("cast(a as JSON)")
+                .binding("a", "ARRAY[true, false, true]"))
+                .hasType(JSON)
+                .isEqualTo("[true,false,true]");
+
+        // array with null element
+        assertThat(assertions.expression("cast(a as JSON)")
+                .binding("a", "ARRAY[true, null, false]"))
+                .hasType(JSON)
+                .isEqualTo("[true,null,false]");
+
+        // array with all true
+        assertThat(assertions.expression("cast(a as JSON)")
+                .binding("a", "ARRAY[true, true, true]"))
+                .hasType(JSON)
+                .isEqualTo("[true,true,true]");
+
+        // array with all false
+        assertThat(assertions.expression("cast(a as JSON)")
+                .binding("a", "ARRAY[false, false]"))
+                .hasType(JSON)
+                .isEqualTo("[false,false]");
+    }
+
+    @Test
+    public void testCastArrayTinyintToJson()
+    {
+        // null array -> null JSON
+        assertThat(assertions.expression("cast(a as JSON)")
+                .binding("a", "cast(null as ARRAY(TINYINT))"))
+                .isNull(JSON);
+
+        // empty array
+        assertThat(assertions.expression("cast(a as JSON)")
+                .binding("a", "CAST(ARRAY[] AS ARRAY(TINYINT))"))
+                .hasType(JSON)
+                .isEqualTo("[]");
+
+        // array with elements
+        assertThat(assertions.expression("cast(a as JSON)")
+                .binding("a", "ARRAY[TINYINT '12', TINYINT '34', TINYINT '56']"))
+                .hasType(JSON)
+                .isEqualTo("[12,34,56]");
+
+        // array with null element
+        assertThat(assertions.expression("cast(a as JSON)")
+                .binding("a", "ARRAY[TINYINT '1', null, TINYINT '3']"))
+                .hasType(JSON)
+                .isEqualTo("[1,null,3]");
+
+        // array with extreme values
+        assertThat(assertions.expression("cast(a as JSON)")
+                .binding("a", "ARRAY[TINYINT '127', TINYINT '-128']"))
+                .hasType(JSON)
+                .isEqualTo("[127,-128]");
+    }
+
+    @Test
+    public void testCastArraySmallintToJson()
+    {
+        // null array -> null JSON
+        assertThat(assertions.expression("cast(a as JSON)")
+                .binding("a", "cast(null as ARRAY(SMALLINT))"))
+                .isNull(JSON);
+
+        // empty array
+        assertThat(assertions.expression("cast(a as JSON)")
+                .binding("a", "CAST(ARRAY[] AS ARRAY(SMALLINT))"))
+                .hasType(JSON)
+                .isEqualTo("[]");
+
+        // array with elements
+        assertThat(assertions.expression("cast(a as JSON)")
+                .binding("a", "ARRAY[SMALLINT '128', SMALLINT '256', SMALLINT '512']"))
+                .hasType(JSON)
+                .isEqualTo("[128,256,512]");
+
+        // array with null element
+        assertThat(assertions.expression("cast(a as JSON)")
+                .binding("a", "ARRAY[SMALLINT '1', null, SMALLINT '3']"))
+                .hasType(JSON)
+                .isEqualTo("[1,null,3]");
+
+        // array with extreme values
+        assertThat(assertions.expression("cast(a as JSON)")
+                .binding("a", "ARRAY[SMALLINT '32767', SMALLINT '-32768']"))
+                .hasType(JSON)
+                .isEqualTo("[32767,-32768]");
+    }
+
+    @Test
+    public void testCastArrayIntegerToJson()
+    {
+        // null array -> null JSON
+        assertThat(assertions.expression("cast(a as JSON)")
+                .binding("a", "cast(null as ARRAY(INTEGER))"))
+                .isNull(JSON);
+
+        // empty array
+        assertThat(assertions.expression("cast(a as JSON)")
+                .binding("a", "CAST(ARRAY[] AS ARRAY(INTEGER))"))
+                .hasType(JSON)
+                .isEqualTo("[]");
+
+        // array with elements
+        assertThat(assertions.expression("cast(a as JSON)")
+                .binding("a", "ARRAY[128, 256, 512]"))
+                .hasType(JSON)
+                .isEqualTo("[128,256,512]");
+
+        // array with null element
+        assertThat(assertions.expression("cast(a as JSON)")
+                .binding("a", "ARRAY[1, null, 3]"))
+                .hasType(JSON)
+                .isEqualTo("[1,null,3]");
+
+        // array with negative values
+        assertThat(assertions.expression("cast(a as JSON)")
+                .binding("a", "ARRAY[-100, 0, 100]"))
+                .hasType(JSON)
+                .isEqualTo("[-100,0,100]");
+
+        // array with extreme values
+        assertThat(assertions.expression("cast(a as JSON)")
+                .binding("a", "ARRAY[2147483647, -2147483648]"))
+                .hasType(JSON)
+                .isEqualTo("[2147483647,-2147483648]");
+    }
+
+    @Test
+    public void testCastArrayBigintToJson()
+    {
+        // null array -> null JSON
+        assertThat(assertions.expression("cast(a as JSON)")
+                .binding("a", "cast(null as ARRAY(BIGINT))"))
+                .isNull(JSON);
+
+        // empty array
+        assertThat(assertions.expression("cast(a as JSON)")
+                .binding("a", "CAST(ARRAY[] AS ARRAY(BIGINT))"))
+                .hasType(JSON)
+                .isEqualTo("[]");
+
+        // array with single element
+        assertThat(assertions.expression("cast(a as JSON)")
+                .binding("a", "ARRAY[BIGINT '128']"))
+                .hasType(JSON)
+                .isEqualTo("[128]");
+
+        // array with multiple elements
+        assertThat(assertions.expression("cast(a as JSON)")
+                .binding("a", "ARRAY[BIGINT '1', BIGINT '2', BIGINT '3', BIGINT '4', BIGINT '5']"))
+                .hasType(JSON)
+                .isEqualTo("[1,2,3,4,5]");
+
+        // array with null element
+        assertThat(assertions.expression("cast(a as JSON)")
+                .binding("a", "ARRAY[BIGINT '1', null, BIGINT '3']"))
+                .hasType(JSON)
+                .isEqualTo("[1,null,3]");
+
+        // array with negative values
+        assertThat(assertions.expression("cast(a as JSON)")
+                .binding("a", "ARRAY[BIGINT '-100', BIGINT '0', BIGINT '100']"))
+                .hasType(JSON)
+                .isEqualTo("[-100,0,100]");
+
+        // array with extreme values
+        assertThat(assertions.expression("cast(a as JSON)")
+                .binding("a", "ARRAY[BIGINT '9223372036854775807', BIGINT '-9223372036854775808']"))
+                .hasType(JSON)
+                .isEqualTo("[9223372036854775807,-9223372036854775808]");
+    }
+
+    @Test
+    public void testCastArrayRealToJson()
+    {
+        // null array -> null JSON
+        assertThat(assertions.expression("cast(a as JSON)")
+                .binding("a", "cast(null as ARRAY(REAL))"))
+                .isNull(JSON);
+
+        // empty array
+        assertThat(assertions.expression("cast(a as JSON)")
+                .binding("a", "CAST(ARRAY[] AS ARRAY(REAL))"))
+                .hasType(JSON)
+                .isEqualTo("[]");
+
+        // array with elements
+        assertThat(assertions.expression("cast(a as JSON)")
+                .binding("a", "ARRAY[REAL '3.14', REAL '2.71', REAL '1.41']"))
+                .hasType(JSON)
+                .isEqualTo("[3.14,2.71,1.41]");
+
+        // array with null element
+        assertThat(assertions.expression("cast(a as JSON)")
+                .binding("a", "ARRAY[REAL '1.5', null, REAL '3.7']"))
+                .hasType(JSON)
+                .isEqualTo("[1.5,null,3.7]");
+
+        // array with special values
+        assertThat(assertions.expression("cast(a as JSON)")
+                .binding("a", "ARRAY[cast(nan() as REAL), cast(infinity() as REAL), cast(-infinity() as REAL)]"))
+                .hasType(JSON)
+                .isEqualTo("[\"NaN\",\"Infinity\",\"-Infinity\"]");
+
+        // array with negative values
+        assertThat(assertions.expression("cast(a as JSON)")
+                .binding("a", "ARRAY[REAL '-100.5', REAL '0.0', REAL '100.5']"))
+                .hasType(JSON)
+                .isEqualTo("[-100.5,0.0,100.5]");
+    }
+
+    @Test
+    public void testCastArrayDoubleToJson()
+    {
+        // null array -> null JSON
+        assertThat(assertions.expression("cast(a as JSON)")
+                .binding("a", "cast(null as ARRAY(DOUBLE))"))
+                .isNull(JSON);
+
+        // empty array
+        assertThat(assertions.expression("cast(a as JSON)")
+                .binding("a", "CAST(ARRAY[] AS ARRAY(DOUBLE))"))
+                .hasType(JSON)
+                .isEqualTo("[]");
+
+        // array with elements
+        assertThat(assertions.expression("cast(a as JSON)")
+                .binding("a", "ARRAY[3.14, 2.71, 1.41]"))
+                .hasType(JSON)
+                .isEqualTo("[3.14,2.71,1.41]");
+
+        // array with null element
+        assertThat(assertions.expression("cast(a as JSON)")
+                .binding("a", "ARRAY[1.5, null, 3.7]"))
+                .hasType(JSON)
+                .isEqualTo("[1.5,null,3.7]");
+
+        // array with special values
+        assertThat(assertions.expression("cast(a as JSON)")
+                .binding("a", "ARRAY[nan(), infinity(), -infinity()]"))
+                .hasType(JSON)
+                .isEqualTo("[\"NaN\",\"Infinity\",\"-Infinity\"]");
+
+        // array with negative values
+        assertThat(assertions.expression("cast(a as JSON)")
+                .binding("a", "ARRAY[-100.123, 0.0, 100.456]"))
+                .hasType(JSON)
+                .isEqualTo("[-100.123,0.000,100.456]");
+    }
+
+    @Test
+    public void testCastArrayDecimalToJson()
+    {
+        // null array -> null JSON
+        assertThat(assertions.expression("cast(a as JSON)")
+                .binding("a", "cast(null as ARRAY(DECIMAL(10,3)))"))
+                .isNull(JSON);
+
+        // empty array
+        assertThat(assertions.expression("cast(a as JSON)")
+                .binding("a", "CAST(ARRAY[] AS ARRAY(DECIMAL(10,3)))"))
+                .hasType(JSON)
+                .isEqualTo("[]");
+
+        // array with single element
+        assertThat(assertions.expression("cast(a as JSON)")
+                .binding("a", "ARRAY[DECIMAL '3.14']"))
+                .hasType(JSON)
+                .isEqualTo("[3.14]");
+
+        // array with multiple elements
+        assertThat(assertions.expression("cast(a as JSON)")
+                .binding("a", "ARRAY[DECIMAL '123.456', DECIMAL '789.012', DECIMAL '345.678']"))
+                .hasType(JSON)
+                .isEqualTo("[123.456,789.012,345.678]");
+
+        // array with null element
+        assertThat(assertions.expression("cast(a as JSON)")
+                .binding("a", "ARRAY[DECIMAL '1.5', null, DECIMAL '3.7']"))
+                .hasType(JSON)
+                .isEqualTo("[1.5,null,3.7]");
+
+        // array with negative values
+        assertThat(assertions.expression("cast(a as JSON)")
+                .binding("a", "ARRAY[DECIMAL '-100.123', DECIMAL '0.000', DECIMAL '100.456']"))
+                .hasType(JSON)
+                .isEqualTo("[-100.123,0.000,100.456]");
+
+        // array with large decimal
+        assertThat(assertions.expression("cast(a as JSON)")
+                .binding("a", "ARRAY[DECIMAL '12345678901234567890.123456789012345678']"))
+                .hasType(JSON)
+                .isEqualTo("[12345678901234567890.123456789012345678]");
+
+        // array with all nulls
+        assertThat(assertions.expression("cast(a as JSON)")
+                .binding("a", "ARRAY[cast(null as DECIMAL(10,3)), cast(null as DECIMAL(10,3))]"))
+                .hasType(JSON)
+                .isEqualTo("[null,null]");
+    }
+
+    @Test
+    public void testCastArrayVarcharToJson()
+    {
+        // null array -> null JSON
+        assertThat(assertions.expression("cast(a as JSON)")
+                .binding("a", "cast(null as ARRAY(VARCHAR))"))
+                .isNull(JSON);
+
+        // empty array
+        assertThat(assertions.expression("cast(a as JSON)")
+                .binding("a", "CAST(ARRAY[] AS ARRAY(VARCHAR))"))
+                .hasType(JSON)
+                .isEqualTo("[]");
+
+        // array with elements
+        assertThat(assertions.expression("cast(a as JSON)")
+                .binding("a", "ARRAY['hello', 'world', 'test']"))
+                .hasType(JSON)
+                .isEqualTo("[\"hello\",\"world\",\"test\"]");
+
+        // array with null element
+        assertThat(assertions.expression("cast(a as JSON)")
+                .binding("a", "ARRAY['foo', null, 'bar']"))
+                .hasType(JSON)
+                .isEqualTo("[\"foo\",null,\"bar\"]");
+
+        // array with empty string
+        assertThat(assertions.expression("cast(a as JSON)")
+                .binding("a", "ARRAY['test', '', 'data']"))
+                .hasType(JSON)
+                .isEqualTo("[\"test\",\"\",\"data\"]");
+
+        // array with special characters
+        assertThat(assertions.expression("cast(a as JSON)")
+                .binding("a", "ARRAY['\"quoted\"', 'tab\tchar', 'new\nline']"))
+                .hasType(JSON)
+                .isEqualTo("[\"\\\"quoted\\\"\",\"tab\\tchar\",\"new\\nline\"]");
     }
 
     @Test
