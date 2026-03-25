@@ -115,6 +115,7 @@ public class TrinoRestCatalog
 
     private static final int PER_QUERY_CACHE_SIZE = 1000;
     private static final String NAMESPACE_SEPARATOR = ".";
+    private static final String MATERIALIZED_VIEW_STORAGE_TABLE_IDENTIFIER_SUFFIX = "__storage";
 
     private final IcebergFileSystemFactory fileSystemFactory;
     private final RESTSessionCatalog restSessionCatalog;
@@ -791,7 +792,30 @@ public class TrinoRestCatalog
             boolean replace,
             boolean ignoreExisting)
     {
-        throw new TrinoException(NOT_SUPPORTED, "createMaterializedView is not supported for Iceberg REST catalog");
+        ImmutableMap.Builder<String, String> properties = ImmutableMap.builder();
+        definition.getOwner().ifPresent(owner -> properties.put(ICEBERG_VIEW_RUN_AS_OWNER, owner));
+        definition.getComment().ifPresent(comment -> properties.put(COMMENT, comment));
+        Schema schema = IcebergUtil.schemaFromMaterializedViewColumns(typeManager, definition.getColumns());
+        ViewBuilder viewBuilder = restSessionCatalog.buildView(convert(session), toRemoteView(session, viewName, true));
+        viewBuilder = viewBuilder.withSchema(schema)
+                .withQuery("trino", definition.getOriginalSql())
+                .withDefaultNamespace(toRemoteNamespace(session, toNamespace(viewName.getSchemaName())))
+                .withDefaultCatalog(definition.getCatalog().orElse(null))
+                .withProperties(properties.buildOrThrow())
+                .withLocation(defaultTableLocation(session, viewName))
+                .withStorageTableIdentifier(TableIdentifier.of(viewName.getSchemaName(), viewName.getTableName() + MATERIALIZED_VIEW_STORAGE_TABLE_IDENTIFIER_SUFFIX));
+
+        try {
+            if (replace) {
+                viewBuilder.createOrReplace();
+            }
+            else {
+                viewBuilder.create();
+            }
+        }
+        catch (RESTException e) {
+            throw new TrinoException(ICEBERG_CATALOG_ERROR, "Failed to create materialized view '%s'".formatted(viewName.getTableName()), e);
+        }
     }
 
     @Override
@@ -803,13 +827,53 @@ public class TrinoRestCatalog
     @Override
     public void dropMaterializedView(ConnectorSession session, SchemaTableName viewName)
     {
-        throw new TrinoException(NOT_SUPPORTED, "dropMaterializedView is not supported for Iceberg REST catalog");
+        try {
+            restSessionCatalog.dropView(convert(session), toRemoteView(session, viewName, true));
+        }
+        catch (RESTException e) {
+            throw new TrinoException(ICEBERG_CATALOG_ERROR, "Failed to drop materialized view '%s'".formatted(viewName.getTableName()), e);
+        }
+        invalidateTableMappingCache(viewName);
     }
 
     @Override
     public Optional<ConnectorMaterializedViewDefinition> getMaterializedView(ConnectorSession session, SchemaTableName viewName)
     {
-        return Optional.empty();
+        return getIcebergView(session, viewName, false).flatMap(view -> {
+            ViewVersion currentVersion = view.currentVersion();
+            if (currentVersion.storageTable() == null) {
+                // this is a normal view, not a materialized view
+                return Optional.empty();
+            }
+
+            SQLViewRepresentation sqlView = view.sqlFor("trino");
+            if (!sqlView.dialect().equalsIgnoreCase("trino")) {
+                throw new TrinoException(ICEBERG_UNSUPPORTED_VIEW_DIALECT, "Cannot read unsupported dialect '%s' for view '%s'".formatted(sqlView.dialect(), viewName));
+            }
+
+            Optional<String> comment = Optional.ofNullable(view.properties().get(COMMENT));
+            List<ConnectorMaterializedViewDefinition.Column> columns = IcebergUtil.materializedViewColumnsFromSchema(typeManager, view.schema());
+            Optional<String> catalog = Optional.ofNullable(currentVersion.defaultCatalog());
+            Optional<String> schema = Optional.empty();
+            if (catalog.isPresent() && !currentVersion.defaultNamespace().isEmpty()) {
+                schema = Optional.of(currentVersion.defaultNamespace().toString());
+            }
+
+            Optional<String> owner = Optional.ofNullable(view.properties().get(ICEBERG_VIEW_RUN_AS_OWNER));
+            return Optional.of(new ConnectorMaterializedViewDefinition(
+                    sqlView.sql(),
+                    Optional.of(new CatalogSchemaTableName(
+                            catalogName.toString(),
+                            SchemaTableName.schemaTableName(currentVersion.storageTable().namespace().toString(), currentVersion.storageTable().name()))),
+                    catalog,
+                    schema,
+                    columns,
+                    Optional.empty(),
+                    Optional.empty(),
+                    comment,
+                    owner,
+                    ImmutableList.of()));
+        });
     }
 
     @Override

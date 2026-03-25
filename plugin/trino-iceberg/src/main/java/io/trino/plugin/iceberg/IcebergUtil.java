@@ -38,6 +38,7 @@ import io.trino.plugin.iceberg.util.ObjectStoreLocationProvider;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
+import io.trino.spi.connector.ConnectorMaterializedViewDefinition;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableCredentials;
 import io.trino.spi.connector.ConnectorTableMetadata;
@@ -915,10 +916,31 @@ public final class IcebergUtil
         return new Schema(icebergSchema.asStructType().fields());
     }
 
+    public static Schema schemaFromMaterializedViewColumns(TypeManager typeManager, List<ConnectorMaterializedViewDefinition.Column> columns)
+    {
+        List<NestedField> icebergColumns = new ArrayList<>();
+        AtomicInteger nextFieldId = new AtomicInteger(1);
+        for (ConnectorMaterializedViewDefinition.Column column : columns) {
+            Type trinoType = typeManager.getType(column.getType());
+            org.apache.iceberg.types.Type type = toIcebergTypeForNewColumn(trinoType, nextFieldId);
+            NestedField field = NestedField.required(nextFieldId.getAndIncrement(), column.getName(), type, column.getComment().orElse(null));
+            icebergColumns.add(field);
+        }
+        org.apache.iceberg.types.Type icebergSchema = StructType.of(icebergColumns);
+        return new Schema(icebergSchema.asStructType().fields());
+    }
+
     public static List<ViewColumn> viewColumnsFromSchema(TypeManager typeManager, Schema schema)
     {
         return IcebergUtil.getTopLevelColumns(schema, typeManager).stream()
                 .map(column -> new ViewColumn(column.getName(), column.getType().getTypeId(), column.getComment()))
+                .toList();
+    }
+
+    public static List<ConnectorMaterializedViewDefinition.Column> materializedViewColumnsFromSchema(TypeManager typeManager, Schema schema)
+    {
+        return IcebergUtil.getTopLevelColumns(schema, typeManager).stream()
+                .map(column -> new ConnectorMaterializedViewDefinition.Column(column.getName(), column.getType().getTypeId(), column.getComment()))
                 .toList();
     }
 
