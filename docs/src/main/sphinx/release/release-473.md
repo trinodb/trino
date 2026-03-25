@@ -49,11 +49,11 @@ more than 33M unique groups can produce incorrect results. See: ({issue}`25381`)
 
 ## Kudu connector
 
-* Remove the Kudu connector. ({issue}`24417`)
+* {{breaking}} Remove the Kudu connector. ({issue}`24417`)
 
 ## Phoenix connector
 
-* Remove the Phoenix connector. ({issue}`24135`)
+* {{breaking}} Remove the Phoenix connector. ({issue}`24135`)
 
 ## SPI
 

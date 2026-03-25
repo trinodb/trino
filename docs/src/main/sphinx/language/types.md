@@ -100,6 +100,7 @@ IEEE Standard 754 for Binary Floating-Point Arithmetic.
 
 Example literals: `DOUBLE '10.3'`, `DOUBLE '1.03e1'`, `10.3e0`, `1.03e1`
 
+(number-data-type)=
 ### `NUMBER`
 
 A floating point, decimal number of unspecified precision of at least 50 decimal digits.

@@ -2,7 +2,7 @@
 
 ## General
 
-* Add `number` type. ({issue}`28319`)
+* Add the [number](number-data-type) type. ({issue}`28319`)
 * Add coordinator and worker counts to `/metrics` endpoint. ({issue}`27408`)
 * Allow configuring the maximum amount of memory to use while writing tables
   through the `task.scale-writers.max-writer-memory-percentage` configuration
@@ -218,8 +218,7 @@
 
 ## Vertica connector
 
-* Fix failure when creating a table if a prior `CREATE TABLE ... AS SELECT`
-  operation for the same table failed. ({issue}`27702`)
+* {{breaking}} Remove the Vertica connector. ({issue}`26904`)
 
 ## SPI
 
