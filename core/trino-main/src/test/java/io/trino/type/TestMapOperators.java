@@ -691,7 +691,7 @@ public class TestMapOperators
 
         assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as MAP(VARCHAR, INTEGER))")
                 .binding("a", "JSON '{\"a\": 1234567890123.456}'").evaluate())
-                .hasMessage("Cannot cast to map(varchar, integer). Out of range for integer: 1.234567890123456E12\n{\"a\":1.234567890123456E12}")
+                .hasMessage("Cannot cast to map(varchar, integer). Out of range for integer: 1.234567890123456E12\n{\"a\":1234567890123.456}")
                 .hasErrorCode(INVALID_CAST_ARGUMENT);
 
         assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as MAP(BIGINT, BIGINT))")
