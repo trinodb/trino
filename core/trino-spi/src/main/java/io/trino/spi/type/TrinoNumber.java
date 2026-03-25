@@ -190,6 +190,12 @@ public class TrinoNumber
         };
     }
 
+    @Override
+    public String toString()
+    {
+        return toBigDecimal().toString();
+    }
+
     @CheckReturnValue
     private static TrinoNumber numberFromParts(short header, byte[] unscaledBytes, int unscaledBytesOffset, int unscaledBytesLength)
     {
