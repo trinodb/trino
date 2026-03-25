@@ -707,11 +707,10 @@ public class TestJsonOperators
                 .hasType(createDecimalType(10, 3))
                 .isEqualTo(decimal("128.000", createDecimalType(10, 3)));
 
-        // TODO precision loss!
         assertThat(assertions.expression("cast(a as DECIMAL(38,8))")
                 .binding("a", "JSON '123456789012345678901234567890.12345678'"))
                 .hasType(createDecimalType(38, 8))
-                .isEqualTo(decimal("123456789012345680000000000000.00000000", createDecimalType(38, 8)));
+                .isEqualTo(decimal("123456789012345678901234567890.12345678", createDecimalType(38, 8)));
 
         assertThat(assertions.expression("cast(a as DECIMAL(38,8))")
                 .binding("a", "cast(DECIMAL '123456789012345678901234567890.12345678' as JSON)"))
@@ -798,10 +797,10 @@ public class TestJsonOperators
                 .binding("a", "JSON '1e-324'"))
                 .isEqualTo(false);
 
-        // overflow
-        assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as BOOLEAN)")
-                .binding("a", "JSON '1e309'").evaluate())
-                .hasErrorCode(INVALID_CAST_ARGUMENT);
+        // overflow if parsed as double
+        assertThat(assertions.expression("cast(a as BOOLEAN)")
+                .binding("a", "JSON '1e309'"))
+                .isEqualTo(true);
 
         assertThat(assertions.expression("cast(a as BOOLEAN)")
                 .binding("a", "JSON 'true'"))

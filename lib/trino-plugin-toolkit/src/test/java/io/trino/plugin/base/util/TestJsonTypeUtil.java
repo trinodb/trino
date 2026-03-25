@@ -77,8 +77,7 @@ class TestJsonTypeUtil
         assertThat(jsonParse(utf8Slice("12345678901234567890123456789012345678")).toStringUtf8())
                 .isEqualTo("12345678901234567890123456789012345678");
         assertThat(jsonParse(utf8Slice("123456789012345678901234567890.12345678")).toStringUtf8())
-                // TODO precision loss! Numbers are converted through floating-point instead of being preserved as strings
-                .isEqualTo("1.2345678901234568E29");
+                .isEqualTo("123456789012345678901234567890.12345678");
     }
 
     @Test

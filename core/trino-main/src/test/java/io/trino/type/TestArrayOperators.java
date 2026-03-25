@@ -583,7 +583,7 @@ public class TestArrayOperators
 
         assertTrinoExceptionThrownBy(() -> assertions.expression("CAST(a AS array(INTEGER))")
                 .binding("a", "JSON '[1234567890123.456]'").evaluate())
-                .hasMessage("Cannot cast to array(integer). Out of range for integer: 1.234567890123456E12\n[1.234567890123456E12]")
+                .hasMessage("Cannot cast to array(integer). Out of range for integer: 1.234567890123456E12\n[1234567890123.456]")
                 .hasErrorCode(INVALID_CAST_ARGUMENT);
 
         assertThat(assertions.expression("CAST(a AS array(DECIMAL(10,5)))")
@@ -1082,11 +1082,10 @@ public class TestArrayOperators
                 .matches("CAST(ARRAY[DECIMAL '12345.88'] AS ARRAY(DECIMAL(7,2)))");
 
         // array with large decimal
-        // TODO precision loss!
         assertThat(assertions.expression("cast(a as ARRAY(DECIMAL(38,8)))")
                 .binding("a", "JSON '[123456789012345678901234567890.12345678]'"))
                 .hasType(new ArrayType(createDecimalType(38, 8)))
-                .matches("CAST(ARRAY[DECIMAL '123456789012345680000000000000.00000000'] AS ARRAY(DECIMAL(38,8)))");
+                .matches("CAST(ARRAY[DECIMAL '123456789012345678901234567890.12345678'] AS ARRAY(DECIMAL(38,8)))");
 
         // non-array JSON should fail
         assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as ARRAY(DECIMAL(10,3)))")
