@@ -151,6 +151,14 @@ public class TestJsonOperators
         assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as BIGINT)")
                 .binding("a", "JSON '{ \"x\" : 123}'").evaluate())
                 .hasErrorCode(INVALID_CAST_ARGUMENT);
+
+        // Extreme values
+        assertThat(assertions.expression("cast(a as BIGINT)")
+                .binding("a", "JSON '9223372036854775807'"))
+                .isEqualTo(9223372036854775807L);
+        assertThat(assertions.expression("cast(a as BIGINT)")
+                .binding("a", "JSON '-9223372036854775808'"))
+                .isEqualTo(-9223372036854775808L);
     }
 
     @Test
@@ -698,6 +706,12 @@ public class TestJsonOperators
                 .binding("a", "JSON '128'"))
                 .hasType(createDecimalType(10, 3))
                 .isEqualTo(decimal("128.000", createDecimalType(10, 3)));
+
+        // TODO precision loss!
+        assertThat(assertions.expression("cast(a as DECIMAL(38,8))")
+                .binding("a", "JSON '123456789012345678901234567890.12345678'"))
+                .hasType(createDecimalType(38, 8))
+                .isEqualTo(decimal("123456789012345680000000000000.00000000", createDecimalType(38, 8)));
 
         assertThat(assertions.expression("cast(a as DECIMAL(38,8))")
                 .binding("a", "cast(DECIMAL '123456789012345678901234567890.12345678' as JSON)"))
