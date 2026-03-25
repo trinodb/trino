@@ -43,6 +43,7 @@ Snowflake       <connector/snowflake>
 SQL Server      <connector/sqlserver>
 System          <connector/system>
 Thrift          <connector/thrift>
+Tibero          <connector/tibero>
 TPC-DS           <connector/tpcds>
 TPC-H            <connector/tpch>
 ```
