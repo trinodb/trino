@@ -22,6 +22,9 @@ import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.ScalarOperator;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.type.StandardTypes;
+import io.trino.spi.type.TrinoNumber;
+
+import java.math.BigDecimal;
 
 import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static io.trino.spi.function.OperatorType.CAST;
@@ -76,6 +79,13 @@ public final class BooleanOperators
     public static long castToTinyint(@SqlType(StandardTypes.BOOLEAN) boolean value)
     {
         return value ? 1 : 0;
+    }
+
+    @ScalarOperator(CAST)
+    @SqlType(StandardTypes.NUMBER)
+    public static TrinoNumber castToNumber(@SqlType(StandardTypes.BOOLEAN) boolean value)
+    {
+        return TrinoNumber.from(value ? BigDecimal.ONE : BigDecimal.ZERO);
     }
 
     @ScalarOperator(CAST)
