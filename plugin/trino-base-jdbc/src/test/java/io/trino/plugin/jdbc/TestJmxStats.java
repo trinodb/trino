@@ -14,7 +14,6 @@
 package io.trino.plugin.jdbc;
 
 import com.google.common.collect.ImmutableMap;
-import io.trino.plugin.base.jmx.ConnectorObjectNameGeneratorModule;
 import io.trino.spi.Plugin;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorFactory;
@@ -28,7 +27,6 @@ import javax.management.ObjectName;
 import java.util.Set;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static io.airlift.configuration.ConfigurationAwareModule.combine;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
 import static java.lang.management.ManagementFactory.getPlatformMBeanServer;
@@ -41,9 +39,7 @@ public class TestJmxStats
             throws Exception
     {
         String jmxBaseName = getClass().getSimpleName() + "_" + randomNameSuffix();
-        Plugin plugin = new JdbcPlugin(
-                "base_jdbc",
-                () -> combine(new TestingH2JdbcModule(), new ConnectorObjectNameGeneratorModule("io.trino.plugin.jdbc", "trino.plugin.jdbc")));
+        Plugin plugin = new JdbcPlugin("base_jdbc", TestingH2JdbcModule::new);
         ConnectorFactory factory = getOnlyElement(plugin.getConnectorFactories());
         Connector connector = factory.create(
                 "test",

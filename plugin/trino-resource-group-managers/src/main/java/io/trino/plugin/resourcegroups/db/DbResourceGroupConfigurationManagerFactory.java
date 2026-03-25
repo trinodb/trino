@@ -17,13 +17,13 @@ import com.google.inject.Injector;
 import io.airlift.bootstrap.Bootstrap;
 import io.airlift.configuration.ConfigurationFactory;
 import io.airlift.json.JsonModule;
+import io.trino.jmxutils.MBeanModule;
 import io.trino.plugin.base.jmx.MBeanServerModule;
 import io.trino.plugin.base.jmx.PrefixObjectNameGeneratorModule;
 import io.trino.spi.memory.ClusterMemoryPoolManager;
 import io.trino.spi.resourcegroups.ResourceGroupConfigurationManager;
 import io.trino.spi.resourcegroups.ResourceGroupConfigurationManagerContext;
 import io.trino.spi.resourcegroups.ResourceGroupConfigurationManagerFactory;
-import org.weakref.jmx.guice.MBeanModule;
 
 import java.util.Map;
 
@@ -44,11 +44,11 @@ public class DbResourceGroupConfigurationManagerFactory
         FlywayMigration.migrate(new ConfigurationFactory(replaceEnvironmentVariables(config)).build(DbResourceGroupConfig.class));
         Bootstrap app = new Bootstrap(
                 "io.trino.bootstrap.resource-group." + getName(),
-                new MBeanModule(),
+                MBeanModule.forConnector(),
+                new PrefixObjectNameGeneratorModule("io.trino.plugin.resourcegroups.db", "trino.plugin.resourcegroups.db"),
                 new MBeanServerModule(),
                 new JsonModule(),
                 new DbResourceGroupsModule(),
-                new PrefixObjectNameGeneratorModule("io.trino.plugin.resourcegroups.db", "trino.plugin.resourcegroups.db"),
                 binder -> binder.bind(String.class).annotatedWith(ForEnvironment.class).toInstance(context.getEnvironment()),
                 binder -> binder.bind(ClusterMemoryPoolManager.class).toInstance(context.getMemoryPoolManager()));
 

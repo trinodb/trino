@@ -25,11 +25,11 @@ import io.trino.hdfs.azure.HiveAzureModule;
 import io.trino.hdfs.cos.HiveCosModule;
 import io.trino.hdfs.gcs.HiveGcsModule;
 import io.trino.hdfs.s3.HiveS3Module;
+import io.trino.jmxutils.MBeanModule;
 import io.trino.plugin.base.ConnectorContextModule;
 import io.trino.plugin.base.jmx.ConnectorObjectNameGeneratorModule;
 import io.trino.plugin.base.jmx.MBeanServerModule;
 import io.trino.spi.connector.ConnectorContext;
-import org.weakref.jmx.guice.MBeanModule;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -53,7 +53,7 @@ public final class HdfsFileSystemManager
     {
         List<Module> modules = new ArrayList<>();
 
-        modules.add(new MBeanModule());
+        modules.add(MBeanModule.forConnector());
         modules.add(new MBeanServerModule());
         modules.add(new ConnectorObjectNameGeneratorModule("", ""));
 

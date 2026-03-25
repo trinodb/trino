@@ -59,6 +59,7 @@ import io.trino.execution.QueryManager;
 import io.trino.execution.SqlTaskManager;
 import io.trino.execution.StateMachine.StateChangeListener;
 import io.trino.execution.resourcegroups.InternalResourceGroupManager;
+import io.trino.jmxutils.MBeanModule;
 import io.trino.memory.ClusterMemoryManager;
 import io.trino.memory.LocalMemoryManager;
 import io.trino.metadata.CatalogManager;
@@ -118,7 +119,6 @@ import io.trino.tracing.TracingAccessControl;
 import io.trino.transaction.TransactionManager;
 import io.trino.transaction.TransactionManagerModule;
 import jakarta.servlet.Filter;
-import org.weakref.jmx.guice.MBeanModule;
 
 import javax.management.MBeanServer;
 
@@ -303,7 +303,7 @@ public class TestingTrinoServer
                 .add(new TestingHttpServerModule("testing-trino-" + instanceId, httpPort))
                 .add(new JsonModule())
                 .add(new JaxrsModule())
-                .add(new MBeanModule())
+                .add(MBeanModule.forMainServer())
                 .add(new PrefixObjectNameGeneratorModule("io.trino"))
                 .add(new TestingJmxModule())
                 .add(new JmxOpenMetricsModule())
