@@ -23,7 +23,7 @@
     "@fontsource/roboto": "^5.2.10",
     "@monaco-editor/react": "^4.7.0",
     "@mui/icons-material": "^7.3.9",
-    "@mui/material": "^7.3.8",
+    "@mui/material": "^7.3.9",
     "@mui/x-charts": "^8.27.5",
     "@xyflow/react": "^12.10.0",
     "axios": "^1.13.6",
