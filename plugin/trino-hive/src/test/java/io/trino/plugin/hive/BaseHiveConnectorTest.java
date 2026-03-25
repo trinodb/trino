@@ -6681,6 +6681,31 @@ public abstract class BaseHiveConnectorTest
     }
 
     @Test
+    public void testCollectStatisticsOnInsertTimestampWithPrecision()
+    {
+        for (HiveTimestampPrecision precision : HiveTimestampPrecision.values()) {
+            Session session = withTimestampPrecision(getSession(), precision);
+            String tableName = "test_stats_on_insert_timestamp_precision_" + precision.name() + randomNameSuffix();
+            try {
+                assertUpdate(format("CREATE TABLE %s (c_timestamp TIMESTAMP)", tableName));
+                assertUpdate(session,
+                        format("INSERT INTO %s VALUES " +
+                                "TIMESTAMP '1988-04-08 02:03:04.111', " +
+                                "TIMESTAMP '1988-04-08 02:03:04.119'", tableName),
+                        2);
+
+                assertQuery("SHOW STATS FOR " + tableName,
+                        "SELECT * FROM VALUES " +
+                                "('c_timestamp', null, 2.0, 0.0, null, '1988-04-08 02:03:04.111', '1988-04-08 02:03:04.119'), " +
+                                "(null, null, null, null, 2.0, null, null)");
+            }
+            finally {
+                assertUpdate("DROP TABLE IF EXISTS " + tableName);
+            }
+        }
+    }
+
+    @Test
     public void testCollectColumnStatisticsOnInsert()
     {
         String tableName = "test_collect_column_statistics_on_insert" + randomNameSuffix();
