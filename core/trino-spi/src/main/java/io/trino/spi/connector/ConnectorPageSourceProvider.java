@@ -31,9 +31,6 @@ public interface ConnectorPageSourceProvider
             List<ColumnHandle> columns,
             DynamicFilter dynamicFilter)
     {
-        if (tableCredentials.isPresent()) {
-            throw new TrinoException(NOT_SUPPORTED, "This connector does not support table credentials");
-        }
         return createPageSource(transaction, session, split, table, columns, dynamicFilter);
     }
 
