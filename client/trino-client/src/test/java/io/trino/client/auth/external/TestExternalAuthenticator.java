@@ -202,7 +202,7 @@ public class TestExternalAuthenticator
     }
 
     @Test
-    @Timeout(2)
+    @Timeout(10)
     public void testAuthenticationFromMultipleThreadsWithSystemCachedToken(@TempDir Path tempDir)
     {
         KnownToken knownToken = new SystemCachedKnownToken(tempDir);
@@ -212,12 +212,15 @@ public class TestExternalAuthenticator
     private static void testAuthenticationFromMultipleThreadsWithCachedToken(KnownToken knownToken)
     {
         MockTokenPoller tokenPoller = new MockTokenPoller()
-                .withResult(URI.create("http://token.uri"), successful(new Token("valid-token")));
+                // will be cached and reused
+                .withResult(URI.create("http://token.uri"), successful(new Token("first-token")))
+                // should never be emitted
+                .withResult(URI.create("http://token.uri"), successful(new Token("second-token")));
         MockRedirectHandler redirectHandler = new MockRedirectHandler()
                 .sleepOnRedirect(Duration.ofSeconds(1));
 
         List<Future<Request>> requests = times(
-                2,
+                100,
                 () -> new ExternalAuthenticator(redirectHandler, tokenPoller, knownToken, Duration.ofSeconds(1))
                         .authenticate(null, getUnauthorizedResponse("Bearer x_token_server=\"http://token.uri\", x_redirect_server=\"http://redirect.uri\"")))
                 .map(executor::submit)
@@ -227,7 +230,7 @@ public class TestExternalAuthenticator
         assertion.requests()
                 .extracting(Request::headers)
                 .extracting(headers -> headers.get(AUTHORIZATION))
-                .containsOnly("Bearer valid-token");
+                .containsOnly("Bearer first-token");
         assertion.assertThatNoExceptionsHasBeenThrown();
         assertThat(redirectHandler.getRedirectionCount()).isEqualTo(1);
     }
