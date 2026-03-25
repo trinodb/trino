@@ -42,6 +42,7 @@ SingleStore     <connector/singlestore>
 Snowflake       <connector/snowflake>
 SQL Server      <connector/sqlserver>
 System          <connector/system>
+Teradata        <connector/teradata>
 Thrift          <connector/thrift>
 TPC-DS           <connector/tpcds>
 TPC-H            <connector/tpch>

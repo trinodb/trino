@@ -101,6 +101,12 @@
         </dependency>
 
         <dependency>
+            <groupId>com.teradata.jdbc</groupId>
+            <artifactId>terajdbc</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
             <groupId>dev.failsafe</groupId>
             <artifactId>failsafe</artifactId>
             <scope>test</scope>
