@@ -18,14 +18,15 @@ import com.google.inject.Injector;
 import com.google.inject.Module;
 import io.airlift.bootstrap.Bootstrap;
 import io.airlift.json.JsonModule;
+import io.trino.jmxutils.MBeanModule;
 import io.trino.plugin.base.ConnectorContextModule;
 import io.trino.plugin.base.TypeDeserializerModule;
+import io.trino.plugin.base.jmx.ConnectorObjectNameGeneratorModule;
 import io.trino.plugin.base.jmx.MBeanServerModule;
 import io.trino.plugin.pinot.auth.PinotAuthenticationModule;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorContext;
 import io.trino.spi.connector.ConnectorFactory;
-import org.weakref.jmx.guice.MBeanModule;
 
 import java.util.Map;
 import java.util.Optional;
@@ -58,7 +59,8 @@ public class PinotConnectorFactory
 
         ImmutableList.Builder<Module> modulesBuilder = ImmutableList.<Module>builder()
                 .add(new JsonModule())
-                .add(new MBeanModule())
+                .add(MBeanModule.forConnector())
+                .add(new ConnectorObjectNameGeneratorModule("io.trino.plugin.pinot", "trino.plugin.pinot"))
                 .add(new MBeanServerModule())
                 .add(new TypeDeserializerModule())
                 .add(new ConnectorContextModule(catalogName, context))

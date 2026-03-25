@@ -113,6 +113,11 @@
 
         <dependency>
             <groupId>io.trino</groupId>
+            <artifactId>trino-jmxutils</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>io.trino</groupId>
             <artifactId>trino-memory-context</artifactId>
         </dependency>
 

@@ -16,13 +16,13 @@ package io.trino.plugin.bigquery;
 import com.google.inject.Injector;
 import io.airlift.bootstrap.Bootstrap;
 import io.airlift.json.JsonModule;
+import io.trino.jmxutils.MBeanModule;
 import io.trino.plugin.base.ConnectorContextModule;
 import io.trino.plugin.base.jmx.ConnectorObjectNameGeneratorModule;
 import io.trino.plugin.base.jmx.MBeanServerModule;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorContext;
 import io.trino.spi.connector.ConnectorFactory;
-import org.weakref.jmx.guice.MBeanModule;
 
 import java.util.Map;
 
@@ -50,7 +50,7 @@ public class BigQueryConnectorFactory
                 new JsonModule(),
                 new BigQueryConnectorModule(),
                 new MBeanServerModule(),
-                new MBeanModule(),
+                MBeanModule.forConnector(),
                 new ConnectorObjectNameGeneratorModule("io.trino.plugin.bigquery", "trino.plugin.bigquery"),
                 new ConnectorContextModule(catalogName, context));
 

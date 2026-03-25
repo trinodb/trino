@@ -14,31 +14,31 @@
 package io.trino.plugin.jdbc;
 
 import com.google.inject.Binder;
-import com.google.inject.Module;
 import com.google.inject.Provider;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import com.google.inject.Singleton;
+import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.airlift.log.Logger;
+import io.trino.jmxutils.MBeanModule;
 import io.trino.plugin.base.jmx.MBeanServerModule;
 import io.trino.plugin.base.util.LoggingInvocationHandler;
 import io.trino.plugin.jdbc.jmx.StatisticsAwareConnectionFactory;
 import io.trino.plugin.jdbc.jmx.StatisticsAwareJdbcClient;
 import io.trino.spi.catalog.CatalogName;
-import org.weakref.jmx.guice.MBeanModule;
 
 import static com.google.common.reflect.Reflection.newProxy;
 import static java.lang.String.format;
 import static org.weakref.jmx.guice.ExportBinder.newExporter;
 
 public class JdbcDiagnosticModule
-        implements Module
+        extends AbstractConfigurationAwareModule
 {
     @Override
-    public void configure(Binder binder)
+    protected void setup(Binder binder)
     {
-        binder.install(new MBeanServerModule());
-        binder.install(new MBeanModule());
+        install(new MBeanServerModule());
+        install(MBeanModule.forConnector());
         binder.bind(StatisticsAwareConnectionFactory.class).in(Scopes.SINGLETON);
 
         Provider<CatalogName> catalogName = binder.getProvider(CatalogName.class);

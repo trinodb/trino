@@ -43,6 +43,7 @@ import io.trino.exchange.ExchangeManagerModule;
 import io.trino.exchange.ExchangeManagerRegistry;
 import io.trino.execution.resourcegroups.ResourceGroupManager;
 import io.trino.execution.warnings.WarningCollectorModule;
+import io.trino.jmxutils.MBeanModule;
 import io.trino.node.Announcer;
 import io.trino.node.NodeManagerModule;
 import io.trino.security.AccessControlManager;
@@ -57,7 +58,6 @@ import io.trino.server.security.oauth2.OAuth2Client;
 import io.trino.spi.NodeVersion;
 import io.trino.transaction.TransactionManagerModule;
 import io.trino.util.EmbedVersion;
-import org.weakref.jmx.guice.MBeanModule;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -95,7 +95,7 @@ public class Server
                 new HttpServerModule(),
                 new JsonModule(),
                 new JaxrsModule(),
-                new MBeanModule(),
+                MBeanModule.forMainServer(),
                 new PrefixObjectNameGeneratorModule("io.trino"),
                 new JmxModule(),
                 new JmxOpenMetricsModule(),

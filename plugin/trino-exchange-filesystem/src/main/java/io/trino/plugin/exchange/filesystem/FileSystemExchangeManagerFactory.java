@@ -17,12 +17,12 @@ import com.google.inject.Injector;
 import io.airlift.bootstrap.Bootstrap;
 import io.opentelemetry.api.OpenTelemetry;
 import io.opentelemetry.api.trace.Tracer;
+import io.trino.jmxutils.MBeanModule;
 import io.trino.plugin.base.jmx.MBeanServerModule;
 import io.trino.plugin.base.jmx.PrefixObjectNameGeneratorModule;
 import io.trino.spi.exchange.ExchangeManager;
 import io.trino.spi.exchange.ExchangeManagerContext;
 import io.trino.spi.exchange.ExchangeManagerFactory;
-import org.weakref.jmx.guice.MBeanModule;
 
 import java.util.Map;
 
@@ -46,7 +46,7 @@ public class FileSystemExchangeManagerFactory
 
         Bootstrap app = new Bootstrap(
                 "io.trino.bootstrap.exchange.filesystem",
-                new MBeanModule(),
+                MBeanModule.forConnector(),
                 new MBeanServerModule(),
                 new PrefixObjectNameGeneratorModule("io.trino.plugin.exchange.filesystem", "trino.plugin.exchange.filesystem"),
                 new FileSystemExchangeModule(),

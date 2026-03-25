@@ -24,7 +24,7 @@ import io.airlift.log.LogJmxModule;
 import io.airlift.log.Logger;
 import io.airlift.node.NodeModule;
 import io.airlift.tracing.TracingModule;
-import org.weakref.jmx.guice.MBeanModule;
+import io.trino.jmxutils.MBeanModule;
 
 import static java.util.Objects.requireNonNullElse;
 
@@ -41,7 +41,7 @@ public final class TrinoProxy
                 .add(new HttpServerModule())
                 .add(new JsonModule())
                 .add(new JaxrsModule())
-                .add(new MBeanModule())
+                .add(MBeanModule.forMainServer())
                 .add(new JmxModule())
                 .add(new LogJmxModule())
                 .add(new TracingModule("trino-proxy", VERSION))

@@ -16,11 +16,12 @@ package io.trino.plugin.session.db;
 import com.google.inject.Injector;
 import io.airlift.bootstrap.Bootstrap;
 import io.airlift.json.JsonModule;
+import io.trino.jmxutils.MBeanModule;
 import io.trino.plugin.base.jmx.MBeanServerModule;
+import io.trino.plugin.base.jmx.PrefixObjectNameGeneratorModule;
 import io.trino.spi.resourcegroups.SessionPropertyConfigurationManagerContext;
 import io.trino.spi.session.SessionPropertyConfigurationManager;
 import io.trino.spi.session.SessionPropertyConfigurationManagerFactory;
-import org.weakref.jmx.guice.MBeanModule;
 
 import java.util.Map;
 
@@ -41,7 +42,8 @@ public class DbSessionPropertyManagerFactory
         try {
             Bootstrap app = new Bootstrap(
                     "io.trino.bootstrap.session." + getName(),
-                    new MBeanModule(),
+                    MBeanModule.forConnector(),
+                    new PrefixObjectNameGeneratorModule("io.trino.plugin.session.db", "trino.plugin.session.db"),
                     new MBeanServerModule(),
                     new JsonModule(),
                     new DbSessionPropertyManagerModule());

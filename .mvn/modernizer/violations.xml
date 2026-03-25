@@ -259,6 +259,12 @@
     </violation>
 
     <violation>
+        <name>org/weakref/jmx/guice/MBeanModule."&lt;init&gt;":()V</name>
+        <version>1.8</version>
+        <comment>MBeanModule by default binds mbeans into global namespace, which is great default in general, but not so great for Trino plugins. Use MBeanModule helper from trino-jmxutils</comment>
+    </violation>
+
+    <violation>
         <name>org/testng/annotations/BeforeTest</name>
         <version>1.8</version>
         <comment>Prefer org.testng.annotations.BeforeClass</comment>

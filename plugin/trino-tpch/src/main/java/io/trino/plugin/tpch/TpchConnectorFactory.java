@@ -16,12 +16,13 @@ package io.trino.plugin.tpch;
 import com.google.inject.Injector;
 import io.airlift.bootstrap.Bootstrap;
 import io.airlift.json.JsonModule;
+import io.trino.jmxutils.MBeanModule;
 import io.trino.plugin.base.ConnectorContextModule;
+import io.trino.plugin.base.jmx.ConnectorObjectNameGeneratorModule;
 import io.trino.plugin.base.jmx.MBeanServerModule;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorContext;
 import io.trino.spi.connector.ConnectorFactory;
-import org.weakref.jmx.guice.MBeanModule;
 
 import java.util.Map;
 
@@ -63,7 +64,8 @@ public class TpchConnectorFactory
         Bootstrap app = new Bootstrap(
                 "io.trino.bootstrap.catalog." + catalogName,
                 new ConnectorContextModule(catalogName, context),
-                new MBeanModule(),
+                MBeanModule.forConnector(),
+                new ConnectorObjectNameGeneratorModule("io.trino.plugin.tpch", "trino.plugin.tpch"),
                 new JsonModule(),
                 new TpchModule(defaultSplitsPerNode, predicatePushdownEnabled),
                 new MBeanServerModule());

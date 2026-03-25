@@ -18,10 +18,11 @@ import com.google.inject.Injector;
 import com.google.inject.Scopes;
 import io.airlift.bootstrap.Bootstrap;
 import io.opentelemetry.api.OpenTelemetry;
+import io.trino.jmxutils.MBeanModule;
 import io.trino.plugin.base.jmx.MBeanServerModule;
+import io.trino.plugin.base.jmx.PrefixObjectNameGeneratorModule;
 import io.trino.spi.eventlistener.EventListener;
 import io.trino.spi.eventlistener.EventListenerFactory;
-import org.weakref.jmx.guice.MBeanModule;
 
 import java.util.Map;
 
@@ -42,7 +43,8 @@ public class KafkaEventListenerFactory
     {
         Bootstrap app = new Bootstrap(
                 "io.trino.bootstrap.listener." + getName(),
-                new MBeanModule(),
+                MBeanModule.forConnector(),
+                new PrefixObjectNameGeneratorModule("io.trino.plugin.eventlistener.kafka", "trino.plugin.eventlistener.kafka"),
                 new MBeanServerModule(),
                 new KafkaProducerModule(),
                 binder -> {
