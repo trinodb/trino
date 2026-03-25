@@ -992,6 +992,13 @@ public final class ThriftHiveMetastore
         catch (NoSuchObjectException e) {
             throw new TableNotFoundException(new SchemaTableName(databaseName, tableName));
         }
+        catch (InvalidOperationException e) {
+            // Use text matching because InvalidOperationException doesn't provide an error code
+            if (e.isSetMessage() && e.getMessage().contains("table not found")) {
+                throw new TableNotFoundException(new SchemaTableName(databaseName, tableName));
+            }
+            throw new TrinoException(HIVE_METASTORE_ERROR, e);
+        }
         catch (TException e) {
             throw new TrinoException(HIVE_METASTORE_ERROR, e);
         }
