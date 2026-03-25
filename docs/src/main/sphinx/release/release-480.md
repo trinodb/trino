@@ -218,8 +218,7 @@
 
 ## Vertica connector
 
-* Fix failure when creating a table if a prior `CREATE TABLE ... AS SELECT`
-  operation for the same table failed. ({issue}`27702`)
+* {{breaking}} Remove the Vertica connector. ({issue}`26904`)
 
 ## SPI
 
