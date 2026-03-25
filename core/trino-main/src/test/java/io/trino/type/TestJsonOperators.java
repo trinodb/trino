@@ -13,10 +13,23 @@
  */
 package io.trino.type;
 
+import com.fasterxml.jackson.core.JsonParser;
+import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.airlift.json.JsonMapperProvider;
+import io.airlift.slice.DynamicSliceOutput;
+import io.airlift.slice.Slice;
+import io.airlift.slice.SliceOutput;
+import io.trino.metadata.InternalFunctionBundle;
+import io.trino.plugin.base.util.JsonTypeUtil;
+import io.trino.spi.TrinoException;
+import io.trino.spi.function.LiteralParameters;
+import io.trino.spi.function.ScalarFunction;
+import io.trino.spi.function.SqlType;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.RowType;
+import io.trino.spi.type.StandardTypes;
 import io.trino.sql.query.QueryAssertions;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -24,6 +37,13 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
 
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.OutputStream;
+
+import static com.fasterxml.jackson.databind.DeserializationFeature.USE_BIG_DECIMAL_FOR_FLOATS;
+import static com.fasterxml.jackson.databind.SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS;
+import static com.google.common.base.Preconditions.checkState;
 import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.StandardErrorCode.INVALID_LITERAL;
@@ -35,6 +55,7 @@ import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.NumberType.NUMBER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.SqlDecimal.decimal;
@@ -48,6 +69,7 @@ import static io.trino.util.StructuralTestUtil.mapType;
 import static java.lang.Double.NEGATIVE_INFINITY;
 import static java.lang.Double.POSITIVE_INFINITY;
 import static java.lang.String.format;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
@@ -64,6 +86,9 @@ public class TestJsonOperators
     public void init()
     {
         assertions = new QueryAssertions();
+        assertions.addFunctions(InternalFunctionBundle.builder()
+                .scalars(TestJsonOperators.class)
+                .build());
     }
 
     @AfterAll
@@ -71,6 +96,35 @@ public class TestJsonOperators
     {
         assertions.close();
         assertions = null;
+    }
+
+    // TODO (https://github.com/trinodb/trino/issues/28867) remove when json_parse and JSON literals are no longer lossy.
+    @ScalarFunction("json_literal_fixed")
+    @LiteralParameters("x")
+    @SqlType(StandardTypes.JSON)
+    public static Slice workaroundBrokenJsonLiteralParsing(@SqlType("varchar(x)") Slice slice)
+    {
+        // This is copy of JsonTypeUtil.jsonParse with addition of USE_BIG_DECIMAL_FOR_FLOATS to prevent numeric precision loss during JSON parsing.
+        JsonMapper sortingMapper = new JsonMapperProvider().get()
+                .rebuild()
+                .configure(ORDER_MAP_ENTRIES_BY_KEYS, true)
+                .configure(USE_BIG_DECIMAL_FOR_FLOATS, true)
+                .build();
+
+        Slice json;
+        try (JsonParser parser = sortingMapper.createParser(new InputStreamReader(slice.getInput(), UTF_8))) {
+            SliceOutput output = new DynamicSliceOutput(slice.length());
+            sortingMapper.writeValue((OutputStream) output, sortingMapper.readValue(parser, Object.class));
+            checkState(parser.nextToken() == null, "Found characters after the expected end of input");
+            json = output.slice();
+        }
+        catch (IOException | RuntimeException e) {
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, format("Cannot convert value to JSON: '%s'", slice.toStringUtf8()), e);
+        }
+
+        Slice lossyJson = JsonTypeUtil.jsonParse(slice);
+        checkState(!json.equals(lossyJson), "json_literal_fixed is used unnecessarily here, or jsonParse has been fixed");
+        return json;
     }
 
     @Test
@@ -1235,5 +1289,135 @@ public class TestJsonOperators
 
         assertThat(assertions.operator(INDETERMINATE, "JSON '\"-Infinity\"'"))
                 .isEqualTo(false);
+    }
+
+    @Test
+    public void testCastToNumber()
+    {
+        assertThat(assertions.expression("cast(a as NUMBER)")
+                .binding("a", "JSON 'null'"))
+                .isNull(NUMBER);
+
+        assertThat(assertions.expression("cast(a as NUMBER)")
+                .binding("a", "JSON '128'"))
+                .matches("NUMBER '128'");
+
+        assertThat(assertions.expression("cast(a as NUMBER)")
+                .binding("a", "JSON '12345678901234567890'"))
+                .matches("NUMBER '12345678901234567890'");
+
+        assertThat(assertions.expression("cast(a as NUMBER)")
+                .binding("a", "JSON '12345678901234567890123456789012345678'"))
+                .matches("NUMBER '12345678901234567890123456789012345678'");
+
+        assertThat(assertions.expression("cast(a as NUMBER)")
+                .binding("a", "json_literal_fixed('123456789012345678901234567890.123456789012345678901234567890')"))
+                .matches("NUMBER '123456789012345678901234567890.123456789012345678901234567890'");
+
+        assertThat(assertions.expression("cast(a as NUMBER)")
+                .binding("a", "JSON '128.9'"))
+                .matches("NUMBER '128.9'");
+
+        assertThat(assertions.expression("cast(a as NUMBER)")
+                .binding("a", "json_literal_fixed('1e-324')"))
+                .matches("NUMBER '1E-324'");
+
+        assertThat(assertions.expression("cast(a as NUMBER)")
+                .binding("a", "json_literal_fixed('1e308')"))
+                .matches("NUMBER '1e308'");
+
+        assertThat(assertions.expression("cast(a as NUMBER)")
+                .binding("a", "JSON 'true'"))
+                .matches("NUMBER '1'");
+
+        assertThat(assertions.expression("cast(a as NUMBER)")
+                .binding("a", "JSON 'false'"))
+                .matches("NUMBER '0'");
+
+        assertThat(assertions.expression("cast(a as NUMBER)")
+                .binding("a", "JSON '\"128\"'"))
+                .matches("NUMBER '128'");
+
+        assertThat(assertions.expression("cast(a as NUMBER)")
+                .binding("a", "JSON '\"128.456\"'"))
+                .matches("NUMBER '128.456'");
+
+        assertThat(assertions.expression("cast(a as NUMBER)")
+                .binding("a", "JSON '\"NaN\"'"))
+                .matches("NUMBER 'NaN'");
+
+        assertThat(assertions.expression("cast(a as NUMBER)")
+                .binding("a", "JSON '\"Infinity\"'"))
+                .matches("NUMBER '+Infinity'");
+
+        assertThat(assertions.expression("cast(a as NUMBER)")
+                .binding("a", "JSON '\"+Infinity\"'"))
+                .matches("NUMBER '+Infinity'");
+
+        assertThat(assertions.expression("cast(a as NUMBER)")
+                .binding("a", "JSON '\"-Infinity\"'"))
+                .matches("NUMBER '-Infinity'");
+
+        assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as NUMBER)")
+                .binding("a", "JSON '\"abc\"'").evaluate())
+                .hasErrorCode(INVALID_CAST_ARGUMENT);
+
+        assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as NUMBER)")
+                .binding("a", "JSON '{ \"x\" : 123}'").evaluate())
+                .hasErrorCode(INVALID_CAST_ARGUMENT);
+
+        // with spaces
+        assertThat(assertions.expression("cast(a as NUMBER)")
+                .binding("a", "JSON '   \"   -128.456   \"   '"))
+                .matches("NUMBER '-128.456'");
+
+        assertThat(assertions.expression("cast(a as NUMBER)")
+                .binding("a", "JSON '   \"   NaN   \"   '"))
+                .matches("NUMBER 'NaN'");
+
+        assertThat(assertions.expression("cast(a as NUMBER)")
+                .binding("a", "JSON '   \"   Infinity   \"   '"))
+                .matches("NUMBER '+Infinity'");
+
+        assertThat(assertions.expression("cast(a as NUMBER)")
+                .binding("a", "JSON '   \"   +Infinity   \"   '"))
+                .matches("NUMBER '+Infinity'");
+
+        assertThat(assertions.expression("cast(a as NUMBER)")
+                .binding("a", "JSON '   \"   -Infinity   \"   '"))
+                .matches("NUMBER '-Infinity'");
+    }
+
+    @Test
+    public void testCastFromNumber()
+    {
+        assertThat(assertions.expression("cast(a as JSON)")
+                .binding("a", "cast(null as NUMBER)"))
+                .isNull(JSON);
+
+        assertThat(assertions.expression("cast(a as JSON)")
+                .binding("a", "NUMBER '3.14'"))
+                .hasType(JSON)
+                .isEqualTo("3.14");
+
+        assertThat(assertions.expression("cast(a as JSON)")
+                .binding("a", "NUMBER '12345678901234567890.123456789012345678'"))
+                .hasType(JSON)
+                .isEqualTo("12345678901234567890.123456789012345678");
+
+        assertThat(assertions.expression("cast(a as JSON)")
+                .binding("a", "NUMBER 'NaN'"))
+                .hasType(JSON)
+                .isEqualTo("\"NaN\"");
+
+        assertThat(assertions.expression("cast(a as JSON)")
+                .binding("a", "NUMBER '+Infinity'"))
+                .hasType(JSON)
+                .isEqualTo("\"+Infinity\"");
+
+        assertThat(assertions.expression("cast(a as JSON)")
+                .binding("a", "NUMBER '-Infinity'"))
+                .hasType(JSON)
+                .isEqualTo("\"-Infinity\"");
     }
 }

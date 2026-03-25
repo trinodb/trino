@@ -13,13 +13,19 @@
  */
 package io.trino.type;
 
+import com.fasterxml.jackson.core.JsonParser;
+import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 import com.google.common.primitives.Ints;
+import io.airlift.json.JsonMapperProvider;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
+import io.airlift.slice.SliceOutput;
 import io.trino.metadata.InternalFunctionBundle;
+import io.trino.plugin.base.util.JsonTypeUtil;
+import io.trino.spi.TrinoException;
 import io.trino.spi.block.ArrayBlockBuilder;
 import io.trino.spi.block.Block;
 import io.trino.spi.function.LiteralParameters;
@@ -36,8 +42,14 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
 
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.OutputStream;
 import java.util.Collections;
 
+import static com.fasterxml.jackson.databind.DeserializationFeature.USE_BIG_DECIMAL_FOR_FLOATS;
+import static com.fasterxml.jackson.databind.SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS;
+import static com.google.common.base.Preconditions.checkState;
 import static io.trino.block.BlockSerdeUtil.writeBlock;
 import static io.trino.operator.scalar.BlockSet.MAX_FUNCTION_MEMORY;
 import static io.trino.spi.StandardErrorCode.AMBIGUOUS_FUNCTION_CALL;
@@ -55,6 +67,7 @@ import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.NumberType.NUMBER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.RowType.anonymousRow;
 import static io.trino.spi.type.RowType.field;
@@ -77,6 +90,7 @@ import static java.lang.Double.NaN;
 import static java.lang.Double.POSITIVE_INFINITY;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Arrays.asList;
 import static java.util.Collections.emptyList;
 import static java.util.Collections.singletonList;
@@ -113,6 +127,35 @@ public class TestArrayOperators
     public static Slice uncheckedToJson(@SqlType("varchar(x)") Slice slice)
     {
         return slice;
+    }
+
+    // TODO (https://github.com/trinodb/trino/issues/28867) remove when json_parse and JSON literals are no longer lossy.
+    @ScalarFunction("json_literal_fixed")
+    @LiteralParameters("x")
+    @SqlType(StandardTypes.JSON)
+    public static Slice workaroundBrokenJsonLiteralParsing(@SqlType("varchar(x)") Slice slice)
+    {
+        // This is copy of JsonTypeUtil.jsonParse with addition of USE_BIG_DECIMAL_FOR_FLOATS to prevent numeric precision loss during JSON parsing.
+        JsonMapper sortingMapper = new JsonMapperProvider().get()
+                .rebuild()
+                .configure(ORDER_MAP_ENTRIES_BY_KEYS, true)
+                .configure(USE_BIG_DECIMAL_FOR_FLOATS, true)
+                .build();
+
+        Slice json;
+        try (JsonParser parser = sortingMapper.createParser(new InputStreamReader(slice.getInput(), UTF_8))) {
+            SliceOutput output = new DynamicSliceOutput(slice.length());
+            sortingMapper.writeValue((OutputStream) output, sortingMapper.readValue(parser, Object.class));
+            checkState(parser.nextToken() == null, "Found characters after the expected end of input");
+            json = output.slice();
+        }
+        catch (IOException | RuntimeException e) {
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, format("Cannot convert value to JSON: '%s'", slice.toStringUtf8()), e);
+        }
+
+        Slice lossyJson = JsonTypeUtil.jsonParse(slice);
+        checkState(!json.equals(lossyJson), "json_literal_fixed is used unnecessarily here, or jsonParse has been fixed");
+        return json;
     }
 
     @Test
@@ -1122,6 +1165,48 @@ public class TestArrayOperators
     }
 
     @Test
+    public void testCastJsonToArrayNumber()
+    {
+        assertThat(assertions.expression("CAST(a AS ARRAY(NUMBER))")
+                .binding("a", "CAST(null AS JSON)"))
+                .isNull(new ArrayType(NUMBER));
+
+        assertThat(assertions.expression("CAST(a AS ARRAY(NUMBER))")
+                .binding("a", "JSON 'null'"))
+                .isNull(new ArrayType(NUMBER));
+
+        assertThat(assertions.expression("CAST(a AS ARRAY(NUMBER))")
+                .binding("a", "JSON '[]'"))
+                .hasType(new ArrayType(NUMBER))
+                .matches("CAST(ARRAY[] AS ARRAY(NUMBER))");
+
+        assertThat(assertions.expression("CAST(a AS ARRAY(NUMBER))")
+                .binding("a", "JSON '[1, 2.5, 3.14159]'"))
+                .hasType(new ArrayType(NUMBER))
+                .matches("ARRAY[NUMBER '1', NUMBER '2.5', NUMBER '3.14159']");
+
+        assertThat(assertions.expression("CAST(a AS ARRAY(NUMBER))")
+                .binding("a", "json_literal_fixed('[12345678901234567890.123456789012345678, 123456789012345678901234567890.123456789012345678901234567890]')"))
+                .hasType(new ArrayType(NUMBER))
+                .matches("ARRAY[NUMBER '12345678901234567890.123456789012345678', NUMBER '123456789012345678901234567890.123456789012345678901234567890']");
+
+        assertThat(assertions.expression("CAST(a AS ARRAY(NUMBER))")
+                .binding("a", "JSON '[\"NaN\", \"Infinity\", \"-Infinity\", null]'"))
+                .hasType(new ArrayType(NUMBER))
+                .matches("ARRAY[NUMBER 'NaN', NUMBER '+Infinity', NUMBER '-Infinity', null]");
+
+        assertThat(assertions.expression("CAST(a AS ARRAY(NUMBER))")
+                .binding("a", "JSON '[true, false, 128, 123.456, \"3.14\", null]'"))
+                .hasType(new ArrayType(NUMBER))
+                .matches("ARRAY[NUMBER '1', NUMBER '0', NUMBER '128', NUMBER '123.456', NUMBER '3.14', null]");
+
+        assertTrinoExceptionThrownBy(() -> assertions.expression("CAST(a AS ARRAY(NUMBER))")
+                .binding("a", "JSON '[\"not a number\"]'")
+                .evaluate())
+                .hasErrorCode(INVALID_CAST_ARGUMENT);
+    }
+
+    @Test
     public void testCastJsonToArrayVarchar()
     {
         // null JSON -> null array
@@ -1547,6 +1632,34 @@ public class TestArrayOperators
                 .binding("a", "ARRAY[cast(null as DECIMAL(10,3)), cast(null as DECIMAL(10,3))]"))
                 .hasType(JSON)
                 .isEqualTo("[null,null]");
+    }
+
+    @Test
+    public void testCastArrayNumberToJson()
+    {
+        assertThat(assertions.expression("CAST(a AS JSON)")
+                .binding("a", "CAST(null AS ARRAY(NUMBER))"))
+                .isNull(JSON);
+
+        assertThat(assertions.expression("CAST(a AS JSON)")
+                .binding("a", "ARRAY[]"))
+                .hasType(JSON)
+                .isEqualTo("[]");
+
+        assertThat(assertions.expression("CAST(a AS JSON)")
+                .binding("a", "ARRAY[NUMBER '1', NUMBER '2.5', NUMBER '3.14159', null]"))
+                .hasType(JSON)
+                .isEqualTo("[1,2.5,3.14159,null]");
+
+        assertThat(assertions.expression("CAST(a AS JSON)")
+                .binding("a", "ARRAY[NUMBER '12345678901234567890.123456789012345678', null, NUMBER '123456789012345678901234567890.123456789012345678901234567890']"))
+                .hasType(JSON)
+                .isEqualTo("[12345678901234567890.123456789012345678,null,123456789012345678901234567890.12345678901234567890123456789]");
+
+        assertThat(assertions.expression("CAST(a AS JSON)")
+                .binding("a", "ARRAY[NUMBER 'NaN', NUMBER '+Infinity', NUMBER '-Infinity', NUMBER '0', null]"))
+                .hasType(JSON)
+                .isEqualTo("[\"NaN\",\"+Infinity\",\"-Infinity\",0,null]");
     }
 
     @Test

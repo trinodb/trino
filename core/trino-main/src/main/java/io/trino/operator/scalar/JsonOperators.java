@@ -25,9 +25,11 @@ import io.trino.spi.function.LiteralParameters;
 import io.trino.spi.function.ScalarOperator;
 import io.trino.spi.function.SqlNullable;
 import io.trino.spi.function.SqlType;
+import io.trino.spi.type.TrinoNumber;
 import io.trino.util.JsonCastException;
 
 import java.io.IOException;
+import java.math.BigDecimal;
 
 import static io.airlift.slice.SliceUtf8.countCodePoints;
 import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
@@ -39,6 +41,7 @@ import static io.trino.spi.type.StandardTypes.DATE;
 import static io.trino.spi.type.StandardTypes.DOUBLE;
 import static io.trino.spi.type.StandardTypes.INTEGER;
 import static io.trino.spi.type.StandardTypes.JSON;
+import static io.trino.spi.type.StandardTypes.NUMBER;
 import static io.trino.spi.type.StandardTypes.REAL;
 import static io.trino.spi.type.StandardTypes.SMALLINT;
 import static io.trino.spi.type.StandardTypes.TINYINT;
@@ -51,6 +54,7 @@ import static io.trino.util.JsonUtil.currentTokenAsBigint;
 import static io.trino.util.JsonUtil.currentTokenAsBoolean;
 import static io.trino.util.JsonUtil.currentTokenAsDouble;
 import static io.trino.util.JsonUtil.currentTokenAsInteger;
+import static io.trino.util.JsonUtil.currentTokenAsNumber;
 import static io.trino.util.JsonUtil.currentTokenAsReal;
 import static io.trino.util.JsonUtil.currentTokenAsSmallint;
 import static io.trino.util.JsonUtil.currentTokenAsTinyint;
@@ -200,6 +204,22 @@ public final class JsonOperators
 
     @ScalarOperator(CAST)
     @SqlNullable
+    @SqlType(NUMBER)
+    public static TrinoNumber castToNumber(@SqlType(JSON) Slice json)
+    {
+        try (JsonParser parser = createJsonParser(JSON_MAPPER, json)) {
+            parser.nextToken();
+            TrinoNumber result = currentTokenAsNumber(parser);
+            checkCondition(parser.nextToken() == null, INVALID_CAST_ARGUMENT, "Cannot cast input json to NUMBER"); // check no trailing token
+            return result;
+        }
+        catch (IOException | JsonCastException e) {
+            throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to %s", json.toStringUtf8(), NUMBER), e);
+        }
+    }
+
+    @ScalarOperator(CAST)
+    @SqlNullable
     @SqlType(BOOLEAN)
     public static Boolean castToBoolean(@SqlType(JSON) Slice json)
     {
@@ -302,6 +322,26 @@ public final class JsonOperators
         }
         catch (IOException e) {
             throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to %s", value, JSON));
+        }
+    }
+
+    @ScalarOperator(CAST)
+    @SqlType(JSON)
+    public static Slice castFromNumber(@SqlType(NUMBER) TrinoNumber value)
+    {
+        try {
+            SliceOutput output = new DynamicSliceOutput(32);
+            try (JsonGenerator jsonGenerator = createJsonGenerator(JSON_MAPPER, output)) {
+                switch (value.toBigDecimal()) {
+                    case TrinoNumber.NotANumber() -> jsonGenerator.writeString("NaN");
+                    case TrinoNumber.Infinity(boolean negative) -> jsonGenerator.writeString(negative ? "-Infinity" : "+Infinity");
+                    case TrinoNumber.BigDecimalValue(BigDecimal bigDecimal) -> jsonGenerator.writeNumber(bigDecimal);
+                }
+            }
+            return output.slice();
+        }
+        catch (IOException e) {
+            throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast NUMBER '%s' to %s", value.toBigDecimal(), JSON), e);
         }
     }
 

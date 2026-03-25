@@ -42,6 +42,7 @@ import io.trino.spi.type.Int128;
 import io.trino.spi.type.IntegerType;
 import io.trino.spi.type.LongTimestamp;
 import io.trino.spi.type.MapType;
+import io.trino.spi.type.NumberType;
 import io.trino.spi.type.RealType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.RowType.Field;
@@ -49,6 +50,7 @@ import io.trino.spi.type.SmallintType;
 import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.TinyintType;
+import io.trino.spi.type.TrinoNumber;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
 import io.trino.type.BigintOperators;
@@ -57,6 +59,7 @@ import io.trino.type.DoubleOperators;
 import io.trino.type.JsonType;
 import io.trino.type.UnknownType;
 import io.trino.type.VarcharOperators;
+import jakarta.annotation.Nullable;
 
 import java.io.IOException;
 import java.io.InputStreamReader;
@@ -89,6 +92,7 @@ import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.NumberType.NUMBER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TinyintType.TINYINT;
@@ -180,6 +184,7 @@ public final class JsonUtil
                 type instanceof RealType ||
                 type instanceof DoubleType ||
                 type instanceof DecimalType ||
+                type instanceof NumberType ||
                 type instanceof VarcharType ||
                 type instanceof JsonType ||
                 type instanceof TimestampType ||
@@ -210,6 +215,7 @@ public final class JsonUtil
                 type instanceof RealType ||
                 type instanceof DoubleType ||
                 type instanceof DecimalType ||
+                type instanceof NumberType ||
                 type instanceof VarcharType ||
                 type instanceof JsonType) {
             return true;
@@ -315,6 +321,9 @@ public final class JsonUtil
                     return new ShortDecimalJsonGeneratorWriter(decimalType);
                 }
                 return new LongDecimalJsonGeneratorWriter(decimalType);
+            }
+            if (type instanceof NumberType) {
+                return new NumberJsonGeneratorWriter();
             }
             if (type instanceof VarcharType) {
                 return new VarcharJsonGeneratorWriter(type);
@@ -484,6 +493,27 @@ public final class JsonUtil
                         ((Int128) type.getObject(block, position)).toBigInteger(),
                         type.getScale());
                 jsonGenerator.writeNumber(value);
+            }
+        }
+    }
+
+    private static class NumberJsonGeneratorWriter
+            implements JsonGeneratorWriter
+    {
+        @Override
+        public void writeJsonValue(JsonGenerator jsonGenerator, Block block, int position)
+                throws IOException
+        {
+            if (block.isNull(position)) {
+                jsonGenerator.writeNull();
+            }
+            else {
+                TrinoNumber value = (TrinoNumber) NUMBER.getObject(block, position);
+                switch (value.toBigDecimal()) {
+                    case TrinoNumber.NotANumber() -> jsonGenerator.writeString("NaN");
+                    case TrinoNumber.Infinity(boolean negative) -> jsonGenerator.writeString(negative ? "-Infinity" : "+Infinity");
+                    case TrinoNumber.BigDecimalValue(BigDecimal bigDecimal) -> jsonGenerator.writeNumber(bigDecimal);
+                }
             }
         }
     }
@@ -796,6 +826,20 @@ public final class JsonUtil
         };
     }
 
+    @Nullable
+    public static TrinoNumber currentTokenAsNumber(JsonParser parser)
+            throws IOException
+    {
+        return switch (parser.currentToken()) {
+            case VALUE_NULL -> null;
+            case VALUE_STRING, FIELD_NAME -> VarcharOperators.castToNumber(utf8Slice(parser.getText()));
+            case VALUE_NUMBER_INT, VALUE_NUMBER_FLOAT -> TrinoNumber.from(parser.getDecimalValue());
+            case VALUE_TRUE -> TrinoNumber.from(BigDecimal.ONE);
+            case VALUE_FALSE -> TrinoNumber.from(BigDecimal.ZERO);
+            default -> throw new JsonCastException(format("Unexpected token when cast to %s: %s", StandardTypes.NUMBER, parser.getText()));
+        };
+    }
+
     public static Boolean currentTokenAsBoolean(JsonParser parser)
             throws IOException
     {
@@ -900,6 +944,9 @@ public final class JsonUtil
                 }
 
                 return new LongDecimalBlockBuilderAppender(decimalType);
+            }
+            if (type instanceof NumberType) {
+                return new NumberBlockBuilderAppender();
             }
             if (type instanceof VarcharType) {
                 return new VarcharBlockBuilderAppender(type);
@@ -1096,6 +1143,24 @@ public final class JsonUtil
             }
             else {
                 type.writeObject(blockBuilder, result);
+            }
+        }
+    }
+
+    private static class NumberBlockBuilderAppender
+            implements BlockBuilderAppender
+    {
+        @Override
+        public void append(JsonParser parser, BlockBuilder blockBuilder)
+                throws IOException
+        {
+            TrinoNumber result = currentTokenAsNumber(parser);
+
+            if (result == null) {
+                blockBuilder.appendNull();
+            }
+            else {
+                NUMBER.writeObject(blockBuilder, result);
             }
         }
     }
