@@ -73,9 +73,9 @@ public final class JsonOutputFunctions
             Slices.copiedBuffer(new ObjectNode(JsonNodeFactory.instance).asText(), StandardCharsets.UTF_16LE));
     private static final EncodingSpecificConstants UTF_32 = new EncodingSpecificConstants(
             JsonEncoding.UTF32_LE,
-            Charset.forName("UTF-32LE"),
-            Slices.copiedBuffer(new ArrayNode(JsonNodeFactory.instance).asText(), Charset.forName("UTF-32LE")),
-            Slices.copiedBuffer(new ObjectNode(JsonNodeFactory.instance).asText(), Charset.forName("UTF-32LE")));
+            StandardCharsets.UTF_32LE,
+            Slices.copiedBuffer(new ArrayNode(JsonNodeFactory.instance).asText(), StandardCharsets.UTF_32LE),
+            Slices.copiedBuffer(new ObjectNode(JsonNodeFactory.instance).asText(), StandardCharsets.UTF_32LE));
 
     private JsonOutputFunctions() {}
 

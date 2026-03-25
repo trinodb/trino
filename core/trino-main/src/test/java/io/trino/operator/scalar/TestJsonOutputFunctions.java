@@ -21,7 +21,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
 
-import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.nio.charset.StandardCharsets.UTF_16LE;
@@ -81,7 +81,7 @@ public class TestJsonOutputFunctions
     public void testJsonToVarbinaryUtf32()
     {
         assertThat(assertions.expression("\"$json_to_varbinary_utf32\"(" + JSON_EXPRESSION + ", TINYINT '1', true)"))
-                .isEqualTo(new SqlVarbinary(OUTPUT.getBytes(Charset.forName("UTF-32LE"))));
+                .isEqualTo(new SqlVarbinary(OUTPUT.getBytes(StandardCharsets.UTF_32LE)));
     }
 
     @Test
