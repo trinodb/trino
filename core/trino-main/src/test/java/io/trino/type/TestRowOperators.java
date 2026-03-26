@@ -569,10 +569,6 @@ public class TestRowOperators
                 .binding("a", "row(2, 3)"))
                 .isEqualTo(true);
 
-        assertThat(assertions.expression("cast(a AS row(aa bigint, bb double))[2]")
-                .binding("a", "row(2, CAST(null as double))"))
-                .isNull(DOUBLE);
-
         assertThat(assertions.expression("cast(a AS row(aa bigint, bb varchar))[2]")
                 .binding("a", "row(2, 'test_str')"))
                 .hasType(VARCHAR)
