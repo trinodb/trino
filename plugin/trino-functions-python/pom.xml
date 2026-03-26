@@ -75,7 +75,7 @@
         <dependency>
             <groupId>io.trino</groupId>
             <artifactId>trino-wasm-python</artifactId>
-            <version>3.13-5</version>
+            <version>3.13-6</version>
         </dependency>
 
         <dependency>
