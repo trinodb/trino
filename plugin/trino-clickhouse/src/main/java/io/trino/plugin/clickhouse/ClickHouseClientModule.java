@@ -39,6 +39,7 @@ import static com.clickhouse.jdbc.JdbcConfig.PROP_EXTERNAL_DATABASE;
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.trino.plugin.clickhouse.ClickHouseClient.DEFAULT_DOMAIN_COMPACTION_THRESHOLD;
+import static io.trino.plugin.jdbc.DecimalModule.MappingToNumber.ON_BY_DEFAULT;
 import static io.trino.plugin.jdbc.JdbcModule.bindSessionPropertiesProvider;
 import static io.trino.plugin.jdbc.JdbcModule.bindTablePropertiesProvider;
 
@@ -53,7 +54,7 @@ public class ClickHouseClientModule
         binder.bind(JdbcClient.class).annotatedWith(ForBaseJdbc.class).to(ClickHouseClient.class).in(Scopes.SINGLETON);
         bindTablePropertiesProvider(binder, ClickHouseTableProperties.class);
         configBinder(binder).bindConfigDefaults(JdbcMetadataConfig.class, config -> config.setDomainCompactionThreshold(DEFAULT_DOMAIN_COMPACTION_THRESHOLD));
-        binder.install(new DecimalModule());
+        binder.install(DecimalModule.withNumberMapping(ON_BY_DEFAULT));
         newSetBinder(binder, ConnectorTableFunction.class).addBinding().toProvider(Query.class).in(Scopes.SINGLETON);
     }
 

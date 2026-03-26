@@ -74,6 +74,7 @@ import io.trino.spi.type.CharType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Decimals;
 import io.trino.spi.type.Int128;
+import io.trino.spi.type.NumberType;
 import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
@@ -128,7 +129,6 @@ import static io.trino.plugin.clickhouse.TrinoToClickHouseWriteChecker.UINT16;
 import static io.trino.plugin.clickhouse.TrinoToClickHouseWriteChecker.UINT32;
 import static io.trino.plugin.clickhouse.TrinoToClickHouseWriteChecker.UINT64;
 import static io.trino.plugin.clickhouse.TrinoToClickHouseWriteChecker.UINT8;
-import static io.trino.plugin.jdbc.DecimalConfig.DecimalMapping.ALLOW_OVERFLOW;
 import static io.trino.plugin.jdbc.DecimalSessionSessionProperties.getDecimalDefaultScale;
 import static io.trino.plugin.jdbc.DecimalSessionSessionProperties.getDecimalRounding;
 import static io.trino.plugin.jdbc.DecimalSessionSessionProperties.getDecimalRoundingMode;
@@ -147,6 +147,8 @@ import static io.trino.plugin.jdbc.StandardColumnMappings.integerColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.integerWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.longDecimalReadFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.longDecimalWriteFunction;
+import static io.trino.plugin.jdbc.StandardColumnMappings.numberReadFunction;
+import static io.trino.plugin.jdbc.StandardColumnMappings.numberWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.realWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.shortDecimalWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.smallintColumnMapping;
@@ -706,21 +708,32 @@ public class ClickHouseClient
             case Types.DECIMAL:
                 int decimalDigits = typeHandle.requiredDecimalDigits();
                 int precision = typeHandle.requiredColumnSize();
-
-                ColumnMapping decimalColumnMapping;
-                if (getDecimalRounding(session) == ALLOW_OVERFLOW && precision > Decimals.MAX_PRECISION) {
-                    int scale = Math.min(decimalDigits, getDecimalDefaultScale(session));
-                    decimalColumnMapping = decimalColumnMapping(createDecimalType(Decimals.MAX_PRECISION, scale), getDecimalRoundingMode(session));
+                if (precision <= Decimals.MAX_PRECISION) {
+                    return Optional.of(ColumnMapping.mapping(
+                            createDecimalType(precision, max(decimalDigits, 0)),
+                            decimalColumnMapping(createDecimalType(precision, max(decimalDigits, 0))).getReadFunction(),
+                            decimalColumnMapping(createDecimalType(precision, max(decimalDigits, 0))).getWriteFunction(),
+                            // TODO (https://github.com/trinodb/trino/issues/7100) fix, enable and test decimal pushdown
+                            DISABLE_PUSHDOWN));
                 }
-                else {
-                    decimalColumnMapping = decimalColumnMapping(createDecimalType(precision, max(decimalDigits, 0)));
+                switch (getDecimalRounding(session)) {
+                    case MAP_TO_NUMBER -> {
+                        return Optional.of(numberColumnMapping());
+                    }
+                    case STRICT -> {
+                        // skipped (unhandled type)
+                    }
+                    case ALLOW_OVERFLOW -> {
+                        int scale = Math.min(max(decimalDigits, 0), getDecimalDefaultScale(session));
+                        return Optional.of(ColumnMapping.mapping(
+                                createDecimalType(Decimals.MAX_PRECISION, scale),
+                                decimalColumnMapping(createDecimalType(Decimals.MAX_PRECISION, scale), getDecimalRoundingMode(session)).getReadFunction(),
+                                decimalColumnMapping(createDecimalType(Decimals.MAX_PRECISION, scale), getDecimalRoundingMode(session)).getWriteFunction(),
+                                // TODO (https://github.com/trinodb/trino/issues/7100) fix, enable and test decimal pushdown
+                                DISABLE_PUSHDOWN));
+                    }
                 }
-                return Optional.of(ColumnMapping.mapping(
-                        decimalColumnMapping.getType(),
-                        decimalColumnMapping.getReadFunction(),
-                        decimalColumnMapping.getWriteFunction(),
-                        // TODO (https://github.com/trinodb/trino/issues/7100) fix, enable and test decimal pushdown
-                        DISABLE_PUSHDOWN));
+                break;
 
             case Types.DATE:
                 return Optional.of(dateColumnMappingUsingLocalDate(version));
@@ -884,6 +897,16 @@ public class ClickHouseClient
                     UINT64.validate(version, bigDecimal);
                     statement.setBigDecimal(index, bigDecimal);
                 });
+    }
+
+    private static ColumnMapping numberColumnMapping()
+    {
+        return ColumnMapping.objectMapping(
+                NumberType.NUMBER,
+                numberReadFunction(),
+                numberWriteFunction(),
+                // TODO (https://github.com/trinodb/trino/issues/7100) fix, enable and test decimal pushdown
+                DISABLE_PUSHDOWN);
     }
 
     private static ColumnMapping dateColumnMappingUsingLocalDate(ClickHouseVersionUtils version)

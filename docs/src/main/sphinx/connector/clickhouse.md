@@ -217,8 +217,8 @@ to the following table:
   - `DOUBLE`
   - `DOUBLE` is an alias of `Float64`
 * - `Decimal`
-  - `DECIMAL`
-  -
+  - `DECIMAL` or `NUMBER`
+  - Maps to Trino `DECIMAL` when `p ≤ 38`. Otherwise, maps to `NUMBER`.
 * - `FixedString`
   - `VARBINARY`
   - Enabling `clickhouse.map-string-as-varchar` config property changes the
