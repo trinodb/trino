@@ -874,7 +874,6 @@ public class TestJsonOperators
                 .hasType(VARCHAR)
                 .isEqualTo("128");
 
-        // overflow, no loss of precision
         assertThat(assertions.expression("cast(a as VARCHAR)")
                 .binding("a", "JSON '12345678901234567890'"))
                 .hasType(VARCHAR)
@@ -883,25 +882,30 @@ public class TestJsonOperators
         assertThat(assertions.expression("cast(a as VARCHAR)")
                 .binding("a", "JSON '128.9'"))
                 .hasType(VARCHAR)
-                .isEqualTo("1.289E2");
+                .isEqualTo("128.9");
 
-        // smaller than minimum subnormal positive
+        // smaller than double's minimum subnormal positive
         assertThat(assertions.expression("cast(a as VARCHAR)")
                 .binding("a", "JSON '1e-324'"))
                 .hasType(VARCHAR)
-                .isEqualTo("0E0");
+                .isEqualTo("1E-324");
 
-        // overflow
+        assertThat(assertions.expression("cast(a as VARCHAR)")
+                .binding("a", "JSON '123456789012345678901234567890.123456789012345678901234567890'"))
+                .hasType(VARCHAR)
+                .isEqualTo("123456789012345678901234567890.123456789012345678901234567890");
+
+        // overflow if parsed as double
         assertThat(assertions.expression("cast(a as VARCHAR)")
                 .binding("a", "JSON '1e309'"))
                 .hasType(VARCHAR)
-                .isEqualTo("Infinity");
+                .isEqualTo("1E+309");
 
-        // underflow
+        // underflow if parsed as double
         assertThat(assertions.expression("cast(a as VARCHAR)")
                 .binding("a", "JSON '-1e309'"))
                 .hasType(VARCHAR)
-                .isEqualTo("-Infinity");
+                .isEqualTo("-1E+309");
 
         assertThat(assertions.expression("cast(a as VARCHAR)")
                 .binding("a", "JSON 'true'"))

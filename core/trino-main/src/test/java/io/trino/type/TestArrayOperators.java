@@ -485,7 +485,7 @@ public class TestArrayOperators
         assertThat(assertions.expression("CAST(a AS array(VARCHAR))")
                 .binding("a", "JSON '[true, false, 12, 12.3, \"puppies\", \"kittens\", \"null\", \"\", null]'"))
                 .hasType(new ArrayType(VARCHAR))
-                .isEqualTo(asList("true", "false", "12", "1.23E1", "puppies", "kittens", "null", "", null));
+                .isEqualTo(asList("true", "false", "12", "12.3", "puppies", "kittens", "null", "", null));
 
         assertThat(assertions.expression("CAST(a AS array(JSON))")
                 .binding("a", "JSON '[5, 3.14, [1, 2, 3], \"e\", {\"a\": \"b\"}, null, \"null\", [null]]'"))
@@ -1160,7 +1160,7 @@ public class TestArrayOperators
         assertThat(assertions.expression("cast(a as ARRAY(VARCHAR))")
                 .binding("a", "JSON '[true, false, 12, 12.3, 1.23E1, \"puppies\", \"kittens\", \"null\", null]'"))
                 .hasType(new ArrayType(VARCHAR))
-                .matches("CAST(ARRAY['true', 'false', '12', '1.23E1', '1.23E1', 'puppies', 'kittens', 'null', null] AS ARRAY(VARCHAR))");
+                .matches("CAST(ARRAY['true', 'false', '12', '12.3', '12.3', 'puppies', 'kittens', 'null', null] AS ARRAY(VARCHAR))");
 
         // non-array JSON should fail
         assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as ARRAY(VARCHAR))")

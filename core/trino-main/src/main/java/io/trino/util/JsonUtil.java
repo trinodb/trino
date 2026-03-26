@@ -697,11 +697,7 @@ public final class JsonUtil
         return switch (parser.currentToken()) {
             case VALUE_NULL -> null;
             case VALUE_STRING, FIELD_NAME -> utf8Slice(parser.getText());
-            // Avoidance of loss of precision does not seem to be possible here because of Jackson implementation.
-            case VALUE_NUMBER_FLOAT -> DoubleOperators.castToVarchar(UNBOUNDED_LENGTH, parser.getDoubleValue());
-            // An alternative is calling getLongValue and then BigintOperators.castToVarchar.
-            // It doesn't work as well because it can result in overflow and underflow exceptions for large integral numbers.
-            case VALUE_NUMBER_INT -> utf8Slice(parser.getText());
+            case VALUE_NUMBER_INT, VALUE_NUMBER_FLOAT -> utf8Slice(parser.getDecimalValue().toString());
             case VALUE_TRUE -> BooleanOperators.castToVarchar(UNBOUNDED_LENGTH, true);
             case VALUE_FALSE -> BooleanOperators.castToVarchar(UNBOUNDED_LENGTH, false);
             default -> throw new JsonCastException(format("Unexpected token when cast to %s: %s", StandardTypes.VARCHAR, parser.getText()));
