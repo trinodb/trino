@@ -24,7 +24,6 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.SqlRow;
-import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.function.BoundSignature;
 import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.Signature;
@@ -54,7 +53,7 @@ public class JsonToRowCast
         extends SqlScalarFunction
 {
     public static final JsonToRowCast JSON_TO_ROW = new JsonToRowCast();
-    private static final MethodHandle METHOD_HANDLE = methodHandle(JsonToRowCast.class, "toRow", RowType.class, BlockBuilderAppender.class, ConnectorSession.class, Slice.class);
+    private static final MethodHandle METHOD_HANDLE = methodHandle(JsonToRowCast.class, "toRow", RowType.class, BlockBuilderAppender.class, Slice.class);
 
     private static final JsonMapper JSON_MAPPER = new JsonMapper(createJsonFactory());
 
@@ -91,11 +90,7 @@ public class JsonToRowCast
     }
 
     @UsedByGeneratedCode
-    public static SqlRow toRow(
-            RowType rowType,
-            BlockBuilderAppender rowAppender,
-            ConnectorSession connectorSession,
-            Slice json)
+    public static SqlRow toRow(RowType rowType, BlockBuilderAppender rowAppender, Slice json)
     {
         try (JsonParser jsonParser = createJsonParser(JSON_MAPPER, json)) {
             jsonParser.nextToken();
