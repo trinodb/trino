@@ -34,6 +34,12 @@ import static io.trino.operator.scalar.JsonStringToArrayCast.JSON_STRING_TO_ARRA
 import static io.trino.operator.scalar.JsonStringToMapCast.JSON_STRING_TO_MAP_NAME;
 import static io.trino.operator.scalar.JsonStringToRowCast.JSON_STRING_TO_ROW_NAME;
 
+/**
+ * Replaces certain {@code CAST(json_parse(x) AS T)} with functions logically
+ * implementing {@code CAST(a_json AS T)} along with validation that input is
+ * well-formed JSON. This avoids cost of validation and canonicalization done
+ * by {@code json_parse}.
+ */
 public class SpecializeCastWithJsonParse
         implements IrOptimizerRule
 {
