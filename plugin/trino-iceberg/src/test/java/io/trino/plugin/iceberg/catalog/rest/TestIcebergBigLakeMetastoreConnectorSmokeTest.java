@@ -229,13 +229,6 @@ final class TestIcebergBigLakeMetastoreConnectorSmokeTest
     }
 
     @Test
-    @Override // TODO (https://github.com/trinodb/trino/issues/27679) Enable this test once Google fixes a bug. January 2026 release will contain the fix.
-    public void testRegisterTableWithComments()
-    {
-        abort("skipped");
-    }
-
-    @Test
     @Override // TODO Enable once timeout issue is fixed
     public void testDeleteRowsConcurrently()
     {
