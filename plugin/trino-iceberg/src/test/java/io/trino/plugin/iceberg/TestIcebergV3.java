@@ -465,24 +465,16 @@ public class TestIcebergV3
             throws IOException
     {
         String tableName = "test_timestamp_nano_" + randomNameSuffix();
-        Path tableLocation = dataDirectory.resolve(tableName);
 
         // Create table with timestamp_nano column using Iceberg API
         Schema schema = new Schema(
                 Types.NestedField.required(1, "id", Types.IntegerType.get()),
                 Types.NestedField.optional(2, "ts_nano", Types.TimestampNanoType.withoutZone()));
 
-        Table table = HADOOP_TABLES.create(
-                schema,
-                PartitionSpec.unpartitioned(),
-                SortOrder.unsorted(),
-                ImmutableMap.of(FORMAT_VERSION, "3"),
-                tableLocation.toString());
+        Table table = createV3Table(tableName, schema);
 
         // Write data with nanosecond precision
-        String dataPath = tableLocation.resolve("data")
-                .resolve("data-" + UUID.randomUUID() + ".parquet")
-                .toString();
+        String dataPath = table.location() + "/data/data-" + UUID.randomUUID() + ".parquet";
         try (DataWriter<Record> writer = Parquet.writeData(table.io().newOutputFile(dataPath))
                 .forTable(table)
                 .withSpec(table.spec())
@@ -501,14 +493,10 @@ public class TestIcebergV3
                     .commit();
         }
 
-        // Register table in Trino and verify
-        String registered = "registered_timestamp_nano_" + randomNameSuffix();
-        assertUpdate("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')".formatted(registered, tableLocation));
-
-        assertThat(query("SELECT id, ts_nano FROM " + registered))
+        assertThat(query("SELECT id, ts_nano FROM " + tableName))
                 .matches("VALUES (1, TIMESTAMP '2024-01-15 12:30:45.123456789')");
 
-        assertUpdate("DROP TABLE " + registered);
+        assertUpdate("DROP TABLE " + tableName);
     }
 
     @Test
@@ -566,24 +554,16 @@ public class TestIcebergV3
             throws IOException
     {
         String tableName = "test_timestamp_nano_tz_" + randomNameSuffix();
-        Path tableLocation = dataDirectory.resolve(tableName);
 
         // Create table with timestamp_nano (with UTC adjustment) column using Iceberg API
         Schema schema = new Schema(
                 Types.NestedField.required(1, "id", Types.IntegerType.get()),
                 Types.NestedField.optional(2, "ts_nano_tz", Types.TimestampNanoType.withZone()));
 
-        Table table = HADOOP_TABLES.create(
-                schema,
-                PartitionSpec.unpartitioned(),
-                SortOrder.unsorted(),
-                ImmutableMap.of(FORMAT_VERSION, "3"),
-                tableLocation.toString());
+        Table table = createV3Table(tableName, schema);
 
         // Write data with nanosecond precision
-        String dataPath = tableLocation.resolve("data")
-                .resolve("data-" + UUID.randomUUID() + ".parquet")
-                .toString();
+        String dataPath = table.location() + "/data/data-" + UUID.randomUUID() + ".parquet";
         try (DataWriter<Record> writer = Parquet.writeData(table.io().newOutputFile(dataPath))
                 .forTable(table)
                 .withSpec(table.spec())
@@ -602,14 +582,10 @@ public class TestIcebergV3
                     .commit();
         }
 
-        // Register table in Trino and verify
-        String registered = "registered_timestamp_nano_tz_" + randomNameSuffix();
-        assertUpdate("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')".formatted(registered, tableLocation));
-
-        assertThat(query("SELECT id, ts_nano_tz FROM " + registered))
+        assertThat(query("SELECT id, ts_nano_tz FROM " + tableName))
                 .matches("VALUES (1, TIMESTAMP '2024-01-15 12:30:45.123456789 UTC')");
 
-        assertUpdate("DROP TABLE " + registered);
+        assertUpdate("DROP TABLE " + tableName);
     }
 
     @Test
@@ -714,7 +690,6 @@ public class TestIcebergV3
         // Create a v3 table with a column that has write-default (but not initial-default)
         // Note: write-default is used for INSERT, initial-default is used for reading missing columns
         String tableName = "v3_write_defaults_" + randomNameSuffix();
-        SchemaTableName schemaTableName = new SchemaTableName("tpch", tableName);
         Schema schemaWithWriteDefault = new Schema(
                 Types.NestedField.optional("id")
                         .withId(1)
@@ -725,16 +700,7 @@ public class TestIcebergV3
                         .ofType(Types.IntegerType.get())
                         .withWriteDefault(Expressions.lit(99))
                         .build());
-
-        catalog.newCreateTableTransaction(
-                        SESSION,
-                        schemaTableName,
-                        schemaWithWriteDefault,
-                        PartitionSpec.unpartitioned(),
-                        SortOrder.unsorted(),
-                        Optional.ofNullable(catalog.defaultTableLocation(SESSION, schemaTableName)),
-                        ImmutableMap.of("format-version", "3"))
-                .commitTransaction();
+        createV3Table(tableName, schemaWithWriteDefault);
 
         BaseTable tempTable = loadTable(temp);
         loadTable(tableName).newFastAppend()
@@ -753,7 +719,6 @@ public class TestIcebergV3
     void testWriteDefaultOnInsert()
     {
         String tableName = "test_write_default_insert_" + randomNameSuffix();
-        SchemaTableName schemaTableName = new SchemaTableName("tpch", tableName);
 
         // Create a v3 table with write-default on column 'b'
         Schema schemaWithWriteDefault = new Schema(
@@ -766,16 +731,7 @@ public class TestIcebergV3
                         .ofType(Types.IntegerType.get())
                         .withWriteDefault(Expressions.lit(42))
                         .build());
-
-        catalog.newCreateTableTransaction(
-                        SESSION,
-                        schemaTableName,
-                        schemaWithWriteDefault,
-                        PartitionSpec.unpartitioned(),
-                        SortOrder.unsorted(),
-                        Optional.ofNullable(catalog.defaultTableLocation(SESSION, schemaTableName)),
-                        ImmutableMap.of("format-version", "3"))
-                .commitTransaction();
+        createV3Table(tableName, schemaWithWriteDefault);
 
         // Verify SHOW CREATE TABLE shows DEFAULT
         assertThat((String) computeScalar("SHOW CREATE TABLE " + tableName))
@@ -1701,5 +1657,20 @@ public class TestIcebergV3
         finally {
             assertUpdate("DROP TABLE IF EXISTS " + tableName);
         }
+    }
+
+    private Table createV3Table(String tableName, Schema schema)
+    {
+        SchemaTableName schemaTableName = new SchemaTableName(getSession().getSchema().orElseThrow(), tableName);
+        catalog.newCreateTableTransaction(
+                        SESSION,
+                        schemaTableName,
+                        schema,
+                        PartitionSpec.unpartitioned(),
+                        SortOrder.unsorted(),
+                        Optional.ofNullable(catalog.defaultTableLocation(SESSION, schemaTableName)),
+                        ImmutableMap.of(FORMAT_VERSION, "3"))
+                .commitTransaction();
+        return loadTable(schemaTableName.getTableName());
     }
 }
