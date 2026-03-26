@@ -56,7 +56,6 @@ public final class JsonTypeUtil
 
     private JsonTypeUtil() {}
 
-    // TODO: this should be available from the engine
     public static Slice jsonParse(Slice slice)
     {
         // cast(json_parse(x) AS t)` will be optimized into `$internal$json_string_to_array/map/row_cast` in ExpressionOptimizer

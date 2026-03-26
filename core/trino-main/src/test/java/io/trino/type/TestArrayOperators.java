@@ -1557,7 +1557,7 @@ public class TestArrayOperators
     }
 
     @Test
-    public void testConstructor() // TODO
+    public void testConstructor()
     {
         assertThat(assertions.expression("ARRAY[]"))
                 .hasType(new ArrayType(UNKNOWN))
