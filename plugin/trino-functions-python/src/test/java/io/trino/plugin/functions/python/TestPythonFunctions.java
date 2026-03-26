@@ -752,6 +752,27 @@ public class TestPythonFunctions
     }
 
     @Test
+    public void testTypeNumber()
+    {
+        String query =
+                """
+                WITH FUNCTION multiply(x number, y number)
+                RETURNS number
+                LANGUAGE PYTHON
+                WITH (handler = 'multiply')
+                AS $$
+                from decimal import Decimal
+                def multiply(x, y):
+                    return x * y * Decimal("100000000000000000000.000000000000000000000000000000000000001")
+                $$
+                """;
+
+        assertThat(assertions.query(
+                query + "SELECT multiply(NUMBER '1.12345', NUMBER '2.54321')"))
+                .matches("VALUES NUMBER '2.8571692745E+20'");
+    }
+
+    @Test
     public void testTypeInteger()
     {
         String query =
