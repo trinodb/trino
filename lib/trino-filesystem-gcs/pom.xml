@@ -112,27 +112,6 @@
         </dependency>
 
         <dependency>
-            <!-- TODO remove - dependency only to negotiate version between dependencies-->
-            <groupId>com.google.http-client</groupId>
-            <artifactId>google-http-client</artifactId>
-            <scope>runtime</scope>
-            <exclusions>
-                <exclusion>
-                    <groupId>commons-logging</groupId>
-                    <artifactId>commons-logging</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>org.apache.httpcomponents</groupId>
-                    <artifactId>httpclient</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>org.apache.httpcomponents</groupId>
-                    <artifactId>httpcore</artifactId>
-                </exclusion>
-            </exclusions>
-        </dependency>
-
-        <dependency>
             <groupId>io.opentelemetry</groupId>
             <artifactId>opentelemetry-opencensus-shim</artifactId>
             <scope>runtime</scope>
