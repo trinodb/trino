@@ -73,8 +73,6 @@ public class TestJsonOperators
         assertions = null;
     }
 
-    // todo add cases for decimal
-
     @Test
     public void testCastToBigint()
     {
