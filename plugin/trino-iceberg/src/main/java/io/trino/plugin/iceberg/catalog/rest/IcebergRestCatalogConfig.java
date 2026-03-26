@@ -53,6 +53,8 @@ public class IcebergRestCatalogConfig
     private boolean nestedNamespaceEnabled;
     private Security security = Security.NONE;
     private SessionType sessionType = SessionType.NONE;
+    private Duration connectionTimeout;
+    private Duration socketTimeout;
     private Duration sessionTimeout = new Duration(CatalogProperties.AUTH_SESSION_TIMEOUT_MS_DEFAULT, MILLISECONDS);
     private boolean vendedCredentialsEnabled;
     private boolean viewEndpointsEnabled = true;
@@ -139,6 +141,32 @@ public class IcebergRestCatalogConfig
     public IcebergRestCatalogConfig setSessionType(SessionType sessionType)
     {
         this.sessionType = sessionType;
+        return this;
+    }
+
+    public Optional<@MinDuration("0s") Duration> getConnectionTimeout()
+    {
+        return Optional.ofNullable(connectionTimeout);
+    }
+
+    @Config("iceberg.rest-catalog.connection-timeout")
+    @ConfigDescription("Maximum time allowed for socket connect to complete before timing out")
+    public IcebergRestCatalogConfig setConnectionTimeout(Duration connectionTimeout)
+    {
+        this.connectionTimeout = connectionTimeout;
+        return this;
+    }
+
+    public Optional<@MinDuration("0s") Duration> getSocketTimeout()
+    {
+        return Optional.ofNullable(socketTimeout);
+    }
+
+    @Config("iceberg.rest-catalog.socket-timeout")
+    @ConfigDescription("Maximum time allowed for socket reads/writes before timing out")
+    public IcebergRestCatalogConfig setSocketTimeout(Duration socketTimeout)
+    {
+        this.socketTimeout = socketTimeout;
         return this;
     }
 
