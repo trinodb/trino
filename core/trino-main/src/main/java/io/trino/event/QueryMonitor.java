@@ -538,8 +538,21 @@ public class QueryMonitor
             return;
         }
 
+        List<OperatorStats> operatorSummaries = stageInfo.stageStats().getOperatorSummaries();
+        Map<PlanNodeId, Metrics> splitSourceMetrics = stageInfo.stageStats().getSplitSourceMetrics();
+        ImmutableList.Builder<OperatorStats> operatorStats = ImmutableList.builderWithExpectedSize(operatorSummaries.size());
+        for (OperatorStats stats : operatorSummaries) {
+            if (stats.getSourceId().isPresent()) {
+                Metrics metrics = splitSourceMetrics.get(stats.getSourceId().get());
+                if (metrics != null && metrics != Metrics.EMPTY) {
+                    stats = stats.withConnectorSplitSourceMetrics(metrics);
+                }
+            }
+            operatorStats.add(stats);
+        }
+
         // Note: a plan node may be mapped to multiple operators
-        Map<PlanNodeId, Collection<OperatorStats>> allOperatorStats = Multimaps.index(stageInfo.stageStats().getOperatorSummaries(), OperatorStats::getPlanNodeId).asMap();
+        Map<PlanNodeId, Collection<OperatorStats>> allOperatorStats = Multimaps.index(operatorStats.build(), OperatorStats::getPlanNodeId).asMap();
 
         // Sometimes a plan node is merged with other nodes into a single operator, and in that case,
         // use the stats of the nearest parent node with stats.
