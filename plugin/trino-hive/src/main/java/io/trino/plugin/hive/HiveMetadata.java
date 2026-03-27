@@ -698,9 +698,8 @@ public class HiveMetadata
         // External location property
         ImmutableMap.Builder<String, Object> properties = ImmutableMap.builder();
         if (table.getTableType().equals(EXTERNAL_TABLE.name())) {
-            boolean isHive3ConvertedManagedTable = "true".equalsIgnoreCase(
-                    table.getParameters().get(TRANSLATED_TO_EXTERNAL));
-            if (!isHive3ConvertedManagedTable) {
+            boolean isHiveConvertedManagedTable = "true".equalsIgnoreCase(table.getParameters().get(TRANSLATED_TO_EXTERNAL));
+            if (!isHiveConvertedManagedTable) {
                 properties.put(EXTERNAL_LOCATION_PROPERTY, table.getStorage().getLocation());
             }
         }

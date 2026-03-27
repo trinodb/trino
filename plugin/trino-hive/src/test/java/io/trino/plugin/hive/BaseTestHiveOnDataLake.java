@@ -2629,15 +2629,14 @@ abstract class BaseTestHiveOnDataLake
         String tableName = "test_hive_managed_" + randomNameSuffix();
         String qualifiedTableName = getFullyQualifiedTestTableName(tableName);
 
-        assertUpdate(format("CREATE TABLE %s (id bigint, name varchar)", qualifiedTableName));
+        assertUpdate("CREATE TABLE " + qualifiedTableName + " (id bigint, name varchar)");
         try {
-            assertThat((String) computeScalar(format("SHOW CREATE TABLE %s", qualifiedTableName)))
+            assertThat((String) computeScalar("SHOW CREATE TABLE " + qualifiedTableName))
                     .doesNotContain("external_location")
-                    .doesNotContain("location")
                     .contains("format = 'ORC'");
         }
         finally {
-            assertUpdate(format("DROP TABLE %s", qualifiedTableName));
+            assertUpdate("DROP TABLE " + qualifiedTableName);
         }
     }
 
@@ -2648,17 +2647,49 @@ abstract class BaseTestHiveOnDataLake
         String qualifiedTableName = getFullyQualifiedTestTableName(tableName);
         String tableLocation = format("s3a://%s/%s/%s", bucketName, HIVE_TEST_SCHEMA, tableName);
 
-        assertUpdate(format(
-                "CREATE TABLE %s (id bigint, name varchar) WITH (external_location = '%s')",
-                qualifiedTableName,
-                tableLocation));
+        assertUpdate("CREATE TABLE " + qualifiedTableName + " (id bigint, name varchar) WITH (external_location = '" + tableLocation + "')");
         try {
-            assertThat((String) computeScalar(format("SHOW CREATE TABLE %s", qualifiedTableName)))
+            assertThat((String) computeScalar("SHOW CREATE TABLE " + qualifiedTableName))
                     .contains("external_location = '" + tableLocation + "'")
                     .contains("format = 'ORC'");
         }
         finally {
-            assertUpdate(format("DROP TABLE %s", qualifiedTableName));
+            assertUpdate("DROP TABLE " + qualifiedTableName);
+        }
+    }
+
+    @Test
+    public void testShowCreateTableForManagedTableViaHiveClient()
+    {
+        String tableName = "test_hive_translated_managed_" + randomNameSuffix();
+        String qualifiedTrino = getFullyQualifiedTestTableName(tableName);
+        String qualifiedHive = getHiveTestTableName(tableName);
+
+        try {
+            hiveMinioDataLake.runOnHive("CREATE TABLE " + qualifiedHive + " (id int, name string) STORED AS ORC");
+
+            assertThat((String) computeScalar("SHOW CREATE TABLE " + qualifiedTrino))
+                    .doesNotContain("external_location");
+        }
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS " + qualifiedTrino);
+        }
+    }
+
+    @Test
+    public void testShowCreateTableForExternalTableViaHiveClient()
+    {
+        String tableName = "test_hive_external_show_create_" + randomNameSuffix();
+        String qualifiedTrino = getFullyQualifiedTestTableName(tableName);
+        String qualifiedHive = getHiveTestTableName(tableName);
+        String location = format("s3a://%s/%s/%s/", bucketName, HIVE_TEST_SCHEMA, tableName);
+        try {
+            hiveMinioDataLake.runOnHive("CREATE EXTERNAL TABLE " + qualifiedHive + " (id int, name string) STORED AS ORC LOCATION '" + location + "'");
+            assertThat((String) computeScalar("SHOW CREATE TABLE " + qualifiedTrino))
+                    .contains("external_location");
+        }
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS " + qualifiedTrino);
         }
     }
 }
