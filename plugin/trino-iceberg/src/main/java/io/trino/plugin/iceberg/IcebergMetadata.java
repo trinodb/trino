@@ -998,12 +998,12 @@ public class IcebergMetadata
                                         columns::get,
                                         columnId -> {
                                             IcebergColumnHandle column = columns.get(columnId);
-                                            Object prestoValue = deserializePartitionValue(
+                                            Object partitionValue = deserializePartitionValue(
                                                     column.getType(),
                                                     partitionColumnValueStrings.get(columnId).orElse(null),
                                                     column.getName());
 
-                                            return new NullableValue(column.getType(), prestoValue);
+                                            return new NullableValue(column.getType(), partitionValue);
                                         }));
 
                         return TupleDomain.fromFixedValues(partitionValues);
