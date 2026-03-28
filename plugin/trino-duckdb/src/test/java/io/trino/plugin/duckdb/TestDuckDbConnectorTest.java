@@ -86,13 +86,17 @@ final class TestDuckDbConnectorTest
 
         if (type.equals("time") ||
                 type.startsWith("time(") ||
-                type.startsWith("timestamp") ||
                 type.equals("varbinary") ||
                 type.startsWith("array") ||
                 type.startsWith("row")) {
             return Optional.of(setup.asUnsupported());
         }
-
+        if (type.equals("timestamp") || type.matches("timestamp\\([0-6]\\)")) {
+            return Optional.of(setup);
+        }
+        if (type.startsWith("timestamp")) {
+            return Optional.of(setup.asUnsupported());
+        }
         if (setup.getTrinoTypeName().equals("char(3)") && setup.getSampleValueLiteral().equals("'ab'")) {
             return Optional.of(new DataMappingTestSetup("char(3)", "'abc'", "'zzz'"));
         }
@@ -193,6 +197,10 @@ final class TestDuckDbConnectorTest
     @Override
     protected Optional<SetColumnTypeSetup> filterSetColumnTypesDataProvider(SetColumnTypeSetup setup)
     {
+        if (setup.sourceColumnType().startsWith("timestamp") || setup.newColumnType().startsWith("timestamp")) {
+            return Optional.empty();
+        }
+
         return switch ("%s -> %s".formatted(setup.sourceColumnType(), setup.newColumnType())) {
             case "varchar(100) -> varchar(50)" -> Optional.of(setup.withNewColumnType("varchar"));
             case "char(25) -> char(20)",
@@ -295,6 +303,29 @@ final class TestDuckDbConnectorTest
         assertQueryFails("SELECT * FROM " + tableName, ".* Table 'duckdb.tpch.%s' does not exist".formatted(tableName));
         assertThatThrownBy(() -> onRemoteDatabase().execute("SELECT * FROM " + tableName))
                 .hasStackTraceContaining("Table with name %s does not exist", tableName);
+    }
+
+    @Test
+    void testCreateTableWithTimestamp()
+    {
+        String tableName = "test_create_table_with_timestamp_" + randomNameSuffix();
+        try {
+            assertUpdate("CREATE TABLE " + tableName + " (id bigint, ts timestamp(6))");
+            assertUpdate(
+                    "INSERT INTO " + tableName + " VALUES " +
+                            "(1, TIMESTAMP '2024-01-02 03:04:05.123456'), " +
+                            "(2, NULL)",
+                    2);
+
+            assertQuery(
+                    "SELECT id, ts FROM " + tableName + " ORDER BY id",
+                    "VALUES " +
+                            "(1, TIMESTAMP '2024-01-02 03:04:05.123456'), " +
+                            "(2, CAST(NULL AS TIMESTAMP(6)))");
+        }
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS " + tableName);
+        }
     }
 
     @Override
