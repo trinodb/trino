@@ -40,10 +40,10 @@ import static java.util.concurrent.TimeUnit.DAYS;
 import static java.util.concurrent.TimeUnit.HOURS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
-public class TestIcebergConfig
+final class TestIcebergConfig
 {
     @Test
-    public void testDefaults()
+    void testDefaults()
     {
         assertRecordedDefaults(recordDefaults(IcebergConfig.class)
                 .setFileFormat(PARQUET)
@@ -87,11 +87,13 @@ public class TestIcebergConfig
                 .setObjectStoreLayoutEnabled(false)
                 .setMetadataParallelism(8)
                 .setBucketExecutionEnabled(true)
-                .setFileBasedConflictDetectionEnabled(true));
+                .setFileBasedConflictDetectionEnabled(true)
+                .setEncryptionKmsType(null)
+                .setEncryptionKmsProperties(ImmutableList.of()));
     }
 
     @Test
-    public void testExplicitPropertyMappings()
+    void testExplicitPropertyMappings()
     {
         Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("iceberg.file-format", "ORC")
@@ -135,6 +137,8 @@ public class TestIcebergConfig
                 .put("iceberg.metadata.parallelism", "10")
                 .put("iceberg.bucket-execution", "false")
                 .put("iceberg.file-based-conflict-detection", "false")
+                .put("iceberg.encryption.kms-type", "aws")
+                .put("iceberg.encryption.kms-properties", "client.factory=example.ClientFactory,key.id=test-key")
                 .buildOrThrow();
 
         IcebergConfig expected = new IcebergConfig()
@@ -179,13 +183,15 @@ public class TestIcebergConfig
                 .setObjectStoreLayoutEnabled(true)
                 .setMetadataParallelism(10)
                 .setBucketExecutionEnabled(false)
-                .setFileBasedConflictDetectionEnabled(false);
+                .setFileBasedConflictDetectionEnabled(false)
+                .setEncryptionKmsType(IcebergConfig.EncryptionKmsType.AWS)
+                .setEncryptionKmsProperties(ImmutableList.of("client.factory=example.ClientFactory", "key.id=test-key"));
 
         assertFullMapping(properties, expected);
     }
 
     @Test
-    public void testValidation()
+    void testValidation()
     {
         assertFailsValidation(
                 new IcebergConfig()

@@ -507,7 +507,7 @@ public class TrinoRestCatalog
             // So log the exception and continue with deleting the table location
             log.warn(e, "Failed to delete table data referenced by metadata");
         }
-        deleteTableDirectory(fileSystemFactory.create(session.getIdentity(), table.io().properties()), schemaTableName, table.location());
+        deleteTableDirectory(fileSystemFactory.create(session.getIdentity(), fileIoProperties(table)), schemaTableName, table.location());
     }
 
     private static void deleteTableDirectory(TrinoFileSystem fileSystem, SchemaTableName schemaTableName, String tableLocation)
@@ -518,6 +518,11 @@ public class TrinoRestCatalog
         catch (IOException e) {
             throw new TrinoException(ICEBERG_FILESYSTEM_ERROR, format("Failed to delete directory %s of the table %s", tableLocation, schemaTableName), e);
         }
+    }
+
+    private static Map<String, String> fileIoProperties(Table table)
+    {
+        return IcebergUtil.getFileIoProperties(table);
     }
 
     private void purgeTable(ConnectorSession session, SchemaTableName schemaTableName)

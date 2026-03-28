@@ -22,6 +22,7 @@ import io.trino.metastore.Column;
 import io.trino.metastore.HiveType;
 import io.trino.metastore.StorageFormat;
 import io.trino.plugin.iceberg.IcebergExceptions;
+import io.trino.plugin.iceberg.encryption.IcebergEncryptionManagerFactory;
 import io.trino.plugin.iceberg.util.HiveSchemaUtil;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
@@ -29,6 +30,9 @@ import io.trino.spi.connector.SchemaTableName;
 import jakarta.annotation.Nullable;
 import org.apache.iceberg.TableMetadata;
 import org.apache.iceberg.TableMetadataParser;
+import org.apache.iceberg.encryption.EncryptingFileIO;
+import org.apache.iceberg.encryption.EncryptionManager;
+import org.apache.iceberg.encryption.PlaintextEncryptionManager;
 import org.apache.iceberg.exceptions.CommitFailedException;
 import org.apache.iceberg.io.FileIO;
 import org.apache.iceberg.io.LocationProvider;
@@ -65,6 +69,7 @@ import static java.util.UUID.randomUUID;
 import static org.apache.iceberg.BaseMetastoreTableOperations.METADATA_LOCATION_PROP;
 import static org.apache.iceberg.CatalogUtil.deleteRemovedMetadataFiles;
 import static org.apache.iceberg.TableMetadataParser.getFileExtension;
+import static org.apache.iceberg.TableProperties.ENCRYPTION_TABLE_KEY;
 import static org.apache.iceberg.TableProperties.METADATA_COMPRESSION;
 import static org.apache.iceberg.TableProperties.METADATA_COMPRESSION_DEFAULT;
 import static org.apache.iceberg.TableProperties.WRITE_METADATA_LOCATION;
@@ -84,15 +89,20 @@ public abstract class AbstractIcebergTableOperations
     protected final String tableName;
     protected final Optional<String> owner;
     protected final Optional<String> location;
-    private final FileIO fileIo;
+    protected final FileIO fileIo;
+    protected final IcebergEncryptionManagerFactory encryptionManagerFactory;
 
     protected TableMetadata currentMetadata;
     protected String currentMetadataLocation;
     protected boolean shouldRefresh = true;
     protected OptionalInt version = OptionalInt.empty();
+    private String tableKeyId;
+    private EncryptionManager encryptionManager;
+    private FileIO encryptingFileIo;
 
     protected AbstractIcebergTableOperations(
             FileIO fileIo,
+            IcebergEncryptionManagerFactory encryptionManagerFactory,
             ConnectorSession session,
             String database,
             String table,
@@ -100,6 +110,7 @@ public abstract class AbstractIcebergTableOperations
             Optional<String> location)
     {
         this.fileIo = requireNonNull(fileIo, "fileIo is null");
+        this.encryptionManagerFactory = requireNonNull(encryptionManagerFactory, "encryptionManagerFactory is null");
         this.session = requireNonNull(session, "session is null");
         this.database = requireNonNull(database, "database is null");
         this.tableName = requireNonNull(table, "table is null");
@@ -115,6 +126,7 @@ public abstract class AbstractIcebergTableOperations
         currentMetadataLocation = tableMetadata.metadataFileLocation();
         shouldRefresh = false;
         version = OptionalInt.of(parseVersion(Location.of(currentMetadataLocation).fileName()));
+        updateEncryptionState(tableMetadata);
     }
 
     @Override
@@ -192,7 +204,31 @@ public abstract class AbstractIcebergTableOperations
     @Override
     public FileIO io()
     {
-        return fileIo;
+        if (!isEncryptedTable()) {
+            return fileIo;
+        }
+        if (encryptingFileIo == null) {
+            encryptingFileIo = EncryptingFileIO.combine(fileIo, encryption());
+        }
+        return encryptingFileIo;
+    }
+
+    @Override
+    public Map<String, String> fileIoProperties()
+    {
+        return fileIo.properties();
+    }
+
+    @Override
+    public EncryptionManager encryption()
+    {
+        if (!isEncryptedTable()) {
+            return PlaintextEncryptionManager.instance();
+        }
+        if (encryptionManager == null) {
+            encryptionManager = encryptionManagerFactory.createEncryptionManager(currentMetadata);
+        }
+        return encryptionManager;
     }
 
     @Override
@@ -284,6 +320,19 @@ public abstract class AbstractIcebergTableOperations
         currentMetadataLocation = newLocation;
         version = OptionalInt.of(parseVersion(Location.of(newLocation).fileName()));
         shouldRefresh = false;
+        updateEncryptionState(newMetadata);
+    }
+
+    private void updateEncryptionState(TableMetadata metadata)
+    {
+        this.tableKeyId = metadata.properties().get(ENCRYPTION_TABLE_KEY);
+        this.encryptionManager = null;
+        this.encryptingFileIo = null;
+    }
+
+    private boolean isEncryptedTable()
+    {
+        return tableKeyId != null;
     }
 
     protected static String newTableMetadataFilePath(TableMetadata meta, int newVersion)

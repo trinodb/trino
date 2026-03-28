@@ -26,6 +26,7 @@ import io.trino.spi.session.PropertyMetadata;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.TypeManager;
+import org.apache.iceberg.TableProperties;
 
 import java.util.List;
 import java.util.Map;
@@ -72,6 +73,8 @@ public class IcebergTableProperties
     public static final String OBJECT_STORE_LAYOUT_ENABLED_PROPERTY = "object_store_layout_enabled";
     public static final String DATA_LOCATION_PROPERTY = "data_location";
     public static final String EXTRA_PROPERTIES_PROPERTY = "extra_properties";
+    public static final String ENCRYPTION_KEY_ID_PROPERTY = "encryption_key_id";
+    public static final String ENCRYPTION_DATA_KEY_LENGTH_PROPERTY = "encryption_data_key_length";
 
     public static final Set<String> SUPPORTED_PROPERTIES = ImmutableSet.<String>builder()
             .add(FILE_FORMAT_PROPERTY)
@@ -89,6 +92,8 @@ public class IcebergTableProperties
             .add(DATA_LOCATION_PROPERTY)
             .add(EXTRA_PROPERTIES_PROPERTY)
             .add(PARQUET_BLOOM_FILTER_COLUMNS_PROPERTY)
+            .add(ENCRYPTION_KEY_ID_PROPERTY)
+            .add(ENCRYPTION_DATA_KEY_LENGTH_PROPERTY)
             .build();
 
     // These properties are used by Trino or Iceberg internally and cannot be set directly by users through extra_properties
@@ -98,6 +103,8 @@ public class IcebergTableProperties
             .add(ORC_BLOOM_FILTER_FPP)
             .add(DEFAULT_FILE_FORMAT)
             .add(FORMAT_VERSION)
+            .add(TableProperties.ENCRYPTION_TABLE_KEY)
+            .add(TableProperties.ENCRYPTION_DEK_LENGTH)
             .build();
 
     private final List<PropertyMetadata<?>> tableProperties;
@@ -235,6 +242,17 @@ public class IcebergTableProperties
                         "File system location URI for the table's data files",
                         null,
                         false))
+                .add(stringProperty(
+                        ENCRYPTION_KEY_ID_PROPERTY,
+                        "Iceberg table encryption key id",
+                        null,
+                        false))
+                .add(integerProperty(
+                        ENCRYPTION_DATA_KEY_LENGTH_PROPERTY,
+                        "Iceberg table encryption data key length in bytes",
+                        null,
+                        IcebergTableProperties::validateEncryptionDataKeyLength,
+                        false))
                 .build();
 
         checkState(SUPPORTED_PROPERTIES.containsAll(tableProperties.stream()
@@ -281,6 +299,16 @@ public class IcebergTableProperties
     public static int getFormatVersion(Map<String, Object> tableProperties)
     {
         return (int) tableProperties.get(FORMAT_VERSION_PROPERTY);
+    }
+
+    public static Optional<String> getEncryptionKeyId(Map<String, Object> tableProperties)
+    {
+        return Optional.ofNullable((String) tableProperties.get(ENCRYPTION_KEY_ID_PROPERTY));
+    }
+
+    public static Optional<Integer> getEncryptionDataKeyLength(Map<String, Object> tableProperties)
+    {
+        return Optional.ofNullable((Integer) tableProperties.get(ENCRYPTION_DATA_KEY_LENGTH_PROPERTY));
     }
 
     private static void validateFormatVersion(int version)
@@ -339,6 +367,13 @@ public class IcebergTableProperties
     {
         if (fpp < 0.0 || fpp > 1.0) {
             throw new TrinoException(INVALID_TABLE_PROPERTY, "Bloom filter fpp value must be between 0.0 and 1.0");
+        }
+    }
+
+    private static void validateEncryptionDataKeyLength(int length)
+    {
+        if (length != 16 && length != 24 && length != 32) {
+            throw new TrinoException(INVALID_TABLE_PROPERTY, "encryption_data_key_length must be 16, 24, or 32 bytes");
         }
     }
 

@@ -25,6 +25,7 @@ import io.trino.plugin.hive.orc.OrcWriterConfig;
 import io.trino.plugin.hive.parquet.ParquetReaderConfig;
 import io.trino.plugin.hive.parquet.ParquetWriterConfig;
 import io.trino.plugin.iceberg.delete.DeleteFile;
+import io.trino.plugin.iceberg.encryption.IcebergEncryptionManagerFactory;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
@@ -104,6 +105,8 @@ class TestIcebergPageSourceProvider
                 FileFormat.PARQUET,
                 1, // recordCount
                 deleteInputFile.length(),
+                Optional.empty(),
+                Optional.empty(),
                 ImmutableList.of(regionkeyIdentity.getId()), // equalityFieldIds
                 OptionalLong.empty(),
                 OptionalLong.empty(),
@@ -145,6 +148,9 @@ class TestIcebergPageSourceProvider
                 ImmutableMap.of(),
                 0L, // dataSequenceNumber
                 OptionalLong.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
                 Optional.empty())) {
             // Memory should still be 0 before reading any pages (lazy loading)
             assertThat(provider.getMemoryUsage()).isEqualTo(0);
@@ -192,6 +198,7 @@ class TestIcebergPageSourceProvider
                 new FileFormatDataSourceStats(),
                 ORC_READER_CONFIG.toOrcReaderOptions(),
                 PARQUET_READER_CONFIG.toParquetReaderOptions(),
-                TESTING_TYPE_MANAGER);
+                TESTING_TYPE_MANAGER,
+                new IcebergEncryptionManagerFactory(new IcebergConfig()));
     }
 }

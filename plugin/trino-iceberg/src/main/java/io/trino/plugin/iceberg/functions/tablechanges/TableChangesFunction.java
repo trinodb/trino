@@ -158,6 +158,7 @@ public class TableChangesFunction
                         schemaTableName,
                         SchemaParser.toJson(tableSchema),
                         columnHandles,
+                        icebergTable.properties(),
                         Optional.ofNullable(icebergTable.properties().get(TableProperties.DEFAULT_NAME_MAPPING)),
                         startSnapshotId,
                         endSnapshotId))

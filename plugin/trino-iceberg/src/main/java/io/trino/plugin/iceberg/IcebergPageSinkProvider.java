@@ -17,6 +17,7 @@ import com.google.inject.Inject;
 import io.airlift.json.JsonCodec;
 import io.airlift.units.DataSize;
 import io.trino.plugin.hive.SortingFileWriterConfig;
+import io.trino.plugin.iceberg.encryption.IcebergEncryptionManagerFactory;
 import io.trino.plugin.iceberg.procedure.IcebergOptimizeHandle;
 import io.trino.plugin.iceberg.procedure.IcebergTableExecuteHandle;
 import io.trino.spi.PageIndexerFactory;
@@ -38,6 +39,8 @@ import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.PartitionSpecParser;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.SchemaParser;
+import org.apache.iceberg.encryption.EncryptionManager;
+import org.apache.iceberg.encryption.PlaintextEncryptionManager;
 import org.apache.iceberg.io.LocationProvider;
 import org.apache.iceberg.types.Types;
 
@@ -64,6 +67,7 @@ public class IcebergPageSinkProvider
     private final Optional<String> sortingFileWriterLocalStagingPath;
     private final TypeManager typeManager;
     private final PageSorter pageSorter;
+    private final IcebergEncryptionManagerFactory encryptionManagerFactory;
 
     @Inject
     public IcebergPageSinkProvider(
@@ -74,7 +78,8 @@ public class IcebergPageSinkProvider
             SortingFileWriterConfig sortingFileWriterConfig,
             IcebergConfig icebergConfig,
             TypeManager typeManager,
-            PageSorter pageSorter)
+            PageSorter pageSorter,
+            IcebergEncryptionManagerFactory encryptionManagerFactory)
     {
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
         this.jsonCodec = requireNonNull(jsonCodec, "jsonCodec is null");
@@ -85,6 +90,7 @@ public class IcebergPageSinkProvider
         this.sortingFileWriterLocalStagingPath = icebergConfig.getSortedWritingLocalStagingPath();
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.pageSorter = requireNonNull(pageSorter, "pageSorter is null");
+        this.encryptionManagerFactory = requireNonNull(encryptionManagerFactory, "encryptionManagerFactory is null");
     }
 
     @Override
@@ -112,6 +118,7 @@ public class IcebergPageSinkProvider
         String partitionSpecJson = tableHandle.partitionsSpecsAsJson().get(tableHandle.partitionSpecId());
         PartitionSpec partitionSpec = PartitionSpecParser.fromJson(schema, partitionSpecJson);
         LocationProvider locationProvider = getLocationProvider(tableHandle.name(), tableHandle.outputPath(), tableHandle.storageProperties());
+        Optional<EncryptionManager> encryptionManager = encryptionManager(tableHandle.storageProperties());
         return new IcebergPageSink(
                 schema,
                 partitionSpec,
@@ -124,6 +131,7 @@ public class IcebergPageSinkProvider
                 session,
                 tableHandle.fileFormat(),
                 tableHandle.storageProperties(),
+                encryptionManager,
                 maxPartitionsPerWriter(session),
                 tableHandle.sortFields(),
                 tableHandle.sortOrderId(),
@@ -145,6 +153,7 @@ public class IcebergPageSinkProvider
                 PartitionSpec partitionSpec = PartitionSpecParser.fromJson(schema, optimizeHandle.partitionSpecAsJson());
                 LocationProvider locationProvider = getLocationProvider(executeHandle.schemaTableName(),
                         executeHandle.tableLocation(), optimizeHandle.tableStorageProperties());
+                Optional<EncryptionManager> encryptionManager = encryptionManager(optimizeHandle.tableStorageProperties());
                 return new IcebergPageSink(
                         schema,
                         partitionSpec,
@@ -157,6 +166,7 @@ public class IcebergPageSinkProvider
                         session,
                         optimizeHandle.fileFormat(),
                         optimizeHandle.tableStorageProperties(),
+                        encryptionManager,
                         maxPartitionsPerWriter(session),
                         optimizeHandle.sortFields(),
                         optimizeHandle.sortOrderId(),
@@ -200,6 +210,7 @@ public class IcebergPageSinkProvider
             outputSchema = SchemaParser.fromJson(tableHandle.schemaAsJson());
         }
         ConnectorPageSink pageSink = createPageSink(session, tableHandle, outputSchema, fileIoProperties);
+        Optional<EncryptionManager> encryptionManager = encryptionManager(tableHandle.storageProperties());
 
         return new IcebergMergeSink(
                 formatVersion,
@@ -210,9 +221,19 @@ public class IcebergPageSinkProvider
                 session,
                 tableHandle.fileFormat(),
                 tableHandle.storageProperties(),
+                encryptionManager,
                 schema,
                 partitionsSpecs,
                 pageSink,
                 schema.columns().size());
+    }
+
+    private Optional<EncryptionManager> encryptionManager(Map<String, String> tableProperties)
+    {
+        EncryptionManager encryptionManager = encryptionManagerFactory.createEncryptionManager(tableProperties);
+        if (encryptionManager instanceof PlaintextEncryptionManager) {
+            return Optional.empty();
+        }
+        return Optional.of(encryptionManager);
     }
 }

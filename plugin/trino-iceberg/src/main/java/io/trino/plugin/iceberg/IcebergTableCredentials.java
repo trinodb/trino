@@ -19,6 +19,8 @@ import org.apache.iceberg.io.FileIO;
 
 import java.util.Map;
 
+import static io.trino.plugin.iceberg.IcebergUtil.getFileIoProperties;
+
 public record IcebergTableCredentials(Map<String, String> fileIoProperties)
         implements ConnectorTableCredentials
 {
@@ -29,6 +31,6 @@ public record IcebergTableCredentials(Map<String, String> fileIoProperties)
 
     public static IcebergTableCredentials forFileIO(FileIO io)
     {
-        return new IcebergTableCredentials(io.properties());
+        return new IcebergTableCredentials(getFileIoProperties(io));
     }
 }

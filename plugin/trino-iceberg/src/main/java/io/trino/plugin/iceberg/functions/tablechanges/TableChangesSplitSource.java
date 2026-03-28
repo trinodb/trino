@@ -15,6 +15,8 @@ package io.trino.plugin.iceberg.functions.tablechanges;
 
 import com.google.common.io.Closer;
 import io.trino.plugin.iceberg.IcebergFileFormat;
+import io.trino.plugin.iceberg.IcebergSplit.ParquetFileDecryptionData;
+import io.trino.plugin.iceberg.IcebergSplitSource;
 import io.trino.plugin.iceberg.PartitionData;
 import io.trino.spi.SplitWeight;
 import io.trino.spi.TrinoException;
@@ -23,19 +25,26 @@ import io.trino.spi.connector.ConnectorSplitSource;
 import io.trino.spi.type.DateTimeEncoding;
 import org.apache.iceberg.AddedRowsScanTask;
 import org.apache.iceberg.ChangelogScanTask;
+import org.apache.iceberg.ContentFile;
 import org.apache.iceberg.DeletedDataFileScanTask;
 import org.apache.iceberg.IncrementalChangelogScan;
 import org.apache.iceberg.PartitionSpecParser;
 import org.apache.iceberg.SplittableScanTask;
 import org.apache.iceberg.Table;
+import org.apache.iceberg.encryption.EncryptedFiles;
+import org.apache.iceberg.encryption.EncryptedInputFile;
+import org.apache.iceberg.encryption.EncryptionManager;
 import org.apache.iceberg.io.CloseableIterable;
 import org.apache.iceberg.io.CloseableIterator;
+import org.apache.iceberg.io.FileIO;
+import org.apache.iceberg.util.ByteBuffers;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 
 import static com.google.common.collect.Iterators.singletonIterator;
@@ -44,11 +53,14 @@ import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
 import static java.util.Collections.emptyIterator;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static org.apache.iceberg.FileFormat.PARQUET;
 
 public class TableChangesSplitSource
         implements ConnectorSplitSource
 {
     private final Table icebergTable;
+    private final FileIO fileIo;
+    private final Optional<EncryptionManager> encryptionManager;
     private final IncrementalChangelogScan tableScan;
     private final long targetSplitSize;
     private final Closer closer = Closer.create();
@@ -59,9 +71,12 @@ public class TableChangesSplitSource
 
     public TableChangesSplitSource(
             Table icebergTable,
+            Optional<EncryptionManager> encryptionManager,
             IncrementalChangelogScan tableScan)
     {
         this.icebergTable = requireNonNull(icebergTable, "table is null");
+        this.fileIo = requireNonNull(icebergTable.io(), "fileIo is null");
+        this.encryptionManager = requireNonNull(encryptionManager, "encryptionManager is null");
         this.tableScan = requireNonNull(tableScan, "tableScan is null");
         this.targetSplitSize = tableScan.targetSplitSize();
     }
@@ -151,6 +166,8 @@ public class TableChangesSplitSource
                 task.file().fileSizeInBytes(),
                 task.file().recordCount(),
                 IcebergFileFormat.fromIceberg(task.file().format()),
+                Optional.ofNullable(task.file().keyMetadata()).map(ByteBuffers::toByteArray),
+                parquetFileDecryptionData(task.file()),
                 PartitionSpecParser.toJson(task.spec()),
                 PartitionData.toJson(task.file().partition()),
                 SplitWeight.standard());
@@ -169,8 +186,22 @@ public class TableChangesSplitSource
                 task.file().fileSizeInBytes(),
                 task.file().recordCount(),
                 IcebergFileFormat.fromIceberg(task.file().format()),
+                Optional.ofNullable(task.file().keyMetadata()).map(ByteBuffers::toByteArray),
+                parquetFileDecryptionData(task.file()),
                 PartitionSpecParser.toJson(task.spec()),
                 PartitionData.toJson(task.file().partition()),
                 SplitWeight.standard());
+    }
+
+    private Optional<ParquetFileDecryptionData> parquetFileDecryptionData(ContentFile<?> file)
+    {
+        if (file.format() != PARQUET || file.keyMetadata() == null || encryptionManager.isEmpty()) {
+            return Optional.empty();
+        }
+
+        EncryptedInputFile encryptedInputFile = EncryptedFiles.encryptedInput(
+                fileIo.newInputFile(file.location()),
+                file.keyMetadata());
+        return IcebergSplitSource.parquetFileDecryptionData(encryptedInputFile, encryptionManager.orElseThrow());
     }
 }

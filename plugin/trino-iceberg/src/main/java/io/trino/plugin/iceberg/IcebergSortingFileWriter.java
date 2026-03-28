@@ -25,6 +25,7 @@ import io.trino.spi.type.TypeOperators;
 
 import java.io.Closeable;
 import java.util.List;
+import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
@@ -64,6 +65,12 @@ public final class IcebergSortingFileWriter
     public FileMetrics getFileMetrics()
     {
         return outputWriter.getFileMetrics();
+    }
+
+    @Override
+    public Optional<byte[]> getEncryptionKeyMetadata()
+    {
+        return outputWriter.getEncryptionKeyMetadata();
     }
 
     @Override

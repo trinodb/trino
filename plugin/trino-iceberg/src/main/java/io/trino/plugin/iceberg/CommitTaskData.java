@@ -33,6 +33,7 @@ public record CommitTaskData(
         Optional<String> referencedDataFile,
         Optional<List<Long>> fileSplitOffsets,
         int sortOrderId,
+        Optional<byte[]> encryptionKeyMetadata,
         Optional<byte[]> serializedDeletionVector)
 {
     public CommitTaskData
@@ -46,6 +47,7 @@ public record CommitTaskData(
         requireNonNull(referencedDataFile, "referencedDataFile is null");
         requireNonNull(fileSplitOffsets, "fileSplitOffsets is null");
         checkArgument(content == FileContent.DATA || sortOrderId == SortOrder.unsorted().orderId(), "Sorted order id can be present only for data files");
+        requireNonNull(encryptionKeyMetadata, "encryptionKeyMetadata is null");
         requireNonNull(serializedDeletionVector, "serializedDeletionVector is null");
     }
 }

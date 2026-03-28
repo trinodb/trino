@@ -23,6 +23,7 @@ import io.trino.filesystem.s3.S3FileSystemStats;
 import io.trino.metastore.TableInfo;
 import io.trino.plugin.iceberg.ColumnIdentity;
 import io.trino.plugin.iceberg.CommitTaskData;
+import io.trino.plugin.iceberg.IcebergConfig;
 import io.trino.plugin.iceberg.IcebergMetadata;
 import io.trino.plugin.iceberg.TableStatisticsWriter;
 import io.trino.plugin.iceberg.catalog.BaseTrinoCatalogTest;
@@ -32,6 +33,7 @@ import io.trino.plugin.iceberg.catalog.snowflake.IcebergSnowflakeCatalogConfig;
 import io.trino.plugin.iceberg.catalog.snowflake.SnowflakeIcebergTableOperationsProvider;
 import io.trino.plugin.iceberg.catalog.snowflake.TestingSnowflakeServer;
 import io.trino.plugin.iceberg.catalog.snowflake.TrinoSnowflakeCatalog;
+import io.trino.plugin.iceberg.encryption.IcebergEncryptionManagerFactory;
 import io.trino.spi.NodeVersion;
 import io.trino.spi.catalog.CatalogName;
 import io.trino.spi.connector.ConnectorMetadata;
@@ -183,7 +185,11 @@ public class TestTrinoSnowflakeCatalog
         SnowflakeCatalog snowflakeCatalog = new SnowflakeCatalog();
         snowflakeCatalog.initialize(catalogName.toString(), snowflakeClient, catalogFileIOFactory, properties);
 
-        IcebergTableOperationsProvider tableOperationsProvider = new SnowflakeIcebergTableOperationsProvider(s3FileSystemFactory, FILE_IO_FACTORY, CATALOG_CONFIG);
+        IcebergTableOperationsProvider tableOperationsProvider = new SnowflakeIcebergTableOperationsProvider(
+                s3FileSystemFactory,
+                FILE_IO_FACTORY,
+                new IcebergEncryptionManagerFactory(new IcebergConfig()),
+                CATALOG_CONFIG);
 
         return new TrinoSnowflakeCatalog(
                 snowflakeCatalog,

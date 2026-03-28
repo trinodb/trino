@@ -34,6 +34,7 @@ import io.trino.plugin.hive.orc.OrcReaderConfig;
 import io.trino.plugin.hive.orc.OrcWriterConfig;
 import io.trino.plugin.hive.parquet.ParquetReaderConfig;
 import io.trino.plugin.hive.parquet.ParquetWriterConfig;
+import io.trino.plugin.iceberg.encryption.IcebergEncryptionManagerFactory;
 import io.trino.spi.Page;
 import io.trino.spi.SplitWeight;
 import io.trino.spi.block.BlockBuilder;
@@ -146,6 +147,8 @@ public class TestIcebergNodeLocalDynamicSplitPruning
                     -1, // invalid; normally known
                     ORC,
                     PartitionSpec.unpartitioned().specId(),
+                    Optional.empty(),
+                    Optional.empty(),
                     PartitionData.toJson(new PartitionData(new Object[] {})),
                     ImmutableList.of(),
                     SplitWeight.standard(),
@@ -208,6 +211,8 @@ public class TestIcebergNodeLocalDynamicSplitPruning
                     -1, // invalid; normally known
                     ORC,
                     PartitionSpec.unpartitioned().specId(),
+                    Optional.empty(),
+                    Optional.empty(),
                     PartitionData.toJson(new PartitionData(new Object[] {})),
                     ImmutableList.of(),
                     SplitWeight.standard(),
@@ -318,7 +323,9 @@ public class TestIcebergNodeLocalDynamicSplitPruning
                     -1, // invalid; normally known
                     ORC,
                     partitionSpec.specId(),
-                    PartitionData.toJson(new PartitionData(new Object[] {dateColumnValue})),
+                    Optional.empty(),
+                    Optional.empty(),
+                    PartitionData.toJson(new PartitionData(new Object[] {(int) dateColumnValue})),
                     ImmutableList.of(),
                     SplitWeight.standard(),
                     TupleDomain.all(),
@@ -471,7 +478,9 @@ public class TestIcebergNodeLocalDynamicSplitPruning
                     -1, // invalid; normally known
                     ORC,
                     partitionSpec.specId(),
-                    PartitionData.toJson(new PartitionData(new Object[] {yearColumnValue})),
+                    Optional.empty(),
+                    Optional.empty(),
+                    PartitionData.toJson(new PartitionData(new Object[] {(int) yearColumnValue})),
                     ImmutableList.of(),
                     SplitWeight.standard(),
                     TupleDomain.all(),
@@ -582,7 +591,8 @@ public class TestIcebergNodeLocalDynamicSplitPruning
                 stats,
                 ORC_READER_CONFIG,
                 PARQUET_READER_CONFIG,
-                TESTING_TYPE_MANAGER);
+                TESTING_TYPE_MANAGER,
+                new IcebergEncryptionManagerFactory(icebergConfig));
         return factory.createPageSourceProvider().createPageSource(
                 transaction,
                 getSession(icebergConfig),

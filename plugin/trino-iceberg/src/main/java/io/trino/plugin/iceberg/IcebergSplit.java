@@ -18,6 +18,7 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.MoreObjects.ToStringHelper;
 import com.google.common.collect.ImmutableList;
+import io.airlift.slice.SizeOf;
 import io.trino.plugin.iceberg.delete.DeleteFile;
 import io.trino.spi.HostAddress;
 import io.trino.spi.SplitWeight;
@@ -46,6 +47,8 @@ public class IcebergSplit
     private final long fileSize;
     private final long fileRecordCount;
     private final IcebergFileFormat fileFormat;
+    private final Optional<byte[]> encryptionKeyMetadata;
+    private final Optional<ParquetFileDecryptionData> parquetFileDecryptionData;
     private final Optional<List<Object>> partitionValues;
     private final int specId;
     private final String partitionDataJson;
@@ -65,6 +68,8 @@ public class IcebergSplit
             @JsonProperty("fileRecordCount") long fileRecordCount,
             @JsonProperty("fileFormat") IcebergFileFormat fileFormat,
             @JsonProperty("specId") int specId,
+            @JsonProperty("parquetFileDecryptionData") Optional<ParquetFileDecryptionData> parquetFileDecryptionData,
+            @JsonProperty("encryptionKeyMetadata") Optional<byte[]> encryptionKeyMetadata,
             @JsonProperty("partitionDataJson") String partitionDataJson,
             @JsonProperty("deletes") List<DeleteFile> deletes,
             @JsonProperty("splitWeight") SplitWeight splitWeight,
@@ -79,6 +84,8 @@ public class IcebergSplit
                 fileSize,
                 fileRecordCount,
                 fileFormat,
+                Optional.ofNullable(encryptionKeyMetadata).orElse(Optional.empty()),
+                Optional.ofNullable(parquetFileDecryptionData).orElse(Optional.empty()),
                 Optional.empty(),
                 specId,
                 partitionDataJson,
@@ -97,6 +104,8 @@ public class IcebergSplit
             long fileSize,
             long fileRecordCount,
             IcebergFileFormat fileFormat,
+            Optional<byte[]> encryptionKeyMetadata,
+            Optional<ParquetFileDecryptionData> parquetFileDecryptionData,
             Optional<List<Object>> partitionValues,
             int specId,
             String partitionDataJson,
@@ -113,6 +122,8 @@ public class IcebergSplit
         this.fileSize = fileSize;
         this.fileRecordCount = fileRecordCount;
         this.fileFormat = requireNonNull(fileFormat, "fileFormat is null");
+        this.encryptionKeyMetadata = requireNonNull(encryptionKeyMetadata, "encryptionKeyMetadata is null");
+        this.parquetFileDecryptionData = requireNonNull(parquetFileDecryptionData, "parquetFileDecryptionData is null");
         this.partitionValues = requireNonNull(partitionValues, "partitionValues is null");
         this.specId = specId;
         this.partitionDataJson = requireNonNull(partitionDataJson, "partitionDataJson is null");
@@ -165,6 +176,18 @@ public class IcebergSplit
     public IcebergFileFormat getFileFormat()
     {
         return fileFormat;
+    }
+
+    @JsonProperty
+    public Optional<byte[]> getEncryptionKeyMetadata()
+    {
+        return encryptionKeyMetadata;
+    }
+
+    @JsonProperty
+    public Optional<ParquetFileDecryptionData> getParquetFileDecryptionData()
+    {
+        return parquetFileDecryptionData;
     }
 
     @JsonProperty
@@ -228,6 +251,8 @@ public class IcebergSplit
                 + SIZE_OF_LONG * 4 // start, length, fileSize, fileRecordCount
                 + SIZE_OF_INT // specId
                 + estimatedSizeOf(partitionDataJson)
+                + encryptionKeyMetadata.map(SizeOf::sizeOf).orElse(0L)
+                + parquetFileDecryptionData.map(ParquetFileDecryptionData::getRetainedSizeInBytes).orElse(0L)
                 + estimatedSizeOf(deletes, DeleteFile::retainedSizeInBytes)
                 + splitWeight.getRetainedSizeInBytes()
                 + fileStatisticsDomain.getRetainedSizeInBytes(IcebergColumnHandle::getRetainedSizeInBytes)
@@ -250,5 +275,23 @@ public class IcebergSplit
                     .mapToLong(DeleteFile::recordCount).sum());
         }
         return helper.toString();
+    }
+
+    public record ParquetFileDecryptionData(byte[] fileEncryptionKey, byte[] fileAadPrefix)
+    {
+        private static final int INSTANCE_SIZE = instanceSize(ParquetFileDecryptionData.class);
+
+        public ParquetFileDecryptionData
+        {
+            requireNonNull(fileEncryptionKey, "fileEncryptionKey is null");
+            requireNonNull(fileAadPrefix, "fileAadPrefix is null");
+        }
+
+        public long getRetainedSizeInBytes()
+        {
+            return INSTANCE_SIZE
+                    + SizeOf.sizeOf(fileEncryptionKey)
+                    + SizeOf.sizeOf(fileAadPrefix);
+        }
     }
 }
