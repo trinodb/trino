@@ -30,6 +30,7 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.trino.plugin.deltalake.DeltaLakeTableHandle.WriteType.MERGE;
 import static io.trino.plugin.deltalake.DeltaLakeTableHandle.WriteType.UPDATE;
 import static java.util.Objects.requireNonNull;
 
@@ -39,6 +40,7 @@ public class DeltaLakeTableHandle
     // Insert is not included here because it uses a separate TableHandle type
     public enum WriteType
     {
+        MERGE,
         UPDATE,
         DELETE
     }
@@ -199,6 +201,30 @@ public class DeltaLakeTableHandle
                 recordScannedFiles,
                 true,
                 Optional.of(maxScannedFileSize),
+                readVersion,
+                timeTravel);
+    }
+
+    public DeltaLakeTableHandle forMerge()
+    {
+        return new DeltaLakeTableHandle(
+                schemaName,
+                tableName,
+                managed,
+                location,
+                metadataEntry,
+                protocolEntry,
+                enforcedPartitionConstraint,
+                nonPartitionConstraint,
+                constraintColumns,
+                Optional.of(MERGE),
+                projectedColumns,
+                updatedColumns,
+                updateRowIdColumns,
+                analyzeHandle,
+                recordScannedFiles,
+                isOptimize,
+                maxScannedFileSize,
                 readVersion,
                 timeTravel);
     }

@@ -2593,7 +2593,7 @@ public class DeltaLakeMetadata
         DeltaLakeInsertTableHandle insertHandle = createInsertHandle(retryMode, handle, inputColumns);
 
         Map<String, DeletionVectorEntry> deletionVectors = loadDeletionVectors(session, handle);
-        return new DeltaLakeMergeTableHandle(handle, insertHandle, deletionVectors, findShallowCloneSourceTableLocation(session, handle));
+        return new DeltaLakeMergeTableHandle(handle.forMerge(), insertHandle, deletionVectors, findShallowCloneSourceTableLocation(session, handle));
     }
 
     private Optional<String> findShallowCloneSourceTableLocation(ConnectorSession session, DeltaLakeTableHandle handle)

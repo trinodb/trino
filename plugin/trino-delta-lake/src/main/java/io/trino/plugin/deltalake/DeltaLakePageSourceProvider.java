@@ -230,7 +230,7 @@ public class DeltaLakePageSourceProvider
                 .withMaxReadBlockSize(getParquetMaxReadBlockSize(session))
                 .withMaxReadBlockRowCount(getParquetMaxReadBlockRowCount(session))
                 .withSmallFileThreshold(getParquetSmallFileThreshold(session))
-                .withUseColumnIndex(split.getDeletionVector().isEmpty() && isParquetUseColumnIndex(session))
+                .withUseColumnIndex(table.getWriteType().isEmpty() && split.getDeletionVector().isEmpty() && isParquetUseColumnIndex(session))
                 .withIgnoreStatistics(isParquetIgnoreStatistics(session))
                 .withVectorizedDecodingEnabled(isParquetVectorizedDecodingEnabled(session))
                 .build();
