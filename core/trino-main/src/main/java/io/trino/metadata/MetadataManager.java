@@ -848,14 +848,13 @@ public final class MetadataManager
     @Override
     public void dropCatalog(Session session, CatalogName catalog, boolean cascade)
     {
-        Optional<CatalogMetadata> catalogMetadata = Optional.empty();
         // there is a potential race condition here, TODO: https://github.com/trinodb/trino/issues/26927
-        Optional<Catalog> optionalCatalog = catalogManager.getCatalog(catalog);
-        if (optionalCatalog.isPresent() && optionalCatalog.get().getCatalogStatus() == OPERATIONAL) {
-            catalogMetadata = Optional.of(getCatalogMetadataForWrite(session, catalog.toString()));
-        }
+        boolean systemSecurityManagement = catalogManager.getCatalog(catalog)
+                .filter(foundCatalog -> foundCatalog.getCatalogStatus() == OPERATIONAL)
+                .flatMap(Catalog::getSecurityManagement)
+                .orElse(CONNECTOR) == SYSTEM;
         catalogManager.dropCatalog(catalog, cascade);
-        if (catalogMetadata.isPresent() && catalogMetadata.get().getSecurityManagement() == SYSTEM) {
+        if (systemSecurityManagement) {
             systemSecurityMetadata.catalogDropped(session, catalog);
         }
     }
