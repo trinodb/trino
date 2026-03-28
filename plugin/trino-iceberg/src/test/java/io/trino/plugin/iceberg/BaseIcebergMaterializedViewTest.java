@@ -29,6 +29,7 @@ import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.connector.ConnectorAccessControl;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplit;
+import io.trino.spi.connector.ConnectorTableCredentials;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.FixedSplitSource;
 import io.trino.spi.function.FunctionProvider;
@@ -1181,7 +1182,11 @@ public abstract class BaseIcebergMaterializedViewTest
         private final SequenceFunctionProcessor sequenceFunctionProcessor = new SequenceFunctionProcessor();
 
         @Override
-        public TableFunctionSplitProcessor getSplitProcessor(ConnectorSession session, ConnectorTableFunctionHandle handle, ConnectorSplit split)
+        public TableFunctionSplitProcessor getSplitProcessor(
+                ConnectorSession session,
+                ConnectorTableFunctionHandle handle,
+                Optional<ConnectorTableCredentials> tableCredentials,
+                ConnectorSplit split)
         {
             sequenceFunctionProcessor.reset();
             return sequenceFunctionProcessor;
