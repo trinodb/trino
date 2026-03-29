@@ -254,7 +254,7 @@ final class TestIcebergBigLakeMetastoreConnectorSmokeTest
     {
         assertThatThrownBy(super::testRegisterTableWithDifferentTableName)
                 .hasMessageContaining("Failed to register table")
-                .hasStackTraceContaining("does not start with the expected prefix");
+                .hasStackTraceContaining("Malformed request: Invalid metadata location");
     }
 
     @Test
@@ -263,7 +263,7 @@ final class TestIcebergBigLakeMetastoreConnectorSmokeTest
     {
         assertThatThrownBy(super::testRegisterTableWithDifferentTableName)
                 .hasMessageContaining("Failed to register table")
-                .hasStackTraceContaining("does not start with the expected prefix");
+                .hasStackTraceContaining("Malformed request: Invalid metadata location");
     }
 
     @Test
