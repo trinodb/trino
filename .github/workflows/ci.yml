@@ -749,7 +749,7 @@ jobs:
         if: >-
           contains(matrix.modules, 'trino-redshift') &&
           (contains(matrix.profile, 'cloud-tests') || contains(matrix.profile, 'fte-tests')) &&
-          (env.CI_SKIP_SECRETS_PRESENCE_CHECKS != '' || ((env.AWS_ACCESS_KEY_ID != '' || env.REDSHIFT_SUBNET_GROUP_NAME != '') && env.DEPENDABOT_PR != 'true'))
+          (env.CI_SKIP_SECRETS_PRESENCE_CHECKS != '' || ((env.AWS_ACCESS_KEY_ID != '' || env.REDSHIFT_SUBNET_GROUP_NAME != '') && env.DEPENDABOT_PR != 'true') || env.AWS_SECRET_ACCESS_KEY != '')
         run: |
           source .github/bin/redshift/setup-aws-redshift.sh
 
