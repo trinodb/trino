@@ -402,6 +402,14 @@ public class TestMapOperators
                 .binding("a", "JSON 'null'"))
                 .isNull(mapType(BIGINT, BIGINT));
 
+        assertThat(assertions.expression("cast(json_parse(a) as MAP(BIGINT, BIGINT))")
+                .binding("a", "'null'"))
+                .isNull(mapType(BIGINT, BIGINT));
+
+        assertTrinoExceptionThrownBy(assertions.expression("cast(json_parse(a) as MAP(BIGINT, BIGINT))")
+                .binding("a", "'null 123 some invalid JSON content'")::evaluate)
+                .hasMessage("Cannot cast to map(bigint, bigint). Unexpected trailing token: 123\nnull 123 some invalid JSON content");
+
         assertThat(assertions.expression("cast(a as MAP(BIGINT, BIGINT))")
                 .binding("a", "JSON '{}'"))
                 .hasType(mapType(BIGINT, BIGINT))

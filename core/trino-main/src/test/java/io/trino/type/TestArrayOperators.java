@@ -411,6 +411,14 @@ public class TestArrayOperators
                 .binding("a", "JSON 'null'"))
                 .isNull(new ArrayType(BIGINT));
 
+        assertThat(assertions.expression("CAST(json_parse(a) AS array(BIGINT))")
+                .binding("a", "'null'"))
+                .isNull(new ArrayType(BIGINT));
+
+        assertTrinoExceptionThrownBy(assertions.expression("CAST(json_parse(a) AS array(BIGINT))")
+                .binding("a", "'null 123 some invalid JSON content'")::evaluate)
+                .hasMessage("Cannot cast to array(bigint). Unexpected trailing token: 123\nnull 123 some invalid JSON content");
+
         assertThat(assertions.expression("CAST(a AS array(BIGINT))")
                 .binding("a", "JSON '[]'"))
                 .hasType(new ArrayType(BIGINT))

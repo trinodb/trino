@@ -95,6 +95,9 @@ public class JsonToRowCast
         try (JsonParser jsonParser = createJsonParser(JSON_MAPPER, json)) {
             jsonParser.nextToken();
             if (jsonParser.getCurrentToken() == JsonToken.VALUE_NULL) {
+                if (jsonParser.nextToken() != null) {
+                    throw new JsonCastException(format("Unexpected trailing token: %s", jsonParser.getText()));
+                }
                 return null;
             }
 
