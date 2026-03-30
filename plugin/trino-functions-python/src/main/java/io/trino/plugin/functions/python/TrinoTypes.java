@@ -17,7 +17,6 @@ import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;
-import io.airlift.slice.Slices;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.SqlMap;
@@ -52,8 +51,6 @@ import io.trino.spi.type.TrinoNumber;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
 
-import java.io.IOException;
-import java.io.UncheckedIOException;
 import java.math.BigDecimal;
 import java.util.List;
 
@@ -113,7 +110,7 @@ final class TrinoTypes
     public static Slice toRowTypeDescriptor(List<Type> types)
     {
         if (types.isEmpty()) {
-            SliceOutput output = Slices.allocate(8).getOutput();
+            SliceOutput output = new DynamicSliceOutput(8);
             output.writeInt(TrinoType.ROW.id());
             output.writeInt(0);
             return output.slice();
@@ -124,13 +121,9 @@ final class TrinoTypes
 
     public static Slice toTypeDescriptor(Type type)
     {
-        try (SliceOutput output = new DynamicSliceOutput(64)) {
-            toTypeDescriptor(type, output);
-            return output.slice();
-        }
-        catch (IOException e) {
-            throw new UncheckedIOException(e);
-        }
+        SliceOutput output = new DynamicSliceOutput(64);
+        toTypeDescriptor(type, output);
+        return output.slice();
     }
 
     private static void toTypeDescriptor(Type type, SliceOutput output)
@@ -214,13 +207,14 @@ final class TrinoTypes
             case NumberType _ -> {
                 TrinoNumber number = (TrinoNumber) value;
 
-                Slice slice = switch (number.toBigDecimal()) {
-                    case TrinoNumber.BigDecimalValue(BigDecimal bigDecimal) -> utf8Slice(bigDecimal.toString());
-                    case TrinoNumber.Infinity(boolean negative) -> negative ? utf8Slice("-Infinity") : utf8Slice("Infinity");
-                    case TrinoNumber.NotANumber() -> utf8Slice("NaN");
-                };
-
-                writeVariableSlice(slice, output);
+                switch (number.toBigDecimal()) {
+                    case TrinoNumber.BigDecimalValue bigDecimalValue ->
+                            writeVariableSlice(utf8Slice(bigDecimalValue.toString()), output);
+                    case TrinoNumber.Infinity infinity ->
+                            writeVariableSlice(infinity.negative() ? utf8Slice("-Infinity") : utf8Slice("Infinity"), output);
+                    case TrinoNumber.NotANumber _ ->
+                            writeVariableSlice(utf8Slice("NaN"), output);
+                }
             }
             case TimeWithTimeZoneType timeType -> {
                 if (timeType.isShort()) {
@@ -306,12 +300,14 @@ final class TrinoTypes
             }
             case NumberType numberType -> {
                 SqlNumber value = (SqlNumber) numberType.getObjectValue(block, position);
-                Slice slice = switch (value.value()) {
-                    case TrinoNumber.BigDecimalValue(BigDecimal bigDecimal) -> utf8Slice(bigDecimal.toString());
-                    case TrinoNumber.Infinity(boolean negative) -> negative ? utf8Slice("-Infinity") : utf8Slice("Infinity");
-                    case TrinoNumber.NotANumber _ -> utf8Slice("NaN");
-                };
-                writeVariableSlice(slice, output);
+                switch (value.value()) {
+                    case TrinoNumber.BigDecimalValue bigDecimalValue ->
+                            writeVariableSlice(utf8Slice(bigDecimalValue.toString()), output);
+                    case TrinoNumber.Infinity infinity ->
+                            writeVariableSlice(infinity.negative() ? utf8Slice("-Infinity") : utf8Slice("Infinity"), output);
+                    case TrinoNumber.NotANumber _ ->
+                            writeVariableSlice(utf8Slice("NaN"), output);
+                }
             }
             case DateType dateType -> output.writeInt(dateType.getInt(block, position));
             case TimeType timeType -> output.writeLong(picosToMicros(timeType.getLong(block, position)));
@@ -418,14 +414,12 @@ final class TrinoTypes
             case NumberType _ -> {
                 String stringUtf8 = input.readSlice(input.readInt()).toStringUtf8();
 
-                TrinoNumber.AsBigDecimal number = switch (stringUtf8) {
+                yield switch (stringUtf8) {
                     case "NaN" -> new TrinoNumber.NotANumber();
                     case "Infinity" -> new TrinoNumber.Infinity(false);
                     case "-Infinity" -> new TrinoNumber.Infinity(true);
-                    default -> new TrinoNumber.BigDecimalValue(new BigDecimal(stringUtf8));
+                    default -> TrinoNumber.from(new BigDecimal(stringUtf8));
                 };
-
-                yield TrinoNumber.from(number);
             }
             case TimeType timeType -> {
                 long micros = roundMicros(input.readLong(), timeType.getPrecision()) % MICROSECONDS_PER_DAY;

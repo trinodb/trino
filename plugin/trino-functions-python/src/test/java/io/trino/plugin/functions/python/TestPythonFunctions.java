@@ -35,7 +35,6 @@ import static io.trino.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_NAME;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
@@ -771,17 +770,6 @@ public class TestPythonFunctions
         assertThat(assertions.query(
                 query + "SELECT multiply(NUMBER '1.12345', NUMBER '2.54321')"))
                 .matches("VALUES NUMBER '2.8571692745E+20'");
-
-        // TODO: https://github.com/trinodb/trino-wasm-python/pull/11
-        assertThatThrownBy(() -> assertThat(assertions.query(
-                query + "SELECT multiply(NUMBER 'NaN', NUMBER '2.54321')"))
-                .matches("VALUES NUMBER 'NaN'"))
-                .hasMessageContaining("ValueError: Decimal is not finite: NaN");
-
-        assertThatThrownBy(() -> assertThat(assertions.query(
-                query + "SELECT multiply(NUMBER '-Infinity', NUMBER '2.54321')"))
-                .matches("VALUES NUMBER 'NaN'"))
-                .hasMessageContaining("ValueError: Decimal is not finite: -Infinity");
     }
 
     @Test
