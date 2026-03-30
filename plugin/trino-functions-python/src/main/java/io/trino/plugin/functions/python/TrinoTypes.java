@@ -77,6 +77,7 @@ import static io.trino.spi.type.Timestamps.roundDiv;
 import static io.trino.spi.type.TypeUtils.writeNativeValue;
 import static java.lang.Math.toIntExact;
 import static java.math.RoundingMode.HALF_UP;
+import static java.util.Objects.requireNonNullElse;
 
 final class TrinoTypes
 {
@@ -381,9 +382,17 @@ final class TrinoTypes
             case MapType mapType -> binaryMapToJava(mapType, input);
             case DecimalType decimalType -> {
                 BigDecimal decimal = new BigDecimal(input.readSlice(input.readInt()).toStringUtf8());
-                yield decimalType.isShort()
-                        ? encodeShortScaledValue(decimal, decimalType.getScale(), HALF_UP)
-                        : encodeScaledValue(decimal, decimalType.getScale(), HALF_UP);
+                try {
+                    yield decimalType.isShort()
+                            ? encodeShortScaledValue(decimal, decimalType.getScale(), HALF_UP)
+                            : encodeScaledValue(decimal, decimalType.getScale(), HALF_UP);
+                }
+                catch (ArithmeticException e) {
+                    throw new TrinoException(
+                            FUNCTION_IMPLEMENTATION_ERROR,
+                            "Function result cannot be converted to %s: %s".formatted(decimalType.getDisplayName(), requireNonNullElse(e.getMessage(), e)),
+                            e);
+                }
             }
             case TimeType timeType -> {
                 long micros = roundMicros(input.readLong(), timeType.getPrecision()) % MICROSECONDS_PER_DAY;

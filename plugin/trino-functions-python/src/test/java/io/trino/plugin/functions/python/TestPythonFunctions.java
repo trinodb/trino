@@ -898,6 +898,37 @@ public class TestPythonFunctions
                 SELECT test_decimal_long(12345678901234567890.1234)
                 """))
                 .matches("VALUES cast(1524148134430814813443.07447 AS decimal(38, 5))");
+
+        String realToDecimalInPython =
+                """
+                WITH FUNCTION test_cast_real_to_decimal(x real)
+                RETURNS decimal(38, 5)
+                LANGUAGE PYTHON
+                WITH (handler = 'test')
+                AS $$
+                from decimal import Decimal
+                def test(x):
+                    return Decimal.from_float(x)
+                $$
+                """;
+
+        // underflow
+        assertThat(assertions.query(realToDecimalInPython + "SELECT test_cast_real_to_decimal(REAL '1e-17')"))
+                .matches("VALUES CAST('0' AS decimal(38, 5))");
+
+        // overflow
+        assertThat(assertions.query(realToDecimalInPython + "SELECT test_cast_real_to_decimal(REAL '1e+34')"))
+                .failure().hasMessage("Function result cannot be converted to decimal(38,5): Decimal overflow");
+
+        // NaN
+        assertThat(assertions.query( realToDecimalInPython + "SELECT test_cast_real_to_decimal(REAL 'NaN')"))
+                .failure().hasMessage("Failed to convert Python result type 'decimal.Decimal' to Trino type DECIMAL: ValueError: Decimal is not finite: NaN");
+
+        // Infinity
+        assertThat(assertions.query(realToDecimalInPython + "SELECT test_cast_real_to_decimal(REAL '-Infinity')"))
+                .failure().hasMessage("Failed to convert Python result type 'decimal.Decimal' to Trino type DECIMAL: ValueError: Decimal is not finite: -Infinity");
+        assertThat(assertions.query( realToDecimalInPython + "SELECT test_cast_real_to_decimal(REAL '+Infinity')"))
+                .failure().hasMessage("Failed to convert Python result type 'decimal.Decimal' to Trino type DECIMAL: ValueError: Decimal is not finite: Infinity");
     }
 
     @Test
