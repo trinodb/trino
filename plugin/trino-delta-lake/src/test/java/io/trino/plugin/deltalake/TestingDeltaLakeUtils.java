@@ -67,8 +67,6 @@ public final class TestingDeltaLakeUtils
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
                 0,
                 false);
     }
@@ -84,8 +82,6 @@ public final class TestingDeltaLakeUtils
                 protocolEntry,
                 TupleDomain.none(),
                 TupleDomain.none(),
-                Optional.empty(),
-                Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),

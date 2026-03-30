@@ -145,8 +145,6 @@ public class TestDeltaLakeNodeLocalDynamicSplitPruning
                             Optional.empty(),
                             Optional.of(Set.of(keyColumnHandle, dataColumnHandle)),
                             Optional.empty(),
-                            Optional.empty(),
-                            Optional.empty(),
                             0,
                             false),
                     transaction);
@@ -244,8 +242,6 @@ public class TestDeltaLakeNodeLocalDynamicSplitPruning
                             TupleDomain.all(),
                             Optional.empty(),
                             Optional.of(Set.of(dateColumnHandle, receiptColumnHandle, amountColumnHandle)),
-                            Optional.empty(),
-                            Optional.empty(),
                             Optional.empty(),
                             0,
                             false),

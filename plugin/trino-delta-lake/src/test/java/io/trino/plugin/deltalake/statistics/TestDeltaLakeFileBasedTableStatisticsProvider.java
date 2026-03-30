@@ -137,8 +137,6 @@ public class TestDeltaLakeFileBasedTableStatisticsProvider
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
                 0,
                 false);
     }
@@ -268,8 +266,6 @@ public class TestDeltaLakeFileBasedTableStatisticsProvider
                 TupleDomain.withColumnDomains(ImmutableMap.of((DeltaLakeColumnHandle) COLUMN_HANDLE, Domain.singleValue(DOUBLE, 42.0))),
                 tableHandle.getWriteType(),
                 tableHandle.getProjectedColumns(),
-                tableHandle.getUpdatedColumns(),
-                tableHandle.getUpdateRowIdColumns(),
                 tableHandle.getAnalyzeHandle(),
                 0,
                 tableHandle.isTimeTravel());
@@ -294,8 +290,6 @@ public class TestDeltaLakeFileBasedTableStatisticsProvider
                 TupleDomain.all(),
                 tableHandle.getWriteType(),
                 tableHandle.getProjectedColumns(),
-                tableHandle.getUpdatedColumns(),
-                tableHandle.getUpdateRowIdColumns(),
                 tableHandle.getAnalyzeHandle(),
                 0,
                 tableHandle.isTimeTravel());
@@ -310,8 +304,6 @@ public class TestDeltaLakeFileBasedTableStatisticsProvider
                 TupleDomain.none(),
                 tableHandle.getWriteType(),
                 tableHandle.getProjectedColumns(),
-                tableHandle.getUpdatedColumns(),
-                tableHandle.getUpdateRowIdColumns(),
                 tableHandle.getAnalyzeHandle(),
                 0,
                 tableHandle.isTimeTravel());

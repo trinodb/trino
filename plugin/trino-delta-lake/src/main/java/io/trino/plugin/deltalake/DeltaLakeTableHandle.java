@@ -24,14 +24,11 @@ import io.trino.plugin.deltalake.transactionlog.ProtocolEntry;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.predicate.TupleDomain;
 
-import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.plugin.deltalake.DeltaLakeTableHandle.WriteType.MERGE;
-import static io.trino.plugin.deltalake.DeltaLakeTableHandle.WriteType.UPDATE;
 import static java.util.Objects.requireNonNull;
 
 public class DeltaLakeTableHandle
@@ -41,8 +38,6 @@ public class DeltaLakeTableHandle
     public enum WriteType
     {
         MERGE,
-        UPDATE,
-        DELETE
     }
 
     private final String schemaName;
@@ -58,10 +53,6 @@ public class DeltaLakeTableHandle
     private final boolean timeTravel;
 
     private final Optional<Set<DeltaLakeColumnHandle>> projectedColumns;
-    // UPDATE only: The list of columns being updated
-    private final Optional<List<DeltaLakeColumnHandle>> updatedColumns;
-    // UPDATE only: The list of columns which need to be copied when applying updates to the new Parquet file
-    private final Optional<List<DeltaLakeColumnHandle>> updateRowIdColumns;
 
     // ANALYZE only
     private final Optional<AnalyzeHandle> analyzeHandle;
@@ -85,8 +76,6 @@ public class DeltaLakeTableHandle
             @JsonProperty("nonPartitionConstraint") TupleDomain<DeltaLakeColumnHandle> nonPartitionConstraint,
             @JsonProperty("writeType") Optional<WriteType> writeType,
             @JsonProperty("projectedColumns") Optional<Set<DeltaLakeColumnHandle>> projectedColumns,
-            @JsonProperty("updatedColumns") Optional<List<DeltaLakeColumnHandle>> updatedColumns,
-            @JsonProperty("updateRowIdColumns") Optional<List<DeltaLakeColumnHandle>> updateRowIdColumns,
             @JsonProperty("analyzeHandle") Optional<AnalyzeHandle> analyzeHandle,
             @JsonProperty("readVersion") long readVersion,
             @JsonProperty("timeTravel") boolean timeTravel)
@@ -103,8 +92,6 @@ public class DeltaLakeTableHandle
                 ImmutableSet.of(),
                 writeType,
                 projectedColumns,
-                updatedColumns,
-                updateRowIdColumns,
                 analyzeHandle,
                 false,
                 false,
@@ -125,8 +112,6 @@ public class DeltaLakeTableHandle
             Set<DeltaLakeColumnHandle> constraintColumns,
             Optional<WriteType> writeType,
             Optional<Set<DeltaLakeColumnHandle>> projectedColumns,
-            Optional<List<DeltaLakeColumnHandle>> updatedColumns,
-            Optional<List<DeltaLakeColumnHandle>> updateRowIdColumns,
             Optional<AnalyzeHandle> analyzeHandle,
             boolean recordScannedFiles,
             boolean isOptimize,
@@ -143,11 +128,7 @@ public class DeltaLakeTableHandle
         this.enforcedPartitionConstraint = requireNonNull(enforcedPartitionConstraint, "enforcedPartitionConstraint is null");
         this.nonPartitionConstraint = requireNonNull(nonPartitionConstraint, "nonPartitionConstraint is null");
         this.writeType = requireNonNull(writeType, "writeType is null");
-        checkArgument(updatedColumns.isPresent() == (writeType.isPresent() && writeType.get() == UPDATE));
-        checkArgument(updateRowIdColumns.isPresent() == (writeType.isPresent() && writeType.get() == UPDATE));
         this.projectedColumns = requireNonNull(projectedColumns, "projectedColumns is null");
-        this.updatedColumns = requireNonNull(updatedColumns, "updatedColumns is null");
-        this.updateRowIdColumns = requireNonNull(updateRowIdColumns, "rowIdColumns is null");
         this.analyzeHandle = requireNonNull(analyzeHandle, "analyzeHandle is null");
         this.recordScannedFiles = recordScannedFiles;
         this.isOptimize = isOptimize;
@@ -171,8 +152,6 @@ public class DeltaLakeTableHandle
                 constraintColumns,
                 writeType,
                 Optional.of(projectedColumns),
-                updatedColumns,
-                updateRowIdColumns,
                 analyzeHandle,
                 recordScannedFiles,
                 isOptimize,
@@ -195,8 +174,6 @@ public class DeltaLakeTableHandle
                 constraintColumns,
                 writeType,
                 projectedColumns,
-                updatedColumns,
-                updateRowIdColumns,
                 analyzeHandle,
                 recordScannedFiles,
                 true,
@@ -219,8 +196,6 @@ public class DeltaLakeTableHandle
                 constraintColumns,
                 Optional.of(MERGE),
                 projectedColumns,
-                updatedColumns,
-                updateRowIdColumns,
                 analyzeHandle,
                 recordScannedFiles,
                 isOptimize,
@@ -320,18 +295,6 @@ public class DeltaLakeTableHandle
     }
 
     @JsonProperty
-    public Optional<List<DeltaLakeColumnHandle>> getUpdatedColumns()
-    {
-        return updatedColumns;
-    }
-
-    @JsonProperty
-    public Optional<List<DeltaLakeColumnHandle>> getUpdateRowIdColumns()
-    {
-        return updateRowIdColumns;
-    }
-
-    @JsonProperty
     public Optional<AnalyzeHandle> getAnalyzeHandle()
     {
         return analyzeHandle;
@@ -401,8 +364,6 @@ public class DeltaLakeTableHandle
                 Objects.equals(nonPartitionConstraint, that.nonPartitionConstraint) &&
                 Objects.equals(writeType, that.writeType) &&
                 Objects.equals(projectedColumns, that.projectedColumns) &&
-                Objects.equals(updatedColumns, that.updatedColumns) &&
-                Objects.equals(updateRowIdColumns, that.updateRowIdColumns) &&
                 Objects.equals(analyzeHandle, that.analyzeHandle) &&
                 isOptimize == that.isOptimize &&
                 Objects.equals(maxScannedFileSize, that.maxScannedFileSize) &&
@@ -424,8 +385,6 @@ public class DeltaLakeTableHandle
                 nonPartitionConstraint,
                 writeType,
                 projectedColumns,
-                updatedColumns,
-                updateRowIdColumns,
                 analyzeHandle,
                 recordScannedFiles,
                 isOptimize,

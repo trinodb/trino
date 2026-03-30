@@ -767,8 +767,6 @@ public class DeltaLakeMetadata
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
                 tableSnapshot.getVersion(),
                 endVersion.isPresent());
     }
@@ -3583,8 +3581,6 @@ public class DeltaLakeMetadata
                 Sets.union(tableHandle.getConstraintColumns(), newConstraintColumns),
                 tableHandle.getWriteType(),
                 tableHandle.getProjectedColumns(),
-                tableHandle.getUpdatedColumns(),
-                tableHandle.getUpdateRowIdColumns(),
                 Optional.empty(),
                 false,
                 false,
@@ -3875,8 +3871,6 @@ public class DeltaLakeMetadata
                 handle.getProtocolEntry(),
                 TupleDomain.all(),
                 TupleDomain.all(),
-                Optional.empty(),
-                Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
                 Optional.of(analyzeHandle),
