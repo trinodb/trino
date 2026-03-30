@@ -611,6 +611,15 @@ public abstract class DefaultTraversalVisitor<C>
     }
 
     @Override
+    protected Void visitNearest(Nearest node, C context)
+    {
+        process(node.getRelation(), context);
+        node.getWhere().ifPresent(expression -> process(expression, context));
+        process(node.getMatch(), context);
+        return null;
+    }
+
+    @Override
     protected Void visitGroupBy(GroupBy node, C context)
     {
         for (GroupingElement groupingElement : node.getGroupingElements()) {

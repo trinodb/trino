@@ -60,6 +60,7 @@ import io.trino.sql.analyzer.JsonPathAnalyzer.JsonPathAnalysis;
 import io.trino.sql.analyzer.PatternRecognitionAnalysis.PatternInputAnalysis;
 import io.trino.sql.planner.PartitioningHandle;
 import io.trino.sql.tree.AllColumns;
+import io.trino.sql.tree.ComparisonExpression;
 import io.trino.sql.tree.DataType;
 import io.trino.sql.tree.ExistsPredicate;
 import io.trino.sql.tree.Expression;
@@ -73,6 +74,7 @@ import io.trino.sql.tree.JsonTable;
 import io.trino.sql.tree.JsonTableColumnDefinition;
 import io.trino.sql.tree.LambdaArgumentDeclaration;
 import io.trino.sql.tree.MeasureDefinition;
+import io.trino.sql.tree.Nearest;
 import io.trino.sql.tree.Node;
 import io.trino.sql.tree.NodeRef;
 import io.trino.sql.tree.Offset;
@@ -242,6 +244,7 @@ public class Analysis
     private final Map<NodeRef<Table>, Map<ColumnHandle, Expression>> defaultColumnValues = new LinkedHashMap<>();
 
     private final Map<NodeRef<Unnest>, UnnestAnalysis> unnestAnalysis = new LinkedHashMap<>();
+    private final Map<NodeRef<Nearest>, NearestAnalysis> nearestAnalysis = new LinkedHashMap<>();
     private Optional<Create> create = Optional.empty();
     private Optional<Insert> insert = Optional.empty();
     private Optional<RefreshMaterializedViewAnalysis> refreshMaterializedView = Optional.empty();
@@ -999,6 +1002,16 @@ public class Analysis
     public UnnestAnalysis getUnnest(Unnest node)
     {
         return unnestAnalysis.get(NodeRef.of(node));
+    }
+
+    public void setNearest(Nearest node, NearestAnalysis analysis)
+    {
+        nearestAnalysis.put(NodeRef.of(node), analysis);
+    }
+
+    public NearestAnalysis getNearest(Nearest node)
+    {
+        return nearestAnalysis.get(NodeRef.of(node));
     }
 
     public void addTableColumnReferences(AccessControl accessControl, Identity identity, Multimap<QualifiedObjectName, String> tableColumnMap)
@@ -2606,6 +2619,17 @@ public class Analysis
             requireNonNull(transactionHandle, "transactionHandle is null");
             requireNonNull(parametersType, "parametersType is null");
             requireNonNull(orderedOutputColumns, "orderedOutputColumns is null");
+        }
+    }
+
+    public record NearestAnalysis(
+            ComparisonExpression.Operator operator,
+            Expression candidateExpression)
+    {
+        public NearestAnalysis
+        {
+            requireNonNull(operator, "operator is null");
+            requireNonNull(candidateExpression, "candidateExpression is null");
         }
     }
 

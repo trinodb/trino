@@ -481,6 +481,10 @@ relationPrimary
         )?
         ((ERROR | EMPTY) ON ERROR)?
       ')'                                                             #jsonTable
+    | NEAREST '('
+        FROM relation
+        (WHERE where=booleanExpression)?
+        MATCH match=booleanExpression ')'                             #nearest
     ;
 
 jsonTableColumn
@@ -1052,7 +1056,7 @@ nonReserved
     | KEEP | KEY | KEYS
     | LANGUAGE | LAST | LATERAL | LEADING | LEAVE | LEVEL | LIMIT | LOCAL | LOGICAL | LOOP
     | MAP | MATCH | MATCHED | MATCHES | MATCH_RECOGNIZE | MATERIALIZED | MEASURES | MERGE | MINUTE | MONTH
-    | NESTED | NEXT | NFC | NFD | NFKC | NFKD | NO | NONE | NULLIF | NULLS
+    | NESTED | NEXT | NFC | NFD | NEAREST | NFKC | NFKD | NO | NONE | NULLIF | NULLS
     | OBJECT | OF | OFFSET | OMIT | ONE | ONLY | OPTION | ORDINALITY | OUTPUT | OVER | OVERFLOW
     | PARTITION | PARTITIONS | PASSING | PAST | PATH | PATTERN | PER | PERIOD | PERMUTE | PLAN | POSITION | PRECEDING | PRECISION | PRIVILEGES | PROPERTIES | PRUNE
     | QUOTES
@@ -1232,6 +1236,7 @@ MONTH: 'MONTH';
 NATURAL: 'NATURAL';
 NESTED: 'NESTED';
 NEXT: 'NEXT';
+NEAREST: 'NEAREST';
 NFC : 'NFC';
 NFD : 'NFD';
 NFKC : 'NFKC';

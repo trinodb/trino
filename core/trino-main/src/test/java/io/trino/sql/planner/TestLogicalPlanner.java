@@ -953,6 +953,91 @@ public class TestLogicalPlanner
     }
 
     @Test
+    public void testInnerJoinNearest()
+    {
+        assertPlan(
+                """
+                SELECT region.regionkey, nation.name
+                FROM region
+                INNER JOIN NEAREST (
+                    FROM nation
+                    WHERE nation.regionkey = region.regionkey
+                    MATCH nation.nationkey < region.regionkey
+                ) ON TRUE
+                """,
+                output(
+                        project(
+                                ImmutableMap.of(
+                                        "regionkey", expression(new Reference(BIGINT, "regionkey")),
+                                        "name", expression(new Reference(VARCHAR, "name_1"))),
+                                topNRanking(
+                                        pattern -> pattern
+                                                .specification(
+                                                        ImmutableList.of("nearest_left_row"),
+                                                        ImmutableList.of("nationkey"),
+                                                        ImmutableMap.of("nationkey", SortOrder.DESC_NULLS_LAST))
+                                                .rankingType(ROW_NUMBER)
+                                                .maxRankingPerPartition(1)
+                                                .partial(false),
+                                        join(INNER, builder -> builder
+                                                .equiCriteria("regionkey", "regionkey_2")
+                                                .distributionType(REPLICATED)
+                                                .left(assignUniqueId(
+                                                        "nearest_left_row",
+                                                        any(tableScan("region", ImmutableMap.of("regionkey", "regionkey")))))
+                                                .right(exchange(
+                                                        LOCAL,
+                                                        filter(
+                                                                new Comparison(LESS_THAN, new Reference(BIGINT, "nationkey"), new Reference(BIGINT, "regionkey_2")),
+                                                                tableScan("nation", ImmutableMap.of(
+                                                                        "nationkey", "nationkey",
+                                                                        "name_1", "name",
+                                                                        "regionkey_2", "regionkey"))))))))));
+    }
+
+    @Test
+    public void testLeftJoinNearest()
+    {
+        assertPlan(
+                """
+                SELECT region.regionkey, nation.name
+                FROM region
+                LEFT JOIN NEAREST (
+                    FROM nation
+                    WHERE nation.regionkey = region.regionkey
+                    MATCH nation.nationkey > region.regionkey
+                ) ON TRUE
+                """,
+                output(
+                        project(
+                                ImmutableMap.of(
+                                        "regionkey", expression(new Reference(BIGINT, "regionkey")),
+                                        "name", expression(new Reference(VARCHAR, "name_1"))),
+                                topNRanking(
+                                        pattern -> pattern
+                                                .specification(
+                                                        ImmutableList.of("nearest_left_row"),
+                                                        ImmutableList.of("nationkey"),
+                                                        ImmutableMap.of("nationkey", ASC_NULLS_LAST))
+                                                .rankingType(ROW_NUMBER)
+                                                .maxRankingPerPartition(1)
+                                                .partial(false),
+                                        join(LEFT, builder -> builder
+                                                .equiCriteria("regionkey", "regionkey_2")
+                                                .left(assignUniqueId(
+                                                        "nearest_left_row",
+                                                        tableScan("region", ImmutableMap.of("regionkey", "regionkey"))))
+                                                .right(exchange(
+                                                        LOCAL,
+                                                        filter(
+                                                                new Comparison(GREATER_THAN, new Reference(BIGINT, "nationkey"), new Reference(BIGINT, "regionkey_2")),
+                                                                tableScan("nation", ImmutableMap.of(
+                                                                        "nationkey", "nationkey",
+                                                                        "name_1", "name",
+                                                                        "regionkey_2", "regionkey"))))))))));
+    }
+
+    @Test
     public void testCorrelatedJoinWithNullCondition()
     {
         assertPlan(

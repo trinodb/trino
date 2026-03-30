@@ -190,6 +190,7 @@ import static io.trino.spi.StandardErrorCode.TABLE_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.TOO_MANY_ARGUMENTS;
 import static io.trino.spi.StandardErrorCode.TOO_MANY_GROUPING_SETS;
 import static io.trino.spi.StandardErrorCode.TYPE_MISMATCH;
+import static io.trino.spi.StandardErrorCode.UNSUPPORTED_SUBQUERY;
 import static io.trino.spi.StandardErrorCode.VIEW_IS_RECURSIVE;
 import static io.trino.spi.StandardErrorCode.VIEW_IS_STALE;
 import static io.trino.spi.connector.ConnectorMaterializedViewDefinition.WhenStaleBehavior.INLINE;
@@ -4358,6 +4359,287 @@ public class TestAnalyzer
         assertFails("SELECT * FROM (VALUES 1) FULL OUTER JOIN LATERAL(VALUES 2) ON false")
                 .hasErrorCode(NOT_SUPPORTED)
                 .hasMessage("line 1:63: FULL JOIN involving LATERAL relation is only supported with condition ON TRUE");
+    }
+
+    @Test
+    public void testJoinNearest()
+    {
+        analyze("""
+                SELECT *
+                FROM (VALUES ('A', TIMESTAMP '2020-01-01 00:00:02')) trades(symbol, ts)
+                CROSS JOIN NEAREST (
+                    FROM (VALUES ('A', TIMESTAMP '2020-01-01 00:00:01')) quotes(symbol, ts)
+                    WHERE quotes.symbol = trades.symbol
+                    MATCH quotes.ts < trades.ts
+                )
+                """);
+        analyze("""
+                SELECT *
+                FROM (VALUES ('A', TIMESTAMP '2020-01-01 00:00:02')) trades(symbol, ts)
+                LEFT JOIN NEAREST (
+                    FROM (VALUES ('A', TIMESTAMP '2020-01-01 00:00:01')) quotes(symbol, ts)
+                    WHERE quotes.symbol = trades.symbol
+                    MATCH quotes.ts <= trades.ts
+                ) ON TRUE
+                """);
+        analyze("""
+                SELECT *
+                FROM (VALUES ('A', TIMESTAMP '2020-01-01 00:00:02')) trades(symbol, ts)
+                CROSS JOIN NEAREST (
+                    FROM (VALUES ('A', TIMESTAMP '2020-01-01 00:00:03')) quotes(symbol, ts)
+                    WHERE quotes.symbol = trades.symbol
+                    MATCH quotes.ts > trades.ts
+                )
+                """);
+        analyze("""
+                SELECT *
+                FROM (VALUES ('A', TIMESTAMP '2020-01-01 00:00:02')) trades(symbol, ts)
+                LEFT JOIN NEAREST (
+                    FROM (VALUES ('A', TIMESTAMP '2020-01-01 00:00:03')) quotes(symbol, ts)
+                    WHERE quotes.symbol = trades.symbol
+                    MATCH quotes.ts >= trades.ts
+                ) ON TRUE
+                """);
+        analyze("""
+                SELECT *
+                FROM (VALUES ('A', TIMESTAMP '2020-01-01 00:00:02')) trades(symbol, ts)
+                INNER JOIN NEAREST (
+                    FROM (VALUES ('A', TIMESTAMP '2020-01-01 00:00:01')) quotes(symbol, ts)
+                    WHERE quotes.symbol = trades.symbol
+                    MATCH quotes.ts <= trades.ts
+                ) ON TRUE
+                """);
+        analyze("""
+                SELECT *
+                FROM (VALUES ('A', TIMESTAMP '2020-01-01 00:00:02')) trades(symbol, ts)
+                CROSS JOIN NEAREST (
+                    FROM (VALUES ('A', TIMESTAMP '2020-01-01 00:00:01', 10)) quotes(symbol, ts, price)
+                    WHERE quotes.price = (SELECT 10)
+                    MATCH quotes.ts <= date_add('second', (SELECT 0), trades.ts)
+                )
+                """);
+        assertFails("""
+                SELECT *
+                FROM (VALUES ('A', TIMESTAMP '2020-01-01 00:00:02')) trades(symbol, ts)
+                CROSS JOIN NEAREST (
+                    FROM (VALUES ('A', TIMESTAMP '2020-01-01 00:00:01')) quotes(symbol, ts)
+                    WHERE quotes.ts <= (SELECT trades.ts)
+                    MATCH quotes.ts <= trades.ts
+                )
+                """)
+                .hasErrorCode(UNSUPPORTED_SUBQUERY)
+                .hasMessageContaining("Correlated subqueries are not supported in NEAREST WHERE clause");
+        assertFails("""
+                SELECT *
+                FROM (VALUES ('A', TIMESTAMP '2020-01-01 00:00:02')) trades(symbol, ts)
+                CROSS JOIN NEAREST (
+                    FROM (VALUES ('A', TIMESTAMP '2020-01-01 00:00:01')) quotes(symbol, ts)
+                    WHERE quotes.ts <= trades.ts
+                    MATCH quotes.ts <= (SELECT trades.ts)
+                )
+                """)
+                .hasErrorCode(UNSUPPORTED_SUBQUERY)
+                .hasMessageContaining("Correlated subqueries are not supported in NEAREST MATCH clause");
+        analyze("""
+                SELECT *
+                FROM (VALUES (TIMESTAMP '2020-01-01 00:00:02')) trades(ts),
+                     NEAREST (
+                         FROM (VALUES (TIMESTAMP '2020-01-01 00:00:01')) quotes(ts)
+                         MATCH quotes.ts <= trades.ts
+                     )
+                """);
+
+        assertFails("""
+                SELECT *
+                FROM (VALUES ('A', TIMESTAMP '2020-01-01 00:00:02')) trades(symbol, ts)
+                INNER JOIN NEAREST (
+                    FROM (VALUES ('A', TIMESTAMP '2020-01-01 00:00:01')) quotes(symbol, ts)
+                    WHERE quotes.symbol = trades.symbol
+                    MATCH quotes.ts <= trades.ts
+                ) ON 1 = 1
+                """)
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessageContaining("INNER JOIN involving NEAREST is only supported with condition ON TRUE");
+        assertFails("""
+                SELECT *
+                FROM (VALUES ('A', TIMESTAMP '2020-01-01 00:00:02')) trades(symbol, ts)
+                RIGHT JOIN NEAREST (
+                    FROM (VALUES ('A', TIMESTAMP '2020-01-01 00:00:03')) quotes(symbol, ts)
+                    WHERE quotes.symbol = trades.symbol
+                    MATCH quotes.ts >= trades.ts
+                ) ON true
+                """)
+                .hasErrorCode(INVALID_COLUMN_REFERENCE)
+                .hasMessageContaining("LATERAL reference not allowed in RIGHT JOIN");
+        assertFails("""
+                SELECT *
+                FROM (VALUES ('A', TIMESTAMP '2020-01-01 00:00:02')) trades(symbol, ts)
+                FULL JOIN NEAREST (
+                    FROM (VALUES ('A', TIMESTAMP '2020-01-01 00:00:03')) quotes(symbol, ts)
+                    WHERE quotes.symbol = trades.symbol
+                    MATCH quotes.ts >= trades.ts
+                ) ON true
+                """)
+                .hasErrorCode(INVALID_COLUMN_REFERENCE)
+                .hasMessageContaining("LATERAL reference not allowed in FULL JOIN");
+        assertFails("""
+                SELECT *
+                FROM (VALUES ('A', TIMESTAMP '2020-01-01 00:00:02')) trades(symbol, ts)
+                LEFT JOIN NEAREST (
+                    FROM (VALUES ('A', TIMESTAMP '2020-01-01 00:00:01')) quotes(symbol, ts)
+                    WHERE quotes.symbol = trades.symbol
+                    MATCH quotes.ts <= trades.ts
+                ) ON 1 = 1
+                """)
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessageContaining("LEFT JOIN involving NEAREST is only supported with condition ON TRUE");
+        assertFails("""
+                SELECT *
+                FROM (VALUES ('A', TIMESTAMP '2020-01-01 00:00:02')) trades(symbol, ts)
+                LEFT JOIN NEAREST (
+                    FROM (VALUES ('A', TIMESTAMP '2020-01-01 00:00:01')) quotes(symbol, ts)
+                    WHERE quotes.symbol = trades.symbol
+                    MATCH quotes.ts <= trades.ts
+                ) USING (symbol)
+                """)
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessageContaining("JOIN USING involving NEAREST is not supported");
+        assertFails("""
+                SELECT *
+                FROM (VALUES ('A', TIMESTAMP '2020-01-01 00:00:02')) trades(symbol, ts)
+                NATURAL JOIN NEAREST (
+                    FROM (VALUES ('A', TIMESTAMP '2020-01-01 00:00:01')) quotes(symbol, ts)
+                    MATCH quotes.ts <= trades.ts
+                )
+                """)
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessageContaining("Natural join not supported");
+        assertFails("""
+                SELECT *
+                FROM NEAREST (
+                    FROM (VALUES (TIMESTAMP '2020-01-01 00:00:01')) quotes(ts)
+                    MATCH quotes.ts <= TIMESTAMP '2020-01-01 00:00:02'
+                )
+                """)
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessageContaining("NEAREST is only supported on the right side of CROSS JOIN, INNER JOIN, LEFT JOIN, or an implicit join");
+        assertFails("""
+                SELECT *
+                FROM (VALUES ('A', TIMESTAMP '2020-01-01 00:00:02')) trades(symbol, ts)
+                CROSS JOIN NEAREST (
+                    FROM (VALUES ('A', TIMESTAMP '2020-01-01 00:00:01')) quotes(symbol, ts)
+                    WHERE quotes.symbol = trades.symbol
+                    MATCH quotes.ts = trades.ts
+                )
+                """)
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessageContaining("NEAREST MATCH clause must use <, <=, >, or >=");
+        assertFails("""
+                SELECT *
+                FROM (VALUES ('A', TIMESTAMP '2020-01-01 00:00:02')) trades(symbol, ts)
+                CROSS JOIN NEAREST (
+                    FROM (VALUES ('A', TIMESTAMP '2020-01-01 00:00:01')) quotes(symbol, ts)
+                    WHERE quotes.symbol = trades.symbol
+                    MATCH quotes.ts <> trades.ts
+                )
+                """)
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessageContaining("NEAREST MATCH clause must use <, <=, >, or >=");
+        assertFails("""
+                SELECT *
+                FROM (VALUES ('A', TIMESTAMP '2020-01-01 00:00:02')) trades(symbol, ts)
+                CROSS JOIN NEAREST (
+                    FROM (VALUES ('A', TIMESTAMP '2020-01-01 00:00:01')) quotes(symbol, ts)
+                    WHERE quotes.symbol = trades.symbol
+                    MATCH quotes.ts < trades.ts AND quotes.symbol = trades.symbol
+                )
+                """)
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessageContaining("NEAREST MATCH clause must be a comparison expression");
+        assertFails("""
+                SELECT *
+                FROM (VALUES ('A', TIMESTAMP '2020-01-01 00:00:02')) trades(symbol, ts)
+                CROSS JOIN NEAREST (
+                    FROM (VALUES ('A', TIMESTAMP '2020-01-01 00:00:01')) quotes(symbol, ts)
+                    WHERE quotes.symbol = trades.symbol
+                    MATCH quotes.ts < quotes.ts
+                )
+                """)
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessageContaining("NEAREST MATCH clause must compare one FROM relation expression with one non-FROM expression");
+        assertFails("""
+                SELECT *
+                FROM (VALUES ('A', TIMESTAMP '2020-01-01 00:00:02')) trades(symbol, ts)
+                CROSS JOIN NEAREST (
+                    FROM (VALUES ('A', TIMESTAMP '2020-01-01 00:00:01')) quotes(symbol, ts)
+                    WHERE 1
+                    MATCH quotes.ts <= trades.ts
+                )
+                """)
+                .hasErrorCode(TYPE_MISMATCH)
+                .hasMessageContaining("NEAREST WHERE clause must evaluate to a boolean");
+        assertFails("""
+                SELECT *
+                FROM (VALUES ('A', TIMESTAMP '2020-01-01 00:00:02')) trades(symbol, ts)
+                CROSS JOIN NEAREST (
+                    FROM (VALUES ('A', TIMESTAMP '2020-01-01 00:00:01')) quotes(symbol, ts)
+                    MATCH 1
+                )
+                """)
+                .hasErrorCode(TYPE_MISMATCH)
+                .hasMessageContaining("NEAREST MATCH clause must evaluate to a boolean");
+        assertFails("""
+                SELECT *
+                FROM (VALUES ('A', TIMESTAMP '2020-01-01 00:00:02')) trades(symbol, ts)
+                CROSS JOIN NEAREST (
+                    FROM (VALUES ('A', TIMESTAMP '2020-01-01 00:00:01')) quotes(symbol, ts)
+                    WHERE sum(1) = 1
+                    MATCH quotes.ts <= trades.ts
+                )
+                """)
+                .hasErrorCode(EXPRESSION_NOT_SCALAR)
+                .hasMessageContaining("NEAREST WHERE clause cannot contain aggregations, window functions or grouping operations");
+        assertFails("""
+                SELECT *
+                FROM (VALUES ('A', TIMESTAMP '2020-01-01 00:00:02')) trades(symbol, ts)
+                CROSS JOIN NEAREST (
+                    FROM (VALUES ('A', TIMESTAMP '2020-01-01 00:00:01')) quotes(symbol, ts)
+                    WHERE grouping(trades.symbol) = 0
+                    MATCH quotes.ts <= trades.ts
+                )
+                """)
+                .hasErrorCode(EXPRESSION_NOT_SCALAR)
+                .hasMessageContaining("NEAREST WHERE clause cannot contain aggregations, window functions or grouping operations");
+        assertFails("""
+                SELECT *
+                FROM (VALUES ('A', TIMESTAMP '2020-01-01 00:00:02')) trades(symbol, ts)
+                CROSS JOIN NEAREST (
+                    FROM (VALUES ('A', TIMESTAMP '2020-01-01 00:00:01')) quotes(symbol, ts)
+                    MATCH row_number() OVER () = 1
+                )
+                """)
+                .hasErrorCode(EXPRESSION_NOT_SCALAR)
+                .hasMessageContaining("NEAREST MATCH clause cannot contain aggregations, window functions or grouping operations");
+        assertFails("""
+                SELECT *
+                FROM (VALUES ('A', TIMESTAMP '2020-01-01 00:00:02')) trades(symbol, ts)
+                CROSS JOIN NEAREST (
+                    FROM (VALUES ('A', TIMESTAMP '2020-01-01 00:00:01')) quotes(symbol, ts)
+                    MATCH quotes.ts <= grouping(trades.symbol)
+                )
+                """)
+                .hasErrorCode(EXPRESSION_NOT_SCALAR)
+                .hasMessageContaining("NEAREST MATCH clause cannot contain aggregations, window functions or grouping operations");
+        assertFails("""
+                SELECT *
+                FROM (VALUES ('A', TIMESTAMP '2020-01-01 00:00:02')) trades(symbol, ts)
+                CROSS JOIN NEAREST (
+                    FROM (SELECT * FROM (VALUES ('A', TIMESTAMP '2020-01-01 00:00:01')) quotes(symbol, ts) WHERE quotes.symbol = trades.symbol)
+                    MATCH ts <= trades.ts
+                )
+                """)
+                .hasErrorCode(COLUMN_NOT_FOUND)
+                .hasMessageContaining("Column 'trades.symbol' cannot be resolved");
     }
 
     @Test

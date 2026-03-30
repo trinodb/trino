@@ -102,6 +102,7 @@ import io.trino.sql.tree.MergeDelete;
 import io.trino.sql.tree.MergeInsert;
 import io.trino.sql.tree.MergeUpdate;
 import io.trino.sql.tree.NaturalJoin;
+import io.trino.sql.tree.Nearest;
 import io.trino.sql.tree.NestedColumns;
 import io.trino.sql.tree.Node;
 import io.trino.sql.tree.NullInputCharacteristic;
@@ -471,6 +472,22 @@ public final class SqlFormatter
         {
             append(indent, "LATERAL (");
             process(node.getQuery(), indent + 1);
+            append(indent, ")");
+            return null;
+        }
+
+        @Override
+        protected Void visitNearest(Nearest node, Integer indent)
+        {
+            append(indent, "NEAREST (");
+            append(indent + 1, "FROM ");
+            process(node.getRelation(), indent + 1);
+            node.getWhere().ifPresent(where -> append(indent + 1, "WHERE ")
+                    .append(formatExpression(where))
+                    .append('\n'));
+            append(indent + 1, "MATCH ")
+                    .append(formatExpression(node.getMatch()))
+                    .append('\n');
             append(indent, ")");
             return null;
         }

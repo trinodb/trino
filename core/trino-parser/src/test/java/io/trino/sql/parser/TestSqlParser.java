@@ -135,6 +135,7 @@ import io.trino.sql.tree.MergeDelete;
 import io.trino.sql.tree.MergeInsert;
 import io.trino.sql.tree.MergeUpdate;
 import io.trino.sql.tree.NaturalJoin;
+import io.trino.sql.tree.Nearest;
 import io.trino.sql.tree.NestedColumns;
 import io.trino.sql.tree.Node;
 import io.trino.sql.tree.NodeLocation;
@@ -4980,6 +4981,187 @@ public class TestSqlParser
                                 new Table(QualifiedName.of("t")),
                                 lateralRelation,
                                 Optional.of(new JoinOn(BooleanLiteral.TRUE_LITERAL)))));
+    }
+
+    @Test
+    public void testNearest()
+    {
+        assertThat(statement(
+                """
+                SELECT *
+                FROM trades
+                CROSS JOIN NEAREST (
+                    FROM quotes
+                    WHERE quotes.symbol = trades.symbol
+                    MATCH quotes.ts <= trades.ts
+                )
+                """))
+                .isEqualTo(new Query(
+                        location(1, 1),
+                        ImmutableList.of(),
+                        ImmutableList.of(),
+                        Optional.empty(),
+                        new QuerySpecification(
+                                location(1, 1),
+                                new Select(location(1, 1), false, ImmutableList.of(new AllColumns(location(1, 8)))),
+                                Optional.of(new Join(
+                                        location(2, 6),
+                                        Join.Type.CROSS,
+                                        new Table(location(2, 6), qualifiedName(location(2, 6), "trades")),
+                                        new Nearest(
+                                                location(3, 12),
+                                                new Table(location(4, 10), qualifiedName(location(4, 10), "quotes")),
+                                                Optional.of(new ComparisonExpression(
+                                                        location(5, 25),
+                                                        ComparisonExpression.Operator.EQUAL,
+                                                        new DereferenceExpression(
+                                                                location(5, 11),
+                                                                new Identifier(location(5, 11), "quotes", false),
+                                                                new Identifier(location(5, 18), "symbol", false)),
+                                                        new DereferenceExpression(
+                                                                location(5, 27),
+                                                                new Identifier(location(5, 27), "trades", false),
+                                                                new Identifier(location(5, 34), "symbol", false)))),
+                                                new ComparisonExpression(
+                                                        location(6, 21),
+                                                        ComparisonExpression.Operator.LESS_THAN_OR_EQUAL,
+                                                        new DereferenceExpression(
+                                                                location(6, 11),
+                                                                new Identifier(location(6, 11), "quotes", false),
+                                                                new Identifier(location(6, 18), "ts", false)),
+                                                        new DereferenceExpression(
+                                                                location(6, 24),
+                                                                new Identifier(location(6, 24), "trades", false),
+                                                                new Identifier(location(6, 31), "ts", false)))),
+                                        Optional.empty())),
+                                Optional.empty(),
+                                Optional.empty(),
+                                Optional.empty(),
+                                ImmutableList.of(),
+                                Optional.empty(),
+                                Optional.empty(),
+                                Optional.empty()),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty()));
+
+        assertThat(statement(
+                """
+                SELECT *
+                FROM trades,
+                     NEAREST (
+                         FROM quotes
+                         WHERE quotes.symbol = trades.symbol
+                         MATCH quotes.ts <= trades.ts
+                     )
+                """))
+                .isEqualTo(new Query(
+                        location(1, 1),
+                        ImmutableList.of(),
+                        ImmutableList.of(),
+                        Optional.empty(),
+                        new QuerySpecification(
+                                location(1, 1),
+                                new Select(location(1, 1), false, ImmutableList.of(new AllColumns(location(1, 8)))),
+                                Optional.of(new Join(
+                                        location(1, 1),
+                                        Join.Type.IMPLICIT,
+                                        new Table(location(2, 6), qualifiedName(location(2, 6), "trades")),
+                                        new Nearest(
+                                                location(3, 6),
+                                                new Table(location(4, 15), qualifiedName(location(4, 15), "quotes")),
+                                                Optional.of(new ComparisonExpression(
+                                                        location(5, 30),
+                                                        ComparisonExpression.Operator.EQUAL,
+                                                        new DereferenceExpression(
+                                                                location(5, 16),
+                                                                new Identifier(location(5, 16), "quotes", false),
+                                                                new Identifier(location(5, 23), "symbol", false)),
+                                                        new DereferenceExpression(
+                                                                location(5, 32),
+                                                                new Identifier(location(5, 32), "trades", false),
+                                                                new Identifier(location(5, 39), "symbol", false)))),
+                                                new ComparisonExpression(
+                                                        location(6, 26),
+                                                        ComparisonExpression.Operator.LESS_THAN_OR_EQUAL,
+                                                        new DereferenceExpression(
+                                                                location(6, 16),
+                                                                new Identifier(location(6, 16), "quotes", false),
+                                                                new Identifier(location(6, 23), "ts", false)),
+                                                        new DereferenceExpression(
+                                                                location(6, 29),
+                                                                new Identifier(location(6, 29), "trades", false),
+                                                                new Identifier(location(6, 36), "ts", false)))),
+                                        Optional.empty())),
+                                Optional.empty(),
+                                Optional.empty(),
+                                Optional.empty(),
+                                ImmutableList.of(),
+                                Optional.empty(),
+                                Optional.empty(),
+                                Optional.empty()),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty()));
+
+        assertThat(statement(
+                """
+                SELECT *
+                FROM trades
+                LEFT JOIN NEAREST (
+                    FROM quotes
+                    WHERE quotes.symbol = trades.symbol
+                    MATCH quotes.ts <= trades.ts
+                ) ON TRUE
+                """))
+                .isEqualTo(new Query(
+                        location(1, 1),
+                        ImmutableList.of(),
+                        ImmutableList.of(),
+                        Optional.empty(),
+                        new QuerySpecification(
+                                location(1, 1),
+                                new Select(location(1, 1), false, ImmutableList.of(new AllColumns(location(1, 8)))),
+                                Optional.of(new Join(
+                                        location(2, 6),
+                                        Join.Type.LEFT,
+                                        new Table(location(2, 6), qualifiedName(location(2, 6), "trades")),
+                                        new Nearest(
+                                                location(3, 11),
+                                                new Table(location(4, 10), qualifiedName(location(4, 10), "quotes")),
+                                                Optional.of(new ComparisonExpression(
+                                                        location(5, 25),
+                                                        ComparisonExpression.Operator.EQUAL,
+                                                        new DereferenceExpression(
+                                                                location(5, 11),
+                                                                new Identifier(location(5, 11), "quotes", false),
+                                                                new Identifier(location(5, 18), "symbol", false)),
+                                                        new DereferenceExpression(
+                                                                location(5, 27),
+                                                                new Identifier(location(5, 27), "trades", false),
+                                                                new Identifier(location(5, 34), "symbol", false)))),
+                                                new ComparisonExpression(
+                                                        location(6, 21),
+                                                        ComparisonExpression.Operator.LESS_THAN_OR_EQUAL,
+                                                        new DereferenceExpression(
+                                                                location(6, 11),
+                                                                new Identifier(location(6, 11), "quotes", false),
+                                                                new Identifier(location(6, 18), "ts", false)),
+                                                        new DereferenceExpression(
+                                                                location(6, 24),
+                                                                new Identifier(location(6, 24), "trades", false),
+                                                                new Identifier(location(6, 31), "ts", false)))),
+                                        Optional.of(new JoinOn(new BooleanLiteral(location(7, 6), "TRUE"))))),
+                                Optional.empty(),
+                                Optional.empty(),
+                                Optional.empty(),
+                                ImmutableList.of(),
+                                Optional.empty(),
+                                Optional.empty(),
+                                Optional.empty()),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty()));
     }
 
     @Test

@@ -110,6 +110,7 @@ import io.trino.sql.analyzer.Analysis.CorrespondingAnalysis;
 import io.trino.sql.analyzer.Analysis.GroupingSetAnalysis;
 import io.trino.sql.analyzer.Analysis.JsonTableAnalysis;
 import io.trino.sql.analyzer.Analysis.MergeAnalysis;
+import io.trino.sql.analyzer.Analysis.NearestAnalysis;
 import io.trino.sql.analyzer.Analysis.ResolvedWindow;
 import io.trino.sql.analyzer.Analysis.SelectExpression;
 import io.trino.sql.analyzer.Analysis.SourceColumn;
@@ -136,6 +137,7 @@ import io.trino.sql.tree.CallArgument;
 import io.trino.sql.tree.ColumnDefinition;
 import io.trino.sql.tree.Comment;
 import io.trino.sql.tree.Commit;
+import io.trino.sql.tree.ComparisonExpression;
 import io.trino.sql.tree.Corresponding;
 import io.trino.sql.tree.CreateCatalog;
 import io.trino.sql.tree.CreateMaterializedView;
@@ -198,6 +200,7 @@ import io.trino.sql.tree.MergeDelete;
 import io.trino.sql.tree.MergeInsert;
 import io.trino.sql.tree.MergeUpdate;
 import io.trino.sql.tree.NaturalJoin;
+import io.trino.sql.tree.Nearest;
 import io.trino.sql.tree.NestedColumns;
 import io.trino.sql.tree.Node;
 import io.trino.sql.tree.NodeLocation;
@@ -414,6 +417,7 @@ import static io.trino.sql.analyzer.ExpressionTreeUtils.extractWindowFunctions;
 import static io.trino.sql.analyzer.ExpressionTreeUtils.extractWindowMeasures;
 import static io.trino.sql.analyzer.Scope.BasisType.TABLE;
 import static io.trino.sql.analyzer.ScopeReferenceExtractor.getReferencesToScope;
+import static io.trino.sql.analyzer.ScopeReferenceExtractor.hasReferencesToScope;
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.trino.sql.analyzer.TypeSignatureTranslator.toTypeSignature;
@@ -1700,6 +1704,62 @@ class StatementAnalyzer
             StatementAnalyzer analyzer = statementAnalyzerFactory.createStatementAnalyzer(analysis, session, warningCollector, CorrelationSupport.ALLOWED);
             Scope queryScope = analyzer.analyze(node.getQuery(), scope.orElseThrow());
             return createAndAssignScope(node, scope, queryScope.getRelationType());
+        }
+
+        @Override
+        protected Scope visitNearest(Nearest node, Optional<Scope> scope)
+        {
+            if (scope.isEmpty()) {
+                throw semanticException(NOT_SUPPORTED, node, "NEAREST is only supported on the right side of CROSS JOIN, INNER JOIN, LEFT JOIN, or an implicit join");
+            }
+
+            Scope leftScope = scope.orElseThrow();
+            if (leftScope.getRelationType().getAllFieldCount() == 0) {
+                throw semanticException(NOT_SUPPORTED, node, "NEAREST is only supported on the right side of CROSS JOIN, INNER JOIN, LEFT JOIN, or an implicit join");
+            }
+
+            // NEAREST is treated as a lateral relation by visitJoin(), but in the current implementation only the
+            // top-level WHERE and MATCH clauses may correlate with the left side of the join.
+            // The inner FROM relation is analyzed against the query boundary so it behaves like an
+            // uncorrelated relation body.
+            //
+            // TODO: If NEAREST is extended to allow correlation inside FROM <relation>, analyze the
+            // FROM relation against Optional.of(leftScope) instead, similar to LATERAL.
+            Scope sourceScope = process(node.getRelation(), Optional.of(leftScope.getQueryBoundaryScope()));
+
+            // Re-wrap the analyzed FROM relation in a scope whose parent is the left side of the
+            // join. This allows WHERE and MATCH to reference both the FROM relation fields and
+            // the left-side fields while keeping the inner FROM relation itself uncorrelated.
+            Scope nearestScope = createAndAssignScope(node, scope, sourceScope.getRelationType());
+
+            node.getWhere().ifPresent(where -> {
+                verifyNoAggregateWindowOrGroupingFunctions(session, functionResolver, accessControl, where, "NEAREST WHERE clause");
+                ExpressionAnalysis whereAnalysis = analyzeExpression(where, nearestScope, CorrelationSupport.ALLOWED);
+                Type whereType = whereAnalysis.getType(where);
+                if (!whereType.equals(BOOLEAN)) {
+                    if (!whereType.equals(UNKNOWN)) {
+                        throw semanticException(TYPE_MISMATCH, where, "NEAREST WHERE clause must evaluate to a boolean: actual type %s", whereType);
+                    }
+                    analysis.addCoercion(where, BOOLEAN);
+                }
+                verifyNoCorrelatedSubqueries(where, leftScope, sourceScope, "NEAREST WHERE clause");
+                analysis.recordSubqueries(node, whereAnalysis);
+            });
+
+            verifyNoAggregateWindowOrGroupingFunctions(session, functionResolver, accessControl, node.getMatch(), "NEAREST MATCH clause");
+            ExpressionAnalysis matchAnalysis = analyzeExpression(node.getMatch(), nearestScope, CorrelationSupport.ALLOWED);
+            Type matchType = matchAnalysis.getType(node.getMatch());
+            if (!matchType.equals(BOOLEAN)) {
+                if (!matchType.equals(UNKNOWN)) {
+                    throw semanticException(TYPE_MISMATCH, node.getMatch(), "NEAREST MATCH clause must evaluate to a boolean: actual type %s", matchType);
+                }
+                analysis.addCoercion(node.getMatch(), BOOLEAN);
+            }
+            verifyNoCorrelatedSubqueries(node.getMatch(), leftScope, sourceScope, "NEAREST MATCH clause");
+            analysis.recordSubqueries(node, matchAnalysis);
+            analysis.setNearest(node, analyzeNearestMatch(node, nearestScope, leftScope));
+
+            return nearestScope;
         }
 
         @Override
@@ -3464,6 +3524,23 @@ class StatementAnalyzer
                         }
                     }
                 }
+                else if (isNearestRelation(node.getRight())) {
+                    if (criteria instanceof JoinUsing) {
+                        throw semanticException(NOT_SUPPORTED, node, "JOIN USING involving NEAREST is not supported");
+                    }
+                    if (node.getType() == Join.Type.INNER || node.getType() == LEFT) {
+                        if (!(criteria instanceof JoinOn joinOn) || !joinOn.getExpression().equals(TRUE_LITERAL)) {
+                            throw semanticException(
+                                    NOT_SUPPORTED,
+                                    criteria instanceof JoinOn joinOn ? joinOn.getExpression() : node,
+                                    "%s JOIN involving NEAREST is only supported with condition ON TRUE",
+                                    node.getType().name());
+                        }
+                    }
+                    else if (node.getType() != Join.Type.CROSS && node.getType() != Join.Type.IMPLICIT) {
+                        throw semanticException(NOT_SUPPORTED, node, "%s JOIN involving NEAREST is not supported", node.getType().name());
+                    }
+                }
                 else if (node.getType() == FULL) {
                     if (!(criteria instanceof JoinOn joinOn) || !joinOn.getExpression().equals(TRUE_LITERAL)) {
                         throw semanticException(
@@ -4047,7 +4124,7 @@ class StatementAnalyzer
             if (node instanceof AliasedRelation aliasedRelation) {
                 return isLateralRelation(aliasedRelation.getRelation());
             }
-            return node instanceof Unnest || node instanceof Lateral || node instanceof JsonTable;
+            return node instanceof Unnest || node instanceof Lateral || node instanceof JsonTable || node instanceof Nearest;
         }
 
         private boolean isUnnestRelation(Relation node)
@@ -4064,6 +4141,56 @@ class StatementAnalyzer
                 return isJsonTable(aliasedRelation.getRelation());
             }
             return node instanceof JsonTable;
+        }
+
+        private boolean isNearestRelation(Relation node)
+        {
+            if (node instanceof AliasedRelation aliasedRelation) {
+                return isNearestRelation(aliasedRelation.getRelation());
+            }
+            return node instanceof Nearest;
+        }
+
+        private void verifyNoCorrelatedSubqueries(Expression expression, Scope leftScope, Scope sourceScope, String description)
+        {
+            for (SubqueryExpression subquery : extractExpressions(ImmutableList.of(expression), SubqueryExpression.class)) {
+                if (hasReferencesToScope(subquery, analysis, leftScope) || hasReferencesToScope(subquery, analysis, sourceScope)) {
+                    throw semanticException(UNSUPPORTED_SUBQUERY, subquery, "Correlated subqueries are not supported in %s", description);
+                }
+            }
+        }
+
+        private NearestAnalysis analyzeNearestMatch(Nearest node, Scope nearestScope, Scope leftScope)
+        {
+            if (!(node.getMatch() instanceof ComparisonExpression comparison)) {
+                throw semanticException(NOT_SUPPORTED, node.getMatch(), "NEAREST MATCH clause must be a comparison expression");
+            }
+
+            // MATCH is analyzed in nearestScope, which exposes fields from the FROM relation locally
+            // and the left join input through the parent scope.
+            boolean leftReferencesFromRelation = hasReferencesToScope(comparison.getLeft(), analysis, nearestScope);
+            boolean rightReferencesFromRelation = hasReferencesToScope(comparison.getRight(), analysis, nearestScope);
+            boolean leftReferencesOuterRelation = hasReferencesToScope(comparison.getLeft(), analysis, leftScope);
+            boolean rightReferencesOuterRelation = hasReferencesToScope(comparison.getRight(), analysis, leftScope);
+            if (leftReferencesFromRelation == rightReferencesFromRelation) {
+                throw semanticException(NOT_SUPPORTED, node.getMatch(), "NEAREST MATCH clause must compare one FROM relation expression with one non-FROM expression");
+            }
+
+            if ((leftReferencesFromRelation && leftReferencesOuterRelation) || (rightReferencesFromRelation && rightReferencesOuterRelation)) {
+                throw semanticException(NOT_SUPPORTED, node.getMatch(), "NEAREST MATCH clause must keep FROM relation and non-FROM expressions on opposite sides");
+            }
+
+            Expression candidateExpression = leftReferencesFromRelation ? comparison.getLeft() : comparison.getRight();
+
+            ComparisonExpression.Operator operator = leftReferencesFromRelation ? comparison.getOperator() : comparison.getOperator().flip();
+            if (operator != ComparisonExpression.Operator.LESS_THAN &&
+                    operator != ComparisonExpression.Operator.LESS_THAN_OR_EQUAL &&
+                    operator != ComparisonExpression.Operator.GREATER_THAN &&
+                    operator != ComparisonExpression.Operator.GREATER_THAN_OR_EQUAL) {
+                throw semanticException(NOT_SUPPORTED, node.getMatch(), "NEAREST MATCH clause must use <, <=, >, or >=");
+            }
+
+            return new NearestAnalysis(operator, candidateExpression);
         }
 
         @Override

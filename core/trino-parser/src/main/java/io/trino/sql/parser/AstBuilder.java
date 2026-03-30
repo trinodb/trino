@@ -186,6 +186,7 @@ import io.trino.sql.tree.MergeDelete;
 import io.trino.sql.tree.MergeInsert;
 import io.trino.sql.tree.MergeUpdate;
 import io.trino.sql.tree.NaturalJoin;
+import io.trino.sql.tree.Nearest;
 import io.trino.sql.tree.NestedColumns;
 import io.trino.sql.tree.Node;
 import io.trino.sql.tree.NodeLocation;
@@ -2152,6 +2153,16 @@ class AstBuilder
     public Node visitLateral(SqlBaseParser.LateralContext context)
     {
         return new Lateral(getLocation(context), (Query) visit(context.query()));
+    }
+
+    @Override
+    public Node visitNearest(SqlBaseParser.NearestContext context)
+    {
+        return new Nearest(
+                getLocation(context),
+                (Relation) visit(context.relation()),
+                visitIfPresent(context.where, Expression.class),
+                (Expression) visit(context.match));
     }
 
     @Override

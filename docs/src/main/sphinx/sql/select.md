@@ -1469,6 +1469,131 @@ CROSS JOIN LATERAL (SELECT name || ' :-' AS x)
 CROSS JOIN LATERAL (SELECT x || ')' AS y);
 ```
 
+When `LATERAL` appears on the right side of a `FULL JOIN`, the only condition
+supported by the current implementation is `ON TRUE`.
+
+### NEAREST
+
+`NEAREST` is a relation that selects at most one row from a `FROM` relation for
+each row on the left side of a join.
+
+Use `NEAREST` on the right side of an explicit `CROSS JOIN`, `INNER JOIN` with
+`ON TRUE`, `LEFT JOIN` with `ON TRUE`, or an implicit comma join:
+
+```text
+CROSS JOIN NEAREST (
+    FROM relation
+    [ WHERE condition ]
+    MATCH comparison
+)
+
+INNER JOIN NEAREST (
+    FROM relation
+    [ WHERE condition ]
+    MATCH comparison
+) ON TRUE
+
+relation,
+NEAREST (
+    FROM relation
+    [ WHERE condition ]
+    MATCH comparison
+)
+
+LEFT JOIN NEAREST (
+    FROM relation
+    [ WHERE condition ]
+    MATCH comparison
+ ) ON TRUE
+```
+
+The `MATCH` clause is required. It must be a single comparison using one
+expression from the `FROM` relation and one non-`FROM` expression, with one of
+the operators `<`, `<=`, `>`, or `>=`.
+
+The comparison determines both the matching direction and the ordering of
+candidate rows:
+
+- `<` and `<=` select the closest row from the `FROM` relation whose match key
+  is smaller than, or smaller than or equal to, the other expression.
+- `>` and `>=` select the closest row from the `FROM` relation whose match key
+  is greater than, or greater than or equal to, the other expression.
+
+The optional `WHERE` clause filters candidate rows before the nearest row is
+selected.
+
+`NEAREST` can be understood as shorthand for a lateral subquery that filters to
+matching candidate rows, orders them by the `FROM` relation match key, and
+keeps only the first row. For example:
+
+- `NEAREST (
+      FROM ...
+      WHERE ...
+      MATCH right_key <= left_key
+  )` is equivalent to:
+
+  ```sql
+  LATERAL (
+      SELECT *
+      FROM ...
+      WHERE ...
+          AND right_key <= left_key
+      ORDER BY right_key DESC
+      FETCH FIRST 1 ROW ONLY
+  )
+  ```
+
+- `NEAREST (
+      FROM ...
+      WHERE ...
+      MATCH right_key >= left_key
+  )` is equivalent to:
+
+  ```sql
+  LATERAL (
+      SELECT *
+      FROM ...
+      WHERE ...
+          AND right_key >= left_key
+      ORDER BY right_key ASC
+      FETCH FIRST 1 ROW ONLY
+  )
+  ```
+
+More generally, `<` and `<=` order the `FROM` relation match key descending,
+while `>` and `>=` order it ascending.
+
+For example, the following query matches each trade with the most recent quote
+for the same symbol:
+
+```sql
+SELECT trades.symbol, trades.ts, quotes.price
+FROM trades
+CROSS JOIN NEAREST (
+    FROM quotes
+    WHERE quotes.symbol = trades.symbol
+    MATCH quotes.ts <= trades.ts
+);
+```
+
+To preserve rows from the left side when no nearest row exists, use
+`LEFT JOIN NEAREST`:
+
+```sql
+SELECT trades.symbol, quotes.price
+FROM trades
+LEFT JOIN NEAREST (
+    FROM quotes
+    WHERE quotes.symbol = trades.symbol
+    MATCH quotes.ts >= trades.ts
+) ON TRUE;
+```
+
+The current implementation supports `CROSS JOIN NEAREST (...)`, `INNER JOIN
+NEAREST (...) ON TRUE`, implicit comma joins with `NEAREST (...)`, and
+`LEFT JOIN NEAREST (...) ON TRUE`.
+`JOIN USING`, `NATURAL JOIN`, and join conditions other than `ON TRUE` are not
+supported for `NEAREST`.
 ### Qualifying column names
 
 When two relations in a join have columns with the same name, the column
