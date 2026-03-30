@@ -1166,10 +1166,34 @@ public class TestArrayOperators
                 .matches("CAST(ARRAY['test', '', 'data'] AS ARRAY(VARCHAR))");
 
         // array with various types including scientific notation and string "null"
+        String inputJsonArray = "[true, false, 12, 12.3, 1.23E1, 0, 0.000000000000000, 0e1000, 0e-1000, 1, 100000000000000000000000000000000000000000000000000000000000000000000e-68, 0.100000000000000, \"puppies\", \"kittens\", \"null\", null]";
+        String expectedVarcharArray = "ARRAY[VARCHAR 'true', 'false', '12', '1.23E1', '1.23E1', '0', '0E0', '0E0', '0E0', '1', '1.0E0', '1.0E-1', 'puppies', 'kittens', 'null', null]";
         assertThat(assertions.expression("cast(a as ARRAY(VARCHAR))")
-                .binding("a", "JSON '[true, false, 12, 12.3, 1.23E1, \"puppies\", \"kittens\", \"null\", null]'"))
+                .binding("a", "JSON '" + inputJsonArray + "'"))
                 .hasType(new ArrayType(VARCHAR))
-                .matches("CAST(ARRAY['true', 'false', '12', '1.23E1', '1.23E1', 'puppies', 'kittens', 'null', null] AS ARRAY(VARCHAR))");
+                .matches(expectedVarcharArray);
+        // Same with json_parse, exercising SpecializeCastWithJsonParse
+        assertThat(assertions.expression("cast(json_parse(a) as ARRAY(VARCHAR))")
+                .binding("a", "'" + inputJsonArray + "'"))
+                .hasType(new ArrayType(VARCHAR))
+                .matches(expectedVarcharArray);
+
+        // Number with leading zeros
+        assertTrinoExceptionThrownBy(assertions.expression("cast(a as ARRAY(VARCHAR))")
+                .binding("a", "JSON '[000]'")::evaluate)
+                .hasMessage("line 3:16: '[000]' is not a valid JSON literal");
+        assertTrinoExceptionThrownBy(assertions.expression("cast(a as ARRAY(VARCHAR))")
+                .binding("a", "JSON '[000.0]'")::evaluate)
+                .hasMessage("line 3:16: '[000.0]' is not a valid JSON literal");
+        // Number with leading zeros with json_parse, exercising SpecializeCastWithJsonParse
+        assertTrinoExceptionThrownBy(assertions.expression("cast(json_parse(a) as ARRAY(VARCHAR))")
+                .binding("a", "'[000]'")::evaluate)
+                // TODO the exception message could be better
+                .hasMessage("Cannot cast to array(varchar).\n[000]");
+        assertTrinoExceptionThrownBy(assertions.expression("cast(json_parse(a) as ARRAY(VARCHAR))")
+                .binding("a", "'[000.0]'")::evaluate)
+                // TODO the exception message could be better
+                .hasMessage("Cannot cast to array(varchar).\n[000.0]");
 
         // non-array JSON should fail
         assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as ARRAY(VARCHAR))")
