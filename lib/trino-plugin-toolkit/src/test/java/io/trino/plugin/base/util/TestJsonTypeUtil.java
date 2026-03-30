@@ -61,7 +61,7 @@ class TestJsonTypeUtil
     }
 
     @Test
-    void testJsonParseDouble()
+    void testJsonParseDecimal()
     {
         assertThat(jsonParse(utf8Slice("3.14")).toStringUtf8())
                 .isEqualTo("3.14");
@@ -69,6 +69,12 @@ class TestJsonTypeUtil
                 .isEqualTo("-2.5");
         assertThat(jsonParse(utf8Slice("1.0")).toStringUtf8())
                 .isEqualTo("1.0");
+        assertThat(jsonParse(utf8Slice("100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000e-106")).toStringUtf8())
+                .isEqualTo("10.0");
+        assertThat(jsonParse(utf8Slice("100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000e-107")).toStringUtf8())
+                .isEqualTo("1.0");
+        assertThat(jsonParse(utf8Slice("100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000e-108")).toStringUtf8())
+                .isEqualTo("0.1");
     }
 
     @Test
@@ -79,6 +85,32 @@ class TestJsonTypeUtil
         assertThat(jsonParse(utf8Slice("123456789012345678901234567890.12345678")).toStringUtf8())
                 // TODO precision loss! Numbers are converted through floating-point instead of being preserved as strings
                 .isEqualTo("1.2345678901234568E29");
+    }
+
+    @Test
+    void testJsonParseNumberWithLeadingZeros()
+    {
+        assertThatThrownBy(() -> jsonParse(utf8Slice("007")))
+                .isInstanceOf(TrinoException.class)
+                .hasMessage("Cannot convert value to JSON: '007'");
+        assertThatThrownBy(() -> jsonParse(utf8Slice("007.0")))
+                .isInstanceOf(TrinoException.class)
+                .hasMessage("Cannot convert value to JSON: '007.0'");
+    }
+
+    @Test
+    void testJsonParseNumberWithTrailingZeros()
+    {
+        assertThat(jsonParse(utf8Slice("7000000100000000")).toStringUtf8())
+                .isEqualTo("7000000100000000");
+        assertThat(jsonParse(utf8Slice("7010.00")).toStringUtf8())
+                .isEqualTo("7010.0");
+        assertThat(jsonParse(utf8Slice("7000000100000000.000000000000")).toStringUtf8())
+                .isEqualTo("7.0000001E15");
+        assertThat(jsonParse(utf8Slice("7010.030")).toStringUtf8())
+                .isEqualTo("7010.03");
+        assertThat(jsonParse(utf8Slice("7000000100000000.0000030000000")).toStringUtf8())
+                .isEqualTo("7.0000001E15");
     }
 
     @Test
