@@ -261,9 +261,9 @@ final class TestIcebergBigLakeMetastoreConnectorSmokeTest
     @Override // BigLake metastore requires table location to start with the prefix with the table name
     public void testRegisterTableWithTrailingSpaceInLocation()
     {
-        assertThatThrownBy(super::testRegisterTableWithDifferentTableName)
-                .hasMessageContaining("Failed to register table")
-                .hasStackTraceContaining("Malformed request: Invalid metadata location");
+        assertThatThrownBy(super::testRegisterTableWithTrailingSpaceInLocation)
+                .hasMessageMatching("Expected query .* to succeed: CREATE TABLE.*")
+                .hasStackTraceContaining("Malformed request: Table location is immutable");
     }
 
     @Test
