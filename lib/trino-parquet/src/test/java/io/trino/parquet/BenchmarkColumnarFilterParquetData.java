@@ -108,11 +108,7 @@ public class BenchmarkColumnarFilterParquetData
     @Param({"true", "false"})
     public boolean columnarEvaluationEnabled;
 
-    @Param({
-            "AND",
-            "BETWEEN",
-            "IN",
-    })
+    @Param
     public FilterProvider filterProvider;
 
     public enum FilterProvider

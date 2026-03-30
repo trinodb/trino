@@ -82,12 +82,7 @@ public class BenchmarkDynamicPageFilter
     @Param("false")
     public boolean nullsAllowed;
 
-    @Param({
-            "INT32_RANDOM",
-            "INT64_RANDOM",
-            "INT64_FIXED_32K", // LongBitSetFilter
-            "REAL_RANDOM",
-    })
+    @Param
     public DataSet inputDataSet;
 
     private List<Page> inputData;
@@ -97,6 +92,7 @@ public class BenchmarkDynamicPageFilter
     {
         INT32_RANDOM(INTEGER, (block, r) -> INTEGER.writeLong(block, r.nextInt())),
         INT64_RANDOM(BIGINT, (block, r) -> BIGINT.writeLong(block, r.nextLong())),
+        // LongBitSetFilter
         INT64_FIXED_32K(BIGINT, (block, r) -> BIGINT.writeLong(block, r.nextLong() % 32768)),
         REAL_RANDOM(REAL, (block, r) -> REAL.writeLong(block, floatToIntBits(r.nextFloat()))),
         /**/;
