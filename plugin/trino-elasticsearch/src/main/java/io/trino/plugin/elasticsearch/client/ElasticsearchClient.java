@@ -122,6 +122,7 @@ public class ElasticsearchClient
     private final BackpressureRestHighLevelClient client;
     private final int scrollSize;
     private final Duration scrollTimeout;
+    private final Duration requestTimeout;
 
     private final AtomicReference<Set<ElasticsearchNode>> nodes = new AtomicReference<>(ImmutableSet.of());
     private final ScheduledExecutorService executor = newSingleThreadScheduledExecutor(daemonThreadsNamed("NodeRefresher"));
@@ -146,6 +147,7 @@ public class ElasticsearchClient
         this.ignorePublishAddress = config.isIgnorePublishAddress();
         this.scrollSize = config.getScrollSize();
         this.scrollTimeout = config.getScrollTimeout();
+        this.requestTimeout = config.getRequestTimeout();
         this.refreshInterval = config.getNodeRefreshInterval();
         this.tlsEnabled = config.isTlsEnabled();
     }
@@ -582,6 +584,8 @@ public class ElasticsearchClient
         SearchSourceBuilder sourceBuilder = SearchSourceBuilder.searchSource()
                 .query(query);
 
+        sourceBuilder.timeout(new TimeValue(requestTimeout.toMillis(), MILLISECONDS));
+
         if (limit.isPresent() && limit.getAsLong() < scrollSize) {
             // Safe to cast it to int because scrollSize is int.
             sourceBuilder.size(toIntExact(limit.getAsLong()));
@@ -612,7 +616,11 @@ public class ElasticsearchClient
 
         long start = System.nanoTime();
         try {
-            return client.search(request);
+            SearchResponse response = client.search(request);
+            if (response.isTimedOut()) {
+                throw new TrinoException(ELASTICSEARCH_CONNECTION_ERROR, "Elasticsearch query timed out");
+            }
+            return response;
         }
         catch (IOException e) {
             throw new TrinoException(ELASTICSEARCH_CONNECTION_ERROR, e);
@@ -642,7 +650,11 @@ public class ElasticsearchClient
 
         long start = System.nanoTime();
         try {
-            return client.searchScroll(request);
+            SearchResponse response = client.searchScroll(request);
+            if (response.isTimedOut()) {
+                throw new TrinoException(ELASTICSEARCH_CONNECTION_ERROR, "Elasticsearch query timed out");
+            }
+            return response;
         }
         catch (IOException e) {
             throw new TrinoException(ELASTICSEARCH_CONNECTION_ERROR, e);
