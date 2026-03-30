@@ -32,7 +32,7 @@ env:
   SEGMENT_DOWNLOAD_TIMEOUT_MINS: 5
   CI_SKIP_SECRETS_PRESENCE_CHECKS: ${{ secrets.CI_SKIP_SECRETS_PRESENCE_CHECKS }}
   SECRETS_PRESENT: ${{ secrets.SECRETS_PRESENT }}
-  DEPENDABOT_PR: ${{ github.event.pull_request.user.login == 'dependabot[bot]' || github.event.client_payload.pull_request.user.login == 'dependabot[bot]' }}
+  DEPENDABOT_PR: ${{ github.repository == 'trinodb/trino' && github.event_name == 'pull_request' && github.event.pull_request.user.login == 'dependabot[bot]' }}
   PTL_TMP_DOWNLOAD_PATH: /tmp/pt_java_downloads
 
 # Cancel previous PR builds.
