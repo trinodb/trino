@@ -16,6 +16,9 @@ package io.trino.plugin.elasticsearch;
 import io.trino.plugin.elasticsearch.client.ElasticsearchClient;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.SourcePage;
+import org.elasticsearch.client.Cancellable;
+
+import java.util.concurrent.atomic.AtomicReference;
 
 import static io.trino.plugin.elasticsearch.ElasticsearchQueryBuilder.buildSearchQuery;
 import static java.lang.Math.toIntExact;
@@ -30,6 +33,7 @@ class CountQueryPageSource
     // TODO (https://github.com/trinodb/trino/issues/16824) allow connector to return pages of arbitrary row count and handle this gracefully in engine
     private static final int BATCH_SIZE = 10000;
 
+    private final AtomicReference<Cancellable> cancellable = new AtomicReference<>();
     private final long readTimeNanos;
     private long remaining;
 
@@ -43,7 +47,8 @@ class CountQueryPageSource
         long count = client.count(
                 split.index(),
                 split.shard(),
-                buildSearchQuery(table.constraint().transformKeys(ElasticsearchColumnHandle.class::cast), table.query(), table.regexes()));
+                buildSearchQuery(table.constraint().transformKeys(ElasticsearchColumnHandle.class::cast), table.query(), table.regexes()),
+                cancellable);
         readTimeNanos = System.nanoTime() - start;
 
         if (table.limit().isPresent()) {
@@ -87,5 +92,11 @@ class CountQueryPageSource
     }
 
     @Override
-    public void close() {}
+    public void close()
+    {
+        Cancellable request = cancellable.get();
+        if (request != null) {
+            request.cancel();
+        }
+    }
 }

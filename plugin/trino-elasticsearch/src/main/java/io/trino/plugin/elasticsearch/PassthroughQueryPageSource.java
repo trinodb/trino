@@ -19,8 +19,10 @@ import io.trino.plugin.elasticsearch.client.ElasticsearchClient;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.SourcePage;
+import org.elasticsearch.client.Cancellable;
 
 import java.io.IOException;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.util.Objects.requireNonNull;
@@ -28,6 +30,7 @@ import static java.util.Objects.requireNonNull;
 public class PassthroughQueryPageSource
         implements ConnectorPageSource
 {
+    private final AtomicReference<Cancellable> cancellable = new AtomicReference<>();
     private final long readTimeNanos;
     private final String result;
     private boolean done;
@@ -38,7 +41,7 @@ public class PassthroughQueryPageSource
         requireNonNull(table, "table is null");
 
         long start = System.nanoTime();
-        result = client.executeQuery(table.index(), table.query().get());
+        result = client.executeQuery(table.index(), table.query().get(), cancellable);
         readTimeNanos = System.nanoTime() - start;
     }
 
@@ -83,5 +86,11 @@ public class PassthroughQueryPageSource
 
     @Override
     public void close()
-            throws IOException {}
+            throws IOException
+    {
+        Cancellable request = cancellable.get();
+        if (request != null) {
+            request.cancel();
+        }
+    }
 }

@@ -52,6 +52,7 @@ import org.elasticsearch.action.search.ClearScrollRequest;
 import org.elasticsearch.action.search.SearchRequest;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.action.search.SearchScrollRequest;
+import org.elasticsearch.client.Cancellable;
 import org.elasticsearch.client.Response;
 import org.elasticsearch.client.ResponseException;
 import org.elasticsearch.client.RestClient;
@@ -577,6 +578,37 @@ public class ElasticsearchClient
         return body;
     }
 
+    public String executeQuery(String index, String query, AtomicReference<Cancellable> cancellableRef)
+    {
+        String path = format("/%s/_search", index);
+
+        Response response;
+        try {
+            response = client.getLowLevelClient()
+                    .performRequest(
+                            "GET",
+                            path,
+                            ImmutableMap.of(),
+                            new ByteArrayEntity(query.getBytes(UTF_8)),
+                            cancellableRef,
+                            new BasicHeader("Content-Type", "application/json"),
+                            new BasicHeader("Accept-Encoding", "application/json"));
+        }
+        catch (IOException e) {
+            throw new TrinoException(ELASTICSEARCH_CONNECTION_ERROR, e);
+        }
+
+        String body;
+        try {
+            body = EntityUtils.toString(response.getEntity());
+        }
+        catch (IOException e) {
+            throw new TrinoException(ELASTICSEARCH_INVALID_RESPONSE, e);
+        }
+
+        return body;
+    }
+
     public SearchResponse beginSearch(String index, int shard, QueryBuilder query, Optional<List<String>> fields, List<String> documentFields, Optional<String> sort, OptionalLong limit)
     {
         SearchSourceBuilder sourceBuilder = SearchSourceBuilder.searchSource()
@@ -669,6 +701,46 @@ public class ElasticsearchClient
                                 format("/%s/_count?preference=_shards:%s", index, shard),
                                 ImmutableMap.of(),
                                 new StringEntity(sourceBuilder.toString(), UTF_8),
+                                new BasicHeader("Content-Type", "application/json"));
+            }
+            catch (ResponseException e) {
+                throw propagate(e);
+            }
+            catch (IOException e) {
+                throw new TrinoException(ELASTICSEARCH_CONNECTION_ERROR, e);
+            }
+
+            try {
+                return COUNT_RESPONSE_CODEC.fromJson(response.getEntity().getContent())
+                        .getCount();
+            }
+            catch (IOException e) {
+                throw new TrinoException(ELASTICSEARCH_INVALID_RESPONSE, e);
+            }
+        }
+        finally {
+            countStats.add(Duration.nanosSince(start));
+        }
+    }
+
+    public long count(String index, int shard, QueryBuilder query, AtomicReference<Cancellable> cancellableRef)
+    {
+        SearchSourceBuilder sourceBuilder = SearchSourceBuilder.searchSource()
+                .query(query);
+
+        LOG.debug("Count: %s:%s, query: %s", index, shard, sourceBuilder);
+
+        long start = System.nanoTime();
+        try {
+            Response response;
+            try {
+                response = client.getLowLevelClient()
+                        .performRequest(
+                                "GET",
+                                format("/%s/_count?preference=_shards:%s", index, shard),
+                                ImmutableMap.of(),
+                                new StringEntity(sourceBuilder.toString(), UTF_8),
+                                cancellableRef,
                                 new BasicHeader("Content-Type", "application/json"));
             }
             catch (ResponseException e) {

@@ -26,11 +26,13 @@ import io.trino.plugin.elasticsearch.ElasticsearchConfig;
 import org.apache.http.Header;
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpHost;
+import org.elasticsearch.client.Cancellable;
 import org.elasticsearch.client.Node;
 import org.elasticsearch.client.Request;
 import org.elasticsearch.client.RequestOptions;
 import org.elasticsearch.client.Response;
 import org.elasticsearch.client.ResponseException;
+import org.elasticsearch.client.ResponseListener;
 import org.elasticsearch.client.RestClient;
 import org.elasticsearch.rest.RestStatus;
 
@@ -38,6 +40,9 @@ import java.io.IOException;
 import java.time.Duration;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.base.Throwables.throwIfUnchecked;
@@ -89,6 +94,56 @@ public class BackpressureRestClient
             throws IOException
     {
         return executeWithRetries(() -> delegate.performRequest(toRequest(method, endpoint, params, entity, headers)));
+    }
+
+    public Response performRequest(String method, String endpoint, AtomicReference<Cancellable> cancellableRef, Header... headers)
+            throws IOException
+    {
+        return executeWithRetries(() -> performCancellable(toRequest(method, endpoint, headers), cancellableRef));
+    }
+
+    public Response performRequest(String method, String endpoint, Map<String, String> params, HttpEntity entity, AtomicReference<Cancellable> cancellableRef, Header... headers)
+            throws IOException
+    {
+        return executeWithRetries(() -> performCancellable(toRequest(method, endpoint, params, entity, headers), cancellableRef));
+    }
+
+    private Response performCancellable(Request request, AtomicReference<Cancellable> cancellableRef)
+            throws IOException
+    {
+        CompletableFuture<Response> future = new CompletableFuture<>();
+        Cancellable cancellable = delegate.performRequestAsync(request, new ResponseListener() {
+            @Override
+            public void onSuccess(Response response)
+            {
+                future.complete(response);
+            }
+
+            @Override
+            public void onFailure(Exception exception)
+            {
+                future.completeExceptionally(exception);
+            }
+        });
+        cancellableRef.set(cancellable);
+        try {
+            return future.get();
+        }
+        catch (InterruptedException e) {
+            cancellable.cancel();
+            Thread.currentThread().interrupt();
+            throw new IOException("ES request interrupted", e);
+        }
+        catch (ExecutionException e) {
+            Throwable cause = e.getCause();
+            if (cause instanceof IOException ioe) {
+                throw ioe;
+            }
+            if (cause instanceof RuntimeException re) {
+                throw re;
+            }
+            throw new IOException(cause);
+        }
     }
 
     private static Request toRequest(String method, String endpoint, Map<String, String> params, HttpEntity entity, Header... headers)
