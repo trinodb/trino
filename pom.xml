@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.airlift</groupId>
         <artifactId>airbase</artifactId>
-        <version>365</version>
+        <version>366</version>
     </parent>
 
     <groupId>io.trino</groupId>
@@ -2012,12 +2012,6 @@
                         <artifactId>lz4-java</artifactId>
                     </exclusion>
                 </exclusions>
-            </dependency>
-
-            <dependency>
-                <groupId>org.apache.logging.log4j</groupId>
-                <artifactId>log4j-api</artifactId>
-                <version>2.25.3</version>
             </dependency>
 
             <dependency>
