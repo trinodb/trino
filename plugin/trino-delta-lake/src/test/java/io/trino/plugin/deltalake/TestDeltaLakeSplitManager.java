@@ -95,7 +95,7 @@ public class TestDeltaLakeSplitManager
             new ProtocolEntry(1, 2, Optional.empty(), Optional.empty()),
             TupleDomain.all(),
             TupleDomain.all(),
-            Optional.empty(),
+            false,
             Optional.empty(),
             Optional.empty(),
             0,
