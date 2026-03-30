@@ -133,6 +133,12 @@ public class BackpressureRestHighLevelClient
             throwIfUnchecked(throwable);
             throw new RuntimeException("Unexpected cause from FailsafeException", throwable);
         }
+        catch (RuntimeException e) {
+            if (Thread.interrupted()) {
+                throw new IOException("ES request interrupted", e);
+            }
+            throw e;
+        }
     }
 
     private void onFailedAttempt(ExecutionAttemptedEvent<ActionResponse> executionAttemptedEvent)
