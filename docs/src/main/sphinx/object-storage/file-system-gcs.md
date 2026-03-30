@@ -91,16 +91,18 @@ Cloud Storage:
 (fs-legacy-gcs-migration)=
 ## Migration from legacy Google Cloud Storage file system
 
-Trino includes legacy Google Cloud Storage support to use with a catalog using
-the Delta Lake, Hive, Hudi, or Iceberg connectors. Upgrading existing
-deployments to the current native implementation is recommended. Legacy support
-is deprecated and will be removed.
+Previous Trino releases included a legacy Google Cloud Storage file system
+implementation used by catalogs configured with `fs.hadoop.enabled` and
+`hive.gcs.*` properties. That legacy support has been removed. Use the native
+Google Cloud Storage file system implementation.
 
 To migrate a catalog to use the native file system implementation for Google
 Cloud Storage, make the following edits to your catalog configuration:
 
 1. Add the `fs.native-gcs.enabled=true` catalog configuration property.
-2. Refer to the following table to rename your existing legacy catalog
+2. If your catalog enabled `fs.hadoop.enabled` only for legacy Google Cloud
+   Storage access, remove that property.
+3. Refer to the following table to rename your existing legacy catalog
    configuration properties to the corresponding native configuration
    properties. Supported configuration values are identical unless otherwise
    noted.

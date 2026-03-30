@@ -148,17 +148,19 @@ storage accounts:
 (fs-legacy-azure-migration)=
 ## Migration from legacy Azure Storage file system
 
-Trino includes legacy Azure Storage support to use with a catalog using the
-Delta Lake, Hive, Hudi, or Iceberg connectors. Upgrading existing deployments to
-the current native implementation is recommended. Legacy support is deprecated
-and will be removed.
+Previous Trino releases included a legacy Azure Storage file system
+implementation used by catalogs configured with `fs.hadoop.enabled` and
+`hive.azure.*` properties. That legacy support has been removed. Use the
+native Azure file system implementation.
 
 To migrate a catalog to use the native file system implementation for Azure,
 make the following edits to your catalog configuration:
 
 1. Add the `fs.native-azure.enabled=true` catalog configuration property.
-2. Configure the `azure.auth-type` catalog configuration property.
-3. Refer to the following table to rename your existing legacy catalog
+2. If your catalog enabled `fs.hadoop.enabled` only for legacy Azure Storage
+   access, remove that property.
+3. Configure the `azure.auth-type` catalog configuration property.
+4. Refer to the following table to rename your existing legacy catalog
    configuration properties to the corresponding native configuration
    properties. Supported configuration values are identical unless otherwise
    noted.
@@ -186,7 +188,7 @@ make the following edits to your catalog configuration:
      -
   :::
 
-4. Remove the following legacy configuration properties if they exist in your
+5. Remove the following legacy configuration properties if they exist in your
    catalog configuration:
 
       * `hive.azure.abfs-storage-account`

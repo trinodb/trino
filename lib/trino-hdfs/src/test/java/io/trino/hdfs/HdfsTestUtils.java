@@ -17,12 +17,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.net.HostAndPort;
 import io.trino.filesystem.hdfs.HdfsFileSystemFactory;
 import io.trino.hdfs.authentication.NoHdfsAuthentication;
-import io.trino.hdfs.azure.HiveAzureConfig;
-import io.trino.hdfs.azure.TrinoAzureConfigurationInitializer;
-import io.trino.hdfs.gcs.GoogleGcsConfigurationInitializer;
-import io.trino.hdfs.gcs.HiveGcsConfig;
-import io.trino.hdfs.s3.HiveS3Config;
-import io.trino.hdfs.s3.TrinoS3ConfigurationInitializer;
 
 import java.util.Optional;
 
@@ -34,11 +28,7 @@ public final class HdfsTestUtils
     public static final DynamicHdfsConfiguration HDFS_CONFIGURATION = new DynamicHdfsConfiguration(
             new HdfsConfigurationInitializer(
                     new HdfsConfig()
-                            .setSocksProxy(SOCKS_PROXY.orElse(null)),
-                    ImmutableSet.of(
-                            new TrinoS3ConfigurationInitializer(new HiveS3Config()),
-                            new GoogleGcsConfigurationInitializer(new HiveGcsConfig()),
-                            new TrinoAzureConfigurationInitializer(new HiveAzureConfig()))),
+                            .setSocksProxy(SOCKS_PROXY.orElse(null))),
             ImmutableSet.of());
 
     public static final TrinoHdfsFileSystemStats HDFS_FILE_SYSTEM_STATS = new TrinoHdfsFileSystemStats();

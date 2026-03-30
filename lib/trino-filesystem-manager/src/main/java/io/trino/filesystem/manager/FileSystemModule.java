@@ -80,13 +80,7 @@ public class FileSystemModule
         newOptionalBinder(binder, HdfsFileSystemLoader.class);
 
         if (config.isHadoopEnabled()) {
-            HdfsFileSystemLoader loader = new HdfsFileSystemLoader(
-                    getProperties(),
-                    !config.isNativeAzureEnabled(),
-                    !config.isNativeGcsEnabled(),
-                    !config.isNativeS3Enabled(),
-                    catalogName,
-                    context);
+            HdfsFileSystemLoader loader = new HdfsFileSystemLoader(getProperties(), catalogName, context);
 
             loader.configure().forEach((name, securitySensitive) ->
                     consumeProperty(new ConfigPropertyMetadata(name, securitySensitive)));
