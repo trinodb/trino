@@ -65,11 +65,7 @@ public class BenchmarkCopyPositions
         @Param({"false", "true"})
         private boolean nullsAllowed;
 
-        @Param({
-                "GROUPED",
-                "SEQUENCE",
-                "RANDOM",
-        })
+        @Param
         private SelectedPositions selectedPositions;
 
         @Param({"VARCHAR", "ROW(BIGINT)"})
