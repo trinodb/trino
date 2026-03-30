@@ -134,6 +134,139 @@ public final class DucklakeCatalogGenerator
                         (5, 'Whatchamacallit', ['featured', 'bestseller', 'trending'], 75)
                     """);
 
+            // Table 3: Partitioned by region (identity transform)
+            System.out.println("Creating partitioned_table...");
+            stmt.execute("""
+                    CREATE TABLE ducklake_db.test_schema.partitioned_table (
+                        id INTEGER,
+                        name VARCHAR,
+                        region VARCHAR,
+                        amount DOUBLE
+                    )
+                    """);
+
+            // Set partition by region using ALTER (CREATE TABLE ... PARTITION BY not yet supported)
+            System.out.println("Setting partition by region...");
+            stmt.execute("ALTER TABLE ducklake_db.test_schema.partitioned_table SET PARTITIONED BY (region)");
+
+            // Insert data per region in separate statements so DuckDB writes separate files
+            System.out.println("Inserting partitioned data...");
+            stmt.execute("""
+                    INSERT INTO ducklake_db.test_schema.partitioned_table VALUES
+                        (1, 'Alice', 'US', 100.0),
+                        (2, 'Bob', 'US', 200.0)
+                    """);
+            stmt.execute("""
+                    INSERT INTO ducklake_db.test_schema.partitioned_table VALUES
+                        (3, 'Charlie', 'EU', 150.0),
+                        (4, 'Diana', 'EU', 250.0)
+                    """);
+            stmt.execute("""
+                    INSERT INTO ducklake_db.test_schema.partitioned_table VALUES
+                        (5, 'Emi', 'APAC', 300.0)
+                    """);
+
+            // Table 4: Partitioned by temporal transforms (year, month, day)
+            System.out.println("Creating temporal_partitioned_table...");
+            stmt.execute("""
+                    CREATE TABLE ducklake_db.test_schema.temporal_partitioned_table (
+                        id INTEGER,
+                        event_name VARCHAR,
+                        event_date DATE,
+                        amount DOUBLE
+                    )
+                    """);
+
+            // Partition by year(event_date) and month(event_date)
+            System.out.println("Setting temporal partition by year(event_date), month(event_date)...");
+            stmt.execute("ALTER TABLE ducklake_db.test_schema.temporal_partitioned_table SET PARTITIONED BY (year(event_date), month(event_date))");
+
+            // Insert data across different years/months so DuckDB writes separate files per partition
+            System.out.println("Inserting temporally partitioned data...");
+            stmt.execute("""
+                    INSERT INTO ducklake_db.test_schema.temporal_partitioned_table VALUES
+                        (1, 'Jan Event', '2023-01-15', 100.0),
+                        (2, 'Jan Meeting', '2023-01-20', 150.0)
+                    """);
+            stmt.execute("""
+                    INSERT INTO ducklake_db.test_schema.temporal_partitioned_table VALUES
+                        (3, 'Jun Event', '2023-06-10', 200.0),
+                        (4, 'Jun Meeting', '2023-06-25', 250.0)
+                    """);
+            stmt.execute("""
+                    INSERT INTO ducklake_db.test_schema.temporal_partitioned_table VALUES
+                        (5, 'Next Year', '2024-03-05', 300.0),
+                        (6, 'Next Year Too', '2024-03-20', 350.0)
+                    """);
+
+            // Table 5: Partitioned down to day level
+            System.out.println("Creating daily_partitioned_table...");
+            stmt.execute("""
+                    CREATE TABLE ducklake_db.test_schema.daily_partitioned_table (
+                        id INTEGER,
+                        event_name VARCHAR,
+                        event_date DATE,
+                        amount DOUBLE
+                    )
+                    """);
+
+            System.out.println("Setting partition by year/month/day...");
+            stmt.execute("ALTER TABLE ducklake_db.test_schema.daily_partitioned_table SET PARTITIONED BY (year(event_date), month(event_date), day(event_date))");
+
+            System.out.println("Inserting daily partitioned data...");
+            stmt.execute("""
+                    INSERT INTO ducklake_db.test_schema.daily_partitioned_table VALUES
+                        (1, 'Morning standup', '2023-06-15', 10.0),
+                        (2, 'Afternoon review', '2023-06-15', 20.0)
+                    """);
+            stmt.execute("""
+                    INSERT INTO ducklake_db.test_schema.daily_partitioned_table VALUES
+                        (3, 'Sprint planning', '2023-06-20', 30.0)
+                    """);
+            stmt.execute("""
+                    INSERT INTO ducklake_db.test_schema.daily_partitioned_table VALUES
+                        (4, 'July kickoff', '2023-07-01', 40.0)
+                    """);
+            stmt.execute("""
+                    INSERT INTO ducklake_db.test_schema.daily_partitioned_table VALUES
+                        (5, 'New year event', '2024-01-10', 50.0)
+                    """);
+
+            // Table 6: Nested types (struct, map, nested arrays)
+            System.out.println("Creating nested_table (struct, map, nested arrays)...");
+            stmt.execute("""
+                    CREATE TABLE ducklake_db.test_schema.nested_table (
+                        id INTEGER,
+                        metadata STRUCT(key VARCHAR, value VARCHAR),
+                        tags MAP(VARCHAR, INTEGER),
+                        nested_list INTEGER[][],
+                        complex_struct STRUCT(name VARCHAR, scores INTEGER[], attrs MAP(VARCHAR, VARCHAR))
+                    )
+                    """);
+
+            System.out.println("Inserting data into nested_table...");
+            stmt.execute("""
+                    INSERT INTO ducklake_db.test_schema.nested_table VALUES
+                        (1,
+                         {'key': 'color', 'value': 'red'},
+                         MAP {'priority': 1, 'severity': 3},
+                         [[1, 2], [3, 4]],
+                         {'name': 'Alice', 'scores': [90, 85, 92], 'attrs': MAP {'dept': 'eng', 'level': 'senior'}}
+                        ),
+                        (2,
+                         {'key': 'size', 'value': 'large'},
+                         MAP {'priority': 2, 'severity': 1},
+                         [[10, 20, 30], [40]],
+                         {'name': 'Bob', 'scores': [75, 88], 'attrs': MAP {'dept': 'sales', 'level': 'junior'}}
+                        ),
+                        (3,
+                         {'key': 'shape', 'value': 'round'},
+                         MAP {'priority': 3},
+                         [[100]],
+                         {'name': 'Carol', 'scores': [95, 97, 99, 100], 'attrs': MAP {'dept': 'eng', 'level': 'lead'}}
+                        )
+                    """);
+
             // Force checkpoint to write data to Parquet files
             System.out.println("Forcing checkpoint to write Parquet files...");
             stmt.execute("CHECKPOINT ducklake_db");
@@ -152,6 +285,10 @@ public final class DucklakeCatalogGenerator
             System.out.println("Tables created:");
             System.out.println("  - test_schema.simple_table (5 rows, primitives only)");
             System.out.println("  - test_schema.array_table (5 rows, with array(varchar))");
+            System.out.println("  - test_schema.partitioned_table (5 rows, partitioned by region)");
+            System.out.println("  - test_schema.temporal_partitioned_table (6 rows, partitioned by year/month)");
+            System.out.println("  - test_schema.daily_partitioned_table (5 rows, partitioned by year/month/day)");
+            System.out.println("  - test_schema.nested_table (3 rows, struct/map/nested arrays)");
         }
 
         System.out.println();

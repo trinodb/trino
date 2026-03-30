@@ -28,6 +28,11 @@ import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
+import io.trino.spi.type.ArrayType;
+import io.trino.spi.type.MapType;
+import io.trino.spi.type.RowType;
+import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeOperators;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
@@ -37,8 +42,11 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import static io.trino.spi.type.DoubleType.DOUBLE;
+import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.connector.TestingConnectorSession.SESSION;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -56,7 +64,7 @@ public class TestDucklakePageSourceProvider
     {
         catalogPath = Path.of("target/test-catalog/catalog.db");
         if (!Files.exists(catalogPath)) {
-            synchronized (TestDucklakePageSourceProvider.class) {
+            synchronized (DucklakeCatalogGenerator.class) {
                 if (!Files.exists(catalogPath)) {
                     DucklakeCatalogGenerator.generateTestCatalog();
                 }
@@ -196,6 +204,77 @@ public class TestDucklakePageSourceProvider
                 baseSplit.fileStatisticsDomain());
 
         assertThat(countRows(tableHandle, fileUriSplit, priceColumn)).isGreaterThan(0);
+    }
+
+    @Test
+    public void testReadStructColumn()
+            throws Exception
+    {
+        long snapshotId = catalog.getCurrentSnapshotId();
+        DucklakeTable table = getTable("test_schema", "nested_table", snapshotId);
+        DucklakeTableHandle tableHandle = new DucklakeTableHandle("test_schema", "nested_table", table.tableId(), snapshotId);
+
+        Type structType = RowType.from(List.of(
+                new RowType.Field(Optional.of("key"), VARCHAR),
+                new RowType.Field(Optional.of("value"), VARCHAR)));
+        long metadataColumnId = getColumnId(table.tableId(), snapshotId, "metadata");
+        DucklakeColumnHandle metadataColumn = new DucklakeColumnHandle(metadataColumnId, "metadata", structType, true);
+
+        DucklakeSplit split = getSplits(tableHandle).getFirst();
+        assertThat(countRows(tableHandle, split, metadataColumn)).isEqualTo(3);
+    }
+
+    @Test
+    public void testReadMapColumn()
+            throws Exception
+    {
+        long snapshotId = catalog.getCurrentSnapshotId();
+        DucklakeTable table = getTable("test_schema", "nested_table", snapshotId);
+        DucklakeTableHandle tableHandle = new DucklakeTableHandle("test_schema", "nested_table", table.tableId(), snapshotId);
+
+        TypeOperators typeOperators = new TypeOperators();
+        Type mapType = new MapType(VARCHAR, INTEGER, typeOperators);
+        long tagsColumnId = getColumnId(table.tableId(), snapshotId, "tags");
+        DucklakeColumnHandle tagsColumn = new DucklakeColumnHandle(tagsColumnId, "tags", mapType, true);
+
+        DucklakeSplit split = getSplits(tableHandle).getFirst();
+        assertThat(countRows(tableHandle, split, tagsColumn)).isEqualTo(3);
+    }
+
+    @Test
+    public void testReadNestedArrayColumn()
+            throws Exception
+    {
+        long snapshotId = catalog.getCurrentSnapshotId();
+        DucklakeTable table = getTable("test_schema", "nested_table", snapshotId);
+        DucklakeTableHandle tableHandle = new DucklakeTableHandle("test_schema", "nested_table", table.tableId(), snapshotId);
+
+        Type nestedListType = new ArrayType(new ArrayType(INTEGER));
+        long nestedListColumnId = getColumnId(table.tableId(), snapshotId, "nested_list");
+        DucklakeColumnHandle nestedListColumn = new DucklakeColumnHandle(nestedListColumnId, "nested_list", nestedListType, true);
+
+        DucklakeSplit split = getSplits(tableHandle).getFirst();
+        assertThat(countRows(tableHandle, split, nestedListColumn)).isEqualTo(3);
+    }
+
+    @Test
+    public void testReadComplexStructColumn()
+            throws Exception
+    {
+        long snapshotId = catalog.getCurrentSnapshotId();
+        DucklakeTable table = getTable("test_schema", "nested_table", snapshotId);
+        DucklakeTableHandle tableHandle = new DucklakeTableHandle("test_schema", "nested_table", table.tableId(), snapshotId);
+
+        TypeOperators typeOperators = new TypeOperators();
+        Type complexStructType = RowType.from(List.of(
+                new RowType.Field(Optional.of("name"), VARCHAR),
+                new RowType.Field(Optional.of("scores"), new ArrayType(INTEGER)),
+                new RowType.Field(Optional.of("attrs"), new MapType(VARCHAR, VARCHAR, typeOperators))));
+        long complexColumnId = getColumnId(table.tableId(), snapshotId, "complex_struct");
+        DucklakeColumnHandle complexColumn = new DucklakeColumnHandle(complexColumnId, "complex_struct", complexStructType, true);
+
+        DucklakeSplit split = getSplits(tableHandle).getFirst();
+        assertThat(countRows(tableHandle, split, complexColumn)).isEqualTo(3);
     }
 
     private long countRows(DucklakeTableHandle tableHandle, DucklakeSplit split, DucklakeColumnHandle column)

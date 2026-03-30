@@ -17,17 +17,20 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.predicate.TupleDomain;
 
 import static java.util.Objects.requireNonNull;
 
 /**
- * Handle for a Ducklake table, including snapshot context.
+ * Handle for a Ducklake table, including snapshot context and pushed-down predicates.
  */
 public record DucklakeTableHandle(
         @JsonProperty("schemaName") String schemaName,
         @JsonProperty("tableName") String tableName,
         @JsonProperty("tableId") long tableId,
-        @JsonProperty("snapshotId") long snapshotId)
+        @JsonProperty("snapshotId") long snapshotId,
+        @JsonProperty("unenforcedPredicate") TupleDomain<DucklakeColumnHandle> unenforcedPredicate,
+        @JsonProperty("enforcedPredicate") TupleDomain<DucklakeColumnHandle> enforcedPredicate)
         implements ConnectorTableHandle
 {
     @JsonCreator
@@ -35,6 +38,13 @@ public record DucklakeTableHandle(
     {
         requireNonNull(schemaName, "schemaName is null");
         requireNonNull(tableName, "tableName is null");
+        requireNonNull(unenforcedPredicate, "unenforcedPredicate is null");
+        requireNonNull(enforcedPredicate, "enforcedPredicate is null");
+    }
+
+    public DucklakeTableHandle(String schemaName, String tableName, long tableId, long snapshotId)
+    {
+        this(schemaName, tableName, tableId, snapshotId, TupleDomain.all(), TupleDomain.all());
     }
 
     public SchemaTableName getSchemaTableName()

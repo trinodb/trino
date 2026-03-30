@@ -28,6 +28,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -445,6 +446,151 @@ public class SqliteDucklakeCatalog
         }
 
         return fileIds;
+    }
+
+    @Override
+    public Optional<DucklakeTableStats> getTableStats(long tableId)
+    {
+        String sql = "SELECT table_id, record_count, file_size_bytes FROM ducklake_table_stats WHERE table_id = ?";
+
+        try (Connection conn = dataSource.getConnection();
+                PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setLong(1, tableId);
+
+            try (ResultSet rs = stmt.executeQuery()) {
+                if (rs.next()) {
+                    return Optional.of(new DucklakeTableStats(
+                            rs.getLong("table_id"),
+                            rs.getLong("record_count"),
+                            rs.getLong("file_size_bytes")));
+                }
+                return Optional.empty();
+            }
+        }
+        catch (SQLException e) {
+            throw new RuntimeException("Failed to get table stats for table: " + tableId, e);
+        }
+    }
+
+    @Override
+    public List<DucklakeColumnStats> getColumnStats(long tableId, long snapshotId)
+    {
+        String sql = "SELECT stats.column_id, " +
+                     "       SUM(stats.value_count) AS total_value_count, " +
+                     "       SUM(stats.null_count) AS total_null_count, " +
+                     "       SUM(stats.column_size_bytes) AS total_size_bytes, " +
+                     "       MIN(stats.min_value) AS min_value, " +
+                     "       MAX(stats.max_value) AS max_value " +
+                     "FROM ducklake_file_column_stats AS stats " +
+                     "JOIN ducklake_data_file AS data ON stats.data_file_id = data.data_file_id " +
+                     "WHERE stats.table_id = ? AND data.table_id = ? " +
+                     "  AND ? >= data.begin_snapshot AND (? < data.end_snapshot OR data.end_snapshot IS NULL) " +
+                     "GROUP BY stats.column_id";
+
+        List<DucklakeColumnStats> result = new ArrayList<>();
+
+        try (Connection conn = dataSource.getConnection();
+                PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setLong(1, tableId);
+            stmt.setLong(2, tableId);
+            stmt.setLong(3, snapshotId);
+            stmt.setLong(4, snapshotId);
+
+            try (ResultSet rs = stmt.executeQuery()) {
+                while (rs.next()) {
+                    result.add(new DucklakeColumnStats(
+                            rs.getLong("column_id"),
+                            rs.getLong("total_value_count"),
+                            rs.getLong("total_null_count"),
+                            rs.getLong("total_size_bytes"),
+                            getStringOptional(rs, "min_value"),
+                            getStringOptional(rs, "max_value")));
+                }
+            }
+        }
+        catch (SQLException e) {
+            throw new RuntimeException("Failed to get column stats for table: " + tableId + " at snapshot: " + snapshotId, e);
+        }
+
+        return result;
+    }
+
+    @Override
+    public List<DucklakePartitionSpec> getPartitionSpecs(long tableId, long snapshotId)
+    {
+        String sql = "SELECT pi.partition_id, pi.table_id, " +
+                     "       pc.partition_key_index, pc.column_id, pc.transform " +
+                     "FROM ducklake_partition_info pi " +
+                     "JOIN ducklake_partition_column pc ON pi.partition_id = pc.partition_id AND pi.table_id = pc.table_id " +
+                     "WHERE pi.table_id = ? " +
+                     "  AND ? >= pi.begin_snapshot AND (? < pi.end_snapshot OR pi.end_snapshot IS NULL) " +
+                     "ORDER BY pi.partition_id, pc.partition_key_index";
+
+        Map<Long, List<DucklakePartitionField>> fieldsByPartition = new LinkedHashMap<>();
+        Map<Long, Long> tableIdByPartition = new HashMap<>();
+
+        try (Connection conn = dataSource.getConnection();
+                PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setLong(1, tableId);
+            stmt.setLong(2, snapshotId);
+            stmt.setLong(3, snapshotId);
+
+            try (ResultSet rs = stmt.executeQuery()) {
+                while (rs.next()) {
+                    long partitionId = rs.getLong("partition_id");
+                    tableIdByPartition.put(partitionId, rs.getLong("table_id"));
+                    fieldsByPartition.computeIfAbsent(partitionId, _ -> new ArrayList<>())
+                            .add(new DucklakePartitionField(
+                                    rs.getInt("partition_key_index"),
+                                    rs.getLong("column_id"),
+                                    DucklakePartitionTransform.fromString(rs.getString("transform"))));
+                }
+            }
+        }
+        catch (SQLException e) {
+            throw new RuntimeException("Failed to get partition specs for table: " + tableId + " at snapshot: " + snapshotId, e);
+        }
+
+        List<DucklakePartitionSpec> specs = new ArrayList<>();
+        for (Map.Entry<Long, List<DucklakePartitionField>> entry : fieldsByPartition.entrySet()) {
+            specs.add(new DucklakePartitionSpec(entry.getKey(), tableIdByPartition.get(entry.getKey()), entry.getValue()));
+        }
+        return specs;
+    }
+
+    @Override
+    public Map<Long, List<DucklakeFilePartitionValue>> getFilePartitionValues(long tableId, long snapshotId)
+    {
+        String sql = "SELECT fpv.data_file_id, fpv.partition_key_index, fpv.partition_value " +
+                     "FROM ducklake_file_partition_value fpv " +
+                     "JOIN ducklake_data_file df ON fpv.data_file_id = df.data_file_id AND fpv.table_id = df.table_id " +
+                     "WHERE fpv.table_id = ? " +
+                     "  AND ? >= df.begin_snapshot AND (? < df.end_snapshot OR df.end_snapshot IS NULL)";
+
+        Map<Long, List<DucklakeFilePartitionValue>> result = new HashMap<>();
+
+        try (Connection conn = dataSource.getConnection();
+                PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setLong(1, tableId);
+            stmt.setLong(2, snapshotId);
+            stmt.setLong(3, snapshotId);
+
+            try (ResultSet rs = stmt.executeQuery()) {
+                while (rs.next()) {
+                    long dataFileId = rs.getLong("data_file_id");
+                    result.computeIfAbsent(dataFileId, _ -> new ArrayList<>())
+                            .add(new DucklakeFilePartitionValue(
+                                    dataFileId,
+                                    rs.getInt("partition_key_index"),
+                                    rs.getString("partition_value")));
+                }
+            }
+        }
+        catch (SQLException e) {
+            throw new RuntimeException("Failed to get file partition values for table: " + tableId + " at snapshot: " + snapshotId, e);
+        }
+
+        return result;
     }
 
     @Override

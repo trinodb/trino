@@ -52,7 +52,7 @@ public class TestDucklakeSplitManager
     {
         catalogPath = Path.of("target/test-catalog/catalog.db");
         if (!Files.exists(catalogPath)) {
-            synchronized (TestDucklakeSplitManager.class) {
+            synchronized (DucklakeCatalogGenerator.class) {
                 if (!Files.exists(catalogPath)) {
                     DucklakeCatalogGenerator.generateTestCatalog();
                 }

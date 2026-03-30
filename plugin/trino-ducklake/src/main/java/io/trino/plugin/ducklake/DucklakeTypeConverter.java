@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.ducklake;
 
+import com.google.common.collect.ImmutableList;
 import com.google.inject.Inject;
 import io.trino.spi.TrinoException;
 import io.trino.spi.type.ArrayType;
@@ -23,7 +24,9 @@ import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.DoubleType;
 import io.trino.spi.type.IntegerType;
 import io.trino.spi.type.RealType;
+import io.trino.spi.type.RowType;
 import io.trino.spi.type.SmallintType;
+import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.TimeType;
 import io.trino.spi.type.TimeWithTimeZoneType;
 import io.trino.spi.type.TimestampType;
@@ -31,10 +34,15 @@ import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.TinyintType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
+import io.trino.spi.type.TypeParameter;
+import io.trino.spi.type.TypeSignature;
 import io.trino.spi.type.UuidType;
 import io.trino.spi.type.VarbinaryType;
 import io.trino.spi.type.VarcharType;
 
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Optional;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -68,8 +76,37 @@ public class DucklakeTypeConverter
         String normalizedType = ducklakeType.trim().toLowerCase();
 
         if (normalizedType.startsWith("list<") && normalizedType.endsWith(">")) {
-            String elementType = normalizedType.substring("list<".length(), normalizedType.length() - 1).trim();
+            String elementType = extractTypeArguments(normalizedType, "list").trim();
             return new ArrayType(toTrinoType(elementType));
+        }
+
+        if (normalizedType.startsWith("struct<") && normalizedType.endsWith(">")) {
+            String fieldsStr = extractTypeArguments(normalizedType, "struct");
+            List<String> fieldParts = splitTopLevelCommas(fieldsStr);
+            ImmutableList.Builder<RowType.Field> fields = ImmutableList.builder();
+            for (String fieldPart : fieldParts) {
+                int colonIndex = fieldPart.indexOf(':');
+                if (colonIndex < 0) {
+                    throw new TrinoException(NOT_SUPPORTED, format("Invalid struct field (missing colon): %s", fieldPart));
+                }
+                String fieldName = fieldPart.substring(0, colonIndex).trim();
+                String fieldType = fieldPart.substring(colonIndex + 1).trim();
+                fields.add(new RowType.Field(Optional.of(fieldName), toTrinoType(fieldType)));
+            }
+            return RowType.from(fields.build());
+        }
+
+        if (normalizedType.startsWith("map<") && normalizedType.endsWith(">")) {
+            String argsStr = extractTypeArguments(normalizedType, "map");
+            List<String> parts = splitTopLevelCommas(argsStr);
+            if (parts.size() != 2) {
+                throw new TrinoException(NOT_SUPPORTED, format("Invalid map type (expected 2 type arguments, got %d): %s", parts.size(), ducklakeType));
+            }
+            TypeSignature keySignature = toTrinoType(parts.get(0).trim()).getTypeSignature();
+            TypeSignature valueSignature = toTrinoType(parts.get(1).trim()).getTypeSignature();
+            return typeManager.getParameterizedType(StandardTypes.MAP, ImmutableList.of(
+                    TypeParameter.typeParameter(keySignature),
+                    TypeParameter.typeParameter(valueSignature)));
         }
 
         return switch (normalizedType) {
@@ -131,8 +168,6 @@ public class DucklakeTypeConverter
                     yield DecimalType.createDecimalType(precision, scale);
                 }
 
-                // TODO: Handle nested types (list, struct, map)
-                // For now, throw an exception
                 throw new TrinoException(NOT_SUPPORTED, format("Unsupported Ducklake type: %s", ducklakeType));
             }
         };
@@ -203,5 +238,35 @@ public class DucklakeTypeConverter
         // TODO: Handle nested types (ArrayType, RowType, MapType)
 
         throw new TrinoException(NOT_SUPPORTED, format("Unsupported Trino type: %s", trinoType));
+    }
+
+    // Extracts the inner type arguments from a parameterized type string (e.g. the content between the outermost angle brackets)
+    private static String extractTypeArguments(String typeString, String prefix)
+    {
+        // prefix< ... >
+        return typeString.substring(prefix.length() + 1, typeString.length() - 1);
+    }
+
+    // Splits a string at top-level commas, respecting nested angle brackets
+    private static List<String> splitTopLevelCommas(String input)
+    {
+        List<String> parts = new ArrayList<>();
+        int depth = 0;
+        int start = 0;
+        for (int i = 0; i < input.length(); i++) {
+            char c = input.charAt(i);
+            if (c == '<') {
+                depth++;
+            }
+            else if (c == '>') {
+                depth--;
+            }
+            else if (c == ',' && depth == 0) {
+                parts.add(input.substring(start, i).trim());
+                start = i + 1;
+            }
+        }
+        parts.add(input.substring(start).trim());
+        return parts;
     }
 }

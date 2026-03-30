@@ -54,7 +54,7 @@ public class TestDucklakeDeleteFileHandling
     {
         sourceCatalogPath = Path.of("target/test-catalog/catalog.db");
         if (!Files.exists(sourceCatalogPath)) {
-            synchronized (TestDucklakeDeleteFileHandling.class) {
+            synchronized (DucklakeCatalogGenerator.class) {
                 if (!Files.exists(sourceCatalogPath)) {
                     DucklakeCatalogGenerator.generateTestCatalog();
                 }

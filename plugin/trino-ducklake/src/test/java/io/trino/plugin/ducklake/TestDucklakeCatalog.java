@@ -46,7 +46,7 @@ public class TestDucklakeCatalog
 
         // Generate test catalog once for all tests
         if (!Files.exists(catalogPath)) {
-            synchronized (TestDucklakeCatalog.class) {
+            synchronized (DucklakeCatalogGenerator.class) {
                 if (!Files.exists(catalogPath)) {
                     System.out.println("Test catalog not found, generating with DuckDB...");
                     DucklakeCatalogGenerator.generateTestCatalog();
@@ -103,11 +103,17 @@ public class TestDucklakeCatalog
 
         assertThat(tables)
                 .isNotEmpty()
-                .hasSize(2)
+                .hasSize(6)
                 .anySatisfy(table ->
                         assertThat(table.tableName()).isEqualTo("simple_table"))
                 .anySatisfy(table ->
-                        assertThat(table.tableName()).isEqualTo("array_table"));
+                        assertThat(table.tableName()).isEqualTo("partitioned_table"))
+                .anySatisfy(table ->
+                        assertThat(table.tableName()).isEqualTo("temporal_partitioned_table"))
+                .anySatisfy(table ->
+                        assertThat(table.tableName()).isEqualTo("array_table"))
+                .anySatisfy(table ->
+                        assertThat(table.tableName()).isEqualTo("nested_table"));
     }
 
     @Test
@@ -159,6 +165,74 @@ public class TestDucklakeCatalog
                 .findFirst()
                 .orElseThrow();
         assertThat(tagsColumn.columnType()).isEqualTo("list<varchar>");
+    }
+
+    @Test
+    public void testGetTableColumnsResolvesStructType()
+    {
+        long snapshotId = catalog.getCurrentSnapshotId();
+        DucklakeTable table = getTable("test_schema", "nested_table", snapshotId);
+
+        List<DucklakeColumn> columns = catalog.getTableColumns(table.tableId(), snapshotId);
+        assertThat(columns)
+                .extracting(DucklakeColumn::columnName)
+                .containsExactly("id", "metadata", "tags", "nested_list", "complex_struct");
+
+        DucklakeColumn metadataColumn = columns.stream()
+                .filter(column -> column.columnName().equals("metadata"))
+                .findFirst()
+                .orElseThrow();
+        assertThat(metadataColumn.columnType()).isEqualTo("struct<key:varchar,value:varchar>");
+    }
+
+    @Test
+    public void testGetTableColumnsResolvesMapType()
+    {
+        long snapshotId = catalog.getCurrentSnapshotId();
+        DucklakeTable table = getTable("test_schema", "nested_table", snapshotId);
+
+        List<DucklakeColumn> columns = catalog.getTableColumns(table.tableId(), snapshotId);
+
+        DucklakeColumn tagsColumn = columns.stream()
+                .filter(column -> column.columnName().equals("tags"))
+                .findFirst()
+                .orElseThrow();
+        assertThat(tagsColumn.columnType()).isEqualTo("map<varchar,int32>");
+    }
+
+    @Test
+    public void testGetTableColumnsResolvesNestedListType()
+    {
+        long snapshotId = catalog.getCurrentSnapshotId();
+        DucklakeTable table = getTable("test_schema", "nested_table", snapshotId);
+
+        List<DucklakeColumn> columns = catalog.getTableColumns(table.tableId(), snapshotId);
+
+        DucklakeColumn nestedListColumn = columns.stream()
+                .filter(column -> column.columnName().equals("nested_list"))
+                .findFirst()
+                .orElseThrow();
+        assertThat(nestedListColumn.columnType()).isEqualTo("list<list<int32>>");
+    }
+
+    @Test
+    public void testGetTableColumnsResolvesComplexStructType()
+    {
+        long snapshotId = catalog.getCurrentSnapshotId();
+        DucklakeTable table = getTable("test_schema", "nested_table", snapshotId);
+
+        List<DucklakeColumn> columns = catalog.getTableColumns(table.tableId(), snapshotId);
+
+        DucklakeColumn complexColumn = columns.stream()
+                .filter(column -> column.columnName().equals("complex_struct"))
+                .findFirst()
+                .orElseThrow();
+        // struct<name:varchar,scores:list<int32>,attrs:map<varchar,varchar>>
+        assertThat(complexColumn.columnType())
+                .startsWith("struct<")
+                .contains("name:varchar")
+                .contains("scores:list<int32>")
+                .contains("attrs:map<varchar,varchar>");
     }
 
     @Test

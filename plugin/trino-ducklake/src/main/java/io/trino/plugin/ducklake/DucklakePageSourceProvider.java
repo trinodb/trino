@@ -120,7 +120,14 @@ public class DucklakePageSourceProvider
         requireNonNull(columns, "columns is null");
 
         DucklakeSplit ducklakeSplit = (DucklakeSplit) split;
-        if (ducklakeSplit.fileStatisticsDomain().isNone()) {
+
+        // Combine file statistics domain with dynamic filter for effective predicate
+        TupleDomain<DucklakeColumnHandle> dynamicFilterPredicate = dynamicFilter.getCurrentPredicate()
+                .transformKeys(DucklakeColumnHandle.class::cast);
+        TupleDomain<DucklakeColumnHandle> effectivePredicate = ducklakeSplit.fileStatisticsDomain()
+                .intersect(dynamicFilterPredicate);
+
+        if (effectivePredicate.isNone()) {
             return new EmptyPageSource();
         }
 
@@ -149,6 +156,7 @@ public class DucklakePageSourceProvider
                     inputFile,
                     ducklakeColumns,
                     ducklakeSplit,
+                    effectivePredicate,
                     fileSystem);
         }
         catch (IOException e) {
@@ -160,6 +168,7 @@ public class DucklakePageSourceProvider
             TrinoInputFile inputFile,
             List<DucklakeColumnHandle> columns,
             DucklakeSplit split,
+            TupleDomain<DucklakeColumnHandle> effectivePredicate,
             TrinoFileSystem fileSystem)
             throws IOException
     {
@@ -185,7 +194,7 @@ public class DucklakePageSourceProvider
             MessageType fileSchema = fileMetadata.getSchema();
             ParquetDataSourceId dataSourceId = dataSource.getId();
             Map<List<String>, ColumnDescriptor> descriptorsByPath = getDescriptors(fileSchema, fileSchema);
-            TupleDomain<ColumnDescriptor> parquetTupleDomain = toParquetTupleDomain(descriptorsByPath, split.fileStatisticsDomain());
+            TupleDomain<ColumnDescriptor> parquetTupleDomain = toParquetTupleDomain(descriptorsByPath, effectivePredicate);
             TupleDomainParquetPredicate parquetPredicate = buildPredicate(fileSchema, parquetTupleDomain, descriptorsByPath, UTC);
             List<RowGroupInfo> rowGroups = getFilteredRowGroups(
                     0,
@@ -215,7 +224,10 @@ public class DucklakePageSourceProvider
 
                 Field field = DucklakeParquetTypeUtils.constructField(
                         column.columnType(),
-                        columnIO);
+                        columnIO)
+                        .orElseThrow(() -> new TrinoException(
+                                NOT_SUPPORTED,
+                                "Could not construct field for column: " + columnName));
 
                 parquetColumns.add(new Column(columnName, field));
             }
@@ -385,7 +397,8 @@ public class DucklakePageSourceProvider
             };
 
             if (columnType != null) {
-                Field fieldDefinition = DucklakeParquetTypeUtils.constructField(columnType, columnIO);
+                Field fieldDefinition = DucklakeParquetTypeUtils.constructField(columnType, columnIO)
+                        .orElseThrow(() -> new TrinoException(NOT_SUPPORTED, "Could not construct field for delete file column: " + field.getName()));
                 return new DeleteFileColumn(field.getName(), columnType, fieldDefinition);
             }
         }

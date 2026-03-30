@@ -18,82 +18,91 @@ import io.trino.parquet.Field;
 import io.trino.parquet.GroupField;
 import io.trino.parquet.PrimitiveField;
 import io.trino.spi.type.ArrayType;
+import io.trino.spi.type.MapType;
+import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import org.apache.parquet.io.ColumnIO;
 import org.apache.parquet.io.GroupColumnIO;
 import org.apache.parquet.io.PrimitiveColumnIO;
 
+import java.util.List;
 import java.util.Optional;
 
 import static io.trino.parquet.ParquetTypeUtils.getArrayElementColumn;
+import static io.trino.parquet.ParquetTypeUtils.getMapKeyValueColumn;
 import static java.util.Objects.requireNonNull;
 import static org.apache.parquet.schema.Type.Repetition.OPTIONAL;
 
 /**
- * Utility class for converting between Ducklake types and Parquet Field objects.
- * Supports primitives and arrays of primitives for MVP.
- *
- * NOT SUPPORTED (will be added later):
- * - Maps
- * - Structs/Rows
- * - Nested complex types (arrays of arrays, arrays of structs, etc.)
+ * Utility class for converting between Ducklake/Trino types and Parquet Field objects.
+ * Supports all types: primitives, arrays, maps, structs/rows, and arbitrary nesting.
  */
 public final class DucklakeParquetTypeUtils
 {
     private DucklakeParquetTypeUtils() {}
 
     /**
-     * Construct a Parquet Field from a ColumnIO.
-     * Supports primitives and arrays of primitives.
+     * Construct a Parquet Field from a Trino type and Parquet ColumnIO.
+     * Recursively handles all nested types (ROW, MAP, ARRAY).
+     * Returns Optional.empty() if the columnIO is null (e.g., a struct field missing from an older Parquet file).
      */
-    public static Field constructField(Type trinoType, ColumnIO columnIO)
+    public static Optional<Field> constructField(Type trinoType, ColumnIO columnIO)
     {
         requireNonNull(trinoType, "trinoType is null");
-        requireNonNull(columnIO, "columnIO is null");
+        if (columnIO == null) {
+            return Optional.empty();
+        }
 
         boolean required = columnIO.getType().getRepetition() != OPTIONAL;
         int repetitionLevel = columnIO.getRepetitionLevel();
         int definitionLevel = columnIO.getDefinitionLevel();
 
-        // Handle arrays
+        if (trinoType instanceof RowType rowType) {
+            GroupColumnIO groupColumnIO = (GroupColumnIO) columnIO;
+            List<RowType.Field> rowFields = rowType.getFields();
+            ImmutableList.Builder<Optional<Field>> children = ImmutableList.builder();
+            boolean hasAnyField = false;
+            for (RowType.Field rowField : rowFields) {
+                String fieldName = rowField.getName()
+                        .orElseThrow(() -> new IllegalArgumentException("ROW type field must have a name"));
+                ColumnIO childColumnIO = groupColumnIO.getChild(fieldName);
+                Optional<Field> childField = constructField(rowField.getType(), childColumnIO);
+                hasAnyField |= childField.isPresent();
+                children.add(childField);
+            }
+            if (hasAnyField) {
+                return Optional.of(new GroupField(trinoType, repetitionLevel, definitionLevel, required, children.build()));
+            }
+            return Optional.empty();
+        }
+
+        if (trinoType instanceof MapType mapType) {
+            GroupColumnIO groupColumnIO = (GroupColumnIO) columnIO;
+            GroupColumnIO keyValueColumnIO = getMapKeyValueColumn(groupColumnIO);
+            if (keyValueColumnIO.getChildrenCount() != 2) {
+                return Optional.empty();
+            }
+            Optional<Field> keyField = constructField(mapType.getKeyType(), keyValueColumnIO.getChild(0));
+            Optional<Field> valueField = constructField(mapType.getValueType(), keyValueColumnIO.getChild(1));
+            return Optional.of(new GroupField(trinoType, repetitionLevel, definitionLevel, required, ImmutableList.of(keyField, valueField)));
+        }
+
         if (trinoType instanceof ArrayType arrayType) {
             GroupColumnIO groupColumnIO = (GroupColumnIO) columnIO;
             if (groupColumnIO.getChildrenCount() != 1) {
-                throw new IllegalArgumentException("Invalid array structure in Parquet file");
+                return Optional.empty();
             }
-
-            Type elementType = arrayType.getElementType();
             ColumnIO elementColumnIO = getArrayElementColumn(groupColumnIO.getChild(0));
-
-            // Only support arrays of primitives for now
-            if (!(elementColumnIO instanceof PrimitiveColumnIO)) {
-                throw new UnsupportedOperationException(
-                        "Nested complex types not yet supported (arrays of arrays, arrays of structs). Column: " + columnIO.getType().getName());
-            }
-
-            Field elementField = constructPrimitiveField(elementType, elementColumnIO);
-            return new GroupField(trinoType, repetitionLevel, definitionLevel, required, ImmutableList.of(Optional.of(elementField)));
+            Optional<Field> elementField = constructField(arrayType.getElementType(), elementColumnIO);
+            return Optional.of(new GroupField(trinoType, repetitionLevel, definitionLevel, required, ImmutableList.of(elementField)));
         }
 
-        // Handle primitives
-        if (columnIO instanceof PrimitiveColumnIO) {
-            return constructPrimitiveField(trinoType, columnIO);
-        }
-
-        // Maps and structs not supported yet
-        throw new UnsupportedOperationException(
-                "Maps and structs not yet supported. Column: " + columnIO.getType().getName());
-    }
-
-    private static PrimitiveField constructPrimitiveField(Type trinoType, ColumnIO columnIO)
-    {
+        // Primitive type
         PrimitiveColumnIO primitiveColumnIO = (PrimitiveColumnIO) columnIO;
-        boolean required = columnIO.getType().getRepetition() != OPTIONAL;
-
-        return new PrimitiveField(
+        return Optional.of(new PrimitiveField(
                 trinoType,
                 required,
                 primitiveColumnIO.getColumnDescriptor(),
-                primitiveColumnIO.getId());
+                primitiveColumnIO.getId()));
     }
 }

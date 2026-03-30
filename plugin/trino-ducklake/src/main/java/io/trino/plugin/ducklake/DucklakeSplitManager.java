@@ -16,9 +16,14 @@ package io.trino.plugin.ducklake;
 import com.google.common.collect.ImmutableMap;
 import com.google.inject.Inject;
 import io.airlift.log.Logger;
+import io.airlift.slice.Slices;
 import io.trino.filesystem.Location;
 import io.trino.plugin.ducklake.catalog.DucklakeCatalog;
 import io.trino.plugin.ducklake.catalog.DucklakeDataFile;
+import io.trino.plugin.ducklake.catalog.DucklakeFilePartitionValue;
+import io.trino.plugin.ducklake.catalog.DucklakePartitionField;
+import io.trino.plugin.ducklake.catalog.DucklakePartitionSpec;
+import io.trino.plugin.ducklake.catalog.DucklakePartitionTransform;
 import io.trino.plugin.ducklake.catalog.DucklakeSchema;
 import io.trino.plugin.ducklake.catalog.DucklakeTable;
 import io.trino.spi.connector.ColumnHandle;
@@ -36,6 +41,8 @@ import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.Type;
 
 import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -43,7 +50,15 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DateType.DATE;
+import static io.trino.spi.type.DoubleType.DOUBLE;
+import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.RealType.REAL;
+import static io.trino.spi.type.SmallintType.SMALLINT;
+import static io.trino.spi.type.TinyintType.TINYINT;
+import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toCollection;
 
@@ -91,8 +106,10 @@ public class DucklakeSplitManager
 
         log.debug("Found %d data files for table %s", dataFiles.size(), tableHandle.tableName());
 
-        TupleDomain<DucklakeColumnHandle> fileStatisticsDomain = buildFileStatisticsDomain(constraint);
+        TupleDomain<DucklakeColumnHandle> fileStatisticsDomain = buildFileStatisticsDomain(constraint)
+                .intersect(tableHandle.unenforcedPredicate());
         dataFiles = pruneDataFiles(dataFiles, tableHandle, constraint);
+        dataFiles = pruneByPartitionValues(dataFiles, tableHandle);
 
         // Convert data files to splits
         List<DucklakeSplit> splits = dataFiles.stream()
@@ -230,8 +247,34 @@ public class DucklakeSplitManager
                     }
                     return Optional.of(new PredicateBounds(minValue, maxValue));
                 },
-                discreteValues -> Optional.empty(),
+                discreteValues -> extractDiscreteValueBounds(domain.getType(), discreteValues),
                 allOrNone -> Optional.empty());
+    }
+
+    private Optional<PredicateBounds> extractDiscreteValueBounds(Type type, io.trino.spi.predicate.DiscreteValues discreteValues)
+    {
+        if (discreteValues.getValuesCount() == 0) {
+            return Optional.empty();
+        }
+
+        Object minValue = null;
+        Object maxValue = null;
+        for (Object value : discreteValues.getValues()) {
+            Object normalized = normalizePredicateValue(type, value);
+            if (minValue == null || compareNormalized(normalized, minValue) < 0) {
+                minValue = normalized;
+            }
+            if (maxValue == null || compareNormalized(normalized, maxValue) > 0) {
+                maxValue = normalized;
+            }
+        }
+        return Optional.of(new PredicateBounds(minValue, maxValue));
+    }
+
+    @SuppressWarnings("unchecked")
+    private static int compareNormalized(Object left, Object right)
+    {
+        return ((Comparable<Object>) left).compareTo(right);
     }
 
     private Object normalizePredicateValue(Type type, Object value)
@@ -244,6 +287,213 @@ public class DucklakeSplitManager
         }
         return value;
     }
+
+    private List<DucklakeDataFile> pruneByPartitionValues(
+            List<DucklakeDataFile> dataFiles,
+            DucklakeTableHandle tableHandle)
+    {
+        TupleDomain<DucklakeColumnHandle> enforced = tableHandle.enforcedPredicate();
+        if (enforced.isAll()) {
+            return dataFiles;
+        }
+        if (enforced.isNone()) {
+            return List.of();
+        }
+        if (dataFiles.isEmpty()) {
+            return dataFiles;
+        }
+
+        List<DucklakePartitionSpec> specs = catalog.getPartitionSpecs(
+                tableHandle.tableId(), tableHandle.snapshotId());
+        if (specs.isEmpty()) {
+            return dataFiles;
+        }
+
+        Map<Long, List<DucklakeFilePartitionValue>> filePartValues =
+                catalog.getFilePartitionValues(tableHandle.tableId(), tableHandle.snapshotId());
+
+        // Build columnId -> list of (partitionKeyIndex, transform) for all fields
+        // A single column can have multiple transforms (e.g., year + month on the same date column)
+        Map<Long, List<PartitionKeyMapping>> columnToPartKeys = new HashMap<>();
+        for (DucklakePartitionSpec spec : specs) {
+            for (DucklakePartitionField field : spec.fields()) {
+                columnToPartKeys.computeIfAbsent(field.columnId(), _ -> new ArrayList<>())
+                        .add(new PartitionKeyMapping(field.partitionKeyIndex(), field.transform()));
+            }
+        }
+
+        Set<Long> candidateFileIds = dataFiles.stream()
+                .map(DucklakeDataFile::dataFileId)
+                .collect(toCollection(LinkedHashSet::new));
+
+        for (Map.Entry<DucklakeColumnHandle, Domain> entry : enforced.getDomains().orElse(Map.of()).entrySet()) {
+            DucklakeColumnHandle column = entry.getKey();
+            Domain domain = entry.getValue();
+            List<PartitionKeyMapping> mappings = columnToPartKeys.get(column.columnId());
+            if (mappings == null) {
+                continue;
+            }
+
+            candidateFileIds.removeIf(fileId -> {
+                List<DucklakeFilePartitionValue> values = filePartValues.getOrDefault(fileId, List.of());
+                // A file is pruned if ANY partition transform definitively excludes it
+                for (PartitionKeyMapping mapping : mappings) {
+                    Optional<String> partValue = values.stream()
+                            .filter(v -> v.partitionKeyIndex() == mapping.keyIndex())
+                            .map(DucklakeFilePartitionValue::partitionValue)
+                            .findFirst();
+                    if (partValue.isEmpty()) {
+                        continue;
+                    }
+                    if (!partitionValueMatchesDomain(column.columnType(), partValue.get(), domain, mapping.transform())) {
+                        return true; // this transform excludes the file
+                    }
+                }
+                return false; // no transform excluded the file
+            });
+
+            if (candidateFileIds.isEmpty()) {
+                log.debug("Pruned all data files by partition values for table %s", tableHandle.tableName());
+                return List.of();
+            }
+        }
+
+        List<DucklakeDataFile> result = dataFiles.stream()
+                .filter(f -> candidateFileIds.contains(f.dataFileId()))
+                .collect(toImmutableList());
+        log.debug("Partition pruning: %d -> %d files for table %s", dataFiles.size(), result.size(), tableHandle.tableName());
+        return result;
+    }
+
+    private static boolean partitionValueMatchesDomain(Type columnType, String partitionValue, Domain domain, DucklakePartitionTransform transform)
+    {
+        try {
+            if (transform.isIdentity()) {
+                Object nativeValue = parsePartitionValue(columnType, partitionValue);
+                return domain.includesNullableValue(nativeValue);
+            }
+            if (transform.isTemporal()) {
+                return temporalPartitionMatchesDomain(columnType, partitionValue, domain, transform);
+            }
+            return true; // unknown transform — don't prune
+        }
+        catch (RuntimeException _) {
+            return true; // parse failure — don't prune to avoid false negatives
+        }
+    }
+
+    private static boolean temporalPartitionMatchesDomain(Type columnType, String partitionValue, Domain domain, DucklakePartitionTransform transform)
+    {
+        // Partition value for temporal transforms is the transformed integer (e.g., years from epoch)
+        long transformedValue = Long.parseLong(partitionValue);
+
+        // Convert domain bounds to transformed values and check containment
+        if (domain.isNone()) {
+            return false;
+        }
+        if (domain.getValues().isAll()) {
+            return true;
+        }
+
+        // For each range in the domain, apply the transform to the bounds and check
+        // if the partition's transformed value could overlap
+        return domain.getValues().getValuesProcessor().transform(
+                ranges -> {
+                    for (Range range : ranges.getOrderedRanges()) {
+                        if (temporalRangeContainsTransformedValue(columnType, range, transformedValue, transform)) {
+                            return true;
+                        }
+                    }
+                    return false;
+                },
+                discreteValues -> {
+                    for (Object value : discreteValues.getValues()) {
+                        long transformed = applyTemporalTransform(columnType, value, transform);
+                        if (transformed == transformedValue) {
+                            return true;
+                        }
+                    }
+                    return false;
+                },
+                allOrNone -> true);
+    }
+
+    private static boolean temporalRangeContainsTransformedValue(Type columnType, Range range, long transformedValue, DucklakePartitionTransform transform)
+    {
+        long lowTransformed = range.getLowValue()
+                .map(v -> applyTemporalTransform(columnType, v, transform))
+                .orElse(Long.MIN_VALUE);
+        long highTransformed = range.getHighValue()
+                .map(v -> applyTemporalTransform(columnType, v, transform))
+                .orElse(Long.MAX_VALUE);
+
+        // For month/day/hour transforms, values can wrap (e.g., a date range from Nov to Feb
+        // produces month values 11..2). In wrapping cases, skip pruning to avoid false negatives.
+        if (transform.isTemporal() && !transform.equals(DucklakePartitionTransform.YEAR) && lowTransformed > highTransformed) {
+            return true; // wrapping range — don't prune
+        }
+        return transformedValue >= lowTransformed && transformedValue <= highTransformed;
+    }
+
+    private static long applyTemporalTransform(Type columnType, Object value, DucklakePartitionTransform transform)
+    {
+        // DuckDB's Ducklake extension writes calendar values for temporal transforms:
+        // year -> calendar year (e.g., 2023), month -> calendar month (1-12),
+        // day -> day of month (1-31), hour -> hour of day (0-23)
+        LocalDate date;
+        int hour = 0;
+        if (columnType.equals(DATE)) {
+            date = LocalDate.ofEpochDay((long) value);
+        }
+        else {
+            // Timestamp types: value is micros since epoch
+            long microsSinceEpoch = (long) value;
+            long secondsSinceEpoch = Math.floorDiv(microsSinceEpoch, 1_000_000);
+            date = LocalDate.ofEpochDay(Math.floorDiv(secondsSinceEpoch, 86400));
+            hour = (int) (Math.floorMod(secondsSinceEpoch, 86400) / 3600);
+        }
+        return switch (transform) {
+            case YEAR -> date.getYear();
+            case MONTH -> date.getMonthValue();
+            case DAY -> date.getDayOfMonth();
+            case HOUR -> hour;
+            default -> throw new IllegalArgumentException("Unsupported transform: " + transform);
+        };
+    }
+
+    private static Object parsePartitionValue(Type type, String value)
+    {
+        if (type.equals(VARCHAR) || type instanceof io.trino.spi.type.VarcharType) {
+            return Slices.utf8Slice(value);
+        }
+        if (type.equals(BIGINT)) {
+            return Long.parseLong(value);
+        }
+        if (type.equals(INTEGER)) {
+            return (long) Integer.parseInt(value);
+        }
+        if (type.equals(SMALLINT)) {
+            return (long) Short.parseShort(value);
+        }
+        if (type.equals(TINYINT)) {
+            return (long) Byte.parseByte(value);
+        }
+        if (type.equals(DOUBLE)) {
+            return Double.parseDouble(value);
+        }
+        if (type.equals(REAL)) {
+            return (long) Float.floatToIntBits(Float.parseFloat(value));
+        }
+        if (type.equals(DATE)) {
+            return LocalDate.parse(value).toEpochDay();
+        }
+        if (type.equals(BOOLEAN)) {
+            return Boolean.parseBoolean(value);
+        }
+        throw new IllegalArgumentException("Unsupported partition value type: " + type);
+    }
+
+    private record PartitionKeyMapping(int keyIndex, DucklakePartitionTransform transform) {}
 
     private DucklakeSplit createSplit(DucklakeDataFile dataFile, String tableDataPath, TupleDomain<DucklakeColumnHandle> fileStatisticsDomain)
     {
