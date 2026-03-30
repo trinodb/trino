@@ -18,6 +18,9 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.type.Type;
 
+import static io.airlift.slice.SizeOf.estimatedSizeOf;
+import static io.airlift.slice.SizeOf.instanceSize;
+import static io.airlift.slice.SizeOf.sizeOf;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -30,6 +33,8 @@ public record DucklakeColumnHandle(
         @JsonProperty("nullable") boolean nullable)
         implements ColumnHandle
 {
+    private static final int INSTANCE_SIZE = instanceSize(DucklakeColumnHandle.class);
+
     @JsonCreator
     public DucklakeColumnHandle
     {
@@ -41,5 +46,14 @@ public record DucklakeColumnHandle(
     public String toString()
     {
         return columnName + ":" + columnType;
+    }
+
+    public long getRetainedSizeInBytes()
+    {
+        // columnType is omitted as Type instances are shared by Trino type registry
+        return INSTANCE_SIZE
+                + sizeOf(columnId)
+                + estimatedSizeOf(columnName)
+                + sizeOf(nullable);
     }
 }

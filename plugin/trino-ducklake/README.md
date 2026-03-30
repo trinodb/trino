@@ -4,6 +4,7 @@ A Trino connector for the [Ducklake](https://ducklake.select) lakehouse format (
 
 **Quick Links:**
 - **[STATUS.md](STATUS.md)** - Current implementation status, what works, what's next
+- **[READ_ONLY_TODO.md](READ_ONLY_TODO.md)** - Prioritized read-only parity backlog vs Iceberg/Hive
 - **[SMOKE_TEST.md](SMOKE_TEST.md)** - How to run the automated tests
 - **[REVISED_PLAN.md](REVISED_PLAN.md)** - Technical architecture and design decisions
 - **[REUSE.md](REUSE.md)** - Code reuse strategy from Iceberg connector
@@ -24,8 +25,7 @@ The connector is designed with maximum code reuse from the Iceberg connector:
 
 ### Shared Components (~60% reuse)
 - **Parquet I/O**: 100% reusable - both use Parquet files
-- **Predicate Pushdown**: Reuses Iceberg's `ExpressionConverter`
-- **Delete File Handling**: Merge-on-read pattern similar to Iceberg
+- **Parquet reader path**: Reuses Trino Parquet reader (column projection, vectorized reads, encodings/codecs)
 - **Type Conversion Patterns**: 70% reusable
 
 ### New Components
@@ -89,13 +89,14 @@ CREATE TABLE ducklake_data_file (...);
 - [x] List tables
 - [x] Get table metadata
 - [x] Read table data (Parquet files)
-- [x] Snapshot isolation (read from specific snapshot)
-- [x] Type mapping (most Ducklake types to Trino types)
-- [x] Delete file handling (merge-on-read)
+- [x] Snapshot isolation (reads current snapshot)
+- [x] Type mapping (primitives + `list<primitive>` / arrays)
+- [x] Basic split pruning using `ducklake_file_column_stats` for range/single-value constraints
 
 ### 🚧 Planned
-- [ ] Predicate pushdown using `ducklake_file_column_stats`
+- [ ] Extended predicate pushdown coverage (discrete sets, dynamic filters, richer expression handling)
 - [ ] Time travel queries (query historical snapshots)
+- [ ] Delete file handling (merge-on-read)
 - [ ] Partitioned table support
 - [ ] Variant type handling (shredded types)
 - [ ] Geometry type support
@@ -151,7 +152,8 @@ SHOW TABLES FROM ducklake.main;
 SELECT * FROM ducklake.main.my_table;
 
 -- Time travel query (future)
-SELECT * FROM ducklake.main.my_table FOR SYSTEM_TIME AS OF TIMESTAMP '2024-01-01 00:00:00';
+-- TODO: time travel is not implemented yet
+-- SELECT * FROM ducklake.main.my_table FOR SYSTEM_TIME AS OF TIMESTAMP '2024-01-01 00:00:00';
 ```
 
 ## Implementation Details
@@ -183,13 +185,17 @@ WHERE data.table_id = ? AND ? >= data.begin_snapshot ...
 ### File Discovery
 
 1. Query `ducklake_data_file` for table at snapshot
-2. Join with `ducklake_delete_file` for merge-on-read deletes
+2. Join `ducklake_delete_file` metadata (delete application is still TODO)
 3. Resolve relative paths using `ducklake_metadata.data_path`
 4. Create splits (one per Parquet file)
 
-### Predicate Pushdown (Planned)
+### Predicate Pushdown
 
-Will use `ducklake_file_column_stats` for file pruning:
+Current implementation uses `ducklake_file_column_stats` for basic split pruning by range/single-value constraints.
+
+Future work will expand this to additional predicate forms.
+
+Core pruning query pattern:
 ```sql
 SELECT data_file_id FROM ducklake_file_column_stats
 WHERE table_id = ? AND column_id = ?
@@ -247,7 +253,6 @@ plugin/trino-ducklake/
 │       ├── DucklakeTable.java           # Table model
 │       ├── DucklakeColumn.java          # Column model
 │       └── DucklakeDataFile.java        # Data file model
-└── IMPLEMENTATION_PLAN.md               # Detailed implementation plan
 ```
 
 ## Troubleshooting

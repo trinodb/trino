@@ -14,6 +14,7 @@
 package io.trino.plugin.ducklake;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.inject.Inject;
 import io.airlift.log.Logger;
 import io.trino.filesystem.Location;
@@ -28,11 +29,15 @@ import io.trino.parquet.ParquetDataSourceId;
 import io.trino.parquet.ParquetReaderOptions;
 import io.trino.parquet.metadata.FileMetadata;
 import io.trino.parquet.metadata.ParquetMetadata;
+import io.trino.parquet.predicate.TupleDomainParquetPredicate;
 import io.trino.parquet.reader.MetadataReader;
 import io.trino.parquet.reader.ParquetReader;
+import io.trino.parquet.reader.RowGroupInfo;
 import io.trino.plugin.base.metrics.FileFormatDataSourceStats;
+import io.trino.plugin.hive.TransformConnectorPageSource;
 import io.trino.plugin.hive.parquet.ParquetPageSource;
 import io.trino.spi.TrinoException;
+import io.trino.spi.block.Block;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.ConnectorPageSourceProvider;
@@ -42,20 +47,39 @@ import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.EmptyPageSource;
-import io.trino.spi.type.TypeManager;
+import io.trino.spi.connector.SourcePage;
+import io.trino.spi.predicate.Domain;
+import io.trino.spi.predicate.TupleDomain;
+import io.trino.spi.type.Type;
+import org.apache.parquet.column.ColumnDescriptor;
+import org.apache.parquet.io.ColumnIO;
 import org.apache.parquet.io.MessageColumnIO;
+import org.apache.parquet.io.PrimitiveColumnIO;
 import org.apache.parquet.schema.MessageType;
+import org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName;
 
 import java.io.IOException;
+import java.nio.file.Path;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalLong;
+import java.util.Set;
+import java.util.function.Function;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.parquet.ParquetTypeUtils.getColumnIO;
+import static io.trino.parquet.ParquetTypeUtils.getDescriptors;
+import static io.trino.parquet.predicate.PredicateUtils.buildPredicate;
+import static io.trino.parquet.predicate.PredicateUtils.getFilteredRowGroups;
 import static io.trino.plugin.hive.parquet.ParquetPageSourceFactory.createDataSource;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.IntegerType.INTEGER;
 import static java.util.Objects.requireNonNull;
 import static org.joda.time.DateTimeZone.UTC;
 
@@ -71,19 +95,16 @@ public class DucklakePageSourceProvider
     private final TrinoFileSystemFactory fileSystemFactory;
     private final FileFormatDataSourceStats fileFormatDataSourceStats;
     private final ParquetReaderOptions parquetReaderOptions;
-    private final TypeManager typeManager;
 
     @Inject
     public DucklakePageSourceProvider(
             TrinoFileSystemFactory fileSystemFactory,
             FileFormatDataSourceStats fileFormatDataSourceStats,
-            ParquetReaderOptions parquetReaderOptions,
-            TypeManager typeManager)
+            ParquetReaderOptions parquetReaderOptions)
     {
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
         this.fileFormatDataSourceStats = requireNonNull(fileFormatDataSourceStats, "fileFormatDataSourceStats is null");
         this.parquetReaderOptions = requireNonNull(parquetReaderOptions, "parquetReaderOptions is null");
-        this.typeManager = requireNonNull(typeManager, "typeManager is null");
     }
 
     @Override
@@ -99,16 +120,14 @@ public class DucklakePageSourceProvider
         requireNonNull(columns, "columns is null");
 
         DucklakeSplit ducklakeSplit = (DucklakeSplit) split;
+        if (ducklakeSplit.fileStatisticsDomain().isNone()) {
+            return new EmptyPageSource();
+        }
 
         // Extract column information
         List<DucklakeColumnHandle> ducklakeColumns = columns.stream()
                 .map(DucklakeColumnHandle.class::cast)
                 .collect(toImmutableList());
-
-        // If no columns requested, return empty page source
-        if (ducklakeColumns.isEmpty()) {
-            return new EmptyPageSource();
-        }
 
         log.debug("Creating page source for file: %s", ducklakeSplit.dataFilePath());
 
@@ -117,7 +136,7 @@ public class DucklakePageSourceProvider
             TrinoFileSystem fileSystem = fileSystemFactory.create(session);
 
             // Open the data file
-            Location dataFileLocation = Location.of(ducklakeSplit.dataFilePath());
+            Location dataFileLocation = toLocation(ducklakeSplit.dataFilePath());
             TrinoInputFile inputFile = fileSystem.newInputFile(dataFileLocation);
 
             // Verify file format
@@ -127,10 +146,10 @@ public class DucklakePageSourceProvider
 
             // Create Parquet page source using Trino's infrastructure
             return createParquetPageSource(
-                    session,
                     inputFile,
                     ducklakeColumns,
-                    ducklakeSplit);
+                    ducklakeSplit,
+                    fileSystem);
         }
         catch (IOException e) {
             throw new RuntimeException("Failed to create page source for file: " + ducklakeSplit.dataFilePath(), e);
@@ -138,10 +157,10 @@ public class DucklakePageSourceProvider
     }
 
     private ConnectorPageSource createParquetPageSource(
-            ConnectorSession session,
             TrinoInputFile inputFile,
             List<DucklakeColumnHandle> columns,
-            DucklakeSplit split)
+            DucklakeSplit split,
+            TrinoFileSystem fileSystem)
             throws IOException
     {
         // Create memory context for reading
@@ -164,6 +183,21 @@ public class DucklakePageSourceProvider
                     Optional.empty());
             FileMetadata fileMetadata = parquetMetadata.getFileMetaData();
             MessageType fileSchema = fileMetadata.getSchema();
+            ParquetDataSourceId dataSourceId = dataSource.getId();
+            Map<List<String>, ColumnDescriptor> descriptorsByPath = getDescriptors(fileSchema, fileSchema);
+            TupleDomain<ColumnDescriptor> parquetTupleDomain = toParquetTupleDomain(descriptorsByPath, split.fileStatisticsDomain());
+            TupleDomainParquetPredicate parquetPredicate = buildPredicate(fileSchema, parquetTupleDomain, descriptorsByPath, UTC);
+            List<RowGroupInfo> rowGroups = getFilteredRowGroups(
+                    0,
+                    split.fileSizeBytes(),
+                    dataSource,
+                    parquetMetadata,
+                    ImmutableList.of(parquetTupleDomain),
+                    ImmutableList.of(parquetPredicate),
+                    descriptorsByPath,
+                    UTC,
+                    Domain.DEFAULT_COMPACTION_THRESHOLD,
+                    parquetReaderOptions);
 
             // Build list of columns to read
             ImmutableList.Builder<Column> parquetColumns = ImmutableList.builder();
@@ -187,28 +221,23 @@ public class DucklakePageSourceProvider
             }
 
             // Create ParquetReader
-            ParquetDataSourceId dataSourceId = dataSource.getId();
             ParquetReader parquetReader = new ParquetReader(
                     Optional.ofNullable(fileMetadata.getCreatedBy()),
                     parquetColumns.build(),
                     false, // appendRowNumberColumn
-                    ImmutableList.of(), // rowGroups - empty means all
+                    rowGroups,
                     dataSource,
                     UTC,
                     memoryContext,
                     parquetReaderOptions,
                     exception -> handleParquetException(dataSourceId, exception),
-                    Optional.empty(), // fileRowCount
+                    parquetTupleDomain.isAll() ? Optional.empty() : Optional.of(parquetPredicate),
                     Optional.empty(), // bloomFilterStore
                     Optional.empty()); // rowFilter
 
-            // Wrap in ParquetPageSource
+            // Wrap in ParquetPageSource and apply merge-on-read delete filtering if present
             ConnectorPageSource pageSource = new ParquetPageSource(parquetReader);
-
-            // TODO: Handle delete files (Phase 3)
-            // if (split.deleteFilePath().isPresent()) {
-            //     return applyDeleteFiles(pageSource, split);
-            // }
+            pageSource = applyDeleteFile(fileSystem, split, pageSource);
 
             log.debug("Created Parquet page source for %d columns from file: %s",
                     columns.size(), split.dataFilePath());
@@ -230,6 +259,199 @@ public class DucklakePageSourceProvider
         }
     }
 
+    private ConnectorPageSource applyDeleteFile(TrinoFileSystem fileSystem, DucklakeSplit split, ConnectorPageSource dataSource)
+            throws IOException
+    {
+        if (split.deleteFilePath().isEmpty()) {
+            return dataSource;
+        }
+
+        Set<Long> deletedRows = readDeletedRows(fileSystem, split);
+        if (deletedRows.isEmpty()) {
+            return dataSource;
+        }
+
+        log.debug("Applying delete file %s with %d deleted rows for data file %s",
+                split.deleteFilePath().orElseThrow(),
+                deletedRows.size(),
+                split.dataFilePath());
+        return TransformConnectorPageSource.create(dataSource, new DeleteRowFilterTransform(deletedRows, split.rowIdStart()));
+    }
+
+    private Set<Long> readDeletedRows(TrinoFileSystem fileSystem, DucklakeSplit split)
+            throws IOException
+    {
+        String deleteFilePath = split.deleteFilePath().orElseThrow();
+        TrinoInputFile inputFile = fileSystem.newInputFile(toLocation(deleteFilePath));
+
+        AggregatedMemoryContext memoryContext = newSimpleAggregatedMemoryContext();
+        ParquetDataSource dataSource = null;
+        try {
+            dataSource = createDataSource(
+                    inputFile,
+                    OptionalLong.empty(),
+                    parquetReaderOptions,
+                    memoryContext,
+                    fileFormatDataSourceStats);
+
+            ParquetMetadata parquetMetadata = MetadataReader.readFooter(
+                    dataSource,
+                    parquetReaderOptions.getMaxFooterReadSize(),
+                    Optional.empty());
+            FileMetadata fileMetadata = parquetMetadata.getFileMetaData();
+            ParquetDataSourceId dataSourceId = dataSource.getId();
+            MessageType fileSchema = fileMetadata.getSchema();
+            MessageColumnIO messageColumnIO = getColumnIO(fileSchema, fileSchema);
+
+            DeleteFileColumn deleteFileColumn = getDeleteFileColumn(fileSchema, messageColumnIO);
+            Map<List<String>, ColumnDescriptor> descriptorsByPath = getDescriptors(fileSchema, fileSchema);
+            TupleDomain<ColumnDescriptor> parquetTupleDomain = TupleDomain.all();
+            TupleDomainParquetPredicate parquetPredicate = buildPredicate(fileSchema, parquetTupleDomain, descriptorsByPath, UTC);
+            List<RowGroupInfo> rowGroups = getFilteredRowGroups(
+                    0,
+                    inputFile.length(),
+                    dataSource,
+                    parquetMetadata,
+                    ImmutableList.of(parquetTupleDomain),
+                    ImmutableList.of(parquetPredicate),
+                    descriptorsByPath,
+                    UTC,
+                    Domain.DEFAULT_COMPACTION_THRESHOLD,
+                    parquetReaderOptions);
+
+            ParquetReader parquetReader = new ParquetReader(
+                    Optional.ofNullable(fileMetadata.getCreatedBy()),
+                    ImmutableList.of(new Column(deleteFileColumn.columnName(), deleteFileColumn.field())),
+                    false,
+                    rowGroups,
+                    dataSource,
+                    UTC,
+                    memoryContext,
+                    parquetReaderOptions,
+                    exception -> handleParquetException(dataSourceId, exception),
+                    Optional.empty(),
+                    Optional.empty(),
+                    Optional.empty());
+
+            Set<Long> deletedRows = new HashSet<>();
+            try (ConnectorPageSource pageSource = new ParquetPageSource(parquetReader)) {
+                while (!pageSource.isFinished()) {
+                    SourcePage page = pageSource.getNextSourcePage();
+                    if (page == null) {
+                        continue;
+                    }
+                    Block block = page.getBlock(0);
+                    for (int position = 0; position < block.getPositionCount(); position++) {
+                        if (block.isNull(position)) {
+                            continue;
+                        }
+                        deletedRows.add(readDeleteValue(deleteFileColumn.columnType(), block, position));
+                    }
+                }
+            }
+            return deletedRows;
+        }
+        catch (IOException | RuntimeException e) {
+            if (dataSource != null) {
+                try {
+                    dataSource.close();
+                }
+                catch (IOException ex) {
+                    if (!e.equals(ex)) {
+                        e.addSuppressed(ex);
+                    }
+                }
+            }
+            throw new RuntimeException("Failed to read delete file: " + deleteFilePath, e);
+        }
+    }
+
+    private static DeleteFileColumn getDeleteFileColumn(MessageType fileSchema, MessageColumnIO messageColumnIO)
+    {
+        for (org.apache.parquet.schema.Type field : fileSchema.getFields()) {
+            if (!field.isPrimitive()) {
+                continue;
+            }
+            ColumnIO columnIO = messageColumnIO.getChild(field.getName());
+            if (!(columnIO instanceof PrimitiveColumnIO primitiveColumnIO)) {
+                continue;
+            }
+
+            PrimitiveTypeName primitiveTypeName = primitiveColumnIO.getPrimitive();
+            Type columnType = switch (primitiveTypeName) {
+                case INT64 -> BIGINT;
+                case INT32 -> INTEGER;
+                default -> null;
+            };
+
+            if (columnType != null) {
+                Field fieldDefinition = DucklakeParquetTypeUtils.constructField(columnType, columnIO);
+                return new DeleteFileColumn(field.getName(), columnType, fieldDefinition);
+            }
+        }
+
+        throw new TrinoException(NOT_SUPPORTED, "Delete file must contain at least one INT32/INT64 primitive column");
+    }
+
+    private static long readDeleteValue(Type type, Block block, int position)
+    {
+        if (type.equals(BIGINT)) {
+            return BIGINT.getLong(block, position);
+        }
+        if (type.equals(INTEGER)) {
+            return INTEGER.getInt(block, position);
+        }
+        throw new IllegalArgumentException("Unsupported delete file value type: " + type);
+    }
+
+    private static TupleDomain<ColumnDescriptor> toParquetTupleDomain(
+            Map<List<String>, ColumnDescriptor> descriptorsByPath,
+            TupleDomain<DucklakeColumnHandle> effectivePredicate)
+    {
+        if (effectivePredicate.isNone()) {
+            return TupleDomain.none();
+        }
+        if (effectivePredicate.isAll()) {
+            return TupleDomain.all();
+        }
+
+        ImmutableMap.Builder<ColumnDescriptor, Domain> predicate = ImmutableMap.builder();
+        Map<String, ColumnDescriptor> topLevelDescriptors = descriptorsByPath.entrySet().stream()
+                .filter(entry -> entry.getKey().size() == 1)
+                .collect(toImmutableMap(
+                        entry -> entry.getKey().get(0).toLowerCase(Locale.ENGLISH),
+                        Map.Entry::getValue,
+                        (first, _) -> first));
+
+        Optional<Map<DucklakeColumnHandle, Domain>> domains = effectivePredicate.getDomains();
+        if (domains.isEmpty()) {
+            return TupleDomain.all();
+        }
+
+        for (Map.Entry<DucklakeColumnHandle, Domain> entry : domains.get().entrySet()) {
+            DucklakeColumnHandle columnHandle = entry.getKey();
+            ColumnDescriptor descriptor = topLevelDescriptors.get(columnHandle.columnName().toLowerCase(Locale.ENGLISH));
+            if (descriptor != null) {
+                predicate.put(descriptor, entry.getValue());
+            }
+        }
+
+        Map<ColumnDescriptor, Domain> parquetDomains = predicate.buildOrThrow();
+        if (parquetDomains.isEmpty()) {
+            return TupleDomain.all();
+        }
+        return TupleDomain.withColumnDomains(parquetDomains);
+    }
+
+    private static Location toLocation(String path)
+    {
+        Location location = Location.of(path);
+        if (location.scheme().isPresent()) {
+            return location;
+        }
+        return Location.of(Path.of(path).toUri().toString());
+    }
+
     private static RuntimeException handleParquetException(ParquetDataSourceId dataSourceId, Exception exception)
     {
         if (exception instanceof TrinoException) {
@@ -241,14 +463,46 @@ public class DucklakePageSourceProvider
                 exception);
     }
 
-    // TODO: Phase 3 - Delete file handling
-    // private ConnectorPageSource applyDeleteFiles(
-    //         ConnectorPageSource dataSource,
-    //         DucklakeSplit split)
-    // {
-    //     // Load delete file
-    //     // Apply position deletes using DeleteManager
-    //     // Return filtered page source
-    //     return dataSource; // Placeholder
-    // }
+    private record DeleteFileColumn(String columnName, Type columnType, Field field) {}
+
+    private static final class DeleteRowFilterTransform
+            implements Function<SourcePage, SourcePage>
+    {
+        private final Set<Long> deletedRows;
+        private final long rowIdStart;
+        private long nextRowOffset;
+
+        private DeleteRowFilterTransform(Set<Long> deletedRows, long rowIdStart)
+        {
+            this.deletedRows = Set.copyOf(requireNonNull(deletedRows, "deletedRows is null"));
+            this.rowIdStart = rowIdStart;
+        }
+
+        @Override
+        public SourcePage apply(SourcePage page)
+        {
+            int positionCount = page.getPositionCount();
+            int[] retainedPositions = new int[positionCount];
+            int retainedCount = 0;
+
+            for (int position = 0; position < positionCount; position++) {
+                long rowOffset = nextRowOffset + position;
+                long rowId = rowIdStart + rowOffset;
+
+                // Ducklake delete files conceptually store row ids. We also check row offsets to
+                // tolerate producers that store file-local row index values.
+                if (!deletedRows.contains(rowId) && !deletedRows.contains(rowOffset)) {
+                    retainedPositions[retainedCount] = position;
+                    retainedCount++;
+                }
+            }
+            nextRowOffset += positionCount;
+
+            if (retainedCount == positionCount) {
+                return page;
+            }
+            page.selectPositions(retainedPositions, 0, retainedCount);
+            return page;
+        }
+    }
 }

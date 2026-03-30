@@ -14,6 +14,9 @@
 package io.trino.plugin.ducklake;
 
 import io.trino.plugin.ducklake.catalog.DucklakeCatalog;
+import io.trino.plugin.ducklake.catalog.DucklakeColumn;
+import io.trino.plugin.ducklake.catalog.DucklakeSchema;
+import io.trino.plugin.ducklake.catalog.DucklakeTable;
 import io.trino.plugin.ducklake.catalog.SqliteDucklakeCatalog;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
@@ -22,6 +25,7 @@ import org.junit.jupiter.api.Test;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -94,79 +98,113 @@ public class TestDucklakeCatalog
     public void testListTables()
     {
         long snapshotId = catalog.getCurrentSnapshotId();
-        var schemas = catalog.listSchemas(snapshotId);
+        DucklakeSchema testSchema = getSchema("test_schema", snapshotId);
+        List<DucklakeTable> tables = catalog.listTables(testSchema.schemaId(), snapshotId);
 
-        // Find test_schema
-        var testSchema = schemas.stream()
-                .filter(s -> s.schemaName().equals("test_schema"))
-                .findFirst();
-
-        if (testSchema.isPresent()) {
-            var tables = catalog.listTables(testSchema.get().schemaId(), snapshotId);
-
-            assertThat(tables)
-                    .isNotEmpty()
-                    .hasSize(2)
-                    .anySatisfy(table ->
-                            assertThat(table.tableName()).isEqualTo("simple_table"))
-                    .anySatisfy(table ->
-                            assertThat(table.tableName()).isEqualTo("array_table"));
-        }
+        assertThat(tables)
+                .isNotEmpty()
+                .hasSize(2)
+                .anySatisfy(table ->
+                        assertThat(table.tableName()).isEqualTo("simple_table"))
+                .anySatisfy(table ->
+                        assertThat(table.tableName()).isEqualTo("array_table"));
     }
 
     @Test
     public void testGetTable()
     {
         long snapshotId = catalog.getCurrentSnapshotId();
-        var schemas = catalog.listSchemas(snapshotId);
-        var testSchema = schemas.stream()
-                .filter(s -> s.schemaName().equals("test_schema"))
-                .findFirst();
+        DucklakeTable table = getTable("test_schema", "simple_table", snapshotId);
+        var retrievedTable = catalog.getTableById(table.tableId(), snapshotId);
 
-        if (testSchema.isPresent()) {
-            var tables = catalog.listTables(testSchema.get().schemaId(), snapshotId);
-
-            // Get first table
-            if (!tables.isEmpty()) {
-                var table = tables.get(0);
-                var retrievedTable = catalog.getTableById(table.tableId(), snapshotId);
-
-                assertThat(retrievedTable)
-                        .isPresent()
-                        .get()
-                        .satisfies(t -> {
-                            assertThat(t.tableId()).isEqualTo(table.tableId());
-                            assertThat(t.tableName()).isEqualTo(table.tableName());
-                        });
-            }
-        }
+        assertThat(retrievedTable)
+                .isPresent()
+                .get()
+                .satisfies(t -> {
+                    assertThat(t.tableId()).isEqualTo(table.tableId());
+                    assertThat(t.tableName()).isEqualTo(table.tableName());
+                });
     }
 
     @Test
     public void testGetDataFiles()
     {
         long snapshotId = catalog.getCurrentSnapshotId();
-        var schemas = catalog.listSchemas(snapshotId);
-        var testSchema = schemas.stream()
-                .filter(s -> s.schemaName().equals("test_schema"))
-                .findFirst();
+        DucklakeTable table = getTable("test_schema", "simple_table", snapshotId);
+        var dataFiles = catalog.getDataFiles(table.tableId(), snapshotId);
 
-        if (testSchema.isPresent()) {
-            var tables = catalog.listTables(testSchema.get().schemaId(), snapshotId);
+        assertThat(dataFiles)
+                .isNotEmpty()
+                .allSatisfy(file -> {
+                    assertThat(file.path()).isNotBlank();
+                    assertThat(file.fileFormat()).isEqualTo("parquet");
+                    assertThat(file.recordCount()).isGreaterThan(0);
+                    assertThat(file.fileSizeBytes()).isGreaterThan(0);
+                });
+    }
 
-            if (!tables.isEmpty()) {
-                var table = tables.get(0);
-                var dataFiles = catalog.getDataFiles(table.tableId(), snapshotId);
+    @Test
+    public void testGetTableColumnsResolvesListType()
+    {
+        long snapshotId = catalog.getCurrentSnapshotId();
+        DucklakeTable table = getTable("test_schema", "array_table", snapshotId);
 
-                assertThat(dataFiles)
-                        .isNotEmpty()
-                        .allSatisfy(file -> {
-                            assertThat(file.path()).isNotBlank();
-                            assertThat(file.fileFormat()).isEqualTo("parquet");
-                            assertThat(file.recordCount()).isGreaterThan(0);
-                            assertThat(file.fileSizeBytes()).isGreaterThan(0);
-                        });
-            }
-        }
+        List<DucklakeColumn> columns = catalog.getTableColumns(table.tableId(), snapshotId);
+        assertThat(columns)
+                .extracting(DucklakeColumn::columnName)
+                .containsExactly("id", "product_name", "tags", "quantity");
+
+        DucklakeColumn tagsColumn = columns.stream()
+                .filter(column -> column.columnName().equals("tags"))
+                .findFirst()
+                .orElseThrow();
+        assertThat(tagsColumn.columnType()).isEqualTo("list<varchar>");
+    }
+
+    @Test
+    public void testGetDataFileIdsForPredicate()
+    {
+        long snapshotId = catalog.getCurrentSnapshotId();
+        DucklakeTable table = getTable("test_schema", "simple_table", snapshotId);
+        List<DucklakeColumn> columns = catalog.getTableColumns(table.tableId(), snapshotId);
+
+        long priceColumnId = getColumnId(columns, "price");
+        long createdDateColumnId = getColumnId(columns, "created_date");
+
+        assertThat(catalog.getDataFileIdsForPredicate(table.tableId(), priceColumnId, snapshotId, 30.0, 30.0))
+                .isNotEmpty();
+        assertThat(catalog.getDataFileIdsForPredicate(table.tableId(), priceColumnId, snapshotId, 1000.0, 1000.0))
+                .isEmpty();
+
+        assertThat(catalog.getDataFileIdsForPredicate(table.tableId(), createdDateColumnId, snapshotId, "2024-02-01", "2024-02-01"))
+                .isNotEmpty();
+        assertThat(catalog.getDataFileIdsForPredicate(table.tableId(), createdDateColumnId, snapshotId, "2025-01-01", "2025-01-01"))
+                .isEmpty();
+    }
+
+    private DucklakeSchema getSchema(String schemaName, long snapshotId)
+    {
+        return catalog.listSchemas(snapshotId).stream()
+                .filter(schema -> schema.schemaName().equals(schemaName))
+                .findFirst()
+                .orElseThrow(() -> new AssertionError("Missing schema: " + schemaName));
+    }
+
+    private DucklakeTable getTable(String schemaName, String tableName, long snapshotId)
+    {
+        DucklakeSchema schema = getSchema(schemaName, snapshotId);
+        return catalog.listTables(schema.schemaId(), snapshotId).stream()
+                .filter(table -> table.tableName().equals(tableName))
+                .findFirst()
+                .orElseThrow(() -> new AssertionError("Missing table: " + schemaName + "." + tableName));
+    }
+
+    private long getColumnId(List<DucklakeColumn> columns, String columnName)
+    {
+        return columns.stream()
+                .filter(column -> column.columnName().equals(columnName))
+                .findFirst()
+                .orElseThrow(() -> new AssertionError("Missing column: " + columnName))
+                .columnId();
     }
 }

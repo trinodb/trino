@@ -18,6 +18,7 @@ import io.airlift.bootstrap.LifeCycleManager;
 import io.trino.plugin.base.classloader.ClassLoaderSafeConnectorMetadata;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorMetadata;
+import io.trino.spi.connector.ConnectorPageSourceProviderFactory;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplitManager;
 import io.trino.spi.connector.ConnectorTransactionHandle;
@@ -37,16 +38,19 @@ public class DucklakeConnector
     private final LifeCycleManager lifeCycleManager;
     private final DucklakeTransactionManager transactionManager;
     private final ConnectorSplitManager splitManager;
+    private final ConnectorPageSourceProviderFactory pageSourceProviderFactory;
 
     @Inject
     public DucklakeConnector(
             LifeCycleManager lifeCycleManager,
             DucklakeTransactionManager transactionManager,
-            ConnectorSplitManager splitManager)
+            ConnectorSplitManager splitManager,
+            ConnectorPageSourceProviderFactory pageSourceProviderFactory)
     {
         this.lifeCycleManager = requireNonNull(lifeCycleManager, "lifeCycleManager is null");
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
         this.splitManager = requireNonNull(splitManager, "splitManager is null");
+        this.pageSourceProviderFactory = requireNonNull(pageSourceProviderFactory, "pageSourceProviderFactory is null");
     }
 
     @Override
@@ -60,6 +64,12 @@ public class DucklakeConnector
     public ConnectorSplitManager getSplitManager()
     {
         return splitManager;
+    }
+
+    @Override
+    public ConnectorPageSourceProviderFactory getPageSourceProviderFactory()
+    {
+        return pageSourceProviderFactory;
     }
 
     @Override

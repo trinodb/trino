@@ -125,11 +125,11 @@ These are **unique** to Ducklake and not found in other connectors:
 
 **DucklakeConfig.java** (~80 lines)
 - Configuration properties:
-  - `catalog-database-url` - JDBC URL (unique to Ducklake)
-  - `catalog-database-user` - Database credentials
-  - `catalog-database-password` - Database credentials
-  - `data-path` - Base path for relative files
-  - `max-catalog-connections` - Connection pool size
+  - `ducklake.catalog.database-url` - JDBC URL (unique to Ducklake)
+  - `ducklake.catalog.database-user` - Database credentials
+  - `ducklake.catalog.database-password` - Database credentials
+  - `ducklake.data-path` - Base path for relative files
+  - `ducklake.catalog.max-connections` - Connection pool size
 
 **DucklakeTypeConverter.java** (~200 lines)
 - Bidirectional Ducklake ↔ Trino type mapping
@@ -139,7 +139,7 @@ These are **unique** to Ducklake and not found in other connectors:
   - `variant` (⚠️ **DEGRADED**: mapped to VARCHAR temporarily)
   - `geometry` (⚠️ **DEGRADED**: mapped to VARBINARY temporarily)
   - `json` (⚠️ **DEGRADED**: mapped to VARCHAR temporarily)
-  - `timestamptz`, `timestamp_ns`, `time_ns`
+  - `timestamptz`, `timestamp_ns`, `time`
 
 ### Data Models (~200 lines)
 
@@ -181,7 +181,7 @@ These are **unique** to Ducklake and not found in other connectors:
 | **Direct Reuse** (ParquetPageSource, FileSystem, etc.) | ~10,000+ | Inherited | ✅ Working |
 | **Adapted from Iceberg/Delta** | ~350 | 15% | ✅ Working |
 | **Custom Ducklake Implementation** | ~1,900 | 85% | ✅ Working |
-| **Total Custom Code** | ~2,250 | 100% | ✅ **5/5 Tests Passing** |
+| **Total Custom Code** | ~2,250 | 100% | ✅ Unit tests passing |
 
 ## Key Insights
 

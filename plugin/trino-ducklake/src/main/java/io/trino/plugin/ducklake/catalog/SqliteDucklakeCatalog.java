@@ -27,9 +27,13 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 import static java.util.Objects.requireNonNull;
 
@@ -293,10 +297,10 @@ public class SqliteDucklakeCatalog
     {
         String sql = "SELECT column_id, begin_snapshot, end_snapshot, table_id, column_order, column_name, column_type, nulls_allowed, parent_column " +
                      "FROM ducklake_column " +
-                     "WHERE table_id = ? AND parent_column IS NULL AND ? >= begin_snapshot AND (? < end_snapshot OR end_snapshot IS NULL) " +
-                     "ORDER BY column_order";
+                     "WHERE table_id = ? AND ? >= begin_snapshot AND (? < end_snapshot OR end_snapshot IS NULL) " +
+                     "ORDER BY column_order, column_id";
 
-        List<DucklakeColumn> columns = new ArrayList<>();
+        List<DucklakeColumn> allColumns = new ArrayList<>();
 
         try (Connection conn = dataSource.getConnection();
                 PreparedStatement stmt = conn.prepareStatement(sql)) {
@@ -306,7 +310,7 @@ public class SqliteDucklakeCatalog
 
             try (ResultSet rs = stmt.executeQuery()) {
                 while (rs.next()) {
-                    columns.add(new DucklakeColumn(
+                    allColumns.add(new DucklakeColumn(
                             rs.getLong("column_id"),
                             rs.getLong("begin_snapshot"),
                             getLongOptional(rs, "end_snapshot"),
@@ -323,7 +327,29 @@ public class SqliteDucklakeCatalog
             throw new RuntimeException("Failed to get columns for table: " + tableId + " at snapshot: " + snapshotId, e);
         }
 
-        return columns;
+        Map<Long, List<DucklakeColumn>> childrenByParent = new HashMap<>();
+        for (DucklakeColumn column : allColumns) {
+            column.parentColumn().ifPresent(parent ->
+                    childrenByParent.computeIfAbsent(parent, ignored -> new ArrayList<>()).add(column));
+        }
+
+        List<DucklakeColumn> topLevelColumns = new ArrayList<>();
+        for (DucklakeColumn column : allColumns) {
+            if (column.parentColumn().isEmpty()) {
+                topLevelColumns.add(new DucklakeColumn(
+                        column.columnId(),
+                        column.beginSnapshot(),
+                        column.endSnapshot(),
+                        column.tableId(),
+                        column.columnOrder(),
+                        column.columnName(),
+                        resolveColumnType(column, childrenByParent),
+                        column.nullsAllowed(),
+                        Optional.empty()));
+            }
+        }
+
+        return topLevelColumns;
     }
 
     @Override
@@ -378,14 +404,17 @@ public class SqliteDucklakeCatalog
     @Override
     public List<Long> getDataFileIdsForPredicate(long tableId, long columnId, long snapshotId, Object minValue, Object maxValue)
     {
-        // File pruning query - for predicate pushdown
-        // Note: min_value and max_value are stored as VARCHAR in ducklake_file_column_stats
-        // We need to cast them appropriately based on the column type
-        String sql = "SELECT data_file_id " +
-                     "FROM ducklake_file_column_stats " +
-                     "WHERE table_id = ? AND column_id = ? " +
-                     "  AND (? >= min_value OR min_value IS NULL) " +
-                     "  AND (? <= max_value OR max_value IS NULL)";
+        Optional<String> columnType = getColumnType(tableId, columnId, snapshotId);
+        if (columnType.isEmpty()) {
+            return List.of();
+        }
+
+        String sql = "SELECT stats.data_file_id, stats.min_value, stats.max_value " +
+                     "FROM ducklake_file_column_stats AS stats " +
+                     "JOIN ducklake_data_file AS data ON stats.data_file_id = data.data_file_id " +
+                     "WHERE stats.table_id = ? AND stats.column_id = ? " +
+                     "  AND data.table_id = ? " +
+                     "  AND ? >= data.begin_snapshot AND (? < data.end_snapshot OR data.end_snapshot IS NULL)";
 
         List<Long> fileIds = new ArrayList<>();
 
@@ -393,12 +422,21 @@ public class SqliteDucklakeCatalog
                 PreparedStatement stmt = conn.prepareStatement(sql)) {
             stmt.setLong(1, tableId);
             stmt.setLong(2, columnId);
-            stmt.setString(3, minValue != null ? minValue.toString() : null);
-            stmt.setString(4, maxValue != null ? maxValue.toString() : null);
+            stmt.setLong(3, tableId);
+            stmt.setLong(4, snapshotId);
+            stmt.setLong(5, snapshotId);
+
+            Comparable<?> lowerBound = normalizePredicateValue(columnType.get(), minValue);
+            Comparable<?> upperBound = normalizePredicateValue(columnType.get(), maxValue);
 
             try (ResultSet rs = stmt.executeQuery()) {
                 while (rs.next()) {
-                    fileIds.add(rs.getLong("data_file_id"));
+                    Comparable<?> minStat = parseStatValue(columnType.get(), rs.getString("min_value"));
+                    Comparable<?> maxStat = parseStatValue(columnType.get(), rs.getString("max_value"));
+
+                    if (isWithinBounds(lowerBound, upperBound, minStat, maxStat)) {
+                        fileIds.add(rs.getLong("data_file_id"));
+                    }
                 }
             }
         }
@@ -456,5 +494,147 @@ public class SqliteDucklakeCatalog
     {
         boolean value = rs.getBoolean(columnName);
         return rs.wasNull() ? Optional.empty() : Optional.of(value);
+    }
+
+    private String resolveColumnType(DucklakeColumn column, Map<Long, List<DucklakeColumn>> childrenByParent)
+    {
+        String columnType = column.columnType();
+        switch (columnType.toLowerCase()) {
+            case "list": {
+                List<DucklakeColumn> children = childrenByParent.getOrDefault(column.columnId(), List.of());
+                if (children.size() != 1) {
+                    throw new IllegalStateException("List column must have exactly one child column: " + column.columnName());
+                }
+                return "list<" + resolveColumnType(children.get(0), childrenByParent) + ">";
+            }
+            case "struct": {
+                List<DucklakeColumn> children = childrenByParent.getOrDefault(column.columnId(), List.of());
+                String fields = children.stream()
+                        .map(child -> child.columnName() + ":" + resolveColumnType(child, childrenByParent))
+                        .collect(Collectors.joining(","));
+                return "struct<" + fields + ">";
+            }
+            case "map": {
+                List<DucklakeColumn> children = childrenByParent.getOrDefault(column.columnId(), List.of());
+                if (children.size() != 2) {
+                    throw new IllegalStateException("Map column must have exactly two child columns: " + column.columnName());
+                }
+                return "map<" + resolveColumnType(children.get(0), childrenByParent) + "," + resolveColumnType(children.get(1), childrenByParent) + ">";
+            }
+            default:
+                return columnType;
+        }
+    }
+
+    private Optional<String> getColumnType(long tableId, long columnId, long snapshotId)
+    {
+        String sql = "SELECT column_type " +
+                     "FROM ducklake_column " +
+                     "WHERE table_id = ? AND column_id = ? " +
+                     "  AND ? >= begin_snapshot AND (? < end_snapshot OR end_snapshot IS NULL)";
+
+        try (Connection conn = dataSource.getConnection();
+                PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setLong(1, tableId);
+            stmt.setLong(2, columnId);
+            stmt.setLong(3, snapshotId);
+            stmt.setLong(4, snapshotId);
+
+            try (ResultSet rs = stmt.executeQuery()) {
+                if (rs.next()) {
+                    return Optional.of(rs.getString("column_type"));
+                }
+                return Optional.empty();
+            }
+        }
+        catch (SQLException e) {
+            throw new RuntimeException("Failed to get column type for table: " + tableId + ", column: " + columnId, e);
+        }
+    }
+
+    private Comparable<?> normalizePredicateValue(String columnType, Object value)
+    {
+        if (value == null) {
+            return null;
+        }
+        return parseStatValue(columnType, value.toString());
+    }
+
+    private Comparable<?> parseStatValue(String columnType, String value)
+    {
+        if (value == null) {
+            return null;
+        }
+
+        String normalizedType = columnType.toLowerCase();
+        try {
+            if (isNumericType(normalizedType)) {
+                return new java.math.BigDecimal(value);
+            }
+            if (normalizedType.equals("boolean")) {
+                return parseBoolean(value);
+            }
+            return value;
+        }
+        catch (RuntimeException e) {
+            // If parsing fails we avoid false negatives by not pruning on this value.
+            return null;
+        }
+    }
+
+    private boolean isNumericType(String type)
+    {
+        return type.equals("int8")
+                || type.equals("int16")
+                || type.equals("int32")
+                || type.equals("int64")
+                || type.equals("uint8")
+                || type.equals("uint16")
+                || type.equals("uint32")
+                || type.equals("uint64")
+                || type.equals("float32")
+                || type.equals("float64")
+                || type.startsWith("decimal(");
+    }
+
+    private Boolean parseBoolean(String value)
+    {
+        if (value.equalsIgnoreCase("true") || value.equals("1")) {
+            return true;
+        }
+        if (value.equalsIgnoreCase("false") || value.equals("0")) {
+            return false;
+        }
+        throw new IllegalArgumentException("Invalid boolean value: " + value);
+    }
+
+    private boolean isWithinBounds(
+            Comparable<?> lowerBound,
+            Comparable<?> upperBound,
+            Comparable<?> minStat,
+            Comparable<?> maxStat)
+    {
+        OptionalInt lowerVsMax = compareValues(lowerBound, maxStat);
+        if (lowerVsMax.isPresent() && lowerVsMax.getAsInt() > 0) {
+            return false;
+        }
+
+        OptionalInt upperVsMin = compareValues(upperBound, minStat);
+        return upperVsMin.isEmpty() || upperVsMin.getAsInt() >= 0;
+    }
+
+    @SuppressWarnings("unchecked")
+    private OptionalInt compareValues(Comparable<?> left, Comparable<?> right)
+    {
+        if (left == null || right == null) {
+            return OptionalInt.empty();
+        }
+        try {
+            return OptionalInt.of(((Comparable<Object>) left).compareTo(right));
+        }
+        catch (RuntimeException e) {
+            // Type mismatch or non-comparable values: avoid pruning to prevent false negatives.
+            return OptionalInt.empty();
+        }
     }
 }

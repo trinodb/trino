@@ -15,6 +15,7 @@ package io.trino.plugin.ducklake;
 
 import com.google.inject.Inject;
 import io.trino.spi.TrinoException;
+import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.BigintType;
 import io.trino.spi.type.BooleanType;
 import io.trino.spi.type.DateType;
@@ -64,7 +65,14 @@ public class DucklakeTypeConverter
     {
         requireNonNull(ducklakeType, "ducklakeType is null");
 
-        return switch (ducklakeType.toLowerCase()) {
+        String normalizedType = ducklakeType.trim().toLowerCase();
+
+        if (normalizedType.startsWith("list<") && normalizedType.endsWith(">")) {
+            String elementType = normalizedType.substring("list<".length(), normalizedType.length() - 1).trim();
+            return new ArrayType(toTrinoType(elementType));
+        }
+
+        return switch (normalizedType) {
             // Boolean
             case "boolean" -> BooleanType.BOOLEAN;
 
@@ -116,7 +124,7 @@ public class DucklakeTypeConverter
 
             default -> {
                 // Check for decimal(P,S)
-                Matcher decimalMatcher = DECIMAL_PATTERN.matcher(ducklakeType);
+                Matcher decimalMatcher = DECIMAL_PATTERN.matcher(normalizedType);
                 if (decimalMatcher.matches()) {
                     int precision = Integer.parseInt(decimalMatcher.group(1));
                     int scale = Integer.parseInt(decimalMatcher.group(2));

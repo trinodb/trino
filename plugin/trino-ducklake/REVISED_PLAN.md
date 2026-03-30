@@ -1,48 +1,45 @@
-# Ducklake Connector - REVISED Implementation Plan
+# Ducklake Connector - Revised Plan (Current)
 
-## Core Strategy: Leverage Trino Infrastructure
+## Strategy
 
-### What We REUSE (~70% of functionality)
-- ✅ `ParquetPageSource` - Trino's Parquet reader (vectorization, bloom filters, etc.)
-- ✅ `FixedSplitSource` - Standard split scheduling
-- ✅ `DeleteManager` - Iceberg's delete file handling (adapt)
-- ✅ `TupleDomainParquetPredicate` - Parquet-level pushdown
+Keep the Ducklake connector thin and reuse Trino/Iceberg/Hive reader infrastructure where possible:
+- Reuse Trino file system and Parquet reader path.
+- Reuse Iceberg/Hive connector patterns for split/page-source wiring.
+- Build only Ducklake-specific SQL catalog logic and path/snapshot semantics.
 
-### What We BUILD (~30% new code)
-- 🆕 SQL Catalog Layer (DONE ✓)
-- 🆕 SQL-based file pruning via `ducklake_file_column_stats`
-- 🆕 Type mapping (DONE ✓)
-- 🔧 Delete file SQL integration
+## Current State
 
-## Two-Layer Optimization
+### Implemented
+- SQL catalog reads for snapshots/schemas/tables/columns/data files.
+- Primitive and `list<primitive>` type reconstruction + Trino type mapping.
+- Split generation and hierarchical relative path resolution (catalog -> schema -> table -> file).
+- Connector page-source-provider factory wiring.
+- Catalog-focused unit tests for schema/table/files/list type/predicate pruning behavior.
 
-1. **SQL Metadata Pruning** (our value-add): Query stats to prune files
-2. **Parquet-Level Pushdown** (FREE): Row groups, bloom filters, vectorization
+### Intentionally Deferred
+- Root Trino reactor integration for the plugin module.
+- Packaging/distribution flow for plugin ZIP.
+- End-to-end Trino server smoke validation.
 
-## Implementation Steps
+## Active Roadmap
 
-### Phase 2: PageSourceProvider (CURRENT - 2-3 hours)
-```java
-// Just wire up Trino's ParquetPageSource
-ParquetPageSource.createParquetPageSource(
-    inputFile,    // from TrinoFileSystem
-    columns,      // our column mapping
-    predicate,    // Trino handles pushdown
-    parquetOptions // all the magic
-);
-```
+Detailed parity checklist lives in `READ_ONLY_TODO.md`.
+Current execution target: **P0 correctness - delete-file application**.
 
-### Phase 3: Delete Files (2-3 hours)
-- Copy DeleteManager from Iceberg (~500 lines)
-- Load delete files from SQL catalog
-- Apply merge-on-read
+### Phase A: Catalog-first hardening (current)
+- Expand catalog tests before broader plugin validation.
+- Keep reading current/all data (no time-travel query semantics yet).
+- Track time travel explicitly as TODO.
 
-### Phase 4: SQL-based File Pruning (2-3 hours)
-- Query `ducklake_file_column_stats` for min/max
-- Filter files before creating splits
-- Benchmark improvement
+### Phase B: Predicate integration
+- Wire `ducklake_file_column_stats` pruning from metadata to split planning.
+- Preserve Parquet reader behavior for additional in-file pruning.
 
-## Next Actions
-1. Create DucklakePageSourceProvider
-2. Add missing dependencies to pom.xml
-3. Test basic SELECT queries
+### Phase C: Delete-file handling
+- Adapt Iceberg delete-application patterns to Ducklake delete metadata/files.
+- Ensure merge-on-read semantics are correct before broad integration testing.
+
+### Phase D: Trino integration and packaging (later)
+- Enable module wiring in root build when ready.
+- Run manual/automated Trino smoke tests.
+- Decide packaging/runtime dependency strategy (SQLite path likely test-only).
