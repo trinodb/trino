@@ -134,8 +134,8 @@ public final class Variant
         requireNonNull(data, "data is null");
         requireNonNull(metadata, "metadata is null");
         requireNonNull(basicType, "basicType is null");
-        checkArgument(basicType == PRIMITIVE || primitiveType == null, "primitiveType must be null for non-primitive basicType");
-        checkArgument(basicType != PRIMITIVE || primitiveType != null, "primitiveType must be non-null for primitive basicType");
+
+        checkArgument(basicType == PRIMITIVE == (primitiveType != null), "primitiveType must be non-null if and only if basicType is PRIMITIVE");
 
         // not need to retain metadata for non-container types
         if (!basicType.isContainer()) {
