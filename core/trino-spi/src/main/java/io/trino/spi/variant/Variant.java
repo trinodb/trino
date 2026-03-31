@@ -105,15 +105,11 @@ import static java.util.Collections.unmodifiableMap;
 import static java.util.Objects.requireNonNull;
 import static java.util.Objects.requireNonNullElse;
 
-public final class Variant
+public record Variant(Slice data, Metadata metadata, BasicType basicType, PrimitiveType primitiveType)
 {
     public static final Variant NULL_VALUE = from(EMPTY_METADATA, wrappedBuffer(primitiveHeader(PrimitiveType.NULL)));
     public static final Variant EMPTY_ARRAY;
     public static final Variant EMPTY_OBJECT;
-    private final Slice data;
-    private final Metadata metadata;
-    private final BasicType basicType;
-    private final PrimitiveType primitiveType;
 
     static {
         IntUnaryOperator emptyIndexedOperator = index -> {
@@ -129,7 +125,7 @@ public final class Variant
         EMPTY_OBJECT = from(EMPTY_METADATA, emptyObjectValue);
     }
 
-    public Variant(Slice data, Metadata metadata, BasicType basicType, PrimitiveType primitiveType)
+    public Variant
     {
         requireNonNull(data, "data is null");
         requireNonNull(metadata, "metadata is null");
@@ -141,30 +137,6 @@ public final class Variant
         if (!basicType.isContainer()) {
             metadata = EMPTY_METADATA;
         }
-        this.data = data;
-        this.metadata = metadata;
-        this.basicType = basicType;
-        this.primitiveType = primitiveType;
-    }
-
-    public Slice data()
-    {
-        return data;
-    }
-
-    public Metadata metadata()
-    {
-        return metadata;
-    }
-
-    public BasicType basicType()
-    {
-        return basicType;
-    }
-
-    public PrimitiveType primitiveType()
-    {
-        return primitiveType;
     }
 
     public static Variant from(Metadata metadata, Slice data)
@@ -1006,29 +978,29 @@ public final class Variant
             case byte[] bytes -> encodedBinarySize(bytes.length);
             case String s -> encodedStringSize(utf8Slice(s).length());
             case List<?> list -> containerSizeCache.computeIfAbsent(list, _ -> {
-                        int totalElementsLength = 0;
-                        for (Object element : list) {
-                            totalElementsLength += computeEncodedSize(element, fieldIdByName, fieldRemappers, containerSizeCache);
-                        }
-                        return encodedArraySize(list.size(), totalElementsLength);
-                    });
+                int totalElementsLength = 0;
+                for (Object element : list) {
+                    totalElementsLength += computeEncodedSize(element, fieldIdByName, fieldRemappers, containerSizeCache);
+                }
+                return encodedArraySize(list.size(), totalElementsLength);
+            });
             case Map<?, ?> map -> containerSizeCache.computeIfAbsent(map, _ -> {
-                        if (map.isEmpty()) {
-                            return ENCODED_EMPTY_OBJECT_SIZE;
-                        }
+                if (map.isEmpty()) {
+                    return ENCODED_EMPTY_OBJECT_SIZE;
+                }
 
-                        int maxFieldId = -1;
-                        for (Object key : map.keySet()) {
-                            maxFieldId = Math.max(maxFieldId, requireNonNull(fieldIdByName.get(castMapKey(key))));
-                        }
+                int maxFieldId = -1;
+                for (Object key : map.keySet()) {
+                    maxFieldId = Math.max(maxFieldId, requireNonNull(fieldIdByName.get(castMapKey(key))));
+                }
 
-                        int totalValuesLength = 0;
-                        for (Object entry : map.values()) {
-                            totalValuesLength += computeEncodedSize(entry, fieldIdByName, fieldRemappers, containerSizeCache);
-                        }
+                int totalValuesLength = 0;
+                for (Object entry : map.values()) {
+                    totalValuesLength += computeEncodedSize(entry, fieldIdByName, fieldRemappers, containerSizeCache);
+                }
 
-                        return encodedObjectSize(maxFieldId, map.size(), totalValuesLength);
-                    });
+                return encodedObjectSize(maxFieldId, map.size(), totalValuesLength);
+            });
             default -> throw new IllegalArgumentException("Unsupported object type for VARIANT: " + value.getClass().getName());
         };
     }
