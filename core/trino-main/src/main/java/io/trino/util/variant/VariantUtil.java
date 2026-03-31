@@ -117,7 +117,6 @@ import static io.trino.util.JsonUtil.createJsonGenerator;
 import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Math.floorDiv;
 import static java.lang.Math.floorMod;
-import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.math.RoundingMode.HALF_UP;
 import static java.time.ZoneOffset.UTC;
@@ -223,20 +222,20 @@ public final class VariantUtil
                 case TIMESTAMP_UTC_MICROS -> {
                     long micros = variant.getTimestampMicros();
                     long epochMillis = floorDiv(micros, 1_000L);
-                    int picosOfMilli = toIntExact(floorMod(micros, 1_000L) * 1_000_000L);
+                    int picosOfMilli = floorMod(micros, 1_000) * 1_000_000;
                     yield utf8Slice(formatTimestampWithTimeZone(6, epochMillis, picosOfMilli, UTC_KEY.getZoneId()));
                 }
                 case TIMESTAMP_NTZ_MICROS -> utf8Slice(formatTimestamp(6, variant.getTimestampMicros(), 0, UTC));
                 case TIMESTAMP_UTC_NANOS -> {
                     long nanos = variant.getTimestampNanos();
                     long epochMillis = floorDiv(nanos, 1_000_000L);
-                    int picosOfMilli = toIntExact(floorMod(nanos, 1_000_000L) * 1_000L);
+                    int picosOfMilli = floorMod(nanos, 1_000_000) * 1_000;
                     yield utf8Slice(formatTimestampWithTimeZone(9, epochMillis, picosOfMilli, UTC_KEY.getZoneId()));
                 }
                 case TIMESTAMP_NTZ_NANOS -> {
                     long nanos = variant.getTimestampNanos();
                     long epochMicros = floorDiv(nanos, 1_000L);
-                    int picosOfMicros = toIntExact(floorMod(nanos, 1_000L) * 1_000L);
+                    int picosOfMicros = floorMod(nanos, 1_000) * 1_000;
                     yield utf8Slice(formatTimestamp(9, epochMicros, picosOfMicros, UTC));
                 }
                 case UUID -> utf8Slice(variant.getUuid().toString());
@@ -496,7 +495,7 @@ public final class VariantUtil
                 case TIMESTAMP_UTC_MICROS, TIMESTAMP_NTZ_MICROS -> {
                     long micros = variant.getTimestampMicros();
                     long epochSeconds = floorDiv(micros, 1_000_000L);
-                    int nanoAdjustment = (int) floorMod(micros, 1_000_000L) * 1_000;
+                    int nanoAdjustment = floorMod(micros, 1_000_000) * 1_000;
                     yield Instant.ofEpochSecond(epochSeconds, nanoAdjustment)
                             .atZone(UTC)
                             .toLocalDate()
@@ -505,7 +504,7 @@ public final class VariantUtil
                 case TIMESTAMP_UTC_NANOS, TIMESTAMP_NTZ_NANOS -> {
                     long nanos = variant.getTimestampNanos();
                     long epochSeconds = floorDiv(nanos, 1_000_000_000L);
-                    int nanoAdjustment = (int) floorMod(nanos, 1_000_000_000L);
+                    int nanoAdjustment = floorMod(nanos, 1_000_000_000);
                     yield Instant.ofEpochSecond(epochSeconds, nanoAdjustment)
                             .atZone(UTC)
                             .toLocalDate()
@@ -597,7 +596,7 @@ public final class VariantUtil
                         nanos = round(nanos, 9 - precision);
                     }
                     long micros = floorDiv(nanos, 1_000L);
-                    int picosOfMicro = toIntExact(floorMod(nanos, 1_000L) * 1_000L);
+                    int picosOfMicro = floorMod(nanos, 1_000) * 1_000;
                     yield new LongTimestamp(micros, picosOfMicro);
                 }
                 case STRING -> VarcharToTimestampCast.castToLongTimestamp(precision, variant.getString().toStringUtf8());
@@ -650,7 +649,7 @@ public final class VariantUtil
                         micros = round(micros, 6 - precision);
                     }
                     long millis = floorDiv(micros, 1_000L);
-                    int picosOfMillis = toIntExact(floorMod(micros, 1_000L) * 1_000_000L);
+                    int picosOfMillis = floorMod(micros, 1_000) * 1_000_000;
                     yield fromEpochMillisAndFraction(millis, picosOfMillis, UTC_KEY);
                 }
                 case TIMESTAMP_UTC_NANOS, TIMESTAMP_NTZ_NANOS -> {
@@ -659,7 +658,7 @@ public final class VariantUtil
                         nanos = round(nanos, 9 - precision);
                     }
                     long millis = floorDiv(nanos, 1_000_000L);
-                    int picosOfMillis = toIntExact(floorMod(nanos, 1_000_000L) * 1_000L);
+                    int picosOfMillis = floorMod(nanos, 1_000_000) * 1_000;
                     yield fromEpochMillisAndFraction(millis, picosOfMillis, UTC_KEY);
                 }
                 case STRING -> asLongTimestampWithTimeZone(variant.getString(), precision);
@@ -1252,20 +1251,22 @@ public final class VariantUtil
                     case TIMESTAMP_UTC_MICROS -> {
                         long micros = variant.getTimestampMicros();
                         long epochMillis = floorDiv(micros, 1_000L);
-                        int picosOfMilli = toIntExact(floorMod(micros, 1_000L) * 1_000_000L);
+                        int picosOfMilli = floorMod(micros, 1_000) * 1_000_000;
                         jsonGenerator.writeString(formatTimestampWithTimeZone(6, epochMillis, picosOfMilli, UTC_KEY.getZoneId()));
                     }
                     case TIMESTAMP_NTZ_MICROS -> jsonGenerator.writeString(formatTimestamp(6, variant.getTimestampMicros(), 0, UTC));
                     case TIMESTAMP_UTC_NANOS -> {
                         long nanos = variant.getTimestampNanos();
                         long epochMillis = floorDiv(nanos, 1_000_000L);
-                        int picosOfMilli = toIntExact(floorMod(nanos, 1_000_000L) * 1_000L);
+
+                        int picosOfMilli = floorMod(nanos, 1_000_000) * 1_000;
                         jsonGenerator.writeString(formatTimestampWithTimeZone(9, epochMillis, picosOfMilli, UTC_KEY.getZoneId()));
                     }
                     case TIMESTAMP_NTZ_NANOS -> {
                         long nanos = variant.getTimestampNanos();
                         long epochMicros = floorDiv(nanos, 1_000L);
-                        int picosOfMicros = toIntExact(floorMod(nanos, 1_000L) * 1_000L);
+
+                        int picosOfMicros = floorMod(nanos, 1_000) * 1_000;
                         jsonGenerator.writeString(formatTimestamp(9, epochMicros, picosOfMicros, UTC));
                     }
                     case UUID -> jsonGenerator.writeString(variant.getUuid().toString());

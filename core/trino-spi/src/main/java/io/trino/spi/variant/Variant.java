@@ -100,7 +100,6 @@ import static io.trino.spi.variant.VariantUtils.verify;
 import static java.lang.Math.floorDiv;
 import static java.lang.Math.floorMod;
 import static java.lang.Math.multiplyExact;
-import static java.lang.Math.toIntExact;
 import static java.util.Collections.unmodifiableList;
 import static java.util.Collections.unmodifiableMap;
 import static java.util.Objects.requireNonNull;
@@ -564,12 +563,12 @@ public final class Variant
         if (primitiveType == PrimitiveType.TIMESTAMP_UTC_MICROS) {
             long micros = getTimestampMicros();
             seconds = floorDiv(micros, 1_000_000);
-            nanoOfSecond = toIntExact(floorMod(micros, 1_000_000) * 1_000L);
+            nanoOfSecond = floorMod(micros, 1_000_000) * 1_000;
         }
         else if (primitiveType == PrimitiveType.TIMESTAMP_UTC_NANOS) {
             long nanos = getTimestampNanos();
             seconds = floorDiv(nanos, 1_000_000_000L);
-            nanoOfSecond = (int) floorMod(nanos, 1_000_000_000L);
+            nanoOfSecond = floorMod(nanos, 1_000_000_000);
         }
         else {
             throw new IllegalStateException("Expected primitive TIMESTAMP but got " + primitiveType);
@@ -584,12 +583,12 @@ public final class Variant
         if (primitiveType == PrimitiveType.TIMESTAMP_NTZ_MICROS) {
             long micros = getTimestampMicros();
             seconds = floorDiv(micros, 1_000_000);
-            nanoOfSecond = toIntExact(floorMod(micros, 1_000_000) * 1_000L);
+            nanoOfSecond = floorMod(micros, 1_000_000) * 1_000;
         }
         else if (primitiveType == PrimitiveType.TIMESTAMP_NTZ_NANOS) {
             long nanos = getTimestampNanos();
             seconds = floorDiv(nanos, 1_000_000_000L);
-            nanoOfSecond = (int) floorMod(nanos, 1_000_000_000L);
+            nanoOfSecond = floorMod(nanos, 1_000_000_000);
         }
         else {
             throw new IllegalStateException("Expected primitive TIMESTAMP but got " + primitiveType);
