@@ -16,12 +16,12 @@ package io.trino.client;
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonToken;
+import com.fasterxml.jackson.core.io.BigDecimalParser;
 import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.collect.ImmutableList;
 
 import java.io.IOException;
 import java.io.StringWriter;
-import java.math.BigDecimal;
 import java.util.Base64;
 import java.util.HashMap;
 import java.util.LinkedList;
@@ -524,7 +524,7 @@ public final class JsonDecodingUtils
                     return Double.NEGATIVE_INFINITY;
                 }
                 default: {
-                    return new BigDecimal(value);
+                    return BigDecimalParser.parse(value);
                 }
             }
         }
