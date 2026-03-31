@@ -158,8 +158,8 @@ public final class VariantUtil
             return mapType.getKeyType() instanceof VarcharType &&
                     canCastToVariant(mapType.getValueType());
         }
-        if (type instanceof RowType) {
-            return type.getTypeParameters().stream().allMatch(VariantUtil::canCastToVariant);
+        if (type instanceof RowType rowType) {
+            return rowType.getTypeParameters().stream().allMatch(VariantUtil::canCastToVariant);
         }
         return false;
     }
@@ -192,8 +192,8 @@ public final class VariantUtil
         if (type instanceof MapType mapType) {
             return mapType.getKeyType() instanceof VarcharType && canCastFromVariant(mapType.getValueType());
         }
-        if (type instanceof RowType) {
-            return type.getTypeParameters().stream().allMatch(VariantUtil::canCastFromVariant);
+        if (type instanceof RowType rowType) {
+            return rowType.getTypeParameters().stream().allMatch(VariantUtil::canCastFromVariant);
         }
         return false;
     }
