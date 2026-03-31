@@ -1225,80 +1225,80 @@ public final class VariantUtil
         }
     }
 
-    private static void toJsonValue(JsonGenerator jsonGenerator, Variant variant)
+    private static void toJsonValue(JsonGenerator generator, Variant variant)
             throws IOException
     {
         switch (variant.basicType()) {
             case PRIMITIVE -> {
                 switch (variant.primitiveType()) {
-                    case NULL -> jsonGenerator.writeNull();
+                    case NULL -> generator.writeNull();
                     case BINARY -> {
                         Slice binary = variant.getBinary();
-                        jsonGenerator.writeBinary(binary.byteArray(), binary.byteArrayOffset(), binary.length());
+                        generator.writeBinary(binary.byteArray(), binary.byteArrayOffset(), binary.length());
                     }
-                    case STRING -> jsonGenerator.writeString(variant.getString().toStringUtf8());
-                    case BOOLEAN_TRUE -> jsonGenerator.writeBoolean(true);
-                    case BOOLEAN_FALSE -> jsonGenerator.writeBoolean(false);
-                    case INT8 -> jsonGenerator.writeNumber(variant.getByte());
-                    case INT16 -> jsonGenerator.writeNumber(variant.getShort());
-                    case INT32 -> jsonGenerator.writeNumber(variant.getInt());
-                    case INT64 -> jsonGenerator.writeNumber(variant.getLong());
-                    case DECIMAL4, DECIMAL8, DECIMAL16 -> jsonGenerator.writeNumber(variant.getDecimal());
-                    case FLOAT -> jsonGenerator.writeNumber(variant.getFloat());
-                    case DOUBLE -> jsonGenerator.writeNumber(variant.getDouble());
-                    case DATE -> jsonGenerator.writeString(DateOperators.castToVarchar(UNBOUNDED_LENGTH, variant.getDate()).toStringUtf8());
-                    case TIME_NTZ_MICROS -> jsonGenerator.writeString(TimeOperators.castToVarchar(UNBOUNDED_LENGTH, 6, variant.getTimeMicros() * 1_000_000L).toStringUtf8());
+                    case STRING -> generator.writeString(variant.getString().toStringUtf8());
+                    case BOOLEAN_TRUE -> generator.writeBoolean(true);
+                    case BOOLEAN_FALSE -> generator.writeBoolean(false);
+                    case INT8 -> generator.writeNumber(variant.getByte());
+                    case INT16 -> generator.writeNumber(variant.getShort());
+                    case INT32 -> generator.writeNumber(variant.getInt());
+                    case INT64 -> generator.writeNumber(variant.getLong());
+                    case DECIMAL4, DECIMAL8, DECIMAL16 -> generator.writeNumber(variant.getDecimal());
+                    case FLOAT -> generator.writeNumber(variant.getFloat());
+                    case DOUBLE -> generator.writeNumber(variant.getDouble());
+                    case DATE -> generator.writeString(DateOperators.castToVarchar(UNBOUNDED_LENGTH, variant.getDate()).toStringUtf8());
+                    case TIME_NTZ_MICROS -> generator.writeString(TimeOperators.castToVarchar(UNBOUNDED_LENGTH, 6, variant.getTimeMicros() * 1_000_000L).toStringUtf8());
                     case TIMESTAMP_UTC_MICROS -> {
                         long micros = variant.getTimestampMicros();
                         long epochMillis = floorDiv(micros, 1_000L);
                         int picosOfMilli = floorMod(micros, 1_000) * 1_000_000;
-                        jsonGenerator.writeString(formatTimestampWithTimeZone(6, epochMillis, picosOfMilli, UTC_KEY.getZoneId()));
+                        generator.writeString(formatTimestampWithTimeZone(6, epochMillis, picosOfMilli, UTC_KEY.getZoneId()));
                     }
-                    case TIMESTAMP_NTZ_MICROS -> jsonGenerator.writeString(formatTimestamp(6, variant.getTimestampMicros(), 0, UTC));
+                    case TIMESTAMP_NTZ_MICROS -> generator.writeString(formatTimestamp(6, variant.getTimestampMicros(), 0, UTC));
                     case TIMESTAMP_UTC_NANOS -> {
                         long nanos = variant.getTimestampNanos();
                         long epochMillis = floorDiv(nanos, 1_000_000L);
 
                         int picosOfMilli = floorMod(nanos, 1_000_000) * 1_000;
-                        jsonGenerator.writeString(formatTimestampWithTimeZone(9, epochMillis, picosOfMilli, UTC_KEY.getZoneId()));
+                        generator.writeString(formatTimestampWithTimeZone(9, epochMillis, picosOfMilli, UTC_KEY.getZoneId()));
                     }
                     case TIMESTAMP_NTZ_NANOS -> {
                         long nanos = variant.getTimestampNanos();
                         long epochMicros = floorDiv(nanos, 1_000L);
 
                         int picosOfMicros = floorMod(nanos, 1_000) * 1_000;
-                        jsonGenerator.writeString(formatTimestamp(9, epochMicros, picosOfMicros, UTC));
+                        generator.writeString(formatTimestamp(9, epochMicros, picosOfMicros, UTC));
                     }
-                    case UUID -> jsonGenerator.writeString(variant.getUuid().toString());
+                    case UUID -> generator.writeString(variant.getUuid().toString());
                 }
             }
-            case SHORT_STRING -> jsonGenerator.writeString(variant.getString().toStringUtf8());
+            case SHORT_STRING -> generator.writeString(variant.getString().toStringUtf8());
             case ARRAY -> {
-                jsonGenerator.writeStartArray();
+                generator.writeStartArray();
                 variant.arrayElements().forEach(element -> {
                     try {
-                        toJsonValue(jsonGenerator, element);
+                        toJsonValue(generator, element);
                     }
                     catch (IOException e) {
                         throw new UncheckedIOException(e);
                     }
                 });
-                jsonGenerator.writeEndArray();
+                generator.writeEndArray();
             }
             case OBJECT -> {
                 Metadata metadata = variant.metadata();
-                jsonGenerator.writeStartObject();
+                generator.writeStartObject();
                 variant.objectFields().forEach(fieldIdValue -> {
                     try {
                         String fieldName = metadata.get(fieldIdValue.fieldId()).toStringUtf8();
-                        jsonGenerator.writeFieldName(fieldName);
-                        toJsonValue(jsonGenerator, fieldIdValue.value());
+                        generator.writeFieldName(fieldName);
+                        toJsonValue(generator, fieldIdValue.value());
                     }
                     catch (IOException e) {
                         throw new UncheckedIOException(e);
                     }
                 });
-                jsonGenerator.writeEndObject();
+                generator.writeEndObject();
             }
         }
     }
