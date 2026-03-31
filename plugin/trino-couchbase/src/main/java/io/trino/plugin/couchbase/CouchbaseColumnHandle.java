@@ -20,10 +20,11 @@ import io.trino.spi.type.Type;
 
 import java.util.List;
 
-public record CouchbaseColumnHandle(List<String> path, List<String> dereferenceNames, Type type)
-        implements ColumnHandle
+public record CouchbaseColumnHandle(List<String> path, List<String> dereferenceNames, Type type,
+                                    boolean synthetic) implements ColumnHandle
 {
-    public CouchbaseColumnHandle {
+    public CouchbaseColumnHandle
+    {
         path = ImmutableList.copyOf(path);
     }
 
@@ -35,5 +36,10 @@ public record CouchbaseColumnHandle(List<String> path, List<String> dereferenceN
     public String name()
     {
         return path.getLast();
+    }
+
+    public boolean isSynthetic()
+    {
+        return synthetic;
     }
 }

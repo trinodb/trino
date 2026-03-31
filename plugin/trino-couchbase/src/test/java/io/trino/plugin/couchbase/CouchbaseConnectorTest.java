@@ -52,7 +52,7 @@ public class CouchbaseConnectorTest
             case SUPPORTS_ADD_COLUMN, SUPPORTS_ARRAY, SUPPORTS_COMMENT_ON_TABLE, SUPPORTS_CREATE_SCHEMA,
                  SUPPORTS_CREATE_TABLE, SUPPORTS_CREATE_MATERIALIZED_VIEW, SUPPORTS_DELETE, SUPPORTS_INSERT,
                  SUPPORTS_MAP_TYPE, SUPPORTS_ROW_TYPE, SUPPORTS_NEGATIVE_DATE, SUPPORTS_JOIN_PUSHDOWN,
-                 SUPPORTS_RENAME_COLUMN, SUPPORTS_RENAME_TABLE, SUPPORTS_SET_COLUMN_TYPE, SUPPORTS_AGGREGATION_PUSHDOWN,
+                 SUPPORTS_RENAME_COLUMN, SUPPORTS_RENAME_TABLE, SUPPORTS_SET_COLUMN_TYPE,
                  SUPPORTS_PREDICATE_EXPRESSION_PUSHDOWN, SUPPORTS_UPDATE, SUPPORTS_CREATE_VIEW, SUPPORTS_MERGE -> false;
 
             default -> super.hasBehavior(connectorBehavior);
@@ -63,17 +63,13 @@ public class CouchbaseConnectorTest
     @Override
     public void testTopNPushdown()
     {
-        // TopN over limit with filter
-        assertThat(query("" +
-                "SELECT orderkey, totalprice " +
-                "FROM (SELECT orderkey, totalprice FROM orders WHERE orderdate = DATE '1995-09-16' LIMIT 20) " +
-                "ORDER BY totalprice ASC LIMIT 5")).ordered().isFullyPushedDown();
+        super.testTopNPushdown();
     }
 
     @Test
     public void testFailingItems()
     {
-        assertQueryReturnsEmptyResult("SELECT * FROM orders WHERE orderkey = 10 OR orderkey IS NULL");
+        assertQuery("SELECT orderkey FROM orders WHERE orderpriority LIKE '5-L%'");
     }
 
     @Override
@@ -88,4 +84,23 @@ public class CouchbaseConnectorTest
     {
         Assumptions.abort("Skipping testSelectInformationSchemaColumns");
     }
+
+    @Test
+    public void testInClauseDecoding() {
+        query("SELECT name from nation where name = 'FRANCE'")
+                .assertThat()
+                .isFullyPushedDown().result()
+                .rowCount().isEqualTo(1);
+
+        query("SELECT name from nation where name = 'CANADA'")
+                .assertThat()
+                .isFullyPushedDown().result()
+                .rowCount().isEqualTo(1);
+
+        query("SELECT name from nation where name = 'FRANCE' OR name = 'CANADA'")
+                .assertThat()
+                .isFullyPushedDown().result()
+                .rowCount().isEqualTo(2);
+    }
+
 }

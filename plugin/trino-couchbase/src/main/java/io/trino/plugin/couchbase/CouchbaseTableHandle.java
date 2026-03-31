@@ -14,7 +14,7 @@
 package io.trino.plugin.couchbase;
 
 import com.google.common.collect.Streams;
-import io.trino.plugin.base.projection.ApplyProjectionUtil;
+import io.airlift.slice.Slice;
 import io.trino.plugin.couchbase.translations.TrinoExpressionToCb;
 import io.trino.plugin.couchbase.translations.TrinoToCbType;
 import io.trino.spi.connector.AggregateFunction;
@@ -22,8 +22,8 @@ import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.SortItem;
+import io.trino.spi.connector.SortOrder;
 import io.trino.spi.expression.ConnectorExpression;
-import io.trino.spi.expression.Constant;
 import io.trino.spi.expression.Variable;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.SortedRangeSet;
@@ -35,10 +35,13 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -48,8 +51,10 @@ import static java.util.stream.Collectors.joining;
 public record CouchbaseTableHandle(String schema, String name, Optional<CouchbaseTableHandle> subQuery,
                                    List<NamedParametrizedString> selectClauses, List<Type> selectTypes,
                                    List<String> selectNames, List<ParametrizedString> whereClauses,
-                                   TupleDomain<ColumnHandle> constraint, List<String> orderClauses,
-                                   Set<List<ColumnHandle>> groupings,
+                                   TupleDomain<ColumnHandle> constraint,
+                                   LinkedHashMap<String, CouchbaseColumnHandle> orderClauses,
+                                   Set<CouchbaseColumnHandle> groupings,
+                                   AtomicBoolean isAggregated,
                                    AtomicLong topNCount) implements ConnectorTableHandle
 {
     public String path()
@@ -62,20 +67,29 @@ public record CouchbaseTableHandle(String schema, String name, Optional<Couchbas
         return new CouchbaseTableHandle(
                 schema,
                 name,
-                null,
+                Optional.empty(),
                 new ArrayList<>(),
                 new ArrayList<>(),
                 new ArrayList<>(),
                 new ArrayList<>(),
                 TupleDomain.all(),
-                new ArrayList<>(),
+                new LinkedHashMap<>(),
                 new HashSet<>(),
+                new AtomicBoolean(false),
                 new AtomicLong(-1L));
     }
 
     public void addSortItems(List<SortItem> sortItems, Map<String, ColumnHandle> assignments)
     {
-        sortItems.forEach(sortItem -> orderClauses.add(transformSortItem(sortItem, assignments)));
+        CouchbaseTableHandle sq = subQuery.orElse(null);
+        List<SortItem> pushdown =  new ArrayList<>();
+        sortItems.forEach(sortItem -> {
+            CouchbaseColumnHandle sourceColumn = (CouchbaseColumnHandle) assignments.get(sortItem.getName());
+            orderClauses.put(transformSortItem(sortItem, assignments), sourceColumn);
+        });
+        if (!pushdown.isEmpty()) {
+            sq.addSortItems(pushdown, assignments);
+        }
     }
 
     protected String transformSortItem(SortItem sortItem, Map<String, ColumnHandle> assignments)
@@ -89,7 +103,7 @@ public record CouchbaseTableHandle(String schema, String name, Optional<Couchbas
         if (this.orderClauses.size() != sortItems.size()) {
             return false;
         }
-        return sortItems.stream().map(si -> transformSortItem(si, assignments)).allMatch(orderClauses::contains);
+        return sortItems.stream().map(si -> transformSortItem(si, assignments)).allMatch(orderClauses.keySet()::contains);
     }
 
     public boolean hasVariable(String name)
@@ -123,6 +137,11 @@ public record CouchbaseTableHandle(String schema, String name, Optional<Couchbas
         if (!selectClauses.contains(compiled)) {
             String otherName = findName(compiled.value()).orElse(null);
             if (otherName == null) {
+                if (compiled.name() == null) {
+                    compiled = new NamedParametrizedString(generateColumnName(), compiled.value());
+                } else if (hasVariable(compiled.name())) {
+                    return compiled.name();
+                }
                 selectClauses.add(compiled);
                 selectTypes.add(projection.getType());
                 selectNames.add(compiled.name());
@@ -154,25 +173,54 @@ public record CouchbaseTableHandle(String schema, String name, Optional<Couchbas
     public String toSql()
     {
         List<String> fromClause = new ArrayList<>();
+        boolean fromSubQuery = false;
         if (subQuery.isPresent()) {
             CouchbaseTableHandle sq = subQuery.get();
-            if (this.topNCount.get() < 0 && this.whereClauses().isEmpty() && this.orderClauses.isEmpty() && sq.selectClauses().containsAll(this.selectClauses)) {
+            if (this.topNCount.get() < 0 && this.whereClauses().isEmpty() && this.orderClauses.isEmpty() && sq.selectClauses().containsAll(this.selectClauses) && this.groupings.isEmpty()) {
                 return sq.toSql();
             }
-            if (sq != this && !(sq.isEmpty() && sq.schema().equals(schema) && sq.name().equals(name))) {
+            if (sq != this && (sq.schema().equals(schema) && sq.name().equals(name))) {
                 fromClause.add(String.format("(%s) `%s`", sq.toSql(), "data"));
 //                    selectClauses.add(new NamedParametrizedString("data", ParametrizedString.from(String.format("`%s`.*", "data"))));
+                fromSubQuery = true;
             }
         }
         if (fromClause.isEmpty()) {
             fromClause.add(String.format("`%s`", name));
         }
 
-        String query = String.format("SELECT %s FROM %s WHERE %s ORDER BY %s",
-                selectClauses.isEmpty() ? "{}" : selectClauses.stream().map(NamedParametrizedString::toString).collect(joining(", ")),
+        StringBuilder groupByClause = new StringBuilder();
+        if (!groupings.isEmpty()) {
+            groupByClause.append(groupings.stream()
+                    .map(CouchbaseColumnHandle::name)
+                    .collect(Collectors.joining("`, `", " GROUP BY `", "`"))
+            );
+        }
+
+        StringBuilder orderByClause = new StringBuilder();
+        if (!orderClauses.isEmpty()) {
+            orderByClause.append(String.format(" ORDER BY %s", String.join(", ", orderClauses.keySet())));
+            if (!fromSubQuery) {
+                orderByClause.append(", META().id");
+            }
+        } else if (!fromSubQuery) {
+            orderByClause.append(" ORDER BY META().id");
+        }
+
+        StringBuilder whereClause = new StringBuilder();
+        if (!whereClauses.isEmpty()) {
+            whereClause.append(String.format(" WHERE %s",
+                    whereClauses.stream().map(ParametrizedString::toString).collect(joining(" AND "))));
+        }
+
+
+        String query = String.format("SELECT %s FROM %s%s%s%s",
+                selectClauses.isEmpty() ? String.format("`%s`.*", subQuery.isPresent() ? "data" : name()):
+                        selectClauses.stream().map(NamedParametrizedString::toString).collect(joining(", ")),
                 String.join(", ", fromClause),
-                whereClauses.isEmpty() ? "TRUE" : whereClauses.stream().map(ParametrizedString::toString).collect(joining(", ")),
-                orderClauses.isEmpty() ? "META().id" : String.format("%s, META().id", String.join(", ", orderClauses)));
+                whereClause.toString(),
+                groupByClause.toString(),
+                orderByClause.toString());
 
         if (topNCount.get() > -1) {
             query = String.format("%s LIMIT %d", query, topNCount.get());
@@ -196,32 +244,8 @@ public record CouchbaseTableHandle(String schema, String name, Optional<Couchbas
 
     public boolean isEmpty()
     {
-        return topNCount.get() == -1 && selectClauses.isEmpty() && whereClauses.isEmpty() && orderClauses.isEmpty();
-    }
-
-    public void addConstraint(Constraint constraint)
-    {
-        whereClauses.add(compileConstraint(constraint));
-    }
-
-    protected ParametrizedString compileConstraint(Constraint constraint)
-    {
-//        addAssignments(constraint.getAssignments(), Arrays.asList(constraint.getExpression()));
-        TupleDomain<ColumnHandle> filter = constraint.getSummary();
-        List<ParametrizedString> clauses = new ArrayList<>();
-        clauses.add(compilePredicate(filter));
-
-        if (!constraint.getExpression().equals(Constant.TRUE)) {
-            clauses.add(TrinoExpressionToCb.convert(constraint.getExpression(), constraint.getAssignments()));
-        }
-
-        if (clauses.isEmpty()) {
-            return ParametrizedString.from("TRUE");
-        }
-        else if (clauses.size() == 1) {
-            return clauses.getFirst();
-        }
-        return ParametrizedString.join(clauses, ") AND (", "(", ")");
+        return (subQuery.isEmpty() || (subQuery.get() != this && subQuery.get().isEmpty())) &&
+                topNCount.get() == -1 && selectClauses.isEmpty() && whereClauses.isEmpty() && orderClauses.isEmpty() && groupings.isEmpty();
     }
 
     private ParametrizedString compileDomain(String left, Domain domain)
@@ -241,11 +265,15 @@ public record CouchbaseTableHandle(String schema, String name, Optional<Couchbas
                 boolean[] inclusives = rangeSet.getInclusive();
 
                 for (int i = 0; i < values.size(); i++) {
+                    Object value = values.get(i);
+                    if (value instanceof Slice slice) {
+                        value = slice.toStringUtf8();
+                    }
                     if (inclusives[i]) {
-                        include.add(values.get(i));
+                        include.add(value);
                     }
                     else {
-                        exclude.add(values.get(i));
+                        exclude.add(value);
                     }
                 }
 
@@ -293,7 +321,7 @@ public record CouchbaseTableHandle(String schema, String name, Optional<Couchbas
 
     public boolean containsConstraint(Constraint constraint)
     {
-        return whereClauses.contains(compileConstraint(constraint));
+        return whereClauses.contains(TrinoExpressionToCb.convert(constraint.getExpression(), constraint.getAssignments()));
     }
 
     @Override
@@ -302,8 +330,11 @@ public record CouchbaseTableHandle(String schema, String name, Optional<Couchbas
     {
         StringBuilder builder = new StringBuilder();
         builder.append(name);
+        if (subQuery().isPresent()) {
+            builder.append(String.format(" subQuery=[%s]",  subQuery()));
+        }
         if (!whereClauses.isEmpty()) {
-            builder.append(" filter=")
+            builder.append(" filterPredicate=")
                     .append(ParametrizedString.join(whereClauses, ") AND (", "(", ")").text());
         }
         if (constraint.isNone()) {
@@ -322,7 +353,7 @@ public record CouchbaseTableHandle(String schema, String name, Optional<Couchbas
         }
         if (!orderClauses.isEmpty()) {
             builder.append(" sortOrder=")
-                    .append(orderClauses.stream()
+                    .append(orderClauses.keySet().stream()
                             .map(s -> {
                                 int space = s.indexOf(' ');
                                 if (space > -1) {
@@ -376,8 +407,8 @@ public record CouchbaseTableHandle(String schema, String name, Optional<Couchbas
 
     public void addColumn(CouchbaseColumnHandle column)
     {
-        NamedParametrizedString nps = new NamedParametrizedString(column.name(), ParametrizedString.from(String.format("`%s`", column.name())));
-        if (!selectClauses.contains(nps)) {
+        if (!coversColumn(column)) {
+            NamedParametrizedString nps = new NamedParametrizedString(column.name(), ParametrizedString.from(String.format("`%s`", column.name())));
             selectClauses.add(nps);
             selectTypes.add(column.type());
             selectNames.add(column.name());
@@ -391,31 +422,26 @@ public record CouchbaseTableHandle(String schema, String name, Optional<Couchbas
 
     public CouchbaseTableHandle wrap()
     {
-        return new CouchbaseTableHandle(schema(), name(), Optional.of(this), new ArrayList<>(), new ArrayList<>(), new ArrayList<>(), new ArrayList<>(), TupleDomain.all(), new ArrayList<>(), new HashSet<>(), new AtomicLong(-1));
+        return new CouchbaseTableHandle(schema(), name(), Optional.of(this), new ArrayList<>(), new ArrayList<>(),
+                new ArrayList<>(), new ArrayList<>(), TupleDomain.all(), new LinkedHashMap<>(), new HashSet<>(),
+                new AtomicBoolean(false), new AtomicLong(-1));
     }
 
     public boolean containsProjections(List<ConnectorExpression> projections, Map<String, ColumnHandle> assignments)
     {
-        return projections.stream().map(projection -> compileProjection(projection, assignments)).allMatch(nps -> selectClauses.contains(nps));
-    }
-
-    public boolean coversAllColumns(Set<CouchbaseColumnHandle> projectedColumns)
-    {
-        return projectedColumns.stream().allMatch(this::coversColumn);
-    }
-
-    public void addColumns(Map<ConnectorExpression, ApplyProjectionUtil.ProjectedColumnRepresentation> columnProjections, Map<String, ColumnHandle> assignments)
-    {
-        columnProjections.forEach((expression, columnRepresentation) -> {
-            addProjection(expression, assignments);
-        });
+        return projections.stream()
+                .map(projection -> compileProjection(projection, assignments))
+                .allMatch(projection -> selectClauses.stream()
+                        .anyMatch(clause ->
+                                (projection.name() != null && Objects.equals(clause.name(), projection.name())) ||
+                                (projection.name() == null && Objects.equals(clause.value(), projection.value()))));
     }
 
     public CouchbaseTableHandle withConstraint(TupleDomain<ColumnHandle> newDomain)
     {
-        ArrayList<ParametrizedString> where = new ArrayList<>();
-        where.add(compilePredicate(newDomain));
-        return new CouchbaseTableHandle(schema(), name(), subQuery, selectClauses, selectTypes, selectNames, where, newDomain, orderClauses, groupings, topNCount);
+        whereClauses.add(compilePredicate(newDomain));
+        return new CouchbaseTableHandle(schema(), name(), subQuery, selectClauses, selectTypes, selectNames, whereClauses,
+                newDomain, orderClauses, groupings, new AtomicBoolean(false), topNCount);
     }
 
     public boolean coversColumn(CouchbaseColumnHandle column)
@@ -423,17 +449,36 @@ public record CouchbaseTableHandle(String schema, String name, Optional<Couchbas
         return hasVariable(column.name());
     }
 
-    public void addAggregateFunctions(List<AggregateFunction> aggregates, Map<String, ColumnHandle> assignments)
-    {
-        aggregates.forEach(a -> addAggregateFunction(a, assignments));
+    public boolean containsAllAggregations(List<AggregateFunction> aggregates, Map<String, ColumnHandle> assignments) {
+        return aggregates.stream().allMatch(agg -> containsAggregation(agg, assignments));
     }
 
-    public void addAggregateFunction(AggregateFunction a, Map<String, ColumnHandle> assignments)
+    public boolean containsAggregation(AggregateFunction aggregateFunction, Map<String, ColumnHandle> assignments) {
+        return findAggregation(aggregateFunction, assignments).isPresent();
+    }
+
+    public Optional<NamedParametrizedString> findAggregation(AggregateFunction aggregateFunction,
+                                                    Map<String, ColumnHandle> assignments)
     {
-        selectClauses.add(new NamedParametrizedString(null, ParametrizedString.join(
-                TrinoExpressionToCb.convert(a.getArguments(), assignments), ", ", String.format("%s(", a.getFunctionName()), ")")));
-        selectNames.add(null);
-        selectTypes.add(a.getOutputType());
+        ParametrizedString converted = TrinoExpressionToCb.convert(aggregateFunction, assignments);
+        return selectClauses.stream().filter(nps -> nps.value().equals(converted)).findFirst();
+    }
+
+    public NamedParametrizedString addAggregateFunction(AggregateFunction aggregate, Map<String, ColumnHandle> assignments)
+    {
+        NamedParametrizedString result = new NamedParametrizedString(
+                generateColumnName(),
+                TrinoExpressionToCb.convert(aggregate, assignments));
+        selectClauses.add(result);
+        selectNames.add(result.name());
+        selectTypes.add(aggregate.getOutputType());
+        isAggregated.set(true);
+        return result;
+    }
+
+    private String generateColumnName()
+    {
+        return String.format("syn_column_%d", selectClauses.size());
     }
 
     public void clearSelectElements()
@@ -441,5 +486,31 @@ public record CouchbaseTableHandle(String schema, String name, Optional<Couchbas
         selectClauses.clear();
         selectNames.clear();
         selectTypes.clear();
+    }
+
+    public boolean containsAllGroupings(Collection<? extends Collection<ColumnHandle>> groupingSets)
+    {
+        return groupingSets.stream()
+                .flatMap(group -> group.stream().map(CouchbaseColumnHandle.class::cast))
+                .allMatch(this.groupings::contains);
+    }
+
+    public void addGroupings(Collection<? extends Collection<ColumnHandle>> groupingSets)
+    {
+        groupingSets.stream()
+                .flatMap(group -> group.stream().map(CouchbaseColumnHandle.class::cast))
+                .forEach(chandle -> {
+                    groupings.add(chandle);
+                    if (!this.hasSortItemOn(chandle.name())) {
+                        addSortItems(List.of(new SortItem(chandle.name(), SortOrder.ASC_NULLS_LAST)), Map.of(chandle.name(), chandle));
+                    }
+                });
+    }
+
+    public boolean hasSortItemOn(String columnName)
+    {
+        return this.orderClauses.values().stream()
+                .filter(Objects::nonNull)
+                .anyMatch(target -> target.name().equals(columnName));
     }
 }

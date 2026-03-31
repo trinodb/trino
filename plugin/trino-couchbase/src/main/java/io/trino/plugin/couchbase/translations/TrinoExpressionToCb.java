@@ -13,8 +13,13 @@
  */
 package io.trino.plugin.couchbase.translations;
 
+import ch.qos.logback.core.boolex.EvaluationException;
+import io.airlift.slice.Slice;
+import io.airlift.slice.Slices;
 import io.trino.plugin.couchbase.CouchbaseColumnHandle;
+import io.trino.plugin.couchbase.NamedParametrizedString;
 import io.trino.plugin.couchbase.ParametrizedString;
+import io.trino.spi.connector.AggregateFunction;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.expression.Call;
 import io.trino.spi.expression.ConnectorExpression;
@@ -46,6 +51,9 @@ public class TrinoExpressionToCb
         }
         else if (expression instanceof Constant constant) {
             // todo: support type casts
+            if (constant.getValue() instanceof Slice slice) {
+                return ParametrizedString.from("?", Arrays.asList(slice.toStringUtf8()));
+            }
             return ParametrizedString.from("?", Arrays.asList(constant.getValue()));
         }
         else if (expression instanceof Variable variable) {
@@ -163,5 +171,26 @@ public class TrinoExpressionToCb
         else {
             throw new IllegalArgumentException("Unsupported type: " + type);
         }
+    }
+
+    public static ParametrizedString convert(AggregateFunction aggregate, Map<String, ColumnHandle> assignments)
+    {
+        ParametrizedString result;
+        if (aggregate.getFunctionName().equals("count") && aggregate.getArguments().isEmpty()) {
+           result = ParametrizedString.from("count(*)");
+        } else {
+            result = ParametrizedString.join(Arrays.asList(
+                    ParametrizedString.from(FunctionMappings.trinoToCb(aggregate.getFunctionName())),
+                    ParametrizedString.join(convert(aggregate.getArguments(), assignments), ",", "(", ")")
+            ));
+        }
+        if (aggregate.isDistinct()) {
+            result = ParametrizedString.join(Arrays.asList(
+                    ParametrizedString.from("DISTINCT"),
+                    result
+            ), " ");
+        }
+
+        return result;
     }
 }

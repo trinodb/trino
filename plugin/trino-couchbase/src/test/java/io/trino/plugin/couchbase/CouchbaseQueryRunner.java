@@ -196,13 +196,14 @@ public class CouchbaseQueryRunner
 
         List<String> columns = rows.getColumnNames();
         List<Type> types = rows.getTypes();
+        Long id = 0L;
         for (MaterializedRow row : rows) {
             JsonObject document = JsonObject.create();
             for (int i = 0; i < columns.size(); i++) {
                 String columnName = columns.get(i);
                 document.put(columnName, convertType(row.getField(i), types.get(i)));
             }
-            target.upsert(UUID.randomUUID().toString(), document);
+            target.upsert(String.valueOf(id++), document);
         }
         // let the dust settle
         try {

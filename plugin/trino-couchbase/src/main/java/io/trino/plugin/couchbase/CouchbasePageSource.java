@@ -17,10 +17,12 @@ import com.couchbase.client.java.json.JsonArray;
 import com.couchbase.client.java.json.JsonObject;
 import com.couchbase.client.java.query.QueryOptions;
 import com.couchbase.client.java.query.QueryResult;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.primitives.Shorts;
 import com.google.common.primitives.SignedBytes;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
+import io.trino.plugin.base.metrics.LongCount;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.TrinoException;
@@ -39,6 +41,7 @@ import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.SourcePage;
+import io.trino.spi.metrics.Metrics;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.BigintType;
@@ -82,6 +85,7 @@ public final class CouchbasePageSource
     private final String queryString;
     private final Long pageSize;
     private long offset;
+    private long total, pageCount, duration, errors;
     private boolean finished;
 
     public CouchbasePageSource(CouchbaseClient client, CouchbaseTransactionHandle transaction, ConnectorSession session, CouchbaseSplit split, CouchbaseTableHandle table, List<CouchbaseColumnHandle> columns, DynamicFilter dynamicFilter, Long pageSize)
@@ -129,36 +133,48 @@ public final class CouchbasePageSource
         if (finished) {
             return null;
         }
+        final long started = System.currentTimeMillis();
         verify(pageBuilder.isEmpty());
         JsonArray queryArgs = JsonArray.create();
         table.getParameters().forEach(queryArgs::add);
         QueryOptions options = QueryOptions.queryOptions().parameters(queryArgs);
 
-        final String query = String.format("SELECT data.* FROM (%s) data OFFSET %d LIMIT %d", queryString, offset, pageSize);
-        QueryResult result = client.getScope().query(query, options);
-        List<JsonObject> rows = result.rowsAsObject();
-        LOG.info("Couchbase query ({} result rows): {}; arguments: {}", rows.size(), query, queryArgs);
-        final List<Type> types = table.selectTypes();
-        final List<String> names = table.selectNames();
+        try {
+            final String query = String.format("SELECT data.* FROM (%s) data OFFSET %d LIMIT %d", queryString, offset, pageSize);
+            QueryResult result = client.getScope().query(query, options);
+            List<JsonObject> rows = result.rowsAsObject();
+            LOG.info("Couchbase query ({} result rows): {}; arguments: {}", rows.size(), query, queryArgs);
+            final List<Type> types = table.selectTypes();
+            final List<String> names = table.selectNames();
 
-        for (int j = 0; j < rows.size(); j++) {
-            JsonObject row = rows.get(j);
-            pageBuilder.declarePosition();
-            for (int i = 0; i < table.selectClauses().size(); i++) {
-                Type type = types.get(i);
-                BlockBuilder output = pageBuilder.getBlockBuilder(i);
-                appendValue(output, type, row.get(names.get(i)));
+            for (int j = 0; j < rows.size(); j++) {
+                JsonObject row = rows.get(j);
+                pageBuilder.declarePosition();
+                for (int i = 0; i < table.selectClauses().size(); i++) {
+                    Type type = types.get(i);
+                    BlockBuilder output = pageBuilder.getBlockBuilder(i);
+                    appendValue(output, type, row.get(names.get(i)));
+                }
             }
-        }
-        offset += pageSize;
 
-        if (rows.size() != pageSize) {
-            finished = true;
+            // update metrics
+            offset += pageSize;
+            total += rows.size();
+            pageCount++;
+            duration += System.currentTimeMillis() - started;
+
+            if (rows.size() != pageSize) {
+                finished = true;
+            }
+            else if (rows.isEmpty()) {
+                finished = true;
+                return null;
+            }
+        } catch (Throwable t) {
+            errors++;
+            throw t;
         }
-        else if (rows.isEmpty()) {
-            finished = true;
-            return null;
-        }
+
 
         Page page = pageBuilder.build();
         pageBuilder.reset();
@@ -411,5 +427,15 @@ public final class CouchbasePageSource
     public String toString()
     {
         return "CouchbasePageSource[" + "transaction=" + transaction + ", " + "session=" + session + ", " + "split=" + split + ", " + "table=" + table + ']';
+    }
+
+    @Override
+    public Metrics getMetrics()
+    {
+        return new Metrics(ImmutableMap.of(
+                "rows", new LongCount(total),
+                "duration", new LongCount(duration),
+                "pages", new LongCount(pageCount),
+                "errors", new LongCount(errors)));
     }
 }

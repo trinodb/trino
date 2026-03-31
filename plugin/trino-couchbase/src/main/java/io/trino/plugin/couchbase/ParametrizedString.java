@@ -25,6 +25,14 @@ public record ParametrizedString(String text, List<Object> params)
         return new ParametrizedString(text, Collections.emptyList());
     }
 
+    public static ParametrizedString join(List<ParametrizedString> others) {
+        return join(others, "", "", "");
+    }
+
+    public static ParametrizedString join(List<ParametrizedString> others, String delimeter) {
+        return join(others, delimeter, "", "");
+    }
+
     public static ParametrizedString join(List<ParametrizedString> others, String delimeter, String before, String after)
     {
         List<Object> params = new ArrayList<>();

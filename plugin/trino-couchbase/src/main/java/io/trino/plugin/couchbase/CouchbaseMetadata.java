@@ -16,14 +16,17 @@ package io.trino.plugin.couchbase;
 import com.couchbase.client.java.json.JsonArray;
 import com.couchbase.client.java.json.JsonObject;
 import com.couchbase.client.java.manager.collection.CollectionManager;
+import com.couchbase.client.protostellar.admin.collection.v1.CollectionAdminServiceGrpc;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.trino.plugin.base.projection.ApplyProjectionUtil;
+import io.trino.plugin.couchbase.translations.TrinoExpressionToCb;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.AggregateFunction;
 import io.trino.spi.connector.AggregationApplicationResult;
 import io.trino.spi.connector.Assignment;
+import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorMetadata;
@@ -46,6 +49,7 @@ import io.trino.spi.connector.TableFunctionApplicationResult;
 import io.trino.spi.connector.TableScanRedirectApplicationResult;
 import io.trino.spi.connector.TopNApplicationResult;
 import io.trino.spi.expression.ConnectorExpression;
+import io.trino.spi.expression.Constant;
 import io.trino.spi.expression.Variable;
 import io.trino.spi.function.table.ConnectorTableFunctionHandle;
 import io.trino.spi.predicate.Domain;
@@ -72,6 +76,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
@@ -146,7 +151,7 @@ public class CouchbaseMetadata
         CouchbaseTableHandle handle = (CouchbaseTableHandle) table;
         String tablePath = handle.path();
         checkMtime(handle);
-        if (!metaCache.containsKey(tablePath)) {
+        if (metaCache.get(tablePath) == null) {
             File schemaFile = getSchemaFile(handle);
             if (!schemaFile.exists()) {
                 throw new RuntimeException(String.format("Couchbase schema file '%s' does not exist", schemaFile.getAbsolutePath()));
@@ -193,8 +198,8 @@ public class CouchbaseMetadata
 
                 LOG.debug("Loaded schema for table '{}': {}", tablePath, columns);
                 ConnectorTableMetadata result = new ConnectorTableMetadata(new SchemaTableName(handle.schema(), handle.name()), columns);
-                mtimeCache.put(tablePath, Files.getLastModifiedTime(schemaFile.toPath()).toMillis());
                 metaCache.put(tablePath, result);
+                mtimeCache.put(tablePath, Files.getLastModifiedTime(schemaFile.toPath()).toMillis());
             }
             catch (Exception e) {
                 LOG.error(String.format("Failed to read schema for table '%s'", tablePath), e);
@@ -216,7 +221,8 @@ public class CouchbaseMetadata
                         column -> new CouchbaseColumnHandle(
                                 Arrays.asList(handle.schema(), handle.name(), column.getName()),
                                 new ArrayList<>(),
-                                column.getType())));
+                                column.getType(),
+                                false)));
     }
 
     @Override
@@ -226,7 +232,12 @@ public class CouchbaseMetadata
         return tableMeta.getColumns().stream()
                 .filter(column -> column.getName().equals(((CouchbaseColumnHandle) columnHandle).name()))
                 .findFirst()
-                .orElse(null);
+                .orElseGet(() -> {
+                    if (columnHandle instanceof CouchbaseColumnHandle cbHandle) {
+                        return new ColumnMetadata(cbHandle.name(), cbHandle.type());
+                    }
+                    return null;
+                });
     }
 
     private File getSchemaFile(CouchbaseTableHandle handle)
@@ -258,8 +269,9 @@ public class CouchbaseMetadata
         }
 
         if (handle instanceof CouchbaseTableHandle cbHandle) {
-            if (cbHandle.containsConstraint(constraint)) {
-                return Optional.empty();
+            // don't apply where on aggregations
+            if (cbHandle.isAggregated().get() || !cbHandle.groupings().isEmpty()) {
+                cbHandle = cbHandle.wrap();
             }
             TupleDomain<ColumnHandle> oldDomain = cbHandle.constraint();
             TupleDomain<ColumnHandle> newDomain = oldDomain.intersect(constraint.getSummary());
@@ -287,12 +299,21 @@ public class CouchbaseMetadata
                 newDomain = TupleDomain.withColumnDomains(supported);
                 remainingFilter = TupleDomain.withColumnDomains(unsupported);
             }
-            if (oldDomain.equals(newDomain)) {
-                return Optional.empty();
+
+            boolean modified = false;
+            if (!oldDomain.equals(newDomain)) {
+                handle = cbHandle = cbHandle.withConstraint(newDomain);
+                modified = true;
             }
 
-            cbHandle = cbHandle.withConstraint(newDomain);
-            handle = cbHandle;
+            if (constraint.getExpression() != Constant.TRUE && !cbHandle.containsConstraint(constraint)) {
+                cbHandle.whereClauses().add(TrinoExpressionToCb.convert(constraint.getExpression(), constraint.getAssignments()));
+                modified = true;
+            }
+
+            if (!modified) {
+                return Optional.empty();
+            }
 
             return Optional.of(new ConstraintApplicationResult<>(handle, remainingFilter, constraint.getExpression(), false));
         }
@@ -387,7 +408,8 @@ public class CouchbaseMetadata
 
         if (handle instanceof CouchbaseTableHandle cbHandle) {
             if (cbHandle.topNCount().longValue() != -1 || !cbHandle.orderClauses().isEmpty()) {
-                if (cbHandle.topNCount().longValue() == topNCount && cbHandle.compareSortItems(sortItems, assignments)) {
+                if (cbHandle.topNCount().longValue() <= topNCount && cbHandle.compareSortItems(sortItems,
+                        assignments)) {
                     LOG.info("Rejecting topN: no effect");
                     return Optional.empty();
                 }
@@ -395,6 +417,8 @@ public class CouchbaseMetadata
                 cbHandle = cbHandle.wrap();
                 handle = cbHandle;
             }
+
+
 
             cbHandle.setTopNCount(topNCount);
             cbHandle.addSortItems(sortItems, assignments);
@@ -443,7 +467,10 @@ public class CouchbaseMetadata
 
         try {
             if (cbTable.containsProjections(projections, assignments)) {
-                return Optional.empty();
+                if (cbTable.selectClauses().size() == projections.size()) {
+                    return Optional.empty();
+                }
+                cbTable = cbTable.wrap();
             }
         }
         catch (IllegalArgumentException e) {
@@ -458,9 +485,8 @@ public class CouchbaseMetadata
         Map<ConnectorExpression, ApplyProjectionUtil.ProjectedColumnRepresentation> columnProjections = projectedExpressions.stream()
                 .collect(toImmutableMap(identity(), ApplyProjectionUtil::createProjectedColumnRepresentation));
 
-//            cbTable.addColumns(columnProjections, assignments);
-
         Map<String, Assignment> newAssignments = new HashMap<>();
+        Map<String, ColumnHandle> newColumnAssignmentMap = new HashMap<>();
         ImmutableMap.Builder<ConnectorExpression, Variable> newVariablesBuilder = ImmutableMap.builder();
         ImmutableSet.Builder<CouchbaseColumnHandle> projectedColumnsBuilder = ImmutableSet.builder();
 
@@ -475,6 +501,7 @@ public class CouchbaseMetadata
             Variable projectedColumnVariable = new Variable(projectedColumnName, expression.getType());
             Assignment newAssignment = new Assignment(projectedColumnName, projectedColumnHandle, expression.getType());
             newAssignments.putIfAbsent(projectedColumnName, newAssignment);
+            newColumnAssignmentMap.putIfAbsent(projectedColumnName, projectedColumnHandle);
 
             newVariablesBuilder.put(expression, projectedColumnVariable);
             projectedColumnsBuilder.add(projectedColumnHandle);
@@ -485,17 +512,27 @@ public class CouchbaseMetadata
                 .map(expression -> replaceWithNewVariables(expression, newVariables))
                 .collect(toImmutableList());
 
-        if (cbTable.containsProjections(newProjections, assignments)) {
-            return Optional.empty();
+        if (cbTable.containsProjections(newProjections, newColumnAssignmentMap)) {
+            if (newProjections.size() == cbTable.selectClauses().size()) {
+                return Optional.empty();
+            }
+            cbTable = cbTable.wrap();
         }
 
-        cbTable.selectClauses().clear();
-        cbTable.selectTypes().clear();
-        cbTable.selectNames().clear();
-
-        cbTable.addProjections(newProjections, assignments);
-
         List<Assignment> outputAssignments = newAssignments.values().stream().collect(toImmutableList());
+        List<String> projectionAssignments = cbTable.addProjections(newProjections, newColumnAssignmentMap);
+        for (int i = 0; i < newProjections.size(); i++) {
+            String assignedName = projectionAssignments.get(i);
+            if (!newColumnAssignmentMap.containsKey(assignedName)) {
+                ConnectorExpression projection = newProjections.get(i);
+                newColumnAssignmentMap.put(assignedName, new CouchbaseColumnHandle(
+                        Arrays.asList(cbTable.schema(), cbTable.name(), assignedName),
+                        Collections.EMPTY_LIST,
+                        projection.getType(),
+                        !(projection instanceof Variable)));
+            }
+        }
+
         return Optional.of(new ProjectionApplicationResult<>(
                 cbTable,
                 newProjections,
@@ -523,7 +560,8 @@ public class CouchbaseMetadata
         return new CouchbaseColumnHandle(
                 baseColumn.path(),
                 dereferenceNamesBuilder.build(),
-                projectedColumnType);
+                projectedColumnType,
+                baseColumn.isSynthetic());
     }
 
     @Override
@@ -535,6 +573,40 @@ public class CouchbaseMetadata
     @Override
     public Optional<AggregationApplicationResult<ConnectorTableHandle>> applyAggregation(ConnectorSession session, ConnectorTableHandle handle, List<AggregateFunction> aggregates, Map<String, ColumnHandle> assignments, List<List<ColumnHandle>> groupingSets)
     {
+        if (handle instanceof CouchbaseTableHandle cbTable) {
+            if (cbTable.containsAllAggregations(aggregates, assignments) && cbTable.containsAllGroupings(groupingSets)) {
+                return Optional.empty();
+            }
+            ImmutableList.Builder<Assignment> newAssignmentsBuilder = ImmutableList.builder();
+            ImmutableList.Builder<ConnectorExpression> projectionsBuilder = ImmutableList.builder();
+
+            cbTable = cbTable.wrap();
+
+            for (int i = 0; i < aggregates.size(); i++) {
+                AggregateFunction aggregateFunction = aggregates.get(i);
+                NamedParametrizedString result = cbTable.addAggregateFunction(aggregateFunction, assignments);
+                newAssignmentsBuilder.add(
+                        new Assignment(
+                                result.name(),
+                                new CouchbaseColumnHandle(
+                                        Arrays.asList(cbTable.schema(), cbTable.name(), result.name()),
+                                        new ArrayList<>(),
+                                        aggregateFunction.getOutputType(),
+                                        true),
+                                aggregateFunction.getOutputType()));
+                projectionsBuilder.add(new Variable(result.name(), aggregateFunction.getOutputType()));
+            }
+
+            cbTable.addGroupings(groupingSets);
+
+            return Optional.of(new AggregationApplicationResult<>(
+                    cbTable,
+                    projectionsBuilder.build(),
+                    newAssignmentsBuilder.build(),
+                    ImmutableMap.of(),
+                    true
+            ));
+        }
         return Optional.empty();
     }
 
