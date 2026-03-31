@@ -58,7 +58,9 @@ import static io.trino.spi.variant.VariantUtils.checkArgument;
 import static io.trino.spi.variant.VariantUtils.getOffsetSize;
 import static io.trino.spi.variant.VariantUtils.verify;
 import static io.trino.spi.variant.VariantUtils.writeOffset;
+import static java.lang.Math.addExact;
 import static java.lang.Math.max;
+import static java.lang.Math.multiplyExact;
 
 public final class VariantEncoder
 {
@@ -286,11 +288,11 @@ public final class VariantEncoder
         // For negative timestamps with a positive nano adjustment, shift one second into nanos first
         // so multiplyExact can still represent the full long nanoseconds domain (including Long.MIN_VALUE).
         if (epochSecond < 0 && nanoOfSecond > 0) {
-            epochSecond = Math.addExact(epochSecond, 1);
+            epochSecond = addExact(epochSecond, 1);
             nanoOfSecond -= 1_000_000_000;
         }
 
-        long epochNanos = Math.addExact(Math.multiplyExact(epochSecond, 1_000_000_000L), nanoOfSecond);
+        long epochNanos = addExact(multiplyExact(epochSecond, 1_000_000_000L), nanoOfSecond);
         return encodeTimestampNanosUtc(epochNanos, variant, offset);
     }
 

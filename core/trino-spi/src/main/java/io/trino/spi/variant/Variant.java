@@ -41,6 +41,7 @@ import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
 import static io.airlift.slice.Slices.utf8Slice;
+import static io.airlift.slice.Slices.wrappedBuffer;
 import static io.trino.spi.variant.Header.BasicType.OBJECT;
 import static io.trino.spi.variant.Header.BasicType.PRIMITIVE;
 import static io.trino.spi.variant.Header.arrayFieldOffsetSize;
@@ -96,6 +97,8 @@ import static io.trino.spi.variant.VariantUtils.checkState;
 import static io.trino.spi.variant.VariantUtils.findFieldIndex;
 import static io.trino.spi.variant.VariantUtils.readOffset;
 import static io.trino.spi.variant.VariantUtils.verify;
+import static java.lang.Math.floorDiv;
+import static java.lang.Math.floorMod;
 import static java.lang.Math.multiplyExact;
 import static java.lang.Math.toIntExact;
 import static java.util.Collections.unmodifiableList;
@@ -105,7 +108,7 @@ import static java.util.Objects.requireNonNullElse;
 
 public final class Variant
 {
-    public static final Variant NULL_VALUE = from(EMPTY_METADATA, Slices.wrappedBuffer(primitiveHeader(PrimitiveType.NULL)));
+    public static final Variant NULL_VALUE = from(EMPTY_METADATA, wrappedBuffer(primitiveHeader(PrimitiveType.NULL)));
     public static final Variant EMPTY_ARRAY;
     public static final Variant EMPTY_OBJECT;
     private final Slice data;
@@ -560,13 +563,13 @@ public final class Variant
         int nanoOfSecond;
         if (primitiveType == PrimitiveType.TIMESTAMP_UTC_MICROS) {
             long micros = getTimestampMicros();
-            seconds = Math.floorDiv(micros, 1_000_000);
-            nanoOfSecond = toIntExact(Math.floorMod(micros, 1_000_000) * 1_000L);
+            seconds = floorDiv(micros, 1_000_000);
+            nanoOfSecond = toIntExact(floorMod(micros, 1_000_000) * 1_000L);
         }
         else if (primitiveType == PrimitiveType.TIMESTAMP_UTC_NANOS) {
             long nanos = getTimestampNanos();
-            seconds = Math.floorDiv(nanos, 1_000_000_000L);
-            nanoOfSecond = (int) Math.floorMod(nanos, 1_000_000_000L);
+            seconds = floorDiv(nanos, 1_000_000_000L);
+            nanoOfSecond = (int) floorMod(nanos, 1_000_000_000L);
         }
         else {
             throw new IllegalStateException("Expected primitive TIMESTAMP but got " + primitiveType);
@@ -580,13 +583,13 @@ public final class Variant
         int nanoOfSecond;
         if (primitiveType == PrimitiveType.TIMESTAMP_NTZ_MICROS) {
             long micros = getTimestampMicros();
-            seconds = Math.floorDiv(micros, 1_000_000);
-            nanoOfSecond = toIntExact(Math.floorMod(micros, 1_000_000) * 1_000L);
+            seconds = floorDiv(micros, 1_000_000);
+            nanoOfSecond = toIntExact(floorMod(micros, 1_000_000) * 1_000L);
         }
         else if (primitiveType == PrimitiveType.TIMESTAMP_NTZ_NANOS) {
             long nanos = getTimestampNanos();
-            seconds = Math.floorDiv(nanos, 1_000_000_000L);
-            nanoOfSecond = (int) Math.floorMod(nanos, 1_000_000_000L);
+            seconds = floorDiv(nanos, 1_000_000_000L);
+            nanoOfSecond = (int) floorMod(nanos, 1_000_000_000L);
         }
         else {
             throw new IllegalStateException("Expected primitive TIMESTAMP but got " + primitiveType);
@@ -1056,7 +1059,7 @@ public final class Variant
             case LocalDateTime dateTime -> encodeTimestampNanosNtz(dateTime, out, offset);
             case UUID uuid -> encodeUuid(uuid, out, offset);
             case Slice slice -> encodeBinary(slice, out, offset);
-            case byte[] bytes -> encodeBinary(Slices.wrappedBuffer(bytes), out, offset);
+            case byte[] bytes -> encodeBinary(wrappedBuffer(bytes), out, offset);
             case String string -> encodeString(utf8Slice(string), out, offset);
             case List<?> list -> {
                 int written = encodeArrayHeading(
