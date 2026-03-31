@@ -34,6 +34,7 @@ import io.trino.spi.type.MapType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.SqlTimestamp;
 import io.trino.spi.type.TimestampType;
+import io.trino.spi.type.TrinoNumber;
 import io.trino.spi.type.Type;
 
 import java.math.BigDecimal;
@@ -62,6 +63,7 @@ import static io.trino.spi.type.Decimals.MAX_SHORT_PRECISION;
 import static io.trino.spi.type.Decimals.writeBigDecimal;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.NumberType.NUMBER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
@@ -537,6 +539,34 @@ public final class BlockAssertions
             }
             else {
                 writeBigDecimal(longDecimalType, builder, new BigDecimal(value));
+            }
+        }
+
+        return builder.buildValueBlock();
+    }
+
+    public static ValueBlock createNumbersBlock(TrinoNumber.AsBigDecimal... values)
+    {
+        requireNonNull(values, "values is null");
+
+        return createNumbersBlock(Arrays.asList(values));
+    }
+
+    public static ValueBlock createNumbersBlock(TrinoNumber.AsBigDecimal value, int count)
+    {
+        return createNumbersBlock(Collections.nCopies(count, value));
+    }
+
+    public static ValueBlock createNumbersBlock(Iterable<TrinoNumber.AsBigDecimal> values)
+    {
+        BlockBuilder builder = NUMBER.createBlockBuilder(null, 100);
+
+        for (TrinoNumber.AsBigDecimal value : values) {
+            if (value == null) {
+                builder.appendNull();
+            }
+            else {
+                NUMBER.writeObject(builder, TrinoNumber.from(value));
             }
         }
 

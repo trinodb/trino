@@ -156,19 +156,22 @@ abstract class AbstractTrinoResultSet
     static final TypeConversions TYPE_CONVERSIONS =
             TypeConversions.builder()
                     .add("decimal", String.class, BigDecimal.class, AbstractTrinoResultSet::parseBigDecimal)
-                    .add("number", String.class, Number.class, value -> {
-                        switch (value) {
-                            case "NaN":
-                                return Double.NaN;
-                            case "+Infinity":
-                                return Double.POSITIVE_INFINITY;
-                            case "-Infinity":
-                                return Double.NEGATIVE_INFINITY;
-                            default:
-                                return new BigDecimal(value);
+                    .add("number", Number.class, Number.class, value -> value)
+                    .add("number", Number.class, String.class, number -> {
+                        if (number instanceof Double) {
+                            Double doubleValue = (Double) number;
+                            if (Double.isNaN(doubleValue)) {
+                                return "NaN";
+                            }
+                            if (doubleValue == Double.NEGATIVE_INFINITY) {
+                                return "-Infinity";
+                            }
+                            if (doubleValue == Double.POSITIVE_INFINITY) {
+                                return "+Infinity";
+                            }
                         }
+                        return number.toString();
                     })
-                    .add("number", String.class, BigDecimal.class, value -> new BigDecimal(value))
                     .add("varbinary", byte[].class, String.class, value -> "0x" + BaseEncoding.base16().encode(value))
                     .add("date", String.class, Date.class, string -> parseDate(string, CURRENT_TIME_ZONE, CURRENT_JAVA_TIME_ZONE))
                     .add("date", String.class, java.time.LocalDate.class, string -> parseDate(string, CURRENT_TIME_ZONE, CURRENT_JAVA_TIME_ZONE).toLocalDate())
@@ -346,7 +349,7 @@ abstract class AbstractTrinoResultSet
         if (value instanceof byte[]) {
             return (byte[]) value;
         }
-        throw new SQLException("Value is not a byte array: " + value);
+        throw new SQLException("Value is not a byte array: " + getString(columnIndex));
     }
 
     @Override
@@ -784,7 +787,11 @@ abstract class AbstractTrinoResultSet
             return null;
         }
 
-        return parseBigDecimal(String.valueOf(value));
+        if (value instanceof BigDecimal) {
+            return (BigDecimal) value;
+        }
+
+        throw new SQLException("Value is not a number: " + getString(columnIndex));
     }
 
     private static BigDecimal parseBigDecimal(String value)

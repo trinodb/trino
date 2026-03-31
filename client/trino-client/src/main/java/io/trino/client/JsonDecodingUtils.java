@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableList;
 
 import java.io.IOException;
 import java.io.StringWriter;
+import java.math.BigDecimal;
 import java.util.Base64;
 import java.util.HashMap;
 import java.util.LinkedList;
@@ -86,6 +87,7 @@ public final class JsonDecodingUtils
     private static final BooleanDecoder BOOLEAN_DECODER = new BooleanDecoder();
     private static final StringDecoder STRING_DECODER = new StringDecoder();
     private static final VariantDecoder VARIANT_DECODER = new VariantDecoder();
+    private static final NumberDecoder NUMBER_DECODER = new NumberDecoder();
     private static final Base64Decoder BASE_64_DECODER = new Base64Decoder();
     private static final ObjectDecoder OBJECT_DECODER = new ObjectDecoder();
 
@@ -130,6 +132,8 @@ public final class JsonDecodingUtils
                 return new MapDecoder(signature);
             case ROW:
                 return new RowDecoder(signature);
+            case NUMBER:
+                return NUMBER_DECODER;
             case VARCHAR:
             case JSON:
             case TIME:
@@ -142,7 +146,6 @@ public final class JsonDecodingUtils
             case IPADDRESS:
             case UUID:
             case DECIMAL:
-            case NUMBER:
             case CHAR:
             case GEOMETRY:
             case SPHERICAL_GEOGRAPHY:
@@ -496,6 +499,34 @@ public final class JsonDecodingUtils
                 throws IOException
         {
             return jsonMapper.readValue(parser, Object.class);
+        }
+    }
+
+    private static class NumberDecoder
+            implements TypeDecoder
+    {
+        @Override
+        public Object decode(JsonParser parser)
+                throws IOException
+        {
+            if (requireNonNull(parser.currentToken()) != JsonToken.VALUE_STRING) {
+                throw illegalToken(parser);
+            }
+            String value = parser.getValueAsString();
+            switch (value) {
+                case "NaN": {
+                    return Double.NaN;
+                }
+                case "+Infinity": {
+                    return Double.POSITIVE_INFINITY;
+                }
+                case "-Infinity": {
+                    return Double.NEGATIVE_INFINITY;
+                }
+                default: {
+                    return new BigDecimal(value);
+                }
+            }
         }
     }
 

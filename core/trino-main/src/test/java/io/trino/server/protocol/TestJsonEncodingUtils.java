@@ -31,6 +31,7 @@ import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.RowType;
+import io.trino.spi.type.TrinoNumber;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
 import io.trino.spi.variant.Variant;
@@ -39,6 +40,7 @@ import org.junit.jupiter.api.Test;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -53,6 +55,7 @@ import static io.trino.block.BlockAssertions.createBooleansBlock;
 import static io.trino.block.BlockAssertions.createCharsBlock;
 import static io.trino.block.BlockAssertions.createDoublesBlock;
 import static io.trino.block.BlockAssertions.createIntsBlock;
+import static io.trino.block.BlockAssertions.createNumbersBlock;
 import static io.trino.block.BlockAssertions.createSmallintsBlock;
 import static io.trino.block.BlockAssertions.createStringsBlock;
 import static io.trino.block.BlockAssertions.createTinyintsBlock;
@@ -63,6 +66,7 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.NumberType.NUMBER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TinyintType.TINYINT;
@@ -424,6 +428,27 @@ public class TestJsonEncodingUtils
         Page page = page(block);
         assertThat(roundTrip(columns, page, "[[null],[{\"a\":1,\"b\":[true,null]}],[null]]"))
                 .isEqualTo(column(null, "{\"a\":1,\"b\":[true,null]}", null));
+    }
+
+    @Test
+    public void testNumberSerialization()
+            throws IOException
+    {
+        List<TypedColumn> columns = ImmutableList.of(typed("col0", NUMBER));
+        Page page = page(createNumbersBlock(
+                new TrinoNumber.NotANumber(),
+                new TrinoNumber.Infinity(true),
+                new TrinoNumber.Infinity(false),
+                new TrinoNumber.BigDecimalValue(BigDecimal.ZERO),
+                new TrinoNumber.BigDecimalValue(new BigDecimal("0.00000000000000000000000000000000000000000003141592653589793238462643383279502884197169399375105820974944592307"))));
+
+        assertThat(roundTrip(columns, page, "[[\"NaN\"],[\"-Infinity\"],[\"+Infinity\"],[\"0\"],[\"3.141592653589793238462643383279502884197169399375105820974944592307E-44\"]]"))
+                .isEqualTo(column(
+                        Double.NaN,
+                        Double.NEGATIVE_INFINITY,
+                        Double.POSITIVE_INFINITY,
+                        BigDecimal.ZERO,
+                        new BigDecimal("0.00000000000000000000000000000000000000000003141592653589793238462643383279502884197169399375105820974944592307")));
     }
 
     @Test
