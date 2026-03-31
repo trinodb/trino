@@ -1212,11 +1212,9 @@ public final class VariantUtil
 
     public static Slice asJson(Variant variant)
     {
-        try {
-            SliceOutput output = new DynamicSliceOutput(40);
-            try (JsonGenerator jsonGenerator = createJsonGenerator(JSON_MAPPER, output)) {
-                toJsonValue(jsonGenerator, variant);
-            }
+        try (SliceOutput output = new DynamicSliceOutput(40); JsonGenerator jsonGenerator = createJsonGenerator(JSON_MAPPER, output)) {
+            toJsonValue(jsonGenerator, variant);
+            jsonGenerator.flush();
             return output.slice();
         }
         catch (IOException e) {
