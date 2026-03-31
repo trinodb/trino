@@ -124,6 +124,7 @@ public final class VariantUtil
             .disable(CANONICALIZE_FIELD_NAMES)
             // prevents characters outside BMP (e.g., emoji) from being escaped as surrogate pairs
             .enable(COMBINE_UNICODE_SURROGATES_IN_UTF8)
+            .disable(ESCAPE_NON_ASCII)
             .build());
 
     private VariantUtil() {}
@@ -1214,7 +1215,6 @@ public final class VariantUtil
         try {
             SliceOutput output = new DynamicSliceOutput(40);
             try (JsonGenerator jsonGenerator = createJsonGenerator(JSON_MAPPER, output)) {
-                jsonGenerator.configure(ESCAPE_NON_ASCII.mappedFeature(), false);
                 toJsonValue(jsonGenerator, variant);
             }
             return output.slice();
