@@ -78,6 +78,8 @@ public final class JsonDecodingUtils
 {
     private JsonDecodingUtils() {}
 
+    private static final JsonMapper JSON_MAPPER = new JsonMapper();
+
     private static final BigIntegerDecoder BIG_INTEGER_DECODER = new BigIntegerDecoder();
     private static final IntegerDecoder INTEGER_DECODER = new IntegerDecoder();
     private static final SmallintDecoder SMALLINT_DECODER = new SmallintDecoder();
@@ -492,13 +494,11 @@ public final class JsonDecodingUtils
     private static class ObjectDecoder
             implements TypeDecoder
     {
-        private final JsonMapper jsonMapper = new JsonMapper();
-
         @Override
         public Object decode(JsonParser parser)
                 throws IOException
         {
-            return jsonMapper.readValue(parser, Object.class);
+            return JSON_MAPPER.readValue(parser, Object.class);
         }
     }
 
