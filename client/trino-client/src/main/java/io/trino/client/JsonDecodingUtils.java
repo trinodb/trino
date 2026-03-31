@@ -75,6 +75,8 @@ import static java.util.Objects.requireNonNull;
 
 public final class JsonDecodingUtils
 {
+    static final JsonMapper JSON_MAPPER = new JsonMapper(createJsonFactory());
+
     private JsonDecodingUtils() {}
 
     private static final BigIntegerDecoder BIG_INTEGER_DECODER = new BigIntegerDecoder();
@@ -302,7 +304,7 @@ public final class JsonDecodingUtils
                 throws IOException
         {
             StringWriter writer = new StringWriter();
-            try (JsonGenerator generator = createJsonFactory().createGenerator(writer)) {
+            try (JsonGenerator generator = JSON_MAPPER.createGenerator(writer)) {
                 generator.copyCurrentStructure(parser);
             }
             return writer.toString();
