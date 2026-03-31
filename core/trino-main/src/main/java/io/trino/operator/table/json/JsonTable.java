@@ -29,6 +29,7 @@ import io.trino.spi.function.table.TableFunctionProcessorState;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
+import io.trino.sql.gen.PageFunctionCompiler;
 
 import java.util.Arrays;
 import java.util.List;
@@ -82,6 +83,7 @@ public final class JsonTable
 
     public static TableFunctionProcessorProvider getJsonTableFunctionProcessorProvider(Metadata metadata, TypeManager typeManager, FunctionManager functionManager)
     {
+        PageFunctionCompiler pageFunctionCompiler = new PageFunctionCompiler(functionManager, metadata, typeManager, 0);
         return new TableFunctionProcessorProvider()
         {
             @Override
@@ -93,11 +95,11 @@ public final class JsonTable
                         jsonTableFunctionHandle.processingPlan(),
                         newRow,
                         jsonTableFunctionHandle.errorOnError(),
-                        jsonTableFunctionHandle.outputTypes(),
                         session,
                         metadata,
                         typeManager,
-                        functionManager);
+                        functionManager,
+                        pageFunctionCompiler);
                 return new JsonTableFunctionProcessor(executionPlan, newRow, jsonTableFunctionHandle.outputTypes(), (RowType) jsonTableFunctionHandle.parametersType(), jsonTableFunctionHandle.outer());
             }
         };

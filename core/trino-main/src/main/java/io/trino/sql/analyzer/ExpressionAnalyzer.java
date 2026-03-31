@@ -234,6 +234,7 @@ import static io.trino.spi.StandardErrorCode.SYNTAX_ERROR;
 import static io.trino.spi.StandardErrorCode.TOO_MANY_ARGUMENTS;
 import static io.trino.spi.StandardErrorCode.TYPE_MISMATCH;
 import static io.trino.spi.StandardErrorCode.TYPE_NOT_FOUND;
+import static io.trino.spi.StandardErrorCode.UNSUPPORTED_SUBQUERY;
 import static io.trino.spi.function.OperatorType.ADD;
 import static io.trino.spi.function.OperatorType.SUBSCRIPT;
 import static io.trino.spi.function.OperatorType.SUBTRACT;
@@ -549,6 +550,7 @@ public class ExpressionAnalyzer
         Visitor visitor = new Visitor(scope, warningCollector);
         List<Type> pathInvocationArgumentTypes = ImmutableList.of(JSON_2016, plannerContext.getTypeManager().getType(TypeId.of(JsonPath2016Type.NAME)), JSON_NO_PARAMETERS_ROW_TYPE);
         return visitor.analyzeJsonValueExpression(
+                "JSON_TABLE",
                 column,
                 pathAnalysis,
                 Optional.of(column.getType()),
@@ -2718,6 +2720,7 @@ public class ExpressionAnalyzer
         {
             List<Type> pathInvocationArgumentTypes = analyzeJsonPathInvocation("JSON_VALUE", node, node.getJsonPathInvocation(), context);
             Type returnedType = analyzeJsonValueExpression(
+                    "JSON_VALUE",
                     node,
                     jsonPathAnalyses.get(NodeRef.of(node)),
                     node.getReturnedType(),
@@ -2731,6 +2734,7 @@ public class ExpressionAnalyzer
         }
 
         private Type analyzeJsonValueExpression(
+                String callerName,
                 Node node,
                 JsonPathAnalysis pathAnalysis,
                 Optional<DataType> declaredReturnedType,
@@ -2772,16 +2776,18 @@ public class ExpressionAnalyzer
             }
 
             // validate default values for empty and error behavior
+            Type emptyDefaultType = returnedType;
             if (declaredEmptyDefault.isPresent()) {
                 Expression emptyDefault = declaredEmptyDefault.get();
                 if (emptyBehavior != DEFAULT) {
                     throw semanticException(INVALID_FUNCTION_ARGUMENT, emptyDefault, "Default value specified for %s ON EMPTY behavior", emptyBehavior);
                 }
-                Type type = process(emptyDefault, context);
-                // this would normally be done after function resolution, but we know that the default expression is always coerced to the returnedType
-                coerceType(emptyDefault, type, returnedType, "Function JSON_VALUE default ON EMPTY result");
+                verifyNoSubqueriesInDefault(emptyDefault, callerName);
+                emptyDefaultType = process(emptyDefault, context);
+                verifyDefaultCoercion(emptyDefault, emptyDefaultType, returnedType, "Function %s default ON EMPTY result".formatted(callerName));
             }
 
+            Type errorDefaultType = returnedType;
             if (declaredErrorDefault.isPresent()) {
                 Expression errorDefault = declaredErrorDefault.get();
                 if (errorBehavior.isEmpty()) {
@@ -2790,18 +2796,19 @@ public class ExpressionAnalyzer
                 if (errorBehavior.orElseThrow() != DEFAULT) {
                     throw semanticException(INVALID_FUNCTION_ARGUMENT, errorDefault, "Default value specified for %s ON ERROR behavior", errorBehavior.orElseThrow());
                 }
-                Type type = process(errorDefault, context);
-                // this would normally be done after function resolution, but we know that the default expression is always coerced to the returnedType
-                coerceType(errorDefault, type, returnedType, "Function JSON_VALUE default ON ERROR result");
+                verifyNoSubqueriesInDefault(errorDefault, callerName);
+                errorDefaultType = process(errorDefault, context);
+                verifyDefaultCoercion(errorDefault, errorDefaultType, returnedType, "Function %s default ON ERROR result".formatted(callerName));
             }
 
             // pass remaining information in the node : empty behavior, empty default, error behavior, error default
             List<Type> argumentTypes = ImmutableList.<Type>builder()
                     .addAll(pathInvocationArgumentTypes)
+                    .add(returnedType) // return type anchor
                     .add(TINYINT) // empty behavior: enum encoded as integer value
-                    .add(returnedType) // empty default
+                    .add(new FunctionType(ImmutableList.of(), emptyDefaultType)) // empty default
                     .add(TINYINT) // error behavior: enum encoded as integer value
-                    .add(returnedType) // error default
+                    .add(new FunctionType(ImmutableList.of(), errorDefaultType)) // error default
                     .build();
 
             // resolve function
@@ -2818,6 +2825,27 @@ public class ExpressionAnalyzer
             resolvedFunctions.put(NodeRef.of(node), function);
 
             return function.signature().getReturnType();
+        }
+
+        private void verifyDefaultCoercion(Expression defaultValue, Type defaultType, Type returnedType, String message)
+        {
+            if (defaultType.equals(returnedType)) {
+                return;
+            }
+            try {
+                plannerContext.getMetadata().getCoercion(defaultType, returnedType);
+            }
+            catch (OperatorNotFoundException e) {
+                throw semanticException(TYPE_MISMATCH, defaultValue, "%s must evaluate to a %s (actual: %s)", message, returnedType, defaultType);
+            }
+        }
+
+        private static void verifyNoSubqueriesInDefault(Expression expression, String callerName)
+        {
+            List<SubqueryExpression> subqueries = extractExpressions(ImmutableList.of(expression), SubqueryExpression.class);
+            if (!subqueries.isEmpty()) {
+                throw semanticException(UNSUPPORTED_SUBQUERY, subqueries.getFirst(), "Subqueries are not supported in %s default expressions", callerName);
+            }
         }
 
         @Override

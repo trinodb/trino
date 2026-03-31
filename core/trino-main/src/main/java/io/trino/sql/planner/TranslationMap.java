@@ -1057,19 +1057,27 @@ public class TranslationMap
 
         IrJsonPath path = new JsonPathTranslator(session, plannerContext).rewriteToIr(analysis.getJsonPathAnalysis(node), orderedParameters.parametersOrder());
         io.trino.sql.ir.Expression pathExpression = new Constant(plannerContext.getTypeManager().getType(TypeId.of(JsonPath2016Type.NAME)), path);
+        Type returnType = resolvedFunction.get().signature().getReturnType();
 
         ImmutableList.Builder<io.trino.sql.ir.Expression> arguments = ImmutableList.<io.trino.sql.ir.Expression>builder()
                 .add(input)
                 .add(pathExpression)
                 .add(orderedParameters.parametersRow())
+                .add(new Constant(returnType, null))
                 .add(new Constant(TINYINT, (long) node.getEmptyBehavior().ordinal()))
                 .add(node.getEmptyDefault()
                         .map(this::translateExpression)
-                        .orElseGet(() -> new Constant(resolvedFunction.get().signature().getReturnType(), null)))
+                        .map(expression -> new Lambda(ImmutableList.of(), expression))
+                        .orElseGet(() -> new Lambda(
+                                ImmutableList.of(),
+                                new Constant(((FunctionType) resolvedFunction.get().signature().getArgumentType(5)).getReturnType(), null))))
                 .add(new Constant(TINYINT, (long) node.getErrorBehavior().ordinal()))
                 .add(node.getErrorDefault()
                         .map(this::translateExpression)
-                        .orElseGet(() -> new Constant(resolvedFunction.get().signature().getReturnType(), null)));
+                        .map(expression -> new Lambda(ImmutableList.of(), expression))
+                        .orElseGet(() -> new Lambda(
+                                ImmutableList.of(),
+                                new Constant(((FunctionType) resolvedFunction.get().signature().getArgumentType(7)).getReturnType(), null))));
 
         return new Call(resolvedFunction.get(), arguments.build());
     }

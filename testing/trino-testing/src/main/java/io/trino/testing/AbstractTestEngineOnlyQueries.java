@@ -6585,10 +6585,19 @@ public abstract class AbstractTestEngineOnlyQueries
     @Test
     public void testSubqueryInJsonFunctions()
     {
-        // subqueries as: input item, passed parameter, empty default, error default
-        assertThat(query("SELECT json_value((SELECT json_input), 'strict $?(@ < $var)' PASSING (SELECT 3) AS \"var\" DEFAULT (SELECT 'x') ON EMPTY DEFAULT (SELECT 'y') ON ERROR) result " +
+        // subqueries as: input item, passed parameter
+        assertThat(query("SELECT json_value((SELECT json_input), 'strict $?(@ < $var)' PASSING (SELECT 3) AS \"var\" DEFAULT 'x' ON EMPTY DEFAULT 'y' ON ERROR) result " +
                 "              FROM (SELECT format('%s', regionkey) FROM region) t(json_input)")) // JSON number
                 .matches("VALUES VARCHAR '0', '1', '2', 'x', 'x'");
+
+        // subqueries are not supported in default expressions; the analyzer rejects them so the spec-mandated
+        // lazy evaluation of CAST(VE AS DT) is not subverted by pre-planning the subquery at the outer level
+        assertQueryFails(
+                "SELECT json_value('{}', 'lax $' DEFAULT (SELECT 'x') ON EMPTY)",
+                ".*Subqueries are not supported in JSON_VALUE default expressions");
+        assertQueryFails(
+                "SELECT json_value('{}', 'lax $' DEFAULT (SELECT 'x') ON ERROR)",
+                ".*Subqueries are not supported in JSON_VALUE default expressions");
     }
 
     @Test

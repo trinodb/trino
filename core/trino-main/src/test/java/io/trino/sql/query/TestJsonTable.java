@@ -20,7 +20,9 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 
 import static com.google.common.io.BaseEncoding.base16;
+import static io.trino.spi.StandardErrorCode.DIVISION_BY_ZERO;
 import static io.trino.spi.StandardErrorCode.PATH_EVALUATION_ERROR;
+import static io.trino.spi.StandardErrorCode.UNSUPPORTED_SUBQUERY;
 import static java.nio.charset.StandardCharsets.UTF_16LE;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
@@ -96,7 +98,7 @@ public class TestJsonTable
     @Test
     public void testSubqueries()
     {
-        // test subqueries in: context item, value of path parameter "index", empty default, error default
+        // subqueries are supported in the context item and path parameter value
         assertThat(assertions.query(
                 """
                  SELECT empty_default, error_default
@@ -104,10 +106,23 @@ public class TestJsonTable
                      (SELECT json_col),
                      'lax $[$index]' PASSING (SELECT 0) AS "index"
                      COLUMNS(
-                         empty_default bigint PATH 'lax $[-42]' DEFAULT (SELECT -42) ON EMPTY,
-                         error_default bigint PATH 'strict $[42]' DEFAULT (SELECT 42) ON ERROR))
+                         empty_default bigint PATH 'lax $[-42]' DEFAULT -42 ON EMPTY,
+                         error_default bigint PATH 'strict $[42]' DEFAULT 42 ON ERROR))
                 """))
                 .matches("VALUES (BIGINT '-42', BIGINT '42')");
+
+        assertThat(assertions.query(
+                """
+                 SELECT empty_default
+                 FROM (SELECT '[[1, 2, 3], [4, 5, 6]]') t(json_col), JSON_TABLE(
+                     (SELECT json_col),
+                     'lax $[$index]' PASSING (SELECT 0) AS "index"
+                     COLUMNS(
+                         empty_default bigint PATH 'lax $[-42]' DEFAULT (SELECT -42) ON EMPTY))
+                """))
+                .failure()
+                .hasErrorCode(UNSUPPORTED_SUBQUERY)
+                .hasMessage("line 6:57: Subqueries are not supported in JSON_TABLE default expressions");
     }
 
     @Test
@@ -743,6 +758,33 @@ public class TestJsonTable
                      COLUMNS(a integer PATH 'strict $[42]' DEFAULT -1 ON EMPTY DEFAULT error_default ON ERROR))
                 """))
                 .matches("VALUES CAST(null AS integer)");
+    }
+
+    @Test
+    public void testDefaultExpressionEvaluationIsLazy()
+    {
+        assertThat(assertions.query(
+                """
+                 SELECT a
+                 FROM (SELECT CAST(x AS integer) - CAST(x AS integer) AS divisor FROM UNNEST(sequence(1, 1)) u(x)) t,
+                 JSON_TABLE(
+                     '[1, 2, 3]',
+                     'lax $'
+                     COLUMNS(a integer PATH 'lax $[0]' DEFAULT 1 / divisor ON EMPTY ERROR ON ERROR))
+                """))
+                .matches("VALUES 1");
+
+        assertThat(assertions.query(
+                """
+                 SELECT a
+                 FROM (SELECT CAST(x AS integer) - CAST(x AS integer) AS divisor FROM UNNEST(sequence(1, 1)) u(x)) t,
+                 JSON_TABLE(
+                     '[1, 2, 3]',
+                     'lax $'
+                     COLUMNS(a integer PATH 'lax $[42]' DEFAULT 1 / divisor ON EMPTY ERROR ON ERROR))
+                """))
+                .failure()
+                .hasErrorCode(DIVISION_BY_ZERO);
     }
 
     @Test

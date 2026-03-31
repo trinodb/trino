@@ -6472,14 +6472,12 @@ public class TestAnalyzer
                 "                   DEFAULT 1.0 ON EMPTY) " +
                 "       FROM (VALUES '-1', 'ala') t(json_column)");
 
-        assertFails("SELECT JSON_VALUE( " +
+        analyze("SELECT JSON_VALUE( " +
                 "                   json_column, " +
                 "                   'lax $.double()'" +
                 "                   RETURNING double" +
                 "                   DEFAULT 'text' ON EMPTY) " +
-                "       FROM (VALUES '-1', 'ala') t(json_column)")
-                .hasErrorCode(TYPE_MISMATCH)
-                .hasMessage("line 1:149: Function JSON_VALUE default ON EMPTY result must evaluate to a double (actual: varchar(4))");
+                "       FROM (VALUES '-1', 'ala') t(json_column)");
 
         // default value has the same type as the declared returned type
         analyze("SELECT JSON_VALUE( " +
@@ -6497,14 +6495,32 @@ public class TestAnalyzer
                 "                   DEFAULT 1.0 ON ERROR) " +
                 "       FROM (VALUES '-1', 'ala') t(json_column)");
 
-        assertFails("SELECT JSON_VALUE( " +
+        analyze("SELECT JSON_VALUE( " +
                 "                   json_column, " +
                 "                   'lax $.double()'" +
                 "                   RETURNING double" +
                 "                   DEFAULT 'text' ON ERROR) " +
-                "       FROM (VALUES '-1', 'ala') t(json_column)")
+                "       FROM (VALUES '-1', 'ala') t(json_column)");
+
+        assertFails("""
+                SELECT *
+                FROM JSON_TABLE(
+                    '1',
+                    'lax $'
+                    COLUMNS(x DATE DEFAULT true ON EMPTY))
+                """)
                 .hasErrorCode(TYPE_MISMATCH)
-                .hasMessage("line 1:149: Function JSON_VALUE default ON ERROR result must evaluate to a double (actual: varchar(4))");
+                .hasMessageContaining("Function JSON_TABLE default ON EMPTY result must evaluate to a date");
+
+        assertFails("""
+                SELECT *
+                FROM JSON_TABLE(
+                    '1',
+                    'strict $'
+                    COLUMNS(x DATE DEFAULT true ON ERROR))
+                """)
+                .hasErrorCode(TYPE_MISMATCH)
+                .hasMessageContaining("Function JSON_TABLE default ON ERROR result must evaluate to a date");
     }
 
     @Test
@@ -7801,9 +7817,20 @@ public class TestAnalyzer
                 FROM JSON_TABLE(
                     (SELECT '[1, 2, 3]'),
                     'lax $[2]' PASSING (SELECT 1) AS parameter_name
+                    COLUMNS(x BIGINT))
+                """);
+
+        assertFails(
+                """
+                SELECT *
+                FROM JSON_TABLE(
+                    (SELECT '[1, 2, 3]'),
+                    'lax $[2]' PASSING (SELECT 1) AS parameter_name
                     COLUMNS(
                         x BIGINT DEFAULT (SELECT 2) ON EMPTY))
-                """);
+                """)
+                .hasErrorCode(UNSUPPORTED_SUBQUERY)
+                .hasMessageContaining("Subqueries are not supported in JSON_TABLE default expressions");
     }
 
     @Test

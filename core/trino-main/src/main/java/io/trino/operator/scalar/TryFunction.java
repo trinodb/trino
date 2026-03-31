@@ -142,7 +142,7 @@ public final class TryFunction
         }
     }
 
-    private static void propagateIfUnhandled(TrinoException e)
+    public static void propagateIfUnhandled(TrinoException e)
             throws TrinoException
     {
         int errorCode = e.getErrorCode().getCode();

@@ -1472,16 +1472,15 @@ class RelationPlanner
         PlanBuilder planBuilder = leftPlan;
 
         // extract input expressions
-        ImmutableList.Builder<io.trino.sql.tree.Expression> builder = ImmutableList.builder();
         io.trino.sql.tree.Expression inputExpression = jsonTable.getJsonPathInvocation().getInputExpression();
-        builder.add(inputExpression);
         List<JsonPathParameter> pathParameters = jsonTable.getJsonPathInvocation().getPathParameters();
-        pathParameters.stream()
-                .map(JsonPathParameter::getParameter)
-                .forEach(builder::add);
         List<io.trino.sql.tree.Expression> defaultExpressions = getDefaultExpressions(jsonTable.getColumns());
-        builder.addAll(defaultExpressions);
-        List<io.trino.sql.tree.Expression> inputExpressions = builder.build();
+        List<io.trino.sql.tree.Expression> inputExpressions = ImmutableList.<io.trino.sql.tree.Expression>builder()
+                .add(inputExpression)
+                .addAll(pathParameters.stream()
+                        .map(JsonPathParameter::getParameter)
+                        .collect(toImmutableList()))
+                .build();
 
         planBuilder = subqueryPlanner.handleSubqueries(planBuilder, inputExpressions, analysis.getSubqueries(jsonTable));
         planBuilder = planBuilder.appendProjections(inputExpressions, symbolAllocator, idAllocator);
@@ -1522,21 +1521,23 @@ class RelationPlanner
         planBuilder = planBuilder.withNewRoot(appended);
 
         // identify the required symbols
+        Map<NodeRef<io.trino.sql.tree.Expression>, Expression> rewrittenDefaultExpressions = new HashMap<>();
+        ImmutableList.Builder<Symbol> defaultSymbolsBuilder = ImmutableList.builder();
+        for (io.trino.sql.tree.Expression defaultExpression : defaultExpressions) {
+            Expression rewritten = coerceIfNecessary(analysis, defaultExpression, planBuilder.rewrite(defaultExpression));
+            rewrittenDefaultExpressions.put(NodeRef.of(defaultExpression), rewritten);
+            defaultSymbolsBuilder.addAll(SymbolsExtractor.extractUnique(rewritten));
+        }
+
         ImmutableList.Builder<Symbol> requiredSymbolsBuilder = ImmutableList.<Symbol>builder()
                 .add(inputJsonSymbol)
                 .add(parametersRowSymbol);
-        defaultExpressions.stream()
-                .map(coerced::get)
+        defaultSymbolsBuilder.build().stream()
                 .distinct()
                 .forEach(requiredSymbolsBuilder::add);
         List<Symbol> requiredSymbols = requiredSymbolsBuilder.build();
 
-        // map the default expressions of value columns to indexes in the required columns list
-        // use a HashMap because there might be duplicate expressions
-        Map<io.trino.sql.tree.Expression, Integer> defaultExpressionsMapping = new HashMap<>();
-        for (io.trino.sql.tree.Expression defaultExpression : defaultExpressions) {
-            defaultExpressionsMapping.put(defaultExpression, requiredSymbols.indexOf(coerced.get(defaultExpression)));
-        }
+        Map<NodeRef<io.trino.sql.tree.Expression>, Expression> defaultExpressionsMapping = rewrittenDefaultExpressions;
 
         // rewrite the root JSON path to IR using parameters
         IrJsonPath rootPath = new JsonPathTranslator(session, plannerContext).rewriteToIr(analysis.getJsonPathAnalysis(jsonTable), orderedParameters.parametersOrder());
@@ -1549,13 +1550,13 @@ class RelationPlanner
         JsonTablePlanNode executionPlan;
         boolean defaultErrorOnError = jsonTable.getErrorBehavior().map(errorBehavior -> errorBehavior == JsonTable.ErrorBehavior.ERROR).orElse(false);
         if (jsonTable.getPlan().isEmpty()) {
-            executionPlan = getPlanFromDefaults(rootPath, jsonTable.getColumns(), OUTER, UNION, defaultErrorOnError, outputIndexMapping, defaultExpressionsMapping);
+            executionPlan = getPlanFromDefaults(rootPath, jsonTable.getColumns(), OUTER, UNION, defaultErrorOnError, outputIndexMapping, defaultExpressionsMapping, requiredSymbols);
         }
         else if (jsonTable.getPlan().orElseThrow() instanceof JsonTableDefaultPlan defaultPlan) {
-            executionPlan = getPlanFromDefaults(rootPath, jsonTable.getColumns(), defaultPlan.getParentChild(), defaultPlan.getSiblings(), defaultErrorOnError, outputIndexMapping, defaultExpressionsMapping);
+            executionPlan = getPlanFromDefaults(rootPath, jsonTable.getColumns(), defaultPlan.getParentChild(), defaultPlan.getSiblings(), defaultErrorOnError, outputIndexMapping, defaultExpressionsMapping, requiredSymbols);
         }
         else {
-            executionPlan = getPlanFromSpecification(rootPath, jsonTable.getColumns(), (JsonTableSpecificPlan) jsonTable.getPlan().orElseThrow(), defaultErrorOnError, outputIndexMapping, defaultExpressionsMapping);
+            executionPlan = getPlanFromSpecification(rootPath, jsonTable.getColumns(), (JsonTableSpecificPlan) jsonTable.getPlan().orElseThrow(), defaultErrorOnError, outputIndexMapping, defaultExpressionsMapping, requiredSymbols);
         }
 
         // create new symbols for json_table function's proper columns
@@ -1675,7 +1676,8 @@ class RelationPlanner
             SiblingsPlanType siblingsPlanType,
             boolean defaultErrorOnError,
             Map<NodeRef<JsonTableColumnDefinition>, Integer> outputIndexMapping,
-            Map<io.trino.sql.tree.Expression, Integer> defaultExpressionsMapping)
+            Map<NodeRef<io.trino.sql.tree.Expression>, Expression> defaultExpressionsMapping,
+            List<Symbol> defaultInputLayout)
     {
         ImmutableList.Builder<JsonTableColumn> columns = ImmutableList.builder();
         ImmutableList.Builder<JsonTablePlanNode> childrenBuilder = ImmutableList.builder();
@@ -1690,10 +1692,11 @@ class RelationPlanner
                         siblingsPlanType,
                         defaultErrorOnError,
                         outputIndexMapping,
-                        defaultExpressionsMapping));
+                        defaultExpressionsMapping,
+                        defaultInputLayout));
             }
             else {
-                columns.add(getColumn(columnDefinition, defaultErrorOnError, outputIndexMapping, defaultExpressionsMapping));
+                columns.add(getColumn(columnDefinition, defaultErrorOnError, outputIndexMapping, defaultExpressionsMapping, defaultInputLayout));
             }
         }
 
@@ -1722,7 +1725,8 @@ class RelationPlanner
             JsonTableSpecificPlan specificPlan,
             boolean defaultErrorOnError,
             Map<NodeRef<JsonTableColumnDefinition>, Integer> outputIndexMapping,
-            Map<io.trino.sql.tree.Expression, Integer> defaultExpressionsMapping)
+            Map<NodeRef<io.trino.sql.tree.Expression>, Expression> defaultExpressionsMapping,
+            List<Symbol> defaultInputLayout)
     {
         ImmutableList.Builder<JsonTableColumn> columns = ImmutableList.builder();
         ImmutableMap.Builder<String, JsonTablePlanNode> childrenBuilder = ImmutableMap.builder();
@@ -1744,11 +1748,12 @@ class RelationPlanner
                         planSiblings.get(nestedPathName),
                         defaultErrorOnError,
                         outputIndexMapping,
-                        defaultExpressionsMapping);
+                        defaultExpressionsMapping,
+                        defaultInputLayout);
                 childrenBuilder.put(nestedPathName, child);
             }
             else {
-                columns.add(getColumn(columnDefinition, defaultErrorOnError, outputIndexMapping, defaultExpressionsMapping));
+                columns.add(getColumn(columnDefinition, defaultErrorOnError, outputIndexMapping, defaultExpressionsMapping, defaultInputLayout));
             }
         }
 
@@ -1783,7 +1788,8 @@ class RelationPlanner
             JsonTableColumnDefinition columnDefinition,
             boolean defaultErrorOnError,
             Map<NodeRef<JsonTableColumnDefinition>, Integer> outputIndexMapping,
-            Map<io.trino.sql.tree.Expression, Integer> defaultExpressionsMapping)
+            Map<NodeRef<io.trino.sql.tree.Expression>, Expression> defaultExpressionsMapping,
+            List<Symbol> defaultInputLayout)
     {
         int index = outputIndexMapping.get(NodeRef.of(columnDefinition));
 
@@ -1802,12 +1808,14 @@ class RelationPlanner
                     queryColumn.getErrorBehavior().orElse(defaultErrorOnError ? JsonQuery.EmptyOrErrorBehavior.ERROR : JsonQuery.EmptyOrErrorBehavior.NULL).ordinal());
         }
         if (columnDefinition instanceof ValueColumn valueColumn) {
-            int emptyDefault = valueColumn.getEmptyDefault()
+            Expression emptyDefault = valueColumn.getEmptyDefault()
+                    .map(NodeRef::of)
                     .map(defaultExpressionsMapping::get)
-                    .orElse(-1);
-            int errorDefault = valueColumn.getErrorDefault()
+                    .orElse(null);
+            Expression errorDefault = valueColumn.getErrorDefault()
+                    .map(NodeRef::of)
                     .map(defaultExpressionsMapping::get)
-                    .orElse(-1);
+                    .orElse(null);
             return new JsonTableValueColumn(
                     index,
                     columnFunction.get(),
@@ -1815,7 +1823,8 @@ class RelationPlanner
                     valueColumn.getEmptyBehavior().ordinal(),
                     emptyDefault,
                     valueColumn.getErrorBehavior().orElse(defaultErrorOnError ? JsonValue.EmptyOrErrorBehavior.ERROR : JsonValue.EmptyOrErrorBehavior.NULL).ordinal(),
-                    errorDefault);
+                    errorDefault,
+                    defaultInputLayout);
         }
         throw new IllegalStateException("unexpected column definition: " + columnDefinition.getClass().getSimpleName());
     }

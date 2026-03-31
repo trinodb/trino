@@ -38,9 +38,11 @@ import io.trino.spi.type.TypeId;
 import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.Lambda;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.Symbol;
 import io.trino.testing.TestingSession;
+import io.trino.type.FunctionType;
 import io.trino.type.JsonPath2016Type;
 import org.junit.jupiter.api.Test;
 import org.openjdk.jmh.annotations.Benchmark;
@@ -158,19 +160,21 @@ public class BenchmarkJsonPathBinaryOperators
                                     JSON_2016,
                                     jsonPath2016Type,
                                     JSON_NO_PARAMETERS_ROW_TYPE,
-                                    TINYINT,
                                     VARCHAR,
                                     TINYINT,
-                                    VARCHAR))),
+                                    new FunctionType(ImmutableList.of(), VARCHAR),
+                                    TINYINT,
+                                    new FunctionType(ImmutableList.of(), VARCHAR)))),
                     ImmutableList.of(
                             call(functionResolution.resolveFunction(VARCHAR_TO_JSON, fromTypes(VARCHAR, BOOLEAN)),
                                     new Reference(VARCHAR, "$col_0"), new Constant(BOOLEAN, true)),
                             new Constant(jsonPath2016Type, new IrJsonPath(false, path)),
                             constantNull(JSON_NO_PARAMETERS_ROW_TYPE),
-                            new Constant(TINYINT, 0L),
                             constantNull(VARCHAR),
                             new Constant(TINYINT, 0L),
-                            constantNull(VARCHAR))));
+                            new Lambda(ImmutableList.of(), constantNull(VARCHAR)),
+                            new Constant(TINYINT, 0L),
+                            new Lambda(ImmutableList.of(), constantNull(VARCHAR)))));
 
             return functionResolution.getExpressionCompiler()
                     .compilePageProcessor(Optional.empty(), jsonValueProjection, ImmutableMap.of(new Symbol(VARCHAR, "$col_0"), 0))
