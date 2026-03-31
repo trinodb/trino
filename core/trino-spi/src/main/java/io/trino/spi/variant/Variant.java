@@ -112,7 +112,7 @@ public record Variant(Slice data, Metadata metadata, BasicType basicType, Primit
     public static final Variant EMPTY_OBJECT;
 
     static {
-        IntUnaryOperator emptyIndexedOperator = index -> {
+        IntUnaryOperator emptyIndexedOperator = _ -> {
             throw new IndexOutOfBoundsException();
         };
 
