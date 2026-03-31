@@ -1,177 +1,43 @@
-# Ducklake Connector - Current Status
+# Ducklake Connector Status
 
-**Last Updated**: 2026-03-30
-**Build Status**: ✅ Compiling
-**Test Status**: ✅ Unit tests passing
-**Ready For**: Basic read-only queries on Ducklake tables
+Last updated: 2026-03-30
 
-**Read-Only Parity Backlog**: See `READ_ONLY_TODO.md` for the prioritized path to Iceberg/Hive-level read behavior.
-**Current Target**: P2.2 Degraded type improvements (variant, json, geometry).
+## Validation Snapshot
+- Build: compiling.
+- Tests: passing.
+- Latest local verification: `mvn test` in `plugin/trino-ducklake`.
+- Test count: 42 tests, 0 failures, 0 errors.
 
----
+## Implemented
+- Catalog reads from Ducklake SQL metadata tables.
+- Metadata APIs: list schemas/tables, table metadata, column handles.
+- Read path uses Trino file system + Trino Parquet reader.
+- Split planning from `ducklake_data_file`.
+- Stats pruning from `ducklake_file_column_stats`.
+- Partition pruning from `ducklake_partition_info`, `ducklake_partition_column`, `ducklake_file_partition_value`.
+- Merge-on-read delete file filtering.
+- Planner hooks: `applyFilter` and propagated table-handle predicates.
+- Runtime predicate narrowing: split domain intersected with dynamic filter in page source.
+- Table stats exposure via `ducklake_table_stats` + `ducklake_file_column_stats`.
 
-## What Works Now
+## Type Support
+- Solid: primitives, arrays, row/struct, map, nested combinations.
+- Degraded placeholders:
+  - `json` -> `VARCHAR`
+  - `variant` -> `VARCHAR`
+  - geometry family -> `VARBINARY`
 
-### ✅ Core Functionality (Implemented & Tested)
-- **Catalog Reading**: Reads Ducklake SQLite catalog (all 28 metadata tables)
-- **Schema Discovery**: `SHOW SCHEMAS` works
-- **Table Discovery**: `SHOW TABLES` works
-- **Table Metadata**: `DESCRIBE table` works
-- **Snapshot Isolation**: Reads current snapshot ID
-- **Parquet Data Files**: Discovers and reads Parquet files via Trino's ParquetPageSource
-- **File System**: Works with local filesystem (S3/HDFS ready via TrinoFileSystem)
-- **Partition Pruning**: Uses partition values from `ducklake_file_partition_value` to skip files
-- **Delete Files**: Merge-on-read position deletes applied correctly
-- **applyFilter**: Predicate pushdown into table handles for planner integration
-- **Dynamic Filters**: Integrated with page source for runtime predicate evaluation
-- **Table Statistics**: `getTableStatistics` exposes row count, null fraction, data size, and numeric/date ranges for CBO
-- **Stats-Based Pruning**: Split pruning using range spans and discrete IN-list bounds
-- **Partition Awareness**: Identity and temporal partition transforms; enforced predicates on partition columns; file pruning by partition values
+## Known Gaps
+- Time travel/table-version semantics are not implemented.
+- Schema evolution safety gap: missing top-level Parquet column currently throws instead of returning nulls.
+- Temporal partition transform semantics in code do not match the checked-in Ducklake spec definitions.
+- Aggregated column min/max stats are computed lexicographically (string min/max), not typed.
+- No query-runner coverage yet (unit coverage only).
+- No write support.
 
-### ✅ Type Support
-**Primitives** (Fully Working):
-- INTEGER, BIGINT, SMALLINT, TINYINT
-- DOUBLE, REAL
-- BOOLEAN
-- VARCHAR
-- DATE, TIMESTAMP
+## Scope Status
+- Connector is read-only and usable for core scan flows.
+- Not yet at full Iceberg/Hive parity for correctness edge cases and validation depth.
 
-**Arrays** (Fully Working):
-- ARRAY(VARCHAR)
-- Arrays of any primitive type
-- Nested arrays: ARRAY(ARRAY(T))
-
-**Complex Nested Types** (Fully Working):
-- MAP(K, V) — e.g., MAP(VARCHAR, INTEGER)
-- ROW/STRUCT — e.g., ROW(key VARCHAR, value VARCHAR)
-- Arbitrary nesting — e.g., ROW(name VARCHAR, scores ARRAY(INTEGER), attrs MAP(VARCHAR, VARCHAR))
-
-**Degraded Support** (Data accessible, limited functionality):
-- JSON → VARCHAR (no JSON functions)
-- VARIANT → VARCHAR (no type safety)
-- GEOMETRY → VARBINARY (no spatial functions)
-
----
-
-## What Doesn't Work Yet
-
-### ❌ Not Implemented
-
-**Write Operations**: None implemented (read-only connector)
-
-**Advanced Features**:
-- Time travel (`FOR SYSTEM_TIME`) is not implemented yet
-
----
-
-## Test Coverage
-
-### Unit Tests (Catalog + Split Pruning)
-Run with: `mvn test`
-
-Catalog tests:
-1. ✅ testGetCurrentSnapshot
-2. ✅ testListSchemas
-3. ✅ testListTables
-4. ✅ testGetTable
-5. ✅ testGetDataFiles
-6. ✅ testGetTableColumnsResolvesListType
-7. ✅ testGetTableColumnsResolvesStructType
-8. ✅ testGetTableColumnsResolvesMapType
-9. ✅ testGetTableColumnsResolvesNestedListType
-10. ✅ testGetTableColumnsResolvesComplexStructType
-11. ✅ testGetDataFileIdsForPredicate
-
-Split manager tests:
-12. ✅ testGetSplitsWithoutPredicate
-13. ✅ testGetSplitsPrunesByNumericStats
-14. ✅ testGetSplitsPrunesByDateStats
-
-Plugin wiring test:
-15. ✅ testCreateConnectorFactory
-
-### Test Data
-- Generated by `DucklakeCatalogGenerator.java` using DuckDB 1.5 + Ducklake extension
-- 6 tables: `simple_table` (primitives), `array_table` (with VARCHAR[] arrays), `partitioned_table`, `temporal_partitioned_table`, `daily_partitioned_table`, `nested_table` (struct/map/nested arrays)
-- 3-6 rows each, stored in Parquet format
-
----
-
-## Quick Start
-
-```bash
-# Build & test
-cd plugin/trino-ducklake
-mvn test -Dtest=TestDucklakeCatalog
-
-# Expected: BUILD SUCCESS, Failures: 0
-```
-
----
-
-## Next Steps (Future Work)
-
-### Phase 1: Degraded Type Improvements
-**Files**: `DucklakeTypeConverter.java`
-- Improve `variant`, `json`, and geometry handling beyond placeholder mappings
-
-### Phase 2: Scale and Performance
-- Revisit one-file-one-split behavior for large Parquet files (row-group splitting)
-- Catalog query efficiency (batch/cache metadata lookups)
-- PostgreSQL catalog backend testing
-
-### Phase 3: Integration Testing
-- Query-runner tests (BaseConnectorTest pattern) for full planner/execution validation
-- Regression matrix for deletes + pruning + dynamic filters + nested types
-
-### Time Travel TODO
-- Current behavior: connector always reads the current snapshot
-- `startVersion`/`endVersion` are intentionally ignored for now
-- Future: map Trino table versioning to Ducklake `snapshot_id`/timestamp semantics
-
----
-
-## Key Files
-
-**Core Logic** (~2,250 lines custom):
-- `SqliteDucklakeCatalog.java` - Queries 28 Ducklake metadata tables
-- `DucklakePageSourceProvider.java` - Integrates with Trino's ParquetPageSource
-- `DucklakeTypeConverter.java` - Ducklake ↔ Trino type mapping
-- `DucklakeParquetTypeUtils.java` - Parquet Field construction (primitives + arrays only)
-
-**Test Infrastructure**:
-- `DucklakeCatalogGenerator.java` - Uses DuckDB to create test catalog
-- `TestDucklakeCatalog.java` - Catalog-focused unit tests
-
-**Documentation**:
-- `REUSE.md` - Code reuse analysis (~95% reuse, ~2,250 custom lines)
-- `STATUS.md` - This file
-
----
-
-## Configuration Example
-
-`catalog/ducklake.properties`:
-```properties
-connector.name=ducklake
-ducklake.catalog.database-url=jdbc:sqlite:/path/to/catalog.db
-ducklake.data-path=/path/to/data
-ducklake.catalog.max-connections=10
-```
-
----
-
-## Known Limitations
-
-- Degraded type handling for variant, json, geometry (data accessible, limited functionality)
-- Time travel not implemented
-- Write operations not implemented
-- Only SQLite catalog tested (PostgreSQL exists but untested)
-
----
-
-## Build Requirements
-
-- Java 25 (Trino 480-SNAPSHOT requirement)
-- DuckDB JDBC 1.5.0.0 (test-scope only)
-- Maven 3.9+
+## Next Execution Plan
+See [REMEDIATION_PLAN.md](REMEDIATION_PLAN.md).
