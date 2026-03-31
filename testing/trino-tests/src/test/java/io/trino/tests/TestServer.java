@@ -162,9 +162,9 @@ public class TestServer
     {
         List<QueryResults> queryResults = postQuery(request -> request
                 .setBodyGenerator(createStaticBodyGenerator("show catalogs", UTF_8))
-                .setHeader(TRINO_HEADERS.requestCatalog(), "catalog")
-                .setHeader(TRINO_HEADERS.requestSchema(), "schema")
-                .setHeader(TRINO_HEADERS.requestPath(), "path"))
+                .setHeader(HeaderName.of(TRINO_HEADERS.requestCatalog()), "catalog")
+                .setHeader(HeaderName.of(TRINO_HEADERS.requestSchema()), "schema")
+                .setHeader(HeaderName.of(TRINO_HEADERS.requestPath()), "path"))
                 .map(JsonResponse::getValue)
                 .collect(toImmutableList());
 
@@ -207,13 +207,13 @@ public class TestServer
         ImmutableList.Builder<List<Object>> data = ImmutableList.builder();
         QueryResults queryResults = postQuery(request -> request
                 .setBodyGenerator(createStaticBodyGenerator("show catalogs", UTF_8))
-                .setHeader(TRINO_HEADERS.requestCatalog(), "catalog")
-                .setHeader(TRINO_HEADERS.requestSchema(), "schema")
-                .setHeader(TRINO_HEADERS.requestPath(), "path")
-                .setHeader(TRINO_HEADERS.requestClientInfo(), "{\"clientVersion\":\"testVersion\"}")
-                .addHeader(TRINO_HEADERS.requestSession(), QUERY_MAX_MEMORY + "=1GB")
-                .addHeader(TRINO_HEADERS.requestSession(), JOIN_DISTRIBUTION_TYPE + "=partitioned," + MAX_HASH_PARTITION_COUNT + " = 43")
-                .addHeader(TRINO_HEADERS.requestPreparedStatement(), "foo=select * from bar"))
+                .setHeader(HeaderName.of(TRINO_HEADERS.requestCatalog()), "catalog")
+                .setHeader(HeaderName.of(TRINO_HEADERS.requestSchema()), "schema")
+                .setHeader(HeaderName.of(TRINO_HEADERS.requestPath()), "path")
+                .setHeader(HeaderName.of(TRINO_HEADERS.requestClientInfo()), "{\"clientVersion\":\"testVersion\"}")
+                .addHeader(HeaderName.of(TRINO_HEADERS.requestSession()), QUERY_MAX_MEMORY + "=1GB")
+                .addHeader(HeaderName.of(TRINO_HEADERS.requestSession()), JOIN_DISTRIBUTION_TYPE + "=partitioned," + MAX_HASH_PARTITION_COUNT + " = 43")
+                .addHeader(HeaderName.of(TRINO_HEADERS.requestPreparedStatement()), "foo=select * from bar"))
                 .map(JsonResponse::getValue)
                 .peek(result -> assertThat(result.getError()).isNull())
                 .peek(results -> {
@@ -253,10 +253,10 @@ public class TestServer
     {
         JsonResponse<QueryResults> queryResults = postQuery(request -> request
                 .setBodyGenerator(createStaticBodyGenerator("start transaction", UTF_8))
-                .setHeader(TRINO_HEADERS.requestTransactionId(), "none"))
+                .setHeader(HeaderName.of(TRINO_HEADERS.requestTransactionId()), "none"))
                 .peek(result -> assertThat(result.getValue().getError()).isNull())
                 .collect(last());
-        assertThat(queryResults.getHeader(TRINO_HEADERS.responseStartedTransactionId())).isNotNull();
+        assertThat(queryResults.getHeader(HeaderName.of(TRINO_HEADERS.responseStartedTransactionId()))).isNotNull();
     }
 
     @Test
@@ -374,7 +374,7 @@ public class TestServer
     {
         Request request = prepareHead()
                 .setUri(uriFor("/v1/status"))
-                .setHeader(TRINO_HEADERS.requestUser(), "unknown")
+                .setHeader(HeaderName.of(TRINO_HEADERS.requestUser()), "unknown")
                 .setFollowRedirects(false)
                 .build();
         StatusResponse response = client.execute(request, createStatusResponseHandler());
@@ -422,8 +422,8 @@ public class TestServer
     {
         Request.Builder request = preparePost()
                 .setUri(uriFor("/v1/statement"))
-                .setHeader(TRINO_HEADERS.requestUser(), "user")
-                .setHeader(TRINO_HEADERS.requestSource(), "source");
+                .setHeader(HeaderName.of(TRINO_HEADERS.requestUser()), "user")
+                .setHeader(HeaderName.of(TRINO_HEADERS.requestSource()), "source");
         request = requestConfigurer.apply(request);
         JsonResponse<QueryResults> queryResults = client.execute(request.build(), createFullJsonResponseHandler(QUERY_RESULTS_CODEC));
         return Streams.stream(new QueryResultsIterator(client, queryResults));
