@@ -610,7 +610,7 @@ public record Variant(Slice data, Metadata metadata, BasicType basicType, Primit
     public int getArrayLength()
     {
         verifyType(BasicType.ARRAY);
-        int count = arrayIsLarge(data.getByte(0)) ? data.getInt(1) : (data.getByte(1) & 0xFF);
+        int count = arrayIsLarge(data.getByte(0)) ? data.getInt(1) : data.getByte(1) & 0xFF;
         checkState(count >= 0, () -> "Corrupt array count: " + count);
         return count;
     }
@@ -622,7 +622,7 @@ public record Variant(Slice data, Metadata metadata, BasicType basicType, Primit
         boolean large = arrayIsLarge(header);
         int offSize = arrayFieldOffsetSize(header);
 
-        int count = large ? data.getInt(1) : (data.getByte(1) & 0xFF);
+        int count = large ? data.getInt(1) : data.getByte(1) & 0xFF;
         Objects.checkIndex(index, count);
 
         int offsetsStart = 1 + (large ? 4 : 1);
@@ -642,7 +642,7 @@ public record Variant(Slice data, Metadata metadata, BasicType basicType, Primit
         boolean large = arrayIsLarge(header);
         int offsetSize = arrayFieldOffsetSize(header);
 
-        int count = large ? data.getInt(1) : (data.getByte(1) & 0xFF);
+        int count = large ? data.getInt(1) : data.getByte(1) & 0xFF;
 
         int offsetsStart = 1 + (large ? 4 : 1);
         int valuesStart = offsetsStart + (count + 1) * offsetSize;
@@ -659,7 +659,7 @@ public record Variant(Slice data, Metadata metadata, BasicType basicType, Primit
     public int getObjectFieldCount()
     {
         verifyType(OBJECT);
-        int count = objectIsLarge(data.getByte(0)) ? data.getInt(1) : (data.getByte(1) & 0xFF);
+        int count = objectIsLarge(data.getByte(0)) ? data.getInt(1) : data.getByte(1) & 0xFF;
         checkState(count >= 0, () -> "Corrupt object field count: " + count);
         return count;
     }
@@ -677,7 +677,7 @@ public record Variant(Slice data, Metadata metadata, BasicType basicType, Primit
         boolean large = objectIsLarge(header);
         int idSize = objectFieldIdSize(header);
         int offsetSize = objectFieldOffsetSize(header);
-        int count = large ? data.getInt(1) : (data.getByte(1) & 0xFF);
+        int count = large ? data.getInt(1) : data.getByte(1) & 0xFF;
         checkState(count >= 0, () -> "Corrupt object field count: " + count);
         int idsStart = 1 + (large ? 4 : 1);
         int offsetsStart = idsStart + count * idSize;
@@ -702,7 +702,7 @@ public record Variant(Slice data, Metadata metadata, BasicType basicType, Primit
         boolean large = objectIsLarge(header);
         int idSize = objectFieldIdSize(header);
         int offsetSize = objectFieldOffsetSize(header);
-        int count = large ? data.getInt(1) : (data.getByte(1) & 0xFF);
+        int count = large ? data.getInt(1) : data.getByte(1) & 0xFF;
         checkState(count >= 0, () -> "Corrupt object field count: " + count);
         int idsStart = 1 + (large ? 4 : 1);
         int offsetsStart = idsStart + count * idSize;
@@ -725,7 +725,7 @@ public record Variant(Slice data, Metadata metadata, BasicType basicType, Primit
         boolean large = objectIsLarge(header);
         int idSize = objectFieldIdSize(header);
 
-        int count = large ? data.getInt(1) : (data.getByte(1) & 0xFF);
+        int count = large ? data.getInt(1) : data.getByte(1) & 0xFF;
 
         int idsStart = 1 + (large ? 4 : 1);
 
