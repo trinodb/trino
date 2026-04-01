@@ -473,21 +473,20 @@ public class SqliteDucklakeCatalog
     }
 
     @Override
-    public List<DucklakeColumnStats> getColumnStats(long tableId, long snapshotId)
+    public List<DucklakeColumnStats> getColumnStats(long tableId, long snapshotId, Map<Long, String> columnTypes)
     {
-        String sql = "SELECT stats.column_id, " +
-                     "       SUM(stats.value_count) AS total_value_count, " +
-                     "       SUM(stats.null_count) AS total_null_count, " +
-                     "       SUM(stats.column_size_bytes) AS total_size_bytes, " +
-                     "       MIN(stats.min_value) AS min_value, " +
-                     "       MAX(stats.max_value) AS max_value " +
+        // Fetch per-file stats and aggregate in Java with typed min/max comparison
+        String sql = "SELECT stats.column_id, stats.value_count, stats.null_count, " +
+                     "       stats.column_size_bytes, stats.min_value, stats.max_value " +
                      "FROM ducklake_file_column_stats AS stats " +
                      "JOIN ducklake_data_file AS data ON stats.data_file_id = data.data_file_id " +
                      "WHERE stats.table_id = ? AND data.table_id = ? " +
-                     "  AND ? >= data.begin_snapshot AND (? < data.end_snapshot OR data.end_snapshot IS NULL) " +
-                     "GROUP BY stats.column_id";
+                     "  AND ? >= data.begin_snapshot AND (? < data.end_snapshot OR data.end_snapshot IS NULL)";
 
-        List<DucklakeColumnStats> result = new ArrayList<>();
+        // Accumulate per-column aggregates
+        Map<Long, long[]> countAccumulators = new HashMap<>(); // [valueCount, nullCount, sizeBytes]
+        Map<Long, String> minAccumulators = new HashMap<>();
+        Map<Long, String> maxAccumulators = new HashMap<>();
 
         try (Connection conn = dataSource.getConnection();
                 PreparedStatement stmt = conn.prepareStatement(sql)) {
@@ -498,13 +497,26 @@ public class SqliteDucklakeCatalog
 
             try (ResultSet rs = stmt.executeQuery()) {
                 while (rs.next()) {
-                    result.add(new DucklakeColumnStats(
-                            rs.getLong("column_id"),
-                            rs.getLong("total_value_count"),
-                            rs.getLong("total_null_count"),
-                            rs.getLong("total_size_bytes"),
-                            getStringOptional(rs, "min_value"),
-                            getStringOptional(rs, "max_value")));
+                    long columnId = rs.getLong("column_id");
+                    long valueCount = rs.getLong("value_count");
+                    long nullCount = rs.getLong("null_count");
+                    long sizeBytes = rs.getLong("column_size_bytes");
+                    String minValue = rs.getString("min_value");
+                    String maxValue = rs.getString("max_value");
+
+                    countAccumulators.computeIfAbsent(columnId, _ -> new long[3]);
+                    long[] counts = countAccumulators.get(columnId);
+                    counts[0] += valueCount;
+                    counts[1] += nullCount;
+                    counts[2] += sizeBytes;
+
+                    String columnType = columnTypes.getOrDefault(columnId, "");
+                    if (minValue != null) {
+                        minAccumulators.merge(columnId, minValue, (a, b) -> typedMin(a, b, columnType));
+                    }
+                    if (maxValue != null) {
+                        maxAccumulators.merge(columnId, maxValue, (a, b) -> typedMax(a, b, columnType));
+                    }
                 }
             }
         }
@@ -512,7 +524,49 @@ public class SqliteDucklakeCatalog
             throw new RuntimeException("Failed to get column stats for table: " + tableId + " at snapshot: " + snapshotId, e);
         }
 
+        List<DucklakeColumnStats> result = new ArrayList<>();
+        for (Map.Entry<Long, long[]> entry : countAccumulators.entrySet()) {
+            long columnId = entry.getKey();
+            long[] counts = entry.getValue();
+            result.add(new DucklakeColumnStats(
+                    columnId,
+                    counts[0],
+                    counts[1],
+                    counts[2],
+                    Optional.ofNullable(minAccumulators.get(columnId)),
+                    Optional.ofNullable(maxAccumulators.get(columnId))));
+        }
+
         return result;
+    }
+
+    private static String typedMin(String a, String b, String columnType)
+    {
+        return typedCompare(a, b, columnType) <= 0 ? a : b;
+    }
+
+    private static String typedMax(String a, String b, String columnType)
+    {
+        return typedCompare(a, b, columnType) >= 0 ? a : b;
+    }
+
+    private static int typedCompare(String a, String b, String columnType)
+    {
+        try {
+            return switch (columnType.toLowerCase(java.util.Locale.ENGLISH)) {
+                case "bigint", "integer", "int", "smallint", "tinyint", "hugeint" ->
+                        Long.compare(Long.parseLong(a), Long.parseLong(b));
+                case "double", "real", "float", "decimal" ->
+                        Double.compare(Double.parseDouble(a), Double.parseDouble(b));
+                case "date" ->
+                        java.time.LocalDate.parse(a).compareTo(java.time.LocalDate.parse(b));
+                default -> a.compareTo(b);
+            };
+        }
+        catch (RuntimeException _) {
+            // If parsing fails, fall back to string comparison (conservative)
+            return a.compareTo(b);
+        }
     }
 
     @Override

@@ -21,6 +21,8 @@ import io.trino.plugin.ducklake.catalog.DucklakeSchema;
 import io.trino.plugin.ducklake.catalog.DucklakeTable;
 import io.trino.plugin.ducklake.catalog.SqliteDucklakeCatalog;
 import io.trino.plugin.hive.parquet.ParquetReaderConfig;
+import io.trino.spi.block.Block;
+import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.connector.ConnectorSplitSource;
@@ -28,6 +30,7 @@ import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
+import io.trino.spi.predicate.ValueSet;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.RowType;
@@ -277,6 +280,135 @@ public class TestDucklakePageSourceProvider
         assertThat(countRows(tableHandle, split, complexColumn)).isEqualTo(3);
     }
 
+    @Test
+    public void testDynamicFilterExcludesAllReturnsNoRows()
+            throws Exception
+    {
+        long snapshotId = catalog.getCurrentSnapshotId();
+        DucklakeTable table = getTable("test_schema", "simple_table", snapshotId);
+        DucklakeTableHandle tableHandle = new DucklakeTableHandle("test_schema", "simple_table", table.tableId(), snapshotId);
+        long priceColumnId = getColumnId(table.tableId(), snapshotId, "price");
+        DucklakeColumnHandle priceColumn = new DucklakeColumnHandle(priceColumnId, "price", DOUBLE, true);
+
+        DucklakeSplit split = getSplits(tableHandle).getFirst();
+
+        // Dynamic filter that excludes all data (price = 999999.0, no such value)
+        DynamicFilter exclusiveFilter = createDynamicFilter(
+                priceColumn, Domain.singleValue(DOUBLE, 999999.0));
+
+        long rows = 0;
+        try (ConnectorPageSource pageSource = pageSourceProvider.createPageSource(
+                null, SESSION, split, tableHandle, ImmutableList.of(priceColumn), exclusiveFilter)) {
+            while (!pageSource.isFinished()) {
+                var page = pageSource.getNextSourcePage();
+                if (page != null) {
+                    rows += page.getPositionCount();
+                }
+            }
+        }
+        // The fileStatisticsDomain intersected with the dynamic filter should yield NONE
+        assertThat(rows).isEqualTo(0);
+    }
+
+    @Test
+    public void testDynamicFilterIncludesAllReturnsAllRows()
+            throws Exception
+    {
+        long snapshotId = catalog.getCurrentSnapshotId();
+        DucklakeTable table = getTable("test_schema", "simple_table", snapshotId);
+        DucklakeTableHandle tableHandle = new DucklakeTableHandle("test_schema", "simple_table", table.tableId(), snapshotId);
+        long priceColumnId = getColumnId(table.tableId(), snapshotId, "price");
+        DucklakeColumnHandle priceColumn = new DucklakeColumnHandle(priceColumnId, "price", DOUBLE, true);
+
+        DucklakeSplit split = getSplits(tableHandle).getFirst();
+
+        // Dynamic filter with a wide range that includes all data
+        DynamicFilter wideFilter = createDynamicFilter(
+                priceColumn, Domain.create(ValueSet.ofRanges(
+                        io.trino.spi.predicate.Range.range(DOUBLE, 0.0, true, 100.0, true)), false));
+
+        long baseRows = countRows(tableHandle, split, priceColumn);
+
+        long filteredRows = 0;
+        try (ConnectorPageSource pageSource = pageSourceProvider.createPageSource(
+                null, SESSION, split, tableHandle, ImmutableList.of(priceColumn), wideFilter)) {
+            while (!pageSource.isFinished()) {
+                var page = pageSource.getNextSourcePage();
+                if (page != null) {
+                    filteredRows += page.getPositionCount();
+                }
+            }
+        }
+        assertThat(filteredRows).isEqualTo(baseRows);
+    }
+
+    @Test
+    public void testSchemaEvolutionMissingColumnReturnsNulls()
+            throws Exception
+    {
+        long snapshotId = catalog.getCurrentSnapshotId();
+        DucklakeTable table = getTable("test_schema", "simple_table", snapshotId);
+        DucklakeTableHandle tableHandle = new DucklakeTableHandle("test_schema", "simple_table", table.tableId(), snapshotId);
+
+        // Request a column that does not exist in the Parquet file
+        DucklakeColumnHandle missingColumn = new DucklakeColumnHandle(-1, "new_column", VARCHAR, true);
+        DucklakeSplit split = getSplits(tableHandle).getFirst();
+
+        // Should return all rows, with null values for the missing column
+        long rows = countRows(tableHandle, split, missingColumn);
+        assertThat(rows).isGreaterThan(0);
+
+        // Verify all values are null
+        try (ConnectorPageSource pageSource = pageSourceProvider.createPageSource(
+                null, SESSION, split, tableHandle, ImmutableList.of(missingColumn), DynamicFilter.EMPTY)) {
+            while (!pageSource.isFinished()) {
+                var page = pageSource.getNextSourcePage();
+                if (page != null) {
+                    Block block = page.getBlock(0);
+                    for (int i = 0; i < block.getPositionCount(); i++) {
+                        assertThat(block.isNull(i)).isTrue();
+                    }
+                }
+            }
+        }
+    }
+
+    @Test
+    public void testSchemaEvolutionMixedColumns()
+            throws Exception
+    {
+        long snapshotId = catalog.getCurrentSnapshotId();
+        DucklakeTable table = getTable("test_schema", "simple_table", snapshotId);
+        DucklakeTableHandle tableHandle = new DucklakeTableHandle("test_schema", "simple_table", table.tableId(), snapshotId);
+        long priceColumnId = getColumnId(table.tableId(), snapshotId, "price");
+        DucklakeColumnHandle priceColumn = new DucklakeColumnHandle(priceColumnId, "price", DOUBLE, true);
+        DucklakeColumnHandle missingColumn = new DucklakeColumnHandle(-1, "new_column", VARCHAR, true);
+
+        DucklakeSplit split = getSplits(tableHandle).getFirst();
+
+        // Read both existing and missing columns together
+        List<ColumnHandle> mixedColumns = ImmutableList.of(priceColumn, missingColumn);
+        long rows = 0;
+        try (ConnectorPageSource pageSource = pageSourceProvider.createPageSource(
+                null, SESSION, split, tableHandle, mixedColumns, DynamicFilter.EMPTY)) {
+            while (!pageSource.isFinished()) {
+                var page = pageSource.getNextSourcePage();
+                if (page != null) {
+                    rows += page.getPositionCount();
+                    // price column (index 0) should have non-null values
+                    Block priceBlock = page.getBlock(0);
+                    // missing column (index 1) should be all nulls
+                    Block missingBlock = page.getBlock(1);
+                    for (int i = 0; i < page.getPositionCount(); i++) {
+                        assertThat(priceBlock.isNull(i)).isFalse();
+                        assertThat(missingBlock.isNull(i)).isTrue();
+                    }
+                }
+            }
+        }
+        assertThat(rows).isGreaterThan(0);
+    }
+
     private long countRows(DucklakeTableHandle tableHandle, DucklakeSplit split, DucklakeColumnHandle column)
             throws Exception
     {
@@ -341,5 +473,43 @@ public class TestDucklakePageSourceProvider
                 .findFirst()
                 .orElseThrow(() -> new AssertionError("Missing column: " + columnName))
                 .columnId();
+    }
+
+    private static DynamicFilter createDynamicFilter(DucklakeColumnHandle column, Domain domain)
+    {
+        TupleDomain<ColumnHandle> predicate = TupleDomain.withColumnDomains(
+                Map.of(column, domain));
+        return new DynamicFilter()
+        {
+            @Override
+            public java.util.Set<ColumnHandle> getColumnsCovered()
+            {
+                return java.util.Set.of(column);
+            }
+
+            @Override
+            public java.util.concurrent.CompletableFuture<?> isBlocked()
+            {
+                return NOT_BLOCKED;
+            }
+
+            @Override
+            public boolean isComplete()
+            {
+                return true;
+            }
+
+            @Override
+            public boolean isAwaitable()
+            {
+                return false;
+            }
+
+            @Override
+            public TupleDomain<ColumnHandle> getCurrentPredicate()
+            {
+                return predicate;
+            }
+        };
     }
 }

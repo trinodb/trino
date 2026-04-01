@@ -208,34 +208,42 @@ public class DucklakePageSourceProvider
                     Domain.DEFAULT_COMPACTION_THRESHOLD,
                     parquetReaderOptions);
 
-            // Build list of columns to read
+            // Build list of columns to read, handling missing columns for schema evolution
             ImmutableList.Builder<Column> parquetColumns = ImmutableList.builder();
             MessageColumnIO messageColumnIO = getColumnIO(fileSchema, fileSchema);
+            TransformConnectorPageSource.Builder transforms = TransformConnectorPageSource.builder();
+            int parquetColumnOrdinal = 0;
 
             for (DucklakeColumnHandle column : columns) {
                 String columnName = column.columnName();
-                org.apache.parquet.io.ColumnIO columnIO = messageColumnIO.getChild(columnName);
+                ColumnIO columnIO = messageColumnIO.getChild(columnName);
 
                 if (columnIO == null) {
-                    throw new TrinoException(
-                            NOT_SUPPORTED,
-                            "Column not found in Parquet file: " + columnName);
+                    // Missing column in file — return nulls (schema evolution)
+                    transforms.constantValue(column.columnType().createNullBlock());
+                    continue;
                 }
 
-                Field field = DucklakeParquetTypeUtils.constructField(
+                Optional<Field> field = DucklakeParquetTypeUtils.constructField(
                         column.columnType(),
-                        columnIO)
-                        .orElseThrow(() -> new TrinoException(
-                                NOT_SUPPORTED,
-                                "Could not construct field for column: " + columnName));
+                        columnIO);
+                if (field.isEmpty()) {
+                    // Could not construct field — return nulls
+                    transforms.constantValue(column.columnType().createNullBlock());
+                    continue;
+                }
 
-                parquetColumns.add(new Column(columnName, field));
+                parquetColumns.add(new Column(columnName, field.get()));
+                transforms.column(parquetColumnOrdinal);
+                parquetColumnOrdinal++;
             }
 
-            // Create ParquetReader
+            List<Column> presentColumns = parquetColumns.build();
+
+            // Create ParquetReader with only the columns present in the file
             ParquetReader parquetReader = new ParquetReader(
                     Optional.ofNullable(fileMetadata.getCreatedBy()),
-                    parquetColumns.build(),
+                    presentColumns,
                     false, // appendRowNumberColumn
                     rowGroups,
                     dataSource,
@@ -247,8 +255,10 @@ public class DucklakePageSourceProvider
                     Optional.empty(), // bloomFilterStore
                     Optional.empty()); // rowFilter
 
-            // Wrap in ParquetPageSource and apply merge-on-read delete filtering if present
+            // Wrap in ParquetPageSource, apply column transforms for missing columns,
+            // then apply merge-on-read delete filtering if present
             ConnectorPageSource pageSource = new ParquetPageSource(parquetReader);
+            pageSource = transforms.build(pageSource);
             pageSource = applyDeleteFile(fileSystem, split, pageSource);
 
             log.debug("Created Parquet page source for %d columns from file: %s",

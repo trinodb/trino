@@ -213,7 +213,11 @@ public class DucklakeMetadata
         }
 
         Map<String, ColumnHandle> columnHandles = getColumnHandles(session, tableHandle);
-        List<DucklakeColumnStats> columnStatsList = catalog.getColumnStats(table.tableId(), table.snapshotId());
+
+        // Build column type map for typed min/max comparison
+        Map<Long, String> columnTypes = catalog.getTableColumns(table.tableId(), table.snapshotId()).stream()
+                .collect(toImmutableMap(DucklakeColumn::columnId, DucklakeColumn::columnType));
+        List<DucklakeColumnStats> columnStatsList = catalog.getColumnStats(table.tableId(), table.snapshotId(), columnTypes);
 
         // Index column stats by column ID
         Map<Long, DucklakeColumnStats> statsById = columnStatsList.stream()

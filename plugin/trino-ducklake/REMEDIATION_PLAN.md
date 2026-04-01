@@ -9,77 +9,52 @@ Close correctness and parity gaps in the read-only connector while increasing re
 
 ## P0: Correctness (must complete first)
 
-### P0.1 Schema-evolution-safe reads
+### P0.1 Schema-evolution-safe reads — DONE
+Fixed: Missing top-level Parquet columns now return null blocks via `TransformConnectorPageSource`.
+Tests: `testSchemaEvolutionMissingColumnReturnsNulls`, `testSchemaEvolutionMixedColumns`.
+
+### P0.2 Temporal partition transform semantics — DEFERRED
 Problem:
-Current page-source creation throws when a requested top-level column is absent in a Parquet file.
+Temporal transform handling in split pruning currently does not match the checked-in Ducklake spec semantics (spec says epoch-based encoding).
 
-Actions:
-- Return null-producing fields/pages for missing top-level columns instead of failing.
-- Preserve behavior for nested fields where parent exists but child is missing.
-- Add regression tests with mixed-schema files in one table snapshot.
+Status: **Deferred until Ducklake 1.0 release.**
+Current implementation follows DuckDB ducklake extension behavior, which may differ from spec text.
+The spec itself may change before the 1.0 release (expected within weeks).
 
-Done when:
-- Querying columns added after older files were written returns nulls for old files.
-- No false failures for valid schema evolution scenarios.
+Action for 1.0:
+- Verify DuckDB ducklake 1.0 final transform encoding and reconcile with our implementation.
+- If spec aligns with DuckDB behavior post-1.0, close this item.
+- If spec diverges, decide whether to follow spec or DuckDB and document.
 
-### P0.2 Temporal partition transform semantics
-Problem:
-Temporal transform handling in split pruning currently does not match the checked-in Ducklake spec semantics.
-
-Actions:
-- Align transform encoding/decoding for `year`, `month`, `day`, `hour` with agreed spec semantics.
-- If implementation intentionally follows DuckDB producer behavior that differs from spec text, document and gate it explicitly.
-- Add focused tests that cover boundary and wraparound scenarios.
-
-Done when:
-- Enforced predicate classification and partition pruning are both semantically correct.
-- Test cases prove no false-positive pruning.
+see reported issue: https://github.com/duckdb/ducklake-web/issues/312
 
 ## P1: Planner/Stats Quality
 
-### P1.1 Typed aggregated min/max stats
-Problem:
-Aggregated `min_value`/`max_value` are currently derived with string min/max ordering.
+### P1.1 Typed aggregated min/max stats — DONE
+Fixed: `getColumnStats()` now fetches per-file stats and aggregates in Java with type-aware comparison.
+Supports numeric (int/long/double), date, and falls back to string for other types.
+Tests: `testGetColumnStatsReturnsTypedMinMax`, `testGetTableStatisticsRowCountAndRanges`.
 
-Actions:
-- Compute typed min/max safely (query or post-processing strategy).
-- Keep null/invalid parsing behavior conservative (never prune incorrectly).
-- Add tests for numeric/date columns showing correct aggregate ranges.
-
-Done when:
-- `getTableStatistics` ranges are type-correct for numeric/date types.
-
-### P1.2 Dynamic-filter and table-statistics tests
-Problem:
-Dynamic filters are only exercised with `DynamicFilter.EMPTY`, and table-statistic output has no direct tests.
-
-Actions:
-- Add tests with non-empty dynamic filters that prune data at read time.
-- Add direct tests for `getTableStatistics` row count, null fraction, and ranges.
-
-Done when:
-- Both behaviors are covered by deterministic unit tests.
+### P1.2 Dynamic-filter and table-statistics tests — DONE
+Added tests for non-empty dynamic filters at page-source level and direct table-statistics verification.
+Tests: `testDynamicFilterExcludesAllReturnsNoRows`, `testDynamicFilterIncludesAllReturnsAllRows`.
 
 ## P2: Reuse Alignment
 
-### P2.1 Reuse review and extraction
-Problem:
-Some code currently custom where Iceberg public utilities exist.
-
-Actions:
-- Evaluate replacing or wrapping custom delete logic with Iceberg public delete helpers where model alignment is strong.
-- Evaluate replacing or sharing parquet field conversion helpers with Iceberg public converter or shared extracted utility.
-- If direct reuse is not viable, document why in `REUSE.md` with explicit constraints.
-
-Done when:
-- Reuse decision is explicit per subsystem (adopted / intentionally custom + reason).
+### P2.1 Reuse review and extraction — DONE
+Evaluated four areas: parquet field construction, delete handling, type conversion, split/metadata.
+All custom code is intentionally separate — Iceberg abstractions don't align with Ducklake's simpler model.
+Full rationale documented in [REUSE.md](REUSE.md).
 
 ## P3: Validation Depth
 
 ### P3.1 Query-runner integration tests
+See [TESTING_UPGRADE.md](TESTING_UPGRADE.md) for the full testing upgrade plan.
+
 Actions:
-- Add query-runner tests for end-to-end planner + execution behavior.
-- Cover: partition pruning, delete filtering, nested reads, and stats-driven planning.
+- Build `DucklakeQueryRunner` + `TestDucklakeConnectorTest` (Tier 1).
+- Port DuckDB ducklake extension test data for cross-engine reads (Tier 2).
+- Cover: partition pruning, delete filtering, nested reads, stats-driven planning, all types.
 
 Done when:
 - Query-runner suite is runnable in CI/dev and verifies core read-only behavior.
@@ -91,10 +66,10 @@ Done when:
 - Time travel semantics.
 
 ## Execution Order
-1. P0.1
-2. P0.2
-3. P1.1 and P1.2
-4. P2.1
+1. P0.1 — DONE
+2. P0.2 — DEFERRED (pending Ducklake 1.0)
+3. P1.1 and P1.2 — DONE
+4. P2.1 — DONE
 5. P3.1
 
 ## Tracking

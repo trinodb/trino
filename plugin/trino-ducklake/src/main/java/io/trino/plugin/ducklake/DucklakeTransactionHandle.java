@@ -13,6 +13,8 @@
  */
 package io.trino.plugin.ducklake;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 
 import java.util.UUID;
@@ -31,6 +33,13 @@ public class DucklakeTransactionHandle
         this.uuid = UUID.randomUUID();
     }
 
+    @JsonCreator
+    public DucklakeTransactionHandle(@JsonProperty("uuid") UUID uuid)
+    {
+        this.uuid = uuid;
+    }
+
+    @JsonProperty
     public UUID getUuid()
     {
         return uuid;

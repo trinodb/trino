@@ -81,9 +81,10 @@ public interface DucklakeCatalog
     Optional<DucklakeTableStats> getTableStats(long tableId);
 
     /**
-     * Get aggregated column statistics across all active data files
+     * Get aggregated column statistics across all active data files.
+     * Column types are used for typed min/max comparison (not lexicographic).
      */
-    List<DucklakeColumnStats> getColumnStats(long tableId, long snapshotId);
+    List<DucklakeColumnStats> getColumnStats(long tableId, long snapshotId, Map<Long, String> columnTypes);
 
     /**
      * Get partition specs for a table at the given snapshot

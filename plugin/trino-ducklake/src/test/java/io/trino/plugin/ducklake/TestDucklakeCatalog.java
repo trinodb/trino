@@ -15,6 +15,7 @@ package io.trino.plugin.ducklake;
 
 import io.trino.plugin.ducklake.catalog.DucklakeCatalog;
 import io.trino.plugin.ducklake.catalog.DucklakeColumn;
+import io.trino.plugin.ducklake.catalog.DucklakeColumnStats;
 import io.trino.plugin.ducklake.catalog.DucklakeSchema;
 import io.trino.plugin.ducklake.catalog.DucklakeTable;
 import io.trino.plugin.ducklake.catalog.SqliteDucklakeCatalog;
@@ -26,6 +27,7 @@ import org.junit.jupiter.api.Test;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -254,6 +256,68 @@ public class TestDucklakeCatalog
                 .isNotEmpty();
         assertThat(catalog.getDataFileIdsForPredicate(table.tableId(), createdDateColumnId, snapshotId, "2025-01-01", "2025-01-01"))
                 .isEmpty();
+    }
+
+    @Test
+    public void testGetColumnStatsReturnsTypedMinMax()
+    {
+        long snapshotId = catalog.getCurrentSnapshotId();
+        DucklakeTable table = getTable("test_schema", "simple_table", snapshotId);
+        List<DucklakeColumn> columns = catalog.getTableColumns(table.tableId(), snapshotId);
+
+        // Build column type map
+        Map<Long, String> columnTypes = columns.stream()
+                .collect(java.util.stream.Collectors.toMap(DucklakeColumn::columnId, DucklakeColumn::columnType));
+
+        List<DucklakeColumnStats> statsList = catalog.getColumnStats(table.tableId(), snapshotId, columnTypes);
+        assertThat(statsList).isNotEmpty();
+
+        // Verify price column (DOUBLE) has typed min/max
+        long priceColumnId = getColumnId(columns, "price");
+        DucklakeColumnStats priceStats = statsList.stream()
+                .filter(s -> s.columnId() == priceColumnId)
+                .findFirst().orElseThrow();
+        assertThat(priceStats.minValue()).isPresent();
+        assertThat(priceStats.maxValue()).isPresent();
+        // price values: 19.99, 29.99, 39.99, 49.99, 59.99
+        assertThat(Double.parseDouble(priceStats.minValue().get())).isLessThanOrEqualTo(19.99);
+        assertThat(Double.parseDouble(priceStats.maxValue().get())).isGreaterThanOrEqualTo(59.99);
+
+        // Verify id column (INTEGER) has typed min/max
+        long idColumnId = getColumnId(columns, "id");
+        DucklakeColumnStats idStats = statsList.stream()
+                .filter(s -> s.columnId() == idColumnId)
+                .findFirst().orElseThrow();
+        assertThat(idStats.minValue()).isPresent();
+        assertThat(idStats.maxValue()).isPresent();
+        assertThat(Long.parseLong(idStats.minValue().get())).isEqualTo(1);
+        assertThat(Long.parseLong(idStats.maxValue().get())).isEqualTo(5);
+
+        // Verify value counts
+        assertThat(priceStats.totalValueCount()).isEqualTo(5);
+        assertThat(priceStats.totalNullCount()).isEqualTo(0);
+    }
+
+    @Test
+    public void testGetTableStatisticsRowCountAndRanges()
+    {
+        long snapshotId = catalog.getCurrentSnapshotId();
+        DucklakeTable table = getTable("test_schema", "simple_table", snapshotId);
+        DucklakeTableHandle tableHandle = new DucklakeTableHandle(
+                "test_schema", "simple_table", table.tableId(), snapshotId);
+
+        DucklakeTypeConverter typeConverter = new DucklakeTypeConverter(
+                io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER);
+        DucklakeMetadata metadata = new DucklakeMetadata(catalog, typeConverter);
+
+        io.trino.spi.statistics.TableStatistics stats = metadata.getTableStatistics(
+                io.trino.testing.connector.TestingConnectorSession.SESSION, tableHandle);
+
+        // Row count should be 5
+        assertThat(stats.getRowCount().getValue()).isEqualTo(5.0);
+
+        // Should have column statistics
+        assertThat(stats.getColumnStatistics()).isNotEmpty();
     }
 
     private DucklakeSchema getSchema(String schemaName, long snapshotId)

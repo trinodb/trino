@@ -7,6 +7,7 @@ Read-only Trino connector for the Ducklake table format.
 - [REMEDIATION_PLAN.md](REMEDIATION_PLAN.md): Prioritized remediation plan.
 - [REUSE.md](REUSE.md): Reuse strategy and where we still diverge from Iceberg.
 - [SMOKE_TEST.md](SMOKE_TEST.md): Build and test commands.
+- [TESTING_UPGRADE.md](TESTING_UPGRADE.md): Testing upgrade plan (query-runner, cross-engine, coverage gaps).
 
 ## What Works
 - SQL catalog reads from Ducklake metadata tables (SQLite tested).
