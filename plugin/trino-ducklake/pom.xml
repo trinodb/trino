@@ -185,11 +185,11 @@
             <scope>test</scope>
         </dependency>
 
-        <!-- DuckDB 1.5 for Ducklake extension support -->
+        <!-- DuckDB 1.5.1 for Ducklake extension support (bug fixes in ducklake area) -->
         <dependency>
             <groupId>org.duckdb</groupId>
             <artifactId>duckdb_jdbc</artifactId>
-            <version>1.5.0.0</version>
+            <version>1.5.1.0</version>
             <scope>test</scope>
         </dependency>
 
