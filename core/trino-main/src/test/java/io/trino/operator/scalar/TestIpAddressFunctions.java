@@ -21,7 +21,10 @@ import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
 
 import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
+import static io.trino.type.IpAddressType.IPADDRESS;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
@@ -531,5 +534,125 @@ public class TestIpAddressFunctions
                 .isEqualTo(true);
         assertThat(assertions.function("contains", "'127.0.0.1/32'", "IPADDRESS '::ffff:7f00:0002'"))
                 .isEqualTo(false);
+    }
+
+    @Test
+    public void testIpAddressToBits()
+    {
+        assertThat(assertions.expression("ip_to_bits(a)")
+                .binding("a", "IPADDRESS '192.172.1.20'"))
+                .hasType(VARCHAR)
+                .isEqualTo("11000000101011000000000100010100");
+
+        assertThat(assertions.expression("ip_to_bits(a)")
+                .binding("a", "IPADDRESS '4ffe:2900:5545:3210:2000:f8ff:fe21:67cf'"))
+                .hasType(VARCHAR)
+                .isEqualTo("01001111111111100010100100000000010101010100010100110010000100000010000000000000111110001111111111111110001000010110011111001111");
+    }
+
+    @Test
+    public void testIpAddressToBitsWithSubnet()
+    {
+        assertThat(assertions.expression("ip_to_bits(a, 96)")
+                .binding("a", "IPADDRESS '64:ff9b::'"))
+                .hasType(VARCHAR)
+                .isEqualTo("00000000011001001111111110011011000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000");
+
+        assertThat(assertions.expression("ip_to_bits(a, 1)")
+                .binding("a", "IPADDRESS 'ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff'"))
+                .hasType(VARCHAR)
+                .isEqualTo("10000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000");
+
+        assertThat(assertions.expression("ip_to_bits(a, 120)")
+                .binding("a", "IPADDRESS 'ffff:ffff:ffff:ffff:ffff:ffff:ffff:00ff'"))
+                .hasType(VARCHAR)
+                .isEqualTo("11111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111110000000000000000");
+
+        assertThat(assertions.expression("ip_to_bits(a, 8)")
+                .binding("a", "IPADDRESS 'ffff:ffff:ffff:ffff:ffff:ffff:ffff:00ff'"))
+                .hasType(VARCHAR)
+                .isEqualTo("11111111000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000");
+
+        assertThat(assertions.expression("ip_to_bits(a, 9)")
+                .binding("a", "IPADDRESS 'ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff'"))
+                .hasType(VARCHAR)
+                .isEqualTo("11111111100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000");
+
+        assertThat(assertions.expression("ip_to_bits(a, 32)")
+                .binding("a", "IPADDRESS '255.255.255.255'"))
+                .hasType(VARCHAR)
+                .isEqualTo("11111111111111111111111111111111");
+
+        assertThat(assertions.expression("ip_to_bits(a, 16)")
+                .binding("a", "IPADDRESS '255.255.255.255'"))
+                .hasType(VARCHAR)
+                .isEqualTo("11111111111111110000000000000000");
+
+        assertThat(assertions.expression("ip_to_bits(a, 0)")
+                .binding("a", "IPADDRESS '255.255.255.255'"))
+                .hasType(VARCHAR)
+                .isEqualTo("00000000000000000000000000000000");
+
+        // Roundtrips
+        assertThat(assertions.expression("ip_from_bits(ip_to_bits(a))")
+                .binding("a", "IPADDRESS '192.172.1.20'"))
+                .hasType(IPADDRESS)
+                .isEqualTo("192.172.1.20");
+
+        assertThat(assertions.expression("ip_from_bits(ip_to_bits(a, 24))")
+                .binding("a", "IPADDRESS '192.172.1.20'"))
+                .hasType(IPADDRESS)
+                .isEqualTo("192.172.1.0");
+
+        assertThat(assertions.expression("ip_from_bits(ip_to_bits(a, 112))")
+                .binding("a", "IPADDRESS '4ffe:2900:5545:3210:2000:f8ff:fe21:67cf'"))
+                .hasType(IPADDRESS)
+                .isEqualTo("4ffe:2900:5545:3210:2000:f8ff:fe21:0");
+    }
+
+    @Test
+    public void testIpAddressFromBits()
+    {
+        assertThat(assertions.expression("ip_from_bits(a)")
+                .binding("a", "'00000000000000000000000000000000000000000000000000000000000000000000000000000000111111111111111111000000101011000000000100010100'"))
+                .hasType(IPADDRESS)
+                .isEqualTo("192.172.1.20");
+
+        assertThat(assertions.expression("ip_from_bits(a)")
+                .binding("a", "'01001111111111100010100100000000010101010100010100110010000100000010000000000000111110001111111111111110001000010110011111001111'"))
+                .hasType(IPADDRESS)
+                .isEqualTo("4ffe:2900:5545:3210:2000:f8ff:fe21:67cf");
+
+        assertThat(assertions.expression("ip_from_bits(a)")
+                .binding("a", "'00000000000000000000000000000000000000000000000000000000000000000000000000000000111111111111111100000000000000000000000000000000'"))
+                .hasType(IPADDRESS)
+                .isEqualTo("0.0.0.0");
+    }
+
+    @Test
+    public void testIpAddressVersion()
+    {
+        assertThat(assertions.expression("ip_version(a)")
+                .binding("a", "IPADDRESS '192.172.1.20'"))
+                .hasType(INTEGER)
+                .isEqualTo(4);
+
+        assertThat(assertions.expression("ip_version(a)")
+                .binding("a", "IPADDRESS '64:ff9b::'"))
+                .hasType(INTEGER)
+                .isEqualTo(6);
+    }
+
+    @Test
+    public void testIpAddressBitsInvalidArguments()
+    {
+        assertTrinoExceptionThrownBy(assertions.function("ip_from_bits", "'0'")::evaluate)
+                .hasMessage("Invalid IP address bits length, expected 32 or 128 but was 1");
+        assertTrinoExceptionThrownBy(assertions.function("ip_from_bits", "'%s'".formatted("2".repeat(128)))::evaluate)
+                .hasMessage("Invalid IP address bits, expected only '0' and '1'");
+        assertTrinoExceptionThrownBy(assertions.function("ip_to_bits", "IPADDRESS '192.172.1.20'", "33")::evaluate)
+                .hasMessage("Subnet address must be between 0 and 32 for IPv4, but was 33");
+        assertTrinoExceptionThrownBy(assertions.function("ip_to_bits", "IPADDRESS '64:ff9b::'", "129")::evaluate)
+                .hasMessage("Subnet address must be between 0 and 128 for IPv6, but was 129");
     }
 }
