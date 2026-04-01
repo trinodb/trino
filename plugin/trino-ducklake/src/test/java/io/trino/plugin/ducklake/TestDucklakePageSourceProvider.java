@@ -47,6 +47,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -410,6 +411,68 @@ public class TestDucklakePageSourceProvider
         assertThat(rows).isGreaterThan(0);
     }
 
+    @Test
+    public void testInlinedPageSourceReturnsCorrectRows()
+            throws Exception
+    {
+        long snapshotId = catalog.getCurrentSnapshotId();
+        DucklakeTable table = getTable("test_schema", "inlined_table", snapshotId);
+        DucklakeTableHandle tableHandle = new DucklakeTableHandle("test_schema", "inlined_table", table.tableId(), snapshotId);
+
+        // Get the inlined split
+        ConnectorSplit split = getAnySplits(tableHandle).getFirst();
+        assertThat(split).isInstanceOf(DucklakeInlinedSplit.class);
+
+        long idColumnId = getColumnId(table.tableId(), snapshotId, "id");
+        long nameColumnId = getColumnId(table.tableId(), snapshotId, "name");
+        long valueColumnId = getColumnId(table.tableId(), snapshotId, "value");
+        DucklakeColumnHandle idColumn = new DucklakeColumnHandle(idColumnId, "id", INTEGER, true);
+        DucklakeColumnHandle nameColumn = new DucklakeColumnHandle(nameColumnId, "name", VARCHAR, true);
+        DucklakeColumnHandle valueColumn = new DucklakeColumnHandle(valueColumnId, "value", DOUBLE, true);
+
+        long rows = 0;
+        try (ConnectorPageSource pageSource = pageSourceProvider.createPageSource(
+                null, SESSION, split, tableHandle, ImmutableList.of(idColumn, nameColumn, valueColumn), DynamicFilter.EMPTY)) {
+            while (!pageSource.isFinished()) {
+                var page = pageSource.getNextSourcePage();
+                if (page != null) {
+                    rows += page.getPositionCount();
+                }
+            }
+        }
+        assertThat(rows).isEqualTo(3);
+    }
+
+    @Test
+    public void testInlinedPageSourceColumnProjection()
+            throws Exception
+    {
+        long snapshotId = catalog.getCurrentSnapshotId();
+        DucklakeTable table = getTable("test_schema", "inlined_table", snapshotId);
+        DucklakeTableHandle tableHandle = new DucklakeTableHandle("test_schema", "inlined_table", table.tableId(), snapshotId);
+
+        ConnectorSplit split = getAnySplits(tableHandle).getFirst();
+        assertThat(split).isInstanceOf(DucklakeInlinedSplit.class);
+
+        // Request only the name column
+        long nameColumnId = getColumnId(table.tableId(), snapshotId, "name");
+        DucklakeColumnHandle nameColumn = new DucklakeColumnHandle(nameColumnId, "name", VARCHAR, true);
+
+        long rows = 0;
+        try (ConnectorPageSource pageSource = pageSourceProvider.createPageSource(
+                null, SESSION, split, tableHandle, ImmutableList.of(nameColumn), DynamicFilter.EMPTY)) {
+            while (!pageSource.isFinished()) {
+                var page = pageSource.getNextSourcePage();
+                if (page != null) {
+                    rows += page.getPositionCount();
+                    // Verify we only get one column
+                    assertThat(page.getChannelCount()).isEqualTo(1);
+                }
+            }
+        }
+        assertThat(rows).isEqualTo(3);
+    }
+
     private long countRows(DucklakeTableHandle tableHandle, DucklakeSplit split, DucklakeColumnHandle column)
             throws Exception
     {
@@ -434,17 +497,23 @@ public class TestDucklakePageSourceProvider
     private List<DucklakeSplit> getSplits(DucklakeTableHandle tableHandle)
             throws Exception
     {
+        return getAnySplits(tableHandle).stream()
+                .map(DucklakeSplit.class::cast)
+                .collect(toImmutableList());
+    }
+
+    private List<ConnectorSplit> getAnySplits(DucklakeTableHandle tableHandle)
+            throws Exception
+    {
         try (ConnectorSplitSource splitSource = splitManager.getSplits(
                 null,
                 SESSION,
                 tableHandle,
                 DynamicFilter.EMPTY,
                 Constraint.alwaysTrue())) {
-            ImmutableList.Builder<DucklakeSplit> splits = ImmutableList.builder();
+            ImmutableList.Builder<ConnectorSplit> splits = ImmutableList.builder();
             while (!splitSource.isFinished()) {
-                for (ConnectorSplit split : splitSource.getNextBatch(1000).get().getSplits()) {
-                    splits.add((DucklakeSplit) split);
-                }
+                splits.addAll(splitSource.getNextBatch(1000).get().getSplits());
             }
             return splits.build();
         }

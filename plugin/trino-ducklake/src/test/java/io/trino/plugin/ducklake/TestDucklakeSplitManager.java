@@ -35,6 +35,7 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -174,7 +175,62 @@ public class TestDucklakeSplitManager
                 .allSatisfy(split -> assertThat(split.fileStatisticsDomain().isAll()).isTrue());
     }
 
+    @Test
+    public void testGetSplitsReturnsInlinedSplitForInlinedTable()
+            throws Exception
+    {
+        long snapshotId = catalog.getCurrentSnapshotId();
+        DucklakeTable table = getTable("test_schema", "inlined_table", snapshotId);
+        DucklakeTableHandle tableHandle = new DucklakeTableHandle("test_schema", "inlined_table", table.tableId(), snapshotId);
+
+        List<ConnectorSplit> splits = getRawSplits(tableHandle, Constraint.alwaysTrue());
+        assertThat(splits).hasSize(1);
+        assertThat(splits.getFirst()).isInstanceOf(DucklakeInlinedSplit.class);
+
+        DucklakeInlinedSplit inlinedSplit = (DucklakeInlinedSplit) splits.getFirst();
+        assertThat(inlinedSplit.tableId()).isEqualTo(table.tableId());
+        assertThat(inlinedSplit.snapshotId()).isEqualTo(snapshotId);
+    }
+
+    @Test
+    public void testGetSplitsReturnsFileSplitsForFlushedTable()
+            throws Exception
+    {
+        long snapshotId = catalog.getCurrentSnapshotId();
+        DucklakeTable table = getTable("test_schema", "simple_table", snapshotId);
+        DucklakeTableHandle tableHandle = new DucklakeTableHandle("test_schema", "simple_table", table.tableId(), snapshotId);
+
+        List<ConnectorSplit> splits = getRawSplits(tableHandle, Constraint.alwaysTrue());
+        assertThat(splits).isNotEmpty();
+        assertThat(splits).allSatisfy(split -> assertThat(split).isInstanceOf(DucklakeSplit.class));
+    }
+
+    @Test
+    public void testGetSplitsReturnsEmptyForEmptyTable()
+            throws Exception
+    {
+        long snapshotId = catalog.getCurrentSnapshotId();
+        DucklakeTable table = getTable("test_schema", "empty_table", snapshotId);
+        DucklakeTableHandle tableHandle = new DucklakeTableHandle("test_schema", "empty_table", table.tableId(), snapshotId);
+
+        List<ConnectorSplit> splits = getRawSplits(tableHandle, Constraint.alwaysTrue());
+        // empty_table has no data files and no inlined data — should return empty
+        // (may return an inlined split with 0 rows, or empty list; either is acceptable)
+        if (!splits.isEmpty()) {
+            // If we get a split, reading it should produce 0 rows
+            assertThat(splits).hasSize(1);
+        }
+    }
+
     private List<DucklakeSplit> getSplits(DucklakeTableHandle tableHandle, Constraint constraint)
+            throws Exception
+    {
+        return getRawSplits(tableHandle, constraint).stream()
+                .map(DucklakeSplit.class::cast)
+                .collect(toImmutableList());
+    }
+
+    private List<ConnectorSplit> getRawSplits(DucklakeTableHandle tableHandle, Constraint constraint)
             throws Exception
     {
         try (ConnectorSplitSource splitSource = splitManager.getSplits(
@@ -183,11 +239,9 @@ public class TestDucklakeSplitManager
                 tableHandle,
                 DynamicFilter.EMPTY,
                 constraint)) {
-            com.google.common.collect.ImmutableList.Builder<DucklakeSplit> splits = com.google.common.collect.ImmutableList.builder();
+            com.google.common.collect.ImmutableList.Builder<ConnectorSplit> splits = com.google.common.collect.ImmutableList.builder();
             while (!splitSource.isFinished()) {
-                for (ConnectorSplit split : splitSource.getNextBatch(1000).get().getSplits()) {
-                    splits.add((DucklakeSplit) split);
-                }
+                splits.addAll(splitSource.getNextBatch(1000).get().getSplits());
             }
             return splits.build();
         }

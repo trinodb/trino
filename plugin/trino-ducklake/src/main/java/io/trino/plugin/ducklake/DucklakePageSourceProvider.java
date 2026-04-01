@@ -187,26 +187,45 @@ public class DucklakePageSourceProvider
         List<DucklakeColumn> tableColumns = catalog.getTableColumns(
                 inlinedSplit.tableId(), inlinedSplit.snapshotId());
 
-        // Build ordered list of columns matching the requested projection
-        Map<Long, DucklakeColumn> columnById = tableColumns.stream()
-                .collect(toImmutableMap(DucklakeColumn::columnId, col -> col));
-
-        List<DucklakeColumn> requestedColumns = ducklakeColumns.stream()
-                .map(handle -> {
-                    DucklakeColumn col = columnById.get(handle.columnId());
-                    if (col == null) {
-                        throw new IllegalStateException("Column not found in table metadata: " + handle.columnName());
-                    }
-                    return col;
-                })
-                .collect(toImmutableList());
+        // Handle empty projection (e.g., COUNT(*)) — we still need to know the row count.
+        // Query with at least one column to get the correct number of rows.
+        boolean emptyProjection = ducklakeColumns.isEmpty();
+        List<DucklakeColumn> queryColumns;
+        if (emptyProjection) {
+            // Use the first table column just to get row count
+            queryColumns = ImmutableList.of(tableColumns.getFirst());
+        }
+        else {
+            // Build ordered list of columns matching the requested projection
+            Map<Long, DucklakeColumn> columnById = tableColumns.stream()
+                    .collect(toImmutableMap(DucklakeColumn::columnId, col -> col));
+            queryColumns = ducklakeColumns.stream()
+                    .map(handle -> {
+                        DucklakeColumn col = columnById.get(handle.columnId());
+                        if (col == null) {
+                            throw new IllegalStateException("Column not found in table metadata: " + handle.columnName());
+                        }
+                        return col;
+                    })
+                    .collect(toImmutableList());
+        }
 
         // Read inlined data from the metadata catalog
         List<List<Object>> rawRows = catalog.readInlinedData(
                 inlinedSplit.tableId(),
                 inlinedSplit.schemaVersion(),
                 inlinedSplit.snapshotId(),
-                requestedColumns);
+                queryColumns);
+
+        if (emptyProjection) {
+            // Return empty-column rows — just the count matters
+            List<List<Object>> emptyRows = rawRows.stream()
+                    .map(_ -> (List<Object>) ImmutableList.of())
+                    .collect(toImmutableList());
+            InMemoryRecordSet recordSet = new InMemoryRecordSet(ImmutableList.of(), emptyRows);
+            log.debug("Created inlined page source with %d rows (empty projection) for tableId=%d", rawRows.size(), inlinedSplit.tableId());
+            return new RecordPageSource(recordSet);
+        }
 
         // Extract Trino types for each column
         List<Type> types = ducklakeColumns.stream()

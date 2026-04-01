@@ -1250,4 +1250,46 @@ public class TestDucklakeIntegration
         MaterializedResult result = computeActual("DESCRIBE inlined_table");
         assertThat(result.getRowCount()).isEqualTo(3);
     }
+
+    @Test
+    public void testInlinedNullableTableSelect()
+    {
+        MaterializedResult result = computeActual("SELECT * FROM inlined_nullable_table ORDER BY id NULLS FIRST");
+        assertThat(result.getRowCount()).isEqualTo(3);
+
+        List<MaterializedRow> rows = result.getMaterializedRows();
+        // Row with all NULLs sorts first
+        assertThat(rows.get(0).getField(0)).isNull();
+        assertThat(rows.get(0).getField(1)).isNull();
+        assertThat(rows.get(0).getField(2)).isNull();
+
+        assertThat(rows.get(1).getField(0)).isEqualTo(1);
+        assertThat(rows.get(1).getField(1)).isEqualTo("present");
+
+        assertThat(rows.get(2).getField(0)).isEqualTo(3);
+        assertThat(rows.get(2).getField(1)).isNull();
+        assertThat(rows.get(2).getField(2)).isEqualTo(30.0);
+    }
+
+    @Test
+    public void testInlinedNullableTableNullFiltering()
+    {
+        assertQuery("SELECT COUNT(*) FROM inlined_nullable_table WHERE id IS NULL", "VALUES 1");
+        assertQuery("SELECT COUNT(*) FROM inlined_nullable_table WHERE id IS NOT NULL", "VALUES 2");
+        assertQuery("SELECT COUNT(*) FROM inlined_nullable_table WHERE name IS NOT NULL", "VALUES 1");
+    }
+
+    @Test
+    public void testInlinedNullableTableAggregation()
+    {
+        assertQuery("SELECT COUNT(*), COUNT(id), SUM(value) FROM inlined_nullable_table", "VALUES (3, 2, 40.0)");
+    }
+
+    @Test
+    public void testInlinedTableJoin()
+    {
+        MaterializedResult result = computeActual(
+                "SELECT a.name, b.name FROM inlined_table a JOIN inlined_table b ON a.id = b.id ORDER BY a.id");
+        assertThat(result.getRowCount()).isEqualTo(3);
+    }
 }
