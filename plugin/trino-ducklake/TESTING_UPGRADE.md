@@ -5,15 +5,14 @@
 | Metric | Ducklake | Iceberg (reference) |
 |--------|----------|---------------------|
 | Test files | 9 | 153 |
-| Test count | 152 | ~2000+ |
-| Query-runner integration tests | 1 (104 methods) | 42 files |
+| Test count | 168 | ~2000+ |
+| Query-runner integration tests | 1 (120 methods) | 42 files |
 | BaseConnectorTest coverage | none (read-only) | full (226 methods) |
-| End-to-end SQL tests | 104 | extensive |
-| Cross-engine compatibility tests | none | N/A |
+| End-to-end SQL tests | 120 | extensive |
 
-**Tier 1 (query-runner integration tests) is COMPLETE.** `TestDucklakeIntegration` provides 104 end-to-end test methods covering metadata, types, NULLs, predicates, partitioning, schema evolution, complex type dereferences, joins, set operations, EXPLAIN, aggregations, edge cases, and write-rejection.
+**Tier 1 (query-runner integration tests) is COMPLETE.** `TestDucklakeIntegration` provides 120 end-to-end test methods covering metadata, types, NULLs, predicates, partitioning, schema evolution, complex type dereferences, joins, set operations, EXPLAIN, aggregations, delete-file handling, multi-file scans, complex NULL patterns, and write-rejection.
 
-Test tables (11 total, created by `DucklakeCatalogGenerator`):
+Test tables (14 total, created by `DucklakeCatalogGenerator`):
 - `simple_table` (5 rows) — primitives
 - `array_table` (5 rows) — array type
 - `partitioned_table` (5 rows) — identity partitioned by region
@@ -25,6 +24,9 @@ Test tables (11 total, created by `DucklakeCatalogGenerator`):
 - `empty_table` (0 rows) — empty result handling
 - `schema_evolution_table` (4 rows) — column added after initial data
 - `aggregation_table` (30 rows) — GROUP BY, HAVING, window functions
+- `deleted_rows_table` (3 surviving rows) — delete file / merge-on-read handling
+- `complex_nulls_table` (5 rows) — full-NULL structs, arrays with null elements, empty arrays
+- `multi_file_table` (5 rows across 3 files) — multi-file scan with NULLs across boundaries
 
 ## DuckDB Ducklake Extension Tests
 
@@ -170,11 +172,11 @@ Types: `I`=integer, `T`=text, `R`=real, `D`=date, etc.
 
 Source: `ducklake-main/test/sql/` (370 files, 48 categories)
 
-## SQLLogicTest Runner Option
+## SQLLogicTest Runner — Evaluated and Rejected
 
 ### Can we run DuckDB's .test files directly against Trino?
 
-**Short answer: not directly.** The DuckDB test files use DuckDB-specific SQL syntax:
+**No.** We built a two-phase runner (DuckDB writes → Trino reads) and evaluated ~74 read-relevant test files. Only 7 could run. The DuckDB test files use DuckDB-specific SQL syntax:
 - `FROM table` (without SELECT)
 - `EXCLUDE (col1, col2)` in SELECT
 - `ATTACH 'ducklake:...'` / `DETACH`
@@ -195,102 +197,24 @@ These would all fail against Trino's SQL parser.
 
 Trino does **not** use any sqllogictest library today.
 
-### Recommended approach: two-phase test runner
+### Why the runner was dropped
 
-Rather than adapting the DuckDB .test files to run against Trino, use them as a **data generation spec**:
+We built the runner and evaluated ~74 read-relevant test files. The top blockers:
 
-**Phase 1 (DuckDB JDBC):** Parse the `.test` file, run the `statement ok` / `INSERT` / `CREATE TABLE` blocks against DuckDB via JDBC to produce a SQLite catalog + Parquet files. This is the "write side."
+| Blocker | Files affected |
+|---------|---------------|
+| `ducklake_metadata.*` table queries | ~25 |
+| `BEGIN/COMMIT/ROLLBACK` transactions | ~20 |
+| `EXPLAIN ANALYZE` (DuckDB output format) | ~15 |
+| `glob()`, `range()`, `stats()` functions | ~15 |
+| `CALL ducklake_*` procedures | ~12 |
+| `DETACH`/re-`ATTACH` mid-test | ~10 |
 
-**Phase 2 (Trino QueryRunner):** Run the `query` blocks against Trino (with SQL syntax adaptation) to verify reads match expected results. Adaptations needed:
-- `FROM table` → `SELECT * FROM table`
-- `EXCLUDE (cols)` → explicit column list
-- Skip DuckDB-only directives (`ATTACH`, `DETACH`, `BEGIN/COMMIT`, `test-env`)
-- Map DuckDB type names to Trino type names in result comparison
+Only 7 of ~74 files could run. The DuckDB tests primarily verify DuckDB internals (metadata tables, file layout, transaction semantics), not "did the data round-trip correctly."
 
-**Why this is better than a raw sqllogictest runner:**
-- No need to modify the DuckDB test files (they stay upstream-compatible)
-- Trino SQL differences are handled in a thin adapter layer
-- The expensive part (test data generation) only runs once per test class
-- Trino's `MaterializedResult` comparison is more robust than text-based diffing
+**Decision:** Hand-written integration tests in `TestDucklakeIntegration` (120 methods) provide better coverage for Trino-specific concerns. The valuable patterns from the 7 viable DuckDB tests (delete handling, complex NULL patterns, multi-file scans) were ported to integration tests. The runner code was removed.
 
-A future enhancement could use `net.hydromatic:sql-logic-test` for the parser (to avoid writing our own .test file parser), with a custom executor that routes statements to DuckDB or Trino based on the phase.
-
-## Custom Two-Phase Test Runner Design
-
-The `.test` file format is simple enough to parse ourselves (~200-300 lines). Key design:
-
-```
-DucklakeSqlLogicTestRunner
-  ├── TestFileParser            — line-based parser for .test format
-  │     directives: statement ok/error, query <types>, ----, require, test-env
-  ├── DuckDbWriteExecutor       — runs write-side SQL via DuckDB JDBC
-  │     handles: CREATE, INSERT, ALTER, DELETE, UPDATE, ATTACH, BEGIN/COMMIT
-  ├── TrinoReadExecutor         — runs read-side SQL via Trino QueryRunner
-  │     handles: SELECT/query blocks with result comparison
-  └── SqlAdapter                — minimal DuckDB→Trino SQL rewrites
-        FROM xyz → SELECT * FROM xyz
-        EXCLUDE → explicit column list
-        range(N) → UNNEST(sequence(0, N-1))
-        skip: ATTACH, DETACH, test-env, require
-```
-
-**Test permutation matrix** (all use same parsed .test files):
-
-| Mode | Write engine | Read engine | When |
-|------|-------------|-------------|------|
-| Duck→Trino | DuckDB JDBC | Trino QueryRunner | Now (read-only connector) |
-| Duck→Duck | DuckDB JDBC | DuckDB JDBC | Baseline / reference |
-| Trino→Trino | Trino QueryRunner | Trino QueryRunner | When write support lands |
-| Trino→Duck | Trino QueryRunner | DuckDB JDBC | When write support lands |
-
-Each mode uses the same test files — only the executor routing changes.
-
-**Note on sqlglot:** Could be used via GraalVM/WASM for SQL translation if the manual `SqlAdapter` becomes unwieldy. For now the rewrite list is short enough to handle with string manipulation. Revisit if we find many more DuckDB-isms in practice.
-
-## Priority: Ducklake Tests vs Iceberg Test Patterns
-
-**Ducklake extension tests are the primary source of truth.** They define what the format does, they're maintained by the DuckDB team, and they can be synced as the extension evolves. Our goal is to run their full suite (read-side) against Trino and keep it replaceable when they update.
-
-**Iceberg/Trino test patterns are secondary — use selectively.** We don't need to replicate Iceberg's 153-file test suite. What we want from Trino's testing framework is:
-
-| From Trino/Iceberg | Why | How much |
-|---------------------|-----|----------|
-| `DucklakeQueryRunner` | Boots a real Trino server for end-to-end SQL | One class, essential |
-| `AbstractTestQueryFramework` | `assertQuery()`, `computeActual()`, result comparison | Base class, essential |
-| A handful of Trino-perspective tests | Verify SHOW SCHEMAS, DESCRIBE, EXPLAIN plans, information_schema, dynamic filter join behavior, stats-driven planning | ~20-30 hand-written test methods |
-| `BaseConnectorTest` / `BaseConnectorSmokeTest` | 226 standard connector tests | **Not now** — requires write support. Adopt when writes land. |
-
-The split:
-- **~90% of test coverage** should come from the ducklake extension test files via the two-phase runner (Duck writes, Trino reads). These are authoritative, comprehensive, and auto-updatable.
-- **~10% of test coverage** should be hand-written Trino-perspective tests that verify things DuckDB tests don't exercise: Trino plan shapes, dynamic filters across joins, information_schema queries, connector SPI behavior, stats propagation to the optimizer.
-
-## Execution Order
-
-1. **Now:** Build `DucklakeQueryRunner` + small `TestDucklakeConnectorTest` (Trino-perspective tests — SHOW, DESCRIBE, EXPLAIN, joins, dynamic filters)
-2. **Priority:** Build the two-phase test runner and wire up the ducklake extension test suite (Duck→Trino reads). This is the bulk of coverage.
-3. **Later:** Expand Trino-perspective tests as needed (plan quality, edge cases)
-4. **On write support:** Extend to `BaseConnectorTest` and enable all four write/read permutations (Tier 3)
-
-## Implementation Notes for Next Session
-
-**Starting point for Tier 1:**
-1. Create `DucklakeQueryRunner.java` modeled after `IcebergQueryRunner.java` (line 97: `Builder extends DistributedQueryRunner.Builder`)
-2. The `DucklakeCatalogGenerator` already creates test data — just need to wire it into the query runner's `@BeforeAll`
-3. Create `TestDucklakeConnectorTest.java` extending `AbstractTestQueryFramework`
-4. Start with simple SELECTs and SHOW commands, then add predicate/type/join tests
-
-**Starting point for the test runner (Tier 2+):**
-1. Parser: iterate lines, match `^statement (ok|error)`, `^query ([A-Z]+)`, `^----`, `^#`, `^require`, `^test-env`
-2. Accumulate SQL lines between directives
-3. Route to DuckDB or Trino executor based on directive type and current phase
-4. For `query` blocks: execute SQL, compare tab-separated results with expected output
-
-**DuckDB test files most worth porting first:**
-- `ducklake_basic.test` — sanity check
-- `types/struct.test`, `types/list.test`, `types/map.test` — complex type reads
-- `partitioning/basic_partitioning.test`, `partitioning/year_month_day.test` — partition pruning
-- `delete/basic_delete.test` — merge-on-read deletes
-- `general/` (13 files) — broad coverage
+**When write support lands:** Adopt `BaseConnectorTest` (226 standard connector methods). This is the right way to test Trino writes — Trino's own test framework, not DuckDB's.
 
 ## DuckDB Data Inlining and the Trino Connector
 

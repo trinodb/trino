@@ -381,6 +381,78 @@ public final class DucklakeCatalogGenerator
             }
             stmt.execute(insertSql.toString());
 
+            // Table 12: Table with deleted rows (tests delete file / merge-on-read handling)
+            System.out.println("Creating deleted_rows_table...");
+            stmt.execute("""
+                    CREATE TABLE ducklake_db.test_schema.deleted_rows_table (
+                        id INTEGER,
+                        name VARCHAR,
+                        value DOUBLE
+                    )
+                    """);
+
+            stmt.execute("""
+                    INSERT INTO ducklake_db.test_schema.deleted_rows_table VALUES
+                        (1, 'keep', 10.0),
+                        (2, 'delete', 20.0),
+                        (3, 'keep', 30.0),
+                        (4, 'delete', 40.0),
+                        (5, 'keep', 50.0),
+                        (6, 'delete', 60.0)
+                    """);
+
+            // Flush before delete so data is in Parquet files
+            stmt.execute("CALL ducklake_flush_inlined_data('ducklake_db')");
+
+            System.out.println("Deleting rows from deleted_rows_table...");
+            stmt.execute("DELETE FROM ducklake_db.test_schema.deleted_rows_table WHERE name = 'delete'");
+
+            // Table 13: Simple struct with full-NULL rows and variable-length arrays with null elements
+            System.out.println("Creating complex_nulls_table...");
+            stmt.execute("""
+                    CREATE TABLE ducklake_db.test_schema.complex_nulls_table (
+                        id INTEGER,
+                        pair STRUCT(a INTEGER, b INTEGER),
+                        items INTEGER[]
+                    )
+                    """);
+
+            stmt.execute("""
+                    INSERT INTO ducklake_db.test_schema.complex_nulls_table VALUES
+                        (1, {'a': 10, 'b': 20}, [1, 2, 3]),
+                        (2, NULL, [NULL]),
+                        (3, {'a': NULL, 'b': 40}, NULL),
+                        (4, NULL, [4, 5]),
+                        (5, {'a': 50, 'b': 60}, [])
+                    """);
+
+            // Table 14: Multi-file table (separate INSERTs produce separate Parquet files)
+            System.out.println("Creating multi_file_table...");
+            stmt.execute("""
+                    CREATE TABLE ducklake_db.test_schema.multi_file_table (
+                        id INTEGER,
+                        value VARCHAR
+                    )
+                    """);
+
+            // Disable inlining so each INSERT creates a separate Parquet file
+            stmt.execute("CALL ducklake_db.set_option('data_inlining_row_limit', 0, schema => 'test_schema', table_name => 'multi_file_table')");
+
+            stmt.execute("""
+                    INSERT INTO ducklake_db.test_schema.multi_file_table VALUES
+                        (1, 'file1_row1'),
+                        (2, 'file1_row2')
+                    """);
+            stmt.execute("""
+                    INSERT INTO ducklake_db.test_schema.multi_file_table VALUES
+                        (3, 'file2_row1'),
+                        (NULL, NULL)
+                    """);
+            stmt.execute("""
+                    INSERT INTO ducklake_db.test_schema.multi_file_table VALUES
+                        (5, 'file3_row1')
+                    """);
+
             // Force checkpoint to write data to Parquet files
             System.out.println("Forcing checkpoint to write Parquet files...");
             stmt.execute("CHECKPOINT ducklake_db");
@@ -408,6 +480,9 @@ public final class DucklakeCatalogGenerator
             System.out.println("  - test_schema.empty_table (0 rows, empty result set testing)");
             System.out.println("  - test_schema.schema_evolution_table (4 rows, column added after initial write)");
             System.out.println("  - test_schema.aggregation_table (30 rows, aggregation/stats testing)");
+            System.out.println("  - test_schema.deleted_rows_table (3 surviving rows, delete file handling)");
+            System.out.println("  - test_schema.complex_nulls_table (5 rows, full-NULL structs/arrays with null elements)");
+            System.out.println("  - test_schema.multi_file_table (5 rows across 3 Parquet files, multi-file scan)");
         }
 
         System.out.println();

@@ -105,7 +105,7 @@ public class TestDucklakeCatalog
 
         assertThat(tables)
                 .isNotEmpty()
-                .hasSize(11)
+                .hasSize(14)
                 .anySatisfy(table ->
                         assertThat(table.tableName()).isEqualTo("simple_table"))
                 .anySatisfy(table ->

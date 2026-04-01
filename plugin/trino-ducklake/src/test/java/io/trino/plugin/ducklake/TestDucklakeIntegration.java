@@ -996,6 +996,173 @@ public class TestDucklakeIntegration
         assertThat(result.getMaterializedRows().get(0).getField(0)).isEqualTo(2L);
     }
 
+    // ==================== Delete file handling (merge-on-read) ====================
+
+    @Test
+    public void testDeletedRowsTableCount()
+    {
+        // Table had 6 rows, 3 were deleted by DuckDB — only 3 should survive
+        MaterializedResult result = computeActual("SELECT count(*) FROM deleted_rows_table");
+        assertThat(result.getMaterializedRows().get(0).getField(0)).isEqualTo(3L);
+    }
+
+    @Test
+    public void testDeletedRowsTableOnlyKeepRows()
+    {
+        // Only rows with name='keep' should survive the delete
+        MaterializedResult result = computeActual("SELECT id, name, value FROM deleted_rows_table ORDER BY id");
+        assertThat(result.getRowCount()).isEqualTo(3);
+        List<MaterializedRow> rows = result.getMaterializedRows();
+        assertThat(rows.get(0).getField(0)).isEqualTo(1);
+        assertThat(rows.get(0).getField(1)).isEqualTo("keep");
+        assertThat(rows.get(1).getField(0)).isEqualTo(3);
+        assertThat(rows.get(2).getField(0)).isEqualTo(5);
+    }
+
+    @Test
+    public void testDeletedRowsNoDeletedValues()
+    {
+        // No rows with name='delete' should be visible
+        MaterializedResult result = computeActual("SELECT count(*) FROM deleted_rows_table WHERE name = 'delete'");
+        assertThat(result.getMaterializedRows().get(0).getField(0)).isEqualTo(0L);
+    }
+
+    @Test
+    public void testDeletedRowsAggregation()
+    {
+        // SUM should only include surviving rows: 10 + 30 + 50 = 90
+        MaterializedResult result = computeActual("SELECT SUM(value) FROM deleted_rows_table");
+        assertThat(result.getMaterializedRows().get(0).getField(0)).isEqualTo(90.0);
+    }
+
+    // ==================== Complex NULL patterns (structs, arrays) ====================
+
+    @Test
+    public void testFullNullStructRow()
+    {
+        // Row 2 has pair=NULL (entire struct is null) and row 4 has pair=NULL
+        MaterializedResult result = computeActual(
+                "SELECT id FROM complex_nulls_table WHERE pair IS NULL ORDER BY id");
+        assertThat(result.getRowCount()).isEqualTo(2);
+        assertThat(result.getMaterializedRows().get(0).getField(0)).isEqualTo(2);
+        assertThat(result.getMaterializedRows().get(1).getField(0)).isEqualTo(4);
+    }
+
+    @Test
+    public void testStructWithNullSubfield()
+    {
+        // Row 3 has pair.a=NULL, pair.b=40
+        MaterializedResult result = computeActual(
+                "SELECT pair.b FROM complex_nulls_table WHERE id = 3");
+        assertThat(result.getMaterializedRows().get(0).getField(0)).isEqualTo(40);
+    }
+
+    @Test
+    public void testStructNullVsNullSubfield()
+    {
+        // Distinguish full-NULL struct from struct with NULL subfields
+        // Row 2: pair IS NULL (true), Row 3: pair IS NOT NULL but pair.a IS NULL
+        MaterializedResult result = computeActual(
+                "SELECT id, pair IS NULL AS is_null_struct FROM complex_nulls_table WHERE id IN (2, 3) ORDER BY id");
+        assertThat(result.getRowCount()).isEqualTo(2);
+        assertThat(result.getMaterializedRows().get(0).getField(1)).isEqualTo(true);   // id=2: full null
+        assertThat(result.getMaterializedRows().get(1).getField(1)).isEqualTo(false);  // id=3: has values
+    }
+
+    @Test
+    public void testArrayWithNullElement()
+    {
+        // Row 2 has items=[NULL] — a non-null array containing a null element
+        MaterializedResult result = computeActual(
+                "SELECT cardinality(items) FROM complex_nulls_table WHERE id = 2");
+        assertThat(((Number) result.getMaterializedRows().get(0).getField(0)).longValue()).isEqualTo(1L);
+    }
+
+    @Test
+    public void testFullNullArrayRow()
+    {
+        // Row 3 has items=NULL (entire array is null)
+        MaterializedResult result = computeActual(
+                "SELECT items IS NULL FROM complex_nulls_table WHERE id = 3");
+        assertThat(result.getMaterializedRows().get(0).getField(0)).isEqualTo(true);
+    }
+
+    @Test
+    public void testArrayNullVsNullElement()
+    {
+        // Row 2: items IS NOT NULL (array exists but has null element)
+        // Row 3: items IS NULL (entire array is null)
+        MaterializedResult result = computeActual(
+                "SELECT id, items IS NULL AS is_null_array FROM complex_nulls_table WHERE id IN (2, 3) ORDER BY id");
+        assertThat(result.getRowCount()).isEqualTo(2);
+        assertThat(result.getMaterializedRows().get(0).getField(1)).isEqualTo(false);  // [NULL] is not null
+        assertThat(result.getMaterializedRows().get(1).getField(1)).isEqualTo(true);   // NULL array
+    }
+
+    @Test
+    public void testVariableLengthArrays()
+    {
+        // Arrays of different lengths: [1,2,3], [NULL], NULL, [4,5], []
+        MaterializedResult result = computeActual(
+                "SELECT id, cardinality(items) FROM complex_nulls_table WHERE items IS NOT NULL ORDER BY id");
+        assertThat(result.getRowCount()).isEqualTo(4);
+        assertThat(((Number) result.getMaterializedRows().get(0).getField(1)).longValue()).isEqualTo(3L);  // id=1: [1,2,3]
+        assertThat(((Number) result.getMaterializedRows().get(1).getField(1)).longValue()).isEqualTo(1L);  // id=2: [NULL]
+        assertThat(((Number) result.getMaterializedRows().get(2).getField(1)).longValue()).isEqualTo(2L);  // id=4: [4,5]
+        assertThat(((Number) result.getMaterializedRows().get(3).getField(1)).longValue()).isEqualTo(0L);  // id=5: []
+    }
+
+    @Test
+    public void testEmptyArray()
+    {
+        // Row 5 has items=[] — an empty array (not null)
+        MaterializedResult result = computeActual(
+                "SELECT items IS NULL, cardinality(items) FROM complex_nulls_table WHERE id = 5");
+        assertThat(result.getMaterializedRows().get(0).getField(0)).isEqualTo(false);
+        assertThat(((Number) result.getMaterializedRows().get(0).getField(1)).longValue()).isEqualTo(0L);
+    }
+
+    // ==================== Multi-file scan ====================
+
+    @Test
+    public void testMultiFileScanCount()
+    {
+        // 5 rows across 3 separate Parquet files
+        MaterializedResult result = computeActual("SELECT count(*) FROM multi_file_table");
+        assertThat(result.getMaterializedRows().get(0).getField(0)).isEqualTo(5L);
+    }
+
+    @Test
+    public void testMultiFileScanAllRows()
+    {
+        MaterializedResult result = computeActual(
+                "SELECT id, value FROM multi_file_table ORDER BY id NULLS LAST");
+        assertThat(result.getRowCount()).isEqualTo(5);
+        assertThat(result.getMaterializedRows().get(0).getField(1)).isEqualTo("file1_row1");
+        assertThat(result.getMaterializedRows().get(1).getField(1)).isEqualTo("file1_row2");
+        assertThat(result.getMaterializedRows().get(2).getField(1)).isEqualTo("file2_row1");
+        assertThat(result.getMaterializedRows().get(3).getField(1)).isEqualTo("file3_row1");
+        assertThat(result.getMaterializedRows().get(4).getField(0)).isNull();  // NULL id row
+    }
+
+    @Test
+    public void testMultiFileScanWithPredicate()
+    {
+        // Predicate should work across file boundaries
+        MaterializedResult result = computeActual(
+                "SELECT count(*) FROM multi_file_table WHERE id > 2");
+        assertThat(result.getMaterializedRows().get(0).getField(0)).isEqualTo(2L);
+    }
+
+    @Test
+    public void testMultiFileScanNullsAcrossFiles()
+    {
+        // The NULL row is in file 2 — tests that NULL handling works across file boundaries
+        MaterializedResult result = computeActual(
+                "SELECT count(*) FROM multi_file_table WHERE id IS NULL");
+        assertThat(result.getMaterializedRows().get(0).getField(0)).isEqualTo(1L);
+    }
+
     // ==================== Write operations should fail ====================
 
     @Test
