@@ -1,6 +1,6 @@
 # Ducklake Remediation Plan
 
-Last updated: 2026-03-30
+Last updated: 2026-03-31
 
 ## Objective
 Close correctness and parity gaps in the read-only connector while increasing reuse of public Iceberg/Trino components where it is practical and safe.
@@ -48,16 +48,17 @@ Full rationale documented in [REUSE.md](REUSE.md).
 
 ## P3: Validation Depth
 
-### P3.1 Query-runner integration tests
+### P3.1 Query-runner integration tests — TIER 1 DONE
 See [TESTING_UPGRADE.md](TESTING_UPGRADE.md) for the full testing upgrade plan.
 
-Actions:
-- Build `DucklakeQueryRunner` + `TestDucklakeConnectorTest` (Tier 1).
-- Port DuckDB ducklake extension test data for cross-engine reads (Tier 2).
-- Cover: partition pruning, delete filtering, nested reads, stats-driven planning, all types.
+Completed (Tier 1):
+- Built `DucklakeQueryRunner` + `TestDucklakeIntegration` (104 test methods).
+- Expanded `DucklakeCatalogGenerator` to 11 test tables (was 6).
+- Coverage: information_schema, all primitive types, NULLs, predicates (equality, range, IN, LIKE, boolean, date), partitioning (identity, temporal, daily), schema evolution (column-add with NULL backfill), complex type dereferences (struct fields, map subscript, array subscript, nested struct.array, nested struct.map), joins (self, cross-table, left, subquery, dynamic filter), set operations (UNION ALL, UNION, EXCEPT, INTERSECT), EXPLAIN/EXPLAIN ANALYZE, aggregations (GROUP BY, HAVING, window functions), edge cases (empty tables, false predicates, LIMIT 0, CASE, CAST, CTEs), write-rejection verification.
 
-Done when:
-- Query-runner suite is runnable in CI/dev and verifies core read-only behavior.
+Remaining (Tier 2):
+- Build two-phase SQLLogicTest runner for DuckDB ducklake extension test files (Duck writes → Trino reads).
+- Wire up ~40 read-relevant .test files from ducklake-main/test/sql/.
 
 ## Non-Goals (for this plan)
 - Write operations (INSERT/UPDATE/DELETE/DDL).

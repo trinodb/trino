@@ -267,6 +267,120 @@ public final class DucklakeCatalogGenerator
                         )
                     """);
 
+            // Table 7: Wide types table (covers many primitive types)
+            System.out.println("Creating wide_types_table...");
+            stmt.execute("""
+                    CREATE TABLE ducklake_db.test_schema.wide_types_table (
+                        col_tinyint TINYINT,
+                        col_smallint SMALLINT,
+                        col_integer INTEGER,
+                        col_bigint BIGINT,
+                        col_float FLOAT,
+                        col_double DOUBLE,
+                        col_decimal DECIMAL(10, 2),
+                        col_boolean BOOLEAN,
+                        col_varchar VARCHAR,
+                        col_date DATE,
+                        col_timestamp TIMESTAMP,
+                        col_blob BLOB
+                    )
+                    """);
+
+            System.out.println("Inserting data into wide_types_table...");
+            stmt.execute("""
+                    INSERT INTO ducklake_db.test_schema.wide_types_table VALUES
+                        (1, 100, 10000, 1000000000, 1.5, 2.5, 123.45, true, 'hello', '2024-01-01', '2024-01-01 12:00:00', '\\x48454C4C4F'),
+                        (2, 200, 20000, 2000000000, 2.5, 3.5, 678.90, false, 'world', '2024-06-15', '2024-06-15 18:30:00', '\\x574F524C44'),
+                        (-1, -100, -10000, -1000000000, -1.5, -2.5, -123.45, true, '', '1970-01-01', '1970-01-01 00:00:00', '\\x00')
+                    """);
+
+            // Table 8: Nullable table (NULLs in every column type)
+            System.out.println("Creating nullable_table...");
+            stmt.execute("""
+                    CREATE TABLE ducklake_db.test_schema.nullable_table (
+                        id INTEGER,
+                        name VARCHAR,
+                        price DOUBLE,
+                        active BOOLEAN,
+                        created_date DATE,
+                        tags VARCHAR[],
+                        metadata STRUCT(key VARCHAR, value VARCHAR)
+                    )
+                    """);
+
+            System.out.println("Inserting data into nullable_table (with NULLs)...");
+            stmt.execute("""
+                    INSERT INTO ducklake_db.test_schema.nullable_table VALUES
+                        (1, 'Present', 10.0, true, '2024-01-01', ['a', 'b'], {'key': 'k1', 'value': 'v1'}),
+                        (2, NULL, NULL, NULL, NULL, NULL, NULL),
+                        (NULL, 'NoId', 20.0, false, '2024-06-01', ['c'], {'key': 'k2', 'value': 'v2'}),
+                        (4, NULL, NULL, true, NULL, NULL, {'key': 'k3', 'value': NULL})
+                    """);
+
+            // Table 9: Empty table (no rows, tests empty result handling)
+            System.out.println("Creating empty_table...");
+            stmt.execute("""
+                    CREATE TABLE ducklake_db.test_schema.empty_table (
+                        id INTEGER,
+                        name VARCHAR,
+                        value DOUBLE
+                    )
+                    """);
+
+            // Table 10: Schema evolution table
+            // Create with original columns, insert data, then add a column and insert more
+            System.out.println("Creating schema_evolution_table...");
+            stmt.execute("""
+                    CREATE TABLE ducklake_db.test_schema.schema_evolution_table (
+                        id INTEGER,
+                        original_col VARCHAR
+                    )
+                    """);
+
+            stmt.execute("""
+                    INSERT INTO ducklake_db.test_schema.schema_evolution_table VALUES
+                        (1, 'row1'),
+                        (2, 'row2')
+                    """);
+
+            // Force a checkpoint so the first batch is in its own Parquet file
+            stmt.execute("CHECKPOINT ducklake_db");
+
+            // Now add a new column and insert more data
+            System.out.println("Adding column to schema_evolution_table...");
+            stmt.execute("ALTER TABLE ducklake_db.test_schema.schema_evolution_table ADD COLUMN added_col INTEGER");
+
+            stmt.execute("""
+                    INSERT INTO ducklake_db.test_schema.schema_evolution_table VALUES
+                        (3, 'row3', 300),
+                        (4, 'row4', 400)
+                    """);
+
+            // Table 11: Large-ish table for aggregation/stats tests
+            System.out.println("Creating aggregation_table...");
+            stmt.execute("""
+                    CREATE TABLE ducklake_db.test_schema.aggregation_table (
+                        id INTEGER,
+                        category VARCHAR,
+                        amount DOUBLE,
+                        quantity INTEGER
+                    )
+                    """);
+
+            StringBuilder insertSql = new StringBuilder(
+                    "INSERT INTO ducklake_db.test_schema.aggregation_table VALUES ");
+            String[] categories = {"A", "B", "C"};
+            for (int i = 1; i <= 30; i++) {
+                if (i > 1) {
+                    insertSql.append(", ");
+                }
+                String category = categories[(i - 1) % 3];
+                double amount = 10.0 * i + (i % 7);
+                int quantity = i * 5;
+                insertSql.append(String.format("(%d, '%s', %.1f, %d)", i, category, amount, quantity));
+            }
+            stmt.execute(insertSql.toString());
+
             // Force checkpoint to write data to Parquet files
             System.out.println("Forcing checkpoint to write Parquet files...");
             stmt.execute("CHECKPOINT ducklake_db");
@@ -289,6 +403,11 @@ public final class DucklakeCatalogGenerator
             System.out.println("  - test_schema.temporal_partitioned_table (6 rows, partitioned by year/month)");
             System.out.println("  - test_schema.daily_partitioned_table (5 rows, partitioned by year/month/day)");
             System.out.println("  - test_schema.nested_table (3 rows, struct/map/nested arrays)");
+            System.out.println("  - test_schema.wide_types_table (3 rows, many primitive types)");
+            System.out.println("  - test_schema.nullable_table (4 rows, NULLs in every column type)");
+            System.out.println("  - test_schema.empty_table (0 rows, empty result set testing)");
+            System.out.println("  - test_schema.schema_evolution_table (4 rows, column added after initial write)");
+            System.out.println("  - test_schema.aggregation_table (30 rows, aggregation/stats testing)");
         }
 
         System.out.println();

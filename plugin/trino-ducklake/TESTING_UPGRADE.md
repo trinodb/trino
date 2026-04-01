@@ -1,17 +1,30 @@
 # Ducklake Testing Upgrade Plan
 
-## Current State
+## Current State (Updated 2026-03-31)
 
 | Metric | Ducklake | Iceberg (reference) |
 |--------|----------|---------------------|
-| Test files | 7 | 153 |
-| Test count | 48 | ~2000+ |
-| Query-runner integration tests | 0 | 42 files |
-| BaseConnectorTest coverage | none | full (226 methods) |
-| End-to-end SQL tests | none | extensive |
+| Test files | 9 | 153 |
+| Test count | 152 | ~2000+ |
+| Query-runner integration tests | 1 (104 methods) | 42 files |
+| BaseConnectorTest coverage | none (read-only) | full (226 methods) |
+| End-to-end SQL tests | 104 | extensive |
 | Cross-engine compatibility tests | none | N/A |
 
-Ducklake tests are all unit-level: they test individual components (catalog, split manager, page source, partition pruning, delete handling) by wiring up objects directly. There are no tests that boot a Trino server, parse SQL, plan queries, and execute them end-to-end.
+**Tier 1 (query-runner integration tests) is COMPLETE.** `TestDucklakeIntegration` provides 104 end-to-end test methods covering metadata, types, NULLs, predicates, partitioning, schema evolution, complex type dereferences, joins, set operations, EXPLAIN, aggregations, edge cases, and write-rejection.
+
+Test tables (11 total, created by `DucklakeCatalogGenerator`):
+- `simple_table` (5 rows) — primitives
+- `array_table` (5 rows) — array type
+- `partitioned_table` (5 rows) — identity partitioned by region
+- `temporal_partitioned_table` (6 rows) — year/month partition
+- `daily_partitioned_table` (5 rows) — year/month/day partition
+- `nested_table` (3 rows) — struct, map, nested arrays, complex struct
+- `wide_types_table` (3 rows) — tinyint through varbinary
+- `nullable_table` (4 rows) — NULLs in every column type
+- `empty_table` (0 rows) — empty result handling
+- `schema_evolution_table` (4 rows) — column added after initial data
+- `aggregation_table` (30 rows) — GROUP BY, HAVING, window functions
 
 ## DuckDB Ducklake Extension Tests
 

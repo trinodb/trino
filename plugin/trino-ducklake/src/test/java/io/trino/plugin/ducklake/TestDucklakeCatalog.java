@@ -105,7 +105,7 @@ public class TestDucklakeCatalog
 
         assertThat(tables)
                 .isNotEmpty()
-                .hasSize(6)
+                .hasSize(11)
                 .anySatisfy(table ->
                         assertThat(table.tableName()).isEqualTo("simple_table"))
                 .anySatisfy(table ->
@@ -115,7 +115,17 @@ public class TestDucklakeCatalog
                 .anySatisfy(table ->
                         assertThat(table.tableName()).isEqualTo("array_table"))
                 .anySatisfy(table ->
-                        assertThat(table.tableName()).isEqualTo("nested_table"));
+                        assertThat(table.tableName()).isEqualTo("nested_table"))
+                .anySatisfy(table ->
+                        assertThat(table.tableName()).isEqualTo("wide_types_table"))
+                .anySatisfy(table ->
+                        assertThat(table.tableName()).isEqualTo("nullable_table"))
+                .anySatisfy(table ->
+                        assertThat(table.tableName()).isEqualTo("empty_table"))
+                .anySatisfy(table ->
+                        assertThat(table.tableName()).isEqualTo("schema_evolution_table"))
+                .anySatisfy(table ->
+                        assertThat(table.tableName()).isEqualTo("aggregation_table"));
     }
 
     @Test
