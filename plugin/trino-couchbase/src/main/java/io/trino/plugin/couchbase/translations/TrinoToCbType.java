@@ -20,6 +20,7 @@ import io.trino.spi.type.CharType;
 import io.trino.spi.type.DateType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.DoubleType;
+import io.trino.spi.type.IntegerType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
 import jakarta.annotation.Nullable;
@@ -67,7 +68,7 @@ public final class TrinoToCbType
         if (value == null) {
             return null;
         }
-        if (type == DateType.DATE || type.equals(BigintType.BIGINT) || type.equals(DoubleType.DOUBLE)) {
+        if (type == DateType.DATE || type.equals(BigintType.BIGINT) || type.equals(DoubleType.DOUBLE) || type.equals(INTEGER)) {
             return value;
         }
         else if (type instanceof VarcharType) {
