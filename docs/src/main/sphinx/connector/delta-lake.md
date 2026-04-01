@@ -173,7 +173,7 @@ values. Typical usage does not require you to configure them.
     contain external files.
   - `false`
 * - `delta.parquet.time-zone`
-  - Time zone for Parquet read and write.
+  - Time zone used when reading timestamps from Parquet files.
   - JVM default
 * - `delta.target-max-file-size`
   - Target maximum size of written files; the actual size could be larger. The

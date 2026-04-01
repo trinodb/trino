@@ -139,7 +139,7 @@ Hive connector documentation.
     [](parquet-format-configuration)
   - `true`
 * - `hive.parquet.time-zone`
-  - Time zone for Parquet read and write.
+  - Time zone used when reading and writing timestamps into Parquet files.
   - JVM default
 * - `hive.compression-codec`
   - The compression codec to use when writing files. Possible values are `NONE`,
