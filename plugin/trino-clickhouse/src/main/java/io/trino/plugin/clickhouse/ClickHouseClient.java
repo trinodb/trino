@@ -110,7 +110,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiFunction;
 import java.util.stream.Collectors;
 
-import static com.clickhouse.data.ClickHouseValues.convertToQuotedString;
+import static com.clickhouse.data.ClickHouseUtils.escape;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.emptyToNull;
 import static com.google.common.base.Strings.isNullOrEmpty;
@@ -580,7 +580,7 @@ public class ClickHouseClient
     private static String clickhouseVarcharLiteral(String value)
     {
         requireNonNull(value, "value is null");
-        return convertToQuotedString(value);
+        return "'" + escape(value, '\'') + "'";
     }
 
     @Override

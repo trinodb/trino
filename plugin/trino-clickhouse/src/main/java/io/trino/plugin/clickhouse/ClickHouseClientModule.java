@@ -13,7 +13,7 @@
  */
 package io.trino.plugin.clickhouse;
 
-import com.clickhouse.jdbc.ClickHouseDriver;
+import com.clickhouse.jdbc.DriverV1;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Provides;
@@ -70,7 +70,7 @@ public class ClickHouseClientModule
         // https://github.com/ClickHouse/clickhouse-java/issues/1584
         // in Clickhouse itself it has been left `true` by default only for backward compatibility.
         properties.setProperty(PROP_EXTERNAL_DATABASE, "false");
-        return new ClickHouseConnectionFactory(DriverConnectionFactory.builder(new ClickHouseDriver(), config.getConnectionUrl(), credentialProvider)
+        return new ClickHouseConnectionFactory(DriverConnectionFactory.builder(new DriverV1(), config.getConnectionUrl(), credentialProvider)
                 .setConnectionProperties(properties)
                 .setOpenTelemetry(openTelemetry)
                 .build());
