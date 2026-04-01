@@ -147,7 +147,8 @@ public class LeafTableFunctionOperator
                 // ignore close exceptions, as this is a best-effort cleanup
             }
         }
-        this.processor = tableFunctionProvider.getSplitProcessor(session, functionHandle, tableCredentials, nextSplit);
+        Optional<ConnectorTableCredentials> freshCredentials = operatorContext.getDriverContext().getPipelineContext().getTaskContext().getTableCredentials(sourceId);
+        this.processor = tableFunctionProvider.getSplitProcessor(session, functionHandle, freshCredentials.or(() -> tableCredentials), nextSplit);
         this.processorFinishedSplit = false;
         this.processorBlocked = NOT_BLOCKED;
     }

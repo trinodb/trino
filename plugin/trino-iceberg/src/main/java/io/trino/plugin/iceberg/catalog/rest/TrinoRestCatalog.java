@@ -911,7 +911,8 @@ public class TrinoRestCatalog
         };
     }
 
-    private void invalidateTableCache(SchemaTableName schemaTableName)
+    @Override
+    public void invalidateTableCache(SchemaTableName schemaTableName)
     {
         tableCache.invalidate(schemaTableName);
     }

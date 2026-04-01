@@ -13,6 +13,7 @@
  */
 package io.trino.execution;
 
+import com.google.common.base.Supplier;
 import com.google.common.collect.Multimap;
 import io.airlift.units.DataSize;
 import io.opentelemetry.api.trace.Span;
@@ -39,7 +40,7 @@ public interface RemoteTaskFactory
             InternalNode node,
             boolean speculative,
             PlanFragment fragment,
-            Map<PlanNodeId, ConnectorTableCredentials> tableCredentials,
+            Map<PlanNodeId, Supplier<ConnectorTableCredentials>> tableCredentialSuppliers,
             Multimap<PlanNodeId, Split> initialSplits,
             OutputBuffers outputBuffers,
             PartitionedSplitCountTracker partitionedSplitCountTracker,

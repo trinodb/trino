@@ -539,6 +539,7 @@ public class SqlTask
             }
             // taskExecution can still be null if the creation was skipped
             if (taskExecution != null) {
+                taskExecution.getTaskContext().updateTableCredentials(tableCredentials);
                 taskExecution.getTaskContext().addDynamicFilter(dynamicFilterDomains);
                 taskExecution.addSplitAssignments(splitAssignments);
             }

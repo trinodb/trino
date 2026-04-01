@@ -13,12 +13,12 @@
  */
 package io.trino.plugin.iceberg;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.base.Splitter;
 import com.google.common.base.Splitter.MapSplitter;
 import com.google.common.base.Suppliers;
 import com.google.common.base.VerifyException;
-import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -26,7 +26,6 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 import com.google.common.collect.Streams;
-import com.google.common.util.concurrent.UncheckedExecutionException;
 import io.airlift.concurrent.MoreFutures;
 import io.airlift.json.JsonCodec;
 import io.airlift.log.Logger;
@@ -34,7 +33,6 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
-import io.trino.cache.NonEvictableCache;
 import io.trino.filesystem.FileEntry;
 import io.trino.filesystem.FileIterator;
 import io.trino.filesystem.Location;
@@ -269,7 +267,6 @@ import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.base.Verify.verifyNotNull;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -280,8 +277,6 @@ import static com.google.common.collect.Iterables.size;
 import static com.google.common.collect.Maps.transformValues;
 import static com.google.common.collect.Sets.difference;
 import static io.airlift.units.Duration.ZERO;
-import static io.trino.cache.CacheUtils.uncheckedCacheGet;
-import static io.trino.cache.SafeCaches.buildNonEvictableCache;
 import static io.trino.filesystem.Locations.isS3Tables;
 import static io.trino.plugin.base.filter.UtcConstraintExtractor.extractTupleDomain;
 import static io.trino.plugin.base.projection.ApplyProjectionUtil.extractSupportedProjectedColumns;
@@ -524,7 +519,6 @@ public class IcebergMetadata
     private static final String DEPENDS_ON_NON_DETERMINISTIC_FUNCTIONS = "dependsOnNonDeterministicFunctions";
     // Value should be ISO-8601 formatted time instant
     private static final String TRINO_QUERY_START_TIME = "trino-query-start-time";
-
     private final TypeManager typeManager;
     private final JsonCodec<CommitTaskData> commitTaskCodec;
     private final TrinoCatalog catalog;
@@ -541,7 +535,9 @@ public class IcebergMetadata
     private final int materializedViewRefreshMaxSnapshotsToExpire;
     private final Duration materializedViewRefreshSnapshotRetentionPeriod;
     private final Map<IcebergTableHandle, AtomicReference<TableStatistics>> tableStatisticsCache = new ConcurrentHashMap<>();
-    private final NonEvictableCache<SchemaTableName, IcebergTableCredentials> tableCredentialsCache;
+    // Unbounded ConcurrentHashMap is acceptable here: IcebergMetadata is per-query,
+    // so entries only accumulate for tables accessed within a single query lifetime.
+    private final ConcurrentHashMap<SchemaTableName, IcebergTableCredentials> tableCredentialsCache = new ConcurrentHashMap<>();
     private final DeletionVectorWriter deletionVectorWriter;
 
     private Transaction transaction;
@@ -581,7 +577,6 @@ public class IcebergMetadata
         this.deletionVectorWriter = requireNonNull(deletionVectorWriter, "deletionVectorWriter is null");
         this.materializedViewRefreshMaxSnapshotsToExpire = materializedViewRefreshMaxSnapshotsToExpire;
         this.materializedViewRefreshSnapshotRetentionPeriod = materializedViewRefreshSnapshotRetentionPeriod;
-        this.tableCredentialsCache = buildNonEvictableCache(CacheBuilder.newBuilder());
     }
 
     @Override
@@ -605,18 +600,49 @@ public class IcebergMetadata
     private Optional<ConnectorTableCredentials> getOrLoadTableCredentials(ConnectorSession session, SchemaTableName schemaTableName)
     {
         try {
-            return Optional.of(uncheckedCacheGet(
-                tableCredentialsCache,
-                schemaTableName,
-                () -> {
-                    BaseTable baseTable = catalog.loadTable(session, schemaTableName);
-                    return new IcebergTableCredentials(baseTable.io().properties());
-                }));
+            // Check if existing cached entry is still fresh (per-entry expiry).
+            // Each IcebergTableCredentials carries its own expiresAt, so entries with
+            // different token lifetimes are handled correctly without a cache-wide static TTL.
+            IcebergTableCredentials cached = tableCredentialsCache.get(schemaTableName);
+            if (cached != null && !cached.shouldRefresh()) {
+                return Optional.of(cached);
+            }
+            // When refreshing an expired entry, invalidate the catalog-level table cache
+            // so loadTable() fetches a fresh BaseTable with updated vended credentials.
+            // Skip invalidation on initial load — the catalog cache already has the table.
+            if (cached != null) {
+                catalog.invalidateTableCache(schemaTableName);
+            }
+            IcebergTableCredentials fresh = loadTableCredentials(session, schemaTableName);
+            if (cached != null) {
+                tableCredentialsCache.replace(schemaTableName, cached, fresh);
+            }
+            else {
+                tableCredentialsCache.putIfAbsent(schemaTableName, fresh);
+            }
+            return Optional.of(fresh);
         }
-        catch (UncheckedExecutionException e) {
-            throwIfUnchecked(e.getCause());
-            throw e;
+        catch (TableNotFoundException e) {
+            // Table may not exist yet (e.g. during CREATE TABLE AS SELECT);
+            // no credentials to vend in that case.
+            return Optional.empty();
         }
+    }
+
+    private IcebergTableCredentials loadTableCredentials(ConnectorSession session, SchemaTableName schemaTableName)
+    {
+        BaseTable baseTable = catalog.loadTable(session, schemaTableName);
+        return IcebergTableCredentials.forFileIO(baseTable.io());
+    }
+
+    @VisibleForTesting
+    public void invalidateTableCredentialsCache()
+    {
+        // Replace each entry with an immediately-expired copy so the next
+        // getOrLoadTableCredentials() call sees cached != null with shouldRefresh() == true,
+        // triggering catalog cache invalidation and a fresh credential fetch.
+        tableCredentialsCache.replaceAll((_, value) ->
+                new IcebergTableCredentials(value.fileIoProperties(), Optional.of(Instant.EPOCH)));
     }
 
     private static SchemaTableName getSchemaTableName(ConnectorTableHandle tableHandle)
@@ -627,14 +653,6 @@ public class IcebergMetadata
         throw new IllegalArgumentException("Unsupported ConnectorTableHandle type: " + tableHandle.getClass().getName());
     }
 
-    private static SchemaTableName getSchemaTableName(ConnectorTableFunctionHandle tableFunctionHandle)
-    {
-        if (tableFunctionHandle instanceof TableChangesFunctionHandle handle) {
-            return handle.schemaTableName();
-        }
-        throw new IllegalArgumentException("Unsupported ConnectorTableFunctionHandle type: " + tableFunctionHandle.getClass().getName());
-    }
-
     private static SchemaTableName getSchemaTableName(ConnectorWritableTableHandle tableHandle)
     {
         return switch (tableHandle) {
@@ -642,6 +660,14 @@ public class IcebergMetadata
             case IcebergWritableTableHandle handle -> handle.name();
             default -> throw new IllegalArgumentException("Unsupported ConnectorWritableTableHandle type: " + tableHandle.getClass().getName());
         };
+    }
+
+    private static SchemaTableName getSchemaTableName(ConnectorTableFunctionHandle tableFunctionHandle)
+    {
+        if (tableFunctionHandle instanceof TableChangesFunctionHandle handle) {
+            return handle.schemaTableName();
+        }
+        throw new IllegalArgumentException("Unsupported ConnectorTableFunctionHandle type: " + tableFunctionHandle.getClass().getName());
     }
 
     @Override

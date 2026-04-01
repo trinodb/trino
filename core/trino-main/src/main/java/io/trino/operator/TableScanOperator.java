@@ -278,7 +278,8 @@ public class TableScanOperator
             if (!dynamicFilter.getCurrentPredicate().isAll()) {
                 operatorContext.recordDynamicFilterSplitProcessed(1L);
             }
-            source = pageSourceProvider.createPageSource(operatorContext.getSession(), split, table, tableCredentials, columns, dynamicFilter);
+            Optional<ConnectorTableCredentials> freshCredentials = operatorContext.getDriverContext().getPipelineContext().getTaskContext().getTableCredentials(sourceId);
+            source = pageSourceProvider.createPageSource(operatorContext.getSession(), split, table, freshCredentials.or(() -> tableCredentials), columns, dynamicFilter);
         }
 
         SourcePage sourcePage = source.getNextSourcePage();

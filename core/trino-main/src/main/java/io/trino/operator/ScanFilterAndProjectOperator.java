@@ -449,6 +449,7 @@ public class ScanFilterAndProjectOperator
                 DriverYieldSignal yieldSignal,
                 WorkProcessor<Split> split)
         {
+            Optional<ConnectorTableCredentials> freshCredentials = operatorContext.getDriverContext().getPipelineContext().getTaskContext().getTableCredentials(sourceId);
             return new ScanFilterAndProjectOperator(
                     operatorContext.getSession(),
                     memoryTrackingContext,
@@ -457,7 +458,7 @@ public class ScanFilterAndProjectOperator
                     pageSourceProvider,
                     pageProcessor.apply(dynamicFilter),
                     table,
-                    tableCredentials,
+                    freshCredentials.or(() -> tableCredentials),
                     columns,
                     dynamicFilter,
                     types,

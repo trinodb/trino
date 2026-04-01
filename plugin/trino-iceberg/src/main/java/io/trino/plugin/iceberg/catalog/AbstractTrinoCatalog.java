@@ -507,5 +507,6 @@ public abstract class AbstractTrinoCatalog
                 .buildOrThrow();
     }
 
-    protected abstract void invalidateTableCache(SchemaTableName schemaTableName);
+    @Override
+    public abstract void invalidateTableCache(SchemaTableName schemaTableName);
 }

@@ -79,7 +79,8 @@ public class MergeWriterOperator
         {
             checkState(!closed, "Factory is already closed");
             OperatorContext context = driverContext.addOperatorContext(operatorId, planNodeId, MergeWriterOperator.class.getSimpleName());
-            ConnectorMergeSink mergeSink = pageSinkManager.createMergeSink(session, target.getMergeHandle().orElseThrow(), tableCredentials, PageSinkId.fromTaskId(driverContext.getTaskId()));
+            Optional<ConnectorTableCredentials> freshCredentials = driverContext.getPipelineContext().getTaskContext().getTableCredentials(planNodeId);
+            ConnectorMergeSink mergeSink = pageSinkManager.createMergeSink(session, target.getMergeHandle().orElseThrow(), freshCredentials.or(() -> tableCredentials), PageSinkId.fromTaskId(driverContext.getTaskId()));
             return new MergeWriterOperator(context, mergeSink, pagePreprocessor);
         }
 

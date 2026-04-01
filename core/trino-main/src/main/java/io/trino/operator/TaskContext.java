@@ -71,7 +71,7 @@ public class TaskContext
 {
     private final QueryContext queryContext;
     private final TaskStateMachine taskStateMachine;
-    private final Map<PlanNodeId, ConnectorTableCredentials> tableCredentials;
+    private volatile Map<PlanNodeId, ConnectorTableCredentials> tableCredentials;
     private final GcMonitor gcMonitor;
     private final Executor notificationExecutor;
     private final ScheduledExecutorService yieldExecutor;
@@ -196,6 +196,11 @@ public class TaskContext
     public Optional<ConnectorTableCredentials> getTableCredentials(PlanNodeId planNodeId)
     {
         return Optional.ofNullable(tableCredentials.get(planNodeId));
+    }
+
+    public void updateTableCredentials(Map<PlanNodeId, ConnectorTableCredentials> tableCredentials)
+    {
+        this.tableCredentials = ImmutableMap.copyOf(tableCredentials);
     }
 
     public PipelineContext addPipelineContext(int pipelineId, boolean inputPipeline, boolean outputPipeline, boolean partitioned)

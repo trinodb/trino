@@ -139,17 +139,19 @@ public class TableWriterOperator
 
         private ConnectorPageSink createPageSink(DriverContext driverContext)
         {
+            Optional<ConnectorTableCredentials> freshCredentials = driverContext.getPipelineContext().getTaskContext().getTableCredentials(planNodeId);
+            Optional<ConnectorTableCredentials> credentials = freshCredentials.or(() -> tableCredentials);
             if (target instanceof CreateTarget createTarget) {
-                return pageSinkManager.createPageSink(session, createTarget.getHandle(), tableCredentials, PageSinkId.fromTaskId(driverContext.getTaskId()));
+                return pageSinkManager.createPageSink(session, createTarget.getHandle(), credentials, PageSinkId.fromTaskId(driverContext.getTaskId()));
             }
             if (target instanceof InsertTarget insertTarget) {
-                return pageSinkManager.createPageSink(session, insertTarget.getHandle(), tableCredentials, PageSinkId.fromTaskId(driverContext.getTaskId()));
+                return pageSinkManager.createPageSink(session, insertTarget.getHandle(), credentials, PageSinkId.fromTaskId(driverContext.getTaskId()));
             }
             if (target instanceof TableWriterNode.RefreshMaterializedViewTarget refreshMaterializedViewTarget) {
-                return pageSinkManager.createPageSink(session, refreshMaterializedViewTarget.getInsertHandle(), tableCredentials, PageSinkId.fromTaskId(driverContext.getTaskId()));
+                return pageSinkManager.createPageSink(session, refreshMaterializedViewTarget.getInsertHandle(), credentials, PageSinkId.fromTaskId(driverContext.getTaskId()));
             }
             if (target instanceof TableWriterNode.TableExecuteTarget tableExecuteTarget) {
-                return pageSinkManager.createPageSink(session, tableExecuteTarget.getExecuteHandle(), tableCredentials, PageSinkId.fromTaskId(driverContext.getTaskId()));
+                return pageSinkManager.createPageSink(session, tableExecuteTarget.getExecuteHandle(), credentials, PageSinkId.fromTaskId(driverContext.getTaskId()));
             }
             throw new UnsupportedOperationException("Unhandled target type: " + target.getClass().getName());
         }

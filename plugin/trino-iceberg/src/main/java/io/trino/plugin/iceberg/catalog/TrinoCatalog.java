@@ -151,6 +151,17 @@ public interface TrinoCatalog
     BaseTable loadTable(ConnectorSession session, SchemaTableName schemaTableName);
 
     /**
+     * Invalidate any catalog-level cache entry for the given table, so that
+     * a subsequent {@link #loadTable} call fetches a fresh instance from the
+     * underlying catalog. The default implementation is a no-op for catalogs
+     * that do not maintain a per-query table cache.
+     */
+    default void invalidateTableCache(SchemaTableName schemaTableName)
+    {
+        // no-op by default
+    }
+
+    /**
      * Bulk load column metadata. The returned map may contain fewer entries then asked for.
      */
     Map<SchemaTableName, List<ColumnMetadata>> tryGetColumnMetadata(ConnectorSession session, List<SchemaTableName> tables);

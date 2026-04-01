@@ -455,7 +455,7 @@ public class TrinoNessieCatalog
     }
 
     @Override
-    protected void invalidateTableCache(SchemaTableName schemaTableName)
+    public void invalidateTableCache(SchemaTableName schemaTableName)
     {
         tableMetadataCache.invalidate(schemaTableName);
     }

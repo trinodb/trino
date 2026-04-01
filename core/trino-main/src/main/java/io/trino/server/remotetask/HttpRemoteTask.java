@@ -146,7 +146,7 @@ public final class HttpRemoteTask
     private final String nodeId;
     private final AtomicBoolean speculative;
     private final PlanFragment planFragment;
-    private final Map<PlanNodeId, ConnectorTableCredentials> tableCredentials;
+    private final Map<PlanNodeId, Supplier<ConnectorTableCredentials>> tableCredentialSuppliers;
 
     private final AtomicLong nextSplitId = new AtomicLong();
 
@@ -220,7 +220,7 @@ public final class HttpRemoteTask
             boolean speculative,
             URI location,
             PlanFragment planFragment,
-            Map<PlanNodeId, ConnectorTableCredentials> tableCredentials,
+            Map<PlanNodeId, Supplier<ConnectorTableCredentials>> tableCredentialSuppliers,
             Multimap<PlanNodeId, Split> initialSplits,
             OutputBuffers outputBuffers,
             HttpClient httpClient,
@@ -250,7 +250,7 @@ public final class HttpRemoteTask
         requireNonNull(node, "node is null");
         requireNonNull(location, "location is null");
         requireNonNull(planFragment, "planFragment is null");
-        requireNonNull(tableCredentials, "tableCredentials is null");
+        requireNonNull(tableCredentialSuppliers, "tableCredentialSuppliers is null");
         requireNonNull(outputBuffers, "outputBuffers is null");
         requireNonNull(httpClient, "httpClient is null");
         requireNonNull(executor, "executor is null");
@@ -269,7 +269,7 @@ public final class HttpRemoteTask
             this.nodeId = node.getNodeIdentifier();
             this.speculative = new AtomicBoolean(speculative);
             this.planFragment = planFragment;
-            this.tableCredentials = ImmutableMap.copyOf(tableCredentials);
+            this.tableCredentialSuppliers = ImmutableMap.copyOf(tableCredentialSuppliers);
             this.outputBuffers.set(outputBuffers);
             this.httpClient = httpClient;
             this.executor = executor;
@@ -733,6 +733,16 @@ public final class HttpRemoteTask
         return false;
     }
 
+    private Map<PlanNodeId, ConnectorTableCredentials> resolveTableCredentials()
+    {
+        ImmutableMap.Builder<PlanNodeId, ConnectorTableCredentials> builder = ImmutableMap.builder();
+        for (Map.Entry<PlanNodeId, Supplier<ConnectorTableCredentials>> entry : tableCredentialSuppliers.entrySet()) {
+            Supplier<ConnectorTableCredentials> credentialSupplier = entry.getValue();
+            builder.put(entry.getKey(), credentialSupplier.get());
+        }
+        return builder.buildOrThrow();
+    }
+
     private void sendUpdate()
     {
         try {
@@ -773,7 +783,7 @@ public final class HttpRemoteTask
                 session.getIdentity().getExtraCredentials(),
                 stageSpan,
                 fragment,
-                tableCredentials,
+                resolveTableCredentials(),
                 splitAssignments,
                 outputBuffers.get(),
                 dynamicFilterDomains.getDynamicFilterDomains(),

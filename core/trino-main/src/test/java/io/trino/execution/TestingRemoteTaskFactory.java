@@ -13,6 +13,7 @@
  */
 package io.trino.execution;
 
+import com.google.common.base.Supplier;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
@@ -78,7 +79,7 @@ public class TestingRemoteTaskFactory
             InternalNode node,
             boolean speculative,
             PlanFragment fragment,
-            Map<PlanNodeId, ConnectorTableCredentials> tableCredentials,
+            Map<PlanNodeId, Supplier<ConnectorTableCredentials>> tableCredentialSuppliers,
             Multimap<PlanNodeId, Split> initialSplits,
             OutputBuffers outputBuffers,
             PartitionedSplitCountTracker partitionedSplitCountTracker,
