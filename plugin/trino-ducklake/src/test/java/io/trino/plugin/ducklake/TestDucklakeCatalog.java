@@ -19,6 +19,9 @@ import io.trino.plugin.ducklake.catalog.DucklakeColumnStats;
 import io.trino.plugin.ducklake.catalog.DucklakeSchema;
 import io.trino.plugin.ducklake.catalog.DucklakeTable;
 import io.trino.plugin.ducklake.catalog.SqliteDucklakeCatalog;
+import io.trino.spi.connector.ColumnHandle;
+import io.trino.spi.statistics.ColumnStatistics;
+import io.trino.spi.statistics.DoubleRange;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
@@ -26,6 +29,7 @@ import org.junit.jupiter.api.Test;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 
@@ -328,6 +332,85 @@ public class TestDucklakeCatalog
 
         // Should have column statistics
         assertThat(stats.getColumnStatistics()).isNotEmpty();
+    }
+
+    @Test
+    public void testGetTableStatisticsTracksNullFractionsAndRanges()
+    {
+        long snapshotId = catalog.getCurrentSnapshotId();
+        DucklakeTable table = getTable("test_schema", "nullable_table", snapshotId);
+        DucklakeTableHandle tableHandle = new DucklakeTableHandle(
+                "test_schema", "nullable_table", table.tableId(), snapshotId);
+
+        DucklakeTypeConverter typeConverter = new DucklakeTypeConverter(
+                io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER);
+        DucklakeMetadata metadata = new DucklakeMetadata(catalog, typeConverter);
+        io.trino.spi.statistics.TableStatistics stats = metadata.getTableStatistics(
+                io.trino.testing.connector.TestingConnectorSession.SESSION, tableHandle);
+
+        // nullable_table has 4 rows
+        assertThat(stats.getRowCount().getValue()).isEqualTo(4.0);
+
+        Map<String, ColumnHandle> handles = metadata.getColumnHandles(
+                io.trino.testing.connector.TestingConnectorSession.SESSION,
+                tableHandle);
+
+        ColumnStatistics idStats = stats.getColumnStatistics().get(handles.get("id"));
+        ColumnStatistics nameStats = stats.getColumnStatistics().get(handles.get("name"));
+        ColumnStatistics priceStats = stats.getColumnStatistics().get(handles.get("price"));
+        assertThat(idStats.getNullsFraction().getValue()).isEqualTo(0.25);
+        assertThat(nameStats.getNullsFraction().getValue()).isEqualTo(0.5);
+        assertThat(priceStats.getNullsFraction().getValue()).isEqualTo(0.5);
+
+        // non-null prices are 10.0 and 20.0
+        DoubleRange priceRange = priceStats.getRange().orElseThrow();
+        assertThat(priceRange.getMin()).isEqualTo(10.0);
+        assertThat(priceRange.getMax()).isEqualTo(20.0);
+    }
+
+    @Test
+    public void testGetTableStatisticsTracksDateRange()
+    {
+        long snapshotId = catalog.getCurrentSnapshotId();
+        DucklakeTable table = getTable("test_schema", "simple_table", snapshotId);
+        DucklakeTableHandle tableHandle = new DucklakeTableHandle(
+                "test_schema", "simple_table", table.tableId(), snapshotId);
+
+        DucklakeTypeConverter typeConverter = new DucklakeTypeConverter(
+                io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER);
+        DucklakeMetadata metadata = new DucklakeMetadata(catalog, typeConverter);
+        io.trino.spi.statistics.TableStatistics stats = metadata.getTableStatistics(
+                io.trino.testing.connector.TestingConnectorSession.SESSION, tableHandle);
+
+        Map<String, ColumnHandle> handles = metadata.getColumnHandles(
+                io.trino.testing.connector.TestingConnectorSession.SESSION,
+                tableHandle);
+        ColumnStatistics dateStats = stats.getColumnStatistics().get(handles.get("created_date"));
+        DoubleRange dateRange = dateStats.getRange().orElseThrow();
+
+        double expectedMin = LocalDate.parse("2024-01-05").toEpochDay();
+        double expectedMax = LocalDate.parse("2024-03-10").toEpochDay();
+        assertThat(dateRange.getMin()).isEqualTo(expectedMin);
+        assertThat(dateRange.getMax()).isEqualTo(expectedMax);
+    }
+
+    @Test
+    public void testGetTableStatisticsForEmptyTable()
+    {
+        long snapshotId = catalog.getCurrentSnapshotId();
+        DucklakeTable table = getTable("test_schema", "empty_table", snapshotId);
+        DucklakeTableHandle tableHandle = new DucklakeTableHandle(
+                "test_schema", "empty_table", table.tableId(), snapshotId);
+
+        DucklakeTypeConverter typeConverter = new DucklakeTypeConverter(
+                io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER);
+        DucklakeMetadata metadata = new DucklakeMetadata(catalog, typeConverter);
+        io.trino.spi.statistics.TableStatistics stats = metadata.getTableStatistics(
+                io.trino.testing.connector.TestingConnectorSession.SESSION, tableHandle);
+
+        // Empty table may have unknown row-count estimate if stats are absent.
+        assertThat(stats.getRowCount().isUnknown()).isTrue();
+        assertThat(stats.getColumnStatistics()).isEmpty();
     }
 
     private DucklakeSchema getSchema(String schemaName, long snapshotId)

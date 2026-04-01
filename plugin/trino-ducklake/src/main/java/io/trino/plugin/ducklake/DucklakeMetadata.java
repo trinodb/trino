@@ -232,8 +232,9 @@ public class DucklakeMetadata
 
             ColumnStatistics.Builder colBuilder = ColumnStatistics.builder();
 
-            if (colStats.totalValueCount() > 0) {
-                colBuilder.setNullsFraction(Estimate.of((double) colStats.totalNullCount() / colStats.totalValueCount()));
+            long totalCount = colStats.totalValueCount() + colStats.totalNullCount();
+            if (totalCount > 0) {
+                colBuilder.setNullsFraction(Estimate.of((double) colStats.totalNullCount() / totalCount));
             }
 
             if (colStats.totalSizeBytes() > 0) {

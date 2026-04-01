@@ -32,6 +32,7 @@ import io.trino.spi.connector.ConstraintApplicationResult;
 import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
+import io.trino.spi.type.RowType;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
@@ -182,6 +183,98 @@ public class TestDucklakePartitionPruning
 
         // Remaining filter should include amount
         assertThat(result.get().getRemainingFilter().isAll()).isFalse();
+    }
+
+    @Test
+    public void testApplyFilterAllConstraintReturnsEmpty()
+    {
+        DucklakeTypeConverter typeConverter = new DucklakeTypeConverter(TESTING_TYPE_MANAGER);
+        DucklakeMetadata metadata = new DucklakeMetadata(catalog, typeConverter);
+
+        DucklakeTableHandle tableHandle = new DucklakeTableHandle(
+                "test_schema", "partitioned_table", partitionedTable.tableId(), snapshotId);
+
+        Optional<ConstraintApplicationResult<ConnectorTableHandle>> result =
+                metadata.applyFilter(SESSION, tableHandle, Constraint.alwaysTrue());
+
+        assertThat(result).isEmpty();
+    }
+
+    @Test
+    public void testApplyFilterNoneConstraintProducesUnsatisfiableHandle()
+    {
+        DucklakeTypeConverter typeConverter = new DucklakeTypeConverter(TESTING_TYPE_MANAGER);
+        DucklakeMetadata metadata = new DucklakeMetadata(catalog, typeConverter);
+
+        DucklakeTableHandle tableHandle = new DucklakeTableHandle(
+                "test_schema", "partitioned_table", partitionedTable.tableId(), snapshotId);
+
+        Optional<ConstraintApplicationResult<ConnectorTableHandle>> result =
+                metadata.applyFilter(SESSION, tableHandle, new Constraint(TupleDomain.none()));
+
+        assertThat(result).isPresent();
+        DucklakeTableHandle newHandle = (DucklakeTableHandle) result.get().getHandle();
+        assertThat(newHandle.enforcedPredicate().isNone()).isTrue();
+    }
+
+    @Test
+    public void testApplyFilterIsIdempotentForSamePredicate()
+    {
+        DucklakeTypeConverter typeConverter = new DucklakeTypeConverter(TESTING_TYPE_MANAGER);
+        DucklakeMetadata metadata = new DucklakeMetadata(catalog, typeConverter);
+
+        DucklakeTableHandle tableHandle = new DucklakeTableHandle(
+                "test_schema", "partitioned_table", partitionedTable.tableId(), snapshotId);
+
+        long regionColumnId = catalog.getTableColumns(partitionedTable.tableId(), snapshotId).stream()
+                .filter(c -> c.columnName().equals("region"))
+                .findFirst().orElseThrow().columnId();
+        DucklakeColumnHandle regionColumn = new DucklakeColumnHandle(regionColumnId, "region", VARCHAR, true);
+        Constraint constraint = new Constraint(TupleDomain.withColumnDomains(
+                ImmutableMap.of((ColumnHandle) regionColumn, Domain.singleValue(VARCHAR, Slices.utf8Slice("US")))));
+
+        DucklakeTableHandle filteredHandle = (DucklakeTableHandle) metadata.applyFilter(SESSION, tableHandle, constraint)
+                .orElseThrow()
+                .getHandle();
+
+        Optional<ConstraintApplicationResult<ConnectorTableHandle>> secondApply =
+                metadata.applyFilter(SESSION, filteredHandle, constraint);
+        assertThat(secondApply).isEmpty();
+    }
+
+    @Test
+    public void testApplyFilterIgnoresComplexTypePredicate()
+    {
+        DucklakeTypeConverter typeConverter = new DucklakeTypeConverter(TESTING_TYPE_MANAGER);
+        DucklakeMetadata metadata = new DucklakeMetadata(catalog, typeConverter);
+
+        DucklakeTable nestedTable = catalog.listSchemas(snapshotId).stream()
+                .filter(s -> s.schemaName().equals("test_schema"))
+                .findFirst()
+                .flatMap(schema -> catalog.listTables(schema.schemaId(), snapshotId).stream()
+                        .filter(t -> t.tableName().equals("nested_table"))
+                        .findFirst())
+                .orElseThrow();
+
+        DucklakeTableHandle tableHandle = new DucklakeTableHandle(
+                "test_schema", "nested_table", nestedTable.tableId(), snapshotId);
+
+        long metadataColumnId = catalog.getTableColumns(nestedTable.tableId(), snapshotId).stream()
+                .filter(c -> c.columnName().equals("metadata"))
+                .findFirst().orElseThrow().columnId();
+        RowType metadataType = RowType.from(List.of(
+                new RowType.Field(Optional.of("key"), VARCHAR),
+                new RowType.Field(Optional.of("value"), VARCHAR)));
+        DucklakeColumnHandle metadataColumn = new DucklakeColumnHandle(metadataColumnId, "metadata", metadataType, true);
+
+        Constraint constraint = new Constraint(TupleDomain.withColumnDomains(
+                ImmutableMap.of((ColumnHandle) metadataColumn, Domain.onlyNull(metadataType))));
+
+        Optional<ConstraintApplicationResult<ConnectorTableHandle>> result =
+                metadata.applyFilter(SESSION, tableHandle, constraint);
+
+        // Complex types are not pushed down into Ducklake predicates.
+        assertThat(result).isEmpty();
     }
 
     @Test

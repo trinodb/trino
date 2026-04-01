@@ -77,6 +77,18 @@ public class TestDucklakeIntegration
     }
 
     @Test
+    public void testShowCreateTable()
+    {
+        String showCreate = (String) computeScalar("SHOW CREATE TABLE simple_table");
+        assertThat(showCreate).contains("CREATE TABLE ducklake.test_schema.simple_table");
+        assertThat(showCreate).contains("id integer");
+        assertThat(showCreate).contains("name varchar");
+        assertThat(showCreate).contains("price double");
+        assertThat(showCreate).contains("active boolean");
+        assertThat(showCreate).contains("created_date date");
+    }
+
+    @Test
     public void testDescribeSimpleTable()
     {
         MaterializedResult result = computeActual("DESCRIBE simple_table");
