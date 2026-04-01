@@ -78,8 +78,6 @@ import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 @Execution(CONCURRENT)
 public class TestJsonOperators
 {
-    // Some of the tests in this class are expected to fail when coercion between primitive Trino types changes behavior
-
     private QueryAssertions assertions;
 
     @BeforeAll
