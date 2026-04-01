@@ -291,3 +291,43 @@ The split:
 - `partitioning/basic_partitioning.test`, `partitioning/year_month_day.test` — partition pruning
 - `delete/basic_delete.test` — merge-on-read deletes
 - `general/` (13 files) — broad coverage
+
+## DuckDB Data Inlining and the Trino Connector
+
+### Problem
+
+DuckDB's ducklake extension **inlines small data** directly in the SQLite catalog database instead of writing Parquet files. The default threshold is 10 rows (`data_inlining_row_limit = 10`). When data is inlined:
+- No Parquet files are created
+- Data is stored as virtual files named `ducklake_inlined_data_<id>` in the catalog
+- The Trino connector **cannot read inlined data** — it reads Parquet files directly
+
+This means that any table with ≤10 rows will be invisible to Trino unless inlining is disabled.
+
+### Current Workaround
+
+The SLT test runner disables inlining via the ATTACH option:
+```sql
+ATTACH 'ducklake:sqlite:catalog.db' AS ducklake (DATA_PATH '/path', DATA_INLINING_ROW_LIMIT 0)
+```
+
+### DuckDB Settings for Inlining (reference)
+
+| Method | Syntax | Scope |
+|--------|--------|-------|
+| ATTACH option | `DATA_INLINING_ROW_LIMIT 0` | Per-catalog, at creation time |
+| Persistent option | `CALL ducklake.set_option('data_inlining_row_limit', 0)` | Global, per-schema, or per-table |
+| Session default | `SET ducklake_default_data_inlining_row_limit = 0` | Session-level default |
+| Flush on demand | `CALL ducklake_flush_inlined_data('catalog')` | Writes inlined data to Parquet |
+
+Priority: ATTACH option > set_option > session default > hardcoded default (10).
+
+### Future Considerations
+
+1. **Production users**: Anyone using DuckDB with default settings will have small tables inlined. The Trino connector should either:
+   - Support reading inlined data from the SQLite catalog (requires new code path)
+   - Clearly document that `DATA_INLINING_ROW_LIMIT 0` must be set when creating catalogs intended for Trino
+   - Detect inlined data and surface a clear error message
+
+2. **DuckDB 1.5.1 fixes**: Improved inlining correctness for updates/deletes over inlined data. No changes to the setting mechanism itself.
+
+3. **Inline row limit bug**: There were reports of the `data_inlining_row_limit` setting not being respected in DuckDB 1.5.0. This may be resolved in 1.5.1+ (the DuckDB team bumped the ducklake extension).
