@@ -82,14 +82,20 @@ import java.sql.DatabaseMetaData;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.SQLSyntaxErrorException;
+import java.sql.Timestamp;
 import java.sql.Types;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.Calendar;
 import java.util.Collection;
+import java.util.Date;
+import java.util.GregorianCalendar;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
+import java.util.TimeZone;
 import java.util.function.BiFunction;
 import java.util.stream.Stream;
 
@@ -126,10 +132,10 @@ import static io.trino.plugin.jdbc.StandardColumnMappings.smallintColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.smallintWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.timeColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.timeWriteFunction;
-import static io.trino.plugin.jdbc.StandardColumnMappings.timestampColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.timestampWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.tinyintColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.tinyintWriteFunction;
+import static io.trino.plugin.jdbc.StandardColumnMappings.toTrinoTimestamp;
 import static io.trino.plugin.jdbc.StandardColumnMappings.varbinaryReadFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.varbinaryWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.varcharWriteFunction;
@@ -154,6 +160,7 @@ import static java.lang.Math.max;
 import static java.lang.Math.min;
 import static java.lang.String.format;
 import static java.lang.String.join;
+import static java.time.ZoneOffset.UTC;
 import static java.util.Map.entry;
 import static java.util.Objects.requireNonNull;
 import static java.util.Objects.requireNonNullElse;
@@ -170,6 +177,7 @@ public class MariaDbClient
     private static final int ZERO_PRECISION_TIMESTAMP_COLUMN_SIZE = 19;
 
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("uuuu-MM-dd");
+    private static final Calendar UTC_CALENDAR = createProlepticUtcCalendar();
 
     // An empty character means that the table doesn't have a comment in MariaDB
     private static final String NO_COMMENT = "";
@@ -424,7 +432,7 @@ public class MariaDbClient
             case Types.TIMESTAMP:
                 // This jdbcType maps both MariaDB TIMESTAMP and DATETIME types to Trino TIMESTAMP type
                 TimestampType timestampType = createTimestampType(getTimestampPrecision(typeHandle.requiredColumnSize()));
-                return Optional.of(timestampColumnMapping(timestampType));
+                return Optional.of(mariaDbTimestampColumnMapping(timestampType));
         }
 
         if (getUnsupportedTypeHandling(session) == CONVERT_TO_VARCHAR) {
@@ -451,6 +459,31 @@ public class MariaDbClient
         int timePrecision = timeColumnSize - ZERO_PRECISION_TIME_COLUMN_SIZE - 1;
         verify(1 <= timePrecision && timePrecision <= MAX_SUPPORTED_DATE_TIME_PRECISION, "Unexpected time precision %s calculated from time column size %s", timePrecision, timeColumnSize);
         return timePrecision;
+    }
+
+    // MariaDB JDBC driver 3.4+ changed LocalDateTime decoding to go through ZonedDateTime,
+    // which applies atZone(JVM default timezone) and corrupts values falling in DST gaps.
+    // Use getTimestamp() with a UTC Calendar to bypass the driver's timezone conversion.
+    private static ColumnMapping mariaDbTimestampColumnMapping(TimestampType timestampType)
+    {
+        checkArgument(timestampType.getPrecision() <= TimestampType.MAX_SHORT_PRECISION, "Precision is out of range: %s", timestampType.getPrecision());
+        return ColumnMapping.longMapping(
+                timestampType,
+                (resultSet, columnIndex) -> {
+                    Timestamp timestamp = resultSet.getTimestamp(columnIndex, UTC_CALENDAR);
+                    LocalDateTime localDateTime = LocalDateTime.ofInstant(timestamp.toInstant(), UTC);
+                    return toTrinoTimestamp(timestampType, localDateTime);
+                },
+                timestampWriteFunction(timestampType));
+    }
+
+    private static Calendar createProlepticUtcCalendar()
+    {
+        GregorianCalendar calendar = new GregorianCalendar(TimeZone.getTimeZone(UTC));
+        // Use proleptic Gregorian calendar to match LocalDateTime's calendar system,
+        // avoiding Julian calendar discrepancies for dates before 1582-10-15
+        calendar.setGregorianChange(new Date(Long.MIN_VALUE));
+        return calendar;
     }
 
     @Override
