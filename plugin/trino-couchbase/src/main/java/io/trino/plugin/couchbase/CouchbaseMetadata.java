@@ -269,8 +269,8 @@ public class CouchbaseMetadata
         }
 
         if (handle instanceof CouchbaseTableHandle cbHandle) {
-            // don't apply where on aggregations
-            if (cbHandle.isAggregated().get() || !cbHandle.groupings().isEmpty()) {
+            // don't apply where on aggregations or root query
+            if (cbHandle.subQuery().isEmpty() || cbHandle.isAggregated().get() || !cbHandle.groupings().isEmpty()) {
                 cbHandle = cbHandle.wrap();
             }
             TupleDomain<ColumnHandle> oldDomain = cbHandle.constraint();

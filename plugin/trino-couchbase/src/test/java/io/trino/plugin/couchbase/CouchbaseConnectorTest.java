@@ -69,7 +69,7 @@ public class CouchbaseConnectorTest
     @Test
     public void testFailingItems()
     {
-        assertQuery("SELECT orderkey FROM orders WHERE orderpriority LIKE '5-L%'");
+        assertQuery("select * from orders where orderkey is not null order by orderkey limit 1");
     }
 
     @Override

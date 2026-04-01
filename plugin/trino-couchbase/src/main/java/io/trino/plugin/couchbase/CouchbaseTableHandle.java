@@ -292,26 +292,41 @@ public record CouchbaseTableHandle(String schema, String name, Optional<Couchbas
                 return ParametrizedString.join(ranges, ") AND (", "(", ")");
             }
             else {
-                rangeSet.getRanges().getOrderedRanges().forEach(range -> {
-                    List<ParametrizedString> converted = new ArrayList<>();
-                    if (!range.isLowUnbounded()) {
-                        String op = "%s > ?";
-                        if (range.isLowInclusive()) {
-                            op = "%s >= ?";
-                        }
-                        converted.add(ParametrizedString.from(String.format(op, left), Arrays.asList(TrinoToCbType.serialize(range.getType(), range.getLowValue()))));
-                    }
-                    if (!range.isHighUnbounded()) {
-                        String op = "%s < ?";
-                        if (range.isHighInclusive()) {
-                            op = "%s <= ?";
-                        }
-                        converted.add(ParametrizedString.from(String.format(op, left), Arrays.asList(TrinoToCbType.serialize(range.getType(), range.getHighValue()))));
+                rangeSet.getRanges().getOrderedRanges()
+                        .stream().filter(range -> !range.isAll())
+                        .forEach(range -> {
+                            List<ParametrizedString> converted = new ArrayList<>();
+                            if (!range.isLowUnbounded()) {
+                                String op = "%s > ?";
+                                if (range.isLowInclusive()) {
+                                    op = "%s >= ?";
+                                }
+                                converted.add(ParametrizedString.from(String.format(op, left), Arrays.asList(TrinoToCbType.serialize(range.getType(), range.getLowValue()))));
+                            }
+                            if (!range.isHighUnbounded()) {
+                                String op = "%s < ?";
+                                if (range.isHighInclusive()) {
+                                    op = "%s <= ?";
+                                }
+                                converted.add(ParametrizedString.from(String.format(op, left), Arrays.asList(TrinoToCbType.serialize(range.getType(), range.getHighValue()))));
+                            }
+
+                            ranges.add(ParametrizedString.join(converted, ") AND (", "(", ")"));
+                        });
+                if (domain.isNullAllowed()) {
+                    ranges.add(ParametrizedString.from(String.format("%s IS NULL", left)));
+                    return ParametrizedString.join(ranges, ") OR (", "(", ")");
+                } else {
+                    ParametrizedString nonNull = ParametrizedString.from(String.format("%s IS NOT NULL", left));
+                    if (ranges.isEmpty()) {
+                        return nonNull;
                     }
 
-                    ranges.add(ParametrizedString.join(converted, ") AND (", "(", ")"));
-                });
-                return ParametrizedString.join(ranges, ") OR (", "(", ")");
+                    return ParametrizedString.join(List.of(
+                            nonNull,
+                            ParametrizedString.join(ranges, ") OR (", "(", ")")
+                    ), " AND ");
+                }
             }
         }
         else {
