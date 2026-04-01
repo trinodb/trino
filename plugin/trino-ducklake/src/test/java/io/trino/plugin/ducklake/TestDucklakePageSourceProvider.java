@@ -88,7 +88,8 @@ public class TestDucklakePageSourceProvider
         pageSourceProvider = new DucklakePageSourceProvider(
                 new LocalFileSystemFactory(Path.of("/")),
                 new FileFormatDataSourceStats(),
-                new ParquetReaderConfig().toParquetReaderOptions());
+                new ParquetReaderConfig().toParquetReaderOptions(),
+                catalog);
     }
 
     @AfterEach

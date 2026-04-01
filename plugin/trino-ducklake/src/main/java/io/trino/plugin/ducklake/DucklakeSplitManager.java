@@ -21,6 +21,7 @@ import io.trino.filesystem.Location;
 import io.trino.plugin.ducklake.catalog.DucklakeCatalog;
 import io.trino.plugin.ducklake.catalog.DucklakeDataFile;
 import io.trino.plugin.ducklake.catalog.DucklakeFilePartitionValue;
+import io.trino.plugin.ducklake.catalog.DucklakeInlinedDataInfo;
 import io.trino.plugin.ducklake.catalog.DucklakePartitionField;
 import io.trino.plugin.ducklake.catalog.DucklakePartitionSpec;
 import io.trino.plugin.ducklake.catalog.DucklakePartitionTransform;
@@ -98,13 +99,28 @@ public class DucklakeSplitManager
                 tableHandle.tableId(),
                 tableHandle.snapshotId());
 
+        log.debug("Found %d data files for table %s", dataFiles.size(), tableHandle.tableName());
+
+        // If no data files exist at all, check for inlined data in the metadata catalog.
+        // Only check when the raw (unpruned) file list is empty — this means the table
+        // genuinely has no Parquet files, not that pruning eliminated them.
+        if (dataFiles.isEmpty()) {
+            Optional<DucklakeInlinedDataInfo> inlinedInfo = catalog.getInlinedDataInfo(
+                    tableHandle.tableId(), tableHandle.snapshotId());
+            if (inlinedInfo.isPresent()) {
+                DucklakeInlinedDataInfo info = inlinedInfo.get();
+                log.debug("Found inlined data for table %s (tableId=%d, schemaVersion=%d)",
+                        tableHandle.tableName(), info.tableId(), info.schemaVersion());
+                return new FixedSplitSource(List.of(new DucklakeInlinedSplit(
+                        info.tableId(), info.schemaVersion(), tableHandle.snapshotId())));
+            }
+        }
+
         DucklakeTable tableMetadata = catalog.getTableById(tableHandle.tableId(), tableHandle.snapshotId())
                 .orElseThrow(() -> new IllegalStateException("Table metadata missing for table ID: " + tableHandle.tableId()));
         DucklakeSchema schemaMetadata = catalog.getSchema(tableHandle.schemaName(), tableHandle.snapshotId())
                 .orElseThrow(() -> new IllegalStateException("Schema metadata missing for schema: " + tableHandle.schemaName()));
         String tableDataPath = resolveTableDataPath(schemaMetadata, tableMetadata);
-
-        log.debug("Found %d data files for table %s", dataFiles.size(), tableHandle.tableName());
 
         TupleDomain<DucklakeColumnHandle> fileStatisticsDomain = buildFileStatisticsDomain(constraint)
                 .intersect(tableHandle.unenforcedPredicate());

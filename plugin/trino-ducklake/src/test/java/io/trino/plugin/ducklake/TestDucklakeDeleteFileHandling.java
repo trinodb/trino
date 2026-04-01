@@ -83,7 +83,8 @@ public class TestDucklakeDeleteFileHandling
             DucklakePageSourceProvider pageSourceProvider = new DucklakePageSourceProvider(
                     new LocalFileSystemFactory(Path.of("/")),
                     new FileFormatDataSourceStats(),
-                    new ParquetReaderConfig().toParquetReaderOptions());
+                    new ParquetReaderConfig().toParquetReaderOptions(),
+                    catalog);
 
             long snapshotId = catalog.getCurrentSnapshotId();
             DucklakeTable table = getTable(catalog, "test_schema", "simple_table", snapshotId);

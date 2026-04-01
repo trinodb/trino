@@ -16,6 +16,7 @@ package io.trino.plugin.ducklake;
 import com.google.inject.Inject;
 import io.trino.parquet.ParquetReaderOptions;
 import io.trino.plugin.base.metrics.FileFormatDataSourceStats;
+import io.trino.plugin.ducklake.catalog.DucklakeCatalog;
 import io.trino.plugin.hive.parquet.ParquetReaderConfig;
 import io.trino.spi.connector.ConnectorPageSourceProviderFactory;
 
@@ -27,21 +28,24 @@ public class DucklakePageSourceProviderFactory
     private final DucklakeFileSystemFactory fileSystemFactory;
     private final FileFormatDataSourceStats fileFormatDataSourceStats;
     private final ParquetReaderOptions parquetReaderOptions;
+    private final DucklakeCatalog catalog;
 
     @Inject
     public DucklakePageSourceProviderFactory(
             DucklakeFileSystemFactory fileSystemFactory,
             FileFormatDataSourceStats fileFormatDataSourceStats,
-            ParquetReaderConfig parquetReaderConfig)
+            ParquetReaderConfig parquetReaderConfig,
+            DucklakeCatalog catalog)
     {
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
         this.fileFormatDataSourceStats = requireNonNull(fileFormatDataSourceStats, "fileFormatDataSourceStats is null");
         this.parquetReaderOptions = parquetReaderConfig.toParquetReaderOptions();
+        this.catalog = requireNonNull(catalog, "catalog is null");
     }
 
     @Override
     public DucklakePageSourceProvider createPageSourceProvider()
     {
-        return new DucklakePageSourceProvider(fileSystemFactory, fileFormatDataSourceStats, parquetReaderOptions);
+        return new DucklakePageSourceProvider(fileSystemFactory, fileFormatDataSourceStats, parquetReaderOptions, catalog);
     }
 }

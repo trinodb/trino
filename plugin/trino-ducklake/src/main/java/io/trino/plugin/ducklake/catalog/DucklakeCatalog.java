@@ -97,6 +97,19 @@ public interface DucklakeCatalog
     Map<Long, List<DucklakeFilePartitionValue>> getFilePartitionValues(long tableId, long snapshotId);
 
     /**
+     * Check if a table has inlined data at the given snapshot.
+     * Queries ducklake_inlined_data_tables for the table_id and resolves the schema version.
+     */
+    Optional<DucklakeInlinedDataInfo> getInlinedDataInfo(long tableId, long snapshotId);
+
+    /**
+     * Read inlined data rows for a table at a given snapshot.
+     * Queries ducklake_inlined_data_{tableId}_{schemaVersion} with snapshot filtering.
+     * Returns raw JDBC values for each row, one List per row, ordered by column.
+     */
+    List<List<Object>> readInlinedData(long tableId, long schemaVersion, long snapshotId, List<DucklakeColumn> columns);
+
+    /**
      * Get the base data path from ducklake_metadata
      */
     Optional<String> getDataPath();

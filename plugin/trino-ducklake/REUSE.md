@@ -4,10 +4,10 @@ Goal: maximize reuse of public Trino/Iceberg/Hive reader infrastructure and keep
 
 ## Directly Reused
 - Trino file system stack (`TrinoFileSystem`, `TrinoFileSystemFactory`, `Location`).
-- Trino Parquet stack (`ParquetReader`, `ParquetPageSource`, row-group pruning primitives, reader options).
+- Trino Parquet stack (`ParquetReader`, `ParquetPageSource`, row-group pruning via `getFilteredRowGroups`, page-level filtering, reader options).
 - Hive Parquet datasource factory (`ParquetPageSourceFactory.createDataSource`).
 - Hive `TransformConnectorPageSource` for schema-evolution null column injection.
-- Standard SPI components (`FixedSplitSource`, connector interfaces, classloader-safe wrappers).
+- Standard SPI components (`FixedSplitSource`, `InMemoryRecordSet`, `RecordPageSource`, connector interfaces, classloader-safe wrappers).
 - Standard metrics/memory/context infrastructure.
 
 ## Adapted Patterns

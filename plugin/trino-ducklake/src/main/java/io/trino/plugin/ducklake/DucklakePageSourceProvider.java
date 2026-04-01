@@ -34,6 +34,8 @@ import io.trino.parquet.reader.MetadataReader;
 import io.trino.parquet.reader.ParquetReader;
 import io.trino.parquet.reader.RowGroupInfo;
 import io.trino.plugin.base.metrics.FileFormatDataSourceStats;
+import io.trino.plugin.ducklake.catalog.DucklakeCatalog;
+import io.trino.plugin.ducklake.catalog.DucklakeColumn;
 import io.trino.plugin.hive.TransformConnectorPageSource;
 import io.trino.plugin.hive.parquet.ParquetPageSource;
 import io.trino.spi.TrinoException;
@@ -47,6 +49,8 @@ import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.EmptyPageSource;
+import io.trino.spi.connector.InMemoryRecordSet;
+import io.trino.spi.connector.RecordPageSource;
 import io.trino.spi.connector.SourcePage;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
@@ -95,16 +99,19 @@ public class DucklakePageSourceProvider
     private final TrinoFileSystemFactory fileSystemFactory;
     private final FileFormatDataSourceStats fileFormatDataSourceStats;
     private final ParquetReaderOptions parquetReaderOptions;
+    private final DucklakeCatalog catalog;
 
     @Inject
     public DucklakePageSourceProvider(
             TrinoFileSystemFactory fileSystemFactory,
             FileFormatDataSourceStats fileFormatDataSourceStats,
-            ParquetReaderOptions parquetReaderOptions)
+            ParquetReaderOptions parquetReaderOptions,
+            DucklakeCatalog catalog)
     {
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
         this.fileFormatDataSourceStats = requireNonNull(fileFormatDataSourceStats, "fileFormatDataSourceStats is null");
         this.parquetReaderOptions = requireNonNull(parquetReaderOptions, "parquetReaderOptions is null");
+        this.catalog = requireNonNull(catalog, "catalog is null");
     }
 
     @Override
@@ -118,6 +125,10 @@ public class DucklakePageSourceProvider
     {
         requireNonNull(split, "split is null");
         requireNonNull(columns, "columns is null");
+
+        if (split instanceof DucklakeInlinedSplit inlinedSplit) {
+            return createInlinedPageSource(inlinedSplit, columns);
+        }
 
         DucklakeSplit ducklakeSplit = (DucklakeSplit) split;
 
@@ -162,6 +173,62 @@ public class DucklakePageSourceProvider
         catch (IOException e) {
             throw new RuntimeException("Failed to create page source for file: " + ducklakeSplit.dataFilePath(), e);
         }
+    }
+
+    private ConnectorPageSource createInlinedPageSource(
+            DucklakeInlinedSplit inlinedSplit,
+            List<ColumnHandle> columns)
+    {
+        List<DucklakeColumnHandle> ducklakeColumns = columns.stream()
+                .map(DucklakeColumnHandle.class::cast)
+                .collect(toImmutableList());
+
+        // Get the full column metadata to know column names for the SQL query
+        List<DucklakeColumn> tableColumns = catalog.getTableColumns(
+                inlinedSplit.tableId(), inlinedSplit.snapshotId());
+
+        // Build ordered list of columns matching the requested projection
+        Map<Long, DucklakeColumn> columnById = tableColumns.stream()
+                .collect(toImmutableMap(DucklakeColumn::columnId, col -> col));
+
+        List<DucklakeColumn> requestedColumns = ducklakeColumns.stream()
+                .map(handle -> {
+                    DucklakeColumn col = columnById.get(handle.columnId());
+                    if (col == null) {
+                        throw new IllegalStateException("Column not found in table metadata: " + handle.columnName());
+                    }
+                    return col;
+                })
+                .collect(toImmutableList());
+
+        // Read inlined data from the metadata catalog
+        List<List<Object>> rawRows = catalog.readInlinedData(
+                inlinedSplit.tableId(),
+                inlinedSplit.schemaVersion(),
+                inlinedSplit.snapshotId(),
+                requestedColumns);
+
+        // Extract Trino types for each column
+        List<Type> types = ducklakeColumns.stream()
+                .map(DucklakeColumnHandle::columnType)
+                .collect(toImmutableList());
+
+        // Convert JDBC values to Trino-native values
+        // InMemoryRecordSet expects null for null values in the row lists
+        List<List<Object>> convertedRows = rawRows.stream()
+                .map(row -> {
+                    List<Object> converted = new java.util.ArrayList<>(row.size());
+                    for (int i = 0; i < row.size(); i++) {
+                        converted.add(DucklakeInlinedValueConverter.convertJdbcValue(row.get(i), types.get(i)));
+                    }
+                    return (List<Object>) converted;
+                })
+                .collect(toImmutableList());
+
+        log.debug("Created inlined page source with %d rows for tableId=%d", rawRows.size(), inlinedSplit.tableId());
+
+        InMemoryRecordSet recordSet = new InMemoryRecordSet(types, convertedRows);
+        return new RecordPageSource(recordSet);
     }
 
     private ConnectorPageSource createParquetPageSource(

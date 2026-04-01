@@ -1,30 +1,17 @@
 # Trino Ducklake Connector
 
-Read-only Trino connector for the Ducklake table format.
+Read-only Trino connector for the [Ducklake](https://ducklake.select/) table format.
 
-## Current Docs
-- [STATUS.md](STATUS.md): Current implementation state and known gaps.
-- [REMEDIATION_PLAN.md](REMEDIATION_PLAN.md): Prioritized remediation plan.
-- [REUSE.md](REUSE.md): Reuse strategy and where we still diverge from Iceberg.
-- [SMOKE_TEST.md](SMOKE_TEST.md): Build and test commands.
-- [TESTING_UPGRADE.md](TESTING_UPGRADE.md): Testing upgrade plan (query-runner, cross-engine, coverage gaps).
+Reads Ducklake metadata from a SQLite catalog database and data from Parquet files via Trino's native Parquet reader. Supports data inlined in the metadata catalog (DuckLake's default for small tables).
 
-## What Works
-- SQL catalog reads from Ducklake metadata tables (SQLite tested).
-- Snapshot-scoped reads of current snapshot.
-- Parquet reads through Trino Parquet reader path.
-- Split generation with file-stats pruning.
-- Partition pruning (identity + temporal transforms).
-- Merge-on-read delete-file filtering.
-- `applyFilter` support and dynamic-filter intersection at page source.
+## Documentation
 
-## What Is Still Limited
-- Time travel (`FOR SYSTEM_TIME`) is not implemented.
-- `json` and `variant` map to `VARCHAR`; geometry maps to `VARBINARY`.
-- No write path (INSERT/UPDATE/DELETE/DDL).
-- No query-runner integration tests yet.
+- [STATUS.md](STATUS.md) — Current implementation state, gaps, and concerns.
+- [REUSE.md](REUSE.md) — What we reuse from Trino/Iceberg and what's custom.
+- [REPORT_DUCKLAKE_PARTITION_PROB.md](REPORT_DUCKLAKE_PARTITION_PROB.md) — Open issue: temporal partition values in DuckDB don't match spec.
 
 ## Configuration
+
 Example `etc/catalog/ducklake.properties`:
 
 ```properties
@@ -41,4 +28,20 @@ cd plugin/trino-ducklake
 mvn test
 ```
 
-See [SMOKE_TEST.md](SMOKE_TEST.md) for focused test commands and expected output.
+Targeted runs:
+
+```bash
+# Full integration tests (125 methods)
+mvn test -Dtest=TestDucklakeIntegration
+
+# Catalog metadata
+mvn test -Dtest=TestDucklakeCatalog
+
+# Split pruning + partition pruning
+mvn test -Dtest=TestDucklakeSplitManager,TestDucklakePartitionPruning
+
+# Page source + delete handling
+mvn test -Dtest=TestDucklakePageSourceProvider,TestDucklakeDeleteFileHandling
+```
+
+173 tests across 7 test classes, 0 failures.

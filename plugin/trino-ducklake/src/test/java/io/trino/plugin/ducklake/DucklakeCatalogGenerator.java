@@ -453,6 +453,26 @@ public final class DucklakeCatalogGenerator
                         (5, 'file3_row1')
                     """);
 
+            // Table 15: Inlined data table (data stays in SQLite, not flushed to Parquet)
+            // DuckLake inlines small table data (<=10 rows by default) in the metadata catalog.
+            // This table tests Trino's ability to read inlined data directly from the catalog.
+            System.out.println("Creating inlined_table (data stays inlined in metadata catalog)...");
+            stmt.execute("""
+                    CREATE TABLE ducklake_db.test_schema.inlined_table (
+                        id INTEGER,
+                        name VARCHAR,
+                        value DOUBLE
+                    )
+                    """);
+
+            stmt.execute("""
+                    INSERT INTO ducklake_db.test_schema.inlined_table VALUES
+                        (1, 'alpha', 10.5),
+                        (2, 'beta', 20.0),
+                        (3, 'gamma', 30.75)
+                    """);
+            // Explicitly do NOT call ducklake_flush_inlined_data — data must stay inlined
+
             // Force checkpoint to write data to Parquet files
             System.out.println("Forcing checkpoint to write Parquet files...");
             stmt.execute("CHECKPOINT ducklake_db");
@@ -483,6 +503,7 @@ public final class DucklakeCatalogGenerator
             System.out.println("  - test_schema.deleted_rows_table (3 surviving rows, delete file handling)");
             System.out.println("  - test_schema.complex_nulls_table (5 rows, full-NULL structs/arrays with null elements)");
             System.out.println("  - test_schema.multi_file_table (5 rows across 3 Parquet files, multi-file scan)");
+            System.out.println("  - test_schema.inlined_table (3 rows, data inlined in metadata catalog)");
         }
 
         System.out.println();

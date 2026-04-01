@@ -1196,4 +1196,58 @@ public class TestDucklakeIntegration
                 "DROP TABLE simple_table",
                 ".*not supported.*|.*This connector does not support.*");
     }
+
+    // ==================== Inlined Data Tests ====================
+
+    @Test
+    public void testInlinedTableSelect()
+    {
+        MaterializedResult result = computeActual("SELECT * FROM inlined_table ORDER BY id");
+        assertThat(result.getRowCount()).isEqualTo(3);
+
+        List<MaterializedRow> rows = result.getMaterializedRows();
+        assertThat(rows.get(0).getField(0)).isEqualTo(1);
+        assertThat(rows.get(0).getField(1)).isEqualTo("alpha");
+        assertThat(rows.get(0).getField(2)).isEqualTo(10.5);
+
+        assertThat(rows.get(1).getField(0)).isEqualTo(2);
+        assertThat(rows.get(1).getField(1)).isEqualTo("beta");
+        assertThat(rows.get(1).getField(2)).isEqualTo(20.0);
+
+        assertThat(rows.get(2).getField(0)).isEqualTo(3);
+        assertThat(rows.get(2).getField(1)).isEqualTo("gamma");
+        assertThat(rows.get(2).getField(2)).isEqualTo(30.75);
+    }
+
+    @Test
+    public void testInlinedTablePredicate()
+    {
+        MaterializedResult result = computeActual("SELECT name, value FROM inlined_table WHERE id = 2");
+        assertThat(result.getRowCount()).isEqualTo(1);
+        assertThat(result.getMaterializedRows().get(0).getField(0)).isEqualTo("beta");
+        assertThat(result.getMaterializedRows().get(0).getField(1)).isEqualTo(20.0);
+    }
+
+    @Test
+    public void testInlinedTableCount()
+    {
+        assertQuery("SELECT COUNT(*) FROM inlined_table", "VALUES 3");
+    }
+
+    @Test
+    public void testInlinedTableProjection()
+    {
+        MaterializedResult result = computeActual("SELECT name FROM inlined_table ORDER BY name");
+        assertThat(result.getRowCount()).isEqualTo(3);
+        assertThat(result.getMaterializedRows().get(0).getField(0)).isEqualTo("alpha");
+        assertThat(result.getMaterializedRows().get(1).getField(0)).isEqualTo("beta");
+        assertThat(result.getMaterializedRows().get(2).getField(0)).isEqualTo("gamma");
+    }
+
+    @Test
+    public void testInlinedTableDescribe()
+    {
+        MaterializedResult result = computeActual("DESCRIBE inlined_table");
+        assertThat(result.getRowCount()).isEqualTo(3);
+    }
 }

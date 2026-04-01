@@ -648,6 +648,74 @@ public class SqliteDucklakeCatalog
     }
 
     @Override
+    public Optional<DucklakeInlinedDataInfo> getInlinedDataInfo(long tableId, long snapshotId)
+    {
+        // First check if this table has inlined data
+        String sql = "SELECT table_id, table_name, schema_version FROM ducklake_inlined_data_tables WHERE table_id = ?";
+
+        try (Connection conn = dataSource.getConnection();
+                PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setLong(1, tableId);
+
+            try (ResultSet rs = stmt.executeQuery()) {
+                if (rs.next()) {
+                    return Optional.of(new DucklakeInlinedDataInfo(
+                            rs.getLong("table_id"),
+                            rs.getString("table_name"),
+                            rs.getLong("schema_version")));
+                }
+                return Optional.empty();
+            }
+        }
+        catch (SQLException e) {
+            // ducklake_inlined_data_tables may not exist in catalogs that never used inlining
+            log.debug("Could not query inlined data tables (table may not exist): %s", e.getMessage());
+            return Optional.empty();
+        }
+    }
+
+    @Override
+    public List<List<Object>> readInlinedData(long tableId, long schemaVersion, long snapshotId, List<DucklakeColumn> columns)
+    {
+        String inlinedTableName = String.format("ducklake_inlined_data_%d_%d", tableId, schemaVersion);
+
+        String columnNames = columns.stream()
+                .map(DucklakeColumn::columnName)
+                .collect(Collectors.joining(", "));
+
+        String sql = String.format(
+                "SELECT %s FROM %s WHERE ? >= begin_snapshot AND (? < end_snapshot OR end_snapshot IS NULL) ORDER BY row_id",
+                columnNames, inlinedTableName);
+
+        List<List<Object>> rows = new ArrayList<>();
+
+        try (Connection conn = dataSource.getConnection();
+                PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setLong(1, snapshotId);
+            stmt.setLong(2, snapshotId);
+
+            try (ResultSet rs = stmt.executeQuery()) {
+                int columnCount = columns.size();
+                while (rs.next()) {
+                    List<Object> row = new ArrayList<>(columnCount);
+                    for (int i = 1; i <= columnCount; i++) {
+                        row.add(rs.getObject(i));
+                    }
+                    rows.add(row);
+                }
+            }
+        }
+        catch (SQLException e) {
+            // The inlined data table may not exist if the table was created but never had data inserted,
+            // or if the inlined data was flushed to Parquet files. Return empty in these cases.
+            log.debug("Could not read inlined data from %s (table may not exist): %s", inlinedTableName, e.getMessage());
+            return List.of();
+        }
+
+        return rows;
+    }
+
+    @Override
     public Optional<String> getDataPath()
     {
         String sql = "SELECT value FROM ducklake_metadata WHERE key = 'data_path'";
