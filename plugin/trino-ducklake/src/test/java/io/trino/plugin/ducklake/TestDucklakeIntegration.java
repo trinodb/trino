@@ -260,20 +260,17 @@ public class TestDucklakeIntegration
     @Test
     public void testSelectWithAggregation()
     {
-        MaterializedResult result = computeActual(
-                "SELECT min(price), max(price), avg(price) FROM simple_table");
-        assertThat(result.getRowCount()).isEqualTo(1);
-        MaterializedRow row = result.getMaterializedRows().get(0);
-        assertThat((Double) row.getField(0)).isEqualTo(19.99);
-        assertThat((Double) row.getField(1)).isEqualTo(59.99);
+        assertQuery(
+                "SELECT min(price), max(price), avg(price) FROM simple_table",
+                "VALUES (19.99, 59.99, 39.99)");
     }
 
     @Test
     public void testSelectWithGroupBy()
     {
-        MaterializedResult result = computeActual(
-                "SELECT active, count(*) FROM simple_table GROUP BY active ORDER BY active");
-        assertThat(result.getRowCount()).isEqualTo(2);
+        assertQuery(
+                "SELECT active, count(*) FROM simple_table GROUP BY active ORDER BY active",
+                "VALUES (false, 2), (true, 3)");
     }
 
     @Test
@@ -604,10 +601,18 @@ public class TestDucklakeIntegration
     @Test
     public void testPartitionedTableAggregationPerPartition()
     {
-        MaterializedResult result = computeActual(
-                "SELECT region, sum(amount), count(*) FROM partitioned_table " +
-                        "GROUP BY region ORDER BY region");
-        assertThat(result.getRowCount()).isEqualTo(3);
+        assertQuery(
+                "SELECT region, sum(amount), count(*) FROM partitioned_table GROUP BY region ORDER BY region",
+                "VALUES ('APAC', 300.0, 1), ('EU', 400.0, 2), ('US', 300.0, 2)");
+    }
+
+    @Test
+    public void testPartitionedTableRollup()
+    {
+        assertQuery(
+                "SELECT region, sum(amount) FROM partitioned_table " +
+                        "GROUP BY ROLLUP(region) ORDER BY region NULLS LAST",
+                "VALUES ('APAC', 300.0), ('EU', 400.0), ('US', 300.0), (NULL, 1000.0)");
     }
 
     @Test
@@ -722,23 +727,42 @@ public class TestDucklakeIntegration
     @Test
     public void testAggregationTableGroupByCategory()
     {
-        MaterializedResult result = computeActual(
-                "SELECT category, count(*), sum(quantity) FROM aggregation_table " +
-                        "GROUP BY category ORDER BY category");
-        assertThat(result.getRowCount()).isEqualTo(3);
-        // Each category has 10 rows (30 total / 3 categories)
-        for (MaterializedRow row : result.getMaterializedRows()) {
-            assertThat(row.getField(1)).isEqualTo(10L);
-        }
+        assertQuery(
+                "SELECT category, count(*), sum(quantity), sum(amount), avg(amount) " +
+                        "FROM aggregation_table GROUP BY category ORDER BY category",
+                "VALUES ('A', 10, 725, 1476.0, 147.6), " +
+                        "('B', 10, 775, 1579.0, 157.9), " +
+                        "('C', 10, 825, 1682.0, 168.2)");
     }
 
     @Test
     public void testAggregationTableHaving()
     {
-        MaterializedResult result = computeActual(
-                "SELECT category, avg(amount) AS avg_amt FROM aggregation_table " +
-                        "GROUP BY category HAVING avg(amount) > 0 ORDER BY category");
-        assertThat(result.getRowCount()).isEqualTo(3);
+        assertQuery(
+                "SELECT category, sum(quantity) FROM aggregation_table " +
+                        "GROUP BY category HAVING sum(quantity) > 750 ORDER BY category",
+                "VALUES ('B', 775), ('C', 825)");
+    }
+
+    @Test
+    public void testAggregationTableDistinctAndFilteredAggregations()
+    {
+        assertQuery(
+                "SELECT count(*), count(DISTINCT category), " +
+                        "sum(amount) FILTER (WHERE category = 'A'), " +
+                        "sum(amount) FILTER (WHERE category = 'B'), " +
+                        "sum(amount) FILTER (WHERE category = 'C') " +
+                        "FROM aggregation_table",
+                "VALUES (30, 3, 1476.0, 1579.0, 1682.0)");
+    }
+
+    @Test
+    public void testNullableTableAggregationsIgnoreNulls()
+    {
+        assertQuery(
+                "SELECT count(*), count(name), count(price), count_if(active), " +
+                        "sum(price), avg(price), min(price), max(price) FROM nullable_table",
+                "VALUES (4, 2, 2, 2, 30.0, 15.0, 10.0, 20.0)");
     }
 
     @Test
@@ -788,6 +812,30 @@ public class TestDucklakeIntegration
         MaterializedResult result = computeActual(
                 "EXPLAIN (TYPE DISTRIBUTED) SELECT * FROM simple_table");
         String plan = result.getMaterializedRows().get(0).getField(0).toString();
+        assertThat(plan).contains("TableScan");
+    }
+
+    @Test
+    public void testExplainDistributedAggregation()
+    {
+        MaterializedResult result = computeActual(
+                "EXPLAIN (TYPE DISTRIBUTED) " +
+                        "SELECT category, sum(amount) FROM aggregation_table GROUP BY category");
+        String plan = result.getMaterializedRows().get(0).getField(0).toString();
+        assertThat(plan).contains("Fragment");
+        assertThat(plan).contains("Aggregate");
+        assertThat(plan).contains("TableScan");
+    }
+
+    @Test
+    public void testExplainDistributedJoin()
+    {
+        MaterializedResult result = computeActual(
+                "EXPLAIN (TYPE DISTRIBUTED) " +
+                        "SELECT s.id, p.region FROM simple_table s JOIN partitioned_table p ON s.id = p.id");
+        String plan = result.getMaterializedRows().get(0).getField(0).toString();
+        assertThat(plan).contains("Fragment");
+        assertThat(plan).contains("Join");
         assertThat(plan).contains("TableScan");
     }
 
@@ -876,8 +924,26 @@ public class TestDucklakeIntegration
         // This exercises the dynamic filter code path
         MaterializedResult result = computeActual(
                 "SELECT a.id, a.amount FROM aggregation_table a " +
-                        "JOIN nested_table n ON a.id = n.id");
+                "JOIN nested_table n ON a.id = n.id");
         assertThat(result.getRowCount()).isEqualTo(3);
+    }
+
+    @Test
+    public void testPartitionedJoinDistribution()
+    {
+        assertQuery(
+                "WITH SESSION join_distribution_type = 'PARTITIONED' " +
+                        "SELECT count(*) FROM simple_table s JOIN partitioned_table p ON s.id = p.id",
+                "VALUES 5");
+    }
+
+    @Test
+    public void testBroadcastJoinDistribution()
+    {
+        assertQuery(
+                "WITH SESSION join_distribution_type = 'BROADCAST' " +
+                        "SELECT count(*) FROM aggregation_table a JOIN nested_table n ON a.id = n.id",
+                "VALUES 3");
     }
 
     // ==================== Set operations ====================
