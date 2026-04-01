@@ -21,8 +21,8 @@ import io.airlift.configuration.DefunctConfig;
 import io.airlift.configuration.LegacyConfig;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
-import io.airlift.units.ThreadCount;
 import io.trino.filesystem.Location;
+import io.trino.plugin.base.configuration.ThreadCountParser;
 import io.trino.plugin.hive.HiveCompressionOption;
 import jakarta.validation.constraints.AssertFalse;
 import jakarta.validation.constraints.AssertTrue;
@@ -536,7 +536,7 @@ public class IcebergConfig
     @ConfigDescription("Number of threads to use for generating splits")
     public IcebergConfig setSplitManagerThreads(String splitManagerThreads)
     {
-        this.splitManagerThreads = ThreadCount.valueOf(splitManagerThreads).getThreadCount();
+        this.splitManagerThreads = ThreadCountParser.DEFAULT.parse(splitManagerThreads);
         return this;
     }
 
@@ -550,7 +550,7 @@ public class IcebergConfig
     @ConfigDescription("Number of threads to use for metadata scans in planning")
     public IcebergConfig setPlanningThreads(String planningThreads)
     {
-        this.planningThreads = ThreadCount.valueOf(planningThreads).getThreadCount();
+        this.planningThreads = ThreadCountParser.DEFAULT.parse(planningThreads);
         return this;
     }
 
@@ -564,7 +564,7 @@ public class IcebergConfig
     @ConfigDescription("Number of threads to use for deleting files when running the `expire_snapshots` or `remove_orphan_files` procedure, or when executing `DROP TABLE` queries")
     public IcebergConfig setFileDeleteThreads(String fileDeleteThreads)
     {
-        this.fileDeleteThreads = ThreadCount.valueOf(fileDeleteThreads).getThreadCount();
+        this.fileDeleteThreads = ThreadCountParser.DEFAULT.parse(fileDeleteThreads);
         return this;
     }
 
