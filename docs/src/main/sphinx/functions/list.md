@@ -211,6 +211,9 @@
 - {func}`intersection_cardinality`
 - {func}`inverse_beta_cdf`
 - {func}`inverse_normal_cdf`
+- {func}`ip_from_bits`
+- {func}`ip_to_bits`
+- {func}`ip_version`
 - {func}`is_finite`
 - {func}`is_infinite`
 - {func}`is_json_scalar`

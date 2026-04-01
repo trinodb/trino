@@ -71,7 +71,7 @@ For more details, see {doc}`array`
 - {func}`cardinality`
 - {func}`combinations`
 - `concat()`
-- {func}`contains`
+- `contains()`
 - {func}`element_at`
 - {func}`filter`
 - {func}`flatten`
@@ -308,6 +308,15 @@ For more details, see {doc}`hyperloglog`
 - `cardinality()`
 - {func}`empty_approx_set`
 - {func}`merge`
+
+## IP Address
+
+For more details, see {doc}`ipaddress`
+
+- `contains()`
+- {func}`ip_from_bits`
+- {func}`ip_to_bits`
+- {func}`ip_version`
 
 ## JSON
 
