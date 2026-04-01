@@ -14,6 +14,7 @@
 package io.trino.plugin.ducklake;
 
 import io.trino.plugin.ducklake.catalog.DucklakeCatalog;
+import io.trino.plugin.ducklake.catalog.DucklakeColumn;
 import io.trino.plugin.ducklake.catalog.DucklakeSchema;
 import io.trino.plugin.ducklake.catalog.DucklakeTable;
 import io.trino.plugin.ducklake.catalog.SqliteDucklakeCatalog;
@@ -214,12 +215,20 @@ public class TestDucklakeSplitManager
         DucklakeTableHandle tableHandle = new DucklakeTableHandle("test_schema", "empty_table", table.tableId(), snapshotId);
 
         List<ConnectorSplit> splits = getRawSplits(tableHandle, Constraint.alwaysTrue());
-        // empty_table has no data files and no inlined data — should return empty
-        // (may return an inlined split with 0 rows, or empty list; either is acceptable)
-        if (!splits.isEmpty()) {
-            // If we get a split, reading it should produce 0 rows
-            assertThat(splits).hasSize(1);
-        }
+        assertThat(splits).hasSize(1);
+        assertThat(splits.getFirst()).isInstanceOf(DucklakeInlinedSplit.class);
+
+        DucklakeInlinedSplit inlinedSplit = (DucklakeInlinedSplit) splits.getFirst();
+        assertThat(inlinedSplit.tableId()).isEqualTo(table.tableId());
+        assertThat(inlinedSplit.snapshotId()).isEqualTo(snapshotId);
+
+        List<DucklakeColumn> columns = catalog.getTableColumns(table.tableId(), snapshotId);
+        List<List<Object>> rows = catalog.readInlinedData(
+                inlinedSplit.tableId(),
+                inlinedSplit.schemaVersion(),
+                inlinedSplit.snapshotId(),
+                columns);
+        assertThat(rows).isEmpty();
     }
 
     private List<DucklakeSplit> getSplits(DucklakeTableHandle tableHandle, Constraint constraint)

@@ -922,11 +922,16 @@ public class TestDucklakeIntegration
     @Test
     public void testJoinBetweenPartitionedTables()
     {
-        MaterializedResult result = computeActual(
+        assertQuery(
                 "SELECT p.name, t.event_name " +
                         "FROM partitioned_table p JOIN temporal_partitioned_table t ON p.id = t.id " +
-                        "ORDER BY p.id");
-        assertThat(result.getRowCount()).isGreaterThan(0);
+                        "ORDER BY p.id",
+                "VALUES " +
+                        "('Alice', 'Jan Event'), " +
+                        "('Bob', 'Jan Meeting'), " +
+                        "('Charlie', 'Jun Event'), " +
+                        "('Diana', 'Jun Meeting'), " +
+                        "('Emi', 'Next Year')");
     }
 
     @Test

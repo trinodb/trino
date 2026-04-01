@@ -130,10 +130,12 @@ public class TestDucklakePageSourceProvider
                 baseSplit.fileFormat(),
                 TupleDomain.withColumnDomains(Map.of(priceColumn, Domain.singleValue(DOUBLE, 1000.0))));
 
+        long allRows = countRows(tableHandle, baseSplit, priceColumn);
         long matchingRows = countRows(tableHandle, matchingSplit, priceColumn);
         long nonMatchingRows = countRows(tableHandle, nonMatchingSplit, priceColumn);
 
-        assertThat(matchingRows).isGreaterThan(0);
+        assertThat(allRows).isEqualTo(baseSplit.recordCount());
+        assertThat(matchingRows).isEqualTo(allRows);
         assertThat(nonMatchingRows).isEqualTo(0);
     }
 
@@ -184,7 +186,7 @@ public class TestDucklakePageSourceProvider
         long allRows = countRows(tableHandle, baseSplit, priceColumn);
         long rowsWithMissingColumnPredicate = countRows(tableHandle, missingColumnPredicateSplit, priceColumn);
 
-        assertThat(allRows).isGreaterThan(0);
+        assertThat(allRows).isEqualTo(baseSplit.recordCount());
         assertThat(rowsWithMissingColumnPredicate).isEqualTo(allRows);
     }
 
@@ -208,7 +210,9 @@ public class TestDucklakePageSourceProvider
                 baseSplit.fileFormat(),
                 baseSplit.fileStatisticsDomain());
 
-        assertThat(countRows(tableHandle, fileUriSplit, priceColumn)).isGreaterThan(0);
+        long expectedRows = countRows(tableHandle, baseSplit, priceColumn);
+        assertThat(expectedRows).isEqualTo(baseSplit.recordCount());
+        assertThat(countRows(tableHandle, fileUriSplit, priceColumn)).isEqualTo(expectedRows);
     }
 
     @Test
@@ -358,7 +362,7 @@ public class TestDucklakePageSourceProvider
 
         // Should return all rows, with null values for the missing column
         long rows = countRows(tableHandle, split, missingColumn);
-        assertThat(rows).isGreaterThan(0);
+        assertThat(rows).isEqualTo(split.recordCount());
 
         // Verify all values are null
         try (ConnectorPageSource pageSource = pageSourceProvider.createPageSource(
@@ -408,7 +412,7 @@ public class TestDucklakePageSourceProvider
                 }
             }
         }
-        assertThat(rows).isGreaterThan(0);
+        assertThat(rows).isEqualTo(split.recordCount());
     }
 
     @Test

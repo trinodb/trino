@@ -86,6 +86,9 @@ public class TestDucklakeCatalog
     {
         long snapshotId = catalog.getCurrentSnapshotId();
         assertThat(snapshotId).isGreaterThan(0);
+        assertThat(catalog.listSchemas(snapshotId))
+                .extracting(DucklakeSchema::schemaName)
+                .contains("test_schema");
     }
 
     @Test
