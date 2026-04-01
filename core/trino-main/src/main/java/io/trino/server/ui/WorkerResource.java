@@ -44,12 +44,13 @@ import jakarta.ws.rs.core.HttpHeaders;
 import jakarta.ws.rs.core.Response;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.util.HashSet;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.Set;
 
-import static com.google.common.net.HttpHeaders.CONTENT_TYPE;
+import static io.airlift.http.client.HeaderNames.CONTENT_TYPE;
 import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 import static io.airlift.http.client.Request.Builder.prepareGet;
 import static io.trino.node.NodeState.ACTIVE;
@@ -221,11 +222,11 @@ public class WorkerResource
         @Override
         public byte[] handle(Request request, io.airlift.http.client.Response response)
         {
-            try {
-                if (!APPLICATION_JSON.equals(response.getHeader(CONTENT_TYPE))) {
+            try (InputStream stream = response.getInputStream()) {
+                if (!response.getHeader(CONTENT_TYPE).map(APPLICATION_JSON::equals).orElse(false)) {
                     throw new RuntimeException("Response received was not of type " + APPLICATION_JSON);
                 }
-                return response.getInputStream().readAllBytes();
+                return stream.readAllBytes();
             }
             catch (IOException e) {
                 throw new RuntimeException("Unable to read response from worker", e);

@@ -13,9 +13,6 @@
  */
 package io.trino.sql.planner.assertions;
 
-import io.trino.Session;
-import io.trino.cost.StatsProvider;
-import io.trino.metadata.Metadata;
 import io.trino.spi.connector.SortOrder;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.plan.DataOrganizationSpecification;
@@ -64,21 +61,21 @@ public class TopNRankingMatcher
     }
 
     @Override
-    public MatchResult detailMatches(PlanNode node, StatsProvider stats, Session session, Metadata metadata, SymbolAliases symbolAliases)
+    public MatchResult detailMatches(PlanNode node, MatchContext context)
     {
         checkState(shapeMatches(node), "Plan testing framework error: shapeMatches returned false in detailMatches in %s", this.getClass().getName());
 
         TopNRankingNode topNRankingNode = (TopNRankingNode) node;
 
         if (specification.isPresent()) {
-            DataOrganizationSpecification expected = specification.get().getExpectedValue(symbolAliases);
+            DataOrganizationSpecification expected = specification.get().getExpectedValue(context.symbolAliases());
             if (!expected.equals(topNRankingNode.getSpecification())) {
                 return NO_MATCH;
             }
         }
 
         if (rankingSymbol.isPresent()) {
-            Symbol expected = rankingSymbol.get().toSymbol(symbolAliases);
+            Symbol expected = rankingSymbol.get().toSymbol(context.symbolAliases());
             if (!expected.equals(topNRankingNode.getRankingSymbol())) {
                 return NO_MATCH;
             }

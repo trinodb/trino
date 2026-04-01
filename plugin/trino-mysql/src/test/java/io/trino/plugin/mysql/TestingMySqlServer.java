@@ -35,13 +35,19 @@ public class TestingMySqlServer
     public static final String DEFAULT_IMAGE_8 = "mysql:8.0.41";
     public static final String DEFAULT_IMAGE = DEFAULT_IMAGE_8;
     public static final String LEGACY_IMAGE = "mysql:5.7.44"; // oldest available on RDS
+    public static final String LATEST_IMAGE = "mysql:9.6.0";
 
     private final MySQLContainer container;
     private final Closeable cleanup;
 
     public TestingMySqlServer()
     {
-        this(false);
+        this(DEFAULT_IMAGE);
+    }
+
+    public TestingMySqlServer(String dockerImageName)
+    {
+        this(dockerImageName, false);
     }
 
     public TestingMySqlServer(ZoneId zoneId)

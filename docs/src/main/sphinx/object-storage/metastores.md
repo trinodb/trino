@@ -492,6 +492,12 @@ following properties:
 * - `iceberg.rest-catalog.session`
   - Session information included when communicating with the REST Catalog.
     Options are `NONE` or `USER` (default: `NONE`).
+* - `iceberg.rest-catalog.connection-timeout`
+  - Maximum time [Duration](prop-type-duration) allowed for socket connection
+    requests to complete before timing out.
+* - `iceberg.rest-catalog.socket-timeout`
+  - Maximum time [Duration](prop-type-duration) allowed socket read/write operations
+    before timing out.
 * - `iceberg.rest-catalog.session-timeout`
   - [Duration](prop-type-duration) to keep authentication session in cache. Defaults to `1h`.
 * - `iceberg.rest-catalog.oauth2.token`

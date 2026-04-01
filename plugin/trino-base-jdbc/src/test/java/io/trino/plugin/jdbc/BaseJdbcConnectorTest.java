@@ -2092,6 +2092,11 @@ public abstract class BaseJdbcConnectorTest
     public void testNativeQuerySelectUnsupportedType()
     {
         skipTestUnless(hasBehavior(SUPPORTS_NATIVE_QUERY));
+        testNativeQuerySelectUnsupportedType(false);
+    }
+
+    protected void testNativeQuerySelectUnsupportedType(boolean expectSuccess)
+    {
         try (TestTable testTable = createTableWithUnsupportedColumn()) {
             String unqualifiedTableName = testTable.getName().replaceAll("^\\w+\\.", "");
             // Check that column 'two' is not supported.
@@ -2099,9 +2104,17 @@ public abstract class BaseJdbcConnectorTest
                     "SELECT column_name FROM information_schema.columns WHERE table_schema = '" + getSession().getSchema().orElseThrow() + "' AND table_name = '" + unqualifiedTableName + "'",
                     "VALUES 'one', 'three'");
             assertUpdate("INSERT INTO " + testTable.getName() + " (one, three) VALUES (123, 'test')", 1);
-            assertThat(query(format("SELECT * FROM TABLE(system.query(query => 'SELECT * FROM %s'))", testTable.getName())))
-                    // TODO should be TrinoException
-                    .nonTrinoExceptionFailure().hasMessageContaining("Unsupported type");
+            QueryAssert queryAssert = assertThat(query(format("SELECT * FROM TABLE(system.query(query => 'SELECT * FROM %s'))", testTable.getName())));
+            if (expectSuccess) {
+                // For some connectors, the type introspection for regular tables (usually done via JDBC DatabaseMetaData)
+                // is not the same as the type introspection for queries (usually done via JDBC ResultSetMetaData).
+                // Sometimes there is no type that is unsupported on the table level and still not supported when introspecting a query.
+                queryAssert.skippingTypesCheck().matches("VALUES (BIGINT '123', null, 'test')");
+            }
+            else {
+                // TODO should be TrinoException
+                queryAssert.nonTrinoExceptionFailure().hasMessageContaining("Unsupported type");
+            }
         }
     }
 

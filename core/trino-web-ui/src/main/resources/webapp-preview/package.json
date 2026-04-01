@@ -22,9 +22,9 @@
     "@emotion/styled": "^11.14.1",
     "@fontsource/roboto": "^5.2.10",
     "@monaco-editor/react": "^4.7.0",
-    "@mui/icons-material": "^7.3.8",
-    "@mui/material": "^7.3.8",
-    "@mui/x-charts": "^8.27.0",
+    "@mui/icons-material": "^7.3.9",
+    "@mui/material": "^7.3.9",
+    "@mui/x-charts": "^8.27.5",
     "@xyflow/react": "^12.10.0",
     "axios": "^1.13.6",
     "lodash": "^4.17.23",
@@ -32,8 +32,8 @@
     "react-calendar-timeline": "^0.30.0-beta.4",
     "react-dom": "^19.2.4",
     "react-router-dom": "^7.13.1",
-    "sass": "^1.97.3",
-    "zustand": "^5.0.11"
+    "sass": "^1.98.0",
+    "zustand": "^5.0.12"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.2",
@@ -44,7 +44,7 @@
     "@typescript-eslint/eslint-plugin": "^8.44.1",
     "@typescript-eslint/parser": "^8.56.0",
     "@vitejs/plugin-react": "^5.1.4",
-    "eslint": "^9.39.3",
+    "eslint": "^9.39.4",
     "eslint-plugin-react": "^7.37.5",
     "eslint-plugin-react-hooks": "^5.2.0",
     "eslint-plugin-react-refresh": "^0.5.2",

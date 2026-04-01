@@ -30,6 +30,8 @@ import io.trino.spi.statistics.ColumnStatisticMetadata;
 import io.trino.spi.statistics.ComputedStatistics;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Decimals;
+import io.trino.spi.type.LongTimestamp;
+import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.Type;
 
 import java.math.BigDecimal;
@@ -128,10 +130,12 @@ public final class Statistics
         else if (type.equals(DATE)) {
             result.setDateStatistics(new DateStatistics(Optional.empty(), Optional.empty()));
         }
+        else if (type instanceof TimestampType) {
+            result.setIntegerStatistics(new IntegerStatistics(OptionalLong.empty(), OptionalLong.empty()));
+        }
         else if (type instanceof DecimalType) {
             result.setDecimalStatistics(new DecimalStatistics(Optional.empty(), Optional.empty()));
         }
-        // TODO (https://github.com/trinodb/trino/issues/5859) Add support for timestamp
         else {
             throw new IllegalArgumentException("Unexpected type: " + type);
         }
@@ -240,10 +244,12 @@ public final class Statistics
         else if (type.equals(DATE)) {
             result.setDateStatistics(new DateStatistics(getDateValue(type, min), getDateValue(type, max)));
         }
+        else if (type instanceof TimestampType) {
+            result.setIntegerStatistics(new IntegerStatistics(getTimestampEpochMicro(type, min), getTimestampEpochMicro(type, max)));
+        }
         else if (type instanceof DecimalType) {
             result.setDecimalStatistics(new DecimalStatistics(getDecimalValue(type, min), getDecimalValue(type, max)));
         }
-        // TODO (https://github.com/trinodb/trino/issues/5859) Add support for timestamp
         else {
             throw new IllegalArgumentException("Unexpected type: " + type);
         }
@@ -286,6 +292,19 @@ public final class Statistics
         }
         int days = toIntExact(type.getLong(block, 0));
         return Optional.of(LocalDate.ofEpochDay(days));
+    }
+
+    private static OptionalLong getTimestampEpochMicro(Type type, Block block)
+    {
+        verify(type instanceof TimestampType, "Unsupported type: %s", type);
+        if (block.isNull(0)) {
+            return OptionalLong.empty();
+        }
+        if (((TimestampType) type).isShort()) {
+            return OptionalLong.of(type.getLong(block, 0));
+        }
+        // Note: we're truncating even for the max value. Statistics are estimate so this should be fine.
+        return OptionalLong.of(((LongTimestamp) type.getObject(block, 0)).getEpochMicros());
     }
 
     private static Optional<BigDecimal> getDecimalValue(Type type, Block block)

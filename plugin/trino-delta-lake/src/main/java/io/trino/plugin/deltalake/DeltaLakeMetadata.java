@@ -764,9 +764,7 @@ public class DeltaLakeMetadata
                 protocolEntry,
                 TupleDomain.all(),
                 TupleDomain.all(),
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
+                false,
                 Optional.empty(),
                 Optional.empty(),
                 tableSnapshot.getVersion(),
@@ -2593,7 +2591,7 @@ public class DeltaLakeMetadata
         DeltaLakeInsertTableHandle insertHandle = createInsertHandle(retryMode, handle, inputColumns);
 
         Map<String, DeletionVectorEntry> deletionVectors = loadDeletionVectors(session, handle);
-        return new DeltaLakeMergeTableHandle(handle, insertHandle, deletionVectors, findShallowCloneSourceTableLocation(session, handle));
+        return new DeltaLakeMergeTableHandle(handle.forMerge(), insertHandle, deletionVectors, findShallowCloneSourceTableLocation(session, handle));
     }
 
     private Optional<String> findShallowCloneSourceTableLocation(ConnectorSession session, DeltaLakeTableHandle handle)
@@ -3581,10 +3579,8 @@ public class DeltaLakeMetadata
                         .intersect(newUnenforcedConstraint)
                         .simplify(domainCompactionThreshold),
                 Sets.union(tableHandle.getConstraintColumns(), newConstraintColumns),
-                tableHandle.getWriteType(),
+                tableHandle.isMerge(),
                 tableHandle.getProjectedColumns(),
-                tableHandle.getUpdatedColumns(),
-                tableHandle.getUpdateRowIdColumns(),
                 Optional.empty(),
                 false,
                 false,
@@ -3875,9 +3871,7 @@ public class DeltaLakeMetadata
                 handle.getProtocolEntry(),
                 TupleDomain.all(),
                 TupleDomain.all(),
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
+                false,
                 Optional.empty(),
                 Optional.of(analyzeHandle),
                 handle.getReadVersion(),

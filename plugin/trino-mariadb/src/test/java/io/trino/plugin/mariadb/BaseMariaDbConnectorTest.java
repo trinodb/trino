@@ -86,7 +86,7 @@ public abstract class BaseMariaDbConnectorTest
         return new TestTable(
                 onRemoteDatabase(),
                 "tpch.test_unsupported_column_present",
-                "(one bigint, two decimal(50,0), three varchar(10))");
+                "(one bigint, two bit(10), three varchar(10))");
     }
 
     @Test

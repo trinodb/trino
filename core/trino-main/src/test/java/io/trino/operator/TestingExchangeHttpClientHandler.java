@@ -17,6 +17,7 @@ import com.google.common.base.Splitter;
 import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
+import io.airlift.http.client.HeaderName;
 import io.airlift.http.client.HttpStatus;
 import io.airlift.http.client.Request;
 import io.airlift.http.client.Response;
@@ -31,15 +32,15 @@ import io.trino.spi.Page;
 import java.util.List;
 import java.util.Optional;
 
+import static io.airlift.http.client.HeaderNames.CONTENT_TYPE;
 import static io.trino.TrinoMediaTypes.TRINO_PAGES;
 import static io.trino.execution.buffer.PagesSerdeUtil.calculateChecksum;
-import static io.trino.server.InternalHeaders.TRINO_BUFFER_COMPLETE;
-import static io.trino.server.InternalHeaders.TRINO_PAGE_NEXT_TOKEN;
-import static io.trino.server.InternalHeaders.TRINO_PAGE_TOKEN;
-import static io.trino.server.InternalHeaders.TRINO_TASK_FAILED;
-import static io.trino.server.InternalHeaders.TRINO_TASK_INSTANCE_ID;
+import static io.trino.server.InternalHeaders.TRINO_BUFFER_COMPLETE_HEADER;
+import static io.trino.server.InternalHeaders.TRINO_PAGE_NEXT_TOKEN_HEADER;
+import static io.trino.server.InternalHeaders.TRINO_PAGE_TOKEN_HEADER;
+import static io.trino.server.InternalHeaders.TRINO_TASK_FAILED_HEADER;
+import static io.trino.server.InternalHeaders.TRINO_TASK_INSTANCE_ID_HEADER;
 import static io.trino.server.PagesInputStreamFactory.SERIALIZED_PAGES_MAGIC;
-import static jakarta.ws.rs.core.HttpHeaders.CONTENT_TYPE;
 import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -68,17 +69,17 @@ public class TestingExchangeHttpClientHandler
         TaskId taskId = TaskId.valueOf(parts.get(0));
         int pageToken = Integer.parseInt(parts.get(1));
 
-        ImmutableListMultimap.Builder<String, String> headers = ImmutableListMultimap.builder();
-        headers.put(TRINO_TASK_INSTANCE_ID, "task-instance-id");
-        headers.put(TRINO_PAGE_TOKEN, String.valueOf(pageToken));
-        headers.put(TRINO_TASK_FAILED, "false");
+        ImmutableListMultimap.Builder<HeaderName, String> headers = ImmutableListMultimap.builder();
+        headers.put(TRINO_TASK_INSTANCE_ID_HEADER, "task-instance-id");
+        headers.put(TRINO_PAGE_TOKEN_HEADER, String.valueOf(pageToken));
+        headers.put(TRINO_TASK_FAILED_HEADER, "false");
 
         TestingTaskBuffer taskBuffer = taskBuffers.getUnchecked(taskId);
         Page page = taskBuffer.getPage(pageToken);
         headers.put(CONTENT_TYPE, TRINO_PAGES);
         if (page != null) {
-            headers.put(TRINO_PAGE_NEXT_TOKEN, String.valueOf(pageToken + 1));
-            headers.put(TRINO_BUFFER_COMPLETE, String.valueOf(false));
+            headers.put(TRINO_PAGE_NEXT_TOKEN_HEADER, String.valueOf(pageToken + 1));
+            headers.put(TRINO_BUFFER_COMPLETE_HEADER, String.valueOf(false));
             Slice serializedPage = serdeFactory.createSerializer(Optional.empty()).serialize(page);
             DynamicSliceOutput output = new DynamicSliceOutput(256);
             output.writeInt(SERIALIZED_PAGES_MAGIC);
@@ -88,16 +89,16 @@ public class TestingExchangeHttpClientHandler
             return new TestingResponse(HttpStatus.OK, headers.build(), output.slice().getInput());
         }
         if (taskBuffer.isFinished()) {
-            headers.put(TRINO_PAGE_NEXT_TOKEN, String.valueOf(pageToken));
-            headers.put(TRINO_BUFFER_COMPLETE, String.valueOf(true));
+            headers.put(TRINO_PAGE_NEXT_TOKEN_HEADER, String.valueOf(pageToken));
+            headers.put(TRINO_BUFFER_COMPLETE_HEADER, String.valueOf(true));
             DynamicSliceOutput output = new DynamicSliceOutput(8);
             output.writeInt(SERIALIZED_PAGES_MAGIC);
             output.writeLong(calculateChecksum(ImmutableList.of()));
             output.writeInt(0);
             return new TestingResponse(HttpStatus.OK, headers.build(), output.slice().getInput());
         }
-        headers.put(TRINO_PAGE_NEXT_TOKEN, String.valueOf(pageToken));
-        headers.put(TRINO_BUFFER_COMPLETE, String.valueOf(false));
+        headers.put(TRINO_PAGE_NEXT_TOKEN_HEADER, String.valueOf(pageToken));
+        headers.put(TRINO_BUFFER_COMPLETE_HEADER, String.valueOf(false));
         return new TestingResponse(HttpStatus.NO_CONTENT, headers.build(), new byte[0]);
     }
 }

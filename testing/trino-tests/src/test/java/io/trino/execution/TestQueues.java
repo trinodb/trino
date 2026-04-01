@@ -336,14 +336,20 @@ public class TestQueues
             throws InterruptedException
     {
         QueryId queryId = createQuery(queryRunner, session, query);
-        waitForQueryState(queryRunner, queryId, ImmutableSet.of(RUNNING, FINISHING, FINISHED));
-        Optional<ResourceGroupId> resourceGroupId = queryRunner.getCoordinator().getQueryManager().getFullQueryInfo(queryId).getResourceGroupId();
-        assertThat(resourceGroupId.isPresent())
-                .describedAs("Query should have a resource group")
-                .isTrue();
-        assertThat(resourceGroupId.get())
-                .describedAs(format("Expected: '%s' resource group, found: %s", expectedResourceGroup, resourceGroupId.get()))
-                .isEqualTo(expectedResourceGroup);
+        try {
+            waitForQueryState(queryRunner, queryId, ImmutableSet.of(RUNNING, FINISHING, FINISHED));
+            Optional<ResourceGroupId> resourceGroupId = queryRunner.getCoordinator().getQueryManager().getFullQueryInfo(queryId).getResourceGroupId();
+            assertThat(resourceGroupId.isPresent())
+                    .describedAs("Query should have a resource group")
+                    .isTrue();
+            assertThat(resourceGroupId.get())
+                    .describedAs(format("Expected: '%s' resource group, found: %s", expectedResourceGroup, resourceGroupId.get()))
+                    .isEqualTo(expectedResourceGroup);
+        }
+        finally {
+            cancelQuery(queryRunner, queryId);
+            waitForQueryState(queryRunner, queryId, ImmutableSet.of(FINISHED, FAILED));
+        }
     }
 
     private void testRejection()

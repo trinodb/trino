@@ -1741,6 +1741,27 @@ public class TestDeltaLakeBasic
         assertUpdate("DROP TABLE " + tableName);
     }
 
+    @Test // regression test for https://github.com/trinodb/trino/issues/28885
+    public void testDeleteFromLargeParquetFile()
+            throws Exception
+    {
+        String tableName = "delete_from_large_parquet_file_" + randomNameSuffix();
+
+        Path tableLocation = catalogDir.resolve(tableName);
+        copyDirectoryContents(new File(Resources.getResource("deltalake/large_parquet_file").toURI()).toPath(), tableLocation);
+        assertUpdate("CALL system.register_table('%s', '%s', '%s')".formatted(getSession().getSchema().orElseThrow(), tableName, tableLocation.toUri()));
+
+        assertThat(query("SELECT count(*) FROM " + tableName + " WHERE data = 5"))
+                .matches("VALUES BIGINT '5000'");
+
+        assertUpdate("DELETE FROM " + tableName + " WHERE data = 5", 5000);
+
+        assertThat(query("SELECT count(*) FROM " + tableName + " WHERE data = 5"))
+                .matches("VALUES BIGINT '0'");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
     /**
      * @see deltalake.liquid_clustering
      */

@@ -86,10 +86,12 @@ import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
+import java.math.BigDecimal;
 import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
+import java.time.LocalDateTime;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Arrays;
@@ -168,6 +170,7 @@ import static io.trino.testing.TransactionBuilder.transaction;
 import static io.trino.testing.assertions.Assert.assertEventually;
 import static java.lang.String.format;
 import static java.lang.String.join;
+import static java.math.RoundingMode.HALF_UP;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.time.ZoneOffset.UTC;
 import static java.time.format.DateTimeFormatter.ISO_OFFSET_DATE_TIME;
@@ -193,16 +196,20 @@ import static org.assertj.core.api.Fail.fail;
 public abstract class BaseIcebergConnectorTest
         extends BaseConnectorTest
 {
+    private static final DateTimeFormatter SQL_TIMESTAMP_FORMATTER = DateTimeFormatter.ofPattern("uuuu-MM-dd HH:mm:ss");
+    private static final String ICEBERG_TIMESTAMP_PRECISION_FAILURE = "Timestamp precision \\(3\\) not supported for Iceberg. Use \"timestamp\\(6\\)\"(?: or \"timestamp\\(9\\)\")? instead";
     private static final Pattern WITH_CLAUSE_EXTRACTOR = Pattern.compile(".*(WITH\\s*\\([^)]*\\))\\s*$", Pattern.DOTALL);
 
     protected final IcebergFileFormat format;
+    protected final int formatVersion;
 
     protected TrinoFileSystem fileSystem;
     protected TimeUnit storageTimePrecision;
 
-    protected BaseIcebergConnectorTest(IcebergFileFormat format)
+    protected BaseIcebergConnectorTest(IcebergFileFormat format, int formatVersion)
     {
         this.format = requireNonNull(format, "format is null");
+        this.formatVersion = formatVersion;
     }
 
     @Override
@@ -218,6 +225,7 @@ public abstract class BaseIcebergConnectorTest
         return IcebergQueryRunner.builder()
                 .setIcebergProperties(ImmutableMap.<String, String>builder()
                         .put("iceberg.file-format", format.name())
+                        .put("iceberg.format-version", String.valueOf(formatVersion))
                         // Only allow some extra properties. Add "sorted_by" so that we can test that the property is disallowed by the connector explicitly.
                         .put("iceberg.allowed-extra-properties", "extra.property.one,extra.property.two,extra.property.three,sorted_by")
                         // Allows testing the sorting writer flushing to the file system with smaller tables
@@ -277,22 +285,26 @@ public abstract class BaseIcebergConnectorTest
             case SUPPORTS_CREATE_OR_REPLACE_TABLE,
                  SUPPORTS_REPORTING_WRITTEN_BYTES -> true;
             case SUPPORTS_ADD_COLUMN_NOT_NULL_CONSTRAINT,
-                 SUPPORTS_DEFAULT_COLUMN_VALUE,
                  SUPPORTS_LIMIT_PUSHDOWN,
                  SUPPORTS_REFRESH_VIEW,
                  SUPPORTS_RENAME_MATERIALIZED_VIEW_ACROSS_SCHEMAS,
                  SUPPORTS_TOPN_PUSHDOWN -> false;
+            case SUPPORTS_DEFAULT_COLUMN_VALUE -> formatVersion >= 3;
             default -> super.hasBehavior(connectorBehavior);
         };
     }
 
-    @Override
     @Test
+    @Override
     public void testCreateTableWithDefaultColumn()
     {
-        String tableName = "test_default_value_" + randomNameSuffix();
-        assertThatThrownBy(() -> assertUpdate("CREATE TABLE " + tableName + " (x int DEFAULT 1)"))
-                .hasMessageContaining("Default column values are not supported for Iceberg table format version < 3");
+        if (formatVersion < 3) {
+            String tableName = "test_default_value_" + randomNameSuffix();
+            assertQueryFails("CREATE TABLE " + tableName + " (x int DEFAULT 1)", "Default column values are not supported for Iceberg table format version < 3");
+            return;
+        }
+
+        super.testCreateTableWithDefaultColumn();
     }
 
     @Test
@@ -424,7 +436,7 @@ public abstract class BaseIcebergConnectorTest
                         ")\n" +
                         "WITH (\n" +
                         "   format = '" + format.name() + "',\n" +
-                        "   format_version = 2,\n" +
+                        "   format_version = " + formatVersion + ",\n" +
                         "   location = '\\E.*/tpch/orders-.*\\Q'\n" +
                         ")\\E");
     }
@@ -2064,11 +2076,12 @@ public abstract class BaseIcebergConnectorTest
                 """
                 WITH (
                    format = '%s',
-                   format_version = 2,
+                   format_version = %s,
                    location = '%s',
                    partitioning = ARRAY['adate']
                 )""",
                 format,
+                formatVersion,
                 tempDirPath));
 
         assertUpdate("CREATE TABLE test_create_table_like_copy0 (LIKE test_create_table_like_original, col2 INTEGER)");
@@ -2080,10 +2093,11 @@ public abstract class BaseIcebergConnectorTest
                 """
                 WITH (
                    format = '%s',
-                   format_version = 2,
+                   format_version = %s,
                    location = '%s'
                 )""",
                 format,
+                formatVersion,
                 getTableLocation("test_create_table_like_copy1")));
 
         assertUpdate("CREATE TABLE test_create_table_like_copy2 (LIKE test_create_table_like_original EXCLUDING PROPERTIES)");
@@ -2091,10 +2105,11 @@ public abstract class BaseIcebergConnectorTest
                 """
                 WITH (
                    format = '%s',
-                   format_version = 2,
+                   format_version = %s,
                    location = '%s'
                 )""",
                 format,
+                formatVersion,
                 getTableLocation("test_create_table_like_copy2")));
         assertUpdate("DROP TABLE test_create_table_like_copy2");
 
@@ -3400,6 +3415,158 @@ public abstract class BaseIcebergConnectorTest
                 .isFullyPushedDown();
 
         assertUpdate("DROP TABLE test_year_transform_timestamptz");
+    }
+
+    @Test
+    public void testYearTransformTimestampNano()
+    {
+        assertUpdate("CREATE TABLE test_year_transform_ts_nano (d TIMESTAMP(9), b INTEGER) WITH (format_version = 3, partitioning = ARRAY['year(d)'])");
+
+        String values = "VALUES " +
+                "(NULL, 101)," +
+                "(TIMESTAMP '2020-01-15 12:30:45.123456789', 1)," +
+                "(TIMESTAMP '2020-06-30 23:59:59.999999999', 2)," +
+                "(TIMESTAMP '2021-01-01 00:00:00.000000001', 3)," +
+                "(TIMESTAMP '2021-12-31 23:59:59.999999999', 4)";
+        assertUpdate("INSERT INTO test_year_transform_ts_nano " + values, 5);
+        assertThat(query("SELECT * FROM test_year_transform_ts_nano"))
+                .matches(values);
+
+        // Verify partition structure
+        assertThat(query("SELECT partition.d_year, record_count FROM \"test_year_transform_ts_nano$partitions\" ORDER BY d_year NULLS FIRST"))
+                .skippingTypesCheck()
+                .matches("VALUES (NULL, BIGINT '1'), (50, BIGINT '2'), (51, BIGINT '2')");
+
+        // Verify predicate pushdown
+        assertThat(query("SELECT * FROM test_year_transform_ts_nano WHERE d IS NOT NULL"))
+                .isFullyPushedDown();
+        assertThat(query("SELECT * FROM test_year_transform_ts_nano WHERE d IS NULL"))
+                .isFullyPushedDown();
+        // Verify predicates work without overflow (key fix for nano timestamps)
+        assertThat(query("SELECT b FROM test_year_transform_ts_nano WHERE d >= DATE '2021-01-01' ORDER BY b"))
+                .matches("VALUES 3, 4");
+        assertThat(query("SELECT b FROM test_year_transform_ts_nano WHERE d >= TIMESTAMP '2021-01-01 00:00:00.000000000' ORDER BY b"))
+                .matches("VALUES 3, 4");
+        assertThat(query("SELECT b FROM test_year_transform_ts_nano WHERE d >= TIMESTAMP '2021-01-01 00:00:00.000000001' ORDER BY b"))
+                .matches("VALUES 3, 4");
+
+        // year()
+        assertThat(query("SELECT * FROM test_year_transform_ts_nano WHERE year(d) = 2020"))
+                .isFullyPushedDown();
+
+        // date_trunc
+        assertThat(query("SELECT * FROM test_year_transform_ts_nano WHERE date_trunc('year', d) = DATE '2020-01-01'"))
+                .isFullyPushedDown();
+
+        assertUpdate("DROP TABLE test_year_transform_ts_nano");
+    }
+
+    @Test
+    public void testYearTransformTimestampNanoWithTimeZone()
+    {
+        assertUpdate("CREATE TABLE test_year_transform_ts_nano_tz (d TIMESTAMP(9) WITH TIME ZONE, b INTEGER) WITH (format_version = 3, partitioning = ARRAY['year(d)'])");
+
+        String values = "VALUES " +
+                "(NULL, 101)," +
+                "(TIMESTAMP '2020-01-15 12:30:45.123456789 UTC', 1)," +
+                "(TIMESTAMP '2020-06-30 23:59:59.999999999 UTC', 2)," +
+                "(TIMESTAMP '2021-01-01 00:00:00.000000001 UTC', 3)," +
+                "(TIMESTAMP '2021-12-31 23:59:59.999999999 UTC', 4)";
+        assertUpdate("INSERT INTO test_year_transform_ts_nano_tz " + values, 5);
+        assertThat(query("SELECT * FROM test_year_transform_ts_nano_tz"))
+                .matches(values);
+
+        // Verify partition structure
+        assertThat(query("SELECT partition.d_year, record_count FROM \"test_year_transform_ts_nano_tz$partitions\" ORDER BY d_year NULLS FIRST"))
+                .skippingTypesCheck()
+                .matches("VALUES (NULL, BIGINT '1'), (50, BIGINT '2'), (51, BIGINT '2')");
+
+        // Verify predicate pushdown
+        assertThat(query("SELECT * FROM test_year_transform_ts_nano_tz WHERE d IS NOT NULL"))
+                .isFullyPushedDown();
+        assertThat(query("SELECT * FROM test_year_transform_ts_nano_tz WHERE d IS NULL"))
+                .isFullyPushedDown();
+        // Verify predicates work without overflow (key fix for nano timestamps)
+        assertThat(query("SELECT b FROM test_year_transform_ts_nano_tz WHERE d >= TIMESTAMP '2021-01-01 00:00:00.000000000 UTC' ORDER BY b"))
+                .matches("VALUES 3, 4");
+        assertThat(query("SELECT b FROM test_year_transform_ts_nano_tz WHERE d >= TIMESTAMP '2021-01-01 00:00:00.000000001 UTC' ORDER BY b"))
+                .matches("VALUES 3, 4");
+
+        // year()
+        assertThat(query("SELECT * FROM test_year_transform_ts_nano_tz WHERE year(d) = 2020"))
+                .isFullyPushedDown();
+
+        // date_trunc
+        assertThat(query("SELECT * FROM test_year_transform_ts_nano_tz WHERE date_trunc('year', d) = TIMESTAMP '2020-01-01 00:00:00.000000 UTC'"))
+                .isFullyPushedDown();
+
+        assertUpdate("DROP TABLE test_year_transform_ts_nano_tz");
+    }
+
+    @Test
+    public void testHourTransformTimestampNano()
+    {
+        assertUpdate("CREATE TABLE test_hour_transform_ts_nano (d TIMESTAMP(9), b INTEGER) WITH (format_version = 3, partitioning = ARRAY['hour(d)'])");
+
+        String values = "VALUES " +
+                "(NULL, 101)," +
+                "(TIMESTAMP '2024-01-15 10:00:00.000000001', 1)," +
+                "(TIMESTAMP '2024-01-15 10:59:59.999999999', 2)," +
+                "(TIMESTAMP '2024-01-15 11:00:00.000000001', 3)," +
+                "(TIMESTAMP '2024-01-15 11:30:45.123456789', 4)";
+        assertUpdate("INSERT INTO test_hour_transform_ts_nano " + values, 5);
+        assertThat(query("SELECT * FROM test_hour_transform_ts_nano"))
+                .matches(values);
+
+        // Verify predicate pushdown
+        assertThat(query("SELECT * FROM test_hour_transform_ts_nano WHERE d IS NOT NULL"))
+                .isFullyPushedDown();
+        assertThat(query("SELECT * FROM test_hour_transform_ts_nano WHERE d IS NULL"))
+                .isFullyPushedDown();
+        // Verify predicates work without overflow (key fix for nano timestamps)
+        assertThat(query("SELECT b FROM test_hour_transform_ts_nano WHERE d >= TIMESTAMP '2024-01-15 11:00:00.000000000' ORDER BY b"))
+                .matches("VALUES 3, 4");
+        assertThat(query("SELECT b FROM test_hour_transform_ts_nano WHERE d >= TIMESTAMP '2024-01-15 11:00:00.000000001' ORDER BY b"))
+                .matches("VALUES 3, 4");
+
+        // date_trunc
+        assertThat(query("SELECT * FROM test_hour_transform_ts_nano WHERE date_trunc('hour', d) = TIMESTAMP '2024-01-15 10:00:00'"))
+                .isFullyPushedDown();
+
+        assertUpdate("DROP TABLE test_hour_transform_ts_nano");
+    }
+
+    @Test
+    public void testHourTransformTimestampNanoWithTimeZone()
+    {
+        assertUpdate("CREATE TABLE test_hour_transform_ts_nano_tz (d TIMESTAMP(9) WITH TIME ZONE, b INTEGER) WITH (format_version = 3, partitioning = ARRAY['hour(d)'])");
+
+        String values = "VALUES " +
+                "(NULL, 101)," +
+                "(TIMESTAMP '2024-01-15 10:00:00.000000001 UTC', 1)," +
+                "(TIMESTAMP '2024-01-15 10:59:59.999999999 UTC', 2)," +
+                "(TIMESTAMP '2024-01-15 11:00:00.000000001 UTC', 3)," +
+                "(TIMESTAMP '2024-01-15 11:30:45.123456789 UTC', 4)";
+        assertUpdate("INSERT INTO test_hour_transform_ts_nano_tz " + values, 5);
+        assertThat(query("SELECT * FROM test_hour_transform_ts_nano_tz"))
+                .matches(values);
+
+        // Verify predicate pushdown
+        assertThat(query("SELECT * FROM test_hour_transform_ts_nano_tz WHERE d IS NOT NULL"))
+                .isFullyPushedDown();
+        assertThat(query("SELECT * FROM test_hour_transform_ts_nano_tz WHERE d IS NULL"))
+                .isFullyPushedDown();
+        // Verify predicates work without overflow (key fix for nano timestamps)
+        assertThat(query("SELECT b FROM test_hour_transform_ts_nano_tz WHERE d >= TIMESTAMP '2024-01-15 11:00:00.000000000 UTC' ORDER BY b"))
+                .matches("VALUES 3, 4");
+        assertThat(query("SELECT b FROM test_hour_transform_ts_nano_tz WHERE d >= TIMESTAMP '2024-01-15 11:00:00.000000001 UTC' ORDER BY b"))
+                .matches("VALUES 3, 4");
+
+        // date_trunc
+        assertThat(query("SELECT * FROM test_hour_transform_ts_nano_tz WHERE date_trunc('hour', d) = TIMESTAMP '2024-01-15 10:00:00.000000 UTC'"))
+                .isFullyPushedDown();
+
+        assertUpdate("DROP TABLE test_hour_transform_ts_nano_tz");
     }
 
     @Test
@@ -4746,10 +4913,12 @@ public abstract class BaseIcebergConnectorTest
                 "  a_timestamp timestamp(6), " +
                 "  a_timestamptz timestamp(6) with time zone, " +
                 "  a_uuid uuid, " +
+                "  a_variant variant, " +
                 "  a_row row(id integer, vc varchar), " +
                 "  an_array array(varchar), " +
                 "  a_map map(integer, varchar) " +
-                ")");
+                ")" +
+                " WITH (FORMAT_VERSION = 3)");
 
         String values = "VALUES (" +
                 "true, " +
@@ -4766,11 +4935,12 @@ public abstract class BaseIcebergConnectorTest
                 "TIMESTAMP '2021-07-24 03:43:57.987654'," +
                 "TIMESTAMP '2021-07-24 04:43:57.987654 UTC', " +
                 "UUID '20050910-1330-11e9-ffff-2a86e4085a59', " +
+                "CAST(42 as VARIANT), " +
                 "CAST(ROW(42, 'this is a random value') AS ROW(id int, vc varchar)), " +
                 "ARRAY[VARCHAR 'uno', 'dos', 'tres'], " +
                 "map(ARRAY[1,2], ARRAY['ek', VARCHAR 'one'])) ";
 
-        String nullValues = nCopies(17, "NULL").stream()
+        String nullValues = nCopies(18, "NULL").stream()
                 .collect(joining(", ", "VALUES (", ")"));
 
         assertUpdate("INSERT INTO test_all_types " + values, 1);
@@ -4796,6 +4966,7 @@ public abstract class BaseIcebergConnectorTest
                 "AND a_timestamp = TIMESTAMP '2021-07-24 03:43:57.987654' " +
                 "AND a_timestamptz = TIMESTAMP '2021-07-24 04:43:57.987654 UTC' " +
                 "AND a_uuid = UUID '20050910-1330-11e9-ffff-2a86e4085a59' " +
+                "AND a_variant = CAST(42 as VARIANT) " +
                 "AND a_row = CAST(ROW(42, 'this is a random value') AS ROW(id int, vc varchar)) " +
                 "AND an_array = ARRAY[VARCHAR 'uno', 'dos', 'tres'] " +
                 "AND a_map = map(ARRAY[1,2], ARRAY['ek', VARCHAR 'one']) " +
@@ -4817,6 +4988,7 @@ public abstract class BaseIcebergConnectorTest
                 "AND a_timestamp IS NULL " +
                 "AND a_timestamptz IS NULL " +
                 "AND a_uuid IS NULL " +
+                "AND a_variant IS NULL " +
                 "AND a_row IS NULL " +
                 "AND an_array IS NULL " +
                 "AND a_map IS NULL " +
@@ -4843,6 +5015,7 @@ public abstract class BaseIcebergConnectorTest
                             "  ('a_timestamp', NULL, 1e0, 0.5e0, NULL, " + (format == ORC ? "'2021-07-24 03:43:57.987000', '2021-07-24 03:43:57.987999'" : "'2021-07-24 03:43:57.987654', '2021-07-24 03:43:57.987654'") + "), " +
                             "  ('a_timestamptz', NULL, 1e0, 0.5e0, NULL, '2021-07-24 04:43:57.987 UTC', '2021-07-24 04:43:57.987 UTC'), " +
                             "  ('a_uuid', NULL, 1e0, 0.5e0, NULL, NULL, NULL), " +
+                            "  ('a_variant', NULL, NULL, " + (format == ORC ? "0.5e0" : "NULL") + ", NULL, NULL, NULL), " +
                             "  ('a_row', NULL, NULL, " + (format == ORC ? "0.5" : "NULL") + ", NULL, NULL, NULL), " +
                             "  ('an_array', NULL, NULL, " + (format == ORC ? "0.5" : "NULL") + ", NULL, NULL, NULL), " +
                             "  ('a_map', NULL, NULL, " + (format == ORC ? "0.5" : "NULL") + ", NULL, NULL, NULL), " +
@@ -4866,6 +5039,7 @@ public abstract class BaseIcebergConnectorTest
                             "  ('a_timestamp', NULL, 1e0, 0.1e0, NULL, NULL, NULL), " +
                             "  ('a_timestamptz', NULL, 1e0, 0.1e0, NULL, NULL, NULL), " +
                             "  ('a_uuid', NULL, 1e0, 0.1e0, NULL, NULL, NULL), " +
+                            "  ('a_variant', NULL, NULL, NULL, NULL, NULL, NULL), " +
                             "  ('a_row', NULL, NULL, NULL, NULL, NULL, NULL), " +
                             "  ('an_array', NULL, NULL, NULL, NULL, NULL, NULL), " +
                             "  ('a_map', NULL, NULL, NULL, NULL, NULL, NULL), " +
@@ -4892,6 +5066,7 @@ public abstract class BaseIcebergConnectorTest
                             "  ('a_timestamp', NULL, 1e0, 0.5e0, NULL, " + (format == ORC ? "'2021-07-24 03:43:57.987000', '2021-07-24 03:43:57.987999'" : "'2021-07-24 03:43:57.987654', '2021-07-24 03:43:57.987654'") + "), " +
                             "  ('a_timestamptz', NULL, 1e0, 0.5e0, NULL, '2021-07-24 04:43:57.987 UTC', '2021-07-24 04:43:57.987 UTC'), " +
                             "  ('a_uuid', NULL, 1e0, 0.5e0, NULL, NULL, NULL), " +
+                            "  ('a_variant', NULL, NULL, " + (format == ORC ? "0.5e0" : "NULL") + ", NULL, NULL, NULL), " +
                             "  ('a_row', NULL, NULL, " + (format == ORC ? "0.5" : "NULL") + ", NULL, NULL, NULL), " +
                             "  ('an_array', NULL, NULL, " + (format == ORC ? "0.5" : "NULL") + ", NULL, NULL, NULL), " +
                             "  ('a_map', NULL, NULL, " + (format == ORC ? "0.5" : "NULL") + ", NULL, NULL, NULL), " +
@@ -4915,6 +5090,7 @@ public abstract class BaseIcebergConnectorTest
                             "  ('a_timestamp', NULL, 1e0, 0.1e0, NULL, NULL, NULL), " +
                             "  ('a_timestamptz', NULL, 1e0, 0.1e0, NULL, NULL, NULL), " +
                             "  ('a_uuid', NULL, 1e0, 0.1e0, NULL, NULL, NULL), " +
+                            "  ('a_variant', NULL, NULL, NULL, NULL, NULL, NULL), " +
                             "  ('a_row', NULL, NULL, NULL, NULL, NULL, NULL), " +
                             "  ('an_array', NULL, NULL, NULL, NULL, NULL, NULL), " +
                             "  ('a_map', NULL, NULL, NULL, NULL, NULL, NULL), " +
@@ -5015,6 +5191,69 @@ public abstract class BaseIcebergConnectorTest
         }
 
         assertUpdate("DROP TABLE test_all_types");
+    }
+
+    @Test
+    public void testVariantValueTypes()
+    {
+        try (TestTable table = newTrinoTable(
+                "test_variant_value_types",
+                "(v variant) WITH (FORMAT_VERSION = 3)")) {
+            String values = """
+                    VALUES
+                    CAST(NULL AS VARIANT),
+                    CAST(true AS VARIANT),
+                    CAST(TINYINT '1' AS VARIANT),
+                    CAST(SMALLINT '1' AS VARIANT),
+                    CAST(INTEGER '1' AS VARIANT),
+                    CAST(BIGINT '1' AS VARIANT),
+                    CAST(REAL '1.0' AS VARIANT),
+                    CAST(DOUBLE '1.0' AS VARIANT),
+                    CAST(DECIMAL '1.23' AS VARIANT),
+                    CAST('hello' AS VARIANT),
+                    CAST(X'000102f0feff' AS VARIANT),
+                    CAST(DATE '2021-07-24' AS VARIANT),
+                    CAST(TIME '02:43:57.987654' AS VARIANT),
+                    CAST(TIMESTAMP '2021-07-24 03:43:57.987654' AS VARIANT),
+                    CAST(TIMESTAMP '2021-07-24 03:43:57.987654321' AS VARIANT),
+                    CAST(TIMESTAMP '2021-07-24 04:43:57.987654 UTC' AS VARIANT),
+                    CAST(TIMESTAMP '2021-07-24 04:43:57.987654321 UTC' AS VARIANT),
+                    CAST(UUID '20050910-1330-11e9-ffff-2a86e4085a59' AS VARIANT),
+                    CAST(ARRAY['uno', 'dos'] AS VARIANT),
+                    CAST(MAP(ARRAY['a', 'b'], ARRAY[1, 2]) AS VARIANT),
+                    CAST(CAST(ROW(42, 'x') AS ROW(id integer, vc varchar)) AS VARIANT)
+                    """;
+
+            assertUpdate("INSERT INTO " + table.getName() + " " + values, 21);
+
+            assertThat(query("SELECT * FROM " + table.getName()))
+                    .matches(values);
+        }
+    }
+
+    @Test
+    public void testNestedVariant()
+    {
+        // Tests variant nested inside array and row types
+        try (TestTable table = newTrinoTable(
+                "test_nested_variant",
+                "(" +
+                        "variant_array array(variant), " +
+                        "variant_row row(v variant, i integer)) " +
+                        "WITH (FORMAT_VERSION = 3)")) {
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (" +
+                    "ARRAY[CAST(1 AS VARIANT), CAST('hello' AS VARIANT), CAST(NULL AS VARIANT)], " +
+                    "CAST(ROW(42, 123) AS ROW(v variant, i integer)))", 1);
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (NULL, NULL)", 1);
+
+            assertThat(query("SELECT * FROM " + table.getName()))
+                    .matches("""
+                            VALUES (
+                            ARRAY[CAST(1 AS VARIANT), CAST('hello' AS VARIANT), CAST(NULL AS VARIANT)],
+                            CAST(ROW(42, 123) AS ROW(v variant, i integer))),
+                            (NULL, NULL)
+                            """);
+        }
     }
 
     @Test
@@ -7635,6 +7874,21 @@ public abstract class BaseIcebergConnectorTest
     }
 
     @Test
+    public void testPreparedStatementWithParameterizedVersionedTable()
+    {
+        Session session = Session.builder(getSession())
+                .addPreparedStatement("my_query", "SELECT * FROM region FOR VERSION AS OF ?")
+                .build();
+        long snapshotId = getCurrentSnapshotId("region");
+
+        assertThat(query(session, "EXECUTE my_query USING " + snapshotId))
+                .matches("TABLE region");
+
+        assertQueryFails(session, "EXECUTE my_query USING " + (snapshotId - 1), "Iceberg snapshot ID does not exists: .*");
+        assertQueryFails(session, "DESCRIBE OUTPUT my_query", ".* DESCRIBE is not supported if a versioned table uses parameters");
+    }
+
+    @Test
     public void testDeleteRetainsTableHistory()
     {
         String tableName = "test_delete_retains_table_history_" + randomNameSuffix();
@@ -7693,6 +7947,29 @@ public abstract class BaseIcebergConnectorTest
 
             assertThat(query("SELECT * FROM " + table.getName() + " FOR VERSION AS OF " + v1SnapshotId))
                     .matches("VALUES (BIGINT '42', -385e-1)");
+        }
+    }
+
+    @Test
+    public void testCreateOrReplaceTableChangePartitionBucketCount()
+    {
+        try (TestTable table = newTrinoTable("test_create_or_replace_", "(a int, b varchar) WITH (partitioning = ARRAY['bucket(a, 10)'])")) {
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (1, 'v1')", 1);
+            long v1SnapshotId = getCurrentSnapshotId(table.getName());
+
+            assertUpdate("CREATE OR REPLACE TABLE " + table.getName() + " WITH (partitioning = ARRAY['bucket(a, 11)']) AS SELECT 2 a, 'v2' b", 1);
+            assertThat(query("SELECT a, b FROM " + table.getName()))
+                    .matches("VALUES (2, CAST('v2' AS VARCHAR))");
+
+            // Reading $files must not throw "Invalid schema: multiple fields for name partition.*_bucket"
+            assertThat(query("SELECT count(*) FROM \"" + table.getName() + "$files\""))
+                    .matches("VALUES BIGINT '1'");
+
+            assertThat(query("SELECT a, b FROM " + table.getName() + " FOR VERSION AS OF " + v1SnapshotId))
+                    .matches("VALUES (1, CAST('v1' AS VARCHAR))");
+
+            assertThat((String) computeScalar("SHOW CREATE TABLE " + table.getName()))
+                    .contains("partitioning = ARRAY['bucket(a, 11)']");
         }
     }
 
@@ -8928,7 +9205,43 @@ public abstract class BaseIcebergConnectorTest
 
     protected Optional<TypeCoercionTestSetup> filterTypeCoercionOnCreateTableAsSelectProvider(TypeCoercionTestSetup setup)
     {
+        if (formatVersion >= 3 &&
+                setup.newColumnType().equals("timestamp(6)") &&
+                setup.sourceValueLiteral().startsWith("TIMESTAMP '")) {
+            String timestampLiteral = setup.sourceValueLiteral().substring("TIMESTAMP '".length(), setup.sourceValueLiteral().length() - 1);
+            int fractionSeparator = timestampLiteral.indexOf('.');
+            if (fractionSeparator >= 0) {
+                String fractionalSeconds = timestampLiteral.substring(fractionSeparator + 1);
+                if (fractionalSeconds.length() > 6) {
+                    return Optional.of(new TypeCoercionTestSetup(
+                            setup.sourceValueLiteral(),
+                            "timestamp(9)",
+                            toTimestampNanosLiteral(timestampLiteral)));
+                }
+            }
+        }
+
         return Optional.of(setup);
+    }
+
+    private static String toTimestampNanosLiteral(String timestampLiteral)
+    {
+        int fractionSeparator = timestampLiteral.indexOf('.');
+        String wholeSeconds = timestampLiteral.substring(0, fractionSeparator);
+        String fractionalSeconds = timestampLiteral.substring(fractionSeparator + 1);
+
+        long nanos = new BigDecimal("0." + fractionalSeconds)
+                .movePointRight(9)
+                .setScale(0, HALF_UP)
+                .longValueExact();
+
+        LocalDateTime timestamp = LocalDateTime.parse(wholeSeconds, SQL_TIMESTAMP_FORMATTER);
+        if (nanos == 1_000_000_000L) {
+            timestamp = timestamp.plusSeconds(1);
+            nanos = 0;
+        }
+
+        return "TIMESTAMP '%s.%09d'".formatted(timestamp.format(SQL_TIMESTAMP_FORMATTER), nanos);
     }
 
     private List<TypeCoercionTestSetup> typeCoercionOnCreateTableAsSelectData()
@@ -8961,6 +9274,16 @@ public abstract class BaseIcebergConnectorTest
                 .add(new TypeCoercionTestSetup("TIMESTAMP '1969-12-31 23:59:59.9999995'", "timestamp(6)", "TIMESTAMP '1970-01-01 00:00:00.000000'"))
                 .add(new TypeCoercionTestSetup("TIMESTAMP '1969-12-31 23:59:59.999999499999'", "timestamp(6)", "TIMESTAMP '1969-12-31 23:59:59.999999'"))
                 .add(new TypeCoercionTestSetup("TIMESTAMP '1969-12-31 23:59:59.9999994'", "timestamp(6)", "TIMESTAMP '1969-12-31 23:59:59.999999'"))
+                .add(new TypeCoercionTestSetup("TIMESTAMP '1970-01-01 00:00:00.1234567891'", "timestamp(6)", "TIMESTAMP '1970-01-01 00:00:00.123457'"))
+                .add(new TypeCoercionTestSetup("TIMESTAMP '1970-01-01 00:00:00.12345678949'", "timestamp(6)", "TIMESTAMP '1970-01-01 00:00:00.123457'"))
+                .add(new TypeCoercionTestSetup("TIMESTAMP '1970-01-01 00:00:00.123456789499'", "timestamp(6)", "TIMESTAMP '1970-01-01 00:00:00.123457'"))
+                .add(new TypeCoercionTestSetup("TIMESTAMP '1970-01-01 00:00:00.1234567895'", "timestamp(6)", "TIMESTAMP '1970-01-01 00:00:00.123457'"))
+                .add(new TypeCoercionTestSetup("TIMESTAMP '1970-01-01 00:00:00.111222333444'", "timestamp(6)", "TIMESTAMP '1970-01-01 00:00:00.111222'"))
+                .add(new TypeCoercionTestSetup("TIMESTAMP '1970-01-01 00:00:00.9999999995'", "timestamp(6)", "TIMESTAMP '1970-01-01 00:00:01.000000'"))
+                .add(new TypeCoercionTestSetup("TIMESTAMP '1970-01-01 23:59:59.9999999995'", "timestamp(6)", "TIMESTAMP '1970-01-02 00:00:00.000000'"))
+                .add(new TypeCoercionTestSetup("TIMESTAMP '1969-12-31 23:59:59.9999999995'", "timestamp(6)", "TIMESTAMP '1970-01-01 00:00:00.000000'"))
+                .add(new TypeCoercionTestSetup("TIMESTAMP '1969-12-31 23:59:59.999999999499'", "timestamp(6)", "TIMESTAMP '1970-01-01 00:00:00.000000'"))
+                .add(new TypeCoercionTestSetup("TIMESTAMP '1969-12-31 23:59:59.9999999994'", "timestamp(6)", "TIMESTAMP '1970-01-01 00:00:00.000000'"))
                 .add(new TypeCoercionTestSetup("TIME '00:00:00'", "time(6)", "TIME '00:00:00.000000'"))
                 .add(new TypeCoercionTestSetup("TIME '00:00:00.9'", "time(6)", "TIME '00:00:00.900000'"))
                 .add(new TypeCoercionTestSetup("TIME '00:00:00.56'", "time(6)", "TIME '00:00:00.560000'"))
@@ -9032,6 +9355,9 @@ public abstract class BaseIcebergConnectorTest
     @Test
     public void testAddColumnWithTypeCoercion()
     {
+        String expectedTimestampType = formatVersion >= 3 ? "timestamp(9)" : "timestamp(6)";
+        String expectedTimestampWithTimeZoneType = formatVersion >= 3 ? "timestamp(9) with time zone" : "timestamp(6) with time zone";
+
         testAddColumnWithTypeCoercion("tinyint", "integer");
         testAddColumnWithTypeCoercion("smallint", "integer");
 
@@ -9043,12 +9369,12 @@ public abstract class BaseIcebergConnectorTest
         testAddColumnWithTypeCoercion("timestamp(4) with time zone", "timestamp(6) with time zone");
         testAddColumnWithTypeCoercion("timestamp(5) with time zone", "timestamp(6) with time zone");
         testAddColumnWithTypeCoercion("timestamp(6) with time zone", "timestamp(6) with time zone");
-        testAddColumnWithTypeCoercion("timestamp(7) with time zone", "timestamp(6) with time zone");
-        testAddColumnWithTypeCoercion("timestamp(8) with time zone", "timestamp(6) with time zone");
-        testAddColumnWithTypeCoercion("timestamp(9) with time zone", "timestamp(6) with time zone");
-        testAddColumnWithTypeCoercion("timestamp(10) with time zone", "timestamp(6) with time zone");
-        testAddColumnWithTypeCoercion("timestamp(11) with time zone", "timestamp(6) with time zone");
-        testAddColumnWithTypeCoercion("timestamp(12) with time zone", "timestamp(6) with time zone");
+        testAddColumnWithTypeCoercion("timestamp(7) with time zone", expectedTimestampWithTimeZoneType);
+        testAddColumnWithTypeCoercion("timestamp(8) with time zone", expectedTimestampWithTimeZoneType);
+        testAddColumnWithTypeCoercion("timestamp(9) with time zone", expectedTimestampWithTimeZoneType);
+        testAddColumnWithTypeCoercion("timestamp(10) with time zone", expectedTimestampWithTimeZoneType);
+        testAddColumnWithTypeCoercion("timestamp(11) with time zone", expectedTimestampWithTimeZoneType);
+        testAddColumnWithTypeCoercion("timestamp(12) with time zone", expectedTimestampWithTimeZoneType);
 
         testAddColumnWithTypeCoercion("timestamp", "timestamp(6)");
         testAddColumnWithTypeCoercion("timestamp(0)", "timestamp(6)");
@@ -9058,12 +9384,12 @@ public abstract class BaseIcebergConnectorTest
         testAddColumnWithTypeCoercion("timestamp(4)", "timestamp(6)");
         testAddColumnWithTypeCoercion("timestamp(5)", "timestamp(6)");
         testAddColumnWithTypeCoercion("timestamp(6)", "timestamp(6)");
-        testAddColumnWithTypeCoercion("timestamp(7)", "timestamp(6)");
-        testAddColumnWithTypeCoercion("timestamp(8)", "timestamp(6)");
-        testAddColumnWithTypeCoercion("timestamp(9)", "timestamp(6)");
-        testAddColumnWithTypeCoercion("timestamp(10)", "timestamp(6)");
-        testAddColumnWithTypeCoercion("timestamp(11)", "timestamp(6)");
-        testAddColumnWithTypeCoercion("timestamp(12)", "timestamp(6)");
+        testAddColumnWithTypeCoercion("timestamp(7)", expectedTimestampType);
+        testAddColumnWithTypeCoercion("timestamp(8)", expectedTimestampType);
+        testAddColumnWithTypeCoercion("timestamp(9)", expectedTimestampType);
+        testAddColumnWithTypeCoercion("timestamp(10)", expectedTimestampType);
+        testAddColumnWithTypeCoercion("timestamp(11)", expectedTimestampType);
+        testAddColumnWithTypeCoercion("timestamp(12)", expectedTimestampType);
 
         testAddColumnWithTypeCoercion("time", "time(6)");
         testAddColumnWithTypeCoercion("time(0)", "time(6)");
@@ -9283,6 +9609,41 @@ public abstract class BaseIcebergConnectorTest
         assertUpdate("DROP MATERIALIZED VIEW " + materializedViewName);
     }
 
+    @Test
+    void testRowLineageWithMaterializedViews()
+    {
+        if (formatVersion < 3) {
+            return;
+        }
+
+        try (TestTable table = newTrinoTable("test_materialized_views", "(id int, name varchar) WITH (format_version = 3)")) {
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (1, 'Alice'), (2, 'Bob')", 2);
+
+            String materializedViewName = "test_materialized_view_" + randomNameSuffix();
+            assertUpdate("CREATE MATERIALIZED VIEW " + materializedViewName + " AS SELECT id, name, \"$row_id\", \"$last_updated_sequence_number\" FROM " + table.getName());
+
+            assertUpdate("REFRESH MATERIALIZED VIEW " + materializedViewName, 2);
+
+            assertThat(query("SELECT id, name, \"$row_id\", \"$last_updated_sequence_number\" FROM " + materializedViewName + " ORDER BY id"))
+                    .matches("""
+                            VALUES (1, VARCHAR 'Alice', BIGINT '0', BIGINT '2'),
+                                   (2, VARCHAR 'Bob', BIGINT '1', BIGINT '2')
+                            """);
+
+            assertUpdate("UPDATE " + table.getName() + " SET name = 'Alice Updated' WHERE id = 1", 1);
+
+            assertUpdate("REFRESH MATERIALIZED VIEW " + materializedViewName, 2);
+
+            assertThat(query("SELECT id, name, \"$row_id\", \"$last_updated_sequence_number\" FROM " + materializedViewName + " ORDER BY id"))
+                    .matches("""
+                            VALUES (1, VARCHAR 'Alice Updated', BIGINT '0', BIGINT '3'),
+                                   (2, VARCHAR 'Bob', BIGINT '1', BIGINT '2')
+                            """);
+
+            assertUpdate("DROP MATERIALIZED VIEW " + materializedViewName);
+        }
+    }
+
     private static TableFinishInfo getTableFinishInfo(QueryStats queryStats)
     {
         OperatorStats finishOperatorStats = queryStats.getOperatorSummaries()
@@ -9445,7 +9806,8 @@ public abstract class BaseIcebergConnectorTest
     protected void verifySetColumnTypeFailurePermissible(Throwable e)
     {
         assertThat(e).hasMessageMatching(".*(Failed to set column type: Cannot change (column type:|type from .* to )" +
-                "|Time(stamp)? precision \\(3\\) not supported for Iceberg. Use \"time(stamp)?\\(6\\)\" instead" +
+                "|Time precision \\(3\\) not supported for Iceberg. Use \"time\\(6\\)\" instead" +
+                "|" + ICEBERG_TIMESTAMP_PRECISION_FAILURE +
                 "|Type not supported for Iceberg: (tinyint|smallint|char\\(20\\))" +
                 "|Cannot update map keys).*");
     }
@@ -9487,7 +9849,8 @@ public abstract class BaseIcebergConnectorTest
     protected void verifySetFieldTypeFailurePermissible(Throwable e)
     {
         assertThat(e).hasMessageMatching(".*(Failed to set field type: Cannot change (column type:|type from .* to )" +
-                "|Time(stamp)? precision \\(3\\) not supported for Iceberg. Use \"time(stamp)?\\(6\\)\" instead" +
+                "|Time precision \\(3\\) not supported for Iceberg. Use \"time\\(6\\)\" instead" +
+                "|" + ICEBERG_TIMESTAMP_PRECISION_FAILURE +
                 "|Type not supported for Iceberg: (tinyint|smallint|char\\(20\\))" +
                 "|Cannot update map keys).*");
     }

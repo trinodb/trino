@@ -204,7 +204,8 @@ public class TestLakehouseConnectorTest
     protected void verifySetColumnTypeFailurePermissible(Throwable e)
     {
         assertThat(e).hasMessageMatching(".*(Failed to set column type: Cannot change (column type:|type from .* to )" +
-                "|Time(stamp)? precision \\(3\\) not supported for Iceberg. Use \"time(stamp)?\\(6\\)\" instead" +
+                "|Time precision \\(3\\) not supported for Iceberg. Use \"time\\(6\\)\" instead" +
+                "|Timestamp precision \\(3\\) not supported for Iceberg. Use \"timestamp\\(6\\)\" or \"timestamp\\(9\\)\" instead" +
                 "|Type not supported for Iceberg: (tinyint|smallint|char\\(20\\))" +
                 "|Cannot update map keys).*");
     }
@@ -213,7 +214,8 @@ public class TestLakehouseConnectorTest
     protected void verifySetFieldTypeFailurePermissible(Throwable e)
     {
         assertThat(e).hasMessageMatching(".*(Failed to set field type: Cannot change (column type:|type from .* to )" +
-                "|Time(stamp)? precision \\(3\\) not supported for Iceberg. Use \"time(stamp)?\\(6\\)\" instead" +
+                "|Time precision \\(3\\) not supported for Iceberg. Use \"time\\(6\\)\" instead" +
+                "|Timestamp precision \\(3\\) not supported for Iceberg. Use \"timestamp\\(6\\)\" or \"timestamp\\(9\\)\" instead" +
                 "|Type not supported for Iceberg: (tinyint|smallint|char\\(20\\))" +
                 "|Cannot update map keys).*");
     }

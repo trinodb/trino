@@ -4,7 +4,7 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>480-SNAPSHOT</version>
+        <version>481-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
@@ -357,6 +357,12 @@
 
         <dependency>
             <groupId>io.airlift</groupId>
+            <artifactId>tracing</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.airlift</groupId>
             <artifactId>configuration-testing</artifactId>
             <scope>test</scope>
         </dependency>
@@ -370,12 +376,6 @@
         <dependency>
             <groupId>io.airlift</groupId>
             <artifactId>testing</artifactId>
-            <scope>test</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>io.airlift</groupId>
-            <artifactId>tracing</artifactId>
             <scope>test</scope>
         </dependency>
 

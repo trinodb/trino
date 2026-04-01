@@ -19,7 +19,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
 
-import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 
 import static com.google.common.io.BaseEncoding.base16;
 import static io.trino.spi.StandardErrorCode.JSON_INPUT_CONVERSION_ERROR;
@@ -186,7 +186,7 @@ public class TestJsonArrayFunction
                 "SELECT json_array(true RETURNING varbinary FORMAT JSON ENCODING UTF16)"))
                 .matches("VALUES " + varbinaryLiteral);
 
-        bytes = output.getBytes(Charset.forName("UTF_32LE"));
+        bytes = output.getBytes(StandardCharsets.UTF_32LE);
         varbinaryLiteral = "X'" + base16().encode(bytes) + "'";
         assertThat(assertions.query(
                 "SELECT json_array(true RETURNING varbinary FORMAT JSON ENCODING UTF32)"))

@@ -30,10 +30,12 @@ import com.google.common.collect.SetMultimap;
 import com.google.common.primitives.Ints;
 import com.google.inject.Inject;
 import io.airlift.log.Logger;
+import io.airlift.slice.Slice;
 import io.airlift.units.DataSize;
 import io.trino.Session;
 import io.trino.SystemSessionProperties;
 import io.trino.cache.NonEvictableCache;
+import io.trino.exchange.ExchangeEncryptionKey;
 import io.trino.exchange.ExchangeManagerRegistry;
 import io.trino.execution.DynamicFilterConfig;
 import io.trino.execution.ExplainAnalyzeContext;
@@ -166,6 +168,7 @@ import io.trino.spi.block.SqlRow;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorIndex;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.ConnectorTableCredentials;
 import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.RecordSet;
 import io.trino.spi.connector.SortOrder;
@@ -611,6 +614,8 @@ public class LocalExecutionPlanner
             nullChannel = OptionalInt.of(outputLayout.indexOf(getOnlyElement(partitioningColumns)));
         }
 
+        Optional<Slice> exchangeEncryptionKey = ExchangeEncryptionKey.keyFor(taskContext.getSession(), outputBuffer);
+
         return plan(
                 taskContext,
                 plan,
@@ -625,7 +630,7 @@ public class LocalExecutionPlanner
                         outputBuffer,
                         maxPagePartitioningBufferSize,
                         positionsAppenderFactory,
-                        taskContext.getSession().getExchangeEncryptionKey(),
+                        exchangeEncryptionKey,
                         taskContext.newAggregateMemoryContext(),
                         getPagePartitioningBufferPoolSize(taskContext.getSession()),
                         skewedPartitionRebalancer));
@@ -1743,6 +1748,7 @@ public class LocalExecutionPlanner
                         node.getHandle().catalogHandle(),
                         processorProvider,
                         node.getHandle().functionHandle(),
+                        context.getTaskContext().getTableCredentials(node.getId()),
                         outputTypes);
                 return new PhysicalOperation(operatorFactory, makeLayout(node));
             }
@@ -2053,11 +2059,12 @@ public class LocalExecutionPlanner
             // otherwise we plan it as a normal operator
             Map<Symbol, Integer> sourceLayout;
             TableHandle table = null;
+            Optional<ConnectorTableCredentials> tableCredentials = Optional.empty();
             List<ColumnHandle> columns = null;
             PhysicalOperation source = null;
             if (sourceNode instanceof TableScanNode tableScanNode) {
                 table = tableScanNode.getTable();
-
+                tableCredentials = context.getTaskContext().getTableCredentials(tableScanNode.getId());
                 // extract the column handles and channel to type mapping
                 sourceLayout = new LinkedHashMap<>();
                 columns = new ArrayList<>();
@@ -2138,6 +2145,7 @@ public class LocalExecutionPlanner
                             pageSourceManager,
                             pageProcessor,
                             table,
+                            tableCredentials,
                             columns,
                             dynamicFilter,
                             getTypes(projections),
@@ -2191,7 +2199,8 @@ public class LocalExecutionPlanner
             }
 
             DynamicFilter dynamicFilter = getDynamicFilter(node, filterExpression, context);
-            OperatorFactory operatorFactory = new TableScanOperatorFactory(context.getNextOperatorId(), planNodeId, node.getId(), pageSourceManager, node.getTable(), columns.build(), columnTypes.build(), dynamicFilter);
+            Optional<ConnectorTableCredentials> tableCredentials = context.getTaskContext().getTableCredentials(node.getId());
+            OperatorFactory operatorFactory = new TableScanOperatorFactory(context.getNextOperatorId(), planNodeId, node.getId(), pageSourceManager, node.getTable(), tableCredentials, columns.build(), columnTypes.build(), dynamicFilter);
             return new PhysicalOperation(operatorFactory, makeLayout(node));
         }
 
@@ -3385,6 +3394,7 @@ public class LocalExecutionPlanner
                     node.getId(),
                     pageSinkManager,
                     node.getTarget(),
+                    context.getTaskContext().getTableCredentials(node.getId()),
                     inputChannels,
                     session,
                     statisticsAggregation,
@@ -3510,6 +3520,7 @@ public class LocalExecutionPlanner
                     node.getId(),
                     pageSinkManager,
                     node.getTarget(),
+                    context.getTaskContext().getTableCredentials(node.getId()),
                     inputChannels,
                     session,
                     new DevNullOperatorFactory(context.getNextOperatorId(), node.getId()), // statistics are not calculated
@@ -3576,7 +3587,8 @@ public class LocalExecutionPlanner
 
             Function<Page, Page> pagePreprocessor = enforceLoadedLayoutProcessor(node.getProjectedSymbols(), source.getLayout());
 
-            OperatorFactory operatorFactory = new MergeWriterOperatorFactory(context.getNextOperatorId(), node.getId(), pageSinkManager, node.getTarget(), session, pagePreprocessor);
+            Optional<ConnectorTableCredentials> tableCredentials = context.getTaskContext().getTableCredentials(node.getId());
+            OperatorFactory operatorFactory = new MergeWriterOperatorFactory(context.getNextOperatorId(), node.getId(), pageSinkManager, node.getTarget(), tableCredentials, session, pagePreprocessor);
             return new PhysicalOperation(operatorFactory, makeLayout(node), source);
         }
 
@@ -4187,7 +4199,8 @@ public class LocalExecutionPlanner
                         fragments,
                         statistics,
                         refreshTarget.getSourceTableHandles(),
-                        refreshTarget.getSourceTableFunctions());
+                        refreshTarget.getSourceTableFunctions(),
+                        refreshTarget.hasNonDeterministicFunctions());
             }
             if (target instanceof TableExecuteTarget tableExecuteTarget) {
                 TableExecuteHandle tableExecuteHandle = tableExecuteTarget.getExecuteHandle();

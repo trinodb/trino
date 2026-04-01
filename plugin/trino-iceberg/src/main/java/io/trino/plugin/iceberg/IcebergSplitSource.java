@@ -41,6 +41,7 @@ import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.connector.ConnectorSplitSource;
 import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.DynamicFilter;
+import io.trino.spi.metrics.Metric;
 import io.trino.spi.metrics.Metrics;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.NullableValue;
@@ -534,16 +535,19 @@ public class IcebergSplitSource
             return Metrics.EMPTY;
         }
         ScanMetricsResult scanMetrics = scanReport.scanMetrics();
-        return new Metrics(ImmutableMap.of(
-                "scanPlanningDuration", new DurationTiming(Duration.succinctDuration(scanMetrics.totalPlanningDuration().totalDuration().toMillis(), MILLISECONDS)),
-                "dataFiles", new LongCount(scanMetrics.resultDataFiles().value()),
-                "dataFileSizeBytes", new LongCount(scanMetrics.totalFileSizeInBytes().value()),
-                "deleteFileSizeBytes", new LongCount(scanMetrics.totalDeleteFileSizeInBytes().value()),
-                "dataManifests", new LongCount(scanMetrics.scannedDataManifests().value()),
-                "deleteManifests", new LongCount(scanMetrics.scannedDeleteManifests().value()),
-                "equalityDeleteFiles", new LongCount(scanMetrics.equalityDeleteFiles().value()),
-                "positionalDeleteFiles", new LongCount(scanMetrics.positionalDeleteFiles().value()),
-                "deletionVectorFiles", new LongCount(scanMetrics.dvs().value())));
+        return new Metrics(ImmutableMap.<String, Metric<?>>builder()
+                .put("scanPlanningDuration", new DurationTiming(Duration.succinctDuration(scanMetrics.totalPlanningDuration().totalDuration().toMillis(), MILLISECONDS)))
+                .put("dataFiles", new LongCount(scanMetrics.resultDataFiles().value()))
+                .put("dataFileSizeBytes", new LongCount(scanMetrics.totalFileSizeInBytes().value()))
+                .put("deleteFileSizeBytes", new LongCount(scanMetrics.totalDeleteFileSizeInBytes().value()))
+                .put("dataManifests", new LongCount(scanMetrics.scannedDataManifests().value()))
+                .put("skippedDataManifests", new LongCount(scanMetrics.skippedDataManifests().value()))
+                .put("deleteManifests", new LongCount(scanMetrics.scannedDeleteManifests().value()))
+                .put("skippedDeleteManifests", new LongCount(scanMetrics.skippedDeleteManifests().value()))
+                .put("equalityDeleteFiles", new LongCount(scanMetrics.equalityDeleteFiles().value()))
+                .put("positionalDeleteFiles", new LongCount(scanMetrics.positionalDeleteFiles().value()))
+                .put("deletionVectorFiles", new LongCount(scanMetrics.dvs().value()))
+                .buildOrThrow());
     }
 
     @Override
@@ -748,9 +752,9 @@ public class IcebergSplitSource
                         .collect(toImmutableList()),
                 SplitWeight.fromProportion(clamp(getSplitWeight(task), minimumAssignedSplitWeight, 1.0)),
                 taskWithDomain.fileStatisticsDomain(),
-                fileIoProperties,
                 cachingHostAddressProvider.getHosts(getSplitKey(task.file().location(), task.start(), task.length()), ImmutableList.of()),
-                task.file().dataSequenceNumber());
+                task.file().dataSequenceNumber(),
+                task.file().firstRowId() == null ? OptionalLong.empty() : OptionalLong.of(task.file().firstRowId()));
     }
 
     private static void verifyDeletionVectorReferencesDataFile(FileScanTask task, org.apache.iceberg.DeleteFile deleteFile)

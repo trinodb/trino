@@ -240,6 +240,14 @@ public class TestRowOperators
                 .binding("a", "JSON 'null'"))
                 .isNull(RowType.anonymous(ImmutableList.of(BIGINT)));
 
+        assertThat(assertions.expression("CAST(json_parse(a) as ROW(BIGINT))")
+                .binding("a", "'null'"))
+                .isNull(RowType.anonymous(ImmutableList.of(BIGINT)));
+
+        assertTrinoExceptionThrownBy(assertions.expression("CAST(json_parse(a) as ROW(BIGINT))")
+                .binding("a", "'null 123 some invalid JSON content'")::evaluate)
+                .hasMessage("Cannot cast to row(bigint). Unexpected trailing token: 123\nnull 123 some invalid JSON content");
+
         assertThat(assertions.expression("CAST(a as ROW(VARCHAR, BIGINT))")
                 .binding("a", "JSON '[null, null]'"))
                 .hasType(RowType.anonymous(ImmutableList.of(VARCHAR, BIGINT)))
@@ -553,6 +561,10 @@ public class TestRowOperators
     @Test
     public void testRowCast()
     {
+        assertThat(assertions.expression("cast(a AS row(aa bigint, bb double))[2]")
+                .binding("a", "row(2, CAST(null as double))"))
+                .isNull(DOUBLE);
+
         assertThat(assertions.expression("cast(a AS row(aa bigint, bb bigint))[1]")
                 .binding("a", "row(2, 3)"))
                 .isEqualTo(2L);
@@ -564,10 +576,6 @@ public class TestRowOperators
         assertThat(assertions.expression("cast(a AS row(aa bigint, bb boolean))[2]")
                 .binding("a", "row(2, 3)"))
                 .isEqualTo(true);
-
-        assertThat(assertions.expression("cast(a AS row(aa bigint, bb double))[2]")
-                .binding("a", "row(2, CAST(null as double))"))
-                .isNull(DOUBLE);
 
         assertThat(assertions.expression("cast(a AS row(aa bigint, bb varchar))[2]")
                 .binding("a", "row(2, 'test_str')"))

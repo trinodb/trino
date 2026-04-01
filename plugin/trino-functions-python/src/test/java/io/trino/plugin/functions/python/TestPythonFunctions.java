@@ -35,6 +35,7 @@ import static io.trino.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_NAME;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
@@ -752,6 +753,56 @@ public class TestPythonFunctions
     }
 
     @Test
+    public void testTypeNumber()
+    {
+        String query =
+                """
+                WITH FUNCTION multiply(x number, y number)
+                RETURNS number
+                LANGUAGE PYTHON
+                WITH (handler = 'multiply')
+                AS $$
+                from decimal import Decimal
+                def multiply(x, y):
+                    return x * y
+                $$
+                """;
+
+        assertThat(assertions.query(
+                query + "SELECT multiply(NUMBER '1.12345000000000123456789', NUMBER '2.5432100000000000000000000000000000000000001')"))
+                .matches("VALUES NUMBER '2.857169274500003139765403527'");
+
+        assertThat(assertions.query(
+                query + "SELECT multiply(NUMBER 'NaN', NUMBER '3.14')"))
+                .matches("VALUES NUMBER 'NaN'");
+
+        assertThat(assertions.query(
+                query + "SELECT multiply(NUMBER '-Infinity', NUMBER '3.14')"))
+                .matches("VALUES NUMBER '-Infinity'");
+
+        assertThat(assertions.query(
+                query + "SELECT multiply(NUMBER '+Infinity', NUMBER '3.14')"))
+                .matches("VALUES NUMBER '+Infinity'");
+
+        assertThat(assertions.query(
+                query + "SELECT multiply(NUMBER '+Infinity', NUMBER '-Infinity')"))
+                .matches("VALUES NUMBER '-Infinity'");
+
+        assertThat(assertions.query(
+                query + "SELECT multiply(NUMBER '-Infinity', NUMBER '-Infinity')"))
+                .matches("VALUES NUMBER '+Infinity'");
+
+        assertThat(assertions.query(
+                query + "SELECT multiply(NUMBER '-Infinity', NUMBER 'NaN')"))
+                .matches("VALUES NUMBER 'NaN'");
+
+        assertThatThrownBy(() -> assertThat(assertions.query(
+                query + "SELECT multiply(NULL, NUMBER '2.54321')"))
+                .matches("VALUES NUMBER 'NaN'"))
+                .hasMessageContaining("TypeError: unsupported operand type(s) for *: 'NoneType' and 'decimal.Decimal'");
+    }
+
+    @Test
     public void testTypeInteger()
     {
         String query =
@@ -898,6 +949,37 @@ public class TestPythonFunctions
                 SELECT test_decimal_long(12345678901234567890.1234)
                 """))
                 .matches("VALUES cast(1524148134430814813443.07447 AS decimal(38, 5))");
+
+        String realToDecimalInPython =
+                """
+                WITH FUNCTION test_cast_real_to_decimal(x real)
+                RETURNS decimal(38, 5)
+                LANGUAGE PYTHON
+                WITH (handler = 'test')
+                AS $$
+                from decimal import Decimal
+                def test(x):
+                    return Decimal.from_float(x)
+                $$
+                """;
+
+        // underflow
+        assertThat(assertions.query(realToDecimalInPython + "SELECT test_cast_real_to_decimal(REAL '1e-17')"))
+                .matches("VALUES CAST('0' AS decimal(38, 5))");
+
+        // overflow
+        assertThat(assertions.query(realToDecimalInPython + "SELECT test_cast_real_to_decimal(REAL '1e+34')"))
+                .failure().hasMessage("Function result cannot be converted to decimal(38,5): Decimal overflow");
+
+        // NaN
+        assertThat(assertions.query( realToDecimalInPython + "SELECT test_cast_real_to_decimal(REAL 'NaN')"))
+                .failure().hasMessage("Failed to convert Python result type 'decimal.Decimal' to Trino type DECIMAL: ValueError: Decimal is not finite: NaN");
+
+        // Infinity
+        assertThat(assertions.query(realToDecimalInPython + "SELECT test_cast_real_to_decimal(REAL '-Infinity')"))
+                .failure().hasMessage("Failed to convert Python result type 'decimal.Decimal' to Trino type DECIMAL: ValueError: Decimal is not finite: -Infinity");
+        assertThat(assertions.query( realToDecimalInPython + "SELECT test_cast_real_to_decimal(REAL '+Infinity')"))
+                .failure().hasMessage("Failed to convert Python result type 'decimal.Decimal' to Trino type DECIMAL: ValueError: Decimal is not finite: Infinity");
     }
 
     @Test

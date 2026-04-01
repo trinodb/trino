@@ -106,7 +106,7 @@ public class TestJdbcPageSourceProvider
     {
         ConnectorTransactionHandle transaction = new JdbcTransactionHandle();
         JdbcPageSourceProvider pageSourceProvider = new JdbcPageSourceProvider(jdbcClient, executor, RetryPolicy.ofDefaults());
-        ConnectorPageSource pageSource = pageSourceProvider.createPageSource(transaction, SESSION, split, table, ImmutableList.of(textColumn, textShortColumn, valueColumn), DynamicFilter.EMPTY);
+        ConnectorPageSource pageSource = pageSourceProvider.createPageSource(transaction, SESSION, split, table, Optional.empty(), ImmutableList.of(textColumn, textShortColumn, valueColumn), DynamicFilter.EMPTY);
         assertThat(pageSource).withFailMessage("pageSource is null").isNotNull();
 
         Map<String, Long> data = new LinkedHashMap<>();
@@ -226,6 +226,6 @@ public class TestJdbcPageSourceProvider
 
         ConnectorTransactionHandle transaction = new JdbcTransactionHandle();
         JdbcPageSourceProvider pageSourceProvider = new JdbcPageSourceProvider(jdbcClient, executor, RetryPolicy.ofDefaults());
-        return pageSourceProvider.createPageSource(transaction, SESSION, split, jdbcTableHandle, columns, DynamicFilter.EMPTY);
+        return pageSourceProvider.createPageSource(transaction, SESSION, split, jdbcTableHandle, Optional.empty(), columns, DynamicFilter.EMPTY);
     }
 }

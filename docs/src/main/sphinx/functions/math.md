@@ -102,15 +102,13 @@ For floating point arguments, the function additionally returns:
 
 - -0 if the argument is -0,
 - NaN if the argument is NaN,
-- 1 if the argument is +Infinity,
-- -1 if the argument is -Infinity.
 :::
 
 :::{function} sqrt(x) -> double
 Returns the square root of `x`.
 :::
 
-:::{function} truncate(x) -> double
+:::{function} truncate(x) -> [same as input]
 Returns `x` rounded to integer by dropping digits after decimal point.
 :::
 

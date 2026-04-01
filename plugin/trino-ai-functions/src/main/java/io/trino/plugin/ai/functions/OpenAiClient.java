@@ -15,7 +15,6 @@ package io.trino.plugin.ai.functions;
 
 import com.fasterxml.jackson.databind.PropertyNamingStrategies.SnakeCaseStrategy;
 import com.fasterxml.jackson.databind.annotation.JsonNaming;
-import com.google.common.net.HttpHeaders;
 import com.google.inject.Inject;
 import io.airlift.http.client.HttpClient;
 import io.airlift.http.client.Request;
@@ -28,8 +27,9 @@ import io.trino.spi.TrinoException;
 import java.net.URI;
 import java.util.List;
 
-import static com.google.common.net.HttpHeaders.CONTENT_TYPE;
 import static com.google.common.net.MediaType.JSON_UTF_8;
+import static io.airlift.http.client.HeaderNames.AUTHORIZATION;
+import static io.airlift.http.client.HeaderNames.CONTENT_TYPE;
 import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 import static io.airlift.http.client.JsonBodyGenerator.jsonBodyGenerator;
 import static io.airlift.http.client.JsonResponseHandler.createJsonResponseHandler;
@@ -84,7 +84,7 @@ public class OpenAiClient
 
         Request request = preparePost()
                 .setUri(uri)
-                .setHeader(HttpHeaders.AUTHORIZATION, "Bearer " + apiKey)
+                .setHeader(AUTHORIZATION, "Bearer " + apiKey)
                 .setHeader(CONTENT_TYPE, JSON_UTF_8.toString())
                 .setBodyGenerator(jsonBodyGenerator(CHAT_REQUEST_CODEC, body))
                 .build();

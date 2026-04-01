@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>480-SNAPSHOT</version>
+        <version>481-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
@@ -43,7 +43,7 @@
 
         <dependency>
             <groupId>io.trino</groupId>
-            <artifactId>trino-geospatial</artifactId>
+            <artifactId>trino-geospatial-toolkit</artifactId>
         </dependency>
 
         <dependency>
@@ -69,6 +69,11 @@
         <dependency>
             <groupId>org.jdbi</groupId>
             <artifactId>jdbi3-core</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.locationtech.jts</groupId>
+            <artifactId>jts-core</artifactId>
         </dependency>
 
         <dependency>
@@ -138,7 +143,19 @@
 
         <dependency>
             <groupId>io.airlift</groupId>
+            <artifactId>tracing</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.airlift</groupId>
             <artifactId>units</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.jetbrains</groupId>
+            <artifactId>annotations</artifactId>
             <scope>runtime</scope>
         </dependency>
 
@@ -157,12 +174,6 @@
         <dependency>
             <groupId>io.airlift</groupId>
             <artifactId>testing</artifactId>
-            <scope>test</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>io.airlift</groupId>
-            <artifactId>tracing</artifactId>
             <scope>test</scope>
         </dependency>
 
@@ -189,6 +200,12 @@
             <groupId>io.trino</groupId>
             <artifactId>trino-exchange-filesystem</artifactId>
             <type>test-jar</type>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-geospatial</artifactId>
             <scope>test</scope>
         </dependency>
 
@@ -250,12 +267,6 @@
         <dependency>
             <groupId>org.assertj</groupId>
             <artifactId>assertj-core</artifactId>
-            <scope>test</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>org.jetbrains</groupId>
-            <artifactId>annotations</artifactId>
             <scope>test</scope>
         </dependency>
 

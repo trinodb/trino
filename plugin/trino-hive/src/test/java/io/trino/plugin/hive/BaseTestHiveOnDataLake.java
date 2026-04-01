@@ -319,6 +319,57 @@ abstract class BaseTestHiveOnDataLake
         assertThat(partitionStatistics.get("regionkey=0").get("nationkey").getIntegerStatistics().get().getMax()).isEqualTo(OptionalLong.of(20));
     }
 
+    /**
+     * Regression test for <a href="https://github.com/trinodb/trino/issues/28330">#28330</a>
+     */
+    @Test
+    public void testUpdateStatisticInsertOverwritePartitionedTableTimestamp()
+    {
+        Session session = Session.builder(getQueryRunner().getDefaultSession())
+                .setCatalogSessionProperty("hive", "insert_existing_partitions_behavior", "OVERWRITE")
+                .setCatalogSessionProperty("hive", "collect_column_statistics_on_write", "true")
+                .build();
+        String tableName = "test_statistic_overwrite_timestamp" + randomNameSuffix();
+        String testTable = getFullyQualifiedTestTableName(tableName);
+        assertUpdate(session, "CREATE TABLE " + testTable + "(" +
+                "    history_batch_timestamp TIMESTAMP, " +
+                "    dt VARCHAR  ) " +
+                "WITH (partitioned_by=ARRAY['dt'])");
+
+        // First insert - verify statistics are collected
+        assertUpdate(session, "INSERT INTO " + testTable + "(history_batch_timestamp, dt) VALUES " +
+                "(TIMESTAMP '2026-02-03 10:00:00', '2026-02-03')", 1);
+
+        // Verify statistics after first insert
+        assertQuery(
+                "SHOW STATS FOR (SELECT * FROM " + testTable + " WHERE dt = '2026-02-03')",
+                """
+                VALUES
+                    ('history_batch_timestamp', null, 1.0, 0.0, null, '2026-02-03 10:00:00.000', '2026-02-03 10:00:00.000'),
+                    ('dt', 10.0, 1.0, 0.0, null, null, null),
+                    (null, null, null, null, 1.0, null, null)
+                """);
+
+        // Second insert with different timestamp - should overwrite
+        assertUpdate(session, "INSERT INTO " + testTable + "(history_batch_timestamp, dt) VALUES " +
+                "(TIMESTAMP '2026-02-03 15:30:00', '2026-02-03')", 1);
+
+        // Verify statistics are updated after overwrite (not appended)
+        assertQuery(
+                "SHOW STATS FOR (SELECT * FROM " + testTable + " WHERE dt = '2026-02-03')",
+                """
+                VALUES
+                    ('history_batch_timestamp', null, 1.0, 0.0, null, '2026-02-03 15:30:00.000', '2026-02-03 15:30:00.000'),
+                    ('dt', 10.0, 1.0, 0.0, null, null, null),
+                    (null, null, null, null, 1.0, null, null)
+                """);
+
+        // Verify only one row exists (confirming overwrite, not append)
+        assertQuery("SELECT COUNT(*) FROM " + testTable, "VALUES 1");
+
+        assertUpdate("DROP TABLE " + testTable);
+    }
+
     @Test
     public void testUpdateStatisticInsertAppendPartitionedTable()
     {
@@ -2324,6 +2375,100 @@ abstract class BaseTestHiveOnDataLake
         finally {
             hiveMinioDataLake.runOnHive("DROP DATABASE IF EXISTS " + schemaName + " CASCADE");
         }
+    }
+
+    @Test
+    public void testSupportTimestampStatistics()
+    {
+        Session session = Session.builder(getQueryRunner().getDefaultSession())
+                .setCatalogSessionProperty("hive", "insert_existing_partitions_behavior", "APPEND")
+                .setCatalogSessionProperty("hive", "collect_column_statistics_on_write", "true")
+                .build();
+        String testTable = HIVE_TEST_SCHEMA + ".test_timestamp_statistics" + randomNameSuffix();
+        assertUpdate(session, "CREATE TABLE " + testTable + "(\n" +
+                "    VendorID BIGINT,\n" +
+                "    tpep_pickup_datetime TIMESTAMP,\n" +
+                "    tpep_dropoff_datetime TIMESTAMP,\n" +
+                "    passenger_count DOUBLE,\n" +
+                "    trip_distance DOUBLE,\n" +
+                "    payment_type BIGINT,\n" +
+                "    Fare_amount DOUBLE,\n" +
+                "    Tip_amount DOUBLE,\n" +
+                "    Total_amount DOUBLE\n" +
+                ")");
+        assertUpdate(session, "INSERT INTO " + testTable + " VALUES" +
+                "(1, TIMESTAMP '2025-09-19 11:00:00', TIMESTAMP '2025-09-19 10:10:00', 2, 3.5, 1, 10.0, 2.0, 12.0)," +
+                "(2, TIMESTAMP '2025-09-19 12:30:00', TIMESTAMP '2025-09-20 15:40:10', 4, 8.0, 2, 12.0, 5.0, 19.0)", 2);
+
+        assertUpdate(session, "ANALYZE " + testTable, 2);
+        String expectedStatsAfterAnalyze =
+                """
+                VALUES
+                      ('vendorid', null, '2.0', '0.0', null, '1', '2'),
+                      ('tpep_pickup_datetime', null, '2.0', '0.0', null, '2025-09-19 11:00:00.000', '2025-09-19 12:30:00.000'),
+                      ('tpep_dropoff_datetime', null, '2.0', '0.0', null, '2025-09-19 10:10:00.000', '2025-09-20 15:40:10.000'),
+                      ('passenger_count', null, '2.0', '0.0', null, '2.0', '4.0'),
+                      ('trip_distance', null, '2.0', '0.0', null, '3.5', '8.0'),
+                      ('payment_type', null, '2.0', '0.0', null, '1', '2'),
+                      ('fare_amount', null, '2.0', '0.0', null, '10.0', '12.0'),
+                      ('tip_amount', null, '2.0', '0.0', null, '2.0', '5.0'),
+                      ('total_amount', null, '2.0', '0.0', null, '12.0', '19.0'),
+                      (null, null, null, null, '2.0', null, null)
+                """;
+        assertQuery("SHOW STATS FOR " + testTable, expectedStatsAfterAnalyze);
+
+        // Call ANALYZE twice (regression test for https://github.com/trinodb/trino/issues/26214)
+        assertUpdate(session, "ANALYZE " + testTable, 2);
+        assertUpdate(session, "ANALYZE " + testTable, 2);
+
+        assertQuery("SHOW STATS FOR " + testTable, expectedStatsAfterAnalyze);
+
+        assertUpdate(session, "DROP TABLE " + testTable);
+    }
+
+    @Test
+    public void testSupportTimestampStatisticsWithNanoseconds()
+    {
+        Session session = Session.builder(getQueryRunner().getDefaultSession())
+                .setCatalogSessionProperty("hive", "insert_existing_partitions_behavior", "APPEND")
+                .setCatalogSessionProperty("hive", "collect_column_statistics_on_write", "true")
+                .setCatalogSessionProperty("hive", "timestamp_precision", "NANOSECONDS")
+                .build();
+        String testTable = HIVE_TEST_SCHEMA + ".test_timestamp_statistics" + randomNameSuffix();
+        assertUpdate(session, "CREATE TABLE " + testTable + "(\n" +
+                "    VendorID BIGINT,\n" +
+                "    tpep_pickup_datetime TIMESTAMP(9),\n" +
+                "    tpep_dropoff_datetime TIMESTAMP(9),\n" +
+                "    passenger_count DOUBLE,\n" +
+                "    trip_distance DOUBLE,\n" +
+                "    payment_type BIGINT,\n" +
+                "    Fare_amount DOUBLE,\n" +
+                "    Tip_amount DOUBLE,\n" +
+                "    Total_amount DOUBLE\n" +
+                ")");
+        assertUpdate(session, "INSERT INTO " + testTable + " VALUES" +
+                "(1, TIMESTAMP '2025-09-19 11:00:00.555555', TIMESTAMP '2025-09-19 10:10:00.123456', 2, 3.5, 1, 10.0, 2.0, 12.0)," +
+                "(2, TIMESTAMP '2025-09-19 12:30:00.555555', TIMESTAMP '2025-09-20 15:40:10.123456', 4, 8.0, 2, 12.0, 5.0, 19.0)", 2);
+
+        assertUpdate(session, "ANALYZE " + testTable, 2);
+
+        assertQuery(
+                "SHOW STATS FOR " + testTable,
+                """
+                        VALUES
+                              ('vendorid', null, '2.0', '0.0', null, '1', '2'),
+                              ('tpep_pickup_datetime', null, '2.0', '0.0', null, '2025-09-19 11:00:00.000', '2025-09-19 12:30:01.000'),
+                              ('tpep_dropoff_datetime', null, '2.0', '0.0', null, '2025-09-19 10:10:00.000', '2025-09-20 15:40:11.000'),
+                              ('passenger_count', null, '2.0', '0.0', null, '2.0', '4.0'),
+                              ('trip_distance', null, '2.0', '0.0', null, '3.5', '8.0'),
+                              ('payment_type', null, '2.0', '0.0', null, '1', '2'),
+                              ('fare_amount', null, '2.0', '0.0', null, '10.0', '12.0'),
+                              ('tip_amount', null, '2.0', '0.0', null, '2.0', '5.0'),
+                              ('total_amount', null, '2.0', '0.0', null, '12.0', '19.0'),
+                              (null, null, null, null, '2.0', null, null)
+                        """);
+
+        assertUpdate(session, "DROP TABLE " + testTable);
     }
 
     @Test

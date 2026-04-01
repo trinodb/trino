@@ -32,8 +32,8 @@ import java.util.Collections;
 import java.util.List;
 import java.util.function.Function;
 
-import static com.google.common.net.HttpHeaders.CONTENT_TYPE;
 import static com.google.common.net.MediaType.JSON_UTF_8;
+import static io.airlift.http.client.HeaderNames.CONTENT_TYPE;
 import static java.util.Objects.requireNonNull;
 
 public final class HttpClientUtils

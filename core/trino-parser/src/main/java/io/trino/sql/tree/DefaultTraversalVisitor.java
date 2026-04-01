@@ -362,6 +362,23 @@ public abstract class DefaultTraversalVisitor<C>
     }
 
     @Override
+    protected Void visitTable(Table node, C context)
+    {
+        node.getQueryPeriod().ifPresent(period -> process(period, context));
+
+        return null;
+    }
+
+    @Override
+    protected Void visitQueryPeriod(QueryPeriod node, C context)
+    {
+        node.getStart().ifPresent(start -> process(start, context));
+        node.getEnd().ifPresent(end -> process(end, context));
+
+        return null;
+    }
+
+    @Override
     protected Void visitInListExpression(InListExpression node, C context)
     {
         for (Expression value : node.getValues()) {

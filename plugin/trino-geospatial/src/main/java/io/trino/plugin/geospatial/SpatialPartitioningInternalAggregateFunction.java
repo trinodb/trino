@@ -13,8 +13,6 @@
  */
 package io.trino.plugin.geospatial;
 
-import com.esri.core.geometry.Envelope;
-import io.airlift.slice.Slice;
 import io.trino.geospatial.KdbTreeUtils;
 import io.trino.geospatial.Rectangle;
 import io.trino.spi.block.BlockBuilder;
@@ -23,13 +21,14 @@ import io.trino.spi.function.InputFunction;
 import io.trino.spi.function.OutputFunction;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.type.StandardTypes;
+import org.locationtech.jts.geom.Envelope;
+import org.locationtech.jts.geom.Geometry;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
 
 import static io.trino.geospatial.KdbTree.buildKdbTree;
-import static io.trino.geospatial.serde.GeometrySerde.deserializeEnvelope;
 import static io.trino.plugin.geospatial.SpatialPartitioningAggregateFunction.NAME;
 import static io.trino.spi.type.StandardTypes.INTEGER;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -43,14 +42,14 @@ public final class SpatialPartitioningInternalAggregateFunction
     private SpatialPartitioningInternalAggregateFunction() {}
 
     @InputFunction
-    public static void input(SpatialPartitioningState state, @SqlType(StandardTypes.GEOMETRY) Slice slice, @SqlType(INTEGER) long partitionCount)
+    public static void input(SpatialPartitioningState state, @SqlType(StandardTypes.GEOMETRY) Geometry geometry, @SqlType(INTEGER) long partitionCount)
     {
-        Envelope envelope = deserializeEnvelope(slice);
-        if (envelope.isEmpty()) {
+        Envelope envelope = geometry.getEnvelopeInternal();
+        if (envelope.isNull()) {
             return;
         }
 
-        Rectangle extent = new Rectangle(envelope.getXMin(), envelope.getYMin(), envelope.getXMax(), envelope.getYMax());
+        Rectangle extent = new Rectangle(envelope.getMinX(), envelope.getMinY(), envelope.getMaxX(), envelope.getMaxY());
 
         if (state.getCount() == 0) {
             state.setPartitionCount(toIntExact(partitionCount));

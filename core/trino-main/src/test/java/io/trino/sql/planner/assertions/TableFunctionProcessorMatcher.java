@@ -15,9 +15,6 @@ package io.trino.sql.planner.assertions;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.trino.Session;
-import io.trino.cost.StatsProvider;
-import io.trino.metadata.Metadata;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.plan.DataOrganizationSpecification;
@@ -76,7 +73,7 @@ public class TableFunctionProcessorMatcher
     }
 
     @Override
-    public MatchResult detailMatches(PlanNode node, StatsProvider stats, Session session, Metadata metadata, SymbolAliases symbolAliases)
+    public MatchResult detailMatches(PlanNode node, MatchContext context)
     {
         checkState(shapeMatches(node), "Plan testing framework error: shapeMatches returned false in detailMatches in %s", this.getClass().getName());
 
@@ -92,7 +89,7 @@ public class TableFunctionProcessorMatcher
 
         List<List<Reference>> expectedPassThrough = passThroughSymbols.stream()
                 .map(list -> list.stream()
-                        .map(symbolAliases::get)
+                        .map(context.symbolAliases()::get)
                         .collect(toImmutableList()))
                 .collect(toImmutableList());
         List<List<Reference>> actualPassThrough = tableFunctionProcessorNode.getPassThroughSpecifications().stream()
@@ -108,7 +105,7 @@ public class TableFunctionProcessorMatcher
 
         List<List<Reference>> expectedRequired = requiredSymbols.stream()
                 .map(list -> list.stream()
-                        .map(symbolAliases::get)
+                        .map(context.symbolAliases()::get)
                         .collect(toImmutableList()))
                 .collect(toImmutableList());
         List<List<Reference>> actualRequired = tableFunctionProcessorNode.getRequiredSymbols().stream()
@@ -125,7 +122,7 @@ public class TableFunctionProcessorMatcher
         }
         if (markerSymbols.isPresent()) {
             Map<Reference, Reference> expectedMapping = markerSymbols.get().entrySet().stream()
-                    .collect(toImmutableMap(entry -> symbolAliases.get(entry.getKey()), entry -> symbolAliases.get(entry.getValue())));
+                    .collect(toImmutableMap(entry -> context.symbolAliases().get(entry.getKey()), entry -> context.symbolAliases().get(entry.getValue())));
             Map<Reference, Reference> actualMapping = tableFunctionProcessorNode.getMarkerSymbols().orElseThrow().entrySet().stream()
                     .collect(toImmutableMap(entry -> entry.getKey().toSymbolReference(), entry -> entry.getValue().toSymbolReference()));
             if (!expectedMapping.equals(actualMapping)) {
@@ -137,7 +134,7 @@ public class TableFunctionProcessorMatcher
             return NO_MATCH;
         }
         if (specification.isPresent()) {
-            if (!specification.get().getExpectedValue(symbolAliases).equals(tableFunctionProcessorNode.getSpecification().orElseThrow())) {
+            if (!specification.get().getExpectedValue(context.symbolAliases()).equals(tableFunctionProcessorNode.getSpecification().orElseThrow())) {
                 return NO_MATCH;
             }
         }
@@ -148,7 +145,7 @@ public class TableFunctionProcessorMatcher
         }
 
         return match(SymbolAliases.builder()
-                .putAll(symbolAliases)
+                .putAll(context.symbolAliases())
                 .putAll(properOutputsMapping.buildOrThrow())
                 .build());
     }

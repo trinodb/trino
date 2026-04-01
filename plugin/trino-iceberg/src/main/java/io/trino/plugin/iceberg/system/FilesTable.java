@@ -14,11 +14,13 @@
 package io.trino.plugin.iceberg.system;
 
 import com.google.common.collect.ImmutableList;
+import io.trino.plugin.iceberg.IcebergTableCredentials;
 import io.trino.plugin.iceberg.system.files.FilesTableSplitSource;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplitSource;
+import io.trino.spi.connector.ConnectorTableCredentials;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SystemTable;
@@ -34,7 +36,6 @@ import org.apache.iceberg.PartitionField;
 import org.apache.iceberg.PartitionSpecParser;
 import org.apache.iceberg.SchemaParser;
 import org.apache.iceberg.Table;
-import org.apache.iceberg.io.FileIO;
 
 import java.util.List;
 import java.util.Map;
@@ -134,18 +135,21 @@ public final class FilesTable
     @Override
     public Optional<ConnectorSplitSource> splitSource(ConnectorSession connectorSession, TupleDomain<ColumnHandle> constraint)
     {
-        try (FileIO fileIO = icebergTable.io()) {
-            return Optional.of(new FilesTableSplitSource(
-                    icebergTable,
-                    snapshotId,
-                    SchemaParser.toJson(icebergTable.schema()),
-                    SchemaParser.toJson(MetadataTableUtils.createMetadataTableInstance(icebergTable, MetadataTableType.FILES).schema()),
-                    icebergTable.specs().entrySet().stream().collect(toImmutableMap(
-                            Map.Entry::getKey,
-                            partitionSpec -> PartitionSpecParser.toJson(partitionSpec.getValue()))),
-                    partitionColumnType,
-                    fileIO.properties()));
-        }
+        return Optional.of(new FilesTableSplitSource(
+                icebergTable,
+                snapshotId,
+                SchemaParser.toJson(icebergTable.schema()),
+                SchemaParser.toJson(MetadataTableUtils.createMetadataTableInstance(icebergTable, MetadataTableType.FILES).schema()),
+                icebergTable.specs().entrySet().stream().collect(toImmutableMap(
+                        Map.Entry::getKey,
+                        partitionSpec -> PartitionSpecParser.toJson(partitionSpec.getValue()))),
+                partitionColumnType));
+    }
+
+    @Override
+    public Optional<ConnectorTableCredentials> getTableCredentials(ConnectorSession session)
+    {
+        return Optional.of(IcebergTableCredentials.forFileIO(icebergTable.io()));
     }
 
     public static Type getColumnType(String columnName, TypeManager typeManager)

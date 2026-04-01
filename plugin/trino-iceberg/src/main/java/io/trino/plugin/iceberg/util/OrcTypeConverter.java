@@ -27,6 +27,7 @@ import org.apache.iceberg.types.Types.ListType;
 import org.apache.iceberg.types.Types.MapType;
 import org.apache.iceberg.types.Types.NestedField;
 import org.apache.iceberg.types.Types.StructType;
+import org.apache.iceberg.types.Types.TimestampNanoType;
 import org.apache.iceberg.types.Types.TimestampType;
 
 import java.util.ArrayList;
@@ -42,6 +43,10 @@ public final class OrcTypeConverter
     public static final String ORC_ICEBERG_REQUIRED_KEY = "iceberg.required";
     public static final String ICEBERG_LONG_TYPE = "iceberg.long-type";
     public static final String ICEBERG_BINARY_TYPE = "iceberg.binary-type";
+    public static final String ICEBERG_TIMESTAMP_UNIT = "iceberg.timestamp-unit";
+    public static final String ICEBERG_TIMESTAMP_UNIT_MICROS = "MICROS";
+    public static final String ICEBERG_TIMESTAMP_UNIT_NANOS = "NANOS";
+    public static final String ICEBERG_VARIANT_TYPE_KIND = "iceberg.variant-type";
 
     private OrcTypeConverter() {}
 
@@ -68,10 +73,20 @@ public final class OrcTypeConverter
             }
             case TIMESTAMP -> {
                 OrcTypeKind timestampKind = ((TimestampType) type).shouldAdjustToUTC() ? OrcTypeKind.TIMESTAMP_INSTANT : OrcTypeKind.TIMESTAMP;
+                attributes = ImmutableMap.<String, String>builder()
+                        .putAll(attributes)
+                        .put(ICEBERG_TIMESTAMP_UNIT, ICEBERG_TIMESTAMP_UNIT_MICROS)
+                        .buildOrThrow();
                 yield ImmutableList.of(new OrcType(timestampKind, ImmutableList.of(), ImmutableList.of(), Optional.empty(), Optional.empty(), Optional.empty(), attributes));
             }
-            // TODO https://github.com/trinodb/trino/issues/19753 Support Iceberg timestamp types with nanosecond precision
-            case TIMESTAMP_NANO -> throw new TrinoException(NOT_SUPPORTED, "Unsupported Iceberg type: TIMESTAMP_NANO");
+            case TIMESTAMP_NANO -> {
+                OrcTypeKind timestampKind = ((TimestampNanoType) type).shouldAdjustToUTC() ? OrcTypeKind.TIMESTAMP_INSTANT : OrcTypeKind.TIMESTAMP;
+                attributes = ImmutableMap.<String, String>builder()
+                        .putAll(attributes)
+                        .put(ICEBERG_TIMESTAMP_UNIT, ICEBERG_TIMESTAMP_UNIT_NANOS)
+                        .buildOrThrow();
+                yield ImmutableList.of(new OrcType(timestampKind, ImmutableList.of(), ImmutableList.of(), Optional.empty(), Optional.empty(), Optional.empty(), attributes));
+            }
             case STRING -> ImmutableList.of(new OrcType(OrcTypeKind.STRING, ImmutableList.of(), ImmutableList.of(), Optional.empty(), Optional.empty(), Optional.empty(), attributes));
             case FIXED, BINARY -> ImmutableList.of(new OrcType(OrcTypeKind.BINARY, ImmutableList.of(), ImmutableList.of(), Optional.empty(), Optional.empty(), Optional.empty(), attributes));
             case DECIMAL -> {
@@ -85,7 +100,8 @@ public final class OrcTypeConverter
                         .buildOrThrow();
                 yield ImmutableList.of(new OrcType(OrcTypeKind.BINARY, ImmutableList.of(), ImmutableList.of(), Optional.empty(), Optional.empty(), Optional.empty(), attributes));
             }
-            case VARIANT, GEOMETRY, GEOGRAPHY, UNKNOWN -> throw new TrinoException(NOT_SUPPORTED, "Unsupported Iceberg type: " + type);
+            case VARIANT -> toOrcVariantType(nextFieldTypeIndex, attributes);
+            case GEOMETRY, GEOGRAPHY, UNKNOWN -> throw new TrinoException(NOT_SUPPORTED, "Unsupported Iceberg type: " + type);
             case STRUCT -> toOrcStructType(nextFieldTypeIndex, (StructType) type, attributes);
             case LIST -> toOrcListType(nextFieldTypeIndex, (ListType) type, attributes);
             case MAP -> toOrcMapType(nextFieldTypeIndex, (MapType) type, attributes);
@@ -174,5 +190,48 @@ public final class OrcTypeConverter
                 .addAll(keyTypes)
                 .addAll(valueTypes)
                 .build();
+    }
+
+    private static List<OrcType> toOrcVariantType(int nextFieldTypeIndex, Map<String, String> attributes)
+    {
+        // Variant is stored as a struct with two binary fields: metadata and value
+        // The struct is marked with iceberg.variant-type=true to identify it as a variant
+        int metadataFieldIndex = nextFieldTypeIndex + 1;
+        int valueFieldIndex = nextFieldTypeIndex + 2;
+
+        Map<String, String> variantAttributes = ImmutableMap.<String, String>builder()
+                .putAll(attributes)
+                .put(ICEBERG_VARIANT_TYPE_KIND, "true")
+                .buildOrThrow();
+
+        OrcType metadataType = new OrcType(
+                OrcTypeKind.BINARY,
+                ImmutableList.of(),
+                ImmutableList.of(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                ImmutableMap.of(ORC_ICEBERG_REQUIRED_KEY, "true"));
+
+        OrcType valueType = new OrcType(
+                OrcTypeKind.BINARY,
+                ImmutableList.of(),
+                ImmutableList.of(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                ImmutableMap.of(ORC_ICEBERG_REQUIRED_KEY, "true"));
+
+        return ImmutableList.of(
+                new OrcType(
+                        OrcTypeKind.STRUCT,
+                        ImmutableList.of(new OrcColumnId(metadataFieldIndex), new OrcColumnId(valueFieldIndex)),
+                        ImmutableList.of("metadata", "value"),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        variantAttributes),
+                metadataType,
+                valueType);
     }
 }

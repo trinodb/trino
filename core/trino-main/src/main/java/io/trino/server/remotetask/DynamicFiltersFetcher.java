@@ -34,16 +34,16 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 
-import static com.google.common.net.HttpHeaders.CONTENT_TYPE;
 import static com.google.common.net.MediaType.JSON_UTF_8;
 import static com.google.common.util.concurrent.Futures.addCallback;
 import static io.airlift.http.client.FullJsonResponseHandler.createFullJsonResponseHandler;
+import static io.airlift.http.client.HeaderNames.CONTENT_TYPE;
 import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 import static io.airlift.http.client.Request.Builder.prepareGet;
 import static io.airlift.units.Duration.nanosSince;
 import static io.trino.execution.DynamicFiltersCollector.INITIAL_DYNAMIC_FILTERS_VERSION;
-import static io.trino.server.InternalHeaders.TRINO_CURRENT_VERSION;
-import static io.trino.server.InternalHeaders.TRINO_MAX_WAIT;
+import static io.trino.server.InternalHeaders.TRINO_CURRENT_VERSION_HEADER;
+import static io.trino.server.InternalHeaders.TRINO_MAX_WAIT_HEADER;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -159,8 +159,8 @@ class DynamicFiltersFetcher
         Request request = prepareGet()
                 .setUri(uriBuilderFrom(taskUri).appendPath("dynamicfilters").build())
                 .setHeader(CONTENT_TYPE, JSON_UTF_8.toString())
-                .setHeader(TRINO_CURRENT_VERSION, Long.toString(localDynamicFiltersVersion))
-                .setHeader(TRINO_MAX_WAIT, refreshMaxWait.toString())
+                .setHeader(TRINO_CURRENT_VERSION_HEADER, Long.toString(localDynamicFiltersVersion))
+                .setHeader(TRINO_MAX_WAIT_HEADER, refreshMaxWait.toString())
                 .setSpanBuilder(spanBuilderFactory.get())
                 .build();
 

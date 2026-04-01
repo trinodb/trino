@@ -13,18 +13,17 @@
  */
 package io.trino.hive.formats.esri;
 
-import com.esri.core.geometry.Geometry;
-import com.esri.core.geometry.GeometryEngine;
-import com.esri.core.geometry.MapGeometry;
-import com.esri.core.geometry.ogc.OGCGeometry;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonToken;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slices;
+import io.trino.geospatial.serde.JtsGeometrySerde;
 import io.trino.hive.formats.line.Column;
 import io.trino.plugin.base.type.DecodedTimestamp;
 import io.trino.spi.PageBuilder;
+import io.trino.spi.TrinoException;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.DecimalConversions;
@@ -34,12 +33,12 @@ import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
 import org.joda.time.DateTimeZone;
+import org.locationtech.jts.geom.Geometry;
+import org.locationtech.jts.io.ParseException;
+import org.locationtech.jts.io.geojson.GeoJsonReader;
 
 import java.io.IOException;
-import java.lang.invoke.MethodHandles;
-import java.lang.invoke.VarHandle;
 import java.math.BigDecimal;
-import java.nio.ByteOrder;
 import java.sql.Date;
 import java.sql.Timestamp;
 import java.time.Instant;
@@ -58,7 +57,9 @@ import static com.fasterxml.jackson.core.JsonToken.START_OBJECT;
 import static com.fasterxml.jackson.core.JsonToken.VALUE_NULL;
 import static com.fasterxml.jackson.core.JsonToken.VALUE_NUMBER_INT;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.hive.formats.esri.EsriDeserializer.Format.GEO_JSON;
 import static io.trino.plugin.base.type.TrinoTimestampEncoderFactory.createTimestampEncoder;
+import static io.trino.spi.StandardErrorCode.JSON_INPUT_CONVERSION_ERROR;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.Chars.truncateToLengthAndTrimSpaces;
@@ -85,9 +86,9 @@ import static java.util.Objects.requireNonNull;
 
 public final class EsriDeserializer
 {
-    private static final VarHandle INT_HANDLE_BIG_ENDIAN = MethodHandles.byteArrayViewVarHandle(int[].class, ByteOrder.BIG_ENDIAN);
     private static final String GEOMETRY_FIELD_NAME = "geometry";
     private static final String ATTRIBUTES_FIELD_NAME = "attributes";
+    private static final String PROPERTIES_FIELD_NAME = "properties";
     private static final DateTimeFormatter DATE_FORMATTER =
             DateTimeFormatter.ofPattern("yyyy-M-d").withZone(UTC);
     private static final List<DateTimeFormatter> TIMESTAMP_FORMATTERS = List.of(
@@ -101,14 +102,28 @@ public final class EsriDeserializer
     private final Map<String, Integer> columnIndex;
     private final List<Type> types;
     private final boolean[] fieldWritten;
+    private final Format format;
+    private GeoJsonReader reader;
+    private ObjectMapper mapper;
 
-    public EsriDeserializer(List<Column> columns)
+    public enum Format {
+        ESRI,
+        GEO_JSON
+    }
+
+    public EsriDeserializer(List<Column> columns, Format format)
     {
         this.columns = ImmutableList.copyOf(requireNonNull(columns, "columns is null"));
         this.types = columns.stream()
                 .map(Column::type)
                 .collect(toImmutableList());
         this.fieldWritten = new boolean[columns.size()];
+        this.format = format;
+
+        if (format == GEO_JSON) {
+            reader = new GeoJsonReader();
+            mapper = new ObjectMapper();
+        }
 
         for (Column column : columns) {
             validateSupportedType(column.type(), column.name());
@@ -144,6 +159,11 @@ public final class EsriDeserializer
             throw invalidJson("start of object expected");
         }
 
+        String attributesFieldName = switch (format) {
+            case ESRI -> ATTRIBUTES_FIELD_NAME;
+            case GEO_JSON -> PROPERTIES_FIELD_NAME;
+        };
+
         Arrays.fill(fieldWritten, false);
         while (nextObjectField(parser)) {
             String fieldName = parser.currentName();
@@ -153,7 +173,7 @@ public final class EsriDeserializer
             if (GEOMETRY_FIELD_NAME.equals(fieldName)) {
                 parseGeometry(parser, pageBuilder);
             }
-            else if (ATTRIBUTES_FIELD_NAME.equals(fieldName)) {
+            else if (attributesFieldName.equals(fieldName)) {
                 parseAttributes(parser, pageBuilder);
             }
             else {
@@ -194,37 +214,25 @@ public final class EsriDeserializer
             return;
         }
 
-        MapGeometry mapGeometry = GeometryEngine.jsonToGeometry(parser);
-        OGCGeometry ogcGeometry = OGCGeometry.createFromEsriGeometry(mapGeometry.getGeometry(), mapGeometry.getSpatialReference());
-        Geometry geometry = ogcGeometry.getEsriGeometry();
+        Geometry geometry = switch (format) {
+            case ESRI -> EsriJsonParser.parseGeometry(parser);
+            case GEO_JSON -> {
+                String json = mapper.writeValueAsString(mapper.readTree(parser));
+                try {
+                    yield reader.read(json);
+                }
+                catch (ParseException e) {
+                    throw new TrinoException(JSON_INPUT_CONVERSION_ERROR, e);
+                }
+            }
+        };
+
         if (geometry == null) {
             throw new IllegalArgumentException("Could not parse geometry");
         }
 
-        byte[] shape = GeometryEngine.geometryToEsriShape(geometry);
-        if (shape == null) {
-            throw new IllegalArgumentException("Could not serialize geometry shape");
-        }
-
-        byte[] shapeHeader = new byte[4 + 1 + shape.length];
-        // write the Spatial Reference System Identifier (a.k.a, the well-known ID)
-        INT_HANDLE_BIG_ENDIAN.set(shapeHeader, 0, ogcGeometry.SRID());
-        // write the geometry type
-        OGCType ogcType = switch (ogcGeometry.geometryType()) {
-            case "Point" -> OGCType.ST_POINT;
-            case "LineString" -> OGCType.ST_LINESTRING;
-            case "Polygon" -> OGCType.ST_POLYGON;
-            case "MultiPoint" -> OGCType.ST_MULTIPOINT;
-            case "MultiLineString" -> OGCType.ST_MULTILINESTRING;
-            case "MultiPolygon" -> OGCType.ST_MULTIPOLYGON;
-            case null, default -> OGCType.UNKNOWN;
-        };
-        shapeHeader[4] = ogcType.getIndex();
-        // write the serialized shape
-        System.arraycopy(shape, 0, shapeHeader, 5, shape.length);
-
-        // write the shape to the page
-        VARBINARY.writeSlice(getBlockBuilderForWrite(pageBuilder, geometryColumn), Slices.wrappedBuffer(shapeHeader));
+        // Serialize geometry to EWKB format
+        VARBINARY.writeSlice(getBlockBuilderForWrite(pageBuilder, geometryColumn), JtsGeometrySerde.serialize(geometry));
     }
 
     private void parseAttributes(JsonParser parser, PageBuilder pageBuilder)

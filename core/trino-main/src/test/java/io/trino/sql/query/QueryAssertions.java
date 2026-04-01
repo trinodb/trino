@@ -17,6 +17,7 @@ import com.google.common.base.Joiner;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.errorprone.annotations.CheckReturnValue;
 import io.trino.Session;
 import io.trino.cost.StatsAndCosts;
@@ -55,7 +56,6 @@ import org.assertj.core.description.Description;
 import org.assertj.core.description.TextDescription;
 import org.assertj.core.presentation.Representation;
 import org.assertj.core.presentation.StandardRepresentation;
-import org.assertj.core.util.CanIgnoreReturnValue;
 import org.intellij.lang.annotations.Language;
 
 import java.io.Closeable;

@@ -18,7 +18,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
 
-import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 
 import static com.google.common.io.BaseEncoding.base16;
 import static io.trino.spi.StandardErrorCode.JSON_INPUT_CONVERSION_ERROR;
@@ -174,7 +174,7 @@ public class TestJsonQueryFunction
                 "SELECT json_query(" + varbinaryLiteral + " FORMAT JSON ENCODING UTF16, 'lax $[1]')"))
                 .matches("VALUES VARCHAR '\"b\"'");
 
-        bytes = INPUT.getBytes(Charset.forName("UTF-32LE"));
+        bytes = INPUT.getBytes(StandardCharsets.UTF_32LE);
         varbinaryLiteral = "X'" + base16().encode(bytes) + "'";
 
         assertThat(assertions.query(
@@ -322,7 +322,7 @@ public class TestJsonQueryFunction
                 "SELECT json_query('" + INPUT + "', 'lax $' RETURNING varbinary FORMAT JSON ENCODING UTF16)"))
                 .matches("VALUES " + varbinaryLiteral);
 
-        bytes = output.getBytes(Charset.forName("UTF_32LE"));
+        bytes = output.getBytes(StandardCharsets.UTF_32LE);
         varbinaryLiteral = "X'" + base16().encode(bytes) + "'";
 
         assertThat(assertions.query(

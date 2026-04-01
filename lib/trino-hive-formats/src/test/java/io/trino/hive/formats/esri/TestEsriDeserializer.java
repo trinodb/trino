@@ -13,9 +13,6 @@
  */
 package io.trino.hive.formats.esri;
 
-import com.esri.core.geometry.Geometry;
-import com.esri.core.geometry.GeometryEngine;
-import com.esri.core.geometry.Point;
 import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonParseException;
 import com.fasterxml.jackson.core.JsonParser;
@@ -27,11 +24,16 @@ import io.trino.spi.block.Block;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.DecimalType;
 import org.junit.jupiter.api.Test;
+import org.locationtech.jts.geom.Geometry;
+import org.locationtech.jts.io.ParseException;
+import org.locationtech.jts.io.WKBReader;
+import org.locationtech.jts.io.WKTReader;
 
 import java.io.IOException;
 import java.util.List;
 
 import static com.fasterxml.jackson.core.JsonToken.START_OBJECT;
+import static io.trino.hive.formats.esri.EsriDeserializer.Format.ESRI;
 import static io.trino.plugin.base.util.JsonUtils.jsonFactory;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
@@ -104,7 +106,7 @@ public class TestEsriDeserializer
         assertThat(DOUBLE.getDouble(page.getBlock(3), 0)).isEqualTo(123.45);
         assertThat(DATE.getLong(page.getBlock(4), 0)).isEqualTo(20150);
         assertThat(TIMESTAMP_MILLIS.getLong(page.getBlock(5), 0)).isEqualTo(1741034025839000L);
-        assertGeometry(page, new Point(10, 20));
+        assertGeometry(page, "POINT (10 20)");
         assertThat(INTEGER.getLong(page.getBlock(7), 0)).isEqualTo(42);
 
         DecimalType decimalType = DecimalType.createDecimalType(10, 2);
@@ -502,7 +504,79 @@ public class TestEsriDeserializer
         """;
 
         Page page = parse(json);
-        assertGeometry(page, new Point(10, 20));
+        assertGeometry(page, "POINT (10 20)");
+    }
+
+    @Test
+    public void testDeserializePointWithCoercedStringCoordinates()
+            throws IOException
+    {
+        String json =
+        """
+        {
+            "geometry": {
+                "x": "not-a-number",
+                "y": 2
+            }
+        }
+        """;
+
+        Page page = parse(json);
+        assertGeometry(page, "POINT (0 2)");
+    }
+
+    @Test
+    public void testDeserializePointWithBooleanCoordinates()
+            throws IOException
+    {
+        String json =
+        """
+        {
+            "geometry": {
+                "x": true,
+                "y": false
+            }
+        }
+        """;
+
+        Page page = parse(json);
+        assertGeometry(page, "POINT (1 0)");
+    }
+
+    @Test
+    public void testDeserializePointWithNaNCoordinate()
+            throws IOException
+    {
+        String json =
+        """
+        {
+            "geometry": {
+                "x": "NaN",
+                "y": 2
+            }
+        }
+        """;
+
+        Page page = parse(json);
+        assertGeometry(page, "POINT EMPTY");
+    }
+
+    @Test
+    public void testDeserializePointWithArrayCoordinateFails()
+    {
+        String json =
+        """
+        {
+            "geometry": {
+                "x": [],
+                "y": 2
+            }
+        }
+        """;
+
+        assertThatThrownBy(() -> parse(json))
+                .isInstanceOf(IOException.class)
+                .hasMessage("Expected number, got START_ARRAY");
     }
 
     @Test
@@ -524,7 +598,111 @@ public class TestEsriDeserializer
         """;
 
         Page page = parse(json);
-        assertGeometry(page, new Point(10, 20));
+        assertGeometry(page, "POINT (10 20)");
+    }
+
+    @Test
+    public void testGeometrySpatialReferenceWkid()
+            throws IOException
+    {
+        String json =
+        """
+        {
+            "geometry": {
+                "x": 10,
+                "y": 20,
+                "spatialReference": {
+                    "wkid": 4326
+                }
+            }
+        }
+        """;
+
+        Page page = parse(json);
+        assertGeometry(page, "POINT (10 20)", 4326);
+    }
+
+    @Test
+    public void testGeometrySpatialReferencePrefersLatestWkid()
+            throws IOException
+    {
+        String json =
+        """
+        {
+            "geometry": {
+                "x": 10,
+                "y": 20,
+                "spatialReference": {
+                    "wkid": 102100,
+                    "latestWkid": 3857
+                }
+            }
+        }
+        """;
+
+        Page page = parse(json);
+        assertGeometry(page, "POINT (10 20)", 3857);
+    }
+
+    @Test
+    public void testDeserializePolygonWithCounterClockwiseRings()
+            throws IOException
+    {
+        String json =
+        """
+        {
+            "geometry": {
+                "rings": [
+                    [[0, 0], [10, 0], [10, 10], [0, 10], [0, 0]],
+                    [[20, 0], [30, 0], [30, 10], [20, 10], [20, 0]]
+                ]
+            }
+        }
+        """;
+
+        Page page = parse(json);
+        assertGeometry(page, "MULTIPOLYGON (((0 0, 10 0, 10 10, 0 10, 0 0)), ((20 0, 30 0, 30 10, 20 10, 20 0)))");
+    }
+
+    @Test
+    public void testDeserializePolygonWithLeadingHoleOrientationRing()
+            throws IOException
+    {
+        String json =
+        """
+        {
+            "geometry": {
+                "rings": [
+                    [[2, 2], [8, 2], [8, 8], [2, 8], [2, 2]],
+                    [[0, 0], [0, 10], [10, 10], [10, 0], [0, 0]]
+                ]
+            }
+        }
+        """;
+
+        Page page = parse(json);
+        assertGeometry(page, "POLYGON ((2 2, 8 2, 8 8, 2 8, 2 2), (0 0, 0 10, 10 10, 10 0, 0 0))");
+    }
+
+    @Test
+    public void testDeserializePolygonWithMixedRingGroups()
+            throws IOException
+    {
+        String json =
+        """
+        {
+            "geometry": {
+                "rings": [
+                    [[2, 2], [8, 2], [8, 8], [2, 8], [2, 2]],
+                    [[20, 20], [30, 20], [30, 30], [20, 30], [20, 20]],
+                    [[0, 0], [0, 10], [10, 10], [10, 0], [0, 0]]
+                ]
+            }
+        }
+        """;
+
+        Page page = parse(json);
+        assertGeometry(page, "MULTIPOLYGON (((2 2, 8 2, 8 8, 2 8, 2 2)), ((20 20, 30 20, 30 30, 20 30, 20 20), (0 0, 0 10, 10 10, 10 0, 0 0)))");
     }
 
     @Test
@@ -572,7 +750,7 @@ public class TestEsriDeserializer
         """;
 
         Page page = parse(json);
-        assertGeometry(page, new Point(5, 7));
+        assertGeometry(page, "POINT (5 7)");
     }
 
     @Test
@@ -635,7 +813,7 @@ public class TestEsriDeserializer
         JsonParser jsonParser = JSON_FACTORY.createParser(json);
         assertThat(jsonParser.nextToken()).isEqualTo(START_OBJECT);
 
-        EsriDeserializer deserializer = new EsriDeserializer(columns);
+        EsriDeserializer deserializer = new EsriDeserializer(columns, ESRI);
         PageBuilder pageBuilder = new PageBuilder(deserializer.getTypes());
         deserializer.deserialize(pageBuilder, jsonParser);
         Page page = pageBuilder.build();
@@ -643,31 +821,29 @@ public class TestEsriDeserializer
         return page;
     }
 
-    private static void assertGeometry(Page page, Geometry expected)
+    static void assertGeometry(Page page, String expectedWkt)
     {
-        if (expected == null) {
+        assertGeometry(page, expectedWkt, 0);
+    }
+
+    static void assertGeometry(Page page, String expectedWkt, int expectedSrid)
+    {
+        if (expectedWkt == null) {
             assertThat(page.getBlock(6).isNull(0)).isTrue();
             return;
         }
 
         assertThat(page.getBlock(6).isNull(0)).isFalse();
 
-        byte[] actual = VARBINARY.getSlice(page.getBlock(6), 0).getBytes();
-
-        byte[] expectedShape = GeometryEngine.geometryToEsriShape(expected);
-        byte[] expectedBytes = new byte[4 + 1 + expectedShape.length];
-
-        OGCType ogcType = switch (expected.getType()) {
-            case Point -> OGCType.ST_POINT;
-            case Line -> OGCType.ST_LINESTRING;
-            case Polygon -> OGCType.ST_POLYGON;
-            case MultiPoint -> OGCType.ST_MULTIPOINT;
-            case Polyline -> OGCType.ST_MULTILINESTRING;
-            default -> OGCType.UNKNOWN;
-        };
-        expectedBytes[4] = ogcType.getIndex();
-        System.arraycopy(expectedShape, 0, expectedBytes, 5, expectedShape.length);
-
-        assertThat(actual).isEqualTo(expectedBytes);
+        try {
+            byte[] actualWkb = VARBINARY.getSlice(page.getBlock(6), 0).getBytes();
+            Geometry actualGeometry = new WKBReader().read(actualWkb);
+            Geometry expectedGeometry = new WKTReader().read(expectedWkt);
+            assertThat(actualGeometry.equalsExact(expectedGeometry)).isTrue();
+            assertThat(actualGeometry.getSRID()).isEqualTo(expectedSrid);
+        }
+        catch (ParseException e) {
+            throw new RuntimeException(e);
+        }
     }
 }

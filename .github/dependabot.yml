@@ -25,6 +25,9 @@ updates:
       exclude:
         - io.airlift:*
         - io.trino:*
+    ignore:
+      # TODO remove once https://github.com/aws/amazon-redshift-jdbc-driver/issues/148 has been addressed
+      - dependency-name: "com.amazon.redshift:redshift-jdbc42"
   - package-ecosystem: "npm"
     directory: "/core/trino-web-ui/src/main/resources/webapp-preview"
     schedule:

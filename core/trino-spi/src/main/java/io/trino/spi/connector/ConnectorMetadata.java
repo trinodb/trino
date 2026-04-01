@@ -59,10 +59,12 @@ import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.connector.SaveMode.REPLACE;
 import static io.trino.spi.expression.Constant.FALSE;
+import static java.lang.String.format;
 import static java.util.Collections.emptyList;
 import static java.util.Collections.emptyMap;
 import static java.util.Locale.ENGLISH;
 import static java.util.function.Function.identity;
+import static java.util.function.Predicate.not;
 import static java.util.stream.Collectors.collectingAndThen;
 import static java.util.stream.Collectors.toMap;
 import static java.util.stream.Collectors.toUnmodifiableSet;
@@ -137,6 +139,28 @@ public interface ConnectorMetadata
             RetryMode retryMode)
     {
         throw new TrinoException(NOT_SUPPORTED, "This connector does not support table procedures");
+    }
+
+    /**
+     * Returns source table columns required to execute a table procedure.
+     * <p>
+     * Connectors may override this to return the exact source-column set needed for the procedure.
+     * The default implementation returns handles for all non-hidden columns.
+     */
+    default Set<ColumnHandle> getColumnHandlesForTableExecute(ConnectorSession connectorSession, ConnectorTableHandle tableHandle, ConnectorTableExecuteHandle connectorTableExecuteHandle)
+    {
+        Map<String, ColumnHandle> columnHandles = getColumnHandles(connectorSession, tableHandle);
+        return getTableMetadata(connectorSession, tableHandle).getColumns().stream()
+                .filter(not(ColumnMetadata::isHidden))
+                .map(ColumnMetadata::getName)
+                .map(columnName -> {
+                    ColumnHandle columnHandle = columnHandles.get(columnName);
+                    if (columnHandle == null) {
+                        throw new TrinoException(GENERIC_INTERNAL_ERROR, format("No handle found for column '%s' in table execute", columnName));
+                    }
+                    return columnHandle;
+                })
+                .collect(toUnmodifiableSet());
     }
 
     default Optional<ConnectorTableLayout> getLayoutForTableExecute(ConnectorSession session, ConnectorTableExecuteHandle tableExecuteHandle)
@@ -865,7 +889,8 @@ public interface ConnectorMetadata
             Collection<ComputedStatistics> computedStatistics,
             List<ConnectorTableHandle> sourceTableHandles,
             boolean hasForeignSourceTables,
-            boolean hasSourceTableFunctions)
+            boolean hasSourceTableFunctions,
+            boolean hasNonDeterministicFunctions)
     {
         throw new TrinoException(GENERIC_INTERNAL_ERROR, "ConnectorMetadata beginRefreshMaterializedView() is implemented without finishRefreshMaterializedView()");
     }
@@ -1827,5 +1852,29 @@ public interface ConnectorMetadata
     default WriterScalingOptions getInsertWriterScalingOptions(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         return WriterScalingOptions.DISABLED;
+    }
+
+    /**
+     * Returns credentials that can be used in {@link ConnectorPageSourceProvider}.
+     */
+    default Optional<ConnectorTableCredentials> getTableCredentials(ConnectorSession session, ConnectorTableHandle tableHandle)
+    {
+        return Optional.empty();
+    }
+
+    /**
+     * Returns credentials that can be used in {@link ConnectorPageSinkProvider}.
+     */
+    default Optional<ConnectorTableCredentials> getTableCredentials(ConnectorSession session, ConnectorWritableTableHandle tableHandle)
+    {
+        return Optional.empty();
+    }
+
+    /**
+     * Returns {@link ConnectorTableCredentials} for specified {@link ConnectorTableFunctionHandle} or {@link Optional#empty} if there are no credentials.
+     */
+    default Optional<ConnectorTableCredentials> getTableCredentials(ConnectorSession session, ConnectorTableFunctionHandle tableFunctionHandle)
+    {
+        return Optional.empty();
     }
 }

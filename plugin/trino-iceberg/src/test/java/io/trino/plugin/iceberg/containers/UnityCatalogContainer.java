@@ -43,6 +43,7 @@ import java.util.Arrays;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
+import static io.airlift.http.client.HeaderNames.CONTENT_TYPE;
 import static io.airlift.http.client.StaticBodyGenerator.createStaticBodyGenerator;
 import static io.airlift.http.client.StringResponseHandler.createStringResponseHandler;
 import static java.lang.String.format;
@@ -164,7 +165,7 @@ public class UnityCatalogContainer
                 "}";
         Request request = Request.Builder.preparePost()
                 .setUri(URI.create(uri() + "/tables"))
-                .setHeader("Content-Type", "application/json")
+                .setHeader(CONTENT_TYPE, "application/json")
                 .setBodyGenerator(createStaticBodyGenerator(body, UTF_8))
                 .build();
         execute(request);

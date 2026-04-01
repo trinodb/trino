@@ -20,15 +20,13 @@ import io.trino.Session;
 import io.trino.connector.MockConnectorFactory;
 import io.trino.connector.MockConnectorPlugin;
 import io.trino.connector.MockConnectorTableHandle;
-import io.trino.cost.StatsProvider;
-import io.trino.metadata.Metadata;
 import io.trino.plugin.tpch.TpchPartitioningHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorTableLayout;
 import io.trino.sql.planner.assertions.BasePlanTest;
+import io.trino.sql.planner.assertions.MatchContext;
 import io.trino.sql.planner.assertions.MatchResult;
 import io.trino.sql.planner.assertions.Matcher;
-import io.trino.sql.planner.assertions.SymbolAliases;
 import io.trino.sql.planner.plan.ExchangeNode;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.TableWriterNode;
@@ -242,7 +240,7 @@ public class TestInsert
             }
 
             @Override
-            public MatchResult detailMatches(PlanNode node, StatsProvider stats, Session session, Metadata metadata, SymbolAliases symbolAliases)
+            public MatchResult detailMatches(PlanNode node, MatchContext context)
             {
                 return new MatchResult(!(((ExchangeNode) node).getPartitioningScheme().getPartitioning().getHandle().getConnectorHandle() instanceof SystemPartitioningHandle));
             }

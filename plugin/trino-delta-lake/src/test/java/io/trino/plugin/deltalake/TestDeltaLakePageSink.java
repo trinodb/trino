@@ -196,7 +196,7 @@ public class TestDeltaLakePageSink
                 TESTING_TYPE_MANAGER,
                 new NodeVersion("test-version"));
 
-        return provider.createPageSink(transaction, SESSION, tableHandle, TESTING_PAGE_SINK_ID);
+        return provider.createPageSink(transaction, SESSION, tableHandle, Optional.empty(), TESTING_PAGE_SINK_ID);
     }
 
     private static List<DeltaLakeColumnHandle> getColumnHandles()

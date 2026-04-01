@@ -34,6 +34,8 @@ import java.util.Optional;
 
 import static io.trino.spi.connector.ConnectorMergeSink.DELETE_OPERATION_NUMBER;
 import static io.trino.spi.connector.ConnectorMergeSink.INSERT_OPERATION_NUMBER;
+import static io.trino.spi.connector.ConnectorMergeSink.UPDATE_DELETE_OPERATION_NUMBER;
+import static io.trino.spi.connector.ConnectorMergeSink.UPDATE_INSERT_OPERATION_NUMBER;
 import static io.trino.spi.connector.ConnectorMergeSink.UPDATE_OPERATION_NUMBER;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
@@ -124,7 +126,22 @@ public class TestDeleteAndInsertMergeProcessor
         assertThat(outputPage.getPositionCount()).isEqualTo(8);
         RowBlock rowIdBlock = (RowBlock) outputPage.getBlock(5);
         assertThat(rowIdBlock.getPositionCount()).isEqualTo(8);
-        // Show that the first row has address "Arches"
+
+        Block operationBlock = outputPage.getBlock(3);
+        for (int position = 0; position < outputPage.getPositionCount(); position++) {
+            byte operation = TINYINT.getByte(operationBlock, position);
+            if (operation == INSERT_OPERATION_NUMBER) {
+                assertThat(rowIdBlock.isNull(position)).isTrue();
+            }
+            else if (operation == UPDATE_INSERT_OPERATION_NUMBER) {
+                assertThat(rowIdBlock.isNull(position)).isFalse();
+                assertThat(position).isGreaterThan(0);
+                assertThat(TINYINT.getByte(operationBlock, position - 1)).isEqualTo((byte) UPDATE_DELETE_OPERATION_NUMBER);
+                assertThat(readRowId(rowIdBlock, position)).isEqualTo(readRowId(rowIdBlock, position - 1));
+            }
+        }
+
+        // Show that the first update row has address "Arches/Arches"
         assertThat(getString(outputPage.getBlock(2), 1)).isEqualTo("Arches/Arches");
     }
 
@@ -189,6 +206,12 @@ Page[positions=8 0:Dict[VarWidth["Aaron", "Dave", "Dave", "Ed", "Aaron", "Carol"
     private String getString(Block block, int position)
     {
         return VARBINARY.getSlice(block, position).toString(Charset.defaultCharset());
+    }
+
+    private static long readRowId(RowBlock rowIdBlock, int position)
+    {
+        SqlRow row = rowIdBlock.getRow(position);
+        return BIGINT.getLong(row.getRawFieldBlock(1), row.getRawIndex());
     }
 
     private LongArrayBlock makeLongArrayBlock(long... elements)

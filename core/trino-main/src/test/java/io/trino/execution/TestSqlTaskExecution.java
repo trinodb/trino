@@ -15,6 +15,7 @@ package io.trino.execution;
 
 import com.google.common.base.Ticker;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
@@ -209,7 +210,7 @@ public class TestSqlTaskExecution
                 driverTimeoutExecutor,
                 DataSize.of(1, MEGABYTE),
                 new SpillSpaceTracker(DataSize.of(1, GIGABYTE)));
-        return queryContext.addTaskContext(taskStateMachine, TEST_SESSION, () -> {}, false, false);
+        return queryContext.addTaskContext(taskStateMachine, ImmutableMap.of(), TEST_SESSION, () -> {}, false, false);
     }
 
     private PartitionedOutputBuffer newTestingOutputBuffer(ScheduledExecutorService taskNotificationExecutor)

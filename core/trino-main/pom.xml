@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>480-SNAPSHOT</version>
+        <version>481-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
@@ -23,11 +23,6 @@
         <dependency>
             <groupId>com.clearspring.analytics</groupId>
             <artifactId>stream</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>com.esri.geometry</groupId>
-            <artifactId>esri-geometry-api</artifactId>
         </dependency>
 
         <dependency>

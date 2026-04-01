@@ -133,6 +133,10 @@ public class TestHivePageSink
                 // ESRI format is readonly
                 continue;
             }
+            if (format == HiveStorageFormat.ESRI_GEO_JSON) {
+                // ESRI_GEO_JSON format is readonly
+                continue;
+            }
             if (format == HiveStorageFormat.SEQUENCEFILE_PROTOBUF) {
                 // SEQUENCEFILE_PROTOBUF format is readonly
                 continue;
@@ -413,7 +417,7 @@ public class TestHivePageSink
                 TESTING_TYPE_MANAGER,
                 config,
                 getDefaultHivePageSourceFactories(fileSystemFactory, config));
-        return provider.createPageSource(transaction, getHiveSession(config), split, table, ImmutableList.copyOf(getColumnHandles()), DynamicFilter.EMPTY);
+        return provider.createPageSource(transaction, getHiveSession(config), split, table, Optional.empty(), ImmutableList.copyOf(getColumnHandles()), DynamicFilter.EMPTY);
     }
 
     private static ConnectorPageSink createPageSink(
@@ -480,7 +484,7 @@ public class TestHivePageSink
                 new HiveLocationService(HDFS_FILE_SYSTEM_FACTORY, config),
                 partitionUpdateCodec,
                 stats);
-        return provider.createPageSink(transaction, getHiveSession(config), handle, TESTING_PAGE_SINK_ID);
+        return provider.createPageSink(transaction, getHiveSession(config), handle, Optional.empty(), TESTING_PAGE_SINK_ID);
     }
 
     private static List<HiveColumnHandle> getColumnHandles()

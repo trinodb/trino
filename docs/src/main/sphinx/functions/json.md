@@ -1825,6 +1825,9 @@ and any interior quotes will not be escaped).
 
 We recommend against using this function. It cannot be fixed without
 impacting existing usages and may be removed in a future release.
+
+Use {ref}`json_query<json-query>` instead with JSONPath array indexing
+syntax, e.g., `json_query(json_array, 'lax $[0]')`.
 :::
 
 Returns the element at the specified index into the `json_array`.

@@ -23,8 +23,11 @@ import io.trino.tests.product.launcher.env.common.StandardMultinode;
 import io.trino.tests.product.launcher.env.common.TestsEnvironment;
 import io.trino.tests.product.launcher.testcontainers.PortBinder;
 import org.testcontainers.containers.startupcheck.IsRunningStartupCheckStrategy;
+import org.testcontainers.containers.wait.strategy.Wait;
+import org.testcontainers.containers.wait.strategy.WaitStrategy;
 
-import static io.trino.tests.product.launcher.docker.ContainerUtil.forSelectedPorts;
+import java.time.Duration;
+
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.configureTempto;
 import static java.util.Objects.requireNonNull;
 import static org.testcontainers.utility.MountableFile.forHostPath;
@@ -57,11 +60,33 @@ public class EnvMultinodeExasol
     private DockerContainer createExasol()
     {
         DockerContainer container = new DockerContainer("exadockerci4/docker-db:2025.1.8_dev_java_slc_only", "exasol") //Test container tailored to reduce used disk space and solve CI disk space pressure issue.
-                .withStartupCheckStrategy(new IsRunningStartupCheckStrategy())
-                .waitingFor(forSelectedPorts(EXASOL_PORT))
+                .withStartupCheckStrategy(new IsRunningStartupCheckStrategy().withTimeout(Duration.ofSeconds(10)))
+                .waitingFor(exasolReadyViaCurl())
                 .withEnv("COSLWD_ENABLED", "1"); //Disables rsyslogd, cleans up log clutter and speeds up database startup
         container.setPrivilegedMode(true);
         portBinder.exposePort(container, EXASOL_PORT);
         return container;
     }
+
+    private static WaitStrategy exasolReadyViaCurl()
+    {
+        String command = """
+            bash -c '
+            while true; do
+              resp=$(curl -sk --max-time 5 https://localhost:%d/ 2>/dev/null || true)
+              if [ -n "$resp" ] && (
+                   echo "$resp" | grep -q "status" ||
+                   echo "$resp" | grep -q "WebSocket" ||
+                   echo "$resp" | grep -q "error"
+                 ); then
+                exit 0
+              fi
+              sleep 0.5
+            done'
+            """.formatted(EXASOL_PORT);
+
+        return Wait.forSuccessfulCommand(command)
+                .withStartupTimeout(Duration.ofMinutes(5));
+    }
+
 }

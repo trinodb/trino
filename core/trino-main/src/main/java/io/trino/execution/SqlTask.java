@@ -42,6 +42,7 @@ import io.trino.operator.PipelineContext;
 import io.trino.operator.PipelineStatus;
 import io.trino.operator.TaskContext;
 import io.trino.operator.TaskStats;
+import io.trino.spi.connector.ConnectorTableCredentials;
 import io.trino.spi.predicate.Domain;
 import io.trino.sql.planner.PlanFragment;
 import io.trino.sql.planner.plan.DynamicFilterId;
@@ -510,6 +511,7 @@ public class SqlTask
             Session session,
             Span stageSpan,
             Optional<PlanFragment> fragment,
+            Map<PlanNodeId, ConnectorTableCredentials> tableCredentials,
             List<SplitAssignment> splitAssignments,
             OutputBuffers outputBuffers,
             Map<DynamicFilterId, Domain> dynamicFilterDomains,
@@ -533,7 +535,7 @@ public class SqlTask
             SqlTaskExecution taskExecution = taskHolder.getTaskExecution();
             if (taskExecution == null) {
                 checkState(fragment.isPresent(), "fragment must be present");
-                taskExecution = tryCreateSqlTaskExecution(session, stageSpan, fragment.get());
+                taskExecution = tryCreateSqlTaskExecution(session, stageSpan, fragment.get(), tableCredentials);
             }
             // taskExecution can still be null if the creation was skipped
             if (taskExecution != null) {
@@ -556,7 +558,7 @@ public class SqlTask
     }
 
     @Nullable
-    private SqlTaskExecution tryCreateSqlTaskExecution(Session session, Span stageSpan, PlanFragment fragment)
+    private SqlTaskExecution tryCreateSqlTaskExecution(Session session, Span stageSpan, PlanFragment fragment, Map<PlanNodeId, ConnectorTableCredentials> tableCredentials)
     {
         SqlTaskExecution execution;
         synchronized (taskHolderLock) {
@@ -589,6 +591,7 @@ public class SqlTask
                     taskStateMachine,
                     outputBuffer,
                     fragment,
+                    tableCredentials,
                     this::notifyStatusChanged);
             needsPlan.set(false);
             execution.start();

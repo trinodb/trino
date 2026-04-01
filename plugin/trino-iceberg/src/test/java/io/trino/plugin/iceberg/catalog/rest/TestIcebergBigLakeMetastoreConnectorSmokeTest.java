@@ -229,13 +229,6 @@ final class TestIcebergBigLakeMetastoreConnectorSmokeTest
     }
 
     @Test
-    @Override // TODO (https://github.com/trinodb/trino/issues/27679) Enable this test once Google fixes a bug. January 2026 release will contain the fix.
-    public void testRegisterTableWithComments()
-    {
-        abort("skipped");
-    }
-
-    @Test
     @Override // TODO Enable once timeout issue is fixed
     public void testDeleteRowsConcurrently()
     {
@@ -243,7 +236,7 @@ final class TestIcebergBigLakeMetastoreConnectorSmokeTest
     }
 
     @Test
-    @Override // Override because BigLake metastore requires table location to start with the prefix with the table name without following spaces
+    @Override // Override because BigLake metastore doesn't allow changing a table location
     public void testCreateTableWithTrailingSpaceInLocation()
     {
         String tableName = "test_create_table_with_trailing_space_" + randomNameSuffix();
@@ -251,8 +244,8 @@ final class TestIcebergBigLakeMetastoreConnectorSmokeTest
         String tableLocationWithTrailingSpace = tableLocationWithoutTrailingSpace + " ";
 
         assertThat(query(format("CREATE TABLE %s WITH (location = '%s') AS SELECT 1 AS a, 'INDIA' AS b, true AS c", tableName, tableLocationWithTrailingSpace))).failure()
-                .hasMessage("Failed to create transaction")
-                .hasStackTraceContaining("Malformed request: The table `location` property must point to a location in the catalog.");
+                .hasMessageStartingWith("Failed to commit the transaction during insert")
+                .hasMessageContaining("Malformed request: Table location is immutable");
     }
 
     @Test
@@ -261,16 +254,16 @@ final class TestIcebergBigLakeMetastoreConnectorSmokeTest
     {
         assertThatThrownBy(super::testRegisterTableWithDifferentTableName)
                 .hasMessageContaining("Failed to register table")
-                .hasStackTraceContaining("does not start with the expected prefix");
+                .hasStackTraceContaining("Malformed request: Invalid metadata location");
     }
 
     @Test
     @Override // BigLake metastore requires table location to start with the prefix with the table name
     public void testRegisterTableWithTrailingSpaceInLocation()
     {
-        assertThatThrownBy(super::testRegisterTableWithDifferentTableName)
-                .hasMessageContaining("Failed to register table")
-                .hasStackTraceContaining("does not start with the expected prefix");
+        assertThatThrownBy(super::testRegisterTableWithTrailingSpaceInLocation)
+                .hasMessageMatching("Expected query .* to succeed: CREATE TABLE.*")
+                .hasStackTraceContaining("Malformed request: Table location is immutable");
     }
 
     @Test

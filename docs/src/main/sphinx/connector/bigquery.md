@@ -189,6 +189,13 @@ a few caveats:
   - Duration for which metadata retrieved from BigQuery is cached and reused.
     Set to `0ms` to disable the cache.
   - `0ms`
+* - `bigquery.metadata.parallelism`
+  - The number of parallel metadata enumeration calls to BigQuery.
+    Must be between `1` and `32`.
+  - Minimum of the number of available CPUs and `32`
+* - `bigquery.metadata-page-size`
+  - The number of metadata entries retrieved per API request.
+  - `1000`
 * - `bigquery.max-read-rows-retries`
   - The number of retries in case of retryable server issues.
   - `3`
@@ -208,6 +215,14 @@ a few caveats:
 * - `bigquery.query-results-cache.enabled`
   - Enable [query results cache](https://cloud.google.com/bigquery/docs/cached-results).
   - `false`
+* - `bigquery.job.label-name`
+  - Adds a label with the given name to the BigQuery job.
+  -
+* - `bigquery.job.label-format`
+  - Value format for the label specified by `bigquery.job.label-name`. May
+    consist of letters, digits, underscores, hyphens, commas, spaces, equal signs, and
+    predefined values `$QUERY_ID`, `$SOURCE`, `$USER`, and `$TRACE_TOKEN`.
+  -
 * - `bigquery.arrow-serialization.enabled`
   - Enable using Apache Arrow serialization when reading data from BigQuery.
     Read this [section](bigquery-arrow-serialization-support) before using this feature.
@@ -215,6 +230,9 @@ a few caveats:
 * - `bigquery.arrow-serialization.max-allocation`
   - The maximum amount of memory the Apache Arrow buffer allocator is allowed to use.
   - `100MB`
+* - `bigquery.projection-pushdown-enabled`
+  - Enable dereference push down for `ROW` type.
+  - `true`
 * - `bigquery.max-parallelism`
   - The max number of partitions to split the data into. Reduce this number if
     the default parallelism (number of workers x 3) is too high.

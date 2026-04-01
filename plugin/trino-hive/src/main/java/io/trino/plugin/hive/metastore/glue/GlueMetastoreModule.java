@@ -44,6 +44,7 @@ import software.amazon.awssdk.retries.api.BackoffStrategy;
 import software.amazon.awssdk.services.glue.GlueClient;
 import software.amazon.awssdk.services.glue.GlueClientBuilder;
 import software.amazon.awssdk.services.glue.model.ConcurrentModificationException;
+import software.amazon.awssdk.services.glue.model.ThrottlingException;
 import software.amazon.awssdk.services.sts.StsClient;
 import software.amazon.awssdk.services.sts.StsClientBuilder;
 import software.amazon.awssdk.services.sts.auth.StsAssumeRoleCredentialsProvider;
@@ -151,7 +152,7 @@ public final class GlueMetastoreModule
         glue.overrideConfiguration(builder -> builder
                 .executionInterceptors(ImmutableList.copyOf(executionInterceptors))
                 .retryStrategy(retryBuilder -> retryBuilder
-                        .retryOnException(throwable -> throwable instanceof ConcurrentModificationException)
+                        .retryOnException(throwable -> throwable instanceof ConcurrentModificationException || throwable instanceof ThrottlingException)
                         .backoffStrategy(BackoffStrategy.exponentialDelay(
                                 java.time.Duration.ofMillis(20),
                                 java.time.Duration.ofMillis(1500)))

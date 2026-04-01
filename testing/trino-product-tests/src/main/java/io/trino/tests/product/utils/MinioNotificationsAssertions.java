@@ -14,8 +14,8 @@
 package io.trino.tests.product.utils;
 
 import com.google.common.collect.ImmutableList;
-import io.minio.messages.Event;
 import io.minio.messages.EventType;
+import io.minio.messages.NotificationRecords.Event;
 
 import java.util.List;
 import java.util.Map;
@@ -61,17 +61,17 @@ public final class MinioNotificationsAssertions
                         "(name, time, request, response, user_agent, bucket, object_key, object_size, object_version, object_etag, sequencer) " +
                         "VALUES (%s, from_iso8601_timestamp(%s), %s, %s, %s, %s, url_decode(%s), %d, %s, %s, %s)",
                 schemaTableName(tableName),
-                quote(event.eventType().name()),
+                quote(event.eventName()),
                 quote(event.eventTime().toString()),
                 toSqlLiteral(event.requestParameters()),
                 toSqlLiteral(event.responseElements()),
-                quote(event.userAgent()),
-                quote(event.bucketName()),
-                quote(event.objectName()),
-                event.objectSize(),
-                quote(event.objectVersionId()),
-                quote(event.etag()),
-                quote(event.sequencer()));
+                quote(event.eventSource()),
+                quote(event.bucket().name()),
+                quote(event.object().key()),
+                event.object().size(),
+                quote(event.object().versionId()),
+                quote(event.object().etag()),
+                quote(event.object().sequencer()));
 
         onTrino().executeQuery(insertQuery);
     }
@@ -109,7 +109,7 @@ public final class MinioNotificationsAssertions
                         "WHERE name = %s AND object_key = %s " +
                         "ORDER BY sequencer ASC", // sequencer specifies order of the notifications
                 schemaTableName(tableName),
-                quote(eventType.name()),
+                quote(eventType.toString()),
                 quote(objectName))).rows();
 
         if (rows.size() != expectedCalls) {

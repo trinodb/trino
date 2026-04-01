@@ -23,7 +23,6 @@ import io.airlift.log.Logger;
 import io.minio.BucketExistsArgs;
 import io.minio.CloseableIterator;
 import io.minio.CopyObjectArgs;
-import io.minio.CopySource;
 import io.minio.GetObjectArgs;
 import io.minio.GetObjectResponse;
 import io.minio.ListObjectsArgs;
@@ -32,10 +31,8 @@ import io.minio.MakeBucketArgs;
 import io.minio.PutObjectArgs;
 import io.minio.RemoveObjectArgs;
 import io.minio.Result;
-import io.minio.http.HttpUtils;
-import io.minio.messages.Event;
+import io.minio.SourceObject;
 import io.minio.messages.NotificationRecords;
-import okhttp3.OkHttpClient;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -56,7 +53,6 @@ import static io.minio.messages.EventType.OBJECT_CREATED_ANY;
 import static io.minio.messages.EventType.OBJECT_REMOVED_ANY;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newFixedThreadPool;
-import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.regex.Matcher.quoteReplacement;
 
 public class MinioClient
@@ -70,7 +66,6 @@ public class MinioClient
 
     private static final Set<String> createdBuckets = Sets.newConcurrentHashSet();
 
-    private final OkHttpClient httpClient;
     private final io.minio.MinioClient client;
     private final ListeningExecutorService executor = listeningDecorator(newFixedThreadPool(32, daemonThreadsNamed("minio-client-%s")));
 
@@ -87,13 +82,7 @@ public class MinioClient
 
     public MinioClient(String endpoint, String accessKey, String secretKey)
     {
-        // This is Minio default HTTP client creation code with timeout values copied from MinioClient.builder()
-        long fiveMinutes = MINUTES.toMillis(5);
-        httpClient = HttpUtils.newDefaultHttpClient(fiveMinutes, fiveMinutes, fiveMinutes);
         client = io.minio.MinioClient.builder()
-                // Pass explicit HTTP client instance to MinioClient builder. This seems the only way
-                // to be able to close the client properly later on.
-                .httpClient(httpClient)
                 .endpoint(endpoint)
                 .credentials(accessKey, secretKey)
                 .build();
@@ -130,7 +119,7 @@ public class MinioClient
         return doGetObjectContents(bucket, targetPath);
     }
 
-    public void captureBucketNotifications(String bucket, Consumer<Event> consumer)
+    public void captureBucketNotifications(String bucket, Consumer<NotificationRecords.Event> consumer)
     {
         ensureBucketExists(bucket);
 
@@ -226,7 +215,7 @@ public class MinioClient
                         PutObjectArgs.builder()
                                 .bucket(bucket)
                                 .object(targetPath)
-                                .stream(inputStream, byteSource.size(), -1)
+                                .stream(inputStream, byteSource.size(), -1L)
                                 .build());
             }
         }
@@ -254,7 +243,7 @@ public class MinioClient
     {
         try {
             client.copyObject(CopyObjectArgs.builder()
-                    .source(CopySource.builder()
+                    .source(SourceObject.builder()
                             .bucket(sourceBucket)
                             .object(sourceKey)
                             .build())
@@ -283,8 +272,12 @@ public class MinioClient
     @Override
     public void close()
     {
-        httpClient.dispatcher().executorService().shutdown();
-        httpClient.connectionPool().evictAll();
+        try {
+            client.close();
+        }
+        catch (Exception _) {
+            // Ignored
+        }
         executor.shutdownNow();
     }
 
@@ -293,9 +286,9 @@ public class MinioClient
     {
         private final io.minio.MinioClient client;
         private final String bucket;
-        private final Consumer<Event> consumer;
+        private final Consumer<NotificationRecords.Event> consumer;
 
-        private NotificationListener(io.minio.MinioClient client, String bucket, Consumer<Event> consumer)
+        private NotificationListener(io.minio.MinioClient client, String bucket, Consumer<NotificationRecords.Event> consumer)
         {
             this.client = requireNonNull(client, "client is null");
             this.bucket = requireNonNull(bucket, "bucket is null");

@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.escape.Escaper;
 import com.google.common.util.concurrent.UncheckedExecutionException;
 import com.google.inject.Inject;
+import io.airlift.http.client.HeaderName;
 import io.airlift.http.client.HttpClient;
 import io.airlift.http.client.Request;
 import io.airlift.http.client.StringResponseHandler;
@@ -47,6 +48,8 @@ import java.util.Set;
 import static com.google.common.base.Strings.emptyToNull;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.xml.XmlEscapers.xmlContentEscaper;
+import static io.airlift.http.client.HeaderNames.CONTENT_TYPE;
+import static io.airlift.http.client.Request.Builder.preparePost;
 import static io.airlift.http.client.StaticBodyGenerator.createStaticBodyGenerator;
 import static io.trino.cache.SafeCaches.buildNonEvictableCache;
 import static java.lang.String.format;
@@ -68,6 +71,8 @@ public class SalesforceBasicAuthenticator
         implements PasswordAuthenticator
 {
     private static final Logger log = Logger.get(SalesforceBasicAuthenticator.class);
+
+    private static final HeaderName SOAP_ACTION_HEADER = HeaderName.of("SOAPAction");
 
     // Set of Salesforce orgs, which users must belong to in order to authN.
     private final Set<String> allowedOrganizations;
@@ -127,11 +132,10 @@ public class SalesforceBasicAuthenticator
         String apiVersion = "46.0";
         String loginUrl = "https://login.salesforce.com/services/Soap/u/";
         Escaper escaper = xmlContentEscaper();
-        Request request = new Request.Builder()
+        Request request = preparePost()
                 .setUri(URI.create(loginUrl + apiVersion))
-                .setHeader("Content-Type", "text/xml;charset=UTF-8")
-                .setHeader("SOAPAction", "login")
-                .setMethod("POST")
+                .setHeader(CONTENT_TYPE, "text/xml;charset=UTF-8")
+                .setHeader(SOAP_ACTION_HEADER, "login")
                 .setBodyGenerator(createStaticBodyGenerator(format(loginSoapMessage, escaper.escape(username), escaper.escape(password)), UTF_8))
                 .build();
 

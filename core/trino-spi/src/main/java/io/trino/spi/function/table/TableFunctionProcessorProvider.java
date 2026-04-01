@@ -15,6 +15,9 @@ package io.trino.spi.function.table;
 
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplit;
+import io.trino.spi.connector.ConnectorTableCredentials;
+
+import java.util.Optional;
 
 public interface TableFunctionProcessorProvider
 {
@@ -29,8 +32,25 @@ public interface TableFunctionProcessorProvider
 
     /**
      * This method returns a {@code TableFunctionSplitProcessor}. All the necessary information collected during analysis is available
-     * in the form of {@link ConnectorTableFunctionHandle}. It is called once per each split processed by the table function.
+     * in the form of {@link ConnectorTableFunctionHandle} and {@link ConnectorTableCredentials}.
+     * It is called once per each split processed by the table function.
      */
+    default TableFunctionSplitProcessor getSplitProcessor(
+            ConnectorSession session,
+            ConnectorTableFunctionHandle handle,
+            Optional<ConnectorTableCredentials> tableCredentials,
+            ConnectorSplit split)
+    {
+        return getSplitProcessor(session, handle, split);
+    }
+
+    /**
+     * This method returns a {@code TableFunctionSplitProcessor}. All the necessary information collected during analysis is available
+     * in the form of {@link ConnectorTableFunctionHandle}. It is called once per each split processed by the table function.
+     *
+     * @deprecated Use {@link #getSplitProcessor(ConnectorSession, ConnectorTableFunctionHandle, Optional, ConnectorSplit)} instead
+     */
+    @Deprecated(forRemoval = true)
     default TableFunctionSplitProcessor getSplitProcessor(ConnectorSession session, ConnectorTableFunctionHandle handle, ConnectorSplit split)
     {
         throw new UnsupportedOperationException("this table function does not process splits");

@@ -16,10 +16,8 @@ package io.trino.hdfs;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Scopes;
-import io.trino.hdfs.gcs.GcsStorageFactory;
 
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
-import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static org.weakref.jmx.guice.ExportBinder.newExporter;
 
@@ -40,7 +38,5 @@ public class HdfsModule
         binder.bind(HdfsConfigurationInitializer.class).in(Scopes.SINGLETON);
         newSetBinder(binder, ConfigurationInitializer.class);
         newSetBinder(binder, DynamicConfigurationProvider.class);
-
-        newOptionalBinder(binder, GcsStorageFactory.class);
     }
 }

@@ -33,7 +33,9 @@ import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.trino.plugin.iceberg.IcebergMetadataColumn.FILE_MODIFIED_TIME;
 import static io.trino.plugin.iceberg.IcebergMetadataColumn.FILE_PATH;
+import static io.trino.plugin.iceberg.IcebergMetadataColumn.LAST_UPDATED_SEQUENCE_NUMBER;
 import static io.trino.plugin.iceberg.IcebergMetadataColumn.PARTITION;
+import static io.trino.plugin.iceberg.IcebergMetadataColumn.ROW_ID;
 import static java.util.Objects.requireNonNull;
 import static org.apache.iceberg.MetadataColumns.IS_DELETED;
 import static org.apache.iceberg.MetadataColumns.ROW_POSITION;
@@ -45,7 +47,7 @@ public class IcebergColumnHandle
 
     // Iceberg reserved row ids begin at INTEGER.MAX_VALUE and count down. Starting with MIN_VALUE here to avoid conflicts.
     public static final int TRINO_MERGE_ROW_ID = Integer.MIN_VALUE;
-    public static final String TRINO_ROW_ID_NAME = "$row_id";
+    public static final String TRINO_MERGE_ROW_ID_NAME = "$merge_row_id";
 
     public static final int TRINO_MERGE_PARTITION_SPEC_ID = Integer.MIN_VALUE + 1;
     public static final int TRINO_MERGE_PARTITION_DATA = Integer.MIN_VALUE + 2;
@@ -58,6 +60,8 @@ public class IcebergColumnHandle
     public static final int DATA_CHANGE_TIMESTAMP_ID = Integer.MIN_VALUE + 5;
     public static final String DATA_CHANGE_ORDINAL_NAME = "_change_ordinal";
     public static final int DATA_CHANGE_ORDINAL_ID = Integer.MIN_VALUE + 6;
+
+    public static final int TRINO_MERGE_SOURCE_ROW_ID = Integer.MIN_VALUE + 7;
 
     private final ColumnIdentity baseColumnIdentity;
     private final Type baseType;
@@ -183,6 +187,18 @@ public class IcebergColumnHandle
     }
 
     @JsonIgnore
+    public boolean isRowIdColumn()
+    {
+        return id == ROW_ID.getId();
+    }
+
+    @JsonIgnore
+    public boolean isLastUpdatedSequenceNumberColumn()
+    {
+        return id == LAST_UPDATED_SEQUENCE_NUMBER.getId();
+    }
+
+    @JsonIgnore
     public boolean isRowPositionColumn()
     {
         return id == ROW_POSITION.fieldId();
@@ -254,6 +270,38 @@ public class IcebergColumnHandle
                 + sizeOf(nullable)
                 + sizeOf(comment, SizeOf::estimatedSizeOf)
                 + sizeOf(id);
+    }
+
+    public static IcebergColumnHandle rowIdColumnHandle()
+    {
+        return IcebergColumnHandle.required(columnIdentity(ROW_ID))
+                .columnType(ROW_ID.getType())
+                .build();
+    }
+
+    public static ColumnMetadata rowIdColumnMetadata()
+    {
+        return ColumnMetadata.builder()
+                .setName(ROW_ID.getColumnName())
+                .setType(ROW_ID.getType())
+                .setHidden(true)
+                .build();
+    }
+
+    public static IcebergColumnHandle lastUpdatedSequenceNumberColumnHandle()
+    {
+        return IcebergColumnHandle.required(columnIdentity(LAST_UPDATED_SEQUENCE_NUMBER))
+                .columnType(LAST_UPDATED_SEQUENCE_NUMBER.getType())
+                .build();
+    }
+
+    public static ColumnMetadata lastUpdatedSequenceNumberColumnMetadata()
+    {
+        return ColumnMetadata.builder()
+                .setName(LAST_UPDATED_SEQUENCE_NUMBER.getColumnName())
+                .setType(LAST_UPDATED_SEQUENCE_NUMBER.getType())
+                .setHidden(true)
+                .build();
     }
 
     public static IcebergColumnHandle partitionColumnHandle()

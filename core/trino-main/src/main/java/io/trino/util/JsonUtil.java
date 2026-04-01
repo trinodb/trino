@@ -22,7 +22,6 @@ import com.google.common.primitives.Shorts;
 import com.google.common.primitives.SignedBytes;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
-import io.airlift.slice.Slices;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.ArrayBlockBuilder;
 import io.trino.spi.block.Block;
@@ -51,7 +50,6 @@ import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.TinyintType;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.VarbinaryType;
 import io.trino.spi.type.VarcharType;
 import io.trino.type.BigintOperators;
 import io.trino.type.BooleanOperators;
@@ -82,7 +80,7 @@ import static com.fasterxml.jackson.core.JsonToken.FIELD_NAME;
 import static com.fasterxml.jackson.core.JsonToken.START_ARRAY;
 import static com.fasterxml.jackson.core.JsonToken.START_OBJECT;
 import static com.google.common.base.Verify.verify;
-import static io.trino.operator.scalar.VarbinaryFunctions.fromBase64Varchar;
+import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.plugin.base.util.JsonUtils.jsonFactoryBuilder;
 import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
@@ -94,7 +92,6 @@ import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TinyintType.TINYINT;
-import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.UNBOUNDED_LENGTH;
 import static io.trino.type.DateTimes.formatTimestamp;
 import static io.trino.type.JsonType.JSON;
@@ -184,7 +181,6 @@ public final class JsonUtil
                 type instanceof DoubleType ||
                 type instanceof DecimalType ||
                 type instanceof VarcharType ||
-                type instanceof VarbinaryType ||
                 type instanceof JsonType ||
                 type instanceof TimestampType ||
                 type instanceof DateType) {
@@ -215,7 +211,6 @@ public final class JsonUtil
                 type instanceof DoubleType ||
                 type instanceof DecimalType ||
                 type instanceof VarcharType ||
-                type instanceof VarbinaryType ||
                 type instanceof JsonType) {
             return true;
         }
@@ -323,9 +318,6 @@ public final class JsonUtil
             }
             if (type instanceof VarcharType) {
                 return new VarcharJsonGeneratorWriter(type);
-            }
-            if (type instanceof VarbinaryType) {
-                return new VarbinaryJsonGeneratorWriter();
             }
             if (type instanceof JsonType) {
                 return new JsonJsonGeneratorWriter();
@@ -520,23 +512,6 @@ public final class JsonUtil
         }
     }
 
-    private static class VarbinaryJsonGeneratorWriter
-            implements JsonGeneratorWriter
-    {
-        @Override
-        public void writeJsonValue(JsonGenerator jsonGenerator, Block block, int position)
-                throws IOException
-        {
-            if (block.isNull(position)) {
-                jsonGenerator.writeNull();
-            }
-            else {
-                Slice value = VARBINARY.getSlice(block, position);
-                jsonGenerator.writeBinary(value.byteArray(), value.byteArrayOffset(), value.length());
-            }
-        }
-    }
-
     private static class JsonJsonGeneratorWriter
             implements JsonGeneratorWriter
     {
@@ -721,12 +696,12 @@ public final class JsonUtil
     {
         return switch (parser.currentToken()) {
             case VALUE_NULL -> null;
-            case VALUE_STRING, FIELD_NAME -> Slices.utf8Slice(parser.getText());
+            case VALUE_STRING, FIELD_NAME -> utf8Slice(parser.getText());
             // Avoidance of loss of precision does not seem to be possible here because of Jackson implementation.
             case VALUE_NUMBER_FLOAT -> DoubleOperators.castToVarchar(UNBOUNDED_LENGTH, parser.getDoubleValue());
             // An alternative is calling getLongValue and then BigintOperators.castToVarchar.
             // It doesn't work as well because it can result in overflow and underflow exceptions for large integral numbers.
-            case VALUE_NUMBER_INT -> Slices.utf8Slice(parser.getText());
+            case VALUE_NUMBER_INT -> utf8Slice(parser.getText());
             case VALUE_TRUE -> BooleanOperators.castToVarchar(UNBOUNDED_LENGTH, true);
             case VALUE_FALSE -> BooleanOperators.castToVarchar(UNBOUNDED_LENGTH, false);
             default -> throw new JsonCastException(format("Unexpected token when cast to %s: %s", StandardTypes.VARCHAR, parser.getText()));
@@ -738,7 +713,7 @@ public final class JsonUtil
     {
         return switch (parser.currentToken()) {
             case VALUE_NULL -> null;
-            case VALUE_STRING, FIELD_NAME -> VarcharOperators.castToBigint(Slices.utf8Slice(parser.getText()));
+            case VALUE_STRING, FIELD_NAME -> VarcharOperators.castToBigint(utf8Slice(parser.getText()));
             case VALUE_NUMBER_FLOAT -> DoubleOperators.castToLong(parser.getDoubleValue());
             case VALUE_NUMBER_INT -> parser.getLongValue();
             case VALUE_TRUE -> BooleanOperators.castToBigint(true);
@@ -752,7 +727,7 @@ public final class JsonUtil
     {
         return switch (parser.currentToken()) {
             case VALUE_NULL -> null;
-            case VALUE_STRING, FIELD_NAME -> VarcharOperators.castToInteger(Slices.utf8Slice(parser.getText()));
+            case VALUE_STRING, FIELD_NAME -> VarcharOperators.castToInteger(utf8Slice(parser.getText()));
             case VALUE_NUMBER_FLOAT -> DoubleOperators.castToInteger(parser.getDoubleValue());
             case VALUE_NUMBER_INT -> (long) toIntExact(parser.getLongValue());
             case VALUE_TRUE -> BooleanOperators.castToInteger(true);
@@ -766,7 +741,7 @@ public final class JsonUtil
     {
         return switch (parser.currentToken()) {
             case VALUE_NULL -> null;
-            case VALUE_STRING, FIELD_NAME -> VarcharOperators.castToSmallint(Slices.utf8Slice(parser.getText()));
+            case VALUE_STRING, FIELD_NAME -> VarcharOperators.castToSmallint(utf8Slice(parser.getText()));
             case VALUE_NUMBER_FLOAT -> DoubleOperators.castToSmallint(parser.getDoubleValue());
             case VALUE_NUMBER_INT -> (long) Shorts.checkedCast(parser.getLongValue());
             case VALUE_TRUE -> BooleanOperators.castToSmallint(true);
@@ -780,7 +755,7 @@ public final class JsonUtil
     {
         return switch (parser.currentToken()) {
             case VALUE_NULL -> null;
-            case VALUE_STRING, FIELD_NAME -> VarcharOperators.castToTinyint(Slices.utf8Slice(parser.getText()));
+            case VALUE_STRING, FIELD_NAME -> VarcharOperators.castToTinyint(utf8Slice(parser.getText()));
             case VALUE_NUMBER_FLOAT -> DoubleOperators.castToTinyint(parser.getDoubleValue());
             case VALUE_NUMBER_INT -> (long) SignedBytes.checkedCast(parser.getLongValue());
             case VALUE_TRUE -> BooleanOperators.castToTinyint(true);
@@ -794,7 +769,7 @@ public final class JsonUtil
     {
         return switch (parser.currentToken()) {
             case VALUE_NULL -> null;
-            case VALUE_STRING, FIELD_NAME -> VarcharOperators.castToDouble(Slices.utf8Slice(parser.getText()));
+            case VALUE_STRING, FIELD_NAME -> VarcharOperators.castToDouble(utf8Slice(parser.getText()));
             case VALUE_NUMBER_FLOAT -> parser.getDoubleValue();
             // An alternative is calling getLongValue and then BigintOperators.castToDouble.
             // It doesn't work as well because it can result in overflow and underflow exceptions for large integral numbers.
@@ -810,7 +785,7 @@ public final class JsonUtil
     {
         return switch (parser.currentToken()) {
             case VALUE_NULL -> null;
-            case VALUE_STRING, FIELD_NAME -> VarcharOperators.castToFloat(Slices.utf8Slice(parser.getText()));
+            case VALUE_STRING, FIELD_NAME -> VarcharOperators.castToFloat(utf8Slice(parser.getText()));
             case VALUE_NUMBER_FLOAT -> (long) floatToRawIntBits(parser.getFloatValue());
             // An alternative is calling getLongValue and then BigintOperators.castToReal.
             // It doesn't work as well because it can result in overflow and underflow exceptions for large integral numbers.
@@ -826,7 +801,7 @@ public final class JsonUtil
     {
         return switch (parser.currentToken()) {
             case VALUE_NULL -> null;
-            case VALUE_STRING, FIELD_NAME -> VarcharOperators.castToBoolean(Slices.utf8Slice(parser.getText()));
+            case VALUE_STRING, FIELD_NAME -> VarcharOperators.castToBoolean(utf8Slice(parser.getText()));
             case VALUE_NUMBER_FLOAT -> DoubleOperators.castToBoolean(parser.getDoubleValue());
             case VALUE_NUMBER_INT -> BigintOperators.castToBoolean(parser.getLongValue());
             case VALUE_TRUE -> true;
@@ -929,13 +904,10 @@ public final class JsonUtil
             if (type instanceof VarcharType) {
                 return new VarcharBlockBuilderAppender(type);
             }
-            if (type instanceof VarbinaryType) {
-                return new VarbinaryBlockBuilderAppender();
-            }
             if (type instanceof JsonType) {
                 return (parser, blockBuilder) -> {
                     String json = JSON_MAPPED_UNORDERED.writeValueAsString(parser.readValueAsTree());
-                    JSON.writeSlice(blockBuilder, Slices.utf8Slice(json));
+                    JSON.writeSlice(blockBuilder, utf8Slice(json));
                 };
             }
             if (type instanceof ArrayType arrayType) {
@@ -1149,25 +1121,6 @@ public final class JsonUtil
             else {
                 type.writeSlice(blockBuilder, result);
             }
-        }
-    }
-
-    private static class VarbinaryBlockBuilderAppender
-            implements BlockBuilderAppender
-    {
-        @Override
-        public void append(JsonParser parser, BlockBuilder blockBuilder)
-                throws IOException
-        {
-            if (parser.getCurrentToken() == JsonToken.VALUE_NULL) {
-                blockBuilder.appendNull();
-                return;
-            }
-            if (parser.getCurrentToken() != JsonToken.VALUE_STRING) {
-                throw new JsonCastException(format("Expected a json string, but got %s", parser.getText()));
-            }
-            Slice varchar = currentTokenAsVarchar(parser);
-            VARBINARY.writeSlice(blockBuilder, fromBase64Varchar(varchar));
         }
     }
 

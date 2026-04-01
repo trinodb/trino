@@ -92,6 +92,7 @@ import static io.trino.execution.scheduler.ScheduleResult.BlockedReason.SPLIT_QU
 import static io.trino.execution.scheduler.SourcePartitionedScheduler.newSourcePartitionedSchedulerAsStageScheduler;
 import static io.trino.execution.scheduler.StageExecution.State.PLANNED;
 import static io.trino.execution.scheduler.StageExecution.State.SCHEDULING;
+import static io.trino.metadata.AbstractMockMetadata.dummyMetadata;
 import static io.trino.metadata.FunctionManager.createTestingFunctionManager;
 import static io.trino.metadata.TestingMetadataManager.createTestingMetadataManager;
 import static io.trino.node.TestingInternalNodeManager.CURRENT_NODE;
@@ -755,7 +756,9 @@ public class TestSourcePartitionedScheduler
     private StageExecution createStageExecution(PlanFragment fragment, NodeTaskMap nodeTaskMap)
     {
         StageId stageId = new StageId(QUERY_ID, 0);
-        SqlStage stage = SqlStage.createSqlStage(stageId,
+        SqlStage stage = SqlStage.createSqlStage(
+                dummyMetadata(),
+                stageId,
                 fragment,
                 ImmutableMap.of(TABLE_SCAN_NODE_ID, new TableInfo(Optional.of("test"), new QualifiedObjectName("test", "test", "test"), TupleDomain.all())),
                 new MockRemoteTaskFactory(queryExecutor, scheduledExecutor),

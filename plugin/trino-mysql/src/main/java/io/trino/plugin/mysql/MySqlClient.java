@@ -142,7 +142,6 @@ import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.plugin.base.util.JsonTypeUtil.jsonParse;
 import static io.trino.plugin.jdbc.CaseSensitivity.CASE_INSENSITIVE;
 import static io.trino.plugin.jdbc.CaseSensitivity.CASE_SENSITIVE;
-import static io.trino.plugin.jdbc.DecimalConfig.DecimalMapping.ALLOW_OVERFLOW;
 import static io.trino.plugin.jdbc.DecimalSessionSessionProperties.getDecimalDefaultScale;
 import static io.trino.plugin.jdbc.DecimalSessionSessionProperties.getDecimalRounding;
 import static io.trino.plugin.jdbc.DecimalSessionSessionProperties.getDecimalRoundingMode;
@@ -168,6 +167,7 @@ import static io.trino.plugin.jdbc.StandardColumnMappings.integerColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.integerWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.longDecimalWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.longTimestampWriteFunction;
+import static io.trino.plugin.jdbc.StandardColumnMappings.numberColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.realWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.shortDecimalWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.smallintColumnMapping;
@@ -566,7 +566,10 @@ public class MySqlClient
 
         switch (typeHandle.jdbcType()) {
             case Types.BIT:
-                return Optional.of(booleanColumnMapping());
+                if (typeHandle.requiredColumnSize() == 1) {
+                    return Optional.of(booleanColumnMapping());
+                }
+                break;
 
             case Types.TINYINT:
                 return Optional.of(tinyintColumnMapping());
@@ -596,16 +599,25 @@ public class MySqlClient
             case Types.DECIMAL:
                 int decimalDigits = typeHandle.decimalDigits().orElseThrow(() -> new IllegalStateException("decimal digits not present"));
                 int precision = typeHandle.requiredColumnSize();
-                if (getDecimalRounding(session) == ALLOW_OVERFLOW && precision > Decimals.MAX_PRECISION) {
-                    int scale = min(decimalDigits, getDecimalDefaultScale(session));
-                    return Optional.of(decimalColumnMapping(createDecimalType(Decimals.MAX_PRECISION, scale), getDecimalRoundingMode(session)));
-                }
                 // TODO does mysql support negative scale?
                 precision = precision + max(-decimalDigits, 0); // Map decimal(p, -s) (negative scale) to decimal(p+s, 0).
-                if (precision > Decimals.MAX_PRECISION) {
-                    break;
+                if (precision <= Decimals.MAX_PRECISION) {
+                    return Optional.of(decimalColumnMapping(createDecimalType(precision, max(decimalDigits, 0))));
                 }
-                return Optional.of(decimalColumnMapping(createDecimalType(precision, max(decimalDigits, 0))));
+                // precision > MAX_PRECISION
+                switch (getDecimalRounding(session)) {
+                    case MAP_TO_NUMBER -> {
+                        return Optional.of(numberColumnMapping());
+                    }
+                    case STRICT -> {
+                        // skipped (unhandled type)
+                    }
+                    case ALLOW_OVERFLOW -> {
+                        int scale = min(max(decimalDigits, 0), getDecimalDefaultScale(session));
+                        return Optional.of(decimalColumnMapping(createDecimalType(Decimals.MAX_PRECISION, scale), getDecimalRoundingMode(session)));
+                    }
+                }
+                break;
 
             case Types.CHAR:
                 return Optional.of(mySqlDefaultCharColumnMapping(typeHandle.requiredColumnSize(), typeHandle.caseSensitivity()));

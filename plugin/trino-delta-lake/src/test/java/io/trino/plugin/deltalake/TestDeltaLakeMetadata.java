@@ -495,10 +495,8 @@ public class TestDeltaLakeMetadata
                 new ProtocolEntry(1, 2, Optional.empty(), Optional.empty()),
                 createConstrainedColumnsTuple(constrainedColumns),
                 TupleDomain.all(),
-                Optional.of(DeltaLakeTableHandle.WriteType.UPDATE),
+                false,
                 Optional.of(projectedColumns),
-                Optional.of(ImmutableList.of(BOOLEAN_COLUMN_HANDLE)),
-                Optional.of(ImmutableList.of(DOUBLE_COLUMN_HANDLE)),
                 Optional.empty(),
                 0,
                 false);

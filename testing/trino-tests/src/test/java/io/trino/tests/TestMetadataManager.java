@@ -26,6 +26,7 @@ import io.trino.server.SessionContext;
 import io.trino.server.protocol.Slug;
 import io.trino.spi.Plugin;
 import io.trino.spi.QueryId;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorFactory;
 import io.trino.spi.connector.ConnectorViewDefinition;
 import io.trino.spi.connector.SchemaTableName;
@@ -55,6 +56,7 @@ import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.execution.QueryState.FAILED;
 import static io.trino.execution.QueryState.RUNNING;
+import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -73,6 +75,7 @@ import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 @Execution(SAME_THREAD) // metadataManager.getActiveQueryIds() is shared mutable state that affects the test outcome
 public class TestMetadataManager
 {
+    private final AtomicBoolean failMetadataCall = new AtomicBoolean();
     private QueryRunner queryRunner;
     private MetadataManager metadataManager;
 
@@ -89,6 +92,12 @@ public class TestMetadataManager
                 SchemaTableName viewTableName = new SchemaTableName("UPPER_CASE_SCHEMA", "test_view");
 
                 MockConnectorFactory connectorFactory = MockConnectorFactory.builder()
+                        .withMetadataWrapper(connectorMetadata -> {
+                            if (failMetadataCall.get()) {
+                                throw new TrinoException(GENERIC_INTERNAL_ERROR, new IllegalStateException("Failed to get connector metadata"));
+                            }
+                            return connectorMetadata;
+                        })
                         .withListSchemaNames(session -> ImmutableList.of("UPPER_CASE_SCHEMA"))
                         .withGetTableHandle((session, schemaTableName) -> {
                             if (schemaTableName.equals(viewTableName)) {
@@ -221,6 +230,21 @@ public class TestMetadataManager
         // TODO (https://github.com/trinodb/trino/issues/17) this should return 100 rows
         assertThat(queryRunner.execute("SELECT * FROM system.jdbc.columns WHERE table_schem = 'UPPER_CASE_TABLE' AND table_name = 'UPPER_CASE_TABLE'"))
                 .isEmpty();
+    }
+
+    @Test
+    public void testDropCatalogFailure()
+    {
+        try {
+            queryRunner.execute("CREATE CATALOG drop_mock_catalog USING mock");
+            assertThat(queryRunner.execute("SHOW CATALOGS").getOnlyColumnAsSet()).contains("drop_mock_catalog");
+            failMetadataCall.set(true);
+            queryRunner.execute("DROP CATALOG drop_mock_catalog");
+            assertThat(queryRunner.execute("SHOW CATALOGS").getOnlyColumnAsSet()).doesNotContain("drop_mock_catalog");
+        }
+        finally {
+            failMetadataCall.set(false);
+        }
     }
 
     // Probabilistic partial regression test for https://github.com/trinodb/trino/issues/28017

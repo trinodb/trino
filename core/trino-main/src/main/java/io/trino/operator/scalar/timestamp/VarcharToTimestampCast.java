@@ -13,7 +13,6 @@
  */
 package io.trino.operator.scalar.timestamp;
 
-import com.google.common.annotations.VisibleForTesting;
 import io.airlift.slice.Slice;
 import io.trino.spi.TrinoException;
 import io.trino.spi.function.LiteralParameter;
@@ -69,7 +68,6 @@ public final class VarcharToTimestampCast
         }
     }
 
-    @VisibleForTesting
     public static long castToShortTimestamp(int precision, String value)
     {
         checkArgument(precision <= MAX_SHORT_PRECISION, "precision must be less than max short timestamp precision");
@@ -125,7 +123,6 @@ public final class VarcharToTimestampCast
         return epochSecond * MICROSECONDS_PER_SECOND + rescale(fractionValue, actualPrecision, 6);
     }
 
-    @VisibleForTesting
     public static LongTimestamp castToLongTimestamp(int precision, String value)
     {
         checkArgument(precision > MAX_SHORT_PRECISION && precision <= MAX_PRECISION, "precision out of range");

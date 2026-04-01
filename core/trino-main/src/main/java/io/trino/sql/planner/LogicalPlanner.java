@@ -121,6 +121,7 @@ import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalInt;
+import java.util.Set;
 import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkState;
@@ -145,6 +146,7 @@ import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.sql.analyzer.DeterminismEvaluator.containsCurrentTimeFunctions;
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.trino.sql.ir.Booleans.TRUE;
@@ -604,7 +606,9 @@ public class LogicalPlanner
         TableStatisticsMetadata statisticsMetadata = metadata.getStatisticsCollectionMetadataForWrite(session, tableHandle.catalogHandle(), tableMetadata.metadata(), false);
 
         if (materializedViewRefreshWriterTarget.isPresent()) {
-            RefreshType refreshType = IncrementalRefreshVisitor.canIncrementallyRefresh(plan.getRoot());
+            RefreshType refreshType = materializedViewRefreshWriterTarget.get().hasNonDeterministicFunctions()
+                    ? RefreshType.FULL
+                    : IncrementalRefreshVisitor.canIncrementallyRefresh(plan.getRoot());
             WriterTarget writerTarget = materializedViewRefreshWriterTarget.get().withRefreshType(refreshType);
             return createTableWriterPlan(
                     analysis,
@@ -687,11 +691,16 @@ public class LogicalPlanner
         List<String> tableFunctions = analysis.getPolymorphicTableFunctions().stream()
                 .map(polymorphicTableFunction -> polymorphicTableFunction.getNode().getName().toString())
                 .collect(toImmutableList());
+        // TODO: For time-based functions (current_date, current_timestamp) smarter freshness tracking
+        // could avoid treating the MV as stale when the time hasn't meaningfully changed. See https://github.com/trinodb/trino/issues/28731
+        boolean hasNonDeterministicFunctions = analysis.getResolvedFunctions().stream().anyMatch(function -> !function.deterministic())
+                || containsCurrentTimeFunctions(query);
         RefreshMaterializedViewReference writerTarget = new RefreshMaterializedViewReference(
                 viewAnalysis.getTable().toString(),
                 tableHandle,
                 ImmutableList.copyOf(analysis.getTables()),
                 tableFunctions,
+                hasNonDeterministicFunctions,
                 // this is a placeholder value - refresh type will be determined by getInsertPlan based on the plan tree
                 RefreshType.FULL);
         return getInsertPlan(analysis, viewAnalysis.getTable(), query, tableHandle, viewAnalysis.getColumns(), newTableLayout, Optional.of(writerTarget));
@@ -986,22 +995,32 @@ public class LogicalPlanner
 
         PlanNode sourcePlanRoot = sourcePlanBuilder.getRoot();
 
-        TableMetadata tableMetadata = metadata.getTableMetadata(session, tableHandle);
-        List<String> columnNames = tableMetadata.columns().stream()
-                .filter(column -> !column.isHidden()) // todo this filter is redundant
-                .map(ColumnMetadata::getName)
-                .collect(toImmutableList());
-
         TableWriterNode.TableExecuteTarget tableExecuteTarget = new TableWriterNode.TableExecuteTarget(
                 executeHandle,
                 Optional.empty(),
                 tableName.asSchemaTableName(),
                 metadata.getInsertWriterScalingOptions(session, tableHandle));
 
+        Map<String, ColumnHandle> tableColumnHandles = metadata.getColumnHandles(session, tableHandle);
+        Set<ColumnHandle> expectedColumnHandles = metadata.getColumnHandlesForTableExecute(session, executeHandle);
+
+        RelationType descriptor = tableScanPlan.getDescriptor();
+        List<String> columnNames = new ArrayList<>();
+        List<Symbol> symbols = new ArrayList<>();
+        List<Field> fields = List.copyOf(descriptor.getAllFields());
+        for (int fieldIndex = 0; fieldIndex < fields.size(); fieldIndex++) {
+            Field field = fields.get(fieldIndex);
+            String fieldName = field.getName().orElseThrow();
+            ColumnHandle columnHandle = tableColumnHandles.get(fieldName);
+            verify(columnHandle != null, "No column handle for field name %s", fieldName);
+            if (expectedColumnHandles.contains(columnHandle)) {
+                columnNames.add(fieldName);
+                symbols.add(tableScanPlan.getFieldMappings().get(fieldIndex));
+            }
+        }
+        verify(expectedColumnHandles.size() == columnNames.size(), "Expected column handles %s do not match actual column names %s", expectedColumnHandles, columnNames);
+
         Optional<TableLayout> layout = metadata.getLayoutForTableExecute(session, executeHandle);
-
-        List<Symbol> symbols = visibleFields(tableScanPlan);
-
         // todo extract common method to be used here and in createTableWriterPlan()
         Optional<PartitioningScheme> partitioningScheme = Optional.empty();
         if (layout.isPresent()) {

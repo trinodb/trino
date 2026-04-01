@@ -99,7 +99,6 @@ import static com.google.common.base.Strings.emptyToNull;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
-import static io.trino.plugin.jdbc.DecimalConfig.DecimalMapping.ALLOW_OVERFLOW;
 import static io.trino.plugin.jdbc.DecimalSessionSessionProperties.getDecimalDefaultScale;
 import static io.trino.plugin.jdbc.DecimalSessionSessionProperties.getDecimalRounding;
 import static io.trino.plugin.jdbc.DecimalSessionSessionProperties.getDecimalRoundingMode;
@@ -120,6 +119,7 @@ import static io.trino.plugin.jdbc.StandardColumnMappings.integerColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.integerWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.longDecimalWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.longTimestampWriteFunction;
+import static io.trino.plugin.jdbc.StandardColumnMappings.numberColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.realWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.shortDecimalWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.smallintColumnMapping;
@@ -386,15 +386,24 @@ public class MariaDbClient
             case Types.DECIMAL:
                 int decimalDigits = typeHandle.requiredDecimalDigits();
                 int precision = typeHandle.requiredColumnSize();
-                if (getDecimalRounding(session) == ALLOW_OVERFLOW && precision > Decimals.MAX_PRECISION) {
-                    int scale = min(decimalDigits, getDecimalDefaultScale(session));
-                    return Optional.of(decimalColumnMapping(createDecimalType(Decimals.MAX_PRECISION, scale), getDecimalRoundingMode(session)));
-                }
                 precision = precision + max(-decimalDigits, 0); // Map decimal(p, -s) (negative scale) to decimal(p+s, 0).
-                if (precision > Decimals.MAX_PRECISION) {
-                    break;
+                if (precision <= Decimals.MAX_PRECISION) {
+                    return Optional.of(decimalColumnMapping(createDecimalType(precision, max(decimalDigits, 0))));
                 }
-                return Optional.of(decimalColumnMapping(createDecimalType(precision, max(decimalDigits, 0))));
+                // precision > MAX_PRECISION
+                switch (getDecimalRounding(session)) {
+                    case MAP_TO_NUMBER -> {
+                        return Optional.of(numberColumnMapping());
+                    }
+                    case STRICT -> {
+                        // skipped (unhandled type)
+                    }
+                    case ALLOW_OVERFLOW -> {
+                        int scale = min(max(decimalDigits, 0), getDecimalDefaultScale(session));
+                        return Optional.of(decimalColumnMapping(createDecimalType(Decimals.MAX_PRECISION, scale), getDecimalRoundingMode(session)));
+                    }
+                }
+                break;
             case Types.CHAR:
                 return Optional.of(defaultCharColumnMapping(typeHandle.requiredColumnSize(), false));
             case Types.VARCHAR:

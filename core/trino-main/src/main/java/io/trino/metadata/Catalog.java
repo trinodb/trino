@@ -25,9 +25,12 @@ import io.trino.spi.transaction.IsolationLevel;
 import io.trino.transaction.InternalConnector;
 import io.trino.transaction.TransactionId;
 
+import java.util.Optional;
+
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.connector.CatalogHandle.createRootCatalogHandle;
+import static io.trino.metadata.CatalogMetadata.SecurityManagement;
 import static io.trino.metadata.CatalogStatus.FAILING;
 import static io.trino.spi.StandardErrorCode.CATALOG_UNAVAILABLE;
 import static java.lang.String.format;
@@ -96,6 +99,12 @@ public class Catalog
     public CatalogStatus getCatalogStatus()
     {
         return catalogStatus;
+    }
+
+    public Optional<SecurityManagement> getSecurityManagement()
+    {
+        return Optional.ofNullable(catalogConnector)
+                .map(ConnectorServices::getSecurityManagement);
     }
 
     public CatalogInfo toInfo()

@@ -14,7 +14,6 @@
 package io.trino.node;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.net.HttpHeaders;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.errorprone.annotations.FormatMethod;
@@ -37,6 +36,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.concurrent.MoreFutures.addExceptionCallback;
 import static io.airlift.concurrent.MoreFutures.addSuccessCallback;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
+import static io.airlift.http.client.HeaderNames.CONTENT_TYPE;
 import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 import static io.airlift.http.client.Request.Builder.preparePost;
 import static io.airlift.http.client.StaticBodyGenerator.createStaticBodyGenerator;
@@ -124,7 +124,7 @@ public class AnnounceNodeAnnouncer
         Request request = preparePost()
                 .setUri(announceUri)
                 .setBodyGenerator(currentHostAnnouncement)
-                .setHeader(HttpHeaders.CONTENT_TYPE, TEXT_PLAIN)
+                .setHeader(CONTENT_TYPE, TEXT_PLAIN)
                 .build();
         ListenableFuture<StatusResponse> responseFuture = httpClient.executeAsync(request, createStatusResponseHandler());
 

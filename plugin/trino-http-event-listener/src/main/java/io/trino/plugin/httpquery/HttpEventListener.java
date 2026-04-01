@@ -20,6 +20,7 @@ import com.google.common.util.concurrent.Futures;
 import com.google.inject.Inject;
 import io.airlift.bootstrap.LifeCycleManager;
 import io.airlift.http.client.BodyGenerator;
+import io.airlift.http.client.HeaderName;
 import io.airlift.http.client.HttpClient;
 import io.airlift.http.client.Request;
 import io.airlift.json.JsonCodec;
@@ -37,9 +38,10 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
 import static com.google.common.base.Verify.verify;
-import static com.google.common.net.HttpHeaders.CONTENT_TYPE;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.net.MediaType.JSON_UTF_8;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
+import static io.airlift.http.client.HeaderNames.CONTENT_TYPE;
 import static io.airlift.http.client.JsonBodyGenerator.jsonBodyGenerator;
 import static io.airlift.http.client.StatusResponseHandler.StatusResponse;
 import static io.airlift.http.client.StatusResponseHandler.createStatusResponseHandler;
@@ -69,7 +71,7 @@ public class HttpEventListener
     private final Duration retryDelay;
     private final Duration maxDelay;
     private final double backoffBase;
-    private final Map<String, String> httpHeaders;
+    private final Map<HeaderName, String> httpHeaders;
     private final URI ingestUri;
     private final HttpEventListenerHttpMethod httpMethod;
     private final ScheduledExecutorService executor;
@@ -95,7 +97,10 @@ public class HttpEventListener
         this.maxDelay = config.getMaxDelay();
         this.backoffBase = config.getBackoffBase();
         this.httpMethod = config.getHttpMethod();
-        this.httpHeaders = ImmutableMap.copyOf(config.getHttpHeaders());
+        this.httpHeaders = ImmutableMap.copyOf(config.getHttpHeaders())
+                .entrySet()
+                .stream()
+                .collect(toImmutableMap(entry -> HeaderName.of(entry.getKey()), Map.Entry::getValue));
 
         try {
             ingestUri = new URI(config.getIngestUri());

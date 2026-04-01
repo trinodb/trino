@@ -85,6 +85,7 @@ import static io.trino.spi.type.TimestampWithTimeZoneParametricType.TIMESTAMP_WI
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.UuidType.UUID;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
+import static io.trino.spi.type.VariantType.VARIANT;
 import static io.trino.sql.analyzer.TypeSignatureTranslator.toTypeSignature;
 import static io.trino.type.ArrayParametricType.ARRAY;
 import static io.trino.type.CodePointsType.CODE_POINTS;
@@ -152,6 +153,7 @@ public final class TypeRegistry
         addType(JSON_2016);
         addType(COLOR);
         addType(JSON);
+        addType(VARIANT);
         addType(CODE_POINTS);
         addType(IPADDRESS);
         addType(UUID);

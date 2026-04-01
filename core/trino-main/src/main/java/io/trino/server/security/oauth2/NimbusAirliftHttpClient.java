@@ -19,6 +19,7 @@ import com.nimbusds.jose.util.Resource;
 import com.nimbusds.oauth2.sdk.ParseException;
 import com.nimbusds.oauth2.sdk.http.HTTPRequest;
 import com.nimbusds.oauth2.sdk.http.HTTPResponse;
+import io.airlift.http.client.HeaderName;
 import io.airlift.http.client.HttpClient;
 import io.airlift.http.client.Request;
 import io.airlift.http.client.Response;
@@ -31,11 +32,11 @@ import java.io.IOException;
 import java.net.URISyntaxException;
 import java.net.URL;
 
-import static com.google.common.net.HttpHeaders.CONTENT_TYPE;
 import static com.nimbusds.oauth2.sdk.http.HTTPRequest.Method.DELETE;
 import static com.nimbusds.oauth2.sdk.http.HTTPRequest.Method.GET;
 import static com.nimbusds.oauth2.sdk.http.HTTPRequest.Method.POST;
 import static com.nimbusds.oauth2.sdk.http.HTTPRequest.Method.PUT;
+import static io.airlift.http.client.HeaderNames.CONTENT_TYPE;
 import static io.airlift.http.client.Request.Builder.prepareGet;
 import static io.airlift.http.client.StaticBodyGenerator.createStaticBodyGenerator;
 import static io.airlift.http.client.StringResponseHandler.createStringResponseHandler;
@@ -62,7 +63,7 @@ public class NimbusAirliftHttpClient
             StringResponseHandler.StringResponse response = httpClient.execute(
                     prepareGet().setUri(url.toURI()).build(),
                     createStringResponseHandler());
-            return new Resource(response.getBody(), response.getHeader(CONTENT_TYPE));
+            return new Resource(response.getBody(), response.getHeader(CONTENT_TYPE).orElse(null));
         }
         catch (URISyntaxException e) {
             throw new RuntimeException(e);
@@ -88,8 +89,8 @@ public class NimbusAirliftHttpClient
 
         request.setUri(url.build());
 
-        ImmutableMultimap.Builder<String, String> headers = ImmutableMultimap.builder();
-        httpRequest.getHeaderMap().forEach(headers::putAll);
+        ImmutableMultimap.Builder<HeaderName, String> headers = ImmutableMultimap.builder();
+        httpRequest.getHeaderMap().forEach((name, values) -> headers.putAll(HeaderName.of(name), values));
         request.addHeaders(headers.build());
 
         if (method.equals(POST) || method.equals(PUT)) {

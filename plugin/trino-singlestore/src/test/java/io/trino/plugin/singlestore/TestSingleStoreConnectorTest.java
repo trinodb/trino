@@ -112,7 +112,15 @@ public class TestSingleStoreConnectorTest
         return new TestTable(
                 onRemoteDatabase(),
                 "tpch.test_unsupported_column_present",
-                "(one bigint, two decimal(50,0), three varchar(10))");
+                "(one bigint, two bit(10), three varchar(10))");
+    }
+
+    @Override
+    @Test
+    public void testNativeQuerySelectUnsupportedType()
+    {
+        // No SingleStore type is found to be unsupported by the connector and also unsupported when type introspection is done via ResultSetMetaData.
+        super.testNativeQuerySelectUnsupportedType(true);
     }
 
     @Override

@@ -13,12 +13,14 @@
  */
 package io.trino.client;
 
+import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonToken;
 import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.collect.ImmutableList;
 
 import java.io.IOException;
+import java.io.StringWriter;
 import java.util.Base64;
 import java.util.HashMap;
 import java.util.LinkedList;
@@ -64,6 +66,8 @@ import static io.trino.client.ClientStandardTypes.TINYINT;
 import static io.trino.client.ClientStandardTypes.UUID;
 import static io.trino.client.ClientStandardTypes.VARBINARY;
 import static io.trino.client.ClientStandardTypes.VARCHAR;
+import static io.trino.client.ClientStandardTypes.VARIANT;
+import static io.trino.client.JsonIterators.createJsonFactory;
 import static java.lang.String.format;
 import static java.util.Collections.unmodifiableList;
 import static java.util.Collections.unmodifiableMap;
@@ -71,6 +75,8 @@ import static java.util.Objects.requireNonNull;
 
 public final class JsonDecodingUtils
 {
+    static final JsonMapper JSON_MAPPER = new JsonMapper(createJsonFactory());
+
     private JsonDecodingUtils() {}
 
     private static final BigIntegerDecoder BIG_INTEGER_DECODER = new BigIntegerDecoder();
@@ -81,6 +87,7 @@ public final class JsonDecodingUtils
     private static final RealDecoder REAL_DECODER = new RealDecoder();
     private static final BooleanDecoder BOOLEAN_DECODER = new BooleanDecoder();
     private static final StringDecoder STRING_DECODER = new StringDecoder();
+    private static final VariantDecoder VARIANT_DECODER = new VariantDecoder();
     private static final Base64Decoder BASE_64_DECODER = new Base64Decoder();
     private static final ObjectDecoder OBJECT_DECODER = new ObjectDecoder();
 
@@ -117,6 +124,8 @@ public final class JsonDecodingUtils
                 return REAL_DECODER;
             case BOOLEAN:
                 return BOOLEAN_DECODER;
+            case VARIANT:
+                return VARIANT_DECODER;
             case ARRAY:
                 return new ArrayDecoder(signature);
             case MAP:
@@ -284,6 +293,21 @@ public final class JsonDecodingUtils
                 throw illegalToken(parser);
             }
             return parser.getValueAsString();
+        }
+    }
+
+    private static class VariantDecoder
+            implements TypeDecoder
+    {
+        @Override
+        public Object decode(JsonParser parser)
+                throws IOException
+        {
+            StringWriter writer = new StringWriter();
+            try (JsonGenerator generator = JSON_MAPPER.createGenerator(writer)) {
+                generator.copyCurrentStructure(parser);
+            }
+            return writer.toString();
         }
     }
 

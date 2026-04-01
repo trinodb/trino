@@ -53,15 +53,18 @@ public final class OperatorValidator
                 break;
             case SUBSCRIPT:
                 validateOperatorSignature(operatorType, returnType, argumentTypes, 2);
-                checkArgument(argumentTypes.get(0).getBase().equals(StandardTypes.ARRAY) || argumentTypes.get(0).getBase().equals(StandardTypes.MAP), "First argument must be an ARRAY or MAP");
-                if (argumentTypes.get(0).getBase().equals(StandardTypes.ARRAY)) {
-                    checkArgument(argumentTypes.get(1).getBase().equals(StandardTypes.BIGINT), "Second argument must be a BIGINT");
-                    TypeSignature elementType = ((TypeParameter.Type) argumentTypes.get(0).getParameters().get(0)).type();
-                    checkArgument(returnType.equals(elementType), "[] return type does not match ARRAY element type");
-                }
-                else {
-                    TypeSignature valueType = ((TypeParameter.Type) argumentTypes.get(0).getParameters().get(1)).type();
-                    checkArgument(returnType.equals(valueType), "[] return type does not match MAP value type");
+                checkArgument(argumentTypes.get(0).getBase().equals(StandardTypes.ARRAY) || argumentTypes.get(0).getBase().equals(StandardTypes.MAP) || argumentTypes.get(0).getBase().equals(StandardTypes.VARIANT), "First argument must be an ARRAY, MAP, or VARIANT");
+                switch (argumentTypes.get(0).getBase()) {
+                    case StandardTypes.ARRAY -> {
+                        checkArgument(argumentTypes.get(1).getBase().equals(StandardTypes.BIGINT), "Second argument must be a BIGINT");
+                        TypeSignature elementType = ((TypeParameter.Type) argumentTypes.get(0).getParameters().get(0)).type();
+                        checkArgument(returnType.equals(elementType), "[] return type does not match ARRAY element type");
+                    }
+                    case StandardTypes.MAP -> {
+                        TypeSignature valueType = ((TypeParameter.Type) argumentTypes.get(0).getParameters().get(1)).type();
+                        checkArgument(returnType.equals(valueType), "[] return type does not match MAP value type");
+                    }
+                    default -> {}
                 }
                 break;
             case HASH_CODE:

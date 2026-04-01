@@ -5,12 +5,12 @@
     <parent>
         <groupId>io.airlift</groupId>
         <artifactId>airbase</artifactId>
-        <version>362</version>
+        <version>366</version>
     </parent>
 
     <groupId>io.trino</groupId>
     <artifactId>trino-root</artifactId>
-    <version>480-SNAPSHOT</version>
+    <version>481-SNAPSHOT</version>
     <packaging>pom</packaging>
 
     <name>${project.artifactId}</name>
@@ -65,6 +65,7 @@
         <module>plugin/trino-blackhole</module>
         <module>plugin/trino-cassandra</module>
         <module>plugin/trino-clickhouse</module>
+        <module>plugin/trino-datasketches</module>
         <module>plugin/trino-delta-lake</module>
         <module>plugin/trino-druid</module>
         <module>plugin/trino-duckdb</module>
@@ -119,7 +120,6 @@
         <module>plugin/trino-thrift-testing-server</module>
         <module>plugin/trino-tpcds</module>
         <module>plugin/trino-tpch</module>
-        <module>plugin/trino-vertica</module>
         <module>service/trino-proxy</module>
         <module>service/trino-verifier</module>
         <module>testing/trino-benchmark-queries</module>
@@ -150,7 +150,7 @@
     <properties>
         <project.build.targetJdk>25</project.build.targetJdk>
         <!-- for reproducible build support, updated by release plugin -->
-        <project.build.outputTimestamp>2025-12-15T02:35:04Z</project.build.outputTimestamp>
+        <project.build.outputTimestamp>2026-03-24T22:23:02Z</project.build.outputTimestamp>
         <!-- TODO remove this property when no module overrides it -->
         <trino.error-prone.guarded-by>ERROR</trino.error-prone.guarded-by>
 
@@ -185,14 +185,14 @@
         <air.test.jvm.additional-arguments>${air.test.jvm.additional-arguments.default}</air.test.jvm.additional-arguments>
 
         <!-- keep dependency properties sorted -->
-        <dep.airlift.version>413</dep.airlift.version>
+        <dep.airlift.version>419</dep.airlift.version>
         <dep.alluxio.version>2.9.6</dep.alluxio.version>
         <dep.antlr.version>4.13.2</dep.antlr.version>
         <dep.avro.version>1.12.1</dep.avro.version>
         <dep.aws-sdk.version>1.12.797</dep.aws-sdk.version>
         <dep.cassandra.version>4.17.0</dep.cassandra.version>
         <dep.confluent.version>8.1.1</dep.confluent.version>
-        <dep.docker.images.version>123</dep.docker.images.version>
+        <dep.docker.images.version>126</dep.docker.images.version>
         <dep.drift.version>1.24</dep.drift.version>
         <dep.frontend-maven-plugin.version>2.0.0</dep.frontend-maven-plugin.version>
         <dep.frontend-node.version>v24.12.0</dep.frontend-node.version>
@@ -203,11 +203,11 @@
         <dep.jsonwebtoken.version>0.13.0</dep.jsonwebtoken.version>
         <dep.jts.version>1.20.0</dep.jts.version>
         <dep.okhttp.version>5.3.2</dep.okhttp.version>
-        <dep.okio.version>3.16.4</dep.okio.version>
-        <dep.netty.version>4.2.10.Final</dep.netty.version>
+        <dep.okio.version>3.17.0</dep.okio.version>
+        <dep.netty.version>4.2.12.Final</dep.netty.version>
         <dep.parquet.version>1.17.0</dep.parquet.version>
-        <dep.protobuf.version>4.33.2</dep.protobuf.version>
-        <dep.swagger.version>2.2.44</dep.swagger.version>
+        <dep.protobuf.version>4.34.1</dep.protobuf.version>
+        <dep.swagger.version>2.2.45</dep.swagger.version>
         <dep.takari.version>2.3.2</dep.takari.version>
         <dep.tcnative.version>2.0.75.Final</dep.tcnative.version>
         <dep.tempto.version>202</dep.tempto.version>
@@ -226,7 +226,7 @@
             <dependency>
                 <groupId>com.azure</groupId>
                 <artifactId>azure-sdk-bom</artifactId>
-                <version>1.3.4</version>
+                <version>1.3.5</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -234,7 +234,7 @@
             <dependency>
                 <groupId>com.github.docker-java</groupId>
                 <artifactId>docker-java-bom</artifactId>
-                <version>3.7.0</version>
+                <version>3.7.1</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -242,7 +242,7 @@
             <dependency>
                 <groupId>com.google.cloud</groupId>
                 <artifactId>libraries-bom</artifactId>
-                <version>26.77.0</version>
+                <version>26.79.0</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -282,7 +282,7 @@
             <dependency>
                 <groupId>org.apache.arrow</groupId>
                 <artifactId>arrow-bom</artifactId>
-                <version>18.3.0</version>
+                <version>19.0.0</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -290,7 +290,7 @@
             <dependency>
                 <groupId>org.jdbi</groupId>
                 <artifactId>jdbi3-bom</artifactId>
-                <version>3.51.0</version>
+                <version>3.52.0</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -298,7 +298,7 @@
             <dependency>
                 <groupId>org.testcontainers</groupId>
                 <artifactId>testcontainers-bom</artifactId>
-                <version>2.0.3</version>
+                <version>2.0.4</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -306,7 +306,7 @@
             <dependency>
                 <groupId>software.amazon.awssdk</groupId>
                 <artifactId>bom</artifactId>
-                <version>2.42.5</version>
+                <version>2.42.23</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -405,12 +405,6 @@
             </dependency>
 
             <dependency>
-                <groupId>com.esri.geometry</groupId>
-                <artifactId>esri-geometry-api</artifactId>
-                <version>2.2.4</version>
-            </dependency>
-
-            <dependency>
                 <groupId>com.exasol</groupId>
                 <artifactId>exasol-jdbc</artifactId>
                 <version>26.2.7</version>
@@ -443,7 +437,7 @@
             <dependency>
                 <groupId>com.google.cloud.bigdataoss</groupId>
                 <artifactId>gcs-connector</artifactId>
-                <version>4.0.2</version>
+                <version>4.0.4</version>
                 <classifier>shaded</classifier>
                 <exclusions>
                     <exclusion>
@@ -499,7 +493,7 @@
             <dependency>
                 <groupId>com.microsoft.sqlserver</groupId>
                 <artifactId>mssql-jdbc</artifactId>
-                <version>13.2.1.jre11</version>
+                <version>13.4.0.jre11</version>
             </dependency>
 
             <dependency>
@@ -523,7 +517,7 @@
             <dependency>
                 <groupId>com.nimbusds</groupId>
                 <artifactId>oauth2-oidc-sdk</artifactId>
-                <version>11.33</version>
+                <version>11.34</version>
             </dependency>
 
             <dependency>
@@ -799,7 +793,7 @@
             <dependency>
                 <groupId>io.minio</groupId>
                 <artifactId>minio</artifactId>
-                <version>8.6.0</version>
+                <version>9.0.0</version>
                 <exclusions>
                     <exclusion>
                         <groupId>com.github.spotbugs</groupId>
@@ -914,13 +908,13 @@
             <dependency>
                 <groupId>io.projectreactor</groupId>
                 <artifactId>reactor-core</artifactId>
-                <version>3.8.3</version>
+                <version>3.8.4</version>
             </dependency>
 
             <dependency>
                 <groupId>io.projectreactor.netty</groupId>
                 <artifactId>reactor-netty-core</artifactId>
-                <version>1.3.3</version>
+                <version>1.3.4</version>
             </dependency>
 
             <!-- io.confluent:kafka-avro-serializer uses multiple versions of this transitive dependency -->
@@ -1518,12 +1512,6 @@
 
             <dependency>
                 <groupId>io.trino</groupId>
-                <artifactId>trino-vertica</artifactId>
-                <version>${project.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>io.trino</groupId>
                 <artifactId>trino-web-ui</artifactId>
                 <version>${project.version}</version>
             </dependency>
@@ -1672,7 +1660,7 @@
             <dependency>
                 <groupId>net.snowflake</groupId>
                 <artifactId>snowflake-jdbc</artifactId>
-                <version>4.0.1</version>
+                <version>4.0.2</version>
             </dependency>
 
             <dependency>
@@ -2027,15 +2015,9 @@
             </dependency>
 
             <dependency>
-                <groupId>org.apache.logging.log4j</groupId>
-                <artifactId>log4j-api</artifactId>
-                <version>2.25.3</version>
-            </dependency>
-
-            <dependency>
                 <groupId>org.apache.maven</groupId>
                 <artifactId>maven-model</artifactId>
-                <version>3.9.13</version>
+                <version>3.9.14</version>
             </dependency>
 
             <dependency>
@@ -2297,7 +2279,7 @@
             <dependency>
                 <groupId>org.roaringbitmap</groupId>
                 <artifactId>RoaringBitmap</artifactId>
-                <version>1.6.12</version>
+                <version>1.6.13</version>
             </dependency>
 
             <dependency>
@@ -2927,7 +2909,7 @@
                     <plugin>
                         <groupId>io.github.gitflow-incremental-builder</groupId>
                         <artifactId>gitflow-incremental-builder</artifactId>
-                        <version>4.5.6</version>
+                        <version>4.6.0</version>
                         <extensions>true</extensions>
                         <configuration>
                             <compareToMergeBase>true</compareToMergeBase>

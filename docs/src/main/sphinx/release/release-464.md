@@ -4,7 +4,7 @@
 
 * {{breaking}} Require JDK 23 to run Trino, including updated [](jvm-config). ({issue}`21316`)
 * Add the [](/connector/faker) for easy generation of data. ({issue}`23691`)
-* Add the [](/connector/vertica). ({issue}`23948`)
+* Add the Vertica connector. ({issue}`23948`)
 * Rename the
   `fault-tolerant-execution-eager-speculative-tasks-node_memory-overcommit`
   configuration property to

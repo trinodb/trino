@@ -44,6 +44,7 @@ import io.trino.spi.statistics.Estimate;
 import io.trino.spi.statistics.TableStatistics;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.DecimalType;
+import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
 
@@ -844,6 +845,9 @@ public abstract class AbstractHiveStatisticsProvider
         if (type.equals(DATE)) {
             return statistics.getDateStatistics().flatMap(AbstractHiveStatisticsProvider::createDateRange);
         }
+        if (type instanceof TimestampType) {
+            return statistics.getIntegerStatistics().flatMap(AbstractHiveStatisticsProvider::createTimestampRange);
+        }
         if (type instanceof DecimalType) {
             return statistics.getDecimalStatistics().flatMap(AbstractHiveStatisticsProvider::createDecimalRange);
         }
@@ -892,6 +896,14 @@ public abstract class AbstractHiveStatisticsProvider
     {
         if (statistics.getMin().isPresent() && statistics.getMax().isPresent()) {
             return Optional.of(new DoubleRange(statistics.getMin().get().toEpochDay(), statistics.getMax().get().toEpochDay()));
+        }
+        return Optional.empty();
+    }
+
+    private static Optional<DoubleRange> createTimestampRange(IntegerStatistics statistics)
+    {
+        if (statistics.getMin().isPresent() && statistics.getMax().isPresent()) {
+            return Optional.of(new DoubleRange(statistics.getMin().getAsLong(), statistics.getMax().getAsLong()));
         }
         return Optional.empty();
     }

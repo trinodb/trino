@@ -20,6 +20,7 @@ import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.ConnectorPageSourceProvider;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplit;
+import io.trino.spi.connector.ConnectorTableCredentials;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.DynamicFilter;
@@ -27,6 +28,7 @@ import io.trino.spi.connector.EmptyPageSource;
 import io.trino.spi.predicate.TupleDomain;
 
 import java.util.List;
+import java.util.Optional;
 
 import static io.trino.plugin.mongodb.TypeUtils.isPushdownSupportedType;
 import static java.util.Objects.requireNonNull;
@@ -52,6 +54,7 @@ public class MongoPageSourceProvider
             ConnectorSession session,
             ConnectorSplit split,
             ConnectorTableHandle table,
+            Optional<ConnectorTableCredentials> tableCredentials,
             List<ColumnHandle> columns,
             DynamicFilter dynamicFilter)
     {

@@ -40,6 +40,7 @@ Color               <functions/color>
 Comparison          <functions/comparison>
 Conditional         <functions/conditional>
 Conversion          <functions/conversion>
+DataSketches        <functions/datasketches>
 Date and time       <functions/datetime>
 Decimal             <functions/decimal>
 Geospatial          <functions/geospatial>
@@ -62,5 +63,6 @@ Teradata            <functions/teradata>
 T-Digest            <functions/tdigest>
 URL                 <functions/url>
 UUID                <functions/uuid>
+Variant             <functions/variant>
 Window              <functions/window>
 ```

@@ -279,6 +279,14 @@ final class TestDuckDbConnectorTest
     }
 
     @Test
+    void testCustomUserAgent()
+    {
+        assertThat(query("SELECT filter(split(user_agent, ' '), value -> value LIKE 'trino%') FROM TABLE(system.query(query => 'SELECT user_agent FROM pragma_user_agent()'))"))
+                .skippingTypesCheck()
+                .matches("VALUES (ARRAY['trino/testversion'])");
+    }
+
+    @Test
     void testTemporaryTable()
     {
         String tableName = "test_temporary_table" + randomNameSuffix();

@@ -837,3 +837,8 @@ public CompletableFuture<?> appendPage(Page page)
     return NOT_BLOCKED;
 }
 ```
+
+:::{note}
+When packaging the connector with Trino as a new dependency, register the
+artifact in `core/trino-server/src/main/provisio/trino.xml`
+:::

@@ -21,6 +21,7 @@ import io.trino.testing.QueryRunner;
 import org.junit.jupiter.api.Test;
 
 import static io.airlift.testing.Closeables.closeAllSuppress;
+import static io.trino.plugin.geospatial.GeoTestUtils.spatiallyEquals;
 import static io.trino.plugin.geospatial.GeometryType.GEOMETRY;
 import static io.trino.plugin.geospatial.SphericalGeographyType.SPHERICAL_GEOGRAPHY;
 import static io.trino.testing.TestingSession.testSessionBuilder;
@@ -68,18 +69,18 @@ public class TestGeoSpatialQueries
                         .row("POINT (52.233 21.016)")
                         .build());
 
-        assertThat(query("SELECT ST_GeometryFromText('POLYGON((0 0, 0 1, 1 1, 1 1, 1 0, 0 0))')"))
-                .result().matches(MaterializedResult.resultBuilder(getSession(), GEOMETRY)
-                        .row("POLYGON ((0 0, 1 0, 1 1, 1 1, 0 1, 0 0))")
-                        .build());
+        MaterializedResult actual = computeActual("SELECT ST_GeometryFromText('POLYGON((0 0, 0 1, 1 1, 1 1, 1 0, 0 0))')");
+        assertThat(actual.getTypes()).containsExactly(GEOMETRY);
+        String actualWkt = (String) actual.getOnlyValue();
+        assertThat(spatiallyEquals(actualWkt, "POLYGON ((0 0, 0 1, 1 1, 1 1, 1 0, 0 0))")).isTrue();
     }
 
     @Test
     public void testSphericalGeographyResult()
     {
-        assertThat(query("SELECT to_spherical_geography(ST_GeometryFromText('POLYGON((0 0, 0 1, 1 1, 1 1, 1 0, 0 0))'))"))
-                .result().matches(MaterializedResult.resultBuilder(getSession(), SPHERICAL_GEOGRAPHY)
-                        .row("POLYGON ((0 0, 1 0, 1 1, 1 1, 0 1, 0 0))")
-                        .build());
+        MaterializedResult actual = computeActual("SELECT to_spherical_geography(ST_GeometryFromText('POLYGON((0 0, 0 1, 1 1, 1 1, 1 0, 0 0))'))");
+        assertThat(actual.getTypes()).containsExactly(SPHERICAL_GEOGRAPHY);
+        String actualWkt = (String) actual.getOnlyValue();
+        assertThat(spatiallyEquals(actualWkt, "POLYGON ((0 0, 0 1, 1 1, 1 1, 1 0, 0 0))")).isTrue();
     }
 }

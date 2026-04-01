@@ -13,8 +13,9 @@
  */
 package io.trino.plugin.geospatial.aggregation;
 
-import com.esri.core.geometry.ogc.OGCGeometry;
 import org.junit.jupiter.api.Test;
+import org.locationtech.jts.io.ParseException;
+import org.locationtech.jts.io.WKTReader;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -32,10 +33,11 @@ public class TestGeometryStateFactory
 
     @Test
     public void testCreateSingleStatePresent()
+            throws ParseException
     {
         GeometryState state = factory.createSingleState();
-        state.setGeometry(OGCGeometry.fromText("POINT (1 2)"));
-        assertThat(OGCGeometry.fromText("POINT (1 2)")).isEqualTo(state.getGeometry());
+        state.setGeometry(new WKTReader().read("POINT (1 2)"));
+        assertThat(state.getGeometry().toText()).isEqualTo("POINT (1 2)");
         assertThat(state.getEstimatedSize() > 0)
                 .describedAs("Estimated memory size was " + state.getEstimatedSize())
                 .isTrue();
@@ -53,6 +55,7 @@ public class TestGeometryStateFactory
 
     @Test
     public void testCreateGroupedStatePresent()
+            throws ParseException
     {
         GeometryState state = factory.createGroupedState();
         assertThat(state.getGeometry()).isNull();
@@ -61,13 +64,13 @@ public class TestGeometryStateFactory
 
         groupedState.setGroupId(1);
         assertThat(state.getGeometry()).isNull();
-        groupedState.setGeometry(OGCGeometry.fromText("POINT (1 2)"));
-        assertThat(state.getGeometry()).isEqualTo(OGCGeometry.fromText("POINT (1 2)"));
+        groupedState.setGeometry(new WKTReader().read("POINT (1 2)"));
+        assertThat(state.getGeometry().toText()).isEqualTo("POINT (1 2)");
 
         groupedState.setGroupId(2);
         assertThat(state.getGeometry()).isNull();
-        groupedState.setGeometry(OGCGeometry.fromText("POINT (3 4)"));
-        assertThat(state.getGeometry()).isEqualTo(OGCGeometry.fromText("POINT (3 4)"));
+        groupedState.setGeometry(new WKTReader().read("POINT (3 4)"));
+        assertThat(state.getGeometry().toText()).isEqualTo("POINT (3 4)");
 
         groupedState.setGroupId(1);
         assertThat(state.getGeometry()).isNotNull();

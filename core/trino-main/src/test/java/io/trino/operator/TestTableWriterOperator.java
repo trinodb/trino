@@ -33,6 +33,7 @@ import io.trino.spi.connector.ConnectorPageSink;
 import io.trino.spi.connector.ConnectorPageSinkId;
 import io.trino.spi.connector.ConnectorPageSinkProvider;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.ConnectorTableCredentials;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.WriterScalingOptions;
@@ -49,6 +50,7 @@ import org.junit.jupiter.api.parallel.Execution;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
@@ -303,6 +305,7 @@ public class TestTableWriterOperator
                         OptionalInt.empty(),
                         WriterScalingOptions.DISABLED,
                         false),
+                Optional.empty(),
                 ImmutableList.of(0),
                 session,
                 statisticsAggregation,
@@ -321,13 +324,23 @@ public class TestTableWriterOperator
         }
 
         @Override
-        public ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorOutputTableHandle outputTableHandle, ConnectorPageSinkId pageSinkId)
+        public ConnectorPageSink createPageSink(
+                ConnectorTransactionHandle transactionHandle,
+                ConnectorSession session,
+                ConnectorOutputTableHandle outputTableHandle,
+                Optional<ConnectorTableCredentials> tableCredentials,
+                ConnectorPageSinkId pageSinkId)
         {
             return pageSink;
         }
 
         @Override
-        public ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorInsertTableHandle insertTableHandle, ConnectorPageSinkId pageSinkId)
+        public ConnectorPageSink createPageSink(
+                ConnectorTransactionHandle transactionHandle,
+                ConnectorSession session,
+                ConnectorInsertTableHandle insertTableHandle,
+                Optional<ConnectorTableCredentials> tableCredentials,
+                ConnectorPageSinkId pageSinkId)
         {
             return pageSink;
         }

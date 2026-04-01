@@ -48,6 +48,12 @@ public class SpoolingExchangeDataSource
     }
 
     @Override
+    public boolean usesExternalStorage()
+    {
+        return true;
+    }
+
+    @Override
     public Slice pollPage()
     {
         ExchangeSource exchangeSource = this.exchangeSource;

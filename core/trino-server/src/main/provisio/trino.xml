@@ -40,6 +40,12 @@
         </artifact>
     </artifactSet>
 
+    <artifactSet to="plugin/datasketches">
+        <artifact id="${project.groupId}:trino-datasketches:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
+
     <artifactSet to="plugin/delta-lake">
         <artifact id="${project.groupId}:trino-delta-lake:zip:${project.version}">
             <unpack />
@@ -304,12 +310,6 @@
 
     <artifactSet to="plugin/tpch">
         <artifact id="${project.groupId}:trino-tpch:zip:${project.version}">
-            <unpack />
-        </artifact>
-    </artifactSet>
-
-    <artifactSet to="plugin/vertica">
-        <artifact id="${project.groupId}:trino-vertica:zip:${project.version}">
             <unpack />
         </artifact>
     </artifactSet>

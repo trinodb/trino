@@ -26,6 +26,7 @@ import static io.trino.spi.function.OperatorType.IDENTICAL;
 import static io.trino.spi.function.OperatorType.INDETERMINATE;
 import static io.trino.spi.function.OperatorType.LESS_THAN;
 import static io.trino.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
+import static io.trino.spi.type.NumberType.NUMBER;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
@@ -254,6 +255,20 @@ public class TestBooleanOperators
         assertThat(assertions.expression("cast(a as real)")
                 .binding("a", "false"))
                 .isEqualTo(0.0f);
+    }
+
+    @Test
+    public void testCastToNumber()
+    {
+        assertThat(assertions.expression("cast(a as number)")
+                .binding("a", "true"))
+                .hasType(NUMBER)
+                .matches("NUMBER '1'");
+
+        assertThat(assertions.expression("cast(a as number)")
+                .binding("a", "false"))
+                .hasType(NUMBER)
+                .matches("NUMBER '0'");
     }
 
     @Test

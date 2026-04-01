@@ -79,12 +79,7 @@ public class BenchmarkColumnarFilter
     public boolean columnarEvaluationEnabled;
     @Param({"0", "10"})
     public int nullsPercentage;
-    @Param({
-            "BETWEEN",
-            "LESS_THAN",
-            "IS_NULL",
-            "IS_NOT_NULL",
-    })
+    @Param
     public FilterProvider filterProvider;
     public String dataType = StandardTypes.INTEGER;
 

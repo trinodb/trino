@@ -13,15 +13,10 @@
  */
 package io.trino.sql.planner.assertions;
 
-import io.trino.Session;
-import io.trino.cost.StatsProvider;
-import io.trino.metadata.Metadata;
 import io.trino.sql.DynamicFilters;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.planner.plan.FilterNode;
 import io.trino.sql.planner.plan.PlanNode;
-
-import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkState;
@@ -33,12 +28,10 @@ final class FilterMatcher
         implements Matcher
 {
     private final Expression predicate;
-    private final Optional<Expression> dynamicFilter;
 
-    FilterMatcher(Expression predicate, Optional<Expression> dynamicFilter)
+    FilterMatcher(Expression predicate)
     {
         this.predicate = requireNonNull(predicate, "predicate is null");
-        this.dynamicFilter = requireNonNull(dynamicFilter, "dynamicFilter is null");
     }
 
     @Override
@@ -48,17 +41,13 @@ final class FilterMatcher
     }
 
     @Override
-    public MatchResult detailMatches(PlanNode node, StatsProvider stats, Session session, Metadata metadata, SymbolAliases symbolAliases)
+    public MatchResult detailMatches(PlanNode node, MatchContext context)
     {
         checkState(shapeMatches(node), "Plan testing framework error: shapeMatches returned false in detailMatches in %s", this.getClass().getName());
 
         FilterNode filterNode = (FilterNode) node;
         Expression filterPredicate = filterNode.getPredicate();
-        ExpressionVerifier verifier = new ExpressionVerifier(symbolAliases);
-
-        if (dynamicFilter.isPresent()) {
-            return new MatchResult(verifier.process(filterPredicate, combineConjuncts(predicate, dynamicFilter.get())));
-        }
+        ExpressionVerifier verifier = new ExpressionVerifier(context.symbolAliases());
 
         DynamicFilters.ExtractResult extractResult = extractDynamicFilters(filterPredicate);
         return new MatchResult(verifier.process(combineConjuncts(extractResult.getStaticConjuncts()), predicate));

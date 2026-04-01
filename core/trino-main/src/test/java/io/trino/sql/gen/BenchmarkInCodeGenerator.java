@@ -90,8 +90,6 @@ public class BenchmarkInCodeGenerator
 
         private Page inputPage;
         private PageProcessor processor;
-        @SuppressWarnings("FieldCanBeLocal")
-        private Type trinoType;
 
         @Setup
         public void setup()
@@ -99,19 +97,12 @@ public class BenchmarkInCodeGenerator
             Random random = new Random(0);
             List<RowExpression> arguments = new ArrayList<>(1 + inListCount);
 
-            switch (type) {
-                case StandardTypes.BIGINT:
-                    trinoType = BIGINT;
-                    break;
-                case StandardTypes.DOUBLE:
-                    trinoType = DOUBLE;
-                    break;
-                case StandardTypes.VARCHAR:
-                    trinoType = VARCHAR;
-                    break;
-                default:
-                    throw new IllegalStateException();
-            }
+            Type trinoType = switch (type) {
+                case StandardTypes.BIGINT -> BIGINT;
+                case StandardTypes.DOUBLE -> DOUBLE;
+                case StandardTypes.VARCHAR -> VARCHAR;
+                default -> throw new IllegalStateException("Unexpected type: " + type);
+            };
 
             List<Object> inList = new ArrayList<>();
             arguments.add(field(0, trinoType));

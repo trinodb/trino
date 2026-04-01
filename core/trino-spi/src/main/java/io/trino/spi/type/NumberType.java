@@ -19,15 +19,24 @@ import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.VariableWidthBlock;
 import io.trino.spi.block.VariableWidthBlockBuilder;
+import io.trino.spi.function.BlockIndex;
+import io.trino.spi.function.BlockPosition;
+import io.trino.spi.function.FlatFixed;
+import io.trino.spi.function.FlatFixedOffset;
+import io.trino.spi.function.FlatVariableOffset;
+import io.trino.spi.function.FlatVariableWidth;
 import io.trino.spi.function.ScalarOperator;
 
+import static io.airlift.slice.Slices.wrappedBuffer;
 import static io.trino.spi.function.OperatorType.COMPARISON_UNORDERED_LAST;
 import static io.trino.spi.function.OperatorType.EQUAL;
 import static io.trino.spi.function.OperatorType.LESS_THAN;
 import static io.trino.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
+import static io.trino.spi.function.OperatorType.READ_VALUE;
 import static io.trino.spi.function.OperatorType.XX_HASH_64;
 import static io.trino.spi.type.TrinoNumber.AsBigDecimal.COMPARE_NAN_LAST;
 import static io.trino.spi.type.TypeOperatorDeclaration.extractOperatorDeclaration;
+import static io.trino.spi.type.Verify.verify;
 import static java.lang.invoke.MethodHandles.lookup;
 
 /**
@@ -125,8 +134,8 @@ public class NumberType
     @Override
     public void writeObject(BlockBuilder blockBuilder, Object value)
     {
-        TrinoNumber decimal = (TrinoNumber) value;
-        ((VariableWidthBlockBuilder) blockBuilder).writeEntry(decimal.bytes());
+        TrinoNumber number = (TrinoNumber) value;
+        ((VariableWidthBlockBuilder) blockBuilder).writeEntry(number.bytes());
     }
 
     @Override
@@ -149,6 +158,84 @@ public class NumberType
             return false;
         }
         return left.bytes().equals(right.bytes());
+    }
+
+    @Override
+    public int getFlatFixedSize()
+    {
+        // Based on MAX_DECIMAL_PRECISION value
+        return Byte.BYTES;
+    }
+
+    @Override
+    public int getFlatVariableWidthSize(Block block, int position)
+    {
+        VariableWidthBlock variableWidthBlock = (VariableWidthBlock) block.getUnderlyingValueBlock();
+        int length = variableWidthBlock.getSliceLength(block.getUnderlyingValuePosition(position));
+        verify(length <= 0xFF, "Length out of range: %s", length);
+        return length;
+    }
+
+    @Override
+    public int getFlatVariableWidthLength(byte[] fixedSizeSlice, int fixedSizeOffset)
+    {
+        return fixedSizeSlice[fixedSizeOffset] & 0xFF;
+    }
+
+    @ScalarOperator(READ_VALUE)
+    private static TrinoNumber readFlatToStack(
+            @FlatFixed byte[] fixedSizeSlice,
+            @FlatFixedOffset int fixedSizeOffset,
+            @FlatVariableWidth byte[] variableSizeSlice,
+            @FlatVariableOffset int variableSizeOffset)
+    {
+        int length = fixedSizeSlice[fixedSizeOffset] & 0xFF;
+        return new TrinoNumber(wrappedBuffer(variableSizeSlice, variableSizeOffset, length));
+    }
+
+    @ScalarOperator(READ_VALUE)
+    private static void readFlatToBlock(
+            @FlatFixed byte[] fixedSizeSlice,
+            @FlatFixedOffset int fixedSizeOffset,
+            @FlatVariableWidth byte[] variableSizeSlice,
+            @FlatVariableOffset int variableSizeOffset,
+            BlockBuilder blockBuilder)
+    {
+        int length = fixedSizeSlice[fixedSizeOffset] & 0xFF;
+        ((VariableWidthBlockBuilder) blockBuilder).writeEntry(variableSizeSlice, variableSizeOffset, length);
+    }
+
+    @ScalarOperator(READ_VALUE)
+    private static void writeFlatFromStack(
+            TrinoNumber value,
+            @FlatFixed byte[] fixedSizeSlice,
+            @FlatFixedOffset int fixedSizeOffset,
+            @FlatVariableWidth byte[] variableSizeSlice,
+            @FlatVariableOffset int variableSizeOffset)
+    {
+        Slice bytes = value.bytes();
+        int length = bytes.length();
+        verify(length <= 0xFF, "Length out of range: %s", length);
+        fixedSizeSlice[fixedSizeOffset] = (byte) length;
+        bytes.getBytes(0, variableSizeSlice, variableSizeOffset, length);
+    }
+
+    @ScalarOperator(READ_VALUE)
+    private static void writeFlatFromBlock(
+            @BlockPosition VariableWidthBlock block,
+            @BlockIndex int position,
+            @FlatFixed byte[] fixedSizeSlice,
+            @FlatFixedOffset int fixedSizeOffset,
+            @FlatVariableWidth byte[] variableSizeSlice,
+            @FlatVariableOffset int variableSizeOffset)
+    {
+        Slice rawSlice = block.getRawSlice();
+        int rawSliceOffset = block.getRawSliceOffset(position);
+        int length = block.getSliceLength(position);
+
+        verify(length <= 0xFF, "Length out of range: %s", length);
+        fixedSizeSlice[fixedSizeOffset] = (byte) length;
+        rawSlice.getBytes(rawSliceOffset, variableSizeSlice, variableSizeOffset, length);
     }
 
     // TODO EQUAL with block, position, block, position

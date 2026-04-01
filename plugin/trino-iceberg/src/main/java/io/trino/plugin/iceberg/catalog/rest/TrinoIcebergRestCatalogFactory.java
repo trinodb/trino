@@ -62,6 +62,8 @@ public class TrinoIcebergRestCatalogFactory
     private final boolean nestedNamespaceEnabled;
     private final Security security;
     private final SessionType sessionType;
+    private final Optional<Duration> connectionTimeout;
+    private final Optional<Duration> socketTimeout;
     private final Duration sessionTimeout;
     private final boolean vendedCredentialsEnabled;
     private final boolean viewEndpointsEnabled;
@@ -97,6 +99,8 @@ public class TrinoIcebergRestCatalogFactory
         this.nestedNamespaceEnabled = restConfig.isNestedNamespaceEnabled();
         this.security = restConfig.getSecurity();
         this.sessionType = restConfig.getSessionType();
+        this.connectionTimeout = restConfig.getConnectionTimeout();
+        this.socketTimeout = restConfig.getSocketTimeout();
         this.sessionTimeout = restConfig.getSessionTimeout();
         this.vendedCredentialsEnabled = restConfig.isVendedCredentialsEnabled();
         this.viewEndpointsEnabled = restConfig.isViewEndpointsEnabled();
@@ -128,6 +132,8 @@ public class TrinoIcebergRestCatalogFactory
             properties.put("view-endpoints-supported", Boolean.toString(viewEndpointsEnabled));
             properties.put("trino-version", trinoVersion);
             properties.put(AUTH_SESSION_TIMEOUT_MS, String.valueOf(sessionTimeout.toMillis()));
+            connectionTimeout.ifPresent(duration -> properties.put("rest.client.connection-timeout-ms", String.valueOf(duration.toMillis())));
+            socketTimeout.ifPresent(duration -> properties.put("rest.client.socket-timeout-ms", String.valueOf(duration.toMillis())));
             properties.putAll(securityProperties.get());
 
             if (vendedCredentialsEnabled) {

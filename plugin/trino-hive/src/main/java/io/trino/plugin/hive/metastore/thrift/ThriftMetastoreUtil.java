@@ -23,6 +23,7 @@ import com.google.common.io.ByteStreams;
 import com.google.common.primitives.Shorts;
 import io.airlift.compress.v3.zstd.ZstdDecompressor;
 import io.airlift.json.JsonCodec;
+import io.airlift.log.Logger;
 import io.trino.hive.thrift.metastore.BinaryColumnStatsData;
 import io.trino.hive.thrift.metastore.BooleanColumnStatsData;
 import io.trino.hive.thrift.metastore.ColumnStatisticsObj;
@@ -43,6 +44,8 @@ import io.trino.hive.thrift.metastore.RolePrincipalGrant;
 import io.trino.hive.thrift.metastore.SerDeInfo;
 import io.trino.hive.thrift.metastore.StorageDescriptor;
 import io.trino.hive.thrift.metastore.StringColumnStatsData;
+import io.trino.hive.thrift.metastore.Timestamp;
+import io.trino.hive.thrift.metastore.TimestampColumnStatsData;
 import io.trino.metastore.AcidOperation;
 import io.trino.metastore.Column;
 import io.trino.metastore.Database;
@@ -150,8 +153,12 @@ import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
+import static io.trino.spi.type.StandardTypes.TIMESTAMP;
+import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_SECOND;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
+import static java.lang.Math.ceilDiv;
+import static java.lang.Math.floorDiv;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
@@ -159,6 +166,8 @@ import static java.util.Objects.requireNonNull;
 
 public final class ThriftMetastoreUtil
 {
+    private static final Logger log = Logger.get(ThriftMetastoreUtil.class);
+
     private static final JsonCodec<LanguageFunction> LANGUAGE_FUNCTION_CODEC = jsonCodec(LanguageFunction.class);
     private static final String PUBLIC_ROLE_NAME = "public";
     private static final String ADMIN_ROLE_NAME = "admin";
@@ -325,11 +334,11 @@ public final class ThriftMetastoreUtil
         }
 
         return Stream.concat(
-                roles,
-                listApplicableRoles(principal, listRoleGrants)
-                        .map(RoleGrant::getRoleName)
-                        // The admin role must be enabled explicitly. If it is, it was added above.
-                        .filter(Predicate.isEqual(ADMIN_ROLE_NAME).negate()))
+                        roles,
+                        listApplicableRoles(principal, listRoleGrants)
+                                .map(RoleGrant::getRoleName)
+                                // The admin role must be enabled explicitly. If it is, it was added above.
+                                .filter(Predicate.isEqual(ADMIN_ROLE_NAME).negate()))
                 // listApplicableRoles may return role which was already added explicitly above.
                 .distinct();
     }
@@ -429,8 +438,8 @@ public final class ThriftMetastoreUtil
         return serdeInfo.getSerializationLib() != null &&
                 ((table.getParameters().get(AVRO_SCHEMA_URL_KEY) != null ||
                         (serdeInfo.getParameters() != null && serdeInfo.getParameters().get(AVRO_SCHEMA_URL_KEY) != null)) ||
-                 (table.getParameters().get(AVRO_SCHEMA_LITERAL_KEY) != null ||
-                         (serdeInfo.getParameters() != null && serdeInfo.getParameters().get(AVRO_SCHEMA_LITERAL_KEY) != null))) &&
+                        (table.getParameters().get(AVRO_SCHEMA_LITERAL_KEY) != null ||
+                                (serdeInfo.getParameters() != null && serdeInfo.getParameters().get(AVRO_SCHEMA_LITERAL_KEY) != null))) &&
                 serdeInfo.getSerializationLib().equals(AVRO.getSerde());
     }
 
@@ -517,12 +526,32 @@ public final class ThriftMetastoreUtil
         return partitionBuilder.build();
     }
 
-    public static HiveColumnStatistics fromMetastoreApiColumnStatistics(ColumnStatisticsObj columnStatistics)
+    /**
+     * Converts Hive Metastore column statistics to Trino's internal representation.
+     * <p>
+     * For TIMESTAMP columns, HMS supports two storage formats:
+     * - Hive 3 (and earlier): Stores timestamps as LongColumnStatsData (seconds since epoch)
+     * - Hive 4+: Stores timestamps as TimestampColumnStatsData (seconds since epoch with explicit type)
+     * <p>
+     * Both formats store values as seconds since epoch in HMS, which we convert to microseconds
+     * for Trino's internal representation.
+     */
+    public static HiveColumnStatistics fromMetastoreApiColumnStatistics(String databaseName, String tableName, ColumnStatisticsObj columnStatistics)
     {
         if (columnStatistics.getStatsData().isSetLongStats()) {
             LongColumnStatsData longStatsData = columnStatistics.getStatsData().getLongStats();
             OptionalLong min = longStatsData.isSetLowValue() ? OptionalLong.of(longStatsData.getLowValue()) : OptionalLong.empty();
             OptionalLong max = longStatsData.isSetHighValue() ? OptionalLong.of(longStatsData.getHighValue()) : OptionalLong.empty();
+            // Hive 3 stores TIMESTAMP statistics as LongStats (seconds since epoch)
+            // Convert from seconds to microseconds for Trino
+            if (TIMESTAMP.equals(columnStatistics.getColType())) {
+                if (min.isPresent()) {
+                    min = OptionalLong.of(min.getAsLong() * MICROSECONDS_PER_SECOND);
+                }
+                if (max.isPresent()) {
+                    max = OptionalLong.of(max.getAsLong() * MICROSECONDS_PER_SECOND);
+                }
+            }
             OptionalLong nullsCount = longStatsData.isSetNumNulls() ? fromMetastoreNullsCount(longStatsData.getNumNulls()) : OptionalLong.empty();
             OptionalLong distinctValuesWithNullCount = longStatsData.isSetNumDVs() ? OptionalLong.of(longStatsData.getNumDVs()) : OptionalLong.empty();
             return createIntegerColumnStatistics(min, max, nullsCount, distinctValuesWithNullCount);
@@ -587,7 +616,27 @@ public final class ThriftMetastoreUtil
                     averageColumnLength,
                     nullsCount);
         }
-        throw new TrinoException(HIVE_INVALID_METADATA, "Invalid column statistics data: " + columnStatistics);
+        // Hive 4+ stores TIMESTAMP statistics using dedicated TimestampColumnStatsData
+        // Values are stored as seconds since epoch and converted to microseconds
+        if (columnStatistics.getStatsData().isSetTimestampStats()) {
+            TimestampColumnStatsData timestampStatsData = columnStatistics.getStatsData().getTimestampStats();
+            OptionalLong min = timestampStatsData.isSetLowValue() ? fromMetastoreTimestamp(timestampStatsData.getLowValue()) : OptionalLong.empty();
+            OptionalLong max = timestampStatsData.isSetHighValue() ? fromMetastoreTimestamp(timestampStatsData.getHighValue()) : OptionalLong.empty();
+            OptionalLong nullsCount = timestampStatsData.isSetNumNulls() ? fromMetastoreNullsCount(timestampStatsData.getNumNulls()) : OptionalLong.empty();
+            OptionalLong distinctValuesWithNullCount = timestampStatsData.isSetNumDVs() ? OptionalLong.of(timestampStatsData.getNumDVs()) : OptionalLong.empty();
+            return createIntegerColumnStatistics(min, max, nullsCount, distinctValuesWithNullCount);
+        }
+        log.warn("Unsupported column statistics data in table %s.%s: %s", databaseName, tableName, columnStatistics);
+        return new HiveColumnStatistics(
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                OptionalLong.empty(),
+                OptionalDouble.empty(),
+                OptionalLong.empty(),
+                OptionalLong.empty());
     }
 
     private static Optional<LocalDate> fromMetastoreDate(Date date)
@@ -609,6 +658,18 @@ public final class ThriftMetastoreUtil
             return OptionalLong.empty();
         }
         return OptionalLong.of(nullsCount);
+    }
+
+    /**
+     * Converts HMS Timestamp (seconds since epoch) to Trino format (microseconds since epoch).
+     * Used when reading Hive 4+ TimestampColumnStatsData.
+     */
+    private static OptionalLong fromMetastoreTimestamp(Timestamp timestamp)
+    {
+        if (timestamp == null) {
+            return OptionalLong.empty();
+        }
+        return OptionalLong.of(timestamp.getSecondsSinceEpoch() * MICROSECONDS_PER_SECOND);
     }
 
     private static Optional<BigDecimal> fromMetastoreDecimal(@Nullable Decimal decimal)
@@ -700,6 +761,9 @@ public final class ThriftMetastoreUtil
         sd.setOutputFormat(storage.getStorageFormat().getOutputFormatNullable());
         sd.setSkewedInfoIsSet(storage.isSkewed());
         sd.setParameters(ImmutableMap.of());
+        // Hive uses -1 as the sentinel value for "not bucketed". Leaving the Thrift default (0)
+        // can lead to divergent behavior for unbucketed tables created by Trino.
+        sd.setNumBuckets(-1);
 
         Optional<HiveBucketProperty> bucketProperty = storage.getBucketProperty();
         if (bucketProperty.isPresent()) {
@@ -770,8 +834,9 @@ public final class ThriftMetastoreUtil
             case SHORT:
             case INT:
             case LONG:
-            case TIMESTAMP:
                 return createLongStatistics(columnName, columnType, statistics);
+            case TIMESTAMP:
+                return createTimestampStatistics(columnName, columnType, statistics);
             case FLOAT:
             case DOUBLE:
                 return createDoubleStatistics(columnName, columnType, statistics);
@@ -815,6 +880,24 @@ public final class ThriftMetastoreUtil
         statistics.getIntegerStatistics().ifPresent(integerStatistics -> {
             integerStatistics.getMin().ifPresent(data::setLowValue);
             integerStatistics.getMax().ifPresent(data::setHighValue);
+        });
+        statistics.getNullsCount().ifPresent(data::setNumNulls);
+        statistics.getDistinctValuesWithNullCount().ifPresent(data::setNumDVs);
+        return new ColumnStatisticsObj(columnName, columnType.toString(), longStats(data));
+    }
+
+    /**
+     * Writes TIMESTAMP statistics to HMS using LongColumnStatsData format (seconds since epoch).
+     * We use LongStats format for backward compatibility with Hive 3, which is also compatible
+     * with Hive 4. Values are converted from Trino's microseconds to HMS seconds using floorDiv for
+     * the minimum, and ceilDiv for the maximum.
+     */
+    private static ColumnStatisticsObj createTimestampStatistics(String columnName, HiveType columnType, HiveColumnStatistics statistics)
+    {
+        LongColumnStatsData data = new LongColumnStatsData();
+        statistics.getIntegerStatistics().ifPresent(timestampStatistics -> {
+            timestampStatistics.getMin().ifPresent(value -> data.setLowValue(floorDiv(value, MICROSECONDS_PER_SECOND)));
+            timestampStatistics.getMax().ifPresent(value -> data.setHighValue(ceilDiv(value, MICROSECONDS_PER_SECOND)));
         });
         statistics.getNullsCount().ifPresent(data::setNumNulls);
         statistics.getDistinctValuesWithNullCount().ifPresent(data::setNumDVs);
@@ -894,8 +977,10 @@ public final class ThriftMetastoreUtil
         if (isNumericType(type) || type.equals(DATE)) {
             return ImmutableSet.of(MIN_VALUE, MAX_VALUE, NUMBER_OF_DISTINCT_VALUES, NUMBER_OF_NON_NULL_VALUES);
         }
-        if (type instanceof TimestampType || type instanceof TimestampWithTimeZoneType) {
-            // TODO (https://github.com/trinodb/trino/issues/5859) Add support for timestamp MIN_VALUE, MAX_VALUE
+        if (type instanceof TimestampType) {
+            return ImmutableSet.of(MIN_VALUE, MAX_VALUE, NUMBER_OF_DISTINCT_VALUES, NUMBER_OF_NON_NULL_VALUES);
+        }
+        if (type instanceof TimestampWithTimeZoneType) {
             return ImmutableSet.of(NUMBER_OF_DISTINCT_VALUES, NUMBER_OF_NON_NULL_VALUES);
         }
         if (type instanceof VarcharType || type instanceof CharType) {
@@ -981,7 +1066,7 @@ public final class ThriftMetastoreUtil
         return AVRO.getSerde().equals(table.getStorage().getStorageFormat().getSerDeNullable()) &&
                 ((table.getParameters().get(AVRO_SCHEMA_URL_KEY) != null ||
                         (table.getStorage().getSerdeParameters().get(AVRO_SCHEMA_URL_KEY) != null)) ||
-                 (table.getParameters().get(AVRO_SCHEMA_LITERAL_KEY) != null ||
-                         (table.getStorage().getSerdeParameters().get(AVRO_SCHEMA_LITERAL_KEY) != null)));
+                        (table.getParameters().get(AVRO_SCHEMA_LITERAL_KEY) != null ||
+                                (table.getStorage().getSerdeParameters().get(AVRO_SCHEMA_LITERAL_KEY) != null)));
     }
 }

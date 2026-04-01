@@ -4,10 +4,11 @@
 <img src="../_static/img/iceberg.png" class="connector-logo">
 ```
 
-Apache Iceberg is an open table format for huge analytic datasets. The Iceberg
-connector allows querying data stored in files written in Iceberg format, as
-defined in the [Iceberg Table Spec](https://iceberg.apache.org/spec/). The
-connector supports Apache Iceberg table spec versions 1 and 2.
+Apache Iceberg is an open table format for huge analytic datasets.
+The Iceberg connector allows querying data stored in files written in Iceberg
+format, as defined in the [Iceberg Table Spec](https://iceberg.apache.org/spec/).
+The connector supports Apache Iceberg table spec versions 1 and 2.
+Support for format version 3 is experimental.
 
 The table state is maintained in metadata files. All changes to table
 state create a new metadata file and replace the old metadata with an atomic
@@ -277,8 +278,9 @@ The connector supports accessing the following file systems:
 * [](/object-storage/file-system-s3)
 * [](/object-storage/file-system-hdfs)
 
-You must enable and configure the specific file system access. [Legacy
-support](file-system-legacy) is not recommended and will be removed.
+Enable and configure the file system that your catalog uses. Use
+`fs.hadoop.enabled` only for HDFS; see [legacy file system
+support](file-system-legacy) for migration details.
 
 ## Type mapping
 
@@ -327,8 +329,12 @@ the following table:
   - `TIME(6)`
 * - `TIMESTAMP`
   - `TIMESTAMP(6)`
+* - `TIMESTAMP_NS`
+  - `TIMESTAMP(9)`
 * - `TIMESTAMPTZ`
   - `TIMESTAMP(6) WITH TIME ZONE`
+* - `TIMESTAMPTZ_NS`
+  - `TIMESTAMP(9) WITH TIME ZONE`
 * - `STRING`
   - `VARCHAR`
 * - `UUID`
@@ -337,6 +343,8 @@ the following table:
   - `VARBINARY`
 * - `FIXED (L)`
   - `VARBINARY`
+* - `VARIANT`
+  - `VARIANT`
 * - `STRUCT(...)`
   - `ROW(...)`
 * - `LIST(e)`
@@ -344,6 +352,9 @@ the following table:
 * - `MAP(k,v)`
   - `MAP(k,v)`
 :::
+
+`TIMESTAMP_NS` and `TIMESTAMPTZ_NS` are supported only for Iceberg format
+version `3` tables.
 
 No other types are supported.
 
@@ -376,20 +387,32 @@ the following table:
   - `TIME`
 * - `TIMESTAMP(6)`
   - `TIMESTAMP`
+* - `TIMESTAMP(9)`
+  - `TIMESTAMP_NS`
 * - `TIMESTAMP(6) WITH TIME ZONE`
   - `TIMESTAMPTZ`
+* - `TIMESTAMP(9) WITH TIME ZONE`
+  - `TIMESTAMPTZ_NS`
 * - `VARCHAR`
   - `STRING`
 * - `UUID`
   - `UUID`
 * - `VARBINARY`
   - `BINARY`
+* - `VARIANT`
+  - `VARIANT`
 * - `ROW(...)`
   - `STRUCT(...)`
 * - `ARRAY(e)`
   - `LIST(e)`
 * - `MAP(k,v)`
   - `MAP(k,v)`
+:::
+
+:::{note}
+Iceberg `VARIANT` is supported only for tables using Iceberg format version `3`
+or higher. To create a table with `VARIANT` columns, set
+`format_version = 3` in the `WITH` clause. The default is `2`.
 :::
 
 No other types are supported.
@@ -1067,6 +1090,7 @@ connector using a {doc}`WITH </sql/create-table-as>` clause.
     for row level deletes. Version `3` support is experimental; row-level
     updates, deletes, and OPTIMIZE are not supported. Tables with v3 features
     such as column default values and encryption are not supported.
+    Version `3` is required for tables containing `VARIANT` columns.
 * - `max_commit_retry`
   - Number of times to retry a commit before failing. Defaults to the value of 
     the `iceberg.max-commit-retry` catalog configuration property, which 

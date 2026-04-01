@@ -74,13 +74,7 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 @Fork(2)
 public class BenchmarkParquetFormat
 {
-    @Param({
-            "LINEITEM",
-            "MAP_VARCHAR_DOUBLE",
-            "LARGE_MAP_VARCHAR_DOUBLE",
-            "MAP_INT_DOUBLE",
-            "LARGE_ARRAY_VARCHAR"
-    })
+    @Param
     public DataSet dataSet;
 
     @Param({

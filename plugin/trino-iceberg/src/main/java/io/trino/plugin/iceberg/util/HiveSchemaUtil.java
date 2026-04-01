@@ -42,14 +42,11 @@ public final class HiveSchemaUtil
             case DOUBLE -> "double";
             case DATE -> "date";
             case TIME, STRING, UUID -> "string";
-            case TIMESTAMP -> "timestamp";
-            // TODO https://github.com/trinodb/trino/issues/19753 Support Iceberg timestamp types with nanosecond precision
-            case TIMESTAMP_NANO -> throw new TrinoException(NOT_SUPPORTED, "Unsupported Iceberg type: TIMESTAMP_NANO");
+            case TIMESTAMP, TIMESTAMP_NANO -> "timestamp";
             case FIXED, BINARY -> "binary";
             case DECIMAL -> "decimal(%s,%s)".formatted(((DecimalType) type).precision(), ((DecimalType) type).scale());
             case UNKNOWN, GEOMETRY, GEOGRAPHY -> throw new TrinoException(NOT_SUPPORTED, "Unsupported Iceberg type: " + type);
-            // TODO https://github.com/trinodb/trino/issues/24538 Support variant type
-            case VARIANT -> throw new TrinoException(NOT_SUPPORTED, "Unsupported Iceberg type: VARIANT");
+            case VARIANT -> "struct<metadata:binary,value:binary>";
             case LIST -> "array<%s>".formatted(convert(type.asListType().elementType()));
             case MAP -> "map<%s,%s>".formatted(convert(type.asMapType().keyType()), convert(type.asMapType().valueType()));
             case STRUCT -> "struct<%s>".formatted(type.asStructType().fields().stream()

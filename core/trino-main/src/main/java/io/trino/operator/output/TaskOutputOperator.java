@@ -14,6 +14,8 @@
 package io.trino.operator.output;
 
 import com.google.common.util.concurrent.ListenableFuture;
+import io.airlift.slice.Slice;
+import io.trino.exchange.ExchangeEncryptionKey;
 import io.trino.execution.buffer.OutputBuffer;
 import io.trino.execution.buffer.PageSerializer;
 import io.trino.execution.buffer.PagesSerdeFactory;
@@ -29,6 +31,7 @@ import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.util.Ciphers;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.function.Function;
 
 import static io.trino.execution.buffer.PageSplitterUtil.splitAndSerializePage;
@@ -92,7 +95,8 @@ public class TaskOutputOperator
     private final OperatorContext operatorContext;
     private final OutputBuffer outputBuffer;
     private final Function<Page, Page> pagePreprocessor;
-    private final PageSerializer serializer;
+    private final PagesSerdeFactory serdeFactory;
+    private PageSerializer serializer;
     private ListenableFuture<Void> isBlocked = NOT_BLOCKED;
     private boolean finished;
 
@@ -101,11 +105,7 @@ public class TaskOutputOperator
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
         this.outputBuffer = requireNonNull(outputBuffer, "outputBuffer is null");
         this.pagePreprocessor = requireNonNull(pagePreprocessor, "pagePreprocessor is null");
-        this.serializer = serdeFactory.createSerializer(operatorContext.getSession().getExchangeEncryptionKey().map(Ciphers::deserializeAesEncryptionKey));
-
-        LocalMemoryContext memoryContext = operatorContext.localUserMemoryContext();
-        // memory footprint of serializer does not change over time
-        memoryContext.setBytes(serializer.getRetainedSizeInBytes());
+        this.serdeFactory = requireNonNull(serdeFactory, "serdeFactory is null");
     }
 
     @Override
@@ -156,6 +156,13 @@ public class TaskOutputOperator
 
         page = pagePreprocessor.apply(page);
 
+        if (serializer == null) {
+            Optional<Slice> effectiveKey = ExchangeEncryptionKey.keyFor(operatorContext.getSession(), outputBuffer);
+            serializer = serdeFactory.createSerializer(effectiveKey.map(Ciphers::deserializeAesEncryptionKey));
+            LocalMemoryContext memoryContext = operatorContext.localUserMemoryContext();
+            memoryContext.setBytes(serializer.getRetainedSizeInBytes());
+        }
+
         outputBuffer.enqueue(splitAndSerializePage(page, serializer));
         operatorContext.recordOutput(page.getSizeInBytes(), page.getPositionCount());
         updateMetrics();
@@ -169,6 +176,8 @@ public class TaskOutputOperator
 
     private void updateMetrics()
     {
-        operatorContext.setLatestMetrics(serializer.getMetrics());
+        if (serializer != null) {
+            operatorContext.setLatestMetrics(serializer.getMetrics());
+        }
     }
 }
