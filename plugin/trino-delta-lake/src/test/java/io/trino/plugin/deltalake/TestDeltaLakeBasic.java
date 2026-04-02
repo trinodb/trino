@@ -878,6 +878,26 @@ public class TestDeltaLakeBasic
         assertUpdate("DROP TABLE " + tableName);
     }
 
+    @Test // regression test for https://github.com/trinodb/trino/issues/28970
+    void testOptimizeWithUppercaseColumnName()
+            throws Exception
+    {
+        String tableName = "test_optimize_with_uppercase_column_name_" + randomNameSuffix();
+        Path tableLocation = catalogDir.resolve(tableName);
+        copyDirectoryContents(new File(Resources.getResource("deltalake/case_sensitive").toURI()).toPath(), tableLocation);
+
+        assertUpdate("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')".formatted(tableName, tableLocation.toUri()));
+        assertQueryReturnsEmptyResult("SELECT * FROM " + tableName);
+
+        assertUpdate("INSERT INTO " + tableName + " VALUES (1, 11)", 1);
+        assertUpdate("INSERT INTO " + tableName + " VALUES (2, 22)", 1);
+
+        assertUpdate("ALTER TABLE " + tableName + " EXECUTE optimize");
+        assertThat(query("SELECT * FROM " + tableName))
+                .matches("VALUES (1, 11), (2, 22)");
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
     @Test
     public void testAppendOnly()
             throws Exception

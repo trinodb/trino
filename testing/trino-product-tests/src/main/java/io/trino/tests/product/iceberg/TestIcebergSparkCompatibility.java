@@ -3065,6 +3065,25 @@ public class TestIcebergSparkCompatibility
         onSpark().executeQuery("DROP TABLE " + sparkTableName);
     }
 
+    @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS}) // regression test for https://github.com/trinodb/trino/issues/28970
+    public void testTrinoOptimizeWithNonLowercaseColumnName()
+    {
+        String baseTableName = "test_trino_optimize_with_uppercase_field" + randomNameSuffix();
+        String trinoTableName = trinoTableName(baseTableName);
+        String sparkTableName = sparkTableName(baseTableName);
+
+        onSpark().executeQuery("CREATE TABLE " + sparkTableName + "(col1 INT, COL2 INT) USING ICEBERG");
+        onSpark().executeQuery("INSERT INTO " + sparkTableName + " VALUES (1, 1)");
+        onSpark().executeQuery("INSERT INTO " + sparkTableName + " VALUES (2, 2)");
+        onTrino().executeQuery("ALTER TABLE " + trinoTableName + " EXECUTE optimize");
+
+        List<Row> expected = ImmutableList.of(row(1, 1), row(2, 2));
+        assertThat(onTrino().executeQuery("SELECT * FROM " + trinoTableName)).containsOnly(expected);
+        assertThat(onSpark().executeQuery("SELECT * FROM " + sparkTableName)).containsOnly(expected);
+
+        onSpark().executeQuery("DROP TABLE " + sparkTableName);
+    }
+
     @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS}, dataProvider = "storageFormats")
     public void testRegisterTableWithTableLocation(StorageFormat storageFormat)
             throws TException

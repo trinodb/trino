@@ -2018,32 +2018,23 @@ public class IcebergMetadata
         IcebergTableExecuteHandle executeHandle = (IcebergTableExecuteHandle) tableExecuteHandle;
         IcebergTableHandle icebergTableHandle = (IcebergTableHandle) tableHandle;
         return switch (executeHandle.procedureId()) {
-            case OPTIMIZE -> getColumnHandlesForOptimize(session, icebergTableHandle, icebergTableHandle.getFormatVersion());
+            case OPTIMIZE -> getColumnHandlesForOptimize(icebergTableHandle);
             case OPTIMIZE_MANIFESTS, DROP_EXTENDED_STATS, ROLLBACK_TO_SNAPSHOT, EXPIRE_SNAPSHOTS, REMOVE_ORPHAN_FILES, ADD_FILES, ADD_FILES_FROM_TABLE ->
                     throw new IllegalArgumentException("Unknown procedure '" + executeHandle.procedureId() + "'");
         };
     }
 
-    private Set<ColumnHandle> getColumnHandlesForOptimize(ConnectorSession session, IcebergTableHandle tableHandle, int formatVersion)
+    private Set<ColumnHandle> getColumnHandlesForOptimize(IcebergTableHandle table)
     {
-        Map<String, ColumnHandle> columnHandles = getColumnHandles(session, tableHandle);
-        return getTableMetadata(session, tableHandle).getColumns().stream()
-                .filter(column -> isOptimizeReadColumn(formatVersion, column))
-                .map(ColumnMetadata::getName)
-                .map(columnName -> requireNonNull(columnHandles.get(columnName), "Cannot find column handle for " + columnName))
-                .collect(toImmutableSet());
-    }
-
-    private static boolean isOptimizeReadColumn(int formatVersion, ColumnMetadata column)
-    {
-        if (!column.isHidden()) {
-            return true;
+        ImmutableSet.Builder<ColumnHandle> columnHandles = ImmutableSet.builder();
+        for (IcebergColumnHandle columnHandle : getTopLevelColumns(SchemaParser.fromJson(table.getTableSchemaJson()), typeManager)) {
+            columnHandles.add(columnHandle);
         }
-        if (formatVersion < 3) {
-            return false;
+        if (table.getFormatVersion() >= 3) {
+            columnHandles.add(rowIdColumnHandle());
+            columnHandles.add(lastUpdatedSequenceNumberColumnHandle());
         }
-        String columnName = column.getName();
-        return columnName.equals(ROW_ID.getColumnName()) || columnName.equals(LAST_UPDATED_SEQUENCE_NUMBER.getColumnName());
+        return columnHandles.build();
     }
 
     @Override

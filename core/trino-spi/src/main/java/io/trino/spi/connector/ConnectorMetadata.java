@@ -59,12 +59,10 @@ import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.connector.SaveMode.REPLACE;
 import static io.trino.spi.expression.Constant.FALSE;
-import static java.lang.String.format;
 import static java.util.Collections.emptyList;
 import static java.util.Collections.emptyMap;
 import static java.util.Locale.ENGLISH;
 import static java.util.function.Function.identity;
-import static java.util.function.Predicate.not;
 import static java.util.stream.Collectors.collectingAndThen;
 import static java.util.stream.Collectors.toMap;
 import static java.util.stream.Collectors.toUnmodifiableSet;
@@ -149,17 +147,8 @@ public interface ConnectorMetadata
      */
     default Set<ColumnHandle> getColumnHandlesForTableExecute(ConnectorSession connectorSession, ConnectorTableHandle tableHandle, ConnectorTableExecuteHandle connectorTableExecuteHandle)
     {
-        Map<String, ColumnHandle> columnHandles = getColumnHandles(connectorSession, tableHandle);
-        return getTableMetadata(connectorSession, tableHandle).getColumns().stream()
-                .filter(not(ColumnMetadata::isHidden))
-                .map(ColumnMetadata::getName)
-                .map(columnName -> {
-                    ColumnHandle columnHandle = columnHandles.get(columnName);
-                    if (columnHandle == null) {
-                        throw new TrinoException(GENERIC_INTERNAL_ERROR, format("No handle found for column '%s' in table execute", columnName));
-                    }
-                    return columnHandle;
-                })
+        return getColumnHandles(connectorSession, tableHandle).values().stream()
+                .filter(column -> !getColumnMetadata(connectorSession, tableHandle, column).isHidden())
                 .collect(toUnmodifiableSet());
     }
 
