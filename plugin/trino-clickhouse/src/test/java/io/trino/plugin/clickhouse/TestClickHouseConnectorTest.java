@@ -696,12 +696,17 @@ public class TestClickHouseConnectorTest
     }
 
     @Test
-    @Override
+    @Override // ClickHouse char is an alias for String type with no length or padding semantics
     public void testCharTrailingSpace()
     {
-        assertThatThrownBy(super::testCharTrailingSpace)
-                .hasMessageStartingWith("Failed to execute statement: CREATE TABLE tpch.char_trailing_space");
-        abort("Implement test for ClickHouse");
+        String schema = getSession().getSchema().orElseThrow();
+        try (TestTable table = new TestTable(onRemoteDatabase(), schema + ".char_trailing_space", "(x char(10))", List.of("'test'"))) {
+            String tableName = table.getName();
+            assertQuery("SELECT * FROM " + tableName + " WHERE x = char 'test'", "VALUES 'test'");
+            assertQuery("SELECT * FROM " + tableName + " WHERE x = char 'test  '", "VALUES 'test'");
+            assertQuery("SELECT * FROM " + tableName + " WHERE x = char 'test        '", "VALUES 'test'");
+            assertQueryReturnsEmptyResult("SELECT * FROM " + tableName + " WHERE x = char ' test'");
+        }
     }
 
     @Override

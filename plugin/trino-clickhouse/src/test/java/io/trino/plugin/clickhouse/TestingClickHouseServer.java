@@ -37,8 +37,8 @@ public class TestingClickHouseServer
      * <a href="https://kb.altinity.com/altinity-kb-setup-and-maintenance/clickhouse-versions/">Versioning schema</a>
      */
     private static final DockerImageName CLICKHOUSE_IMAGE = DockerImageName.parse("clickhouse/clickhouse-server");
-    // https://clickhouse.com/docs/whats-new/changelog#257
-    public static final DockerImageName CLICKHOUSE_LATEST_IMAGE = CLICKHOUSE_IMAGE.withTag("25.7.7.68");   // EOL in 3 releases after 2025-07-24
+    // https://clickhouse.com/docs/whats-new/changelog#263
+    public static final DockerImageName CLICKHOUSE_LATEST_IMAGE = CLICKHOUSE_IMAGE.withTag("26.3.1.896");   // LTS
     // https://clickhouse.com/docs/whats-new/changelog#253
     public static final DockerImageName CLICKHOUSE_DEFAULT_IMAGE = CLICKHOUSE_IMAGE.withTag("25.3.6.56"); // EOL in 1 year after 2025-03-27
 
@@ -48,7 +48,7 @@ public class TestingClickHouseServer
      * On Mac/arm 23.3.13.7.altinitystable, 23.8.8.21.altinitystable and 22.8.15.25.altinitystable and later versions available on ARM.
      */
     private static final DockerImageName ALTINITY_IMAGE = DockerImageName.parse("altinity/clickhouse-server").asCompatibleSubstituteFor("clickhouse/clickhouse-server");
-    public static final DockerImageName ALTINITY_LATEST_IMAGE = ALTINITY_IMAGE.withTag("25.3.6.10034.altinitystable");  // EOL is 29 Jul 2028
+    public static final DockerImageName ALTINITY_LATEST_IMAGE = ALTINITY_IMAGE.withTag("25.3.8.10042.altinitystable");
     public static final DockerImageName ALTINITY_DEFAULT_IMAGE = ALTINITY_IMAGE.withTag("22.8.20.12.altinitystable"); // EOL is 13 Feb 2026
 
     private final ClickHouseContainer dockerContainer;
