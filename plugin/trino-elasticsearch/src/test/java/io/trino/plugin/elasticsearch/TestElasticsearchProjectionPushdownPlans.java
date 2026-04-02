@@ -41,7 +41,7 @@ import io.trino.sql.planner.assertions.BasePushdownPlanTest;
 import io.trino.sql.planner.assertions.PlanMatchPattern;
 import io.trino.testing.PlanTester;
 import org.elasticsearch.client.Request;
-import org.elasticsearch.client.RestHighLevelClient;
+import org.elasticsearch.client.RestClient;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
@@ -91,7 +91,7 @@ final class TestElasticsearchProjectionPushdownPlans
     public static final String PASSWORD = "123456";
 
     private ElasticsearchServer elasticsearch;
-    private RestHighLevelClient client;
+    private RestClient client;
 
     @Override
     protected PlanTester createPlanTester()
@@ -272,7 +272,7 @@ final class TestElasticsearchProjectionPushdownPlans
         String mappings = indexMapping(properties);
         Request request = new Request("PUT", "/" + indexName);
         request.setJsonEntity(mappings);
-        client.getLowLevelClient().performRequest(request);
+        client.performRequest(request);
     }
 
     private static String indexMapping(@Language("JSON") String properties)
@@ -288,7 +288,7 @@ final class TestElasticsearchProjectionPushdownPlans
 
         Request request = new Request("PUT", endpoint);
         request.setJsonEntity(json);
-        client.getLowLevelClient().performRequest(request);
+        client.performRequest(request);
     }
 
     private static String indexEndpoint(String index, String docId)
@@ -300,6 +300,6 @@ final class TestElasticsearchProjectionPushdownPlans
             throws IOException
     {
         Request request = new Request("DELETE", "/" + indexName);
-        client.getLowLevelClient().performRequest(request);
+        client.performRequest(request);
     }
 }
