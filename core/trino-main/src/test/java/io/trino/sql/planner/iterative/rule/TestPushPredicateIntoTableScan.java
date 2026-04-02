@@ -40,11 +40,12 @@ import io.trino.spi.predicate.NullableValue;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.Type;
 import io.trino.sql.ir.Call;
-import io.trino.sql.ir.Coalesce;
+import io.trino.sql.ir.Case;
 import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Logical;
 import io.trino.sql.ir.Reference;
+import io.trino.sql.ir.WhenClause;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.testing.TestingTransactionHandle;
 import org.junit.jupiter.api.BeforeAll;
@@ -60,6 +61,8 @@ import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createVarcharType;
+import static io.trino.sql.ir.Booleans.FALSE;
+import static io.trino.sql.ir.Booleans.TRUE;
 import static io.trino.sql.ir.Comparison.Operator.EQUAL;
 import static io.trino.sql.ir.Logical.Operator.AND;
 import static io.trino.sql.ir.Logical.Operator.OR;
@@ -224,12 +227,14 @@ public class TestPushPredicateIntoTableScan
                                                         .build(),
                                                 new Constant(DOUBLE, 42.0)),
                                         // non-translatable to connector expression
-                                        new Coalesce(
-                                                new Constant(BOOLEAN, null),
-                                                new Comparison(
-                                                        EQUAL,
-                                                        new Call(MODULUS_BIGINT, ImmutableList.of(new Reference(BIGINT, "nationkey"), new Constant(BIGINT, 17L))),
-                                                        new Constant(BIGINT, 44L))),
+                                        new Case(
+                                                ImmutableList.of(new WhenClause(
+                                                        TRUE,
+                                                        new Comparison(
+                                                                EQUAL,
+                                                                new Call(MODULUS_BIGINT, ImmutableList.of(new Reference(BIGINT, "nationkey"), new Constant(BIGINT, 17L))),
+                                                                new Constant(BIGINT, 44L)))),
+                                                FALSE),
                                         Logical.or(
                                                 new Comparison(EQUAL, new Reference(BIGINT, "nationkey"), new Constant(BIGINT, 44L)),
                                                 new Comparison(EQUAL, new Reference(BIGINT, "nationkey"), new Constant(BIGINT, 45L))))),

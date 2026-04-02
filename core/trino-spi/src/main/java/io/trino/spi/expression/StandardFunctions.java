@@ -39,6 +39,11 @@ public final class StandardFunctions
      * $nullif is a function accepting two arguments. Returns null if both values are the same, otherwise returns the first value.
      */
     public static final FunctionName NULLIF_FUNCTION_NAME = new FunctionName("$nullif");
+    /**
+     * $coalesce is a vararg function accepting at least two arguments of the same type.
+     * Returns the first non-null value, or null if all values are null.
+     */
+    public static final FunctionName COALESCE_FUNCTION_NAME = new FunctionName("$coalesce");
 
     /**
      * $cast function result type is determined by the {@link Call#getType()}

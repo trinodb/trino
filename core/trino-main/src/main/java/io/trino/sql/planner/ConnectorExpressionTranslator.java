@@ -39,6 +39,7 @@ import io.trino.sql.PlannerContext;
 import io.trino.sql.ir.Between;
 import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Cast;
+import io.trino.sql.ir.Coalesce;
 import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
@@ -76,6 +77,7 @@ import static io.trino.spi.expression.StandardFunctions.ADD_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.AND_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.ARRAY_CONSTRUCTOR_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.CAST_FUNCTION_NAME;
+import static io.trino.spi.expression.StandardFunctions.COALESCE_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.DIVIDE_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.EQUAL_OPERATOR_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.GREATER_THAN_OPERATOR_FUNCTION_NAME;
@@ -252,6 +254,9 @@ public final class ConnectorExpressionTranslator
             if (NULLIF_FUNCTION_NAME.equals(call.getFunctionName()) && call.getArguments().size() == 2) {
                 return translateNullIf(call.getArguments().get(0), call.getArguments().get(1));
             }
+            if (COALESCE_FUNCTION_NAME.equals(call.getFunctionName()) && call.getArguments().size() >= 2) {
+                return translateCoalesce(call.getArguments());
+            }
             if (CAST_FUNCTION_NAME.equals(call.getFunctionName()) && call.getArguments().size() == 1) {
                 return translateCast(call.getType(), call.getArguments().get(0));
             }
@@ -414,6 +419,12 @@ public final class ConnectorExpressionTranslator
             }
 
             return Optional.empty();
+        }
+
+        private Optional<Expression> translateCoalesce(List<ConnectorExpression> arguments)
+        {
+            return translateExpressions(arguments)
+                    .map(Coalesce::new);
         }
 
         private Optional<Comparison.Operator> comparisonOperatorForFunctionName(FunctionName functionName)
@@ -812,6 +823,24 @@ public final class ConnectorExpressionTranslator
                 return Optional.of(new io.trino.spi.expression.Call(((Expression) node).type(), NULLIF_FUNCTION_NAME, ImmutableList.of(firstValue.get(), secondValue.get())));
             }
             return Optional.empty();
+        }
+
+        @Override
+        protected Optional<ConnectorExpression> visitCoalesce(Coalesce node, Void context)
+        {
+            if (!isComplexExpressionPushdown(session)) {
+                return Optional.empty();
+            }
+
+            ImmutableList.Builder<ConnectorExpression> arguments = ImmutableList.builderWithExpectedSize(node.operands().size());
+            for (Expression operand : node.operands()) {
+                Optional<ConnectorExpression> translated = process(operand);
+                if (translated.isEmpty()) {
+                    return Optional.empty();
+                }
+                arguments.add(translated.get());
+            }
+            return Optional.of(new io.trino.spi.expression.Call(node.type(), COALESCE_FUNCTION_NAME, arguments.build()));
         }
 
         @Override

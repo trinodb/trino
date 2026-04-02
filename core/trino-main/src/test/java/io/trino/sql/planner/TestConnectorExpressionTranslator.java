@@ -37,6 +37,7 @@ import io.trino.spi.type.VarcharType;
 import io.trino.sql.ir.Between;
 import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Cast;
+import io.trino.sql.ir.Coalesce;
 import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
@@ -68,6 +69,7 @@ import static io.trino.spi.expression.StandardFunctions.ADD_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.AND_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.ARRAY_CONSTRUCTOR_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.CAST_FUNCTION_NAME;
+import static io.trino.spi.expression.StandardFunctions.COALESCE_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.DIVIDE_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.GREATER_THAN_OR_EQUAL_OPERATOR_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.IS_NULL_FUNCTION_NAME;
@@ -416,6 +418,23 @@ public class TestConnectorExpressionTranslator
                         NULLIF_FUNCTION_NAME,
                         List.of(new Variable("varchar_symbol_1", VARCHAR_TYPE),
                                 new Variable("varchar_symbol_1", VARCHAR_TYPE))));
+    }
+
+    @Test
+    public void testTranslateCoalesce()
+    {
+        assertTranslationRoundTrips(
+                new Coalesce(
+                        new Reference(VARCHAR_TYPE, "varchar_symbol_1"),
+                        new Constant(VARCHAR_TYPE, null),
+                        new Constant(VARCHAR_TYPE, utf8Slice("fallback"))),
+                new io.trino.spi.expression.Call(
+                        VARCHAR_TYPE,
+                        COALESCE_FUNCTION_NAME,
+                        List.of(
+                                new Variable("varchar_symbol_1", VARCHAR_TYPE),
+                                new io.trino.spi.expression.Constant(null, VARCHAR_TYPE),
+                                new io.trino.spi.expression.Constant(utf8Slice("fallback"), VARCHAR_TYPE))));
     }
 
     @Test
