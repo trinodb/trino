@@ -15,13 +15,21 @@ package io.trino.plugin.iceberg;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import io.trino.spi.TrinoException;
+import io.trino.spi.connector.ColumnMetadata;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.types.Types;
 import org.apache.iceberg.types.Types.NestedField;
 import org.junit.jupiter.api.Test;
 
+import java.util.List;
+
 import static io.trino.plugin.iceberg.IcebergUtil.getProjectedColumns;
 import static io.trino.plugin.iceberg.IcebergUtil.parseVersion;
+import static io.trino.plugin.iceberg.IcebergUtil.schemaFromMetadata;
+import static io.trino.spi.StandardErrorCode.DUPLICATE_COLUMN_NAME;
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -110,5 +118,41 @@ public class TestIcebergUtil
                         tuple(1, "id", 1, ImmutableList.of()),
                         tuple(4, "list", 2, ImmutableList.of(4)),
                         tuple(5, "element", 2, ImmutableList.of(4, 5)));
+    }
+
+    @Test
+    public void testSchemaFromMetadataDuplicateColumnName()
+    {
+        List<ColumnMetadata> columns = ImmutableList.of(
+                new ColumnMetadata("col", VARCHAR),
+                new ColumnMetadata("col", BIGINT));
+        assertThatThrownBy(() -> schemaFromMetadata(columns))
+                .isInstanceOf(TrinoException.class)
+                .hasMessageContaining("Column name 'col' specified more than once")
+                .satisfies(e -> assertThat(((TrinoException) e).getErrorCode()).isEqualTo(DUPLICATE_COLUMN_NAME.toErrorCode()));
+    }
+
+    @Test
+    public void testSchemaFromMetadataCaseInsensitiveDuplicateColumnName()
+    {
+        List<ColumnMetadata> columns = ImmutableList.of(
+                new ColumnMetadata("Col", VARCHAR),
+                new ColumnMetadata("col", BIGINT));
+        assertThatThrownBy(() -> schemaFromMetadata(columns))
+                .isInstanceOf(TrinoException.class)
+                .hasMessageContaining("Column name 'col' specified more than once")
+                .satisfies(e -> assertThat(((TrinoException) e).getErrorCode()).isEqualTo(DUPLICATE_COLUMN_NAME.toErrorCode()));
+    }
+
+    @Test
+    public void testSchemaFromMetadataNoDuplicates()
+    {
+        List<ColumnMetadata> columns = ImmutableList.of(
+                new ColumnMetadata("id", BIGINT),
+                new ColumnMetadata("name", VARCHAR));
+        Schema schema = schemaFromMetadata(columns);
+        assertThat(schema.columns()).hasSize(2);
+        assertThat(schema.findField("id")).isNotNull();
+        assertThat(schema.findField("name")).isNotNull();
     }
 }

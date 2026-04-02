@@ -94,6 +94,7 @@ import java.nio.ByteBuffer;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Base64;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -171,6 +172,7 @@ import static io.trino.plugin.iceberg.TypeConverter.toTrinoType;
 import static io.trino.plugin.iceberg.util.Timestamps.timestampFromNanos;
 import static io.trino.plugin.iceberg.util.Timestamps.timestampTzFromMicros;
 import static io.trino.plugin.iceberg.util.Timestamps.timestampTzFromNanos;
+import static io.trino.spi.StandardErrorCode.DUPLICATE_COLUMN_NAME;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.StandardErrorCode.INVALID_ARGUMENTS;
 import static io.trino.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
@@ -872,8 +874,19 @@ public final class IcebergUtil
 
     public static Schema schemaFromMetadata(List<ColumnMetadata> columns)
     {
+        // Iceberg normalizes column names to lowercase; detect case-insensitive duplicates
+        Set<String> discovered = new HashSet<>();
+        for (ColumnMetadata column : columns) {
+            if (!column.isHidden()) {
+                if (!discovered.add(column.getName().toLowerCase(ENGLISH))) {
+                    throw new TrinoException(DUPLICATE_COLUMN_NAME,
+                            format("Column name '%s' specified more than once", column.getName()));
+                }
+            }
+        }
+
         List<NestedField> icebergColumns = new ArrayList<>();
-        int visibleColumnCount = (int) columns.stream().filter(column -> !column.isHidden()).count();
+        int visibleColumnCount = discovered.size();
         AtomicInteger nextFieldId = new AtomicInteger(visibleColumnCount + 1);
         for (ColumnMetadata column : columns) {
             if (!column.isHidden()) {
