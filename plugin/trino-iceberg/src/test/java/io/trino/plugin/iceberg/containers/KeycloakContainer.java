@@ -30,7 +30,7 @@ import java.util.Set;
 public class KeycloakContainer
         extends BaseTestContainer
 {
-    public static final String DEFAULT_IMAGE = "quay.io/keycloak/keycloak:24.0.1";
+    public static final String DEFAULT_IMAGE = "quay.io/keycloak/keycloak:26.0.8";
     public static final String DEFAULT_HOST_NAME = "keycloak";
 
     public static final String DEFAULT_USER_NAME = "admin";
@@ -107,7 +107,7 @@ public class KeycloakContainer
             this.envVars = ImmutableMap.of(
                     "KEYCLOAK_ADMIN", DEFAULT_USER_NAME,
                     "KEYCLOAK_ADMIN_PASSWORD", DEFAULT_PASSWORD,
-                    "KC_HOSTNAME_URL", SERVER_URL);
+                    "KC_HOSTNAME", SERVER_URL);
         }
 
         @Override

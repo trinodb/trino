@@ -17,6 +17,7 @@
     <properties>
         <!-- Nessie version (compatible with Iceberg release) must be bumped along with Iceberg version bump to avoid compatibility issues -->
         <dep.nessie.version>0.107.4</dep.nessie.version>
+        <dep.keycloak.version>26.0.8</dep.keycloak.version>
     </properties>
 
     <dependencyManagement>
@@ -698,25 +699,34 @@
 
         <dependency>
             <groupId>org.keycloak</groupId>
-            <artifactId>keycloak-admin-client-jakarta</artifactId>
-            <version>21.1.2</version>
+            <artifactId>keycloak-admin-client</artifactId>
+            <version>${dep.keycloak.version}</version>
             <scope>test</scope>
             <exclusions>
                 <exclusion>
-                    <groupId>com.sun.xml.bind</groupId>
-                    <artifactId>*</artifactId>
-                </exclusion>
-                <exclusion>
+                    <!-- Brings in duplicate classes already in jakarta.ws.rs:jakarta.ws.rs-api -->
                     <groupId>org.jboss.spec.javax.ws.rs</groupId>
                     <artifactId>jboss-jaxrs-api_3.0_spec</artifactId>
+                </exclusion>
+                <exclusion>
+                    <!-- Brings in duplicate classes already in keycloak-core and keycloak-common -->
+                    <groupId>org.keycloak</groupId>
+                    <artifactId>keycloak-client-common-synced</artifactId>
                 </exclusion>
             </exclusions>
         </dependency>
 
         <dependency>
             <groupId>org.keycloak</groupId>
+            <artifactId>keycloak-common</artifactId>
+            <version>${dep.keycloak.version}</version>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.keycloak</groupId>
             <artifactId>keycloak-core</artifactId>
-            <version>24.0.5</version>
+            <version>${dep.keycloak.version}</version>
             <scope>test</scope>
         </dependency>
 
