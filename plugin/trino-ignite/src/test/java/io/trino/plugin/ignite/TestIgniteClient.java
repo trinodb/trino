@@ -209,7 +209,6 @@ public class TestIgniteClient
      * rather than attempting to remap it.
      *
      * @see <a href="https://github.com/trinodb/trino/issues/28416">trinodb/trino#28416</a>
-     * @see TestIgniteTypeMapping#testDecimalWithNegativeScale()
      */
     @Test
     public void testDecimalWithNegativeScaleMapping()
