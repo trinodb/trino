@@ -16,10 +16,10 @@ package io.trino.plugin.elasticsearch.decoders;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import io.trino.plugin.elasticsearch.DecoderDescriptor;
+import io.trino.plugin.elasticsearch.client.SearchDocument;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.RowBlockBuilder;
-import org.elasticsearch.search.SearchHit;
 
 import java.util.List;
 import java.util.Map;
@@ -47,7 +47,7 @@ public class RowDecoder
     }
 
     @Override
-    public void decode(SearchHit hit, Supplier<Object> getter, BlockBuilder output)
+    public void decode(SearchDocument document, Supplier<Object> getter, BlockBuilder output)
     {
         Object data = getter.get();
 
@@ -58,7 +58,7 @@ public class RowDecoder
             ((RowBlockBuilder) output).buildEntry(fieldBuilders -> {
                 for (int i = 0; i < decoders.size(); i++) {
                     String field = fieldNames.get(i);
-                    decoders.get(i).decode(hit, () -> getField((Map<String, Object>) data, field), fieldBuilders.get(i));
+                    decoders.get(i).decode(document, () -> getField((Map<String, Object>) data, field), fieldBuilders.get(i));
                 }
             });
         }

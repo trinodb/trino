@@ -17,6 +17,8 @@ import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
 import io.airlift.log.Logger;
 import io.trino.plugin.elasticsearch.client.ElasticsearchClient;
+import io.trino.plugin.elasticsearch.client.SearchDocument;
+import io.trino.plugin.elasticsearch.client.SearchResult;
 import io.trino.plugin.elasticsearch.decoders.Decoder;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
@@ -27,9 +29,6 @@ import io.trino.spi.connector.SourcePage;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
-import org.elasticsearch.action.search.SearchResponse;
-import org.elasticsearch.search.SearchHit;
-import org.elasticsearch.search.SearchHits;
 
 import java.util.Arrays;
 import java.util.HashMap;
@@ -56,7 +55,7 @@ public class ScanQueryPageSource
 
     private final List<Decoder> decoders;
 
-    private final SearchHitIterator iterator;
+    private final SearchDocumentIterator iterator;
     private final BlockBuilder[] columnBuilders;
     private final List<ElasticsearchColumnHandle> columns;
     private long totalBytes;
@@ -110,7 +109,7 @@ public class ScanQueryPageSource
         }
 
         long start = System.nanoTime();
-        SearchResponse searchResponse = client.beginSearch(
+        SearchResult searchResult = client.beginSearch(
                 split.index(),
                 split.shard(),
                 buildSearchQuery(table.constraint().transformKeys(ElasticsearchColumnHandle.class::cast), table.query(), table.regexes()),
@@ -119,7 +118,7 @@ public class ScanQueryPageSource
                 sort,
                 table.limit());
         readTimeNanos += System.nanoTime() - start;
-        this.iterator = new SearchHitIterator(client, () -> searchResponse, table.limit());
+        this.iterator = new SearchDocumentIterator(client, () -> searchResult, table.limit());
     }
 
     @Override
@@ -157,26 +156,24 @@ public class ScanQueryPageSource
     {
         long size = 0;
         while (size < PageBuilderStatus.DEFAULT_MAX_PAGE_SIZE_IN_BYTES && iterator.hasNext()) {
-            SearchHit hit = iterator.next();
-            Map<String, Object> document = hit.getSourceAsMap();
+            SearchDocument document = iterator.next();
+            Map<String, Object> source = document.sourceAsMap();
 
             for (int i = 0; i < decoders.size(); i++) {
                 ElasticsearchColumnHandle columnHandle = columns.get(i);
                 if (columnHandle.path().size() == 1) {
-                    decoders.get(i).decode(hit, () -> getField(document, columnHandle.path().getFirst()), columnBuilders[i]);
+                    decoders.get(i).decode(document, () -> getField(source, columnHandle.path().getFirst()), columnBuilders[i]);
                     continue;
                 }
-                Map<String, Object> resolvedField = resolveField(document, columnHandle);
+                Map<String, Object> resolvedField = resolveField(source, columnHandle);
                 decoders.get(i)
                         .decode(
-                                hit,
+                                document,
                                 () -> resolvedField == null ? null : getField(resolvedField, columnHandle.path().getLast()),
                                 columnBuilders[i]);
             }
 
-            if (hit.getSourceRef() != null) {
-                totalBytes += hit.getSourceRef().length();
-            }
+            totalBytes += document.sourceLength();
 
             size = Arrays.stream(columnBuilders)
                     .mapToLong(BlockBuilder::getSizeInBytes)
@@ -270,21 +267,21 @@ public class ScanQueryPageSource
         return base + "." + element;
     }
 
-    private static class SearchHitIterator
-            extends AbstractIterator<SearchHit>
+    private static class SearchDocumentIterator
+            extends AbstractIterator<SearchDocument>
     {
         private final ElasticsearchClient client;
-        private final Supplier<SearchResponse> first;
+        private final Supplier<SearchResult> first;
         private final OptionalLong limit;
 
-        private SearchHits searchHits;
+        private List<SearchDocument> currentHits;
         private String scrollId;
         private int currentPosition;
 
         private long readTimeNanos;
         private long totalRecordCount;
 
-        public SearchHitIterator(ElasticsearchClient client, Supplier<SearchResponse> first, OptionalLong limit)
+        public SearchDocumentIterator(ElasticsearchClient client, Supplier<SearchResult> first, OptionalLong limit)
         {
             this.client = client;
             this.first = first;
@@ -298,7 +295,7 @@ public class ScanQueryPageSource
         }
 
         @Override
-        protected SearchHit computeNext()
+        protected SearchDocument computeNext()
         {
             if (limit.isPresent() && totalRecordCount == limit.getAsLong()) {
                 // No more record is necessary.
@@ -307,32 +304,32 @@ public class ScanQueryPageSource
 
             if (scrollId == null) {
                 long start = System.nanoTime();
-                SearchResponse response = first.get();
+                SearchResult result = first.get();
                 readTimeNanos += System.nanoTime() - start;
-                reset(response);
+                reset(result);
             }
-            else if (currentPosition == searchHits.getHits().length) {
+            else if (currentPosition == currentHits.size()) {
                 long start = System.nanoTime();
-                SearchResponse response = client.nextPage(scrollId);
+                SearchResult result = client.nextPage(scrollId);
                 readTimeNanos += System.nanoTime() - start;
-                reset(response);
+                reset(result);
             }
 
-            if (currentPosition == searchHits.getHits().length) {
+            if (currentPosition == currentHits.size()) {
                 return endOfData();
             }
 
-            SearchHit hit = searchHits.getAt(currentPosition);
+            SearchDocument document = currentHits.get(currentPosition);
             currentPosition++;
             totalRecordCount++;
 
-            return hit;
+            return document;
         }
 
-        private void reset(SearchResponse response)
+        private void reset(SearchResult result)
         {
-            scrollId = response.getScrollId();
-            searchHits = response.getHits();
+            scrollId = result.scrollId().orElse(null);
+            currentHits = result.hits();
             currentPosition = 0;
         }
 
