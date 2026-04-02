@@ -259,6 +259,20 @@ public class TestIgniteTypeMapping
     }
 
     @Test
+    public void testDecimalWithNegativeScale()
+    {
+        // IgniteClient.toColumnMapping() claims to handle decimal with negative scale,
+        // mapping decimal(p, -s) to decimal(p+s, 0). Verify this behavior.
+        // See https://github.com/trinodb/trino/issues/28416
+
+        // Ignite does not support creating DECIMAL columns with negative scale
+        assertThatThrownBy(() -> igniteServer.execute(
+                "CREATE TABLE test_decimal_neg_scale (id INT PRIMARY KEY, data DECIMAL(9, -3))"))
+                .cause()
+                .hasMessageContaining("Unexpected token");
+    }
+
+    @Test
     public void testBinary()
     {
         binaryTest("binary")

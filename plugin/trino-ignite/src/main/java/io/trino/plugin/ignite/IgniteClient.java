@@ -132,7 +132,6 @@ import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarcharType.UNBOUNDED_LENGTH;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
-import static java.lang.Math.max;
 import static java.lang.Math.min;
 import static java.lang.String.format;
 import static java.lang.String.join;
@@ -246,15 +245,18 @@ public class IgniteClient
             case Types.DECIMAL:
                 int decimalDigits = typeHandle.requiredDecimalDigits();
                 int precision = typeHandle.requiredColumnSize();
+                // Ignite does not support negative scale decimals (see https://github.com/trinodb/trino/issues/28416)
+                if (decimalDigits < 0) {
+                    break;
+                }
                 if (getDecimalRounding(session) == ALLOW_OVERFLOW && precision > Decimals.MAX_PRECISION) {
                     int scale = min(decimalDigits, getDecimalDefaultScale(session));
                     return Optional.of(decimalColumnMapping(createDecimalType(Decimals.MAX_PRECISION, scale), getDecimalRoundingMode(session)));
                 }
-                precision = precision + max(-decimalDigits, 0); // Map decimal(p, -s) (negative scale) to decimal(p+s, 0).
                 if (precision > Decimals.MAX_PRECISION) {
                     break;
                 }
-                return Optional.of(decimalColumnMapping(createDecimalType(precision, max(decimalDigits, 0))));
+                return Optional.of(decimalColumnMapping(createDecimalType(precision, decimalDigits)));
 
             case Types.VARCHAR:
                 return Optional.of(varcharColumnMapping(typeHandle.columnSize()));
