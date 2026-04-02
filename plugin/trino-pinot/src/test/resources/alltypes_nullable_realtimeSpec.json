@@ -26,9 +26,6 @@
                 "dimensionsSplitOrder": ["string_col"],
                 "functionColumnPairs": [
                     "COUNT__int_col",
-                    "COUNT__float_col",
-                    "COUNT__double_col",
-                    "COUNT__long_col",
                     "MIN__int_col",
                     "MIN__float_col",
                     "MIN__double_col",
