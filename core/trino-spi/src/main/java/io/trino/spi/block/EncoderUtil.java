@@ -17,6 +17,7 @@ import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;
 import jakarta.annotation.Nullable;
 import jdk.incubator.vector.ByteVector;
+import jdk.incubator.vector.VectorMask;
 import jdk.incubator.vector.VectorOperators;
 
 import java.io.IOException;
@@ -86,7 +87,18 @@ final class EncoderUtil
         byte[] packedIsNull = new byte[(length + 7) / 8];
         int currentByte = 0;
         int position = 0;
-        while (position < ByteVector.SPECIES_64.loopBound(length)) {
+
+        // process 16 nulls at a time
+        while (position < ByteVector.SPECIES_128.loopBound(length)) {
+            VectorMask<Byte> mask = VectorMask.fromArray(ByteVector.SPECIES_128, isNull, position + offset);
+            int intMask = Integer.reverse((int) mask.toLong());
+            packedIsNull[currentByte++] = (byte) (intMask >>> 24);
+            packedIsNull[currentByte++] = (byte) (intMask >>> 16);
+            position += ByteVector.SPECIES_128.length();
+        }
+
+        // process 8 nulls at a time
+        if (position < ByteVector.SPECIES_64.loopBound(length)) {
             packedIsNull[currentByte++] = ByteVector.fromBooleanArray(ByteVector.SPECIES_64, isNull, position + offset)
                     .lanewise(VectorOperators.LSHL, NULL_BIT_SHIFTS)
                     .reduceLanes(VectorOperators.OR);
