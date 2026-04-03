@@ -2107,13 +2107,12 @@ public class IcebergMetadata
     }
 
     @Override
-    public void finishTableExecute(ConnectorSession session, ConnectorTableExecuteHandle tableExecuteHandle, Collection<Slice> fragments, List<Object> splitSourceInfo)
+    public Map<String, Long> finishTableExecute(ConnectorSession session, ConnectorTableExecuteHandle tableExecuteHandle, Collection<Slice> fragments, List<Object> splitSourceInfo)
     {
         IcebergTableExecuteHandle executeHandle = (IcebergTableExecuteHandle) tableExecuteHandle;
         switch (executeHandle.procedureId()) {
             case OPTIMIZE:
-                finishOptimize(session, executeHandle, fragments, splitSourceInfo);
-                return;
+                return finishOptimize(session, executeHandle, fragments, splitSourceInfo);
             case OPTIMIZE_MANIFESTS:
             case DROP_EXTENDED_STATS:
             case ROLLBACK_TO_SNAPSHOT:
@@ -2126,7 +2125,7 @@ public class IcebergMetadata
         throw new IllegalArgumentException("Unknown procedure '" + executeHandle.procedureId() + "'");
     }
 
-    private void finishOptimize(ConnectorSession session, IcebergTableExecuteHandle executeHandle, Collection<Slice> fragments, List<Object> splitSourceInfo)
+    private Map<String, Long> finishOptimize(ConnectorSession session, IcebergTableExecuteHandle executeHandle, Collection<Slice> fragments, List<Object> splitSourceInfo)
     {
         IcebergOptimizeHandle optimizeHandle = (IcebergOptimizeHandle) executeHandle.procedureHandle();
         Table icebergTable = transaction.table();
@@ -2175,7 +2174,7 @@ public class IcebergMetadata
         if (optimizeHandle.snapshotId().isEmpty() || scannedDataFiles.isEmpty() && fullyAppliedDeleteFiles.isEmpty() && newFiles.isEmpty()) {
             // Either the table is empty, or the table scan turned out to be empty, nothing to commit
             transaction = null;
-            return;
+            return new OptimizeResult(0L, 0L, 0L).toMap();
         }
 
         RewriteFiles rewriteFiles = transaction.newRewrite();
@@ -2199,6 +2198,20 @@ public class IcebergMetadata
 
         commitTransaction(transaction, "optimize");
         transaction = null;
+
+        return new OptimizeResult(scannedDataFiles.size(), fullyAppliedDeleteFiles.size(), newFiles.size()).toMap();
+    }
+
+    private record OptimizeResult(long rewrittenDataFiles, long removedDeleteFiles, long addedDataFiles)
+    {
+        Map<String, Long> toMap()
+        {
+            return ImmutableMap.<String, Long>builder()
+                    .put("rewritten_data_files_count", rewrittenDataFiles)
+                    .put("removed_delete_files_count", removedDeleteFiles)
+                    .put("added_data_files_count", addedDataFiles)
+                    .buildOrThrow();
+        }
     }
 
     private static void commitUpdateAndTransaction(SnapshotUpdate<?> update, ConnectorSession session, Transaction transaction, String operation)

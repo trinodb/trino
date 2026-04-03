@@ -242,11 +242,11 @@ public class TracingMetadata
     }
 
     @Override
-    public void finishTableExecute(Session session, TableExecuteHandle handle, Collection<Slice> fragments, List<Object> tableExecuteState)
+    public Map<String, Long> finishTableExecute(Session session, TableExecuteHandle handle, Collection<Slice> fragments, List<Object> tableExecuteState)
     {
         Span span = startSpan("finishTableExecute", handle);
         try (var _ = scopedSpan(span)) {
-            delegate.finishTableExecute(session, handle, fragments, tableExecuteState);
+            return delegate.finishTableExecute(session, handle, fragments, tableExecuteState);
         }
     }
 

@@ -779,7 +779,7 @@ public class LogicalPlanner
                             Optional.of(partialAggregation),
                             Optional.of(result.getDescriptor().map(aggregations.getMappings()::get))),
                     target,
-                    symbolAllocator.newSymbol("rows", BIGINT),
+                    ImmutableList.of(symbolAllocator.newSymbol("rows", BIGINT)),
                     Optional.of(aggregations.getFinalAggregation()),
                     Optional.of(result.getDescriptor()));
 
@@ -800,7 +800,7 @@ public class LogicalPlanner
                         Optional.empty(),
                         Optional.empty()),
                 target,
-                symbolAllocator.newSymbol("rows", BIGINT),
+                ImmutableList.of(symbolAllocator.newSymbol("rows", BIGINT)),
                 Optional.empty(),
                 Optional.empty());
 
@@ -865,7 +865,7 @@ public class LogicalPlanner
                 idAllocator.getNextId(),
                 planNode,
                 target,
-                symbolAllocator.newSymbol("rows", BIGINT),
+                ImmutableList.of(symbolAllocator.newSymbol("rows", BIGINT)),
                 Optional.empty(),
                 Optional.empty());
 
@@ -882,7 +882,7 @@ public class LogicalPlanner
                 idAllocator.getNextId(),
                 planNode,
                 target,
-                symbolAllocator.newSymbol("rows", BIGINT),
+                ImmutableList.of(symbolAllocator.newSymbol("rows", BIGINT)),
                 Optional.empty(),
                 Optional.empty());
 
@@ -898,7 +898,7 @@ public class LogicalPlanner
                 idAllocator.getNextId(),
                 mergeNode,
                 mergeNode.getTarget(),
-                symbolAllocator.newSymbol("rows", BIGINT),
+                ImmutableList.of(symbolAllocator.newSymbol("rows", BIGINT)),
                 Optional.empty(),
                 Optional.empty());
 
@@ -980,7 +980,7 @@ public class LogicalPlanner
                             symbolAllocator.newSymbol("metricName", VARCHAR),
                             symbolAllocator.newSymbol("metricValue", BIGINT)),
                     executeHandle);
-            return new RelationPlan(node, analysis.getRootScope(), node.getOutputSymbols(), Optional.empty());
+            return new RelationPlan(node, analysis.getScope(statement), node.getOutputSymbols(), Optional.empty());
         }
 
         TableHandle tableHandle = analysis.getTableHandle(table);
@@ -1056,6 +1056,12 @@ public class LogicalPlanner
         }
 
         verify(columnNames.size() == symbols.size(), "columnNames.size() != symbols.size(): %s and %s", columnNames, symbols);
+
+        List<Symbol> outputSymbols = ImmutableList.<Symbol>builder()
+                .add(symbolAllocator.newSymbol("metricName", VARCHAR))
+                .add(symbolAllocator.newSymbol("metricValue", BIGINT))
+                .build();
+
         TableFinishNode commitNode = new TableFinishNode(
                 idAllocator.getNextId(),
                 new TableExecuteNode(
@@ -1068,11 +1074,11 @@ public class LogicalPlanner
                         columnNames,
                         partitioningScheme),
                 tableExecuteTarget,
-                symbolAllocator.newSymbol("rows", BIGINT),
+                outputSymbols,
                 Optional.empty(),
                 Optional.empty());
 
-        return new RelationPlan(commitNode, analysis.getRootScope(), commitNode.getOutputSymbols(), Optional.empty());
+        return new RelationPlan(commitNode, analysis.getScope(statement), outputSymbols, Optional.empty());
     }
 
     private static class Key

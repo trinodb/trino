@@ -5703,7 +5703,9 @@ public abstract class BaseIcebergConnectorTest
                     .hasSizeGreaterThan(workerCount);
 
             // For optimize we need to set task_min_writer_count to 1, otherwise it will create more than one file.
-            computeActual(withSingleWriterPerTask(getSession()), "ALTER TABLE " + tableName + " EXECUTE OPTIMIZE");
+            assertUpdate(
+                    withSingleWriterPerTask(getSession()), "ALTER TABLE " + tableName + " EXECUTE OPTIMIZE",
+                    "VALUES ('rewritten_data_files_count', 5), ('removed_delete_files_count', 0), ('added_data_files_count', 1)");
             assertThat(query("SELECT sum(key), listagg(value, ' ') WITHIN GROUP (ORDER BY key) FROM " + tableName))
                     .matches("VALUES (BIGINT '65', VARCHAR 'eleven zwölf trzynaście quatorze пʼятнадцять')");
             List<String> updatedFiles = getActiveFiles(tableName);
@@ -5908,7 +5910,9 @@ public abstract class BaseIcebergConnectorTest
                 "VALUES '1'");
 
         // For optimize we need to set task_min_writer_count to 1, otherwise it will create more than one file.
-        computeActual(withSingleWriterPerTask(getSession()), "ALTER TABLE " + tableName + " EXECUTE OPTIMIZE");
+        assertUpdate(
+                withSingleWriterPerTask(getSession()), "ALTER TABLE " + tableName + " EXECUTE OPTIMIZE",
+                "VALUES ('rewritten_data_files_count', 1), ('removed_delete_files_count', 1), ('added_data_files_count', 1)");
 
         List<String> updatedFiles = getActiveFiles(tableName);
         assertThat(updatedFiles)
@@ -6035,6 +6039,9 @@ public abstract class BaseIcebergConnectorTest
         assertThat(initialFiles).hasSize(1);
 
         computeActual("ALTER TABLE " + tableName + " EXECUTE OPTIMIZE");
+        assertUpdate(
+                "ALTER TABLE " + tableName + " EXECUTE OPTIMIZE",
+                "VALUES ('rewritten_data_files_count', 0), ('removed_delete_files_count', 0), ('added_data_files_count', 0)");
         assertThat(query("SELECT a FROM " + tableName))
                 .matches("VALUES 1, 2");
         assertThat(getActiveFiles(tableName))

@@ -33,7 +33,7 @@ public class TableFinishNode
 {
     private final PlanNode source;
     private final WriterTarget target;
-    private final Symbol rowCountSymbol;
+    private final List<Symbol> outputSymbols;
     private final Optional<StatisticAggregations> statisticsAggregation;
     private final Optional<StatisticAggregationsDescriptor<Symbol>> statisticsAggregationDescriptor;
 
@@ -42,7 +42,7 @@ public class TableFinishNode
             @JsonProperty("id") PlanNodeId id,
             @JsonProperty("source") PlanNode source,
             @JsonProperty("target") WriterTarget target,
-            @JsonProperty("rowCountSymbol") Symbol rowCountSymbol,
+            @JsonProperty("outputSymbols") List<Symbol> outputSymbols,
             @JsonProperty("statisticsAggregation") Optional<StatisticAggregations> statisticsAggregation,
             @JsonProperty("statisticsAggregationDescriptor") Optional<StatisticAggregationsDescriptor<Symbol>> statisticsAggregationDescriptor)
     {
@@ -51,7 +51,7 @@ public class TableFinishNode
         checkArgument(target != null || source instanceof TableWriterNode);
         this.source = requireNonNull(source, "source is null");
         this.target = requireNonNull(target, "target is null");
-        this.rowCountSymbol = requireNonNull(rowCountSymbol, "rowCountSymbol is null");
+        this.outputSymbols = ImmutableList.copyOf(outputSymbols);
         this.statisticsAggregation = requireNonNull(statisticsAggregation, "statisticsAggregation is null");
         this.statisticsAggregationDescriptor = requireNonNull(statisticsAggregationDescriptor, "statisticsAggregationDescriptor is null");
         checkArgument(statisticsAggregation.isPresent() == statisticsAggregationDescriptor.isPresent(), "statisticsAggregation and statisticsAggregationDescriptor must both be either present or absent");
@@ -67,12 +67,6 @@ public class TableFinishNode
     public WriterTarget getTarget()
     {
         return target;
-    }
-
-    @JsonProperty
-    public Symbol getRowCountSymbol()
-    {
-        return rowCountSymbol;
     }
 
     @JsonProperty
@@ -93,10 +87,11 @@ public class TableFinishNode
         return ImmutableList.of(source);
     }
 
+    @JsonProperty
     @Override
     public List<Symbol> getOutputSymbols()
     {
-        return ImmutableList.of(rowCountSymbol);
+        return outputSymbols;
     }
 
     @Override
@@ -112,7 +107,7 @@ public class TableFinishNode
                 getId(),
                 Iterables.getOnlyElement(newChildren),
                 target,
-                rowCountSymbol,
+                outputSymbols,
                 statisticsAggregation,
                 statisticsAggregationDescriptor);
     }

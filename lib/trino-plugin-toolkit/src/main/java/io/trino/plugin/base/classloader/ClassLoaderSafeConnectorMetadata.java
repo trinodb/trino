@@ -245,10 +245,10 @@ public class ClassLoaderSafeConnectorMetadata
     }
 
     @Override
-    public void finishTableExecute(ConnectorSession session, ConnectorTableExecuteHandle tableExecuteHandle, Collection<Slice> fragments, List<Object> tableExecuteState)
+    public Map<String, Long> finishTableExecute(ConnectorSession session, ConnectorTableExecuteHandle tableExecuteHandle, Collection<Slice> fragments, List<Object> tableExecuteState)
     {
         try (ThreadContextClassLoader _ = new ThreadContextClassLoader(classLoader)) {
-            delegate.finishTableExecute(session, tableExecuteHandle, fragments, tableExecuteState);
+            return delegate.finishTableExecute(session, tableExecuteHandle, fragments, tableExecuteState);
         }
     }
 

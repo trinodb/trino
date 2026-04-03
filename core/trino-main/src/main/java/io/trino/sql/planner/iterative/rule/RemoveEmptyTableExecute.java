@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
 import io.trino.sql.ir.Constant;
+import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.Row;
 import io.trino.sql.planner.iterative.Lookup;
 import io.trino.sql.planner.iterative.Rule;
@@ -26,10 +27,11 @@ import io.trino.sql.planner.plan.TableExecuteNode;
 import io.trino.sql.planner.plan.TableFinishNode;
 import io.trino.sql.planner.plan.ValuesNode;
 
+import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.base.Verify.verify;
-import static io.trino.spi.type.BigintType.BIGINT;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.sql.planner.plan.Patterns.tableFinish;
 
 /**
@@ -76,11 +78,15 @@ public class RemoveEmptyTableExecute
         }
         verify(valuesNode.getRowCount() == 0, "Unexpected non-empty Values as source of TableExecuteNode");
 
+        List<Expression> rowValues = finishNode.getOutputSymbols().stream()
+                .map(symbol -> new Constant(symbol.type(), null))
+                .collect(toImmutableList());
+
         return Result.ofPlanNode(
                 new ValuesNode(
                         finishNode.getId(),
                         finishNode.getOutputSymbols(),
-                        ImmutableList.of(new Row(ImmutableList.of(new Constant(BIGINT, null))))));
+                        ImmutableList.of(new Row(rowValues))));
     }
 
     private Optional<PlanNode> getSingleSourceSkipExchange(PlanNode node, Lookup lookup)

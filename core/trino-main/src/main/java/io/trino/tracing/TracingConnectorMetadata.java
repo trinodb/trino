@@ -183,11 +183,11 @@ public class TracingConnectorMetadata
     }
 
     @Override
-    public void finishTableExecute(ConnectorSession session, ConnectorTableExecuteHandle tableExecuteHandle, Collection<Slice> fragments, List<Object> tableExecuteState)
+    public Map<String, Long> finishTableExecute(ConnectorSession session, ConnectorTableExecuteHandle tableExecuteHandle, Collection<Slice> fragments, List<Object> tableExecuteState)
     {
         Span span = startSpan("finishTableExecute", tableExecuteHandle);
         try (var _ = scopedSpan(span)) {
-            delegate.finishTableExecute(session, tableExecuteHandle, fragments, tableExecuteState);
+            return delegate.finishTableExecute(session, tableExecuteHandle, fragments, tableExecuteState);
         }
     }
 

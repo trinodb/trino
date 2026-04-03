@@ -1338,10 +1338,7 @@ class StatementAnalyzer
             analysis.setUpdateType("ALTER TABLE EXECUTE");
             analysis.setUpdateTarget(executeHandle.catalogHandle().getVersion(), tableName, Optional.of(table), Optional.empty());
 
-            if (!procedureMetadata.getExecutionMode().isReadsData()) {
-                return createAndAssignScope(node, scope, Field.newUnqualified("metric_name", VARCHAR), Field.newUnqualified("metric_value", BIGINT));
-            }
-            return createAndAssignScope(node, scope, Field.newUnqualified("rows", BIGINT));
+            return createAndAssignScope(node, scope, Field.newUnqualified("metric_name", VARCHAR), Field.newUnqualified("metric_value", BIGINT));
         }
 
         private List<Property> processTableExecuteArguments(TableExecute node, TableProcedureMetadata procedureMetadata, Optional<Scope> scope)

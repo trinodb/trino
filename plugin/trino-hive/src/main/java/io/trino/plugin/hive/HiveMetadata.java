@@ -2633,13 +2633,13 @@ public class HiveMetadata
     }
 
     @Override
-    public void finishTableExecute(ConnectorSession session, ConnectorTableExecuteHandle tableExecuteHandle, Collection<Slice> fragments, List<Object> splitSourceInfo)
+    public Map<String, Long> finishTableExecute(ConnectorSession session, ConnectorTableExecuteHandle tableExecuteHandle, Collection<Slice> fragments, List<Object> splitSourceInfo)
     {
         String procedureName = ((HiveTableExecuteHandle) tableExecuteHandle).getProcedureName();
 
         if (procedureName.equals(OptimizeTableProcedure.NAME)) {
             finishOptimize(session, tableExecuteHandle, fragments, splitSourceInfo);
-            return;
+            return ImmutableMap.of();
         }
         throw new IllegalArgumentException("Unknown procedure '" + procedureName + "'");
     }

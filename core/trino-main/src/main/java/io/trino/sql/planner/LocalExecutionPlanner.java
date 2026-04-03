@@ -3472,7 +3472,7 @@ public class LocalExecutionPlanner
                     tableExecuteContextManager,
                     shouldOutputRowCount(node),
                     session);
-            Map<Symbol, Integer> layout = ImmutableMap.of(getOnlyElement(node.getOutputSymbols()), 0);
+            Map<Symbol, Integer> layout = makeLayoutFromOutputSymbols(node.getOutputSymbols());
 
             return new PhysicalOperation(operatorFactory, layout, source);
         }
@@ -4206,7 +4206,8 @@ public class LocalExecutionPlanner
             }
             if (target instanceof TableExecuteTarget tableExecuteTarget) {
                 TableExecuteHandle tableExecuteHandle = tableExecuteTarget.getExecuteHandle();
-                metadata.finishTableExecute(session, tableExecuteHandle, fragments, tableExecuteContext.getSplitsInfo());
+                Map<String, Long> metrics = metadata.finishTableExecute(session, tableExecuteHandle, fragments, tableExecuteContext.getSplitsInfo());
+                tableExecuteContext.setMetrics(metrics);
                 return Optional.empty();
             }
             if (target instanceof MergeTarget mergeTarget) {

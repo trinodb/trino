@@ -2938,13 +2938,13 @@ public class DeltaLakeMetadata
     }
 
     @Override
-    public void finishTableExecute(ConnectorSession session, ConnectorTableExecuteHandle tableExecuteHandle, Collection<Slice> fragments, List<Object> splitSourceInfo)
+    public Map<String, Long> finishTableExecute(ConnectorSession session, ConnectorTableExecuteHandle tableExecuteHandle, Collection<Slice> fragments, List<Object> splitSourceInfo)
     {
         DeltaLakeTableExecuteHandle executeHandle = (DeltaLakeTableExecuteHandle) tableExecuteHandle;
         switch (executeHandle.procedureId()) {
             case OPTIMIZE:
                 finishOptimize(session, executeHandle, fragments, splitSourceInfo);
-                return;
+                return ImmutableMap.of();
         }
         throw new IllegalArgumentException("Unknown procedure '" + executeHandle.procedureId() + "'");
     }

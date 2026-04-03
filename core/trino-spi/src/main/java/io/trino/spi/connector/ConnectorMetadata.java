@@ -169,8 +169,9 @@ public interface ConnectorMetadata
      * Finish table execute
      *
      * @param fragments all fragments returned by {@link ConnectorPageSink#finish()}
+     * @return procedure execution metrics that will be populated in the query output
      */
-    default void finishTableExecute(ConnectorSession session, ConnectorTableExecuteHandle tableExecuteHandle, Collection<Slice> fragments, List<Object> tableExecuteState)
+    default Map<String, Long> finishTableExecute(ConnectorSession session, ConnectorTableExecuteHandle tableExecuteHandle, Collection<Slice> fragments, List<Object> tableExecuteState)
     {
         throw new TrinoException(GENERIC_INTERNAL_ERROR, "ConnectorMetadata getTableHandleForExecute() is implemented without finishTableExecute()");
     }

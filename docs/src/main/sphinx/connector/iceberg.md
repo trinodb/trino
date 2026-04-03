@@ -869,6 +869,14 @@ following conditions are met per partition:
 ALTER TABLE test_table EXECUTE optimize
 ```
 
+```text
+        metric_name         | metric_value
+----------------------------+--------------
+ rewritten_data_files_count |            1
+ removed_delete_files_count |            1
+ added_data_files_count     |            2
+```
+
 The following statement merges files in a table that are
 under 128 megabytes in size:
 

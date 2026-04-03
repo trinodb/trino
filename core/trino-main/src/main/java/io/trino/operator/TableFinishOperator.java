@@ -26,6 +26,7 @@ import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.QueryId;
 import io.trino.spi.block.Block;
+import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.connector.ConnectorOutputMetadata;
 import io.trino.spi.statistics.ComputedStatistics;
 import io.trino.spi.type.Type;
@@ -34,16 +35,20 @@ import io.trino.sql.planner.plan.StatisticAggregationsDescriptor;
 
 import java.util.Collection;
 import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
+import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.operator.TableWriterOperator.FRAGMENT_CHANNEL;
 import static io.trino.operator.TableWriterOperator.ROW_COUNT_CHANNEL;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
+import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
@@ -313,6 +318,21 @@ public class TableFinishOperator
         state = State.FINISHED;
 
         this.outputMetadata.set(tableFinisher.finishTable(fragmentBuilder.build(), computedStatisticsBuilder.build(), tableExecuteContext));
+
+        // Check if table execute context has metrics to output
+        Optional<Map<String, Long>> metricsOptional = tableExecuteContext.getMetrics();
+        if (metricsOptional.isPresent()) {
+            Map<String, Long> metrics = metricsOptional.get();
+            PageBuilder pageBuilder = new PageBuilder(ImmutableList.of(VARCHAR, BIGINT));
+            BlockBuilder metricNameBuilder = pageBuilder.getBlockBuilder(0);
+            BlockBuilder metricValueBuilder = pageBuilder.getBlockBuilder(1);
+            for (Entry<String, Long> entry : metrics.entrySet()) {
+                VARCHAR.writeSlice(metricNameBuilder, utf8Slice(entry.getKey()));
+                BIGINT.writeLong(metricValueBuilder, entry.getValue());
+                pageBuilder.declarePosition();
+            }
+            return pageBuilder.build();
+        }
 
         // output page will only be constructed once,
         // so a new PageBuilder is constructed (instead of using PageBuilder.reset)
