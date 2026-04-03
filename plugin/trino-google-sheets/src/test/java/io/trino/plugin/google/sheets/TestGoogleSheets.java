@@ -14,6 +14,8 @@
 package io.trino.plugin.google.sheets;
 
 import com.google.api.client.googleapis.auth.oauth2.GoogleCredential;
+import com.google.api.client.http.HttpBackOffIOExceptionHandler;
+import com.google.api.client.http.HttpBackOffUnsuccessfulResponseHandler;
 import com.google.api.client.http.HttpRequestInitializer;
 import com.google.api.client.json.jackson2.JacksonFactory;
 import com.google.api.services.sheets.v4.Sheets;
@@ -36,6 +38,7 @@ import java.io.IOException;
 import java.util.concurrent.TimeUnit;
 
 import static com.google.api.client.googleapis.javanet.GoogleNetHttpTransport.newTrustedTransport;
+import static io.trino.plugin.google.sheets.SheetsClient.BACKOFF;
 import static io.trino.plugin.google.sheets.TestSheetsPlugin.DATA_SHEET_ID;
 import static io.trino.plugin.google.sheets.TestSheetsPlugin.getTestCredentialsPath;
 import static io.trino.testing.assertions.Assert.assertEventually;
@@ -329,6 +332,8 @@ public class TestGoogleSheets
             requestInitializer.initialize(httpRequest);
             httpRequest.setConnectTimeout(toIntExact(TimeUnit.MINUTES.toMillis(1)));
             httpRequest.setReadTimeout(toIntExact(TimeUnit.MINUTES.toMillis(1)));
+            httpRequest.setUnsuccessfulResponseHandler(new HttpBackOffUnsuccessfulResponseHandler(BACKOFF));
+            httpRequest.setIOExceptionHandler(new HttpBackOffIOExceptionHandler(BACKOFF));
         };
     }
 }

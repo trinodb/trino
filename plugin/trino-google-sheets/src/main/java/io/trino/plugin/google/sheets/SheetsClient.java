@@ -15,9 +15,12 @@ package io.trino.plugin.google.sheets;
 
 import com.google.api.client.auth.oauth2.Credential;
 import com.google.api.client.googleapis.auth.oauth2.GoogleCredential;
+import com.google.api.client.http.HttpBackOffIOExceptionHandler;
+import com.google.api.client.http.HttpBackOffUnsuccessfulResponseHandler;
 import com.google.api.client.http.HttpRequestInitializer;
 import com.google.api.client.json.JsonFactory;
 import com.google.api.client.json.jackson2.JacksonFactory;
+import com.google.api.client.util.ExponentialBackOff;
 import com.google.api.services.sheets.v4.Sheets;
 import com.google.api.services.sheets.v4.SheetsScopes;
 import com.google.api.services.sheets.v4.model.ValueRange;
@@ -68,6 +71,13 @@ public class SheetsClient
     public static final String DEFAULT_RANGE = "$1:$10000";
     public static final String RANGE_SEPARATOR = "#";
     private static final Logger log = Logger.get(SheetsClient.class);
+
+    public static final ExponentialBackOff BACKOFF = new ExponentialBackOff.Builder()
+            .setInitialIntervalMillis(500)
+            .setMaxIntervalMillis(10_000)
+            .setMaxElapsedTimeMillis(60_000)
+            .setMultiplier(1.5)
+            .build();
 
     private static final String APPLICATION_NAME = "trino google sheets integration";
     private static final JsonFactory JSON_FACTORY = JacksonFactory.getDefaultInstance();
@@ -333,6 +343,8 @@ public class SheetsClient
             httpRequest.setConnectTimeout(toIntExact(config.getConnectionTimeout().toMillis()));
             httpRequest.setReadTimeout(toIntExact(config.getReadTimeout().toMillis()));
             httpRequest.setWriteTimeout(toIntExact(config.getWriteTimeout().toMillis()));
+            httpRequest.setUnsuccessfulResponseHandler(new HttpBackOffUnsuccessfulResponseHandler(BACKOFF));
+            httpRequest.setIOExceptionHandler(new HttpBackOffIOExceptionHandler(BACKOFF));
         };
     }
 }
