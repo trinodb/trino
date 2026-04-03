@@ -97,6 +97,94 @@ create ephemeral Amazon Redshift clusters:
 }
 ```
 
+### AWS Lambda setup
+
+The test `io.trino.plugin.redshift.TestRedshiftConnectorTest.testCancellation` relies on an AWS Lambda function to simulate a long running query 
+in Redshift and test the cancellation of it.
+Below are the steps to create and configure the AWS Lambda function:
+
+1. Create the function code
+
+```
+cat > lambda_function.py << 'EOF'                                                                                      
+import json
+import time
+
+def lambda_handler(event, context):
+    results = []
+    for row_args in event['arguments']:
+        time.sleep(row_args[0])
+        results.append(1)
+    return json.dumps({"results": results, "success": True})
+
+EOF
+```
+
+2. Package it
+
+```
+zip lambda_function.zip lambda_function.py
+```
+
+3. Prepare the execution role for the function
+
+```
+aws iam create-role \
+    --role-name trino-redshift-sleep-lambda-execution \
+    --assume-role-policy-document '{                                                                                     
+      "Version": "2012-10-17",                                                                                           
+      "Statement": [{
+        "Effect": "Allow",
+        "Principal": {"Service": "lambda.amazonaws.com"},
+        "Action": "sts:AssumeRole"
+      }]
+    }'
+```
+
+```
+aws iam attach-role-policy \
+    --role-name trino-redshift-sleep-lambda-execution \
+    --policy-arn arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole 
+```
+
+4. Create the AWS lambda function
+
+```
+aws lambda create-function \
+    --function-name trino-redshift-ci-sleep \
+    --runtime python3.12 \
+    --handler lambda_function.lambda_handler \
+    --role arn:aws:iam::894365193301:role/trino-redshift-sleep-lambda-execution \
+    --zip-file fileb://lambda_function.zip \
+    --timeout 120 \
+    --region us-east-2
+```
+
+5. Allow Redshift to invoke it:
+
+```
+aws lambda add-permission \
+    --function-name trino-redshift-ci-sleep \
+    --statement-id redshift-ci-invoke \
+    --action lambda:InvokeFunction \
+    --principal arn:aws:iam::894365193301:role/redshift-ci \
+    --region us-east-2
+```
+
+```
+aws iam put-role-policy \
+    --role-name redshift-ci \
+    --policy-name invoke-trino-ci-redshift-sleep \
+    --policy-document '{                                                                                                 
+      "Version": "2012-10-17",                                                                                         
+      "Statement": [{
+        "Effect": "Allow",
+        "Action": "lambda:InvokeFunction",                                                                               
+        "Resource": "arn:aws:lambda:us-east-2:894365193301:function:trino-redshift-ci-sleep"
+      }]                                                                                                                 
+    }'
+```
+
 ### AWS S3 setup
 
 The `trino-redshift` tests rely on a Redshift cluster 

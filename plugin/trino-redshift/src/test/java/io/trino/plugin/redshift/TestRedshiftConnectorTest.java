@@ -52,6 +52,7 @@ import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.trino.SystemSessionProperties.DISTINCT_AGGREGATIONS_STRATEGY;
 import static io.trino.plugin.jdbc.TypeHandlingJdbcSessionProperties.UNSUPPORTED_TYPE_HANDLING;
 import static io.trino.plugin.jdbc.UnsupportedTypeHandling.CONVERT_TO_VARCHAR;
+import static io.trino.plugin.redshift.RedshiftQueryRunner.IAM_ROLE;
 import static io.trino.plugin.redshift.TestingRedshiftServer.JDBC_PASSWORD;
 import static io.trino.plugin.redshift.TestingRedshiftServer.JDBC_URL;
 import static io.trino.plugin.redshift.TestingRedshiftServer.JDBC_USER;
@@ -888,15 +889,14 @@ public class TestRedshiftConnectorTest
     {
         long secondsToSleep = round(minimalQueryDuration.convertTo(SECONDS).getValue() + 1);
         // pg_sleep unsupported: https://docs.aws.amazon.com/redshift/latest/dg/c_unsupported-postgresql-functions.html,
-        // adding a python UDF replacement
+        // Using a predefined AWS lambda replacement
         onRemoteDatabaseWithSchema(TEST_SCHEMA).execute(
                 """
-                CREATE OR REPLACE FUNCTION janky_sleep (x float) RETURNS bool IMMUTABLE as $$
-                    from time import sleep
-                    sleep(x)
-                    return True
-                $$ LANGUAGE plpythonu;
-                """);
+                CREATE OR REPLACE EXTERNAL FUNCTION\s
+                        janky_sleep(x int) returns int
+                        lambda 'trino-redshift-ci-sleep' IAM_ROLE '%s'
+                STABLE
+                """.formatted(IAM_ROLE));
         return new io.trino.testing.sql.TestView(
                 onRemoteDatabaseWithSchema(TEST_SCHEMA),
                 "test_sleeping_view",
