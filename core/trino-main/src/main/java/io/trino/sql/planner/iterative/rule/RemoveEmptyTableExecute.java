@@ -30,9 +30,7 @@ import java.util.Optional;
 
 import static com.google.common.base.Verify.verify;
 import static io.trino.spi.type.BigintType.BIGINT;
-import static io.trino.sql.planner.plan.Patterns.Values.rowCount;
 import static io.trino.sql.planner.plan.Patterns.tableFinish;
-import static io.trino.sql.planner.plan.Patterns.values;
 
 /**
  * If the predicate for a table execute is optimized to false, the target table scan
@@ -57,11 +55,6 @@ public class RemoveEmptyTableExecute
         implements Rule<TableFinishNode>
 {
     private static final Pattern<TableFinishNode> PATTERN = tableFinish();
-
-    private static Pattern<ValuesNode> emptyValues()
-    {
-        return values().with(rowCount().equalTo(0));
-    }
 
     @Override
     public Pattern<TableFinishNode> getPattern()
