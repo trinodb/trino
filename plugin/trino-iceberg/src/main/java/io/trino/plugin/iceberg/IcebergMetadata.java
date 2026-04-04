@@ -2253,11 +2253,9 @@ public class IcebergMetadata
             case REMOVE_ORPHAN_FILES:
                 return executeRemoveOrphanFiles(session, executeHandle);
             case ADD_FILES:
-                executeAddFiles(session, executeHandle);
-                return ImmutableMap.of();
+                return executeAddFiles(session, executeHandle);
             case ADD_FILES_FROM_TABLE:
-                executeAddFilesFromTable(session, executeHandle);
-                return ImmutableMap.of();
+                return executeAddFilesFromTable(session, executeHandle);
             default:
                 throw new IllegalArgumentException("Unknown procedure '" + executeHandle.procedureId() + "'");
         }
@@ -2626,12 +2624,12 @@ public class IcebergMetadata
                 "deleted_files_count", result.deletedFilesCount());
     }
 
-    public void executeAddFiles(ConnectorSession session, IcebergTableExecuteHandle executeHandle)
+    public Map<String, Long> executeAddFiles(ConnectorSession session, IcebergTableExecuteHandle executeHandle)
     {
         IcebergAddFilesHandle addFilesHandle = (IcebergAddFilesHandle) executeHandle.procedureHandle();
         Table table = catalog.loadTable(session, executeHandle.schemaTableName());
         TrinoFileSystem fileSystem = fileSystemFactory.create(session.getIdentity(), table.io().properties());
-        addFiles(
+        long addedDataFiles = addFiles(
                 session,
                 fileSystem,
                 catalog,
@@ -2640,14 +2638,15 @@ public class IcebergMetadata
                 addFilesHandle.format(),
                 addFilesHandle.recursiveDirectory(),
                 icebergScanExecutor);
+        return ImmutableMap.of("added_data_files", addedDataFiles);
     }
 
-    public void executeAddFilesFromTable(ConnectorSession session, IcebergTableExecuteHandle executeHandle)
+    public Map<String, Long> executeAddFilesFromTable(ConnectorSession session, IcebergTableExecuteHandle executeHandle)
     {
         IcebergAddFilesFromTableHandle addFilesHandle = (IcebergAddFilesFromTableHandle) executeHandle.procedureHandle();
         Table table = catalog.loadTable(session, executeHandle.schemaTableName());
         TrinoFileSystem fileSystem = fileSystemFactory.create(session.getIdentity(), table.io().properties());
-        addFilesFromTable(
+        long addedDataFiles = addFilesFromTable(
                 session,
                 fileSystem,
                 metastoreFactory.orElseThrow(),
@@ -2656,6 +2655,7 @@ public class IcebergMetadata
                 addFilesHandle.partitionFilter(),
                 addFilesHandle.recursiveDirectory(),
                 icebergScanExecutor);
+        return ImmutableMap.of("added_data_files", addedDataFiles);
     }
 
     private ScanAndDeleteResult scanAndDeleteInvalidFiles(Table table, ConnectorSession session, SchemaTableName schemaTableName, Instant expiration, Set<String> validFiles, Map<String, String> fileIoProperties)

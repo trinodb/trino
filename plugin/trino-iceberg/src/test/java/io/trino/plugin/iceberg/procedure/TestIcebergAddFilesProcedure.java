@@ -84,7 +84,9 @@ final class TestIcebergAddFilesProcedure
         assertUpdate("CREATE TABLE hive.tpch." + hiveTableName + " AS SELECT 1 x", 1);
         assertUpdate("CREATE TABLE iceberg.tpch." + icebergTableName + " AS SELECT 2 x", 1);
 
-        assertUpdate("ALTER TABLE " + icebergTableName + " EXECUTE add_files_from_table('tpch', '" + hiveTableName + "')");
+        assertUpdate(
+                "ALTER TABLE " + icebergTableName + " EXECUTE add_files_from_table('tpch', '" + hiveTableName + "')",
+                "VALUES ('added_data_files', 1)");
 
         assertQuery("SELECT * FROM hive.tpch." + hiveTableName, "VALUES 1");
         assertQuery("SELECT * FROM iceberg.tpch." + icebergTableName, "VALUES 1, 2");
@@ -484,7 +486,9 @@ final class TestIcebergAddFilesProcedure
 
         String path = (String) computeScalar("SELECT \"$path\" FROM hive.tpch." + hiveTableName);
 
-        assertUpdate("ALTER TABLE " + icebergTableName + " EXECUTE add_files('" + path + "', 'ORC')");
+        assertUpdate(
+                "ALTER TABLE " + icebergTableName + " EXECUTE add_files('" + path + "', 'ORC')",
+                "VALUES ('added_data_files', 1)");
 
         assertQuery("SELECT * FROM iceberg.tpch." + icebergTableName, "VALUES 1, 2");
 
