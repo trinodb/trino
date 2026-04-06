@@ -2019,8 +2019,8 @@ SELECT *
 FROM example.testdb.customer_orders FOR TIMESTAMP AS OF TIMESTAMP '2022-03-23 09:59:29.803 Europe/Vienna';
 ```
 
-You can use a date to specify a point a time in the past for using a snapshot of a table in a query.
-Assuming that the session time zone is `Europe/Vienna` the following queries are equivalent:
+You can use a date to specify a point in time in the past for querying a table snapshot.
+Assuming that the session time zone is `Europe/Vienna`, the following queries are equivalent:
 
 ```sql
 SELECT *
