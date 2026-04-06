@@ -13,15 +13,18 @@
  */
 package io.trino.plugin.iceberg;
 
+import com.google.common.collect.ImmutableList;
 import io.trino.plugin.iceberg.PartitionTransforms.ValueTransform;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.RowBlock;
 import io.trino.spi.connector.BucketFunction;
 import io.trino.spi.connector.ConnectorSplit;
+import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
 
 import java.lang.invoke.MethodHandle;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.function.ToIntFunction;
 
@@ -32,6 +35,7 @@ import static io.trino.spi.function.InvocationConvention.InvocationArgumentConve
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.function.InvocationConvention.simpleConvention;
 import static io.trino.spi.type.TypeUtils.NULL_HASH_CODE;
+import static io.trino.spi.type.TypeUtils.readNativeValue;
 import static java.util.Objects.requireNonNull;
 import static java.util.Objects.requireNonNullElse;
 
@@ -40,6 +44,7 @@ public class IcebergBucketFunction
 {
     private final int bucketCount;
     private final List<HashFunction> functions;
+    private final List<Integer> partitionStructFields;
 
     private final boolean singleBucketFunction;
 
@@ -54,6 +59,7 @@ public class IcebergBucketFunction
         this.functions = partitionFunctions.stream()
                 .map(partitionFunction -> HashFunction.create(partitionFunction, typeOperators))
                 .collect(toImmutableList());
+        this.partitionStructFields = ImmutableList.copyOf(partitioningHandle.partitionStructFields());
 
         this.singleBucketFunction = partitionFunctions.size() == 1 &&
                 partitionFunctions.getFirst().transform() == BUCKET &&
@@ -81,8 +87,7 @@ public class IcebergBucketFunction
     @Override
     public int applyAsInt(ConnectorSplit split)
     {
-        List<Object> partitionValues = ((IcebergSplit) split).getPartitionValues()
-                .orElseThrow(() -> new IllegalArgumentException("Split does not contain partition values"));
+        List<Object> partitionValues = getPartitionValues(((IcebergSplit) split).getPartitionValues());
 
         if (singleBucketFunction) {
             long bucket = (long) requireNonNullElse(partitionValues.getFirst(), 0L);
@@ -99,7 +104,18 @@ public class IcebergBucketFunction
         return (int) ((hash & Long.MAX_VALUE) % bucketCount);
     }
 
-    private record HashFunction(List<Integer> dataPath, ValueTransform valueTransform, MethodHandle hashCodeOperator)
+    private List<Object> getPartitionValues(List<Block> partitionBlocks)
+    {
+        // using array list because the value could be null
+        List<Object> partitionValues = new ArrayList<>(partitionStructFields.size());
+        for (int i = 0; i < partitionStructFields.size(); i++) {
+            int fieldIndex = partitionStructFields.get(i);
+            partitionValues.add(readNativeValue(functions.get(i).resultType(), partitionBlocks.get(fieldIndex), 0));
+        }
+        return partitionValues;
+    }
+
+    private record HashFunction(List<Integer> dataPath, ValueTransform valueTransform, MethodHandle hashCodeOperator, Type resultType)
     {
         private static HashFunction create(IcebergPartitionFunction partitionFunction, TypeOperators typeOperators)
         {
@@ -107,7 +123,8 @@ public class IcebergBucketFunction
             return new HashFunction(
                     partitionFunction.dataPath(),
                     columnTransform.valueTransform(),
-                    typeOperators.getHashCodeOperator(columnTransform.type(), simpleConvention(FAIL_ON_NULL, NEVER_NULL)));
+                    typeOperators.getHashCodeOperator(columnTransform.type(), simpleConvention(FAIL_ON_NULL, NEVER_NULL)),
+                    columnTransform.type());
         }
 
         private HashFunction

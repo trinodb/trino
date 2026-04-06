@@ -3918,6 +3918,27 @@ public abstract class BaseIcebergConnectorTest
     }
 
     @Test
+    void testVoidTransformWithMultiplePartitionFields()
+    {
+        // test multiple partition fields with void transform in front of the other partition fields
+        try (TestTable table = newTrinoTable("test_void_transform_", "(a VARCHAR, b BIGINT, c VARCHAR) WITH (partitioning = ARRAY['void(b)', 'c'])")) {
+            String values = """
+                    (VARCHAR 'abcd', BIGINT '1', VARCHAR 'x'),
+                    ('abxy', 2, 'x'),
+                    ('xyzd', 3, 'x'),
+                    (NULL, 4, 'xx'),
+                    (NULL, 5, NULL)
+                    """;
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES " + values, 5);
+            assertThat(query("TABLE " + table.getName()))
+                    .matches("VALUES " + values);
+
+            assertThat(query("SELECT COUNT(*) FROM \"%s$partitions\"".formatted(table.getName())))
+                    .matches("VALUES BIGINT '3'");
+        }
+    }
+
+    @Test
     public void testVoidTransform()
     {
         assertUpdate("CREATE TABLE test_void_transform (d VARCHAR, b BIGINT) WITH (partitioning = ARRAY['void(d)'])");

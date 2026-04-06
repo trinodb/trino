@@ -133,7 +133,6 @@ public class TableChangesFunctionProcessor
                 split.length(),
                 split.fileSize(),
                 split.fileRecordCount(),
-                split.partitionDataJson(),
                 split.fileFormat(),
                 getFileIoProperties(tableCredentials),
                 0,

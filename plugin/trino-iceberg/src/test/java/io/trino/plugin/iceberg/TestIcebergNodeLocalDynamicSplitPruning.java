@@ -78,6 +78,7 @@ import static io.trino.plugin.iceberg.util.OrcTypeConverter.toOrcType;
 import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.Decimals.writeShortDecimal;
 import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.TypeUtils.writeNativeValue;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_HANDLE;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
@@ -146,7 +147,7 @@ public class TestIcebergNodeLocalDynamicSplitPruning
                     -1, // invalid; normally known
                     ORC,
                     PartitionSpec.unpartitioned().specId(),
-                    PartitionData.toJson(new PartitionData(new Object[] {})),
+                    ImmutableList.of(),
                     ImmutableList.of(),
                     SplitWeight.standard(),
                     TupleDomain.all(),
@@ -208,7 +209,7 @@ public class TestIcebergNodeLocalDynamicSplitPruning
                     -1, // invalid; normally known
                     ORC,
                     PartitionSpec.unpartitioned().specId(),
-                    PartitionData.toJson(new PartitionData(new Object[] {})),
+                    ImmutableList.of(),
                     ImmutableList.of(),
                     SplitWeight.standard(),
                     TupleDomain.withColumnDomains(ImmutableMap.of(keyColumnHandle, Domain.singleValue(INTEGER, (long) keyColumnValue))),
@@ -318,7 +319,7 @@ public class TestIcebergNodeLocalDynamicSplitPruning
                     -1, // invalid; normally known
                     ORC,
                     partitionSpec.specId(),
-                    PartitionData.toJson(new PartitionData(new Object[] {dateColumnValue})),
+                    ImmutableList.of(writeNativeValue(DATE, dateColumnValue)),
                     ImmutableList.of(),
                     SplitWeight.standard(),
                     TupleDomain.all(),
@@ -471,7 +472,7 @@ public class TestIcebergNodeLocalDynamicSplitPruning
                     -1, // invalid; normally known
                     ORC,
                     partitionSpec.specId(),
-                    PartitionData.toJson(new PartitionData(new Object[] {yearColumnValue})),
+                    ImmutableList.of(writeNativeValue(INTEGER, yearColumnValue)),
                     ImmutableList.of(),
                     SplitWeight.standard(),
                     TupleDomain.all(),

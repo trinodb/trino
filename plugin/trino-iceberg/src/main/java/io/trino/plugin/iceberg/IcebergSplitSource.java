@@ -36,6 +36,7 @@ import io.trino.plugin.base.metrics.LongCount;
 import io.trino.plugin.iceberg.delete.DeleteFile;
 import io.trino.plugin.iceberg.util.DataFileWithDeleteFiles;
 import io.trino.spi.SplitWeight;
+import io.trino.spi.block.Block;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplit;
@@ -116,8 +117,10 @@ import static io.trino.plugin.iceberg.IcebergUtil.getPathDomain;
 import static io.trino.plugin.iceberg.IcebergUtil.primitiveFieldTypes;
 import static io.trino.plugin.iceberg.StructLikeWrapperWithFieldIdToIndex.createStructLikeWrapper;
 import static io.trino.plugin.iceberg.TypeConverter.toIcebergType;
+import static io.trino.plugin.iceberg.TypeConverter.toTrinoType;
 import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
+import static io.trino.spi.type.TypeUtils.writeNativeValue;
 import static java.lang.Math.clamp;
 import static java.util.Collections.emptyIterator;
 import static java.util.Objects.requireNonNull;
@@ -725,18 +728,6 @@ public class IcebergSplitSource
     private IcebergSplit toIcebergSplit(FileScanTaskWithDomain taskWithDomain)
     {
         FileScanTask task = taskWithDomain.fileScanTask();
-        Optional<List<Object>> partitionValues = Optional.empty();
-        if (tableHandle.getTablePartitioning().isPresent()) {
-            PartitionSpec partitionSpec = task.spec();
-            StructLike partition = task.file().partition();
-            List<PartitionField> fields = partitionSpec.fields();
-
-            partitionValues = Optional.of(tableHandle.getTablePartitioning().get().partitioningHandle().partitionStructFields().stream()
-                    .map(fieldIndex -> convertIcebergValueToTrino(
-                            partitionSpec.partitionType().field(fields.get(fieldIndex).fieldId()).type(),
-                            partition.get(fieldIndex, Object.class)))
-                    .toList());
-        }
 
         return new IcebergSplit(
                 task.file().location(),
@@ -745,9 +736,8 @@ public class IcebergSplitSource
                 task.file().fileSizeInBytes(),
                 task.file().recordCount(),
                 IcebergFileFormat.fromIceberg(task.file().format()),
-                partitionValues,
                 task.spec().specId(),
-                PartitionData.toJson(task.file().partition()),
+                getPartitionBlockValues(task, typeManager),
                 task.deletes().stream()
                         .peek(file -> verifyDeletionVectorReferencesDataFile(task, file))
                         .map(DeleteFile::fromIceberg)
@@ -757,6 +747,21 @@ public class IcebergSplitSource
                 cachingHostAddressProvider.getHosts(getSplitKey(task.file().location(), task.start(), task.length()), ImmutableList.of()),
                 task.file().dataSequenceNumber(),
                 task.file().firstRowId() == null ? OptionalLong.empty() : OptionalLong.of(task.file().firstRowId()));
+    }
+
+    private static List<Block> getPartitionBlockValues(FileScanTask task, TypeManager typeManager)
+    {
+        PartitionSpec spec = task.spec();
+        StructLike partition = task.file().partition();
+        List<PartitionField> fields = spec.fields();
+
+        ImmutableList.Builder<Block> partitionValues = ImmutableList.builder();
+        for (int fieldIndex = 0; fieldIndex < fields.size(); fieldIndex++) {
+            Type icebergType = spec.partitionType().field(fields.get(fieldIndex).fieldId()).type();
+            Object partitionValue = convertIcebergValueToTrino(icebergType, partition.get(fieldIndex, Object.class));
+            partitionValues.add(writeNativeValue(toTrinoType(icebergType, typeManager), partitionValue));
+        }
+        return partitionValues.build();
     }
 
     private static void verifyDeletionVectorReferencesDataFile(FileScanTask task, org.apache.iceberg.DeleteFile deleteFile)

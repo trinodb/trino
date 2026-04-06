@@ -140,7 +140,6 @@ class TestIcebergPageSourceProvider
                 dataInputFile.length(),
                 dataInputFile.length(),
                 3, // fileRecordCount
-                PartitionData.toJson(new PartitionData(new Object[] {})),
                 PARQUET,
                 ImmutableMap.of(),
                 0L, // dataSequenceNumber

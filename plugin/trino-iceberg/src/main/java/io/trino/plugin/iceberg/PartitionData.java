@@ -18,6 +18,8 @@ import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.json.JsonMapper;
+import io.trino.spi.block.Block;
+import io.trino.spi.type.TypeManager;
 import org.apache.iceberg.StructLike;
 import org.apache.iceberg.types.Type;
 import org.apache.iceberg.types.Types;
@@ -26,11 +28,15 @@ import java.io.IOException;
 import java.io.StringWriter;
 import java.io.UncheckedIOException;
 import java.nio.ByteBuffer;
+import java.util.List;
 import java.util.UUID;
 
 import static io.trino.plugin.base.util.JsonUtils.jsonFactory;
+import static io.trino.plugin.iceberg.IcebergTypes.convertTrinoValueToIceberg;
+import static io.trino.plugin.iceberg.TypeConverter.toTrinoType;
 import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.Decimals.rescale;
+import static io.trino.spi.type.TypeUtils.readNativeValue;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -97,6 +103,26 @@ public class PartitionData
         catch (IOException e) {
             throw new UncheckedIOException("JSON conversion failed for: " + structLike, e);
         }
+    }
+
+    public static PartitionData fromBlocks(List<Block> partitionValues, Type[] types, TypeManager typeManager)
+    {
+        if (types.length == 0) {
+            return new PartitionData(new Object[0]);
+        }
+
+        Object[] values = new Object[types.length];
+        for (int i = 0; i < types.length; i++) {
+            io.trino.spi.type.Type trinoType = toTrinoType(types[i], typeManager);
+            Object value = readNativeValue(trinoType, partitionValues.get(i), 0);
+            if (value == null) {
+                values[i] = null;
+            }
+            else {
+                values[i] = convertTrinoValueToIceberg(trinoType, value);
+            }
+        }
+        return new PartitionData(values);
     }
 
     public static PartitionData fromJson(String partitionDataAsJson, Type[] types)
