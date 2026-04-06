@@ -36,11 +36,6 @@ public record IcebergTablePartitioning(
         checkArgument(partitioningHandle.partitionFunctions().size() == partitionStructFields.size(), "partitioningColumns and partitionStructFields must have the same size");
     }
 
-    public IcebergTablePartitioning activate()
-    {
-        return new IcebergTablePartitioning(true, partitioningHandle, partitioningColumns, partitionStructFields);
-    }
-
     public Optional<ConnectorTablePartitioning> toConnectorTablePartitioning()
     {
         return active ? Optional.of(new ConnectorTablePartitioning(partitioningHandle, ImmutableList.copyOf(partitioningColumns))) : Optional.empty();
