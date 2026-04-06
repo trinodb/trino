@@ -28,10 +28,12 @@ public class VariantBlockEncoding
     public static final String NAME = "VARIANT";
 
     private final boolean vectorizeNullBitPacking;
+    private final boolean useVectorMaskFromLong;
 
-    public VariantBlockEncoding(boolean vectorizeNullBitPacking)
+    public VariantBlockEncoding(boolean vectorizeNullBitPacking, boolean useVectorMaskFromLong)
     {
         this.vectorizeNullBitPacking = vectorizeNullBitPacking;
+        this.useVectorMaskFromLong = useVectorMaskFromLong;
     }
 
     @Override
@@ -74,7 +76,7 @@ public class VariantBlockEncoding
 
         boolean[] variantIsNull;
         if (vectorizeNullBitPacking) {
-            variantIsNull = decodeNullBitsVectorized(sliceInput, positionCount).orElse(null);
+            variantIsNull = decodeNullBitsVectorized(sliceInput, positionCount, useVectorMaskFromLong).orElse(null);
         }
         else {
             variantIsNull = decodeNullBitsScalar(sliceInput, positionCount).orElse(null);

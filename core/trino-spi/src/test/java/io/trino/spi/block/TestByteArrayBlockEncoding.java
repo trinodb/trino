@@ -65,7 +65,7 @@ final class TestByteArrayBlockEncoding
                     byte[] compressedVectorized = compressBytesVectorized(values, isNull, offset, length);
                     assertThat(compressedVectorized).as("bytes: compressedScalar and vector outputs differ").isEqualTo(compressedScalar);
                     byte[] packedIsNullBits = getEncodedNullsAsBits(isNull, offset, length);
-                    boolean[] decodedIsNull = decodeNullBitsVectorized(packedIsNullBits, length);
+                    boolean[] decodedIsNull = decodeNullBitsVectorized(packedIsNullBits, length, false);
                     assertThat(decodedIsNull).as("decodedIsNull must match input isNull").isEqualTo(Arrays.copyOfRange(isNull, offset, offset + length));
                     ByteArrayBlock scalarBlock = expandBytesWithNullsScalar(Slices.wrappedBuffer(compressedScalar).getInput(), length, packedIsNullBits, decodedIsNull);
                     ByteArrayBlock vectorBlock = expandBytesWithNullsVectorized(Slices.wrappedBuffer(compressedScalar).getInput(), length, decodedIsNull);

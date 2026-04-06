@@ -64,7 +64,7 @@ final class TestLongArrayBlockEncoding
                     byte[] vector = compressLongsVectorized(values, isNull, offset, length);
                     assertThat(vector).as("longs: scalar and vector outputs differ").isEqualTo(scalar);
                     byte[] packedIsNullBits = getEncodedNullsAsBits(isNull, offset, length);
-                    boolean[] decodedIsNull = decodeNullBitsVectorized(packedIsNullBits, length);
+                    boolean[] decodedIsNull = decodeNullBitsVectorized(packedIsNullBits, length, false);
                     assertThat(decodedIsNull).as("decodedIsNull must match input isNull").isEqualTo(Arrays.copyOfRange(isNull, offset, offset + length));
                     LongArrayBlock scalarBlock = expandLongsWithNullsScalar(Slices.wrappedBuffer(scalar).getInput(), length, packedIsNullBits, decodedIsNull);
                     LongArrayBlock vectorBlock = expandLongsWithNullsVectorized(Slices.wrappedBuffer(scalar).getInput(), length, decodedIsNull);

@@ -37,12 +37,14 @@ public class ShortArrayBlockEncoding
     private final boolean vectorizeNullBitPacking;
     private final boolean vectorizeNullCompress;
     private final boolean vectorizeNullExpand;
+    private final boolean useVectorMaskFromLong;
 
-    public ShortArrayBlockEncoding(boolean vectorizeNullBitPacking, boolean vectorizeNullCompress, boolean vectorizeNullExpand)
+    public ShortArrayBlockEncoding(boolean vectorizeNullBitPacking, boolean vectorizeNullCompress, boolean vectorizeNullExpand, boolean useVectorMaskFromLong)
     {
         this.vectorizeNullBitPacking = vectorizeNullBitPacking;
         this.vectorizeNullCompress = vectorizeNullCompress;
         this.vectorizeNullExpand = vectorizeNullExpand;
+        this.useVectorMaskFromLong = useVectorMaskFromLong;
     }
 
     @Override
@@ -104,7 +106,7 @@ public class ShortArrayBlockEncoding
 
         boolean[] valueIsNull;
         if (vectorizeNullBitPacking) {
-            valueIsNull = decodeNullBitsVectorized(valueIsNullPacked, positionCount);
+            valueIsNull = decodeNullBitsVectorized(valueIsNullPacked, positionCount, useVectorMaskFromLong);
         }
         else {
             valueIsNull = decodeNullBitsScalar(valueIsNullPacked, positionCount);

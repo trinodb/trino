@@ -29,10 +29,12 @@ public class Fixed12BlockEncoding
     public static final String NAME = "FIXED12";
 
     private final boolean vectorizeNullBitPacking;
+    private final boolean useVectorMaskFromLong;
 
-    public Fixed12BlockEncoding(boolean vectorizeNullBitPacking)
+    public Fixed12BlockEncoding(boolean vectorizeNullBitPacking, boolean useVectorMaskFromLong)
     {
         this.vectorizeNullBitPacking = vectorizeNullBitPacking;
+        this.useVectorMaskFromLong = useVectorMaskFromLong;
     }
 
     @Override
@@ -93,7 +95,7 @@ public class Fixed12BlockEncoding
 
         boolean[] valueIsNull;
         if (vectorizeNullBitPacking) {
-            valueIsNull = decodeNullBitsVectorized(sliceInput, positionCount).orElse(null);
+            valueIsNull = decodeNullBitsVectorized(sliceInput, positionCount, useVectorMaskFromLong).orElse(null);
         }
         else {
             valueIsNull = decodeNullBitsScalar(sliceInput, positionCount).orElse(null);

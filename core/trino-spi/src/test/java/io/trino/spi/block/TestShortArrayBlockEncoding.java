@@ -64,7 +64,7 @@ final class TestShortArrayBlockEncoding
                     byte[] vector = compressShortsVectorized(values, isNull, offset, length);
                     assertThat(vector).as("shorts: scalar and vector outputs differ").isEqualTo(scalar);
                     byte[] packedIsNullBits = getEncodedNullsAsBits(isNull, offset, length);
-                    boolean[] decodedIsNull = decodeNullBitsVectorized(packedIsNullBits, length);
+                    boolean[] decodedIsNull = decodeNullBitsVectorized(packedIsNullBits, length, false);
                     assertThat(decodedIsNull).as("decodedIsNull must match input isNull").isEqualTo(Arrays.copyOfRange(isNull, offset, offset + length));
                     ShortArrayBlock scalarBlock = expandShortsWithNullsScalar(Slices.wrappedBuffer(scalar).getInput(), length, packedIsNullBits, decodedIsNull);
                     ShortArrayBlock vectorBlock = expandShortsWithNullsVectorized(Slices.wrappedBuffer(scalar).getInput(), length, decodedIsNull);

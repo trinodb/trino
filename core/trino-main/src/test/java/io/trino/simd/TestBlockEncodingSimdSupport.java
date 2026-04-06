@@ -38,7 +38,8 @@ final class TestBlockEncodingSimdSupport
                         true, // compressInt
                         true, // expandInt
                         true, // compressLong
-                        true));
+                        true, // expandLong
+                        true)); // useVectorMaskFromLong
         // Support compress / expand for all types with avx512vbmi2
         assertThat(determineSimdSupport(osArch, vectorBitsPreferred, Set.of("avx512f", "avx512vbmi2")))
                 .isEqualTo(BlockEncodingSimdSupport.SimdSupport.ALL);
@@ -59,7 +60,8 @@ final class TestBlockEncodingSimdSupport
                 true, // compressInt
                 false, // expandInt - no intrinsic for SVE 1 in JDK 25
                 true, // compressLong
-                false); // expandLong - no intrinsic for SVE1 in JDK 25
+                false, // expandLong - no intrinsic for SVE1 in JDK 25
+                false); // useVectorMaskFromLong - no intrinsic for SVE1
         assertThat(determineSimdSupport(osArch, vectorBitsPreferred, flags)).isEqualTo(expected);
     }
 
@@ -78,7 +80,8 @@ final class TestBlockEncodingSimdSupport
                 true, // compressInt
                 true, // expandInt
                 false, // compressLong - not worthwhile on 128 bit vectors
-                false); // expandLong - not worthwhile on 128 bit vectors
+                false, // expandLong - not worthwhile on 128 bit vectors
+                true); // useVectorMaskFromLong - intrinsics available in SVE2 and optimized in JDK26
         assertThat(determineSimdSupport(osArch, vectorBitsPreferred, flags)).isEqualTo(expected);
     }
 }
