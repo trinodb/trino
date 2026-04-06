@@ -29,24 +29,28 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.IntStream;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.plugin.iceberg.TypeConverter.toTrinoType;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 
-public record IcebergPartitioningHandle(boolean update, List<IcebergPartitionFunction> partitionFunctions)
+public record IcebergPartitioningHandle(boolean update, List<IcebergPartitionFunction> partitionFunctions, List<Integer> partitionStructFields)
         implements ConnectorPartitioningHandle
 {
     public IcebergPartitioningHandle
     {
         partitionFunctions = ImmutableList.copyOf(requireNonNull(partitionFunctions, "partitioning is null"));
+        partitionStructFields = ImmutableList.copyOf(partitionStructFields);
+        checkArgument(partitionFunctions.size() == partitionStructFields.size(), "partitionFunctions and partitionStructFields must have the same size");
     }
 
     public IcebergPartitioningHandle forUpdate()
     {
-        return new IcebergPartitioningHandle(true, partitionFunctions);
+        return new IcebergPartitioningHandle(true, partitionFunctions, partitionStructFields);
     }
 
     public static IcebergPartitioningHandle create(PartitionSpec spec, TypeManager typeManager)
@@ -59,7 +63,7 @@ public record IcebergPartitioningHandle(boolean update, List<IcebergPartitionFun
                         toTrinoType(spec.schema().findType(field.sourceId()), typeManager)))
                 .collect(toImmutableList());
 
-        return new IcebergPartitioningHandle(false, partitionFields);
+        return new IcebergPartitioningHandle(false, partitionFields, IntStream.range(0, partitionFields.size()).boxed().collect(toImmutableList()));
     }
 
     /**

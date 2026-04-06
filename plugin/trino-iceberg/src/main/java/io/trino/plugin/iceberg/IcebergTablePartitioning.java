@@ -19,21 +19,17 @@ import io.trino.spi.connector.ConnectorTablePartitioning;
 import java.util.List;
 import java.util.Optional;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
 public record IcebergTablePartitioning(
         boolean active,
         IcebergPartitioningHandle partitioningHandle,
-        List<IcebergColumnHandle> partitioningColumns,
-        List<Integer> partitionStructFields)
+        List<IcebergColumnHandle> partitioningColumns)
 {
     public IcebergTablePartitioning
     {
         requireNonNull(partitioningHandle, "partitioningHandle is null");
         partitioningColumns = ImmutableList.copyOf(requireNonNull(partitioningColumns, "partitioningColumns is null"));
-        partitionStructFields = ImmutableList.copyOf(requireNonNull(partitionStructFields, "partitionStructFields is null"));
-        checkArgument(partitioningHandle.partitionFunctions().size() == partitionStructFields.size(), "partitioningColumns and partitionStructFields must have the same size");
     }
 
     public Optional<ConnectorTablePartitioning> toConnectorTablePartitioning()

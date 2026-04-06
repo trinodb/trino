@@ -847,8 +847,7 @@ public class IcebergMetadata
         return Optional.of(new IcebergTablePartitioning(
                 false,
                 partitioningHandle,
-                partitionColumns,
-                IntStream.range(0, partitioningHandle.partitionFunctions().size()).boxed().collect(toImmutableList())));
+                partitionColumns));
     }
 
     private static long getSnapshotIdFromVersion(ConnectorSession session, Table table, ConnectorTableVersion version)
@@ -1074,11 +1073,11 @@ public class IcebergMetadata
                 // Change the index of the top level column to the location in the new partitioning columns
                 newPartitionFunctions.add(function.withTopLevelColumnIndex(newColumnIndex));
                 // Some partition functions may be dropped so update the struct fields used in split partitioning must be updated
-                newPartitionStructFields.add(tablePartitioning.partitionStructFields().get(functionIndex));
+                newPartitionStructFields.add(tablePartitioning.partitioningHandle().partitionStructFields().get(functionIndex));
             }
         }
 
-        IcebergPartitioningHandle newPartitioningHandle = new IcebergPartitioningHandle(false, newPartitionFunctions.build());
+        IcebergPartitioningHandle newPartitioningHandle = new IcebergPartitioningHandle(false, newPartitionFunctions.build(), newPartitionStructFields.build());
         if (partitioningHandle.isPresent() && !partitioningHandle.get().equals(newPartitioningHandle)) {
             // todo if bucketing is a power of two, we can adapt the bucketing
             return Optional.empty();
@@ -1092,8 +1091,7 @@ public class IcebergMetadata
         return Optional.of(icebergTableHandle.withTablePartitioning(Optional.of(new IcebergTablePartitioning(
                 true,
                 newPartitioningHandle,
-                partitioningColumns.stream().map(IcebergColumnHandle.class::cast).collect(toImmutableList()),
-                newPartitionStructFields.build()))));
+                partitioningColumns.stream().map(IcebergColumnHandle.class::cast).collect(toImmutableList())))));
     }
 
     @Override

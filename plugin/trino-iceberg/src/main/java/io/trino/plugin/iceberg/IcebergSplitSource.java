@@ -731,7 +731,7 @@ public class IcebergSplitSource
             StructLike partition = task.file().partition();
             List<PartitionField> fields = partitionSpec.fields();
 
-            partitionValues = Optional.of(tableHandle.getTablePartitioning().get().partitionStructFields().stream()
+            partitionValues = Optional.of(tableHandle.getTablePartitioning().get().partitioningHandle().partitionStructFields().stream()
                     .map(fieldIndex -> convertIcebergValueToTrino(
                             partitionSpec.partitionType().field(fields.get(fieldIndex).fieldId()).type(),
                             partition.get(fieldIndex, Object.class)))
