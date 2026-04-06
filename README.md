@@ -44,8 +44,8 @@ Trino supports [reproducible builds](https://reproducible-builds.org) as of vers
 
 * Mac OS X or Linux
   * Note that some npm packages used to build the web UI are only available
-    for x86 architectures, so if you're building on Apple Silicon, you need 
-    to have Rosetta 2 installed
+    for x86 architectures, so if you're building on Apple Silicon, you need
+    to have Rosetta 2 installed.
 * Java 25.0.1+, 64-bit
 * Docker
   * Turn SELinux or other systems disabling write access to the local checkout
@@ -74,11 +74,11 @@ locally for the areas of code that you change.
 After building Trino for the first time, you can load the project into your IDE
 and run the server.  We recommend using
 [IntelliJ IDEA](http://www.jetbrains.com/idea/). Because Trino is a standard
-Maven project, you easily can import it into your IDE.  In IntelliJ, choose
+Maven project, you can easily import it into your IDE. In IntelliJ, choose
 *Open Project* from the *Quick Start* box or choose *Open*
 from the *File* menu and select the root `pom.xml` file.
 
-After opening the project in IntelliJ, double check that the Java SDK is
+After opening the project in IntelliJ, double-check that the Java SDK is
 properly configured for the project:
 
 * Open the File menu and select Project Structure
@@ -91,9 +91,9 @@ The simplest way to run Trino for development is to run the `TpchQueryRunner`
 class. It will start a development version of the server that is configured with
 the TPCH connector. You can then use the CLI to execute queries against this
 server. Many other connectors have their own `*QueryRunner` class that you can
-use when working on a specific connector. The generally required VM option 
-here is `--add-modules jdk.incubator.vector` but various `*QueryRunner` classes
-might require additional options (if necessary, check the `air.test.jvm.additional-arguments` 
+use when working on a specific connector. The VM option generally required here
+is `--add-modules jdk.incubator.vector`, but various `*QueryRunner` classes
+might require additional options (if necessary, check the `air.test.jvm.additional-arguments`
 property in the `pom.xml` file of the module from which the runner comes).
 
 ### Running tests from the IDE

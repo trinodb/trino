@@ -43,7 +43,7 @@ docker exec -it trino trino --catalog tpch --schema sf1
 
 ## Configuration
 
-Configuration is expected to be mounted `/etc/trino`. If it is not mounted
+Configuration is expected to be mounted at `/etc/trino`. If it is not mounted
 then the default single node configuration will be used.
 
 ### Specific Config Options
@@ -59,8 +59,8 @@ across all worker nodes if desired. Additionally this has the added benefit of
 #### `node.data-dir`
 
 The default configuration uses `/data/trino` as the default for
-`node.data-dir`. Thus if using the default configuration and a mounted volume
-is desired for the data directory it should be mounted to `/data/trino`.
+`node.data-dir`. If you use the default configuration and want the data
+directory on a mounted volume, mount it at `/data/trino`.
 
 ## Building a custom Docker image
 
