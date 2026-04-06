@@ -229,11 +229,11 @@ The following configuration properties are available:
     maximum session time for an OAuth2-authenticated client with refresh tokens
     enabled. For more details, see [](trino-oauth2-troubleshooting).
 * - `http-server.authentication.oauth2.refresh-tokens.issued-token.issuer`
-  - Issuer representing the coordinator instance, that is referenced in the
+  - Issuer representing the coordinator instance that is referenced in the
     issued token, defaults to `Trino_coordinator`. The current Trino version is
     appended to the value. This is mainly used for debugging purposes.
 * - `http-server.authentication.oauth2.refresh-tokens.issued-token.audience`
-  - Audience representing this coordinator instance, that is used in the
+  - Audience representing this coordinator instance that is used in the
     issued token. Defaults to `Trino_coordinator`.
 * - `http-server.authentication.oauth2.refresh-tokens.secret-key`
   - Base64-encoded secret key used to encrypt the generated token. By default
