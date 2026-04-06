@@ -49,7 +49,7 @@ public record IcebergPartitioningHandle(boolean update, List<IcebergPartitionFun
         return new IcebergPartitioningHandle(true, partitionFunctions);
     }
 
-    public static IcebergPartitioningHandle create(PartitionSpec spec, TypeManager typeManager, List<IcebergColumnHandle> partitioningColumns)
+    public static IcebergPartitioningHandle create(PartitionSpec spec, TypeManager typeManager)
     {
         Map<Integer, List<Integer>> dataPaths = buildDataPaths(spec);
         List<IcebergPartitionFunction> partitionFields = spec.fields().stream()
