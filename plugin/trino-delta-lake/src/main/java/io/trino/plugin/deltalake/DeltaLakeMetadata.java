@@ -2065,21 +2065,16 @@ public class DeltaLakeMetadata
             throw new TrinoException(DELTA_LAKE_BAD_WRITE, format("Unable to drop '%s' column from: %s.%s", dropColumnName, table.getSchemaName(), table.getTableName()), e);
         }
 
-        try {
-            statisticsAccess.readExtendedStatistics(session, table.getSchemaTableName(), table.getLocation(), table.toCredentialsHandle()).ifPresent(existingStatistics -> {
-                ExtendedStatistics statistics = new ExtendedStatistics(
-                        existingStatistics.getAlreadyAnalyzedModifiedTimeMax(),
-                        existingStatistics.getColumnStatistics().entrySet().stream()
-                                .filter(stats -> !stats.getKey().equalsIgnoreCase(toPhysicalColumnName(dropColumnName, lowerCaseToExactColumnNames, Optional.of(physicalColumnNameMapping))))
-                                .collect(toImmutableMap(Entry::getKey, Entry::getValue)),
-                        existingStatistics.getAnalyzedColumns()
-                                .map(analyzedColumns -> analyzedColumns.stream().filter(column -> !column.equalsIgnoreCase(dropColumnName)).collect(toImmutableSet())));
-                statisticsAccess.updateExtendedStatistics(session, table.getSchemaTableName(), table.getLocation(), table.toCredentialsHandle(), statistics);
-            });
-        }
-        catch (Exception e) {
-            LOG.warn(e, "Failed to update extended statistics when dropping %s column from %s table", dropColumnName, table.schemaTableName());
-        }
+        statisticsAccess.readExtendedStatistics(session, table.getSchemaTableName(), table.getLocation(), table.toCredentialsHandle(), true).ifPresent(existingStatistics -> {
+            ExtendedStatistics statistics = new ExtendedStatistics(
+                    existingStatistics.getAlreadyAnalyzedModifiedTimeMax(),
+                    existingStatistics.getColumnStatistics().entrySet().stream()
+                            .filter(stats -> !stats.getKey().equalsIgnoreCase(toPhysicalColumnName(dropColumnName, lowerCaseToExactColumnNames, Optional.of(physicalColumnNameMapping))))
+                            .collect(toImmutableMap(Entry::getKey, Entry::getValue)),
+                    existingStatistics.getAnalyzedColumns()
+                            .map(analyzedColumns -> analyzedColumns.stream().filter(column -> !column.equalsIgnoreCase(dropColumnName)).collect(toImmutableSet())));
+            statisticsAccess.updateExtendedStatistics(session, table.getSchemaTableName(), table.getLocation(), table.toCredentialsHandle(), statistics, true);
+        });
     }
 
     @Override
@@ -3821,7 +3816,7 @@ public class DeltaLakeMetadata
 
         Optional<ExtendedStatistics> statistics = Optional.empty();
         if (analyzeMode == INCREMENTAL) {
-            statistics = statisticsAccess.readExtendedStatistics(session, handle.getSchemaTableName(), handle.getLocation(), handle.toCredentialsHandle());
+            statistics = statisticsAccess.readExtendedStatistics(session, handle.getSchemaTableName(), handle.getLocation(), handle.toCredentialsHandle(), false);
         }
 
         Optional<Instant> alreadyAnalyzedModifiedTimeMax = statistics.map(ExtendedStatistics::getAlreadyAnalyzedModifiedTimeMax);
@@ -3903,7 +3898,7 @@ public class DeltaLakeMetadata
             LocatedTableHandle table = getTableHandle(session, tableMetadata.getTable(), Optional.empty(), Optional.empty());
             VendedCredentialsHandle credentialsHandle = Optional.ofNullable(table).map(LocatedTableHandle::toCredentialsHandle)
                     .orElseGet(() -> VendedCredentialsHandle.empty(tableLocation));
-            existingStatistics = statisticsAccess.readExtendedStatistics(session, tableMetadata.getTable(), tableLocation, credentialsHandle);
+            existingStatistics = statisticsAccess.readExtendedStatistics(session, tableMetadata.getTable(), tableLocation, credentialsHandle, true);
             analyzeColumnNames = existingStatistics.flatMap(ExtendedStatistics::getAnalyzedColumns);
         }
 
@@ -4101,7 +4096,7 @@ public class DeltaLakeMetadata
         Optional<ExtendedStatistics> oldStatistics = Optional.empty();
         boolean loadExistingStats = analyzeHandle.isEmpty() || analyzeHandle.get().analyzeMode() == INCREMENTAL;
         if (loadExistingStats) {
-            oldStatistics = statisticsAccess.readExtendedStatistics(session, schemaTableName, location, credentialsHandle);
+            oldStatistics = statisticsAccess.readExtendedStatistics(session, schemaTableName, location, credentialsHandle, ignoreFailure);
         }
 
         // more elaborate logic for handling statistics model evaluation may need to be introduced in the future
@@ -4166,19 +4161,7 @@ public class DeltaLakeMetadata
                 finalAlreadyAnalyzedModifiedTimeMax,
                 mergedColumnStatistics,
                 analyzedColumns);
-
-        try {
-            statisticsAccess.updateExtendedStatistics(session, schemaTableName, location, credentialsHandle, mergedExtendedStatistics);
-        }
-        catch (Exception e) {
-            if (ignoreFailure) {
-                // We can't fail here as transaction was already committed
-                LOG.error(e, "Failed to write extended statistics for the table %s", schemaTableName);
-            }
-            else {
-                throw e;
-            }
-        }
+        statisticsAccess.updateExtendedStatistics(session, schemaTableName, location, credentialsHandle, mergedExtendedStatistics, ignoreFailure);
     }
 
     private static String toPhysicalColumnName(String columnName, Map</* lowercase*/ String, String> lowerCaseToExactColumnNames, Optional<Map<String, String>> physicalColumnNameMapping)

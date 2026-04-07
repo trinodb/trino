@@ -16,6 +16,7 @@ package io.trino.plugin.deltalake.statistics;
 import com.google.common.base.Throwables;
 import com.google.inject.Inject;
 import io.airlift.json.JsonCodec;
+import io.airlift.log.Logger;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoInputFile;
@@ -39,6 +40,8 @@ import static java.util.Objects.requireNonNull;
 public class MetaDirStatisticsAccess
         implements ExtendedStatisticsAccess
 {
+    private static final Logger LOG = Logger.get(MetaDirStatisticsAccess.class);
+
     public static final String STATISTICS_META_DIR = TRANSACTION_LOG_DIRECTORY + "/_trino_meta"; // store inside TL directory so it is not deleted by VACUUM
     private static final String STATISTICS_FILE = "extended_stats.json";
 
@@ -62,11 +65,12 @@ public class MetaDirStatisticsAccess
             ConnectorSession session,
             SchemaTableName schemaTableName,
             String tableLocation,
-            VendedCredentialsHandle credentialsHandle)
+            VendedCredentialsHandle credentialsHandle,
+            boolean allowFailure)
     {
         Location location = Location.of(tableLocation);
-        return readExtendedStatistics(session, location, credentialsHandle, STATISTICS_META_DIR, STATISTICS_FILE)
-                .or(() -> readExtendedStatistics(session, location, credentialsHandle, STARBURST_META_DIR, STARBURST_STATISTICS_FILE));
+        return readExtendedStatistics(session, location, credentialsHandle, STATISTICS_META_DIR, STATISTICS_FILE, allowFailure)
+                .or(() -> readExtendedStatistics(session, location, credentialsHandle, STARBURST_META_DIR, STARBURST_STATISTICS_FILE, allowFailure));
     }
 
     private Optional<ExtendedStatistics> readExtendedStatistics(
@@ -74,7 +78,8 @@ public class MetaDirStatisticsAccess
             Location tableLocation,
             VendedCredentialsHandle credentialsHandle,
             String statisticsDirectory,
-            String statisticsFile)
+            String statisticsFile,
+            boolean allowFailure)
     {
         try {
             Location statisticsPath = tableLocation.appendPath(statisticsDirectory).appendPath(statisticsFile);
@@ -86,7 +91,11 @@ public class MetaDirStatisticsAccess
                 return Optional.empty();
             }
         }
-        catch (IOException e) {
+        catch (Exception e) {
+            if (allowFailure) {
+                LOG.warn(e, "Failed to read statistics with table location %s, but allowFailure is true, so returning empty statistics", tableLocation);
+                return Optional.empty();
+            }
             throw new TrinoException(GENERIC_INTERNAL_ERROR, format("failed to read statistics with table location %s", tableLocation), e);
         }
     }
@@ -97,7 +106,8 @@ public class MetaDirStatisticsAccess
             SchemaTableName schemaTableName,
             String tableLocation,
             VendedCredentialsHandle credentialsHandle,
-            ExtendedStatistics statistics)
+            ExtendedStatistics statistics,
+            boolean allowFailure)
     {
         try {
             Location statisticsPath = Location.of(tableLocation).appendPath(STATISTICS_META_DIR).appendPath(STATISTICS_FILE);
@@ -111,7 +121,11 @@ public class MetaDirStatisticsAccess
                 fileSystem.deleteFile(starburstStatisticsPath);
             }
         }
-        catch (IOException e) {
+        catch (Exception e) {
+            if (allowFailure) {
+                LOG.warn(e, "Failed to store statistics with table location %s, but allowFailure is true, so ignoring failure", tableLocation);
+                return;
+            }
             throw new TrinoException(DELTA_LAKE_FILESYSTEM_ERROR, "Failed to store statistics with table location: " + tableLocation, e);
         }
     }

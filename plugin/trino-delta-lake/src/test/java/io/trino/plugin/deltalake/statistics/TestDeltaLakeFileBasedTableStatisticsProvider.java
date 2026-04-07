@@ -491,6 +491,6 @@ public class TestDeltaLakeFileBasedTableStatisticsProvider
     {
         SchemaTableName name = new SchemaTableName("some_ignored_schema", "some_ignored_name");
         String tableLocation = Resources.getResource(tableLocationResourceName).toExternalForm();
-        return statistics.readExtendedStatistics(SESSION, name, tableLocation, VendedCredentialsHandle.empty(tableLocation));
+        return statistics.readExtendedStatistics(SESSION, name, tableLocation, VendedCredentialsHandle.empty(tableLocation), true);
     }
 }

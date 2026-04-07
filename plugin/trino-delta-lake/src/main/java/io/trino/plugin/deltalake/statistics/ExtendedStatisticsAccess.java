@@ -25,14 +25,16 @@ public interface ExtendedStatisticsAccess
             ConnectorSession session,
             SchemaTableName schemaTableName,
             String tableLocation,
-            VendedCredentialsHandle credentialsHandle);
+            VendedCredentialsHandle credentialsHandle,
+            boolean allowFailure);
 
     void updateExtendedStatistics(
             ConnectorSession session,
             SchemaTableName schemaTableName,
             String tableLocation,
             VendedCredentialsHandle credentialsHandle,
-            ExtendedStatistics statistics);
+            ExtendedStatistics statistics,
+            boolean allowFailure);
 
     void deleteExtendedStatistics(
             ConnectorSession session,

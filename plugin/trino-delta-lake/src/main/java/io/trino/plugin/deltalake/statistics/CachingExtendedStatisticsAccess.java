@@ -51,10 +51,18 @@ public class CachingExtendedStatisticsAccess
     }
 
     @Override
-    public Optional<ExtendedStatistics> readExtendedStatistics(ConnectorSession session, SchemaTableName schemaTableName, String tableLocation, VendedCredentialsHandle credentialsHandle)
+    public Optional<ExtendedStatistics> readExtendedStatistics(
+            ConnectorSession session,
+            SchemaTableName schemaTableName,
+            String tableLocation,
+            VendedCredentialsHandle credentialsHandle,
+            boolean allowFailure)
     {
         try {
-            return uncheckedCacheGet(cache, new CacheKey(schemaTableName, tableLocation), () -> delegate.readExtendedStatistics(session, schemaTableName, tableLocation, credentialsHandle));
+            return uncheckedCacheGet(
+                    cache,
+                    new CacheKey(schemaTableName, tableLocation),
+                    () -> delegate.readExtendedStatistics(session, schemaTableName, tableLocation, credentialsHandle, allowFailure));
         }
         catch (UncheckedExecutionException e) {
             throwIfInstanceOf(e.getCause(), TrinoException.class);
@@ -63,9 +71,15 @@ public class CachingExtendedStatisticsAccess
     }
 
     @Override
-    public void updateExtendedStatistics(ConnectorSession session, SchemaTableName schemaTableName, String tableLocation, VendedCredentialsHandle credentialsHandle, ExtendedStatistics statistics)
+    public void updateExtendedStatistics(
+            ConnectorSession session,
+            SchemaTableName schemaTableName,
+            String tableLocation,
+            VendedCredentialsHandle credentialsHandle,
+            ExtendedStatistics statistics,
+            boolean allowFailure)
     {
-        delegate.updateExtendedStatistics(session, schemaTableName, tableLocation, credentialsHandle, statistics);
+        delegate.updateExtendedStatistics(session, schemaTableName, tableLocation, credentialsHandle, statistics, allowFailure);
         cache.invalidate(new CacheKey(schemaTableName, tableLocation));
     }
 

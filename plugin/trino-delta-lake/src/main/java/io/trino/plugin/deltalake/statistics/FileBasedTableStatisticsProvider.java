@@ -212,7 +212,7 @@ public class FileBasedTableStatisticsProvider
 
         Optional<ExtendedStatistics> statistics = Optional.empty();
         if (isExtendedStatisticsEnabled(session)) {
-            statistics = statisticsAccess.readExtendedStatistics(session, tableHandle.getSchemaTableName(), tableHandle.getLocation(), tableHandle.toCredentialsHandle());
+            statistics = statisticsAccess.readExtendedStatistics(session, tableHandle.getSchemaTableName(), tableHandle.getLocation(), tableHandle.toCredentialsHandle(), true);
         }
 
         for (DeltaLakeColumnHandle column : columns) {
