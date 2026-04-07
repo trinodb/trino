@@ -14,10 +14,10 @@
 package io.trino.plugin.deltalake;
 
 import io.airlift.json.JsonCodec;
-import io.trino.filesystem.Location;
 import io.trino.plugin.deltalake.metastore.VendedCredentialsHandle;
 import io.trino.spi.PageIndexerFactory;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.filesystem.Location;
 import io.trino.spi.type.TypeOperators;
 
 import java.util.List;

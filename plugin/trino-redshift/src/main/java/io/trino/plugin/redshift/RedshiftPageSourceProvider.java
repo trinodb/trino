@@ -14,10 +14,8 @@
 package io.trino.plugin.redshift;
 
 import com.google.common.collect.ImmutableList;
-import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
-import io.trino.filesystem.TrinoInputFile;
 import io.trino.parquet.Column;
 import io.trino.parquet.ParquetReaderOptions;
 import io.trino.parquet.metadata.BlockMetadata;
@@ -38,6 +36,8 @@ import io.trino.spi.connector.ConnectorTableCredentials;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.DynamicFilter;
+import io.trino.spi.filesystem.Location;
+import io.trino.spi.filesystem.TrinoInputFile;
 import org.apache.parquet.column.ColumnDescriptor;
 import org.apache.parquet.io.MessageColumnIO;
 import org.apache.parquet.schema.MessageType;

@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.io.Closer;
 import io.airlift.log.Logger;
 import io.airlift.units.DataSize;
-import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.plugin.hive.util.MergingPageIterator;
 import io.trino.plugin.hive.util.SortBuffer;
@@ -27,6 +26,7 @@ import io.trino.spi.Page;
 import io.trino.spi.PageSorter;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.SortOrder;
+import io.trino.spi.filesystem.Location;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
 

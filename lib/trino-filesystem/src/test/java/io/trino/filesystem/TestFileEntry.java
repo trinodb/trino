@@ -14,6 +14,7 @@
 package io.trino.filesystem;
 
 import io.trino.filesystem.FileEntry.Block;
+import io.trino.spi.filesystem.Location;
 import org.junit.jupiter.api.Test;
 
 import java.time.Instant;

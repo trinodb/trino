@@ -13,6 +13,8 @@
  */
 package io.trino.filesystem;
 
+import io.trino.spi.filesystem.Location;
+
 import java.util.regex.Pattern;
 
 public final class Locations

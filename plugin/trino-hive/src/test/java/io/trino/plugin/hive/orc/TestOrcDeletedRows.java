@@ -14,7 +14,6 @@
 package io.trino.plugin.hive.orc;
 
 import com.google.common.collect.ImmutableSet;
-import io.trino.filesystem.Location;
 import io.trino.orc.OrcReaderOptions;
 import io.trino.plugin.base.metrics.FileFormatDataSourceStats;
 import io.trino.plugin.hive.AcidInfo;
@@ -23,6 +22,7 @@ import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.connector.SourcePage;
+import io.trino.spi.filesystem.Location;
 import io.trino.spi.security.ConnectorIdentity;
 import org.apache.hadoop.hive.ql.io.AcidUtils;
 import org.junit.jupiter.api.Test;

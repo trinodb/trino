@@ -15,7 +15,6 @@ package io.trino.plugin.hive;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.CountingOutputStream;
-import io.trino.filesystem.TrinoInputFile;
 import io.trino.hive.formats.compression.CompressionKind;
 import io.trino.hive.formats.encodings.ColumnEncodingFactory;
 import io.trino.hive.formats.rcfile.RcFileWriter;
@@ -24,6 +23,7 @@ import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.RunLengthEncodedBlock;
+import io.trino.spi.filesystem.TrinoInputFile;
 import io.trino.spi.type.Type;
 
 import java.io.Closeable;

@@ -14,10 +14,10 @@
 package io.trino.plugin.hudi;
 
 import io.trino.Session;
-import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystemFactory;
-import io.trino.filesystem.TrinoInputFile;
 import io.trino.plugin.hudi.testing.ResourceHudiTablesInitializer;
+import io.trino.spi.filesystem.Location;
+import io.trino.spi.filesystem.TrinoInputFile;
 import io.trino.spi.security.ConnectorIdentity;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;

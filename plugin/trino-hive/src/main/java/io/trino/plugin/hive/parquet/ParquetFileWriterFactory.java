@@ -14,10 +14,8 @@
 package io.trino.plugin.hive.parquet;
 
 import com.google.inject.Inject;
-import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
-import io.trino.filesystem.TrinoInputFile;
 import io.trino.metastore.StorageFormat;
 import io.trino.parquet.ParquetDataSource;
 import io.trino.parquet.ParquetReaderOptions;
@@ -34,6 +32,8 @@ import io.trino.plugin.hive.acid.AcidTransaction;
 import io.trino.spi.NodeVersion;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.filesystem.Location;
+import io.trino.spi.filesystem.TrinoInputFile;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import org.joda.time.DateTimeZone;

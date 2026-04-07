@@ -14,7 +14,6 @@
 package io.trino.plugin.hive.parquet;
 
 import com.google.common.collect.ImmutableList;
-import io.trino.filesystem.TrinoInputFile;
 import io.trino.filesystem.local.LocalInputFile;
 import io.trino.parquet.BloomFilterStore;
 import io.trino.parquet.ParquetReaderOptions;
@@ -23,6 +22,7 @@ import io.trino.parquet.metadata.ParquetMetadata;
 import io.trino.parquet.predicate.TupleDomainParquetPredicate;
 import io.trino.parquet.reader.MetadataReader;
 import io.trino.plugin.base.metrics.FileFormatDataSourceStats;
+import io.trino.spi.filesystem.TrinoInputFile;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.SortedRangeSet;

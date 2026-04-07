@@ -14,9 +14,9 @@
 package io.trino.hive.formats.avro;
 
 import com.google.common.annotations.VisibleForTesting;
-import io.trino.filesystem.TrinoInputFile;
 import io.trino.hive.formats.TrinoDataInputStream;
 import io.trino.spi.Page;
+import io.trino.spi.filesystem.TrinoInputFile;
 import org.apache.avro.AvroRuntimeException;
 import org.apache.avro.Schema;
 import org.apache.avro.file.DataFileReader;

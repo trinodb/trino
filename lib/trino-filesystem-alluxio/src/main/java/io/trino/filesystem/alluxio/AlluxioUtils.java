@@ -14,7 +14,7 @@
 package io.trino.filesystem.alluxio;
 
 import alluxio.AlluxioURI;
-import io.trino.filesystem.Location;
+import io.trino.spi.filesystem.Location;
 
 import java.util.ArrayDeque;
 import java.util.Deque;

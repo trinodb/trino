@@ -13,7 +13,7 @@
  */
 package io.trino.plugin.iceberg;
 
-import io.trino.filesystem.Location;
+import io.trino.spi.filesystem.Location;
 
 import static io.trino.plugin.iceberg.IcebergTestUtils.checkParquetFileSorting;
 import static org.apache.iceberg.FileFormat.PARQUET;

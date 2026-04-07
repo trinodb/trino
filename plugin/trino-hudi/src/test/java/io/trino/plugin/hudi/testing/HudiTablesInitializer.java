@@ -13,7 +13,7 @@
  */
 package io.trino.plugin.hudi.testing;
 
-import io.trino.filesystem.Location;
+import io.trino.spi.filesystem.Location;
 import io.trino.testing.QueryRunner;
 
 public interface HudiTablesInitializer

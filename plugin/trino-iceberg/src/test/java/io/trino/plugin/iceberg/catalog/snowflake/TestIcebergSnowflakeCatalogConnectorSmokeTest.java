@@ -14,10 +14,10 @@
 package io.trino.plugin.iceberg.catalog.snowflake;
 
 import com.google.common.collect.ImmutableMap;
-import io.trino.filesystem.Location;
 import io.trino.plugin.iceberg.BaseIcebergConnectorSmokeTest;
 import io.trino.plugin.iceberg.IcebergQueryRunner;
 import io.trino.plugin.iceberg.SchemaInitializer;
+import io.trino.spi.filesystem.Location;
 import io.trino.testing.QueryFailedException;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;

@@ -13,7 +13,7 @@
  */
 package io.trino.plugin.iceberg.fileio;
 
-import io.trino.filesystem.TrinoInputStream;
+import io.trino.spi.filesystem.TrinoInputStream;
 import org.apache.iceberg.io.SeekableInputStream;
 
 import java.io.IOException;

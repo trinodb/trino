@@ -14,8 +14,8 @@
 package io.trino.filesystem.alluxio;
 
 import alluxio.client.file.FileInStream;
-import io.trino.filesystem.TrinoInput;
-import io.trino.filesystem.TrinoInputFile;
+import io.trino.spi.filesystem.TrinoInput;
+import io.trino.spi.filesystem.TrinoInputFile;
 
 import java.io.IOException;
 

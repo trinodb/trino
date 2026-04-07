@@ -13,7 +13,7 @@
  */
 package io.trino.filesystem.local;
 
-import io.trino.filesystem.Location;
+import io.trino.spi.filesystem.Location;
 
 import java.io.BufferedOutputStream;
 import java.io.IOException;

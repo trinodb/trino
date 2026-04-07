@@ -15,12 +15,12 @@ package io.trino.plugin.iceberg.catalog.rest;
 
 import com.google.common.collect.ImmutableMap;
 import io.airlift.http.server.testing.TestingHttpServer;
-import io.trino.filesystem.Location;
 import io.trino.plugin.iceberg.BaseIcebergConnectorSmokeTest;
 import io.trino.plugin.iceberg.IcebergConfig;
 import io.trino.plugin.iceberg.SchemaInitializer;
 import io.trino.plugin.iceberg.TestingIcebergPlugin;
 import io.trino.plugin.tpch.TpchPlugin;
+import io.trino.spi.filesystem.Location;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryFailedException;
 import io.trino.testing.QueryRunner;

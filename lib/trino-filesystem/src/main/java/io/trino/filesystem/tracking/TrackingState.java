@@ -15,7 +15,7 @@ package io.trino.filesystem.tracking;
 
 import com.google.common.base.Joiner;
 import io.airlift.log.Logger;
-import io.trino.filesystem.Location;
+import io.trino.spi.filesystem.Location;
 
 import java.io.Closeable;
 import java.io.IOException;

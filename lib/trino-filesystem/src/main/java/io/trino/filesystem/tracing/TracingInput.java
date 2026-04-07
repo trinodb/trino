@@ -17,8 +17,8 @@ import io.airlift.slice.Slice;
 import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.api.trace.SpanBuilder;
 import io.opentelemetry.api.trace.Tracer;
-import io.trino.filesystem.Location;
-import io.trino.filesystem.TrinoInput;
+import io.trino.spi.filesystem.Location;
+import io.trino.spi.filesystem.TrinoInput;
 import io.trino.spi.metrics.Metrics;
 
 import java.io.IOException;

@@ -14,7 +14,6 @@
 package io.trino.plugin.hive.parquet;
 
 import com.google.common.collect.ImmutableMap;
-import io.trino.filesystem.Location;
 import io.trino.filesystem.memory.MemoryFileSystemFactory;
 import io.trino.plugin.base.metrics.FileFormatDataSourceStats;
 import io.trino.plugin.hive.HiveColumnHandle;
@@ -24,6 +23,7 @@ import io.trino.plugin.hive.HiveStorageFormat;
 import io.trino.plugin.hive.Schema;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.filesystem.Location;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.security.ConnectorIdentity;
 import io.trino.spi.type.Type;

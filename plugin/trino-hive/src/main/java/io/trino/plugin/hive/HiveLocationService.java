@@ -14,7 +14,6 @@
 package io.trino.plugin.hive;
 
 import com.google.inject.Inject;
-import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.metastore.Partition;
@@ -23,6 +22,7 @@ import io.trino.plugin.hive.LocationHandle.WriteMode;
 import io.trino.plugin.hive.metastore.SemiTransactionalHiveMetastore;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.filesystem.Location;
 
 import java.util.Optional;
 

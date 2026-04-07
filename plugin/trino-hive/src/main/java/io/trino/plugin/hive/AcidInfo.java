@@ -17,7 +17,7 @@ import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ListMultimap;
 import io.airlift.slice.SizeOf;
-import io.trino.filesystem.Location;
+import io.trino.spi.filesystem.Location;
 
 import java.util.ArrayList;
 import java.util.List;

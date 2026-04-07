@@ -15,6 +15,7 @@ package io.trino.filesystem;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import io.trino.spi.filesystem.Location;
 
 import java.time.Instant;
 import java.util.List;

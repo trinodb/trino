@@ -13,10 +13,10 @@
  */
 package io.trino.plugin.hive.orc;
 
-import io.trino.filesystem.TrinoInputFile;
 import io.trino.orc.OrcReaderOptions;
 import io.trino.plugin.base.metrics.FileFormatDataSourceStats;
 import io.trino.spi.connector.ConnectorPageSource;
+import io.trino.spi.filesystem.TrinoInputFile;
 
 import java.util.Optional;
 

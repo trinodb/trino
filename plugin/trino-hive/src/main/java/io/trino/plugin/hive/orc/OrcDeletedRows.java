@@ -15,10 +15,8 @@ package io.trino.plugin.hive.orc;
 
 import com.google.common.collect.ImmutableSet;
 import io.trino.annotation.NotThreadSafe;
-import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
-import io.trino.filesystem.TrinoInputFile;
 import io.trino.memory.context.AggregatedMemoryContext;
 import io.trino.memory.context.LocalMemoryContext;
 import io.trino.orc.OrcCorruptionException;
@@ -30,6 +28,8 @@ import io.trino.spi.block.Block;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.EmptyPageSource;
 import io.trino.spi.connector.SourcePage;
+import io.trino.spi.filesystem.Location;
+import io.trino.spi.filesystem.TrinoInputFile;
 import io.trino.spi.security.ConnectorIdentity;
 import jakarta.annotation.Nullable;
 

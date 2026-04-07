@@ -14,12 +14,12 @@
 package io.trino.plugin.deltalake;
 
 import com.google.inject.Inject;
-import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoOutputFile;
 import io.trino.plugin.deltalake.metastore.VendedCredentialsHandle;
 import io.trino.plugin.deltalake.transactionlog.writer.TransactionLogSynchronizer;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.filesystem.Location;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;

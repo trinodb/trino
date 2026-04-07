@@ -18,7 +18,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.hash.HashCode;
 import com.google.common.hash.Hashing;
 import com.google.inject.Inject;
-import io.trino.filesystem.Location;
+import io.trino.spi.filesystem.Location;
 
 import java.util.List;
 

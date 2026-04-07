@@ -16,12 +16,12 @@ package io.trino.plugin.deltalake.transactionlog;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
-import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
-import io.trino.filesystem.TrinoInputFile;
-import io.trino.filesystem.TrinoInputStream;
 import io.trino.plugin.deltalake.transactionlog.checkpoint.MetadataAndProtocolEntries;
 import io.trino.spi.TrinoException;
+import io.trino.spi.filesystem.Location;
+import io.trino.spi.filesystem.TrinoInputFile;
+import io.trino.spi.filesystem.TrinoInputStream;
 
 import java.io.BufferedReader;
 import java.io.Closeable;

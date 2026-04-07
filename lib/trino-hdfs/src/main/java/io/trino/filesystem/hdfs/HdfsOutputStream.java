@@ -13,9 +13,9 @@
  */
 package io.trino.filesystem.hdfs;
 
-import io.trino.filesystem.Location;
 import io.trino.hdfs.HdfsContext;
 import io.trino.hdfs.HdfsEnvironment;
+import io.trino.spi.filesystem.Location;
 import io.trino.spi.security.ConnectorIdentity;
 import org.apache.hadoop.fs.FSDataOutputStream;
 

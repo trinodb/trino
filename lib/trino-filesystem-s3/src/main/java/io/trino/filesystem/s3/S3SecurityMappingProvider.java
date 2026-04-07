@@ -15,7 +15,7 @@ package io.trino.filesystem.s3;
 
 import com.google.inject.Inject;
 import io.airlift.units.Duration;
-import io.trino.filesystem.Location;
+import io.trino.spi.filesystem.Location;
 import io.trino.spi.security.AccessDeniedException;
 import io.trino.spi.security.ConnectorIdentity;
 

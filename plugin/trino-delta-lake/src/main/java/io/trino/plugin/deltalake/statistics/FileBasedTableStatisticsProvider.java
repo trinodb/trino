@@ -14,7 +14,6 @@
 package io.trino.plugin.deltalake.statistics;
 
 import com.google.inject.Inject;
-import io.trino.filesystem.Location;
 import io.trino.plugin.deltalake.DeltaLakeColumnHandle;
 import io.trino.plugin.deltalake.DeltaLakeColumnMetadata;
 import io.trino.plugin.deltalake.DeltaLakeTableHandle;
@@ -25,6 +24,7 @@ import io.trino.plugin.deltalake.transactionlog.TableSnapshot;
 import io.trino.plugin.deltalake.transactionlog.TransactionLogAccess;
 import io.trino.plugin.deltalake.transactionlog.statistics.DeltaLakeFileStatistics;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.filesystem.Location;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.statistics.ColumnStatistics;

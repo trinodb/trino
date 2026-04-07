@@ -13,7 +13,7 @@
  */
 package io.trino.filesystem.s3;
 
-import io.trino.filesystem.Location;
+import io.trino.spi.filesystem.Location;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;

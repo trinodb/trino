@@ -15,12 +15,12 @@ package io.trino.plugin.deltalake.delete;
 
 import com.google.common.base.CharMatcher;
 import io.delta.kernel.internal.deletionvectors.Base85Codec;
-import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
-import io.trino.filesystem.TrinoInput;
-import io.trino.filesystem.TrinoInputFile;
 import io.trino.plugin.deltalake.transactionlog.DeletionVectorEntry;
 import io.trino.spi.TrinoException;
+import io.trino.spi.filesystem.Location;
+import io.trino.spi.filesystem.TrinoInput;
+import io.trino.spi.filesystem.TrinoInputFile;
 import org.roaringbitmap.RoaringBitmap;
 
 import java.io.DataOutputStream;

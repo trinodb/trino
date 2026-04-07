@@ -14,7 +14,7 @@
 package io.trino.plugin.iceberg.util;
 
 import com.google.common.hash.HashFunction;
-import io.trino.filesystem.Location;
+import io.trino.spi.filesystem.Location;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.StructLike;
 import org.apache.iceberg.TableProperties;

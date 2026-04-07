@@ -17,8 +17,8 @@ import com.google.cloud.ReadChannel;
 import com.google.cloud.storage.Blob;
 import com.google.cloud.storage.Storage;
 import com.google.cloud.storage.Storage.BlobGetOption;
-import io.trino.filesystem.TrinoInput;
 import io.trino.filesystem.encryption.EncryptionKey;
+import io.trino.spi.filesystem.TrinoInput;
 
 import java.io.EOFException;
 import java.io.IOException;

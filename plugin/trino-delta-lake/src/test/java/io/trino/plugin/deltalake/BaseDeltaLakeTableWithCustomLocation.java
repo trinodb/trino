@@ -13,11 +13,11 @@
  */
 package io.trino.plugin.deltalake;
 
-import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.metastore.HiveMetastore;
 import io.trino.metastore.HiveMetastoreFactory;
 import io.trino.metastore.Table;
+import io.trino.spi.filesystem.Location;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.MaterializedRow;
 import org.junit.jupiter.api.Test;

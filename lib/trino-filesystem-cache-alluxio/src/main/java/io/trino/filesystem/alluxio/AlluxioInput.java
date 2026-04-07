@@ -18,9 +18,9 @@ import alluxio.client.file.cache.CacheManager;
 import alluxio.conf.AlluxioConfiguration;
 import com.google.common.collect.ImmutableMap;
 import io.opentelemetry.api.trace.Tracer;
-import io.trino.filesystem.TrinoInput;
-import io.trino.filesystem.TrinoInputFile;
 import io.trino.plugin.base.metrics.LongCount;
+import io.trino.spi.filesystem.TrinoInput;
+import io.trino.spi.filesystem.TrinoInputFile;
 import io.trino.spi.metrics.Metrics;
 
 import java.io.EOFException;

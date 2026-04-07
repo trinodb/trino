@@ -13,9 +13,9 @@
  */
 package io.trino.filesystem.tracking;
 
-import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoOutputFile;
 import io.trino.memory.context.AggregatedMemoryContext;
+import io.trino.spi.filesystem.Location;
 
 import java.io.IOException;
 import java.io.OutputStream;

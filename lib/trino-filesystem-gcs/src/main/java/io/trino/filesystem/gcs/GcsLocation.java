@@ -13,7 +13,7 @@
  */
 package io.trino.filesystem.gcs;
 
-import io.trino.filesystem.Location;
+import io.trino.spi.filesystem.Location;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;

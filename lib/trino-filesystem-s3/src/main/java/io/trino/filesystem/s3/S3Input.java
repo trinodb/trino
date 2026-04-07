@@ -13,8 +13,8 @@
  */
 package io.trino.filesystem.s3;
 
-import io.trino.filesystem.Location;
-import io.trino.filesystem.TrinoInput;
+import io.trino.spi.filesystem.Location;
+import io.trino.spi.filesystem.TrinoInput;
 import software.amazon.awssdk.core.exception.AbortedException;
 import software.amazon.awssdk.core.exception.RetryableException;
 import software.amazon.awssdk.core.exception.SdkException;

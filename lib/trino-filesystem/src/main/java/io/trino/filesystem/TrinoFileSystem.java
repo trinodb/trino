@@ -16,6 +16,8 @@ package io.trino.filesystem;
 import com.google.common.base.Throwables;
 import io.airlift.units.Duration;
 import io.trino.filesystem.encryption.EncryptionKey;
+import io.trino.spi.filesystem.Location;
+import io.trino.spi.filesystem.TrinoInputFile;
 
 import java.io.FileNotFoundException;
 import java.io.IOException;

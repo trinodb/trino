@@ -16,8 +16,6 @@ package io.trino.plugin.hive.parquet;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ListMultimap;
 import io.airlift.slice.Slice;
-import io.trino.filesystem.TrinoInput;
-import io.trino.filesystem.TrinoInputFile;
 import io.trino.memory.context.AggregatedMemoryContext;
 import io.trino.memory.context.LocalMemoryContext;
 import io.trino.parquet.ChunkReader;
@@ -26,6 +24,8 @@ import io.trino.parquet.ParquetDataSource;
 import io.trino.parquet.ParquetDataSourceId;
 import io.trino.parquet.reader.ChunkedInputStream;
 import io.trino.plugin.base.metrics.FileFormatDataSourceStats;
+import io.trino.spi.filesystem.TrinoInput;
+import io.trino.spi.filesystem.TrinoInputFile;
 import io.trino.spi.metrics.Metrics;
 import jakarta.annotation.Nullable;
 

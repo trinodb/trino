@@ -13,10 +13,10 @@
  */
 package io.trino.filesystem.switching;
 
-import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.filesystem.Location;
 import io.trino.spi.security.ConnectorIdentity;
 
 import java.util.Optional;

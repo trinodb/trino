@@ -15,7 +15,7 @@ package io.trino.filesystem.memory;
 
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
-import io.trino.filesystem.Location;
+import io.trino.spi.filesystem.Location;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;

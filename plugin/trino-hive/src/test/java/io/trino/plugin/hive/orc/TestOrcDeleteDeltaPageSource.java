@@ -15,11 +15,11 @@ package io.trino.plugin.hive.orc;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.Resources;
-import io.trino.filesystem.TrinoInputFile;
 import io.trino.filesystem.local.LocalInputFile;
 import io.trino.orc.OrcReaderOptions;
 import io.trino.plugin.base.metrics.FileFormatDataSourceStats;
 import io.trino.spi.connector.ConnectorPageSource;
+import io.trino.spi.filesystem.TrinoInputFile;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.MaterializedRow;
 import org.apache.hadoop.conf.Configuration;

@@ -15,7 +15,7 @@ package io.trino.plugin.hive;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import io.trino.filesystem.Location;
+import io.trino.spi.filesystem.Location;
 
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;

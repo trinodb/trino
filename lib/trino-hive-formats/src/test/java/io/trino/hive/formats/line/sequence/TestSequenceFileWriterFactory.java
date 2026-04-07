@@ -14,11 +14,11 @@
 package io.trino.hive.formats.line.sequence;
 
 import com.google.common.collect.ImmutableMap;
-import io.trino.filesystem.Location;
-import io.trino.filesystem.TrinoInputFile;
 import io.trino.filesystem.memory.MemoryInputFile;
 import io.trino.hive.formats.line.LineBuffer;
 import io.trino.hive.formats.line.LineReader;
+import io.trino.spi.filesystem.Location;
+import io.trino.spi.filesystem.TrinoInputFile;
 import org.junit.jupiter.api.Test;
 
 import java.io.ByteArrayOutputStream;

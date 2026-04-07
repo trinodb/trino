@@ -14,12 +14,12 @@
 package io.trino.plugin.hive.util;
 
 import io.trino.filesystem.FileEntry;
-import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.memory.MemoryFileSystem;
 import io.trino.plugin.hive.util.AcidTables.AcidState;
 import io.trino.plugin.hive.util.AcidTables.ParsedBase;
 import io.trino.plugin.hive.util.AcidTables.ParsedDelta;
+import io.trino.spi.filesystem.Location;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;

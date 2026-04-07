@@ -15,9 +15,9 @@ package io.trino.plugin.iceberg;
 
 import io.trino.Session;
 import io.trino.execution.QueryManagerConfig;
-import io.trino.filesystem.Location;
 import io.trino.operator.OperatorStats;
 import io.trino.parquet.metadata.ParquetMetadata;
+import io.trino.spi.filesystem.Location;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.QueryRunner.MaterializedResultWithPlan;

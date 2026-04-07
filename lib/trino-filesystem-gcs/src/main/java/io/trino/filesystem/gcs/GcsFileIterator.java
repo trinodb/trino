@@ -17,7 +17,7 @@ import com.google.api.gax.paging.Page;
 import com.google.cloud.storage.Blob;
 import io.trino.filesystem.FileEntry;
 import io.trino.filesystem.FileIterator;
-import io.trino.filesystem.Location;
+import io.trino.spi.filesystem.Location;
 
 import java.io.IOException;
 import java.time.Instant;

@@ -13,10 +13,10 @@
  */
 package io.trino.plugin.hive;
 
-import io.trino.filesystem.Location;
 import io.trino.metastore.StorageFormat;
 import io.trino.plugin.hive.acid.AcidTransaction;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.filesystem.Location;
 
 import java.util.List;
 import java.util.Map;

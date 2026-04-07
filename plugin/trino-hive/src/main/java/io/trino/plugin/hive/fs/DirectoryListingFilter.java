@@ -13,7 +13,7 @@
  */
 package io.trino.plugin.hive.fs;
 
-import io.trino.filesystem.Location;
+import io.trino.spi.filesystem.Location;
 import jakarta.annotation.Nullable;
 
 import java.io.IOException;

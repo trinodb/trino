@@ -16,7 +16,6 @@ package io.trino.plugin.hive.fs;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
-import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.metastore.Column;
 import io.trino.metastore.HiveBucketProperty;
@@ -27,6 +26,7 @@ import io.trino.metastore.Storage;
 import io.trino.metastore.StorageFormat;
 import io.trino.metastore.Table;
 import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.filesystem.Location;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.parallel.Execution;
 

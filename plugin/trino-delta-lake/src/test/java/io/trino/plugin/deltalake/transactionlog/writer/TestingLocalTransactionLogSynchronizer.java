@@ -13,12 +13,12 @@
  */
 package io.trino.plugin.deltalake.transactionlog.writer;
 
-import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.local.LocalFileSystem;
 import io.trino.plugin.deltalake.DeltaLakeFileSystemFactory;
 import io.trino.plugin.deltalake.metastore.VendedCredentialsHandle;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.filesystem.Location;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;

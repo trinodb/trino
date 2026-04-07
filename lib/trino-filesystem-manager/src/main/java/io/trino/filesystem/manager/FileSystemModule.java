@@ -21,7 +21,6 @@ import com.google.inject.Singleton;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.airlift.configuration.ConfigPropertyMetadata;
 import io.opentelemetry.api.trace.Tracer;
-import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.filesystem.alluxio.AlluxioFileSystemCacheModule;
 import io.trino.filesystem.alluxio.AlluxioFileSystemFactory;
@@ -46,6 +45,7 @@ import io.trino.filesystem.switching.SwitchingFileSystemFactory;
 import io.trino.filesystem.tracing.TracingFileSystemFactory;
 import io.trino.filesystem.tracking.TrackingFileSystemFactory;
 import io.trino.spi.connector.ConnectorContext;
+import io.trino.spi.filesystem.Location;
 
 import java.util.Map;
 import java.util.Optional;

@@ -19,12 +19,12 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.json.JsonCodec;
 import io.airlift.json.JsonCodecFactory;
 import io.airlift.json.JsonMapperProvider;
-import io.trino.filesystem.Location;
 import io.trino.metastore.HiveTypeName;
 import io.trino.plugin.base.TypeDeserializer;
 import io.trino.plugin.hive.HiveColumnHandle.ColumnType;
 import io.trino.spi.HostAddress;
 import io.trino.spi.SplitWeight;
+import io.trino.spi.filesystem.Location;
 import io.trino.spi.type.Type;
 import org.junit.jupiter.api.Test;
 

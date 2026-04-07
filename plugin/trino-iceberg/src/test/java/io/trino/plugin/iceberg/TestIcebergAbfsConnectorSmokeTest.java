@@ -15,10 +15,10 @@ package io.trino.plugin.iceberg;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Resources;
-import io.trino.filesystem.Location;
 import io.trino.metastore.HiveMetastore;
 import io.trino.plugin.hive.containers.HiveHadoop;
 import io.trino.plugin.hive.metastore.thrift.BridgingHiveMetastore;
+import io.trino.spi.filesystem.Location;
 import io.trino.testing.QueryRunner;
 import org.junit.jupiter.api.Test;
 

@@ -13,7 +13,7 @@
  */
 package io.trino.filesystem.hdfs;
 
-import io.trino.filesystem.Location;
+import io.trino.spi.filesystem.Location;
 import org.apache.hadoop.fs.Path;
 
 public final class HadoopPaths

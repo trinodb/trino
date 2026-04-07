@@ -17,9 +17,9 @@ import alluxio.client.file.FileOutStream;
 import alluxio.client.file.FileSystem;
 import alluxio.exception.AlluxioException;
 import alluxio.grpc.CreateFilePOptions;
-import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoOutputFile;
 import io.trino.memory.context.AggregatedMemoryContext;
+import io.trino.spi.filesystem.Location;
 
 import java.io.IOException;
 import java.io.OutputStream;

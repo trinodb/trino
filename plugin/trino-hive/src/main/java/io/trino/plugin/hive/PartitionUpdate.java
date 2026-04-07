@@ -17,9 +17,9 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Multimaps;
-import io.trino.filesystem.Location;
 import io.trino.metastore.HiveBasicStatistics;
 import io.trino.spi.TrinoException;
+import io.trino.spi.filesystem.Location;
 
 import java.util.Collection;
 import java.util.List;

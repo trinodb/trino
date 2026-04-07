@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.hive.line;
 
-import io.trino.filesystem.Location;
 import io.trino.hive.formats.line.LineBuffer;
 import io.trino.hive.formats.line.LineDeserializer;
 import io.trino.hive.formats.line.LineReader;
@@ -22,6 +21,7 @@ import io.trino.spi.PageBuilder;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.SourcePage;
+import io.trino.spi.filesystem.Location;
 
 import java.io.IOException;
 import java.util.OptionalLong;

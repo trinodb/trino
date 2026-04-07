@@ -15,9 +15,9 @@ package io.trino.filesystem.tracing;
 
 import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.api.trace.Tracer;
-import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoOutputFile;
 import io.trino.memory.context.AggregatedMemoryContext;
+import io.trino.spi.filesystem.Location;
 
 import java.io.IOException;
 import java.io.OutputStream;

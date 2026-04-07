@@ -15,7 +15,7 @@ package io.trino.hive.formats;
 
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
-import io.trino.filesystem.TrinoInputStream;
+import io.trino.spi.filesystem.TrinoInputStream;
 
 import java.io.DataInput;
 import java.io.EOFException;

@@ -15,7 +15,6 @@ package io.trino.plugin.hive;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.io.Closer;
-import io.trino.filesystem.Location;
 import io.trino.metastore.HiveType;
 import io.trino.plugin.hive.HiveWriterFactory.RowIdSortingFileWriterMaker;
 import io.trino.plugin.hive.acid.AcidTransaction;
@@ -27,6 +26,7 @@ import io.trino.spi.block.RowBlock;
 import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.MergePage;
+import io.trino.spi.filesystem.Location;
 import io.trino.spi.type.TypeManager;
 
 import java.io.Closeable;

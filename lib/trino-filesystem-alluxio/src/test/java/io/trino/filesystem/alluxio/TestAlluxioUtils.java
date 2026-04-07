@@ -14,7 +14,7 @@
 package io.trino.filesystem.alluxio;
 
 import alluxio.AlluxioURI;
-import io.trino.filesystem.Location;
+import io.trino.spi.filesystem.Location;
 import org.junit.jupiter.api.Test;
 
 import static io.trino.filesystem.alluxio.AlluxioUtils.convertToAlluxioURI;

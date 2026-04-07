@@ -14,13 +14,13 @@
 package io.trino.plugin.hive.orc;
 
 import io.airlift.slice.Slice;
-import io.trino.filesystem.TrinoInput;
-import io.trino.filesystem.TrinoInputFile;
 import io.trino.orc.AbstractOrcDataSource;
 import io.trino.orc.OrcDataSourceId;
 import io.trino.orc.OrcReaderOptions;
 import io.trino.plugin.base.metrics.FileFormatDataSourceStats;
 import io.trino.spi.TrinoException;
+import io.trino.spi.filesystem.TrinoInput;
+import io.trino.spi.filesystem.TrinoInputFile;
 import io.trino.spi.metrics.Metrics;
 
 import java.io.IOException;

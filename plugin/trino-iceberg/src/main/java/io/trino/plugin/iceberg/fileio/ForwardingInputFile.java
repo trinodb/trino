@@ -13,7 +13,7 @@
  */
 package io.trino.plugin.iceberg.fileio;
 
-import io.trino.filesystem.TrinoInputFile;
+import io.trino.spi.filesystem.TrinoInputFile;
 import org.apache.iceberg.exceptions.NotFoundException;
 import org.apache.iceberg.io.InputFile;
 import org.apache.iceberg.io.SeekableInputStream;

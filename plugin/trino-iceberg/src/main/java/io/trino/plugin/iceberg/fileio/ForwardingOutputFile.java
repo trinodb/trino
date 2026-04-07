@@ -14,9 +14,9 @@
 package io.trino.plugin.iceberg.fileio;
 
 import com.google.common.io.CountingOutputStream;
-import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoOutputFile;
+import io.trino.spi.filesystem.Location;
 import org.apache.iceberg.io.InputFile;
 import org.apache.iceberg.io.OutputFile;
 import org.apache.iceberg.io.PositionOutputStream;

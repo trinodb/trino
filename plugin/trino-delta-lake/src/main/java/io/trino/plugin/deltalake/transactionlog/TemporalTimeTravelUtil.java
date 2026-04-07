@@ -16,10 +16,10 @@ package io.trino.plugin.deltalake.transactionlog;
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
 import io.trino.filesystem.FileIterator;
-import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.plugin.deltalake.transactionlog.checkpoint.LastCheckpoint;
 import io.trino.spi.TrinoException;
+import io.trino.spi.filesystem.Location;
 
 import java.io.IOException;
 import java.time.Instant;

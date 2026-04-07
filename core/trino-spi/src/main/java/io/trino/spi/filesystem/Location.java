@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.filesystem;
+package io.trino.spi.filesystem;
 
 import java.io.File;
 import java.util.Optional;
@@ -246,7 +246,7 @@ public final class Location
         return withPath(location + newPathElement, path + newPathElement);
     }
 
-    Location removeOneTrailingSlash()
+    public Location removeOneTrailingSlash()
     {
         if (path.endsWith("/")) {
             return withPath(location.substring(0, location.length() - 1), path.substring(0, path.length() - 1));

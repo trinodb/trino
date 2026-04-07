@@ -14,10 +14,10 @@
 package io.trino.filesystem.cache;
 
 import io.trino.filesystem.FileIterator;
-import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
-import io.trino.filesystem.TrinoInputFile;
 import io.trino.filesystem.TrinoOutputFile;
+import io.trino.spi.filesystem.Location;
+import io.trino.spi.filesystem.TrinoInputFile;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;

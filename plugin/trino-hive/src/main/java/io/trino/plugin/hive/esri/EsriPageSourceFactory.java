@@ -14,10 +14,8 @@
 package io.trino.plugin.hive.esri;
 
 import com.google.inject.Inject;
-import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
-import io.trino.filesystem.TrinoInputFile;
 import io.trino.hive.formats.esri.EsriDeserializer;
 import io.trino.hive.formats.esri.EsriReader;
 import io.trino.hive.formats.line.Column;
@@ -30,6 +28,8 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.EmptyPageSource;
+import io.trino.spi.filesystem.Location;
+import io.trino.spi.filesystem.TrinoInputFile;
 import io.trino.spi.predicate.TupleDomain;
 
 import java.io.InputStream;

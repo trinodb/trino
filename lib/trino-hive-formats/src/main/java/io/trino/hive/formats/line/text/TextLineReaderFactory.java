@@ -14,15 +14,15 @@
 package io.trino.hive.formats.line.text;
 
 import com.google.common.collect.ImmutableSet;
-import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
-import io.trino.filesystem.TrinoInputFile;
 import io.trino.hive.formats.compression.Codec;
 import io.trino.hive.formats.compression.CompressionKind;
 import io.trino.hive.formats.line.FooterAwareLineReader;
 import io.trino.hive.formats.line.LineBuffer;
 import io.trino.hive.formats.line.LineReader;
 import io.trino.hive.formats.line.LineReaderFactory;
+import io.trino.spi.filesystem.Location;
+import io.trino.spi.filesystem.TrinoInputFile;
 
 import java.io.Closeable;
 import java.io.IOException;

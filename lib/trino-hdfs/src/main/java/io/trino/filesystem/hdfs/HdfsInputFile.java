@@ -14,13 +14,13 @@
 package io.trino.filesystem.hdfs;
 
 import io.airlift.stats.TimeStat;
-import io.trino.filesystem.Location;
-import io.trino.filesystem.TrinoInput;
-import io.trino.filesystem.TrinoInputFile;
-import io.trino.filesystem.TrinoInputStream;
 import io.trino.hdfs.CallStats;
 import io.trino.hdfs.HdfsContext;
 import io.trino.hdfs.HdfsEnvironment;
+import io.trino.spi.filesystem.Location;
+import io.trino.spi.filesystem.TrinoInput;
+import io.trino.spi.filesystem.TrinoInputFile;
+import io.trino.spi.filesystem.TrinoInputStream;
 import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;

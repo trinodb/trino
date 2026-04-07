@@ -17,7 +17,7 @@ import com.azure.storage.blob.BlobClient;
 import com.azure.storage.blob.models.BlobRange;
 import com.azure.storage.blob.options.BlobInputStreamOptions;
 import com.azure.storage.blob.specialized.BlobInputStream;
-import io.trino.filesystem.TrinoInputStream;
+import io.trino.spi.filesystem.TrinoInputStream;
 
 import java.io.EOFException;
 import java.io.IOException;

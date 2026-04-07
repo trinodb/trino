@@ -14,12 +14,12 @@
 package io.trino.plugin.iceberg;
 
 import io.airlift.units.DataSize;
-import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.plugin.hive.SortingFileWriter;
 import io.trino.spi.Page;
 import io.trino.spi.PageSorter;
 import io.trino.spi.connector.SortOrder;
+import io.trino.spi.filesystem.Location;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
 
