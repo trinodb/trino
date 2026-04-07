@@ -15,7 +15,6 @@ package io.trino.plugin.deltalake.statistics;
 
 import com.google.common.cache.Cache;
 import com.google.common.util.concurrent.UncheckedExecutionException;
-import com.google.inject.BindingAnnotation;
 import com.google.inject.Inject;
 import io.trino.cache.EvictableCacheBuilder;
 import io.trino.plugin.deltalake.metastore.VendedCredentialsHandle;
@@ -23,8 +22,6 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SchemaTableName;
 
-import java.lang.annotation.Retention;
-import java.lang.annotation.Target;
 import java.time.Duration;
 import java.util.Optional;
 
@@ -32,10 +29,6 @@ import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static io.trino.cache.CacheUtils.invalidateAllIf;
 import static io.trino.cache.CacheUtils.uncheckedCacheGet;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
-import static java.lang.annotation.ElementType.FIELD;
-import static java.lang.annotation.ElementType.METHOD;
-import static java.lang.annotation.ElementType.PARAMETER;
-import static java.lang.annotation.RetentionPolicy.RUNTIME;
 import static java.time.temporal.ChronoUnit.HOURS;
 import static java.util.Objects.requireNonNull;
 
@@ -96,11 +89,6 @@ public class CachingExtendedStatisticsAccess
         tableLocation.ifPresent(location -> invalidateAllIf(cache, cacheKey -> cacheKey.location().equals(location)));
         invalidateAllIf(cache, cacheKey -> cacheKey.tableName().equals(schemaTableName));
     }
-
-    @Retention(RUNTIME)
-    @Target({FIELD, PARAMETER, METHOD})
-    @BindingAnnotation
-    public @interface ForCachingExtendedStatisticsAccess {}
 
     private record CacheKey(SchemaTableName tableName, String location)
     {
