@@ -58,7 +58,7 @@ runs:
       # don't create or update checks, only annotate current job
       skip_publishing: true
   - name: Process Product Test reports
-    uses: starburstdata/action-testng-report@f245422953fb97ec5075d07782a1b596124b7cc4
+    uses: starburstdata/action-testng-report@d139fdb2941218d327f5ce0ad8fd85b65d9f9ce3
     if: format('{0}', inputs.has-failed-tests) == 'true'
     with:
       # this workflow should never fail, as it is not a quality gateway
