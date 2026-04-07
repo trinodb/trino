@@ -64,7 +64,7 @@ final class RowVariantWriter
         ImmutableList.Builder<Optional<VariantWriter>> writersInWriteOrder = ImmutableList.builderWithExpectedSize(fieldCount);
 
         for (int fieldIndex : writeOrder) {
-            Type fieldType = type.getTypeParameters().get(fieldIndex);
+            Type fieldType = type.getFieldTypes().get(fieldIndex);
             fieldNamesInWriteOrder.add(fieldNames.get(fieldIndex));
             fieldTypesInWriteOrder.add(fieldType);
 

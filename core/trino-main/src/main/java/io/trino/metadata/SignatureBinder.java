@@ -606,10 +606,10 @@ public class SignatureBinder
         if (fromType instanceof UnknownType || toType instanceof UnknownType) {
             return true;
         }
-        if (fromType instanceof RowType) {
-            if (toType instanceof RowType) {
-                List<Type> fromTypeParameters = fromType.getTypeParameters();
-                List<Type> toTypeParameters = toType.getTypeParameters();
+        if (fromType instanceof RowType fromRowType) {
+            if (toType instanceof RowType toRowType) {
+                List<Type> fromTypeParameters = fromRowType.getFieldTypes();
+                List<Type> toTypeParameters = toRowType.getFieldTypes();
                 if (fromTypeParameters.size() != toTypeParameters.size()) {
                     return false;
                 }
@@ -626,9 +626,9 @@ public class SignatureBinder
             }
             return false;
         }
-        if (toType instanceof RowType) {
+        if (toType instanceof RowType toRowType) {
             if (isRecursiveCastToRow(fromType)) {
-                return toType.getTypeParameters().stream()
+                return toRowType.getFieldTypes().stream()
                         .allMatch(toTypeParameter -> canCast(fromType, toTypeParameter));
             }
         }
