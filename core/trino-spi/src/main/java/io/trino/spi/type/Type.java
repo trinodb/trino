@@ -19,7 +19,6 @@ import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.BlockBuilderStatus;
 import io.trino.spi.block.ValueBlock;
-import io.trino.spi.connector.ConnectorSession;
 import jakarta.annotation.Nullable;
 
 import java.util.List;
@@ -160,12 +159,6 @@ public interface Type
      */
     Object getObject(Block block, int position);
 
-    @Deprecated
-    default Object getObject(ConnectorSession ignored, Block block, int position)
-    {
-        return getObject(block, position);
-    }
-
     /**
      * Writes the boolean value into the {@code BlockBuilder}.
      */
@@ -195,15 +188,6 @@ public interface Type
      * Writes the Object value into the {@code BlockBuilder}.
      */
     void writeObject(BlockBuilder blockBuilder, Object value);
-
-    /**
-     * @deprecated Use {@link BlockBuilder#append}
-     */
-    @Deprecated(forRemoval = true)
-    default void appendTo(Block block, int position, BlockBuilder blockBuilder)
-    {
-        blockBuilder.append(block.getUnderlyingValueBlock(), block.getUnderlyingValuePosition(position));
-    }
 
     /**
      * Return the range of possible values for this type, if available.
