@@ -162,8 +162,8 @@ public class TestTrinoGlueCatalog
                     icebergFileSystemFactory,
                     FILE_IO_FACTORY,
                     fileFormatDataSourceStats,
-                    null,
-                    null,
+                    new io.trino.orc.OrcReaderOptions(),
+                    io.trino.parquet.ParquetReaderOptions.defaultOptions(),
                     TESTING_TYPE_MANAGER);
 
             io.trino.plugin.iceberg.IcebergFileWriterFactory fileWriterFactory = new io.trino.plugin.iceberg.IcebergFileWriterFactory(

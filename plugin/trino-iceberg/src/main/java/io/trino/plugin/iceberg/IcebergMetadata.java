@@ -55,8 +55,6 @@ import io.trino.plugin.iceberg.catalog.TrinoCatalog;
 import io.trino.plugin.iceberg.delete.DeletionVectorWriter;
 import io.trino.plugin.iceberg.delete.DeletionVectorWriter.DeletionVectorInfo;
 import io.trino.plugin.iceberg.functions.IcebergFunctionProvider;
-import io.trino.plugin.iceberg.UpdateKind;
-import io.trino.plugin.iceberg.UpdateMode;
 import io.trino.plugin.iceberg.functions.tablechanges.TableChangesFunctionHandle;
 import io.trino.plugin.iceberg.procedure.IcebergAddFilesFromTableHandle;
 import io.trino.plugin.iceberg.procedure.IcebergAddFilesHandle;
@@ -450,10 +448,7 @@ import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.Objects.requireNonNullElse;
-import static java.util.UUID.randomUUID;
-import static java.util.UUID.randomUUID;
 import static java.util.function.Function.identity;
-import static io.airlift.slice.Slices.utf8Slice;
 import static java.util.stream.Collectors.joining;
 import static org.apache.iceberg.IcebergManifestUtils.liveEntries;
 import static org.apache.iceberg.MetadataTableType.ALL_ENTRIES;
@@ -549,7 +544,6 @@ public class IcebergMetadata
     private final DeletionVectorWriter deletionVectorWriter;
     private final IcebergPageSourceProvider pageSourceProvider;
     private final IcebergFileWriterFactory fileWriterFactory;
-    private static final Logger log = Logger.get(IcebergMetadata.class);
 
     private Transaction transaction;
     private OptionalLong fromSnapshotForRefresh = OptionalLong.empty();
@@ -829,7 +823,8 @@ public class IcebergMetadata
                 false,
                 Optional.empty(),
                 ImmutableSet.of(),
-                Optional.of(false));
+                Optional.of(false),
+                Optional.empty());
     }
 
     private Optional<IcebergTablePartitioning> getTablePartitioning(ConnectorSession session, Table icebergTable)
@@ -3893,7 +3888,8 @@ public class IcebergMetadata
                 table.isRecordScannedFiles(),
                 table.getMaxScannedFileSize(),
                 table.getConstraintColumns(),
-                table.getForAnalyze());
+                table.getForAnalyze(),
+                table.getUpdateKind());
 
         return Optional.of(new LimitApplicationResult<>(table, false, false));
     }
@@ -3990,7 +3986,8 @@ public class IcebergMetadata
                         table.isRecordScannedFiles(),
                         table.getMaxScannedFileSize(),
                         newConstraintColumns,
-                        table.getForAnalyze()),
+                        table.getForAnalyze(),
+                        table.getUpdateKind()),
                 remainingConstraint.transformKeys(ColumnHandle.class::cast),
                 extractionResult.remainingExpression(),
                 false));
@@ -4204,7 +4201,8 @@ public class IcebergMetadata
                 false, // recordScannedFiles does not affect stats
                 originalHandle.getMaxScannedFileSize(),
                 ImmutableSet.of(), // constraintColumns do not affect stats
-                Optional.empty()); // forAnalyze does not affect stats
+                Optional.empty(), // forAnalyze does not affect stats
+                Optional.empty()); // updateKind does not affect stats
         return getIncrementally(
                 tableStatisticsCache,
                 cacheKey,
