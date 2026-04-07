@@ -351,6 +351,7 @@
                                 <include>**/TestRedshiftConnectorSmokeTest.java</include>
                                 <include>**/TestRedshiftUnloadTypeMapping.java</include>
                                 <include>**/TestRedshiftUnload.java</include>
+                                <include>**/TestRedshiftConnectorTest.java</include>
                             </includes>
                         </configuration>
                     </plugin>
