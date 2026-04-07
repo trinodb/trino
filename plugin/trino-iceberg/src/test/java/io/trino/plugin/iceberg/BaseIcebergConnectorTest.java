@@ -9613,7 +9613,7 @@ public abstract class BaseIcebergConnectorTest
     {
         MaterializedResultWithPlan result = getDistributedQueryRunner().executeWithPlan(getSession(), "SELECT name FROM region");
         assertThat(getOperatorStats(result.queryId()).getConnectorMetrics().getMetrics())
-                .contains(entry("projectedFieldIds", new IntList(ImmutableList.of(1, 2, 3))));
+                .contains(entry("projectedFieldIds", new IntList(ImmutableList.of(2))));
     }
 
     @Test
