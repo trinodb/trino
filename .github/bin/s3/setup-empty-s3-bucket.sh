@@ -44,3 +44,33 @@ echo "Tagging the AWS S3 bucket ${S3_BUCKET_IDENTIFIER} with TTL tags"
 aws s3api put-bucket-tagging \
   --bucket "${S3_BUCKET_IDENTIFIER}" \
   --tagging "TagSet=[{Key=environment,Value=test},{Key=ttl,Value=${S3_BUCKET_TTL}}]"
+
+echo "Setting bucket policy to allow SSE-C for reading and writing objects"
+
+# Allow SSE-C (Server-Side Encryption with Customer-provided keys) operations on the bucket.
+# Without this policy, PutObject and GetObject requests with SSE-C headers may be denied.
+aws s3api put-bucket-policy \
+  --bucket "${S3_BUCKET_IDENTIFIER}" \
+  --policy "$(cat <<POLICY
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Sid": "AllowSSECObjectOperations",
+            "Effect": "Allow",
+            "Principal": "*",
+            "Action": [
+                "s3:PutObject",
+                "s3:GetObject"
+            ],
+            "Resource": "arn:aws:s3:::${S3_BUCKET_IDENTIFIER}/*",
+            "Condition": {
+                "StringEquals": {
+                    "s3:x-amz-server-side-encryption-customer-algorithm": "AES256"
+                }
+            }
+        }
+    ]
+}
+POLICY
+)"
