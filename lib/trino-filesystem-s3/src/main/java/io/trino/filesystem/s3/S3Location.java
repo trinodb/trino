@@ -28,6 +28,7 @@ record S3Location(Location location)
         checkArgument(location.scheme().isPresent(), "No scheme for S3 location: %s", location);
         checkArgument(Set.of("s3", "s3a", "s3n").contains(location.scheme().get()), "Wrong scheme for S3 location: %s", location);
         checkArgument(location.host().isPresent(), "No bucket for S3 location: %s", location);
+        checkArgument(!location.path().isEmpty() || location.toString().endsWith("/"), "Path missing in file system location: %s", location);
         checkArgument(location.userInfo().isEmpty(), "S3 location contains user info: %s", location);
         checkArgument(location.port().isEmpty(), "S3 location contains port: %s", location);
     }

@@ -13,17 +13,10 @@
  */
 package io.trino.filesystem;
 
-import com.google.common.base.Splitter;
-
 import java.io.File;
-import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
 
-import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.collect.Iterables.getLast;
-import static io.trino.filesystem.Locations.isS3Tables;
 import static java.lang.Integer.parseInt;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Predicate.not;
@@ -44,11 +37,6 @@ import static java.util.function.Predicate.not;
  */
 public final class Location
 {
-    private static final Splitter SCHEME_SPLITTER = Splitter.on(":").limit(2);
-    private static final Splitter USER_INFO_SPLITTER = Splitter.on('@').limit(2);
-    private static final Splitter AUTHORITY_SPLITTER = Splitter.on('/').limit(2);
-    private static final Splitter HOST_AND_PORT_SPLITTER = Splitter.on(':').limit(2);
-
     private final String location;
     private final Optional<String> scheme;
     private final Optional<String> userInfo;
@@ -59,50 +47,59 @@ public final class Location
     public static Location of(String location)
     {
         requireNonNull(location, "location is null");
-        checkArgument(!location.isEmpty(), "location is empty");
-        checkArgument(!location.isBlank(), "location is blank");
+        if (location.isEmpty()) {
+            throw new IllegalArgumentException("location is empty");
+        }
+        if (location.isBlank()) {
+            throw new IllegalArgumentException("location is blank");
+        }
 
         // legacy HDFS location that is just a path
         if (location.startsWith("/")) {
             return new Location(location, Optional.empty(), Optional.empty(), Optional.empty(), OptionalInt.empty(), location.substring(1));
         }
 
-        List<String> schemeSplit = SCHEME_SPLITTER.splitToList(location);
-        checkArgument(schemeSplit.size() == 2, "No scheme for file system location: %s", location);
-        String scheme = schemeSplit.get(0);
+        int colonIndex = location.indexOf(':');
+        if (colonIndex < 0) {
+            throw new IllegalArgumentException("No scheme for file system location: " + location);
+        }
+        String scheme = location.substring(0, colonIndex);
+        String afterScheme = location.substring(colonIndex + 1);
 
-        String afterScheme = schemeSplit.get(1);
         if (afterScheme.startsWith("//")) {
             // Locations with an authority must begin with a double slash
             afterScheme = afterScheme.substring(2);
 
-            List<String> authoritySplit = AUTHORITY_SPLITTER.splitToList(afterScheme);
-            List<String> userInfoSplit = USER_INFO_SPLITTER.splitToList(authoritySplit.get(0));
-            Optional<String> userInfo = userInfoSplit.size() == 2 ? Optional.of(userInfoSplit.get(0)) : Optional.empty();
-            List<String> hostAndPortSplit = HOST_AND_PORT_SPLITTER.splitToList(getLast(userInfoSplit));
+            int slashIndex = afterScheme.indexOf('/');
+            String authority = (slashIndex >= 0) ? afterScheme.substring(0, slashIndex) : afterScheme;
 
-            Optional<String> host = Optional.of(hostAndPortSplit.get(0)).filter(not(String::isEmpty));
+            int atIndex = authority.indexOf('@');
+            Optional<String> userInfo = (atIndex >= 0) ? Optional.of(authority.substring(0, atIndex)) : Optional.empty();
+            String hostAndPort = (atIndex >= 0) ? authority.substring(atIndex + 1) : authority;
+
+            int portSeparator = hostAndPort.indexOf(':');
+            String hostPart = (portSeparator >= 0) ? hostAndPort.substring(0, portSeparator) : hostAndPort;
+            Optional<String> host = Optional.of(hostPart).filter(not(String::isEmpty));
 
             OptionalInt port = OptionalInt.empty();
-            if (hostAndPortSplit.size() == 2) {
+            if (portSeparator >= 0) {
+                String portString = hostAndPort.substring(portSeparator + 1);
                 try {
-                    port = OptionalInt.of(parseInt(hostAndPortSplit.get(1)));
+                    port = OptionalInt.of(parseInt(portString));
                 }
                 catch (NumberFormatException e) {
                     throw new IllegalArgumentException("Invalid port in file system location: " + location, e);
                 }
             }
 
-            if (!isS3Tables(location)) {
-                // S3 Tables create tables under the bucket like 's3://e97725d9-dbfb-4334-784sox7edps35ncq16arh546frqa1use2b--table-s3'
-                checkArgument((userInfo.isEmpty() && host.isEmpty() && port.isEmpty()) || authoritySplit.size() == 2, "Path missing in file system location: %s", location);
-            }
-            String path = (authoritySplit.size() == 2) ? authoritySplit.get(1) : "";
+            String path = (slashIndex >= 0) ? afterScheme.substring(slashIndex + 1) : "";
 
             return new Location(location, Optional.of(scheme), userInfo, host, port, path);
         }
 
-        checkArgument(afterScheme.startsWith("/"), "Path must begin with a '/' when no authority is present");
+        if (!afterScheme.startsWith("/")) {
+            throw new IllegalArgumentException("No scheme for file system location: " + location);
+        }
         return new Location(location, Optional.of(scheme), Optional.empty(), Optional.empty(), OptionalInt.empty(), afterScheme.substring(1));
     }
 
@@ -114,8 +111,12 @@ public final class Location
         this.host = requireNonNull(host, "host is null");
         this.port = requireNonNull(port, "port is null");
         this.path = requireNonNull(path, "path is null");
-        checkArgument(scheme.isEmpty() || !scheme.get().isEmpty(), "scheme value is empty");
-        checkArgument(host.isEmpty() || !host.get().isEmpty(), "host value is empty");
+        if (scheme.isPresent() && scheme.get().isEmpty()) {
+            throw new IllegalArgumentException("scheme value is empty");
+        }
+        if (host.isPresent() && host.get().isEmpty()) {
+            throw new IllegalArgumentException("host value is empty");
+        }
     }
 
     private Location withPath(String location, String path)
@@ -186,7 +187,9 @@ public final class Location
     public Location sibling(String name)
     {
         requireNonNull(name, "name is null");
-        checkArgument(!name.isEmpty(), "name is empty");
+        if (name.isEmpty()) {
+            throw new IllegalArgumentException("name is empty");
+        }
         verifyValidFileLocation();
 
         return this.withPath(location.substring(0, location.lastIndexOf('/') + 1) + name, path.substring(0, path.lastIndexOf('/') + 1) + name);
@@ -202,7 +205,9 @@ public final class Location
     {
         // todo should this only be allowed for file locations?
         verifyValidFileLocation();
-        checkState(!path.isEmpty() && !path.equals("/"), "root location does not have parent: %s", location);
+        if (path.isEmpty() || path.equals("/")) {
+            throw new IllegalStateException("root location does not have parent: " + location);
+        }
 
         int lastIndexOfSlash = path.lastIndexOf('/');
         if (lastIndexOfSlash < 0) {
@@ -224,8 +229,12 @@ public final class Location
      */
     public Location appendPath(String newPathElement)
     {
-        checkArgument(!newPathElement.isEmpty(), "newPathElement is empty");
-        checkArgument(!newPathElement.startsWith("/"), "newPathElement starts with a slash: %s", newPathElement);
+        if (newPathElement.isEmpty()) {
+            throw new IllegalArgumentException("newPathElement is empty");
+        }
+        if (newPathElement.startsWith("/")) {
+            throw new IllegalArgumentException("newPathElement starts with a slash: " + newPathElement);
+        }
 
         if (path.isEmpty()) {
             return appendToEmptyPath(newPathElement);
@@ -266,7 +275,9 @@ public final class Location
 
     private Location appendToEmptyPath(String value)
     {
-        checkState(path.isEmpty());
+        if (!path.isEmpty()) {
+            throw new IllegalStateException("path is not empty");
+        }
 
         // empty path may or may not have a location that ends with a slash
         boolean needSlash = !location.endsWith("/");
@@ -288,9 +299,13 @@ public final class Location
     {
         // TODO: should this be IOException?
         // file path must not be empty
-        checkState(!path.isEmpty() && !path.equals("/"), "File location must contain a path: %s", location);
+        if (path.isEmpty() || path.equals("/")) {
+            throw new IllegalStateException("File location must contain a path: " + location);
+        }
         // file path cannot end with a slash
-        checkState(!path.endsWith("/"), "File location cannot end with '/': %s", location);
+        if (path.endsWith("/")) {
+            throw new IllegalStateException("File location cannot end with '/': " + location);
+        }
     }
 
     @Override

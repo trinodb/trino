@@ -150,31 +150,22 @@ class TestLocation
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("Invalid port in file system location: scheme://@:/");
 
-        // no path
-        assertThatThrownBy(() -> Location.of("scheme://host"))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessage("Path missing in file system location: scheme://host");
+        // no path -- valid with empty path
+        assertLocation("scheme://host", Optional.of("scheme"), Optional.empty(), Optional.of("host"), OptionalInt.empty(), "", Set.of("'/path' compared with URI: expected [], was [/]"));
+        assertLocation("scheme://userInfo@host", Optional.of("scheme"), Optional.of("userInfo"), Optional.of("host"), OptionalInt.empty(), "", Set.of("'/path' compared with URI: expected [], was [/]"));
+        assertLocation("scheme://userInfo@host:1234", Optional.of("scheme"), Optional.of("userInfo"), Optional.of("host"), OptionalInt.of(1234), "", Set.of("'/path' compared with URI: expected [], was [/]"));
 
-        assertThatThrownBy(() -> Location.of("scheme://userInfo@host"))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessage("Path missing in file system location: scheme://userInfo@host");
-
-        assertThatThrownBy(() -> Location.of("scheme://userInfo@host:1234"))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessage("Path missing in file system location: scheme://userInfo@host:1234");
-
-        // no path and empty host name
-        assertThatThrownBy(() -> Location.of("scheme://@"))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessage("Path missing in file system location: scheme://@");
-
-        assertThatThrownBy(() -> Location.of("scheme://@:1"))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessage("Path missing in file system location: scheme://@:1");
-
-        assertThatThrownBy(() -> Location.of("scheme://:1"))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessage("Path missing in file system location: scheme://:1");
+        // no path and empty host name -- valid with empty path
+        assertLocation("scheme://@", Optional.of("scheme"), Optional.of(""), Optional.empty(), OptionalInt.empty(), "", Set.of(
+                "userInfo compared with URI: expected [Optional.empty], was [Optional[]]",
+                "'/path' compared with URI: expected [], was [/]"));
+        assertLocation("scheme://@:1", Optional.of("scheme"), Optional.of(""), Optional.empty(), OptionalInt.of(1), "", Set.of(
+                "userInfo compared with URI: expected [Optional.empty], was [Optional[]]",
+                "port compared with URI: expected [OptionalInt.empty], was [OptionalInt[1]]",
+                "'/path' compared with URI: expected [], was [/]"));
+        assertLocation("scheme://:1", Optional.of("scheme"), Optional.empty(), Optional.empty(), OptionalInt.of(1), "", Set.of(
+                "port compared with URI: expected [OptionalInt.empty], was [OptionalInt[1]]",
+                "'/path' compared with URI: expected [], was [/]"));
 
         assertThatThrownBy(() -> Location.of("scheme://:"))
                 .isInstanceOf(IllegalArgumentException.class)
