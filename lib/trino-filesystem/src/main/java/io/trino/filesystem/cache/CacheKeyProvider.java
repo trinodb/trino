@@ -13,7 +13,7 @@
  */
 package io.trino.filesystem.cache;
 
-import io.trino.filesystem.TrinoInputFile;
+import io.trino.spi.filesystem.TrinoInputFile;
 
 import java.io.IOException;
 import java.util.Optional;

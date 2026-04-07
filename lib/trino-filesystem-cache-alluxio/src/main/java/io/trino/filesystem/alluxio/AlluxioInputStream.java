@@ -19,9 +19,9 @@ import alluxio.conf.AlluxioConfiguration;
 import com.google.common.primitives.Longs;
 import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.api.trace.Tracer;
-import io.trino.filesystem.Location;
-import io.trino.filesystem.TrinoInputFile;
-import io.trino.filesystem.TrinoInputStream;
+import io.trino.spi.filesystem.Location;
+import io.trino.spi.filesystem.TrinoInputFile;
+import io.trino.spi.filesystem.TrinoInputStream;
 
 import java.io.EOFException;
 import java.io.IOException;

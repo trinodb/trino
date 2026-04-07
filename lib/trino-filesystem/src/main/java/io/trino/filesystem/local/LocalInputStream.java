@@ -13,8 +13,8 @@
  */
 package io.trino.filesystem.local;
 
-import io.trino.filesystem.Location;
-import io.trino.filesystem.TrinoInputStream;
+import io.trino.spi.filesystem.Location;
+import io.trino.spi.filesystem.TrinoInputStream;
 
 import java.io.BufferedInputStream;
 import java.io.EOFException;

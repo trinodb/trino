@@ -16,13 +16,13 @@ package io.trino.filesystem.memory;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.filesystem.AbstractTestTrinoFileSystem;
-import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
-import io.trino.filesystem.TrinoInput;
-import io.trino.filesystem.TrinoInputFile;
 import io.trino.filesystem.cache.CacheFileSystem;
 import io.trino.filesystem.cache.CacheKeyProvider;
 import io.trino.filesystem.cache.DefaultCacheKeyProvider;
+import io.trino.spi.filesystem.Location;
+import io.trino.spi.filesystem.TrinoInput;
+import io.trino.spi.filesystem.TrinoInputFile;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 

@@ -14,8 +14,6 @@
 package io.trino.plugin.hive.orc;
 
 import com.google.common.collect.ImmutableList;
-import io.trino.filesystem.Location;
-import io.trino.filesystem.TrinoInputFile;
 import io.trino.memory.context.AggregatedMemoryContext;
 import io.trino.orc.NameBasedFieldMapper;
 import io.trino.orc.OrcColumn;
@@ -30,6 +28,8 @@ import io.trino.plugin.base.metrics.FileFormatDataSourceStats;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.SourcePage;
+import io.trino.spi.filesystem.Location;
+import io.trino.spi.filesystem.TrinoInputFile;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;

@@ -17,12 +17,12 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.cache.Cache;
 import com.google.common.util.concurrent.UncheckedExecutionException;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
-import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.metastore.Partition;
 import io.trino.metastore.Storage;
 import io.trino.metastore.Table;
 import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.filesystem.Location;
 import jakarta.annotation.Nullable;
 
 import java.io.IOException;

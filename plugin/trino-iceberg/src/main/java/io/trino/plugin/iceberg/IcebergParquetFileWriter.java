@@ -14,7 +14,6 @@
 package io.trino.plugin.iceberg;
 
 import com.google.common.collect.ImmutableList;
-import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoOutputFile;
 import io.trino.parquet.ParquetDataSourceId;
 import io.trino.parquet.metadata.BlockMetadata;
@@ -23,6 +22,7 @@ import io.trino.parquet.writer.ParquetWriterOptions;
 import io.trino.plugin.hive.parquet.ParquetFileWriter;
 import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
+import io.trino.spi.filesystem.Location;
 import io.trino.spi.type.Type;
 import org.apache.iceberg.MetricsConfig;
 import org.apache.parquet.format.CompressionCodec;

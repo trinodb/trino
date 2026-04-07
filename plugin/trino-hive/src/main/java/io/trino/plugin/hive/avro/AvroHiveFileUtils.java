@@ -14,10 +14,7 @@
 package io.trino.plugin.hive.avro;
 
 import com.google.common.base.Splitter;
-import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
-import io.trino.filesystem.TrinoInputFile;
-import io.trino.filesystem.TrinoInputStream;
 import io.trino.hive.formats.avro.NativeLogicalTypesAvroTypeManager;
 import io.trino.metastore.HiveType;
 import io.trino.metastore.type.CharTypeInfo;
@@ -30,6 +27,9 @@ import io.trino.metastore.type.StructTypeInfo;
 import io.trino.metastore.type.TypeInfo;
 import io.trino.metastore.type.UnionTypeInfo;
 import io.trino.metastore.type.VarcharTypeInfo;
+import io.trino.spi.filesystem.Location;
+import io.trino.spi.filesystem.TrinoInputFile;
+import io.trino.spi.filesystem.TrinoInputStream;
 import org.apache.avro.LogicalType;
 import org.apache.avro.LogicalTypes;
 import org.apache.avro.Schema;

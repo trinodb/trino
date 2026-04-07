@@ -16,11 +16,11 @@ package io.trino.spooling.filesystem;
 import com.google.common.collect.ImmutableList;
 import io.trino.filesystem.FileEntry;
 import io.trino.filesystem.FileIterator;
-import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
-import io.trino.filesystem.TrinoInputStream;
 import io.trino.filesystem.memory.MemoryFileSystem;
 import io.trino.spi.QueryId;
+import io.trino.spi.filesystem.Location;
+import io.trino.spi.filesystem.TrinoInputStream;
 import io.trino.spi.spool.SpoolingContext;
 import org.junit.jupiter.api.Test;
 

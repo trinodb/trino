@@ -15,11 +15,11 @@ package io.trino.filesystem.tracing;
 
 import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.api.trace.Tracer;
-import io.trino.filesystem.Location;
-import io.trino.filesystem.TrinoInput;
-import io.trino.filesystem.TrinoInputFile;
-import io.trino.filesystem.TrinoInputStream;
 import io.trino.filesystem.cache.TrinoFileSystemCache;
+import io.trino.spi.filesystem.Location;
+import io.trino.spi.filesystem.TrinoInput;
+import io.trino.spi.filesystem.TrinoInputFile;
+import io.trino.spi.filesystem.TrinoInputStream;
 
 import java.io.IOException;
 import java.util.Collection;

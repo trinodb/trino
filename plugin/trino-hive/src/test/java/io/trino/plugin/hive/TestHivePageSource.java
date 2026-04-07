@@ -15,7 +15,6 @@ package io.trino.plugin.hive;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.trino.filesystem.Location;
 import io.trino.operator.TestScanFilterAndProjectOperator;
 import io.trino.plugin.hive.coercions.CoercionUtils;
 import io.trino.spi.Page;
@@ -23,6 +22,7 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.SourcePage;
+import io.trino.spi.filesystem.Location;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;

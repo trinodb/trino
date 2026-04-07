@@ -15,10 +15,10 @@ package io.trino.plugin.hive.fs;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.AbstractIterator;
-import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.metastore.Table;
 import io.trino.spi.TrinoException;
+import io.trino.spi.filesystem.Location;
 
 import java.io.FileNotFoundException;
 import java.io.IOException;

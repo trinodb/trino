@@ -14,11 +14,11 @@
 package io.trino.plugin.redshift;
 
 import com.google.inject.Inject;
-import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.filesystem.s3.FileSystemS3;
 import io.trino.plugin.jdbc.JdbcQueryEventListener;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.filesystem.Location;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;

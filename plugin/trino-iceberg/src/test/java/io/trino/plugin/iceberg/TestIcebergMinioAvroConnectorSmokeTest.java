@@ -13,7 +13,7 @@
  */
 package io.trino.plugin.iceberg;
 
-import io.trino.filesystem.Location;
+import io.trino.spi.filesystem.Location;
 import org.junit.jupiter.api.Test;
 
 import static org.apache.iceberg.FileFormat.AVRO;

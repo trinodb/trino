@@ -18,10 +18,10 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
-import io.trino.filesystem.Location;
 import io.trino.filesystem.memory.MemoryInputFile;
 import io.trino.hive.formats.encodings.binary.BinaryColumnEncodingFactory;
 import io.trino.spi.block.Block;
+import io.trino.spi.filesystem.Location;
 import org.joda.time.DateTimeZone;
 import org.junit.jupiter.api.Test;
 

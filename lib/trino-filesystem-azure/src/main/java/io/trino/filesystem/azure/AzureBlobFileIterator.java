@@ -16,7 +16,7 @@ package io.trino.filesystem.azure;
 import com.azure.storage.blob.models.BlobItem;
 import io.trino.filesystem.FileEntry;
 import io.trino.filesystem.FileIterator;
-import io.trino.filesystem.Location;
+import io.trino.spi.filesystem.Location;
 
 import java.io.IOException;
 import java.util.Iterator;

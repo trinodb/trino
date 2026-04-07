@@ -13,11 +13,11 @@
  */
 package io.trino.filesystem.s3;
 
-import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoOutputFile;
 import io.trino.filesystem.encryption.EncryptionKey;
 import io.trino.filesystem.s3.S3OutputStream.ByteArrayStreamProvider;
 import io.trino.memory.context.AggregatedMemoryContext;
+import io.trino.spi.filesystem.Location;
 import software.amazon.awssdk.services.s3.S3Client;
 
 import java.io.IOException;

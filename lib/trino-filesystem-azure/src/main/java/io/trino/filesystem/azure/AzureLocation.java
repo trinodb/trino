@@ -14,7 +14,7 @@
 package io.trino.filesystem.azure;
 
 import com.google.common.base.CharMatcher;
-import io.trino.filesystem.Location;
+import io.trino.spi.filesystem.Location;
 
 import java.util.Optional;
 

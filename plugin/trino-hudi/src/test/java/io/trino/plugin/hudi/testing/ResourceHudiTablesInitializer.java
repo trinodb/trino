@@ -15,7 +15,6 @@ package io.trino.plugin.hudi.testing;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.metastore.Column;
@@ -29,6 +28,7 @@ import io.trino.metastore.PrincipalPrivileges;
 import io.trino.metastore.StorageFormat;
 import io.trino.metastore.Table;
 import io.trino.plugin.hudi.HudiConnector;
+import io.trino.spi.filesystem.Location;
 import io.trino.spi.security.ConnectorIdentity;
 import io.trino.testing.QueryRunner;
 

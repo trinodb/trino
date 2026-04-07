@@ -13,8 +13,8 @@
  */
 package io.trino.plugin.hive.fs;
 
-import io.trino.filesystem.Location;
 import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.filesystem.Location;
 
 import java.util.Objects;
 

@@ -22,9 +22,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.io.Resources;
 import io.airlift.json.JsonMapperProvider;
 import io.trino.Session;
-import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
-import io.trino.filesystem.TrinoInputFile;
 import io.trino.filesystem.local.LocalInputFile;
 import io.trino.parquet.ParquetReaderOptions;
 import io.trino.parquet.metadata.FileMetadata;
@@ -45,6 +43,8 @@ import io.trino.plugin.deltalake.transactionlog.statistics.DeltaLakeFileStatisti
 import io.trino.plugin.hive.parquet.TrinoParquetDataSource;
 import io.trino.spi.block.Block;
 import io.trino.spi.connector.SourcePage;
+import io.trino.spi.filesystem.Location;
+import io.trino.spi.filesystem.TrinoInputFile;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.SqlDate;

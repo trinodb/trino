@@ -14,10 +14,10 @@
 package io.trino.filesystem.memory;
 
 import io.airlift.slice.Slice;
-import io.trino.filesystem.Location;
-import io.trino.filesystem.TrinoInput;
-import io.trino.filesystem.TrinoInputFile;
-import io.trino.filesystem.TrinoInputStream;
+import io.trino.spi.filesystem.Location;
+import io.trino.spi.filesystem.TrinoInput;
+import io.trino.spi.filesystem.TrinoInputFile;
+import io.trino.spi.filesystem.TrinoInputStream;
 
 import java.io.FileNotFoundException;
 import java.io.IOException;

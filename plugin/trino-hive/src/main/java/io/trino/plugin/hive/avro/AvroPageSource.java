@@ -14,13 +14,13 @@
 package io.trino.plugin.hive.avro;
 
 import io.airlift.units.DataSize;
-import io.trino.filesystem.TrinoInputFile;
 import io.trino.hive.formats.avro.AvroFileReader;
 import io.trino.hive.formats.avro.AvroTypeBlockHandler;
 import io.trino.hive.formats.avro.AvroTypeException;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.SourcePage;
+import io.trino.spi.filesystem.TrinoInputFile;
 import org.apache.avro.Schema;
 
 import java.io.IOException;

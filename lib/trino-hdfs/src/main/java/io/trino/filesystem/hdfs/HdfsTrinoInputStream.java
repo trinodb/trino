@@ -13,8 +13,8 @@
  */
 package io.trino.filesystem.hdfs;
 
-import io.trino.filesystem.Location;
-import io.trino.filesystem.TrinoInputStream;
+import io.trino.spi.filesystem.Location;
+import io.trino.spi.filesystem.TrinoInputStream;
 import org.apache.hadoop.fs.FSDataInputStream;
 
 import java.io.FileNotFoundException;

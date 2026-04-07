@@ -15,9 +15,9 @@ package io.trino.filesystem.tracing;
 
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
-import io.trino.filesystem.TrinoInput;
-import io.trino.filesystem.TrinoInputFile;
 import io.trino.filesystem.TrinoOutputFile;
+import io.trino.spi.filesystem.TrinoInput;
+import io.trino.spi.filesystem.TrinoInputFile;
 import org.junit.jupiter.api.Test;
 
 import static io.trino.testing.InterfaceTestUtils.assertAllMethodsOverridden;

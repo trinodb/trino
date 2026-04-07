@@ -13,8 +13,8 @@
  */
 package io.trino.plugin.iceberg.cache;
 
-import io.trino.filesystem.TrinoInputFile;
 import io.trino.filesystem.cache.CacheKeyProvider;
+import io.trino.spi.filesystem.TrinoInputFile;
 
 import java.util.Optional;
 

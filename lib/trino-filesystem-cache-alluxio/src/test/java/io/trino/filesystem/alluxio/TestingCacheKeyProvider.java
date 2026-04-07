@@ -13,9 +13,9 @@
  */
 package io.trino.filesystem.alluxio;
 
-import io.trino.filesystem.Location;
-import io.trino.filesystem.TrinoInputFile;
 import io.trino.filesystem.cache.CacheKeyProvider;
+import io.trino.spi.filesystem.Location;
+import io.trino.spi.filesystem.TrinoInputFile;
 
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicInteger;

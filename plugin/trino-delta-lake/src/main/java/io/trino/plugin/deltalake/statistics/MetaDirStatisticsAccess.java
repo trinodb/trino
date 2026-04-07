@@ -16,14 +16,14 @@ package io.trino.plugin.deltalake.statistics;
 import com.google.common.base.Throwables;
 import com.google.inject.Inject;
 import io.airlift.json.JsonCodec;
-import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
-import io.trino.filesystem.TrinoInputFile;
 import io.trino.plugin.deltalake.DeltaLakeFileSystemFactory;
 import io.trino.plugin.deltalake.metastore.VendedCredentialsHandle;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.filesystem.Location;
+import io.trino.spi.filesystem.TrinoInputFile;
 
 import java.io.FileNotFoundException;
 import java.io.IOException;

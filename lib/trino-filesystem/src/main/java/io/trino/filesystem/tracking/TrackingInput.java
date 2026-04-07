@@ -14,8 +14,8 @@
 package io.trino.filesystem.tracking;
 
 import io.airlift.slice.Slice;
-import io.trino.filesystem.Location;
-import io.trino.filesystem.TrinoInput;
+import io.trino.spi.filesystem.Location;
+import io.trino.spi.filesystem.TrinoInput;
 
 import java.io.IOException;
 import java.lang.ref.Cleaner;

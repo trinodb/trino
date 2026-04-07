@@ -16,7 +16,7 @@ package io.trino.filesystem.s3;
 import com.google.common.io.Closer;
 import io.airlift.units.DataSize;
 import io.opentelemetry.api.OpenTelemetry;
-import io.trino.filesystem.Location;
+import io.trino.spi.filesystem.Location;
 import io.trino.testing.containers.Minio;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;

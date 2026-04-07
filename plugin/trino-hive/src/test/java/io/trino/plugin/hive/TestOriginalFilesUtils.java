@@ -13,10 +13,10 @@
  */
 package io.trino.plugin.hive;
 
-import io.trino.filesystem.Location;
 import io.trino.orc.OrcReaderOptions;
 import io.trino.plugin.base.metrics.FileFormatDataSourceStats;
 import io.trino.plugin.hive.orc.OriginalFilesUtils;
+import io.trino.spi.filesystem.Location;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;

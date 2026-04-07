@@ -18,8 +18,6 @@ import com.google.errorprone.annotations.FormatMethod;
 import io.airlift.slice.BasicSliceInput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
-import io.trino.filesystem.Location;
-import io.trino.filesystem.TrinoInputFile;
 import io.trino.hive.formats.FileCorruptionException;
 import io.trino.hive.formats.ReadWriteUtils;
 import io.trino.hive.formats.TrinoDataInputStream;
@@ -34,6 +32,8 @@ import io.trino.hive.formats.rcfile.RcFileWriteValidation.WriteChecksumBuilder;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.RunLengthEncodedBlock;
+import io.trino.spi.filesystem.Location;
+import io.trino.spi.filesystem.TrinoInputFile;
 import io.trino.spi.type.Type;
 
 import java.io.Closeable;

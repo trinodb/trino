@@ -13,11 +13,11 @@
  */
 package io.trino.plugin.hive.metastore.file;
 
-import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.filesystem.local.LocalFileSystemFactory;
 import io.trino.plugin.hive.metastore.HiveMetastoreConfig;
 import io.trino.spi.NodeVersion;
+import io.trino.spi.filesystem.Location;
 
 import java.io.File;
 

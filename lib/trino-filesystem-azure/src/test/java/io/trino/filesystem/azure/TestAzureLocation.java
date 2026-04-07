@@ -13,7 +13,7 @@
  */
 package io.trino.filesystem.azure;
 
-import io.trino.filesystem.Location;
+import io.trino.spi.filesystem.Location;
 import org.junit.jupiter.api.Test;
 
 import java.util.Optional;

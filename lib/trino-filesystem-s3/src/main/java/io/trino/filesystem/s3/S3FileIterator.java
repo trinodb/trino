@@ -16,7 +16,7 @@ package io.trino.filesystem.s3;
 import com.google.common.collect.ImmutableSet;
 import io.trino.filesystem.FileEntry;
 import io.trino.filesystem.FileIterator;
-import io.trino.filesystem.Location;
+import io.trino.spi.filesystem.Location;
 import software.amazon.awssdk.core.exception.SdkException;
 import software.amazon.awssdk.services.s3.model.ObjectStorageClass;
 import software.amazon.awssdk.services.s3.model.RestoreStatus;

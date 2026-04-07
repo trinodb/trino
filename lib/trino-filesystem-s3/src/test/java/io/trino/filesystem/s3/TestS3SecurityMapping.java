@@ -14,7 +14,7 @@
 package io.trino.filesystem.s3;
 
 import com.google.common.collect.ImmutableSet;
-import io.trino.filesystem.Location;
+import io.trino.spi.filesystem.Location;
 import io.trino.spi.security.AccessDeniedException;
 import io.trino.spi.security.ConnectorIdentity;
 import org.junit.jupiter.api.Test;

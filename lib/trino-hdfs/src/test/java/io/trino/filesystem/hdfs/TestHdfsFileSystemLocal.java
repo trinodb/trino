@@ -14,7 +14,6 @@
 package io.trino.filesystem.hdfs;
 
 import io.trino.filesystem.AbstractTestTrinoFileSystem;
-import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.hdfs.DynamicConfigurationProvider;
 import io.trino.hdfs.DynamicHdfsConfiguration;
@@ -25,6 +24,7 @@ import io.trino.hdfs.HdfsContext;
 import io.trino.hdfs.HdfsEnvironment;
 import io.trino.hdfs.TrinoHdfsFileSystemStats;
 import io.trino.hdfs.authentication.NoHdfsAuthentication;
+import io.trino.spi.filesystem.Location;
 import io.trino.spi.security.ConnectorIdentity;
 import org.apache.hadoop.fs.RawLocalFileSystem;
 import org.junit.jupiter.api.AfterAll;

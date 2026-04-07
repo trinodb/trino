@@ -17,10 +17,10 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.io.ByteSource;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
-import io.trino.filesystem.Location;
-import io.trino.filesystem.TrinoInputFile;
-import io.trino.filesystem.TrinoInputStream;
 import io.trino.filesystem.memory.MemoryInputFile;
+import io.trino.spi.filesystem.Location;
+import io.trino.spi.filesystem.TrinoInputFile;
+import io.trino.spi.filesystem.TrinoInputStream;
 import org.junit.jupiter.api.Test;
 
 import java.io.ByteArrayOutputStream;

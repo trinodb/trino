@@ -16,7 +16,6 @@ package io.trino.plugin.hive.line;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
-import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.hive.formats.line.Column;
@@ -35,6 +34,7 @@ import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.filesystem.Location;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 

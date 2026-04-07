@@ -13,6 +13,7 @@
  */
 package io.trino.filesystem;
 
+import io.trino.spi.filesystem.Location;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 

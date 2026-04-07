@@ -13,10 +13,10 @@
  */
 package io.trino.faulttolerant.iceberg;
 
-import io.trino.filesystem.Location;
 import io.trino.plugin.exchange.filesystem.containers.MinioStorage;
 import io.trino.plugin.iceberg.BaseIcebergParquetConnectorTest;
 import io.trino.plugin.iceberg.IcebergQueryRunner;
+import io.trino.spi.filesystem.Location;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;

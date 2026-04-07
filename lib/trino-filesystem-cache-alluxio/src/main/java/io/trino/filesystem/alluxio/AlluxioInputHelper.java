@@ -22,7 +22,7 @@ import alluxio.conf.PropertyKey;
 import com.google.common.primitives.Ints;
 import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.api.trace.Tracer;
-import io.trino.filesystem.Location;
+import io.trino.spi.filesystem.Location;
 
 import java.nio.ByteBuffer;
 import java.util.concurrent.atomic.AtomicLong;

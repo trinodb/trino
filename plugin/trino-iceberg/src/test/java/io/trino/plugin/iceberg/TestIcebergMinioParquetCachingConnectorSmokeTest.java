@@ -15,7 +15,7 @@ package io.trino.plugin.iceberg;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Closer;
-import io.trino.filesystem.Location;
+import io.trino.spi.filesystem.Location;
 import org.apache.iceberg.FileFormat;
 import org.junit.jupiter.api.AfterAll;
 

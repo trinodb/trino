@@ -13,7 +13,7 @@
  */
 package io.trino.plugin.hudi;
 
-import io.trino.filesystem.Location;
+import io.trino.spi.filesystem.Location;
 
 import static java.util.Objects.requireNonNull;
 

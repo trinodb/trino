@@ -13,10 +13,10 @@
  */
 package io.trino.plugin.hive;
 
-import io.trino.filesystem.Location;
 import io.trino.metastore.Partition;
 import io.trino.metastore.Table;
 import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.filesystem.Location;
 
 public interface TableInvalidationCallback
 {

@@ -14,7 +14,6 @@
 package io.trino.plugin.hive.crypto;
 
 import com.google.common.collect.ImmutableMap;
-import io.trino.filesystem.Location;
 import io.trino.parquet.ParquetDataSource;
 import io.trino.parquet.ParquetReaderOptions;
 import io.trino.parquet.crypto.DecryptionKeyRetriever;
@@ -24,6 +23,7 @@ import io.trino.parquet.metadata.ParquetMetadata;
 import io.trino.parquet.reader.FileParquetDataSource;
 import io.trino.parquet.reader.MetadataReader;
 import io.trino.plugin.hive.HiveQueryRunner;
+import io.trino.spi.filesystem.Location;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.MaterializedResult;

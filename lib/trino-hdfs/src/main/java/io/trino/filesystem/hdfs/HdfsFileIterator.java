@@ -17,7 +17,7 @@ import com.google.common.collect.ImmutableList;
 import io.trino.filesystem.FileEntry;
 import io.trino.filesystem.FileEntry.Block;
 import io.trino.filesystem.FileIterator;
-import io.trino.filesystem.Location;
+import io.trino.spi.filesystem.Location;
 import org.apache.hadoop.fs.BlockLocation;
 import org.apache.hadoop.fs.LocatedFileStatus;
 import org.apache.hadoop.fs.Path;

@@ -14,9 +14,9 @@
 package io.trino.plugin.deltalake.delete;
 
 import com.google.common.io.Resources;
-import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.plugin.deltalake.transactionlog.DeletionVectorEntry;
+import io.trino.spi.filesystem.Location;
 import org.junit.jupiter.api.Test;
 
 import java.io.File;

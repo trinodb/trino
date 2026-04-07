@@ -14,9 +14,9 @@
 package io.trino.filesystem.hdfs;
 
 import io.airlift.slice.Slice;
-import io.trino.filesystem.TrinoInput;
-import io.trino.filesystem.TrinoInputFile;
 import io.trino.hdfs.FSDataInputStreamTail;
+import io.trino.spi.filesystem.TrinoInput;
+import io.trino.spi.filesystem.TrinoInputFile;
 import org.apache.hadoop.fs.FSDataInputStream;
 
 import java.io.FileNotFoundException;

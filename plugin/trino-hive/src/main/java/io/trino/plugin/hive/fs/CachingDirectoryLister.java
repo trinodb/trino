@@ -23,7 +23,6 @@ import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.cache.EvictableCacheBuilder;
 import io.trino.filesystem.FileEntry;
-import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.metastore.Partition;
 import io.trino.metastore.Storage;
@@ -31,6 +30,7 @@ import io.trino.metastore.Table;
 import io.trino.plugin.hive.HiveConfig;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SchemaTablePrefix;
+import io.trino.spi.filesystem.Location;
 import org.weakref.jmx.Managed;
 
 import java.io.IOException;

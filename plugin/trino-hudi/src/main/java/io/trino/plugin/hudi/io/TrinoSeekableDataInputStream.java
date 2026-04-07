@@ -13,7 +13,7 @@
  */
 package io.trino.plugin.hudi.io;
 
-import io.trino.filesystem.TrinoInputStream;
+import io.trino.spi.filesystem.TrinoInputStream;
 import org.apache.hudi.io.SeekableDataInputStream;
 
 import java.io.IOException;

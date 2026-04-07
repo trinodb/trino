@@ -14,7 +14,6 @@
 package io.trino.plugin.hudi.partition;
 
 import com.google.common.collect.ImmutableList;
-import io.trino.filesystem.Location;
 import io.trino.metastore.Column;
 import io.trino.metastore.HiveMetastore;
 import io.trino.metastore.Partition;
@@ -22,6 +21,7 @@ import io.trino.metastore.Table;
 import io.trino.plugin.hive.HiveColumnHandle;
 import io.trino.plugin.hive.HivePartitionKey;
 import io.trino.spi.TrinoException;
+import io.trino.spi.filesystem.Location;
 import io.trino.spi.predicate.TupleDomain;
 
 import java.util.Collections;

@@ -18,9 +18,9 @@ import com.google.cloud.ReadChannel;
 import com.google.cloud.storage.Blob;
 import com.google.cloud.storage.BlobId;
 import com.google.cloud.storage.Storage;
-import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystemException;
 import io.trino.filesystem.encryption.EncryptionKey;
+import io.trino.spi.filesystem.Location;
 
 import java.io.FileNotFoundException;
 import java.io.IOException;

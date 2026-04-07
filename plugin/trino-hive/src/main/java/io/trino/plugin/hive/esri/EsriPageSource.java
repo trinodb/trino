@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.hive.esri;
 
-import io.trino.filesystem.Location;
 import io.trino.hive.formats.esri.EsriReader;
 import io.trino.plugin.hive.HiveColumnHandle;
 import io.trino.spi.Page;
@@ -21,6 +20,7 @@ import io.trino.spi.PageBuilder;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.SourcePage;
+import io.trino.spi.filesystem.Location;
 
 import java.io.IOException;
 import java.util.List;

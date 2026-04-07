@@ -13,8 +13,8 @@
  */
 package io.trino.plugin.hive;
 
-import io.trino.filesystem.Location;
 import io.trino.plugin.hive.LocationService.WriteInfo;
+import io.trino.spi.filesystem.Location;
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.Test;
 

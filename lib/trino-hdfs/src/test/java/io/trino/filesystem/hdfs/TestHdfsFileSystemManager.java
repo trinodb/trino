@@ -14,9 +14,9 @@
 package io.trino.filesystem.hdfs;
 
 import com.google.common.collect.ImmutableMap;
-import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
+import io.trino.spi.filesystem.Location;
 import io.trino.spi.security.ConnectorIdentity;
 import io.trino.testing.TestingConnectorContext;
 import org.junit.jupiter.api.Test;

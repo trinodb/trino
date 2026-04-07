@@ -13,8 +13,8 @@
  */
 package io.trino.spooling.filesystem.encryption;
 
-import io.trino.filesystem.Location;
 import io.trino.filesystem.encryption.EncryptionKey;
+import io.trino.spi.filesystem.Location;
 
 import java.util.List;
 import java.util.Map;

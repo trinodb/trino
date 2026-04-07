@@ -13,7 +13,7 @@
  */
 package io.trino.plugin.hive;
 
-import io.trino.filesystem.Location;
+import io.trino.spi.filesystem.Location;
 import org.apache.hadoop.fs.Path;
 import org.junit.jupiter.api.Test;
 

@@ -14,9 +14,9 @@
 package io.trino.plugin.deltalake.cache;
 
 import com.google.inject.Inject;
-import io.trino.filesystem.TrinoInputFile;
 import io.trino.filesystem.cache.CacheKeyProvider;
 import io.trino.plugin.deltalake.DeltaLakeConfig;
+import io.trino.spi.filesystem.TrinoInputFile;
 
 import java.util.Optional;
 

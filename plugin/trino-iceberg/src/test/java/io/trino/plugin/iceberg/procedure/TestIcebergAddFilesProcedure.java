@@ -14,9 +14,9 @@
 package io.trino.plugin.iceberg.procedure;
 
 import io.trino.Session;
-import io.trino.filesystem.Location;
 import io.trino.plugin.hive.TestingHivePlugin;
 import io.trino.plugin.iceberg.TestingIcebergPlugin;
+import io.trino.spi.filesystem.Location;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;

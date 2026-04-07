@@ -15,7 +15,7 @@ package io.trino.spooling.filesystem;
 
 import com.google.common.hash.HashFunction;
 import io.azam.ulidj.ULID;
-import io.trino.filesystem.Location;
+import io.trino.spi.filesystem.Location;
 
 import java.time.Instant;
 import java.util.List;

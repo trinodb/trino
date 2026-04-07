@@ -15,8 +15,8 @@ package io.trino.plugin.deltalake.transactionlog.writer;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.inject.Inject;
-import io.trino.filesystem.Location;
 import io.trino.spi.TrinoException;
+import io.trino.spi.filesystem.Location;
 
 import java.util.Map;
 

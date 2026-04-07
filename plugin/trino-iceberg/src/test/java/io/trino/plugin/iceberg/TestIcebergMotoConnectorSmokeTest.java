@@ -14,7 +14,7 @@
 package io.trino.plugin.iceberg;
 
 import com.google.common.collect.ImmutableMap;
-import io.trino.filesystem.Location;
+import io.trino.spi.filesystem.Location;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.containers.MotoContainer;
 import org.apache.iceberg.FileFormat;

@@ -15,6 +15,7 @@
 package io.trino.filesystem;
 
 import io.trino.memory.context.AggregatedMemoryContext;
+import io.trino.spi.filesystem.Location;
 
 import java.io.IOException;
 import java.io.OutputStream;

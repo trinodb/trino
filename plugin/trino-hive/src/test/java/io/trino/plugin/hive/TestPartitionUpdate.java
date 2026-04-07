@@ -15,8 +15,8 @@ package io.trino.plugin.hive;
 
 import com.google.common.collect.ImmutableList;
 import io.airlift.json.JsonCodec;
-import io.trino.filesystem.Location;
 import io.trino.plugin.hive.PartitionUpdate.UpdateMode;
+import io.trino.spi.filesystem.Location;
 import org.junit.jupiter.api.Test;
 
 import static io.airlift.json.JsonCodec.jsonCodec;

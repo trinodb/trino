@@ -14,8 +14,8 @@
 package io.trino.filesystem.local;
 
 import io.trino.filesystem.AbstractTestTrinoFileSystem;
-import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
+import io.trino.spi.filesystem.Location;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;

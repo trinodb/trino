@@ -15,7 +15,6 @@ package io.trino.plugin.hive.util;
 
 import com.google.common.base.CharMatcher;
 import com.google.common.collect.ImmutableList;
-import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.metastore.Database;
 import io.trino.metastore.HiveType;
@@ -36,6 +35,7 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.connector.SchemaNotFoundException;
 import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.filesystem.Location;
 import io.trino.spi.security.ConnectorIdentity;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.DecimalType;

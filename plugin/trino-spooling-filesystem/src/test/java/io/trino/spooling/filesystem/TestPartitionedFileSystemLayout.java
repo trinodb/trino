@@ -14,7 +14,7 @@
 package io.trino.spooling.filesystem;
 
 import io.azam.ulidj.ULID;
-import io.trino.filesystem.Location;
+import io.trino.spi.filesystem.Location;
 import org.junit.jupiter.api.Test;
 
 import java.time.Instant;

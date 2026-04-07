@@ -13,7 +13,7 @@
  */
 package io.trino.filesystem.alluxio;
 
-import io.trino.filesystem.Location;
+import io.trino.spi.filesystem.Location;
 
 import java.io.IOException;
 import java.io.OutputStream;

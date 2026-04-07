@@ -13,12 +13,12 @@
  */
 package io.trino.plugin.hive;
 
-import io.trino.filesystem.Location;
 import io.trino.metastore.type.TypeInfo;
 import io.trino.plugin.hive.util.HiveBucketing;
 import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.SourcePage;
+import io.trino.spi.filesystem.Location;
 
 import java.util.List;
 

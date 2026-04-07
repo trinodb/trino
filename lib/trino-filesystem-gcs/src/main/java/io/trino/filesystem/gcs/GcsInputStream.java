@@ -15,8 +15,8 @@ package io.trino.filesystem.gcs;
 
 import com.google.cloud.ReadChannel;
 import com.google.cloud.storage.Blob;
-import io.trino.filesystem.TrinoInputStream;
 import io.trino.filesystem.encryption.EncryptionKey;
+import io.trino.spi.filesystem.TrinoInputStream;
 
 import java.io.EOFException;
 import java.io.IOException;

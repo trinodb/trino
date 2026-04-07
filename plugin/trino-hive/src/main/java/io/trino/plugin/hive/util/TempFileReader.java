@@ -14,9 +14,7 @@
 package io.trino.plugin.hive.util;
 
 import com.google.common.collect.AbstractIterator;
-import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
-import io.trino.filesystem.TrinoInputFile;
 import io.trino.orc.OrcDataSource;
 import io.trino.orc.OrcDataSourceId;
 import io.trino.orc.OrcPredicate;
@@ -28,6 +26,8 @@ import io.trino.plugin.hive.orc.HdfsOrcDataSource;
 import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.SourcePage;
+import io.trino.spi.filesystem.Location;
+import io.trino.spi.filesystem.TrinoInputFile;
 import io.trino.spi.type.Type;
 
 import java.io.Closeable;

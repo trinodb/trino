@@ -15,8 +15,8 @@ package io.trino.filesystem.alluxio;
 
 import alluxio.client.file.FileInStream;
 import alluxio.client.file.URIStatus;
-import io.trino.filesystem.Location;
-import io.trino.filesystem.TrinoInputStream;
+import io.trino.spi.filesystem.Location;
+import io.trino.spi.filesystem.TrinoInputStream;
 
 import java.io.IOException;
 

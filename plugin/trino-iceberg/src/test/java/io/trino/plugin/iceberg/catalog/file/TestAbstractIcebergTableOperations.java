@@ -13,11 +13,11 @@
  */
 package io.trino.plugin.iceberg.catalog.file;
 
-import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.filesystem.local.LocalFileSystemFactory;
 import io.trino.metastore.HiveMetastore;
 import io.trino.plugin.iceberg.fileio.ForwardingFileIo;
+import io.trino.spi.filesystem.Location;
 import org.apache.iceberg.io.InputFile;
 import org.junit.jupiter.api.Test;
 

@@ -16,11 +16,11 @@ package io.trino.filesystem.alluxio;
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
 import io.trino.filesystem.AbstractTestTrinoFileSystem;
-import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.cache.CacheFileSystem;
 import io.trino.filesystem.cache.DefaultCacheKeyProvider;
 import io.trino.filesystem.memory.MemoryFileSystem;
+import io.trino.spi.filesystem.Location;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 

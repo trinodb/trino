@@ -15,11 +15,11 @@ package io.trino.filesystem.gcs;
 
 import com.google.cloud.storage.Blob;
 import com.google.cloud.storage.Storage;
-import io.trino.filesystem.Location;
-import io.trino.filesystem.TrinoInput;
-import io.trino.filesystem.TrinoInputFile;
-import io.trino.filesystem.TrinoInputStream;
 import io.trino.filesystem.encryption.EncryptionKey;
+import io.trino.spi.filesystem.Location;
+import io.trino.spi.filesystem.TrinoInput;
+import io.trino.spi.filesystem.TrinoInputFile;
+import io.trino.spi.filesystem.TrinoInputStream;
 
 import java.io.IOException;
 import java.time.Instant;

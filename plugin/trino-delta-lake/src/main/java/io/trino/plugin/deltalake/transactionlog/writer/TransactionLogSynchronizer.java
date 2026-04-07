@@ -13,9 +13,9 @@
  */
 package io.trino.plugin.deltalake.transactionlog.writer;
 
-import io.trino.filesystem.Location;
 import io.trino.plugin.deltalake.metastore.VendedCredentialsHandle;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.filesystem.Location;
 
 public interface TransactionLogSynchronizer
 {

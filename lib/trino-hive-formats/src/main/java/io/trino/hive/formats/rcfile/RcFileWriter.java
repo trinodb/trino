@@ -18,7 +18,6 @@ import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
 import io.airlift.units.DataSize;
-import io.trino.filesystem.TrinoInputFile;
 import io.trino.hive.formats.DataOutputStream;
 import io.trino.hive.formats.FileCorruptionException;
 import io.trino.hive.formats.compression.Codec;
@@ -30,6 +29,7 @@ import io.trino.hive.formats.encodings.EncodeOutput;
 import io.trino.hive.formats.rcfile.RcFileWriteValidation.RcFileWriteValidationBuilder;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
+import io.trino.spi.filesystem.TrinoInputFile;
 import io.trino.spi.type.Type;
 import jakarta.annotation.Nullable;
 
