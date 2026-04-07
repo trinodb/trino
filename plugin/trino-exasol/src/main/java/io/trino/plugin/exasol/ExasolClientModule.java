@@ -28,8 +28,11 @@ import io.trino.plugin.jdbc.JdbcClient;
 import io.trino.plugin.jdbc.JdbcStatisticsConfig;
 import io.trino.plugin.jdbc.credential.CredentialProvider;
 import io.trino.plugin.jdbc.ptf.Query;
+import io.trino.spi.NodeVersion;
 import io.trino.spi.function.table.ConnectorTableFunction;
 
+import java.nio.file.Path;
+import java.util.Optional;
 import java.util.Properties;
 
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
@@ -43,18 +46,26 @@ public class ExasolClientModule
     {
         binder.bind(JdbcClient.class).annotatedWith(ForBaseJdbc.class).to(ExasolClient.class).in(Scopes.SINGLETON);
         configBinder(binder).bindConfig(JdbcStatisticsConfig.class);
+        configBinder(binder).bindConfig(ExasolConfig.class);
         newSetBinder(binder, ConnectorTableFunction.class).addBinding().toProvider(Query.class).in(Scopes.SINGLETON);
     }
 
     @Provides
     @Singleton
     @ForBaseJdbc
-    public static ConnectionFactory connectionFactory(BaseJdbcConfig config, CredentialProvider credentialProvider, OpenTelemetry openTelemetry)
+    public static ConnectionFactory connectionFactory(BaseJdbcConfig config, ExasolConfig exasolConfig, CredentialProvider credentialProvider, OpenTelemetry openTelemetry, NodeVersion trinoVersion)
     {
         Properties connectionProperties = new Properties();
         // Deactivate SNAPSHOT_MODE (https://docs.exasol.com/db/latest/database_concepts/snapshot_mode.htm)
         // to ensure that {@link Connection#getMetaData()} always returns up-to-date data.
         connectionProperties.setProperty("snapshottransactions", "1");
+        connectionProperties.setProperty("clientname", "Trino");
+        connectionProperties.setProperty("clientversion", trinoVersion.toString());
+        Optional<Path> logDir = exasolConfig.getJdbcDriverLogDir();
+        if (logDir.isPresent()) {
+            connectionProperties.setProperty("debug", "1");
+            connectionProperties.setProperty("logdir", logDir.get().toString());
+        }
         return DriverConnectionFactory.builder(
                         new EXADriver(),
                         config.getConnectionUrl(),

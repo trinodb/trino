@@ -49,6 +49,17 @@ specify the certificate's fingerprint in the JDBC URL using parameter
 ``fingerprint``, e.g.: ``jdbc:exa:exasol.example.com:8563;fingerprint=ABC123``.
 :::
 
+### JDBC driver debugging
+
+To diagnose issues with the Exasol JDBC driver, you can enable log output by specifying
+the target log directory with property ``exasol.jdbc-driver.log-dir``.
+The JDBC driver will create one log file for each session in this directory.
+Logging is disabled by default.
+
+:::{note}
+Logging creates a lot of overhead especially when loading large amounts of data.
+:::
+
 ```{include} jdbc-authentication.fragment
 ```
 
