@@ -100,6 +100,7 @@ import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -904,6 +905,7 @@ public final class ThriftHiveMetastore
     public void dropTable(String databaseName, String tableName, boolean deleteData)
     {
         AtomicInteger attemptCount = new AtomicInteger();
+        AtomicReference<Table> previousTable = new AtomicReference<>();
         try {
             retry()
                     .stopOn(NoSuchObjectException.class)
@@ -922,8 +924,18 @@ public final class ThriftHiveMetastore
                                 }
                                 // If the table is not found on consecutive attempts, it was probably dropped on the first attempt and timeout occurred.
                                 // Exception in such a case can be safely ignored and dropping table is finished.
+                                // But in some cases when hms close socket the table can be removed but data still in the fs
+                                Table droppedTable = previousTable.get();
+                                if (droppedTable != null) {
+                                    String tableLocation = droppedTable.getSd().getLocation();
+                                    if (deleteFilesOnDrop && deleteData && isManagedTable(droppedTable) && !isNullOrEmpty(tableLocation)) {
+                                        log.info("Deleting data for table %s.%s at %s after successful retry (previous attempt timed out)", databaseName, tableName, tableLocation);
+                                        deleteDirRecursive(Location.of(tableLocation));
+                                    }
+                                }
                                 return null;
                             }
+                            previousTable.set(table);
                             client.dropTable(databaseName, tableName, deleteData);
                             String tableLocation = table.getSd().getLocation();
                             if (deleteFilesOnDrop && deleteData && isManagedTable(table) && !isNullOrEmpty(tableLocation)) {
