@@ -41,7 +41,16 @@ public final class Locations
     public static boolean areDirectoryLocationsEquivalent(Location leftLocation, Location rightLocation)
     {
         return leftLocation.equals(rightLocation) ||
-                leftLocation.removeOneTrailingSlash().equals(rightLocation.removeOneTrailingSlash());
+                removeOneTrailingSlash(leftLocation).equals(removeOneTrailingSlash(rightLocation));
+    }
+
+    private static Location removeOneTrailingSlash(Location location)
+    {
+        String value = location.toString();
+        if (value.endsWith("/") && value.length() > 1) {
+            return Location.of(value.substring(0, value.length() - 1));
+        }
+        return location;
     }
 
     public static boolean isS3Tables(String location)
