@@ -1358,6 +1358,30 @@ public class TestIcebergV3
         assertThat(query("SELECT * FROM " + tableName))
                 .matches("VALUES (1), (2), (4)");
 
+        // Verify new columns for data files: delete-specific columns are NULL
+        assertThat(query(
+                "SELECT referenced_data_file, content_offset, content_size_in_bytes, " +
+                        "file_sequence_number IS NOT NULL, data_sequence_number IS NOT NULL, " +
+                        "manifest_location IS NOT NULL, pos IS NOT NULL " +
+                        "FROM \"" + tableName + "$files\" WHERE content = 0"))
+                .matches("VALUES (CAST(NULL AS VARCHAR), CAST(NULL AS BIGINT), CAST(NULL AS BIGINT), true, true, true, true)");
+
+        // Verify new columns for deletion vector: referenced_data_file matches the data file, content_offset and content_size_in_bytes are set
+        assertThat(query(
+                "SELECT referenced_data_file IS NOT NULL, content_offset IS NOT NULL, " +
+                        "content_size_in_bytes IS NOT NULL AND content_size_in_bytes > 0, " +
+                        "file_sequence_number IS NOT NULL, data_sequence_number IS NOT NULL, " +
+                        "manifest_location IS NOT NULL, pos IS NOT NULL " +
+                        "FROM \"" + tableName + "$files\" WHERE content = 1"))
+                .matches("VALUES (true, true, true, true, true, true, true)");
+
+        // Verify referenced_data_file for the DV matches the data file path
+        assertThat(query(
+                "SELECT dv.referenced_data_file = df.file_path " +
+                        "FROM \"" + tableName + "$files\" dv " +
+                        "JOIN \"" + tableName + "$files\" df ON dv.content = 1 AND df.content = 0"))
+                .matches("VALUES (true)");
+
         assertUpdate("DROP TABLE " + tableName);
     }
 
@@ -1393,6 +1417,31 @@ public class TestIcebergV3
             // Check DV via $files: cardinality 500, 10 PUFFIN entries, 1 file
             assertThat(query("SELECT sum(record_count), count(*), count_if(file_format = 'PUFFIN'), count(distinct file_path) FROM \"" + table.getName() + "$files\" WHERE content = 1"))
                     .matches("VALUES (BIGINT '500', BIGINT '10', BIGINT '10', BIGINT '1')");
+
+            // Verify new columns for DVs: delete-specific columns are set, sequence numbers and manifest_location present
+            assertThat(query(
+                    "SELECT bool_and(referenced_data_file IS NOT NULL), " +
+                            "bool_and(content_offset IS NOT NULL), " +
+                            "bool_and(content_size_in_bytes IS NOT NULL AND content_size_in_bytes > 0), " +
+                            "bool_and(file_sequence_number IS NOT NULL), " +
+                            "bool_and(manifest_location IS NOT NULL) " +
+                            "FROM \"" + table.getName() + "$files\" WHERE content = 1"))
+                    .matches("VALUES (true, true, true, true, true)");
+
+            // Verify data files have NULL for delete-specific columns
+            assertThat(query(
+                    "SELECT bool_and(referenced_data_file IS NULL), " +
+                            "bool_and(content_offset IS NULL), " +
+                            "bool_and(content_size_in_bytes IS NULL) " +
+                            "FROM \"" + table.getName() + "$files\" WHERE content = 0"))
+                    .matches("VALUES (true, true, true)");
+
+            // Verify referenced_data_file for each DV matches an actual data file path
+            assertThat(query(
+                    "SELECT count(*) FROM \"" + table.getName() + "$files\" dv " +
+                            "WHERE dv.content = 1 AND dv.referenced_data_file IN " +
+                            "(SELECT file_path FROM \"" + table.getName() + "$files\" WHERE content = 0)"))
+                    .matches("SELECT count(*) FROM \"" + table.getName() + "$files\" WHERE content = 1");
 
             // delete multiples of 5 => 100 rows removed
             assertUpdate("DELETE FROM " + table.getName() + " WHERE id % 5 = 0", 100);

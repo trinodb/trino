@@ -1123,7 +1123,13 @@ public class TestIcebergV2
                         "CAST(upper_bounds AS JSON), " +
                         "key_metadata, " +
                         "split_offsets, " +
-                        "equality_ids " +
+                        "equality_ids, " +
+                        "file_sequence_number, " +
+                        "data_sequence_number, " +
+                        "referenced_data_file, " +
+                        "first_row_id, " +
+                        "content_offset, " +
+                        "content_size_in_bytes " +
                         "FROM \"" + tableName + "$files\"",
                 """
                        VALUES
@@ -1138,6 +1144,12 @@ public class TestIcebergV2
                                 JSON '{"1":"24","2":"VIETNAM","3":"4","4":"y final packaget"}',
                                 null,
                                 ARRAY[4L],
+                                null,
+                                1L,
+                                1L,
+                                null,
+                                null,
+                                null,
                                 null),
                                (0,
                                 'ORC',
@@ -1150,6 +1162,12 @@ public class TestIcebergV2
                                 JSON '{"1":"4"}',
                                 X'54 72 69 6e 6f',
                                 ARRAY[4L],
+                                null,
+                                2L,
+                                2L,
+                                null,
+                                null,
+                                null,
                                 null),
                                 (2,
                                 'PARQUET',
@@ -1162,8 +1180,17 @@ public class TestIcebergV2
                                 JSON '{"3":"1"}',
                                 null,
                                 ARRAY[4],
-                                ARRAY[3])
+                                ARRAY[3],
+                                3L,
+                                3L,
+                                null,
+                                null,
+                                null,
+                                null)
                 """);
+        // Verify columns with unpredictable exact values
+        assertThat(query("SELECT bool_and(manifest_location IS NOT NULL), bool_and(pos IS NOT NULL) FROM \"" + tableName + "$files\""))
+                .matches("VALUES (true, true)");
     }
 
     @Test

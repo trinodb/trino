@@ -452,7 +452,15 @@ public abstract class BaseIcebergSystemTables
                         "('split_offsets', 'array(bigint)', '', '')," +
                         "('equality_ids', 'array(integer)', '', '')," +
                         "('sort_order_id', 'integer', '', '')," +
-                        "('readable_metrics', 'json', '', '')");
+                        "('readable_metrics', 'json', '', '')," +
+                        "('file_sequence_number', 'bigint', '', '')," +
+                        "('data_sequence_number', 'bigint', '', '')," +
+                        "('referenced_data_file', 'varchar', '', '')," +
+                        "('pos', 'bigint', '', '')," +
+                        "('manifest_location', 'varchar', '', '')," +
+                        "('first_row_id', 'bigint', '', '')," +
+                        "('content_offset', 'bigint', '', '')," +
+                        "('content_size_in_bytes', 'bigint', '', '')");
         assertQuerySucceeds("SELECT * FROM test_schema.\"test_table$files\"");
 
         long offset = format == PARQUET ? 4L : 3L;

@@ -73,6 +73,14 @@ public final class FilesTable
     public static final String EQUALITY_IDS_COLUMN_NAME = "equality_ids";
     public static final String SORT_ORDER_ID_COLUMN_NAME = "sort_order_id";
     public static final String READABLE_METRICS_COLUMN_NAME = "readable_metrics";
+    public static final String FILE_SEQUENCE_NUMBER_COLUMN_NAME = "file_sequence_number";
+    public static final String DATA_SEQUENCE_NUMBER_COLUMN_NAME = "data_sequence_number";
+    public static final String REFERENCED_DATA_FILE_COLUMN_NAME = "referenced_data_file";
+    public static final String POS_COLUMN_NAME = "pos";
+    public static final String MANIFEST_LOCATION_COLUMN_NAME = "manifest_location";
+    public static final String FIRST_ROW_ID_COLUMN_NAME = "first_row_id";
+    public static final String CONTENT_OFFSET_COLUMN_NAME = "content_offset";
+    public static final String CONTENT_SIZE_IN_BYTES_COLUMN_NAME = "content_size_in_bytes";
 
     private static final List<String> COLUMN_NAMES = ImmutableList.of(
             CONTENT_COLUMN_NAME,
@@ -92,7 +100,15 @@ public final class FilesTable
             SPLIT_OFFSETS_COLUMN_NAME,
             EQUALITY_IDS_COLUMN_NAME,
             SORT_ORDER_ID_COLUMN_NAME,
-            READABLE_METRICS_COLUMN_NAME);
+            READABLE_METRICS_COLUMN_NAME,
+            FILE_SEQUENCE_NUMBER_COLUMN_NAME,
+            DATA_SEQUENCE_NUMBER_COLUMN_NAME,
+            REFERENCED_DATA_FILE_COLUMN_NAME,
+            POS_COLUMN_NAME,
+            MANIFEST_LOCATION_COLUMN_NAME,
+            FIRST_ROW_ID_COLUMN_NAME,
+            CONTENT_OFFSET_COLUMN_NAME,
+            CONTENT_SIZE_IN_BYTES_COLUMN_NAME);
 
     private final ConnectorTableMetadata tableMetadata;
     private final Table icebergTable;
@@ -159,9 +175,17 @@ public final class FilesTable
                  SORT_ORDER_ID_COLUMN_NAME,
                  SPEC_ID_COLUMN_NAME -> INTEGER;
             case FILE_PATH_COLUMN_NAME,
-                 FILE_FORMAT_COLUMN_NAME -> VARCHAR;
+                 FILE_FORMAT_COLUMN_NAME,
+                 REFERENCED_DATA_FILE_COLUMN_NAME,
+                 MANIFEST_LOCATION_COLUMN_NAME -> VARCHAR;
             case RECORD_COUNT_COLUMN_NAME,
-                 FILE_SIZE_IN_BYTES_COLUMN_NAME -> BIGINT;
+                 FILE_SIZE_IN_BYTES_COLUMN_NAME,
+                 FILE_SEQUENCE_NUMBER_COLUMN_NAME,
+                 DATA_SEQUENCE_NUMBER_COLUMN_NAME,
+                 POS_COLUMN_NAME,
+                 FIRST_ROW_ID_COLUMN_NAME,
+                 CONTENT_OFFSET_COLUMN_NAME,
+                 CONTENT_SIZE_IN_BYTES_COLUMN_NAME -> BIGINT;
             case COLUMN_SIZES_COLUMN_NAME,
                  NULL_VALUE_COUNTS_COLUMN_NAME,
                  VALUE_COUNTS_COLUMN_NAME,

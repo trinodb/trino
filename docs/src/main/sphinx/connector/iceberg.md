@@ -1490,9 +1490,9 @@ SELECT * FROM "test_table$files";
 ```
 
 ```text
- content  | file_path                                                                                                                     | record_count    | file_format   | file_size_in_bytes   |  column_sizes        |  value_counts     |  null_value_counts | nan_value_counts  | lower_bounds                |  upper_bounds               |  key_metadata  | split_offsets  |  equality_ids
-----------+-------------------------------------------------------------------------------------------------------------------------------+-----------------+---------------+----------------------+----------------------+-------------------+--------------------+-------------------+-----------------------------+-----------------------------+----------------+----------------+---------------
- 0        | hdfs://hadoop-master:9000/user/hive/warehouse/test_table/data/c1=3/c2=2021-01-14/af9872b2-40f3-428f-9c87-186d2750d84e.parquet |  1              |  PARQUET      |  442                 | {1=40, 2=40, 3=44}   |  {1=1, 2=1, 3=1}  |  {1=0, 2=0, 3=0}   | <null>            |  {1=3, 2=2021-01-14, 3=1.3} |  {1=3, 2=2021-01-14, 3=1.3} |  <null>        | <null>         |   <null>
+ content  | file_path                                                                                                                     | record_count    | file_format   | file_size_in_bytes   |  column_sizes        |  value_counts     |  null_value_counts | nan_value_counts  | lower_bounds                |  upper_bounds               |  key_metadata  | split_offsets  |  equality_ids  | file_sequence_number | data_sequence_number | referenced_data_file | pos | manifest_location                                                                                                            | first_row_id | content_offset | content_size_in_bytes
+----------+-------------------------------------------------------------------------------------------------------------------------------+-----------------+---------------+----------------------+----------------------+-------------------+--------------------+-------------------+-----------------------------+-----------------------------+----------------+----------------+----------------+----------------------+----------------------+----------------------+-----+------------------------------------------------------------------------------------------------------------------------------+--------------+----------------+----------------------
+ 0        | hdfs://hadoop-master:9000/user/hive/warehouse/test_table/data/c1=3/c2=2021-01-14/af9872b2-40f3-428f-9c87-186d2750d84e.parquet |  1              |  PARQUET      |  442                 | {1=40, 2=40, 3=44}   |  {1=1, 2=1, 3=1}  |  {1=0, 2=0, 3=0}   | <null>            |  {1=3, 2=2021-01-14, 3=1.3} |  {1=3, 2=2021-01-14, 3=1.3} |  <null>        | <null>         |   <null>       | 1                    | 1                    | <null>               | 0   | hdfs://hadoop-master:9000/user/hive/warehouse/test_table/metadata/snap-6116016324956900164-0-3c1b2496-0670-4e37-81f6.avro    | <null>       | <null>         | <null>
 ```
 
 The output of the query has the following columns:
@@ -1570,6 +1570,34 @@ The output of the query has the following columns:
 * - `readable_metrics`
   - `JSON`
   - File metrics in human-readable form.
+* - `file_sequence_number`
+  - `BIGINT`
+  - The sequence number of the file, tracking when the file was added.
+* - `data_sequence_number`
+  - `BIGINT`
+  - The data sequence number for the file, used for determining row-level deletes
+    applicability.
+* - `referenced_data_file`
+  - `VARCHAR`
+  - The path of the data file that a delete file applies to. Only set for
+    position delete files and deletion vectors, `NULL` for data files.
+* - `pos`
+  - `BIGINT`
+  - The ordinal position of the file in the manifest.
+* - `manifest_location`
+  - `VARCHAR`
+  - The location of the manifest that contains this file.
+* - `first_row_id`
+  - `BIGINT`
+  - The ID of the first row in the data file.
+* - `content_offset`
+  - `BIGINT`
+  - The offset in the file where the content starts. Only set for deletion
+    vectors, `NULL` for data files.
+* - `content_size_in_bytes`
+  - `BIGINT`
+  - The size of the content in bytes. Only set for deletion vectors, `NULL` for
+    data files.
 :::
 
 ##### `$entries` and `$all_entries` tables

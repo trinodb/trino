@@ -32,6 +32,7 @@ import io.trino.spi.connector.SourcePage;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.TypeManager;
 import org.apache.iceberg.ContentFile;
+import org.apache.iceberg.DeleteFile;
 import org.apache.iceberg.ManifestReader;
 import org.apache.iceberg.MetricsUtil;
 import org.apache.iceberg.PartitionField;
@@ -217,6 +218,22 @@ public final class FilesTablePageSource
                     (blkBldr, value) -> INTEGER.writeLong(blkBldr, value));
             writeValueOrNull(pageBuilder, READABLE_METRICS_COLUMN_NAME, () -> metadataSchema.findField(MetricsUtil.READABLE_METRICS),
                     (blkBldr, value) -> VARCHAR.writeString(blkBldr, readableMetricsToJson(readableMetricsStruct(schema, contentFile, value.type().asStructType()), primitiveFields)));
+            writeValueOrNull(pageBuilder, FilesTable.FILE_SEQUENCE_NUMBER_COLUMN_NAME, contentFile::fileSequenceNumber, BIGINT::writeLong);
+            writeValueOrNull(pageBuilder, FilesTable.DATA_SEQUENCE_NUMBER_COLUMN_NAME, contentFile::dataSequenceNumber, BIGINT::writeLong);
+            if (contentFile instanceof DeleteFile deleteFile) {
+                writeValueOrNull(pageBuilder, FilesTable.REFERENCED_DATA_FILE_COLUMN_NAME, deleteFile::referencedDataFile, VARCHAR::writeString);
+                writeValueOrNull(pageBuilder, FilesTable.CONTENT_OFFSET_COLUMN_NAME, deleteFile::contentOffset, BIGINT::writeLong);
+                writeValueOrNull(pageBuilder, FilesTable.CONTENT_SIZE_IN_BYTES_COLUMN_NAME, deleteFile::contentSizeInBytes, BIGINT::writeLong);
+            }
+            else {
+                // For non-delete files, these columns should be null
+                writeNull(pageBuilder, FilesTable.REFERENCED_DATA_FILE_COLUMN_NAME);
+                writeNull(pageBuilder, FilesTable.CONTENT_OFFSET_COLUMN_NAME);
+                writeNull(pageBuilder, FilesTable.CONTENT_SIZE_IN_BYTES_COLUMN_NAME);
+            }
+            writeValueOrNull(pageBuilder, FilesTable.POS_COLUMN_NAME, contentFile::pos, BIGINT::writeLong);
+            writeValueOrNull(pageBuilder, FilesTable.MANIFEST_LOCATION_COLUMN_NAME, contentFile::manifestLocation, VARCHAR::writeString);
+            writeValueOrNull(pageBuilder, FilesTable.FIRST_ROW_ID_COLUMN_NAME, contentFile::firstRowId, BIGINT::writeLong);
             readTimeNanos += System.nanoTime() - start;
         }
 
@@ -282,6 +299,15 @@ public final class FilesTablePageSource
                 });
             }
         }
+    }
+
+    private void writeNull(PageBuilder pageBuilder, String columnName)
+    {
+        Integer channel = columnNameToIndex.get(columnName);
+        if (channel == null) {
+            return;
+        }
+        pageBuilder.getBlockBuilder(channel).appendNull();
     }
 
     private <T> void writeValueOrNull(PageBuilder pageBuilder, String columnName, Supplier<T> valueSupplier, BiConsumer<BlockBuilder, T> valueWriter)
