@@ -85,7 +85,7 @@ public class HudiBackgroundSplitLoader
         // Signal all generators to stop once partition queue is drained
         splitGenerators.forEach(HudiPartitionInfoLoader::stopRunning);
 
-        var unused = Futures.whenAllComplete(splitGeneratorFutures)
+        var _ = Futures.whenAllComplete(splitGeneratorFutures)
                 .run(asyncQueue::finish, directExecutor());
     }
 }
