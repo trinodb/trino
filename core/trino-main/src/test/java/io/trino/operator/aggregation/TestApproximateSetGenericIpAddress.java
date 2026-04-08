@@ -19,7 +19,7 @@ import io.trino.spi.type.Type;
 
 import java.util.List;
 
-import static io.trino.type.IpAddressType.IPADDRESS;
+import static io.trino.spi.type.IpAddressType.IPADDRESS;
 import static java.lang.Byte.MAX_VALUE;
 import static java.lang.Byte.MIN_VALUE;
 

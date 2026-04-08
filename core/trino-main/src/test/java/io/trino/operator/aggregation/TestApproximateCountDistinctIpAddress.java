@@ -16,7 +16,7 @@ package io.trino.operator.aggregation;
 import io.airlift.slice.Slices;
 import io.trino.spi.type.Type;
 
-import static io.trino.type.IpAddressType.IPADDRESS;
+import static io.trino.spi.type.IpAddressType.IPADDRESS;
 
 public class TestApproximateCountDistinctIpAddress
         extends AbstractTestApproximateCountDistinct

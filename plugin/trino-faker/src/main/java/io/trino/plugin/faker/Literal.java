@@ -23,6 +23,7 @@ import io.airlift.slice.Slices;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Int128;
+import io.trino.spi.type.IpAddressType;
 import io.trino.spi.type.LongTimeWithTimeZone;
 import io.trino.spi.type.LongTimestamp;
 import io.trino.spi.type.LongTimestampWithTimeZone;
@@ -42,7 +43,6 @@ import io.trino.spi.type.VarcharType;
 import io.trino.sql.tree.IntervalField;
 import io.trino.type.IntervalDayTimeType;
 import io.trino.type.IntervalYearMonthType;
-import io.trino.type.IpAddressType;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;

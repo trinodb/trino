@@ -21,7 +21,7 @@ import io.trino.spi.block.ValueBlock;
 import org.junit.jupiter.api.Test;
 
 import static com.google.common.base.Preconditions.checkState;
-import static io.trino.type.IpAddressType.IPADDRESS;
+import static io.trino.spi.type.IpAddressType.IPADDRESS;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestIpAddressType

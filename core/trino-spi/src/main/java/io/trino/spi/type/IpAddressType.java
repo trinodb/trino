@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.type;
+package io.trino.spi.type;
 
 import com.google.common.net.InetAddresses;
 import io.airlift.slice.Slice;
@@ -30,11 +30,6 @@ import io.trino.spi.function.FlatFixedOffset;
 import io.trino.spi.function.FlatVariableOffset;
 import io.trino.spi.function.FlatVariableWidth;
 import io.trino.spi.function.ScalarOperator;
-import io.trino.spi.type.AbstractType;
-import io.trino.spi.type.FixedWidthType;
-import io.trino.spi.type.TypeOperatorDeclaration;
-import io.trino.spi.type.TypeOperators;
-import io.trino.spi.type.TypeSignature;
 
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.VarHandle;
