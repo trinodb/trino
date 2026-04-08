@@ -53,6 +53,7 @@ import io.trino.util.variant.VariantUtil;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Set;
 import java.util.function.Consumer;
 
 import static com.google.common.base.Verify.verify;
@@ -83,22 +84,21 @@ public final class JsonEncodingUtils
     private static final TinyintEncoder TINYINT_ENCODER = new TinyintEncoder();
     private static final VarcharEncoder VARCHAR_ENCODER = new VarcharEncoder();
     private static final VarbinaryEncoder VARBINARY_ENCODER = new VarbinaryEncoder();
-    private static final VariantEncoder VARIANT_ENCODER = new VariantEncoder();
 
     public static TypeEncoder[] createTypeEncoders(Session session, List<Type> types)
     {
         verify(!types.isEmpty(), "Columns must not be empty");
 
-        boolean supportsParametricDateTime = requireNonNull(session, "session is null")
-                .getClientCapabilities()
-                .contains(ClientCapabilities.PARAMETRIC_DATETIME.toString());
+        Set<String> clientCapabilities = session.getClientCapabilities();
+        boolean supportsParametricDateTime = clientCapabilities.contains(ClientCapabilities.PARAMETRIC_DATETIME.toString());
+        boolean supportsVariant = clientCapabilities.contains(ClientCapabilities.VARIANT.toString());
 
         return types.stream()
-                .map(type -> createTypeEncoder(type, supportsParametricDateTime))
+                .map(type -> createTypeEncoder(type, supportsParametricDateTime, supportsVariant))
                 .toArray(TypeEncoder[]::new);
     }
 
-    public static TypeEncoder createTypeEncoder(Type type, boolean supportsParametricDateTime)
+    public static TypeEncoder createTypeEncoder(Type type, boolean supportsParametricDateTime, boolean supportsVariant)
     {
         return switch (type) {
             case BigintType _ -> BIGINT_ENCODER;
@@ -111,13 +111,13 @@ public final class JsonEncodingUtils
             case VarcharType _ -> VARCHAR_ENCODER;
             case VarbinaryType _ -> VARBINARY_ENCODER;
             case CharType charType -> new CharEncoder(charType.getLength());
-            case VariantType _ -> VARIANT_ENCODER;
+            case VariantType _ -> new VariantEncoder(supportsVariant);
             // TODO: add specialized Short/Long decimal encoders
-            case ArrayType arrayType -> new ArrayEncoder(arrayType, createTypeEncoder(arrayType.getElementType(), supportsParametricDateTime));
-            case MapType mapType -> new MapEncoder(mapType, createTypeEncoder(mapType.getValueType(), supportsParametricDateTime));
+            case ArrayType arrayType -> new ArrayEncoder(arrayType, createTypeEncoder(arrayType.getElementType(), supportsParametricDateTime, supportsVariant));
+            case MapType mapType -> new MapEncoder(mapType, createTypeEncoder(mapType.getValueType(), supportsParametricDateTime, supportsVariant));
             case RowType rowType -> new RowEncoder(rowType, rowType.getFieldTypes()
                     .stream()
-                    .map(elementType -> createTypeEncoder(elementType, supportsParametricDateTime))
+                    .map(elementType -> createTypeEncoder(elementType, supportsParametricDateTime, supportsVariant))
                     .toArray(TypeEncoder[]::new));
             case Type _ -> new TypeObjectValueEncoder(type, supportsParametricDateTime);
         };
@@ -321,6 +321,13 @@ public final class JsonEncodingUtils
     private static final class VariantEncoder
             implements TypeEncoder
     {
+        private final boolean supportsVariant;
+
+        public VariantEncoder(boolean supportsVariant)
+        {
+            this.supportsVariant = supportsVariant;
+        }
+
         @Override
         public void encode(JsonGenerator generator, Block block, int position)
                 throws IOException
@@ -331,7 +338,12 @@ public final class JsonEncodingUtils
             }
 
             Variant variant = VARIANT.getObject(block, position);
-            generator.writeRawValue(VariantUtil.asJson(variant).toStringUtf8());
+            String json = VariantUtil.asJson(variant).toStringUtf8();
+            if (supportsVariant) {
+                generator.writeRawValue(json);
+                return;
+            }
+            generator.writeString(json);
         }
     }
 

@@ -14,6 +14,8 @@
 package io.trino.server.protocol;
 
 import com.google.common.collect.ImmutableList;
+import io.trino.Session;
+import io.trino.client.ClientCapabilities;
 import io.trino.client.CloseableIterator;
 import io.trino.client.Column;
 import io.trino.client.QueryDataDecoder;
@@ -25,6 +27,7 @@ import io.trino.server.protocol.spooling.encoding.JsonQueryDataEncoder;
 import io.trino.spi.Page;
 import io.trino.spi.block.ArrayBlockBuilder;
 import io.trino.spi.block.Block;
+import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.MapBlockBuilder;
 import io.trino.spi.block.RowBlockBuilder;
 import io.trino.spi.type.ArrayType;
@@ -85,6 +88,11 @@ public class TestJsonEncodingUtils
     protected QueryDataEncoder createEncoder(List<OutputColumn> columns)
     {
         return new JsonQueryDataEncoder.Factory().create(TEST_SESSION, columns);
+    }
+
+    protected QueryDataEncoder createEncoder(Session session, List<OutputColumn> columns)
+    {
+        return new JsonQueryDataEncoder.Factory().create(session, columns);
     }
 
     @Test
@@ -413,7 +421,7 @@ public class TestJsonEncodingUtils
             throws IOException
     {
         List<TypedColumn> columns = ImmutableList.of(typed("col0", VARIANT));
-        var blockBuilder = VARIANT.createBlockBuilder(null, 3);
+        BlockBuilder blockBuilder = VARIANT.createBlockBuilder(null, 3);
         blockBuilder.appendNull();
         VARIANT.writeObject(blockBuilder, Variant.ofObject(Map.of(
                 utf8Slice("a"), Variant.ofInt(1),
@@ -424,6 +432,82 @@ public class TestJsonEncodingUtils
         Page page = page(block);
         assertThat(roundTrip(columns, page, "[[null],[{\"a\":1,\"b\":[true,null]}],[null]]"))
                 .isEqualTo(column(null, "{\"a\":1,\"b\":[true,null]}", null));
+    }
+
+    @Test
+    public void testVariantJsonFallbackSerialization()
+            throws IOException
+    {
+        List<TypedColumn> columns = ImmutableList.of(typed("col0", VARIANT));
+        BlockBuilder blockBuilder = VARIANT.createBlockBuilder(null, 3);
+        blockBuilder.appendNull();
+        VARIANT.writeObject(blockBuilder, Variant.ofObject(Map.of(
+                utf8Slice("a"), Variant.ofInt(1),
+                utf8Slice("b"), Variant.ofArray(List.of(Variant.ofBoolean(true), Variant.NULL_VALUE)))));
+        VARIANT.writeObject(blockBuilder, Variant.NULL_VALUE);
+        Block block = blockBuilder.build();
+
+        Page page = page(block);
+        assertThat(roundTrip(sessionWithoutCapability(ClientCapabilities.VARIANT), columns, false, page, "[[null],[\"{\\\"a\\\":1,\\\"b\\\":[true,null]}\"],[\"null\"]]"))
+                .isEqualTo(column(null, "{\"a\":1,\"b\":[true,null]}", "null"));
+    }
+
+    @Test
+    public void testVariantJsonFallbackSerializationInRows()
+            throws IOException
+    {
+        RowType rowType = RowType.from(ImmutableList.of(
+                RowType.field("id", BIGINT),
+                RowType.field("payload", VARIANT)));
+        List<TypedColumn> columns = ImmutableList.of(typed("col0", rowType));
+        RowBlockBuilder blockBuilder = rowType.createBlockBuilder(null, 1);
+
+        blockBuilder.buildEntry(builders -> {
+            BIGINT.writeLong(builders.get(0), 1);
+            VARIANT.writeObject(builders.get(1), Variant.ofObject(Map.of(
+                    utf8Slice("a"), Variant.ofInt(1),
+                    utf8Slice("nested"), Variant.ofArray(List.of(Variant.ofBoolean(true), Variant.NULL_VALUE)))));
+        });
+
+        Page page = page(blockBuilder.build());
+        assertThat(roundTrip(sessionWithoutCapability(ClientCapabilities.VARIANT), columns, false, page, "[[[1,\"{\\\"a\\\":1,\\\"nested\\\":[true,null]}\"]]]"))
+                .containsExactly(List.of(Row.builderWithExpectedSize(2)
+                        .addField("id", 1L)
+                        .addField("payload", "{\"a\":1,\"nested\":[true,null]}")
+                        .build()));
+    }
+
+    @Test
+    public void testVariantJsonFallbackSerializationInMaps()
+            throws IOException
+    {
+        MapType mapType = new MapType(VARCHAR, VARIANT, new TypeOperators());
+        List<TypedColumn> columns = ImmutableList.of(typed("col0", mapType));
+        MapBlockBuilder blockBuilder = mapType.createBlockBuilder(null, 3);
+
+        blockBuilder.buildEntry((keyBuilder, valueBuilder) -> {
+            VARCHAR.writeSlice(keyBuilder, utf8Slice("first"));
+            VARIANT.writeObject(valueBuilder, Variant.ofObject(Map.of(
+                    utf8Slice("a"), Variant.ofInt(1))));
+
+            VARCHAR.writeSlice(keyBuilder, utf8Slice("second"));
+            VARIANT.writeObject(valueBuilder, Variant.NULL_VALUE);
+
+            VARCHAR.writeSlice(keyBuilder, utf8Slice("third"));
+            valueBuilder.appendNull();
+        });
+
+        Page page = page(blockBuilder.build());
+        assertThat(roundTrip(
+                sessionWithoutCapability(ClientCapabilities.VARIANT),
+                columns,
+                false,
+                page,
+                "[[{\"first\":\"{\\\"a\\\":1}\",\"second\":\"null\",\"third\":null}]]").getFirst())
+                .containsExactly(map(
+                        entry("first", "{\"a\":1}"),
+                        entry("second", "null"),
+                        entry("third", null)));
     }
 
     @Test
@@ -534,13 +618,25 @@ public class TestJsonEncodingUtils
     protected List<List<Object>> roundTrip(List<TypedColumn> columns, Page page, String expectedJson)
             throws IOException
     {
-        QueryDataEncoder encoder = newEncoder(columns);
+        QueryDataEncoder encoder = newEncoder(TEST_SESSION, columns);
         ByteArrayOutputStream output = new ByteArrayOutputStream();
         encoder.encodeTo(output, List.of(page));
 
         assertThat(output.toString(UTF_8)).isEqualTo(expectedJson);
 
         return ImmutableList.copyOf(parseJson(columns, output.toByteArray()));
+    }
+
+    protected List<List<Object>> roundTrip(Session session, List<TypedColumn> columns, boolean supportsVariant, Page page, String expectedJson)
+            throws IOException
+    {
+        QueryDataEncoder encoder = newEncoder(session, columns);
+        ByteArrayOutputStream output = new ByteArrayOutputStream();
+        encoder.encodeTo(output, List.of(page));
+
+        assertThat(output.toString(UTF_8)).isEqualTo(expectedJson);
+
+        return ImmutableList.copyOf(parseJson(columns, supportsVariant, output.toByteArray()));
     }
 
     protected void assertInvalidJson(List<TypedColumn> columns, String json, String expectedError)
@@ -558,7 +654,16 @@ public class TestJsonEncodingUtils
     protected List<List<Object>> parseJson(List<TypedColumn> columns, byte[] json)
             throws IOException
     {
-        QueryDataDecoder decoder = newDecoder(columns);
+        QueryDataDecoder decoder = newDecoder(columns, true);
+        try (CloseableIterator<List<Object>> iterator = decoder.decode(new ByteArrayInputStream(json), null)) {
+            return ImmutableList.copyOf(iterator);
+        }
+    }
+
+    protected List<List<Object>> parseJson(List<TypedColumn> columns, boolean supportsVariant, byte[] json)
+            throws IOException
+    {
+        QueryDataDecoder decoder = newDecoder(columns, supportsVariant);
         try (CloseableIterator<List<Object>> iterator = decoder.decode(new ByteArrayInputStream(json), null)) {
             return ImmutableList.copyOf(iterator);
         }
@@ -578,23 +683,44 @@ public class TestJsonEncodingUtils
         }
     }
 
-    private QueryDataEncoder newEncoder(List<TypedColumn> types)
+    private QueryDataEncoder newEncoder(Session session, List<TypedColumn> types)
     {
         ImmutableList.Builder<OutputColumn> columns = ImmutableList.builderWithExpectedSize(types.size());
         for (int i = 0; i < types.size(); i++) {
             TypedColumn typedColumn = types.get(i);
             columns.add(new OutputColumn(i, typedColumn.name(), typedColumn.type()));
         }
-        return createEncoder(columns.build());
+        return createEncoder(session, columns.build());
     }
 
-    private QueryDataDecoder newDecoder(List<TypedColumn> types)
+    private QueryDataDecoder newDecoder(List<TypedColumn> types, boolean supportsVariant)
     {
         ImmutableList.Builder<Column> columns = ImmutableList.builderWithExpectedSize(types.size());
         for (TypedColumn typedColumn : types) {
-            columns.add(createColumn(typedColumn.name(), typedColumn.type(), true, true));
+            columns.add(createColumn(typedColumn.name(), typedColumn.type(), true, true, supportsVariant));
         }
         return createDecoder(columns.build());
+    }
+
+    private static Session sessionWithoutCapability(ClientCapabilities capability)
+    {
+        return Session.builder(TEST_SESSION)
+                .setClientCapabilities(TEST_SESSION.getClientCapabilities().stream()
+                        .filter(value -> !value.equals(capability.toString()))
+                        .collect(toImmutableSet()))
+                .build();
+    }
+
+    private static Session sessionWithCapability(ClientCapabilities capability)
+    {
+        return Session.builder(TEST_SESSION)
+                .setClientCapabilities(ImmutableList.<String>builder()
+                        .addAll(TEST_SESSION.getClientCapabilities())
+                        .add(capability.toString())
+                        .build()
+                        .stream()
+                        .collect(toImmutableSet()))
+                .build();
     }
 
     private static Page page(Block... blocks)

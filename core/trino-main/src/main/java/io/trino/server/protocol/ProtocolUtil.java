@@ -58,6 +58,7 @@ import java.util.stream.Collectors;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.execution.QueryState.FAILED;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
+import static io.trino.spi.type.StandardTypes.JSON;
 import static io.trino.spi.type.StandardTypes.NUMBER;
 import static io.trino.spi.type.StandardTypes.ROW;
 import static io.trino.spi.type.StandardTypes.TIME;
@@ -65,6 +66,7 @@ import static io.trino.spi.type.StandardTypes.TIMESTAMP;
 import static io.trino.spi.type.StandardTypes.TIMESTAMP_WITH_TIME_ZONE;
 import static io.trino.spi.type.StandardTypes.TIME_WITH_TIME_ZONE;
 import static io.trino.spi.type.StandardTypes.VARCHAR;
+import static io.trino.spi.type.StandardTypes.VARIANT;
 import static io.trino.util.Failures.toFailure;
 import static java.lang.String.format;
 import static java.util.HashSet.newHashSet;
@@ -76,14 +78,14 @@ public final class ProtocolUtil
 
     private ProtocolUtil() {}
 
-    public static Column createColumn(String name, Type type, boolean supportsParametricDateTime, boolean supportsNumberType)
+    public static Column createColumn(String name, Type type, boolean supportsParametricDateTime, boolean supportsNumberType, boolean supportsVariant)
     {
-        String formatted = formatType(TypeSignatureTranslator.toSqlType(type), supportsParametricDateTime, supportsNumberType);
+        String formatted = formatType(TypeSignatureTranslator.toSqlType(type), supportsParametricDateTime, supportsNumberType, supportsVariant);
 
-        return new Column(name, formatted, toClientTypeSignature(type.getTypeSignature(), supportsParametricDateTime, supportsNumberType));
+        return new Column(name, formatted, toClientTypeSignature(type.getTypeSignature(), supportsParametricDateTime, supportsNumberType, supportsVariant));
     }
 
-    private static String formatType(DataType type, boolean supportsParametricDateTime, boolean supportsNumberType)
+    private static String formatType(DataType type, boolean supportsParametricDateTime, boolean supportsNumberType, boolean supportsVariant)
     {
         return switch (type) {
             case DateTimeDataType dataTimeType -> {
@@ -105,11 +107,14 @@ public final class ProtocolUtil
                 yield ExpressionFormatter.formatExpression(type);
             }
             case RowDataType rowDataType -> rowDataType.getFields().stream()
-                    .map(field -> field.getName().map(name -> name + " ").orElse("") + formatType(field.getType(), supportsParametricDateTime, supportsNumberType))
+                    .map(field -> field.getName().map(name -> name + " ").orElse("") + formatType(field.getType(), supportsParametricDateTime, supportsNumberType, supportsVariant))
                     .collect(Collectors.joining(", ", ROW + "(", ")"));
             case GenericDataType dataType -> {
                 if (!supportsNumberType && dataType.getName().getValue().equalsIgnoreCase(NUMBER)) {
                     yield VARCHAR;
+                }
+                if (!supportsVariant && dataType.getName().getValue().equalsIgnoreCase(VARIANT)) {
+                    yield JSON;
                 }
                 if (dataType.getArguments().isEmpty()) {
                     yield dataType.getName().getValue();
@@ -121,7 +126,7 @@ public final class ProtocolUtil
                                 return numericParameter.getValue();
                             }
                             if (parameter instanceof io.trino.sql.tree.TypeParameter typeParameter) {
-                                return formatType(typeParameter.getValue(), supportsParametricDateTime, supportsNumberType);
+                                return formatType(typeParameter.getValue(), supportsParametricDateTime, supportsNumberType, supportsVariant);
                             }
                             throw new IllegalArgumentException("Unsupported parameter type: " + parameter.getClass().getName());
                         })
@@ -131,7 +136,7 @@ public final class ProtocolUtil
         };
     }
 
-    private static ClientTypeSignature toClientTypeSignature(TypeSignature signature, boolean supportsParametricDateTime, boolean supportsNumberType)
+    private static ClientTypeSignature toClientTypeSignature(TypeSignature signature, boolean supportsParametricDateTime, boolean supportsNumberType, boolean supportsVariant)
     {
         if (!supportsParametricDateTime) {
             if (signature.getBase().equalsIgnoreCase(TIMESTAMP)) {
@@ -150,22 +155,25 @@ public final class ProtocolUtil
         if (!supportsNumberType && signature.getBase().equalsIgnoreCase(NUMBER)) {
             return new ClientTypeSignature(VARCHAR);
         }
+        if (!supportsVariant && signature.getBase().equalsIgnoreCase(VARIANT)) {
+            return new ClientTypeSignature(JSON);
+        }
 
         return new ClientTypeSignature(signature.getBase(), signature.getParameters().stream()
-                .map(parameter -> toClientTypeSignatureParameter(signature.getBase(), parameter, supportsParametricDateTime, supportsNumberType))
+                .map(parameter -> toClientTypeSignatureParameter(signature.getBase(), parameter, supportsParametricDateTime, supportsNumberType, supportsVariant))
                 .collect(toImmutableList()));
     }
 
-    private static ClientTypeSignatureParameter toClientTypeSignatureParameter(String base, TypeParameter parameter, boolean supportsParametricDateTime, boolean supportsNumberType)
+    private static ClientTypeSignatureParameter toClientTypeSignatureParameter(String base, TypeParameter parameter, boolean supportsParametricDateTime, boolean supportsNumberType, boolean supportsVariant)
     {
         return switch (parameter) {
             case TypeParameter.Type(Optional<String> name, TypeSignature type) -> {
                 if (base.equalsIgnoreCase(ROW)) { // for backward compatibility with old clients, which expect NAMED_TYPE for row fields
                     yield ClientTypeSignatureParameter.ofNamedType(new NamedClientTypeSignature(
                             name.map(RowFieldName::new),
-                            toClientTypeSignature(type, supportsParametricDateTime, supportsNumberType)));
+                            toClientTypeSignature(type, supportsParametricDateTime, supportsNumberType, supportsVariant)));
                 }
-                yield ClientTypeSignatureParameter.ofType(toClientTypeSignature(type, supportsParametricDateTime, supportsNumberType));
+                yield ClientTypeSignatureParameter.ofType(toClientTypeSignature(type, supportsParametricDateTime, supportsNumberType, supportsVariant));
             }
             case TypeParameter.Numeric number -> ClientTypeSignatureParameter.ofLong(number.value());
             case TypeParameter.Variable _ -> throw new IllegalArgumentException("Unsupported parameter kind: " + parameter);
