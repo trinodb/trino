@@ -161,4 +161,64 @@ public class TestForwardingFileIo
             deleteRecursively(tempDir, ALLOW_INSECURE);
         }
     }
+
+    @Test
+    public void testLongestPrefixRoutingAndFallback()
+            throws Exception
+    {
+        Path tempDir = Files.createTempDirectory("test_forwarding_fileio_prefix_routing");
+        Path baseRoot = tempDir.resolve("base");
+        Path prefixARoot = tempDir.resolve("prefix-a");
+        Path prefixBRoot = tempDir.resolve("prefix-b");
+        Files.createDirectories(baseRoot);
+        Files.createDirectories(prefixARoot);
+        Files.createDirectories(prefixBRoot);
+
+        Files.createDirectories(baseRoot.resolve("other"));
+        Files.writeString(baseRoot.resolve("other/fallback.txt"), "ccc");
+        Files.createDirectories(prefixARoot.resolve("bucket"));
+        Files.writeString(prefixARoot.resolve("bucket/data.txt"), "a");
+        Files.createDirectories(prefixBRoot.resolve("bucket/warehouse"));
+        Files.writeString(prefixBRoot.resolve("bucket/warehouse/data.txt"), "bb");
+
+        LocalFileSystemFactory baseFactory = new LocalFileSystemFactory(baseRoot);
+        LocalFileSystemFactory prefixAFactory = new LocalFileSystemFactory(prefixARoot);
+        LocalFileSystemFactory prefixBFactory = new LocalFileSystemFactory(prefixBRoot);
+        IcebergFileSystemFactory routingFactory = (identity, fileIoProperties) -> {
+            String accessKey = fileIoProperties.get(S3FileIOProperties.ACCESS_KEY_ID);
+            if ("access-a".equals(accessKey)) {
+                return prefixAFactory.create(SESSION);
+            }
+            if ("access-b".equals(accessKey)) {
+                return prefixBFactory.create(SESSION);
+            }
+            throw new IllegalArgumentException("Unexpected access key: " + accessKey);
+        };
+
+        try (ForwardingFileIo fileIo = new ForwardingFileIo(
+                baseFactory.create(SESSION),
+                ImmutableMap.of("base.key", "base-value"),
+                true,
+                newDirectExecutorService(),
+                routingFactory,
+                ConnectorIdentity.ofUser("test-user"))) {
+            fileIo.setCredentials(List.of(
+                    StorageCredential.create("file:///bucket/", ImmutableMap.of(
+                            S3FileIOProperties.ACCESS_KEY_ID, "access-a",
+                            S3FileIOProperties.SECRET_ACCESS_KEY, "secret-a",
+                            S3FileIOProperties.SESSION_TOKEN, "token-a")),
+                    StorageCredential.create("file:///bucket/warehouse/", ImmutableMap.of(
+                            S3FileIOProperties.ACCESS_KEY_ID, "access-b",
+                            S3FileIOProperties.SECRET_ACCESS_KEY, "secret-b",
+                            S3FileIOProperties.SESSION_TOKEN, "token-b"))));
+
+            // Longest matching prefix should select the more specific credential filesystem.
+            assertThat(fileIo.newInputFile("file:///bucket/warehouse/data.txt").getLength()).isEqualTo(2);
+            assertThat(fileIo.newInputFile("file:///bucket/data.txt").getLength()).isEqualTo(1);
+            assertThat(fileIo.newInputFile("file:///other/fallback.txt").getLength()).isEqualTo(3);
+        }
+        finally {
+            deleteRecursively(tempDir, ALLOW_INSECURE);
+        }
+    }
 }

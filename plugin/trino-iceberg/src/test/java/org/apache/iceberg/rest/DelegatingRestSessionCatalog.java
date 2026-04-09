@@ -136,6 +136,7 @@ public class DelegatingRestSessionCatalog
                 LoadTableResponse.Builder builder = LoadTableResponse.builder()
                         .withTableMetadata(loadTableResponse.tableMetadata())
                         .addAllConfig(loadTableResponse.config())
+                        .addAllCredentials(loadTableResponse.credentials())
                         .addAllCredentials(credentials);
                 @SuppressWarnings("unchecked")
                 T result = (T) builder.build();
