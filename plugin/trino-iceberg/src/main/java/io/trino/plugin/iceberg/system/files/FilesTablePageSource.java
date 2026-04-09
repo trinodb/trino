@@ -188,77 +188,33 @@ public final class FilesTablePageSource
             long start = System.nanoTime();
             ContentFile<?> contentFile = contentIterator.next();
 
-            // content
             writeValueOrNull(pageBuilder, CONTENT_COLUMN_NAME, () -> contentFile.content().id(), INTEGER::writeInt);
-            // file_path
             writeValueOrNull(pageBuilder, FILE_PATH_COLUMN_NAME, contentFile::location, VARCHAR::writeString);
-            // file_format
             writeValueOrNull(pageBuilder, FILE_FORMAT_COLUMN_NAME, () -> contentFile.format().toString(), VARCHAR::writeString);
-            // spec_id
             writeValueOrNull(pageBuilder, SPEC_ID_COLUMN_NAME, contentFile::specId, INTEGER::writeInt);
-            // partitions
-            if (partitionColumnType.isPresent() && columnNameToIndex.containsKey(FilesTable.PARTITION_COLUMN_NAME)) {
-                PartitionSpec partitionSpec = idToPartitionSpecMapping.get(contentFile.specId());
-                StructLikeWrapperWithFieldIdToIndex partitionStruct = createStructLikeWrapper(partitionSpec.partitionType(), contentFile.partition());
-                List<Type> partitionTypes = partitionTypes(partitionFields, idToTypeMapping);
-                List<? extends Class<?>> partitionColumnClass = partitionTypes.stream()
-                        .map(type -> type.typeId().javaClass())
-                        .collect(toImmutableList());
-                List<io.trino.spi.type.Type> partitionColumnTypes = partitionColumnType.orElseThrow().rowType().getFields().stream()
-                        .map(RowType.Field::getType)
-                        .collect(toImmutableList());
-
-                if (pageBuilder.getBlockBuilder(columnNameToIndex.get(FilesTable.PARTITION_COLUMN_NAME)) instanceof RowBlockBuilder rowBlockBuilder) {
-                    rowBlockBuilder.buildEntry(fields -> {
-                        for (int i = 0; i < partitionColumnTypes.size(); i++) {
-                            io.trino.spi.type.Type trinoType = partitionColumnType.get().rowType().getFields().get(i).getType();
-                            Object value = null;
-                            Integer fieldId = partitionColumnType.get().fieldIds().get(i);
-                            if (partitionStruct.getFieldIdToIndex().containsKey(fieldId)) {
-                                value = convertIcebergValueToTrino(
-                                        partitionTypes.get(i),
-                                        partitionStruct.getStructLikeWrapper().get().get(partitionStruct.getFieldIdToIndex().get(fieldId), partitionColumnClass.get(i)));
-                            }
-                            writeNativeValue(trinoType, fields.get(i), value);
-                        }
-                    });
-                }
-            }
-            // record_count
+            writePartitionColumns(contentFile);
             writeValueOrNull(pageBuilder, RECORD_COUNT_COLUMN_NAME, contentFile::recordCount, BIGINT::writeLong);
-            // file_size_in_bytes
             writeValueOrNull(pageBuilder, FILE_SIZE_IN_BYTES_COLUMN_NAME, contentFile::fileSizeInBytes, BIGINT::writeLong);
-            // column_sizes
             writeValueOrNull(pageBuilder, COLUMN_SIZES_COLUMN_NAME, contentFile::columnSizes,
                     FilesTablePageSource::writeIntegerBigintInMap);
-            // value_counts
             writeValueOrNull(pageBuilder, VALUE_COUNTS_COLUMN_NAME, contentFile::valueCounts,
                     FilesTablePageSource::writeIntegerBigintInMap);
-            // null_value_counts
             writeValueOrNull(pageBuilder, NULL_VALUE_COUNTS_COLUMN_NAME, contentFile::nullValueCounts,
                     FilesTablePageSource::writeIntegerBigintInMap);
-            // nan_value_counts
             writeValueOrNull(pageBuilder, NAN_VALUE_COUNTS_COLUMN_NAME, contentFile::nanValueCounts,
                     FilesTablePageSource::writeIntegerBigintInMap);
-            // lower_bounds
             writeValueOrNull(pageBuilder, LOWER_BOUNDS_COLUMN_NAME, contentFile::lowerBounds,
                     this::writeIntegerVarcharInMap);
-            // upper_bounds
             writeValueOrNull(pageBuilder, UPPER_BOUNDS_COLUMN_NAME, contentFile::upperBounds,
                     this::writeIntegerVarcharInMap);
-            // key_metadata
             writeValueOrNull(pageBuilder, KEY_METADATA_COLUMN_NAME, contentFile::keyMetadata,
                     (blkBldr, value) -> VARBINARY.writeSlice(blkBldr, Slices.wrappedHeapBuffer(value)));
-            // split_offset
             writeValueOrNull(pageBuilder, SPLIT_OFFSETS_COLUMN_NAME, contentFile::splitOffsets,
                     FilesTablePageSource::writeLongInArray);
-            // equality_ids
             writeValueOrNull(pageBuilder, EQUALITY_IDS_COLUMN_NAME, contentFile::equalityFieldIds,
                     FilesTablePageSource::writeIntegerInArray);
-            // sort_order_id
             writeValueOrNull(pageBuilder, SORT_ORDER_ID_COLUMN_NAME, contentFile::sortOrderId,
                     (blkBldr, value) -> INTEGER.writeLong(blkBldr, value));
-            // readable_metrics
             writeValueOrNull(pageBuilder, READABLE_METRICS_COLUMN_NAME, () -> metadataSchema.findField(MetricsUtil.READABLE_METRICS),
                     (blkBldr, value) -> VARCHAR.writeString(blkBldr, readableMetricsToJson(readableMetricsStruct(schema, contentFile, value.type().asStructType()), primitiveFields)));
             readTimeNanos += System.nanoTime() - start;
@@ -294,6 +250,37 @@ public final class FilesTablePageSource
         }
         catch (IOException e) {
             throw new UncheckedIOException(e);
+        }
+    }
+
+    private void writePartitionColumns(ContentFile<?> contentFile)
+    {
+        if (partitionColumnType.isPresent() && columnNameToIndex.containsKey(FilesTable.PARTITION_COLUMN_NAME)) {
+            PartitionSpec partitionSpec = idToPartitionSpecMapping.get(contentFile.specId());
+            StructLikeWrapperWithFieldIdToIndex partitionStruct = createStructLikeWrapper(partitionSpec.partitionType(), contentFile.partition());
+            List<Type> partitionTypes = partitionTypes(partitionFields, idToTypeMapping);
+            List<? extends Class<?>> partitionColumnClass = partitionTypes.stream()
+                    .map(type -> type.typeId().javaClass())
+                    .collect(toImmutableList());
+            List<io.trino.spi.type.Type> partitionColumnTypes = partitionColumnType.orElseThrow().rowType().getFields().stream()
+                    .map(RowType.Field::getType)
+                    .collect(toImmutableList());
+
+            if (pageBuilder.getBlockBuilder(columnNameToIndex.get(FilesTable.PARTITION_COLUMN_NAME)) instanceof RowBlockBuilder rowBlockBuilder) {
+                rowBlockBuilder.buildEntry(fields -> {
+                    for (int i = 0; i < partitionColumnTypes.size(); i++) {
+                        io.trino.spi.type.Type trinoType = partitionColumnType.get().rowType().getFields().get(i).getType();
+                        Object value = null;
+                        Integer fieldId = partitionColumnType.get().fieldIds().get(i);
+                        if (partitionStruct.getFieldIdToIndex().containsKey(fieldId)) {
+                            value = convertIcebergValueToTrino(
+                                    partitionTypes.get(i),
+                                    partitionStruct.getStructLikeWrapper().get().get(partitionStruct.getFieldIdToIndex().get(fieldId), partitionColumnClass.get(i)));
+                        }
+                        writeNativeValue(trinoType, fields.get(i), value);
+                    }
+                });
+            }
         }
     }
 
