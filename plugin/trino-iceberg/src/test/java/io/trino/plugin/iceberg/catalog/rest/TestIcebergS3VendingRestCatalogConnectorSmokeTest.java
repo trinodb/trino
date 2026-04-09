@@ -30,6 +30,7 @@ import io.trino.testing.containers.Minio;
 import io.trino.testing.minio.MinioClient;
 import org.apache.iceberg.BaseTable;
 import org.apache.iceberg.CatalogProperties;
+import org.apache.iceberg.aws.s3.S3FileIOProperties;
 import org.apache.iceberg.catalog.SessionCatalog;
 import org.apache.iceberg.catalog.TableIdentifier;
 import org.apache.iceberg.rest.RESTSessionCatalog;
@@ -46,6 +47,9 @@ import software.amazon.awssdk.services.sts.model.AssumeRoleResponse;
 
 import java.io.IOException;
 import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Optional;
@@ -311,6 +315,33 @@ public class TestIcebergS3VendingRestCatalogConnectorSmokeTest
     {
         assertThatThrownBy(super::testDropTableWithNonExistentTableLocation)
                 .hasMessageMatching("Failed to load table: (.*)");
+    }
+
+    @Test
+    public void testRestFixtureVendsCredentialsViaConfigMap()
+            throws Exception
+    {
+        String tableName = "config_credentials_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " AS SELECT 1 value", 1);
+        try {
+            String schemaName = getSession().getSchema().orElseThrow();
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create("http://" + restCatalogBackendContainer.getRestCatalogEndpoint() + "/v1/namespaces/" + schemaName + "/tables/" + tableName))
+                    .GET()
+                    .build();
+
+            HttpResponse<String> response = HttpClient.newHttpClient().send(request, HttpResponse.BodyHandlers.ofString());
+            assertThat(response.statusCode()).isEqualTo(200);
+            assertThat(response.body())
+                    .contains("\"config\"")
+                    .contains("\"" + S3FileIOProperties.ACCESS_KEY_ID + "\"")
+                    .contains("\"" + S3FileIOProperties.SECRET_ACCESS_KEY + "\"")
+                    .contains("\"" + S3FileIOProperties.SESSION_TOKEN + "\"")
+                    .doesNotContain("\"storage-credentials\"");
+        }
+        finally {
+            assertUpdate("DROP TABLE " + tableName);
+        }
     }
 
     @Override
