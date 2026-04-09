@@ -2020,8 +2020,7 @@ public class LocalExecutionPlanner
                 DynamicFilters.ExtractResult extractDynamicFilterResult = extractDynamicFilters(filterExpression);
                 Expression staticFilter = combineConjuncts(extractDynamicFilterResult.getStaticConjuncts());
                 if (staticFilter.equals(TRUE) && extractDynamicFilterResult.getDynamicConjuncts().isEmpty()) {
-                    // filter node contains only empty dynamic filter, fallback to normal table scan
-                    return visitTableScan(node.getId(), tableScanNode, filterExpression, context);
+                    throw new IllegalStateException("Is this line reachable? %s over %s".formatted(filterExpression, tableScanNode));
                 }
             }
 
