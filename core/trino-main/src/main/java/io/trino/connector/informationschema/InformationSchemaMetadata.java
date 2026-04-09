@@ -34,8 +34,8 @@ import io.trino.spi.connector.ConnectorTableVersion;
 import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.ConstraintApplicationResult;
 import io.trino.spi.connector.LimitApplicationResult;
+import io.trino.spi.connector.RelationColumnsMetadata;
 import io.trino.spi.connector.SchemaTableName;
-import io.trino.spi.connector.SchemaTablePrefix;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.EquatableValueSet;
 import io.trino.spi.predicate.NullableValue;
@@ -43,13 +43,14 @@ import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.SortedRangeSet;
 import io.trino.spi.predicate.TupleDomain;
 
-import java.util.Arrays;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Set;
 import java.util.function.Predicate;
+import java.util.function.UnaryOperator;
 import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -66,6 +67,8 @@ import static io.trino.connector.informationschema.InformationSchemaTable.VIEWS;
 import static io.trino.metadata.MetadataUtil.findColumnMetadata;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
+import static java.util.Arrays.stream;
+import static java.util.Collections.emptyIterator;
 import static java.util.Collections.emptyList;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
@@ -120,7 +123,7 @@ public class InformationSchemaMetadata
         if (schemaName.isPresent() && !schemaName.get().equals(INFORMATION_SCHEMA)) {
             return ImmutableList.of();
         }
-        return Arrays.stream(InformationSchemaTable.values())
+        return stream(InformationSchemaTable.values())
                 .map(InformationSchemaTable::getSchemaTableName)
                 .collect(toImmutableList());
     }
@@ -151,12 +154,21 @@ public class InformationSchemaMetadata
     }
 
     @Override
-    public Map<SchemaTableName, List<ColumnMetadata>> listTableColumns(ConnectorSession session, SchemaTablePrefix prefix)
+    public Iterator<RelationColumnsMetadata> streamRelationColumns(ConnectorSession session, Optional<String> schemaName, UnaryOperator<Set<SchemaTableName>> relationFilter)
     {
-        requireNonNull(prefix, "prefix is null");
-        return Arrays.stream(InformationSchemaTable.values())
-                .filter(table -> prefix.matches(table.getSchemaTableName()))
-                .collect(toImmutableMap(InformationSchemaTable::getSchemaTableName, table -> table.getTableMetadata().getColumns()));
+        if (schemaName.isPresent() && !schemaName.get().equals(INFORMATION_SCHEMA)) {
+            return emptyIterator();
+        }
+
+        Set<SchemaTableName> tables = stream(InformationSchemaTable.values())
+                .map(InformationSchemaTable::getSchemaTableName)
+                .collect(toImmutableSet());
+
+        return relationFilter.apply(tables)
+                .stream()
+                .flatMap(name -> InformationSchemaTable.of(name).stream())
+                .map(table -> RelationColumnsMetadata.forTable(table.getSchemaTableName(), table.getTableMetadata().getColumns()))
+                .iterator();
     }
 
     @Override

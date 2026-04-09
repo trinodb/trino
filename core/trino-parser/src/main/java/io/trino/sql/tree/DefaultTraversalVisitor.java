@@ -119,7 +119,9 @@ public abstract class DefaultTraversalVisitor<C>
     protected Void visitQuery(Query node, C context)
     {
         if (!node.getSessionProperties().isEmpty()) {
-            node.getSessionProperties().forEach(sessionProperty -> process(sessionProperty.getValue(), context));
+            for (SessionProperty sessionProperty : node.getSessionProperties()) {
+                process(sessionProperty.getValue(), context);
+            }
         }
         if (node.getWith().isPresent()) {
             process(node.getWith().get(), context);
