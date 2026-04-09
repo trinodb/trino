@@ -36,15 +36,15 @@ import org.apache.iceberg.io.SupportsStorageCredentials;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.util.ArrayList;
+import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Callable;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.stream.Stream;
 
-import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.util.concurrent.MoreExecutors.newDirectExecutorService;
 import static io.trino.plugin.base.util.ExecutorUtil.processWithAdditionalThreads;
@@ -58,18 +58,15 @@ public class ForwardingFileIo
     private static final int DELETE_BATCH_SIZE = 1000;
     private static final int BATCH_DELETE_PATHS_MESSAGE_LIMIT = 5;
 
-    public static final String TRINO_CATALOG_NAME = "trino.catalog.name";
+    private final TrinoFileSystem fileSystem;
+    private final Map<String, String> properties;
+    private final boolean useFileSizeFromMetadata;
+    private final ExecutorService deleteExecutor;
+    private final IcebergFileSystemFactory storageCredentialFileSystemFactory;
+    private final ConnectorIdentity storageCredentialIdentity;
 
-    private static final ConcurrentHashMap<String, CreationContext> contextRegistry = new ConcurrentHashMap<>();
-    private static final ThreadLocal<ConnectorIdentity> currentIdentity = new ThreadLocal<>();
-
-    private TrinoFileSystem fileSystem;
-    private Map<String, String> properties = ImmutableMap.of();
-    private boolean useFileSizeFromMetadata;
-    private ExecutorService deleteExecutor = newDirectExecutorService();
     private volatile List<StorageCredential> storageCredentials = ImmutableList.of();
-
-    public ForwardingFileIo() {}
+    private volatile Map<String, TrinoFileSystem> prefixedFileSystems = ImmutableMap.of();
 
     @VisibleForTesting
     public ForwardingFileIo(TrinoFileSystem fileSystem, boolean useFileSizeFromMetadata)
@@ -79,21 +76,35 @@ public class ForwardingFileIo
 
     public ForwardingFileIo(TrinoFileSystem fileSystem, Map<String, String> properties, boolean useFileSizeFromMetadata, ExecutorService deleteExecutor)
     {
+        this(fileSystem, properties, useFileSizeFromMetadata, deleteExecutor, null, null);
+    }
+
+    public ForwardingFileIo(
+            TrinoFileSystem fileSystem,
+            Map<String, String> properties,
+            boolean useFileSizeFromMetadata,
+            ExecutorService deleteExecutor,
+            IcebergFileSystemFactory storageCredentialFileSystemFactory,
+            ConnectorIdentity storageCredentialIdentity)
+    {
         this.fileSystem = requireNonNull(fileSystem, "fileSystem is null");
         this.deleteExecutor = requireNonNull(deleteExecutor, "executorService is null");
         this.properties = ImmutableMap.copyOf(requireNonNull(properties, "properties is null"));
         this.useFileSizeFromMetadata = useFileSizeFromMetadata;
+        this.storageCredentialFileSystemFactory = storageCredentialFileSystemFactory;
+        this.storageCredentialIdentity = storageCredentialIdentity;
     }
 
     @Override
     public InputFile newInputFile(String path)
     {
-        return new ForwardingInputFile(fileSystem.newInputFile(Location.of(path)));
+        return new ForwardingInputFile(fileSystemForPath(path).newInputFile(Location.of(path)));
     }
 
     @Override
     public InputFile newInputFile(String path, long length)
     {
+        TrinoFileSystem fileSystem = fileSystemForPath(path);
         if (!useFileSizeFromMetadata) {
             return new ForwardingInputFile(fileSystem.newInputFile(Location.of(path)));
         }
@@ -104,14 +115,14 @@ public class ForwardingFileIo
     @Override
     public OutputFile newOutputFile(String path)
     {
-        return new ForwardingOutputFile(fileSystem, Location.of(path));
+        return new ForwardingOutputFile(fileSystemForPath(path), Location.of(path));
     }
 
     @Override
     public void deleteFile(String path)
     {
         try {
-            fileSystem.deleteFile(Location.of(path));
+            fileSystemForPath(path).deleteFile(Location.of(path));
         }
         catch (IOException e) {
             throw new UncheckedIOException("Failed to delete file: " + path, e);
@@ -174,7 +185,15 @@ public class ForwardingFileIo
     private void deleteBatch(List<String> filesToDelete)
     {
         try {
-            fileSystem.deleteFiles(filesToDelete.stream().map(Location::of).toList());
+            Map<TrinoFileSystem, List<Location>> locationsByFileSystem = new IdentityHashMap<>();
+            for (String path : filesToDelete) {
+                TrinoFileSystem fileSystem = fileSystemForPath(path);
+                locationsByFileSystem.computeIfAbsent(fileSystem, ignored -> new ArrayList<>())
+                        .add(Location.of(path));
+            }
+            for (Map.Entry<TrinoFileSystem, List<Location>> entry : locationsByFileSystem.entrySet()) {
+                entry.getKey().deleteFiles(entry.getValue());
+            }
         }
         catch (IOException e) {
             throw new UncheckedIOException(
@@ -191,22 +210,14 @@ public class ForwardingFileIo
     @Override
     public Map<String, String> properties()
     {
-        List<StorageCredential> credentials = storageCredentials;
-        if (credentials.isEmpty()) {
-            return properties;
-        }
-        ImmutableMap.Builder<String, String> merged = ImmutableMap.builder();
-        merged.putAll(properties);
-        for (StorageCredential credential : credentials) {
-            merged.putAll(credential.config());
-        }
-        return merged.buildKeepingLast();
+        return properties;
     }
 
     @Override
     public void setCredentials(List<StorageCredential> credentials)
     {
-        this.storageCredentials = ImmutableList.copyOf(requireNonNull(credentials, "credentials is null"));
+        storageCredentials = ImmutableList.copyOf(requireNonNull(credentials, "credentials is null"));
+        rebuildPrefixedFileSystems();
     }
 
     @Override
@@ -215,80 +226,44 @@ public class ForwardingFileIo
         return storageCredentials;
     }
 
+    private TrinoFileSystem fileSystemForPath(String path)
+    {
+        TrinoFileSystem matchingFileSystem = fileSystem;
+        int matchingPrefixLength = -1;
+        for (Map.Entry<String, TrinoFileSystem> prefixedFileSystem : prefixedFileSystems.entrySet()) {
+            String prefix = prefixedFileSystem.getKey();
+            if (path.startsWith(prefix) && prefix.length() > matchingPrefixLength) {
+                matchingPrefixLength = prefix.length();
+                matchingFileSystem = prefixedFileSystem.getValue();
+            }
+        }
+        return matchingFileSystem;
+    }
+
+    private void rebuildPrefixedFileSystems()
+    {
+        if (storageCredentials.isEmpty() || storageCredentialFileSystemFactory == null || storageCredentialIdentity == null) {
+            prefixedFileSystems = ImmutableMap.of();
+            return;
+        }
+
+        ImmutableMap.Builder<String, TrinoFileSystem> rebuiltFileSystems = ImmutableMap.builder();
+        for (StorageCredential storageCredential : storageCredentials) {
+            Map<String, String> mergedProperties = ImmutableMap.<String, String>builder()
+                    .putAll(properties)
+                    .putAll(storageCredential.config())
+                    .buildKeepingLast();
+            rebuiltFileSystems.put(storageCredential.prefix(), storageCredentialFileSystemFactory.create(storageCredentialIdentity, mergedProperties));
+        }
+        prefixedFileSystems = rebuiltFileSystems.buildKeepingLast();
+    }
+
     @Override
     public void initialize(Map<String, String> properties)
     {
-        String catalogName = properties.get(TRINO_CATALOG_NAME);
-        checkState(catalogName != null, "ForwardingFileIo requires '%s' property for initialization", TRINO_CATALOG_NAME);
-        CreationContext context = contextRegistry.get(catalogName);
-        checkState(context != null, "No creation context registered for catalog: %s", catalogName);
-
-        ConnectorIdentity identity = currentIdentity.get();
-        if (identity == null) {
-            // During RESTSessionCatalog.initialize(), no user session exists yet.
-            // Use a default identity for catalog-level operations.
-            identity = ConnectorIdentity.ofUser("trino");
-        }
-
-        this.properties = ImmutableMap.copyOf(requireNonNull(properties, "properties is null"));
-        // Use merged properties (base + storage credentials) so that the file system factory
-        // can see vended credentials like s3.access-key-id from storage-credentials
-        this.fileSystem = context.fileSystemFactory().create(identity, properties());
-        this.useFileSizeFromMetadata = true;
-        this.deleteExecutor = context.deleteExecutor();
-    }
-
-    public static void registerContext(String catalogName, IcebergFileSystemFactory fileSystemFactory, ExecutorService deleteExecutor)
-    {
-        requireNonNull(catalogName, "catalogName is null");
-        contextRegistry.put(catalogName, new CreationContext(
-                requireNonNull(fileSystemFactory, "fileSystemFactory is null"),
-                requireNonNull(deleteExecutor, "deleteExecutor is null")));
-    }
-
-    public static void deregisterContext(String catalogName)
-    {
-        contextRegistry.remove(requireNonNull(catalogName, "catalogName is null"));
-    }
-
-    public static IdentityScope withIdentity(ConnectorIdentity identity)
-    {
-        ConnectorIdentity previous = currentIdentity.get();
-        currentIdentity.set(requireNonNull(identity, "identity is null"));
-        return new IdentityScope(previous);
-    }
-
-    public static final class IdentityScope
-            implements AutoCloseable
-    {
-        private final ConnectorIdentity previous;
-
-        private IdentityScope(ConnectorIdentity previous)
-        {
-            this.previous = previous;
-        }
-
-        @Override
-        public void close()
-        {
-            if (previous == null) {
-                currentIdentity.remove();
-            }
-            else {
-                currentIdentity.set(previous);
-            }
-        }
+        throw new UnsupportedOperationException("ForwardingFileIO does not support initialization by properties");
     }
 
     @Override
     public void close() {}
-
-    private record CreationContext(IcebergFileSystemFactory fileSystemFactory, ExecutorService deleteExecutor)
-    {
-        CreationContext
-        {
-            requireNonNull(fileSystemFactory, "fileSystemFactory is null");
-            requireNonNull(deleteExecutor, "deleteExecutor is null");
-        }
-    }
 }

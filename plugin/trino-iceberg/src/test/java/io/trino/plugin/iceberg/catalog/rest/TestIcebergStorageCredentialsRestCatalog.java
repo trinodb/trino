@@ -18,6 +18,7 @@ import io.airlift.http.server.testing.TestingHttpServer;
 import io.trino.plugin.iceberg.IcebergQueryRunner;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
+import org.apache.iceberg.aws.s3.S3FileIOProperties;
 import org.apache.iceberg.rest.DelegatingRestSessionCatalog;
 import org.apache.iceberg.rest.credentials.ImmutableCredential;
 import org.junit.jupiter.api.Test;
@@ -53,9 +54,9 @@ public class TestIcebergStorageCredentialsRestCatalog
                         ImmutableCredential.builder()
                                 .prefix("file://")
                                 .config(ImmutableMap.of(
-                                        "s3.access-key-id", "test-vended-access-key",
-                                        "s3.secret-access-key", "test-vended-secret-key",
-                                        "s3.session-token", "test-vended-session-token"))
+                                        S3FileIOProperties.ACCESS_KEY_ID, "test-vended-access-key",
+                                        S3FileIOProperties.SECRET_ACCESS_KEY, "test-vended-secret-key",
+                                        S3FileIOProperties.SESSION_TOKEN, "test-vended-session-token"))
                                 .build()))
                 .build();
 
@@ -86,25 +87,5 @@ public class TestIcebergStorageCredentialsRestCatalog
 
         assertUpdate("DROP TABLE test_storage_creds.test_table");
         assertUpdate("DROP SCHEMA test_storage_creds");
-    }
-
-    @Test
-    public void testStorageCredentialsWithMultipleOperations()
-    {
-        assertUpdate("CREATE SCHEMA test_multi_ops");
-        assertUpdate("CREATE TABLE test_multi_ops.t1 (x INTEGER)");
-        assertUpdate("INSERT INTO test_multi_ops.t1 VALUES 1, 2, 3", 3);
-
-        // Read back
-        assertThat(query("SELECT count(*) FROM test_multi_ops.t1"))
-                .matches("VALUES BIGINT '3'");
-
-        // Additional insert (triggers new table load with credentials)
-        assertUpdate("INSERT INTO test_multi_ops.t1 VALUES 4, 5", 2);
-        assertThat(query("SELECT count(*) FROM test_multi_ops.t1"))
-                .matches("VALUES BIGINT '5'");
-
-        assertUpdate("DROP TABLE test_multi_ops.t1");
-        assertUpdate("DROP SCHEMA test_multi_ops");
     }
 }

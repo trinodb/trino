@@ -16,7 +16,9 @@ package io.trino.plugin.iceberg.fileio;
 import com.google.common.collect.ImmutableMap;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.local.LocalFileSystemFactory;
+import io.trino.plugin.iceberg.IcebergFileSystemFactory;
 import io.trino.spi.security.ConnectorIdentity;
+import org.apache.iceberg.aws.s3.S3FileIOProperties;
 import org.apache.iceberg.io.FileIO;
 import org.apache.iceberg.io.StorageCredential;
 import org.apache.iceberg.io.SupportsBulkOperations;
@@ -25,7 +27,9 @@ import org.junit.jupiter.api.Test;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
@@ -70,129 +74,91 @@ public class TestForwardingFileIo
     }
 
     @Test
-    public void testStorageCredentialsMergedIntoProperties()
+    public void testStorageCredentialsRemainSeparateFromProperties()
+            throws Exception
     {
-        try (ForwardingFileIo fileIo = new ForwardingFileIo(
-                new LocalFileSystemFactory(Path.of(System.getProperty("java.io.tmpdir"))).create(SESSION),
-                ImmutableMap.of("base.key", "base.value"),
-                true,
-                newDirectExecutorService())) {
-            // initially no credentials
-            assertThat(fileIo.credentials()).isEmpty();
-            assertThat(fileIo.properties()).containsExactlyEntriesOf(ImmutableMap.of("base.key", "base.value"));
-
-            // set storage credentials — config entries should appear in properties
-            List<StorageCredential> credentials = List.of(
-                    StorageCredential.create("s3://bucket/", ImmutableMap.of(
-                            "s3.access-key-id", "test-access-key",
-                            "s3.secret-access-key", "test-secret-key",
-                            "s3.session-token", "test-session-token")),
-                    StorageCredential.create("gs://bucket/", ImmutableMap.of(
-                            "gcs.oauth2.token", "test-gcs-token")));
-            fileIo.setCredentials(credentials);
-
-            assertThat(fileIo.credentials()).isEqualTo(credentials);
-            assertThat(fileIo.properties())
-                    .containsEntry("base.key", "base.value")
-                    .containsEntry("s3.access-key-id", "test-access-key")
-                    .containsEntry("s3.secret-access-key", "test-secret-key")
-                    .containsEntry("s3.session-token", "test-session-token")
-                    .containsEntry("gcs.oauth2.token", "test-gcs-token");
-        }
-    }
-
-    @Test
-    public void testStorageCredentialsTakePrecedenceOverBaseProperties()
-    {
-        try (ForwardingFileIo fileIo = new ForwardingFileIo(
-                new LocalFileSystemFactory(Path.of(System.getProperty("java.io.tmpdir"))).create(SESSION),
-                ImmutableMap.of("s3.access-key-id", "static-key", "unrelated.key", "keep-me"),
-                true,
-                newDirectExecutorService())) {
-            fileIo.setCredentials(List.of(
-                    StorageCredential.create("s3://bucket/", ImmutableMap.of(
-                            "s3.access-key-id", "vended-key"))));
-
-            assertThat(fileIo.properties())
-                    .containsEntry("s3.access-key-id", "vended-key")
-                    .containsEntry("unrelated.key", "keep-me");
-        }
-    }
-
-    @Test
-    public void testEmptyStorageCredentialsRevertToBaseProperties()
-    {
-        try (ForwardingFileIo fileIo = new ForwardingFileIo(
-                new LocalFileSystemFactory(Path.of(System.getProperty("java.io.tmpdir"))).create(SESSION),
-                ImmutableMap.of("base.key", "base.value"),
-                true,
-                newDirectExecutorService())) {
-            fileIo.setCredentials(List.of(
-                    StorageCredential.create("s3://bucket/", ImmutableMap.of(
-                            "s3.access-key-id", "vended-key"))));
-
-            assertThat(fileIo.properties()).containsKey("s3.access-key-id");
-
-            // reset to empty
-            fileIo.setCredentials(List.of());
-
-            assertThat(fileIo.credentials()).isEmpty();
-            assertThat(fileIo.properties()).containsExactlyEntriesOf(ImmutableMap.of("base.key", "base.value"));
-        }
-    }
-
-    @Test
-    public void testInitializeWithRegisteredContext()
-    {
-        String catalogName = "test-init-" + Thread.currentThread().threadId();
-        Path tempDir = Path.of(System.getProperty("java.io.tmpdir"));
+        Path tempDir = Files.createTempDirectory("test_forwarding_fileio_storage_creds");
+        List<Map<String, String>> seenProperties = new ArrayList<>();
         LocalFileSystemFactory localFactory = new LocalFileSystemFactory(tempDir);
-        ForwardingFileIo.registerContext(catalogName,
-                (identity, props) -> localFactory.create(SESSION),
-                newDirectExecutorService());
-        try (ForwardingFileIo.IdentityScope ignored = ForwardingFileIo.withIdentity(ConnectorIdentity.ofUser("test-user"));
-                ForwardingFileIo fileIo = new ForwardingFileIo()) {
-            fileIo.initialize(ImmutableMap.of(
-                    ForwardingFileIo.TRINO_CATALOG_NAME, catalogName,
-                    "base.key", "base.value"));
+        IcebergFileSystemFactory capturingFactory = (identity, fileIoProperties) -> {
+            seenProperties.add(ImmutableMap.copyOf(fileIoProperties));
+            return localFactory.create(SESSION);
+        };
 
-            assertThat(fileIo.properties())
-                    .containsEntry("base.key", "base.value");
+        try (ForwardingFileIo fileIo = new ForwardingFileIo(
+                localFactory.create(SESSION),
+                ImmutableMap.of("base.key", "base-value"),
+                true,
+                newDirectExecutorService(),
+                capturingFactory,
+                ConnectorIdentity.ofUser("test-user"))) {
+            fileIo.setCredentials(List.of(
+                    StorageCredential.create("s3://bucket-a/", ImmutableMap.of(
+                            S3FileIOProperties.ACCESS_KEY_ID, "access-a",
+                            S3FileIOProperties.SECRET_ACCESS_KEY, "secret-a",
+                            S3FileIOProperties.SESSION_TOKEN, "token-a")),
+                    StorageCredential.create("s3://bucket-a/warehouse/", ImmutableMap.of(
+                            S3FileIOProperties.ACCESS_KEY_ID, "access-b",
+                            S3FileIOProperties.SECRET_ACCESS_KEY, "secret-b",
+                            S3FileIOProperties.SESSION_TOKEN, "token-b"))));
+
+            assertThat(fileIo.properties()).containsExactlyEntriesOf(ImmutableMap.of("base.key", "base-value"));
+            assertThat(fileIo.credentials()).hasSize(2);
+            assertThat(seenProperties).hasSize(2);
+            assertThat(seenProperties).contains(ImmutableMap.of(
+                    "base.key", "base-value",
+                    S3FileIOProperties.ACCESS_KEY_ID, "access-a",
+                    S3FileIOProperties.SECRET_ACCESS_KEY, "secret-a",
+                    S3FileIOProperties.SESSION_TOKEN, "token-a"));
+            assertThat(seenProperties).contains(ImmutableMap.of(
+                    "base.key", "base-value",
+                    S3FileIOProperties.ACCESS_KEY_ID, "access-b",
+                    S3FileIOProperties.SECRET_ACCESS_KEY, "secret-b",
+                    S3FileIOProperties.SESSION_TOKEN, "token-b"));
         }
         finally {
-            ForwardingFileIo.deregisterContext(catalogName);
+            deleteRecursively(tempDir, ALLOW_INSECURE);
         }
     }
 
     @Test
-    public void testSetCredentialsThenInitialize()
+    public void testSetCredentialsAfterInitializeRebuildsPrefixFileSystems()
+            throws Exception
     {
-        String catalogName = "test-creds-" + Thread.currentThread().threadId();
-        Path tempDir = Path.of(System.getProperty("java.io.tmpdir"));
+        Path tempDir = Files.createTempDirectory("test_forwarding_fileio_refresh_creds");
+        List<Map<String, String>> seenProperties = new ArrayList<>();
         LocalFileSystemFactory localFactory = new LocalFileSystemFactory(tempDir);
-        ForwardingFileIo.registerContext(catalogName,
-                (identity, props) -> localFactory.create(SESSION),
-                newDirectExecutorService());
-        try (ForwardingFileIo.IdentityScope ignored = ForwardingFileIo.withIdentity(ConnectorIdentity.ofUser("test-user"));
-                ForwardingFileIo fileIo = new ForwardingFileIo()) {
-            // CatalogUtil.loadFileIO calls setCredentials BEFORE initialize
-            List<StorageCredential> credentials = List.of(
-                    StorageCredential.create("s3://bucket/", ImmutableMap.of(
-                            "s3.access-key-id", "vended-key",
-                            "s3.secret-access-key", "vended-secret")));
-            fileIo.setCredentials(credentials);
-            fileIo.initialize(ImmutableMap.of(
-                    ForwardingFileIo.TRINO_CATALOG_NAME, catalogName,
-                    "s3.access-key-id", "static-key"));
+        IcebergFileSystemFactory capturingFactory = (identity, fileIoProperties) -> {
+            seenProperties.add(ImmutableMap.copyOf(fileIoProperties));
+            return localFactory.create(SESSION);
+        };
 
-            // storage credentials take precedence over base properties
-            assertThat(fileIo.properties())
-                    .containsEntry("s3.access-key-id", "vended-key")
-                    .containsEntry("s3.secret-access-key", "vended-secret");
-            assertThat(fileIo.credentials()).isEqualTo(credentials);
+        try (ForwardingFileIo fileIo = new ForwardingFileIo(
+                localFactory.create(SESSION),
+                ImmutableMap.of("base.key", "base-value"),
+                true,
+                newDirectExecutorService(),
+                capturingFactory,
+                ConnectorIdentity.ofUser("test-user"))) {
+            fileIo.setCredentials(List.of(
+                    StorageCredential.create("s3://bucket-a/", ImmutableMap.of(
+                            S3FileIOProperties.ACCESS_KEY_ID, "access-a",
+                            S3FileIOProperties.SECRET_ACCESS_KEY, "secret-a",
+                            S3FileIOProperties.SESSION_TOKEN, "token-a"))));
+            assertThat(seenProperties).hasSize(1);
+            assertThat(seenProperties.get(0)).containsEntry(S3FileIOProperties.ACCESS_KEY_ID, "access-a");
+
+            fileIo.setCredentials(List.of(
+                    StorageCredential.create("s3://bucket-b/", ImmutableMap.of(
+                            S3FileIOProperties.ACCESS_KEY_ID, "access-b",
+                            S3FileIOProperties.SECRET_ACCESS_KEY, "secret-b",
+                            S3FileIOProperties.SESSION_TOKEN, "token-b"))));
+
+            assertThat(seenProperties).hasSize(2);
+            assertThat(seenProperties.get(1)).containsEntry(S3FileIOProperties.ACCESS_KEY_ID, "access-b");
         }
         finally {
-            ForwardingFileIo.deregisterContext(catalogName);
+            deleteRecursively(tempDir, ALLOW_INSECURE);
         }
     }
 }

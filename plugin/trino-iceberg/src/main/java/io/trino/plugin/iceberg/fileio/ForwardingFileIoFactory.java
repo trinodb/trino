@@ -17,6 +17,8 @@ import com.google.common.collect.ImmutableMap;
 import com.google.inject.Inject;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.plugin.iceberg.ForIcebergFileDelete;
+import io.trino.plugin.iceberg.IcebergFileSystemFactory;
+import io.trino.spi.security.ConnectorIdentity;
 import org.apache.iceberg.io.FileIO;
 
 import java.util.Map;
@@ -47,5 +49,21 @@ public class ForwardingFileIoFactory
     public FileIO create(TrinoFileSystem fileSystem, boolean useFileSizeFromMetadata, Map<String, String> properties)
     {
         return new ForwardingFileIo(fileSystem, properties, useFileSizeFromMetadata, deleteExecutor);
+    }
+
+    public FileIO create(
+            TrinoFileSystem fileSystem,
+            boolean useFileSizeFromMetadata,
+            Map<String, String> properties,
+            IcebergFileSystemFactory storageCredentialFileSystemFactory,
+            ConnectorIdentity storageCredentialIdentity)
+    {
+        return new ForwardingFileIo(
+                fileSystem,
+                properties,
+                useFileSizeFromMetadata,
+                deleteExecutor,
+                storageCredentialFileSystemFactory,
+                storageCredentialIdentity);
     }
 }
