@@ -394,6 +394,29 @@
         </dependency>
 
         <dependency>
+            <groupId>com.google.cloud</groupId>
+            <artifactId>google-cloud-kms</artifactId>
+            <scope>runtime</scope>
+            <exclusions>
+                <exclusion>
+                    <groupId>com.google.guava</groupId>
+                    <artifactId>listenablefuture</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>javax.annotation</groupId>
+                    <artifactId>javax.annotation-api</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+
+        <dependency>
+            <groupId>com.google.cloud.gcs.analytics</groupId>
+            <artifactId>gcs-analytics-core</artifactId>
+            <version>1.3.0</version>
+            <scope>runtime</scope>
+        </dependency>
+
+        <dependency>
             <!-- Docs promise that PostgreSQL driver will be on the classpath, for JDBC catalog's sake-->
             <groupId>org.postgresql</groupId>
             <artifactId>postgresql</artifactId>
@@ -816,6 +839,16 @@
                         <ignoredClassPattern>org.conscrypt.*</ignoredClassPattern>
                     </ignoredClassPatterns>
                 </configuration>
+            </plugin>
+            <plugin>
+                <artifactId>maven-jar-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>test-jar</goal>
+                        </goals>
+                    </execution>
+                </executions>
             </plugin>
         </plugins>
     </build>

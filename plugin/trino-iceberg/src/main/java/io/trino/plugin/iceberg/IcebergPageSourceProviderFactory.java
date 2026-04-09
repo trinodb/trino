@@ -20,6 +20,7 @@ import io.trino.parquet.cache.ParquetFooterCache;
 import io.trino.plugin.base.metrics.FileFormatDataSourceStats;
 import io.trino.plugin.hive.orc.OrcReaderConfig;
 import io.trino.plugin.hive.parquet.ParquetReaderConfig;
+import io.trino.plugin.iceberg.encryption.EncryptionManagerFactory;
 import io.trino.plugin.iceberg.fileio.ForwardingFileIoFactory;
 import io.trino.spi.BlocksHashFactory;
 import io.trino.spi.connector.ConnectorPageSourceProviderFactory;
@@ -40,6 +41,7 @@ public class IcebergPageSourceProviderFactory
     private final TypeManager typeManager;
     private final ParquetFooterCache parquetFooterCache;
     private final Optional<BlocksHashFactory> blocksHashFactory;
+    private final EncryptionManagerFactory encryptionManagerFactory;
 
     @Inject
     public IcebergPageSourceProviderFactory(
@@ -51,7 +53,8 @@ public class IcebergPageSourceProviderFactory
             TypeManager typeManager,
             ParquetFooterCache parquetFooterCache,
             BlocksHashFactory blocksHashFactory,
-            IcebergConfig config)
+            IcebergConfig config,
+            EncryptionManagerFactory encryptionManagerFactory)
     {
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
         this.fileIoFactory = requireNonNull(fileIoFactory, "fileIoFactory is null");
@@ -63,11 +66,12 @@ public class IcebergPageSourceProviderFactory
         this.blocksHashFactory = config.isEqualityDeletesBlocksHashEnabled()
                 ? Optional.of(requireNonNull(blocksHashFactory, "blocksHashFactory is null"))
                 : Optional.empty();
+        this.encryptionManagerFactory = requireNonNull(encryptionManagerFactory, "encryptionManagerFactory is null");
     }
 
     @Override
     public IcebergPageSourceProvider createPageSourceProvider()
     {
-        return new IcebergPageSourceProvider(fileSystemFactory, fileIoFactory, fileFormatDataSourceStats, orcReaderOptions, parquetReaderOptions, typeManager, parquetFooterCache, blocksHashFactory);
+        return new IcebergPageSourceProvider(fileSystemFactory, fileIoFactory, fileFormatDataSourceStats, orcReaderOptions, parquetReaderOptions, typeManager, parquetFooterCache, blocksHashFactory, encryptionManagerFactory);
     }
 }

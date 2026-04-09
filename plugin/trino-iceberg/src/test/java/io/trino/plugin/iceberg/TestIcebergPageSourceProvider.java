@@ -40,6 +40,8 @@ import io.trino.plugin.hive.orc.OrcWriterConfig;
 import io.trino.plugin.hive.parquet.ParquetReaderConfig;
 import io.trino.plugin.hive.parquet.ParquetWriterConfig;
 import io.trino.plugin.iceberg.delete.DeleteFile;
+import io.trino.plugin.iceberg.encryption.DefaultEncryptionManagerFactory;
+import io.trino.plugin.iceberg.encryption.IcebergEncryptionConfig;
 import io.trino.spi.BlocksHashFactory;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
@@ -71,7 +73,6 @@ import java.util.OptionalLong;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.trino.hdfs.HdfsTestUtils.HDFS_ENVIRONMENT;
 import static io.trino.hdfs.HdfsTestUtils.HDFS_FILE_SYSTEM_STATS;
-import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.parquet.ParquetTestUtils.writeParquetFile;
 import static io.trino.plugin.iceberg.ColumnIdentity.TypeCategory.PRIMITIVE;
 import static io.trino.plugin.iceberg.IcebergFileFormat.PARQUET;
@@ -134,6 +135,7 @@ class TestIcebergPageSourceProvider
                 OptionalLong.empty(),
                 1L, // dataSequenceNumber
                 OptionalLong.empty(),
+                Optional.empty(),
                 Optional.empty());
 
         IcebergPageSourceProvider provider = createPageSourceProvider();
@@ -143,6 +145,7 @@ class TestIcebergPageSourceProvider
         TestingConnectorSession session = TestingConnectorSession.builder()
                 .setPropertyMetadata(new IcebergSessionProperties(
                         new IcebergConfig(),
+                        new IcebergEncryptionConfig(),
                         ORC_READER_CONFIG,
                         new OrcWriterConfig(),
                         PARQUET_READER_CONFIG,
@@ -170,7 +173,7 @@ class TestIcebergPageSourceProvider
                 OptionalLong.of(0), // dataSequenceNumber
                 OptionalLong.empty(),
                 Optional.empty(),
-                newSimpleAggregatedMemoryContext())) {
+                Optional.empty())) {
             // Memory should still be 0 before reading any pages (lazy loading)
             assertThat(provider.getMemoryUsage()).isEqualTo(0);
 
@@ -283,7 +286,8 @@ class TestIcebergPageSourceProvider
                 PARQUET_READER_CONFIG.toParquetReaderOptions(),
                 TESTING_TYPE_MANAGER,
                 ParquetFooterCache.noop(),
-                Optional.of(blocksHashFactory));
+                Optional.of(blocksHashFactory),
+                new DefaultEncryptionManagerFactory(new IcebergEncryptionConfig()));
     }
 
     private static class TestingParquetFooterCache

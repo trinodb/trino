@@ -37,6 +37,8 @@ import io.trino.plugin.hive.orc.OrcReaderConfig;
 import io.trino.plugin.hive.orc.OrcWriterConfig;
 import io.trino.plugin.hive.parquet.ParquetReaderConfig;
 import io.trino.plugin.hive.parquet.ParquetWriterConfig;
+import io.trino.plugin.iceberg.encryption.DefaultEncryptionManagerFactory;
+import io.trino.plugin.iceberg.encryption.IcebergEncryptionConfig;
 import io.trino.spi.BlocksHashFactory;
 import io.trino.spi.Page;
 import io.trino.spi.SplitWeight;
@@ -159,7 +161,8 @@ public class TestIcebergNodeLocalDynamicSplitPruning
                     TupleDomain.all(),
                     Optional.empty(),
                     OptionalLong.empty(),
-                    OptionalLong.empty());
+                    OptionalLong.empty(),
+                    Optional.empty());
 
             String tablePath = inputFile.location().fileName();
             TableHandle tableHandle = new TableHandle(
@@ -220,7 +223,8 @@ public class TestIcebergNodeLocalDynamicSplitPruning
                     TupleDomain.withColumnDomains(ImmutableMap.of(keyColumnHandle, Domain.singleValue(INTEGER, (long) keyColumnValue))),
                     Optional.empty(),
                     OptionalLong.empty(),
-                    OptionalLong.empty());
+                    OptionalLong.empty(),
+                    Optional.empty());
 
             tableHandle = new TableHandle(
                     TEST_CATALOG_HANDLE,
@@ -331,7 +335,8 @@ public class TestIcebergNodeLocalDynamicSplitPruning
                     TupleDomain.all(),
                     Optional.empty(),
                     OptionalLong.empty(),
-                    OptionalLong.empty());
+                    OptionalLong.empty(),
+                    Optional.empty());
 
             String tablePath = inputFile.location().fileName();
             TableHandle tableHandle = new TableHandle(
@@ -481,7 +486,8 @@ public class TestIcebergNodeLocalDynamicSplitPruning
                     TupleDomain.all(),
                     Optional.empty(),
                     OptionalLong.empty(),
-                    OptionalLong.empty());
+                    OptionalLong.empty(),
+                    Optional.empty());
 
             String tablePath = inputFile.location().fileName();
             // Simulate the situation where `month` column is added at a later phase as partitioning column
@@ -583,7 +589,8 @@ public class TestIcebergNodeLocalDynamicSplitPruning
                 TESTING_TYPE_MANAGER,
                 ParquetFooterCache.noop(),
                 blocksHashFactory,
-                icebergConfig);
+                icebergConfig,
+                new DefaultEncryptionManagerFactory(new IcebergEncryptionConfig()));
         return factory.createPageSourceProvider().createPageSource(
                 transaction,
                 getSession(icebergConfig),
@@ -598,7 +605,7 @@ public class TestIcebergNodeLocalDynamicSplitPruning
     private static TestingConnectorSession getSession(IcebergConfig icebergConfig)
     {
         return TestingConnectorSession.builder()
-                .setPropertyMetadata(new IcebergSessionProperties(icebergConfig, ORC_READER_CONFIG, ORC_WRITER_CONFIG, PARQUET_READER_CONFIG, PARQUET_WRITER_CONFIG).getSessionProperties())
+                .setPropertyMetadata(new IcebergSessionProperties(icebergConfig, new IcebergEncryptionConfig(), ORC_READER_CONFIG, ORC_WRITER_CONFIG, PARQUET_READER_CONFIG, PARQUET_WRITER_CONFIG).getSessionProperties())
                 .build();
     }
 

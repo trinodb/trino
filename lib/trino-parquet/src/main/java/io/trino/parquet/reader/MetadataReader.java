@@ -29,6 +29,7 @@ import io.trino.parquet.crypto.AesCipherUtils;
 import io.trino.parquet.crypto.AesGcmEncryptor;
 import io.trino.parquet.crypto.FileDecryptionContext;
 import io.trino.parquet.crypto.FileDecryptionProperties;
+import io.trino.parquet.crypto.ParquetCryptoException;
 import io.trino.parquet.metadata.FileMetadata;
 import io.trino.parquet.metadata.ParquetMetadata;
 import org.apache.parquet.CorruptStatistics;
@@ -231,12 +232,19 @@ public final class MetadataReader
         }
 
         FileMetaData fileMetaData = readFileMetaData(metadataStream, footerDecryptor, aad);
-        if (!encryptedFooterMode && fileDecryptionProperties.isPresent() && fileMetaData.isSetEncryption_algorithm()) {
-            // footer is not encrypted, but some columns might be encrypted
-            decryptionContext = Optional.of(new FileDecryptionContext(dataSourceId, fileDecryptionProperties.get(), fileMetaData.getEncryption_algorithm(), Optional.ofNullable(fileMetaData.getFooter_signing_key_metadata())));
-            if (fileDecryptionProperties.get().isCheckFooterIntegrity()) {
-                // verify footer integrity
-                verifyFooterIntegrity(dataSourceId, metadataStream, decryptionContext.get(), metadataLength);
+        if (!encryptedFooterMode && fileDecryptionProperties.isPresent()) {
+            if (!fileMetaData.isSetEncryption_algorithm()) {
+                // Plaintext file — detect files that were not encrypted by mistake
+                if (!fileDecryptionProperties.get().isPlaintextFilesAllowed()) {
+                    throw new ParquetCryptoException("Applying decryptor on plaintext file: %s", dataSourceId);
+                }
+            }
+            else {
+                // Footer is not encrypted, but some columns might be encrypted
+                decryptionContext = Optional.of(new FileDecryptionContext(dataSourceId, fileDecryptionProperties.get(), fileMetaData.getEncryption_algorithm(), Optional.ofNullable(fileMetaData.getFooter_signing_key_metadata())));
+                if (fileDecryptionProperties.get().isCheckFooterIntegrity()) {
+                    verifyFooterIntegrity(dataSourceId, metadataStream, decryptionContext.get(), metadataLength);
+                }
             }
         }
 
