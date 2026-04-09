@@ -95,8 +95,8 @@ public class TestRedshiftConnectorTest
     {
         return switch (connectorBehavior) {
             case SUPPORTS_COMMENT_ON_COLUMN,
-                 SUPPORTS_JOIN_PUSHDOWN,
                  SUPPORTS_CANCELLATION,
+                 SUPPORTS_JOIN_PUSHDOWN,
                  SUPPORTS_JOIN_PUSHDOWN_WITH_VARCHAR_EQUALITY -> true;
             case SUPPORTS_ADD_COLUMN_NOT_NULL_CONSTRAINT,
                  SUPPORTS_ADD_COLUMN_WITH_COMMENT,
@@ -111,8 +111,11 @@ public class TestRedshiftConnectorTest
                  SUPPORTS_JOIN_PUSHDOWN_WITH_DISTINCT_FROM,
                  SUPPORTS_JOIN_PUSHDOWN_WITH_FULL_JOIN,
                  SUPPORTS_MAP_TYPE,
+                 SUPPORTS_PREDICATE_ARITHMETIC_EXPRESSION_PUSHDOWN,
                  SUPPORTS_RENAME_TABLE_ACROSS_SCHEMAS,
                  SUPPORTS_ROW_TYPE,
+                 SUPPORTS_ROW_LEVEL_UPDATE,
+                 SUPPORTS_MERGE,
                  SUPPORTS_SET_COLUMN_TYPE -> false;
             default -> super.hasBehavior(connectorBehavior);
         };
