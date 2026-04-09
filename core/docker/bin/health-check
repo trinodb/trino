@@ -2,20 +2,24 @@
 
 set -euo pipefail
 
-function get_property() {
-    grep "^$1=" "$2" | cut -d'=' -f2
+function get_property_value_or_default() {
+  local value
+  if value="$(grep "^$1=" "$2")"; then
+    printf '%s\n' "${value}" | cut -d'=' -f2
+  else
+    # property not found, return default
+    printf '%s\n' "$3"
+  fi
 }
 
 scheme=http
-port=8080
-
 config=/etc/trino/config.properties
 # prefer to use http even if https is enabled
-if [ "$(get_property 'http-server.http.enabled' "$config")" == "false" ]; then
+if [ "$(get_property_value_or_default 'http-server.http.enabled' "$config" "true")" == "false" ]; then
     scheme=https
-    port=$(get_property http-server.https.port "$config")
+    port=$(get_property_value_or_default http-server.https.port "$config" "8443")
 else
-    port=$(get_property http-server.http.port "$config")
+    port=$(get_property_value_or_default http-server.http.port "$config" "8080")
 fi
 
 endpoint="$scheme://localhost:$port/v1/info"
