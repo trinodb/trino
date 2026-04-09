@@ -2019,8 +2019,8 @@ public class LocalExecutionPlanner
             if (node.getSource() instanceof TableScanNode tableScanNode) {
                 DynamicFilters.ExtractResult extractDynamicFilterResult = extractDynamicFilters(filterExpression);
                 Expression staticFilter = combineConjuncts(extractDynamicFilterResult.getStaticConjuncts());
-                if (staticFilter.equals(TRUE) && extractDynamicFilterResult.getDynamicConjuncts().isEmpty()) {
-                    // filter node contains only empty dynamic filter, fallback to normal table scan
+                if (staticFilter.equals(TRUE) && !extractDynamicFilterResult.getDynamicConjuncts().isEmpty()) {
+                    // filter node contains only dynamic filter, fallback to table scan
                     return visitTableScan(node.getId(), tableScanNode, filterExpression, context);
                 }
             }
