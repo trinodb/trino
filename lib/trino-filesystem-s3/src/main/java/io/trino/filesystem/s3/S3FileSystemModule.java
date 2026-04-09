@@ -29,6 +29,7 @@ import java.lang.annotation.Target;
 import java.util.function.Supplier;
 
 import static com.google.inject.Scopes.SINGLETON;
+import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.airlift.http.client.HttpClientBinder.httpClientBinder;
 import static java.lang.annotation.ElementType.FIELD;
@@ -67,6 +68,7 @@ public class S3FileSystemModule
             S3SecurityMappingConfig config = buildConfigObject(S3SecurityMappingConfig.class);
 
             binder.bind(S3SecurityMappingProvider.class).in(SINGLETON);
+            newOptionalBinder(binder, S3CredentialsMapper.class).setBinding().to(S3SecurityMappingProvider.class).in(SINGLETON);
             binder.bind(S3FileSystemLoader.class).in(SINGLETON);
 
             var mappingsBinder = binder.bind(new Key<Supplier<S3SecurityMappings>>() {});
