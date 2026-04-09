@@ -20,6 +20,7 @@ import com.google.inject.Injector;
 import io.airlift.bootstrap.Bootstrap;
 import io.trino.spi.QueryId;
 import io.trino.spi.catalog.CatalogName;
+import io.trino.spi.connector.ColumnSchema;
 import io.trino.spi.connector.ConnectorAccessControl;
 import io.trino.spi.connector.ConnectorSecurityContext;
 import io.trino.spi.connector.ConnectorTransactionHandle;
@@ -395,7 +396,7 @@ public abstract class BaseFileBasedConnectorAccessControlTest
         accessControl.checkCanDeleteFromTable(userGroup1Group2, myTable);
         accessControl.checkCanDropTable(userGroup1Group2, myTable);
         accessControl.checkCanSelectFromColumns(userGroup1Group2, myTable, ImmutableSet.of());
-        assertThat(accessControl.getColumnMask(userGroup1Group2, myTable, "col_a", VARCHAR)).isEqualTo(Optional.empty());
+        assertThat(accessControl.getColumnMasks(userGroup1Group2, myTable, List.of(ColumnSchema.builder().setName("col_a").setType(VARCHAR).build()))).isEmpty();
         assertThat(accessControl.getRowFilters(userGroup1Group2, myTable)).isEqualTo(ImmutableList.of());
 
         assertDenied(() -> accessControl.checkCanCreateTable(userGroup2, myTable, Map.of()));
@@ -403,8 +404,9 @@ public abstract class BaseFileBasedConnectorAccessControlTest
         assertDenied(() -> accessControl.checkCanDeleteFromTable(userGroup2, myTable));
         assertDenied(() -> accessControl.checkCanDropTable(userGroup2, myTable));
         accessControl.checkCanSelectFromColumns(userGroup2, myTable, ImmutableSet.of());
+        ColumnSchema colA = ColumnSchema.builder().setName("col_a").setType(VARCHAR).build();
         assertViewExpressionEquals(
-                accessControl.getColumnMask(userGroup2, myTable, "col_a", VARCHAR).orElseThrow(),
+                accessControl.getColumnMasks(userGroup2, myTable, List.of(colA)).get(colA),
                 ViewExpression.builder()
                         .catalog("test_catalog")
                         .schema("my_schema")
@@ -420,15 +422,14 @@ public abstract class BaseFileBasedConnectorAccessControlTest
         accessControl.checkCanDeleteFromTable(userGroup1Group3, myTable);
         accessControl.checkCanDropTable(userGroup1Group3, myTable);
         accessControl.checkCanSelectFromColumns(userGroup1Group3, myTable, ImmutableSet.of());
-        assertThat(accessControl.getColumnMask(userGroup1Group3, myTable, "col_a", VARCHAR)).isEqualTo(Optional.empty());
-
+        assertThat(accessControl.getColumnMasks(userGroup1Group3, myTable, List.of(ColumnSchema.builder().setName("col_a").setType(VARCHAR).build()))).isEmpty();
         assertDenied(() -> accessControl.checkCanCreateTable(userGroup3, myTable, Map.of()));
         assertDenied(() -> accessControl.checkCanInsertIntoTable(userGroup3, myTable));
         assertDenied(() -> accessControl.checkCanDeleteFromTable(userGroup3, myTable));
         assertDenied(() -> accessControl.checkCanDropTable(userGroup3, myTable));
         accessControl.checkCanSelectFromColumns(userGroup3, myTable, ImmutableSet.of());
         assertViewExpressionEquals(
-                accessControl.getColumnMask(userGroup3, myTable, "col_a", VARCHAR).orElseThrow(),
+                accessControl.getColumnMasks(userGroup3, myTable, List.of(colA)).get(colA),
                 ViewExpression.builder()
                         .catalog("test_catalog")
                         .schema("my_schema")

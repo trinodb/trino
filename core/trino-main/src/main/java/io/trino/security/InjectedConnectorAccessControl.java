@@ -29,7 +29,6 @@ import io.trino.spi.function.SchemaFunctionName;
 import io.trino.spi.security.Privilege;
 import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.security.ViewExpression;
-import io.trino.spi.type.Type;
 
 import java.util.List;
 import java.util.Map;
@@ -572,17 +571,6 @@ public class InjectedConnectorAccessControl
             return ImmutableList.of();
         }
         throw new TrinoException(NOT_SUPPORTED, "Row filtering not supported");
-    }
-
-    @Override
-    public Optional<ViewExpression> getColumnMask(ConnectorSecurityContext context, SchemaTableName tableName, String columnName, Type type)
-    {
-        checkArgument(context == null, "context must be null");
-        ColumnSchema column = ColumnSchema.builder().setName(columnName).setType(type).build();
-        if (accessControl.getColumnMasks(securityContext, new QualifiedObjectName(catalogName, tableName.getSchemaName(), tableName.getTableName()), ImmutableList.of(column)).containsKey(column)) {
-            return Optional.empty();
-        }
-        throw new TrinoException(NOT_SUPPORTED, "Column masking not supported");
     }
 
     @Override

@@ -30,7 +30,6 @@ import io.trino.spi.security.ConnectorIdentity;
 import io.trino.spi.security.Privilege;
 import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.security.ViewExpression;
-import io.trino.spi.type.Type;
 
 import java.util.List;
 import java.util.Map;
@@ -111,7 +110,6 @@ import static io.trino.spi.security.AccessDeniedException.denyShowFunctions;
 import static io.trino.spi.security.AccessDeniedException.denyShowTables;
 import static io.trino.spi.security.AccessDeniedException.denyTruncateTable;
 import static io.trino.spi.security.AccessDeniedException.denyUpdateTableColumns;
-import static java.lang.String.format;
 
 public class FileBasedAccessControl
         implements ConnectorAccessControl
@@ -805,30 +803,6 @@ public class FileBasedAccessControl
                 .stream()
                 .flatMap(Optional::stream)
                 .collect(toImmutableList());
-    }
-
-    @Override
-    public Optional<ViewExpression> getColumnMask(ConnectorSecurityContext context, SchemaTableName tableName, String columnName, Type type)
-    {
-        if (INFORMATION_SCHEMA_NAME.equals(tableName.getSchemaName())) {
-            return Optional.empty();
-        }
-
-        ConnectorIdentity identity = context.getIdentity();
-        List<ViewExpression> masks = tableRules.stream()
-                .filter(rule -> rule.matches(identity.getUser(), identity.getEnabledSystemRoles(), identity.getGroups(), tableName))
-                .map(rule -> rule.getColumnMask(catalogName, tableName.getSchemaName(), columnName))
-                // we return the first one we find
-                .findFirst()
-                .stream()
-                .flatMap(Optional::stream)
-                .toList();
-
-        if (masks.size() > 1) {
-            throw new TrinoException(INVALID_COLUMN_MASK, format("Multiple masks defined for %s.%s", tableName, columnName));
-        }
-
-        return masks.stream().findFirst();
     }
 
     @Override
