@@ -137,7 +137,8 @@ public class TableChangesFunctionProcessor
                 getFileIoProperties(tableCredentials),
                 0,
                 OptionalLong.empty(),
-                functionHandle.nameMappingJson().map(NameMappingParser::fromJson));
+                functionHandle.nameMappingJson().map(NameMappingParser::fromJson),
+                split.parquetFileDecryptionData());
         this.delegateColumnMap = delegateColumnMap;
 
         this.changeTypeIndex = changeTypeIndex;

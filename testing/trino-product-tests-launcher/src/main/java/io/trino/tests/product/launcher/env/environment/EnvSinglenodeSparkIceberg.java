@@ -32,6 +32,7 @@ import java.io.File;
 import static io.trino.tests.product.launcher.docker.ContainerUtil.forSelectedPorts;
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.HADOOP;
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.TESTS;
+import static io.trino.tests.product.launcher.env.EnvironmentContainers.isTrinoContainer;
 import static io.trino.tests.product.launcher.env.EnvironmentDefaults.HADOOP_BASE_IMAGE;
 import static io.trino.tests.product.launcher.env.common.Hadoop.CONTAINER_HADOOP_INIT_D;
 import static java.util.Objects.requireNonNull;
@@ -44,6 +45,14 @@ public class EnvSinglenodeSparkIceberg
     private static final File HIVE_JDBC_PROVIDER = new File("testing/trino-product-tests-launcher/target/hive-jdbc.jar");
 
     private static final int SPARK_THRIFT_PORT = 10213;
+    private static final int LOCALSTACK_PORT = 4566;
+    private static final String LOCALSTACK_CONTAINER = "localstack";
+    private static final String LOCALSTACK_ENDPOINT_URL = "http://" + LOCALSTACK_CONTAINER + ":" + LOCALSTACK_PORT;
+    private static final String AWS_REGION = "us-east-1";
+    private static final String AWS_ACCESS_KEY_ID = "test";
+    private static final String AWS_SECRET_ACCESS_KEY = "test";
+    // Must be kept in sync with dep.iceberg.version in the root pom.xml
+    private static final String ICEBERG_VERSION = "1.10.1";
 
     private final DockerFiles dockerFiles;
     private final PortBinder portBinder;
@@ -70,12 +79,41 @@ public class EnvSinglenodeSparkIceberg
 
         builder.addConnector("iceberg", forHostPath(dockerFiles.getDockerFilesHostPath("conf/environment/singlenode-spark-iceberg/iceberg.properties")));
 
+        builder.configureContainers(container -> {
+            if (isTrinoContainer(container.getLogicalName())) {
+                container
+                        .withEnv("AWS_ACCESS_KEY_ID", AWS_ACCESS_KEY_ID)
+                        .withEnv("AWS_SECRET_ACCESS_KEY", AWS_SECRET_ACCESS_KEY)
+                        .withEnv("AWS_REGION", AWS_REGION)
+                        .withEnv("AWS_ENDPOINT_URL_KMS", LOCALSTACK_ENDPOINT_URL);
+            }
+        });
+
+        builder.addContainer(createLocalStack());
         builder.addContainer(createSpark())
-                .containerDependsOn("spark", HADOOP);
+                .containerDependsOn("spark", HADOOP)
+                .containerDependsOn("spark", LOCALSTACK_CONTAINER);
 
         builder.configureContainer(TESTS, dockerContainer -> dockerContainer
+                .withEnv("AWS_ACCESS_KEY_ID", AWS_ACCESS_KEY_ID)
+                .withEnv("AWS_SECRET_ACCESS_KEY", AWS_SECRET_ACCESS_KEY)
+                .withEnv("AWS_REGION", AWS_REGION)
+                .withEnv("AWS_ENDPOINT_URL_KMS", LOCALSTACK_ENDPOINT_URL)
                 // Binding instead of copying for avoiding OutOfMemoryError https://github.com/testcontainers/testcontainers-java/issues/2863
                 .withFileSystemBind(HIVE_JDBC_PROVIDER.getParent(), "/docker/jdbc", BindMode.READ_ONLY));
+    }
+
+    @SuppressWarnings("resource")
+    private DockerContainer createLocalStack()
+    {
+        DockerContainer container = new DockerContainer("localstack/localstack:4.14.0", LOCALSTACK_CONTAINER)
+                .withEnv("SERVICES", "kms")
+                .withStartupCheckStrategy(new IsRunningStartupCheckStrategy())
+                .waitingFor(forSelectedPorts(LOCALSTACK_PORT));
+
+        portBinder.exposePort(container, LOCALSTACK_PORT);
+
+        return container;
     }
 
     @SuppressWarnings("resource")
@@ -83,6 +121,10 @@ public class EnvSinglenodeSparkIceberg
     {
         DockerContainer container = new DockerContainer("ghcr.io/trinodb/testing/spark4-iceberg:" + hadoopImagesVersion, "spark")
                 .withEnv("HADOOP_USER_NAME", "hive")
+                .withEnv("AWS_ACCESS_KEY_ID", AWS_ACCESS_KEY_ID)
+                .withEnv("AWS_SECRET_ACCESS_KEY", AWS_SECRET_ACCESS_KEY)
+                .withEnv("AWS_REGION", AWS_REGION)
+                .withEnv("AWS_ENDPOINT_URL_KMS", LOCALSTACK_ENDPOINT_URL)
                 .withCopyFileToContainer(
                         forHostPath(dockerFiles.getDockerFilesHostPath("conf/environment/singlenode-spark-iceberg/spark-defaults.conf")),
                         "/spark/conf/spark-defaults.conf")
@@ -94,7 +136,7 @@ public class EnvSinglenodeSparkIceberg
                         "--master", "local[*]",
                         "--class", "org.apache.spark.sql.hive.thriftserver.HiveThriftServer2",
                         "--name", "Thrift JDBC/ODBC Server",
-                        "--packages", "org.apache.spark:spark-avro_2.12:3.2.1",
+                        "--packages", "org.apache.spark:spark-avro_2.12:3.2.1,org.apache.iceberg:iceberg-aws-bundle:" + ICEBERG_VERSION,
                         "--conf", "spark.hive.server2.thrift.port=" + SPARK_THRIFT_PORT,
                         "spark-internal")
                 .withStartupCheckStrategy(new IsRunningStartupCheckStrategy())

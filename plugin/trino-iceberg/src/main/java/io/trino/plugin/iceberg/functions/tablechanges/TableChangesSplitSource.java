@@ -15,6 +15,8 @@ package io.trino.plugin.iceberg.functions.tablechanges;
 
 import com.google.common.io.Closer;
 import io.trino.plugin.iceberg.IcebergFileFormat;
+import io.trino.plugin.iceberg.IcebergSplit.ParquetFileDecryptionData;
+import io.trino.plugin.iceberg.IcebergSplitSource;
 import io.trino.plugin.iceberg.PartitionData;
 import io.trino.spi.SplitWeight;
 import io.trino.spi.TrinoException;
@@ -23,19 +25,23 @@ import io.trino.spi.connector.ConnectorSplitSource;
 import io.trino.spi.type.DateTimeEncoding;
 import org.apache.iceberg.AddedRowsScanTask;
 import org.apache.iceberg.ChangelogScanTask;
+import org.apache.iceberg.ContentFile;
 import org.apache.iceberg.DeletedDataFileScanTask;
 import org.apache.iceberg.IncrementalChangelogScan;
 import org.apache.iceberg.PartitionSpecParser;
 import org.apache.iceberg.SplittableScanTask;
 import org.apache.iceberg.Table;
+import org.apache.iceberg.encryption.EncryptionManager;
 import org.apache.iceberg.io.CloseableIterable;
 import org.apache.iceberg.io.CloseableIterator;
+import org.apache.iceberg.io.FileIO;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 
 import static com.google.common.collect.Iterators.singletonIterator;
@@ -51,6 +57,8 @@ public class TableChangesSplitSource
     private final Table icebergTable;
     private final IncrementalChangelogScan tableScan;
     private final long targetSplitSize;
+    private final FileIO fileIo;
+    private final EncryptionManager encryptionManager;
     private final Closer closer = Closer.create();
 
     private CloseableIterable<ChangelogScanTask> changelogScanIterable;
@@ -64,6 +72,8 @@ public class TableChangesSplitSource
         this.icebergTable = requireNonNull(icebergTable, "table is null");
         this.tableScan = requireNonNull(tableScan, "tableScan is null");
         this.targetSplitSize = tableScan.targetSplitSize();
+        this.fileIo = requireNonNull(icebergTable.io(), "fileIo is null");
+        this.encryptionManager = requireNonNull(icebergTable.encryption(), "encryptionManager is null");
     }
 
     @Override
@@ -153,7 +163,8 @@ public class TableChangesSplitSource
                 IcebergFileFormat.fromIceberg(task.file().format()),
                 PartitionSpecParser.toJson(task.spec()),
                 PartitionData.toJson(task.file().partition()),
-                SplitWeight.standard());
+                SplitWeight.standard(),
+                parquetFileDecryptionData(task.file()));
     }
 
     private TableChangesSplit toSplit(DeletedDataFileScanTask task)
@@ -171,6 +182,18 @@ public class TableChangesSplitSource
                 IcebergFileFormat.fromIceberg(task.file().format()),
                 PartitionSpecParser.toJson(task.spec()),
                 PartitionData.toJson(task.file().partition()),
-                SplitWeight.standard());
+                SplitWeight.standard(),
+                parquetFileDecryptionData(task.file()));
+    }
+
+    private Optional<ParquetFileDecryptionData> parquetFileDecryptionData(ContentFile<?> file)
+    {
+        return IcebergSplitSource.parquetFileDecryptionData(
+                file.format(),
+                file.location(),
+                file.fileSizeInBytes(),
+                file.keyMetadata(),
+                fileIo,
+                encryptionManager);
     }
 }
