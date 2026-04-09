@@ -2013,20 +2013,8 @@ public class LocalExecutionPlanner
         @Override
         public PhysicalOperation visitFilter(FilterNode node, LocalExecutionPlanContext context)
         {
-            PlanNode sourceNode = node.getSource();
-            Expression filterExpression = node.getPredicate();
-
-            if (node.getSource() instanceof TableScanNode tableScanNode) {
-                DynamicFilters.ExtractResult extractDynamicFilterResult = extractDynamicFilters(filterExpression);
-                Expression staticFilter = combineConjuncts(extractDynamicFilterResult.getStaticConjuncts());
-                if (staticFilter.equals(TRUE) && extractDynamicFilterResult.getDynamicConjuncts().isEmpty()) {
-                    // filter node contains only empty dynamic filter, fallback to normal table scan
-                    return visitTableScan(node.getId(), tableScanNode, filterExpression, context);
-                }
-            }
-
             List<Symbol> outputSymbols = node.getOutputSymbols();
-            return visitScanFilterAndProject(context, node.getId(), sourceNode, Optional.of(filterExpression), Assignments.identity(outputSymbols), outputSymbols);
+            return visitScanFilterAndProject(context, node.getId(), node.getSource(), Optional.of(node.getPredicate()), Assignments.identity(outputSymbols), outputSymbols);
         }
 
         @Override
@@ -2187,11 +2175,7 @@ public class LocalExecutionPlanner
         @Override
         public PhysicalOperation visitTableScan(TableScanNode node, LocalExecutionPlanContext context)
         {
-            return visitTableScan(node.getId(), node, TRUE, context);
-        }
-
-        private PhysicalOperation visitTableScan(PlanNodeId planNodeId, TableScanNode node, Expression filterExpression, LocalExecutionPlanContext context)
-        {
+            PlanNodeId planNodeId = node.getId();
             ImmutableList.Builder<ColumnHandle> columns = ImmutableList.builder();
             ImmutableList.Builder<Type> columnTypes = ImmutableList.builder();
             for (Symbol symbol : node.getOutputSymbols()) {
@@ -2199,9 +2183,8 @@ public class LocalExecutionPlanner
                 columnTypes.add(symbol.type());
             }
 
-            DynamicFilter dynamicFilter = getDynamicFilter(node, filterExpression, context);
             Optional<ConnectorTableCredentials> tableCredentials = context.getTaskContext().getTableCredentials(node.getId());
-            OperatorFactory operatorFactory = new TableScanOperatorFactory(context.getNextOperatorId(), planNodeId, node.getId(), pageSourceManager, node.getTable(), tableCredentials, columns.build(), columnTypes.build(), dynamicFilter);
+            OperatorFactory operatorFactory = new TableScanOperatorFactory(context.getNextOperatorId(), planNodeId, node.getId(), pageSourceManager, node.getTable(), tableCredentials, columns.build(), columnTypes.build(), DynamicFilter.EMPTY);
             return new PhysicalOperation(operatorFactory, makeLayout(node));
         }
 
