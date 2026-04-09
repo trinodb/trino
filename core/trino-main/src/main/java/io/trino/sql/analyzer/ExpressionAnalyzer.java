@@ -3967,7 +3967,7 @@ public class ExpressionAnalyzer
         try {
             ExpressionAnalyzer constantAnalyzer = createConstantAnalyzer(plannerContext, accessControl, session, parameters, warningCollector);
             Type literalType = constantAnalyzer.analyze(literal, Scope.create());
-            Object value = evaluateConstant(literal, literalType, plannerContext, session, accessControl);
+            Object value = evaluateConstant(literal, literalType, parameters, plannerContext, session, accessControl);
 
             if (!literalType.equals(columnType)) {
                 checkDefaultColumnValue(session, plannerContext, value, columnType, literalType);

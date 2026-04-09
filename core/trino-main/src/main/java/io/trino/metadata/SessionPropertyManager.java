@@ -228,7 +228,7 @@ public final class SessionPropertyManager
     public static Object evaluatePropertyValue(Expression expression, Type expectedType, Session session, PlannerContext plannerContext, AccessControl accessControl, Map<NodeRef<Parameter>, Expression> parameters)
     {
         Expression rewritten = ExpressionTreeRewriter.rewriteWith(new ParameterRewriter(parameters), expression);
-        Object value = evaluateConstant(rewritten, expectedType, plannerContext, session, accessControl);
+        Object value = evaluateConstant(rewritten, expectedType, parameters, plannerContext, session, accessControl);
 
         // convert to object value type of SQL type
         Block block = writeNativeValue(expectedType, value);

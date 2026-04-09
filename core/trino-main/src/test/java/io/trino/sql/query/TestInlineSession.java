@@ -81,6 +81,9 @@ public class TestInlineSession
         assertThat(assertions.query("WITH SESSION time_zone_id = 'Europe/Warsaw' SELECT current_timezone()"))
                 .matches("VALUES CAST('Europe/Warsaw' AS varchar)");
 
+        assertThat(assertions.query("EXECUTE IMMEDIATE 'WITH SESSION time_zone_id = ? SELECT current_timezone()' USING 'Europe/Warsaw'"))
+                .matches("VALUES CAST('Europe/Warsaw' AS varchar)");
+
         Session session = assertions.sessionBuilder()
                 .setSystemProperty("time_zone_id", "America/Los_Angeles")
                 .build();

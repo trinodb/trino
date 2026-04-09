@@ -2332,7 +2332,7 @@ public abstract class BaseJdbcConnectorTest
             assertUpdate("CALL system.execute('DELETE FROM " + schemaTableName + "')");
             assertQueryReturnsEmptyResult("SELECT * FROM " + schemaTableName);
 
-            assertUpdate("CALL system.execute('DROP TABLE " + schemaTableName + "')");
+            assertUpdate("EXECUTE IMMEDIATE 'CALL system.execute(?)' USING 'DROP TABLE " + schemaTableName + "'");
             assertThat(getQueryRunner().tableExists(getSession(), tableName)).isFalse();
         }
         finally {

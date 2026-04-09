@@ -151,6 +151,7 @@ public class CreateMaterializedViewTask
                     Long milliseconds = (Long) evaluateConstant(
                             expression,
                             type,
+                            parameterLookup,
                             plannerContext,
                             session,
                             accessControl);

@@ -2113,7 +2113,7 @@ class StatementAnalyzer
                 }
             }, expression);
             // currently, only constant arguments are supported
-            Object constantValue = evaluateConstant(inlined, type, plannerContext, session, accessControl);
+            Object constantValue = evaluateConstant(inlined, type, analysis.getParameters(), plannerContext, session, accessControl);
             return new ArgumentAnalysis(
                     ScalarArgument.builder()
                             .type(type)
@@ -3118,7 +3118,7 @@ class StatementAnalyzer
                 throw semanticException(INVALID_ARGUMENTS, samplePercentage, "Sample percentage cannot be NULL");
             }
 
-            Object samplePercentageObject = evaluateConstant(samplePercentage, samplePercentageType, plannerContext, session, accessControl);
+            Object samplePercentageObject = evaluateConstant(samplePercentage, samplePercentageType, analysis.getParameters(), plannerContext, session, accessControl);
             if (samplePercentageObject == null) {
                 throw semanticException(INVALID_ARGUMENTS, samplePercentage, "Sample percentage cannot be NULL");
             }
@@ -5977,6 +5977,7 @@ class StatementAnalyzer
                 value = evaluateConstant(
                         providedValue,
                         BIGINT,
+                        analysis.getParameters(),
                         plannerContext,
                         session,
                         accessControl);

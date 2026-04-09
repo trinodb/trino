@@ -330,6 +330,10 @@ public class TestJdbcConnection
                 statement.execute("SET SESSION join_distribution_type = 'BROADCAST'");
             }
 
+            try (Statement statement = connection.createStatement()) {
+                statement.execute("EXECUTE IMMEDIATE 'SET SESSION join_distribution_type = ?' USING 'BROADCAST'");
+            }
+
             assertThat(listSession(connection))
                     .contains("join_distribution_type|BROADCAST|AUTOMATIC")
                     .contains("exchange_compression_codec|NONE|NONE");

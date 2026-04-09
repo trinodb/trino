@@ -38,26 +38,6 @@ public final class ConstantEvaluator
 {
     private ConstantEvaluator() {}
 
-    /**
-     * @deprecated Use {@link #evaluateConstant(Expression, Type, Map, PlannerContext, Session, AccessControl)} instead to pass parameters explicitly.
-     */
-    @Deprecated // TODO https://github.com/trinodb/trino/issues/28708 Remove after all calls are updated to pass parameters explicitly
-    public static Object evaluateConstant(
-            Expression expression,
-            Type expectedType,
-            PlannerContext plannerContext,
-            Session session,
-            AccessControl accessControl)
-    {
-        return evaluateConstant(
-                expression,
-                expectedType,
-                ImmutableMap.of(),
-                plannerContext,
-                session,
-                accessControl);
-    }
-
     public static Object evaluateConstant(
             Expression expression,
             Type expectedType,

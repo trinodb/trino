@@ -118,6 +118,9 @@ public abstract class DefaultTraversalVisitor<C>
     @Override
     protected Void visitQuery(Query node, C context)
     {
+        if (!node.getSessionProperties().isEmpty()) {
+            node.getSessionProperties().forEach(sessionProperty -> process(sessionProperty.getValue(), context));
+        }
         if (node.getWith().isPresent()) {
             process(node.getWith().get(), context);
         }
@@ -823,6 +826,15 @@ public abstract class DefaultTraversalVisitor<C>
     protected Void visitExplainAnalyze(ExplainAnalyze node, C context)
     {
         process(node.getStatement(), context);
+        return null;
+    }
+
+    @Override
+    protected Void visitCall(Call node, C context)
+    {
+        for (CallArgument argument : node.getArguments()) {
+            process(argument.getValue(), context);
+        }
         return null;
     }
 
