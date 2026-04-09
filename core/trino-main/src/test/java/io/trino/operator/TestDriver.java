@@ -28,7 +28,6 @@ import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorSplit;
-import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.FixedPageSource;
 import io.trino.spi.type.Type;
 import io.trino.split.PageSourceProvider;
@@ -176,8 +175,7 @@ public class TestDriver
                         .build()),
                 TEST_TABLE_HANDLE,
                 Optional.empty(),
-                ImmutableList.of(),
-                DynamicFilter.EMPTY);
+                ImmutableList.of());
 
         PageConsumerOperator sink = createSinkOperator(types);
         Driver driver = Driver.createDriver(driverContext, source, sink);
@@ -583,7 +581,7 @@ public class TestDriver
                 TableHandle table,
                 List<ColumnHandle> columns)
         {
-            super(operatorContext, planNodeId, pageSourceProvider, table, Optional.empty(), columns, DynamicFilter.EMPTY);
+            super(operatorContext, planNodeId, pageSourceProvider, table, Optional.empty(), columns);
         }
 
         @Override
@@ -603,7 +601,7 @@ public class TestDriver
                 TableHandle table,
                 List<ColumnHandle> columns)
         {
-            super(operatorContext, planNodeId, pageSourceProvider, table, Optional.empty(), columns, DynamicFilter.EMPTY);
+            super(operatorContext, planNodeId, pageSourceProvider, table, Optional.empty(), columns);
         }
 
         @Override
@@ -628,7 +626,7 @@ public class TestDriver
                 TableHandle table,
                 List<ColumnHandle> columns)
         {
-            super(operatorContext, planNodeId, pageSourceProvider, table, Optional.empty(), columns, DynamicFilter.EMPTY);
+            super(operatorContext, planNodeId, pageSourceProvider, table, Optional.empty(), columns);
         }
 
         @Override

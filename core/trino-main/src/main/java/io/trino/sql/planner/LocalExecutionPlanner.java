@@ -2184,7 +2184,7 @@ public class LocalExecutionPlanner
             }
 
             Optional<ConnectorTableCredentials> tableCredentials = context.getTaskContext().getTableCredentials(node.getId());
-            OperatorFactory operatorFactory = new TableScanOperatorFactory(context.getNextOperatorId(), planNodeId, node.getId(), pageSourceManager, node.getTable(), tableCredentials, columns.build(), columnTypes.build(), DynamicFilter.EMPTY);
+            OperatorFactory operatorFactory = new TableScanOperatorFactory(context.getNextOperatorId(), planNodeId, node.getId(), pageSourceManager, node.getTable(), tableCredentials, columns.build(), columnTypes.build());
             return new PhysicalOperation(operatorFactory, makeLayout(node));
         }
 

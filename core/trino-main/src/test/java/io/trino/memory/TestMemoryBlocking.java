@@ -29,7 +29,6 @@ import io.trino.operator.TableScanOperator;
 import io.trino.operator.TaskContext;
 import io.trino.spi.QueryId;
 import io.trino.spi.connector.ConnectorSplit;
-import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.FixedPageSource;
 import io.trino.spi.type.Type;
 import io.trino.sql.planner.plan.PlanNodeId;
@@ -109,8 +108,7 @@ public class TestMemoryBlocking
                         .build()),
                 TEST_TABLE_HANDLE,
                 Optional.empty(),
-                ImmutableList.of(),
-                DynamicFilter.EMPTY);
+                ImmutableList.of());
         PageConsumerOperator sink = createSinkOperator(types);
         Driver driver = Driver.createDriver(driverContext, source, sink);
         assertThat(driver.getDriverContext()).isSameAs(driverContext);
