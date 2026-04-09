@@ -2943,13 +2943,12 @@ public class DeltaLakeMetadata
         DeltaLakeTableExecuteHandle executeHandle = (DeltaLakeTableExecuteHandle) tableExecuteHandle;
         switch (executeHandle.procedureId()) {
             case OPTIMIZE:
-                finishOptimize(session, executeHandle, fragments, splitSourceInfo);
-                return ImmutableMap.of();
+                return finishOptimize(session, executeHandle, fragments, splitSourceInfo).toMap();
         }
         throw new IllegalArgumentException("Unknown procedure '" + executeHandle.procedureId() + "'");
     }
 
-    private void finishOptimize(ConnectorSession session, DeltaLakeTableExecuteHandle executeHandle, Collection<Slice> fragments, List<Object> splitSourceInfo)
+    private OptimizeResult finishOptimize(ConnectorSession session, DeltaLakeTableExecuteHandle executeHandle, Collection<Slice> fragments, List<Object> splitSourceInfo)
     {
         DeltaTableOptimizeHandle optimizeHandle = (DeltaTableOptimizeHandle) executeHandle.procedureHandle();
         String tableLocation = executeHandle.tableLocation();
@@ -2958,6 +2957,12 @@ public class DeltaLakeMetadata
         Set<DeltaLakeScannedDataFile> scannedDataFiles = splitSourceInfo.stream()
                 .map(DeltaLakeScannedDataFile.class::cast)
                 .collect(toImmutableSet());
+
+        // delete vector
+        Set<String> filesToDelete = scannedDataFiles.stream()
+                .map(scannedDataFile -> scannedDataFile.deletionVector().map(DeletionVectorEntry::uniqueId))
+                .flatMap(Optional::stream)
+                .collect(Collectors.toSet());
 
         // files to be added
         List<DataFileInfo> dataFileInfos = fragments.stream()
@@ -3001,6 +3006,19 @@ public class DeltaLakeMetadata
                 cleanupFailedWrite(session, optimizeHandle.getCredentialsHandle(), dataFileInfos);
             }
             throw new TrinoException(DELTA_LAKE_BAD_WRITE, "Failed to write Delta Lake transaction log entry", e);
+        }
+        return new OptimizeResult(scannedDataFiles.size(), filesToDelete.size(), dataFileInfos.size());
+    }
+
+    private record OptimizeResult(long rewrittenDataFiles, long removedDeleteFiles, long addedDataFiles)
+    {
+        Map<String, Long> toMap()
+        {
+            return ImmutableMap.<String, Long>builder()
+                    .put("rewritten_data_files_count", rewrittenDataFiles)
+                    .put("removed_delete_files_count", removedDeleteFiles)
+                    .put("added_data_files_count", addedDataFiles)
+                    .buildOrThrow();
         }
     }
 

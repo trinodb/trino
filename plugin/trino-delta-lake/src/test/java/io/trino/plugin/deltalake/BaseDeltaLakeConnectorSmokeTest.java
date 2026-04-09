@@ -1999,7 +1999,8 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
             Set<String> initialFiles = getActiveFiles(tableName);
             assertThat(initialFiles).hasSize(9);
 
-            computeActual(withSingleWriterPerTask(getSession()), "ALTER TABLE " + tableName + " EXECUTE OPTIMIZE");
+            assertUpdate(withSingleWriterPerTask(getSession()), "ALTER TABLE " + tableName + " EXECUTE OPTIMIZE",
+                    "VALUES ('rewritten_data_files_count', 3), ('removed_delete_files_count', 0), ('added_data_files_count', 1)");
 
             assertThat(query("SELECT sum(key), listagg(value, ' ') WITHIN GROUP (ORDER BY value) FROM " + tableName))
                     .matches("VALUES (BIGINT '508', VARCHAR 'ONE Three four one one one tHrEe three two')");
@@ -2008,6 +2009,58 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
             assertThat(updatedFiles)
                     .hasSize(7);
             assertThat(getAllDataFilesFromTableDirectory(tableName)).isEqualTo(union(initialFiles, updatedFiles));
+        }
+        finally {
+            assertUpdate("DROP TABLE " + tableName);
+        }
+    }
+
+    @Test
+    public void testOptimizeWithDeletionVectors()
+    {
+        String tableName = "test_optimize_partitioned_table_" + randomNameSuffix();
+        String tableLocation = getLocationForTable(bucketName, tableName);
+        assertQuerySucceeds(withSingleWriterPerTask(getSession()), "CREATE TABLE " + tableName + " WITH (deletion_vectors_enabled = true, location = '" + tableLocation + "') AS SELECT * FROM tpch.tiny.nation");
+        try {
+            assertQuerySucceeds(withSingleWriterPerTask(getSession()), "INSERT INTO " + tableName + " SELECT * FROM tpch.tiny.nation");
+            assertQuerySucceeds(withSingleWriterPerTask(getSession()), "INSERT INTO " + tableName + " SELECT * FROM tpch.tiny.nation");
+            assertQuerySucceeds(withSingleWriterPerTask(getSession()), "INSERT INTO " + tableName + " SELECT * FROM tpch.tiny.nation");
+            assertQuerySucceeds(withSingleWriterPerTask(getSession()), "INSERT INTO " + tableName + " SELECT * FROM tpch.tiny.nation");
+            assertQuerySucceeds(withSingleWriterPerTask(getSession()), "INSERT INTO " + tableName + " SELECT * FROM tpch.tiny.nation");
+            Set<String> initFile = getActiveFiles(tableName);
+            assertThat(initFile).hasSize(6);
+            assertQuerySucceeds("DELETE FROM " + tableName + " WHERE nationkey < 5");
+            assertUpdate(withSingleWriterPerTask(getSession()),"ALTER TABLE " + tableName + " EXECUTE optimize",
+                    "VALUES ('rewritten_data_files_count', 6), ('removed_delete_files_count', 6), ('added_data_files_count', 1)");
+            assertThat(getActiveFiles(tableName)).hasSize(1);
+        }
+        finally {
+            assertUpdate("DROP TABLE " + tableName);
+        }
+    }
+
+    @Test
+    public void testOptimizeWithPartitionedTableAndDeleteVector()
+    {
+        String tableName = "test_optimize_partitioned_table_" + randomNameSuffix();
+        String tableLocation = getLocationForTable(bucketName, tableName);
+        assertQuerySucceeds(withSingleWriterPerTask(getSession()), "CREATE TABLE " + tableName + " WITH (deletion_vectors_enabled = true, partitioned_by = ARRAY['regionkey'], location = '" + tableLocation + "') AS SELECT nationkey, regionkey FROM tpch.tiny.nation");
+        try {
+            assertQuerySucceeds(withSingleWriterPerTask(getSession()), "INSERT INTO " + tableName + " SELECT nationkey, regionkey FROM tpch.tiny.nation");
+            assertQuerySucceeds(withSingleWriterPerTask(getSession()), "INSERT INTO " + tableName + " SELECT nationkey, regionkey FROM tpch.tiny.nation");
+            assertQuerySucceeds(withSingleWriterPerTask(getSession()), "INSERT INTO " + tableName + " SELECT nationkey, regionkey FROM tpch.tiny.nation");
+            assertQuerySucceeds(withSingleWriterPerTask(getSession()), "INSERT INTO " + tableName + " SELECT nationkey, regionkey FROM tpch.tiny.nation");
+            assertQuerySucceeds(withSingleWriterPerTask(getSession()), "INSERT INTO " + tableName + " SELECT nationkey, regionkey FROM tpch.tiny.nation");
+
+            Set<String> initialFiles = getActiveFiles(tableName);
+            assertThat(initialFiles).hasSize(30);
+            assertQuerySucceeds("DELETE FROM " + tableName + " WHERE nationkey < 5");
+
+            assertUpdate(withSingleWriterPerTask(getSession()), "ALTER TABLE " + tableName + " EXECUTE OPTIMIZE",
+                    "VALUES ('rewritten_data_files_count', 30), ('removed_delete_files_count', 18), ('added_data_files_count', 5)");
+            Set<String> updatedFiles = getActiveFiles(tableName);
+            assertThat(updatedFiles)
+                    .hasSize(5);
         }
         finally {
             assertUpdate("DROP TABLE " + tableName);
