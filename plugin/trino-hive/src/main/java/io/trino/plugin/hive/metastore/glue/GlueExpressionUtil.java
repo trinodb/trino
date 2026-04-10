@@ -149,8 +149,11 @@ public final class GlueExpressionUtil
         }
 
         // Glue throws an exception (e.g. input string: "__HIVE_D" is not an integer)
-        // for column <> '__HIVE_DEFAULT_PARTITION__' or column = '__HIVE_DEFAULT_PARTITION__' expression on numeric types
+        // for column <> '__HIVE_DEFAULT_PARTITION__' or column = '__HIVE_DEFAULT_PARTITION__' expression on numeric types.
         // "IS NULL" operator in the official documentation always returns empty result regardless of the type.
+        // For quoted types (e.g. varchar), the <> expression can be parsed by Glue, but prevents Glue from using
+        // partition indexes efficiently, causing severe performance degradation (planning timeouts).
+        // IS NOT NULL filtering is handled client-side by HivePartitionManager instead.
         // https://docs.aws.amazon.com/glue/latest/dg/aws-glue-api-catalog-partitions.html#aws-glue-api-catalog-partitions-GetPartitions
         if ((domain.getValues().isAll() || domain.isNullAllowed()) && !isQuotedType(domain.getType())) {
             return Optional.empty();
@@ -158,7 +161,7 @@ public final class GlueExpressionUtil
 
         if (domain.getValues().isAll()) {
             verify(!domain.isNullAllowed(), "Unexpected domain: %s", domain);
-            return Optional.of(format("(%s <> '%s')", columnName, NULL_STRING));
+            return Optional.empty();
         }
 
         if (domain.getValues().isNone()) {
