@@ -28,6 +28,7 @@ import io.trino.spi.function.AggregationFunctionMetadata;
 import io.trino.spi.function.AggregationImplementation;
 import io.trino.spi.function.BoundSignature;
 import io.trino.spi.function.CatalogSchemaFunctionName;
+import io.trino.spi.function.FunctionBundle;
 import io.trino.spi.function.FunctionDependencies;
 import io.trino.spi.function.FunctionDependencyDeclaration;
 import io.trino.spi.function.FunctionId;

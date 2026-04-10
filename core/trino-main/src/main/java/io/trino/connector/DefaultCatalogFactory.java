@@ -22,6 +22,7 @@ import io.trino.connector.informationschema.InformationSchemaConnector;
 import io.trino.connector.system.SystemConnector;
 import io.trino.connector.system.SystemTablesProvider;
 import io.trino.execution.scheduler.NodeSchedulerConfig;
+import io.trino.metadata.InternalFunctionBundleFactory;
 import io.trino.metadata.Metadata;
 import io.trino.node.InternalNode;
 import io.trino.node.InternalNodeManager;
@@ -192,7 +193,8 @@ public class DefaultCatalogFactory
                 typeManager,
                 new InternalMetadataProvider(metadata, typeManager),
                 pageSorter,
-                pageIndexerFactory);
+                pageIndexerFactory,
+                new InternalFunctionBundleFactory());
 
         try (ThreadContextClassLoader _ = new ThreadContextClassLoader(connectorFactory.getClass().getClassLoader())) {
             // TODO: connector factory should take CatalogName

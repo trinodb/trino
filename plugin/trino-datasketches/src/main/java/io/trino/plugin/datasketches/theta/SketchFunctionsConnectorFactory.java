@@ -16,6 +16,7 @@ package io.trino.plugin.datasketches.theta;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorContext;
 import io.trino.spi.connector.ConnectorFactory;
+import io.trino.spi.function.FunctionBundle;
 
 import java.util.Map;
 
@@ -31,9 +32,12 @@ public class SketchFunctionsConnectorFactory
     @Override
     public Connector create(String catalogName, Map<String, String> config, ConnectorContext context)
     {
-        SketchFunctions functions = new SketchFunctions();
-        SketchMetadata metadata = new SketchMetadata(functions.getFunctions(), functions);
+        FunctionBundle bundle = context.getFunctionBundleFactory().builder()
+                .functions(Estimate.class)
+                .functions(Union.class)
+                .functions(UnionWithParams.class)
+                .build();
 
-        return new SketchFunctionsConnector(metadata, functions);
+        return new SketchFunctionsConnector(new SketchMetadata(bundle), bundle);
     }
 }

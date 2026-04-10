@@ -20,6 +20,7 @@ import io.trino.operator.scalar.ChoicesSpecializedSqlScalarFunction;
 import io.trino.operator.scalar.SpecializedSqlScalarFunction;
 import io.trino.spi.NodeVersion;
 import io.trino.spi.function.BoundSignature;
+import io.trino.spi.function.FunctionBundle;
 import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.function.ScalarFunction;

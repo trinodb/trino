@@ -254,6 +254,7 @@ import io.trino.operator.window.PercentRankFunction;
 import io.trino.operator.window.RankFunction;
 import io.trino.operator.window.RowNumberFunction;
 import io.trino.spi.NodeVersion;
+import io.trino.spi.function.FunctionBundle;
 import io.trino.spi.type.TypeOperators;
 import io.trino.sql.DynamicFilters;
 import io.trino.type.BigintOperators;

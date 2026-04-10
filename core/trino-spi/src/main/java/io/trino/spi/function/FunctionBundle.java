@@ -11,21 +11,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.metadata;
+package io.trino.spi.function;
 
-import io.trino.spi.function.AggregationFunctionMetadata;
-import io.trino.spi.function.AggregationImplementation;
-import io.trino.spi.function.BoundSignature;
-import io.trino.spi.function.FunctionDependencies;
-import io.trino.spi.function.FunctionDependencyDeclaration;
-import io.trino.spi.function.FunctionId;
-import io.trino.spi.function.FunctionMetadata;
-import io.trino.spi.function.InvocationConvention;
-import io.trino.spi.function.ScalarFunctionImplementation;
-import io.trino.spi.function.WindowFunctionSupplier;
+import io.trino.spi.Unstable;
 
 import java.util.Collection;
 
+@Unstable
 public interface FunctionBundle
 {
     Collection<FunctionMetadata> getFunctions();
@@ -43,4 +35,9 @@ public interface FunctionBundle
     AggregationImplementation getAggregationImplementation(FunctionId functionId, BoundSignature boundSignature, FunctionDependencies functionDependencies);
 
     WindowFunctionSupplier getWindowFunctionSupplier(FunctionId functionId, BoundSignature boundSignature, FunctionDependencies functionDependencies);
+
+    default FunctionProvider toProvider()
+    {
+        return new FunctionBundleProvider(this);
+    }
 }

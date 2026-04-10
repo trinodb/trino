@@ -13,11 +13,11 @@
  */
 package io.trino.plugin.datasketches.theta;
 
-import com.google.common.collect.ImmutableList;
 import io.trino.spi.connector.ConnectorMetadata;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.function.AggregationFunctionMetadata;
 import io.trino.spi.function.BoundSignature;
+import io.trino.spi.function.FunctionBundle;
 import io.trino.spi.function.FunctionDependencyDeclaration;
 import io.trino.spi.function.FunctionId;
 import io.trino.spi.function.FunctionMetadata;
@@ -33,19 +33,17 @@ public class SketchMetadata
 {
     private static final String SCHEMA_NAME = "theta";
 
-    private final List<FunctionMetadata> functions;
-    private final SketchFunctions functionProvider;
+    private final FunctionBundle bundle;
 
-    public SketchMetadata(List<FunctionMetadata> functions, SketchFunctions functionProvider)
+    public SketchMetadata(FunctionBundle bundle)
     {
-        this.functions = ImmutableList.copyOf(requireNonNull(functions, "functions is null"));
-        this.functionProvider = requireNonNull(functionProvider, "functionProvider is null");
+        this.bundle = requireNonNull(bundle, "bundle is null");
     }
 
     @Override
     public Collection<FunctionMetadata> listFunctions(ConnectorSession session, String schemaName)
     {
-        return schemaName.equals(SCHEMA_NAME) ? functions : List.of();
+        return schemaName.equals(SCHEMA_NAME) ? bundle.getFunctions() : List.of();
     }
 
     @Override
@@ -55,7 +53,7 @@ public class SketchMetadata
             return List.of();
         }
 
-        return functions.stream()
+        return bundle.getFunctions().stream()
                 .filter(function -> function.getCanonicalName().equals(name.functionName()))
                 .toList();
     }
@@ -63,7 +61,7 @@ public class SketchMetadata
     @Override
     public FunctionMetadata getFunctionMetadata(ConnectorSession session, FunctionId functionId)
     {
-        return functions.stream()
+        return bundle.getFunctions().stream()
                 .filter(function -> function.getFunctionId().equals(functionId))
                 .findFirst()
                 .orElseThrow();
@@ -72,12 +70,12 @@ public class SketchMetadata
     @Override
     public AggregationFunctionMetadata getAggregationFunctionMetadata(ConnectorSession session, FunctionId functionId)
     {
-        return functionProvider.getAggregationFunctionMetadata(functionId);
+        return bundle.getAggregationFunctionMetadata(functionId);
     }
 
     @Override
     public FunctionDependencyDeclaration getFunctionDependencies(ConnectorSession session, FunctionId functionId, BoundSignature boundSignature)
     {
-        return functionProvider.getFunctionDependencies(functionId, boundSignature);
+        return bundle.getFunctionDependencies(functionId, boundSignature);
     }
 }
