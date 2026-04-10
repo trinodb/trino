@@ -134,7 +134,7 @@ public class TestGlueExpressionUtil
                 .addDomain("col1", Domain.notNull(VarcharType.VARCHAR))
                 .build();
         String expression = buildGlueExpression(ImmutableList.of("col1"), filter, true);
-        assertThat(expression).isEqualTo(format("(col1 <> '%s')", GlueExpressionUtil.NULL_STRING));
+        assertThat(expression).isEqualTo("");
     }
 
     @Test
@@ -156,7 +156,7 @@ public class TestGlueExpressionUtil
                 .addDomain("col2", Domain.notNull(VarcharType.VARCHAR))
                 .build();
         String expression = buildGlueExpression(ImmutableList.of("col1", "col2"), filter, true);
-        assertThat(expression).isEqualTo(format("((col1 = '2020-01-01')) AND (col2 <> '%s')", GlueExpressionUtil.NULL_STRING));
+        assertThat(expression).isEqualTo("((col1 = '2020-01-01'))");
     }
 
     @Test
