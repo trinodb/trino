@@ -87,6 +87,9 @@ public class PartitionData
 
     public static String toJson(StructLike structLike)
     {
+        if (structLike == null) {
+            return "{}";
+        }
         try {
             StringWriter writer = new StringWriter();
             JsonGenerator generator = FACTORY.createGenerator(writer);
