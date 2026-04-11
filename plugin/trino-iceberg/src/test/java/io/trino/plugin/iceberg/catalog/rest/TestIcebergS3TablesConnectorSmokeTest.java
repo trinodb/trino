@@ -75,7 +75,7 @@ final class TestIcebergS3TablesConnectorSmokeTest
                 .addIcebergProperty("iceberg.rest-catalog.security", "sigv4")
                 .addIcebergProperty("iceberg.rest-catalog.signing-name", "glue")
                 .addIcebergProperty("iceberg.writer-sort-buffer-size", "1MB")
-                .addIcebergProperty("fs.native-s3.enabled", "true")
+                .addIcebergProperty("fs.s3.enabled", "true")
                 .addIcebergProperty("s3.region", AWS_REGION)
                 .addIcebergProperty("s3.aws-access-key", AWS_ACCESS_KEY_ID)
                 .addIcebergProperty("s3.aws-secret-key", AWS_SECRET_ACCESS_KEY)

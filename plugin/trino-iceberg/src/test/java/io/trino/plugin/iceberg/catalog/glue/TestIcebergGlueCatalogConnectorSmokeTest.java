@@ -79,7 +79,7 @@ public class TestIcebergGlueCatalogConnectorSmokeTest
                                 "iceberg.file-format", format.name(),
                                 "iceberg.catalog.type", "glue",
                                 "hive.metastore.glue.default-warehouse-dir", schemaPath(),
-                                "fs.native-s3.enabled", "true",
+                                "fs.s3.enabled", "true",
                                 "iceberg.register-table-procedure.enabled", "true",
                                 "iceberg.writer-sort-buffer-size", "1MB"))
                 .setSchemaInitializer(

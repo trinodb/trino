@@ -100,7 +100,7 @@ public class TestIcebergSnowflakeCatalogConnectorSmokeTest
         }
 
         Map<String, String> properties = ImmutableMap.<String, String>builder()
-                .put("fs.native-s3.enabled", "true")
+                .put("fs.s3.enabled", "true")
                 .put("s3.aws-access-key", S3_ACCESS_KEY)
                 .put("s3.aws-secret-key", S3_SECRET_KEY)
                 .put("s3.region", S3_REGION)

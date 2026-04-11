@@ -236,7 +236,7 @@ public final class HiveQueryRunner
                 Path dataDir = queryRunner.getCoordinator().getBaseDataDir().resolve("hive_data");
 
                 if (hiveProperties.buildOrThrow().keySet().stream().noneMatch(key ->
-                        key.equals("fs.hadoop.enabled") || key.startsWith("fs.native-"))) {
+                        key.matches("fs\\.(azure|gcs|s3|local|hadoop)\\.enabled"))) {
                     hiveProperties.put("fs.hadoop.enabled", "true");
                 }
 

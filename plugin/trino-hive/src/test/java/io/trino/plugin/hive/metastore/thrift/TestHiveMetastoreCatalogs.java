@@ -80,7 +80,7 @@ public class TestHiveMetastoreCatalogs
         return ImmutableMap.<String, String>builder()
                 .put("hive.metastore", "thrift")
                 .put("hive.metastore.uri", hiveMinioDataLake.getHiveMetastoreEndpoint().toString())
-                .put("fs.native-s3.enabled", "true")
+                .put("fs.s3.enabled", "true")
                 .put("s3.path-style-access", "true")
                 .put("s3.region", MINIO_REGION)
                 .put("s3.endpoint", hiveMinioDataLake.getMinio().getMinioAddress())

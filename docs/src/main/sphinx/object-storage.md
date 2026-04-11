@@ -35,13 +35,13 @@ system support.
 
 * - Property
   - Description
-* - `fs.native-azure.enabled`
+* - `fs.azure.enabled`
   - Activate the [native implementation for Azure Storage
     support](/object-storage/file-system-azure). Defaults to `false`.
-* - `fs.native-gcs.enabled`
+* - `fs.gcs.enabled`
   - Activate the [native implementation for Google Cloud Storage
     support](/object-storage/file-system-gcs). Defaults to `false`.
-* - `fs.native-s3.enabled`
+* - `fs.s3.enabled`
   - Activate the [native implementation for S3 storage
     support](/object-storage/file-system-s3). Defaults to `false`.
 * - `fs.hadoop.enabled`

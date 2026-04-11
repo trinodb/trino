@@ -67,7 +67,7 @@ public class TestIcebergMotoConnectorSmokeTest
                         .put("hive.metastore.glue.aws-access-key", MOTO_ACCESS_KEY)
                         .put("hive.metastore.glue.aws-secret-key", MOTO_SECRET_KEY)
                         .put("hive.metastore.glue.default-warehouse-dir", "s3://%s/".formatted(bucketName))
-                        .put("fs.native-s3.enabled", "true")
+                        .put("fs.s3.enabled", "true")
                         .put("s3.region", MOTO_REGION)
                         .put("s3.endpoint", moto.getEndpoint().toString())
                         .put("s3.aws-access-key", MOTO_ACCESS_KEY)

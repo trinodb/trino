@@ -4,7 +4,7 @@ Trino includes a native implementation to access [Google Cloud Storage
 (GCS)](https://cloud.google.com/storage/) with a catalog using the Delta Lake,
 Hive, Hudi, or Iceberg connectors.
 
-Enable the native implementation with `fs.native-gcs.enabled=true` in your
+Enable the native implementation with `fs.gcs.enabled=true` in your
 catalog properties file.
 
 ## General configuration
@@ -18,7 +18,7 @@ Storage file system support:
 
 * - Property
   - Description
-* - `fs.native-gcs.enabled`
+* - `fs.gcs.enabled`
   - Activate the native implementation for Google Cloud Storage support.
     Defaults to `false`. Set to `true` to use Google Cloud Storage and enable
     all other properties.
@@ -99,7 +99,7 @@ Google Cloud Storage file system implementation.
 To migrate a catalog to use the native file system implementation for Google
 Cloud Storage, make the following edits to your catalog configuration:
 
-1. Add the `fs.native-gcs.enabled=true` catalog configuration property.
+1. Add the `fs.gcs.enabled=true` catalog configuration property.
 2. If your catalog enabled `fs.hadoop.enabled` only for legacy Google Cloud
    Storage access, remove that property.
 3. Refer to the following table to rename your existing legacy catalog

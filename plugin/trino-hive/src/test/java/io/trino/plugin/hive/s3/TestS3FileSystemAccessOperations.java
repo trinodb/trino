@@ -66,7 +66,7 @@ public class TestS3FileSystemAccessOperations
         return HiveQueryRunner.builder()
                 .setHiveProperties(ImmutableMap.<String, String>builder()
                         .put("hive.metastore.disable-location-checks", "true")
-                        .put("fs.native-s3.enabled", "true")
+                        .put("fs.s3.enabled", "true")
                         .put("s3.aws-access-key", MINIO_ROOT_USER)
                         .put("s3.aws-secret-key", MINIO_ROOT_PASSWORD)
                         .put("s3.region", MINIO_REGION)
