@@ -1995,7 +1995,7 @@ abstract class BaseTestHiveOnDataLake
                         "  partition_projection_enabled=true " +
                         ")"))
                 .hasMessage("Column projection for column 'short_name1' failed. Property: 'partition_projection_interval_unit' " +
-                        "needs to be set when provided 'partition_projection_format' is less that single-day precision. " +
+                        "needs to be set when provided 'partition_projection_format' is less than single-day precision. " +
                         "Interval defaults to 1 day or 1 month, respectively. Otherwise, interval is required");
 
         assertThatThrownBy(() -> getQueryRunner().execute(
@@ -2027,7 +2027,7 @@ abstract class BaseTestHiveOnDataLake
                         "  partition_projection_ignore=true " + // <-- Even if this is set we disallow creating corrupted configuration via Trino
                         ")"))
                 .hasMessage("Column projection for column 'short_name1' failed. Property: 'partition_projection_interval_unit' " +
-                        "needs to be set when provided 'partition_projection_format' is less that single-day precision. " +
+                        "needs to be set when provided 'partition_projection_format' is less than single-day precision. " +
                         "Interval defaults to 1 day or 1 month, respectively. Otherwise, interval is required");
     }
 

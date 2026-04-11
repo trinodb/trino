@@ -268,7 +268,7 @@ final class DateProjection
             throw new InvalidProjectionException(
                     columnName,
                     format(
-                            "Property: '%s' needs to be set when provided '%s' is less that single-day precision. Interval defaults to 1 day or 1 month, respectively. Otherwise, interval is required",
+                            "Property: '%s' needs to be set when provided '%s' is less than single-day precision. Interval defaults to 1 day or 1 month, respectively. Otherwise, interval is required",
                             COLUMN_PROJECTION_INTERVAL_UNIT,
                             COLUMN_PROJECTION_FORMAT));
         }
