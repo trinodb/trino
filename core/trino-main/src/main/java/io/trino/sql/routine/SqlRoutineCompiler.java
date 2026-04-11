@@ -32,6 +32,7 @@ import io.airlift.bytecode.control.IfStatement;
 import io.airlift.bytecode.control.WhileLoop;
 import io.airlift.bytecode.instruction.LabelNode;
 import io.trino.metadata.FunctionManager;
+import io.trino.metadata.Metadata;
 import io.trino.operator.scalar.SpecializedSqlScalarFunction;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.function.InvocationConvention;
@@ -39,18 +40,14 @@ import io.trino.spi.function.ScalarFunctionAdapter;
 import io.trino.spi.function.ScalarFunctionImplementation;
 import io.trino.spi.type.BooleanType;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeManager;
 import io.trino.sql.gen.CachedInstanceBinder;
 import io.trino.sql.gen.CallSiteBinder;
+import io.trino.sql.gen.ExpressionBytecodeCompiler;
 import io.trino.sql.gen.LambdaBytecodeGenerator.CompiledLambda;
-import io.trino.sql.gen.RowExpressionCompiler;
-import io.trino.sql.relational.CallExpression;
-import io.trino.sql.relational.ConstantExpression;
-import io.trino.sql.relational.InputReferenceExpression;
-import io.trino.sql.relational.LambdaDefinitionExpression;
-import io.trino.sql.relational.RowExpression;
-import io.trino.sql.relational.RowExpressionVisitor;
-import io.trino.sql.relational.SpecialForm;
-import io.trino.sql.relational.VariableReferenceExpression;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.Lambda;
+import io.trino.sql.ir.Reference;
 import io.trino.sql.routine.ir.DefaultIrNodeVisitor;
 import io.trino.sql.routine.ir.IrBlock;
 import io.trino.sql.routine.ir.IrBreak;
@@ -77,6 +74,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.BiFunction;
 import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -102,6 +100,7 @@ import static io.trino.sql.gen.BytecodeUtils.boxPrimitiveIfNecessary;
 import static io.trino.sql.gen.BytecodeUtils.unboxPrimitiveIfNecessary;
 import static io.trino.sql.gen.LambdaBytecodeGenerator.preGenerateLambdaExpression;
 import static io.trino.sql.gen.LambdaExpressionExtractor.extractLambdaExpressions;
+import static io.trino.sql.routine.SqlRoutinePlanner.variableReferenceName;
 import static io.trino.util.CompilerUtils.defineClass;
 import static io.trino.util.CompilerUtils.makeClassName;
 import static io.trino.util.Reflection.constructorMethodHandle;
@@ -112,10 +111,14 @@ import static java.util.function.Function.identity;
 public final class SqlRoutineCompiler
 {
     private final FunctionManager functionManager;
+    private final Metadata metadata;
+    private final TypeManager typeManager;
 
-    public SqlRoutineCompiler(FunctionManager functionManager)
+    public SqlRoutineCompiler(FunctionManager functionManager, Metadata metadata, TypeManager typeManager)
     {
         this.functionManager = requireNonNull(functionManager, "functionManager is null");
+        this.metadata = requireNonNull(metadata, "metadata is null");
+        this.typeManager = requireNonNull(typeManager, "typeManager is null");
     }
 
     public SpecializedSqlScalarFunction compile(IrRoutine routine)
@@ -169,7 +172,7 @@ public final class SqlRoutineCompiler
         CallSiteBinder callSiteBinder = new CallSiteBinder();
         CachedInstanceBinder cachedInstanceBinder = new CachedInstanceBinder(classDefinition, callSiteBinder);
 
-        Map<LambdaDefinitionExpression, CompiledLambda> compiledLambdaMap = generateMethodsForLambda(classDefinition, cachedInstanceBinder, routine);
+        Map<Lambda, CompiledLambda> compiledLambdaMap = generateMethodsForLambda(classDefinition, cachedInstanceBinder, routine);
 
         generateRunMethod(classDefinition, cachedInstanceBinder, compiledLambdaMap, routine);
 
@@ -178,15 +181,15 @@ public final class SqlRoutineCompiler
         return defineClass(classDefinition, Object.class, callSiteBinder.getBindings(), new DynamicClassLoader(getClass().getClassLoader()));
     }
 
-    private Map<LambdaDefinitionExpression, CompiledLambda> generateMethodsForLambda(
+    private Map<Lambda, CompiledLambda> generateMethodsForLambda(
             ClassDefinition containerClassDefinition,
             CachedInstanceBinder cachedInstanceBinder,
             IrNode node)
     {
-        Set<LambdaDefinitionExpression> lambdaExpressions = extractLambda(node);
-        ImmutableMap.Builder<LambdaDefinitionExpression, CompiledLambda> compiledLambdaMap = ImmutableMap.builder();
+        Set<Lambda> lambdaExpressions = extractLambda(node);
+        ImmutableMap.Builder<Lambda, CompiledLambda> compiledLambdaMap = ImmutableMap.builder();
         int counter = 0;
-        for (LambdaDefinitionExpression lambdaExpression : lambdaExpressions) {
+        for (Lambda lambdaExpression : lambdaExpressions) {
             CompiledLambda compiledLambda = preGenerateLambdaExpression(
                     lambdaExpression,
                     "lambda_" + counter,
@@ -194,7 +197,9 @@ public final class SqlRoutineCompiler
                     compiledLambdaMap.buildOrThrow(),
                     cachedInstanceBinder.getCallSiteBinder(),
                     cachedInstanceBinder,
-                    functionManager);
+                    functionManager,
+                    metadata,
+                    typeManager);
             compiledLambdaMap.put(lambdaExpression, compiledLambda);
             counter++;
         }
@@ -204,7 +209,7 @@ public final class SqlRoutineCompiler
     private void generateRunMethod(
             ClassDefinition classDefinition,
             CachedInstanceBinder cachedInstanceBinder,
-            Map<LambdaDefinitionExpression, CompiledLambda> compiledLambdaMap,
+            Map<Lambda, CompiledLambda> compiledLambdaMap,
             IrRoutine routine)
     {
         ImmutableList.Builder<Parameter> parameterBuilder = ImmutableList.builder();
@@ -226,7 +231,14 @@ public final class SqlRoutineCompiler
         Map<IrVariable, Variable> variables = VariableExtractor.extract(routine).stream().distinct()
                 .collect(toImmutableMap(identity(), variable -> getOrDeclareVariable(scope, variable)));
 
-        BytecodeVisitor visitor = new BytecodeVisitor(classDefinition, cachedInstanceBinder, compiledLambdaMap, variables);
+        // Build mapping from reference names (used in Expression) to scope variable names (used in bytecode)
+        ImmutableMap.Builder<String, String> referenceNameToScopeNameBuilder = ImmutableMap.builder();
+        for (IrVariable variable : variables.keySet()) {
+            referenceNameToScopeNameBuilder.put(variableReferenceName(variable), name(variable));
+        }
+        Map<String, String> referenceNameToScopeName = referenceNameToScopeNameBuilder.buildOrThrow();
+
+        BytecodeVisitor visitor = new BytecodeVisitor(classDefinition, cachedInstanceBinder, compiledLambdaMap, variables, referenceNameToScopeName);
         method.getBody().append(visitor.process(routine, scope));
     }
 
@@ -285,8 +297,9 @@ public final class SqlRoutineCompiler
     {
         private final ClassDefinition classDefinition;
         private final CachedInstanceBinder cachedInstanceBinder;
-        private final Map<LambdaDefinitionExpression, CompiledLambda> compiledLambdaMap;
+        private final Map<Lambda, CompiledLambda> compiledLambdaMap;
         private final Map<IrVariable, Variable> variables;
+        private final Map<String, String> referenceNameToScopeName;
 
         private final Map<IrLabel, LabelNode> continueLabels = new HashMap<>();
         private final Map<IrLabel, LabelNode> breakLabels = new HashMap<>();
@@ -294,13 +307,15 @@ public final class SqlRoutineCompiler
         public BytecodeVisitor(
                 ClassDefinition classDefinition,
                 CachedInstanceBinder cachedInstanceBinder,
-                Map<LambdaDefinitionExpression, CompiledLambda> compiledLambdaMap,
-                Map<IrVariable, Variable> variables)
+                Map<Lambda, CompiledLambda> compiledLambdaMap,
+                Map<IrVariable, Variable> variables,
+                Map<String, String> referenceNameToScopeName)
         {
             this.classDefinition = requireNonNull(classDefinition, "classDefinition is null");
             this.cachedInstanceBinder = requireNonNull(cachedInstanceBinder, "cachedInstanceBinder is null");
             this.compiledLambdaMap = requireNonNull(compiledLambdaMap, "compiledLambdaMap is null");
             this.variables = requireNonNull(variables, "variables is null");
+            this.referenceNameToScopeName = requireNonNull(referenceNameToScopeName, "referenceNameToScopeName is null");
         }
 
         @Override
@@ -356,9 +371,10 @@ public final class SqlRoutineCompiler
         @Override
         public BytecodeNode visitReturn(IrReturn node, Scope scope)
         {
+            Expression value = node.value();
             return new BytecodeBlock()
-                    .append(compile(node.value(), scope))
-                    .ret(wrap(node.value().type().getJavaType()));
+                    .append(compile(value, scope))
+                    .ret(wrap(value.type().getJavaType()));
         }
 
         @Override
@@ -458,18 +474,27 @@ public final class SqlRoutineCompiler
             return block;
         }
 
-        private BytecodeNode compile(RowExpression expression, Scope scope)
+        private BytecodeNode compile(Expression expression, Scope scope)
         {
-            if (expression instanceof InputReferenceExpression input) {
-                return scope.getVariable(name(input.field()));
-            }
+            BiFunction<Reference, Scope, BytecodeNode> routineReferenceCompiler = (reference, refScope) -> {
+                String scopeName = referenceNameToScopeName.get(reference.name());
+                if (scopeName != null) {
+                    Class<?> boxedType = wrap(reference.type().getJavaType());
+                    return new BytecodeBlock()
+                            .append(refScope.getVariable(scopeName))
+                            .append(unboxPrimitiveIfNecessary(refScope, boxedType));
+                }
+                throw new UnsupportedOperationException("Reference not found in routine variables: " + reference.name());
+            };
 
-            RowExpressionCompiler rowExpressionCompiler = new RowExpressionCompiler(
+            ExpressionBytecodeCompiler expressionCompiler = new ExpressionBytecodeCompiler(
                     classDefinition,
                     cachedInstanceBinder.getCallSiteBinder(),
                     cachedInstanceBinder,
-                    FieldReferenceCompiler.INSTANCE,
+                    routineReferenceCompiler,
                     functionManager,
+                    metadata,
+                    typeManager,
                     compiledLambdaMap,
                     ImmutableList.of());
 
@@ -477,11 +502,11 @@ public final class SqlRoutineCompiler
                     .comment("boolean wasNull = false;")
                     .putVariable(scope.getVariable("wasNull"), expression.type().getJavaType() == void.class)
                     .comment("expression: " + expression)
-                    .append(rowExpressionCompiler.compile(expression, scope))
+                    .append(expressionCompiler.compile(expression, scope))
                     .append(boxPrimitiveIfNecessary(scope, wrap(expression.type().getJavaType())));
         }
 
-        private BytecodeNode compileBoolean(RowExpression expression, Scope scope)
+        private BytecodeNode compileBoolean(Expression expression, Scope scope)
         {
             checkArgument(expression.type().equals(BooleanType.BOOLEAN), "type must be boolean");
 
@@ -517,63 +542,18 @@ public final class SqlRoutineCompiler
         }
     }
 
-    private static Set<LambdaDefinitionExpression> extractLambda(IrNode node)
+    private static Set<Lambda> extractLambda(IrNode node)
     {
-        ImmutableSet.Builder<LambdaDefinitionExpression> expressions = ImmutableSet.builder();
+        ImmutableSet.Builder<Lambda> lambdas = ImmutableSet.builder();
         node.accept(new DefaultIrNodeVisitor()
         {
             @Override
-            public void visitRowExpression(RowExpression expression)
+            public void visitRowExpression(Expression expression)
             {
-                expressions.addAll(extractLambdaExpressions(expression));
+                lambdas.addAll(extractLambdaExpressions(expression));
             }
         }, null);
-        return expressions.build();
-    }
-
-    private static class FieldReferenceCompiler
-            implements RowExpressionVisitor<BytecodeNode, Scope>
-    {
-        public static final FieldReferenceCompiler INSTANCE = new FieldReferenceCompiler();
-
-        @Override
-        public BytecodeNode visitInputReference(InputReferenceExpression node, Scope scope)
-        {
-            Class<?> boxedType = wrap(node.type().getJavaType());
-            return new BytecodeBlock()
-                    .append(scope.getVariable(name(node.field())))
-                    .append(unboxPrimitiveIfNecessary(scope, boxedType));
-        }
-
-        @Override
-        public BytecodeNode visitCall(CallExpression call, Scope scope)
-        {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public BytecodeNode visitSpecialForm(SpecialForm specialForm, Scope context)
-        {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public BytecodeNode visitConstant(ConstantExpression literal, Scope scope)
-        {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public BytecodeNode visitLambda(LambdaDefinitionExpression lambda, Scope context)
-        {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public BytecodeNode visitVariableReference(VariableReferenceExpression reference, Scope context)
-        {
-            throw new UnsupportedOperationException();
-        }
+        return lambdas.build();
     }
 
     private static class VariableExtractor

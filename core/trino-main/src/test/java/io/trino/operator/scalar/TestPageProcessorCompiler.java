@@ -14,6 +14,7 @@
 package io.trino.operator.scalar;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
@@ -25,16 +26,22 @@ import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.DictionaryBlock;
 import io.trino.spi.block.RunLengthEncodedBlock;
+import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.SourcePage;
 import io.trino.spi.type.ArrayType;
 import io.trino.sql.gen.ExpressionCompiler;
-import io.trino.sql.relational.CallExpression;
-import io.trino.sql.relational.InputReferenceExpression;
-import io.trino.sql.relational.RowExpression;
+import io.trino.sql.ir.Call;
+import io.trino.sql.ir.Constant;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.Reference;
+import io.trino.sql.planner.Symbol;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalInt;
+import java.util.function.Function;
 
 import static com.google.common.collect.Iterators.getOnlyElement;
 import static io.trino.block.BlockAssertions.createLongDictionaryBlock;
@@ -46,10 +53,8 @@ import static io.trino.spi.function.OperatorType.LESS_THAN;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
-import static io.trino.sql.relational.DeterminismEvaluator.isDeterministic;
-import static io.trino.sql.relational.Expressions.constant;
-import static io.trino.sql.relational.Expressions.field;
-import static java.util.Collections.singletonList;
+import static io.trino.sql.ir.IrExpressions.call;
+import static io.trino.sql.planner.DeterminismEvaluator.isDeterministic;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestPageProcessorCompiler
@@ -60,24 +65,37 @@ public class TestPageProcessorCompiler
     @Test
     public void testNoCaching()
     {
-        ImmutableList.Builder<RowExpression> projectionsBuilder = ImmutableList.builder();
         ArrayType arrayType = new ArrayType(VARCHAR);
         ResolvedFunction resolvedFunction = functionResolution.resolveFunction("concat", fromTypes(arrayType, arrayType));
-        projectionsBuilder.add(new CallExpression(resolvedFunction, ImmutableList.of(field(0, arrayType), field(1, arrayType))));
+        Reference col0 = new Reference(arrayType, "$col_0");
+        Reference col1 = new Reference(arrayType, "$col_1");
+        Map<Symbol, Integer> layout = ImmutableMap.of(
+                new Symbol(arrayType, "$col_0"), 3,
+                new Symbol(arrayType, "$col_1"), 1);
+        List<Expression> projections = ImmutableList.of(call(resolvedFunction, col0, col1));
 
-        List<RowExpression> projections = projectionsBuilder.build();
-        PageProcessor pageProcessor = compiler.compilePageProcessor(Optional.empty(), projections).get();
-        PageProcessor pageProcessor2 = compiler.compilePageProcessor(Optional.empty(), projections).get();
-        assertThat(pageProcessor != pageProcessor2).isTrue();
+        Function<DynamicFilter, PageProcessor> factory1 = compiler.compilePageProcessor(true, Optional.empty(), Optional.empty(), projections, layout, Optional.empty(), OptionalInt.empty());
+        Function<DynamicFilter, PageProcessor> factory2 = compiler.compilePageProcessor(true, Optional.empty(), Optional.empty(), projections, layout, Optional.empty(), OptionalInt.empty());
+        assertThat(factory1 != factory2).isTrue();
     }
 
     @Test
     public void testSanityRLE()
     {
-        PageProcessor processor = compiler.compilePageProcessor(Optional.empty(), ImmutableList.of(field(0, BIGINT), field(1, VARCHAR)), MAX_BATCH_SIZE).get();
+        Map<Symbol, Integer> layout = ImmutableMap.of(
+                new Symbol(BIGINT, "$col_0"), 3,
+                new Symbol(VARCHAR, "$col_1"), 1);
+        PageProcessor processor = compiler.compilePageProcessor(true, Optional.empty(), Optional.empty(),
+                        ImmutableList.of(new Reference(BIGINT, "$col_0"), new Reference(VARCHAR, "$col_1")),
+                        layout, Optional.empty(), OptionalInt.of(MAX_BATCH_SIZE))
+                .apply(DynamicFilter.EMPTY);
 
         Slice varcharValue = Slices.utf8Slice("hello");
-        Page page = new Page(RunLengthEncodedBlock.create(BIGINT, 123L, 100), RunLengthEncodedBlock.create(VARCHAR, varcharValue, 100));
+        Page page = new Page(
+                RunLengthEncodedBlock.create(BIGINT, 0L, 100),             // channel 0 - dummy
+                RunLengthEncodedBlock.create(VARCHAR, varcharValue, 100),   // channel 1 - $col_1
+                RunLengthEncodedBlock.create(BIGINT, 0L, 100),             // channel 2 - dummy
+                RunLengthEncodedBlock.create(BIGINT, 123L, 100));           // channel 3 - $col_0
         Page outputPage = getOnlyElement(
                 processor.process(
                         null,
@@ -100,15 +118,20 @@ public class TestPageProcessorCompiler
     @Test
     public void testSanityFilterOnDictionary()
     {
-        CallExpression lengthVarchar = new CallExpression(
+        Reference col0 = new Reference(VARCHAR, "$col_0");
+        Map<Symbol, Integer> layout = ImmutableMap.of(new Symbol(VARCHAR, "$col_0"), 2);
+        Call lengthVarchar = call(
                 functionResolution.resolveFunction("length", fromTypes(VARCHAR)),
-                ImmutableList.of(field(0, VARCHAR)));
+                col0);
         ResolvedFunction lessThan = functionResolution.resolveOperator(LESS_THAN, ImmutableList.of(BIGINT, BIGINT));
-        CallExpression filter = new CallExpression(lessThan, ImmutableList.of(lengthVarchar, constant(10L, BIGINT)));
+        Call filter = call(lessThan, lengthVarchar, new Constant(BIGINT, 10L));
 
-        PageProcessor processor = compiler.compilePageProcessor(Optional.of(filter), ImmutableList.of(field(0, VARCHAR)), MAX_BATCH_SIZE).get();
+        PageProcessor processor = compiler.compilePageProcessor(true, Optional.of(filter), Optional.empty(),
+                        ImmutableList.of(col0), layout, Optional.empty(), OptionalInt.of(MAX_BATCH_SIZE))
+                .apply(DynamicFilter.EMPTY);
 
-        Page page = new Page(createDictionaryBlock(createExpectedValues(10), 100));
+        Block inputDictionaryBlock = createDictionaryBlock(createExpectedValues(10), 100);
+        Page page = new Page(createRepeatedValuesBlock(0L, 100), createRepeatedValuesBlock(0L, 100), inputDictionaryBlock);
         Page outputPage = getOnlyElement(
                 processor.process(
                         null,
@@ -141,12 +164,16 @@ public class TestPageProcessorCompiler
     @Test
     public void testSanityFilterOnRLE()
     {
+        Reference col0 = new Reference(BIGINT, "$col_0");
+        Map<Symbol, Integer> layout = ImmutableMap.of(new Symbol(BIGINT, "$col_0"), 2);
         ResolvedFunction lessThan = functionResolution.resolveOperator(LESS_THAN, ImmutableList.of(BIGINT, BIGINT));
-        CallExpression filter = new CallExpression(lessThan, ImmutableList.of(field(0, BIGINT), constant(10L, BIGINT)));
+        Call filter = call(lessThan, col0, new Constant(BIGINT, 10L));
 
-        PageProcessor processor = compiler.compilePageProcessor(Optional.of(filter), ImmutableList.of(field(0, BIGINT)), MAX_BATCH_SIZE).get();
+        PageProcessor processor = compiler.compilePageProcessor(true, Optional.of(filter), Optional.empty(),
+                        ImmutableList.of(col0), layout, Optional.empty(), OptionalInt.of(MAX_BATCH_SIZE))
+                .apply(DynamicFilter.EMPTY);
 
-        Page page = new Page(createRepeatedValuesBlock(5L, 100));
+        Page page = new Page(createRepeatedValuesBlock(0L, 100), createRepeatedValuesBlock(0L, 100), createRepeatedValuesBlock(5L, 100));
         Page outputPage = getOnlyElement(
                 processor.process(
                         null,
@@ -165,9 +192,13 @@ public class TestPageProcessorCompiler
     @Test
     public void testSanityColumnarDictionary()
     {
-        PageProcessor processor = compiler.compilePageProcessor(Optional.empty(), ImmutableList.of(field(0, VARCHAR)), MAX_BATCH_SIZE).get();
+        Map<Symbol, Integer> layout = ImmutableMap.of(new Symbol(VARCHAR, "$col_0"), 2);
+        PageProcessor processor = compiler.compilePageProcessor(true, Optional.empty(), Optional.empty(),
+                        ImmutableList.of(new Reference(VARCHAR, "$col_0")), layout, Optional.empty(), OptionalInt.of(MAX_BATCH_SIZE))
+                .apply(DynamicFilter.EMPTY);
 
-        Page page = new Page(createDictionaryBlock(createExpectedValues(10), 100));
+        Block inputDictionaryBlock = createDictionaryBlock(createExpectedValues(10), 100);
+        Page page = new Page(createRepeatedValuesBlock(0L, 100), createRepeatedValuesBlock(0L, 100), inputDictionaryBlock);
         Page outputPage = getOnlyElement(
                 processor.process(
                         null,
@@ -186,18 +217,21 @@ public class TestPageProcessorCompiler
     @Test
     public void testNonDeterministicProject()
     {
+        Reference col0 = new Reference(BIGINT, "$col_0");
+        Map<Symbol, Integer> layout = ImmutableMap.of(new Symbol(BIGINT, "$col_0"), 2);
         ResolvedFunction lessThan = functionResolution.resolveOperator(LESS_THAN, ImmutableList.of(BIGINT, BIGINT));
-        CallExpression random = new CallExpression(
+        Call random = call(
                 functionResolution.resolveFunction("random", fromTypes(BIGINT)),
-                singletonList(constant(10L, BIGINT)));
-        InputReferenceExpression col0 = field(0, BIGINT);
-        CallExpression lessThanRandomExpression = new CallExpression(lessThan, ImmutableList.of(col0, random));
+                new Constant(BIGINT, 10L));
+        Call lessThanRandomExpression = call(lessThan, col0, random);
 
-        PageProcessor processor = compiler.compilePageProcessor(Optional.empty(), ImmutableList.of(lessThanRandomExpression), MAX_BATCH_SIZE).get();
+        PageProcessor processor = compiler.compilePageProcessor(true, Optional.empty(), Optional.empty(),
+                        ImmutableList.of(lessThanRandomExpression), layout, Optional.empty(), OptionalInt.of(MAX_BATCH_SIZE))
+                .apply(DynamicFilter.EMPTY);
 
         assertThat(isDeterministic(lessThanRandomExpression)).isFalse();
 
-        Page page = new Page(createLongDictionaryBlock(1, 100));
+        Page page = new Page(createRepeatedValuesBlock(0L, 100), createRepeatedValuesBlock(0L, 100), createLongDictionaryBlock(1, 100));
         Page outputPage = getOnlyElement(
                 processor.process(
                         null,

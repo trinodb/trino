@@ -14,6 +14,7 @@
 package io.trino.operator.scalar;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slices;
 import io.trino.jmh.Benchmarks;
 import io.trino.metadata.TestingFunctionResolution;
@@ -24,8 +25,10 @@ import io.trino.spi.block.ArrayBlockBuilder;
 import io.trino.spi.block.Block;
 import io.trino.spi.connector.SourcePage;
 import io.trino.spi.type.ArrayType;
-import io.trino.sql.relational.CallExpression;
-import io.trino.sql.relational.RowExpression;
+import io.trino.sql.ir.Constant;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.Reference;
+import io.trino.sql.planner.Symbol;
 import org.junit.jupiter.api.Test;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
@@ -46,8 +49,7 @@ import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregate
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
-import static io.trino.sql.relational.Expressions.constant;
-import static io.trino.sql.relational.Expressions.field;
+import static io.trino.sql.ir.IrExpressions.call;
 import static io.trino.testing.TestingConnectorSession.SESSION;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
@@ -85,12 +87,12 @@ public class BenchmarkArrayJoin
         {
             TestingFunctionResolution functionResolution = new TestingFunctionResolution();
 
-            List<RowExpression> projections = ImmutableList.of(new CallExpression(
+            List<Expression> projections = ImmutableList.of(call(
                     functionResolution.resolveFunction("array_join", fromTypes(new ArrayType(BIGINT), VARCHAR)),
-                    ImmutableList.of(field(0, new ArrayType(BIGINT)), constant(Slices.wrappedBuffer(",".getBytes(UTF_8)), VARCHAR))));
+                    new Reference(new ArrayType(BIGINT), "$col_0"), new Constant(VARCHAR, Slices.wrappedBuffer(",".getBytes(UTF_8)))));
 
             pageProcessor = functionResolution.getExpressionCompiler()
-                    .compilePageProcessor(Optional.empty(), projections)
+                    .compilePageProcessor(Optional.empty(), projections, ImmutableMap.of(new Symbol(new ArrayType(BIGINT), "$col_0"), 0))
                     .get();
 
             page = new Page(createChannel(POSITIONS, ARRAY_SIZE));

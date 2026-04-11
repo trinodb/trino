@@ -18,27 +18,23 @@ import io.airlift.bytecode.BytecodeNode;
 import io.airlift.bytecode.Variable;
 import io.airlift.bytecode.control.IfStatement;
 import io.airlift.bytecode.instruction.LabelNode;
-import io.trino.sql.relational.RowExpression;
-import io.trino.sql.relational.SpecialForm;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.Logical;
 
 import java.util.List;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantFalse;
 import static java.util.Objects.requireNonNull;
 
 public class AndCodeGenerator
         implements BytecodeGenerator
 {
-    private final List<RowExpression> terms;
+    private final List<Expression> terms;
 
-    public AndCodeGenerator(SpecialForm specialForm)
+    public AndCodeGenerator(Logical logical)
     {
-        requireNonNull(specialForm, "specialForm is null");
-
-        checkArgument(specialForm.arguments().size() >= 2);
-
-        terms = specialForm.arguments();
+        requireNonNull(logical, "logical is null");
+        terms = logical.terms();
     }
 
     @Override
@@ -54,7 +50,7 @@ public class AndCodeGenerator
         LabelNode end = new LabelNode("end");
         LabelNode returnFalse = new LabelNode("returnFalse");
         for (int i = 0; i < terms.size(); i++) {
-            RowExpression term = terms.get(i);
+            Expression term = terms.get(i);
             block.append(generator.generate(term));
 
             IfStatement ifWasNull = new IfStatement("if term " + i + " wasNull...")

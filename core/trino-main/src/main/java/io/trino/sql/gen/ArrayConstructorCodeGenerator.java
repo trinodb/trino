@@ -21,10 +21,9 @@ import io.airlift.bytecode.control.IfStatement;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.BlockBuilderStatus;
-import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.Type;
-import io.trino.sql.relational.RowExpression;
-import io.trino.sql.relational.SpecialForm;
+import io.trino.sql.ir.Array;
+import io.trino.sql.ir.Expression;
 
 import java.util.List;
 
@@ -37,12 +36,12 @@ public class ArrayConstructorCodeGenerator
         implements BytecodeGenerator
 {
     private final Type elementType;
-    private final List<RowExpression> elements;
+    private final List<Expression> elements;
 
-    public ArrayConstructorCodeGenerator(SpecialForm specialForm)
+    public ArrayConstructorCodeGenerator(Array array)
     {
-        elementType = ((ArrayType) specialForm.type()).getElementType();
-        elements = specialForm.arguments();
+        elementType = array.elementType();
+        elements = array.elements();
     }
 
     @Override
@@ -58,7 +57,7 @@ public class ArrayConstructorCodeGenerator
 
         Variable element = scope.getOrCreateTempVariable(elementType.getJavaType());
 
-        for (RowExpression item : elements) {
+        for (Expression item : elements) {
             block.append(context.wasNull().set(constantFalse()));
             block.append(context.generate(item));
             block.putVariable(element);

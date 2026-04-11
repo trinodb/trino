@@ -14,6 +14,7 @@
 package io.trino.operator.scalar.timestamp;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import io.trino.execution.buffer.BenchmarkDataGenerator;
 import io.trino.memory.context.LocalMemoryContext;
 import io.trino.metadata.TestingFunctionResolution;
@@ -34,8 +35,9 @@ import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
-import io.trino.sql.relational.CallExpression;
-import io.trino.sql.relational.RowExpression;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.Reference;
+import io.trino.sql.planner.Symbol;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
@@ -55,7 +57,7 @@ import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregate
 import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
 import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_DAY;
 import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_MILLISECOND;
-import static io.trino.sql.relational.Expressions.field;
+import static io.trino.sql.ir.IrExpressions.call;
 import static io.trino.testing.TestingConnectorSession.SESSION;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.openjdk.jmh.annotations.Mode.Throughput;
@@ -125,11 +127,11 @@ public class BenchmarkCastTimestampToVarchar
             }
 
             TestingFunctionResolution functionResolution = new TestingFunctionResolution();
-            List<RowExpression> timestampProjections = ImmutableList.of(new CallExpression(
+            List<Expression> timestampProjections = ImmutableList.of(call(
                     functionResolution.getCoercion(sourceType, VarcharType.createUnboundedVarcharType()),
-                    ImmutableList.of(field(0, sourceType))));
+                    new Reference(sourceType, "$col_0")));
             pageProcessor = functionResolution.getExpressionCompiler()
-                    .compilePageProcessor(Optional.empty(), timestampProjections)
+                    .compilePageProcessor(Optional.empty(), timestampProjections, ImmutableMap.of(new Symbol(sourceType, "$col_0"), 0))
                     .get();
         }
 

@@ -15,7 +15,7 @@ package io.trino.operator.index;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
-import io.trino.metadata.FunctionManager;
+import io.trino.metadata.TestingFunctionResolution;
 import io.trino.operator.DriverYieldSignal;
 import io.trino.operator.project.PageProcessor;
 import io.trino.spi.Page;
@@ -33,7 +33,6 @@ import java.util.OptionalInt;
 import static com.google.common.collect.Iterators.getOnlyElement;
 import static io.trino.RowPagesBuilder.rowPagesBuilder;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
-import static io.trino.metadata.FunctionManager.createTestingFunctionManager;
 import static io.trino.operator.PageAssertions.assertPageEquals;
 import static io.trino.operator.project.PageProcessor.MAX_BATCH_SIZE;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -60,7 +59,8 @@ public class TestTupleFilterProcessor
                 .row("a", 0L, false, 0.2, 0.2)
                 .build());
 
-        FunctionManager functionManager = createTestingFunctionManager();
+        TestingFunctionResolution functionResolution = new TestingFunctionResolution();
+        PageFunctionCompiler pageFunctionCompiler = functionResolution.getPageFunctionCompiler();
 
         DynamicTupleFilterFactory filterFactory = new DynamicTupleFilterFactory(
                 42,
@@ -68,7 +68,7 @@ public class TestTupleFilterProcessor
                 new int[] {0, 1, 2},
                 new int[] {1, 0, 3},
                 outputTypes,
-                new PageFunctionCompiler(functionManager, 0),
+                pageFunctionCompiler,
                 new BlockTypeOperators(new TypeOperators()));
         PageProcessor tupleFilterProcessor = filterFactory.createPageProcessor(tuplePage, OptionalInt.of(MAX_BATCH_SIZE)).get();
         Page actualPage = getOnlyElement(

@@ -5598,10 +5598,10 @@ class StatementAnalyzer
                     throw new TrinoException(TYPE_MISMATCH, extractLocation(table), format("Expected column mask for '%s.%s' to be of type %s, but was %s", tableName, column, field.getType(), actualType), null);
                 }
 
-                // TODO: this should be "coercion.isTypeOnlyCoercion(actualType, expectedType)", but type-only coercions are broken
-                // due to the line "changeType(value, returnType)" in SqlToRowExpressionTranslator.visitCast. If there's an expression
-                // like CAST(CAST(x AS VARCHAR(1)) AS VARCHAR(2)), it determines that the outer cast is type-only and converts the expression
-                // to CAST(x AS VARCHAR(2)) by changing the type of the inner cast.
+                // TODO: this could use "coercion.isTypeOnlyCoercion(actualType, expectedType)" to skip
+                // the cast when the coercion is a no-op at runtime. However, the planner relies on the
+                // Cast node to ensure the output type matches the column type exactly. Skipping it would
+                // cause type mismatches downstream (e.g., varchar(5) mask on a varchar(15) column).
                 analysis.addCoercion(expression, expectedType);
             }
 

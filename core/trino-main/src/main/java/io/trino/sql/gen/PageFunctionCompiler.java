@@ -15,10 +15,7 @@ package io.trino.sql.gen;
 
 import com.google.common.base.Throwables;
 import com.google.common.cache.CacheBuilder;
-import com.google.common.cache.CacheLoader;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.UncheckedExecutionException;
 import com.google.inject.Inject;
 import io.airlift.bytecode.BytecodeBlock;
@@ -33,8 +30,9 @@ import io.airlift.bytecode.Variable;
 import io.airlift.bytecode.control.ForLoop;
 import io.airlift.bytecode.control.IfStatement;
 import io.trino.cache.CacheStatsMBean;
-import io.trino.cache.NonEvictableLoadingCache;
+import io.trino.cache.NonEvictableCache;
 import io.trino.metadata.FunctionManager;
+import io.trino.metadata.Metadata;
 import io.trino.operator.project.ConstantPageProjection;
 import io.trino.operator.project.GeneratedPageProjection;
 import io.trino.operator.project.InputChannels;
@@ -48,26 +46,26 @@ import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SourcePage;
+import io.trino.spi.type.TypeManager;
 import io.trino.sql.gen.LambdaBytecodeGenerator.CompiledLambda;
+import io.trino.sql.ir.Constant;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.Lambda;
+import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.CompilerConfig;
-import io.trino.sql.relational.ConstantExpression;
-import io.trino.sql.relational.Expressions;
-import io.trino.sql.relational.InputReferenceExpression;
-import io.trino.sql.relational.LambdaDefinitionExpression;
-import io.trino.sql.relational.RowExpression;
-import io.trino.sql.relational.RowExpressionVisitor;
+import io.trino.sql.planner.Symbol;
 import jakarta.annotation.Nullable;
 import org.objectweb.asm.MethodTooLargeException;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 
 import java.lang.invoke.MethodHandle;
-import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.TreeSet;
-import java.util.function.Consumer;
+import java.util.concurrent.ExecutionException;
+import java.util.function.BiFunction;
 import java.util.function.Supplier;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -93,8 +91,9 @@ import static io.trino.spi.StandardErrorCode.COMPILER_ERROR;
 import static io.trino.spi.StandardErrorCode.QUERY_EXCEEDED_COMPILER_LIMIT;
 import static io.trino.sql.gen.BytecodeUtils.generateWrite;
 import static io.trino.sql.gen.BytecodeUtils.invoke;
-import static io.trino.sql.gen.LambdaExpressionExtractor.extractLambdaExpressions;
-import static io.trino.sql.relational.DeterminismEvaluator.isDeterministic;
+import static io.trino.sql.gen.InputReferenceCompiler.generateInputReference;
+import static io.trino.sql.gen.LambdaBytecodeGenerator.generateMethodsForLambda;
+import static io.trino.sql.planner.DeterminismEvaluator.isDeterministic;
 import static io.trino.util.CompilerUtils.defineClass;
 import static io.trino.util.CompilerUtils.makeClassName;
 import static io.trino.util.Reflection.constructorMethodHandle;
@@ -103,29 +102,34 @@ import static java.util.Objects.requireNonNull;
 public class PageFunctionCompiler
 {
     private final FunctionManager functionManager;
+    private final Metadata metadata;
+    private final TypeManager typeManager;
 
-    private final NonEvictableLoadingCache<RowExpression, Supplier<PageProjection>> projectionCache;
-    private final NonEvictableLoadingCache<RowExpression, Supplier<PageFilter>> filterCache;
+    private record CompiledProjection(MethodHandle constructor, boolean deterministic) {}
+
+    private final NonEvictableCache<Expression, CompiledProjection> projectionCache;
+    private final NonEvictableCache<Expression, Class<? extends PageFilter>> filterCache;
 
     private final CacheStatsMBean projectionCacheStats;
     private final CacheStatsMBean filterCacheStats;
 
     @Inject
-    public PageFunctionCompiler(FunctionManager functionManager, CompilerConfig config)
+    public PageFunctionCompiler(FunctionManager functionManager, Metadata metadata, TypeManager typeManager, CompilerConfig config)
     {
-        this(functionManager, config.getExpressionCacheSize());
+        this(functionManager, metadata, typeManager, config.getExpressionCacheSize());
     }
 
-    public PageFunctionCompiler(FunctionManager functionManager, int expressionCacheSize)
+    public PageFunctionCompiler(FunctionManager functionManager, Metadata metadata, TypeManager typeManager, int expressionCacheSize)
     {
         this.functionManager = requireNonNull(functionManager, "functionManager is null");
+        this.metadata = requireNonNull(metadata, "metadata is null");
+        this.typeManager = requireNonNull(typeManager, "typeManager is null");
 
         if (expressionCacheSize > 0) {
             projectionCache = buildNonEvictableCache(
                     CacheBuilder.newBuilder()
                             .recordStats()
-                            .maximumSize(expressionCacheSize),
-                    CacheLoader.from(projection -> compileProjectionInternal(projection, Optional.empty())));
+                            .maximumSize(expressionCacheSize));
             projectionCacheStats = new CacheStatsMBean(projectionCache);
         }
         else {
@@ -137,8 +141,7 @@ public class PageFunctionCompiler
             filterCache = buildNonEvictableCache(
                     CacheBuilder.newBuilder()
                             .recordStats()
-                            .maximumSize(expressionCacheSize),
-                    CacheLoader.from(filter -> compileFilterInternal(filter, Optional.empty())));
+                            .maximumSize(expressionCacheSize));
             filterCacheStats = new CacheStatsMBean(filterCache);
         }
         else {
@@ -163,44 +166,60 @@ public class PageFunctionCompiler
         return filterCacheStats;
     }
 
-    public Supplier<PageProjection> compileProjection(RowExpression projection, Optional<String> classNameSuffix)
+    public Supplier<PageProjection> compileProjection(Expression projection, Map<Symbol, Integer> layout, Optional<String> classNameSuffix)
     {
-        if (projectionCache == null) {
-            return compileProjectionInternal(projection, classNameSuffix);
+        requireNonNull(projection, "projection is null");
+
+        if (projection instanceof Reference reference) {
+            Integer channel = layout.get(Symbol.from(reference));
+            if (channel != null) {
+                InputPageProjection projectionFunction = new InputPageProjection(channel);
+                return () -> projectionFunction;
+            }
         }
+
+        if (projection instanceof Constant constant) {
+            ConstantPageProjection projectionFunction = new ConstantPageProjection(constant.value(), constant.type());
+            return () -> projectionFunction;
+        }
+
+        CompiledProjection compiled;
         try {
-            return projectionCache.getUnchecked(projection);
+            if (projectionCache == null) {
+                compiled = compileProjectionClass(projection, layout, classNameSuffix);
+            }
+            else {
+                compiled = projectionCache.get(projection, () -> compileProjectionClass(projection, layout, Optional.empty()));
+            }
         }
         catch (UncheckedExecutionException e) {
             throwIfInstanceOf(e.getCause(), TrinoException.class);
             throw e;
         }
+        catch (ExecutionException e) {
+            throwIfInstanceOf(e.getCause(), TrinoException.class);
+            throw new UncheckedExecutionException(e);
+        }
+
+        // Always compute InputChannels from the caller's layout
+        PageFieldsToInputParametersRewriter.Result result = rewritePageFieldsToInputParameters(projection, layout);
+        MethodHandle constructor = compiled.constructor();
+        boolean deterministic = compiled.deterministic();
+        return () -> new GeneratedPageProjection(projection, deterministic, result.inputChannels(), constructor);
     }
 
-    private Supplier<PageProjection> compileProjectionInternal(RowExpression projection, Optional<String> classNameSuffix)
+    private CompiledProjection compileProjectionClass(Expression projection, Map<Symbol, Integer> layout, Optional<String> classNameSuffix)
     {
-        requireNonNull(projection, "projection is null");
-
-        if (projection instanceof InputReferenceExpression input) {
-            InputPageProjection projectionFunction = new InputPageProjection(input.field());
-            return () -> projectionFunction;
-        }
-
-        if (projection instanceof ConstantExpression constant) {
-            ConstantPageProjection projectionFunction = new ConstantPageProjection(constant.value(), constant.type());
-            return () -> projectionFunction;
-        }
-
-        PageFieldsToInputParametersRewriter.Result result = rewritePageFieldsToInputParameters(projection);
-        boolean isExpressionDeterministic = isDeterministic(result.getRewrittenExpression());
-
-        CallSiteBinder callSiteBinder = new CallSiteBinder();
-
-        ClassDefinition pageProjectionWorkDefinition = definePageProjectWorkClass(result.getRewrittenExpression(), callSiteBinder, classNameSuffix);
+        PageFieldsToInputParametersRewriter.Result result = rewritePageFieldsToInputParameters(projection, layout);
 
         Class<?> pageProjectionWorkClass;
         try {
+            CallSiteBinder callSiteBinder = new CallSiteBinder();
+            ClassDefinition pageProjectionWorkDefinition = definePageProjectWorkClass(projection, result.compactLayout(), callSiteBinder, classNameSuffix);
             pageProjectionWorkClass = defineClass(pageProjectionWorkDefinition, PageProjectionWork.class, callSiteBinder.getBindings(), getClass().getClassLoader());
+        }
+        catch (TrinoException e) {
+            throw e;
         }
         catch (Exception e) {
             if (Throwables.getRootCause(e) instanceof MethodTooLargeException) {
@@ -210,12 +229,9 @@ public class PageFunctionCompiler
             throw new TrinoException(COMPILER_ERROR, e);
         }
 
-        MethodHandle pageProjectionConstructor = constructorMethodHandle(pageProjectionWorkClass, BlockBuilder.class, ConnectorSession.class, SourcePage.class, SelectedPositions.class);
-        return () -> new GeneratedPageProjection(
-                result.getRewrittenExpression(),
-                isExpressionDeterministic,
-                result.getInputChannels(),
-                pageProjectionConstructor);
+        return new CompiledProjection(
+                constructorMethodHandle(pageProjectionWorkClass, BlockBuilder.class, ConnectorSession.class, SourcePage.class, SelectedPositions.class),
+                isDeterministic(projection));
     }
 
     private static ParameterizedType generateProjectionWorkClassName(Optional<String> classNameSuffix)
@@ -223,7 +239,7 @@ public class PageFunctionCompiler
         return makeClassName("PageProjectionWork", classNameSuffix);
     }
 
-    private ClassDefinition definePageProjectWorkClass(RowExpression projection, CallSiteBinder callSiteBinder, Optional<String> classNameSuffix)
+    private ClassDefinition definePageProjectWorkClass(Expression projection, Map<Symbol, Integer> compactLayout, CallSiteBinder callSiteBinder, Optional<String> classNameSuffix)
     {
         ClassDefinition classDefinition = new ClassDefinition(
                 a(PUBLIC, FINAL),
@@ -241,8 +257,8 @@ public class PageFunctionCompiler
         generateProcessMethod(classDefinition, blockBuilderField, sessionField, selectedPositionsField);
 
         // evaluate
-        Map<LambdaDefinitionExpression, CompiledLambda> compiledLambdaMap = generateMethodsForLambda(classDefinition, callSiteBinder, cachedInstanceBinder, projection);
-        generateEvaluateMethod(classDefinition, callSiteBinder, cachedInstanceBinder, compiledLambdaMap, projection, blockBuilderField);
+        Map<Lambda, CompiledLambda> compiledLambdaMap = generateMethodsForLambda(classDefinition, callSiteBinder, cachedInstanceBinder, projection, functionManager, metadata, typeManager);
+        generateEvaluateMethod(classDefinition, callSiteBinder, cachedInstanceBinder, compiledLambdaMap, projection, compactLayout, blockBuilderField);
 
         // constructor
         Parameter blockBuilder = arg("blockBuilder", BlockBuilder.class);
@@ -262,7 +278,7 @@ public class PageFunctionCompiler
                 .append(thisVariable.setField(sessionField, session))
                 .append(thisVariable.setField(selectedPositionsField, selectedPositions));
 
-        for (int channel : getInputChannels(projection)) {
+        for (int channel : getInputChannels(projection, compactLayout)) {
             FieldDefinition blockField = classDefinition.declareField(a(PRIVATE, FINAL), "block_" + channel, Block.class);
             body.append(thisVariable.setField(blockField, page.invoke("getBlock", Block.class, constantInt(channel))));
         }
@@ -321,8 +337,9 @@ public class PageFunctionCompiler
             ClassDefinition classDefinition,
             CallSiteBinder callSiteBinder,
             CachedInstanceBinder cachedInstanceBinder,
-            Map<LambdaDefinitionExpression, CompiledLambda> compiledLambdaMap,
-            RowExpression projection,
+            Map<Lambda, CompiledLambda> compiledLambdaMap,
+            Expression projection,
+            Map<Symbol, Integer> compactLayout,
             FieldDefinition blockBuilder)
     {
         Parameter session = arg("session", ConnectorSession.class);
@@ -344,12 +361,14 @@ public class PageFunctionCompiler
         Variable thisVariable = method.getThis();
 
         Variable wasNullVariable = scope.declareVariable("wasNull", body, constantFalse());
-        RowExpressionCompiler compiler = new RowExpressionCompiler(
+        ExpressionBytecodeCompiler compiler = new ExpressionBytecodeCompiler(
                 classDefinition,
                 callSiteBinder,
                 cachedInstanceBinder,
-                fieldReferenceCompilerProjection(callSiteBinder),
+                fieldReferenceCompilerProjection(compactLayout, callSiteBinder),
                 functionManager,
+                metadata,
+                typeManager,
                 compiledLambdaMap,
                 ImmutableList.of(session, position));
 
@@ -360,32 +379,52 @@ public class PageFunctionCompiler
         return method;
     }
 
-    public Supplier<PageFilter> compileFilter(RowExpression filter, Optional<String> classNameSuffix)
+    public Supplier<PageFilter> compileFilter(Expression filter, Map<Symbol, Integer> layout, Optional<String> classNameSuffix)
     {
-        if (filterCache == null) {
-            return compileFilterInternal(filter, classNameSuffix);
-        }
+        requireNonNull(filter, "filter is null");
+
+        Class<? extends PageFilter> filterClass;
         try {
-            return filterCache.getUnchecked(filter);
+            if (filterCache == null) {
+                filterClass = compileFilterClass(filter, layout, classNameSuffix);
+            }
+            else {
+                filterClass = filterCache.get(filter, () -> compileFilterClass(filter, layout, Optional.empty()));
+            }
         }
         catch (UncheckedExecutionException e) {
             throwIfInstanceOf(e.getCause(), TrinoException.class);
             throw e;
         }
+        catch (ExecutionException e) {
+            throwIfInstanceOf(e.getCause(), TrinoException.class);
+            throw new UncheckedExecutionException(e);
+        }
+
+        // Always compute InputChannels from the caller's layout
+        PageFieldsToInputParametersRewriter.Result result = rewritePageFieldsToInputParameters(filter, layout);
+        InputChannels inputChannels = result.inputChannels();
+        return () -> {
+            try {
+                return filterClass.getConstructor(InputChannels.class).newInstance(inputChannels);
+            }
+            catch (ReflectiveOperationException e) {
+                throw new TrinoException(COMPILER_ERROR, e);
+            }
+        };
     }
 
-    private Supplier<PageFilter> compileFilterInternal(RowExpression filter, Optional<String> classNameSuffix)
+    private Class<? extends PageFilter> compileFilterClass(Expression filter, Map<Symbol, Integer> layout, Optional<String> classNameSuffix)
     {
-        requireNonNull(filter, "filter is null");
+        PageFieldsToInputParametersRewriter.Result result = rewritePageFieldsToInputParameters(filter, layout);
 
-        PageFieldsToInputParametersRewriter.Result result = rewritePageFieldsToInputParameters(filter);
-
-        CallSiteBinder callSiteBinder = new CallSiteBinder();
-        ClassDefinition classDefinition = defineFilterClass(result.getRewrittenExpression(), result.getInputChannels(), callSiteBinder, classNameSuffix);
-
-        Class<? extends PageFilter> functionClass;
         try {
-            functionClass = defineClass(classDefinition, PageFilter.class, callSiteBinder.getBindings(), getClass().getClassLoader());
+            CallSiteBinder callSiteBinder = new CallSiteBinder();
+            ClassDefinition classDefinition = defineFilterClass(filter, result.compactLayout(), callSiteBinder, classNameSuffix);
+            return defineClass(classDefinition, PageFilter.class, callSiteBinder.getBindings(), getClass().getClassLoader());
+        }
+        catch (TrinoException e) {
+            throw e;
         }
         catch (Exception e) {
             if (Throwables.getRootCause(e) instanceof MethodTooLargeException) {
@@ -394,15 +433,6 @@ public class PageFunctionCompiler
             }
             throw new TrinoException(COMPILER_ERROR, filter.toString(), e.getCause());
         }
-
-        return () -> {
-            try {
-                return functionClass.getConstructor().newInstance();
-            }
-            catch (ReflectiveOperationException e) {
-                throw new TrinoException(COMPILER_ERROR, e);
-            }
-        };
     }
 
     private static ParameterizedType generateFilterClassName(Optional<String> classNameSuffix)
@@ -410,7 +440,7 @@ public class PageFunctionCompiler
         return makeClassName(PageFilter.class.getSimpleName(), classNameSuffix);
     }
 
-    private ClassDefinition defineFilterClass(RowExpression filter, InputChannels inputChannels, CallSiteBinder callSiteBinder, Optional<String> classNameSuffix)
+    private ClassDefinition defineFilterClass(Expression filter, Map<Symbol, Integer> compactLayout, CallSiteBinder callSiteBinder, Optional<String> classNameSuffix)
     {
         ClassDefinition classDefinition = new ClassDefinition(
                 a(PUBLIC, FINAL),
@@ -420,22 +450,24 @@ public class PageFunctionCompiler
 
         CachedInstanceBinder cachedInstanceBinder = new CachedInstanceBinder(classDefinition, callSiteBinder);
 
-        Map<LambdaDefinitionExpression, CompiledLambda> compiledLambdaMap = generateMethodsForLambda(classDefinition, callSiteBinder, cachedInstanceBinder, filter);
-        generateFilterMethod(classDefinition, callSiteBinder, cachedInstanceBinder, compiledLambdaMap, filter);
+        FieldDefinition inputChannelsField = classDefinition.declareField(a(PRIVATE, FINAL), "inputChannels", InputChannels.class);
+
+        Map<Lambda, CompiledLambda> compiledLambdaMap = generateMethodsForLambda(classDefinition, callSiteBinder, cachedInstanceBinder, filter, functionManager, metadata, typeManager);
+        generateFilterMethod(classDefinition, callSiteBinder, cachedInstanceBinder, compiledLambdaMap, filter, compactLayout);
 
         FieldDefinition selectedPositions = classDefinition.declareField(a(PRIVATE), "selectedPositions", boolean[].class);
         generatePageFilterMethod(classDefinition, selectedPositions);
 
-        // isDeterministic
+        // isDeterministic — baked into bytecode since it depends only on the expression, not the layout
         classDefinition.declareMethod(a(PUBLIC), "isDeterministic", type(boolean.class))
                 .getBody()
                 .append(constantBoolean(isDeterministic(filter)))
                 .retBoolean();
 
         // getInputChannels
-        classDefinition.declareMethod(a(PUBLIC), "getInputChannels", type(InputChannels.class))
-                .getBody()
-                .append(invoke(callSiteBinder.bind(inputChannels, InputChannels.class), "getInputChannels"))
+        MethodDefinition getInputChannelsMethod = classDefinition.declareMethod(a(PUBLIC), "getInputChannels", type(InputChannels.class));
+        getInputChannelsMethod.getBody()
+                .append(getInputChannelsMethod.getThis().getField(inputChannelsField))
                 .retObject();
 
         // toString
@@ -449,11 +481,22 @@ public class PageFunctionCompiler
                 .append(invoke(callSiteBinder.bind(toStringResult, String.class), "toString"))
                 .retObject();
 
-        // constructor
-        generateConstructor(classDefinition, cachedInstanceBinder, method -> {
-            Variable thisVariable = method.getScope().getThis();
-            method.getBody().append(thisVariable.setField(selectedPositions, newArray(type(boolean[].class), 0)));
-        });
+        // constructor(InputChannels inputChannels)
+        Parameter inputChannelsParam = arg("inputChannels", InputChannels.class);
+
+        MethodDefinition constructorDefinition = classDefinition.declareConstructor(a(PUBLIC), inputChannelsParam);
+        BytecodeBlock body = constructorDefinition.getBody();
+        Variable thisVariable = constructorDefinition.getThis();
+
+        body.comment("super();")
+                .append(thisVariable)
+                .invokeConstructor(Object.class);
+
+        body.append(thisVariable.setField(inputChannelsField, inputChannelsParam));
+        body.append(thisVariable.setField(selectedPositions, newArray(type(boolean[].class), 0)));
+
+        cachedInstanceBinder.generateInitializations(thisVariable, body);
+        body.ret();
 
         return classDefinition;
     }
@@ -505,8 +548,9 @@ public class PageFunctionCompiler
             ClassDefinition classDefinition,
             CallSiteBinder callSiteBinder,
             CachedInstanceBinder cachedInstanceBinder,
-            Map<LambdaDefinitionExpression, CompiledLambda> compiledLambdaMap,
-            RowExpression filter)
+            Map<Lambda, CompiledLambda> compiledLambdaMap,
+            Expression filter,
+            Map<Symbol, Integer> compactLayout)
     {
         Parameter session = arg("session", ConnectorSession.class);
         Parameter page = arg("page", SourcePage.class);
@@ -527,15 +571,17 @@ public class PageFunctionCompiler
         Scope scope = method.getScope();
         BytecodeBlock body = method.getBody();
 
-        declareBlockVariables(filter, page, scope, body);
+        declareBlockVariables(filter, compactLayout, page, scope, body);
 
         Variable wasNullVariable = scope.declareVariable("wasNull", body, constantFalse());
-        RowExpressionCompiler compiler = new RowExpressionCompiler(
+        ExpressionBytecodeCompiler compiler = new ExpressionBytecodeCompiler(
                 classDefinition,
                 callSiteBinder,
                 cachedInstanceBinder,
-                fieldReferenceCompiler(callSiteBinder),
+                fieldReferenceCompiler(compactLayout, callSiteBinder),
                 functionManager,
+                metadata,
+                typeManager,
                 compiledLambdaMap,
                 ImmutableList.of(page, position));
 
@@ -547,88 +593,51 @@ public class PageFunctionCompiler
         return method;
     }
 
-    private Map<LambdaDefinitionExpression, CompiledLambda> generateMethodsForLambda(
-            ClassDefinition containerClassDefinition,
-            CallSiteBinder callSiteBinder,
-            CachedInstanceBinder cachedInstanceBinder,
-            RowExpression expression)
+    private static void declareBlockVariables(Expression expression, Map<Symbol, Integer> compactLayout, Parameter page, Scope scope, BytecodeBlock body)
     {
-        Set<LambdaDefinitionExpression> lambdaExpressions = ImmutableSet.copyOf(extractLambdaExpressions(expression));
-        ImmutableMap.Builder<LambdaDefinitionExpression, CompiledLambda> compiledLambdaMap = ImmutableMap.builder();
-
-        int counter = 0;
-        for (LambdaDefinitionExpression lambdaExpression : lambdaExpressions) {
-            CompiledLambda compiledLambda = LambdaBytecodeGenerator.preGenerateLambdaExpression(
-                    lambdaExpression,
-                    "lambda_" + counter,
-                    containerClassDefinition,
-                    compiledLambdaMap.buildOrThrow(),
-                    callSiteBinder,
-                    cachedInstanceBinder,
-                    functionManager);
-            compiledLambdaMap.put(lambdaExpression, compiledLambda);
-            counter++;
-        }
-
-        return compiledLambdaMap.buildOrThrow();
-    }
-
-    private static void generateConstructor(
-            ClassDefinition classDefinition,
-            CachedInstanceBinder cachedInstanceBinder,
-            Consumer<MethodDefinition> additionalStatements)
-    {
-        MethodDefinition constructorDefinition = classDefinition.declareConstructor(a(PUBLIC));
-
-        BytecodeBlock body = constructorDefinition.getBody();
-        Variable thisVariable = constructorDefinition.getThis();
-
-        body.comment("super();")
-                .append(thisVariable)
-                .invokeConstructor(Object.class);
-
-        additionalStatements.accept(constructorDefinition);
-
-        cachedInstanceBinder.generateInitializations(thisVariable, body);
-        body.ret();
-    }
-
-    private static void declareBlockVariables(RowExpression expression, Parameter page, Scope scope, BytecodeBlock body)
-    {
-        for (int channel : getInputChannels(expression)) {
+        for (int channel : getInputChannels(expression, compactLayout)) {
             scope.declareVariable("block_" + channel, body, page.invoke("getBlock", Block.class, constantInt(channel)));
         }
     }
 
-    private static List<Integer> getInputChannels(Iterable<RowExpression> expressions)
+    private static Set<Integer> getInputChannels(Expression expression, Map<Symbol, Integer> compactLayout)
     {
-        TreeSet<Integer> channels = new TreeSet<>();
-        for (RowExpression expression : Expressions.subExpressions(expressions)) {
-            if (expression instanceof InputReferenceExpression inputReferenceExpression) {
-                channels.add(inputReferenceExpression.field());
+        Set<Integer> channels = new TreeSet<>();
+        collectChannels(expression, compactLayout, channels);
+        return channels;
+    }
+
+    private static void collectChannels(Expression expression, Map<Symbol, Integer> compactLayout, Set<Integer> channels)
+    {
+        if (expression instanceof Reference reference) {
+            Integer channel = compactLayout.get(Symbol.from(reference));
+            if (channel != null) {
+                channels.add(channel);
             }
+            return;
         }
-        return ImmutableList.copyOf(channels);
+        for (Expression child : expression.children()) {
+            collectChannels(child, compactLayout, channels);
+        }
     }
 
-    private static List<Integer> getInputChannels(RowExpression expression)
+    private static BiFunction<Reference, Scope, BytecodeNode> fieldReferenceCompilerProjection(Map<Symbol, Integer> compactLayout, CallSiteBinder callSiteBinder)
     {
-        return getInputChannels(ImmutableList.of(expression));
+        return (reference, scope) -> {
+            int field = compactLayout.get(Symbol.from(reference));
+            return generateInputReference(callSiteBinder, scope, reference.type(),
+                    scope.getThis().getField("block_" + field, Block.class),
+                    scope.getVariable("position"));
+        };
     }
 
-    private static RowExpressionVisitor<BytecodeNode, Scope> fieldReferenceCompilerProjection(CallSiteBinder callSiteBinder)
+    private static BiFunction<Reference, Scope, BytecodeNode> fieldReferenceCompiler(Map<Symbol, Integer> compactLayout, CallSiteBinder callSiteBinder)
     {
-        return new InputReferenceCompiler(
-                (scope, field) -> scope.getThis().getField("block_" + field, Block.class),
-                (scope, field) -> scope.getVariable("position"),
-                callSiteBinder);
-    }
-
-    private static RowExpressionVisitor<BytecodeNode, Scope> fieldReferenceCompiler(CallSiteBinder callSiteBinder)
-    {
-        return new InputReferenceCompiler(
-                (scope, field) -> scope.getVariable("block_" + field),
-                (scope, field) -> scope.getVariable("position"),
-                callSiteBinder);
+        return (reference, scope) -> {
+            int field = compactLayout.get(Symbol.from(reference));
+            return generateInputReference(callSiteBinder, scope, reference.type(),
+                    scope.getVariable("block_" + field),
+                    scope.getVariable("position"));
+        };
     }
 }

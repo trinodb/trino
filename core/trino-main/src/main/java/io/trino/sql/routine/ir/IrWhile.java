@@ -13,13 +13,13 @@
  */
 package io.trino.sql.routine.ir;
 
-import io.trino.sql.relational.RowExpression;
+import io.trino.sql.ir.Expression;
 
 import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
-public record IrWhile(Optional<IrLabel> label, RowExpression condition, IrBlock body)
+public record IrWhile(Optional<IrLabel> label, Expression condition, IrBlock body)
         implements IrStatement
 {
     public IrWhile

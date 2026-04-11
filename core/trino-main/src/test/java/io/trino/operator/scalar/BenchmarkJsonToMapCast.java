@@ -14,6 +14,7 @@
 package io.trino.operator.scalar;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.SliceOutput;
 import io.trino.jmh.Benchmarks;
@@ -26,8 +27,9 @@ import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.connector.SourcePage;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.Type;
-import io.trino.sql.relational.CallExpression;
-import io.trino.sql.relational.RowExpression;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.Reference;
+import io.trino.sql.planner.Symbol;
 import org.junit.jupiter.api.Test;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
@@ -50,7 +52,7 @@ import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregate
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static io.trino.sql.relational.Expressions.field;
+import static io.trino.sql.ir.IrExpressions.call;
 import static io.trino.testing.TestingConnectorSession.SESSION;
 import static io.trino.type.JsonType.JSON;
 import static io.trino.util.StructuralTestUtil.mapType;
@@ -108,12 +110,12 @@ public class BenchmarkJsonToMapCast
 
             TestingFunctionResolution functionResolution = new TestingFunctionResolution();
             MapType mapType = mapType(VARCHAR, valueType);
-            List<RowExpression> projections = ImmutableList.of(new CallExpression(
+            List<Expression> projections = ImmutableList.of(call(
                     functionResolution.getCoercion(JSON, mapType),
-                    ImmutableList.of(field(0, JSON))));
+                    new Reference(JSON, "$col_0")));
 
             pageProcessor = functionResolution.getExpressionCompiler()
-                    .compilePageProcessor(Optional.empty(), projections)
+                    .compilePageProcessor(Optional.empty(), projections, ImmutableMap.of(new Symbol(JSON, "$col_0"), 0))
                     .get();
 
             page = new Page(createChannel(POSITION_COUNT, MAP_SIZE, valueType));

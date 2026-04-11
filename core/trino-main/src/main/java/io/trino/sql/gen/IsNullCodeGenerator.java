@@ -16,10 +16,9 @@ package io.trino.sql.gen;
 import io.airlift.bytecode.BytecodeBlock;
 import io.airlift.bytecode.BytecodeNode;
 import io.airlift.bytecode.Variable;
-import io.trino.sql.relational.RowExpression;
-import io.trino.sql.relational.SpecialForm;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.IsNull;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantFalse;
 import static io.airlift.bytecode.instruction.Constant.loadBoolean;
 import static io.trino.type.UnknownType.UNKNOWN;
@@ -28,13 +27,12 @@ import static java.util.Objects.requireNonNull;
 public class IsNullCodeGenerator
         implements BytecodeGenerator
 {
-    private final RowExpression argument;
+    private final Expression argument;
 
-    public IsNullCodeGenerator(SpecialForm specialForm)
+    public IsNullCodeGenerator(IsNull isNull)
     {
-        requireNonNull(specialForm, "specialForm is null");
-        checkArgument(specialForm.arguments().size() == 1);
-        argument = specialForm.arguments().get(0);
+        requireNonNull(isNull, "isNull is null");
+        argument = isNull.value();
     }
 
     @Override

@@ -16,6 +16,7 @@ package io.trino.sql.gen.columnar;
 import com.google.common.collect.ImmutableList;
 import io.airlift.bytecode.BytecodeBlock;
 import io.airlift.bytecode.ClassDefinition;
+import io.airlift.bytecode.FieldDefinition;
 import io.airlift.bytecode.MethodDefinition;
 import io.airlift.bytecode.Parameter;
 import io.airlift.bytecode.Scope;
@@ -23,16 +24,20 @@ import io.airlift.bytecode.Variable;
 import io.airlift.bytecode.control.ForLoop;
 import io.airlift.bytecode.control.IfStatement;
 import io.trino.metadata.FunctionManager;
+import io.trino.metadata.Metadata;
 import io.trino.metadata.ResolvedFunction;
+import io.trino.operator.project.InputChannels;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SourcePage;
 import io.trino.sql.gen.CallSiteBinder;
-import io.trino.sql.relational.CallExpression;
-import io.trino.sql.relational.InputReferenceExpression;
-import io.trino.sql.relational.SpecialForm;
+import io.trino.sql.ir.Between;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.Reference;
+import io.trino.sql.planner.Symbol;
 
+import java.util.List;
+import java.util.Map;
 import java.util.Optional;
-import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.bytecode.Access.FINAL;
@@ -51,35 +56,33 @@ import static io.trino.sql.gen.columnar.ColumnarFilterCompiler.generateBlockMayH
 import static io.trino.sql.gen.columnar.ColumnarFilterCompiler.generateBlockPositionNotNull;
 import static io.trino.sql.gen.columnar.ColumnarFilterCompiler.generateGetInputChannels;
 import static io.trino.sql.gen.columnar.ColumnarFilterCompiler.updateOutputPositions;
-import static io.trino.sql.relational.Expressions.call;
-import static io.trino.sql.relational.SpecialForm.Form.BETWEEN;
 import static io.trino.util.CompilerUtils.makeClassName;
 import static java.util.Objects.requireNonNull;
 
 public class BetweenInlineColumnarFilterGenerator
 {
-    private final InputReferenceExpression valueExpression;
-    private final CallExpression leftExpression;
-    private final CallExpression rightExpression;
+    private final Reference valueReference;
+    private final Map<Symbol, Integer> layout;
+    private final ResolvedFunction lessThanOrEqual;
+    private final List<Expression> leftArguments;
+    private final List<Expression> rightArguments;
     private final FunctionManager functionManager;
 
-    public BetweenInlineColumnarFilterGenerator(SpecialForm specialForm, FunctionManager functionManager)
+    public BetweenInlineColumnarFilterGenerator(Between between, Map<Symbol, Integer> layout, Metadata metadata, FunctionManager functionManager)
     {
-        checkArgument(specialForm.form() == BETWEEN, "specialForm should be BETWEEN");
-        checkArgument(specialForm.arguments().size() == 3, "BETWEEN should have 3 arguments %s", specialForm.arguments());
-        checkArgument(specialForm.functionDependencies().size() == 1, "BETWEEN should have 1 functional dependency %s", specialForm.functionDependencies());
         this.functionManager = requireNonNull(functionManager, "functionManager is null");
+        this.layout = requireNonNull(layout, "layout is null");
 
         // Between requires evaluate once semantic for the value being tested
         // Until we can pre-project it into a temporary variable, we apply columnar evaluation only on InputReference
-        checkArgument(specialForm.arguments().getFirst() instanceof InputReferenceExpression, "valueExpression is not an InputReference");
-        this.valueExpression = (InputReferenceExpression) specialForm.arguments().get(0);
-        ResolvedFunction lessThanOrEqual = specialForm.getOperatorDependency(LESS_THAN_OR_EQUAL);
-        this.leftExpression = call(lessThanOrEqual, specialForm.arguments().get(1), valueExpression);
-        this.rightExpression = call(lessThanOrEqual, valueExpression, specialForm.arguments().get(2));
+        checkArgument(between.value() instanceof Reference, "valueExpression is not a Reference");
+        this.valueReference = (Reference) between.value();
+        this.lessThanOrEqual = metadata.resolveOperator(LESS_THAN_OR_EQUAL, ImmutableList.of(between.value().type(), between.max().type()));
+        this.leftArguments = ImmutableList.of(between.min(), valueReference);
+        this.rightArguments = ImmutableList.of(valueReference, between.max());
     }
 
-    public Supplier<ColumnarFilter> generateColumnarFilter()
+    public Class<? extends ColumnarFilter> generateColumnarFilter()
     {
         ClassDefinition classDefinition = new ClassDefinition(
                 a(PUBLIC, FINAL),
@@ -88,14 +91,29 @@ public class BetweenInlineColumnarFilterGenerator
                 type(ColumnarFilter.class));
         CallSiteBinder callSiteBinder = new CallSiteBinder();
 
-        classDefinition.declareDefaultConstructor(a(PUBLIC));
-
-        generateGetInputChannels(callSiteBinder, classDefinition, valueExpression);
+        FieldDefinition inputChannelsField = generateGetInputChannels(classDefinition);
+        generateConstructor(classDefinition, inputChannelsField);
 
         generateFilterRangeMethod(callSiteBinder, classDefinition);
         generateFilterListMethod(callSiteBinder, classDefinition);
 
         return createClassInstance(callSiteBinder, classDefinition);
+    }
+
+    private static void generateConstructor(ClassDefinition classDefinition, FieldDefinition inputChannelsField)
+    {
+        Parameter inputChannelsParam = arg("inputChannels", InputChannels.class);
+        MethodDefinition constructorDefinition = classDefinition.declareConstructor(a(PUBLIC), inputChannelsParam);
+
+        BytecodeBlock body = constructorDefinition.getBody();
+        Variable thisVariable = constructorDefinition.getThis();
+
+        body.comment("super();")
+                .append(thisVariable)
+                .invokeConstructor(Object.class);
+
+        body.append(thisVariable.setField(inputChannelsField, inputChannelsParam));
+        body.ret();
     }
 
     private void generateFilterRangeMethod(CallSiteBinder binder, ClassDefinition classDefinition)
@@ -114,14 +132,14 @@ public class BetweenInlineColumnarFilterGenerator
         Scope scope = method.getScope();
         BytecodeBlock body = method.getBody();
 
-        declareBlockVariables(ImmutableList.of(valueExpression), page, scope, body);
+        declareBlockVariables(ImmutableList.of(valueReference), layout, page, scope, body);
 
         Variable outputPositionsCount = scope.declareVariable("outputPositionsCount", body, constantInt(0));
         Variable position = scope.declareVariable(int.class, "position");
         Variable result = scope.declareVariable(boolean.class, "result");
 
         IfStatement ifStatement = new IfStatement()
-                .condition(generateBlockMayHaveNull(ImmutableList.of(valueExpression), scope));
+                .condition(generateBlockMayHaveNull(ImmutableList.of(valueReference), layout, scope));
         body.append(ifStatement);
 
         /* if (block_0.mayHaveNull()) {
@@ -142,7 +160,7 @@ public class BetweenInlineColumnarFilterGenerator
                 .condition(lessThan(position, add(offset, size)))
                 .update(position.increment())
                 .body(new IfStatement()
-                        .condition(generateBlockPositionNotNull(ImmutableList.of(valueExpression), scope, position))
+                        .condition(generateBlockPositionNotNull(ImmutableList.of(valueReference), layout, scope, position))
                         .ifTrue(computeAndAssignResult(binder, scope, result, position, outputPositions, outputPositionsCount))));
 
         /* for (position = offset; position < offset + size; position++) {
@@ -180,7 +198,7 @@ public class BetweenInlineColumnarFilterGenerator
         Scope scope = method.getScope();
         BytecodeBlock body = method.getBody();
 
-        declareBlockVariables(ImmutableList.of(valueExpression), page, scope, body);
+        declareBlockVariables(ImmutableList.of(valueReference), layout, page, scope, body);
 
         Variable outputPositionsCount = scope.declareVariable("outputPositionsCount", body, constantInt(0));
         Variable index = scope.declareVariable(int.class, "index");
@@ -188,7 +206,7 @@ public class BetweenInlineColumnarFilterGenerator
         Variable result = scope.declareVariable(boolean.class, "result");
 
         IfStatement ifStatement = new IfStatement()
-                .condition(generateBlockMayHaveNull(ImmutableList.of(valueExpression), scope));
+                .condition(generateBlockMayHaveNull(ImmutableList.of(valueReference), layout, scope));
         body.append(ifStatement);
 
         /* if (block_0.mayHaveNull()) {
@@ -212,7 +230,7 @@ public class BetweenInlineColumnarFilterGenerator
                 .body(new BytecodeBlock()
                         .append(position.set(activePositions.getElement(index)))
                         .append(new IfStatement()
-                                .condition(generateBlockPositionNotNull(ImmutableList.of(valueExpression), scope, position))
+                                .condition(generateBlockPositionNotNull(ImmutableList.of(valueReference), layout, scope, position))
                                 .ifTrue(computeAndAssignResult(binder, scope, result, position, outputPositions, outputPositionsCount)))));
 
         /* for (int index = offset; index < offset + size; index++) {
@@ -239,11 +257,11 @@ public class BetweenInlineColumnarFilterGenerator
     private BytecodeBlock computeAndAssignResult(CallSiteBinder binder, Scope scope, Variable result, Variable position, Parameter outputPositions, Variable outputPositionsCount)
     {
         return new BytecodeBlock()
-                .append(generateInvocation(functionManager, binder, leftExpression, scope, position)
+                .append(generateInvocation(functionManager, binder, lessThanOrEqual, leftArguments, layout, scope, position)
                         .putVariable(result))
                 .append(new IfStatement()
                         .condition(result)
-                        .ifTrue(generateInvocation(functionManager, binder, rightExpression, scope, position)
+                        .ifTrue(generateInvocation(functionManager, binder, lessThanOrEqual, rightArguments, layout, scope, position)
                                 .putVariable(result)))
                 .append(updateOutputPositions(result, position, outputPositions, outputPositionsCount));
     }

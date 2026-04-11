@@ -19,8 +19,9 @@ import io.trino.Session;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.type.Type;
-import io.trino.sql.relational.InputReferenceExpression;
-import io.trino.sql.relational.RowExpression;
+import io.trino.sql.ir.Constant;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.Reference;
 import io.trino.sql.routine.ir.IrBlock;
 import io.trino.sql.routine.ir.IrBreak;
 import io.trino.sql.routine.ir.IrContinue;
@@ -53,10 +54,10 @@ import static io.trino.spi.function.OperatorType.MULTIPLY;
 import static io.trino.spi.function.OperatorType.SUBTRACT;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.sql.ir.IrExpressions.call;
+import static io.trino.sql.ir.IrExpressions.constantNull;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
-import static io.trino.sql.relational.Expressions.call;
-import static io.trino.sql.relational.Expressions.constant;
-import static io.trino.sql.relational.Expressions.constantNull;
+import static io.trino.sql.routine.SqlRoutinePlanner.variableReferenceName;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.util.Reflection.constructorMethodHandle;
 import static java.util.Arrays.stream;
@@ -66,7 +67,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 public class TestSqlRoutineCompiler
 {
     private static final Session TEST_SESSION = testSessionBuilder().build();
-    private final SqlRoutineCompiler compiler = new SqlRoutineCompiler(PLANNER_CONTEXT.getFunctionManager());
+    private final SqlRoutineCompiler compiler = new SqlRoutineCompiler(PLANNER_CONTEXT.getFunctionManager(), PLANNER_CONTEXT.getMetadata(), PLANNER_CONTEXT.getTypeManager());
 
     @Test
     public void testSimpleExpression()
@@ -80,7 +81,7 @@ public class TestSqlRoutineCompiler
         // END
 
         IrVariable arg = new IrVariable(0, BIGINT, constantNull(BIGINT));
-        IrVariable variable = new IrVariable(1, BIGINT, constant(99L, BIGINT));
+        IrVariable variable = new IrVariable(1, BIGINT, new Constant(BIGINT, 99L));
 
         ResolvedFunction multiply = operator(MULTIPLY, BIGINT, BIGINT);
 
@@ -125,8 +126,8 @@ public class TestSqlRoutineCompiler
         // END
 
         IrVariable n = new IrVariable(0, BIGINT, constantNull(BIGINT));
-        IrVariable a = new IrVariable(1, BIGINT, constant(1L, BIGINT));
-        IrVariable b = new IrVariable(2, BIGINT, constant(1L, BIGINT));
+        IrVariable a = new IrVariable(1, BIGINT, new Constant(BIGINT, 1L));
+        IrVariable b = new IrVariable(2, BIGINT, new Constant(BIGINT, 1L));
         IrVariable c = new IrVariable(3, BIGINT, constantNull(BIGINT));
 
         ResolvedFunction add = operator(ADD, BIGINT, BIGINT);
@@ -139,16 +140,16 @@ public class TestSqlRoutineCompiler
                 parameters(n),
                 new IrBlock(variables(a, b, c), statements(
                         new IrIf(
-                                call(lessThanOrEqual, reference(n), constant(2L, BIGINT)),
-                                new IrReturn(constant(1L, BIGINT)),
+                                call(lessThanOrEqual, reference(n), new Constant(BIGINT, 2L)),
+                                new IrReturn(new Constant(BIGINT, 1L)),
                                 Optional.empty()),
                         new IrWhile(
                                 Optional.empty(),
-                                call(lessThan, constant(2L, BIGINT), reference(n)),
+                                call(lessThan, new Constant(BIGINT, 2L), reference(n)),
                                 new IrBlock(
                                         variables(),
                                         statements(
-                                                new IrSet(n, call(subtract, reference(n), constant(1L, BIGINT))),
+                                                new IrSet(n, call(subtract, reference(n), new Constant(BIGINT, 1L))),
                                                 new IrSet(c, call(add, reference(a), reference(b))),
                                                 new IrSet(a, reference(b)),
                                                 new IrSet(b, reference(c))))),
@@ -190,8 +191,8 @@ public class TestSqlRoutineCompiler
         //   RETURN b;
         // END
 
-        IrVariable a = new IrVariable(0, BIGINT, constant(0L, BIGINT));
-        IrVariable b = new IrVariable(1, BIGINT, constant(0L, BIGINT));
+        IrVariable a = new IrVariable(0, BIGINT, new Constant(BIGINT, 0L));
+        IrVariable b = new IrVariable(1, BIGINT, new Constant(BIGINT, 0L));
 
         ResolvedFunction add = operator(ADD, BIGINT, BIGINT);
         ResolvedFunction lessThan = operator(LESS_THAN, BIGINT, BIGINT);
@@ -204,16 +205,16 @@ public class TestSqlRoutineCompiler
                 new IrBlock(variables(a, b), statements(
                         new IrWhile(
                                 Optional.of(label),
-                                call(lessThan, reference(a), constant(10L, BIGINT)),
+                                call(lessThan, reference(a), new Constant(BIGINT, 10L)),
                                 new IrBlock(variables(), statements(
-                                        new IrSet(a, call(add, reference(a), constant(1L, BIGINT))),
+                                        new IrSet(a, call(add, reference(a), new Constant(BIGINT, 1L))),
                                         new IrIf(
-                                                call(lessThan, reference(a), constant(3L, BIGINT)),
+                                                call(lessThan, reference(a), new Constant(BIGINT, 3L)),
                                                 new IrContinue(label),
                                                 Optional.empty()),
-                                        new IrSet(b, call(add, reference(b), constant(1L, BIGINT))),
+                                        new IrSet(b, call(add, reference(b), new Constant(BIGINT, 1L))),
                                         new IrIf(
-                                                call(lessThan, constant(6L, BIGINT), reference(a)),
+                                                call(lessThan, new Constant(BIGINT, 6L), reference(a)),
                                                 new IrBreak(label),
                                                 Optional.empty())))),
                         new IrReturn(reference(b)))));
@@ -229,7 +230,7 @@ public class TestSqlRoutineCompiler
     {
         assertRoutineInterruption(() -> new IrWhile(
                 Optional.empty(),
-                constant(true, BOOLEAN),
+                new Constant(BOOLEAN, true),
                 new IrBlock(variables(), statements())));
     }
 
@@ -239,7 +240,7 @@ public class TestSqlRoutineCompiler
     {
         assertRoutineInterruption(() -> new IrRepeat(
                 Optional.empty(),
-                constant(false, BOOLEAN),
+                new Constant(BOOLEAN, false),
                 new IrBlock(variables(), statements())));
     }
 
@@ -260,7 +261,7 @@ public class TestSqlRoutineCompiler
                 parameters(),
                 new IrBlock(variables(), statements(
                         loopFactory.get(),
-                        new IrReturn(constant(null, BIGINT)))));
+                        new IrReturn(constantNull(BIGINT)))));
 
         MethodHandle handle = compile(routine);
 
@@ -309,9 +310,9 @@ public class TestSqlRoutineCompiler
         return ImmutableList.copyOf(statements);
     }
 
-    private static RowExpression reference(IrVariable variable)
+    private static Expression reference(IrVariable variable)
     {
-        return new InputReferenceExpression(variable.field(), variable.type());
+        return new Reference(variable.type(), variableReferenceName(variable));
     }
 
     private static ResolvedFunction operator(OperatorType operator, Type... argumentTypes)

@@ -14,6 +14,7 @@
 package io.trino.operator.scalar;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import io.trino.jmh.Benchmarks;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.operator.DriverYieldSignal;
@@ -26,13 +27,11 @@ import io.trino.spi.connector.SourcePage;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.Type;
 import io.trino.sql.gen.ExpressionCompiler;
+import io.trino.sql.ir.Constant;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.Lambda;
+import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.Symbol;
-import io.trino.sql.relational.CallExpression;
-import io.trino.sql.relational.ConstantExpression;
-import io.trino.sql.relational.InputReferenceExpression;
-import io.trino.sql.relational.LambdaDefinitionExpression;
-import io.trino.sql.relational.RowExpression;
-import io.trino.sql.relational.VariableReferenceExpression;
 import io.trino.type.FunctionType;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
@@ -59,6 +58,7 @@ import static io.trino.spi.function.OperatorType.LESS_THAN;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
+import static io.trino.sql.ir.IrExpressions.call;
 import static io.trino.testing.TestingConnectorSession.SESSION;
 
 @SuppressWarnings("MethodMayBeStatic")
@@ -104,26 +104,27 @@ public class BenchmarkArrayTransform
         {
             TestingFunctionResolution functionResolution = new TestingFunctionResolution();
             ExpressionCompiler compiler = functionResolution.getExpressionCompiler();
-            ImmutableList.Builder<RowExpression> projectionsBuilder = ImmutableList.builder();
+            ImmutableList.Builder<Expression> projectionsBuilder = ImmutableList.builder();
+            ImmutableMap.Builder<Symbol, Integer> layoutBuilder = ImmutableMap.builder();
             Block[] blocks = new Block[TYPES.size()];
             for (int i = 0; i < TYPES.size(); i++) {
                 Type elementType = TYPES.get(i);
                 ArrayType arrayType = new ArrayType(elementType);
-                projectionsBuilder.add(new CallExpression(
+                projectionsBuilder.add(call(
                         functionResolution.resolveFunction(ARRAY_TRANSFORM_NAME, fromTypes(arrayType, new FunctionType(ImmutableList.of(BIGINT), BOOLEAN))),
-                        ImmutableList.of(
-                                new InputReferenceExpression(0, arrayType),
-                                new LambdaDefinitionExpression(
-                                        ImmutableList.of(new Symbol(BIGINT, "x")),
-                                        new CallExpression(
-                                                functionResolution.resolveOperator(LESS_THAN, ImmutableList.of(BIGINT, BIGINT)),
-                                                ImmutableList.of(new ConstantExpression(0L, BIGINT), new VariableReferenceExpression("x", BIGINT)))))));
+                        new Reference(arrayType, "$col_" + i),
+                        new Lambda(
+                                ImmutableList.of(new Symbol(BIGINT, "x")),
+                                call(
+                                        functionResolution.resolveOperator(LESS_THAN, ImmutableList.of(BIGINT, BIGINT)),
+                                        new Constant(BIGINT, 0L), new Reference(BIGINT, "x")))));
+                layoutBuilder.put(new Symbol(arrayType, "$col_" + i), i);
                 blocks[i] = createChannel(POSITIONS, ARRAY_SIZE, arrayType);
             }
 
-            List<RowExpression> projections = projectionsBuilder.build();
-            pageProcessor = compiler.compilePageProcessor(Optional.empty(), projections).get();
-            pageBuilder = new PageBuilder(projections.stream().map(RowExpression::type).collect(Collectors.toList()));
+            List<Expression> projections = projectionsBuilder.build();
+            pageProcessor = compiler.compilePageProcessor(Optional.empty(), projections, layoutBuilder.buildOrThrow()).get();
+            pageBuilder = new PageBuilder(projections.stream().map(Expression::type).collect(Collectors.toList()));
             page = new Page(blocks);
         }
 

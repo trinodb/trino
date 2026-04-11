@@ -20,14 +20,13 @@ import io.airlift.bytecode.Scope;
 import io.airlift.bytecode.Variable;
 import io.airlift.bytecode.control.IfStatement;
 import io.airlift.bytecode.instruction.LabelNode;
+import io.trino.metadata.Metadata;
 import io.trino.metadata.ResolvedFunction;
-import io.trino.sql.relational.RowExpression;
-import io.trino.sql.relational.SpecialForm;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.NullIf;
 
-import java.util.List;
 import java.util.Optional;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantTrue;
 import static io.trino.spi.function.OperatorType.EQUAL;
 import static io.trino.sql.gen.BytecodeUtils.ifWasNullPopAndGoto;
@@ -36,26 +35,31 @@ import static java.util.Objects.requireNonNull;
 public class NullIfCodeGenerator
         implements BytecodeGenerator
 {
-    private final RowExpression first;
-    private final RowExpression second;
+    private final Expression first;
+    private final Expression second;
 
     private final ResolvedFunction equalsFunction;
     private final Optional<ResolvedFunction> firstCast;
     private final Optional<ResolvedFunction> secondCast;
 
-    public NullIfCodeGenerator(SpecialForm specialForm)
+    public NullIfCodeGenerator(NullIf nullIf, Metadata metadata)
     {
-        requireNonNull(specialForm, "specialForm is null");
-        checkArgument(specialForm.arguments().size() == 2);
+        requireNonNull(nullIf, "nullIf is null");
 
-        first = specialForm.arguments().get(0);
-        second = specialForm.arguments().get(1);
+        first = nullIf.first();
+        second = nullIf.second();
 
-        List<ResolvedFunction> functionDependencies = specialForm.functionDependencies();
-        checkArgument(functionDependencies.size() <= 3);
-        equalsFunction = specialForm.getOperatorDependency(EQUAL);
-        firstCast = specialForm.getCastDependency(first.type(), equalsFunction.signature().getArgumentTypes().get(0));
-        secondCast = specialForm.getCastDependency(second.type(), equalsFunction.signature().getArgumentTypes().get(0));
+        equalsFunction = metadata.resolveOperator(EQUAL, ImmutableList.of(first.type(), second.type()));
+        firstCast = getCastIfNeeded(metadata, first.type(), equalsFunction.signature().getArgumentTypes().get(0));
+        secondCast = getCastIfNeeded(metadata, second.type(), equalsFunction.signature().getArgumentTypes().get(0));
+    }
+
+    private static Optional<ResolvedFunction> getCastIfNeeded(Metadata metadata, io.trino.spi.type.Type fromType, io.trino.spi.type.Type toType)
+    {
+        if (fromType.equals(toType)) {
+            return Optional.empty();
+        }
+        return Optional.of(metadata.getCoercion(fromType, toType));
     }
 
     @Override

@@ -20,10 +20,11 @@ import io.airlift.bytecode.Parameter;
 import io.airlift.bytecode.Scope;
 import io.airlift.bytecode.Variable;
 import io.trino.metadata.FunctionManager;
+import io.trino.metadata.Metadata;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.spi.function.InvocationConvention;
 import io.trino.spi.function.ScalarFunctionImplementation;
-import io.trino.sql.relational.RowExpression;
+import io.trino.sql.ir.Expression;
 
 import java.lang.invoke.MethodHandle;
 import java.util.List;
@@ -37,36 +38,40 @@ import static java.util.Objects.requireNonNull;
 
 public class BytecodeGeneratorContext
 {
-    private final RowExpressionCompiler rowExpressionCompiler;
+    private final ExpressionBytecodeCompiler expressionCompiler;
     private final Scope scope;
     private final CallSiteBinder callSiteBinder;
     private final CachedInstanceBinder cachedInstanceBinder;
     private final FunctionManager functionManager;
+    private final Metadata metadata;
     private final Variable wasNull;
     private final ClassDefinition classDefinition;
     private final List<Parameter> contextArguments;  // arguments that need to be propagated to generated methods to be able to resolve underlying references, session, etc.
 
     public BytecodeGeneratorContext(
-            RowExpressionCompiler rowExpressionCompiler,
+            ExpressionBytecodeCompiler expressionCompiler,
             Scope scope,
             CallSiteBinder callSiteBinder,
             CachedInstanceBinder cachedInstanceBinder,
             FunctionManager functionManager,
+            Metadata metadata,
             ClassDefinition classDefinition,
             List<Parameter> contextArguments)
     {
-        requireNonNull(rowExpressionCompiler, "rowExpressionCompiler is null");
+        requireNonNull(expressionCompiler, "expressionCompiler is null");
         requireNonNull(cachedInstanceBinder, "cachedInstanceBinder is null");
         requireNonNull(scope, "scope is null");
         requireNonNull(callSiteBinder, "callSiteBinder is null");
         requireNonNull(functionManager, "functionManager is null");
+        requireNonNull(metadata, "metadata is null");
         requireNonNull(classDefinition, "classDefinition is null");
 
-        this.rowExpressionCompiler = rowExpressionCompiler;
+        this.expressionCompiler = expressionCompiler;
         this.scope = scope;
         this.callSiteBinder = callSiteBinder;
         this.cachedInstanceBinder = cachedInstanceBinder;
         this.functionManager = functionManager;
+        this.metadata = metadata;
         this.wasNull = scope.getVariable("wasNull");
         this.classDefinition = classDefinition;
         this.contextArguments = ImmutableList.copyOf(contextArguments);
@@ -82,9 +87,9 @@ public class BytecodeGeneratorContext
         return callSiteBinder;
     }
 
-    public BytecodeNode generate(RowExpression expression)
+    public BytecodeNode generate(Expression expression)
     {
-        return rowExpressionCompiler.compile(expression, scope);
+        return expressionCompiler.compile(expression, scope);
     }
 
     public ScalarFunctionImplementation getScalarFunctionImplementation(ResolvedFunction resolvedFunction, InvocationConvention invocationConvention)
@@ -100,7 +105,7 @@ public class BytecodeGeneratorContext
         return generateInvocation(scope, resolvedFunction, functionManager, arguments, callSiteBinder);
     }
 
-    public BytecodeNode generateFullCall(ResolvedFunction resolvedFunction, List<RowExpression> arguments)
+    public BytecodeNode generateFullCall(ResolvedFunction resolvedFunction, List<Expression> arguments)
     {
         List<Function<Optional<Class<?>>, BytecodeNode>> argumentCompilers = arguments.stream()
                 .map(this::argumentCompiler)
@@ -111,9 +116,9 @@ public class BytecodeGeneratorContext
         return generateFullInvocation(scope, resolvedFunction, functionManager, instance, argumentCompilers, callSiteBinder);
     }
 
-    private Function<Optional<Class<?>>, BytecodeNode> argumentCompiler(RowExpression argument)
+    private Function<Optional<Class<?>>, BytecodeNode> argumentCompiler(Expression argument)
     {
-        return lambdaInterface -> rowExpressionCompiler.compile(argument, scope, lambdaInterface);
+        return lambdaInterface -> expressionCompiler.compile(argument, scope, lambdaInterface);
     }
 
     public Variable wasNull()
@@ -126,9 +131,9 @@ public class BytecodeGeneratorContext
         return classDefinition;
     }
 
-    public RowExpressionCompiler getRowExpressionCompiler()
+    public ExpressionBytecodeCompiler getExpressionCompiler()
     {
-        return rowExpressionCompiler;
+        return expressionCompiler;
     }
 
     public CachedInstanceBinder getCachedInstanceBinder()
@@ -139,6 +144,11 @@ public class BytecodeGeneratorContext
     public FunctionManager getFunctionManager()
     {
         return functionManager;
+    }
+
+    public Metadata getMetadata()
+    {
+        return metadata;
     }
 
     public List<Parameter> getContextArguments()

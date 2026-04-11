@@ -14,6 +14,7 @@
 package io.trino.operator.scalar;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slices;
 import io.trino.jmh.Benchmarks;
 import io.trino.metadata.TestingFunctionResolution;
@@ -26,8 +27,9 @@ import io.trino.spi.connector.SourcePage;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.Type;
 import io.trino.sql.gen.ExpressionCompiler;
-import io.trino.sql.relational.CallExpression;
-import io.trino.sql.relational.RowExpression;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.Reference;
+import io.trino.sql.planner.Symbol;
 import org.junit.jupiter.api.Test;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
@@ -51,7 +53,7 @@ import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregate
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
-import static io.trino.sql.relational.Expressions.field;
+import static io.trino.sql.ir.IrExpressions.call;
 import static io.trino.testing.TestingConnectorSession.SESSION;
 
 @SuppressWarnings("MethodMayBeStatic")
@@ -102,12 +104,14 @@ public class BenchmarkArraysOverlap
 
             TestingFunctionResolution functionResolution = new TestingFunctionResolution();
             ArrayType arrayType = new ArrayType(elementType);
-            List<RowExpression> projections = ImmutableList.of(new CallExpression(
+            List<Expression> projections = ImmutableList.of(call(
                     functionResolution.resolveFunction(name, fromTypes(arrayType, arrayType)),
-                    ImmutableList.of(field(0, arrayType), field(1, arrayType))));
+                    new Reference(arrayType, "$col_0"), new Reference(arrayType, "$col_1")));
 
             ExpressionCompiler compiler = functionResolution.getExpressionCompiler();
-            pageProcessor = compiler.compilePageProcessor(Optional.empty(), projections).get();
+            pageProcessor = compiler.compilePageProcessor(Optional.empty(), projections, ImmutableMap.of(
+                    new Symbol(arrayType, "$col_0"), 0,
+                    new Symbol(arrayType, "$col_1"), 1)).get();
 
             page = new Page(createChannel(POSITIONS, arraySize, elementType), createChannel(POSITIONS, arraySize, elementType));
         }

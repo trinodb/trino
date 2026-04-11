@@ -25,83 +25,22 @@ import io.airlift.bytecode.control.IfStatement;
 import io.airlift.bytecode.expression.BytecodeExpression;
 import io.airlift.slice.Slice;
 import io.trino.spi.type.Type;
-import io.trino.sql.relational.CallExpression;
-import io.trino.sql.relational.ConstantExpression;
-import io.trino.sql.relational.InputReferenceExpression;
-import io.trino.sql.relational.LambdaDefinitionExpression;
-import io.trino.sql.relational.RowExpressionVisitor;
-import io.trino.sql.relational.SpecialForm;
-import io.trino.sql.relational.VariableReferenceExpression;
 import org.objectweb.asm.MethodVisitor;
 
 import java.util.List;
-import java.util.function.BiFunction;
 
 import static io.trino.sql.gen.SqlTypeBytecodeExpression.constantType;
-import static java.util.Objects.requireNonNull;
 
-class InputReferenceCompiler
-        implements RowExpressionVisitor<BytecodeNode, Scope>
+/**
+ * Generates bytecode to read a value from a Block at a given position.
+ */
+final class InputReferenceCompiler
 {
-    private final BiFunction<Scope, Integer, BytecodeExpression> blockResolver;
-    private final BiFunction<Scope, Integer, BytecodeExpression> positionResolver;
-    private final CallSiteBinder callSiteBinder;
-
-    public InputReferenceCompiler(
-            BiFunction<Scope, Integer, BytecodeExpression> blockResolver,
-            BiFunction<Scope, Integer, BytecodeExpression> positionResolver,
-            CallSiteBinder callSiteBinder)
-    {
-        this.blockResolver = requireNonNull(blockResolver, "blockResolver is null");
-        this.positionResolver = requireNonNull(positionResolver, "positionResolver is null");
-        this.callSiteBinder = requireNonNull(callSiteBinder, "callSiteBinder is null");
-    }
+    private InputReferenceCompiler() {}
 
     public static BytecodeNode generateInputReference(CallSiteBinder callSiteBinder, Scope scope, Type type, BytecodeExpression block, BytecodeExpression position)
     {
         return new InputReferenceNode(callSiteBinder, scope, type, block, position);
-    }
-
-    @Override
-    public BytecodeNode visitInputReference(InputReferenceExpression node, Scope scope)
-    {
-        int field = node.field();
-        Type type = node.type();
-
-        BytecodeExpression block = blockResolver.apply(scope, field);
-        BytecodeExpression position = positionResolver.apply(scope, field);
-
-        return generateInputReference(callSiteBinder, scope, type, block, position);
-    }
-
-    @Override
-    public BytecodeNode visitCall(CallExpression call, Scope scope)
-    {
-        throw new UnsupportedOperationException("not yet implemented");
-    }
-
-    @Override
-    public BytecodeNode visitSpecialForm(SpecialForm specialForm, Scope context)
-    {
-        throw new UnsupportedOperationException("not yet implemented");
-    }
-
-    @Override
-    public BytecodeNode visitConstant(ConstantExpression literal, Scope scope)
-    {
-        throw new UnsupportedOperationException("not yet implemented");
-    }
-
-    @Override
-    public BytecodeNode visitLambda(LambdaDefinitionExpression lambda, Scope context)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public BytecodeNode visitVariableReference(VariableReferenceExpression reference, Scope context)
-    {
-        throw new UnsupportedOperationException();
     }
 
     static class InputReferenceNode

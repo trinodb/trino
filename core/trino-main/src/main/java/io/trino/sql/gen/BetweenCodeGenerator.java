@@ -18,55 +18,49 @@ import io.airlift.bytecode.BytecodeBlock;
 import io.airlift.bytecode.BytecodeNode;
 import io.airlift.bytecode.Variable;
 import io.airlift.bytecode.instruction.LabelNode;
+import io.trino.metadata.Metadata;
 import io.trino.metadata.ResolvedFunction;
-import io.trino.sql.relational.RowExpression;
-import io.trino.sql.relational.SpecialForm;
-import io.trino.sql.relational.VariableReferenceExpression;
+import io.trino.sql.ir.Between;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.Logical;
+import io.trino.sql.ir.Reference;
 
-import java.util.List;
-
-import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
-import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.sql.gen.BytecodeUtils.ifWasNullPopAndGoto;
-import static io.trino.sql.gen.RowExpressionCompiler.createTempVariableReferenceExpression;
-import static io.trino.sql.relational.Expressions.call;
-import static io.trino.sql.relational.SpecialForm.Form.AND;
+import static io.trino.sql.gen.ExpressionBytecodeCompiler.createTempReference;
+import static io.trino.sql.ir.IrExpressions.call;
 import static java.util.Objects.requireNonNull;
 
 public class BetweenCodeGenerator
         implements BytecodeGenerator
 {
-    private final RowExpression value;
-    private final RowExpression min;
-    private final RowExpression max;
+    private final Expression value;
+    private final Expression min;
+    private final Expression max;
 
     private final ResolvedFunction lessThanOrEqual;
 
-    public BetweenCodeGenerator(SpecialForm specialForm)
+    public BetweenCodeGenerator(Between between, Metadata metadata)
     {
-        requireNonNull(specialForm, "specialForm is null");
-        List<RowExpression> arguments = specialForm.arguments();
-        checkArgument(arguments.size() == 3);
-        value = arguments.get(0);
-        min = arguments.get(1);
-        max = arguments.get(2);
+        requireNonNull(between, "between is null");
+        value = between.value();
+        min = between.min();
+        max = between.max();
 
-        checkArgument(specialForm.functionDependencies().size() == 1);
-        lessThanOrEqual = specialForm.getOperatorDependency(LESS_THAN_OR_EQUAL);
+        lessThanOrEqual = metadata.resolveOperator(LESS_THAN_OR_EQUAL, ImmutableList.of(value.type(), max.type()));
     }
 
     @Override
     public BytecodeNode generateExpression(BytecodeGeneratorContext context)
     {
         Variable firstValue = context.getScope().getOrCreateTempVariable(value.type().getJavaType());
-        VariableReferenceExpression valueReference = createTempVariableReferenceExpression(firstValue, value.type());
+        Reference valueReference = createTempReference(firstValue, value.type());
 
-        SpecialForm newExpression = new SpecialForm(
-                AND,
-                BOOLEAN,
-                ImmutableList.of(call(lessThanOrEqual, min, valueReference), call(lessThanOrEqual, valueReference, max)),
-                ImmutableList.of());
+        Logical newExpression = new Logical(
+                Logical.Operator.AND,
+                ImmutableList.of(
+                        call(lessThanOrEqual, min, valueReference),
+                        call(lessThanOrEqual, valueReference, max)));
 
         LabelNode done = new LabelNode("done");
 

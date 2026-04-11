@@ -106,7 +106,7 @@ public final class DynamicFiltersTestUtil
                 columns.buildOrThrow(),
                 layout.buildOrThrow(),
                 selectivityThreshold)
-                .createDynamicPageFilterEvaluator(new ColumnarFilterCompiler(createTestingFunctionManager(), 0), dynamicFilter)
+                .createDynamicPageFilterEvaluator(new ColumnarFilterCompiler(createTestingFunctionManager(), PLANNER_CONTEXT.getMetadata(), 0), dynamicFilter)
                 .get();
     }
 

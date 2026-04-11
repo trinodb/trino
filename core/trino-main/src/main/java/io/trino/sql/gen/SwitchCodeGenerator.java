@@ -21,56 +21,37 @@ import io.airlift.bytecode.Variable;
 import io.airlift.bytecode.control.IfStatement;
 import io.airlift.bytecode.instruction.LabelNode;
 import io.airlift.bytecode.instruction.VariableInstruction;
+import io.trino.metadata.Metadata;
 import io.trino.metadata.ResolvedFunction;
-import io.trino.spi.type.Type;
-import io.trino.sql.relational.RowExpression;
-import io.trino.sql.relational.SpecialForm;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.Switch;
+import io.trino.sql.ir.WhenClause;
 
 import java.util.List;
-import java.util.Optional;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantFalse;
-import static io.airlift.bytecode.expression.BytecodeExpressions.constantTrue;
-import static io.trino.sql.relational.SpecialForm.Form.WHEN;
+import static io.trino.spi.function.OperatorType.EQUAL;
 import static java.util.Objects.requireNonNull;
 
 public class SwitchCodeGenerator
         implements BytecodeGenerator
 {
-    private final Type returnType;
-    private final RowExpression value;
-    private final List<SpecialForm> whenClauses;
-    private final Optional<RowExpression> elseValue;
+    private final Expression value;
+    private final List<WhenClause> whenClauses;
+    private final Expression defaultValue;
     private final List<ResolvedFunction> equalsFunctions;
 
-    public SwitchCodeGenerator(SpecialForm specialForm)
+    public SwitchCodeGenerator(Switch switchExpression, Metadata metadata)
     {
-        requireNonNull(specialForm, "specialForm is null");
-        returnType = specialForm.type();
-        List<RowExpression> arguments = specialForm.arguments();
-        value = arguments.getFirst();
+        requireNonNull(switchExpression, "switchExpression is null");
+        value = switchExpression.operand();
+        whenClauses = switchExpression.whenClauses();
+        defaultValue = switchExpression.defaultValue();
 
-        RowExpression last = arguments.getLast();
-        if (last instanceof SpecialForm form && form.form() == WHEN) {
-            whenClauses = arguments.subList(1, arguments.size()).stream()
-                    .map(SpecialForm.class::cast)
-                    .collect(toImmutableList());
-            elseValue = Optional.empty();
-        }
-        else {
-            whenClauses = arguments.subList(1, arguments.size() - 1).stream()
-                    .map(SpecialForm.class::cast)
-                    .collect(toImmutableList());
-            elseValue = Optional.of(last);
-        }
-        checkArgument(whenClauses.stream()
-                .map(SpecialForm::form)
-                .allMatch(WHEN::equals));
-
-        equalsFunctions = ImmutableList.copyOf(specialForm.functionDependencies());
-        checkArgument(equalsFunctions.size() == whenClauses.size());
+        equalsFunctions = whenClauses.stream()
+                .map(clause -> metadata.resolveOperator(EQUAL, ImmutableList.of(value.type(), clause.getOperand().type())))
+                .collect(toImmutableList());
     }
 
     @Override
@@ -111,15 +92,7 @@ public class SwitchCodeGenerator
         // process value, else, and all when clauses
         BytecodeNode valueBytecode = generatorContext.generate(value);
 
-        BytecodeNode elseValue;
-        if (this.elseValue.isEmpty()) {
-            elseValue = new BytecodeBlock()
-                    .append(generatorContext.wasNull().set(constantTrue()))
-                    .pushJavaDefault(returnType.getJavaType());
-        }
-        else {
-            elseValue = generatorContext.generate(this.elseValue.get());
-        }
+        BytecodeNode elseValue = generatorContext.generate(defaultValue);
 
         // determine the type of the value and result
         Class<?> valueType = value.type().getJavaType();
@@ -138,9 +111,9 @@ public class SwitchCodeGenerator
         elseValue = new BytecodeBlock().visitLabel(nullValue).append(elseValue);
         // reverse list because current if statement builder doesn't support if/else so we need to build the if statements bottom up
         for (int i = whenClauses.size() - 1; i >= 0; i--) {
-            SpecialForm clause = whenClauses.get(i);
-            RowExpression operand = clause.arguments().get(0);
-            RowExpression result = clause.arguments().get(1);
+            WhenClause clause = whenClauses.get(i);
+            Expression operand = clause.getOperand();
+            Expression result = clause.getResult();
 
             // call equals(value, operand)
 

@@ -23,9 +23,11 @@ import io.trino.sql.gen.columnar.ColumnarFilterCompiler;
 import io.trino.sql.gen.columnar.DynamicPageFilter;
 import io.trino.sql.gen.columnar.FilterEvaluator;
 import io.trino.sql.gen.columnar.PageFilterEvaluator;
-import io.trino.sql.relational.RowExpression;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.planner.Symbol;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.function.Function;
@@ -49,20 +51,21 @@ public class ExpressionCompiler
 
     public Function<DynamicFilter, PageProcessor> compilePageProcessor(
             boolean columnarFilterEvaluationEnabled,
-            Optional<RowExpression> filter,
+            Optional<Expression> filter,
             Optional<DynamicPageFilter> dynamicPageFilter,
-            List<? extends RowExpression> projections,
+            List<? extends Expression> projections,
+            Map<Symbol, Integer> layout,
             Optional<String> classNameSuffix,
             OptionalInt initialBatchSize)
     {
         Optional<Supplier<PageFilter>> filterFunctionSupplier = Optional.empty();
-        Optional<Supplier<FilterEvaluator>> columnarFilterEvaluatorSupplier = createColumnarFilterEvaluator(columnarFilterEvaluationEnabled, filter, columnarFilterCompiler);
+        Optional<Supplier<FilterEvaluator>> columnarFilterEvaluatorSupplier = createColumnarFilterEvaluator(columnarFilterEvaluationEnabled, filter, layout, columnarFilterCompiler);
         if (columnarFilterEvaluatorSupplier.isEmpty()) {
-            filterFunctionSupplier = filter.map(expression -> pageFunctionCompiler.compileFilter(expression, classNameSuffix));
+            filterFunctionSupplier = filter.map(expression -> pageFunctionCompiler.compileFilter(expression, layout, classNameSuffix));
         }
 
         List<Supplier<PageProjection>> pageProjectionSuppliers = projections.stream()
-                .map(projection -> pageFunctionCompiler.compileProjection(projection, classNameSuffix))
+                .map(projection -> pageFunctionCompiler.compileProjection(projection, layout, classNameSuffix))
                 .collect(toImmutableList());
 
         Optional<Supplier<PageFilter>> finalFilterFunctionSupplier = filterFunctionSupplier;
@@ -84,16 +87,9 @@ public class ExpressionCompiler
     }
 
     @VisibleForTesting
-    public Supplier<PageProcessor> compilePageProcessor(Optional<RowExpression> filter, List<? extends RowExpression> projections)
+    public Supplier<PageProcessor> compilePageProcessor(Optional<Expression> filter, List<? extends Expression> projections, Map<Symbol, Integer> layout)
     {
-        return () -> compilePageProcessor(true, filter, Optional.empty(), projections, Optional.empty(), OptionalInt.empty())
-                .apply(DynamicFilter.EMPTY);
-    }
-
-    @VisibleForTesting
-    public Supplier<PageProcessor> compilePageProcessor(Optional<RowExpression> filter, List<? extends RowExpression> projections, int initialBatchSize)
-    {
-        return () -> compilePageProcessor(true, filter, Optional.empty(), projections, Optional.empty(), OptionalInt.of(initialBatchSize))
+        return () -> compilePageProcessor(true, filter, Optional.empty(), projections, layout, Optional.empty(), OptionalInt.empty())
                 .apply(DynamicFilter.EMPTY);
     }
 }

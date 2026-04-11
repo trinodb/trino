@@ -14,10 +14,8 @@
 package io.trino.sql.gen;
 
 import com.google.common.cache.CacheBuilder;
-import com.google.common.cache.CacheLoader;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
+import com.google.common.util.concurrent.UncheckedExecutionException;
 import com.google.inject.Inject;
 import io.airlift.bytecode.BytecodeBlock;
 import io.airlift.bytecode.BytecodeNode;
@@ -30,18 +28,23 @@ import io.airlift.bytecode.Scope;
 import io.airlift.bytecode.Variable;
 import io.airlift.bytecode.control.IfStatement;
 import io.trino.cache.CacheStatsMBean;
-import io.trino.cache.NonEvictableLoadingCache;
+import io.trino.cache.NonEvictableCache;
 import io.trino.metadata.FunctionManager;
+import io.trino.metadata.Metadata;
 import io.trino.operator.join.InternalJoinFilterFunction;
 import io.trino.operator.join.JoinFilterFunction;
 import io.trino.operator.join.StandardJoinFilterFunction;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.type.TypeManager;
 import io.trino.sql.gen.LambdaBytecodeGenerator.CompiledLambda;
-import io.trino.sql.relational.LambdaDefinitionExpression;
-import io.trino.sql.relational.RowExpression;
-import io.trino.sql.relational.RowExpressionVisitor;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.ExpressionRewriter;
+import io.trino.sql.ir.ExpressionTreeRewriter;
+import io.trino.sql.ir.Lambda;
+import io.trino.sql.ir.Reference;
+import io.trino.sql.planner.Symbol;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
@@ -49,8 +52,8 @@ import org.weakref.jmx.Nested;
 import java.lang.reflect.Constructor;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
-import java.util.Set;
+import java.util.concurrent.ExecutionException;
+import java.util.function.BiFunction;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static io.airlift.bytecode.Access.FINAL;
@@ -63,7 +66,8 @@ import static io.airlift.bytecode.expression.BytecodeExpressions.constantFalse;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantInt;
 import static io.trino.cache.SafeCaches.buildNonEvictableCache;
 import static io.trino.sql.gen.BytecodeUtils.invoke;
-import static io.trino.sql.gen.LambdaExpressionExtractor.extractLambdaExpressions;
+import static io.trino.sql.gen.InputReferenceCompiler.generateInputReference;
+import static io.trino.sql.gen.LambdaBytecodeGenerator.generateMethodsForLambda;
 import static io.trino.util.CompilerUtils.defineClass;
 import static io.trino.util.CompilerUtils.makeClassName;
 import static java.util.Objects.requireNonNull;
@@ -71,17 +75,20 @@ import static java.util.Objects.requireNonNull;
 public class JoinFilterFunctionCompiler
 {
     private final FunctionManager functionManager;
-    private final NonEvictableLoadingCache<JoinFilterCacheKey, JoinFilterFunctionFactory> joinFilterFunctionFactories;
+    private final Metadata metadata;
+    private final TypeManager typeManager;
+    private final NonEvictableCache<JoinFilterCacheKey, JoinFilterFunctionFactory> joinFilterFunctionFactories;
 
     @Inject
-    public JoinFilterFunctionCompiler(FunctionManager functionManager)
+    public JoinFilterFunctionCompiler(FunctionManager functionManager, Metadata metadata, TypeManager typeManager)
     {
         this.functionManager = requireNonNull(functionManager, "functionManager is null");
+        this.metadata = requireNonNull(metadata, "metadata is null");
+        this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.joinFilterFunctionFactories = buildNonEvictableCache(
                 CacheBuilder.newBuilder()
                         .recordStats()
-                        .maximumSize(1000),
-                CacheLoader.from(key -> internalCompileFilterFunctionFactory(key.getFilter(), key.getLeftBlocksSize())));
+                        .maximumSize(1000));
     }
 
     @Managed
@@ -91,18 +98,25 @@ public class JoinFilterFunctionCompiler
         return new CacheStatsMBean(joinFilterFunctionFactories);
     }
 
-    public JoinFilterFunctionFactory compileJoinFilterFunction(RowExpression filter, int leftBlocksSize)
+    public JoinFilterFunctionFactory compileJoinFilterFunction(Expression filter, Map<Symbol, Integer> layout, int leftBlocksSize)
     {
-        return joinFilterFunctionFactories.getUnchecked(new JoinFilterCacheKey(filter, leftBlocksSize));
+        try {
+            return joinFilterFunctionFactories.get(
+                    new JoinFilterCacheKey(canonicalizeReferences(filter, layout), leftBlocksSize),
+                    () -> internalCompileFilterFunctionFactory(filter, layout, leftBlocksSize));
+        }
+        catch (ExecutionException e) {
+            throw new UncheckedExecutionException(e);
+        }
     }
 
-    private JoinFilterFunctionFactory internalCompileFilterFunctionFactory(RowExpression filterExpression, int leftBlocksSize)
+    private JoinFilterFunctionFactory internalCompileFilterFunctionFactory(Expression filterExpression, Map<Symbol, Integer> layout, int leftBlocksSize)
     {
-        Class<? extends InternalJoinFilterFunction> internalJoinFilterFunction = compileInternalJoinFilterFunction(filterExpression, leftBlocksSize);
+        Class<? extends InternalJoinFilterFunction> internalJoinFilterFunction = compileInternalJoinFilterFunction(filterExpression, layout, leftBlocksSize);
         return new IsolatedJoinFilterFunctionFactory(internalJoinFilterFunction);
     }
 
-    private Class<? extends InternalJoinFilterFunction> compileInternalJoinFilterFunction(RowExpression filterExpression, int leftBlocksSize)
+    private Class<? extends InternalJoinFilterFunction> compileInternalJoinFilterFunction(Expression filterExpression, Map<Symbol, Integer> layout, int leftBlocksSize)
     {
         ClassDefinition classDefinition = new ClassDefinition(
                 a(PUBLIC, FINAL),
@@ -112,7 +126,8 @@ public class JoinFilterFunctionCompiler
 
         CallSiteBinder callSiteBinder = new CallSiteBinder();
 
-        new JoinFilterFunctionCompiler(functionManager).generateMethods(classDefinition, callSiteBinder, filterExpression, leftBlocksSize);
+        new JoinFilterFunctionCompiler(functionManager, metadata, typeManager)
+                .generateMethods(classDefinition, callSiteBinder, filterExpression, layout, leftBlocksSize);
 
         //
         // toString method
@@ -128,14 +143,14 @@ public class JoinFilterFunctionCompiler
         return defineClass(classDefinition, InternalJoinFilterFunction.class, callSiteBinder.getBindings(), getClass().getClassLoader());
     }
 
-    private void generateMethods(ClassDefinition classDefinition, CallSiteBinder callSiteBinder, RowExpression filter, int leftBlocksSize)
+    private void generateMethods(ClassDefinition classDefinition, CallSiteBinder callSiteBinder, Expression filter, Map<Symbol, Integer> layout, int leftBlocksSize)
     {
         CachedInstanceBinder cachedInstanceBinder = new CachedInstanceBinder(classDefinition, callSiteBinder);
 
         FieldDefinition sessionField = classDefinition.declareField(a(PRIVATE, FINAL), "session", ConnectorSession.class);
 
-        Map<LambdaDefinitionExpression, CompiledLambda> compiledLambdaMap = generateMethodsForLambda(classDefinition, callSiteBinder, cachedInstanceBinder, filter);
-        generateFilterMethod(classDefinition, callSiteBinder, cachedInstanceBinder, compiledLambdaMap, filter, leftBlocksSize, sessionField);
+        Map<Lambda, CompiledLambda> compiledLambdaMap = generateMethodsForLambda(classDefinition, callSiteBinder, cachedInstanceBinder, filter, functionManager, metadata, typeManager);
+        generateFilterMethod(classDefinition, callSiteBinder, cachedInstanceBinder, compiledLambdaMap, filter, layout, leftBlocksSize, sessionField);
 
         generateConstructor(classDefinition, sessionField, cachedInstanceBinder);
     }
@@ -164,8 +179,9 @@ public class JoinFilterFunctionCompiler
             ClassDefinition classDefinition,
             CallSiteBinder callSiteBinder,
             CachedInstanceBinder cachedInstanceBinder,
-            Map<LambdaDefinitionExpression, CompiledLambda> compiledLambdaMap,
-            RowExpression filter,
+            Map<Lambda, CompiledLambda> compiledLambdaMap,
+            Expression filter,
+            Map<Symbol, Integer> layout,
             int leftBlocksSize,
             FieldDefinition sessionField)
     {
@@ -193,12 +209,16 @@ public class JoinFilterFunctionCompiler
         Variable wasNullVariable = scope.declareVariable("wasNull", body, constantFalse());
         scope.declareVariable("session", body, method.getThis().getField(sessionField));
 
-        RowExpressionCompiler compiler = new RowExpressionCompiler(
+        BiFunction<Reference, Scope, BytecodeNode> referenceCompiler = fieldReferenceCompiler(callSiteBinder, layout, leftPosition, leftPage, rightPosition, rightPage, leftBlocksSize);
+
+        ExpressionBytecodeCompiler compiler = new ExpressionBytecodeCompiler(
                 classDefinition,
                 callSiteBinder,
                 cachedInstanceBinder,
-                fieldReferenceCompiler(callSiteBinder, leftPosition, leftPage, rightPosition, rightPage, leftBlocksSize),
+                referenceCompiler,
                 functionManager,
+                metadata,
+                typeManager,
                 compiledLambdaMap,
                 ImmutableList.of(leftPage, leftPosition, rightPage, rightPosition));
 
@@ -211,32 +231,6 @@ public class JoinFilterFunctionCompiler
                         .condition(wasNullVariable)
                         .ifTrue(constantFalse().ret())
                         .ifFalse(result.ret()));
-    }
-
-    private Map<LambdaDefinitionExpression, CompiledLambda> generateMethodsForLambda(
-            ClassDefinition containerClassDefinition,
-            CallSiteBinder callSiteBinder,
-            CachedInstanceBinder cachedInstanceBinder,
-            RowExpression filter)
-    {
-        Set<LambdaDefinitionExpression> lambdaExpressions = ImmutableSet.copyOf(extractLambdaExpressions(filter));
-        ImmutableMap.Builder<LambdaDefinitionExpression, CompiledLambda> compiledLambdaMap = ImmutableMap.builder();
-
-        int counter = 0;
-        for (LambdaDefinitionExpression lambdaExpression : lambdaExpressions) {
-            CompiledLambda compiledLambda = LambdaBytecodeGenerator.preGenerateLambdaExpression(
-                    lambdaExpression,
-                    "lambda_" + counter,
-                    containerClassDefinition,
-                    compiledLambdaMap.buildOrThrow(),
-                    callSiteBinder,
-                    cachedInstanceBinder,
-                    functionManager);
-            compiledLambdaMap.put(lambdaExpression, compiledLambda);
-            counter++;
-        }
-
-        return compiledLambdaMap.buildOrThrow();
     }
 
     private static void generateToString(ClassDefinition classDefinition, CallSiteBinder callSiteBinder, String string)
@@ -253,73 +247,58 @@ public class JoinFilterFunctionCompiler
         JoinFilterFunction create(ConnectorSession session, LongArrayList addresses, List<Page> pages);
     }
 
-    private static RowExpressionVisitor<BytecodeNode, Scope> fieldReferenceCompiler(
+    private static BiFunction<Reference, Scope, BytecodeNode> fieldReferenceCompiler(
             CallSiteBinder callSiteBinder,
+            Map<Symbol, Integer> layout,
             Variable leftPosition,
             Variable leftPage,
             Variable rightPosition,
             Variable rightPage,
             int leftBlocksSize)
     {
-        return new InputReferenceCompiler(
-                (scope, field) -> {
-                    if (field < leftBlocksSize) {
-                        return leftPage.invoke("getBlock", Block.class, constantInt(field));
-                    }
-                    return rightPage.invoke("getBlock", Block.class, constantInt(field - leftBlocksSize));
-                },
-                (scope, field) -> field < leftBlocksSize ? leftPosition : rightPosition,
-                callSiteBinder);
+        return (reference, scope) -> {
+            Integer field = layout.get(Symbol.from(reference));
+            if (field == null) {
+                throw new UnsupportedOperationException("Reference not found in join layout: " + reference.name());
+            }
+            if (field < leftBlocksSize) {
+                return generateInputReference(callSiteBinder, scope, reference.type(),
+                        leftPage.invoke("getBlock", Block.class, constantInt(field)),
+                        leftPosition);
+            }
+            return generateInputReference(callSiteBinder, scope, reference.type(),
+                    rightPage.invoke("getBlock", Block.class, constantInt(field - leftBlocksSize)),
+                    rightPosition);
+        };
     }
 
-    private static final class JoinFilterCacheKey
+    /**
+     * Replaces Reference names with their layout field positions so that expressions
+     * with different symbol names but identical field positions share a cache entry.
+     * This matches the old RowExpression behavior where InputReferenceExpression
+     * used field indices, not names.
+     */
+    private static Expression canonicalizeReferences(Expression expression, Map<Symbol, Integer> layout)
     {
-        private final RowExpression filter;
-        private final int leftBlocksSize;
-
-        public JoinFilterCacheKey(RowExpression filter, int leftBlocksSize)
+        return ExpressionTreeRewriter.rewriteWith(new ExpressionRewriter<>()
         {
-            this.filter = requireNonNull(filter, "filter cannot be null");
-            this.leftBlocksSize = leftBlocksSize;
-        }
-
-        public RowExpression getFilter()
-        {
-            return filter;
-        }
-
-        public int getLeftBlocksSize()
-        {
-            return leftBlocksSize;
-        }
-
-        @Override
-        public boolean equals(Object o)
-        {
-            if (this == o) {
-                return true;
+            @Override
+            public Expression rewriteReference(Reference node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
+            {
+                Integer field = layout.get(Symbol.from(node));
+                if (field != null) {
+                    return new Reference(node.type(), String.valueOf(field));
+                }
+                return node;
             }
-            if (o == null || getClass() != o.getClass()) {
-                return false;
-            }
-            JoinFilterCacheKey that = (JoinFilterCacheKey) o;
-            return leftBlocksSize == that.leftBlocksSize &&
-                    Objects.equals(filter, that.filter);
-        }
+        }, expression);
+    }
 
-        @Override
-        public int hashCode()
+    private record JoinFilterCacheKey(Expression filter, int leftBlocksSize)
+    {
+        JoinFilterCacheKey
         {
-            return Objects.hash(leftBlocksSize, filter);
-        }
-
-        @Override
-        public String toString()
-        {
-            return toStringHelper(this)
-                    .add("filter", filter)
-                    .add("leftBlocksSize", leftBlocksSize)
-                    .toString();
+            requireNonNull(filter, "filter is null");
         }
     }
 

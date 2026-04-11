@@ -14,36 +14,40 @@
 package io.trino.operator;
 
 import com.google.common.collect.ImmutableList;
-import io.trino.metadata.FunctionManager;
+import com.google.common.collect.ImmutableMap;
+import io.trino.metadata.TestingFunctionResolution;
 import io.trino.operator.project.PageProcessor;
 import io.trino.spi.Page;
+import io.trino.spi.block.Block;
+import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.SourcePage;
 import io.trino.spi.type.Type;
 import io.trino.sql.gen.ExpressionCompiler;
-import io.trino.sql.gen.PageFunctionCompiler;
-import io.trino.sql.gen.columnar.ColumnarFilterCompiler;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.Reference;
+import io.trino.sql.planner.Symbol;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalInt;
 
 import static com.google.common.collect.Iterators.getOnlyElement;
 import static io.trino.SequencePageBuilder.createSequencePage;
 import static io.trino.SequencePageBuilder.createSequencePageWithDictionaryBlocks;
+import static io.trino.block.BlockAssertions.createLongSequenceBlock;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
-import static io.trino.metadata.FunctionManager.createTestingFunctionManager;
 import static io.trino.operator.PageAssertions.assertPageEquals;
 import static io.trino.operator.project.PageProcessor.MAX_BATCH_SIZE;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static io.trino.sql.relational.Expressions.field;
 import static io.trino.testing.TestingConnectorSession.SESSION;
 
 public class TestColumnarPageProcessor
 {
     private static final int POSITIONS = 100;
     private final List<Type> types = ImmutableList.of(BIGINT, VARCHAR);
-    private final FunctionManager functionManager = createTestingFunctionManager();
 
     @Test
     public void testProcess()
@@ -57,7 +61,8 @@ public class TestColumnarPageProcessor
                         newSimpleAggregatedMemoryContext().newLocalMemoryContext(PageProcessor.class.getSimpleName()),
                         SourcePage.create(page)))
                 .orElseThrow(() -> new AssertionError("page is not present"));
-        assertPageEquals(types, outputPage, page);
+        Page expectedPage = new Page(page.getBlock(3), page.getBlock(1));
+        assertPageEquals(types, outputPage, expectedPage);
     }
 
     @Test
@@ -72,17 +77,29 @@ public class TestColumnarPageProcessor
                         newSimpleAggregatedMemoryContext().newLocalMemoryContext(PageProcessor.class.getSimpleName()),
                         SourcePage.create(page)))
                 .orElseThrow(() -> new AssertionError("page is not present"));
-        assertPageEquals(types, outputPage, page);
+        Page expectedPage = new Page(page.getBlock(3), page.getBlock(1));
+        assertPageEquals(types, outputPage, expectedPage);
     }
 
     private static Page createPage(List<? extends Type> types, boolean dictionary)
     {
-        return dictionary ? createSequencePageWithDictionaryBlocks(types, POSITIONS) : createSequencePage(types, POSITIONS);
+        Page data = dictionary ? createSequencePageWithDictionaryBlocks(types, POSITIONS) : createSequencePage(types, POSITIONS);
+        // Place data at out-of-order channels: $col_0 (BIGINT) at channel 3, $col_1 (VARCHAR) at channel 1
+        Block dummyBlock = createLongSequenceBlock(0, POSITIONS);
+        return new Page(dummyBlock, data.getBlock(1), dummyBlock, data.getBlock(0));
     }
 
     private PageProcessor newPageProcessor()
     {
-        return new ExpressionCompiler(new PageFunctionCompiler(functionManager, 0), new ColumnarFilterCompiler(functionManager, 0))
-                .compilePageProcessor(Optional.empty(), ImmutableList.of(field(0, types.get(0)), field(1, types.get(1))), MAX_BATCH_SIZE).get();
+        TestingFunctionResolution functionResolution = new TestingFunctionResolution();
+        ExpressionCompiler compiler = functionResolution.getExpressionCompiler();
+        List<Expression> projections = ImmutableList.of(
+                new Reference(types.get(0), "$col_0"),
+                new Reference(types.get(1), "$col_1"));
+        Map<Symbol, Integer> layout = ImmutableMap.of(
+                new Symbol(types.get(0), "$col_0"), 3,
+                new Symbol(types.get(1), "$col_1"), 1);
+        return compiler.compilePageProcessor(true, Optional.empty(), Optional.empty(), projections, layout, Optional.empty(), OptionalInt.of(MAX_BATCH_SIZE))
+                .apply(DynamicFilter.EMPTY);
     }
 }

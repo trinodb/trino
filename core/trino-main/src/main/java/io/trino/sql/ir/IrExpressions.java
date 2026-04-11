@@ -27,10 +27,12 @@ import io.trino.spi.type.RowType;
 import io.trino.spi.type.SmallintType;
 import io.trino.spi.type.TinyintType;
 import io.trino.spi.type.TrinoNumber;
+import io.trino.spi.type.Type;
 import io.trino.sql.PlannerContext;
 import io.trino.type.TypeCoercion;
 
 import java.math.BigDecimal;
+import java.util.Arrays;
 import java.util.List;
 
 import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
@@ -47,9 +49,19 @@ public final class IrExpressions
 {
     private IrExpressions() {}
 
+    public static Constant constantNull(Type type)
+    {
+        return new Constant(type, null);
+    }
+
+    public static Call call(ResolvedFunction function, Expression... arguments)
+    {
+        return new Call(function, Arrays.asList(arguments));
+    }
+
     public static Expression ifExpression(Expression condition, Expression trueCase)
     {
-        return new Case(ImmutableList.of(new WhenClause(condition, trueCase)), new Constant(trueCase.type(), null));
+        return new Case(ImmutableList.of(new WhenClause(condition, trueCase)), constantNull(trueCase.type()));
     }
 
     public static Expression ifExpression(Expression condition, Expression trueCase, Expression falseCase)
@@ -160,8 +172,8 @@ public final class IrExpressions
 
     public static Expression not(Metadata metadata, Expression expression)
     {
-        return new Call(
+        return call(
                 metadata.resolveBuiltinFunction("$not", fromTypes(BOOLEAN)),
-                ImmutableList.of(expression));
+                expression);
     }
 }

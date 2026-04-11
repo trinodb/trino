@@ -15,6 +15,7 @@
 package io.trino.operator.scalar;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slices;
 import io.trino.jmh.Benchmarks;
 import io.trino.metadata.ResolvedFunction;
@@ -28,10 +29,11 @@ import io.trino.spi.connector.SourcePage;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.Type;
 import io.trino.sql.gen.ExpressionCompiler;
+import io.trino.sql.ir.Constant;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.Lambda;
+import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.Symbol;
-import io.trino.sql.relational.LambdaDefinitionExpression;
-import io.trino.sql.relational.RowExpression;
-import io.trino.sql.relational.VariableReferenceExpression;
 import io.trino.type.FunctionType;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
@@ -59,9 +61,7 @@ import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.TypeUtils.writeNativeValue;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
-import static io.trino.sql.relational.Expressions.call;
-import static io.trino.sql.relational.Expressions.constant;
-import static io.trino.sql.relational.Expressions.field;
+import static io.trino.sql.ir.IrExpressions.call;
 import static io.trino.testing.TestingConnectorSession.SESSION;
 import static io.trino.util.StructuralTestUtil.mapType;
 
@@ -105,7 +105,7 @@ public class BenchmarkTransformValue
         {
             TestingFunctionResolution functionResolution = new TestingFunctionResolution();
             ExpressionCompiler compiler = functionResolution.getExpressionCompiler();
-            ImmutableList.Builder<RowExpression> projectionsBuilder = ImmutableList.builder();
+            ImmutableList.Builder<Expression> projectionsBuilder = ImmutableList.builder();
             Type elementType;
             Object compareValue;
             switch (type) {
@@ -129,17 +129,17 @@ public class BenchmarkTransformValue
                     name,
                     fromTypes(mapType, new FunctionType(ImmutableList.of(elementType), elementType)));
             ResolvedFunction lessThan = functionResolution.resolveOperator(LESS_THAN, ImmutableList.of(elementType, elementType));
-            projectionsBuilder.add(call(resolvedFunction, ImmutableList.of(
-                    field(0, mapType),
-                    new LambdaDefinitionExpression(
+            projectionsBuilder.add(call(resolvedFunction,
+                    new Reference(mapType, "$col_0"),
+                    new Lambda(
                             ImmutableList.of(new Symbol(elementType, "x"), new Symbol(elementType, "y")),
-                            call(lessThan, ImmutableList.of(
-                                    constant(compareValue, elementType),
-                                    new VariableReferenceExpression("y", elementType)))))));
+                            call(lessThan,
+                                    new Constant(elementType, compareValue),
+                                    new Reference(elementType, "y")))));
             Block block = createChannel(POSITIONS, mapType, elementType);
 
-            List<RowExpression> projections = projectionsBuilder.build();
-            pageProcessor = compiler.compilePageProcessor(Optional.empty(), projections).get();
+            List<Expression> projections = projectionsBuilder.build();
+            pageProcessor = compiler.compilePageProcessor(Optional.empty(), projections, ImmutableMap.of(new Symbol(mapType, "$col_0"), 0)).get();
             page = new Page(block);
         }
 

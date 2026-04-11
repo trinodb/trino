@@ -372,7 +372,7 @@ public class LanguageFunctionManager
             }
 
             IrRoutine routine = data.irRoutine().orElseThrow();
-            SpecializedSqlScalarFunction function = new SqlRoutineCompiler(functionManager).compile(routine);
+            SpecializedSqlScalarFunction function = new SqlRoutineCompiler(functionManager, plannerContext.getMetadata(), typeManager).compile(routine);
             return Optional.of(function.getScalarFunctionImplementation(invocationConvention));
         }
 
@@ -503,7 +503,7 @@ public class LanguageFunctionManager
                 checkState(identityLoader.isEmpty(), "create should not enforce security");
                 analyzeAndPlan(accessControl);
                 if (!engineFunction) {
-                    new SqlRoutineCompiler(functionManager).compile(routine);
+                    new SqlRoutineCompiler(functionManager, plannerContext.getMetadata(), typeManager).compile(routine);
                 }
             }
 

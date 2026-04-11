@@ -117,7 +117,7 @@ public class TestingFunctionResolution
 
     public PageFunctionCompiler getPageFunctionCompiler(int expressionCacheSize)
     {
-        return new PageFunctionCompiler(plannerContext.getFunctionManager(), expressionCacheSize);
+        return new PageFunctionCompiler(plannerContext.getFunctionManager(), plannerContext.getMetadata(), plannerContext.getTypeManager(), expressionCacheSize);
     }
 
     public Collection<FunctionMetadata> listGlobalFunctions()
@@ -132,7 +132,7 @@ public class TestingFunctionResolution
 
     public ColumnarFilterCompiler getColumnarFilterCompiler(int expressionCacheSize)
     {
-        return new ColumnarFilterCompiler(plannerContext.getFunctionManager(), expressionCacheSize);
+        return new ColumnarFilterCompiler(plannerContext.getFunctionManager(), plannerContext.getMetadata(), expressionCacheSize);
     }
 
     public ResolvedFunction resolveOperator(OperatorType operatorType, List<? extends Type> argumentTypes)

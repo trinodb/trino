@@ -14,6 +14,7 @@
 package io.trino.sql.gen;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.trino.metadata.TestingFunctionResolution;
@@ -24,10 +25,11 @@ import io.trino.spi.PageBuilder;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.VariableWidthBlock;
 import io.trino.spi.connector.SourcePage;
-import io.trino.sql.relational.CallExpression;
-import io.trino.sql.relational.RowExpression;
-import io.trino.sql.relational.SpecialForm;
-import io.trino.sql.relational.SpecialForm.Form;
+import io.trino.sql.ir.Constant;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.Logical;
+import io.trino.sql.ir.Reference;
+import io.trino.sql.planner.Symbol;
 import io.trino.tpch.LineItem;
 import io.trino.tpch.LineItemColumn;
 import io.trino.tpch.LineItemGenerator;
@@ -53,11 +55,9 @@ import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregate
 import static io.trino.spi.function.OperatorType.LESS_THAN;
 import static io.trino.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
 import static io.trino.spi.function.OperatorType.MULTIPLY;
-import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static io.trino.sql.relational.Expressions.constant;
-import static io.trino.sql.relational.Expressions.field;
+import static io.trino.sql.ir.IrExpressions.call;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 @State(Scope.Thread)
@@ -72,6 +72,11 @@ public class BenchmarkPageProcessor
     private static final int SHIP_DATE = 2;
     private static final int QUANTITY = 3;
 
+    private static final String COL_EXTENDED_PRICE = "$col_" + EXTENDED_PRICE;
+    private static final String COL_DISCOUNT = "$col_" + DISCOUNT;
+    private static final String COL_SHIP_DATE = "$col_" + SHIP_DATE;
+    private static final String COL_QUANTITY = "$col_" + QUANTITY;
+
     private static final Slice MIN_SHIP_DATE = utf8Slice("1994-01-01");
     private static final Slice MAX_SHIP_DATE = utf8Slice("1995-01-01");
 
@@ -84,10 +89,16 @@ public class BenchmarkPageProcessor
         inputPage = createInputPage();
 
         TestingFunctionResolution functionResolution = new TestingFunctionResolution();
-        RowExpression filterExpression = createFilterExpression(functionResolution);
-        RowExpression projectExpression = createProjectExpression(functionResolution);
+        Expression filterExpression = createFilterExpression(functionResolution);
+        Expression projectExpression = createProjectExpression(functionResolution);
         ExpressionCompiler expressionCompiler = functionResolution.getExpressionCompiler();
-        compiledProcessor = expressionCompiler.compilePageProcessor(Optional.of(filterExpression), ImmutableList.of(projectExpression)).get();
+        compiledProcessor = expressionCompiler.compilePageProcessor(
+                Optional.of(filterExpression), ImmutableList.of(projectExpression),
+                ImmutableMap.of(
+                        new Symbol(DOUBLE, COL_EXTENDED_PRICE), EXTENDED_PRICE,
+                        new Symbol(DOUBLE, COL_DISCOUNT), DISCOUNT,
+                        new Symbol(VARCHAR, COL_SHIP_DATE), SHIP_DATE,
+                        new Symbol(DOUBLE, COL_QUANTITY), QUANTITY)).get();
     }
 
     @Benchmark
@@ -199,46 +210,27 @@ public class BenchmarkPageProcessor
     //    and discount >= 0.05
     //    and discount <= 0.07
     //    and quantity < 24;
-    private static RowExpression createFilterExpression(TestingFunctionResolution functionResolution)
+    private static Expression createFilterExpression(TestingFunctionResolution functionResolution)
     {
-        return new SpecialForm(
-                Form.AND,
-                BOOLEAN,
+        return new Logical(
+                Logical.Operator.AND,
                 ImmutableList.of(
-                    new CallExpression(
-                            functionResolution.resolveOperator(LESS_THAN_OR_EQUAL, ImmutableList.of(VARCHAR, VARCHAR)),
-                            ImmutableList.of(constant(MIN_SHIP_DATE, VARCHAR), field(SHIP_DATE, VARCHAR))),
-                    new SpecialForm(
-                            Form.AND,
-                            BOOLEAN,
-                            ImmutableList.of(
-                                new CallExpression(
-                                        functionResolution.resolveOperator(LESS_THAN, ImmutableList.of(VARCHAR, VARCHAR)),
-                                        ImmutableList.of(field(SHIP_DATE, VARCHAR), constant(MAX_SHIP_DATE, VARCHAR))),
-                                new SpecialForm(
-                                        Form.AND,
-                                        BOOLEAN,
-                                        ImmutableList.of(
-                                            new CallExpression(
-                                                    functionResolution.resolveOperator(LESS_THAN_OR_EQUAL, ImmutableList.of(DOUBLE, DOUBLE)),
-                                                    ImmutableList.of(constant(0.05, DOUBLE), field(DISCOUNT, DOUBLE))),
-                                            new SpecialForm(
-                                                    Form.AND,
-                                                    BOOLEAN,
-                                                    ImmutableList.of(
-                                                        new CallExpression(
-                                                                functionResolution.resolveOperator(LESS_THAN_OR_EQUAL, ImmutableList.of(DOUBLE, DOUBLE)),
-                                                                ImmutableList.of(field(DISCOUNT, DOUBLE), constant(0.07, DOUBLE))),
-                                                        new CallExpression(
-                                                                functionResolution.resolveOperator(LESS_THAN, ImmutableList.of(DOUBLE, DOUBLE)),
-                                                                ImmutableList.of(field(QUANTITY, DOUBLE), constant(24.0, DOUBLE)))), ImmutableList.of())), ImmutableList.of())), ImmutableList.of())),
-                ImmutableList.of());
+                        call(functionResolution.resolveOperator(LESS_THAN_OR_EQUAL, ImmutableList.of(VARCHAR, VARCHAR)),
+                                new Constant(VARCHAR, MIN_SHIP_DATE), new Reference(VARCHAR, COL_SHIP_DATE)),
+                        call(functionResolution.resolveOperator(LESS_THAN, ImmutableList.of(VARCHAR, VARCHAR)),
+                                new Reference(VARCHAR, COL_SHIP_DATE), new Constant(VARCHAR, MAX_SHIP_DATE)),
+                        call(functionResolution.resolveOperator(LESS_THAN_OR_EQUAL, ImmutableList.of(DOUBLE, DOUBLE)),
+                                new Constant(DOUBLE, 0.05), new Reference(DOUBLE, COL_DISCOUNT)),
+                        call(functionResolution.resolveOperator(LESS_THAN_OR_EQUAL, ImmutableList.of(DOUBLE, DOUBLE)),
+                                new Reference(DOUBLE, COL_DISCOUNT), new Constant(DOUBLE, 0.07)),
+                        call(functionResolution.resolveOperator(LESS_THAN, ImmutableList.of(DOUBLE, DOUBLE)),
+                                new Reference(DOUBLE, COL_QUANTITY), new Constant(DOUBLE, 24.0))));
     }
 
-    private static RowExpression createProjectExpression(TestingFunctionResolution functionResolution)
+    private static Expression createProjectExpression(TestingFunctionResolution functionResolution)
     {
-        return new CallExpression(
+        return call(
                 functionResolution.resolveOperator(MULTIPLY, ImmutableList.of(DOUBLE, DOUBLE)),
-                ImmutableList.of(field(EXTENDED_PRICE, DOUBLE), field(DISCOUNT, DOUBLE)));
+                new Reference(DOUBLE, COL_EXTENDED_PRICE), new Reference(DOUBLE, COL_DISCOUNT));
     }
 }

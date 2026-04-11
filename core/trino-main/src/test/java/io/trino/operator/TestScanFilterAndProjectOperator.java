@@ -14,6 +14,7 @@
 package io.trino.operator;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
 import io.trino.SequencePageBuilder;
 import io.trino.Session;
@@ -38,8 +39,11 @@ import io.trino.sql.gen.ExpressionCompiler;
 import io.trino.sql.gen.PageFunctionCompiler;
 import io.trino.sql.gen.columnar.ColumnarFilterCompiler;
 import io.trino.sql.gen.columnar.PageFilterEvaluator;
+import io.trino.sql.ir.Constant;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.Reference;
+import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.plan.PlanNodeId;
-import io.trino.sql.relational.RowExpression;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.StandaloneQueryRunner;
@@ -51,10 +55,13 @@ import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.Function;
 import java.util.function.Supplier;
 
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
@@ -71,9 +78,7 @@ import static io.trino.spi.function.OperatorType.EQUAL;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
-import static io.trino.sql.relational.Expressions.call;
-import static io.trino.sql.relational.Expressions.constant;
-import static io.trino.sql.relational.Expressions.field;
+import static io.trino.sql.ir.IrExpressions.call;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_HANDLE;
 import static io.trino.testing.TestingHandles.TEST_TABLE_HANDLE;
 import static io.trino.testing.TestingTaskContext.createTaskContext;
@@ -102,8 +107,8 @@ public class TestScanFilterAndProjectOperator
         runner = new StandaloneQueryRunner(session);
         FunctionManager functionManager = runner.getPlannerContext().getFunctionManager();
         expressionCompiler = new ExpressionCompiler(
-                new PageFunctionCompiler(functionManager, 0),
-                new ColumnarFilterCompiler(functionManager, 0));
+                new PageFunctionCompiler(functionManager, runner.getPlannerContext().getMetadata(), runner.getPlannerContext().getTypeManager(), 0),
+                new ColumnarFilterCompiler(functionManager, runner.getPlannerContext().getMetadata(), 0));
     }
 
     @AfterAll
@@ -124,8 +129,11 @@ public class TestScanFilterAndProjectOperator
         Page input = SequencePageBuilder.createSequencePage(ImmutableList.of(VARCHAR), 10_000, 0);
         DriverContext driverContext = newDriverContext();
 
-        List<RowExpression> projections = ImmutableList.of(field(0, VARCHAR));
-        Supplier<PageProcessor> pageProcessor = expressionCompiler.compilePageProcessor(Optional.empty(), projections);
+        Reference col0 = new Reference(VARCHAR, "$col_0");
+        Map<Symbol, Integer> layout = ImmutableMap.of(new Symbol(VARCHAR, "$col_0"), 0);
+        List<Expression> projections = ImmutableList.of(col0);
+        Function<DynamicFilter, PageProcessor> processorFactory = expressionCompiler.compilePageProcessor(true, Optional.empty(), Optional.empty(), projections, layout, Optional.empty(), OptionalInt.empty());
+        Supplier<PageProcessor> pageProcessor = () -> processorFactory.apply(DynamicFilter.EMPTY);
 
         ScanFilterAndProjectOperator.ScanFilterAndProjectOperatorFactory factory = new ScanFilterAndProjectOperator.ScanFilterAndProjectOperatorFactory(
                 0,
@@ -161,12 +169,14 @@ public class TestScanFilterAndProjectOperator
                 .addSequencePage(100, 0)
                 .build();
 
-        RowExpression filter = call(
+        Reference col0 = new Reference(BIGINT, "$col_0");
+        Map<Symbol, Integer> layout = ImmutableMap.of(new Symbol(BIGINT, "$col_0"), 0);
+        Expression filter = call(
                 new TestingFunctionResolution(runner).resolveOperator(EQUAL, ImmutableList.of(BIGINT, BIGINT)),
-                field(0, BIGINT),
-                constant(10L, BIGINT));
-        List<RowExpression> projections = ImmutableList.of(field(0, BIGINT));
-        Supplier<PageProcessor> pageProcessor = expressionCompiler.compilePageProcessor(Optional.of(filter), projections);
+                col0, new Constant(BIGINT, 10L));
+        List<Expression> projections = ImmutableList.of(col0);
+        Function<DynamicFilter, PageProcessor> processorFactory = expressionCompiler.compilePageProcessor(true, Optional.of(filter), Optional.empty(), projections, layout, Optional.empty(), OptionalInt.empty());
+        Supplier<PageProcessor> pageProcessor = () -> processorFactory.apply(DynamicFilter.EMPTY);
 
         ScanFilterAndProjectOperator.ScanFilterAndProjectOperatorFactory factory = new ScanFilterAndProjectOperator.ScanFilterAndProjectOperatorFactory(
                 0,
@@ -239,8 +249,11 @@ public class TestScanFilterAndProjectOperator
         Page input = SequencePageBuilder.createSequencePage(ImmutableList.of(VARCHAR), 10_000, 0);
         DriverContext driverContext = newDriverContext();
 
-        List<RowExpression> projections = ImmutableList.of(field(0, VARCHAR));
-        Supplier<PageProcessor> pageProcessor = expressionCompiler.compilePageProcessor(Optional.empty(), projections);
+        Reference col0 = new Reference(VARCHAR, "$col_0");
+        Map<Symbol, Integer> layout = ImmutableMap.of(new Symbol(VARCHAR, "$col_0"), 0);
+        List<Expression> projections = ImmutableList.of(col0);
+        Function<DynamicFilter, PageProcessor> processorFactory = expressionCompiler.compilePageProcessor(true, Optional.empty(), Optional.empty(), projections, layout, Optional.empty(), OptionalInt.empty());
+        Supplier<PageProcessor> pageProcessor = () -> processorFactory.apply(DynamicFilter.EMPTY);
 
         ScanFilterAndProjectOperator.ScanFilterAndProjectOperatorFactory factory = new ScanFilterAndProjectOperator.ScanFilterAndProjectOperatorFactory(
                 0,
@@ -287,13 +300,16 @@ public class TestScanFilterAndProjectOperator
         // match each column with a projection
         FunctionManager functionManager = runner.getPlannerContext().getFunctionManager();
         ExpressionCompiler expressionCompiler = new ExpressionCompiler(
-                new PageFunctionCompiler(functionManager, 0),
-                new ColumnarFilterCompiler(functionManager, 0));
-        ImmutableList.Builder<RowExpression> projections = ImmutableList.builder();
+                new PageFunctionCompiler(functionManager, runner.getPlannerContext().getMetadata(), runner.getPlannerContext().getTypeManager(), 0),
+                new ColumnarFilterCompiler(functionManager, runner.getPlannerContext().getMetadata(), 0));
+        Reference col0 = new Reference(BIGINT, "$col_0");
+        Map<Symbol, Integer> layout = ImmutableMap.of(new Symbol(BIGINT, "$col_0"), 0);
+        ImmutableList.Builder<Expression> projections = ImmutableList.builder();
         for (int i = 0; i < totalColumns; i++) {
-            projections.add(call(runner.getPlannerContext().getMetadata().resolveBuiltinFunction("generic_long_page_col" + i, fromTypes(BIGINT)), field(0, BIGINT)));
+            projections.add(call(runner.getPlannerContext().getMetadata().resolveBuiltinFunction("generic_long_page_col" + i, fromTypes(BIGINT)), col0));
         }
-        Supplier<PageProcessor> pageProcessor = expressionCompiler.compilePageProcessor(Optional.empty(), projections.build(), MAX_BATCH_SIZE);
+        Function<DynamicFilter, PageProcessor> processorFactory = expressionCompiler.compilePageProcessor(true, Optional.empty(), Optional.empty(), projections.build(), layout, Optional.empty(), OptionalInt.of(MAX_BATCH_SIZE));
+        Supplier<PageProcessor> pageProcessor = () -> processorFactory.apply(DynamicFilter.EMPTY);
 
         ScanFilterAndProjectOperator.ScanFilterAndProjectOperatorFactory factory = new ScanFilterAndProjectOperator.ScanFilterAndProjectOperatorFactory(
                 0,

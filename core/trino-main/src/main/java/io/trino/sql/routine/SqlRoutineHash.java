@@ -19,17 +19,30 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.spi.block.Block;
+import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.BlockEncodingSerde;
 import io.trino.spi.function.BoundSignature;
 import io.trino.spi.type.Type;
-import io.trino.sql.relational.CallExpression;
-import io.trino.sql.relational.ConstantExpression;
-import io.trino.sql.relational.InputReferenceExpression;
-import io.trino.sql.relational.LambdaDefinitionExpression;
-import io.trino.sql.relational.RowExpression;
-import io.trino.sql.relational.RowExpressionVisitor;
-import io.trino.sql.relational.SpecialForm;
-import io.trino.sql.relational.VariableReferenceExpression;
+import io.trino.spi.type.TypeUtils;
+import io.trino.sql.ir.Array;
+import io.trino.sql.ir.Between;
+import io.trino.sql.ir.Bind;
+import io.trino.sql.ir.Call;
+import io.trino.sql.ir.Case;
+import io.trino.sql.ir.Cast;
+import io.trino.sql.ir.Coalesce;
+import io.trino.sql.ir.Comparison;
+import io.trino.sql.ir.Constant;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.FieldReference;
+import io.trino.sql.ir.In;
+import io.trino.sql.ir.IsNull;
+import io.trino.sql.ir.Lambda;
+import io.trino.sql.ir.Logical;
+import io.trino.sql.ir.NullIf;
+import io.trino.sql.ir.Reference;
+import io.trino.sql.ir.Row;
+import io.trino.sql.ir.Switch;
 import io.trino.sql.routine.ir.IrBlock;
 import io.trino.sql.routine.ir.IrBreak;
 import io.trino.sql.routine.ir.IrContinue;
@@ -58,7 +71,7 @@ public final class SqlRoutineHash
     }
 
     private record HashRoutineIrVisitor(Hasher hasher, BlockEncodingSerde blockEncodingSerde)
-            implements IrNodeVisitor<Void, Void>, RowExpressionVisitor<Void, Void>
+            implements IrNodeVisitor<Void, Void>
     {
         @Override
         public Void visitRoutine(IrRoutine node, Void context)
@@ -81,7 +94,7 @@ public final class SqlRoutineHash
             hasher.putInt(node.field());
             hashType(node.type());
 
-            visitRowExpression(node.defaultValue());
+            hashExpression(node.defaultValue());
             return null;
         }
 
@@ -124,7 +137,7 @@ public final class SqlRoutineHash
         {
             hashClassName(node.getClass());
 
-            visitRowExpression(node.condition());
+            hashExpression(node.condition());
             process(node.ifTrue(), context);
 
             hasher.putBoolean(node.ifFalse().isPresent());
@@ -141,7 +154,7 @@ public final class SqlRoutineHash
             hasher.putBoolean(node.label().isPresent());
             node.label().ifPresent(this::hashLabel);
 
-            visitRowExpression(node.condition());
+            hashExpression(node.condition());
             process(node.body(), context);
             return null;
         }
@@ -153,7 +166,7 @@ public final class SqlRoutineHash
             hasher.putBoolean(node.label().isPresent());
             node.label().ifPresent(this::hashLabel);
 
-            visitRowExpression(node.condition());
+            hashExpression(node.condition());
             process(node.block(), context);
             return null;
         }
@@ -173,7 +186,7 @@ public final class SqlRoutineHash
         public Void visitReturn(IrReturn node, Void context)
         {
             hashClassName(node.getClass());
-            visitRowExpression(node.value());
+            hashExpression(node.value());
             return null;
         }
 
@@ -182,106 +195,83 @@ public final class SqlRoutineHash
         {
             hashClassName(node.getClass());
 
-            visitRowExpression(node.value());
+            hashExpression(node.value());
             process(node.target(), context);
             return null;
         }
 
-        public void visitRowExpression(RowExpression expression)
+        private void hashExpression(Expression expression)
         {
-            expression.accept(this, null);
-        }
+            hashClassName(expression.getClass());
+            hashType(expression.type());
 
-        @Override
-        public Void visitCall(CallExpression call, Void context)
-        {
-            hashClassName(call.getClass());
-            hashResolvedFunction(call.resolvedFunction());
-            hasher.putInt(call.arguments().size());
-            call.arguments().forEach(this::visitRowExpression);
-            return null;
-        }
-
-        @Override
-        public Void visitInputReference(InputReferenceExpression reference, Void context)
-        {
-            hashClassName(reference.getClass());
-            hasher.putInt(reference.field());
-            hashType(reference.type());
-            return null;
-        }
-
-        @Override
-        public Void visitConstant(ConstantExpression literal, Void context)
-        {
-            hashClassName(literal.getClass());
-            hashType(literal.type());
-
-            Object value = literal.value();
-            hasher.putBoolean(value == null);
-
-            switch (value) {
-                case null -> {}
-                case Boolean booleanValue -> hasher.putBoolean(booleanValue);
-                case Byte byteValue -> hasher.putByte(byteValue);
-                case Short shortValue -> hasher.putShort(shortValue);
-                case Integer intValue -> hasher.putInt(intValue);
-                case Long longValue -> hasher.putLong(longValue);
-                case Float floatValue -> hasher.putFloat(floatValue);
-                case Double doubleValue -> hasher.putDouble(doubleValue);
-                case byte[] byteArrayValue -> hasher.putBytes(byteArrayValue);
-                case String stringValue -> hasher.putString(stringValue, UTF_8);
-                case Slice sliceValue -> hasher.putBytes(sliceValue.getBytes());
-                default -> {
-                    Block block = literal.getBlockValue();
-                    SliceOutput output = new DynamicSliceOutput(toIntExact(blockEncodingSerde.estimatedWriteSize(block)));
-                    blockEncodingSerde.writeBlock(output, block);
-                    hasher.putBytes(output.slice().getBytes());
+            switch (expression) {
+                case Call call -> {
+                    hashResolvedFunction(call.function());
+                    hasher.putInt(call.arguments().size());
+                    call.arguments().forEach(this::hashExpression);
+                }
+                case Constant constant -> {
+                    Object value = constant.value();
+                    hasher.putBoolean(value == null);
+                    switch (value) {
+                        case null -> {}
+                        case Boolean booleanValue -> hasher.putBoolean(booleanValue);
+                        case Byte byteValue -> hasher.putByte(byteValue);
+                        case Short shortValue -> hasher.putShort(shortValue);
+                        case Integer intValue -> hasher.putInt(intValue);
+                        case Long longValue -> hasher.putLong(longValue);
+                        case Float floatValue -> hasher.putFloat(floatValue);
+                        case Double doubleValue -> hasher.putDouble(doubleValue);
+                        case byte[] byteArrayValue -> hasher.putBytes(byteArrayValue);
+                        case String stringValue -> hasher.putString(stringValue, UTF_8);
+                        case Slice sliceValue -> hasher.putBytes(sliceValue.getBytes());
+                        default -> {
+                            // For complex types (e.g., Block-backed arrays/rows/maps), serialize canonically
+                            BlockBuilder blockBuilder = constant.type().createBlockBuilder(null, 1);
+                            TypeUtils.writeNativeValue(constant.type(), blockBuilder, value);
+                            Block block = blockBuilder.build();
+                            SliceOutput output = new DynamicSliceOutput(toIntExact(blockEncodingSerde.estimatedWriteSize(block)));
+                            blockEncodingSerde.writeBlock(output, block);
+                            hasher.putBytes(output.slice().getBytes());
+                        }
+                    }
+                }
+                case Comparison comparison -> {
+                    hashString(comparison.operator().name());
+                    hashExpression(comparison.left());
+                    hashExpression(comparison.right());
+                }
+                case Logical logical -> {
+                    hashString(logical.operator().name());
+                    hasher.putInt(logical.terms().size());
+                    logical.terms().forEach(this::hashExpression);
+                }
+                case Reference reference -> hashString(reference.name());
+                case Lambda lambda -> {
+                    hasher.putInt(lambda.arguments().size());
+                    lambda.arguments().forEach(symbol -> {
+                        hashString(symbol.name());
+                        hashType(symbol.type());
+                    });
+                    hashExpression(lambda.body());
+                }
+                case FieldReference fieldRef -> {
+                    hasher.putInt(fieldRef.field());
+                    hasher.putInt(expression.children().size());
+                    for (Expression child : expression.children()) {
+                        hashExpression(child);
+                    }
+                }
+                // These expression types are fully represented by class name + type + children
+                case Array _, Between _, Bind _, Case _, Cast _, Coalesce _,
+                     In _, IsNull _, NullIf _, Row _, Switch _ -> {
+                    hasher.putInt(expression.children().size());
+                    for (Expression child : expression.children()) {
+                        hashExpression(child);
+                    }
                 }
             }
-
-            return null;
-        }
-
-        @Override
-        public Void visitLambda(LambdaDefinitionExpression lambda, Void context)
-        {
-            hashClassName(lambda.getClass());
-
-            hasher.putInt(lambda.arguments().size());
-            lambda.arguments().forEach(symbol -> {
-                hashString(symbol.name());
-                hashType(symbol.type());
-            });
-
-            visitRowExpression(lambda.body());
-            return null;
-        }
-
-        @Override
-        public Void visitVariableReference(VariableReferenceExpression reference, Void context)
-        {
-            hashClassName(reference.getClass());
-            hashString(reference.name());
-            hashType(reference.type());
-            return null;
-        }
-
-        @Override
-        public Void visitSpecialForm(SpecialForm specialForm, Void context)
-        {
-            hashClassName(specialForm.getClass());
-
-            hashType(specialForm.type());
-            hasher.putInt(specialForm.form().ordinal());
-
-            hasher.putInt(specialForm.arguments().size());
-            specialForm.arguments().forEach(this::visitRowExpression);
-
-            hasher.putInt(specialForm.functionDependencies().size());
-            specialForm.functionDependencies().forEach(this::hashResolvedFunction);
-
-            return null;
         }
 
         private void hashClassName(Class<?> clazz)

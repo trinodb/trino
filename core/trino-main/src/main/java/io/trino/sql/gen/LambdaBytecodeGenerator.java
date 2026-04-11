@@ -30,17 +30,14 @@ import io.airlift.bytecode.Scope;
 import io.airlift.bytecode.Variable;
 import io.airlift.bytecode.expression.BytecodeExpression;
 import io.trino.metadata.FunctionManager;
+import io.trino.metadata.Metadata;
 import io.trino.operator.aggregation.AccumulatorCompiler;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.type.TypeManager;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.Lambda;
+import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.Symbol;
-import io.trino.sql.relational.CallExpression;
-import io.trino.sql.relational.ConstantExpression;
-import io.trino.sql.relational.InputReferenceExpression;
-import io.trino.sql.relational.LambdaDefinitionExpression;
-import io.trino.sql.relational.RowExpression;
-import io.trino.sql.relational.RowExpressionVisitor;
-import io.trino.sql.relational.SpecialForm;
-import io.trino.sql.relational.VariableReferenceExpression;
 import org.objectweb.asm.Handle;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
@@ -51,6 +48,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.BiFunction;
 import java.util.function.Supplier;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -78,18 +76,20 @@ public final class LambdaBytecodeGenerator
 {
     private LambdaBytecodeGenerator() {}
 
-    public static Map<LambdaDefinitionExpression, CompiledLambda> generateMethodsForLambda(
+    public static Map<Lambda, CompiledLambda> generateMethodsForLambda(
             ClassDefinition containerClassDefinition,
             CallSiteBinder callSiteBinder,
             CachedInstanceBinder cachedInstanceBinder,
-            RowExpression expression,
-            FunctionManager functionManager)
+            Expression expression,
+            FunctionManager functionManager,
+            Metadata metadata,
+            TypeManager typeManager)
     {
-        Set<LambdaDefinitionExpression> lambdaExpressions = ImmutableSet.copyOf(extractLambdaExpressions(expression));
-        ImmutableMap.Builder<LambdaDefinitionExpression, CompiledLambda> compiledLambdaMap = ImmutableMap.builder();
+        Set<Lambda> lambdaExpressions = ImmutableSet.copyOf(extractLambdaExpressions(expression));
+        ImmutableMap.Builder<Lambda, CompiledLambda> compiledLambdaMap = ImmutableMap.builder();
 
         int counter = 0;
-        for (LambdaDefinitionExpression lambdaExpression : lambdaExpressions) {
+        for (Lambda lambdaExpression : lambdaExpressions) {
             CompiledLambda compiledLambda = preGenerateLambdaExpression(
                     lambdaExpression,
                     "lambda_" + counter,
@@ -97,7 +97,9 @@ public final class LambdaBytecodeGenerator
                     compiledLambdaMap.buildOrThrow(),
                     callSiteBinder,
                     cachedInstanceBinder,
-                    functionManager);
+                    functionManager,
+                    metadata,
+                    typeManager);
             compiledLambdaMap.put(lambdaExpression, compiledLambda);
             counter++;
         }
@@ -109,13 +111,15 @@ public final class LambdaBytecodeGenerator
      * @return a MethodHandle field that represents the lambda expression
      */
     public static CompiledLambda preGenerateLambdaExpression(
-            LambdaDefinitionExpression lambdaExpression,
+            Lambda lambdaExpression,
             String methodName,
             ClassDefinition classDefinition,
-            Map<LambdaDefinitionExpression, CompiledLambda> compiledLambdaMap,
+            Map<Lambda, CompiledLambda> compiledLambdaMap,
             CallSiteBinder callSiteBinder,
             CachedInstanceBinder cachedInstanceBinder,
-            FunctionManager functionManager)
+            FunctionManager functionManager,
+            Metadata metadata,
+            TypeManager typeManager)
     {
         ImmutableList.Builder<Parameter> parameters = ImmutableList.builder();
         ImmutableMap.Builder<String, ParameterAndType> parameterMapBuilder = ImmutableMap.builder();
@@ -130,12 +134,17 @@ public final class LambdaBytecodeGenerator
             parameterMapBuilder.put(argumentName, new ParameterAndType(arg, type));
         }
 
-        RowExpressionCompiler innerExpressionCompiler = new RowExpressionCompiler(
+        BiFunction<Reference, Scope, BytecodeNode> lambdaReferenceCompiler =
+                lambdaParameterReferenceCompiler(parameterMapBuilder.buildOrThrow());
+
+        ExpressionBytecodeCompiler innerExpressionCompiler = new ExpressionBytecodeCompiler(
                 classDefinition,
                 callSiteBinder,
                 cachedInstanceBinder,
-                variableReferenceCompiler(parameterMapBuilder.buildOrThrow()),
+                lambdaReferenceCompiler,
                 functionManager,
+                metadata,
+                typeManager,
                 compiledLambdaMap,
                 parameters.build());
 
@@ -148,11 +157,11 @@ public final class LambdaBytecodeGenerator
     }
 
     private static CompiledLambda defineLambdaMethod(
-            RowExpressionCompiler innerExpressionCompiler,
+            ExpressionBytecodeCompiler innerExpressionCompiler,
             ClassDefinition classDefinition,
             String methodName,
             List<Parameter> inputParameters,
-            LambdaDefinitionExpression lambda)
+            Lambda lambda)
     {
         checkCondition(inputParameters.size() <= 254, NOT_SUPPORTED, "Too many arguments for lambda expression");
         Class<?> returnType = Primitives.wrap(lambda.body().type().getJavaType());
@@ -182,7 +191,7 @@ public final class LambdaBytecodeGenerator
 
     public static BytecodeNode generateLambda(
             BytecodeGeneratorContext context,
-            List<RowExpression> captureExpressions,
+            List<Expression> captureExpressions,
             CompiledLambda compiledLambda,
             Class<?> lambdaInterface)
     {
@@ -199,7 +208,7 @@ public final class LambdaBytecodeGenerator
         // generate values to be captured
         ImmutableList.Builder<BytecodeExpression> captureVariableBuilder = ImmutableList.builderWithExpectedSize(captureExpressions.size());
         List<Variable> captureTempVariables = new ArrayList<>(captureExpressions.size());
-        for (RowExpression captureExpression : captureExpressions) {
+        for (Expression captureExpression : captureExpressions) {
             Class<?> valueType = Primitives.wrap(captureExpression.type().getJavaType());
             Variable valueVariable = scope.getOrCreateTempVariable(valueType);
             captureTempVariables.add(valueVariable);
@@ -236,7 +245,7 @@ public final class LambdaBytecodeGenerator
         return block;
     }
 
-    public static Class<? extends Supplier<Object>> compileLambdaProvider(LambdaDefinitionExpression lambdaExpression, FunctionManager functionManager, Class<?> lambdaInterface)
+    public static Class<? extends Supplier<Object>> compileLambdaProvider(Lambda lambdaExpression, FunctionManager functionManager, Metadata metadata, TypeManager typeManager, Class<?> lambdaInterface)
     {
         ClassDefinition lambdaProviderClassDefinition = new ClassDefinition(
                 a(PUBLIC, Access.FINAL),
@@ -249,12 +258,14 @@ public final class LambdaBytecodeGenerator
         CallSiteBinder callSiteBinder = new CallSiteBinder();
         CachedInstanceBinder cachedInstanceBinder = new CachedInstanceBinder(lambdaProviderClassDefinition, callSiteBinder);
 
-        Map<LambdaDefinitionExpression, CompiledLambda> compiledLambdaMap = generateMethodsForLambda(
+        Map<Lambda, CompiledLambda> compiledLambdaMap = generateMethodsForLambda(
                 lambdaProviderClassDefinition,
                 callSiteBinder,
                 cachedInstanceBinder,
                 lambdaExpression,
-                functionManager);
+                functionManager,
+                metadata,
+                typeManager);
 
         MethodDefinition method = lambdaProviderClassDefinition.declareMethod(
                 a(PUBLIC),
@@ -267,12 +278,17 @@ public final class LambdaBytecodeGenerator
         scope.declareVariable("wasNull", body, constantFalse());
         scope.declareVariable("session", body, method.getThis().getField(sessionField));
 
-        RowExpressionCompiler rowExpressionCompiler = new RowExpressionCompiler(
+        BiFunction<Reference, Scope, BytecodeNode> lambdaReferenceCompiler =
+                lambdaParameterReferenceCompiler(ImmutableMap.of());
+
+        ExpressionBytecodeCompiler expressionCompiler = new ExpressionBytecodeCompiler(
                 lambdaProviderClassDefinition,
                 callSiteBinder,
                 cachedInstanceBinder,
-                variableReferenceCompiler(ImmutableMap.of()),
+                lambdaReferenceCompiler,
                 functionManager,
+                metadata,
+                typeManager,
                 compiledLambdaMap,
                 ImmutableList.of());
 
@@ -285,11 +301,12 @@ public final class LambdaBytecodeGenerator
         }
 
         BytecodeGeneratorContext generatorContext = new BytecodeGeneratorContext(
-                rowExpressionCompiler,
+                expressionCompiler,
                 scope,
                 callSiteBinder,
                 cachedInstanceBinder,
                 functionManager,
+                metadata,
                 lambdaProviderClassDefinition,
                 parameters);
 
@@ -332,50 +349,18 @@ public final class LambdaBytecodeGenerator
         return applyMethods.get(0);
     }
 
-    private static RowExpressionVisitor<BytecodeNode, Scope> variableReferenceCompiler(Map<String, ParameterAndType> parameterMap)
+    static BiFunction<Reference, Scope, BytecodeNode> lambdaParameterReferenceCompiler(Map<String, ParameterAndType> parameterMap)
     {
-        return new RowExpressionVisitor<>()
-        {
-            @Override
-            public BytecodeNode visitInputReference(InputReferenceExpression node, Scope scope)
-            {
-                throw new UnsupportedOperationException();
+        return (reference, scope) -> {
+            ParameterAndType parameterAndType = parameterMap.get(reference.name());
+            if (parameterAndType == null) {
+                throw new UnsupportedOperationException("Reference not found in lambda parameters: " + reference.name());
             }
-
-            @Override
-            public BytecodeNode visitCall(CallExpression call, Scope scope)
-            {
-                throw new UnsupportedOperationException();
-            }
-
-            @Override
-            public BytecodeNode visitSpecialForm(SpecialForm specialForm, Scope context)
-            {
-                throw new UnsupportedOperationException();
-            }
-
-            @Override
-            public BytecodeNode visitConstant(ConstantExpression literal, Scope scope)
-            {
-                throw new UnsupportedOperationException();
-            }
-
-            @Override
-            public BytecodeNode visitLambda(LambdaDefinitionExpression lambda, Scope context)
-            {
-                throw new UnsupportedOperationException();
-            }
-
-            @Override
-            public BytecodeNode visitVariableReference(VariableReferenceExpression reference, Scope context)
-            {
-                ParameterAndType parameterAndType = parameterMap.get(reference.name());
-                Parameter parameter = parameterAndType.getParameter();
-                Class<?> type = parameterAndType.getType();
-                return new BytecodeBlock()
-                        .append(parameter)
-                        .append(unboxPrimitiveIfNecessary(context, type));
-            }
+            Parameter parameter = parameterAndType.getParameter();
+            Class<?> type = parameterAndType.getType();
+            return new BytecodeBlock()
+                    .append(parameter)
+                    .append(unboxPrimitiveIfNecessary(scope, type));
         };
     }
 

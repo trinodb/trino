@@ -28,8 +28,8 @@ import io.trino.spi.block.BlockBuilderStatus;
 import io.trino.spi.block.SqlRow;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
-import io.trino.sql.relational.RowExpression;
-import io.trino.sql.relational.SpecialForm;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.Row;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -52,18 +52,18 @@ public class RowConstructorCodeGenerator
         implements BytecodeGenerator
 {
     private final RowType rowType;
-    private final List<RowExpression> arguments;
+    private final List<Expression> arguments;
     // Arbitrary value chosen to balance the code size vs performance trade off. Not perf tested.
     private static final int MEGAMORPHIC_FIELD_COUNT = 64;
 
     // number of fields to initialize in a single method for large rows
     private static final int LARGE_ROW_BATCH_SIZE = 100;
 
-    public RowConstructorCodeGenerator(SpecialForm specialForm)
+    public RowConstructorCodeGenerator(Row row)
     {
-        requireNonNull(specialForm, "specialForm is null");
-        rowType = (RowType) specialForm.type();
-        arguments = specialForm.arguments();
+        requireNonNull(row, "row is null");
+        rowType = (RowType) row.type();
+        arguments = row.items();
     }
 
     @Override
@@ -161,7 +161,15 @@ public class RowConstructorCodeGenerator
         BytecodeBlock block = methodDefinition.getBody();
         scope.declareVariable("wasNull", block, constantFalse());
 
-        BytecodeGeneratorContext context = new BytecodeGeneratorContext(parentContext.getRowExpressionCompiler(), scope, binder, parentContext.getCachedInstanceBinder(), parentContext.getFunctionManager(), classDefinition, parentContext.getContextArguments());
+        BytecodeGeneratorContext context = new BytecodeGeneratorContext(
+                parentContext.getExpressionCompiler(),
+                scope,
+                binder,
+                parentContext.getCachedInstanceBinder(),
+                parentContext.getFunctionManager(),
+                parentContext.getMetadata(),
+                classDefinition,
+                parentContext.getContextArguments());
         Variable blockBuilder = scope.getOrCreateTempVariable(BlockBuilder.class);
         List<Type> types = rowType.getFieldTypes();
         for (int i = start; i < end; i++) {

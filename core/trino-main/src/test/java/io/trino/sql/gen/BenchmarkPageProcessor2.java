@@ -18,26 +18,24 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slices;
 import io.trino.SequencePageBuilder;
 import io.trino.metadata.FunctionManager;
+import io.trino.metadata.Metadata;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.operator.DriverYieldSignal;
 import io.trino.operator.project.PageProcessor;
 import io.trino.spi.Page;
+import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.SourcePage;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.type.Type;
-import io.trino.sql.PlannerContext;
+import io.trino.spi.type.TypeManager;
 import io.trino.sql.gen.columnar.ColumnarFilterCompiler;
-import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.Symbol;
-import io.trino.sql.relational.RowExpression;
-import io.trino.sql.relational.SqlToRowExpressionTranslator;
-import io.trino.transaction.TestingTransactionManager;
 import org.junit.jupiter.api.Test;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
@@ -56,16 +54,16 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.concurrent.TimeUnit;
 
 import static io.trino.jmh.Benchmarks.benchmark;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
-import static io.trino.metadata.FunctionManager.createTestingFunctionManager;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.trino.sql.ir.Comparison.Operator.EQUAL;
-import static io.trino.sql.planner.TestingPlannerContext.plannerContextBuilder;
+import static io.trino.sql.ir.IrExpressions.call;
 import static java.util.Locale.ENGLISH;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.stream.Collectors.toList;
@@ -78,12 +76,10 @@ import static java.util.stream.Collectors.toList;
 @BenchmarkMode(Mode.AverageTime)
 public class BenchmarkPageProcessor2
 {
-    private static final TestingTransactionManager TRANSACTION_MANAGER = new TestingTransactionManager();
-    private static final PlannerContext PLANNER_CONTEXT = plannerContextBuilder()
-            .withTransactionManager(TRANSACTION_MANAGER)
-            .build();
-
     private static final TestingFunctionResolution FUNCTIONS = new TestingFunctionResolution();
+    private static final Metadata METADATA = FUNCTIONS.getMetadata();
+    private static final TypeManager TYPE_MANAGER = FUNCTIONS.getPlannerContext().getTypeManager();
+    private static final FunctionManager FUNCTION_MANAGER = FUNCTIONS.getPlannerContext().getFunctionManager();
     private static final ResolvedFunction CONCAT = FUNCTIONS.resolveFunction("concat", fromTypes(VARCHAR, VARCHAR));
     private static final ResolvedFunction ADD_BIGINT = FUNCTIONS.resolveOperator(OperatorType.ADD, ImmutableList.of(BIGINT, BIGINT));
     private static final ResolvedFunction MODULUS_BIGINT = FUNCTIONS.resolveOperator(OperatorType.MODULUS, ImmutableList.of(BIGINT, BIGINT));
@@ -111,20 +107,22 @@ public class BenchmarkPageProcessor2
     {
         Type type = TYPE_MAP.get(this.type);
 
+        sourceLayout.clear();
         for (int i = 0; i < columnCount; i++) {
             Symbol symbol = new Symbol(type, type.getDisplayName().toLowerCase(ENGLISH) + i);
             sourceLayout.put(symbol, i);
         }
 
-        List<RowExpression> projections = getProjections(type);
-        types = projections.stream().map(RowExpression::type).collect(toList());
+        List<Expression> projections = getProjections(type);
+        types = projections.stream().map(Expression::type).collect(toList());
 
-        FunctionManager functionManager = createTestingFunctionManager();
-        PageFunctionCompiler pageFunctionCompiler = new PageFunctionCompiler(functionManager, 0);
-        ColumnarFilterCompiler columnarFilterCompiler = new ColumnarFilterCompiler(functionManager, 0);
+        PageFunctionCompiler pageFunctionCompiler = new PageFunctionCompiler(FUNCTION_MANAGER, METADATA, TYPE_MANAGER, 0);
+        ColumnarFilterCompiler columnarFilterCompiler = new ColumnarFilterCompiler(FUNCTION_MANAGER, METADATA, 0);
 
         inputPage = createPage(types, dictionaryBlocks);
-        pageProcessor = new ExpressionCompiler(pageFunctionCompiler, columnarFilterCompiler).compilePageProcessor(Optional.of(getFilter(type)), projections).get();
+        pageProcessor = new ExpressionCompiler(pageFunctionCompiler, columnarFilterCompiler)
+                .compilePageProcessor(true, Optional.of(getFilter(type)), Optional.empty(), projections, sourceLayout, Optional.empty(), OptionalInt.empty())
+                .apply(DynamicFilter.EMPTY);
     }
 
     @Benchmark
@@ -138,42 +136,31 @@ public class BenchmarkPageProcessor2
                         SourcePage.create(inputPage)));
     }
 
-    private RowExpression getFilter(Type type)
+    private Expression getFilter(Type type)
     {
         if (type == VARCHAR) {
-            return rowExpression(new Comparison(EQUAL, new Call(MODULUS_BIGINT, ImmutableList.of(new Cast(new Reference(VARCHAR, "varchar0"), BIGINT), new Constant(BIGINT, 2L))), new Constant(BIGINT, 0L)));
+            return new Comparison(EQUAL, call(MODULUS_BIGINT, new Cast(new Reference(VARCHAR, "varchar0"), BIGINT), new Constant(BIGINT, 2L)), new Constant(BIGINT, 0L));
         }
         if (type == BIGINT) {
-            return rowExpression(new Comparison(EQUAL, new Call(MODULUS_BIGINT, ImmutableList.of(new Reference(BIGINT, "bigint0"), new Constant(BIGINT, 2L))), new Constant(BIGINT, 0L)));
+            return new Comparison(EQUAL, call(MODULUS_BIGINT, new Reference(BIGINT, "bigint0"), new Constant(BIGINT, 2L)), new Constant(BIGINT, 0L));
         }
         throw new IllegalArgumentException("filter not supported for type : " + type);
     }
 
-    private List<RowExpression> getProjections(Type type)
+    private List<Expression> getProjections(Type type)
     {
-        ImmutableList.Builder<RowExpression> builder = ImmutableList.builder();
+        ImmutableList.Builder<Expression> builder = ImmutableList.builder();
         if (type == BIGINT) {
             for (int i = 0; i < columnCount; i++) {
-                builder.add(rowExpression(new Call(ADD_BIGINT, ImmutableList.of(new Reference(BIGINT, "bigint" + i), new Constant(BIGINT, 5L)))));
+                builder.add(call(ADD_BIGINT, new Reference(BIGINT, "bigint" + i), new Constant(BIGINT, 5L)));
             }
         }
         else if (type == VARCHAR) {
             for (int i = 0; i < columnCount; i++) {
-                // alternatively use identity expression rowExpression("varchar" + i, type) or
-                // rowExpression("substr(varchar" + i + ", 1, 1)", type)
-                builder.add(rowExpression(new Call(CONCAT, ImmutableList.of(new Reference(VARCHAR, "varchar" + i), new Constant(VARCHAR, Slices.utf8Slice("foo"))))));
+                builder.add(call(CONCAT, new Reference(VARCHAR, "varchar" + i), new Constant(VARCHAR, Slices.utf8Slice("foo"))));
             }
         }
         return builder.build();
-    }
-
-    private RowExpression rowExpression(Expression expression)
-    {
-        return SqlToRowExpressionTranslator.translate(
-                expression,
-                sourceLayout,
-                PLANNER_CONTEXT.getMetadata(),
-                PLANNER_CONTEXT.getTypeManager());
     }
 
     private static Page createPage(List<? extends Type> types, boolean dictionary)

@@ -14,14 +14,9 @@
 package io.trino.sql.gen;
 
 import com.google.common.collect.ImmutableList;
-import io.trino.sql.relational.CallExpression;
-import io.trino.sql.relational.ConstantExpression;
-import io.trino.sql.relational.InputReferenceExpression;
-import io.trino.sql.relational.LambdaDefinitionExpression;
-import io.trino.sql.relational.RowExpression;
-import io.trino.sql.relational.RowExpressionVisitor;
-import io.trino.sql.relational.SpecialForm;
-import io.trino.sql.relational.VariableReferenceExpression;
+import io.trino.sql.ir.DefaultTraversalVisitor;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.Lambda;
 
 import java.util.List;
 
@@ -29,83 +24,19 @@ public final class LambdaExpressionExtractor
 {
     private LambdaExpressionExtractor() {}
 
-    public static List<LambdaDefinitionExpression> extractLambdaExpressions(RowExpression expression)
+    public static List<Lambda> extractLambdaExpressions(Expression expression)
     {
-        Visitor visitor = new Visitor();
-        expression.accept(visitor, new Context(false));
-        return visitor.getLambdaExpressionsPostOrder();
-    }
-
-    private static class Visitor
-            implements RowExpressionVisitor<Void, Context>
-    {
-        private final ImmutableList.Builder<LambdaDefinitionExpression> lambdaExpressions = ImmutableList.builder();
-
-        @Override
-        public Void visitInputReference(InputReferenceExpression node, Context context)
+        ImmutableList.Builder<Lambda> lambdas = ImmutableList.builder();
+        new DefaultTraversalVisitor<Void>()
         {
-            // TODO: change such that CallExpressions only capture the inputs they actually depend on
-            return null;
-        }
-
-        @Override
-        public Void visitCall(CallExpression call, Context context)
-        {
-            for (RowExpression rowExpression : call.arguments()) {
-                rowExpression.accept(this, context);
+            @Override
+            protected Void visitLambda(Lambda node, Void context)
+            {
+                super.visitLambda(node, context);
+                lambdas.add(node);
+                return null;
             }
-
-            return null;
-        }
-
-        @Override
-        public Void visitSpecialForm(SpecialForm specialForm, Context context)
-        {
-            for (RowExpression rowExpression : specialForm.arguments()) {
-                rowExpression.accept(this, context);
-            }
-
-            return null;
-        }
-
-        @Override
-        public Void visitConstant(ConstantExpression literal, Context context)
-        {
-            return null;
-        }
-
-        @Override
-        public Void visitLambda(LambdaDefinitionExpression lambda, Context context)
-        {
-            lambda.body().accept(this, new Context(true));
-            lambdaExpressions.add(lambda);
-            return null;
-        }
-
-        @Override
-        public Void visitVariableReference(VariableReferenceExpression reference, Context context)
-        {
-            return null;
-        }
-
-        private List<LambdaDefinitionExpression> getLambdaExpressionsPostOrder()
-        {
-            return lambdaExpressions.build();
-        }
-    }
-
-    private static class Context
-    {
-        private final boolean inLambda;
-
-        public Context(boolean inLambda)
-        {
-            this.inLambda = inLambda;
-        }
-
-        public boolean isInLambda()
-        {
-            return inLambda;
-        }
+        }.process(expression, null);
+        return lambdas.build();
     }
 }

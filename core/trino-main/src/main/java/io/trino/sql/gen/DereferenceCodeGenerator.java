@@ -22,30 +22,26 @@ import io.airlift.bytecode.instruction.LabelNode;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.SqlRow;
 import io.trino.spi.type.Type;
-import io.trino.sql.relational.ConstantExpression;
-import io.trino.sql.relational.RowExpression;
-import io.trino.sql.relational.SpecialForm;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.FieldReference;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantInt;
 import static io.trino.sql.gen.SqlTypeBytecodeExpression.constantType;
-import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 public class DereferenceCodeGenerator
         implements BytecodeGenerator
 {
     private final Type returnType;
-    private final RowExpression base;
+    private final Expression base;
     private final int index;
 
-    public DereferenceCodeGenerator(SpecialForm specialForm)
+    public DereferenceCodeGenerator(FieldReference fieldReference)
     {
-        requireNonNull(specialForm, "specialForm is null");
-        returnType = specialForm.type();
-        checkArgument(specialForm.arguments().size() == 2);
-        base = specialForm.arguments().get(0);
-        index = toIntExact((long) ((ConstantExpression) specialForm.arguments().get(1)).value());
+        requireNonNull(fieldReference, "fieldReference is null");
+        returnType = fieldReference.type();
+        base = fieldReference.base();
+        index = fieldReference.field();
     }
 
     @Override
