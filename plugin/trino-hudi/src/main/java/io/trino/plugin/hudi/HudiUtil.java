@@ -244,8 +244,12 @@ public final class HudiUtil
                     "Location of table %s does not contain Hudi table metadata: %s".formatted(tableName, basePath));
         }
         catch (Throwable e) {
+            String detail = e.getMessage();
+            if (detail == null || detail.isBlank()) {
+                detail = e.toString();
+            }
             throw new TrinoException(HUDI_META_CLIENT_ERROR,
-                    "Unable to load Hudi meta client for table %s (%s)".formatted(tableName, basePath));
+                    "Unable to load Hudi meta client for table %s (%s): %s".formatted(tableName, basePath, detail), e);
         }
     }
 
