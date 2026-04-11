@@ -1773,6 +1773,146 @@ abstract class BaseTestHiveOnDataLake
     }
 
     @Test
+    public void testDatePartitionProjectionOnVarcharColumnWithYearMonthFormat()
+    {
+        String tableName = getRandomTestTableName();
+        String fullyQualifiedTestTableName = getFullyQualifiedTestTableName(tableName);
+
+        computeActual(
+                "CREATE TABLE " + fullyQualifiedTestTableName + " ( " +
+                        "  name varchar(25), " +
+                        "  comment varchar(152), " +
+                        "  nationkey bigint, " +
+                        "  regionkey bigint, " +
+                        "  short_name1 varchar(152) WITH (" +
+                        "    partition_projection_type='enum', " +
+                        "    partition_projection_values=ARRAY['PL1', 'CZ1'] " +
+                        "  ), " +
+                        "  short_name2 varchar WITH (" +
+                        "    partition_projection_type='date', " +
+                        "    partition_projection_format='yyyy-MM', " +
+                        "    partition_projection_range=ARRAY['2022-01', '2022-06']" +
+                        "  )" +
+                        ") WITH ( " +
+                        "  partitioned_by=ARRAY['short_name1', 'short_name2'], " +
+                        "  partition_projection_enabled=true " +
+                        ")");
+
+        assertThat(
+                hiveMinioDataLake
+                        .runOnHive("SHOW TBLPROPERTIES " + getHiveTestTableName(tableName)))
+                .containsPattern("[ |]+projection\\.enabled[ |]+true[ |]+")
+                .containsPattern("[ |]+projection\\.short_name1\\.type[ |]+enum[ |]+")
+                .containsPattern("[ |]+projection\\.short_name1\\.values[ |]+PL1,CZ1[ |]+")
+                .containsPattern("[ |]+projection\\.short_name2\\.type[ |]+date[ |]+")
+                .containsPattern("[ |]+projection\\.short_name2\\.format[ |]+yyyy-MM[ |]+")
+                .containsPattern("[ |]+projection\\.short_name2\\.range[ |]+2022-01,2022-06[ |]+");
+
+        computeActual(createInsertStatement(
+                fullyQualifiedTestTableName,
+                ImmutableList.of(
+                        ImmutableList.of("'POLAND_1'", "'Comment'", "0", "5", "'PL1'", "'2022-01'"),
+                        ImmutableList.of("'POLAND_2'", "'Comment'", "1", "5", "'PL1'", "'2022-03'"),
+                        ImmutableList.of("'CZECH_1'", "'Comment'", "2", "5", "'CZ1'", "'2022-05'"),
+                        ImmutableList.of("'CZECH_2'", "'Comment'", "3", "5", "'CZ1'", "'2022-06'"),
+                        ImmutableList.of("'CZECH_3'", "'Comment'", "4", "5", "'CZ1'", "'2022-09'"))));
+
+        assertQuery(
+                format("SELECT name FROM %s WHERE short_name1='PL1' AND short_name2='2022-03'", fullyQualifiedTestTableName),
+                "VALUES 'POLAND_2'");
+
+        assertQuery(
+                format("SELECT name FROM %s WHERE short_name1='PL1' AND ( short_name2='2022-01' OR short_name2='2022-03' )", fullyQualifiedTestTableName),
+                "VALUES ('POLAND_1'), ('POLAND_2')");
+
+        assertQuery(
+                format("SELECT name FROM %s WHERE short_name2 > '2022-03'", fullyQualifiedTestTableName),
+                "VALUES ('CZECH_1'), ('CZECH_2')");
+
+        assertQuery(
+                format("SELECT name FROM %s WHERE short_name2 >= '2022-03' AND short_name2 <= '2022-06'", fullyQualifiedTestTableName),
+                "VALUES ('POLAND_2'), ('CZECH_1'), ('CZECH_2')");
+
+        assertQuery(
+                format("SELECT name FROM %s WHERE short_name1='PL1'", fullyQualifiedTestTableName),
+                "VALUES ('POLAND_1'), ('POLAND_2')");
+
+        assertQuery(
+                format("SELECT name FROM %s", fullyQualifiedTestTableName),
+                "VALUES ('POLAND_1'), ('POLAND_2'), ('CZECH_1'), ('CZECH_2')");
+    }
+
+    @Test
+    public void testDatePartitionProjectionOnVarcharColumnWithYearFormat()
+    {
+        String tableName = getRandomTestTableName();
+        String fullyQualifiedTestTableName = getFullyQualifiedTestTableName(tableName);
+
+        computeActual(
+                "CREATE TABLE " + fullyQualifiedTestTableName + " ( " +
+                        "  name varchar(25), " +
+                        "  comment varchar(152), " +
+                        "  nationkey bigint, " +
+                        "  regionkey bigint, " +
+                        "  short_name1 varchar(152) WITH (" +
+                        "    partition_projection_type='enum', " +
+                        "    partition_projection_values=ARRAY['PL1', 'CZ1'] " +
+                        "  ), " +
+                        "  short_name2 varchar WITH (" +
+                        "    partition_projection_type='date', " +
+                        "    partition_projection_format='yyyy', " +
+                        "    partition_projection_range=ARRAY['2020', '2024']" +
+                        "  )" +
+                        ") WITH ( " +
+                        "  partitioned_by=ARRAY['short_name1', 'short_name2'], " +
+                        "  partition_projection_enabled=true " +
+                        ")");
+
+        assertThat(
+                hiveMinioDataLake
+                        .runOnHive("SHOW TBLPROPERTIES " + getHiveTestTableName(tableName)))
+                .containsPattern("[ |]+projection\\.enabled[ |]+true[ |]+")
+                .containsPattern("[ |]+projection\\.short_name1\\.type[ |]+enum[ |]+")
+                .containsPattern("[ |]+projection\\.short_name1\\.values[ |]+PL1,CZ1[ |]+")
+                .containsPattern("[ |]+projection\\.short_name2\\.type[ |]+date[ |]+")
+                .containsPattern("[ |]+projection\\.short_name2\\.format[ |]+yyyy[ |]+")
+                .containsPattern("[ |]+projection\\.short_name2\\.range[ |]+2020,2024[ |]+");
+
+        computeActual(createInsertStatement(
+                fullyQualifiedTestTableName,
+                ImmutableList.of(
+                        ImmutableList.of("'POLAND_1'", "'Comment'", "0", "5", "'PL1'", "'2020'"),
+                        ImmutableList.of("'POLAND_2'", "'Comment'", "1", "5", "'PL1'", "'2022'"),
+                        ImmutableList.of("'CZECH_1'", "'Comment'", "2", "5", "'CZ1'", "'2023'"),
+                        ImmutableList.of("'CZECH_2'", "'Comment'", "3", "5", "'CZ1'", "'2024'"),
+                        ImmutableList.of("'CZECH_3'", "'Comment'", "4", "5", "'CZ1'", "'2026'"))));
+
+        assertQuery(
+                format("SELECT name FROM %s WHERE short_name1='PL1' AND short_name2='2022'", fullyQualifiedTestTableName),
+                "VALUES 'POLAND_2'");
+
+        assertQuery(
+                format("SELECT name FROM %s WHERE short_name1='PL1' AND ( short_name2='2020' OR short_name2='2022' )", fullyQualifiedTestTableName),
+                "VALUES ('POLAND_1'), ('POLAND_2')");
+
+        assertQuery(
+                format("SELECT name FROM %s WHERE short_name2 > '2022'", fullyQualifiedTestTableName),
+                "VALUES ('CZECH_1'), ('CZECH_2')");
+
+        assertQuery(
+                format("SELECT name FROM %s WHERE short_name2 >= '2022' AND short_name2 <= '2024'", fullyQualifiedTestTableName),
+                "VALUES ('POLAND_2'), ('CZECH_1'), ('CZECH_2')");
+
+        assertQuery(
+                format("SELECT name FROM %s WHERE short_name1='PL1'", fullyQualifiedTestTableName),
+                "VALUES ('POLAND_1'), ('POLAND_2')");
+
+        assertQuery(
+                format("SELECT name FROM %s", fullyQualifiedTestTableName),
+                "VALUES ('POLAND_1'), ('POLAND_2'), ('CZECH_1'), ('CZECH_2')");
+    }
+
+    @Test
     public void testInjectedPartitionProjectionOnVarcharColumn()
     {
         String tableName = getRandomTestTableName();
@@ -1980,7 +2120,7 @@ abstract class BaseTestHiveOnDataLake
                         "  partition_projection_enabled=true " +
                         ")"))
                 .hasMessage("Column projection for column 'short_name1' failed. Property: 'partition_projection_interval_unit' value 'Decades' is invalid. " +
-                        "Available options: [Days, Hours, Minutes, Seconds]");
+                        "Available options: [Years, Months, Days, Hours, Minutes, Seconds]");
 
         assertThatThrownBy(() -> getQueryRunner().execute(
                 "CREATE TABLE " + getFullyQualifiedTestTableName("nation_" + randomNameSuffix()) + " ( " +
@@ -1996,7 +2136,7 @@ abstract class BaseTestHiveOnDataLake
                         ")"))
                 .hasMessage("Column projection for column 'short_name1' failed. Property: 'partition_projection_interval_unit' " +
                         "needs to be set when provided 'partition_projection_format' is less than single-day precision. " +
-                        "Interval defaults to 1 day or 1 month, respectively. Otherwise, interval is required");
+                        "Interval defaults to 1 day, 1 month or 1 year, respectively. Otherwise, interval is required");
 
         assertThatThrownBy(() -> getQueryRunner().execute(
                 "CREATE TABLE " + getFullyQualifiedTestTableName("nation_" + randomNameSuffix()) + " ( " +
@@ -2028,7 +2168,7 @@ abstract class BaseTestHiveOnDataLake
                         ")"))
                 .hasMessage("Column projection for column 'short_name1' failed. Property: 'partition_projection_interval_unit' " +
                         "needs to be set when provided 'partition_projection_format' is less than single-day precision. " +
-                        "Interval defaults to 1 day or 1 month, respectively. Otherwise, interval is required");
+                        "Interval defaults to 1 day, 1 month or 1 year, respectively. Otherwise, interval is required");
     }
 
     @Test
