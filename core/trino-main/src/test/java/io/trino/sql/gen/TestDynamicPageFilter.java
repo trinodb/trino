@@ -153,6 +153,12 @@ public class TestDynamicPageFilter
                         Domain.create(ValueSet.of(INTEGER, 1L), true))),
                 ImmutableMap.of(column, 0));
         verifySelectedPositions(filterPage(page, filterEvaluator), new int[] {0, 2, 4});
+
+        // not-null filter: Domain.notNull produces $not(IsNull(ref))
+        filterEvaluator = createDynamicFilterEvaluator(
+                TupleDomain.withColumnDomains(ImmutableMap.of(column, Domain.notNull(INTEGER))),
+                ImmutableMap.of(column, 0));
+        verifySelectedPositions(filterPage(page, filterEvaluator), new int[] {0, 1, 3});
     }
 
     @Test
