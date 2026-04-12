@@ -42,8 +42,10 @@ import java.io.PrintStream;
 import java.lang.reflect.Field;
 import java.nio.file.Path;
 import java.util.AbstractMap;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -123,23 +125,27 @@ public class Console
         TrinoUri uri = clientOptions.getTrinoUri(restrictedOptions);
         ClientSession session = clientOptions.toClientSession(uri);
         boolean hasQuery = clientOptions.execute != null;
-        boolean isFromFile = !isNullOrEmpty(clientOptions.file);
+        boolean isFromFiles = !clientOptions.files.isEmpty();
 
         String query = clientOptions.execute;
         if (hasQuery) {
             query += ";";
         }
 
-        if (isFromFile) {
+        List<String> fileQueries = new ArrayList<>();
+
+        if (isFromFiles) {
             if (hasQuery) {
                 throw new RuntimeException("both --execute and --file specified");
             }
-            try {
-                query = asCharSource(new File(clientOptions.file), UTF_8).read();
-                hasQuery = true;
-            }
-            catch (IOException e) {
-                throw new RuntimeException(format("Error reading from file %s: %s", clientOptions.file, e.getMessage()));
+
+            for (String file : clientOptions.files) {
+                try {
+                    fileQueries.add(asCharSource(new File(file), UTF_8).read());
+                }
+                catch (IOException e) {
+                    throw new RuntimeException(format("Error reading from file '%s': %s", file, e.getMessage()));
+                }
             }
         }
 
@@ -178,6 +184,35 @@ public class Console
                 clientOptions.debug,
                 clientOptions.maxQueuedRows,
                 clientOptions.maxBufferedRows)) {
+            // Run query from each file sequentially
+            if (!fileQueries.isEmpty()) {
+                boolean overallSuccess = true;
+                for (int i = 0; i < fileQueries.size(); i++) {
+                    String fileName = clientOptions.files.get(i);
+                    String fileQuery = fileQueries.get(i);
+
+                    System.err.println("Processing file: '" + fileName + "'\n");
+                    boolean success = executeCommand(
+                            queryRunner,
+                            exiting,
+                            fileQuery,
+                            clientOptions.outputFormat,
+                            clientOptions.ignoreErrors,
+                            clientOptions.progress.orElse(false),
+                            clientOptions.decimalDataSize);
+
+                    if (!success) {
+                        if (clientOptions.ignoreErrors) {
+                            overallSuccess = false;
+                        }
+                        else {
+                            return false;
+                        }
+                    }
+                }
+                return overallSuccess;
+            }
+
             if (hasQuery) {
                 return executeCommand(
                         queryRunner,
