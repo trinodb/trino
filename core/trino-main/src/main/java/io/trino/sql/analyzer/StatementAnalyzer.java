@@ -6071,9 +6071,6 @@ class StatementAnalyzer
             if (version.isEmpty()) {
                 return tableVersion;
             }
-            if (analysis.isDescribe()) {
-                throw semanticException(NOT_SUPPORTED, table, "DESCRIBE is not supported if a versioned table uses parameters");
-            }
             ExpressionAnalysis expressionAnalysis = analyzeExpression(version.get(), scope.get());
             analysis.recordSubqueries(table, expressionAnalysis);
 
@@ -6081,6 +6078,9 @@ class StatementAnalyzer
             Type versionType = expressionAnalysis.getType(version.get());
             PointerType pointerType = toPointerType(table.getQueryPeriod().get().getRangeType());
             if (versionType == UNKNOWN) {
+                if (analysis.isDescribe()) {
+                    throw semanticException(NOT_SUPPORTED, table, "DESCRIBE is not supported if a versioned table uses parameters");
+                }
                 throw semanticException(INVALID_ARGUMENTS, table.getQueryPeriod().get(), "Pointer value cannot be NULL");
             }
             Object evaluatedVersion = evaluateConstant(version.get(), versionType, analysis.getParameters(), plannerContext, session, accessControl);

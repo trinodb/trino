@@ -7949,6 +7949,32 @@ public abstract class BaseIcebergConnectorTest
     }
 
     @Test
+    public void testDescribeOutputWithVersionedTable()
+    {
+        try (TestTable table = newTrinoTable("test", "(x int)", List.of("1"))) {
+            Session firstSession = Session.builder(getSession())
+                    .addPreparedStatement("my_query", "SELECT * FROM %s FOR VERSION AS OF %s".formatted(table.getName(), getCurrentSnapshotId(table.getName())))
+                    .build();
+            assertThat(query(firstSession, "DESCRIBE OUTPUT my_query"))
+                    .matches("VALUES ('x', 'iceberg', 'tpch', '" + table.getName() + "', 'integer', 4, false)");
+
+            // Add a new snapshot with a new column for a different output
+            assertUpdate("ALTER TABLE " + table.getName() + " ADD COLUMN y int");
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (2, 2)", 1);
+
+            Session secondSession = Session.builder(getSession())
+                    .addPreparedStatement("my_query", "SELECT * FROM %s FOR VERSION AS OF %s".formatted(table.getName(), getCurrentSnapshotId(table.getName())))
+                    .build();
+            assertThat(query(firstSession, "DESCRIBE OUTPUT my_query"))
+                    .matches("VALUES ('x', 'iceberg', 'tpch', '" + table.getName() + "', 'integer', 4, false)");
+            assertThat(query(secondSession, "DESCRIBE OUTPUT my_query"))
+                    .matches("VALUES" +
+                            "('x', 'iceberg', 'tpch', '" + table.getName() + "', 'integer', 4, false)," +
+                            "('y', 'iceberg', 'tpch', '" + table.getName() + "', 'integer', 4, false)");
+        }
+    }
+
+    @Test
     public void testDeleteRetainsTableHistory()
     {
         String tableName = "test_delete_retains_table_history_" + randomNameSuffix();
