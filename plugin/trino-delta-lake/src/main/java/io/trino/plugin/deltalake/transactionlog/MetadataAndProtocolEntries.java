@@ -22,15 +22,75 @@ public record MetadataAndProtocolEntries(Optional<MetadataEntry> metadata, Optio
 {
     private static final int INSTANCE_SIZE = instanceSize(MetadataAndProtocolEntries.class);
 
-    public MetadataAndProtocolEntries(MetadataEntry metadata, ProtocolEntry protocol)
-    {
-        this(Optional.ofNullable(metadata), Optional.ofNullable(protocol));
-    }
-
     public long getRetainedSizeInBytes()
     {
         return INSTANCE_SIZE
                 + sizeOf(metadata, MetadataEntry::getRetainedSizeInBytes)
                 + sizeOf(protocol, ProtocolEntry::getRetainedSizeInBytes);
+    }
+
+    public static Builder builder()
+    {
+        return new Builder();
+    }
+
+    public static final class Builder
+    {
+        private Optional<MetadataEntry> metadataEntry = Optional.empty();
+        private Optional<ProtocolEntry> protocolEntry = Optional.empty();
+
+        public boolean hasMetadata()
+        {
+            return metadataEntry.isPresent();
+        }
+
+        public boolean hasProtocol()
+        {
+            return protocolEntry.isPresent();
+        }
+
+        public boolean isFull()
+        {
+            return hasMetadata() && hasProtocol();
+        }
+
+        public Builder withMetadataEntry(MetadataEntry metadataEntry)
+        {
+            this.metadataEntry = Optional.of(metadataEntry);
+            return this;
+        }
+
+        public Builder withProtocolEntry(ProtocolEntry protocolEntry)
+        {
+            this.protocolEntry = Optional.of(protocolEntry);
+            return this;
+        }
+
+        public Builder withEntries(MetadataAndProtocolEntries entries)
+        {
+            if (!hasMetadata() && entries.metadata().isPresent()) {
+                withMetadataEntry(entries.metadata().get());
+            }
+            if (!hasProtocol() && entries.protocol().isPresent()) {
+                withProtocolEntry(entries.protocol().get());
+            }
+            return this;
+        }
+
+        public Builder withTransactionLogEntry(DeltaLakeTransactionLogEntry transactionLogEntry)
+        {
+            if (metadataEntry.isEmpty() && transactionLogEntry.getMetaData() != null) {
+                withMetadataEntry(transactionLogEntry.getMetaData());
+            }
+            if (protocolEntry.isEmpty() && transactionLogEntry.getProtocol() != null) {
+                withProtocolEntry(transactionLogEntry.getProtocol());
+            }
+            return this;
+        }
+
+        public MetadataAndProtocolEntries build()
+        {
+            return new MetadataAndProtocolEntries(metadataEntry, protocolEntry);
+        }
     }
 }

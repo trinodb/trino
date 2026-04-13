@@ -504,21 +504,19 @@ public class TransactionLogAccess
 
     private MetadataAndProtocolEntries getLatestMetadataAndProtocolEntry(ConnectorSession session, TrinoFileSystem fileSystem, TableSnapshot tableSnapshot)
     {
-        Optional<MetadataEntry> latestMetadataEntry = Optional.empty();
-        Optional<ProtocolEntry> latestProtocolEntry = Optional.empty();
+        MetadataAndProtocolEntries.Builder builder = MetadataAndProtocolEntries.builder();
         for (Transaction transaction : tableSnapshot.getTransactions().reversed()) {
             MetadataAndProtocolEntries metadataAndProtocol = transaction.transactionEntries().getMetadataAndProtocol(fileSystem);
-            if (latestMetadataEntry.isEmpty() && metadataAndProtocol.metadata().isPresent()) {
-                latestMetadataEntry = metadataAndProtocol.metadata();
+            builder.withEntries(metadataAndProtocol);
+            if (builder.isFull()) {
+                break;
             }
-            if (latestProtocolEntry.isEmpty() && metadataAndProtocol.protocol().isPresent()) {
-                latestProtocolEntry = metadataAndProtocol.protocol();
-            }
-            if (latestMetadataEntry.isPresent() && latestProtocolEntry.isPresent()) {
-                tableSnapshot.setCachedMetadata(latestMetadataEntry);
-                tableSnapshot.setCachedProtocol(latestProtocolEntry);
-                return new MetadataAndProtocolEntries(latestMetadataEntry, latestProtocolEntry);
-            }
+        }
+
+        if (builder.isFull()) {
+            MetadataAndProtocolEntries entries = builder.build();
+            tableSnapshot.updateCachedEntries(entries);
+            return entries;
         }
 
         MetadataAndProtocolEntries checkpointEntries = getCheckpointEntry(
@@ -526,27 +524,21 @@ public class TransactionLogAccess
                 tableSnapshot,
                 ImmutableSet.of(METADATA, PROTOCOL),
                 checkpointStream -> {
-                    MetadataEntry metadataEntry = null;
-                    ProtocolEntry protocolEntry = null;
                     for (Iterator<DeltaLakeTransactionLogEntry> it = checkpointStream.iterator(); it.hasNext(); ) {
                         DeltaLakeTransactionLogEntry transactionLogEntry = it.next();
-                        if (transactionLogEntry.getMetaData() != null) {
-                            metadataEntry = transactionLogEntry.getMetaData();
-                        }
-                        if (transactionLogEntry.getProtocol() != null) {
-                            protocolEntry = transactionLogEntry.getProtocol();
+                        builder.withTransactionLogEntry(transactionLogEntry);
+                        if (builder.isFull()) {
+                            return Optional.of(builder.build());
                         }
                     }
-                    return Optional.of(new MetadataAndProtocolEntries(metadataEntry, protocolEntry));
+                    return Optional.of(builder.build());
                 },
                 fileSystem,
                 fileFormatDataSourceStats)
                 .orElseThrow(() -> new TrinoException(DELTA_LAKE_INVALID_SCHEMA, "Metadata and protocol entry not found in transaction log for table " + tableSnapshot.getTable()));
 
-        tableSnapshot.setCachedMetadata(latestMetadataEntry.or(checkpointEntries::metadata));
-        tableSnapshot.setCachedProtocol(latestProtocolEntry.or(checkpointEntries::protocol));
-
-        return new MetadataAndProtocolEntries(tableSnapshot.getCachedMetadata(), tableSnapshot.getCachedProtocol());
+        tableSnapshot.updateCachedEntries(checkpointEntries);
+        return checkpointEntries;
     }
 
     public ProtocolEntry getProtocolEntry(ConnectorSession session, TrinoFileSystem fileSystem, TableSnapshot tableSnapshot)
