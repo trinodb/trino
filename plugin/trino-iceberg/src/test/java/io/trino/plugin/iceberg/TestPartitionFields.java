@@ -19,12 +19,13 @@ import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.exceptions.ValidationException;
 import org.apache.iceberg.types.Type;
-import org.apache.iceberg.types.Types;
 import org.apache.iceberg.types.Types.DoubleType;
 import org.apache.iceberg.types.Types.ListType;
 import org.apache.iceberg.types.Types.LongType;
 import org.apache.iceberg.types.Types.NestedField;
 import org.apache.iceberg.types.Types.StringType;
+import org.apache.iceberg.types.Types.StructType;
+import org.apache.iceberg.types.Types.TimestampNanoType;
 import org.apache.iceberg.types.Types.TimestampType;
 import org.junit.jupiter.api.Test;
 
@@ -218,19 +219,19 @@ public class TestPartitionFields
                 NestedField.optional(7, "quoted field", StringType.get()),
                 NestedField.optional(8, "quoted ts", TimestampType.withoutZone()),
                 NestedField.optional(9, "\"another\" \"quoted\" \"field\"", StringType.get()),
-                NestedField.required(10, "nested", Types.StructType.of(
+                NestedField.required(10, "nested", StructType.of(
                         NestedField.required(12, "value", StringType.get()),
                         NestedField.required(13, "ts", TimestampType.withZone()),
                         NestedField.required(14, "list", ListType.ofRequired(15, StringType.get())),
-                        NestedField.required(16, "nested", Types.StructType.of(
+                        NestedField.required(16, "nested", StructType.of(
                                 NestedField.required(17, "value", StringType.get()),
                                 NestedField.required(18, "ts", TimestampType.withZone()))))),
                 NestedField.required(19, "MixedTs", TimestampType.withoutZone()),
                 NestedField.optional(20, "MixedString", StringType.get()),
-                NestedField.required(21, "MixedNested", Types.StructType.of(
+                NestedField.required(21, "MixedNested", StructType.of(
                         NestedField.required(22, "MixedValue", StringType.get()))),
-                NestedField.required(23, "ts_nano", Types.TimestampNanoType.withoutZone()),
-                NestedField.required(24, "ts_nano_tz", Types.TimestampNanoType.withZone()));
+                NestedField.required(23, "ts_nano", TimestampNanoType.withoutZone()),
+                NestedField.required(24, "ts_nano_tz", TimestampNanoType.withZone()));
 
         PartitionSpec.Builder builder = PartitionSpec.builderFor(schema);
         consumer.accept(builder);
