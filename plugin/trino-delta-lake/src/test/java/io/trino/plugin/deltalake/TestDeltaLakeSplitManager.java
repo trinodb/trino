@@ -15,6 +15,7 @@ package io.trino.plugin.deltalake;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import io.airlift.json.JsonCodecFactory;
 import io.airlift.units.DataSize;
 import io.trino.filesystem.Location;
@@ -29,6 +30,7 @@ import io.trino.plugin.deltalake.statistics.CachingExtendedStatisticsAccess;
 import io.trino.plugin.deltalake.statistics.ExtendedStatistics;
 import io.trino.plugin.deltalake.statistics.MetaDirStatisticsAccess;
 import io.trino.plugin.deltalake.transactionlog.AddFileEntry;
+import io.trino.plugin.deltalake.transactionlog.DeletionVectorEntry;
 import io.trino.plugin.deltalake.transactionlog.MetadataEntry;
 import io.trino.plugin.deltalake.transactionlog.ProtocolEntry;
 import io.trino.plugin.deltalake.transactionlog.TableSnapshot;
@@ -59,6 +61,7 @@ import org.junit.jupiter.api.Test;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -98,6 +101,24 @@ public class TestDeltaLakeSplitManager
             false,
             Optional.empty(),
             Optional.empty(),
+            0,
+            false);
+    private static final DeltaLakeTableHandle optimizeTableHandle = new DeltaLakeTableHandle(
+            "schema",
+            "table",
+            true,
+            TABLE_PATH,
+            metadataEntry,
+            new ProtocolEntry(1, 2, Optional.empty(), Optional.empty()),
+            TupleDomain.all(),
+            TupleDomain.all(),
+            ImmutableSet.of(),
+            false,
+            Optional.empty(),
+            Optional.empty(),
+            false,
+            true, // isOptimize
+            Optional.of(DataSize.ofBytes(1_000_000)),
             0,
             false);
     private final HiveTransactionHandle transactionHandle = new HiveTransactionHandle(true);
@@ -180,6 +201,26 @@ public class TestDeltaLakeSplitManager
         assertThat(splits).isEqualTo(expected);
     }
 
+    @Test
+    public void testOptimizeSingleFileWithDeletionVector()
+            throws ExecutionException, InterruptedException
+    {
+        AddFileEntry fileWithDv = addFileEntryWithDeletionVector(FILE_PATH, 100L);
+        DeltaLakeConfig config = new DeltaLakeConfig();
+        DeltaLakeSplitManager splitManager = setupSplitManager(ImmutableList.of(fileWithDv), config);
+
+        ConnectorSplitSource splitSource = splitManager.getSplits(
+                transactionHandle,
+                testingConnectorSessionWithConfig(config),
+                optimizeTableHandle,
+                DynamicFilter.EMPTY,
+                Constraint.alwaysTrue());
+
+        List<ConnectorSplit> splits = splitSource.getNextBatch(10).get().getSplits();
+
+        assertThat(splits).hasSize(1);
+    }
+
     private DeltaLakeSplitManager setupSplitManager(List<AddFileEntry> addFileEntries, DeltaLakeConfig deltaLakeConfig)
     {
         TestingConnectorContext context = new TestingConnectorContext();
@@ -255,6 +296,27 @@ public class TestDeltaLakeSplitManager
     private AddFileEntry addFileEntryOfSize(String path, long fileSize)
     {
         return new AddFileEntry(path, ImmutableMap.of(), fileSize, 0, false, Optional.empty(), Optional.empty(), ImmutableMap.of(), Optional.empty());
+    }
+
+    private AddFileEntry addFileEntryWithDeletionVector(String path, long fileSize)
+    {
+        DeletionVectorEntry dvEntry = new DeletionVectorEntry(
+                "u",
+                "random_id",
+                OptionalInt.empty(),
+                1,
+                1);
+
+        return new AddFileEntry(
+                path,
+                ImmutableMap.of(),
+                fileSize,
+                0L,
+                false,
+                Optional.empty(),
+                Optional.empty(),
+                ImmutableMap.of(),
+                Optional.of(dvEntry));
     }
 
     private DeltaLakeSplit makeSplit(String path, long start, long splitSize, long fileSize, long maxSplitSize, double minimumAssignedSplitWeight)

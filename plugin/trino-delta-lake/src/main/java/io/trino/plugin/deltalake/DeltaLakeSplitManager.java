@@ -272,6 +272,10 @@ public class DeltaLakeSplitManager
                         pendingAddFileEntriesMap.put(canonicalPartitionValues, Optional.empty());
                         return Stream.of(alreadyQueuedAddFileEntry.get(), addFileEntry);
                     }
+                    if (addFileEntry.getDeletionVector().isPresent()) {
+                        pendingAddFileEntriesMap.put(canonicalPartitionValues, Optional.empty());
+                        return Stream.of(addFileEntry);
+                    }
 
                     pendingAddFileEntriesMap.put(canonicalPartitionValues, Optional.of(addFileEntry));
                     return Stream.empty();
