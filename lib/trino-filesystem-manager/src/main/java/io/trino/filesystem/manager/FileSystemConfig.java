@@ -23,10 +23,10 @@ public class FileSystemConfig
 {
     private boolean hadoopEnabled;
     private boolean alluxioEnabled;
-    private boolean nativeAzureEnabled;
-    private boolean nativeS3Enabled;
-    private boolean nativeGcsEnabled;
-    private boolean nativeLocalEnabled;
+    private boolean azureEnabled;
+    private boolean s3Enabled;
+    private boolean gcsEnabled;
+    private boolean localEnabled;
     private boolean cacheEnabled;
 
     // Enable leak detection if configured or if running in a CI environment
@@ -50,61 +50,61 @@ public class FileSystemConfig
     }
 
     @Config("fs.alluxio.enabled")
-    public FileSystemConfig setAlluxioEnabled(boolean nativeAlluxioEnabled)
+    public FileSystemConfig setAlluxioEnabled(boolean alluxioEnabled)
     {
-        this.alluxioEnabled = nativeAlluxioEnabled;
+        this.alluxioEnabled = alluxioEnabled;
         return this;
     }
 
-    public boolean isNativeAzureEnabled()
+    public boolean isAzureEnabled()
     {
-        return nativeAzureEnabled;
+        return azureEnabled;
     }
 
     @LegacyConfig("fs.native-azure.enabled")
     @Config("fs.azure.enabled")
-    public FileSystemConfig setNativeAzureEnabled(boolean nativeAzureEnabled)
+    public FileSystemConfig setAzureEnabled(boolean azureEnabled)
     {
-        this.nativeAzureEnabled = nativeAzureEnabled;
+        this.azureEnabled = azureEnabled;
         return this;
     }
 
-    public boolean isNativeS3Enabled()
+    public boolean isS3Enabled()
     {
-        return nativeS3Enabled;
+        return s3Enabled;
     }
 
     @LegacyConfig("fs.native-s3.enabled")
     @Config("fs.s3.enabled")
-    public FileSystemConfig setNativeS3Enabled(boolean nativeS3Enabled)
+    public FileSystemConfig setS3Enabled(boolean s3Enabled)
     {
-        this.nativeS3Enabled = nativeS3Enabled;
+        this.s3Enabled = s3Enabled;
         return this;
     }
 
-    public boolean isNativeGcsEnabled()
+    public boolean isGcsEnabled()
     {
-        return nativeGcsEnabled;
+        return gcsEnabled;
     }
 
     @LegacyConfig("fs.native-gcs.enabled")
     @Config("fs.gcs.enabled")
-    public FileSystemConfig setNativeGcsEnabled(boolean nativeGcsEnabled)
+    public FileSystemConfig setGcsEnabled(boolean gcsEnabled)
     {
-        this.nativeGcsEnabled = nativeGcsEnabled;
+        this.gcsEnabled = gcsEnabled;
         return this;
     }
 
-    public boolean isNativeLocalEnabled()
+    public boolean isLocalEnabled()
     {
-        return nativeLocalEnabled;
+        return localEnabled;
     }
 
     @LegacyConfig("fs.native-local.enabled")
     @Config("fs.local.enabled")
-    public FileSystemConfig setNativeLocalEnabled(boolean nativeLocalEnabled)
+    public FileSystemConfig setLocalEnabled(boolean localEnabled)
     {
-        this.nativeLocalEnabled = nativeLocalEnabled;
+        this.localEnabled = localEnabled;
         return this;
     }
 

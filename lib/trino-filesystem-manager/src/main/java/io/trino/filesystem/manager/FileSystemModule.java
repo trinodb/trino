@@ -95,7 +95,7 @@ public class FileSystemModule
             factories.addBinding("alluxio").to(AlluxioFileSystemFactory.class);
         }
 
-        if (config.isNativeAzureEnabled()) {
+        if (config.isAzureEnabled()) {
             install(new AzureFileSystemModule());
             factories.addBinding("abfs").to(AzureFileSystemFactory.class);
             factories.addBinding("abfss").to(AzureFileSystemFactory.class);
@@ -103,19 +103,19 @@ public class FileSystemModule
             factories.addBinding("wasbs").to(AzureFileSystemFactory.class);
         }
 
-        if (config.isNativeS3Enabled()) {
+        if (config.isS3Enabled()) {
             install(new S3FileSystemModule());
             factories.addBinding("s3").to(Key.get(TrinoFileSystemFactory.class, FileSystemS3.class));
             factories.addBinding("s3a").to(Key.get(TrinoFileSystemFactory.class, FileSystemS3.class));
             factories.addBinding("s3n").to(Key.get(TrinoFileSystemFactory.class, FileSystemS3.class));
         }
 
-        if (config.isNativeGcsEnabled()) {
+        if (config.isGcsEnabled()) {
             install(new GcsFileSystemModule());
             factories.addBinding("gs").to(GcsFileSystemFactory.class);
         }
 
-        if (config.isNativeLocalEnabled()) {
+        if (config.isLocalEnabled()) {
             configBinder(binder).bindConfig(LocalFileSystemConfig.class);
             factories.addBinding("local").to(LocalFileSystemFactory.class);
             factories.addBinding("file").to(LocalFileSystemFactory.class);

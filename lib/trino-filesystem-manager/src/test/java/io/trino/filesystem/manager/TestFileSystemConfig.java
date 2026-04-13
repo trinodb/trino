@@ -34,10 +34,10 @@ public class TestFileSystemConfig
         assertRecordedDefaults(recordDefaults(FileSystemConfig.class)
                 .setHadoopEnabled(false)
                 .setAlluxioEnabled(false)
-                .setNativeAzureEnabled(false)
-                .setNativeS3Enabled(false)
-                .setNativeGcsEnabled(false)
-                .setNativeLocalEnabled(false)
+                .setAzureEnabled(false)
+                .setS3Enabled(false)
+                .setGcsEnabled(false)
+                .setLocalEnabled(false)
                 .setCacheEnabled(false)
                 .setTrackingEnabled(RUNNING_IN_CI));
     }
@@ -59,10 +59,10 @@ public class TestFileSystemConfig
         FileSystemConfig expected = new FileSystemConfig()
                 .setHadoopEnabled(true)
                 .setAlluxioEnabled(true)
-                .setNativeAzureEnabled(true)
-                .setNativeS3Enabled(true)
-                .setNativeGcsEnabled(true)
-                .setNativeLocalEnabled(true)
+                .setAzureEnabled(true)
+                .setS3Enabled(true)
+                .setGcsEnabled(true)
+                .setLocalEnabled(true)
                 .setCacheEnabled(true)
                 .setTrackingEnabled(!RUNNING_IN_CI);
 
