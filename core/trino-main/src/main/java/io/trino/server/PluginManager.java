@@ -71,11 +71,20 @@ public class PluginManager
         implements PluginInstaller
 {
     private static final List<String> SPI_PACKAGES = ImmutableList.<String>builder()
+            .add("io.airlift.")
+            .add("jakarta.validation.")
+            .add("jakarta.annotation.")
+            .add("org.hibernate.")
+            .add("org.eclipse.jetty.")
+            .add("com.google.inject.")
+            .add("com.google.common.")
+            .add("com.fasterxml.jackson")
             .add("io.trino.spi.")
             .add("com.fasterxml.jackson.annotation.")
             .add("io.airlift.slice.")
             .add("io.opentelemetry.api.")
             .add("io.opentelemetry.context.")
+            .add("org.weakref.")
             .build();
 
     private static final Logger log = Logger.get(PluginManager.class);
