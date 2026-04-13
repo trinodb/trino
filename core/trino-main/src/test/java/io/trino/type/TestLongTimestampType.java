@@ -93,6 +93,9 @@ public class TestLongTimestampType
     @Test
     public void testPreviousValue()
     {
+        assertThat(type.getPreviousValue(new LongTimestamp(Long.MIN_VALUE, 0)))
+                .isEqualTo(Optional.empty());
+
         // Basic previous value within same microsecond
         assertThat(type.getPreviousValue(new LongTimestamp(1000, 500_000)))
                 .isEqualTo(Optional.of(new LongTimestamp(1000, 499_000)));
@@ -113,6 +116,9 @@ public class TestLongTimestampType
     @Test
     public void testNextValue()
     {
+        assertThat(type.getNextValue(new LongTimestamp(Long.MAX_VALUE, 999_000)))
+                .isEqualTo(Optional.empty());
+
         // Basic next value within same microsecond
         assertThat(type.getNextValue(new LongTimestamp(1000, 500_000)))
                 .isEqualTo(Optional.of(new LongTimestamp(1000, 501_000)));
