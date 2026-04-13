@@ -28,7 +28,6 @@ import io.trino.plugin.deltalake.metastore.VendedCredentialsHandle;
 import io.trino.plugin.deltalake.transactionlog.DeltaLakeTransactionLogEntry;
 import io.trino.plugin.deltalake.transactionlog.TableSnapshot;
 import io.trino.plugin.deltalake.transactionlog.TableSnapshot.MetadataAndProtocolEntry;
-import io.trino.plugin.deltalake.transactionlog.TransactionLogAccess;
 import io.trino.spi.NodeVersion;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
@@ -63,7 +62,6 @@ public class CheckpointWriterManager
     private final CheckpointSchemaManager checkpointSchemaManager;
     private final DeltaLakeFileSystemFactory fileSystemFactory;
     private final String trinoVersion;
-    private final TransactionLogAccess transactionLogAccess;
     private final FileFormatDataSourceStats fileFormatDataSourceStats;
     private final JsonCodec<LastCheckpoint> lastCheckpointCodec;
     private final Executor executorService;
@@ -75,7 +73,6 @@ public class CheckpointWriterManager
             CheckpointSchemaManager checkpointSchemaManager,
             DeltaLakeFileSystemFactory fileSystemFactory,
             NodeVersion nodeVersion,
-            TransactionLogAccess transactionLogAccess,
             FileFormatDataSourceStats fileFormatDataSourceStats,
             JsonCodec<LastCheckpoint> lastCheckpointCodec,
             DeltaLakeConfig deltaLakeConfig,
@@ -85,7 +82,6 @@ public class CheckpointWriterManager
         this.checkpointSchemaManager = requireNonNull(checkpointSchemaManager, "checkpointSchemaManager is null");
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
         this.trinoVersion = nodeVersion.toString();
-        this.transactionLogAccess = requireNonNull(transactionLogAccess, "transactionLogAccess is null");
         this.fileFormatDataSourceStats = requireNonNull(fileFormatDataSourceStats, "fileFormatDataSourceStats is null");
         this.lastCheckpointCodec = requireNonNull(lastCheckpointCodec, "lastCheckpointCodec is null");
         this.executorService = requireNonNull(executorService, "ExecutorService is null");
@@ -125,12 +121,6 @@ public class CheckpointWriterManager
             }
 
             if (!checkpointLogEntries.isEmpty()) {
-                // TODO HACK: this call is required only to ensure that cachedMetadataEntry is set in snapshot (https://github.com/trinodb/trino/issues/12032),
-                // so we can read add entries below this should be reworked so we pass metadata entry explicitly to getCheckpointTransactionLogEntries,
-                // and we should get rid of `setCachedMetadata` in TableSnapshot to make it immutable.
-                // Also more proper would be to use metadata entry obtained above in snapshot.getCheckpointTransactionLogEntries to read other checkpoint entries, but using newer one should not do harm.
-                transactionLogAccess.getMetadataEntry(session, fileSystem, snapshot);
-
                 // register metadata entry in writer
                 DeltaLakeTransactionLogEntry metadataLogEntry = checkpointLogEntries.stream()
                         .filter(logEntry -> logEntry.getMetaData() != null)
