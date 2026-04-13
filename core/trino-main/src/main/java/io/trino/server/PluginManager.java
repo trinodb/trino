@@ -76,6 +76,8 @@ public class PluginManager
             .add("io.airlift.slice.")
             .add("io.opentelemetry.api.")
             .add("io.opentelemetry.context.")
+            // Needed for trino-geospatial <-> engine stack
+            .add("org.locationtech.jts.geom.")
             .build();
 
     private static final Logger log = Logger.get(PluginManager.class);
