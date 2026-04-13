@@ -337,7 +337,6 @@ public class TestTransactionLogAccess
     {
         setupTransactionLogAccessFromResources(tableName, resourcePath);
 
-        transactionLogAccess.getMetadataEntry(SESSION, tracingFileSystemFactory.create(SESSION, tableLocation), tableSnapshot);
         MetadataEntry metadataEntry = transactionLogAccess.getMetadataEntry(SESSION, tracingFileSystemFactory.create(SESSION, tableLocation), tableSnapshot);
 
         assertThat(metadataEntry.getOriginalPartitionColumns()).containsOnly("age");
@@ -363,7 +362,6 @@ public class TestTransactionLogAccess
         setupTransactionLogAccessFromResources(tableName, resourcePath);
 
         TrinoFileSystem fileSystem = tracingFileSystemFactory.create(SESSION, tableLocation);
-        transactionLogAccess.getMetadataAndProtocolEntry(SESSION, fileSystem, tableSnapshot);
         MetadataAndProtocolEntries logEntries = transactionLogAccess.getMetadataAndProtocolEntry(SESSION, fileSystem, tableSnapshot);
 
         MetadataEntry metadataEntry = logEntries.metadata().orElseThrow();
