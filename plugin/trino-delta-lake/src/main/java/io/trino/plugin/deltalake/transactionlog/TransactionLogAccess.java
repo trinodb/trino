@@ -547,35 +547,6 @@ public class TransactionLogAccess
         return typesForRead.build();
     }
 
-    public ProtocolEntry getProtocolEntry(ConnectorSession session, TrinoFileSystem fileSystem, TableSnapshot tableSnapshot)
-    {
-        if (tableSnapshot.getCachedProtocol().isEmpty()) {
-            Optional<ProtocolEntry> latestProtocolEntry = tableSnapshot.getTransactions().reversed().stream()
-                    .map(transaction -> transaction.transactionEntries().getMetadataAndProtocol(fileSystem))
-                    .map(MetadataAndProtocolEntries::protocol)
-                    .filter(Optional::isPresent)
-                    .map(Optional::get)
-                    .findFirst();
-
-            if (latestProtocolEntry.isEmpty()) {
-                latestProtocolEntry = getCheckpointEntry(
-                        session,
-                        tableSnapshot,
-                        ImmutableSet.of(PROTOCOL),
-                        checkpointStream -> checkpointStream
-                                .map(DeltaLakeTransactionLogEntry::getProtocol)
-                                .filter(Objects::nonNull)
-                                .reduce((_, second) -> second),
-                        fileSystem,
-                        fileFormatDataSourceStats);
-            }
-
-            tableSnapshot.setCachedProtocol(latestProtocolEntry);
-        }
-        return tableSnapshot.getCachedProtocol()
-                .orElseThrow(() -> new TrinoException(DELTA_LAKE_INVALID_SCHEMA, "Protocol entry not found in transaction log for table " + tableSnapshot.getTable()));
-    }
-
     private <T> Optional<T> getCheckpointEntry(
             ConnectorSession session,
             TableSnapshot tableSnapshot,

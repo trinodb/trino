@@ -218,18 +218,6 @@ public class TableSnapshot
                 .build();
     }
 
-    public void setCachedProtocol(Optional<ProtocolEntry> cachedProtocol)
-    {
-        if (cachedProtocol.isEmpty()) {
-            return;
-        }
-
-        cachedMetadataAndProtocolEntries = MetadataAndProtocolEntries.builder()
-                .withProtocolEntry(cachedProtocol.get())
-                .withEntries(cachedMetadataAndProtocolEntries)
-                .build();
-    }
-
     public List<DeltaLakeTransactionLogEntry> getJsonTransactionLogEntries(TrinoFileSystem fileSystem)
     {
         return logTail.getFileEntries(fileSystem);

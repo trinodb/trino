@@ -31,6 +31,7 @@ import io.trino.plugin.deltalake.transactionlog.checkpoint.LastCheckpoint;
 import io.trino.plugin.deltalake.transactionlog.reader.FileSystemTransactionLogReader;
 import io.trino.plugin.deltalake.transactionlog.reader.FileSystemTransactionLogReaderFactory;
 import io.trino.plugin.hive.parquet.ParquetReaderConfig;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.TypeManager;
@@ -54,6 +55,7 @@ import static com.google.common.util.concurrent.MoreExecutors.newDirectExecutorS
 import static io.trino.filesystem.tracing.FileSystemAttributes.FILE_LOCATION;
 import static io.trino.hdfs.HdfsTestUtils.HDFS_FILE_SYSTEM_FACTORY;
 import static io.trino.plugin.deltalake.DeltaLakeConfig.DEFAULT_TRANSACTION_LOG_MAX_CACHED_SIZE;
+import static io.trino.plugin.deltalake.DeltaLakeErrorCode.DELTA_LAKE_INVALID_SCHEMA;
 import static io.trino.plugin.deltalake.transactionlog.TableSnapshot.MetadataAndProtocolEntry;
 import static io.trino.plugin.deltalake.transactionlog.TableSnapshot.load;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogParser.readLastCheckpoint;
@@ -158,8 +160,11 @@ public class TestTableSnapshot
                 executorService,
                 new FileSystemTransactionLogReaderFactory(tracingFileSystemFactory));
         TrinoFileSystem fileSystem = tracingFileSystemFactory.create(SESSION, tableLocation);
-        MetadataEntry metadataEntry = transactionLogAccess.getMetadataEntry(SESSION, fileSystem, tableSnapshot);
-        ProtocolEntry protocolEntry = transactionLogAccess.getProtocolEntry(SESSION, fileSystem, tableSnapshot);
+        MetadataAndProtocolEntries metadataAndProtocolEntries = transactionLogAccess.getMetadataAndProtocolEntry(SESSION, fileSystem, tableSnapshot);
+        MetadataEntry metadataEntry = metadataAndProtocolEntries.metadata()
+                .orElseThrow(() -> new TrinoException(DELTA_LAKE_INVALID_SCHEMA, "Metadata not found in transaction log for " + tableSnapshot.getTable()));
+        ProtocolEntry protocolEntry = metadataAndProtocolEntries.protocol()
+                .orElseThrow(() -> new TrinoException(DELTA_LAKE_INVALID_SCHEMA, "Protocol not found in transaction log for " + tableSnapshot.getTable()));
         tableSnapshot.setCachedMetadata(Optional.of(metadataEntry));
         try (Stream<DeltaLakeTransactionLogEntry> stream = tableSnapshot.getCheckpointTransactionLogEntries(
                 SESSION,

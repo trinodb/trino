@@ -1122,8 +1122,11 @@ public class DeltaLakeMetadata
                 TransactionLogReader transactionLogReader = transactionLogReaderFactory.createReader(deltaMetastoreTable);
                 VendedCredentialsHandle credentialsHandle = VendedCredentialsHandle.of(deltaMetastoreTable);
                 TableSnapshot snapshot = transactionLogAccess.loadSnapshot(session, transactionLogReader, tableName, tableLocation, Optional.empty(), credentialsHandle);
-                MetadataEntry metadata = transactionLogAccess.getMetadataEntry(session, fileSystem, snapshot);
-                ProtocolEntry protocol = transactionLogAccess.getProtocolEntry(session, fileSystem, snapshot);
+                MetadataAndProtocolEntries metadataAndProtocolEntries = transactionLogAccess.getMetadataAndProtocolEntry(session, fileSystem, snapshot);
+                MetadataEntry metadata = metadataAndProtocolEntries.metadata()
+                        .orElseThrow(() -> new TrinoException(DELTA_LAKE_INVALID_SCHEMA, "Metadata not found in transaction log for " + snapshot.getTable()));
+                ProtocolEntry protocol = metadataAndProtocolEntries.protocol()
+                        .orElseThrow(() -> new TrinoException(DELTA_LAKE_INVALID_SCHEMA, "Protocol not found in transaction log for " + snapshot.getTable()));
                 List<ColumnMetadata> columnMetadata = getTableColumnMetadata(metadata, protocol);
                 enqueueUpdateInfo(session, table.getDatabaseName(), table.getTableName(), snapshot.getVersion(), metadata.getSchemaString(), Optional.ofNullable(metadata.getDescription()));
                 relationColumns.put(tableName, RelationColumnsMetadata.forTable(tableName, columnMetadata));

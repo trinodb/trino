@@ -19,6 +19,7 @@ import io.trino.filesystem.TrinoFileSystem;
 import io.trino.plugin.deltalake.metastore.DeltaMetastoreTable;
 import io.trino.plugin.deltalake.metastore.VendedCredentialsHandle;
 import io.trino.plugin.deltalake.transactionlog.AddFileEntry;
+import io.trino.plugin.deltalake.transactionlog.MetadataAndProtocolEntries;
 import io.trino.plugin.deltalake.transactionlog.MetadataEntry;
 import io.trino.plugin.deltalake.transactionlog.ProtocolEntry;
 import io.trino.plugin.deltalake.transactionlog.TableSnapshot;
@@ -104,8 +105,9 @@ public class DeltaLakePartitionsTable
         }
 
         TrinoFileSystem fileSystem = fileSystemFactory.create(session, table);
-        this.metadataEntry = transactionLogAccess.getMetadataEntry(session, fileSystem, tableSnapshot);
-        this.protocolEntry = transactionLogAccess.getProtocolEntry(session, fileSystem, tableSnapshot);
+        MetadataAndProtocolEntries metadataAndProtocolEntries = transactionLogAccess.getMetadataAndProtocolEntry(session, fileSystem, tableSnapshot);
+        this.metadataEntry = metadataAndProtocolEntries.metadata().orElseThrow(() -> new TrinoException(DELTA_LAKE_INVALID_SCHEMA, "Metadata not found in transaction log for " + table.schemaTableName()));
+        this.protocolEntry = metadataAndProtocolEntries.protocol().orElseThrow(() -> new TrinoException(DELTA_LAKE_INVALID_SCHEMA, "Protocol not found in transaction log for " + table.schemaTableName()));
         this.schema = extractSchema(metadataEntry, protocolEntry, typeManager);
 
         this.partitionColumns = getPartitionColumns();
