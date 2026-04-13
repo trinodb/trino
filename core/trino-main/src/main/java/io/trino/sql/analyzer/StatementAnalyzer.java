@@ -3503,49 +3503,43 @@ class StatementAnalyzer
                     });
                 }
                 if (isUnnestRelation(node.getRight())) {
-                    if (criteria != null) {
-                        if (!(criteria instanceof JoinOn joinOn) || !joinOn.getExpression().equals(TRUE_LITERAL)) {
-                            throw semanticException(
-                                    NOT_SUPPORTED,
-                                    criteria instanceof JoinOn joinOn ? joinOn.getExpression() : node,
-                                    "%s JOIN involving UNNEST is only supported with condition ON TRUE",
-                                    node.getType().name());
-                        }
+                    if (criteria != null && !isJoinOnTrue(criteria)) {
+                        throw semanticException(
+                                NOT_SUPPORTED,
+                                getJoinErrorLocation(node, criteria),
+                                "%s JOIN involving UNNEST is only supported with condition ON TRUE",
+                                node.getType().name());
                     }
                 }
                 else if (isJsonTable(node.getRight())) {
-                    if (criteria != null) {
-                        if (!(criteria instanceof JoinOn joinOn) || !joinOn.getExpression().equals(TRUE_LITERAL)) {
-                            throw semanticException(
-                                    NOT_SUPPORTED,
-                                    criteria instanceof JoinOn joinOn ? joinOn.getExpression() : node,
-                                    "%s JOIN involving JSON_TABLE is only supported with condition ON TRUE",
-                                    node.getType().name());
-                        }
+                    if (criteria != null && !isJoinOnTrue(criteria)) {
+                        throw semanticException(
+                                NOT_SUPPORTED,
+                                getJoinErrorLocation(node, criteria),
+                                "%s JOIN involving JSON_TABLE is only supported with condition ON TRUE",
+                                node.getType().name());
                     }
                 }
                 else if (isNearestRelation(node.getRight())) {
                     if (criteria instanceof JoinUsing) {
                         throw semanticException(NOT_SUPPORTED, node, "JOIN USING involving NEAREST is not supported");
                     }
-                    if (node.getType() == Join.Type.INNER || node.getType() == LEFT) {
-                        if (!(criteria instanceof JoinOn joinOn) || !joinOn.getExpression().equals(TRUE_LITERAL)) {
-                            throw semanticException(
-                                    NOT_SUPPORTED,
-                                    criteria instanceof JoinOn joinOn ? joinOn.getExpression() : node,
-                                    "%s JOIN involving NEAREST is only supported with condition ON TRUE",
-                                    node.getType().name());
-                        }
+                    if ((node.getType() == Join.Type.INNER || node.getType() == LEFT) && !isJoinOnTrue(criteria)) {
+                        throw semanticException(
+                                NOT_SUPPORTED,
+                                getJoinErrorLocation(node, criteria),
+                                "%s JOIN involving NEAREST is only supported with condition ON TRUE",
+                                node.getType().name());
                     }
-                    else if (node.getType() != Join.Type.CROSS && node.getType() != Join.Type.IMPLICIT) {
+                    if (node.getType() != Join.Type.CROSS && node.getType() != Join.Type.IMPLICIT && node.getType() != Join.Type.INNER && node.getType() != LEFT) {
                         throw semanticException(NOT_SUPPORTED, node, "%s JOIN involving NEAREST is not supported", node.getType().name());
                     }
                 }
                 else if (node.getType() == FULL) {
-                    if (!(criteria instanceof JoinOn joinOn) || !joinOn.getExpression().equals(TRUE_LITERAL)) {
+                    if (!isJoinOnTrue(criteria)) {
                         throw semanticException(
                                 NOT_SUPPORTED,
-                                criteria instanceof JoinOn joinOn ? joinOn.getExpression() : node,
+                                getJoinErrorLocation(node, criteria),
                                 "FULL JOIN involving LATERAL relation is only supported with condition ON TRUE");
                     }
                 }
@@ -4149,6 +4143,19 @@ class StatementAnalyzer
                 return isNearestRelation(aliasedRelation.getRelation());
             }
             return node instanceof Nearest;
+        }
+
+        private static boolean isJoinOnTrue(JoinCriteria criteria)
+        {
+            return criteria instanceof JoinOn joinOn && joinOn.getExpression().equals(TRUE_LITERAL);
+        }
+
+        private static Node getJoinErrorLocation(Join join, JoinCriteria criteria)
+        {
+            if (criteria instanceof JoinOn joinOn) {
+                return joinOn.getExpression();
+            }
+            return join;
         }
 
         private void verifyNoCorrelatedSubqueries(Expression expression, Scope leftScope, Scope sourceScope, String description)
