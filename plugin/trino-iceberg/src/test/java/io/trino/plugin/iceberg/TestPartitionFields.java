@@ -134,6 +134,7 @@ public class TestPartitionFields
         assertParseName(List.of("col", "col_year", "col_year_3"), TimestampType.withZone(), List.of("year(col)"), List.of("col_year_2"));
 
         assertParseName(List.of("col", "col_year", "col_year_2"), TimestampType.withZone(), List.of("year(col)", "col_year_2"), List.of("col_year_3", "col_year_2"));
+        assertParseName(List.of("col", "col_year"), TimestampNanoType.withZone(), List.of("year(col)"), List.of("col_year_2"));
     }
 
     @Test
