@@ -87,7 +87,7 @@ public class TestIcebergMaterializedViewExpiredSnapshotCleanup
         return IcebergQueryRunner.builder()
                 .setIcebergProperties(ImmutableMap.of(
                         "iceberg.materialized-views.refresh-max-snapshots-to-expire", "5",
-                        "fs.native-s3.enabled", "true",
+                        "fs.s3.enabled", "true",
                         "s3.aws-access-key", MINIO_ROOT_USER,
                         "s3.aws-secret-key", MINIO_ROOT_PASSWORD,
                         "s3.region", MINIO_REGION,

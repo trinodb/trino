@@ -47,7 +47,7 @@ public class TestLakehouseMotoConnectorSmokeTest
                 .addLakehouseProperty("hive.metastore.glue.aws-access-key", MOTO_ACCESS_KEY)
                 .addLakehouseProperty("hive.metastore.glue.aws-secret-key", MOTO_SECRET_KEY)
                 .addLakehouseProperty("hive.metastore.glue.default-warehouse-dir", "s3://test-bucket/")
-                .addLakehouseProperty("fs.native-s3.enabled", "true")
+                .addLakehouseProperty("fs.s3.enabled", "true")
                 .addLakehouseProperty("s3.region", MOTO_REGION)
                 .addLakehouseProperty("s3.endpoint", moto.getEndpoint().toString())
                 .addLakehouseProperty("s3.aws-access-key", MOTO_ACCESS_KEY)

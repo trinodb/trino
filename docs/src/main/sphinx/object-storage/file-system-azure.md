@@ -4,7 +4,7 @@ Trino includes a native implementation to access [Azure Data Lake Storage
 Gen2](https://learn.microsoft.com/en-us/azure/storage/blobs/storage-blobs-overview#about-azure-data-lake-storage-gen2)
 with a catalog using the Delta Lake, Hive, Hudi, or Iceberg connectors.
 
-Enable the native implementation with `fs.native-azure.enabled=true` in your
+Enable the native implementation with `fs.azure.enabled=true` in your
 catalog properties file. Additionally, the Azure storage account must have
 hierarchical namespace enabled.
 
@@ -19,7 +19,7 @@ system support:
 
 * - Property
   - Description
-* - `fs.native-azure.enabled`
+* - `fs.azure.enabled`
   - Activate the native implementation for Azure Storage support. Defaults to
     `false`. Set to `true` to use Azure Storage and enable all other properties.
 * - `azure.auth-type`
@@ -156,7 +156,7 @@ native Azure file system implementation.
 To migrate a catalog to use the native file system implementation for Azure,
 make the following edits to your catalog configuration:
 
-1. Add the `fs.native-azure.enabled=true` catalog configuration property.
+1. Add the `fs.azure.enabled=true` catalog configuration property.
 2. If your catalog enabled `fs.hadoop.enabled` only for legacy Azure Storage
    access, remove that property.
 3. Configure the `azure.auth-type` catalog configuration property.

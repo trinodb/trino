@@ -66,7 +66,7 @@ public class TestDeltaLakePreferredPartitioning
                     .put("hive.metastore.catalog.dir", queryRunner.getCoordinator().getBaseDataDir().resolve("file-metastore").toString())
                     // required by the file metastore
                     .put("fs.hadoop.enabled", "true")
-                    .put("fs.native-s3.enabled", "true")
+                    .put("fs.s3.enabled", "true")
                     .put("s3.aws-access-key", MINIO_ROOT_USER)
                     .put("s3.aws-secret-key", MINIO_ROOT_PASSWORD)
                     .put("s3.region", MINIO_REGION)

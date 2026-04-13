@@ -62,7 +62,7 @@ public class TestHiveS3AndGlueMetastoreTest
                 .addHiveProperty("hive.metastore.glue.default-warehouse-dir", schemaPath())
                 .addHiveProperty("hive.security", "allow-all")
                 .addHiveProperty("hive.non-managed-table-writes-enabled", "true")
-                .addHiveProperty("fs.native-s3.enabled", "true")
+                .addHiveProperty("fs.s3.enabled", "true")
                 .build();
         queryRunner.execute("CREATE SCHEMA " + schemaName + " WITH (location = '" + schemaPath() + "')");
         queryRunner.execute("CREATE SCHEMA IF NOT EXISTS functions");

@@ -155,7 +155,7 @@ public final class S3HiveQueryRunner
             String lowerCaseS3Endpoint = s3Endpoint.toLowerCase(Locale.ENGLISH);
             checkArgument(lowerCaseS3Endpoint.startsWith("http://") || lowerCaseS3Endpoint.startsWith("https://"), "Expected http URI for S3 endpoint; got %s", s3Endpoint);
 
-            addHiveProperty("fs.native-s3.enabled", "true");
+            addHiveProperty("fs.s3.enabled", "true");
             addHiveProperty("s3.region", s3Region);
             addHiveProperty("s3.endpoint", s3Endpoint);
             addHiveProperty("s3.aws-access-key", s3AccessKey);

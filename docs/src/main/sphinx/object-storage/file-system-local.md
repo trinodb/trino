@@ -19,7 +19,7 @@ support:
 
 * - Property
   - Description
-* - `fs.native-local.enabled`
+* - `fs.local.enabled`
   - Activate the support for local file system access. Defaults to `false`. Set
     to `true` to use local file system and enable all other properties.
 * - `local.location`
@@ -36,7 +36,7 @@ The coordinator and all workers nodes have an external storage mounted at
 ```properties
 connector.name=hive
 ...
-fs.native-local.enabled=true
+fs.local.enabled=true
 local.location=local:///storage/datalake
 ```
 

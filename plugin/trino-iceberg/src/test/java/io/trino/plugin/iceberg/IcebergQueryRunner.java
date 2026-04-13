@@ -175,7 +175,7 @@ public final class IcebergQueryRunner
                 }
 
                 if (icebergProperties.buildOrThrow().keySet().stream().noneMatch(key ->
-                        key.equals("fs.hadoop.enabled") || key.startsWith("fs.native-"))) {
+                        key.matches("fs\\.(azure|gcs|s3|local|hadoop)\\.enabled"))) {
                     icebergProperties.put("fs.hadoop.enabled", "true");
                 }
 
@@ -278,7 +278,7 @@ public final class IcebergQueryRunner
                                     .put("iceberg.rest-catalog.uri", "http://" + restCatalogBackendContainer.getRestCatalogEndpoint())
                                     .put("iceberg.rest-catalog.vended-credentials-enabled", "true")
                                     .put("iceberg.writer-sort-buffer-size", "1MB")
-                                    .put("fs.native-s3.enabled", "true")
+                                    .put("fs.s3.enabled", "true")
                                     .put("s3.region", MINIO_REGION)
                                     .put("s3.endpoint", minio.getMinioAddress())
                                     .put("s3.path-style-access", "true")
@@ -316,7 +316,7 @@ public final class IcebergQueryRunner
                     .addIcebergProperty("iceberg.rest-catalog.security", "GOOGLE")
                     .addIcebergProperty("iceberg.rest-catalog.google-project-id", projectId)
                     .addIcebergProperty("iceberg.rest-catalog.view-endpoints-enabled", "false")
-                    .addIcebergProperty("fs.native-gcs.enabled", "true")
+                    .addIcebergProperty("fs.gcs.enabled", "true")
                     .addIcebergProperty("gcs.json-key-file-path", gcpCredentialsFile.toString())
                     .disableSchemaInitializer()
                     .build();
@@ -378,7 +378,7 @@ public final class IcebergQueryRunner
                             .put("iceberg.rest-catalog.signing-name", "s3tables")
                             .put("iceberg.rest-catalog.view-endpoints-enabled", "false")
                             .put("fs.hadoop.enabled", "false")
-                            .put("fs.native-s3.enabled", "true")
+                            .put("fs.s3.enabled", "true")
                             .put("s3.aws-access-key", requireEnv("S3_TABLES_ACCESS_KEY"))
                             .put("s3.aws-secret-key", requireEnv("S3_TABLES_SECRET_KEY"))
                             .put("s3.region", requireEnv("AWS_REGION"))
@@ -407,7 +407,7 @@ public final class IcebergQueryRunner
                     .addIcebergProperty("iceberg.rest-catalog.security", "OAUTH2")
                     .addIcebergProperty("iceberg.rest-catalog.oauth2.token", requireEnv("DATABRICKS_TOKEN"))
                     .addIcebergProperty("iceberg.rest-catalog.vended-credentials-enabled", "true")
-                    .addIcebergProperty("fs.native-s3.enabled", "true")
+                    .addIcebergProperty("fs.s3.enabled", "true")
                     .addIcebergProperty("s3.region", requireEnv("AWS_REGION"))
                     .disableSchemaInitializer()
                     .build();
@@ -488,7 +488,7 @@ public final class IcebergQueryRunner
                     .setIcebergProperties(Map.of(
                             "iceberg.catalog.type", "HIVE_METASTORE",
                             "hive.metastore.uri", hiveMinioDataLake.getHiveHadoop().getHiveMetastoreEndpoint().toString(),
-                            "fs.native-s3.enabled", "true",
+                            "fs.s3.enabled", "true",
                             "s3.aws-access-key", MINIO_ROOT_USER,
                             "s3.aws-secret-key", MINIO_ROOT_PASSWORD,
                             "s3.region", MINIO_REGION,
@@ -529,7 +529,7 @@ public final class IcebergQueryRunner
                     .setIcebergProperties(Map.of(
                             "iceberg.catalog.type", "TESTING_FILE_METASTORE",
                             "hive.metastore.catalog.dir", "s3://%s/".formatted(bucketName),
-                            "fs.native-s3.enabled", "true",
+                            "fs.s3.enabled", "true",
                             "s3.aws-access-key", MINIO_ROOT_USER,
                             "s3.aws-secret-key", MINIO_ROOT_PASSWORD,
                             "s3.region", MINIO_REGION,
@@ -566,7 +566,7 @@ public final class IcebergQueryRunner
                     .setIcebergProperties(Map.of(
                             "iceberg.catalog.type", "HIVE_METASTORE",
                             "hive.metastore.uri", sparkIcebergHive3MinioDataLake.hiveHadoop().getHiveMetastoreEndpoint().toString(),
-                            "fs.native-s3.enabled", "true",
+                            "fs.s3.enabled", "true",
                             "s3.aws-access-key", MINIO_ROOT_USER,
                             "s3.aws-secret-key", MINIO_ROOT_PASSWORD,
                             "s3.region", MINIO_REGION,
@@ -619,7 +619,7 @@ public final class IcebergQueryRunner
                     .setIcebergProperties(Map.of(
                             "iceberg.catalog.type", "HIVE_METASTORE",
                             "hive.metastore.uri", hiveHadoop.getHiveMetastoreEndpoint().toString(),
-                            "fs.native-azure.enabled", "true",
+                            "fs.azure.enabled", "true",
                             "azure.auth-type", "ACCESS_KEY",
                             "azure.access-key", azureAccessKey))
                     .setSchemaInitializer(
@@ -680,7 +680,7 @@ public final class IcebergQueryRunner
             QueryRunner queryRunner = icebergQueryRunnerMainBuilder()
                     .setIcebergProperties(ImmutableMap.<String, String>builder()
                             .put("iceberg.catalog.type", "snowflake")
-                            .put("fs.native-s3.enabled", "true")
+                            .put("fs.s3.enabled", "true")
                             .put("s3.aws-access-key", requiredNonEmptySystemProperty("testing.snowflake.catalog.s3.access-key"))
                             .put("s3.aws-secret-key", requiredNonEmptySystemProperty("testing.snowflake.catalog.s3.secret-key"))
                             .put("s3.region", requiredNonEmptySystemProperty("testing.snowflake.catalog.s3.region"))

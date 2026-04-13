@@ -71,7 +71,7 @@ public class TestLakehouseConnectorTest
                 .addExtraProperty("sql.default-function-schema", "functions")
                 .addLakehouseProperty("hive.metastore.uri", hiveMinio.getHiveMetastoreEndpoint().toString())
                 .addLakehouseProperty("fs.hadoop.enabled", "true")
-                .addLakehouseProperty("fs.native-s3.enabled", "true")
+                .addLakehouseProperty("fs.s3.enabled", "true")
                 .addLakehouseProperty("s3.aws-access-key", MINIO_ROOT_USER)
                 .addLakehouseProperty("s3.aws-secret-key", MINIO_ROOT_PASSWORD)
                 .addLakehouseProperty("s3.region", MINIO_REGION)

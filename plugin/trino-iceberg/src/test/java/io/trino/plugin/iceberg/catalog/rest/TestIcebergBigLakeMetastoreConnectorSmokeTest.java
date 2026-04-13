@@ -91,7 +91,7 @@ final class TestIcebergBigLakeMetastoreConnectorSmokeTest
                 .addIcebergProperty("iceberg.rest-catalog.view-endpoints-enabled", "false")
                 .addIcebergProperty("iceberg.writer-sort-buffer-size", "1MB")
                 .addIcebergProperty("iceberg.allowed-extra-properties", "write.metadata.delete-after-commit.enabled,write.metadata.previous-versions-max")
-                .addIcebergProperty("fs.native-gcs.enabled", "true")
+                .addIcebergProperty("fs.gcs.enabled", "true")
                 .addIcebergProperty("gcs.json-key-file-path", gcpCredentialsFile.toString())
                 .setSchemaInitializer(SchemaInitializer.builder()
                         .withSchemaName(SCHEMA)

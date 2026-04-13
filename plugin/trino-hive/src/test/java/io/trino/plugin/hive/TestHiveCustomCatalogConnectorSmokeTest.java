@@ -59,7 +59,7 @@ public class TestHiveCustomCatalogConnectorSmokeTest
                 .addHiveProperty("hive.metastore", "thrift")
                 .addHiveProperty("hive.metastore.uri", hiveMinioDataLake.getHiveMetastoreEndpoint().toString())
                 .addHiveProperty("hive.metastore.thrift.catalog-name", HIVE_CUSTOM_CATALOG)
-                .addHiveProperty("fs.native-s3.enabled", "true")
+                .addHiveProperty("fs.s3.enabled", "true")
                 .addHiveProperty("s3.path-style-access", "true")
                 .addHiveProperty("s3.region", MINIO_REGION)
                 .addHiveProperty("s3.endpoint", hiveMinioDataLake.getMinio().getMinioAddress())

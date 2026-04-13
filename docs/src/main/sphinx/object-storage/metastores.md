@@ -571,7 +571,7 @@ iceberg.rest-catalog.uri=https://biglake.googleapis.com/iceberg/v1beta/restcatal
 iceberg.rest-catalog.security=GOOGLE
 iceberg.rest-catalog.google-project-id=example-project-id
 iceberg.rest-catalog.view-endpoints-enabled=false
-fs.native-gcs.enable=true
+fs.gcs.enabled=true
 gcs.json-key-file-path=/path/to/gcs_keyfile.json
 ```
 

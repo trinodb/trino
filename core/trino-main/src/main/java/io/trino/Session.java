@@ -722,7 +722,7 @@ public final class Session
             checkArgument(session.getTransactionId().isEmpty(), "Session builder cannot be created from a session in a transaction");
             this.sessionPropertyManager = session.sessionPropertyManager;
             this.queryId = session.queryId;
-            this.transactionId = session.transactionId.orElse(null);
+            this.transactionId = null; // Set null explicitly as it's not allowed to create from a session in a transaction
             this.clientTransactionSupport = session.clientTransactionSupport;
             this.identity = session.identity;
             this.originalIdentity = session.originalIdentity;

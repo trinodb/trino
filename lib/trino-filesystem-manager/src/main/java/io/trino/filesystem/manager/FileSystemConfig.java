@@ -15,6 +15,7 @@ package io.trino.filesystem.manager;
 
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
+import io.airlift.configuration.LegacyConfig;
 
 import static java.lang.System.getenv;
 
@@ -60,7 +61,8 @@ public class FileSystemConfig
         return nativeAzureEnabled;
     }
 
-    @Config("fs.native-azure.enabled")
+    @LegacyConfig("fs.native-azure.enabled")
+    @Config("fs.azure.enabled")
     public FileSystemConfig setNativeAzureEnabled(boolean nativeAzureEnabled)
     {
         this.nativeAzureEnabled = nativeAzureEnabled;
@@ -72,7 +74,8 @@ public class FileSystemConfig
         return nativeS3Enabled;
     }
 
-    @Config("fs.native-s3.enabled")
+    @LegacyConfig("fs.native-s3.enabled")
+    @Config("fs.s3.enabled")
     public FileSystemConfig setNativeS3Enabled(boolean nativeS3Enabled)
     {
         this.nativeS3Enabled = nativeS3Enabled;
@@ -84,7 +87,8 @@ public class FileSystemConfig
         return nativeGcsEnabled;
     }
 
-    @Config("fs.native-gcs.enabled")
+    @LegacyConfig("fs.native-gcs.enabled")
+    @Config("fs.gcs.enabled")
     public FileSystemConfig setNativeGcsEnabled(boolean nativeGcsEnabled)
     {
         this.nativeGcsEnabled = nativeGcsEnabled;
@@ -96,7 +100,8 @@ public class FileSystemConfig
         return nativeLocalEnabled;
     }
 
-    @Config("fs.native-local.enabled")
+    @LegacyConfig("fs.native-local.enabled")
+    @Config("fs.local.enabled")
     public FileSystemConfig setNativeLocalEnabled(boolean nativeLocalEnabled)
     {
         this.nativeLocalEnabled = nativeLocalEnabled;

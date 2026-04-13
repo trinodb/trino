@@ -110,7 +110,7 @@ public final class GcsHiveQueryRunner
             byte[] jsonKeyBytes = Base64.getDecoder().decode(gcpCredentialKey);
             String gcpCredentials = new String(jsonKeyBytes, UTF_8);
 
-            addHiveProperty("fs.native-gcs.enabled", "true");
+            addHiveProperty("fs.gcs.enabled", "true");
             addHiveProperty("gcs.json-key", gcpCredentials);
             addHiveProperty("hive.non-managed-table-writes-enabled", "true");
             addHiveProperty("hive.non-managed-table-creates-enabled", "true");
