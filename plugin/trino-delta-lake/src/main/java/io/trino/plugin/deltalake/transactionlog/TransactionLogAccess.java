@@ -489,23 +489,12 @@ public class TransactionLogAccess
 
     public MetadataAndProtocolEntries getMetadataAndProtocolEntry(ConnectorSession session, TrinoFileSystem fileSystem, TableSnapshot tableSnapshot)
     {
-        if (tableSnapshot.getCachedMetadata().isEmpty() && tableSnapshot.getCachedProtocol().isEmpty()) {
-            return getLatestMetadataAndProtocolEntry(session, fileSystem, tableSnapshot);
+        MetadataAndProtocolEntries.Builder builder = MetadataAndProtocolEntries.builder()
+                .withEntries(tableSnapshot.getCachedEntries());
+        if (builder.isFull()) {
+            return builder.build();
         }
 
-        if (tableSnapshot.getCachedMetadata().isEmpty()) {
-            getMetadataEntry(session, fileSystem, tableSnapshot);
-        }
-        else if (tableSnapshot.getCachedProtocol().isEmpty()) {
-            getProtocolEntry(session, fileSystem, tableSnapshot);
-        }
-
-        return new MetadataAndProtocolEntries(tableSnapshot.getCachedMetadata(), tableSnapshot.getCachedProtocol());
-    }
-
-    private MetadataAndProtocolEntries getLatestMetadataAndProtocolEntry(ConnectorSession session, TrinoFileSystem fileSystem, TableSnapshot tableSnapshot)
-    {
-        MetadataAndProtocolEntries.Builder builder = MetadataAndProtocolEntries.builder();
         for (Transaction transaction : tableSnapshot.getTransactions().reversed()) {
             MetadataAndProtocolEntries metadataAndProtocol = transaction.transactionEntries().getMetadataAndProtocol(fileSystem);
             builder.withEntries(metadataAndProtocol);

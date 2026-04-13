@@ -193,6 +193,11 @@ public class TableSnapshot
         return tableLocation;
     }
 
+    public MetadataAndProtocolEntries getCachedEntries()
+    {
+        return cachedMetadataAndProtocolEntries;
+    }
+
     public void updateCachedEntries(MetadataAndProtocolEntries updateEntries)
     {
         this.cachedMetadataAndProtocolEntries = MetadataAndProtocolEntries.builder()
