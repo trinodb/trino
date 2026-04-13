@@ -81,6 +81,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Predicates.alwaysTrue;
 import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -522,7 +523,7 @@ public class TransactionLogAccess
         MetadataAndProtocolEntries checkpointEntries = getCheckpointEntry(
                 session,
                 tableSnapshot,
-                ImmutableSet.of(METADATA, PROTOCOL),
+                resolveCheckpointReadTypes(builder),
                 checkpointStream -> {
                     for (Iterator<DeltaLakeTransactionLogEntry> it = checkpointStream.iterator(); it.hasNext(); ) {
                         DeltaLakeTransactionLogEntry transactionLogEntry = it.next();
@@ -539,6 +540,22 @@ public class TransactionLogAccess
 
         tableSnapshot.updateCachedEntries(checkpointEntries);
         return checkpointEntries;
+    }
+
+    // Resolve checkpoint entry types to read based on which entries are missing for current builder,
+    // i,e if the builder already hasMetadata, then we could skip reading it.
+    private static Set<CheckpointEntryIterator.EntryType> resolveCheckpointReadTypes(MetadataAndProtocolEntries.Builder builder)
+    {
+        checkState(!builder.isFull(), "Builder is already full");
+        ImmutableSet.Builder<CheckpointEntryIterator.EntryType> typesForRead = ImmutableSet.builder();
+        if (!builder.hasMetadata()) {
+            typesForRead.add(METADATA);
+        }
+        if (!builder.hasProtocol()) {
+            typesForRead.add(PROTOCOL);
+        }
+
+        return typesForRead.build();
     }
 
     public ProtocolEntry getProtocolEntry(ConnectorSession session, TrinoFileSystem fileSystem, TableSnapshot tableSnapshot)
