@@ -269,7 +269,7 @@ public class DeltaLakeSplitManager
     private static Stream<AddFileEntry> filterValidDataFilesForOptimize(Stream<AddFileEntry> validDataFiles, long maxScannedFileSizeInBytes)
     {
         // Value being present is a pending file (potentially the only one) for a given partition.
-        // Value being empty is a tombstone, indicates that there were in the stream previously at least 2 files selected for processing for a given partition.
+        // Value being empty is a tombstone, indicates that files of a given partition were already selected for processing.
         Map<Map<String, Optional<String>>, Optional<AddFileEntry>> pendingAddFileEntriesMap = new HashMap<>();
         return validDataFiles
                 .filter(addFileEntry -> addFileEntry.getSize() < maxScannedFileSizeInBytes)
@@ -282,6 +282,10 @@ public class DeltaLakeSplitManager
                         }
                         pendingAddFileEntriesMap.put(canonicalPartitionValues, Optional.empty());
                         return Stream.of(alreadyQueuedAddFileEntry.get(), addFileEntry);
+                    }
+                    if (addFileEntry.getDeletionVector().isPresent()) {
+                        pendingAddFileEntriesMap.put(canonicalPartitionValues, Optional.empty());
+                        return Stream.of(addFileEntry);
                     }
 
                     pendingAddFileEntriesMap.put(canonicalPartitionValues, Optional.of(addFileEntry));
