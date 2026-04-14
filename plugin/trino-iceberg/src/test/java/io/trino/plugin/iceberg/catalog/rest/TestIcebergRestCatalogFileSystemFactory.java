@@ -14,14 +14,28 @@
 package io.trino.plugin.iceberg.catalog.rest;
 
 import com.google.common.collect.ImmutableMap;
+import io.airlift.units.Duration;
+import io.trino.filesystem.FileIterator;
+import io.trino.filesystem.Location;
+import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
+import io.trino.filesystem.TrinoInputFile;
+import io.trino.filesystem.TrinoOutputFile;
+import io.trino.filesystem.UriLocation;
+import io.trino.filesystem.encryption.EncryptionKey;
+import io.trino.spi.NodeVersion;
 import io.trino.spi.security.ConnectorIdentity;
 import org.apache.iceberg.aws.s3.S3FileIOProperties;
 import org.apache.iceberg.azure.AzureProperties;
 import org.apache.iceberg.gcp.GCPProperties;
 import org.junit.jupiter.api.Test;
 
+import java.io.IOException;
+import java.time.Instant;
+import java.util.Collection;
 import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static io.trino.filesystem.azure.AzureFileSystemConstants.EXTRA_CREDENTIALS_AZURE_SAS_TOKEN_PREFIX;
@@ -41,20 +55,17 @@ final class TestIcebergRestCatalogFileSystemFactory
         AtomicReference<ConnectorIdentity> capturedIdentity = new AtomicReference<>();
         TrinoFileSystemFactory delegate = identity -> {
             capturedIdentity.set(identity);
-            return null;
+            return new MockTrinoFileSystem();
         };
 
-        IcebergRestCatalogConfig config = new IcebergRestCatalogConfig()
-                .setBaseUri("http://localhost")
-                .setVendedCredentialsEnabled(true);
-        IcebergRestCatalogFileSystemFactory factory = new IcebergRestCatalogFileSystemFactory(delegate, config);
+        IcebergRestCatalogFileSystemFactory factory = createFactory(delegate, true);
 
         Map<String, String> fileIoProperties = ImmutableMap.of(
                 S3FileIOProperties.ACCESS_KEY_ID, "test-access-key",
                 S3FileIOProperties.SECRET_ACCESS_KEY, "test-secret-key",
                 S3FileIOProperties.SESSION_TOKEN, "test-session-token");
 
-        factory.create(ConnectorIdentity.ofUser("test"), fileIoProperties);
+        factory.create(ConnectorIdentity.ofUser("test"), fileIoProperties).newInputFile(Location.of("s3://bucket/path"));
 
         ConnectorIdentity identity = capturedIdentity.get();
         assertThat(identity).isNotNull();
@@ -70,18 +81,15 @@ final class TestIcebergRestCatalogFileSystemFactory
         AtomicReference<ConnectorIdentity> capturedIdentity = new AtomicReference<>();
         TrinoFileSystemFactory delegate = identity -> {
             capturedIdentity.set(identity);
-            return null;
+            return new MockTrinoFileSystem();
         };
 
-        IcebergRestCatalogConfig config = new IcebergRestCatalogConfig()
-                .setBaseUri("http://localhost")
-                .setVendedCredentialsEnabled(true);
-        IcebergRestCatalogFileSystemFactory factory = new IcebergRestCatalogFileSystemFactory(delegate, config);
+        IcebergRestCatalogFileSystemFactory factory = createFactory(delegate, true);
 
         Map<String, String> fileIoProperties = ImmutableMap.of(
                 GCPProperties.GCS_OAUTH2_TOKEN, "ya29.test-token");
 
-        factory.create(ConnectorIdentity.ofUser("test"), fileIoProperties);
+        factory.create(ConnectorIdentity.ofUser("test"), fileIoProperties).newInputFile(Location.of("gs://bucket/path"));
 
         ConnectorIdentity identity = capturedIdentity.get();
         assertThat(identity).isNotNull();
@@ -97,13 +105,10 @@ final class TestIcebergRestCatalogFileSystemFactory
         AtomicReference<ConnectorIdentity> capturedIdentity = new AtomicReference<>();
         TrinoFileSystemFactory delegate = identity -> {
             capturedIdentity.set(identity);
-            return null;
+            return new MockTrinoFileSystem();
         };
 
-        IcebergRestCatalogConfig config = new IcebergRestCatalogConfig()
-                .setBaseUri("http://localhost")
-                .setVendedCredentialsEnabled(true);
-        IcebergRestCatalogFileSystemFactory factory = new IcebergRestCatalogFileSystemFactory(delegate, config);
+        IcebergRestCatalogFileSystemFactory factory = createFactory(delegate, true);
 
         Map<String, String> fileIoProperties = ImmutableMap.<String, String>builder()
                 .put(GCPProperties.GCS_OAUTH2_TOKEN, "ya29.test-token")
@@ -111,7 +116,7 @@ final class TestIcebergRestCatalogFileSystemFactory
                 .put(GCPProperties.GCS_PROJECT_ID, "my-gcp-project")
                 .buildOrThrow();
 
-        factory.create(ConnectorIdentity.ofUser("test"), fileIoProperties);
+        factory.create(ConnectorIdentity.ofUser("test"), fileIoProperties).newInputFile(Location.of("gs://bucket/path"));
 
         ConnectorIdentity identity = capturedIdentity.get();
         assertThat(identity).isNotNull();
@@ -130,10 +135,7 @@ final class TestIcebergRestCatalogFileSystemFactory
             return null;
         };
 
-        IcebergRestCatalogConfig config = new IcebergRestCatalogConfig()
-                .setBaseUri("http://localhost")
-                .setVendedCredentialsEnabled(false);
-        IcebergRestCatalogFileSystemFactory factory = new IcebergRestCatalogFileSystemFactory(delegate, config);
+        IcebergRestCatalogFileSystemFactory factory = createFactory(delegate, false);
 
         Map<String, String> fileIoProperties = ImmutableMap.of(
                 GCPProperties.GCS_OAUTH2_TOKEN, "ya29.test-token",
@@ -153,13 +155,10 @@ final class TestIcebergRestCatalogFileSystemFactory
         AtomicReference<ConnectorIdentity> capturedIdentity = new AtomicReference<>();
         TrinoFileSystemFactory delegate = identity -> {
             capturedIdentity.set(identity);
-            return null;
+            return new MockTrinoFileSystem();
         };
 
-        IcebergRestCatalogConfig config = new IcebergRestCatalogConfig()
-                .setBaseUri("http://localhost")
-                .setVendedCredentialsEnabled(true);
-        IcebergRestCatalogFileSystemFactory factory = new IcebergRestCatalogFileSystemFactory(delegate, config);
+        IcebergRestCatalogFileSystemFactory factory = createFactory(delegate, true);
 
         ConnectorIdentity originalIdentity = ConnectorIdentity.ofUser("test");
         factory.create(originalIdentity, ImmutableMap.of());
@@ -174,18 +173,15 @@ final class TestIcebergRestCatalogFileSystemFactory
         AtomicReference<ConnectorIdentity> capturedIdentity = new AtomicReference<>();
         TrinoFileSystemFactory delegate = identity -> {
             capturedIdentity.set(identity);
-            return null;
+            return new MockTrinoFileSystem();
         };
 
-        IcebergRestCatalogConfig config = new IcebergRestCatalogConfig()
-                .setBaseUri("http://localhost")
-                .setVendedCredentialsEnabled(true);
-        IcebergRestCatalogFileSystemFactory factory = new IcebergRestCatalogFileSystemFactory(delegate, config);
+        IcebergRestCatalogFileSystemFactory factory = createFactory(delegate, true);
 
         Map<String, String> fileIoProperties = ImmutableMap.of(
                 AzureProperties.ADLS_SAS_TOKEN_PREFIX + "mystorageaccount", "sv=2022-test-sas-token");
 
-        factory.create(ConnectorIdentity.ofUser("test"), fileIoProperties);
+        factory.create(ConnectorIdentity.ofUser("test"), fileIoProperties).newInputFile(Location.of("abfs://container@mystorageaccount.dfs.core.windows.net/some/path/file"));
 
         ConnectorIdentity identity = capturedIdentity.get();
         assertThat(identity).isNotNull();
@@ -199,19 +195,16 @@ final class TestIcebergRestCatalogFileSystemFactory
         AtomicReference<ConnectorIdentity> capturedIdentity = new AtomicReference<>();
         TrinoFileSystemFactory delegate = identity -> {
             capturedIdentity.set(identity);
-            return null;
+            return new MockTrinoFileSystem();
         };
 
-        IcebergRestCatalogConfig config = new IcebergRestCatalogConfig()
-                .setBaseUri("http://localhost")
-                .setVendedCredentialsEnabled(true);
-        IcebergRestCatalogFileSystemFactory factory = new IcebergRestCatalogFileSystemFactory(delegate, config);
+        IcebergRestCatalogFileSystemFactory factory = createFactory(delegate, true);
 
         Map<String, String> fileIoProperties = ImmutableMap.of(
                 AzureProperties.ADLS_SAS_TOKEN_PREFIX + "account1", "sas-token-1",
                 AzureProperties.ADLS_SAS_TOKEN_PREFIX + "account2", "sas-token-2");
 
-        factory.create(ConnectorIdentity.ofUser("test"), fileIoProperties);
+        factory.create(ConnectorIdentity.ofUser("test"), fileIoProperties).newInputFile(Location.of("abfs://container@account1.dfs.core.windows.net/some/path/file"));
 
         ConnectorIdentity identity = capturedIdentity.get();
         assertThat(identity).isNotNull();
@@ -226,17 +219,14 @@ final class TestIcebergRestCatalogFileSystemFactory
         AtomicReference<ConnectorIdentity> capturedIdentity = new AtomicReference<>();
         TrinoFileSystemFactory delegate = identity -> {
             capturedIdentity.set(identity);
-            return null;
+            return new MockTrinoFileSystem();
         };
 
-        IcebergRestCatalogConfig config = new IcebergRestCatalogConfig()
-                .setBaseUri("http://localhost")
-                .setVendedCredentialsEnabled(true);
-        IcebergRestCatalogFileSystemFactory factory = new IcebergRestCatalogFileSystemFactory(delegate, config);
+        IcebergRestCatalogFileSystemFactory factory = createFactory(delegate, true);
 
         Map<String, String> fileIoProperties = ImmutableMap.of(AzureProperties.ADLS_SAS_TOKEN_PREFIX + "mystorageaccount", "sv=2022-test-sas-token");
 
-        factory.create(ConnectorIdentity.ofUser("test"), fileIoProperties);
+        factory.create(ConnectorIdentity.ofUser("test"), fileIoProperties).newInputFile(Location.of("abfs://container@mystorageaccount.dfs.core.windows.net/some/path/file"));
 
         ConnectorIdentity identity = capturedIdentity.get();
         assertThat(identity).isNotNull();
@@ -250,13 +240,10 @@ final class TestIcebergRestCatalogFileSystemFactory
         AtomicReference<ConnectorIdentity> capturedIdentity = new AtomicReference<>();
         TrinoFileSystemFactory delegate = identity -> {
             capturedIdentity.set(identity);
-            return null;
+            return new MockTrinoFileSystem();
         };
 
-        IcebergRestCatalogConfig config = new IcebergRestCatalogConfig()
-                .setBaseUri("http://localhost")
-                .setVendedCredentialsEnabled(false);
-        IcebergRestCatalogFileSystemFactory factory = new IcebergRestCatalogFileSystemFactory(delegate, config);
+        IcebergRestCatalogFileSystemFactory factory = createFactory(delegate, false);
 
         Map<String, String> fileIoProperties = ImmutableMap.of(
                 AzureProperties.ADLS_SAS_TOKEN_PREFIX + "mystorageaccount", "sv=2022-test-sas-token");
@@ -267,5 +254,139 @@ final class TestIcebergRestCatalogFileSystemFactory
         ConnectorIdentity identity = capturedIdentity.get();
         assertThat(identity).isNotNull();
         assertThat(identity.getExtraCredentials()).isEmpty();
+    }
+
+    private static IcebergRestCatalogFileSystemFactory createFactory(TrinoFileSystemFactory delegate, boolean vendedCredentialsEnabled)
+    {
+        IcebergRestCatalogConfig config = new IcebergRestCatalogConfig()
+                .setBaseUri("http://localhost")
+                .setVendedCredentialsEnabled(vendedCredentialsEnabled);
+        IcebergRestCatalogPropertiesProvider catalogPropertiesProvider = new IcebergRestCatalogPropertiesProvider(
+                config,
+                new NoneSecurityProperties(),
+                new NodeVersion("test"));
+        return new IcebergRestCatalogFileSystemFactory(
+                delegate,
+                config,
+                catalogPropertiesProvider);
+    }
+
+    private static class MockTrinoFileSystem
+            implements TrinoFileSystem
+    {
+        @Override
+        public TrinoInputFile newEncryptedInputFile(Location location, long length, EncryptionKey key)
+        {
+            return TrinoFileSystem.super.newEncryptedInputFile(location, length, key);
+        }
+
+        @Override
+        public TrinoInputFile newInputFile(Location location)
+        {
+            return null;
+        }
+
+        @Override
+        public TrinoInputFile newEncryptedInputFile(Location location, EncryptionKey key)
+        {
+            return TrinoFileSystem.super.newEncryptedInputFile(location, key);
+        }
+
+        @Override
+        public TrinoInputFile newInputFile(Location location, long length)
+        {
+            return null;
+        }
+
+        @Override
+        public TrinoInputFile newInputFile(Location location, long length, Instant lastModified)
+        {
+            return null;
+        }
+
+        @Override
+        public TrinoInputFile newEncryptedInputFile(Location location, long length, Instant lastModified, EncryptionKey key)
+        {
+            return TrinoFileSystem.super.newEncryptedInputFile(location, length, lastModified, key);
+        }
+
+        @Override
+        public TrinoOutputFile newOutputFile(Location location)
+        {
+            return null;
+        }
+
+        @Override
+        public TrinoOutputFile newEncryptedOutputFile(Location location, EncryptionKey key)
+        {
+            return null;
+        }
+
+        @Override
+        public void deleteFile(Location location)
+        {
+        }
+
+        @Override
+        public void deleteFiles(Collection<Location> locations)
+        {
+        }
+
+        @Override
+        public void deleteDirectory(Location location)
+        {
+        }
+
+        @Override
+        public void renameFile(Location source, Location target)
+        {
+        }
+
+        @Override
+        public FileIterator listFiles(Location location)
+        {
+            return null;
+        }
+
+        @Override
+        public Optional<Boolean> directoryExists(Location location)
+        {
+            return Optional.empty();
+        }
+
+        @Override
+        public void createDirectory(Location location)
+        {
+        }
+
+        @Override
+        public void renameDirectory(Location source, Location target)
+        {
+        }
+
+        @Override
+        public Set<Location> listDirectories(Location location)
+        {
+            return Set.of();
+        }
+
+        @Override
+        public Optional<Location> createTemporaryDirectory(Location targetPath, String temporaryPrefix, String relativePrefix)
+        {
+            return Optional.empty();
+        }
+
+        @Override
+        public Optional<UriLocation> preSignedUri(Location location, Duration ttl)
+                throws IOException
+        {
+            return Optional.empty();
+        }
+
+        @Override
+        public Optional<UriLocation> encryptedPreSignedUri(Location location, Duration ttl, EncryptionKey key)
+        {
+            return Optional.empty();
+        }
     }
 }

@@ -24,15 +24,10 @@ import org.apache.iceberg.azure.AzureProperties;
 import org.apache.iceberg.gcp.GCPProperties;
 
 import java.util.Map;
-import java.util.Map.Entry;
+import java.util.Optional;
+import java.util.function.Supplier;
 
-import static io.trino.filesystem.azure.AzureFileSystemConstants.EXTRA_CREDENTIALS_AZURE_SAS_TOKEN_PREFIX;
-import static io.trino.filesystem.gcs.GcsFileSystemConstants.EXTRA_CREDENTIALS_GCS_OAUTH_TOKEN_EXPIRES_AT_PROPERTY;
-import static io.trino.filesystem.gcs.GcsFileSystemConstants.EXTRA_CREDENTIALS_GCS_OAUTH_TOKEN_PROPERTY;
 import static io.trino.filesystem.gcs.GcsFileSystemConstants.EXTRA_CREDENTIALS_GCS_PROJECT_ID_PROPERTY;
-import static io.trino.filesystem.s3.S3FileSystemConstants.EXTRA_CREDENTIALS_ACCESS_KEY_PROPERTY;
-import static io.trino.filesystem.s3.S3FileSystemConstants.EXTRA_CREDENTIALS_SECRET_KEY_PROPERTY;
-import static io.trino.filesystem.s3.S3FileSystemConstants.EXTRA_CREDENTIALS_SESSION_TOKEN_PROPERTY;
 import static java.util.Objects.requireNonNull;
 
 public class IcebergRestCatalogFileSystemFactory
@@ -40,59 +35,96 @@ public class IcebergRestCatalogFileSystemFactory
 {
     private final TrinoFileSystemFactory fileSystemFactory;
     private final boolean vendedCredentialsEnabled;
+    private final Map<String, String> catalogProperties;
 
     @Inject
-    public IcebergRestCatalogFileSystemFactory(TrinoFileSystemFactory fileSystemFactory, IcebergRestCatalogConfig config)
+    public IcebergRestCatalogFileSystemFactory(
+            TrinoFileSystemFactory fileSystemFactory,
+            IcebergRestCatalogConfig config,
+            IcebergRestCatalogPropertiesProvider catalogPropertiesProvider)
     {
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
         this.vendedCredentialsEnabled = config.isVendedCredentialsEnabled();
+        this.catalogProperties = ImmutableMap.copyOf(catalogPropertiesProvider.catalogProperties());
     }
 
     @Override
     public TrinoFileSystem create(ConnectorIdentity identity, Map<String, String> fileIoProperties)
     {
         if (vendedCredentialsEnabled) {
+            Optional<S3VendedCredentialsProvider> s3VendedCredentialsProvider = createVendedCredentialsProviderIfPresent(
+                    fileIoProperties,
+                    () -> new S3VendedCredentialsProvider(catalogProperties, fileIoProperties),
+                    S3FileIOProperties.ACCESS_KEY_ID, S3FileIOProperties.SECRET_ACCESS_KEY, S3FileIOProperties.SESSION_TOKEN);
+            Optional<GcsVendedCredentialsProvider> gcsVendedCredentialsProvider = createVendedCredentialsProviderIfPresent(
+                    fileIoProperties,
+                    () -> new GcsVendedCredentialsProvider(catalogProperties, fileIoProperties),
+                    GCPProperties.GCS_OAUTH2_TOKEN);
+            Optional<AzureVendedCredentialsProvider> azureVendedCredentialsProvider = createAzureVendedCredentialsProvider(fileIoProperties);
+
             ImmutableMap.Builder<String, String> extraCredentialsBuilder = ImmutableMap.builder();
-
-            // handle s3
-            if (fileIoProperties.containsKey(S3FileIOProperties.ACCESS_KEY_ID) &&
-                    fileIoProperties.containsKey(S3FileIOProperties.SECRET_ACCESS_KEY) &&
-                    fileIoProperties.containsKey(S3FileIOProperties.SESSION_TOKEN)) {
-                extraCredentialsBuilder
-                        .put(EXTRA_CREDENTIALS_ACCESS_KEY_PROPERTY, fileIoProperties.get(S3FileIOProperties.ACCESS_KEY_ID))
-                        .put(EXTRA_CREDENTIALS_SECRET_KEY_PROPERTY, fileIoProperties.get(S3FileIOProperties.SECRET_ACCESS_KEY))
-                        .put(EXTRA_CREDENTIALS_SESSION_TOKEN_PROPERTY, fileIoProperties.get(S3FileIOProperties.SESSION_TOKEN));
-            }
-
-            // handle gcs
+            // handle GCS
             if (fileIoProperties.containsKey(GCPProperties.GCS_OAUTH2_TOKEN)) {
-                extraCredentialsBuilder.put(EXTRA_CREDENTIALS_GCS_OAUTH_TOKEN_PROPERTY, fileIoProperties.get(GCPProperties.GCS_OAUTH2_TOKEN));
-                addOptionalProperty(extraCredentialsBuilder, fileIoProperties, GCPProperties.GCS_OAUTH2_TOKEN_EXPIRES_AT, EXTRA_CREDENTIALS_GCS_OAUTH_TOKEN_EXPIRES_AT_PROPERTY);
                 addOptionalProperty(extraCredentialsBuilder, fileIoProperties, GCPProperties.GCS_PROJECT_ID, EXTRA_CREDENTIALS_GCS_PROJECT_ID_PROPERTY);
             }
-
-            // handle azure
-            for (Entry<String, String> entry : fileIoProperties.entrySet()) {
-                if (entry.getKey().startsWith(AzureProperties.ADLS_SAS_TOKEN_PREFIX)) {
-                    String account = entry.getKey().substring(AzureProperties.ADLS_SAS_TOKEN_PREFIX.length());
-                    extraCredentialsBuilder.put(EXTRA_CREDENTIALS_AZURE_SAS_TOKEN_PREFIX + account, entry.getValue());
-                }
-            }
-
             Map<String, String> extraCredentials = extraCredentialsBuilder.buildOrThrow();
-            if (!extraCredentials.isEmpty()) {
-                ConnectorIdentity identityWithExtraCredentials = ConnectorIdentity.forUser(identity.getUser())
-                        .withGroups(identity.getGroups())
-                        .withPrincipal(identity.getPrincipal())
-                        .withEnabledSystemRoles(identity.getEnabledSystemRoles())
-                        .withConnectorRole(identity.getConnectorRole())
-                        .withExtraCredentials(extraCredentials)
-                        .build();
-                return fileSystemFactory.create(identityWithExtraCredentials);
+
+            if (s3VendedCredentialsProvider.isPresent() || gcsVendedCredentialsProvider.isPresent() || azureVendedCredentialsProvider.isPresent()) {
+                return new IcebergRestCatalogFileSystem(
+                        location -> {
+                            if (location.scheme().isEmpty()) {
+                                throw new IllegalArgumentException("Location scheme is empty: " + location);
+                            }
+                            // Derive the vended credentials to load from the location scheme
+                            Optional<VendedCredentials> vendedCredentials = switch (location.scheme().get()) {
+                                case "s3", "s3a", "s3n" -> s3VendedCredentialsProvider.map(S3VendedCredentialsProvider::getCredentials);
+                                case "gs" -> gcsVendedCredentialsProvider.map(GcsVendedCredentialsProvider::getCredentials);
+                                case "abfs", "abfss", "wasb", "wasbs" -> azureVendedCredentialsProvider.map(AzureVendedCredentialsProvider::getCredentials);
+                                default -> throw new IllegalArgumentException("Unsupported location scheme for vended credentials: " + location);
+                            };
+                            if (vendedCredentials.isEmpty()) {
+                                throw new IllegalStateException("Failed to initialize the vended credentials from the provided fileIoProperties");
+                            }
+
+                            ConnectorIdentity identityWithExtraCredentials = ConnectorIdentity.forUser(identity.getUser())
+                                    .withGroups(identity.getGroups())
+                                    .withPrincipal(identity.getPrincipal())
+                                    .withEnabledSystemRoles(identity.getEnabledSystemRoles())
+                                    .withConnectorRole(identity.getConnectorRole())
+                                    .withExtraCredentials(ImmutableMap.<String, String>builder()
+                                            .putAll(extraCredentials)
+                                            .putAll(ImmutableMap.copyOf(vendedCredentials.map(VendedCredentials::toExtraCredentials).orElse(ImmutableMap.of())))
+                                            .buildOrThrow())
+                                    .build();
+
+                            return fileSystemFactory.create(identityWithExtraCredentials);
+                        });
             }
         }
-
         return fileSystemFactory.create(identity);
+    }
+
+    private static <T> Optional<T> createVendedCredentialsProviderIfPresent(
+            Map<String, String> fileIoProperties,
+            Supplier<T> providerFactory,
+            String... requiredKeys)
+    {
+        for (String key : requiredKeys) {
+            if (!fileIoProperties.containsKey(key)) {
+                return Optional.empty();
+            }
+        }
+        return Optional.of(providerFactory.get());
+    }
+
+    private Optional<AzureVendedCredentialsProvider> createAzureVendedCredentialsProvider(Map<String, String> fileIoProperties)
+    {
+        for (String key : fileIoProperties.keySet()) {
+            if (key.startsWith(AzureProperties.ADLS_SAS_TOKEN_PREFIX)) {
+                return Optional.of(new AzureVendedCredentialsProvider(catalogProperties, fileIoProperties));
+            }
+        }
+        return Optional.empty();
     }
 
     private static void addOptionalProperty(
