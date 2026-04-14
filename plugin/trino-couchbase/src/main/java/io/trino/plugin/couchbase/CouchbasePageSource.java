@@ -64,9 +64,11 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.math.BigInteger;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.stream.Collectors;
 
 import static com.couchbase.client.core.cnc.tracing.TracingAttribute.COLLECTION_NAME;
 import static com.google.common.base.Verify.verify;
@@ -84,6 +86,8 @@ public final class CouchbasePageSource
     private final CouchbaseClient client;
     private final String queryString;
     private final Long pageSize;
+    private final List<Type> types = new LinkedList<>();
+    private final List<String> names = new LinkedList<>();
     private long offset;
     private long total, pageCount, duration, errors;
     private boolean finished;
@@ -103,18 +107,19 @@ public final class CouchbasePageSource
                     finalTable.addColumn(column);
                 }
             });
-            table = table.wrap();
-            table.addColumns(columns);
+//            table = table.wrap();
+//            table.addColumns(columns);
         }
-        else if (columns != null) {
-            table.clearSelectElements();
-        }
+//        else if (columns != null) {
+//            table.clearSelectElements();
+//        }
 
         this.table = table;
 
         TupleDomain<ColumnHandle> predicate = dynamicFilter.getCurrentPredicate();
 
         if (!predicate.isAll()) {
+            table = table.wrap();
             table.addPredicate(predicate);
         }
 
@@ -122,9 +127,14 @@ public final class CouchbasePageSource
         if (limit < 0) {
             limit = pageSize;
         }
-        this.pageBuilder = new PageBuilder((int) Math.min(limit, pageSize),
-                table.selectTypes().stream().toList());
-        queryString = table.toSql();
+        columns.forEach(column -> {
+            types.add(column.type());
+            names.add(column.name());
+        });
+        this.pageBuilder = new PageBuilder((int) Math.min(limit, pageSize), types);
+        queryString = String.format("SELECT %s FROM (%s) data OFFSET %%d LIMIT %%d",
+                names.stream().collect(Collectors.joining("`, `", "`", "`")),
+                table.toSql().replaceAll("%", "%%"));
     }
 
     @Override
@@ -140,17 +150,15 @@ public final class CouchbasePageSource
         QueryOptions options = QueryOptions.queryOptions().parameters(queryArgs);
 
         try {
-            final String query = String.format("SELECT data.* FROM (%s) data OFFSET %d LIMIT %d", queryString, offset, pageSize);
+            final String query = String.format(queryString, offset, pageSize);
             QueryResult result = client.getScope().query(query, options);
             List<JsonObject> rows = result.rowsAsObject();
             LOG.info("Couchbase query ({} result rows): {}; arguments: {}", rows.size(), query, queryArgs);
-            final List<Type> types = table.selectTypes();
-            final List<String> names = table.selectNames();
 
             for (int j = 0; j < rows.size(); j++) {
                 JsonObject row = rows.get(j);
                 pageBuilder.declarePosition();
-                for (int i = 0; i < table.selectClauses().size(); i++) {
+                for (int i = 0; i < names.size(); i++) {
                     Type type = types.get(i);
                     BlockBuilder output = pageBuilder.getBlockBuilder(i);
                     appendValue(output, type, row.get(names.get(i)));

@@ -69,7 +69,7 @@ public class CouchbaseConnectorTest
     @Test
     public void testFailingItems()
     {
-        assertQuery("select * from orders where orderkey is not null order by orderkey limit 1");
+        assertQuery("SELECT regionkey, max(name) FROM nation GROUP BY regionkey LIMIT 5");
     }
 
     @Override
