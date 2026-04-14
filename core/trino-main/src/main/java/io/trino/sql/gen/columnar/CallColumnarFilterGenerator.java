@@ -309,7 +309,7 @@ public class CallColumnarFilterGenerator
         while (currentParameterIndex < methodType.parameterArray().length) {
             Class<?> type = methodType.parameterArray()[currentParameterIndex];
             if (instance.isPresent() && !instanceIsBound) {
-                checkState(type.equals(implementation.getInstanceFactory().get().type().returnType()), "Mismatched type for instance parameter");
+                checkState(type.equals(binder.getAccessibleType(implementation.getInstanceFactory().get().type().returnType())), "Mismatched type for instance parameter");
                 block.append(instance.get());
                 instanceIsBound = true;
             }
@@ -429,7 +429,7 @@ public class CallColumnarFilterGenerator
         public FieldDefinition getCachedInstance(MethodHandle methodHandle)
         {
             if (field.isEmpty()) {
-                field = Optional.of(classDefinition.declareField(a(PRIVATE, FINAL), "__cachedInstance", methodHandle.type().returnType()));
+                field = Optional.of(classDefinition.declareField(a(PRIVATE, FINAL), "__cachedInstance", callSiteBinder.getAccessibleType(methodHandle.type().returnType())));
                 method = Optional.of(methodHandle);
             }
             return field.get();

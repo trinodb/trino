@@ -291,7 +291,7 @@ public final class BytecodeUtils
             Class<?> type = methodType.parameterArray()[currentParameterIndex];
             stackTypes.add(type);
             if (instance.isPresent() && !instanceIsBound) {
-                checkState(type.equals(implementation.getInstanceFactory().get().type().returnType()), "Mismatched type for instance parameter");
+                checkState(type.equals(binder.getAccessibleType(implementation.getInstanceFactory().get().type().returnType())), "Mismatched type for instance parameter");
                 block.append(instance.get());
                 instanceIsBound = true;
             }
