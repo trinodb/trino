@@ -80,6 +80,7 @@ public class TestAdaptivePlanner
                 "SELECT n.name FROM supplier AS s JOIN nation AS n on s.nationkey = n.nationkey",
                 session,
                 ImmutableList.of(new IterativeOptimizer(
+                        "TestJoinOrderSwitch",
                         getPlanTester().getPlannerContext(),
                         new RuleStatsRecorder(),
                         getPlanTester().getStatsCalculator(),
@@ -151,6 +152,7 @@ public class TestAdaptivePlanner
                 """,
                 session,
                 ImmutableList.of(new IterativeOptimizer(
+                        "TestJoinOrderSwitch",
                         getPlanTester().getPlannerContext(),
                         new RuleStatsRecorder(),
                         getPlanTester().getStatsCalculator(),
@@ -224,6 +226,7 @@ public class TestAdaptivePlanner
                 """,
                 session,
                 ImmutableList.of(new IterativeOptimizer(
+                        "TestJoinOrderSwitch",
                         getPlanTester().getPlannerContext(),
                         new RuleStatsRecorder(),
                         getPlanTester().getStatsCalculator(),
@@ -260,6 +263,7 @@ public class TestAdaptivePlanner
                 "SELECT n.name FROM supplier AS s JOIN nation AS n on s.nationkey = n.nationkey",
                 session,
                 ImmutableList.of(new IterativeOptimizer(
+                        "TestJoinOrderSwitch",
                         getPlanTester().getPlannerContext(),
                         new RuleStatsRecorder(),
                         getPlanTester().getStatsCalculator(),
@@ -328,6 +332,7 @@ public class TestAdaptivePlanner
                 """,
                 session,
                 ImmutableList.of(new IterativeOptimizer(
+                        "TestJoinOrderSwitch",
                         getPlanTester().getPlannerContext(),
                         new RuleStatsRecorder(),
                         getPlanTester().getStatsCalculator(),
@@ -376,6 +381,7 @@ public class TestAdaptivePlanner
                     """,
                 session,
                 ImmutableList.of(new IterativeOptimizer(
+                        "TestJoinOrderSwitch",
                         getPlanTester().getPlannerContext(),
                         new RuleStatsRecorder(),
                         getPlanTester().getStatsCalculator(),

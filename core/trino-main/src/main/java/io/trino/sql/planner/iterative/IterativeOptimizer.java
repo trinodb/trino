@@ -68,6 +68,7 @@ public class IterativeOptimizer
 {
     private static final Logger LOG = Logger.get(IterativeOptimizer.class);
 
+    private final String name;
     private final RuleStatsRecorder stats;
     private final StatsCalculator statsCalculator;
     private final CostCalculator costCalculator;
@@ -77,13 +78,14 @@ public class IterativeOptimizer
     private final Predicate<Session> useLegacyRules;
     private final PlannerContext plannerContext;
 
-    public IterativeOptimizer(PlannerContext plannerContext, RuleStatsRecorder stats, StatsCalculator statsCalculator, CostCalculator costCalculator, Set<Rule<?>> rules)
+    public IterativeOptimizer(String name, PlannerContext plannerContext, RuleStatsRecorder stats, StatsCalculator statsCalculator, CostCalculator costCalculator, Set<Rule<?>> rules)
     {
-        this(plannerContext, stats, statsCalculator, costCalculator, session -> false, ImmutableList.of(), rules);
+        this(name, plannerContext, stats, statsCalculator, costCalculator, session -> false, ImmutableList.of(), rules);
     }
 
-    public IterativeOptimizer(PlannerContext plannerContext, RuleStatsRecorder stats, StatsCalculator statsCalculator, CostCalculator costCalculator, Predicate<Session> useLegacyRules, List<PlanOptimizer> legacyRules, Set<Rule<?>> newRules)
+    public IterativeOptimizer(String name, PlannerContext plannerContext, RuleStatsRecorder stats, StatsCalculator statsCalculator, CostCalculator costCalculator, Predicate<Session> useLegacyRules, List<PlanOptimizer> legacyRules, Set<Rule<?>> newRules)
     {
+        this.name = requireNonNull(name, "name is null");
         this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
         this.stats = requireNonNull(stats, "stats is null");
         this.statsCalculator = requireNonNull(statsCalculator, "statsCalculator is null");
@@ -128,6 +130,16 @@ public class IterativeOptimizer
         exploreGroup(memo.getRootGroup(), optimizerContext, changedPlanNodeIds);
         context.planOptimizersStatsCollector().add(optimizerContext.getIterativeOptimizerStatsCollector());
         return new Result(memo.extract(), ImmutableSet.copyOf(changedPlanNodeIds));
+    }
+
+    public IterativeOptimizer withName(String name)
+    {
+        return new IterativeOptimizer(name, plannerContext, stats, statsCalculator, costCalculator, useLegacyRules, legacyRules, rules);
+    }
+
+    public String getName()
+    {
+        return name;
     }
 
     // Used for diagnostics.

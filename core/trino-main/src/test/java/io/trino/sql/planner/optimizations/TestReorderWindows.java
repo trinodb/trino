@@ -345,6 +345,7 @@ public class TestReorderWindows
                         false,
                         false),
                 new IterativeOptimizer(
+                        "TestReorderWindows",
                         getPlanTester().getPlannerContext(),
                         new RuleStatsRecorder(),
                         getPlanTester().getStatsCalculator(),

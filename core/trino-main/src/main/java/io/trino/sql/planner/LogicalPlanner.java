@@ -328,13 +328,11 @@ public class LogicalPlanner
         if (!Span.fromContext(Context.current()).isRecording()) {
             return null;
         }
+        String optimizerName = (optimizer instanceof IterativeOptimizer iterative)
+                ? "Iterative:" + iterative.getName()
+                : optimizer.getClass().getSimpleName();
         SpanBuilder builder = plannerContext.getTracer().spanBuilder("optimize")
-                .setAttribute(TrinoAttributes.OPTIMIZER_NAME, optimizer.getClass().getSimpleName());
-        if (optimizer instanceof IterativeOptimizer iterative) {
-            builder.setAttribute(TrinoAttributes.OPTIMIZER_RULES, iterative.getRules().stream()
-                    .map(x -> x.getClass().getSimpleName())
-                    .toList());
-        }
+                .setAttribute(TrinoAttributes.OPTIMIZER_NAME, optimizerName);
         return scopedSpan(builder.startSpan());
     }
 

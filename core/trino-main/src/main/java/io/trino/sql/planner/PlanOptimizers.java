@@ -360,6 +360,7 @@ public class PlanOptimizers
                 new PushLimitThroughUnion());
 
         IterativeOptimizer inlineProjections = new IterativeOptimizer(
+                "InlineProjections",
                 plannerContext,
                 ruleStats,
                 statsCalculator,
@@ -382,6 +383,7 @@ public class PlanOptimizers
                 .add(new RemoveTrivialFilters())
                 .build();
         IterativeOptimizer simplifyOptimizer = new IterativeOptimizer(
+                "SimplifyExpressions",
                 plannerContext,
                 ruleStats,
                 statsCalculator,
@@ -389,6 +391,7 @@ public class PlanOptimizers
                 simplifyOptimizerRules);
 
         IterativeOptimizer columnPruningOptimizer = new IterativeOptimizer(
+                "PruneUnreferencedOutputs",
                 plannerContext,
                 ruleStats,
                 statsCalculator,
@@ -398,6 +401,7 @@ public class PlanOptimizers
         builder.add(
                 // Clean up all the sugar in expressions, e.g. AtTimeZone, must be run before all the other optimizers
                 new IterativeOptimizer(
+                        "DesugarLambdaExpressions",
                         plannerContext,
                         ruleStats,
                         statsCalculator,
@@ -406,6 +410,7 @@ public class PlanOptimizers
                                 .addAll(new DesugarLambdaExpression().rules())
                                 .build()),
                 new IterativeOptimizer(
+                        "CanonicalizeRowPattern",
                         plannerContext,
                         ruleStats,
                         statsCalculator,
@@ -415,6 +420,7 @@ public class PlanOptimizers
                                 .add(new OptimizeRowPattern())
                                 .build()),
                 new IterativeOptimizer(
+                        "InitialPlanCleanup",
                         plannerContext,
                         ruleStats,
                         statsCalculator,
@@ -470,6 +476,7 @@ public class PlanOptimizers
                 // MergeUnion and related projection pruning rules must run before limit pushdown rules, otherwise
                 // an intermediate limit node will prevent unions from being merged later on
                 new IterativeOptimizer(
+                        "MergeUnionsBeforeLimitPushdown",
                         plannerContext,
                         ruleStats,
                         statsCalculator,
@@ -491,20 +498,24 @@ public class PlanOptimizers
                                         new RemoveRedundantIdentityProjections()))
                                 .build()),
                 new IterativeOptimizer(
+                        "ImplementOffsets",
                         plannerContext,
                         ruleStats,
                         statsCalculator,
                         costCalculator,
                         ImmutableSet.of(new ImplementOffset())),
-                simplifyOptimizer,
+                simplifyOptimizer
+                        .withName("SimplifyExpressionsBeforeUnalias"),
                 new UnaliasSymbolReferences(),
                 new IterativeOptimizer(
+                        "RemoveIdentityProjections",
                         plannerContext,
                         ruleStats,
                         statsCalculator,
                         costCalculator,
                         ImmutableSet.of(new RemoveRedundantIdentityProjections())),
                 new IterativeOptimizer(
+                        "MergeSetOperations",
                         plannerContext,
                         ruleStats,
                         statsCalculator,
@@ -515,6 +526,7 @@ public class PlanOptimizers
                                 new MergeExcept(),
                                 new PruneDistinctAggregation())),
                 new IterativeOptimizer(
+                        "ImplementSetOperationsAsUnion",
                         plannerContext,
                         ruleStats,
                         statsCalculator,
@@ -525,15 +537,19 @@ public class PlanOptimizers
                                 new ImplementIntersectAll(metadata),
                                 new ImplementExceptAll(metadata))),
                 new LimitPushDown(), // Run the LimitPushDown after flattening set operators to make it easier to do the set flattening
-                columnPruningOptimizer,
-                inlineProjections,
+                columnPruningOptimizer
+                        .withName("PruneOutputsAfterSetOperationRewrite"),
+                inlineProjections
+                        .withName("InlineProjectionsAfterSetRewrite"),
                 new IterativeOptimizer(
+                        "PruneAfterSetFlattening",
                         plannerContext,
                         ruleStats,
                         statsCalculator,
                         costCalculator,
                         columnPruningRules),
                 new IterativeOptimizer(
+                        "RewriteExistsApply",
                         plannerContext,
                         ruleStats,
                         statsCalculator,
@@ -541,6 +557,7 @@ public class PlanOptimizers
                         ImmutableSet.of(new TransformExistsApplyToCorrelatedJoin(plannerContext))),
                 new TransformQuantifiedComparisonApplyToCorrelatedJoin(metadata),
                 new IterativeOptimizer(
+                        "DecorrelateSubqueries",
                         plannerContext,
                         ruleStats,
                         statsCalculator,
@@ -561,6 +578,7 @@ public class PlanOptimizers
                                 new TransformCorrelatedGroupedAggregationWithProjection(plannerContext),
                                 new TransformCorrelatedGroupedAggregationWithoutProjection(plannerContext))),
                 new IterativeOptimizer(
+                        "RewriteCorrelatedSubqueries",
                         plannerContext,
                         ruleStats,
                         statsCalculator,
@@ -573,6 +591,7 @@ public class PlanOptimizers
                                 new TransformCorrelatedJoinToJoin(plannerContext),
                                 new ImplementFilteredAggregations())),
                 new IterativeOptimizer(
+                        "FinalizeCorrelatedSubqueries",
                         plannerContext,
                         ruleStats,
                         statsCalculator,
@@ -585,11 +604,13 @@ public class PlanOptimizers
                                 new MergeProjectWithValues(),
                                 new ReplaceJoinOverConstantWithProject())),
                 new CheckSubqueryNodesAreRewritten(),
-                simplifyOptimizer, // Should run after MergeProjectWithValues
+                simplifyOptimizer // Should run after MergeProjectWithValues
+                        .withName("SimplifyExpressionsAfterMergeValues"),
                 new StatsRecordingPlanOptimizer(
                         optimizerStats,
                         new PredicatePushDown(plannerContext, false, false)),
                 new IterativeOptimizer(
+                        "PostSubqueryPredicateCleanup",
                         plannerContext,
                         ruleStats,
                         statsCalculator,
@@ -603,6 +624,7 @@ public class PlanOptimizers
                                 new TransformFilteringSemiJoinToInnerJoin(), // must run after PredicatePushDown
                                 new RemoveRedundantDistinctAggregation())), // must also be run after TransformFilteringSemiJoinToInnerJoin
                 new IterativeOptimizer(
+                        "InlineFiltersAndPushFilterThroughAggregation",
                         plannerContext,
                         ruleStats,
                         statsCalculator,
@@ -625,6 +647,7 @@ public class PlanOptimizers
         // Column pruning rules need to be run after redirection
         builder.add(
                 new IterativeOptimizer(
+                        "ApplyTableScanRedirection",
                         plannerContext,
                         ruleStats,
                         statsCalculator,
@@ -649,16 +672,20 @@ public class PlanOptimizers
                 .add(new RewriteExcludeColumnsFunctionToProjection()) // must run after ImplementTableFunctionSource
                 .build();
         IterativeOptimizer pushIntoTableScanOptimizer = new IterativeOptimizer(
+                "PushIntoTableScan",
                 plannerContext,
                 ruleStats,
                 statsCalculator,
                 costCalculator,
                 pushIntoTableScanRulesExceptJoins);
-        builder.add(pushIntoTableScanOptimizer);
+        builder.add(pushIntoTableScanOptimizer
+                .withName("PushIntoTableScanBeforeUnalias"));
         builder.add(new UnaliasSymbolReferences());
-        builder.add(pushIntoTableScanOptimizer); // TODO (https://github.com/trinodb/trino/issues/811) merge with the above after migrating UnaliasSymbolReferences to rules
+        builder.add(pushIntoTableScanOptimizer // TODO (https://github.com/trinodb/trino/issues/811) merge with the above after migrating UnaliasSymbolReferences to rules
+                .withName("PushIntoTableScanAfterUnalias"));
 
         IterativeOptimizer pushProjectionIntoTableScanOptimizer = new IterativeOptimizer(
+                "PushProjectionIntoTableScan",
                 plannerContext,
                 ruleStats,
                 statsCalculator,
@@ -670,6 +697,7 @@ public class PlanOptimizers
 
         builder.add(
                 new IterativeOptimizer(
+                        "ImplementBernoulliSample",
                         plannerContext,
                         ruleStats,
                         statsCalculator,
@@ -677,8 +705,10 @@ public class PlanOptimizers
                         // Temporary hack: separate optimizer step to avoid the sample node being replaced by filter before pushing
                         // it to table scan node
                         ImmutableSet.of(new ImplementBernoulliSampleAsFilter(metadata))),
-                columnPruningOptimizer,
+                columnPruningOptimizer
+                        .withName("PruneOutputsAfterSamplePushdown"),
                 new IterativeOptimizer(
+                        "OptimizeDistinctAggregations",
                         plannerContext,
                         ruleStats,
                         statsCalculator,
@@ -699,14 +729,18 @@ public class PlanOptimizers
                                 // It also is run before MultipleDistinctAggregationToMarkDistinct to take precedence f enabled
                                 new ImplementFilteredAggregations(), // DistinctAggregationToGroupBy will add filters if fired
                                 new MultipleDistinctAggregationToMarkDistinct(taskCountEstimator, metadata))), // Run this after aggregation pushdown so that multiple distinct aggregations can be pushed into a connector
-                inlineProjections,
-                simplifyOptimizer, // Re-run the SimplifyExpressions to simplify any recomposed expressions from other optimizations
-                pushProjectionIntoTableScanOptimizer,
+                inlineProjections
+                        .withName("InlineProjectionsAfterDistinctAggregations"),
+                simplifyOptimizer // Re-run the SimplifyExpressions to simplify any recomposed expressions from other optimizations
+                        .withName("SimplifyExpressionsAfterDistinctAggregations"),
+                pushProjectionIntoTableScanOptimizer
+                        .withName("PushProjectionIntoTableScanAfterDistinctRewrite"),
                 // Projection pushdown rules may push reducing projections (e.g. dereferences) below filters for potential
                 // pushdown into the connectors. We invoke PredicatePushdown and PushPredicateIntoTableScan after this
                 // to leverage predicate pushdown on projected columns.
                 new StatsRecordingPlanOptimizer(optimizerStats, new PredicatePushDown(plannerContext, true, false)),
                 new IterativeOptimizer(
+                        "SimplifyAfterPredicatePushdown",
                         plannerContext,
                         ruleStats,
                         statsCalculator,
@@ -716,11 +750,13 @@ public class PlanOptimizers
                                 .add(new PushPredicateIntoTableScan(plannerContext, false))
                                 .build()),
                 new UnaliasSymbolReferences(), // Run again because predicate pushdown and projection pushdown might add more projections
-                columnPruningOptimizer, // Make sure to run this before index join. Filtered projections may not have all the columns.
+                columnPruningOptimizer // Make sure to run this before index join. Filtered projections may not have all the columns.
+                        .withName("PruneOutputsBeforeIndexJoin"),
                 new IndexJoinOptimizer(plannerContext), // Run this after projections and filters have been fully simplified and pushed down
                 new LimitPushDown(), // Run LimitPushDown before WindowFilterPushDown
                 // This must run after PredicatePushDown and LimitPushDown so that it squashes any successive filter nodes and limits
                 new IterativeOptimizer(
+                        "PushDownWindowFilters",
                         plannerContext,
                         ruleStats,
                         statsCalculator,
@@ -739,6 +775,7 @@ public class PlanOptimizers
                                 new ReplaceJoinOverConstantWithProject(),
                                 new ReplaceWindowWithRowNumber())),
                 new IterativeOptimizer(
+                        "MergeWindows",
                         plannerContext,
                         ruleStats,
                         statsCalculator,
@@ -751,9 +788,12 @@ public class PlanOptimizers
                                 .add(new PushPredicateThroughProjectIntoRowNumber(plannerContext))
                                 .add(new PushPredicateThroughProjectIntoWindow(plannerContext))
                                 .build()),
-                inlineProjections,
-                columnPruningOptimizer, // Make sure to run this at the end to help clean the plan for logging/execution and not remove info that other optimizers might need at an earlier point
+                inlineProjections
+                        .withName("InlineProjectionsAfterWindowMerging"),
+                columnPruningOptimizer // Make sure to run this at the end to help clean the plan for logging/execution and not remove info that other optimizers might need at an earlier point
+                        .withName("PruneOutputsAfterWindowMerging"),
                 new IterativeOptimizer(
+                        "PushPatternRecognitionProjections",
                         plannerContext,
                         ruleStats,
                         statsCalculator,
@@ -763,6 +803,7 @@ public class PlanOptimizers
                                 new PushDownProjectionsFromPatternRecognition())),
                 new MetadataQueryOptimizer(plannerContext),
                 new IterativeOptimizer(
+                        "EliminateCrossJoins",
                         plannerContext,
                         ruleStats,
                         statsCalculator,
@@ -774,6 +815,7 @@ public class PlanOptimizers
                         optimizerStats,
                         new PredicatePushDown(plannerContext, true, false)),
                 new IterativeOptimizer(
+                        "SimplifyAfterCrossJoinPushdown",
                         plannerContext,
                         ruleStats,
                         statsCalculator,
@@ -782,12 +824,14 @@ public class PlanOptimizers
                                 .addAll(simplifyOptimizerRules) // Should be always run after PredicatePushDown
                                 .add(new PushPredicateIntoTableScan(plannerContext, false))
                                 .build()),
-                pushProjectionIntoTableScanOptimizer,
+                pushProjectionIntoTableScanOptimizer
+                        .withName("PushProjectionIntoTableScanAfterCrossJoin"),
                 // Projection pushdown rules may push reducing projections (e.g. dereferences) below filters for potential
                 // pushdown into the connectors. Invoke PredicatePushdown and PushPredicateIntoTableScan after this
                 // to leverage predicate pushdown on projected columns.
                 new StatsRecordingPlanOptimizer(optimizerStats, new PredicatePushDown(plannerContext, true, false)),
                 new IterativeOptimizer(
+                        "SimplifyAfterProjectionPushdown",
                         plannerContext,
                         ruleStats,
                         statsCalculator,
@@ -796,8 +840,10 @@ public class PlanOptimizers
                                 .addAll(simplifyOptimizerRules) // Should be always run after PredicatePushDown
                                 .add(new PushPredicateIntoTableScan(plannerContext, false))
                                 .build()),
-                columnPruningOptimizer,
+                columnPruningOptimizer
+                        .withName("PruneOutputsBeforeJoinReordering"),
                 new IterativeOptimizer(
+                        "CleanupBeforeJoinReordering",
                         plannerContext,
                         ruleStats,
                         statsCalculator,
@@ -808,6 +854,7 @@ public class PlanOptimizers
                 // need to run beforehand in order to produce an optimal join order
                 // It also needs to run after EliminateCrossJoins so that its chosen order doesn't get undone.
                 new IterativeOptimizer(
+                        "ReorderJoins",
                         plannerContext,
                         ruleStats,
                         statsCalculator,
@@ -817,6 +864,7 @@ public class PlanOptimizers
                 new StatsRecordingPlanOptimizer(optimizerStats, new PredicatePushDown(plannerContext, true, false)));
 
         builder.add(new IterativeOptimizer(
+                "PushTopN",
                 plannerContext,
                 ruleStats,
                 statsCalculator,
@@ -828,6 +876,7 @@ public class PlanOptimizers
                         new PushTopNThroughUnion(),
                         new PushTopNIntoTableScan(metadata))));
         builder.add(new IterativeOptimizer(
+                "ExtractSpatialJoins",
                 plannerContext,
                 ruleStats,
                 statsCalculator,
@@ -841,6 +890,7 @@ public class PlanOptimizers
                         .build()));
 
         builder.add(new IterativeOptimizer(
+                "OptimizeWritesAndScanPartitioning",
                 plannerContext,
                 ruleStats,
                 statsCalculator,
@@ -858,6 +908,7 @@ public class PlanOptimizers
         // does this pruning - and we may end up with empty union branches after that. We invoke PushPredicateIntoTableScan
         // and rules to remove empty branches here to get empty values node through pushdown and then prune them.
         builder.add(new IterativeOptimizer(
+                "PruneEmptyPlansAfterScanPushdown",
                 plannerContext,
                 ruleStats,
                 statsCalculator,
@@ -871,6 +922,7 @@ public class PlanOptimizers
 
         if (!forceSingleNode) {
             builder.add(new IterativeOptimizer(
+                    "DetermineJoinDistributions",
                     plannerContext,
                     ruleStats,
                     statsCalculator,
@@ -882,6 +934,7 @@ public class PlanOptimizers
                             new DetermineSemiJoinDistributionType(costComparator, taskCountEstimator))));
 
             builder.add(new IterativeOptimizer(
+                    "PushJoinIntoTableScan",
                     plannerContext,
                     ruleStats,
                     statsCalculator,
@@ -898,6 +951,7 @@ public class PlanOptimizers
 
             builder.add(
                     new IterativeOptimizer(
+                            "PushTableWriteThroughUnion",
                             plannerContext,
                             ruleStats,
                             statsCalculator,
@@ -916,6 +970,7 @@ public class PlanOptimizers
 
         builder.add(
                 new IterativeOptimizer(
+                        "RemoveEmptyWrites",
                         plannerContext,
                         ruleStats,
                         statsCalculator,
@@ -931,6 +986,7 @@ public class PlanOptimizers
                 optimizerStats,
                 new PredicatePushDown(plannerContext, true, false)));
         builder.add(new IterativeOptimizer(
+                "SimplifyAfterLayoutPredicatePushdown",
                 plannerContext,
                 ruleStats,
                 statsCalculator,
@@ -941,8 +997,10 @@ public class PlanOptimizers
                         .add(new ReplaceJoinOverConstantWithProject())
                         .add(new RemoveRedundantPredicateAboveTableScan(plannerContext))
                         .build()));
-        builder.add(pushProjectionIntoTableScanOptimizer);
+        builder.add(pushProjectionIntoTableScanOptimizer
+                .withName("PushProjectionIntoTableScanAfterLayoutPushdown"));
         builder.add(new IterativeOptimizer(
+                "PushInequalityBelowJoin",
                 plannerContext,
                 ruleStats,
                 statsCalculator,
@@ -953,6 +1011,7 @@ public class PlanOptimizers
         // to leverage predicate pushdown on projected columns and to pushdown dynamic filters.
         builder.add(new StatsRecordingPlanOptimizer(optimizerStats, new PredicatePushDown(plannerContext, true, true)));
         builder.add(new IterativeOptimizer(
+                "CleanupAfterDynamicFilterPushdown",
                 plannerContext,
                 ruleStats,
                 statsCalculator,
@@ -968,11 +1027,14 @@ public class PlanOptimizers
         // Remove unsupported dynamic filters introduced by PredicatePushdown. Also, cleanup dynamic filters removed by
         // PushPredicateIntoTableScan and RemoveRedundantPredicateAboveTableScan due to those rules replacing table scans with empty ValuesNode
         builder.add(new RemoveUnsupportedDynamicFilters(plannerContext));
-        builder.add(inlineProjections);
+        builder.add(inlineProjections
+                .withName("InlineProjectionsAfterDynamicFilterCleanup"));
         builder.add(new UnaliasSymbolReferences()); // Run unalias after merging projections to simplify projections more efficiently
-        builder.add(columnPruningOptimizer);
+        builder.add(columnPruningOptimizer
+                .withName("PruneOutputsAfterFinalUnalias"));
 
         builder.add(new IterativeOptimizer(
+                "PushRemoteExchangeThroughAssignUniqueId",
                 plannerContext,
                 ruleStats,
                 statsCalculator,
@@ -987,6 +1049,7 @@ public class PlanOptimizers
         builder.add(new AddLocalExchanges(plannerContext));
         // UseNonPartitionedJoinLookupSource needs to run after AddLocalExchanges since it operates on ExchangeNodes added by this optimizer.
         builder.add(new IterativeOptimizer(
+                "OptimizeLocalExchangeConsumers",
                 plannerContext,
                 ruleStats,
                 statsCalculator,
@@ -998,6 +1061,7 @@ public class PlanOptimizers
         // Optimizers above this do not need to care about aggregations with the type other than SINGLE
         // This optimizer must be run after all exchange-related optimizers
         builder.add(new IterativeOptimizer(
+                "PushPartialAggregations",
                 plannerContext,
                 ruleStats,
                 statsCalculator,
@@ -1010,12 +1074,14 @@ public class PlanOptimizers
                                 new RemoveRedundantIdentityProjections())
                         .build()));
         builder.add(new IterativeOptimizer(
+                "AddPartialAggBelowGroupIdExchanges",
                 plannerContext,
                 ruleStats,
                 statsCalculator,
                 costCalculator,
                 new AddExchangesBelowPartialAggregationOverGroupIdRuleSet(plannerContext, taskCountEstimator, taskManagerConfig).rules()));
         builder.add(new IterativeOptimizer(
+                "AddIntermediateAggregations",
                 plannerContext,
                 ruleStats,
                 statsCalculator,
@@ -1026,6 +1092,7 @@ public class PlanOptimizers
         // DO NOT add optimizers that change the plan shape (computations) after this point
 
         builder.add(new IterativeOptimizer(
+                "AddDynamicFilterSources",
                 plannerContext,
                 ruleStats,
                 statsCalculator,
@@ -1046,6 +1113,7 @@ public class PlanOptimizers
         ImmutableList.Builder<AdaptivePlanOptimizer> adaptivePlanOptimizers = ImmutableList.builder();
         adaptivePlanOptimizers.add(new AdaptivePartitioning());
         adaptivePlanOptimizers.add(new IterativeOptimizer(
+                "AdaptiveReorderPartitionedJoin",
                 plannerContext,
                 ruleStats,
                 statsCalculator,
