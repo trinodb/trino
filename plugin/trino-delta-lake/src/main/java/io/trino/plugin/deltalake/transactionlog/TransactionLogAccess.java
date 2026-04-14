@@ -449,7 +449,7 @@ public class TransactionLogAccess
         Map<FileEntryKey, AddFileEntry> activeJsonEntries = new LinkedHashMap<>();
         HashSet<FileEntryKey> removedFiles = new HashSet<>();
 
-        // The json entries containing the last few entries in the log need to be applied on top of the parquet snapshot:
+        // The JSON entries containing the last few entries in the log need to be applied on top of the parquet snapshot:
         // - Any files which have been removed need to be excluded
         // - Any files with newer add actions need to be updated with the most recent metadata
         transactions.forEach(transaction -> {
@@ -509,15 +509,25 @@ public class TransactionLogAccess
             return entries;
         }
 
+        tryUpdateCommitInfoIfPossible(builder, fileSystem, tableSnapshot);
+
+        Set<CheckpointEntryIterator.EntryType> entryTypes = resolveCheckpointReadTypes(builder);
+        if (entryTypes.isEmpty()) {
+            MetadataAndProtocolEntries entries = builder.build();
+            tableSnapshot.updateCachedEntries(entries);
+            return entries;
+        }
+
         MetadataAndProtocolEntries checkpointEntries = getCheckpointEntry(
                 session,
                 tableSnapshot,
-                resolveCheckpointReadTypes(builder),
+                entryTypes,
                 checkpointStream -> {
                     for (Iterator<DeltaLakeTransactionLogEntry> it = checkpointStream.iterator(); it.hasNext(); ) {
                         DeltaLakeTransactionLogEntry transactionLogEntry = it.next();
                         builder.withTransactionLogEntry(transactionLogEntry);
-                        if (builder.isFull()) {
+                        // checkpoint don't contain commitInfo entry
+                        if (builder.hasMetadata() && builder.hasProtocol()) {
                             return Optional.of(builder.build());
                         }
                     }
@@ -545,6 +555,31 @@ public class TransactionLogAccess
         }
 
         return typesForRead.build();
+    }
+
+    private void tryUpdateCommitInfoIfPossible(MetadataAndProtocolEntries.Builder builder, TrinoFileSystem fileSystem, TableSnapshot tableSnapshot)
+    {
+        if (builder.hasCommitInfo()) {
+            return;
+        }
+
+        // we have looked up in the transaction logs and can't find the commitInfo
+        if (!tableSnapshot.getTransactions().isEmpty()) {
+            return;
+        }
+
+        // we didn't try to find the commitInfo in any transaction logs, probably because there are no transactions in the log(table just created)
+        // or there exists logs but just has written the checkpoint, but we didn't persist the commitInfo in the checkpoint, in this case we should
+        // look at the last log to try to find the commitInfo.
+        String tableLocation = tableSnapshot.getTableLocation();
+        String transactionLogDir = getTransactionLogDir(tableLocation);
+        try (Stream<DeltaLakeTransactionLogEntry> entryStream = getJsonEntries(fileSystem, transactionLogDir, ImmutableList.of(tableSnapshot.getVersion()))) {
+            // TODO: optimize the logic for inCommitTimestamp https://github.com/delta-io/delta/blob/master/PROTOCOL.md#writer-requirements-for-in-commit-timestamps
+            entryStream.map(DeltaLakeTransactionLogEntry::getCommitInfo)
+                    .filter(Objects::nonNull)
+                    .findFirst()
+                    .ifPresent(builder::withCommitInfo);
+        }
     }
 
     private <T> Optional<T> getCheckpointEntry(

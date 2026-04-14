@@ -41,6 +41,7 @@ public class DeltaTableOptimizeHandle
     private final boolean retriesEnabled;
     private final TupleDomain<DeltaLakeColumnHandle> enforcedPartitionConstraint;
     private final VendedCredentialsHandle credentialsHandle;
+    private final Optional<String> extendedStatsFile;
 
     @JsonCreator
     public DeltaTableOptimizeHandle(
@@ -52,7 +53,8 @@ public class DeltaTableOptimizeHandle
             Optional<Long> currentVersion,
             boolean retriesEnabled,
             TupleDomain<DeltaLakeColumnHandle> enforcedPartitionConstraint,
-            VendedCredentialsHandle credentialsHandle)
+            VendedCredentialsHandle credentialsHandle,
+            Optional<String> extendedStatsFile)
     {
         this.metadataEntry = requireNonNull(metadataEntry, "metadataEntry is null");
         this.protocolEntry = requireNonNull(protocolEntry, "protocolEntry is null");
@@ -63,6 +65,7 @@ public class DeltaTableOptimizeHandle
         this.retriesEnabled = retriesEnabled;
         this.enforcedPartitionConstraint = requireNonNull(enforcedPartitionConstraint, "enforcedPartitionConstraint is null");
         this.credentialsHandle = requireNonNull(credentialsHandle, "credentialsHandle is null");
+        this.extendedStatsFile = requireNonNull(extendedStatsFile, "extendedStatsFile is null");
     }
 
     public DeltaTableOptimizeHandle withCurrentVersion(long currentVersion)
@@ -77,7 +80,8 @@ public class DeltaTableOptimizeHandle
                 Optional.of(currentVersion),
                 retriesEnabled,
                 enforcedPartitionConstraint,
-                credentialsHandle);
+                credentialsHandle,
+                extendedStatsFile);
     }
 
     public DeltaTableOptimizeHandle withEnforcedPartitionConstraint(TupleDomain<DeltaLakeColumnHandle> enforcedPartitionConstraint)
@@ -91,7 +95,8 @@ public class DeltaTableOptimizeHandle
                 currentVersion,
                 retriesEnabled,
                 requireNonNull(enforcedPartitionConstraint, "enforcedPartitionConstraint is null"),
-                credentialsHandle);
+                credentialsHandle,
+                extendedStatsFile);
     }
 
     @JsonProperty
@@ -149,5 +154,11 @@ public class DeltaTableOptimizeHandle
     public VendedCredentialsHandle getCredentialsHandle()
     {
         return credentialsHandle;
+    }
+
+    @JsonProperty
+    public Optional<String> getExtendedStatsFile()
+    {
+        return extendedStatsFile;
     }
 }

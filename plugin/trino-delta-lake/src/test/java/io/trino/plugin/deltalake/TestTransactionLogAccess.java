@@ -627,7 +627,8 @@ public class TestTransactionLogAccess
                                     Optional.empty(),
                                     Optional.empty(),
                                     0,
-                                    false),
+                                    false,
+                                    Optional.empty()),
                             updatedTableSnapshot,
                             TupleDomain.all(),
                             alwaysTrue())) {

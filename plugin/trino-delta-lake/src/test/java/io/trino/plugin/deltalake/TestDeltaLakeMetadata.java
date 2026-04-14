@@ -499,7 +499,8 @@ public class TestDeltaLakeMetadata
                 Optional.of(projectedColumns),
                 Optional.empty(),
                 0,
-                false);
+                false,
+                Optional.empty());
     }
 
     private static TupleDomain<DeltaLakeColumnHandle> createConstrainedColumnsTuple(

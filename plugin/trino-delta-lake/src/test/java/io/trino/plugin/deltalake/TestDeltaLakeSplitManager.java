@@ -99,7 +99,8 @@ public class TestDeltaLakeSplitManager
             Optional.empty(),
             Optional.empty(),
             0,
-            false);
+            false,
+            Optional.empty());
     private final HiveTransactionHandle transactionHandle = new HiveTransactionHandle(true);
 
     @Test

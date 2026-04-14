@@ -21,22 +21,43 @@ import java.util.Optional;
 
 public interface ExtendedStatisticsAccess
 {
+    /**
+     * Reads the extended statistics for a table from the given stats file.
+     *
+     * @return the extended statistics, or {@link Optional#empty()} if the file does not exist
+     */
     Optional<ExtendedStatistics> readExtendedStatistics(
             ConnectorSession session,
             SchemaTableName schemaTableName,
             String tableLocation,
+            String extendedStatsFile,
             VendedCredentialsHandle credentialsHandle);
 
-    void updateExtendedStatistics(
+    /**
+     * Writes the given extended statistics to a new file under the table's stats directory,
+     * then deletes the previous stats file if one existed.
+     * <p>
+     * The caller must persist the returned filename in the
+     * <a href="https://github.com/delta-io/delta/blob/master/PROTOCOL.md#commit-provenance-information">commitInfo</a>
+     * entry of the transaction log; otherwise the written statistics will not be discoverable on subsequent reads.
+     *
+     * @return the name of the newly written stats file
+     */
+    String updateExtendedStatistics(
             ConnectorSession session,
             SchemaTableName schemaTableName,
             String tableLocation,
+            Optional<String> previousExtendedStatsFile,
             VendedCredentialsHandle credentialsHandle,
             ExtendedStatistics statistics);
 
+    /**
+     * Deletes the extended statistics file for a table. No-op if the file does not exist.
+     */
     void deleteExtendedStatistics(
             ConnectorSession session,
             SchemaTableName schemaTableName,
             String tableLocation,
+            String extendedStatsFile,
             VendedCredentialsHandle credentialsHandle);
 }

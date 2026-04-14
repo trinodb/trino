@@ -32,6 +32,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static io.trino.plugin.base.util.Procedures.checkProcedureArgument;
+import static io.trino.plugin.deltalake.statistics.MetaDirStatisticsAccess.STATISTICS_FILE;
 import static io.trino.spi.StandardErrorCode.INVALID_PROCEDURE_ARGUMENT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.String.format;
@@ -88,7 +89,7 @@ public class DropExtendedStatsProcedure
                 throw new TrinoException(INVALID_PROCEDURE_ARGUMENT, format("Table '%s' does not exist", name));
             }
             accessControl.checkCanInsertIntoTable(null, name);
-            statsAccess.deleteExtendedStatistics(session, name, tableHandle.location(), tableHandle.toCredentialsHandle());
+            statsAccess.deleteExtendedStatistics(session, name, tableHandle.location(), tableHandle.extendedStatsFile().orElse(STATISTICS_FILE), tableHandle.toCredentialsHandle());
         }
     }
 }

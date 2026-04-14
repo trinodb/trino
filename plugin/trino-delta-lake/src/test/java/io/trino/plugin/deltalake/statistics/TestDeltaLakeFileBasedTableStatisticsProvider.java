@@ -138,7 +138,8 @@ public class TestDeltaLakeFileBasedTableStatisticsProvider
                 Optional.empty(),
                 Optional.empty(),
                 0,
-                false);
+                false,
+                Optional.empty());
     }
 
     @Test
@@ -268,7 +269,8 @@ public class TestDeltaLakeFileBasedTableStatisticsProvider
                 tableHandle.getProjectedColumns(),
                 tableHandle.getAnalyzeHandle(),
                 0,
-                tableHandle.isTimeTravel());
+                tableHandle.isTimeTravel(),
+                tableHandle.extendedStatsFile());
         stats = getTableStatistics(SESSION, tableHandleWithUnenforcedConstraint);
         columnStatistics = stats.getColumnStatistics().get(COLUMN_HANDLE);
         assertThat(columnStatistics.getRange().get().getMin()).isEqualTo(0.0);
@@ -292,7 +294,8 @@ public class TestDeltaLakeFileBasedTableStatisticsProvider
                 tableHandle.getProjectedColumns(),
                 tableHandle.getAnalyzeHandle(),
                 0,
-                tableHandle.isTimeTravel());
+                tableHandle.isTimeTravel(),
+                tableHandle.extendedStatsFile());
         DeltaLakeTableHandle tableHandleWithNoneUnenforcedConstraint = new DeltaLakeTableHandle(
                 tableHandle.getSchemaName(),
                 tableHandle.getTableName(),
@@ -306,7 +309,8 @@ public class TestDeltaLakeFileBasedTableStatisticsProvider
                 tableHandle.getProjectedColumns(),
                 tableHandle.getAnalyzeHandle(),
                 0,
-                tableHandle.isTimeTravel());
+                tableHandle.isTimeTravel(),
+                tableHandle.extendedStatsFile());
         // If either the table handle's constraint or the provided Constraint are none, it will cause a 0 record count to be reported
         assertEmptyStats(getTableStatistics(SESSION, tableHandleWithNoneEnforcedConstraint));
         assertEmptyStats(getTableStatistics(SESSION, tableHandleWithNoneUnenforcedConstraint));
@@ -491,6 +495,6 @@ public class TestDeltaLakeFileBasedTableStatisticsProvider
     {
         SchemaTableName name = new SchemaTableName("some_ignored_schema", "some_ignored_name");
         String tableLocation = Resources.getResource(tableLocationResourceName).toExternalForm();
-        return statistics.readExtendedStatistics(SESSION, name, tableLocation, VendedCredentialsHandle.empty(tableLocation));
+        return statistics.readExtendedStatistics(SESSION, name, tableLocation, "extended_stats.json", VendedCredentialsHandle.empty(tableLocation));
     }
 }

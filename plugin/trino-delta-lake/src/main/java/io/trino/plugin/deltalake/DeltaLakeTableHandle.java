@@ -57,6 +57,9 @@ public class DeltaLakeTableHandle
     // Used only for validation when config property delta.query-partition-filter-required is enabled.
     private final Set<DeltaLakeColumnHandle> constraintColumns;
 
+    // For extended stats
+    private final Optional<String> extendedStatsFile;
+
     @JsonCreator
     public DeltaLakeTableHandle(
             @JsonProperty("schemaName") String schemaName,
@@ -71,7 +74,8 @@ public class DeltaLakeTableHandle
             @JsonProperty("projectedColumns") Optional<Set<DeltaLakeColumnHandle>> projectedColumns,
             @JsonProperty("analyzeHandle") Optional<AnalyzeHandle> analyzeHandle,
             @JsonProperty("readVersion") long readVersion,
-            @JsonProperty("timeTravel") boolean timeTravel)
+            @JsonProperty("timeTravel") boolean timeTravel,
+            @JsonProperty("extendedStatsFile") Optional<String> extendedStatsFile)
     {
         this(
                 schemaName,
@@ -90,7 +94,8 @@ public class DeltaLakeTableHandle
                 false,
                 Optional.empty(),
                 readVersion,
-                timeTravel);
+                timeTravel,
+                extendedStatsFile);
     }
 
     public DeltaLakeTableHandle(
@@ -110,7 +115,8 @@ public class DeltaLakeTableHandle
             boolean isOptimize,
             Optional<DataSize> maxScannedFileSize,
             long readVersion,
-            boolean timeTravel)
+            boolean timeTravel,
+            Optional<String> extendedStatsFile)
     {
         this.schemaName = requireNonNull(schemaName, "schemaName is null");
         this.tableName = requireNonNull(tableName, "tableName is null");
@@ -129,6 +135,7 @@ public class DeltaLakeTableHandle
         this.readVersion = readVersion;
         this.timeTravel = timeTravel;
         this.constraintColumns = ImmutableSet.copyOf(requireNonNull(constraintColumns, "constraintColumns is null"));
+        this.extendedStatsFile = requireNonNull(extendedStatsFile, "extendedStatsFileName is null");
     }
 
     public DeltaLakeTableHandle withProjectedColumns(Set<DeltaLakeColumnHandle> projectedColumns)
@@ -150,7 +157,8 @@ public class DeltaLakeTableHandle
                 isOptimize,
                 maxScannedFileSize,
                 readVersion,
-                timeTravel);
+                timeTravel,
+                extendedStatsFile);
     }
 
     public DeltaLakeTableHandle forOptimize(boolean recordScannedFiles, DataSize maxScannedFileSize)
@@ -172,7 +180,8 @@ public class DeltaLakeTableHandle
                 true,
                 Optional.of(maxScannedFileSize),
                 readVersion,
-                timeTravel);
+                timeTravel,
+                extendedStatsFile);
     }
 
     public DeltaLakeTableHandle forMerge()
@@ -194,7 +203,8 @@ public class DeltaLakeTableHandle
                 isOptimize,
                 maxScannedFileSize,
                 readVersion,
-                timeTravel);
+                timeTravel,
+                extendedStatsFile);
     }
 
     @Override
@@ -330,6 +340,13 @@ public class DeltaLakeTableHandle
     }
 
     @Override
+    @JsonProperty("extendedStatsFile")
+    public Optional<String> extendedStatsFile()
+    {
+        return extendedStatsFile;
+    }
+
+    @Override
     public String toString()
     {
         return getSchemaTableName().toString();
@@ -361,7 +378,8 @@ public class DeltaLakeTableHandle
                 isOptimize == that.isOptimize &&
                 Objects.equals(maxScannedFileSize, that.maxScannedFileSize) &&
                 readVersion == that.readVersion &&
-                timeTravel == that.timeTravel;
+                timeTravel == that.timeTravel &&
+                Objects.equals(extendedStatsFile, that.extendedStatsFile);
     }
 
     @Override
@@ -383,6 +401,7 @@ public class DeltaLakeTableHandle
                 isOptimize,
                 maxScannedFileSize,
                 readVersion,
-                timeTravel);
+                timeTravel,
+                extendedStatsFile);
     }
 }

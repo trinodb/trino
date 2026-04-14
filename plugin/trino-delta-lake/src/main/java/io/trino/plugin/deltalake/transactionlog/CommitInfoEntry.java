@@ -39,7 +39,8 @@ public record CommitInfoEntry(
         long readVersion,
         String isolationLevel,
         Optional<Boolean> isBlindAppend,
-        Map<String, String> operationMetrics)
+        Map<String, String> operationMetrics,
+        Optional<String> extendedStatsFile)
 {
     private static final int INSTANCE_SIZE = instanceSize(CommitInfoEntry.class);
 
@@ -50,7 +51,7 @@ public record CommitInfoEntry(
 
     public CommitInfoEntry withVersion(long version)
     {
-        return new CommitInfoEntry(version, inCommitTimestamp, timestamp, userId, userName, operation, operationParameters, job, notebook, clusterId, readVersion, isolationLevel, isBlindAppend, operationMetrics);
+        return new CommitInfoEntry(version, inCommitTimestamp, timestamp, userId, userName, operation, operationParameters, job, notebook, clusterId, readVersion, isolationLevel, isBlindAppend, operationMetrics, extendedStatsFile);
     }
 
     public long getRetainedSizeInBytes()
@@ -69,7 +70,8 @@ public record CommitInfoEntry(
                 + SIZE_OF_LONG
                 + estimatedSizeOf(isolationLevel)
                 + sizeOf(isBlindAppend, SizeOf::sizeOf)
-                + estimatedSizeOf(operationMetrics, SizeOf::estimatedSizeOf, SizeOf::estimatedSizeOf);
+                + estimatedSizeOf(operationMetrics, SizeOf::estimatedSizeOf, SizeOf::estimatedSizeOf)
+                + sizeOf(extendedStatsFile, SizeOf::estimatedSizeOf);
     }
 
     public record Job(String jobId, String jobName, String runId, String jobOwnerId, String triggerType)

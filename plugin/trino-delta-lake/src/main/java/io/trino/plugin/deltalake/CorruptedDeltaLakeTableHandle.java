@@ -26,7 +26,8 @@ public record CorruptedDeltaLakeTableHandle(
         boolean catalogOwned,
         boolean managed,
         String location,
-        TrinoException originalException)
+        TrinoException originalException,
+        Optional<String> extendedStatsFile)
         implements LocatedTableHandle
 {
     public CorruptedDeltaLakeTableHandle
@@ -34,6 +35,7 @@ public record CorruptedDeltaLakeTableHandle(
         requireNonNull(schemaTableName, "schemaTableName is null");
         requireNonNull(location, "location is null");
         requireNonNull(originalException, "originalException is null");
+        requireNonNull(extendedStatsFile, "extendedStatsFile is null");
     }
 
     public TrinoException createException()

@@ -18,7 +18,7 @@ import java.util.Optional;
 import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
 
-public record MetadataAndProtocolEntries(Optional<MetadataEntry> metadata, Optional<ProtocolEntry> protocol)
+public record MetadataAndProtocolEntries(Optional<MetadataEntry> metadata, Optional<ProtocolEntry> protocol, Optional<CommitInfoEntry> commitInfo)
 {
     private static final int INSTANCE_SIZE = instanceSize(MetadataAndProtocolEntries.class);
 
@@ -26,7 +26,8 @@ public record MetadataAndProtocolEntries(Optional<MetadataEntry> metadata, Optio
     {
         return INSTANCE_SIZE
                 + sizeOf(metadata, MetadataEntry::getRetainedSizeInBytes)
-                + sizeOf(protocol, ProtocolEntry::getRetainedSizeInBytes);
+                + sizeOf(protocol, ProtocolEntry::getRetainedSizeInBytes)
+                + sizeOf(commitInfo, CommitInfoEntry::getRetainedSizeInBytes);
     }
 
     public static Builder builder()
@@ -38,6 +39,7 @@ public record MetadataAndProtocolEntries(Optional<MetadataEntry> metadata, Optio
     {
         private Optional<MetadataEntry> metadataEntry = Optional.empty();
         private Optional<ProtocolEntry> protocolEntry = Optional.empty();
+        private Optional<CommitInfoEntry> commitInfoEntry = Optional.empty();
 
         public boolean hasMetadata()
         {
@@ -49,9 +51,14 @@ public record MetadataAndProtocolEntries(Optional<MetadataEntry> metadata, Optio
             return protocolEntry.isPresent();
         }
 
+        public boolean hasCommitInfo()
+        {
+            return commitInfoEntry.isPresent();
+        }
+
         public boolean isFull()
         {
-            return hasMetadata() && hasProtocol();
+            return hasMetadata() && hasProtocol() && hasCommitInfo();
         }
 
         public Builder withMetadataEntry(MetadataEntry metadataEntry)
@@ -66,6 +73,12 @@ public record MetadataAndProtocolEntries(Optional<MetadataEntry> metadata, Optio
             return this;
         }
 
+        public Builder withCommitInfo(CommitInfoEntry commitInfoEntry)
+        {
+            this.commitInfoEntry = Optional.of(commitInfoEntry);
+            return this;
+        }
+
         public Builder withEntries(MetadataAndProtocolEntries entries)
         {
             if (!hasMetadata() && entries.metadata().isPresent()) {
@@ -73,6 +86,9 @@ public record MetadataAndProtocolEntries(Optional<MetadataEntry> metadata, Optio
             }
             if (!hasProtocol() && entries.protocol().isPresent()) {
                 withProtocolEntry(entries.protocol().get());
+            }
+            if (!hasCommitInfo() && entries.commitInfo().isPresent()) {
+                withCommitInfo(entries.commitInfo().get());
             }
             return this;
         }
@@ -85,12 +101,15 @@ public record MetadataAndProtocolEntries(Optional<MetadataEntry> metadata, Optio
             if (protocolEntry.isEmpty() && transactionLogEntry.getProtocol() != null) {
                 withProtocolEntry(transactionLogEntry.getProtocol());
             }
+            if (commitInfoEntry.isEmpty() && transactionLogEntry.getCommitInfo() != null) {
+                withCommitInfo(transactionLogEntry.getCommitInfo());
+            }
             return this;
         }
 
         public MetadataAndProtocolEntries build()
         {
-            return new MetadataAndProtocolEntries(metadataEntry, protocolEntry);
+            return new MetadataAndProtocolEntries(metadataEntry, protocolEntry, commitInfoEntry);
         }
     }
 }
