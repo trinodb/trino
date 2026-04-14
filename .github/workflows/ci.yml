@@ -466,12 +466,13 @@ jobs:
                 - lib/trino-filesystem
                 - lib/trino-filesystem-azure
                 - lib/trino-filesystem-alluxio
-                - lib/trino-filesystem-cache-alluxio
                 - lib/trino-filesystem-gcs
                 - lib/trino-filesystem-manager
                 - lib/trino-filesystem-s3
                 - lib/trino-hdfs
                 - lib/trino-hive-formats
+                - plugin/trino-filesystem-cache-alluxio
+                - plugin/trino-filesystem-cache-memory
             - { modules: core/trino-main }
             - { modules: lib/trino-filesystem-azure, profile: cloud-tests }
             - { modules: lib/trino-filesystem-gcs, profile: cloud-tests }

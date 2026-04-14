@@ -18,7 +18,6 @@ import io.airlift.configuration.secrets.SecretsResolver;
 import io.airlift.log.Logger;
 import io.opentelemetry.api.OpenTelemetry;
 import io.opentelemetry.api.trace.Tracer;
-import io.trino.spi.TrinoException;
 import io.trino.spi.cache.CacheInfo;
 import io.trino.spi.cache.CacheTier;
 import io.trino.spi.cache.ConnectorCacheFactory;
@@ -26,6 +25,11 @@ import io.trino.spi.cache.FileSystemCacheManager;
 import io.trino.spi.cache.FileSystemCacheManagerFactory;
 import io.trino.spi.catalog.CatalogName;
 import io.trino.spi.classloader.ThreadContextClassLoader;
+import io.trino.spi.filesystem.Location;
+import io.trino.spi.filesystem.TrinoInput;
+import io.trino.spi.filesystem.TrinoInputFile;
+import io.trino.spi.filesystem.TrinoInputStream;
+import io.trino.spi.filesystem.cache.ConnectorFileSystemCache;
 import jakarta.annotation.PreDestroy;
 
 import java.io.File;
@@ -41,7 +45,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static io.airlift.configuration.ConfigurationLoader.loadPropertiesFrom;
-import static io.trino.spi.StandardErrorCode.NOT_FOUND;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -90,7 +93,7 @@ public class CacheManagerRegistry
         }
     }
 
-    private void loadCacheManager(String name, Map<String, String> properties)
+    public synchronized void loadCacheManager(String name, Map<String, String> properties)
     {
         log.info("-- Loading file system cache manager %s --", name);
 
@@ -111,32 +114,33 @@ public class CacheManagerRegistry
         log.info("-- Loaded file system cache manager %s for tier %s --", name, tier);
     }
 
-    public FileSystemCacheManager getFileSystemCacheManager(CacheTier tier)
-    {
-        FileSystemCacheManager manager = fileSystemManagers.get(tier);
-        if (manager == null) {
-            throw new TrinoException(NOT_FOUND, format("No file system cache manager registered for tier %s", tier));
-        }
-        return manager;
-    }
-
     public ConnectorCacheFactory createConnectorCacheFactory(CatalogName catalog)
     {
         requireNonNull(catalog, "catalog is null");
-        return (ttl, tier) -> getFileSystemCacheManager(tier).createFileSystemCache(catalog, ttl);
+        return (ttl, tier) -> {
+            FileSystemCacheManager manager = fileSystemManagers.get(tier);
+            if (manager == null) {
+                log.warn("Catalog %s requested file system cache manager tier %s but none registered, using noop".formatted(catalog, tier));
+                return new NoopConnectorFileSystemCache();
+            }
+            log.info("Created new file system cache on tier %s for catalog %s", tier, catalog);
+            return manager.createFileSystemCache(catalog, ttl);
+        };
     }
 
     public void invalidate(CatalogName catalog)
     {
-        for (FileSystemCacheManager manager : fileSystemManagers.values()) {
-            manager.invalidate(catalog);
+        for (Map.Entry<CacheTier, FileSystemCacheManager> entry : fileSystemManagers.entrySet()) {
+            log.info("Invalidating file system cache on tier %s for catalog %s", entry.getKey(), catalog);
+            entry.getValue().invalidate(catalog);
         }
     }
 
     public void drop(CatalogName catalog)
     {
-        for (FileSystemCacheManager manager : fileSystemManagers.values()) {
-            manager.drop(catalog);
+        for (Map.Entry<CacheTier, FileSystemCacheManager> entry : fileSystemManagers.entrySet()) {
+            log.info("Dropping file system cache on tier %s for catalog %s", entry.getKey(), catalog);
+            entry.getValue().drop(catalog);
         }
     }
 
@@ -169,6 +173,41 @@ public class CacheManagerRegistry
         }
         catch (IOException e) {
             throw new UncheckedIOException("Failed to read configuration file: " + configFile, e);
+        }
+    }
+
+    private static class NoopConnectorFileSystemCache
+            implements ConnectorFileSystemCache
+    {
+        @Override
+        public TrinoInput cacheInput(TrinoInputFile delegate, String key)
+                throws IOException
+        {
+            return delegate.newInput();
+        }
+
+        @Override
+        public TrinoInputStream cacheStream(TrinoInputFile delegate, String key)
+                throws IOException
+        {
+            return delegate.newStream();
+        }
+
+        @Override
+        public long cacheLength(TrinoInputFile delegate, String key)
+                throws IOException
+        {
+            return delegate.length();
+        }
+
+        @Override
+        public void expire(Location location)
+        {
+        }
+
+        @Override
+        public void expire(Collection<Location> locations)
+        {
         }
     }
 }

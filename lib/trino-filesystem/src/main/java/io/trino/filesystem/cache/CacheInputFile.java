@@ -17,6 +17,7 @@ import io.trino.spi.filesystem.Location;
 import io.trino.spi.filesystem.TrinoInput;
 import io.trino.spi.filesystem.TrinoInputFile;
 import io.trino.spi.filesystem.TrinoInputStream;
+import io.trino.spi.filesystem.cache.ConnectorFileSystemCache;
 
 import java.io.IOException;
 import java.time.Instant;
@@ -30,12 +31,12 @@ public final class CacheInputFile
         implements TrinoInputFile
 {
     private final TrinoInputFile delegate;
-    private final TrinoFileSystemCache cache;
+    private final ConnectorFileSystemCache cache;
     private final CacheKeyProvider keyProvider;
     private OptionalLong length;
     private Optional<Instant> lastModified;
 
-    public CacheInputFile(TrinoInputFile delegate, TrinoFileSystemCache cache, CacheKeyProvider keyProvider, OptionalLong length, Optional<Instant> lastModified)
+    public CacheInputFile(TrinoInputFile delegate, ConnectorFileSystemCache cache, CacheKeyProvider keyProvider, OptionalLong length, Optional<Instant> lastModified)
     {
         this.delegate = requireNonNull(delegate, "delegate is null");
         this.cache = requireNonNull(cache, "cache is null");

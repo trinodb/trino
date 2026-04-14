@@ -218,6 +218,7 @@ public class TestingTrinoServer
     private final boolean coordinator;
     private final FailureInjector failureInjector;
     private final ExchangeManagerRegistry exchangeManagerRegistry;
+    private final CacheManagerRegistry cacheManagerRegistry;
     private final SpoolingManagerRegistry spoolingManagerRegistry;
 
     public static class TestShutdownAction
@@ -432,6 +433,7 @@ public class TestingTrinoServer
         mBeanServer = injector.getInstance(MBeanServer.class);
         failureInjector = injector.getInstance(FailureInjector.class);
         exchangeManagerRegistry = injector.getInstance(ExchangeManagerRegistry.class);
+        cacheManagerRegistry = injector.getInstance(CacheManagerRegistry.class);
         spoolingManagerRegistry = injector.getInstance(SpoolingManagerRegistry.class);
 
         systemAccessControlConfiguration.ifPresentOrElse(
@@ -525,6 +527,11 @@ public class TestingTrinoServer
     public void loadExchangeManager(String name, Map<String, String> properties)
     {
         exchangeManagerRegistry.loadExchangeManager(name, properties);
+    }
+
+    public void loadCacheManager(String name, Map<String, String> properties)
+    {
+        cacheManagerRegistry.loadCacheManager(name, properties);
     }
 
     public void loadSpoolingManager(String name, Map<String, String> properties)

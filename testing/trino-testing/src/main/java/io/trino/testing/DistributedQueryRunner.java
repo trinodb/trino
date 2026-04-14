@@ -670,6 +670,14 @@ public final class DistributedQueryRunner
     }
 
     @Override
+    public void loadCacheManager(String name, Map<String, String> properties)
+    {
+        for (TestingTrinoServer server : servers) {
+            server.loadCacheManager(name, properties);
+        }
+    }
+
+    @Override
     public void loadSpoolingManager(String name, Map<String, String> properties)
     {
         for (TestingTrinoServer server : servers) {
@@ -738,6 +746,9 @@ public final class DistributedQueryRunner
         private boolean withTracing;
         private Optional<String> exchangeType = Optional.empty();
         private Optional<Map<String, String>> exchangeProperties = Optional.empty();
+        private Optional<String> fileSystemCacheType = Optional.empty();
+        private Optional<Map<String, String>> fileSystemCacheProperties = Optional.empty();
+        private final ImmutableList.Builder<Plugin> plugins = ImmutableList.builder();
         private int workerCount = 2;
         private Map<String, String> extraProperties = ImmutableMap.of();
         private Map<String, String> coordinatorProperties = ImmutableMap.of();
@@ -929,6 +940,19 @@ public final class DistributedQueryRunner
             return self();
         }
 
+        public SELF withFileSystemCache(String type, Map<String, String> properties)
+        {
+            this.fileSystemCacheType = Optional.of(type);
+            this.fileSystemCacheProperties = Optional.of(ImmutableMap.copyOf(properties));
+            return self();
+        }
+
+        public SELF withPlugin(Plugin plugin)
+        {
+            plugins.add(plugin);
+            return self();
+        }
+
         public SELF withProtocolSpooling(String encoding)
         {
             this.encoding = Optional.of(encoding);
@@ -1013,6 +1037,14 @@ public final class DistributedQueryRunner
                         }
                         default -> throw new IllegalArgumentException("Unknow exchange type: " + exchangeType);
                     }
+                }
+
+                for (Plugin plugin : plugins.build()) {
+                    queryRunner.installPlugin(plugin);
+                }
+
+                if (fileSystemCacheType.isPresent()) {
+                    queryRunner.loadCacheManager(fileSystemCacheType.orElseThrow(), fileSystemCacheProperties.orElseThrow());
                 }
 
                 additionalSetup.accept(queryRunner);

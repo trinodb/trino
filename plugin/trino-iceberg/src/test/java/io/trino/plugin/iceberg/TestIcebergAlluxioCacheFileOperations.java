@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultiset;
 import com.google.common.collect.Multiset;
 import io.opentelemetry.sdk.trace.data.SpanData;
+import io.trino.filesystem.cache.alluxio.AlluxioFileSystemCachePlugin;
 import io.trino.plugin.iceberg.util.FileOperationUtils.FileType;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
@@ -61,10 +62,13 @@ public class TestIcebergAlluxioCacheFileOperations
 
         Map<String, String> icebergProperties = ImmutableMap.<String, String>builder()
                 .put("fs.cache.enabled", "true")
-                .put("fs.cache.directories", cacheDirectory.toAbsolutePath().toString())
-                .put("fs.cache.max-sizes", "100MB")
                 .put("iceberg.metadata-cache.enabled", "false")
                 .put("hive.metastore.catalog.dir", metastoreDirectory.toUri().toString())
+                .buildOrThrow();
+
+        Map<String, String> cacheProperties = ImmutableMap.<String, String>builder()
+                .put("fs.cache.directories", cacheDirectory.toAbsolutePath().toString())
+                .put("fs.cache.max-sizes", "100MB")
                 .buildOrThrow();
 
         DistributedQueryRunner queryRunner = IcebergQueryRunner.builder()
@@ -72,6 +76,8 @@ public class TestIcebergAlluxioCacheFileOperations
                         .withSchemaName(TEST_SCHEMA)
                         .build())
                 .setIcebergProperties(icebergProperties)
+                .withPlugin(new AlluxioFileSystemCachePlugin())
+                .withFileSystemCache("alluxio", cacheProperties)
                 .setWorkerCount(0)
                 .build();
         queryRunner.execute("CREATE SCHEMA IF NOT EXISTS " + TEST_SCHEMA);

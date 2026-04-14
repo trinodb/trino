@@ -28,6 +28,8 @@ module trino.spi {
     exports io.trino.spi.eventlistener;
     exports io.trino.spi.exchange;
     exports io.trino.spi.expression;
+    exports io.trino.spi.filesystem;
+    exports io.trino.spi.filesystem.cache;
     exports io.trino.spi.function;
     exports io.trino.spi.function.table;
     exports io.trino.spi.memory;
