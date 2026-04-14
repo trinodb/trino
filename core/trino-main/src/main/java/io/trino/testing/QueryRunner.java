@@ -129,5 +129,7 @@ public interface QueryRunner
 
     void loadSpoolingManager(String name, Map<String, String> properties);
 
+    void loadCacheManager(String name, Map<String, String> properties);
+
     record MaterializedResultWithPlan(QueryId queryId, Optional<Plan> queryPlan, MaterializedResult result) {}
 }

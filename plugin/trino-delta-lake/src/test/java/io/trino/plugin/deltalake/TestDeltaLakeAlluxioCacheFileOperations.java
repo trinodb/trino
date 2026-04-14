@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultiset;
 import com.google.common.collect.Multiset;
 import com.google.common.io.Resources;
+import io.trino.filesystem.cache.alluxio.AlluxioFileSystemCachePlugin;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
 import org.intellij.lang.annotations.Language;
@@ -53,10 +54,13 @@ public class TestDeltaLakeAlluxioCacheFileOperations
                 .setCoordinatorProperties(ImmutableMap.of("node-scheduler.include-coordinator", "false"))
                 .setDeltaProperties(ImmutableMap.<String, String>builder()
                         .put("fs.cache.enabled", "true")
-                        .put("fs.cache.directories", cacheDirectory.toAbsolutePath().toString())
-                        .put("fs.cache.max-sizes", "100MB")
                         .put("delta.enable-non-concurrent-writes", "true")
                         .put("delta.register-table-procedure.enabled", "true")
+                        .buildOrThrow())
+                .withPlugin(new AlluxioFileSystemCachePlugin())
+                .withFileSystemCache("alluxio", ImmutableMap.<String, String>builder()
+                        .put("fs.cache.directories", cacheDirectory.toAbsolutePath().toString())
+                        .put("fs.cache.max-sizes", "100MB")
                         .buildOrThrow())
                 .setWorkerCount(1)
                 .build();

@@ -22,7 +22,6 @@ import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.airlift.configuration.ConfigPropertyMetadata;
 import io.opentelemetry.api.trace.Tracer;
 import io.trino.filesystem.TrinoFileSystemFactory;
-import io.trino.filesystem.alluxio.AlluxioFileSystemCacheModule;
 import io.trino.filesystem.alluxio.AlluxioFileSystemFactory;
 import io.trino.filesystem.alluxio.AlluxioFileSystemModule;
 import io.trino.filesystem.azure.AzureFileSystemFactory;
@@ -32,21 +31,22 @@ import io.trino.filesystem.cache.CacheKeyProvider;
 import io.trino.filesystem.cache.CachingHostAddressProvider;
 import io.trino.filesystem.cache.DefaultCacheKeyProvider;
 import io.trino.filesystem.cache.DefaultCachingHostAddressProvider;
-import io.trino.filesystem.cache.TrinoFileSystemCache;
 import io.trino.filesystem.gcs.GcsFileSystemFactory;
 import io.trino.filesystem.gcs.GcsFileSystemModule;
 import io.trino.filesystem.local.LocalFileSystemConfig;
 import io.trino.filesystem.local.LocalFileSystemFactory;
-import io.trino.filesystem.memory.MemoryFileSystemCache;
-import io.trino.filesystem.memory.MemoryFileSystemCacheModule;
 import io.trino.filesystem.s3.FileSystemS3;
 import io.trino.filesystem.s3.S3FileSystemModule;
 import io.trino.filesystem.switching.SwitchingFileSystemFactory;
 import io.trino.filesystem.tracing.TracingFileSystemFactory;
 import io.trino.filesystem.tracking.TrackingFileSystemFactory;
+import io.trino.spi.cache.CacheTier;
+import io.trino.spi.cache.ConnectorCacheFactory;
 import io.trino.spi.connector.ConnectorContext;
 import io.trino.spi.filesystem.Location;
+import io.trino.spi.filesystem.cache.ConnectorFileSystemCache;
 
+import java.time.Duration;
 import java.util.Map;
 import java.util.Optional;
 import java.util.function.Function;
@@ -54,11 +54,14 @@ import java.util.function.Function;
 import static com.google.inject.multibindings.MapBinder.newMapBinder;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.airlift.configuration.ConfigBinder.configBinder;
+import static java.time.Duration.ofDays;
 import static java.util.Objects.requireNonNull;
 
 public class FileSystemModule
         extends AbstractConfigurationAwareModule
 {
+    private static final Duration DEFAULT_CACHE_TTL = ofDays(7);
+
     private final String catalogName;
     private final ConnectorContext context;
     private final boolean isCoordinator;
@@ -124,15 +127,17 @@ public class FileSystemModule
         newOptionalBinder(binder, CachingHostAddressProvider.class).setDefault().to(DefaultCachingHostAddressProvider.class).in(Scopes.SINGLETON);
         newOptionalBinder(binder, CacheKeyProvider.class).setDefault().to(DefaultCacheKeyProvider.class).in(Scopes.SINGLETON);
 
-        newOptionalBinder(binder, TrinoFileSystemCache.class);
-        newOptionalBinder(binder, MemoryFileSystemCache.class);
+        ConnectorCacheFactory cacheFactory = context.getCacheFactory();
+        Optional<ConnectorFileSystemCache> fileSystemCache = Optional.empty();
 
         if (config.isCacheEnabled()) {
-            install(new AlluxioFileSystemCacheModule(isCoordinator));
+            fileSystemCache = Optional.of(cacheFactory.createFileSystemCache(DEFAULT_CACHE_TTL, CacheTier.DISK));
         }
-        if (coordinatorFileCaching) {
-            install(new MemoryFileSystemCacheModule(isCoordinator));
+        else if (coordinatorFileCaching && isCoordinator) {
+            fileSystemCache = Optional.of(cacheFactory.createFileSystemCache(DEFAULT_CACHE_TTL, CacheTier.MEMORY));
         }
+
+        binder.bind(new com.google.inject.TypeLiteral<Optional<ConnectorFileSystemCache>>() {}).toInstance(fileSystemCache);
     }
 
     @Provides
@@ -141,8 +146,7 @@ public class FileSystemModule
             FileSystemConfig config,
             Optional<HdfsFileSystemLoader> hdfsFileSystemLoader,
             Map<String, TrinoFileSystemFactory> factories,
-            Optional<TrinoFileSystemCache> fileSystemCache,
-            Optional<MemoryFileSystemCache> memoryFileSystemCache,
+            Optional<ConnectorFileSystemCache> fileSystemCache,
             Optional<CacheKeyProvider> keyProvider,
             Tracer tracer)
     {
@@ -162,10 +166,6 @@ public class FileSystemModule
 
         if (fileSystemCache.isPresent()) {
             return new CacheFileSystemFactory(tracer, delegate, fileSystemCache.orElseThrow(), keyProvider.orElseThrow());
-        }
-        // use MemoryFileSystemCache only when no other TrinoFileSystemCache is configured
-        if (memoryFileSystemCache.isPresent()) {
-            return new CacheFileSystemFactory(tracer, delegate, memoryFileSystemCache.orElseThrow(), keyProvider.orElseThrow());
         }
         return delegate;
     }

@@ -78,7 +78,7 @@ public abstract class BaseIcebergMinioConnectorSmokeTest
         this.hiveMinioDataLake = closeAfterClass(new Hive3MinioDataLake(bucketName));
         this.hiveMinioDataLake.start();
 
-        return IcebergQueryRunner.builder()
+        IcebergQueryRunner.Builder builder = IcebergQueryRunner.builder()
                 .setIcebergProperties(
                         ImmutableMap.<String, String>builder()
                                 .put("iceberg.file-format", format.name())
@@ -102,13 +102,27 @@ public abstract class BaseIcebergMinioConnectorSmokeTest
                                 .withSchemaName(schemaName)
                                 .withClonedTpchTables(REQUIRED_TPCH_TABLES)
                                 .withSchemaProperties(Map.of("location", "'s3://" + bucketName + "/" + schemaName + "'"))
-                                .build())
-                .build();
+                                .build());
+        getFileSystemCacheProperties().ifPresent(properties -> {
+            builder.withPlugin(new io.trino.filesystem.cache.alluxio.AlluxioFileSystemCachePlugin());
+            builder.withFileSystemCache(getFileSystemCacheType(), properties);
+        });
+        return builder.build();
     }
 
     public Map<String, String> getAdditionalIcebergProperties()
     {
         return ImmutableMap.of();
+    }
+
+    protected String getFileSystemCacheType()
+    {
+        return "alluxio";
+    }
+
+    protected Optional<Map<String, String>> getFileSystemCacheProperties()
+    {
+        return Optional.empty();
     }
 
     @Override

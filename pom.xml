@@ -45,7 +45,6 @@
         <module>lib/trino-filesystem</module>
         <module>lib/trino-filesystem-alluxio</module>
         <module>lib/trino-filesystem-azure</module>
-        <module>lib/trino-filesystem-cache-alluxio</module>
         <module>lib/trino-filesystem-gcs</module>
         <module>lib/trino-filesystem-manager</module>
         <module>lib/trino-filesystem-s3</module>
@@ -76,6 +75,8 @@
         <module>plugin/trino-exchange-filesystem</module>
         <module>plugin/trino-exchange-hdfs</module>
         <module>plugin/trino-faker</module>
+        <module>plugin/trino-filesystem-cache-alluxio</module>
+        <module>plugin/trino-filesystem-cache-memory</module>
         <module>plugin/trino-functions-python</module>
         <module>plugin/trino-geospatial</module>
         <module>plugin/trino-google-sheets</module>
@@ -1071,6 +1072,12 @@
             <dependency>
                 <groupId>io.trino</groupId>
                 <artifactId>trino-filesystem-cache-alluxio</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.trino</groupId>
+                <artifactId>trino-filesystem-cache-memory</artifactId>
                 <version>${project.version}</version>
             </dependency>
 

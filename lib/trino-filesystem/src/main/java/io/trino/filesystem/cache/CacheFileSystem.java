@@ -18,6 +18,7 @@ import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoOutputFile;
 import io.trino.spi.filesystem.Location;
 import io.trino.spi.filesystem.TrinoInputFile;
+import io.trino.spi.filesystem.cache.ConnectorFileSystemCache;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -33,10 +34,10 @@ public final class CacheFileSystem
         implements TrinoFileSystem
 {
     private final TrinoFileSystem delegate;
-    private final TrinoFileSystemCache cache;
+    private final ConnectorFileSystemCache cache;
     private final CacheKeyProvider keyProvider;
 
-    public CacheFileSystem(TrinoFileSystem delegate, TrinoFileSystemCache cache, CacheKeyProvider keyProvider)
+    public CacheFileSystem(TrinoFileSystem delegate, ConnectorFileSystemCache cache, CacheKeyProvider keyProvider)
     {
         this.delegate = requireNonNull(delegate, "delegate is null");
         this.cache = requireNonNull(cache, "cache is null");

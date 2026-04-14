@@ -15,11 +15,11 @@ package io.trino.filesystem.tracing;
 
 import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.api.trace.Tracer;
-import io.trino.filesystem.cache.TrinoFileSystemCache;
 import io.trino.spi.filesystem.Location;
 import io.trino.spi.filesystem.TrinoInput;
 import io.trino.spi.filesystem.TrinoInputFile;
 import io.trino.spi.filesystem.TrinoInputStream;
+import io.trino.spi.filesystem.cache.ConnectorFileSystemCache;
 
 import java.io.IOException;
 import java.util.Collection;
@@ -31,12 +31,12 @@ import static io.trino.filesystem.tracing.Tracing.withTracing;
 import static java.util.Objects.requireNonNull;
 
 public class TracingFileSystemCache
-        implements TrinoFileSystemCache
+        implements ConnectorFileSystemCache
 {
     private final Tracer tracer;
-    private final TrinoFileSystemCache delegate;
+    private final ConnectorFileSystemCache delegate;
 
-    public TracingFileSystemCache(Tracer tracer, TrinoFileSystemCache delegate)
+    public TracingFileSystemCache(Tracer tracer, ConnectorFileSystemCache delegate)
     {
         this.tracer = requireNonNull(tracer, "tracer is null");
         this.delegate = requireNonNull(delegate, "delegate is null");
@@ -46,7 +46,7 @@ public class TracingFileSystemCache
     public TrinoInput cacheInput(TrinoInputFile delegate, String key)
             throws IOException
     {
-        Span span = tracer.spanBuilder("FileSystemCache.cacheInput")
+        Span span = tracer.spanBuilder("ConnectorFileSystemCache.cacheInput")
                 .setAttribute(CACHE_FILE_LOCATION, delegate.location().toString())
                 .setAttribute(CACHE_KEY, key)
                 .startSpan();
@@ -58,7 +58,7 @@ public class TracingFileSystemCache
     public TrinoInputStream cacheStream(TrinoInputFile delegate, String key)
             throws IOException
     {
-        Span span = tracer.spanBuilder("FileSystemCache.cacheStream")
+        Span span = tracer.spanBuilder("ConnectorFileSystemCache.cacheStream")
                 .setAttribute(CACHE_FILE_LOCATION, delegate.location().toString())
                 .setAttribute(CACHE_KEY, key)
                 .startSpan();
@@ -70,7 +70,7 @@ public class TracingFileSystemCache
     public long cacheLength(TrinoInputFile delegate, String key)
             throws IOException
     {
-        Span span = tracer.spanBuilder("FileSystemCache.cacheLength")
+        Span span = tracer.spanBuilder("ConnectorFileSystemCache.cacheLength")
                 .setAttribute(CACHE_FILE_LOCATION, delegate.location().toString())
                 .setAttribute(CACHE_KEY, key)
                 .startSpan();
@@ -82,7 +82,7 @@ public class TracingFileSystemCache
     public void expire(Location location)
             throws IOException
     {
-        Span span = tracer.spanBuilder("FileSystemCache.expire")
+        Span span = tracer.spanBuilder("ConnectorFileSystemCache.expire")
                 .setAttribute(CACHE_FILE_LOCATION, location.toString())
                 .startSpan();
 

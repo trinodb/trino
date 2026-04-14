@@ -20,6 +20,7 @@ import com.google.errorprone.annotations.ThreadSafe;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
 import com.google.inject.Inject;
 import io.airlift.log.Logger;
+import io.trino.cache.CacheManagerRegistry;
 import io.trino.connector.system.GlobalSystemConnector;
 import io.trino.metadata.Catalog;
 import io.trino.metadata.CatalogManager;
@@ -72,6 +73,7 @@ public class CoordinatorDynamicCatalogManager
 
     private final CatalogStore catalogStore;
     private final CatalogFactory catalogFactory;
+    private final CacheManagerRegistry cacheManagerRegistry;
     private final Executor executor;
 
     private final Object catalogsUpdateLock = new Object();
@@ -90,10 +92,11 @@ public class CoordinatorDynamicCatalogManager
     private State state = State.CREATED;
 
     @Inject
-    public CoordinatorDynamicCatalogManager(CatalogStore catalogStore, CatalogFactory catalogFactory, @ForStartup Executor executor)
+    public CoordinatorDynamicCatalogManager(CatalogStore catalogStore, CatalogFactory catalogFactory, CacheManagerRegistry cacheManagerRegistry, @ForStartup Executor executor)
     {
         this.catalogStore = requireNonNull(catalogStore, "catalogStore is null");
         this.catalogFactory = requireNonNull(catalogFactory, "catalogFactory is null");
+        this.cacheManagerRegistry = requireNonNull(cacheManagerRegistry, "cacheManagerRegistry is null");
         this.executor = requireNonNull(executor, "executor is null");
     }
 
@@ -317,6 +320,7 @@ public class CoordinatorDynamicCatalogManager
         if (!removed && !exists) {
             throw new TrinoException(CATALOG_NOT_FOUND, format("Catalog '%s' not found", catalogName));
         }
+        cacheManagerRegistry.drop(catalogName);
         // Do not shut down the catalog, because there may still be running queries using this catalog.
         // Catalog shutdown logic will be added later.
     }

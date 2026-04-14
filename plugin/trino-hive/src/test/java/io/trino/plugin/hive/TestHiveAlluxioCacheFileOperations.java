@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultiset;
 import com.google.common.collect.Multiset;
 import io.opentelemetry.sdk.trace.data.SpanData;
+import io.trino.filesystem.cache.alluxio.AlluxioFileSystemCachePlugin;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
 import org.intellij.lang.annotations.Language;
@@ -55,8 +56,6 @@ public class TestHiveAlluxioCacheFileOperations
 
         Map<String, String> hiveProperties = ImmutableMap.<String, String>builder()
                 .put("fs.cache.enabled", "true")
-                .put("fs.cache.directories", cacheDirectory.toAbsolutePath().toString())
-                .put("fs.cache.max-sizes", "100MB")
                 .put("hive.metastore", "file")
                 .put("hive.metastore.catalog.dir", metastoreDirectory.toUri().toString())
                 .buildOrThrow();
@@ -64,6 +63,11 @@ public class TestHiveAlluxioCacheFileOperations
         return HiveQueryRunner.builder()
                 .setCoordinatorProperties(ImmutableMap.of("node-scheduler.include-coordinator", "false"))
                 .setHiveProperties(hiveProperties)
+                .withPlugin(new AlluxioFileSystemCachePlugin())
+                .withFileSystemCache("alluxio", ImmutableMap.<String, String>builder()
+                        .put("fs.cache.directories", cacheDirectory.toAbsolutePath().toString())
+                        .put("fs.cache.max-sizes", "100MB")
+                        .buildOrThrow())
                 .setWorkerCount(1)
                 .build();
     }

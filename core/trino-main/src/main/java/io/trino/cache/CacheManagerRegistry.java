@@ -41,7 +41,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static io.airlift.configuration.ConfigurationLoader.loadPropertiesFrom;
-import static io.trino.spi.StandardErrorCode.NOT_FOUND;
+import static io.trino.spi.StandardErrorCode.CONFIGURATION_INVALID;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -90,7 +90,7 @@ public class CacheManagerRegistry
         }
     }
 
-    private void loadCacheManager(String name, Map<String, String> properties)
+    public synchronized void loadCacheManager(String name, Map<String, String> properties)
     {
         log.info("-- Loading file system cache manager %s --", name);
 
@@ -111,32 +111,32 @@ public class CacheManagerRegistry
         log.info("-- Loaded file system cache manager %s for tier %s --", name, tier);
     }
 
-    public FileSystemCacheManager getFileSystemCacheManager(CacheTier tier)
-    {
-        FileSystemCacheManager manager = fileSystemManagers.get(tier);
-        if (manager == null) {
-            throw new TrinoException(NOT_FOUND, format("No file system cache manager registered for tier %s", tier));
-        }
-        return manager;
-    }
-
     public ConnectorCacheFactory createConnectorCacheFactory(CatalogName catalog)
     {
         requireNonNull(catalog, "catalog is null");
-        return (ttl, tier) -> getFileSystemCacheManager(tier).createFileSystemCache(catalog, ttl);
+        return (ttl, tier) -> {
+            FileSystemCacheManager manager = fileSystemManagers.get(tier);
+            if (manager == null) {
+                throw new TrinoException(CONFIGURATION_INVALID, "Catalog %s requested file system cache manager tier %s but none registered".formatted(catalog, tier));
+            }
+            log.info("Created new file system cache on tier %s for catalog %s", tier, catalog);
+            return manager.createFileSystemCache(catalog, ttl);
+        };
     }
 
     public void invalidate(CatalogName catalog)
     {
-        for (FileSystemCacheManager manager : fileSystemManagers.values()) {
-            manager.invalidate(catalog);
+        for (Map.Entry<CacheTier, FileSystemCacheManager> entry : fileSystemManagers.entrySet()) {
+            log.info("Invalidating file system cache on tier %s for catalog %s", entry.getKey(), catalog);
+            entry.getValue().invalidate(catalog);
         }
     }
 
     public void drop(CatalogName catalog)
     {
-        for (FileSystemCacheManager manager : fileSystemManagers.values()) {
-            manager.drop(catalog);
+        for (Map.Entry<CacheTier, FileSystemCacheManager> entry : fileSystemManagers.entrySet()) {
+            log.info("Dropping file system cache on tier %s for catalog %s", entry.getKey(), catalog);
+            entry.getValue().drop(catalog);
         }
     }
 
