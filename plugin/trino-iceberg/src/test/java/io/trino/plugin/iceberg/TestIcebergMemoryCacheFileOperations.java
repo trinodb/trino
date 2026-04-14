@@ -82,22 +82,22 @@ public class TestIcebergMemoryCacheFileOperations
                 "SELECT * FROM test_cache_file_operations",
                 ImmutableMultiset.<CacheOperation>builder()
                         .addCopies(new CacheOperation("Input.readTail", DATA), 2)
-                        .addCopies(new CacheOperation("FileSystemCache.cacheInput", DATA), 2)
-                        .add(new CacheOperation("FileSystemCache.cacheStream", METADATA_JSON))
-                        .add(new CacheOperation("FileSystemCache.cacheLength", SNAPSHOT))
-                        .add(new CacheOperation("FileSystemCache.cacheStream", SNAPSHOT))
+                        .addCopies(new CacheOperation("BlobCache.get", DATA), 2)
+                        .add(new CacheOperation("BlobCache.get", METADATA_JSON))
+                        .add(new CacheOperation("BlobCache.get", SNAPSHOT))
+                        .add(new CacheOperation("BlobCache.get", SNAPSHOT))
                         .addCopies(new CacheOperation("Input.readTail", MANIFEST), 2)
-                        .addCopies(new CacheOperation("FileSystemCache.cacheStream", MANIFEST), 2)
+                        .addCopies(new CacheOperation("BlobCache.get", MANIFEST), 2)
                         .build());
 
         assertFileSystemAccesses(
                 "SELECT * FROM test_cache_file_operations",
                 ImmutableMultiset.<CacheOperation>builder()
-                        .addCopies(new CacheOperation("FileSystemCache.cacheInput", DATA), 2)
-                        .add(new CacheOperation("FileSystemCache.cacheStream", METADATA_JSON))
-                        .add(new CacheOperation("FileSystemCache.cacheLength", SNAPSHOT))
-                        .add(new CacheOperation("FileSystemCache.cacheStream", SNAPSHOT))
-                        .addCopies(new CacheOperation("FileSystemCache.cacheStream", MANIFEST), 2)
+                        .addCopies(new CacheOperation("BlobCache.get", DATA), 2)
+                        .add(new CacheOperation("BlobCache.get", METADATA_JSON))
+                        .add(new CacheOperation("BlobCache.get", SNAPSHOT))
+                        .add(new CacheOperation("BlobCache.get", SNAPSHOT))
+                        .addCopies(new CacheOperation("BlobCache.get", MANIFEST), 2)
                         .build());
 
         assertUpdate("INSERT INTO test_cache_file_operations VALUES ('p3', '3-xyz')", 1);
@@ -108,22 +108,22 @@ public class TestIcebergMemoryCacheFileOperations
                 "SELECT * FROM test_cache_file_operations",
                 ImmutableMultiset.<CacheOperation>builder()
                         .addCopies(new CacheOperation("Input.readTail", DATA), 3)
-                        .addCopies(new CacheOperation("FileSystemCache.cacheInput", DATA), 5)
-                        .add(new CacheOperation("FileSystemCache.cacheStream", METADATA_JSON))
-                        .add(new CacheOperation("FileSystemCache.cacheLength", SNAPSHOT))
-                        .add(new CacheOperation("FileSystemCache.cacheStream", SNAPSHOT))
+                        .addCopies(new CacheOperation("BlobCache.get", DATA), 5)
+                        .add(new CacheOperation("BlobCache.get", METADATA_JSON))
+                        .add(new CacheOperation("BlobCache.get", SNAPSHOT))
+                        .add(new CacheOperation("BlobCache.get", SNAPSHOT))
                         .addCopies(new CacheOperation("Input.readTail", MANIFEST), 3)
-                        .addCopies(new CacheOperation("FileSystemCache.cacheStream", MANIFEST), 5)
+                        .addCopies(new CacheOperation("BlobCache.get", MANIFEST), 5)
                         .build());
 
         assertFileSystemAccesses(
                 "SELECT * FROM test_cache_file_operations",
                 ImmutableMultiset.<CacheOperation>builder()
-                        .addCopies(new CacheOperation("FileSystemCache.cacheInput", DATA), 5)
-                        .add(new CacheOperation("FileSystemCache.cacheStream", METADATA_JSON))
-                        .add(new CacheOperation("FileSystemCache.cacheLength", SNAPSHOT))
-                        .add(new CacheOperation("FileSystemCache.cacheStream", SNAPSHOT))
-                        .addCopies(new CacheOperation("FileSystemCache.cacheStream", MANIFEST), 5)
+                        .addCopies(new CacheOperation("BlobCache.get", DATA), 5)
+                        .add(new CacheOperation("BlobCache.get", METADATA_JSON))
+                        .add(new CacheOperation("BlobCache.get", SNAPSHOT))
+                        .add(new CacheOperation("BlobCache.get", SNAPSHOT))
+                        .addCopies(new CacheOperation("BlobCache.get", MANIFEST), 5)
                         .build());
     }
 
@@ -134,25 +134,25 @@ public class TestIcebergMemoryCacheFileOperations
         assertFileSystemAccesses(
                 "SELECT * FROM test_select_with_filter WHERE col_name = 1",
                 ImmutableMultiset.<CacheOperation>builder()
-                        .add(new CacheOperation("FileSystemCache.cacheStream", METADATA_JSON))
+                        .add(new CacheOperation("BlobCache.get", METADATA_JSON))
                         .add(new CacheOperation("Input.readTail", METADATA_JSON))
                         .add(new CacheOperation("InputFile.length", METADATA_JSON))
-                        .add(new CacheOperation("FileSystemCache.cacheStream", SNAPSHOT))
-                        .add(new CacheOperation("FileSystemCache.cacheLength", SNAPSHOT))
-                        .add(new CacheOperation("FileSystemCache.cacheStream", MANIFEST))
+                        .add(new CacheOperation("BlobCache.get", SNAPSHOT))
+                        .add(new CacheOperation("BlobCache.get", SNAPSHOT))
+                        .add(new CacheOperation("BlobCache.get", MANIFEST))
                         .add(new CacheOperation("Input.readTail", MANIFEST))
-                        .add(new CacheOperation("FileSystemCache.cacheInput", DATA))
+                        .add(new CacheOperation("BlobCache.get", DATA))
                         .add(new CacheOperation("Input.readTail", DATA))
                         .build());
 
         assertFileSystemAccesses(
                 "SELECT * FROM test_select_with_filter WHERE col_name = 1",
                 ImmutableMultiset.<CacheOperation>builder()
-                        .add(new CacheOperation("FileSystemCache.cacheStream", METADATA_JSON))
-                        .add(new CacheOperation("FileSystemCache.cacheStream", SNAPSHOT))
-                        .add(new CacheOperation("FileSystemCache.cacheLength", SNAPSHOT))
-                        .add(new CacheOperation("FileSystemCache.cacheStream", MANIFEST))
-                        .add(new CacheOperation("FileSystemCache.cacheInput", DATA))
+                        .add(new CacheOperation("BlobCache.get", METADATA_JSON))
+                        .add(new CacheOperation("BlobCache.get", SNAPSHOT))
+                        .add(new CacheOperation("BlobCache.get", SNAPSHOT))
+                        .add(new CacheOperation("BlobCache.get", MANIFEST))
+                        .add(new CacheOperation("BlobCache.get", DATA))
                         .build());
     }
 
@@ -166,22 +166,22 @@ public class TestIcebergMemoryCacheFileOperations
                 ImmutableMultiset.<CacheOperation>builder()
                         .addCopies(new CacheOperation("Input.readTail", METADATA_JSON), 2)
                         .addCopies(new CacheOperation("InputFile.length", METADATA_JSON), 2)
-                        .addCopies(new CacheOperation("FileSystemCache.cacheStream", METADATA_JSON), 2)
-                        .addCopies(new CacheOperation("FileSystemCache.cacheStream", SNAPSHOT), 2)
-                        .addCopies(new CacheOperation("FileSystemCache.cacheLength", SNAPSHOT), 2)
+                        .addCopies(new CacheOperation("BlobCache.get", METADATA_JSON), 2)
+                        .addCopies(new CacheOperation("BlobCache.get", SNAPSHOT), 2)
+                        .addCopies(new CacheOperation("BlobCache.get", SNAPSHOT), 2)
                         .addCopies(new CacheOperation("Input.readTail", MANIFEST), 2)
-                        .addCopies(new CacheOperation("FileSystemCache.cacheStream", MANIFEST), 4)
+                        .addCopies(new CacheOperation("BlobCache.get", MANIFEST), 4)
                         .addCopies(new CacheOperation("Input.readTail", DATA), 2)
-                        .addCopies(new CacheOperation("FileSystemCache.cacheInput", DATA), 2)
+                        .addCopies(new CacheOperation("BlobCache.get", DATA), 2)
                         .build());
 
         assertFileSystemAccesses("SELECT name, age FROM test_join_t1 JOIN test_join_t2 ON test_join_t2.id = test_join_t1.id",
                 ImmutableMultiset.<CacheOperation>builder()
-                        .addCopies(new CacheOperation("FileSystemCache.cacheStream", METADATA_JSON), 2)
-                        .addCopies(new CacheOperation("FileSystemCache.cacheStream", SNAPSHOT), 2)
-                        .addCopies(new CacheOperation("FileSystemCache.cacheLength", SNAPSHOT), 2)
-                        .addCopies(new CacheOperation("FileSystemCache.cacheStream", MANIFEST), 4)
-                        .addCopies(new CacheOperation("FileSystemCache.cacheInput", DATA), 2)
+                        .addCopies(new CacheOperation("BlobCache.get", METADATA_JSON), 2)
+                        .addCopies(new CacheOperation("BlobCache.get", SNAPSHOT), 2)
+                        .addCopies(new CacheOperation("BlobCache.get", SNAPSHOT), 2)
+                        .addCopies(new CacheOperation("BlobCache.get", MANIFEST), 4)
+                        .addCopies(new CacheOperation("BlobCache.get", DATA), 2)
                         .build());
     }
 
@@ -195,7 +195,7 @@ public class TestIcebergMemoryCacheFileOperations
     private Multiset<CacheOperation> getCacheOperations()
     {
         return getQueryRunner().getSpans().stream()
-                .filter(span -> span.getName().startsWith("Input.") || span.getName().startsWith("InputFile.") || span.getName().startsWith("FileSystemCache."))
+                .filter(span -> span.getName().startsWith("Input.") || span.getName().startsWith("InputFile.") || span.getName().startsWith("BlobCache."))
                 .filter(span -> !span.getName().startsWith("InputFile.newInput"))
                 .filter(span -> !isTrinoSchemaOrPermissions(getFileLocation(span)))
                 .map(CacheOperation::create)
