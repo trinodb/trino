@@ -18,12 +18,12 @@ import com.google.inject.Key;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import com.google.inject.Singleton;
+import com.google.inject.multibindings.OptionalBinder;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.airlift.configuration.ConfigPropertyMetadata;
 import io.opentelemetry.api.trace.Tracer;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystemFactory;
-import io.trino.filesystem.alluxio.AlluxioFileSystemCacheModule;
 import io.trino.filesystem.azure.AzureFileSystemFactory;
 import io.trino.filesystem.azure.AzureFileSystemModule;
 import io.trino.filesystem.cache.CacheFileSystemFactory;
@@ -31,18 +31,17 @@ import io.trino.filesystem.cache.CacheKeyProvider;
 import io.trino.filesystem.cache.DefaultCacheKeyProvider;
 import io.trino.filesystem.cache.NoopSplitAffinityProvider;
 import io.trino.filesystem.cache.SplitAffinityProvider;
-import io.trino.filesystem.cache.TrinoFileSystemCache;
 import io.trino.filesystem.gcs.GcsFileSystemFactory;
 import io.trino.filesystem.gcs.GcsFileSystemModule;
 import io.trino.filesystem.local.LocalFileSystemConfig;
 import io.trino.filesystem.local.LocalFileSystemFactory;
-import io.trino.filesystem.memory.MemoryFileSystemCache;
-import io.trino.filesystem.memory.MemoryFileSystemCacheModule;
 import io.trino.filesystem.s3.FileSystemS3;
 import io.trino.filesystem.s3.S3FileSystemModule;
 import io.trino.filesystem.switching.SwitchingFileSystemFactory;
 import io.trino.filesystem.tracing.TracingFileSystemFactory;
 import io.trino.filesystem.tracking.TrackingFileSystemFactory;
+import io.trino.spi.cache.BlobCache;
+import io.trino.spi.cache.CacheTier;
 import io.trino.spi.connector.ConnectorContext;
 
 import java.util.Map;
@@ -117,14 +116,12 @@ public class FileSystemModule
         newOptionalBinder(binder, CacheKeyProvider.class).setDefault().to(DefaultCacheKeyProvider.class).in(Scopes.SINGLETON);
         newOptionalBinder(binder, SplitAffinityProvider.class).setDefault().to(NoopSplitAffinityProvider.class).in(Scopes.SINGLETON);
 
-        newOptionalBinder(binder, TrinoFileSystemCache.class);
-        newOptionalBinder(binder, MemoryFileSystemCache.class);
-
+        OptionalBinder<BlobCache> blobCacheBinder = newOptionalBinder(binder, BlobCache.class);
         if (config.isCacheEnabled()) {
-            install(new AlluxioFileSystemCacheModule(isCoordinator));
+            blobCacheBinder.setBinding().toInstance(context.getCacheFactory().createBlobCache(CacheTier.DISK));
         }
-        if (coordinatorFileCaching) {
-            install(new MemoryFileSystemCacheModule(isCoordinator));
+        else if (coordinatorFileCaching && isCoordinator) {
+            blobCacheBinder.setBinding().toInstance(context.getCacheFactory().createBlobCache(CacheTier.MEMORY));
         }
     }
 
@@ -134,8 +131,7 @@ public class FileSystemModule
             FileSystemConfig config,
             Optional<HdfsFileSystemLoader> hdfsFileSystemLoader,
             Map<String, TrinoFileSystemFactory> factories,
-            Optional<TrinoFileSystemCache> fileSystemCache,
-            Optional<MemoryFileSystemCache> memoryFileSystemCache,
+            Optional<BlobCache> blobCache,
             Optional<CacheKeyProvider> keyProvider,
             Tracer tracer)
     {
@@ -153,12 +149,8 @@ public class FileSystemModule
             delegate = new TrackingFileSystemFactory(delegate);
         }
 
-        if (fileSystemCache.isPresent()) {
-            return new CacheFileSystemFactory(tracer, delegate, fileSystemCache.orElseThrow(), keyProvider.orElseThrow());
-        }
-        // use MemoryFileSystemCache only when no other TrinoFileSystemCache is configured
-        if (memoryFileSystemCache.isPresent()) {
-            return new CacheFileSystemFactory(tracer, delegate, memoryFileSystemCache.orElseThrow(), keyProvider.orElseThrow());
+        if (blobCache.isPresent()) {
+            return new CacheFileSystemFactory(tracer, delegate, blobCache.orElseThrow(), keyProvider.orElseThrow());
         }
         return delegate;
     }

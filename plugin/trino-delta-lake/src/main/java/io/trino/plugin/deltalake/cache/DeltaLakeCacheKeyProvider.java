@@ -17,6 +17,7 @@ import com.google.inject.Inject;
 import io.trino.filesystem.TrinoInputFile;
 import io.trino.filesystem.cache.CacheKeyProvider;
 import io.trino.plugin.deltalake.DeltaLakeConfig;
+import io.trino.spi.cache.CacheKey;
 
 import java.util.Optional;
 
@@ -34,17 +35,17 @@ public class DeltaLakeCacheKeyProvider
     {
         // Disabling the delta log folder caching is useful in those scenarios when Delta Tables are deleted and re-created,
         // and caching their _delta_log directories should be avoided.
-        this.deltaLogCacheDisabled = deltaLakeConfig.isDeltaLogFileSystemCacheDisabled();
+        this.deltaLogCacheDisabled = deltaLakeConfig.isDeltaLogBlobCacheDisabled();
     }
 
     /**
      * Get the cache key of a TrinoInputFile. Returns Optional.empty() if the file is not cacheable.
      */
     @Override
-    public Optional<String> getCacheKey(TrinoInputFile inputFile)
+    public Optional<CacheKey> getCacheKey(TrinoInputFile inputFile)
     {
         String path = inputFile.location().path();
-        // Explicitly exclude the files in the _delta_log directory when deltaLogFileSystemCacheDisabled is set to true,
+        // Explicitly exclude the files in the _delta_log directory when deltaLogBlobCacheDisabled is set to true,
         // as they can change when the Delta Table is overwritten, https://github.com/trinodb/trino/issues/21451
         if (deltaLogCacheDisabled && path.contains("/" + TRANSACTION_LOG_DIRECTORY + "/")) {
             return Optional.empty();
@@ -59,6 +60,6 @@ public class DeltaLakeCacheKeyProvider
                 || path.contains("/" + STARBURST_META_DIR + "/")) {
             return Optional.empty();
         }
-        return Optional.of(path);
+        return Optional.of(new CacheKey(inputFile.location().toString()));
     }
 }

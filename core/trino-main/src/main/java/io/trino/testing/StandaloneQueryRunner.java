@@ -332,4 +332,10 @@ public final class StandaloneQueryRunner
     {
         server.loadSpoolingManager(name, properties);
     }
+
+    @Override
+    public void loadBlobCacheManager(String name, Map<String, String> properties)
+    {
+        server.loadBlobCacheManager(name, properties);
+    }
 }

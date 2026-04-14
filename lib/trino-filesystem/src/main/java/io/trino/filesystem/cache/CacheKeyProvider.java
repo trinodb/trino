@@ -14,6 +14,7 @@
 package io.trino.filesystem.cache;
 
 import io.trino.filesystem.TrinoInputFile;
+import io.trino.spi.cache.CacheKey;
 
 import java.io.IOException;
 import java.util.Optional;
@@ -23,6 +24,6 @@ public interface CacheKeyProvider
     /**
      * Get the cache key of a TrinoInputFile. Returns Optional.empty() if the file is not cacheable.
      */
-    Optional<String> getCacheKey(TrinoInputFile inputFile)
+    Optional<CacheKey> getCacheKey(TrinoInputFile inputFile)
             throws IOException;
 }

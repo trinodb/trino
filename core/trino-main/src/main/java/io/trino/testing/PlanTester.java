@@ -32,6 +32,8 @@ import io.trino.FeaturesConfig;
 import io.trino.Session;
 import io.trino.SystemSessionProperties;
 import io.trino.block.BlockJsonSerde;
+import io.trino.cache.CacheManagerConfig;
+import io.trino.cache.CacheManagerRegistry;
 import io.trino.connector.CatalogFactory;
 import io.trino.connector.CatalogHandle;
 import io.trino.connector.CatalogServiceProviderModule;
@@ -342,6 +344,7 @@ public class PlanTester
     private final CoordinatorDynamicCatalogManager catalogManager;
     private final PluginManager pluginManager;
     private final ExchangeManagerRegistry exchangeManagerRegistry;
+    private final CacheManagerRegistry cacheManagerRegistry;
     private final TaskManagerConfig taskManagerConfig;
     private final OptimizerConfig optimizerConfig;
     private final StatementAnalyzerFactory statementAnalyzerFactory;
@@ -380,7 +383,9 @@ public class PlanTester
         this.optimizerConfig = new OptimizerConfig();
         LazyCatalogFactory catalogFactory = new LazyCatalogFactory();
         this.catalogFactory = catalogFactory;
-        this.catalogManager = new CoordinatorDynamicCatalogManager(new InMemoryCatalogStore(), catalogFactory, directExecutor());
+        SecretsResolver secretsResolver = new SecretsResolver(ImmutableMap.of());
+        this.cacheManagerRegistry = new CacheManagerRegistry(noop(), noopTracer(), secretsResolver, new CacheManagerConfig());
+        this.catalogManager = new CoordinatorDynamicCatalogManager(new InMemoryCatalogStore(), catalogFactory, cacheManagerRegistry, directExecutor());
         this.transactionManager = InMemoryTransactionManager.create(
                 new TransactionManagerConfig().setIdleTimeout(new Duration(1, TimeUnit.DAYS)),
                 yieldExecutor,
@@ -390,7 +395,6 @@ public class PlanTester
         TypeRegistry typeRegistry = new TypeRegistry(typeOperators, new FeaturesConfig());
         TypeManager typeManager = new InternalTypeManager(typeRegistry);
         InternalBlockEncodingSerde blockEncodingSerde = new InternalBlockEncodingSerde(TESTING_BLOCK_ENCODING_MANAGER, typeManager);
-        SecretsResolver secretsResolver = new SecretsResolver(ImmutableMap.of());
 
         this.globalFunctionCatalog = new GlobalFunctionCatalog(
                 () -> getPlannerContext().getMetadata(),
@@ -455,7 +459,8 @@ public class PlanTester
                 nodeSchedulerConfig,
                 optimizerConfig,
                 secretsResolver,
-                evaluator));
+                evaluator,
+                cacheManagerRegistry));
         this.splitManager = new SplitManager(createSplitManagerProvider(catalogManager), tracer, new QueryManagerConfig());
         this.pageSourceManager = new PageSourceManager(createPageSourceProviderFactory(catalogManager));
         this.pageSinkManager = new PageSinkManager(createPageSinkProvider(catalogManager));
@@ -544,7 +549,8 @@ public class PlanTester
                 TESTING_BLOCK_ENCODING_MANAGER,
                 new HandleResolver(),
                 exchangeManagerRegistry,
-                spoolingManagerRegistry);
+                spoolingManagerRegistry,
+                cacheManagerRegistry);
 
         catalogManager.registerGlobalSystemConnector(globalSystemConnector);
         languageFunctionManager.setPlannerContext(plannerContext);
@@ -612,6 +618,7 @@ public class PlanTester
         notificationExecutor.shutdownNow();
         yieldExecutor.shutdownNow();
         catalogManager.stop();
+        cacheManagerRegistry.shutdown();
         finalizerService.destroy();
     }
 
@@ -694,6 +701,11 @@ public class PlanTester
     public void installPlugin(Plugin plugin)
     {
         pluginManager.installPlugin(plugin);
+    }
+
+    public void loadCacheManager(String name, Map<String, String> properties)
+    {
+        cacheManagerRegistry.loadBlobCacheManager(name, properties);
     }
 
     public void addFunctions(FunctionBundle functionBundle)

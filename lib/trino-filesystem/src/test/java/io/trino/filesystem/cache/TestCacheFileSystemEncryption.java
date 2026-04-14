@@ -24,9 +24,11 @@ import io.trino.filesystem.TrinoInputStream;
 import io.trino.filesystem.TrinoOutputFile;
 import io.trino.filesystem.UriLocation;
 import io.trino.filesystem.encryption.EncryptionKey;
-import io.trino.filesystem.memory.MemoryFileSystemCache;
-import io.trino.filesystem.memory.MemoryFileSystemCacheConfig;
 import io.trino.memory.context.AggregatedMemoryContext;
+import io.trino.spi.cache.Blob;
+import io.trino.spi.cache.BlobCache;
+import io.trino.spi.cache.BlobSource;
+import io.trino.spi.cache.CacheKey;
 import org.junit.jupiter.api.Test;
 
 import java.io.OutputStream;
@@ -86,10 +88,23 @@ final class TestCacheFileSystemEncryption
 
     private static CacheFileSystem newCacheFileSystem(TrinoFileSystem delegate)
     {
-        return new CacheFileSystem(
-                delegate,
-                new MemoryFileSystemCache(new MemoryFileSystemCacheConfig()),
-                new DefaultCacheKeyProvider());
+        return new CacheFileSystem(delegate, new NoopBlobCache(), new DefaultCacheKeyProvider());
+    }
+
+    private static final class NoopBlobCache
+            implements BlobCache
+    {
+        @Override
+        public Blob get(CacheKey key, BlobSource source)
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public void invalidate(CacheKey key) {}
+
+        @Override
+        public void invalidate(Collection<CacheKey> keys) {}
     }
 
     private static final class RecordingFileSystem
@@ -102,7 +117,7 @@ final class TestCacheFileSystemEncryption
         @Override
         public TrinoInputFile newInputFile(Location location)
         {
-            throw new UnsupportedOperationException();
+            return new StubInputFile(location);
         }
 
         @Override
