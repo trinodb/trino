@@ -43,7 +43,7 @@ public interface ExtendedStatisticsAccess
      *
      * @return the name of the newly written stats file
      */
-    String updateExtendedStatistics(
+    String writeExtendedStatistics(
             ConnectorSession session,
             SchemaTableName schemaTableName,
             String tableLocation,

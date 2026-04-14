@@ -59,7 +59,7 @@ final class TestMetaDirStatisticsAccess
         ExtendedStatistics initialStats = new ExtendedStatistics(Instant.ofEpochMilli(1_000_000), Map.of(), Optional.empty());
 
         // no previous file
-        String firstFile = access.updateExtendedStatistics(SESSION, TABLE_NAME, TABLE_LOCATION, Optional.empty(), credentials(), initialStats);
+        String firstFile = access.writeExtendedStatistics(SESSION, TABLE_NAME, TABLE_LOCATION, Optional.empty(), credentials(), initialStats);
 
         assertThat(firstFile).isNotBlank();
         Optional<ExtendedStatistics> firstRead = access.readExtendedStatistics(SESSION, TABLE_NAME, TABLE_LOCATION, firstFile, credentials());
@@ -69,7 +69,7 @@ final class TestMetaDirStatisticsAccess
 
         // provide previous file so it gets replaced
         ExtendedStatistics updatedStats = new ExtendedStatistics(Instant.ofEpochMilli(2_000_000), Map.of(), Optional.of(ImmutableSet.of("col_a")));
-        String secondFile = access.updateExtendedStatistics(SESSION, TABLE_NAME, TABLE_LOCATION, Optional.of(firstFile), credentials(), updatedStats);
+        String secondFile = access.writeExtendedStatistics(SESSION, TABLE_NAME, TABLE_LOCATION, Optional.of(firstFile), credentials(), updatedStats);
 
         // new file differ from the old one
         assertThat(secondFile).isNotEqualTo(firstFile);
@@ -89,7 +89,7 @@ final class TestMetaDirStatisticsAccess
     void testUpdateCreatesFile()
     {
         MetaDirStatisticsAccess access = createAccess();
-        String statsFile = access.updateExtendedStatistics(SESSION, TABLE_NAME, TABLE_LOCATION, Optional.empty(), credentials(), sampleStatistics());
+        String statsFile = access.writeExtendedStatistics(SESSION, TABLE_NAME, TABLE_LOCATION, Optional.empty(), credentials(), sampleStatistics());
         assertThat(statsFilePath(statsFile)).exists();
     }
 
@@ -97,8 +97,8 @@ final class TestMetaDirStatisticsAccess
     void testUpdateReturnsUniqueFilename()
     {
         MetaDirStatisticsAccess access = createAccess();
-        String file1 = access.updateExtendedStatistics(SESSION, TABLE_NAME, TABLE_LOCATION, Optional.empty(), credentials(), sampleStatistics());
-        String file2 = access.updateExtendedStatistics(SESSION, TABLE_NAME, TABLE_LOCATION, Optional.empty(), credentials(), sampleStatistics());
+        String file1 = access.writeExtendedStatistics(SESSION, TABLE_NAME, TABLE_LOCATION, Optional.empty(), credentials(), sampleStatistics());
+        String file2 = access.writeExtendedStatistics(SESSION, TABLE_NAME, TABLE_LOCATION, Optional.empty(), credentials(), sampleStatistics());
         assertThat(file1).isNotEqualTo(file2);
     }
 
@@ -107,7 +107,7 @@ final class TestMetaDirStatisticsAccess
             throws IOException
     {
         MetaDirStatisticsAccess access = createAccess();
-        String statsFile = access.updateExtendedStatistics(SESSION, TABLE_NAME, TABLE_LOCATION, Optional.empty(), credentials(), sampleStatistics());
+        String statsFile = access.writeExtendedStatistics(SESSION, TABLE_NAME, TABLE_LOCATION, Optional.empty(), credentials(), sampleStatistics());
 
         Path statsDir = statsFilePath(statsFile).getParent();
         try (var files = Files.list(statsDir)) {
@@ -122,10 +122,10 @@ final class TestMetaDirStatisticsAccess
     {
         MetaDirStatisticsAccess access = createAccess();
 
-        String oldFile = access.updateExtendedStatistics(SESSION, TABLE_NAME, TABLE_LOCATION, Optional.empty(), credentials(), sampleStatistics());
+        String oldFile = access.writeExtendedStatistics(SESSION, TABLE_NAME, TABLE_LOCATION, Optional.empty(), credentials(), sampleStatistics());
         assertThat(statsFilePath(oldFile)).exists();
 
-        String newFile = access.updateExtendedStatistics(SESSION, TABLE_NAME, TABLE_LOCATION, Optional.of(oldFile), credentials(), sampleStatistics());
+        String newFile = access.writeExtendedStatistics(SESSION, TABLE_NAME, TABLE_LOCATION, Optional.of(oldFile), credentials(), sampleStatistics());
 
         assertThat(statsFilePath(oldFile)).doesNotExist();
         assertThat(statsFilePath(newFile)).exists();
@@ -135,7 +135,7 @@ final class TestMetaDirStatisticsAccess
     void testDeleteExistingFile()
     {
         MetaDirStatisticsAccess access = createAccess();
-        String statsFile = access.updateExtendedStatistics(SESSION, TABLE_NAME, TABLE_LOCATION, Optional.empty(), credentials(), sampleStatistics());
+        String statsFile = access.writeExtendedStatistics(SESSION, TABLE_NAME, TABLE_LOCATION, Optional.empty(), credentials(), sampleStatistics());
         assertThat(statsFilePath(statsFile)).exists();
 
         access.deleteExtendedStatistics(SESSION, TABLE_NAME, TABLE_LOCATION, statsFile, credentials());
@@ -154,7 +154,7 @@ final class TestMetaDirStatisticsAccess
     void testFilenameContainsExpectedSuffix()
     {
         MetaDirStatisticsAccess access = createAccess();
-        String statsFile = access.updateExtendedStatistics(SESSION, TABLE_NAME, TABLE_LOCATION, Optional.empty(), credentials(), sampleStatistics());
+        String statsFile = access.writeExtendedStatistics(SESSION, TABLE_NAME, TABLE_LOCATION, Optional.empty(), credentials(), sampleStatistics());
         assertThat(statsFile).endsWith(".extended_stats.json");
     }
 

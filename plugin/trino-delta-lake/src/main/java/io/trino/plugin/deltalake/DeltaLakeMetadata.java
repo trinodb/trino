@@ -2079,7 +2079,7 @@ public class DeltaLakeMetadata
                             .collect(toImmutableMap(Entry::getKey, Entry::getValue)),
                     existingStatistics.getAnalyzedColumns()
                             .map(analyzedColumns -> analyzedColumns.stream().filter(column -> !column.equalsIgnoreCase(dropColumnName)).collect(toImmutableSet())));
-            return statisticsAccess.updateExtendedStatistics(session, table.getSchemaTableName(), table.getLocation(), table.extendedStatsFile(), table.toCredentialsHandle(), statistics);
+            return statisticsAccess.writeExtendedStatistics(session, table.getSchemaTableName(), table.getLocation(), table.extendedStatsFile(), table.toCredentialsHandle(), statistics);
         });
 
         String schemaString = serializeSchemaAsJson(deltaTable);
@@ -2361,7 +2361,7 @@ public class DeltaLakeMetadata
 
     private Optional<String> getExtendedStatsFileForInsert(ConnectorSession session, Collection<ComputedStatistics> computedStatistics, List<DataFileInfo> dataFileInfos, DeltaLakeInsertTableHandle handle)
     {
-        Optional<String> extendedStatsFile = Optional.empty();
+        Optional<String> extendedStatsFile = handle.extendedStatisticsFile();
         if (isCollectExtendedStatisticsColumnStatisticsOnWrite(session) && !computedStatistics.isEmpty() && !dataFileInfos.isEmpty()) {
             // TODO (https://github.com/trinodb/trino/issues/16088) Add synchronization when version conflict for INSERT is resolved.
             Optional<Instant> maxFileModificationTime = dataFileInfos.stream()
@@ -4227,7 +4227,7 @@ public class DeltaLakeMetadata
                 mergedColumnStatistics,
                 analyzedColumns);
 
-        return statisticsAccess.updateExtendedStatistics(session, schemaTableName, location, previousExtendedStatsFile, credentialsHandle, mergedExtendedStatistics);
+        return statisticsAccess.writeExtendedStatistics(session, schemaTableName, location, previousExtendedStatsFile, credentialsHandle, mergedExtendedStatistics);
     }
 
     private static String toPhysicalColumnName(String columnName, Map</* lowercase*/ String, String> lowerCaseToExactColumnNames, Optional<Map<String, String>> physicalColumnNameMapping)

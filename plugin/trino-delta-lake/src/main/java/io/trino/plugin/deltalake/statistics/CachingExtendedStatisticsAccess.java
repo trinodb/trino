@@ -75,7 +75,7 @@ public class CachingExtendedStatisticsAccess
     }
 
     @Override
-    public String updateExtendedStatistics(
+    public String writeExtendedStatistics(
             ConnectorSession session,
             SchemaTableName schemaTableName,
             String tableLocation,
@@ -83,7 +83,7 @@ public class CachingExtendedStatisticsAccess
             VendedCredentialsHandle credentialsHandle,
             ExtendedStatistics statistics)
     {
-        String extendedStatsFile = delegate.updateExtendedStatistics(session, schemaTableName, tableLocation, previousExtendedStatsFile, credentialsHandle, statistics);
+        String extendedStatsFile = delegate.writeExtendedStatistics(session, schemaTableName, tableLocation, previousExtendedStatsFile, credentialsHandle, statistics);
         cache.invalidate(new CacheKey(schemaTableName, tableLocation, extendedStatsFile));
         return extendedStatsFile;
     }

@@ -84,7 +84,7 @@ public class MetaDirStatisticsAccess
     }
 
     @Override
-    public String updateExtendedStatistics(
+    public String writeExtendedStatistics(
             ConnectorSession session,
             SchemaTableName schemaTableName,
             String tableLocation,
@@ -92,7 +92,7 @@ public class MetaDirStatisticsAccess
             VendedCredentialsHandle credentialsHandle,
             ExtendedStatistics statistics)
     {
-        String currentStatsFile = UUID.randomUUID().toString() + ".extended_stats.json";
+        String currentStatsFile = UUID.randomUUID() + ".extended_stats.json";
         try {
             Location statisticsPath = resolveStatsFileLocation(tableLocation, currentStatsFile);
 
