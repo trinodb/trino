@@ -335,6 +335,12 @@
 
         <dependency>
             <groupId>io.trino</groupId>
+            <artifactId>trino-blob-cache-alluxio</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.trino</groupId>
             <artifactId>trino-client</artifactId>
             <scope>test</scope>
         </dependency>

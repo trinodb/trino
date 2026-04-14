@@ -34,7 +34,7 @@ public class DeltaLakeCacheKeyProvider
     {
         // Disabling the delta log folder caching is useful in those scenarios when Delta Tables are deleted and re-created,
         // and caching their _delta_log directories should be avoided.
-        this.deltaLogCacheDisabled = deltaLakeConfig.isDeltaLogFileSystemCacheDisabled();
+        this.deltaLogCacheDisabled = deltaLakeConfig.isDeltaLogBlobCacheDisabled();
     }
 
     /**
@@ -44,7 +44,7 @@ public class DeltaLakeCacheKeyProvider
     public Optional<String> getCacheKey(TrinoInputFile inputFile)
     {
         String path = inputFile.location().path();
-        // Explicitly exclude the files in the _delta_log directory when deltaLogFileSystemCacheDisabled is set to true,
+        // Explicitly exclude the files in the _delta_log directory when deltaLogBlobCacheDisabled is set to true,
         // as they can change when the Delta Table is overwritten, https://github.com/trinodb/trino/issues/21451
         if (deltaLogCacheDisabled && path.contains("/" + TRANSACTION_LOG_DIRECTORY + "/")) {
             return Optional.empty();

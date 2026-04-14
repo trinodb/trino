@@ -23,6 +23,7 @@ import java.nio.file.Path;
 import java.util.Comparator;
 import java.util.Iterator;
 import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Stream;
 
 /**
@@ -52,17 +53,24 @@ public class TestDeltaLakeAlluxioCacheMinioAndHmsConnectorSmokeTest
     @Override
     protected Map<String, String> deltaStorageConfiguration()
     {
+        return ImmutableMap.<String, String>builder()
+                .putAll(super.deltaStorageConfiguration())
+                .put("fs.cache.enabled", "true")
+                .buildOrThrow();
+    }
+
+    @Override
+    protected Optional<Map<String, String>> getBlobCacheProperties()
+    {
         try {
             cacheDirectory = Files.createTempDirectory("cache");
         }
         catch (IOException e) {
             throw new RuntimeException(e);
         }
-        return ImmutableMap.<String, String>builder()
-                .putAll(super.deltaStorageConfiguration())
-                .put("fs.cache.enabled", "true")
+        return Optional.of(ImmutableMap.<String, String>builder()
                 .put("fs.cache.directories", cacheDirectory.toAbsolutePath().toString())
                 .put("fs.cache.max-sizes", "100MB")
-                .buildOrThrow();
+                .buildOrThrow());
     }
 }

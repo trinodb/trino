@@ -45,7 +45,6 @@
         <module>lib/trino-filesystem</module>
         <module>lib/trino-filesystem-alluxio</module>
         <module>lib/trino-filesystem-azure</module>
-        <module>lib/trino-filesystem-cache-alluxio</module>
         <module>lib/trino-filesystem-gcs</module>
         <module>lib/trino-filesystem-manager</module>
         <module>lib/trino-filesystem-s3</module>
@@ -63,6 +62,8 @@
         <module>plugin/trino-base-jdbc</module>
         <module>plugin/trino-bigquery</module>
         <module>plugin/trino-blackhole</module>
+        <module>plugin/trino-blob-cache-alluxio</module>
+        <module>plugin/trino-blob-cache-memory</module>
         <module>plugin/trino-cassandra</module>
         <module>plugin/trino-clickhouse</module>
         <module>plugin/trino-datasketches</module>
@@ -972,6 +973,18 @@
 
             <dependency>
                 <groupId>io.trino</groupId>
+                <artifactId>trino-blob-cache-alluxio</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.trino</groupId>
+                <artifactId>trino-blob-cache-memory</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.trino</groupId>
                 <artifactId>trino-cache</artifactId>
                 <version>${project.version}</version>
             </dependency>
@@ -1061,12 +1074,6 @@
             <dependency>
                 <groupId>io.trino</groupId>
                 <artifactId>trino-filesystem-azure</artifactId>
-                <version>${project.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>io.trino</groupId>
-                <artifactId>trino-filesystem-cache-alluxio</artifactId>
                 <version>${project.version}</version>
             </dependency>
 

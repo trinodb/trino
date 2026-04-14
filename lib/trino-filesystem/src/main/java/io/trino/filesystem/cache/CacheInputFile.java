@@ -13,6 +13,10 @@
  */
 package io.trino.filesystem.cache;
 
+import io.trino.spi.cache.Blob;
+import io.trino.spi.cache.BlobCache;
+import io.trino.spi.cache.BlobSource;
+import io.trino.spi.cache.CacheKey;
 import io.trino.spi.filesystem.Location;
 import io.trino.spi.filesystem.TrinoInput;
 import io.trino.spi.filesystem.TrinoInputFile;
@@ -30,12 +34,12 @@ public final class CacheInputFile
         implements TrinoInputFile
 {
     private final TrinoInputFile delegate;
-    private final TrinoFileSystemCache cache;
+    private final BlobCache cache;
     private final CacheKeyProvider keyProvider;
     private OptionalLong length;
     private Optional<Instant> lastModified;
 
-    public CacheInputFile(TrinoInputFile delegate, TrinoFileSystemCache cache, CacheKeyProvider keyProvider, OptionalLong length, Optional<Instant> lastModified)
+    public CacheInputFile(TrinoInputFile delegate, BlobCache cache, CacheKeyProvider keyProvider, OptionalLong length, Optional<Instant> lastModified)
     {
         this.delegate = requireNonNull(delegate, "delegate is null");
         this.cache = requireNonNull(cache, "cache is null");
@@ -50,7 +54,8 @@ public final class CacheInputFile
     {
         Optional<String> key = keyProvider.getCacheKey(delegate);
         if (key.isPresent()) {
-            return cache.cacheInput(delegate, key.orElseThrow());
+            Blob blob = cache.get(new CacheKey(key.get()), source());
+            return new BlobTrinoInput(delegate.location(), blob);
         }
         return delegate.newInput();
     }
@@ -61,7 +66,8 @@ public final class CacheInputFile
     {
         Optional<String> key = keyProvider.getCacheKey(delegate);
         if (key.isPresent()) {
-            return cache.cacheStream(delegate, key.orElseThrow());
+            Blob blob = cache.get(new CacheKey(key.get()), source());
+            return new BlobTrinoInputStream(delegate.location(), blob);
         }
         return delegate.newStream();
     }
@@ -73,7 +79,9 @@ public final class CacheInputFile
         if (length.isEmpty()) {
             Optional<String> key = keyProvider.getCacheKey(delegate);
             if (key.isPresent()) {
-                length = OptionalLong.of(cache.cacheLength(delegate, key.orElseThrow()));
+                try (Blob blob = cache.get(new CacheKey(key.get()), source())) {
+                    length = OptionalLong.of(blob.length());
+                }
             }
             else {
                 length = OptionalLong.of(delegate.length());
@@ -103,6 +111,11 @@ public final class CacheInputFile
     public Location location()
     {
         return delegate.location();
+    }
+
+    private BlobSource source()
+    {
+        return new TrinoInputFileBlobSource(delegate);
     }
 
     @Override

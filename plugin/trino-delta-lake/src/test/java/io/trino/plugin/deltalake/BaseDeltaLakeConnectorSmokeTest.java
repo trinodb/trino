@@ -22,6 +22,7 @@ import io.airlift.concurrent.MoreFutures;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.Session;
+import io.trino.blob.cache.alluxio.AlluxioBlobCachePlugin;
 import io.trino.execution.QueryManager;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.metastore.HiveMetastore;
@@ -50,6 +51,7 @@ import org.junit.jupiter.api.TestInstance;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CyclicBarrier;
@@ -225,7 +227,7 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
     private QueryRunner createDeltaLakeQueryRunner()
             throws Exception
     {
-        return DeltaLakeQueryRunner.builder(SCHEMA)
+        DeltaLakeQueryRunner.Builder builder = DeltaLakeQueryRunner.builder(SCHEMA)
                 .setDeltaProperties(ImmutableMap.<String, String>builder()
                         .put("hive.metastore.uri", hiveHadoop.getHiveMetastoreEndpoint().toString())
                         .put("delta.metadata.cache-ttl", TEST_METADATA_CACHE_TTL_SECONDS + "s")
@@ -234,8 +236,22 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
                         .put("hive.metastore.thrift.client.read-timeout", "1m") // read timed out sometimes happens with the default timeout
                         .putAll(deltaStorageConfiguration())
                         .buildOrThrow())
-                .setSchemaLocation(getLocationForTable(bucketName, SCHEMA))
-                .build();
+                .setSchemaLocation(getLocationForTable(bucketName, SCHEMA));
+        getBlobCacheProperties().ifPresent(properties -> {
+            builder.withPlugin(new AlluxioBlobCachePlugin());
+            builder.withBlobCache(getBlobCacheType(), properties);
+        });
+        return builder.build();
+    }
+
+    protected String getBlobCacheType()
+    {
+        return "alluxio";
+    }
+
+    protected Optional<Map<String, String>> getBlobCacheProperties()
+    {
+        return Optional.empty();
     }
 
     @AfterAll
