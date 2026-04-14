@@ -44,6 +44,7 @@ RUN \
       curl-minimal grep `# required by health-check` \
       zlib `#required by java` \
       shadow-utils `# required by useradd` \
+      nss_wrapper `# required by run-trino to fake passwd entry on OpenShift` \
       tar `# required to support kubectl cp` && \
       rm -rf /tmp/overlay/var/cache/*
 
