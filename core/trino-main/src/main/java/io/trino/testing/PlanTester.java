@@ -30,6 +30,8 @@ import io.trino.FeaturesConfig;
 import io.trino.Session;
 import io.trino.SystemSessionProperties;
 import io.trino.block.BlockJsonSerde;
+import io.trino.cache.CacheManagerConfig;
+import io.trino.cache.CacheManagerRegistry;
 import io.trino.connector.CatalogFactory;
 import io.trino.connector.CatalogHandle;
 import io.trino.connector.CatalogServiceProviderModule;
@@ -494,6 +496,7 @@ public class PlanTester
                 ImmutableSet.of(new ExcludeColumnsFunction()));
 
         exchangeManagerRegistry = new ExchangeManagerRegistry(noop(), noopTracer(), secretsResolver, new ExchangeManagerConfig());
+        CacheManagerRegistry cacheManagerRegistry = new CacheManagerRegistry(noop(), noopTracer(), secretsResolver, new CacheManagerConfig());
         SpoolingManagerRegistry spoolingManagerRegistry = new SpoolingManagerRegistry(
                 new InternalNode("nodeId", URI.create("http://localhost:8080"), NodeVersion.UNKNOWN, false),
                 new ServerConfig(),
@@ -518,7 +521,8 @@ public class PlanTester
                 TESTING_BLOCK_ENCODING_MANAGER,
                 new HandleResolver(),
                 exchangeManagerRegistry,
-                spoolingManagerRegistry);
+                spoolingManagerRegistry,
+                cacheManagerRegistry);
 
         catalogManager.registerGlobalSystemConnector(globalSystemConnector);
         languageFunctionManager.setPlannerContext(plannerContext);

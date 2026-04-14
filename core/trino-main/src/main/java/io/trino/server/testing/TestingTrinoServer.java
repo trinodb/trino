@@ -41,6 +41,8 @@ import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.sdk.trace.SpanProcessor;
 import io.trino.Session;
 import io.trino.SystemSessionPropertiesProvider;
+import io.trino.cache.CacheManagerConfig;
+import io.trino.cache.CacheManagerRegistry;
 import io.trino.connector.CatalogHandle;
 import io.trino.connector.CatalogManagerConfig.CatalogMangerKind;
 import io.trino.connector.CatalogManagerModule;
@@ -321,6 +323,7 @@ public class TestingTrinoServer
                     binder.bind(NodeVersion.class).toInstance(new NodeVersion(VERSION));
                     binder.bind(EventListenerConfig.class).in(Scopes.SINGLETON);
                     binder.bind(ExchangeManagerConfig.class).in(Scopes.SINGLETON);
+                    binder.bind(CacheManagerConfig.class).in(Scopes.SINGLETON);
                     binder.bind(AccessControlConfig.class).in(Scopes.SINGLETON);
                     binder.bind(TestingAccessControlManager.class).in(Scopes.SINGLETON);
                     binder.bind(TestingGroupProvider.class).in(Scopes.SINGLETON);
@@ -337,6 +340,7 @@ public class TestingTrinoServer
                     binder.bind(NodeStateManager.class).in(Scopes.SINGLETON);
                     binder.bind(ProcedureTester.class).in(Scopes.SINGLETON);
                     binder.bind(ExchangeManagerRegistry.class).in(Scopes.SINGLETON);
+                    binder.bind(CacheManagerRegistry.class).in(Scopes.SINGLETON);
                     spanProcessor.ifPresent(processor -> newSetBinder(binder, SpanProcessor.class).addBinding().toInstance(processor));
 
                     newSetBinder(binder, SystemSessionPropertiesProvider.class)
