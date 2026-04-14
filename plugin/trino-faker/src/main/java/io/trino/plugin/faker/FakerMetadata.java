@@ -64,13 +64,11 @@ import io.trino.spi.type.MapType;
 import io.trino.spi.type.P4HyperLogLogType;
 import io.trino.spi.type.QuantileDigestType;
 import io.trino.spi.type.RowType;
+import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.UuidType;
 import io.trino.spi.type.VarbinaryType;
 import io.trino.spi.type.VarcharType;
-import io.trino.type.IpAddressType;
-import io.trino.type.JsonType;
-import io.trino.type.TDigestType;
 import net.datafaker.Faker;
 
 import java.util.ArrayList;
@@ -416,14 +414,14 @@ public class FakerMetadata
         return !(type instanceof BooleanType ||
                 type instanceof HyperLogLogType ||
                 type instanceof QuantileDigestType ||
-                type instanceof TDigestType ||
+                type.getBaseName().equals(StandardTypes.TDIGEST) ||
                 type instanceof P4HyperLogLogType ||
                 isCharacterType(type) ||
                 type instanceof RowType ||
                 type instanceof ArrayType ||
                 type instanceof MapType ||
-                type instanceof JsonType ||
-                type instanceof IpAddressType ||
+                type.getBaseName().equals(StandardTypes.JSON) ||
+                type.getBaseName().equals(StandardTypes.IPADDRESS) ||
                 type instanceof UuidType);
     }
 

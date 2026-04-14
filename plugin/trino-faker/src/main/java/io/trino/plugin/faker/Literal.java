@@ -31,6 +31,7 @@ import io.trino.spi.type.SqlTimeWithTimeZone;
 import io.trino.spi.type.SqlTimestamp;
 import io.trino.spi.type.SqlTimestampWithTimeZone;
 import io.trino.spi.type.SqlVarbinary;
+import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.TimeType;
 import io.trino.spi.type.TimeWithTimeZoneType;
 import io.trino.spi.type.TimestampType;
@@ -39,10 +40,6 @@ import io.trino.spi.type.Type;
 import io.trino.spi.type.UuidType;
 import io.trino.spi.type.VarbinaryType;
 import io.trino.spi.type.VarcharType;
-import io.trino.sql.tree.IntervalField;
-import io.trino.type.IntervalDayTimeType;
-import io.trino.type.IntervalYearMonthType;
-import io.trino.type.IpAddressType;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
@@ -50,8 +47,6 @@ import java.math.MathContext;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.time.LocalDate;
-import java.util.Optional;
-import java.util.OptionalInt;
 import java.util.UUID;
 import java.util.regex.MatchResult;
 import java.util.regex.Matcher;
@@ -61,6 +56,13 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.slice.Slices.wrappedBuffer;
+import static io.trino.plugin.faker.DateTimeParsing.parseDate;
+import static io.trino.plugin.faker.DateTimeParsing.parseDayTimeInterval;
+import static io.trino.plugin.faker.DateTimeParsing.parseTime;
+import static io.trino.plugin.faker.DateTimeParsing.parseTimeWithTimeZone;
+import static io.trino.plugin.faker.DateTimeParsing.parseTimestamp;
+import static io.trino.plugin.faker.DateTimeParsing.parseTimestampWithTimeZone;
+import static io.trino.plugin.faker.DateTimeParsing.parseYearMonthInterval;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DateTimeEncoding.unpackMillisUtc;
@@ -79,15 +81,6 @@ import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.UuidType.javaUuidToTrinoUuid;
 import static io.trino.spi.type.UuidType.trinoUuidToJavaUuid;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
-import static io.trino.type.DateTimes.parseTime;
-import static io.trino.type.DateTimes.parseTimeWithTimeZone;
-import static io.trino.type.DateTimes.parseTimestamp;
-import static io.trino.type.DateTimes.parseTimestampWithTimeZone;
-import static io.trino.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
-import static io.trino.type.IntervalYearMonthType.INTERVAL_YEAR_MONTH;
-import static io.trino.util.DateTimeUtils.parseDate;
-import static io.trino.util.DateTimeUtils.parseDayTimeInterval;
-import static io.trino.util.DateTimeUtils.parseYearMonthInterval;
 import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Float.intBitsToFloat;
 import static java.lang.Math.floorDiv;
@@ -130,11 +123,11 @@ public class Literal
             return Double.parseDouble(value);
         }
         // not supported: HYPER_LOG_LOG, QDIGEST, TDIGEST, P4_HYPER_LOG_LOG
-        if (INTERVAL_DAY_TIME.equals(type)) {
-            return parseDayTimeInterval(value, new IntervalField.Second(OptionalInt.empty()), Optional.empty());
+        if (type.getBaseName().equals(StandardTypes.INTERVAL_DAY_TO_SECOND)) {
+            return parseDayTimeInterval(value);
         }
-        if (INTERVAL_YEAR_MONTH.equals(type)) {
-            return parseYearMonthInterval(value, new IntervalField.Month(), Optional.empty());
+        if (type.getBaseName().equals(StandardTypes.INTERVAL_YEAR_TO_MONTH)) {
+            return parseYearMonthInterval(value);
         }
         if (type instanceof TimestampType timestampType) {
             return parseTimestamp(timestampType.getPrecision(), value);
@@ -155,7 +148,7 @@ public class Literal
             return utf8Slice(value);
         }
         // not supported: ROW, ARRAY, MAP, JSON
-        if (type instanceof IpAddressType) {
+        if (type.getBaseName().equals(StandardTypes.IPADDRESS)) {
             return parseIpAddress(value);
         }
         // not supported: GEOMETRY
@@ -353,33 +346,33 @@ public class Literal
                         unpackZoneKey(typedValue)).toString();
             }
 
-            if (type instanceof IntervalDayTimeType) {
+            if (type.getBaseName().equals(StandardTypes.INTERVAL_DAY_TO_SECOND)) {
                 long epochSeconds = floorDiv(typedValue, (long) MILLISECONDS_PER_SECOND);
                 long fractionalSecond = floorMod(typedValue, (long) MILLISECONDS_PER_SECOND);
                 return "%d.%03d".formatted(epochSeconds, fractionalSecond);
             }
 
-            if (type instanceof IntervalYearMonthType) {
+            if (type.getBaseName().equals(StandardTypes.INTERVAL_YEAR_TO_MONTH)) {
                 return Long.toString(typedValue);
             }
         }
 
         if (javaType == Slice.class) {
             Slice typedValue = (Slice) value;
+            if (type.getBaseName().equals(StandardTypes.IPADDRESS)) {
+                try {
+                    return InetAddresses.toAddrString(InetAddress.getByAddress(typedValue.getBytes()));
+                }
+                catch (UnknownHostException e) {
+                    throw new RuntimeException(e);
+                }
+            }
             switch (type) {
                 case VarcharType _, CharType _ -> {
                     return typedValue.toStringUtf8();
                 }
                 case VarbinaryType _ -> {
                     return new SqlVarbinary(typedValue.getBytes()).toString();
-                }
-                case IpAddressType _ -> {
-                    try {
-                        return InetAddresses.toAddrString(InetAddress.getByAddress(typedValue.getBytes()));
-                    }
-                    catch (UnknownHostException e) {
-                        throw new RuntimeException(e);
-                    }
                 }
                 case UuidType _ -> {
                     return trinoUuidToJavaUuid(typedValue).toString();

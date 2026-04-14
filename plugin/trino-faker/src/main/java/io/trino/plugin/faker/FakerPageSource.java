@@ -41,6 +41,7 @@ import io.trino.spi.type.LongTimestamp;
 import io.trino.spi.type.LongTimestampWithTimeZone;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.RowType;
+import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.TimeType;
 import io.trino.spi.type.TimeWithTimeZoneType;
 import io.trino.spi.type.TimeZoneKey;
@@ -50,8 +51,6 @@ import io.trino.spi.type.Type;
 import io.trino.spi.type.UuidType;
 import io.trino.spi.type.VarbinaryType;
 import io.trino.spi.type.VarcharType;
-import io.trino.type.IpAddressType;
-import io.trino.type.JsonType;
 import net.datafaker.Faker;
 
 import java.math.BigDecimal;
@@ -90,9 +89,6 @@ import static io.trino.spi.type.Timestamps.roundDiv;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.UuidType.UUID;
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static io.trino.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
-import static io.trino.type.IntervalYearMonthType.INTERVAL_YEAR_MONTH;
-import static io.trino.type.IpAddressType.IPADDRESS;
 import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Float.intBitsToFloat;
 import static java.lang.Math.toIntExact;
@@ -310,7 +306,7 @@ class FakerPageSource
             DoubleRange range = DoubleRange.of(genericRange, (double) handle.step().getSingleValue());
             return (blockBuilder, rowId) -> DOUBLE.writeDouble(blockBuilder, range.at(rowId));
         }
-        if (INTERVAL_DAY_TIME.equals(type) || INTERVAL_YEAR_MONTH.equals(type)) {
+        if (type.getBaseName().equals(StandardTypes.INTERVAL_DAY_TO_SECOND) || type.getBaseName().equals(StandardTypes.INTERVAL_YEAR_TO_MONTH)) {
             // step is seconds or months
             IntRange range = IntRange.of(genericRange, (long) handle.step().getSingleValue());
             return (blockBuilder, rowId) -> type.writeLong(blockBuilder, range.at(rowId));
@@ -385,8 +381,8 @@ class FakerPageSource
             MapBlock emptyBlock = (MapBlock) mapBlockBuilder.build();
             return (blockBuilder) -> blockBuilder.append(emptyBlock, 0);
         }
-        if (type instanceof JsonType jsonType) {
-            return (blockBuilder) -> jsonType.writeSlice(blockBuilder, EMPTY_SLICE);
+        if (type.getBaseName().equals(StandardTypes.JSON)) {
+            return (blockBuilder) -> type.writeSlice(blockBuilder, EMPTY_SLICE);
         }
 
         Range genericRange = handle.domain().getValues().getRanges().getSpan();
@@ -435,13 +431,13 @@ class FakerPageSource
             return (blockBuilder) -> DOUBLE.writeDouble(blockBuilder, range.low == range.high ? range.low : random.nextDouble(range.low, range.high));
         }
         // not supported: HYPER_LOG_LOG, QDIGEST, TDIGEST, P4_HYPER_LOG_LOG
-        if (INTERVAL_DAY_TIME.equals(type)) {
+        if (type.getBaseName().equals(StandardTypes.INTERVAL_DAY_TO_SECOND)) {
             LongRange range = LongRange.of(genericRange);
-            return (blockBuilder) -> INTERVAL_DAY_TIME.writeLong(blockBuilder, numberBetween(range.low, range.high));
+            return (blockBuilder) -> type.writeLong(blockBuilder, numberBetween(range.low, range.high));
         }
-        if (INTERVAL_YEAR_MONTH.equals(type)) {
+        if (type.getBaseName().equals(StandardTypes.INTERVAL_YEAR_TO_MONTH)) {
             IntRange range = IntRange.of(genericRange);
-            return (blockBuilder) -> INTERVAL_YEAR_MONTH.writeLong(blockBuilder, numberBetween(range.low, range.high));
+            return (blockBuilder) -> type.writeLong(blockBuilder, numberBetween(range.low, range.high));
         }
         if (type instanceof TimestampType timestampType) {
             return timestampGenerator(genericRange, timestampType);
@@ -479,8 +475,8 @@ class FakerPageSource
             }
             return (blockBuilder) -> charType.writeSlice(blockBuilder, boundedSentenceGenerator.get(charType.getLength()));
         }
-        if (type instanceof IpAddressType) {
-            return generateIpV4(genericRange);
+        if (type.getBaseName().equals(StandardTypes.IPADDRESS)) {
+            return generateIpV4(type, genericRange);
         }
         // not supported: GEOMETRY
         if (type instanceof UuidType) {
@@ -526,11 +522,11 @@ class FakerPageSource
             return (blockBuilder, value) -> DOUBLE.writeDouble(blockBuilder, (Double) value);
         }
         // not supported: HYPER_LOG_LOG, QDIGEST, TDIGEST, P4_HYPER_LOG_LOG
-        if (INTERVAL_DAY_TIME.equals(type)) {
-            return (blockBuilder, value) -> INTERVAL_DAY_TIME.writeLong(blockBuilder, (Long) value);
+        if (type.getBaseName().equals(StandardTypes.INTERVAL_DAY_TO_SECOND)) {
+            return (blockBuilder, value) -> type.writeLong(blockBuilder, (Long) value);
         }
-        if (INTERVAL_YEAR_MONTH.equals(type)) {
-            return (blockBuilder, value) -> INTERVAL_YEAR_MONTH.writeLong(blockBuilder, (Long) value);
+        if (type.getBaseName().equals(StandardTypes.INTERVAL_YEAR_TO_MONTH)) {
+            return (blockBuilder, value) -> type.writeLong(blockBuilder, (Long) value);
         }
         if (type instanceof TimestampType tzType) {
             if (tzType.isShort()) {
@@ -569,8 +565,8 @@ class FakerPageSource
             return (blockBuilder, value) -> charType.writeSlice(blockBuilder, (Slice) value);
         }
         // not supported: ROW, ARRAY, MAP, JSON
-        if (type instanceof IpAddressType) {
-            return (blockBuilder, value) -> IPADDRESS.writeSlice(blockBuilder, (Slice) value);
+        if (type.getBaseName().equals(StandardTypes.IPADDRESS)) {
+            return (blockBuilder, value) -> type.writeSlice(blockBuilder, (Slice) value);
         }
         // not supported: GEOMETRY
         if (type instanceof UuidType) {
@@ -1062,7 +1058,7 @@ class FakerPageSource
         return bigMin.add(bigMax.subtract(bigMin).multiply(randomValue)).longValue();
     }
 
-    private Generator generateIpV4(Range range)
+    private Generator generateIpV4(Type type, Range range)
     {
         if (!range.isAll()) {
             throw new TrinoException(INVALID_ROW_FILTER, "Predicates for ipaddress columns are not supported");
@@ -1087,7 +1083,7 @@ class FakerPageSource
             bytes[11] = (byte) 0xff;
             arraycopy(address, 0, bytes, 12, 4);
 
-            IPADDRESS.writeSlice(blockBuilder, Slices.wrappedBuffer(bytes, 0, 16));
+            type.writeSlice(blockBuilder, Slices.wrappedBuffer(bytes, 0, 16));
         };
     }
 
