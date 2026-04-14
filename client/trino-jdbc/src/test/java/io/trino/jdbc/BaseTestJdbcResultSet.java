@@ -45,6 +45,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 import static com.google.common.base.Verify.verify;
 import static io.trino.type.DateTimes.NANOSECONDS_PER_MILLISECOND;
@@ -566,6 +567,222 @@ public abstract class BaseTestJdbcResultSet
                 assertThat(rs.getDouble(column)).isEqualTo(Double.NEGATIVE_INFINITY);
                 assertThat(rs.getString(column)).isEqualTo("-Infinity");
                 assertSqlExceptionThrownBy(() -> rs.getBytes(column)).hasMessage("Value is not a byte array: -Infinity");
+            });
+        }
+    }
+
+    @Test
+    public void testVariant()
+            throws Exception
+    {
+        try (ConnectedStatement connectedStatement = newStatement()) {
+            checkRepresentation(connectedStatement.getStatement(), "CAST(NULL AS variant)", Types.JAVA_OBJECT, (rs, column) -> {
+                assertThat(rs.getObject(column)).isNull();
+                assertThat(rs.wasNull()).isTrue();
+                assertThat(rs.getObject(column, Object.class)).isNull();
+                assertThat(rs.wasNull()).isTrue();
+                assertThat(rs.getString(column)).isNull();
+                assertThat(rs.wasNull()).isTrue();
+                assertThat(rs.getBytes(column)).isNull();
+                assertThat(rs.wasNull()).isTrue();
+            });
+
+            checkRepresentation(connectedStatement.getStatement(), "CAST(JSON 'null' AS variant)", Types.JAVA_OBJECT, (rs, column) -> {
+                assertThat(rs.getObject(column)).isNull();
+                assertThat(rs.wasNull()).isFalse();
+                assertThat(rs.getObject(column, Object.class)).isNull();
+                assertThat(rs.wasNull()).isFalse();
+                assertThat(rs.getString(column)).isEqualTo("null");
+                assertThat(rs.wasNull()).isFalse();
+                assertThat(rs.getObject(column, String.class)).isEqualTo("null");
+                assertThat(rs.wasNull()).isFalse();
+                Variant variant = rs.getObject(column, Variant.class);
+                assertThat(variant.isNull()).isTrue();
+                assertThat(variant.toObject()).isNull();
+                assertThat(rs.wasNull()).isFalse();
+            });
+
+            checkRepresentation(connectedStatement.getStatement(), "CAST(TRUE AS variant)", Types.JAVA_OBJECT, (rs, column) -> {
+                assertThat(rs.getObject(column)).isEqualTo(true);
+                assertThat(rs.getObject(column, Object.class)).isEqualTo(true);
+                assertThat(rs.getString(column)).isEqualTo("true");
+                assertThat(rs.getObject(column, String.class)).isEqualTo("true");
+                Variant variant = rs.getObject(column, Variant.class);
+                assertThat(variant.valueType()).isEqualTo(Variant.ValueType.BOOLEAN);
+                assertThat(variant.getBoolean()).isTrue();
+            });
+
+            checkRepresentation(connectedStatement.getStatement(), "CAST(TINYINT '123' AS variant)", Types.JAVA_OBJECT, (rs, column) -> {
+                assertThat(rs.getObject(column)).isEqualTo((byte) 123);
+                assertThat(rs.getObject(column, Object.class)).isEqualTo((byte) 123);
+                assertThat(rs.getString(column)).isEqualTo("123");
+                assertThat(rs.getObject(column, String.class)).isEqualTo("123");
+                Variant variant = rs.getObject(column, Variant.class);
+                assertThat(variant.valueType()).isEqualTo(Variant.ValueType.INT8);
+                assertThat(variant.getByte()).isEqualTo((byte) 123);
+            });
+
+            checkRepresentation(connectedStatement.getStatement(), "CAST(SMALLINT '12345' AS variant)", Types.JAVA_OBJECT, (rs, column) -> {
+                assertThat(rs.getObject(column)).isEqualTo((short) 12345);
+                assertThat(rs.getObject(column, Object.class)).isEqualTo((short) 12345);
+                assertThat(rs.getString(column)).isEqualTo("12345");
+                assertThat(rs.getObject(column, String.class)).isEqualTo("12345");
+                Variant variant = rs.getObject(column, Variant.class);
+                assertThat(variant.valueType()).isEqualTo(Variant.ValueType.INT16);
+                assertThat(variant.getShort()).isEqualTo((short) 12345);
+            });
+
+            checkRepresentation(connectedStatement.getStatement(), "CAST(INTEGER '123456' AS variant)", Types.JAVA_OBJECT, (rs, column) -> {
+                assertThat(rs.getObject(column)).isEqualTo(123456);
+                assertThat(rs.getObject(column, Object.class)).isEqualTo(123456);
+                assertThat(rs.getString(column)).isEqualTo("123456");
+                assertThat(rs.getObject(column, String.class)).isEqualTo("123456");
+                Variant variant = rs.getObject(column, Variant.class);
+                assertThat(variant.valueType()).isEqualTo(Variant.ValueType.INT32);
+                assertThat(variant.getInt()).isEqualTo(123456);
+            });
+
+            checkRepresentation(connectedStatement.getStatement(), "CAST(BIGINT '1234567890123' AS variant)", Types.JAVA_OBJECT, (rs, column) -> {
+                assertThat(rs.getObject(column)).isEqualTo(1234567890123L);
+                assertThat(rs.getObject(column, Object.class)).isEqualTo(1234567890123L);
+                assertThat(rs.getString(column)).isEqualTo("1234567890123");
+                assertThat(rs.getObject(column, String.class)).isEqualTo("1234567890123");
+                Variant variant = rs.getObject(column, Variant.class);
+                assertThat(variant.valueType()).isEqualTo(Variant.ValueType.INT64);
+                assertThat(variant.getLong()).isEqualTo(1234567890123L);
+            });
+
+            checkRepresentation(connectedStatement.getStatement(), "CAST(DECIMAL '123.45' AS variant)", Types.JAVA_OBJECT, (rs, column) -> {
+                assertThat(rs.getObject(column)).isEqualTo(new BigDecimal("123.45"));
+                assertThat(rs.getObject(column, Object.class)).isEqualTo(new BigDecimal("123.45"));
+                assertThat(rs.getString(column)).isEqualTo("123.45");
+                assertThat(rs.getObject(column, String.class)).isEqualTo("123.45");
+                Variant variant = rs.getObject(column, Variant.class);
+                assertThat(variant.valueType()).isEqualTo(Variant.ValueType.DECIMAL);
+                assertThat(variant.getDecimal()).isEqualByComparingTo("123.45");
+            });
+
+            checkRepresentation(connectedStatement.getStatement(), "CAST(CAST(123.25 AS real) AS variant)", Types.JAVA_OBJECT, (rs, column) -> {
+                assertThat(rs.getObject(column)).isEqualTo(123.25f);
+                assertThat(rs.getObject(column, Object.class)).isEqualTo(123.25f);
+                assertThat(rs.getString(column)).isEqualTo("123.25");
+                assertThat(rs.getObject(column, String.class)).isEqualTo("123.25");
+                Variant variant = rs.getObject(column, Variant.class);
+                assertThat(variant.valueType()).isEqualTo(Variant.ValueType.FLOAT);
+                assertThat(variant.getFloat()).isEqualTo(123.25f);
+            });
+
+            checkRepresentation(connectedStatement.getStatement(), "CAST(DOUBLE '123.5' AS variant)", Types.JAVA_OBJECT, (rs, column) -> {
+                assertThat(rs.getObject(column)).isEqualTo(123.5);
+                assertThat(rs.getObject(column, Object.class)).isEqualTo(123.5);
+                assertThat(rs.getString(column)).isEqualTo("123.5");
+                assertThat(rs.getObject(column, String.class)).isEqualTo("123.5");
+                Variant variant = rs.getObject(column, Variant.class);
+                assertThat(variant.valueType()).isEqualTo(Variant.ValueType.DOUBLE);
+                assertThat(variant.getDouble()).isEqualTo(123.5);
+            });
+
+            checkRepresentation(connectedStatement.getStatement(), "CAST(DATE '2021-02-03' AS variant)", Types.JAVA_OBJECT, (rs, column) -> {
+                assertThat(rs.getObject(column)).isEqualTo(LocalDate.of(2021, 2, 3));
+                assertThat(rs.getObject(column, Object.class)).isEqualTo(LocalDate.of(2021, 2, 3));
+                assertThat(rs.getString(column)).isEqualTo("\"2021-02-03\"");
+                assertThat(rs.getObject(column, String.class)).isEqualTo("\"2021-02-03\"");
+                Variant variant = rs.getObject(column, Variant.class);
+                assertThat(variant.valueType()).isEqualTo(Variant.ValueType.DATE);
+                assertThat(variant.getLocalDate()).isEqualTo(LocalDate.of(2021, 2, 3));
+                assertSqlExceptionThrownBy(() -> rs.getObject(column, Map.class)).hasMessage("VARIANT is not an object");
+                assertSqlExceptionThrownBy(() -> rs.getObject(column, List.class)).hasMessage("VARIANT is not an array");
+
+                ResultSetMetaData metaData = rs.getMetaData();
+                assertThat(metaData.getColumnTypeName(column)).isEqualTo("variant");
+                assertThat(metaData.getColumnClassName(column)).isEqualTo("java.lang.Object");
+            });
+
+            checkRepresentation(connectedStatement.getStatement(), "CAST(TIME '12:34:56.123456' AS variant)", Types.JAVA_OBJECT, (rs, column) -> {
+                assertThat(rs.getObject(column)).isEqualTo(LocalTime.of(12, 34, 56, 123456000));
+                assertThat(rs.getObject(column, Object.class)).isEqualTo(LocalTime.of(12, 34, 56, 123456000));
+                assertThat(rs.getString(column)).isEqualTo("\"12:34:56.123456\"");
+                assertThat(rs.getObject(column, String.class)).isEqualTo("\"12:34:56.123456\"");
+                Variant variant = rs.getObject(column, Variant.class);
+                assertThat(variant.valueType()).isEqualTo(Variant.ValueType.TIME_NTZ_MICROS);
+                assertThat(variant.getLocalTime()).isEqualTo(LocalTime.of(12, 34, 56, 123456000));
+            });
+
+            checkRepresentation(connectedStatement.getStatement(), "CAST(TIMESTAMP '2021-02-03 04:05:06.123456' AS variant)", Types.JAVA_OBJECT, (rs, column) -> {
+                assertThat(rs.getObject(column)).isEqualTo(LocalDateTime.of(2021, 2, 3, 4, 5, 6, 123456000));
+                assertThat(rs.getObject(column, Object.class)).isEqualTo(LocalDateTime.of(2021, 2, 3, 4, 5, 6, 123456000));
+                assertThat(rs.getString(column)).isEqualTo("\"2021-02-03 04:05:06.123456\"");
+                assertThat(rs.getObject(column, String.class)).isEqualTo("\"2021-02-03 04:05:06.123456\"");
+                Variant variant = rs.getObject(column, Variant.class);
+                assertThat(variant.valueType()).isEqualTo(Variant.ValueType.TIMESTAMP_NTZ_MICROS);
+                assertThat(variant.getLocalDateTime()).isEqualTo(LocalDateTime.of(2021, 2, 3, 4, 5, 6, 123456000));
+            });
+
+            checkRepresentation(connectedStatement.getStatement(), "CAST(TIMESTAMP '2021-02-03 04:05:06.123456 UTC' AS variant)", Types.JAVA_OBJECT, (rs, column) -> {
+                assertThat(rs.getObject(column)).isEqualTo(Instant.parse("2021-02-03T04:05:06.123456Z"));
+                assertThat(rs.getObject(column, Object.class)).isEqualTo(Instant.parse("2021-02-03T04:05:06.123456Z"));
+                assertThat(rs.getString(column)).isEqualTo("\"2021-02-03 04:05:06.123456 UTC\"");
+                assertThat(rs.getObject(column, String.class)).isEqualTo("\"2021-02-03 04:05:06.123456 UTC\"");
+                Variant variant = rs.getObject(column, Variant.class);
+                assertThat(variant.valueType()).isEqualTo(Variant.ValueType.TIMESTAMP_UTC_MICROS);
+                assertThat(variant.getInstant()).isEqualTo(Instant.parse("2021-02-03T04:05:06.123456Z"));
+            });
+
+            checkRepresentation(connectedStatement.getStatement(), "CAST('hello \"variant\"' AS variant)", Types.JAVA_OBJECT, (rs, column) -> {
+                assertThat(rs.getObject(column)).isEqualTo("hello \"variant\"");
+                assertThat(rs.getObject(column, Object.class)).isEqualTo("hello \"variant\"");
+                assertThat(rs.getString(column)).isEqualTo("\"hello \\\"variant\\\"\"");
+                assertThat(rs.getObject(column, String.class)).isEqualTo("\"hello \\\"variant\\\"\"");
+            });
+
+            checkRepresentation(connectedStatement.getStatement(), "CAST(X'010203' AS variant)", Types.JAVA_OBJECT, (rs, column) -> {
+                Variant variant = rs.getObject(column, Variant.class);
+                assertThat(variant.valueType()).isEqualTo(Variant.ValueType.BINARY);
+                assertThat(variant.getBinary()).containsExactly((byte) 0x01, (byte) 0x02, (byte) 0x03);
+                assertThat((byte[]) rs.getObject(column)).containsExactly((byte) 0x01, (byte) 0x02, (byte) 0x03);
+                assertThat((byte[]) rs.getObject(column, Object.class)).containsExactly((byte) 0x01, (byte) 0x02, (byte) 0x03);
+                assertThat(rs.getString(column)).isEqualTo("\"AQID\"");
+                assertThat(rs.getObject(column, String.class)).isEqualTo("\"AQID\"");
+            });
+
+            checkRepresentation(connectedStatement.getStatement(), "CAST(UUID '0397e63b-2b78-4b7b-9c87-e085fa225dd8' AS variant)", Types.JAVA_OBJECT, (rs, column) -> {
+                UUID uuid = UUID.fromString("0397e63b-2b78-4b7b-9c87-e085fa225dd8");
+                assertThat(rs.getObject(column)).isEqualTo(uuid);
+                assertThat(rs.getObject(column, Object.class)).isEqualTo(uuid);
+                assertThat(rs.getString(column)).isEqualTo("\"0397e63b-2b78-4b7b-9c87-e085fa225dd8\"");
+                assertThat(rs.getObject(column, String.class)).isEqualTo("\"0397e63b-2b78-4b7b-9c87-e085fa225dd8\"");
+                Variant variant = rs.getObject(column, Variant.class);
+                assertThat(variant.valueType()).isEqualTo(Variant.ValueType.UUID);
+                assertThat(variant.getUuid()).isEqualTo(uuid);
+            });
+
+            checkRepresentation(connectedStatement.getStatement(), "CAST(ARRAY[1, 2, 3] AS variant)", Types.JAVA_OBJECT, (rs, column) -> {
+                Variant variant = rs.getObject(column, Variant.class);
+                assertThat(variant.valueType()).isEqualTo(Variant.ValueType.ARRAY);
+                assertThat(variant.getArrayElement(0).getInt()).isEqualTo(1);
+                assertThat(variant.getArrayElement(1).getInt()).isEqualTo(2);
+                assertThat(variant.getArrayElement(2).getInt()).isEqualTo(3);
+                assertThat(rs.getObject(column)).isEqualTo(ImmutableList.of(1, 2, 3));
+                assertThat(rs.getObject(column, Object.class)).isEqualTo(ImmutableList.of(1, 2, 3));
+                assertThat(rs.getString(column)).isEqualTo("[1,2,3]");
+                assertThat(rs.getObject(column, String.class)).isEqualTo("[1,2,3]");
+                assertThat(rs.getObject(column, List.class)).isEqualTo(ImmutableList.of(1, 2, 3));
+                assertSqlExceptionThrownBy(() -> rs.getObject(column, Map.class)).hasMessage("VARIANT is not an object");
+            });
+
+            checkRepresentation(connectedStatement.getStatement(), "CAST(MAP(ARRAY['a', 'b'], ARRAY[1, 2]) AS variant)", Types.JAVA_OBJECT, (rs, column) -> {
+                Variant variant = rs.getObject(column, Variant.class);
+                assertThat(variant.valueType()).isEqualTo(Variant.ValueType.OBJECT);
+                assertThat(variant.getObjectFields()).containsKey("a");
+                assertThat(variant.getObjectFields()).containsKey("b");
+                assertThat(variant.getObjectFields().get("a").getInt()).isEqualTo(1);
+                assertThat(variant.getObjectFields().get("b").getInt()).isEqualTo(2);
+                assertThat(rs.getObject(column)).isEqualTo(ImmutableMap.of("a", 1, "b", 2));
+                assertThat(rs.getObject(column, Object.class)).isEqualTo(ImmutableMap.of("a", 1, "b", 2));
+                assertThat(rs.getString(column)).isEqualTo("{\"a\":1,\"b\":2}");
+                assertThat(rs.getObject(column, String.class)).isEqualTo("{\"a\":1,\"b\":2}");
+                assertThat(rs.getObject(column, Map.class)).isEqualTo(ImmutableMap.of("a", 1, "b", 2));
+                assertSqlExceptionThrownBy(() -> rs.getObject(column, List.class)).hasMessage("VARIANT is not an array");
             });
         }
     }
@@ -1396,8 +1613,10 @@ public abstract class BaseTestJdbcResultSet
                 // general contract for metadata.getColumnTypeName
                 assertThat(object).isInstanceOf(objectClass);
                 // for any non-NULL (not UNKNOWN) type, we should know better than Object.class
-                assertThat(objectClass).as("getColumnTypeName for value of type %s [%s] returning %s", metadata.getColumnType(1), expression, object.getClass())
-                        .isNotEqualTo(Object.class);
+                if (!metadata.getColumnTypeName(1).equals("variant")) {
+                    assertThat(objectClass).as("getColumnTypeName for value of type %s [%s] returning %s", metadata.getColumnType(1), expression, object.getClass())
+                            .isNotEqualTo(Object.class);
+                }
             }
             assertThat(rs.next()).isFalse();
         }

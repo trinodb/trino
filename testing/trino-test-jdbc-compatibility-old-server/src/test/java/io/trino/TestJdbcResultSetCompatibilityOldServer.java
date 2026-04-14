@@ -148,6 +148,20 @@ public class TestJdbcResultSetCompatibilityOldServer
     }
 
     @Override
+    public void testVariant()
+            throws Exception
+    {
+        if (parseInt(getTestedTrinoVersion()) < 481) {
+            try (ConnectedStatement statementWrapper = newStatement()) {
+                assertThatThrownBy(() -> statementWrapper.getStatement().executeQuery("SELECT CAST(NULL AS variant)"))
+                        .hasMessageMatching(".*Unknown type: variant.*");
+            }
+            return;
+        }
+        super.testVariant();
+    }
+
+    @Override
     protected Connection createConnection()
             throws SQLException
     {

@@ -35,9 +35,14 @@ public enum ClientCapabilities
 
     /**
      * Whether client supports the `VARIANT` type.
-     * When this capability is not set, the server returns `json` for `VARIANT` columns.
+     * When neither this capability nor `VARIANT_BINARY` are set, the server returns `json` for `VARIANT` columns.
      */
     VARIANT,
+
+    /**
+     * Whether client supports the `VARIANT` type encoded as a binary payload on the wire.
+     */
+    VARIANT_BINARY,
 
     /**
      * Whether clients support the session authorization set/reset feature

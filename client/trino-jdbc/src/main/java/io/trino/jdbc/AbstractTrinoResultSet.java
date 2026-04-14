@@ -23,10 +23,11 @@ import io.trino.client.ClientTypeSignature;
 import io.trino.client.ClientTypeSignatureParameter;
 import io.trino.client.CloseableIterator;
 import io.trino.client.Column;
+import io.trino.client.EncodedVariant;
 import io.trino.client.IntervalDayTime;
 import io.trino.client.IntervalYearMonth;
-import io.trino.jdbc.ColumnInfo.Nullable;
 import io.trino.jdbc.TypeConversions.NoConversionRegisteredException;
+import jakarta.annotation.Nullable;
 import org.joda.time.DateTimeZone;
 import org.joda.time.LocalDate;
 import org.joda.time.format.DateTimeFormat;
@@ -150,6 +151,7 @@ abstract class AbstractTrinoResultSet
             .put("interval day to second", TrinoIntervalDayTime.class)
             .put("map", Map.class)
             .put("row", Row.class)
+            .put("variant", Object.class)
             .buildOrThrow();
 
     @VisibleForTesting
@@ -200,6 +202,11 @@ abstract class AbstractTrinoResultSet
                         }
                         return result;
                     })
+                    .add("variant", EncodedVariant.class, Object.class, value -> decodeVariant(value).toObject())
+                    .add("variant", EncodedVariant.class, String.class, value -> decodeVariant(value).toJson())
+                    .add("variant", EncodedVariant.class, Variant.class, AbstractTrinoResultSet::decodeVariant)
+                    .add("variant", EncodedVariant.class, Map.class, value -> variantToMap(decodeVariant(value)))
+                    .add("variant", EncodedVariant.class, List.class, value -> variantToList(decodeVariant(value)))
                     .build();
     protected final CloseableIterator<List<Object>> results;
     private final Map<String, Integer> fieldMap;
@@ -676,8 +683,8 @@ abstract class AbstractTrinoResultSet
         return column(columnIndex);
     }
 
-    @jakarta.annotation.Nullable
-    private static Object convertFromClientRepresentation(ClientTypeSignature columnType, @jakarta.annotation.Nullable Object value)
+    @Nullable
+    private static Object convertFromClientRepresentation(ClientTypeSignature columnType, @Nullable Object value)
             throws SQLException
     {
         requireNonNull(columnType, "columnType is null");
@@ -739,6 +746,29 @@ abstract class AbstractTrinoResultSet
     private static TrinoIntervalYearMonth parseIntervalYearMonth(String value)
     {
         return new TrinoIntervalYearMonth(IntervalYearMonth.parseMonths(value));
+    }
+
+    private static Variant decodeVariant(EncodedVariant value)
+    {
+        return Variant.fromBytes(value.getMetadataBytes(), value.getValueBytes());
+    }
+
+    private static Map<?, ?> variantToMap(Variant variant)
+            throws SQLException
+    {
+        if (variant.valueType() != Variant.ValueType.OBJECT) {
+            throw new SQLException("VARIANT is not an object");
+        }
+        return (Map<?, ?>) variant.toObject();
+    }
+
+    private static List<?> variantToList(Variant variant)
+            throws SQLException
+    {
+        if (variant.valueType() != Variant.ValueType.ARRAY) {
+            throw new SQLException("VARIANT is not an array");
+        }
+        return (List<?>) variant.toObject();
     }
 
     private static TrinoIntervalDayTime parseIntervalDayTime(String value)
@@ -1837,7 +1867,12 @@ abstract class AbstractTrinoResultSet
 
         try {
             T converted = TYPE_CONVERSIONS.convert(columnTypeSignature, object, type);
-            verify(converted != null, "Conversion cannot return null for non-null input, as this breaks wasNull()");
+            boolean variantObjectRepresentation = type == Object.class &&
+                    columnTypeSignature.getRawType().equals("variant");
+            // VARIANT null is a non-SQL-null value whose Java object representation is null.
+            verify(
+                    converted != null || variantObjectRepresentation,
+                    "Conversion cannot return null for non-null input, as this breaks wasNull()");
             return converted;
         }
         catch (NoConversionRegisteredException e) {
@@ -1999,7 +2034,7 @@ abstract class AbstractTrinoResultSet
                     .setColumnLabel(column.getName())
                     .setColumnName(column.getName()) // TODO
                     .setColumnTypeSignature(column.getTypeSignature())
-                    .setNullable(Nullable.UNKNOWN)
+                    .setNullable(ColumnInfo.Nullable.UNKNOWN)
                     .setCurrency(false);
             setTypeInfo(builder, column.getTypeSignature());
             list.add(builder.build());

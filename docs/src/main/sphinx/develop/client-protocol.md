@@ -187,6 +187,10 @@ requests, just like browser cookies.
 * - `X-Trino-Client-Tags`
   - A comma-separated list of "tag" strings, used to identify Trino resource
     groups.
+* - `X-Trino-Client-Capabilities`
+  - A comma-separated list of optional protocol features supported by the
+    client. Supported values include `PATH`, `PARAMETRIC_DATETIME`, `NUMBER`,
+    `VARIANT`, `VARIANT_BINARY`, and `SESSION_AUTHORIZATION`.
 * - `X-Trino-Resource-Estimate`
   - A comma-separated list of `resource=value` type assignments. The possible
     choices of `resource` are `EXECUTION_TIME`, `CPU_TIME`,  `PEAK_MEMORY` and

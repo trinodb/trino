@@ -78,14 +78,14 @@ public final class ProtocolUtil
 
     private ProtocolUtil() {}
 
-    public static Column createColumn(String name, Type type, boolean supportsParametricDateTime, boolean supportsNumberType, boolean supportsVariant)
+    public static Column createColumn(String name, Type type, boolean supportsParametricDateTime, boolean supportsNumberType, boolean supportsVariant, boolean supportsVariantBinary)
     {
-        String formatted = formatType(TypeSignatureTranslator.toSqlType(type), supportsParametricDateTime, supportsNumberType, supportsVariant);
+        String formatted = formatType(TypeSignatureTranslator.toSqlType(type), supportsParametricDateTime, supportsNumberType, supportsVariant, supportsVariantBinary);
 
-        return new Column(name, formatted, toClientTypeSignature(type.getTypeSignature(), supportsParametricDateTime, supportsNumberType, supportsVariant));
+        return new Column(name, formatted, toClientTypeSignature(type.getTypeSignature(), supportsParametricDateTime, supportsNumberType, supportsVariant, supportsVariantBinary));
     }
 
-    private static String formatType(DataType type, boolean supportsParametricDateTime, boolean supportsNumberType, boolean supportsVariant)
+    private static String formatType(DataType type, boolean supportsParametricDateTime, boolean supportsNumberType, boolean supportsVariant, boolean supportsVariantBinary)
     {
         return switch (type) {
             case DateTimeDataType dataTimeType -> {
@@ -107,13 +107,14 @@ public final class ProtocolUtil
                 yield ExpressionFormatter.formatExpression(type);
             }
             case RowDataType rowDataType -> rowDataType.getFields().stream()
-                    .map(field -> field.getName().map(name -> name + " ").orElse("") + formatType(field.getType(), supportsParametricDateTime, supportsNumberType, supportsVariant))
+                    .map(field -> field.getName().map(name -> name + " ").orElse("") +
+                            formatType(field.getType(), supportsParametricDateTime, supportsNumberType, supportsVariant, supportsVariantBinary))
                     .collect(Collectors.joining(", ", ROW + "(", ")"));
             case GenericDataType dataType -> {
                 if (!supportsNumberType && dataType.getName().getValue().equalsIgnoreCase(NUMBER)) {
                     yield VARCHAR;
                 }
-                if (!supportsVariant && dataType.getName().getValue().equalsIgnoreCase(VARIANT)) {
+                if (!supportsVariant && !supportsVariantBinary && dataType.getName().getValue().equalsIgnoreCase(VARIANT)) {
                     yield JSON;
                 }
                 if (dataType.getArguments().isEmpty()) {
@@ -126,7 +127,7 @@ public final class ProtocolUtil
                                 return numericParameter.getValue();
                             }
                             if (parameter instanceof io.trino.sql.tree.TypeParameter typeParameter) {
-                                return formatType(typeParameter.getValue(), supportsParametricDateTime, supportsNumberType, supportsVariant);
+                                return formatType(typeParameter.getValue(), supportsParametricDateTime, supportsNumberType, supportsVariant, supportsVariantBinary);
                             }
                             throw new IllegalArgumentException("Unsupported parameter type: " + parameter.getClass().getName());
                         })
@@ -136,7 +137,7 @@ public final class ProtocolUtil
         };
     }
 
-    private static ClientTypeSignature toClientTypeSignature(TypeSignature signature, boolean supportsParametricDateTime, boolean supportsNumberType, boolean supportsVariant)
+    private static ClientTypeSignature toClientTypeSignature(TypeSignature signature, boolean supportsParametricDateTime, boolean supportsNumberType, boolean supportsVariant, boolean supportsVariantBinary)
     {
         if (!supportsParametricDateTime) {
             if (signature.getBase().equalsIgnoreCase(TIMESTAMP)) {
@@ -155,25 +156,25 @@ public final class ProtocolUtil
         if (!supportsNumberType && signature.getBase().equalsIgnoreCase(NUMBER)) {
             return new ClientTypeSignature(VARCHAR);
         }
-        if (!supportsVariant && signature.getBase().equalsIgnoreCase(VARIANT)) {
+        if (!supportsVariant && !supportsVariantBinary && signature.getBase().equalsIgnoreCase(VARIANT)) {
             return new ClientTypeSignature(JSON);
         }
 
         return new ClientTypeSignature(signature.getBase(), signature.getParameters().stream()
-                .map(parameter -> toClientTypeSignatureParameter(signature.getBase(), parameter, supportsParametricDateTime, supportsNumberType, supportsVariant))
+                .map(parameter -> toClientTypeSignatureParameter(signature.getBase(), parameter, supportsParametricDateTime, supportsNumberType, supportsVariant, supportsVariantBinary))
                 .collect(toImmutableList()));
     }
 
-    private static ClientTypeSignatureParameter toClientTypeSignatureParameter(String base, TypeParameter parameter, boolean supportsParametricDateTime, boolean supportsNumberType, boolean supportsVariant)
+    private static ClientTypeSignatureParameter toClientTypeSignatureParameter(String base, TypeParameter parameter, boolean supportsParametricDateTime, boolean supportsNumberType, boolean supportsVariant, boolean supportsVariantBinary)
     {
         return switch (parameter) {
             case TypeParameter.Type(Optional<String> name, TypeSignature type) -> {
                 if (base.equalsIgnoreCase(ROW)) { // for backward compatibility with old clients, which expect NAMED_TYPE for row fields
                     yield ClientTypeSignatureParameter.ofNamedType(new NamedClientTypeSignature(
                             name.map(RowFieldName::new),
-                            toClientTypeSignature(type, supportsParametricDateTime, supportsNumberType, supportsVariant)));
+                            toClientTypeSignature(type, supportsParametricDateTime, supportsNumberType, supportsVariant, supportsVariantBinary)));
                 }
-                yield ClientTypeSignatureParameter.ofType(toClientTypeSignature(type, supportsParametricDateTime, supportsNumberType, supportsVariant));
+                yield ClientTypeSignatureParameter.ofType(toClientTypeSignature(type, supportsParametricDateTime, supportsNumberType, supportsVariant, supportsVariantBinary));
             }
             case TypeParameter.Numeric number -> ClientTypeSignatureParameter.ofLong(number.value());
             case TypeParameter.Variable _ -> throw new IllegalArgumentException("Unsupported parameter kind: " + parameter);

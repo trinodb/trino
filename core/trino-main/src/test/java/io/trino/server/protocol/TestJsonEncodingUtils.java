@@ -18,6 +18,7 @@ import io.trino.Session;
 import io.trino.client.ClientCapabilities;
 import io.trino.client.CloseableIterator;
 import io.trino.client.Column;
+import io.trino.client.EncodedVariant;
 import io.trino.client.QueryDataDecoder;
 import io.trino.client.Row;
 import io.trino.client.spooling.DataAttributes;
@@ -44,6 +45,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Base64;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -82,7 +84,7 @@ public class TestJsonEncodingUtils
 {
     protected QueryDataDecoder createDecoder(List<Column> columns)
     {
-        return new JsonQueryDataDecoder.Factory().create(columns, DataAttributes.empty());
+        return new JsonQueryDataDecoder.Factory().create(columns, DataAttributes.empty(), false);
     }
 
     protected QueryDataEncoder createEncoder(List<OutputColumn> columns)
@@ -430,8 +432,46 @@ public class TestJsonEncodingUtils
         Block block = blockBuilder.build();
 
         Page page = page(block);
-        assertThat(roundTrip(columns, page, "[[null],[{\"a\":1,\"b\":[true,null]}],[null]]"))
+        assertThat(roundTrip(
+                sessionWithoutCapability(ClientCapabilities.VARIANT_BINARY),
+                columns,
+                true,
+                false,
+                page,
+                "[[null],[{\"a\":1,\"b\":[true,null]}],[null]]"))
                 .isEqualTo(column(null, "{\"a\":1,\"b\":[true,null]}", null));
+    }
+
+    @Test
+    public void testVariantBinarySerialization()
+            throws IOException
+    {
+        List<TypedColumn> columns = ImmutableList.of(typed("col0", VARIANT));
+        BlockBuilder blockBuilder = VARIANT.createBlockBuilder(null, 3);
+        blockBuilder.appendNull();
+        Variant variant = Variant.ofObject(Map.of(
+                utf8Slice("a"), Variant.ofInt(1),
+                utf8Slice("b"), Variant.ofArray(List.of(Variant.ofBoolean(true), Variant.NULL_VALUE))));
+        VARIANT.writeObject(blockBuilder, variant);
+        VARIANT.writeObject(blockBuilder, Variant.NULL_VALUE);
+        Block block = blockBuilder.build();
+
+        Page page = page(block);
+        List<List<Object>> rows = roundTrip(
+                sessionWithCapability(ClientCapabilities.VARIANT_BINARY),
+                columns,
+                false,
+                true,
+                page,
+                "[[null],[" + toBinaryEnvelopeJson(variant) + "],[" + toBinaryEnvelopeJson(Variant.NULL_VALUE) + "]]");
+        assertThat(rows).hasSize(3);
+        assertThat(rows.get(0)).containsExactly((Object) null);
+        assertThat(rows.get(1)).hasSize(1);
+        assertThat(rows.get(1).get(0)).isInstanceOf(EncodedVariant.class);
+        assertEncodedVariant((EncodedVariant) rows.get(1).get(0), variant);
+        assertThat(rows.get(2)).hasSize(1);
+        assertThat(rows.get(2).get(0)).isInstanceOf(EncodedVariant.class);
+        assertEncodedVariant((EncodedVariant) rows.get(2).get(0), Variant.NULL_VALUE);
     }
 
     @Test
@@ -448,8 +488,83 @@ public class TestJsonEncodingUtils
         Block block = blockBuilder.build();
 
         Page page = page(block);
-        assertThat(roundTrip(sessionWithoutCapability(ClientCapabilities.VARIANT), columns, false, page, "[[null],[\"{\\\"a\\\":1,\\\"b\\\":[true,null]}\"],[\"null\"]]"))
+        assertThat(roundTrip(sessionWithoutVariantCapabilities(), columns, false, page, "[[null],[\"{\\\"a\\\":1,\\\"b\\\":[true,null]}\"],[\"null\"]]"))
                 .isEqualTo(column(null, "{\"a\":1,\"b\":[true,null]}", "null"));
+    }
+
+    @Test
+    public void testVariantBinarySerializationInRows()
+            throws IOException
+    {
+        RowType rowType = RowType.from(ImmutableList.of(
+                RowType.field("id", BIGINT),
+                RowType.field("payload", VARIANT)));
+        List<TypedColumn> columns = ImmutableList.of(typed("col0", rowType));
+        RowBlockBuilder blockBuilder = rowType.createBlockBuilder(null, 1);
+
+        Variant payload = Variant.ofObject(Map.of(
+                utf8Slice("a"), Variant.ofInt(1),
+                utf8Slice("nested"), Variant.ofArray(List.of(Variant.ofBoolean(true), Variant.NULL_VALUE))));
+        blockBuilder.buildEntry(builders -> {
+            BIGINT.writeLong(builders.get(0), 1);
+            VARIANT.writeObject(builders.get(1), payload);
+        });
+
+        Page page = page(blockBuilder.build());
+        List<List<Object>> rows = roundTrip(
+                sessionWithCapability(ClientCapabilities.VARIANT_BINARY),
+                columns,
+                false,
+                true,
+                page,
+                "[[[1," + toBinaryEnvelopeJson(payload) + "]]]");
+        assertThat(rows).hasSize(1);
+        assertThat(rows.get(0)).hasSize(1);
+        assertThat(rows.get(0).get(0)).isInstanceOf(Row.class);
+        Row row = (Row) rows.get(0).get(0);
+        assertThat(row.getFields()).hasSize(2);
+        assertThat(row.getFields().get(0).getName()).contains("id");
+        assertThat(row.getFields().get(0).getValue()).isEqualTo(1L);
+        assertThat(row.getFields().get(1).getName()).contains("payload");
+        assertThat(row.getFields().get(1).getValue()).isInstanceOf(EncodedVariant.class);
+        assertEncodedVariant((EncodedVariant) row.getFields().get(1).getValue(), payload);
+    }
+
+    @Test
+    public void testVariantBinarySerializationInArrays()
+            throws IOException
+    {
+        ArrayType arrayType = new ArrayType(VARIANT);
+        List<TypedColumn> columns = ImmutableList.of(typed("col0", arrayType));
+        ArrayBlockBuilder blockBuilder = arrayType.createBlockBuilder(null, 1);
+
+        Variant payload = Variant.ofObject(Map.of(
+                utf8Slice("a"), Variant.ofInt(1),
+                utf8Slice("nested"), Variant.ofArray(List.of(Variant.ofBoolean(true), Variant.NULL_VALUE))));
+        blockBuilder.buildEntry(builder -> {
+            VARIANT.writeObject(builder, payload);
+            VARIANT.writeObject(builder, Variant.NULL_VALUE);
+            builder.appendNull();
+        });
+
+        Page page = page(blockBuilder.build());
+        List<List<Object>> rows = roundTrip(
+                sessionWithCapability(ClientCapabilities.VARIANT_BINARY),
+                columns,
+                false,
+                true,
+                page,
+                "[[[" + toBinaryEnvelopeJson(payload) + "," + toBinaryEnvelopeJson(Variant.NULL_VALUE) + ",null]]]");
+        assertThat(rows).hasSize(1);
+        assertThat(rows.get(0)).hasSize(1);
+        assertThat(rows.get(0).get(0)).isInstanceOf(List.class);
+        List<?> values = (List<?>) rows.get(0).get(0);
+        assertThat(values).hasSize(3);
+        assertThat(values.get(0)).isInstanceOf(EncodedVariant.class);
+        assertEncodedVariant((EncodedVariant) values.get(0), payload);
+        assertThat(values.get(1)).isInstanceOf(EncodedVariant.class);
+        assertEncodedVariant((EncodedVariant) values.get(1), Variant.NULL_VALUE);
+        assertThat(values.get(2)).isNull();
     }
 
     @Test
@@ -470,7 +585,7 @@ public class TestJsonEncodingUtils
         });
 
         Page page = page(blockBuilder.build());
-        assertThat(roundTrip(sessionWithoutCapability(ClientCapabilities.VARIANT), columns, false, page, "[[[1,\"{\\\"a\\\":1,\\\"nested\\\":[true,null]}\"]]]"))
+        assertThat(roundTrip(sessionWithoutVariantCapabilities(), columns, false, page, "[[[1,\"{\\\"a\\\":1,\\\"nested\\\":[true,null]}\"]]]"))
                 .containsExactly(List.of(Row.builderWithExpectedSize(2)
                         .addField("id", 1L)
                         .addField("payload", "{\"a\":1,\"nested\":[true,null]}")
@@ -499,7 +614,7 @@ public class TestJsonEncodingUtils
 
         Page page = page(blockBuilder.build());
         assertThat(roundTrip(
-                sessionWithoutCapability(ClientCapabilities.VARIANT),
+                sessionWithoutVariantCapabilities(),
                 columns,
                 false,
                 page,
@@ -630,13 +745,19 @@ public class TestJsonEncodingUtils
     protected List<List<Object>> roundTrip(Session session, List<TypedColumn> columns, boolean supportsVariant, Page page, String expectedJson)
             throws IOException
     {
+        return roundTrip(session, columns, supportsVariant, false, page, expectedJson);
+    }
+
+    protected List<List<Object>> roundTrip(Session session, List<TypedColumn> columns, boolean supportsVariant, boolean supportsVariantBinary, Page page, String expectedJson)
+            throws IOException
+    {
         QueryDataEncoder encoder = newEncoder(session, columns);
         ByteArrayOutputStream output = new ByteArrayOutputStream();
         encoder.encodeTo(output, List.of(page));
 
         assertThat(output.toString(UTF_8)).isEqualTo(expectedJson);
 
-        return ImmutableList.copyOf(parseJson(columns, supportsVariant, output.toByteArray()));
+        return ImmutableList.copyOf(parseJson(columns, supportsVariant, supportsVariantBinary, output.toByteArray()));
     }
 
     protected void assertInvalidJson(List<TypedColumn> columns, String json, String expectedError)
@@ -654,7 +775,7 @@ public class TestJsonEncodingUtils
     protected List<List<Object>> parseJson(List<TypedColumn> columns, byte[] json)
             throws IOException
     {
-        QueryDataDecoder decoder = newDecoder(columns, true);
+        QueryDataDecoder decoder = newDecoder(columns, true, false);
         try (CloseableIterator<List<Object>> iterator = decoder.decode(new ByteArrayInputStream(json), null)) {
             return ImmutableList.copyOf(iterator);
         }
@@ -663,7 +784,13 @@ public class TestJsonEncodingUtils
     protected List<List<Object>> parseJson(List<TypedColumn> columns, boolean supportsVariant, byte[] json)
             throws IOException
     {
-        QueryDataDecoder decoder = newDecoder(columns, supportsVariant);
+        return parseJson(columns, supportsVariant, false, json);
+    }
+
+    protected List<List<Object>> parseJson(List<TypedColumn> columns, boolean supportsVariant, boolean supportsVariantBinary, byte[] json)
+            throws IOException
+    {
+        QueryDataDecoder decoder = newDecoder(columns, supportsVariant, supportsVariantBinary);
         try (CloseableIterator<List<Object>> iterator = decoder.decode(new ByteArrayInputStream(json), null)) {
             return ImmutableList.copyOf(iterator);
         }
@@ -693,13 +820,13 @@ public class TestJsonEncodingUtils
         return createEncoder(session, columns.build());
     }
 
-    private QueryDataDecoder newDecoder(List<TypedColumn> types, boolean supportsVariant)
+    private QueryDataDecoder newDecoder(List<TypedColumn> types, boolean supportsVariant, boolean supportsVariantBinary)
     {
         ImmutableList.Builder<Column> columns = ImmutableList.builderWithExpectedSize(types.size());
         for (TypedColumn typedColumn : types) {
-            columns.add(createColumn(typedColumn.name(), typedColumn.type(), true, true, supportsVariant));
+            columns.add(createColumn(typedColumn.name(), typedColumn.type(), true, true, supportsVariant, supportsVariantBinary));
         }
-        return createDecoder(columns.build());
+        return new JsonQueryDataDecoder.Factory().create(columns.build(), DataAttributes.empty(), supportsVariantBinary);
     }
 
     private static Session sessionWithoutCapability(ClientCapabilities capability)
@@ -707,6 +834,16 @@ public class TestJsonEncodingUtils
         return Session.builder(TEST_SESSION)
                 .setClientCapabilities(TEST_SESSION.getClientCapabilities().stream()
                         .filter(value -> !value.equals(capability.toString()))
+                        .collect(toImmutableSet()))
+                .build();
+    }
+
+    private static Session sessionWithoutVariantCapabilities()
+    {
+        return Session.builder(TEST_SESSION)
+                .setClientCapabilities(TEST_SESSION.getClientCapabilities().stream()
+                        .filter(value -> !value.equals(ClientCapabilities.VARIANT.toString()))
+                        .filter(value -> !value.equals(ClientCapabilities.VARIANT_BINARY.toString()))
                         .collect(toImmutableSet()))
                 .build();
     }
@@ -721,6 +858,18 @@ public class TestJsonEncodingUtils
                         .stream()
                         .collect(toImmutableSet()))
                 .build();
+    }
+
+    private static String toBinaryEnvelopeJson(Variant variant)
+    {
+        return "{\"metadata\":\"" + Base64.getEncoder().encodeToString(variant.metadata().toSlice().getBytes()) +
+                "\",\"value\":\"" + Base64.getEncoder().encodeToString(variant.data().getBytes()) + "\"}";
+    }
+
+    private static void assertEncodedVariant(EncodedVariant actual, Variant expected)
+    {
+        assertThat(actual.getMetadataBytes()).isEqualTo(expected.metadata().toSlice().getBytes());
+        assertThat(actual.getValueBytes()).isEqualTo(expected.data().getBytes());
     }
 
     private static Page page(Block... blocks)
