@@ -737,7 +737,7 @@ public class TestDeltaLakeColumnMappingMode
             // Ensure SHOW STATS doesn't return stats for the restored column
             assertThat(onTrino().executeQuery("SHOW STATS FOR delta.default." + tableName))
                     .containsOnly(
-                            row("a_number", null, 2.0, 0.33333333333, null, "1", "2"),
+                            row("a_number", null, null, 0.33333333333, null, "1", "2"), // we lose tracking of the previous extended statistics after other engine commits
                             row("b_number", null, null, null, null, null, null),
                             row(null, null, null, null, 3.0, null, null));
 
@@ -1074,7 +1074,7 @@ public class TestDeltaLakeColumnMappingMode
             onDelta().executeQuery("ALTER TABLE default." + tableName + " ADD COLUMN UPPER_DATA INT");
             assertThat(onTrino().executeQuery("SHOW STATS FOR delta.default." + tableName))
                     .containsOnly(ImmutableList.of(
-                            row("upper_id", null, 1.0, 0.0, null, "1", "1"),
+                            row("upper_id", null, null, 0.0, null, "1", "1"), // we lose tracking of the previous extended statistics after other engine commits
                             row("upper_data", null, null, null, null, null, null),
                             row("upper_part", null, 1.0, 0.0, null, null, null),
                             row(null, null, null, null, 1.0, null, null)));

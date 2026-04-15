@@ -598,8 +598,8 @@ public class TestDeltaLakeCheckpointsCompatibility
                 {"double", "1.0", null, 1.0, 0.0, "1.0"},
                 {"decimal(3,2)", "3.14", null, 1.0, 0.0, "3.14"},
                 {"decimal(30,1)", "12345", null, 1.0, 0.0, "12345.0"},
-                {"string", "'test'", 12.0, 1.0, 0.0, null},
-                {"binary", "X'65683F'", 9.0, 1.0, 0.0, null},
+                {"string", "'test'", 4.0, 1.0, 0.0, null}, // we lose tracking of the previous extended statistics after other engine commits
+                {"binary", "X'65683F'", 3.0, 1.0, 0.0, null}, // we lose tracking of the previous extended statistics after other engine commits
                 {"date", "date '2021-02-03'", null, 1.0, 0.0, "2021-02-03"},
                 {"timestamp", "timestamp '2001-08-22 11:04:05.321 UTC'", null, 1.0, 0.0, "2001-08-22 11:04:05.321 UTC"},
                 {"array<int>", "array[1]", null, null, null, null},
