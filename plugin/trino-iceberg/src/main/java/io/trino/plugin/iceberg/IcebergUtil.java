@@ -342,7 +342,7 @@ public final class IcebergUtil
         ImmutableMap.Builder<String, Object> properties = ImmutableMap.builder();
         IcebergFileFormat fileFormat = getFileFormat(icebergTable);
         properties.put(FILE_FORMAT_PROPERTY, fileFormat);
-        if (!icebergTable.spec().fields().isEmpty()) {
+        if (icebergTable.spec().isPartitioned()) {
             properties.put(PARTITIONING_PROPERTY, toPartitionFields(icebergTable.spec()));
         }
 
