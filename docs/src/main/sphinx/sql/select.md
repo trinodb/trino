@@ -106,10 +106,10 @@ The following example declares and uses two inline UDFs:
 WITH 
   FUNCTION hello(name varchar)
     RETURNS varchar
-    RETURN format('Hello %s!', 'name'),
+    RETURN format('Hello %s!', name),
   FUNCTION bye(name varchar)
     RETURNS varchar
-    RETURN format('Bye %s!', 'name')
+    RETURN format('Bye %s!', name)
 SELECT hello('Finn') || ' and ' || bye('Joe');
 -- Hello Finn! and Bye Joe!
 ```
