@@ -527,7 +527,7 @@ public class CouchbaseMetadata
                 ConnectorExpression projection = newProjections.get(i);
                 newColumnAssignmentMap.put(assignedName, new CouchbaseColumnHandle(
                         Arrays.asList(cbTable.schema(), cbTable.name(), assignedName),
-                        Collections.EMPTY_LIST,
+                        Collections.emptyList(),
                         projection.getType(),
                         !(projection instanceof Variable)));
             }
