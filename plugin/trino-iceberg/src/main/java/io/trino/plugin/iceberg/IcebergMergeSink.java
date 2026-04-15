@@ -33,10 +33,8 @@ import org.apache.iceberg.FileContent;
 import org.apache.iceberg.Metrics;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.PartitionSpecParser;
-import org.apache.iceberg.Schema;
 import org.apache.iceberg.SortOrder;
 import org.apache.iceberg.io.LocationProvider;
-import org.apache.iceberg.types.Type;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -66,7 +64,6 @@ public class IcebergMergeSink
     private final ConnectorSession session;
     private final IcebergFileFormat fileFormat;
     private final Map<String, String> storageProperties;
-    private final Schema schema;
     private final Map<Integer, PartitionSpec> partitionsSpecs;
     private final ConnectorPageSink insertPageSink;
     private final int columnCount;
@@ -82,7 +79,6 @@ public class IcebergMergeSink
             ConnectorSession session,
             IcebergFileFormat fileFormat,
             Map<String, String> storageProperties,
-            Schema schema,
             Map<Integer, PartitionSpec> partitionsSpecs,
             ConnectorPageSink insertPageSink,
             int columnCount)
@@ -95,7 +91,6 @@ public class IcebergMergeSink
         this.session = requireNonNull(session, "session is null");
         this.fileFormat = requireNonNull(fileFormat, "fileFormat is null");
         this.storageProperties = ImmutableMap.copyOf(requireNonNull(storageProperties, "storageProperties is null"));
-        this.schema = requireNonNull(schema, "schema is null");
         this.partitionsSpecs = ImmutableMap.copyOf(requireNonNull(partitionsSpecs, "partitionsSpecs is null"));
         this.insertPageSink = requireNonNull(insertPageSink, "insertPageSink is null");
         this.columnCount = columnCount;
@@ -169,7 +164,9 @@ public class IcebergMergeSink
         else if (formatVersion == 3) {
             fileDeletions.forEach((dataFilePath, deletion) -> deletion.rowsToDelete().build().ifPresent(deletionVector -> {
                 PartitionSpec partitionSpec = partitionsSpecs.get(deletion.partitionSpecId());
-                Optional<PartitionData> partitionData = createPartitionData(partitionSpec, deletion.partitionDataJson());
+                Optional<PartitionData> partitionData = partitionSpec.isPartitioned()
+                        ? Optional.of(PartitionData.fromJson(deletion.partitionDataJson(), partitionSpec))
+                        : Optional.empty();
                 CommitTaskData task = new CommitTaskData(
                         "", // path of the v2 delete file
                         fileFormat,
@@ -200,10 +197,13 @@ public class IcebergMergeSink
 
     private PositionDeleteWriter createPositionDeleteWriter(String dataFilePath, PartitionSpec partitionSpec, String partitionDataJson)
     {
+        Optional<PartitionData> partitionData = partitionSpec.isPartitioned()
+                ? Optional.of(PartitionData.fromJson(partitionDataJson, partitionSpec))
+                : Optional.empty();
         return new PositionDeleteWriter(
                 dataFilePath,
                 partitionSpec,
-                createPartitionData(partitionSpec, partitionDataJson),
+                partitionData,
                 locationProvider,
                 fileWriterFactory,
                 fileSystem,
@@ -223,18 +223,6 @@ public class IcebergMergeSink
             closeAllSuppress(t, writer::abort);
             throw t;
         }
-    }
-
-    private Optional<PartitionData> createPartitionData(PartitionSpec partitionSpec, String partitionDataAsJson)
-    {
-        if (!partitionSpec.isPartitioned()) {
-            return Optional.empty();
-        }
-
-        Type[] columnTypes = partitionSpec.fields().stream()
-                .map(field -> field.transform().getResultType(schema.findType(field.sourceId())))
-                .toArray(Type[]::new);
-        return Optional.of(PartitionData.fromJson(partitionDataAsJson, columnTypes));
     }
 
     private Page createInsertionsPageWithRowId(Page insertionsPage, Page inputPage)
