@@ -60,7 +60,7 @@ public class DereferenceCodeGenerator
         IfStatement ifRowBlockIsNull = new IfStatement("if row block is null...")
                 .condition(wasNull);
 
-        Class<?> javaType = returnType.getJavaType();
+        Class<?> javaType = callSiteBinder.getAccessibleType(returnType.getJavaType());
         LabelNode end = new LabelNode("end");
         ifRowBlockIsNull.ifTrue()
                 .comment("if row block is null, push null to the stack and goto 'end' label (return)")

@@ -66,16 +66,17 @@ public class NullIfCodeGenerator
     public BytecodeNode generateExpression(BytecodeGeneratorContext generatorContext)
     {
         Scope scope = generatorContext.getScope();
+        Class<?> firstJavaType = generatorContext.getCallSiteBinder().getAccessibleType(first.type().getJavaType());
 
         LabelNode notMatch = new LabelNode("notMatch");
 
         // push first arg on the stack
-        Variable firstValue = scope.getOrCreateTempVariable(first.type().getJavaType());
+        Variable firstValue = scope.getOrCreateTempVariable(firstJavaType);
         BytecodeBlock block = new BytecodeBlock()
                 .comment("check if first arg is null")
                 .append(generatorContext.generate(first))
                 .append(ifWasNullPopAndGoto(scope, notMatch, void.class))
-                .dup(first.type().getJavaType())
+                .dup(firstJavaType)
                 .putVariable(firstValue);
 
         BytecodeNode secondValue = generatorContext.generate(second);
@@ -94,8 +95,8 @@ public class NullIfCodeGenerator
         // if first and second are equal, return null
         BytecodeBlock trueBlock = new BytecodeBlock()
                 .append(generatorContext.wasNull().set(constantTrue()))
-                .pop(first.type().getJavaType())
-                .pushJavaDefault(first.type().getJavaType());
+                .pop(firstJavaType)
+                .pushJavaDefault(firstJavaType);
 
         // else return first (which is still on the stack
         block.append(new IfStatement()

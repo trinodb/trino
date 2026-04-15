@@ -161,8 +161,8 @@ public final class MapFilterFunction
 
         Type keyType = mapType.getKeyType();
         Type valueType = mapType.getValueType();
-        Class<?> keyJavaType = Primitives.wrap(keyType.getJavaType());
-        Class<?> valueJavaType = Primitives.wrap(valueType.getJavaType());
+        Class<?> keyJavaType = binder.getAccessibleType(Primitives.wrap(keyType.getJavaType()));
+        Class<?> valueJavaType = binder.getAccessibleType(Primitives.wrap(valueType.getJavaType()));
 
         Variable size = scope.declareVariable("size", body, map.invoke("getSize", int.class));
         Variable rawOffset = scope.declareVariable("rawOffset", body, map.invoke("getRawOffset", int.class));

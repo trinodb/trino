@@ -173,9 +173,9 @@ public final class MapTransformValuesFunction
         BytecodeBlock body = method.getBody();
         Scope scope = method.getScope();
 
-        Class<?> keyJavaType = Primitives.wrap(keyType.getJavaType());
-        Class<?> valueJavaType = Primitives.wrap(valueType.getJavaType());
-        Class<?> transformedValueJavaType = Primitives.wrap(transformedValueType.getJavaType());
+        Class<?> keyJavaType = binder.getAccessibleType(Primitives.wrap(keyType.getJavaType()));
+        Class<?> valueJavaType = binder.getAccessibleType(Primitives.wrap(valueType.getJavaType()));
+        Class<?> transformedValueJavaType = binder.getAccessibleType(Primitives.wrap(transformedValueType.getJavaType()));
 
         Variable size = scope.declareVariable("size", body, map.invoke("getSize", int.class));
         Variable rawOffset = scope.declareVariable("rawOffset", body, map.invoke("getRawOffset", int.class));
@@ -227,7 +227,7 @@ public final class MapTransformValuesFunction
             writeTransformedValueElement = new IfStatement()
                     .condition(equal(transformedValueElement, constantNull(transformedValueJavaType)))
                     .ifTrue(valueBuilder.invoke("appendNull", BlockBuilder.class).pop())
-                    .ifFalse(constantType(binder, transformedValueType).writeValue(valueBuilder, transformedValueElement.cast(transformedValueType.getJavaType())));
+                    .ifFalse(constantType(binder, transformedValueType).writeValue(valueBuilder, transformedValueElement.cast(transformedValueJavaType)));
         }
         else {
             writeTransformedValueElement = valueBuilder.invoke("appendNull", BlockBuilder.class).pop();

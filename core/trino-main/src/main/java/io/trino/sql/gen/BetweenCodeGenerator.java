@@ -53,7 +53,8 @@ public class BetweenCodeGenerator
     @Override
     public BytecodeNode generateExpression(BytecodeGeneratorContext context)
     {
-        Variable firstValue = context.getScope().getOrCreateTempVariable(value.type().getJavaType());
+        Class<?> valueJavaType = context.getCallSiteBinder().getAccessibleType(value.type().getJavaType());
+        Variable firstValue = context.getScope().getOrCreateTempVariable(valueJavaType);
         Reference valueReference = createTempReference(firstValue, value.type());
 
         Logical newExpression = new Logical(
@@ -68,7 +69,7 @@ public class BetweenCodeGenerator
         BytecodeBlock block = new BytecodeBlock()
                 .comment("check if value is null")
                 .append(context.generate(value))
-                .append(ifWasNullPopAndGoto(context.getScope(), done, boolean.class, value.type().getJavaType()))
+                .append(ifWasNullPopAndGoto(context.getScope(), done, boolean.class, valueJavaType))
                 .putVariable(firstValue)
                 .append(context.generate(newExpression))
                 .visitLabel(done);

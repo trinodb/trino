@@ -37,7 +37,7 @@ public class SqlTypeBytecodeExpression
         requireNonNull(type, "type is null");
 
         Binding binding = callSiteBinder.bind(type, Type.class);
-        return new SqlTypeBytecodeExpression(type, binding, BOOTSTRAP_METHOD);
+        return new SqlTypeBytecodeExpression(type, callSiteBinder.getAccessibleType(type.getJavaType()), binding, BOOTSTRAP_METHOD);
     }
 
     private static String generateName(Type type)
@@ -51,13 +51,15 @@ public class SqlTypeBytecodeExpression
     }
 
     private final Type type;
+    private final Class<?> accessibleJavaElementType;
     private final Binding binding;
     private final Method bootstrapMethod;
 
-    private SqlTypeBytecodeExpression(Type type, Binding binding, Method bootstrapMethod)
+    private SqlTypeBytecodeExpression(Type type, Class<?> accessibleJavaElementType, Binding binding, Method bootstrapMethod)
     {
         super(type(Type.class));
         this.type = requireNonNull(type, "type is null");
+        this.accessibleJavaElementType = requireNonNull(accessibleJavaElementType, "accessibleJavaElementType is null");
         this.binding = requireNonNull(binding, "binding is null");
         this.bootstrapMethod = requireNonNull(bootstrapMethod, "bootstrapMethod is null");
     }
@@ -96,7 +98,7 @@ public class SqlTypeBytecodeExpression
         if (fromJavaElementType == Slice.class) {
             return invoke("getSlice", Slice.class, block, position);
         }
-        return invoke("getObject", Object.class, block, position).cast(fromJavaElementType);
+        return invoke("getObject", Object.class, block, position).cast(accessibleJavaElementType);
     }
 
     public BytecodeExpression writeValue(BytecodeExpression blockBuilder, BytecodeExpression value)
@@ -104,13 +106,13 @@ public class SqlTypeBytecodeExpression
         Class<?> fromJavaElementType = type.getJavaType();
 
         if (fromJavaElementType == boolean.class) {
-            return invoke("writeBoolean", void.class, blockBuilder, value);
+            return invoke("writeBoolean", void.class, blockBuilder, value.cast(boolean.class));
         }
         if (fromJavaElementType == long.class) {
-            return invoke("writeLong", void.class, blockBuilder, value);
+            return invoke("writeLong", void.class, blockBuilder, value.cast(long.class));
         }
         if (fromJavaElementType == double.class) {
-            return invoke("writeDouble", void.class, blockBuilder, value);
+            return invoke("writeDouble", void.class, blockBuilder, value.cast(double.class));
         }
         if (fromJavaElementType == Slice.class) {
             return invoke("writeSlice", void.class, blockBuilder, value.cast(Slice.class));

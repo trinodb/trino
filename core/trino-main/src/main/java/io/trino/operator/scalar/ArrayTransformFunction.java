@@ -151,8 +151,8 @@ public final class ArrayTransformFunction
 
     private static MethodDefinition generateTransformValueInner(ClassDefinition definition, CallSiteBinder binder, Type inputType, Type outputType)
     {
-        Class<?> inputJavaType = Primitives.wrap(inputType.getJavaType());
-        Class<?> outputJavaType = Primitives.wrap(outputType.getJavaType());
+        Class<?> inputJavaType = binder.getAccessibleType(Primitives.wrap(inputType.getJavaType()));
+        Class<?> outputJavaType = binder.getAccessibleType(Primitives.wrap(outputType.getJavaType()));
 
         Parameter block = arg("block", Block.class);
         Parameter function = arg("function", UnaryFunctionInterface.class);
@@ -190,7 +190,7 @@ public final class ArrayTransformFunction
             writeOutputElement = new IfStatement()
                     .condition(equal(outputElement, constantNull(outputJavaType)))
                     .ifTrue(elementBuilder.invoke("appendNull", BlockBuilder.class).pop())
-                    .ifFalse(constantType(binder, outputType).writeValue(elementBuilder, outputElement.cast(outputType.getJavaType())));
+                    .ifFalse(constantType(binder, outputType).writeValue(elementBuilder, outputElement.cast(outputJavaType)));
         }
         else {
             writeOutputElement = new BytecodeBlock().append(elementBuilder.invoke("appendNull", BlockBuilder.class).pop());

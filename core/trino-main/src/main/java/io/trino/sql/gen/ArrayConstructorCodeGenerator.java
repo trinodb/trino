@@ -55,7 +55,7 @@ public class ArrayConstructorCodeGenerator
         Variable blockBuilder = scope.getOrCreateTempVariable(BlockBuilder.class);
         block.append(blockBuilder.set(constantType(binder, elementType).invoke("createBlockBuilder", BlockBuilder.class, constantNull(BlockBuilderStatus.class), constantInt(elements.size()))));
 
-        Variable element = scope.getOrCreateTempVariable(elementType.getJavaType());
+        Variable element = scope.getOrCreateTempVariable(binder.getAccessibleType(elementType.getJavaType()));
 
         for (Expression item : elements) {
             block.append(context.wasNull().set(constantFalse()));

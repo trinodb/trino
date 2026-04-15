@@ -88,6 +88,7 @@ public class SwitchCodeGenerator
          */
 
         Scope scope = generatorContext.getScope();
+        CallSiteBinder callSiteBinder = generatorContext.getCallSiteBinder();
 
         // process value, else, and all when clauses
         BytecodeNode valueBytecode = generatorContext.generate(value);
@@ -95,7 +96,7 @@ public class SwitchCodeGenerator
         BytecodeNode elseValue = generatorContext.generate(defaultValue);
 
         // determine the type of the value and result
-        Class<?> valueType = value.type().getJavaType();
+        Class<?> valueType = callSiteBinder.getAccessibleType(value.type().getJavaType());
 
         // evaluate the value and store it in a variable
         LabelNode nullValue = new LabelNode("nullCondition");

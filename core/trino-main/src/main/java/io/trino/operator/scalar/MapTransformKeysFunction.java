@@ -185,9 +185,9 @@ public final class MapTransformKeysFunction
         BytecodeBlock body = method.getBody();
         Scope scope = method.getScope();
 
-        Class<?> keyJavaType = Primitives.wrap(keyType.getJavaType());
-        Class<?> transformedKeyJavaType = Primitives.wrap(transformedKeyType.getJavaType());
-        Class<?> valueJavaType = Primitives.wrap(valueType.getJavaType());
+        Class<?> keyJavaType = binder.getAccessibleType(Primitives.wrap(keyType.getJavaType()));
+        Class<?> transformedKeyJavaType = binder.getAccessibleType(Primitives.wrap(transformedKeyType.getJavaType()));
+        Class<?> valueJavaType = binder.getAccessibleType(Primitives.wrap(valueType.getJavaType()));
 
         Variable size = scope.declareVariable("size", body, map.invoke("getSize", int.class));
         Variable rawOffset = scope.declareVariable("rawOffset", body, map.invoke("getRawOffset", int.class));
@@ -243,7 +243,7 @@ public final class MapTransformKeysFunction
                             .condition(equal(transformedKeyElement, constantNull(transformedKeyJavaType)))
                             .ifTrue(throwNullKeyException)
                             .ifFalse(new BytecodeBlock()
-                                    .append(constantType(binder, transformedKeyType).writeValue(keyBuilder, transformedKeyElement.cast(transformedKeyType.getJavaType())))
+                                    .append(constantType(binder, transformedKeyType).writeValue(keyBuilder, transformedKeyElement.cast(transformedKeyJavaType)))
                                     .append(valueBuilder.invoke(
                                             "append",
                                             void.class,

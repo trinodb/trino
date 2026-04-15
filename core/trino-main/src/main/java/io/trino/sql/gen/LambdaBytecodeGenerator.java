@@ -127,7 +127,7 @@ public final class LambdaBytecodeGenerator
         parameters.add(arg("session", ConnectorSession.class));
         for (int i = 0; i < lambdaExpression.arguments().size(); i++) {
             Symbol argument = lambdaExpression.arguments().get(i);
-            Class<?> type = Primitives.wrap(argument.type().getJavaType());
+            Class<?> type = callSiteBinder.getAccessibleType(Primitives.wrap(argument.type().getJavaType()));
             String argumentName = argument.name();
             Parameter arg = arg("lambda_" + i + "_" + BytecodeUtils.sanitizeName(argumentName), type);
             parameters.add(arg);
@@ -153,6 +153,7 @@ public final class LambdaBytecodeGenerator
                 classDefinition,
                 methodName,
                 parameters.build(),
+                callSiteBinder,
                 lambdaExpression);
     }
 
@@ -161,10 +162,11 @@ public final class LambdaBytecodeGenerator
             ClassDefinition classDefinition,
             String methodName,
             List<Parameter> inputParameters,
+            CallSiteBinder callSiteBinder,
             Lambda lambda)
     {
         checkCondition(inputParameters.size() <= 254, NOT_SUPPORTED, "Too many arguments for lambda expression");
-        Class<?> returnType = Primitives.wrap(lambda.body().type().getJavaType());
+        Class<?> returnType = callSiteBinder.getAccessibleType(Primitives.wrap(lambda.body().type().getJavaType()));
         MethodDefinition method = classDefinition.declareMethod(a(PUBLIC), methodName, type(returnType), inputParameters);
 
         Scope scope = method.getScope();
@@ -209,7 +211,7 @@ public final class LambdaBytecodeGenerator
         ImmutableList.Builder<BytecodeExpression> captureVariableBuilder = ImmutableList.builderWithExpectedSize(captureExpressions.size());
         List<Variable> captureTempVariables = new ArrayList<>(captureExpressions.size());
         for (Expression captureExpression : captureExpressions) {
-            Class<?> valueType = Primitives.wrap(captureExpression.type().getJavaType());
+            Class<?> valueType = context.getCallSiteBinder().getAccessibleType(Primitives.wrap(captureExpression.type().getJavaType()));
             Variable valueVariable = scope.getOrCreateTempVariable(valueType);
             captureTempVariables.add(valueVariable);
             block.append(context.generate(captureExpression));
@@ -296,7 +298,7 @@ public final class LambdaBytecodeGenerator
         parameters.add(arg("session", ConnectorSession.class));
         for (int i = 0; i < lambdaExpression.arguments().size(); i++) {
             Symbol argument = lambdaExpression.arguments().get(i);
-            Class<?> type = Primitives.wrap(argument.type().getJavaType());
+            Class<?> type = callSiteBinder.getAccessibleType(Primitives.wrap(argument.type().getJavaType()));
             parameters.add(arg("lambda_" + i + "_" + BytecodeUtils.sanitizeName(argument.name()), type));
         }
 
