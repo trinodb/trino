@@ -70,7 +70,6 @@ import java.util.OptionalLong;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import java.util.function.UnaryOperator;
 
@@ -118,11 +117,10 @@ public class PinotMetadata
             PinotTypeConverter typeConverter)
     {
         this.pinotClient = requireNonNull(pinotClient, "pinotClient is null");
-        long metadataCacheExpiryMillis = pinotConfig.getMetadataCacheExpiry().roundTo(TimeUnit.MILLISECONDS);
         this.typeConverter = requireNonNull(typeConverter, "typeConverter is null");
         this.pinotTableSchemaCache = buildNonEvictableCache(
                 CacheBuilder.newBuilder()
-                        .refreshAfterWrite(metadataCacheExpiryMillis, TimeUnit.MILLISECONDS),
+                        .refreshAfterWrite(pinotConfig.getMetadataCacheExpiry().toJavaTime()),
                 asyncReloading(new CacheLoader<>()
                 {
                     @Override

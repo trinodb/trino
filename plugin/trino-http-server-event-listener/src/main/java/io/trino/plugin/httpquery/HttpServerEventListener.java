@@ -34,7 +34,6 @@ import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.UriInfo;
 
 import java.util.List;
-import java.util.concurrent.TimeUnit;
 
 import static java.util.Objects.requireNonNull;
 
@@ -58,7 +57,7 @@ public class HttpServerEventListener
         requireNonNull(config, "http event listener config is null");
         events = SafeCaches.buildNonEvictableCache(CacheBuilder.newBuilder()
                 .maximumSize(config.getEventBufferSize())
-                .expireAfterWrite(config.getEventTTL().toMillis(), TimeUnit.MILLISECONDS));
+                .expireAfterWrite(config.getEventTTL().toJavaTime()));
     }
 
     @GET

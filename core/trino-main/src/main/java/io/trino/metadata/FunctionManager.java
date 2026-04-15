@@ -54,8 +54,8 @@ import static io.trino.metadata.LanguageFunctionManager.isTrinoSqlLanguageFuncti
 import static io.trino.spi.NodeVersion.UNKNOWN;
 import static io.trino.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_ERROR;
 import static java.lang.String.format;
+import static java.time.Duration.ofHours;
 import static java.util.Objects.requireNonNull;
-import static java.util.concurrent.TimeUnit.HOURS;
 
 public class FunctionManager
 {
@@ -72,15 +72,15 @@ public class FunctionManager
     {
         specializedScalarCache = buildNonEvictableCache(CacheBuilder.newBuilder()
                 .maximumSize(1000)
-                .expireAfterWrite(1, HOURS));
+                .expireAfterWrite(ofHours(1)));
 
         specializedAggregationCache = buildNonEvictableCache(CacheBuilder.newBuilder()
                 .maximumSize(1000)
-                .expireAfterWrite(1, HOURS));
+                .expireAfterWrite(ofHours(1)));
 
         specializedWindowCache = buildNonEvictableCache(CacheBuilder.newBuilder()
                 .maximumSize(1000)
-                .expireAfterWrite(1, HOURS));
+                .expireAfterWrite(ofHours(1)));
 
         this.functionProviders = requireNonNull(functionProviders, "functionProviders is null");
         this.globalFunctionCatalog = requireNonNull(globalFunctionCatalog, "globalFunctionCatalog is null");

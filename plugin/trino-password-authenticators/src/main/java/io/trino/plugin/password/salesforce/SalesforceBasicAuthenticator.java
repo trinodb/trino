@@ -55,7 +55,6 @@ import static io.trino.cache.SafeCaches.buildNonEvictableCache;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
-import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 /**
  * Allows users to authenticate to Presto using their Salesforce username and password + security token concatenation.  You can learn about
@@ -88,7 +87,7 @@ public class SalesforceBasicAuthenticator
         this.userCache = buildNonEvictableCache(
                 CacheBuilder.newBuilder()
                         .maximumSize(config.getCacheSize())
-                        .expireAfterWrite(config.getCacheExpireDuration().toMillis(), MILLISECONDS),
+                        .expireAfterWrite(config.getCacheExpireDuration().toJavaTime()),
                 CacheLoader.from(this::doLogin));
     }
 

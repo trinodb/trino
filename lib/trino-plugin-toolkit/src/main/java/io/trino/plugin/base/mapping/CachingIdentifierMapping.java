@@ -37,7 +37,6 @@ import static io.trino.cache.SafeCaches.buildNonEvictableCacheWithWeakInvalidate
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static java.util.Objects.requireNonNull;
 import static java.util.Objects.requireNonNullElse;
-import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 public final class CachingIdentifierMapping
         implements IdentifierMapping
@@ -52,7 +51,7 @@ public final class CachingIdentifierMapping
             @ForCachingIdentifierMapping IdentifierMapping identifierMapping)
     {
         CacheBuilder<Object, Object> remoteNamesCacheBuilder = CacheBuilder.newBuilder()
-                .expireAfterWrite(mappingConfig.getCaseInsensitiveNameMatchingCacheTtl().toMillis(), MILLISECONDS);
+                .expireAfterWrite(mappingConfig.getCaseInsensitiveNameMatchingCacheTtl().toJavaTime());
         this.remoteSchemaNames = buildNonEvictableCacheWithWeakInvalidateAll(remoteNamesCacheBuilder);
         this.remoteTableNames = buildNonEvictableCacheWithWeakInvalidateAll(remoteNamesCacheBuilder);
 

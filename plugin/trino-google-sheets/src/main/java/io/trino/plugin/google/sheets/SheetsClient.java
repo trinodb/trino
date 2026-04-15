@@ -62,6 +62,7 @@ import static io.trino.plugin.google.sheets.SheetsErrorCode.SHEETS_METASTORE_ERR
 import static io.trino.plugin.google.sheets.SheetsErrorCode.SHEETS_TABLE_LOAD_ERROR;
 import static io.trino.plugin.google.sheets.SheetsErrorCode.SHEETS_UNKNOWN_TABLE_ERROR;
 import static java.lang.Math.toIntExact;
+import static java.time.Duration.ofMillis;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -109,7 +110,7 @@ public class SheetsClient
         long maxCacheSize = config.getSheetsDataMaxCacheSize();
 
         this.tableSheetMappingCache = buildNonEvictableCache(
-                CacheBuilder.newBuilder().expireAfterWrite(expiresAfterWriteMillis, MILLISECONDS).maximumSize(maxCacheSize),
+                CacheBuilder.newBuilder().expireAfterWrite(ofMillis(expiresAfterWriteMillis)).maximumSize(maxCacheSize),
                 new CacheLoader<>()
                 {
                     @Override

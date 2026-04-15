@@ -71,7 +71,6 @@ import java.util.Optional;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ThreadLocalRandom;
-import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -166,11 +165,11 @@ public class PinotClient
         this.httpClient = requireNonNull(httpClient, "httpClient is null");
         this.brokersForTableCache = buildNonEvictableCache(
                 CacheBuilder.newBuilder()
-                        .expireAfterWrite(config.getMetadataCacheExpiry().roundTo(TimeUnit.MILLISECONDS), TimeUnit.MILLISECONDS),
+                        .expireAfterWrite(config.getMetadataCacheExpiry().toJavaTime()),
                 CacheLoader.from(this::getAllBrokersForTable));
         this.allTablesCache = buildNonEvictableCache(
                 CacheBuilder.newBuilder()
-                        .refreshAfterWrite(config.getMetadataCacheExpiry().roundTo(TimeUnit.MILLISECONDS), TimeUnit.MILLISECONDS),
+                        .refreshAfterWrite(config.getMetadataCacheExpiry().toJavaTime()),
                 asyncReloading(CacheLoader.from(this::getAllTables), executor));
         this.controllerAuthenticationProvider = controllerAuthenticationProvider;
         this.brokerAuthenticationProvider = brokerAuthenticationProvider;

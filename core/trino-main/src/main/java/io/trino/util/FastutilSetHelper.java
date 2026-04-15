@@ -45,7 +45,6 @@ import java.util.Collection;
 import java.util.Objects;
 import java.util.PrimitiveIterator;
 import java.util.Set;
-import java.util.concurrent.TimeUnit;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -60,6 +59,7 @@ import static java.lang.Math.max;
 import static java.lang.Math.min;
 import static java.lang.Math.toIntExact;
 import static java.lang.invoke.MethodType.methodType;
+import static java.time.Duration.ofHours;
 import static java.util.Objects.requireNonNull;
 
 public final class FastutilSetHelper
@@ -342,7 +342,7 @@ public final class FastutilSetHelper
         private static final NonEvictableCache<MethodKey<?>, GeneratedMethod<?>> generatedMethodCache = buildNonEvictableCache(
                 CacheBuilder.newBuilder()
                         .maximumSize(1_000)
-                        .expireAfterWrite(2, TimeUnit.HOURS));
+                        .expireAfterWrite(ofHours(2)));
 
         private static <T> T getGeneratedMethod(Type type, Class<T> operatorInterface, MethodHandle methodHandle)
         {

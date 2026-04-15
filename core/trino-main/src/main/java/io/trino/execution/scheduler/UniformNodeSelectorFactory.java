@@ -32,7 +32,6 @@ import io.trino.spi.SplitWeight;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.util.Set;
-import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -41,6 +40,7 @@ import static io.trino.SystemSessionProperties.getMaxUnacknowledgedSplitsPerTask
 import static io.trino.cache.CacheUtils.uncheckedCacheGet;
 import static io.trino.cache.SafeCaches.buildNonEvictableCache;
 import static io.trino.node.NodeState.ACTIVE;
+import static java.time.Duration.ofSeconds;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -52,7 +52,7 @@ public class UniformNodeSelectorFactory
 
     private final NonEvictableCache<InternalNode, Object> inaccessibleNodeLogCache = buildNonEvictableCache(
             CacheBuilder.newBuilder()
-                    .expireAfterWrite(30, TimeUnit.SECONDS));
+                    .expireAfterWrite(ofSeconds(30)));
 
     private final InternalNode currentNode;
     private final InternalNodeManager nodeManager;

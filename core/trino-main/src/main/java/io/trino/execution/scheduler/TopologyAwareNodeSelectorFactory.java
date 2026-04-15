@@ -44,6 +44,7 @@ import static io.trino.SystemSessionProperties.getMaxUnacknowledgedSplitsPerTask
 import static io.trino.cache.CacheUtils.uncheckedCacheGet;
 import static io.trino.cache.SafeCaches.buildNonEvictableCache;
 import static io.trino.node.NodeState.ACTIVE;
+import static java.time.Duration.ofSeconds;
 import static java.util.Objects.requireNonNull;
 
 public class TopologyAwareNodeSelectorFactory
@@ -53,7 +54,7 @@ public class TopologyAwareNodeSelectorFactory
 
     private final NonEvictableCache<InternalNode, Object> inaccessibleNodeLogCache = buildNonEvictableCache(
             CacheBuilder.newBuilder()
-                    .expireAfterWrite(30, TimeUnit.SECONDS));
+                    .expireAfterWrite(ofSeconds(30)));
 
     private final NetworkTopology networkTopology;
     private final InternalNode currentNode;
