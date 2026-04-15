@@ -64,8 +64,9 @@ public final class JsonInputFunctions
     @SqlType(StandardTypes.JSON_2016)
     public static JsonNode varcharToJson(@SqlType(StandardTypes.VARCHAR) Slice inputExpression, @SqlType(StandardTypes.BOOLEAN) boolean failOnError)
     {
-        Reader reader = new InputStreamReader(inputExpression.getInput(), UTF_8);
-        return toJson(reader, failOnError);
+        try (Reader reader = new InputStreamReader(inputExpression.getInput(), UTF_8)) {
+            return toJson(reader, failOnError);
+        }
     }
 
     @ScalarFunction(value = VARBINARY_TO_JSON, hidden = true)
