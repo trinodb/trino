@@ -14,7 +14,9 @@
 package io.trino.metadata;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.common.collect.ImmutableList;
 import io.trino.connector.CatalogHandle;
 import io.trino.spi.HostAddress;
 import io.trino.spi.SplitWeight;
@@ -23,6 +25,8 @@ import io.trino.spi.connector.ConnectorSplit;
 import java.util.List;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static com.google.common.base.Preconditions.checkArgument;
+import static io.airlift.slice.SizeOf.estimatedSizeOf;
 import static io.airlift.slice.SizeOf.instanceSize;
 import static java.util.Objects.requireNonNull;
 
@@ -32,14 +36,24 @@ public final class Split
 
     private final CatalogHandle catalogHandle;
     private final ConnectorSplit connectorSplit;
+    private final List<HostAddress> addresses;
+    private final boolean remotelyAccessible;
 
     @JsonCreator
     public Split(
             @JsonProperty("catalogHandle") CatalogHandle catalogHandle,
             @JsonProperty("connectorSplit") ConnectorSplit connectorSplit)
     {
+        this(catalogHandle, connectorSplit, ImmutableList.of(), true);
+    }
+
+    public Split(CatalogHandle catalogHandle, ConnectorSplit connectorSplit, List<HostAddress> addresses, boolean remotelyAccessible)
+    {
+        checkArgument(remotelyAccessible || !addresses.isEmpty(), "addresses must be provided when remotelyAccessible=false");
         this.catalogHandle = requireNonNull(catalogHandle, "catalogHandle is null");
         this.connectorSplit = requireNonNull(connectorSplit, "connectorSplit is null");
+        this.addresses = ImmutableList.copyOf(addresses);
+        this.remotelyAccessible = remotelyAccessible;
     }
 
     @JsonProperty
@@ -54,14 +68,18 @@ public final class Split
         return connectorSplit;
     }
 
+    // do not serialize addresses as they are not needed on workers
+    @JsonIgnore
     public List<HostAddress> getAddresses()
     {
-        return connectorSplit.getAddresses();
+        return addresses;
     }
 
+    // do not serialize remotelyAccessible as it is not needed on workers
+    @JsonIgnore
     public boolean isRemotelyAccessible()
     {
-        return connectorSplit.isRemotelyAccessible();
+        return remotelyAccessible;
     }
 
     public SplitWeight getSplitWeight()
@@ -82,6 +100,7 @@ public final class Split
     {
         return INSTANCE_SIZE
                 + catalogHandle.getRetainedSizeInBytes()
-                + connectorSplit.getRetainedSizeInBytes();
+                + connectorSplit.getRetainedSizeInBytes()
+                + estimatedSizeOf(addresses, HostAddress::getRetainedSizeInBytes);
     }
 }

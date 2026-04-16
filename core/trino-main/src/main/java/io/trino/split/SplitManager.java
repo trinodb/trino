@@ -25,6 +25,7 @@ import io.trino.execution.QueryManagerConfig;
 import io.trino.metadata.TableFunctionHandle;
 import io.trino.metadata.TableHandle;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.ConnectorSplitAddressProvider;
 import io.trino.spi.connector.ConnectorSplitManager;
 import io.trino.spi.connector.ConnectorSplitSource;
 import io.trino.spi.connector.Constraint;
@@ -45,15 +46,21 @@ import static java.util.concurrent.Executors.newCachedThreadPool;
 public class SplitManager
 {
     private final CatalogServiceProvider<ConnectorSplitManager> splitManagerProvider;
+    private final CatalogServiceProvider<ConnectorSplitAddressProvider> addressProviderProvider;
     private final Tracer tracer;
     private final int minScheduleSplitBatchSize;
     private final ExecutorService executorService;
     private final Executor executor;
 
     @Inject
-    public SplitManager(CatalogServiceProvider<ConnectorSplitManager> splitManagerProvider, Tracer tracer, QueryManagerConfig config)
+    public SplitManager(
+            CatalogServiceProvider<ConnectorSplitManager> splitManagerProvider,
+            CatalogServiceProvider<ConnectorSplitAddressProvider> addressProviderProvider,
+            Tracer tracer,
+            QueryManagerConfig config)
     {
         this.splitManagerProvider = requireNonNull(splitManagerProvider, "splitManagerProvider is null");
+        this.addressProviderProvider = requireNonNull(addressProviderProvider, "addressProviderProvider is null");
         this.tracer = requireNonNull(tracer, "tracer is null");
         this.minScheduleSplitBatchSize = config.getMinScheduleSplitBatchSize();
         this.executorService = newCachedThreadPool(daemonThreadsNamed("splits-manager-callback-%s"));
@@ -75,6 +82,7 @@ public class SplitManager
     {
         CatalogHandle catalogHandle = table.catalogHandle();
         ConnectorSplitManager splitManager = splitManagerProvider.getService(catalogHandle);
+        ConnectorSplitAddressProvider addressProvider = addressProviderProvider.getService(catalogHandle);
         if (!isAllowPushdownIntoConnectors(session)) {
             dynamicFilter = DynamicFilter.EMPTY;
         }
@@ -94,7 +102,7 @@ public class SplitManager
                     constraint);
         }
 
-        SplitSource splitSource = new ConnectorAwareSplitSource(catalogHandle, source);
+        SplitSource splitSource = new ConnectorAwareSplitSource(catalogHandle, source, addressProvider);
 
         Span span = splitSourceSpan(parentSpan, catalogHandle);
 
@@ -114,6 +122,7 @@ public class SplitManager
     {
         CatalogHandle catalogHandle = function.catalogHandle();
         ConnectorSplitManager splitManager = splitManagerProvider.getService(catalogHandle);
+        ConnectorSplitAddressProvider addressProvider = addressProviderProvider.getService(catalogHandle);
 
         ConnectorSplitSource source;
         try (var ignore = scopedSpan(tracer.spanBuilder("SplitManager.getSplits")
@@ -126,7 +135,7 @@ public class SplitManager
                     function.functionHandle());
         }
 
-        SplitSource splitSource = new ConnectorAwareSplitSource(catalogHandle, source);
+        SplitSource splitSource = new ConnectorAwareSplitSource(catalogHandle, source, addressProvider);
 
         Span span = splitSourceSpan(parentSpan, catalogHandle);
         return new TracingSplitSource(splitSource, tracer, Optional.of(span), "split-buffer");

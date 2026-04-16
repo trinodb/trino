@@ -154,7 +154,7 @@ public class TestExchangeOperator
 
     private static Split newRemoteSplit(TaskId taskId)
     {
-        return new Split(REMOTE_CATALOG_HANDLE, new RemoteSplit(new DirectExchangeInput(taskId, "http://localhost/" + taskId)));
+        return new Split(REMOTE_CATALOG_HANDLE, new RemoteSplit(new DirectExchangeInput(taskId, "http://localhost/" + taskId)), ImmutableList.of(), true);
     }
 
     @Test

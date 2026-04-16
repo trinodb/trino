@@ -31,6 +31,7 @@ import io.trino.spi.connector.ConnectorNodePartitioningProvider;
 import io.trino.spi.connector.ConnectorPageSinkProvider;
 import io.trino.spi.connector.ConnectorPageSourceProviderFactory;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.ConnectorSplitAddressProvider;
 import io.trino.spi.connector.ConnectorSplitManager;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.SystemTable;
@@ -64,6 +65,7 @@ public class IcebergConnector
     private final LifeCycleManager lifeCycleManager;
     private final IcebergTransactionManager transactionManager;
     private final ConnectorSplitManager splitManager;
+    private final ConnectorSplitAddressProvider splitAddressProvider;
     private final ConnectorPageSourceProviderFactory pageSourceProviderFactory;
     private final ConnectorPageSinkProvider pageSinkProvider;
     private final ConnectorNodePartitioningProvider nodePartitioningProvider;
@@ -85,6 +87,7 @@ public class IcebergConnector
             LifeCycleManager lifeCycleManager,
             IcebergTransactionManager transactionManager,
             ConnectorSplitManager splitManager,
+            ConnectorSplitAddressProvider splitAddressProvider,
             ConnectorPageSourceProviderFactory pageSourceProviderFactory,
             ConnectorPageSinkProvider pageSinkProvider,
             ConnectorNodePartitioningProvider nodePartitioningProvider,
@@ -104,6 +107,7 @@ public class IcebergConnector
         this.lifeCycleManager = requireNonNull(lifeCycleManager, "lifeCycleManager is null");
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
         this.splitManager = requireNonNull(splitManager, "splitManager is null");
+        this.splitAddressProvider = requireNonNull(splitAddressProvider, "splitAddressProvider is null");
         this.pageSourceProviderFactory = requireNonNull(pageSourceProviderFactory, "pageSourceProviderFactory is null");
         this.pageSinkProvider = requireNonNull(pageSinkProvider, "pageSinkProvider is null");
         this.nodePartitioningProvider = requireNonNull(nodePartitioningProvider, "nodePartitioningProvider is null");
@@ -148,6 +152,12 @@ public class IcebergConnector
     public ConnectorSplitManager getSplitManager()
     {
         return splitManager;
+    }
+
+    @Override
+    public ConnectorSplitAddressProvider getSplitAddressProvider()
+    {
+        return splitAddressProvider;
     }
 
     @Override

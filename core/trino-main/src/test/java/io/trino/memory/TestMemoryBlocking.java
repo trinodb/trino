@@ -113,7 +113,7 @@ public class TestMemoryBlocking
         Driver driver = Driver.createDriver(driverContext, source, sink);
         assertThat(driver.getDriverContext()).isSameAs(driverContext);
         assertThat(driver.isFinished()).isFalse();
-        Split testSplit = new Split(TEST_CATALOG_HANDLE, new TestSplit());
+        Split testSplit = new Split(TEST_CATALOG_HANDLE, new TestSplit(), ImmutableList.of(), true);
         driver.updateSplitAssignment(new SplitAssignment(sourceId, ImmutableSet.of(new ScheduledSplit(0, sourceId, testSplit)), true));
 
         ListenableFuture<Void> blocked = driver.processForDuration(new Duration(1, NANOSECONDS));

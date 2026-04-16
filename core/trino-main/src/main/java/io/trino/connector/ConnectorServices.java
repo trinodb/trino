@@ -31,6 +31,7 @@ import io.trino.spi.connector.ConnectorPageSinkProvider;
 import io.trino.spi.connector.ConnectorPageSourceProviderFactory;
 import io.trino.spi.connector.ConnectorRecordSetProvider;
 import io.trino.spi.connector.ConnectorSecurityContext;
+import io.trino.spi.connector.ConnectorSplitAddressProvider;
 import io.trino.spi.connector.ConnectorSplitManager;
 import io.trino.spi.connector.SchemaRoutineName;
 import io.trino.spi.connector.SystemTable;
@@ -75,6 +76,7 @@ public class ConnectorServices
     private final Optional<FunctionProvider> functionProvider;
     private final CatalogTableFunctions tableFunctions;
     private final Optional<ConnectorSplitManager> splitManager;
+    private final ConnectorSplitAddressProvider splitAddressProvider;
     private final Optional<ConnectorPageSourceProviderFactory> pageSourceProviderFactory;
     private final Optional<ConnectorPageSinkProvider> pageSinkProvider;
     private final Optional<ConnectorIndexProvider> indexProvider;
@@ -125,6 +127,7 @@ public class ConnectorServices
         catch (UnsupportedOperationException _) {
         }
         this.splitManager = Optional.ofNullable(splitManager);
+        this.splitAddressProvider = requireNonNull(connector.getSplitAddressProvider(), format("Connector '%s' returned a null split address provider", catalogHandle));
 
         ConnectorPageSourceProviderFactory connectorPageSourceProviderFactory = null;
         try {
@@ -262,6 +265,11 @@ public class ConnectorServices
     public Optional<ConnectorSplitManager> getSplitManager()
     {
         return splitManager;
+    }
+
+    public ConnectorSplitAddressProvider getSplitAddressProvider()
+    {
+        return splitAddressProvider;
     }
 
     public Optional<ConnectorPageSourceProviderFactory> getPageSourceProviderFactory()

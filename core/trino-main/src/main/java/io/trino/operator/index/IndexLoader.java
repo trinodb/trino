@@ -234,7 +234,7 @@ public class IndexLoader
 
         PageRecordSet pageRecordSet = new PageRecordSet(keyTypes, indexKeyTuple);
         PlanNodeId planNodeId = driverFactory.getSourceId().get();
-        ScheduledSplit split = new ScheduledSplit(0, planNodeId, new Split(INDEX_CATALOG_HANDLE, new IndexSplit(pageRecordSet)));
+        ScheduledSplit split = new ScheduledSplit(0, planNodeId, new Split(INDEX_CATALOG_HANDLE, new IndexSplit(pageRecordSet), ImmutableList.of(), true));
         driver.updateSplitAssignment(new SplitAssignment(planNodeId, ImmutableSet.of(split), true));
 
         return new StreamingIndexedData(outputTypes, keyEqualOperators, indexKeyTuple, pageBuffer, driver);
@@ -323,7 +323,7 @@ public class IndexLoader
             // Drive index lookup to produce the output (landing in indexSnapshotBuilder)
             try (Driver driver = driverFactory.createDriver(pipelineContext.addDriverContext())) {
                 PlanNodeId sourcePlanNodeId = driverFactory.getSourceId().get();
-                ScheduledSplit split = new ScheduledSplit(0, sourcePlanNodeId, new Split(INDEX_CATALOG_HANDLE, new IndexSplit(recordSetForLookupSource)));
+                ScheduledSplit split = new ScheduledSplit(0, sourcePlanNodeId, new Split(INDEX_CATALOG_HANDLE, new IndexSplit(recordSetForLookupSource), ImmutableList.of(), true));
                 driver.updateSplitAssignment(new SplitAssignment(sourcePlanNodeId, ImmutableSet.of(split), true));
                 while (!driver.isFinished()) {
                     ListenableFuture<Void> process = driver.processUntilBlocked();

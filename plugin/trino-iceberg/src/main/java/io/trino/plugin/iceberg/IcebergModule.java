@@ -55,6 +55,7 @@ import io.trino.plugin.iceberg.system.IcebergTablesSystemTable;
 import io.trino.spi.connector.ConnectorNodePartitioningProvider;
 import io.trino.spi.connector.ConnectorPageSinkProvider;
 import io.trino.spi.connector.ConnectorPageSourceProviderFactory;
+import io.trino.spi.connector.ConnectorSplitAddressProvider;
 import io.trino.spi.connector.ConnectorSplitManager;
 import io.trino.spi.connector.SystemTable;
 import io.trino.spi.connector.TableProcedureMetadata;
@@ -86,6 +87,7 @@ public class IcebergModule
 
         binder.bind(ConnectorSplitManager.class).annotatedWith(ForClassLoaderSafe.class).to(IcebergSplitManager.class).in(Scopes.SINGLETON);
         binder.bind(ConnectorSplitManager.class).to(ClassLoaderSafeConnectorSplitManager.class).in(Scopes.SINGLETON);
+        binder.bind(ConnectorSplitAddressProvider.class).to(IcebergSplitAddressProvider.class).in(Scopes.SINGLETON);
         binder.bind(ConnectorPageSourceProviderFactory.class).annotatedWith(ForClassLoaderSafe.class).to(IcebergPageSourceProviderFactory.class).in(Scopes.SINGLETON);
         binder.bind(IcebergPageSourceProviderFactory.class).in(Scopes.SINGLETON);
         binder.bind(ConnectorPageSourceProviderFactory.class).to(ClassLoaderSafeConnectorPageSourceProviderFactory.class).in(Scopes.SINGLETON);

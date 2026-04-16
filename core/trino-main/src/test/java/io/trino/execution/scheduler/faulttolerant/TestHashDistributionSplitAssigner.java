@@ -591,7 +591,7 @@ public class TestHashDistributionSplitAssigner
 
     private static Split createSplit(int id, int partition)
     {
-        return new Split(TEST_CATALOG_HANDLE, new TestingConnectorSplit(id, OptionalInt.of(partition), Optional.empty()));
+        return new Split(TEST_CATALOG_HANDLE, new TestingConnectorSplit(id, OptionalInt.of(partition), Optional.empty()), ImmutableList.of(), true);
     }
 
     private static class SplitBatch

@@ -142,7 +142,7 @@ public class TestUniformNodeSelector
                 queueSizeAdjuster);
 
         for (int i = 0; i < 20; i++) {
-            splits.add(new Split(TEST_CATALOG_HANDLE, TestingSplit.createRemoteSplit()));
+            splits.add(new Split(TEST_CATALOG_HANDLE, TestingSplit.createRemoteSplit(), ImmutableList.of(), true));
         }
 
         // assign splits, mark all splits running to trigger adjustment
@@ -190,7 +190,7 @@ public class TestUniformNodeSelector
     public void testQueueSizeAdjustmentAllNodes()
     {
         for (int i = 0; i < 20 * 9; i++) {
-            splits.add(new Split(TEST_CATALOG_HANDLE, TestingSplit.createRemoteSplit()));
+            splits.add(new Split(TEST_CATALOG_HANDLE, TestingSplit.createRemoteSplit(), ImmutableList.of(), true));
         }
 
         // assign splits, marked all running to trigger adjustment
@@ -242,7 +242,7 @@ public class TestUniformNodeSelector
     public void testQueueSizeAdjustmentOneOfAll()
     {
         for (int i = 0; i < 20 * 9; i++) {
-            splits.add(new Split(TEST_CATALOG_HANDLE, TestingSplit.createRemoteSplit()));
+            splits.add(new Split(TEST_CATALOG_HANDLE, TestingSplit.createRemoteSplit(), ImmutableList.of(), true));
         }
 
         // assign splits, mark all splits for node1 running to trigger adjustment
@@ -313,9 +313,9 @@ public class TestUniformNodeSelector
                 true,
                 new UniformNodeSelector.QueueSizeAdjuster(1000, 10000, new TestingTicker()));
 
-        Split rigidSplit = new Split(TEST_CATALOG_HANDLE, new TestingSplit(false, ImmutableList.of(node1.getHostAndPort())));
+        Split rigidSplit = new Split(TEST_CATALOG_HANDLE, new TestingSplit(false, ImmutableList.of(node1.getHostAndPort())), ImmutableList.of(node1.getHostAndPort()), false);
         splits.add(rigidSplit);
-        Split flexibleSplit = new Split(TEST_CATALOG_HANDLE, new TestingSplit(true, ImmutableList.of(node1.getHostAndPort())));
+        Split flexibleSplit = new Split(TEST_CATALOG_HANDLE, new TestingSplit(true, ImmutableList.of(node1.getHostAndPort())), ImmutableList.of(node1.getHostAndPort()), true);
         splits.add(flexibleSplit);
 
         // Both nodes alive, but both splits prefer node 1.

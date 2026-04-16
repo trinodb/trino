@@ -24,6 +24,7 @@ import io.trino.metadata.Split;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.operator.ScanFilterAndProjectOperator.ScanFilterAndProjectOperatorFactory;
 import io.trino.operator.project.PageProcessor;
+import io.trino.spi.HostAddress;
 import io.trino.spi.Page;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.DynamicFilter;
@@ -252,7 +253,7 @@ public class BenchmarkScanFilterAndProjectOperator
         SourceOperator operator = (SourceOperator) context.getOperatorFactory().createOperator(driverContext);
 
         ImmutableList.Builder<Page> outputPages = ImmutableList.builder();
-        operator.addSplit(new Split(TEST_CATALOG_HANDLE, createLocalSplit()));
+        operator.addSplit(new Split(TEST_CATALOG_HANDLE, createLocalSplit(), ImmutableList.of(HostAddress.fromString("127.0.0.1")), false));
         operator.noMoreSplits();
 
         for (int loops = 0; !operator.isFinished() && loops < 1_000_000; loops++) {

@@ -38,6 +38,7 @@ import io.trino.plugin.hive.orc.OrcReaderConfig;
 import io.trino.plugin.hive.orc.OrcWriterConfig;
 import io.trino.plugin.hive.parquet.ParquetReaderConfig;
 import io.trino.plugin.hive.parquet.ParquetWriterConfig;
+import io.trino.spi.HostAddress;
 import io.trino.spi.Page;
 import io.trino.spi.classloader.ThreadContextClassLoader;
 import io.trino.spi.connector.ColumnHandle;
@@ -601,7 +602,7 @@ public class TestOrcPageSourceMemoryTracking
                     columns.stream().map(ColumnHandle.class::cast).collect(toImmutableList()),
                     types);
             SourceOperator operator = sourceOperatorFactory.createOperator(driverContext);
-            operator.addSplit(new Split(TEST_CATALOG_HANDLE, TestingSplit.createLocalSplit()));
+            operator.addSplit(new Split(TEST_CATALOG_HANDLE, TestingSplit.createLocalSplit(), ImmutableList.of(HostAddress.fromString("127.0.0.1")), false));
             return operator;
         }
 
@@ -628,7 +629,7 @@ public class TestOrcPageSourceMemoryTracking
                     DataSize.ofBytes(0),
                     0);
             SourceOperator operator = sourceOperatorFactory.createOperator(driverContext);
-            operator.addSplit(new Split(TEST_CATALOG_HANDLE, TestingSplit.createLocalSplit()));
+            operator.addSplit(new Split(TEST_CATALOG_HANDLE, TestingSplit.createLocalSplit(), ImmutableList.of(HostAddress.fromString("127.0.0.1")), false));
             operator.noMoreSplits();
             return operator;
         }

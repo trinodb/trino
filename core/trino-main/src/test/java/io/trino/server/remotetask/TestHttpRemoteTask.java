@@ -63,6 +63,7 @@ import io.trino.server.HttpRemoteTaskFactory;
 import io.trino.server.TaskUpdateRequest;
 import io.trino.simd.BlockEncodingSimdSupport;
 import io.trino.spi.ErrorCode;
+import io.trino.spi.HostAddress;
 import io.trino.spi.NodeVersion;
 import io.trino.spi.QueryId;
 import io.trino.spi.block.Block;
@@ -206,7 +207,7 @@ public class TestHttpRemoteTask
         testingTaskResource.setInitialTaskInfo(remoteTask.getTaskInfo());
         remoteTask.start();
 
-        remoteTask.addSplits(ImmutableMultimap.of(TABLE_SCAN_NODE_ID, new Split(TEST_CATALOG_HANDLE, TestingSplit.createLocalSplit())));
+        remoteTask.addSplits(ImmutableMultimap.of(TABLE_SCAN_NODE_ID, new Split(TEST_CATALOG_HANDLE, TestingSplit.createLocalSplit(), ImmutableList.of(HostAddress.fromString("127.0.0.1")), false)));
         poll(() -> testingTaskResource.getTaskSplitAssignment(TABLE_SCAN_NODE_ID) != null);
         poll(() -> testingTaskResource.getTaskSplitAssignment(TABLE_SCAN_NODE_ID).getSplits().size() == 1);
 
@@ -518,7 +519,7 @@ public class TestHttpRemoteTask
 
         Multimap<PlanNodeId, Split> splits = HashMultimap.create();
         for (int i = 0; i < 100; i++) {
-            splits.put(TABLE_SCAN_NODE_ID, new Split(TEST_CATALOG_HANDLE, TestingSplit.createLocalSplit()));
+            splits.put(TABLE_SCAN_NODE_ID, new Split(TEST_CATALOG_HANDLE, TestingSplit.createLocalSplit(), ImmutableList.of(HostAddress.fromString("127.0.0.1")), false));
         }
         remoteTask.addSplits(splits);
 
@@ -559,7 +560,7 @@ public class TestHttpRemoteTask
 
         Set<ScheduledSplit> splits = new HashSet<>();
         for (int i = 0; i < 1000; i++) {
-            splits.add(new ScheduledSplit(i, TABLE_SCAN_NODE_ID, new Split(TEST_CATALOG_HANDLE, TestingSplit.createLocalSplit())));
+            splits.add(new ScheduledSplit(i, TABLE_SCAN_NODE_ID, new Split(TEST_CATALOG_HANDLE, TestingSplit.createLocalSplit(), ImmutableList.of(HostAddress.fromString("127.0.0.1")), false)));
         }
 
         // decrease splitBatchSize
@@ -611,7 +612,7 @@ public class TestHttpRemoteTask
     private void addSplit(RemoteTask remoteTask, TestingTaskResource testingTaskResource, int expectedSplitsCount)
             throws InterruptedException
     {
-        remoteTask.addSplits(ImmutableMultimap.of(TABLE_SCAN_NODE_ID, new Split(TEST_CATALOG_HANDLE, TestingSplit.createLocalSplit())));
+        remoteTask.addSplits(ImmutableMultimap.of(TABLE_SCAN_NODE_ID, new Split(TEST_CATALOG_HANDLE, TestingSplit.createLocalSplit(), ImmutableList.of(HostAddress.fromString("127.0.0.1")), false)));
         // wait for splits to be received by remote task
         poll(() -> testingTaskResource.getTaskSplitAssignment(TABLE_SCAN_NODE_ID) != null);
         poll(() -> testingTaskResource.getTaskSplitAssignment(TABLE_SCAN_NODE_ID).getSplits().size() == expectedSplitsCount);

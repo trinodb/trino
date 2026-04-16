@@ -13,6 +13,7 @@
  */
 package io.trino.execution.scheduler;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multimap;
@@ -264,7 +265,9 @@ public class SourcePartitionedScheduler
                         // Scheduling an empty split kicks off necessary driver instantiation to make this work.
                         pendingSplits.add(new Split(
                                 splitSource.getCatalogHandle(),
-                                new EmptySplit(splitSource.getCatalogHandle())));
+                                new EmptySplit(splitSource.getCatalogHandle()),
+                                ImmutableList.of(),
+                                true));
                     }
                     log.debug("stage id: %s, node: %s; transitioning to SPLITS_SCHEDULED", stageExecution.getStageId(), partitionedNode);
                     state = State.SPLITS_SCHEDULED;

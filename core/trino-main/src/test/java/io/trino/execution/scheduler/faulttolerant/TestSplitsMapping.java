@@ -124,6 +124,6 @@ public class TestSplitsMapping
 
     private static Split createSplit(int id)
     {
-        return new Split(TEST_CATALOG_HANDLE, new TestingConnectorSplit(id, OptionalInt.empty(), Optional.empty()));
+        return new Split(TEST_CATALOG_HANDLE, new TestingConnectorSplit(id, OptionalInt.empty(), Optional.empty()), ImmutableList.of(), true);
     }
 }

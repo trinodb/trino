@@ -13,6 +13,7 @@
  */
 package io.trino.spi.connector;
 
+import io.trino.spi.HostAddress;
 import io.trino.spi.function.FunctionProvider;
 import io.trino.spi.function.table.ConnectorTableFunction;
 import io.trino.spi.procedure.Procedure;
@@ -63,6 +64,32 @@ public interface Connector
     default ConnectorSplitManager getSplitManager()
     {
         throw new UnsupportedOperationException();
+    }
+
+    /**
+     * Returns the provider that supplies address (locality) information for scheduling splits.
+     * <p>
+     * The default delegates to the split's own {@link ConnectorSplit#getAddresses()} and
+     * {@link ConnectorSplit#isRemotelyAccessible()} methods, preserving backward compatibility.
+     * Override to express cache affinity, file-system locality, or hard node constraints
+     * independently of the split object.
+     */
+    default ConnectorSplitAddressProvider getSplitAddressProvider()
+    {
+        return new ConnectorSplitAddressProvider()
+        {
+            @Override
+            public List<HostAddress> getAddresses(ConnectorSplit split)
+            {
+                return split.getAddresses();
+            }
+
+            @Override
+            public boolean isRemotelyAccessible(ConnectorSplit split)
+            {
+                return split.isRemotelyAccessible();
+            }
+        };
     }
 
     /**

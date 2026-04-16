@@ -98,7 +98,7 @@ public class ExchangeSplitSource
 
     private static Split createRemoteSplit(List<ExchangeSourceHandle> handles)
     {
-        return new Split(REMOTE_CATALOG_HANDLE, new RemoteSplit(new SpoolingExchangeInput(handles, Optional.empty())));
+        return new Split(REMOTE_CATALOG_HANDLE, new RemoteSplit(new SpoolingExchangeInput(handles, Optional.empty())), ImmutableList.of(), true);
     }
 
     @Override

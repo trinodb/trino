@@ -379,7 +379,7 @@ public class TestDriver
 
     private static Split newMockSplit()
     {
-        return new Split(TEST_CATALOG_HANDLE, new MockSplit());
+        return new Split(TEST_CATALOG_HANDLE, new MockSplit(), ImmutableList.of(), true);
     }
 
     private PageConsumerOperator createSinkOperator(List<Type> types)

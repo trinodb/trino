@@ -254,6 +254,7 @@ import static io.trino.connector.CatalogServiceProviderModule.createNodePartitio
 import static io.trino.connector.CatalogServiceProviderModule.createPageSinkProvider;
 import static io.trino.connector.CatalogServiceProviderModule.createPageSourceProviderFactory;
 import static io.trino.connector.CatalogServiceProviderModule.createSchemaPropertyManager;
+import static io.trino.connector.CatalogServiceProviderModule.createSplitAddressProviderProvider;
 import static io.trino.connector.CatalogServiceProviderModule.createSplitManagerProvider;
 import static io.trino.connector.CatalogServiceProviderModule.createTableFunctionProvider;
 import static io.trino.connector.CatalogServiceProviderModule.createTableProceduresPropertyManager;
@@ -429,7 +430,7 @@ public class PlanTester
                 nodeSchedulerConfig,
                 optimizerConfig,
                 secretsResolver));
-        this.splitManager = new SplitManager(createSplitManagerProvider(catalogManager), tracer, new QueryManagerConfig());
+        this.splitManager = new SplitManager(createSplitManagerProvider(catalogManager), createSplitAddressProviderProvider(catalogManager), tracer, new QueryManagerConfig());
         this.pageSourceManager = new PageSourceManager(createPageSourceProviderFactory(catalogManager));
         this.pageSinkManager = new PageSinkManager(createPageSinkProvider(catalogManager));
         this.indexManager = new IndexManager(createIndexProvider(catalogManager));

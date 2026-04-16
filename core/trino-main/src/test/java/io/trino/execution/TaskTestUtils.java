@@ -33,6 +33,7 @@ import io.trino.operator.index.IndexJoinLookupStats;
 import io.trino.operator.index.IndexManager;
 import io.trino.server.protocol.spooling.QueryDataEncoders;
 import io.trino.server.protocol.spooling.SpoolingEnabledConfig;
+import io.trino.spi.HostAddress;
 import io.trino.spi.NodeVersion;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spiller.GenericSpillerFactory;
@@ -82,7 +83,7 @@ public final class TaskTestUtils
 
     private static final CatalogHandle CATALOG_HANDLE = TEST_TABLE_HANDLE.catalogHandle();
 
-    public static final ScheduledSplit SPLIT = new ScheduledSplit(0, TABLE_SCAN_NODE_ID, new Split(CATALOG_HANDLE, TestingSplit.createLocalSplit()));
+    public static final ScheduledSplit SPLIT = new ScheduledSplit(0, TABLE_SCAN_NODE_ID, new Split(CATALOG_HANDLE, TestingSplit.createLocalSplit(), ImmutableList.of(HostAddress.fromString("127.0.0.1")), false));
 
     public static final List<SplitAssignment> EMPTY_SPLIT_ASSIGNMENTS = ImmutableList.of();
 

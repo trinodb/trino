@@ -41,6 +41,7 @@ import io.trino.server.DynamicFilterService;
 import io.trino.spi.NodeVersion;
 import io.trino.spi.QueryId;
 import io.trino.spi.connector.ConnectorSplit;
+import io.trino.spi.connector.ConnectorSplitAddressProvider;
 import io.trino.spi.connector.ConnectorSplitSource;
 import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.FixedSplitSource;
@@ -501,7 +502,7 @@ public class TestMultiSourcePartitionedScheduler
     {
         Map<PlanNodeId, SplitSource> sources = splitSources.entrySet()
                 .stream()
-                .collect(Collectors.toMap(Map.Entry::getKey, e -> new ConnectorAwareSplitSource(TEST_CATALOG_HANDLE, e.getValue())));
+                .collect(Collectors.toMap(Map.Entry::getKey, e -> new ConnectorAwareSplitSource(TEST_CATALOG_HANDLE, e.getValue(), ConnectorSplitAddressProvider.DEFAULT)));
         return new MultiSourcePartitionedScheduler(
                 stage,
                 sources,

@@ -760,24 +760,20 @@ public class TestArbitraryDistributionSplitAssigner
 
     private static Split createSplit(int id)
     {
-        return new Split(TEST_CATALOG_HANDLE, new TestingConnectorSplit(id, OptionalInt.empty(), Optional.empty()));
+        TestingConnectorSplit connectorSplit = new TestingConnectorSplit(id, OptionalInt.empty(), Optional.empty());
+        return new Split(TEST_CATALOG_HANDLE, connectorSplit, connectorSplit.getAddresses(), connectorSplit.isRemotelyAccessible());
     }
 
     private static Split createSplit(int id, List<HostAddress> addresses)
     {
-        return new Split(TEST_CATALOG_HANDLE, new TestingConnectorSplit(id, OptionalInt.empty(), Optional.of(addresses)));
+        TestingConnectorSplit connectorSplit = new TestingConnectorSplit(id, OptionalInt.empty(), Optional.of(addresses));
+        return new Split(TEST_CATALOG_HANDLE, connectorSplit, connectorSplit.getAddresses(), connectorSplit.isRemotelyAccessible());
     }
 
     private static Split createRemoteAccessibleSplit(int id, List<HostAddress> addresses)
     {
-        return new Split(TEST_CATALOG_HANDLE, new TestingConnectorSplit(id, OptionalInt.empty(), Optional.of(addresses))
-        {
-            @Override
-            public boolean isRemotelyAccessible()
-            {
-                return true;
-            }
-        });
+        TestingConnectorSplit connectorSplit = new TestingConnectorSplit(id, OptionalInt.empty(), Optional.of(addresses));
+        return new Split(TEST_CATALOG_HANDLE, connectorSplit, connectorSplit.getAddresses(), true);
     }
 
     private static ListMultimap<Integer, Split> createSplitsMultimap(List<Split> splits)

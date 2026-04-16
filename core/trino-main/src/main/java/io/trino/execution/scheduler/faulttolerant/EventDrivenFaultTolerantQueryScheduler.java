@@ -3104,7 +3104,7 @@ public class EventDrivenFaultTolerantQueryScheduler
 
     private static Split createOutputSelectorSplit(ExchangeSourceOutputSelector selector)
     {
-        return new Split(REMOTE_CATALOG_HANDLE, new RemoteSplit(new SpoolingExchangeInput(ImmutableList.of(), Optional.of(selector))));
+        return new Split(REMOTE_CATALOG_HANDLE, new RemoteSplit(new SpoolingExchangeInput(ImmutableList.of(), Optional.of(selector))), ImmutableList.of(), true);
     }
 
     private static class OpenTaskDescriptor

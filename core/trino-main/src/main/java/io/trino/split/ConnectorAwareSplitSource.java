@@ -20,6 +20,7 @@ import io.trino.annotation.NotThreadSafe;
 import io.trino.connector.CatalogHandle;
 import io.trino.metadata.Split;
 import io.trino.spi.connector.ConnectorSplit;
+import io.trino.spi.connector.ConnectorSplitAddressProvider;
 import io.trino.spi.connector.ConnectorSplitSource;
 import io.trino.spi.connector.ConnectorSplitSource.ConnectorSplitBatch;
 import io.trino.spi.metrics.Metrics;
@@ -47,6 +48,7 @@ public class ConnectorAwareSplitSource
         implements SplitSource
 {
     private final CatalogHandle catalogHandle;
+    private final ConnectorSplitAddressProvider addressProvider;
     private final String sourceToString;
 
     @Nullable
@@ -55,10 +57,11 @@ public class ConnectorAwareSplitSource
     private Optional<Optional<List<Object>>> tableExecuteSplitsInfo = Optional.empty();
     private Metrics metrics = Metrics.EMPTY;
 
-    public ConnectorAwareSplitSource(CatalogHandle catalogHandle, ConnectorSplitSource source)
+    public ConnectorAwareSplitSource(CatalogHandle catalogHandle, ConnectorSplitSource source, ConnectorSplitAddressProvider addressProvider)
     {
         this.catalogHandle = requireNonNull(catalogHandle, "catalogHandle is null");
         this.source = requireNonNull(source, "source is null");
+        this.addressProvider = requireNonNull(addressProvider, "addressProvider is null");
         this.sourceToString = source.toString();
     }
 
@@ -77,7 +80,11 @@ public class ConnectorAwareSplitSource
             List<ConnectorSplit> connectorSplits = splitBatch.getSplits();
             ImmutableList.Builder<Split> result = ImmutableList.builderWithExpectedSize(connectorSplits.size());
             for (ConnectorSplit connectorSplit : connectorSplits) {
-                result.add(new Split(catalogHandle, connectorSplit));
+                result.add(new Split(
+                        catalogHandle,
+                        connectorSplit,
+                        addressProvider.getAddresses(connectorSplit),
+                        addressProvider.isRemotelyAccessible(connectorSplit)));
             }
             boolean noMoreSplits = splitBatch.isNoMoreSplits();
             if (noMoreSplits) {

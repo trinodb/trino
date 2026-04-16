@@ -469,7 +469,7 @@ public class TestEventDrivenTaskSource
                 future = currentFuture;
                 ConnectorSplit split = remainingSplits.poll();
                 boolean lastBatch = remainingSplits.isEmpty();
-                batch = new SplitBatch(split == null ? ImmutableList.of() : ImmutableList.of(new Split(TEST_CATALOG_HANDLE, split)), lastBatch);
+                batch = new SplitBatch(split == null ? ImmutableList.of() : ImmutableList.of(new Split(TEST_CATALOG_HANDLE, split, ((TestingConnectorSplit) split).getAddresses(), ((TestingConnectorSplit) split).isRemotelyAccessible())), lastBatch);
                 if (lastBatch) {
                     finished = true;
                 }

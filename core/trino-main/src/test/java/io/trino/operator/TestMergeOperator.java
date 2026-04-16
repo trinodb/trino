@@ -374,7 +374,7 @@ public class TestMergeOperator
 
     private static Split createRemoteSplit(TaskId taskId)
     {
-        return new Split(ExchangeOperator.REMOTE_CATALOG_HANDLE, new RemoteSplit(new DirectExchangeInput(taskId, "http://localhost/" + taskId)));
+        return new Split(ExchangeOperator.REMOTE_CATALOG_HANDLE, new RemoteSplit(new DirectExchangeInput(taskId, "http://localhost/" + taskId)), ImmutableList.of(), true);
     }
 
     private static List<Page> pullAvailablePages(Operator operator)

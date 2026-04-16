@@ -37,6 +37,7 @@ import io.trino.spi.connector.ConnectorIndexProvider;
 import io.trino.spi.connector.ConnectorNodePartitioningProvider;
 import io.trino.spi.connector.ConnectorPageSinkProvider;
 import io.trino.spi.connector.ConnectorPageSourceProviderFactory;
+import io.trino.spi.connector.ConnectorSplitAddressProvider;
 import io.trino.spi.connector.ConnectorSplitManager;
 import io.trino.spi.function.FunctionProvider;
 
@@ -57,6 +58,13 @@ public class CatalogServiceProviderModule
     public static CatalogServiceProvider<ConnectorSplitManager> createSplitManagerProvider(ConnectorServicesProvider connectorServicesProvider)
     {
         return new ConnectorCatalogServiceProvider<>("split manager", connectorServicesProvider, connector -> connector.getSplitManager().orElse(null));
+    }
+
+    @Provides
+    @Singleton
+    public static CatalogServiceProvider<ConnectorSplitAddressProvider> createSplitAddressProviderProvider(ConnectorServicesProvider connectorServicesProvider)
+    {
+        return new ConnectorCatalogServiceProvider<>("split address provider", connectorServicesProvider, ConnectorServices::getSplitAddressProvider);
     }
 
     @Provides

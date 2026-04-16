@@ -142,7 +142,7 @@ public class TestSqlStage
         Future<?> addTasksTask = executor.submit(() -> {
             try {
                 PlanNodeId planNodeId = stage.getFragment().getPartitionedSources().get(0);
-                ImmutableListMultimap<PlanNodeId, Split> initialSplits = ImmutableListMultimap.of(planNodeId, new Split(TEST_CATALOG_HANDLE, new TestingSplit(true, ImmutableList.of())));
+                ImmutableListMultimap<PlanNodeId, Split> initialSplits = ImmutableListMultimap.of(planNodeId, new Split(TEST_CATALOG_HANDLE, new TestingSplit(true, ImmutableList.of()), ImmutableList.of(), true));
                 for (int i = 0; i < 1_000_000; i++) {
                     if (Thread.interrupted()) {
                         return;

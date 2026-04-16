@@ -156,7 +156,8 @@ public class BenchmarkNodeScheduler
                 InternalNode node = nodes.get(i);
                 ImmutableList.Builder<Split> initialSplits = ImmutableList.builder();
                 for (int j = 0; j < MAX_SPLITS_PER_NODE + MAX_PENDING_SPLITS_PER_TASK_PER_NODE; j++) {
-                    initialSplits.add(new Split(TEST_CATALOG_HANDLE, new TestSplitRemote(i)));
+                    TestSplitRemote s = new TestSplitRemote(i);
+                    initialSplits.add(new Split(TEST_CATALOG_HANDLE, s, s.getAddresses(), true));
                 }
                 TaskId taskId = new TaskId(new StageId("test", 1), i, 0);
                 MockRemoteTaskFactory.MockRemoteTask remoteTask = remoteTaskFactory.createTableScanTask(taskId, node, initialSplits.build(), nodeTaskMap.createPartitionedSplitCountTracker(node, taskId));
@@ -165,7 +166,8 @@ public class BenchmarkNodeScheduler
             }
 
             for (int i = 0; i < SPLITS; i++) {
-                splits.add(new Split(TEST_CATALOG_HANDLE, new TestSplitRemote(ThreadLocalRandom.current().nextInt(DATA_NODES))));
+                TestSplitRemote bs = new TestSplitRemote(ThreadLocalRandom.current().nextInt(DATA_NODES));
+                splits.add(new Split(TEST_CATALOG_HANDLE, bs, bs.getAddresses(), true));
             }
 
             NodeScheduler nodeScheduler = new NodeScheduler(getNodeSelectorFactory(nodeTaskMap));

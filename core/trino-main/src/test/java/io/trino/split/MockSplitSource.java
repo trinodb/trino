@@ -38,7 +38,7 @@ import static io.trino.testing.TestingHandles.TEST_CATALOG_HANDLE;
 public class MockSplitSource
         implements SplitSource
 {
-    private static final Split SPLIT = new Split(TEST_CATALOG_HANDLE, new MockConnectorSplit());
+    private static final Split SPLIT = new Split(TEST_CATALOG_HANDLE, new MockConnectorSplit(), ImmutableList.of(), true);
     private static final SettableFuture<List<Split>> COMPLETED_FUTURE = SettableFuture.create();
 
     static {

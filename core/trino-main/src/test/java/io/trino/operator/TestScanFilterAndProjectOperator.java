@@ -28,6 +28,7 @@ import io.trino.operator.index.PageRecordSet;
 import io.trino.operator.project.PageProcessor;
 import io.trino.operator.project.TestPageProcessor.LazyPagePageProjection;
 import io.trino.operator.project.TestPageProcessor.SelectAllFilter;
+import io.trino.spi.HostAddress;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.connector.ConnectorPageSource;
@@ -150,7 +151,7 @@ public class TestScanFilterAndProjectOperator
                 0);
 
         SourceOperator operator = factory.createOperator(driverContext);
-        operator.addSplit(new Split(TEST_CATALOG_HANDLE, TestingSplit.createLocalSplit()));
+        operator.addSplit(new Split(TEST_CATALOG_HANDLE, TestingSplit.createLocalSplit(), ImmutableList.of(HostAddress.fromString("127.0.0.1")), false));
         operator.noMoreSplits();
 
         MaterializedResult expected = toMaterializedResult(driverContext.getSession(), ImmutableList.of(VARCHAR), ImmutableList.of(input));
@@ -193,7 +194,7 @@ public class TestScanFilterAndProjectOperator
                 2);
 
         SourceOperator operator = factory.createOperator(newDriverContext());
-        operator.addSplit(new Split(TEST_CATALOG_HANDLE, TestingSplit.createLocalSplit()));
+        operator.addSplit(new Split(TEST_CATALOG_HANDLE, TestingSplit.createLocalSplit(), ImmutableList.of(HostAddress.fromString("127.0.0.1")), false));
         operator.noMoreSplits();
 
         List<Page> actual = toPages(operator);
@@ -234,7 +235,7 @@ public class TestScanFilterAndProjectOperator
                 0);
 
         SourceOperator operator = factory.createOperator(driverContext);
-        operator.addSplit(new Split(TEST_CATALOG_HANDLE, TestingSplit.createLocalSplit()));
+        operator.addSplit(new Split(TEST_CATALOG_HANDLE, TestingSplit.createLocalSplit(), ImmutableList.of(HostAddress.fromString("127.0.0.1")), false));
         operator.noMoreSplits();
 
         MaterializedResult expected = toMaterializedResult(driverContext.getSession(), ImmutableList.of(BIGINT), ImmutableList.of(new Page(inputBlock)));
@@ -270,7 +271,7 @@ public class TestScanFilterAndProjectOperator
                 0);
 
         SourceOperator operator = factory.createOperator(driverContext);
-        operator.addSplit(new Split(TEST_CATALOG_HANDLE, TestingSplit.createLocalSplit()));
+        operator.addSplit(new Split(TEST_CATALOG_HANDLE, TestingSplit.createLocalSplit(), ImmutableList.of(HostAddress.fromString("127.0.0.1")), false));
         operator.noMoreSplits();
 
         MaterializedResult expected = toMaterializedResult(driverContext.getSession(), ImmutableList.of(VARCHAR), ImmutableList.of(input));
@@ -326,7 +327,7 @@ public class TestScanFilterAndProjectOperator
                 0);
 
         SourceOperator operator = factory.createOperator(driverContext);
-        operator.addSplit(new Split(TEST_CATALOG_HANDLE, TestingSplit.createLocalSplit()));
+        operator.addSplit(new Split(TEST_CATALOG_HANDLE, TestingSplit.createLocalSplit(), ImmutableList.of(HostAddress.fromString("127.0.0.1")), false));
         operator.noMoreSplits();
 
         // In the below loop we yield for every cell: 20 X 1000 times
